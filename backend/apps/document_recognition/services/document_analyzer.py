@@ -32,6 +32,26 @@ MAX_ANALYSIS_CHARS = 4000
 ANALYSIS_TIMEOUT_SECONDS = 90.0
 
 
+class ExtractedDateEvent(BaseModel):
+    """文书中的一个关键日期事件。"""
+
+    # YYYY-MM-DD HH:MM 或 YYYY-MM-DD
+    datetime: str
+    event_type: Literal[
+        "hearing",
+        "asset_preservation_expires",
+        "evidence_deadline",
+        "appeal_deadline",
+        "payment_deadline",
+        "submission_deadline",
+        "statute_limitations",
+        "other",
+    ] = "other"
+    # 原文片段（截断到 80 字内），供律师人工核对
+    context: str = Field(default="", max_length=80)
+    confidence: float = Field(default=0.7, ge=0.0, le=1.0)
+
+
 class CourtDocumentAnalysis(BaseModel):
     """单次结构化分析结果。"""
 
@@ -40,6 +60,12 @@ class CourtDocumentAnalysis(BaseModel):
     case_number: str | None = None
     # 开庭时间（传票）或财产保全到期时间（执行裁定书）；YYYY-MM-DD HH:MM 或 YYYY-MM-DD
     court_time: str | None = None
+    # 文书中所有关键日期事件（开庭、举证截止、上诉届满、保全到期等），多个日期都要列出
+    key_events: list[ExtractedDateEvent] = Field(default_factory=list)
+    # 当事人名称（原告/被告/申请人/被申请人），供案件绑定推荐评分使用
+    party_names: list[str] = Field(default_factory=list)
+    # 法院名称，如"佛山市顺德区人民法院"
+    court_name: str | None = None
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
     reason: str = ""
 
@@ -62,10 +88,12 @@ class DocumentAnalysisOutcome:
         return self.analysis is not None
 
 
-ANALYSIS_PROMPT = """你是法院文书分析助手。请分析以下法院文书，一次性完成三项任务：
+ANALYSIS_PROMPT = """你是法院文书分析助手。请分析以下法院文书，一次性完成五项任务：
 1. 判断文书类型：summons=传票（含开庭时间、出庭通知），execution=执行裁定书（含财产保全、查封、冻结、执行裁定），other=其他文书；
 2. 提取案号：格式为（年份）法院代码+案件类型字号+序号+号，如（2024）粤0604民初41257号，必须含案件类型字号（民初/民终/刑初/执/执保等）并以"号"字结尾；无法确定填 null；
-3. 提取关键时间：传票取开庭时间，执行裁定书取财产保全到期时间；格式 YYYY-MM-DD HH:MM 或 YYYY-MM-DD；无法确定填 null。
+3. 提取最关键的一个时间：传票取开庭时间，执行裁定书取财产保全到期时间；格式 YYYY-MM-DD HH:MM 或 YYYY-MM-DD；无法确定填 null；
+4. 提取文书中**所有**关键日期事件，每个一条填入 key_events：开庭时间、举证截止日、上诉期届满日、财产保全到期日、缴费期限、补正/材料提交期限、诉讼时效届满日等；同一文书有多个日期都要列出（如多次开庭、举证截止+开庭日期并存）；每条给出 event_type、原文片段（context，不超过 60 字）、置信度；日期格式 YYYY-MM-DD HH:MM 或 YYYY-MM-DD（只有日期无时间时可省略时间）；没有关键日期返回空数组；
+5. 提取当事人名称（原告/被告/申请人/被申请人，去掉"原告""被告"等前缀只留名称）与法院名称；没有则 party_names 为空数组、court_name 为 null。
 
 {schema_instructions}
 

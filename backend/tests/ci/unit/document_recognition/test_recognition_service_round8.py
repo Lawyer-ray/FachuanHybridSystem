@@ -15,8 +15,8 @@ from apps.core.exceptions import ValidationException
 from apps.document_recognition.services.data_classes import (
     BindingResult,
     DocumentType,
-    RecognitionResult,
     RecognitionResponse,
+    RecognitionResult,
 )
 from apps.document_recognition.services.recognition_service import CourtDocumentRecognitionService
 
@@ -28,6 +28,7 @@ def _make_service(**overrides):
         extractor=overrides.get("extractor", MagicMock()),
         binding_service=overrides.get("binding_service", MagicMock()),
         document_renamer=overrides.get("document_renamer", MagicMock()),
+        matching_service=overrides.get("matching_service", MagicMock()),
     )
 
 
@@ -101,74 +102,85 @@ class TestExtractDocInfo:
 
 
 class TestBuildBinding:
-    def test_summons_with_case_number(self):
+    """新签名：(doc_type, case_number, file_path, extraction_text, user, date_count=0,
+    *, prebound_case_id=None, prebound_case_log_id=None)。严格匹配走 matching_service。"""
+
+    def test_auto_match_hit_binds(self):
         svc = _make_service()
-        svc.binding_service.find_case_by_number.return_value = 1
-        case_dto = MagicMock()
-        case_dto.name = "张三诉李四"
-        svc.binding_service.case_service.get_case_by_id_internal.return_value = case_dto
+        svc.matching_service.auto_match.return_value = (1, "张三诉李四")
         svc.binding_service.format_log_content.return_value = "log content"
         svc.binding_service.bind_document_to_case.return_value = BindingResult.success_result(
             case_id=1, case_name="张三诉李四", case_log_id=10
         )
-        svc.document_renamer.generate_filename.return_value = "new_name.pdf"
+        svc._rename_document = MagicMock(return_value="/tmp/new.pdf")  # type: ignore[method-assign]
 
-        with patch("apps.core.services.filename_template_service.FilenameTemplateService") as MockFTS:
-            MockFTS.get_unique_filepath.return_value = (SimpleNamespace(as_posix=lambda: "/tmp/new.pdf"), None)
-            with patch("pathlib.Path") as MockPath:
-                mock_orig = MagicMock()
-                MockPath.return_value = mock_orig
-                mock_orig.parent = "/tmp"
-                mock_orig.name = "test.pdf"
-                mock_orig.as_posix.return_value = "/tmp/test.pdf"
+        binding, renamed = svc._build_binding(
+            DocumentType.SUMMONS, "（2024）京01民初123号", "/tmp/test.pdf", "text", None, date_count=2
+        )
 
-                binding, renamed = svc._build_binding(
-                    DocumentType.SUMMONS, "（2024）京01民初123号",
-                    datetime(2024, 6, 15), "/tmp/test.pdf", "text", None,
-                )
         assert binding.success
+        assert renamed == "/tmp/new.pdf"
+        svc.matching_service.auto_match.assert_called_once_with("（2024）京01民初123号")
+        # date_count 透传给日志文案
+        fmt_kwargs = svc.binding_service.format_log_content.call_args[1]
+        assert fmt_kwargs["date_count"] == 2
+        bind_kwargs = svc.binding_service.bind_document_to_case.call_args[1]
+        assert bind_kwargs["case_id"] == 1
+        assert bind_kwargs["file_path"] == "/tmp/new.pdf"
 
     def test_summons_no_case_number(self):
         svc = _make_service()
-        svc.binding_service.find_case_by_number.return_value = None
-        svc.binding_service.format_log_content.return_value = "log"
-        svc.binding_service.bind_document_to_case.return_value = BindingResult.success_result(
-            case_id=1, case_name="Test", case_log_id=10
-        )
 
         binding, renamed = svc._build_binding(
-            DocumentType.SUMMONS, None, None, "/tmp/test.pdf", "text", None,
+            DocumentType.SUMMONS, None, "/tmp/test.pdf", "text", None,
         )
         assert renamed == "/tmp/test.pdf"
+        assert not binding.success
+        assert binding.error_code == "CASE_NUMBER_NOT_FOUND"
+        svc.matching_service.auto_match.assert_not_called()
 
-    def test_other_type(self):
+    def test_other_type_can_now_bind(self):
+        """原 test_other_type：UNSUPPORTED_DOCUMENT_TYPE 分支已删除，所有类型都可绑定。"""
         svc = _make_service()
+        svc.matching_service.auto_match.return_value = (5, "某某案")
+        svc.binding_service.format_log_content.return_value = "log"
+        svc.binding_service.bind_document_to_case.return_value = BindingResult.success_result(
+            case_id=5, case_name="某某案", case_log_id=50
+        )
+        svc._rename_document = MagicMock(return_value="/tmp/new.pdf")  # type: ignore[method-assign]
+
         binding, renamed = svc._build_binding(
-            DocumentType.OTHER, None, None, "/tmp/test.pdf", "text", None,
+            DocumentType.OTHER, "（2024）京01民初123号", "/tmp/test.pdf", "text", None,
+        )
+        assert binding.success
+
+    def test_execution_ruling_pending_manual_binding(self):
+        """原 test_execution_ruling_type：FEATURE_NOT_IMPLEMENTED 分支已删除，
+        严格匹配未命中转人工。"""
+        svc = _make_service()
+        svc.matching_service.auto_match.return_value = None
+
+        binding, renamed = svc._build_binding(
+            DocumentType.EXECUTION_RULING, "（2024）京01执123号", "/tmp/test.pdf", "text", None,
         )
         assert not binding.success
-        assert binding.error_code == "UNSUPPORTED_DOCUMENT_TYPE"
+        assert binding.error_code == "PENDING_MANUAL_BINDING"
+        assert renamed == "/tmp/test.pdf"
 
-    def test_execution_ruling_type(self):
+    def test_rename_failure_keeps_original_path(self):
+        """原 test_no_case_name_no_rename：重命名失败保留原路径，仍完成绑定。"""
         svc = _make_service()
-        binding, renamed = svc._build_binding(
-            DocumentType.EXECUTION_RULING, "123", None, "/tmp/test.pdf", "text", None,
-        )
-        assert not binding.success
-        assert binding.error_code == "FEATURE_NOT_IMPLEMENTED"
-
-    def test_no_case_name_no_rename(self):
-        svc = _make_service()
-        svc.binding_service.find_case_by_number.return_value = 1
-        svc.binding_service.case_service.get_case_by_id_internal.return_value = None
+        svc.matching_service.auto_match.return_value = (1, "Test")
         svc.binding_service.format_log_content.return_value = "log"
         svc.binding_service.bind_document_to_case.return_value = BindingResult.success_result(
             case_id=1, case_name="Test", case_log_id=10
         )
+        svc._rename_document = MagicMock(return_value="/tmp/test.pdf")  # type: ignore[method-assign]
 
         binding, renamed = svc._build_binding(
-            DocumentType.SUMMONS, "123", None, "/tmp/test.pdf", "text", None,
+            DocumentType.SUMMONS, "（2024）京01民初123号", "/tmp/test.pdf", "text", None,
         )
+        assert binding.success
         assert renamed == "/tmp/test.pdf"
 
 
@@ -211,25 +223,16 @@ class TestRecognizeDocument:
             "case_number": "123",
             "court_time": datetime(2024, 6, 15),
         }
-        svc.binding_service.find_case_by_number.return_value = 1
-        case_dto = MagicMock()
-        case_dto.name = "Test"
-        svc.binding_service.case_service.get_case_by_id_internal.return_value = case_dto
+        svc.matching_service.auto_match.return_value = None  # 未命中唯一在办案件 → 转人工
         svc.binding_service.format_log_content.return_value = "log"
         svc.binding_service.bind_document_to_case.return_value = BindingResult.success_result(
             case_id=1, case_name="Test", case_log_id=10
         )
 
-        with patch("apps.core.services.filename_template_service.FilenameTemplateService") as MockFTS:
-            MockFTS.get_unique_filepath.return_value = (SimpleNamespace(as_posix=lambda: "/tmp/new.pdf"), None)
-            with patch("pathlib.Path") as MockPath:
-                mock_orig = MagicMock()
-                MockPath.return_value = mock_orig
-                mock_orig.parent = "/tmp"
-                mock_orig.name = "test.pdf"
-
-                response = svc.recognize_document("/tmp/test.pdf")
+        response = svc.recognize_document("/tmp/test.pdf")
         assert response.recognition.document_type == DocumentType.SUMMONS
+        assert response.binding.error_code == "PENDING_MANUAL_BINDING"
+        assert response.date_candidates == []
 
     def test_general_exception(self):
         svc = _make_service()

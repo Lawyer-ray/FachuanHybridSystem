@@ -6,7 +6,7 @@
 Requirements: 4.5, 7.4
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any
@@ -279,7 +279,7 @@ class RecognitionResponse:
     """
     完整响应 DTO
 
-    包含识别结果、绑定结果和文件路径的完整响应。
+    包含识别结果、绑定结果、日期候选和文件路径的完整响应。
 
     Requirements: 4.5, 7.4
 
@@ -287,11 +287,15 @@ class RecognitionResponse:
         recognition: 识别结果
         binding: 绑定结果，非支持文书类型时为空
         file_path: 上传文件的保存路径
+        date_candidates: 日期候选草稿列表（DateCandidateDraft.to_dict），
+            由 worker 落库为 DocumentRecognitionDateCandidate 行
     """
 
     recognition: RecognitionResult
     binding: BindingResult | None
     file_path: str
+    date_candidates: list[dict[str, Any]] = field(default_factory=list)
+    party_names: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """序列化为字典"""
@@ -299,6 +303,8 @@ class RecognitionResponse:
             "recognition": self.recognition.to_dict(),
             "binding": self.binding.to_dict() if self.binding else None,
             "file_path": self.file_path,
+            "date_candidates": self.date_candidates,
+            "party_names": self.party_names,
         }
 
     @classmethod
@@ -312,4 +318,6 @@ class RecognitionResponse:
             recognition=RecognitionResult.from_dict(data["recognition"]),
             binding=binding,
             file_path=data.get("file_path", ""),
+            date_candidates=list(data.get("date_candidates") or []),
+            party_names=list(data.get("party_names") or []),
         )

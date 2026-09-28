@@ -38,6 +38,23 @@ HEARING_MEDIUM_WEIGHT_KEYWORDS = [
 HEARING_LOW_WEIGHT_KEYWORDS = ["本院", "通知", "届时", "如期", "依法"]
 HEARING_CONTEXT_KEYWORDS = HEARING_HIGH_WEIGHT_KEYWORDS + HEARING_MEDIUM_WEIGHT_KEYWORDS + HEARING_LOW_WEIGHT_KEYWORDS
 
+# 日期上下文 → 提醒类型 反向索引（降级路径的类型推断）。
+# 语义与 apps/reminders/services/reminder_parser_service.py 的 KEYWORD_TYPE_MAP 相同但独立维护，
+# 避免跨 app 常量耦合（case_binding_service 本地映射先例）。
+DATETIME_TYPE_KEYWORDS: dict[str, list[str]] = {
+    "hearing": ["开庭", "庭审", "传唤", "到庭", "审判庭", "法庭调查", "法庭辩论"],
+    "asset_preservation_expires": ["保全", "查封", "冻结", "解除"],
+    "evidence_deadline": ["举证", "证据交换"],
+    "appeal_deadline": ["上诉"],
+    "payment_deadline": ["缴费", "交纳", "缴纳", "费用"],
+    "submission_deadline": ["补正", "提交材料", "递交材料"],
+    "statute_limitations": ["诉讼时效"],
+}
+
+# 候选上下文片段的取窗半径（前后各多少字符）
+CANDIDATE_CONTEXT_BEFORE = 40
+CANDIDATE_CONTEXT_AFTER = 20
+
 
 class DatetimeExtractionMixin:
     """开庭时间提取 Mixin"""
@@ -107,6 +124,47 @@ class DatetimeExtractionMixin:
             if keyword in context:
                 score += 8
         return min(score, 100)
+
+    def extract_datetime_candidates(self, text: str) -> list[dict[str, Any]]:
+        """透出全部正则日期候选（供多日期人工确认用，不影响 _select_best_datetime 主日期选择）。
+
+        每个候选包含：datetime / context_text（原文摘录）/ context_score / reminder_type（按
+        DATETIME_TYPE_KEYWORDS 从上下文推断，未命中为 None，由调用方按文书类型给默认值）。
+        """
+        import re
+
+        candidates: list[dict[str, Any]] = []
+        for pattern, has_am_pm in DATETIME_PATTERNS:
+            for match in re.finditer(pattern, text):
+                try:
+                    matched_text = match.group(0)
+                    dt = self._parse_datetime_groups(match.groups(), has_am_pm, matched_text)
+                except (ValueError, IndexError):
+                    continue
+                if dt is None:
+                    continue
+                if any(abs((dt - c["datetime"]).total_seconds()) < 60 for c in candidates):
+                    continue
+                context_text = text[
+                    max(0, match.start() - CANDIDATE_CONTEXT_BEFORE) : match.end() + CANDIDATE_CONTEXT_AFTER
+                ].strip()
+                candidates.append(
+                    {
+                        "datetime": dt,
+                        "context_text": context_text[:255],
+                        "context_score": self._calculate_context_score(text, match.start()),
+                        "reminder_type": self._guess_reminder_type(context_text),
+                    }
+                )
+        return candidates
+
+    @staticmethod
+    def _guess_reminder_type(context_text: str) -> str | None:
+        """按 DATETIME_TYPE_KEYWORDS 从上下文推断提醒类型（无命中返回 None）。"""
+        for reminder_type, keywords in DATETIME_TYPE_KEYWORDS.items():
+            if any(keyword in context_text for keyword in keywords):
+                return reminder_type
+        return None
 
     def _score_days_diff(self, days_diff: int, score: int, reasons: list[str]) -> tuple[int, list[str]]:
         """评估天数差对分数的影响"""

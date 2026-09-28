@@ -7,7 +7,7 @@ Requirements: 4.5, 4.6, 4.7, 6.2, 7.1, 7.2, 7.3, 8.1, 8.2, 8.3, 8.4
 """
 
 import logging
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from apps.core.exceptions import RecognitionTimeoutError, ServiceUnavailableError, ValidationException
@@ -36,6 +36,7 @@ class CourtDocumentRecognitionService:
         extractor: Any = None,
         binding_service: Any = None,
         document_renamer: Any = None,
+        matching_service: Any = None,
     ) -> None:
         """
         初始化服务
@@ -46,16 +47,30 @@ class CourtDocumentRecognitionService:
             extractor: 信息提取器（可选，用于依赖注入）
             binding_service: 案件绑定服务（可选，用于依赖注入）
             document_renamer: 文书重命名服务（可选，用于依赖注入）
+            matching_service: 案件严格匹配服务（可选，用于依赖注入）
         """
         self._text_extraction = text_extraction
         self._classifier = classifier
         self._extractor = extractor
         self._binding_service = binding_service
         self._document_renamer = document_renamer
+        self._matching_service = matching_service
         # per-run 共享 LLM 分析：分类与信息提取共用同一次结构化调用。
         # 仅当协作者真正消费 lookup 时才发起 LLM 请求（协作者被 mock 的单测不会触发）。
+        # 注意：本服务若被复用（如旧单例装配），run 状态会在 recognize_document* 入口复位，
+        # 观测性取「最近一次」outcome 而非缓存首个，避免跨任务串扰。
         self._analysis_cache: dict[str, Any] = {}
-        self._analysis_attempted = False
+        self._last_outcome: Any = None
+
+    def _reset_run_state(self) -> None:
+        """每次识别入口复位观测性游标。
+
+        只复位 ``_last_outcome``、不清空 ``_analysis_cache``：缓存是 run 内
+        memoize（分类/提取/候选共享同一次 LLM 调用），入口清空会把协作者已
+        写入/测试预置的分析作废。实例复用的跨任务隔离由 adapter 的
+        per-call 构造保证（见 adapter.py）。
+        """
+        self._last_outcome = None
 
     def _analysis_lookup(self, text: str) -> Any:
         """按原文 memoize 的共享结构化分析（document_analyzer）。"""
@@ -63,18 +78,16 @@ class CourtDocumentRecognitionService:
             return self._analysis_cache[text]
         from .document_analyzer import analyze_document
 
-        self._analysis_attempted = True
         outcome = analyze_document(text)
         self._analysis_cache[text] = outcome
+        self._last_outcome = outcome
         return outcome
 
     def _analysis_observability(self) -> dict[str, Any]:
         """汇总本次识别的 LLM 可观测性信息（未触发分析时全为默认值）。"""
         from .document_analyzer import DocumentAnalysisOutcome
 
-        if not self._analysis_attempted:
-            return {"llm_model": None, "llm_backend": None, "llm_latency_ms": None, "degraded": False}
-        outcome = next(iter(self._analysis_cache.values()), None)
+        outcome = self._last_outcome
         if not isinstance(outcome, DocumentAnalysisOutcome):
             return {"llm_model": None, "llm_backend": None, "llm_latency_ms": None, "degraded": False}
         return {
@@ -129,6 +142,27 @@ class CourtDocumentRecognitionService:
             self._document_renamer = DocumentRenamer()
         return self._document_renamer
 
+    @property
+    def matching_service(self) -> Any:
+        """延迟加载案件严格匹配服务"""
+        if self._matching_service is None:
+            from .case_matching_service import DocumentCaseMatchingService
+
+            self._matching_service = DocumentCaseMatchingService()
+        return self._matching_service
+
+    def _cached_analysis(self, text: str) -> Any:
+        """读取已缓存的分析结果；不触发新的 LLM 调用（协作者被 mock 时无缓存）。"""
+        outcome = self._analysis_cache.get(text)
+        return outcome.analysis if outcome is not None else None
+
+    def _build_date_candidates(self, text: str, doc_type: Any) -> list[dict[str, Any]]:
+        """构建多日期候选（LLM key_events + 正则候选合并去重），序列化为 dict 列表。"""
+        from .date_candidate_service import build_date_candidates
+
+        drafts = build_date_candidates(text, self._cached_analysis(text), doc_type)
+        return [draft.to_dict() for draft in drafts]
+
     def _extract_doc_info(self, doc_type: Any, text: str) -> tuple[Any, Any]:
         """根据文书类型提取案号和关键时间"""
         case_number = None
@@ -147,57 +181,86 @@ class CourtDocumentRecognitionService:
         self,
         doc_type: Any,
         case_number: Any,
-        key_time: Any,
         file_path: str,
         extraction_text: str,
         user: Any,
+        date_count: int = 0,
+        *,
+        prebound_case_id: int | None = None,
+        prebound_case_log_id: int | None = None,
     ) -> tuple[Any, str]:
-        """绑定案件，返回 (binding_result, renamed_file_path)"""
-        from .data_classes import DocumentType
+        """绑定案件，返回 (binding_result, renamed_file_path)
 
+        三种路径：
+        1. 管线预绑定（法院短信等入口已建好 case/case_log）：跳过匹配/重命名/
+           新建日志/通知，直接返回成功结果（提醒锚定短信管线已建的日志）。
+        2. 有案号：严格匹配（规范化精确 + 在办 + 唯一）命中 → 重命名 + 建日志绑定；
+           未命中 → PENDING_MANUAL_BINDING，由前端推荐卡片 + 搜索转人工。
+        3. 无案号：CASE_NUMBER_NOT_FOUND，转人工选择案件。
+        提醒一律不在绑定期写入（只走日期候选人工确认接口）。
+        """
         renamed_file_path = file_path
 
-        if doc_type == DocumentType.SUMMONS and case_number:
-            case_id = self.binding_service.find_case_by_number(case_number)
-            case_name = None
-            if case_id:
-                case_dto = self.binding_service.case_service.get_case_by_id_internal(case_id)
+        if prebound_case_log_id:
+            case_name = ""
+            if prebound_case_id:
+                case_dto = self.binding_service.case_service.get_case_by_id_internal(prebound_case_id)
                 if case_dto:
                     case_name = case_dto.name
-            if case_name:
-                renamed_file_path = self._rename_document(
-                    file_path=file_path, document_type=doc_type, case_name=case_name
-                )
-            log_content = self.binding_service.format_log_content(
-                document_type=doc_type, case_number=case_number, key_time=key_time, raw_text=extraction_text
+            binding = BindingResult.success_result(
+                case_id=prebound_case_id, case_name=case_name, case_log_id=prebound_case_log_id
             )
-            binding = self.binding_service.bind_document_to_case(
-                case_number=case_number,
-                document_type=doc_type,
-                content=log_content,
-                key_time=key_time,
-                file_path=renamed_file_path,
-                user=user,
+            binding.message = "案件已由来源管线（法院短信）绑定"
+            return binding, renamed_file_path
+
+        if not case_number:
+            return (
+                BindingResult.failure_result(
+                    message="未识别到案号，请在识别结果中手动选择案件绑定",
+                    error_code="CASE_NUMBER_NOT_FOUND",
+                ),
+                renamed_file_path,
             )
-        elif doc_type == DocumentType.OTHER:
-            binding = BindingResult.failure_result(
-                message="暂时只支持传票识别，其他文书类型敬请期待",
-                error_code="UNSUPPORTED_DOCUMENT_TYPE",
+
+        match = self.matching_service.auto_match(str(case_number))
+        if match is None:
+            return (
+                BindingResult.failure_result(
+                    message="未匹配到唯一的在办案件，请在识别结果中手动选择案件绑定",
+                    error_code="PENDING_MANUAL_BINDING",
+                ),
+                renamed_file_path,
             )
-        elif doc_type == DocumentType.EXECUTION_RULING:
-            binding = BindingResult.failure_result(
-                message="执行裁定书绑定功能开发中，敬请期待",
-                error_code="FEATURE_NOT_IMPLEMENTED",
-            )
-        else:
-            binding = BindingResult.failure_result(
-                message="未识别到案号，无法绑定案件",
-                error_code="CASE_NUMBER_NOT_FOUND",
-            )
+
+        case_id, case_name = match
+        renamed_file_path = self._rename_document(file_path=file_path, document_type=doc_type, case_name=case_name)
+        log_content = self.binding_service.format_log_content(
+            document_type=doc_type, case_number=case_number, raw_text=extraction_text, date_count=date_count
+        )
+        binding = self.binding_service.bind_document_to_case(
+            case_id=case_id,
+            document_type=doc_type,
+            content=log_content,
+            file_path=renamed_file_path,
+            user=user,
+        )
         return binding, renamed_file_path
 
-    def recognize_document(self, file_path: str, user: Any | None = None) -> RecognitionResponse:
+    def recognize_document(
+        self,
+        file_path: str,
+        user: Any | None = None,
+        *,
+        prebound_case_id: int | None = None,
+        prebound_case_log_id: int | None = None,
+    ) -> RecognitionResponse:
         """识别文书并绑定案件
+
+        Args:
+            file_path: 文书文件路径
+            user: 当前用户
+            prebound_case_id: 管线预绑定的案件 ID（法院短信入口，可选）
+            prebound_case_log_id: 管线预绑定的案件日志 ID（提醒锚点，可选）
 
         Requirements: 4.5, 4.6, 4.7, 6.2, 8.1, 8.2, 8.3, 8.4
         """
@@ -207,8 +270,10 @@ class CourtDocumentRecognitionService:
                 "action": "recognize_document",
                 "file_path": file_path,
                 "user_id": getattr(user, "id", None) if user else None,
+                "prebound": prebound_case_log_id is not None,
             },
         )
+        self._reset_run_state()
 
         try:
             extraction_result = self.text_extraction.extract_text(file_path)
@@ -233,6 +298,18 @@ class CourtDocumentRecognitionService:
 
             doc_type, confidence = self.classifier.classify(extraction_result.text)
             case_number, key_time = self._extract_doc_info(doc_type, extraction_result.text)
+            date_candidates = self._build_date_candidates(extraction_result.text, doc_type)
+            if key_time is None and date_candidates:
+                # 候选落库时按本地时区 make_aware；key_time 兜底取首选候选，同样补时区
+                key_time = datetime.fromisoformat(date_candidates[0]["due_at"])
+                if key_time.tzinfo is None:
+                    from django.utils.timezone import make_aware
+
+                    key_time = make_aware(key_time)
+            cached_analysis = self._cached_analysis(extraction_result.text)
+            party_names = [
+                str(p).strip() for p in (getattr(cached_analysis, "party_names", None) or []) if str(p).strip()
+            ]
 
             recognition = RecognitionResult(
                 document_type=doc_type,
@@ -245,7 +322,14 @@ class CourtDocumentRecognitionService:
             )
 
             binding, renamed_file_path = self._build_binding(
-                doc_type, case_number, key_time, file_path, extraction_result.text, user
+                doc_type,
+                case_number,
+                file_path,
+                extraction_result.text,
+                user,
+                date_count=len(date_candidates),
+                prebound_case_id=prebound_case_id,
+                prebound_case_log_id=prebound_case_log_id,
             )
 
             logger.info(
@@ -256,17 +340,25 @@ class CourtDocumentRecognitionService:
                     "renamed_file_path": renamed_file_path,
                     "document_type": doc_type.value,
                     "case_number": case_number,
+                    "date_candidate_count": len(date_candidates),
                     "binding_success": binding.success if binding else None,
                 },
             )
 
-            return RecognitionResponse(recognition=recognition, binding=binding, file_path=renamed_file_path)
+            return RecognitionResponse(
+                recognition=recognition,
+                binding=binding,
+                file_path=renamed_file_path,
+                date_candidates=date_candidates,
+                party_names=party_names,
+            )
 
         except (ValidationException, ServiceUnavailableError, RecognitionTimeoutError):
             raise
         except Exception as e:
             logger.error(
-                f"文书识别失败: {e}",
+                "文书识别失败: %s",
+                e,
                 extra={
                     "action": "recognize_document",
                     "file_path": file_path,
@@ -300,7 +392,8 @@ class CourtDocumentRecognitionService:
                 message="文本内容不能为空", code="EMPTY_TEXT", errors={"text": "请提供有效的文书文本"}
             )
 
-        logger.info("开始从文本识别文书", extra={"action": "recognize_document_from_text", "text_length": len(text)})
+        logger.info("文本识别开始", extra={"action": "recognize_document_from_text", "text_length": len(text)})
+        self._reset_run_state()
 
         try:
             # 1. 分类文书类型
@@ -345,7 +438,8 @@ class CourtDocumentRecognitionService:
             raise
         except Exception as e:
             logger.error(
-                f"文本识别失败: {e}",
+                "文本识别失败: %s",
+                e,
                 extra={"action": "recognize_document_from_text", "error_type": type(e).__name__, "error": str(e)},
                 exc_info=True,
             )

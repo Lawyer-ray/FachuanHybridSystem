@@ -9,11 +9,11 @@ Requirements: 2.1, 2.2, 2.3, 8.1, 8.2, 8.3, 8.4
 
 import logging
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
-from ninja import File, Router
+from ninja import File, Form, Router
 from ninja.files import UploadedFile
 from pydantic import BaseModel, Field
 
@@ -50,6 +50,28 @@ def _save_uploaded_file(file: UploadedFile) -> str:
     saved_path = str(Path(settings.MEDIA_ROOT) / rel_path)
     logger.info("文件已保存: %s", saved_path)
     return saved_path
+
+
+# 未绑定任务的推荐缓存 TTL（秒）：状态接口被前端轮询，避免每次全库评分
+RECOMMENDATION_CACHE_TTL = 300
+
+
+def _recommendation_rows(task: Any) -> list[dict[str, Any]]:
+    """未绑定任务的推荐候选（带短 TTL 缓存）。"""
+    from django.core.cache import cache
+
+    from apps.document_recognition.services.case_matching_service import DocumentCaseMatchingService
+
+    cache_key = f"docrec:reco:{task.id}"
+    rows = cache.get(cache_key)
+    if rows is None:
+        rows = DocumentCaseMatchingService().get_recommendations(
+            case_number=task.case_number,
+            party_names=list(task.party_names or []),
+            raw_text=task.raw_text or "",
+        )
+        cache.set(cache_key, rows, RECOMMENDATION_CACHE_TTL)
+    return rows
 
 
 # ============================================================================
@@ -90,6 +112,33 @@ class BindingResultSchema(BaseModel):
     error_code: str | None = Field(None, description="错误码")
 
 
+class DateCandidateOutSchema(BaseModel):
+    """日期候选"""
+
+    id: int = Field(..., description="候选ID")
+    due_at: str = Field(..., description="候选日期时间")
+    reminder_type: str = Field(..., description="提醒类型")
+    reminder_type_label: str = Field(..., description="提醒类型名称")
+    context_text: str = Field("", description="原文上下文")
+    source: str = Field("regex", description="提取来源 llm/regex/merged")
+    confidence: float | None = Field(None, description="置信度")
+    status: str = Field("pending", description="确认状态 pending/confirmed/skipped")
+    reminder_id: int | None = Field(None, description="已写入的提醒ID")
+    confirmed_at: str | None = Field(None, description="确认时间")
+
+
+class CaseRecommendationOutSchema(BaseModel):
+    """案件绑定推荐候选"""
+
+    case_id: int = Field(..., description="案件ID")
+    case_name: str = Field(..., description="案件名称")
+    score: int = Field(..., description="相关度评分")
+    reasons: list[str] = Field(default_factory=list, description="评分理由")
+    case_numbers: list[str] = Field(default_factory=list, description="案号列表")
+    parties: list[str] = Field(default_factory=list, description="当事人列表")
+    status: str = Field("", description="案件状态")
+
+
 class TaskStatusResponseSchema(BaseModel):
     """任务状态响应"""
 
@@ -98,9 +147,70 @@ class TaskStatusResponseSchema(BaseModel):
     file_path: str | None = None
     recognition: RecognitionResultSchema | None = None
     binding: BindingResultSchema | None = None
+    date_candidates: list[DateCandidateOutSchema] = Field(default_factory=list, description="日期候选列表")
+    recommendations: list[CaseRecommendationOutSchema] = Field(
+        default_factory=list, description="案件绑定推荐（未绑定时返回）"
+    )
+    binding_mode: str = Field("standalone", description="绑定模式 standalone/pipeline")
+    date_confirmation_status: str | None = Field(None, description="日期确认进度 none/pending/partial/complete")
     error_message: str | None = None
     created_at: str
     finished_at: str | None = None
+
+
+class DateConfirmItemInSchema(BaseModel):
+    """单条日期确认请求"""
+
+    candidate_id: int = Field(..., description="候选ID")
+    action: Literal["confirm", "skip"] = Field("confirm", description="确认或忽略")
+    due_at: str | None = Field(None, description="编辑后的时间（naive 本地 ISO，如 2026-10-15T09:30）")
+    reminder_type: str | None = Field(None, description="编辑后的提醒类型")
+
+
+class DateConfirmItemOutSchema(BaseModel):
+    """单条日期确认结果"""
+
+    candidate_id: int
+    status: str
+    reminder_id: int | None = None
+    message: str = ""
+    error_code: str | None = None
+
+
+class DateConfirmRequestSchema(BaseModel):
+    """日期确认请求"""
+
+    items: list[DateConfirmItemInSchema] = Field(..., min_length=1, description="确认项列表")
+
+
+class DateConfirmResponseSchema(BaseModel):
+    """日期确认响应"""
+
+    success: bool
+    date_confirmation_status: str | None = None
+    results: list[DateConfirmItemOutSchema] = Field(default_factory=list)
+
+
+class DateRevokeResponseSchema(BaseModel):
+    """撤销确认响应"""
+
+    success: bool
+    candidate_id: int
+    status: str
+    reminder_id: int | None = None
+    message: str = ""
+
+
+class PendingTaskOutSchema(BaseModel):
+    """待确认任务摘要"""
+
+    task_id: int
+    original_filename: str
+    document_type: str | None = None
+    date_confirmation_status: str
+    candidate_count: int = 0
+    case_name: str | None = None
+    created_at: str
 
 
 # ============================================================================
@@ -158,13 +268,18 @@ class UpdateInfoResponseSchema(BaseModel):
 
 @router.post("/court-document/recognize", response=TaskSubmitResponseSchema)
 async def recognize_document(
-    request: Any, file: UploadedFile = File(...)
+    request: Any,
+    file: UploadedFile = File(...),
+    source_court_sms_id: int | None = Form(None),
 ) -> TaskSubmitResponseSchema:  # pragma: no cover
     """
     提交文书识别任务（异步）
 
     上传文书后立即返回任务ID，识别在后台异步执行。
     使用 GET /court-document/task/{task_id} 查询结果。
+
+    source_court_sms_id（管线模式，可选）：来自法院短信管线的文书，
+    案件已由短信第一轮绑定，识别只做提取+日期候选，不重复建日志/通知。
     """
     from apps.core.tasking import submit_task
 
@@ -179,8 +294,18 @@ async def recognize_document(
 
     # 3. 创建任务记录 + 提交异步任务
     # timeout 覆盖 LLM 分析（最坏 ~90s）+ 文本提取 + 绑定通知，防止慢识别被 qcluster 默认超时误杀
+    prebound = None
+    if source_court_sms_id:
+        prebound = await sync_to_async(_load_pipeline_prebinding)(source_court_sms_id)
+
     def _create_and_submit() -> Any:
-        task = _get_task_service().create_task(file_path=file_path, original_filename=filename)
+        task = _get_task_service().create_task(
+            file_path=file_path,
+            original_filename=filename,
+            source_court_sms_id=source_court_sms_id,
+            case_id=prebound["case_id"] if prebound else None,
+            case_log_id=prebound["case_log_id"] if prebound else None,
+        )
         submit_task(
             "apps.document_recognition.tasks.execute_document_recognition_task",
             task.id,
@@ -196,18 +321,43 @@ async def recognize_document(
     return TaskSubmitResponseSchema(task_id=task_id, status="pending", message="任务已提交，正在后台处理")
 
 
+def _load_pipeline_prebinding(source_court_sms_id: int) -> dict[str, int | None]:  # pragma: no cover
+    """读取法院短信已完成的绑定（案件+日志），作为识别任务的预绑定。
+
+    短信不存在时 NotFoundError 由全局异常处理器转为 404。
+    """
+    from apps.core.interfaces import ServiceLocator
+
+    court_sms_service = ServiceLocator.get_court_sms_service()
+    sms = court_sms_service.get_sms_detail(source_court_sms_id)
+    if not getattr(sms, "case_log_id", None):
+        raise ValidationException(
+            message="该法院短信尚未完成案件绑定，不能走管线模式",
+            code="COURT_SMS_NOT_BOUND",
+            errors={},
+        )
+    return {"case_id": sms.case_id, "case_log_id": sms.case_log_id}
+
+
 @router.get("/court-document/task/{task_id}", response=TaskStatusResponseSchema)
 async def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchema:  # pragma: no cover
     """
     查询识别任务状态和结果
+
+    响应含日期候选（date_candidates）、日期确认进度（date_confirmation_status）；
+    任务识别成功且未绑定时附案件绑定推荐（recommendations）。
     """
 
     def _do() -> Any:
+        from apps.document_recognition.services import date_candidate_service
+
         task = _get_task_service().get_task(task_id, select_case=True)
 
         # 构建响应
         recognition = None
         binding = None
+        date_candidates: list[DateCandidateOutSchema] = []
+        recommendations: list[CaseRecommendationOutSchema] = []
 
         if task.status == "success":
             recognition = RecognitionResultSchema(
@@ -232,18 +382,110 @@ async def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchem
                     error_code=task.binding_error_code,
                 )
 
+            date_candidates = [DateCandidateOutSchema(**row) for row in date_candidate_service.list_candidates(task)]
+            if not task.case_log_id:
+                reco_rows = _recommendation_rows(task)
+                recommendations = [CaseRecommendationOutSchema(**row) for row in reco_rows]
+
         return TaskStatusResponseSchema(
             task_id=task.id,
             status=task.status,
             file_path=task.renamed_file_path or task.file_path,
             recognition=recognition,
             binding=binding,
+            date_candidates=date_candidates,
+            recommendations=recommendations,
+            binding_mode="pipeline" if task.source_court_sms_id else "standalone",
+            date_confirmation_status=task.date_confirmation_status,
             error_message=task.error_message,
             created_at=task.created_at.isoformat(),
             finished_at=task.finished_at.isoformat() if task.finished_at else None,
         )
 
     return cast(TaskStatusResponseSchema, await sync_to_async(_do)())
+
+
+# ============================================================================
+# 日期候选确认 API（人工确认后才写入重要日期提醒）
+# ============================================================================
+
+
+@router.post("/court-document/task/{task_id}/dates/confirm", response=DateConfirmResponseSchema)
+async def confirm_date_candidates(
+    request: Any, task_id: int, payload: DateConfirmRequestSchema
+) -> DateConfirmResponseSchema:  # pragma: no cover
+    """
+    批量确认/忽略日期候选
+
+    只有确认过的候选才会写入重要日期提醒；任务已绑定时提醒挂案件日志，
+    未绑定时创建独立提醒（记一笔快捕获场景）。已确认项幂等返回原提醒。
+    """
+    from apps.document_recognition.services import date_candidate_service
+
+    def _do() -> Any:
+        results = date_candidate_service.confirm_candidates(
+            task_id,
+            [item.model_dump() for item in payload.items],
+            user=getattr(request, "user", None),
+        )
+        # 确认会刷新任务级状态，重新读取避免返回旧值
+        task = _get_task_service().get_task(task_id)
+        return DateConfirmResponseSchema(
+            success=all(r["status"] != "error" for r in results),
+            date_confirmation_status=task.date_confirmation_status,
+            results=[DateConfirmItemOutSchema(**r) for r in results],
+        )
+
+    return cast(DateConfirmResponseSchema, await sync_to_async(_do)())
+
+
+@router.post("/court-document/task/{task_id}/dates/{candidate_id}/revoke", response=DateRevokeResponseSchema)
+async def revoke_date_candidate(
+    request: Any, task_id: int, candidate_id: int
+) -> DateRevokeResponseSchema:  # pragma: no cover
+    """
+    撤销日期确认
+
+    删除由文书识别创建的提醒（metadata.source=document_recognition），
+    候选回到待确认状态；非本功能创建的提醒拒绝撤销。
+    """
+    from apps.document_recognition.services import date_candidate_service
+
+    def _do() -> Any:
+        result = date_candidate_service.revoke_confirmation(task_id, candidate_id)
+        return DateRevokeResponseSchema(
+            success=True,
+            candidate_id=result["candidate_id"],
+            status=result["status"],
+            reminder_id=result["reminder_id"],
+            message=result["message"],
+        )
+
+    return cast(DateRevokeResponseSchema, await sync_to_async(_do)())
+
+
+@router.get("/court-document/tasks/pending", response=list[PendingTaskOutSchema])
+async def list_pending_tasks(request: Any, limit: int = 10) -> list[PendingTaskOutSchema]:  # pragma: no cover
+    """待确认日期的识别任务（工作台侧栏）"""
+    limit = min(limit, 50)
+
+    def _do() -> list[dict[str, Any]]:
+        raw: list[dict[str, Any]] = _get_task_service().pending_tasks(limit=limit)
+        return raw
+
+    raw = await sync_to_async(_do)()
+    return [
+        PendingTaskOutSchema(
+            task_id=r["task_id"],
+            original_filename=r["original_filename"],
+            document_type=r["document_type"],
+            date_confirmation_status=r["date_confirmation_status"],
+            candidate_count=r["candidate_count"],
+            case_name=r["case_name"],
+            created_at=r["created_at"],
+        )
+        for r in raw
+    ]
 
 
 # ============================================================================

@@ -429,29 +429,23 @@ class TestParseExecutionResponse:
 # ===================================================================
 class TestCourtDocumentRecognitionService:
     def test_recognize_document_from_text_empty(self):
-        from apps.document_recognition.services.recognition_service import (
-            CourtDocumentRecognitionService,
-        )
         from apps.core.exceptions import ValidationException
+        from apps.document_recognition.services.recognition_service import CourtDocumentRecognitionService
 
         svc = CourtDocumentRecognitionService()
         with pytest.raises(ValidationException):
             svc.recognize_document_from_text("")
 
     def test_recognize_document_from_text_whitespace(self):
-        from apps.document_recognition.services.recognition_service import (
-            CourtDocumentRecognitionService,
-        )
         from apps.core.exceptions import ValidationException
+        from apps.document_recognition.services.recognition_service import CourtDocumentRecognitionService
 
         svc = CourtDocumentRecognitionService()
         with pytest.raises(ValidationException):
             svc.recognize_document_from_text("   ")
 
     def test_recognize_document_from_text_success(self):
-        from apps.document_recognition.services.recognition_service import (
-            CourtDocumentRecognitionService,
-        )
+        from apps.document_recognition.services.recognition_service import CourtDocumentRecognitionService
 
         classifier = Mock()
         classifier.classify.return_value = (DocumentType.SUMMONS, 0.9)
@@ -463,9 +457,7 @@ class TestCourtDocumentRecognitionService:
         assert result.case_number == "(2024)粤01民初1号"
 
     def test_recognize_document_from_text_execution(self):
-        from apps.document_recognition.services.recognition_service import (
-            CourtDocumentRecognitionService,
-        )
+        from apps.document_recognition.services.recognition_service import CourtDocumentRecognitionService
 
         classifier = Mock()
         classifier.classify.return_value = (DocumentType.EXECUTION_RULING, 0.8)
@@ -476,9 +468,7 @@ class TestCourtDocumentRecognitionService:
         assert result.document_type == DocumentType.EXECUTION_RULING
 
     def test_recognize_document_from_text_other(self):
-        from apps.document_recognition.services.recognition_service import (
-            CourtDocumentRecognitionService,
-        )
+        from apps.document_recognition.services.recognition_service import CourtDocumentRecognitionService
 
         classifier = Mock()
         classifier.classify.return_value = (DocumentType.OTHER, 0.3)
@@ -489,9 +479,7 @@ class TestCourtDocumentRecognitionService:
         assert result.case_number is None
 
     def test_recognize_document_extract_failure(self):
-        from apps.document_recognition.services.recognition_service import (
-            CourtDocumentRecognitionService,
-        )
+        from apps.document_recognition.services.recognition_service import CourtDocumentRecognitionService
 
         classifier = Mock()
         classifier.classify.return_value = (DocumentType.SUMMONS, 0.9)
@@ -502,9 +490,7 @@ class TestCourtDocumentRecognitionService:
             svc.recognize_document_from_text("text")
 
     def test_recognize_document_text_extraction_fails(self):
-        from apps.document_recognition.services.recognition_service import (
-            CourtDocumentRecognitionService,
-        )
+        from apps.document_recognition.services.recognition_service import CourtDocumentRecognitionService
 
         text_extraction = Mock()
         text_extraction.extract_text.return_value = SimpleNamespace(success=False, text="", extraction_method="ocr")
@@ -513,9 +499,7 @@ class TestCourtDocumentRecognitionService:
         assert result.binding.success is False
 
     def test_recognize_document_text_empty(self):
-        from apps.document_recognition.services.recognition_service import (
-            CourtDocumentRecognitionService,
-        )
+        from apps.document_recognition.services.recognition_service import CourtDocumentRecognitionService
 
         text_extraction = Mock()
         text_extraction.extract_text.return_value = SimpleNamespace(success=True, text="  ", extraction_method="ocr")
@@ -524,45 +508,39 @@ class TestCourtDocumentRecognitionService:
         assert result.binding.success is False
 
     def test_build_binding_other_type(self):
-        from apps.document_recognition.services.recognition_service import (
-            CourtDocumentRecognitionService,
-        )
+        """UNSUPPORTED_DOCUMENT_TYPE 分支已删除：其他文书无案号 → CASE_NUMBER_NOT_FOUND。"""
+        from apps.document_recognition.services.recognition_service import CourtDocumentRecognitionService
 
         svc = CourtDocumentRecognitionService()
         binding, path = svc._build_binding(
-            DocumentType.OTHER, None, None, "/tmp/test.pdf", "text", None
+            DocumentType.OTHER, None, "/tmp/test.pdf", "text", None
         )
         assert binding.success is False
-        assert binding.error_code == "UNSUPPORTED_DOCUMENT_TYPE"
+        assert binding.error_code == "CASE_NUMBER_NOT_FOUND"
 
     def test_build_binding_execution_ruling(self):
-        from apps.document_recognition.services.recognition_service import (
-            CourtDocumentRecognitionService,
-        )
+        """FEATURE_NOT_IMPLEMENTED 分支已删除：执行裁定书无案号同样转人工。"""
+        from apps.document_recognition.services.recognition_service import CourtDocumentRecognitionService
 
         svc = CourtDocumentRecognitionService()
         binding, path = svc._build_binding(
-            DocumentType.EXECUTION_RULING, None, None, "/tmp/test.pdf", "text", None
+            DocumentType.EXECUTION_RULING, None, "/tmp/test.pdf", "text", None
         )
         assert binding.success is False
-        assert binding.error_code == "FEATURE_NOT_IMPLEMENTED"
+        assert binding.error_code == "CASE_NUMBER_NOT_FOUND"
 
     def test_build_binding_summons_no_case_number(self):
-        from apps.document_recognition.services.recognition_service import (
-            CourtDocumentRecognitionService,
-        )
+        from apps.document_recognition.services.recognition_service import CourtDocumentRecognitionService
 
         svc = CourtDocumentRecognitionService()
         binding, path = svc._build_binding(
-            DocumentType.SUMMONS, None, None, "/tmp/test.pdf", "text", None
+            DocumentType.SUMMONS, None, "/tmp/test.pdf", "text", None
         )
         assert binding.success is False
         assert binding.error_code == "CASE_NUMBER_NOT_FOUND"
 
     def test_extract_doc_info_summons(self):
-        from apps.document_recognition.services.recognition_service import (
-            CourtDocumentRecognitionService,
-        )
+        from apps.document_recognition.services.recognition_service import CourtDocumentRecognitionService
 
         extractor = Mock()
         extractor.extract_summons_info.return_value = {
@@ -575,9 +553,7 @@ class TestCourtDocumentRecognitionService:
         assert kt == datetime(2024, 6, 15)
 
     def test_extract_doc_info_execution(self):
-        from apps.document_recognition.services.recognition_service import (
-            CourtDocumentRecognitionService,
-        )
+        from apps.document_recognition.services.recognition_service import CourtDocumentRecognitionService
 
         extractor = Mock()
         extractor.extract_execution_info.return_value = {
@@ -590,9 +566,7 @@ class TestCourtDocumentRecognitionService:
         assert kt == datetime(2024, 7, 1)
 
     def test_extract_doc_info_other(self):
-        from apps.document_recognition.services.recognition_service import (
-            CourtDocumentRecognitionService,
-        )
+        from apps.document_recognition.services.recognition_service import CourtDocumentRecognitionService
 
         svc = CourtDocumentRecognitionService()
         cn, kt = svc._extract_doc_info(DocumentType.OTHER, "text")
@@ -600,9 +574,7 @@ class TestCourtDocumentRecognitionService:
         assert kt is None
 
     def test_lazy_load_text_extraction(self):
-        from apps.document_recognition.services.recognition_service import (
-            CourtDocumentRecognitionService,
-        )
+        from apps.document_recognition.services.recognition_service import CourtDocumentRecognitionService
 
         svc = CourtDocumentRecognitionService()
         assert svc._text_extraction is None

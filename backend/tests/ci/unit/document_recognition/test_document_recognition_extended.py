@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.document_recognition.services.document_classifier import DocumentClassifier
 from apps.document_recognition.services.data_classes import DocumentType
+from apps.document_recognition.services.document_classifier import DocumentClassifier
 
 
 class TestDocumentClassifier:
@@ -121,22 +121,6 @@ class TestDocumentClassifier:
 
 
 class TestDocumentClassifierFunctions:
-    @patch("apps.document_recognition.services.document_classifier.LLMConfig")
-    def test_get_ollama_model(self, mock_config):
-        mock_config.get_ollama_model.return_value = "test-model"
-        from apps.document_recognition.services.document_classifier import get_ollama_model
-
-        result = get_ollama_model()
-        assert result == "test-model"
-
-    @patch("apps.document_recognition.services.document_classifier.LLMConfig")
-    def test_get_ollama_base_url(self, mock_config):
-        mock_config.get_ollama_base_url.return_value = "http://localhost:11434"
-        from apps.document_recognition.services.document_classifier import get_ollama_base_url
-
-        result = get_ollama_base_url()
-        assert result == "http://localhost:11434"
-
     def test_chat_function(self):
         from apps.document_recognition.services.document_classifier import chat
 

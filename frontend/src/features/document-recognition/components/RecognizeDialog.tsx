@@ -1,0 +1,254 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { FileText, Loader2, TriangleAlert } from 'lucide-react'
+import { toast } from 'sonner'
+
+import { confirmDates, revokeDate } from '../api'
+import { DOC_TYPE_LABELS } from '../constants'
+import { rowsFromTask, selectedPendingRows, selectedTextRows, type CandidateRow } from '../domain'
+import { useRecognize } from '../hooks/use-recognize'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { errMessage } from '@/lib/errors'
+import { cn } from '@/lib/utils'
+
+import { CaseBindingSection } from './CaseBindingSection'
+import { DateCandidateList } from './DateCandidateList'
+
+interface Props {
+  open: boolean
+  onClose: () => void
+  /** 日历等外部状态刷新（确认写入成功后调用） */
+  onSaved: () => void
+  /** 文件模式：要识别的文书 */
+  file: File | null
+  /** 文字模式：/reminders/parse 的候选行 + 创建回调（由 home 注入，避免反向依赖） */
+  textRows?: CandidateRow[]
+  onConfirmText?: (rows: CandidateRow[]) => Promise<number>
+}
+
+/**
+ * 记一笔的「识别并确认」弹窗。
+ *
+ * 文件模式：上传 → 轮询识别 → 第 1 步案件绑定（可跳过）→ 第 2 步日期候选
+ * 逐条人工确认 → 写入重要日期提醒（绑定了挂案件日志，没绑创建独立提醒）。
+ * 文字模式：parse 出的全部候选进同一套确认 UI，逐条走 /reminders/create。
+ */
+export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConfirmText }: Props) {
+  const isFileMode = file !== null
+  const { phase, hint, error, task, submit, refresh, reset } = useRecognize()
+  const submittedFile = useRef<File | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  // 文件模式：open 时提交一次（同一文件不重复提交）
+  useEffect(() => {
+    if (!open || !file || submittedFile.current === file) return
+    submittedFile.current = file
+    void submit(file)
+  }, [open, file, submit])
+
+  useEffect(() => {
+    if (!open) {
+      submittedFile.current = null
+      reset()
+    }
+  }, [open, reset])
+
+  // 候选行：base 由任务候选签名驱动（绑定刷新不冲掉本地编辑，仅状态变化时重建）
+  const candidateSignature = useMemo(
+    () => (task?.date_candidates ?? []).map((c) => `${c.id}:${c.status}`).join('|'),
+    [task],
+  )
+  const baseRows = useMemo(
+    () => (isFileMode && task ? rowsFromTask(task) : (textRows ?? [])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [candidateSignature, textRows, isFileMode],
+  )
+  const [overrides, setOverrides] = useState<Record<string, Partial<CandidateRow>>>({})
+  useEffect(() => setOverrides({}), [candidateSignature, textRows])
+  const rows = useMemo(
+    () => baseRows.map((r) => (overrides[r.key] ? { ...r, ...overrides[r.key] } : r)),
+    [baseRows, overrides],
+  )
+
+  const writableCount = isFileMode ? selectedPendingRows(rows).length : selectedTextRows(rows).length
+  const recognition = task?.recognition
+  const showProgress = isFileMode && (phase === 'submitting' || phase === 'polling')
+  const showError = isFileMode && phase === 'error'
+  // 文字模式无识别阶段，直接进确认；文件模式等识别 ready
+  const contentReady = !isFileMode || phase === 'ready'
+
+  const doConfirm = async () => {
+    if (busy) return
+    if (writableCount === 0) {
+      toast.info('请先勾选要写入的日期')
+      return
+    }
+    setBusy(true)
+    try {
+      if (isFileMode && task) {
+        const items = selectedPendingRows(rows).map((r) => ({
+          candidate_id: r.candidateId as number,
+          action: 'confirm' as const,
+          // datetime-local 原文（naive 本地）上送，服务端补时区——不能 toISOString
+          due_at: r.dueLocal,
+          reminder_type: r.reminderType,
+        }))
+        const res = await confirmDates(task.task_id, items)
+        const errors = res.results.filter((x) => x.status === 'error')
+        if (errors.length) {
+          toast.warning(`${errors.length} 条未写入：${errors[0]?.message ?? '未知原因'}`)
+        } else {
+          const reused = res.results.filter((x) => x.message.includes('复用')).length
+          toast.success(`已写入 ${res.results.length} 条提醒${reused ? `（${reused} 条复用了既有提醒）` : ''}`)
+        }
+        await refresh()
+        onSaved()
+      } else if (onConfirmText) {
+        const created = await onConfirmText(selectedTextRows(rows))
+        toast.success(`已加入日历 ${created} 条`)
+        onClose()
+        onSaved()
+      }
+    } catch (e) {
+      toast.error(errMessage(e, '写入失败，请稍后重试'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const doSkip = async (row: CandidateRow) => {
+    if (!task || busy || row.candidateId == null) return
+    setBusy(true)
+    try {
+      await confirmDates(task.task_id, [{ candidate_id: row.candidateId, action: 'skip' }])
+      await refresh()
+    } catch (e) {
+      toast.error(errMessage(e, '操作失败，请稍后重试'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const doRevoke = async (row: CandidateRow) => {
+    if (!task || busy || row.candidateId == null) return
+    setBusy(true)
+    try {
+      await revokeDate(task.task_id, row.candidateId)
+      toast.success('已撤销并删除该条提醒')
+      await refresh()
+      onSaved()
+    } catch (e) {
+      toast.error(errMessage(e, '撤销失败，请稍后重试'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-h-[85vh] gap-0 overflow-y-auto sm:max-w-[560px]">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="flex items-center gap-2 text-[15px]">
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            {file ? file.name : '文字记一笔 · 确认日期'}
+          </DialogTitle>
+          <DialogDescription className="text-[12px]">
+            只有确认过的日期才会写入重要日期提醒
+          </DialogDescription>
+        </DialogHeader>
+
+        {showProgress && (
+          <div className="flex flex-col items-center gap-3 py-10">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <span className="text-[12.5px] text-muted-foreground">{hint}</span>
+          </div>
+        )}
+
+        {showError && (
+          <div className="flex flex-col items-center gap-3 py-10">
+            <TriangleAlert className="h-6 w-6 text-status-red" />
+            <span className="text-[12.5px] text-muted-foreground">{error}</span>
+            <Button variant="outline" size="sm" onClick={onClose}>
+              关闭
+            </Button>
+          </div>
+        )}
+
+        {contentReady && (
+          <div className="flex flex-col gap-3.5 pt-1">
+            {isFileMode && task && recognition && (
+              <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
+                <span className="rounded-[6px] border border-border bg-secondary px-2 py-[3px] font-semibold">
+                  {DOC_TYPE_LABELS[recognition.document_type ?? ''] ?? '文书'}
+                </span>
+                {recognition.case_number && (
+                  <span className="rounded-[6px] bg-secondary/60 px-2 py-[3px] tabular-nums">{recognition.case_number}</span>
+                )}
+                {recognition.confidence != null && (
+                  <span className="tabular-nums text-muted-foreground">置信度 {Math.round(recognition.confidence * 100)}%</span>
+                )}
+                <span className="text-muted-foreground">
+                  {recognition.llm_model ?? '关键词+规则'}
+                  {recognition.degraded ? '（降级）' : ''}
+                </span>
+              </div>
+            )}
+
+            {isFileMode && task && <CaseBindingSection task={task} onBound={refresh} />}
+
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] font-semibold">
+                  {isFileMode ? '第 2 步 · 确认关键日期' : '确认日期'}
+                </span>
+                {rows.length > 0 && (
+                  <span className="text-[11px] text-muted-foreground">
+                    {rows.filter((r) => r.status === 'confirmed').length}/{rows.length} 已确认
+                  </span>
+                )}
+              </div>
+              <DateCandidateList
+                rows={rows}
+                interactive={isFileMode}
+                busy={busy}
+                onToggle={(key) => {
+                  const row = rows.find((r) => r.key === key)
+                  if (row) setOverrides((prev) => ({ ...prev, [key]: { checked: !row.checked } }))
+                }}
+                onPatch={(key, patch) => setOverrides((prev) => patchRowWithOverride(prev, key, patch))}
+                onSkip={doSkip}
+                onRevoke={doRevoke}
+              />
+              {rows.length > 0 && rows.every((r) => r.status !== 'pending') && (
+                <span className="text-center text-[11.5px] text-status-green">全部处理完成</span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {contentReady && (
+          <DialogFooter className="mt-3 gap-2 border-t border-border pt-3">
+            <span className="mr-auto text-[11px] text-muted-foreground">
+              {isFileMode && task && !task.binding?.success ? '未关联案件，将创建独立提醒' : ''}
+            </span>
+            <Button variant="outline" onClick={onClose} disabled={busy}>
+              关闭
+            </Button>
+            <Button onClick={doConfirm} disabled={busy || writableCount === 0} className={cn(busy && 'opacity-80')}>
+              {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              写入 {writableCount} 条提醒
+            </Button>
+          </DialogFooter>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function patchRowWithOverride(
+  prev: Record<string, Partial<CandidateRow>>,
+  key: string,
+  patch: Partial<CandidateRow>,
+): Record<string, Partial<CandidateRow>> {
+  return { ...prev, [key]: { ...(prev[key] ?? {}), ...patch } }
+}

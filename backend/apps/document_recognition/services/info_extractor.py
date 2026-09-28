@@ -13,24 +13,12 @@ import logging
 from datetime import datetime
 from typing import Any, Callable
 
-from apps.core.llm.config import LLMConfig
-
 from ._case_number_mixin import CaseNumberMixin
 from ._datetime_extraction_mixin import DatetimeExtractionMixin
 from ._response_parser_mixin import ResponseParserMixin
 from .document_analyzer import CourtDocumentAnalysis, DocumentAnalysisOutcome
 
 logger = logging.getLogger("apps.document_recognition")
-
-
-def get_ollama_model() -> str:  # pragma: no cover
-    """兼容旧测试与调用方：保留模块级配置读取入口。"""
-    return LLMConfig.get_ollama_model()
-
-
-def get_ollama_base_url() -> str:  # pragma: no cover
-    """兼容旧测试与调用方：保留模块级配置读取入口。"""
-    return LLMConfig.get_ollama_base_url()
 
 
 class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixin):

@@ -17,12 +17,23 @@ logger = logging.getLogger("apps.document_recognition")
 class DocumentRecognitionTaskService:
     """文书识别任务管理服务"""
 
-    def create_task(self, *, file_path: str, original_filename: str) -> Any:  # pragma: no cover
+    def create_task(
+        self,
+        *,
+        file_path: str,
+        original_filename: str,
+        source_court_sms_id: int | None = None,
+        case_id: int | None = None,
+        case_log_id: int | None = None,
+    ) -> Any:  # pragma: no cover
         """创建识别任务记录
 
         Args:
             file_path: 文件路径
             original_filename: 原始文件名
+            source_court_sms_id: 来源法院短信 ID（管线模式：案件已由短信第一轮绑定）
+            case_id: 管线预绑定的案件 ID（与 case_log_id 配套，跳过识别期匹配）
+            case_log_id: 管线预绑定的案件日志 ID（日期确认的提醒锚点）
 
         Returns:
             DocumentRecognitionTask 实例
@@ -33,8 +44,16 @@ class DocumentRecognitionTaskService:
             file_path=file_path,
             original_filename=original_filename,
             status=DocumentRecognitionStatus.PENDING,
+            source_court_sms_id=source_court_sms_id,
+            case_id=case_id,
+            case_log_id=case_log_id,
+            binding_success=True if case_log_id else None,
+            binding_message="案件已由来源管线（法院短信）绑定" if case_log_id else None,
         )
-        logger.info("创建文书识别任务", extra={})
+        logger.info(
+            "创建文书识别任务",
+            extra={"source_court_sms_id": source_court_sms_id, "prebound_case_log_id": case_log_id},
+        )
         return task
 
     def get_task(self, task_id: int, *, select_case: bool = False) -> Any:  # pragma: no cover
@@ -116,6 +135,45 @@ class DocumentRecognitionTaskService:
             )
 
         return task
+
+    def pending_tasks(self, *, limit: int = 10) -> list[dict[str, Any]]:
+        """待确认日期的识别任务（工作台侧栏「待确认任务」）
+
+        Args:
+            limit: 返回数量限制
+
+        Returns:
+            任务摘要字典列表
+        """
+        from django.db.models import Count
+
+        from apps.document_recognition.models import (
+            DateConfirmationStatus,
+            DocumentRecognitionStatus,
+            DocumentRecognitionTask,
+        )
+
+        tasks = (
+            DocumentRecognitionTask.objects.filter(
+                status=DocumentRecognitionStatus.SUCCESS,
+                date_confirmation_status__in=[DateConfirmationStatus.PENDING, DateConfirmationStatus.PARTIAL],
+            )
+            .select_related("case")
+            .annotate(candidate_count=Count("date_candidates"))
+            .order_by("-created_at")[:limit]
+        )
+        return [
+            {
+                "task_id": t.id,
+                "original_filename": t.original_filename,
+                "document_type": t.document_type,
+                "date_confirmation_status": t.date_confirmation_status,
+                "candidate_count": t.candidate_count,
+                "case_name": t.case.name if t.case_id else None,
+                "created_at": t.created_at.isoformat(),
+            }
+            for t in tasks
+        ]
 
     def search_cases_for_binding(self, *, search_term: str = "", limit: int = 20) -> list[dict[str, Any]]:
         """搜索可绑定的案件

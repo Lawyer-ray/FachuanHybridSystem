@@ -22,9 +22,11 @@ Requirements: 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 2.3, 2.4, 3.1, 3.2, 3.3, 4.1, 4.2, 4
 import logging
 from datetime import datetime
 
+from django.utils import timezone
+
+from apps.core.exceptions.error_codes import CHAT_CREATION_FAILED, MESSAGE_SEND_FAILED
 from apps.core.interfaces import ICaseChatService, ServiceLocator
 from apps.core.models.enums import ChatPlatform
-from apps.core.exceptions.error_codes import CHAT_CREATION_FAILED, MESSAGE_SEND_FAILED
 
 from .data_classes import NotificationResult
 
@@ -81,6 +83,7 @@ class DocumentRecognitionNotificationService:
         case_number: str | None,
         key_time: datetime | None,
         case_name: str,
+        date_count: int = 0,
     ) -> str:
         """构建通知消息内容
 
@@ -91,6 +94,8 @@ class DocumentRecognitionNotificationService:
             case_number: 案号（可选）
             key_time: 关键时间（开庭时间等，可选）
             case_name: 案件名称
+            date_count: 识别到的日期候选数量（>0 时改用"待确认"文案，
+                避免暗示提醒已写入——提醒只走人工确认接口）
 
         Returns:
             str: 格式化的通知消息
@@ -116,15 +121,14 @@ class DocumentRecognitionNotificationService:
         if case_number:
             lines.append(f"案号：{case_number}")
 
-        # Requirements 2.3: 传票包含开庭时间
-        if key_time:
-            if document_type == "summons":
-                lines.append(f"开庭时间：{key_time.strftime('%Y年%m月%d日 %H:%M')}")
-            else:
-                lines.append(f"关键时间：{key_time.strftime('%Y年%m月%d日 %H:%M')}")
+        # Requirements 2.3: 日期候选待人工确认
+        if date_count > 0:
+            lines.append(f"已识别 {date_count} 个关键日期，待律师确认后写入重要日期提醒")
+        elif key_time:
+            lines.append(f"关键时间：{key_time.strftime('%Y年%m月%d日 %H:%M')}")
 
         # Requirements 2.4: 包含处理时间
-        lines.append(f"处理时间：{datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')}")
+        lines.append(f"处理时间：{timezone.now().strftime('%Y年%m月%d日 %H:%M:%S')}")
 
         return "\n".join(lines)
 
@@ -136,6 +140,7 @@ class DocumentRecognitionNotificationService:
         key_time: datetime | None,
         file_path: str,
         case_name: str,
+        date_count: int = 0,
     ) -> NotificationResult:
         """发送文书识别通知
 
@@ -148,6 +153,7 @@ class DocumentRecognitionNotificationService:
             key_time: 关键时间（开庭时间等，可选）
             file_path: 文书文件路径
             case_name: 案件名称
+            date_count: 识别到的日期候选数量
 
         Returns:
             NotificationResult: 通知发送结果
@@ -203,6 +209,7 @@ class DocumentRecognitionNotificationService:
                 case_number=case_number,
                 key_time=key_time,
                 case_name=case_name,
+                date_count=date_count,
             )
 
             # Requirements 3.1, 3.3: 发送消息和文件
@@ -216,9 +223,7 @@ class DocumentRecognitionNotificationService:
                 )
 
                 if result.success:
-                    from django.utils import timezone as tz
-
-                    sent_at = tz.now()
+                    sent_at = timezone.now()
                     # 判断文件是否发送成功（根据消息内容判断）
                     file_sent = file_path and "文件发送成功" in (result.message or "")
 
@@ -268,20 +273,6 @@ class DocumentRecognitionNotificationService:
                     error_code="MESSAGE_SEND_ERROR",
                 )
 
-        except ImportError as e:
-            logger.error(
-                "无法导入 CaseChatService",
-                extra={
-                    "action": "send_notification",
-                    "case_id": case_id,
-                    "error": str(e),
-                    "error_code": "IMPORT_ERROR",
-                },
-            )
-            return NotificationResult.failure_result(
-                message=f"无法导入 CaseChatService: {e!s}",
-                error_code="IMPORT_ERROR",
-            )
         except Exception as e:
             logger.error(
                 "文书识别通知处理失败",

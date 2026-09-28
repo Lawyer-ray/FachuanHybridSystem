@@ -45,7 +45,7 @@ class RecognizeCourtDocumentUsecase:
                 extraction_method=extraction_result.extraction_method,
             )
             binding, renamed_file_path = self._bind_document(
-                doc_type, case_number, key_time, extraction_result.text, file_path, user
+                doc_type, case_number, extraction_result.text, file_path, user
             )
             logger.info(
                 "文书识别完成",
@@ -84,7 +84,7 @@ class RecognizeCourtDocumentUsecase:
         return (None, None)
 
     def _bind_document(
-        self, doc_type: Any, case_number: Any, key_time: Any, raw_text: Any, file_path: Any, user: Any
+        self, doc_type: Any, case_number: Any, raw_text: Any, file_path: Any, user: Any
     ) -> tuple[Any, Any]:
         """绑定文书到案件,返回 (binding, renamed_file_path)"""
         _UNSUPPORTED = {
@@ -110,14 +110,18 @@ class RecognizeCourtDocumentUsecase:
                 case_name = case_dto.name
         if case_name:
             renamed_file_path = self._rename_document(file_path=file_path, document_type=doc_type, case_name=case_name)
+        if case_id is None:
+            return (
+                BindingResult.failure_result(message="未找到案号对应案件", error_code="CASE_NOT_FOUND"),
+                renamed_file_path,
+            )
         log_content = self.binding_service.format_log_content(
-            document_type=doc_type, case_number=case_number, key_time=key_time, raw_text=raw_text
+            document_type=doc_type, case_number=case_number, raw_text=raw_text
         )
         binding = self.binding_service.bind_document_to_case(
-            case_number=case_number,
+            case_id=case_id,
             document_type=doc_type,
             content=log_content,
-            key_time=key_time,
             file_path=renamed_file_path,
             user=user,
         )

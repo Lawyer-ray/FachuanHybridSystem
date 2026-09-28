@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 from django.contrib import admin
 from django.db.models import QuerySet
@@ -13,7 +13,63 @@ from django.urls import path, reverse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
 
-from apps.document_recognition.models import DocumentRecognitionStatus, DocumentRecognitionTask, DocumentRecognitionTool
+from apps.document_recognition.models import (
+    DateCandidateStatus,
+    DateConfirmationStatus,
+    DocumentRecognitionDateCandidate,
+    DocumentRecognitionStatus,
+    DocumentRecognitionTask,
+    DocumentRecognitionTool,
+)
+
+
+class DateCandidateInline(admin.TabularInline):  # pragma: no cover
+    """任务详情页只读展示日期候选（确认状态/提醒回链）。"""
+
+    model = DocumentRecognitionDateCandidate
+    extra = 0
+    can_delete = False
+    fields = (
+        "due_at",
+        "reminder_type",
+        "context_text",
+        "source",
+        "confidence",
+        "status_display_inline",
+        "reminder_link",
+        "confirmed_by",
+        "confirmed_at",
+    )
+    readonly_fields = (
+        "due_at",
+        "reminder_type",
+        "context_text",
+        "source",
+        "confidence",
+        "status_display_inline",
+        "reminder_link",
+        "confirmed_by",
+        "confirmed_at",
+    )
+
+    def status_display_inline(self, obj: DocumentRecognitionDateCandidate) -> str:  # pragma: no cover
+        return obj.get_status_display()
+
+    status_display_inline.short_description = "确认状态"  # type: ignore[attr-defined]
+
+    def reminder_link(self, obj: DocumentRecognitionDateCandidate) -> SafeString | str:  # pragma: no cover
+        if not obj.reminder_id:
+            return "-"
+        url = reverse("admin:reminders_reminder_change", args=[obj.reminder_id])
+        return format_html('<a href="{}" target="_blank">提醒 #{}</a>', url, obj.reminder_id)
+
+    reminder_link.short_description = "已写入提醒"  # type: ignore[attr-defined]
+
+    def has_add_permission(self, request: HttpRequest, obj: Any = None) -> bool:  # pragma: no cover
+        return False
+
+    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:  # pragma: no cover
+        return False
 
 
 @admin.register(DocumentRecognitionTool)
@@ -62,17 +118,20 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         "case_number",
         "case_display",
         "binding_status_display",
+        "date_confirmation_display",
+        "continue_processing",
         "notification_status_display",
-        "notification_sent_at",
         "created_at",
     ]
     list_filter = [
         "status",
         "document_type",
         "binding_success",
+        "date_confirmation_status",
         "notification_sent",
         "created_at",
     ]
+    inlines = [DateCandidateInline]
     search_fields: ClassVar[list[str]] = ["original_filename", "case_number", "case__name"]
     ordering = ["-created_at"]
     list_per_page = 20
@@ -90,6 +149,8 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         "llm_backend",
         "llm_latency_ms",
         "degraded",
+        "party_names",
+        "date_confirmation_status",
         "raw_text_display",
         "renamed_file_path",
         "binding_success",
@@ -97,6 +158,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         "case_log",
         "binding_message",
         "binding_error_code",
+        "source_court_sms",
         "error_message",
         "notification_sent",
         "notification_sent_at",
@@ -121,12 +183,26 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
                     "llm_backend",
                     "llm_latency_ms",
                     "degraded",
+                    "party_names",
                     "renamed_file_path",
                 )
             },
         ),
+        ("日期确认", {"fields": ("date_confirmation_status",)}),
         ("原始文本", {"fields": ("raw_text_display",), "classes": ("collapse",)}),
-        ("绑定结果", {"fields": ("binding_success", "case", "case_log", "binding_message", "binding_error_code")}),
+        (
+            "绑定结果",
+            {
+                "fields": (
+                    "binding_success",
+                    "case",
+                    "case_log",
+                    "source_court_sms",
+                    "binding_message",
+                    "binding_error_code",
+                )
+            },
+        ),
         (
             "通知状态",
             {
@@ -211,6 +287,30 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
 
     binding_status_display.short_description = "绑定状态"  # type: ignore[attr-defined]
 
+    def date_confirmation_display(self, obj: DocumentRecognitionTask) -> SafeString:  # pragma: no cover
+        total = getattr(obj, "total_candidates", None)
+        if total is None:
+            total = obj.date_candidates.count()
+        confirmed = getattr(obj, "confirmed_candidates", None)
+        if confirmed is None:
+            confirmed = obj.date_candidates.filter(status=DateCandidateStatus.CONFIRMED).count()
+        if total == 0:
+            return format_html('<span style="color: gray;">-</span>')
+        label = f"{confirmed}/{total} 已确认"
+        if obj.date_confirmation_status == DateConfirmationStatus.COMPLETE:
+            return format_html('<span style="color: green;">✓ {}</span>', label)
+        return format_html('<span style="color: orange;">{}</span>', label)
+
+    date_confirmation_display.short_description = "日期确认"  # type: ignore[attr-defined]
+
+    def continue_processing(self, obj: DocumentRecognitionTask) -> SafeString | str:  # pragma: no cover
+        if obj.status != DocumentRecognitionStatus.SUCCESS:
+            return "-"
+        url = reverse("admin:document_recognition_documentrecognitiontool_changelist") + f"?task={obj.id}"
+        return format_html('<a href="{}" class="button">继续处理</a>', url)
+
+    continue_processing.short_description = "操作"  # type: ignore[attr-defined]
+
     def notification_status_display(self, obj: DocumentRecognitionTask) -> SafeString:  # pragma: no cover
         if not obj.binding_success:
             return format_html('<span style="color: gray;">{}</span>', "- 无需通知")
@@ -246,7 +346,20 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     raw_text_display.short_description = "原始文本"  # type: ignore[attr-defined]
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[DocumentRecognitionTask]:  # pragma: no cover
-        return super().get_queryset(request).select_related("case", "case_log")
+        from django.db.models import Count, Q
+
+        qs = (
+            super()
+            .get_queryset(request)
+            .select_related("case", "case_log")
+            .annotate(
+                total_candidates=Count("date_candidates"),
+                confirmed_candidates=Count(
+                    "date_candidates", filter=Q(date_candidates__status=DateCandidateStatus.CONFIRMED)
+                ),
+            )
+        )
+        return cast(QuerySet[DocumentRecognitionTask], qs)
 
     def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return False

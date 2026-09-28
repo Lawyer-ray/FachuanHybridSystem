@@ -49,11 +49,11 @@ class TestCaseBindingService:
         content = svc.format_log_content(
             document_type=DocumentType.SUMMONS,
             case_number="(2023)京01号",
-            key_time=datetime(2024, 1, 15, 9, 0),
             raw_text="some text",
+            date_count=2,
         )
         assert "传票" in content
-        assert "开庭时间" in content
+        assert "识别到 2 个关键日期（待人工确认后写入重要日期提醒）" in content
         assert "some text" in content
 
     def test_format_log_content_execution(self, svc):
@@ -62,11 +62,11 @@ class TestCaseBindingService:
         content = svc.format_log_content(
             document_type=DocumentType.EXECUTION_RULING,
             case_number="(2023)京01执1号",
-            key_time=datetime(2024, 6, 1),
             raw_text="long text" * 100,
+            date_count=1,
         )
         assert "执行裁定书" in content
-        assert "保全到期时间" in content
+        assert "识别到 1 个关键日期（待人工确认后写入重要日期提醒）" in content
         assert "..." in content  # text truncated
 
     def test_format_log_content_other(self, svc):
@@ -75,11 +75,11 @@ class TestCaseBindingService:
         content = svc.format_log_content(
             document_type=DocumentType.OTHER,
             case_number=None,
-            key_time=None,
             raw_text="",
         )
         assert "其他文书" in content
         assert "案号" not in content
+        assert "关键日期" not in content
 
     def test_format_log_content_no_raw_text(self, svc):
         from apps.document_recognition.services.data_classes import DocumentType
@@ -87,36 +87,38 @@ class TestCaseBindingService:
         content = svc.format_log_content(
             document_type=DocumentType.SUMMONS,
             case_number=None,
-            key_time=None,
             raw_text="",
         )
         assert "文书内容摘要" not in content
 
-    def test_bind_document_to_case_no_case_number(self, svc):
+    def test_bind_document_to_case_direct_by_case_id(self, svc):
+        """原 test_bind_document_to_case_no_case_number：不再按案号搜索，直接给 case_id 绑定。"""
         from apps.document_recognition.services.data_classes import DocumentType
 
+        svc._case_service.get_case_by_id_internal.return_value = SimpleNamespace(name="Test")
+        svc.create_case_log = MagicMock(return_value=10)
+
         result = svc.bind_document_to_case(
-            case_number="",
+            case_id=1,
             document_type=DocumentType.SUMMONS,
             content="",
-            key_time=None,
             file_path="",
         )
-        assert result.success is False
-        assert "CASE_NUMBER_NOT_FOUND" in (result.error_code or "")
+        assert result.success is True
+        svc._case_service.search_cases_by_case_number_internal.assert_not_called()
 
     def test_bind_document_to_case_case_not_found(self, svc):
         from apps.document_recognition.services.data_classes import DocumentType
 
-        svc._case_service.search_cases_by_case_number_internal.return_value = []
+        svc._case_service.get_case_by_id_internal.return_value = None
         result = svc.bind_document_to_case(
-            case_number="(2023)京01号",
+            case_id=1,
             document_type=DocumentType.SUMMONS,
             content="",
-            key_time=None,
             file_path="",
         )
         assert result.success is False
+        assert "CASE_NOT_FOUND" in (result.error_code or "")
 
     def test_bind_document_to_case_success(self, svc):
         """Test the logic paths that don't require transaction.atomic."""
@@ -136,16 +138,13 @@ class TestCaseBindingService:
     def test_bind_document_to_case_log_create_exception(self, svc):
         from apps.document_recognition.services.data_classes import DocumentType
 
-        mock_case = SimpleNamespace(id=1)
-        svc._case_service.search_cases_by_case_number_internal.return_value = [mock_case]
         svc._case_service.get_case_by_id_internal.return_value = SimpleNamespace(name="Test")
         svc._case_service.create_case_log_internal.side_effect = RuntimeError("db error")
 
         result = svc.bind_document_to_case(
-            case_number="(2023)京01号",
+            case_id=1,
             document_type=DocumentType.SUMMONS,
             content="",
-            key_time=None,
             file_path="",
         )
         assert result.success is False
@@ -154,79 +153,68 @@ class TestCaseBindingService:
     def test_bind_document_to_case_case_dto_none(self, svc):
         from apps.document_recognition.services.data_classes import DocumentType
 
-        mock_case = SimpleNamespace(id=1)
-        svc._case_service.search_cases_by_case_number_internal.return_value = [mock_case]
         svc._case_service.get_case_by_id_internal.return_value = None
 
         result = svc.bind_document_to_case(
-            case_number="(2023)京01号",
+            case_id=1,
             document_type=DocumentType.SUMMONS,
             content="",
-            key_time=None,
             file_path="",
         )
         assert result.success is False
 
     def test_create_case_log_with_reminder(self, svc):
-        """Test _update_log_reminder logic directly (create_case_log needs DB due to @transaction.atomic)."""
-        from apps.document_recognition.services.data_classes import DocumentType
-
+        """原 _update_log_reminder 逻辑已删除：create_case_log 不写任何提醒。"""
+        svc._case_service.create_case_log_internal.return_value = 10
         svc._case_service.update_case_log_reminder_internal.return_value = True
 
-        # Call _update_log_reminder directly
-        svc._update_log_reminder(
-            case_log_id=10,
-            reminder_time=datetime(2024, 1, 15),
-            document_type=DocumentType.SUMMONS,
+        result = svc.create_case_log.__wrapped__(  # type: ignore[attr-defined]
+            svc, case_id=1, content="【传票】识别到 3 个关键日期", file_path=""
         )
-        svc._case_service.update_case_log_reminder_internal.assert_called_once()
+        assert result == 10
+        svc._case_service.update_case_log_reminder_internal.assert_not_called()
 
     def test_create_case_log_reminder_update_fails(self, svc):
-        from apps.document_recognition.services.data_classes import DocumentType
-
+        """update 方法返回 False 也不会被调用（零提醒）。"""
+        svc._case_service.create_case_log_internal.return_value = 10
         svc._case_service.update_case_log_reminder_internal.return_value = False
-        svc._update_log_reminder(
-            case_log_id=10,
-            reminder_time=datetime(2024, 1, 15),
-            document_type=DocumentType.SUMMONS,
+
+        result = svc.create_case_log.__wrapped__(  # type: ignore[attr-defined]
+            svc, case_id=1, content="test", file_path=""
         )
+        assert result == 10
+        svc._case_service.update_case_log_reminder_internal.assert_not_called()
 
     def test_create_case_log_reminder_exception(self, svc):
-        from apps.document_recognition.services.data_classes import DocumentType
-
+        """update 方法抛异常也不影响流程（根本不调用）。"""
+        svc._case_service.create_case_log_internal.return_value = 10
         svc._case_service.update_case_log_reminder_internal.side_effect = RuntimeError("err")
-        # Should not raise - _update_log_reminder catches exceptions
-        svc._update_log_reminder(
-            case_log_id=10,
-            reminder_time=datetime(2024, 1, 15),
-            document_type=DocumentType.EXECUTION_RULING,
+
+        result = svc.create_case_log.__wrapped__(  # type: ignore[attr-defined]
+            svc, case_id=1, content="test", file_path=""
         )
+        assert result == 10
+        svc._case_service.update_case_log_reminder_internal.assert_not_called()
 
     def test_create_case_log_no_file(self, svc):
-        """Test _update_log_reminder with OTHER type."""
-        from apps.document_recognition.services.data_classes import DocumentType
+        """空文件路径：不调用附件接口，仅建日志。"""
+        svc._case_service.create_case_log_internal.return_value = 10
 
-        svc._case_service.update_case_log_reminder_internal.return_value = True
-        svc._update_log_reminder(
-            case_log_id=10,
-            reminder_time=datetime(2024, 1, 1),
-            document_type=DocumentType.OTHER,
+        result = svc.create_case_log.__wrapped__(  # type: ignore[attr-defined]
+            svc, case_id=1, content="test", file_path=""
         )
-        call_kwargs = svc._case_service.update_case_log_reminder_internal.call_args
-        assert call_kwargs[1]["reminder_type"] == "other"
+        assert result == 10
+        svc._case_service.add_case_log_attachment_internal.assert_not_called()
 
     def test_create_case_log_file_attachment_fails(self, svc):
-        """Test _update_log_reminder with EXECUTION_RULING type."""
-        from apps.document_recognition.services.data_classes import DocumentType
+        """附件添加失败不影响日志创建结果。"""
+        svc._case_service.create_case_log_internal.return_value = 10
+        svc._case_service.add_case_log_attachment_internal.return_value = False
 
-        svc._case_service.update_case_log_reminder_internal.return_value = True
-        svc._update_log_reminder(
-            case_log_id=10,
-            reminder_time=datetime(2024, 1, 1),
-            document_type=DocumentType.EXECUTION_RULING,
+        result = svc.create_case_log.__wrapped__(  # type: ignore[attr-defined]
+            svc, case_id=1, content="test", file_path="/tmp/doc.pdf"
         )
-        call_kwargs = svc._case_service.update_case_log_reminder_internal.call_args
-        assert call_kwargs[1]["reminder_type"] == "asset_preservation_expires"
+        assert result == 10
 
     def test_create_case_log_with_user(self, svc):
         """Test format_log_content with no case_number."""
@@ -235,7 +223,6 @@ class TestCaseBindingService:
         content = svc.format_log_content(
             document_type=DocumentType.OTHER,
             case_number=None,
-            key_time=None,
             raw_text="some content here",
         )
         assert "其他文书" in content
@@ -249,7 +236,6 @@ class TestCaseBindingService:
         content = svc.format_log_content(
             document_type=DocumentType.OTHER,
             case_number=None,
-            key_time=None,
             raw_text=long_text,
         )
         assert "..." in content
