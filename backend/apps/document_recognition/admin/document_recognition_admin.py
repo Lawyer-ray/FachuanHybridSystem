@@ -287,7 +287,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
 
     binding_status_display.short_description = "绑定状态"  # type: ignore[attr-defined]
 
-    def date_confirmation_display(self, obj: DocumentRecognitionTask) -> SafeString:  # pragma: no cover
+    def date_confirmation_display(self, obj: DocumentRecognitionTask) -> SafeString | str:  # pragma: no cover
         total = getattr(obj, "total_candidates", None)
         if total is None:
             total = obj.date_candidates.count()
@@ -295,7 +295,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         if confirmed is None:
             confirmed = obj.date_candidates.filter(status=DateCandidateStatus.CONFIRMED).count()
         if total == 0:
-            return format_html('<span style="color: gray;">-</span>')
+            return "-"
         label = f"{confirmed}/{total} 已确认"
         if obj.date_confirmation_status == DateConfirmationStatus.COMPLETE:
             return format_html('<span style="color: green;">✓ {}</span>', label)
