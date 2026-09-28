@@ -1,5 +1,5 @@
 """
-证件信息提取的 Ollama 提示词模板
+证件信息提取的 LLM 提示词模板
 """
 
 from apps.client.models import ClientIdentityDoc

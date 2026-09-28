@@ -56,7 +56,9 @@ class TestCaseModel:
     def test_get_case_chain_single_case(self) -> None:
         """无前序案件时，链应只包含自身。"""
         case = CaseFactory()
-        chain = case.get_case_chain()
+        from apps.cases.services.case.case_chain_service import get_case_chain
+
+        chain = get_case_chain(case)
         assert len(chain) == 1
         assert chain[0].pk == case.pk
 
@@ -69,7 +71,9 @@ class TestCaseModel:
         case_c = CaseFactory(name="C", contract=contract, previous_case=case_b)
 
         # 从中间节点查询，应返回完整链
-        chain = case_b.get_case_chain()
+        from apps.cases.services.case.case_chain_service import get_case_chain
+
+        chain = get_case_chain(case_b)
         chain_pks = [c.pk for c in chain]
         assert case_a.pk in chain_pks
         assert case_b.pk in chain_pks
@@ -84,7 +88,9 @@ class TestCaseModel:
         case_a.previous_case = case_b
         case_a.save()
 
-        chain = case_a.get_case_chain()
+        from apps.cases.services.case.case_chain_service import get_case_chain
+
+        chain = get_case_chain(case_a)
         assert len(chain) >= 2  # 至少返回两个节点，不会无限循环
 
     @pytest.mark.django_db

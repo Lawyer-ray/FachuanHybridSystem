@@ -9,18 +9,11 @@ from asgiref.sync import sync_to_async
 from ninja import File, Router
 from ninja.files import UploadedFile
 
-from apps.automation.schemas import OllamaChatIn, OllamaChatOut
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 
 from .performance_monitor_api import router as performance_router
 
 router = Router(tags=["AI工具"])
-
-
-def _get_ai_service() -> Any:
-    from apps.core.dependencies.automation_adapters import build_ai_service
-
-    return build_ai_service()
 
 
 def _get_document_processor_service() -> Any:
@@ -41,20 +34,6 @@ router.add_router("/performance", performance_router)
 # ============================================================================
 # AI集成API
 # ============================================================================
-
-
-@router.post("/ai/ollama", response=OllamaChatOut)
-async def ai_ollama(request: Any, payload: OllamaChatIn) -> OllamaChatOut:  # pragma: no cover
-    """Ollama AI接口"""
-    # 使用工厂函数获取服务
-    service = _get_ai_service()
-
-    # 调用服务处理Ollama聊天
-    result = await sync_to_async(service.chat_with_ollama, thread_sensitive=False)(
-        model=payload.model, prompt=payload.prompt, text=payload.text
-    )
-
-    return OllamaChatOut(data=result)
 
 
 # ============================================================================

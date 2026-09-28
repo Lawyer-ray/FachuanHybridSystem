@@ -63,27 +63,6 @@ def test_get_config(mock_build, authenticated_client):
 
 
 # ===================================================================
-# AI Ollama
-# ===================================================================
-
-
-@pytest.mark.django_db
-@patch("apps.core.dependencies.automation_adapters.build_ai_service")
-def test_ai_ollama(mock_build, authenticated_client):
-    mock_service = MagicMock()
-    mock_service.chat_with_ollama.return_value = {"response": "response text"}
-    mock_build.return_value = mock_service
-
-    resp = authenticated_client.post(
-        "/api/v1/automation/ai/ollama",
-        data=json.dumps({"model": "qwen3:0.6b", "prompt": "test", "text": "hello"}),
-        content_type="application/json",
-    )
-    assert resp.status_code == 200
-    assert "data" in resp.json()
-
-
-# ===================================================================
 # File upload
 # ===================================================================
 
@@ -144,7 +123,7 @@ def test_auto_namer_process(mock_build, authenticated_client):
     mock_service = MagicMock()
     mock_service.process_document_for_naming.return_value = {
         "text": "content",
-        "ollama_response": {"suggested_name": "suggested_name.pdf"},
+        "llm_response": {"suggested_name": "suggested_name.pdf"},
         "error": None,
     }
     mock_build.return_value = mock_service

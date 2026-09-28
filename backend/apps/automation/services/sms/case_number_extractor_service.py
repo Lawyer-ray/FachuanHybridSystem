@@ -23,7 +23,7 @@ class CaseNumberExtractorService:
     案号提取服务
 
     职责：
-    1. 从文书中提取案号（使用 Ollama AI）
+    1. 从文书中提取案号（LLM 辅助 + 正则兜底）
     2. 验证和规范化案号
     3. 同步案号到案件
 
@@ -88,7 +88,7 @@ class CaseNumberExtractorService:
 
     def extract_from_document(self, document_path: str) -> list[str]:
         """
-        从文书中提取案号（使用 Ollama AI）
+        从文书中提取案号（LLM 辅助）
 
         Args:
             document_path: 文书文件路径
@@ -117,12 +117,12 @@ class CaseNumberExtractorService:
                 logger.warning(f"文书内容为空: {document_path}")
                 return []
 
-            # 删除空格（PDF 提取的内容可能包含多余空格，影响 Ollama 识别）
+            # 删除空格（PDF 提取的内容可能包含多余空格，影响 LLM 识别）
             original_len = len(content)
             content = content.replace(" ", "").replace("\u3000", "")  # 删除半角和全角空格
             logger.info(f"从文书中提取到 {original_len} 字符的内容，删除空格后为 {len(content)} 字符")
 
-            # 使用 Ollama 提取案号
+            # 使用 LLM 提取案号
             extracted_numbers = self.extract_from_content(content)
 
             if extracted_numbers:
@@ -135,7 +135,7 @@ class CaseNumberExtractorService:
             return extracted_numbers
 
         except (ConnectionError, LLMError) as e:
-            logger.error(f"Ollama 服务不可用，无法从文书提取案号: {document_path}, 错误: {e!s}")
+            logger.error(f"LLM 服务不可用，无法从文书提取案号: {document_path}, 错误: {e!s}")
             return []
         except FileNotFoundError as e:
             logger.error(f"文书文件不存在: {document_path}, 错误: {e!s}")
@@ -146,7 +146,7 @@ class CaseNumberExtractorService:
 
     def extract_from_content(self, content: str) -> list[str]:  # pragma: no cover
         """
-        从文本内容中提取案号（使用 extraction_provider 或 Ollama AI）
+        从文本内容中提取案号（使用 extraction_provider 或 LLM）
         """
         if not content or not content.strip():
             logger.warning("文书内容为空，无法提取案号")
@@ -156,7 +156,7 @@ class CaseNumberExtractorService:
         if self._extraction_provider is not None:
             try:
                 response_text = self._extraction_provider.extract(content=content)
-                return self._parse_ollama_response(response_text)
+                return self._parse_llm_response(response_text)
             except Exception as e:
                 logger.error(f"extraction_provider 提取案号失败: {e!s}")
                 return []
@@ -175,7 +175,7 @@ class CaseNumberExtractorService:
 
             logger.info(f"LLM 案号提取响应: {content_text}")
 
-            return self._parse_ollama_response(content_text)
+            return self._parse_llm_response(content_text)
 
         except LLMError as e:
             logger.warning(f"LLM 服务不可用，使用正则降级方案: {e!s}")
@@ -202,8 +202,8 @@ class CaseNumberExtractorService:
 {content}
 """
 
-    def _parse_ollama_response(self, content_text: str) -> list[str]:
-        """解析 Ollama 响应，提取案号列表"""
+    def _parse_llm_response(self, content_text: str) -> list[str]:
+        """解析 LLM 响应，提取案号列表"""
         import json
 
         try:
@@ -214,14 +214,14 @@ class CaseNumberExtractorService:
                 result = json.loads(content_text[start_idx:end_idx])
                 if isinstance(result, dict) and isinstance(result.get("case_numbers"), list):
                     validated = self.validate_and_normalize(result["case_numbers"])
-                    logger.info(f"Ollama {'成功提取' if validated else '未提取到有效'}案号: {validated}")
+                    logger.info(f"LLM {'成功提取' if validated else '未提取到有效'}案号: {validated}")
                     return validated
 
-            logger.warning(f"Ollama 返回格式不正确，尝试降级方案: {content_text[:100]}...")
+            logger.warning(f"LLM 返回格式不正确，尝试降级方案: {content_text[:100]}...")
             return self._extract_fallback(content_text)
 
         except json.JSONDecodeError as e:
-            logger.warning(f"解析 Ollama JSON 响应失败，尝试降级方案: {e!s}")
+            logger.warning(f"解析 LLM JSON 响应失败，尝试降级方案: {e!s}")
             return self._extract_fallback(content_text)
 
     def validate_and_normalize(self, case_numbers: list[str]) -> list[str]:

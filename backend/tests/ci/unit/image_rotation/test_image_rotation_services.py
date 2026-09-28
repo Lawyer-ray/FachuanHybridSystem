@@ -10,7 +10,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ============================================================
 # OrientationDetectionService 测试
 # ============================================================
@@ -109,8 +108,8 @@ class TestImageValidation:
         assert result == b""
 
     def test_decode_base64_payload_invalid(self) -> None:
-        from apps.image_rotation.services.validation import decode_base64_payload
         from apps.core.exceptions import ValidationException
+        from apps.image_rotation.services.validation import decode_base64_payload
 
         with pytest.raises(ValidationException):
             decode_base64_payload("not_valid_base64!!!")
@@ -128,8 +127,8 @@ class TestImageValidation:
         assert result == "jpeg"
 
     def test_validate_image_format_invalid(self) -> None:
-        from apps.image_rotation.services.validation import validate_image_format
         from apps.core.exceptions import ValidationException
+        from apps.image_rotation.services.validation import validate_image_format
 
         with pytest.raises(ValidationException):
             validate_image_format(img_format="bmp", supported_formats={"jpeg", "png"})
@@ -147,8 +146,8 @@ class TestImageValidation:
         validate_file_size(image_bytes=b"x" * 100, max_file_size=1000)
 
     def test_validate_file_size_exceeded(self) -> None:
-        from apps.image_rotation.services.validation import validate_file_size
         from apps.core.exceptions import ValidationException
+        from apps.image_rotation.services.validation import validate_file_size
 
         with pytest.raises(ValidationException):
             validate_file_size(image_bytes=b"x" * 1000, max_file_size=100)
@@ -165,7 +164,7 @@ class TestAutoRenameService:
     def _make_service(self, llm_client=None):
         from apps.image_rotation.services.auto_rename_service import AutoRenameService
 
-        return AutoRenameService(ollama_model="test", ollama_base_url="http://test", llm_client=llm_client)
+        return AutoRenameService(model="test", llm_client=llm_client)
 
     def test_extract_info_empty_text(self) -> None:
         svc = self._make_service()

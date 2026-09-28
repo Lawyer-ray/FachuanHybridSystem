@@ -14,8 +14,8 @@ import pytest
 
 from apps.client.services.identity_extraction.data_classes import (
     ExtractionResult,
+    LLMExtractionError,
     OCRExtractionError,
-    OllamaExtractionError,
 )
 from apps.client.services.identity_extraction.extraction_service import IdentityExtractionService
 from apps.core.exceptions import ServiceUnavailableError, ValidationException
@@ -115,10 +115,10 @@ class TestExtractExceptionHandling:
         with pytest.raises(OCRExtractionError):
             svc.extract(b"image", "id_card")
 
-    @patch.object(IdentityExtractionService, "_ocr_extract", side_effect=OllamaExtractionError("LLM failed"))
+    @patch.object(IdentityExtractionService, "_ocr_extract", side_effect=LLMExtractionError("LLM failed"))
     def test_ollama_error_propagated(self, mock_ocr):
         svc = _make_service()
-        with pytest.raises(OllamaExtractionError):
+        with pytest.raises(LLMExtractionError):
             svc.extract(b"image", "id_card")
 
     @patch.object(IdentityExtractionService, "_ocr_extract", side_effect=ServiceUnavailableError(message="svc down", service_name="OCR"))
@@ -425,7 +425,7 @@ class TestSafeExtract:
         assert result["success"] is True
         assert result["confidence"] == 0.95
 
-    @patch.object(IdentityExtractionService, "extract", side_effect=OllamaExtractionError("LLM error"))
+    @patch.object(IdentityExtractionService, "extract", side_effect=LLMExtractionError("LLM error"))
     def test_ollama_error(self, mock_extract):
         svc = _make_service()
         result = svc.safe_extract(b"img", "id_card")

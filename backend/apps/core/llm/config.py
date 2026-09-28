@@ -40,11 +40,6 @@ class LLMConfig:
     - ENABLE_TRACKING: 是否启用调用追踪
     """
 
-    # Ollama 默认值 (Requirements: 2.2, 2.3)
-    DEFAULT_OLLAMA_MODEL = "qwen3:0.6b"
-    DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
-    DEFAULT_OLLAMA_TIMEOUT = 300
-
     # OpenAI-compatible 默认值
     DEFAULT_OPENAI_COMPATIBLE_MODEL = "kimi26"
     DEFAULT_OPENAI_COMPATIBLE_BASE_URL = "http://116.196.92.175:8001/v1"
@@ -60,14 +55,11 @@ class LLMConfig:
         "kimi26",
     ]
 
-    # 模型名 → 后端映射规则（2026-09 Ollama 下线后为空）：
-    # 全部模型名默认走 openai_compatible（AI 平台表路由）。
-    # 如未来要恢复本地后端，在此追加规则并在 SystemConfig 启用对应后端。
-    _MODEL_BACKEND_RULES: ClassVar[list[tuple[str, str]]] = []
-
     # 缓存 SystemConfigService 实例
     _config_service: SystemConfigService | None = None
-    _VALID_BACKENDS: ClassVar[set[str]] = {"ollama", "openai_compatible"}
+    # 2026-09 Ollama 下线：唯一后端为 openai_compatible（AI 平台表路由），
+    # 如未来恢复本地后端，在 backends/ 新增实现并注册回 registry 后放开此处。
+    _VALID_BACKENDS: ClassVar[set[str]] = {"openai_compatible"}
 
     @classmethod
     def _get_config_service(cls) -> SystemConfigService | None:
@@ -103,16 +95,11 @@ class LLMConfig:
         llm_config = getattr(settings, "LLM", {} or {})
         # 尝试读取 OPENAI_COMPATIBLE 配置组
         oc_config = getattr(settings, "OPENAI_COMPATIBLE", {} or {})
-        # 尝试读取 OLLAMA 配置组
-        ollama_config = getattr(settings, "OLLAMA", {} or {})
 
         # 根据 key 前缀选择配置组
         if key.startswith("OPENAI_COMPATIBLE_"):
             django_key = key.replace("OPENAI_COMPATIBLE_", "")
             raw_value = oc_config.get(django_key, default)
-        elif key.startswith("OLLAMA_"):
-            django_key = key.replace("OLLAMA_", "")
-            raw_value = ollama_config.get(django_key, default)
         else:
             raw_value = llm_config.get(key, default)
 
@@ -255,71 +242,6 @@ class LLMConfig:
             return int(tokens_str)
         except (ValueError, TypeError):
             return 2000
-
-    # ============================================================
-    # Ollama 配置方法
-    # Requirements: 2.2, 2.3
-    # ============================================================
-
-    @classmethod
-    def get_ollama_model(cls) -> str:
-        """获取 Ollama 模型名称"""
-        model = cls._get_system_config("OLLAMA_MODEL", "")
-        if model:
-            return model
-
-        ollama_config = getattr(settings, "OLLAMA", {} or {})
-        raw_value = ollama_config.get("MODEL")
-        if isinstance(raw_value, str) and raw_value.strip():
-            return raw_value.strip()
-        return cls.DEFAULT_OLLAMA_MODEL
-
-    @classmethod
-    async def get_ollama_model_async(cls) -> str:
-        """异步版本: 获取 Ollama 模型名称"""
-        model = await cls._get_system_config_async("OLLAMA_MODEL", "")
-        if model:
-            return model
-
-        ollama_config = getattr(settings, "OLLAMA", {} or {})
-        raw_value = ollama_config.get("MODEL")
-        if isinstance(raw_value, str) and raw_value.strip():
-            return raw_value.strip()
-        return cls.DEFAULT_OLLAMA_MODEL
-
-    @classmethod
-    def get_ollama_base_url(cls) -> str:
-        """获取 Ollama 服务地址"""
-        url = cls._get_system_config("OLLAMA_BASE_URL", "")
-        if url:
-            return url
-
-        ollama_config = getattr(settings, "OLLAMA", {} or {})
-        raw_value = ollama_config.get("BASE_URL")
-        if isinstance(raw_value, str) and raw_value.strip():
-            return raw_value.strip()
-        return cls.DEFAULT_OLLAMA_BASE_URL
-
-    @classmethod
-    def get_ollama_timeout(cls) -> int:
-        """获取 Ollama 超时时间（秒）。"""
-        timeout_str = cls._get_system_config("OLLAMA_TIMEOUT", str(cls.DEFAULT_OLLAMA_TIMEOUT))
-        try:
-            return int(timeout_str)
-        except (ValueError, TypeError):
-            return cls.DEFAULT_OLLAMA_TIMEOUT
-
-    @classmethod
-    def get_ollama_embedding_model(cls) -> str:
-        raw = cls._get_system_config("OLLAMA_EMBEDDING_MODEL", "")
-        if raw and raw.strip():
-            return raw.strip()
-
-        ollama_config = getattr(settings, "OLLAMA", {} or {})
-        raw_value = ollama_config.get("EMBEDDING_MODEL")
-        if isinstance(raw_value, str) and raw_value.strip():
-            return raw_value.strip()
-        return cls.get_ollama_model()
 
     # ============================================================
     # OpenAI-compatible 配置方法
@@ -510,68 +432,41 @@ class LLMConfig:
         def priority_key(name: str) -> str:
             return f"LLM_BACKEND_{name.upper()}_PRIORITY"
 
-        default_priorities = {"ollama": 2, "openai_compatible": 1}
-        # 2026-09 Ollama 下线：本地后端默认禁用，所有 LLM 调用统一走
-        # AI 平台表（/admin/core/llmprovider/）。如需恢复，在 SystemConfig
-        # 显式设置 LLM_BACKEND_OLLAMA_ENABLED=true。
-        default_enabled = {"ollama": False, "openai_compatible": True}
-
+        # 2026-09 Ollama 下线：仅保留 openai_compatible（AI 平台表路由），
+        # LLM_BACKEND_OLLAMA_* 配置键已随数据迁移清理。
         configs: dict[str, BackendConfig] = {}
-        for name in ("ollama", "openai_compatible"):
+        for name in ("openai_compatible",):
             enabled_raw = cls._get_system_config(enabled_key(name), "")
-            enabled = cls._parse_bool(enabled_raw, default_enabled[name])
+            enabled = cls._parse_bool(enabled_raw, True)
 
-            # openai_compatible: 配置了 AI 平台（LLMProvider）但未显式设置 enabled，自动启用
-            if name == "openai_compatible" and not enabled and not enabled_raw:
-                if cls._get_llm_providers():
-                    enabled = True
+            # 配置了 AI 平台（LLMProvider）但未显式设置 enabled，自动启用
+            if not enabled and not enabled_raw and cls._get_llm_providers():
+                enabled = True
 
             priority_raw = cls._get_system_config(priority_key(name), "")
-            priority = cls._parse_int(priority_raw, default_priorities[name])
+            priority = cls._parse_int(priority_raw, 1)
 
-            if name == "ollama":
-                configs[name] = BackendConfig(
-                    name=name,
-                    enabled=enabled,
-                    priority=priority,
-                    default_model=cls.get_ollama_model(),
-                    base_url=cls.get_ollama_base_url(),
-                    timeout=cls.get_ollama_timeout(),
-                    embedding_model=cls.get_ollama_embedding_model(),
-                )
-            else:
-                configs[name] = BackendConfig(
-                    name=name,
-                    enabled=enabled,
-                    priority=priority,
-                    default_model=cls.get_openai_compatible_model(),
-                    base_url=cls.get_openai_compatible_base_url(),
-                    api_key=cls.get_openai_compatible_api_key(),
-                    timeout=cls.get_openai_compatible_timeout(),
-                    embedding_model=cls.get_openai_compatible_embedding_model(),
-                    providers=cls._get_llm_providers(),
-                )
+            configs[name] = BackendConfig(
+                name=name,
+                enabled=enabled,
+                priority=priority,
+                default_model=cls.get_openai_compatible_model(),
+                base_url=cls.get_openai_compatible_base_url(),
+                api_key=cls.get_openai_compatible_api_key(),
+                timeout=cls.get_openai_compatible_timeout(),
+                embedding_model=cls.get_openai_compatible_embedding_model(),
+                providers=cls._get_llm_providers(),
+            )
         return configs
 
     @classmethod
     def resolve_backend_for_model(cls, model: str) -> str:
-        """
-        根据模型名称推断应使用的后端.
+        """模型名 → 后端。
 
         2026-09 Ollama 下线后无名字映射规则：所有模型统一走
-        openai_compatible（AI 平台表路由）。
-
-        Args:
-            model: 模型名称
-
-        Returns:
-            后端名称
+        openai_compatible（AI 平台表路由）；保留本方法供既有调用方使用。
         """
-        if not model:
-            return cls.get_default_backend()
-        for pattern, backend in cls._MODEL_BACKEND_RULES:
-            if pattern in model:
-                return backend
+        _ = model
         return "openai_compatible"
 
     @classmethod
@@ -615,9 +510,8 @@ class LLMConfig:
                         }
                     )
 
-        # 各后端的默认模型也加入列表（确保当前配置的默认模型可选）
+        # 当前配置的默认模型也加入列表（确保可选）
         for backend_name, default_model in [
-            ("ollama", cls.get_ollama_model()),
             ("openai_compatible", cls.get_openai_compatible_model()),
         ]:
             if default_model and default_model not in seen:

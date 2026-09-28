@@ -7,8 +7,8 @@ import pytest
 
 from apps.client.services.identity_extraction.data_classes import (
     ExtractionResult,
+    LLMExtractionError,
     OCRExtractionError,
-    OllamaExtractionError,
 )
 from apps.client.services.identity_extraction.extraction_service import (
     _MAX_LLM_OCR_CHARS,

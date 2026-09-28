@@ -4,35 +4,6 @@ from .field import ConfigField
 
 
 def register_service_configs(registry: dict[str, ConfigField]) -> None:
-    registry["services.ollama.model"] = ConfigField(
-        name="services.ollama.model",
-        type=str,
-        default="qwen2.5:7b",
-        env_var="OLLAMA_MODEL",
-        description="Ollama 模型名称",
-    )
-    registry["services.ollama.base_url"] = ConfigField(
-        name="services.ollama.base_url",
-        type=str,
-        default="http://localhost:11434",
-        env_var="OLLAMA_BASE_URL",
-        description="Ollama API 基础 URL",
-    )
-    registry["services.ollama.timeout"] = ConfigField(
-        name="services.ollama.timeout",
-        type=int,
-        default=60,
-        min_value=1,
-        max_value=600,
-        description="Ollama API 超时时间（秒）",
-    )
-    registry["services.ollama.embedding_model"] = ConfigField(
-        name="services.ollama.embedding_model",
-        type=str,
-        default="",
-        env_var="OLLAMA_EMBEDDING_MODEL",
-        description="Ollama 向量模型名称（留空沿用 services.ollama.model）",
-    )
     registry["services.openai_compatible.base_url"] = ConfigField(
         name="services.openai_compatible.base_url",
         type=str,

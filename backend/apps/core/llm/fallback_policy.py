@@ -74,13 +74,6 @@ def _raise_all_unavailable(
 def _diagnose_unavailable(name: str, backend: ILLMBackend) -> str:
     """诊断后端不可用的原因,返回可读描述"""
     try:
-        # Ollama: 检查 base_url
-        if name == "ollama":
-            base_url = backend.base_url  # type: ignore[attr-defined]
-            if not base_url:
-                return "Base URL 未配置"
-            return f"is_available() 返回 False (base_url={base_url!r})"
-        # openai_compatible 及其他后端
         api_key = getattr(backend, "api_key", None)
         if not api_key:
             return "API Key 未配置"

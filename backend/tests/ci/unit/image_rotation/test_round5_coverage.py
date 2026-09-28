@@ -74,18 +74,13 @@ class TestAutoRenameServiceExtractInfo:
         from apps.image_rotation.services.auto_rename_service import AutoRenameService
 
         svc = AutoRenameService()
-        assert svc._ollama_model is None
-        assert svc._ollama_base_url is None
+        assert svc._model is None
 
     def test_init_custom(self):
         from apps.image_rotation.services.auto_rename_service import AutoRenameService
 
-        with patch("apps.core.llm.config.LLMConfig") as mc:
-            mc.get_ollama_model.return_value = "m"
-            mc.get_ollama_base_url.return_value = "u"
-            svc = AutoRenameService(ollama_model="custom", ollama_base_url="http://custom")
-            assert svc._ollama_model == "custom"
-            assert svc._ollama_base_url == "http://custom"
+        svc = AutoRenameService(model="custom")
+        assert svc._model == "custom"
 
     def test_extract_info_empty_text(self):
         from apps.image_rotation.services.auto_rename_service import AutoRenameService

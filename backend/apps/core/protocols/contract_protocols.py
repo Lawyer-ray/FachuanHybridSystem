@@ -371,7 +371,7 @@ class IContractPaymentService(Protocol):
 class IContractFolderBindingService(Protocol):
     def save_file_to_bound_folder(
         self,
-        contract_id: int,
+        owner_id: int,
         file_content: bytes,
         file_name: str,
         subdir_key: str = "contract_documents",

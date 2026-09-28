@@ -93,12 +93,6 @@ class TestLLMConfigNormalize:
 
 
 class TestLLMConfigResolveBackend:
-    def test_ollama_model(self):
-        """Ollama 已下线：带冒号的模型名也统一走 AI 平台路由。"""
-        from apps.core.llm.config import LLMConfig
-
-        assert LLMConfig.resolve_backend_for_model("qwen3:0.6b") == "openai_compatible"
-
     def test_openai_model(self):
         from apps.core.llm.config import LLMConfig
 
@@ -107,8 +101,8 @@ class TestLLMConfigResolveBackend:
     def test_empty_model_uses_default(self):
         from apps.core.llm.config import LLMConfig
 
-        with patch.object(LLMConfig, "get_default_backend", return_value="ollama"):
-            assert LLMConfig.resolve_backend_for_model("") == "ollama"
+        # Ollama 下线：resolve 恒返 openai_compatible，不再读默认后端
+        assert LLMConfig.resolve_backend_for_model("") == "openai_compatible"
 
 
 class TestLLMConfigGetTemperature:
@@ -146,36 +140,6 @@ class TestLLMConfigGetMaxTokens:
 
 
 class TestLLMConfigDefaults:
-    def test_ollama_model_default(self):
-        from apps.core.llm.config import LLMConfig
-
-        with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            with patch("apps.core.llm.config.settings") as mock_s:
-                mock_s.OLLAMA = {}
-                assert LLMConfig.get_ollama_model() == LLMConfig.DEFAULT_OLLAMA_MODEL
-
-    def test_ollama_model_from_settings(self):
-        from apps.core.llm.config import LLMConfig
-
-        with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            with patch("apps.core.llm.config.settings") as mock_s:
-                mock_s.OLLAMA = {"MODEL": "custom_model"}
-                assert LLMConfig.get_ollama_model() == "custom_model"
-
-    def test_ollama_base_url_default(self):
-        from apps.core.llm.config import LLMConfig
-
-        with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            with patch("apps.core.llm.config.settings") as mock_s:
-                mock_s.OLLAMA = {}
-                assert LLMConfig.get_ollama_base_url() == LLMConfig.DEFAULT_OLLAMA_BASE_URL
-
-    def test_ollama_timeout_invalid_fallback(self):
-        from apps.core.llm.config import LLMConfig
-
-        with patch.object(LLMConfig, "_get_system_config", return_value="abc"):
-            assert LLMConfig.get_ollama_timeout() == LLMConfig.DEFAULT_OLLAMA_TIMEOUT
-
     def test_openai_compatible_timeout_default(self):
         from apps.core.llm.config import LLMConfig
 
@@ -191,14 +155,6 @@ class TestLLMConfigDefaults:
         from apps.core.llm.config import LLMConfig
 
         assert LLMConfig.get_openai_compatible_base_url() == ""
-
-    def test_ollama_embedding_model_fallback_to_model(self):
-        from apps.core.llm.config import LLMConfig
-
-        with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            with patch("apps.core.llm.config.settings") as mock_s:
-                mock_s.OLLAMA = {}
-                assert LLMConfig.get_ollama_embedding_model() == LLMConfig.get_ollama_model()
 
     def test_openai_compatible_embedding_unconfigured(self):
         from apps.core.llm.config import LLMConfig
@@ -220,7 +176,8 @@ class TestLLMConfigGetDefaultBackend:
         from apps.core.llm.config import LLMConfig
 
         with patch.object(LLMConfig, "_get_system_config", return_value="ollama"):
-            assert LLMConfig.get_default_backend() == "ollama"
+            # ollama 已下线，不在合法后端集合 → 回落
+            assert LLMConfig.get_default_backend() == "openai_compatible"
 
     def test_invalid_backend_from_config(self):
         from apps.core.llm.config import LLMConfig
@@ -235,5 +192,5 @@ class TestLLMConfigGetDefaultBackend:
 
         with patch.object(LLMConfig, "_get_system_config", return_value=""):
             with patch("apps.core.llm.config.settings") as mock_s:
-                mock_s.LLM = {"DEFAULT_BACKEND": "ollama"}
-                assert LLMConfig.get_default_backend() == "ollama"
+                mock_s.LLM = {"DEFAULT_BACKEND": "openai_compatible"}
+                assert LLMConfig.get_default_backend() == "openai_compatible"

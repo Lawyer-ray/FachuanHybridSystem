@@ -56,10 +56,6 @@ class TestLLMConfigResolveBackendForModel:
     def test_openai_compatible_model(self):
         assert LLMConfig.resolve_backend_for_model("Qwen/Qwen2.5-7B-Instruct") == "openai_compatible"
 
-    def test_ollama_model(self):
-        """Ollama 已下线：带冒号的模型名也统一走 AI 平台路由。"""
-        assert LLMConfig.resolve_backend_for_model("qwen3:0.6b") == "openai_compatible"
-
     @patch.object(LLMConfig, "get_default_backend", return_value="openai_compatible")
     def test_empty_model(self, mock_backend):
         result = LLMConfig.resolve_backend_for_model("")
@@ -115,7 +111,8 @@ class TestLLMConfigGetDefaultBackend:
     @patch.object(LLMConfig, "_get_system_config", return_value="ollama")
     def test_from_config(self, mock_sc):
         result = LLMConfig.get_default_backend()
-        assert result == "ollama"
+        # ollama 已下线：不在合法后端集合 → 回落默认
+        assert result == "openai_compatible"
 
     @patch.object(LLMConfig, "_get_system_config", return_value="invalid")
     def test_invalid_returns_openai_compatible(self, mock_sc):

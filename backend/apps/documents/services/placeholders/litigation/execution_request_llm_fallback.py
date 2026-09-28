@@ -1,4 +1,4 @@
-"""强制执行申请书 - LLM/Ollama 兜底解析."""
+"""强制执行申请书 - LLM 兜底解析."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from .execution_request_utils import format_amount, parse_decimal, safe_decimal
 
 logger = logging.getLogger(__name__)
 
-OLLAMA_MAX_TEXT_CHARS = 12000
+LLM_MAX_TEXT_CHARS = 12000
 
 
 def should_try_llm_fallback(
@@ -144,7 +144,7 @@ def merge_llm_fallback(
     return changed
 
 
-def extract_with_ollama_fallback(
+def extract_with_llm_fallback(
     main_text: str,
     *,
     model: str | None = None,
@@ -175,7 +175,7 @@ def extract_with_ollama_fallback(
         '  "has_double_interest_clause": true|false\n'
         "}\n"
         "文书如下：\n"
-        f"{main_text[:OLLAMA_MAX_TEXT_CHARS]}"
+        f"{main_text[:LLM_MAX_TEXT_CHARS]}"
     )
 
     try:
@@ -189,7 +189,7 @@ def extract_with_ollama_fallback(
         )
         content = str(getattr(response, "content", "") or "")
     except Exception as exc:
-        logger.exception("execution_request_ollama_fallback_failed")
+        logger.exception("execution_request_llm_fallback_failed")
         return None, f"LLM 调用失败（模型: {actual_model}）: {exc}"
 
     if not content.strip():

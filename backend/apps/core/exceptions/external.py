@@ -50,7 +50,7 @@ class ServiceUnavailableError(ExternalServiceError):
     服务不可用异常
 
     使用场景:
-    - AI 服务(如 Ollama)不可用
+    - AI 服务不可用
     - 依赖服务暂时不可用
     - 服务维护中
 

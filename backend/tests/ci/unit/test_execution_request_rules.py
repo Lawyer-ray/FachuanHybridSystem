@@ -296,7 +296,7 @@ def test_execution_request_lpr_standard_clause_does_not_trigger_llm_fallback_whe
     def _should_not_call(_text: str, **kw: object) -> tuple[dict[str, object], str]:
         raise AssertionError("llm fallback should not be called")
 
-    monkeypatch.setattr(llm_mod, "extract_with_ollama_fallback", _should_not_call)
+    monkeypatch.setattr(llm_mod, "extract_with_llm_fallback", _should_not_call)
 
     result = service.preview_for_case_number(case=case, case_number=case_number)
     params = result["structured_params"]
@@ -464,7 +464,7 @@ def test_execution_request_ollama_fallback_merges_when_rules_low_confidence(
 
     monkeypatch.setattr(
         llm_mod,
-        "extract_with_ollama_fallback",
+        "extract_with_llm_fallback",
         lambda _text, **kw: (
             {
                 "principal_amount": Decimal("520000"),
@@ -519,7 +519,7 @@ def test_execution_request_ollama_fallback_can_be_disabled(
     def _should_not_call(_text: str, **kw: object) -> tuple[dict[str, object], str]:
         raise AssertionError("llm fallback should not be called")
 
-    monkeypatch.setattr(llm_mod, "extract_with_ollama_fallback", _should_not_call)
+    monkeypatch.setattr(llm_mod, "extract_with_llm_fallback", _should_not_call)
 
     result = service.preview_for_case_number(
         case=case,

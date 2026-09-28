@@ -557,12 +557,6 @@ class TestLLMConfig:
 
         assert LLMConfig.resolve_backend_for_model("Qwen/Qwen2.5-7B-Instruct") == "openai_compatible"
 
-    def test_resolve_backend_ollama(self) -> None:
-        """Ollama 已下线：带冒号的模型名也统一走 AI 平台路由。"""
-        from apps.core.llm.config import LLMConfig
-
-        assert LLMConfig.resolve_backend_for_model("qwen3:0.6b") == "openai_compatible"
-
     def test_resolve_backend_openai_compatible(self) -> None:
         from apps.core.llm.config import LLMConfig
 
@@ -617,8 +611,7 @@ class TestLLMConfig:
     def test_valid_backends(self) -> None:
         from apps.core.llm.config import LLMConfig
 
-        assert "ollama" in LLMConfig._VALID_BACKENDS
-        assert "openai_compatible" in LLMConfig._VALID_BACKENDS
+        assert LLMConfig._VALID_BACKENDS == {"openai_compatible"}
 
 
 # ============================================================

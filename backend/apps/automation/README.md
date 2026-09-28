@@ -1168,10 +1168,6 @@ graph TB
 # 飞书机器人配置
 FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/xxx
 
-# Ollama 配置（复用现有）
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=qwen2.5:7b
-
 # 短信处理配置
 COURT_SMS_MAX_RETRIES=3
 COURT_SMS_RETRY_DELAY=60
@@ -1468,7 +1464,7 @@ export default CourtSMSProcessor;
 #### 重试机制
 
 - **下载失败**: 自动重试 3 次，间隔 60 秒
-- **Ollama 调用失败**: 自动重试 2 次，使用正则降级
+- **LLM 调用失败**: 自动重试 2 次，使用正则降级
 - **飞书发送失败**: 记录错误但不影响整体流程
 
 ### 性能指标
@@ -1493,7 +1489,7 @@ logger = logging.getLogger('automation.court_sms')
 
 # 日志级别
 # INFO: 正常处理流程
-# WARNING: 降级处理（如 Ollama 不可用时使用正则）
+# WARNING: 降级处理（如 LLM 不可用时使用正则）
 # ERROR: 处理失败
 # DEBUG: 详细调试信息
 ```
@@ -1550,7 +1546,7 @@ python -m pytest tests/integration/automation/test_court_sms_api.py -v
 - **Django 5.2+**: Web 框架
 - **django-ninja 1.3+**: RESTful API 框架
 - **Django Q**: 异步任务队列
-- **Ollama**: 本地 AI 服务（文本提取）
+- **统一 LLM 服务**: AI 平台表路由（文本提取，2026-09 起 Ollama 已下线）
 - **Playwright**: 浏览器自动化（文书下载）
 - **Pydantic 2.0+**: 数据验证
 - **Hypothesis**: 属性测试框架

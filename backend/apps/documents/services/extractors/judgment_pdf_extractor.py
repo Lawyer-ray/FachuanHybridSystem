@@ -2,7 +2,7 @@
 裁判文书PDF解析服务
 
 从PDF裁判文书中提取判决主文或调解协议内容。
-支持正则兜底+Ollama大模型兜底。
+支持正则兜底+LLM 大模型兜底。
 """
 
 from __future__ import annotations
@@ -89,8 +89,8 @@ class JudgmentPdfExtractor:
     )
     PAGE_NOISE_LITERALS = ("本页无正文", "此页无正文")
 
-    # Ollama prompt
-    OLLAMA_EXTRACTION_PROMPT = """你是一个法律文书解析助手。请从以下裁判文书文本中提取信息，并以JSON格式返回：
+    # LLM prompt
+    LLM_EXTRACTION_PROMPT = """你是一个法律文书解析助手。请从以下裁判文书文本中提取信息，并以JSON格式返回：
 
 1. 案号：如 "(2024)粤0606民初34475号" 或 "（2025）粤0606民初38361号"
 2. 文书名称：如 "民事判决书"、"民事调解书"、"民事裁定书"、"执行证书" 等
@@ -112,14 +112,14 @@ class JudgmentPdfExtractor:
     _MAX_EXTRACTION_CHARS = 200_000
 
     async def extract_async(self, file_path: str) -> ExtractionResult:
-        """异步版本：PDF I/O + Ollama HTTP 在线程池中执行。"""
+        """异步版本：PDF I/O + LLM HTTP 在线程池中执行。"""
         return await asyncio.to_thread(self.extract, file_path)
 
     def extract(self, file_path: str) -> ExtractionResult:
         """
         从PDF中提取案号、文书名称、执行依据主文
 
-        先使用正则表达式提取，失败后使用Ollama兜底。
+        先使用正则表达式提取，失败后使用 LLM 兜底。
 
         Args:
             file_path: PDF文件路径
@@ -128,7 +128,7 @@ class JudgmentPdfExtractor:
             ExtractionResult，包含案号、文书名称和主文内容
 
         Raises:
-            BusinessException: 无法解析文书内容（正则和Ollama都失败）
+            BusinessException: 无法解析文书内容（正则和 LLM 都失败）
         """
         logger.info("开始解析裁判文书: %s", file_path)
 
@@ -152,14 +152,14 @@ class JudgmentPdfExtractor:
         # 提取执行依据主文
         content = self._extract_main_text(text)
 
-        # 如果正则提取失败，尝试Ollama兜底
+        # 如果正则提取失败，尝试 LLM 兜底
         if not content:
-            logger.warning("正则提取执行依据主文失败，尝试使用Ollama兜底...")
-            ollama_result = self._extract_with_ollama(text)
-            if ollama_result:
-                case_number = ollama_result.number or case_number
-                document_name = ollama_result.document_name or document_name
-                content = ollama_result.content
+            logger.warning("正则提取执行依据主文失败，尝试使用 LLM 兜底...")
+            llm_result = self._extract_with_llm(text)
+            if llm_result:
+                case_number = llm_result.number or case_number
+                document_name = llm_result.document_name or document_name
+                content = llm_result.content
 
         if not content:
             logger.error("未找到判决/调解主文: %s", file_path)
@@ -222,7 +222,7 @@ class JudgmentPdfExtractor:
 
         return "", ""
 
-    def _extract_with_ollama(self, text: str) -> ExtractionResult | None:
+    def _extract_with_llm(self, text: str) -> ExtractionResult | None:
         """
         使用 LLM 提取信息（正则失败后的兜底方案）
 
@@ -238,7 +238,7 @@ class JudgmentPdfExtractor:
         try:
             from apps.core.services.wiring import get_llm_service
 
-            messages = [{"role": "user", "content": self.OLLAMA_EXTRACTION_PROMPT + text[:15000]}]
+            messages = [{"role": "user", "content": self.LLM_EXTRACTION_PROMPT + text[:15000]}]
 
             logger.info("开始调用 LLM 进行信息提取...")
             response = get_llm_service().chat(
@@ -269,7 +269,7 @@ class JudgmentPdfExtractor:
             )
 
             logger.info(
-                "Ollama提取成功: 案号=%s, 文书名称=%s, 主文长度=%d",
+                "LLM提取成功: 案号=%s, 文书名称=%s, 主文长度=%d",
                 result.number,
                 result.document_name,
                 len(result.content) if result.content else 0,
@@ -278,7 +278,7 @@ class JudgmentPdfExtractor:
             return result
 
         except Exception as e:
-            logger.warning("Ollama兜底失败: %s", str(e))
+            logger.warning("LLM兜底失败: %s", str(e))
             return None
 
     def _extract_case_number(self, text: str) -> str | None:

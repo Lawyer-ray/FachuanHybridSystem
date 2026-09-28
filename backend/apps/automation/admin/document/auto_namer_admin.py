@@ -135,7 +135,7 @@ class AutoNamerToolAdmin(admin.ModelAdmin):  # pragma: no cover
                 <pre style='white-space:pre-wrap;max-height:400px;overflow:auto;
                     margin:0;font-family:monospace;'>{text}</pre>
             </div>
-            <h2>🤖 Ollama 返回结果</h2>
+            <h2>🤖 AI 返回结果</h2>
             <div style='background:var(--fc-success-bg);padding:15px;border:1px solid var(--fc-success-bg);
                 border-radius:5px;margin:10px 0;'>
                 <pre style='white-space:pre-wrap;margin:0;font-family:monospace;'>{response_text}</pre>

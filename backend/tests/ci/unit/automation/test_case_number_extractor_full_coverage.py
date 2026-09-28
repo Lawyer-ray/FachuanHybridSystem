@@ -1,7 +1,7 @@
 """Comprehensive tests for automation.services.sms.case_number_extractor_service.
 
 Covers: extract_from_document, extract_from_content, _build_extract_prompt,
-_parse_ollama_response, validate_and_normalize, _normalize_single,
+_parse_llm_response, validate_and_normalize, _normalize_single,
 sync_to_case, _get_existing_numbers, _write_new_numbers, _extract_fallback,
 _regex_extract_numbers, _deduplicate, lazy properties.
 """
@@ -140,16 +140,14 @@ class TestExtractFromContent:
         llm.chat.return_value = MagicMock(content='{"case_numbers": ["（2025）粤01民初1号"]}')
         svc = self._svc(llm_service=llm)
         svc.validate_and_normalize = MagicMock(return_value=["（2025）粤01民初1号"])
-        with patch("apps.core.llm.config.LLMConfig.get_ollama_model", return_value="model"):
-            result = svc.extract_from_content("content")
+        result = svc.extract_from_content("content")
         assert len(result) > 0
 
     def test_llm_empty_response(self):
         llm = MagicMock()
         llm.chat.return_value = MagicMock(content="")
         svc = self._svc(llm_service=llm)
-        with patch("apps.core.llm.config.LLMConfig.get_ollama_model", return_value="model"):
-            result = svc.extract_from_content("content")
+        result = svc.extract_from_content("content")
         assert result == []
 
     def test_llm_error(self):
@@ -157,16 +155,14 @@ class TestExtractFromContent:
         llm = MagicMock()
         llm.chat.side_effect = LLMError("fail")
         svc = self._svc(llm_service=llm)
-        with patch("apps.core.llm.config.LLMConfig.get_ollama_model", return_value="model"):
-            result = svc.extract_from_content("content")
+        result = svc.extract_from_content("content")
         assert result == []
 
     def test_llm_generic_error(self):
         llm = MagicMock()
         llm.chat.side_effect = RuntimeError("boom")
         svc = self._svc(llm_service=llm)
-        with patch("apps.core.llm.config.LLMConfig.get_ollama_model", return_value="model"):
-            result = svc.extract_from_content("content")
+        result = svc.extract_from_content("content")
         assert result == []
 
 
@@ -191,7 +187,7 @@ class TestBuildExtractPrompt:
 
 
 # ---------------------------------------------------------------------------
-# _parse_ollama_response
+# _parse_llm_response
 # ---------------------------------------------------------------------------
 
 
@@ -203,37 +199,37 @@ class TestParseOllamaResponse:
     def test_valid_json(self):
         svc = self._svc()
         svc.validate_and_normalize = MagicMock(return_value=["（2025）粤01民初1号"])
-        result = svc._parse_ollama_response('{"case_numbers": ["（2025）粤01民初1号"]}')
+        result = svc._parse_llm_response('{"case_numbers": ["（2025）粤01民初1号"]}')
         assert result == ["（2025）粤01民初1号"]
 
     def test_json_embedded_in_text(self):
         svc = self._svc()
         svc.validate_and_normalize = MagicMock(return_value=["（2025）粤01民初1号"])
-        result = svc._parse_ollama_response('Here is the result: {"case_numbers": ["（2025）粤01民初1号"]} done.')
+        result = svc._parse_llm_response('Here is the result: {"case_numbers": ["（2025）粤01民初1号"]} done.')
         assert result == ["（2025）粤01民初1号"]
 
     def test_invalid_json_falls_back(self):
         svc = self._svc()
         svc._extract_fallback = MagicMock(return_value=["fallback"])
-        result = svc._parse_ollama_response("not json at all")
+        result = svc._parse_llm_response("not json at all")
         assert result == ["fallback"]
 
     def test_json_no_case_numbers_key(self):
         svc = self._svc()
         svc._extract_fallback = MagicMock(return_value=[])
-        result = svc._parse_ollama_response('{"other": "data"}')
+        result = svc._parse_llm_response('{"other": "data"}')
         assert result == []
 
     def test_case_numbers_not_list(self):
         svc = self._svc()
         svc._extract_fallback = MagicMock(return_value=[])
-        result = svc._parse_ollama_response('{"case_numbers": "not a list"}')
+        result = svc._parse_llm_response('{"case_numbers": "not a list"}')
         assert result == []
 
     def test_no_braces(self):
         svc = self._svc()
         svc._extract_fallback = MagicMock(return_value=[])
-        result = svc._parse_ollama_response("no json here")
+        result = svc._parse_llm_response("no json here")
         assert result == []
 
 

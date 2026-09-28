@@ -219,7 +219,8 @@ async def llm_options(request: HttpRequest) -> dict[str, Any]:  # pragma: no cov
             return None
 
     jobs: list[Any] = []
-    if backend_configs.get("openai_compatible") is None or backend_configs["openai_compatible"].enabled:
+    oc_config = backend_configs.get("openai_compatible")
+    if oc_config is None or oc_config.enabled:
         jobs.append(_check_openai_compatible())
     results = await asyncio.gather(*jobs) if jobs else []
     for b in results:

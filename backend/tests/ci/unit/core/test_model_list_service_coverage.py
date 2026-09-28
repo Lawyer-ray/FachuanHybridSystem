@@ -1,14 +1,10 @@
 """Coverage tests for core.llm.model_list_service."""
 
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
-from apps.core.llm.model_list_service import (
-    ModelListResult,
-    ModelListService,
-    _make_model,
-)
+from apps.core.llm.model_list_service import ModelListResult, ModelListService, _make_model
 
 
 class TestMakeModel:
@@ -94,11 +90,3 @@ class TestModelListService:
         mock_config.get_backend_configs.return_value = {}
         result = svc._fetch_from_api()
         assert result.is_fallback is True
-
-    @patch("apps.core.llm.model_list_service.LLMConfig")
-    @patch("apps.core.llm.model_list_service.httpx")
-    def test_fetch_ollama_models_no_config(self, mock_httpx, mock_config):
-        mock_config.get_ollama_base_url.return_value = None
-        mock_config.get_ollama_model.return_value = None
-        result = ModelListService._fetch_ollama_models()
-        assert result == []

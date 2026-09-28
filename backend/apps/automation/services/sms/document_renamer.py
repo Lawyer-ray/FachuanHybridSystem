@@ -103,16 +103,8 @@ class DocumentRenamer:
         r"([^，。；、:：\s]{2,30}?承诺书)",
     ]
 
-    def __init__(self, ollama_model: str | None = None, ollama_base_url: str | None = None):
-        """
-        初始化文书重命名服务
-
-        Args:
-            ollama_model: 兼容旧调用方，当前规则模式下忽略
-            ollama_base_url: 兼容旧调用方，当前规则模式下忽略
-        """
-        if ollama_model or ollama_base_url:
-            logger.debug("DocumentRenamer 已切换为规则模式，忽略 ollama 参数")
+    def __init__(self) -> None:
+        """初始化文书重命名服务（规则模式，无外部依赖）。"""
         self.title_extraction_limit = self._get_title_extraction_limit()
 
     def _get_title_extraction_limit(self) -> int:
@@ -153,7 +145,7 @@ class DocumentRenamer:
                 logger.warning(f"无法从文书中提取文本内容: {document_path}")
                 return self._extract_title_from_filename(document_path)
 
-            # 规则提取标题（不再调用 Ollama）
+            # 规则提取标题（不调用 LLM）
             title = self._extract_title_from_text(extraction.text)
             if title:
                 logger.info(f"规则提取文书标题成功: {title}")

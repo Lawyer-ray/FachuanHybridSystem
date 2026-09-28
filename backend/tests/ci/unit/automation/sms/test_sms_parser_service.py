@@ -151,8 +151,6 @@ class TestSMSParserService:
 
     def setup_method(self) -> None:
         self.parser = SMSParserService(
-            ollama_model="test-model",
-            ollama_base_url="http://localhost:11434",
             llm_service=MagicMock(),
             client_service=MagicMock(),
             party_matching_service=MagicMock(),

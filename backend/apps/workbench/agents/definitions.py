@@ -204,7 +204,7 @@ def build_model(model_name: str) -> Model:
         model = _build_openai_model(
             model_name,
             LLMConfig.get_openai_compatible_base_url(),
-            api_key or "ollama",  # pragma: allowlist secret
+            api_key or "no-auth",  # pragma: allowlist secret
         )
         return limit_model_concurrency(model, _get_model_limiter(DEFAULT_AGENT_CONCURRENCY))
 

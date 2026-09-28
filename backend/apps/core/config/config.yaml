@@ -106,20 +106,6 @@ services:
     # 取值范围：1-300
     timeout: 30
 
-  # Ollama 配置
-  ollama:
-    # 模型名称
-    # 环境变量：OLLAMA_MODEL
-    model: ${OLLAMA_MODEL:qwen3.5:0.8b}
-
-    # API 基础 URL
-    # 环境变量：OLLAMA_BASE_URL
-    base_url: ${OLLAMA_BASE_URL:http://localhost:11434}
-
-    # API 超时时间（秒）
-    # 取值范围：1-600
-    timeout: 60
-
   # 法院短信处理配置
   sms:
     # 文书重命名时，用于标题提取的文本截断长度（字符）
