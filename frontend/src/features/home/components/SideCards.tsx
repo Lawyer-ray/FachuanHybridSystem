@@ -184,11 +184,11 @@ export function QuickAdd({ onAdded }: QuickAddProps) {
     setBusy(true)
     try {
       const parsed = await parseReminder(v)
-      if (parsed.length === 0) {
+      const p = parsed[0]
+      if (!p) {
         toast.warning('没能识别出日期——请写具体日期，如「2026-09-28 09:30 开庭 …」')
         return
       }
-      const p = parsed[0]
       await createReminder({
         reminder_type: p.reminder_type,
         content: p.content,

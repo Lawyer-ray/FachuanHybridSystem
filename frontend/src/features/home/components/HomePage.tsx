@@ -45,8 +45,8 @@ export function HomePage() {
   const [adding, setAdding] = useState<{ day: string; time: string } | null>(null)
 
   const todayParts = useMemo(() => {
-    const [y, m] = today.split('-').map(Number)
-    return { year: y, month: m } // month 为 1-based（后端 calendar 接口契约）
+    const d = parseKey(today)
+    return { year: d.getFullYear(), month: d.getMonth() + 1 } // month 为 1-based（后端 calendar 接口契约）
   }, [today])
   // 日历视图月：0-based（JS Date 口径，与 CalendarPanel 的 buildMonthGrid / 头部显示一致）。
   // 注意别把上面 1-based 的 todayParts 直接当 view 用——两者差 1，混用会把 9 月渲染成 10 月。
@@ -137,8 +137,9 @@ export function HomePage() {
   }, [])
 
   const goToday = useCallback(() => {
-    setView(todayParts)
-  }, [todayParts])
+    const d = parseKey(today)
+    setView({ year: d.getFullYear(), month: d.getMonth() }) // 0-based（JS Date 口径）
+  }, [today])
 
   return (
     <div className="min-h-screen bg-background">

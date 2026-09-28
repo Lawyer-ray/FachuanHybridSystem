@@ -15,7 +15,7 @@ import { useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import './auth.css'
 import { socialAuthApi, SOCIAL_PROVIDERS_KEY } from './social-api'
-import { buildLoginMethods, PASSWORD_METHOD_ID, type LoginMethod } from './login-methods'
+import { buildLoginMethods, PASSWORD_METHOD_ID } from './login-methods'
 import { LoginBrandPanel } from './components/LoginBrandPanel'
 import { LoginMethodSwitch } from './components/LoginMethodSwitch'
 import { PasswordLoginForm } from './components/PasswordLoginForm'
@@ -36,7 +36,8 @@ export function LoginPage() {
     queryFn: socialAuthApi.listProviders,
     staleTime: 5 * 60_000,
   })
-  const methods = useMemo<LoginMethod[]>(() => buildLoginMethods(providers), [providers])
+  // 推断保留 NonEmptyArray（buildLoginMethods 恒非空），active 因此不需要判空
+  const methods = useMemo(() => buildLoginMethods(providers), [providers])
 
   const active = methods.find((m) => m.id === activeId) ?? methods[0]
 

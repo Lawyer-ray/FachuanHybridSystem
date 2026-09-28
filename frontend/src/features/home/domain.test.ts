@@ -69,7 +69,7 @@ describe('月历网格', () => {
 
   it('首行按周一起点补白：2026-09-01 是周二 → 1 个补白', () => {
     const cells = buildMonthGrid(2026, 8)
-    expect(cells[0].inMonth).toBe(false)
+    expect(cells[0]?.inMonth).toBe(false)
     expect(cells[1]).toMatchObject({ day: 1, inMonth: true })
   })
 
@@ -77,14 +77,14 @@ describe('月历网格', () => {
     const cells = buildMonthGrid(2026, 8)
     const inMonth = cells.filter((c) => c.inMonth)
     expect(inMonth).toHaveLength(30)
-    expect(inMonth[0].day).toBe(1)
-    expect(inMonth[29].day).toBe(30)
+    expect(inMonth[0]?.day).toBe(1)
+    expect(inMonth[29]?.day).toBe(30)
   })
 
   it('跨年：12 月的补白落到次年 1 月', () => {
     const cells = buildMonthGrid(2026, 11)
     const last = cells[cells.length - 1]
-    expect(last.inMonth).toBe(false)
-    expect(last.key?.startsWith('2027-01')).toBe(true)
+    expect(last?.inMonth).toBe(false)
+    expect(last?.key?.startsWith('2027-01')).toBe(true)
   })
 })

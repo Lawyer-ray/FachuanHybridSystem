@@ -28,7 +28,7 @@ export const SEGMENT_TYPES = [
 ]
 
 /** 段头色点取色盘 */
-export const SEG_COLORS = ['#2563eb', '#22c55e', '#eab308', '#7c3aed', '#ef4444', '#0891b2']
+export const SEG_COLORS = ['#2563eb', '#22c55e', '#eab308', '#7c3aed', '#ef4444', '#0891b2'] as const
 
 /** 字段库：右栏便签可选的字段 */
 export const FIELD_LIB: InfoField[] = [

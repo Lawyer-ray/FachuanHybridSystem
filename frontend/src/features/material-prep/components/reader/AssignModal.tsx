@@ -94,14 +94,14 @@ export function AssignModal({
         ? '将追加到所选案件'
         : '先在上面选一个案件'
       : contract === 'none'
-        ? fields['委托人'].trim()
+        ? (fields['委托人'] ?? '').trim()
           ? '将据此生成委托合同'
           : '写个委托人就能生成合同'
         : '不用再填别的，直接建案'
 
   const okDisabled =
     (target === 'existing' && !pickCase) ||
-    (target === 'new' && contract === 'none' && !fields['委托人'].trim())
+    (target === 'new' && contract === 'none' && !(fields['委托人'] ?? '').trim())
 
   const confirm = () => {
     if (okDisabled) return

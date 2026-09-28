@@ -22,13 +22,16 @@ export interface LoginMethod {
 
 export const PASSWORD_METHOD_ID = 'password'
 
+/** 非空数组：把「至少一个元素」编码进类型，让 [0] 在 noUncheckedIndexedAccess 下无需判空 */
+export type NonEmptyArray<T> = [T, ...T[]]
+
 /** 只认 embedded_qr，其余（含后端将来新增的未知形态）一律按整页跳转处理 */
 function toKind(loginMode: string | undefined): LoginMethodKind {
   return loginMode === 'embedded_qr' ? 'embedded_qr' : 'redirect'
 }
 
-/** 账号密码永远排第一：它是唯一不依赖第三方配置的兜底入口 */
-export function buildLoginMethods(providers: SocialProviderInfo[]): LoginMethod[] {
+/** 账号密码永远排第一：它是唯一不依赖第三方配置的兜底入口（返回值恒非空） */
+export function buildLoginMethods(providers: SocialProviderInfo[]): NonEmptyArray<LoginMethod> {
   return [
     { id: PASSWORD_METHOD_ID, kind: 'password', label: '账号密码', provider: null },
     ...providers.map((provider) => ({
