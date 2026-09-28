@@ -28,7 +28,8 @@ async def auto_namer_process(  # pragma: no cover
     request: Any,
     file: UploadedFile = File(...),
     prompt: str = DEFAULT_FILENAME_PROMPT,
-    model: str = "qwen3:0.6b",
+    # 留空走 AI 平台默认模型（/admin/core/llmprovider/）；Ollama 已下线
+    model: str = "",
     limit: int | None = None,
     preview_page: int | None = None,
 ) -> AutoToolProcessOut:

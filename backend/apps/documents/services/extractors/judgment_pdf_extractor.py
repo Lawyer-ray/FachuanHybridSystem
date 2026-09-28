@@ -224,28 +224,34 @@ class JudgmentPdfExtractor:
 
     def _extract_with_ollama(self, text: str) -> ExtractionResult | None:
         """
-        使用Ollama大模型提取信息（兜底方案）
+        使用 LLM 提取信息（正则失败后的兜底方案）
+
+        2026-09 Ollama 下线：改经统一 LLM 服务路由（AI 平台表默认模型），
+        方法名保留兼容既有调用方与日志口径。
 
         Args:
             text: PDF提取的文本
 
         Returns:
-            ExtractionResult 或 None（Ollama不可用或失败）
+            ExtractionResult 或 None（LLM不可用或失败）
         """
         try:
-            from apps.core.llm.backends.ollama import OllamaBackend
-
-            backend = OllamaBackend()
-            if not backend.is_available():
-                logger.warning("Ollama后端不可用，跳过Ollama兜底")
-                return None
+            from apps.core.services.wiring import get_llm_service
 
             messages = [{"role": "user", "content": self.OLLAMA_EXTRACTION_PROMPT + text[:15000]}]
 
-            logger.info("开始调用Ollama进行信息提取...")
-            response = backend.chat(messages=messages, temperature=0.3, max_tokens=4000, timeout=60.0)
+            logger.info("开始调用 LLM 进行信息提取...")
+            response = get_llm_service().chat(
+                messages=messages,
+                temperature=0.3,
+                max_tokens=4000,
+                timeout_seconds=60.0,
+            )
 
-            content = response.content.strip()
+            content = (response.content or "").strip()
+            if not content:
+                logger.warning("LLM 兜底返回空响应，跳过")
+                return None
 
             # 尝试解析JSON
             # 去掉可能的markdown代码块

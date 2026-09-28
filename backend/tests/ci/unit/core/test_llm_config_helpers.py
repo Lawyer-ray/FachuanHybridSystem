@@ -1,4 +1,5 @@
 """Tests for apps.core.llm.config — LLMConfig class methods."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -11,6 +12,7 @@ class TestLLMConfigParseBool:
 
     def _cls(self):
         from apps.core.llm.config import LLMConfig
+
         return LLMConfig
 
     def test_bool_passthrough(self) -> None:
@@ -42,6 +44,7 @@ class TestLLMConfigParseBool:
 class TestLLMConfigParseInt:
     def _cls(self):
         from apps.core.llm.config import LLMConfig
+
         return LLMConfig
 
     def test_valid_int(self) -> None:
@@ -64,6 +67,7 @@ class TestLLMConfigParseInt:
 class TestLLMConfigNormalizeMethods:
     def _cls(self):
         from apps.core.llm.config import LLMConfig
+
         return LLMConfig
 
     def test_normalize_api_key_strips_bearer(self) -> None:
@@ -94,11 +98,13 @@ class TestLLMConfigNormalizeMethods:
 class TestLLMConfigResolveBackendForModel:
     def _cls(self):
         from apps.core.llm.config import LLMConfig
+
         return LLMConfig
 
-    def test_colon_model_returns_ollama(self) -> None:
+    def test_colon_model_returns_openai_compatible(self) -> None:
+        """Ollama 已下线：带冒号的模型名也统一走 AI 平台路由。"""
         cls = self._cls()
-        assert cls.resolve_backend_for_model("qwen3:0.6b") == "ollama"
+        assert cls.resolve_backend_for_model("qwen3:0.6b") == "openai_compatible"
 
     def test_no_colon_returns_openai_compatible(self) -> None:
         cls = self._cls()
@@ -112,7 +118,7 @@ class TestLLMConfigResolveBackendForModel:
 
     def test_deep_slash_model(self) -> None:
         cls = self._cls()
-        assert cls.resolve_backend_for_model("org/repo:model") == "ollama"
+        assert cls.resolve_backend_for_model("org/repo:model") == "openai_compatible"
 
 
 class TestLLMConfigConstants:

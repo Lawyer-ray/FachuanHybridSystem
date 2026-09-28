@@ -15,7 +15,7 @@ class TestNormalizeApiKey:
         assert LLMConfig._normalize_api_key("") == ""
 
     def test_none(self):
-        assert LLMConfig._normalize_api_key(None) == ""
+        assert LLMConfig._normalize_api_key(None) == ""  # type: ignore[arg-type]
 
     def test_bearer_prefix_stripped(self):
         assert LLMConfig._normalize_api_key("Bearer sk-abc") == "sk-abc"
@@ -35,7 +35,7 @@ class TestNormalizeBaseUrl:
         assert LLMConfig._normalize_base_url("") == ""
 
     def test_none(self):
-        assert LLMConfig._normalize_base_url(None) == ""
+        assert LLMConfig._normalize_base_url(None) == ""  # type: ignore[arg-type]
 
     def test_strip_trailing_slashes(self):
         assert LLMConfig._normalize_base_url("http://x.com///") == "http://x.com"
@@ -169,7 +169,8 @@ class TestResolveBackendForModel:
             assert LLMConfig.resolve_backend_for_model("") == "def"
 
     def test_ollama_model(self):
-        assert LLMConfig.resolve_backend_for_model("qwen3:0.6b") == "ollama"
+        """Ollama 已下线：带冒号的模型名也统一走 AI 平台路由。"""
+        assert LLMConfig.resolve_backend_for_model("qwen3:0.6b") == "openai_compatible"
 
     def test_openai_model(self):
         assert LLMConfig.resolve_backend_for_model("kimi26") == "openai_compatible"
@@ -246,7 +247,7 @@ class TestGetBackendConfigs:
             result = LLMConfig.get_backend_configs()
             assert "ollama" in result
             assert "openai_compatible" in result
-            assert result["ollama"].enabled is True
+            assert result["ollama"].enabled is False  # Ollama 已下线，默认禁用
             assert result["openai_compatible"].enabled is True
 
     def test_oc_auto_enabled_when_base_url_set(self):

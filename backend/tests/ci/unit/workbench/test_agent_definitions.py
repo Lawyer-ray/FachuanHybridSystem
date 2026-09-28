@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from contextvars import copy_context
 from datetime import datetime
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -72,7 +73,7 @@ class TestContextVars:
             set_event_queue,
         )
 
-        queue = asyncio.Queue()
+        queue: asyncio.Queue[Any] = asyncio.Queue()
         set_event_queue(queue, agent_name="case", user_id=42)
         assert _current_event_queue.get() is queue
         assert _current_agent_name.get() == "case"
@@ -166,7 +167,7 @@ class TestProcessToolCall:
             set_event_queue,
         )
 
-        queue = asyncio.Queue()
+        queue: asyncio.Queue[Any] = asyncio.Queue()
         set_event_queue(queue, agent_name="triage", user_id=1)
 
         ctx = MagicMock()
@@ -177,9 +178,7 @@ class TestProcessToolCall:
             new_callable=AsyncMock,
         ) as mock_approval:
             mock_approval.return_value = "ok"
-            result = await _process_tool_call(
-                ctx, call_tool, "_handoff_to_case", {"query": "test"}
-            )
+            result = await _process_tool_call(ctx, call_tool, "_handoff_to_case", {"query": "test"})
             mock_approval.assert_called_once()
 
         assert not queue.empty()
@@ -193,7 +192,7 @@ class TestProcessToolCall:
     async def test_non_handoff_tool_no_handoff_event(self):
         from apps.workbench.agents.definitions import _current_event_queue, _process_tool_call, set_event_queue
 
-        queue = asyncio.Queue()
+        queue: asyncio.Queue[Any] = asyncio.Queue()
         set_event_queue(queue, agent_name="triage", user_id=1)
 
         ctx = MagicMock()
@@ -212,15 +211,18 @@ class TestProcessToolCall:
 class TestModuleConstants:
     def test_base_system_prompt_exists(self):
         from apps.workbench.agents.definitions import BASE_SYSTEM_PROMPT
+
         assert len(BASE_SYSTEM_PROMPT) > 0
         assert "法穿AI" in BASE_SYSTEM_PROMPT
 
     def test_triage_prompt_exists(self):
         from apps.workbench.agents.definitions import TRIAGE_PROMPT
+
         assert "分诊" in TRIAGE_PROMPT
 
     def test_backend_dir(self):
         from apps.workbench.agents.definitions import BACKEND_DIR
+
         assert isinstance(BACKEND_DIR, str)
         assert len(BACKEND_DIR) > 0
 
@@ -228,6 +230,7 @@ class TestModuleConstants:
 class TestAgentInstances:
     def test_agents_are_created(self):
         from apps.workbench.agents.definitions import case_agent, contract_agent, research_agent, triage_agent
+
         assert case_agent is not None
         assert contract_agent is not None
         assert research_agent is not None
@@ -235,6 +238,7 @@ class TestAgentInstances:
 
     def test_agent_names(self):
         from apps.workbench.agents.definitions import case_agent, contract_agent, research_agent, triage_agent
+
         assert case_agent.name == "案件管理助手"
         assert contract_agent.name == "合同管理助手"
         assert research_agent.name == "法律检索助手"
@@ -277,11 +281,13 @@ class TestInstructionFunctions:
 
 class TestBuildModel:
     @patch("apps.workbench.agents.definitions.LLMConfig")
-    def test_ollama_backend(self, mock_config):
+    def test_all_models_route_to_platform(self, mock_config):
+        """Ollama 已下线：任何模型名都按 AI 平台路由构建。"""
         from apps.workbench.agents.definitions import build_model
 
-        mock_config.resolve_backend_for_model.return_value = "ollama"
-        mock_config.get_ollama_base_url.return_value = "http://localhost:11434/v1"
+        mock_config.get_openai_compatible_provider.return_value = None
+        mock_config.get_openai_compatible_api_key.return_value = "platform-unit-test-key"
+        mock_config.get_openai_compatible_base_url.return_value = "https://api.openai.com/v1"
         model = build_model("llama3")
         assert model is not None
 

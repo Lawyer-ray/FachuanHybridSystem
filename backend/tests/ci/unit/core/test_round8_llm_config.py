@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import patch
 
-from apps.core.llm.config import LLMConfig
+import pytest
 
+from apps.core.llm.config import LLMConfig
 
 # ---------------------------------------------------------------------------
 # _parse_bool
@@ -109,7 +109,8 @@ class TestNormalizeBaseUrl:
 
 class TestResolveBackendForModel:
     def test_ollama_model(self):
-        assert LLMConfig.resolve_backend_for_model("qwen3:0.6b") == "ollama"
+        """Ollama 已下线：带冒号的模型名也统一走 AI 平台路由。"""
+        assert LLMConfig.resolve_backend_for_model("qwen3:0.6b") == "openai_compatible"
 
     def test_openai_compatible_model(self):
         assert LLMConfig.resolve_backend_for_model("kimi26") == "openai_compatible"

@@ -185,26 +185,15 @@ def _build_openai_model(model_name: str, base_url: str, api_key: str) -> OpenAIC
 def build_model(model_name: str) -> Model:
     """根据模型名动态构建 Pydantic AI Model
 
-    复用已有的 LLMConfig 后端路由逻辑：
-    - 包含 ":" → Ollama
-    - 其他 → OpenAI Compatible
+    2026-09 Ollama 下线：所有模型统一按 AI 平台表（LLMProvider）路由，
+    按模型名解析平台配置，并为每个 Key 各建一个模型，
+    由 ``MultiKeyOpenAIModel`` 轮询——这样网关的「每 Key 并发上限」才能真正用上。
 
     自动附加：
     - HTTP 重试（由 openai SDK 负责：429/5xx，最多 2 次，尊重 Retry-After）
     - 并发限制（容量 = Key 数 × 每 Key 并发上限）
-
-    OpenAI-compatible 平台下按模型名解析平台配置，并为每个 Key 各建一个模型，
-    由 ``MultiKeyOpenAIModel`` 轮询——这样网关的「每 Key 并发上限」才能真正用上。
     """
     backend = LLMConfig.resolve_backend_for_model(model_name)
-
-    if backend == "ollama":
-        model = _build_openai_model(
-            model_name,
-            LLMConfig.get_ollama_base_url(),
-            "ollama",  # pragma: allowlist secret
-        )
-        return limit_model_concurrency(model, _get_model_limiter(DEFAULT_AGENT_CONCURRENCY))
 
     provider = LLMConfig.get_openai_compatible_provider(model_name)
     if provider is None or not provider.api_keys:

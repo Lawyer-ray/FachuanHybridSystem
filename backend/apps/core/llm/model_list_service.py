@@ -112,11 +112,13 @@ class ModelListService:
             for part in extra_raw.split(","):
                 _add(part)
 
-        # 2. 各后端的默认模型（用户在 SystemConfig 中配置的默认模型）
-        for default_model in [
-            LLMConfig.get_ollama_model(),
-            LLMConfig.get_openai_compatible_model(),
-        ]:
+        # 2. 各后端的默认模型（用户在 SystemConfig 中配置的默认模型；
+        # ollama 已下线默认禁用，禁用时不再展示其模型）
+        backend_defaults: list[str] = []
+        if LLMConfig.get_backend_configs().get("ollama") and LLMConfig.get_backend_configs()["ollama"].enabled:
+            backend_defaults.append(LLMConfig.get_ollama_model())
+        backend_defaults.append(LLMConfig.get_openai_compatible_model())
+        for default_model in backend_defaults:
             if default_model:
                 _add(default_model)
 
@@ -145,11 +147,14 @@ class ModelListService:
             for part in extra_raw.split(","):
                 _add(part)
 
-        # 2. 各后端的默认模型（用户在 SystemConfig 中配置的默认模型）
-        for default_model in [
-            await LLMConfig.get_ollama_model_async(),
-            await LLMConfig.get_openai_compatible_model_async(),
-        ]:
+        # 2. 各后端的默认模型（用户在 SystemConfig 中配置的默认模型；
+        # ollama 已下线默认禁用，禁用时不再展示其模型）
+        backend_defaults: list[str] = []
+        ollama_config = LLMConfig.get_backend_configs().get("ollama")
+        if ollama_config is not None and ollama_config.enabled:
+            backend_defaults.append(await LLMConfig.get_ollama_model_async())
+        backend_defaults.append(await LLMConfig.get_openai_compatible_model_async())
+        for default_model in backend_defaults:
             if default_model:
                 _add(default_model)
 

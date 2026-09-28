@@ -279,14 +279,14 @@ class TestOpenAICompatibleConfig:
 
     def test_normalize_api_key_empty(self) -> None:
         assert LLMConfig._normalize_api_key("") == ""
-        assert LLMConfig._normalize_api_key(None) == ""
+        assert LLMConfig._normalize_api_key(None) == ""  # type: ignore[arg-type]
 
     def test_normalize_base_url_strips_trailing_slashes(self) -> None:
         assert LLMConfig._normalize_base_url("http://host/v1///") == "http://host/v1"
 
     def test_normalize_base_url_empty(self) -> None:
         assert LLMConfig._normalize_base_url("") == ""
-        assert LLMConfig._normalize_base_url(None) == ""
+        assert LLMConfig._normalize_base_url(None) == ""  # type: ignore[arg-type]
 
     def test_get_api_key_unconfigured(self) -> None:
         with patch.object(LLMConfig, "_get_system_config", return_value="sk-key"):
@@ -418,7 +418,8 @@ class TestResolveBackendForModel:
             assert LLMConfig.resolve_backend_for_model("") == "openai_compatible"
 
     def test_model_with_colon(self) -> None:
-        assert LLMConfig.resolve_backend_for_model("qwen3:0.6b") == "ollama"
+        """Ollama 已下线：带冒号的模型名也统一走 AI 平台路由。"""
+        assert LLMConfig.resolve_backend_for_model("qwen3:0.6b") == "openai_compatible"
 
     def test_model_without_colon(self) -> None:
         assert LLMConfig.resolve_backend_for_model("kimi26") == "openai_compatible"
@@ -447,14 +448,22 @@ class TestGetBackendConfigs:
         with patch.object(LLMConfig, "_get_system_config", return_value=""):
             with patch.object(LLMConfig, "_parse_bool", return_value=False):
                 with patch.object(LLMConfig, "_parse_int", return_value=1):
-                    with patch.object(LLMConfig, "_get_llm_providers", return_value=[OpenAIProviderConfig(
-                        name="law", base_url="http://api/v1", default_model="kimi26"
-                    )]):
+                    with patch.object(
+                        LLMConfig,
+                        "_get_llm_providers",
+                        return_value=[
+                            OpenAIProviderConfig(name="law", base_url="http://api/v1", default_model="kimi26")
+                        ],
+                    ):
                         with patch.object(LLMConfig, "get_openai_compatible_model", return_value="kimi26"):
-                            with patch.object(LLMConfig, "get_openai_compatible_base_url", return_value="http://api/v1"):
+                            with patch.object(
+                                LLMConfig, "get_openai_compatible_base_url", return_value="http://api/v1"
+                            ):
                                 with patch.object(LLMConfig, "get_openai_compatible_api_key", return_value=""):
                                     with patch.object(LLMConfig, "get_openai_compatible_timeout", return_value=120):
-                                        with patch.object(LLMConfig, "get_openai_compatible_embedding_model", return_value=""):
+                                        with patch.object(
+                                            LLMConfig, "get_openai_compatible_embedding_model", return_value=""
+                                        ):
                                             configs = LLMConfig.get_backend_configs()
         assert configs["openai_compatible"].enabled is True
 
@@ -464,6 +473,7 @@ class TestGetBackendConfigs:
             if key == "OPENAI_COMPATIBLE_BASE_URL":
                 return "http://api/v1"
             return ""
+
         with patch.object(LLMConfig, "_get_system_config", side_effect=_side_effect):
             with patch.object(LLMConfig, "_parse_bool", return_value=False):
                 with patch.object(LLMConfig, "_parse_int", return_value=1):
@@ -472,7 +482,9 @@ class TestGetBackendConfigs:
                             with patch.object(LLMConfig, "get_openai_compatible_base_url", return_value=""):
                                 with patch.object(LLMConfig, "get_openai_compatible_api_key", return_value=""):
                                     with patch.object(LLMConfig, "get_openai_compatible_timeout", return_value=120):
-                                        with patch.object(LLMConfig, "get_openai_compatible_embedding_model", return_value=""):
+                                        with patch.object(
+                                            LLMConfig, "get_openai_compatible_embedding_model", return_value=""
+                                        ):
                                             configs = LLMConfig.get_backend_configs()
         assert configs["openai_compatible"].enabled is False
 
@@ -497,6 +509,7 @@ class TestGetAvailableModels:
             if key == "LLM_EXTRA_MODELS":
                 return "gpt-4,claude-3"
             return ""
+
         with patch.object(LLMConfig, "_get_system_config", side_effect=_side_effect):
             with patch.object(LLMConfig, "get_ollama_model", return_value="qwen3:0.6b"):
                 with patch.object(LLMConfig, "get_openai_compatible_model", return_value="kimi26"):
@@ -507,10 +520,12 @@ class TestGetAvailableModels:
 
     def test_no_duplicates(self) -> None:
         """Default models should not be duplicated if they appear in extra models."""
+
         def _side_effect(key, default=""):
             if key == "LLM_EXTRA_MODELS":
                 return "kimi26"
             return ""
+
         with patch.object(LLMConfig, "_get_system_config", side_effect=_side_effect):
             with patch.object(LLMConfig, "get_ollama_model", return_value="qwen3:0.6b"):
                 with patch.object(LLMConfig, "get_openai_compatible_model", return_value="kimi26"):

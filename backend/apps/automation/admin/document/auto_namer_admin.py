@@ -31,7 +31,7 @@ class AutoNamerToolForm(forms.Form):  # pragma: no cover
         help_text="AI提示词，用于指导模型生成合适的文件名",
     )
     model = forms.CharField(
-        required=True, initial="kimi-2.6", help_text='使用的AI模型名称（含":"走本地Ollama，其余走AI平台）'
+        required=True, initial="kimi-2.6", help_text="使用的AI模型名称（统一走 AI 平台 /admin/core/llmprovider/）"
     )
     limit = forms.IntegerField(required=False, help_text="文字提取限制（留空使用默认值1500字）")
     preview_page = forms.IntegerField(required=False, min_value=1, help_text="PDF预览页码（留空使用默认值第1页）")

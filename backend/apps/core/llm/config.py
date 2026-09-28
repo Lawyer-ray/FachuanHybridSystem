@@ -60,10 +60,10 @@ class LLMConfig:
         "kimi26",
     ]
 
-    # 模型名 → 后端映射规则：含 ":" 的走 ollama，其余走 openai_compatible
-    _MODEL_BACKEND_RULES: ClassVar[list[tuple[str, str]]] = [
-        (":", "ollama"),
-    ]
+    # 模型名 → 后端映射规则（2026-09 Ollama 下线后为空）：
+    # 全部模型名默认走 openai_compatible（AI 平台表路由）。
+    # 如未来要恢复本地后端，在此追加规则并在 SystemConfig 启用对应后端。
+    _MODEL_BACKEND_RULES: ClassVar[list[tuple[str, str]]] = []
 
     # 缓存 SystemConfigService 实例
     _config_service: SystemConfigService | None = None
@@ -511,7 +511,10 @@ class LLMConfig:
             return f"LLM_BACKEND_{name.upper()}_PRIORITY"
 
         default_priorities = {"ollama": 2, "openai_compatible": 1}
-        default_enabled = {"ollama": True, "openai_compatible": True}
+        # 2026-09 Ollama 下线：本地后端默认禁用，所有 LLM 调用统一走
+        # AI 平台表（/admin/core/llmprovider/）。如需恢复，在 SystemConfig
+        # 显式设置 LLM_BACKEND_OLLAMA_ENABLED=true。
+        default_enabled = {"ollama": False, "openai_compatible": True}
 
         configs: dict[str, BackendConfig] = {}
         for name in ("ollama", "openai_compatible"):
@@ -555,15 +558,14 @@ class LLMConfig:
         """
         根据模型名称推断应使用的后端.
 
-        规则:
-        - 模型名含 ":" → ollama（如 qwen3:0.6b）
-        - 其余 → openai_compatible（如 kimi26）
+        2026-09 Ollama 下线后无名字映射规则：所有模型统一走
+        openai_compatible（AI 平台表路由）。
 
         Args:
             model: 模型名称
 
         Returns:
-            推断的后端名称
+            后端名称
         """
         if not model:
             return cls.get_default_backend()
