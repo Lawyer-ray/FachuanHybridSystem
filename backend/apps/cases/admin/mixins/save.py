@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import contextlib
 import logging
 from typing import Any
 
 from django.apps import apps
 from django.contrib import messages
-from django.db import IntegrityError, connection
+from django.db import IntegrityError, transaction
 from django.db.models import QuerySet
 from django.forms import ModelForm
 from django.http import HttpRequest
@@ -22,6 +21,12 @@ logger = logging.getLogger("apps.cases")
 
 class CaseAdminSaveMixin(CaseAdminServiceMixin):  # pragma: no cover
     def _cleanup_before_delete(self, case_ids: list[int]) -> None:  # pragma: no cover
+        """删除前把指向案件的弱引用 FK 置空，避免外键约束阻断删除。
+
+        注意：新增指向 Case 的可空 FK 时要同步加进这张表；
+        删除失败会直接报 IntegrityError（不再绕过外键检查强删，
+        避免留下无审计的孤儿数据）。
+        """
         if not case_ids:
             return
 
@@ -37,38 +42,30 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):  # pragma: no cover
                 continue
             model.objects.filter(case_id__in=case_ids).update(case=None)
 
-        from apps.cases.utils import fix_sqlite_orphan_contract_fk
-
-        fix_sqlite_orphan_contract_fk()
-
     def delete_model(self, request: HttpRequest, obj: Case) -> None:  # pragma: no cover
         try:
             self._cleanup_before_delete([obj.id])
             super().delete_model(request, obj)  # type: ignore[misc]
-        except IntegrityError as e:
+        except IntegrityError:
             logger.error(
-                "Admin 删除案件失败",
-                extra={"case_id": obj.id, "error": str(e)},
+                "Admin 删除案件失败：存在未清理的外键引用",
+                extra={"case_id": obj.id},
                 exc_info=True,
             )
-            with connection.constraint_checks_disabled():
-                super().delete_model(request, obj)  # type: ignore[misc]
-            messages.warning(request, "已强制删除案件 %(case_id)s(已绕过外键检查)" % {"case_id": obj.id})
+            messages.error(request, "删除失败：仍有数据引用该案件，请先处理关联数据（详情见服务器日志）")
 
     def delete_queryset(self, request: HttpRequest, queryset: QuerySet[Case, Case]) -> None:  # pragma: no cover
         case_ids = list(queryset.values_list("id", flat=True))
         try:
             self._cleanup_before_delete(case_ids)
             super().delete_queryset(request, queryset)  # type: ignore[misc]
-        except IntegrityError as e:
+        except IntegrityError:
             logger.error(
-                "Admin 批量删除案件失败",
-                extra={"case_ids": case_ids, "error": str(e)},
+                "Admin 批量删除案件失败：存在未清理的外键引用",
+                extra={"case_ids": case_ids},
                 exc_info=True,
             )
-            with connection.constraint_checks_disabled():
-                super().delete_queryset(request, queryset)  # type: ignore[misc]
-            messages.warning(request, "已强制批量删除 %d 个案件(已绕过外键检查)" % len(case_ids))
+            messages.error(request, "批量删除失败：仍有数据引用部分案件，请先处理关联数据（详情见服务器日志）")
 
     def save_model(  # pragma: no cover
         self,
@@ -163,18 +160,36 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):  # pragma: no cover
                 )
                 messages.error(request, "同步律师指派失败: %s" % str(e))
 
-    def save_formset(self, request: HttpRequest, form: ModelForm[Any], formset: Any, change: bool) -> None:  # pragma: no cover
+    @transaction.atomic
+    def save_formset(
+        self, request: HttpRequest, form: ModelForm[Any], formset: Any, change: bool
+    ) -> None:  # pragma: no cover
         from apps.contracts.models import ClientPaymentRecord
 
         instances = formset.save(commit=False)
+
+        # 批量预查指派重复，避免循环内逐行 exists() 查询
+        pending_assignment_pairs = {
+            (obj.case_id, obj.lawyer_id)
+            for obj in instances
+            if isinstance(obj, CaseAssignment) and not obj.pk and obj.case_id and obj.lawyer_id
+        }
+        existing_assignment_pairs: set[tuple[int, int]] = set()
+        if pending_assignment_pairs:
+            case_ids = {case_id for case_id, _ in pending_assignment_pairs}
+            existing_assignment_pairs = set(
+                CaseAssignment.objects.filter(case_id__in=case_ids).values_list("case_id", "lawyer_id")
+            )
+
         for obj in instances:
             if isinstance(obj, CaseLog) and not getattr(obj, "actor_id", None):
                 user_id = getattr(request.user, "id", None)
                 if user_id is not None:
                     obj.actor_id = user_id
             if isinstance(obj, CaseAssignment) and not obj.pk and obj.case_id and obj.lawyer_id:
-                if CaseAssignment.objects.filter(case_id=obj.case_id, lawyer_id=obj.lawyer_id).exists():
+                if (obj.case_id, obj.lawyer_id) in existing_assignment_pairs:
                     continue
+                existing_assignment_pairs.add((obj.case_id, obj.lawyer_id))
             if isinstance(obj, ClientPaymentRecord):
                 parent_case: Any = form.instance
                 if parent_case and parent_case.pk:

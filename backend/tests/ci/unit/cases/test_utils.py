@@ -11,7 +11,6 @@ from apps.cases.utils import (
     CASE_LOG_ALLOWED_EXTENSIONS,
     CASE_LOG_MAX_FILE_SIZE,
     _basename,
-    fix_sqlite_orphan_contract_fk,
     get_file_extension_lower,
     normalize_case_number,
     validate_case_log_attachment,
@@ -186,20 +185,3 @@ class TestCaseLogAllowedExtensions:
 
     def test_does_not_contain_exe(self) -> None:
         assert ".exe" not in CASE_LOG_ALLOWED_EXTENSIONS
-
-
-class TestFixSqliteOrphanContractFk:
-    """fix_sqlite_orphan_contract_fk() tests."""
-
-    @patch("django.db.connection")
-    def test_sqlite_executes_cleanup(self, mock_conn: Any) -> None:
-        mock_conn.vendor = "sqlite"
-        mock_cursor = mock_conn.cursor.return_value.__enter__.return_value
-        fix_sqlite_orphan_contract_fk()
-        mock_cursor.execute.assert_called_once()
-
-    @patch("django.db.connection")
-    def test_postgresql_skips_cleanup(self, mock_conn: Any) -> None:
-        mock_conn.vendor = "postgresql"
-        fix_sqlite_orphan_contract_fk()
-        mock_conn.cursor.assert_not_called()

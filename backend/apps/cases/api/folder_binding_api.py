@@ -49,23 +49,12 @@ async def create_folder_binding(
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
 
-    # Resolve storage_account if provided
+    # 云存储账号解析下沉在 service（API 层不直接摸 ORM）
     storage_account = None
     if data.storage_account_id and data.storage_type != "local":
-        from apps.cloud_storage.models import CloudStorageAccount
-
-        account_id = int(data.storage_account_id)
-        storage_account = await CloudStorageAccount.objects.filter(
-            id=account_id, storage_type=data.storage_type, is_active=True
-        ).afirst()
-        if storage_account is None:
-            from apps.core.exceptions import ValidationException
-
-            raise ValidationException(
-                message="指定的云存储账号不存在或已禁用",
-                code="STORAGE_ACCOUNT_NOT_FOUND",
-                errors={"storage_account_id": data.storage_account_id},
-            )
+        storage_account = await sync_to_async(service.resolve_storage_account)(
+            data.storage_account_id, data.storage_type
+        )
 
     binding = await sync_to_async(service.create_binding_ctx)(
         case_id=case_id,

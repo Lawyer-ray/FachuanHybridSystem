@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.models.enums import ChatPlatform
 
@@ -50,16 +51,15 @@ class CaseChat(models.Model):
         audit_logs: RelatedManager[ChatAuditLog]
 
     class Meta:
-        verbose_name = "群聊"
-        verbose_name_plural = "群聊"
-        unique_together: ClassVar = [["case", "platform", "chat_id"]]
+        verbose_name = _("群聊")
+        verbose_name_plural = _("群聊")
+        constraints: ClassVar = [
+            models.UniqueConstraint(fields=["case", "platform", "chat_id"], name="uniq_case_chat_case_platform_chat"),
+        ]
         indexes: ClassVar = [
-            models.Index(fields=["case", "platform"]),
+            # (case, platform) 前缀已由唯一约束覆盖；chat_id / owner_id 是独立查找维度
             models.Index(fields=["chat_id"]),
-            models.Index(fields=["is_active"]),
             models.Index(fields=["owner_id"]),
-            models.Index(fields=["owner_verified"]),
-            models.Index(fields=["owner_verified_at"]),
         ]
 
     def __str__(self) -> str:
@@ -90,20 +90,23 @@ class CaseChat(models.Model):
         return " | ".join(summary_parts)
 
 
+class ChatAuditAction(models.TextChoices):
+    """群聊审计动作类型"""
+
+    CREATE_START = "CREATE_START", "开始创建"
+    CREATE_SUCCESS = "CREATE_SUCCESS", "创建成功"
+    CREATE_FAILED = "CREATE_FAILED", "创建失败"
+    OWNER_SET = "OWNER_SET", "设置群主"
+    OWNER_VERIFY = "OWNER_VERIFY", "验证群主"
+    OWNER_RETRY = "OWNER_RETRY", "重试群主设置"
+    OWNER_SET_FAILED = "OWNER_SET_FAILED", "群主设置失败"
+    CONFIG_ERROR = "CONFIG_ERROR", "配置错误"
+
+
 class ChatAuditLog(models.Model):
     """群聊审计日志"""
 
     id: int
-    ACTION_CHOICES: ClassVar[list[tuple[str, Any]]] = [
-        ("CREATE_START", "开始创建"),
-        ("CREATE_SUCCESS", "创建成功"),
-        ("CREATE_FAILED", "创建失败"),
-        ("OWNER_SET", "设置群主"),
-        ("OWNER_VERIFY", "验证群主"),
-        ("OWNER_RETRY", "重试群主设置"),
-        ("OWNER_SET_FAILED", "群主设置失败"),
-        ("CONFIG_ERROR", "配置错误"),
-    ]
 
     chat = models.ForeignKey(
         CaseChat,
@@ -124,7 +127,7 @@ class ChatAuditLog(models.Model):
         help_text="关联的案件",
     )
     action = models.CharField(
-        max_length=32, choices=ACTION_CHOICES, verbose_name="操作类型", help_text="执行的操作类型"
+        max_length=32, choices=ChatAuditAction.choices, verbose_name="操作类型", help_text="执行的操作类型"
     )
     details: Any = models.JSONField(default=dict, verbose_name="操作详情", help_text="操作的详细信息,以JSON格式存储")
     timestamp = models.DateTimeField(auto_now_add=True, verbose_name="时间戳", help_text="操作发生的时间")
@@ -152,9 +155,7 @@ class ChatAuditLog(models.Model):
             models.Index(fields=["chat", "-timestamp"]),
             models.Index(fields=["case", "-timestamp"]),
             models.Index(fields=["action", "-timestamp"]),
-            models.Index(fields=["success", "-timestamp"]),
             models.Index(fields=["external_chat_id", "-timestamp"]),
-            models.Index(fields=["platform", "-timestamp"]),
             models.Index(fields=["-timestamp"]),
         ]
 

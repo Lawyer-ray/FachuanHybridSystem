@@ -44,9 +44,8 @@ class CaseMaterialType(models.Model):
             models.UniqueConstraint(fields=["law_firm", "category", "name"], name="uniq_case_material_type_scope"),
         ]
         indexes: ClassVar = [
+            # (law_firm, category) 前缀已由唯一约束覆盖
             models.Index(fields=["category", "name"]),
-            models.Index(fields=["law_firm", "category"]),
-            models.Index(fields=["is_active"]),
         ]
 
     def __str__(self) -> str:
@@ -151,6 +150,17 @@ class CaseMaterialGroupOrder(models.Model):
         return f"{self.case_id}-{self.category}-{self.sort_index}"
 
 
+class CaseFolderStorageType(models.TextChoices):
+    """案件文件夹绑定的存储后端"""
+
+    LOCAL = "local", "本地文件系统"
+    WEBDAV = "webdav", "WebDAV"
+    ONEDRIVE = "onedrive", "OneDrive"
+    S3 = "s3", "S3 兼容存储"
+    GOOGLE_DRIVE = "google_drive", "Google Drive"
+    DROPBOX = "dropbox", "Dropbox"
+
+
 class CaseFolderBinding(models.Model):
     """案件文件夹绑定"""
 
@@ -168,15 +178,8 @@ class CaseFolderBinding(models.Model):
     # ── Cloud storage fields ───────────────────────────────────
     storage_type = models.CharField(
         max_length=20,
-        choices=[
-            ("local", "本地文件系统"),
-            ("webdav", "WebDAV"),
-            ("onedrive", "OneDrive"),
-            ("s3", "S3 兼容存储"),
-            ("google_drive", "Google Drive"),
-            ("dropbox", "Dropbox"),
-        ],
-        default="local",
+        choices=CaseFolderStorageType.choices,
+        default=CaseFolderStorageType.LOCAL,
         verbose_name="存储类型",
     )
     storage_account = models.ForeignKey(
@@ -194,7 +197,6 @@ class CaseFolderBinding(models.Model):
         verbose_name = "案件文件夹绑定"
         verbose_name_plural = "案件文件夹绑定"
         indexes: ClassVar = [
-            models.Index(fields=["case"]),
             models.Index(fields=["created_at"]),
         ]
 

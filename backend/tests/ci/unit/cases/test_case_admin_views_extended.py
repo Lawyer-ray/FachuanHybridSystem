@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import date, datetime
 from decimal import Decimal
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -16,7 +16,6 @@ from apps.cases.admin.mixins.views import (
     _has_court_filing_plugin,
     _log_inline_formset,
 )
-
 
 # ---------------------------------------------------------------------------
 # Module-level helpers
@@ -330,30 +329,26 @@ class TestCaseAdminViewsMixinHelpers:
         assert isinstance(result, bool)
 
     def test_log_post_response_no_context(self) -> None:
-        logger = MagicMock()
-        response = MagicMock()
-        response.status_code = 200
-        response.context_data = None
-        CaseAdminViewsMixin._log_post_response(response, logger)
-        logger.info.assert_called_once()
+        with patch("apps.cases.admin.mixins.views.logger") as mock_logger:
+            response = MagicMock()
+            response.status_code = 200
+            response.context_data = None
+            CaseAdminViewsMixin._log_post_response(response)
+            mock_logger.info.assert_called_once()
 
     def test_log_post_response_with_form_errors(self) -> None:
-        logger = MagicMock()
-        response = MagicMock()
-        response.status_code = 200
-        form = MagicMock()
-        form.errors = {"field": ["error"]}
-        adminform = MagicMock()
-        adminform.form = form
-        response.context_data = {
-            "adminform": adminform,
-            "inline_admin_formsets": [],
-        }
-        CaseAdminViewsMixin._log_post_response(response, logger)
-        assert logger.info.call_count >= 2
+        with patch("apps.cases.admin.mixins.views.logger") as mock_logger:
+            response = MagicMock()
+            response.status_code = 200
+            form = MagicMock()
+            form.errors = {"field": ["error"]}
+            adminform = MagicMock()
+            adminform.form = form
+            response.context_data = {
+                "adminform": adminform,
+                "inline_admin_formsets": [],
+            }
+            CaseAdminViewsMixin._log_post_response(response)
+            assert mock_logger.info.call_count >= 2
 
-    def test_group_templates_by_sub_type(self) -> None:
-        with patch("apps.cases.services.case.case_admin_service.CaseAdminService") as mock_svc_cls:
-            mock_svc_cls.return_value.group_templates_by_sub_type.return_value = [("sub1", [])]
-            result = CaseAdminViewsMixin._group_templates_by_sub_type([], [])
-            assert result == [("sub1", [])]
+    # _group_templates_by_sub_type 已删除（死代码：页面实际调用 service 同名方法）

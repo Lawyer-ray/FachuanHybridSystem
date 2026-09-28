@@ -1,8 +1,9 @@
 """Tests for CaseFolderScanService - pure logic methods."""
 
-import pytest
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from apps.cases.services.material.folder_scan_service import CaseFolderScanService
 
@@ -191,24 +192,27 @@ class TestExtractEnableRecognition:
         assert self.service._extract_enable_recognition(None) is True
 
 
+from apps.cases.services.material.folder_scan_service import _to_int
+
+
 class TestToInt:
     def test_valid_int(self):
-        assert CaseFolderScanService._to_int(5) == 5
+        assert _to_int(5) == 5
 
     def test_string_int(self):
-        assert CaseFolderScanService._to_int("10") == 10
+        assert _to_int("10") == 10
 
     def test_negative_returns_none(self):
-        assert CaseFolderScanService._to_int(-1) is None
+        assert _to_int(-1) is None
 
     def test_zero_returns_none(self):
-        assert CaseFolderScanService._to_int(0) is None
+        assert _to_int(0) is None
 
     def test_none_returns_none(self):
-        assert CaseFolderScanService._to_int(None) is None
+        assert _to_int(None) is None
 
     def test_invalid_string(self):
-        assert CaseFolderScanService._to_int("abc") is None
+        assert _to_int("abc") is None
 
 
 class TestBuildStatusPayload:
@@ -286,6 +290,7 @@ class TestResolveScanScope:
 
     def test_local_subfolder_traversal_blocked(self):
         import tempfile
+
         from apps.core.exceptions import ValidationException
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -294,6 +299,7 @@ class TestResolveScanScope:
 
     def test_local_subfolder_not_exist(self):
         import tempfile
+
         from apps.core.exceptions import ValidationException
 
         with tempfile.TemporaryDirectory() as tmpdir:

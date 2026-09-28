@@ -265,7 +265,14 @@ class CaseImportService:
                     from django.conf import settings
                     from django.core.files.base import ContentFile
 
-                    full = Path(settings.MEDIA_ROOT) / file_path
+                    # 导入数据不可全信：路径必须约束在 MEDIA_ROOT 下，防止 ../ 逃逸读取任意文件
+                    full = (Path(settings.MEDIA_ROOT) / file_path).resolve()
+                    if not full.is_relative_to(Path(settings.MEDIA_ROOT).resolve()):
+                        logger.warning(
+                            "导入附件路径越界，已跳过",
+                            extra={"case_id": case.pk, "file_path": file_path},
+                        )
+                        continue
                     if full.exists():
                         filename = att_data.get("filename")
                         save_name = filename if isinstance(filename, str) and filename else full.name

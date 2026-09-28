@@ -24,6 +24,106 @@ from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 logger = logging.getLogger(__name__)
 
 
+# ── 模块级工具函数（原类内 @staticmethod，遵循 Service 层禁用 @staticmethod 约定）──
+
+
+def _ensure_case_exists(case_id: int) -> None:
+    if Case.objects.filter(id=case_id).exists():
+        return
+    raise NotFoundError("案件不存在")
+
+
+def _get_accessible_binding(case_id: int) -> CaseFolderBinding:
+    binding = CaseFolderBinding.objects.filter(case_id=case_id).first()
+    if not binding:
+        raise ValidationException(message="未绑定文件夹", errors={"case_id": case_id})
+
+    storage_type = getattr(binding, "storage_type", "local")
+    if storage_type == "local":
+        folder = Path(binding.resolved_folder_path)
+        if not folder.exists() or not folder.is_dir():
+            # 文件夹不可访问，尝试自动修复合同路径后再检查
+            _try_repair_binding_path(binding)
+            # 修复后重新检查
+            folder = Path(binding.resolved_folder_path)
+            if not folder.exists() or not folder.is_dir():
+                raise ValidationException(
+                    message="绑定文件夹不可访问", errors={"folder_path": binding.resolved_folder_path}
+                )
+    else:
+        # Cloud storage: use provider to check accessibility
+        from apps.cloud_storage.factory import create_provider_for_binding
+
+        provider = create_provider_for_binding(binding)
+        try:
+            accessible = provider.is_dir(binding.resolved_folder_path) or provider.exists(binding.resolved_folder_path)
+        except Exception:
+            accessible = False
+        if not accessible:
+            raise ValidationException(
+                message="绑定文件夹不可访问", errors={"folder_path": binding.resolved_folder_path}
+            )
+
+    return binding
+
+
+def _try_repair_binding_path(binding: CaseFolderBinding) -> None:
+    """当文件夹不可访问时，尝试自动修复合同路径以恢复可达性。
+
+    案件的 resolved_folder_path 依赖合同路径 + relative_path，
+    如果合同路径因改名/移动而失效，通过 inode 搜索可以自动恢复。
+    """
+    if not binding.relative_path:
+        return
+
+    try:
+        case = binding.case
+    except (AttributeError, TypeError):
+        return
+
+    if not case.contract_id:
+        return
+
+    try:
+        contract = case.contract
+    except (AttributeError, TypeError):
+        return
+
+    contract_binding = getattr(contract, "folder_binding", None)
+    if not contract_binding:
+        return
+
+    from apps.core.dependencies import build_contract_folder_binding_service
+
+    contract_binding_service = build_contract_folder_binding_service()
+    is_accessible, auto_repaired = contract_binding_service.check_and_repair_path(contract_binding)
+    logger.info(
+        "case_folder_scan_auto_repair",
+        extra={
+            "case_id": binding.case_id,
+            "binding_id": binding.id,
+            "resolved_folder_path": binding.resolved_folder_path,
+            "is_accessible": is_accessible,
+            "auto_repaired": auto_repaired,
+        },
+    )
+
+
+def _to_int(value: Any) -> int | None:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    if parsed <= 0:
+        return None
+    return parsed
+
+
+def _build_materials_url(*, case_id: int, session_id: UUID) -> str:
+    base = reverse("admin:cases_case_materials", args=[case_id])
+    return f"{base}?{urlencode({'scan_session': str(session_id), 'open_scan': '1'})}"
+
+
 class CaseFolderScanService:
     """案件自动捕获扫描、轮询、导入附件服务。"""
 
@@ -53,8 +153,8 @@ class CaseFolderScanService:
         scan_subfolder: str = "",
         enable_recognition: bool = False,
     ) -> CaseFolderScanSession:  # pragma: no cover
-        self._ensure_case_exists(case_id)
-        binding = self._get_accessible_binding(case_id)
+        _ensure_case_exists(case_id)
+        binding = _get_accessible_binding(case_id)
         storage_provider = self._make_provider_for_binding(binding)
         scan_scope = self._resolve_scan_scope(
             binding.resolved_folder_path, scan_subfolder, storage_provider=storage_provider
@@ -118,8 +218,8 @@ class CaseFolderScanService:
         return session
 
     def list_scan_subfolders(self, *, case_id: int) -> dict[str, Any]:  # pragma: no cover
-        self._ensure_case_exists(case_id)
-        binding = self._get_accessible_binding(case_id)
+        _ensure_case_exists(case_id)
+        binding = _get_accessible_binding(case_id)
 
         # Cloud storage: use provider to list subdirectories
         storage_type = getattr(binding, "storage_type", "local")
@@ -227,7 +327,8 @@ class CaseFolderScanService:
 
                 storage_provider = create_provider_for_binding(binding)
         except Exception:
-            pass
+            # provider 解析失败按本地无云存储继续，但必须留痕供排障
+            logger.warning("解析云存储 provider 失败，按无云存储继续", extra={"case_id": case_id}, exc_info=True)
 
         selected_items = [item for item in items if bool(item.get("selected", True))]
         if not selected_items:
@@ -309,7 +410,7 @@ class CaseFolderScanService:
 
             supervising_authority_id: int | None = None
             if category == "non_party":
-                supervising_authority_id = self._to_int(item.get("supervising_authority_id"))
+                supervising_authority_id = _to_int(item.get("supervising_authority_id"))
 
             party_ids: list[int] = []
             if category == "party":
@@ -317,7 +418,7 @@ class CaseFolderScanService:
                 if isinstance(raw_party_ids, list):
                     seen_party_ids: set[int] = set()
                     for raw_pid in raw_party_ids:
-                        pid = self._to_int(raw_pid)
+                        pid = _to_int(raw_pid)
                         if pid and pid not in seen_party_ids:
                             seen_party_ids.add(pid)
                             party_ids.append(pid)
@@ -369,7 +470,7 @@ class CaseFolderScanService:
         for attachment, prefill in zip(created_attachments, prefill_entries, strict=True):
             prefill_map[str(attachment.id)] = prefill
 
-        materials_url = self._build_materials_url(case_id=case_id, session_id=session_id)
+        materials_url = _build_materials_url(case_id=case_id, session_id=session_id)
         stage_result = {
             "log_id": int(log.id),
             "attachment_ids": [int(att.id) for att in created_attachments],
@@ -410,7 +511,7 @@ class CaseFolderScanService:
             return
 
         try:
-            binding = self._get_accessible_binding(session.case_id)
+            binding = _get_accessible_binding(session.case_id)
             storage_provider = self._make_provider_for_binding(binding)
             payload = dict(session.result_payload or {})
             scan_scope = self._resolve_scan_scope(
@@ -468,90 +569,6 @@ class CaseFolderScanService:
                 error_message=error_msg,
                 updated_at=timezone.now(),
             )
-
-    @staticmethod
-    def _ensure_case_exists(case_id: int) -> None:
-        if Case.objects.filter(id=case_id).exists():
-            return
-        raise NotFoundError("案件不存在")
-
-    @staticmethod
-    def _get_accessible_binding(case_id: int) -> CaseFolderBinding:
-        binding = CaseFolderBinding.objects.filter(case_id=case_id).first()
-        if not binding:
-            raise ValidationException(message="未绑定文件夹", errors={"case_id": case_id})
-
-        storage_type = getattr(binding, "storage_type", "local")
-        if storage_type == "local":
-            folder = Path(binding.resolved_folder_path)
-            if not folder.exists() or not folder.is_dir():
-                # 文件夹不可访问，尝试自动修复合同路径后再检查
-                CaseFolderScanService._try_repair_binding_path(binding)
-                # 修复后重新检查
-                folder = Path(binding.resolved_folder_path)
-                if not folder.exists() or not folder.is_dir():
-                    raise ValidationException(
-                        message="绑定文件夹不可访问", errors={"folder_path": binding.resolved_folder_path}
-                    )
-        else:
-            # Cloud storage: use provider to check accessibility
-            from apps.cloud_storage.factory import create_provider_for_binding
-
-            provider = create_provider_for_binding(binding)
-            try:
-                accessible = provider.is_dir(binding.resolved_folder_path) or provider.exists(
-                    binding.resolved_folder_path
-                )
-            except Exception:
-                accessible = False
-            if not accessible:
-                raise ValidationException(
-                    message="绑定文件夹不可访问", errors={"folder_path": binding.resolved_folder_path}
-                )
-
-        return binding
-
-    @staticmethod
-    def _try_repair_binding_path(binding: CaseFolderBinding) -> None:
-        """当文件夹不可访问时，尝试自动修复合同路径以恢复可达性。
-
-        案件的 resolved_folder_path 依赖合同路径 + relative_path，
-        如果合同路径因改名/移动而失效，通过 inode 搜索可以自动恢复。
-        """
-        if not binding.relative_path:
-            return
-
-        try:
-            case = binding.case
-        except (AttributeError, TypeError):
-            return
-
-        if not case.contract_id:
-            return
-
-        try:
-            contract = case.contract
-        except (AttributeError, TypeError):
-            return
-
-        contract_binding = getattr(contract, "folder_binding", None)
-        if not contract_binding:
-            return
-
-        from apps.core.dependencies import build_contract_folder_binding_service
-
-        contract_binding_service = build_contract_folder_binding_service()
-        is_accessible, auto_repaired = contract_binding_service.check_and_repair_path(contract_binding)
-        logger.info(
-            "case_folder_scan_auto_repair",
-            extra={
-                "case_id": binding.case_id,
-                "binding_id": binding.id,
-                "resolved_folder_path": binding.resolved_folder_path,
-                "is_accessible": is_accessible,
-                "auto_repaired": auto_repaired,
-            },
-        )
 
     def _extract_scan_subfolder(self, payload: dict[str, Any] | None) -> str:
         scope = (payload or {}).get("scan_scope") or {}
@@ -736,21 +753,6 @@ class CaseFolderScanService:
             "supervising_authority_ids": authority_ids,
             "primary_supervising_authority_id": primary_authority_id,
         }
-
-    @staticmethod
-    def _to_int(value: Any) -> int | None:
-        try:
-            parsed = int(value)
-        except (TypeError, ValueError):
-            return None
-        if parsed <= 0:
-            return None
-        return parsed
-
-    @staticmethod
-    def _build_materials_url(*, case_id: int, session_id: UUID) -> str:
-        base = reverse("admin:cases_case_materials", args=[case_id])
-        return f"{base}?{urlencode({'scan_session': str(session_id), 'open_scan': '1'})}"
 
 
 def run_case_folder_scan_task(session_id: str) -> None:  # pragma: no cover

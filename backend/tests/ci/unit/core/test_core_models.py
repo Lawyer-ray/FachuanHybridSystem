@@ -209,32 +209,35 @@ class TestCaseLogReminderProperties:
 
     @pytest.mark.django_db
     def test_reminder_type_with_cached_dict(self) -> None:
-        """reminder_type 应从缓存的 dict 中读取。"""
+        """reminder_type 应从缓存的 dict 列表（末位=最近）中读取。"""
         log = CaseLogFactory()
-        log._cached_latest_reminder = {"reminder_type": "hearing", "due_at": datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)}
+        log._cached_exported_reminders = [
+            {"reminder_type": "evidence_deadline", "due_at": datetime.datetime(2025, 12, 1, tzinfo=datetime.UTC)},
+            {"reminder_type": "hearing", "due_at": datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)},
+        ]
         assert log.reminder_type == "hearing"
 
     @pytest.mark.django_db
     def test_reminder_type_none_when_no_reminder(self) -> None:
         """无提醒时 reminder_type 应返回 None。"""
         log = CaseLogFactory()
-        log._cached_latest_reminder = None
+        log._cached_exported_reminders = []
         assert log.reminder_type is None
         assert log.reminder_time is None
 
     @pytest.mark.django_db
     def test_reminder_time_extracts_due_at(self) -> None:
-        """reminder_time 应提取 due_at 字段。"""
+        """reminder_time 应提取最近一条（列表末位）的 due_at 字段。"""
         log = CaseLogFactory()
         dt = datetime.datetime(2026, 6, 15, 10, 0, tzinfo=datetime.UTC)
-        log._cached_latest_reminder = {"reminder_type": "hearing", "due_at": dt}
+        log._cached_exported_reminders = [{"reminder_type": "hearing", "due_at": dt}]
         assert log.reminder_time == dt
 
     @pytest.mark.django_db
     def test_reminder_time_none_for_non_datetime(self) -> None:
         """due_at 非 datetime 类型时应返回 None。"""
         log = CaseLogFactory()
-        log._cached_latest_reminder = {"reminder_type": "hearing", "due_at": "not-a-datetime"}
+        log._cached_exported_reminders = [{"reminder_type": "hearing", "due_at": "not-a-datetime"}]
         assert log.reminder_time is None
 
 

@@ -10,7 +10,6 @@ import pytest
 
 from apps.core.exceptions import ValidationException
 
-
 # ── ContractFolderScanService helpers ──
 
 
@@ -250,28 +249,31 @@ class TestCaseFolderScanBuildStatusPayload:
 
 
 class TestCaseFolderScanToInt:
+    """_to_int 已迁为模块级函数（Service 层禁用 @staticmethod）。"""
+
     @pytest.fixture
     def svc(self):
-        from apps.cases.services.material.folder_scan_service import CaseFolderScanService
-        return CaseFolderScanService.__new__(CaseFolderScanService)
+        from apps.cases.services.material.folder_scan_service import _to_int
+
+        return _to_int
 
     def test_valid_int(self, svc):
-        assert svc._to_int(42) == 42
+        assert svc(42) == 42
 
     def test_string_int(self, svc):
-        assert svc._to_int("10") == 10
+        assert svc("10") == 10
 
     def test_none(self, svc):
-        assert svc._to_int(None) is None
+        assert svc(None) is None
 
     def test_negative(self, svc):
-        assert svc._to_int(-1) is None
+        assert svc(-1) is None
 
     def test_zero(self, svc):
-        assert svc._to_int(0) is None
+        assert svc(0) is None
 
     def test_invalid_string(self, svc):
-        assert svc._to_int("abc") is None
+        assert svc("abc") is None
 
 
 class TestCaseFolderScanBuildClassificationContext:

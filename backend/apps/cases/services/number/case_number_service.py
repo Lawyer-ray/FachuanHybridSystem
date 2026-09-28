@@ -91,13 +91,14 @@ class CaseNumberService(DjangoPermsMixin):
             if not perm_open_access:
                 self.ensure_authenticated(user)
                 if not (self.is_authenticated_user(user) or self.is_superuser(user)):
+                    # 不 list() 物化：保留 queryset 让 PG 生成子查询，避免大 IN 列表
                     allowed_case_ids = self.access_policy.filter_queryset(
                         Case.objects.all(),
                         user=user,
                         org_access=org_access,
                         perm_open_access=perm_open_access,
                     ).values_list("id", flat=True)
-                    qs = qs.filter(case_id__in=list(allowed_case_ids))
+                    qs = qs.filter(case_id__in=allowed_case_ids)
 
         logger.debug(
             "获取案号列表",

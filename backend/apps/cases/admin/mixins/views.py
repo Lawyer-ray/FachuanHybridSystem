@@ -6,6 +6,7 @@ import json as json_mod
 import logging
 from datetime import date
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from django.core.exceptions import PermissionDenied
@@ -38,6 +39,28 @@ def _has_court_filing_plugin() -> bool:
         return has_court_automation_plugin()  # type: ignore[no-any-return]
     except ImportError:
         return False
+
+
+def _resolve_confined_temp_path(temp_file_path: str) -> Path | None:
+    """把请求传入的临时文件路径约束在 MEDIA_ROOT/case_documents/temp 之下。
+
+    上传接口返回的是绝对路径，因此必须 resolve() 后用 is_relative_to 判断，
+    不能用字符串前缀。路径越界时返回 None，由调用方拒绝。
+    """
+    from django.conf import settings
+
+    media_root = Path(settings.MEDIA_ROOT).resolve()
+    allowed_dir = media_root / "case_documents" / "temp"
+    file_path = Path(temp_file_path).resolve()
+    if not file_path.is_relative_to(allowed_dir):
+        return None
+    return file_path
+
+
+def _get_media_url() -> str:
+    from django.conf import settings
+
+    return str(getattr(settings, "MEDIA_URL", "/media/"))
 
 
 def _log_inline_formset(inline_formset: object, logger: logging.Logger) -> None:
@@ -246,6 +269,11 @@ class CaseAdminViewsMixin:  # pragma: no cover
 
         case_materials_view = self._build_case_materials_view(request, case)
 
+        # 案件链（前序/后代）查询已下沉 service
+        from apps.cases.services.case.case_chain_service import get_case_chain
+
+        related_chain = get_case_chain(case)
+
         # 检查案件文件夹路径可达性，先修复合同路径再检查案件路径
         folder_path_auto_repaired = False
         case_folder_binding = getattr(case, "folder_binding", None)
@@ -299,21 +327,12 @@ class CaseAdminViewsMixin:  # pragma: no cover
                 "contacts": list(case.contacts.all()),
                 "contact_role_choices": list(_get_contact_role_choices()),
                 "case_stage_choices": list(_get_case_stage_choices()),
-                "related_cases": (lambda chain: chain if len(chain) > 1 else [])(case.get_case_chain()),
-                "media_url": getattr(__import__("django.conf", fromlist=["settings"]).settings, "MEDIA_URL", "/media/"),
+                "related_cases": related_chain if len(related_chain) > 1 else [],
+                "media_url": _get_media_url(),
             }
         )
 
         return render(request, "admin/cases/case/detail.html", context)
-
-    @staticmethod
-    def _group_templates_by_sub_type(  # pragma: no cover
-        templates: list[dict[str, object]],
-        sub_type_choices: list[tuple[str, str]],
-    ) -> list[tuple[str, list[dict[str, object]]]]:
-        from apps.cases.services.case.case_admin_service import CaseAdminService
-
-        return CaseAdminService().group_templates_by_sub_type(templates, sub_type_choices)
 
     def _build_case_materials_view(self, request: HttpRequest, case: Case) -> dict[str, object]:  # pragma: no cover
         material_service = self._get_case_material_service()  # type: ignore[attr-defined]
@@ -373,13 +392,6 @@ class CaseAdminViewsMixin:  # pragma: no cover
         service = self._get_case_admin_service()  # type: ignore[attr-defined]
         return service.get_case_with_admin_relations(case_id)  # type: ignore[no-any-return]
 
-    def _get_folder_disabled_reason(self, case: Case) -> str:  # pragma: no cover
-        service = self._get_case_admin_service()  # type: ignore[attr-defined]
-        matched = service.get_matched_folder_templates(case.case_type) if case.case_type else ""
-        if not matched or "无匹配" in matched:
-            return "无匹配的文件夹模板"
-        return ""
-
     def _get_folder_disabled_reason_v2(self, matched_folder_templates: str) -> str:  # pragma: no cover
         if not matched_folder_templates or "无匹配" in matched_folder_templates:
             return "无匹配的文件夹模板"
@@ -392,8 +404,6 @@ class CaseAdminViewsMixin:  # pragma: no cover
         form_url: str = "",
         extra_context: dict[str, object] | None = None,
     ) -> HttpResponse:
-        logger = logging.getLogger(__name__)
-
         if request.method == "POST":
             logger.info("[CaseAdmin.changeform_view] POST request, object_id=%s", object_id)
 
@@ -406,7 +416,7 @@ class CaseAdminViewsMixin:  # pragma: no cover
         response = super().changeform_view(request, object_id, form_url, extra_context)  # type: ignore[misc]
 
         if request.method == "POST":
-            self._log_post_response(response, logger)
+            self._log_post_response(response)
 
         return response  # type: ignore[no-any-return]
 
@@ -422,7 +432,7 @@ class CaseAdminViewsMixin:  # pragma: no cover
         )
 
     @staticmethod
-    def _log_post_response(response: HttpResponse, logger: logging.Logger) -> None:  # pragma: no cover
+    def _log_post_response(response: HttpResponse) -> None:  # pragma: no cover
         logger.info("[CaseAdmin.changeform_view] Response status: %s", response.status_code)
         ctx = getattr(response, "context_data", None)
         if not ctx:
@@ -443,8 +453,8 @@ class CaseAdminViewsMixin:  # pragma: no cover
             if binding and binding.folder_path:
                 return str(binding.folder_path)
             return "未绑定文件夹"
-        except Exception:
-            logger.exception("操作失败")
+        except (AttributeError, TypeError, ValueError):
+            logger.warning("读取合同文件夹路径失败: case_id=%s", getattr(obj, "pk", None), exc_info=True)
             return "未绑定文件夹"
 
     contract_folder_path_display.short_description = "合同文件夹路径"  # type: ignore[attr-defined]
@@ -461,8 +471,8 @@ class CaseAdminViewsMixin:  # pragma: no cover
             if hasattr(obj, "folder_binding") and obj.folder_binding:
                 return "✓ 已绑定"
             return "未绑定"
-        except Exception:
-            logger.exception("操作失败")
+        except (AttributeError, TypeError, ValueError):
+            logger.warning("读取文件夹绑定状态失败: case_id=%s", getattr(obj, "pk", None), exc_info=True)
             return "未绑定"
 
     has_folder_binding.short_description = "文件夹绑定"  # type: ignore[attr-defined]
@@ -483,6 +493,9 @@ class CaseAdminViewsMixin:  # pragma: no cover
         from apps.cases.models import CaseNumber
         from apps.core.exceptions import BusinessException
 
+        if request.method != "POST":
+            return JsonResponse({"success": False, "error": "仅支持 POST 请求"}, status=405)
+
         try:
             # 支持临时文件路径（未保存的情况）
             # 前端以 application/json 发送，需从 request.body 解析
@@ -499,12 +512,14 @@ class CaseAdminViewsMixin:  # pragma: no cover
                 temp_file_path = request.POST.get("temp_file_path")
 
             if temp_file_path:
-                # 临时文件模式（未保存到数据库）
-                from pathlib import Path
-
-                file_path = temp_file_path
-                if not Path(file_path).exists():
+                # 临时文件模式（未保存到数据库）；路径必须约束在
+                # MEDIA_ROOT/case_documents/temp 下，防止任意文件读取
+                file_path_obj = _resolve_confined_temp_path(str(temp_file_path))
+                if file_path_obj is None:
+                    return JsonResponse({"success": False, "error": "非法文件路径"}, status=400)
+                if not file_path_obj.exists():
                     return JsonResponse({"success": False, "error": "临时文件不存在，请重新上传"}, status=400)
+                file_path = str(file_path_obj)
             else:
                 # 已保存的文件模式
                 case_number = CaseNumber.objects.get(pk=casenumber_id)
@@ -545,9 +560,9 @@ class CaseAdminViewsMixin:  # pragma: no cover
         except BusinessException as e:
             logger.warning("解析裁判文书业务异常: case_number_id=%s, error=%s", casenumber_id, str(e))
             return JsonResponse({"success": False, "error": str(e.message)}, status=400)
-        except Exception as e:
+        except Exception:
             logger.exception("解析裁判文书失败: case_number_id=%s", casenumber_id)
-            return JsonResponse({"success": False, "error": f"解析失败: {e}"}, status=500)
+            return JsonResponse({"success": False, "error": "解析失败，请查看服务器日志"}, status=500)
 
     def parse_execution_request_view(
         self, request: HttpRequest, casenumber_id: int
@@ -601,9 +616,9 @@ class CaseAdminViewsMixin:  # pragma: no cover
             )
         except CaseNumber.DoesNotExist:
             return JsonResponse({"success": False, "error": "案号记录不存在"}, status=404)
-        except Exception as e:
+        except Exception:
             logger.exception("解析申请执行事项失败: case_number_id=%s", casenumber_id)
-            return JsonResponse({"success": False, "error": f"解析失败: {e}"}, status=500)
+            return JsonResponse({"success": False, "error": "解析失败，请查看服务器日志"}, status=500)
 
     def llm_models_view(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
         """返回当前可用的 LLM 模型列表（供执行事项解析下拉框使用）。
@@ -632,10 +647,10 @@ class CaseAdminViewsMixin:  # pragma: no cover
                     "error_message": result.error_message,
                 }
             )
-        except Exception as e:
+        except Exception:
             logger.exception("获取 LLM 模型列表失败")
             return JsonResponse(
-                {"success": False, "error": f"获取模型列表失败: {e}", "models": [], "is_fallback": True},
+                {"success": False, "error": "获取模型列表失败，请查看服务器日志", "models": [], "is_fallback": True},
                 status=500,
             )
 
@@ -654,15 +669,9 @@ class CaseAdminViewsMixin:  # pragma: no cover
             if not temp_file_path:
                 return JsonResponse({"success": False, "error": "缺少临时文件路径"}, status=400)
 
-            from pathlib import Path
-
-            from django.conf import settings
-
             # 防止 path traversal：解析路径必须在 MEDIA_ROOT/case_documents/temp 下
-            media_root = Path(settings.MEDIA_ROOT).resolve()
-            allowed_dir = media_root / "case_documents" / "temp"
-            file_path = Path(temp_file_path).resolve()
-            if not file_path.is_relative_to(allowed_dir):
+            file_path = _resolve_confined_temp_path(str(temp_file_path))
+            if file_path is None:
                 return JsonResponse({"success": False, "error": "非法文件路径"}, status=400)
 
             if not file_path.exists():
@@ -688,9 +697,9 @@ class CaseAdminViewsMixin:  # pragma: no cover
         except BusinessException as e:
             logger.warning("解析裁判文书业务异常: error=%s", str(e))
             return JsonResponse({"success": False, "error": str(e.message)}, status=400)
-        except Exception as e:
+        except Exception:
             logger.exception("解析裁判文书失败")
-            return JsonResponse({"success": False, "error": f"解析失败: {e}"}, status=500)
+            return JsonResponse({"success": False, "error": "解析失败，请查看服务器日志"}, status=500)
 
     def upload_temp_document_view(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
         """上传裁判文书到临时目录"""
@@ -734,9 +743,9 @@ class CaseAdminViewsMixin:  # pragma: no cover
                 }
             )
 
-        except Exception as e:
+        except Exception:
             logger.exception("临时文件上传失败")
-            return JsonResponse({"success": False, "error": f"上传失败: {e}"}, status=500)
+            return JsonResponse({"success": False, "error": "上传失败，请查看服务器日志"}, status=500)
 
     def open_folder_view(self, request: HttpRequest, object_id: int) -> HttpResponse:  # pragma: no cover
         """打开案件绑定的本地文件夹（Finder/资源管理器）"""
@@ -789,9 +798,9 @@ class CaseAdminViewsMixin:  # pragma: no cover
 
             logger.info("已打开案件文件夹: %s, case_id=%s", folder_path, object_id)
             return JsonResponse({"success": True, "folder_path": folder_path})
-        except Exception as e:
+        except Exception:
             logger.exception("打开案件文件夹失败: case_id=%s", object_id)
-            return JsonResponse({"success": False, "error": str(e)}, status=500)
+            return JsonResponse({"success": False, "error": "打开文件夹失败，请查看服务器日志"}, status=500)
 
     def email_folder_import_view(self, request: HttpRequest, object_id: int) -> HttpResponse:  # pragma: no cover
         """从案件绑定文件夹的第一层级子目录批量导入案件日志"""
@@ -820,6 +829,9 @@ class CaseAdminViewsMixin:  # pragma: no cover
                     try:
                         children = provider.list_directory(binding.resolved_folder_path)
                     except Exception:
+                        logger.exception(
+                            "云存储列目录失败: case_id=%s, path=%s", object_id, binding.resolved_folder_path
+                        )
                         return JsonResponse({"success": False, "error": "云存储访问失败"}, status=500)
 
                     subfolders = []
@@ -885,9 +897,9 @@ class CaseAdminViewsMixin:  # pragma: no cover
 
             return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
 
-        except Exception as e:
+        except Exception:
             logger.exception("邮件文件夹导入失败: case_id=%s", object_id)
-            return JsonResponse({"success": False, "error": str(e)}, status=500)
+            return JsonResponse({"success": False, "error": "导入失败，请查看服务器日志"}, status=500)
 
     def _coerce_optional_date(self, raw: object) -> date | None:  # pragma: no cover
         if raw is None:

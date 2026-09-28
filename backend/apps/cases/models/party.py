@@ -22,12 +22,11 @@ class CaseParty(models.Model):
     )
 
     class Meta:
-        unique_together: ClassVar[tuple[tuple[str, str], ...]] = (("case", "client"),)
+        constraints: ClassVar = [
+            models.UniqueConstraint(fields=["case", "client"], name="uniq_case_party_case_client"),
+        ]
         verbose_name = "案件当事人"
         verbose_name_plural = "案件当事人"
-        indexes: ClassVar = [
-            models.Index(fields=["client"]),
-        ]
 
     def __str__(self) -> str:
         return f"{self.case_id}-{self.client_id}-{self.legal_status}"
@@ -41,12 +40,11 @@ class CaseAssignment(models.Model):
     )
 
     class Meta:
-        unique_together: ClassVar[tuple[tuple[str, str], ...]] = (("case", "lawyer"),)
+        constraints: ClassVar = [
+            models.UniqueConstraint(fields=["case", "lawyer"], name="uniq_case_assignment_case_lawyer"),
+        ]
         verbose_name = "案件指派"
         verbose_name_plural = "案件指派"
-        indexes: ClassVar = [
-            models.Index(fields=["lawyer"]),
-        ]
 
     def __str__(self) -> str:
         return f"{self.case_id}-{self.lawyer_id}"
@@ -61,12 +59,11 @@ class CaseAccessGrant(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together: ClassVar[tuple[tuple[str, str], ...]] = (("case", "grantee"),)
+        constraints: ClassVar = [
+            models.UniqueConstraint(fields=["case", "grantee"], name="uniq_case_access_grant_case_grantee"),
+        ]
         verbose_name = "案件访问授权"
         verbose_name_plural = "案件访问授权"
-        indexes: ClassVar = [
-            models.Index(fields=["grantee"]),
-        ]
 
     def __str__(self) -> str:
         return f"{self.case_id}->{self.grantee_id}"

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from django.core.files.uploadedfile import UploadedFile
 from django.db.models import QuerySet
@@ -111,6 +111,18 @@ class CaseLogService:
             case_id=case_id, user=user, org_access=org_access, perm_open_access=perm_open_access
         )
 
+    def list_logs_for_serialization(
+        self,
+        case_id: int | None = None,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> list[CaseLog]:
+        """获取日志列表并批量预热提醒缓存（供 async API 序列化，避免逐条查询）。"""
+        return self.query_service.list_logs_with_reminders(
+            case_id=case_id, user=user, org_access=org_access, perm_open_access=perm_open_access
+        )
+
     def get_log(
         self,
         log_id: int,
@@ -134,6 +146,12 @@ class CaseLogService:
         return self.query_service.get_log(
             log_id=log_id, user=user, org_access=org_access, perm_open_access=perm_open_access
         )
+
+    def get_log_for_serialization(self, log_id: int) -> CaseLog:
+        """按序列化需要的关联重取单条日志并预热提醒缓存（供 async API）。"""
+        obj = cast(CaseLog, self.query_service.get_log_internal(log_id=log_id))
+        self.query_service.warm_reminder_cache([obj])
+        return obj
 
     def create_log(
         self,
