@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Loader2, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,15 @@ import { cn } from '@/lib/utils'
 
 type Target = 'existing' | 'new'
 type ContractOpt = 'has' | 'none'
+
+/** 弹窗内可聚焦元素（按 Tab 顺序）；每次按键实时查询，适配切 tab 增删的输入 */
+function focusablesOf(root: HTMLElement): HTMLElement[] {
+  return Array.from(
+    root.querySelectorAll<HTMLElement>(
+      'input, textarea, button, select, [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter((el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null)
+}
 
 export function AssignModal({
   open,
@@ -86,6 +95,34 @@ export function AssignModal({
     return () => clearTimeout(t)
   }, [q, target, open])
 
+  // 焦点陷阱：本弹窗是手写 DOM 层、不在 Radix Dialog 体系内，Tab 必须圈在
+  // 弹窗内循环，否则键盘用户会聚焦到被遮住的背景内容上
+  const panelRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const panel = panelRef.current
+    if (!panel) return
+    // 打开即聚焦：优先输入框（搜索框），没有再落到首个可交互元素
+    const list = focusablesOf(panel)
+    ;(list.find((el) => el.tagName === 'INPUT') ?? list[0])?.focus()
+    const onTab = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return
+      const list = focusablesOf(panel)
+      if (!list.length) return
+      const first = list[0]!
+      const last = list[list.length - 1]!
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+    panel.addEventListener('keydown', onTab)
+    return () => panel.removeEventListener('keydown', onTab)
+  }, [open])
+
   if (!open) return null
 
   const why =
@@ -128,12 +165,18 @@ export function AssignModal({
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
-      <div className="relative flex max-h-[86vh] w-full max-w-[620px] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+      <div className="absolute inset-0 bg-black/40" onClick={onCancel} aria-hidden />
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="assign-modal-title"
+        className="relative flex max-h-[86vh] w-full max-w-[620px] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+      >
         {/* 头部 */}
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <h3 className="text-[15px] font-semibold">材料归属</h3>
-          <button onClick={onCancel} className="grid h-8 w-8 place-items-center rounded-lg text-secondary-foreground hover:bg-secondary">
+          <h3 id="assign-modal-title" className="text-[15px] font-semibold">材料归属</h3>
+          <button onClick={onCancel} aria-label="关闭" className="grid h-8 w-8 place-items-center rounded-lg text-secondary-foreground hover:bg-secondary">
             <X className="h-4 w-4" />
           </button>
         </div>

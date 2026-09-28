@@ -181,8 +181,11 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenAdd
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={`${cell.day} 日${events.length ? `，${events.length} 个安排` : ''}，回车新增该日安排`}
       className={cn(
-        'group relative min-h-[clamp(132px,12vw,208px)] cursor-pointer border-r border-b border-border-light p-[7px] transition-colors last:border-r-0',
+        'group relative min-h-[clamp(132px,12vw,208px)] cursor-pointer border-r border-b border-border-light p-[7px] transition-colors last:border-r-0 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
         !cell.inMonth && 'opacity-30',
         selected && 'bg-secondary/60',
         isToday && 'bg-status-red-bg/40',
@@ -195,6 +198,14 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenAdd
           return
         }
         onOpenAdd(cell.key as string)
+      }}
+      onKeyDown={(ev) => {
+        // 键盘可达：Enter / Space 等价于点空白处（打开该日新增）；事件行详情仍走鼠标
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault()
+          onPick(cell.key as string)
+          onOpenAdd(cell.key as string)
+        }
       }}
       title="点空白处新增该日安排"
     >

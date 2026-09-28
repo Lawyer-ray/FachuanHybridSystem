@@ -181,8 +181,38 @@ export const PageCell = memo(function PageCell({
   )
 })
 
-/** 选择页体渲染分支 */
+/** 选择页体渲染分支：视口外的页只挂骨架占位，滚近了才真正取附件渲染。
+ *  92 页的大包若全部立即 mount，会同时拉取全部附件并渲染 92 张 900px canvas。 */
 function PageBody({ messageId, p, mat }: { messageId: number; p: number; mat: BundleMat }) {
+  const hostRef = useRef<HTMLDivElement>(null)
+  const [shown, setShown] = useState(false)
+
+  useEffect(() => {
+    if (shown) return
+    const el = hostRef.current
+    // 环境不支持 IntersectionObserver 时直接渲染（退化到旧行为）
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setShown(true)
+      return
+    }
+    // 上下各预渲染约两屏：滚动到达时内容已在，骨架只是首开瞬间的占位
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((en) => en.isIntersecting)) setShown(true)
+      },
+      { rootMargin: '1600px 0px' },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [shown])
+
+  if (!shown) {
+    return (
+      <div ref={hostRef} className="w-full bg-white">
+        <SkeletonLines />
+      </div>
+    )
+  }
   if (mat.k === 'pdf') return <PdfPageView messageId={messageId} partIndex={mat.partIndex} pageNum={p} />
   if (mat.k === 'photo') return <PhotoPageView messageId={messageId} partIndex={mat.partIndex} />
   return <OfficePlaceholder mat={mat} />
