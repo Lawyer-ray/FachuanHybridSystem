@@ -301,6 +301,11 @@
             </div>
 
             <div class="result-row">
+                <span class="result-label">{% trans "地址" %}</span>
+                <span class="result-value" id="addressDisplay">—</span>
+            </div>
+
+            <div class="result-row">
                 <span class="result-label">{% trans "绑定状态" %}</span>
                 <span class="result-value" id="bindingStatus"><span class="tag tag-yellow">{% trans "待绑定" %}</span></span>
             </div>
@@ -457,6 +462,7 @@ function showResult() {
         return c.name || c.phone || '';
     }).filter(Boolean).join('；');
     document.getElementById('contactDisplay').textContent = contactText || '—';
+    document.getElementById('addressDisplay').textContent = result.address || '—';
     updateBindingStatus();
     // 第 1 步：案件绑定（管线模式已预绑定则跳过；已绑定隐藏选择器）
     var bound = result.binding && result.binding.success;

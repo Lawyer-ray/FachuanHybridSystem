@@ -172,6 +172,7 @@ class TaskStatusResponseSchema(BaseModel):
     contacts: list[ContactOutSchema] = Field(
         default_factory=list, description="文书联系人（联系人/联系电话，读时从原文提取）"
     )
+    address: str | None = Field(None, description="文书标注地址（读时从原文提取）")
     recommendations: list[CaseRecommendationOutSchema] = Field(
         default_factory=list, description="案件绑定推荐（未绑定时返回）"
     )
@@ -383,14 +384,16 @@ async def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchem
         date_candidates: list[DateCandidateOutSchema] = []
         recommendations: list[CaseRecommendationOutSchema] = []
         contacts: list[ContactOutSchema] = []
+        address: str | None = None
 
         if task.status == "success":
-            from apps.document_recognition.services.contact_extraction_service import extract_contacts
+            from apps.document_recognition.services.contact_extraction_service import extract_address, extract_contacts
 
             contacts = [
                 ContactOutSchema(role=str(row["role"]), name=str(row["name"]), phone=row["phone"])
                 for row in extract_contacts(task.raw_text)
             ]
+            address = extract_address(task.raw_text)
             recognition = RecognitionResultSchema(
                 document_type=task.document_type,
                 case_number=task.case_number,
@@ -427,6 +430,7 @@ async def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchem
             binding=binding,
             date_candidates=date_candidates,
             contacts=contacts,
+            address=address,
             recommendations=recommendations,
             binding_mode="pipeline" if task.source_court_sms_id else "standalone",
             date_confirmation_status=task.date_confirmation_status,

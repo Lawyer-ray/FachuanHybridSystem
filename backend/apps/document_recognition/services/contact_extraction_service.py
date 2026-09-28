@@ -23,6 +23,29 @@ _MAX_NAME_PHONE_GAP = 60
 # 姓名串取值窗口（标签后最多看这么多字符找截断词）
 _NAME_WINDOW = 60
 
+# 地址标签与取值截断：地址串比姓名长，允许数字/字母/标点，遇到下一标签或句读止
+_ADDRESS_LABEL_RE = re.compile(r"地址[：:\s]*")
+_ADDRESS_STOP_RE = re.compile(
+    r"(?:联系人|承办法官|书记员|办案人员|经办人|联系电话|联系方式|电话|邮箱|邮编|[。；！？!?.;])"
+)
+_ADDRESS_WINDOW = 80
+
+
+def extract_address(text: str | None) -> str | None:
+    """提取文书标注的地址（取首个「地址：」标签，截断到下一标签/句读）。"""
+    if not text:
+        return None
+    m = _ADDRESS_LABEL_RE.search(text)
+    if not m:
+        return None
+    rest = text[m.end() : m.end() + _ADDRESS_WINDOW]
+    stop = _ADDRESS_STOP_RE.search(rest)
+    value = (rest[: stop.start()] if stop else rest).strip()
+    value = value.strip("，,、；;：: ")
+    if not (4 <= len(value) <= 60):
+        return None
+    return value
+
 
 def _clean_phone(raw: str) -> str | None:
     """校验并清洗电话串（区号-号码/手机号），不合格返回 None。"""

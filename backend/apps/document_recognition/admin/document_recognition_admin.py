@@ -348,7 +348,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     raw_text_display.short_description = "原始文本"  # type: ignore[attr-defined]
 
     def contacts_display(self, obj: DocumentRecognitionTask) -> str:  # pragma: no cover
-        from apps.document_recognition.services.contact_extraction_service import extract_contacts
+        from apps.document_recognition.services.contact_extraction_service import extract_address, extract_contacts
 
         parts: list[str] = []
         for row in extract_contacts(obj.raw_text):
@@ -357,9 +357,12 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
                 parts.append(f"{name}（{phone}）")
             elif name or phone:
                 parts.append(name or str(phone))
+        address = extract_address(obj.raw_text)
+        if address:
+            parts.append(f"地址：{address}")
         return "；".join(parts) if parts else "-"
 
-    contacts_display.short_description = "联系人"  # type: ignore[attr-defined]
+    contacts_display.short_description = "联系人/地址"  # type: ignore[attr-defined]
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[DocumentRecognitionTask]:  # pragma: no cover
         from django.db.models import Count, Q
