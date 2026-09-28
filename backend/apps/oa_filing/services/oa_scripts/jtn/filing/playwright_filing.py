@@ -7,7 +7,7 @@ import logging
 import re
 from typing import Any
 
-from playwright.async_api import FrameLocator, Page
+from playwright.async_api import Frame, Page
 
 from apps.core.services.browser import BrowserProfile, create_browser_async
 
@@ -148,8 +148,10 @@ class PlaywrightFilingMixin:  # pragma: no cover
 
         add_btn = page.locator(f"xpath={_XPATH_ADD_CLIENT_BTN}")
         if await add_btn.count() == 0:
-            # 绝对路径对 DOM 层级变化敏感，回退到按文案定位
-            alt = page.locator('#wrap >> a:has-text("委托")')
+            # 绝对路径对 DOM 层级变化敏感，回退到按文案定位。
+            # 注意：不能用 '#wrap >> a:has-text(...)' 这类 >> 链式选择器——humanize
+            # 层在隔离世界里只用原生 DOM API 解析选择器，遇 >> 会直接抛错。
+            alt = page.locator('#wrap a:has-text("委托")')
             if await alt.count() == 0:
                 raise RuntimeError("无法定位「添加委托方」按钮")
             logger.warning("绝对路径未命中，回退到文案定位「添加委托方」按钮")
@@ -165,7 +167,7 @@ class PlaywrightFilingMixin:  # pragma: no cover
             logger.warning("第 %d 次点击后客户弹窗未出现，重试点击", attempt + 1)
         if iframe_xpath is None:
             raise RuntimeError("多次点击「添加委托方」后仍未出现客户搜索弹窗，请检查 OA 页面状态")
-        iframe: FrameLocator = page.frame_locator(f"xpath={iframe_xpath}")
+        iframe: Frame = await self._resolve_client_frame(page, iframe_xpath)
 
         is_natural: bool = client.client_type == "natural"
 
