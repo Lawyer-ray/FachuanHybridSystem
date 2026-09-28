@@ -197,6 +197,30 @@
 .pending-list a { color: var(--fc-admin-blue); text-decoration: none; flex-shrink: 0; margin-left: 12px; }
 .pending-list a:hover { text-decoration: underline; }
 
+/* 文书预览弹层 */
+.preview-modal { position: fixed; inset: 0; z-index: 2000; }
+.preview-mask { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
+.preview-dialog {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: min(920px, 92vw); height: min(86vh, 900px); background: var(--fc-bg-card);
+    border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); display: flex; flex-direction: column; overflow: hidden;
+}
+.preview-header {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 12px 18px; border-bottom: 1px solid var(--fc-border);
+}
+.preview-header span { font-weight: 600; color: var(--fc-text-heading); font-size: 14px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preview-header > div { display: flex; gap: 8px; flex-shrink: 0; }
+.preview-frame { flex: 1; border: none; width: 100%; }
+.preview-img { flex: 1; object-fit: contain; width: 100%; }
+.preview-link {
+    margin-left: auto; padding: 5px 14px; border-radius: 16px; font-size: 13px; font-weight: 500;
+    color: var(--fc-text-on-primary); background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.45);
+    cursor: pointer; text-decoration: none; transition: all 0.2s;
+}
+.preview-link:hover { background: rgba(255,255,255,0.32); }
+
 .hidden { display: none !important; }
 </style>
 {% endblock %}
@@ -231,7 +255,7 @@
 
     <!-- 识别结果 -->
     <div id="resultCard" class="result-card hidden">
-        <div class="result-header">{% trans "识别结果" %}</div>
+        <div class="result-header">{% trans "识别结果" %}<a id="previewBtn" class="preview-link hidden" onclick="openPreview()">{% trans "预览文书" %}</a></div>
         <div class="result-body">
             <div class="result-row">
                 <span class="result-label">{% trans "文书类型" %}</span>
@@ -328,6 +352,22 @@
         <h4>{% trans "待确认日期的任务" %} <span id="pendingCount" class="tag tag-yellow"></span></h4>
         <ul id="pendingList" class="pending-list"></ul>
     </div>
+
+    <!-- 文书预览弹层 -->
+    <div id="previewModal" class="preview-modal hidden">
+        <div class="preview-mask" onclick="closePreview()"></div>
+        <div class="preview-dialog">
+            <div class="preview-header">
+                <span id="previewTitle">{% trans "文书预览" %}</span>
+                <div>
+                    <a id="previewOpenTab" class="btn btn-secondary" href="#" target="_blank" rel="noopener">{% trans "新窗口打开" %}</a>
+                    <button type="button" class="btn btn-secondary" onclick="closePreview()">{% trans "关闭" %}</button>
+                </div>
+            </div>
+            <iframe id="previewFrame" class="preview-frame hidden" title="{% trans '文书预览' %}"></iframe>
+            <img id="previewImg" class="preview-img hidden" alt="{% trans '文书预览' %}">
+        </div>
+    </div>
 </div>
 
 <script>
@@ -420,6 +460,7 @@ function showResult() {
     }
     // 第 2 步：关键日期确认
     renderDates();
+    document.getElementById('previewBtn').classList.toggle('hidden', !result.file_url);
     if (result.task_id) {
         var link = document.getElementById('taskDetailLink');
         link.href = '/admin/document_recognition/documentrecognitiontask/' + result.task_id + '/change/';
@@ -439,6 +480,29 @@ function updateBindingStatus() {
 
 function escapeHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ---- 文书预览 ----
+function openPreview() {
+    if (!result || !result.file_url) return;
+    var url = result.file_url;
+    var ext = url.split('?')[0].split('.').pop().toLowerCase();
+    var isImg = ['jpg', 'jpeg', 'png'].indexOf(ext) !== -1;
+    document.getElementById('previewFrame').classList.toggle('hidden', isImg);
+    document.getElementById('previewImg').classList.toggle('hidden', !isImg);
+    if (isImg) document.getElementById('previewImg').src = url;
+    else document.getElementById('previewFrame').src = url;
+    document.getElementById('previewOpenTab').href = url;
+    var types = { 'summons': '传票', 'execution': '执行裁定书', 'execution_ruling': '执行裁定书', 'other': '司法文书' };
+    var t = types[(result.recognition || {}).document_type] || '文书';
+    document.getElementById('previewTitle').textContent = t + ' · ' + (result.task_id ? '#' + result.task_id : '');
+    document.getElementById('previewModal').classList.remove('hidden');
+}
+
+function closePreview() {
+    document.getElementById('previewModal').classList.add('hidden');
+    document.getElementById('previewFrame').src = 'about:blank';
+    document.getElementById('previewImg').src = '';
 }
 
 // ---- 推荐卡片 ----
@@ -636,10 +700,11 @@ function loadAllCases() {
     var dropdown = document.getElementById('caseDropdown');
     dropdown.innerHTML = '<div class="dropdown-loading">加载中...</div>';
     dropdown.classList.add('show');
-    fetch('/api/v1/cases/cases?limit=50')
+    fetch('/api/v1/document-recognition/court-document/search-cases?limit=200')
     .then(function(r) { if (!r.ok) throw new Error('加载失败'); return r.json(); })
     .then(function(cases) {
         allCasesLoaded = true;
+        if (!cases || cases.length === 0) { dropdown.innerHTML = '<div class="dropdown-empty">暂无在办案件</div>'; return; }
         renderCaseList(cases);
     }).catch(function(e) { dropdown.innerHTML = '<div class="dropdown-empty">加载失败: ' + e.message + '</div>'; });
 }
@@ -650,7 +715,7 @@ function searchCases() {
     if (!q || q.length < 2) { dropdown.innerHTML = '<div class="dropdown-empty">请输入至少2个字符搜索</div>'; dropdown.classList.add('show'); return; }
     dropdown.innerHTML = '<div class="dropdown-loading">搜索中...</div>';
     dropdown.classList.add('show');
-    fetch('/api/v1/cases/cases/search?q=' + encodeURIComponent(q) + '&limit=10')
+    fetch('/api/v1/document-recognition/court-document/search-cases?q=' + encodeURIComponent(q) + '&limit=20')
     .then(function(r) { if (!r.ok) throw new Error('搜索失败'); return r.json(); })
     .then(function(cases) { renderCaseList(cases); })
     .catch(function(e) { dropdown.innerHTML = '<div class="dropdown-empty">搜索失败: ' + e.message + '</div>'; });
@@ -660,16 +725,15 @@ function renderCaseList(cases) {
     var dropdown = document.getElementById('caseDropdown');
     if (!cases || cases.length === 0) { dropdown.innerHTML = '<div class="dropdown-empty">未找到案件</div>'; return; }
     dropdown.innerHTML = cases.map(function(c) {
-        var num = c.case_number;
-        if (!num && c.case_numbers && c.case_numbers.length > 0) {
-            num = c.case_numbers[0].number;
-        }
-        num = num || '案件' + c.id;
-        var stage = c.current_stage ? '<div class="case-stage">阶段: ' + c.current_stage + '</div>' : '';
-        var simpleCase = { id: c.id, name: c.name, case_number: num, current_stage: c.current_stage };
+        var num = (c.case_numbers && c.case_numbers.length > 0) ? c.case_numbers[0] : '';
+        num = num || c.name || ('案件' + c.id);
+        var parties = (c.parties || []).join('、');
+        if (parties.length > 24) parties = parties.slice(0, 24) + '…';
+        var sub = parties ? '<div class="case-stage">' + escapeHtml(parties) + '</div>' : '';
+        var simpleCase = { id: c.id, name: c.name, case_number: num };
         return '<div class="dropdown-item" onclick=\'selectCase(' + JSON.stringify(simpleCase).replace(/'/g, "\\'") + ')\'>' +
-            '<div class="case-number">' + num + '</div>' +
-            '<div class="case-name">' + (c.name || '无名称') + '</div>' + stage + '</div>';
+            '<div class="case-number">' + escapeHtml(num) + '</div>' +
+            '<div class="case-name">' + escapeHtml(c.name || '无名称') + '</div>' + sub + '</div>';
     }).join('');
 }
 

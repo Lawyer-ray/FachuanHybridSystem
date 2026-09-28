@@ -10,6 +10,7 @@ Requirements: 2.1, 2.2, 2.3, 8.1, 8.2, 8.3, 8.4
 import logging
 from pathlib import Path
 from typing import Any, Literal, cast
+from urllib.parse import quote
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
@@ -54,6 +55,17 @@ def _save_uploaded_file(file: UploadedFile) -> str:
 
 # 未绑定任务的推荐缓存 TTL（秒）：状态接口被前端轮询，避免每次全库评分
 RECOMMENDATION_CACHE_TTL = 300
+
+
+def _file_media_url(path: str | None) -> str | None:
+    """文书文件在 MEDIA_ROOT 下时返回可预览的 media URL（文件名含中文需转义）。"""
+    if not path:
+        return None
+    try:
+        rel = Path(path).resolve().relative_to(Path(settings.MEDIA_ROOT).resolve())
+    except ValueError:
+        return None
+    return settings.MEDIA_URL + quote(rel.as_posix())
 
 
 def _recommendation_rows(task: Any) -> list[dict[str, Any]]:
@@ -145,6 +157,7 @@ class TaskStatusResponseSchema(BaseModel):
     task_id: int
     status: str
     file_path: str | None = None
+    file_url: str | None = Field(None, description="文书预览 URL（media，用于页面内嵌预览）")
     recognition: RecognitionResultSchema | None = None
     binding: BindingResultSchema | None = None
     date_candidates: list[DateCandidateOutSchema] = Field(default_factory=list, description="日期候选列表")
@@ -391,6 +404,7 @@ async def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchem
             task_id=task.id,
             status=task.status,
             file_path=task.renamed_file_path or task.file_path,
+            file_url=_file_media_url(task.renamed_file_path or task.file_path),
             recognition=recognition,
             binding=binding,
             date_candidates=date_candidates,
@@ -514,18 +528,18 @@ async def search_cases_for_binding(
     """
     搜索可绑定的案件
 
-    支持按案件名称、案号、当事人搜索。
+    支持按案件名称、案号、当事人搜索；空关键词返回全部在办案件（创建时间倒序）。
 
     Args:
         q: 搜索关键词（案件名称、案号、当事人）
-        limit: 返回结果数量限制，默认20，最大20
+        limit: 返回结果数量限制，默认20，默认列表最大200
 
     Returns:
         匹配的案件列表
 
     Requirements: 1.3, 2.3
     """
-    limit = min(limit, 20)
+    limit = min(limit, 200)
     task_service = _get_task_service()
     raw_results = await sync_to_async(task_service.search_cases_for_binding)(
         search_term=q.strip() if q else "", limit=limit
