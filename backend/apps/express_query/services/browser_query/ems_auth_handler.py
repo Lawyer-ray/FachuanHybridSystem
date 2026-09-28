@@ -128,6 +128,11 @@ async def ems_handle_agreement_and_wait(
     deadline = asyncio.get_running_loop().time() + timeout_seconds
 
     for attempt in range(20):
+        # 协议轮次同样受 timeout 约束。没有这个 guard，timeout=2s 也会把
+        # 20 轮全部跑完（每轮还带 1~3s sleep），超时形同虚设
+        if asyncio.get_running_loop().time() >= deadline:
+            logger.info("Agreement rounds stopped by timeout after %d attempts", attempt)
+            break
         # ---- 检测弹窗状态 ----
         dialog_visible = await is_ems_dialog_visible(page)
 
