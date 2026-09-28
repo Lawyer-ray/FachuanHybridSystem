@@ -171,5 +171,7 @@ export interface InboxMessageDetail extends InboxMessage {
   body_text: string
   body_html: string
   attachments: AttachmentMeta[]
-  draft_state: DraftState
+  /** 拆分草稿。从未进过阅读器的包后端返回 {}（空对象，不满足 DraftState 形状），
+   *  消费方必须按「可能没有有效草稿」处理（store.open / setPackStatusRemote 均如此）。 */
+  draft_state: DraftState | Record<string, never>
 }

@@ -12,10 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { socialAuthApi, type SocialProviderInfo, type SocialSession } from '../social-api'
-
-/** 飞书扫二维码登录 SDK（官方固定 CDN 地址） */
-const FEISHU_QR_SDK_URL =
-  'https://lf-package-cn.feishucdn.com/obj/feishu-static/lark/passport/qrcode/LarkSSOSDKWebQRCode-1.0.3.js'
+import { FEISHU_QR_SDK_URL } from '../constants'
 
 /** QRLogin 实例暴露的校验方法 */
 interface QrLoginInstance {
@@ -43,7 +40,7 @@ function loadFeishuQrSdk(): Promise<void> {
   if (window.QRLogin) return Promise.resolve()
   if (window.__feishuQrSdkLoading) return window.__feishuQrSdkLoading
 
-  window.__feishuQrSdkLoading = new Promise<void>((resolve, reject) => {
+  const loading = new Promise<void>((resolve, reject) => {
     const script = document.createElement('script')
     script.src = FEISHU_QR_SDK_URL
     script.async = true
@@ -51,39 +48,42 @@ function loadFeishuQrSdk(): Promise<void> {
     script.onerror = () => reject(new Error('飞书登录组件加载失败，请检查网络'))
     document.head.appendChild(script)
   })
-  return window.__feishuQrSdkLoading
+  window.__feishuQrSdkLoading = loading
+  // 失败必须清掉全局缓存：否则 rejected promise 被永久挂在 window 上，
+  // 错误态的「重新加载」会拿到同一个 rejected promise，重试永远失败，只能整页刷新
+  return loading.catch((e) => {
+    if (window.__feishuQrSdkLoading === loading) delete window.__feishuQrSdkLoading
+    throw e
+  })
 }
 
 interface Props {
   provider: SocialProviderInfo
-  /** 登录成功后由回调页负责跳转，这里只在出错时通知外层 */
-  onError?: (message: string) => void
   /** 授权会话来源：登录页用默认（登录 session），绑定页传 bind-session */
   createSession?: (provider: string) => Promise<SocialSession>
   /** 二维码容器 id：同一页面可能同时存在多个面板，必须唯一 */
   containerId?: string
 }
 
-export function SocialQrPanel({ provider, onError, createSession, containerId = 'feishu-qr-container' }: Props) {
+export function SocialQrPanel({ provider, createSession, containerId = 'feishu-qr-container' }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const qrInstanceRef = useRef<QrLoginInstance | null>(null)
   const gotoRef = useRef<string>('')
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [error, setError] = useState('')
 
-  const fail = useCallback(
-    (message: string) => {
-      setState('error')
-      setError(message)
-      onError?.(message)
-    },
-    [onError],
-  )
+  const fail = useCallback((message: string) => {
+    setState('error')
+    setError(message)
+  }, [])
 
-  /** 初始化二维码：拉授权 URL → 注入 SDK → 渲染 */
+  /** 初始化二维码：拉授权 URL → 注入 SDK → 渲染。
+   *  每个 await 之后都先确认组件仍挂载（containerRef 还在），卸载后到达的
+   *  异步结果不再碰 DOM / state（StrictMode 双挂载、面板快速切换都安全）。 */
   const boot = useCallback(async () => {
     const container = containerRef.current
     if (!container) return
+    const gone = () => containerRef.current === null
 
     setState('loading')
     setError('')
@@ -92,7 +92,7 @@ export function SocialQrPanel({ provider, onError, createSession, containerId = 
     try {
       session = await (createSession ?? socialAuthApi.createSession)(provider.name)
     } catch (err) {
-      fail(err instanceof Error ? err.message : '登录方式暂不可用，请稍后再试或联系管理员')
+      if (!gone()) fail(err instanceof Error ? err.message : '登录方式暂不可用，请稍后再试或联系管理员')
       return
     }
 
@@ -102,7 +102,7 @@ export function SocialQrPanel({ provider, onError, createSession, containerId = 
     try {
       await loadFeishuQrSdk()
     } catch (err) {
-      fail(err instanceof Error ? err.message : '飞书登录组件加载失败')
+      if (!gone()) fail(err instanceof Error ? err.message : '飞书登录组件加载失败')
       return
     }
 
@@ -110,7 +110,7 @@ export function SocialQrPanel({ provider, onError, createSession, containerId = 
     container.innerHTML = ''
     const qrLogin = window.QRLogin
     if (!qrLogin) {
-      fail('飞书登录组件加载失败')
+      if (!gone()) fail('飞书登录组件加载失败')
       return
     }
 
@@ -120,7 +120,7 @@ export function SocialQrPanel({ provider, onError, createSession, containerId = 
       width: provider.client_config?.width ?? '260',
       height: provider.client_config?.height ?? '260',
     })
-    setState('ready')
+    if (!gone()) setState('ready')
   }, [provider, fail, createSession])
 
   useEffect(() => {
@@ -169,12 +169,13 @@ export function SocialQrPanel({ provider, onError, createSession, containerId = 
 
   return (
     <div className="fc-qr">
-      {/* 顶部章节带：与表单栏节奏对齐，给二维码一个「开始扫描」的起点 */}
+      {/* 顶部章节带：与表单栏节奏对齐，给二维码一个「开始扫描」的起点。
+          状态文案跟着 state 走，loading 时不再谎报 READY。 */}
       <div className="fc-qr__band fc-qr__band--top">
         <span className="fc-qr__band-label">§ 02.01 · SCAN</span>
         <span className="fc-qr__band-status">
           <span aria-hidden className="fc-qr__band-dot" />
-          READY
+          {state === 'ready' ? 'READY' : 'CONNECTING'}
         </span>
       </div>
 

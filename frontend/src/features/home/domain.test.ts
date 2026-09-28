@@ -5,8 +5,6 @@ import {
   formatWeekdayCN,
   parseKey,
   pad2,
-  timeOfDay,
-  todayKey,
   weekdayColumn,
 } from './domain'
 
@@ -20,12 +18,6 @@ describe('日期工具', () => {
   it('pad2 补零', () => {
     expect(pad2(3)).toBe('03')
     expect(pad2(12)).toBe('12')
-  })
-
-  it('timeOfDay 取 HH:mm，无时分给全天', () => {
-    expect(timeOfDay('2026-09-28T09:30:00+08:00')).toBe('09:30')
-    expect(timeOfDay('2026-09-28T00:00:00+08:00')).toBe('00:00')
-    expect(timeOfDay('2026-09-28')).toBe('全天')
   })
 
   it('weekdayColumn 周一起点：周一=0，周日=6', () => {

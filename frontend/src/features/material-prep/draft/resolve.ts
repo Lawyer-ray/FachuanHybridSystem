@@ -1,4 +1,4 @@
-import { detectMaterialKind, loadPdfDocument } from '@/lib/pdf'
+import { loadPdfDocument } from '@/lib/pdf'
 import { fetchAttachmentBytes } from '../api'
 import type {
   AttachmentMeta,
@@ -10,8 +10,22 @@ import type {
 } from '../types'
 
 /**
- * 附件 → 源素材解析（本目录唯一含副作用的模块：PDF 需载入文档取页数）。
+ * 附件 → 源素材解析（本目录唯一含副作用模块：PDF 需载入文档取页数）。
  */
+
+/** 根据附件 content_type / 文件名推断素材类型（material-prep 专属领域语义，随本模块走） */
+function detectMaterialKind(contentType: string | undefined, filename: string): 'pdf' | 'photo' | 'office' {
+  const ct = (contentType || '').toLowerCase()
+  const name = filename.toLowerCase()
+  if (ct.includes('pdf') || name.endsWith('.pdf')) return 'pdf'
+  if (
+    ct.startsWith('image/') ||
+    /\.(jpe?g|png|gif|webp|bmp|heic|heif|tiff?)$/.test(name)
+  ) {
+    return 'photo'
+  }
+  return 'office'
+}
 
 /** 每个附件算出一个源素材，并解析真实页数（PDF 需要载入文档取页数）。 */
 export async function resolveMats(msg: InboxMessageDetail): Promise<BundleMat[]> {
@@ -34,8 +48,8 @@ export async function resolveMats(msg: InboxMessageDetail): Promise<BundleMat[]>
   return mats
 }
 
-/** 附件展示名：优先自定义名，其次原始名 */
-export function effectiveFileName(att: AttachmentMeta): string {
+/** 附件展示名：优先自定义名，其次原始名（仅本模块使用） */
+function effectiveFileName(att: AttachmentMeta): string {
   return att.custom_filename?.trim() || att.original_filename || att.filename
 }
 

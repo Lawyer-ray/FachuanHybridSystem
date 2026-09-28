@@ -1,13 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  /* 4K 超宽屏幕断点 */
-  --breakpoint-3xl: 1920px;
-
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 4px);
@@ -49,13 +45,16 @@
 
   /* v4 额外语义色 */
   --color-border-light: var(--border-light);
-  --color-text-secondary: var(--text-secondary);
-  --color-text-muted: var(--text-muted);
   --color-status-green: var(--status-green);
+  --color-status-green-bg: var(--status-green-bg);
   --color-status-yellow: var(--status-yellow);
+  --color-status-yellow-bg: var(--status-yellow-bg);
   --color-status-red: var(--status-red);
+  --color-status-red-bg: var(--status-red-bg);
   --color-status-blue: var(--status-blue);
+  --color-status-blue-bg: var(--status-blue-bg);
   --color-status-purple: var(--status-purple);
+  --color-status-purple-bg: var(--status-purple-bg);
 }
 
 /* ============================================
@@ -119,10 +118,8 @@
 
   /* v4 语义变量 */
   --border-light: #f4f4f5;
-  --text-secondary: #71717a;
-  --text-muted: #a1a1aa;
 
-  /* 状态徽章色 */
+  /* 状态徽章色（主色 + 浅背景；@theme 里映射成 --color-status-* / --color-status-*-bg） */
   --status-green: #22c55e;
   --status-green-bg: #f0fdf4;
   --status-yellow: #eab308;
@@ -196,8 +193,6 @@
 
   /* v4 语义变量 */
   --border-light: oklch(0.22 0.015 270);
-  --text-secondary: oklch(0.60 0.015 270);
-  --text-muted: oklch(0.45 0.015 270);
 
   /* 状态徽章色 */
   --status-green: #22c55e;
@@ -219,41 +214,6 @@
   body {
     @apply bg-background text-foreground;
   }
-}
-
-/* 暗色模式增强效果 */
-@layer utilities {
-  .dark .card-hover-glow:hover {
-    box-shadow: 0 0 30px -8px oklch(0.68 0.16 275 / 15%);
-  }
-
-  .dark .primary-glow {
-    box-shadow: 0 0 30px -8px oklch(0.68 0.16 275 / 25%);
-  }
-
-  .dark .border-glow {
-    border-color: oklch(0.35 0.03 275);
-  }
-}
-
-/* highlight.js：暗色模式下透明背景，由容器控制背景色 */
-.dark .hljs {
-  background: transparent !important;
-}
-
-/* Radix ScrollArea：隐藏原生滚动条（使用自定义 ScrollBar） */
-[data-scroll-area-viewport] {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-[data-scroll-area-viewport]::-webkit-scrollbar {
-  display: none;
-}
-
-/* Sidebar collapsed popover animation */
-@keyframes popover-in {
-  from { opacity: 0; transform: scale(0.92) translateX(-8px); }
-  to { opacity: 1; transform: scale(1) translateX(0); }
 }
 
 /* 页面切换入场过渡（components/shared/PageFade.tsx 使用）。

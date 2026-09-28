@@ -6,7 +6,11 @@ import { converterDownloadUrl, createConverterJob, getConverterJob, type Convert
 import { TOOL_ENDPOINT } from '../../constants'
 import { BTN_PRIMARY } from '../../ui'
 import { FilePicker, Spinner, ToolShell } from './shared'
-import { errMessage } from '../../errors'
+import { errMessage } from '@/lib/errors'
+
+/** 轮询节奏与上限：2s 一次，5 分钟仍没结束就放弃（后端任务卡死时不无限打接口） */
+const DOC_CONVERTER_POLL_MS = 2_000
+const DOC_CONVERTER_MAX_POLLS = 150
 
 /** DOC 转 DOCX：POST /doc-converter/jobs，轮询进度，完成后下载 zip */
 export function DocConverterCard() {
@@ -16,6 +20,7 @@ export function DocConverterCard() {
   const timer = useRef(0)
   // 卸载后取消：轮询在飞时若组件卸载，就不该再排下一轮 / window.open
   const cancelled = useRef(false)
+  const polls = useRef(0)
 
   const stop = () => {
     window.clearTimeout(timer.current)
@@ -47,8 +52,12 @@ export function DocConverterCard() {
           } else {
             toast.warning('转换失败，没有成功的文件')
           }
+        } else if (polls.current >= DOC_CONVERTER_MAX_POLLS) {
+          stop()
+          toast.error('转换耗时过久，已停止等待 —— 请稍后重试')
         } else {
-          timer.current = window.setTimeout(tick, 2000)
+          polls.current += 1
+          timer.current = window.setTimeout(tick, DOC_CONVERTER_POLL_MS)
         }
       } catch {
         if (cancelled.current) return
@@ -56,6 +65,7 @@ export function DocConverterCard() {
         toast.error('查询转换进度失败')
       }
     }
+    polls.current = 0
     void tick()
   }
 

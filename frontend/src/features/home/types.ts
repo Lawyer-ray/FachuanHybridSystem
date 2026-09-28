@@ -14,9 +14,7 @@ export interface InboxItem {
   who: string
   title: string
   at: string
-  status: string
-  action: string
-  /** 是否紧急（法院短信）——用于图标与状态的红色强调 */
+  /** 是否紧急（法院短信）——用于图标的红色强调 */
   hot: boolean
 }
 

@@ -6,7 +6,7 @@ import { PARSE_BACKENDS, type ParseBackend } from '../../api'
 import { TOOL_ENDPOINT } from '../../constants'
 import { BTN_PRIMARY, FIELD } from '../../ui'
 import { Spinner, ToolShell } from './shared'
-import { errMessage } from '../../errors'
+import { errMessage } from '@/lib/errors'
 import { useDocParse } from './use-doc-parse'
 import { FORMAT_HINT, MAX_PARSE_FILE_BYTES, acceptOf, rejectReason, sizeReason } from './doc-parse-formats'
 

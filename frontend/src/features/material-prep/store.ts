@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { toast } from 'sonner'
 import { appendPackFiles, getPackDetail, saveDraft, clearBytesCache } from './api'
 import { clearPdfDocuments } from '@/lib/pdf'
+import { READER_CLOSE_MS } from './constants'
 import {
   applyPageSelection,
   appendMatsToDraft,
@@ -47,6 +48,9 @@ interface ReaderState {
   lastAnchor: number
   /** OCR 框选取字：当前待确认的框（民警未确认前由面板接管） */
   ocrPending: OcrPending | null
+  /** 归案归属弹窗。放 store 是为了让全局键位（use-reader-keys 的 Esc 逐级退出）
+   *  能感知这层「最上面的模态」，否则按 Esc 会连阅读器一起关掉。 */
+  assignOpen: boolean
 
   open: (id: number) => Promise<void>
   close: () => void
@@ -63,6 +67,7 @@ interface ReaderState {
   /** 删除页（缺省删当前选中，传 target 删指定页），返回被删页数 */
   deleteSelected: (target?: PageKey[]) => number
   setOcrPending: (p: OcrPending | null) => void
+  setAssignOpen: (v: boolean) => void
   /** 打标材料包状态（不接归档 / 拆分归类完成等） */
   setStatus: (s: PackStatus) => void
   setAssign: (a: AssignInfo) => void
@@ -116,6 +121,7 @@ export const useReader = create<ReaderState>((set, get) => ({
   selPages: [],
   lastAnchor: -1,
   ocrPending: null,
+  assignOpen: false,
 
   open: async (id) => {
     // 切到新包先释放上一个包的 PDF 文档/worker，避免跨包累积占内存；
@@ -134,26 +140,34 @@ export const useReader = create<ReaderState>((set, get) => ({
       selPages: [],
       lastAnchor: -1,
       ocrPending: null,
+      assignOpen: false,
     })
     try {
       const detail = await getPackDetail(id)
+      // 快速连点两个包时，慢的那个响应后到会张冠李戴——响应回来时若已切到别的包就丢弃
+      if (get().openId !== id) return
       let mats: BundleMat[] = []
       try {
         mats = await resolveMats(detail)
+        if (get().openId !== id) return
       } catch {
         mats = []
+        toast.error('附件解析失败，已按空材料打开 —— 可尝试重新打开该包')
       }
-      const hasStored = detail.draft_state && detail.draft_state.segs?.length
-      const draft = hasStored ? detail.draft_state : buildInitialDraft(detail, mats)
+      const ds = detail.draft_state
+      // 未拆过的包 draft_state 是 {}（无 segs 键），只有存过草稿才有有效分段
+      const hasStored = !!ds && 'segs' in ds && ds.segs.length > 0
+      const draft = hasStored ? (ds as DraftState) : buildInitialDraft(detail, mats)
       set({ detail, draft, status: 'ready' })
     } catch (e) {
+      if (get().openId !== id) return
       set({ status: 'error', error: e instanceof Error ? e.message : '打开失败' })
     }
   },
 
   close: () => {
     const { openId, draft } = get()
-    if (openId && draft) scheduleSave(draft, openId, true)
+    if (openId && draft) scheduleSave(draft, openId, true)?.catch(() => {})
     // 先淡出，动画完成后再彻底卸载；期间若重新 open，则取消本次退场
     set({ closing: true })
     setTimeout(() => {
@@ -175,8 +189,9 @@ export const useReader = create<ReaderState>((set, get) => ({
         selPages: [],
         lastAnchor: -1,
         ocrPending: null,
+        assignOpen: false,
       })
-    }, 240)
+    }, READER_CLOSE_MS)
   },
 
   update: (fn) => {
@@ -185,7 +200,7 @@ export const useReader = create<ReaderState>((set, get) => ({
     const next = fn(cur)
     if (next === cur) return
     set({ draft: next })
-    if (get().openId) scheduleSave(next, get().openId as number)
+    if (get().openId) scheduleSave(next, get().openId as number)?.catch(() => {})
   },
 
   setPickInfo: (i) => {
@@ -247,12 +262,14 @@ export const useReader = create<ReaderState>((set, get) => ({
 
   setOcrPending: (p) => set({ ocrPending: p }),
 
+  setAssignOpen: (v) => set({ assignOpen: v }),
+
   setStatus: (s) => {
     const { openId } = get()
     get().update((d) => setPackStatus(d, s))
     if (openId) {
       const d = get().draft
-      if (d) scheduleSave(d, openId, true)
+      if (d) scheduleSave(d, openId, true)?.catch(() => {})
     }
   },
 
@@ -261,7 +278,7 @@ export const useReader = create<ReaderState>((set, get) => ({
     get().update((d) => setPackAssign(d, a))
     if (openId) {
       const d = get().draft
-      if (d) scheduleSave(d, openId, true)
+      if (d) scheduleSave(d, openId, true)?.catch(() => {})
     }
   },
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { FileText, Landmark, Mail, Paperclip, Search, Users } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { createApiClient } from '@/lib/api'
@@ -75,6 +75,7 @@ export function GlobalSearch({
   // 当前筛选类别：'all' = 全部；否则为 CATEGORY_ORDER 里的某个 category key
   const [activeCat, setActiveCat] = useState('all')
   const inputRef = useRef<HTMLInputElement>(null)
+  const navigate = useNavigate()
 
   // 打开时聚焦输入框，关闭时清空（下次打开是干净的）
   useEffect(() => {
@@ -145,7 +146,12 @@ export function GlobalSearch({
   const pick = (hit: Hit) => {
     const meta = CATEGORIES[hit.category]
     onOpenChange(false)
-    if (!meta?.to) onPickUnavailable?.(meta?.label ?? hit.category)
+    // 已建页的类别：无论鼠标点还是键盘回车都真正跳转（此前键盘回车只关面板不跳）
+    if (meta?.to) {
+      navigate(meta.to(hit.id))
+      return
+    }
+    onPickUnavailable?.(meta?.label ?? hit.category)
   }
 
   const onKeyDown = (e: React.KeyboardEvent) => {

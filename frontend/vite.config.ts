@@ -22,7 +22,6 @@ export default defineConfig({
         'src/**/*.d.ts',
         'src/main.tsx',
         'src/vite-env.d.ts',
-        'src/routes/index.tsx',  // lazy() imports cannot be covered in unit tests
       ],
     },
   },
@@ -59,19 +58,15 @@ export default defineConfig({
     reportCompressedSize: false,
     rollupOptions: {
       output: {
+        // 只列实际安装的包（此前残留 10 个未安装包的死规则，读配置时误导）
         manualChunks(id: string) {
           if (!id.includes('node_modules')) return
           const chunks: Record<string, string[]> = {
             'vendor-react': ['react', 'react-dom', 'react-router'],
-            'vendor-motion': ['framer-motion'],
             'vendor-query': ['@tanstack/react-query'],
-            'vendor-form': ['react-hook-form', '@hookform/resolvers', 'zod'],
             'vendor-radix': ['@radix-ui/'],
             'vendor-utils': ['ky', 'date-fns', 'clsx', 'tailwind-merge', 'class-variance-authority', 'sonner'],
             'vendor-state': ['zustand'],
-            'vendor-recharts': ['recharts'],
-            'vendor-markdown': ['react-markdown', 'rehype-highlight', 'remark-gfm', 'highlight.js'],
-            'vendor-dnd': ['@dnd-kit/'],
           }
           for (const [chunk, pkgs] of Object.entries(chunks)) {
             if (pkgs.some((pkg) => id.includes(pkg))) return chunk

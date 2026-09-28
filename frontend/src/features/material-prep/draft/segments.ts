@@ -24,7 +24,8 @@ export function splitSegment(d: DraftState, si: number, k: number): DraftState {
     refs: tail,
     manual: true,
   }
-  const next = d.segs.map((sg, i) => (i === si ? { ...sg, refs: head, manual: sg.manual || true } : sg))
+  // 切开即视为人工整理过的段（与 selection 的 manual: true 口径一致）
+  const next = d.segs.map((sg, i) => (i === si ? { ...sg, refs: head, manual: true } : sg))
   next.splice(si + 1, 0, newSeg)
   return { ...d, segs: next }
 }
@@ -60,6 +61,19 @@ export function renameSegment(d: DraftState, si: number, fn: string): DraftState
 /** 恢复初始分段 */
 export function resetSegments(d: DraftState): DraftState {
   return { ...d, segs: initialSegments(d.mats) }
+}
+
+/** 翻转段 si 的「已处理」勾 */
+export function toggleSegDone(d: DraftState, si: number): DraftState {
+  if (si < 0 || si >= d.segs.length) return d
+  const segs = d.segs.map((sg, i) => (i === si ? { ...sg, done: !sg.done } : sg))
+  return { ...d, segs }
+}
+
+/** 全部段标记为已处理（拆分归类完成后一键完成） */
+export function markAllSegsDone(d: DraftState): DraftState {
+  if (d.segs.every((sg) => sg.done)) return d
+  return { ...d, segs: d.segs.map((sg) => (sg.done ? sg : { ...sg, done: true })) }
 }
 
 export function setPackStatus(d: DraftState, status: PackStatus): DraftState {

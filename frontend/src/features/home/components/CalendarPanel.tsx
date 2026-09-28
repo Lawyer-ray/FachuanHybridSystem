@@ -1,19 +1,32 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { KIND_ROW, WEEKDAYS } from '../constants'
 import { isKeyKind } from '../api-meta'
-import type { CalendarEvent } from '../api'
+import type { CalendarEvent, CalendarStats } from '../api'
 import { buildMonthGrid, formatCN, parseKey } from '../domain'
 import { briefLine, cellMetaLines } from '../api-meta'
-import type { CalendarStats } from '../api'
-import { AddReminderDialog } from './AddReminderDialog'
 import { EventDetailDialog } from './EventDetailDialog'
 import { BTN, BTN_ICON, PANEL } from '../ui'
 import { cn } from '@/lib/utils'
 
+/** 每天最多显示几行事件（超出折叠成「+N 更多」），按窗口宽度自适应 */
+function maxRowsPerDay(): number {
+  const w = window.innerWidth
+  return w >= 2400 ? 5 : w >= 1600 ? 4 : 3
+}
+
+export interface CalendarView {
+  year: number
+  month: number
+}
+
 interface Props {
   today: string
+  /** 当前视图月（受控：由 HomePage 持有并驱动取数，切月才会真正请求那一个月） */
+  view: CalendarView
+  onShiftMonth: (delta: number) => void
+  onGoToday: () => void
   eventsByDay: Record<string, CalendarEvent[]>
   stats: CalendarStats
   loading: boolean
@@ -21,26 +34,28 @@ interface Props {
   onSelectDay: (key: string) => void
   /** 打开某条安排（跳案件/详情；未实现的给提示） */
   onOpenEvent: (e: CalendarEvent) => void
-  /** 新增安排 */
-  onAdd: () => void
+  /** 点日历格空白处 → 新增该日安排（弹窗由调用方挂载） */
+  onOpenAdd: (key: string) => void
 }
 
-/** 每天最多显示几行事件（超出折叠成「+N 更多」），按窗口宽度自适应 */
-function maxRowsPerDay(): number {
-  const w = window.innerWidth
-  return w >= 2400 ? 5 : w >= 1600 ? 4 : w >= 1100 ? 3 : 3
-}
-
-/** 大日历面板：月份切换 + 周一起点月历 + 事件行 + 悬停摘要 + 统计 */
-export function CalendarPanel({ today, eventsByDay, stats, loading, onSelectDay, onOpenEvent, onAdd }: Props) {
-  const todayDate = parseKey(today)
-  const [view, setView] = useState({ year: todayDate.getFullYear(), month: todayDate.getMonth() })
+/** 大日历面板：月份切换 + 周一起点月历 + 事件行 + 悬停摘要 + 统计。
+ *  纯展示受控组件：视图月与数据都在 HomePage，本组件不own取数、不own弹窗。 */
+export function CalendarPanel({
+  today,
+  view,
+  onShiftMonth,
+  onGoToday,
+  eventsByDay,
+  stats,
+  loading,
+  onSelectDay,
+  onOpenEvent,
+  onOpenAdd,
+}: Props) {
   const [selected, setSelected] = useState(today)
   const [maxRows, setMaxRows] = useState(maxRowsPerDay)
   // 详情弹窗：点日历格里的事件打开
   const [detail, setDetail] = useState<CalendarEvent | null>(null)
-  // 新增安排：点日历格空白处打开（day=目标日期，time=默认时刻）
-  const [adding, setAdding] = useState<{ day: string; time: string } | null>(null)
 
   // 窗口尺寸变化时重新计算每格行数（与原型一致，带防抖）
   useEffect(() => {
@@ -56,51 +71,27 @@ export function CalendarPanel({ today, eventsByDay, stats, loading, onSelectDay,
     }
   }, [])
 
-  const cells = useMemo(() => buildMonthGrid(view.year, view.month), [view])
-
-  const shiftMonth = (delta: number) => {
-    setView((v) => {
-      const m = v.month + delta
-      if (m < 0) return { year: v.year - 1, month: 11 }
-      if (m > 11) return { year: v.year + 1, month: 0 }
-      return { year: v.year, month: m }
-    })
-  }
-
-  const goToday = () => {
-    setView({ year: todayDate.getFullYear(), month: todayDate.getMonth() })
-    setSelected(today)
-  }
+  const cells = buildMonthGrid(view.year, view.month)
 
   const pickDay = (key: string) => {
     setSelected(key)
     onSelectDay(key)
   }
 
-  // 点日历格空白处 → 新增该日安排。默认时刻取"现在"（点今天）或 09:00
-  const openAdd = (key: string) => {
-    const now = new Date()
-    const isToday = key === today
-    const time = isToday
-      ? `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-      : '09:00'
-    setAdding({ day: key, time })
-  }
-
   return (
     <section className={PANEL}>
       {/* 头部：月份导航 + 统计 */}
       <div className="flex flex-wrap items-center gap-2 px-4 pb-3 pt-4">
-        <button type="button" className={BTN_ICON} onClick={() => shiftMonth(-1)} title="上个月" aria-label="上个月">
+        <button type="button" className={BTN_ICON} onClick={() => onShiftMonth(-1)} title="上个月" aria-label="上个月">
           <ChevronLeft className="h-3.5 w-3.5" />
         </button>
-        <button type="button" className={BTN_ICON} onClick={() => shiftMonth(1)} title="下个月" aria-label="下个月">
+        <button type="button" className={BTN_ICON} onClick={() => onShiftMonth(1)} title="下个月" aria-label="下个月">
           <ChevronRight className="h-3.5 w-3.5" />
         </button>
         <div className="text-[16px] font-semibold tracking-[-0.01em]">
           {view.month + 1} 月<span className="ml-[7px] text-[12px] font-normal text-muted-foreground">{view.year}</span>
         </div>
-        <button type="button" className={BTN} onClick={goToday} title="回到今天">
+        <button type="button" className={BTN} onClick={onGoToday} title="回到今天">
           今天
         </button>
 
@@ -126,7 +117,7 @@ export function CalendarPanel({ today, eventsByDay, stats, loading, onSelectDay,
         ))}
       </div>
 
-      {/* 日期网格：6 行 42 格，避免切月时高度抖动 */}
+      {/* 日期网格：行数按需自适应，避免切月时高度抖动 */}
       <div className="relative grid grid-cols-7 px-2.5 py-1 [&>div:nth-last-child(-n+7)]:border-b-0">
         {cells.map((cell) => (
           <DayCellView
@@ -137,9 +128,8 @@ export function CalendarPanel({ today, eventsByDay, stats, loading, onSelectDay,
             events={cell.key ? (eventsByDay[cell.key] ?? []) : []}
             maxRows={maxRows}
             onPick={pickDay}
-            onOpenEvent={onOpenEvent}
             onOpenDetail={setDetail}
-            onOpenAdd={openAdd}
+            onOpenAdd={onOpenAdd}
           />
         ))}
         {loading && (
@@ -151,14 +141,6 @@ export function CalendarPanel({ today, eventsByDay, stats, loading, onSelectDay,
 
       {/* 事件详情弹窗 */}
       <EventDetailDialog event={detail} onClose={() => setDetail(null)} onOpenCase={onOpenEvent} />
-
-      {/* 新增安排弹窗（点日历空白格打开） */}
-      <AddReminderDialog
-        day={adding?.day ?? null}
-        defaultTime={adding?.time ?? '09:00'}
-        onClose={() => setAdding(null)}
-        onSaved={onAdd}
-      />
 
       {/* 图例 */}
       <div className="flex gap-[18px] px-4 pb-[13px] text-[10.5px] text-muted-foreground">
@@ -184,7 +166,6 @@ interface CellProps {
   events: CalendarEvent[]
   maxRows: number
   onPick: (key: string) => void
-  onOpenEvent: (e: CalendarEvent) => void
   onOpenDetail: (e: CalendarEvent) => void
   /** 点本格空白处 → 新增该日安排 */
   onOpenAdd: (key: string) => void
@@ -206,9 +187,9 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenAdd
         isToday && 'bg-status-red-bg/40',
       )}
       onClick={(ev) => {
-        // 点在事件行 / +N 更多 / 悬停 tip 上不算"点空白处"
+        // 点在事件行 / 「+N 更多」上不算"点空白处"，只选中该日（新增弹窗由 onOpenAdd 负责）
         const target = ev.target as HTMLElement
-        if (target.closest('[data-calendar-event]') || target.closest('.group-hover\\:visible')) {
+        if (target.closest('[data-calendar-event], [data-calendar-more]')) {
           onPick(cell.key as string)
           return
         }
@@ -266,7 +247,10 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenAdd
           )
         })}
         {hidden > 0 && (
-          <span className="mt-[1px] self-start rounded-[6px] border border-input bg-secondary px-2 py-[2px] text-[10.5px] font-semibold text-secondary-foreground">
+          <span
+            data-calendar-more
+            className="mt-[1px] self-start rounded-[6px] border border-input bg-secondary px-2 py-[2px] text-[10.5px] font-semibold text-secondary-foreground"
+          >
             + {hidden} 更多
           </span>
         )}
@@ -286,7 +270,8 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenAdd
       {events.length > 0 && (
         <div className="pointer-events-none absolute bottom-[calc(100%+4px)] left-1/2 z-40 hidden w-[300px] max-w-[330px] -translate-x-1/2 scale-95 rounded-[11px] bg-foreground p-[11px_14px] text-[11.5px] leading-[1.5] text-background opacity-0 shadow-[0_8px_24px_rgba(0,0,0,.16)] transition-[opacity,transform,visibility] group-hover:visible group-hover:scale-100 group-hover:opacity-100 min-[761px]:block">
           <div className="mb-1.5 text-[10px] text-background/60">
-            {(isToday ? '今天 · ' : '') + formatCN(new Date(cell.key))}
+            {/* parseKey 而非 new Date(key)：后者按 UTC 零点解析，西半球时区会退一天 */}
+            {(isToday ? '今天 · ' : '') + formatCN(parseKey(cell.key))}
           </div>
           {events.map((e) => (
             <div key={e.id} className="flex items-baseline gap-[7px]">

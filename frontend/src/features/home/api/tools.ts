@@ -17,6 +17,9 @@ export interface ConvertTemplateGroup {
   items: ConvertTemplate[]
 }
 
+/** 模板列表 query key（DocConvertCard 订阅） */
+export const CONVERT_TEMPLATES_KEY = ['doc-convert-templates'] as const
+
 /** 要素式转换：取文书模板（按分类分组），替代原型里写死的下拉 */
 export async function listConvertTemplates(): Promise<ConvertTemplateGroup[]> {
   const res = await docConvertApi.get('mbid-list').json<{ categories: { category: string; items: ConvertTemplate[] }[] }>()
@@ -64,7 +67,11 @@ export interface ConverterJob {
 export async function createConverterJob(files: File[]): Promise<string> {
   const body = new FormData()
   for (const f of files) body.append('files', f, f.name)
-  const res = await docConverterApi.post('jobs', { body }).json<{ job_id: string; status?: string }>()
+  const res = await docConverterApi.post('jobs', { body }).json<{ job_id?: string; success?: boolean; message?: string }>()
+  // 业务失败兜底：后端若返回 200 + success:false（或异常缺 job_id），别拿 undefined 去轮询
+  if (res.success === false || !res.job_id) {
+    throw new Error(res.message || '创建转换任务失败')
+  }
   return res.job_id
 }
 

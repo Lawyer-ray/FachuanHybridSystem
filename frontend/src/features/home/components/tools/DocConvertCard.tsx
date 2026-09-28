@@ -3,11 +3,11 @@ import { FileText } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
-import { convertDocument, listConvertTemplates } from '../../api'
+import { CONVERT_TEMPLATES_KEY, convertDocument, listConvertTemplates } from '../../api'
 import { TOOL_ENDPOINT } from '../../constants'
 import { BTN_PRIMARY, FIELD } from '../../ui'
 import { Spinner, ToolShell } from './shared'
-import { errMessage } from '../../errors'
+import { errMessage } from '@/lib/errors'
 
 /** 要素式转换：POST /doc-convert/convert（multipart：file + mbid），成功后直接下载 */
 export function DocConvertCard() {
@@ -16,7 +16,7 @@ export function DocConvertCard() {
   const [busy, setBusy] = useState(false)
 
   const { data: groups = [], isLoading } = useQuery({
-    queryKey: ['doc-convert-templates'],
+    queryKey: CONVERT_TEMPLATES_KEY,
     queryFn: listConvertTemplates,
     staleTime: 5 * 60_000,
   })

@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { deletePack, listMaterialPacks, renamePack, setPackStatusRemote, uploadPack } from '../api'
 import type { AssignInfo, PackStatus } from '../types'
@@ -19,28 +18,21 @@ export function useCreatePack() {
   return useMutation({
     mutationFn: (files: File[]) => uploadPack(files),
     onSuccess: () => qc.invalidateQueries({ queryKey: PACKS_KEY }),
-    onError: (e) => {
-      throw e
-    },
+    // 错误统一由调用方 mutateAsync 的 catch 处理（toast 在那里弹），这里不再重复兜底
   })
 }
 
 export function useJudgePack() {
   const qc = useQueryClient()
-  const invalidate = useMemo(
-    () => () => qc.invalidateQueries({ queryKey: PACKS_KEY }),
-    [qc],
-  )
+  const invalidate = () => qc.invalidateQueries({ queryKey: PACKS_KEY })
   const mut = useMutation({
     mutationFn: (v: { id: number; status: PackStatus; assign?: AssignInfo }) =>
       setPackStatusRemote(v.id, v.status, v.assign),
     onSuccess: invalidate,
-    onError: (e) => {
-      throw e
-    },
   })
-  // 稳定返回对象：否则消费方（DeskPage 的 judge / 键盘监听）每次渲染都拿到新引用
-  return useMemo(() => ({ ...mut, invalidate }), [mut, invalidate])
+  // 注意：react-query v5 每次渲染返回新的 mut 对象，这里没有（也无法）做引用稳定化；
+  // 消费方不要把返回值直接放进依赖数组做「稳定引用」假设
+  return { ...mut, invalidate }
 }
 
 export function useDeletePack() {
@@ -48,25 +40,15 @@ export function useDeletePack() {
   return useMutation({
     mutationFn: (id: number) => deletePack(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: PACKS_KEY }),
-    onError: (e) => {
-      throw e
-    },
   })
 }
 
 export function useRenamePack() {
   const qc = useQueryClient()
-  const invalidate = useMemo(
-    () => () => qc.invalidateQueries({ queryKey: PACKS_KEY }),
-    [qc],
-  )
+  const invalidate = () => qc.invalidateQueries({ queryKey: PACKS_KEY })
   const mut = useMutation({
     mutationFn: (v: { id: number; subject: string }) => renamePack(v.id, v.subject),
     onSuccess: invalidate,
-    onError: (e) => {
-      throw e
-    },
   })
-  // 稳定返回对象：避免消费方每次渲染拿到新引用
-  return useMemo(() => ({ ...mut, invalidate }), [mut, invalidate])
+  return { ...mut, invalidate }
 }

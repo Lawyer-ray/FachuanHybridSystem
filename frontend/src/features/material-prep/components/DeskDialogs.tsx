@@ -30,7 +30,9 @@ export function DeskDialogs({
 }) {
   return (
     <>
-      {/* 卡片归案：归属 modal */}
+      {/* 卡片归案：归属 modal。
+          工作台侧拿不到 draft_state（详情未打开），infos 传空 —— 「委托人」提示缺位、
+          合同字段由用户手填，属刻意取舍；阅读器内的归案（ReaderDialogs）才带完整 infos。 */}
       {assigning && (
         <AssignModal
           open

@@ -14,10 +14,15 @@ import {
 } from './token'
 
 /**
- * 获取 API 基础路径（localStorage 优先，fallback 到环境变量）
+ * 获取 API 基础路径（localStorage 优先，fallback 到环境变量）。
+ *
+ * 默认用**相对路径** `/api/v1`：dev 由 Vite proxy 转发到后端，生产按同源部署，
+ * 都不需要写死 host。（社交登录的 session cookie 也要求与后端同源，见
+ * features/auth/social-api.ts 的说明——整站统一同源约定，避免两套 URL 体系。）
+ * localStorage 里若被 Native 壳等宿主写入了 api_base_url，仍然优先生效。
  */
 export function getApiBaseUrl(): string {
-  return localStorage.getItem('api_base_url') || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'
+  return localStorage.getItem('api_base_url') || import.meta.env.VITE_API_BASE_URL || '/api/v1'
 }
 
 /** 模块级缓存，避免每次调用都读 localStorage */

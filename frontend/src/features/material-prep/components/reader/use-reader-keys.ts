@@ -3,9 +3,13 @@ import { useReader } from '../../store'
 
 /**
  * 阅读器全局键位：
- *   - Esc 逐级退出（OCR 待确认 → 选页模式 → 有选页 → 取字态 → 关闭阅读器）
+ *   - Esc 逐级退出（归案弹窗 → OCR 待确认 → 选页模式 → 有选页 → 取字态 → 关闭阅读器）
  *   - S（无修饰键）合并当前选中页
  * 输入框内不劫持。直读 store.getState()，不随状态重建 listener。
+ *
+ * 归案弹窗（AssignModal）是手写 DOM 层、不在 Radix DismissableLayer 体系内，
+ * 它的开关状态放在 store（assignOpen）里，Esc 才能感知这层最上面的模态——
+ * 否则弹窗开着按 Esc 会落到 else 分支，把整个阅读器一起关掉。
  */
 export function useReaderKeys() {
   useEffect(() => {
@@ -15,7 +19,9 @@ export function useReaderKeys() {
       const s = useReader.getState()
       if (e.key === 'Escape') {
         e.preventDefault()
-        if (s.ocrPending) {
+        if (s.assignOpen) {
+          s.setAssignOpen(false)
+        } else if (s.ocrPending) {
           s.setOcrPending(null)
           s.setPickInfo(-1)
         } else if (s.selMode) {

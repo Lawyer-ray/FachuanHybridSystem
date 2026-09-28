@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { resolveCallbackError, sanitizeRedirect, withQuery } from './social-callback-domain'
-import { SOCIAL_LOGIN_ERROR_TEXT } from './social-types'
+import { SOCIAL_LOGIN_ERROR_TEXT } from './constants'
 
 describe('sanitizeRedirect', () => {
   it('放行站内相对路径', () => {

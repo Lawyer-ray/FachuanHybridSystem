@@ -6,7 +6,7 @@ import { submitCourtSms } from '../../api'
 import { TOOL_ENDPOINT } from '../../constants'
 import { BTN_PRIMARY, FIELD } from '../../ui'
 import { Spinner, ToolShell } from './shared'
-import { errMessage } from '../../errors'
+import { errMessage } from '@/lib/errors'
 
 /** 收法院短信：POST /automation/court-sms（提交后由后端异步解析） */
 export function CourtSmsCard() {

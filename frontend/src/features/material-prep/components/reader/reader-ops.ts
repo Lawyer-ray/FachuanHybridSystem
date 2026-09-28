@@ -5,6 +5,7 @@ import {
   renameSegment as segRename,
   setSegmentType as segSetType,
   splitSegment as segSplit,
+  toggleSegDone as segToggleDone,
   addInfoField as infoAdd,
   removeInfoField as infoRemove,
   setInfoValue as infoSetValue,
@@ -43,8 +44,7 @@ export function buildFlowOps(
     setSegType: (si, t) => update((d) => segSetType(d, si, t)),
     renameSeg: (si, name) => update((d) => segRename(d, si, name)),
     mergeSeg: (si) => update((d) => segMerge(d, si)),
-    toggleDone: (si) =>
-      update((d) => ({ ...d, segs: d.segs.map((s, i) => (i === si ? { ...s, done: !s.done } : s)) })),
+    toggleDone: (si) => update((d) => segToggleDone(d, si)),
     splitSeg: (si, k) => update((d) => segSplit(d, si, k)),
     pickPage,
   }

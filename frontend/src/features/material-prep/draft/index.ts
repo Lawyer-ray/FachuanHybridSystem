@@ -7,12 +7,11 @@
  * 不是把内部实现摊开。子模块内仍可使用的私有函数不必出现在这里。
  */
 
-export { resolveMats, initialSegments, buildInitialDraft } from './resolve'
+export { resolveMats, buildInitialDraft } from './resolve'
 export {
   matLabel,
   segMats,
   selKeyOf,
-  rangeLabel,
   countUnclassified,
   isWholeMat,
 } from './labels'
@@ -22,6 +21,8 @@ export {
   setSegmentType,
   renameSegment,
   resetSegments,
+  toggleSegDone,
+  markAllSegsDone,
   setPackStatus,
   setPackAssign,
   appendMatsToDraft,
@@ -43,5 +44,4 @@ export {
   applyPageSelection,
   isSelectionContiguous,
   removePages,
-  type FlatRef,
 } from './selection'

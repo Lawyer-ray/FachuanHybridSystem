@@ -57,6 +57,15 @@ export async function fetchCalendarMonth(year: number, month: number): Promise<C
     .json<CalendarMonth>()
 }
 
+/** 日历 query key 工厂：跨文件 invalidate / 订阅都从这里取，避免裸字符串漂移 */
+export const calendarKeys = {
+  all: ['home-calendar'] as const,
+  month: (year: number, month: number) => ['home-calendar', year, month] as const,
+}
+
+/** 提醒类型下拉的 query key（AddReminderDialog 用） */
+export const REMINDER_TYPES_KEY = ['reminder-types'] as const
+
 /** 关联对象类型（提醒可绑定 合同 / 案件 / 案件日志 三选一） */
 export type TargetType = 'contract' | 'case' | 'case_log'
 
@@ -158,11 +167,13 @@ export interface CreateReminderIn {
 }
 
 export async function createReminder(payload: CreateReminderIn): Promise<void> {
-  const field = {
+  // Record<TargetType, ...> 让三个 key 必须穷举，拼错编译期就报
+  const fieldByTarget: Record<TargetType, 'contract_id' | 'case_id' | 'case_log_id'> = {
     contract: 'contract_id',
     case: 'case_id',
     case_log: 'case_log_id',
-  }[String(payload.target_type)] as string | undefined
+  }
+  const field = payload.target_type ? fieldByTarget[payload.target_type] : undefined
   await remindersApi.post('create', {
     json: {
       reminder_type: payload.reminder_type,

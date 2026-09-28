@@ -1,42 +1,12 @@
 /**
- * 社交登录类型。
+ * auth 域常量：社交登录错误码与文案、外部资源地址、query key。
+ * （此前常量散落在类型文件与组件里，按规范收敛到 constants.ts。）
  */
 
-/** 登录方式的交互形态，后端 /social/providers 下发。 */
+/** 登录方式的交互形态，后端 /social/providers 下发 */
 export type LoginMode = 'redirect' | 'embedded_qr'
 
-export interface SocialProvider {
-  name: string
-  display_name: string
-  /** redirect：跳转到授权页；embedded_qr：前端渲染二维码 */
-  login_mode: LoginMode
-  /** 渲染所需的公开信息（app_id / authorize_url / 二维码尺寸），不含密钥 */
-  client_config: {
-    app_id?: string
-    authorize_url?: string
-    scope?: string
-    width?: string
-    height?: string
-    [k: string]: string | undefined
-  } | null
-}
-
-export interface SocialSession {
-  /** 拼上 tmp_code 后即可完成跳转的授权页地址 */
-  goto: string
-  state: string
-  expires_in: number
-}
-
-export interface SocialTokenExchangeResponse {
-  success: boolean
-  access?: string
-  refresh?: string
-  user?: import('./types').User
-  message?: string
-}
-
-/** 扫码面板对外暴露的动作，便于上层控制显隐。 */
+/** 扫码面板对外暴露的错误码（后端回调 error 参数的已知取值） */
 export type SocialLoginErrorCode =
   | 'no_session'
   | 'invalid_session'
@@ -72,3 +42,11 @@ export const SOCIAL_LOGIN_ERROR_TEXT: Record<SocialLoginErrorCode, string> = {
   already_bound: '该社交账号已绑定其他律师，请先让其解绑',
   provider_occupied: '你已绑定该平台的另一个账号，请先解绑再绑定新账号',
 }
+
+/** 飞书扫二维码登录 SDK（官方固定 CDN 地址） */
+export const FEISHU_QR_SDK_URL =
+  'https://lf-package-cn.feishucdn.com/obj/feishu-static/lark/passport/qrcode/LarkSSOSDKWebQRCode-1.0.3.js'
+
+/** 账号绑定页的 query key */
+export const BINDINGS_KEY = ['social-bindings'] as const
+export const CATALOG_KEY = ['social-provider-catalog'] as const

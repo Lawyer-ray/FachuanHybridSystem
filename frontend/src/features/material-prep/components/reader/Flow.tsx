@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type CSSProperties } from 'react'
+import { useCallback, useMemo, useState, type CSSProperties, type ComponentProps } from 'react'
 import { Scissors } from 'lucide-react'
 import { SEG_COLORS } from '../../constants'
 import { useElementWidth } from '../../hooks/use-element-width'
@@ -78,6 +78,27 @@ export function Flow({
     setMenu({ x: e.clientX, y: e.clientY, mi, p })
   }, [])
   const closeMenu = useCallback(() => setMenu(null), [])
+
+  /** PageCell 的公共 props：两处分支（多列/单列）共用，避免逐字重复的 15 行 props 漂移 */
+  const cellPropsOf = useCallback(
+    (ref: PageKey): ComponentProps<typeof PageCell> => ({
+      messageId,
+      mi: ref.mi,
+      p: ref.p,
+      mat: mats[ref.mi],
+      pickActive: picking,
+      selModeActive: selMode,
+      selected: selKeys.has(`${ref.mi}:${ref.p}`),
+      marks: marksOf(ref.mi, ref.p),
+      ocrRect: ocrPending && ocrPending.mi === ref.mi && ocrPending.p === ref.p ? ocrPending.rect : null,
+      onPickPage: picking ? onOp.pickPage : undefined,
+      onOcrBox: picking ? onOcrBox : undefined,
+      onToggleSel,
+      onContextMenu: openMenu,
+    }),
+    [messageId, mats, picking, selMode, selKeys, marksOf, ocrPending, onOp, onOcrBox, onToggleSel, openMenu],
+  )
+
   const menuInSel = menu ? selKeys.has(`${menu.mi}:${menu.p}`) : false
   const menuTitle = menu
     ? `${mats[menu.mi]?.customName || mats[menu.mi]?.n || ''} · 第 ${menu.p} 页`
@@ -129,7 +150,8 @@ export function Flow({
                   const mat = mats[ref.mi]
                   if (!mat) return null
                   return (
-                    <div key={ref.mi + '-' + ref.p} className="relative flex flex-col gap-1.5">
+                    // group 挂在页卡包裹层：切分按钮靠 group-hover 显形（漏掉它按钮就永远 opacity-0）
+                    <div key={ref.mi + '-' + ref.p} className="group relative flex flex-col gap-1.5">
                       {ri > 0 && (
                         <button
                           type="button"
@@ -140,21 +162,7 @@ export function Flow({
                           <Scissors className="h-3 w-3" />
                         </button>
                       )}
-                      <PageCell
-                        messageId={messageId}
-                        mi={ref.mi}
-                        p={ref.p}
-                        mat={mat}
-                        pickActive={picking}
-                        selModeActive={selMode}
-                        selected={selKeys.has(`${ref.mi}:${ref.p}`)}
-                        marks={marksOf(ref.mi, ref.p)}
-                        ocrRect={ocrPending && ocrPending.mi === ref.mi && ocrPending.p === ref.p ? ocrPending.rect : null}
-                        onPickPage={picking ? onOp.pickPage : undefined}
-                        onOcrBox={picking ? onOcrBox : undefined}
-                        onToggleSel={onToggleSel}
-                        onContextMenu={openMenu}
-                      />
+                      <PageCell {...cellPropsOf(ref)} />
                     </div>
                   )
                 })}
@@ -169,21 +177,7 @@ export function Flow({
                       key={ref.mi + '-' + ref.p}
                       className="flex w-[var(--mp-cw)] flex-col items-center gap-1.5"
                     >
-                      <PageCell
-                        messageId={messageId}
-                        mi={ref.mi}
-                        p={ref.p}
-                        mat={mat}
-                        pickActive={picking}
-                        selModeActive={selMode}
-                        selected={selKeys.has(`${ref.mi}:${ref.p}`)}
-                        marks={marksOf(ref.mi, ref.p)}
-                        ocrRect={ocrPending && ocrPending.mi === ref.mi && ocrPending.p === ref.p ? ocrPending.rect : null}
-                        onPickPage={picking ? onOp.pickPage : undefined}
-                        onOcrBox={picking ? onOcrBox : undefined}
-                        onToggleSel={onToggleSel}
-                        onContextMenu={openMenu}
-                      />
+                      <PageCell {...cellPropsOf(ref)} />
                       {ri < seg.refs.length - 1 && (
                         <button
                           type="button"
