@@ -134,13 +134,14 @@ def _case_number_of(case: Any) -> str:
     if case is None:
         return ""
     try:
-        numbers = list(case.case_numbers.values_list("number", flat=True))
+        # 必须迭代 .all()：prefetch_related 的缓存只在迭代对象时生效，
+        # values_list 会克隆出全新 QuerySet 绕过缓存，退化成每案件一次的 N+1
+        for case_number in case.case_numbers.all():
+            cleaned = _text(case_number.number)
+            if cleaned:
+                return cleaned
     except Exception:  # pragma: no cover - 替身对象没有 ORM 管理器时
         return ""
-    for n in numbers:
-        cleaned = _text(n)
-        if cleaned:
-            return cleaned
     return ""
 
 

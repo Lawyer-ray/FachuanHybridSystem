@@ -40,11 +40,13 @@ def make_reminder(
 ) -> SimpleNamespace:
     """造一个够用的 Reminder 替身（只带 to_event_item 会读到的属性）。"""
     # 案件的案号在 Case.case_numbers（CaseNumber.number），
-    # service 里用 case.case_numbers.values_list("number", flat=True) 读，
+    # service 里迭代 case.case_numbers.all() 读（走 prefetch 缓存），
     # 这里给个同名替身。
     case_obj = SimpleNamespace(name=case_name) if case_name else None
     if case_obj is not None:
-        case_obj.case_numbers = SimpleNamespace(values_list=lambda *a, **kw: [case_ref] if case_ref else [])
+        case_obj.case_numbers = SimpleNamespace(
+            all=lambda: [SimpleNamespace(number=case_ref)] if case_ref else []
+        )
     return SimpleNamespace(
         id=reminder_id,
         # 带偏移量的保持原样；naive 的按 TZ 解释（与 Django make_aware 语义一致）
