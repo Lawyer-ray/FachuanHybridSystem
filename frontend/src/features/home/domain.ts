@@ -45,6 +45,20 @@ export function formatWeekdayCN(d: Date): string {
   return ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][d.getDay()] ?? ''
 }
 
+/* ------------------------------------------------------------------ 完成态 */
+
+/**
+ * 勾选完成时要写的 reminder id 集合。
+ *
+ * 后端会把同一庭审的多条同步记录合并成一条日历事件（member_ids 记全部成员），
+ * 勾选必须**全量**下发——只改首条 id 的话，下次合并口径（全部成员都完成才算
+ * 完成）会把事件又显示回未完成。
+ */
+export function eventReminderIds(e: { id: number; member_ids?: number[] }): number[] {
+  const ids = e.member_ids ?? []
+  return ids.length > 0 ? ids : [e.id]
+}
+
 /* ------------------------------------------------------------------ 日历网格 */
 
 export interface DayCell {

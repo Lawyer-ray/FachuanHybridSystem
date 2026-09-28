@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { KIND_ROW, WEEKDAYS } from '../constants'
 import { isKeyKind } from '../api-meta'
@@ -35,6 +35,8 @@ interface Props {
   onSelectDay: (key: string) => void
   /** 打开某条安排（跳案件/详情；未实现的给提示） */
   onOpenEvent: (e: CalendarEvent) => void
+  /** 勾选完成 / 取消完成（合并事件的全部成员由调用方统一处理） */
+  onToggleComplete: (e: CalendarEvent) => void
   /** 点日历格空白处 → 新增该日安排（弹窗由调用方挂载） */
   onOpenAdd: (key: string) => void
 }
@@ -51,6 +53,7 @@ export function CalendarPanel({
   loading,
   onSelectDay,
   onOpenEvent,
+  onToggleComplete,
   onOpenAdd,
 }: Props) {
   const [selected, setSelected] = useState(today)
@@ -131,6 +134,7 @@ export function CalendarPanel({
             onPick={pickDay}
             onOpenDetail={setDetail}
             onOpenAdd={onOpenAdd}
+            onToggleComplete={onToggleComplete}
           />
         ))}
         {loading && (
@@ -141,7 +145,7 @@ export function CalendarPanel({
       </div>
 
       {/* 事件详情弹窗 */}
-      <EventDetailDialog event={detail} onClose={() => setDetail(null)} onOpenCase={onOpenEvent} />
+      <EventDetailDialog event={detail} onClose={() => setDetail(null)} onOpenCase={onOpenEvent} onToggleComplete={onToggleComplete} />
 
       {/* 图例 */}
       <div className="flex gap-[18px] px-4 pb-[13px] text-[10.5px] text-muted-foreground">
@@ -152,6 +156,12 @@ export function CalendarPanel({
         <span className="flex items-center gap-1.5">
           <i className="h-[7px] w-[7px] flex-none rounded-full bg-input" />
           常规 · 日程 / 跟进
+        </span>
+        <span className="flex items-center gap-1.5">
+          <i className="flex h-[11px] w-[11px] flex-none items-center justify-center rounded-full border-[1.5px] border-foreground bg-foreground text-background">
+            <Check className="h-[7px] w-[7px]" strokeWidth={3} />
+          </i>
+          已完成
         </span>
       </div>
     </section>
@@ -168,11 +178,13 @@ interface CellProps {
   maxRows: number
   onPick: (key: string) => void
   onOpenDetail: (e: CalendarEvent) => void
-  /** 点本格空白处 → 新增该日安排 */
+  /** 点日历格空白处 → 新增该日安排 */
   onOpenAdd: (key: string) => void
+  /** 勾选完成 / 取消完成 */
+  onToggleComplete: (e: CalendarEvent) => void
 }
 
-function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenAdd, onOpenDetail }: CellProps) {
+function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenAdd, onOpenDetail, onToggleComplete }: CellProps) {
   if (!cell.key || cell.day == null) return <div className="min-h-[clamp(132px,12vw,208px)] border-r border-b border-border-light" />
 
   const isToday = cell.key === today
@@ -237,6 +249,7 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenAdd
                 'flex flex-col justify-center gap-px rounded-[5px] px-[6px] py-[3px] text-[11.5px] transition-[filter] hover:brightness-95',
                 KIND_ROW[e.kind],
                 !isKeyKind(e.kind) && 'bg-secondary/70',
+                e.is_completed && 'opacity-55',
               )}
               onClick={(ev) => {
                 ev.stopPropagation()
@@ -245,14 +258,33 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenAdd
             >
               {/* 时间独占第一行，正文全部左对齐顶格开始。
                   以前把时间做成固定 30px 的前导列，导致律师/地点两行要缩进
-                  到 30px 起，左侧白费一条——格子本来就窄，不能再浪费宽度。 */}
-              <span className="flex items-baseline gap-1">
+                  到 30px 起，左侧白费一条——格子本来就窄，不能再浪费宽度。
+                  行首的完成勾选与时间同行，已完成时标题划线。 */}
+              <span className="flex items-center gap-1">
+                <button
+                  type="button"
+                  aria-label={e.is_completed ? '标记为未完成' : '标记为完成'}
+                  title={e.is_completed ? '标记为未完成' : '标记为完成'}
+                  onClick={(ev) => {
+                    // 勾选只切换完成态：不冒泡到事件行（详情）与日历格（新增）
+                    ev.stopPropagation()
+                    onToggleComplete(e)
+                  }}
+                  className={cn(
+                    'flex h-[12px] w-[12px] flex-none items-center justify-center rounded-full border-[1.5px] transition-colors',
+                    e.is_completed
+                      ? 'border-foreground bg-foreground text-background'
+                      : 'border-current/40 text-transparent hover:border-current',
+                  )}
+                >
+                  <Check className="h-[8px] w-[8px]" strokeWidth={3} />
+                </button>
                 <span className="text-[10px] font-semibold tabular-nums opacity-80">{e.time}</span>
                 {e.time_range && e.time_range !== e.time && (
                   <span className="truncate text-[9px] tabular-nums opacity-55">-{e.time_range.split('-')[1]}</span>
                 )}
               </span>
-              <span className="truncate font-medium leading-tight">{e.title}</span>
+              <span className={cn('truncate font-medium leading-tight', e.is_completed && 'line-through')}>{e.title}</span>
               {meta.primary && <span className="truncate text-[9.5px] opacity-75">{meta.primary}</span>}
               {meta.secondary && <span className="truncate text-[9.5px] opacity-60">{meta.secondary}</span>}
             </div>
@@ -272,7 +304,14 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenAdd
       {events.length > 0 && (
         <div className="mt-[2px] hidden items-center justify-center gap-[3px] max-[760px]:flex">
           {events.slice(0, 4).map((e) => (
-            <i key={e.id} className={cn('h-[6px] w-[6px] flex-none rounded-full', isKeyKind(e.kind) ? 'bg-status-red' : 'bg-input')} />
+            <i
+              key={e.id}
+              className={cn(
+                'h-[6px] w-[6px] flex-none rounded-full',
+                isKeyKind(e.kind) ? 'bg-status-red' : 'bg-input',
+                e.is_completed && 'opacity-40',
+              )}
+            />
           ))}
           {events.length > 4 && <em className="text-[9px] leading-none text-muted-foreground">+{events.length - 4}</em>}
         </div>
@@ -286,9 +325,9 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenAdd
             {(isToday ? '今天 · ' : '') + formatCN(parseKey(cell.key))}
           </div>
           {events.map((e) => (
-            <div key={e.id} className="flex items-baseline gap-[7px]">
+            <div key={e.id} className={cn('flex items-baseline gap-[7px]', e.is_completed && 'opacity-60')}>
               <span className="w-8 flex-none text-[10px] text-background/60 tabular-nums">{e.time}</span>
-              <span className="truncate font-medium">{e.title}</span>
+              <span className={cn('truncate font-medium', e.is_completed && 'line-through')}>{e.title}</span>
               <span className="max-w-[110px] truncate text-[10.5px] text-background/50">{briefLine(e)}</span>
             </div>
           ))}

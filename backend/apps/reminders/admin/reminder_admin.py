@@ -62,6 +62,7 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):  # pragma: no cover
         "id",
         "due_at",
         "reminder_type",
+        "is_completed",
         "content",
         "contract",
         "case",
@@ -70,11 +71,13 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):  # pragma: no cover
         "updated_at",
     )
     list_display_links = ("id", "content")
-    list_filter = ("reminder_type", "created_at")
+    list_filter = ("reminder_type", "is_completed", "created_at")
     search_fields = ("content",)
     list_select_related = ("contract", "case", "case_log")
     autocomplete_fields = ["contract", "case", "case_log"]
-    readonly_fields = ("created_at", "updated_at", "metadata_display")
+    # 完成态字段只读：is_completed/completed_at/completed_by 是一组不变量，
+    # 由 ReminderService.set_completed 统一维护（前端日历勾选），admin 只展示
+    readonly_fields = ("created_at", "updated_at", "metadata_display", "is_completed", "completed_at", "completed_by")
     ordering = ("-due_at", "-id")
     date_hierarchy = "due_at"
     list_per_page = 30
@@ -100,6 +103,12 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):  # pragma: no cover
             {
                 "fields": ("metadata",),
                 "classes": ("collapse",),
+            },
+        ),
+        (
+            "完成状态",
+            {
+                "fields": ("is_completed", "completed_at", "completed_by"),
             },
         ),
         (
@@ -784,6 +793,7 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):  # pragma: no cover
                     "members": item.members,
                     "url": reverse(change_url_name, args=[item.id]),
                     "is_overdue": item.is_overdue,
+                    "is_completed": item.is_completed,
                 }
             )
         return events_by_day

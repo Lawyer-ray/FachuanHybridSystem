@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from django.db import transaction
 from django.db.models import QuerySet
+from django.utils import timezone
 
 from apps.core.exceptions import NotFoundError, ValidationException
 
@@ -88,6 +89,39 @@ class ReminderService:
             return qs.get(id=reminder_id)
         except Reminder.DoesNotExist:
             raise NotFoundError("提醒记录 %(id)s 不存在" % {"id": reminder_id}) from None
+
+    def list_reminders_by_ids(self, reminder_ids: list[int]) -> list[Reminder]:
+        """按 id 批量取提醒（批量完成前的权限校验用）。不存在的 id 静默跳过。"""
+        ids = sorted({rid for rid in reminder_ids if rid > 0})
+        if not ids:
+            return []
+        return list(
+            Reminder.objects.select_related("contract", "case", "case_log", "case_log__case").filter(id__in=ids)
+        )
+
+    @transaction.atomic
+    def set_completed(self, reminder_ids: list[int], *, completed: bool, user: Any | None = None) -> int:
+        """批量标记完成 / 取消完成，返回实际更新的条数。
+
+        日历上一条事件可能由同一庭审的多条同步记录合并而成，前端勾一次
+        会带全部 member ids 过来，这里逐条 save 而非 QuerySet.update()：
+        simple_history 只在 save() 时记历史，bulk update 会丢审计记录。
+        is_completed / completed_at / completed_by 三个字段是一组不变量，
+        只能经由此方法维护（不走通用 update_reminder）。
+        """
+        ids = sorted({rid for rid in reminder_ids if rid > 0})
+        if not ids:
+            raise ValidationException("reminder_ids 不能为空")
+        now = timezone.now()
+        updated = 0
+        for reminder in Reminder.objects.filter(id__in=ids):
+            reminder.is_completed = completed
+            reminder.completed_at = now if completed else None
+            reminder.completed_by = user if completed else None
+            reminder.save(update_fields=["is_completed", "completed_at", "completed_by", "updated_at"])
+            updated += 1
+        logger.info("Reminders %s set completed=%s by user %s", ids, completed, getattr(user, "pk", None))
+        return updated
 
     @transaction.atomic
     def create_reminder(

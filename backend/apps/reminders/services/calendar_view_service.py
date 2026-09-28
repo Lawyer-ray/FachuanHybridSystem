@@ -84,8 +84,10 @@ class CalendarEventItem:
     case_id: int | None
     #: 是否今天
     is_today: bool
-    #: 是否已逾期
+    #: 是否已逾期（已完成的不再标逾期——勾掉即视为已处理）
     is_overdue: bool
+    #: 是否已完成；合并事件 = 全部成员 reminder 都已完成
+    is_completed: bool = False
     #: 合并了几条原始 reminder（同一庭审被多次同步时 >1）
     members: int = 1
     #: 合并前各 reminder 的 id（点详情时用）
@@ -99,9 +101,14 @@ class CalendarEventItem:
 
 @dataclass
 class CalendarStats:
-    """工作台头部统计。全部按「合并后」的口径算。"""
+    """工作台头部统计。全部按「合并后」的口径算。
+
+    today / deadline_in_7days 是紧急度指标，只数**未完成**；
+    month_court 是工作量口径，庭开完了也算数，保持全量。
+    """
 
     today: int = 0
+    today_done: int = 0
     deadline_in_7days: int = 0
     month_court: int = 0
 
@@ -193,6 +200,8 @@ def to_event_item(
     day = due_local.strftime("%Y-%m-%d")
     time_of_day = due_local.strftime("%H:%M")
     time_range = _text(metadata.get("time_range"))
+    # getattr 兜底：单测里的 SimpleNamespace 替身可以不带完成态字段
+    is_completed = bool(getattr(reminder, "is_completed", False))
 
     item = CalendarEventItem(
         id=reminder.id,
@@ -215,7 +224,9 @@ def to_event_item(
         target_name=target_name,
         case_id=reminder.case_id,
         is_today=due_local.date() == today,
-        is_overdue=reminder.due_at < now,
+        # 已完成的不再标逾期红——勾掉即视为已处理
+        is_overdue=reminder.due_at < now and not is_completed,
+        is_completed=is_completed,
         member_ids=[reminder.id],
     )
 
@@ -253,6 +264,10 @@ def merge_events(raws: Iterable[_Raw]) -> list[CalendarEventItem]:
         # 已存在同一庭审 → 合并
         hit.members += 1
         hit.member_ids.append(item.id)
+        # 完成态取「全部成员都完成」：前端勾选时批量写全部成员，
+        # 正常流程下成员状态一致；若有成员被单独勾过，这里按未完成显示，
+        # 用户再勾一次即自愈
+        hit.is_completed = hit.is_completed and item.is_completed
         if item.person:
             names = persons.setdefault(raw.merge_key, [])
             if item.person not in names:
@@ -276,30 +291,31 @@ def merge_events(raws: Iterable[_Raw]) -> list[CalendarEventItem]:
 
 
 def sort_events(events: Iterable[CalendarEventItem]) -> list[CalendarEventItem]:
-    """同日按时间升序，紧要事项排在前。"""
+    """同日按时间升序，未完成在前，紧要事项排在前。"""
 
-    def key(e: CalendarEventItem) -> tuple[int, str, int]:
-        return (0 if is_key_kind(e.kind) else 1, e.time, e.id)
+    def key(e: CalendarEventItem) -> tuple[int, int, str, int]:
+        return (0 if not e.is_completed else 1, 0 if is_key_kind(e.kind) else 1, e.time, e.id)
 
     return sorted(events, key=key)
 
 
 def group_by_day(events: Iterable[CalendarEventItem]) -> dict[str, list[CalendarEventItem]]:
-    """按 YYYY-MM-DD 归集；同一天内按时间升序、紧要排前。"""
+    """按 YYYY-MM-DD 归集；同一天内未完成在前、按时间升序、紧要排前。"""
     grouped: dict[str, list[CalendarEventItem]] = {}
     for e in events:
         grouped.setdefault(e.day, []).append(e)
     for day_events in grouped.values():
-        day_events.sort(key=lambda e: (0 if is_key_kind(e.kind) else 1, e.time, e.id))
+        day_events.sort(key=lambda e: (0 if not e.is_completed else 1, 0 if is_key_kind(e.kind) else 1, e.time, e.id))
     return grouped
 
 
 def compute_stats(events: Iterable[CalendarEventItem], *, today: date) -> CalendarStats:
     """工作台统计。全部基于合并后的事件。
 
-    - today：当天的全部事件条数
-    - deadline_in_7days：[today, today+6] 内到期的紧要事项（庭期/期限）
-    - month_court：与 today 同月的庭期数
+    - today：当天**未完成**的事件条数；today_done 为当天已完成条数
+      （紧急度指标只看未完成，前端显示「已完成 n/m」时用 today + today_done 当分母）
+    - deadline_in_7days：[today, today+6] 内到期的紧要事项（庭期/期限），只数未完成
+    - month_court：与 today 同月的庭期数（工作量口径，已完成的也计入）
     """
     limit = today.toordinal() + 6
     month_prefix = today.strftime("%Y-%m")
@@ -308,8 +324,11 @@ def compute_stats(events: Iterable[CalendarEventItem], *, today: date) -> Calend
     stats = CalendarStats()
     for e in events:
         if e.day == today_key:
-            stats.today += 1
-        if is_key_kind(e.kind):
+            if e.is_completed:
+                stats.today_done += 1
+            else:
+                stats.today += 1
+        if not e.is_completed and is_key_kind(e.kind):
             try:
                 ordinal = datetime.strptime(e.day, "%Y-%m-%d").date().toordinal()
             except ValueError:  # pragma: no cover - day 由内部生成，不会失败

@@ -1,9 +1,10 @@
-import { X } from 'lucide-react'
+import { Check, X } from 'lucide-react'
 
 import { KIND_BADGE, KIND_LABEL } from '../constants'
 import type { CalendarEvent } from '../api'
 import { formatCN, parseKey } from '../domain'
 import { rangeLabel } from '../api-meta'
+import { cn } from '@/lib/utils'
 
 interface Props {
   /** dateKey；null 表示关闭 */
@@ -12,11 +13,13 @@ interface Props {
   events: CalendarEvent[]
   onClose: () => void
   onOpenEvent: (e: CalendarEvent) => void
+  /** 勾选完成 / 取消完成（合并事件的全部成员由调用方统一处理） */
+  onToggleComplete: (e: CalendarEvent) => void
   onAdd: () => void
 }
 
 /** 手机端底部抽屉：展示某一天的全部安排（原型 .sheet） */
-export function DaySheet({ day, today, events, onClose, onOpenEvent, onAdd }: Props) {
+export function DaySheet({ day, today, events, onClose, onOpenEvent, onToggleComplete, onAdd }: Props) {
   const open = day != null
 
   return (
@@ -57,17 +60,45 @@ export function DaySheet({ day, today, events, onClose, onOpenEvent, onAdd }: Pr
           {events.map((e) => {
             const range = rangeLabel(e)
             return (
-              <button
+              // 外层不能是 button：勾选框是嵌套的交互元素，button 套 button 非法
+              <div
                 key={e.id}
-                type="button"
-                className="flex w-full cursor-pointer items-start gap-3 border-b border-border py-[13px] text-left last:border-b-0"
+                role="button"
+                tabIndex={0}
+                className={cn(
+                  'flex w-full cursor-pointer items-start gap-3 border-b border-border py-[13px] text-left outline-none transition-colors last:border-b-0 hover:bg-secondary/50 focus-visible:ring-2 focus-visible:ring-ring',
+                  e.is_completed && 'opacity-60',
+                )}
                 onClick={() => onOpenEvent(e)}
+                onKeyDown={(ev) => {
+                  if (ev.key === 'Enter' || ev.key === ' ') {
+                    ev.preventDefault()
+                    onOpenEvent(e)
+                  }
+                }}
               >
+                <button
+                  type="button"
+                  aria-label={e.is_completed ? '标记为未完成' : '标记为完成'}
+                  title={e.is_completed ? '标记为未完成' : '标记为完成'}
+                  onClick={(ev) => {
+                    ev.stopPropagation()
+                    onToggleComplete(e)
+                  }}
+                  className={cn(
+                    'mt-[3px] flex h-[17px] w-[17px] flex-none items-center justify-center rounded-full border-[1.5px] transition-colors',
+                    e.is_completed
+                      ? 'border-foreground bg-foreground text-background'
+                      : 'border-input text-transparent hover:border-ring/50',
+                  )}
+                >
+                  <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                </button>
                 <span className="w-[42px] flex-none pt-[2px] text-right text-[12px] font-semibold tabular-nums text-secondary-foreground">
                   {e.time}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[13.5px] font-medium">{e.title}</span>
+                  <span className={cn('block text-[13.5px] font-medium', e.is_completed && 'line-through')}>{e.title}</span>
                   {/* 时段：与开始时刻不同才显示，避免「10:00 · 10:00-12:00」 */}
                   {range && range !== e.time && (
                     <span className="mt-[2px] block text-[11.5px] tabular-nums text-secondary-foreground">{range}</span>
@@ -87,7 +118,7 @@ export function DaySheet({ day, today, events, onClose, onOpenEvent, onAdd }: Pr
                     <span className="text-[11px] text-muted-foreground">→ 打开案件 / 材料</span>
                   </span>
                 </span>
-              </button>
+              </div>
             )
           })}
         </div>

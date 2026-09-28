@@ -1,4 +1,4 @@
-import { ExternalLink, X } from 'lucide-react'
+import { Check, ExternalLink, X } from 'lucide-react'
 
 import {
   Dialog,
@@ -16,6 +16,8 @@ interface Props {
   onClose: () => void
   /** 跳案件详情；没实现时给提示 */
   onOpenCase: (e: CalendarEvent) => void
+  /** 勾选完成 / 取消完成（合并事件的全部成员由调用方统一处理） */
+  onToggleComplete: (e: CalendarEvent) => void
 }
 
 /**
@@ -24,7 +26,7 @@ interface Props {
  * 日历格子高度有限，律师 / 案号 / 庭审方式这些次要信息放不下，
  * 点一下用弹窗完整展示。
  */
-export function EventDetailDialog({ event, onClose, onOpenCase }: Props) {
+export function EventDetailDialog({ event, onClose, onOpenCase, onToggleComplete }: Props) {
   if (!event) return null
 
   const rows: { label: string; value: string; mono?: boolean }[] = []
@@ -50,7 +52,9 @@ export function EventDetailDialog({ event, onClose, onOpenCase }: Props) {
               {formatCN(parseKey(event.day))} {event.time}
               {event.is_today ? ' · 今天' : ''}
             </DialogDescription>
-            <DialogTitle className="mt-1 text-[15px] leading-snug font-semibold">{event.title}</DialogTitle>
+            <DialogTitle className={cn('mt-1 text-[15px] leading-snug font-semibold', event.is_completed && 'text-muted-foreground line-through')}>
+              {event.title}
+            </DialogTitle>
           </div>
           <button
             type="button"
@@ -85,6 +89,28 @@ export function EventDetailDialog({ event, onClose, onOpenCase }: Props) {
               同一庭审在系统里有 {event.members} 条同步记录，已合并展示（关联 reminder #{event.member_ids.join('、#')}）
             </div>
           )}
+
+          {/* 勾选完成（合并事件的全部成员一起标记，见 eventReminderIds） */}
+          <button
+            type="button"
+            onClick={() => onToggleComplete(event)}
+            className={cn(
+              'mt-4 flex h-9 w-full items-center justify-center gap-1.5 rounded-[9px] border text-[12.5px] font-semibold transition-colors',
+              event.is_completed
+                ? 'border-border bg-secondary text-secondary-foreground hover:bg-secondary/70'
+                : 'border-foreground/20 bg-card text-foreground hover:border-foreground/40',
+            )}
+          >
+            <span
+              className={cn(
+                'flex h-[15px] w-[15px] items-center justify-center rounded-full border-[1.5px]',
+                event.is_completed ? 'border-foreground bg-foreground text-background' : 'border-current text-transparent',
+              )}
+            >
+              <Check className="h-[9px] w-[9px]" strokeWidth={3} />
+            </span>
+            {event.is_completed ? '恢复为未完成' : '标记完成'}
+          </button>
 
           {/* 跳案件 */}
           <button

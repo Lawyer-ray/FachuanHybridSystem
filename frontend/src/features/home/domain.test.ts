@@ -1,6 +1,7 @@
 import {
   buildMonthGrid,
   dateKey,
+  eventReminderIds,
   formatCN,
   formatWeekdayCN,
   parseKey,
@@ -32,6 +33,17 @@ describe('日期工具', () => {
 
   it('parseKey 与 dateKey 互逆', () => {
     expect(dateKey(parseKey('2026-09-17'))).toBe('2026-09-17')
+  })
+})
+
+describe('勾选完成的 id 口径', () => {
+  it('合并事件必须带全部 member_ids——只发首条 id 会被合并口径打回未完成', () => {
+    expect(eventReminderIds({ id: 1, member_ids: [1, 5, 9] })).toEqual([1, 5, 9])
+  })
+
+  it('未合并的事件退回自身 id', () => {
+    expect(eventReminderIds({ id: 7, member_ids: [7] })).toEqual([7])
+    expect(eventReminderIds({ id: 8 })).toEqual([8])
   })
 })
 

@@ -25,31 +25,25 @@ interface TodayProps {
   events: CalendarEvent[]
   loading: boolean
   onOpenEvent: (e: CalendarEvent) => void
+  /** 勾选完成 / 取消完成（合并事件的全部成员由调用方统一处理） */
+  onToggleComplete: (e: CalendarEvent) => void
 }
 
-/** 右栏「今日」：可勾选完成，显示完成计数 */
-export function TodayCard({ events, loading, onOpenEvent }: TodayProps) {
-  const [done, setDone] = useState<Set<number>>(new Set())
+/** 右栏「今日」：可勾选完成（落库，跨端同步），显示完成计数 */
+export function TodayCard({ events, loading, onOpenEvent, onToggleComplete }: TodayProps) {
   const total = events.length
-
-  const toggle = (id: number) =>
-    setDone((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+  const doneCount = events.filter((e) => e.is_completed).length
 
   return (
     <section className={`${PANEL} overflow-hidden`}>
-      <CardHead title="今日" count={`${total} 件`} />
+      <CardHead title="今日" count={total ? `${total - doneCount} 件待办` : `${total} 件`} />
       <div className="px-2.5 pt-2 pb-3">
         {loading && <div className="px-2 py-6 text-center text-[12.5px] text-muted-foreground">正在载入…</div>}
         {!loading && total === 0 && (
           <div className="px-2 py-6 text-center text-[12.5px] text-muted-foreground">今天没有安排，记一笔吧</div>
         )}
         {events.map((e) => {
-          const isDone = done.has(e.id)
+          const isDone = e.is_completed
           // 今日卡的副标题：时段（若与开始时刻不同）+ 地点/律师 摘要
           const range = rangeLabel(e)
           const meta = summaryLine(e)
@@ -61,7 +55,7 @@ export function TodayCard({ events, loading, onOpenEvent }: TodayProps) {
             >
               <button
                 type="button"
-                onClick={() => toggle(e.id)}
+                onClick={() => onToggleComplete(e)}
                 title={isDone ? '标记为未完成' : '标记为完成'}
                 className={cn(
                   'mt-[2px] flex h-[17px] w-[17px] flex-none items-center justify-center rounded-full border-[1.5px] transition-colors',
@@ -78,7 +72,7 @@ export function TodayCard({ events, loading, onOpenEvent }: TodayProps) {
                   <span className={cn('rounded-[5px] border px-[7px] py-[2px] text-[9.5px] font-semibold', KIND_BADGE[e.kind])}>
                     {KIND_LABEL[e.kind]}
                   </span>
-                  {isKeyKind(e.kind) && <span className="text-[9.5px] font-semibold text-status-red">今日到期</span>}
+                  {isKeyKind(e.kind) && !isDone && <span className="text-[9.5px] font-semibold text-status-red">今日到期</span>}
                 </div>
               </button>
             </div>
@@ -87,7 +81,7 @@ export function TodayCard({ events, loading, onOpenEvent }: TodayProps) {
       </div>
       <div className="flex justify-between border-t border-border px-3.5 py-[10px] text-[11px] text-muted-foreground">
         <span>
-          已完成 <b className="font-semibold text-foreground tabular-nums">{done.size}</b> / <b className="tabular-nums">{total}</b>
+          已完成 <b className="font-semibold text-foreground tabular-nums">{doneCount}</b> / <b className="tabular-nums">{total}</b>
         </span>
         <span>点圆圈标记完成</span>
       </div>

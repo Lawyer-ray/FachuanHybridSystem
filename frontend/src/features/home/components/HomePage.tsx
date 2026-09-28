@@ -4,7 +4,9 @@ import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 
 import { calendarKeys, fetchCalendarMonth } from '../api'
-import { formatCN, formatWeekdayCN, parseKey, todayKey } from '../domain'
+import type { CalendarEvent } from '../api'
+import { eventReminderIds, formatCN, formatWeekdayCN, parseKey, todayKey } from '../domain'
+import { useCompleteReminder } from '../hooks/use-complete-reminder'
 import { CalendarPanel, type CalendarView } from './CalendarPanel'
 import { ToolDock } from './ToolDock'
 import { AppNavbar } from '@/components/shared/AppNavbar'
@@ -73,7 +75,7 @@ export function HomePage() {
   const viewEventsByDay = useMemo(() => viewQuery.data?.days ?? {}, [viewQuery.data])
   const todayEventsByDay = useMemo(() => todayQuery.data?.days ?? {}, [todayQuery.data])
   const stats = useMemo(
-    () => todayQuery.data?.stats ?? { today: 0, deadline_in_7days: 0, month_court: 0 },
+    () => todayQuery.data?.stats ?? { today: 0, today_done: 0, deadline_in_7days: 0, month_court: 0 },
     [todayQuery.data],
   )
   // 后端已按「时间升序 + 紧要排前」排好，直接取
@@ -82,6 +84,15 @@ export function HomePage() {
   const invalidateCalendar = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: calendarKeys.all })
   }, [queryClient])
+
+  /* 勾选完成：合并事件要带全部 member_ids 下发（eventReminderIds 保证口径） */
+  const completeMutation = useCompleteReminder()
+  const handleToggleComplete = useCallback(
+    (e: CalendarEvent) => {
+      completeMutation.mutate({ ids: eventReminderIds(e), completed: !e.is_completed })
+    },
+    [completeMutation],
+  )
 
   const openAddDialog = useCallback(
     (day: string) => {
@@ -180,13 +191,19 @@ export function HomePage() {
                 onSelectDay={handleSelectDay}
                 onOpenEvent={handleOpenEvent}
                 onOpenAdd={openAddDialog}
+                onToggleComplete={handleToggleComplete}
               />
               <ToolDock />
             </div>
 
             {/* 右：今日 + 待处理 */}
             <div className="flex min-w-0 flex-col gap-5">
-              <TodayCard events={todayEvents} loading={todayQuery.isLoading} onOpenEvent={handleOpenEvent} />
+              <TodayCard
+                events={todayEvents}
+                loading={todayQuery.isLoading}
+                onOpenEvent={handleOpenEvent}
+                onToggleComplete={handleToggleComplete}
+              />
               <InboxCard onOpen={handleInboxOpen} />
             </div>
           </div>
@@ -200,6 +217,7 @@ export function HomePage() {
         events={sheetDay ? (viewEventsByDay[sheetDay] ?? []) : []}
         onClose={() => setSheetDay(null)}
         onOpenEvent={handleOpenEvent}
+        onToggleComplete={handleToggleComplete}
         onAdd={() => sheetDay && openAddDialog(sheetDay)}
       />
 
