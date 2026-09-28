@@ -371,7 +371,7 @@
 </div>
 
 <script>
-var state = 'idle', result = null, taskId = null, selectedCaseData = null, allCasesLoaded = false;
+var state = 'idle', result = null, taskId = null, selectedCaseData = null, allCasesLoaded = false, allCasesData = null;
 var uploadZone = document.getElementById('uploadZone');
 var loadingState = document.getElementById('loadingState');
 var resultCard = document.getElementById('resultCard');
@@ -454,6 +454,7 @@ function showResult() {
     if (!bound && !pipeline) {
         document.getElementById('caseSelector').classList.remove('hidden');
         renderRecommendations(result.recommendations || []);
+        loadAllCases(false);  // 预加载在办案件，清空搜索框即可直接看全部
         if (rec.case_number) { document.getElementById('caseSearchInput').value = rec.case_number; searchCases(); }
     } else {
         document.getElementById('caseSelector').classList.add('hidden');
@@ -676,10 +677,10 @@ function saveEdit(f) {
 var searchTimeout = null;
 document.getElementById('caseSearchInput').addEventListener('input', function() {
     clearTimeout(searchTimeout);
-    allCasesLoaded = false;
     searchTimeout = setTimeout(searchCases, 300);
 });
 document.getElementById('caseSearchInput').addEventListener('focus', function() {
+    if (!document.getElementById('caseSearchInput').value) { showDefaultCases(); return; }
     var dropdown = document.getElementById('caseDropdown');
     if (dropdown.innerHTML) dropdown.classList.add('show');
 });
@@ -692,27 +693,35 @@ function toggleDropdown() {
         btn.classList.remove('active');
     } else {
         btn.classList.add('active');
-        loadAllCases();
+        showDefaultCases();
     }
 }
 
-function loadAllCases() {
+// 默认列表：全部在办案件（已预加载则直接渲染，否则现拉）
+function showDefaultCases() {
     var dropdown = document.getElementById('caseDropdown');
-    dropdown.innerHTML = '<div class="dropdown-loading">加载中...</div>';
     dropdown.classList.add('show');
+    if (allCasesData) { renderCaseList(allCasesData); return; }
+    loadAllCases(true);
+}
+
+function loadAllCases(show) {
+    var dropdown = document.getElementById('caseDropdown');
+    if (show) { dropdown.innerHTML = '<div class="dropdown-loading">加载中...</div>'; dropdown.classList.add('show'); }
     fetch('/api/v1/document-recognition/court-document/search-cases?limit=200')
     .then(function(r) { if (!r.ok) throw new Error('加载失败'); return r.json(); })
     .then(function(cases) {
+        allCasesData = cases || [];
         allCasesLoaded = true;
-        if (!cases || cases.length === 0) { dropdown.innerHTML = '<div class="dropdown-empty">暂无在办案件</div>'; return; }
-        renderCaseList(cases);
-    }).catch(function(e) { dropdown.innerHTML = '<div class="dropdown-empty">加载失败: ' + e.message + '</div>'; });
+        if (allCasesData.length === 0 && show) { dropdown.innerHTML = '<div class="dropdown-empty">暂无在办案件</div>'; return; }
+        if (show) renderCaseList(allCasesData);
+    }).catch(function(e) { if (show) dropdown.innerHTML = '<div class="dropdown-empty">加载失败: ' + e.message + '</div>'; });
 }
 
 function searchCases() {
     var q = document.getElementById('caseSearchInput').value;
     var dropdown = document.getElementById('caseDropdown');
-    if (!q || q.length < 2) { dropdown.innerHTML = '<div class="dropdown-empty">请输入至少2个字符搜索</div>'; dropdown.classList.add('show'); return; }
+    if (!q || q.length < 2) { showDefaultCases(); return; }
     dropdown.innerHTML = '<div class="dropdown-loading">搜索中...</div>';
     dropdown.classList.add('show');
     fetch('/api/v1/document-recognition/court-document/search-cases?q=' + encodeURIComponent(q) + '&limit=20')
@@ -788,7 +797,7 @@ function showState(s) {
 }
 function showError(m) { document.getElementById('errorMessage').textContent = m; showState('error'); }
 function resetPage() {
-    result = null; taskId = null; selectedCaseData = null; allCasesLoaded = false;
+    result = null; taskId = null; selectedCaseData = null; allCasesLoaded = false; allCasesData = null;
     document.getElementById('caseSearchInput').value = '';
     document.getElementById('selectedCase').classList.add('hidden');
     document.getElementById('caseDropdown').innerHTML = '';
