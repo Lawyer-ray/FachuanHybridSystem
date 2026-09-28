@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -56,6 +57,111 @@ MAX_CANDIDATES = 8
 STALE_DAYS = 180
 
 _DATETIME_FORMATS = ("%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M", "%Y-%m-%d")
+
+# 期间表达式：从/自 X 起 至/到 Y（Y 年份允许 5 位——OCR 把 2025 识别成 20254 的高频错）
+_PERIOD_RANGE_RE = re.compile(
+    r"(?:从|自)(\d{4})年(\d{1,2})月(\d{1,2})日(?:起)?(?:至|到)(\d{4,5})年(\d{1,2})月(\d{1,2})日"
+)
+# 期间长度（中文大写数字）：如「冻结期间为壹年」
+_PERIOD_YEARS_RE = re.compile(r"期间(?:为|是|共)?(壹|一|贰|两|二|三|叁|四|肆|五|伍)年")
+_CN_YEAR_NUM: dict[str, int] = {
+    "壹": 1,
+    "一": 1,
+    "贰": 2,
+    "两": 2,
+    "二": 2,
+    "三": 3,
+    "叁": 3,
+    "四": 4,
+    "肆": 4,
+    "五": 5,
+    "伍": 5,
+}
+
+
+def _add_years(start: datetime, years: int) -> datetime:
+    """start + N 年（2/29 闰年回退到 2/28）。"""
+    try:
+        return start.replace(year=start.year + years)
+    except ValueError:
+        return start.replace(year=start.year + years, day=28)
+
+
+def _apply_period_rules(text: str, drafts: list[DateCandidateDraft]) -> list[DateCandidateDraft]:
+    """期间结构后处理（确定性规则，不依赖 LLM）：
+
+    1. 「从X起至Y止」的**起始日 X 不是提醒事件**，从候选中剔除；
+    2. 期间长度（中文数字）+ 起始日可算出到期日，用于校正被 OCR 乱码
+       （如 20254 年）或 LLM 误读的止点 Y。
+    """
+    if not text or not drafts:
+        return drafts
+
+    periods: list[tuple[str, datetime, datetime | None, datetime | None]] = []
+    for m in _PERIOD_RANGE_RE.finditer(text):
+        try:
+            start = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        except ValueError:
+            continue
+        end: datetime | None = None
+        try:
+            end = datetime(int(m.group(4)), int(m.group(5)), int(m.group(6)))
+        except ValueError:
+            pass
+        # 期间句前 30 字内找「…期间为N年」
+        years_match = _PERIOD_YEARS_RE.search(text[max(0, m.start() - 30) : m.start() + 5])
+        years = _CN_YEAR_NUM.get(years_match.group(1)) if years_match else None
+        computed_end = _add_years(start, years) if years else None
+        periods.append((m.group(0), start, end, computed_end))
+        logger.info(
+            "识别到期间表达式: %s (start=%s, end=%s, 按%s年推算=%s)",
+            m.group(0),
+            start.date(),
+            end.date() if end else None,
+            years,
+            computed_end.date() if computed_end else None,
+        )
+    if not periods:
+        return drafts
+
+    kept: list[DateCandidateDraft] = []
+    for draft in drafts:
+        drop = False
+        fix_to: datetime | None = None
+        for expr, start, _end, computed_end in periods:
+            anchor = expr[:12]
+            if anchor not in (draft.context_text or ""):
+                continue
+            if draft.due_at.date() == start.date():
+                drop = True  # 期间起始日：非提醒事件
+            elif computed_end is not None and draft.due_at.date() != computed_end.date():
+                fix_to = computed_end  # 止点被 OCR/LLM 读错 → 算术校正
+        if drop:
+            logger.info("剔除期间起始日候选: %s (%s)", draft.due_at.date(), draft.context_text[:40])
+            continue
+        if fix_to is not None:
+            logger.warning(
+                "期间到期日算术校正: %s -> %s (%s)",
+                draft.due_at.date(),
+                fix_to.date(),
+                draft.context_text[:40],
+            )
+            draft.due_at = datetime.combine(fix_to.date(), draft.due_at.time())
+        kept.append(draft)
+    return kept
+
+
+def _dedupe_same_context(drafts: list[DateCandidateDraft]) -> list[DateCandidateDraft]:
+    """同一原文上下文只保留一个候选（按既定排序取首个；空上下文不参与）。"""
+    seen: set[str] = set()
+    unique: list[DateCandidateDraft] = []
+    for draft in drafts:
+        key = draft.context_text
+        if not key or key not in seen:
+            if key:
+                seen.add(key)
+            unique.append(draft)
+    return unique
 
 
 @dataclass
@@ -167,17 +273,20 @@ def build_date_candidates(
             if not existing.context_text:
                 existing.context_text = str(candidate.get("context_text", ""))[:255]
 
-    # 3. 陈旧候选降置信（改判文书可能含历史日期，折叠而非丢弃）
+    # 3. 期间结构后处理：起始日剔除、到期日算术校正、同上下文去重
+    drafts_list = _apply_period_rules(text, list(drafts.values()))
+
+    # 4. 陈旧候选降置信（改判文书可能含历史日期，折叠而非丢弃）
     today = timezone.localdate()
-    for draft in drafts.values():
+    for draft in drafts_list:
         if (today - draft.due_at.date()).days > STALE_DAYS:
             draft.confidence = min(draft.confidence, 0.3)
 
     ordered = sorted(
-        drafts.values(),
+        drafts_list,
         key=lambda d: (REMINDER_TYPE_PRIORITY.get(d.reminder_type, 99), -d.confidence, d.due_at),
     )
-    return ordered[:MAX_CANDIDATES]
+    return _dedupe_same_context(ordered)[:MAX_CANDIDATES]
 
 
 def persist_candidates(task: Any, drafts: list[DateCandidateDraft]) -> int:
