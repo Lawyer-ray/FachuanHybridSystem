@@ -401,7 +401,9 @@ class TestRunBatchAsync:
 
                 with patch(f"{_MOD}.task_registry") as mock_registry:
                     with patch(f"{_MOD}.DocTextExtractor") as MockExtractor:
-                        with patch(f"{_MOD}.timezone"):
+                        # get_llm_service 不 mock 会在裸线程里真实初始化（读 SystemConfig），
+                        # 无 django_db 标记的用例被 pytest-django 拦 DB，往共享 error.log 写噪音
+                        with patch(f"{_MOD}.timezone"), patch("apps.core.llm.service.get_llm_service"):
                             with patch(f"{_MOD}.generate_summary", new_callable=AsyncMock) as mock_summary:
                                 with patch(f"{_MOD}.generate_detail_zip", new_callable=AsyncMock):
                                     mock_summary.return_value = "summary"
@@ -465,6 +467,8 @@ class TestRunBatchRetryAsync:
 
                 with patch(f"{_MOD}.DocTextExtractor") as MockExtractor:
                     MockExtractor.return_value.cleanup = MagicMock()
-                    with patch(f"{_MOD}.timezone"):
+                    # get_llm_service 不 mock 会真实初始化（读 SystemConfig），被
+                    # pytest-django 拦 DB 后写「重试任务异常」进共享 error.log
+                    with patch(f"{_MOD}.timezone"), patch("apps.core.llm.service.get_llm_service"):
                         await _run_batch_retry_async(job_id, [])
                         # No items to process
