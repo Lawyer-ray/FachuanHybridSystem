@@ -39,6 +39,7 @@ class CourtDocumentRecognitionServiceAdapter:
         *,
         prebound_case_id: int | None = None,
         prebound_case_log_id: int | None = None,
+        llm_model: str | None = None,
     ) -> RecognitionResponse:
         """
         识别文书并绑定案件
@@ -48,6 +49,7 @@ class CourtDocumentRecognitionServiceAdapter:
             user: 当前用户
             prebound_case_id: 管线预绑定的案件 ID（法院短信入口，可选）
             prebound_case_log_id: 管线预绑定的案件日志 ID（提醒锚点，可选）
+            llm_model: 指定识别模型（可选，None 走统一 LLM 层默认）
 
         Returns:
             RecognitionResponse 对象
@@ -59,17 +61,19 @@ class CourtDocumentRecognitionServiceAdapter:
                 user,
                 prebound_case_id=prebound_case_id,
                 prebound_case_log_id=prebound_case_log_id,
+                llm_model=llm_model,
             ),
         )
 
-    def recognize_document_from_text(self, text: str) -> RecognitionResult:
+    def recognize_document_from_text(self, text: str, *, llm_model: str | None = None) -> RecognitionResult:
         """
         从已提取的文本识别文书
 
         Args:
             text: 文书文本内容
+            llm_model: 指定识别模型（可选，None 走统一 LLM 层默认）
 
         Returns:
             RecognitionResult 对象
         """
-        return cast(RecognitionResult, self._build_service().recognize_document_from_text(text))
+        return cast(RecognitionResult, self._build_service().recognize_document_from_text(text, llm_model=llm_model))
