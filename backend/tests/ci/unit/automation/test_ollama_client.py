@@ -35,7 +35,7 @@ class TestOllamaClientChat:
 
     @patch("apps.automation.services.ai.ollama_client.ServiceLocator")
     def test_chat_passes_correct_params(self, mock_locator: MagicMock) -> None:
-        """chat() 正确传递 model、messages、backend=ollama、fallback=False。"""
+        """chat() 正确传递 model、messages；不再硬编码 backend/fallback。"""
         mock_llm = MagicMock()
         mock_resp = MagicMock()
         mock_resp.model = "m"
@@ -51,9 +51,7 @@ class TestOllamaClientChat:
         messages = [{"role": "system", "content": "sys"}, {"role": "user", "content": "usr"}]
         chat(model="llama3", messages=messages, base_url="http://ignored")
 
-        mock_llm.chat.assert_called_once_with(
-            messages=messages, backend="ollama", model="llama3", fallback=False
-        )
+        mock_llm.chat.assert_called_once_with(messages=messages, model="llama3")
 
     @patch("apps.automation.services.ai.ollama_client.ServiceLocator")
     def test_chat_ignores_base_url(self, mock_locator: MagicMock) -> None:

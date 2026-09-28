@@ -555,8 +555,6 @@ class MaterialClassificationService:
             response = get_llm_service().complete(
                 prompt=user_prompt,
                 system_prompt=system_prompt,
-                backend="ollama",
-                fallback=True,
                 temperature=0.1,
                 max_tokens=300,
             )
@@ -573,8 +571,6 @@ class MaterialClassificationService:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                backend="ollama",
-                fallback=True,
                 temperature=0.1,
                 max_tokens=300,
             )

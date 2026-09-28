@@ -227,6 +227,11 @@
             </div>
 
             <div class="result-row">
+                <span class="result-label">{% trans "识别引擎" %}</span>
+                <span class="result-value" id="llmEngine">—</span>
+            </div>
+
+            <div class="result-row">
                 <span class="result-label">{% trans "绑定状态" %}</span>
                 <span class="result-value" id="bindingStatus"><span class="tag tag-yellow">{% trans "待绑定" %}</span></span>
             </div>
@@ -338,6 +343,10 @@ function showResult() {
     // 提取方式
     var methods = { 'regex': '正则表达式', 'ollama': 'AI模型', 'ocr': 'OCR识别', 'pdf_direct': 'PDF直接提取', 'text_extraction': '文本提取' };
     document.getElementById('extractionMethod').textContent = methods[rec.extraction_method] || '未知';
+    // 识别引擎（LLM 模型 + 降级标记）
+    var engine = rec.llm_model ? rec.llm_model + '（' + (rec.llm_backend || 'llm') + '）' : '关键词+正则（未用 LLM）';
+    if (rec.degraded) engine += ' ⚠ 降级';
+    document.getElementById('llmEngine').textContent = engine;
     // 绑定状态
     updateBindingStatus();
     // 案件选择器

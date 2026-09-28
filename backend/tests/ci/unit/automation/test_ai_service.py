@@ -16,22 +16,24 @@ class TestAIService:
         return AIService(llm_service=llm_service or MagicMock())
 
     def test_chat_with_ollama_returns_dict(self) -> None:
-        """返回字典包含 backend/model/content/raw 键。"""
+        """返回字典包含 backend/model/content/raw 键（backend/model 来自 LLM 响应）。"""
         mock_llm = MagicMock()
         mock_resp = MagicMock()
         mock_resp.content = "AI response"
+        mock_resp.backend = "openai_compatible"
+        mock_resp.model = "kimi-2.6"
         mock_llm.chat.return_value = mock_resp
 
         svc = self._make_service(mock_llm)
-        result = svc.chat_with_ollama(model="qwen2", prompt="你是助手", text="你好")
+        result = svc.chat_with_ollama(model="kimi-2.6", prompt="你是助手", text="你好")
 
-        assert result["backend"] == "ollama"
-        assert result["model"] == "qwen2"
+        assert result["backend"] == "openai_compatible"
+        assert result["model"] == "kimi-2.6"
         assert result["content"] == "AI response"
         assert result["raw"]["message"]["content"] == "AI response"
 
     def test_chat_with_ollama_passes_correct_messages(self) -> None:
-        """传递给 llm_service.chat 的 messages 包含 system + user 两条。"""
+        """传递给 llm_service.chat 的 messages 包含 system + user 两条；不再硬编码后端。"""
         mock_llm = MagicMock()
         mock_resp = MagicMock()
         mock_resp.content = "ok"
@@ -45,9 +47,9 @@ class TestAIService:
         assert len(messages) == 2
         assert messages[0] == {"role": "system", "content": "sys_prompt"}
         assert messages[1] == {"role": "user", "content": "user_text"}
-        assert call_kwargs["backend"] == "ollama"
         assert call_kwargs["model"] == "m"
-        assert call_kwargs["fallback"] is False
+        assert "backend" not in call_kwargs
+        assert "fallback" not in call_kwargs
 
     def test_chat_with_ollama_different_models(self) -> None:
         """不同 model 参数都被正确传递。"""
@@ -58,6 +60,7 @@ class TestAIService:
 
         svc = self._make_service(mock_llm)
         for model_name in ["qwen2:7b", "llama3", "deepseek-v2"]:
+            mock_resp.model = model_name
             result = svc.chat_with_ollama(model=model_name, prompt="p", text="t")
             assert result["model"] == model_name
 

@@ -50,7 +50,6 @@ class ExecutionRequestService(BasePlaceholderService):
 
     DEDUCTION_KEY_TO_COMPONENT: ClassVar[dict[str, str]] = interest_mod.DEDUCTION_KEY_TO_COMPONENT
     DEDUCTION_KEY_TO_LABEL: ClassVar[dict[str, str]] = interest_mod.DEDUCTION_KEY_TO_LABEL
-    OLLAMA_FALLBACK_MODEL: ClassVar[str] = llm_mod.OLLAMA_FALLBACK_MODEL
     OLLAMA_MAX_TEXT_CHARS: ClassVar[int] = llm_mod.OLLAMA_MAX_TEXT_CHARS
 
     def __init__(self) -> None:

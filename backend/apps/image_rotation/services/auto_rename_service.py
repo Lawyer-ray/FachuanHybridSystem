@@ -73,10 +73,10 @@ class AutoRenameService:
         ollama_base_url: str | None = None,
         llm_client: Any | None = None,
     ) -> None:
-        from apps.core.llm.config import LLMConfig
-
-        self._ollama_model = ollama_model or LLMConfig.get_ollama_model()
-        self._ollama_base_url = ollama_base_url or LLMConfig.get_ollama_base_url()
+        # 模型默认不指定：由统一 LLM 层按「默认后端 + AI 平台默认模型」路由；
+        # 显式传入的模型名仍按名字规则路由（含 ":" 走 ollama，其余走平台）。
+        self._ollama_model = (ollama_model or "").strip() or None
+        self._ollama_base_url = ollama_base_url
         self._llm_client = llm_client
         self._ocr_channel: Any | None = None
 
@@ -110,9 +110,7 @@ class AutoRenameService:
                 from apps.core.interfaces import ServiceLocator
 
                 llm_service = ServiceLocator.get_llm_service()
-                llm_resp = llm_service.chat(
-                    messages=messages, backend="ollama", model=self._ollama_model, fallback=False
-                )
+                llm_resp = llm_service.chat(messages=messages, model=self._ollama_model)
                 response_text = (llm_resp.content or "").strip()
             if not response_text:
                 logger.warning("LLM 返回内容为空")

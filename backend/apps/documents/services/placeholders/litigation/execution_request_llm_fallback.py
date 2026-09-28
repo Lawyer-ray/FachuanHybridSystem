@@ -14,8 +14,6 @@ from .execution_request_utils import format_amount, parse_decimal, safe_decimal
 
 logger = logging.getLogger(__name__)
 
-# 默认兜底模型（仅在前端未显式选择模型时使用，实际不推荐依赖此默认值）
-OLLAMA_FALLBACK_MODEL = "qwen3:0.6b"
 OLLAMA_MAX_TEXT_CHARS = 12000
 
 
@@ -156,7 +154,8 @@ def extract_with_ollama_fallback(
     - parsed_data: 解析成功返回 dict，解析失败或未拿到有效 JSON 返回 None
     - error_message: 调用失败时的错误信息（空字符串表示无错误）
     """
-    actual_model = (model or "").strip() or OLLAMA_FALLBACK_MODEL
+    # 模型缺省为空 → 由统一 LLM 层路由到「AI 平台默认模型」；显式传入时按名字路由。
+    actual_model = (model or "").strip()
     prompt = (
         "你是法律文书金额与利率解析助手。仅输出 JSON，不要输出其他文字。\n"
         "要求：所有金额统一换算为“元”（例如“52万元”=520000）；利率倍数用数字表示。\n"
@@ -184,13 +183,9 @@ def extract_with_ollama_fallback(
 
         response = get_llm_service().complete(
             prompt=prompt,
-            backend="ollama",
-            model=actual_model,
+            model=actual_model or None,
             temperature=0.1,
             max_tokens=500,
-            fallback=False,
-            timeout=8.0,
-            num_predict=500,
         )
         content = str(getattr(response, "content", "") or "")
     except Exception as exc:

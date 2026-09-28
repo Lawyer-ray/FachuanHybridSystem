@@ -73,6 +73,10 @@ class RecognitionResultSchema(BaseModel):
     key_time: str | None = Field(None, description="关键时间")
     confidence: float | None = Field(None, description="置信度")
     extraction_method: str | None = Field(None, description="提取方式")
+    llm_model: str | None = Field(None, description="使用的 LLM 模型")
+    llm_backend: str | None = Field(None, description="使用的 LLM 后端")
+    llm_latency_ms: int | None = Field(None, description="LLM 分析耗时（毫秒）")
+    degraded: bool | None = Field(None, description="是否降级识别（LLM 不可用时仅用关键词+正则）")
 
 
 class BindingResultSchema(BaseModel):
@@ -153,7 +157,9 @@ class UpdateInfoResponseSchema(BaseModel):
 
 
 @router.post("/court-document/recognize", response=TaskSubmitResponseSchema)
-async def recognize_document(request: Any, file: UploadedFile = File(...)) -> TaskSubmitResponseSchema:  # pragma: no cover
+async def recognize_document(
+    request: Any, file: UploadedFile = File(...)
+) -> TaskSubmitResponseSchema:  # pragma: no cover
     """
     提交文书识别任务（异步）
 
@@ -172,12 +178,14 @@ async def recognize_document(request: Any, file: UploadedFile = File(...)) -> Ta
     file_path = await sync_to_async(_save_uploaded_file)(file)
 
     # 3. 创建任务记录 + 提交异步任务
+    # timeout 覆盖 LLM 分析（最坏 ~90s）+ 文本提取 + 绑定通知，防止慢识别被 qcluster 默认超时误杀
     def _create_and_submit() -> Any:
         task = _get_task_service().create_task(file_path=file_path, original_filename=filename)
         submit_task(
             "apps.document_recognition.tasks.execute_document_recognition_task",
             task.id,
             task_name=f"document_recognition_{task.id}",
+            timeout=600,
         )
         return task.id
 
@@ -208,6 +216,10 @@ async def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchem
                 key_time=task.key_time.isoformat() if task.key_time else None,
                 confidence=task.confidence,
                 extraction_method=task.extraction_method,
+                llm_model=task.llm_model,
+                llm_backend=task.llm_backend,
+                llm_latency_ms=task.llm_latency_ms,
+                degraded=task.degraded,
             )
 
             if task.binding_success is not None:
@@ -254,7 +266,9 @@ def _get_task_service() -> Any:
 
 
 @router.get("/court-document/search-cases", response=list[CaseSearchResultSchema])
-async def search_cases_for_binding(request: Any, q: str = "", limit: int = 20) -> list[CaseSearchResultSchema]:  # pragma: no cover
+async def search_cases_for_binding(
+    request: Any, q: str = "", limit: int = 20
+) -> list[CaseSearchResultSchema]:  # pragma: no cover
     """
     搜索可绑定的案件
 
@@ -271,7 +285,9 @@ async def search_cases_for_binding(request: Any, q: str = "", limit: int = 20) -
     """
     limit = min(limit, 20)
     task_service = _get_task_service()
-    raw_results = await sync_to_async(task_service.search_cases_for_binding)(search_term=q.strip() if q else "", limit=limit)
+    raw_results = await sync_to_async(task_service.search_cases_for_binding)(
+        search_term=q.strip() if q else "", limit=limit
+    )
 
     results = [
         CaseSearchResultSchema(
@@ -290,7 +306,9 @@ async def search_cases_for_binding(request: Any, q: str = "", limit: int = 20) -
 
 
 @router.post("/court-document/task/{task_id}/bind", response=ManualBindingResponseSchema)
-async def manual_bind_case(request: Any, task_id: int, payload: ManualBindingRequestSchema) -> ManualBindingResponseSchema:  # pragma: no cover
+async def manual_bind_case(
+    request: Any, task_id: int, payload: ManualBindingRequestSchema
+) -> ManualBindingResponseSchema:  # pragma: no cover
     """
     手动绑定案件
 
@@ -305,6 +323,7 @@ async def manual_bind_case(request: Any, task_id: int, payload: ManualBindingReq
 
     Requirements: 3.1
     """
+
     # 1. 获取任务并检查是否已绑定（在 sync 上下文中）
     def _check_bound() -> Any:
         task = _get_task_service().get_task(task_id, select_case=True)
@@ -340,7 +359,9 @@ async def manual_bind_case(request: Any, task_id: int, payload: ManualBindingReq
 
 
 @router.post("/court-document/task/{task_id}/update-info", response=UpdateInfoResponseSchema)
-async def update_task_info(request: Any, task_id: int, payload: UpdateInfoRequestSchema) -> UpdateInfoResponseSchema:  # pragma: no cover
+async def update_task_info(
+    request: Any, task_id: int, payload: UpdateInfoRequestSchema
+) -> UpdateInfoResponseSchema:  # pragma: no cover
     """
     手动更新识别信息（案号、关键时间）
 

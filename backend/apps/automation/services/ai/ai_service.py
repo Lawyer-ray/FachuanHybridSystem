@@ -14,10 +14,10 @@ class AIService:
             {"role": "system", "content": prompt},
             {"role": "user", "content": text},
         ]
-        resp = self._llm_service.chat(messages=messages, backend="ollama", model=model, fallback=False)
+        resp = self._llm_service.chat(messages=messages, model=model)
         return {
-            "backend": "ollama",
-            "model": model,
+            "backend": resp.backend,
+            "model": resp.model,
             "content": resp.content,
             "raw": {"message": {"content": resp.content}},
         }

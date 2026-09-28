@@ -11,7 +11,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # case_binding_service.py
 # ---------------------------------------------------------------------------
@@ -23,6 +22,7 @@ class TestCaseBindingService:
     @pytest.fixture()
     def svc(self):
         from apps.document_recognition.services.case_binding_service import CaseBindingService
+
         return CaseBindingService(case_service=MagicMock())
 
     def test_find_case_by_number_empty(self, svc):
@@ -348,6 +348,7 @@ class TestCaseBindingService:
         """Test that manual_bind_document_to_case verifies case existence."""
         # Verify the method signature
         import inspect
+
         sig = inspect.signature(svc.manual_bind_document_to_case)
         assert "task_id" in sig.parameters
         assert "case_id" in sig.parameters
@@ -359,82 +360,81 @@ class TestCaseBindingService:
 
 
 class TestDocumentClassifyErrors:
-    """Tests for DocumentClassifier.classify error branches."""
+    """Tests for DocumentClassifier.classify degradation paths.
 
-    @patch("apps.document_recognition.services.document_classifier.chat")
-    def test_classify_connection_error(self, mock_chat):
-        from apps.core.exceptions import ServiceUnavailableError
-        from apps.document_recognition.services.document_classifier import DocumentClassifier
+    重构后 classify 不再直接调 LLM：分析结果经 analysis_lookup 注入，
+    LLM 不可用/解析失败时降级为关键词分类（不抛异常）。
+    """
 
-        mock_chat.side_effect = ConnectionError("refused")
-        svc = DocumentClassifier(
-            ollama_model="test", ollama_base_url="http://localhost", llm_service=MagicMock()
-        )
-        with pytest.raises(ServiceUnavailableError):
-            svc.classify("some text")
+    def _failed_outcome(self):
+        from apps.document_recognition.services.document_analyzer import DocumentAnalysisOutcome
 
-    @patch("apps.document_recognition.services.document_classifier.chat")
-    def test_classify_timeout_error(self, mock_chat):
-        from apps.core.exceptions import RecognitionTimeoutError
-        from apps.core.llm.exceptions import LLMTimeoutError
-        from apps.document_recognition.services.document_classifier import DocumentClassifier
+        return DocumentAnalysisOutcome(analysis=None, error="llm_unavailable: ConnectionError")
 
-        mock_chat.side_effect = LLMTimeoutError("timeout")
-        svc = DocumentClassifier(
-            ollama_model="test", ollama_base_url="http://localhost", llm_service=MagicMock()
-        )
-        with pytest.raises(RecognitionTimeoutError):
-            svc.classify("some text")
-
-    @patch("apps.document_recognition.services.document_classifier.chat")
-    def test_classify_network_error(self, mock_chat):
-        from apps.core.exceptions import ServiceUnavailableError
-        from apps.core.llm.exceptions import LLMNetworkError
-        from apps.document_recognition.services.document_classifier import DocumentClassifier
-
-        mock_chat.side_effect = LLMNetworkError("network")
-        svc = DocumentClassifier(
-            ollama_model="test", ollama_base_url="http://localhost", llm_service=MagicMock()
-        )
-        with pytest.raises(ServiceUnavailableError):
-            svc.classify("some text")
-
-    @patch("apps.document_recognition.services.document_classifier.chat")
-    def test_classify_generic_error(self, mock_chat):
-        from apps.document_recognition.services.document_classifier import DocumentClassifier
-
-        mock_chat.side_effect = ValueError("bad")
-        svc = DocumentClassifier(
-            ollama_model="test", ollama_base_url="http://localhost", llm_service=MagicMock()
-        )
-        with pytest.raises(RuntimeError, match="文书分类失败"):
-            svc.classify("some text")
-
-    @patch("apps.document_recognition.services.document_classifier.chat")
-    def test_classify_success(self, mock_chat):
+    def test_classify_connection_error_degrades_to_keywords(self):
+        """LLM 不可用 → 关键词降级，不再抛 ServiceUnavailableError。"""
         from apps.document_recognition.services.data_classes import DocumentType
         from apps.document_recognition.services.document_classifier import DocumentClassifier
 
-        mock_chat.return_value = {"message": {"content": '{"type": "summons", "confidence": 0.9}'}}
-        svc = DocumentClassifier(
-            ollama_model="test", ollama_base_url="http://localhost", llm_service=MagicMock()
-        )
+        svc = DocumentClassifier(analysis_lookup=lambda text: self._failed_outcome())
+        doc_type, confidence = svc.classify("定于2024年6月15日开庭审理")
+        assert doc_type == DocumentType.SUMMONS
+        assert 0.0 < confidence <= 1.0
+
+    def test_classify_llm_analysis_not_found_degrades(self):
+        """lookup 抛异常 → 关键词降级。"""
+        from apps.document_recognition.services.data_classes import DocumentType
+        from apps.document_recognition.services.document_classifier import DocumentClassifier
+
+        def _boom(text):
+            raise ConnectionError("refused")
+
+        svc = DocumentClassifier(analysis_lookup=_boom)
+        doc_type, confidence = svc.classify("执行裁定书：查封、冻结被申请人财产")
+        assert doc_type == DocumentType.EXECUTION_RULING
+
+    def test_classify_generic_lookup_error_degrades(self):
+        """lookup 任意异常都不外溢。"""
+        from apps.document_recognition.services.data_classes import DocumentType
+        from apps.document_recognition.services.document_classifier import DocumentClassifier
+
+        def _boom(text):
+            raise ValueError("bad")
+
+        svc = DocumentClassifier(analysis_lookup=_boom)
+        doc_type, _ = svc.classify("普通文书")
+        assert doc_type == DocumentType.OTHER
+
+    def test_classify_empty_text(self):
+        from apps.document_recognition.services.data_classes import DocumentType
+        from apps.document_recognition.services.document_classifier import DocumentClassifier
+
+        svc = DocumentClassifier(analysis_lookup=lambda text: self._failed_outcome())
+        doc_type, confidence = svc.classify("")
+        assert doc_type == DocumentType.OTHER
+        assert confidence == 0.0
+
+    @patch("apps.document_recognition.services.document_classifier.DocumentClassifier._shared_analysis")
+    def test_classify_success_from_shared_analysis(self, mock_shared):
+        """共享分析可用时按其结果分类。"""
+        from apps.document_recognition.services.data_classes import DocumentType
+        from apps.document_recognition.services.document_analyzer import CourtDocumentAnalysis
+        from apps.document_recognition.services.document_classifier import DocumentClassifier
+
+        mock_shared.return_value = CourtDocumentAnalysis(document_type="summons", confidence=0.9, reason="含开庭时间")
+        svc = DocumentClassifier()
         doc_type, confidence = svc.classify("some text")
         assert doc_type == DocumentType.SUMMONS
         assert confidence == pytest.approx(0.9)
 
-    @patch("apps.document_recognition.services.document_classifier.chat")
-    def test_classify_truncates_long_text(self, mock_chat):
-        from apps.document_recognition.services.document_classifier import DocumentClassifier
+    def test_classify_confidence_clamped(self):
+        """置信度范围由 pydantic schema 强约束（越界输出无法通过校验）。"""
+        import pydantic
 
-        mock_chat.return_value = {"message": {"content": '{"type": "other", "confidence": 0.5}'}}
-        svc = DocumentClassifier(
-            ollama_model="test", ollama_base_url="http://localhost", llm_service=MagicMock()
-        )
-        long_text = "x" * 5000
-        svc.classify(long_text)
-        # Should succeed without error
-        mock_chat.assert_called_once()
+        from apps.document_recognition.services.document_analyzer import CourtDocumentAnalysis
+
+        with pytest.raises(pydantic.ValidationError):
+            CourtDocumentAnalysis(document_type="other", confidence=5.0)
 
 
 # ---------------------------------------------------------------------------
@@ -450,9 +450,7 @@ class TestDocumentClassifierLazyLoad:
         from apps.document_recognition.services.document_classifier import DocumentClassifier
 
         mock_locator.get_llm_service.return_value = MagicMock()
-        svc = DocumentClassifier(
-            ollama_model="test", ollama_base_url="http://localhost"
-        )
+        svc = DocumentClassifier(ollama_model="test", ollama_base_url="http://localhost")
         assert svc._llm_service is None
         result = svc.llm_service
         assert result is not None

@@ -30,7 +30,9 @@ class AutoNamerToolForm(forms.Form):  # pragma: no cover
         initial=DEFAULT_FILENAME_PROMPT,
         help_text="AI提示词，用于指导模型生成合适的文件名",
     )
-    model = forms.CharField(required=True, initial="qwen3:0.6b", help_text="使用的AI模型名称")
+    model = forms.CharField(
+        required=True, initial="kimi-2.6", help_text='使用的AI模型名称（含":"走本地Ollama，其余走AI平台）'
+    )
     limit = forms.IntegerField(required=False, help_text="文字提取限制（留空使用默认值1500字）")
     preview_page = forms.IntegerField(required=False, min_value=1, help_text="PDF预览页码（留空使用默认值第1页）")
 
@@ -107,12 +109,14 @@ class AutoNamerToolAdmin(admin.ModelAdmin):  # pragma: no cover
         """
         return HttpResponse(html)
 
-    def _render_ai_result(self, model: str, prompt: str, text: str, extraction: Any, return_url: str) -> HttpResponse:  # pragma: no cover
+    def _render_ai_result(
+        self, model: str, prompt: str, text: str, extraction: Any, return_url: str
+    ) -> HttpResponse:  # pragma: no cover
         """调用 AI 并渲染结果"""
         try:
             msg_list = [{"role": "system", "content": prompt}, {"role": "user", "content": text}]
             llm_service = ServiceLocator.get_llm_service()
-            llm_response = llm_service.chat(messages=msg_list, backend="ollama", model=model, fallback=False)
+            llm_response = llm_service.chat(messages=msg_list, model=model)
             response_text = llm_response.content or "无返回内容"
 
             html = f"""

@@ -48,7 +48,7 @@ class AutoNamerServiceAdapter(IAutoNamerService):
             self._llm_service = ServiceLocator.get_llm_service()
         return self._llm_service
 
-    def generate_filename(self, document_content: str, prompt: str | None = None, model: str = "qwen3:0.6b") -> str:
+    def generate_filename(self, document_content: str, prompt: str | None = None, model: str = "") -> str:
         """
         根据文档内容生成文件名
 
@@ -86,7 +86,7 @@ class AutoNamerServiceAdapter(IAutoNamerService):
             # 调用AI服务生成文件名
             messages = [{"role": "system", "content": prompt}, {"role": "user", "content": document_content}]
 
-            llm_response = self.llm_service.chat(messages=messages, backend="ollama", model=model, fallback=False)
+            llm_response = self.llm_service.chat(messages=messages, model=model or None)
 
             # 提取生成的文件名
             if llm_response and llm_response.content:
@@ -126,7 +126,7 @@ class AutoNamerServiceAdapter(IAutoNamerService):
         self,
         uploaded_file: Any,
         prompt: str | None = None,
-        model: str = "qwen3:0.6b",
+        model: str = "",
         limit: int | None = None,
         preview_page: int | None = None,
     ) -> dict[str, Any]:
@@ -234,9 +234,7 @@ class AutoNamerServiceAdapter(IAutoNamerService):
                 ) from e
 
     # 内部方法版本，供其他模块调用
-    def generate_filename_internal(
-        self, document_content: str, prompt: str | None = None, model: str = "qwen3:0.6b"
-    ) -> str:
+    def generate_filename_internal(self, document_content: str, prompt: str | None = None, model: str = "") -> str:
         """根据文档内容生成文件名（内部接口，无权限检查）"""
         return self.generate_filename(document_content, prompt, model)
 
@@ -244,7 +242,7 @@ class AutoNamerServiceAdapter(IAutoNamerService):
         self,
         uploaded_file: Any,
         prompt: str | None = None,
-        model: str = "qwen3:0.6b",
+        model: str = "",
         limit: int | None = None,
         preview_page: int | None = None,
     ) -> dict[str, Any]:

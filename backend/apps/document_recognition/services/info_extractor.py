@@ -1,24 +1,24 @@
 """
 关键信息提取器
 
-调用 Ollama 大模型从法院文书中提取关键信息（案号、开庭时间等）。
-支持正则表达式提取和 Ollama 交叉校验机制。
+从法院文书中提取关键信息（案号、开庭时间等）。
+正则先行（确定性、带上下文打分），LLM 结果来自 document_analyzer 的
+单次结构化分析（经 recognition_service 注入共享，不单独发调用），
+两者交叉校验择优。
 
 Requirements: 4.3, 4.4, 4.7
 """
 
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, Callable
 
-from apps.core.exceptions import RecognitionTimeoutError, ServiceUnavailableError
-from apps.core.interfaces import ServiceLocator
 from apps.core.llm.config import LLMConfig
-from apps.core.llm.exceptions import LLMNetworkError, LLMTimeoutError
 
 from ._case_number_mixin import CaseNumberMixin
 from ._datetime_extraction_mixin import DatetimeExtractionMixin
 from ._response_parser_mixin import ResponseParserMixin
+from .document_analyzer import CourtDocumentAnalysis, DocumentAnalysisOutcome
 
 logger = logging.getLogger("apps.document_recognition")
 
@@ -33,107 +33,48 @@ def get_ollama_base_url() -> str:  # pragma: no cover
     return LLMConfig.get_ollama_base_url()
 
 
-def chat(
-    *,
-    messages: list[dict[str, str]],
-    model: str | None = None,
-    llm_service: Any | None = None,
-    **kwargs: Any,
-) -> dict[str, Any]:  # pragma: no cover
-    """
-    兼容旧测试与调用方：保留模块级 chat 入口，内部转发到统一 LLM 服务。
-    """
-    service = llm_service or ServiceLocator.get_llm_service()
-    llm_response = service.chat(
-        messages=messages,
-        backend="ollama",
-        model=model,
-        fallback=False,
-        **kwargs,
-    )
-    return {"message": {"content": llm_response.content}}
-
-
 class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixin):
     """
     关键信息提取器
 
-    使用 Ollama 大模型从法院文书中提取关键信息：
-    - 传票：案号、开庭时间
-    - 执行裁定书：案号、财产保全到期时间（预留扩展）
+    提取策略（正则 + LLM 交叉校验）：
+    - 案号：正则命中直接采用（格式严格、可靠）；正则未命中时回退 LLM 结果；
+      两者冲突时以正则为准并记日志。
+    - 开庭时间：正则候选（带上下文打分）与 LLM 结果经 ``_select_best_datetime``
+      择优；``extraction_method`` 记录最终来源。
+    - 未注入 ``analysis_lookup`` 时仅用正则（单测与降级路径）。
 
     Requirements: 4.3, 4.4
     """
-
-    SUMMONS_PROMPT = """请从以下传票内容中提取案号和开庭时间。
-
-传票内容：
-{text}
-
-提取要求：
-1. 案号格式：（年份）法院代码+案件类型字号+序号+号
-   - 年份：4位数字，如2024、2025
-   - 法院代码：省份简称+区县代码，如"粤0604"、"京0105"、"沪0115"
-   - 案件类型字号（必须包含）：民初、民终、刑初、刑终、执、执保、执异、执恢、破、行初、行终等
-   - 序号：数字
-   - 必须以"号"字结尾
-   - 示例：（2024）粤0604民初41257号、（2025）京0105刑初12345号
-
-2. 重要：案号中必须包含案件类型字号（如民初、民终、刑初等），不能省略！
-   - 错误示例：（2025）粤060441257（缺少案件类型）
-   - 正确示例：（2025）粤0604民初41257号
-
-3. 开庭时间需要包含完整的日期和时间，格式为：YYYY-MM-DD HH:MM
-
-4. 如果无法确定某个字段，请返回 null
-
-请严格按照以下 JSON 格式返回结果，不要包含其他内容：
-{{"case_number": "案号或null", "court_time": "YYYY-MM-DD HH:MM或null"}}
-"""
-
-    EXECUTION_PROMPT = """请从以下执行裁定书中提取案号和财产保全到期时间。
-
-裁定书内容：
-{text}
-
-提取要求：
-1. 案号格式：（年份）法院代码+案件类型字号+序号+号
-   - 年份：4位数字，如2024、2025
-   - 法院代码：省份简称+区县代码，如"粤0604"、"京0105"
-   - 案件类型字号（必须包含）：执、执保、执异、执恢、民初、民终等
-   - 序号：数字
-   - 必须以"号"字结尾
-   - 示例：（2024）粤0604执保12345号、（2025）京0105执12345号
-
-2. 重要：案号中必须包含案件类型字号，不能省略！
-
-3. 财产保全到期时间格式为：YYYY-MM-DD
-
-4. 如果无法确定某个字段，请返回 null
-
-请严格按照以下 JSON 格式返回结果，不要包含其他内容：
-{{"case_number": "案号或null", "preservation_deadline": "YYYY-MM-DD或null"}}
-"""
 
     def __init__(
         self,
         ollama_model: str | None = None,
         ollama_base_url: str | None = None,
         llm_service: Any | None = None,
+        analysis_lookup: Callable[[str], DocumentAnalysisOutcome] | None = None,
     ):
-        self.ollama_model = ollama_model or get_ollama_model()
-        self.ollama_base_url = ollama_base_url or get_ollama_base_url()
+        # ollama_model/ollama_base_url/llm_service 为兼容保留参数（旧双调用架构）；
+        # 不读系统配置，避免构造期触发 DB 访问（无 django_db 标记的单测会被阻断）
+        self.ollama_model = ollama_model
+        self.ollama_base_url = ollama_base_url
         self._llm_service = llm_service
+        self._analysis_lookup = analysis_lookup
 
-    @property
-    def llm_service(self) -> Any:
-        if self._llm_service is None:
-            self._llm_service = ServiceLocator.get_llm_service()
-        return self._llm_service
+    def _shared_analysis(self, text: str) -> CourtDocumentAnalysis | None:
+        """取 per-run 共享分析结果；未注入或分析失败返回 None。"""
+        if self._analysis_lookup is None:
+            return None
+        try:
+            outcome = self._analysis_lookup(text)
+        except Exception as e:  # pragma: no cover - lookup 内部已折叠异常
+            logger.warning("共享文书分析调用异常: %s", e)
+            return None
+        return outcome.analysis if outcome is not None else None
 
     def extract_summons_info(self, text: str) -> dict[str, Any]:
         """
-        提取传票信息
+        提取传票信息（案号 + 开庭时间，正则与 LLM 交叉校验）
 
         Requirements: 4.3
         """
@@ -159,34 +100,27 @@ class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixi
         for dt, matched_text, score in regex_datetimes:
             logger.info(f"  - {dt} (原文: {matched_text}, 得分: {score})")
 
-        ollama_result: dict[str, Any] = {"case_number": None, "court_time": None}
-        ollama_datetime: datetime | None = None
+        llm_case_number: str | None = None
+        llm_datetime: datetime | None = None
 
-        try:
-            prompt = self.SUMMONS_PROMPT.format(text=truncated_text)
-            response = chat(
-                messages=[{"role": "user", "content": prompt}],
-                model=self.ollama_model,
-                llm_service=self.llm_service,
-            )
-            ollama_result = self._parse_summons_response(response)
-            ollama_datetime = ollama_result.get("court_time")
-            if ollama_datetime:
-                logger.info(f"Ollama 提取到时间: {ollama_datetime}")
-            if regex_case_number is None and ollama_result.get("case_number"):
-                logger.info(f"Ollama 提取到案号: {ollama_result.get('case_number')}")
-        except (LLMNetworkError, ConnectionError) as e:
-            logger.warning(f"Ollama 服务不可用，将仅使用正则结果: {e}")
-        except LLMTimeoutError as e:
-            logger.warning(f"Ollama 提取超时，将仅使用正则结果: {e}")
-        except Exception as e:
-            logger.warning(f"Ollama 提取失败，将仅使用正则结果: {e}")
+        analysis = self._shared_analysis(truncated_text)
+        if analysis is not None:
+            raw_case_number = (analysis.case_number or "").strip()
+            if raw_case_number and raw_case_number.lower() != "null":
+                llm_case_number = self._normalize_case_number(raw_case_number)
+                if not regex_case_number:
+                    logger.info(f"LLM 提取到案号: {llm_case_number}")
+                elif llm_case_number != regex_case_number:
+                    logger.warning(f"案号交叉校验不一致，以正则为准: 正则={regex_case_number}, LLM={llm_case_number}")
+            llm_datetime = self._parse_datetime(analysis.court_time or "") if analysis.court_time else None
+            if llm_datetime:
+                logger.info(f"LLM 提取到时间: {llm_datetime}")
 
-        best_datetime, extraction_method = self._select_best_datetime(regex_datetimes, ollama_datetime)
+        best_datetime, extraction_method = self._select_best_datetime(regex_datetimes, llm_datetime)
         logger.info(f"最终选择时间: {best_datetime}, 方法: {extraction_method}")
 
-        final_case_number = regex_case_number if regex_case_number else ollama_result.get("case_number")
-        case_number_source = "regex" if regex_case_number else ("ollama" if ollama_result.get("case_number") else None)
+        final_case_number = regex_case_number if regex_case_number else llm_case_number
+        case_number_source = "regex" if regex_case_number else ("llm" if llm_case_number else None)
 
         result = {
             "case_number": final_case_number,
@@ -207,7 +141,7 @@ class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixi
 
     def extract_execution_info(self, text: str) -> dict[str, Any]:
         """
-        提取执行裁定书信息（预留扩展）
+        提取执行裁定书信息（案号 + 财产保全到期时间）
 
         Requirements: 4.4
         """
@@ -228,50 +162,34 @@ class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixi
             },
         )
 
-        try:
-            prompt = self.EXECUTION_PROMPT.format(text=truncated_text)
-            response = chat(
-                messages=[{"role": "user", "content": prompt}],
-                model=self.ollama_model,
-                llm_service=self.llm_service,
-            )
-            result = self._parse_execution_response(response)
-            logger.info(
-                "执行裁定书信息提取完成",
-                extra={
-                    "action": "extract_execution_info",
-                    "case_number": result.get("case_number"),
-                    "preservation_deadline": (
-                        str(result.get("preservation_deadline")) if result.get("preservation_deadline") else None
-                    ),
-                },
-            )
-            return result
-        except (LLMNetworkError, ConnectionError) as e:
-            logger.error(
-                f"Ollama 服务不可用: {e}",
-                extra={"action": "extract_execution_info", "error_type": "connection_error", "error": str(e)},
-            )
-            raise ServiceUnavailableError(
-                message="AI 服务暂时不可用，请稍后重试",
-                code="OLLAMA_SERVICE_UNAVAILABLE",
-                errors={"service": "Ollama 服务连接失败"},
-                service_name="Ollama",
-            ) from e
-        except LLMTimeoutError as e:
-            logger.error(
-                f"执行裁定书信息提取超时: {e}",
-                extra={"action": "extract_execution_info", "error_type": "timeout_error", "error": str(e)},
-            )
-            raise RecognitionTimeoutError(
-                message="信息提取超时，请重试",
-                code="EXTRACTION_TIMEOUT",
-                errors={"timeout": "AI 提取超时"},
-            ) from e
-        except Exception as e:
-            logger.error(
-                f"执行裁定书信息提取失败: {e!s}",
-                extra={"action": "extract_execution_info", "error_type": type(e).__name__, "error": str(e)},
-                exc_info=True,
-            )
-            raise RuntimeError(f"执行裁定书信息提取失败: {e!s}") from e
+        regex_case_number = self._extract_case_number_by_regex(truncated_text)
+        if regex_case_number:
+            logger.info(f"正则成功提取案号: {regex_case_number}")
+
+        final_case_number = regex_case_number
+        preservation_deadline: datetime | None = None
+
+        analysis = self._shared_analysis(truncated_text)
+        if analysis is not None:
+            if not final_case_number:
+                raw_case_number = (analysis.case_number or "").strip()
+                if raw_case_number and raw_case_number.lower() != "null":
+                    final_case_number = self._normalize_case_number(raw_case_number)
+                    logger.info(f"LLM 提取到案号: {final_case_number}")
+            if analysis.court_time:
+                preservation_deadline = self._parse_date(analysis.court_time)
+                if preservation_deadline:
+                    logger.info(f"LLM 提取到保全到期时间: {preservation_deadline}")
+
+        logger.info(
+            "执行裁定书信息提取完成",
+            extra={
+                "action": "extract_execution_info",
+                "case_number": final_case_number,
+                "preservation_deadline": (str(preservation_deadline) if preservation_deadline else None),
+            },
+        )
+        return {
+            "case_number": final_case_number,
+            "preservation_deadline": preservation_deadline,
+        }

@@ -40,6 +40,10 @@ class RecognitionResult:
         raw_text: 从文书中提取的原始文字
         confidence: 识别置信度，范围 0-1
         extraction_method: 文本提取方式（"pdf_direct" 或 "ocr"）
+        llm_model: 本次识别实际使用的 LLM 模型名（未走 LLM 时为 None）
+        llm_backend: 本次识别实际使用的 LLM 后端（openai_compatible/ollama）
+        llm_latency_ms: LLM 分析耗时（毫秒）
+        degraded: 是否为降级结果（LLM 不可用/解析失败，仅靠关键词+正则）
     """
 
     document_type: DocumentType
@@ -48,6 +52,10 @@ class RecognitionResult:
     raw_text: str
     confidence: float
     extraction_method: str
+    llm_model: str | None = None
+    llm_backend: str | None = None
+    llm_latency_ms: int | None = None
+    degraded: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """序列化为字典"""
@@ -58,6 +66,10 @@ class RecognitionResult:
             "raw_text": self.raw_text,
             "confidence": self.confidence,
             "extraction_method": self.extraction_method,
+            "llm_model": self.llm_model,
+            "llm_backend": self.llm_backend,
+            "llm_latency_ms": self.llm_latency_ms,
+            "degraded": self.degraded,
         }
 
     @classmethod
@@ -77,6 +89,10 @@ class RecognitionResult:
             raw_text=data.get("raw_text", ""),
             confidence=data.get("confidence", 0.0),
             extraction_method=data.get("extraction_method", ""),
+            llm_model=data.get("llm_model"),
+            llm_backend=data.get("llm_backend"),
+            llm_latency_ms=data.get("llm_latency_ms"),
+            degraded=bool(data.get("degraded", False)),
         )
 
 

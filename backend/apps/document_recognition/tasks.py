@@ -37,6 +37,10 @@ def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:  #
         task.key_time = recognition.key_time
         task.confidence = recognition.confidence
         task.extraction_method = recognition.extraction_method
+        task.llm_model = recognition.llm_model
+        task.llm_backend = recognition.llm_backend
+        task.llm_latency_ms = recognition.llm_latency_ms
+        task.degraded = recognition.degraded
         task.raw_text = recognition.raw_text[:10000] if recognition.raw_text else None
         task.renamed_file_path = result.file_path
 

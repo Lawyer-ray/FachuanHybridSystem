@@ -11,8 +11,8 @@ from datetime import date
 from typing import Any
 
 from apps.core.exceptions import RecognitionTimeoutError, ServiceUnavailableError, ValidationException
-from apps.core.services.filename_template_service import FilenameTemplateService
 from apps.core.exceptions.error_codes import TEXT_EXTRACTION_FAILED
+from apps.core.services.filename_template_service import FilenameTemplateService
 
 from .data_classes import BindingResult, DocumentType, RecognitionResponse, RecognitionResult
 
@@ -52,6 +52,37 @@ class CourtDocumentRecognitionService:
         self._extractor = extractor
         self._binding_service = binding_service
         self._document_renamer = document_renamer
+        # per-run 共享 LLM 分析：分类与信息提取共用同一次结构化调用。
+        # 仅当协作者真正消费 lookup 时才发起 LLM 请求（协作者被 mock 的单测不会触发）。
+        self._analysis_cache: dict[str, Any] = {}
+        self._analysis_attempted = False
+
+    def _analysis_lookup(self, text: str) -> Any:
+        """按原文 memoize 的共享结构化分析（document_analyzer）。"""
+        if text in self._analysis_cache:
+            return self._analysis_cache[text]
+        from .document_analyzer import analyze_document
+
+        self._analysis_attempted = True
+        outcome = analyze_document(text)
+        self._analysis_cache[text] = outcome
+        return outcome
+
+    def _analysis_observability(self) -> dict[str, Any]:
+        """汇总本次识别的 LLM 可观测性信息（未触发分析时全为默认值）。"""
+        from .document_analyzer import DocumentAnalysisOutcome
+
+        if not self._analysis_attempted:
+            return {"llm_model": None, "llm_backend": None, "llm_latency_ms": None, "degraded": False}
+        outcome = next(iter(self._analysis_cache.values()), None)
+        if not isinstance(outcome, DocumentAnalysisOutcome):
+            return {"llm_model": None, "llm_backend": None, "llm_latency_ms": None, "degraded": False}
+        return {
+            "llm_model": outcome.model,
+            "llm_backend": outcome.backend,
+            "llm_latency_ms": outcome.latency_ms,
+            "degraded": not outcome.ok,
+        }
 
     @property
     def text_extraction(self) -> Any:
@@ -64,20 +95,20 @@ class CourtDocumentRecognitionService:
 
     @property
     def classifier(self) -> Any:
-        """延迟加载文书分类器"""
+        """延迟加载文书分类器（注入共享分析，分类与提取共用一次 LLM 调用）"""
         if self._classifier is None:
             from .document_classifier import DocumentClassifier
 
-            self._classifier = DocumentClassifier()
+            self._classifier = DocumentClassifier(analysis_lookup=self._analysis_lookup)
         return self._classifier
 
     @property
     def extractor(self) -> Any:
-        """延迟加载信息提取器"""
+        """延迟加载信息提取器（注入共享分析，分类与提取共用一次 LLM 调用）"""
         if self._extractor is None:
             from .info_extractor import InfoExtractor
 
-            self._extractor = InfoExtractor()
+            self._extractor = InfoExtractor(analysis_lookup=self._analysis_lookup)
         return self._extractor
 
     @property
@@ -210,6 +241,7 @@ class CourtDocumentRecognitionService:
                 raw_text=extraction_result.text,
                 confidence=confidence,
                 extraction_method=extraction_result.extraction_method,
+                **self._analysis_observability(),
             )
 
             binding, renamed_file_path = self._build_binding(
@@ -294,6 +326,7 @@ class CourtDocumentRecognitionService:
                 raw_text=text,
                 confidence=confidence,
                 extraction_method="text_input",
+                **self._analysis_observability(),
             )
 
             logger.info(

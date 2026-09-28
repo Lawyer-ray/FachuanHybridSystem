@@ -46,6 +46,10 @@ class DocumentRecognitionTask(models.Model):
     key_time: datetime | None = models.DateTimeField(null=True, blank=True, verbose_name="关键时间")
     confidence: float | None = models.FloatField(null=True, blank=True, verbose_name="置信度")
     extraction_method: str | None = models.CharField(max_length=32, null=True, blank=True, verbose_name="提取方式")
+    llm_model: str | None = models.CharField(max_length=100, null=True, blank=True, verbose_name="LLM 模型")
+    llm_backend: str | None = models.CharField(max_length=32, null=True, blank=True, verbose_name="LLM 后端")
+    llm_latency_ms: int | None = models.IntegerField(null=True, blank=True, verbose_name="LLM 耗时(ms)")
+    degraded: bool | None = models.BooleanField(null=True, blank=True, verbose_name="降级识别")
     raw_text: str | None = models.TextField(null=True, blank=True, verbose_name="原始文本")
     renamed_file_path: str | None = models.CharField(
         max_length=1024, null=True, blank=True, verbose_name="重命名后路径"
