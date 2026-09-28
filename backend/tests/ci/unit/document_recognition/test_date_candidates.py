@@ -139,8 +139,7 @@ class TestBuildDateCandidates:
     def test_truncated_to_max_candidates(self):
         extractor = _stub_extractor([])
         events = [
-            _event(f"2026-{month:02d}-15 09:00", "other", f"c{month}", 0.5 + month / 100)
-            for month in range(1, 13)
+            _event(f"2026-{month:02d}-15 09:00", "other", f"c{month}", 0.5 + month / 100) for month in range(1, 13)
         ]
         analysis = SimpleNamespace(key_events=events)
 
@@ -193,7 +192,14 @@ class TestBuildDateCandidates:
         }
         for doc_type, expected in cases.items():
             extractor = _stub_extractor(
-                [{"datetime": datetime(2026, 10, 15, 9, 0), "context_text": "某日", "context_score": 0, "reminder_type": None}]
+                [
+                    {
+                        "datetime": datetime(2026, 10, 15, 9, 0),
+                        "context_text": "某日",
+                        "context_score": 0,
+                        "reminder_type": None,
+                    }
+                ]
             )
             drafts = build_date_candidates("text", None, doc_type, regex_extractor=extractor)
             assert drafts[0].reminder_type == expected
@@ -203,7 +209,9 @@ class TestBuildDateCandidates:
         extractor = _stub_extractor([])
         assert build_date_candidates("text", None, DocumentType.OTHER, regex_extractor=extractor) == []
         assert (
-            build_date_candidates("text", SimpleNamespace(key_events=None), DocumentType.OTHER, regex_extractor=extractor)
+            build_date_candidates(
+                "text", SimpleNamespace(key_events=None), DocumentType.OTHER, regex_extractor=extractor
+            )
             == []
         )
 
@@ -224,6 +232,207 @@ class TestBuildDateCandidates:
 
 
 # ---------------------------------------------------------------------------
+# 相对期限推算：「收到本通知次日起两日内交纳」等 → 以落款日为锚算届满日
+# ---------------------------------------------------------------------------
+
+
+class TestParseCnNumber:
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("7", 7),
+            ("15", 15),
+            ("两", 2),
+            ("七", 7),
+            ("十", 10),
+            ("拾", 10),
+            ("十五", 15),
+            ("二十", 20),
+            ("三十一", 31),
+            ("贰拾", 20),
+        ],
+    )
+    def test_valid(self, text, expected):
+        assert dcs._parse_cn_number(text) == expected
+
+    @pytest.mark.parametrize("text", ["", "百", "十五六", "3x"])
+    def test_invalid_returns_none(self, text):
+        assert dcs._parse_cn_number(text) is None
+
+
+class TestFindIssueDate:
+    def test_cn_digits_issue_date(self):
+        """task 7 真实形态：OCR 文本中「打印日期：二〇二五年十一月十一日」。"""
+        text = "…二维码有效期为缴费后三个月内。zdqz打印日期：二〇二五年十一月十一日请扫二维码缴费…"
+        assert dcs._find_issue_date(text) == datetime(2025, 11, 11)
+
+    def test_arabic_issue_date(self):
+        assert dcs._find_issue_date("落款：2026年10月10日") == datetime(2026, 10, 10)
+
+    def test_takes_last_date_as_issue_date(self):
+        """落款惯例在文末：正文中段的开庭日不应被当作锚。"""
+        text = "定于2026年10月20日10时0分开庭。二〇二六年十月十日"
+        assert dcs._find_issue_date(text) == datetime(2026, 10, 10)
+
+    def test_no_date_returns_none(self):
+        assert dcs._find_issue_date("没有任何日期") is None
+
+    def test_year_out_of_range_ignored(self):
+        assert dcs._find_issue_date("落款：1999年1月1日") is None
+
+
+class TestRelativeDeadlineRules:
+    """_apply_relative_deadline_rules（经 build_date_candidates 端到端验证）。"""
+
+    TASK7_TEXT = (
+        "广东法院诉讼费用交费通知书。保全费请你方于收到本通知次日起两日内向本院交纳。"
+        "超过缴款截止日期的，代收银行不予受理。zdqz打印日期：二〇二五年十一月十一日请扫二维码缴费"
+    )
+
+    def test_task7_llm_anchor_date_corrected_to_deadline(self):
+        """LLM 把落款日当事件日（task 7 实际形态）→ 规则校正为锚+2 天。"""
+        extractor = _stub_extractor([])
+        analysis = SimpleNamespace(
+            key_events=[_event("2025-11-11", "payment_deadline", "保全费请你方于收到本通知次日起两日内向本院交纳", 0.7)]
+        )
+
+        drafts = build_date_candidates(self.TASK7_TEXT, analysis, DocumentType.OTHER, regex_extractor=extractor)
+
+        assert len(drafts) == 1
+        assert drafts[0].due_at == datetime(2025, 11, 13)
+        assert drafts[0].reminder_type == "payment_deadline"
+        # 历史日期仍会被陈旧降权，但校正动作本身应发生（source 保留 llm）
+        assert drafts[0].source == "llm"
+
+    def test_fingerprint_match_when_context_rewritten(self):
+        """LLM context 被截断/改写时，按「同类型且日期=锚日」指纹匹配校正。"""
+        extractor = _stub_extractor([])
+        analysis = SimpleNamespace(key_events=[_event("2026-10-10", "payment_deadline", "（LLM 改写的上下文）", 0.6)])
+        text = "请于收到本通知书之日起7日内向本院交纳诉讼费用。落款：2026年10月10日"
+
+        drafts = build_date_candidates(text, analysis, DocumentType.OTHER, regex_extractor=extractor)
+
+        assert len(drafts) == 1
+        assert drafts[0].due_at == datetime(2026, 10, 17)
+
+    def test_llm_missing_event_appends_regex_draft(self):
+        """LLM 漏提相对期限 → 补一条正则候选（届满=锚+7）。"""
+        extractor = _stub_extractor([])
+        text = "请于收到本通知书之日起7日内向本院交纳诉讼费用。落款：2026年10月10日"
+
+        drafts = build_date_candidates(text, None, DocumentType.OTHER, regex_extractor=extractor)
+
+        assert len(drafts) == 1
+        assert drafts[0].due_at == datetime(2026, 10, 17)
+        assert drafts[0].reminder_type == "payment_deadline"
+        assert drafts[0].source == "regex"
+        assert drafts[0].confidence == 0.85
+        assert "7日内" in drafts[0].context_text
+
+    def test_cn_seven_days(self):
+        text = "保全费应自收到本决定书之日起七日内缴纳。落款：二〇二六年十月十日"
+
+        drafts = build_date_candidates(text, None, DocumentType.OTHER, regex_extractor=_stub_extractor([]))
+
+        assert drafts[0].due_at == datetime(2026, 10, 17)
+
+    def test_cn_compound_days_fifteen(self):
+        text = "如不服本判决，应在判决送达之日起十五日内向本院递交上诉状。落款：2026年10月10日"
+
+        drafts = build_date_candidates(text, None, DocumentType.OTHER, regex_extractor=_stub_extractor([]))
+
+        assert drafts[0].due_at == datetime(2026, 10, 25)
+        assert drafts[0].reminder_type == "appeal_deadline"
+
+    def test_bare_action_phrase_arabic(self):
+        """无「收到」锚的动作版：7日内付款。"""
+        text = "请于7日内付款，逾期加收滞纳金。落款：2026年10月10日"
+
+        drafts = build_date_candidates(text, None, DocumentType.OTHER, regex_extractor=_stub_extractor([]))
+
+        assert drafts[0].due_at == datetime(2026, 10, 17)
+        assert drafts[0].reminder_type == "payment_deadline"
+
+    def test_preservation_fee_typed_as_payment(self):
+        """「保全费…交纳」按动作词判 payment，不被名词「保全」带偏成保全到期。"""
+        text = "保全费请你方于收到本通知次日起两日内向本院交纳。落款：2026年10月10日"
+
+        drafts = build_date_candidates(text, None, DocumentType.OTHER, regex_extractor=_stub_extractor([]))
+
+        assert drafts[0].reminder_type == "payment_deadline"
+
+    def test_llm_already_computed_not_duplicated(self):
+        """LLM 按 prompt 正确推算 → 不再补重复候选。"""
+        extractor = _stub_extractor([])
+        analysis = SimpleNamespace(
+            key_events=[_event("2026-10-17", "payment_deadline", "收到本通知次日起七日内交纳", 0.9)]
+        )
+        text = "收到本通知次日起七日内交纳。落款：2026年10月10日"
+
+        drafts = build_date_candidates(text, analysis, DocumentType.OTHER, regex_extractor=extractor)
+
+        assert len(drafts) == 1
+        assert drafts[0].due_at == datetime(2026, 10, 17)
+        assert drafts[0].confidence == 0.9
+
+    def test_no_issue_date_keeps_drafts_untouched(self):
+        """无锚点日期时规则静默退出（LLM 候选原样保留）。"""
+        extractor = _stub_extractor([])
+        analysis = SimpleNamespace(key_events=[_event("2026-10-15 09:30", "hearing", "开庭", 0.8)])
+
+        drafts = build_date_candidates(
+            "收到本通知次日起两日内交纳，无落款日期", analysis, DocumentType.OTHER, regex_extractor=extractor
+        )
+
+        assert len(drafts) == 1
+        assert drafts[0].due_at == datetime(2026, 10, 15, 9, 30)
+
+    def test_multiple_relative_phrases_each_computed(self):
+        """同一文书多个相对期限句各自推算（缴费 7 日 + 上诉 15 日）。"""
+        text = "诉讼费请于收到本通知书之日起7日内交纳。如不服本裁定，可于送达之日起十日内申请复议。落款：2026年10月10日"
+
+        drafts = build_date_candidates(text, None, DocumentType.OTHER, regex_extractor=_stub_extractor([]))
+
+        by_type = {d.reminder_type: d.due_at for d in drafts}
+        assert by_type["payment_deadline"] == datetime(2026, 10, 17)
+        # 「申请复议」未命中动作词映射 → other，但日期仍按锚+10 推算
+        assert by_type["other"] == datetime(2026, 10, 20)
+
+    def test_two_payment_phrases_no_draft_stealing(self):
+        """两句 payment 期限 + LLM 只给一条落款日候选：context 精确认领优先于指纹，
+
+        两句各自有候选（task 7 真实形态：保全费两日内 + 受理费七日内）。"""
+        extractor = _stub_extractor([])
+        analysis = SimpleNamespace(
+            key_events=[_event("2026-10-10", "payment_deadline", "保全费请你方于收到本通知次日起两日内向本院交纳", 0.7)]
+        )
+        text = (
+            "案件受理费请你方于收到本通知次日起七日内向本院交纳。"
+            "保全费请你方于收到本通知次日起两日内向本院交纳。落款：2026年10月10日"
+        )
+
+        drafts = build_date_candidates(text, analysis, DocumentType.OTHER, regex_extractor=extractor)
+
+        by_due = {d.due_at: d for d in drafts}
+        assert len(by_due) == 2
+        # LLM 候选归属 context 精确命中的「两日内」，而非被「七日内」的指纹抢走
+        assert by_due[datetime(2026, 10, 12)].source == "llm"
+        assert "两日内" in by_due[datetime(2026, 10, 12)].context_text
+        assert by_due[datetime(2026, 10, 17)].source == "regex"
+        assert "七日内" in by_due[datetime(2026, 10, 17)].context_text
+
+    def test_absolute_hearing_date_not_affected(self):
+        """绝对日期候选不受相对期限规则影响（无相对句时零侵入）。"""
+        text = "本院定于2026年11月5日上午9时30分开庭审理。落款：2026年10月10日"
+
+        drafts = build_date_candidates(text, None, DocumentType.SUMMONS)
+
+        assert len(drafts) == 1
+        assert drafts[0].due_at == datetime(2026, 11, 5, 9, 30)
+        assert drafts[0].reminder_type == "hearing"
+
+
+# ---------------------------------------------------------------------------
 # DatetimeExtractionMixin.extract_datetime_candidates / _guess_reminder_type
 # ---------------------------------------------------------------------------
 
@@ -233,9 +442,7 @@ class TestExtractDatetimeCandidates:
         self.mixin = DatetimeExtractionMixin()
 
     def test_exposes_all_candidates_with_context(self):
-        evidence = self.mixin.extract_datetime_candidates(
-            "举证期限届满前请于2026年10月20日10时0分提交证据材料"
-        )
+        evidence = self.mixin.extract_datetime_candidates("举证期限届满前请于2026年10月20日10时0分提交证据材料")
         hearing = self.mixin.extract_datetime_candidates("开庭时间为2026年11月5日 9时30分")
 
         assert evidence[0]["datetime"] == datetime(2026, 10, 20, 10, 0)
@@ -302,6 +509,15 @@ class TestCourtDocumentAnalysisFields:
         assert analysis.court_name is None
         assert analysis.document_type == "other"
         assert analysis.case_number is None
+
+    def test_analysis_prompt_covers_relative_deadline(self):
+        """prompt 必须教 LLM 对相对期限表述做锚点推算，且禁止拿落款日当事件日。"""
+        from apps.document_recognition.services.document_analyzer import ANALYSIS_PROMPT
+
+        assert "相对表述" in ANALYSIS_PROMPT
+        assert "起算当日不计入" in ANALYSIS_PROMPT
+        assert "切勿把落款日期本身" in ANALYSIS_PROMPT
+        assert "不要虚构日期" in ANALYSIS_PROMPT
 
     def test_new_fields_populated(self):
         from apps.document_recognition.services.document_analyzer import CourtDocumentAnalysis, ExtractedDateEvent
@@ -466,9 +682,7 @@ class TestConfirmSingleItem:
     def test_invalid_reminder_type(self):
         row = _pending_row()
 
-        result = self._call(
-            _task(), {"candidate_id": 11, "action": "confirm", "reminder_type": "bogus"}, row
-        )
+        result = self._call(_task(), {"candidate_id": 11, "action": "confirm", "reminder_type": "bogus"}, row)
 
         assert result["status"] == "error"
         assert result["error_code"] == "INVALID_REMINDER_TYPE"
@@ -476,9 +690,7 @@ class TestConfirmSingleItem:
     def test_invalid_time_format(self):
         row = _pending_row()
 
-        result = self._call(
-            _task(), {"candidate_id": 11, "action": "confirm", "due_at": "garbage"}, row
-        )
+        result = self._call(_task(), {"candidate_id": 11, "action": "confirm", "due_at": "garbage"}, row)
 
         assert result["status"] == "error"
         assert result["error_code"] == "INVALID_TIME_FORMAT"
@@ -610,9 +822,7 @@ class TestRevokeConfirmation:
         row = self._row(reminder_id=88)
         MockTask.objects.select_for_update.return_value.get.return_value = self._task_with(row)
         reminder_service = MagicMock()
-        reminder_service.get_reminder.return_value = SimpleNamespace(
-            id=88, metadata={"source": dcs.REMINDER_SOURCE}
-        )
+        reminder_service.get_reminder.return_value = SimpleNamespace(id=88, metadata={"source": dcs.REMINDER_SOURCE})
 
         with patch.object(dcs, "_resolve_reminder_service", return_value=reminder_service):
             result = dcs.revoke_confirmation.__wrapped__(1, 11)  # type: ignore[attr-defined]

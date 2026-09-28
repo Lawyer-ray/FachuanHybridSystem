@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from django.db import transaction
@@ -77,6 +77,59 @@ _CN_YEAR_NUM: dict[str, int] = {
     "五": 5,
     "伍": 5,
 }
+
+# ---------------------------------------------------------------------------
+# 相对期限推算：「收到本通知次日起两日内交纳」等表述本身不含日期，
+# 以文书落款/打印日期为锚，按「起算当日不计入、自次日起算」推算届满日。
+# ---------------------------------------------------------------------------
+
+# 文书签发/落款日期（阿拉伯数字）：如「2025年11月11日」
+_ISSUE_DATE_RE = re.compile(r"(\d{4})年(\d{1,2})月(\d{1,2})日")
+# 文书签发/落款日期（中文数字）：如「二〇二五年十一月十一日」
+_ISSUE_DATE_CN_RE = re.compile(
+    r"([〇零一二三四五六七八九]{4})年([一二三四五六七八九十]{1,3})月([一二三四五六七八九十]{1,3})日"
+)
+
+# 相对期限数字：阿拉伯或中文（含大写与「两」），1~3 位
+_REL_DAYS_GROUP = r"(\d{1,3}|[一二三四五六七八九十两壹贰叁肆伍陆柒捌玖拾]{1,3})"
+
+# 带「收到/送达」锚的相对期限：如「收到本通知次日起两日内」「自收到本决定书之日起7日内」
+_RELATIVE_ANCHOR_RE = re.compile(
+    rf"(?:收到|接到|收悉|送达)[^，。；;\n]{{0,14}}?(?:之|次)?(?:日起?|后){_REL_DAYS_GROUP}日内"
+)
+# 无锚动作版：期限动词直接跟在「N日内」后，如「7日内付款」「十五日内向本院交纳」
+_RELATIVE_ACTION_RE = re.compile(rf"{_REL_DAYS_GROUP}日内[^，。；;\n]{{0,16}}?(?:交纳|缴纳|缴款|缴费|付款|支付|付清)")
+
+# 相对期限的事件类型：按动作动词判（「保全费…交纳」须判 payment 而非被名词「保全」带偏）
+_RELATIVE_EVENT_TYPES: list[tuple[str, tuple[str, ...]]] = [
+    ("payment_deadline", ("交纳", "缴纳", "缴款", "缴费", "付款", "支付", "付清")),
+    ("submission_deadline", ("补正", "提交材料", "递交材料")),
+    ("appeal_deadline", ("上诉",)),
+    ("evidence_deadline", ("举证",)),
+]
+
+_CN_DIGITS: dict[str, int] = {
+    "一": 1,
+    "壹": 1,
+    "二": 2,
+    "贰": 2,
+    "两": 2,
+    "三": 3,
+    "叁": 3,
+    "四": 4,
+    "肆": 4,
+    "五": 5,
+    "伍": 5,
+    "六": 6,
+    "陆": 6,
+    "七": 7,
+    "柒": 7,
+    "八": 8,
+    "捌": 8,
+    "九": 9,
+    "玖": 9,
+}
+_CN_YEAR_DIGITS: dict[str, int] = {"〇": 0, "零": 0, **_CN_DIGITS}
 
 
 def _add_years(start: datetime, years: int) -> datetime:
@@ -149,6 +202,201 @@ def _apply_period_rules(text: str, drafts: list[DateCandidateDraft]) -> list[Dat
             draft.due_at = datetime.combine(fix_to.date(), draft.due_at.time())
         kept.append(draft)
     return kept
+
+
+def _parse_cn_number(text: str) -> int | None:
+    """中文数字（1~99，含大写、「两」、「十」组合）或阿拉伯数字 → int；无法解析返回 None。"""
+    if text.isdigit():
+        return int(text)
+    for sep in ("十", "拾"):
+        if sep in text:
+            left, _, right = text.partition(sep)
+            if (left and left not in _CN_DIGITS) or (right and right not in _CN_DIGITS):
+                return None
+            tens = _CN_DIGITS.get(left, 1) if left else 1
+            ones = _CN_DIGITS.get(right, 0) if right else 0
+            return tens * 10 + ones
+    return _CN_DIGITS.get(text)
+
+
+def _parse_cn_year(text: str) -> int | None:
+    """中文数字年份逐位转换：「二〇二五」→ 2025。"""
+    value = 0
+    for ch in text:
+        digit = _CN_YEAR_DIGITS.get(ch)
+        if digit is None:
+            return None
+        value = value * 10 + digit
+    return value
+
+
+def _find_issue_date(text: str) -> datetime | None:
+    """文书签发/落款日期：取全文**最后一个**「YYYY年M月D日」（阿拉伯或中文数字）。
+
+    落款惯例在文末（如「打印日期：二〇二五年十一月十一日」），取最后一个
+    可避开正文中其他业务日期（开庭日、举证截止日等）。
+    """
+    found: list[datetime] = []
+    for m in _ISSUE_DATE_RE.finditer(text):
+        try:
+            found.append(datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))))
+        except ValueError:
+            continue
+    for m in _ISSUE_DATE_CN_RE.finditer(text):
+        year, month, day = _parse_cn_year(m.group(1)), _parse_cn_number(m.group(2)), _parse_cn_number(m.group(3))
+        if year is None or month is None or day is None:
+            continue
+        try:
+            found.append(datetime(year, month, day))
+        except ValueError:
+            continue
+    valid = [dt for dt in found if 2020 <= dt.year <= 2030]
+    return valid[-1] if valid else None
+
+
+def _relative_event_type(context: str) -> str:
+    """按动作动词推断相对期限的事件类型（未命中返回 other）。"""
+    for reminder_type, verbs in _RELATIVE_EVENT_TYPES:
+        if any(verb in context for verb in verbs):
+            return reminder_type
+    return "other"
+
+
+def _iter_relative_deadlines(text: str) -> list[tuple[re.Match[str], int, int, int]]:
+    """逐句扫描相对期限表述，返回 (匹配对象, 天数N, 句首偏移, 句长)。
+
+    每句优先「收到/送达」锚版，未命中再用动作版（避免同句被两个模式重复推算）。
+    句首偏移供后续取窗——上下文窗口不得跨句，否则相邻句的期限动词会互相污染。
+    """
+    results: list[tuple[re.Match[str], int, int, int]] = []
+    pos = 0
+    for sentence in re.split(r"[。；;\n]", text):
+        sent_start, sent_len = pos, len(sentence)
+        pos = sent_start + sent_len + 1  # 跳过单字符分隔符
+        if not sentence:
+            continue
+        m = _RELATIVE_ANCHOR_RE.search(sentence) or _RELATIVE_ACTION_RE.search(sentence)
+        if m is None:
+            continue
+        days = _parse_cn_number(m.group(1))
+        if days is None or not 1 <= days <= 365:
+            continue
+        results.append((m, days, sent_start, sent_len))
+    return results
+
+
+def _match_relative_draft_by_context(
+    drafts: list[DateCandidateDraft], core: str, claimed: set[int]
+) -> DateCandidateDraft | None:
+    """按「原文表述出现在候选 context 中」精确认领（LLM 保留原文时最可靠）。"""
+    if not core:
+        return None
+    for draft in drafts:
+        if id(draft) not in claimed and core in (draft.context_text or ""):
+            return draft
+    return None
+
+
+def _match_relative_draft_by_fingerprint(
+    drafts: list[DateCandidateDraft], event_type: str, anchor: datetime, claimed: set[int]
+) -> DateCandidateDraft | None:
+    """按「同类型且日期=锚日」指纹认领——LLM 把落款日直接当事件日的典型形态。"""
+    for draft in drafts:
+        if id(draft) not in claimed and draft.reminder_type == event_type and draft.due_at.date() == anchor.date():
+            return draft
+    return None
+
+
+def _apply_relative_deadline_rules(text: str, drafts: list[DateCandidateDraft]) -> list[DateCandidateDraft]:
+    """相对期限推算（确定性规则，不依赖 LLM）。
+
+    「保全费请你方于收到本通知次日起两日内向本院交纳」这类表述不含日期，
+    LLM 常就近把落款日当事件日。规则以签发/落款日期为锚，按「起算当日
+    不计入、自次日起算」推算届满日 = 锚 + N 天（「次日起两日内」：次日为
+    第 1 天 → 锚 + 2；「（之）日起七日内」→ 锚 + 7）。
+
+    认领分三轮，避免多期限句互相争抢同一条候选（context 精确匹配优先于
+    指纹兜底）：1) 原文表述出现在候选 context → 校正该候选；2) 未认领事件
+    按「同类型且日期=锚日」指纹认领；3) 仍未认领（LLM 漏提）→ 补正则候选。
+    """
+    if not text:
+        return drafts
+    anchor = _find_issue_date(text)
+    if anchor is None:
+        return drafts
+
+    events: list[dict[str, Any]] = []
+    for m, days, sent_start, sent_len in _iter_relative_deadlines(text):
+        # 取窗不越过句边界：相邻句的期限动词（如前句的「交纳」）不得污染本句类型判断
+        ctx_from = max(sent_start, sent_start + m.start() - 20)
+        ctx_to = min(sent_start + sent_len, sent_start + m.end() + 25)
+        context = text[ctx_from:ctx_to].strip()
+        events.append(
+            {
+                "core": m.group(0)[:18],
+                "days": days,
+                "deadline": anchor + timedelta(days=days),
+                "context": context,
+                "event_type": _relative_event_type(context),
+                "claimed": False,
+            }
+        )
+
+    results = list(drafts)
+    claimed_drafts: set[int] = set()
+
+    def _claim(draft: DateCandidateDraft, event: dict[str, Any]) -> None:
+        if draft.due_at.date() != event["deadline"].date():
+            logger.warning(
+                "相对期限届满日校正: %s -> %s (锚=%s + %d天, %s)",
+                draft.due_at.date(),
+                event["deadline"].date(),
+                anchor.date(),
+                event["days"],
+                event["context"][:40],
+            )
+            draft.due_at = datetime.combine(event["deadline"].date(), draft.due_at.time())
+        draft.confidence = max(draft.confidence, 0.9)
+        claimed_drafts.add(id(draft))
+        event["claimed"] = True
+
+    # 1) context 精确认领
+    for event in events:
+        draft = _match_relative_draft_by_context(results, event["core"], claimed_drafts)
+        if draft is not None:
+            _claim(draft, event)
+
+    # 2) 指纹兜底认领（LLM 把落款日当事件日的典型形态）
+    for event in events:
+        if event["claimed"]:
+            continue
+        draft = _match_relative_draft_by_fingerprint(results, event["event_type"], anchor, claimed_drafts)
+        if draft is not None:
+            _claim(draft, event)
+
+    # 3) LLM 漏提 → 补正则候选
+    for event in events:
+        if event["claimed"]:
+            continue
+        if any(d.due_at.date() == event["deadline"].date() and d.reminder_type == event["event_type"] for d in results):
+            continue  # LLM 已按 prompt 正确推算，不重复补
+        results.append(
+            DateCandidateDraft(
+                due_at=event["deadline"],
+                reminder_type=event["event_type"],
+                context_text=event["context"][:255],
+                source="regex",
+                confidence=0.85,
+            )
+        )
+        logger.info(
+            "相对期限推算候选: 届满=%s (锚=%s + %d天, type=%s)",
+            event["deadline"].date(),
+            anchor.date(),
+            event["days"],
+            event["event_type"],
+        )
+    return results
 
 
 def _dedupe_same_context(drafts: list[DateCandidateDraft]) -> list[DateCandidateDraft]:
@@ -273,8 +521,9 @@ def build_date_candidates(
             if not existing.context_text:
                 existing.context_text = str(candidate.get("context_text", ""))[:255]
 
-    # 3. 期间结构后处理：起始日剔除、到期日算术校正、同上下文去重
+    # 3. 期间结构后处理：起始日剔除、到期日算术校正、相对期限推算、同上下文去重
     drafts_list = _apply_period_rules(text, list(drafts.values()))
+    drafts_list = _apply_relative_deadline_rules(text, drafts_list)
 
     # 4. 陈旧候选降置信（改判文书可能含历史日期，折叠而非丢弃）
     today = timezone.localdate()
