@@ -288,6 +288,17 @@ class CaseBindingService:
         if date_count > 0:
             lines.append(f"识别到 {date_count} 个关键日期（待人工确认后写入重要日期提醒）")
 
+        from apps.document_recognition.services.contact_extraction_service import extract_contacts
+
+        for row in extract_contacts(raw_text):
+            name, phone = str(row["name"]), row["phone"]
+            if name and phone:
+                lines.append(f"联系人：{name}（{phone}）")
+            elif name:
+                lines.append(f"联系人：{name}")
+            elif phone:
+                lines.append(f"联系电话：{phone}")
+
         # 添加原始文本摘要（限制长度）
         if raw_text:
             text_preview = raw_text[:500]

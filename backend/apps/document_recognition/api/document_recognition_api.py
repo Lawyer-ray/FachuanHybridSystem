@@ -151,6 +151,14 @@ class CaseRecommendationOutSchema(BaseModel):
     status: str = Field("", description="案件状态")
 
 
+class ContactOutSchema(BaseModel):
+    """文书联系人（读时从原文提取）"""
+
+    role: str = Field("", description="角色标签（联系人/承办法官等）")
+    name: str = Field("", description="联系人姓名（多人以、分隔）")
+    phone: str | None = Field(None, description="联系电话")
+
+
 class TaskStatusResponseSchema(BaseModel):
     """任务状态响应"""
 
@@ -161,6 +169,9 @@ class TaskStatusResponseSchema(BaseModel):
     recognition: RecognitionResultSchema | None = None
     binding: BindingResultSchema | None = None
     date_candidates: list[DateCandidateOutSchema] = Field(default_factory=list, description="日期候选列表")
+    contacts: list[ContactOutSchema] = Field(
+        default_factory=list, description="文书联系人（联系人/联系电话，读时从原文提取）"
+    )
     recommendations: list[CaseRecommendationOutSchema] = Field(
         default_factory=list, description="案件绑定推荐（未绑定时返回）"
     )
@@ -371,8 +382,15 @@ async def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchem
         binding = None
         date_candidates: list[DateCandidateOutSchema] = []
         recommendations: list[CaseRecommendationOutSchema] = []
+        contacts: list[ContactOutSchema] = []
 
         if task.status == "success":
+            from apps.document_recognition.services.contact_extraction_service import extract_contacts
+
+            contacts = [
+                ContactOutSchema(role=str(row["role"]), name=str(row["name"]), phone=row["phone"])
+                for row in extract_contacts(task.raw_text)
+            ]
             recognition = RecognitionResultSchema(
                 document_type=task.document_type,
                 case_number=task.case_number,
@@ -408,6 +426,7 @@ async def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchem
             recognition=recognition,
             binding=binding,
             date_candidates=date_candidates,
+            contacts=contacts,
             recommendations=recommendations,
             binding_mode="pipeline" if task.source_court_sms_id else "standalone",
             date_confirmation_status=task.date_confirmation_status,
