@@ -39,6 +39,8 @@ export function DocConvertCard() {
       document.body.appendChild(a)
       a.click()
       a.remove()
+      // click() 同步触发下载后即可释放，不 revoke 的话每次转换泄漏一个 Blob URL
+      URL.revokeObjectURL(res.downloadUrl)
       toast.success(`转换完成，已下载「${res.filename}」`)
     } catch (e) {
       toast.error(errMessage(e, '要素式转换失败，请检查文件格式'))

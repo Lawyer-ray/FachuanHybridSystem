@@ -116,6 +116,9 @@ function shareInflightSession(key: string, run: () => Promise<SocialSession>): P
   return p
 }
 
+/** 已启用登录方式的 query key（与 socialAuthApi.listProviders 配套） */
+export const SOCIAL_PROVIDERS_KEY = ['social-providers'] as const
+
 export const socialAuthApi = {
   async listProviders(): Promise<SocialProviderInfo[]> {
     try {

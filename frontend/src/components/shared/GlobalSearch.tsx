@@ -49,6 +49,9 @@ const CATEGORY_ORDER = ['cases', 'clients', 'contracts', 'inbox', 'court_sms', '
 /** 输入防抖间隔（ms）：输入即搜，但请求攒一撮再发，避免每次按键都重排结果列表 */
 const DEBOUNCE_MS = 250
 
+/** 全局检索 query key 前缀（本组件独用，完整 key 为 [前缀, 检索词]） */
+const GLOBAL_SEARCH_KEY = 'global-search'
+
 async function runSearch(q: string): Promise<Hit[]> {
   const res = await searchApi.get('', { searchParams: { q, limit: 8 } }).json<Record<string, { id: number; title: string; subtitle: string }[]>>()
   const out: Hit[] = []
@@ -99,7 +102,7 @@ export function GlobalSearch({
   }, [trimmed, debounced])
 
   const { data, isFetching } = useQuery({
-    queryKey: ['global-search', debounced],
+    queryKey: [GLOBAL_SEARCH_KEY, debounced],
     queryFn: () => runSearch(debounced),
     enabled: open && debounced.length >= 1,
     staleTime: 30_000,
