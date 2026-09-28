@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ExternalLink, FileText, Loader2, TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -148,11 +148,20 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
 
   const previewUrl = isFileMode && task?.file_url ? resolveMediaUrl(task.file_url) : ''
   const hasPreview = Boolean(previewUrl)
+  // 分屏态 = 识别完成且有原文可预览；等待/错误/文字模式保持紧凑小窗
+  const splitReady = contentReady && hasPreview
   const fileUrl = hasPreview ? previewUrl : isFileMode && task?.file_url ? task.file_url : ''
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="flex max-h-[88vh] w-full flex-col gap-0 overflow-x-hidden overflow-y-auto p-6 sm:max-w-[560px] lg:h-[88vh] lg:max-w-[1120px] lg:overflow-hidden">
+      <DialogContent
+        className={cn(
+          'flex w-full flex-col gap-0 overflow-x-hidden p-6 transition-[max-width] duration-300 ease-out',
+          splitReady
+            ? 'max-h-[88vh] sm:max-w-[560px] lg:h-[88vh] lg:max-w-[1120px] lg:overflow-hidden'
+            : 'max-h-[85vh] max-w-[560px] overflow-y-auto',
+        )}
+      >
         <DialogHeader className="shrink-0 pb-2">
           <DialogTitle className="flex min-w-0 items-start gap-2 text-[15px]">
             <FileText className="mt-0.5 h-4 w-4 flex-none text-muted-foreground" />
@@ -164,15 +173,19 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
         </DialogHeader>
 
         {showProgress && (
-          <RecognitionProgress
-            phase={phase === 'submitting' ? 'submitting' : 'polling'}
-            fileName={file?.name ?? '文书'}
-            hint={hint}
-          />
+          // 紧凑小窗内垂直居中，顶部一层环境光晕
+          <div className="relative flex min-h-[380px] items-center justify-center">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-status-blue-bg/70 to-transparent" />
+            <RecognitionProgress
+              phase={phase === 'submitting' ? 'submitting' : 'polling'}
+              fileName={file?.name ?? '文书'}
+              hint={hint}
+            />
+          </div>
         )}
 
         {showError && (
-          <div className="flex flex-col items-center gap-3 py-10">
+          <div className="flex min-h-[240px] flex-col items-center justify-center gap-3">
             <TriangleAlert className="h-6 w-6 text-status-red" />
             <span className="text-[12.5px] text-muted-foreground">{error}</span>
             <Button variant="outline" size="sm" onClick={onClose}>
@@ -188,25 +201,33 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
 
             <div
               className={cn(
-                'flex animate-in fade-in flex-col gap-3.5 duration-300 lg:min-h-0 lg:overflow-y-auto lg:pr-1',
+                'flex animate-in fade-in flex-col gap-3 duration-300 lg:min-h-0 lg:overflow-y-auto lg:pr-1',
                 !hasPreview && 'w-full',
               )}
             >
-              {isFileMode && task && recognition && <RecognitionSummary task={task} recognition={recognition} />}
+              {isFileMode && task && recognition && (
+                <StepCard title="识别结果">
+                  <RecognitionSummary task={task} recognition={recognition} />
+                </StepCard>
+              )}
 
-              {isFileMode && task && <CaseBindingSection task={task} onBound={refresh} />}
+              {isFileMode && task && (
+                <StepCard step={1} title="关联案件" muted>
+                  <CaseBindingSection task={task} onBound={refresh} />
+                </StepCard>
+              )}
 
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] font-semibold">
-                    {isFileMode ? '第 2 步 · 确认关键日期' : '确认日期'}
-                  </span>
-                  {rows.length > 0 && (
-                    <span className="text-[11px] text-muted-foreground">
+              <StepCard
+                step={isFileMode ? 2 : undefined}
+                title={isFileMode ? '确认关键日期' : '确认日期'}
+                trailing={
+                  rows.length > 0 ? (
+                    <span className="text-[11px] font-normal text-muted-foreground">
                       {rows.filter((r) => r.status === 'confirmed').length}/{rows.length} 已确认
                     </span>
-                  )}
-                </div>
+                  ) : undefined
+                }
+              >
                 <DateCandidateList
                   rows={rows}
                   interactive={isFileMode}
@@ -220,9 +241,9 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
                   onRevoke={doRevoke}
                 />
                 {rows.length > 0 && rows.every((r) => r.status !== 'pending') && (
-                  <span className="text-center text-[11.5px] text-status-green">全部处理完成</span>
+                  <span className="mt-1 block text-center text-[11.5px] text-status-green">全部处理完成</span>
                 )}
-              </div>
+              </StepCard>
             </div>
           </div>
         )}
@@ -263,4 +284,39 @@ function patchRowWithOverride(
   patch: Partial<CandidateRow>,
 ): Record<string, Partial<CandidateRow>> {
   return { ...prev, [key]: { ...(prev[key] ?? {}), ...patch } }
+}
+
+/** 确认清单的分区卡片：步骤徽章（可选）+ 标题 + 右侧 trailing + 内容。 */
+function StepCard({
+  step,
+  title,
+  trailing,
+  muted = false,
+  children,
+}: {
+  step?: number
+  title: string
+  trailing?: ReactNode
+  muted?: boolean
+  children: ReactNode
+}) {
+  return (
+    <section className="animate-in fade-in slide-in-from-bottom-1 flex flex-col gap-2.5 rounded-[12px] border border-border bg-card px-3.5 py-3 duration-300">
+      <div className="flex items-center gap-2">
+        {step != null && (
+          <span
+            className={cn(
+              'flex h-[18px] w-[18px] flex-none items-center justify-center rounded-full text-[10px] font-semibold',
+              muted ? 'border border-border bg-secondary text-muted-foreground' : 'bg-foreground text-background',
+            )}
+          >
+            {step}
+          </span>
+        )}
+        <span className={cn('text-[13px] font-semibold', muted && 'text-muted-foreground')}>{title}</span>
+        {trailing && <span className="ml-auto">{trailing}</span>}
+      </div>
+      {children}
+    </section>
+  )
 }
