@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-
 # ===================================================================
 # Recognize document
 # ===================================================================
@@ -68,6 +67,15 @@ def test_get_task_status_success(mock_get_svc, authenticated_client):
     mock_task.extraction_method = "ocr"
     mock_task.binding_success = None
     mock_task.error_message = None
+    # 状态端点读时对 raw_text 做联系人/地址提取、序列化 party_names，
+    # MagicMock 会让正则抛 TypeError / JSON 序列化失败，须给真实值
+    mock_task.raw_text = ""
+    mock_task.party_names = []
+    mock_task.llm_model = None
+    mock_task.llm_backend = None
+    mock_task.llm_latency_ms = None
+    mock_task.degraded = False
+    mock_task.date_confirmation_status = "none"
     mock_task.created_at = MagicMock()
     mock_task.created_at.isoformat.return_value = "2026-01-01T00:00:00Z"
     mock_task.finished_at = MagicMock()
@@ -94,6 +102,15 @@ def test_get_task_status_pending(mock_get_svc, authenticated_client):
     mock_task.file_path = "/tmp/test.pdf"
     mock_task.renamed_file_path = None
     mock_task.error_message = None
+    # 状态端点读时对 raw_text 做联系人/地址提取、序列化 party_names，
+    # MagicMock 会让正则抛 TypeError / JSON 序列化失败，须给真实值
+    mock_task.raw_text = ""
+    mock_task.party_names = []
+    mock_task.llm_model = None
+    mock_task.llm_backend = None
+    mock_task.llm_latency_ms = None
+    mock_task.degraded = False
+    mock_task.date_confirmation_status = "none"
     mock_task.created_at = MagicMock()
     mock_task.created_at.isoformat.return_value = "2026-01-01T00:00:00Z"
     mock_task.finished_at = None

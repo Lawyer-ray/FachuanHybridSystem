@@ -222,6 +222,9 @@ def test_get_sms_detail(mock_build, mock_doc_ref, authenticated_client):
     mock_sms.case = None
     mock_sms.error_message = None
     mock_sms.retry_count = 0
+    # CourtSMSDetailOut 透出下载子任务状态（v27.1.9），MagicMock 会被
+    # pydantic 的 str 校验拒绝，须给真实值
+    mock_sms.scraper_task = None
     mock_sms.feishu_sent_at = None
     mock_sms.feishu_error = ""
     mock_sms.notification_results = {}

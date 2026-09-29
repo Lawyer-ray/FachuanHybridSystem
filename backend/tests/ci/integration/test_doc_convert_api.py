@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-
 # ===================================================================
 # MBID list
 # ===================================================================
@@ -31,12 +30,19 @@ def test_get_mbid_list(authenticated_client):
 @pytest.mark.django_db
 @patch("apps.doc_convert.api.doc_convert_api._check_znszj_enabled")
 @patch("apps.doc_convert.api.doc_convert_api._get_doc_convert_service")
-def test_convert_document(mock_get_svc, mock_check, authenticated_client):
+@patch("apps.doc_convert.api.doc_convert_api.DocConvertRecordService")
+def test_convert_document(mock_records, mock_get_svc, mock_check, authenticated_client):
     mock_svc = MagicMock()
     mock_svc.convert_document.return_value = b"fake docx bytes"
     mock_get_svc.return_value = mock_svc
+    # 转换落库依赖真实 Lawyer 外键，集成测试用户无库行，mock 掉记录服务
+    mock_records.return_value.record_success.return_value = None
 
-    f = SimpleUploadedFile("document.docx", b"fake docx", content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    f = SimpleUploadedFile(
+        "document.docx",
+        b"fake docx",
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
     resp = authenticated_client.post(
         "/api/v1/doc-convert/convert",
         {"file": f, "mbid": "test-mbid"},
@@ -46,9 +52,15 @@ def test_convert_document(mock_get_svc, mock_check, authenticated_client):
 
 
 @pytest.mark.django_db
-def test_convert_document_invalid_mbid(authenticated_client):
+@patch("apps.doc_convert.api.doc_convert_api.DocConvertRecordService")
+def test_convert_document_invalid_mbid(mock_records, authenticated_client):
     """When mbid is invalid, should return 400."""
-    f = SimpleUploadedFile("document.docx", b"fake docx", content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    mock_records.return_value.record_failure.return_value = None
+    f = SimpleUploadedFile(
+        "document.docx",
+        b"fake docx",
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
     resp = authenticated_client.post(
         "/api/v1/doc-convert/convert",
         {"file": f, "mbid": "invalid-mbid"},
