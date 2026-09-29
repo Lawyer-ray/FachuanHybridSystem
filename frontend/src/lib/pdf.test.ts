@@ -7,11 +7,11 @@ describe('pdfRenderWidthFor（DPR 感知的渲染宽度）', () => {
     expect(pdfRenderWidthFor(900, 2)).toBe(1800)
   })
 
-  it('DPR=1 时保持基础宽度', () => {
-    expect(pdfRenderWidthFor(900, 1)).toBe(900)
+  it('DPR=1 最低超采样 1.5x：外接屏也有余量（900 → 1350）', () => {
+    expect(pdfRenderWidthFor(900, 1)).toBe(1350)
   })
 
-  it('DPR 封顶 2：3x 屏不翻倍（960×3 → 1920 上限内）', () => {
+  it('DPR 封顶 2：3x 屏不翻倍（960×2 → 1920 上限内）', () => {
     expect(pdfRenderWidthFor(960, 3)).toBe(1920)
   })
 
