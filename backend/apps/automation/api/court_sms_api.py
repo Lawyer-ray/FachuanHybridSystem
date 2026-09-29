@@ -88,8 +88,9 @@ async def get_sms_detail(request: Any, sms_id: int) -> CourtSMSDetailOut:  # pra
     service = _get_court_sms_service()
 
     sms = await sync_to_async(service.get_sms_detail)(sms_id)
-
-    return CourtSMSDetailOut.from_model(sms)
+    # from_model 内的文书引用聚合会对关联做懒加载查询 + 文件系统 I/O，
+    # 必须丢进线程执行，否则在 async 视图里抛 SynchronousOnlyOperation
+    return await sync_to_async(CourtSMSDetailOut.from_model)(sms)
 
 
 @router.get("/court-sms", response=list[CourtSMSListOut])
@@ -125,7 +126,9 @@ async def list_sms(  # pragma: no cover
 
 
 @router.post("/court-sms/{sms_id}/assign-case", response=CourtSMSAssignCaseOut)
-async def assign_case(request: Any, sms_id: int, payload: CourtSMSAssignCaseIn) -> CourtSMSAssignCaseOut:  # pragma: no cover
+async def assign_case(
+    request: Any, sms_id: int, payload: CourtSMSAssignCaseIn
+) -> CourtSMSAssignCaseOut:  # pragma: no cover
     """
     手动指定案件
 
@@ -254,7 +257,9 @@ async def download_all_documents(request: Any, sms_id: int) -> FileResponse:  # 
 
 
 @router.post("/court-sms/{sms_id}/documents/{ref_index}/rename")
-async def rename_document(request: Any, sms_id: int, ref_index: int, payload: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover
+async def rename_document(
+    request: Any, sms_id: int, ref_index: int, payload: dict[str, Any]
+) -> dict[str, Any]:  # pragma: no cover
     """重命名单个关联文书"""
     from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
     from apps.automation.services.sms.court_sms_repository import CourtSMSRepository

@@ -58,7 +58,11 @@ class CourtSMSDocumentReferenceService:  # pragma: no cover
         if not sms.scraper_task or not hasattr(sms.scraper_task, "documents"):
             return
 
-        for doc in sms.scraper_task.documents.filter(download_status="success"):
+        # 用 .all() 走 prefetch 缓存再在内存过滤；对关联直接 .filter() 会绕过缓存
+        # 发新查询（async 调用方会因此抛 SynchronousOnlyOperation）
+        for doc in sms.scraper_task.documents.all():
+            if doc.download_status != "success":
+                continue
             normalized = self._normalize_existing_path(doc.local_file_path)
             if not normalized or normalized in seen_paths:
                 continue
