@@ -166,7 +166,7 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
         className={cn(
           'flex w-full flex-col gap-0 overflow-x-hidden p-6 transition-[max-width] duration-300 ease-out',
           splitReady
-            ? 'max-h-[88vh] sm:max-w-[560px] lg:h-[88vh] lg:max-w-[1120px] lg:overflow-hidden'
+            ? 'max-h-[88vh] sm:max-w-[560px] lg:h-[88vh] lg:w-[min(95vw,calc(100vw-48px))] lg:max-w-none lg:overflow-hidden'
             : 'max-h-[85vh] max-w-[560px] overflow-y-auto',
         )}
       >

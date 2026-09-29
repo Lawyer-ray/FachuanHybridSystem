@@ -69,7 +69,8 @@ export function useSplitDrag(): [number, () => void, RefObject<HTMLDivElement | 
   return [pct, startDrag, bodyRef, dragging]
 }
 
-/** 弹窗整体宽度拖拽（px，右缘手柄向右拉变宽）：范围 [MIN_DIALOG_WIDTH, 视口-32px]，localStorage 记忆。 */
+/** 弹窗整体宽度拖拽（px，右缘手柄向右拉变宽）：范围 [MIN_DIALOG_WIDTH, 视口-32px]，localStorage 记忆。
+ *  默认 null = 走 CSS 自适应宽（min(95vw, 视口-48px)，接近网页边缘）——用户只需调小，不必先调大。 */
 export function useDialogWidthDrag(): [number | null, (e: { preventDefault: () => void; clientX: number; currentTarget: EventTarget & HTMLElement }) => void, boolean] {
   const [width, setWidth] = useState<number | null>(initialDialogWidth)
   const [dragging, setDragging] = useState(false)
