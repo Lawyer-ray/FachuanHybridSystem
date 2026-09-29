@@ -5,8 +5,9 @@ import { toast } from 'sonner'
 
 import { CONVERT_TEMPLATES_KEY, convertDocument, listConvertTemplates, type ConvertResult } from '../../api'
 import { TOOL_ENDPOINT } from '../../constants'
-import { BTN, BTN_PRIMARY, FIELD } from '../../ui'
+import { BTN, BTN_PRIMARY } from '../../ui'
 import { Spinner, ToolShell } from './shared'
+import { TemplateCombobox } from './TemplateCombobox'
 import { FlowNotice, TaskFlowDialog } from './dialog/TaskFlowDialog'
 import { errMessage } from '@/lib/errors'
 
@@ -72,18 +73,8 @@ export function DocConvertCard() {
   return (
     <ToolShell icon={<FileText className="h-3.5 w-3.5" />} title="要素式转换" endpoint={TOOL_ENDPOINT.docConvert}>
       <div className="flex flex-1 flex-col gap-[7px]">
-        <select className={FIELD} value={mbid} onChange={(e) => setMbid(e.target.value)} disabled={isLoading || busy}>
-          <option value="">{isLoading ? '正在加载文书模板…' : '选择文书类型…'}</option>
-          {groups.map((g) => (
-            <optgroup key={g.category} label={g.category}>
-              {g.items.map((it) => (
-                <option key={it.mbid} value={it.mbid}>
-                  {it.name}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
+        {/* 可搜索组合框：60+ 模板原生下拉又长又不能搜 */}
+        <TemplateCombobox groups={groups} value={mbid} onChange={setMbid} disabled={isLoading || busy} />
 
         <label
           className={`flex items-center gap-2 rounded-[8px] border border-dashed border-input bg-secondary/30 px-[9px] py-[6px] transition-colors ${
