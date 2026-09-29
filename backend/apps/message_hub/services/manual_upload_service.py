@@ -14,6 +14,7 @@ from django.utils import timezone
 
 from apps.core.services.storage_service import delete_media_file
 from apps.message_hub.models import InboxMessage, MessageSource, SourceType
+from apps.message_hub.services.attachment_page_service import fill_page_counts
 from apps.message_hub.services.base import MessageFetcher, resolve_media_attachment_path
 
 logger = logging.getLogger("apps.message_hub")
@@ -85,6 +86,8 @@ def create_manual_message(files: list[Any], subject: str = "", uploaded_by: Any 
             }
         )
         uploaded.seek(0)
+    # 上传即算好 PDF 页数，前端打开材料包无需下载整包数页数
+    fill_page_counts(attachment_metas)
 
     effective_subject = subject.strip() or f"{MANUAL_SOURCE_DISPLAY_NAME}材料"
     message = InboxMessage.objects.create(
@@ -130,6 +133,7 @@ def append_manual_attachments(message: InboxMessage, files: list[Any]) -> InboxM
             }
         )
         uploaded.seek(0)
+    fill_page_counts(metas)
     message.attachments_meta = metas
     message.has_attachments = bool(metas)
     message.save(update_fields=["attachments_meta", "has_attachments"])

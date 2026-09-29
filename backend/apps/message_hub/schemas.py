@@ -19,6 +19,8 @@ class AttachmentMeta(Schema):
     size: int
     content_type: str
     part_index: int
+    """PDF 页数（上传时 / 详情读取时回填算好），前端构建初始分段用，避免整包下载。非 PDF 为 None。"""
+    page_count: int | None = None
 
 
 class InboxMessageOut(SchemaMixin, Schema):

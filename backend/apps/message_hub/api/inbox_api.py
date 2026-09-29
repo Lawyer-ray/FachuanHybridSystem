@@ -119,8 +119,12 @@ def rename_message(request: HttpRequest, message_id: int, payload: RenameMessage
 
 @router.get("/messages/{message_id}", response=InboxMessageDetailOut)
 def get_message(request: HttpRequest, message_id: int) -> Any:  # pragma: no cover
-    """收件箱消息详情。"""
-    return _get_message_or_404(message_id)
+    """收件箱消息详情。老消息缺 PDF 页数时顺手回填（前端秒开材料包依赖 page_count）。"""
+    msg = _get_message_or_404(message_id)
+    from apps.message_hub.services.attachment_page_service import ensure_page_counts
+
+    ensure_page_counts(msg)
+    return msg
 
 
 @router.delete("/messages/{message_id}")

@@ -87,6 +87,7 @@ class InboxMessage(models.Model):
 
             size = _safe_int(item.get("size", 0), default=0)
             part_index = _safe_int(item.get("part_index", -1))
+            page_count = _safe_int(item.get("page_count", 0), default=0)
 
             public_items.append(
                 {
@@ -96,6 +97,7 @@ class InboxMessage(models.Model):
                     "size": max(size, 0),
                     "content_type": str(item.get("content_type") or "application/octet-stream"),
                     "part_index": part_index,
+                    "page_count": page_count if page_count > 0 else None,
                 }
             )
 
