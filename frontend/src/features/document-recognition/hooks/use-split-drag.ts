@@ -71,17 +71,16 @@ export function useSplitDrag(): [number, () => void, RefObject<HTMLDivElement | 
 
 /** 弹窗整体宽度拖拽（px，右缘手柄向右拉变宽）：范围 [MIN_DIALOG_WIDTH, 视口-32px]，localStorage 记忆。
  *  默认 null = 走 CSS 自适应宽（min(95vw, 视口-48px)，接近网页边缘）——用户只需调小，不必先调大。
- *  记忆宽度随窗口 resize 实时钳制到视口内，避免小屏被历史大宽度撑爆。 */
+ *  返回的是「派生有效宽度」：存储的期望宽度不随窗口缩放被改写（反复拉宽变窄不丢），
+ *  仅在渲染时钳到当前视口内。 */
 export function useDialogWidthDrag(): [number | null, (e: { preventDefault: () => void; clientX: number; currentTarget: EventTarget & HTMLElement }) => void, boolean] {
   const [width, setWidth] = useState<number | null>(initialDialogWidth)
   const [dragging, setDragging] = useState(false)
+  const [viewportW, setViewportW] = useState(() => window.innerWidth)
   const startRef = useRef({ x: 0, w: 0 })
 
-  // 窗口变小时把记忆宽度钳回视口内（弹窗打开期间缩放窗口/分屏拖动系统窗口）
   useEffect(() => {
-    const onResize = () => {
-      setWidth((w) => (w == null ? null : Math.min(w, window.innerWidth - 32)))
-    }
+    const onResize = () => setViewportW(window.innerWidth)
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
@@ -109,5 +108,7 @@ export function useDialogWidthDrag(): [number | null, (e: { preventDefault: () =
     setDragging(true)
   }, [])
 
-  return [width, startDrag, dragging]
+  // 派生有效宽度：期望宽度只在渲染时钳到视口内，存储值不被窗口缩放破坏
+  const effectiveWidth = width == null ? null : Math.min(width, Math.max(0, viewportW - 32))
+  return [effectiveWidth, startDrag, dragging]
 }
