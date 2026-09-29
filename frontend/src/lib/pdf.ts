@@ -17,6 +17,53 @@ export { pdfjsLib }
 /** PDF 页渲染的目标像素宽度（CSS 宽度固定，交给父容器缩放） */
 export const PDF_RENDER_WIDTH = 900
 
+/** DPR 上限：3x 屏封到 2，避免单页位图内存翻倍（1920 宽 A4 ≈ 21MB RGBA） */
+export const PDF_RENDER_DPR_CAP = 2
+
+/** 渲染位图宽度上限（物理像素）：A4 @ ~164DPI，Retina 全宽下的清晰度已足够 */
+export const PDF_RENDER_MAX_WIDTH = 1920
+
+/**
+ * 按显示需求计算渲染位图宽度：容器 CSS 宽 × devicePixelRatio（封顶 2）。
+ *
+ * 固定 900 物理像素的 canvas 在 Retina 屏上会被拉伸 ≥2 倍显示（900 位图
+ * 摊到 1800+ 屏幕像素上，插值后文字发虚）——扫描件尤其明显。传入实际
+ * 显示宽度后位图与屏幕像素 1:1，与原生查看器观感一致。
+ *
+ * dpr 参数仅为可测性（node 环境无 window），运行时取当前屏幕。
+ */
+export function pdfRenderWidthFor(cssWidth: number, dpr?: number): number {
+  const ratio = dpr ?? (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)
+  const capped = Math.min(ratio, PDF_RENDER_DPR_CAP)
+  return Math.round(Math.min(Math.max(Math.round(cssWidth * capped), PDF_RENDER_WIDTH), PDF_RENDER_MAX_WIDTH))
+}
+
+/**
+ * 把渲染好的 canvas 转成驻留 <img>（WebP，退 JPEG）：编码完成后替换 DOM。
+ *
+ * 为什么要换：离屏 canvas 的位图内存（1920 宽 A4 ≈ 21MB/页）由页面持有、
+ * 浏览器无法回收——92 页大包滚完即 ~1.9GB。换成 <img> 后浏览器只保留
+ * 压缩数据（~250KB/页），离屏时自动丢弃解码位图、滚回时快速重解码。
+ * 显示中的画面无缝（先挂 canvas、编码完成再替换），清晰度无损于 CSS 拉伸。
+ */
+export async function canvasToRetainedImg(canvas: HTMLCanvasElement, quality = 0.9): Promise<HTMLImageElement> {
+  const encode = (type: string) =>
+    new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality))
+  const blob = (await encode('image/webp')) ?? (await encode('image/jpeg'))
+  if (!blob) throw new Error('canvas 编码失败')
+  const img = new Image()
+  img.decoding = 'async'
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve()
+    img.onerror = () => reject(new Error('驻留图解码失败'))
+    img.src = URL.createObjectURL(blob)
+  })
+  // blob URL 与 img 同生命周期驻留（不 revoke）：浏览器丢弃离屏解码位图后
+  // 滚回时需经 src 重新解码，提前 revoke 会导致重解码失败页面空白。
+  // 常驻成本仅为压缩数据（~250KB/页）。
+  return img
+}
+
 /**
  * PDF 文档缓存：按 key（`messageId:partIndex`）保存已加载的文档与加载任务。
  *

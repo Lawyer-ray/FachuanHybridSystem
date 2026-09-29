@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { Image as ImageIcon, FileText } from 'lucide-react'
-import { loadPdfDocument, renderPdfPage, PDF_RENDER_WIDTH } from '@/lib/pdf'
+import { canvasToRetainedImg, loadPdfDocument, pdfRenderWidthFor, renderPdfPage } from '@/lib/pdf'
 import { fetchAttachmentBytes } from '../../api'
 import type { BundleMat } from '../../types'
 import { cn } from '@/lib/utils'
@@ -182,7 +182,8 @@ export const PageCell = memo(function PageCell({
 })
 
 /** 选择页体渲染分支：视口外的页只挂骨架占位，滚近了才真正取附件渲染。
- *  92 页的大包若全部立即 mount，会同时拉取全部附件并渲染 92 张 900px canvas。 */
+ *  92 页的大包若全部立即 mount，会同时拉取全部附件并渲染全部页位图
+ *  （DPR 感知宽度下单页 ~21MB，见 PdfPageView 的驻留 img 说明）。 */
 function PageBody({ messageId, p, mat }: { messageId: number; p: number; mat: BundleMat }) {
   const hostRef = useRef<HTMLDivElement>(null)
   const [shown, setShown] = useState(false)
@@ -229,17 +230,28 @@ function PdfPageView({ messageId, partIndex, pageNum }: { messageId: number; par
       try {
         const bytes = await fetchAttachmentBytes(messageId, partIndex)
         const doc = await loadPdfDocument(`${messageId}:${partIndex}`, bytes)
-        const canvas = await renderPdfPage(doc, pageNum, PDF_RENDER_WIDTH)
-        if (cancelled) return
+        // 按实际显示宽 × DPR 渲染：固定 900 位图在 Retina 上被拉伸 ~2 倍，
+        // 文字发虚（原生查看器清晰正是因为按屏幕物理像素足额采样）
         const host = hostRef.current
+        const targetWidth = pdfRenderWidthFor(host?.clientWidth ?? 900)
+        const canvas = await renderPdfPage(doc, pageNum, targetWidth)
+        if (cancelled) return
         if (!host) return
         // 页宽随列数/缩放收缩时，canvas 必须跟随容器等比缩放；
-        // 否则固定 900px 内禀宽会把窄列撑爆，造成文字被横向压缩变形（"挤压"）
+        // 否则固定内禀宽会把窄列撑爆，造成文字被横向压缩变形（"挤压"）
         canvas.style.width = '100%'
         canvas.style.height = 'auto'
         host.innerHTML = ''
         host.appendChild(canvas)
         setState('ready')
+        // canvas 位图（~21MB/页）页面无法回收，92 页大包滚完会 ~1.9GB；
+        // 编码成 WebP img 驻留（~250KB/页），浏览器可自动丢弃离屏解码位图
+        const img = await canvasToRetainedImg(canvas)
+        if (cancelled || !host.isConnected) return
+        img.style.width = '100%'
+        img.style.height = 'auto'
+        host.innerHTML = ''
+        host.appendChild(img)
       } catch {
         if (!cancelled) setState('error')
       }
