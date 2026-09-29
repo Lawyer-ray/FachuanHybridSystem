@@ -4,7 +4,7 @@ import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
+import httpx2 as httpx
 import pytest
 
 from apps.core.exceptions import AuthenticationError, ExternalServiceError, ValidationException
@@ -181,7 +181,7 @@ class TestExtractPayload:
     def test_structured_content_priority(self):
         client = _make_client()
         result = MagicMock()
-        result.structuredContent = {"key": "value"}
+        result.structured_content = {"key": "value"}
         result.content = []
         assert client._extract_payload(result) == {"key": "value"}
 
@@ -193,7 +193,7 @@ class TestExtractPayload:
         text_item.type = "text"
         text_item.text = '{"foo": "bar"}'
         result = MagicMock()
-        result.structuredContent = None
+        result.structured_content = None
         result.content = [text_item]
         assert client._extract_payload(result) == {"foo": "bar"}
 
@@ -206,7 +206,7 @@ class TestExtractPayload:
             item.text = val
             items.append(item)
         result = MagicMock()
-        result.structuredContent = None
+        result.structured_content = None
         result.content = items
         assert client._extract_payload(result) == [1, 2]
 
@@ -216,7 +216,7 @@ class TestExtractPayload:
         item.type = "text"
         item.text = "not json"
         result = MagicMock()
-        result.structuredContent = None
+        result.structured_content = None
         result.content = [item]
         assert client._extract_payload(result) == "not json"
 
@@ -229,7 +229,7 @@ class TestExtractPayload:
             item.text = val
             items.append(item)
         result = MagicMock()
-        result.structuredContent = None
+        result.structured_content = None
         result.content = items
         assert client._extract_payload(result) == ["a", "b"]
 
@@ -240,7 +240,7 @@ class TestExtractPayload:
         item.text = ""
         item.model_dump.return_value = {"type": "image"}
         result = MagicMock()
-        result.structuredContent = None
+        result.structured_content = None
         result.content = [item]
         out = client._extract_payload(result)
         assert isinstance(out, list)
@@ -252,7 +252,7 @@ class TestExtractPayload:
         item.text = None
         item.model_dump.return_value = {"type": "image", "url": "http://img.png"}
         result = MagicMock()
-        result.structuredContent = None
+        result.structured_content = None
         result.content = [item]
         out = client._extract_payload(result)
         assert isinstance(out, list)
@@ -592,8 +592,7 @@ class TestDescribeToolsAsync:
         tool_obj = SimpleNamespace(
             name="tool1",
             description="desc",
-            inputSchema={"type": "object"},
-            input_schema=None,
+            input_schema={"type": "object"},
         )
         list_result = SimpleNamespace(tools=[tool_obj])
 
@@ -609,7 +608,7 @@ class TestDescribeToolsAsync:
     @pytest.mark.asyncio
     async def test_skips_empty_name(self):
         client = _make_client()
-        tool_obj = SimpleNamespace(name="", description="desc", inputSchema=None, input_schema=None)
+        tool_obj = SimpleNamespace(name="", description="desc", input_schema=None)
         list_result = SimpleNamespace(tools=[tool_obj])
         mock_session = AsyncMock()
         mock_session.list_tools = AsyncMock(return_value=list_result)
@@ -619,17 +618,16 @@ class TestDescribeToolsAsync:
             assert result == []
 
     @pytest.mark.asyncio
-    async def test_fallback_to_input_schema_attr(self):
+    async def test_treats_missing_schema_as_empty(self):
         client = _make_client()
-        tool_obj = SimpleNamespace(name="t", description="d", inputSchema=None)
-        tool_obj.input_schema = {"type": "string"}
+        tool_obj = SimpleNamespace(name="t", description="d", input_schema=None)
         list_result = SimpleNamespace(tools=[tool_obj])
         mock_session = AsyncMock()
         mock_session.list_tools = AsyncMock(return_value=list_result)
 
         with patch.object(client, "_open_session", return_value=_FakeAsyncContextManager(mock_session)):
             result = await client._describe_tools_async(transport="sse", api_key="key")
-            assert result[0]["input_schema"] == {"type": "string"}
+            assert result[0]["input_schema"] == {}
 
 
 # ── _call_tool_async ─────────────────────────────────────────────────────────
@@ -646,8 +644,8 @@ class TestCallToolAsync:
         text_item.model_dump.return_value = {"type": "text", "text": '{"result": "ok"}'}
 
         tool_result = MagicMock()
-        tool_result.isError = False
-        tool_result.structuredContent = None
+        tool_result.is_error = False
+        tool_result.structured_content = None
         tool_result.content = [text_item]
 
         mock_session = AsyncMock()

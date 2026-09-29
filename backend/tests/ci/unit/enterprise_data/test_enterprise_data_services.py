@@ -9,7 +9,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ============================================================
 # ProviderConfig / ProviderDescriptor / ProviderResponse 测试
 # ============================================================
@@ -56,9 +55,9 @@ class TestEnterpriseDataTypes:
 
     def test_default_constants(self) -> None:
         from apps.enterprise_data.services.types import (
+            DEFAULT_CACHE_TTL_SECONDS,
             DEFAULT_PROVIDER_NAME,
             DEFAULT_TIMEOUT_SECONDS,
-            DEFAULT_CACHE_TTL_SECONDS,
         )
         assert DEFAULT_PROVIDER_NAME == "tianyancha"
         assert DEFAULT_TIMEOUT_SECONDS == 30
@@ -275,8 +274,8 @@ class TestEnterpriseProviderRegistry:
         assert len(result) == 2
 
     def test_get_provider_unsupported_raises(self) -> None:
-        from apps.enterprise_data.services.provider_registry import EnterpriseProviderRegistry
         from apps.core.exceptions import ValidationException
+        from apps.enterprise_data.services.provider_registry import EnterpriseProviderRegistry
 
         mock_config = MagicMock()
         mock_config.get_value.return_value = "streamable_http"
@@ -335,19 +334,22 @@ class TestMcpToolClientExtended:
         assert "sse" in attempts
 
     def test_should_retry_timeout(self):
-        import httpx
+        import httpx2 as httpx
+
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
         client = McpToolClient(provider_name="t", transport="sse", base_url="", sse_url="", api_key="k")
         assert client._should_retry(httpx.TimeoutException("t")) is True
 
     def test_should_retry_connect_error(self):
-        import httpx
+        import httpx2 as httpx
+
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
         client = McpToolClient(provider_name="t", transport="sse", base_url="", sse_url="", api_key="k")
         assert client._should_retry(httpx.ConnectError("c")) is True
 
     def test_should_retry_500(self):
-        import httpx
+        import httpx2 as httpx
+
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
         client = McpToolClient(provider_name="t", transport="sse", base_url="", sse_url="", api_key="k")
         resp = MagicMock()
@@ -356,7 +358,8 @@ class TestMcpToolClientExtended:
         assert client._should_retry(exc) is True
 
     def test_should_not_retry_429(self):
-        import httpx
+        import httpx2 as httpx
+
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
         client = McpToolClient(provider_name="t", transport="sse", base_url="", sse_url="", api_key="k")
         resp = MagicMock()
@@ -374,7 +377,7 @@ class TestMcpToolClientExtended:
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
         client = McpToolClient(provider_name="t", transport="sse", base_url="", sse_url="", api_key="k")
         result = MagicMock()
-        result.structuredContent = {"a": 1}
+        result.structured_content = {"a": 1}
         result.content = []
         assert client._extract_payload(result) == {"a": 1}
 
@@ -382,7 +385,7 @@ class TestMcpToolClientExtended:
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
         client = McpToolClient(provider_name="t", transport="sse", base_url="", sse_url="", api_key="k")
         result = MagicMock()
-        result.structuredContent = None
+        result.structured_content = None
         item = MagicMock()
         item.type = "text"
         item.text = '{"a": 1}'
@@ -414,7 +417,8 @@ class TestMcpToolClientExtended:
         assert collected[0] is exc
 
     def test_is_auth_like_http_error_401(self):
-        import httpx
+        import httpx2 as httpx
+
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
         resp = MagicMock()
         resp.status_code = 401
@@ -424,7 +428,8 @@ class TestMcpToolClientExtended:
         assert McpToolClient._is_auth_like_http_error(exc) is True
 
     def test_is_auth_like_http_error_500(self):
-        import httpx
+        import httpx2 as httpx
+
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
         resp = MagicMock()
         resp.status_code = 500

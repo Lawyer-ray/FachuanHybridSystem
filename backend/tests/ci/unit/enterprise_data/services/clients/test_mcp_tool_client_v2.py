@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
-import httpx
+import httpx2 as httpx
 import pytest
 
 from apps.core.exceptions import AuthenticationError, ExternalServiceError, ValidationException
 from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -257,7 +256,7 @@ class TestExtractPayload:
     def test_structured_content_preferred(self) -> None:
         client = _make_client()
         result = MagicMock()
-        result.structuredContent = {"data": 42}
+        result.structured_content = {"data": 42}
         result.content = []
         assert client._extract_payload(result) == {"data": 42}
 
@@ -267,7 +266,7 @@ class TestExtractPayload:
         text_item.type = "text"
         text_item.text = '{"key": "val"}'
         result = MagicMock()
-        result.structuredContent = None
+        result.structured_content = None
         result.content = [text_item]
         payload = client._extract_payload(result)
         assert payload == {"key": "val"}
@@ -278,7 +277,7 @@ class TestExtractPayload:
         text_item.type = "text"
         text_item.text = "hello"
         result = MagicMock()
-        result.structuredContent = None
+        result.structured_content = None
         result.content = [text_item]
         payload = client._extract_payload(result)
         assert payload == "hello"
@@ -292,7 +291,7 @@ class TestExtractPayload:
             item.text = txt
             items.append(item)
         result = MagicMock()
-        result.structuredContent = None
+        result.structured_content = None
         result.content = items
         payload = client._extract_payload(result)
         assert payload == ["a", "b"]
@@ -300,7 +299,7 @@ class TestExtractPayload:
     def test_empty_content_fallback(self) -> None:
         client = _make_client()
         result = MagicMock()
-        result.structuredContent = None
+        result.structured_content = None
         result.content = []
         payload = client._extract_payload(result)
         assert payload == []
@@ -311,7 +310,7 @@ class TestExtractPayload:
         img_item.type = "image"
         img_item.text = "not-a-text"
         result = MagicMock()
-        result.structuredContent = None
+        result.structured_content = None
         result.content = [img_item]
         payload = client._extract_payload(result)
         assert isinstance(payload, list)

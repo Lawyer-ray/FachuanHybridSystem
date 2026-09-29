@@ -127,7 +127,7 @@ class TestMcpToolClientIsAuthLikeHttpError:
 class TestMcpToolClientShouldRetry:
 
     def test_timeout_is_retryable(self):
-        import httpx
+        import httpx2 as httpx
 
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
         client = McpToolClient(
@@ -137,7 +137,7 @@ class TestMcpToolClientShouldRetry:
         assert client._should_retry(httpx.TimeoutException("timeout")) is True
 
     def test_connect_error_is_retryable(self):
-        import httpx
+        import httpx2 as httpx
 
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
         client = McpToolClient(
@@ -176,7 +176,7 @@ class TestMcpToolClientShouldSwitchApiKey:
         ) is True
 
     def test_connect_error_does_not_switch(self):
-        import httpx
+        import httpx2 as httpx
 
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
         client = McpToolClient(
