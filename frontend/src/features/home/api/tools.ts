@@ -66,14 +66,25 @@ export async function convertDocument(mbid: string, file: File): Promise<Convert
 
 /**
  * DOC 转 DOCX 任务快照。
- * 对应后端 JobProgressOut：{ job: JobOut, items: ItemOut[] }，我们只用 job 部分。
+ * 对应后端 JobProgressOut：{ job: JobOut, items: ItemOut[] }——items 供完成弹窗
+ * 展示文件明细（单件复制/下载）。
  */
+export interface ConverterItem {
+  id: string
+  /** 展示名（原始文件名换成 .docx 后缀，与下载产物一致） */
+  name: string
+  /** 转换成功才有下载地址 */
+  ok: boolean
+  downloadUrl: string
+}
+
 export interface ConverterJob {
   jobId: string
   status: string
   total: number
   done: number
   failed: number
+  items: ConverterItem[]
 }
 
 /** DOC 转 DOCX：提交 multipart files[]，返回任务 id（进度需轮询 getConverterJob） */
@@ -88,20 +99,51 @@ export async function createConverterJob(files: File[]): Promise<string> {
   return res.job_id
 }
 
-/** 查转换进度（后端返回 { job: {...}, items: [...] }，只取 job） */
+/** 查转换进度（后端返回 { job: {...}, items: [...] }） */
 export async function getConverterJob(jobId: string): Promise<ConverterJob> {
-  const res = await docConverterApi.get(`jobs/${jobId}`).json<{ job?: Record<string, unknown> }>()
+  const res = await docConverterApi.get(`jobs/${jobId}`).json<{ job?: Record<string, unknown>; items?: Record<string, unknown>[] }>()
   const j = res.job ?? {}
+  const items: ConverterItem[] = (res.items ?? []).map((raw) => {
+    const original = typeof raw.original_name === 'string' ? raw.original_name : '未命名'
+    const url = typeof raw.download_url === 'string' ? raw.download_url : ''
+    return {
+      id: String(raw.id ?? ''),
+      name: `${original.replace(/\.[^.]+$/, '')}.docx`,
+      ok: url !== '',
+      downloadUrl: url,
+    }
+  })
   return {
     jobId,
     status: String(j.status ?? 'pending'),
     total: Number(j.total_files ?? 0),
     done: Number(j.converted_files ?? 0),
     failed: Number(j.failed_files ?? 0),
+    items,
   }
 }
 
-/** 转换完成后的下载地址（后端有独立 download 端点，返回 zip；带 token 供 <a> 直链下载） */
+/** 转换完成后的 ZIP 下载地址（带 token 供 <a> 直链下载） */
 export function converterDownloadUrl(jobId: string): string {
   return withAuthToken(`/api/v1/doc-converter/jobs/${jobId}/download`)
+}
+
+/** 单件转换产物下载地址（带 token） */
+export function converterItemDownloadUrl(jobId: string, itemId: string): string {
+  return withAuthToken(`/api/v1/doc-converter/jobs/${jobId}/items/${itemId}/download`)
+}
+
+/**
+ * 复制转换产物到**系统**剪贴板（后端 NSPasteboard 写 file-url，同 Finder ⌘C）。
+ * 后端非 macOS 时返回 reason=unsupported，调用方降级复制文件名。
+ */
+export async function copyConverterItemsToClipboard(
+  jobId: string,
+  itemIds: string[],
+): Promise<{ success: boolean; copied: number; reason: string | null }> {
+  const res = await docConverterApi
+    .post(`jobs/${jobId}/items/copy-to-clipboard`, { json: { item_ids: itemIds } })
+    .json<{ success?: boolean; copied?: number; reason?: string; message?: string }>()
+  if (res.success === undefined && res.message) throw new Error(res.message)
+  return { success: res.success === true, copied: Number(res.copied ?? 0), reason: res.reason ?? null }
 }

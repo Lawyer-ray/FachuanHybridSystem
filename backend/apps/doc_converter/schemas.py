@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from ninja import Schema
+from ninja import Field, Schema
 
 
 class JobSubmitOut(Schema):
@@ -42,6 +42,10 @@ class JobProgressOut(Schema):
 class HealthOut(Schema):
     libreoffice_available: bool
     libreoffice_path: str | None = None
+
+
+class CopyItemsIn(Schema):
+    item_ids: list[UUID] = Field(..., min_length=1, description="要复制到系统剪贴板的转换项 ID")
 
 
 class SaveToDirIn(Schema):

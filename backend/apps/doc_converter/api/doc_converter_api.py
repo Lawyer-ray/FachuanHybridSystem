@@ -11,7 +11,7 @@ from ninja.files import UploadedFile
 
 from apps.core.exceptions import NotFoundError
 from apps.doc_converter.models import DocConverterJobStatus
-from apps.doc_converter.schemas import HealthOut, JobProgressOut, JobSubmitOut, SaveToDirIn, SaveToDirOut
+from apps.doc_converter.schemas import CopyItemsIn, HealthOut, JobProgressOut, JobSubmitOut, SaveToDirIn, SaveToDirOut
 from apps.doc_converter.services.converter_service import DocConverterService
 from apps.doc_converter.services.engine import find_libreoffice
 
@@ -82,6 +82,45 @@ def download_single_file(request: Any, job_id: UUID, item_id: UUID) -> FileRespo
         filename=filename,
         content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
+
+
+@router.post("/jobs/{job_id}/items/copy-to-clipboard", summary="复制转换文件到系统剪贴板")
+def copy_items_to_clipboard(  # pragma: no cover
+    request: Any, job_id: UUID, payload: CopyItemsIn
+) -> dict[str, Any]:
+    """把已转换的 .docx 以 file-url 写入 macOS 系统剪贴板（同 Finder ⌘C）。
+
+    浏览器写不了文件类剪贴板；后端与用户同机时由此落板，微信 ⌘V 直接粘出文件。
+    产物物理文件是 UUID 命名（下载端点靠响应头改名），粘贴方读的是路径 basename，
+    所以先在临时目录按「原名.docx」复制一份再落板。
+    非 macOS 后端返回 reason=unsupported，前端降级复制文件名。
+    """
+    import shutil
+    import tempfile
+
+    from apps.core.services.mac_clipboard_service import MacClipboardFileService
+
+    clipboard = MacClipboardFileService()
+    if not clipboard.is_available():
+        return {"success": False, "copied": 0, "reason": "unsupported"}
+
+    # file-url 是路径引用：粘贴方按路径读文件，临时副本不能删（用固定目录覆盖写，
+    # 量小、重启由系统清理；不用 TemporaryDirectory——出 with 即删会导致粘贴 404）
+    tmp = Path(tempfile.gettempdir()) / "fachuan_clipboard"
+    tmp.mkdir(parents=True, exist_ok=True)
+    paths: list[Path] = []
+    for item_id in payload.item_ids:
+        item = _service.get_item(job_id=job_id, item_id=item_id)
+        if item.status != DocConverterJobStatus.COMPLETED or not item.converted_file:
+            continue
+        named = tmp / (Path(item.original_name).stem + ".docx")
+        shutil.copyfile(item.converted_file.path, named)
+        paths.append(named)
+
+    copied = clipboard.copy_file_paths(paths)
+    if copied == 0:
+        return {"success": False, "copied": 0, "reason": "转换文件不存在或写入剪贴板失败"}
+    return {"success": True, "copied": copied, "reason": None}
 
 
 @router.delete("/jobs/{job_id}", summary="删除转换任务")
