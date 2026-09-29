@@ -30,6 +30,18 @@ export { HOME_INBOX_KEY } from './inbox'
 export type { ConvertTemplateGroup, ConvertResult, ConverterJob } from './tools'
 
 export {
+  getCourtSmsDetail,
+  assignCourtSmsCase,
+  retryCourtSms,
+  deleteCourtSms,
+  courtSmsDocDownloadUrl,
+  courtSmsDownloadAllUrl,
+  searchCasesForAssign,
+} from './court-sms'
+export type { CourtSmsDetail, CaseSearchItem } from './court-sms'
+export { withAuthToken, triggerDownload } from './download'
+
+export {
   documentParsingApi,
   parseDocument,
   getParseTaskTask,

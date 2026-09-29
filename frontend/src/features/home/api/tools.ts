@@ -1,5 +1,6 @@
 import { createApiClient } from '@/lib/api'
 import type { ConvertTemplate } from '../types'
+import { withAuthToken } from './download'
 
 /** 快捷工具资源：法院短信、要素式转换、DOC→DOCX。 */
 
@@ -7,9 +8,19 @@ export const automationApi = createApiClient({ prefix: '/api/v1/automation' })
 export const docConvertApi = createApiClient({ prefix: '/api/v1/doc-convert' })
 export const docConverterApi = createApiClient({ prefix: '/api/v1/doc-converter' })
 
-/** 收法院短信：POST /automation/court-sms，返回状态由轮询/列表体现 */
-export async function submitCourtSms(content: string): Promise<void> {
-  await automationApi.post('court-sms', { json: { content } })
+/**
+ * 收法院短信：POST /automation/court-sms。返回新建短信记录的 id，
+ * 调用方拿它轮询 GET court-sms/{id} 跟踪处理进度（弹窗动画用）。
+ */
+export async function submitCourtSms(content: string): Promise<number> {
+  const res = await automationApi
+    .post('court-sms', { json: { content } })
+    .json<{ success?: boolean; message?: string; data?: { id?: number } }>()
+  // 业务失败兜底：后端 200 + success:false 或缺 id 时，别拿 undefined 去轮询
+  if (res.success === false || !res.data?.id) {
+    throw new Error(res.message || '短信提交失败')
+  }
+  return res.data.id
 }
 
 export interface ConvertTemplateGroup {
@@ -27,8 +38,8 @@ export async function listConvertTemplates(): Promise<ConvertTemplateGroup[]> {
 }
 
 export interface ConvertResult {
-  /** 后端返回的下载地址（可能是相对路径，交给调用方拼全） */
-  downloadUrl: string
+  /** 转换产物（docx 二进制）。存 blob 而不是 objectURL：弹窗里可反复生成链接重下，不会过期失效 */
+  blob: Blob
   filename: string
 }
 
@@ -37,7 +48,7 @@ export const DOC_CONVERT_TIMEOUT_MS = 90_000
 
 /**
  * 要素式转换：multipart 传 file + mbid，返回转换后文书。
- * 注意：响应是二进制（docx/blob），这里以 blob 形式取回，由调用方触发下载。
+ * 注意：响应是二进制（docx），以 blob 取回，由调用方在点击下载时再生成 objectURL。
  */
 export async function convertDocument(mbid: string, file: File): Promise<ConvertResult> {
   const body = new FormData()
@@ -50,7 +61,7 @@ export async function convertDocument(mbid: string, file: File): Promise<Convert
   const filename = matched?.[1]
     ? decodeURIComponent(matched[1])
     : `${file.name.replace(/\.[^.]+$/, '')}-要素式.docx`
-  return { downloadUrl: URL.createObjectURL(blob), filename }
+  return { blob, filename }
 }
 
 /**
@@ -90,7 +101,7 @@ export async function getConverterJob(jobId: string): Promise<ConverterJob> {
   }
 }
 
-/** 转换完成后的下载地址（后端有独立 download 端点，返回 zip） */
+/** 转换完成后的下载地址（后端有独立 download 端点，返回 zip；带 token 供 <a> 直链下载） */
 export function converterDownloadUrl(jobId: string): string {
-  return `/api/v1/doc-converter/jobs/${jobId}/download`
+  return withAuthToken(`/api/v1/doc-converter/jobs/${jobId}/download`)
 }

@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { FileSearch } from 'lucide-react'
+import { Copy, FileDown, FileSearch } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { PARSE_BACKENDS, type ParseBackend } from '../../api'
+import { PARSE_BACKENDS, type ParseBackend, type ParseOutcome } from '../../api'
 import { TOOL_ENDPOINT } from '../../constants'
-import { BTN_PRIMARY, FIELD } from '../../ui'
+import { BTN, BTN_PRIMARY, FIELD } from '../../ui'
 import { Spinner, ToolShell } from './shared'
+import { FlowNotice, TaskFlowDialog } from './dialog/TaskFlowDialog'
 import { errMessage } from '@/lib/errors'
 import { useDocParse } from './use-doc-parse'
 import { FORMAT_HINT, MAX_PARSE_FILE_BYTES, acceptOf, rejectReason, sizeReason } from './doc-parse-formats'
@@ -13,26 +14,59 @@ import { FORMAT_HINT, MAX_PARSE_FILE_BYTES, acceptOf, rejectReason, sizeReason }
 /** 引擎能力速览（对齐后台 workbench 的三个特性位） */
 const ENGINE_HINT = `MinerU · 表格 / Textin · 标题树 / 本地 · 无网 · ≤ ${Math.round(MAX_PARSE_FILE_BYTES / (1024 * 1024))}MB`
 
-/** 预览区最大高度：卡片本身不高，Markdown 可能几千字，别把首页撑爆 */
-const PREVIEW_MAX_H = 180
+/** 结果内容与格式（本地引擎不出 Markdown，按真实内容报格式） */
+function outcomeText(o: ParseOutcome | null): { text: string; isMd: boolean } {
+  const text = o?.markdown || o?.text || ''
+  return { text, isMd: !!o?.markdown }
+}
+
+/** 下载解析产物：前端本地合成 Blob（后端 parse 只返回内容，无下载端点） */
+function downloadOutcome(o: ParseOutcome | null, baseName: string) {
+  const { text, isMd } = outcomeText(o)
+  if (!text) {
+    toast.info('没有可下载的解析内容')
+    return
+  }
+  const mime = isMd ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8'
+  const url = URL.createObjectURL(new Blob([text], { type: mime }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${baseName}.${isMd ? 'md' : 'txt'}`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
+async function copyOutcome(o: ParseOutcome | null) {
+  const { text } = outcomeText(o)
+  if (!text) {
+    toast.info('没有可复制的解析内容')
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(text)
+    toast.success('已复制解析结果')
+  } catch {
+    toast.error('浏览器拒绝了剪贴板，可在预览区手动选中复制')
+  }
+}
 
 /**
- * 文档解析：上传文件 → 选引擎 → 解析为 Markdown。
- *
- * 与后台「文档解析工作台」（/admin/document_parsing/documentparsingtool/）
- * 共用同一套后端能力：POST /document-parsing/parse + GET .../task/{id}。
- * 云端引擎（MinerU / TextinParse）异步返回 task_id，前端轮询到出结果；
- * 本地引擎同步直接返回。
+ * 文档解析：上传文件 → 选引擎 → 弹窗跟进解析进度，完成后在弹窗里
+ * 预览全文并复制 / 下载（.md 或 .txt，随真实内容走）。
  */
 export function DocParseCard() {
   const [backend, setBackend] = useState<ParseBackend>('textin')
   const [file, setFile] = useState<File | null>(null)
   const [extractTables, setExtractTables] = useState(true)
+  const [dialogOpen, setDialogOpen] = useState(false)
   const { phase, hint, outcome, submit, reset } = useDocParse()
 
   const busy = phase === 'submitting' || phase === 'polling'
   const done = phase === 'done' && !!outcome
-  const ok = done && outcome.ok
+  const ok = done && outcome!.ok
+  const baseName = (file?.name ?? 'document').replace(/\.[^.]+$/, '')
 
   const pick = (f: File | null) => {
     setFile(f)
@@ -54,6 +88,7 @@ export function DocParseCard() {
       toast.warning(tooBig)
       return
     }
+    setDialogOpen(true)
     try {
       await submit(file, {
         backend,
@@ -65,42 +100,6 @@ export function DocParseCard() {
       // submit 内部已把异常转成失败 outcome，这里只是双保险
       toast.error(errMessage(e, '解析失败'))
     }
-  }
-
-  const copy = async () => {
-    const text = outcome?.markdown || outcome?.text || ''
-    if (!text) {
-      toast.info('没有可复制的解析内容')
-      return
-    }
-    try {
-      await navigator.clipboard.writeText(text)
-      toast.success('已复制解析结果')
-    } catch {
-      toast.error('浏览器拒绝了剪贴板，可手动选中的内容复制')
-    }
-  }
-
-  const download = () => {
-    const text = outcome?.markdown || outcome?.text || ''
-    if (!text) {
-      toast.info('没有可下载的解析内容')
-      return
-    }
-    // 前端本地合成 Blob 下载——后端 parse 接口只返回内容，没有下载端点。
-    // 本地后端不出 Markdown（后端明确「本地后端不支持」），这时内容其实是纯文本，
-    // 扩展名跟着真实内容走，别把纯文本命名成 .md 骗人。
-    const isMd = !!outcome?.markdown
-    const mime = isMd ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8'
-    const ext = isMd ? 'md' : 'txt'
-    const url = URL.createObjectURL(new Blob([text], { type: mime }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${(file?.name ?? 'document').replace(/\.[^.]+$/, '')}.${ext}`
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
   }
 
   return (
@@ -149,74 +148,69 @@ export function DocParseCard() {
           提取表格结构
         </label>
 
-        {/* 结果区：成功给预览 + 元信息，失败给原因。都放在按钮上方，按钮永远在同一位置 */}
-        {done && ok && (
-          <div className="flex min-h-0 flex-col gap-1">
-            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-              <span className="font-medium text-secondary-foreground">{outcome.method || '解析完成'}</span>
-              <span>·</span>
-              {/* 本地后端不出 Markdown（后端：本地后端不支持），这时 markdown 为空、
-                  text 有值。按真实内容报格式，别一律写 Markdown */}
-              <span>{(outcome.markdown || outcome.text).length} 字</span>
-              {typeof outcome.metadata.page_count === 'number' && (
-                <>
-                  <span>·</span>
-                  <span>{outcome.metadata.page_count} 页</span>
-                </>
-              )}
-              <span className="flex-1" />
-              <span className="truncate">{outcome.markdown ? 'Markdown' : '纯文本'}</span>
-            </div>
-            <pre
-              className="min-h-0 overflow-auto rounded-[8px] border border-border bg-background px-2 py-1.5 text-[10px] leading-[1.5] whitespace-pre-wrap break-all text-secondary-foreground"
-              style={{ maxHeight: PREVIEW_MAX_H }}
-            >
-              {outcome.markdown || outcome.text || '（解析结果为空）'}
-            </pre>
-          </div>
-        )}
-
-        {done && !ok && (
-          <div className="rounded-[8px] border border-status-red/30 bg-status-red-bg px-2.5 py-[7px] text-[10.5px] leading-[1.5] text-status-red">
-            {outcome.error || '解析失败'}
-          </div>
-        )}
-
-        {busy && (
-          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-            <Spinner />
-            <span>{hint}</span>
-          </div>
-        )}
-
-        <div className={`flex items-center gap-2 ${ok ? '' : 'mt-auto'}`}>
+        <div className="mt-auto flex items-center gap-2">
           <button type="button" className={BTN_PRIMARY} onClick={run} disabled={busy}>
             {busy && <Spinner />}
             {busy ? '解析中' : '开始解析'}
           </button>
-          {ok && (
-            <>
-              <button
-                type="button"
-                onClick={copy}
-                className="flex h-[32px] items-center rounded-[8px] border border-border px-3 text-[11.5px] text-secondary-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              >
-                复制
-              </button>
-              <button
-                type="button"
-                onClick={download}
-                className="flex h-[32px] items-center rounded-[8px] border border-border px-3 text-[11.5px] text-secondary-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              >
-                {outcome.markdown ? '下载 .md' : '下载 .txt'}
-              </button>
-            </>
+          {done && !dialogOpen && (
+            <button type="button" className={BTN} onClick={() => setDialogOpen(true)}>
+              {ok ? '已完成 · 查看结果' : '解析失败 · 查看'}
+            </button>
           )}
-          <span className="flex-1 truncate text-right text-[9.5px] text-muted-foreground">
-            {busy ? hint : ENGINE_HINT}
-          </span>
+          {!done && <span className="flex-1 truncate text-right text-[9.5px] text-muted-foreground">{busy ? hint : ENGINE_HINT}</span>}
         </div>
       </div>
+
+      <TaskFlowDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        icon={<FileSearch className="h-5 w-5" />}
+        title="文档解析"
+        tone={busy ? 'running' : ok ? 'success' : 'error'}
+        headline={busy ? '正在解析文档…' : ok ? '解析完成' : '解析失败'}
+        subline={
+          busy
+            ? hint
+            : ok
+              ? `${outcome?.method || '解析完成'} · ${(outcome!.markdown || outcome!.text).length} 字${
+                  typeof outcome!.metadata.page_count === 'number' ? ` · ${outcome!.metadata.page_count} 页` : ''
+                }`
+              : undefined
+        }
+        wide={!!ok}
+        footer={
+          <>
+            {ok && (
+              <>
+                <button type="button" className={BTN} onClick={() => void copyOutcome(outcome)}>
+                  <Copy className="h-3.5 w-3.5" />
+                  复制全文
+                </button>
+                <button type="button" className={BTN_PRIMARY} onClick={() => downloadOutcome(outcome, baseName)}>
+                  <FileDown className="h-3.5 w-3.5" />
+                  {outcome!.markdown ? '下载 .md' : '下载 .txt'}
+                </button>
+              </>
+            )}
+            {!ok && !busy && (
+              <button type="button" className={BTN_PRIMARY} onClick={run}>
+                再次解析
+              </button>
+            )}
+            <button type="button" className={ok ? BTN : BTN_PRIMARY} onClick={() => setDialogOpen(false)}>
+              关闭
+            </button>
+          </>
+        }
+      >
+        {ok && (
+          <pre className="max-h-[320px] min-h-0 overflow-auto rounded-[10px] border border-border bg-background px-3 py-2.5 text-[11.5px] leading-[1.7] whitespace-pre-wrap break-all">
+            {outcome!.markdown || outcome!.text || '（解析结果为空）'}
+          </pre>
+        )}
+        {!ok && !busy && <FlowNotice kind="error">{outcome?.error || '解析失败，请重试或换个引擎'}</FlowNotice>}
+      </TaskFlowDialog>
     </ToolShell>
   )
 }

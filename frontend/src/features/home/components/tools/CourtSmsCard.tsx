@@ -2,16 +2,33 @@ import { useState } from 'react'
 import { MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { submitCourtSms } from '../../api'
 import { TOOL_ENDPOINT } from '../../constants'
-import { BTN_PRIMARY, FIELD } from '../../ui'
+import { BTN, BTN_PRIMARY, FIELD } from '../../ui'
 import { Spinner, ToolShell } from './shared'
-import { errMessage } from '@/lib/errors'
+import { CourtSmsFlowDialog } from './court-sms/CourtSmsFlowDialog'
+import { useCourtSms } from './court-sms/use-court-sms'
 
-/** 收法院短信：POST /automation/court-sms（提交后由后端异步解析） */
+/** 流程进行中/结束后，卡片上的「重开弹窗」入口文案 */
+function reopenLabel(phase: string, outcome: string | null): string {
+  if (phase === 'processing' || phase === 'submitting') return '处理中 · 查看进度'
+  if (phase === 'timeout') return '仍在后台 · 查看'
+  if (outcome === 'completed') return '已完成 · 查看结果'
+  if (outcome === 'manual') return '待人工分配案件 · 查看'
+  return '处理失败 · 查看'
+}
+
+/**
+ * 收法院短信：提交后弹窗接管全流程——动画步进跟踪后端处理，
+ * 匹配不到案件可在线人工分配，完成后直接下载已重命名文书。
+ * 关掉弹窗流程照跑（轮询挂在 hook 上），卡片入口可随时重开。
+ */
 export function CourtSmsCard() {
   const [text, setText] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const flow = useCourtSms()
+
+  const busy = flow.phase === 'submitting' || flow.phase === 'processing'
+  const flowActive = flow.phase !== 'idle'
 
   const submit = async () => {
     const v = text.trim()
@@ -19,15 +36,10 @@ export function CourtSmsCard() {
       toast.info('先粘贴一条法院短信')
       return
     }
-    setBusy(true)
-    try {
-      await submitCourtSms(v)
+    const ok = await flow.submit(v)
+    if (ok) {
       setText('')
-      toast.success('短信已提交，正在解析处理——完成后会出现在「待处理」里')
-    } catch (e) {
-      toast.error(errMessage(e, '短信提交失败，请稍后重试'))
-    } finally {
-      setBusy(false)
+      setDialogOpen(true)
     }
   }
 
@@ -44,11 +56,18 @@ export function CourtSmsCard() {
         <div className="mt-auto flex items-center gap-2">
           <button type="button" className={BTN_PRIMARY} onClick={submit} disabled={busy}>
             {busy && <Spinner />}
-            提交短信
+            {busy ? '处理中' : '提交短信'}
           </button>
-          <span className="flex-1 truncate text-right text-[10.5px] text-muted-foreground">提交后自动解析处理</span>
+          {flowActive && !dialogOpen && (
+            <button type="button" className={BTN} onClick={() => setDialogOpen(true)}>
+              {reopenLabel(flow.phase, flow.outcome)}
+            </button>
+          )}
+          {!flowActive && <span className="flex-1 truncate text-right text-[10.5px] text-muted-foreground">提交后弹窗跟进全流程</span>}
         </div>
       </div>
+
+      <CourtSmsFlowDialog open={dialogOpen} onOpenChange={setDialogOpen} flow={flow} />
     </ToolShell>
   )
 }
