@@ -162,11 +162,19 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent
-        style={splitReady && dialogWidth != null ? { width: dialogWidth, maxWidth: 'none' } : undefined}
+        // 记忆宽度走 CSS 变量、只在 lg 断点生效（<lg 单栏永远 560px，不被历史宽度撑爆）
+        style={
+          splitReady && dialogWidth != null ? ({ '--dr-dialog-w': `${dialogWidth}px` } as React.CSSProperties) : undefined
+        }
         className={cn(
           'flex w-full flex-col gap-0 overflow-x-hidden p-6 transition-[max-width] duration-300 ease-out',
           splitReady
-            ? 'max-h-[88vh] sm:max-w-[560px] lg:h-[88vh] lg:w-[min(95vw,calc(100vw-48px))] lg:max-w-none lg:overflow-hidden'
+            ? cn(
+                'max-h-[88vh] sm:max-w-[560px] lg:h-[88vh] lg:max-w-none lg:overflow-hidden',
+                dialogWidth != null
+                  ? 'lg:w-[var(--dr-dialog-w)]'
+                  : 'lg:w-[min(95vw,calc(100vw-48px))]',
+              )
             : 'max-h-[85vh] max-w-[560px] overflow-y-auto',
         )}
       >
