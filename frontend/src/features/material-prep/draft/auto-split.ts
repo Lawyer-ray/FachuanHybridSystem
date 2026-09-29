@@ -51,16 +51,19 @@ export function canAutoSplitMat(d: DraftState, mi: number): boolean {
   )
 }
 
-/** 源素材改名（同步沿用的默认段名） */
+/** 源素材改名（同步沿用的默认段名）；改回源文件名 = 清除自定义名 */
 export function renameMat(d: DraftState, mi: number, n: string): DraftState {
   const name = n.trim()
-  if (!name || d.mats[mi]?.customName === name || d.mats[mi]?.n === name) return d
+  const cur = d.mats[mi]
+  if (!name || !cur || cur.customName === name) return d
+  // 改名前的显示名：改回源文件名时要靠它把跟随的段名一并改回去
+  const oldName = cur.customName || cur.n
   const mats = d.mats.map((m, i) =>
     i === mi ? { ...m, customName: name !== m.n ? name : undefined } : m
   )
-  // 只改仍沿用默认名（等于源文件名）的段
+  // 只改仍跟随该源文件显示名（未被单独改过）的段
   const segs = d.segs.map((sg) =>
-    sg.fn === (d.mats[mi]?.n || '') && sg.refs.length > 0 && sg.refs.every((r) => r.mi === mi)
+    sg.fn === oldName && sg.refs.length > 0 && sg.refs.every((r) => r.mi === mi)
       ? { ...sg, fn: name }
       : sg
   )
