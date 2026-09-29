@@ -38,7 +38,10 @@ API_MODEL_OBJECTS_RATCHET = 55
 # （_normalize_title/_suggest_filename）、pdf_splitting split/service（_extract_layout_title）
 # 与 document_parsing textin_backend（_positive_page_number）属纯解析/工具函数，
 # 不持有实例或类状态。
-SERVICE_STATIC_METHOD_RATCHET = 259
+# 2026-09-29 抬至 264（实跑计数，非估算）：main 侧 PR #499（document_recognition
+# 视觉管线+确定性提取层：vlm_ocr/document_classifier/case_binding/_case_number_mixin
+# 等）与 automation/cases 若干纯工具函数带来净增 5，本分支零新增。
+SERVICE_STATIC_METHOD_RATCHET = 264
 
 
 def _scan_api_model_objects() -> list[tuple[str, int, str]]:

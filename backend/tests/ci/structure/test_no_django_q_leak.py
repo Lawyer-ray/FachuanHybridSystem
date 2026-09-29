@@ -23,9 +23,13 @@ _ALLOWED_PREFIXES: list[str] = [
 
 # Specific files that are allowed to import from django_q
 # These are known infrastructure-level files.
+# 注意：条目必须是相对 apps/ 的路径（与 rel_path 比较；历史上存绝对路径
+# 导致从未生效过——2026-09-29 修正）。
 _ALLOWED_FILES: set[str] = {
-    # oa_filing/tasks.py: uses TimeoutException — tracked for migration
-    # str(_APPS_ROOT / "oa_filing" / "tasks.py"),
+    # automation「停止并删除」需对 Django-Q 做队列级手术（Schedule 批量删除、
+    # Redis/OrmQ 队列条目按签名 payload 匹配清理、SignedPackage 反解析）——
+    # core.tasking 尚无对应抽象，待抽象后迁移
+    "automation/services/sms/court_sms_abort_service.py",
 }
 
 
