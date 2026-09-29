@@ -82,7 +82,7 @@ class TestMcpToolClientExtractPayload:
     def test_extract_payload_structured(self):
         client = _make_client()
         result = MagicMock()
-        result.structuredContent = {"data": "value"}
+        result.structured_content = {"data": "value"}
         result.content = []
         payload = client._extract_payload(result)
         assert payload == {"data": "value"}
@@ -93,7 +93,7 @@ class TestMcpToolClientExtractPayload:
         text_item.type = "text"
         text_item.text = '{"result": "ok"}'
         result = MagicMock()
-        result.structuredContent = None
+        result.structured_content = None
         result.content = [text_item]
         payload = client._extract_payload(result)
         assert payload == {"result": "ok"}
@@ -104,7 +104,7 @@ class TestMcpToolClientExtractPayload:
         text_item.type = "text"
         text_item.text = "plain result"
         result = MagicMock()
-        result.structuredContent = None
+        result.structured_content = None
         result.content = [text_item]
         payload = client._extract_payload(result)
         assert payload == "plain result"
@@ -112,14 +112,14 @@ class TestMcpToolClientExtractPayload:
 
 class TestMcpToolClientRetry:
     def test_should_retry_timeout(self):
-        import httpx
+        import httpx2 as httpx
 
         client = _make_client()
         exc = httpx.TimeoutException("timeout")
         assert client._should_retry(exc) is True
 
     def test_should_retry_connect_error(self):
-        import httpx
+        import httpx2 as httpx
 
         client = _make_client()
         exc = httpx.ConnectError("connection refused")
@@ -143,7 +143,7 @@ class TestMcpToolClientApiKeySwitch:
         assert client._should_switch_api_key(exc) is True
 
     def test_should_not_switch_api_key_timeout(self):
-        import httpx
+        import httpx2 as httpx
 
         client = _make_client()
         exc = httpx.TimeoutException("timeout")
@@ -157,7 +157,7 @@ class TestMcpToolClientAuthDetection:
         assert McpToolClient._contains_auth_token("normal error") is False
 
     def test_is_auth_like_http_error_401(self):
-        import httpx
+        import httpx2 as httpx
 
         mock_resp = MagicMock()
         mock_resp.status_code = 401

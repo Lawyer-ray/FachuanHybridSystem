@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from mcp_server.tools import (
     add_case_party,
@@ -408,7 +408,7 @@ try:
 except ImportError:
     _HAS_QUOTE = False
 
-mcp = FastMCP("法穿AI Copilot")
+mcp = MCPServer("法穿AI Copilot")
 
 # 案件
 mcp.tool()(list_cases)

@@ -12,7 +12,7 @@ from collections.abc import Callable
 from contextlib import asynccontextmanager
 from typing import Any, TypeVar, cast
 
-import httpx
+import httpx2
 from django.core.cache import cache
 from mcp import ClientSession, types
 from mcp.client.sse import sse_client
@@ -141,7 +141,10 @@ class McpToolClient:
         result, execution_meta = await self._aexecute_with_api_key_failover(
             action=f"call_tool:{tool_name}",
             operation=lambda api_key, transport: self._call_tool_async(
-                transport=transport, tool_name=tool_name, arguments=arguments, api_key=api_key,
+                transport=transport,
+                tool_name=tool_name,
+                arguments=arguments,
+                api_key=api_key,
             ),
             log_context={"tool": tool_name},
         )
@@ -201,8 +204,8 @@ class McpToolClient:
         return {
             "payload": payload,
             "raw": {
-                "is_error": bool(result.isError),
-                "structured_content": result.structuredContent,
+                "is_error": bool(result.is_error),
+                "structured_content": result.structured_content,
                 "content": [self._serialize_content_item(item) for item in result.content],
             },
         }
@@ -216,9 +219,7 @@ class McpToolClient:
             if not name:
                 continue
             description = str(getattr(item, "description", "") or "").strip()
-            input_schema = getattr(item, "inputSchema", None)
-            if input_schema is None:
-                input_schema = getattr(item, "input_schema", None)
+            input_schema = getattr(item, "input_schema", None)
             if not isinstance(input_schema, dict):
                 input_schema = {}
             tools.append(
@@ -245,13 +246,13 @@ class McpToolClient:
                     yield session
             return
 
-        timeout = httpx.Timeout(float(self._timeout_seconds), read=max(60.0, float(self._timeout_seconds) * 3))
-        async with httpx.AsyncClient(headers=headers, timeout=timeout) as http_client:
+        timeout = httpx2.Timeout(float(self._timeout_seconds), read=max(60.0, float(self._timeout_seconds) * 3))
+        async with httpx2.AsyncClient(headers=headers, timeout=timeout) as http_client:
             async with streamable_http_client(
                 self._base_url,
                 http_client=http_client,
                 terminate_on_close=True,
-            ) as (read_stream, write_stream, _get_session_id):
+            ) as (read_stream, write_stream):
                 async with ClientSession(read_stream, write_stream) as session:
                     await session.initialize()
                     yield session
@@ -555,8 +556,8 @@ class McpToolClient:
         return {"value": str(item)}
 
     def _extract_payload(self, result: types.CallToolResult) -> Any:
-        if result.structuredContent is not None:
-            return result.structuredContent
+        if result.structured_content is not None:
+            return result.structured_content
 
         parsed_json: list[Any] = []
         plain_text: list[str] = []
@@ -625,11 +626,11 @@ class McpToolClient:
         for item in self._collect_related_exceptions(exc):
             if isinstance(item, (ValidationException, AuthenticationError)):
                 return False
-            if isinstance(item, httpx.TimeoutException):
+            if isinstance(item, httpx2.TimeoutException):
                 return True
-            if isinstance(item, httpx.ConnectError):
+            if isinstance(item, httpx2.ConnectError):
                 return True
-            if isinstance(item, httpx.HTTPStatusError):
+            if isinstance(item, httpx2.HTTPStatusError):
                 status_code = int(getattr(item.response, "status_code", 0) or 0)
                 if status_code == 429:
                     return False
@@ -644,7 +645,7 @@ class McpToolClient:
                 status_code = int((getattr(item, "errors", {}) or {}).get("status_code") or 0)
                 if str(getattr(item, "code", "") or "").strip() == "MCP_HTTP_ERROR" and status_code == 429:
                     return True
-            if isinstance(item, httpx.HTTPStatusError):
+            if isinstance(item, httpx2.HTTPStatusError):
                 status_code = int(getattr(item.response, "status_code", 0) or 0)
                 if status_code == 429 or self._is_auth_like_http_error(item):
                     return True
@@ -662,7 +663,7 @@ class McpToolClient:
                 if str(getattr(item, "code", "") or "").strip() == "MCP_HTTP_ERROR" and status_code == 429:
                     self._api_key_pool.mark_rate_limited(api_key)
                     return
-            if isinstance(item, httpx.HTTPStatusError):
+            if isinstance(item, httpx2.HTTPStatusError):
                 status_code = int(getattr(item.response, "status_code", 0) or 0)
                 if self._is_auth_like_http_error(item):
                     self._api_key_pool.mark_auth_failed(api_key)
@@ -683,7 +684,7 @@ class McpToolClient:
                 raise item
 
         for item in collected:
-            if not isinstance(item, httpx.HTTPStatusError):
+            if not isinstance(item, httpx2.HTTPStatusError):
                 continue
             status_code = int(getattr(item.response, "status_code", 0) or 0)
             if self._is_auth_like_http_error(item):
@@ -699,7 +700,7 @@ class McpToolClient:
             ) from exc
 
         for item in collected:
-            if not isinstance(item, httpx.TimeoutException):
+            if not isinstance(item, httpx2.TimeoutException):
                 continue
             raise ExternalServiceError(
                 message=f"{self._provider_name} 调用超时",
@@ -708,7 +709,7 @@ class McpToolClient:
             ) from exc
 
         for item in collected:
-            if not isinstance(item, httpx.ConnectError):
+            if not isinstance(item, httpx2.ConnectError):
                 continue
             raise ExternalServiceError(
                 message=f"{self._provider_name} 网络连接失败",
@@ -727,7 +728,7 @@ class McpToolClient:
         ) from exc
 
     @staticmethod
-    def _is_auth_like_http_error(error: httpx.HTTPStatusError) -> bool:
+    def _is_auth_like_http_error(error: httpx2.HTTPStatusError) -> bool:
         status_code = int(getattr(error.response, "status_code", 0) or 0)
         if status_code in (401, 403):
             return True
