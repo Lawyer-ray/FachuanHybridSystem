@@ -140,6 +140,8 @@ export interface AttachmentMeta {
   size: number
   content_type: string
   part_index: number
+  /** PDF 页数（后端上传时/详情读取时回填算好）；缺失时前端下载 PDF 自行数页数兜底 */
+  page_count?: number | null
 }
 
 /** 收件箱消息列表项 */

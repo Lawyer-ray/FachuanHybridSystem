@@ -27,25 +27,25 @@ function detectMaterialKind(contentType: string | undefined, filename: string): 
   return 'office'
 }
 
-/** 每个附件算出一个源素材，并解析真实页数（PDF 需要载入文档取页数）。 */
-export async function resolveMats(msg: InboxMessageDetail): Promise<BundleMat[]> {
-  const mats: BundleMat[] = []
-  for (const att of msg.attachments) {
-    const n = effectiveFileName(att)
-    const k = detectMaterialKind(att.content_type, n)
-    let pages = 1
-    if (k === 'pdf') {
-      try {
-        const bytes = await fetchAttachmentBytes(msg.id, att.part_index)
-        const doc = await loadPdfDocument(`${msg.id}:${att.part_index}`, bytes)
-        pages = doc.numPages
-      } catch {
-        pages = 1
-      }
-    }
-    mats.push({ partIndex: att.part_index, n, k, pages })
+/** 单个附件 → 源素材：PDF 页数优先用后端 page_count（零下载），缺失才下载整包用 pdf.js 数 */
+async function resolveMat(msg: InboxMessageDetail, att: AttachmentMeta): Promise<BundleMat> {
+  const n = effectiveFileName(att)
+  const k = detectMaterialKind(att.content_type, n)
+  const base = { partIndex: att.part_index, n, k }
+  if (k !== 'pdf') return { ...base, pages: 1 }
+  if (att.page_count && att.page_count > 0) return { ...base, pages: att.page_count }
+  try {
+    const bytes = await fetchAttachmentBytes(msg.id, att.part_index)
+    const doc = await loadPdfDocument(`${msg.id}:${att.part_index}`, bytes)
+    return { ...base, pages: doc.numPages }
+  } catch {
+    return { ...base, pages: 1 }
   }
-  return mats
+}
+
+/** 每个附件算出一个源素材，并解析真实页数（并行；此前串行 await，多 PDF 包打开时间线性叠加）。 */
+export async function resolveMats(msg: InboxMessageDetail): Promise<BundleMat[]> {
+  return Promise.all(msg.attachments.map((att) => resolveMat(msg, att)))
 }
 
 /** 附件展示名：优先自定义名，其次原始名（仅本模块使用） */
