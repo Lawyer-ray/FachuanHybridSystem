@@ -44,6 +44,8 @@ export interface UseCourtSmsResult extends CourtSmsFlowState {
   retry: () => Promise<void>
   /** 超时后继续等待（只恢复轮询，不重跑后端流程） */
   resume: () => void
+  /** 重开弹窗时拉一次最新详情；非终态则续上轮询 */
+  refresh: () => Promise<void>
   /** 清空流程（回到 idle） */
   reset: () => void
 }
@@ -196,6 +198,32 @@ export function useCourtSms(): UseCourtSmsResult {
     void poll(smsId)
   }, [poll, state.smsId])
 
+  /**
+   * 重开弹窗时刷新一次后端状态：弹窗关着的时候流程可能已推进
+   * （人工分配被处理 / 自动匹配成功 / 通知发完），终端态尤其会过期。
+   * 查询失败保持原状（记录可能已被删）。
+   */
+  const refresh = useCallback(async () => {
+    const smsId = state.smsId
+    if (!smsId) return
+    try {
+      const detail = await getCourtSmsDetail(smsId)
+      if (cancelled.current) return
+      const info = smsStageInfo(detail.status)
+      maxStage.current = Math.max(maxStage.current, info.stage)
+      if (info.terminal) {
+        setState((s) => ({ ...s, detail, stage: maxStage.current, phase: 'done', outcome: info.terminal }))
+        invalidateInbox()
+      } else {
+        // 后端还在跑（或被重试），续上轮询
+        setState((s) => ({ ...s, detail, stage: maxStage.current, phase: 'processing', outcome: null }))
+        void poll(smsId)
+      }
+    } catch {
+      // 保持原状态
+    }
+  }, [invalidateInbox, poll, state.smsId])
+
   const reset = useCallback(() => {
     window.clearTimeout(timer.current)
     maxStage.current = 0
@@ -210,7 +238,7 @@ export function useCourtSms(): UseCourtSmsResult {
     })
   }, [])
 
-  return { ...state, submit, assignCase, retry, resume, reset }
+  return { ...state, submit, assignCase, retry, resume, refresh, reset }
 }
 
 /** 详情 + 观测最大阶段 → 步进器要用的 (steps 当前下标, failedAt) */
