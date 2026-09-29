@@ -3,6 +3,15 @@ import PdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = PdfWorker
 
+/**
+ * pdf.js 6.x 的 JBIG2/CCITT G4（扫描件文字蒙版）与 JPEG2000 解码器是 WASM 实现，
+ * 必须通过 wasmUrl 告知 wasm 文件目录（public/pdfjs/，构建时原样拷贝）。
+ * 缺失时 pdf.js 默认 ignoreErrors=true 会**静默跳过**这些图像——典型症状：
+ * 佳能扫描仪产的「JPEG 背景 + CCITT 文字蒙版」双图层 PDF 只剩淡影背景和印章，
+ * 正文文字整层不渲染（PyMuPDF/浏览器原生查看器均正常，仅 pdf.js 不画）。
+ */
+const PDFJS_WASM_URL = `${import.meta.env.BASE_URL}pdfjs/`
+
 export { pdfjsLib }
 
 /** PDF 页渲染的目标像素宽度（CSS 宽度固定，交给父容器缩放） */
@@ -39,7 +48,7 @@ export function loadPdfDocument(key: string, data: ArrayBuffer): Promise<pdfjsLi
   const hit = docCache.get(key)
   if (hit) return hit.doc
   // 副本给 pdf.js：它会把副本 transfer 给 worker，data 本体保持可用
-  const task = pdfjsLib.getDocument({ data: data.slice(0) })
+  const task = pdfjsLib.getDocument({ data: data.slice(0), wasmUrl: PDFJS_WASM_URL })
   const entry: PdfCacheEntry = { task, doc: task.promise }
   docCache.set(key, entry)
   entry.doc.catch(() => {
