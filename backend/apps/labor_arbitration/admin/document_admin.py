@@ -86,9 +86,17 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
         ),
     )
 
+    def get_queryset(self, request: HttpRequest) -> Any:
+        """列表页图片数走 annotate：一条 SQL 统计，替代 image_count 列每行一次
+        的 images.count()（100 行曾产生 100 次查询）。"""
+        from django.db.models import Count
+
+        return super().get_queryset(request).annotate(_image_count=Count("images"))
+
     @admin.display(description="图片数")
     def image_count(self, obj: ArbitrationDocument) -> int:
-        return obj.images.count()
+        annotated = getattr(obj, "_image_count", None)
+        return annotated if annotated is not None else obj.images.count()
 
     @admin.display(description="图片预览")
     def images_preview(self, obj: ArbitrationDocument) -> SafeString:
