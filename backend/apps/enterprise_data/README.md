@@ -1,97 +1,56 @@
-# Enterprise Data（MCP）使用说明
+# 🏭 企业数据查询（enterprise_data）
 
-## 已接入能力
+企业数据查询统一网关：以 MCP 协议接入天眼查 / 企查查，输出标准化企业画像 / 风险 / 股东 / 高管 / 招投标查询与 Admin 调试工作台。
 
-- Provider 抽象：`tianyancha`（已接入）、`qichacha`（骨架预留）
-- 协议策略：优先 `streamable_http`，失败自动回退 `sse`
-- 标准化能力：
-  - `search_companies`
-  - `get_company_profile`（映射 `get_company_info`）
-  - `get_company_risks`
-  - `get_company_shareholders`
-  - `get_company_personnel`
-  - `get_person_profile`
-  - `search_bidding_info`
+## 功能概述
 
-## 后端 API
+- **双 provider**：`tianyancha`（默认，streamable_http 优先失败回退 SSE）与 `qichacha`（6 个独立 MCP Server：company / risk / ipr / operation / executive / history，能力路由表映射统一能力）
+- 统一响应协议 `{query, data, meta, raw}`，meta 含 transport 回退、API Key 池切换、observability 窗口指标
+- **API Key 池**（McpApiKeyPool）：多 key（SystemConfig 或环境变量，支持 `*_API_KEYS` 复数变量），成功 key 置偏好（30 天）、鉴权失败熔断 1h、限流熔断 2min，指纹化缓存
+- **弹性**：Django cache 结果缓存 + 失败时返回过期缓存（stale fallback，meta 标 `stale:true`）；transport 不健康隔离 10 分钟；进程级持久事件循环复用（`_get_or_create_loop`）；同步 + 异步双套 API
+- **指标与告警**：按窗口聚合成功率 / 回退率 / 平均耗时，超阈值去重告警日志
+- **Admin MCP 调试工作台**：工具列表 + 参数 schema + 最近样例、执行调试、历史记录一键重放；响应经 `scrub_for_storage` 脱敏、JSON 超 50KB 截断
 
-统一入口：`/api/v1/enterprise-data/*`
+## 目录结构
 
-- `GET /providers`
-- `GET /companies/search`
-- `GET /companies/profile`
-- `GET /companies/risks`
-- `GET /companies/shareholders`
-- `GET /companies/personnel`
-- `GET /persons/profile`
-- `GET /bidding/search`
-
-统一响应骨架：
-
-```json
-{
-  "query": {},
-  "data": {},
-  "meta": {
-    "provider": "tianyancha",
-    "tool": "search_companies",
-    "transport": "sse",
-    "requested_transport": "streamable_http",
-    "fallback_used": true,
-    "cached": false,
-    "observability": {
-      "window_seconds": 300,
-      "total": 20,
-      "success_rate": 0.95,
-      "fallback_rate": 0.25,
-      "avg_duration_ms": 1280
-    }
-  },
-  "raw": null
-}
+```
+enterprise_data/
+├── models/workbench.py            # McpWorkbench（unmanaged 占位）+ McpWorkbenchExecution（执行历史）
+├── api/enterprise_data_api.py     # 全 async 端点
+├── schemas/ + services/
+│   ├── enterprise_data_service.py # 统一查询编排 + 缓存 + stale 回退
+│   ├── provider_registry.py       # 配置读取与实例化
+│   ├── metrics_service.py
+│   ├── clients/                   # mcp_tool_client（限流/重试/transport 回退/key failover）、api_key_pool
+│   └── providers/                 # base Protocol、tianyancha_mcp、qichacha_mcp + adapters/ 响应归一化
+└── templates/admin/enterprise_data/mcp_workbench/
 ```
 
-## Admin 工作台
+## 数据模型
 
-路径：`/admin/enterprise_data/mcpworkbench/`
+- `McpWorkbench` — unmanaged 占位模型（挂 Admin 页）
+- `McpWorkbenchExecution` — 执行历史（参数 / 响应 / 元信息、成功标志、错误码、耗时、协议、操作人、replay_of 自引用）
 
-- 仅超级管理员可访问（页面权限 + 服务端权限双重校验）
-- 可查看工具列表、参数 schema、最近样例
-- 可执行调试、查看执行历史并一键重放
-- 执行结果已做敏感字段脱敏
+## API 端点
 
-## 关键配置项（SystemConfig）
+前缀 `/api/v1/enterprise-data`：
 
-- 基础：
-  - `ENTERPRISE_DATA_DEFAULT_PROVIDER`
-  - `ENTERPRISE_DATA_CACHE_TTL_SECONDS`
-- 天眼查：
-  - `TIANYANCHA_MCP_ENABLED`
-  - `TIANYANCHA_MCP_TRANSPORT`
-  - `TIANYANCHA_MCP_BASE_URL`
-  - `TIANYANCHA_MCP_SSE_URL`
-  - `TIANYANCHA_MCP_API_KEY`
-  - `TIANYANCHA_MCP_TIMEOUT_SECONDS`
-- 限流/重试：
-  - `ENTERPRISE_DATA_RATE_LIMIT_REQUESTS`
-  - `ENTERPRISE_DATA_RATE_LIMIT_WINDOW_SECONDS`
-  - `ENTERPRISE_DATA_RETRY_MAX_ATTEMPTS`
-  - `ENTERPRISE_DATA_RETRY_BACKOFF_SECONDS`
-- 可观测告警：
-  - `ENTERPRISE_DATA_METRICS_WINDOW_SECONDS`
-  - `ENTERPRISE_DATA_ALERT_MIN_SAMPLES`
-  - `ENTERPRISE_DATA_ALERT_SUCCESS_RATE_THRESHOLD`
-  - `ENTERPRISE_DATA_ALERT_FALLBACK_RATE_THRESHOLD`
-  - `ENTERPRISE_DATA_ALERT_AVG_LATENCY_MS_THRESHOLD`
-- 企查查预留：
-  - `QICHACHA_MCP_ENABLED`
-  - `QICHACHA_MCP_TRANSPORT`
-  - `QICHACHA_MCP_BASE_URL`
-  - `QICHACHA_MCP_SSE_URL`
-  - `QICHACHA_MCP_API_KEY`
-  - `QICHACHA_MCP_TIMEOUT_SECONDS`
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/providers` | provider 列表（include_tools 可探测工具） |
+| GET | `/companies/search?keyword=` | 企业搜索 |
+| GET | `/companies/{company_id}` | 企业画像 |
+| GET | `/companies/{company_id}/risks?risk_type=` | 风险（自身/周边/预警/历史） |
+| GET | `/companies/{company_id}/shareholders`、`/personnel` | 股东 / 高管 |
+| GET | `/personnel/{hcgid}` | 人员画像 |
+| GET | `/biddings/search?keyword=&search_type=&bid_type=&start_date=&end_date=` | 招投标 |
+
+## 关键配置
+
+- 天眼查：`TIANYANCHA_MCP_TRANSPORT`、`TIANYANCHA_MCP_BASE_URL` / `_SSE_URL`、`TIANYANCHA_MCP_API_KEY`（多 key 走 `TIANYANCHA_MCP_API_KEYS`）
+- 企查查：`QCC_MCP_BASE_URL`、`QCC_MCP_API_KEY`（含复数 `QCC_MCP_API_KEYS`）
+- 限流 / 重试 / 指标窗口 / 告警阈值 / 缓存 TTL 当前在 `provider_registry.py` 中以常量返回
 
 ## 运行注意事项
 
-- `is_secret=True` 的配置需要稳定的 `CREDENTIAL_ENCRYPTION_KEY`。  
-  开发环境若每次进程启动都随机生成密钥，密文将无法跨进程解密。
+- `is_secret=True` 的配置需要稳定的 `CREDENTIAL_ENCRYPTION_KEY`——开发环境若每次进程启动随机生成密钥，密文将无法跨进程解密

@@ -6,14 +6,14 @@
 
 - 工作台：`/admin/document_recognition/documentrecognitiontool/`（上传、识别、绑定、日期确认；`?task=<id>` 装载历史任务）
 - 任务列表：`/admin/document_recognition/documentrecognitiontask/`（状态/绑定/通知/确认进度列与筛选，详情含原始文本、联系人/地址、日期候选 inline）
-- 前端「记一笔」QuickAdd 的 📎 上传也走同一套 API（未绑定任务 → 独立提醒）
+- 前端「记一笔」QuickAdd 的 📎 上传也走同一套 API（未绑定任务 → 独立提醒）。上传端点支持 `source_court_sms_id` 表单参数走**管线模式预绑定**（法院短信管线二阶段：案件/日志由短信侧建好，识别只做提取+日期候选且不重复通知，状态接口返回 `binding_mode` 区分 standalone/pipeline）。
 
 ## 架构
 
 | 层 | 位置 | 职责 |
 |---|---|---|
 | API | `api/document_recognition_api.py` | Ninja 路由：上传/状态轮询/日期确认/撤销/待确认列表/案件搜索/手动绑定/改案号 |
-| Service | `services/` | 识别编排（`recognition_service`）、结构化 LLM 分析（`document_analyzer`）、文本提取（`text_extraction_service`）、视觉转写（`vlm_ocr_service`）、日期候选（`date_candidate_service`）、绑定（`case_binding_service`）、联系人/地址（`contact_extraction_service`）、通知（`notification_service`） |
+| Service | `services/` | 识别编排（`recognition_service`）、结构化 LLM 分析（`document_analyzer`）、文本提取（`text_extraction_service`）、视觉转写（`vlm_ocr_service`）、日期候选（`date_candidate_service`）、绑定（`case_binding_service`）、案件绑定推荐（`case_matching_service`，未绑定任务的 recommendations 字段，5 分钟缓存）、联系人/地址（`contact_extraction_service`）、通知（`notification_service`） |
 | Admin | `admin/` | 工作台模板 + 任务列表/详情 |
 | Task | `tasks.py` | Django-Q 异步执行（`execute_document_recognition_task`，timeout=600s），提交即返回任务 ID，前端轮询 |
 

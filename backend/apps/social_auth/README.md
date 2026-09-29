@@ -19,7 +19,7 @@
 | `models/temp_auth.py` | `TempAuth`：一次性授权码，5 分钟过期，用完即删 |
 | `services/social_auth_service.py` | 绑定/解绑/解析用户；登录只放行已绑定身份 |
 | `views.py` | `SocialLoginView` / `SocialCallbackView`（后端 302 回调，非 API） |
-| `api/social_auth_api.py` | 前端调用的 7 个 API 端点 |
+| `api/social_auth_api.py` | 前端调用的 7 个 API 端点（出入参 Schema 在 `api/social_auth_schemas.py`） |
 | `admin.py` | `SocialAccountAdmin`（只读 + 可删，禁止手工新增） |
 | `signals.py` | SystemConfig 变更 → 失效 Provider 配置缓存 |
 
@@ -101,7 +101,7 @@
 | POST | `/{provider}/bind-session` | 需登录 | 发起绑定授权 |
 | DELETE | `/{provider}/bind` | 需登录 | 解绑 |
 
-后端 302 回调（不在 API 内）：`/social/{provider}/login/`、`/social/{provider}/callback/`（见 `urls.py`）。
+后端 302 回调（不在 API 内）：`/social/{provider}/login/`、`/social/{provider}/callback/`（注册于 `apiSystem/apiSystem/urls.py`，本 app 内无 urls.py）。
 
 前端路由：`/login`（登录）、`/social-callback`（回调落地）、`/settings/bindings`（账号绑定）。
 
