@@ -27,7 +27,9 @@ export function smsStageInfo(status: string): SmsStageInfo {
     case 'downloading':
       return { stage: 1, terminal: null, failedAt: null }
     case 'download_failed':
-      return { stage: 1, terminal: 'failed', failedAt: 1 }
+      // 非终态：后端 retry_count<3 时会建 +60s 一次性调度自动重试（状态翻回
+      // pending→downloading），继续轮询才能跟着走完；重试用尽后端才置 failed
+      return { stage: 1, terminal: null, failedAt: 1 }
     case 'matching':
       return { stage: 2, terminal: null, failedAt: null }
     case 'pending_manual':

@@ -1,9 +1,10 @@
-import { Copy, Loader2, MessageSquare } from 'lucide-react'
-import { useState } from 'react'
+import { Copy, Loader2, MessageSquare, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import { toast } from 'sonner'
 
-import { courtSmsDownloadAllUrl, triggerDownload } from '../../../api'
-import { BTN, BTN_PRIMARY } from '../../../ui'
+import { courtSmsDownloadAllUrl, triggerDownload, type CourtSmsDetail } from '../../../api'
+import { BTN, BTN_DANGER, BTN_PRIMARY } from '../../../ui'
 import { FlowNotice, TaskFlowDialog, type FlowTone } from '../dialog/TaskFlowDialog'
 import { StageSteps } from '../dialog/StageSteps'
 import { CaseAssignPicker } from './CaseAssignPicker'
@@ -21,6 +22,30 @@ function toneOf(flow: UseCourtSmsResult): FlowTone {
   }
   if (flow.phase === 'timeout') return 'timeout'
   return 'running'
+}
+
+/** 处理中弹窗的错误提示：下载失败等待自动重试 / 爬虫层退避重试中带出的具体报错 */
+function runningNotice(detail: CourtSmsDetail | null): { kind: 'warn' | 'error'; text: string } | null {
+  if (!detail) return null
+  if (detail.status === 'download_failed') {
+    return {
+      kind: 'warn',
+      text: `文书下载失败：${detail.error_message || '未知原因'}。约 1 分钟后自动重试（第 ${Math.min(detail.retry_count + 1, 3)}/3 次），急用可停止并删除后重新提交。`,
+    }
+  }
+  if (detail.status === 'downloading' && detail.download_task_error) {
+    return {
+      kind: 'warn',
+      text: `下载进程出错，正在自动重试：${detail.download_task_error}`,
+    }
+  }
+  return null
+}
+
+/** 等待超时弹窗的错误提示：卡住时把已知的报错亮出来，别让用户干等 */
+function timeoutNotice(detail: CourtSmsDetail | null): { kind: 'error'; text: string } | null {
+  const err = detail?.error_message || detail?.download_task_error
+  return err ? { kind: 'error', text: `后台处理异常：${err}` } : null
 }
 
 /**
@@ -41,8 +66,35 @@ export function CourtSmsFlowDialog({
   const detail = flow.detail
   const steps = stageForDisplay(detail, flow.stage)
   const canRetry = flow.smsId !== null && !flow.submitError
+  const canAbort = canRetry && (tone === 'running' || tone === 'timeout' || tone === 'error')
   const docs = detail?.documents ?? []
   const [copyAllBusy, setCopyAllBusy] = useState(false)
+  const [abortArmed, setAbortArmed] = useState(false)
+  const [abortBusy, setAbortBusy] = useState(false)
+
+  // 弹窗关闭即解除「确认停止」的武装态，下次打开从头确认
+  useEffect(() => {
+    if (!open) setAbortArmed(false)
+  }, [open])
+
+  const onAbortClick = async () => {
+    if (!abortArmed) {
+      setAbortArmed(true)
+      window.setTimeout(() => setAbortArmed(false), 4000)
+      return
+    }
+    setAbortBusy(true)
+    try {
+      await flow.abortAndRemove()
+      toast.success('已停止并删除该短信处理任务')
+      onOpenChange(false)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '停止任务失败，请稍后重试')
+    } finally {
+      setAbortBusy(false)
+      setAbortArmed(false)
+    }
+  }
 
   const copyAll = async () => {
     if (!flow.smsId || docs.length === 0) return
@@ -66,19 +118,27 @@ export function CourtSmsFlowDialog({
     success: detail?.case ? '文书已自动重命名并归档到案件日志' : '短信已解析完成',
     error: undefined,
     manual: '短信已解析并下载文书，但无法确定所属案件——从在办案件中选择一个继续完成归档',
-    timeout: '法院文书下载可能较慢；可关闭弹窗稍后在收件箱查看，或点击「继续等待」',
+    timeout: '法院文书下载可能较慢；可继续等待，或停止并删除任务后重新提交',
   }
 
   let body: ReactNode = null
   if (tone === 'running' || tone === 'timeout') {
-    body = <StageSteps steps={SMS_STAGES} current={steps.current} failedAt={steps.failedAt} />
+    const notice = tone === 'running' ? runningNotice(detail) : timeoutNotice(detail)
+    body = (
+      <div className="flex flex-col gap-2.5">
+        <StageSteps steps={SMS_STAGES} current={steps.current} failedAt={steps.failedAt} />
+        {notice && <FlowNotice kind={notice.kind}>{notice.text}</FlowNotice>}
+      </div>
+    )
   } else if (tone === 'success' && detail) {
     body = <SmsSuccessBody detail={detail} />
   } else if (tone === 'error') {
     body = (
       <div className="flex flex-col gap-2.5">
         <StageSteps steps={SMS_STAGES} current={steps.current} failedAt={steps.failedAt} />
-        <FlowNotice kind="error">{flow.submitError || detail?.error_message || '处理失败，可重试或稍后到后台查看'}</FlowNotice>
+        <FlowNotice kind="error">
+          {flow.submitError || detail?.error_message || detail?.download_task_error || '处理失败，可重试或稍后到后台查看'}
+        </FlowNotice>
       </div>
     )
   } else if (tone === 'manual' && detail) {
@@ -134,6 +194,17 @@ export function CourtSmsFlowDialog({
           {(tone === 'error' || tone === 'manual') && canRetry && (
             <button type="button" className={BTN} disabled={flow.actionBusy} onClick={() => void flow.retry()}>
               {tone === 'manual' ? '重新自动匹配' : '重试处理'}
+            </button>
+          )}
+          {canAbort && (
+            <button
+              type="button"
+              className={BTN_DANGER + ' mr-auto'}
+              disabled={flow.actionBusy || abortBusy}
+              onClick={() => void onAbortClick()}
+            >
+              {abortBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              {abortArmed ? '确认停止并删除？' : '停止并删除'}
             </button>
           )}
           <button type="button" className={tone === 'success' || tone === 'timeout' ? BTN : BTN_PRIMARY} onClick={() => onOpenChange(false)}>

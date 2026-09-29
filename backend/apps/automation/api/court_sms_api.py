@@ -17,6 +17,7 @@ from ninja import Form, Router
 from ninja.pagination import PageNumberPagination, paginate
 
 from apps.automation.schemas import (
+    CourtSMSAbortOut,
     CourtSMSAssignCaseIn,
     CourtSMSAssignCaseOut,
     CourtSMSBatchDeleteIn,
@@ -100,6 +101,7 @@ async def get_sms_detail(request: Any, sms_id: int) -> CourtSMSDetailOut:  # pra
 async def list_sms(  # pragma: no cover
     request: Any,
     status: str | None = None,
+    status_group: str | None = None,
     sms_type: str | None = None,
     has_case: bool | None = None,
     date_from: datetime | None = None,
@@ -108,16 +110,22 @@ async def list_sms(  # pragma: no cover
     """
     查询短信列表
 
-    支持按状态、类型、是否关联案件、日期范围筛选
+    支持按状态、类型、是否关联案件、日期范围筛选；
+    status_group 为前端状态组视图（needs_action / completed），优先于 status。
     """
     service = _get_court_sms_service()
 
     @sync_to_async
     def _list() -> list[CourtSMSListOut]:
         sms_qs = service.list_sms(
-            status=status, sms_type=sms_type, has_case=has_case, date_from=date_from, date_to=date_to
+            status=status,
+            status_group=status_group,
+            sms_type=sms_type,
+            has_case=has_case,
+            date_from=date_from,
+            date_to=date_to,
         )
-        return [CourtSMSListOut.from_model(sms) for sms in sms_qs]
+        return [CourtSMSListOut.from_model(s) for s in sms_qs]
 
     return await _list()
 
@@ -189,6 +197,25 @@ async def batch_delete_sms(request: Any, payload: CourtSMSBatchDeleteIn) -> Cour
     service = _get_court_sms_service()
     deleted = await sync_to_async(service.batch_delete_sms)(payload.ids)
     return CourtSMSBatchDeleteOut(deleted=deleted)
+
+
+# ============================================================================
+# 终止任务接口
+# ============================================================================
+
+
+@router.post("/court-sms/{sms_id}/abort-and-delete", response=CourtSMSAbortOut)
+async def abort_and_delete_sms(request: Any, sms_id: int) -> CourtSMSAbortOut:  # pragma: no cover
+    """终止并彻底删除短信处理任务。
+
+    清理 Django-Q 中该短信的重试调度与排队任务（含爬虫下载任务的退避重试），
+    删除短信记录与归属的下载任务（下载原件随信号清理；已归档到案件日志的
+    复制件不受影响）。用于任务卡住/反复失败时由用户主动放弃。
+    """
+    from apps.automation.services.sms.court_sms_abort_service import CourtSmsAbortService
+
+    summary = await sync_to_async(CourtSmsAbortService().abort_and_delete)(sms_id)
+    return CourtSMSAbortOut(success=True, data=summary)
 
 
 # ============================================================================

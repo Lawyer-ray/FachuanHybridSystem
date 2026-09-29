@@ -23,6 +23,9 @@ export interface CourtSmsDetail {
   status: string
   error_message: string | null
   retry_count: number
+  /** 下载子任务（ScraperTask）状态与最近错误——downloading 卡住时它比 SMS 状态先知道 */
+  download_task_status: string | null
+  download_task_error: string | null
   case: { id: number; name: string } | null
   documents: { id: number | null; name: string; source: string; download_url: string | null }[]
   notification_results: Record<string, unknown> | null
@@ -59,6 +62,37 @@ export async function getCourtSmsDetail(smsId: number): Promise<CourtSmsDetail> 
   return automationApi.get(`court-sms/${smsId}`).json<CourtSmsDetail>()
 }
 
+/** 列表行（后端 CourtSMSListOut，content 已截 100 字） */
+export interface CourtSmsListItem {
+  id: number
+  content: string
+  received_at: string
+  sms_type: string | null
+  status: string
+  case_name: string | null
+  has_documents: boolean
+  created_at: string
+}
+
+/** 历史筛选组：needs_action = 待人工/失败/下载失败（点开即可处理），completed = 已完成 */
+export type CourtSmsGroup = 'all' | 'needs_action' | 'completed'
+
+/** 分页查询短信列表（历史弹窗用，page_size 后端固定 20） */
+export async function listCourtSms(
+  group: CourtSmsGroup,
+  page: number,
+): Promise<{ items: CourtSmsListItem[]; count: number }> {
+  const res = await automationApi
+    .get('court-sms', {
+      searchParams: {
+        ...(group === 'all' ? {} : { status_group: group }),
+        page: String(page),
+      },
+    })
+    .json<{ items?: CourtSmsListItem[]; count?: number }>()
+  return { items: res.items ?? [], count: res.count ?? 0 }
+}
+
 /** 人工指定案件：成功后状态进入 renaming/notifying，需要继续轮询到终态 */
 export async function assignCourtSmsCase(smsId: number, caseId: number): Promise<void> {
   const res = await automationApi
@@ -75,6 +109,18 @@ export async function retryCourtSms(smsId: number): Promise<void> {
 /** 删除短信记录（自测造的数据用它清理） */
 export async function deleteCourtSms(smsId: number): Promise<void> {
   await automationApi.delete(`court-sms/${smsId}`)
+}
+
+/**
+ * 终止并彻底删除短信处理任务：清掉 Django-Q 里的重试调度与排队任务
+ * （含下载爬虫的退避重试），删除短信记录与下载任务。任务卡住/反复
+ * 失败时用户主动放弃用。
+ */
+export async function abortCourtSmsTask(smsId: number): Promise<void> {
+  const res = await automationApi
+    .post(`court-sms/${smsId}/abort-and-delete`)
+    .json<{ success?: boolean; message?: string }>()
+  if (res.success === false) throw new Error(res.message || '停止任务失败')
 }
 
 /** 案件搜索：复用文书识别域的 search-cases 端点（按名/案号/当事人模糊搜，空词返回全部在办） */

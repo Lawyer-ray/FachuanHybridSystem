@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { MessageSquare } from 'lucide-react'
+import { History, MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { TOOL_ENDPOINT } from '../../constants'
 import { BTN_PRIMARY, FIELD } from '../../ui'
 import { Spinner, ToolShell } from './shared'
 import { CourtSmsFlowDialog } from './court-sms/CourtSmsFlowDialog'
+import { CourtSmsHistoryDialog } from './court-sms/CourtSmsHistoryDialog'
 import { useCourtSms } from './court-sms/use-court-sms'
 
 /** 流程进行中/结束后，卡片上的「重开弹窗」入口文案（卡片窄，超长会被截断，别写长句） */
@@ -29,6 +30,7 @@ const BTN_REOPEN =
 export function CourtSmsCard() {
   const [text, setText] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const flow = useCourtSms()
 
   const busy = flow.phase === 'submitting' || flow.phase === 'processing'
@@ -53,8 +55,30 @@ export function CourtSmsCard() {
     if (flow.phase === 'done' || flow.phase === 'timeout') void flow.refresh()
   }
 
+  /** 历史列表点某条 → 关历史，处理弹窗直接跟进该记录（人工分配/重试/下载/复制都可用） */
+  const pickHistory = (smsId: number) => {
+    setHistoryOpen(false)
+    flow.openExisting(smsId)
+    setDialogOpen(true)
+  }
+
   return (
-    <ToolShell icon={<MessageSquare className="h-3.5 w-3.5" />} title="收法院短信" endpoint={TOOL_ENDPOINT.courtSms}>
+    <ToolShell
+      icon={<MessageSquare className="h-3.5 w-3.5" />}
+      title="收法院短信"
+      endpoint={TOOL_ENDPOINT.courtSms}
+      headerExtra={
+        <button
+          type="button"
+          title="历史短信记录"
+          className="flex h-[26px] flex-none items-center gap-1 rounded-[7px] border border-border bg-card px-2 text-[10.5px] font-medium text-secondary-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          onClick={() => setHistoryOpen(true)}
+        >
+          <History className="h-3 w-3" />
+          历史
+        </button>
+      }
+    >
       <div className="flex flex-1 flex-col gap-[7px]">
         <textarea
           className={FIELD + ' resize-none leading-[1.5]'}
@@ -80,6 +104,7 @@ export function CourtSmsCard() {
       </div>
 
       <CourtSmsFlowDialog open={dialogOpen} onOpenChange={setDialogOpen} flow={flow} />
+      <CourtSmsHistoryDialog open={historyOpen} onOpenChange={setHistoryOpen} onPick={pickHistory} />
     </ToolShell>
   )
 }

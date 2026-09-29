@@ -31,9 +31,10 @@ describe('smsStageInfo 状态机映射', () => {
     expect(info.failedAt).toBeNull()
   })
 
-  it('download_failed 是失败终态并标注失败在下载阶段', () => {
+  it('download_failed 是等待自动重试的非终态，标注失败在下载阶段', () => {
+    // 后端 retry_count<3 会建 +60s 调度自动重试，若当终态停轮询会错过恢复
     const info = smsStageInfo('download_failed')
-    expect(info.terminal).toBe('failed')
+    expect(info.terminal).toBeNull()
     expect(info.failedAt).toBe(1)
   })
 

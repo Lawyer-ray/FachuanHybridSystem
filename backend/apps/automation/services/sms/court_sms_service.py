@@ -13,8 +13,8 @@ from django.utils import timezone
 
 from apps.automation.models import CourtSMS, CourtSMSStatus
 from apps.core.exceptions import NotFoundError, ValidationException
-from apps.core.tasking import submit_task
 from apps.core.exceptions.error_codes import CASE_ASSIGNMENT_FAILED, SMS_RETRY_FAILED, SMS_SUBMIT_FAILED
+from apps.core.tasking import submit_task
 
 from ._sms_case_binding_mixin import SMSCaseBindingMixin
 from ._sms_document_mixin import SMSDocumentMixin
@@ -30,6 +30,16 @@ if TYPE_CHECKING:
     from apps.core.interfaces import ICaseChatService, ICaseService, IClientService, ILawyerService
 
 logger = logging.getLogger("apps.automation")
+
+# 前端历史弹窗的状态组视图：needs_action = 点开即可继续处理的
+STATUS_GROUP_STATUSES: dict[str, list[str]] = {
+    "needs_action": [
+        CourtSMSStatus.PENDING_MANUAL,
+        CourtSMSStatus.FAILED,
+        CourtSMSStatus.DOWNLOAD_FAILED,
+    ],
+    "completed": [CourtSMSStatus.COMPLETED],
+}
 
 
 class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
@@ -146,19 +156,28 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         self,
         *,
         status: str | None = None,
+        status_group: str | None = None,
         sms_type: str | None = None,
         has_case: bool | None = None,
         date_from: Any = None,
         date_to: Any = None,
     ) -> Any:  # pragma: no cover
-        """查询短信列表"""
+        """查询短信列表
+
+        status_group 是面向前端历史弹窗的状态组视图：
+        needs_action = 待人工分配 / 处理失败 / 下载失败（点开即可继续处理的），
+        completed = 已完成。与单 status 互斥使用时 group 优先。
+        """
         qs = (
             CourtSMS.objects.all()
             .select_related("case", "scraper_task", "case_log")
             .prefetch_related("scraper_task__documents", "case_log__attachments")
             .order_by("-received_at")
         )
-        if status:
+        group_statuses = STATUS_GROUP_STATUSES.get(status_group or "")
+        if group_statuses:
+            qs = qs.filter(status__in=group_statuses)
+        elif status:
             qs = qs.filter(status=status)
         if sms_type:
             qs = qs.filter(sms_type=sms_type)
@@ -322,7 +341,9 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                 sms.case_log = None
             sms.save()
 
-            logger.info(f"重置短信状态成功: SMS ID={sms_id}, 重试次数={sms.retry_count}, 保留案件关联={has_manual_case}")
+            logger.info(
+                f"重置短信状态成功: SMS ID={sms_id}, 重试次数={sms.retry_count}, 保留案件关联={has_manual_case}"
+            )
 
             if has_manual_case:
                 # 已有案件，跳过匹配，从重命名阶段开始

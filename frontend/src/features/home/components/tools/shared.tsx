@@ -10,16 +10,18 @@ export function Spinner() {
   )
 }
 
-/** 工具卡外壳：图标 + 标题 + 后端端点注释 + 内容区 */
+/** 工具卡外壳：图标 + 标题 + 后端端点注释 + 内容区（headerExtra 放头部右侧小入口） */
 export function ToolShell({
   icon,
   title,
   endpoint,
+  headerExtra,
   children,
 }: {
   icon: ReactNode
   title: string
   endpoint: string
+  headerExtra?: ReactNode
   children: ReactNode
 }) {
   return (
@@ -28,12 +30,13 @@ export function ToolShell({
         <div className="flex h-7 w-7 flex-none items-center justify-center rounded-[8px] border border-border bg-card text-secondary-foreground">
           {icon}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="text-[12.5px] leading-[1.2] font-semibold">{title}</div>
           <div className="mt-[2px] truncate font-mono text-[9px] text-muted-foreground" title={endpoint}>
             {endpoint}
           </div>
         </div>
+        {headerExtra}
       </div>
       {children}
     </div>
