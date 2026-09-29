@@ -17,7 +17,7 @@ dependencies = [
     "django-q2==1.11.1",
     "django-lifecycle==1.3.0",
     # --- ASGI / WebSocket ---
-    "uvicorn[standard]==0.53.0",
+    "uvicorn[standard]==0.54.0",
     "channels==4.3.2",
     "channels-redis==4.3.0",
     "valkey==6.1.1",
