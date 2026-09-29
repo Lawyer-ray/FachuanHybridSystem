@@ -83,6 +83,13 @@ class LLMProvider(models.Model):
     default_model = models.CharField(max_length=100, verbose_name="默认模型")
     extra_models = models.TextField(blank=True, default="", verbose_name="模型列表")
     embedding_model = models.CharField(max_length=100, blank=True, default="", verbose_name="向量模型")
+    vision_model = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name="视觉模型",
+        help_text="多模态模型名（用于文书图片/扫描件视觉转写），留空禁用视觉转写走本地 OCR",
+    )
     timeout = models.PositiveIntegerField(default=120, verbose_name="超时（秒）")
     concurrency_per_key = models.PositiveIntegerField(default=3, verbose_name="每 Key 并发上限")
     priority = models.PositiveIntegerField(default=10, verbose_name="优先级")

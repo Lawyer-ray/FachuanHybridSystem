@@ -47,7 +47,9 @@ export async function convertDocument(mbid: string, file: File): Promise<Convert
   const blob = await res.blob()
   const disposition = res.headers.get('content-disposition') || ''
   const matched = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition)
-  const filename = matched ? decodeURIComponent(matched[1]) : `${file.name.replace(/\.[^.]+$/, '')}-要素式.docx`
+  const filename = matched?.[1]
+    ? decodeURIComponent(matched[1])
+    : `${file.name.replace(/\.[^.]+$/, '')}-要素式.docx`
   return { downloadUrl: URL.createObjectURL(blob), filename }
 }
 

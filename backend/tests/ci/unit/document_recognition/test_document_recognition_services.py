@@ -26,21 +26,6 @@ class TestDocumentRecognitionModules:
 
         assert InfoExtractor is not None
 
-    @pytest.mark.django_db
-    def test_info_extractor_get_ollama_model(self) -> None:
-        from apps.document_recognition.services.info_extractor import get_ollama_model
-
-        # Should not raise
-        model = get_ollama_model()
-        assert isinstance(model, str)
-
-    @pytest.mark.django_db
-    def test_info_extractor_get_ollama_base_url(self) -> None:
-        from apps.document_recognition.services.info_extractor import get_ollama_base_url
-
-        url = get_ollama_base_url()
-        assert isinstance(url, str)
-
     def test_recognition_service_importable(self) -> None:
         from apps.document_recognition.services import recognition_service
 

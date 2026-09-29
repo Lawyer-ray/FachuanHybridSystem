@@ -85,7 +85,7 @@ export function Flow({
       messageId,
       mi: ref.mi,
       p: ref.p,
-      mat: mats[ref.mi],
+      mat: mats[ref.mi]!,
       pickActive: picking,
       selModeActive: selMode,
       selected: selKeys.has(`${ref.mi}:${ref.p}`),
@@ -119,9 +119,9 @@ export function Flow({
       }
     >
       {segs.map((seg, si) => {
-        const color = SEG_COLORS[si % SEG_COLORS.length]
+        const color = SEG_COLORS[si % SEG_COLORS.length] ?? SEG_COLORS[0]
         const focused = focusedSeg === si
-        const firstMat = mats[seg.refs[0]?.mi]
+        const firstMat = seg.refs.length ? mats[seg.refs[0]!.mi] : undefined
         return (
           <section
             key={si}

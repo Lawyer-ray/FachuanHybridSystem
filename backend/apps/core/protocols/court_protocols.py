@@ -56,6 +56,14 @@ class ICourtDocumentService(Protocol):
 class ICourtDocumentRecognitionService(Protocol):
     """法院文书智能识别服务接口"""
 
-    def recognize_document(self, file_path: str, user: Any | None = None) -> Any: ...
+    def recognize_document(
+        self,
+        file_path: str,
+        user: Any | None = None,
+        *,
+        prebound_case_id: int | None = None,
+        prebound_case_log_id: int | None = None,
+        llm_model: str | None = None,
+    ) -> Any: ...
 
-    def recognize_document_from_text(self, text: str) -> Any: ...
+    def recognize_document_from_text(self, text: str, *, llm_model: str | None = None) -> Any: ...

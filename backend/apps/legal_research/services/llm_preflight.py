@@ -11,7 +11,6 @@ from apps.core.llm.config import LLMConfig
 logger = logging.getLogger(__name__)
 
 _BACKEND_LABELS = {
-    "ollama": "Ollama",
     "openai_compatible": "OpenAI 兼容",
 }
 
@@ -19,9 +18,7 @@ _BACKEND_LABELS = {
 def verify_llm_connectivity(*, model: str | None) -> None:  # pragma: no cover
     """Validate LLM connectivity and optional model availability before queueing a task.
 
-    Routes to the correct backend based on the model name:
-    - ":" in model → Ollama
-    - otherwise → OpenAI-compatible
+    All models route to the OpenAI-compatible backend (AI platform table).
     """
     selected_model = (model or "").strip()
     backend = LLMConfig.resolve_backend_for_model(selected_model)
@@ -38,12 +35,6 @@ def verify_llm_connectivity(*, model: str | None) -> None:  # pragma: no cover
     if not base_url:
         raise ValidationException(f"未配置 {_BACKEND_LABELS.get(backend, backend)} Base URL，请先完成系统配置。")
 
-    # Ollama 不需要 API Key，检查 /api/tags
-    if backend == "ollama":
-        _check_ollama(base_url, selected_model)
-        return
-
-    # OpenAI-compatible 需要 API Key
     if not api_key:
         raise ValidationException(f"未配置 {_BACKEND_LABELS.get(backend, backend)} API Key，请先完成系统配置。")
 
@@ -71,14 +62,3 @@ def _check_openai_compatible(base_url: str, api_key: str) -> None:  # pragma: no
         raise ValidationException("OpenAI 兼容后端鉴权失败，请检查 API Key。")
     if response.status_code != 200:
         raise ValidationException(f"OpenAI 兼容后端服务不可用 (HTTP {response.status_code})。")
-
-
-def _check_ollama(base_url: str, model: str) -> None:  # pragma: no cover
-    try:
-        response = httpx.get(f"{base_url.rstrip('/')}/api/tags", timeout=12.0)
-    except httpx.RequestError as exc:
-        logger.warning("Ollama 连通性检查失败", extra={"base_url": base_url, "error": str(exc)})
-        raise ValidationException(f"Ollama 连接失败: {exc}") from exc
-
-    if response.status_code != 200:
-        raise ValidationException(f"Ollama 服务不可用 (HTTP {response.status_code})。")

@@ -154,3 +154,23 @@ class TestCalendarExportServiceExportReminders:
         with patch.object(svc, "_query_reminders", return_value=[]):
             result = svc.export_reminders(year=2025, month=12)
         assert b"PRODID" in result or b"prodid" in result.lower()
+
+    def test_status_reflects_completion(self) -> None:
+        now = timezone.now()
+        base = dict(
+            id=9,
+            due_at=now,
+            content="开庭",
+            reminder_type="hearing",
+            metadata={},
+            contract_id=None,
+            contract=None,
+            case_id=None,
+            case=None,
+            case_log_id=None,
+            case_log=None,
+        )
+        done = CalendarExportService._reminder_to_vevent(SimpleNamespace(**base, is_completed=True))  # type: ignore[arg-type]
+        pending = CalendarExportService._reminder_to_vevent(SimpleNamespace(**base, is_completed=False))  # type: ignore[arg-type]
+        assert str(done.get("status")) == "COMPLETED"
+        assert str(pending.get("status")) == "CONFIRMED"

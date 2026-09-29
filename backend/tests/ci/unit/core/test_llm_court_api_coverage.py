@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -54,9 +55,6 @@ class TestLLMConfigNormalizeBaseUrl:
 class TestLLMConfigResolveBackendForModel:
     def test_openai_compatible_model(self):
         assert LLMConfig.resolve_backend_for_model("Qwen/Qwen2.5-7B-Instruct") == "openai_compatible"
-
-    def test_ollama_model(self):
-        assert LLMConfig.resolve_backend_for_model("qwen3:0.6b") == "ollama"
 
     @patch.object(LLMConfig, "get_default_backend", return_value="openai_compatible")
     def test_empty_model(self, mock_backend):
@@ -113,7 +111,8 @@ class TestLLMConfigGetDefaultBackend:
     @patch.object(LLMConfig, "_get_system_config", return_value="ollama")
     def test_from_config(self, mock_sc):
         result = LLMConfig.get_default_backend()
-        assert result == "ollama"
+        # ollama 已下线：不在合法后端集合 → 回落默认
+        assert result == "openai_compatible"
 
     @patch.object(LLMConfig, "_get_system_config", return_value="invalid")
     def test_invalid_returns_openai_compatible(self, mock_sc):
@@ -179,7 +178,7 @@ class TestCourtApiClientIsValidResponse:
 
     def test_not_dict(self):
         client = self._get_client()
-        assert client._is_valid_response("not a dict") is False  # type: ignore[arg-type]
+        assert client._is_valid_response("not a dict") is False
 
     def test_no_code(self):
         client = self._get_client()
@@ -200,9 +199,13 @@ class TestParseCauseResponse:
                         {
                             "name": "民事案由",
                             "children": [
-                                {"id": "1", "name": "人格权纠纷", "children": [
-                                    {"id": "1-1", "name": "生命权纠纷", "children": []},
-                                ]},
+                                {
+                                    "id": "1",
+                                    "name": "人格权纠纷",
+                                    "children": [
+                                        {"id": "1-1", "name": "生命权纠纷", "children": []},
+                                    ],
+                                },
                                 {"id": "2", "name": "婚姻家庭纠纷", "children": []},
                             ],
                         }
@@ -274,9 +277,13 @@ class TestParseCauseItems:
     def test_nested(self):
         client = self._get_client()
         items = [
-            {"id": "1", "name": "Parent", "children": [
-                {"id": "1-1", "name": "Child", "children": []},
-            ]},
+            {
+                "id": "1",
+                "name": "Parent",
+                "children": [
+                    {"id": "1-1", "name": "Child", "children": []},
+                ],
+            },
         ]
         result = client._parse_cause_items(items, "civil")
         assert len(result[0].children) == 1
@@ -290,9 +297,13 @@ class TestParseCourtResponse:
         client = self._get_client()
         response = {
             "data": [
-                {"cGbm": "G1000", "name": "广东省", "children": [
-                    {"cGbm": "G1001", "name": "广州市中级人民法院"},
-                ]},
+                {
+                    "cGbm": "G1000",
+                    "name": "广东省",
+                    "children": [
+                        {"cGbm": "G1001", "name": "广州市中级人民法院"},
+                    ],
+                },
             ]
         }
         result = client.parse_court_response(response)
@@ -302,7 +313,7 @@ class TestParseCourtResponse:
 
     def test_empty_response(self):
         client = self._get_client()
-        response = {"data": []}
+        response: dict[str, Any] = {"data": []}
         result = client.parse_court_response(response)
         assert result == []
 

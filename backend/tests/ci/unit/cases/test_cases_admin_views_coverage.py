@@ -9,13 +9,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
-from django.test import RequestFactory
 from django.http import Http404
+from django.test import RequestFactory
 
 from apps.cases.admin.mixins.views import (
     CaseAdminViewsMixin,
-    _get_contact_role_choices,
     _get_case_stage_choices,
+    _get_contact_role_choices,
     _has_court_filing_plugin,
     _log_inline_formset,
 )
@@ -287,13 +287,12 @@ class TestCaseAdminViewsMixinFolderDisabled:
 
 @pytest.mark.django_db
 class TestCaseAdminViewsMixinGroupTemplates:
-    """测试 _group_templates_by_sub_type"""
+    """_group_templates_by_sub_type mixin 死代码已删除；分组逻辑由 CaseAdminService 承担。"""
 
-    def test_group_templates_by_sub_type(self):
-        mixin = CaseAdminViewsMixin()
+    def test_service_group_templates_by_sub_type(self):
+        from apps.cases.services.case.case_admin_service import CaseAdminService
+
         templates = [{"name": "模板1", "sub_type": "A"}]
         sub_type_choices = [("A", "类型A"), ("B", "类型B")]
-        with patch("apps.cases.services.case.case_admin_service.CaseAdminService") as MockService:
-            MockService.return_value.group_templates_by_sub_type.return_value = [("类型A", [{"name": "模板1"}])]
-            result = CaseAdminViewsMixin._group_templates_by_sub_type(templates, sub_type_choices)
-            assert isinstance(result, list)
+        result = CaseAdminService().group_templates_by_sub_type(templates, sub_type_choices)
+        assert isinstance(result, list)

@@ -15,8 +15,6 @@ from apps.cases.utils import CASE_LOG_ALLOWED_EXTENSIONS, CASE_LOG_MAX_FILE_SIZE
 from apps.core.filesystem.storage import KeepOriginalNameStorage
 from apps.core.filesystem.upload_paths import DatedUUIDPath, MediaEntity
 
-_SENTINEL = object()
-
 from .case import Case
 
 if TYPE_CHECKING:
@@ -25,6 +23,9 @@ if TYPE_CHECKING:
 # 案件日志附件存储
 case_log_storage = KeepOriginalNameStorage()
 logger = logging.getLogger(__name__)
+
+# 区分「未缓存」与「缓存为空」的哨兵（getattr 无法区分 None）
+_SENTINEL = object()
 
 
 def validate_log_attachment(file: UploadedFile) -> None:
@@ -72,9 +73,9 @@ class CaseLog(models.Model):
     class Meta:
         verbose_name = _("日志")
         verbose_name_plural = _("日志")
+        # actor 为 FK 自带索引；(case, -created_at) 是主查询路径
         indexes: ClassVar = [
             models.Index(fields=["case", "-created_at"]),
-            models.Index(fields=["actor"]),
         ]
 
     def __str__(self) -> str:
@@ -114,27 +115,13 @@ class CaseLog(models.Model):
 
     @property
     def _latest_reminder(self) -> Any | None:
-        """缓存最近的提醒记录，避免重复查询。"""
-        cached = getattr(self, "_cached_latest_reminder", _SENTINEL)
-        if cached is not _SENTINEL:
-            return cached
-        if not getattr(self, "id", None):
-            self._cached_latest_reminder = None
-            return None
+        """最近一条提醒：直接复用 _exported_reminders 的单一缓存。
 
-        reminder: dict[str, Any] | None = None
-        try:
-            from apps.core.interfaces import ServiceLocator
-
-            reminder_service = ServiceLocator.get_reminder_service()
-            reminder = reminder_service.get_latest_case_log_reminder_internal(case_log_id=int(self.id))
-        except (TypeError, ValueError):
-            logger.exception("case_log_latest_reminder_failed", extra={"case_log_id": int(self.id)})
-            reminders = self._exported_reminders()
-            reminder = reminders[-1] if reminders else None
-
-        self._cached_latest_reminder = reminder
-        return reminder
+        批量预热（admin/`warm_reminder_cache`）写入该缓存后此处零查询；
+        导出结果按 due_at 升序，末位即最近一条。
+        """
+        entries = self._exported_reminders()
+        return entries[-1] if entries else None
 
     @property
     def reminder_type(self) -> str | None:
@@ -174,9 +161,7 @@ class CaseLogAttachment(models.Model):
     class Meta:
         verbose_name = _("日志附件")
         verbose_name_plural = _("日志附件")
-        indexes: ClassVar = [
-            models.Index(fields=["log"]),
-        ]
+        # log 为 FK 自带索引
 
     def save(self, *args: Any, **kwargs: Any) -> None:
         if not self.original_filename and self.file:
@@ -199,10 +184,7 @@ class CaseLogVersion(models.Model):
     class Meta:
         verbose_name = _("案件日志版本")
         verbose_name_plural = _("案件日志版本")
-        indexes: ClassVar = [
-            models.Index(fields=["log"]),
-            models.Index(fields=["actor"]),
-        ]
+        # log / actor 均为 FK 自带索引
 
     def __str__(self) -> str:
         return f"{self.log_id}-{self.version_at}"

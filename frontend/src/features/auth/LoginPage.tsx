@@ -14,8 +14,8 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import './auth.css'
-import { socialAuthApi } from './social-api'
-import { buildLoginMethods, PASSWORD_METHOD_ID, type LoginMethod } from './login-methods'
+import { socialAuthApi, SOCIAL_PROVIDERS_KEY } from './social-api'
+import { buildLoginMethods, PASSWORD_METHOD_ID } from './login-methods'
 import { LoginBrandPanel } from './components/LoginBrandPanel'
 import { LoginMethodSwitch } from './components/LoginMethodSwitch'
 import { PasswordLoginForm } from './components/PasswordLoginForm'
@@ -32,11 +32,12 @@ export function LoginPage() {
   // 已启用的登录方式由后端下发；走 react-query 带缓存（此前手写 effect，
   // 每次进登录页都重新请求且无失败痕迹）。拉不到就只留账密，不影响登录。
   const { data: providers = [] } = useQuery({
-    queryKey: ['social-providers'],
+    queryKey: SOCIAL_PROVIDERS_KEY,
     queryFn: socialAuthApi.listProviders,
     staleTime: 5 * 60_000,
   })
-  const methods = useMemo<LoginMethod[]>(() => buildLoginMethods(providers), [providers])
+  // 推断保留 NonEmptyArray（buildLoginMethods 恒非空），active 因此不需要判空
+  const methods = useMemo(() => buildLoginMethods(providers), [providers])
 
   const active = methods.find((m) => m.id === activeId) ?? methods[0]
 

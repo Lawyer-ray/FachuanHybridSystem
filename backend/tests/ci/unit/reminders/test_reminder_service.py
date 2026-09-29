@@ -8,6 +8,7 @@ import pytest
 from django.utils import timezone
 
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.reminders.models import Reminder
 from apps.reminders.services.reminder_service import ReminderService
 from apps.reminders.services.validators import (
     normalize_content,
@@ -16,7 +17,6 @@ from apps.reminders.services.validators import (
     normalize_reminder_type,
     normalize_target_id,
 )
-
 
 # ── validators ──
 
@@ -147,3 +147,74 @@ class TestReminderServiceDelete:
         svc = ReminderService()
         with pytest.raises(NotFoundError):
             svc.delete_reminder(999999)
+
+
+class TestReminderServiceSetCompleted:
+    """批量完成：落库 / 幂等 / 不变量 / simple_history 审计。"""
+
+    @pytest.mark.django_db
+    def test_marks_batch_and_records_user(self):
+        from django.contrib.auth import get_user_model
+
+        user = get_user_model().objects.create_user(username="completer")
+        r1 = Reminder.objects.create(reminder_type="hearing", content="庭1", due_at=timezone.now())
+        r2 = Reminder.objects.create(reminder_type="hearing", content="庭2", due_at=timezone.now())
+
+        updated = ReminderService().set_completed([r1.id, r2.id], completed=True, user=user)
+
+        assert updated == 2
+        for rid in (r1.id, r2.id):
+            fresh = Reminder.objects.get(id=rid)
+            assert fresh.is_completed is True
+            assert fresh.completed_at is not None
+            assert fresh.completed_by_id == user.id
+
+    @pytest.mark.django_db
+    def test_records_history_per_save(self):
+        """逐条 save 而非 bulk update：simple_history 只在 save() 记历史。"""
+        r = Reminder.objects.create(reminder_type="hearing", content="庭", due_at=timezone.now())
+        assert r.history.count() == 1  # create
+
+        ReminderService().set_completed([r.id], completed=True)
+
+        assert r.history.count() == 2
+        latest = r.history.latest()
+        assert latest.is_completed is True
+
+    @pytest.mark.django_db
+    def test_unset_clears_fields(self):
+        r = Reminder.objects.create(reminder_type="hearing", content="庭", due_at=timezone.now())
+        ReminderService().set_completed([r.id], completed=True)
+
+        updated = ReminderService().set_completed([r.id], completed=False)
+
+        assert updated == 1
+        fresh = Reminder.objects.get(id=r.id)
+        assert fresh.is_completed is False
+        assert fresh.completed_at is None
+        assert fresh.completed_by_id is None
+
+    @pytest.mark.django_db
+    def test_skips_unknown_ids_silently(self):
+        r = Reminder.objects.create(reminder_type="hearing", content="庭", due_at=timezone.now())
+
+        updated = ReminderService().set_completed([r.id, 999999], completed=True)
+
+        assert updated == 1
+        assert Reminder.objects.get(id=r.id).is_completed is True
+
+    @pytest.mark.django_db
+    def test_empty_or_invalid_ids_raise(self):
+        with pytest.raises(ValidationException, match="不能为空"):
+            ReminderService().set_completed([], completed=True)
+        with pytest.raises(ValidationException, match="不能为空"):
+            ReminderService().set_completed([0, -1], completed=True)
+
+    @pytest.mark.django_db
+    def test_list_reminders_by_ids(self):
+        r1 = Reminder.objects.create(reminder_type="hearing", content="庭1", due_at=timezone.now())
+        r2 = Reminder.objects.create(reminder_type="hearing", content="庭2", due_at=timezone.now())
+
+        found = ReminderService().list_reminders_by_ids([r1.id, r2.id, 999999, 0])
+
+        assert {r.id for r in found} == {r1.id, r2.id}

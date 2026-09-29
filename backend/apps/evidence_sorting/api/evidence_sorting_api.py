@@ -186,26 +186,16 @@ async def export_zip(request: HttpRequest) -> dict[str, Any]:  # pragma: no cove
 @router.get("/llm-options")
 @rate_limit_from_settings("LLM", by_user=True)
 async def llm_options(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
-    """获取可用的 LLM 后端和模型列表"""
+    """获取可用的 LLM 后端和模型列表（仅列出已启用的后端）"""
     from apps.core.llm import get_llm_service
+    from apps.core.llm.config import LLMConfig
     from apps.core.llm.model_list_service import ModelListService
 
     llm = get_llm_service()
     backends: list[dict[str, Any]] = []
 
-    async def _check_ollama() -> dict[str, Any] | None:
-        try:
-            ollama_backend = await sync_to_async(llm.get_backend)("ollama")
-            is_available = await sync_to_async(ollama_backend.is_available)()
-            default_model = await sync_to_async(ollama_backend.get_default_model)()
-            return {
-                "name": "ollama",
-                "label": "Ollama (本地)",
-                "available": is_available,
-                "default_model": default_model,
-            }
-        except Exception:
-            return None
+    # 2026-09 Ollama 下线：只探测已启用的后端，本地后端默认不再出现
+    backend_configs = LLMConfig.get_backend_configs()
 
     async def _check_openai_compatible() -> dict[str, Any] | None:
         try:
@@ -228,8 +218,12 @@ async def llm_options(request: HttpRequest) -> dict[str, Any]:  # pragma: no cov
         except Exception:
             return None
 
-    ollama_result, oc_result = await asyncio.gather(_check_ollama(), _check_openai_compatible())
-    for b in (ollama_result, oc_result):
+    jobs: list[Any] = []
+    oc_config = backend_configs.get("openai_compatible")
+    if oc_config is None or oc_config.enabled:
+        jobs.append(_check_openai_compatible())
+    results = await asyncio.gather(*jobs) if jobs else []
+    for b in results:
         if b is not None:
             backends.append(b)
 

@@ -45,6 +45,8 @@ dependencies = [
     "Pillow==12.3.0",
     # --- OCR ---
     "rapidocr==3.9.2",
+    # macOS Vision 本地 OCR（文书识别管线本地档）；Linux/CI 按平台标记跳过
+    "pyobjc-framework-Vision>=12.0; sys_platform == 'darwin'",
     "onnxruntime>=1.28.0",
     "ddddocr>=1.6.0",
     # --- 浏览器自动化 ---

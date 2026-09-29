@@ -7,7 +7,9 @@
 
 from .adapter import CourtDocumentRecognitionServiceAdapter
 from .case_binding_service import CaseBindingService
+from .case_matching_service import DocumentCaseMatchingService
 from .data_classes import BindingResult, DocumentType, NotificationResult, RecognitionResponse, RecognitionResult
+from .date_candidate_service import DateCandidateDraft, build_date_candidates, confirm_candidates, revoke_confirmation
 from .document_classifier import DocumentClassifier
 from .info_extractor import InfoExtractor
 from .notification_service import DocumentRecognitionNotificationService
@@ -39,6 +41,13 @@ __all__ = [
     "InfoExtractor",
     # 案件绑定服务
     "CaseBindingService",
+    # 案件严格匹配服务
+    "DocumentCaseMatchingService",
+    # 日期候选服务
+    "DateCandidateDraft",
+    "build_date_candidates",
+    "confirm_candidates",
+    "revoke_confirmation",
     # 主服务（协调器）
     "CourtDocumentRecognitionService",
     # ServiceLocator 适配器

@@ -57,9 +57,9 @@ class DocumentParserService:
         处理步骤：
         1. 读取 PDF 内容
         2. 删除换行符
-        3. 在现有客户数据库中匹配当事人（不使用 Ollama）
+        3. 在现有客户数据库中匹配当事人（不使用 LLM）
 
-        注意：Ollama 只用于提取案号，不用于提取当事人
+        注意：LLM 只用于提取案号，不用于提取当事人
 
         Args:
             document_path: 文书文件路径
@@ -84,7 +84,7 @@ class DocumentParserService:
             content = result["text"].replace("\n", "").replace("\r", "")
             logger.info(f"从文书中提取到 {len(result['text'])} 字符的内容，删除换行符后为 {len(content)} 字符")
 
-            # 在现有客户数据库中匹配当事人（不使用 Ollama）
+            # 在现有客户数据库中匹配当事人（不使用 LLM）
             return self.match_parties_from_content(content)
 
         except Exception as e:
@@ -95,7 +95,7 @@ class DocumentParserService:
         """
         从文书内容中匹配现有客户数据库中的当事人
 
-        不使用 Ollama，直接在文书内容中搜索已有客户名称
+        不使用 LLM，直接在文书内容中搜索已有客户名称
 
         Args:
             content: 文书内容（已删除换行符）

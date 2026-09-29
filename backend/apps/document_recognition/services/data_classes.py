@@ -6,7 +6,7 @@
 Requirements: 4.5, 7.4
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any
@@ -40,6 +40,10 @@ class RecognitionResult:
         raw_text: 从文书中提取的原始文字
         confidence: 识别置信度，范围 0-1
         extraction_method: 文本提取方式（"pdf_direct" 或 "ocr"）
+        llm_model: 本次识别实际使用的 LLM 模型名（未走 LLM 时为 None）
+        llm_backend: 本次识别实际使用的 LLM 后端（openai_compatible/ollama）
+        llm_latency_ms: LLM 分析耗时（毫秒）
+        degraded: 是否为降级结果（LLM 不可用/解析失败，仅靠关键词+正则）
     """
 
     document_type: DocumentType
@@ -48,6 +52,10 @@ class RecognitionResult:
     raw_text: str
     confidence: float
     extraction_method: str
+    llm_model: str | None = None
+    llm_backend: str | None = None
+    llm_latency_ms: int | None = None
+    degraded: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """序列化为字典"""
@@ -58,6 +66,10 @@ class RecognitionResult:
             "raw_text": self.raw_text,
             "confidence": self.confidence,
             "extraction_method": self.extraction_method,
+            "llm_model": self.llm_model,
+            "llm_backend": self.llm_backend,
+            "llm_latency_ms": self.llm_latency_ms,
+            "degraded": self.degraded,
         }
 
     @classmethod
@@ -77,6 +89,10 @@ class RecognitionResult:
             raw_text=data.get("raw_text", ""),
             confidence=data.get("confidence", 0.0),
             extraction_method=data.get("extraction_method", ""),
+            llm_model=data.get("llm_model"),
+            llm_backend=data.get("llm_backend"),
+            llm_latency_ms=data.get("llm_latency_ms"),
+            degraded=bool(data.get("degraded", False)),
         )
 
 
@@ -263,7 +279,7 @@ class RecognitionResponse:
     """
     完整响应 DTO
 
-    包含识别结果、绑定结果和文件路径的完整响应。
+    包含识别结果、绑定结果、日期候选和文件路径的完整响应。
 
     Requirements: 4.5, 7.4
 
@@ -271,11 +287,15 @@ class RecognitionResponse:
         recognition: 识别结果
         binding: 绑定结果，非支持文书类型时为空
         file_path: 上传文件的保存路径
+        date_candidates: 日期候选草稿列表（DateCandidateDraft.to_dict），
+            由 worker 落库为 DocumentRecognitionDateCandidate 行
     """
 
     recognition: RecognitionResult
     binding: BindingResult | None
     file_path: str
+    date_candidates: list[dict[str, Any]] = field(default_factory=list)
+    party_names: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """序列化为字典"""
@@ -283,6 +303,8 @@ class RecognitionResponse:
             "recognition": self.recognition.to_dict(),
             "binding": self.binding.to_dict() if self.binding else None,
             "file_path": self.file_path,
+            "date_candidates": self.date_candidates,
+            "party_names": self.party_names,
         }
 
     @classmethod
@@ -296,4 +318,6 @@ class RecognitionResponse:
             recognition=RecognitionResult.from_dict(data["recognition"]),
             binding=binding,
             file_path=data.get("file_path", ""),
+            date_candidates=list(data.get("date_candidates") or []),
+            party_names=list(data.get("party_names") or []),
         )

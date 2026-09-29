@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
+from apps.document_recognition.services.case_binding_service import CaseBindingService
 from apps.document_recognition.services.data_classes import (
     BindingResult,
     DocumentType,
@@ -14,8 +15,6 @@ from apps.document_recognition.services.data_classes import (
     RecognitionResponse,
     RecognitionResult,
 )
-from apps.document_recognition.services.case_binding_service import CaseBindingService
-
 
 # ============================================================================
 # DocumentType tests
@@ -277,40 +276,39 @@ class TestCaseBindingServiceFindCase:
 
 
 class TestCaseBindingServiceFormatLogContent:
-    def test_summons_with_key_time(self):
+    def test_summons_with_date_count(self):
         svc = CaseBindingService.__new__(CaseBindingService)
-        dt = datetime(2025, 6, 1, 9, 30)
-        content = svc.format_log_content(DocumentType.SUMMONS, "cn", dt, "text")
+        content = svc.format_log_content(DocumentType.SUMMONS, "cn", "text", date_count=2)
         assert "传票" in content
-        assert "开庭时间" in content
-        assert "2025-06-01" in content
+        assert "识别到 2 个关键日期（待人工确认后写入重要日期提醒）" in content
+        assert "开庭时间" not in content
 
-    def test_execution_ruling_with_key_time(self):
+    def test_execution_ruling_with_date_count(self):
         svc = CaseBindingService.__new__(CaseBindingService)
-        dt = datetime(2025, 12, 31)
-        content = svc.format_log_content(DocumentType.EXECUTION_RULING, "cn", dt, "text")
+        content = svc.format_log_content(DocumentType.EXECUTION_RULING, "cn", "text", date_count=1)
         assert "执行裁定书" in content
-        assert "保全到期时间" in content
+        assert "识别到 1 个关键日期（待人工确认后写入重要日期提醒）" in content
 
     def test_other_type(self):
         svc = CaseBindingService.__new__(CaseBindingService)
-        content = svc.format_log_content(DocumentType.OTHER, "cn", None, "text")
+        content = svc.format_log_content(DocumentType.OTHER, "cn", "text")
         assert "其他文书" in content
+        assert "关键日期" not in content
 
     def test_long_text_truncated(self):
         svc = CaseBindingService.__new__(CaseBindingService)
         long_text = "x" * 1000
-        content = svc.format_log_content(DocumentType.OTHER, "cn", None, long_text)
+        content = svc.format_log_content(DocumentType.OTHER, "cn", long_text)
         assert "..." in content
 
     def test_no_case_number(self):
         svc = CaseBindingService.__new__(CaseBindingService)
-        content = svc.format_log_content(DocumentType.SUMMONS, None, None, "text")
+        content = svc.format_log_content(DocumentType.SUMMONS, None, "text")
         assert "案号" not in content
 
     def test_no_raw_text(self):
         svc = CaseBindingService.__new__(CaseBindingService)
-        content = svc.format_log_content(DocumentType.SUMMONS, "cn", None, "")
+        content = svc.format_log_content(DocumentType.SUMMONS, "cn", "")
         assert "文书内容摘要" not in content
 
 
@@ -319,51 +317,63 @@ class TestCaseBindingServiceBindDocument:
         mock_cs = MagicMock()
         return CaseBindingService(case_service=mock_cs), mock_cs
 
-    def test_empty_case_number(self):
-        svc, _ = self._make_service()
-        result = svc.bind_document_to_case("", DocumentType.OTHER, "c", None, "/f")
-        assert result.success is False
-        assert result.error_code == "CASE_NUMBER_NOT_FOUND"
+    def test_bind_directly_by_case_id(self):
+        """原 test_empty_case_number：直接给 case_id 绑定，不再按案号搜索。"""
+        svc, mock_cs = self._make_service()
+        mock_cs.get_case_by_id_internal.return_value = MagicMock(name_x="n")
+        svc.create_case_log = MagicMock(return_value=7)
+        result = svc.bind_document_to_case(1, DocumentType.OTHER, "c", "/f")
+        assert result.success is True
+        mock_cs.search_cases_by_case_number_internal.assert_not_called()
 
     def test_no_matching_case(self):
         svc, mock_cs = self._make_service()
-        mock_cs.search_cases_by_case_number_internal.return_value = []
-        result = svc.bind_document_to_case("cn", DocumentType.OTHER, "c", None, "/f")
+        mock_cs.get_case_by_id_internal.return_value = None
+        result = svc.bind_document_to_case(1, DocumentType.OTHER, "c", "/f")
         assert result.success is False
+        assert result.error_code == "CASE_NOT_FOUND"
 
     def test_case_dto_none(self):
         svc, mock_cs = self._make_service()
-        mock_cs.search_cases_by_case_number_internal.return_value = [MagicMock(id=1)]
         mock_cs.get_case_by_id_internal.return_value = None
-        result = svc.bind_document_to_case("cn", DocumentType.OTHER, "c", None, "/f")
+        result = svc.bind_document_to_case(1, DocumentType.OTHER, "c", "/f")
         assert result.success is False
 
 
-class TestCaseBindingServiceUpdateLogReminder:
-    def test_summons_reminder_type(self):
-        svc, mock_cs = self._make_service()
-        svc._update_log_reminder(1, datetime(2025, 1, 1), DocumentType.SUMMONS)
-        mock_cs.update_case_log_reminder_internal.assert_called_once()
-        call_kwargs = mock_cs.update_case_log_reminder_internal.call_args[1]
-        assert call_kwargs["reminder_type"] == "hearing"
-
-    def test_execution_reminder_type(self):
-        svc, mock_cs = self._make_service()
-        svc._update_log_reminder(1, datetime(2025, 1, 1), DocumentType.EXECUTION_RULING)
-        call_kwargs = mock_cs.update_case_log_reminder_internal.call_args[1]
-        assert call_kwargs["reminder_type"] == "asset_preservation_expires"
-
-    def test_other_reminder_type(self):
-        svc, mock_cs = self._make_service()
-        svc._update_log_reminder(1, datetime(2025, 1, 1), DocumentType.OTHER)
-        call_kwargs = mock_cs.update_case_log_reminder_internal.call_args[1]
-        assert call_kwargs["reminder_type"] == "other"
-
-    def test_update_failure(self):
-        svc, mock_cs = self._make_service()
-        mock_cs.update_case_log_reminder_internal.return_value = False
-        svc._update_log_reminder(1, datetime(2025, 1, 1), DocumentType.SUMMONS)  # should not raise
+class TestCaseBindingServiceWritesNoReminder:
+    """原 TestCaseBindingServiceUpdateLogReminder：_update_log_reminder 已删除，
+    绑定期对 update_case_log_reminder_internal 零调用。"""
 
     def _make_service(self):
         mock_cs = MagicMock()
         return CaseBindingService(case_service=mock_cs), mock_cs
+
+    def test_summons_no_reminder(self):
+        svc, mock_cs = self._make_service()
+        mock_cs.get_case_by_id_internal.return_value = MagicMock()
+        svc.create_case_log = MagicMock(return_value=1)
+        svc.bind_document_to_case(1, DocumentType.SUMMONS, "c", "/f")
+        mock_cs.update_case_log_reminder_internal.assert_not_called()
+
+    def test_execution_no_reminder(self):
+        svc, mock_cs = self._make_service()
+        mock_cs.get_case_by_id_internal.return_value = MagicMock()
+        svc.create_case_log = MagicMock(return_value=1)
+        svc.bind_document_to_case(1, DocumentType.EXECUTION_RULING, "c", "/f")
+        mock_cs.update_case_log_reminder_internal.assert_not_called()
+
+    def test_other_no_reminder(self):
+        svc, mock_cs = self._make_service()
+        mock_cs.get_case_by_id_internal.return_value = MagicMock()
+        svc.create_case_log = MagicMock(return_value=1)
+        svc.bind_document_to_case(1, DocumentType.OTHER, "c", "/f")
+        mock_cs.update_case_log_reminder_internal.assert_not_called()
+
+    def test_update_failure_irrelevant(self):
+        """update 方法返回 False 也不会被调用（should not raise）。"""
+        svc, mock_cs = self._make_service()
+        mock_cs.get_case_by_id_internal.return_value = MagicMock()
+        mock_cs.update_case_log_reminder_internal.return_value = False
+        svc.create_case_log = MagicMock(return_value=1)
+        svc.bind_document_to_case(1, DocumentType.SUMMONS, "c", "/f")  # should not raise
+        mock_cs.update_case_log_reminder_internal.assert_not_called()

@@ -14,7 +14,6 @@ from urllib.parse import parse_qs, urlparse
 from apps.automation.models import CourtSMSType
 from apps.automation.utils.text_utils import TextUtils
 from apps.core.interfaces import ServiceLocator
-from apps.core.llm.config import LLMConfig
 from apps.core.llm.exceptions import LLMError
 
 if TYPE_CHECKING:
@@ -70,11 +69,8 @@ class SMSParserService:
     # 格式: 验证码：xxxx
     SFDW_VERIFICATION_CODE_PATTERN = re.compile(r"验证码[：:]\s*(\w{4,6})")
 
-
     def __init__(
         self,
-        ollama_model: str | None = None,
-        ollama_base_url: str | None = None,
         llm_service: Any | None = None,
         client_service: Optional["IClientService"] = None,
         party_matching_service: object | None = None,
@@ -84,32 +80,15 @@ class SMSParserService:
         初始化SMS解析服务
 
         Args:
-            ollama_model: Ollama模型名称，默认从配置文件读取
-            ollama_base_url: Ollama服务地址，默认从配置文件读取
+            llm_service: LLM 服务实例，用于依赖注入
             client_service: 客户服务实例，用于依赖注入
             party_matching_service: 当事人匹配服务，用于依赖注入
             party_candidate_extractor: 当事人候选提取器，用于依赖注入
         """
-        self._ollama_model = ollama_model
-        self._ollama_base_url = ollama_base_url
         self._llm_service = llm_service
         self._client_service = client_service
         self._party_matching_service = party_matching_service
         self._party_candidate_extractor = party_candidate_extractor
-
-    @property
-    def ollama_model(self) -> str:
-        """延迟加载 Ollama 模型配置，避免初始化阶段触发外部依赖。"""
-        if self._ollama_model is None:
-            self._ollama_model = LLMConfig.get_ollama_model()
-        return self._ollama_model
-
-    @property
-    def ollama_base_url(self) -> str:
-        """延迟加载 Ollama 服务地址配置。"""
-        if self._ollama_base_url is None:
-            self._ollama_base_url = LLMConfig.get_ollama_base_url()
-        return self._ollama_base_url
 
     @property
     def llm_service(self) -> Any:
@@ -420,4 +399,3 @@ class SMSParserService:
         except Exception as e:
             logger.warning(f"查找现有客户时出错: {e!s}")
             return []
-

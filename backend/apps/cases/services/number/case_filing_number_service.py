@@ -10,8 +10,8 @@ from django.db.utils import OperationalError
 
 from apps.cases.models import Case, CaseFilingNumberSequence
 from apps.core.exceptions import ConflictError, ValidationException
-from apps.core.models.enums import SimpleCaseType
 from apps.core.exceptions.error_codes import FILING_NUMBER_GENERATION_FAILED
+from apps.core.models.enums import SimpleCaseType
 
 logger = logging.getLogger("apps.cases")
 
@@ -43,7 +43,10 @@ class CaseFilingNumberService:
             try:
                 sequence = self._get_next_case_sequence(created_year)
             except OperationalError as e:
-                if "no such table: cases_casefilingnumbersequence" in str(e).lower():
+                # 序列表缺失通常意味着部署环境未迁移；PostgreSQL 报关系不存在，
+                # SQLite 报 no such table——两种措辞都归并为可操作的迁移提示
+                message = str(e).lower()
+                if "no such table" in message or "does not exist" in message or "不存在" in message:
                     logger.warning(
                         "建档编号序列表不存在,可能未执行数据库迁移",
                         extra={"case_id": case_id, "migration": "cases.0009_case_filing_number_sequence"},
@@ -61,7 +64,6 @@ class CaseFilingNumberService:
             filing_number = f"{created_year}_{case_type_label}_AJ_{sequence}"
 
             logger.info(
-                "生成案件建档编号成功",
                 "生成案件建档编号成功",
                 extra={
                     "case_id": case_id,
@@ -81,10 +83,11 @@ class CaseFilingNumberService:
                 extra={"case_id": case_id, "error": str(e)},
                 exc_info=True,
             )
+            # 原始异常只进日志，不随 API 错误外泄内部细节
             raise ConflictError(
                 message="建档编号生成失败",
                 code=FILING_NUMBER_GENERATION_FAILED,
-                errors={"detail": str(e)},
+                errors={"detail": "生成建档编号时发生内部错误，请查看服务器日志"},
             ) from e
 
     def _get_next_case_sequence(self, year: int) -> int:  # pragma: no cover

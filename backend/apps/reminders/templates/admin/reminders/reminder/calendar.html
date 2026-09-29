@@ -205,6 +205,12 @@
         background: var(--fc-error-bg);
         color: var(--fc-error-text);
     }
+    .reminder-event.is-completed {
+        opacity: 0.6;
+    }
+    .reminder-event.is-completed .reminder-event-title {
+        text-decoration: line-through;
+    }
     .reminder-event-top {
         display: flex;
         align-items: center;
@@ -784,7 +790,7 @@
                     {% for event in day.items|slice:":3" %}
                     <button
                         type="button"
-                        class="reminder-event {% if event.is_overdue %}overdue{% endif %}"
+                        class="reminder-event {% if event.is_overdue %}overdue{% endif %} {% if event.is_completed %}is-completed{% endif %}"
                         data-event-id="{{ event.id }}"
                         data-event-time="{{ event.time }}"
                         data-event-due="{{ event.due_display }}"

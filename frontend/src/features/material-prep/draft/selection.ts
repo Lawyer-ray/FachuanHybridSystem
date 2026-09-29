@@ -33,7 +33,8 @@ function flatIndexesOf(flat: FlatRef[], picked: PageKey[]): number[] {
 /** 新段默认名：单源用源文件名当底，跨源用当前段名；带起始页，切第二次不叠后缀 */
 function splitBase(sg: Segment, mats: DraftState['mats']): string {
   const mis = segMats(sg)
-  const name = mis.length === 1 ? matLabel(mats, mis[0]) : sg.fn
+  // mis[0] 的非空由 length === 1 三元左侧证明
+  const name = mis.length === 1 ? matLabel(mats, mis[0]!) : sg.fn
   return name.replace(/\.[^.]+$/, '')
 }
 function splitExt(sg: Segment): string {
@@ -49,21 +50,24 @@ export function splitOutPages(d: DraftState, picked: PageKey[]): DraftState {
   const flat = flatRefs(d)
   const idx = flatIndexesOf(flat, picked)
   if (!idx.length) return d
-  const a = idx[0]
-  const b = idx[idx.length - 1]
+  // a / b 的非空由上一行 idx 非空守卫保证
+  const a = idx[0]!
+  const b = idx[idx.length - 1]!
   if (b - a + 1 !== idx.length) return d // 不连续
   const slice = flat.slice(a, b + 1)
-  const si = slice[0].si
+  const si = slice[0]!.si
   const sg = d.segs[si]
-  const k0 = slice[0].k
-  const k1 = slice[slice.length - 1].k
+  // si 来自 flatRefs 对 d.segs 的展开，正常必然命中；数据不变量破坏时原样返回
+  if (!sg) return d
+  const k0 = slice[0]!.k
+  const k1 = slice[slice.length - 1]!.k
   if (k0 === 0 && k1 === sg.refs.length - 1) return d // 这就是整份材料
   const parts: Segment[] = []
   if (k0 > 0)
     parts.push({ t: sg.t, fn: sg.fn, refs: sg.refs.slice(0, k0), manual: sg.manual })
   parts.push({
     t: '',
-    fn: splitBase(sg, d.mats) + '-P' + picked[0].p + splitExt(sg),
+    fn: splitBase(sg, d.mats) + '-P' + picked[0]!.p + splitExt(sg),
     refs: picked,
     manual: true,
   })
@@ -95,7 +99,8 @@ export function applyPageSelection(d: DraftState, selPages: PageKey[]): DraftSta
   const flat = flatRefs(d)
   const idx = flatIndexesOf(flat, selPages)
   if (!idx.length) return d
-  const slice = flat.slice(idx[0], idx[idx.length - 1] + 1)
+  // 首尾下标的非空由上一行守卫保证
+  const slice = flat.slice(idx[0]!, idx[idx.length - 1]! + 1)
   const involved = new Set(slice.map((f) => f.si))
   if (involved.size === 1) return splitOutPages(d, selPages)
   return mergePagesIntoNew(d, selPages)
@@ -108,7 +113,8 @@ export function isSelectionContiguous(d: DraftState, selPages: PageKey[]): boole
   if (!selPages.length) return false
   const idx = flatIndexesOf(flatRefs(d), selPages)
   if (!idx.length || idx.length !== selPages.length) return false
-  return idx[idx.length - 1] - idx[0] + 1 === idx.length
+  // 首尾下标的非空由上面的长度条件保证
+  return idx[idx.length - 1]! - idx[0]! + 1 === idx.length
 }
 
 /**

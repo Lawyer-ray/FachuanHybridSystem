@@ -30,14 +30,13 @@ from .document import (
     AutoToolProcessOut,
     DocumentProcessIn,
     DocumentProcessOut,
-    OllamaChatIn,
-    OllamaChatOut,
 )
-
-# Document Delivery
 
 # Performance Monitoring
 from .performance import HealthCheckOut, PerformanceMetricsOut, ResourceUsageOut, StatisticsReportOut
+
+# Document Delivery
+
 
 # Preservation Quote (已迁移到 plugin)
 try:
@@ -54,8 +53,6 @@ except ImportError:
 
 _schema_all = [
     # Document Processing
-    "OllamaChatIn",
-    "OllamaChatOut",
     "AutoToolProcessIn",
     "AutoToolProcessOut",
     "AsyncTaskSubmitOut",

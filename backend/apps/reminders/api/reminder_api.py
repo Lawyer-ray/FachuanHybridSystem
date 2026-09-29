@@ -17,6 +17,8 @@ from ..schemas import (
     CalendarStatsOut,
     ParsedReminderOut,
     ParseReminderIn,
+    ReminderCompleteIn,
+    ReminderCompleteOut,
     ReminderIn,
     ReminderOut,
     ReminderTypeItem,
@@ -115,7 +117,7 @@ def create_reminder(request: Any, payload: ReminderIn) -> Any:  # pragma: no cov
     )
 
 
-# 注意:/types 和 /target-options 必须在 /{reminder_id} 之前,否则会被当作 reminder_id 参数
+# 注意:/types、/target-options、/complete 必须在 /{reminder_id} 之前,否则会被当作 reminder_id 参数
 @router.get("/types", response=list[ReminderTypeItem])
 def get_types(request: Any) -> Any:  # pragma: no cover
     return list_reminder_types()
@@ -170,6 +172,7 @@ def get_calendar_month(
             case_id=item.case_id,
             is_today=item.is_today,
             is_overdue=item.is_overdue,
+            is_completed=item.is_completed,
             members=item.members,
             member_ids=item.member_ids,
         )
@@ -180,6 +183,26 @@ def get_calendar_month(
         stats=CalendarStatsOut(**vars(view.stats)),
         days={day: [to_out(item) for item in items] for day, items in view.days.items()},
     )
+
+
+@router.post("/complete", response=ReminderCompleteOut)
+def complete_reminders(request: Any, payload: ReminderCompleteIn) -> Any:  # pragma: no cover
+    """批量标记提醒完成 / 取消完成（日历勾选）。
+
+    一条日历事件可能由同一庭审的多条同步记录合并而成，前端勾选
+    带全部 member_ids 过来，一次请求保持原子。
+    """
+    ctx = get_request_access_context(request)
+    service = _get_reminder_service()
+    for existing in service.list_reminders_by_ids(payload.reminder_ids):
+        _ensure_target_access(
+            ctx,
+            contract_id=existing.contract_id,
+            case_id=existing.case_id,
+            case_log_id=existing.case_log_id,
+        )
+    updated = service.set_completed(payload.reminder_ids, completed=payload.is_completed, user=ctx.user)
+    return ReminderCompleteOut(updated=updated)
 
 
 @router.get("/{reminder_id}", response=ReminderOut)

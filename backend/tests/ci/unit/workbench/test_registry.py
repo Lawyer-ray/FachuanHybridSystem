@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 
 import pytest
 
@@ -25,6 +26,10 @@ class TestTaskRegistry:
         registry.register("job-1", task)
         assert registry.get("job-1") is task
         task.cancel()
+        # 关 loop 前把 cancel 跑完，否则任务以 pending 状态被销毁，
+        # asyncio 会往共享 error.log 写 "Task was destroyed but it is pending"
+        with contextlib.suppress(asyncio.CancelledError):
+            loop.run_until_complete(task)
         loop.close()
 
     def test_get_nonexistent_returns_none(self, registry) -> None:
@@ -41,6 +46,8 @@ class TestTaskRegistry:
         registry.unregister("job-2")
         assert registry.get("job-2") is None
         task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            loop.run_until_complete(task)
         loop.close()
 
     def test_unregister_nonexistent_no_error(self, registry) -> None:
@@ -58,6 +65,8 @@ class TestTaskRegistry:
         assert result is True
         # task.cancel() was called, but it needs an event loop tick to process
         assert task.cancelling() > 0
+        with contextlib.suppress(asyncio.CancelledError):
+            loop.run_until_complete(task)
         loop.close()
 
     def test_cancel_already_done_task(self, registry) -> None:

@@ -15,7 +15,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # document_classifier.py
 # ---------------------------------------------------------------------------
@@ -296,17 +295,13 @@ class TestDocumentRecognitionNotificationService:
 
     @pytest.fixture()
     def service(self):
-        from apps.document_recognition.services.notification_service import (
-            DocumentRecognitionNotificationService,
-        )
+        from apps.document_recognition.services.notification_service import DocumentRecognitionNotificationService
 
         mock_chat = MagicMock()
         return DocumentRecognitionNotificationService(case_chat_service=mock_chat), mock_chat
 
     def test_build_notification_message_summons(self, service_obj=None):
-        from apps.document_recognition.services.notification_service import (
-            DocumentRecognitionNotificationService,
-        )
+        from apps.document_recognition.services.notification_service import DocumentRecognitionNotificationService
 
         svc = DocumentRecognitionNotificationService()
         msg = svc.build_notification_message(
@@ -317,13 +312,11 @@ class TestDocumentRecognitionNotificationService:
         )
         assert "传票" in msg
         assert "(2023)京01民初1号" in msg
-        assert "开庭时间" in msg
+        assert "关键时间" in msg
         assert "张三诉李四" in msg
 
     def test_build_notification_message_execution(self):
-        from apps.document_recognition.services.notification_service import (
-            DocumentRecognitionNotificationService,
-        )
+        from apps.document_recognition.services.notification_service import DocumentRecognitionNotificationService
 
         svc = DocumentRecognitionNotificationService()
         msg = svc.build_notification_message(
@@ -336,9 +329,7 @@ class TestDocumentRecognitionNotificationService:
         assert "关键时间" in msg
 
     def test_build_notification_message_no_number_no_time(self):
-        from apps.document_recognition.services.notification_service import (
-            DocumentRecognitionNotificationService,
-        )
+        from apps.document_recognition.services.notification_service import DocumentRecognitionNotificationService
 
         svc = DocumentRecognitionNotificationService()
         msg = svc.build_notification_message(
@@ -351,9 +342,7 @@ class TestDocumentRecognitionNotificationService:
         assert "法院文书" in msg
 
     def test_build_notification_message_unknown_type(self):
-        from apps.document_recognition.services.notification_service import (
-            DocumentRecognitionNotificationService,
-        )
+        from apps.document_recognition.services.notification_service import DocumentRecognitionNotificationService
 
         svc = DocumentRecognitionNotificationService()
         msg = svc.build_notification_message(
@@ -365,9 +354,7 @@ class TestDocumentRecognitionNotificationService:
         assert "法院文书" in msg
 
     def test_lazy_load_chat_service(self):
-        from apps.document_recognition.services.notification_service import (
-            DocumentRecognitionNotificationService,
-        )
+        from apps.document_recognition.services.notification_service import DocumentRecognitionNotificationService
 
         svc = DocumentRecognitionNotificationService()
         assert svc._case_chat_service is None
@@ -379,10 +366,8 @@ class TestDocumentRecognitionNotificationService:
 
     @patch("apps.document_recognition.services.notification_service.ServiceLocator")
     def test_send_notification_success(self, mock_locator):
-        from apps.document_recognition.services.notification_service import (
-            DocumentRecognitionNotificationService,
-        )
         from apps.core.models.enums import ChatPlatform
+        from apps.document_recognition.services.notification_service import DocumentRecognitionNotificationService
 
         mock_chat_service = MagicMock()
         mock_chat = MagicMock()
@@ -407,9 +392,7 @@ class TestDocumentRecognitionNotificationService:
         assert result.file_sent is True
 
     def test_send_notification_chat_creation_failure(self):
-        from apps.document_recognition.services.notification_service import (
-            DocumentRecognitionNotificationService,
-        )
+        from apps.document_recognition.services.notification_service import DocumentRecognitionNotificationService
 
         mock_chat_service = MagicMock()
         mock_chat_service.get_or_create_chat.side_effect = RuntimeError("DB error")
@@ -426,9 +409,7 @@ class TestDocumentRecognitionNotificationService:
         assert "CHAT_CREATION_FAILED" in (result.error_code or "")
 
     def test_send_notification_message_send_failure(self):
-        from apps.document_recognition.services.notification_service import (
-            DocumentRecognitionNotificationService,
-        )
+        from apps.document_recognition.services.notification_service import DocumentRecognitionNotificationService
 
         mock_chat_service = MagicMock()
         mock_chat = MagicMock()
@@ -452,9 +433,7 @@ class TestDocumentRecognitionNotificationService:
         assert result.success is False
 
     def test_send_notification_send_exception(self):
-        from apps.document_recognition.services.notification_service import (
-            DocumentRecognitionNotificationService,
-        )
+        from apps.document_recognition.services.notification_service import DocumentRecognitionNotificationService
 
         mock_chat_service = MagicMock()
         mock_chat = MagicMock()
@@ -627,10 +606,7 @@ class TestDataClasses:
         assert d["file_path"] == "/f"
 
     def test_recognition_response_from_dict(self):
-        from apps.document_recognition.services.data_classes import (
-            DocumentType,
-            RecognitionResponse,
-        )
+        from apps.document_recognition.services.data_classes import DocumentType, RecognitionResponse
 
         data = {
             "recognition": {
@@ -660,9 +636,7 @@ class TestDatetimeExtractionMixin:
 
     @pytest.fixture()
     def mixin(self):
-        from apps.document_recognition.services._datetime_extraction_mixin import (
-            DatetimeExtractionMixin,
-        )
+        from apps.document_recognition.services._datetime_extraction_mixin import DatetimeExtractionMixin
 
         return DatetimeExtractionMixin()
 

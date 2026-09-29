@@ -41,6 +41,12 @@ export default defineConfig({
         target: 'http://127.0.0.1:8002',
         changeOrigin: true,
       },
+      // 后端 media（文书识别预览等）：相对链接 /media/... 由前端渲染（iframe/img），
+      // 不代理会打到 Vite SPA 兜底路由被重定向回首页
+      '/media': {
+        target: 'http://127.0.0.1:8002',
+        changeOrigin: true,
+      },
       // 社交登录：授权页/回调走 Django View，需与后端同源才能带 session cookie
       // （state 存 session，跨域下 SameSite=Lax 不发送，回调会报 invalid_session）
       //
@@ -56,10 +62,17 @@ export default defineConfig({
   build: {
     target: 'es2022',
     reportCompressedSize: false,
+    // material-prep 懒加载 chunk 含 pdfjs（~520KB）属预期：只在进入该路由时才下载。
+    // 阈值放宽到 600，避免这条已知大 chunk 的告警长期刷屏、掩盖新出现的问题。
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         // 只列实际安装的包（此前残留 10 个未安装包的死规则，读配置时误导）
         manualChunks(id: string) {
+          // Vite 虚拟模块（\0vite/preload-helper.js 等）不走 node_modules 分支，
+          // 默认分桶曾把它塞进 vendor-pdf，形成「入口 → helper → pdfjs」静态边，
+          // 路由懒加载失效。归入首屏必加载的 vendor-react，不给关键路径添新依赖。
+          if (id.startsWith('\0vite/')) return 'vendor-react'
           if (!id.includes('node_modules')) return
           const chunks: Record<string, string[]> = {
             'vendor-react': ['react', 'react-dom', 'react-router'],

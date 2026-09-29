@@ -68,7 +68,8 @@ def _build_ics_feed(reminders: list[Reminder], user_display: str) -> bytes:
             "uid": f"reminder-{r.id}@fachuan-system",
             "dtstart": due_local,
             "dtstamp": now,
-            "status": "CONFIRMED",
+            # 已完成的用 iCal 标准的 COMPLETED，订阅方（Apple/Google 日历）保留事件但不视为待办
+            "status": "COMPLETED" if getattr(r, "is_completed", False) else "CONFIRMED",
         }
 
         # summary
@@ -152,12 +153,8 @@ def _fetch_feed_data(token: str) -> tuple[Any, list[Reminder]] | None:
     user = feed_token.user
 
     # 两次查询 + set 合并（比 union 更可靠）
-    assigned = set(
-        CaseAssignment.objects.filter(lawyer=user).values_list("case_id", flat=True)
-    )
-    granted = set(
-        CaseAccessGrant.objects.filter(grantee=user).values_list("case_id", flat=True)
-    )
+    assigned = set(CaseAssignment.objects.filter(lawyer=user).values_list("case_id", flat=True))
+    granted = set(CaseAccessGrant.objects.filter(grantee=user).values_list("case_id", flat=True))
     user_case_ids = assigned | granted
 
     now = timezone.now()

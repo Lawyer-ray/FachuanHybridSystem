@@ -1,4 +1,5 @@
 """core 模块真实执行测试 - 覆盖 cache_service, scrub, permissions, config, llm, filename_template, material_classification 等。"""
+
 from __future__ import annotations
 
 import hashlib
@@ -9,7 +10,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ============================================================
 # core/security/scrub.py
@@ -77,9 +77,9 @@ class TestScrub:
     def test_scrub_obj_nested(self) -> None:
         from apps.core.security.scrub import scrub_obj
 
-        obj = {"data": {"password": "secret123", "ok": "visible"}}
+        obj = {"data": {"password": "secret123", "ok": "visible"}}  # pragma: allowlist secret
         result = scrub_obj(obj)
-        assert result["data"]["password"] != "secret123"
+        assert result["data"]["password"] != "secret123"  # pragma: allowlist secret
         assert result["data"]["ok"] == "visible"
 
     def test_scrub_obj_list(self) -> None:
@@ -114,9 +114,9 @@ class TestScrub:
     def test_scrub_for_storage(self) -> None:
         from apps.core.security.scrub import scrub_for_storage
 
-        data = {"api_key": "super_secret_key_123456", "name": "test"}
+        data = {"api_key": "super_secret_key_123456", "name": "test"}  # pragma: allowlist secret
         result = scrub_for_storage(data)
-        assert result["api_key"] != "super_secret_key_123456"
+        assert result["api_key"] != "super_secret_key_123456"  # pragma: allowlist secret
 
 
 # ============================================================
@@ -137,8 +137,8 @@ class TestPermissions:
         mixin.check_authenticated(ctx)  # should not raise
 
     def test_check_authenticated_fail(self) -> None:
-        from apps.core.security.permissions import AccessContext, PermissionMixin
         from apps.core.exceptions import AuthenticationError
+        from apps.core.security.permissions import AccessContext, PermissionMixin
 
         ctx = AccessContext(user=None, org_access=None, perm_open_access=False)
         mixin = PermissionMixin()
@@ -171,8 +171,8 @@ class TestPermissions:
         mixin.check_resource_access(ctx, lambda c: False)  # should not raise
 
     def test_check_resource_access_denied(self) -> None:
-        from apps.core.security.permissions import AccessContext, PermissionMixin
         from apps.core.exceptions import AuthenticationError
+        from apps.core.security.permissions import AccessContext, PermissionMixin
 
         # When user is not authenticated and not open_access,
         # check_resource_access raises AuthenticationError (from check_authenticated)
@@ -182,8 +182,8 @@ class TestPermissions:
             mixin.check_resource_access(ctx, lambda c: False)
 
     def test_check_resource_access_authenticated_passes(self) -> None:
-        from apps.core.security.permissions import AccessContext, PermissionMixin
         from apps.core.exceptions import PermissionDenied
+        from apps.core.security.permissions import AccessContext, PermissionMixin
 
         # Authenticated user with resource_check returning False raises PermissionDenied
         ctx = AccessContext(
@@ -338,8 +338,9 @@ class TestFilenameTemplateService:
         assert result == "test - {invalid}"
 
     def test_get_unique_filepath_no_conflict(self, tmp_path: object) -> None:
-        from apps.core.services.filename_template_service import FilenameTemplateService
         import pathlib
+
+        from apps.core.services.filename_template_service import FilenameTemplateService
 
         d = pathlib.Path(str(tmp_path))
         filepath, name = FilenameTemplateService.get_unique_filepath(str(d), "test.txt")
@@ -347,8 +348,9 @@ class TestFilenameTemplateService:
         assert filepath == str(d / "test.txt")
 
     def test_get_unique_filepath_with_conflict(self, tmp_path: object) -> None:
-        from apps.core.services.filename_template_service import FilenameTemplateService
         import pathlib
+
+        from apps.core.services.filename_template_service import FilenameTemplateService
 
         d = pathlib.Path(str(tmp_path))
         (d / "test.txt").touch()
@@ -363,9 +365,7 @@ class TestFilenameTemplateService:
         mock_config.get_value.return_value = "{title}（{case_name}）_{date}收"
         FilenameTemplateService._system_config_service = mock_config
         try:
-            result = FilenameTemplateService.render_court_doc(
-                title="判决书", case_name="张三诉李四", date="20260101"
-            )
+            result = FilenameTemplateService.render_court_doc(title="判决书", case_name="张三诉李四", date="20260101")
             assert "判决书" in result
             assert "张三诉李四" in result
         finally:
@@ -472,7 +472,7 @@ class TestMaterialClassification:
 
         svc = MaterialClassificationService()
         assert svc._normalize_for_match("  Hello World  ") == "helloworld"
-        assert svc._normalize_for_match(None) == ""
+        assert svc._normalize_for_match(None) == ""  # type: ignore[arg-type]
         assert svc._normalize_for_match("path\\to\\file") == "path/to/file"
 
     def test_to_confidence(self) -> None:
@@ -557,11 +557,6 @@ class TestLLMConfig:
 
         assert LLMConfig.resolve_backend_for_model("Qwen/Qwen2.5-7B-Instruct") == "openai_compatible"
 
-    def test_resolve_backend_ollama(self) -> None:
-        from apps.core.llm.config import LLMConfig
-
-        assert LLMConfig.resolve_backend_for_model("qwen3:0.6b") == "ollama"
-
     def test_resolve_backend_openai_compatible(self) -> None:
         from apps.core.llm.config import LLMConfig
 
@@ -616,8 +611,7 @@ class TestLLMConfig:
     def test_valid_backends(self) -> None:
         from apps.core.llm.config import LLMConfig
 
-        assert "ollama" in LLMConfig._VALID_BACKENDS
-        assert "openai_compatible" in LLMConfig._VALID_BACKENDS
+        assert LLMConfig._VALID_BACKENDS == {"openai_compatible"}
 
 
 # ============================================================
@@ -631,7 +625,7 @@ class TestLLMExceptions:
 
         exc = LLMError("test error")
         assert exc.code == "LLM_ERROR"
-        assert "test error" in exc.message
+        assert "test error" in str(exc.message)
 
     def test_llm_network_error(self) -> None:
         from apps.core.llm.exceptions import LLMNetworkError
@@ -717,8 +711,9 @@ class TestFormatters:
         assert format_date_chinese(None) == ""
 
     def test_format_currency(self) -> None:
-        from apps.documents.utils.formatters import format_currency
         from decimal import Decimal
+
+        from apps.documents.utils.formatters import format_currency
 
         assert format_currency(Decimal("1234.56")) == "1,234.56"
         assert format_currency(Decimal("1234.56"), include_symbol=True) == "¥1,234.56"
@@ -729,8 +724,9 @@ class TestFormatters:
         assert format_currency(None) == ""
 
     def test_format_percentage(self) -> None:
-        from apps.documents.utils.formatters import format_percentage
         from decimal import Decimal
+
+        from apps.documents.utils.formatters import format_percentage
 
         assert format_percentage(Decimal("10.5")) == "10.50%"
         # decimal_places=0 is not > 0, so falls through to basic format

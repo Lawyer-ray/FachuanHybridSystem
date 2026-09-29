@@ -127,7 +127,7 @@ export function PartyPicker({
             } else if (e.key === 'Escape') {
               setOpen(false)
             } else if (e.key === 'Backspace' && !q && tags.length) {
-              removeTag(tags[tags.length - 1])
+              removeTag(tags[tags.length - 1]!)
             }
           }}
           placeholder={tags.length ? '' : placeholder}

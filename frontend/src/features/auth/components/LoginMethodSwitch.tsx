@@ -5,10 +5,11 @@
  * 只有一个方式（账密）时不渲染，避免出现无意义的单选项。
  */
 import type { KeyboardEvent } from 'react'
-import type { LoginMethod } from '../login-methods'
+import type { LoginMethod, NonEmptyArray } from '../login-methods'
 
 interface Props {
-  methods: LoginMethod[]
+  /** 调用方只在 methods.length > 1 时渲染本组件；非空由类型保证（循环取模才有意义） */
+  methods: NonEmptyArray<LoginMethod>
   activeId: string
   onChange: (id: string) => void
 }
@@ -24,7 +25,8 @@ export function LoginMethodSwitch({ methods, activeId, onChange }: Props) {
     const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0
     if (step === 0) return
     event.preventDefault()
-    onChange(methods[(index + step + methods.length) % methods.length].id)
+    const next = methods[(index + step + methods.length) % methods.length]
+    if (next) onChange(next.id)
   }
 
   return (

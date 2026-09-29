@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Check, Landmark, Loader2, Mail, Paperclip, Sparkles } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Check, Landmark, Loader2, Mail, Paperclip, Sparkles, X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
@@ -10,6 +10,12 @@ import { rangeLabel, summaryLine } from '../api-meta'
 import type { CalendarEvent } from '../api'
 import type { InboxItem } from '../types'
 import { BTN_PRIMARY, COUNT_PILL, PANEL } from '../ui'
+import {
+  RecognizeDialog,
+  fileRejectReason,
+  rowsFromParsed,
+  type CandidateRow,
+} from '@/features/document-recognition'
 import { errMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 
@@ -19,31 +25,25 @@ interface TodayProps {
   events: CalendarEvent[]
   loading: boolean
   onOpenEvent: (e: CalendarEvent) => void
+  /** 勾选完成 / 取消完成（合并事件的全部成员由调用方统一处理） */
+  onToggleComplete: (e: CalendarEvent) => void
 }
 
-/** 右栏「今日」：可勾选完成，显示完成计数 */
-export function TodayCard({ events, loading, onOpenEvent }: TodayProps) {
-  const [done, setDone] = useState<Set<number>>(new Set())
+/** 右栏「今日」：可勾选完成（落库，跨端同步），显示完成计数 */
+export function TodayCard({ events, loading, onOpenEvent, onToggleComplete }: TodayProps) {
   const total = events.length
-
-  const toggle = (id: number) =>
-    setDone((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+  const doneCount = events.filter((e) => e.is_completed).length
 
   return (
     <section className={`${PANEL} overflow-hidden`}>
-      <CardHead title="今日" count={`${total} 件`} />
+      <CardHead title="今日" count={total ? `${total - doneCount} 件待办` : `${total} 件`} />
       <div className="px-2.5 pt-2 pb-3">
         {loading && <div className="px-2 py-6 text-center text-[12.5px] text-muted-foreground">正在载入…</div>}
         {!loading && total === 0 && (
           <div className="px-2 py-6 text-center text-[12.5px] text-muted-foreground">今天没有安排，记一笔吧</div>
         )}
         {events.map((e) => {
-          const isDone = done.has(e.id)
+          const isDone = e.is_completed
           // 今日卡的副标题：时段（若与开始时刻不同）+ 地点/律师 摘要
           const range = rangeLabel(e)
           const meta = summaryLine(e)
@@ -55,7 +55,7 @@ export function TodayCard({ events, loading, onOpenEvent }: TodayProps) {
             >
               <button
                 type="button"
-                onClick={() => toggle(e.id)}
+                onClick={() => onToggleComplete(e)}
                 title={isDone ? '标记为未完成' : '标记为完成'}
                 className={cn(
                   'mt-[2px] flex h-[17px] w-[17px] flex-none items-center justify-center rounded-full border-[1.5px] transition-colors',
@@ -72,7 +72,7 @@ export function TodayCard({ events, loading, onOpenEvent }: TodayProps) {
                   <span className={cn('rounded-[5px] border px-[7px] py-[2px] text-[9.5px] font-semibold', KIND_BADGE[e.kind])}>
                     {KIND_LABEL[e.kind]}
                   </span>
-                  {isKeyKind(e.kind) && <span className="text-[9.5px] font-semibold text-status-red">今日到期</span>}
+                  {isKeyKind(e.kind) && !isDone && <span className="text-[9.5px] font-semibold text-status-red">今日到期</span>}
                 </div>
               </button>
             </div>
@@ -81,7 +81,7 @@ export function TodayCard({ events, loading, onOpenEvent }: TodayProps) {
       </div>
       <div className="flex justify-between border-t border-border px-3.5 py-[10px] text-[11px] text-muted-foreground">
         <span>
-          已完成 <b className="font-semibold text-foreground tabular-nums">{done.size}</b> / <b className="tabular-nums">{total}</b>
+          已完成 <b className="font-semibold text-foreground tabular-nums">{doneCount}</b> / <b className="tabular-nums">{total}</b>
         </span>
         <span>点圆圈标记完成</span>
       </div>
@@ -167,18 +167,38 @@ interface QuickAddProps {
 }
 
 /**
- * 快速记一笔：先调 /reminders/parse 尝试抽取日期与类型，抽得到就直接建；
- * 抽不到（后端是规则解析，不认「明天/下周五」这类相对时间）时给出可操作提示。
+ * 快速记一笔：支持文字与文书文件两种输入。
+ *
+ * - 文字：调 /reminders/parse 抽取日期与类型，**全部**候选进确认弹窗
+ *   （多日期不再只取第一个），逐条勾选后创建。
+ * - 文件：📎 选择 / 拖到输入行 → 识别弹窗（案件绑定 + 日期候选确认），
+ *   确认后写入重要日期提醒。文件校验在打开弹窗前完成，错误就地提示。
  */
 export function QuickAdd({ onAdded }: QuickAddProps) {
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
+  const [file, setFile] = useState<File | null>(null)
+  const [dragOver, setDragOver] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [textRows, setTextRows] = useState<CandidateRow[] | undefined>(undefined)
+  const fileRef = useRef<HTMLInputElement>(null)
 
-  const submit = async () => {
+  const pickFile = (f: File | null | undefined) => {
+    if (!f) return
+    const reason = fileRejectReason(f)
+    if (reason) {
+      toast.warning(reason)
+      return
+    }
+    setFile(f)
+    setDialogOpen(true)
+  }
+
+  const submitText = async () => {
     if (busy) return // 回车与按钮共用防重入闸：按钮 disabled 拦不住回车
     const v = text.trim()
     if (!v) {
-      toast.info('先写一句，比如「2026-09-28 09:30 开庭 张某诉李某 借贷纠纷」')
+      toast.info('先写一句，比如「2026-09-28 09:30 开庭 张某诉李某 借贷纠纷」；也可以点 📎 上传文书')
       return
     }
     setBusy(true)
@@ -188,15 +208,8 @@ export function QuickAdd({ onAdded }: QuickAddProps) {
         toast.warning('没能识别出日期——请写具体日期，如「2026-09-28 09:30 开庭 …」')
         return
       }
-      const p = parsed[0]
-      await createReminder({
-        reminder_type: p.reminder_type,
-        content: p.content,
-        due_at: p.due_at,
-      })
-      setText('')
-      toast.success(`已加入日历：${p.reminder_type_label} · ${p.due_at.replace('T', ' ')}`)
-      onAdded()
+      setTextRows(rowsFromParsed(parsed))
+      setDialogOpen(true)
     } catch (e) {
       toast.error(errMessage(e, '记一笔失败，请稍后重试'))
     } finally {
@@ -204,23 +217,111 @@ export function QuickAdd({ onAdded }: QuickAddProps) {
     }
   }
 
+  // 文字路径的确认回调：逐条创建独立提醒（在 home 域内闭环，不反向依赖识别域）
+  const confirmTextReminders = async (rows: CandidateRow[]): Promise<number> => {
+    let created = 0
+    for (const r of rows) {
+      await createReminder({
+        reminder_type: r.reminderType,
+        content: r.content || r.contextText || r.label,
+        due_at: r.dueLocal,
+      })
+      created++
+    }
+    setText('')
+    setTextRows(undefined)
+    return created
+  }
+
+  const closeDialog = () => {
+    setDialogOpen(false)
+    setFile(null)
+    setTextRows(undefined)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  const showFileChip = file !== null
+
   return (
-    <div className="flex h-[42px] min-w-[320px] max-w-[480px] flex-1 items-center gap-[7px] rounded-[11px] border border-input bg-card py-0 pr-[5px] pl-[13px] shadow-[0_1px_2px_rgba(0,0,0,.03)] transition-colors focus-within:border-ring/40 md:ml-auto">
-      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> : <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />}
-      <input
-        className="min-w-0 flex-1 border-none bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') void submit()
+    <>
+      <div
+        className={cn(
+          'flex h-[42px] min-w-[320px] max-w-[480px] flex-1 items-center gap-[7px] rounded-[11px] border border-input bg-card py-0 pr-[5px] pl-[13px] shadow-[0_1px_2px_rgba(0,0,0,.03)] transition-colors focus-within:border-ring/40 md:ml-auto',
+          dragOver && 'border-ring/60 bg-secondary/60',
+        )}
+        onDragOver={(e) => {
+          e.preventDefault()
+          setDragOver(true)
         }}
-        placeholder="快速记一笔：2026-09-28 09:30 开庭 张某诉李某 借贷纠纷"
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault()
+          setDragOver(false)
+          pickFile(e.dataTransfer.files?.[0])
+        }}
+      >
+        {busy ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+        ) : showFileChip ? (
+          <Paperclip className="h-3.5 w-3.5 flex-none text-muted-foreground" />
+        ) : (
+          <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+        )}
+
+        {showFileChip && file ? (
+          <>
+            <span className="min-w-0 flex-1 truncate text-[13px]">{file.name}</span>
+            <button
+              type="button"
+              title="移除文件"
+              className="flex h-5 w-5 flex-none items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              onClick={() => setFile(null)}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </>
+        ) : (
+          <input
+            className="min-w-0 flex-1 border-none bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void submitText()
+            }}
+            placeholder="快速记一笔：2026-09-28 09:30 开庭 张某诉李某 借贷纠纷，或点 📎 传文书"
+          />
+        )}
+
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".pdf,.jpg,.jpeg,.png"
+          className="hidden"
+          onChange={(e) => pickFile(e.target.files?.[0])}
+        />
+        <button
+          type="button"
+          title="上传文书识别"
+          className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          onClick={() => fileRef.current?.click()}
+        >
+          <Paperclip className="h-3.5 w-3.5" />
+        </button>
+        <button type="button" className={BTN_PRIMARY} onClick={showFileChip ? closeDialog : submitText} disabled={busy}>
+          {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          {showFileChip ? '识别并确认' : '记一笔'}
+        </button>
+      </div>
+
+      <RecognizeDialog
+        open={dialogOpen}
+        onClose={closeDialog}
+        onSaved={onAdded}
+        file={file}
+        textRows={textRows}
+        onConfirmText={confirmTextReminders}
       />
-      <button type="button" className={BTN_PRIMARY} onClick={submit} disabled={busy}>
-        {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-        记一笔
-      </button>
-    </div>
+    </>
   )
 }
 

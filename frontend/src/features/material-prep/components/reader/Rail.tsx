@@ -23,9 +23,9 @@ export function Rail({
     if (mis.length > 1 || mis.length === 0) {
       cross.push(si)
     } else {
-      const g = groups.find((x) => x.mi === mis[0])
+      const g = groups.find((x) => x.mi === mis[0]!)
       if (g) g.segs.push(si)
-      else groups.push({ mi: mis[0], segs: [si] })
+      else groups.push({ mi: mis[0]!, segs: [si] })
     }
   })
 
@@ -73,7 +73,7 @@ export function Rail({
             </div>
             <div className="ml-2 mt-0.5 flex flex-col gap-0.5 border-l border-zinc-200 pl-2.5">
               {segs.map((si) => {
-                const sg = draft.segs[si]
+                const sg = draft.segs[si]!
                 const color = SEG_COLORS[si % SEG_COLORS.length]
                 const whole = isWholeMat(draft, si)
                 return (
@@ -111,7 +111,7 @@ export function Rail({
           </div>
           <div className="ml-2 mt-0.5 flex flex-col gap-0.5 border-l border-zinc-200 pl-2.5">
             {cross.map((si) => {
-              const sg = draft.segs[si]
+              const sg = draft.segs[si]!
               return (
                 <button
                   key={si}

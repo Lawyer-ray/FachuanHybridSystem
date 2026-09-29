@@ -26,14 +26,18 @@ export interface CalendarEvent {
   case_id: number | null
   is_today: boolean
   is_overdue: boolean
+  /** 已完成（合并事件 = 后端已确认全部成员 reminder 都完成） */
+  is_completed: boolean
   /** 合并了几条原始 reminder（同一庭审被多次同步时 >1） */
   members: number
   member_ids: number[]
 }
 
-/** 工作台统计（后端按合并后口径算好，前端不要再自己数） */
+/** 工作台统计（后端按合并后口径算好，前端不要再自己数）。
+ *  today / deadline_in_7days 是紧急度指标，只数未完成；month_court 保持全量。 */
 export interface CalendarStats {
   today: number
+  today_done: number
   deadline_in_7days: number
   month_court: number
 }
@@ -55,6 +59,17 @@ export async function fetchCalendarMonth(year: number, month: number): Promise<C
   return remindersApi
     .get('calendar', { searchParams: { year, month } })
     .json<CalendarMonth>()
+}
+
+/**
+ * 批量标记完成 / 取消完成。合并事件的全部 member_ids 必须一起传
+ * （用 domain.ts 的 eventReminderIds 取），否则下次合并回显未完成。
+ */
+export async function setRemindersCompleted(reminderIds: number[], isCompleted: boolean): Promise<number> {
+  const res = await remindersApi
+    .post('complete', { json: { reminder_ids: reminderIds, is_completed: isCompleted } })
+    .json<{ updated: number }>()
+  return res.updated
 }
 
 /** 日历 query key 工厂：跨文件 invalidate / 订阅都从这里取，避免裸字符串漂移 */

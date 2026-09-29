@@ -7,7 +7,6 @@ import importlib
 from .base import ILLMBackend
 
 _BACKEND_IMPORT_PATHS: dict[str, str] = {
-    "ollama": "apps.core.llm.backends.ollama:OllamaBackend",
     "openai_compatible": "apps.core.llm.backends.openai_compatible:OpenAICompatibleBackend",
 }
 

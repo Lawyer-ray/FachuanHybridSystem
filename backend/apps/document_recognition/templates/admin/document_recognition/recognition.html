@@ -146,6 +146,92 @@
 .error-state h3 { color: var(--fc-error-text); margin: 0 0 10px; font-size: 18px; }
 .error-state p { color: var(--fc-error-text); margin: 0 0 20px; font-size: 14px; }
 
+/* 案件绑定推荐卡片 */
+.reco-cards { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.reco-card {
+    padding: 10px 14px; background: var(--fc-bg-card); border: 1px solid var(--fc-border); border-radius: 8px;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+}
+.reco-card:hover { border-color: var(--fc-admin-blue); }
+.reco-score { font-weight: 600; color: var(--fc-admin-blue); font-size: 13px; flex-shrink: 0; min-width: 44px; }
+.reco-info { flex: 1; min-width: 0; }
+.reco-info .reco-name { font-weight: 600; color: var(--fc-text-heading); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reco-info .reco-meta { font-size: 12px; color: var(--fc-text-muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reco-info .reco-reasons { font-size: 11px; color: var(--fc-success-text); margin-top: 2px; }
+.reco-divider { text-align: center; color: var(--fc-text-muted); font-size: 12px; margin: 10px 0; }
+
+/* 关键日期候选 */
+.date-section { margin-top: 20px; padding: 16px; background: var(--fc-bg-muted); border-radius: 10px; border: 1px solid var(--fc-border); }
+.date-section h4 { margin: 0 0 4px; color: var(--fc-text-heading); font-size: 15px; font-weight: 600; }
+.date-section .date-hint { color: var(--fc-text-muted); font-size: 12px; margin-bottom: 12px; }
+.date-row {
+    padding: 12px; background: var(--fc-bg-card); border: 1px solid var(--fc-border); border-radius: 8px;
+    margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px;
+}
+.date-row.status-confirmed { border-color: var(--fc-success-text); background: var(--fc-success-bg); }
+.date-row.status-skipped { opacity: 0.55; }
+.date-row-main { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.date-check { width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; }
+.date-time-input { padding: 7px 10px; border: 1px solid var(--fc-border-input); border-radius: 6px; font-size: 13px; }
+.date-type-select { padding: 7px 8px; border: 1px solid var(--fc-border-input); border-radius: 6px; font-size: 13px; background: var(--fc-bg-card); }
+.date-source-tag { font-size: 11px; }
+.date-conf { font-size: 12px; color: var(--fc-text-muted); }
+.date-context {
+    font-size: 12px; color: var(--fc-text-muted); background: var(--fc-bg-muted-light); padding: 6px 10px;
+    border-radius: 6px; border-left: 3px solid var(--fc-border); line-height: 1.5;
+}
+.date-row-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.date-status-line { font-size: 12px; }
+.date-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+.date-empty { text-align: center; color: var(--fc-text-muted); font-size: 13px; padding: 16px; }
+
+/* 待确认任务侧栏 */
+.pending-panel { margin-top: 24px; background: var(--fc-bg-card); border-radius: 12px; padding: 16px 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+.pending-panel h4 { margin: 0 0 10px; font-size: 14px; color: var(--fc-text-heading); }
+.pending-list { list-style: none; margin: 0; padding: 0; }
+.pending-list li { display: flex; justify-content: space-between; align-items: center; padding: 8px 0;
+    border-bottom: 1px solid var(--fc-border); font-size: 13px; }
+.pending-list li:last-child { border-bottom: none; }
+.pending-list .pending-name { color: var(--fc-text-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pending-list a { color: var(--fc-admin-blue); text-decoration: none; flex-shrink: 0; margin-left: 12px; }
+.pending-list a:hover { text-decoration: underline; }
+
+/* 文书预览弹层 */
+.preview-modal { position: fixed; inset: 0; z-index: 2000; }
+.preview-mask { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
+.preview-dialog {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: min(920px, 92vw); height: min(86vh, 900px); background: var(--fc-bg-card);
+    border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); display: flex; flex-direction: column; overflow: hidden;
+}
+.preview-header {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 12px 18px; border-bottom: 1px solid var(--fc-border);
+}
+.preview-header span { font-weight: 600; color: var(--fc-text-heading); font-size: 14px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preview-header > div { display: flex; gap: 8px; flex-shrink: 0; }
+.preview-frame { flex: 1; border: none; width: 100%; }
+.preview-img { flex: 1; object-fit: contain; width: 100%; }
+.preview-link {
+    margin-left: auto; padding: 5px 14px; border-radius: 16px; font-size: 13px; font-weight: 500;
+    color: var(--fc-text-on-primary); background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.45);
+    cursor: pointer; text-decoration: none; transition: all 0.2s;
+}
+.preview-link:hover { background: rgba(255,255,255,0.32); }
+
+/* 模型选择条 */
+.model-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding: 12px 16px;
+    background: var(--fc-bg-card); border: 1px solid var(--fc-border); border-radius: 10px; font-size: 13px; }
+.model-bar label { font-weight: 600; color: var(--fc-text-heading); flex-shrink: 0; }
+.model-select {
+    flex: 0 1 auto; min-width: 260px; max-width: 100%; height: 40px; padding: 0 30px 0 12px;
+    border: 1px solid var(--fc-border-input); border-radius: 8px; font-size: 13px; line-height: 40px;
+    background: var(--fc-bg-card); color: var(--fc-text-heading);
+}
+.model-hint { color: var(--fc-text-muted); font-size: 12px; }
+
 .hidden { display: none !important; }
 </style>
 {% endblock %}
@@ -161,8 +247,15 @@
 {% block content %}
 <div class="recognition-container">
     <p class="recognition-intro">
-        {% trans "将法院文书（目前只支持传票）拖入下方区域，系统将自动识别文书类型和关键信息，并绑定到对应案件。" %}
+        {% trans "将法院文书拖入下方区域，系统将自动识别文书类型、案号和关键日期；识别出的日期需人工确认后才会写入重要日期提醒，案件绑定参考法院短信（自动匹配失败时从推荐中选择）。" %}
     </p>
+
+    <!-- 模型选择（可用模型列表加载失败时隐藏，走系统默认） -->
+    <div id="modelBar" class="model-bar hidden">
+        <label for="modelSelect">{% trans "识别模型" %}</label>
+        <select id="modelSelect" class="model-select"></select>
+        <span class="model-hint">{% trans "识别使用的 AI 模型，默认取系统配置" %}</span>
+    </div>
 
     <!-- 上传区域 -->
     <div id="uploadZone" class="upload-zone">
@@ -180,7 +273,7 @@
 
     <!-- 识别结果 -->
     <div id="resultCard" class="result-card hidden">
-        <div class="result-header">{% trans "识别结果" %}</div>
+        <div class="result-header">{% trans "识别结果" %}<a id="previewBtn" class="preview-link hidden" onclick="openPreview()">{% trans "预览文书" %}</a></div>
         <div class="result-body">
             <div class="result-row">
                 <span class="result-label">{% trans "文书类型" %}</span>
@@ -196,17 +289,6 @@
                 <input type="text" id="caseNumberInput" class="edit-input" placeholder="{% trans '输入案号' %}">
                 <button class="btn btn-success" onclick="saveEdit('caseNumber')">{% trans "保存" %}</button>
                 <button class="btn btn-secondary" onclick="cancelEdit('caseNumber')">{% trans "取消" %}</button>
-            </div>
-
-            <div class="result-row">
-                <span class="result-label">{% trans "关键时间" %}</span>
-                <span class="result-value" id="keyTimeDisplay">{% trans "未识别" %}</span>
-                <button class="result-edit-btn" onclick="toggleEdit('keyTime')">✏</button>
-            </div>
-            <div id="keyTimeEdit" class="edit-actions hidden">
-                <input type="datetime-local" id="keyTimeInput" class="edit-input">
-                <button class="btn btn-success" onclick="saveEdit('keyTime')">{% trans "保存" %}</button>
-                <button class="btn btn-secondary" onclick="cancelEdit('keyTime')">{% trans "取消" %}</button>
             </div>
 
             <div class="result-row">
@@ -227,13 +309,29 @@
             </div>
 
             <div class="result-row">
+                <span class="result-label">{% trans "识别引擎" %}</span>
+                <span class="result-value" id="llmEngine">—</span>
+            </div>
+
+            <div class="result-row">
+                <span class="result-label">{% trans "联系人" %}</span>
+                <span class="result-value" id="contactDisplay">—</span>
+            </div>
+
+            <div class="result-row">
+                <span class="result-label">{% trans "地址" %}</span>
+                <span class="result-value" id="addressDisplay">—</span>
+            </div>
+
+            <div class="result-row">
                 <span class="result-label">{% trans "绑定状态" %}</span>
                 <span class="result-value" id="bindingStatus"><span class="tag tag-yellow">{% trans "待绑定" %}</span></span>
             </div>
 
-            <!-- 案件选择 -->
+            <!-- 案件选择（含推荐卡片） -->
             <div id="caseSelector" class="case-selector hidden">
-                <h4>{% trans "选择要绑定的案件" %}</h4>
+                <h4>{% trans "第 1 步 · 选择要绑定的案件" %}</h4>
+                <div id="recoCards" class="reco-cards"></div>
                 <div class="search-box">
                     <input type="text" id="caseSearchInput" class="search-input" placeholder="{% trans '输入案号或案件名称搜索，或点击右侧按钮查看全部' %}">
                     <button class="dropdown-btn" id="dropdownBtn" onclick="toggleDropdown()">▼</button>
@@ -245,6 +343,20 @@
                         <div class="case-name" id="selectedCaseName"></div>
                     </div>
                     <button class="btn btn-primary" id="bindBtn" onclick="bindCase()">{% trans "确认绑定" %}</button>
+                </div>
+                <div class="date-hint" style="margin-top: 8px;">
+                    {% trans "也可暂不绑定案件：下方日期确认后将创建独立提醒，后续仍可在任务详情中绑定案件。" %}
+                </div>
+            </div>
+
+            <!-- 关键日期确认 -->
+            <div id="dateSection" class="date-section hidden">
+                <h4>{% trans "第 2 步 · 确认关键日期" %} <span id="dateProgress" class="date-conf"></span></h4>
+                <div class="date-hint">{% trans "勾选要写入的日期（可修改时间和类型），只有确认过的日期才会写入重要日期提醒。" %}</div>
+                <div id="dateRows"></div>
+                <div class="date-footer">
+                    <span id="dateBindingHint" class="date-hint"></span>
+                    <button class="btn btn-primary" id="confirmDatesBtn" onclick="confirmDates()">{% trans "写入重要日期提醒" %}</button>
                 </div>
             </div>
         </div>
@@ -262,15 +374,43 @@
         <p id="errorMessage">{% trans "未知错误" %}</p>
         <button class="btn btn-primary" onclick="resetPage()">{% trans "重新上传" %}</button>
     </div>
+
+    <!-- 待确认任务侧栏 -->
+    <div id="pendingPanel" class="pending-panel">
+        <h4>{% trans "待确认日期的任务" %} <span id="pendingCount" class="tag tag-yellow"></span></h4>
+        <ul id="pendingList" class="pending-list"></ul>
+    </div>
+
+    <!-- 文书预览弹层 -->
+    <div id="previewModal" class="preview-modal hidden">
+        <div class="preview-mask" onclick="closePreview()"></div>
+        <div class="preview-dialog">
+            <div class="preview-header">
+                <span id="previewTitle">{% trans "文书预览" %}</span>
+                <div>
+                    <a id="previewOpenTab" class="btn btn-secondary" href="#" target="_blank" rel="noopener">{% trans "新窗口打开" %}</a>
+                    <button type="button" class="btn btn-secondary" onclick="closePreview()">{% trans "关闭" %}</button>
+                </div>
+            </div>
+            <iframe id="previewFrame" class="preview-frame hidden" title="{% trans '文书预览' %}"></iframe>
+            <img id="previewImg" class="preview-img hidden" alt="{% trans '文书预览' %}">
+        </div>
+    </div>
 </div>
 
 <script>
-var state = 'idle', result = null, taskId = null, selectedCaseData = null, allCasesLoaded = false;
+var state = 'idle', result = null, taskId = null, selectedCaseData = null, allCasesLoaded = false, allCasesData = null;
 var uploadZone = document.getElementById('uploadZone');
 var loadingState = document.getElementById('loadingState');
 var resultCard = document.getElementById('resultCard');
 var errorState = document.getElementById('errorState');
 var fileInput = document.getElementById('fileInput');
+
+// 提醒类型（白名单，与后端 ReminderType 对齐）
+var REMINDER_TYPES = [
+    ['hearing', '开庭'], ['asset_preservation_expires', '财产保全到期日'], ['evidence_deadline', '举证到期日'],
+    ['appeal_deadline', '上诉期到期日'], ['payment_deadline', '缴费期限'], ['submission_deadline', '补正/材料提交期限'], ['other', '其他']
+];
 
 // 拖拽上传
 uploadZone.addEventListener('dragover', function(e) { e.preventDefault(); uploadZone.classList.add('dragging'); });
@@ -283,6 +423,8 @@ function uploadFile(file) {
     document.getElementById('loadingText').textContent = '正在上传文件...';
     var formData = new FormData();
     formData.append('file', file);
+    var modelSelect = document.getElementById('modelSelect');
+    if (modelSelect && modelSelect.value) formData.append('llm_model', modelSelect.value);
     fetch('/api/v1/document-recognition/court-document/recognize', {
         method: 'POST', body: formData, headers: { 'X-CSRFToken': getCsrfToken() }
     }).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.detail || '识别失败'); return d; }); })
@@ -295,15 +437,13 @@ function pollTaskStatus(id) {
     var attempts = 0, maxAttempts = 60;
     function poll() {
         attempts++;
-        fetch('/api/v1/document-recognition/court-document/task/' + id)
-        .then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.detail || '获取状态失败'); return d; }); })
-        .then(function(d) {
+        fetchTaskData(id).then(function(d) {
             if (d.status === 'success' || d.status === 'failed') {
                 if (d.status === 'success') { result = d; showResult(); }
                 else showError(d.error_message || '识别失败');
             } else if (attempts >= maxAttempts) { showError('识别超时'); }
             else {
-                var texts = { 'pending': '任务排队中...', 'processing': '正在识别...', 'extracting': '正在提取信息...', 'binding': '正在绑定...' };
+                var texts = { 'pending': '任务排队中...', 'processing': '正在识别...' };
                 document.getElementById('loadingText').textContent = texts[d.status] || '正在处理...';
                 setTimeout(poll, 3000);
             }
@@ -312,40 +452,52 @@ function pollTaskStatus(id) {
     poll();
 }
 
+function fetchTaskData(id) {
+    return fetch('/api/v1/document-recognition/court-document/task/' + id)
+        .then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.detail || '获取状态失败'); return d; }); });
+}
+
 function showResult() {
     showState('result');
     var rec = result.recognition || {};
-    // 文书类型
     var types = { 'summons': '传票', 'execution': '执行裁定书', 'execution_ruling': '执行裁定书', 'other': '其他文书', 'unknown': '未知' };
     var classes = { 'summons': 'tag-blue', 'execution': 'tag-purple', 'execution_ruling': 'tag-purple', 'other': 'tag-gray', 'unknown': 'tag-gray' };
     var tag = document.getElementById('docTypeTag');
     tag.textContent = types[rec.document_type] || '未知';
     tag.className = 'tag ' + (classes[rec.document_type] || 'tag-gray');
-    // 案号
     document.getElementById('caseNumberDisplay').textContent = rec.case_number || '未识别';
     document.getElementById('caseNumberInput').value = rec.case_number || '';
-    // 时间
-    if (rec.key_time) {
-        document.getElementById('keyTimeDisplay').textContent = new Date(rec.key_time).toLocaleString('zh-CN');
-        document.getElementById('keyTimeInput').value = isoToLocal(rec.key_time);
-    } else document.getElementById('keyTimeDisplay').textContent = '未识别';
-    // 置信度
     var conf = rec.confidence || 0, pct = Math.round(conf * 100);
     var ct = document.getElementById('confidenceText'), cf = document.getElementById('confidenceFill');
     ct.textContent = pct + '%'; cf.style.width = pct + '%';
     ct.className = 'tag ' + (conf >= 0.8 ? 'tag-green' : conf >= 0.5 ? 'tag-yellow' : 'tag-red');
     cf.className = 'confidence-fill ' + (conf >= 0.8 ? 'confidence-high' : conf >= 0.5 ? 'confidence-medium' : 'confidence-low');
-    // 提取方式
-    var methods = { 'regex': '正则表达式', 'ollama': 'AI模型', 'ocr': 'OCR识别', 'pdf_direct': 'PDF直接提取', 'text_extraction': '文本提取' };
+    var methods = { 'regex': '正则表达式', 'ollama': 'AI模型', 'ocr': 'OCR识别', 'vlm': 'AI视觉转写', 'pdf_direct': 'PDF直接提取', 'text_extraction': '文本提取' };
     document.getElementById('extractionMethod').textContent = methods[rec.extraction_method] || '未知';
-    // 绑定状态
+    var engine = rec.llm_model ? rec.llm_model + '（' + (rec.llm_backend || 'llm') + '）' : '关键词+正则（未用 LLM）';
+    if (rec.degraded) engine += ' ⚠ 降级';
+    document.getElementById('llmEngine').textContent = engine;
+    var contactText = (result.contacts || []).map(function(c) {
+        if (c.name && c.phone) return c.name + '（' + c.phone + '）';
+        return c.name || c.phone || '';
+    }).filter(Boolean).join('；');
+    document.getElementById('contactDisplay').textContent = contactText || '—';
+    document.getElementById('addressDisplay').textContent = result.address || '—';
     updateBindingStatus();
-    // 案件选择器
-    if (!result.binding || !result.binding.success) {
+    // 第 1 步：案件绑定（管线模式已预绑定则跳过；已绑定隐藏选择器）
+    var bound = result.binding && result.binding.success;
+    var pipeline = result.binding_mode === 'pipeline';
+    if (!bound && !pipeline) {
         document.getElementById('caseSelector').classList.remove('hidden');
+        renderRecommendations(result.recommendations || []);
+        loadAllCases(false);  // 预加载在办案件，清空搜索框即可直接看全部
         if (rec.case_number) { document.getElementById('caseSearchInput').value = rec.case_number; searchCases(); }
+    } else {
+        document.getElementById('caseSelector').classList.add('hidden');
     }
-    // 任务链接
+    // 第 2 步：关键日期确认
+    renderDates();
+    document.getElementById('previewBtn').classList.toggle('hidden', !result.file_url);
     if (result.task_id) {
         var link = document.getElementById('taskDetailLink');
         link.href = '/admin/document_recognition/documentrecognitiontask/' + result.task_id + '/change/';
@@ -356,13 +508,191 @@ function showResult() {
 function updateBindingStatus() {
     var el = document.getElementById('bindingStatus');
     if (result.binding && result.binding.success) {
-        el.innerHTML = '<span class="tag tag-green">已绑定</span>';
-        document.getElementById('caseSelector').classList.add('hidden');
-    } else if (result.binding && result.binding.error) {
-        el.innerHTML = '<span class="tag tag-red">' + result.binding.error + '</span>';
+        var name = result.binding.case_name ? '：' + result.binding.case_name : '';
+        el.innerHTML = '<span class="tag tag-green">已绑定' + escapeHtml(name) + '</span>';
+    } else if (result.binding && result.binding.message) {
+        el.innerHTML = '<span class="tag tag-yellow">' + escapeHtml(result.binding.message) + '</span>';
     } else el.innerHTML = '<span class="tag tag-yellow">{% trans "待绑定" %}</span>';
 }
 
+function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ---- 文书预览 ----
+function openPreview() {
+    if (!result || !result.file_url) return;
+    var url = result.file_url;
+    var ext = url.split('?')[0].split('.').pop().toLowerCase();
+    var isImg = ['jpg', 'jpeg', 'png'].indexOf(ext) !== -1;
+    document.getElementById('previewFrame').classList.toggle('hidden', isImg);
+    document.getElementById('previewImg').classList.toggle('hidden', !isImg);
+    if (isImg) document.getElementById('previewImg').src = url;
+    else document.getElementById('previewFrame').src = url;
+    document.getElementById('previewOpenTab').href = url;
+    var types = { 'summons': '传票', 'execution': '执行裁定书', 'execution_ruling': '执行裁定书', 'other': '司法文书' };
+    var t = types[(result.recognition || {}).document_type] || '文书';
+    document.getElementById('previewTitle').textContent = t + ' · ' + (result.task_id ? '#' + result.task_id : '');
+    document.getElementById('previewModal').classList.remove('hidden');
+}
+
+function closePreview() {
+    document.getElementById('previewModal').classList.add('hidden');
+    document.getElementById('previewFrame').src = 'about:blank';
+    document.getElementById('previewImg').src = '';
+}
+
+// ---- 推荐卡片 ----
+function renderRecommendations(recoList) {
+    var container = document.getElementById('recoCards');
+    if (!recoList || recoList.length === 0) { container.innerHTML = ''; return; }
+    var html = recoList.slice(0, 3).map(function(r) {
+        var meta = (r.case_numbers && r.case_numbers.length ? r.case_numbers[0] : '') + (r.status === 'active' ? '' : '（' + r.status + '）');
+        return '<div class="reco-card">' +
+            '<span class="reco-score">相关度 ' + r.score + '</span>' +
+            '<div class="reco-info">' +
+            '<div class="reco-name">' + escapeHtml(r.case_name || ('案件' + r.case_id)) + '</div>' +
+            '<div class="reco-meta">' + escapeHtml(meta) + '</div>' +
+            (r.reasons && r.reasons.length ? '<div class="reco-reasons">' + escapeHtml(r.reasons.join(' · ')) + '</div>' : '') +
+            '</div>' +
+            '<button class="btn btn-secondary" onclick=\'selectRecoCase(' + JSON.stringify({id: r.case_id, name: r.case_name, case_number: (r.case_numbers && r.case_numbers[0]) || ""}) + ')\'>选择</button>' +
+            '</div>';
+    }).join('');
+    if (recoList.length > 3) html += '<div class="reco-divider">共 ' + recoList.length + ' 个推荐，更多请用下方搜索</div>';
+    container.innerHTML = html;
+}
+
+function selectRecoCase(c) {
+    selectCase(c);
+}
+
+// ---- 日期候选 ----
+function renderDates() {
+    var section = document.getElementById('dateSection');
+    var rowsEl = document.getElementById('dateRows');
+    var candidates = (result.date_candidates || []);
+    if (candidates.length === 0) {
+        section.classList.remove('hidden');
+        rowsEl.innerHTML = '<div class="date-empty">{% trans "未识别到关键日期（旧版任务于绑定时已自动创建提醒）" %}</div>';
+        document.getElementById('confirmDatesBtn').classList.add('hidden');
+        document.getElementById('dateProgress').textContent = '';
+        document.getElementById('dateBindingHint').textContent = '';
+        return;
+    }
+    section.classList.remove('hidden');
+    document.getElementById('confirmDatesBtn').classList.remove('hidden');
+    var confirmed = candidates.filter(function(c) { return c.status === 'confirmed'; }).length;
+    document.getElementById('dateProgress').textContent = confirmed + '/' + candidates.length + ' 已确认';
+    var bound = result.binding && result.binding.success;
+    document.getElementById('dateBindingHint').textContent = bound ? '' : '未关联案件，确认后将创建独立提醒';
+
+    rowsEl.innerHTML = candidates.map(function(c) {
+        var statusLine = '';
+        if (c.status === 'confirmed') {
+            statusLine = '<span class="date-status-line tag tag-green">✓ 已写入提醒 #' + c.reminder_id + '</span>' +
+                '<button class="btn btn-secondary" onclick="revokeDate(' + c.id + ')">撤销</button>';
+        } else if (c.status === 'skipped') {
+            statusLine = '<span class="date-status-line tag tag-gray">已忽略</span>';
+        }
+        var editable = c.status === 'pending';
+        var sourceTag = c.source === 'llm' ? '<span class="tag tag-blue date-source-tag">LLM</span>'
+            : c.source === 'merged' ? '<span class="tag tag-purple date-source-tag">LLM+正则</span>'
+            : '<span class="tag tag-gray date-source-tag">正则</span>';
+        var confText = (c.confidence != null) ? Math.round(c.confidence * 100) + '%' : '';
+        var typeOptions = REMINDER_TYPES.map(function(t) {
+            return '<option value="' + t[0] + '"' + (t[0] === c.reminder_type ? ' selected' : '') + '>' + t[1] + '</option>';
+        }).join('');
+        return '<div class="date-row status-' + c.status + '" id="dateRow-' + c.id + '">' +
+            '<div class="date-row-main">' +
+            (editable ? '<input type="checkbox" class="date-check" id="dateCheck-' + c.id + '" checked>' : '<span></span>') +
+            (editable
+                ? '<input type="datetime-local" class="date-time-input" id="dateTime-' + c.id + '" value="' + isoToLocalInput(c.due_at) + '">' +
+                  '<select class="date-type-select" id="dateType-' + c.id + '">' + typeOptions + '</select>'
+                : '<span class="tag tag-blue">' + formatDateTime(c.due_at) + '</span>' +
+                  '<span class="date-conf">' + typeLabelOf(c.reminder_type) + '</span>') +
+            sourceTag + '<span class="date-conf">' + confText + '</span>' +
+            (editable ? '<button class="btn btn-secondary" onclick="skipDate(' + c.id + ')">忽略</button>' : '') +
+            '</div>' +
+            (c.context_text ? '<div class="date-context">' + escapeHtml(c.context_text) + '</div>' : '') +
+            (statusLine ? '<div class="date-row-actions">' + statusLine + '</div>' : '') +
+            '</div>';
+    }).join('');
+}
+
+function typeLabelOf(code) {
+    for (var i = 0; i < REMINDER_TYPES.length; i++) { if (REMINDER_TYPES[i][0] === code) return REMINDER_TYPES[i][1]; }
+    return code;
+}
+
+function formatDateTime(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+}
+
+function isoToLocalInput(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + 'T' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+}
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+
+function confirmDates() {
+    var candidates = (result.date_candidates || []).filter(function(c) { return c.status === 'pending'; });
+    var items = [];
+    candidates.forEach(function(c) {
+        var check = document.getElementById('dateCheck-' + c.id);
+        if (!check || !check.checked) return;
+        // datetime-local 原文提交（naive 本地时间），服务端 make_aware，禁止 toISOString 转 UTC
+        items.push({
+            candidate_id: c.id,
+            action: 'confirm',
+            due_at: document.getElementById('dateTime-' + c.id).value,
+            reminder_type: document.getElementById('dateType-' + c.id).value
+        });
+    });
+    if (items.length === 0) { alert('请先勾选要写入的日期'); return; }
+    var btn = document.getElementById('confirmDatesBtn');
+    btn.disabled = true; btn.textContent = '写入中...';
+    fetch('/api/v1/document-recognition/court-document/task/' + taskId + '/dates/confirm', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+        body: JSON.stringify({ items: items })
+    }).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.detail || '写入失败'); return d; }); })
+    .then(function(resp) {
+        var errors = (resp.results || []).filter(function(x) { return x.status === 'error'; });
+        var reused = (resp.results || []).filter(function(x) { return x.message && x.message.indexOf('复用') >= 0; }).length;
+        var msg = '已写入 ' + (resp.results || []).length + ' 条提醒';
+        if (reused) msg += '（其中 ' + reused + ' 条复用了既有提醒）';
+        if (errors.length) msg += '；' + errors.length + ' 条失败：' + errors[0].message;
+        alert(msg);
+        return fetchTaskData(taskId);
+    }).then(function(d) { result = d; showResult(); loadPendingTasks(); })
+    .catch(function(e) { alert('写入失败: ' + e.message); })
+    .finally(function() { btn.disabled = false; btn.textContent = '写入重要日期提醒'; });
+}
+
+function skipDate(candidateId) {
+    fetch('/api/v1/document-recognition/court-document/task/' + taskId + '/dates/confirm', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+        body: JSON.stringify({ items: [{ candidate_id: candidateId, action: 'skip' }] })
+    }).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.detail || '操作失败'); return d; }); })
+    .then(function() { return fetchTaskData(taskId); })
+    .then(function(d) { result = d; showResult(); loadPendingTasks(); })
+    .catch(function(e) { alert('操作失败: ' + e.message); });
+}
+
+function revokeDate(candidateId) {
+    if (!confirm('撤销后将删除该条重要日期提醒，确定继续？')) return;
+    fetch('/api/v1/document-recognition/court-document/task/' + taskId + '/dates/' + candidateId + '/revoke', {
+        method: 'POST', headers: { 'X-CSRFToken': getCsrfToken() }
+    }).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.detail || '撤销失败'); return d; }); })
+    .then(function() { return fetchTaskData(taskId); })
+    .then(function(d) { result = d; showResult(); loadPendingTasks(); })
+    .catch(function(e) { alert('撤销失败: ' + e.message); });
+}
+
+// ---- 案号编辑 ----
 function toggleEdit(f) { document.getElementById(f + 'Edit').classList.toggle('hidden'); }
 function cancelEdit(f) { toggleEdit(f); }
 
@@ -370,25 +700,23 @@ function saveEdit(f) {
     if (!taskId) return;
     var payload = {};
     if (f === 'caseNumber') payload.case_number = document.getElementById('caseNumberInput').value;
-    else if (f === 'keyTime') { var v = document.getElementById('keyTimeInput').value; if (v) payload.key_time = new Date(v).toISOString(); }
     fetch('/api/v1/document-recognition/court-document/task/' + taskId + '/update-info', {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() }, body: JSON.stringify(payload)
     }).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.detail || '保存失败'); return d; }); })
     .then(function() {
         if (f === 'caseNumber') { result.recognition.case_number = payload.case_number; document.getElementById('caseNumberDisplay').textContent = payload.case_number || '未识别'; }
-        else if (f === 'keyTime' && payload.key_time) { result.recognition.key_time = payload.key_time; document.getElementById('keyTimeDisplay').textContent = new Date(payload.key_time).toLocaleString('zh-CN'); }
         toggleEdit(f);
     }).catch(function(e) { alert('保存失败: ' + e.message); });
 }
 
-// 案件搜索
+// ---- 案件搜索 ----
 var searchTimeout = null;
 document.getElementById('caseSearchInput').addEventListener('input', function() {
     clearTimeout(searchTimeout);
-    allCasesLoaded = false;
     searchTimeout = setTimeout(searchCases, 300);
 });
 document.getElementById('caseSearchInput').addEventListener('focus', function() {
+    if (!document.getElementById('caseSearchInput').value) { showDefaultCases(); return; }
     var dropdown = document.getElementById('caseDropdown');
     if (dropdown.innerHTML) dropdown.classList.add('show');
 });
@@ -401,29 +729,38 @@ function toggleDropdown() {
         btn.classList.remove('active');
     } else {
         btn.classList.add('active');
-        loadAllCases();
+        showDefaultCases();
     }
 }
 
-function loadAllCases() {
+// 默认列表：全部在办案件（已预加载则直接渲染，否则现拉）
+function showDefaultCases() {
     var dropdown = document.getElementById('caseDropdown');
-    dropdown.innerHTML = '<div class="dropdown-loading">加载中...</div>';
     dropdown.classList.add('show');
-    fetch('/api/v1/cases/cases?limit=50')
+    if (allCasesData) { renderCaseList(allCasesData); return; }
+    loadAllCases(true);
+}
+
+function loadAllCases(show) {
+    var dropdown = document.getElementById('caseDropdown');
+    if (show) { dropdown.innerHTML = '<div class="dropdown-loading">加载中...</div>'; dropdown.classList.add('show'); }
+    fetch('/api/v1/document-recognition/court-document/search-cases?limit=200')
     .then(function(r) { if (!r.ok) throw new Error('加载失败'); return r.json(); })
     .then(function(cases) {
+        allCasesData = cases || [];
         allCasesLoaded = true;
-        renderCaseList(cases);
-    }).catch(function(e) { dropdown.innerHTML = '<div class="dropdown-empty">加载失败: ' + e.message + '</div>'; });
+        if (allCasesData.length === 0 && show) { dropdown.innerHTML = '<div class="dropdown-empty">暂无在办案件</div>'; return; }
+        if (show) renderCaseList(allCasesData);
+    }).catch(function(e) { if (show) dropdown.innerHTML = '<div class="dropdown-empty">加载失败: ' + e.message + '</div>'; });
 }
 
 function searchCases() {
     var q = document.getElementById('caseSearchInput').value;
     var dropdown = document.getElementById('caseDropdown');
-    if (!q || q.length < 2) { dropdown.innerHTML = '<div class="dropdown-empty">请输入至少2个字符搜索</div>'; dropdown.classList.add('show'); return; }
+    if (!q || q.length < 2) { showDefaultCases(); return; }
     dropdown.innerHTML = '<div class="dropdown-loading">搜索中...</div>';
     dropdown.classList.add('show');
-    fetch('/api/v1/cases/cases/search?q=' + encodeURIComponent(q) + '&limit=10')
+    fetch('/api/v1/document-recognition/court-document/search-cases?q=' + encodeURIComponent(q) + '&limit=20')
     .then(function(r) { if (!r.ok) throw new Error('搜索失败'); return r.json(); })
     .then(function(cases) { renderCaseList(cases); })
     .catch(function(e) { dropdown.innerHTML = '<div class="dropdown-empty">搜索失败: ' + e.message + '</div>'; });
@@ -433,18 +770,15 @@ function renderCaseList(cases) {
     var dropdown = document.getElementById('caseDropdown');
     if (!cases || cases.length === 0) { dropdown.innerHTML = '<div class="dropdown-empty">未找到案件</div>'; return; }
     dropdown.innerHTML = cases.map(function(c) {
-        // 从 case_numbers 数组获取案号，或使用 case_number 字段
-        var num = c.case_number;
-        if (!num && c.case_numbers && c.case_numbers.length > 0) {
-            num = c.case_numbers[0].number;
-        }
-        num = num || '案件' + c.id;
-        var stage = c.current_stage ? '<div class="case-stage">阶段: ' + c.current_stage + '</div>' : '';
-        // 简化数据，只保留必要字段
-        var simpleCase = { id: c.id, name: c.name, case_number: num, current_stage: c.current_stage };
+        var num = (c.case_numbers && c.case_numbers.length > 0) ? c.case_numbers[0] : '';
+        num = num || c.name || ('案件' + c.id);
+        var parties = (c.parties || []).join('、');
+        if (parties.length > 24) parties = parties.slice(0, 24) + '…';
+        var sub = parties ? '<div class="case-stage">' + escapeHtml(parties) + '</div>' : '';
+        var simpleCase = { id: c.id, name: c.name, case_number: num };
         return '<div class="dropdown-item" onclick=\'selectCase(' + JSON.stringify(simpleCase).replace(/'/g, "\\'") + ')\'>' +
-            '<div class="case-number">' + num + '</div>' +
-            '<div class="case-name">' + (c.name || '无名称') + '</div>' + stage + '</div>';
+            '<div class="case-number">' + escapeHtml(num) + '</div>' +
+            '<div class="case-name">' + escapeHtml(c.name || '无名称') + '</div>' + sub + '</div>';
     }).join('');
 }
 
@@ -465,12 +799,31 @@ function bindCase() {
     fetch('/api/v1/document-recognition/court-document/task/' + taskId + '/bind', {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
         body: JSON.stringify({ case_id: selectedCaseData.id })
-    }).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.detail || '绑定失败'); return d; }); })
-    .then(function() { result.binding = { success: true }; updateBindingStatus(); })
-    .catch(function(e) { result.binding = { error: e.message }; updateBindingStatus(); })
+    }).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.detail || d.message || '绑定失败'); return d; }); })
+    .then(function() { return fetchTaskData(taskId); })
+    .then(function(d) { result = d; showResult(); })
+    .catch(function(e) { alert('绑定失败: ' + e.message); })
     .finally(function() { btn.disabled = false; btn.textContent = '确认绑定'; });
 }
 
+// ---- 待确认任务侧栏 ----
+function loadPendingTasks() {
+    fetch('/api/v1/document-recognition/court-document/tasks/pending?limit=10')
+    .then(function(r) { if (!r.ok) throw new Error('加载失败'); return r.json(); })
+    .then(function(tasks) {
+        var list = document.getElementById('pendingList');
+        var badge = document.getElementById('pendingCount');
+        badge.textContent = tasks.length + ' 个';
+        if (!tasks || tasks.length === 0) { list.innerHTML = '<li class="date-hint">暂无待确认任务</li>'; return; }
+        list.innerHTML = tasks.map(function(t) {
+            return '<li><span class="pending-name">' + escapeHtml(t.original_filename) +
+                '<span class="date-conf">（' + t.candidate_count + ' 个日期' + (t.case_name ? ' · ' + escapeHtml(t.case_name) : '') + '）</span></span>' +
+                '<a href="?task=' + t.task_id + '">继续处理</a></li>';
+        }).join('');
+    }).catch(function() { document.getElementById('pendingList').innerHTML = '<li class="date-hint">加载失败</li>'; });
+}
+
+// ---- 页面状态 ----
 function showState(s) {
     state = s;
     uploadZone.classList.toggle('hidden', s !== 'idle');
@@ -480,14 +833,46 @@ function showState(s) {
 }
 function showError(m) { document.getElementById('errorMessage').textContent = m; showState('error'); }
 function resetPage() {
-    result = null; taskId = null; selectedCaseData = null; allCasesLoaded = false;
+    result = null; taskId = null; selectedCaseData = null; allCasesLoaded = false; allCasesData = null;
     document.getElementById('caseSearchInput').value = '';
     document.getElementById('selectedCase').classList.add('hidden');
     document.getElementById('caseDropdown').innerHTML = '';
+    if (window.history && window.history.replaceState) window.history.replaceState(null, '', window.location.pathname);
     showState('idle');
 }
 function getCsrfToken() { var c = document.cookie.split(';').find(function(x) { return x.trim().startsWith('csrftoken='); }); return c ? c.split('=')[1] : ''; }
-function isoToLocal(s) { if (!s) return ''; var d = new Date(s); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + 'T' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
 document.addEventListener('click', function(e) { if (!e.target.closest('.search-box')) { document.getElementById('caseDropdown').classList.remove('show'); document.getElementById('dropdownBtn').classList.remove('active'); } });
+
+// ---- 初始化：?task=<id> 装载历史任务 + 侧栏 ----
+// ---- 模型选择 ----
+function loadModelOptions() {
+    fetch('/api/v1/llm/models')
+    .then(function(r) { if (!r.ok) throw new Error('加载失败'); return r.json(); })
+    .then(function(d) {
+        var models = d.models || [];
+        if (!models.length) return;
+        var sel = document.getElementById('modelSelect');
+        sel.innerHTML = models.map(function(m) {
+            return '<option value="' + escapeHtml(m.id) + '">' + escapeHtml(m.name || m.id) + '</option>';
+        }).join('');
+        document.getElementById('modelBar').classList.remove('hidden');
+    }).catch(function() { /* 模型列表不可得时保持隐藏，上传走系统默认 */ });
+}
+
+(function init() {
+    loadModelOptions();
+    loadPendingTasks();
+    var params = new URLSearchParams(window.location.search);
+    var taskParam = params.get('task');
+    if (taskParam && /^\d+$/.test(taskParam)) {
+        taskId = parseInt(taskParam, 10);
+        showState('loading');
+        document.getElementById('loadingText').textContent = '正在载入任务 #' + taskId + '...';
+        fetchTaskData(taskId).then(function(d) {
+            if (d.status === 'success') { result = d; showResult(); }
+            else showError(d.error_message || ('任务状态: ' + d.status));
+        }).catch(function(e) { showError(e.message); });
+    }
+})();
 </script>
 {% endblock %}

@@ -385,20 +385,6 @@ class TestParse:
 
 
 class TestLazyProperties:
-    def test_ollama_model_lazy(self):
-        service = SMSParserService()
-        service._ollama_model = None
-        with patch("apps.core.llm.config.LLMConfig.get_ollama_model", return_value="my-model"):
-            assert service.ollama_model == "my-model"
-        # Second call should use cached value
-        assert service.ollama_model == "my-model"
-
-    def test_ollama_base_url_lazy(self):
-        service = SMSParserService()
-        service._ollama_base_url = None
-        with patch("apps.core.llm.config.LLMConfig.get_ollama_base_url", return_value="http://localhost"):
-            assert service.ollama_base_url == "http://localhost"
-
     def test_llm_service_lazy(self):
         service = SMSParserService()
         service._llm_service = None

@@ -2,16 +2,12 @@
 from __future__ import annotations
 
 from datetime import datetime
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
 from apps.document_recognition.services.case_binding_service import CaseBindingService
-from apps.document_recognition.services.data_classes import (
-    BindingResult,
-    DocumentType,
-    NotificationResult,
-)
+from apps.document_recognition.services.data_classes import BindingResult, DocumentType, NotificationResult
 
 
 class TestCaseBindingServiceInit:
@@ -73,7 +69,8 @@ class TestFindCaseByNumber:
 
 
 class TestCreateCaseLog:
-    def test_create_with_reminder(self):
+    def test_create_writes_no_reminder(self):
+        """原 test_create_with_reminder：绑定期不再写提醒（改造后行为）。"""
         mock_cs = MagicMock()
         mock_cs.create_case_log_internal.return_value = 100
         mock_cs.update_case_log_reminder_internal.return_value = True
@@ -85,13 +82,11 @@ class TestCreateCaseLog:
             svc,
             case_id=1,
             content="test content",
-            reminder_time=datetime(2024, 6, 15, 9, 0),
             file_path="/tmp/doc.pdf",
-            document_type=DocumentType.SUMMONS,
             user=MagicMock(id=1),
         )
         assert result == 100
-        mock_cs.update_case_log_reminder_internal.assert_called_once()
+        mock_cs.update_case_log_reminder_internal.assert_not_called()
 
     def test_create_without_reminder(self):
         mock_cs = MagicMock()
@@ -103,7 +98,6 @@ class TestCreateCaseLog:
             svc,
             case_id=1,
             content="test",
-            reminder_time=None,
             file_path="/tmp/doc.pdf",
         )
         assert result == 101
@@ -117,7 +111,6 @@ class TestCreateCaseLog:
             svc,
             case_id=1,
             content="test",
-            reminder_time=None,
             file_path="",
         )
         assert result == 102
@@ -133,113 +126,91 @@ class TestCreateCaseLog:
             svc,
             case_id=1,
             content="test",
-            reminder_time=None,
             file_path="/tmp/doc.pdf",
         )
         assert result == 103
 
 
-class TestUpdateLogReminder:
-    def test_summons_type(self):
+class TestBindingWritesNoReminder:
+    """原 TestUpdateLogReminder：_update_log_reminder 已删除，绑定期零提醒。"""
+
+    def test_create_case_log_zero_update_calls(self):
         mock_cs = MagicMock()
-        mock_cs.update_case_log_reminder_internal.return_value = True
-
-        svc = CaseBindingService(case_service=mock_cs)
-        svc._update_log_reminder(100, datetime(2024, 6, 15), DocumentType.SUMMONS)
-        mock_cs.update_case_log_reminder_internal.assert_called_once_with(
-            case_log_id=100,
-            reminder_time=datetime(2024, 6, 15),
-            reminder_type="hearing",
-        )
-
-    def test_execution_ruling_type(self):
-        mock_cs = MagicMock()
-        mock_cs.update_case_log_reminder_internal.return_value = True
-
-        svc = CaseBindingService(case_service=mock_cs)
-        svc._update_log_reminder(100, datetime(2024, 6, 15), DocumentType.EXECUTION_RULING)
-        mock_cs.update_case_log_reminder_internal.assert_called_once_with(
-            case_log_id=100,
-            reminder_time=datetime(2024, 6, 15),
-            reminder_type="asset_preservation_expires",
-        )
-
-    def test_other_type(self):
-        mock_cs = MagicMock()
-        mock_cs.update_case_log_reminder_internal.return_value = True
-
-        svc = CaseBindingService(case_service=mock_cs)
-        svc._update_log_reminder(100, datetime(2024, 6, 15), DocumentType.OTHER)
-        mock_cs.update_case_log_reminder_internal.assert_called_once_with(
-            case_log_id=100,
-            reminder_time=datetime(2024, 6, 15),
-            reminder_type="other",
-        )
-
-    def test_update_returns_false(self):
-        mock_cs = MagicMock()
-        mock_cs.update_case_log_reminder_internal.return_value = False
-
-        svc = CaseBindingService(case_service=mock_cs)
-        svc._update_log_reminder(100, datetime(2024, 6, 15), DocumentType.SUMMONS)
-
-    def test_update_exception(self):
-        mock_cs = MagicMock()
+        mock_cs.create_case_log_internal.return_value = 100
         mock_cs.update_case_log_reminder_internal.side_effect = Exception("update failed")
 
         svc = CaseBindingService(case_service=mock_cs)
-        svc._update_log_reminder(100, datetime(2024, 6, 15), DocumentType.SUMMONS)
+        result = svc.create_case_log.__wrapped__(svc, case_id=1, content="test", file_path="")
+        assert result == 100
+        mock_cs.update_case_log_reminder_internal.assert_not_called()
+
+    def test_bind_document_zero_update_calls(self):
+        mock_cs = MagicMock()
+        mock_cs.get_case_by_id_internal.return_value = MagicMock(name="Test Case")
+        mock_cs.update_case_log_reminder_internal.return_value = False
+
+        svc = CaseBindingService(case_service=mock_cs)
+        svc.create_case_log = MagicMock(return_value=200)
+        result = svc.bind_document_to_case(
+            case_id=42,
+            document_type=DocumentType.SUMMONS,
+            content="test",
+            file_path="/tmp/doc.pdf",
+        )
+        assert result.success is True
+        mock_cs.update_case_log_reminder_internal.assert_not_called()
 
 
 class TestBindDocumentToCase:
-    def test_empty_case_number(self):
-        svc = CaseBindingService(case_service=MagicMock())
+    def test_bind_directly_by_case_id(self):
+        """原 test_empty_case_number：不再按案号搜索，直接给 case_id 即可绑定。"""
+        mock_cs = MagicMock()
+        mock_dto = MagicMock()
+        mock_dto.name = "Test Case"
+        mock_cs.get_case_by_id_internal.return_value = mock_dto
+
+        svc = CaseBindingService(case_service=mock_cs)
+        svc.create_case_log = MagicMock(return_value=200)
         result = svc.bind_document_to_case(
-            case_number="",
+            case_id=42,
             document_type=DocumentType.SUMMONS,
-            content="test",
-            key_time=None,
+            content="test content",
             file_path="/tmp/doc.pdf",
         )
-        assert result.success is False
-        assert result.error_code == "CASE_NUMBER_NOT_FOUND"
+        assert result.success is True
+        assert result.case_id == 42
+        assert result.case_name == "Test Case"
+        mock_cs.search_cases_by_case_number_internal.assert_not_called()
 
     def test_case_not_found(self):
         mock_cs = MagicMock()
-        mock_cs.search_cases_by_case_number_internal.return_value = []
+        mock_cs.get_case_by_id_internal.return_value = None
         svc = CaseBindingService(case_service=mock_cs)
 
         result = svc.bind_document_to_case(
-            case_number="（2024）京01民初123号",
+            case_id=99,
             document_type=DocumentType.SUMMONS,
             content="test",
-            key_time=None,
             file_path="/tmp/doc.pdf",
         )
         assert result.success is False
+        assert result.error_code == "CASE_NOT_FOUND"
 
     def test_case_dto_none(self):
         mock_cs = MagicMock()
-        mock_case = MagicMock()
-        mock_case.id = 42
-        mock_cs.search_cases_by_case_number_internal.return_value = [mock_case]
         mock_cs.get_case_by_id_internal.return_value = None
 
         svc = CaseBindingService(case_service=mock_cs)
         result = svc.bind_document_to_case(
-            case_number="（2024）京01民初123号",
+            case_id=42,
             document_type=DocumentType.SUMMONS,
             content="test",
-            key_time=None,
             file_path="/tmp/doc.pdf",
         )
         assert result.success is False
 
     def test_success(self):
         mock_cs = MagicMock()
-        mock_case = MagicMock()
-        mock_case.id = 42
-        mock_cs.search_cases_by_case_number_internal.return_value = [mock_case]
         mock_dto = MagicMock()
         mock_dto.name = "Test Case"
         mock_cs.get_case_by_id_internal.return_value = mock_dto
@@ -250,21 +221,18 @@ class TestBindDocumentToCase:
         svc = CaseBindingService(case_service=mock_cs)
         svc.create_case_log = MagicMock(return_value=200)
         result = svc.bind_document_to_case(
-            case_number="（2024）京01民初123号",
+            case_id=42,
             document_type=DocumentType.SUMMONS,
             content="test content",
-            key_time=datetime(2024, 6, 15, 9, 0),
             file_path="/tmp/doc.pdf",
         )
         assert result.success is True
         assert result.case_id == 42
         assert result.case_name == "Test Case"
+        mock_cs.update_case_log_reminder_internal.assert_not_called()
 
     def test_generic_exception(self):
         mock_cs = MagicMock()
-        mock_case = MagicMock()
-        mock_case.id = 42
-        mock_cs.search_cases_by_case_number_internal.return_value = [mock_case]
         mock_dto = MagicMock()
         mock_dto.name = "Test"
         mock_cs.get_case_by_id_internal.return_value = mock_dto
@@ -273,10 +241,9 @@ class TestBindDocumentToCase:
         svc.create_case_log = MagicMock(side_effect=RuntimeError("unexpected"))
 
         result = svc.bind_document_to_case(
-            case_number="test",
+            case_id=42,
             document_type=DocumentType.SUMMONS,
             content="test",
-            key_time=None,
             file_path="/tmp/doc.pdf",
         )
         assert result.success is False
@@ -284,37 +251,39 @@ class TestBindDocumentToCase:
 
 
 class TestFormatLogContent:
-    def test_summons_with_time(self):
+    def test_summons_with_date_count(self):
         svc = CaseBindingService()
         result = svc.format_log_content(
-            DocumentType.SUMMONS, "（2024）京01民初123号", datetime(2024, 6, 15, 9, 30), "text"
+            DocumentType.SUMMONS, "（2024）京01民初123号", "text", date_count=2
         )
         assert "传票" in result
         assert "案号" in result
-        assert "开庭时间" in result
+        assert "识别到 2 个关键日期（待人工确认后写入重要日期提醒）" in result
 
-    def test_execution_ruling_with_time(self):
+    def test_execution_ruling_with_date_count(self):
         svc = CaseBindingService()
         result = svc.format_log_content(
-            DocumentType.EXECUTION_RULING, None, datetime(2024, 6, 15), "text"
+            DocumentType.EXECUTION_RULING, None, "text", date_count=1
         )
         assert "执行裁定书" in result
-        assert "保全到期时间" in result
+        assert "识别到 1 个关键日期（待人工确认后写入重要日期提醒）" in result
+        assert "案号" not in result
 
     def test_other_no_time(self):
         svc = CaseBindingService()
-        result = svc.format_log_content(DocumentType.OTHER, None, None, "")
+        result = svc.format_log_content(DocumentType.OTHER, None, "")
         assert "其他文书" in result
+        assert "关键日期" not in result
 
     def test_long_text_truncated(self):
         svc = CaseBindingService()
         long_text = "x" * 600
-        result = svc.format_log_content(DocumentType.OTHER, None, None, long_text)
+        result = svc.format_log_content(DocumentType.OTHER, None, long_text)
         assert "..." in result
 
     def test_unknown_type_label(self):
         svc = CaseBindingService()
-        result = svc.format_log_content("unknown_type", None, None, "text")  # type: ignore[arg-type]
+        result = svc.format_log_content("unknown_type", None, "text")  # type: ignore[arg-type]
         assert "法院文书" in result
 
 

@@ -143,8 +143,8 @@ class CalendarExportService:
         if desc_parts:
             vevent.add("description", "\n".join(desc_parts))
 
-        # STATUS
-        vevent.add("status", "CONFIRMED")
+        # STATUS（已完成的用 iCal 标准的 COMPLETED；getattr 兜底单测替身）
+        vevent.add("status", "COMPLETED" if getattr(reminder, "is_completed", False) else "CONFIRMED")
 
         # DTSTAMP
         vevent.add("dtstamp", timezone.now())

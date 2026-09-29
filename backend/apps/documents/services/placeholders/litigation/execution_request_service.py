@@ -50,8 +50,7 @@ class ExecutionRequestService(BasePlaceholderService):
 
     DEDUCTION_KEY_TO_COMPONENT: ClassVar[dict[str, str]] = interest_mod.DEDUCTION_KEY_TO_COMPONENT
     DEDUCTION_KEY_TO_LABEL: ClassVar[dict[str, str]] = interest_mod.DEDUCTION_KEY_TO_LABEL
-    OLLAMA_FALLBACK_MODEL: ClassVar[str] = llm_mod.OLLAMA_FALLBACK_MODEL
-    OLLAMA_MAX_TEXT_CHARS: ClassVar[int] = llm_mod.OLLAMA_MAX_TEXT_CHARS
+    LLM_MAX_TEXT_CHARS: ClassVar[int] = llm_mod.LLM_MAX_TEXT_CHARS
 
     def __init__(self) -> None:
         self.calculator = InterestCalculator()
@@ -221,7 +220,7 @@ class ExecutionRequestService(BasePlaceholderService):
             params=params,
             principal_fallback_to_target=principal_fallback_to_target,
         ):
-            llm_data, llm_error = llm_mod.extract_with_ollama_fallback(normalized_text, model=llm_model)
+            llm_data, llm_error = llm_mod.extract_with_llm_fallback(normalized_text, model=llm_model)
             if llm_data:
                 llm_fallback_used = llm_mod.merge_llm_fallback(
                     amounts=amounts,
@@ -232,14 +231,14 @@ class ExecutionRequestService(BasePlaceholderService):
                 if llm_data.get("has_double_interest_clause") is True:
                     has_double_interest_clause = True
                 if llm_fallback_used:
-                    warnings.append("规则置信度不足，已使用本地Ollama兜底解析。")
+                    warnings.append("规则置信度不足，已使用 LLM 兜底解析。")
             elif llm_error:
                 warnings.append(llm_error)
 
         # LLM 兜底后本金仍为 None 且无费用项时，无法生成执行事项
         # （需在 apply_paid_amount 之前检查，否则 None 会被转成 0）
         if principal_unresolved and amounts.principal is None:
-            if not any(w.startswith("LLM") or "Ollama" in w or "模型" in w for w in warnings):
+            if not any(w.startswith("LLM") or "模型" in w for w in warnings):
                 warnings.append("未能确定本金，申请执行事项未生成。")
             return ExecutionComputation(preview_text="", warnings=warnings, structured_params={})
 
@@ -364,7 +363,7 @@ class ExecutionRequestService(BasePlaceholderService):
             and llm_fallback_enabled
             and not has_multiple_overdue_interest_rules
         ):
-            llm_data, llm_error = llm_mod.extract_with_ollama_fallback(normalized_text, model=llm_model)
+            llm_data, llm_error = llm_mod.extract_with_llm_fallback(normalized_text, model=llm_model)
             if llm_data:
                 llm_fallback_used = llm_mod.merge_llm_fallback(
                     amounts=amounts,
@@ -399,7 +398,7 @@ class ExecutionRequestService(BasePlaceholderService):
                         warnings=warnings,
                     )
                 if llm_fallback_used:
-                    warnings.append("规则利息解析失败，已使用本地Ollama兜底修正。")
+                    warnings.append("规则利息解析失败，已使用 LLM 兜底修正。")
             elif llm_error:
                 warnings.append(llm_error)
 

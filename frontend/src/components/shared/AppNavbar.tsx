@@ -43,6 +43,9 @@ const NOT_READY: Record<string, string> = {
   '/ledger': '案件台账正在开发中',
 }
 
+/** 补拉当前用户信息的 query key（本组件独用，就地定义） */
+const ORG_ME_KEY = ['organization-me'] as const
+
 export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -58,7 +61,7 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
   // /organization/me（登录时也拉过，属幂等只读）。走 react-query 带缓存，
   // 只在没有用户名时启用，避免每次挂载都请求。
   useQuery({
-    queryKey: ['organization-me'],
+    queryKey: ORG_ME_KEY,
     queryFn: async () => {
       const u = await api.get('organization/me').json<{ id: number; username: string }>()
       if (u?.username) setUser?.({ id: u.id, username: u.username })

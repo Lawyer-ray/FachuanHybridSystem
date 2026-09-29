@@ -5,12 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.core.llm.model_list_service import (
-    ModelListResult,
-    ModelListService,
-    _make_model,
-    _KNOWN_CONTEXT_WINDOWS,
-)
+from apps.core.llm.model_list_service import _KNOWN_CONTEXT_WINDOWS, ModelListResult, ModelListService, _make_model
 
 
 class TestMakeModel:
@@ -83,18 +78,6 @@ class TestModelListService:
             assert models == cached_models
 
     @patch("apps.core.llm.model_list_service.LLMConfig")
-    def test_fetch_from_api_ollama_enabled(self, mock_llm: MagicMock) -> None:
-        mock_config = MagicMock()
-        mock_config.enabled = True
-        mock_llm.get_backend_configs.return_value = {"ollama": mock_config}
-        with patch.object(
-            self.svc, "_fetch_ollama_models", return_value=[{"id": "qwen3:0.6b"}]
-        ):
-            result = self.svc._fetch_from_api()
-            assert len(result.models) == 1
-            assert result.is_fallback is False
-
-    @patch("apps.core.llm.model_list_service.LLMConfig")
     def test_fetch_from_api_all_disabled_fallback(self, mock_llm: MagicMock) -> None:
         mock_llm.get_backend_configs.return_value = {"ollama": MagicMock(enabled=False)}
         result = self.svc._fetch_from_api()
@@ -104,13 +87,6 @@ class TestModelListService:
     def test_get_fallback_models(self) -> None:
         result = ModelListService._get_fallback_models()
         assert isinstance(result, list)
-
-    @patch("apps.core.llm.model_list_service.LLMConfig")
-    def test_fetch_ollama_empty_url(self, mock_llm: MagicMock) -> None:
-        mock_llm.get_ollama_base_url.return_value = ""
-        mock_llm.get_ollama_model.return_value = ""
-        result = ModelListService._fetch_ollama_models()
-        assert result == []
 
     def test_known_context_windows_not_empty(self) -> None:
         assert len(_KNOWN_CONTEXT_WINDOWS) > 0

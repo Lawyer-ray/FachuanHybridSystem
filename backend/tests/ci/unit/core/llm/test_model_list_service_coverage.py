@@ -7,11 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.core.llm.model_list_service import (
-    ModelListResult,
-    ModelListService,
-    _make_model,
-)
+from apps.core.llm.model_list_service import ModelListResult, ModelListService, _make_model
 
 
 class TestMakeModel:
@@ -89,14 +85,6 @@ class TestModelListService:
             result = svc.get_models()
             assert isinstance(result, list)
 
-    def test_fetch_from_api_ollama_enabled(self):
-        svc = ModelListService()
-        with patch("apps.core.llm.model_list_service.LLMConfig") as mock_cfg:
-            mock_cfg.get_backend_configs.return_value = {"ollama": MagicMock(enabled=True)}
-            with patch.object(svc, "_fetch_ollama_models", return_value=[{"id": "oll"}]):
-                result = svc._fetch_from_api()
-                assert result.models[0]["id"] == "oll"
-
     def test_fetch_from_api_all_unavailable(self):
         svc = ModelListService()
         with patch("apps.core.llm.model_list_service.LLMConfig") as mock_cfg:
@@ -113,64 +101,9 @@ class TestModelListService:
                 result = svc._fetch_from_api()
                 assert result.is_fallback is True
 
-    def test_fetch_ollama_models_no_url(self):
-        with patch("apps.core.llm.model_list_service.LLMConfig") as mock_cfg:
-            mock_cfg.get_ollama_base_url.return_value = ""
-            mock_cfg.get_ollama_model.return_value = ""
-            result = ModelListService._fetch_ollama_models()
-            assert result == []
-
-    def test_fetch_ollama_models_with_context_length(self):
-        mock_resp = MagicMock()
-        mock_resp.json.return_value = {"model_info": {"ctx.context_length": 4096}}
-        mock_resp.raise_for_status = MagicMock()
-        with patch("apps.core.llm.model_list_service.LLMConfig") as mock_cfg, \
-             patch("apps.core.llm.model_list_service.httpx") as mock_httpx:
-            mock_cfg.get_ollama_base_url.return_value = "http://localhost:11434"
-            mock_cfg.get_ollama_model.return_value = "qwen3:0.6b"
-            mock_httpx.post.return_value = mock_resp
-            mock_httpx.ConnectError = ConnectionError
-            mock_httpx.TimeoutException = TimeoutError
-            result = ModelListService._fetch_ollama_models()
-            assert len(result) == 1
-            assert result[0]["id"] == "qwen3:0.6b"
-
-    def test_fetch_ollama_models_connection_error(self):
-        with patch("apps.core.llm.model_list_service.LLMConfig") as mock_cfg, \
-             patch("apps.core.llm.model_list_service.httpx") as mock_httpx:
-            mock_cfg.get_ollama_base_url.return_value = "http://localhost:11434"
-            mock_cfg.get_ollama_model.return_value = "qwen3:0.6b"
-            mock_httpx.ConnectError = type("ConnectError", (Exception,), {})
-            mock_httpx.TimeoutException = type("TimeoutException", (Exception,), {})
-            mock_httpx.post.side_effect = mock_httpx.ConnectError()
-            result = ModelListService._fetch_ollama_models()
-            assert result == []
-
     def test_get_fallback_models(self):
         result = ModelListService._get_fallback_models()
         assert isinstance(result, list)
-
-    def test_fetch_ollama_generic_exception_pass(self):
-        """Generic exception in /api/show: caught by bare except, ctx_window stays 0,
-        returns model list with default context_window=0."""
-        with patch("apps.core.llm.model_list_service.LLMConfig") as mock_cfg, \
-             patch("apps.core.llm.model_list_service.httpx") as mock_httpx:
-            mock_cfg.get_ollama_base_url.return_value = "http://localhost:11434"
-            mock_cfg.get_ollama_model.return_value = "qwen3:0.6b"
-            mock_httpx.ConnectError = ConnectionError
-            mock_httpx.TimeoutException = TimeoutError
-            mock_httpx.post.side_effect = ValueError("bad json")
-            result = ModelListService._fetch_ollama_models()
-            # The generic except block just passes, so the model is still returned
-            assert len(result) == 1
-            assert result[0]["context_window"] == 0
-
-    def test_fetch_ollama_no_model(self):
-        with patch("apps.core.llm.model_list_service.LLMConfig") as mock_cfg:
-            mock_cfg.get_ollama_base_url.return_value = "http://localhost:11434"
-            mock_cfg.get_ollama_model.return_value = ""
-            result = ModelListService._fetch_ollama_models()
-            assert result == []
 
     def test_merge_system_config_models(self):
         api_models = [{"id": "gpt-4o", "name": "gpt-4o", "context_window": 128000}]
@@ -178,19 +111,17 @@ class TestModelListService:
             mock_cfg._get_system_config.side_effect = lambda k, d="": {
                 "LLM_EXTRA_MODELS": "extra-model-1,extra-model-2",
             }.get(k, d)
-            mock_cfg.get_ollama_model.return_value = "qwen3:0.6b"
             mock_cfg.get_openai_compatible_model.return_value = "kimi26"
             result = ModelListService._merge_system_config_models(api_models)
             ids = [m["id"] for m in result]
             assert "extra-model-1" in ids
             assert "extra-model-2" in ids
-            assert "qwen3:0.6b" in ids
+            assert "kimi26" in ids
 
     def test_merge_system_config_models_empty_extra(self):
         api_models = [{"id": "gpt-4o", "name": "gpt-4o", "context_window": 100}]
         with patch("apps.core.llm.model_list_service.LLMConfig") as mock_cfg:
             mock_cfg._get_system_config.return_value = ""
-            mock_cfg.get_ollama_model.return_value = ""
             mock_cfg.get_openai_compatible_model.return_value = ""
             result = ModelListService._merge_system_config_models(api_models)
             assert len(result) == 1

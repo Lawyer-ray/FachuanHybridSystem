@@ -43,11 +43,6 @@ development:
       api_key: ${MOONSHOT_API_KEY:your-dev-api-key}
       timeout: 30
 
-    ollama:
-      model: qwen2.5:7b
-      base_url: http://localhost:11434
-      timeout: 60
-
     sms:
       document_title_extraction_limit: 50
 
@@ -95,11 +90,6 @@ testing:
       base_url: https://api.moonshot.cn/v1
       api_key: ${MOONSHOT_API_KEY:test-api-key}
       timeout: 10  # 测试环境使用较短超时
-
-    ollama:
-      model: qwen2.5:7b
-      base_url: http://localhost:11434
-      timeout: 30
 
     sms:
       document_title_extraction_limit: 50
@@ -164,12 +154,6 @@ staging:
       api_key: ${MOONSHOT_API_KEY}
       timeout: 30
 
-    ollama:
-      model: qwen2.5:7b
-      base_url: http://ollama.internal:11434
-      timeout: 60
-
-  chat_platforms:
     feishu:
       app_id: ${FEISHU_APP_ID}
       app_secret: ${FEISHU_APP_SECRET}
@@ -247,11 +231,6 @@ production:
       base_url: https://api.moonshot.cn/v1
       api_key: ${MOONSHOT_API_KEY}  # 必须通过环境变量设置
       timeout: 60  # 生产环境使用较长超时
-
-    ollama:
-      model: ${OLLAMA_MODEL:qwen2.5:7b}
-      base_url: ${OLLAMA_BASE_URL}
-      timeout: 120
 
     scraper:
       encryption_key: ${SCRAPER_ENCRYPTION_KEY}  # 必须通过环境变量设置
@@ -434,10 +413,6 @@ microservices:
       base_url: ${MOONSHOT_SERVICE_URL:http://ai-service.internal/moonshot}
       api_key: ${MOONSHOT_API_KEY}
       timeout: 30
-
-    ollama:
-      base_url: ${OLLAMA_SERVICE_URL:http://ai-service.internal/ollama}
-      timeout: 60
 
     # 消息队列配置（如需使用 Celery，请自行配置）
     # message_queue:

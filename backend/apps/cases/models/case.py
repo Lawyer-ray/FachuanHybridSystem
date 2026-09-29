@@ -98,47 +98,17 @@ class Case(models.Model):
     class Meta:
         verbose_name = _("案件")
         verbose_name_plural = _("案件")
+        # 注意：FK（contract）与 unique 字段（filing_number）自带索引，勿重复声明；
+        # PG 可反向扫描单列索引，故只保留 start_date 一个方向
         indexes: ClassVar = [
-            models.Index(fields=["contract"]),
             models.Index(fields=["is_filed"]),
-            models.Index(fields=["filing_number"]),
             models.Index(fields=["start_date"]),
             models.Index(fields=["current_stage"]),
-            models.Index(fields=["-start_date"]),
             models.Index(fields=["status"]),
         ]
 
     def __str__(self) -> str:
         return f"{self.name}"
-
-    def get_case_chain(self) -> list[Case]:
-        """获取完整案件链（按 start_date 升序）。
-
-        链通常 2~4 层，优化为：
-        1. 逐层回溯到根（N 次轻量查询，N=链深）
-        2. 单次查询取所有后代（链短时 1 次即可）
-        3. 一次性取出完整对象
-        """
-        # 1. 回溯到链首
-        root_id: int = self.pk
-        visited: set[int] = {root_id}
-        while True:
-            parent_id = Case.objects.filter(pk=root_id).values_list("previous_case_id", flat=True).first()
-            if not parent_id or parent_id in visited:
-                break
-            visited.add(parent_id)
-            root_id = parent_id
-
-        # 2. 前向 BFS：单次查询取所有后代
-        chain: list[int] = [root_id]
-        frontier = [root_id]
-        while frontier:
-            children = list(Case.objects.filter(previous_case_id__in=frontier).values_list("pk", flat=True))
-            frontier = [c for c in children if c not in chain]
-            chain.extend(frontier)
-
-        # 3. 一次性取出所有案件，按收案日期排序
-        return list(Case.objects.filter(pk__in=chain).order_by("start_date", "pk"))
 
     def clean(self) -> None:
         """
@@ -162,7 +132,8 @@ class CaseFilingNumberSequence(models.Model):
     class Meta:
         verbose_name = _("案件建档编号序列")
         verbose_name_plural = _("案件建档编号序列")
-        indexes: ClassVar = [models.Index(fields=["year"])]
+
+        # year 已 unique=True，自带唯一索引
 
 
 class CaseNumber(models.Model):
@@ -288,11 +259,13 @@ class SupervisingAuthority(models.Model):
         verbose_name = _("主管机关")
         verbose_name_plural = _("主管机关")
         ordering: ClassVar = ["created_at"]
+        constraints: ClassVar = [
+            # 与原 unique_together ("case", "name") 语义一致（name 为 NULL 时 PG 不参与唯一）
+            models.UniqueConstraint(fields=["case", "name"], name="uniq_supervising_authority_case_name"),
+        ]
         indexes: ClassVar = [
-            models.Index(fields=["case"]),
             models.Index(fields=["authority_type"]),
         ]
-        unique_together: ClassVar = [("case", "name")]
 
     def __str__(self) -> str:
         authority_type_display = self.get_authority_type_display()

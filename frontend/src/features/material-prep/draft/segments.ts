@@ -17,7 +17,7 @@ export function splitSegment(d: DraftState, si: number, k: number): DraftState {
   if (k < 0 || k >= cur.refs.length - 1) return d
   const head = cur.refs.slice(0, k + 1)
   const tail = cur.refs.slice(k + 1)
-  const tailFirst = tail[0]
+  const tailFirst = tail[0]! // 非空由上方 k < refs.length-1 守卫保证
   const newSeg: Segment = {
     t: '',
     fn: matLabel(d.mats, tailFirst.mi),
@@ -33,7 +33,7 @@ export function splitSegment(d: DraftState, si: number, k: number): DraftState {
 /** 段 si 并入上一段（si>0） */
 export function mergeSegment(d: DraftState, si: number): DraftState {
   if (si <= 0 || si >= d.segs.length) return d
-  const cur = d.segs[si]
+  const cur = d.segs[si]!
   const next = d.segs.map((sg, i) => {
     if (i === si - 1) return { ...sg, refs: [...sg.refs, ...cur.refs], manual: sg.manual || cur.manual }
     return sg
@@ -44,7 +44,7 @@ export function mergeSegment(d: DraftState, si: number): DraftState {
 
 /** 改段类型 */
 export function setSegmentType(d: DraftState, si: number, t: string): DraftState {
-  if (si < 0 || si >= d.segs.length || t === d.segs[si].t) return d
+  if (si < 0 || si >= d.segs.length || t === d.segs[si]!.t) return d
   const segs = d.segs.map((sg, i) => (i === si ? { ...sg, t } : sg))
   return { ...d, segs }
 }
@@ -53,7 +53,7 @@ export function setSegmentType(d: DraftState, si: number, t: string): DraftState
 export function renameSegment(d: DraftState, si: number, fn: string): DraftState {
   if (si < 0 || si >= d.segs.length) return d
   const name = fn.trim()
-  if (!name || name === d.segs[si].fn) return d
+  if (!name || name === d.segs[si]!.fn) return d
   const segs = d.segs.map((sg, i) => (i === si ? { ...sg, fn: name } : sg))
   return { ...d, segs }
 }

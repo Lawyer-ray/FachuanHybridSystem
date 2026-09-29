@@ -11,7 +11,6 @@ from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from ninja import Router
 
-from apps.cases.models import CaseLog
 from apps.cases.schemas import CaseLogIn, CaseLogOut, CaseLogUpdate
 from apps.cases.services.log.caselog_service import CaseLogService
 from apps.core.dto.request_context import extract_request_context
@@ -32,18 +31,13 @@ async def list_logs(request: HttpRequest, case_id: int | None = None) -> list[Ca
 
     @sync_to_async
     def _fetch() -> list[Any]:
-        qs = service.list_logs(
+        # service 已批量预热提醒缓存（单次查询），序列化阶段不再触发 ORM
+        return service.list_logs_for_serialization(
             case_id=case_id,
             user=ctx.user,
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,
         )
-        objs = list(qs)
-        # Pre-warm lazy reminder properties so Django Ninja serialization
-        # (which runs in the async event loop) won't trigger sync ORM calls.
-        for obj in objs:
-            _ = obj.reminder_entries
-        return objs
 
     return cast(list[CaseLogOut], await _fetch())
 
@@ -63,12 +57,8 @@ async def create_log(request: HttpRequest, payload: CaseLogIn) -> CaseLogOut:  #
             reminder_type=payload.reminder_type,
             reminder_time=payload.reminder_time,
         )
-        # Re-fetch with select_related/prefetch_related so Django Ninja
-        # serialization (which runs in the async event loop) won't trigger
-        # sync ORM calls for actor, attachments, etc.
-        obj = CaseLog.objects.select_related("actor", "case").prefetch_related("attachments").get(id=obj.id)
-        _ = obj.reminder_entries
-        return obj
+        # 按序列化需要的关联重取（select_related/prefetch 在 service 内完成）
+        return service.get_log_for_serialization(log_id=obj.id)
 
     return cast(CaseLogOut, await _create())
 

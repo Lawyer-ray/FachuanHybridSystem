@@ -30,10 +30,9 @@ from apps.cases.models import (
     ChatAuditLog,
     SupervisingAuthority,
 )
+from apps.client.models import Client
 from apps.contracts.models import Contract
 from apps.organization.models import Lawyer
-from apps.client.models import Client
-
 
 # ── CaseChat Model ───────────────────────────────────────────────────────────
 
@@ -387,7 +386,9 @@ class TestCaseModelExtended:
     def test_get_case_chain_single(self) -> None:
         contract = Contract.objects.create(name="chain合同", case_type="civil")
         case = Case.objects.create(name="一审案件", contract=contract)
-        chain = case.get_case_chain()
+        from apps.cases.services.case.case_chain_service import get_case_chain
+
+        chain = get_case_chain(case)
         assert len(chain) == 1
         assert chain[0] == case
 
@@ -395,7 +396,9 @@ class TestCaseModelExtended:
         contract = Contract.objects.create(name="chain2合同", case_type="civil")
         case1 = Case.objects.create(name="一审", contract=contract)
         case2 = Case.objects.create(name="二审", contract=contract, previous_case=case1)
-        chain = case2.get_case_chain()
+        from apps.cases.services.case.case_chain_service import get_case_chain
+
+        chain = get_case_chain(case2)
         assert len(chain) == 2
         assert chain[0] == case1
         assert chain[1] == case2
@@ -405,7 +408,9 @@ class TestCaseModelExtended:
         case1 = Case.objects.create(name="一审", contract=contract)
         case2 = Case.objects.create(name="二审", contract=contract, previous_case=case1)
         case3 = Case.objects.create(name="再审", contract=contract, previous_case=case2)
-        chain = case3.get_case_chain()
+        from apps.cases.services.case.case_chain_service import get_case_chain
+
+        chain = get_case_chain(case3)
         assert len(chain) == 3
         assert chain[0] == case1
         assert chain[2] == case3

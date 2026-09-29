@@ -27,6 +27,12 @@ def _validate_content_not_blank(value: str | None) -> str | None:
     return normalized
 
 
+def _validate_positive_id_list(value: list[int]) -> list[int]:
+    if any(isinstance(v, bool) or not isinstance(v, int) or v <= 0 for v in value):
+        raise ValueError("reminder_ids 必须为正整数列表")
+    return value
+
+
 class ReminderIn(Schema):
     contract_id: int | None = None
     case_id: int | None = None
@@ -60,6 +66,25 @@ class ReminderUpdate(Schema):
     _validate_content = field_validator("content")(_validate_content_not_blank)
 
 
+class ReminderCompleteIn(Schema):
+    """批量标记完成 / 取消完成。
+
+    日历上一条事件可能由同一庭审的多条同步记录合并而成，
+    前端勾选要带全部 member_ids 过来，一次请求保持原子。
+    """
+
+    reminder_ids: list[int] = Field(min_length=1, max_length=100)
+    is_completed: bool = True
+
+    _validate_id_list = field_validator("reminder_ids")(_validate_positive_id_list)
+
+
+class ReminderCompleteOut(Schema):
+    """实际更新条数（不存在的 id 静默跳过）。"""
+
+    updated: int
+
+
 class ReminderOut(SchemaMixin, Schema):
     id: int
     contract: int | None = None
@@ -70,6 +95,8 @@ class ReminderOut(SchemaMixin, Schema):
     content: str
     metadata: dict[str, Any] = Field(default_factory=dict)
     due_at: str
+    is_completed: bool = False
+    completed_at: str | None = None
     created_at: str
     updated_at: str
 
@@ -92,6 +119,12 @@ class ReminderOut(SchemaMixin, Schema):
     @staticmethod
     def resolve_due_at(obj: Reminder) -> str:
         return SchemaMixin._resolve_datetime_iso(obj.due_at) or ""
+
+    @staticmethod
+    def resolve_completed_at(obj: Reminder) -> str | None:
+        if not obj.completed_at:
+            return None
+        return SchemaMixin._resolve_datetime_iso(obj.completed_at) or None
 
     @staticmethod
     def resolve_created_at(obj: Reminder) -> str:
@@ -171,6 +204,8 @@ class CalendarEventItemOut(Schema):
     case_id: int | None = None
     is_today: bool = False
     is_overdue: bool = False
+    #: 是否已完成（合并事件 = 全部成员 reminder 都已完成）
+    is_completed: bool = False
     #: 合并了几条原始 reminder（同一庭审被多次同步时 >1）
     members: int = 1
     #: 合并前各 reminder 的 id
@@ -178,9 +213,14 @@ class CalendarEventItemOut(Schema):
 
 
 class CalendarStatsOut(Schema):
-    """工作台头部统计（基于合并后口径）。"""
+    """工作台头部统计（基于合并后口径）。
+
+    today / deadline_in_7days 是紧急度指标，只数**未完成**；
+    month_court 是工作量口径，庭开完了也算数，保持全量。
+    """
 
     today: int = 0
+    today_done: int = 0
     deadline_in_7days: int = 0
     month_court: int = 0
 

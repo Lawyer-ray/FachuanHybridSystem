@@ -59,6 +59,17 @@ class Reminder(models.Model):
         verbose_name=_("列入重要时间"),
         help_text=_("同步到案件重要时间：勾选后会在案件详情的重要时间中展示，不会复制生成新数据。"),
     )
+    is_completed: Any = models.BooleanField(default=False, verbose_name=_("已完成"))
+    completed_at: Any = models.DateTimeField(null=True, blank=True, verbose_name=_("完成时间"))
+    completed_by: Any = models.ForeignKey(
+        "organization.Lawyer",
+        on_delete=models.SET_NULL,
+        related_name="completed_reminders",
+        null=True,
+        blank=True,
+        verbose_name=_("确认人"),
+        help_text=_("在日历上勾选完成的人；取消完成后清空。"),
+    )
     created_at: Any = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
     updated_at: Any = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 

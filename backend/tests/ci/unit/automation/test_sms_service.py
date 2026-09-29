@@ -9,7 +9,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ============================================================
 # SMSParserService 测试
 # ============================================================
@@ -219,19 +218,19 @@ class TestCaseNumberExtractorService:
         result = svc.extract_from_content("some content")
         assert result == []
 
-    def test_parse_ollama_response_valid_json(self) -> None:
+    def test_parse_llm_response_valid_json(self) -> None:
         svc = self._make_service(case_number_service=MagicMock())
         svc._case_number_service.normalize_case_number.side_effect = lambda x: x
         response = '{"case_numbers": ["（2025）粤0604民初123号"]}'
         # Mock validate_and_normalize to avoid full logic
         with patch.object(svc, 'validate_and_normalize', return_value=["（2025）粤0604民初123号"]):
-            result = svc._parse_ollama_response(response)
+            result = svc._parse_llm_response(response)
             assert "（2025）粤0604民初123号" in result
 
-    def test_parse_ollama_response_invalid_json(self) -> None:
+    def test_parse_llm_response_invalid_json(self) -> None:
         svc = self._make_service()
         with patch.object(svc, '_extract_fallback', return_value=[]):
-            result = svc._parse_ollama_response("not json")
+            result = svc._parse_llm_response("not json")
             assert result == []
 
     def test_build_extract_prompt(self) -> None:
@@ -419,12 +418,11 @@ class TestCourtSMSRecommendationService:
     def test_extract_court_name_from_content(self) -> None:
         from apps.automation.services.sms.court_sms_recommendation_service import CourtSMSRecommendationService
 
-        svc = CourtSMSRecommendationService()
-        name = svc._extract_court_name_from_content("佛山市禅城区人民法院通知你")
+        # 原实例方法 _extract_court_name_from_content 已删除，等价迁移到静态方法
+        name = CourtSMSRecommendationService.extract_court_name_from_text("佛山市禅城区人民法院通知你")
         assert name == "佛山市禅城区人民法院"
 
     def test_extract_court_name_from_content_none(self) -> None:
         from apps.automation.services.sms.court_sms_recommendation_service import CourtSMSRecommendationService
 
-        svc = CourtSMSRecommendationService()
-        assert svc._extract_court_name_from_content("没有法院名") is None
+        assert CourtSMSRecommendationService.extract_court_name_from_text("没有法院名") is None

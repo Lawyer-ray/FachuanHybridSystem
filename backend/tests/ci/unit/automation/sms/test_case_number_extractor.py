@@ -47,29 +47,29 @@ class TestCaseNumberExtractorService:
         result = self.service.extract_from_content("文书内容")
         assert result == []
 
-    def test_parse_ollama_response_valid_json(self) -> None:
+    def test_parse_llm_response_valid_json(self) -> None:
         """解析有效 JSON 响应。"""
         response = '{"case_numbers": ["（2025）粤0606民初12345号"]}'
         self.case_number_service.normalize_case_number.return_value = "（2025）粤0606民初12345号"
 
-        result = self.service._parse_ollama_response(response)
+        result = self.service._parse_llm_response(response)
         assert len(result) >= 1
 
-    def test_parse_ollama_response_invalid_json(self) -> None:
+    def test_parse_llm_response_invalid_json(self) -> None:
         """解析无效 JSON 响应，使用降级方案。"""
         response = "案号：（2025）粤0606民初12345号"
         self.case_number_service.normalize_case_number.return_value = "（2025）粤0606民初12345号"
 
-        result = self.service._parse_ollama_response(response)
+        result = self.service._parse_llm_response(response)
         # 降级方案可能提取到也可能提取不到
         assert isinstance(result, list)
 
-    def test_parse_ollama_response_with_markdown(self) -> None:
+    def test_parse_llm_response_with_markdown(self) -> None:
         """解析包含 markdown 包裹的 JSON 响应。"""
         response = '```json\n{"case_numbers": ["（2025）粤0606民初12345号"]}\n```'
         self.case_number_service.normalize_case_number.return_value = "（2025）粤0606民初12345号"
 
-        result = self.service._parse_ollama_response(response)
+        result = self.service._parse_llm_response(response)
         assert isinstance(result, list)
 
     def test_validate_and_normalize_empty(self) -> None:

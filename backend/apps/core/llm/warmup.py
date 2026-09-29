@@ -38,8 +38,6 @@ def warm_llm_system_config_cache(keys: Iterable[str] | None = None, *, strict: b
             "OPENAI_COMPATIBLE_BASE_URL",
             "OPENAI_COMPATIBLE_DEFAULT_MODEL",
             "OPENAI_COMPATIBLE_TIMEOUT",
-            "OLLAMA_MODEL",
-            "OLLAMA_BASE_URL",
             "LLM_DEFAULT_BACKEND",
         ]
     )

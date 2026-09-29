@@ -243,7 +243,7 @@ export function Reader() {
             draft={draft}
             onFocusSeg={focusSeg}
             onRenameMat={(mi) => {
-              const m = draft.mats[mi]
+              const m = draft.mats[mi]!
               setRenameMat({ mi, initial: m.customName || m.n })
             }}
           />

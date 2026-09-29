@@ -246,18 +246,11 @@ class TestDocumentProcessOut:
         assert data.image_url is None
 
 
-class TestOllamaChatIn:
-    def test_required(self):
-        from apps.automation.schemas.document import OllamaChatIn
-        data = OllamaChatIn(model="qwen", prompt="test", text="hello")
-        assert data.model == "qwen"
-
-
 class TestAutoToolProcessIn:
     def test_defaults(self):
         from apps.automation.schemas.document import AutoToolProcessIn
         data = AutoToolProcessIn(file_path="/tmp/test.pdf")
-        assert data.model == "qwen3:0.6b"
+        assert data.model == ""
         assert data.limit is None
 
 

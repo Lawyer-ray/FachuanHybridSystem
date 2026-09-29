@@ -34,23 +34,23 @@ describe('buildLoginMethods', () => {
       provider({ name: 'feishu', login_mode: 'embedded_qr' }),
       provider({ name: 'google', login_mode: 'redirect' }),
     ])
-    expect(feishu.kind).toBe('embedded_qr')
-    expect(google.kind).toBe('redirect')
+    expect(feishu?.kind).toBe('embedded_qr')
+    expect(google?.kind).toBe('redirect')
   })
 
   it('未知 login_mode 一律按整页跳转处理，不让前端卡在没实现的形态上', () => {
     const [, unknown] = buildLoginMethods([provider({ login_mode: 'magic_link' as never })])
-    expect(unknown.kind).toBe('redirect')
+    expect(unknown?.kind).toBe('redirect')
   })
 
   it('display_name 缺失时回落 Provider 名，避免出现空白按钮', () => {
     const [, noName] = buildLoginMethods([provider({ name: 'wechat', display_name: '' })])
-    expect(noName.label).toBe('wechat')
+    expect(noName?.label).toBe('wechat')
   })
 
   it('Provider 原样挂在 method 上，供渲染器取 client_config', () => {
     const info = provider({ client_config: { width: '260' } })
     const [, method] = buildLoginMethods([info])
-    expect(method.provider).toBe(info)
+    expect(method?.provider).toBe(info)
   })
 })

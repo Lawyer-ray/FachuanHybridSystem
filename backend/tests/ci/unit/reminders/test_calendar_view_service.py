@@ -37,14 +37,17 @@ def make_reminder(
     contract_name: str | None = None,
     case_log: object | None = None,
     metadata: dict | None = None,
+    is_completed: bool = False,
 ) -> SimpleNamespace:
     """造一个够用的 Reminder 替身（只带 to_event_item 会读到的属性）。"""
     # 案件的案号在 Case.case_numbers（CaseNumber.number），
-    # service 里用 case.case_numbers.values_list("number", flat=True) 读，
+    # service 里迭代 case.case_numbers.all() 读（走 prefetch 缓存），
     # 这里给个同名替身。
     case_obj = SimpleNamespace(name=case_name) if case_name else None
     if case_obj is not None:
-        case_obj.case_numbers = SimpleNamespace(values_list=lambda *a, **kw: [case_ref] if case_ref else [])
+        case_obj.case_numbers = SimpleNamespace(
+            all=lambda: [SimpleNamespace(number=case_ref)] if case_ref else []
+        )
     return SimpleNamespace(
         id=reminder_id,
         # 带偏移量的保持原样；naive 的按 TZ 解释（与 Django make_aware 语义一致）
@@ -58,6 +61,7 @@ def make_reminder(
         case=case_obj,
         contract=SimpleNamespace(name=contract_name) if contract_name else None,
         case_log=case_log,
+        is_completed=is_completed,
     )
 
 
@@ -479,3 +483,86 @@ class TestFieldExtraction:
         by_id = {e.id: e for e in events}
         assert by_id[1].is_overdue is True
         assert by_id[2].is_overdue is False
+
+
+class TestCompletion:
+    """完成态：透传 / 逾期抑制 / 合并取全量 / 排序沉底 / 统计口径。"""
+
+    def test_completed_passthrough_and_overdue_suppressed(self) -> None:
+        events = normalize(
+            make_reminder(1, due_at="2026-09-01T02:00:00+00:00", content="已完成的历史庭", is_completed=True),
+            make_reminder(2, due_at="2026-09-01T02:00:00+00:00", content="未完成的历史庭"),
+        )
+        by_id = {e.id: e for e in events}
+        assert by_id[1].is_completed is True
+        # 已完成的不再标逾期——勾掉即视为已处理
+        assert by_id[1].is_overdue is False
+        assert by_id[2].is_overdue is True
+
+    def test_stub_without_field_defaults_pending(self) -> None:
+        """老替身（不带 is_completed 属性）按未完成处理。"""
+        raw = SimpleNamespace(
+            id=1,
+            due_at=datetime(2026, 9, 26, 9, 30, tzinfo=TZ),
+            reminder_type="hearing",
+            content="某案",
+            metadata={},
+            case_id=None,
+            contract_id=None,
+            case_log_id=None,
+            case=None,
+            contract=None,
+            case_log=None,
+        )
+        events = merge_events([to_event_item(raw, today=TODAY, now=NOW, tz=TZ)])
+        assert events[0].is_completed is False
+
+    def test_merged_completed_requires_all_members(self) -> None:
+        """合并事件的完成态 = 全部成员都完成。"""
+        court = {"courtroom": "A 法庭", "time_range": "09:30-10:00"}
+        partially = normalize(
+            make_reminder(1, due_at="2026-09-21T09:30:00+08:00", metadata=court, is_completed=True),
+            make_reminder(2, due_at="2026-09-21T09:30:00+08:00", metadata=court),
+        )
+        assert partially[0].members == 2
+        assert partially[0].is_completed is False
+
+        fully = normalize(
+            make_reminder(1, due_at="2026-09-21T09:30:00+08:00", metadata=court, is_completed=True),
+            make_reminder(2, due_at="2026-09-21T09:30:00+08:00", metadata=court, is_completed=True),
+        )
+        assert fully[0].is_completed is True
+
+    def test_completed_sorts_last_within_day(self) -> None:
+        """同日内未完成在前——完成比「紧要排前」优先级更高。"""
+        events = normalize(
+            make_reminder(
+                1, due_at="2026-09-24T10:00:00+08:00", reminder_type="hearing", content="已完成的庭", is_completed=True
+            ),
+            make_reminder(2, due_at="2026-09-24T16:30:00+08:00", reminder_type="other", content="未完成的常规"),
+        )
+        grouped = group_by_day(events)
+        assert [e.id for e in grouped["2026-09-24"]] == [2, 1]
+
+    def test_stats_pending_only_for_urgency(self) -> None:
+        events = normalize(
+            # 今天：未完成庭期 → today / deadline_in_7days 各 +1
+            make_reminder(1, due_at="2026-09-26T09:30:00+08:00", reminder_type="hearing", content="今天的庭"),
+            # 今天：已完成期限 → 只进 today_done，不进 deadline_in_7days
+            make_reminder(
+                2,
+                due_at="2026-09-26T23:59:00+08:00",
+                reminder_type="evidence_deadline",
+                content="今天的期限",
+                is_completed=True,
+            ),
+            # 今天：已完成庭期 → today_done +1；month_court 是工作量口径仍 +1
+            make_reminder(
+                3, due_at="2026-09-26T14:00:00+08:00", reminder_type="hearing", content="完成过的庭", is_completed=True
+            ),
+        )
+        stats = compute_stats(events, today=date(2026, 9, 26))
+        assert stats.today == 1
+        assert stats.today_done == 2
+        assert stats.deadline_in_7days == 1
+        assert stats.month_court == 2

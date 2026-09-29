@@ -27,7 +27,7 @@ class LLMService:
     统一 LLM 服务
 
     提供统一的 LLM 调用接口,支持:
-    - 多后端选择(openai_compatible/ollama)
+    - 多后端选择(openai_compatible)
     - 自动降级(按优先级尝试可用后端)
     - 统一的响应格式
 
@@ -35,13 +35,11 @@ class LLMService:
     """
 
     # 后端名称常量
-    BACKEND_OLLAMA = "ollama"
     BACKEND_OPENAI_COMPATIBLE = "openai_compatible"
 
     # 默认后端优先级(数字越小优先级越高)
     DEFAULT_PRIORITIES: ClassVar = {
         BACKEND_OPENAI_COMPATIBLE: 1,
-        BACKEND_OLLAMA: 2,
     }
 
     def __init__(
@@ -141,7 +139,7 @@ class LLMService:
 
     def chat(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         backend: str | None = None,
         model: str | None = None,
         temperature: float = 0.7,
@@ -165,7 +163,7 @@ class LLMService:
 
     async def achat(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         backend: str | None = None,
         model: str | None = None,
         temperature: float = 0.7,
@@ -189,7 +187,7 @@ class LLMService:
 
     def stream(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         backend: str | None = None,
         model: str | None = None,
         temperature: float = 0.7,
@@ -247,7 +245,7 @@ class LLMService:
 
     async def astream(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         backend: str | None = None,
         model: str | None = None,
         temperature: float = 0.7,

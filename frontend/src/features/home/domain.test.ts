@@ -1,6 +1,7 @@
 import {
   buildMonthGrid,
   dateKey,
+  eventReminderIds,
   formatCN,
   formatWeekdayCN,
   parseKey,
@@ -32,6 +33,17 @@ describe('日期工具', () => {
 
   it('parseKey 与 dateKey 互逆', () => {
     expect(dateKey(parseKey('2026-09-17'))).toBe('2026-09-17')
+  })
+})
+
+describe('勾选完成的 id 口径', () => {
+  it('合并事件必须带全部 member_ids——只发首条 id 会被合并口径打回未完成', () => {
+    expect(eventReminderIds({ id: 1, member_ids: [1, 5, 9] })).toEqual([1, 5, 9])
+  })
+
+  it('未合并的事件退回自身 id', () => {
+    expect(eventReminderIds({ id: 7, member_ids: [7] })).toEqual([7])
+    expect(eventReminderIds({ id: 8 })).toEqual([8])
   })
 })
 
@@ -69,7 +81,7 @@ describe('月历网格', () => {
 
   it('首行按周一起点补白：2026-09-01 是周二 → 1 个补白', () => {
     const cells = buildMonthGrid(2026, 8)
-    expect(cells[0].inMonth).toBe(false)
+    expect(cells[0]?.inMonth).toBe(false)
     expect(cells[1]).toMatchObject({ day: 1, inMonth: true })
   })
 
@@ -77,14 +89,14 @@ describe('月历网格', () => {
     const cells = buildMonthGrid(2026, 8)
     const inMonth = cells.filter((c) => c.inMonth)
     expect(inMonth).toHaveLength(30)
-    expect(inMonth[0].day).toBe(1)
-    expect(inMonth[29].day).toBe(30)
+    expect(inMonth[0]?.day).toBe(1)
+    expect(inMonth[29]?.day).toBe(30)
   })
 
   it('跨年：12 月的补白落到次年 1 月', () => {
     const cells = buildMonthGrid(2026, 11)
     const last = cells[cells.length - 1]
-    expect(last.inMonth).toBe(false)
-    expect(last.key?.startsWith('2027-01')).toBe(true)
+    expect(last?.inMonth).toBe(false)
+    expect(last?.key?.startsWith('2027-01')).toBe(true)
   })
 })

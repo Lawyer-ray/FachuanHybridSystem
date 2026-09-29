@@ -4,7 +4,6 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-import httpx
 from django.core.cache import cache
 
 from apps.core.llm.config import LLMConfig
@@ -57,7 +56,7 @@ class ModelListResult:
 
 
 class ModelListService:
-    """模型列表公共服务（OpenAI-compatible + Ollama）"""
+    """模型列表公共服务（AI 平台表 / LLMProvider 路由）"""
 
     def __init__(self, cache_ttl: int = DEFAULT_CACHE_TTL) -> None:
         self._cache_ttl = cache_ttl
@@ -112,13 +111,10 @@ class ModelListService:
             for part in extra_raw.split(","):
                 _add(part)
 
-        # 2. 各后端的默认模型（用户在 SystemConfig 中配置的默认模型）
-        for default_model in [
-            LLMConfig.get_ollama_model(),
-            LLMConfig.get_openai_compatible_model(),
-        ]:
-            if default_model:
-                _add(default_model)
+        # 2. 当前配置的默认模型（Ollama 已下线，仅 openai_compatible）
+        default_model = LLMConfig.get_openai_compatible_model()
+        if default_model:
+            _add(default_model)
 
         # 3. 各 AI 平台（LLMProvider）注册的模型
         for provider in LLMConfig._get_llm_providers():
@@ -145,13 +141,10 @@ class ModelListService:
             for part in extra_raw.split(","):
                 _add(part)
 
-        # 2. 各后端的默认模型（用户在 SystemConfig 中配置的默认模型）
-        for default_model in [
-            await LLMConfig.get_ollama_model_async(),
-            await LLMConfig.get_openai_compatible_model_async(),
-        ]:
-            if default_model:
-                _add(default_model)
+        # 2. 当前配置的默认模型（Ollama 已下线，仅 openai_compatible）
+        default_model = await LLMConfig.get_openai_compatible_model_async()
+        if default_model:
+            _add(default_model)
 
         # 3. 各 AI 平台（LLMProvider）注册的模型
         for provider in await LLMConfig._aget_llm_providers():
@@ -161,84 +154,12 @@ class ModelListService:
         return merged + api_models
 
     def _fetch_from_api(self) -> ModelListResult:
-        """从各后端获取模型列表，合并结果"""
-        configs = LLMConfig.get_backend_configs()
-        all_models: list[dict[str, Any]] = []
-
-        if configs.get("ollama") and configs["ollama"].enabled:
-            all_models.extend(self._fetch_ollama_models())
-
-        if all_models:
-            return ModelListResult(models=all_models)
-
+        """获取模型列表基线（AI 平台注册的模型在 merge 阶段并入）。"""
         return ModelListResult(
             models=self._get_fallback_models(),
             is_fallback=True,
-            error_message="所有后端均不可用，使用默认模型列表",
+            error_message="使用默认模型列表（AI 平台模型将在合并阶段补齐）",
         )
-
-    @staticmethod
-    def _fetch_ollama_models() -> list[dict[str, Any]]:
-        """获取 Ollama 模型的 context_window
-
-        只查询 SystemConfig 中配置的 Ollama 模型，不自动发现所有模型。
-        通过 /api/show 获取 context_length。
-        """
-        ollama_url = LLMConfig.get_ollama_base_url()
-        ollama_model = LLMConfig.get_ollama_model()
-        if not ollama_url or not ollama_model:
-            return []
-
-        # 查询 /api/show 获取 context_length
-        ctx_window = 0
-        try:
-            resp = httpx.post(
-                f"{ollama_url}/api/show",
-                json={"name": ollama_model},
-                timeout=10.0,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            for key, val in data.get("model_info", {}).items():
-                if key.endswith(".context_length"):
-                    ctx_window = int(val)
-                    break
-        except (httpx.ConnectError, httpx.TimeoutException):
-            return []
-        except Exception:
-            logger.warning("获取 Ollama 模型 context_window 失败: %s", ollama_model, exc_info=True)
-
-        return [_make_model(ollama_model, ctx_window)]
-
-    @staticmethod
-    async def _afetch_ollama_models() -> list[dict[str, Any]]:
-        """异步版本。获取 Ollama 模型的 context_window。
-
-        只查询 SystemConfig 中配置的 Ollama 模型，不自动发现所有模型。
-        通过 /api/show 获取 context_length。
-        """
-        ollama_url = LLMConfig.get_ollama_base_url()
-        ollama_model = LLMConfig.get_ollama_model()
-        if not ollama_url or not ollama_model:
-            return []
-
-        # 查询 /api/show 获取 context_length
-        ctx_window = 0
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.post(f"{ollama_url}/api/show", json={"name": ollama_model})
-                resp.raise_for_status()
-                data = resp.json()
-            for key, val in data.get("model_info", {}).items():
-                if key.endswith(".context_length"):
-                    ctx_window = int(val)
-                    break
-        except (httpx.ConnectError, httpx.TimeoutException):
-            return []
-        except Exception:
-            pass
-
-        return [_make_model(ollama_model, ctx_window)]
 
     async def aget_result(self) -> ModelListResult:
         """异步版本。获取模型列表及连接状态，优先从缓存读取。"""
@@ -268,20 +189,11 @@ class ModelListService:
         return result.models
 
     async def _afetch_from_api(self) -> ModelListResult:
-        """异步版本。从各后端获取模型列表，合并结果。"""
-        configs = LLMConfig.get_backend_configs()
-        all_models: list[dict[str, Any]] = []
-
-        if configs.get("ollama") and configs["ollama"].enabled:
-            all_models.extend(await self._afetch_ollama_models())
-
-        if all_models:
-            return ModelListResult(models=all_models)
-
+        """异步版本。获取模型列表基线（AI 平台注册的模型在 merge 阶段并入）。"""
         return ModelListResult(
             models=self._get_fallback_models(),
             is_fallback=True,
-            error_message="所有后端均不可用，使用默认模型列表",
+            error_message="使用默认模型列表（AI 平台模型将在合并阶段补齐）",
         )
 
     @staticmethod

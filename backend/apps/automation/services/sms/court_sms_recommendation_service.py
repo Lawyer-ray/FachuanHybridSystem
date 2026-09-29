@@ -47,12 +47,29 @@ class CourtSMSRecommendationService:
 
     def get_recommendations(self, sms: CourtSMS) -> list[RecommendationResult]:
         """获取推荐关联案件列表"""
-        normalized_numbers = [TextUtils.normalize_case_number(n) for n in (sms.case_numbers or []) if n.strip()]
-        year_court_prefixes = self._collect_year_court_prefixes(normalized_numbers)
-        court_name = self._extract_court_name(sms)
-        party_names = [p.strip() for p in (sms.party_names or []) if p.strip()]
+        return self.get_recommendations_for_signals(
+            case_numbers=list(sms.case_numbers or []),
+            party_names=list(sms.party_names or []),
+            court_name=self._extract_court_name(sms),
+        )
 
-        q = self._build_query(normalized_numbers, year_court_prefixes, court_name, party_names)
+    def get_recommendations_for_signals(
+        self,
+        *,
+        case_numbers: list[str],
+        party_names: list[str],
+        court_name: str | None,
+    ) -> list[RecommendationResult]:
+        """按信号（案号/当事人/法院名）推荐关联案件。
+
+        供法院短信与其他文书类入口（文书识别）共用，评分权重与
+        ``get_recommendations`` 完全一致。
+        """
+        normalized_numbers = [TextUtils.normalize_case_number(n) for n in case_numbers if n.strip()]
+        year_court_prefixes = self._collect_year_court_prefixes(normalized_numbers)
+        cleaned_party_names = [p.strip() for p in party_names if p.strip()]
+
+        q = self._build_query(normalized_numbers, year_court_prefixes, court_name, cleaned_party_names)
         if not q:
             return []
 
@@ -62,16 +79,23 @@ class CourtSMSRecommendationService:
             .prefetch_related("case_numbers", "parties__client", "supervising_authorities")
         )
 
-        results = self._score_and_rank(candidates, normalized_numbers, year_court_prefixes, court_name, party_names)
+        results = self._score_and_rank(
+            candidates, normalized_numbers, year_court_prefixes, court_name, cleaned_party_names
+        )
         logger.info(
-            "推荐关联案件: SMS ID=%s, 候选=%d, 返回=%d",
-            sms.id,
+            "推荐关联案件: 候选=%d, 返回=%d",
             candidates.count(),
             len(results),
         )
         return results
 
     # -- 法院名称提取 --
+
+    @staticmethod
+    def extract_court_name_from_text(text: str) -> str | None:
+        """从任意文本中用正则提取法院名称（供文书识别等外部入口复用）。"""
+        match = _COURT_NAME_PATTERN.search(text or "")
+        return match.group(0) if match else None
 
     def _extract_court_name(self, sms: CourtSMS) -> str | None:
         """从短信关联数据中提取法院名称（三级回退）"""
@@ -81,11 +105,7 @@ class CourtSMSRecommendationService:
             return court_name
 
         # 优先级 2：短信内容正则提取
-        court_name = self._extract_court_name_from_content(sms.content or "")
-        if court_name:
-            return court_name
-
-        return None
+        return self.extract_court_name_from_text(sms.content or "")
 
     def _extract_court_name_from_document(self, sms: CourtSMS) -> str | None:
         """从关联的 CourtDocument 中提取法院名称"""
@@ -102,11 +122,6 @@ class CourtSMSRecommendationService:
         except Exception:
             pass
         return None
-
-    def _extract_court_name_from_content(self, content: str) -> str | None:
-        """从短信内容中用正则提取法院名称"""
-        match = _COURT_NAME_PATTERN.search(content)
-        return match.group(0) if match else None
 
     # -- 案号前缀提取 --
 

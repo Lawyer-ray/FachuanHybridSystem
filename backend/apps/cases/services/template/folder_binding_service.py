@@ -183,6 +183,28 @@ class CaseFolderBindingService(FolderBindingCrudService):
             raise
 
     @transaction.atomic
+    def resolve_storage_account(self, storage_account_id: int | str, storage_type: str) -> Any:
+        """按 ID + 存储类型解析启用的云存储账号；不存在时抛 ValidationException。"""
+        from apps.core.exceptions import ValidationException
+
+        if storage_type == "local":
+            return None
+        try:
+            account_id = int(storage_account_id)
+        except (TypeError, ValueError):
+            account_id = -1
+
+        from apps.cloud_storage.models import CloudStorageAccount
+
+        account = CloudStorageAccount.objects.filter(id=account_id, storage_type=storage_type, is_active=True).first()
+        if account is None:
+            raise ValidationException(
+                message="指定的云存储账号不存在或已禁用",
+                code="STORAGE_ACCOUNT_NOT_FOUND",
+                errors={"storage_account_id": str(storage_account_id)},
+            )
+        return account
+
     def create_binding(  # type: ignore
         self,
         case_id: int,

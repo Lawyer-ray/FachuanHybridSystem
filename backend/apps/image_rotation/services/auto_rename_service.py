@@ -2,7 +2,7 @@
 图片自动重命名服务
 
 从 OCR 文本中提取日期和金额信息,生成标准化文件名.
-使用 Ollama 本地模型进行智能提取.
+使用 LLM（AI 平台）进行智能提取.
 
 Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 3.1, 3.2, 3.3, 3.4, 3.5
 """
@@ -65,18 +65,15 @@ class RenameSuggestion:
 
 
 class AutoRenameService:
-    """自动重命名服务 - 使用 Ollama 本地模型"""
+    """自动重命名服务 - LLM 智能提取（AI 平台路由）"""
 
     def __init__(
         self,
-        ollama_model: str | None = None,
-        ollama_base_url: str | None = None,
+        model: str | None = None,
         llm_client: Any | None = None,
     ) -> None:
-        from apps.core.llm.config import LLMConfig
-
-        self._ollama_model = ollama_model or LLMConfig.get_ollama_model()
-        self._ollama_base_url = ollama_base_url or LLMConfig.get_ollama_base_url()
+        # 模型默认不指定：由统一 LLM 层按「默认后端 + AI 平台默认模型」路由
+        self._model = (model or "").strip() or None
         self._llm_client = llm_client
         self._ocr_channel: Any | None = None
 
@@ -110,22 +107,20 @@ class AutoRenameService:
                 from apps.core.interfaces import ServiceLocator
 
                 llm_service = ServiceLocator.get_llm_service()
-                llm_resp = llm_service.chat(
-                    messages=messages, backend="ollama", model=self._ollama_model, fallback=False
-                )
+                llm_resp = llm_service.chat(messages=messages, model=self._model)
                 response_text = (llm_resp.content or "").strip()
             if not response_text:
                 logger.warning("LLM 返回内容为空")
                 return ExtractionResult()
 
         except LLMNetworkError as e:
-            logger.warning("Ollama 服务不可用，跳过 LLM 提取: %s", e)
+            logger.warning("LLM 服务不可用，跳过提取: %s", e)
             return ExtractionResult()
         except LLMTimeoutError as e:
-            logger.warning("Ollama 请求超时，跳过 LLM 提取: %s", e)
+            logger.warning("LLM 请求超时，跳过提取: %s", e)
             return ExtractionResult()
         except Exception as e:
-            logger.warning("Ollama 调用失败: %s", e)
+            logger.warning("LLM 调用失败: %s", e)
             return ExtractionResult()
 
         # 解析 JSON 响应

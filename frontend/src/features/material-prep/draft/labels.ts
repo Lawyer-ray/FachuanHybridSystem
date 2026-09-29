@@ -23,7 +23,7 @@ export function countUnclassified(d: DraftState): number {
 export function isWholeMat(d: DraftState, si: number): boolean {
   const sg = d.segs[si]
   if (!sg || segMats(sg).length !== 1) return false
-  const mi = sg.refs[0].mi
+  const mi = sg.refs[0]!.mi // 非空由上一行 segMats === 1 保证（mats 由 refs 派生）
   const m = d.mats[mi]
   if (!m) return false
   const full = new Set<number>()

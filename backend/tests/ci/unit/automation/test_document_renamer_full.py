@@ -20,11 +20,6 @@ class TestDocumentRenamer:
     # ─── __init__ with ollama params ───
 
     @patch("apps.automation.services.sms.document_renamer.get_config", return_value=50)
-    def test_init_with_ollama_params(self, mock_cfg: MagicMock) -> None:
-        r = DocumentRenamer(ollama_model="llama3", ollama_base_url="http://localhost")
-        assert r.title_extraction_limit == 50
-
-    @patch("apps.automation.services.sms.document_renamer.get_config", return_value=50)
     def test_init_no_params(self, mock_cfg: MagicMock) -> None:
         r = DocumentRenamer()
         assert r.title_extraction_limit == 50
@@ -209,8 +204,9 @@ class TestDocumentRenamer:
 
     def test_extract_document_title_file_not_exists(self) -> None:
         r = self._make_renamer()
-        from apps.core.exceptions import ValidationException
         import pytest
+
+        from apps.core.exceptions import ValidationException
         with pytest.raises(ValidationException):
             r.extract_document_title("/nonexistent/file.pdf")
 
@@ -251,8 +247,9 @@ class TestDocumentRenamer:
 
     def test_rename_file_not_exists(self) -> None:
         r = self._make_renamer()
-        from apps.core.exceptions import ValidationException
         import pytest
+
+        from apps.core.exceptions import ValidationException
         with pytest.raises(ValidationException):
             r.rename("/nonexistent/file.pdf", "case", date(2025, 6, 1))
 

@@ -183,7 +183,7 @@ class TestFileUtils:
 
 class TestConcurrencyOptimizerModule:
     def test_import(self):
-        from plugins.court_automation.token.concurrency_optimizer import ConcurrencyOptimizer, ConcurrencyConfig
+        from plugins.court_automation.token.concurrency_optimizer import ConcurrencyConfig, ConcurrencyOptimizer
 
         assert ConcurrencyOptimizer is not None
         assert ConcurrencyConfig is not None
@@ -327,13 +327,6 @@ class TestManagementCommands:
 
 
 # ── Ollama modules ────────────────────────────────────────────────
-
-
-class TestOllamaModules:
-    def test_ollama_config(self):
-        from apps.automation.services.ai.ollama_config import OllamaConfig
-
-        assert OllamaConfig is not None
 
 
 # ── Auto namer service adapter ────────────────────────────────────

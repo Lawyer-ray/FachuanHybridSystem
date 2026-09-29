@@ -64,49 +64,26 @@ class CaseBindingService:
 
     def find_case_by_number(self, case_number: str) -> int | None:
         """
-        根据案号查找案件
+        根据案号查找案件（弱匹配，仅兼容旧调用方）
 
-        使用 ICaseService 的 search_cases_by_case_number_internal 方法
-        进行模糊匹配搜索。
+        .. deprecated::
+            自动绑定已改用 DocumentCaseMatchingService.auto_match 的严格匹配
+            （规范化精确 + 在办 + 唯一）。新代码不要调用本方法。
 
         Args:
             case_number: 案号字符串
 
         Returns:
             匹配到的案件 ID，未找到时返回 None
-
-        Requirements: 5.1
         """
         if not case_number or not case_number.strip():
-            logger.warning(
-                "案号为空，无法查找案件", extra={"action": "find_case_by_number", "case_number": case_number}
-            )
             return None
 
         try:
-            # 使用 ICaseService 接口搜索案件
             cases = self.case_service.search_cases_by_case_number_internal(case_number)
-
             if not cases:
-                logger.info(
-                    "未找到案号匹配的案件",
-                    extra={"action": "find_case_by_number", "case_number": case_number, "result": "not_found"},
-                )
                 return None
-
-            # 返回第一个匹配的案件 ID
-            case_id = cases[0].id
-            logger.info(
-                "找到案号匹配的案件",
-                extra={
-                    "action": "find_case_by_number",
-                    "case_number": case_number,
-                    "case_id": case_id,
-                    "match_count": len(cases),
-                },
-            )
-            return case_id
-
+            return cases[0].id
         except Exception as e:
             logger.error(
                 f"查找案件失败：{e}",
@@ -114,29 +91,38 @@ class CaseBindingService:
             )
             return None
 
+    @staticmethod
+    def _media_relative(file_path: str) -> str:
+        """绝对路径 → media 相对路径（不在 media 下时原样返回）。"""
+        try:
+            from django.conf import settings
+
+            return str(Path(file_path).resolve().relative_to(Path(settings.MEDIA_ROOT).resolve()))
+        except (ValueError, ImportError):
+            return file_path
+
     @transaction.atomic
     def create_case_log(
         self,
         case_id: int,
         content: str,
-        reminder_time: datetime | None,
         file_path: str,
-        document_type: DocumentType | None = None,
         user: Any | None = None,
     ) -> int:
         """
-        创建案件日志并附加文件
+        创建案件日志并附加文件（不写提醒）
 
         在事务中执行以下操作：
-        1. 创建案件日志（包含文书内容和提醒时间）
+        1. 创建案件日志（文书信息摘要）
         2. 将文书文件作为附件保存
+
+        提醒不再随绑定自动创建——日期候选由律师在确认接口逐条人工确认后才写入
+        重要日期提醒（date_candidate_service.confirm_candidates 是唯一写入入口）。
 
         Args:
             case_id: 案件 ID
             content: 日志内容（文书信息摘要）
-            reminder_time: 提醒时间（开庭时间/保全到期时间）
             file_path: 文书文件路径
-            document_type: 文书类型（用于确定提醒类型）
             user: 当前用户（可选）
 
         Returns:
@@ -154,7 +140,6 @@ class CaseBindingService:
             extra={
                 "action": "create_case_log",
                 "case_id": case_id,
-                "has_reminder": reminder_time is not None,
                 "file_path": file_path,
                 "user_id": user_id,
             },
@@ -164,15 +149,11 @@ class CaseBindingService:
         # 使用 ICaseService 的内部方法创建日志
         case_log_id = self.case_service.create_case_log_internal(case_id=case_id, content=content, user_id=user_id)
 
-        # 2. 如果有提醒时间，需要更新日志的提醒时间和类型
-        if reminder_time:
-            self._update_log_reminder(case_log_id, reminder_time, document_type)
-
-        # 3. 添加文件附件
+        # 2. 添加文件附件（FileField 需 media 相对路径：绝对路径超出 varchar(100) 且语义错误）
         if file_path:
             file_name = Path(file_path).name
             success = self.case_service.add_case_log_attachment_internal(
-                case_log_id=case_log_id, file_path=file_path, file_name=file_name
+                case_log_id=case_log_id, file_path=self._media_relative(file_path), file_name=file_name
             )
 
             if not success:
@@ -187,85 +168,34 @@ class CaseBindingService:
                 "action": "create_case_log",
                 "case_id": case_id,
                 "case_log_id": case_log_id,
-                "reminder_time": str(reminder_time) if reminder_time else None,
             },
         )
 
         return case_log_id
 
-    def _update_log_reminder(
-        self, case_log_id: int, reminder_time: datetime, document_type: DocumentType | None = None
-    ) -> None:
-        """
-        更新日志的提醒时间和类型
-
-        根据文书类型设置对应的提醒类型：
-        - 传票 -> hearing（开庭）
-        - 执行裁定书 -> asset_preservation_expires（财产保全到期）
-        - 其他 -> other（其他）
-
-        Args:
-            case_log_id: 案件日志 ID
-            reminder_time: 提醒时间
-            document_type: 文书类型
-        """
-        try:
-            if document_type == DocumentType.SUMMONS:
-                reminder_type = "hearing"
-            elif document_type == DocumentType.EXECUTION_RULING:
-                reminder_type = "asset_preservation_expires"
-            else:
-                reminder_type = "other"
-
-            updated = self.case_service.update_case_log_reminder_internal(
-                case_log_id=case_log_id,
-                reminder_time=reminder_time,
-                reminder_type=reminder_type,
-            )
-            if not updated:
-                logger.warning(
-                    "更新日志提醒失败",
-                    extra={"action": "_update_log_reminder", "case_log_id": case_log_id},
-                )
-                return
-
-            logger.debug(
-                "更新日志提醒成功",
-                extra={
-                    "action": "_update_log_reminder",
-                    "case_log_id": case_log_id,
-                    "reminder_time": str(reminder_time),
-                    "reminder_type": reminder_type,
-                },
-            )
-        except Exception as e:
-            logger.error(
-                f"更新日志提醒失败：{e}",
-                extra={"action": "_update_log_reminder", "case_log_id": case_log_id, "error": str(e)},
-            )
-
     def bind_document_to_case(
         self,
-        case_number: str,
+        case_id: int,
         document_type: DocumentType,
         content: str,
-        key_time: datetime | None,
         file_path: str,
         user: Any | None = None,
     ) -> BindingResult:
         """
-        将文书绑定到案件
+        将文书绑定到（已由严格匹配确定的）案件
 
         完整的绑定流程：
-        1. 根据案号查找案件
-        2. 创建案件日志（含提醒时间和附件）
+        1. 获取案件信息
+        2. 创建案件日志（含附件，不含提醒——提醒只走人工确认接口）
         3. 返回绑定结果
 
+        案号的严格匹配（精确+在办+唯一）由 DocumentCaseMatchingService.auto_match
+        在调用前完成；本方法不再自行按案号搜索。
+
         Args:
-            case_number: 识别出的案号
+            case_id: 严格匹配命中的案件 ID
             document_type: 文书类型
             content: 日志内容
-            key_time: 关键时间（开庭时间/保全到期时间）
             file_path: 文书文件路径
             user: 当前用户（可选）
 
@@ -274,36 +204,19 @@ class CaseBindingService:
 
         Requirements: 5.1, 5.2, 5.3, 5.4, 5.6, 5.8
         """
-        # 1. 检查案号是否存在
-        if not case_number:
-            return BindingResult.failure_result(
-                message="未识别到案号，无法绑定案件",
-                error_code="CASE_NUMBER_NOT_FOUND",
-            )
-
-        # 2. 查找匹配的案件
-        case_id = self.find_case_by_number(case_number)
-
-        if case_id is None:
-            return BindingResult.failure_result(
-                message=f"未找到案号 {case_number} 对应的案件", error_code=CASE_NOT_FOUND
-            )
-
-        # 3. 获取案件名称
+        # 1. 获取案件名称
         case_dto = self.case_service.get_case_by_id_internal(case_id)
         if case_dto is None:
             return BindingResult.failure_result(message=f"案件 {case_id} 不存在", error_code=CASE_NOT_FOUND)
 
         case_name = case_dto.name
 
-        # 4. 创建案件日志
+        # 2. 创建案件日志
         try:
             case_log_id = self.create_case_log(
                 case_id=case_id,
                 content=content,
-                reminder_time=key_time,
                 file_path=file_path,
-                document_type=document_type,
                 user=user,
             )
 
@@ -311,7 +224,6 @@ class CaseBindingService:
                 "文书绑定成功",
                 extra={
                     "action": "bind_document_to_case",
-                    "case_number": case_number,
                     "case_id": case_id,
                     "case_name": case_name,
                     "case_log_id": case_log_id,
@@ -326,7 +238,6 @@ class CaseBindingService:
                 "绑定失败：案件不存在",
                 extra={
                     "action": "bind_document_to_case",
-                    "case_number": case_number,
                     "case_id": case_id,
                     "error": str(e),
                 },
@@ -337,7 +248,6 @@ class CaseBindingService:
                 f"绑定失败：{e}",
                 extra={
                     "action": "bind_document_to_case",
-                    "case_number": case_number,
                     "case_id": case_id,
                     "error": str(e),
                 },
@@ -345,18 +255,19 @@ class CaseBindingService:
             return BindingResult.failure_result(message=f"绑定失败：{e!s}", error_code="BINDING_ERROR")
 
     def format_log_content(
-        self, document_type: DocumentType, case_number: str | None, key_time: datetime | None, raw_text: str
+        self, document_type: DocumentType, case_number: str | None, raw_text: str, date_count: int = 0
     ) -> str:
         """
         格式化日志内容
 
-        根据文书类型生成结构化的日志内容。
+        根据文书类型生成结构化的日志内容。日期不直接写入日志正文，
+        改为提示识别到的候选数量（候选由律师人工确认后写入提醒）。
 
         Args:
             document_type: 文书类型
             case_number: 案号
-            key_time: 关键时间
             raw_text: 原始文本（截取前500字符）
+            date_count: 识别到的日期候选数量
 
         Returns:
             格式化后的日志内容
@@ -374,11 +285,22 @@ class CaseBindingService:
         if case_number:
             lines.append(f"案号：{case_number}")
 
-        if key_time:
-            if document_type == DocumentType.SUMMONS:
-                lines.append(f"开庭时间：{key_time.strftime('%Y-%m-%d %H:%M')}")
-            elif document_type == DocumentType.EXECUTION_RULING:
-                lines.append(f"保全到期时间：{key_time.strftime('%Y-%m-%d')}")
+        if date_count > 0:
+            lines.append(f"识别到 {date_count} 个关键日期（待人工确认后写入重要日期提醒）")
+
+        from apps.document_recognition.services.contact_extraction_service import extract_address, extract_contacts
+
+        for row in extract_contacts(raw_text):
+            name, phone = str(row["name"]), row["phone"]
+            if name and phone:
+                lines.append(f"联系人：{name}（{phone}）")
+            elif name:
+                lines.append(f"联系人：{name}")
+            elif phone:
+                lines.append(f"联系电话：{phone}")
+        address = extract_address(raw_text)
+        if address:
+            lines.append(f"地址：{address}")
 
         # 添加原始文本摘要（限制长度）
         if raw_text:
@@ -421,9 +343,9 @@ class CaseBindingService:
             },
         )
 
-        # 1. 获取识别任务
+        # 1. 获取识别任务（行锁防止并发请求重复绑定/重复建日志）
         try:
-            task = DocumentRecognitionTask.objects.get(id=task_id)
+            task = DocumentRecognitionTask.objects.select_for_update().get(id=task_id)
         except DocumentRecognitionTask.DoesNotExist:
             return BindingResult.failure_result(message=f"任务 {task_id} 不存在", error_code="TASK_NOT_FOUND")
 
@@ -450,8 +372,8 @@ class CaseBindingService:
         content = self.format_log_content(
             document_type=document_type,
             case_number=task.case_number,
-            key_time=task.key_time,
             raw_text=task.raw_text or "",
+            date_count=task.date_candidates.count(),
         )
 
         # 6. 获取文件路径（优先使用重命名后的路径）
@@ -462,14 +384,13 @@ class CaseBindingService:
             case_log_id = self.create_case_log(
                 case_id=case_id,
                 content=content,
-                reminder_time=task.key_time,
                 file_path=file_path,
-                document_type=document_type,
                 user=user,
             )
         except Exception as e:
             logger.error(
-                f"创建案件日志失败：{e}",
+                "创建案件日志失败：%s",
+                e,
                 extra={
                     "action": "manual_bind_document_to_case",
                     "task_id": task_id,
@@ -479,32 +400,17 @@ class CaseBindingService:
             )
             return BindingResult.failure_result(message=f"创建案件日志失败：{e!s}", error_code="LOG_CREATE_ERROR")
 
-        # 8. 更新任务状态（使用外键字段）
-        try:
-            case_obj = self.case_service.get_case_model_internal(case_id)
-            case_log_obj = self.case_service.get_case_log_model_internal(case_log_id)
+        # 8. 更新任务状态（外键直接按 id 赋值，省两次整对象查询）
+        task.case_id = case_id
+        task.case_log_id = case_log_id
+        task.binding_success = True
+        task.binding_message = f"手动绑定到案件 {case_name}"
+        task.binding_error_code = None
+        task.save(update_fields=["case", "case_log", "binding_success", "binding_message", "binding_error_code"])
 
-            task.case = case_obj
-            task.case_log = case_log_obj
-            task.binding_success = True
-            task.binding_message = f"手动绑定到案件 {case_name}"
-            task.binding_error_code = None
-            task.save(update_fields=["case", "case_log", "binding_success", "binding_message", "binding_error_code"])
-        except Exception as e:
-            logger.error(
-                f"更新任务状态失败：{e}",
-                extra={
-                    "action": "manual_bind_document_to_case",
-                    "task_id": task_id,
-                    "case_id": case_id,
-                    "error": str(e),
-                },
-            )
-            # 回滚事务
-            raise
-
-        # 9. 触发飞书通知（异步）
-        self._trigger_notification(task, case_id, case_name, document_type)
+        # 9. 触发飞书通知：事务提交后再发（网络 IO 不进事务、不拉长锁持有时间）；
+        #    非事务上下文下 on_commit 立即执行
+        transaction.on_commit(lambda: self._trigger_notification(task, case_id, case_name, document_type))
 
         logger.info(
             "手动绑定成功",
@@ -549,6 +455,7 @@ class CaseBindingService:
                 key_time=task.key_time,
                 file_path=file_path,
                 case_name=case_name,
+                date_count=task.date_candidates.count(),
             )
 
             # 更新任务通知状态
@@ -590,7 +497,8 @@ class CaseBindingService:
         except Exception as e:
             # 通知失败不影响绑定结果，仅记录错误
             logger.warning(
-                f"发送飞书通知失败：{e}",
+                "发送飞书通知失败：%s",
+                e,
                 extra={"action": "_trigger_notification", "task_id": task.id, "case_id": case_id, "error": str(e)},
             )
             # 更新通知错误状态
@@ -598,5 +506,9 @@ class CaseBindingService:
                 task.notification_sent = False
                 task.notification_error = str(e)
                 task.save(update_fields=["notification_sent", "notification_error"])
-            except Exception:
-                pass  # 忽略保存错误
+            except Exception as save_error:
+                logger.warning(
+                    "记录通知失败状态异常: %s",
+                    save_error,
+                    extra={"action": "_trigger_notification", "task_id": task.id},
+                )

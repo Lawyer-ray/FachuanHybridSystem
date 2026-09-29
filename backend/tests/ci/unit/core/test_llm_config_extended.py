@@ -8,7 +8,6 @@ Covers:
     Django settings fallback, default
   - _get_system_config_async: success, failure, fallback
   - get_temperature / get_max_tokens: valid, invalid, ValueError
-  - get_ollama_model / get_ollama_base_url / get_ollama_timeout / get_ollama_embedding_model
   - _normalize_api_key / _normalize_base_url
   - get_openai_compatible_* methods (sync + async)
   - get_default_backend / get_default_backend_async
@@ -85,14 +84,6 @@ class TestDjangoSettingsFallback:
             mock_settings.OLLAMA = {}
             result = LLMConfig._get_django_settings_fallback("OPENAI_COMPATIBLE_API_KEY", "default")
         assert result == "sk-123"
-
-    def test_ollama_prefix(self) -> None:
-        with patch("apps.core.llm.config.settings") as mock_settings:
-            mock_settings.LLM = {}
-            mock_settings.OPENAI_COMPATIBLE = {}
-            mock_settings.OLLAMA = {"MODEL": "llama3"}
-            result = LLMConfig._get_django_settings_fallback("OLLAMA_MODEL", "default")
-        assert result == "llama3"
 
     def test_none_value_returns_empty(self) -> None:
         with patch("apps.core.llm.config.settings") as mock_settings:
@@ -212,59 +203,6 @@ class TestGetMaxTokens:
 # ===========================================================================
 
 
-class TestOllamaConfig:
-    def test_get_ollama_model_from_service(self) -> None:
-        with patch.object(LLMConfig, "_get_system_config", return_value="llama3"):
-            assert LLMConfig.get_ollama_model() == "llama3"
-
-    def test_get_ollama_model_from_django_settings(self) -> None:
-        with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            with patch("apps.core.llm.config.settings") as ms:
-                ms.OLLAMA = {"MODEL": "custom-model"}
-                assert LLMConfig.get_ollama_model() == "custom-model"
-
-    def test_get_ollama_model_default(self) -> None:
-        with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            with patch("apps.core.llm.config.settings") as ms:
-                ms.OLLAMA = {}
-                assert LLMConfig.get_ollama_model() == "qwen3:0.6b"
-
-    def test_get_ollama_base_url_from_service(self) -> None:
-        with patch.object(LLMConfig, "_get_system_config", return_value="http://remote:11434"):
-            assert LLMConfig.get_ollama_base_url() == "http://remote:11434"
-
-    def test_get_ollama_base_url_from_django(self) -> None:
-        with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            with patch("apps.core.llm.config.settings") as ms:
-                ms.OLLAMA = {"BASE_URL": "http://custom:11434"}
-                assert LLMConfig.get_ollama_base_url() == "http://custom:11434"
-
-    def test_get_ollama_base_url_default(self) -> None:
-        with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            with patch("apps.core.llm.config.settings") as ms:
-                ms.OLLAMA = {}
-                assert LLMConfig.get_ollama_base_url() == "http://localhost:11434"
-
-    def test_get_ollama_timeout_valid(self) -> None:
-        with patch.object(LLMConfig, "_get_system_config", return_value="600"):
-            assert LLMConfig.get_ollama_timeout() == 600
-
-    def test_get_ollama_timeout_invalid(self) -> None:
-        with patch.object(LLMConfig, "_get_system_config", return_value="abc"):
-            assert LLMConfig.get_ollama_timeout() == 300
-
-    def test_get_ollama_embedding_model_from_service(self) -> None:
-        with patch.object(LLMConfig, "_get_system_config", return_value="nomic-embed"):
-            assert LLMConfig.get_ollama_embedding_model() == "nomic-embed"
-
-    def test_get_ollama_embedding_model_fallback_to_model(self) -> None:
-        with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            with patch("apps.core.llm.config.settings") as ms:
-                ms.OLLAMA = {}
-                with patch.object(LLMConfig, "get_ollama_model", return_value="qwen3:0.6b"):
-                    assert LLMConfig.get_ollama_embedding_model() == "qwen3:0.6b"
-
-
 # ===========================================================================
 # OpenAI compatible config getters
 # ===========================================================================
@@ -279,14 +217,14 @@ class TestOpenAICompatibleConfig:
 
     def test_normalize_api_key_empty(self) -> None:
         assert LLMConfig._normalize_api_key("") == ""
-        assert LLMConfig._normalize_api_key(None) == ""
+        assert LLMConfig._normalize_api_key(None) == ""  # type: ignore[arg-type]
 
     def test_normalize_base_url_strips_trailing_slashes(self) -> None:
         assert LLMConfig._normalize_base_url("http://host/v1///") == "http://host/v1"
 
     def test_normalize_base_url_empty(self) -> None:
         assert LLMConfig._normalize_base_url("") == ""
-        assert LLMConfig._normalize_base_url(None) == ""
+        assert LLMConfig._normalize_base_url(None) == ""  # type: ignore[arg-type]
 
     def test_get_api_key_unconfigured(self) -> None:
         with patch.object(LLMConfig, "_get_system_config", return_value="sk-key"):
@@ -375,7 +313,7 @@ class TestAsyncMethods:
         LLMConfig._config_service = None
         with patch.object(LLMConfig, "_get_config_service", return_value=None):
             result = await LLMConfig.get_default_backend_async()
-        assert result in ("ollama", "openai_compatible")
+        assert result == "openai_compatible"
 
 
 # ===========================================================================
@@ -386,7 +324,8 @@ class TestAsyncMethods:
 class TestGetDefaultBackend:
     def test_from_service_valid(self) -> None:
         with patch.object(LLMConfig, "_get_system_config", return_value="ollama"):
-            assert LLMConfig.get_default_backend() == "ollama"
+            # ollama 已下线，不在合法后端集合内 → 回落
+            assert LLMConfig.get_default_backend() == "openai_compatible"
 
     def test_from_service_invalid_falls_through(self) -> None:
         with patch.object(LLMConfig, "_get_system_config", return_value="unknown_backend"):
@@ -397,8 +336,8 @@ class TestGetDefaultBackend:
     def test_from_django_settings(self) -> None:
         with patch.object(LLMConfig, "_get_system_config", return_value=""):
             with patch("apps.core.llm.config.settings") as ms:
-                ms.LLM = {"DEFAULT_BACKEND": "ollama"}
-                assert LLMConfig.get_default_backend() == "ollama"
+                ms.LLM = {"DEFAULT_BACKEND": "openai_compatible"}
+                assert LLMConfig.get_default_backend() == "openai_compatible"
 
     def test_default_fallback(self) -> None:
         with patch.object(LLMConfig, "_get_system_config", return_value=""):
@@ -418,7 +357,8 @@ class TestResolveBackendForModel:
             assert LLMConfig.resolve_backend_for_model("") == "openai_compatible"
 
     def test_model_with_colon(self) -> None:
-        assert LLMConfig.resolve_backend_for_model("qwen3:0.6b") == "ollama"
+        """Ollama 已下线：带冒号的模型名也统一走 AI 平台路由。"""
+        assert LLMConfig.resolve_backend_for_model("qwen3:0.6b") == "openai_compatible"
 
     def test_model_without_colon(self) -> None:
         assert LLMConfig.resolve_backend_for_model("kimi26") == "openai_compatible"
@@ -430,31 +370,27 @@ class TestResolveBackendForModel:
 
 
 class TestGetBackendConfigs:
-    def test_ollama_config(self) -> None:
-        with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            with patch.object(LLMConfig, "get_ollama_model", return_value="qwen3:0.6b"):
-                with patch.object(LLMConfig, "get_ollama_base_url", return_value="http://localhost:11434"):
-                    with patch.object(LLMConfig, "get_ollama_timeout", return_value=300):
-                        with patch.object(LLMConfig, "get_ollama_embedding_model", return_value="qwen3:0.6b"):
-                            with patch.object(LLMConfig, "_parse_bool", return_value=True):
-                                with patch.object(LLMConfig, "_parse_int", return_value=2):
-                                    configs = LLMConfig.get_backend_configs()
-        assert "ollama" in configs
-        assert configs["ollama"].name == "ollama"
-
     def test_openai_auto_enable_when_provider_exists(self) -> None:
         # 配置了 AI 平台（LLMProvider）但未显式设置 enabled 时自动启用；systemconfig 不再参与
         with patch.object(LLMConfig, "_get_system_config", return_value=""):
             with patch.object(LLMConfig, "_parse_bool", return_value=False):
                 with patch.object(LLMConfig, "_parse_int", return_value=1):
-                    with patch.object(LLMConfig, "_get_llm_providers", return_value=[OpenAIProviderConfig(
-                        name="law", base_url="http://api/v1", default_model="kimi26"
-                    )]):
+                    with patch.object(
+                        LLMConfig,
+                        "_get_llm_providers",
+                        return_value=[
+                            OpenAIProviderConfig(name="law", base_url="http://api/v1", default_model="kimi26")
+                        ],
+                    ):
                         with patch.object(LLMConfig, "get_openai_compatible_model", return_value="kimi26"):
-                            with patch.object(LLMConfig, "get_openai_compatible_base_url", return_value="http://api/v1"):
+                            with patch.object(
+                                LLMConfig, "get_openai_compatible_base_url", return_value="http://api/v1"
+                            ):
                                 with patch.object(LLMConfig, "get_openai_compatible_api_key", return_value=""):
                                     with patch.object(LLMConfig, "get_openai_compatible_timeout", return_value=120):
-                                        with patch.object(LLMConfig, "get_openai_compatible_embedding_model", return_value=""):
+                                        with patch.object(
+                                            LLMConfig, "get_openai_compatible_embedding_model", return_value=""
+                                        ):
                                             configs = LLMConfig.get_backend_configs()
         assert configs["openai_compatible"].enabled is True
 
@@ -464,6 +400,7 @@ class TestGetBackendConfigs:
             if key == "OPENAI_COMPATIBLE_BASE_URL":
                 return "http://api/v1"
             return ""
+
         with patch.object(LLMConfig, "_get_system_config", side_effect=_side_effect):
             with patch.object(LLMConfig, "_parse_bool", return_value=False):
                 with patch.object(LLMConfig, "_parse_int", return_value=1):
@@ -472,7 +409,9 @@ class TestGetBackendConfigs:
                             with patch.object(LLMConfig, "get_openai_compatible_base_url", return_value=""):
                                 with patch.object(LLMConfig, "get_openai_compatible_api_key", return_value=""):
                                     with patch.object(LLMConfig, "get_openai_compatible_timeout", return_value=120):
-                                        with patch.object(LLMConfig, "get_openai_compatible_embedding_model", return_value=""):
+                                        with patch.object(
+                                            LLMConfig, "get_openai_compatible_embedding_model", return_value=""
+                                        ):
                                             configs = LLMConfig.get_backend_configs()
         assert configs["openai_compatible"].enabled is False
 
@@ -485,36 +424,35 @@ class TestGetBackendConfigs:
 class TestGetAvailableModels:
     def test_includes_default_models(self) -> None:
         with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            with patch.object(LLMConfig, "get_ollama_model", return_value="qwen3:0.6b"):
-                with patch.object(LLMConfig, "get_openai_compatible_model", return_value="kimi26"):
-                    models = LLMConfig.get_available_models()
+            with patch.object(LLMConfig, "get_openai_compatible_model", return_value="kimi26"):
+                models = LLMConfig.get_available_models()
         ids = [m["id"] for m in models]
         assert "kimi26" in ids
-        assert "qwen3:0.6b" in ids
 
     def test_extra_models_from_config(self) -> None:
         def _side_effect(key, default=""):
             if key == "LLM_EXTRA_MODELS":
                 return "gpt-4,claude-3"
             return ""
+
         with patch.object(LLMConfig, "_get_system_config", side_effect=_side_effect):
-            with patch.object(LLMConfig, "get_ollama_model", return_value="qwen3:0.6b"):
-                with patch.object(LLMConfig, "get_openai_compatible_model", return_value="kimi26"):
-                    models = LLMConfig.get_available_models()
+            with patch.object(LLMConfig, "get_openai_compatible_model", return_value="kimi26"):
+                models = LLMConfig.get_available_models()
         ids = [m["id"] for m in models]
         assert "gpt-4" in ids
         assert "claude-3" in ids
 
     def test_no_duplicates(self) -> None:
         """Default models should not be duplicated if they appear in extra models."""
+
         def _side_effect(key, default=""):
             if key == "LLM_EXTRA_MODELS":
                 return "kimi26"
             return ""
+
         with patch.object(LLMConfig, "_get_system_config", side_effect=_side_effect):
-            with patch.object(LLMConfig, "get_ollama_model", return_value="qwen3:0.6b"):
-                with patch.object(LLMConfig, "get_openai_compatible_model", return_value="kimi26"):
-                    models = LLMConfig.get_available_models()
+            with patch.object(LLMConfig, "get_openai_compatible_model", return_value="kimi26"):
+                models = LLMConfig.get_available_models()
         ids = [m["id"] for m in models]
         assert ids.count("kimi26") == 1
 

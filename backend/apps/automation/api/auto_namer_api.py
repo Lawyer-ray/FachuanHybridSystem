@@ -28,7 +28,8 @@ async def auto_namer_process(  # pragma: no cover
     request: Any,
     file: UploadedFile = File(...),
     prompt: str = DEFAULT_FILENAME_PROMPT,
-    model: str = "qwen3:0.6b",
+    # 留空走 AI 平台默认模型（/admin/core/llmprovider/）；Ollama 已下线
+    model: str = "",
     limit: int | None = None,
     preview_page: int | None = None,
 ) -> AutoToolProcessOut:
@@ -42,7 +43,7 @@ async def auto_namer_process(  # pragma: no cover
     )
 
     return AutoToolProcessOut(
-        text=result.get("text"), ollama_response=result.get("ollama_response"), error=result.get("error")
+        text=result.get("text"), llm_response=result.get("llm_response"), error=result.get("error")
     )
 
 
@@ -66,14 +67,14 @@ async def auto_namer_process_by_path(
     try:
         resolved_path = file_path.resolve()
         if not resolved_path.is_relative_to(media_root):
-            return AutoToolProcessOut(text=None, ollama_response=None, error="无效的文件路径")
+            return AutoToolProcessOut(text=None, llm_response=None, error="无效的文件路径")
     except (ValueError, OSError):
-        return AutoToolProcessOut(text=None, ollama_response=None, error="无效的文件路径")
+        return AutoToolProcessOut(text=None, llm_response=None, error="无效的文件路径")
 
     if not file_path.exists():
         return AutoToolProcessOut(
             text=None,
-            ollama_response=None,
+            llm_response=None,
             error="文件不存在: %(path)s" % {"path": payload.file_path},
         )
 
@@ -85,11 +86,11 @@ async def auto_namer_process_by_path(
 
     text_value = (extraction.text or "").strip()
     if not text_value:
-        return AutoToolProcessOut(text=None, ollama_response=None, error="文档中没有提取到文字内容，无法生成命名")
+        return AutoToolProcessOut(text=None, llm_response=None, error="文档中没有提取到文字内容，无法生成命名")
 
     # 调用服务生成文件名
     filename_suggestion = await sync_to_async(service.generate_filename, thread_sensitive=False)(
         document_content=text_value, prompt=payload.prompt, model=payload.model
     )
 
-    return AutoToolProcessOut(text=text_value, ollama_response=filename_suggestion, error=None)
+    return AutoToolProcessOut(text=text_value, llm_response=filename_suggestion, error=None)

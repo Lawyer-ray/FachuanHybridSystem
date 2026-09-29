@@ -1,0 +1,92 @@
+/* 文书识别域动画：识别中的扫描线 / 步骤流光 / 呼吸点。
+   颜色直接用全局令牌（--status-* 等，见 index.css），不另立色板。 */
+
+/* 识别中：文件卡上往返扫过的扫描线 */
+@keyframes dr-scan {
+  0% {
+    transform: translateY(-140%);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(140%);
+    opacity: 0;
+  }
+}
+
+.dr-scanline {
+  animation: dr-scan 1.7s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+/* 扫描线本体：细横条 + 上下渐隐拖尾 */
+.dr-scanline::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in oklab, var(--status-blue) 55%, transparent),
+    var(--status-blue),
+    color-mix(in oklab, var(--status-blue) 55%, transparent),
+    transparent
+  );
+}
+
+/* 文件图标呼吸微光（识别中） */
+@keyframes dr-glow {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.dr-glow {
+  animation: dr-glow 1.8s ease-in-out infinite;
+}
+
+/* 步骤连接线流光：激活段用蓝绿渐变循环流动 */
+@keyframes dr-flow {
+  0% {
+    background-position: 0% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.dr-connector-active {
+  background-image: linear-gradient(90deg, var(--status-green), var(--status-blue), var(--status-green));
+  background-size: 200% 100%;
+  animation: dr-flow 1.5s linear infinite;
+}
+
+/* 提示文字的呼吸点（识别中 hint 前的小圆点） */
+@keyframes dr-pulse-dot {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.dr-pulse-dot {
+  animation: dr-pulse-dot 1.2s ease-in-out infinite;
+}
+
+/* stagger 入场延迟工具（配合 tw-animate-css 的 animate-in 使用） */
+.dr-stagger > * {
+  --dr-enter-duration: 0.32s;
+}

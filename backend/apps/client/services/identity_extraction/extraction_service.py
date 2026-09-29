@@ -20,7 +20,7 @@ from apps.core.exceptions import ServiceUnavailableError, ValidationException
 from apps.core.llm.exceptions import LLMNetworkError, LLMTimeoutError
 from apps.core.protocols import IOcrService
 
-from .data_classes import ExtractionResult, OCRExtractionError, OllamaExtractionError
+from .data_classes import ExtractionResult, LLMExtractionError, OCRExtractionError
 from .prompts import PROMPT_MAPPING, get_prompt_for_doc_type
 
 logger = logging.getLogger(__name__)
@@ -148,7 +148,7 @@ class IdentityExtractionService:
                 extraction_method="ocr_llm",
             )
 
-        except (OCRExtractionError, OllamaExtractionError, ServiceUnavailableError):
+        except (OCRExtractionError, LLMExtractionError, ServiceUnavailableError):
             raise
         except Exception as e:
             logger.exception("证件信息提取失败: %s", e)
@@ -941,7 +941,7 @@ class IdentityExtractionService:
             )
             content = llm_resp.content or ""
             if not content:
-                raise OllamaExtractionError(_("LLM 返回内容为空"))
+                raise LLMExtractionError(_("LLM 返回内容为空"))
 
             # 解析 JSON
             try:
@@ -951,22 +951,22 @@ class IdentityExtractionService:
 
             except (json.JSONDecodeError, ValueError) as e:
                 logger.exception("LLM 返回的 JSON 格式错误: %s", e)
-                raise OllamaExtractionError(_("智能识别结果解析失败，请稍后重试")) from e
+                raise LLMExtractionError(_("智能识别结果解析失败，请稍后重试")) from e
 
         except ConnectionError as e:
             logger.exception("LLM 服务连接失败: %s", e)
             raise ServiceUnavailableError(message=_("LLM 服务连接失败: %(e)s") % {"e": e}, service_name="LLM") from e
         except LLMTimeoutError as e:
             logger.warning("LLM 请求超时: %s", e)
-            raise OllamaExtractionError(_("智能识别超时，请稍后重试")) from e
+            raise LLMExtractionError(_("智能识别超时，请稍后重试")) from e
         except LLMNetworkError as e:
             logger.warning("LLM 网络异常: %s", e)
-            raise OllamaExtractionError(_("无法连接智能识别服务，请检查网络后重试")) from e
-        except OllamaExtractionError:
+            raise LLMExtractionError(_("无法连接智能识别服务，请检查网络后重试")) from e
+        except LLMExtractionError:
             raise
         except Exception as e:
             logger.exception("LLM 提取失败: %s", e)
-            raise OllamaExtractionError(_("智能识别暂时不可用，请稍后重试")) from e
+            raise LLMExtractionError(_("智能识别暂时不可用，请稍后重试")) from e
 
     def safe_extract(
         self,
@@ -1000,7 +1000,7 @@ class IdentityExtractionService:
             result["extracted_data"] = extraction.extracted_data
             result["confidence"] = extraction.confidence
             result["raw_text"] = extraction.raw_text
-        except (OCRExtractionError, OllamaExtractionError) as e:
+        except (OCRExtractionError, LLMExtractionError) as e:
             result["error"] = str(e)
         except ServiceUnavailableError as e:
             logger.warning("证件识别服务不可用: %s", e)

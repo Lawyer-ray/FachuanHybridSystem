@@ -9,15 +9,15 @@ class AIService:
     def __init__(self, *, llm_service: Any) -> None:
         self._llm_service = llm_service
 
-    def chat_with_ollama(self, *, model: str, prompt: str, text: str) -> dict[str, Any]:
+    def chat_with_llm(self, *, model: str, prompt: str, text: str) -> dict[str, Any]:
         messages: list[dict[str, str]] = [
             {"role": "system", "content": prompt},
             {"role": "user", "content": text},
         ]
-        resp = self._llm_service.chat(messages=messages, backend="ollama", model=model, fallback=False)
+        resp = self._llm_service.chat(messages=messages, model=model)
         return {
-            "backend": "ollama",
-            "model": model,
+            "backend": resp.backend,
+            "model": resp.model,
             "content": resp.content,
             "raw": {"message": {"content": resp.content}},
         }

@@ -17,9 +17,9 @@ from typing import Any, cast
 from docxtpl import DocxTemplate
 
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.exceptions.error_codes import TEMPLATE_RENDER_ERROR
 from apps.core.utils.path import Path
 from apps.documents.services.placeholders.fallback import build_docx_render_context
-from apps.core.exceptions.error_codes import TEMPLATE_RENDER_ERROR
 
 from .wiring import get_case_service, get_client_service, get_document_service
 
@@ -323,7 +323,9 @@ class CaseTemplateGenerationService:
 
         Requirements: 4.1, 4.2, 4.3, 4.4, 4.5
         """
-        date_str = datetime.now().strftime("%Y%m%d")
+        from django.utils import timezone
+
+        date_str = timezone.localdate().strftime("%Y%m%d")
         safe_template_name = self._safe_name(template_name)
         safe_case_name = self._safe_name(case_name)
         if template_name == self.LEGAL_REP_CERT_TEMPLATE and client_name:

@@ -5,28 +5,27 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
-from apps.core.exceptions.error_presentation import ErrorEnvelope, ExceptionPresenter
+from apps.cases.services.chat.provider_facade import ChatProviderFacade
 from apps.core.exceptions import (
+    AuthenticationError,
     BusinessError,
     BusinessException,
-    NotFoundError,
-    ValidationException,
-    ForbiddenError,
-    RateLimitError,
-    ExternalServiceError,
     ConflictError,
+    ExternalServiceError,
+    ForbiddenError,
+    NotFoundError,
     PermissionDenied,
-    AuthenticationError,
-    ServiceUnavailableError,
+    RateLimitError,
     RecognitionTimeoutError,
+    ServiceUnavailableError,
+    ValidationException,
 )
-from apps.cases.services.chat.provider_facade import ChatProviderFacade
+from apps.core.exceptions.error_presentation import ErrorEnvelope, ExceptionPresenter
 from apps.core.models.enums import ChatPlatform
-
 
 # ---------------------------------------------------------------------------
 # ErrorEnvelope
@@ -359,16 +358,10 @@ class TestInvoiceRecognitionServiceValidation:
 
 class TestLLMBackendsInit:
     def test_import_backends(self):
-        from apps.core.llm.backends import (
-            ILLMBackend,
-            LLMResponse,
-            LLMStreamChunk,
-            LLMUsage,
-            OllamaBackend,
-        )
+        from apps.core.llm.backends import ILLMBackend, LLMResponse, LLMStreamChunk, LLMUsage, OpenAICompatibleBackend
 
         assert ILLMBackend is not None
-        assert OllamaBackend is not None
+        assert OpenAICompatibleBackend is not None
 
     def test_llm_stream_chunk_default(self):
         from apps.core.llm.backends import LLMStreamChunk

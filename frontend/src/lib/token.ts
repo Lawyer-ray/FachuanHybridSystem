@@ -99,6 +99,7 @@ export function hasToken(): boolean {
 function parseJwtPayload(token: string): Record<string, unknown> | null {
   try {
     const base64Url = token.split('.')[1]
+    if (!base64Url) return null // 不是三段式 JWT，无需进 try 里的解码链
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
     const jsonPayload = decodeURIComponent(
       atob(base64)

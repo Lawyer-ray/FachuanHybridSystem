@@ -23,7 +23,7 @@ class OCRExtractionError(Exception):
     pass
 
 
-class OllamaExtractionError(Exception):
-    """Ollama 信息提取失败异常"""
+class LLMExtractionError(Exception):
+    """LLM 信息提取失败异常"""
 
     pass

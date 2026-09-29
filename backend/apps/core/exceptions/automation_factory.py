@@ -353,7 +353,7 @@ class AutomationExceptions:
 
     @classmethod
     def ai_service_unavailable(
-        cls, service_name: str = "Ollama", error_message: str | None = None
+        cls, service_name: str = "AI", error_message: str | None = None
     ) -> ServiceUnavailableError:
         """AI 服务不可用异常"""
         errors: dict[str, Any] = {"service": f"{service_name} 服务暂时不可用,请稍后重试"}

@@ -107,7 +107,7 @@ class CaseInternalQueryService:
     def search_cases_for_binding_internal(self, search_term: str = "", limit: int = 20) -> list[dict[str, object]]:
         """搜索可绑定的案件(含案号和当事人信息)
 
-        支持按案件名称、案号、当事人搜索.
+        支持按案件名称、案号、当事人搜索; 空关键词时返回全部在办案件（创建时间倒序）.
 
             search_term: 搜索关键词
             limit: 返回数量限制
@@ -117,11 +117,17 @@ class CaseInternalQueryService:
         from django.db.models import Exists, OuterRef, Q
 
         from apps.cases.models import Case, CaseNumber, CaseParty
+        from apps.core.models.enums import CaseStatus
 
-        limit = min(limit, 20)
+        limit = min(limit, 200)
 
         if not search_term or not search_term.strip():
-            cases = Case.objects.prefetch_related("case_numbers", "parties__client").order_by("-id")[:limit]
+            # 默认列表：在办案件按创建时间倒序（绑定工作台"全部案件"直接展示）
+            cases = (
+                Case.objects.filter(status=CaseStatus.ACTIVE)
+                .prefetch_related("case_numbers", "parties__client")
+                .order_by("-created_at", "-id")[:limit]
+            )
         else:
             term = search_term.strip()
             name_query = Q(name__icontains=term)
@@ -132,7 +138,7 @@ class CaseInternalQueryService:
                 Case.objects.filter(name_query | has_number | has_party)
                 .prefetch_related("case_numbers", "parties__client")
                 .distinct()
-                .order_by("-id")[:limit]
+                .order_by("-created_at", "-id")[:limit]
             )
 
         results: list[dict[str, object]] = []
@@ -145,7 +151,7 @@ class CaseInternalQueryService:
                     "name": case.name,
                     "case_numbers": case_numbers,
                     "parties": parties,
-                    "created_at": case.start_date.isoformat() if case.start_date else None,
+                    "created_at": case.created_at.isoformat() if case.created_at else None,
                 }
             )
 

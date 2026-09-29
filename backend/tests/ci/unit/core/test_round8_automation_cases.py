@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -14,19 +14,19 @@ try:
 except ImportError:
     _HAS_LOGIN = False
 
+from apps.cases.services.case.case_command_service import CaseCommandService
 from apps.core.dependencies.automation_sms_wiring import (
     build_court_sms_service_with_deps,
-    build_sms_case_service,
-    build_sms_client_service,
-    build_sms_lawyer_service,
     build_sms_case_chat_service,
     build_sms_case_log_service,
-    build_sms_document_processing_service,
     build_sms_case_number_service,
+    build_sms_case_service,
+    build_sms_client_service,
+    build_sms_document_processing_service,
+    build_sms_lawyer_service,
 )
-from apps.core.tasking.submission import TaskSubmissionService
 from apps.core.tasking.context import TaskContext
-from apps.cases.services.case.case_command_service import CaseCommandService
+from apps.core.tasking.submission import TaskSubmissionService
 from apps.pdf_splitting.services.split.segment_detector import SegmentDetector
 
 if _HAS_LOGIN:
@@ -262,7 +262,7 @@ class TestSegmentDetector:
         assert hit is False
 
     def test_fill_unrecognized_gaps(self):
-        from apps.pdf_splitting.models import PdfSplitSegmentType, PdfSplitReviewFlag
+        from apps.pdf_splitting.models import PdfSplitReviewFlag, PdfSplitSegmentType
         from apps.pdf_splitting.services.split.split_models import SegmentDraft
 
         segments = [
@@ -353,13 +353,6 @@ class TestJudgmentPdfExtractor:
         result = self.extractor._map_normalized_to_original(original, 5)
         assert original[result] == "W"
 
-    def test_extract_with_ollama_unavailable(self):
-        with patch("apps.core.llm.backends.ollama.OllamaBackend") as MockBackend:
-            mock_instance = MagicMock()
-            mock_instance.is_available.return_value = False
-            MockBackend.return_value = mock_instance
-            result = self.extractor._extract_with_ollama("some text")
-            assert result is None
 
     def test_end_keywords(self):
         assert len(self.extractor.END_KEYWORDS) > 0

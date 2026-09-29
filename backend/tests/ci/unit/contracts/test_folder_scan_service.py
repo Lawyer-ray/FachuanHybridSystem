@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.cases.services.material.folder_scan_service import CaseFolderScanService
+from apps.cases.services.material.folder_scan_service import CaseFolderScanService, _build_materials_url, _to_int
 from apps.contracts.services.contract.integrations.folder_scan_service import (
     ContractFolderScanService,
     _normalize_docx_name,
@@ -186,19 +186,19 @@ class TestCaseFolderScanServiceHelpers:
     # ── _to_int ──
 
     def test_to_int_valid(self):
-        assert CaseFolderScanService._to_int("5") == 5
+        assert _to_int("5") == 5
 
     def test_to_int_negative(self):
-        assert CaseFolderScanService._to_int(-1) is None
+        assert _to_int(-1) is None
 
     def test_to_int_zero(self):
-        assert CaseFolderScanService._to_int(0) is None
+        assert _to_int(0) is None
 
     def test_to_int_none(self):
-        assert CaseFolderScanService._to_int(None) is None
+        assert _to_int(None) is None
 
     def test_to_int_invalid(self):
-        assert CaseFolderScanService._to_int("abc") is None
+        assert _to_int("abc") is None
 
     # ── _contains_force_our_party_folder_keyword ──
 
@@ -298,7 +298,7 @@ class TestCaseFolderScanServiceHelpers:
 
     def test_build_materials_url(self):
         from uuid import uuid4
-        url = CaseFolderScanService._build_materials_url(case_id=1, session_id=uuid4())
+        url = _build_materials_url(case_id=1, session_id=uuid4())
         assert "scan_session" in url
         assert "open_scan" in url
 

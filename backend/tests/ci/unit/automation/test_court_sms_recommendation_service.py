@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import date
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -16,7 +16,6 @@ from apps.automation.services.sms.court_sms_recommendation_service import (
     CourtSMSRecommendationService,
     RecommendationResult,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -97,20 +96,20 @@ class TestExtractCourtNameFromDocument:
 
 
 class TestExtractCourtNameFromContent:
+    """原实例方法 _extract_court_name_from_content 已删除，
+    行为等价迁移到静态方法 extract_court_name_from_text（供文书识别等入口复用）。"""
+
     def test_matches_court_name(self):
-        svc = _svc()
-        assert svc._extract_court_name_from_content("天河区人民法院") == "天河区人民法院"
+        assert CourtSMSRecommendationService.extract_court_name_from_text("天河区人民法院") == "天河区人民法院"
 
     def test_no_match(self):
-        svc = _svc()
-        assert svc._extract_court_name_from_content("普通短信") is None
+        assert CourtSMSRecommendationService.extract_court_name_from_text("普通短信") is None
 
     def test_multiple_matches_returns_first(self):
-        svc = _svc()
         # The regex [一-龥]{2,15}人民法院 is greedy, so "天河区人民法院与海珠区人民法院"
         # matches "天河区人民法院与海珠区人民法院" as one big match.
         # Use strings with only one court name to test first match behavior.
-        result = svc._extract_court_name_from_content("天河区人民法院文书")
+        result = CourtSMSRecommendationService.extract_court_name_from_text("天河区人民法院文书")
         assert result == "天河区人民法院"
 
 

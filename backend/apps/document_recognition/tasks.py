@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any
 
 logger = logging.getLogger("apps.document_recognition")
@@ -29,7 +30,16 @@ def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:  #
 
     try:
         service = ServiceLocator.get_court_document_recognition_service()
-        result = service.recognize_document(task.file_path, user=None)
+        # 管线预绑定（法院短信入口）：案件与日志已由来源管线建好，识别只做提取+候选
+        prebound_case_log_id = task.case_log_id if task.source_court_sms_id else None
+        prebound_case_id = task.case_id if task.source_court_sms_id else None
+        result = service.recognize_document(
+            task.file_path,
+            user=None,
+            prebound_case_id=prebound_case_id,
+            prebound_case_log_id=prebound_case_log_id,
+            llm_model=task.llm_model,
+        )
 
         recognition = result.recognition
         task.document_type = recognition.document_type.value
@@ -37,7 +47,12 @@ def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:  #
         task.key_time = recognition.key_time
         task.confidence = recognition.confidence
         task.extraction_method = recognition.extraction_method
+        task.llm_model = recognition.llm_model
+        task.llm_backend = recognition.llm_backend
+        task.llm_latency_ms = recognition.llm_latency_ms
+        task.degraded = recognition.degraded
         task.raw_text = recognition.raw_text[:10000] if recognition.raw_text else None
+        task.party_names = result.party_names
         task.renamed_file_path = result.file_path
 
         if result.binding:
@@ -53,7 +68,23 @@ def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:  #
         task.finished_at = timezone.now()
         task.save()
 
-        if result.binding and result.binding.success:
+        # 日期候选落库（幂等：已有候选行时跳过）
+        from apps.document_recognition.services import date_candidate_service
+
+        drafts = [
+            date_candidate_service.DateCandidateDraft(
+                due_at=datetime.fromisoformat(item["due_at"]),
+                reminder_type=item["reminder_type"],
+                context_text=item["context_text"],
+                source=item["source"],
+                confidence=item["confidence"],
+            )
+            for item in result.date_candidates
+        ]
+        date_candidate_service.persist_candidates(task, drafts)
+
+        # 管线模式（来自法院短信）不重复发通知——通知由来源管线自己发
+        if result.binding and result.binding.success and not task.source_court_sms_id:
             _send_recognition_notification(task, result)
 
         logger.info("文书识别任务 #%s 完成: %s", task_id, task.document_type)
@@ -85,6 +116,7 @@ def _send_recognition_notification(task: Any, result: Any) -> None:
             key_time=task.key_time,
             file_path=file_path,
             case_name=result.binding.case_name,
+            date_count=task.date_candidates.count(),
         )
 
         task.notification_sent = notification_result.success

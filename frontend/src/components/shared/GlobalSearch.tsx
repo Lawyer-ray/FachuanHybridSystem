@@ -27,6 +27,10 @@ interface Hit {
 /** 空结果集：固定引用，避免每次渲染都是新数组导致下游 useMemo 抖动 */
 const EMPTY_HITS: Hit[] = []
 
+/** 类别 key 联合：CATEGORIES 是封闭字典，用联合类型索引（而非 Record<string, …>），
+ *  让 noUncheckedIndexedAccess 下也不需要运行时判空 */
+type CategoryKey = 'cases' | 'clients' | 'contracts' | 'inbox' | 'court_sms' | 'contacts'
+
 /**
  * 各类别 → 展示名 / 图标 / 点击后的去处。
  *
@@ -35,7 +39,7 @@ const EMPTY_HITS: Hit[] = []
  * 重定向、静默跳回首页——比明确说"还没做"更糟。所以它们不给 to，
  * 点选时由调用方弹提示。
  */
-const CATEGORIES: Record<string, { label: string; icon: typeof Users; to?: (id: number) => string }> = {
+const CATEGORIES: Record<CategoryKey, { label: string; icon: typeof Users; to?: (id: number) => string }> = {
   cases: { label: '案件', icon: FileText },
   clients: { label: '客户', icon: Users },
   contracts: { label: '合同', icon: FileText },
@@ -44,10 +48,13 @@ const CATEGORIES: Record<string, { label: string; icon: typeof Users; to?: (id: 
   contacts: { label: '联系人', icon: Paperclip },
 }
 
-const CATEGORY_ORDER = ['cases', 'clients', 'contracts', 'inbox', 'court_sms', 'contacts']
+const CATEGORY_ORDER: readonly CategoryKey[] = ['cases', 'clients', 'contracts', 'inbox', 'court_sms', 'contacts']
 
 /** 输入防抖间隔（ms）：输入即搜，但请求攒一撮再发，避免每次按键都重排结果列表 */
 const DEBOUNCE_MS = 250
+
+/** 全局检索 query key 前缀（本组件独用，完整 key 为 [前缀, 检索词]） */
+const GLOBAL_SEARCH_KEY = 'global-search'
 
 async function runSearch(q: string): Promise<Hit[]> {
   const res = await searchApi.get('', { searchParams: { q, limit: 8 } }).json<Record<string, { id: number; title: string; subtitle: string }[]>>()
@@ -73,7 +80,7 @@ export function GlobalSearch({
   const [q, setQ] = useState('')
   const [cursor, setCursor] = useState(0)
   // 当前筛选类别：'all' = 全部；否则为 CATEGORY_ORDER 里的某个 category key
-  const [activeCat, setActiveCat] = useState('all')
+  const [activeCat, setActiveCat] = useState<'all' | CategoryKey>('all')
   const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
 
@@ -99,7 +106,7 @@ export function GlobalSearch({
   }, [trimmed, debounced])
 
   const { data, isFetching } = useQuery({
-    queryKey: ['global-search', debounced],
+    queryKey: [GLOBAL_SEARCH_KEY, debounced],
     queryFn: () => runSearch(debounced),
     enabled: open && debounced.length >= 1,
     staleTime: 30_000,
@@ -144,7 +151,8 @@ export function GlobalSearch({
   }, [flat])
 
   const pick = (hit: Hit) => {
-    const meta = CATEGORIES[hit.category]
+    // 后端 category 与前端注册表可能不同步（后端新增类别前端还没配），查不到按未实现处理
+    const meta = CATEGORIES[hit.category as CategoryKey]
     onOpenChange(false)
     // 已建页的类别：无论鼠标点还是键盘回车都真正跳转（此前键盘回车只关面板不跳）
     if (meta?.to) {

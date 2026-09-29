@@ -107,7 +107,7 @@ class LLMClient:
         caller: str = "",
         **kwargs: Any,
     ) -> LLMResponse:
-        messages: list[dict[str, str]] = []
+        messages: list[dict[str, Any]] = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
@@ -127,7 +127,7 @@ class LLMClient:
         self,
         *,
         fallback_policy: Any,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         backend: str | None = None,
         model: str | None = None,
         temperature: float = 0.7,
@@ -155,7 +155,7 @@ class LLMClient:
         self,
         *,
         fallback_policy: Any,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         backend: str | None = None,
         model: str | None = None,
         temperature: float = 0.7,

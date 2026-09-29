@@ -11,7 +11,6 @@ from __future__ import annotations
 from typing import Any
 
 from .base import BackendConfig, ILLMBackend, LLMResponse, LLMStreamChunk, LLMUsage
-from .ollama import OllamaBackend
 
 _openai_compatible_import_error: Exception | None = None
 try:
@@ -73,6 +72,5 @@ __all__ = [
     "LLMUsage",
     "BackendConfig",
     # 后端实现
-    "OllamaBackend",
     "OpenAICompatibleBackend",
 ]

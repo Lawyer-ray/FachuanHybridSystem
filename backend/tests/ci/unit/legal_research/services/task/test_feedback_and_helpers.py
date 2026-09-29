@@ -8,7 +8,6 @@ import pytest
 
 from apps.core.exceptions import ValidationException
 
-
 # ── keywords ───────────────────────────────────────────────────────────────
 
 
@@ -203,8 +202,8 @@ class TestFeedbackLoopService:
         assert args[0][1] == "1"
 
     def test_get_float_clamps(self) -> None:
-        from apps.legal_research.services.task.feedback_loop import LegalResearchFeedbackLoopService
         from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
+        from apps.legal_research.services.task.feedback_loop import LegalResearchFeedbackLoopService
 
         svc, config = self._make_service()
         key = LegalResearchFeedbackLoopService.KEY_MIN_SIMILARITY_DELTA
@@ -496,43 +495,6 @@ class TestLLMPreflight:
         with pytest.raises(ValidationException, match=r"未配置.*API Key"):
             verify_llm_connectivity(model="test/model")
 
-    @patch("apps.legal_research.services.llm_preflight.httpx.get")
-    @patch("apps.legal_research.services.llm_preflight.LLMConfig")
-    def test_ollama_connection_failure(self, mock_llm_config, mock_get) -> None:
-        import httpx as real_httpx
-
-        from apps.legal_research.services.llm_preflight import verify_llm_connectivity
-
-        config = MagicMock()
-        config.enabled = True
-        config.base_url = "http://localhost:11434"
-        config.api_key = ""
-        mock_llm_config.resolve_backend_for_model.return_value = "ollama"
-        mock_llm_config.get_backend_configs.return_value = {"ollama": config}
-
-        mock_get.side_effect = real_httpx.ConnectError("connection refused")
-
-        with pytest.raises(ValidationException, match="Ollama 连接失败"):
-            verify_llm_connectivity(model="llama3:latest")
-
-    @patch("apps.legal_research.services.llm_preflight.LLMConfig")
-    def test_ollama_non_200_raises(self, mock_llm_config) -> None:
-        from apps.legal_research.services.llm_preflight import verify_llm_connectivity
-
-        config = MagicMock()
-        config.enabled = True
-        config.base_url = "http://localhost:11434"
-        config.api_key = ""
-        mock_llm_config.resolve_backend_for_model.return_value = "ollama"
-        mock_llm_config.get_backend_configs.return_value = {"ollama": config}
-
-        mock_response = MagicMock()
-        mock_response.status_code = 500
-
-        with patch("apps.legal_research.services.llm_preflight.httpx.get", return_value=mock_response):
-            with pytest.raises(ValidationException, match="Ollama 服务不可用"):
-                verify_llm_connectivity(model="llama3:latest")
-
     @patch("apps.legal_research.services.llm_preflight.LLMConfig")
     def test_openai_compatible_auth_failure(self, mock_llm_config) -> None:
         from apps.legal_research.services.llm_preflight import verify_llm_connectivity
@@ -574,10 +536,7 @@ class TestSourceFactory:
         assert client is not None
 
     def test_create_unsupported(self) -> None:
-        from apps.legal_research.services.sources.factory import (
-            SourceClientFactory,
-            UnsupportedCaseSourceError,
-        )
+        from apps.legal_research.services.sources.factory import SourceClientFactory, UnsupportedCaseSourceError
 
         with pytest.raises(UnsupportedCaseSourceError):
             SourceClientFactory.create("unknown_source")

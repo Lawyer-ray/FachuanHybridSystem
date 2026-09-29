@@ -1,4 +1,5 @@
 """Tests for apps.core.llm.config — LLMConfig class methods."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -11,6 +12,7 @@ class TestLLMConfigParseBool:
 
     def _cls(self):
         from apps.core.llm.config import LLMConfig
+
         return LLMConfig
 
     def test_bool_passthrough(self) -> None:
@@ -42,6 +44,7 @@ class TestLLMConfigParseBool:
 class TestLLMConfigParseInt:
     def _cls(self):
         from apps.core.llm.config import LLMConfig
+
         return LLMConfig
 
     def test_valid_int(self) -> None:
@@ -64,6 +67,7 @@ class TestLLMConfigParseInt:
 class TestLLMConfigNormalizeMethods:
     def _cls(self):
         from apps.core.llm.config import LLMConfig
+
         return LLMConfig
 
     def test_normalize_api_key_strips_bearer(self) -> None:
@@ -94,11 +98,13 @@ class TestLLMConfigNormalizeMethods:
 class TestLLMConfigResolveBackendForModel:
     def _cls(self):
         from apps.core.llm.config import LLMConfig
+
         return LLMConfig
 
-    def test_colon_model_returns_ollama(self) -> None:
+    def test_colon_model_returns_openai_compatible(self) -> None:
+        """Ollama 已下线：带冒号的模型名也统一走 AI 平台路由。"""
         cls = self._cls()
-        assert cls.resolve_backend_for_model("qwen3:0.6b") == "ollama"
+        assert cls.resolve_backend_for_model("qwen3:0.6b") == "openai_compatible"
 
     def test_no_colon_returns_openai_compatible(self) -> None:
         cls = self._cls()
@@ -112,17 +118,14 @@ class TestLLMConfigResolveBackendForModel:
 
     def test_deep_slash_model(self) -> None:
         cls = self._cls()
-        assert cls.resolve_backend_for_model("org/repo:model") == "ollama"
+        assert cls.resolve_backend_for_model("org/repo:model") == "openai_compatible"
 
 
 class TestLLMConfigConstants:
     def test_default_values(self) -> None:
         from apps.core.llm.config import LLMConfig
 
-        assert LLMConfig.DEFAULT_OLLAMA_MODEL == "qwen3:0.6b"
-        assert "localhost" in LLMConfig.DEFAULT_OLLAMA_BASE_URL
-        assert LLMConfig.DEFAULT_OLLAMA_TIMEOUT == 300
         assert LLMConfig.DEFAULT_OPENAI_COMPATIBLE_MODEL == "kimi26"
         assert LLMConfig.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT == 120
-        assert "ollama" in LLMConfig._VALID_BACKENDS
-        assert "openai_compatible" in LLMConfig._VALID_BACKENDS
+        # 2026-09 Ollama 下线：唯一合法后端
+        assert LLMConfig._VALID_BACKENDS == {"openai_compatible"}

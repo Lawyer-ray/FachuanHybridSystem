@@ -8,19 +8,6 @@ import pytest
 
 # --- ollama backend ---
 
-class TestOllamaBackend:
-    def test_init(self):
-        from apps.core.llm.backends.ollama import OllamaBackend
-
-        backend = OllamaBackend()
-        assert backend is not None
-        assert backend.BACKEND_NAME == "ollama"
-
-    def test_init_with_config(self):
-        from apps.core.llm.backends.ollama import OllamaBackend
-
-        backend = OllamaBackend(config=MagicMock())
-        assert backend._config is not None
 
 
 # --- openai_compatible backend ---
