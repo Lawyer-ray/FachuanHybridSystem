@@ -1,4 +1,5 @@
-import { MessageSquare } from 'lucide-react'
+import { Copy, Loader2, MessageSquare } from 'lucide-react'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { courtSmsDownloadAllUrl, triggerDownload } from '../../../api'
@@ -6,6 +7,7 @@ import { BTN, BTN_PRIMARY } from '../../../ui'
 import { FlowNotice, TaskFlowDialog, type FlowTone } from '../dialog/TaskFlowDialog'
 import { StageSteps } from '../dialog/StageSteps'
 import { CaseAssignPicker } from './CaseAssignPicker'
+import { copyAllDocFiles } from './copy-files'
 import { SMS_STAGES, SMS_STATUS_LABEL } from './stages'
 import { SmsSuccessBody } from './SmsSuccessBody'
 import { stageForDisplay, type UseCourtSmsResult } from './use-court-sms'
@@ -40,6 +42,17 @@ export function CourtSmsFlowDialog({
   const steps = stageForDisplay(detail, flow.stage)
   const canRetry = flow.smsId !== null && !flow.submitError
   const docs = detail?.documents ?? []
+  const [copyAllBusy, setCopyAllBusy] = useState(false)
+
+  const copyAll = async () => {
+    if (!flow.smsId || docs.length === 0) return
+    setCopyAllBusy(true)
+    try {
+      await copyAllDocFiles(flow.smsId, docs.map((d) => d.name))
+    } finally {
+      setCopyAllBusy(false)
+    }
+  }
 
   const headline: Record<FlowTone, string> = {
     running: '正在处理法院短信…',
@@ -102,6 +115,12 @@ export function CourtSmsFlowDialog({
       wide={tone === 'success'}
       footer={
         <>
+          {tone === 'success' && docs.length > 0 && flow.smsId !== null && (
+            <button type="button" className={BTN + ' mr-auto'} disabled={copyAllBusy} onClick={() => void copyAll()}>
+              {copyAllBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
+              全部复制
+            </button>
+          )}
           {tone === 'success' && docs.length > 1 && flow.smsId !== null && (
             <button type="button" className={BTN_PRIMARY} onClick={() => triggerDownload(courtSmsDownloadAllUrl(flow.smsId!))}>
               打包下载 {docs.length} 件

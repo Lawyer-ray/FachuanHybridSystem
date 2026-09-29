@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -28,13 +29,58 @@ class CourtSMSDocumentReferenceService:  # pragma: no cover
         refs: list[CourtSMSDocumentReference] = []
         seen_paths: set[str] = set()
         seen_names: set[str] = set()
+        seen_digests: set[str] = set()
 
-        self._collect_from_court_documents(sms, refs, seen_paths, seen_names)
-        self._collect_from_sms_paths(sms, refs, seen_paths, seen_names)
-        self._collect_from_task_result(sms, refs, seen_paths, seen_names)
-        self._collect_from_case_log_attachments(sms, refs, seen_paths, seen_names)
+        self._collect_from_court_documents(sms, refs, seen_paths, seen_names, seen_digests)
+        self._collect_from_sms_paths(sms, refs, seen_paths, seen_names, seen_digests)
+        self._collect_from_task_result(sms, refs, seen_paths, seen_names, seen_digests)
+        self._collect_from_case_log_attachments(sms, refs, seen_paths, seen_names, seen_digests)
 
         return refs
+
+    def _accept_path(
+        self,
+        raw_path: str | None,
+        seen_paths: set[str],
+        seen_names: set[str],
+        seen_digests: set[str],
+    ) -> str | None:  # pragma: no cover
+        """路径规范化后做三重去重（绝对路径 / 文件名 / 内容 SHA-256），通过则登记并返回。
+
+        同一份文书会以多副本存在：下载原件（task_result）+ 归档到案件日志的复制件
+        （case_log_attachment，重名时带 _N 后缀），路径与文件名都不同，必须按内容
+        哈希判同，否则详情里同一份文书出现两次。
+        """
+        normalized = self._normalize_existing_path(raw_path)
+        if not normalized or normalized in seen_paths:
+            return None
+
+        file_name = Path(normalized).name
+        if file_name in seen_names:
+            return None
+
+        digest = self._file_digest(Path(normalized))
+        if digest is not None and digest in seen_digests:
+            return None
+
+        seen_paths.add(normalized)
+        seen_names.add(file_name)
+        if digest is not None:
+            seen_digests.add(digest)
+        return normalized
+
+    def _file_digest(self, path: Path) -> str | None:  # pragma: no cover
+        """文件内容 SHA-256（流式读取）；读不到不阻断收集，返回 None。"""
+        try:
+            if not path.is_file():
+                return None
+            digest = hashlib.sha256()
+            with path.open("rb") as fh:
+                for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            return digest.hexdigest()
+        except OSError:
+            return None
 
     def has_any_references(self, sms: CourtSMS) -> bool:  # pragma: no cover
         """快速检查是否有文书引用（不做文件系统 I/O，适用于列表页）。"""
@@ -53,7 +99,12 @@ class CourtSMSDocumentReferenceService:  # pragma: no cover
         return False
 
     def _collect_from_court_documents(  # pragma: no cover
-        self, sms: CourtSMS, refs: list[CourtSMSDocumentReference], seen_paths: set[str], seen_names: set[str]
+        self,
+        sms: CourtSMS,
+        refs: list[CourtSMSDocumentReference],
+        seen_paths: set[str],
+        seen_names: set[str],
+        seen_digests: set[str],
     ) -> None:
         if not sms.scraper_task or not hasattr(sms.scraper_task, "documents"):
             return
@@ -63,14 +114,9 @@ class CourtSMSDocumentReferenceService:  # pragma: no cover
         for doc in sms.scraper_task.documents.all():
             if doc.download_status != "success":
                 continue
-            normalized = self._normalize_existing_path(doc.local_file_path)
-            if not normalized or normalized in seen_paths:
+            normalized = self._accept_path(doc.local_file_path, seen_paths, seen_names, seen_digests)
+            if not normalized:
                 continue
-            file_name = Path(normalized).name
-            if file_name in seen_names:
-                continue
-            seen_paths.add(normalized)
-            seen_names.add(file_name)
             refs.append(
                 CourtSMSDocumentReference(
                     display_name=Path(normalized).name,
@@ -82,18 +128,18 @@ class CourtSMSDocumentReferenceService:  # pragma: no cover
             )
 
     def _collect_from_sms_paths(  # pragma: no cover
-        self, sms: CourtSMS, refs: list[CourtSMSDocumentReference], seen_paths: set[str], seen_names: set[str]
+        self,
+        sms: CourtSMS,
+        refs: list[CourtSMSDocumentReference],
+        seen_paths: set[str],
+        seen_names: set[str],
+        seen_digests: set[str],
     ) -> None:
         paths = sms.document_file_paths if isinstance(sms.document_file_paths, list) else []
         for raw_path in paths:
-            normalized = self._normalize_existing_path(raw_path)
-            if not normalized or normalized in seen_paths:
+            normalized = self._accept_path(raw_path, seen_paths, seen_names, seen_digests)
+            if not normalized:
                 continue
-            file_name = Path(normalized).name
-            if file_name in seen_names:
-                continue
-            seen_paths.add(normalized)
-            seen_names.add(file_name)
             refs.append(
                 CourtSMSDocumentReference(
                     display_name=Path(normalized).name,
@@ -103,7 +149,12 @@ class CourtSMSDocumentReferenceService:  # pragma: no cover
             )
 
     def _collect_from_task_result(  # pragma: no cover
-        self, sms: CourtSMS, refs: list[CourtSMSDocumentReference], seen_paths: set[str], seen_names: set[str]
+        self,
+        sms: CourtSMS,
+        refs: list[CourtSMSDocumentReference],
+        seen_paths: set[str],
+        seen_names: set[str],
+        seen_digests: set[str],
     ) -> None:
         if not sms.scraper_task or not isinstance(sms.scraper_task.result, dict):
             return
@@ -111,14 +162,9 @@ class CourtSMSDocumentReferenceService:  # pragma: no cover
         result = sms.scraper_task.result
         candidate_paths = [*result.get("renamed_files", []), *result.get("files", [])]
         for raw_path in candidate_paths:
-            normalized = self._normalize_existing_path(raw_path)
-            if not normalized or normalized in seen_paths:
+            normalized = self._accept_path(raw_path, seen_paths, seen_names, seen_digests)
+            if not normalized:
                 continue
-            file_name = Path(normalized).name
-            if file_name in seen_names:
-                continue
-            seen_paths.add(normalized)
-            seen_names.add(file_name)
             refs.append(
                 CourtSMSDocumentReference(
                     display_name=Path(normalized).name,
@@ -128,7 +174,12 @@ class CourtSMSDocumentReferenceService:  # pragma: no cover
             )
 
     def _collect_from_case_log_attachments(  # pragma: no cover
-        self, sms: CourtSMS, refs: list[CourtSMSDocumentReference], seen_paths: set[str], seen_names: set[str]
+        self,
+        sms: CourtSMS,
+        refs: list[CourtSMSDocumentReference],
+        seen_paths: set[str],
+        seen_names: set[str],
+        seen_digests: set[str],
     ) -> None:
         if not sms.case_log:
             return
@@ -143,14 +194,9 @@ class CourtSMSDocumentReferenceService:  # pragma: no cover
                 continue
 
             raw_path = getattr(file_obj, "path", "") or getattr(file_obj, "name", "")
-            normalized = self._normalize_existing_path(raw_path)
-            if not normalized or normalized in seen_paths:
+            normalized = self._accept_path(raw_path, seen_paths, seen_names, seen_digests)
+            if not normalized:
                 continue
-            file_name = Path(normalized).name
-            if file_name in seen_names:
-                continue
-            seen_paths.add(normalized)
-            seen_names.add(file_name)
             refs.append(
                 CourtSMSDocumentReference(
                     display_name=Path(normalized).name,

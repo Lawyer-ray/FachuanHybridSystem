@@ -98,9 +98,9 @@ export function TaskFlowDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={tone === 'running' ? false : undefined}
-        className={cn('top-[46%] gap-0 p-5', wide ? 'sm:max-w-[560px]' : 'sm:max-w-[440px]')}
+        className={cn('top-[46%] flex max-h-[85vh] flex-col gap-0 p-5', wide ? 'sm:max-w-[560px]' : 'sm:max-w-[440px]')}
       >
-        <div className="flex items-center gap-3.5 pr-6">
+        <div className="flex flex-none items-center gap-3.5 pr-6">
           {tone === 'running' ? <RunningTile icon={icon} /> : <DoneTile tone={tone} />}
           <div className="min-w-0">
             <div className="text-[13px] font-semibold text-muted-foreground">{title}</div>
@@ -113,10 +113,11 @@ export function TaskFlowDialog({
           </div>
         </div>
 
-        {children && <div className="mt-4 min-h-0">{children}</div>}
+        {/* 内容区自身滚动：详情展开等长内容不得把弹窗撑出视口、不得顶走 footer */}
+        {children && <div className="mt-4 min-h-0 flex-1 overflow-y-auto">{children}</div>}
 
         {footer && (
-          <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-border pt-3.5">
+          <div className="mt-4 flex flex-none flex-wrap items-center justify-end gap-2 border-t border-border pt-3.5">
             {footer}
           </div>
         )}
