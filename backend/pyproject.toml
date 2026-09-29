@@ -17,7 +17,7 @@ dependencies = [
     "django-q2==1.11.1",
     "django-lifecycle==1.3.0",
     # --- ASGI / WebSocket ---
-    "uvicorn[standard]==0.53.0",
+    "uvicorn[standard]==0.54.0",
     "channels==4.3.2",
     "channels-redis==4.3.0",
     "valkey==6.1.1",
@@ -102,7 +102,7 @@ dev = [
     # --- 代码格式化 ---
     "black==26.5.1",
     "isort==9.0.1",
-    "ruff==0.16.8",
+    "ruff==0.16.9",
     # --- 类型检查 ---
     "mypy==2.3.1",
     "django-stubs==6.1.1",
@@ -124,7 +124,7 @@ test = [
     "pytest-xdist==3.8.0",
     "pytest-timeout==2.4.0",
     # --- Property-Based Testing ---
-    "hypothesis==6.168.0",
+    "hypothesis==6.168.1",
     # --- 测试工厂 ---
     "factory-boy==3.3.3",
     # --- Temporal workflow 测试 ---
