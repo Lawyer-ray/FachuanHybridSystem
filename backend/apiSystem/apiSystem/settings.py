@@ -113,6 +113,10 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # 响应压缩放最外层：列表 JSON（中文文本）压缩率通常 5-8 倍。
+    # SSE/流式响应兼容——Django 的 compress_sequence 每个事件块后立即
+    # flush() 并 yield，不会缓冲整流（workbench stream_chat 可安全过压缩）。
+    "django.middleware.gzip.GZipMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "apps.core.middleware.token_rate_limit.TokenRateLimitMiddleware",
