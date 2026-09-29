@@ -9,8 +9,8 @@ from apps.doc_convert.exceptions import (
     FileTooLargeError,
     InvalidFileTypeError,
     InvalidMbidError,
-    ZnszjUnavailableError,
     ZnszjInvalidResponseError,
+    ZnszjUnavailableError,
 )
 from apps.doc_convert.services.doc_convert_service import (
     ALLOWED_EXTENSIONS,
@@ -21,7 +21,6 @@ from apps.doc_convert.services.doc_convert_service import (
 
 
 class TestDocConvertServiceGetMbidList:
-
     def test_returns_grouped_dict(self):
         svc = DocConvertService(znszj_client=MagicMock())
         result = svc.get_mbid_list()
@@ -36,7 +35,6 @@ class TestDocConvertServiceGetMbidList:
 
 
 class TestDocConvertServiceConvertDocument:
-
     def test_invalid_extension_raises(self):
         svc = DocConvertService(znszj_client=MagicMock())
         with pytest.raises(InvalidFileTypeError):
@@ -59,9 +57,7 @@ class TestDocConvertServiceConvertDocument:
         svc = DocConvertService(znszj_client=mock_client)
         result = svc.convert_document(file_content=b"data", filename="test.docx", mbid="mjjdqsz")
         assert result == b"converted"
-        mock_client.convert_document.assert_called_once_with(
-            file_content=b"data", filename="test.docx", mbid="mjjdqsz"
-        )
+        mock_client.convert_document.assert_called_once_with(file_content=b"data", filename="test.docx", mbid="mjjdqsz")
 
     def test_success_doc(self):
         mock_client = MagicMock()
@@ -115,7 +111,6 @@ class TestDocConvertServiceConvertDocument:
 
 
 class TestConstants:
-
     def test_allowed_extensions(self):
         assert ".docx" in ALLOWED_EXTENSIONS
         assert ".doc" in ALLOWED_EXTENSIONS

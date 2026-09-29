@@ -36,6 +36,18 @@ def create_conversion_job(  # pragma: no cover
     }
 
 
+@router.get("/jobs", summary="历史转换任务列表")
+def list_conversion_jobs(request: Any, page: int = 1, page_size: int = 20) -> dict[str, Any]:  # pragma: no cover
+    """分页列出历史转换任务（最新在前），供前端历史弹窗浏览与重新下载。"""
+    jobs, count, num_pages = _service.list_jobs(page=page, page_size=page_size)
+    return {
+        "items": [_service.build_job_payload(job) for job in jobs],
+        "count": count,
+        "page": page,
+        "num_pages": num_pages,
+    }
+
+
 @router.get("/jobs/{job_id}", response=JobProgressOut, summary="查询转换进度")
 def get_conversion_progress(request: Any, job_id: UUID) -> dict[str, Any]:  # pragma: no cover
     """轮询转换进度。"""

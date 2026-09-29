@@ -133,6 +133,76 @@ export function converterItemDownloadUrl(jobId: string, itemId: string): string 
   return withAuthToken(`/api/v1/doc-converter/jobs/${jobId}/items/${itemId}/download`)
 }
 
+// ---------------------------------------------------------------------------
+// 历史记录（DOC 转 DOCX 任务 / 要素式转换记录）
+// ---------------------------------------------------------------------------
+
+/** DOC 转 DOCX 历史任务列表项 */
+export interface ConverterJobItem {
+  id: string
+  status: string
+  total: number
+  done: number
+  failed: number
+  hasZip: boolean
+  createdAt: string
+}
+
+/** 分页列出历史转换任务（最新在前） */
+export async function listConverterJobs(
+  page = 1,
+): Promise<{ items: ConverterJobItem[]; count: number; page: number; num_pages: number }> {
+  const res = await docConverterApi
+    .get('jobs', { searchParams: { page: String(page) } })
+    .json<{ items: Record<string, unknown>[]; count: number; page: number; num_pages: number }>()
+  return {
+    items: res.items.map((j) => ({
+      id: String(j.id ?? ''),
+      status: String(j.status ?? 'pending'),
+      total: Number(j.total_files ?? 0),
+      done: Number(j.converted_files ?? 0),
+      failed: Number(j.failed_files ?? 0),
+      hasZip: typeof j.download_url === 'string' && j.download_url !== '',
+      createdAt: String(j.created_at ?? ''),
+    })),
+    count: res.count,
+    page: res.page,
+    num_pages: res.num_pages,
+  }
+}
+
+/** 要素式转换历史记录项 */
+export interface ConvertRecordItem {
+  id: number
+  original_name: string
+  mbid: string
+  mbid_name: string
+  status: string
+  error_message: string | null
+  has_file: boolean
+  created_at: string
+}
+
+/** 分页列出要素式转换历史（最新在前）；status 可筛 success/failed */
+export async function listConvertRecords(
+  status?: string,
+  page = 1,
+): Promise<{ items: ConvertRecordItem[]; count: number; page: number; num_pages: number }> {
+  return docConvertApi
+    .get('records', { searchParams: { ...(status ? { status } : {}), page: String(page) } })
+    .json<{ items: ConvertRecordItem[]; count: number; page: number; num_pages: number }>()
+}
+
+/** 要素式历史产物下载地址（带 token） */
+export function convertRecordDownloadUrl(recordId: number): string {
+  return withAuthToken(`/api/v1/doc-convert/records/${recordId}/download`)
+}
+
+/** 删除一条要素式转换记录（产物文件随之后端清理） */
+export async function deleteConvertRecord(recordId: number): Promise<void> {
+  await docConvertApi.delete(`records/${recordId}`)
+}
+
 /**
  * 复制转换产物到**系统**剪贴板（后端 NSPasteboard 写 file-url，同 Finder ⌘C）。
  * 后端非 macOS 时返回 reason=unsupported，调用方降级复制文件名。

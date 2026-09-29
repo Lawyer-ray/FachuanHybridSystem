@@ -9,6 +9,8 @@ import { BTN, BTN_PRIMARY } from '../../ui'
 import { FilePicker, Spinner, ToolShell } from './shared'
 import { TemplateCombobox } from './TemplateCombobox'
 import { FlowNotice, TaskFlowDialog } from './dialog/TaskFlowDialog'
+import { HistoryButton } from './history/HistoryParts'
+import { ConvertHistoryDialog } from './history/ConvertHistoryDialog'
 import { errMessage } from '@/lib/errors'
 
 type Phase = 'idle' | 'running' | 'success' | 'error'
@@ -36,6 +38,7 @@ export function DocConvertCard() {
   const [result, setResult] = useState<ConvertResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   const { data: groups = [], isLoading } = useQuery({
     queryKey: CONVERT_TEMPLATES_KEY,
@@ -75,6 +78,7 @@ export function DocConvertCard() {
       icon={<FileText className="h-3.5 w-3.5" />}
       title="要素式转换"
       endpoint={TOOL_ENDPOINT.docConvert}
+      headerExtra={<HistoryButton title="历史转换记录" onClick={() => setHistoryOpen(true)} />}
       dropAccept=".doc,.docx,.pdf"
       onDropFiles={(fs) => setFile(fs[0] ?? null)}
     >
@@ -136,6 +140,8 @@ export function DocConvertCard() {
       >
         {phase === 'error' && <FlowNotice kind="error">{error || '转换失败，请检查文件格式'}</FlowNotice>}
       </TaskFlowDialog>
+
+      <ConvertHistoryDialog open={historyOpen} onOpenChange={setHistoryOpen} />
     </ToolShell>
   )
 }

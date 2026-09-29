@@ -89,6 +89,7 @@ class MediaEntity:
     DOC_CONVERTER_SOURCE = "doc_converter_source"
     DOC_CONVERTER_OUTPUT = "doc_converter_output"
     DOC_CONVERTER_ZIP = "doc_converter_zip"
+    DOC_CONVERT_OUTPUT = "doc_convert/output"
     IMAGE_ROTATION = "image_rotation"
     EXPRESS_QUERY_WAYBILLS = "express_query/waybills"
     EXPRESS_QUERY_RESULTS = "express_query/results"

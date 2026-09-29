@@ -80,9 +80,15 @@ class TestConvertDocumentEndpoint:
         mock_service = MagicMock()
         mock_service.convert_document.return_value = b"result_bytes"
 
+        mock_request = MagicMock()
+        mock_request.user = None
+
         with patch("apps.doc_convert.api.doc_convert_api._check_znszj_enabled"):
             with patch("apps.doc_convert.api.doc_convert_api._get_doc_convert_service", return_value=mock_service):
-                resp = await convert_document(MagicMock(), file=mock_file, mbid="mjjdqsz")
-                assert resp.status_code == 200
-                assert b"result_bytes" in resp.content
-                assert "attachment" in resp["Content-Disposition"]
+                # 历史记录落库（DB + 文件）与本测试意图无关，mock 掉
+                with patch("apps.doc_convert.api.doc_convert_api.DocConvertRecordService") as mock_records:
+                    resp = await convert_document(mock_request, file=mock_file, mbid="mjjdqsz")
+                    assert resp.status_code == 200
+                    assert b"result_bytes" in resp.content
+                    assert "attachment" in resp["Content-Disposition"]
+                    mock_records.return_value.record_success.assert_called_once()

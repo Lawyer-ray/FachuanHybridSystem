@@ -25,9 +25,9 @@ export { inboxApi, listInbox, formatRelative } from './inbox'
 export type { InboxMessageOut } from './inbox'
 
 export { automationApi, docConvertApi, docConverterApi } from './tools'
-export { submitCourtSms, listConvertTemplates, convertDocument, createConverterJob, getConverterJob, converterDownloadUrl, converterItemDownloadUrl, copyConverterItemsToClipboard, DOC_CONVERT_TIMEOUT_MS, CONVERT_TEMPLATES_KEY } from './tools'
+export { submitCourtSms, listConvertTemplates, convertDocument, createConverterJob, getConverterJob, converterDownloadUrl, converterItemDownloadUrl, copyConverterItemsToClipboard, listConverterJobs, listConvertRecords, convertRecordDownloadUrl, deleteConvertRecord, DOC_CONVERT_TIMEOUT_MS, CONVERT_TEMPLATES_KEY } from './tools'
 export { HOME_INBOX_KEY } from './inbox'
-export type { ConvertTemplateGroup, ConvertResult, ConverterJob, ConverterItem } from './tools'
+export type { ConvertTemplateGroup, ConvertResult, ConverterJob, ConverterItem, ConverterJobItem, ConvertRecordItem } from './tools'
 
 export {
   getCourtSmsDetail,
@@ -48,9 +48,11 @@ export {
   documentParsingApi,
   parseDocument,
   getParseTaskTask,
+  listParseRecords,
+  getParseRecord,
   PARSE_BACKENDS,
   DOC_PARSE_TIMEOUT_MS,
   DOC_PARSE_POLL_MS,
   DOC_PARSE_MAX_POLLS,
 } from './document-parsing'
-export type { ParseBackend, ParseDocumentIn, ParseSubmit, ParseTaskStatus, ParseOutcome } from './document-parsing'
+export type { ParseBackend, ParseDocumentIn, ParseSubmit, ParseTaskStatus, ParseOutcome, ParseRecordItem, ParseRecordDetail } from './document-parsing'

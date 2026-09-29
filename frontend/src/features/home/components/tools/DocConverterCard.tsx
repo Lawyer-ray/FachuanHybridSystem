@@ -15,6 +15,8 @@ import { TOOL_ENDPOINT } from '../../constants'
 import { BTN, BTN_PRIMARY } from '../../ui'
 import { FilePicker, Spinner, ToolShell } from './shared'
 import { FlowNotice, TaskFlowDialog } from './dialog/TaskFlowDialog'
+import { HistoryButton } from './history/HistoryParts'
+import { ConverterHistoryDialog } from './history/ConverterHistoryDialog'
 
 /** 轮询节奏与上限：2s 一次，5 分钟仍没结束就转「后台继续」 */
 const DOC_CONVERTER_POLL_MS = 2_000
@@ -58,6 +60,7 @@ export function DocConverterCard() {
   const [job, setJob] = useState<ConverterJob | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [copyBusy, setCopyBusy] = useState(false)
   const timer = useRef(0)
   // 卸载后取消：轮询在飞时若组件卸载，就不该再排下一轮
@@ -159,6 +162,7 @@ export function DocConverterCard() {
       icon={<FileType2 className="h-3.5 w-3.5" />}
       title="DOC 转 DOCX"
       endpoint={TOOL_ENDPOINT.docConverter}
+      headerExtra={<HistoryButton title="历史转换任务" onClick={() => setHistoryOpen(true)} />}
       dropAccept=".doc"
       onDropFiles={setFiles}
     >
@@ -276,6 +280,8 @@ export function DocConverterCard() {
           <FlowNotice kind="warn">已等待超过 5 分钟。任务仍在后台执行，可「继续等待」或稍后回来下载。</FlowNotice>
         )}
       </TaskFlowDialog>
+
+      <ConverterHistoryDialog open={historyOpen} onOpenChange={setHistoryOpen} />
     </ToolShell>
   )
 }

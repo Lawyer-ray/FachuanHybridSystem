@@ -11,6 +11,9 @@ from ninja import File, Router, UploadedFile
 
 from apps.core.security.auth import JWTOrSessionAuth
 from apps.document_parsing.schemas.parsing_schemas import (
+    DocumentParsingRecordDetailOut,
+    DocumentParsingRecordListOut,
+    DocumentParsingRecordOut,
     ExtractTextRequest,
     ExtractTextResponse,
     ParseDocumentRequest,
@@ -282,3 +285,45 @@ def get_task_status(request: HttpRequest, task_id: str) -> TaskStatusResponse:
         started_at=info["started_at"],
         finished_at=info["finished_at"],
     )
+
+
+# ---------------------------------------------------------------------------
+# GET /records — 历史解析记录（列表 + 详情）
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/records",
+    response=DocumentParsingRecordListOut,
+    summary="历史解析记录列表",
+    auth=JWTOrSessionAuth(),
+)
+def list_records(
+    request: HttpRequest, status: str | None = None, page: int = 1, page_size: int = 20
+) -> DocumentParsingRecordListOut:
+    """分页列出历史解析记录（最新在前），供前端历史弹窗浏览。
+
+    status 可选值：pending / processing / completed / failed。
+    """
+    from apps.document_parsing.services.record_service import DocumentParsingRecordService
+
+    items, count, num_pages = DocumentParsingRecordService().list_records(status=status, page=page, page_size=page_size)
+    return DocumentParsingRecordListOut(
+        items=[DocumentParsingRecordOut(**item) for item in items],
+        count=count,
+        page=page,
+        num_pages=num_pages,
+    )
+
+
+@router.get(
+    "/records/{record_id}",
+    response=DocumentParsingRecordDetailOut,
+    summary="解析记录详情",
+    auth=JWTOrSessionAuth(),
+)
+def get_record(request: HttpRequest, record_id: int) -> DocumentParsingRecordDetailOut:
+    """按记录 id 取解析全文（text / markdown / metadata），历史点开查看用。"""
+    from apps.document_parsing.services.record_service import DocumentParsingRecordService
+
+    return DocumentParsingRecordDetailOut(**DocumentParsingRecordService().get_record(record_id))
