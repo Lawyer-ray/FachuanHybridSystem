@@ -89,6 +89,36 @@ def test_list_messages_search(authenticated_client, law_firm):
 
 
 @pytest.mark.django_db
+def test_list_messages_limit(authenticated_client, law_firm):
+    """limit 截取前 N 条（按 received_at 倒序），供首页收件箱卡片省流量。"""
+    user = Lawyer.objects.get(username="testuser")
+    cred = AccountCredential.objects.create(
+        lawyer=user, site_name="分页邮箱", account="limit@example.com", password="enc"  # pragma: allowlist secret
+    )
+    source = _make_source(cred, name="分页邮箱")
+    _make_message(source, "msg-101", "第一封", "a@example.com")
+    _make_message(source, "msg-102", "第二封", "b@example.com")
+    _make_message(source, "msg-103", "第三封", "c@example.com")
+
+    full = authenticated_client.get("/api/v1/inbox/messages")
+    assert full.status_code == 200
+    full_data = full.json()
+    assert len(full_data) >= 3
+
+    resp = authenticated_client.get("/api/v1/inbox/messages", {"limit": 2})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 2
+    # limit 取的是倒序后的前 N 条，与全量结果头部一致
+    assert data == full_data[:2]
+
+    # 非法 limit 不影响全量返回
+    resp_zero = authenticated_client.get("/api/v1/inbox/messages", {"limit": 0})
+    assert resp_zero.status_code == 200
+    assert len(resp_zero.json()) == len(full_data)
+
+
+@pytest.mark.django_db
 def test_get_message_detail(authenticated_client, law_firm):
     user = Lawyer.objects.get(username="testuser")
     cred = AccountCredential.objects.create(

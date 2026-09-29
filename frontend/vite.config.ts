@@ -73,16 +73,24 @@ export default defineConfig({
           // 默认分桶曾把它塞进 vendor-pdf，形成「入口 → helper → pdfjs」静态边，
           // 路由懒加载失效。归入首屏必加载的 vendor-react，不给关键路径添新依赖。
           if (id.startsWith('\0vite/')) return 'vendor-react'
-          if (!id.includes('node_modules')) return
-          const chunks: Record<string, string[]> = {
-            'vendor-react': ['react', 'react-dom', 'react-router'],
-            'vendor-query': ['@tanstack/react-query'],
-            'vendor-radix': ['@radix-ui/'],
-            'vendor-utils': ['ky', 'date-fns', 'clsx', 'tailwind-merge', 'class-variance-authority', 'sonner'],
-            'vendor-state': ['zustand'],
-          }
-          for (const [chunk, pkgs] of Object.entries(chunks)) {
-            if (pkgs.some((pkg) => id.includes(pkg))) return chunk
+          // 取最后一个 node_modules/ 之后的真实包路径段。注意不能用
+          // id.includes(pkg) 宽匹配：'lucide-react'、'@radix-ui/react-*'、
+          // '@tanstack/react-query' 的路径全都含 "react"，曾把图标库、UI 库、
+          // 状态库整个吸进 vendor-react（首屏背上懒加载页的图标 + 缓存失效放大）。
+          const idx = id.lastIndexOf('node_modules/')
+          if (idx < 0) return
+          const rest = id.slice(idx + 'node_modules/'.length)
+          const belongs = (pkgs: string[]) => pkgs.some((p) => rest === p || rest.startsWith(`${p}/`))
+          const chunks: Array<[string, string[]]> = [
+            ['vendor-react', ['react', 'react-dom', 'react-router', 'scheduler']],
+            ['vendor-query', ['@tanstack/react-query', '@tanstack/query-core']],
+            ['vendor-radix', ['@radix-ui', 'react-remove-scroll', 'react-remove-scroll-bar', 'react-style-singleton', 'use-callback-ref']],
+            ['vendor-utils', ['ky', 'date-fns', 'clsx', 'tailwind-merge', 'class-variance-authority', 'sonner']],
+            ['vendor-state', ['zustand']],
+            ['vendor-icons', ['lucide-react']],
+          ]
+          for (const [chunk, pkgs] of chunks) {
+            if (belongs(pkgs)) return chunk
           }
         },
       },

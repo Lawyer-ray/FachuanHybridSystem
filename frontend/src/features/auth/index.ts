@@ -5,9 +5,19 @@
  * 出口只保留实际有外部消费方的符号（页面组件 + useAuth）；
  * social API 客户端与域内类型不对外暴露——外部有需要时再按需加，
  * 避免出现「导出了但全仓无人用」的幽灵出口。
+ *
+ * BindingsPage 仅 /settings/bindings 单路由使用，走 lazy 出口：
+ * 若在这里静态 re-export，app 层对登录页的静态引用会把整域钉进首屏 chunk，
+ * dynamic import 拆不出独立 chunk（INEFFECTIVE_DYNAMIC_IMPORT）。
  */
 
+import { lazy } from 'react'
+
 export { LoginPage } from './LoginPage'
-export { BindingsPage } from './BindingsPage'
 export { SocialCallbackPage } from './SocialCallbackPage'
 export { useAuth } from './store'
+
+/** 账号绑定设置页（懒加载组件，消费方需包 Suspense） */
+export const BindingsPageLazy = lazy(() =>
+  import('./BindingsPage').then((m) => ({ default: m.BindingsPage })),
+)
