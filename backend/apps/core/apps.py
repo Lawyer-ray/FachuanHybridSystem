@@ -25,6 +25,14 @@ class CoreConfig(AppConfig):
         except Exception:
             logger.debug("django-q spawn/shutdown patch 跳过（未就绪）")
 
+        # ninja Schema 序列化性能补丁（列表接口字段级缓存，结构不符时自动跳过）
+        try:
+            from .infrastructure.ninja_perf import patch_django_getter_for_perf
+
+            patch_django_getter_for_perf()
+        except Exception:
+            logger.debug("ninja DjangoGetter 性能补丁跳过（未就绪）", exc_info=True)
+
         # 注册文件清理定时任务
         try:
             from .tasking.cleanup_tasks import _register_schedules

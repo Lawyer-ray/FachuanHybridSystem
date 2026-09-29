@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { Suspense, useRef, useState } from 'react'
 import { Check, Landmark, Loader2, Mail, Paperclip, Sparkles, X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -11,9 +11,10 @@ import type { CalendarEvent } from '../api'
 import type { InboxItem } from '../types'
 import { BTN_PRIMARY, COUNT_PILL, PANEL } from '../ui'
 import {
-  RecognizeDialog,
   fileRejectReason,
+  preloadRecognizeDialog,
   rowsFromParsed,
+  RecognizeDialogLazy,
   type CandidateRow,
 } from '@/features/document-recognition'
 import { errMessage } from '@/lib/errors'
@@ -185,6 +186,7 @@ export function QuickAdd({ onAdded }: QuickAddProps) {
 
   const pickFile = (f: File | null | undefined) => {
     if (!f) return
+    preloadRecognizeDialog()
     const reason = fileRejectReason(f)
     if (reason) {
       toast.warning(reason)
@@ -202,6 +204,7 @@ export function QuickAdd({ onAdded }: QuickAddProps) {
       return
     }
     setBusy(true)
+    preloadRecognizeDialog() // 解析请求期间并行下载弹窗 chunk
     try {
       const parsed = await parseReminder(v)
       if (parsed.length === 0) {
@@ -313,14 +316,19 @@ export function QuickAdd({ onAdded }: QuickAddProps) {
         </button>
       </div>
 
-      <RecognizeDialog
-        open={dialogOpen}
-        onClose={closeDialog}
-        onSaved={onAdded}
-        file={file}
-        textRows={textRows}
-        onConfirmText={confirmTextReminders}
-      />
+      {/* 懒加载域：仅弹窗打开时挂载（open=false 常驻渲染会让首屏就拉下整个识别域） */}
+      {dialogOpen && (
+        <Suspense fallback={null}>
+          <RecognizeDialogLazy
+            open={dialogOpen}
+            onClose={closeDialog}
+            onSaved={onAdded}
+            file={file}
+            textRows={textRows}
+            onConfirmText={confirmTextReminders}
+          />
+        </Suspense>
+      )}
     </>
   )
 }

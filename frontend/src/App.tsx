@@ -3,7 +3,7 @@ import { Navigate, Route, Routes } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { hasToken } from '@/lib/token'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
-import { BindingsPage, LoginPage, SocialCallbackPage } from '@/features/auth'
+import { BindingsPageLazy, LoginPage, SocialCallbackPage } from '@/features/auth'
 import { HomePage } from '@/features/home'
 
 // 材料预处理整域懒加载：它静态引入 pdfjs-dist（~1MB 级），不拆出去的话
@@ -68,7 +68,9 @@ export default function App() {
           path="/settings/bindings"
           element={
             <RequireAuth>
-              <BindingsPage />
+              <Suspense fallback={<RouteFallback />}>
+                <BindingsPageLazy />
+              </Suspense>
             </RequireAuth>
           }
         />

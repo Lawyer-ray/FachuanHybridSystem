@@ -230,9 +230,15 @@ if DB_ENGINE in ("sqlite", "sqlite3", "django.db.backends.sqlite3"):
         }
     }
 elif DB_ENGINE in ("", "postgres", "postgresql", "django.db.backends.postgresql"):
-    # 开发环境：每个请求结束后立即释放连接，避免多进程堆积导致 "too many clients"
-    # 生产环境：保持 600 秒复用连接提升性能
-    _conn_max_age = 0 if DEBUG else 600
+    # 连接复用：开发默认 60s、生产默认 600s（每请求省一次 TCP+PG 认证握手）。
+    # 历史上开发环境用 0（每请求建连即释放）是为了规避多进程下 "too many clients"；
+    # 现改为温和复用 + 环境变量 DB_CONN_MAX_AGE 可随时覆盖（设 0 恢复旧行为）。
+    # CONN_HEALTH_CHECKS=True 保证复用前先探活，剔除被 PG 重启/超时杀掉的连接。
+    _default_conn_max_age = 60 if DEBUG else 600
+    try:
+        _conn_max_age = int(os.environ.get("DB_CONN_MAX_AGE", "") or _default_conn_max_age)
+    except ValueError:
+        _conn_max_age = _default_conn_max_age
 
     # 测试/开发环境下添加数据库超时，防止 flaky test 在 psycopg socket wait 中 hang 住
     # 导致 CI 60 分钟超时。statement_timeout 让长时间 SQL 自动失败，

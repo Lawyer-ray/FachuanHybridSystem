@@ -57,9 +57,9 @@ function toInboxItem(m: InboxMessageOut): InboxItem {
   }
 }
 
-/** 取待处理流入：收件箱按收到时间倒序（后端已排序），取前 limit 条 */
+/** 取待处理流入：收件箱按收到时间倒序（后端已排序），limit 走服务端截取（默认 6 条） */
 export async function listInbox(limit = 6): Promise<InboxItem[]> {
-  const rows = await inboxApi.get('messages').json<InboxMessageOut[]>()
+  const rows = await inboxApi.get('messages', { searchParams: { limit } }).json<InboxMessageOut[]>()
   return rows.slice(0, limit).map(toInboxItem)
 }
 
