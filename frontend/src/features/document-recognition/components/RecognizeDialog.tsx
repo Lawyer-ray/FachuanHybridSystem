@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { confirmDates, revokeDate } from '../api'
 import { resolveMediaUrl, rowsFromTask, selectedPendingRows, selectedTextRows, type CandidateRow } from '../domain'
 import { useRecognize } from '../hooks/use-recognize'
+import { useSplitDrag } from '../hooks/use-split-drag'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { errMessage } from '@/lib/errors'
@@ -152,6 +153,9 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
   const splitReady = contentReady && hasPreview
   const fileUrl = hasPreview ? previewUrl : isFileMode && task?.file_url ? task.file_url : ''
 
+  // 左栏宽度可拖拽（默认 52%，32–70%，localStorage 记忆）
+  const [splitPct, startDragSplit, splitBodyRef, draggingSplit] = useSplitDrag()
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent
@@ -195,14 +199,49 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
         )}
 
         {contentReady && (
-          // lg 双栏：左文书原文（独立滚动）/ 右确认步骤；窄屏单栏整体滚动
-          <div className="grid min-h-0 flex-1 gap-3.5 pt-1 lg:grid-cols-[minmax(0,44%)_minmax(0,1fr)] lg:overflow-hidden">
-            {hasPreview && <DocumentPreview url={previewUrl} className="hidden animate-in fade-in slide-in-from-left-2 duration-300 lg:flex" />}
+          // lg 双栏：左文书原文（宽度可拖拽）/ 右确认步骤；窄屏单栏整体滚动
+          <div ref={splitBodyRef} className="flex min-h-0 flex-1 pt-1 lg:overflow-hidden">
+            {hasPreview && (
+              <div
+                className={cn(
+                  'hidden min-w-0 flex-col lg:flex',
+                  draggingSplit && 'pointer-events-none',
+                )}
+                style={{ width: `${splitPct}%` }}
+              >
+                <DocumentPreview
+                  url={previewUrl}
+                  className={cn('min-h-0 flex-1', !draggingSplit && 'animate-in fade-in slide-in-from-left-2 duration-300')}
+                />
+              </div>
+            )}
+
+            {hasPreview && (
+              <div
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="拖动调整原文宽度"
+                title="拖动调整宽度"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  startDragSplit()
+                }}
+                className="group hidden w-[9px] flex-none cursor-col-resize items-center justify-center lg:flex"
+              >
+                <span
+                  className={cn(
+                    'h-full w-[3px] rounded-full transition-colors duration-150',
+                    draggingSplit ? 'bg-status-blue' : 'bg-transparent group-hover:bg-border',
+                  )}
+                />
+              </div>
+            )}
 
             <div
               className={cn(
-                'flex animate-in fade-in flex-col gap-3 duration-300 lg:min-h-0 lg:overflow-y-auto lg:pr-1',
+                'flex min-w-0 animate-in fade-in flex-col gap-3 duration-300 lg:min-h-0 lg:overflow-y-auto lg:pr-1',
                 !hasPreview && 'w-full',
+                hasPreview && 'flex-1 lg:pl-1.5',
               )}
             >
               {isFileMode && task && recognition && (

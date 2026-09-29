@@ -47,3 +47,9 @@ export const EXTRACTION_METHOD_LABELS: Record<string, string> = {
 
 /** 候选默认勾选的置信度阈值：低于此值默认不勾，交人工判断 */
 export const DEFAULT_CHECK_CONFIDENCE = 0.5
+
+/** 分屏预览左栏宽度（%）：默认值、拖拽范围与 localStorage 记忆键 */
+export const DEFAULT_SPLIT_PCT = 52
+export const MIN_SPLIT_PCT = 32
+export const MAX_SPLIT_PCT = 70
+export const SPLIT_PCT_KEY = 'dr-split-pct'
