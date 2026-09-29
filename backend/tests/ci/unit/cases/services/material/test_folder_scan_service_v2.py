@@ -22,12 +22,14 @@ from apps.cases.services.material.folder_scan_service import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_service(**overrides: Any) -> Any:
     from apps.cases.services.material.folder_scan_service import (
         CaseFolderScanService,
         _ensure_case_exists,
         _get_accessible_binding,
     )
+
     defaults: dict[str, Any] = {
         "scan_service": MagicMock(),
     }
@@ -35,8 +37,9 @@ def _make_service(**overrides: Any) -> Any:
     return CaseFolderScanService(**defaults)
 
 
-def _make_binding(*, resolved_folder_path: str = "/test/root", storage_type: str = "local",
-                  relative_path: str = "sub") -> MagicMock:
+def _make_binding(
+    *, resolved_folder_path: str = "/test/root", storage_type: str = "local", relative_path: str = "sub"
+) -> MagicMock:
     b = MagicMock()
     b.resolved_folder_path = resolved_folder_path
     b.storage_type = storage_type
@@ -71,22 +74,19 @@ def _make_session(
 # _ensure_case_exists
 # ---------------------------------------------------------------------------
 
+
 class TestEnsureCaseExists:
     @patch("apps.cases.services.material.folder_scan_service.Case")
     def test_raises_when_not_found(self, MockCase):
         MockCase.objects.filter.return_value.exists.return_value = False
         from apps.core.exceptions import NotFoundError
+
         with pytest.raises(NotFoundError):
             _ensure_case_exists(999)
 
     @patch("apps.cases.services.material.folder_scan_service.Case")
     def test_passes_when_found(self, MockCase):
         MockCase.objects.filter.return_value.exists.return_value = True
-        from apps.cases.services.material.folder_scan_service import (
-            FolderScanService,
-            _accessible_binding,
-            ure_case_exists,
-        )
         _ensure_case_exists(1)
 
 
@@ -94,11 +94,13 @@ class TestEnsureCaseExists:
 # _get_accessible_binding
 # ---------------------------------------------------------------------------
 
+
 class TestGetAccessibleBinding:
     @patch("apps.cases.services.material.folder_scan_service.CaseFolderBinding")
     def test_raises_when_no_binding(self, MockBinding):
         MockBinding.objects.filter.return_value.first.return_value = None
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException, match="未绑定文件夹"):
             _get_accessible_binding(1)
 
@@ -111,6 +113,7 @@ class TestGetAccessibleBinding:
             mock_path.exists.return_value = False
             MockPath.return_value = mock_path
             from apps.core.exceptions import ValidationException
+
             with pytest.raises(ValidationException, match="绑定文件夹不可访问"):
                 _get_accessible_binding(1)
 
@@ -131,6 +134,7 @@ class TestGetAccessibleBinding:
 # _normalize_scan_subfolder
 # ---------------------------------------------------------------------------
 
+
 class TestNormalizeScanSubfolder:
     def test_empty_returns_empty(self):
         svc = _make_service()
@@ -140,24 +144,28 @@ class TestNormalizeScanSubfolder:
     def test_absolute_path_raises(self):
         svc = _make_service()
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException, match="必须使用相对路径"):
             svc._normalize_scan_subfolder("/etc/passwd")
 
     def test_tilde_raises(self):
         svc = _make_service()
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException, match="必须使用相对路径"):
             svc._normalize_scan_subfolder("~/secret")
 
     def test_windows_drive_raises(self):
         svc = _make_service()
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException, match="必须使用相对路径"):
             svc._normalize_scan_subfolder("C:/Windows")
 
     def test_dotdot_raises(self):
         svc = _make_service()
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException, match="路径非法"):
             svc._normalize_scan_subfolder("a/../b")
 
@@ -178,14 +186,13 @@ class TestNormalizeScanSubfolder:
 # _resolve_scan_scope
 # ---------------------------------------------------------------------------
 
+
 class TestResolveScanScope:
     def test_local_root_only(self):
         svc = _make_service()
         with patch("apps.cases.services.material.folder_scan_service.Path") as MockPath:
             mock_path = MagicMock()
-            mock_path.expanduser.return_value.resolve.return_value = MagicMock(
-                as_posix=MagicMock(return_value="/root")
-            )
+            mock_path.expanduser.return_value.resolve.return_value = MagicMock(as_posix=MagicMock(return_value="/root"))
             MockPath.return_value = mock_path
             result = svc._resolve_scan_scope("/root", "")
             assert result["scan_folder"] == "/root"
@@ -194,6 +201,7 @@ class TestResolveScanScope:
 # ---------------------------------------------------------------------------
 # _extract_scan_subfolder
 # ---------------------------------------------------------------------------
+
 
 class TestExtractScanSubfolder:
     def test_extracts_from_payload(self):
@@ -209,6 +217,7 @@ class TestExtractScanSubfolder:
 # ---------------------------------------------------------------------------
 # _extract_enable_recognition
 # ---------------------------------------------------------------------------
+
 
 class TestExtractEnableRecognition:
     def test_returns_true_when_not_set(self):
@@ -227,6 +236,7 @@ class TestExtractEnableRecognition:
 # ---------------------------------------------------------------------------
 # _is_within_root
 # ---------------------------------------------------------------------------
+
 
 class TestIsWithinRoot:
     def test_within_root(self):
@@ -251,6 +261,7 @@ class TestIsWithinRoot:
 # ---------------------------------------------------------------------------
 # _to_int
 # ---------------------------------------------------------------------------
+
 
 class TestToInt:
     """_to_int 已迁为模块级函数。"""
@@ -285,6 +296,7 @@ class TestToInt:
 # _contains_force_our_party_folder_keyword
 # ---------------------------------------------------------------------------
 
+
 class TestContainsForceOurPartyFolderKeyword:
     def test_returns_true_for_keyword(self):
         assert CaseFolderScanService._contains_force_our_party_folder_keyword("立案材料") is True
@@ -301,6 +313,7 @@ class TestContainsForceOurPartyFolderKeyword:
 # ---------------------------------------------------------------------------
 # _should_force_our_party_for_filing_materials
 # ---------------------------------------------------------------------------
+
 
 class TestShouldForceOurPartyForFiling:
     def test_true_when_scan_subfolder_matches(self):
@@ -323,6 +336,7 @@ class TestShouldForceOurPartyForFiling:
 # _should_force_our_party_for_candidate
 # ---------------------------------------------------------------------------
 
+
 class TestShouldForceOurPartyForCandidate:
     def test_true_when_source_path_matches(self):
         svc = _make_service()
@@ -342,6 +356,7 @@ class TestShouldForceOurPartyForCandidate:
 # ---------------------------------------------------------------------------
 # _normalize_candidates_for_scan_scope
 # ---------------------------------------------------------------------------
+
 
 class TestNormalizeCandidatesForScanScope:
     def test_no_force_when_no_keyword(self):
@@ -369,6 +384,7 @@ class TestNormalizeCandidatesForScanScope:
 # ---------------------------------------------------------------------------
 # _build_classification_context
 # ---------------------------------------------------------------------------
+
 
 class TestBuildClassificationContext:
     def test_groups_parties_by_our_flag(self):
@@ -417,6 +433,7 @@ class TestBuildClassificationContext:
 # _make_provider_for_binding
 # ---------------------------------------------------------------------------
 
+
 class TestMakeProviderForBinding:
     def test_returns_none_for_local(self):
         svc = _make_service()
@@ -428,13 +445,9 @@ class TestMakeProviderForBinding:
 # get_session
 # ---------------------------------------------------------------------------
 
+
 class TestGetSession:
     def test_returns_session(self):
-        from apps.cases.services.material.folder_scan_service import (
-            FolderScanService,
-            _accessible_binding,
-            ure_case_exists,
-        )
         svc = _make_service()
         s = _make_session()
         with patch("apps.cases.services.material.folder_scan_service.CaseFolderScanSession") as MockSession:
@@ -443,17 +456,13 @@ class TestGetSession:
             assert result is s
 
     def test_raises_not_found(self):
-        from apps.cases.services.material.folder_scan_service import (
-            FolderScanService,
-            _accessible_binding,
-            ure_case_exists,
-        )
         svc = _make_service()
         MockSessionCls = MagicMock()
         MockSessionCls.DoesNotExist = type("DoesNotExist", (Exception,), {})
         with patch("apps.cases.services.material.folder_scan_service.CaseFolderScanSession", MockSessionCls):
             MockSessionCls.objects.get.side_effect = MockSessionCls.DoesNotExist
             from apps.core.exceptions import NotFoundError
+
             with pytest.raises(NotFoundError):
                 svc.get_session(case_id=1, session_id=uuid4())
 
@@ -461,6 +470,7 @@ class TestGetSession:
 # ---------------------------------------------------------------------------
 # build_status_payload
 # ---------------------------------------------------------------------------
+
 
 class TestBuildStatusPayload:
     def test_builds_payload(self):
@@ -493,9 +503,11 @@ class TestBuildStatusPayload:
 # run_case_folder_scan_task (module function)
 # ---------------------------------------------------------------------------
 
+
 class TestRunCaseFolderScanTask:
     def test_calls_service(self):
         from apps.cases.services.material.folder_scan_service import run_case_folder_scan_task
+
         with patch("apps.cases.services.material.folder_scan_service.CaseFolderScanService") as MockSvc:
             run_case_folder_scan_task("test-id")
             MockSvc.return_value.run_scan_task.assert_called_once_with(session_id="test-id")
@@ -505,15 +517,18 @@ class TestRunCaseFolderScanTask:
 # list_scan_subfolders (local)
 # ---------------------------------------------------------------------------
 
+
 class TestListScanSubfoldersLocal:
     def test_lists_subfolders(self):
         binding = _make_binding(resolved_folder_path="/root")
         svc = _make_service()
         module = "apps.cases.services.material.folder_scan_service"
-        with patch(f"{module}._ensure_case_exists"), \
-             patch(f"{module}._get_accessible_binding", return_value=binding), \
-             patch(f"{module}.Path") as MockPath, \
-             patch("apps.cases.services.material.folder_scan_service.os.path.commonpath", return_value="/root"):
+        with (
+            patch(f"{module}._ensure_case_exists"),
+            patch(f"{module}._get_accessible_binding", return_value=binding),
+            patch(f"{module}.Path") as MockPath,
+            patch("apps.cases.services.material.folder_scan_service.os.path.commonpath", return_value="/root"),
+        ):
             mock_root = MagicMock()
             child1 = MagicMock()
             child1.name = "folder_a"
@@ -538,10 +553,12 @@ class TestListScanSubfoldersLocal:
         binding = _make_binding(resolved_folder_path="/root")
         svc = _make_service()
         module = "apps.cases.services.material.folder_scan_service"
-        with patch(f"{module}._ensure_case_exists"), \
-             patch(f"{module}._get_accessible_binding", return_value=binding), \
-             patch(f"{module}.Path") as MockPath, \
-             patch("apps.cases.services.material.folder_scan_service.os.path.commonpath", return_value="/root"):
+        with (
+            patch(f"{module}._ensure_case_exists"),
+            patch(f"{module}._get_accessible_binding", return_value=binding),
+            patch(f"{module}.Path") as MockPath,
+            patch("apps.cases.services.material.folder_scan_service.os.path.commonpath", return_value="/root"),
+        ):
             mock_root = MagicMock()
             hidden = MagicMock()
             hidden.name = ".hidden"
@@ -562,6 +579,7 @@ class TestListScanSubfoldersLocal:
 # ---------------------------------------------------------------------------
 # _try_repair_binding_path
 # ---------------------------------------------------------------------------
+
 
 class TestTryRepairBindingPath:
     """_try_repair_binding_path 已迁为模块级函数。"""
