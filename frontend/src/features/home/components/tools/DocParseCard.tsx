@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { PARSE_BACKENDS, type ParseBackend, type ParseOutcome } from '../../api'
 import { TOOL_ENDPOINT } from '../../constants'
 import { BTN, BTN_PRIMARY, FIELD } from '../../ui'
-import { Spinner, ToolShell } from './shared'
+import { FilePicker, Spinner, ToolShell } from './shared'
 import { FlowNotice, TaskFlowDialog } from './dialog/TaskFlowDialog'
 import { errMessage } from '@/lib/errors'
 import { useDocParse } from './use-doc-parse'
@@ -103,7 +103,13 @@ export function DocParseCard() {
   }
 
   return (
-    <ToolShell icon={<FileSearch className="h-3.5 w-3.5" />} title="文档解析" endpoint={TOOL_ENDPOINT.docParse}>
+    <ToolShell
+      icon={<FileSearch className="h-3.5 w-3.5" />}
+      title="文档解析"
+      endpoint={TOOL_ENDPOINT.docParse}
+      dropAccept={acceptOf(backend)}
+      onDropFiles={(fs) => pick(fs[0] ?? null)}
+    >
       <div className="flex flex-1 flex-col gap-[7px]">
         <select
           className={FIELD}
@@ -119,23 +125,13 @@ export function DocParseCard() {
           ))}
         </select>
 
-        <label
-          className={`flex items-center gap-2 rounded-[8px] border border-dashed border-input bg-secondary/30 px-[9px] py-[6px] transition-colors ${
-            busy ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-ring/40 hover:bg-card'
-          }`}
-        >
-          <input
-            type="file"
-            accept={acceptOf(backend)}
-            className="hidden"
-            disabled={busy}
-            onChange={(e) => pick(e.target.files?.[0] ?? null)}
-          />
-          <span className="text-[11px] font-medium whitespace-nowrap text-secondary-foreground">选择文件</span>
-          <span className="truncate text-[10.5px] text-muted-foreground" title={FORMAT_HINT[backend]}>
-            {file ? file.name : FORMAT_HINT[backend]}
-          </span>
-        </label>
+        <FilePicker
+          label="选择文件"
+          hint={file ? file.name : FORMAT_HINT[backend]}
+          accept={acceptOf(backend)}
+          disabled={busy}
+          onPick={(fs) => pick(fs[0] ?? null)}
+        />
 
         <label className="flex cursor-pointer items-center gap-1.5 text-[10.5px] text-muted-foreground">
           <input

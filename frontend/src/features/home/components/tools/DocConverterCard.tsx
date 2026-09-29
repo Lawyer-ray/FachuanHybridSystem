@@ -112,9 +112,22 @@ export function DocConverterCard() {
   const busy = phase === 'running'
 
   return (
-    <ToolShell icon={<FileType2 className="h-3.5 w-3.5" />} title="DOC 转 DOCX" endpoint={TOOL_ENDPOINT.docConverter}>
+    <ToolShell
+      icon={<FileType2 className="h-3.5 w-3.5" />}
+      title="DOC 转 DOCX"
+      endpoint={TOOL_ENDPOINT.docConverter}
+      dropAccept=".doc"
+      onDropFiles={setFiles}
+    >
       <div className="flex flex-1 flex-col gap-[7px]">
-        <FilePicker label="选择 .doc 文件" hint="法院下发的旧格式文书" accept=".doc" multiple onPick={setFiles} />
+        <FilePicker
+          label="选择 .doc 文件"
+          hint={files.length > 0 ? `已选 ${files.length} 个文件` : '法院下发的旧格式文书'}
+          accept=".doc"
+          multiple
+          disabled={busy}
+          onPick={setFiles}
+        />
 
         <div className="mt-auto flex items-center gap-2">
           <button type="button" className={BTN_PRIMARY} onClick={submit} disabled={busy}>

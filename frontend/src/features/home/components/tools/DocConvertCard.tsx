@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { CONVERT_TEMPLATES_KEY, convertDocument, listConvertTemplates, type ConvertResult } from '../../api'
 import { TOOL_ENDPOINT } from '../../constants'
 import { BTN, BTN_PRIMARY } from '../../ui'
-import { Spinner, ToolShell } from './shared'
+import { FilePicker, Spinner, ToolShell } from './shared'
 import { TemplateCombobox } from './TemplateCombobox'
 import { FlowNotice, TaskFlowDialog } from './dialog/TaskFlowDialog'
 import { errMessage } from '@/lib/errors'
@@ -71,26 +71,24 @@ export function DocConvertCard() {
   }
 
   return (
-    <ToolShell icon={<FileText className="h-3.5 w-3.5" />} title="要素式转换" endpoint={TOOL_ENDPOINT.docConvert}>
+    <ToolShell
+      icon={<FileText className="h-3.5 w-3.5" />}
+      title="要素式转换"
+      endpoint={TOOL_ENDPOINT.docConvert}
+      dropAccept=".doc,.docx,.pdf"
+      onDropFiles={(fs) => setFile(fs[0] ?? null)}
+    >
       <div className="flex flex-1 flex-col gap-[7px]">
         {/* 可搜索组合框：60+ 模板原生下拉又长又不能搜 */}
         <TemplateCombobox groups={groups} value={mbid} onChange={setMbid} disabled={isLoading || busy} />
 
-        <label
-          className={`flex items-center gap-2 rounded-[8px] border border-dashed border-input bg-secondary/30 px-[9px] py-[6px] transition-colors ${
-            busy ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-ring/40 hover:bg-card'
-          }`}
-        >
-          <input
-            type="file"
-            accept=".doc,.docx,.pdf"
-            className="hidden"
-            disabled={busy}
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
-          <span className="text-[11px] font-medium whitespace-nowrap text-secondary-foreground">选择文书</span>
-          <span className="truncate text-[10.5px] text-muted-foreground">{file ? file.name : '.doc / .docx / .pdf ≤ 20MB'}</span>
-        </label>
+        <FilePicker
+          label="选择文书"
+          hint={file ? file.name : '.doc / .docx / .pdf ≤ 20MB'}
+          accept=".doc,.docx,.pdf"
+          disabled={busy}
+          onPick={(fs) => setFile(fs[0] ?? null)}
+        />
 
         <div className="mt-auto flex items-center gap-2">
           <button type="button" className={BTN_PRIMARY} onClick={submit} disabled={busy}>
