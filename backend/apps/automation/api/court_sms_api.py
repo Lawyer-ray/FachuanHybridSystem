@@ -21,6 +21,8 @@ from apps.automation.schemas import (
     CourtSMSAssignCaseOut,
     CourtSMSBatchDeleteIn,
     CourtSMSBatchDeleteOut,
+    CourtSMSCopyDocsIn,
+    CourtSMSCopyDocsOut,
     CourtSMSDetailOut,
     CourtSMSListOut,
     CourtSMSSubmitIn,
@@ -214,6 +216,41 @@ async def download_document(request: Any, sms_id: int, ref_index: int) -> FileRe
 
     file_obj = await asyncio.to_thread(file_path.open, "rb")
     return FileResponse(file_obj, as_attachment=True, filename=file_path.name)
+
+
+@router.post("/court-sms/{sms_id}/documents/copy-to-clipboard", response=CourtSMSCopyDocsOut)
+async def copy_documents_to_clipboard(  # pragma: no cover
+    request: Any, sms_id: int, payload: CourtSMSCopyDocsIn
+) -> CourtSMSCopyDocsOut:
+    """复制关联文书到**系统**剪贴板（同 Finder ⌘C，微信可直接 ⌘V 粘贴文件）。
+
+    浏览器自身写不了文件类剪贴板（W3C 只保证 text/html、text/plain、image/png），
+    后端与律师同机时由 NSPasteboard 直接落板；非 macOS 后端返回 unsupported，
+    前端再降级浏览器剪贴板（Safari 可用）。
+    """
+    from apps.core.services.mac_clipboard_service import MacClipboardFileService
+
+    clipboard = MacClipboardFileService()
+    if not clipboard.is_available():
+        return CourtSMSCopyDocsOut(success=False, copied=0, reason="unsupported")
+
+    from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
+    from apps.automation.services.sms.court_sms_repository import CourtSMSRepository
+
+    sms = await sync_to_async(CourtSMSRepository().get_by_id_or_none)(sms_id=sms_id)
+    if sms is None:
+        raise Http404("短信记录不存在")
+
+    references = await sync_to_async(CourtSMSDocumentReferenceService().collect)(sms)
+    valid_indexes = [i for i in payload.indexes if 0 <= i < len(references)]
+    if not valid_indexes:
+        return CourtSMSCopyDocsOut(success=False, copied=0, reason="没有可复制的文书文件")
+
+    paths = [Path(references[i].file_path) for i in valid_indexes]
+    copied = await sync_to_async(clipboard.copy_file_paths)(paths)
+    if copied == 0:
+        return CourtSMSCopyDocsOut(success=False, copied=0, reason="文书文件不存在或写入剪贴板失败")
+    return CourtSMSCopyDocsOut(success=True, copied=copied, reason=None)
 
 
 @router.get("/court-sms/{sms_id}/documents/download-all")

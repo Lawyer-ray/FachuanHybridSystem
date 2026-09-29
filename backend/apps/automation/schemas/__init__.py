@@ -15,6 +15,8 @@ from .court_sms import (
     CourtSMSAssignCaseOut,
     CourtSMSBatchDeleteIn,
     CourtSMSBatchDeleteOut,
+    CourtSMSCopyDocsIn,
+    CourtSMSCopyDocsOut,
     CourtSMSDetailOut,
     CourtSMSListOut,
     CourtSMSSubmitIn,
@@ -80,6 +82,8 @@ _schema_all = [
     "CourtSMSAssignCaseOut",
     "CourtSMSBatchDeleteIn",
     "CourtSMSBatchDeleteOut",
+    "CourtSMSCopyDocsIn",
+    "CourtSMSCopyDocsOut",
     # Document Delivery
 ]
 

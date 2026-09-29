@@ -187,6 +187,20 @@ class CourtSMSBatchDeleteOut(BaseModel):
     deleted: int = Field(..., description="删除数量")
 
 
+class CourtSMSCopyDocsIn(BaseModel):
+    """复制文书到系统剪贴板请求"""
+
+    indexes: list[int] = Field(..., min_length=1, description="要复制的文书引用下标列表（详情 documents 数组的下标）")
+
+
+class CourtSMSCopyDocsOut(BaseModel):
+    """复制文书到系统剪贴板响应"""
+
+    success: bool = Field(..., description="是否成功")
+    copied: int = Field(0, description="实际落板的文件数")
+    reason: str | None = Field(None, description="失败原因（unsupported = 后端非 macOS，前端可走浏览器剪贴板降级）")
+
+
 class CourtSMSAssignCaseIn(BaseModel):
     """手动指定案件请求"""
 

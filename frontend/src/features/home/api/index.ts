@@ -36,6 +36,7 @@ export {
   deleteCourtSms,
   courtSmsDocDownloadUrl,
   courtSmsDownloadAllUrl,
+  copyCourtSmsDocsToClipboard,
   searchCasesForAssign,
 } from './court-sms'
 export type { CourtSmsDetail, CaseSearchItem } from './court-sms'

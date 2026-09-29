@@ -1,8 +1,8 @@
 import { toast } from 'sonner'
 
-import { courtSmsDocDownloadUrl } from '../../../api'
+import { copyCourtSmsDocsToClipboard, courtSmsDocDownloadUrl } from '../../../api'
 
-/** 取单件文书二进制（带 token 的下载直链，same-origin 由 Vite proxy / 同源部署承担） */
+/** 取单件文书二进制（Safari 等支持浏览器剪贴板写文件时的降级数据源） */
 export async function fetchDocBlob(smsId: number, refIndex: number): Promise<Blob> {
   const res = await fetch(courtSmsDocDownloadUrl(smsId, refIndex))
   if (!res.ok) throw new Error(`下载失败 HTTP ${res.status}`)
@@ -10,10 +10,8 @@ export async function fetchDocBlob(smsId: number, refIndex: number): Promise<Blo
 }
 
 /**
- * 构造 PDF 剪贴板条目：标准类型（Safari / 新版 Chromium）优先，
- * 旧版 Chromium 只认 `web ` 前缀的自定义格式；都不支持返回 null。
- * 注意：即便写入成功，目标应用（如微信）是否识别剪贴板里的 PDF 由对方决定，
- * 识别不了时用户应改用「下载」——调用方的 toast 要把这个边界讲清楚。
+ * 构造 PDF 剪贴板条目：标准类型（Safari）优先，旧版 Chromium 只认 `web ` 前缀的
+ * 自定义格式；都不支持返回 null。这是后端不可用时的降级路径。
  */
 function makePdfClipboardItem(blob: Blob): ClipboardItem | null {
   for (const type of ['application/pdf', 'web application/pdf']) {
@@ -26,7 +24,6 @@ function makePdfClipboardItem(blob: Blob): ClipboardItem | null {
   return null
 }
 
-/** 把若干文件写入剪贴板；任一环节不支持 / 被拒绝返回 false，由调用方降级 */
 export async function copyBlobsToClipboard(blobs: Blob[]): Promise<boolean> {
   if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) return false
   const items = blobs
@@ -50,32 +47,49 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
   }
 }
 
-/** 复制单件文书：优先复制文件（微信等可直接粘贴发送），不支持则降级复制文件名并如实提示。 */
-export async function copyDocFile(smsId: number, refIndex: number, name: string): Promise<void> {
+/**
+ * 复制文书的统一入口，三级降级：
+ * 1. 后端 NSPasteboard 直写 file-url（同 Finder ⌘C）——微信等直接 ⌘V 粘出文件，
+ *    任意浏览器可用（要求后端与用户同机且为 macOS，本项目本地部署即是）；
+ * 2. 浏览器剪贴板写 PDF——仅 Safari（及部分新 Chromium）支持；
+ * 3. 复制文件名——至少粘到对话里能对上文件，并如实提示。
+ */
+async function copyDocs(smsId: number, indexes: number[], names: string[], fallbackVerb: string): Promise<void> {
+  // 1) 后端直写系统剪贴板
   try {
-    const blob = await fetchDocBlob(smsId, refIndex)
-    if (await copyBlobsToClipboard([blob])) {
-      toast.success('文件已复制，可直接粘贴到对话框发送（若粘贴无反应请改用下载）')
+    const res = await copyCourtSmsDocsToClipboard(smsId, indexes)
+    if (res.success && res.copied > 0) {
+      toast.success(`已复制 ${res.copied} 个文件（同 Finder 复制），到微信对话框直接 ⌘V 粘贴发送`)
       return
     }
-    if (await copyTextToClipboard(name)) toast.info('当前浏览器不支持复制文件，已复制文件名')
-    else toast.error('浏览器拒绝了剪贴板，请改用下载')
+    // reason=unsupported / 文件缺失等，继续降级；后端不可达则直接走浏览器路径
   } catch {
+    // 网络层失败（远程部署后端等），继续降级
+  }
+
+  // 2) 浏览器剪贴板（Safari 可写 PDF 文件）
+  try {
+    const blobs = await Promise.all(indexes.map((i) => fetchDocBlob(smsId, i)))
+    if (await copyBlobsToClipboard(blobs)) {
+      toast.success(`文件已复制，可直接粘贴到对话框发送（若粘贴无反应请${fallbackVerb}）`)
+      return
+    }
+  } catch {
+    // 取文件失败，落到文件名降级
+  }
+
+  // 3) 文件名兜底
+  if (await copyTextToClipboard(names.join('\n'))) {
+    toast.info('当前环境不支持复制文件本体，已复制文件名')
+  } else {
     toast.error('复制失败，请改用下载')
   }
 }
 
-/** 复制全部文书到剪贴板（一次 write 多个条目）；不支持时降级为复制全部文件名清单。 */
+export async function copyDocFile(smsId: number, refIndex: number, name: string): Promise<void> {
+  await copyDocs(smsId, [refIndex], [name], '改用下载')
+}
+
 export async function copyAllDocFiles(smsId: number, names: string[]): Promise<void> {
-  try {
-    const blobs = await Promise.all(names.map((_, i) => fetchDocBlob(smsId, i)))
-    if (await copyBlobsToClipboard(blobs)) {
-      toast.success(`已复制 ${blobs.length} 个文件，可直接粘贴到对话框发送（若粘贴无反应请改用打包下载）`)
-      return
-    }
-    if (await copyTextToClipboard(names.join('\n'))) toast.info('当前浏览器不支持复制文件，已复制全部文件名')
-    else toast.error('浏览器拒绝了剪贴板，请改用打包下载')
-  } catch {
-    toast.error('复制失败，请改用打包下载')
-  }
+  await copyDocs(smsId, names.map((_, i) => i), names, '改用打包下载')
 }

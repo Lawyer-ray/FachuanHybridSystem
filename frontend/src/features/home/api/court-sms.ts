@@ -38,6 +38,22 @@ export function courtSmsDownloadAllUrl(smsId: number): string {
   return withAuthToken(`${API_BASE_URL}/automation/court-sms/${smsId}/documents/download-all`)
 }
 
+/**
+ * 复制文书到**系统**剪贴板（后端 NSPasteboard 写 file-url，同 Finder ⌘C）。
+ * 微信等应用可直接 ⌘V 粘出文件本体；后端非 macOS 时返回 reason=unsupported，
+ * 调用方降级浏览器剪贴板路径。
+ */
+export async function copyCourtSmsDocsToClipboard(
+  smsId: number,
+  indexes: number[],
+): Promise<{ success: boolean; copied: number; reason: string | null }> {
+  const res = await automationApi
+    .post(`court-sms/${smsId}/documents/copy-to-clipboard`, { json: { indexes } })
+    .json<{ success?: boolean; copied?: number; reason?: string; message?: string }>()
+  if (res.success === undefined && res.message) throw new Error(res.message)
+  return { success: res.success === true, copied: Number(res.copied ?? 0), reason: res.reason ?? null }
+}
+
 /** 查询处理详情（轮询用；404 等由调用方 catch） */
 export async function getCourtSmsDetail(smsId: number): Promise<CourtSmsDetail> {
   return automationApi.get(`court-sms/${smsId}`).json<CourtSmsDetail>()
