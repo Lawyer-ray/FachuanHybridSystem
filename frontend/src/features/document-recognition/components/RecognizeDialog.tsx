@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { confirmDates, revokeDate } from '../api'
 import { resolveMediaUrl, rowsFromTask, selectedPendingRows, selectedTextRows, type CandidateRow } from '../domain'
 import { useRecognize } from '../hooks/use-recognize'
-import { useSplitDrag } from '../hooks/use-split-drag'
+import { useDialogWidthDrag, useSplitDrag } from '../hooks/use-split-drag'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { errMessage } from '@/lib/errors'
@@ -155,10 +155,14 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
 
   // 左栏宽度可拖拽（默认 52%，32–70%，localStorage 记忆）
   const [splitPct, startDragSplit, splitBodyRef, draggingSplit] = useSplitDrag()
+  // 弹窗整体宽度可拖拽（960px–视口-32，localStorage 记忆；null = CSS 默认）
+  const [dialogWidth, startDragDialog, draggingDialog] = useDialogWidthDrag()
+  const resizing = draggingSplit || draggingDialog
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent
+        style={splitReady && dialogWidth != null ? { width: dialogWidth, maxWidth: 'none' } : undefined}
         className={cn(
           'flex w-full flex-col gap-0 overflow-x-hidden p-6 transition-[max-width] duration-300 ease-out',
           splitReady
@@ -200,7 +204,7 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
 
         {contentReady && (
           // lg 双栏：左文书原文（宽度可拖拽）/ 右确认步骤；窄屏单栏整体滚动
-          <div ref={splitBodyRef} className="flex min-h-0 flex-1 pt-1 lg:overflow-hidden">
+          <div ref={splitBodyRef} className={cn('flex min-h-0 flex-1 pt-1 lg:overflow-hidden', resizing && 'pointer-events-none')}>
             {hasPreview && (
               <div
                 className={cn(
@@ -311,6 +315,25 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
               写入 {writableCount} 条提醒
             </Button>
           </DialogFooter>
+        )}
+
+        {/* 弹窗右缘宽度手柄：分屏态独占右缘全高，悬停显色 */}
+        {splitReady && (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="拖动调整弹窗宽度"
+            title="拖动调整弹窗宽度"
+            onMouseDown={startDragDialog}
+            className="absolute inset-y-3 right-0 z-30 w-[10px] cursor-col-resize"
+          >
+            <span
+              className={cn(
+                'absolute right-[2px] top-1/2 h-10 w-[4px] -translate-y-1/2 rounded-full transition-colors duration-150',
+                draggingDialog ? 'bg-status-blue' : 'bg-border hover:bg-ring/60',
+              )}
+            />
+          </div>
         )}
       </DialogContent>
     </Dialog>

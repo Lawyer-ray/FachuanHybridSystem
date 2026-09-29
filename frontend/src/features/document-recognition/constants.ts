@@ -53,3 +53,7 @@ export const DEFAULT_SPLIT_PCT = 52
 export const MIN_SPLIT_PCT = 32
 export const MAX_SPLIT_PCT = 70
 export const SPLIT_PCT_KEY = 'dr-split-pct'
+
+/** 弹窗整体宽度拖拽（px）：下限与 localStorage 记忆键；null = 走 CSS 默认 */
+export const MIN_DIALOG_WIDTH = 960
+export const DIALOG_WIDTH_KEY = 'dr-dialog-width'
