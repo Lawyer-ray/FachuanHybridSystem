@@ -18,7 +18,7 @@
 ## 二、数据模型
 
 - `ArbitrationDocumentSource`：来源（6 区县），字段 `name`/`district`/`list_url`(unique)/`category_id`/`enabled`/`last_crawl_status` 等；`trigger_update()` 提交增量爬取任务（防重入：RUNNING 时跳过）。
-- `ArbitrationDocument`：文书，`detail_url`(unique)/`title`/`case_number`/`publish_date`/`publish_datetime`/`crawl_status`/`parse_status`/`parsed_text` 等；`trigger_parse()` / `trigger_recrawl()`。
+- `ArbitrationDocument`：文书，`detail_url`(unique)/`title`/`case_number`/`publish_date`/`publish_datetime`/`crawl_status`/`parse_status`/`parsed_text` 等；`trigger_parse()` / `trigger_recrawl()`；含 `search_vector` 全文检索向量 + GinIndex（save() 时回填，config=simple，admin 支持解析文本/案号全文检索）。
 - `ArbitrationDocumentImage`：文书图片，`source_url`（原图 URL，`image` 字段已改可空、不落盘）/`page_index` 等。
 
 ## 三、如何启动
@@ -70,7 +70,9 @@ make qcluster-dev            # 或 .venv/bin/python apiSystem/manage.py qcluster
 
 ## 五、文档解析（OCR）
 
-`services/parsing_service.py` 调用项目 `document_parsing` 服务入口 `get_document_parser(backend=...)`，解析时从 `source_url` 下载到临时文件再 OCR，用后清理；逐页拼接 text/markdown 写回 `ArbitrationDocument`。
+`services/parsing_service.py` 调用项目 `document_parsing` 服务入口 `get_document_parser(backend=...)`，解析时从 `source_url` 下载到临时文件再 OCR，用后清理；逐页拼接 text/markdown 写回 `ArbitrationDocument`。后端枚举 local（PyMuPDF）/ mineru / textin / auto，按来源的 `parse_backend` 字段配置（默认 local）。
+
+解析完成后还有一步 OCR 文本清洗：`services/doxify_service.py`（去水印 / 段落接回 / LaTeX 符号转 HTML，依赖 `~/.workbuddy/skills/doxify/`）。另有批量解析命令 `parse_all_labor_arbitration`；图片删除时由 `models/signals.py` 清理物理文件。
 
 ## 六、已知限制
 

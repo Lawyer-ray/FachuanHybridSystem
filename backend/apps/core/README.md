@@ -1,487 +1,110 @@
-# ⚙️ 核心模块 (Core)
+# ⚙️ 核心模块（core）
 
-核心模块，提供全局配置、异常处理、接口定义、验证器、缓存、日志、监控等基础功能。
+全系统基础设施层：统一配置管理、统一异常体系、Protocol 接口 + DTO + ServiceLocator 依赖注入中枢、认证/权限、限流、加密、LLM 平台、全局搜索、仪表盘、任务队列（Django-Q/Redis）、遥测、健康检查、文件系统（上传路径 / 文件夹绑定）、公共浏览器服务与 Admin 工具。
 
-## 📚 模块概述
+> **拆分历史**：云存储已拆分为独立 app `apps/cloud_storage`（表名钉死 `core_cloudstorageaccount`，2026-09 #459）；core 侧仅遗留 cloud_storage 的 admin 模板目录。
 
-本模块是整个系统的基础设施层，提供：
-- 全局配置管理
-- 统一异常处理
-- 接口定义（Protocol）
-- 数据验证器
-- 缓存管理
-- 日志管理
-- 性能监控
-- 健康检查
-- API 限流
+## 功能概述
 
-## 📁 目录结构
+- **配置管理**（config/）：schema 注册表 + env/yaml providers，`get_config_manager()` / `get_config_value()` 等导出
+- **统一异常体系**（exceptions/）：BusinessError 族 + chat 族 + external 族 + 全局异常处理器与错误目录
+- **依赖注入中枢**：`ServiceLocator`（infrastructure/ + 6 个 mixin + interfaces 统一出口）与 `dependencies/` 下 20 个 `build_*_service` 工厂
+- **LLM 平台**（llm/）：多 backend 注册、多 Key 池（key_pool）、熔断（circuit_breaker）、降级（fallback_policy）、结构化输出、追踪（LLMCallRecord）、预热；`/api/v1/llm` 端点组
+- **任务队列**（tasking/）：Django-Q/Redis 封装（submission / scheduler / redis_queue / qcluster_spawn / cleanup）+ `/api/v1/task-queue` API + RedisQueueTool Admin
+- **遥测**（telemetry/ + infrastructure/monitoring）：请求 / HTTPx / 缓存命中率指标、直方图分位、Prometheus 文本导出（`/api/v1/resource/metrics[/prometheus]`）
+- **文件系统**（filesystem/）：`upload_paths.py` 路径工厂（DatedUUIDPath / EntityIdPath 等 + MediaEntity 注册表，**禁止手拼路径**）、文件夹绑定基类与 CRUD、InodeResolver、路径校验
+- **公共浏览器服务**（services/browser/）：create_browser / create_browser_async、Profile 体系、CDP 连接器、反检测、Chrome 进程管理（**禁止直接用 sync_playwright**）
+- **安全**（security/）：JWTOrSessionAuth、admin_access、permissions、日志脱敏 scrub、secret_codec、model_fields/encrypted
+- **中间件**：RequestId、SecurityHeaders、PermissionsPolicy、ServiceLocatorScope、TokenRateLimit（settings 装配）
+- 全局搜索 `/api/v1/search`（PostgreSQL 全文检索）、仪表盘 `/api/v1/dashboard/stats`
+- 一张网担保 Token 服务（services/court_tokens）、PDF 合并 / 工具、LibreOffice 定位、mac 剪贴板、种子数据
+
+## 目录结构
 
 ```
 core/
-├── api/                 # Ninja API 端点（system-config 等）
-├── admin/               # Django Admin 配置
-├── config/              # 统一配置管理（schema/providers/steering 子模块）
-├── dependencies/        # 依赖注入工厂（build_*_service）
-├── dto/                 # 跨模块 DTO
-├── exceptions/          # 统一异常体系
-├── filesystem/          # 文件系统 / 文件夹绑定
-├── http/                # HTTP 客户端（httpx 连接池、流式）
-├── infrastructure/      # 基础设施（cache/logging/monitoring/health/service_locator/...）
-├── interfaces/          # 跨模块接口聚合（Protocol + DTO + ServiceLocator 出口）
-├── llm/                 # LLM 抽象（backends/prompts/router/...）
-├── management/          # Django 管理命令
-│   └── commands/
-│       ├── analyze_performance.py            # 性能分析
-│       ├── check_db_performance.py           # 数据库性能检查
-│       ├── encrypt_system_config_secrets.py  # 加密系统配置密钥
-│       ├── export_seed_data.py               # 导出发件数据
-│       ├── init_system_config.py             # 初始化系统配置
-│       ├── load_seed_data.py                 # 加载种子数据
-│       └── scan_orphan_files.py              # 扫描孤儿文件
-├── middleware/          # 中间件（request_id/security/token_rate_limit）
-├── migrations/          # 数据库迁移
-├── model_fields/        # 自定义模型字段（加密字段）
-├── models/              # 模型定义
-├── protocols/           # Protocol 接口定义（真实定义处）
-├── repositories/        # 数据访问层
-├── security/            # 安全（auth/permissions/secret_codec/scrub）
-├── service_locator_mixins/  # ServiceLocator 的 mixin 实现
-├── services/            # 业务服务层
-├── static/  templates/  # 静态文件 / 模板
-├── tasking/             # 任务队列（Django-Q / Redis）
-├── telemetry/           # 指标采集上报
-└── utils/               # 工具函数
+├── api/            # system-configs CRUD、search、dashboard、task_queue、ninja_llm、pagination 等
+├── admin/          # system_config、court、cause_of_action、llm_provider、llm_record、
+│                   #   document_parse_provider、redis_queue + forms/mixins
+├── config/         # manager、providers/(env,yaml)、schema/(_registry_*/django/features/performance/services)、
+│                   #   validators、business_config + business_rules.yaml + config.yaml、listeners、notifications
+├── constants.py + data/(seed_causes_of_action.json、seed_courts.json)
+├── dependencies/   # 20 个 build_* 工厂模块
+├── dto/            # 跨模块 DTO（auth/cases/chat/client/contracts/.../request_context）
+├── exceptions/     # base、common、chat、external、handlers、error_catalog、error_codes 等
+├── filesystem/     # browse_policy、filesystem_service、folder_binding_base/crud、folder_node_path、
+│                   #   inode_resolver、path_validator、storage、upload_paths
+├── http/           # httpx_clients（连接池）、range、streaming
+├── infrastructure/ # asgi_lifespan、cache、health、logging、monitoring、request_context、
+│                   #   resource_monitor、service_locator(+base)、subprocess_runner、throttling
+├── interfaces/     # Protocol + DTO + ServiceLocator 统一出口
+├── llm/            # backends、circuit_breaker、client、config、fallback_policy、key_pool、
+│                   #   model_list_service、prompts、router、service、streaming、structured_output、
+│                   #   tracking、warmup
+├── management/commands/  # analyze_performance、check_db_performance、encrypt_system_config_secrets、
+│                   #   export_seed_data、init_system_config、load_seed_data、scan_orphan_files、
+│                   #   scan_migration_anomalies
+├── middleware/     # request_id、security、token_rate_limit
+├── model_fields/encrypted.py
+├── models/         # CauseOfAction、ConversationHistory、Court、DocumentParseProvider、LLMProvider、
+│                   #   LLMCallRecord、PromptTemplate、SystemConfig、ToolFavorite + enums/querysets
+├── protocols/ + repositories/ + security/ + service_locator_mixins/
+├── services/       # browser/、court_tokens/、llm_provider/llm_stream、search、dashboard、
+│                   #   cause_court、conversation、court_api_client、email、document_parse_provider、
+│                   #   pdf_merge/pdf_utils/libreoffice、filename_template、material_classification、
+│                   #   bound_folder_scan、prompt_template、seed_data、storage、cache、mac_clipboard、
+│                   #   django_q_tasks、system_update、wiring 等
+├── tasking/ + telemetry/ + utils/
 ```
 
-## 🔑 核心功能
+## 数据模型
 
-### 配置管理
-- ✅ 集中配置管理（config/）
-- ✅ 环境变量支持
-- ✅ 配置验证
-- ✅ 配置热更新
+`CauseOfAction`、`ConversationHistory`、`Court`、`DocumentParseProvider`、`LLMProvider`、`LLMCallRecord`、`PromptTemplate`、`SystemConfig`、`ToolFavorite`。
 
-### 异常处理
-- ✅ 统一异常体系
-- ✅ 业务异常（BusinessException）
-- ✅ 验证异常（ValidationException）
-- ✅ 权限异常（PermissionDenied）
-- ✅ 资源不存在异常（NotFoundError）
-- ✅ 冲突异常（ConflictError）
+## API 端点
 
-### 接口定义
-- ✅ Protocol 接口定义
-- ✅ DTO 数据传输对象
-- ✅ 跨模块通信接口
-- ✅ 事件总线（EventBus）
+| 前缀 | 说明 |
+|------|------|
+| `/api/v1/config/system-configs` | 分组列表 / 批量更新 / 创建 / 单键 PATCH/DELETE |
+| `/api/v1/llm` | chat / stream / history / templates sync / models / test-connection |
+| `/api/v1/task-queue` | queued / completed / failed / scheduled / 删除 / 重提交 |
+| `/api/v1/search`、`/api/v1/dashboard/stats` | 全局搜索 / 仪表盘 |
+| `/api/v1/health`（+ live/ready/detail）、`/api/v1/resource/*` | 健康检查 / 资源与 Prometheus 指标 |
 
-### 数据验证
-- ✅ 通用验证器
-- ✅ 身份证号验证
-- ✅ 电话号码验证
-- ✅ 邮箱验证
-- ✅ 自定义验证规则
-
-### 缓存管理
-- ✅ Redis 缓存
-- ✅ 缓存装饰器
-- ✅ 缓存失效策略
-- ✅ 缓存预热
-
-### 日志管理
-- ✅ 结构化日志
-- ✅ 日志级别管理
-- ✅ 日志轮转
-- ✅ 日志聚合
-
-### 性能监控
-- ✅ 请求耗时监控
-- ✅ 数据库查询监控
-- ✅ 缓存命中率监控
-- ✅ 性能指标收集
-
-## 🚀 快速开始
-
-### 1. 配置管理
+## 快速上手（常用入口）
 
 ```python
-from apps.core.config import app_config
+# 配置
+from apps.core.config import get_config_manager, get_config_value
 
-# 访问配置
-database_config = app_config.database
-cache_config = app_config.cache
-business_config = app_config.business
+# 异常
+from apps.core.exceptions import ValidationException, PermissionDenied, NotFoundError, ConflictError
 
-# 使用配置
-page_size = business_config.default_page_size
-max_upload_size = business_config.max_upload_size
+# 验证器（Utils 类方法）
+from apps.core.utils.validators import Validators
+Validators.validate_phone("138****8000")   # 抛 ValidationException（示例为占位号）
+
+# 服务定位器
+from apps.core.interfaces import ServiceLocator
+llm = ServiceLocator.get_llm_service()
+
+# 性能监控装饰器
+from apps.core.infrastructure.monitoring import PerformanceMonitor
+
+# 浏览器
+from apps.core.services.browser import create_browser
+with create_browser() as (page, context):
+    page.goto("https://example.com")
 ```
 
-### 2. 异常处理
+## 依赖关系
 
-```python
-from apps.core.exceptions import (
-    ValidationException,
-    PermissionDenied,
-    NotFoundError,
-    ConflictError
-)
+被约 35 个 app 依赖（基础设施层）；经 ServiceLocator mixins 懒加载反向触达 documents / contract_review / workbench 等业务服务。
 
-# 抛出业务异常
-def create_resource(data, user):
-    # 权限检查
-    if not user.has_perm('resources.add_resource'):
-        raise PermissionDenied(
-            message="无权限创建资源",
-            code="PERMISSION_DENIED"
-        )
-    
-    # 数据验证
-    if Resource.objects.filter(name=data.name).exists():
-        raise ValidationException(
-            message="资源名称已存在",
-            code="DUPLICATE_NAME",
-            errors={"name": "该名称已被使用"}
-        )
-    
-    # 资源不存在
-    if not Dependency.objects.filter(id=data.dependency_id).exists():
-        raise NotFoundError(
-            message="依赖不存在",
-            code="DEPENDENCY_NOT_FOUND"
-        )
-    
-    # 资源冲突
-    if resource.status == 'archived':
-        raise ConflictError(
-            message="已归档的资源无法修改",
-            code="RESOURCE_ARCHIVED"
-        )
-```
-
-### 3. 接口定义
-
-```python
-from apps.core.interfaces import IContractService, ContractDTO
-from typing import Protocol, Optional
-
-# 定义接口
-class IResourceService(Protocol):
-    """资源服务接口"""
-    
-    def get_resource(self, resource_id: int) -> Optional[ResourceDTO]:
-        """获取资源"""
-        ...
-    
-    def create_resource(self, data: ResourceCreateSchema) -> ResourceDTO:
-        """创建资源"""
-        ...
-
-# 使用接口
-class CaseService:
-    """案件服务"""
-    
-    def __init__(self, contract_service: IContractService):
-        """注入接口依赖"""
-        self.contract_service = contract_service
-    
-    def create_case(self, data, user):
-        # 通过接口调用
-        contract = self.contract_service.get_contract(data.contract_id)
-        if not contract:
-            raise ValidationException("合同不存在")
-        
-        # 业务逻辑...
-```
-
-### 4. 缓存使用
-
-```python
-from apps.core.cache import cache_result
-
-# 使用缓存装饰器
-@cache_result(timeout=300)  # 缓存 5 分钟
-def get_case_statistics(case_id: int):
-    """获取案件统计（耗时计算）"""
-    # 复杂计算...
-    return statistics
-
-# 手动缓存
-from django.core.cache import cache
-
-# 设置缓存
-cache.set('key', 'value', timeout=300)
-
-# 获取缓存
-value = cache.get('key')
-
-# 删除缓存
-cache.delete('key')
-```
-
-### 5. 数据验证
-
-```python
-from apps.core.validators import (
-    validate_phone,
-    validate_email,
-    validate_id_number
-)
-
-# 验证电话号码
-try:
-    validate_phone("13800138000")
-except ValidationError as e:
-    print(f"电话号码无效: {e}")
-
-# 验证邮箱
-try:
-    validate_email("user@example.com")
-except ValidationError as e:
-    print(f"邮箱无效: {e}")
-
-# 验证身份证号
-try:
-    validate_id_number("110101199001011234")
-except ValidationError as e:
-    print(f"身份证号无效: {e}")
-```
-
-### 6. 日志记录
-
-```python
-import logging
-
-logger = logging.getLogger("apps.module")
-
-# 结构化日志
-logger.info(
-    "操作成功",
-    extra={
-        "action": "create_resource",
-        "resource_id": resource.id,
-        "user_id": user.id,
-        "duration_ms": duration
-    }
-)
-
-# 错误日志（包含堆栈）
-try:
-    result = dangerous_operation()
-except Exception as e:
-    logger.error(
-        f"操作失败: {e}",
-        exc_info=True,  # 记录完整堆栈
-        extra={
-            "action": "dangerous_operation",
-            "user_id": user.id
-        }
-    )
-    raise
-```
-
-### 7. 性能监控
-
-```python
-from apps.core.monitoring import monitor_performance
-
-# 使用装饰器监控性能
-@monitor_performance
-def expensive_operation():
-    """耗时操作"""
-    # 复杂计算...
-    return result
-
-# 手动记录性能指标
-from apps.core.monitoring import record_metric
-
-record_metric(
-    metric_name="api_response_time",
-    value=duration_ms,
-    tags={"endpoint": "/api/cases", "method": "GET"}
-)
-```
-
-### 8. 健康检查
+## 测试
 
 ```bash
-# 检查系统健康状态
-curl http://localhost:8000/api/health
-
-# 响应示例
-{
-  "status": "healthy",
-  "database": "ok",
-  "cache": "ok",
-  "disk_space": "ok",
-  "memory": "ok"
-}
-```
-
-## 📊 异常体系
-
-```
-BusinessException (基类)
-├── ValidationException (400)
-│   └── 数据验证失败
-├── AuthenticationError (401)
-│   └── 认证失败
-├── PermissionDenied (403)
-│   └── 权限不足
-├── NotFoundError (404)
-│   └── 资源不存在
-├── ConflictError (409)
-│   └── 资源冲突
-├── RateLimitError (429)
-│   └── 频率限制
-└── ExternalServiceError (502)
-    └── 外部服务错误
-```
-
-## 🔒 接口定义规范
-
-### Protocol 定义
-```python
-from typing import Protocol, Optional
-
-class IService(Protocol):
-    """服务接口"""
-    
-    def method(self, param: int) -> Optional[DTO]:
-        """方法说明"""
-        ...
-```
-
-### DTO 定义
-```python
-from dataclasses import dataclass
-
-@dataclass
-class ResourceDTO:
-    """资源数据传输对象"""
-    id: int
-    name: str
-    status: str
-    
-    @classmethod
-    def from_model(cls, resource) -> "ResourceDTO":
-        """从 Model 转换为 DTO"""
-        return cls(
-            id=resource.id,
-            name=resource.name,
-            status=resource.status
-        )
-```
-
-## 🧪 测试
-
-```bash
-# 运行单元测试
 cd backend
-source venv311/bin/activate
-python -m pytest tests/unit/test_core/ -v
-
-# 运行集成测试
-python -m pytest tests/integration/test_core/ -v
-
-# 运行属性测试
-python -m pytest tests/property/test_core_properties/ -v
+env -u PYTHONHOME -u PYTHONPATH DB_NAME=test_fachuan_dev \
+  .venv/bin/pytest tests/ci/unit/core/ -q --reuse-db --timeout=900
 ```
-
-## 📝 相关文档
-
-- **[config/](config/)** - 统一配置管理
-- **[exceptions/](exceptions/)** - 异常定义
-- **[interfaces/](interfaces/)** - 跨模块接口聚合（Protocol + DTO + ServiceLocator 出口）
-- **[protocols/](protocols/)** - Protocol 接口真实定义
-- **[utils/](utils/)** - 工具函数
-- **[infrastructure/](infrastructure/)** - 基础设施（cache/logging/monitoring/health）
-- **[PERFORMANCE_MONITORING.md](PERFORMANCE_MONITORING.md)** - 性能监控文档
-
-## 🔗 依赖模块
-
-本模块是基础设施层，被所有其他模块依赖：
-- **cases**: 案件模块
-- **contracts**: 合同模块
-- **client**: 客户模块
-- **organization**: 组织模块
-- **automation**: 自动化模块
-
-## 🎯 最佳实践
-
-### 1. 使用配置管理
-```python
-# ✅ 正确：使用配置类
-from apps.core.config import app_config
-
-page_size = app_config.business.default_page_size
-
-# ❌ 错误：硬编码配置
-page_size = 20
-```
-
-### 2. 抛出业务异常
-```python
-# ✅ 正确：抛出自定义异常
-if not user.has_perm('resource.add'):
-    raise PermissionDenied("无权限")
-
-# ❌ 错误：返回错误码
-if not user.has_perm('resource.add'):
-    return {"error": "无权限"}, 403
-```
-
-### 3. 使用接口解耦
-```python
-# ✅ 正确：依赖接口
-def __init__(self, service: IService):
-    self.service = service
-
-# ❌ 错误：依赖具体实现
-def __init__(self, service: ConcreteService):
-    self.service = service
-```
-
-### 4. 结构化日志
-```python
-# ✅ 正确：使用 extra 参数
-logger.info("操作成功", extra={"user_id": 1})
-
-# ❌ 错误：字符串拼接
-logger.info(f"用户 {user_id} 操作成功")
-```
-
-## 🐛 常见问题
-
-### Q1: 如何添加新的配置项？
-**A**: 在 `config/schema/` 的相应 `_registry_*.py` 中注册 `ConfigField`，并提供默认值。
-
-### Q2: 如何自定义异常？
-**A**: 继承 `BusinessException` 基类，定义新的异常类型。
-
-### Q3: 如何定义新的接口？
-**A**: 在 `protocols/` 目录下用 `Protocol` 定义接口，再由 `interfaces/__init__.py` 统一对外导出。
-
-## 📈 性能优化
-
-- ✅ 使用缓存减少数据库查询
-- ✅ 使用连接池复用数据库连接
-- ✅ 使用异步任务处理耗时操作
-- ✅ 使用 CDN 加速静态资源
-- ✅ 使用索引优化数据库查询
-
-## 🔐 安全考虑
-
-- ✅ 敏感配置使用环境变量
-- ✅ 密码加密存储
-- ✅ API 限流防止滥用
-- ✅ 日志脱敏处理
-- ✅ HTTPS 加密传输
-
-## 🔄 版本历史
-
-- **v1.0.0** (2024-01): 初始版本
-- **v1.1.0** (2024-03): 添加性能监控
-- **v1.2.0** (2024-06): 添加健康检查
-- **v1.3.0** (2024-09): 添加 API 限流
