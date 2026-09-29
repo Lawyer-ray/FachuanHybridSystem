@@ -30,13 +30,13 @@ dependencies = [
     "aiofiles>=24.1.0",
     # --- LLM / AI ---
     "openai>=2.53.0",
-    "huggingface-hub>=1.0.0",
+    "huggingface-hub>=2.0.0",  # v2 移除 resume_download 参数（本项目未使用，安全）
     # --- 文档处理 ---
     "docxtpl==0.20.2",
     "python-docx==1.2.0",
     "reportlab==5.0.1",
     "pdfplumber==0.11.10",
-    "pikepdf==10.13.0.post1",
+    "pikepdf==10.15.0",
     "pymupdf==1.28.2",
     "openpyxl==3.1.5",
     "xlrd>=2.0.1",
@@ -77,7 +77,9 @@ dependencies = [
     "markdown>=3.10.3",
     "weasyprint==70.0",
     # --- MCP Server ---
-    "mcp[cli]>=1.27.0",
+    # 锁 <2：mcp 2.0 为协议级变更（stateless spec、FastMCP→MCPServer 重命名），
+    # mcp_server/ 与 mcp_tool_client.py 的 ClientSession 用法需专项迁移后才能升
+    "mcp[cli]>=1.27.0,<2",
     "gmssl==3.2.2",
     "daphne>=4.2.3",
     "python-multipart==0.0.32",
@@ -101,8 +103,8 @@ dependencies = [
 dev = [
     # --- 代码格式化 ---
     "black==26.5.1",
-    "isort==9.0.1",
-    "ruff==0.16.8",
+    "isort==9.0.2",
+    "ruff==0.16.9",
     # --- 类型检查 ---
     "mypy==2.3.1",
     "django-stubs==6.1.1",
@@ -124,7 +126,7 @@ test = [
     "pytest-xdist==3.8.0",
     "pytest-timeout==2.4.0",
     # --- Property-Based Testing ---
-    "hypothesis==6.168.0",
+    "hypothesis==6.168.3",
     # --- 测试工厂 ---
     "factory-boy==3.3.3",
     # --- Temporal workflow 测试 ---
