@@ -11,6 +11,9 @@ from ninja import File, Router, UploadedFile
 
 from apps.core.security.auth import JWTOrSessionAuth
 from apps.document_parsing.schemas.parsing_schemas import (
+    DocumentParsingRecordDetailOut,
+    DocumentParsingRecordListOut,
+    DocumentParsingRecordOut,
     ExtractTextRequest,
     ExtractTextResponse,
     ParseDocumentRequest,
@@ -124,7 +127,18 @@ async def parse_document(
         # 在 async 视图中必须通过 sync_to_async 调用,否则触发 SynchronousOnlyOperation
         if await sync_to_async(_needs_async, thread_sensitive=False)(backend):
             from apps.core.tasking import submit_task
+            from apps.document_parsing.models import DocumentParsingTask
 
+            # 与 admin upload_view 同款模式：建 DocumentParsingTask 记录 + 约定的
+            # task_name（document_parsing_{id}），document_parsing_hook 才能把
+            # 成功/失败状态回写——前端报错文案引导用户去后台「解析任务」查看，
+            # 没有这条记录那里就什么都看不到（此前 task_name 用文件名，hook 全部跳过）。
+            parsing_task = await sync_to_async(DocumentParsingTask.objects.create, thread_sensitive=False)(
+                file_name=file_name,
+                file_path=str(file_path),
+                file_size=file.size,
+                status=DocumentParsingTask.Status.PROCESSING,
+            )
             task_id = await sync_to_async(submit_task, thread_sensitive=False)(
                 "apps.document_parsing.tasks.execute_parse_document",
                 str(file_path),
@@ -133,7 +147,7 @@ async def parse_document(
                 extract_tables,
                 extract_images,
                 return_markdown,
-                task_name=f"parse_document_{saved_name}",
+                task_name=f"document_parsing_{parsing_task.id}",
                 hook="apps.document_parsing.tasks.document_parsing_hook",
                 timeout=600,
             )
@@ -271,3 +285,45 @@ def get_task_status(request: HttpRequest, task_id: str) -> TaskStatusResponse:
         started_at=info["started_at"],
         finished_at=info["finished_at"],
     )
+
+
+# ---------------------------------------------------------------------------
+# GET /records — 历史解析记录（列表 + 详情）
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/records",
+    response=DocumentParsingRecordListOut,
+    summary="历史解析记录列表",
+    auth=JWTOrSessionAuth(),
+)
+def list_records(
+    request: HttpRequest, status: str | None = None, page: int = 1, page_size: int = 20
+) -> DocumentParsingRecordListOut:
+    """分页列出历史解析记录（最新在前），供前端历史弹窗浏览。
+
+    status 可选值：pending / processing / completed / failed。
+    """
+    from apps.document_parsing.services.record_service import DocumentParsingRecordService
+
+    items, count, num_pages = DocumentParsingRecordService().list_records(status=status, page=page, page_size=page_size)
+    return DocumentParsingRecordListOut(
+        items=[DocumentParsingRecordOut(**item) for item in items],
+        count=count,
+        page=page,
+        num_pages=num_pages,
+    )
+
+
+@router.get(
+    "/records/{record_id}",
+    response=DocumentParsingRecordDetailOut,
+    summary="解析记录详情",
+    auth=JWTOrSessionAuth(),
+)
+def get_record(request: HttpRequest, record_id: int) -> DocumentParsingRecordDetailOut:
+    """按记录 id 取解析全文（text / markdown / metadata），历史点开查看用。"""
+    from apps.document_parsing.services.record_service import DocumentParsingRecordService
+
+    return DocumentParsingRecordDetailOut(**DocumentParsingRecordService().get_record(record_id))

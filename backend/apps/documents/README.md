@@ -1,44 +1,53 @@
-# 📄 文书模块 (Documents)
+# 📄 文书模块（documents）
 
-文书模块负责文书模板管理、占位符渲染、证据材料处理与导出、文件夹模板/目录结构规则，以及面向案件/合同/诉讼场景的文书生成流水线。
+文书模板 / 文件夹模板 / 占位符体系管理 + 多场景生成流水线（合同、诉讼文书、授权委托材料、财产保全材料、案件模板下载、外部模板批量填充）。
 
-## 📚 模块概述
+> 证据清单（EvidenceList/EvidenceItem）模型已迁出到 `apps.evidence`，本 app 仅保留兼容层（`models/__init__.py` 延迟转发、`tasks.py` 转发到 evidence 的任务）。`PromptVersion` 模型已删除。
 
-本模块提供：
-- 文书模板与文件夹模板管理（Admin + API）
-- 占位符体系（placeholder registry、提取、渲染、使用统计）
-- 证据材料管理、合并、导出与清单生成
-- 生成流水线：上下文构建 → 模板匹配 → 渲染 → 打包 → 输出存储
-- Prompt 版本与文书生成任务编排（部分与 LLM/诉讼文书链路协作）
+## 功能概述
 
-## 📁 目录结构（简要）
+- 文书模板 / 文件夹模板 / 绑定关系管理（`complete_defaults.json` 是初始化默认模板唯一数据源，Admin 修改后需同步导出）
+- 占位符体系：七大类（basic/case/contract/litigation/party/lawyer/supplementary/authorization_materials/archive）+ registry/fallback/context_builder；代码占位符自动发现（code_placeholders/autodiscover）
+- 生成流水线：上下文构建 → 模板匹配 → 渲染 → 打包 → 预览 → 命名（`generation/pipeline/`）
+- 诉讼文书 LLM 生成（`generation/litigation_llm_generator.py`）与模板流水线并存
+- 授权委托材料 / 财产保全材料 / 补充协议生成
+- 外部模板体系：指纹 / 匹配 / 分析 / 填充 + 批量填充任务（BatchFillTask / FillRecord）
+- 委托事项规则（ProxyMatterRule）、判决书 PDF 提取器（judgment_pdf_extractor）、smart_fill、PDF 合并 infrastructure
+
+## 目录结构
 
 ```
 documents/
-├── api/                # Ninja API：模板/生成/证据/占位符/文件夹模板
-├── admin/              # Django Admin：模板、证据、占位符、审计日志等
-├── models/             # 模型：template/evidence/generation/placeholder/prompt_version...
-├── services/           # 业务服务：模板、证据、文件夹模板、生成流水线、占位符
-├── usecases/           # 用例编排（例如 folder_template）
-├── presenters/         # 展示层辅助（例如模板名呈现）
-├── management/commands # 初始化与修复命令
-└── docx_templates/     # 内置 docx 模板资源（含示例与默认模板）
+├── api/                # 9 个 router 挂 /documents 下：document、folder_template、placeholder、
+│                       #   generation、litigation_generation、authorization_material、
+│                       #   preservation_materials、case_template_download + /documents/external-templates
+├── admin/              # 实际注册 6 个：DocumentTemplate、FolderTemplate、FolderBinding、
+│                       #   ProxyMatterRule、ExternalTemplate、PlaceholderOverview
+├── models/             # FolderTemplate、DocumentTemplate、DocumentTemplateFolderBinding、Placeholder、
+│                       #   PlaceholderOverview、TemplateAuditLog、GenerationTask、GenerationConfig、
+│                       #   ProxyMatterRule、ExternalTemplate、ExternalTemplateFieldMapping、
+│                       #   BatchFillTask、FillRecord
+├── services/           # document_template/、template/、folder_template/、placeholders/、code_placeholders/、
+│                       #   generation/（各场景 service + pipeline + generators + prompts）、
+│                       #   external_template/、smart_fill/、infrastructure/（PDF 合并）、extractors/
+├── usecases/ + presenters/
+├── management/commands # init_document_system、init_folder_templates、fix_folder_template_ids
+└── docx_templates/     # 内置模板（0-用户自定义模板/1-合同模板/2-案件材料/3-归档模板 四个分类目录）
 ```
 
-## 🔑 核心入口
+## 生成流水线
 
-- API
-  - `api/document_api.py`、`api/generation_api.py`、`api/evidence_api.py`、`api/placeholder_api.py`
-- 模板与占位符
-  - `services/document_template/*`、`services/placeholders/*`、`services/template_matching_service.py`
-- 生成流水线
-  - `services/generation/pipeline/*`、`services/generation/*_generation_service.py`
-- 证据与导出
-  - `services/evidence/*`、`services/evidence_export_service.py`
+```
+上下文构建（context_builder，含案件/合同/当事人/律师/占位符 fallback）
+  → 模板匹配（services/template/template_matching_service.py）
+  → 渲染（renderer，docxtpl）
+  → 打包 / 预览 / 命名（packager / preview / naming）
+```
 
-## 🧪 测试建议
+## 默认模板数据同步
 
-- 生成链路：优先对 context_builder/template_matcher/renderer 做单元测试（不依赖外部网络）  
-- 占位符：对 registry 与 placeholder service 的输入输出做属性测试，保证幂等与可序列化  
-- 证据导出：对合并/导出流程做最小回归测试（文件 IO 可使用临时目录）
+`services/document_template/complete_defaults.json` 由 `init_service.initialize_default_templates()` 消费。在 Admin 修改模板 / 文件夹 / 绑定后，需运行导出脚本（backend/scripts/export_template_defaults.py，本地工具）同步回 JSON，否则新环境初始化会用旧配置。
 
+## 依赖模块
+
+- `apps.core`（PDF 服务、占位符服务、LLM）、`apps.cases`、`apps.contracts`、`apps.client`、`apps.organization`、`apps.evidence`（兼容层）

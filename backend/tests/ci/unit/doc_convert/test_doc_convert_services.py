@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import MagicMock
 
-from apps.doc_convert.exceptions import InvalidFileTypeError, InvalidMbidError, FileTooLargeError
+import pytest
+
+from apps.doc_convert.exceptions import FileTooLargeError, InvalidFileTypeError, InvalidMbidError
 
 
 class TestDocConvertServiceConvertDocument:
     def _make_service(self, client=None):
         from apps.doc_convert.services.doc_convert_service import DocConvertService
+
         return DocConvertService(znszj_client=client or MagicMock())
 
     def test_invalid_extension_raises(self):
@@ -25,8 +27,9 @@ class TestDocConvertServiceConvertDocument:
 
     def test_too_large_raises(self):
         svc = self._make_service()
-        from apps.doc_convert.services.doc_convert_service import MAX_FILE_SIZE_BYTES
         from apps.doc_convert.constants import get_mbid_set
+        from apps.doc_convert.services.doc_convert_service import MAX_FILE_SIZE_BYTES
+
         valid_mbids = get_mbid_set()
         if not valid_mbids:
             pytest.skip("No valid mbids available")
@@ -37,6 +40,7 @@ class TestDocConvertServiceConvertDocument:
 
     def test_valid_conversion(self):
         from apps.doc_convert.constants import get_mbid_set
+
         valid_mbids = get_mbid_set()
         if not valid_mbids:
             pytest.skip("No valid mbids available")

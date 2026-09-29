@@ -17,10 +17,13 @@ from ninja import Form, Router
 from ninja.pagination import PageNumberPagination, paginate
 
 from apps.automation.schemas import (
+    CourtSMSAbortOut,
     CourtSMSAssignCaseIn,
     CourtSMSAssignCaseOut,
     CourtSMSBatchDeleteIn,
     CourtSMSBatchDeleteOut,
+    CourtSMSCopyDocsIn,
+    CourtSMSCopyDocsOut,
     CourtSMSDetailOut,
     CourtSMSListOut,
     CourtSMSSubmitIn,
@@ -88,8 +91,9 @@ async def get_sms_detail(request: Any, sms_id: int) -> CourtSMSDetailOut:  # pra
     service = _get_court_sms_service()
 
     sms = await sync_to_async(service.get_sms_detail)(sms_id)
-
-    return CourtSMSDetailOut.from_model(sms)
+    # from_model 内的文书引用聚合会对关联做懒加载查询 + 文件系统 I/O，
+    # 必须丢进线程执行，否则在 async 视图里抛 SynchronousOnlyOperation
+    return await sync_to_async(CourtSMSDetailOut.from_model)(sms)
 
 
 @router.get("/court-sms", response=list[CourtSMSListOut])
@@ -97,6 +101,7 @@ async def get_sms_detail(request: Any, sms_id: int) -> CourtSMSDetailOut:  # pra
 async def list_sms(  # pragma: no cover
     request: Any,
     status: str | None = None,
+    status_group: str | None = None,
     sms_type: str | None = None,
     has_case: bool | None = None,
     date_from: datetime | None = None,
@@ -105,16 +110,22 @@ async def list_sms(  # pragma: no cover
     """
     查询短信列表
 
-    支持按状态、类型、是否关联案件、日期范围筛选
+    支持按状态、类型、是否关联案件、日期范围筛选；
+    status_group 为前端状态组视图（needs_action / completed），优先于 status。
     """
     service = _get_court_sms_service()
 
     @sync_to_async
     def _list() -> list[CourtSMSListOut]:
         sms_qs = service.list_sms(
-            status=status, sms_type=sms_type, has_case=has_case, date_from=date_from, date_to=date_to
+            status=status,
+            status_group=status_group,
+            sms_type=sms_type,
+            has_case=has_case,
+            date_from=date_from,
+            date_to=date_to,
         )
-        return [CourtSMSListOut.from_model(sms) for sms in sms_qs]
+        return [CourtSMSListOut.from_model(s) for s in sms_qs]
 
     return await _list()
 
@@ -125,7 +136,9 @@ async def list_sms(  # pragma: no cover
 
 
 @router.post("/court-sms/{sms_id}/assign-case", response=CourtSMSAssignCaseOut)
-async def assign_case(request: Any, sms_id: int, payload: CourtSMSAssignCaseIn) -> CourtSMSAssignCaseOut:  # pragma: no cover
+async def assign_case(
+    request: Any, sms_id: int, payload: CourtSMSAssignCaseIn
+) -> CourtSMSAssignCaseOut:  # pragma: no cover
     """
     手动指定案件
 
@@ -187,6 +200,25 @@ async def batch_delete_sms(request: Any, payload: CourtSMSBatchDeleteIn) -> Cour
 
 
 # ============================================================================
+# 终止任务接口
+# ============================================================================
+
+
+@router.post("/court-sms/{sms_id}/abort-and-delete", response=CourtSMSAbortOut)
+async def abort_and_delete_sms(request: Any, sms_id: int) -> CourtSMSAbortOut:  # pragma: no cover
+    """终止并彻底删除短信处理任务。
+
+    清理 Django-Q 中该短信的重试调度与排队任务（含爬虫下载任务的退避重试），
+    删除短信记录与归属的下载任务（下载原件随信号清理；已归档到案件日志的
+    复制件不受影响）。用于任务卡住/反复失败时由用户主动放弃。
+    """
+    from apps.automation.services.sms.court_sms_abort_service import CourtSmsAbortService
+
+    summary = await sync_to_async(CourtSmsAbortService().abort_and_delete)(sms_id)
+    return CourtSMSAbortOut(success=True, data=summary)
+
+
+# ============================================================================
 # 文书下载接口
 # ============================================================================
 
@@ -211,6 +243,41 @@ async def download_document(request: Any, sms_id: int, ref_index: int) -> FileRe
 
     file_obj = await asyncio.to_thread(file_path.open, "rb")
     return FileResponse(file_obj, as_attachment=True, filename=file_path.name)
+
+
+@router.post("/court-sms/{sms_id}/documents/copy-to-clipboard", response=CourtSMSCopyDocsOut)
+async def copy_documents_to_clipboard(  # pragma: no cover
+    request: Any, sms_id: int, payload: CourtSMSCopyDocsIn
+) -> CourtSMSCopyDocsOut:
+    """复制关联文书到**系统**剪贴板（同 Finder ⌘C，微信可直接 ⌘V 粘贴文件）。
+
+    浏览器自身写不了文件类剪贴板（W3C 只保证 text/html、text/plain、image/png），
+    后端与律师同机时由 NSPasteboard 直接落板；非 macOS 后端返回 unsupported，
+    前端再降级浏览器剪贴板（Safari 可用）。
+    """
+    from apps.core.services.mac_clipboard_service import MacClipboardFileService
+
+    clipboard = MacClipboardFileService()
+    if not clipboard.is_available():
+        return CourtSMSCopyDocsOut(success=False, copied=0, reason="unsupported")
+
+    from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
+    from apps.automation.services.sms.court_sms_repository import CourtSMSRepository
+
+    sms = await sync_to_async(CourtSMSRepository().get_by_id_or_none)(sms_id=sms_id)
+    if sms is None:
+        raise Http404("短信记录不存在")
+
+    references = await sync_to_async(CourtSMSDocumentReferenceService().collect)(sms)
+    valid_indexes = [i for i in payload.indexes if 0 <= i < len(references)]
+    if not valid_indexes:
+        return CourtSMSCopyDocsOut(success=False, copied=0, reason="没有可复制的文书文件")
+
+    paths = [Path(references[i].file_path) for i in valid_indexes]
+    copied = await sync_to_async(clipboard.copy_file_paths)(paths)
+    if copied == 0:
+        return CourtSMSCopyDocsOut(success=False, copied=0, reason="文书文件不存在或写入剪贴板失败")
+    return CourtSMSCopyDocsOut(success=True, copied=copied, reason=None)
 
 
 @router.get("/court-sms/{sms_id}/documents/download-all")
@@ -254,7 +321,9 @@ async def download_all_documents(request: Any, sms_id: int) -> FileResponse:  # 
 
 
 @router.post("/court-sms/{sms_id}/documents/{ref_index}/rename")
-async def rename_document(request: Any, sms_id: int, ref_index: int, payload: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover
+async def rename_document(
+    request: Any, sms_id: int, ref_index: int, payload: dict[str, Any]
+) -> dict[str, Any]:  # pragma: no cover
     """重命名单个关联文书"""
     from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
     from apps.automation.services.sms.court_sms_repository import CourtSMSRepository

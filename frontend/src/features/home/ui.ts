@@ -15,6 +15,10 @@ export const BTN_ICON =
 export const BTN_PRIMARY =
   'flex h-[32px] flex-none items-center justify-center gap-1.5 rounded-[8px] bg-foreground px-[14px] text-[12.5px] font-semibold text-background transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-45'
 
+/** 危险操作描边按钮（停止并删除任务等破坏性动作，配两段确认使用） */
+export const BTN_DANGER =
+  'flex h-[30px] flex-none items-center gap-1.5 rounded-[7px] border border-status-red/40 bg-status-red-bg px-[12px] text-[12.5px] font-medium text-status-red transition-colors hover:border-status-red/60 hover:bg-status-red/10 disabled:cursor-not-allowed disabled:opacity-45'
+
 /** 首页面板（白卡） */
 export const PANEL = 'rounded-[14px] border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,.02)]'
 

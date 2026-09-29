@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { PANEL } from '../ui'
 import { CourtSmsCard } from './tools/CourtSmsCard'
 import { DocConvertCard } from './tools/DocConvertCard'
@@ -12,6 +13,20 @@ import { DocParseCard } from './tools/DocParseCard'
  * 把原本只能进 admin 的上传解析搬到首页，律师不必为解析一份文书去登后台。
  */
 export function ToolDock() {
+  // 全局拦截文件拖放的浏览器默认行为：不接卡的角落拖文件会整页跳到文件预览
+  // （表现即「屏幕闪一下」）；卡片各自接管自己范围内的 drop
+  useEffect(() => {
+    const prevent = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes('Files')) e.preventDefault()
+    }
+    window.addEventListener('dragover', prevent)
+    window.addEventListener('drop', prevent)
+    return () => {
+      window.removeEventListener('dragover', prevent)
+      window.removeEventListener('drop', prevent)
+    }
+  }, [])
+
   return (
     <section className={`${PANEL} mt-5 px-4 pb-[18px]`}>
       <div className="flex items-center gap-2.5 py-[13px]">

@@ -391,9 +391,15 @@ class MineruBackend:
             # 结果文件服务偶发断开连接；只重试幂等的下载请求。
             response = None
             for attempt in range(1, self.RESULT_DOWNLOAD_ATTEMPTS + 1):
+                # 奇数轮按环境默认（可能走代理），偶数轮 trust_env=False 绕开代理直连：
+                # 结果存储 CDN 经代理隧道偶发 TLS 掐断（UNEXPECTED_EOF），直连可绕过；
+                # 必须经代理出网的环境则由奇数轮承担。两路交替保证至少各试一次。
+                trust_env = attempt % 2 == 1
                 try:
                     # 每次重试新建连接池，避免复用已经被对象存储关闭的 TLS keep-alive 连接。
-                    with httpx.Client(timeout=max(self.timeout, 60), follow_redirects=True) as download_client:
+                    with httpx.Client(
+                        timeout=max(self.timeout, 60), follow_redirects=True, trust_env=trust_env
+                    ) as download_client:
                         response = download_client.get(zip_url)
                         response.raise_for_status()
                     break
@@ -401,7 +407,8 @@ class MineruBackend:
                     if attempt == self.RESULT_DOWNLOAD_ATTEMPTS:
                         raise
                     logger.warning(
-                        "MinerU 结果下载失败，准备重试 (%d/%d)",
+                        "MinerU 结果下载失败（trust_env=%s），准备重试 (%d/%d)",
+                        trust_env,
                         attempt,
                         self.RESULT_DOWNLOAD_ATTEMPTS,
                     )

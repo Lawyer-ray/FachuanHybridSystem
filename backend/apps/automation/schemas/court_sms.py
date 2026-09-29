@@ -73,6 +73,10 @@ class CourtSMSDetailOut(BaseModel):
     error_message: str | None = Field(None, description="错误信息")
     retry_count: int = Field(..., description="重试次数")
 
+    # 下载子任务状态（downloading 卡住时，ScraperTask 层的重试/报错比 SMS 早知道）
+    download_task_status: str | None = Field(None, description="下载子任务状态（ScraperTask，无下载任务为 null）")
+    download_task_error: str | None = Field(None, description="下载子任务最近一次错误信息")
+
     # 关联信息
     case: dict[str, Any] | None = Field(None, description="关联案件信息")
     documents: list[dict[str, Any]] = Field(default_factory=list, description="关联文书列表")
@@ -101,6 +105,8 @@ class CourtSMSDetailOut(BaseModel):
             status=obj.status,
             error_message=obj.error_message,
             retry_count=obj.retry_count,
+            download_task_status=obj.scraper_task.status if obj.scraper_task else None,
+            download_task_error=obj.scraper_task.error_message if obj.scraper_task else None,
             case={"id": obj.case.id, "name": obj.case.name} if obj.case else None,
             documents=[
                 {
@@ -185,6 +191,35 @@ class CourtSMSBatchDeleteOut(BaseModel):
     """批量删除短信响应"""
 
     deleted: int = Field(..., description="删除数量")
+
+
+class CourtSMSAbortOut(BaseModel):
+    """终止并删除短信任务响应"""
+
+    success: bool = Field(..., description="是否成功")
+    data: dict[str, Any] = Field(..., description="清理摘要（删除的调度/队列任务数量等）")
+
+    class Config:
+        json_schema_extra: ClassVar = {
+            "example": {
+                "success": True,
+                "data": {"id": 123, "removed_schedules": 1, "removed_queued_tasks": 2, "scraper_task_deleted": True},
+            }
+        }
+
+
+class CourtSMSCopyDocsIn(BaseModel):
+    """复制文书到系统剪贴板请求"""
+
+    indexes: list[int] = Field(..., min_length=1, description="要复制的文书引用下标列表（详情 documents 数组的下标）")
+
+
+class CourtSMSCopyDocsOut(BaseModel):
+    """复制文书到系统剪贴板响应"""
+
+    success: bool = Field(..., description="是否成功")
+    copied: int = Field(0, description="实际落板的文件数")
+    reason: str | None = Field(None, description="失败原因（unsupported = 后端非 macOS，前端可走浏览器剪贴板降级）")
 
 
 class CourtSMSAssignCaseIn(BaseModel):

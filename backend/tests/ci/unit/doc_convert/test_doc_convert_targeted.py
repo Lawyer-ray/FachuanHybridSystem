@@ -1,4 +1,5 @@
 """Targeted tests for doc_convert module to push coverage to 80%+."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -7,6 +8,7 @@ import pytest
 
 try:
     from plugins import has_doc_convert_plugin  # type: ignore[import-untyped]
+
     _HAS_DOC_CONVERT = has_doc_convert_plugin()
 except ImportError:
     _HAS_DOC_CONVERT = False

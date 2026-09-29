@@ -1,5 +1,6 @@
 """文档解析 API Schema"""
 
+from datetime import datetime
 from typing import Any
 
 from ninja import Schema
@@ -99,5 +100,48 @@ class TaskStatusResponse(Schema):
     started_at: str | None = None
     """开始时间"""
 
-    finished_at: str | None = None
+    finished_at: datetime | None = None
     """完成时间"""
+
+
+class DocumentParsingRecordOut(Schema):
+    """解析记录列表项（历史弹窗用，不含全文）"""
+
+    id: int
+    status: str
+    """pending / processing / completed / failed"""
+
+    file_name: str
+    file_size: int
+    backend_used: str | None = None
+    error_message: str | None = None
+    text_preview: str
+    """正文前 100 字，列表速览用"""
+
+    created_at: datetime | None = None
+    completed_at: datetime | None = None
+
+
+class DocumentParsingRecordDetailOut(Schema):
+    """解析记录详情（点开历史项查看全文）"""
+
+    id: int
+    status: str
+    file_name: str
+    file_size: int
+    backend_used: str | None = None
+    error_message: str | None = None
+    text: str
+    markdown: str | None = None
+    metadata: dict[str, Any] | None = None
+    created_at: datetime | None = None
+    completed_at: datetime | None = None
+
+
+class DocumentParsingRecordListOut(Schema):
+    """解析记录分页响应"""
+
+    items: list[DocumentParsingRecordOut]
+    count: int
+    page: int
+    num_pages: int

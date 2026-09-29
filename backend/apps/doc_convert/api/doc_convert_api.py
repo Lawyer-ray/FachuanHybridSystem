@@ -4,17 +4,21 @@ from __future__ import annotations
 
 import logging
 import urllib.parse
+from datetime import datetime
 from typing import Any
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
-from django.http import HttpRequest, HttpResponse
+from django.http import FileResponse, HttpRequest, HttpResponse
 from ninja import File, Form, Router, Schema
 from ninja.files import UploadedFile
 
+from apps.core.exceptions import NotFoundError
 from apps.doc_convert.constants import MbidDefinition
 from apps.doc_convert.exceptions import ZnszjDisabledError, ZnszjNotConfiguredError
+from apps.doc_convert.models import DocConvertRecord
 from apps.doc_convert.services.doc_convert_service import DocConvertService
+from apps.doc_convert.services.record_service import DocConvertRecordService
 from apps.doc_convert.services.znszj_loader import get_znszj_client
 
 logger = logging.getLogger(__name__)
@@ -44,6 +48,32 @@ class MbidListResponse(Schema):
     """文书类型列表响应。"""
 
     categories: list[MbidCategoryOut]
+
+
+class DocConvertRecordOut(Schema):
+    """要素式转换记录列表项。"""
+
+    id: int
+    original_name: str
+    mbid: str
+    mbid_name: str
+    status: str
+    """success / failed"""
+
+    error_message: str | None = None
+    has_file: bool
+    """成功记录才有产物文件可下载"""
+
+    created_at: datetime | None = None
+
+
+class DocConvertRecordListOut(Schema):
+    """要素式转换记录分页响应。"""
+
+    items: list[DocConvertRecordOut]
+    count: int
+    page: int
+    num_pages: int
 
 
 # ──────────────────────────────────────────────
@@ -107,23 +137,32 @@ async def convert_document(  # pragma: no cover
     - file: .docx/.doc/.pdf 文件，最大 20MB
     - mbid: 文书类型标识符（参见 /mbid-list）
 
-    需要 ZNSZJ_ENABLED=True。
+    需要 ZNSZJ_ENABLED=True。每次转换会落一条历史记录（含产物文件），
+    供 /records 历史弹窗重新下载。
     """
     _file = file
     _mbid = mbid
+    _user = getattr(request, "user", None)
 
     def _do_convert() -> HttpResponse:
         _check_znszj_enabled()
         service = _get_doc_convert_service()
+        records = DocConvertRecordService()
 
         file_content = _file.read()
         filename = _file.name or "document.docx"
 
-        result_bytes = service.convert_document(
-            file_content=file_content,
-            filename=filename,
-            mbid=_mbid,
-        )
+        try:
+            result_bytes = service.convert_document(
+                file_content=file_content,
+                filename=filename,
+                mbid=_mbid,
+            )
+        except Exception as exc:
+            records.record_failure(original_name=filename, mbid=_mbid, error_message=str(exc), created_by=_user)
+            raise
+
+        records.record_success(original_name=filename, mbid=_mbid, content=result_bytes, created_by=_user)
 
         # 构造下载文件名
         encoded_name = urllib.parse.quote("要素式文书.docx", safe="")
@@ -135,3 +174,49 @@ async def convert_document(  # pragma: no cover
         return response
 
     return await sync_to_async(_do_convert, thread_sensitive=False)()
+
+
+# ──────────────────────────────────────────────
+# 历史记录
+# ──────────────────────────────────────────────
+
+
+@router.get("/records", response=DocConvertRecordListOut, summary="要素式转换历史记录")
+def list_convert_records(  # pragma: no cover
+    request: HttpRequest, status: str | None = None, page: int = 1, page_size: int = 20
+) -> DocConvertRecordListOut:
+    """分页列出历史转换记录（最新在前），供前端历史弹窗浏览与重新下载。"""
+    items, count, num_pages = DocConvertRecordService().list_records(status=status, page=page, page_size=page_size)
+    return DocConvertRecordListOut(
+        items=[DocConvertRecordOut(**item) for item in items],
+        count=count,
+        page=page,
+        num_pages=num_pages,
+    )
+
+
+@router.get("/records/{record_id}/download", summary="下载历史转换产物")
+def download_convert_record(request: HttpRequest, record_id: int) -> FileResponse:  # pragma: no cover
+    """重新下载某次要素式转换的产物 docx。"""
+    record = DocConvertRecordService().get_record(record_id)
+    if record.status != DocConvertRecord.Status.SUCCESS or not record.output_file:
+        raise NotFoundError(
+            message="该记录没有可下载的产物（转换失败或文件已清理）",
+            code="DOC_CONVERT_RECORD_NO_FILE",
+        )
+
+    stem = record.original_name.rsplit(".", 1)[0] if "." in record.original_name else record.original_name
+    return FileResponse(
+        record.output_file.open("rb"),
+        as_attachment=True,
+        filename=f"{stem}-要素式.docx",
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
+
+@router.delete("/records/{record_id}", summary="删除转换记录")
+def delete_convert_record(request: HttpRequest, record_id: int) -> dict[str, str]:  # pragma: no cover
+    """删除单条转换记录（产物文件随信号清理）。"""
+    record = DocConvertRecordService().get_record(record_id)
+    record.delete()
+    return {"status": "deleted"}

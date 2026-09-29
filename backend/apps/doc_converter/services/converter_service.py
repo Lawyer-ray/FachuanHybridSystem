@@ -82,6 +82,21 @@ class DocConverterService:
         except DocConverterJob.DoesNotExist:
             raise NotFoundError(message="转换任务不存在", code="DOC_CONVERTER_JOB_NOT_FOUND", errors={}) from None
 
+    def list_jobs(
+        self, *, page: int = 1, page_size: int = 20
+    ) -> tuple[list[DocConverterJob], int, int]:  # pragma: no cover
+        """历史任务分页（最新在前），供前端历史弹窗浏览与重新下载。
+
+        Returns:
+            (当前页任务列表, 总数, 总页数)
+        """
+        from django.core.paginator import Paginator
+
+        safe_size = max(1, min(page_size, 50))
+        paginator = Paginator(DocConverterJob.objects.all().order_by("-created_at"), safe_size)
+        page_obj = paginator.get_page(page)
+        return list(page_obj.object_list), paginator.count, paginator.num_pages
+
     def get_job_progress(self, job_id: uuid.UUID) -> tuple[DocConverterJob, list[DocConverterItem]]:
         job = self.get_job(job_id)
         items = list(job.items.all())

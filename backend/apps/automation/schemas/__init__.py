@@ -11,10 +11,13 @@ from .court_document import APIInterceptResponseSchema, CourtDocumentSchema
 
 # Court SMS
 from .court_sms import (
+    CourtSMSAbortOut,
     CourtSMSAssignCaseIn,
     CourtSMSAssignCaseOut,
     CourtSMSBatchDeleteIn,
     CourtSMSBatchDeleteOut,
+    CourtSMSCopyDocsIn,
+    CourtSMSCopyDocsOut,
     CourtSMSDetailOut,
     CourtSMSListOut,
     CourtSMSSubmitIn,
@@ -80,6 +83,9 @@ _schema_all = [
     "CourtSMSAssignCaseOut",
     "CourtSMSBatchDeleteIn",
     "CourtSMSBatchDeleteOut",
+    "CourtSMSAbortOut",
+    "CourtSMSCopyDocsIn",
+    "CourtSMSCopyDocsOut",
     # Document Delivery
 ]
 

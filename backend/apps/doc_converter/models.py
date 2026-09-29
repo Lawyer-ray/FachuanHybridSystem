@@ -43,7 +43,9 @@ class DocConverterJob(models.Model):
     progress = models.PositiveIntegerField("进度(0-100)", default=0)
     cancel_requested = models.BooleanField("请求取消", default=False)
     task_id = models.CharField("Django Q2 任务ID", max_length=255, blank=True, default="")
-    output_zip = models.FileField("结果ZIP", upload_to=DatedUUIDPath(MediaEntity.DOC_CONVERTER_ZIP), blank=True, default="")
+    output_zip = models.FileField(
+        "结果ZIP", upload_to=DatedUUIDPath(MediaEntity.DOC_CONVERTER_ZIP), blank=True, default=""
+    )
     error_message = models.TextField(blank=True, default="", verbose_name="错误信息")
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

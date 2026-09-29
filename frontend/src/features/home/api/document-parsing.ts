@@ -121,3 +121,42 @@ export async function getParseTaskTask(taskId: string): Promise<ParseTaskStatus>
   const outcome = raw && typeof raw === 'object' ? toOutcome(raw as Record<string, unknown>) : null
   return { taskId: String(res.task_id ?? taskId), status: status as ParseTaskStatus['status'], outcome }
 }
+
+// ---------------------------------------------------------------------------
+// 历史解析记录（DocumentParsingTask 落库记录，云端异步解析才有）
+// ---------------------------------------------------------------------------
+
+/** 历史记录列表项（不含全文，列表速览用） */
+export interface ParseRecordItem {
+  id: number
+  status: string
+  file_name: string
+  file_size: number
+  backend_used: string | null
+  error_message: string | null
+  text_preview: string
+  created_at: string
+  completed_at: string | null
+}
+
+/** 历史记录详情（含全文） */
+export interface ParseRecordDetail extends ParseRecordItem {
+  text: string
+  markdown: string | null
+  metadata: Record<string, unknown>
+}
+
+/** 分页列出历史解析记录（最新在前）；status 可筛 pending/processing/completed/failed */
+export async function listParseRecords(
+  status?: string,
+  page = 1,
+): Promise<{ items: ParseRecordItem[]; count: number; page: number; num_pages: number }> {
+  return documentParsingApi
+    .get('records', { searchParams: { ...(status ? { status } : {}), page: String(page) } })
+    .json<{ items: ParseRecordItem[]; count: number; page: number; num_pages: number }>()
+}
+
+/** 按 id 取解析全文（历史点开查看用） */
+export async function getParseRecord(recordId: number): Promise<ParseRecordDetail> {
+  return documentParsingApi.get(`records/${recordId}`).json<ParseRecordDetail>()
+}

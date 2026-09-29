@@ -48,7 +48,9 @@ class DocConverterJobAdmin(admin.ModelAdmin):  # pragma: no cover
 class DocConverterToolAdmin(admin.ModelAdmin):  # pragma: no cover
     """DOC 转 DOCX 工作台"""
 
-    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:  # pragma: no cover
+    def changelist_view(
+        self, request: HttpRequest, extra_context: dict[str, Any] | None = None
+    ) -> HttpResponse:  # pragma: no cover
         context = {
             **self.admin_site.each_context(request),
             "title": "DOC 转 DOCX 工作台",
