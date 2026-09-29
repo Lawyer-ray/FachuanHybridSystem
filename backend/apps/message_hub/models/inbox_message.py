@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, ClassVar
 
 from django.conf import settings
+from django.contrib.postgres.indexes import GinIndex
 from django.db import models
 
 
@@ -61,6 +62,12 @@ class InboxMessage(models.Model):
         unique_together: ClassVar = [("source", "message_id")]
         indexes: ClassVar = [
             models.Index(fields=["source", "-received_at"]),
+            # 搜索路径 subject/sender/body_text 均为 icontains（全表扫），
+            # pg_trgm GIN 让 LIKE '%kw%' 走索引，消息量增长后保持搜索延迟稳定。
+            # 三列独立索引：OR 组合查询（Q(subject)|Q(sender)|Q(body)）可各取 bitmap 再合并。
+            GinIndex(fields=["subject"], name="inbox_msg_subject_trgm", opclasses=["gin_trgm_ops"]),
+            GinIndex(fields=["sender"], name="inbox_msg_sender_trgm", opclasses=["gin_trgm_ops"]),
+            GinIndex(fields=["body_text"], name="inbox_msg_body_trgm", opclasses=["gin_trgm_ops"]),
         ]
 
     def get_public_attachments_meta(self) -> list[dict[str, Any]]:

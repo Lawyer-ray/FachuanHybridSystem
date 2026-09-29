@@ -39,10 +39,31 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     ]
     change_form_template = "admin/invoice_recognition/invoicerecognitiontask/change_form.html"
 
+    def get_queryset(self, request: HttpRequest) -> Any:  # pragma: no cover
+        """列表页发票数/总金额走 annotate，替代 record_count / total_amount_display
+        每行各一次的 records.count() 与 service 聚合查询。"""
+        from django.db.models import Count, DecimalField, Q, Sum, Value
+        from django.db.models.functions import Coalesce
+
+        return (
+            super()
+            .get_queryset(request)
+            .annotate(
+                _record_count=Count("records", distinct=True),
+                _total_amount=Coalesce(
+                    Sum("records__total_amount", filter=Q(records__is_duplicate=False)),
+                    Value(0),
+                    output_field=DecimalField(),
+                ),
+            )
+        )
+
     def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return True
 
-    def has_change_permission(self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None) -> bool:  # pragma: no cover
+    def has_change_permission(
+        self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None
+    ) -> bool:  # pragma: no cover
         return True
 
     def get_fields(  # type: ignore[override]  # pragma: no cover
@@ -54,7 +75,9 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             return ["name"]
         return ["name", "status", "created_by", "created_at", "finished_at"]
 
-    def has_delete_permission(self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None) -> bool:  # pragma: no cover
+    def has_delete_permission(
+        self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None
+    ) -> bool:  # pragma: no cover
         return True
 
     def save_model(  # pragma: no cover
@@ -114,11 +137,15 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     status_display.short_description = _("状态")  # type: ignore[attr-defined]
 
     def record_count(self, obj: InvoiceRecognitionTask) -> int:  # pragma: no cover
-        return int(obj.records.count())
+        annotated = getattr(obj, "_record_count", None)
+        return int(annotated) if annotated is not None else int(obj.records.count())
 
     record_count.short_description = _("发票数量")  # type: ignore[attr-defined]
 
     def total_amount_display(self, obj: InvoiceRecognitionTask) -> str:  # pragma: no cover
+        annotated = getattr(obj, "_total_amount", None)
+        if annotated is not None:
+            return f"¥{annotated}"
         try:
             amount: Decimal = self._get_service().get_total_amount(obj.id)
             return f"¥{amount}"

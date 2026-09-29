@@ -22,7 +22,7 @@ dependencies = [
     "channels-redis==4.3.0",
     "valkey==6.1.1",
     # --- 数据库 ---
-    "psycopg[binary]==3.3.6",
+    "psycopg[binary,pool]==3.3.6",
     # --- HTTP 客户端 ---
     "httpx[http2]==0.28.1",
     "h2>=4.4.1",

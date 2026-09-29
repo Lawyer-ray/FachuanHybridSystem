@@ -54,9 +54,16 @@ class ArbitrationDocumentSourceAdmin(admin.ModelAdmin):
         ("上次爬取", {"fields": ("last_crawl_status", "last_crawl_at", "last_crawl_summary_display")}),
     )
 
+    def get_queryset(self, request: HttpRequest) -> Any:
+        """列表页文书数走 annotate，替代 document_count 列每行一次的 count()。"""
+        from django.db.models import Count
+
+        return super().get_queryset(request).annotate(_document_count=Count("documents"))
+
     @admin.display(description="文书数")
     def document_count(self, obj: ArbitrationDocumentSource) -> int:
-        return obj.documents.count()
+        annotated = getattr(obj, "_document_count", None)
+        return annotated if annotated is not None else obj.documents.count()
 
     @admin.display(description="上次爬取摘要")
     def last_crawl_summary_display(self, obj: ArbitrationDocumentSource) -> SafeString:

@@ -3,6 +3,7 @@ Django settings for apiSystem project.
 """
 
 import os
+import sys
 from pathlib import Path
 
 try:
@@ -244,6 +245,17 @@ elif DB_ENGINE in ("", "postgres", "postgresql", "django.db.backends.postgresql"
     except ValueError:
         _conn_max_age = _default_conn_max_age
 
+    # psycopg3 进程级连接池（Django 5.1+ OPTIONS["pool"]）。
+    # - 与 CONN_MAX_AGE 持久连接互斥：启用 pool 时强制 CONN_MAX_AGE=0（连接由池管理）。
+    # - 池是进程内共享的：线程型 ASGI worker 的所有请求线程复用同一组连接，
+    #   比「每线程 CONN_MAX_AGE 各持一条」省连接；但 max_size 会限制并发 DB 线程数。
+    # - 开关 DB_POOL：默认 dev(DEBUG) 开、生产关（生产的并发模型需按部署评估后再开），
+    #   显式 true/false 永远优先；pytest 下强制关（测试库每次重建，池会持有失效连接）。
+    _pool_env = (os.environ.get("DB_POOL", "") or "").strip().lower()
+    _use_pool = (_pool_env in ("true", "1", "yes")) or (_pool_env == "" and DEBUG)
+    if "pytest" in sys.modules:
+        _use_pool = False
+
     # 测试/开发环境下添加数据库超时，防止 flaky test 在 psycopg socket wait 中 hang 住
     # 导致 CI 60 分钟超时。statement_timeout 让长时间 SQL 自动失败，
     # idle_in_transaction_session_timeout 让持有事务不释放的连接自动取消。
@@ -254,6 +266,18 @@ elif DB_ENGINE in ("", "postgres", "postgresql", "django.db.backends.postgresql"
         _stmt_timeout = os.environ.get("DB_STATEMENT_TIMEOUT_MS", "120000")
         _pg_options["options"] = f"-c statement_timeout={_stmt_timeout} -c idle_in_transaction_session_timeout=60000"
 
+    if _use_pool:
+        try:
+            _pool_min = max(1, int(os.environ.get("DB_POOL_MIN", "2")))
+            _pool_max = max(_pool_min, int(os.environ.get("DB_POOL_MAX", "16")))
+        except ValueError:
+            _pool_min, _pool_max = 2, 16
+        # timeout：池满时 get() 的最长等待（psycopg_pool 默认 30s，实测会让第 9 个
+        # 并发借入者挂半分钟；收到 10s 快速暴露容量问题，由调用方重试/降级）。
+        # max_size 默认 16 覆盖 uvicorn threadpool 常见并发，生产开启时按部署调大。
+        _pg_options["pool"] = {"min_size": _pool_min, "max_size": _pool_max, "timeout": 10}
+        _conn_max_age = 0  # pool 接管连接生命周期，持久连接必须关闭
+
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -263,7 +287,7 @@ elif DB_ENGINE in ("", "postgres", "postgresql", "django.db.backends.postgresql"
             "HOST": _get_env_str("DB_HOST", "127.0.0.1"),
             "PORT": int(os.environ.get("DB_PORT", "5432") or "5432"),
             "CONN_MAX_AGE": _conn_max_age,
-            "CONN_HEALTH_CHECKS": True,
+            "CONN_HEALTH_CHECKS": not _use_pool,
             "OPTIONS": _pg_options,
         }
     }

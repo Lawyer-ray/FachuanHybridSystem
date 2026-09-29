@@ -81,7 +81,13 @@ class CaseLog(models.Model):
     def __str__(self) -> str:
         return f"{self.case_id}-{self.actor_id}-{self.created_at}"
 
-    def _exported_reminders(self) -> list[dict[str, Any]]:
+    def _exported_reminders(self) -> list[Any]:
+        # ORM prefetch 命中时零查询：admin/列表路径用 prefetch_related("reminders")
+        # 预热（值列表按 due_at, id 升序，与 service 导出序一致，末位即最新）。
+        prefetched = getattr(self, "_prefetched_objects_cache", {}).get("reminders")
+        if prefetched is not None:
+            return list(prefetched)
+
         cached = getattr(self, "_cached_exported_reminders", _SENTINEL)
         if cached is not _SENTINEL:
             return cached  # type: ignore[return-value]
@@ -102,7 +108,8 @@ class CaseLog(models.Model):
         return reminders
 
     @property
-    def reminder_entries(self) -> list[dict[str, Any]]:
+    def reminder_entries(self) -> list[Any]:
+        """提醒条目（service 导出的 dict 或 ORM prefetch 的对象，字段访问两者兼容）。"""
         return self._exported_reminders()
 
     @property
