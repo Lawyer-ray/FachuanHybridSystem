@@ -7,6 +7,7 @@ import { courtSmsDownloadAllUrl, triggerDownload, type CourtSmsDetail } from '..
 import { BTN, BTN_DANGER, BTN_PRIMARY } from '../../../ui'
 import { FlowNotice, TaskFlowDialog, type FlowTone } from '../dialog/TaskFlowDialog'
 import { StageSteps } from '../dialog/StageSteps'
+import { StageStrip } from '../dialog/StageStrip'
 import { CaseAssignPicker } from './CaseAssignPicker'
 import { copyAllDocFiles } from './copy-files'
 import { SMS_STAGES, SMS_STATUS_LABEL } from './stages'
@@ -135,7 +136,7 @@ export function CourtSmsFlowDialog({
   } else if (tone === 'error') {
     body = (
       <div className="flex flex-col gap-2.5">
-        <StageSteps steps={SMS_STAGES} current={steps.current} failedAt={steps.failedAt} />
+        <StageStrip steps={SMS_STAGES} current={steps.current} failedAt={steps.failedAt} />
         <FlowNotice kind="error">
           {flow.submitError || detail?.error_message || detail?.download_task_error || '处理失败，可重试或稍后到后台查看'}
         </FlowNotice>
@@ -143,10 +144,11 @@ export function CourtSmsFlowDialog({
     )
   } else if (tone === 'manual' && detail) {
     body = (
-      <div className="flex flex-col gap-2.5">
-        <StageSteps steps={SMS_STAGES} current={steps.current} failedAt={steps.failedAt} />
+      <div className="flex flex-col gap-3">
+        {/* 横向紧凑进度条：竖版步进器太占高，会把案件选择区挤到折叠线以下 */}
+        <StageStrip steps={SMS_STAGES} current={steps.current} failedAt={steps.failedAt} />
         {detail.case_numbers.length > 0 && (
-          <div className="text-[11.5px] text-muted-foreground">
+          <div className="rounded-[10px] border border-border bg-secondary/40 px-3 py-2 text-[11.5px] leading-relaxed text-muted-foreground">
             短信中解析到案号：<span className="font-semibold text-foreground">{detail.case_numbers.join('、')}</span>
             {detail.party_names.length > 0 && <>（当事人：{detail.party_names.slice(0, 4).join('、')}）</>}
           </div>
@@ -158,7 +160,7 @@ export function CourtSmsFlowDialog({
             await flow.assignCase(caseId)
           }}
         />
-        <FlowNotice kind="warn">文书已下载并完成预重命名，指定案件后将自动归档并发送通知。</FlowNotice>
+        {/* 不再放提示条：subline 已说明「指定后自动归档并发送通知」，省下的高度给候选列表 */}
       </div>
     )
   }
@@ -172,7 +174,7 @@ export function CourtSmsFlowDialog({
       tone={tone}
       headline={headline[tone]}
       subline={subline[tone]}
-      wide={tone === 'success'}
+      wide={tone === 'success' || tone === 'manual'}
       footer={
         <>
           {tone === 'success' && docs.length > 0 && flow.smsId !== null && (

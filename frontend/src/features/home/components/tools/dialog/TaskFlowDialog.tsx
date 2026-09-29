@@ -113,8 +113,9 @@ export function TaskFlowDialog({
           </div>
         </div>
 
-        {/* 内容区自身滚动：详情展开等长内容不得把弹窗撑出视口、不得顶走 footer */}
-        {children && <div className="mt-4 min-h-0 flex-1 overflow-y-auto">{children}</div>}
+        {/* 内容区自己限高滚动：flex-1 在「max-h 容器 + 高度 auto」里会被折叠成 0，
+            导致子元素（案件候选列表等）被压没；直接 max-h 让子元素保持自然高度 */}
+        {children && <div className="mt-4 max-h-[calc(85vh-190px)] overflow-y-auto">{children}</div>}
 
         {footer && (
           <div className="mt-4 flex flex-none flex-wrap items-center justify-end gap-2 border-t border-border pt-3.5">
