@@ -18,11 +18,6 @@ sys.path.insert(0, str(Path(__file__).parent / "apiSystem"))
 # 设置 Django 配置
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "apiSystem.settings")
 
-# 排除脚本文件（非标准 pytest 测试）
-collect_ignore = [
-    "tests/unit/automation/test_court_document.py",
-]
-
 
 def _resolve_test_db_engine() -> str:
     """Infer the database engine from environment variables."""
@@ -264,38 +259,6 @@ profile = os.getenv("HYPOTHESIS_PROFILE", "default")
 settings.load_profile(profile)
 
 # ========== 测试工具 Fixtures ==========
-
-
-@pytest.fixture
-def mock_contract_service() -> Any:
-    """提供 Mock 合同服务"""
-    from tests.mocks import MockContractService
-
-    return MockContractService()
-
-
-@pytest.fixture
-def mock_case_service() -> Any:
-    """提供 Mock 案件服务"""
-    from tests.mocks import MockCaseService
-
-    return MockCaseService()
-
-
-@pytest.fixture
-def mock_permission_service() -> Any:
-    """提供 Mock 权限服务"""
-    from tests.mocks import MockPermissionService
-
-    return MockPermissionService()
-
-
-@pytest.fixture
-def mock_email_service() -> Any:
-    """提供 Mock 邮件服务"""
-    from tests.mocks import MockEmailService
-
-    return MockEmailService()
 
 
 @pytest.fixture
