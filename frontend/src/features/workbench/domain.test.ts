@@ -8,6 +8,7 @@ import {
   lawyerCopyText,
   partyCopyText,
   relDue,
+  todayStr,
 } from './domain'
 import type { CaseListItem, ContractListItem, LawyerListItem } from './types'
 
@@ -119,6 +120,120 @@ describe('buildDeals', () => {
     expect(dc).toHaveLength(1)
     expect(dc[0]!.proc).toBe('一审')
     expect(dc[0]!.done).toBe(false)
+  })
+
+  it('buildDealCases：阶段缺失回落「未立案」，案号取首个 + 全量', () => {
+    const dc = buildDealCases(
+      [
+        makeCase({
+          current_stage: '',
+          case_numbers: [{ id: 1, number: 'A号' }, { id: 2, number: 'B号' }],
+        }),
+      ],
+      TODAY,
+    )
+    expect(dc[0]!.proc).toBe('未立案')
+    expect(dc[0]!.ref).toBe('A号')
+    expect(dc[0]!.numbers).toEqual(['A号', 'B号'])
+  })
+
+  it('buildDealCases：日志按时间倒序，字段逐项映射（时间截断/经办人回落/附件数/今日提醒）', () => {
+    const dc = buildDealCases(
+      [
+        makeCase({
+          logs: [
+            {
+              id: 1,
+              created_at: '2026-09-01T10:30:00',
+              actor_detail: { id: 1, real_name: '赵律师', username: 'zhao' },
+              content: '立案',
+              attachments: [{ id: 1 }, { id: 2 }],
+              reminder_time: null,
+            },
+            {
+              id: 2,
+              created_at: '2026-10-01T09:00:00',
+              actor_detail: { id: 2, real_name: '', username: 'qian' },
+              content: '开庭',
+              attachments: [],
+              reminder_time: '2026-10-01T08:00:00Z',
+            },
+          ],
+        }),
+      ],
+      TODAY,
+    )
+    const [latest, older] = dc[0]!.logs
+    expect(latest!.when).toBe('2026-10-01T09:00') // slice(0, 16)
+    expect(latest!.who).toBe('qian') // real_name 空回落 username
+    expect(latest!.rem).toBe('2026-10-01 到期提醒')
+    expect(latest!.remToday).toBe(true) // 提醒日 = 基准日 2026-10-01
+    expect(older!.who).toBe('赵律师')
+    expect(older!.attN).toBe(2)
+    expect(older!.rem).toBe('')
+    expect(older!.remToday).toBe(false)
+  })
+
+  it('buildDealCases：主办机关带类型展示、当事人拼「身份：名称」、联系人映射', () => {
+    const dc = buildDealCases(
+      [
+        makeCase({
+          supervising_authorities: [{ id: 1, name: '佛山中院', authority_type_display: '法院' }],
+          parties: [
+            {
+              id: 1,
+              legal_status: '原告',
+              client_detail: {
+                id: 1,
+                name: '张三',
+                is_our_client: true,
+                phone: null,
+                address: null,
+                client_type_label: '自然人',
+                id_number: null,
+                legal_representative: null,
+              },
+            },
+          ],
+          contacts: [
+            { id: 1, name: '王五', role_display: '证人', phone: '138', note: '关键证人', stage_display: '已通知' },
+          ],
+        }),
+      ],
+      TODAY,
+    )
+    expect(dc[0]!.auth).toBe('佛山中院')
+    expect(dc[0]!.auths).toEqual(['佛山中院（法院）'])
+    expect(dc[0]!.partyRows).toEqual(['原告：张三'])
+    expect(dc[0]!.contacts).toEqual([{ name: '王五', role: '证人', phone: '138', note: '关键证人', stage: '已通知' }])
+  })
+
+  it('buildDeals：团队成员名回落 assignment.lawyer_name → 律师表 real_name → 空', () => {
+    const lawyers: LawyerListItem[] = [
+      { id: 9, username: 'zhao', real_name: '赵律师', phone: '', license_no: '', law_firm_detail: null },
+      { id: 10, username: 'sun', real_name: '孙律师', phone: '', license_no: '', law_firm_detail: null },
+    ]
+    const deals = buildDeals(
+      [
+        makeContract({
+          id: 1,
+          assignments: [
+            { id: 1, lawyer_id: 9, lawyer_name: null, is_primary: true }, // 回落到律师表
+            { id: 2, lawyer_id: 10, lawyer_name: '孙主办', is_primary: false }, // 优先 assignment 名
+            { id: 3, lawyer_id: 99, lawyer_name: null, is_primary: false }, // 都没有 → 空
+          ],
+        }),
+      ],
+      lawyers,
+      TODAY,
+    )
+    expect(deals[0]!.team.map((t) => t.name)).toEqual(['赵律师', '孙主办', ''])
+  })
+
+  it('todayStr：月/日两位补零', () => {
+    expect(todayStr(new Date(2026, 0, 9))).toBe('2026-01-09')
+    expect(todayStr(new Date(2026, 11, 31))).toBe('2026-12-31')
+    expect(todayStr(TODAY)).toBe('2026-10-01')
   })
   it('提醒映射日期截取', () => {
     expect(deals[0]!.work[0]?.dueFull).toBe('2026-10-01')
