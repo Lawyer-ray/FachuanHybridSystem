@@ -1,30 +1,60 @@
-import { useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useMemo, useState } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
 import { errMessage } from '@/lib/errors'
-import { listContracts, listLawyers } from '../api'
+import { listContractsPage, listLawyers } from '../api'
 import { buildDeals } from '../domain'
-import type { WorkbenchDeal } from '../types'
+import type { ContractPageResponse, WorkbenchDeal, WorkbenchFilter } from '../types'
 
-/** 本域 query key 工厂：列表数据与按需案件各自缓存 */
+/** 本域 query key 工厂：分页合同（随筛选+页码变化）与律师各自缓存 */
 export const workbenchKeys = {
-  contracts: ['workbench', 'contracts'] as const,
   lawyers: ['workbench', 'lawyers'] as const,
+  contractPage: (f: WorkbenchFilter, q: string, page: number) =>
+    ['workbench', 'contracts-page', f.status, f.cat, f.fee, q, page] as const,
   contractCases: (contractId: number) => ['workbench', 'contract-cases', contractId] as const,
 }
 
-/**
- * 办案主页列表数据：合同（slim）× 律师两接口并行。
- * 案件明细不随列表加载——打开抽屉时按合同 ID 按需拉（useContractCases）。
- * 后端契约就是前端客户端筛选/分页（合同 ~150 条），故 staleTime 放宽到 60s。
- */
-export function useWorkbenchData(): {
+/** 搜索防抖：输入停 300ms 才进 queryKey，避免逐键打后端 */
+function useDebounced<T>(value: T, delay: number): T {
+  const [v, setV] = useState(value)
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), delay)
+    return () => clearTimeout(t)
+  }, [value, delay])
+  return v
+}
+
+export interface WorkbenchData {
   deals: WorkbenchDeal[]
+  /** 当前筛选命中的总条数（分页用） */
+  total: number
+  totalPages: number
+  page: number
+  /** 翻页/筛选请求进行中（keepPreviousData 期间旧列表仍展示） */
+  fetching: boolean
+  facets: ContractPageResponse | null
+  /** 全库口径（lede 用）：合同总数 / 在办数 */
+  totalContracts: number
+  activeCount: number
   isLoading: boolean
   error: string | null
   refetch: () => void
-} {
-  const contracts = useQuery({ queryKey: workbenchKeys.contracts, queryFn: listContracts, staleTime: 60_000 })
+}
+
+/**
+ * 办案主页列表数据：服务端分页（每页 50）+ facets 全库计数。
+ * 筛选/搜索全部下推后端（排序后端固定「离今天最近」）；律师表独立缓存。
+ * 案件明细不随列表加载——抽屉打开时按合同 ID 按需拉（useContractCases）。
+ */
+export function useWorkbenchData(filter: WorkbenchFilter, page: number): WorkbenchData {
+  const dq = useDebounced(filter.q.trim(), 300)
+  const pageQuery = useQuery({
+    queryKey: workbenchKeys.contractPage(filter, dq, page),
+    queryFn: () =>
+      listContractsPage({ page, status: filter.status, cat: filter.cat, fee: filter.fee, q: dq }),
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  })
   const lawyers = useQuery({ queryKey: workbenchKeys.lawyers, queryFn: listLawyers, staleTime: 60_000 })
 
   const today = useMemo(() => {
@@ -34,17 +64,30 @@ export function useWorkbenchData(): {
   }, [])
 
   const deals = useMemo(
-    () => (contracts.data && lawyers.data ? buildDeals(contracts.data, lawyers.data, today) : []),
-    [contracts.data, lawyers.data, today],
+    () =>
+      pageQuery.data && lawyers.data ? buildDeals(pageQuery.data.items, lawyers.data, today) : [],
+    [pageQuery.data, lawyers.data, today],
   )
 
-  const error = contracts.error || lawyers.error
+  const statusCounts = pageQuery.data?.status_counts ?? {}
+  const totalContracts = Object.values(statusCounts).reduce((a, b) => a + b, 0)
+  const total = pageQuery.data?.total ?? 0
+  const pageSize = pageQuery.data?.page_size ?? 50
+
+  const error = pageQuery.error || lawyers.error
   return {
     deals,
-    isLoading: contracts.isPending || lawyers.isPending,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    page: pageQuery.data?.page ?? page,
+    fetching: pageQuery.isFetching,
+    facets: pageQuery.data ?? null,
+    totalContracts,
+    activeCount: statusCounts['active'] ?? 0,
+    isLoading: pageQuery.isPending || lawyers.isPending,
     error: error ? errMessage(error, '办案数据加载失败') : null,
     refetch: () => {
-      void contracts.refetch()
+      void pageQuery.refetch()
       void lawyers.refetch()
     },
   }

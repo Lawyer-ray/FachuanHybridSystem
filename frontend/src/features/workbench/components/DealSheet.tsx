@@ -190,7 +190,7 @@ export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
         <SheetBody>
           {hasMoney && (
             <div className="grid grid-cols-4 gap-1.5 px-6 pt-4">
-              <MoneyCell label="合同额" value={deal.amount ?? '—'} />
+              <MoneyCell label="律师费" value={deal.amount ?? '—'} />
               <MoneyCell label="已收款" value={deal.totalReceived ?? '—'} />
               <MoneyCell label="已开票" value={deal.totalInvoiced ?? '—'} />
               <MoneyCell label="未收款" value={deal.unpaid ?? '—'} hot />

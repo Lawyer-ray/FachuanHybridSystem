@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search, SlidersHorizontal, X } from 'lucide-react'
 
-import { countBy } from '../domain'
-import type { WorkbenchDeal, WorkbenchFilter } from '../types'
+import type { ContractFacetItem, ContractPageResponse, WorkbenchFilter } from '../types'
 
 interface FilterBarProps {
-  deals: WorkbenchDeal[]
+  facets: ContractPageResponse | null
   filter: WorkbenchFilter
   onChange: (f: WorkbenchFilter) => void
 }
@@ -59,9 +58,9 @@ function ActiveChip({ text, onRemove }: { text: string; onRemove: () => void }) 
 
 /**
  * 页头单行工具栏：搜索框 + 筛选弹层（状态/类目/收费 chips）+ 激活 chips。
- * `/` 聚焦搜索；筛选弹层内连续调整不关闭，点外部关闭。
+ * 计数来自后端 facets（全库口径）；`/` 聚焦搜索；弹层内连续调整不关闭，点外部关闭。
  */
-export function FilterBar({ deals, filter, onChange }: FilterBarProps) {
+export function FilterBar({ facets, filter, onChange }: FilterBarProps) {
   const [panelOpen, setPanelOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -89,20 +88,17 @@ export function FilterBar({ deals, filter, onChange }: FilterBarProps) {
     return () => document.removeEventListener('mousedown', onDown)
   }, [panelOpen])
 
-  /* 计数固定全库口径（不受当前筛选影响） */
-  const statusCounts = useMemo(() => {
-    const m = new Map<string, number>([['', deals.length]])
-    for (const s of ['active', 'archived', 'unsigned']) m.set(s, 0)
-    for (const d of deals) m.set(d.status, (m.get(d.status) ?? 0) + 1)
-    return m
-  }, [deals])
-  const catCounts = useMemo(() => countBy(deals.map((d) => d.ctype)), [deals])
-  const feeCounts = useMemo(() => countBy(deals.filter((d) => d.fee).map((d) => d.fee)), [deals])
+  const statusCounts = facets?.status_counts ?? {}
+  const total = facets?.total ?? 0
+  const catFacets = useMemo(() => facets?.cat_counts ?? [], [facets])
+  const feeFacets = useMemo(() => facets?.fee_counts ?? [], [facets])
+  const catLabel = (v: string) => catFacets.find((f: ContractFacetItem) => f.value === v)?.label ?? v
+  const feeLabel = (v: string) => feeFacets.find((f: ContractFacetItem) => f.value === v)?.label ?? v
 
   const activeChips: Array<{ key: keyof WorkbenchFilter; text: string }> = []
   if (filter.status !== 'active') activeChips.push({ key: 'status', text: STATUS_LABEL[filter.status] || filter.status })
-  if (filter.cat) activeChips.push({ key: 'cat', text: filter.cat })
-  if (filter.fee) activeChips.push({ key: 'fee', text: filter.fee })
+  if (filter.cat) activeChips.push({ key: 'cat', text: catLabel(filter.cat) })
+  if (filter.fee) activeChips.push({ key: 'fee', text: feeLabel(filter.fee) })
 
   const set = (patch: Partial<WorkbenchFilter>) => onChange({ ...filter, ...patch })
 
@@ -115,7 +111,7 @@ export function FilterBar({ deals, filter, onChange }: FilterBarProps) {
           value={filter.q}
           onChange={(e) => set({ q: e.target.value })}
           type="text"
-          placeholder="搜索合同 / 案件 / 当事人"
+          placeholder="搜索合同（名称）"
           className="min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
         />
         <kbd className="rounded-[5px] border border-border bg-secondary px-1 text-[10px] text-muted-foreground">/</kbd>
@@ -146,26 +142,28 @@ export function FilterBar({ deals, filter, onChange }: FilterBarProps) {
             <div className="mb-2 text-[11px] font-[650] tracking-[0.09em] text-muted-foreground uppercase">状态</div>
             <div className="flex flex-wrap gap-1.5">
               {STATUS_OPTIONS.map((s) => (
-                <Chip key={s.value} label={s.label} count={statusCounts.get(s.value) ?? 0} on={filter.status === s.value} onClick={() => set({ status: s.value })} />
+                <Chip
+                  key={s.value}
+                  label={s.label}
+                  count={s.value === '' ? total : (statusCounts[s.value] ?? 0)}
+                  on={filter.status === s.value}
+                  onClick={() => set({ status: s.value })}
+                />
               ))}
             </div>
             <div className="mt-3 mb-2 text-[11px] font-[650] tracking-[0.09em] text-muted-foreground uppercase">类目</div>
             <div className="flex flex-wrap gap-1.5">
-              <Chip label="全部" count={deals.length} on={filter.cat === ''} onClick={() => set({ cat: '' })} />
-              {[...catCounts.entries()]
-                .sort((a, b) => b[1] - a[1])
-                .map(([t, n]) => (
-                  <Chip key={t} label={t} count={n} on={filter.cat === t} onClick={() => set({ cat: t })} />
-                ))}
+              <Chip label="全部" count={total} on={filter.cat === ''} onClick={() => set({ cat: '' })} />
+              {catFacets.map((f) => (
+                <Chip key={f.value} label={f.label} count={f.n} on={filter.cat === f.value} onClick={() => set({ cat: f.value })} />
+              ))}
             </div>
             <div className="mt-3 mb-2 text-[11px] font-[650] tracking-[0.09em] text-muted-foreground uppercase">收费方式</div>
             <div className="flex flex-wrap gap-1.5">
-              <Chip label="全部" count={deals.length} on={filter.fee === ''} onClick={() => set({ fee: '' })} />
-              {[...feeCounts.entries()]
-                .sort((a, b) => b[1] - a[1])
-                .map(([f, n]) => (
-                  <Chip key={f} label={f} count={n} on={filter.fee === f} onClick={() => set({ fee: f })} />
-                ))}
+              <Chip label="全部" count={total} on={filter.fee === ''} onClick={() => set({ fee: '' })} />
+              {feeFacets.map((f) => (
+                <Chip key={f.value} label={f.label} count={f.n} on={filter.fee === f.value} onClick={() => set({ fee: f.value })} />
+              ))}
             </div>
             <div className="mt-3.5 border-t border-border-light pt-2.5 text-right">
               <button

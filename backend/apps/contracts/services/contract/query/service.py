@@ -144,8 +144,8 @@ class ContractQueryService:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> dict[str, dict[str, int]]:
-        """筛选 chips 计数：状态 / 类目（label）/ 收费（label），固定全库口径。"""
+    ) -> dict[str, Any]:
+        """筛选 chips 计数：状态（代码→数）/ 类目 / 收费（value+label+数，label 供展示、value 供过滤参数），全库口径。"""
         base = self.access_policy.filter_queryset(
             qs=Contract.objects.all(),
             user=user,
@@ -153,13 +153,13 @@ class ContractQueryService:
             perm_open_access=perm_open_access,
         )
 
-        def label_counts(field: str, label_of: Any) -> dict[str, int]:
+        def facet_list(field: str, label_of: Any) -> list[dict[str, Any]]:
             agg = dict(base.values_list(field).annotate(n=Count("id")))
-            return {label_of(k): v for k, v in agg.items() if k}
+            return [{"value": k, "label": label_of(k), "n": v} for k, v in sorted(agg.items()) if k]
 
         status_counts = {s or "": n for s, n in base.values_list("status").annotate(n=Count("id"))}
-        cat_counts = label_counts("case_type", lambda c: Contract(case_type=c).get_case_type_display())
-        fee_counts = label_counts("fee_mode", lambda f: Contract(fee_mode=f).get_fee_mode_display())
+        cat_counts = facet_list("case_type", lambda c: Contract(case_type=c).get_case_type_display())
+        fee_counts = facet_list("fee_mode", lambda f: Contract(fee_mode=f).get_fee_mode_display())
         return {"status_counts": status_counts, "cat_counts": cat_counts, "fee_counts": fee_counts}
 
     def list_contracts_ctx(

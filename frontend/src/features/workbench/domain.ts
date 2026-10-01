@@ -6,7 +6,6 @@ import type {
   DealTeamMember,
   LawyerListItem,
   WorkbenchDeal,
-  WorkbenchFilter,
 } from './types'
 
 /** 诉讼类 case_type 代码集合（其余视为非诉） */
@@ -165,38 +164,7 @@ export function buildDeals(
 
 /* ============ 筛选 / 排序 / 分组 ============ */
 
-function dealHaystack(d: WorkbenchDeal): string {
-  return [d.client, d.no, d.fee, d.ctype, d.parties.client, d.parties.other]
-    .join(' ')
-    .toLowerCase()
-}
-
-export function filterDeals(deals: WorkbenchDeal[], f: WorkbenchFilter): WorkbenchDeal[] {
-  const q = f.q.trim().toLowerCase()
-  return deals.filter((d) => {
-    if (f.status && d.status !== f.status) return false
-    if (f.cat && d.ctype !== f.cat) return false
-    if (f.fee && d.fee !== f.fee) return false
-    if (q && !dealHaystack(d).includes(q)) return false
-    return true
-  })
-}
-
-function numAsc(a: number | null, b: number | null): number {
-  if (a == null && b == null) return 0
-  if (a == null) return 1
-  if (b == null) return -1
-  return a - b
-}
-
-/** 固定排序：离今天最近（到期/过期都按 |天数| 升序），无到期沉底 */
-export function sortDeals(list: WorkbenchDeal[]): WorkbenchDeal[] {
-  return [...list].sort(
-    (a, b) =>
-      numAsc(a.daysLeft == null ? null : Math.abs(a.daysLeft), b.daysLeft == null ? null : Math.abs(b.daysLeft)) ||
-      b.id - a.id,
-  )
-}
+/* ============ 分组（服务端分页后按页内分组；排序已由后端「离今天最近」完成） ============ */
 
 export interface DealGroup {
   type: string
@@ -220,14 +188,6 @@ export function groupDeals(list: WorkbenchDeal[], catSelected: boolean): DealGro
   groups.sort((a, b) => b.deals.length - a.deals.length)
   if (!catSelected) groups.sort((a, b) => Number(b.lit) - Number(a.lit) || b.deals.length - a.deals.length)
   return groups
-}
-
-/* ============ 计数（筛选 chips 用，固定全库口径） ============ */
-
-export function countBy<T extends string>(items: T[]): Map<T, number> {
-  const m = new Map<T, number>()
-  for (const it of items) m.set(it, (m.get(it) ?? 0) + 1)
-  return m
 }
 
 /* ============ 当事人 / 律师复制文本 ============ */

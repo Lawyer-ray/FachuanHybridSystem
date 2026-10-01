@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { PageFade } from '@/components/shared/PageFade'
-import { filterDeals, groupDeals, sortDeals } from '../domain'
+import { groupDeals } from '../domain'
 import { useWorkbenchData } from '../hooks/use-workbench-data'
 import type { WorkbenchDeal, WorkbenchFilter } from '../types'
 import { DealRow } from './DealRow'
@@ -17,19 +17,27 @@ import { FilterBar } from './FilterBar'
  * 左键行 / → = 详情页（开发中提示）；右键行 / 👁 = 抽屉预览。
  */
 export function WorkbenchPage() {
-  const { deals, isLoading, error, refetch } = useWorkbenchData()
   const [filter, setFilter] = useState<WorkbenchFilter>({ status: 'active', cat: '', fee: '', q: '' })
+  const [page, setPage] = useState(1)
+  const { deals, total, totalPages, fetching, facets, totalContracts, activeCount, isLoading, error, refetch } =
+    useWorkbenchData(filter, page)
   // open 与 deal 分离：关闭时保留 deal 引用，抽屉才能播完滑出动画（DealSheet 由 Radix 卸载）
   const [sheet, setSheet] = useState<{ open: boolean; deal: WorkbenchDeal | null }>({ open: false, deal: null })
 
   const notify = useCallback((msg: string) => toast.info(msg), [])
   const detailNotReady = useCallback(() => toast.info('详情页正在开发中（右键行 = 快速预览）'), [])
   const openSheet = useCallback((deal: WorkbenchDeal) => setSheet({ open: true, deal }), [])
+  /** 筛选变化回第一页 */
+  const onFilterChange = useCallback((f: WorkbenchFilter) => {
+    setFilter(f)
+    setPage(1)
+  }, [])
 
-  const visible = useMemo(() => sortDeals(filterDeals(deals, filter)), [deals, filter])
-  const groups = useMemo(() => groupDeals(visible, !!filter.cat), [visible, filter.cat])
-  const activeCount = useMemo(() => deals.filter((d) => d.status === 'active').length, [deals])
-  const caseCount = useMemo(() => deals.reduce((n, d) => n + d.caseCount, 0), [deals])
+  const groups = useMemo(() => groupDeals(deals, !!filter.cat), [deals, filter.cat])
+  const gotoPage = useCallback((p: number) => {
+    setPage(p)
+    window.scrollTo({ top: 0 })
+  }, [])
 
   return (
     <div className="min-h-screen bg-background">
@@ -39,14 +47,13 @@ export function WorkbenchPage() {
           {/* 页头单行：标题 + 摘要 + 搜索/筛选/chips */}
           <div className="mb-3.5 flex flex-wrap items-center gap-4">
             <h1 className="text-[21px] font-[750] tracking-[-0.02em]">办案</h1>
-            {!isLoading && !error && deals.length > 0 && (
+            {!isLoading && !error && facets && (
               <span className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-                <b className="font-semibold text-secondary-foreground">{deals.length}</b> 个合同 ·{' '}
-                <b className="font-semibold text-secondary-foreground">{activeCount}</b> 在办 ·{' '}
-                <b className="font-semibold text-secondary-foreground">{caseCount}</b> 个案件
+                <b className="font-semibold text-secondary-foreground">{totalContracts}</b> 个合同 ·{' '}
+                <b className="font-semibold text-secondary-foreground">{activeCount}</b> 在办
               </span>
             )}
-            <FilterBar deals={deals} filter={filter} onChange={setFilter} />
+            <FilterBar facets={facets} filter={filter} onChange={onFilterChange} />
           </div>
 
           {isLoading ? (
@@ -61,7 +68,7 @@ export function WorkbenchPage() {
                 重试
               </button>
             </div>
-          ) : visible.length === 0 ? (
+          ) : deals.length === 0 ? (
             deals.length === 0 ? (
               <div className="py-[90px] text-center text-[13px] text-muted-foreground">还没有合同数据</div>
             ) : (
@@ -70,7 +77,7 @@ export function WorkbenchPage() {
                 <button
                   type="button"
                   className="ml-1.5 cursor-pointer underline underline-offset-3"
-                  onClick={() => setFilter({ status: 'active', cat: '', fee: '', q: '' })}
+                  onClick={() => onFilterChange({ status: 'active', cat: '', fee: '', q: '' })}
                 >
                   清除筛选
                 </button>
@@ -90,6 +97,29 @@ export function WorkbenchPage() {
                 </div>
               </section>
             ))
+          )}
+          {!isLoading && !error && total > 0 && totalPages > 1 && (
+            <div className="mt-7 flex items-center justify-center gap-5 text-xs text-muted-foreground">
+              <button
+                type="button"
+                disabled={page <= 1 || fetching}
+                className="rounded-[9px] px-2.5 py-1 transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-35"
+                onClick={() => gotoPage(page - 1)}
+              >
+                ‹ 上一页
+              </button>
+              <span className="tabular-nums">
+                第 {page} / {totalPages} 页 · 共 {total} 个
+              </span>
+              <button
+                type="button"
+                disabled={page >= totalPages || fetching}
+                className="rounded-[9px] px-2.5 py-1 transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-35"
+                onClick={() => gotoPage(page + 1)}
+              >
+                下一页 ›
+              </button>
+            </div>
           )}
         </main>
       </PageFade>

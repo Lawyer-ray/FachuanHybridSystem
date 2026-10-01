@@ -3,13 +3,11 @@ import {
   buildDealCases,
   buildDeals,
   daysFromToday,
-  filterDeals,
   fmtMoney,
   groupDeals,
   lawyerCopyText,
   partyCopyText,
   relDue,
-  sortDeals,
 } from './domain'
 import type { CaseListItem, ContractListItem, LawyerListItem } from './types'
 
@@ -128,44 +126,6 @@ describe('buildDeals', () => {
   it('case_count 透传（按需加载的计数口径）', () => {
     const d2 = buildDeals([makeContract({ id: 2, case_count: 3 })], lawyers, TODAY)
     expect(d2[0]!.caseCount).toBe(3)
-  })
-})
-
-describe('filterDeals', () => {
-  const deals = buildDeals(
-    [
-      makeContract(),
-      makeContract({ id: 2, name: '某某公司', status: 'archived', case_type: 'advisor', case_type_label: '常法顾问', fee_mode: '自定义', contract_parties: [] }),
-    ],
-    [],
-    TODAY,
-  )
-  it('状态/类目/收费组合过滤', () => {
-    expect(filterDeals(deals, { status: 'active', cat: '', fee: '', q: '' })).toHaveLength(1)
-    expect(filterDeals(deals, { status: '', cat: '常法顾问', fee: '', q: '' })).toHaveLength(1)
-    expect(filterDeals(deals, { status: '', cat: '', fee: '自定义', q: '' })[0]!.client).toBe('某某公司')
-  })
-  it('搜索命中对方当事人与案件名', () => {
-    expect(filterDeals(deals, { status: '', cat: '', fee: '', q: '李四公司' })).toHaveLength(1)
-    // 案件明细已按需加载：列表搜索不再命中案件名（合同维度字段照常命中）
-    expect(filterDeals(deals, { status: '', cat: '', fee: '', q: '买卖合同纠纷' })).toHaveLength(0)
-    expect(filterDeals(deals, { status: '', cat: '', fee: '', q: '不存在' })).toHaveLength(0)
-  })
-})
-
-describe('sortDeals', () => {
-  it('离今天最近升序，无到期沉底', () => {
-    const deals = buildDeals(
-      [
-        makeContract({ id: 1, end_date: '2027-01-01' }), // 92 天
-        makeContract({ id: 2, end_date: '2026-10-03' }), // 2 天
-        makeContract({ id: 3, end_date: null }), // 无到期
-        makeContract({ id: 4, end_date: '2026-09-28' }), // 过期 3 天
-      ],
-      [],
-      TODAY,
-    )
-    expect(sortDeals(deals).map((d) => d.id)).toEqual([2, 4, 1, 3])
   })
 })
 

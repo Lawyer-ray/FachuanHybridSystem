@@ -295,10 +295,30 @@ export interface WorkbenchDeal {
   supps: SupplementaryAgreement[]
 }
 
-/** 列表筛选状态（默认：在办 + 全部类目 + 全部收费） */
+/** 列表筛选状态（默认：在办 + 全部类目 + 全部收费）。cat/fee 存后端代码值，展示用 facets 的 label */
 export interface WorkbenchFilter {
   status: '' | 'active' | 'archived' | 'unsigned'
+  /** case_type 代码（civil/advisor/…），'' = 全部 */
   cat: string
+  /** fee_mode 代码（FIXED/SEMI_RISK/…），'' = 全部 */
   fee: string
   q: string
+}
+
+/** facets 单项：value 供过滤参数、label 供展示 */
+export interface ContractFacetItem {
+  value: string
+  label: string
+  n: number
+}
+
+/** 分页列表响应（GET /contracts/contracts?page=N）：一页合同 + 总数 + 全库筛选计数 */
+export interface ContractPageResponse {
+  items: ContractListItem[]
+  total: number
+  page: number
+  page_size: number
+  status_counts: Record<string, number>
+  cat_counts: ContractFacetItem[]
+  fee_counts: ContractFacetItem[]
 }
