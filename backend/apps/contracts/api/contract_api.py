@@ -24,9 +24,16 @@ logger = logging.getLogger("apps.contracts.api")
 router = Router()
 
 
-def _serialize_contract(contract: Any) -> dict:
-    """Serialize a Contract model to dict in sync context (avoid lazy FK access in async)."""
-    return ContractOut.from_orm(contract).model_dump(by_alias=True)
+def _serialize_contract(contract: Any, *, slim: bool = False) -> dict:
+    """Serialize a Contract model to dict in sync context (avoid lazy FK access in async).
+
+    slim=True 时剔除 finalized_materials（归档材料清单，占列表响应约 60% 体积，
+    仅归档场景需要）——办案主页等列表消费方应传 slim=true。
+    """
+    data = ContractOut.from_orm(contract).model_dump(by_alias=True)
+    if slim:
+        data.pop("finalized_materials", None)
+    return data
 
 
 def _get_contract_service() -> Any:
@@ -55,9 +62,10 @@ async def list_contracts(  # pragma: no cover
     search: str | None = None,
     fee_mode: str | None = None,
     is_filed: bool | None = None,
+    slim: bool = False,
 ) -> Any:
     """
-    获取合同列表（前端做客户端分页）
+    获取合同列表（前端做客户端分页；slim=true 剔除归档材料清单等重负载字段）
 
     Requirements: 6.1, 6.2, 6.3
     """
@@ -75,7 +83,7 @@ async def list_contracts(  # pragma: no cover
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,
         )
-        return [_serialize_contract(c) for c in qs]
+        return [_serialize_contract(c, slim=slim) for c in qs]
 
     return await sync_to_async(_do)()
 

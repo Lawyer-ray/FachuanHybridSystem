@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from django.db.models import QuerySet, Sum
+from django.db.models import Count, IntegerField, OuterRef, QuerySet, Subquery, Sum
 
+from apps.cases.models import Case
 from apps.contracts.models import Contract
 from apps.core.exceptions import NotFoundError
 from apps.core.security.access_context import AccessContext
@@ -26,7 +27,6 @@ class ContractQueryService:
     def get_contract_queryset(self) -> QuerySet[Contract, Contract]:
         return (
             Contract.objects.prefetch_related(
-                "cases",
                 "contract_parties__client",
                 "payments__invoices",
                 "reminders",
@@ -36,10 +36,19 @@ class ContractQueryService:
                 "finalized_materials",
                 "client_payment_records",
             )
-            # 用 DB 层聚合替代 ContractOut.resolve_total_received/invoiced 中的 Python 循环求和
+            # 用 DB 层聚合替代 ContractOut.resolve_total_received/invoiced 中的 Python 循环求和。
+            # case_count 用相关子查询而非 Count("cases")：同一 annotate 链上再 join cases 会与
+            # payments 的 Sum 互相放大（笛卡尔积），子查询各算各的互不干扰。
             .annotate(
                 _total_received=Sum("payments__amount"),
                 _total_invoiced=Sum("payments__invoiced_amount"),
+                _case_count=Subquery(
+                    Case.objects.filter(contract_id=OuterRef("pk"))
+                    .values("contract_id")
+                    .annotate(c=Count("pk"))
+                    .values("c")[:1],
+                    output_field=IntegerField(),
+                ),
             )
         )
 

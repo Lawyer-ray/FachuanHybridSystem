@@ -78,8 +78,9 @@ async def list_cases(  # pragma: no cover
     case_type: str | None = None,
     status: str | None = None,
     case_number: str | None = None,
+    contract_id: int | None = None,
 ) -> list[dict[str, Any]]:
-    """获取案件列表"""
+    """获取案件列表（contract_id 可按合同过滤，供前端详情按需加载）"""
     service = _get_case_query_facade()
     ctx = extract_request_context(request)
 
@@ -98,6 +99,7 @@ async def list_cases(  # pragma: no cover
                 service.list_cases(
                     case_type=case_type,
                     status=status,
+                    contract_id=contract_id,
                     user=ctx.user,
                     org_access=ctx.org_access,
                     perm_open_access=ctx.perm_open_access,

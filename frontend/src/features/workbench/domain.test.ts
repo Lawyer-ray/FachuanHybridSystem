@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildDealCases,
   buildDeals,
   daysFromToday,
   filterDeals,
@@ -47,6 +48,7 @@ function makeContract(partial: Partial<ContractListItem> = {}): ContractListItem
     payments: [],
     client_payment_records: [],
     supplementary_agreements: [],
+    case_count: 1,
     ...partial,
   }
 }
@@ -104,24 +106,28 @@ describe('buildDeals', () => {
   const lawyers: LawyerListItem[] = [
     { id: 9, username: 'zhao', real_name: '赵律师', phone: '13911111111', license_no: ' 14401xxx ', law_firm_detail: { id: 1, name: '某律所' } },
   ]
-  const deals = buildDeals([makeContract()], [makeCase()], lawyers, TODAY)
+  const deals = buildDeals([makeContract()], lawyers, TODAY)
 
-  it('合并合同/案件/律师：副行我方对方、案件挂接、证号去除空白', () => {
+  it('合并合同/律师：副行我方对方、caseCount、证号去除空白', () => {
     expect(deals).toHaveLength(1)
     const d = deals[0]!
     expect(d.parties).toEqual({ client: '张三', other: '李四公司' })
-    expect(d.cases).toHaveLength(1)
-    expect(d.cases[0]!.proc).toBe('一审')
-    expect(d.cases[0]!.done).toBe(false)
+    expect(d.caseCount).toBe(1)
     expect(d.team[0]!.license).toBe('14401xxx')
     expect(d.lit).toBe(true)
+  })
+  it('buildDealCases：程序阶段取 current_stage、已结案判定', () => {
+    const dc = buildDealCases([makeCase()], TODAY)
+    expect(dc).toHaveLength(1)
+    expect(dc[0]!.proc).toBe('一审')
+    expect(dc[0]!.done).toBe(false)
   })
   it('提醒映射日期截取', () => {
     expect(deals[0]!.work[0]?.dueFull).toBe('2026-10-01')
   })
-  it('未挂合同的案件不会串到别的合同', () => {
-    const d2 = buildDeals([makeContract({ id: 2 })], [makeCase()], lawyers, TODAY)
-    expect(d2[0]!.cases).toHaveLength(0)
+  it('case_count 透传（按需加载的计数口径）', () => {
+    const d2 = buildDeals([makeContract({ id: 2, case_count: 3 })], lawyers, TODAY)
+    expect(d2[0]!.caseCount).toBe(3)
   })
 })
 
@@ -132,7 +138,6 @@ describe('filterDeals', () => {
       makeContract({ id: 2, name: '某某公司', status: 'archived', case_type: 'advisor', case_type_label: '常法顾问', fee_mode: '自定义', contract_parties: [] }),
     ],
     [],
-    [],
     TODAY,
   )
   it('状态/类目/收费组合过滤', () => {
@@ -142,8 +147,8 @@ describe('filterDeals', () => {
   })
   it('搜索命中对方当事人与案件名', () => {
     expect(filterDeals(deals, { status: '', cat: '', fee: '', q: '李四公司' })).toHaveLength(1)
-    const withCase = buildDeals([makeContract()], [makeCase()], [], TODAY)
-    expect(filterDeals(withCase, { status: '', cat: '', fee: '', q: '买卖合同纠纷' })).toHaveLength(1)
+    // 案件明细已按需加载：列表搜索不再命中案件名（合同维度字段照常命中）
+    expect(filterDeals(deals, { status: '', cat: '', fee: '', q: '买卖合同纠纷' })).toHaveLength(0)
     expect(filterDeals(deals, { status: '', cat: '', fee: '', q: '不存在' })).toHaveLength(0)
   })
 })
@@ -157,7 +162,6 @@ describe('sortDeals', () => {
         makeContract({ id: 3, end_date: null }), // 无到期
         makeContract({ id: 4, end_date: '2026-09-28' }), // 过期 3 天
       ],
-      [],
       [],
       TODAY,
     )
@@ -174,7 +178,6 @@ describe('groupDeals', () => {
         makeContract({ id: 3, case_type: 'advisor', case_type_label: '常法顾问' }),
       ],
       [],
-      [],
       TODAY,
     )
     const groups = groupDeals(deals, false)
@@ -184,7 +187,6 @@ describe('groupDeals', () => {
   it('选了具体类目时不再重排（数量序）', () => {
     const deals = buildDeals(
       [makeContract({ id: 1, case_type: 'advisor', case_type_label: '常法顾问' }), makeContract({ id: 2 })],
-      [],
       [],
       TODAY,
     )
@@ -199,7 +201,7 @@ describe('复制文本', () => {
     )
   })
   it('律师：主办标注、主办回落合同律所', () => {
-    const d = buildDeals([makeContract()], [], [], TODAY)[0]!
+    const d = buildDeals([makeContract()], [], TODAY)[0]!
     expect(lawyerCopyText({ name: '赵律师', primary: true, phone: '', license: '144', firm: '' }, d)).toBe(
       '赵律师（主办）\n电话：13900000000\n执业证号：144\n律所：某律所',
     )

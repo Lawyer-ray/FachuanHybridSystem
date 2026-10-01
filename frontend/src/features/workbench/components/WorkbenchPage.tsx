@@ -29,7 +29,7 @@ export function WorkbenchPage() {
   const visible = useMemo(() => sortDeals(filterDeals(deals, filter)), [deals, filter])
   const groups = useMemo(() => groupDeals(visible, !!filter.cat), [visible, filter.cat])
   const activeCount = useMemo(() => deals.filter((d) => d.status === 'active').length, [deals])
-  const caseCount = useMemo(() => deals.reduce((n, d) => n + d.cases.length, 0), [deals])
+  const caseCount = useMemo(() => deals.reduce((n, d) => n + d.caseCount, 0), [deals])
 
   return (
     <div className="min-h-screen bg-background">

@@ -221,25 +221,29 @@ class TestContractOutResolvers:
             result = ContractOut.resolve_unpaid_amount(obj)
             assert result is None
 
-    # ── resolve_cases ──
+    # ── resolve_case_count（cases 不再整表内嵌，只给计数） ──
 
-    def test_resolve_cases_with_dtos(self):
+    def test_resolve_case_count_with_dtos(self):
         obj = MagicMock()
-        dto = MagicMock()
-        obj.case_dtos = [dto]
-        with patch("apps.contracts.schemas.contract_schemas.CaseOut") as MockCaseOut:
-            MockCaseOut.from_dto.return_value = "case_out"
-            result = ContractOut.resolve_cases(obj)
-            assert result == ["case_out"]
+        obj.case_dtos = [MagicMock(), MagicMock()]
+        assert ContractOut.resolve_case_count(obj) == 2
 
-    def test_resolve_cases_without_dtos(self):
+    def test_resolve_case_count_annotated(self):
         obj = MagicMock()
         obj.case_dtos = None
-        obj.cases.all.return_value = [MagicMock()]
-        with patch("apps.contracts.schemas.contract_schemas.CaseOut") as MockCaseOut:
-            MockCaseOut.from_model.return_value = "case_from_model"
-            result = ContractOut.resolve_cases(obj)
-            assert result == ["case_from_model"]
+        obj._case_count = 3
+        assert ContractOut.resolve_case_count(obj) == 3
+
+    def test_resolve_case_count_fallback_count(self):
+        obj = MagicMock()
+        obj.case_dtos = None
+        obj._case_count = None
+        obj.cases.count.return_value = 2
+        assert ContractOut.resolve_case_count(obj) == 2
+
+    def test_resolve_case_count_from_dict(self):
+        assert ContractOut.resolve_case_count({"case_count": 5}) == 5
+        assert ContractOut.resolve_case_count({"cases": [1, 2]}) == 2
 
     # ── resolve_fee_mode ──
 

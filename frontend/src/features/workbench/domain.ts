@@ -42,7 +42,8 @@ export function todayStr(today: Date): string {
 
 /* ============ 三源合并：合同 × 案件 × 律师 → WorkbenchDeal ============ */
 
-function buildDealCases(cases: CaseListItem[], today: Date): DealCase[] {
+/** 案件 → 抽屉域模型（明细按需加载后调用） */
+export function buildDealCases(cases: CaseListItem[], today: Date): DealCase[] {
   return cases.map((x) => ({
     id: x.id,
     name: x.name,
@@ -80,18 +81,10 @@ function buildDealCases(cases: CaseListItem[], today: Date): DealCase[] {
 
 export function buildDeals(
   contracts: ContractListItem[],
-  cases: CaseListItem[],
   lawyers: LawyerListItem[],
   today: Date,
 ): WorkbenchDeal[] {
   const lawyerMap = new Map(lawyers.map((l) => [l.id, l]))
-  const casesByContract = new Map<number, CaseListItem[]>()
-  for (const c of cases) {
-    if (c.contract_id == null) continue
-    const list = casesByContract.get(c.contract_id)
-    if (list) list.push(c)
-    else casesByContract.set(c.contract_id, [c])
-  }
 
   return contracts.map((c) => {
     const lit = LITIGATION_TYPES.has(c.case_type)
@@ -150,7 +143,7 @@ export function buildDeals(
       }),
       team,
       primaryPhone: c.primary_lawyer?.phone || '',
-      cases: buildDealCases(casesByContract.get(c.id) ?? [], today),
+      caseCount: c.case_count ?? 0,
       work: c.reminders.map((r) => ({
         t: r.content,
         dueFull: r.due_at ? r.due_at.slice(0, 10) : '',
@@ -173,15 +166,7 @@ export function buildDeals(
 /* ============ 筛选 / 排序 / 分组 ============ */
 
 function dealHaystack(d: WorkbenchDeal): string {
-  return [
-    d.client,
-    d.no,
-    d.fee,
-    d.ctype,
-    d.parties.client,
-    d.parties.other,
-    ...d.cases.map((c) => c.name + ' ' + c.ref + ' ' + c.proc),
-  ]
+  return [d.client, d.no, d.fee, d.ctype, d.parties.client, d.parties.other]
     .join(' ')
     .toLowerCase()
 }

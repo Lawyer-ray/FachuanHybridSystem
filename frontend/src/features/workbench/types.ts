@@ -96,6 +96,8 @@ export interface ContractListItem {
   representation_stages: string[]
   law_firm_oa_url: string | null
   law_firm_oa_case_number: string | null
+  /** 关联案件计数（后端子查询聚合；案件明细由 /cases/cases?contract_id= 按需拉取） */
+  case_count: number
   total_received: number | null
   total_invoiced: number | null
   unpaid_amount: number | null
@@ -278,7 +280,8 @@ export interface WorkbenchDeal {
   partiesAll: DealParty[]
   team: DealTeamMember[]
   primaryPhone: string
-  cases: DealCase[]
+  /** 案件计数（明细按需加载，见 use-contract-cases） */
+  caseCount: number
   work: DealReminder[]
   riskRate: number | string | null
   stages: string[]

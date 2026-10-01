@@ -1,4 +1,4 @@
-import { Copy } from 'lucide-react'
+import { Copy, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import {
@@ -9,6 +9,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { copyTextToClipboard, fmtMoney, lawyerCopyText, partyCopyText, relDue } from '../domain'
+import { useContractCases } from '../hooks/use-contract-cases'
 import type { WorkbenchDeal } from '../types'
 
 interface DealSheetProps {
@@ -91,6 +92,8 @@ function StageNode({ stage, n, live, first }: { stage: string; n: number; live: 
  * 「详情 →」= 开发中提示；当事人/律师行内可复制。
  */
 export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
+  /* 案件明细按需加载：抽屉打开才请求该合同的案件（列表期不拉全量） */
+  const { cases, isLoading: casesLoading } = useContractCases(open ? (deal?.id ?? null) : null)
   if (!deal) return null
 
   /* 右键空白遮罩 = 左键点空白同效：不弹原生菜单，收起抽屉（播退出动画） */
@@ -135,8 +138,8 @@ export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
     })),
   ]
 
-  /* 案件按阶段聚合（保持案件 id 升序的阶段顺序） */
-  const seqCases = [...deal.cases].sort((a, b) => a.id - b.id)
+  /* 案件按阶段聚合（保持案件 id 升序的阶段顺序），数据来自按需加载 */
+  const seqCases = [...cases].sort((a, b) => a.id - b.id)
   const stages: Array<{ stage: string; n: number; live: boolean }> = []
   for (const c of seqCases) {
     const last = stages[stages.length - 1]
@@ -326,18 +329,27 @@ export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
             </>
           )}
 
-          {stages.length > 0 && (
+          {(casesLoading || stages.length > 0) && (
             <>
-              <SectionTitle>案件 · {deal.cases.length}</SectionTitle>
+              <SectionTitle>案件 · {casesLoading ? '…' : (deal.caseCount || cases.length)}</SectionTitle>
               <div className="px-6">
-                <div className="flex flex-wrap items-center gap-y-2 py-1.5">
-                  {stages.map((s, i) => (
-                    <StageNode key={s.stage} stage={s.stage} n={s.n} live={s.live} first={i === 0} />
-                  ))}
-                </div>
-                <div className="mt-0.5 text-[10.5px] text-muted-foreground/70">
-                  {deal.cases.length} 个案件 · {stages.map((s) => s.stage).join(' → ')} · 个案详情开发中
-                </div>
+                {casesLoading ? (
+                  <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+                    <Loader2 className="size-3.5 animate-spin" />
+                    正在加载案件…
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap items-center gap-y-2 py-1.5">
+                      {stages.map((s, i) => (
+                        <StageNode key={s.stage} stage={s.stage} n={s.n} live={s.live} first={i === 0} />
+                      ))}
+                    </div>
+                    <div className="mt-0.5 text-[10.5px] text-muted-foreground/70">
+                      {cases.length} 个案件 · {stages.map((s) => s.stage).join(' → ')} · 个案详情开发中
+                    </div>
+                  </>
+                )}
               </div>
             </>
           )}
