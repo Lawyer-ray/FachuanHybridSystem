@@ -38,10 +38,6 @@ export interface AppNavbarProps {
   onLogout?: () => void
 }
 
-const NOT_READY: Record<string, string> = {
-  '/ledger': '案件台账正在开发中',
-}
-
 /** 补拉当前用户信息的 query key（本组件独用，就地定义） */
 const ORG_ME_KEY = ['organization-me'] as const
 
@@ -128,19 +124,6 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
           active={pathname.startsWith('/workbench')}
           onClick={() => setMenuOpen(false)}
         />
-        {Object.entries(NOT_READY).map(([path, msg]) => (
-          <button
-            key={path}
-            type="button"
-            className="cursor-pointer rounded-[8px] px-3 py-[7px] text-left text-[13.5px] font-medium whitespace-nowrap text-secondary-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            onClick={() => {
-              setMenuOpen(false)
-              notify(msg)
-            }}
-          >
-            台账
-          </button>
-        ))}
       </nav>
 
       {/* 全局检索 */}
