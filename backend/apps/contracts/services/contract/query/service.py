@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from django.db.models import Count, IntegerField, OuterRef, QuerySet, Subquery, Sum
+from django.db.models import Count, F, IntegerField, OuterRef, QuerySet, Subquery, Sum
+from django.db.models.expressions import RawSQL
 
 from apps.cases.models import Case
 from apps.contracts.models import Contract
@@ -97,6 +98,69 @@ class ContractQueryService:
             perm_open_access=perm_open_access,
         )
         return qs
+
+    def list_contracts_page(
+        self,
+        *,
+        page: int,
+        page_size: int,
+        case_type: str | None = None,
+        status: str | None = None,
+        search: str | None = None,
+        fee_mode: str | None = None,
+        is_filed: bool | None = None,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> dict[str, Any]:
+        """分页列表（服务端分页，前端不再全量拉）。
+
+        排序沿用办案主页口径「离今天最近」：|end_date - 今天| 升序、无到期沉底。
+        facets 计数固定全库口径（与旧客户端筛选行为一致），三条 group by 很便宜。
+        """
+        qs = (
+            self.get_contract_queryset()
+            .annotate(_abs_days=RawSQL("ABS(end_date - CURRENT_DATE)", []))
+            .order_by(F("_abs_days").asc(nulls_last=True), "-id")
+        )
+        qs = self._apply_list_filters(
+            qs, case_type=case_type, status=status, search=search, fee_mode=fee_mode, is_filed=is_filed
+        )
+        qs = self.access_policy.filter_queryset(
+            qs=qs,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+        )
+        total = qs.count()
+        offset = max(0, (page - 1)) * page_size
+        items = list(qs[offset : offset + page_size])
+        facets = self.contract_facets(user=user, org_access=org_access, perm_open_access=perm_open_access)
+        return {"total": total, "items": items, **facets}
+
+    def contract_facets(
+        self,
+        *,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> dict[str, dict[str, int]]:
+        """筛选 chips 计数：状态 / 类目（label）/ 收费（label），固定全库口径。"""
+        base = self.access_policy.filter_queryset(
+            qs=Contract.objects.all(),
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+        )
+
+        def label_counts(field: str, label_of: Any) -> dict[str, int]:
+            agg = dict(base.values_list(field).annotate(n=Count("id")))
+            return {label_of(k): v for k, v in agg.items() if k}
+
+        status_counts = {s or "": n for s, n in base.values_list("status").annotate(n=Count("id"))}
+        cat_counts = label_counts("case_type", lambda c: Contract(case_type=c).get_case_type_display())
+        fee_counts = label_counts("fee_mode", lambda f: Contract(fee_mode=f).get_fee_mode_display())
+        return {"status_counts": status_counts, "cat_counts": cat_counts, "fee_counts": fee_counts}
 
     def list_contracts_ctx(
         self,
