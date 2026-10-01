@@ -101,6 +101,7 @@ class CaseSearchService:
         self,
         case_type: str | None = None,
         status: str | None = None,
+        contract_id: int | None = None,
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
@@ -111,17 +112,25 @@ class CaseSearchService:
             qs = qs.filter(contract__case_type=case_type)
         if status:
             qs = qs.filter(contract__status=status)
+        if contract_id is not None:
+            qs = qs.filter(contract_id=contract_id)
 
         return self.access_policy.filter_queryset(
             qs, user=user, org_access=org_access, perm_open_access=perm_open_access
         )
 
     def list_cases_ctx(
-        self, *, ctx: AccessContext, case_type: str | None = None, status: str | None = None
+        self,
+        *,
+        ctx: AccessContext,
+        case_type: str | None = None,
+        status: str | None = None,
+        contract_id: int | None = None,
     ) -> QuerySet[Case, Case]:
         return self.list_cases(
             case_type=case_type,
             status=status,
+            contract_id=contract_id,
             user=ctx.user,
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,

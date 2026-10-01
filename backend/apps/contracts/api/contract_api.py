@@ -24,9 +24,16 @@ logger = logging.getLogger("apps.contracts.api")
 router = Router()
 
 
-def _serialize_contract(contract: Any) -> dict:
-    """Serialize a Contract model to dict in sync context (avoid lazy FK access in async)."""
-    return ContractOut.from_orm(contract).model_dump(by_alias=True)
+def _serialize_contract(contract: Any, *, slim: bool = False) -> dict:
+    """Serialize a Contract model to dict in sync context (avoid lazy FK access in async).
+
+    slim=True 时剔除 finalized_materials（归档材料清单，占列表响应约 60% 体积，
+    仅归档场景需要）——办案主页等列表消费方应传 slim=true。
+    """
+    data = ContractOut.from_orm(contract).model_dump(by_alias=True)
+    if slim:
+        data.pop("finalized_materials", None)
+    return data
 
 
 def _get_contract_service() -> Any:
@@ -55,16 +62,48 @@ async def list_contracts(  # pragma: no cover
     search: str | None = None,
     fee_mode: str | None = None,
     is_filed: bool | None = None,
+    slim: bool = False,
+    page: int | None = None,
+    page_size: int = 50,
 ) -> Any:
     """
-    获取合同列表（前端做客户端分页）
+    获取合同列表。
+
+    - 不传 page：返回全量裸数组（旧口径，前端客户端分页，仅存量消费方使用）
+    - 传 page：服务端分页 + 全库 facets 计数，返回
+      {items, total, status_counts, cat_counts, fee_counts}；
+      排序固定「离今天最近」（|end_date - 今天| 升序、无到期沉底）
+    - slim=true 剔除归档材料清单等重负载字段
 
     Requirements: 6.1, 6.2, 6.3
     """
     service = _get_domain_service()
     ctx = await sync_to_async(extract_request_context)(request)
+    ps = max(1, min(page_size, 200))
 
     def _do() -> Any:
+        if page is not None:
+            data = service.list_contracts_page(
+                page=max(1, page),
+                page_size=ps,
+                case_type=case_type,
+                status=status,
+                search=search,
+                fee_mode=fee_mode,
+                is_filed=is_filed,
+                user=ctx.user,
+                org_access=ctx.org_access,
+                perm_open_access=ctx.perm_open_access,
+            )
+            return {
+                "items": [_serialize_contract(c, slim=slim) for c in data["items"]],
+                "total": data["total"],
+                "page": max(1, page),
+                "page_size": ps,
+                "status_counts": data["status_counts"],
+                "cat_counts": data["cat_counts"],
+                "fee_counts": data["fee_counts"],
+            }
         qs = service.list_contracts(
             case_type=case_type,
             status=status,
@@ -75,7 +114,7 @@ async def list_contracts(  # pragma: no cover
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,
         )
-        return [_serialize_contract(c) for c in qs]
+        return [_serialize_contract(c, slim=slim) for c in qs]
 
     return await sync_to_async(_do)()
 

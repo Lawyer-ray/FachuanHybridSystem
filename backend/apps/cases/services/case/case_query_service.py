@@ -35,14 +35,16 @@ class CaseQueryService(PermissionMixin):
         self,
         case_type: str | None = None,
         status: str | None = None,
+        contract_id: int | None = None,
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> QuerySet[Case, Case]:
-        """获取案件列表（带权限过滤）。"""
+        """获取案件列表（带权限过滤；contract_id 可按合同过滤）。"""
         return self._search_service.list_cases(
             case_type=case_type,
             status=status,
+            contract_id=contract_id,
             user=user,
             org_access=org_access,
             perm_open_access=perm_open_access,
@@ -54,9 +56,10 @@ class CaseQueryService(PermissionMixin):
         ctx: SecurityAccessContext,
         case_type: str | None = None,
         status: str | None = None,
+        contract_id: int | None = None,
     ) -> QuerySet[Case, Case]:
         """获取案件列表（AccessContext 版本）。"""
-        return self._search_service.list_cases_ctx(ctx=ctx, case_type=case_type, status=status)
+        return self._search_service.list_cases_ctx(ctx=ctx, case_type=case_type, status=status, contract_id=contract_id)
 
     def get_case(
         self,

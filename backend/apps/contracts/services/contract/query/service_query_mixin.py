@@ -44,6 +44,13 @@ class ContractServiceQueryMixin:
             ),
         )
 
+    def list_contracts_page(self, **kwargs: Any) -> dict[str, Any]:
+        """分页列表（服务端分页 + facets 计数），见 ContractQueryService.list_contracts_page。"""
+        return cast(
+            dict[str, Any],
+            self.query_service.list_contracts_page(**kwargs),
+        )
+
     def _get_contract_internal(self, contract_id: int) -> Any:
         return self.query_service.get_contract_internal(contract_id)
 

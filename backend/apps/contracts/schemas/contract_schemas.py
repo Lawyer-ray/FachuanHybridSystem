@@ -7,7 +7,7 @@ Contract Schemas - Contract
 from __future__ import annotations
 
 import logging
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 from ninja import ModelSchema, Schema
 from pydantic import field_validator, model_validator
@@ -16,7 +16,7 @@ from apps.contracts.models import Contract, FeeMode
 from apps.core.api.schemas_shared import ReminderLiteOut as ReminderOut
 from apps.core.models.enums import CaseStage
 
-from .lawyer_schemas import CaseOut, LawyerOut
+from .lawyer_schemas import LawyerOut
 from .party_schemas import ContractPartyIn, ContractPartyOut
 from .payment_schemas import ContractPaymentOut
 from .supplementary_schemas import SupplementaryAgreementInput, SupplementaryAgreementOut
@@ -203,8 +203,14 @@ class ContractAssignmentOut(Schema):
 
 
 class ContractOut(ModelSchema):
-    cases: list[CaseOut]
+    """合同序列化输出。
+
+    cases 不再整表内嵌（144 合同 × 案件嵌套曾是列表接口的体积/耗时大头），
+    只给 case_count 计数；案件明细由 /cases/cases?contract_id= 按需拉取。
+    """
+
     contract_parties: list[ContractPartyOut]
+    case_count: int
     case_type_label: str | None
     status_label: str | None
     reminders: list[ReminderOut]
@@ -246,14 +252,18 @@ class ContractOut(ModelSchema):
         ]
 
     @staticmethod
-    def resolve_cases(obj: Any) -> list:
+    def resolve_case_count(obj: Any) -> int:
         if isinstance(obj, dict):
-            return obj.get("cases", [])  # type: ignore[no-any-return]
+            if "case_count" in obj:
+                return int(obj["case_count"])
+            return len(obj.get("cases", []))
         dtos = getattr(obj, "case_dtos", None)
         if dtos is not None:
-            return [CaseOut.from_dto(dto) for dto in dtos]
-        cases = obj.cases
-        return [CaseOut.from_model(item) for item in cases.all()]
+            return len(dtos)
+        annotated = getattr(obj, "_case_count", None)
+        if annotated is not None:
+            return int(annotated)
+        return cast(int, obj.cases.count())
 
     @staticmethod
     def resolve_fee_mode(obj: Any) -> str:

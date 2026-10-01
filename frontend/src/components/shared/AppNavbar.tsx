@@ -38,11 +38,6 @@ export interface AppNavbarProps {
   onLogout?: () => void
 }
 
-const NOT_READY: Record<string, string> = {
-  '/workbench': '办案工作台正在开发中',
-  '/ledger': '案件台账正在开发中',
-}
-
 /** 补拉当前用户信息的 query key（本组件独用，就地定义） */
 const ORG_ME_KEY = ['organization-me'] as const
 
@@ -123,19 +118,12 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
           active={pathname.startsWith('/material-prep')}
           onClick={() => setMenuOpen(false)}
         />
-        {Object.entries(NOT_READY).map(([path, msg]) => (
-          <button
-            key={path}
-            type="button"
-            className="cursor-pointer rounded-[8px] px-3 py-[7px] text-left text-[13.5px] font-medium whitespace-nowrap text-secondary-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            onClick={() => {
-              setMenuOpen(false)
-              notify(msg)
-            }}
-          >
-            {path === '/workbench' ? '办案' : '台账'}
-          </button>
-        ))}
+        <NavLink
+          to="/cases"
+          label="办案"
+          active={pathname.startsWith('/cases')}
+          onClick={() => setMenuOpen(false)}
+        />
       </nav>
 
       {/* 全局检索 */}
