@@ -42,13 +42,16 @@ function SheetContent({
   className,
   children,
   showCloseButton = true,
+  overlayProps,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
+  /** 透传给内置遮罩（如 onContextMenu：右键空白 = 关闭抽屉） */
+  overlayProps?: React.ComponentProps<typeof SheetOverlay>
 }) {
   return (
     <SheetPortal>
-      <SheetOverlay />
+      <SheetOverlay {...overlayProps} />
       <DialogPrimitive.Content
         data-slot="sheet-content"
         className={cn(

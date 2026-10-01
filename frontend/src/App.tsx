@@ -64,9 +64,9 @@ export default function App() {
             </RequireAuth>
           }
         />
-        {/* 办案主页：合同大行流 + 详情抽屉 */}
+        {/* 办案主页：合同大行流 + 详情抽屉（/cases 对齐后端 cases 域，未来 /cases/:id 个案详情） */}
         <Route
-          path="/workbench"
+          path="/cases"
           element={
             <RequireAuth>
               <Suspense fallback={<RouteFallback />}>

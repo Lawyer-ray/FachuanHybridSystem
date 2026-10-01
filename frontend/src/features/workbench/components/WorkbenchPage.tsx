@@ -19,10 +19,12 @@ import { FilterBar } from './FilterBar'
 export function WorkbenchPage() {
   const { deals, isLoading, error, refetch } = useWorkbenchData()
   const [filter, setFilter] = useState<WorkbenchFilter>({ status: 'active', cat: '', fee: '', q: '' })
-  const [sheetDeal, setSheetDeal] = useState<WorkbenchDeal | null>(null)
+  // open 与 deal 分离：关闭时保留 deal 引用，抽屉才能播完滑出动画（DealSheet 由 Radix 卸载）
+  const [sheet, setSheet] = useState<{ open: boolean; deal: WorkbenchDeal | null }>({ open: false, deal: null })
 
   const notify = useCallback((msg: string) => toast.info(msg), [])
   const detailNotReady = useCallback(() => toast.info('详情页正在开发中（右键行 = 快速预览）'), [])
+  const openSheet = useCallback((deal: WorkbenchDeal) => setSheet({ open: true, deal }), [])
 
   const visible = useMemo(() => sortDeals(filterDeals(deals, filter)), [deals, filter])
   const groups = useMemo(() => groupDeals(visible, !!filter.cat), [visible, filter.cat])
@@ -83,7 +85,7 @@ export function WorkbenchPage() {
                 </div>
                 <div className="mt-0.5 overflow-hidden rounded-[14px] border border-border bg-card shadow-sm">
                   {g.deals.map((d) => (
-                    <DealRow key={d.id} deal={d} onOpenSheet={setSheetDeal} onDetailNotReady={detailNotReady} />
+                    <DealRow key={d.id} deal={d} onOpenSheet={openSheet} onDetailNotReady={detailNotReady} />
                   ))}
                 </div>
               </section>
@@ -92,7 +94,11 @@ export function WorkbenchPage() {
         </main>
       </PageFade>
 
-      <DealSheet deal={sheetDeal} onOpenChange={(open) => !open && setSheetDeal(null)} />
+      <DealSheet
+        deal={sheet.deal}
+        open={sheet.open}
+        onOpenChange={(open) => !open && setSheet((s) => ({ ...s, open: false }))}
+      />
     </div>
   )
 }

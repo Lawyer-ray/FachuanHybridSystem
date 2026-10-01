@@ -119,9 +119,9 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
           onClick={() => setMenuOpen(false)}
         />
         <NavLink
-          to="/workbench"
+          to="/cases"
           label="办案"
-          active={pathname.startsWith('/workbench')}
+          active={pathname.startsWith('/cases')}
           onClick={() => setMenuOpen(false)}
         />
       </nav>

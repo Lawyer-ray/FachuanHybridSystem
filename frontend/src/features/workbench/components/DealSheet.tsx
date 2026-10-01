@@ -13,6 +13,8 @@ import type { WorkbenchDeal } from '../types'
 
 interface DealSheetProps {
   deal: WorkbenchDeal | null
+  /** 开关与 deal 分离：关闭时父组件保留最后一份 deal，让退出动画播完再由 Radix 卸载 */
+  open: boolean
   onOpenChange: (open: boolean) => void
 }
 
@@ -88,8 +90,14 @@ function StageNode({ stage, n, live, first }: { stage: string; n: number; live: 
  * 合同详情抽屉（办案主页唯一浮层）：九节全字段，空节不渲染。
  * 「详情 →」= 开发中提示；当事人/律师行内可复制。
  */
-export function DealSheet({ deal, onOpenChange }: DealSheetProps) {
+export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
   if (!deal) return null
+
+  /* 右键空白遮罩 = 左键点空白同效：不弹原生菜单，收起抽屉（播退出动画） */
+  const closeByContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault()
+    onOpenChange(false)
+  }
 
   /* 当事人：我方在前，首个对方行上方留白断组（分组不用标签，角色已表达语义） */
   const sorted = [...deal.partiesAll].sort((a, b) => Number(b.ours) - Number(a.ours))
@@ -141,8 +149,8 @@ export function DealSheet({ deal, onOpenChange }: DealSheetProps) {
   }
 
   return (
-    <Sheet open={!!deal} onOpenChange={onOpenChange}>
-      <SheetContent>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent overlayProps={{ onContextMenu: closeByContextMenu }}>
         <SheetHeader>
           <SheetTitle>{deal.client}</SheetTitle>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-[11.5px] text-muted-foreground">
