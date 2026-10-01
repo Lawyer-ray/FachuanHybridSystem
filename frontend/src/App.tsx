@@ -5,6 +5,7 @@ import { hasToken } from '@/lib/token'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { BindingsPageLazy, LoginPage, SocialCallbackPage } from '@/features/auth'
 import { HomePage } from '@/features/home'
+import { WorkbenchPageLazy } from '@/features/workbench'
 
 // 材料预处理整域懒加载：它静态引入 pdfjs-dist（~1MB 级），不拆出去的话
 // 登录页/首页的首屏包也要背上它。列表页与详情页共用同一 chunk，切换零成本。
@@ -59,6 +60,17 @@ export default function App() {
             <RequireAuth>
               <Suspense fallback={<RouteFallback />}>
                 <DeskPage />
+              </Suspense>
+            </RequireAuth>
+          }
+        />
+        {/* 办案主页：合同大行流 + 详情抽屉 */}
+        <Route
+          path="/workbench"
+          element={
+            <RequireAuth>
+              <Suspense fallback={<RouteFallback />}>
+                <WorkbenchPageLazy />
               </Suspense>
             </RequireAuth>
           }

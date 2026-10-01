@@ -39,7 +39,6 @@ export interface AppNavbarProps {
 }
 
 const NOT_READY: Record<string, string> = {
-  '/workbench': '办案工作台正在开发中',
   '/ledger': '案件台账正在开发中',
 }
 
@@ -123,6 +122,12 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
           active={pathname.startsWith('/material-prep')}
           onClick={() => setMenuOpen(false)}
         />
+        <NavLink
+          to="/workbench"
+          label="办案"
+          active={pathname.startsWith('/workbench')}
+          onClick={() => setMenuOpen(false)}
+        />
         {Object.entries(NOT_READY).map(([path, msg]) => (
           <button
             key={path}
@@ -133,7 +138,7 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
               notify(msg)
             }}
           >
-            {path === '/workbench' ? '办案' : '台账'}
+            台账
           </button>
         ))}
       </nav>
