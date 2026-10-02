@@ -38,7 +38,11 @@ _SUPERUSER_ONLY_STEP_TYPES = {"http", "mcp_tool"}
 
 
 def _validate_steps_for_user(user: Any, steps: list[Any]) -> None:
-    """模板步骤类型白名单校验（安全审计 A-01/B-01/B-02）。"""
+    """模板步骤类型白名单校验（安全审计 A-01/B-01/B-02）。
+
+    注意：执行器按 ``mcp_tool`` 字段存在性分发（workflows.py ``if mcp_tool:``），
+    与 type 无关——因此任意类型步骤携带 mcp_tool 字段同样按超管限定处理。
+    """
     is_superuser = bool(user and getattr(user, "is_superuser", False))
     for step in steps or []:
         step_type = str(getattr(step, "type", "") or "").strip()
@@ -48,11 +52,15 @@ def _validate_steps_for_user(user: Any, steps: list[Any]) -> None:
                 code="STEP_TYPE_FORBIDDEN",
                 errors={"type": step_type},
             )
-        if step_type in _SUPERUSER_ONLY_STEP_TYPES and not is_superuser:
+        requires_superuser = step_type in _SUPERUSER_ONLY_STEP_TYPES
+        if not requires_superuser and str(getattr(step, "mcp_tool", "") or "").strip():
+            # 白名单绕过防护：type 合法但携带 mcp_tool 字段
+            requires_superuser = True
+        if requires_superuser and not is_superuser:
             raise ValidationException(
-                message=f"步骤类型 {step_type} 仅超级管理员可用",
+                message="该步骤类型/配置仅超级管理员可用",
                 code="STEP_TYPE_REQUIRES_SUPERUSER",
-                errors={"type": step_type},
+                errors={"type": step_type or "mcp_tool"},
             )
 
 
