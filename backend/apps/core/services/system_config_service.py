@@ -77,7 +77,10 @@ class SystemConfigService:
             )
 
         if value is not None:
-            if config.is_secret:
+            # 复审结论：加密判定用「生效值」——PATCH 同时把 is_secret 升为 true 时
+            # 新值必须加密落库，不能按旧标志走明文路径。
+            effective_secret = bool(is_secret) if is_secret is not None else bool(config.is_secret)
+            if effective_secret:
                 from apps.core.security.secret_codec import SecretCodec
 
                 codec = SecretCodec()
@@ -193,7 +196,12 @@ class SystemConfigService:
 
         codec = SecretCodec()
         if codec.is_encrypted(value):
-            return codec.decrypt(value)
+            try:
+                return codec.decrypt(value)
+            except Exception:
+                # 复审结论：密钥轮换后旧密文解不开时降级返回原值（与库内读取的
+                # 失败模式一致），避免 get_value 全线 500；轮换后应重写配置值自愈。
+                return value
         # 兼容存量明文（含旧缓存条目）：原样返回
         return value
 

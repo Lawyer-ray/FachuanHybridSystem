@@ -695,6 +695,16 @@ class TestDeleteJob:
 
 
 class TestSaveExportUrl:
+    def test_traversal_media_url_rejected(self) -> None:
+        """安全审计 B-12：/media/../../.. 路径与非法前缀必须被拒。"""
+        from apps.image_rotation.api.image_rotation_api import save_export_url
+
+        for bad in ["/media/../../etc/passwd", "http://evil/x.zip", "/media/image_rotation/../../secret"]:
+            req = MagicMock()
+            req.body = json.dumps({"file_type": "zip", "media_url": bad}).encode()
+            result = save_export_url(req, "1")
+            assert result["success"] is False, bad
+
     def test_missing_params(self) -> None:
         from apps.image_rotation.api.image_rotation_api import save_export_url
 

@@ -263,7 +263,9 @@ function mockTrialApp(config = {}) {
             if (!text) return '';
             // 使用更完善的 markdown 渲染（marked 不净化原始 HTML，输入先转义）
             if (typeof marked !== 'undefined') {
-                return marked.parse(this.escapeHtml(text));
+                // 复审补堵：marked 不会清毒链接协议，先剔除 javascript:/vbscript: 形态
+                const safe = this.escapeHtml(text).replace(/(java|vb)script:/gi, '$1script&#58;');
+                return marked.parse(safe);
             }
             // 降级到简单渲染
             return this.escapeHtml(text)

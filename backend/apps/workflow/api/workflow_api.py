@@ -37,15 +37,23 @@ _FORBIDDEN_STEP_TYPES = {"code"}
 _SUPERUSER_ONLY_STEP_TYPES = {"http", "mcp_tool"}
 
 
+def _step_field(step: Any, field: str) -> str:
+    """兼容 pydantic 模型与裸 dict 的步骤字段读取。"""
+    if isinstance(step, dict):
+        return str(step.get(field, "") or "")
+    return str(getattr(step, field, "") or "")
+
+
 def _validate_steps_for_user(user: Any, steps: list[Any]) -> None:
     """模板步骤类型白名单校验（安全审计 A-01/B-01/B-02）。
 
     注意：执行器按 ``mcp_tool`` 字段存在性分发（workflows.py ``if mcp_tool:``），
     与 type 无关——因此任意类型步骤携带 mcp_tool 字段同样按超管限定处理。
+    步骤项可以是 StepConfigIn 模型或存量模板中的裸 dict。
     """
     is_superuser = bool(user and getattr(user, "is_superuser", False))
     for step in steps or []:
-        step_type = str(getattr(step, "type", "") or "").strip()
+        step_type = _step_field(step, "type").strip()
         if step_type in _FORBIDDEN_STEP_TYPES:
             raise ValidationException(
                 message=f"不允许使用步骤类型 {step_type}",
@@ -53,7 +61,7 @@ def _validate_steps_for_user(user: Any, steps: list[Any]) -> None:
                 errors={"type": step_type},
             )
         requires_superuser = step_type in _SUPERUSER_ONLY_STEP_TYPES
-        if not requires_superuser and str(getattr(step, "mcp_tool", "") or "").strip():
+        if not requires_superuser and _step_field(step, "mcp_tool").strip():
             # 白名单绕过防护：type 合法但携带 mcp_tool 字段
             requires_superuser = True
         if requires_superuser and not is_superuser:
@@ -260,6 +268,12 @@ def duplicate_template(request: Any, template_id: int) -> dict[str, Any]:
     """复制工作流模板（仅管理员，安全审计 A-01）"""
     ensure_admin_request(request, message="仅管理员可管理工作流模板", code="PERMISSION_DENIED")
     source = WorkflowTemplate.objects.get(pk=template_id)
+
+    # 复审结论：存量危险模板（修复前创建）不得经复制繁殖
+    _validate_steps_for_user(
+        getattr(request, "user", None) or getattr(request, "auth", None),
+        [s for s in (source.steps_schema or []) if isinstance(s, dict)],
+    )
 
     new_slug = f"{source.slug}-copy"
     counter = 1

@@ -142,7 +142,7 @@ class DocumentTemplateStorage(FileSystemStorage):
         if name and name.startswith("_EXISTING_:"):
             # 提取实际的相对路径（安全审计 B-04：拒绝穿越片段）
             relative_path = name[len("_EXISTING_:") :]
-            if ".." in Path(relative_path).parts:
+            if ".." in Path(relative_path).parts or Path(relative_path).is_absolute():
                 raise SuspiciousFileOperation(f"非法模板路径: {relative_path}")
             # 验证文件确实存在
             full_path = self.docx_templates_root / relative_path

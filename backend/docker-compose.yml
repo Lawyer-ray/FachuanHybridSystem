@@ -22,13 +22,21 @@ services:
 
   redis:
     image: valkey/valkey:8-alpine
-    command: valkey-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD:-fachuan-dev-redis}
+    # 安全审计 E-02：设置 REDIS_PASSWORD 时启用 requirepass（生产必须设置）；
+    # 未设置时保持无密码，避免破坏既有本地开发流程（端口已绑定 127.0.0.1）。
+    command: >-
+      sh -c 'if [ -n "$$REDIS_PASSWORD" ]; then
+      exec valkey-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass "$$REDIS_PASSWORD";
+      else
+      exec valkey-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru;
+      fi'
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "valkey-cli", "ping"]
+      # 兼容有/无密码两种模式
+      test: ["CMD-SHELL", "valkey-cli ping || valkey-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -50,7 +58,8 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_HOST: postgres
       DB_PORT: ${DB_PORT:-5432}
-      REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD:-fachuan-dev-redis}@redis:6379/0}
+      # 复审修正：容器互联走专用变量，避免 backend/.env 的 REDIS_URL（本地直连值）覆盖带密码内网地址
+      REDIS_URL: ${APP_REDIS_URL:-redis://redis:6379/0}
     depends_on:
       postgres:
         condition: service_healthy
@@ -78,7 +87,8 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_HOST: postgres
       DB_PORT: ${DB_PORT:-5432}
-      REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD:-fachuan-dev-redis}@redis:6379/0}
+      # 复审修正：容器互联走专用变量，避免 backend/.env 的 REDIS_URL（本地直连值）覆盖带密码内网地址
+      REDIS_URL: ${APP_REDIS_URL:-redis://redis:6379/0}
     depends_on:
       postgres:
         condition: service_healthy

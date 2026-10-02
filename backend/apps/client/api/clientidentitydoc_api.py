@@ -153,10 +153,12 @@ def bind_merged_doc(  # pragma: no cover
     """将已合并的 PDF 绑定到当事人的证件记录"""
     try:
         doc_service = _get_identity_doc_service()
+        _user = getattr(request, "auth", None) or getattr(request, "user", None)
         doc = doc_service.add_identity_doc(
             client_id=data.client_id,
             doc_type=data.doc_type,
             file_path=data.pdf_path,
+            user=_user,
         )
         logger.info("合并证件绑定成功", extra={"client_id": data.client_id, "doc_id": doc.id})
         return {"success": True, "doc_id": doc.id, "message": "证件绑定成功"}

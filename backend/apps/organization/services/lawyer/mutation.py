@@ -136,9 +136,10 @@ class LawyerMutationService:
         is_superuser = bool(getattr(user, "is_superuser", False))
         if is_superuser:
             return
-        is_self = getattr(user, "id", None) == getattr(lawyer, "id", None)
-        if is_self and data.is_admin is not None and data.is_admin != lawyer.is_admin:
-            raise PermissionDenied(message="不能修改自己的管理员权限", code="SELF_ADMIN_CHANGE_FORBIDDEN")
+        # 复审结论：is_admin 变更（任意方向）整体收紧为仅超管，与 create 口径对齐，
+        # 防所管理员经 UPDATE 路径互相授予/撤销管理员绕过 create 拦截。
+        if data.is_admin is not None and data.is_admin != lawyer.is_admin:
+            raise PermissionDenied(message="仅超级管理员可变更管理员权限", code="ADMIN_CHANGE_FORBIDDEN")
         if data.law_firm_id is not None and data.law_firm_id != getattr(lawyer, "law_firm_id", None):
             raise PermissionDenied(message="仅超级管理员可变更律师所属律所", code="CROSS_FIRM_FORBIDDEN")
 
