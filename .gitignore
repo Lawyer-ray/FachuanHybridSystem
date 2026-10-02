@@ -370,3 +370,5 @@ frontend_2026/
 
 # ZCode 会话工作目录（AI 会话计划等临时产物，不入库）
 .zcode/
+# ZCode 忽略规则文件（工具自动同步生成，不入库）
+.zcodeignore
