@@ -112,10 +112,6 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          # plugins 子模块参与 mypy 类型检查：stub 降级路径（ImportError → None）
-          # 与本地环境不一致，会让 changed-files gate 对插件相关文件报出
-          # 本地不存在的错误；本地 ci-local.sh 即在有 plugins 的环境运行
-          submodules: recursive
 
       - name: Repository hygiene
         run: |
