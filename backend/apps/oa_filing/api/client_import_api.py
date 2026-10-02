@@ -46,7 +46,7 @@ def trigger_client_import(request: HttpRequest) -> Any:  # pragma: no cover
                     raw_limit = payload.get("limit")
                     if raw_limit not in (None, "", 0, "0"):
                         try:
-                            parsed_limit = int(raw_limit)  # type: ignore[arg-type]
+                            parsed_limit = int(raw_limit)
                         except (TypeError, ValueError):
                             return {"error": "导入数量必须是大于 0 的整数"}
                         if parsed_limit <= 0:

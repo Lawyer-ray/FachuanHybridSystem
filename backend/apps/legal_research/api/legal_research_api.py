@@ -92,11 +92,12 @@ def _serialize_result(result: Any) -> LegalResearchResultOut:
 async def create_task(request: Any, payload: LegalResearchTaskCreateIn) -> LegalResearchCreateOut:  # pragma: no cover
     service = _get_service()
 
-    def _do() -> Any:
+    def _do() -> LegalResearchCreateOut:
         task = service.create_task(payload=payload, user=getattr(request, "user", None))
         return LegalResearchCreateOut(task_id=task.id, status=task.status)
 
-    return await sync_to_async(_do)()
+    result: LegalResearchCreateOut = await sync_to_async(_do)()
+    return result
 
 
 @router.post("/capability/search", response=AgentSearchResponseV1)
@@ -131,7 +132,8 @@ async def get_task(request: Any, task_id: int) -> LegalResearchTaskOut:  # pragm
         task = service.get_task(task_id=task_id, user=getattr(request, "user", None))
         return _serialize_task(task)
 
-    return await sync_to_async(_do)()
+    _result = await sync_to_async(_do)()
+    return _result  # type: ignore[no-any-return]
 
 
 @router.get("/tasks/{task_id}/results", response=list[LegalResearchResultOut])
@@ -142,7 +144,8 @@ async def list_results(request: Any, task_id: int) -> list[LegalResearchResultOu
         results = service.list_results(task_id=task_id, user=getattr(request, "user", None))
         return [_serialize_result(x) for x in results]
 
-    return await sync_to_async(_do)()
+    _result = await sync_to_async(_do)()
+    return _result  # type: ignore[no-any-return]
 
 
 @router.get("/tasks/{task_id}/results/{result_id}/download")
@@ -237,7 +240,7 @@ async def check_law_references(request: Any, payload: dict[str, Any]) -> dict[st
             return {"error": "text 不能为空", "references": [], "total": 0}
 
         # 检测插件是否可用
-        from plugins import has_law_verification_plugin  # type: ignore[attr-defined]
+        from plugins import has_law_verification_plugin
 
         if not has_law_verification_plugin():
             return {"error": "法规核查插件未安装", "references": [], "total": 0}
@@ -284,10 +287,10 @@ async def check_law_references(request: Any, payload: dict[str, Any]) -> dict[st
 
         # 定义回调函数
         def search_laws(law_name: str) -> list[dict[str, Any]]:
-            return adapter.search_laws_via_api(session=session, keyword=law_name)  # type: ignore[no-any-return]
+            return adapter.search_laws_via_api(session=session, keyword=law_name)
 
         def fetch_article(doc_id: str, article_num: int) -> str | None:
-            return adapter.fetch_law_article_via_api(session=session, doc_id=doc_id, article_num=article_num)  # type: ignore[no-any-return]
+            return adapter.fetch_law_article_via_api(session=session, doc_id=doc_id, article_num=article_num)
 
         # 执行核查
         from plugins.weike_api_private.law_verification import verify_references
@@ -300,14 +303,14 @@ async def check_law_references(request: Any, payload: dict[str, Any]) -> dict[st
         return {
             "references": [
                 {
-                    "law_name": r.law_name,
-                    "article_num": r.article_num,
-                    "status": r.status,
-                    "validity": r.validity,
-                    "article_text": r.article_text,
-                    "reference_text": r.reference_text,
-                    "similarity": r.similarity,
-                    "weike_url": r.weike_url,
+                    "law_name": r.get("law_name", ""),
+                    "article_num": r.get("article_num"),
+                    "status": r.get("status"),
+                    "validity": r.get("validity"),
+                    "article_text": r.get("article_text"),
+                    "reference_text": r.get("reference_text"),
+                    "similarity": r.get("similarity"),
+                    "weike_url": r.get("weike_url"),
                 }
                 for r in results
             ],
