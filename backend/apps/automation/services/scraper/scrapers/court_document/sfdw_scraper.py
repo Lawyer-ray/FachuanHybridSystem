@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .base_court_scraper import BaseCourtDocumentScraper
+from .base_court_scraper import BaseCourtDocumentScraper, as_async_page, as_sync_page
 
 logger = logging.getLogger("apps.automation")
 
@@ -47,8 +47,8 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
         # 导航到目标页面
         self.navigate_to_url(timeout=30000)
-        assert self.page is not None
-        self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
+        page = as_sync_page(self.page)
+        page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
 
         # 优先使用手机号后6位候选（含手工输入）
         tail6_candidates = self._get_phone_tail6_candidates()
@@ -62,7 +62,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
             logger.info("司法送达网: 使用验证码模式")
             self._input_verification_code(verification_code)
-            self.page.wait_for_timeout(self._VERIFY_WAIT_MS)
+            page.wait_for_timeout(self._VERIFY_WAIT_MS)
 
             ws_list = self._get_ws_list()
             if not ws_list:
@@ -124,18 +124,18 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     def _try_phone_tail6_candidates(self, tail6_candidates: list[str]) -> list[dict[str, Any]]:  # pragma: no cover
         """依次尝试手机号后6位，直到成功拿到文书列表。"""
-        assert self.page is not None
+        page = as_sync_page(self.page)
 
         candidates = tail6_candidates[: self._MAX_TAIL6_ATTEMPTS]
         logger.info("司法送达网: 使用手机号后6位模式，候选数=%d", len(candidates))
 
         for idx, tail6 in enumerate(candidates):
             if idx > 0:
-                self.page.reload(wait_until="domcontentloaded", timeout=30000)
-                self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
+                page.reload(wait_until="domcontentloaded", timeout=30000)
+                page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
 
             self._input_verification_code(tail6)
-            self.page.wait_for_timeout(self._VERIFY_WAIT_MS)
+            page.wait_for_timeout(self._VERIFY_WAIT_MS)
 
             ws_list = self._get_ws_list()
             if ws_list:
@@ -156,10 +156,10 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         - input#checkCode 是验证码输入框
         - app.checkYzm() 是验证方法
         """
-        assert self.page is not None
+        page = as_sync_page(self.page)
 
         # 在验证码输入框中输入
-        check_code_input = self.page.locator("#checkCode")
+        check_code_input = page.locator("#checkCode")
         if check_code_input.count() == 0:
             self.screenshot("sfdw_no_checkcode_input")
             raise ValueError("司法送达网: 未找到验证码输入框 #checkCode")
@@ -169,10 +169,10 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         check_code_input.first.fill(code)
         logger.info("司法送达网: 已输入验证码")
 
-        self.page.wait_for_timeout(500)
+        page.wait_for_timeout(500)
 
         # 通过 JS 调用 Vue 实例的 checkYzm 方法
-        result = self.page.evaluate("""() => {
+        result = page.evaluate("""() => {
             try {
                 if (typeof app !== 'undefined' && app.checkYzm) {
                     app.checkYzm();
@@ -186,7 +186,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         logger.info("司法送达网: 验证码提交结果: %s", result)
 
         # 等待验证完成
-        self.page.wait_for_timeout(self._VERIFY_WAIT_MS)
+        page.wait_for_timeout(self._VERIFY_WAIT_MS)
 
     # ==================== 文书列表获取 ====================
 
@@ -199,9 +199,9 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         - wjgs: 文件格式（pdf等）
         - sdjzwjid: 文件ID
         """
-        assert self.page is not None
+        page = as_sync_page(self.page)
 
-        vue_data_str = self.page.evaluate("""() => {
+        vue_data_str = page.evaluate("""() => {
             try {
                 if (typeof app === 'undefined') return '{}';
                 return JSON.stringify(app.$data);
@@ -251,7 +251,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         Returns:
             下载成功的文件路径列表
         """
-        assert self.page is not None
+        page = as_sync_page(self.page)
         files: list[str] = []
 
         for i, ws in enumerate(ws_list):
@@ -266,7 +266,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                 files.append(filepath)
 
             # 下载间隔
-            self.page.wait_for_timeout(1500)
+            page.wait_for_timeout(1500)
 
         return files
 
@@ -289,15 +289,15 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         Returns:
             下载文件路径，失败返回 None
         """
-        assert self.page is not None
+        page = as_sync_page(self.page)
 
         # 策略1: 通过 Vue 方法触发下载
         try:
             import json
 
             ws_json = json.dumps(ws, ensure_ascii=False)
-            with self.page.expect_download(timeout=30000) as download_info:
-                self.page.evaluate(
+            with page.expect_download(timeout=30000) as download_info:
+                page.evaluate(
                     """(wsJson) => {
                     try {
                         const ws = JSON.parse(wsJson);
@@ -326,9 +326,9 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             def on_download(download: Any) -> None:  # pragma: no cover
                 captured_downloads.append(download)
 
-            self.page.on("download", on_download)
+            page.on("download", on_download)
 
-            self.page.evaluate(
+            page.evaluate(
                 """(wsJson) => {
                 try {
                     const ws = JSON.parse(wsJson);
@@ -344,9 +344,9 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             for _ in range(30):
                 if captured_downloads:
                     break
-                self.page.wait_for_timeout(1000)
+                page.wait_for_timeout(1000)
 
-            self.page.remove_listener("download", on_download)
+            page.remove_listener("download", on_download)
 
             if captured_downloads:
                 return self._save_download_file(captured_downloads[0], download_dir, doc_name, index)
@@ -397,9 +397,9 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         download_dir = self._prepare_download_dir()
 
         # 导航到目标页面
-        assert self.page is not None
-        await self.page.goto(self.task.url, timeout=30000, wait_until="domcontentloaded")
-        await self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
+        page = as_async_page(self.page)
+        await page.goto(self.task.url, timeout=30000, wait_until="domcontentloaded")
+        await page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
 
         # 优先使用手机号后6位候选（含手工输入）
         tail6_candidates = self._get_phone_tail6_candidates()
@@ -413,7 +413,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
             logger.info("[async] 司法送达网: 使用验证码模式")
             await self._ainput_verification_code(verification_code)
-            await self.page.wait_for_timeout(self._VERIFY_WAIT_MS)
+            await page.wait_for_timeout(self._VERIFY_WAIT_MS)
 
             ws_list = await self._aget_ws_list()
             if not ws_list:
@@ -442,18 +442,18 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         self, tail6_candidates: list[str]
     ) -> list[dict[str, Any]]:  # pragma: no cover
         """异步依次尝试手机号后6位，直到成功拿到文书列表。"""
-        assert self.page is not None
+        page = as_async_page(self.page)
 
         candidates = tail6_candidates[: self._MAX_TAIL6_ATTEMPTS]
         logger.info("[async] 司法送达网: 使用手机号后6位模式，候选数=%d", len(candidates))
 
         for idx, tail6 in enumerate(candidates):
             if idx > 0:
-                await self.page.reload(wait_until="domcontentloaded", timeout=30000)
-                await self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
+                await page.reload(wait_until="domcontentloaded", timeout=30000)
+                await page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
 
             await self._ainput_verification_code(tail6)
-            await self.page.wait_for_timeout(self._VERIFY_WAIT_MS)
+            await page.wait_for_timeout(self._VERIFY_WAIT_MS)
 
             ws_list = await self._aget_ws_list()
             if ws_list:
@@ -467,10 +467,10 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     async def _ainput_verification_code(self, code: str) -> None:  # pragma: no cover
         """异步输入验证码并触发验证"""
-        assert self.page is not None
+        page = as_async_page(self.page)
 
         # 在验证码输入框中输入
-        check_code_input = self.page.locator("#checkCode")
+        check_code_input = page.locator("#checkCode")
         if await check_code_input.count() == 0:
             self.screenshot("sfdw_no_checkcode_input")
             raise ValueError("司法送达网: 未找到验证码输入框 #checkCode")
@@ -480,10 +480,10 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         await check_code_input.first.fill(code)
         logger.info("[async] 司法送达网: 已输入验证码")
 
-        await self.page.wait_for_timeout(500)
+        await page.wait_for_timeout(500)
 
         # 通过 JS 调用 Vue 实例的 checkYzm 方法
-        result = await self.page.evaluate("""() => {
+        result = await page.evaluate("""() => {
             try {
                 if (typeof app !== 'undefined' && app.checkYzm) {
                     app.checkYzm();
@@ -497,13 +497,13 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         logger.info("[async] 司法送达网: 验证码提交结果: %s", result)
 
         # 等待验证完成
-        await self.page.wait_for_timeout(self._VERIFY_WAIT_MS)
+        await page.wait_for_timeout(self._VERIFY_WAIT_MS)
 
     async def _aget_ws_list(self) -> list[dict[str, Any]]:  # pragma: no cover
         """异步获取验证后的文书列表"""
-        assert self.page is not None
+        page = as_async_page(self.page)
 
-        vue_data_str = await self.page.evaluate("""() => {
+        vue_data_str = await page.evaluate("""() => {
             try {
                 if (typeof app === 'undefined') return '{}';
                 return JSON.stringify(app.$data);
@@ -540,7 +540,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         self, ws_list: list[dict[str, Any]], download_dir: Path
     ) -> list[str]:  # pragma: no cover
         """异步逐个下载所有文书"""
-        assert self.page is not None
+        page = as_async_page(self.page)
         files: list[str] = []
 
         for i, ws in enumerate(ws_list):
@@ -555,7 +555,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                 files.append(filepath)
 
             # 下载间隔
-            await self.page.wait_for_timeout(1500)
+            await page.wait_for_timeout(1500)
 
         return files
 
@@ -563,15 +563,15 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         self, ws: dict[str, Any], index: int, download_dir: Path, doc_name: str
     ) -> str | None:
         """异步下载单个文书"""
-        assert self.page is not None
+        page = as_async_page(self.page)
 
         # 策略1: 通过 Vue 方法触发下载
         try:
             import json
 
             ws_json = json.dumps(ws, ensure_ascii=False)
-            async with self.page.expect_download(timeout=30000) as download_info:
-                await self.page.evaluate(
+            async with page.expect_download(timeout=30000) as download_info:
+                await page.evaluate(
                     """(wsJson) => {
                     try {
                         const ws = JSON.parse(wsJson);
@@ -600,9 +600,9 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             async def on_download(download: Any) -> None:  # pragma: no cover
                 captured_downloads.append(download)
 
-            self.page.on("download", on_download)
+            page.on("download", on_download)
 
-            await self.page.evaluate(
+            await page.evaluate(
                 """(wsJson) => {
                 try {
                     const ws = JSON.parse(wsJson);
@@ -618,9 +618,9 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             for _ in range(30):
                 if captured_downloads:
                     break
-                await self.page.wait_for_timeout(1000)
+                await page.wait_for_timeout(1000)
 
-            self.page.remove_listener("download", on_download)
+            page.remove_listener("download", on_download)
 
             if captured_downloads:
                 return await self._asave_download_file(captured_downloads[0], download_dir, doc_name, index)

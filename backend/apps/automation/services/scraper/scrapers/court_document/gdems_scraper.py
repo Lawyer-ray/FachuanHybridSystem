@@ -18,7 +18,7 @@ import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from .base_court_scraper import BaseCourtDocumentScraper
+from .base_court_scraper import BaseCourtDocumentScraper, as_async_page, as_sync_page
 
 if TYPE_CHECKING:
     from playwright.async_api import Page as AsyncPage
@@ -55,10 +55,10 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
         # 导航到目标页面（使用更长超时，该网站响应较慢）
         self.navigate_to_url(timeout=60000)
-        assert self.page is not None, "页面未初始化"
+        page = as_sync_page(self.page)
 
         # 等待页面加载
-        self.page.wait_for_load_state("networkidle", timeout=30000)
+        page.wait_for_load_state("networkidle", timeout=30000)
         self._random_wait(3, 5)
 
         # 截图保存封面页
@@ -108,9 +108,9 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         Returns:
             True 表示存在可点击的确认按钮（有文书），False 表示无
         """
-        assert self.page is not None, "页面未初始化"
+        page = as_sync_page(self.page)
         # 检查 #submit-btn（有文书时绑定事件的按钮）
-        submit_btn = self.page.locator("#submit-btn")
+        submit_btn = page.locator("#submit-btn")
         if submit_btn.count() > 0 and submit_btn.first.is_visible():
             logger.info("检测到 #submit-btn 确认按钮，页面有文书可下载")
             return True
@@ -128,9 +128,9 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         Returns:
             canvas 上显示的通知文本，提取失败返回空字符串
         """
-        assert self.page is not None, "页面未初始化"
+        page = as_sync_page(self.page)
         try:
-            text = self.page.evaluate("""() => {
+            text = page.evaluate("""() => {
                 // 页面 JS 在 $(document).ready 中定义 var text = "..." 并绘制到 canvas
                 // 从内联 script 中提取该变量值
                 var scripts = document.querySelectorAll('script:not([src])');
@@ -203,10 +203,10 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         Returns:
             找到的定位器，或 None
         """
-        assert self.page is not None, "页面未初始化"
+        page = as_sync_page(self.page)
         for selector in selectors:
             try:
-                loc = self.page.locator(selector)
+                loc = page.locator(selector)
                 if loc.count() > 0 and loc.first.is_visible():
                     logger.info(f"通过 '{selector}' 找到 {label}")
                     return loc
@@ -216,7 +216,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     def _click_confirm_button(self) -> None:  # pragma: no cover
         """点击"确认并预览材料"按钮，尝试多种定位策略"""
-        assert self.page is not None, "页面未初始化"
+        page = as_sync_page(self.page)
         try:
             selectors = [
                 "#submit-btn, #confirm-btn, .submit-btn, .confirm-btn",
@@ -227,7 +227,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             # 文本定位器单独处理（get_by_text 接口不同）
             if not submit_button:
                 try:
-                    btn = self.page.get_by_text("确认并预览材料", exact=False)
+                    btn = page.get_by_text("确认并预览材料", exact=False)
                     if btn.count() > 0 and btn.first.is_visible():
                         submit_button = btn
                         logger.info("通过文本找到确认按钮")
@@ -237,7 +237,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             if submit_button and submit_button.count() > 0:
                 submit_button.first.click()
                 logger.info("已点击'确认并预览材料'按钮")
-                self.page.wait_for_load_state("networkidle", timeout=30000)
+                page.wait_for_load_state("networkidle", timeout=30000)
                 self._random_wait(5, 7)
             else:
                 logger.warning("未找到确认按钮，可能页面已经在预览状态")
@@ -266,7 +266,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             "a:has-text('下载'), button:has-text('下载'), [title*='下载']",
         ]
 
-        assert self.page is not None, "页面未初始化"
+        page = as_sync_page(self.page)
         try:
             download_button = self._find_locator(selectors, "下载按钮")
 
@@ -277,7 +277,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             download_button.first.scroll_into_view_if_needed()
             self._random_wait(1, 2)
 
-            with self.page.expect_download(timeout=60000) as download_info:
+            with page.expect_download(timeout=60000) as download_info:
                 download_button.first.click()
                 logger.info("已点击下载按钮，等待下载...")
 
@@ -339,8 +339,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         logger.info("处理 sd.gdems.com 链接...")
         logger.info("=" * 60)
 
-        assert self.page is not None, "页面未初始化"
-        page: AsyncPage = self.page
+        page = as_async_page(self.page)
 
         # 导航到目标页面
         logger.info("导航到: %s", self.task.url)
@@ -401,15 +400,15 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         filename = f"{name}_{self.task.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.png"
         filepath = screenshot_dir / filename
 
-        assert self.page is not None, "浏览器页面未初始化"
-        await self.page.screenshot(path=str(filepath))
+        page = as_async_page(self.page)
+        await page.screenshot(path=str(filepath))
         logger.info("截图已保存: %s", filepath)
         return str(filepath)
 
     async def _ahas_clickable_confirm_button(self) -> bool:  # pragma: no cover
         """异步版：检测页面是否存在可点击的确认按钮"""
-        assert self.page is not None, "页面未初始化"
-        submit_btn = self.page.locator("#submit-btn")
+        page = as_async_page(self.page)
+        submit_btn = page.locator("#submit-btn")
         if await submit_btn.count() > 0 and await submit_btn.first.is_visible():
             logger.info("检测到 #submit-btn 确认按钮，页面有文书可下载")
             return True
@@ -419,9 +418,9 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     async def _aextract_canvas_notification(self) -> str:  # pragma: no cover
         """异步版：提取 canvas 上绘制的通知文本"""
-        assert self.page is not None, "页面未初始化"
+        page = as_async_page(self.page)
         try:
-            text: str = await self.page.evaluate("""() => {
+            text: str = await page.evaluate("""() => {
                 var scripts = document.querySelectorAll('script:not([src])');
                 for (var s of scripts) {
                     var content = s.textContent;
@@ -468,10 +467,10 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     async def _afind_locator(self, selectors: list[str], label: str) -> Any | None:  # pragma: no cover
         """异步版：按顺序尝试多个选择器，返回第一个可见的定位器"""
-        assert self.page is not None, "页面未初始化"
+        page = as_async_page(self.page)
         for selector in selectors:
             try:
-                loc = self.page.locator(selector)
+                loc = page.locator(selector)
                 if await loc.count() > 0 and await loc.first.is_visible():
                     logger.info(f"通过 '{selector}' 找到 {label}")
                     return loc
@@ -481,7 +480,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     async def _aclick_confirm_button(self) -> None:  # pragma: no cover
         """异步版：点击"确认并预览材料"按钮"""
-        assert self.page is not None, "页面未初始化"
+        page = as_async_page(self.page)
         try:
             selectors = [
                 "#submit-btn, #confirm-btn, .submit-btn, .confirm-btn",
@@ -491,7 +490,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
             if not submit_button:
                 try:
-                    btn = self.page.get_by_text("确认并预览材料", exact=False)
+                    btn = page.get_by_text("确认并预览材料", exact=False)
                     if await btn.count() > 0 and await btn.first.is_visible():
                         submit_button = btn
                         logger.info("通过文本找到确认按钮")
@@ -501,7 +500,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             if submit_button and await submit_button.count() > 0:
                 await submit_button.first.click()
                 logger.info("已点击'确认并预览材料'按钮")
-                await self.page.wait_for_load_state("networkidle", timeout=30000)
+                await page.wait_for_load_state("networkidle", timeout=30000)
                 await self._arandom_wait(5, 7)
             else:
                 logger.warning("未找到确认按钮，可能页面已经在预览状态")
@@ -519,7 +518,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             "a:has-text('下载'), button:has-text('下载'), [title*='下载']",
         ]
 
-        assert self.page is not None, "页面未初始化"
+        page = as_async_page(self.page)
         try:
             download_button = await self._afind_locator(selectors, "下载按钮")
 
@@ -530,7 +529,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             await download_button.first.scroll_into_view_if_needed()
             await self._arandom_wait(1, 2)
 
-            async with self.page.expect_download(timeout=60000) as download_info:
+            async with page.expect_download(timeout=60000) as download_info:
                 await download_button.first.click()
                 logger.info("已点击下载按钮，等待下载...")
 

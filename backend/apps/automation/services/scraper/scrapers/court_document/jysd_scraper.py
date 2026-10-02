@@ -22,7 +22,7 @@ from typing import Any
 
 import aiofiles
 
-from .base_court_scraper import BaseCourtDocumentScraper
+from .base_court_scraper import BaseCourtDocumentScraper, as_async_page, as_sync_page
 
 logger = logging.getLogger("apps.automation")
 
@@ -52,8 +52,8 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
         # 导航到目标页面
         self.navigate_to_url(timeout=30000)
-        assert self.page is not None
-        self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
+        page = as_sync_page(self.page)
+        page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
 
         # 逐一尝试律师手机号登录
         login_success = False
@@ -69,8 +69,8 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
             # 每次尝试前刷新页面（除第一次），确保状态干净
             if idx > 0:
-                self.page.reload(wait_until="domcontentloaded", timeout=30000)
-                self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
+                page.reload(wait_until="domcontentloaded", timeout=30000)
+                page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
 
             # 获取 iframe
             iframe = self._get_sifayun_iframe()
@@ -138,11 +138,11 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     def _get_sifayun_iframe(self) -> Any | None:  # pragma: no cover
         """获取 sifayun.com 的 iframe frame 对象"""
-        assert self.page is not None
+        page = as_sync_page(self.page)
 
         # 直接遍历 page.frames 查找（最可靠）
         try:
-            for frame in self.page.frames:
+            for frame in page.frames:
                 frame_url = frame.url or ""
                 if "sifayun.com" in frame_url:
                     return frame
@@ -175,8 +175,8 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             logger.info("简易送达: 已输入手机号")
 
             # 等待一小段时间模拟人工操作
-            assert self.page is not None
-            self.page.wait_for_timeout(500)
+            page = as_sync_page(self.page)
+            page.wait_for_timeout(500)
 
             # 点击登录按钮
             login_btn = iframe.locator("button:has-text('登录')")
@@ -189,7 +189,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                 return False
 
             # 等待页面响应
-            self.page.wait_for_timeout(self._LOGIN_WAIT_MS)
+            page.wait_for_timeout(self._LOGIN_WAIT_MS)
 
             # 检查登录结果：iframe URL 应该从 checkLoginPc 变为 middlePagePc
             return self._check_login_result()
@@ -231,7 +231,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         中间页面 (middlePagePc) 有"查看文书详情"按钮，点击后进入文书详情 (home)。
         如果已经在文书详情页面，直接返回 iframe。
         """
-        assert self.page is not None
+        page = as_sync_page(self.page)
 
         iframe = self._get_sifayun_iframe()
         if iframe is None:
@@ -251,7 +251,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             view_btn = iframe.locator("button:has-text('查看文书详情')")
             if view_btn.count() > 0:
                 view_btn.first.click(force=True, timeout=5000)
-                self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
+                page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
 
                 # 重新获取 iframe
                 iframe = self._get_sifayun_iframe()
@@ -280,11 +280,11 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
         策略：逐行遍历，每行重新定位按钮，用 JS click 作为 Playwright click 的 fallback。
         """
-        assert self.page is not None
+        page = as_sync_page(self.page)
         files: list[str] = []
 
         # 等待表格加载
-        self.page.wait_for_timeout(3000)
+        page.wait_for_timeout(3000)
         self.screenshot("jysd_doc_page")
 
         # 获取表格行数
@@ -329,7 +329,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                     files.append(filepath)
 
                 # 下载间隔
-                self.page.wait_for_timeout(1500)
+                page.wait_for_timeout(1500)
 
             except Exception as exc:
                 logger.warning("简易送达: 下载第 %d 个文书失败: %s", i + 1, exc)
@@ -356,13 +356,13 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         Returns:
             下载文件路径，失败返回 None
         """
-        assert self.page is not None
+        page = as_sync_page(self.page)
 
         # 策略1: Playwright click
         try:
             download_btn = row.locator("button:has-text('下载')")
             if download_btn.count() > 0:
-                with self.page.expect_download(timeout=15000) as download_info:
+                with page.expect_download(timeout=15000) as download_info:
                     download_btn.first.click(force=True, timeout=5000)
                 return self._save_download(download_info.value, download_dir, doc_name, index)
         except Exception:
@@ -370,7 +370,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
         # 策略2: JS click（Playwright force click 有时无法触发 Vue 事件）
         try:
-            with self.page.expect_download(timeout=15000) as download_info:
+            with page.expect_download(timeout=15000) as download_info:
                 row.evaluate("r => r.querySelector('button')?.click()")
             return self._save_download(download_info.value, download_dir, doc_name, index)
         except Exception:
@@ -378,13 +378,13 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
         # 策略3: 检查是否弹出了确认对话框
         try:
-            self.page.wait_for_timeout(1000)
+            page.wait_for_timeout(1000)
             confirm_btn = iframe.locator(
                 ".checkFileDialog .el-dialog__wrapper:not([style*='display: none']) button:has-text('下载文书并核验')"
             )
             if confirm_btn.count() > 0 and confirm_btn.first.is_visible():
                 logger.info("简易送达: 检测到下载确认对话框，点击'下载文书并核验'")
-                with self.page.expect_download(timeout=30000) as download_info:
+                with page.expect_download(timeout=30000) as download_info:
                     confirm_btn.first.click(force=True, timeout=5000)
                 return self._save_download(download_info.value, download_dir, doc_name, index)
         except Exception as exc:
@@ -443,9 +443,9 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         logger.info("简易送达: 共 %d 个律师手机号待尝试", len(lawyer_phones))
 
         # 导航到目标页面
-        assert self.page is not None
-        await self.page.goto(self.task.url, timeout=30000, wait_until="domcontentloaded")
-        await self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
+        page = as_async_page(self.page)
+        await page.goto(self.task.url, timeout=30000, wait_until="domcontentloaded")
+        await page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
 
         # 逐一尝试律师手机号登录
         login_success = False
@@ -461,8 +461,8 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
             # 每次尝试前刷新页面（除第一次），确保状态干净
             if idx > 0:
-                await self.page.reload(wait_until="domcontentloaded", timeout=30000)
-                await self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
+                await page.reload(wait_until="domcontentloaded", timeout=30000)
+                await page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
 
             # 获取 iframe
             iframe = await self._aget_sifayun_iframe()
@@ -522,13 +522,13 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         filename = f"{name}_{self.task.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.png"
         screenshot_path = screenshot_dir / filename
 
-        assert self.page is not None
-        await self.page.screenshot(path=str(screenshot_path))
+        page = as_async_page(self.page)
+        await page.screenshot(path=str(screenshot_path))
         logger.info("[async] 截图已保存: %s", screenshot_path)
 
         # 保存 HTML
         html_path = download_dir / f"{name}_page.html"
-        html_content = await self.page.content()
+        html_content = await page.content()
         async with aiofiles.open(html_path, "w", encoding="utf-8") as f:
             await f.write(html_content)
 
@@ -537,10 +537,10 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     async def _aget_sifayun_iframe(self) -> Any | None:  # pragma: no cover
         """异步获取 sifayun.com 的 iframe frame 对象"""
-        assert self.page is not None
+        page = as_async_page(self.page)
 
         try:
-            for frame in self.page.frames:
+            for frame in page.frames:
                 frame_url = frame.url or ""
                 if "sifayun.com" in frame_url:
                     return frame
@@ -566,8 +566,8 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             logger.info("[async] 简易送达: 已输入手机号")
 
             # 等待一小段时间模拟人工操作
-            assert self.page is not None
-            await self.page.wait_for_timeout(500)
+            page = as_async_page(self.page)
+            await page.wait_for_timeout(500)
 
             # 点击登录按钮
             login_btn = iframe.locator("button:has-text('登录')")
@@ -580,7 +580,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                 return False
 
             # 等待页面响应
-            await self.page.wait_for_timeout(self._LOGIN_WAIT_MS)
+            await page.wait_for_timeout(self._LOGIN_WAIT_MS)
 
             # 检查登录结果
             return await self._acheck_login_result()
@@ -613,7 +613,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     async def _anavigate_to_document_page(self) -> Any | None:  # pragma: no cover
         """异步从中间页面导航到文书详情页面"""
-        assert self.page is not None
+        page = as_async_page(self.page)
 
         iframe = await self._aget_sifayun_iframe()
         if iframe is None:
@@ -633,7 +633,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             view_btn = iframe.locator("button:has-text('查看文书详情')")
             if await view_btn.count() > 0:
                 await view_btn.first.click(force=True, timeout=5000)
-                await self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
+                await page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
 
                 # 重新获取 iframe
                 iframe = await self._aget_sifayun_iframe()
@@ -651,11 +651,11 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     async def _adownload_documents_from_table(self, iframe: Any, download_dir: Path) -> list[str]:  # pragma: no cover
         """异步从文书详情页面的 el-table 表格中下载文书"""
-        assert self.page is not None
+        page = as_async_page(self.page)
         files: list[str] = []
 
         # 等待表格加载
-        await self.page.wait_for_timeout(3000)
+        await page.wait_for_timeout(3000)
         await self._ascreenshot("jysd_doc_page")
 
         # 获取表格行数
@@ -699,7 +699,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                     files.append(filepath)
 
                 # 下载间隔
-                await self.page.wait_for_timeout(1500)
+                await page.wait_for_timeout(1500)
 
             except Exception as exc:
                 logger.warning("[async] 简易送达: 下载第 %d 个文书失败: %s", i + 1, exc)
@@ -710,13 +710,13 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         self, row: Any, iframe: Any, download_dir: Path, doc_name: str, index: int
     ) -> str | None:
         """异步下载单行文书"""
-        assert self.page is not None
+        page = as_async_page(self.page)
 
         # 策略1: Playwright click
         try:
             download_btn = row.locator("button:has-text('下载')")
             if await download_btn.count() > 0:
-                async with self.page.expect_download(timeout=15000) as download_info:
+                async with page.expect_download(timeout=15000) as download_info:
                     await download_btn.first.click(force=True, timeout=5000)
                 return self._save_download(await download_info.value, download_dir, doc_name, index)
         except Exception:
@@ -724,7 +724,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
         # 策略2: JS click
         try:
-            async with self.page.expect_download(timeout=15000) as download_info:
+            async with page.expect_download(timeout=15000) as download_info:
                 await row.evaluate("r => r.querySelector('button')?.click()")
             return self._save_download(await download_info.value, download_dir, doc_name, index)
         except Exception:
@@ -732,13 +732,13 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
         # 策略3: 检查是否弹出了确认对话框
         try:
-            await self.page.wait_for_timeout(1000)
+            await page.wait_for_timeout(1000)
             confirm_btn = iframe.locator(
                 ".checkFileDialog .el-dialog__wrapper:not([style*='display: none']) button:has-text('下载文书并核验')"
             )
             if await confirm_btn.count() > 0 and await confirm_btn.first.is_visible():
                 logger.info("[async] 简易送达: 检测到下载确认对话框，点击'下载文书并核验'")
-                async with self.page.expect_download(timeout=30000) as download_info:
+                async with page.expect_download(timeout=30000) as download_info:
                     await confirm_btn.first.click(force=True, timeout=5000)
                 return self._save_download(await download_info.value, download_dir, doc_name, index)
         except Exception as exc:
@@ -757,8 +757,8 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         filename = f"{name}_{self.task.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.png"
         filepath = screenshot_dir / filename
 
-        assert self.page is not None
-        await self.page.screenshot(path=str(filepath))
+        page = as_async_page(self.page)
+        await page.screenshot(path=str(filepath))
         logger.info("[async] 截图已保存: %s", filepath)
 
         return str(filepath)

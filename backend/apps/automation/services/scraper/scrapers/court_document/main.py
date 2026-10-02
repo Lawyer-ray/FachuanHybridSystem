@@ -10,7 +10,7 @@ import logging
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urlparse
 
-from .base_court_scraper import BaseCourtDocumentScraper
+from .base_court_scraper import BaseCourtDocumentScraper, as_sync_context, as_sync_page
 from .zxfw_scraper import ZxfwCourtScraper
 
 if TYPE_CHECKING:
@@ -67,8 +67,7 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):  # pragma: no cover
                 )
             # 创建独立的浏览器上下文（启用反检测）
             self.context = self.browser_service.create_context(use_anti_detection=True)
-            assert self.context is not None
-            self.page = self.context.new_page()
+            self.page = as_sync_context(self.context).new_page()
 
         return self._dispatch_to_scraper(scraper_cls)
 
@@ -124,7 +123,7 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):  # pragma: no cover
             if self.context is None:
                 self.context = self.browser_service.create_context(use_anti_detection=True)
             if self.page is None:
-                self.page = self.context.new_page()
+                self.page = as_sync_context(self.context).new_page()
 
             detected_platform = self._detect_platform_by_structure()
             if detected_platform == "zxfw":
@@ -182,14 +181,14 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):  # pragma: no cover
         """使用 Playwright 打开页面并根据结构特征识别平台。"""
         try:
             self.navigate_to_url(timeout=35000)
-            assert self.page is not None
-            self.page.wait_for_timeout(1500)
+            page = as_sync_page(self.page)
+            page.wait_for_timeout(1500)
 
-            current_url = (self.page.url or "").lower()
-            content_lower = self.page.content().lower()
+            current_url = (page.url or "").lower()
+            content_lower = page.content().lower()
 
             # 简易送达：典型是内嵌 sifayun iframe
-            frame_urls = [(frame.url or "").lower() for frame in self.page.frames if frame is not None]
+            frame_urls = [(frame.url or "").lower() for frame in page.frames if frame is not None]
             if any(self._extract_host(frame_url) in {"sifayun.com", "www.sifayun.com"} for frame_url in frame_urls):
                 logger.info("结构识别命中简易送达特征（sifayun iframe）")
                 return "jysd"
@@ -224,8 +223,7 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):  # pragma: no cover
     def _has_selector(self, selector: str) -> bool:  # pragma: no cover
         """安全判断页面上是否存在指定选择器。"""
         try:
-            assert self.page is not None
-            return int(self.page.locator(selector).count()) > 0
+            return int(as_sync_page(self.page).locator(selector).count()) > 0
         except Exception:
             return False
 
@@ -272,21 +270,25 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
         base = f"http://{host}:80"
         cls_name = f"DaolvScraper_{host.replace('.', '_').replace('-', '_')}"
-        cls = type(cls_name, (DaolvSifaSongdaScraper,), {
-            "requires_browser": False,
-            "_DOMAIN": host,
-            "_LOGIN_PAGE_URL": f"http://{host}/sfsddz",
-            "_CAPTCHA_IMAGE_URL": f"{base}/deli/images/yanz.png",
-            "_CAPTCHA_CHECK_URL": f"{base}/deli/deli-login!checkyzmAjaxp.action",
-            "_LOGIN_URL": f"{base}/deli/easy-login!dologinAjax.action",
-            "_MAIN_URL": f"{base}/deli/login!main.action",
-            "_LIST_URLS": (
-                f"{base}/deli/TdeliPubRecord/tdelipubrecord!todoList.action",
-                f"{base}/deli/TdeliPubRecord/tdelipubrecord!doneList.action",
-                f"{base}/deli/TdeliPubRecord/tdelipubrecord!expiredList.action",
-            ),
-            "_PLATFORM_LABEL": host.split(".")[0],
-        })
+        cls = type(
+            cls_name,
+            (DaolvSifaSongdaScraper,),
+            {
+                "requires_browser": False,
+                "_DOMAIN": host,
+                "_LOGIN_PAGE_URL": f"http://{host}/sfsddz",
+                "_CAPTCHA_IMAGE_URL": f"{base}/deli/images/yanz.png",
+                "_CAPTCHA_CHECK_URL": f"{base}/deli/deli-login!checkyzmAjaxp.action",
+                "_LOGIN_URL": f"{base}/deli/easy-login!dologinAjax.action",
+                "_MAIN_URL": f"{base}/deli/login!main.action",
+                "_LIST_URLS": (
+                    f"{base}/deli/TdeliPubRecord/tdelipubrecord!todoList.action",
+                    f"{base}/deli/TdeliPubRecord/tdelipubrecord!doneList.action",
+                    f"{base}/deli/TdeliPubRecord/tdelipubrecord!expiredList.action",
+                ),
+                "_PLATFORM_LABEL": host.split(".")[0],
+            },
+        )
 
         # run() 方法：仅支持 /sfsddz 账号模式
         def _run(self_inner: Any) -> dict[str, Any]:
