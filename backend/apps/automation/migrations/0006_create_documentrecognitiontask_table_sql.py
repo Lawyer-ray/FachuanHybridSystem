@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from typing import Any
+
 from django.db import migrations, models
+
 
 def _build_legacy_task_model() -> type[models.Model]:
     class LegacyDocumentRecognitionTask(models.Model):
@@ -49,7 +52,8 @@ def _build_legacy_task_model() -> type[models.Model]:
 
     return LegacyDocumentRecognitionTask
 
-def _create_table(apps, schema_editor) -> None:
+
+def _create_table(apps: Any, schema_editor: Any) -> None:
     model = _build_legacy_task_model()
     table_name = model._meta.db_table
     existing_tables = set(schema_editor.connection.introspection.table_names())
@@ -70,13 +74,15 @@ def _create_table(apps, schema_editor) -> None:
         models.Index(fields=["notification_sent"], name="automation__notific_6b9b00_idx"),
     )
 
-def _drop_table(apps, schema_editor) -> None:
+
+def _drop_table(apps: Any, schema_editor: Any) -> None:
     model = _build_legacy_task_model()
     table_name = model._meta.db_table
     existing_tables = set(schema_editor.connection.introspection.table_names())
     if table_name not in existing_tables:
         return
     schema_editor.delete_model(model)
+
 
 class Migration(migrations.Migration):
     dependencies = [

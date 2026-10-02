@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from django.db import migrations
 
 
-def _create_docspace_configs(apps, schema_editor):
+def _create_docspace_configs(apps: Any, schema_editor: Any) -> None:
     SystemConfig = apps.get_model("core", "SystemConfig")
 
     defaults = [
@@ -31,7 +33,7 @@ def _create_docspace_configs(apps, schema_editor):
         SystemConfig.objects.get_or_create(key=item["key"], defaults=item)
 
 
-def _reverse(apps, schema_editor):
+def _reverse(apps: Any, schema_editor: Any) -> None:
     SystemConfig = apps.get_model("core", "SystemConfig")
     SystemConfig.objects.filter(category="docspace").delete()
 

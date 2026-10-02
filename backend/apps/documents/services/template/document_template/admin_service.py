@@ -9,6 +9,7 @@ Requirements: 3.1, 3.2, 3.3
 import logging
 from typing import Any
 
+from django.db.models import QuerySet
 from django.utils.html import format_html, format_html_join
 
 from apps.core.exceptions import NotFoundError
@@ -90,7 +91,7 @@ class DocumentTemplateAdminService:
         Returns:
             验证结果字典,包含 is_valid, error, cleaned_data
         """
-        result = {
+        result: dict[str, Any] = {
             "is_valid": True,
             "error": None,
             "cleaned_data": {"existing_file": existing_file, "file": uploaded_file, "file_path": file_path},
@@ -143,7 +144,7 @@ class DocumentTemplateAdminService:
         Returns:
             验证结果字典
         """
-        result = {
+        result: dict[str, Any] = {
             "is_valid": True,
             "errors": {},
             "contract_sub_type": contract_sub_type,
@@ -410,7 +411,7 @@ class DocumentTemplateAdminService:
         filename: str = file_path.name
         return file_path, filename
 
-    def batch_activate(self, queryset: Any) -> int:
+    def batch_activate(self, queryset: QuerySet[Any]) -> int:
         """
         批量启用模板
 
@@ -422,7 +423,7 @@ class DocumentTemplateAdminService:
         """
         return queryset.filter(is_active=False).update(is_active=True)
 
-    def batch_deactivate(self, queryset: Any) -> int:
+    def batch_deactivate(self, queryset: QuerySet[Any]) -> int:
         """
         批量禁用模板
 

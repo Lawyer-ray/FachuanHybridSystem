@@ -2,13 +2,13 @@
 测试服务
 将测试逻辑从 Admin 层解耦到 Service 层
 """
+
 from __future__ import annotations
 
-from typing import Optional
 import logging
 import time
 import traceback
-from typing import Any
+from typing import Any, Optional
 
 from apps.automation.services.scraper.core.screenshot_utils import ScreenshotUtils
 from apps.core.config import get_config

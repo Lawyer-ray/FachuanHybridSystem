@@ -273,6 +273,29 @@ jobs:
             apps/automation/utils/logging_mixins/common.py \
             apiSystem/apiSystem/api.py
 
+      - name: Type check (mypy, full-scan ratchet)
+        # 全量 apps 扫描的存量错误棘轮：只许降不许升。
+        # 基线按 CI 口径（无私有 plugins 子模块，stub 降级路径生效）：
+        # 2026-10-02 实测 69（27 个 plugins 相关文件在降级下的报错 +
+        # 16 个判定暂缓项：result_admin 6 / evidence 双域漂移 8 /
+        # generation_service 疑似死字段 2）。本地（含 plugins）为 16。
+        # 后续双态清理（对齐 test_service 等 3 文件的处理模式）可逐步下调。
+        env:
+          PYTHONPATH: "apiSystem:."
+          DJANGO_DEBUG: "1"
+        run: |
+          set -euo pipefail
+          BASELINE=75
+          errors=$(uv run mypy --config-file=mypy.ini apps --no-pretty --no-error-summary 2>/dev/null | grep -c "error:" || true)
+          echo "mypy full-scan errors=${errors} baseline=${BASELINE}"
+          if [ "${errors}" -gt "${BASELINE}" ]; then
+            echo "::error::mypy 全量错误数 ${errors} 超过基线 ${BASELINE}——请修复新增错误，或在大规模清理后下调基线"
+            exit 1
+          fi
+          if [ "${errors}" -lt "${BASELINE}" ]; then
+            echo "::notice::mypy 全量错误数已低于基线（${errors} < ${BASELINE}），可将 backend-ci.yml 中的 BASELINE 下调至 ${errors}"
+          fi
+
       - name: Tests (structure, real run)
         env:
           DJANGO_DEBUG: "1"

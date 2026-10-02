@@ -147,7 +147,7 @@ class BindingResult:
     @classmethod
     def success_result(
         cls,
-        case_id: int,
+        case_id: int | None,
         case_name: str,
         case_log_id: int,
     ) -> "BindingResult":

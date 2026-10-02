@@ -165,7 +165,9 @@ class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         labels = [self._STEP_LABELS.get(s, s) for s in steps]
         return "、".join(labels)
 
-    def get_readonly_fields(self, request: HttpRequest, obj: ReviewTask | None = None) -> tuple[str, ...]:  # pragma: no cover
+    def get_readonly_fields(
+        self, request: HttpRequest, obj: ReviewTask | None = None
+    ) -> tuple[str, ...]:  # pragma: no cover
         base = (
             "id",
             "original_file_link",
@@ -251,12 +253,15 @@ class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             name,
         )
 
-    def get_fieldsets(  # pragma: no cover
+    def get_fieldsets(  # type: ignore[override]  # pragma: no cover
         self, request: HttpRequest, obj: ReviewTask | None = None
     ) -> list[tuple[str | None, dict[str, Any]]]:
-        party_fields = tuple(f for f in _PARTY_FIELDS if obj and getattr(obj, f, "")) or ("party_a", "party_b")
+        party_fields = tuple(f for f in _PARTY_FIELDS if obj is not None and bool(getattr(obj, f, ""))) or (
+            "party_a",
+            "party_b",
+        )
 
-        fieldsets = [
+        fieldsets: list[tuple[str | None, dict[str, Any]]] = [
             (None, {"fields": ("id", "user", "contract_title", "model_name", "reviewer_name")}),
             ("当事人", {"fields": (*party_fields, "represented_party")}),
             ("处理步骤", {"fields": ("selected_steps_display",)}),

@@ -5,7 +5,7 @@ LawyerServiceAdapter
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import ClassVar, cast
 
 from apps.core.interfaces import ILawyerService, LawyerDTO
 from apps.organization.models import Lawyer
@@ -50,7 +50,7 @@ class LawyerServiceAdapter(ILawyerService):
             .exclude(real_name="")
             .values_list("real_name", flat=True)
         )
-        return list(names)
+        return cast("list[str]", list(names))
 
     def get_lawyer_model(self, lawyer_id: int) -> Lawyer | None:
         return self.service.get_lawyer_by_id(lawyer_id)

@@ -9,13 +9,13 @@ from typing import Any, ClassVar, cast
 from django.utils import timezone
 
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.exceptions.error_codes import TEMPLATE_RENDER_ERROR
 from apps.core.services.filename_template_service import FilenameTemplateService
 from apps.core.utils.path import Path
 from apps.documents.models import DocumentTemplate, DocumentTemplateType
 from apps.documents.services.generation.path_utils import resolve_media_path, safe_arcname, safe_name
 from apps.documents.services.placeholders import EnhancedContextBuilder
 from apps.documents.storage import get_docx_templates_root
-from apps.core.exceptions.error_codes import TEMPLATE_RENDER_ERROR
 
 logger = logging.getLogger("apps.documents.generation")
 
@@ -444,7 +444,7 @@ class AuthorizationMaterialGenerationService:
             raise ValidationException(
                 message="模板文件路径为空",
                 code="TEMPLATE_FILE_EMPTY",
-                errors={"template_id": str(cast(int, template.pk))},
+                errors={"template_id": str(template.pk)},
             )
         return Path(location)
 

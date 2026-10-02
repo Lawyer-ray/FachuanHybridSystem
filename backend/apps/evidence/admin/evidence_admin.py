@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 @admin.register(EvidenceListProxy)
-class EvidenceListAdmin(
+class EvidenceListAdmin(  # type: ignore[misc]  # get_form 与 ModelAdmin 的 MRO 签名冲突，mixin 侧已对齐仍不满足
     HearingModeAdminMixin,
     EvidenceListAdminViewsMixin,
     EvidenceListAdminActionsMixin,
@@ -29,7 +29,7 @@ class EvidenceListAdmin(
 ):  # pragma: no cover
     form = EvidenceListForm
 
-    list_display: tuple[Any, ...] = (
+    list_display = (
         "title",
         "case_display",
         "list_type",
@@ -44,12 +44,12 @@ class EvidenceListAdmin(
         "updated_at",
     )
 
-    list_filter: tuple[Any, ...] = ("case", "list_type")
-    search_fields: tuple[Any, ...] = ("title", "case__name")
-    ordering: ClassVar = ["case", "order"]
-    autocomplete_fields: tuple[Any, ...] = ("export_template",)
+    list_filter = ("case", "list_type")
+    search_fields = ("title", "case__name")
+    ordering = ["case", "order"]
+    autocomplete_fields = ("export_template",)
 
-    readonly_fields: tuple[Any, ...] = (
+    readonly_fields = (
         "list_type",
         "order",
         "page_range_display",
@@ -61,7 +61,7 @@ class EvidenceListAdmin(
         "updated_at",
     )
 
-    fieldsets: tuple[Any, ...] = (
+    fieldsets = (
         (None, {"fields": ("case",)}),
         (
             "自动计算信息",
@@ -94,14 +94,16 @@ class EvidenceListAdmin(
         ),
     )
 
-    inlines: ClassVar = [EvidenceItemInline]
-    actions: ClassVar = ["merge_pdfs", "export_list_word", "export_list_zip"]
-    list_select_related: tuple[Any, ...] = ("case", "created_by")
+    inlines = [EvidenceItemInline]
+    actions = ["merge_pdfs", "export_list_word", "export_list_zip"]
+    list_select_related = ("case", "created_by")
 
     def get_queryset(self, request: Any) -> QuerySet:  # pragma: no cover
         return super().get_queryset(request).annotate(item_count=Count("items"))  # type: ignore[no-any-return]
 
-    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:  # pragma: no cover
+    def changelist_view(
+        self, request: HttpRequest, extra_context: dict[str, Any] | None = None
+    ) -> Any:  # pragma: no cover
         """覆写 changelist：批量预计算 start_order/start_page，消除链式遍历 N+1。
 
         对当前页涉及的每个 Case，一次性获取其所有 EvidenceList（含 item_count），
@@ -151,8 +153,8 @@ class EvidenceListAdmin(
         return format_html('<a class="button" href="{}" target="_blank">⚖️</a>', url)
 
     class Media:  # pragma: no cover
-        css: ClassVar = {"all": ("evidence/css/evidence_admin.css",)}
-        js: tuple[Any, ...] = (
+        css = {"all": ("evidence/css/evidence_admin.css",)}
+        js = (
             "evidence/js/evidence_sortable.js",
             "evidence/js/evidence_merge.js",
             "evidence/js/evidence_list_type.js",

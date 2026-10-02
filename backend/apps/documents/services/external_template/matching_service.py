@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from django.apps import apps
 from django.db.models import Count, QuerySet
@@ -73,8 +73,9 @@ class MatchingService:
             is_active=True,
         )
 
-        by_source: list[dict[str, Any]] = list(
-            base_qs.exclude(source_name="").values("source_name").annotate(count=Count("id")).order_by("-count")
+        by_source = cast(
+            "list[dict[str, Any]]",
+            list(base_qs.exclude(source_name="").values("source_name").annotate(count=Count("id")).order_by("-count")),
         )
 
         total: int = base_qs.count()
@@ -96,5 +97,5 @@ class MatchingService:
         ).first()
 
         if authority and authority.name:
-            return authority.name  # type: ignore[no-any-return]
+            return authority.name
         return None

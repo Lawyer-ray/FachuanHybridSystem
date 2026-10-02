@@ -20,7 +20,7 @@ def _cleanup_legal_research_pdf(sender: Any, instance: Any, **kwargs: Any) -> No
     """删除 LegalResearchResult 时清理 PDF 物理文件。"""
     if instance.pdf_file:
         try:
-            transaction.on_commit(lambda f=instance.pdf_file: f.delete(save=False))
+            transaction.on_commit(lambda f=instance.pdf_file: f.delete(save=False))  # type: ignore[misc]  # mypy 对带默认参 lambda 的推断限制
             logger.info(
                 "已清理案例检索PDF文件",
                 extra={"result_id": instance.pk, "file_path": str(instance.pdf_file)},

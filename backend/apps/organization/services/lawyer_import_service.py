@@ -72,18 +72,21 @@ class LawyerImportService:
             law_firm, _ = LawFirm.objects.get_or_create(name=item["law_firm"])
 
         password = item.get("password") or secrets.token_urlsafe(16)
-        lawyer = cast(Lawyer, Lawyer.objects.create_user(
-            username=item.get("username", ""),
-            password=password,
-            real_name=item.get("real_name", ""),
-            phone=item.get("phone") or None,
-            license_no=item.get("license_no", ""),
-            id_card=item.get("id_card", ""),
-            is_admin=item.get("is_admin", False),
-            is_active=item.get("is_active", False),
-            is_staff=item.get("is_admin", False),
-            law_firm=law_firm,
-        ))
+        lawyer = cast(
+            Lawyer,
+            Lawyer.objects.create_user(
+                username=item.get("username", ""),
+                password=password,
+                real_name=item.get("real_name", ""),
+                phone=item.get("phone") or None,
+                license_no=item.get("license_no", ""),
+                id_card=item.get("id_card", ""),
+                is_admin=item.get("is_admin", False),
+                is_active=item.get("is_active", False),
+                is_staff=item.get("is_admin", False),
+                law_firm=law_firm,
+            ),
+        )
 
         if item.get("license_pdf"):
             lawyer.license_pdf = item["license_pdf"]
@@ -105,7 +108,9 @@ class LawyerImportService:
                 continue
             t_firm_name = None if isinstance(t, str) else t.get("law_firm")
             t_firm = LawFirm.objects.get_or_create(name=t_firm_name)[0] if t_firm_name else existing.law_firm
-            team, _ = Team.objects.get_or_create(name=t_name, team_type=TeamType.LAWYER, defaults={"law_firm": t_firm})
+            team, _ = Team.objects.get_or_create(
+                name=t_name, team_type=TeamType.LAWYER, defaults={"law_firm": cast(LawFirm, t_firm)}
+            )
             existing.lawyer_teams.add(team)
 
     def _merge_biz_teams(self, *, existing: Lawyer, item: dict[str, Any]) -> None:
@@ -118,7 +123,7 @@ class LawyerImportService:
             team, _ = Team.objects.get_or_create(
                 name=t_name,
                 team_type=TeamType.BIZ,
-                defaults={"law_firm": existing.law_firm},
+                defaults={"law_firm": cast(LawFirm, existing.law_firm)},
             )
             existing.biz_teams.add(team)
 
@@ -137,7 +142,9 @@ class LawyerImportService:
                 password=cred.get("password", ""),
             )
 
-    def _attach_lawyer_teams(self, *, lawyer: Lawyer, item: dict[str, Any], law_firm: LawFirm | None) -> None:  # pragma: no cover
+    def _attach_lawyer_teams(
+        self, *, lawyer: Lawyer, item: dict[str, Any], law_firm: LawFirm | None
+    ) -> None:  # pragma: no cover
         if not item.get("lawyer_teams"):
             return
         lawyer_team_objs: list[Team] = []
@@ -148,12 +155,14 @@ class LawyerImportService:
             team, _ = Team.objects.get_or_create(
                 name=t_name,
                 team_type=TeamType.LAWYER,
-                defaults={"law_firm": t_firm},
+                defaults={"law_firm": cast(LawFirm, t_firm)},
             )
             lawyer_team_objs.append(team)
         lawyer.lawyer_teams.set(lawyer_team_objs)
 
-    def _attach_biz_teams(self, *, lawyer: Lawyer, item: dict[str, Any], law_firm: LawFirm | None) -> None:  # pragma: no cover
+    def _attach_biz_teams(
+        self, *, lawyer: Lawyer, item: dict[str, Any], law_firm: LawFirm | None
+    ) -> None:  # pragma: no cover
         if not item.get("biz_teams"):
             return
         biz_team_objs: list[Team] = []
@@ -161,7 +170,7 @@ class LawyerImportService:
             team, _ = Team.objects.get_or_create(
                 name=t_name,
                 team_type=TeamType.BIZ,
-                defaults={"law_firm": law_firm},
+                defaults={"law_firm": cast(LawFirm, law_firm)},
             )
             biz_team_objs.append(team)
         lawyer.biz_teams.set(biz_team_objs)

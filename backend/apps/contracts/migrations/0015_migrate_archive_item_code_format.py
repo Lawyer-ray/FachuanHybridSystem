@@ -5,6 +5,8 @@ The new format (e.g. "lt_1") is a stable identifier; display numbering is
 handled by CSS counters on the frontend.
 """
 
+from typing import Any
+
 from django.db import migrations
 
 # Old code → New code mapping
@@ -61,20 +63,19 @@ _CODE_MAPPING: dict[str, str] = {
     "4.3.17": "cr_17",
 }
 
-def migrate_archive_item_codes_forwards(apps, schema_editor):
+
+def migrate_archive_item_codes_forwards(apps: Any, schema_editor: Any) -> None:
     FinalizedMaterial = apps.get_model("contracts", "FinalizedMaterial")
     for old_code, new_code in _CODE_MAPPING.items():
-        FinalizedMaterial.objects.filter(archive_item_code=old_code).update(
-            archive_item_code=new_code
-        )
+        FinalizedMaterial.objects.filter(archive_item_code=old_code).update(archive_item_code=new_code)
 
-def migrate_archive_item_codes_reverse(apps, schema_editor):
+
+def migrate_archive_item_codes_reverse(apps: Any, schema_editor: Any) -> None:
     FinalizedMaterial = apps.get_model("contracts", "FinalizedMaterial")
     reverse_mapping = {v: k for k, v in _CODE_MAPPING.items()}
     for new_code, old_code in reverse_mapping.items():
-        FinalizedMaterial.objects.filter(archive_item_code=new_code).update(
-            archive_item_code=old_code
-        )
+        FinalizedMaterial.objects.filter(archive_item_code=new_code).update(archive_item_code=old_code)
+
 
 class Migration(migrations.Migration):
 

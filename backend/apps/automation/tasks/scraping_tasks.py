@@ -46,12 +46,13 @@ def _get_scraper_map() -> dict[str, type[Any]]:
     from ..models import ScraperTaskType
     from ..services.scraper.scrapers import CourtDocumentScraper
 
+    CourtFilingScraper: type[Any] | None = None
     try:
-        from plugins.court_automation.filing.playwright_filing.service import (
-            CourtZxfwFilingService as CourtFilingScraper,
-        )
+        from plugins.court_automation.filing.playwright_filing.service import CourtZxfwFilingService
+
+        CourtFilingScraper = CourtZxfwFilingService
     except ImportError:
-        CourtFilingScraper = None
+        pass
 
     _scraper_map: dict[str, type[Any]] = {ScraperTaskType.COURT_DOCUMENT: CourtDocumentScraper}
     if CourtFilingScraper is not None:
@@ -240,13 +241,13 @@ def execute_preservation_quote_task(quote_id: int) -> dict[str, Any]:
     from ..models import PreservationQuote, QuoteStatus
 
     try:
-        from plugins.court_automation.preservation_quote.service import PreservationQuoteService
         from plugins.court_automation.preservation_quote.court_insurance_client import CourtInsuranceClient
         from plugins.court_automation.preservation_quote.exceptions import TokenError
+        from plugins.court_automation.preservation_quote.service import PreservationQuoteService
     except ImportError:
         logger.error("court_automation plugin not installed — cannot execute preservation quote task")
         return {"quote_id": quote_id, "status": "error", "message": "plugin not installed"}
-    from ..services.scraper.core.token_service import TokenService
+    from ..services.scraper.core.token_service import TokenServiceAdapter
 
     logger.info("🚀 开始执行询价任务 #%s", quote_id)
 
@@ -256,7 +257,7 @@ def execute_preservation_quote_task(quote_id: int) -> dict[str, Any]:
         return {"quote_id": quote_id, "status": "skipped", "message": "记录已删除"}
 
     try:
-        token_service = TokenService()
+        token_service = TokenServiceAdapter()  # type: ignore[valid-type, misc]
         insurance_client = CourtInsuranceClient(token_service)
         quote_service = PreservationQuoteService(
             token_service=token_service,

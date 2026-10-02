@@ -31,7 +31,7 @@ class FolderBrowsePolicy:
                 downloads = Path("~/Downloads").expanduser()
 
             if downloads.isdir():
-                return downloads  # type: ignore[no-any-return]
+                return downloads
         except (OSError, PermissionError):
             pass
         return None

@@ -21,6 +21,10 @@ class ExecutorSourceGatewayMixin:  # pragma: no cover
     PAGE_SIZE_HINT: int
     MAX_PAGE_WINDOW: int
 
+    def _fetch_candidate_batch(self, **kwargs: Any) -> list[Any]:
+        """搜索批次获取，由组合本 mixin 的执行器宿主类提供。"""
+        raise NotImplementedError
+
     @classmethod
     def _fetch_candidate_batch_with_retry(  # pragma: no cover
         cls,
@@ -40,7 +44,7 @@ class ExecutorSourceGatewayMixin:  # pragma: no cover
     ) -> list[Any]:
         for attempt in range(1, cls.SEARCH_RETRY_ATTEMPTS + 1):
             try:
-                return cls._fetch_candidate_batch(
+                return cls._fetch_candidate_batch(  # type: ignore[call-arg]
                     source_client=source_client,
                     session=session,
                     keyword=keyword,

@@ -13,6 +13,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 from django.conf import settings
+from playwright.async_api import BrowserContext as AsyncBrowserContext
+from playwright.async_api import Page as AsyncPage
+from playwright.sync_api import BrowserContext, Page
 
 from apps.automation.services.scraper.scrapers.base import BaseScraper
 
@@ -24,6 +27,27 @@ logger = logging.getLogger("apps.automation")
 # 调试模式配置(从 Django settings 读取)
 DEBUG_MODE = getattr(settings, "DEBUG", False)  # 跟随 Django DEBUG 设置
 PAUSE_ON_ERROR = False  # 设置为 True 在错误时暂停(需要手动继续)
+
+
+def as_sync_page(page: Page | AsyncPage | None) -> Page:
+    """双态收窄：同步方法内把 BaseScraper.page 视为 sync Page。
+
+    cast 无运行时开销；None 断言与既有代码里的 ``assert self.page is not None`` 行为一致。
+    """
+    assert page is not None, "浏览器页面未初始化（page is None）"
+    return cast(Page, page)
+
+
+def as_async_page(page: Page | AsyncPage | None) -> AsyncPage:
+    """双态收窄：异步方法内把 BaseScraper.page 视为 async Page。"""
+    assert page is not None, "浏览器页面未初始化（page is None）"
+    return cast(AsyncPage, page)
+
+
+def as_sync_context(context: BrowserContext | AsyncBrowserContext | None) -> BrowserContext:
+    """双态收窄：同步方法内把 BaseScraper.context 视为 sync BrowserContext。"""
+    assert context is not None, "浏览器上下文未初始化（context is None）"
+    return cast(BrowserContext, context)
 
 
 class BaseCourtDocumentScraper(BaseScraper):

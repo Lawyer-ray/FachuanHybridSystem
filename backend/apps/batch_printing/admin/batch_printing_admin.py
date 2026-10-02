@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from django import forms
 from django.contrib import admin
@@ -27,14 +27,14 @@ class PrintKeywordRuleAdminForm(forms.ModelForm):  # pragma: no cover
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover
         super().__init__(*args, **kwargs)
         preset_field = self.fields.get("preset_snapshot")
-        if preset_field is not None:
+        if isinstance(preset_field, forms.ModelChoiceField):
             preset_field.queryset = PrintPresetSnapshot.objects.order_by("printer_name", "preset_name")
             preset_field.help_text = "只需选择打印预置，实际打印机会自动取该预置所属打印机，无需单独选择。"
 
 
 @admin.register(BatchPrintingTool)
 class BatchPrintingToolAdmin(admin.ModelAdmin):  # pragma: no cover
-    def changelist_view(  # type: ignore[override]  # pragma: no cover
+    def changelist_view(  # pragma: no cover
         self,
         request: HttpRequest,
         extra_context: dict[str, Any] | None = None,
@@ -50,10 +50,14 @@ class BatchPrintingToolAdmin(admin.ModelAdmin):  # pragma: no cover
     def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return False
 
-    def has_change_permission(self, request: HttpRequest, obj: BatchPrintingTool | None = None) -> bool:  # pragma: no cover
+    def has_change_permission(
+        self, request: HttpRequest, obj: BatchPrintingTool | None = None
+    ) -> bool:  # pragma: no cover
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj: BatchPrintingTool | None = None) -> bool:  # pragma: no cover
+    def has_delete_permission(
+        self, request: HttpRequest, obj: BatchPrintingTool | None = None
+    ) -> bool:  # pragma: no cover
         return False
 
     def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:  # pragma: no cover
@@ -96,17 +100,19 @@ class PrintKeywordRuleAdmin(admin.ModelAdmin):  # pragma: no cover
     def resolved_printer_name(self, obj: PrintKeywordRule | None) -> str:  # pragma: no cover
         if obj is None or not obj.preset_snapshot_id:
             return "保存后会自动同步为所选预置所属打印机"
-        return obj.preset_snapshot.printer_name
+        return cast(str, obj.preset_snapshot.printer_name)
 
     resolved_printer_name.short_description = "实际打印机"  # type: ignore[attr-defined]
 
-    def save_model(self, request: HttpRequest, obj: PrintKeywordRule, form: forms.ModelForm, change: bool) -> None:  # pragma: no cover
+    def save_model(
+        self, request: HttpRequest, obj: PrintKeywordRule, form: forms.ModelForm, change: bool
+    ) -> None:  # pragma: no cover
         if obj.preset_snapshot_id:
             get_rule_service().sync_printer_name_from_preset(rule=obj)
         super().save_model(request, obj, form, change)
 
 
-class BatchPrintItemInline(admin.TabularInline[BatchPrintItem]):  # pragma: no cover
+class BatchPrintItemInline(admin.TabularInline[BatchPrintItem, BatchPrintJob]):  # pragma: no cover
     model = BatchPrintItem
     extra = 0
     can_delete = False

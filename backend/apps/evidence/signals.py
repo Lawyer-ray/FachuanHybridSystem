@@ -29,7 +29,7 @@ def cleanup_evidence_item_file(sender: type, **kwargs: Any) -> None:  # pragma: 
 
     if sender is EvidenceItem:
         instance = kwargs["instance"]
-        transaction.on_commit(lambda f=instance.file: _delete_file(f))
+        transaction.on_commit(lambda f=instance.file: _delete_file(f))  # type: ignore[misc]  # mypy 对带默认参 lambda 的推断限制
 
 
 @receiver(post_delete, dispatch_uid="cleanup_evidence_list_merged_pdf")
@@ -38,4 +38,4 @@ def cleanup_evidence_list_merged_pdf(sender: type, **kwargs: Any) -> None:  # pr
 
     if sender is EvidenceList:
         instance = kwargs["instance"]
-        transaction.on_commit(lambda f=instance.merged_pdf: _delete_file(f))
+        transaction.on_commit(lambda f=instance.merged_pdf: _delete_file(f))  # type: ignore[misc]  # mypy 对带默认参 lambda 的推断限制

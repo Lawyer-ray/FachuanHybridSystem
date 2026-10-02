@@ -7,7 +7,7 @@ and only cover the model combinations required by current tests.
 from __future__ import annotations
 
 from itertools import count
-from typing import Any
+from typing import Any, cast
 
 from apps.cases.models import Case, CaseLog
 from apps.client.models import Client, ClientIdentityDoc
@@ -29,7 +29,7 @@ def LawyerFactory(**kwargs: Any) -> Lawyer:
         "real_name": kwargs.pop("real_name", username),
     }
     defaults.update(kwargs)
-    return Lawyer.objects.create(**defaults)
+    return cast(Lawyer, Lawyer.objects.create(**defaults))
 
 
 def ContractFactory(**kwargs: Any) -> Contract:

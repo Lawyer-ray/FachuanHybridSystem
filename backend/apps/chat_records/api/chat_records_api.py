@@ -1,9 +1,10 @@
 """API endpoints."""
 
 import mimetypes
-from typing import Any
+from typing import Any, cast
 
 from asgiref.sync import sync_to_async
+from django.contrib.auth.models import AbstractBaseUser
 from ninja import File, Form, Router
 from ninja.files import UploadedFile
 
@@ -32,6 +33,11 @@ from apps.core.security.auth import JWTOrSessionAuth
 
 # 支持 JWT 和 Session 认证
 router = Router(auth=JWTOrSessionAuth())
+
+
+def _request_user(request: Any) -> AbstractBaseUser:
+    """提取已认证用户；router 已挂 JWTOrSessionAuth，运行时必有。"""
+    return cast(AbstractBaseUser, getattr(request, "user", None))
 
 
 def _get_project_service() -> ProjectService:
@@ -75,7 +81,7 @@ async def get_export_statuses(request: Any) -> Any:  # pragma: no cover
 
 @router.post("/projects", response=ProjectOut)
 async def create_project(request: Any, payload: ProjectIn) -> Any:  # pragma: no cover
-    user = getattr(request, "user", None)
+    user = _request_user(request)
     service = _get_project_service()
 
     @sync_to_async
@@ -92,7 +98,7 @@ async def create_project(request: Any, payload: ProjectIn) -> Any:  # pragma: no
 
 @router.get("/projects", response=list[ProjectOut])
 async def list_projects(request: Any) -> Any:  # pragma: no cover
-    user = getattr(request, "user", None)
+    user = _request_user(request)
     service = _get_project_service()
 
     @sync_to_async
@@ -105,7 +111,7 @@ async def list_projects(request: Any) -> Any:  # pragma: no cover
 
 @router.get("/projects/{project_id}/recordings", response=list[RecordingOut])
 async def list_recordings(request: Any, project_id: int) -> Any:  # pragma: no cover
-    user = getattr(request, "user", None)
+    user = _request_user(request)
     service = _get_recording_service()
 
     @sync_to_async
@@ -119,7 +125,7 @@ async def list_recordings(request: Any, project_id: int) -> Any:  # pragma: no c
 @router.post("/projects/{project_id}/recordings", response=RecordingOut)
 @rate_limit_from_settings("UPLOAD", by_user=True)
 async def upload_recording(request: Any, project_id: int, file: UploadedFile = File(...)) -> Any:  # pragma: no cover
-    user = getattr(request, "user", None)
+    user = _request_user(request)
     service = _get_recording_service()
 
     @sync_to_async
@@ -132,7 +138,7 @@ async def upload_recording(request: Any, project_id: int, file: UploadedFile = F
 
 @router.get("/recordings/{recording_id}", response=RecordingOut)
 async def get_recording(request: Any, recording_id: str) -> Any:  # pragma: no cover
-    user = getattr(request, "user", None)
+    user = _request_user(request)
     service = _get_recording_service()
 
     @sync_to_async
@@ -148,7 +154,7 @@ def stream_recording(request: Any, recording_id: str) -> Any:  # pragma: no cove
     from django.http import HttpResponse
 
     service = _get_recording_service()
-    user = getattr(request, "user", None)
+    user = _request_user(request)
     recording = service.get_recording(user=user, recording_id=recording_id)
     if not getattr(recording, "video", None):
         return HttpResponse(status=404)
@@ -161,12 +167,14 @@ def stream_recording(request: Any, recording_id: str) -> Any:  # pragma: no cove
 @router.patch("/recordings/{recording_id}", response=RecordingOut)
 async def update_recording(request: Any, recording_id: str, payload: RecordingUpdate) -> Any:  # pragma: no cover
     service = _get_recording_service()
-    user = getattr(request, "user", None)
+    user = _request_user(request)
     data = schema_to_update_dict(payload)
 
     @sync_to_async
     def _update() -> dict:
-        recording = service.update_duration(user=user, recording_id=recording_id, duration_seconds=data.get("duration_seconds"))
+        recording = service.update_duration(
+            user=user, recording_id=recording_id, duration_seconds=data.get("duration_seconds")
+        )
         return RecordingOut.from_orm(recording).model_dump(by_alias=True)
 
     return await _update()
@@ -175,7 +183,7 @@ async def update_recording(request: Any, recording_id: str, payload: RecordingUp
 @router.delete("/recordings/{recording_id}")
 async def delete_recording(request: Any, recording_id: str) -> Any:  # pragma: no cover
     service = _get_recording_service()
-    user = getattr(request, "user", None)
+    user = _request_user(request)
     return await sync_to_async(service.delete_recording)(user=user, recording_id=recording_id)
 
 
@@ -218,7 +226,8 @@ async def cancel_extract_recording(request: Any, recording_id: str) -> Any:  # p
     @sync_to_async
     def _cancel() -> dict:
         recording = _get_recording_extract_facade().request_cancel(
-            user=getattr(request, "user", None), recording_id=recording_id,
+            user=getattr(request, "user", None),
+            recording_id=recording_id,
         )
         return RecordingOut.from_orm(recording).model_dump(by_alias=True)
 
@@ -232,7 +241,8 @@ async def reset_extract_recording(request: Any, recording_id: str) -> Any:  # pr
     @sync_to_async
     def _reset() -> dict:
         recording = _get_recording_extract_facade().reset(
-            user=getattr(request, "user", None), recording_id=recording_id,
+            user=getattr(request, "user", None),
+            recording_id=recording_id,
         )
         return RecordingOut.from_orm(recording).model_dump(by_alias=True)
 
@@ -241,7 +251,7 @@ async def reset_extract_recording(request: Any, recording_id: str) -> Any:  # pr
 
 @router.get("/projects/{project_id}/screenshots", response=list[ScreenshotOut])
 async def list_screenshots(request: Any, project_id: int) -> Any:  # pragma: no cover
-    user = getattr(request, "user", None)
+    user = _request_user(request)
     service = _get_screenshot_service()
 
     @sync_to_async
@@ -266,7 +276,7 @@ async def upload_screenshots(  # pragma: no cover
     @sync_to_async
     def _create() -> list[dict]:
         screenshots = service.upload_screenshots(
-            user=getattr(request, "user", None),
+            user=_request_user(request),
             project_id=project_id,
             files=files,
             deduplicate=deduplicate,
@@ -280,7 +290,7 @@ async def upload_screenshots(  # pragma: no cover
 @router.post("/projects/{project_id}/screenshots/reorder")
 async def reorder_screenshots(request: Any, project_id: int, payload: ScreenshotReorderIn) -> Any:  # pragma: no cover
     service = _get_screenshot_service()
-    user = getattr(request, "user", None)
+    user = _request_user(request)
 
     @sync_to_async
     def _reorder() -> Any:
@@ -292,13 +302,16 @@ async def reorder_screenshots(request: Any, project_id: int, payload: Screenshot
 @router.patch("/screenshots/{screenshot_id}", response=ScreenshotOut)
 async def update_screenshot(request: Any, screenshot_id: str, payload: ScreenshotUpdate) -> Any:  # pragma: no cover
     service = _get_screenshot_service()
-    user = getattr(request, "user", None)
+    user = _request_user(request)
     data = schema_to_update_dict(payload)
 
     @sync_to_async
     def _update() -> dict:
         screenshot = service.update_screenshot(
-            user=user, screenshot_id=screenshot_id, title=data.get("title"), note=data.get("note"),
+            user=user,
+            screenshot_id=screenshot_id,
+            title=data.get("title"),
+            note=data.get("note"),
         )
         return ScreenshotOut.from_orm(screenshot).model_dump(by_alias=True)
 
@@ -309,12 +322,15 @@ async def update_screenshot(request: Any, screenshot_id: str, payload: Screensho
 @rate_limit_from_settings("TASK", by_user=True)
 async def create_export(request: Any, project_id: int, payload: ExportCreateIn) -> Any:  # pragma: no cover
     service = _get_export_task_service()
-    user = getattr(request, "user", None)
+    user = _request_user(request)
 
     @sync_to_async
     def _create() -> dict:
         task = service.create_export_task(
-            user=user, project_id=project_id, export_type=payload.export_type, layout=payload.layout,
+            user=user,
+            project_id=project_id,
+            export_type=payload.export_type,
+            layout=payload.layout,
         )
         service.submit_task(user=user, task_id=str(task.id))
         task.refresh_from_db()
@@ -346,5 +362,5 @@ def download_export(request: Any, task_id: str) -> Any:  # pragma: no cover
     if not task.output_file:
         raise Http404("导出文件尚未生成")
 
-    filename = task.output_file.name.split("/")[-1]
+    filename = (task.output_file.name or "").split("/")[-1]
     return FileResponse(task.output_file.open("rb"), as_attachment=True, filename=filename)

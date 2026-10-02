@@ -32,7 +32,9 @@ class EnhancedContextBuilder:
         self.registry = registry or PlaceholderRegistry()
 
     def build_context(
-        self, context_data: PlaceholderContextData, required_placeholders: list[str] | None = None
+        self,
+        context_data: PlaceholderContextData | dict[str, Any],
+        required_placeholders: list[str] | None = None,
     ) -> dict[str, Any]:
         """
         构建完整的替换词上下文
@@ -92,7 +94,9 @@ class EnhancedContextBuilder:
         logger.info("上下文构建完成,生成了 %s 个占位符", len(final_context))
         return final_context
 
-    def _normalize_context_data(self, context_data: PlaceholderContextData) -> PlaceholderContextData:
+    def _normalize_context_data(
+        self, context_data: PlaceholderContextData | dict[str, Any]
+    ) -> PlaceholderContextData | dict[str, Any]:
         """标准化上下文,对常见缺失键进行兜底补全."""
         normalized: dict[str, Any] = dict(context_data)
 
@@ -102,7 +106,7 @@ class EnhancedContextBuilder:
             if case_id is not None:
                 normalized["case_id"] = case_id
 
-        return normalized  # type: ignore[return-value]
+        return normalized
 
     def build_contract_context(self, contract_id: int) -> dict[str, Any]:
         """

@@ -1,8 +1,11 @@
 """Backfill storage_bytes for existing sessions."""
 
+from typing import Any
+
 from django.db import migrations
 
-def backfill_storage_bytes(apps, schema_editor):
+
+def backfill_storage_bytes(apps: Any, schema_editor: Any) -> None:
     WorkbenchSession = apps.get_model("workbench", "WorkbenchSession")
     WorkbenchMessage = apps.get_model("workbench", "WorkbenchMessage")
 
@@ -16,9 +19,11 @@ def backfill_storage_bytes(apps, schema_editor):
         if total:
             WorkbenchSession.objects.filter(id=session.id).update(storage_bytes=total)
 
-def reverse(apps, schema_editor):
+
+def reverse(apps: Any, schema_editor: Any) -> None:
     WorkbenchSession = apps.get_model("workbench", "WorkbenchSession")
     WorkbenchSession.objects.update(storage_bytes=0)
+
 
 class Migration(migrations.Migration):
     dependencies = [

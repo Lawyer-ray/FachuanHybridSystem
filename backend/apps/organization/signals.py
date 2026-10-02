@@ -20,7 +20,7 @@ def _cleanup_lawyer_license_pdf(sender: Any, instance: Any, **kwargs: Any) -> No
     """删除 Lawyer 时清理执业证 PDF 物理文件。"""
     if instance.license_pdf:
         try:
-            transaction.on_commit(lambda f=instance.license_pdf: f.delete(save=False))
+            transaction.on_commit(lambda f=instance.license_pdf: f.delete(save=False))  # type: ignore[misc]  # mypy 对带默认参 lambda 的推断限制
             logger.info(
                 "已清理律师执业证文件",
                 extra={"lawyer_id": instance.pk, "file_path": str(instance.license_pdf)},
@@ -37,7 +37,7 @@ def _cleanup_lawyer_avatar(sender: Any, instance: Any, **kwargs: Any) -> None:  
     """删除 Lawyer 时清理头像物理文件。"""
     if instance.avatar:
         try:
-            transaction.on_commit(lambda f=instance.avatar: f.delete(save=False))
+            transaction.on_commit(lambda f=instance.avatar: f.delete(save=False))  # type: ignore[misc]  # mypy 对带默认参 lambda 的推断限制
             logger.info(
                 "已清理律师头像文件",
                 extra={"lawyer_id": instance.pk, "file_path": str(instance.avatar)},

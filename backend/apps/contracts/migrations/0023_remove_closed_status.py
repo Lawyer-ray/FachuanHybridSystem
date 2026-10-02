@@ -4,11 +4,15 @@
 删除不再使用的"已结案"状态，已有 closed 数据迁移为 archived。
 """
 
+from typing import Any
+
 from django.db import migrations, models
 
-def migrate_closed_to_archived(apps, schema_editor):
+
+def migrate_closed_to_archived(apps: Any, schema_editor: Any) -> None:
     Contract = apps.get_model("contracts", "Contract")
     Contract.objects.filter(status="closed").update(status="archived")
+
 
 class Migration(migrations.Migration):
 

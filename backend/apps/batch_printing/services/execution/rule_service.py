@@ -132,7 +132,7 @@ class RuleService:
             raw_preset_id = payload.get("preset_snapshot_id")
             if raw_preset_id in {None, ""}:
                 raise ValidationException(message="目标预置不能为空", errors={"preset_snapshot_id": "不能为空"})
-            preset = self._get_preset(preset_id=int(raw_preset_id))  # type: ignore[arg-type]
+            preset = self._get_preset(preset_id=int(raw_preset_id))
             normalized["preset_snapshot"] = preset
             normalized["printer_name"] = preset.printer_name
 

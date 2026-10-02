@@ -61,10 +61,10 @@ class ImagePreprocessor:
 
             # 转为 RGB 处理
             if img.mode not in ("RGB", "L"):
-                img = img.convert("RGB")  # type: ignore[assignment]
+                img = img.convert("RGB")
 
             # 1. 自适应锐化 (UnsharpMask)
-            img = img.filter(  # type: ignore[assignment]
+            img = img.filter(
                 ImageFilter.UnsharpMask(
                     radius=cfg.sharpen_radius,
                     percent=cfg.sharpen_percent,
@@ -74,11 +74,11 @@ class ImagePreprocessor:
             steps.append("sharpen")
 
             # 2. 对比度增强
-            img = ImageEnhance.Contrast(img).enhance(cfg.contrast_factor)  # type: ignore[assignment]
+            img = ImageEnhance.Contrast(img).enhance(cfg.contrast_factor)
             steps.append("contrast")
 
             # 3. 亮度归一化
-            img = self._normalize_brightness(img, cfg.brightness_target)  # type: ignore[assignment]
+            img = self._normalize_brightness(img, cfg.brightness_target)
             steps.append("brightness")
 
             # 4. 条件放大
@@ -86,7 +86,7 @@ class ImagePreprocessor:
             if width < cfg.min_width:
                 ratio = cfg.target_width / width
                 new_height = int(height * ratio)
-                img = img.resize(  # type: ignore[assignment]
+                img = img.resize(
                     (cfg.target_width, new_height),
                     Image.Resampling.LANCZOS,
                 )
@@ -94,7 +94,7 @@ class ImagePreprocessor:
 
             # 5. 可选二值化
             if cfg.enable_binarize:
-                img = self._binarize(img)  # type: ignore[assignment]
+                img = self._binarize(img)
                 steps.append("binarize")
 
             # 输出为原始格式
@@ -103,7 +103,7 @@ class ImagePreprocessor:
             if save_format == "JPEG" or save_format == "JPG":
                 # 二值化后的图片可能是 L 模式，JPEG 不支持 RGBA
                 if img.mode == "L":
-                    img = img.convert("RGB")  # type: ignore[assignment]
+                    img = img.convert("RGB")
                 img.save(buf, format="JPEG", quality=95)
             else:
                 img.save(buf, format=save_format)

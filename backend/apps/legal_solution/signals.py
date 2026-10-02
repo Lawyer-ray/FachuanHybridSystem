@@ -20,7 +20,7 @@ def _cleanup_solution_task_pdf(sender: Any, instance: Any, **kwargs: Any) -> Non
     """删除 SolutionTask 时清理 PDF 物理文件。"""
     if instance.pdf_file:
         try:
-            transaction.on_commit(lambda f=instance.pdf_file: f.delete(save=False))
+            transaction.on_commit(lambda f=instance.pdf_file: f.delete(save=False))  # type: ignore[misc]  # mypy 对带默认参 lambda 的推断限制
             logger.info(
                 "已清理法律服务方案PDF文件",
                 extra={"task_id": instance.pk, "file_path": str(instance.pdf_file)},

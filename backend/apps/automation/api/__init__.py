@@ -12,11 +12,9 @@ from .document_processor_api import router as document_processor_router
 from .main_api import router as main_router
 
 try:
-    from plugins.court_automation.preservation_quote.api_endpoint import (
-        router as preservation_quote_router,
-    )
+    from plugins.court_automation.preservation_quote.api_endpoint import router as preservation_quote_router
 except ImportError:
-    preservation_quote_router = None
+    preservation_quote_router = None  # type: ignore[assignment]
 
 # 创建模块路由器
 router = Router()

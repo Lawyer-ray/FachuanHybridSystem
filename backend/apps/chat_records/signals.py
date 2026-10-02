@@ -88,14 +88,14 @@ def _delete_field_file_by_name(old_name: str | None) -> None:
 
 @receiver(post_delete, sender=ChatRecordRecording)
 def _delete_recording_file(sender: Any, instance: ChatRecordRecording, **kwargs: Any) -> None:  # pragma: no cover
-    transaction.on_commit(lambda f=getattr(instance, "video", None): _delete_field_file(f))
+    transaction.on_commit(lambda f=getattr(instance, "video", None): _delete_field_file(f))  # type: ignore[misc]  # mypy 对带默认参 lambda 的推断限制
 
 
 @receiver(post_delete, sender=ChatRecordScreenshot)
 def _delete_screenshot_file(sender: Any, instance: ChatRecordScreenshot, **kwargs: Any) -> None:  # pragma: no cover
-    transaction.on_commit(lambda f=getattr(instance, "image", None): _delete_field_file(f))
+    transaction.on_commit(lambda f=getattr(instance, "image", None): _delete_field_file(f))  # type: ignore[misc]  # mypy 对带默认参 lambda 的推断限制
 
 
 @receiver(post_delete, sender=ChatRecordExportTask)
 def _delete_export_file(sender: Any, instance: ChatRecordExportTask, **kwargs: Any) -> None:  # pragma: no cover
-    transaction.on_commit(lambda f=getattr(instance, "output_file", None): _delete_field_file(f))
+    transaction.on_commit(lambda f=getattr(instance, "output_file", None): _delete_field_file(f))  # type: ignore[misc]  # mypy 对带默认参 lambda 的推断限制

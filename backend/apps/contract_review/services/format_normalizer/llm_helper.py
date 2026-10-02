@@ -50,10 +50,7 @@ class ContractStructureAnalyzer:  # pragma: no cover
 
         # 第二轮：对低置信度的段落，追加上下文重新验证
         if max_rounds >= 2:
-            uncertain = [
-                i for i, r in enumerate(results)
-                if r.get("confidence", 1.0) < 0.7
-            ]
+            uncertain = [i for i, r in enumerate(results) if r.get("confidence", 1.0) < 0.7]
             if uncertain:
                 results = self._refine_uncertain(paragraphs, results, uncertain)
 
@@ -84,9 +81,7 @@ class ContractStructureAnalyzer:  # pragma: no cover
 
         # 补齐（如果 LLM 返回的数量不匹配）
         while len(all_results) < len(paragraphs):
-            all_results.append(
-                {"level": 1, "prefix": "", "confidence": 0.3, "reason": "LLM未返回"}
-            )
+            all_results.append({"level": 1, "prefix": "", "confidence": 0.3, "reason": "LLM未返回"})
 
         return all_results[: len(paragraphs)]
 
@@ -117,6 +112,7 @@ class ContractStructureAnalyzer:  # pragma: no cover
 
             # 带重试的 LLM 调用（处理临时网络/API 问题）
             import time
+
             last_error = None
             for attempt in range(3):
                 try:
@@ -160,8 +156,7 @@ class ContractStructureAnalyzer:  # pragma: no cover
 
             context_items.append(
                 f"--- 段落 [{idx}]（上一轮判断: level={results[idx]['level']}, "
-                f"confidence={results[idx].get('confidence', 0)}）---\n"
-                + "\n".join(context_lines)
+                f"confidence={results[idx].get('confidence', 0)}）---\n" + "\n".join(context_lines)
             )
 
         system_prompt = """你是一个专业的中文合同文档格式分析专家。
@@ -192,7 +187,7 @@ class ContractStructureAnalyzer:  # pragma: no cover
 
             # 合并结果
             for item in refined:
-                idx = item.get("index")  # type: ignore[assignment]
+                idx = item.get("index")
                 if idx is not None and 0 <= idx < len(results):
                     results[idx] = {
                         "level": item.get("level", results[idx]["level"]),

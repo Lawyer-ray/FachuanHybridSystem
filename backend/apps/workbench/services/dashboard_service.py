@@ -95,7 +95,7 @@ class DashboardService:
             distribution.append(
                 {
                     "type": r["case_type"] or "unknown",
-                    "label": label_map.get(r["case_type"], "未分类"),
+                    "label": label_map.get(r["case_type"] or "", "未分类"),
                     "count": count,
                 }
             )
@@ -137,9 +137,7 @@ class DashboardService:
     # ── ContractPayment: 本月费用 + 费用趋势（合并为 1 条查询）────────────────
 
     @staticmethod
-    def _fee_stats(
-        month_start: date, today: date, trend_start: date
-    ) -> tuple[Decimal, list[dict[str, Any]]]:
+    def _fee_stats(month_start: date, today: date, trend_start: date) -> tuple[Decimal, list[dict[str, Any]]]:
         """一次查询从 trend_start 到 today 的所有支付记录，
         同时计算本月费用和近 12 月趋势。"""
         qs = ContractPayment.objects.filter(received_at__gte=trend_start, received_at__lte=today)
@@ -156,10 +154,7 @@ class DashboardService:
             .annotate(amount=Sum("amount"))
             .order_by("month")
         )
-        fee_trend = [
-            {"month": r["month"].strftime("%Y-%m"), "amount": str(r["amount"] or 0)}
-            for r in trend_qs
-        ]
+        fee_trend = [{"month": r["month"].strftime("%Y-%m"), "amount": str(r["amount"] or 0)} for r in trend_qs]
         return monthly_fee, fee_trend
 
     # ── Reminder: overdue + today 计数（合并为 1 条查询）──────────────────────
@@ -169,9 +164,7 @@ class DashboardService:
         """一次条件聚合查询同时获取 overdue 和 today 的提醒数量。"""
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         today_end = today_start + timedelta(days=1)
-        return Reminder.objects.filter(
-            Q(due_at__lt=now) | Q(due_at__gte=today_start, due_at__lt=today_end)
-        ).aggregate(
+        return Reminder.objects.filter(Q(due_at__lt=now) | Q(due_at__gte=today_start, due_at__lt=today_end)).aggregate(
             overdue_count=Count("id", filter=Q(due_at__lt=now)),
             today_count=Count("id", filter=Q(due_at__gte=today_start, due_at__lt=today_end)),
         )

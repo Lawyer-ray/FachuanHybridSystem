@@ -20,7 +20,7 @@ _RETRY = 2
 def _md_to_html(text: str) -> str:
     """markdown → HTML，优先用 markdown 库，回退手动转换。"""
     try:
-        import markdown  # type: ignore[import-untyped]
+        import markdown
 
         return str(markdown.markdown(text, extensions=["tables", "fenced_code"]))
     except ImportError:

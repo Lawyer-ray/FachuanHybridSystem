@@ -6,7 +6,7 @@ import logging
 from collections.abc import Callable
 from decimal import Decimal
 from json import JSONDecodeError, dumps, loads
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from django.db import transaction
 from django.db.models import Count, Sum
@@ -177,7 +177,7 @@ class ContractFinanceMutationService(DjangoPermsMixin):
                 contract_id=contract_id,
                 action=action,
                 level=level,
-                actor_id=user_id,  # type: ignore[misc]
+                actor_id=cast(int, user_id),
                 payload=payload,
             )
         except Exception:

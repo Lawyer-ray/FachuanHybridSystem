@@ -4,7 +4,7 @@ from typing import Any
 from uuid import UUID
 
 from asgiref.sync import sync_to_async
-from django.http import FileResponse, HttpRequest
+from django.http import FileResponse, HttpRequest, HttpResponse
 from ninja import File, Form, Router
 from ninja.files import UploadedFile
 
@@ -35,7 +35,7 @@ def _check_task_access(task: Any, user: Any) -> bool:  # pragma: no cover
     if user.is_superuser:
         return True
     # 普通用户只能访问自己的任务
-    return task.user_id == user.id
+    return bool(task.user_id == user.id)
 
 
 @router.post("/upload", response=TaskCreatedOut)
@@ -44,7 +44,7 @@ async def upload_contract(  # pragma: no cover
     request: HttpRequest,
     file: UploadedFile = File(...),
     model_name: str = Form(""),
-) -> dict[str, Any]:
+) -> dict[str, Any] | HttpResponse:
     svc = _get_review_service()
     task = await sync_to_async(svc.upload_contract, thread_sensitive=False)(file, request.user, model_name=model_name)
     parties: dict[str, str] = {}
@@ -65,7 +65,7 @@ def confirm_party(  # pragma: no cover
     request: HttpRequest,
     task_id: UUID,
     payload: ConfirmPartyIn,
-) -> dict[str, Any]:
+) -> dict[str, Any] | HttpResponse:
     svc = _get_review_service()
     # 权限检查
     task = svc.get_task_status(task_id)
@@ -97,7 +97,7 @@ def confirm_party(  # pragma: no cover
 
 
 @router.get("/{task_id}/status", response=TaskStatusOut)
-def get_task_status(request: HttpRequest, task_id: UUID) -> dict[str, Any]:  # pragma: no cover
+def get_task_status(request: HttpRequest, task_id: UUID) -> dict[str, Any] | HttpResponse:  # pragma: no cover
     svc = _get_review_service()
     task = svc.get_task_status(task_id)
     if not _check_task_access(task, request.user):
@@ -116,7 +116,7 @@ def get_task_status(request: HttpRequest, task_id: UUID) -> dict[str, Any]:  # p
 
 @router.get("/{task_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_result(request: HttpRequest, task_id: UUID) -> FileResponse:  # pragma: no cover
+def download_result(request: HttpRequest, task_id: UUID) -> FileResponse | HttpResponse:  # pragma: no cover
     svc = _get_review_service()
     # 权限检查
     task = svc.get_task_status(task_id)
@@ -130,7 +130,7 @@ def download_result(request: HttpRequest, task_id: UUID) -> FileResponse:  # pra
 
 @router.get("/{task_id}/download-original")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_original(request: HttpRequest, task_id: UUID) -> FileResponse:  # pragma: no cover
+def download_original(request: HttpRequest, task_id: UUID) -> FileResponse | HttpResponse:  # pragma: no cover
     svc = _get_review_service()
     # 权限检查
     task = svc.get_task_status(task_id)

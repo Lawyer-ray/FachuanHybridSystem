@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from asgiref.sync import sync_to_async
 from django.utils import timezone
@@ -117,7 +117,7 @@ class BaseScraper:
                     )
                 self.context = self.browser_service.create_context(use_anti_detection=True)
                 assert self.context is not None
-                self.page = self.context.new_page()
+                self.page = cast("BrowserContext", self.context).new_page()
 
             # 执行具体的爬虫逻辑
             result = self._run()

@@ -369,7 +369,7 @@ class EvidenceListPlaceholderService:
         Raises:
             NotFoundError: 证据清单不存在
         """
-        from apps.documents.models import EvidenceList
+        from apps.evidence.models import EvidenceList
 
         try:
             return EvidenceList.objects.select_related("case").get(id=evidence_list_id)

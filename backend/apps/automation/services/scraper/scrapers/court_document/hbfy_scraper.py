@@ -23,6 +23,7 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 
+from .base_court_scraper import as_async_page, as_sync_page
 from .daolv_sifa_songda_scraper import DaolvSifaSongdaScraper
 
 logger = logging.getLogger("apps.automation")
@@ -185,7 +186,7 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
                 continue
 
             uuid, image_bytes = captcha_data
-            recognized = self.captcha_recognizer.recognize(image_bytes)
+            recognized = self.captcha_recognizer.recognize(image_bytes)  # type: ignore[attr-defined]
             code = re.sub(r"[^0-9A-Za-z]", "", recognized or "")
             if not code:
                 continue
@@ -233,11 +234,12 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
         return files
 
     def _run_public_mode_playwright(self) -> dict[str, Any]:  # pragma: no cover
+        page = as_sync_page(self.page)
         logger.info("开始处理湖北免账号链接: %s", self.task.url)
         download_dir = self._prepare_download_dir()
 
         self.navigate_to_url(timeout=30000)
-        self.page.wait_for_timeout(3000)
+        page.wait_for_timeout(3000)
         self._solve_public_captcha_if_present()
 
         files: list[str] = []
@@ -257,10 +259,10 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
 
         if not files:
             try:
-                preview_btn = self.page.locator("button:has-text('预览文书')")
+                preview_btn = page.locator("button:has-text('预览文书')")
                 if preview_btn.count() > 0:
                     preview_btn.first.click(force=True, timeout=3000)
-                    self.page.wait_for_timeout(1000)
+                    page.wait_for_timeout(1000)
                     preview_path = self._try_expect_download(
                         "svg.downloadIcon", download_dir, prefix="hbfy_public_preview"
                     )
@@ -283,51 +285,53 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
         }
 
     def _solve_public_captcha_if_present(self) -> None:  # pragma: no cover
-        captcha_input = self.page.locator("input[name='captcha']")
+        page = as_sync_page(self.page)
+        captcha_input = page.locator("input[name='captcha']")
         if captcha_input.count() <= 0:
             return
 
-        captcha_image = self.page.locator("img.code_img, img[src^='data:image'], img[src*='captcha']")
-        submit_button = self.page.locator("button:has-text('提交验证'), button:has-text('提交')")
+        captcha_image = page.locator("img.code_img, img[src^='data:image'], img[src*='captcha']")
+        submit_button = page.locator("button:has-text('提交验证'), button:has-text('提交')")
 
         for _ in range(8):
             if captcha_image.count() <= 0 or submit_button.count() <= 0:
                 break
             try:
                 image_bytes = captcha_image.first.screenshot()
-                recognized = self.captcha_recognizer.recognize(image_bytes)
+                recognized = self.captcha_recognizer.recognize(image_bytes)  # type: ignore[attr-defined]
                 captcha_text = re.sub(r"[^0-9A-Za-z]", "", recognized or "")
                 if not captcha_text:
                     captcha_image.first.click(force=True, timeout=1000)
-                    self.page.wait_for_timeout(600)
+                    page.wait_for_timeout(600)
                     continue
 
                 captcha_input.first.click(force=True, timeout=1000)
                 captcha_input.first.fill("")
                 captcha_input.first.fill(captcha_text)
                 submit_button.first.click(force=True, timeout=2000)
-                self.page.wait_for_timeout(1500)
+                page.wait_for_timeout(1500)
 
-                if self.page.locator("text=送达文书").count() > 0:
+                if page.locator("text=送达文书").count() > 0:
                     return
-                if self.page.locator("button:has-text('下载全部')").count() > 0:
+                if page.locator("button:has-text('下载全部')").count() > 0:
                     return
             except Exception:
                 continue
 
     def _try_download_all_with_confirm(self, download_dir: Path) -> str | None:  # pragma: no cover
+        page = as_sync_page(self.page)
         try:
-            download_all = self.page.locator("button:has-text('下载全部'), div:has-text('下载全部')")
+            download_all = page.locator("button:has-text('下载全部'), div:has-text('下载全部')")
             if download_all.count() <= 0:
                 return None
 
             captured: list[Any] = []
-            self.page.on("download", lambda d: captured.append(d))
+            page.on("download", lambda d: captured.append(d))
 
             download_all.first.click(force=True, timeout=3000)
-            self.page.wait_for_timeout(500)
+            page.wait_for_timeout(500)
 
-            confirm_btn = self.page.locator("button:has-text('确认'), span:has-text('确认'), div:has-text('确认')")
+            confirm_btn = page.locator("button:has-text('确认'), span:has-text('确认'), div:has-text('确认')")
             if confirm_btn.count() > 0:
                 clicked = False
                 for index in range(min(confirm_btn.count(), 5)):
@@ -340,8 +344,7 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
                     except Exception:
                         continue
                 if not clicked:
-                    self.page.evaluate(
-                        """() => {
+                    page.evaluate("""() => {
                             const nodes = Array.from(document.querySelectorAll('button,span,div'));
                             for (const node of nodes) {
                                 const text = (node.textContent || '').trim();
@@ -351,13 +354,12 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
                                 }
                             }
                             return false;
-                        }"""
-                    )
+                        }""")
 
             for _ in range(20):
                 if captured:
                     break
-                self.page.wait_for_timeout(500)
+                page.wait_for_timeout(500)
 
             if not captured:
                 return None
@@ -372,11 +374,12 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
             return None
 
     def _try_expect_download(self, selector: str, download_dir: Path, prefix: str) -> str | None:  # pragma: no cover
+        page = as_sync_page(self.page)
         try:
-            target = self.page.locator(selector)
+            target = page.locator(selector)
             if target.count() <= 0:
                 return None
-            with self.page.expect_download(timeout=15000) as download_info:
+            with page.expect_download(timeout=15000) as download_info:
                 target.first.click(force=True, timeout=3000)
             download = download_info.value
             filename = download.suggested_filename or f"{prefix}_{int(time.time())}.bin"
@@ -499,7 +502,7 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
                 continue
 
             uuid, image_bytes = captcha_data
-            recognized = self.captcha_recognizer.recognize(image_bytes)
+            recognized = self.captcha_recognizer.recognize(image_bytes)  # type: ignore[attr-defined]
             code = re.sub(r"[^0-9A-Za-z]", "", recognized or "")
             if not code:
                 continue
@@ -552,9 +555,9 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
         logger.info("[async] 开始处理湖北免账号链接(Playwright): %s", self.task.url)
         download_dir = self._prepare_download_dir()
 
-        assert self.page is not None
-        await self.page.goto(self.task.url, timeout=30000, wait_until="domcontentloaded")
-        await self.page.wait_for_timeout(3000)
+        page = as_async_page(self.page)
+        await page.goto(self.task.url, timeout=30000, wait_until="domcontentloaded")
+        await page.wait_for_timeout(3000)
         await self._asolve_public_captcha_if_present()
 
         files: list[str] = []
@@ -574,10 +577,10 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
 
         if not files:
             try:
-                preview_btn = self.page.locator("button:has-text('预览文书')")
+                preview_btn = page.locator("button:has-text('预览文书')")
                 if await preview_btn.count() > 0:
                     await preview_btn.first.click(force=True, timeout=3000)
-                    await self.page.wait_for_timeout(1000)
+                    await page.wait_for_timeout(1000)
                     preview_path = await self._atry_expect_download(
                         "svg.downloadIcon", download_dir, prefix="hbfy_public_preview"
                     )
@@ -600,53 +603,53 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
         }
 
     async def _asolve_public_captcha_if_present(self) -> None:  # pragma: no cover
-        assert self.page is not None
-        captcha_input = self.page.locator("input[name='captcha']")
+        page = as_async_page(self.page)
+        captcha_input = page.locator("input[name='captcha']")
         if await captcha_input.count() <= 0:
             return
 
-        captcha_image = self.page.locator("img.code_img, img[src^='data:image'], img[src*='captcha']")
-        submit_button = self.page.locator("button:has-text('提交验证'), button:has-text('提交')")
+        captcha_image = page.locator("img.code_img, img[src^='data:image'], img[src*='captcha']")
+        submit_button = page.locator("button:has-text('提交验证'), button:has-text('提交')")
 
         for _ in range(8):
             if await captcha_image.count() <= 0 or await submit_button.count() <= 0:
                 break
             try:
                 image_bytes = await captcha_image.first.screenshot()
-                recognized = self.captcha_recognizer.recognize(image_bytes)
+                recognized = self.captcha_recognizer.recognize(image_bytes)  # type: ignore[attr-defined]
                 captcha_text = re.sub(r"[^0-9A-Za-z]", "", recognized or "")
                 if not captcha_text:
                     await captcha_image.first.click(force=True, timeout=1000)
-                    await self.page.wait_for_timeout(600)
+                    await page.wait_for_timeout(600)
                     continue
 
                 await captcha_input.first.click(force=True, timeout=1000)
                 await captcha_input.first.fill("")
                 await captcha_input.first.fill(captcha_text)
                 await submit_button.first.click(force=True, timeout=2000)
-                await self.page.wait_for_timeout(1500)
+                await page.wait_for_timeout(1500)
 
-                if await self.page.locator("text=送达文书").count() > 0:
+                if await page.locator("text=送达文书").count() > 0:
                     return
-                if await self.page.locator("button:has-text('下载全部')").count() > 0:
+                if await page.locator("button:has-text('下载全部')").count() > 0:
                     return
             except Exception:
                 continue
 
     async def _atry_download_all_with_confirm(self, download_dir: Path) -> str | None:  # pragma: no cover
-        assert self.page is not None
+        page = as_async_page(self.page)
         try:
-            download_all = self.page.locator("button:has-text('下载全部'), div:has-text('下载全部')")
+            download_all = page.locator("button:has-text('下载全部'), div:has-text('下载全部')")
             if await download_all.count() <= 0:
                 return None
 
             captured: list[Any] = []
-            self.page.on("download", lambda d: captured.append(d))
+            page.on("download", lambda d: captured.append(d))
 
             await download_all.first.click(force=True, timeout=3000)
-            await self.page.wait_for_timeout(500)
+            await page.wait_for_timeout(500)
 
-            confirm_btn = self.page.locator("button:has-text('确认'), span:has-text('确认'), div:has-text('确认')")
+            confirm_btn = page.locator("button:has-text('确认'), span:has-text('确认'), div:has-text('确认')")
             if await confirm_btn.count() > 0:
                 clicked = False
                 for index in range(min(await confirm_btn.count(), 5)):
@@ -659,8 +662,7 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
                     except Exception:
                         continue
                 if not clicked:
-                    await self.page.evaluate(
-                        """() => {
+                    await page.evaluate("""() => {
                             const nodes = Array.from(document.querySelectorAll('button,span,div'));
                             for (const node of nodes) {
                                 const text = (node.textContent || '').trim();
@@ -670,13 +672,12 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
                                 }
                             }
                             return false;
-                        }"""
-                    )
+                        }""")
 
             for _ in range(20):
                 if captured:
                     break
-                await self.page.wait_for_timeout(500)
+                await page.wait_for_timeout(500)
 
             if not captured:
                 return None
@@ -693,14 +694,14 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
     async def _atry_expect_download(
         self, selector: str, download_dir: Path, prefix: str
     ) -> str | None:  # pragma: no cover
-        assert self.page is not None
+        page = as_async_page(self.page)
         try:
-            target = self.page.locator(selector)
+            target = page.locator(selector)
             if await target.count() <= 0:
                 return None
-            async with self.page.expect_download(timeout=15000) as download_info:
+            async with page.expect_download(timeout=15000) as download_info:
                 await target.first.click(force=True, timeout=3000)
-            download = download_info.value
+            download = await download_info.value
             filename = download.suggested_filename or f"{prefix}_{int(time.time())}.bin"
             filepath = download_dir / self._safe_filename(filename)
             await download.save_as(str(filepath))
@@ -720,12 +721,12 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
         filename = f"{name}_{self.task.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.png"
         screenshot_path = screenshot_dir / filename
 
-        assert self.page is not None
-        await self.page.screenshot(path=str(screenshot_path))
+        page = as_async_page(self.page)
+        await page.screenshot(path=str(screenshot_path))
         logger.info("[async] 截图已保存: %s", screenshot_path)
 
         html_path = download_dir / f"{name}_page.html"
-        html_content = await self.page.content()
+        html_content = await page.content()
         async with aiofiles.open(html_path, "w", encoding="utf-8") as f:
             await f.write(html_content)
 
