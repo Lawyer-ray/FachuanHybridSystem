@@ -20,10 +20,20 @@ logger = logging.getLogger("apps.documents.api")
 router = Router(auth=JWTOrSessionAuth())
 
 
+async def _ensure_case_access(request: Any, case_id: int) -> None:
+    """校验当前用户对案件的访问权（安全审计 A-05/A-06）。"""
+    from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+    from apps.core.security import get_request_access_context
+
+    ctx = get_request_access_context(request)
+    await sync_to_async(CaseAccessPolicy().ensure_access_ctx)(case_id=case_id, ctx=ctx)
+
+
 @router.post("/cases/{case_id}/templates/{template_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
 async def download_case_template(request: Any, case_id: int, template_id: int) -> Any:  # pragma: no cover
     """渲染案件文件模板并下载"""
+    await _ensure_case_access(request, case_id)
     from apps.documents.services.case_contract_query import aget_active_template_or_none, aget_case_or_none
     from apps.documents.services.generation.pipeline import DocxRenderer
     from apps.documents.services.placeholders import EnhancedContextBuilder

@@ -43,19 +43,39 @@ class StampLookupService:  # pragma: no cover
         3. 用 IN 查询 CaseFolderBinding（优先，更具体）
         4. 回退到 ContractFolderBinding
         5. 均未找到则抛出 StampLookupError
+
+        安全审计 B-18：拒绝含 ``..`` 的输入，且命中绑定后强制
+        ``resolve()`` 收敛在绑定目录内——防止 pathlib 不归一化 ``..``
+        导致 set_input_files 上传任意文件外带。
         """
         from apps.cases.models.material import CaseFolderBinding
         from apps.contracts.models.folder_binding import ContractFolderBinding
 
-        file_dir = str(Path(file_path).parent)
+        raw = str(file_path or "").strip()
+        if not raw:
+            raise StampLookupError("文件路径为空")
+        if ".." in Path(raw).parts:
+            raise StampLookupError("文件路径不允许包含 ..")
+
+        file_dir = str(Path(raw).parent)
         parents = [str(p) for p in Path(file_dir).parents[:_MAX_PARENT_DEPTH]]
         parents.append(file_dir)
+
+        def _resolved_under(candidate_dir: str, path: str) -> bool:
+            try:
+                resolved = Path(path).resolve()
+                base = Path(candidate_dir).resolve()
+            except OSError:
+                return False
+            return resolved == base or base in resolved.parents
 
         # 1. CaseFolderBinding（case 级别，更具体）
         case_binding = (
             CaseFolderBinding.objects.filter(folder_path__in=parents).select_related("case__contract").first()
         )
         if case_binding and case_binding.case and case_binding.case.contract:
+            if not _resolved_under(case_binding.folder_path, raw):
+                raise StampLookupError("文件路径越出绑定目录范围")
             contract = case_binding.case.contract
             if contract.law_firm_oa_case_number:
                 logger.info(
@@ -75,6 +95,8 @@ class StampLookupService:  # pragma: no cover
             ContractFolderBinding.objects.filter(folder_path__in=parents).select_related("contract").first()
         )
         if contract_binding and contract_binding.contract:
+            if not _resolved_under(contract_binding.folder_path, raw):
+                raise StampLookupError("文件路径越出绑定目录范围")
             contract = contract_binding.contract
             if contract.law_firm_oa_case_number:
                 logger.info(

@@ -32,6 +32,32 @@ _CONTENT_TEMPLATES: dict[str, str] = {
 class PropertyClueService:
     """财产线索服务。"""
 
+    _access_policy: Any = None
+
+    def _ensure_view(self, user: Any) -> None:
+        """安全审计 B-13：user 为 None（内部上下文）时跳过；传入即强制校验。"""
+        if user is None:
+            return
+        from apps.client.services.client_access_policy import ClientAccessPolicy
+
+        ClientAccessPolicy().ensure_has_perm(user, "client.view_client", "无权限查看客户财产线索")
+
+    def _ensure_change(self, user: Any) -> None:
+        """安全审计 B-13：user 为 None（内部上下文）时跳过；传入即强制校验。"""
+        if user is None:
+            return
+        from apps.client.services.client_access_policy import ClientAccessPolicy
+
+        ClientAccessPolicy().ensure_has_perm(user, "client.change_client", "无权限修改客户财产线索")
+
+    def _ensure_delete(self, user: Any) -> None:
+        """安全审计 B-13：user 为 None（内部上下文）时跳过；传入即强制校验。"""
+        if user is None:
+            return
+        from apps.client.services.client_access_policy import ClientAccessPolicy
+
+        ClientAccessPolicy().ensure_has_perm(user, "client.delete_client", "无权限删除客户财产线索")
+
     def __init__(
         self,
         internal_query_service: ClientInternalQueryService | None = None,
@@ -89,6 +115,7 @@ class PropertyClueService:
 
         Requirements: 1.1
         """
+        self._ensure_change(user)
 
         client = self._get_client_or_404(client_id)
 
@@ -112,6 +139,7 @@ class PropertyClueService:
 
     def get_clue(self, clue_id: int, user: Any = None) -> PropertyClue:
         """获取单个财产线索，不存在则抛出 NotFoundError。"""
+        self._ensure_view(user)
 
         clue = PropertyClue.objects.prefetch_related("attachments").filter(id=clue_id).first()
 
@@ -134,6 +162,7 @@ class PropertyClueService:
 
         Requirements: 4.1
         """
+        self._ensure_view(user)
 
         self._get_client_or_404(client_id)
 
@@ -153,6 +182,7 @@ class PropertyClueService:
 
         Requirements: 5.1
         """
+        self._ensure_change(user)
         # 1. 获取线索
         clue = self.get_clue(clue_id, user)
 
@@ -185,6 +215,7 @@ class PropertyClueService:
     @transaction.atomic
     def delete_clue(self, clue_id: int, user: Any = None) -> None:
         """删除财产线索及其所有附件（含磁盘文件）。"""
+        self._ensure_delete(user)
 
         clue = self.get_clue(clue_id, user)
 
@@ -279,6 +310,7 @@ class PropertyClueService:
     @transaction.atomic
     def delete_attachment(self, attachment_id: int, user: Any = None) -> None:
         """删除财产线索附件（含磁盘文件）。"""
+        self._ensure_delete(user)
 
         try:
             attachment = PropertyClueAttachment.objects.get(id=attachment_id)

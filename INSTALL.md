@@ -121,6 +121,14 @@ docker compose up -d --build    # 更新后重建
 - `docker compose down` 不会删除数据
 - 如需清空：`docker compose down -v`
 
+安全部署要点（v27.2.7 起）：
+
+- Postgres(5432) 与 Valkey(6379) 端口仅绑定 `127.0.0.1`——局域网无法直连开发机的数据库/缓存；如需外部访问请自行配置端口转发与防火墙
+- Valkey 密码可选：默认不启用（本地开发零配置）；生产建议在 `.env` 设置 `REDIS_PASSWORD`（此时 compose 自动启用 `requirepass`），并同时设置带密码段的 `APP_REDIS_URL`（如 `redis://:密码@redis:6379/0`）供容器互联
+- `DJANGO_DEBUG` 缺省为关闭（fail-closed）：开发环境需在 `.env` 显式 `DJANGO_DEBUG=True`；全新 clone 不带 `.env` 会按生产口径启动
+- 部署在反向代理（nginx 等）后时，必须设置 `DJANGO_TRUST_X_FORWARDED_FOR=true` 与 `DJANGO_TRUSTED_PROXY_IPS=代理IP`，否则登录限流会全站共享同一 IP 桶
+- 文件夹绑定的浏览根默认为 `/Users`、`/Volumes`（macOS）与 `~/Downloads`；生产绑定目录若不在其中，需设置 `CONTRACT_FOLDER_BROWSE_ROOTS`，否则重绑会被拒绝
+
 ## 2. 本地开发（macOS）
 
 推荐使用 Make 命令管理流程。

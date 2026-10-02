@@ -65,9 +65,9 @@ core/
 
 | 前缀 | 说明 |
 |------|------|
-| `/api/v1/config/system-configs` | 分组列表 / 批量更新 / 创建 / 单键 PATCH/DELETE |
+| `/api/v1/config/system-configs` | 分组列表 / 批量更新 / 创建 / 单键 PATCH/DELETE（仅管理员；敏感值 Fernet 加密存储、缓存只存密文，v27.2.7） |
 | `/api/v1/llm` | chat / stream / history / templates sync / models / test-connection |
-| `/api/v1/task-queue` | queued / completed / failed / scheduled / 删除 / 重提交 |
+| `/api/v1/task-queue` | queued / completed / failed / scheduled / 删除 / 重提交（仅管理员，v27.2.7） |
 | `/api/v1/search`、`/api/v1/dashboard/stats` | 全局搜索 / 仪表盘 |
 | `/api/v1/health`（+ live/ready/detail）、`/api/v1/resource/*` | 健康检查 / 资源与 Prometheus 指标 |
 

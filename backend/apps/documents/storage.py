@@ -7,6 +7,7 @@ from typing import Any, Final
 
 from django.apps import apps as django_apps
 from django.conf import settings
+from django.core.exceptions import SuspiciousFileOperation
 from django.core.files.storage import FileSystemStorage
 from django.db.utils import OperationalError, ProgrammingError
 from django.utils.deconstruct import deconstructible
@@ -72,12 +73,31 @@ def get_docx_templates_root() -> Path:
     return get_public_docx_templates_root()
 
 
+def _allowed_template_roots() -> list[Path]:
+    """所有合法模板根（公共 + 私有配置根），用于绝对路径收敛校验。"""
+    roots = [get_public_docx_templates_root()]
+    private_root = get_private_docx_templates_root()
+    if private_root is not None and private_root != roots[0]:
+        roots.append(private_root)
+    return roots
+
+
 def resolve_docx_template_path(file_path: str) -> Path:
-    """解析模板路径（支持绝对路径和相对活动根目录路径）。"""
+    """解析模板路径（相对活动根目录；绝对路径须位于任一已知模板根内）。
+
+    安全审计 B-04：不再无条件放行任意绝对路径——那会把服务器上任意 docx
+    经模板渲染端点读出。绝对路径仅当 resolve 后落在公共/私有模板根内才接受。
+    """
     normalized = file_path.strip()
     candidate = Path(normalized)
+
     if candidate.is_absolute():
-        return candidate
+        resolved_abs = candidate.resolve()
+        for root in _allowed_template_roots():
+            root_resolved = root.resolve()
+            if resolved_abs == root_resolved or root_resolved in resolved_abs.parents:
+                return resolved_abs  # type: ignore[no-any-return]
+        raise ValueError("模板路径越界：绝对路径必须位于 docx_templates 根目录内")
 
     root = get_docx_templates_root().resolve()
     resolved = (root / candidate).resolve()
@@ -120,8 +140,10 @@ class DocumentTemplateStorage(FileSystemStorage):
 
         # 检查是否是已存在于docx_templates中的文件(通过特殊前缀标记)
         if name and name.startswith("_EXISTING_:"):
-            # 提取实际的相对路径
+            # 提取实际的相对路径（安全审计 B-04：拒绝穿越片段）
             relative_path = name[len("_EXISTING_:") :]
+            if ".." in Path(relative_path).parts or Path(relative_path).is_absolute():
+                raise SuspiciousFileOperation(f"非法模板路径: {relative_path}")
             # 验证文件确实存在
             full_path = self.docx_templates_root / relative_path
             if full_path.exists():

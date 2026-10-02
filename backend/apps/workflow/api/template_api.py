@@ -7,16 +7,12 @@ from typing import Any
 from django.utils.text import slugify
 from ninja import Router
 
+from apps.core.security.admin_access import ensure_admin_request
 from apps.core.security.auth import JWTOrSessionAuth
 
 from ..models import WorkflowTemplate
-from ..schemas.workflow_schemas import (
-    TemplateCreateIn,
-    TemplateDetailOut,
-    TemplateListOut,
-    TemplateUpdateIn,
-)
-from .step_registry import get_step_registry, get_flat_step_list
+from ..schemas.workflow_schemas import TemplateCreateIn, TemplateDetailOut, TemplateListOut, TemplateUpdateIn
+from .step_registry import get_flat_step_list, get_step_registry
 
 router = Router(auth=JWTOrSessionAuth())
 
@@ -72,6 +68,7 @@ async def list_templates(
 @router.post("/templates/")
 async def create_template(request: Any, payload: TemplateCreateIn) -> dict[str, Any]:
     """创建工作流模板"""
+    ensure_admin_request(request, message="仅管理员可管理工作流模板", code="PERMISSION_DENIED")
     slug = payload.slug or slugify(payload.name, allow_unicode=True)
 
     # 确保 slug 唯一
@@ -120,6 +117,7 @@ async def get_template(request: Any, template_id: int) -> dict[str, Any]:
 @router.put("/templates/{template_id}/")
 async def update_template(request: Any, template_id: int, payload: TemplateUpdateIn) -> dict[str, Any]:
     """更新工作流模板"""
+    ensure_admin_request(request, message="仅管理员可管理工作流模板", code="PERMISSION_DENIED")
     template = await WorkflowTemplate.objects.aget(pk=template_id)
 
     if payload.name is not None:
@@ -144,6 +142,7 @@ async def update_template(request: Any, template_id: int, payload: TemplateUpdat
 @router.delete("/templates/{template_id}/")
 async def delete_template(request: Any, template_id: int) -> dict[str, Any]:
     """删除工作流模板"""
+    ensure_admin_request(request, message="仅管理员可管理工作流模板", code="PERMISSION_DENIED")
     template = await WorkflowTemplate.objects.aget(pk=template_id)
     name = template.name
     await template.adelete()
@@ -153,6 +152,7 @@ async def delete_template(request: Any, template_id: int) -> dict[str, Any]:
 @router.post("/templates/{template_id}/duplicate/")
 async def duplicate_template(request: Any, template_id: int) -> dict[str, Any]:
     """复制工作流模板"""
+    ensure_admin_request(request, message="仅管理员可管理工作流模板", code="PERMISSION_DENIED")
     source = await WorkflowTemplate.objects.aget(pk=template_id)
 
     new_slug = f"{source.slug}-copy"

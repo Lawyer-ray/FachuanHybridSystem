@@ -25,7 +25,10 @@ class WeikeAuthMixin:  # pragma: no cover
 
         parsed = urlparse(login_url)
         host = (parsed.hostname or "").lower()
-        if host.endswith("wkinfo.com.cn"):
+        # 安全审计 C-18：精确域匹配（host 或 *.wkinfo.com.cn 子域）+ 强制 https，
+        # 防 fakewkinfo.com.cn 后缀绕过与 http 明文回退。
+        host_ok = host == "wkinfo.com.cn" or host.endswith(".wkinfo.com.cn")
+        if host_ok and parsed.scheme == "https":
             return login_url
 
         logger.warning(
@@ -63,7 +66,9 @@ class WeikeAuthMixin:  # pragma: no cover
                 pass
             raise
 
-    def _login_and_enter_law(self, *, page: Page, username: str, password: str, login_url: str | None) -> None:  # pragma: no cover
+    def _login_and_enter_law(
+        self, *, page: Page, username: str, password: str, login_url: str | None
+    ) -> None:  # pragma: no cover
         self._login_via_legacy_home(page=page, username=username, password=password, login_url=login_url)
         page.goto(self.LAW_LIST_URL, wait_until="domcontentloaded", timeout=120000)
         page.wait_for_selector("input[name='keyword']", timeout=60000)
@@ -79,7 +84,9 @@ class WeikeAuthMixin:  # pragma: no cover
         if not self._is_law_authenticated(page):
             raise RuntimeError("wk登录失败：账号未进入已登录状态")
 
-    def _login_via_legacy_home(self, *, page: Page, username: str, password: str, login_url: str | None) -> None:  # pragma: no cover
+    def _login_via_legacy_home(
+        self, *, page: Page, username: str, password: str, login_url: str | None
+    ) -> None:  # pragma: no cover
         page.goto(login_url or self.LOGIN_URL, wait_until="domcontentloaded", timeout=120000)
         page.wait_for_selector("#firstname", timeout=60000)
         page.fill("#firstname", username)

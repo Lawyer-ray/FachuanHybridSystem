@@ -24,6 +24,18 @@ from apps.cases.schemas.template_binding_schemas import (
 
 router = Router()
 
+
+async def _ensure_case_access(request: Any, case_id: int) -> None:
+    """校验当前用户对案件的访问权（安全审计 B-25/B-26）。"""
+    from asgiref.sync import sync_to_async
+
+    from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+    from apps.core.security import get_request_access_context
+
+    ctx = get_request_access_context(request)
+    await sync_to_async(CaseAccessPolicy().ensure_access_ctx)(case_id=case_id, ctx=ctx)
+
+
 # ==================== Factory Function ====================
 
 
@@ -58,6 +70,7 @@ async def get_case_template_bindings(request: HttpRequest, case_id: int) -> Any:
 
     按模板分类(case_sub_type)分组返回.
     """
+    await _ensure_case_access(request, case_id)
     service = _get_binding_service()
 
     @sync_to_async
@@ -68,12 +81,15 @@ async def get_case_template_bindings(request: HttpRequest, case_id: int) -> Any:
 
 
 @router.post("/{case_id}/template-bindings", response=TemplateBindingSchema)
-async def bind_template_to_case(request: HttpRequest, case_id: int, payload: BindTemplateRequestSchema) -> Any:  # pragma: no cover
+async def bind_template_to_case(
+    request: HttpRequest, case_id: int, payload: BindTemplateRequestSchema
+) -> Any:  # pragma: no cover
     """
     绑定模板到案件
 
     创建手动绑定记录(binding_source='manual_bound').
     """
+    await _ensure_case_access(request, case_id)
     service = _get_binding_service()
 
     @sync_to_async
@@ -84,12 +100,15 @@ async def bind_template_to_case(request: HttpRequest, case_id: int, payload: Bin
 
 
 @router.delete("/{case_id}/template-bindings/{binding_id}", response=SuccessResponseSchema)
-async def unbind_template_from_case(request: HttpRequest, case_id: int, binding_id: int) -> dict[str, bool]:  # pragma: no cover
+async def unbind_template_from_case(
+    request: HttpRequest, case_id: int, binding_id: int
+) -> dict[str, bool]:  # pragma: no cover
     """
     解绑模板
 
     删除指定的绑定记录.
     """
+    await _ensure_case_access(request, case_id)
     service = _get_binding_service()
 
     @sync_to_async
@@ -107,6 +126,7 @@ async def get_available_templates(request: HttpRequest, case_id: int) -> Any:  #
 
     返回所有活跃的案件模板,排除已绑定的模板.
     """
+    await _ensure_case_access(request, case_id)
     service = _get_binding_service()
 
     @sync_to_async
@@ -133,6 +153,7 @@ async def generate_template_document(  # pragma: no cover
 
     Requirements: 2.1, 2.2, 2.3, 2.4, 6.2, 6.3, 7.2, 7.3, 7.4
     """
+    await _ensure_case_access(request, case_id)
     service = _get_generation_service()
 
     @sync_to_async
@@ -180,7 +201,9 @@ def _build_file_response(content: bytes, filename: str) -> HttpResponse:
 
 
 @router.post("/{case_id}/unified-generate")
-async def unified_generate_template(request: HttpRequest, case_id: int, payload: UnifiedGenerateRequest) -> HttpResponse:  # pragma: no cover
+async def unified_generate_template(
+    request: HttpRequest, case_id: int, payload: UnifiedGenerateRequest
+) -> HttpResponse:  # pragma: no cover
     """
     统一模板生成 API(新端点)
 
@@ -197,6 +220,7 @@ async def unified_generate_template(request: HttpRequest, case_id: int, payload:
 
     Requirements: 1.5
     """
+    await _ensure_case_access(request, case_id)
     service = _get_unified_template_generation_service()
 
     @sync_to_async

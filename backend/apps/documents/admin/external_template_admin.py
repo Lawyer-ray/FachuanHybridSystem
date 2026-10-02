@@ -76,13 +76,13 @@ class ExternalTemplateFieldMappingInline(admin.TabularInline):  # pragma: no cov
 
     model = ExternalTemplateFieldMapping
     extra: int = 0
-    fields: tuple[str, ...] = (
+    fields: ClassVar[tuple[str, ...]] = (
         "sort_order",
         "position_description",
         "semantic_label",
         "fill_type",
     )
-    readonly_fields: tuple[str, ...] = (
+    readonly_fields: ClassVar[tuple[str, ...]] = (
         "position_description",
         "semantic_label",
         "fill_type",
@@ -98,9 +98,9 @@ class ExternalTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
     通过工厂函数获取 Service, 不直接实例化.
     """
 
-    change_form_template: str = "admin/documents/external_template/change_form.html"
+    change_form_template = "admin/documents/external_template/change_form.html"
 
-    list_display: ClassVar[list[str]] = [
+    list_display = [
         "name",
         "source_name",
         "status",
@@ -108,15 +108,15 @@ class ExternalTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
         "is_active",
         "updated_at",
     ]
-    list_filter: ClassVar[list[str]] = [
+    list_filter = [
         "status",
         "is_active",
     ]
-    search_fields: ClassVar[list[str]] = [
+    search_fields = [
         "name",
         "source_name",
     ]
-    inlines: ClassVar[list[type[admin.TabularInline]]] = [
+    inlines = [
         ExternalTemplateFieldMappingInline,
     ]
 
@@ -293,7 +293,7 @@ class ExternalTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
             **self.admin_site.each_context(request),
             "opts": self.model._meta,
             "template_obj": template_obj,
-            "custom_fields_json": _json.dumps(custom_fields, ensure_ascii=False),
+            "custom_fields_json": _json.dumps(custom_fields, ensure_ascii=False).replace("<", "\\u003c"),
             "title": "填充操作 - %(name)s" % {"name": template_obj.name},
         }
         return TemplateResponse(

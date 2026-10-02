@@ -154,7 +154,11 @@ class DocumentTemplate(LifecycleModel):
         if self.file and self.file.name:
             return str(self.file.storage.path(self.file.name))
         if self.file_path:
-            return str(resolve_docx_template_path(self.file_path))
+            try:
+                return str(resolve_docx_template_path(self.file_path))
+            except ValueError:
+                # 安全审计 B-04：存量「根外绝对路径」按不可用处理，不抛 500
+                return ""
         return ""
 
     def _get_types_display(self, types_list: list[Any], choices_class: type[models.TextChoices]) -> str:
@@ -209,7 +213,11 @@ class DocumentTemplate(LifecycleModel):
         """文件的绝对路径"""
         if not self.file_path:
             return ""
-        return str(resolve_docx_template_path(self.file_path))
+        try:
+            return str(resolve_docx_template_path(self.file_path))
+        except ValueError:
+            # 安全审计 B-04：存量「根外绝对路径」按不可用处理，不抛 500
+            return ""
 
     @hook(AFTER_CREATE)
     def on_create_audit_log(self) -> None:

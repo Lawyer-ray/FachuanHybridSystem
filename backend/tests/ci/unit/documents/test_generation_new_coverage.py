@@ -2,6 +2,7 @@
 Tests for documents/services/generation/ - registry, prompts, base_generator,
 path_utils, output_storage, pipeline modules.
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -230,8 +231,9 @@ class TestPathUtils:
     def test_resolve_media_path_absolute(self):
         from apps.documents.services.generation.path_utils import resolve_media_path
 
+        # 安全审计 B-04：MEDIA_ROOT 之外的绝对路径拒绝（返回空串）
         result = resolve_media_path("/media", "/absolute/path/file.pdf")
-        assert result == "/absolute/path/file.pdf"
+        assert result == ""
 
     def test_resolve_media_path_relative(self):
         from apps.documents.services.generation.path_utils import resolve_media_path
@@ -306,25 +308,17 @@ class TestNaming:
     def test_contract_docx_filename(self):
         from apps.documents.services.generation.pipeline.naming import contract_docx_filename
 
-        with patch(
-            "apps.documents.services.generation.pipeline.naming.FilenameTemplateService"
-        ) as mock_svc:
+        with patch("apps.documents.services.generation.pipeline.naming.FilenameTemplateService") as mock_svc:
             mock_svc.render_generated_doc.return_value = "合同-测试-V1-20240101"
-            result = contract_docx_filename(
-                template_name="合同.docx", contract_name="测试", version="V1"
-            )
+            result = contract_docx_filename(template_name="合同.docx", contract_name="测试", version="V1")
             assert result.endswith(".docx")
 
     def test_supplementary_agreement_docx_filename(self):
         from apps.documents.services.generation.pipeline.naming import supplementary_agreement_docx_filename
 
-        with patch(
-            "apps.documents.services.generation.pipeline.naming.FilenameTemplateService"
-        ) as mock_svc:
+        with patch("apps.documents.services.generation.pipeline.naming.FilenameTemplateService") as mock_svc:
             mock_svc.render_generated_doc.return_value = "补充协议-测试-V1-20240101"
-            result = supplementary_agreement_docx_filename(
-                agreement_name="补充协议", contract_name="测试"
-            )
+            result = supplementary_agreement_docx_filename(agreement_name="补充协议", contract_name="测试")
             assert result.endswith(".docx")
 
 

@@ -117,8 +117,18 @@ async def generate_defense(request: Any, data: DefenseRequest) -> Any:  # pragma
     return {"success": True, "data": result.model_dump(), "duration_ms": duration_ms}
 
 
+async def _ensure_case_access(request: Any, case_id: int) -> None:
+    """校验当前用户对案件的访问权（安全审计 A-05/A-06）。"""
+    from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+    from apps.core.security import get_request_access_context
+
+    ctx = get_request_access_context(request)
+    await sync_to_async(CaseAccessPolicy().ensure_access_ctx)(case_id=case_id, ctx=ctx)
+
+
 @router.get("/cases/{case_id}/litigation/{litigation_type}/preview")
 async def preview_litigation_context(request: Any, case_id: int, litigation_type: str) -> Any:  # pragma: no cover
+    await _ensure_case_access(request, case_id)
     service = _get_litigation_generation_service()
     context = await sync_to_async(service.get_preview_context)(case_id, litigation_type)
     return {"success": True, "data": context}
@@ -141,6 +151,7 @@ async def download_litigation_document(request: Any, case_id: int, litigation_ty
     """
     from .download_response_factory import build_download_response
 
+    await _ensure_case_access(request, case_id)
     start_time = time.time()
     service = _get_litigation_generation_service()
     if litigation_type == "complaint":

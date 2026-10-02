@@ -127,7 +127,10 @@ class TemplateAdminViewsMixin:
         if template_path:
             from apps.documents.storage import resolve_docx_template_path
 
-            resolved = resolve_docx_template_path(template_path)
+            try:
+                resolved = resolve_docx_template_path(template_path)
+            except ValueError:
+                return None, f"模板路径越界（安全审计 B-04 收紧）: {template_path}"
             if resolved.exists():
                 return str(resolved), None
             return None, f"文件不存在: {template_path}"

@@ -367,6 +367,21 @@ class PdfSplitJobService:
             raise ValidationException(message="仅支持 PDF 文件", errors={"source_path": raw})
         if not os.access(resolved, os.R_OK):
             raise ValidationException(message="文件不可读", errors={"source_path": raw})
+
+        # 安全审计 B-11：本地路径仅允许在配置的浏览根（FOLDER_BROWSE_ROOTS）或
+        # MEDIA_ROOT 内——否则任意登录用户可拆解并回读服务器上任意 PDF。
+        from django.conf import settings as _settings
+
+        from apps.core.filesystem.browse_policy import FolderBrowsePolicy
+
+        allowed = list(getattr(_settings, "FOLDER_BROWSE_ROOTS", []) or [])
+        media_root = Path(str(_settings.MEDIA_ROOT)).resolve()
+        candidate_roots = [Path(r).expanduser().resolve() for r in allowed if r] + [media_root]
+        if not any(resolved == r or r in resolved.parents for r in candidate_roots):
+            raise ValidationException(
+                message="路径越界：仅允许浏览根目录内的文件",
+                errors={"source_path": raw},
+            )
         return resolved
 
     def _validate_pdf_file(self, source_pdf_path: Path) -> int:  # pragma: no cover

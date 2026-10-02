@@ -19,7 +19,15 @@ def resolve_media_path(media_root: str, file_path: str) -> str:
             value = value[len("/media/") :]
         p = Path(value)
         if p.is_absolute():
-            return str(p)
+            # 安全审计 B-04：绝对路径仅当收敛在 MEDIA_ROOT 内才接受，防任意文件读
+            try:
+                resolved = p.resolve()
+                root = Path(media_root).resolve()
+                if resolved == root or root in resolved.parents:
+                    return str(resolved)
+            except OSError:
+                return ""
+            return ""
         return str(Path(media_root) / value)
     except Exception:
         logger.exception("操作失败")

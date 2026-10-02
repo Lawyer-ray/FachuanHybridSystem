@@ -23,6 +23,21 @@ _MISSING_SENTINEL = _MissingSentinel()
 _DEFAULT_CACHE_TIMEOUT_SECONDS = 300
 
 
+def _maybe_decrypt(value: str) -> str:
+    """缓存/库值读取时解密；密钥轮换后旧密文解不开时降级返回原值（安全审计 E-01）。"""
+    from apps.core.security.secret_codec import SecretCodec
+
+    codec = SecretCodec()
+    if codec.is_encrypted(value):
+        try:
+            return codec.decrypt(value)
+        except Exception:
+            # 与库内读取的失败模式一致，避免 get_value 全线 500；轮换后应重写配置值自愈
+            return value
+    # 兼容存量明文（含旧缓存条目）：原样返回
+    return value
+
+
 class SystemConfigService:
     """系统配置服务"""
 
@@ -67,8 +82,26 @@ class SystemConfigService:
                 errors={"config_id": f"ID 为 {config_id} 的配置不存在"},
             )
 
+        # 安全审计 B-07：拒绝 is_secret 由 true 降为 false（降级会使 API 响应
+        # 直接回显明文），且敏感值更新必须走加密存储，与 set_value 口径一致。
+        if is_secret is False and config.is_secret:
+            raise ValidationException(
+                message="不能将敏感配置降级为非敏感",
+                code="SECRET_DOWNGRADE_FORBIDDEN",
+                errors={"is_secret": "敏感标志只允许 false → true"},  # pragma: allowlist secret
+            )
+
         if value is not None:
-            config.value = value
+            # 复审结论：加密判定用「生效值」——PATCH 同时把 is_secret 升为 true 时
+            # 新值必须加密落库，不能按旧标志走明文路径。
+            effective_secret = bool(is_secret) if is_secret is not None else bool(config.is_secret)
+            if effective_secret:
+                from apps.core.security.secret_codec import SecretCodec
+
+                codec = SecretCodec()
+                config.value = value if codec.is_encrypted(value) else codec.encrypt(value)
+            else:
+                config.value = value
 
         if category is not None:
             config.category = category
@@ -151,22 +184,18 @@ class SystemConfigService:
         if cached is _MISSING_SENTINEL or isinstance(cached, _MissingSentinel):
             return default
         if cached is not None:
-            return cached if isinstance(cached, str) else str(cached)
+            cached_str = cached if isinstance(cached, str) else str(cached)
+            return _maybe_decrypt(cached_str)
 
         config = self._repository.get_by_key(key)
         if config is None or not config.is_active:
             cache.set(cache_key, _MISSING_SENTINEL, timeout=self._cache_timeout)
             return default
 
-        value = config.value
-        if config.is_secret:
-            from apps.core.security.secret_codec import SecretCodec
-
-            codec = SecretCodec()
-            if codec.is_encrypted(value):
-                value = codec.decrypt(value)
-        cache.set(cache_key, value, timeout=self._cache_timeout)
-        return value
+        # 安全审计 E-01：缓存始终存「存储态」原值（密钥为密文），读取时再解密，
+        # 避免明文密钥进入共享 Redis/落盘 RDB。
+        cache.set(cache_key, config.value, timeout=self._cache_timeout)
+        return _maybe_decrypt(config.value)
 
     @classmethod
     async def aget_value(cls, key: str, default: str = "") -> str:  # pragma: no cover

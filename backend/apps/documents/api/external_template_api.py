@@ -102,9 +102,42 @@ async def confirm_mappings(request: HttpRequest, template_id: int) -> dict[str, 
     return {"success": True, "template_id": template_id}
 
 
+async def _ensure_fill_access(request: HttpRequest, case_id: int) -> None:
+    """安全审计 B-05：填充/预览会回显案件占位符值并写入案件目录，须校验案件访问权。"""
+    from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+    from apps.core.security import get_request_access_context
+
+    ctx = get_request_access_context(request)
+    await sync_to_async(CaseAccessPolicy().ensure_access_ctx)(case_id=case_id, ctx=ctx)
+
+
 @router.post("/fill")
-async def fill_templates(request: HttpRequest, payload: FillRequestSchema) -> dict[str, Any] | HttpResponse:  # pragma: no cover
+async def fill_templates(
+    request: HttpRequest, payload: FillRequestSchema
+) -> dict[str, Any] | HttpResponse:  # pragma: no cover
     """执行填充（单个或批量），返回文件信息"""
+    await _ensure_fill_access(request, payload.case_id)
+    # 安全审计 B-05：填充模板须属于当前律所（superuser 豁免）
+    _user = getattr(request, "auth", None) or getattr(request, "user", None)
+    if not getattr(_user, "is_superuser", False):
+        from apps.documents.models.external_template import ExternalTemplate
+
+        def _fetch_own_template_ids() -> set[int]:
+            firm_id = getattr(_user, "law_firm_id", None)
+            return set(
+                ExternalTemplate.objects.filter(pk__in=list(payload.template_ids), law_firm_id=firm_id).values_list(
+                    "pk", flat=True
+                )
+            )
+
+        _own_ids: set[int] = await sync_to_async(_fetch_own_template_ids)()
+        _foreign = [tid for tid in payload.template_ids if tid not in _own_ids]
+        if _foreign:
+            from apps.core.exceptions import PermissionDenied
+
+            raise PermissionDenied(
+                message="包含无权使用的外部模板", code="TEMPLATE_FIRM_FORBIDDEN", errors={"template_ids": _foreign}
+            )
     service = _get_filling_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
 
@@ -140,6 +173,7 @@ async def preview_fill(  # pragma: no cover
     party_id: int | None = None,
 ) -> dict[str, Any]:
     """填充预览"""
+    await _ensure_fill_access(request, case_id)
     service = _get_filling_service()
     items = await sync_to_async(service.generate_preview)(
         template_id=template_id,
@@ -209,6 +243,9 @@ async def get_fill_history(  # pragma: no cover
     template_id: int | None = None,
 ) -> dict[str, Any]:
     """填充历史查询"""
+    if case_id is not None:
+        # 安全审计 B-05：按案件查历史会回读该案填充值，须校验访问权
+        await _ensure_fill_access(request, case_id)
     service = _get_filling_service()
 
     if case_id is not None:
@@ -218,15 +255,19 @@ async def get_fill_history(  # pragma: no cover
     else:
         return {"success": False, "message": "请提供 case_id 或 template_id 参数"}
 
-    records: list[dict[str, Any]] = await sync_to_async(lambda: list(qs.values(
-            "id",
-            "case_id",
-            "template_id",
-            "party_id",
-            "filled_at",
-            "original_output_name",
-            "file_available",
-        )))()
+    records: list[dict[str, Any]] = await sync_to_async(
+        lambda: list(
+            qs.values(
+                "id",
+                "case_id",
+                "template_id",
+                "party_id",
+                "filled_at",
+                "original_output_name",
+                "file_available",
+            )
+        )
+    )()
     return {"success": True, "records": records}
 
 
@@ -260,7 +301,10 @@ async def get_preview_html(request: HttpRequest, template_id: int) -> dict[str, 
 
     from apps.documents.services.external_template.query_service import get_template_or_raise
 
-    template = await sync_to_async(get_template_or_raise)(template_id)
+    # 安全审计 B-05：模板按律所隔离（superuser 豁免）
+    _user = getattr(request, "auth", None) or getattr(request, "user", None)
+    _firm_id = None if getattr(_user, "is_superuser", False) else getattr(_user, "law_firm_id", None)
+    template = await sync_to_async(get_template_or_raise)(template_id, law_firm_id=_firm_id)
     abs_path = Path(settings.MEDIA_ROOT) / template.file_path
 
     def _convert() -> Any:
@@ -296,7 +340,9 @@ async def list_mappings(request: HttpRequest, template_id: int) -> list[dict[str
 
 
 @router.post("/{template_id}/mappings")
-async def create_mapping(request: HttpRequest, template_id: int, payload: MappingCreateSchema) -> dict[str, Any]:  # pragma: no cover
+async def create_mapping(
+    request: HttpRequest, template_id: int, payload: MappingCreateSchema
+) -> dict[str, Any]:  # pragma: no cover
     """手动添加字段映射"""
     service = _get_analysis_service()
     m = await sync_to_async(service.create_manual_mapping)(
@@ -318,7 +364,9 @@ async def create_mapping(request: HttpRequest, template_id: int, payload: Mappin
 
 
 @router.put("/mappings/{mapping_id}")
-async def update_mapping(request: HttpRequest, mapping_id: int, payload: MappingUpdateSchema) -> dict[str, Any]:  # pragma: no cover
+async def update_mapping(
+    request: HttpRequest, mapping_id: int, payload: MappingUpdateSchema
+) -> dict[str, Any]:  # pragma: no cover
     """更新字段映射"""
     from apps.documents.services.external_template.query_service import get_mapping_or_raise
 

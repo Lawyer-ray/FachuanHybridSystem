@@ -67,6 +67,19 @@ def register(request: HttpRequest) -> HttpResponse:
 
 
 def _handle_auto_register(request: HttpRequest) -> HttpResponse:
+    # 安全审计 C-02：生产环境自动注册同样需要 BOOTSTRAP_ADMIN_TOKEN，
+    # 否则清库/新部署窗口内任何人可用源码中的硬编码口令抢占超管。
+    from hmac import compare_digest
+
+    from django.conf import settings as dj_settings
+
+    if not getattr(dj_settings, "DEBUG", False):
+        expected_token = str(getattr(dj_settings, "BOOTSTRAP_ADMIN_TOKEN", "") or "").strip()
+        provided_token = str(request.POST.get("bootstrap_token", "") or "").strip()
+        if not expected_token or not compare_digest(provided_token, expected_token):
+            messages.error(request, "自动注册仅在开发环境开放；生产环境需提供有效引导令牌")
+            return redirect("admin_register")
+
     try:
         result = _auth_service.auto_register_superadmin()
     except Exception as e:

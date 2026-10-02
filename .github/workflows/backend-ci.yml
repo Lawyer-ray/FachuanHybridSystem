@@ -226,6 +226,9 @@ jobs:
       - name: Type check (mypy, changed files)
         env:
           PYTHONPATH: "apiSystem:."
+          # django-stubs 插件构造时会加载 apiSystem.settings；DJANGO_DEBUG 缺省已
+          # 改为 fail-closed（v27.2.7 安全修复），类型检查环境需显式按开发口径加载
+          DJANGO_DEBUG: "1"
         run: |
           set -euo pipefail
           base=""
@@ -252,6 +255,7 @@ jobs:
       - name: Type check (mypy, curated gate)
         env:
           PYTHONPATH: "apiSystem:."
+          DJANGO_DEBUG: "1"
         run: |
           uv run mypy --config-file=mypy.ini --follow-imports=silent \
             apps/core/services/wiring.py \

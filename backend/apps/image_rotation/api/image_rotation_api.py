@@ -11,13 +11,12 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 from asgiref.sync import sync_to_async
-from apps.core.security.auth import JWTOrSessionAuth
-
 from django.core.files.uploadedfile import UploadedFile
 from django.http import HttpRequest
 from ninja import Router
 
 from apps.core.infrastructure.throttling import rate_limit_from_settings
+from apps.core.security.auth import JWTOrSessionAuth
 
 logger = logging.getLogger("apps.image_rotation")
 
@@ -134,15 +133,13 @@ async def detect_orientation(request: HttpRequest) -> dict[str, Any]:  # pragma:
                 if method == "ocr_voting":
                     from apps.image_rotation.services.orientation.service import OrientationDetectionService
 
-                    result = await sync_to_async(
-                        OrientationDetectionService().detect_orientation_with_text
-                    )(image_bytes)
+                    result = await sync_to_async(OrientationDetectionService().detect_orientation_with_text)(
+                        image_bytes
+                    )
                 else:
                     from apps.image_rotation.services.orientation.onnx_service import get_onnx_orientation_service
 
-                    result = await sync_to_async(
-                        get_onnx_orientation_service().detect_orientation
-                    )(image_bytes)
+                    result = await sync_to_async(get_onnx_orientation_service().detect_orientation)(image_bytes)
                 result["elapsed_ms"] = round((time.perf_counter() - t0) * 1000, 1)
                 result["filename"] = img.get("filename", "")
                 return result
@@ -528,6 +525,10 @@ def save_export_url(request: HttpRequest, job_id: str) -> dict[str, Any]:  # pra
         media_url: str = payload.get("media_url", "")
         if not file_type or not media_url:
             return {"success": False, "message": "缺少 file_type 或 media_url"}
+        # 安全审计 B-12：只接受本服务生成的 image_rotation 媒体 URL，
+        # 防 /media/../../ 任意路径经 download 端点读任意文件。
+        if not media_url.startswith("/media/image_rotation/") or ".." in media_url:
+            return {"success": False, "message": "无效的导出文件 URL"}
         job = _get_job_service().get_job(job_id)
         if file_type == "zip":
             job.export_zip_url = media_url
@@ -557,9 +558,15 @@ def download_job_export(request: HttpRequest, job_id: str, file_type: str) -> An
 
         raise NotFoundError(message="导出文件不存在", code="EXPORT_NOT_FOUND", errors={})
 
-    # 从 flat 路径直接读取文件
+    # 从 flat 路径直接读取文件（安全审计 B-12：resolve 后强制收敛在 MEDIA_ROOT 内，
+    # 兼容存量库中已写入的恶意/异常 URL）
     rel = media_url.removeprefix("/media/")
     file_path = Path(str(settings.MEDIA_ROOT)) / rel
+    media_root = Path(str(settings.MEDIA_ROOT)).resolve()
+    if not file_path.resolve().is_relative_to(media_root):
+        from apps.core.exceptions import PermissionDenied
+
+        raise PermissionDenied(message="无效的导出文件路径", code="INVALID_EXPORT_PATH", errors={})
 
     if not file_path.exists():
         from apps.core.exceptions import NotFoundError

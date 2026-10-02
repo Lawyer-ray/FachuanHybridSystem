@@ -48,7 +48,7 @@ class CaseAccessService(DjangoPermsMixin):
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
         access_ctx: AccessContext | None = None,
-    ) -> QuerySet[Case, Case]:
+    ) -> QuerySet[CaseAccessGrant, CaseAccessGrant]:
         """
         获取授权列表
 
@@ -69,7 +69,7 @@ class CaseAccessService(DjangoPermsMixin):
         if ctx.perm_open_access:
             return qs
         self.ensure_authenticated(ctx.user)
-        if self.is_authenticated_user(ctx.user) or self.is_superuser(ctx.user):
+        if self.is_superuser(ctx.user):
             return qs
         user_id = self.get_user_id(ctx.user)
         if grantee_id is not None and grantee_id != user_id:
@@ -104,13 +104,15 @@ class CaseAccessService(DjangoPermsMixin):
         if ctx.perm_open_access:
             return grant
         self.ensure_authenticated(ctx.user)
-        if self.is_authenticated_user(ctx.user) or self.is_superuser(ctx.user):
+        if self.is_superuser(ctx.user):
             return grant
         if grant.grantee_id != self.get_user_id(ctx.user):
             raise ForbiddenError("无权限查看该授权记录")
         return grant
 
-    def create_grant(self, case_id: int, grantee_id: int, user: Any | None = None) -> CaseAccessGrant:  # pragma: no cover
+    def create_grant(
+        self, case_id: int, grantee_id: int, user: Any | None = None
+    ) -> CaseAccessGrant:  # pragma: no cover
         """
         创建授权(授予用户案件访问权限)
 
@@ -197,7 +199,9 @@ class CaseAccessService(DjangoPermsMixin):
         invalidate_user_access_context(grantee_id)
         return {"success": True}
 
-    def get_grants_for_case(self, case_id: int, user: Any | None = None) -> QuerySet[Case, Case]:  # pragma: no cover
+    def get_grants_for_case(
+        self, case_id: int, user: Any | None = None
+    ) -> QuerySet[CaseAccessGrant, CaseAccessGrant]:  # pragma: no cover
         """
         获取案件的所有访问授权
 
@@ -209,7 +213,7 @@ class CaseAccessService(DjangoPermsMixin):
         self.ensure_admin(user)
         return CaseAccessGrant.objects.filter(case_id=case_id).select_related("grantee")
 
-    def get_grants_for_user(self, user_id: int, user: Any | None = None) -> QuerySet[Case, Case]:
+    def get_grants_for_user(self, user_id: int, user: Any | None = None) -> QuerySet[CaseAccessGrant, CaseAccessGrant]:
         """
         获取用户的所有案件访问授权
 
@@ -219,7 +223,7 @@ class CaseAccessService(DjangoPermsMixin):
             授权查询集
         """
         self.ensure_authenticated(user)
-        if not (self.is_authenticated_user(user) or self.is_superuser(user)) and self.get_user_id(user) != user_id:
+        if not self.is_superuser(user) and self.get_user_id(user) != user_id:
             raise ForbiddenError("无权限查看他人授权记录")
         return CaseAccessGrant.objects.filter(grantee_id=user_id).select_related("case")
 
@@ -233,7 +237,7 @@ class CaseAccessService(DjangoPermsMixin):
             案件 ID 集合
         """
         self.ensure_authenticated(user)
-        if not (self.is_authenticated_user(user) or self.is_superuser(user)) and self.get_user_id(user) != user_id:
+        if not self.is_superuser(user) and self.get_user_id(user) != user_id:
             raise ForbiddenError("无权限查看他人可访问案件")
         return set(CaseAccessGrant.objects.filter(grantee_id=user_id).values_list("case_id", flat=True))
 

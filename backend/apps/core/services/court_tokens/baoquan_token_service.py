@@ -15,7 +15,9 @@ class BaoquanTokenService:  # pragma: no cover
     BAOQUAN_SITE_NAME = "court_baoquan"
     _BAOQUAN_TOKEN_PREFIX = "eyJhbGciOiJIUzUxMiJ9"
 
-    async def get_valid_baoquan_token(self, credential_id: int | None = None, *, lawyer_id: int | None = None) -> str:  # pragma: no cover
+    async def get_valid_baoquan_token(
+        self, credential_id: int | None = None, *, lawyer_id: int | None = None
+    ) -> str:  # pragma: no cover
         logger.info("获取保全系统 Token (HS512)...")
 
         from apps.core.services.wiring import get_court_token_store_service, get_organization_service
@@ -126,15 +128,19 @@ class BaoquanTokenService:  # pragma: no cover
         不可用时自动回退到 Playwright。
         """
         try:
-            from apps.automation.services.scraper.sites.court_zxfw_login_private import is_available
+            from apps.automation.services.scraper.sites.court_zxfw_login_private import (
+                CourtZxfwHttpLoginService,
+                is_available,
+            )
 
-            if not is_available():
+            if is_available is None or not is_available():
                 logger.info("HTTP 直接插件不可用，回退到 Playwright 获取保全 Token")
                 return None
 
             import asyncio
 
-            from apps.automation.services.scraper.sites.court_zxfw_login_private import CourtZxfwHttpLoginService
+            if CourtZxfwHttpLoginService is None:
+                return None
 
             loop = asyncio.get_running_loop()
             svc = CourtZxfwHttpLoginService()
@@ -143,7 +149,7 @@ class BaoquanTokenService:  # pragma: no cover
             if result.get("success"):
                 token = result["token"]
                 if token and token.startswith(self._BAOQUAN_TOKEN_PREFIX):
-                    logger.info("HTTP 直接获取保全 Token 成功: %s...", token[:30])
+                    logger.info("HTTP 直接获取保全 Token 成功: 长度 %s", len(token) if token else 0)
                     return token  # type: ignore[no-any-return]
                 logger.warning("HTTP 直接获取的保全 Token 格式不正确，回退到 Playwright")
             else:

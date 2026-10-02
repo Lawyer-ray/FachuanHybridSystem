@@ -79,9 +79,15 @@ class DocConvertRecordService:
         status: str | None = None,
         page: int = 1,
         page_size: int = 20,
+        user: Any = None,
     ) -> tuple[list[dict[str, Any]], int, int]:
-        """分页列出转换记录（最新在前），返回 (记录列表, 总数, 总页数)。"""
+        """分页列出转换记录（最新在前），返回 (记录列表, 总数, 总页数)。
+
+        传入 user 时按属主过滤（superuser 豁免，安全审计 B-10）。
+        """
         qs = DocConvertRecord.objects.all().order_by("-created_at")
+        if user is not None and not getattr(user, "is_superuser", False):
+            qs = qs.filter(created_by=user)
         if status:
             qs = qs.filter(status=status)
         safe_size = max(1, min(page_size, 50))
@@ -90,9 +96,12 @@ class DocConvertRecordService:
         items = [self._to_summary(record) for record in page_obj.object_list]
         return items, paginator.count, paginator.num_pages
 
-    def get_record(self, record_id: int) -> DocConvertRecord:
+    def get_record(self, record_id: int, user: Any = None) -> DocConvertRecord:
+        qs = DocConvertRecord.objects.all()
+        if user is not None and not getattr(user, "is_superuser", False):
+            qs = qs.filter(created_by=user)
         try:
-            return DocConvertRecord.objects.get(pk=record_id)
+            return qs.get(pk=record_id)
         except DocConvertRecord.DoesNotExist:
             raise NotFoundError(
                 message=f"转换记录不存在: ID={record_id}", code="DOC_CONVERT_RECORD_NOT_FOUND"

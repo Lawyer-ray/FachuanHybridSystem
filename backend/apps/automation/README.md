@@ -60,14 +60,14 @@ automation/
 
 ## API 端点
 
-前缀 `/api/v1/automation`（JWTOrSessionAuth；captcha 两个端点 auth=None）：
+前缀 `/api/v1/automation`（JWTOrSessionAuth；captcha recognize 端点 auth=None）：
 
 | 端点组 | 说明 |
 |--------|------|
 | `/court-sms` | POST 提交（含 `/form`）、GET 列表/详情、`/assign-case`、`/retry`、`/batch-delete`、`/abort-and-delete`、`/documents/{id}/download|rename`、`/documents/copy-to-clipboard`、`/documents/download-all` |
 | `/document-processor` | `process` / `process-by-path` |
 | `/auto-namer` | `process` / `process-by-path` |
-| `/captcha` | `recognize`（auth=None）、`manual/{task_id}/image|answer`（auth=None） |
+| `/captcha` | `recognize`（auth=None，默认关闭）、`manual/{task_id}/image|answer`（需登录，v27.2.7 前为 auth=None） |
 | `/file/upload`、`/config`、`/status` | AI 工具（main_api） |
 | `/performance/*` | metrics、statistics、health、cache 等性能监控 |
 | `/preservation-quotes*` | 询价 CRUD + `/{id}/execute`、`/{id}/retry`（plugin router 挂本前缀下） |

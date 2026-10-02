@@ -22,6 +22,13 @@ router = Router(tags=["DOC 转 DOCX"])
 _service = DocConverterService()
 
 
+def _request_user(request: Any) -> Any:
+    user = getattr(request, "user", None)
+    if user is None or not getattr(user, "is_authenticated", False):
+        user = getattr(request, "auth", None)
+    return user
+
+
 @router.post("/jobs", response=JobSubmitOut, summary="创建转换任务")
 def create_conversion_job(  # pragma: no cover
     request: Any,
@@ -39,7 +46,7 @@ def create_conversion_job(  # pragma: no cover
 @router.get("/jobs", summary="历史转换任务列表")
 def list_conversion_jobs(request: Any, page: int = 1, page_size: int = 20) -> dict[str, Any]:  # pragma: no cover
     """分页列出历史转换任务（最新在前），供前端历史弹窗浏览与重新下载。"""
-    jobs, count, num_pages = _service.list_jobs(page=page, page_size=page_size)
+    jobs, count, num_pages = _service.list_jobs(page=page, page_size=page_size, user=_request_user(request))
     return {
         "items": [_service.build_job_payload(job) for job in jobs],
         "count": count,
@@ -51,7 +58,7 @@ def list_conversion_jobs(request: Any, page: int = 1, page_size: int = 20) -> di
 @router.get("/jobs/{job_id}", response=JobProgressOut, summary="查询转换进度")
 def get_conversion_progress(request: Any, job_id: UUID) -> dict[str, Any]:  # pragma: no cover
     """轮询转换进度。"""
-    job, items = _service.get_job_progress(job_id)
+    job, items = _service.get_job_progress(job_id, user=_request_user(request))
     return {
         "job": _service.build_job_payload(job),
         "items": [_service.build_item_payload(item) for item in items],
@@ -61,14 +68,14 @@ def get_conversion_progress(request: Any, job_id: UUID) -> dict[str, Any]:  # pr
 @router.post("/jobs/{job_id}/cancel", summary="取消转换任务")
 def cancel_conversion_job(request: Any, job_id: UUID) -> dict[str, str]:  # pragma: no cover
     """取消转换任务。"""
-    job = _service.request_cancel(job_id=job_id)
+    job = _service.request_cancel(job_id=job_id, user=_request_user(request))
     return {"status": job.status}
 
 
 @router.get("/jobs/{job_id}/download", summary="下载转换结果")
 def download_converted_files(request: Any, job_id: UUID) -> FileResponse:  # pragma: no cover
     """下载转换完成的 ZIP 包。"""
-    job = _service.get_job(job_id)
+    job = _service.get_job(job_id, user=_request_user(request))
     if not job.output_zip:
         raise NotFoundError(message="转换结果不存在", code="ZIP_NOT_FOUND", errors={})
 
@@ -83,6 +90,7 @@ def download_converted_files(request: Any, job_id: UUID) -> FileResponse:  # pra
 @router.get("/jobs/{job_id}/items/{item_id}/download", summary="下载单个转换文件")
 def download_single_file(request: Any, job_id: UUID, item_id: UUID) -> FileResponse:  # pragma: no cover
     """下载单个已转换的 .docx 文件。"""
+    _service.get_job(job_id, user=_request_user(request))  # 安全审计 B-10：校验任务属主
     item = _service.get_item(job_id=job_id, item_id=item_id)
     if item.status != DocConverterJobStatus.COMPLETED or not item.converted_file:
         raise NotFoundError(message="转换文件不存在", code="ITEM_NOT_CONVERTED", errors={})
@@ -121,6 +129,8 @@ def copy_items_to_clipboard(  # pragma: no cover
     tmp = Path(tempfile.gettempdir()) / "fachuan_clipboard"
     tmp.mkdir(parents=True, exist_ok=True)
     paths: list[Path] = []
+    # 安全审计 B-10：校验任务属主
+    _service.get_job(job_id, user=_request_user(request))
     for item_id in payload.item_ids:
         item = _service.get_item(job_id=job_id, item_id=item_id)
         if item.status != DocConverterJobStatus.COMPLETED or not item.converted_file:
@@ -138,7 +148,7 @@ def copy_items_to_clipboard(  # pragma: no cover
 @router.delete("/jobs/{job_id}", summary="删除转换任务")
 def delete_conversion_job(request: Any, job_id: UUID) -> dict[str, str]:  # pragma: no cover
     """删除任务及其所有文件。"""
-    job = _service.get_job(job_id)
+    job = _service.get_job(job_id, user=_request_user(request))
     job.delete()
     return {"status": "deleted"}
 
@@ -154,4 +164,5 @@ def health_check(request: Any) -> dict[str, Any]:  # pragma: no cover
 
 @router.post("/jobs/{job_id}/save-to-dir", response=SaveToDirOut, summary="保存到指定目录")
 def save_to_directory(request: Any, job_id: UUID, payload: SaveToDirIn) -> dict[str, Any]:  # pragma: no cover
+    _service.get_job(job_id, user=_request_user(request))  # 安全审计 B-10：校验任务属主
     return _service.save_job_to_directory(job_id=job_id, target_dir=payload.target_dir)

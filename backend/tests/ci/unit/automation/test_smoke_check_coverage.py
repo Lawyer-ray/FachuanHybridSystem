@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 from django.test import Client
@@ -14,6 +14,7 @@ class TestMaybeSwitchSqliteDb:
 
     def _cmd(self):
         from apps.automation.management.commands.smoke_check import Command
+
         return Command()
 
     def test_none_path_returns_early(self):
@@ -30,9 +31,11 @@ class TestMaybeSwitchSqliteDb:
 
     def test_sqlite_switches_db(self):
         cmd = self._cmd()
-        with patch("apps.automation.management.commands.smoke_check.settings") as mock_settings, \
-             patch("apps.automation.management.commands.smoke_check.connections") as mock_conn, \
-             patch("apps.automation.management.commands.smoke_check.Path") as mock_path_cls:
+        with (
+            patch("apps.automation.management.commands.smoke_check.settings") as mock_settings,
+            patch("apps.automation.management.commands.smoke_check.connections") as mock_conn,
+            patch("apps.automation.management.commands.smoke_check.Path") as mock_path_cls,
+        ):
             mock_settings.DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3"}}
             mock_path_instance = MagicMock()
             mock_path_instance.parent = MagicMock()
@@ -47,6 +50,7 @@ class TestEnsureSmokeSuperuser:
 
     def _cmd(self):
         from apps.automation.management.commands.smoke_check import Command
+
         return Command()
 
     def test_existing_user_not_staff(self):
@@ -78,8 +82,10 @@ class TestEnsureSmokeSuperuser:
 
     def test_creates_new_superuser(self):
         cmd = self._cmd()
-        with patch("apps.automation.management.commands.smoke_check.get_user_model") as mock_get_model, \
-             patch("apps.automation.management.commands.smoke_check.settings") as mock_settings:
+        with (
+            patch("apps.automation.management.commands.smoke_check.get_user_model") as mock_get_model,
+            patch("apps.automation.management.commands.smoke_check.settings") as mock_settings,
+        ):
             mock_model = MagicMock()
             mock_model.objects.filter.return_value.first.return_value = None
             mock_model.objects.create_superuser.return_value = "new_user"
@@ -87,7 +93,9 @@ class TestEnsureSmokeSuperuser:
             mock_settings.SMOKE_ADMIN_PASSWORD = "test_pass"
 
             result = cmd._ensure_smoke_superuser()
-            assert result == "new_user"
+            # 安全审计 C-03：返回 (user, 是否新建)
+            assert result[0] == "new_user"
+            assert result[1] is True
             mock_model.objects.create_superuser.assert_called_once()
 
 
@@ -96,6 +104,7 @@ class TestCheckAdminPages:
 
     def _cmd(self):
         from apps.automation.management.commands.smoke_check import Command
+
         return Command()
 
     def test_success(self):
@@ -119,6 +128,7 @@ class TestCheckWebsocket:
 
     def _cmd(self):
         from apps.automation.management.commands.smoke_check import Command
+
         return Command()
 
     def test_websocket_check_skipped(self):
@@ -134,6 +144,7 @@ class TestCheckDiskSpace:
 
     def _cmd(self):
         from apps.automation.management.commands.smoke_check import Command
+
         return Command()
 
     def test_critical_raises(self):
@@ -168,6 +179,7 @@ class TestSmokeQTask:
 
     def test_addition(self):
         from apps.automation.management.commands.smoke_check import smoke_q_task
+
         assert smoke_q_task(20, 22) == 42
 
 
@@ -176,6 +188,7 @@ class TestDummyServices:
 
     def test_dummy_auto_namer(self):
         from apps.automation.management.commands.smoke_check import _DummyAutoNamerService
+
         svc = _DummyAutoNamerService()
         file_mock = MagicMock()
         file_mock.name = "test.pdf"
@@ -184,6 +197,7 @@ class TestDummyServices:
 
     def test_dummy_doc_processor(self):
         from apps.automation.management.commands.smoke_check import _DummyDocumentProcessorService
+
         svc = _DummyDocumentProcessorService()
         file_mock = MagicMock()
         file_mock.name = "test.pdf"

@@ -7,9 +7,17 @@ from typing import Any
 from apps.oa_filing.models import CaseImportSession, ClientImportSession
 
 
-def get_case_session_or_none(session_id: int) -> CaseImportSession | None:  # pragma: no cover
-    """获取案件导入会话，不存在返回 None。"""
-    return CaseImportSession.objects.filter(pk=session_id).first()
+def get_case_session_or_none(
+    session_id: int, lawyer_id: int | None = None
+) -> CaseImportSession | None:  # pragma: no cover
+    """获取案件导入会话，不存在返回 None。
+
+    传入 lawyer_id 时限定会话属主（安全审计 A-04：防止枚举他人会话并盗用其 OA 凭证）。
+    """
+    qs = CaseImportSession.objects.filter(pk=session_id)
+    if lawyer_id is not None:
+        qs = qs.filter(lawyer_id=lawyer_id)
+    return qs.first()
 
 
 def create_case_session(
@@ -26,9 +34,14 @@ def create_case_session(
     )
 
 
-def get_client_session_or_none(session_id: int) -> ClientImportSession | None:  # pragma: no cover
-    """获取客户导入会话，不存在返回 None。"""
-    return ClientImportSession.objects.filter(pk=session_id).first()
+def get_client_session_or_none(
+    session_id: int, lawyer_id: int | None = None
+) -> ClientImportSession | None:  # pragma: no cover
+    """获取客户导入会话，不存在返回 None（lawyer_id 语义同 case 版，安全审计 A-04）。"""
+    qs = ClientImportSession.objects.filter(pk=session_id)
+    if lawyer_id is not None:
+        qs = qs.filter(lawyer_id=lawyer_id)
+    return qs.first()
 
 
 def create_client_session(

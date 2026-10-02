@@ -9,8 +9,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.documents.storage import (
-    DocumentTemplateStorage,
     USER_CUSTOM_TEMPLATE_DIR,
+    DocumentTemplateStorage,
     get_docx_templates_root,
     get_docx_templates_source,
     get_private_docx_templates_root,
@@ -65,9 +65,20 @@ class TestGetDocxTemplatesRoot:
 
 
 class TestResolveDocxTemplatePath:
-    def test_absolute_path_returned_as_is(self) -> None:
-        result = resolve_docx_template_path("/absolute/path/template.docx")
-        assert str(result) == "/absolute/path/template.docx"
+    def test_absolute_path_outside_roots_rejected(self) -> None:
+        """安全审计 B-04：模板根之外的绝对路径拒绝。"""
+        with pytest.raises(ValueError, match="越界"):
+            resolve_docx_template_path("/absolute/path/template.docx")
+
+    @patch("apps.documents.storage.get_public_docx_templates_root")
+    def test_absolute_path_inside_root_accepted(self, mock_root: MagicMock) -> None:
+        """安全审计 B-04：模板根之内的绝对路径放行。"""
+        tmp = tempfile.mkdtemp()
+        mock_root.return_value = Path(tmp)
+        expected = str(Path(tmp) / "sub" / "template.docx")
+        result = resolve_docx_template_path(expected + "  ")
+        # macOS 上 /var 是 /private/var 的符号链接，比对须用 resolve 后的根
+        assert str(result).startswith(str(Path(tmp).resolve()))
 
     @patch("apps.documents.storage.get_docx_templates_root")
     def test_relative_path_resolved(self, mock_root: MagicMock) -> None:
@@ -88,8 +99,9 @@ class TestResolveDocxTemplatePath:
             resolve_docx_template_path("../../../etc/passwd")
 
     def test_strips_whitespace(self) -> None:
-        result = resolve_docx_template_path("/absolute/path.docx  ")
-        assert str(result) == "/absolute/path.docx"
+        """安全审计 B-04：根外绝对路径（含尾随空白）越界抛错。"""
+        with pytest.raises(ValueError, match="越界"):
+            resolve_docx_template_path("/absolute/path.docx  ")
 
 
 class TestListDocxTemplatesFiles:

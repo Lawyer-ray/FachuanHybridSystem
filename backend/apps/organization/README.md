@@ -4,10 +4,10 @@
 
 ## 功能概述
 
-- 律所 / 律师 / 团队 CRUD；律师两组 M2M（lawyer_teams / biz_teams，成员关系定义在 Lawyer 侧）
+- 律所 / 律师 / 团队 CRUD；律师两组 M2M（lawyer_teams / biz_teams，成员关系定义在 Lawyer 侧）；特权字段管制：`is_admin` 授予/变更与跨所迁移仅 superuser，self 更新限个人资料字段（v27.2.7）
 - 外部账号凭证：AccountCredential（密码经 EncryptedTextField 加密）、自动登录（当前仅支持 `court_zxfw` 一张网平台，SUPPORTED_SITE 常量）、批量自动登录与成功率统计
 - 认证：登录 / 登出 / 注册 / `/me`；密码重置三步流程（request / verify / confirm）
-- **首用户自动注册引导**：AUTO_REGISTER_BOOTSTRAP_USERNAME + first_user_setup_service，首个用户免初始化直接进系统
+- **首用户自动注册引导**：AUTO_REGISTER_BOOTSTRAP_USERNAME + first_user_setup_service，首个用户免初始化直接进系统（生产环境需随请求携带 `bootstrap_token` 并与 `BOOTSTRAP_ADMIN_TOKEN` 匹配，v27.2.7）
 - **OrgAccessMiddleware**：组织权限计算（request.org_access + Redis 缓存、PERM_OPEN_ACCESS 开关、sync/async 双模）；另有 ApiTrailingSlashMiddleware（统一去尾斜杠）
 - 律师导入（LawyerImportService）
 

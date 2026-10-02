@@ -420,7 +420,7 @@ class PlaywrightHelpersMixin:  # pragma: no cover
             const $ = iframe.contentWindow.jQuery;
             const doc = iframe.contentDocument;
             if (!$('#customer_PersonBirth', doc).val()) {{
-                const id = '{id_number}';
+                const id = {self._js_str(id_number)};
                 if (id.length === 18) {{
                     const y = id.substring(6, 10);
                     const m = id.substring(10, 12);

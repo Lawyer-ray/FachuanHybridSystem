@@ -4,12 +4,12 @@
 
 ## 功能概述
 
-- 模板 CRUD（slug 唯一、分类 litigation/preservation/enforcement、temporal_workflow_name、steps_schema）
+- 模板 CRUD（slug 唯一、分类 litigation/preservation/enforcement、temporal_workflow_name、steps_schema）——**仅管理员**可写；步骤白名单：`code` 类型全员封禁（受限沙箱可被逃逸），`http`/`mcp_tool`（含任意 type 步骤携带 `mcp_tool` 字段——执行器按字段分发）仅 superuser 可编排（v27.2.7 安全加固）
 - **DynamicWorkflow 通用引擎**：8 种步骤类型（activity / gate / wait / condition / delay / llm / http / code），按 schema 顺序执行，支持条件跳转（goto_false / skip_next）、on_fail=skip|abort、`{{variable.path}}` 与 `previous_step.result.x` 模板变量
 - activity 步骤双路由：有 `mcp_tool` → `execute_mcp_tool`（动态调用 mcp_server 里的同步工具函数）；否则查 INTERNAL_ACTIVITY_MAP 调内部 activity
 - **人工审批 gate**：WorkflowRun 置 waiting_human，通过通用 `gate_approved` 信号（data.step_id 路由）恢复；wait 步骤复用同一信号机制并可超时
 - 内部 Activity 覆盖证据分析链路：收集事实 → 列材料 → 单证据分析 → 汇总 → 建议排列 → 应用排列（写 CaseMaterialGroupOrder）→ 构建诉讼上下文 → 生成/审查起诉状 → 下载文书
-- `generic_code_exec`：受限 Python 执行（AST 白名单校验、禁 import/f-string/危险属性、最小 builtins、子线程 + 30s 超时）
+- `generic_code_exec`：受限 Python 执行（AST 黑名单校验、禁 import/f-string/危险属性、最小 builtins、子线程 + 30s 超时）——⚠️ 黑名单可经 `__traceback__.tb_frame.f_builtins` 逃逸，故 `code` 步骤已禁止经 HTTP API 模板创建，仅限本地 stdio MCP 通道
 - 事件分发：`events/dispatcher.on_court_reply` 将法院回复转为 gate_approved 信号恢复 waiting_event 的 run
 - 提供 MCP 工具集（mcp/workflow_tools.py，被 backend/mcp_server 注册）：运行 start/list/detail/approve/cancel/delete、模板 CRUD、以及**从步骤列表一步建模板并启动**（`start_workflow_from_steps`）
 
