@@ -34,7 +34,7 @@ class PrintKeywordRuleAdminForm(forms.ModelForm):  # pragma: no cover
 
 @admin.register(BatchPrintingTool)
 class BatchPrintingToolAdmin(admin.ModelAdmin):  # pragma: no cover
-    def changelist_view(  # type: ignore[override]  # pragma: no cover
+    def changelist_view(  # pragma: no cover
         self,
         request: HttpRequest,
         extra_context: dict[str, Any] | None = None,
@@ -50,10 +50,14 @@ class BatchPrintingToolAdmin(admin.ModelAdmin):  # pragma: no cover
     def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return False
 
-    def has_change_permission(self, request: HttpRequest, obj: BatchPrintingTool | None = None) -> bool:  # pragma: no cover
+    def has_change_permission(
+        self, request: HttpRequest, obj: BatchPrintingTool | None = None
+    ) -> bool:  # pragma: no cover
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj: BatchPrintingTool | None = None) -> bool:  # pragma: no cover
+    def has_delete_permission(
+        self, request: HttpRequest, obj: BatchPrintingTool | None = None
+    ) -> bool:  # pragma: no cover
         return False
 
     def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:  # pragma: no cover
@@ -100,7 +104,9 @@ class PrintKeywordRuleAdmin(admin.ModelAdmin):  # pragma: no cover
 
     resolved_printer_name.short_description = "实际打印机"  # type: ignore[attr-defined]
 
-    def save_model(self, request: HttpRequest, obj: PrintKeywordRule, form: forms.ModelForm, change: bool) -> None:  # pragma: no cover
+    def save_model(
+        self, request: HttpRequest, obj: PrintKeywordRule, form: forms.ModelForm, change: bool
+    ) -> None:  # pragma: no cover
         if obj.preset_snapshot_id:
             get_rule_service().sync_printer_name_from_preset(rule=obj)
         super().save_model(request, obj, form, change)

@@ -319,7 +319,7 @@ class ContractGenerationService:
                 from apps.cloud_storage.factory import create_provider_for_binding
 
                 provider = create_provider_for_binding(binding)
-                names = []
+                names: list[str] = []
                 for _d, _s, files in provider.walk(subdir_path):
                     names.extend(c.name for c in files if not c.is_dir)
             else:

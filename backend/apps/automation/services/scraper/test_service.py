@@ -2,13 +2,13 @@
 测试服务
 将测试逻辑从 Admin 层解耦到 Service 层
 """
+
 from __future__ import annotations
 
-from typing import Optional
 import logging
 import time
 import traceback
-from typing import Any
+from typing import Any, Optional
 
 from apps.automation.services.scraper.core.screenshot_utils import ScreenshotUtils
 from apps.core.config import get_config
@@ -80,7 +80,7 @@ class TestService:
                 result["logs"].append("✅ 浏览器已启动")
 
                 # 3. 创建服务
-                service = CourtZxfwService(page, context)  # type: ignore[misc]
+                service = CourtZxfwService(page, context)
                 result["logs"].append("✅ 服务实例已创建")
 
                 # 4. 执行登录

@@ -3,15 +3,20 @@
 from __future__ import annotations
 
 import contextlib
-import importlib
 import os
+import pathlib
 from collections.abc import Iterator
+from typing import TYPE_CHECKING
 
-_pathlib = importlib.import_module("pathlib")
-_BasePath = _pathlib.WindowsPath if os.name == "nt" else _pathlib.PosixPath
+if TYPE_CHECKING:
+    # mypy 视角下基类取 pathlib.Path，保证 / 等操作返回完整类型；
+    # 运行时按平台动态取 PosixPath/WindowsPath（pathlib.Path 不可直接子类化）
+    _BasePath = pathlib.Path
+else:
+    _BasePath = pathlib.WindowsPath if os.name == "nt" else pathlib.PosixPath
 
 
-class Path(_BasePath):  # type: ignore[misc, valid-type]
+class Path(_BasePath):
     def abspath(self) -> str:
         return str(self.resolve())
 
@@ -37,11 +42,11 @@ class Path(_BasePath):  # type: ignore[misc, valid-type]
     def text(self, encoding: str = "utf-8") -> str:
         return str(self.read_text(encoding=encoding))
 
-    def write_text(self, data: str, encoding: str = "utf-8") -> Path:
+    def write_text(self, data: str, encoding: str = "utf-8") -> Path:  # type: ignore[override]
         super().write_text(data, encoding=encoding)
         return self
 
-    def write_bytes(self, data: bytes) -> Path:
+    def write_bytes(self, data: bytes) -> Path:  # type: ignore[override]
         super().write_bytes(data)
         return self
 

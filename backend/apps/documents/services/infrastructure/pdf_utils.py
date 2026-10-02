@@ -9,11 +9,7 @@ import io
 import logging
 from typing import Any
 
-from apps.core.services.pdf_utils import (
-    _read_django_field_file,
-    _read_file_like,
-    read_source_bytes,
-)
+from apps.core.services.pdf_utils import _read_django_field_file, _read_file_like, read_source_bytes
 from apps.core.utils.path import Path
 
 logger = logging.getLogger("apps.documents")
@@ -38,5 +34,5 @@ def get_pdf_page_count(source: Any, default: int = 1) -> int:
 def _read_from_path_attr(source: Any) -> bytes | None:  # pragma: no cover
     """通过 path 属性读取（已保存到磁盘的文件）。覆写以保持测试可 mock Path。"""
     if hasattr(source, "path"):
-        return Path(source.path).read_bytes()  # type: ignore[no-any-return]
+        return Path(source.path).read_bytes()
     return None

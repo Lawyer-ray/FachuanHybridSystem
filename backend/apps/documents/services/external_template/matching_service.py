@@ -96,5 +96,5 @@ class MatchingService:
         ).first()
 
         if authority and authority.name:
-            return authority.name  # type: ignore[no-any-return]
+            return authority.name
         return None

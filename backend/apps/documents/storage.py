@@ -57,7 +57,7 @@ def get_private_docx_templates_root() -> Path | None:
     configured = get_configured_private_docx_templates_root()
     if not configured:
         return None
-    return Path(configured).expanduser()  # type: ignore[no-any-return]
+    return Path(configured).expanduser()
 
 
 def get_docx_templates_source() -> str:
@@ -96,7 +96,7 @@ def resolve_docx_template_path(file_path: str) -> Path:
         for root in _allowed_template_roots():
             root_resolved = root.resolve()
             if resolved_abs == root_resolved or root_resolved in resolved_abs.parents:
-                return resolved_abs  # type: ignore[no-any-return]
+                return resolved_abs
         raise ValueError("模板路径越界：绝对路径必须位于 docx_templates 根目录内")
 
     root = get_docx_templates_root().resolve()
@@ -107,7 +107,7 @@ def resolve_docx_template_path(file_path: str) -> Path:
     except ValueError as exc:
         raise ValueError("模板路径越界，必须位于当前 docx_templates 根目录内") from exc
 
-    return resolved  # type: ignore[no-any-return]
+    return resolved
 
 
 @deconstructible

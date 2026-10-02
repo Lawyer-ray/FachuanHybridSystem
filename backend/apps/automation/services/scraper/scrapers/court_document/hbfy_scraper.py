@@ -700,7 +700,7 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
                 return None
             async with self.page.expect_download(timeout=15000) as download_info:
                 await target.first.click(force=True, timeout=3000)
-            download = download_info.value
+            download = await download_info.value
             filename = download.suggested_filename or f"{prefix}_{int(time.time())}.bin"
             filepath = download_dir / self._safe_filename(filename)
             await download.save_as(str(filepath))
