@@ -19,6 +19,17 @@ logger = logging.getLogger("apps.cases.api")
 router = Router()
 
 
+async def _ensure_case_access(request: Any, case_id: int) -> None:
+    """校验当前用户对案件的访问权（安全审计 B-25/B-26）。"""
+    from asgiref.sync import sync_to_async
+
+    from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+    from apps.core.security import get_request_access_context
+
+    ctx = get_request_access_context(request)
+    await sync_to_async(CaseAccessPolicy().ensure_access_ctx)(case_id=case_id, ctx=ctx)
+
+
 @router.post("/{case_id}/generate-folder")
 async def generate_case_folder(request: HttpRequest, case_id: int) -> Any:  # pragma: no cover
     """
@@ -26,6 +37,7 @@ async def generate_case_folder(request: HttpRequest, case_id: int) -> Any:  # pr
     - 若合同绑定了文件夹：在绑定路径下创建案件文件夹，返回 JSON
     - 否则：返回 ZIP 下载
     """
+    await _ensure_case_access(request, case_id)
     from apps.cases.models import Case
     from apps.documents.services.generation.folder_generation_service import FolderGenerationService
 
@@ -75,9 +87,7 @@ async def generate_case_folder(request: HttpRequest, case_id: int) -> Any:  # pr
     if case.contract and hasattr(case.contract, "folder_binding") and case.contract.folder_binding:
         contract_folder_path = case.contract.folder_binding.folder_path
 
-    zip_bytes = await sync_to_async(svc.generate_case_folder_with_documents)(
-        case, matched, root_name
-    )
+    zip_bytes = await sync_to_async(svc.generate_case_folder_with_documents)(case, matched, root_name)
     filename = f"{root_name}.zip"
 
     if contract_folder_path:
@@ -86,6 +96,7 @@ async def generate_case_folder(request: HttpRequest, case_id: int) -> Any:  # pr
         if not parent_exists:
             return {"success": False, "message": f"合同绑定文件夹不存在: {contract_folder_path}"}
         try:
+
             def _extract() -> None:
                 with zipfile.ZipFile(BytesIO(zip_bytes), "r") as zf:
                     zf.extractall(str(parent))

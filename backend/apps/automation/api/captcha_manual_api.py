@@ -20,16 +20,18 @@ router = Router(tags=["手动验证码"])
 
 class CaptchaAnswerIn(Schema):
     """验证码答案提交"""
+
     answer: str
 
 
 class CaptchaAnswerOut(Schema):
     """验证码答案提交结果"""
+
     success: bool
     message: str
 
 
-@router.get("/{task_id}/image", auth=None)
+@router.get("/{task_id}/image")  # 安全审计 B-32：去掉 auth=None，未认证者不可读图/劫持任务
 async def get_captcha_image(request: Any, task_id: int) -> HttpResponse | FileResponse:
     """
     获取待识别验证码图片
@@ -57,7 +59,7 @@ async def get_captcha_image(request: Any, task_id: int) -> HttpResponse | FileRe
         return HttpResponse("验证码图片文件已丢失", status=404)
 
 
-@router.post("/{task_id}/answer", response=CaptchaAnswerOut, auth=None)
+@router.post("/{task_id}/answer", response=CaptchaAnswerOut)  # 安全审计 B-32
 async def submit_captcha_answer(request: Any, task_id: int, payload: CaptchaAnswerIn) -> CaptchaAnswerOut:
     """
     提交验证码答案

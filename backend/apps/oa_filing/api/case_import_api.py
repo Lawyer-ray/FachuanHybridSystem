@@ -84,9 +84,10 @@ def trigger_case_import(request: HttpRequest) -> Any:  # pragma: no cover
 @router.get("/case-import/{session_id}", response=CaseImportSessionOut)
 def get_case_import_session(request: HttpRequest, session_id: int) -> Any:  # pragma: no cover
     """查询案件导入会话状态。"""
+    from apps.core.security.admin_access import get_request_user
     from apps.oa_filing.services.import_session_service import get_case_session_or_none
 
-    session = get_case_session_or_none(session_id)
+    session = get_case_session_or_none(session_id, lawyer_id=getattr(get_request_user(request), "id", None))
     if session is None:
         from django.http import Http404
 
@@ -110,9 +111,10 @@ def execute_case_import(request: HttpRequest, session_id: int) -> HttpResponse: 
         return JsonResponse({"error": "无效用户"}, status=400)
 
     # 获取会话
+    from apps.core.security.admin_access import get_request_user
     from apps.oa_filing.services.import_session_service import get_case_session_or_none
 
-    session = get_case_session_or_none(session_id)
+    session = get_case_session_or_none(session_id, lawyer_id=getattr(get_request_user(request), "id", None))
     if session is None:
         return JsonResponse({"error": "会话不存在"}, status=404)
 
@@ -152,9 +154,10 @@ def execute_case_import(request: HttpRequest, session_id: int) -> HttpResponse: 
 @router.get("/case-import/{session_id}/preview")
 def get_case_import_preview(request: HttpRequest, session_id: int) -> JsonResponse:  # pragma: no cover
     """获取案件导入预览结果。"""
+    from apps.core.security.admin_access import get_request_user
     from apps.oa_filing.services.import_session_service import get_case_session_or_none
 
-    session = get_case_session_or_none(session_id)
+    session = get_case_session_or_none(session_id, lawyer_id=getattr(get_request_user(request), "id", None))
     if session is None:
         return JsonResponse({"error": "会话不存在"}, status=404)
 
@@ -194,10 +197,11 @@ def batch_create_cases(request: HttpRequest, session_id: int) -> Any:  # pragma:
     """
     import json
 
+    # 获取会话
+    from apps.core.security.admin_access import get_request_user
     from apps.oa_filing.services.import_session_service import get_case_session_or_none
 
-    # 获取会话
-    session = get_case_session_or_none(session_id)
+    session = get_case_session_or_none(session_id, lawyer_id=getattr(get_request_user(request), "id", None))
     if session is None:
         return {"error": "会话不存在"}
 

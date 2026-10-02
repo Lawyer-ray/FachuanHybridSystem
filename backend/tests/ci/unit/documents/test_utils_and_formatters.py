@@ -17,7 +17,6 @@ from apps.documents.utils.formatters import (
     get_choice_display,
 )
 
-
 # ---------------------------------------------------------------------------
 # path_utils
 # ---------------------------------------------------------------------------
@@ -41,8 +40,9 @@ class TestResolveMediaPath:
         assert result == "/media/uploads/test.pdf"
 
     def test_absolute_path_returned(self) -> None:
+        # 安全审计 B-04：MEDIA_ROOT 之外的绝对路径拒绝（返回空串）
         result = resolve_media_path("/media", "/absolute/path/file.pdf")
-        assert result == "/absolute/path/file.pdf"
+        assert result == ""
 
     def test_relative_path_joined(self) -> None:
         result = resolve_media_path("/media", "uploads/file.pdf")

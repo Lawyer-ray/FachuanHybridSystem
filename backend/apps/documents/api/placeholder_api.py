@@ -125,6 +125,13 @@ async def delete_placeholder(request: Any, placeholder_id: int) -> Any:  # pragm
 
 @router.get("/placeholders/preview/{contract_id}", response=PlaceholderPreviewOut)
 async def preview_placeholders(request: Any, contract_id: int) -> Any:  # pragma: no cover
+    # 安全审计 B-06：预览返回合同全部占位符值，须校验合同访问权
+    from apps.core.security.access_context import get_request_access_context
+    from apps.documents.services.infrastructure.wiring import get_contract_service
+
+    ctx = get_request_access_context(request)
+    await sync_to_async(get_contract_service().ensure_contract_access_ctx)(contract_id=contract_id, ctx=ctx)
+
     builder = EnhancedContextBuilder()
     context = await sync_to_async(builder.build_contract_context)(contract_id)
 

@@ -9,6 +9,7 @@ Covers:
 - apps/documents/services/generation/generation_task_service.py
 - apps/documents/services/case_contract_query.py
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -18,7 +19,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.core.exceptions import NotFoundError, ValidationException
-
 
 # ── template_names_presenter ────────────────────────────────────────────────
 
@@ -536,9 +536,9 @@ class TestExternalTemplateQueryService:
     def test_get_template_or_raise_found(self, mock_model) -> None:
         from apps.documents.services.external_template.query_service import get_template_or_raise
 
-        mock_model.objects.get.return_value = "tpl"
+        mock_model.objects.all.return_value.get.return_value = "tpl"
         assert get_template_or_raise(1) == "tpl"
-        mock_model.objects.get.assert_called_once_with(pk=1)
+        mock_model.objects.all.return_value.get.assert_called_once_with(pk=1)
 
     @patch("apps.documents.services.external_template.query_service.ExternalTemplate")
     def test_get_template_or_raise_not_found(self, mock_model) -> None:
@@ -546,7 +546,8 @@ class TestExternalTemplateQueryService:
 
         exc_cls = type("FakeDoesNotExist", (Exception,), {})
         mock_model.DoesNotExist = exc_cls
-        mock_model.objects.get.side_effect = exc_cls("not found")
+        # 实现改为 objects.all().get(...)（支持 law_firm 过滤，安全审计 B-05）
+        mock_model.objects.all.return_value.get.side_effect = exc_cls("not found")
         with pytest.raises(exc_cls):
             get_template_or_raise(999)
 

@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 from django.utils.text import slugify
 from ninja import Router
 
+from apps.core.exceptions import ValidationException
+from apps.core.security.admin_access import ensure_admin_request
 from apps.core.security.auth import JWTOrSessionAuth
 
 from ..mcp.workflow_tools import (
@@ -24,15 +26,34 @@ from ..mcp.workflow_tools import (
     start_workflow,
 )
 from ..models import WorkflowTemplate
-from ..schemas.workflow_schemas import (
-    ApproveStepIn,
-    StartWorkflowIn,
-    TemplateCreateIn,
-    TemplateUpdateIn,
-)
+from ..schemas.workflow_schemas import ApproveStepIn, StartWorkflowIn, TemplateCreateIn, TemplateUpdateIn
 from .step_registry import get_flat_step_list, get_step_registry
 
 router = Router(auth=JWTOrSessionAuth())
+
+# 危险步骤类型：code 的受限沙箱可被逃逸（见安全审计 A-01），http/mcp_tool 具有
+# SSRF/越权能力，仅 superuser 可编排。种子模板只使用 activity/gate 等安全类型。
+_FORBIDDEN_STEP_TYPES = {"code"}
+_SUPERUSER_ONLY_STEP_TYPES = {"http", "mcp_tool"}
+
+
+def _validate_steps_for_user(user: Any, steps: list[Any]) -> None:
+    """模板步骤类型白名单校验（安全审计 A-01/B-01/B-02）。"""
+    is_superuser = bool(user and getattr(user, "is_superuser", False))
+    for step in steps or []:
+        step_type = str(getattr(step, "type", "") or "").strip()
+        if step_type in _FORBIDDEN_STEP_TYPES:
+            raise ValidationException(
+                message=f"不允许使用步骤类型 {step_type}",
+                code="STEP_TYPE_FORBIDDEN",
+                errors={"type": step_type},
+            )
+        if step_type in _SUPERUSER_ONLY_STEP_TYPES and not is_superuser:
+            raise ValidationException(
+                message=f"步骤类型 {step_type} 仅超级管理员可用",
+                code="STEP_TYPE_REQUIRES_SUPERUSER",
+                errors={"type": step_type},
+            )
 
 
 # ── 工作流运行 ────────────────────────────────────────────────────────────────
@@ -143,7 +164,9 @@ def list_templates(
 
 @router.post("/templates")
 def create_template(request: Any, payload: TemplateCreateIn) -> dict[str, Any]:
-    """创建工作流模板"""
+    """创建工作流模板（仅管理员，安全审计 A-01）"""
+    ensure_admin_request(request, message="仅管理员可管理工作流模板", code="PERMISSION_DENIED")
+    _validate_steps_for_user(getattr(request, "user", None) or getattr(request, "auth", None), payload.steps)
     slug = payload.slug or slugify(payload.name, allow_unicode=True)
 
     base_slug = slug
@@ -190,7 +213,8 @@ def get_template(request: Any, template_id: int) -> dict[str, Any]:
 
 @router.put("/templates/{template_id}")
 def update_template(request: Any, template_id: int, payload: TemplateUpdateIn) -> dict[str, Any]:
-    """更新工作流模板"""
+    """更新工作流模板（仅管理员，安全审计 A-01）"""
+    ensure_admin_request(request, message="仅管理员可管理工作流模板", code="PERMISSION_DENIED")
     template = WorkflowTemplate.objects.get(pk=template_id)
 
     if payload.name is not None:
@@ -204,6 +228,7 @@ def update_template(request: Any, template_id: int, payload: TemplateUpdateIn) -
     if payload.temporal_workflow_name is not None:
         template.temporal_workflow_name = payload.temporal_workflow_name
     if payload.steps is not None:
+        _validate_steps_for_user(getattr(request, "user", None) or getattr(request, "auth", None), payload.steps)
         template.steps_schema = [s.model_dump() for s in payload.steps]
     if payload.is_active is not None:
         template.is_active = payload.is_active
@@ -214,7 +239,8 @@ def update_template(request: Any, template_id: int, payload: TemplateUpdateIn) -
 
 @router.delete("/templates/{template_id}")
 def delete_template(request: Any, template_id: int) -> dict[str, Any]:
-    """删除工作流模板"""
+    """删除工作流模板（仅管理员，安全审计 A-01）"""
+    ensure_admin_request(request, message="仅管理员可管理工作流模板", code="PERMISSION_DENIED")
     template = WorkflowTemplate.objects.get(pk=template_id)
     name = template.name
     template.delete()
@@ -223,7 +249,8 @@ def delete_template(request: Any, template_id: int) -> dict[str, Any]:
 
 @router.post("/templates/{template_id}/duplicate")
 def duplicate_template(request: Any, template_id: int) -> dict[str, Any]:
-    """复制工作流模板"""
+    """复制工作流模板（仅管理员，安全审计 A-01）"""
+    ensure_admin_request(request, message="仅管理员可管理工作流模板", code="PERMISSION_DENIED")
     source = WorkflowTemplate.objects.get(pk=template_id)
 
     new_slug = f"{source.slug}-copy"

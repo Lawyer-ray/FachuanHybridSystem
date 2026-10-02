@@ -293,7 +293,7 @@ class ExternalTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
             **self.admin_site.each_context(request),
             "opts": self.model._meta,
             "template_obj": template_obj,
-            "custom_fields_json": _json.dumps(custom_fields, ensure_ascii=False),
+            "custom_fields_json": _json.dumps(custom_fields, ensure_ascii=False).replace("<", "\\u003c"),
             "title": "填充操作 - %(name)s" % {"name": template_obj.name},
         }
         return TemplateResponse(

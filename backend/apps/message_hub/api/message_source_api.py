@@ -100,11 +100,32 @@ def get_source(request: Any, source_id: int) -> MessageSource:  # pragma: no cov
     return source
 
 
+def _ensure_credential_usable(request: Any, credential: Any) -> None:
+    """安全审计 B-28：IMAP 来源只能绑定请求用户本人（或 superuser）的凭证。
+
+    否则任意律师可用他人凭证 + 自建 imap_host 把他人邮箱密码发往任意服务器。
+    """
+    user = getattr(request, "user", None)
+    if user is None or not getattr(user, "is_authenticated", False):
+        user = getattr(request, "auth", None)
+    if user is None:
+        from apps.core.exceptions import PermissionDenied
+
+        raise PermissionDenied(message="请先登录", code="PERMISSION_DENIED")
+    if getattr(user, "is_superuser", False):
+        return
+    if getattr(credential, "lawyer_id", None) != getattr(user, "id", None):
+        from apps.core.exceptions import PermissionDenied
+
+        raise PermissionDenied(message="只能使用本人的账号凭证", code="PERMISSION_DENIED")
+
+
 @router.post("/sources", response={201: MessageSourceOut})
 def create_source(request: Any, payload: MessageSourceCreateIn) -> tuple[int, MessageSource]:  # pragma: no cover
     from apps.organization.models import AccountCredential
 
     credential = get_object_or_404(AccountCredential, pk=payload.credential_id)
+    _ensure_credential_usable(request, credential)
     kwargs: dict[str, Any] = {
         "display_name": payload.display_name,
         "source_type": payload.source_type,
@@ -132,6 +153,8 @@ def update_source(request: Any, source_id: int, payload: MessageSourceUpdateIn) 
     for field, value in payload.dict(exclude_unset=True).items():
         if field in updatable_fields:
             setattr(source, field, value)
+    if "credential" in payload.dict(exclude_unset=True):
+        _ensure_credential_usable(request, source.credential)
     source.save()
     return source
 

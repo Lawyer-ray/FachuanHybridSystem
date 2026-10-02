@@ -10,7 +10,6 @@ import pytest
 
 from apps.documents.services.generation.path_utils import resolve_media_path, safe_arcname, safe_name
 
-
 # ============================================================
 # resolve_media_path
 # ============================================================
@@ -35,8 +34,9 @@ class TestResolveMediaPath:
         assert resolve_media_path("/media", "https://example.com/file.pdf") == ""
 
     def test_absolute_path_returned_as_is(self) -> None:
+        # 安全审计 B-04：MEDIA_ROOT 之外的绝对路径拒绝（返回空串）
         result = resolve_media_path("/media", "/absolute/path/file.pdf")
-        assert result == "/absolute/path/file.pdf"
+        assert result == ""
 
     def test_relative_path_joined_with_media_root(self) -> None:
         result = resolve_media_path("/var/media", "contracts/file.pdf")
@@ -48,8 +48,8 @@ class TestResolveMediaPath:
 
     def test_single_slash_returns_empty(self) -> None:
         result = resolve_media_path("/media", "/")
-        # "/" starts with "/media" is False, but it's an absolute path
-        assert result == "/"
+        # 安全审计 B-04：根外绝对路径（含裸 "/"）拒绝
+        assert result == ""
 
 
 # ============================================================

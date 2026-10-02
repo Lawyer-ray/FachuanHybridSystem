@@ -19,6 +19,15 @@ from apps.doc_convert.exceptions import ZnszjDisabledError, ZnszjNotConfiguredEr
 from apps.doc_convert.models import DocConvertRecord
 from apps.doc_convert.services.doc_convert_service import DocConvertService
 from apps.doc_convert.services.record_service import DocConvertRecordService
+
+
+def _request_user(request: Any) -> Any:
+    user = getattr(request, "user", None)
+    if user is None or not getattr(user, "is_authenticated", False):
+        user = getattr(request, "auth", None)
+    return user
+
+
 from apps.doc_convert.services.znszj_loader import get_znszj_client
 
 logger = logging.getLogger(__name__)
@@ -186,7 +195,9 @@ def list_convert_records(  # pragma: no cover
     request: HttpRequest, status: str | None = None, page: int = 1, page_size: int = 20
 ) -> DocConvertRecordListOut:
     """分页列出历史转换记录（最新在前），供前端历史弹窗浏览与重新下载。"""
-    items, count, num_pages = DocConvertRecordService().list_records(status=status, page=page, page_size=page_size)
+    items, count, num_pages = DocConvertRecordService().list_records(
+        status=status, page=page, page_size=page_size, user=_request_user(request)
+    )
     return DocConvertRecordListOut(
         items=[DocConvertRecordOut(**item) for item in items],
         count=count,
@@ -198,7 +209,7 @@ def list_convert_records(  # pragma: no cover
 @router.get("/records/{record_id}/download", summary="下载历史转换产物")
 def download_convert_record(request: HttpRequest, record_id: int) -> FileResponse:  # pragma: no cover
     """重新下载某次要素式转换的产物 docx。"""
-    record = DocConvertRecordService().get_record(record_id)
+    record = DocConvertRecordService().get_record(record_id, user=_request_user(request))
     if record.status != DocConvertRecord.Status.SUCCESS or not record.output_file:
         raise NotFoundError(
             message="该记录没有可下载的产物（转换失败或文件已清理）",
@@ -217,6 +228,6 @@ def download_convert_record(request: HttpRequest, record_id: int) -> FileRespons
 @router.delete("/records/{record_id}", summary="删除转换记录")
 def delete_convert_record(request: HttpRequest, record_id: int) -> dict[str, str]:  # pragma: no cover
     """删除单条转换记录（产物文件随信号清理）。"""
-    record = DocConvertRecordService().get_record(record_id)
+    record = DocConvertRecordService().get_record(record_id, user=_request_user(request))
     record.delete()
     return {"status": "deleted"}

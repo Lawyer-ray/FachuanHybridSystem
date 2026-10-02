@@ -76,14 +76,21 @@ class DocConverterService:
         job.refresh_from_db()
         return job
 
-    def get_job(self, job_id: uuid.UUID) -> DocConverterJob:
+    def get_job(self, job_id: uuid.UUID, user: Any = None) -> DocConverterJob:
+        """获取转换任务。
+
+        传入 user 时按属主过滤（superuser 豁免），非本人任务按不存在处理（安全审计 B-10）。
+        """
+        qs = DocConverterJob.objects.all()
+        if user is not None and not getattr(user, "is_superuser", False):
+            qs = qs.filter(created_by=user)
         try:
-            return DocConverterJob.objects.get(id=job_id)
+            return qs.get(id=job_id)
         except DocConverterJob.DoesNotExist:
             raise NotFoundError(message="转换任务不存在", code="DOC_CONVERTER_JOB_NOT_FOUND", errors={}) from None
 
     def list_jobs(
-        self, *, page: int = 1, page_size: int = 20
+        self, *, page: int = 1, page_size: int = 20, user: Any = None
     ) -> tuple[list[DocConverterJob], int, int]:  # pragma: no cover
         """历史任务分页（最新在前），供前端历史弹窗浏览与重新下载。
 
@@ -93,12 +100,15 @@ class DocConverterService:
         from django.core.paginator import Paginator
 
         safe_size = max(1, min(page_size, 50))
-        paginator = Paginator(DocConverterJob.objects.all().order_by("-created_at"), safe_size)
+        qs = DocConverterJob.objects.all().order_by("-created_at")
+        if user is not None and not getattr(user, "is_superuser", False):
+            qs = qs.filter(created_by=user)
+        paginator = Paginator(qs, safe_size)
         page_obj = paginator.get_page(page)
         return list(page_obj.object_list), paginator.count, paginator.num_pages
 
-    def get_job_progress(self, job_id: uuid.UUID) -> tuple[DocConverterJob, list[DocConverterItem]]:
-        job = self.get_job(job_id)
+    def get_job_progress(self, job_id: uuid.UUID, user: Any = None) -> tuple[DocConverterJob, list[DocConverterItem]]:
+        job = self.get_job(job_id, user=user)
         items = list(job.items.all())
         return job, items
 
@@ -108,8 +118,8 @@ class DocConverterService:
         except DocConverterItem.DoesNotExist:
             raise NotFoundError(message="转换项不存在", code="DOC_CONVERTER_ITEM_NOT_FOUND", errors={}) from None
 
-    def request_cancel(self, *, job_id: uuid.UUID) -> DocConverterJob:  # pragma: no cover
-        job = self.get_job(job_id)
+    def request_cancel(self, *, job_id: uuid.UUID, user: Any = None) -> DocConverterJob:  # pragma: no cover
+        job = self.get_job(job_id, user=user)
         if job.status in {
             DocConverterJobStatus.COMPLETED,
             DocConverterJobStatus.FAILED,
@@ -206,6 +216,13 @@ class DocConverterService:
             raise ValidationException(
                 message="不能保存到媒体目录", errors={"target_dir": "目标目录不能在 MEDIA_ROOT 下"}
             )
+
+        # 安全审计 B-09：目标目录仅允许在配置的浏览根内，防任意目录写入
+        allowed_roots = [
+            Path(r).expanduser().resolve() for r in (getattr(settings, "FOLDER_BROWSE_ROOTS", []) or []) if r
+        ]
+        if not allowed_roots or not any(resolved == r or r in resolved.parents for r in allowed_roots):
+            raise ValidationException(message="目标目录越界", errors={"target_dir": "仅允许保存到允许的目录范围内"})
 
         try:
             resolved.mkdir(parents=True, exist_ok=True)

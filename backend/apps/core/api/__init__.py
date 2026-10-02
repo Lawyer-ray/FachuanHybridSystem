@@ -11,6 +11,7 @@ from django.http import HttpRequest
 from ninja import Router, Schema
 from ninja.errors import HttpError
 
+from apps.core.security.admin_access import ensure_admin_request
 from apps.core.security.auth import JWTOrSessionAuth
 from apps.core.services.system_config_service import SystemConfigService
 
@@ -74,6 +75,8 @@ class SystemConfigDeleteOut(Schema):
 @router.get("/system-configs", response=SystemConfigListOut)
 def list_system_configs(request: HttpRequest) -> dict[str, Any]:
     """返回所有启用的系统配置，按 category 分组。secret 字段的 value 返回 '******'。"""
+    ensure_admin_request(request, message="仅管理员可管理系统配置", code="PERMISSION_DENIED")
+
     configs = SystemConfigService().get_all_active_configs()
     grouped: dict[str, list[SystemConfigItemOut]] = defaultdict(list)
     for cfg in configs:
@@ -96,6 +99,8 @@ def list_system_configs(request: HttpRequest) -> dict[str, Any]:
 @router.put("/system-configs", response=SystemConfigUpdateOut)
 def update_system_configs(request: HttpRequest, payload: SystemConfigUpdateIn) -> dict[str, bool | int]:
     """批量更新系统配置项。已有的 key 更新值，不存在的 key 自动创建。"""
+    ensure_admin_request(request, message="仅管理员可管理系统配置", code="PERMISSION_DENIED")
+
     service = SystemConfigService()
     updated = 0
     for key, value in payload.updates.items():
@@ -124,6 +129,8 @@ def update_system_configs(request: HttpRequest, payload: SystemConfigUpdateIn) -
 @router.post("/system-configs", response=SystemConfigItemOut)
 def create_system_config(request: HttpRequest, payload: SystemConfigCreateIn) -> Any:
     """创建新的系统配置项。"""
+    ensure_admin_request(request, message="仅管理员可管理系统配置", code="PERMISSION_DENIED")
+
     service = SystemConfigService()
     if service.get_config_by_key(payload.key) is not None:
         raise HttpError(409, f"配置项 '{payload.key}' 已存在")
@@ -149,6 +156,8 @@ def create_system_config(request: HttpRequest, payload: SystemConfigCreateIn) ->
 @router.patch("/system-configs/{key}", response=SystemConfigItemOut)
 def patch_system_config(request: HttpRequest, key: str, payload: SystemConfigPatchIn) -> Any:
     """更新单个配置项的属性。"""
+    ensure_admin_request(request, message="仅管理员可管理系统配置", code="PERMISSION_DENIED")
+
     service = SystemConfigService()
     config = service.get_config_by_key(key)
     if config is None:
@@ -176,6 +185,8 @@ def patch_system_config(request: HttpRequest, key: str, payload: SystemConfigPat
 @router.delete("/system-configs/{key}", response=SystemConfigDeleteOut)
 def delete_system_config(request: HttpRequest, key: str) -> Any:
     """删除指定的系统配置项。"""
+    ensure_admin_request(request, message="仅管理员可管理系统配置", code="PERMISSION_DENIED")
+
     service = SystemConfigService()
     config = service.get_config_by_key(key)
     if config is None:

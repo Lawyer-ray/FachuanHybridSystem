@@ -47,7 +47,7 @@ def compact_error_message(exc: Exception, *, max_len: int = 200) -> str:
     text = str(exc or "").strip() or exc.__class__.__name__
     if len(text) <= max_len:
         return text
-    return f"{text[:max_len - 3]}..."
+    return f"{text[: max_len - 3]}..."
 
 
 class WeikeSearchMixin:  # pragma: no cover
@@ -234,6 +234,15 @@ class WeikeSearchMixin:  # pragma: no cover
                 logger.debug("拦截请求解析失败", exc_info=True)
 
         page.on("request", _on_request)
+        # 安全审计 E-14：search_url 来自用户输入，仅允许 https 的 wkinfo 域，
+        # 防止 file:/// 内网页面等任意导航（浏览器型 SSRF）。
+        from urllib.parse import urlparse as _urlparse
+
+        _parsed = _urlparse(url or "")
+        _host = (_parsed.hostname or "").lower()
+        if not (_parsed.scheme == "https" and (_host == "wkinfo.com.cn" or _host.endswith(".wkinfo.com.cn"))):
+            raise ValueError(f"非法的搜索 URL（仅允许 wkinfo.com.cn）: {_host or '(空)'}")
+
         try:
             logger.info("导航到 WKInfo 搜索 URL: %s", url)
             page.goto(url, wait_until="domcontentloaded", timeout=120000)

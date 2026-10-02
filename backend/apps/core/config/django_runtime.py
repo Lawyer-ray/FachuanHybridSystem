@@ -92,7 +92,9 @@ def resolve_security_config(
     default_allowed_hosts_dev: Sequence[str],
     default_allowed_hosts_prod: Sequence[str],
 ) -> DjangoSecurityConfig:
-    is_production = not _env_bool("DJANGO_DEBUG", True)
+    # 安全审计 D-01：DEBUG 缺省关闭（fail-closed）——忘设环境变量时按生产口径启动，
+    # 开发环境需显式 DJANGO_DEBUG=true。
+    is_production = not _env_bool("DJANGO_DEBUG", False)
     allow_lan = _env_bool("DJANGO_ALLOW_LAN", False)
     lan_allowed_hosts_env = os.environ.get("DJANGO_LAN_ALLOWED_HOSTS", "").strip()
 

@@ -93,9 +93,7 @@ async def create_task(request: Any, payload: LegalResearchTaskCreateIn) -> Legal
     service = _get_service()
 
     def _do() -> Any:
-        task = service.create_task(
-            payload=payload, user=getattr(request, "user", None)
-        )
+        task = service.create_task(payload=payload, user=getattr(request, "user", None))
         return LegalResearchCreateOut(task_id=task.id, status=task.status)
 
     return await sync_to_async(_do)()
@@ -130,9 +128,7 @@ async def get_task(request: Any, task_id: int) -> LegalResearchTaskOut:  # pragm
     service = _get_service()
 
     def _do() -> Any:
-        task = service.get_task(
-            task_id=task_id, user=getattr(request, "user", None)
-        )
+        task = service.get_task(task_id=task_id, user=getattr(request, "user", None))
         return _serialize_task(task)
 
     return await sync_to_async(_do)()
@@ -143,9 +139,7 @@ async def list_results(request: Any, task_id: int) -> list[LegalResearchResultOu
     service = _get_service()
 
     def _do() -> Any:
-        results = service.list_results(
-            task_id=task_id, user=getattr(request, "user", None)
-        )
+        results = service.list_results(task_id=task_id, user=getattr(request, "user", None))
         return [_serialize_result(x) for x in results]
 
     return await sync_to_async(_do)()
@@ -157,9 +151,7 @@ async def download_single_result(request: Any, task_id: int, result_id: int) -> 
     service = _get_service()
 
     def _do() -> Any:
-        result = service.get_result(
-            task_id=task_id, result_id=result_id, user=getattr(request, "user", None)
-        )
+        result = service.get_result(task_id=task_id, result_id=result_id, user=getattr(request, "user", None))
         if not result.pdf_file:
             raise Http404("结果PDF不存在")
 
@@ -176,12 +168,8 @@ async def download_all_results(request: Any, task_id: int) -> HttpResponse:  # p
     service = _get_service()
 
     def _do_download_prep() -> Any:
-        service.ensure_task_ready_for_download(
-            task_id=task_id, user=getattr(request, "user", None)
-        )
-        results = service.list_results(
-            task_id=task_id, user=getattr(request, "user", None)
-        )
+        service.ensure_task_ready_for_download(task_id=task_id, user=getattr(request, "user", None))
+        results = service.list_results(task_id=task_id, user=getattr(request, "user", None))
         if not results:
             raise Http404("任务暂无可下载结果")
         return results
@@ -219,6 +207,20 @@ async def download_all_results(request: Any, task_id: int) -> HttpResponse:  # p
 # ──────────────────────────────────────────────────────────────
 
 
+def _sanitize_weike_login_url(raw_url: Any) -> str | None:
+    """仅接受 https 的 wkinfo.com.cn（或其子域）登录页，其余回退默认（安全审计 E-13）。"""
+    from urllib.parse import urlparse
+
+    login_url = str(raw_url or "").strip()
+    if not login_url:
+        return None
+    parsed = urlparse(login_url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme == "https" and (host == "wkinfo.com.cn" or host.endswith(".wkinfo.com.cn")):
+        return login_url
+    return None
+
+
 @router.post("/law-verification/check", response=dict[str, Any])
 async def check_law_references(request: Any, payload: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover
     """核查文档中的法规引用.
@@ -241,20 +243,29 @@ async def check_law_references(request: Any, payload: dict[str, Any]) -> dict[st
             return {"error": "法规核查插件未安装", "references": [], "total": 0}
 
         # 获取威科先行凭证
-        from apps.organization.models import AccountCredential
         from apps.core.security.secret_codec import SecretCodec
+        from apps.organization.models import AccountCredential
 
         try:
-            cred = AccountCredential.objects.get(id=credential_id)
+            cred = AccountCredential.objects.select_related("lawyer").get(id=credential_id)
         except AccountCredential.DoesNotExist:
             return {"error": f"凭证 ID {credential_id} 不存在", "references": [], "total": 0}
+
+        # 安全审计 A-07：凭证归属校验（superuser 例外），与 LegalResearchTaskService 同口径
+        user = getattr(request, "user", None)
+        if user is None or not getattr(user, "is_authenticated", False):
+            user = getattr(request, "auth", None)
+        if user is None:
+            return {"error": "请先登录", "references": [], "total": 0}
+        if not getattr(user, "is_superuser", False) and cred.lawyer.law_firm_id != getattr(user, "law_firm_id", None):
+            return {"error": "无权限使用该账号凭证", "references": [], "total": 0}
 
         codec = SecretCodec()
         password = codec.try_decrypt(cred.password)
 
         # 建立威科先行会话
-        from plugins.weike_api_private.adapter import PrivateWeikeApiAdapter
         from apps.legal_research.services.sources.weike.client import WeikeCaseClient
+        from plugins.weike_api_private.adapter import PrivateWeikeApiAdapter
 
         adapter = PrivateWeikeApiAdapter()
         client = WeikeCaseClient()
@@ -264,7 +275,9 @@ async def check_law_references(request: Any, payload: dict[str, Any]) -> dict[st
                 client=client,
                 username=cred.account,
                 password=password,
-                login_url=cred.url or None,
+                # 安全审计 E-13：login_url 强制 wkinfo 域白名单 + https，
+                # 防止经凭证 url 字段把账号密码提交到任意站点。
+                login_url=_sanitize_weike_login_url(cred.url),
             )
         except Exception as e:
             return {"error": f"威科先行登录失败: {e}", "references": [], "total": 0}

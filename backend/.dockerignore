@@ -22,3 +22,11 @@ staticfiles/
 
 apiSystem/db.sqlite3
 .env
+
+# 安全审计 E-06：禁止把本地密钥/会话/调试脚本烤进镜像
+dump.rdb
+cookies/
+scripts/
+.secrets.baseline
+.env.*
+*.rdb

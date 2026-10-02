@@ -109,8 +109,9 @@ class TokenRateLimitMiddleware:
 
     @staticmethod
     def _get_client_ip(request: Any) -> str:
-        xff: str | None = request.META.get("HTTP_X_FORWARDED_FOR")
-        if xff:
-            return xff.split(",")[0].strip()
-        remote_addr: str = request.META.get("REMOTE_ADDR", "unknown")
-        return remote_addr
+        # 安全审计 B-15：复用 throttling.RateLimiter 的可信代理解析，
+        # 不再无条件信任 X-Forwarded-For（否则伪造 XFF 即可绕过本限流）。
+        from apps.core.infrastructure.throttling import RateLimiter
+
+        ip = RateLimiter().get_client_ip(request)
+        return ip if isinstance(ip, str) else "unknown"

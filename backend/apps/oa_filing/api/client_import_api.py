@@ -87,9 +87,10 @@ def trigger_client_import(request: HttpRequest) -> Any:  # pragma: no cover
 @router.get("/client-import/{session_id}", response=ClientImportSessionOut)
 def get_client_import_session(request: HttpRequest, session_id: int) -> Any:  # pragma: no cover
     """查询客户导入会话状态。"""
+    from apps.core.security.admin_access import get_request_user
     from apps.oa_filing.services.import_session_service import get_client_session_or_none
 
-    session = get_client_session_or_none(session_id)
+    session = get_client_session_or_none(session_id, lawyer_id=getattr(get_request_user(request), "id", None))
     if session is None:
         from django.http import Http404
 
@@ -105,10 +106,11 @@ def batch_create_clients(request: HttpRequest, session_id: int) -> dict[str, Any
     """
     from django.http import JsonResponse
 
+    # 获取会话
+    from apps.core.security.admin_access import get_request_user
     from apps.oa_filing.services.import_session_service import get_client_session_or_none
 
-    # 获取会话
-    session = get_client_session_or_none(session_id)
+    session = get_client_session_or_none(session_id, lawyer_id=getattr(get_request_user(request), "id", None))
     if session is None:
         return JsonResponse({"error": "会话不存在"}, status=404)  # type: ignore[return-value]
 

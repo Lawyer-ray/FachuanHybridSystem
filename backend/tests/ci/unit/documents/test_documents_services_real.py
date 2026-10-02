@@ -1,4 +1,5 @@
 """documents 模块真实执行测试 - 覆盖 placeholders/fallback, path_utils, generation/result, outputs, evidence 等。"""
+
 from __future__ import annotations
 
 from datetime import date
@@ -6,7 +7,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-
 
 # ============================================================
 # documents/services/placeholders/fallback.py
@@ -298,8 +298,9 @@ class TestPathUtils:
     def test_resolve_media_path_absolute(self) -> None:
         from apps.documents.services.generation.path_utils import resolve_media_path
 
+        # 安全审计 B-04：MEDIA_ROOT 之外的绝对路径拒绝
         result = resolve_media_path("/var/media", "/tmp/test.pdf")
-        assert result == "/tmp/test.pdf"
+        assert result == ""
 
     def test_resolve_media_path_with_prefix(self) -> None:
         from apps.documents.services.generation.path_utils import resolve_media_path

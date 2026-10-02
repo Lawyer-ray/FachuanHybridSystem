@@ -48,7 +48,7 @@ async def login_view(request: HttpRequest, payload: LoginIn) -> LoginOut:  # pra
     return cast(LoginOut, await sync_to_async(_do)())
 
 
-@router.post("/logout", auth=None)
+@router.post("/logout")  # 安全审计 D-08：纳入认证，session 登出走 CSRF 校验
 def logout_view(request: HttpRequest) -> dict[str, bool]:  # pragma: no cover
     _auth_service.logout(request)
     return {"success": True}
@@ -73,6 +73,7 @@ async def register_view(request: HttpRequest, payload: RegisterIn) -> RegisterOu
         return RegisterOut(success=False, message="用户名已存在")
 
     try:
+
         def _do() -> Any:
             result = _auth_service.register(
                 username=payload.username,
@@ -107,7 +108,9 @@ def me_view(request: HttpRequest) -> LawyerOut:  # pragma: no cover
 
 @router.post("/password-reset/request", response=PasswordResetOut, auth=None)
 @rate_limit_from_settings("AUTH")
-async def request_password_reset(request: HttpRequest, payload: PasswordResetRequestIn) -> PasswordResetOut:  # pragma: no cover
+async def request_password_reset(
+    request: HttpRequest, payload: PasswordResetRequestIn
+) -> PasswordResetOut:  # pragma: no cover
     """
     请求密码重置
 
@@ -145,7 +148,9 @@ def verify_reset_token(request: HttpRequest, payload: PasswordResetVerifyIn) -> 
 
 @router.post("/password-reset/confirm", response=PasswordResetOut, auth=None)
 @rate_limit_from_settings("AUTH")
-def confirm_password_reset(request: HttpRequest, payload: PasswordResetConfirmIn) -> PasswordResetOut:  # pragma: no cover
+def confirm_password_reset(
+    request: HttpRequest, payload: PasswordResetConfirmIn
+) -> PasswordResetOut:  # pragma: no cover
     """
     确认密码重置
 

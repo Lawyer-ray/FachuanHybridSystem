@@ -8,7 +8,7 @@ from decimal import Decimal
 import pytest
 
 # Import the pure functions we extracted
-from apps.documents.services.generation.path_utils import resolve_media_path, safe_name, safe_arcname
+from apps.documents.services.generation.path_utils import resolve_media_path, safe_arcname, safe_name
 from apps.documents.services.generation.result import GenerationResult
 
 
@@ -35,8 +35,9 @@ class TestResolveMediaPath:
         assert result == "/var/media/uploads/file.pdf"
 
     def test_absolute_path_returned_as_is(self):
+        # 安全审计 B-04：MEDIA_ROOT 之外的绝对路径拒绝（返回空串）
         result = resolve_media_path("/media", "/absolute/path/file.pdf")
-        assert result == "/absolute/path/file.pdf"
+        assert result == ""
 
     def test_relative_path_joined_with_root(self):
         result = resolve_media_path("/var/media", "uploads/file.pdf")

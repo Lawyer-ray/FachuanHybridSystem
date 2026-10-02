@@ -178,7 +178,9 @@ def get_identity_doc(request: Any, doc_id: int) -> IdentityDocDetailOut:  # prag
         证件文档信息
     """
     service = _get_identity_doc_service()
-    identity_doc = service.get_identity_doc(doc_id)
+    # 安全审计 B-14：读取含 file_path/media_url，须有客户查看权限
+    _user = getattr(request, "auth", None) or getattr(request, "user", None)
+    identity_doc = service.get_identity_doc(doc_id, user=_user)
 
     return IdentityDocDetailOut(
         id=identity_doc.id,

@@ -40,6 +40,7 @@ class LawyerMutationService:
             raise PermissionDenied(message="无权限创建律师", code="PERMISSION_DENIED")
 
         self._validate_create_data(data)
+        self._enforce_privilege_fields_on_create(user, data)
 
         law_firm = None
         if data.law_firm_id:
@@ -93,6 +94,7 @@ class LawyerMutationService:
             )
             raise PermissionDenied(message="无权限更新该律师信息", code="PERMISSION_DENIED")
 
+        self._enforce_privilege_fields_on_update(user=user, lawyer=lawyer, data=data)
         self._validate_update_data(lawyer, data)
         updated_fields = self._apply_field_updates(lawyer, data)
         self.upload_service.attach_license_pdf(lawyer, license_pdf)
@@ -115,6 +117,30 @@ class LawyerMutationService:
             extra={"lawyer_id": lawyer.pk, "user_id": user.pk, "action": "update_lawyer"},
         )
         return lawyer
+
+    def _enforce_privilege_fields_on_create(self, user: Lawyer, data: LawyerCreateDTO) -> None:
+        """非 superuser 只能在本所创建律师，且不能授予管理员（安全审计 A-02/C-06）。"""
+        if bool(getattr(user, "is_superuser", False)):
+            return
+        if data.is_admin:
+            raise PermissionDenied(message="仅超级管理员可授予管理员权限", code="ADMIN_GRANT_FORBIDDEN")
+        if data.law_firm_id is not None and data.law_firm_id != getattr(user, "law_firm_id", None):
+            raise PermissionDenied(message="仅可在本律所范围内创建律师", code="CROSS_FIRM_FORBIDDEN")
+
+    def _enforce_privilege_fields_on_update(self, user: Lawyer, lawyer: Lawyer, data: LawyerUpdateDTO) -> None:
+        """特权字段（is_admin/law_firm_id）的变更管制（安全审计 A-02/C-06）。
+
+        - self 更新不得改 is_admin / law_firm_id（防自我提权、防跳所）；
+        - 非 superuser 一律不得变更 law_firm_id（跨所迁移仅 superuser）。
+        """
+        is_superuser = bool(getattr(user, "is_superuser", False))
+        if is_superuser:
+            return
+        is_self = getattr(user, "id", None) == getattr(lawyer, "id", None)
+        if is_self and data.is_admin is not None and data.is_admin != lawyer.is_admin:
+            raise PermissionDenied(message="不能修改自己的管理员权限", code="SELF_ADMIN_CHANGE_FORBIDDEN")
+        if data.law_firm_id is not None and data.law_firm_id != getattr(lawyer, "law_firm_id", None):
+            raise PermissionDenied(message="仅超级管理员可变更律师所属律所", code="CROSS_FIRM_FORBIDDEN")
 
     def _apply_field_updates(self, lawyer: Lawyer, data: LawyerUpdateDTO) -> list[str]:
         updated: list[str] = []
@@ -195,7 +221,9 @@ class LawyerMutationService:
                 message="手机号已存在", code="DUPLICATE_PHONE", errors={"phone": "该手机号已被使用"}
             )
 
-    def _set_lawyer_teams(self, lawyer: Lawyer, team_ids: list[int], law_firm: LawFirm | None) -> None:  # pragma: no cover
+    def _set_lawyer_teams(
+        self, lawyer: Lawyer, team_ids: list[int], law_firm: LawFirm | None
+    ) -> None:  # pragma: no cover
         teams = list(Team.objects.filter(id__in=team_ids, team_type=TeamType.LAWYER))
 
         if not teams:

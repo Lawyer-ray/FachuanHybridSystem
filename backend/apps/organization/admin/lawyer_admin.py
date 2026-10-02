@@ -96,9 +96,17 @@ class AccountCredentialInlineForm(forms.ModelForm[AccountCredential]):  # pragma
         model = AccountCredential
         fields = "__all__"
         widgets: ClassVar[dict[str, Any]] = {
-            "password": forms.PasswordInput(render_value=True),
+            # 安全审计 B-17：不回填明文（render_value=False），空值=不修改
+            "password": forms.PasswordInput(render_value=False),
             "url": forms.TextInput(attrs={"class": "vTextField"}),
         }
+
+    def clean_password(self) -> str:  # pragma: no cover
+        value = self.cleaned_data.get("password") or ""
+        if not value.strip() and self.instance and self.instance.pk:
+            # 安全审计 B-17：编辑行留空 → 保留原密码，避免被空串覆盖
+            return str(self.instance.password)
+        return value
 
 
 class AccountCredentialInline(admin.TabularInline[AccountCredential, AccountCredential]):  # pragma: no cover
@@ -214,7 +222,8 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin):  # pragma: no cover
                     ],
                     "biz_teams": [t.name for t in obj.biz_teams.all()],
                     "credentials": [
-                        {"site_name": c.site_name, "url": c.url or "", "account": c.account, "password": c.password}
+                        # 安全审计 B-16：导出不再包含明文密码（导入端支持留空随机生成）
+                        {"site_name": c.site_name, "url": c.url or "", "account": c.account, "password": ""}
                         for c in obj.credentials.all()
                     ],
                 }

@@ -1,6 +1,7 @@
 """
 Tests for documents/storage.py - uncovered paths around private root config.
 """
+
 from __future__ import annotations
 
 import os
@@ -15,8 +16,8 @@ from apps.documents.storage import (
     get_configured_private_docx_templates_root,
     get_docx_templates_root,
     get_docx_templates_source,
-    get_public_docx_templates_root,
     get_private_docx_templates_root,
+    get_public_docx_templates_root,
     list_docx_templates_files,
     resolve_docx_template_path,
 )
@@ -87,8 +88,11 @@ class TestGetDocxTemplatesSource:
 
 class TestResolveDocxTemplatePath:
     def test_absolute_path_returned_as_is(self):
-        result = resolve_docx_template_path("/absolute/path/file.docx")
-        assert str(result) == "/absolute/path/file.docx"
+        """安全审计 B-04：模板根之外的绝对路径拒绝。"""
+        import pytest as _pytest
+
+        with _pytest.raises(ValueError, match="越界"):
+            resolve_docx_template_path("/absolute/path/file.docx")
 
     @patch("apps.documents.storage.get_docx_templates_root")
     def test_relative_within_root(self, mock_root, tmp_path):

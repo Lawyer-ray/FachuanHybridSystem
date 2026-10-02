@@ -74,13 +74,24 @@ class AccountCredentialAdmin(admin.ModelAdmin):  # pragma: no cover
 
     list_per_page = 50
 
+    def save_model(self, request: Any, obj: AccountCredential, form: Any, change: bool) -> None:  # pragma: no cover
+        # 安全审计 B-17：编辑时密码留空 → 保留原值，不覆盖为空串
+        if change and not (form.cleaned_data.get("password") or "").strip():
+            old = AccountCredential.objects.filter(pk=obj.pk).values_list("password", flat=True).first()
+            if old:
+                obj.password = old
+        super().save_model(request, obj, form, change)
+
     def get_form(  # pragma: no cover
         self, request: HttpRequest, obj: AccountCredential | None = None, change: bool = False, **kwargs: Any
     ) -> type[forms.ModelForm]:
         form = super().get_form(request, obj, **kwargs)
         if "password" in form.base_fields:
-            # Preserve masked credential input; do not regress to plain text rendering.
-            form.base_fields["password"].widget = forms.PasswordInput(render_value=True)
+            # 安全审计 B-17：不回填明文密码（render_value=True 会把解密后的值
+            # 渲染进 HTML value 属性）。留空 = 保持原密码不变。
+            form.base_fields["password"].widget = forms.PasswordInput(render_value=False)
+            form.base_fields["password"].required = False
+            form.base_fields["password"].help_text = "留空表示不修改密码"
         # URL 字段使用普通文本输入框，隐藏 "Currently" 和 "Change"
         if "url" in form.base_fields:
             form.base_fields["url"].widget = forms.TextInput(attrs={"class": "vTextField"})

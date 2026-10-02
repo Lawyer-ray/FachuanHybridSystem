@@ -1,8 +1,9 @@
 """Coverage tests for core.filesystem.folder_binding_crud_service."""
+
 from __future__ import annotations
 
 from pathlib import PurePosixPath
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -156,9 +157,14 @@ class TestCreateBinding:
             svc.create_binding(owner_id=1, folder_path="invalid//path")
         assert "INVALID_PATH_FORMAT" in str(exc_info.value.code)
 
-    def test_local_path_valid(self):
+    def test_local_path_valid(self, tmp_path):
+        """安全审计 B-08：本地绑定路径必须在浏览根内。"""
+        from django.test import override_settings
+
         from apps.core.filesystem.folder_binding_crud_service import FolderBindingCrudService
 
+        target = tmp_path / "test"
+        target.mkdir()
         svc = FolderBindingCrudService()
         svc.binding_model = MagicMock()
         svc.owner_rel_field = "owner"
@@ -172,8 +178,26 @@ class TestCreateBinding:
         svc.binding_model.objects.update_or_create.return_value = (MagicMock(), True)
         svc._compute_relative_path = MagicMock(return_value=None)
 
-        result = svc.create_binding(owner_id=1, folder_path="/data/test")
+        with override_settings(FOLDER_BROWSE_ROOTS=[str(tmp_path)]):
+            result = svc.create_binding(owner_id=1, folder_path=str(target))
         assert result is not None
+
+    def test_local_path_outside_roots_rejected(self, tmp_path):
+        """安全审计 B-08：浏览根之外的绝对路径拒绝绑定。"""
+        from django.test import override_settings
+
+        from apps.core.filesystem.folder_binding_crud_service import FolderBindingCrudService
+
+        svc = FolderBindingCrudService()
+        svc.binding_model = MagicMock()
+        svc.owner_rel_field = "owner"
+        mock_owner = MagicMock()
+        svc._require_owner = MagicMock(return_value=mock_owner)
+        svc.validate_folder_path = MagicMock(return_value=(True, None))
+
+        with override_settings(FOLDER_BROWSE_ROOTS=[str(tmp_path)]), pytest.raises(ValidationException) as exc_info:
+            svc.create_binding(owner_id=1, folder_path="/etc")
+        assert "BINDING_ROOT_FORBIDDEN" in str(exc_info.value.code)
 
     def test_cloud_storage_path(self):
         from apps.core.filesystem.folder_binding_crud_service import FolderBindingCrudService
@@ -191,14 +215,13 @@ class TestCreateBinding:
         svc._compute_relative_path = MagicMock(return_value=None)
 
         result = svc.create_binding(
-            owner_id=1, folder_path="/cloud/path",
-            storage_type="webdav", storage_account="acc1"
+            owner_id=1, folder_path="/cloud/path", storage_type="webdav", storage_account="acc1"
         )
         call_kwargs = svc.binding_model.objects.update_or_create.call_args[1]["defaults"]
         assert call_kwargs["storage_type"] == "webdav"
         assert call_kwargs["storage_account"] == "acc1"
 
-    def test_with_relative_path(self):
+    def test_with_relative_path(self, tmp_path):
         from apps.core.filesystem.folder_binding_crud_service import FolderBindingCrudService
 
         svc = FolderBindingCrudService()
@@ -213,7 +236,12 @@ class TestCreateBinding:
         svc.binding_model.objects.update_or_create.return_value = (MagicMock(), True)
         svc._compute_relative_path = MagicMock(return_value="cases/123")
 
-        result = svc.create_binding(owner_id=1, folder_path="/data/contracts/cases/123")
+        from django.test import override_settings
+
+        target = tmp_path / "contracts" / "cases" / "123"
+        target.mkdir(parents=True)
+        with override_settings(FOLDER_BROWSE_ROOTS=[str(tmp_path)]):
+            result = svc.create_binding(owner_id=1, folder_path=str(target))
         call_kwargs = svc.binding_model.objects.update_or_create.call_args[1]["defaults"]
         assert call_kwargs["relative_path"] == "cases/123"
 
@@ -299,9 +327,7 @@ class TestSaveFileToBoundFolder:
 
         svc = FolderBindingCrudService()
         svc.get_binding = MagicMock(return_value=None)
-        result = svc.save_file_to_bound_folder(
-            owner_id=1, file_content=b"data", file_name="test.pdf", subdir_key="k"
-        )
+        result = svc.save_file_to_bound_folder(owner_id=1, file_content=b"data", file_name="test.pdf", subdir_key="k")
         assert result is None
 
     def test_cloud_storage_success(self):
@@ -322,9 +348,7 @@ class TestSaveFileToBoundFolder:
         mock_provider = MagicMock()
         svc._get_provider_for_binding = MagicMock(return_value=mock_provider)
 
-        result = svc.save_file_to_bound_folder(
-            owner_id=1, file_content=b"data", file_name="test.pdf", subdir_key="k"
-        )
+        result = svc.save_file_to_bound_folder(owner_id=1, file_content=b"data", file_name="test.pdf", subdir_key="k")
         assert result is not None
         mock_provider.write_file.assert_called_once()
 
@@ -348,9 +372,7 @@ class TestSaveFileToBoundFolder:
         svc._get_provider_for_binding = MagicMock(return_value=mock_provider)
 
         with pytest.raises(ValidationException) as exc_info:
-            svc.save_file_to_bound_folder(
-                owner_id=1, file_content=b"data", file_name="test.pdf", subdir_key="k"
-            )
+            svc.save_file_to_bound_folder(owner_id=1, file_content=b"data", file_name="test.pdf", subdir_key="k")
         assert "FILE_SAVE_FAILED" in str(exc_info.value.code)
 
     def test_local_save_success(self):
@@ -370,9 +392,7 @@ class TestSaveFileToBoundFolder:
         svc._filesystem_service = MagicMock()
         svc._filesystem_service.save_bytes.return_value = "/local/root/subdir/file.txt"
 
-        result = svc.save_file_to_bound_folder(
-            owner_id=1, file_content=b"data", file_name="file.txt", subdir_key="k"
-        )
+        result = svc.save_file_to_bound_folder(owner_id=1, file_content=b"data", file_name="file.txt", subdir_key="k")
         assert result == "/local/root/subdir/file.txt"
 
     def test_local_save_os_error(self):
@@ -394,9 +414,7 @@ class TestSaveFileToBoundFolder:
         svc._filesystem_service.save_bytes.side_effect = OSError("disk full")
 
         with pytest.raises(ValidationException) as exc_info:
-            svc.save_file_to_bound_folder(
-                owner_id=1, file_content=b"data", file_name="file.txt", subdir_key="k"
-            )
+            svc.save_file_to_bound_folder(owner_id=1, file_content=b"data", file_name="file.txt", subdir_key="k")
         assert "FILE_SAVE_FAILED" in str(exc_info.value.code)
 
 
@@ -438,9 +456,10 @@ class TestExtractZipToBoundFolder:
             svc.extract_zip_to_bound_folder(owner_id=1, zip_content=b"PKdata")
 
     def test_cloud_extract_success(self):
-        from apps.core.filesystem.folder_binding_crud_service import FolderBindingCrudService
         import io
         import zipfile
+
+        from apps.core.filesystem.folder_binding_crud_service import FolderBindingCrudService
 
         svc = FolderBindingCrudService()
         mock_binding = MagicMock()
@@ -465,9 +484,10 @@ class TestExtractZipToBoundFolder:
         mock_provider.write_file.assert_called()
 
     def test_cloud_extract_skips_dangerous_paths(self):
-        from apps.core.filesystem.folder_binding_crud_service import FolderBindingCrudService
         import io
         import zipfile
+
+        from apps.core.filesystem.folder_binding_crud_service import FolderBindingCrudService
 
         svc = FolderBindingCrudService()
         mock_binding = MagicMock()
@@ -491,9 +511,10 @@ class TestExtractZipToBoundFolder:
         assert result == "/cloud/root"
 
     def test_cloud_extract_error(self):
-        from apps.core.filesystem.folder_binding_crud_service import FolderBindingCrudService
         import io
         import zipfile
+
+        from apps.core.filesystem.folder_binding_crud_service import FolderBindingCrudService
 
         svc = FolderBindingCrudService()
         mock_binding = MagicMock()

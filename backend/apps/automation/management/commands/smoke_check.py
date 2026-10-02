@@ -68,22 +68,26 @@ class Command(BaseCommand):
         self._maybe_switch_sqlite_db(options.get("database_path"))
         if not options.get("skip_migrate"):
             call_command("migrate", "--noinput", verbosity=0)
-        user = self._ensure_smoke_superuser()
-        client = Client()
-        client.force_login(user)
-        if not options.get("skip_admin"):
-            self._check_admin_pages(client)
-        if not options.get("skip_upload"):
-            self._check_upload_endpoints(client)
-        if not options.get("skip_websocket"):
-            self._check_websocket(client, user)
-        if not options.get("skip_q"):
-            self._check_django_q()
-        if not options.get("skip_disk"):
-            self._check_disk_space(
-                warning_pct=options.get("disk_warning_pct", 85.0),
-                critical_pct=options.get("disk_critical_pct", 95.0),
-            )
+        user, created_smoke_user = self._ensure_smoke_superuser()
+        try:
+            client = Client()
+            client.force_login(user)
+            if not options.get("skip_admin"):
+                self._check_admin_pages(client)
+            if not options.get("skip_upload"):
+                self._check_upload_endpoints(client)
+            if not options.get("skip_websocket"):
+                self._check_websocket(client, user)
+            if not options.get("skip_q"):
+                self._check_django_q()
+            if not options.get("skip_disk"):
+                self._check_disk_space(
+                    warning_pct=options.get("disk_warning_pct", 85.0),
+                    critical_pct=options.get("disk_critical_pct", 95.0),
+                )
+        finally:
+            if created_smoke_user:
+                self._cleanup_smoke_superuser(user)
         self.stdout.write(self.style.SUCCESS("✅ smoke_check 通过"))
 
     def _maybe_switch_sqlite_db(self, database_path: str | None) -> None:
@@ -100,7 +104,8 @@ class Command(BaseCommand):
         for conn in connections.all():
             conn.close()
 
-    def _ensure_smoke_superuser(self) -> Any:
+    def _ensure_smoke_superuser(self) -> tuple[Any, bool]:
+        """返回 (smoke 用户, 是否本次新建)。新建的用户在命令结束时删除（安全审计 C-03）。"""
         User = get_user_model()
         username = "smoke_admin"
         user = User.objects.filter(username=username).first()
@@ -109,11 +114,17 @@ class Command(BaseCommand):
             if not bool(getattr(staff_user, "is_staff", False)):
                 staff_user.is_staff = True
                 staff_user.save(update_fields=["is_staff"])
-            return staff_user
+            return staff_user, False
         smoke_password = getattr(settings, "SMOKE_ADMIN_PASSWORD", "smoke_admin_password")
-        return User.objects.create_superuser(
+        created = User.objects.create_superuser(
             username=username, email="smoke_admin@example.com", password=smoke_password
         )
+        return created, True
+
+    def _cleanup_smoke_superuser(self, user: Any) -> None:
+        """删除本次冒烟新建的 smoke_admin，避免超级用户残留真实库（安全审计 C-03）。"""
+        User = get_user_model()
+        User.objects.filter(pk=user.pk, username="smoke_admin").delete()
 
     def _check_admin_pages(self, client: Client) -> None:
         paths: list[Any] = ["/admin/", "/admin/cases/case/", "/admin/contracts/contract/"]

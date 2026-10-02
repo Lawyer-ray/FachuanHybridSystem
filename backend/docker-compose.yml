@@ -6,7 +6,8 @@ services:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
     ports:
-      - "5432:5432"
+      # 安全审计 E-02：数据库/缓存仅绑回环，禁止发布到所有网卡
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./config/postgres/custom.conf:/etc/postgresql/postgresql.conf
@@ -21,9 +22,9 @@ services:
 
   redis:
     image: valkey/valkey:8-alpine
-    command: valkey-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: valkey-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD:-fachuan-dev-redis}
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -49,7 +50,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_HOST: postgres
       DB_PORT: ${DB_PORT:-5432}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD:-fachuan-dev-redis}@redis:6379/0}
     depends_on:
       postgres:
         condition: service_healthy
@@ -77,7 +78,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_HOST: postgres
       DB_PORT: ${DB_PORT:-5432}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD:-fachuan-dev-redis}@redis:6379/0}
     depends_on:
       postgres:
         condition: service_healthy

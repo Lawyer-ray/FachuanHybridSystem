@@ -341,6 +341,9 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
 }
 
+# 安全审计 C-13：密码重置链接实际有效期与邮件文案（30 分钟）对齐
+PASSWORD_RESET_TIMEOUT = 30 * 60
+
 # Session 安全配置
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 7  # 7 天
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False

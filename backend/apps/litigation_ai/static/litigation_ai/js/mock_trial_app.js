@@ -249,14 +249,24 @@ function mockTrialApp(config = {}) {
             if (el) el.scrollTop = el.scrollHeight;
         },
 
+        escapeHtml(text) {
+            // 安全审计 E-19：内容含用户消息与 LLM 输出（可被证据文档注入），先整体转义
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        },
+
         renderMarkdown(text) {
             if (!text) return '';
-            // 使用更完善的 markdown 渲染
+            // 使用更完善的 markdown 渲染（marked 不净化原始 HTML，输入先转义）
             if (typeof marked !== 'undefined') {
-                return marked.parse(text);
+                return marked.parse(this.escapeHtml(text));
             }
             // 降级到简单渲染
-            return text
+            return this.escapeHtml(text)
                 .replace(/^### (.+)$/gm, '<h4>$1</h4>')
                 .replace(/^## (.+)$/gm, '<h3>$1</h3>')
                 .replace(/^# (.+)$/gm, '<h2>$1</h2>')

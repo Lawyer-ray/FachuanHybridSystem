@@ -43,8 +43,15 @@ class ClientIdentityDocService:
         return self._file_upload_port
 
     @transaction.atomic
-    def add_identity_doc(self, client_id: int, doc_type: str, file_path: str, user: Any = None) -> ClientIdentityDoc:  # pragma: no cover
+    def add_identity_doc(
+        self, client_id: int, doc_type: str, file_path: str, user: Any = None
+    ) -> ClientIdentityDoc:  # pragma: no cover
         """添加当事人证件"""
+        # 安全审计 B-14：file_path 强制收敛到 MEDIA_ROOT 内，防任意文件移动/挂载
+        if file_path:
+            from apps.core.services.storage_service import normalize_to_media_rel
+
+            file_path = normalize_to_media_rel(file_path)
 
         client = Client.objects.filter(id=client_id).first()
         if not client:
@@ -118,9 +125,15 @@ class ClientIdentityDocService:
             except Exception:
                 logger.exception("文件重命名失败", extra={"raw_path": raw_path, "new_path": str(new_abs_path)})
 
-    def get_identity_doc(self, doc_id: int) -> ClientIdentityDoc:
-        """获取证件文档，不存在则抛出 NotFoundError"""
+    def get_identity_doc(self, doc_id: int, user: Any = None) -> ClientIdentityDoc:
+        """获取证件文档，不存在则抛出 NotFoundError。
 
+        传入 user 时校验客户查看权限（安全审计 B-14：file_path/media_url 属敏感出参）。
+        """
+        if user is not None:
+            from apps.client.services.client_access_policy import ClientAccessPolicy
+
+            ClientAccessPolicy().ensure_has_perm(user, "client.view_client", "无权限查看客户证件")
         doc = ClientIdentityDoc.objects.select_related("client").filter(id=doc_id).first()
         if not doc:
             raise NotFoundError(
@@ -156,6 +169,11 @@ class ClientIdentityDocService:
     @transaction.atomic
     def delete_identity_doc(self, doc_id: int, user: Any) -> None:
         """删除证件文档及其磁盘文件。"""
+        # 安全审计 B-14：删除须有客户删除权限
+        if user is not None:
+            from apps.client.services.client_access_policy import ClientAccessPolicy
+
+            ClientAccessPolicy().ensure_has_perm(user, "client.delete_client", "无权限删除客户证件")
 
         doc = self.get_identity_doc(doc_id)
         file_path = doc.file_path

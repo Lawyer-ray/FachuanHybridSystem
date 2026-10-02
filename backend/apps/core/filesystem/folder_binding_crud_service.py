@@ -93,6 +93,21 @@ class FolderBindingCrudService(BaseFolderBindingService):
                     code="INVALID_PATH_FORMAT",
                     errors={"folder_path": error_msg},
                 )
+            # 安全审计 B-08：本地绑定路径必须在配置的浏览根内——绑定后扫描/写
+            # 接口会以该目录为基座，任意绝对路径等于任意目录读写原语。
+            # （网络路径 smb://、UNC 按既有语义允许直绑，不在本限制内。）
+            from .browse_policy import FolderBrowsePolicy
+
+            policy = FolderBrowsePolicy()
+            if not policy.validator.is_network_path(folder_path.strip()):
+                try:
+                    policy.resolve_under_allowed_roots(folder_path.strip())
+                except Exception as exc:
+                    raise ValidationException(
+                        message="绑定目录越界",
+                        code="BINDING_ROOT_FORBIDDEN",
+                        errors={"folder_path": f"仅允许绑定浏览根目录内的路径: {exc}"},
+                    ) from exc
 
         stripped_path = folder_path.strip()
 

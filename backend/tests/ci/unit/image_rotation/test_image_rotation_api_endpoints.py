@@ -18,13 +18,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from apps.image_rotation.api.image_rotation_api import (
+    _ALLOWED_IMAGE_TYPES,
+    _MAX_UPLOAD_SIZE,
     _get_pdf_service,
     _get_rename_service,
     _get_rotation_service,
-    _ALLOWED_IMAGE_TYPES,
-    _MAX_UPLOAD_SIZE,
 )
-
 
 # ── Constants ────────────────────────────────────────────────────
 
@@ -339,7 +338,9 @@ class TestExportPdf:
         req.content_type = "application/json"
         with patch("apps.image_rotation.api.image_rotation_api._get_rotation_service") as mock_svc:
             mock_svc.return_value.export_as_pdf.return_value = {"success": True}
-            with patch("apps.image_rotation.api.image_rotation_api.asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread:
+            with patch(
+                "apps.image_rotation.api.image_rotation_api.asyncio.to_thread", new_callable=AsyncMock
+            ) as mock_to_thread:
                 mock_to_thread.return_value = {"success": True}
                 result = await export_pdf(req)
                 assert result["success"] is True
@@ -351,7 +352,9 @@ class TestExportPdf:
         req = MagicMock()
         req.body = json.dumps({"pages": [{"data": "d"}]}).encode()
         req.content_type = "application/json"
-        with patch("apps.image_rotation.api.image_rotation_api.asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread:
+        with patch(
+            "apps.image_rotation.api.image_rotation_api.asyncio.to_thread", new_callable=AsyncMock
+        ) as mock_to_thread:
             mock_to_thread.side_effect = RuntimeError("err")
             result = await export_pdf(req)
             assert result["success"] is False
@@ -362,7 +365,9 @@ class TestExportPdf:
 
         req = MagicMock()
         req.content_type = "multipart/form-data; boundary=xxx"
-        with patch("apps.image_rotation.api.image_rotation_api._handle_multipart_export_pdf_async", new_callable=AsyncMock) as mock_mp:
+        with patch(
+            "apps.image_rotation.api.image_rotation_api._handle_multipart_export_pdf_async", new_callable=AsyncMock
+        ) as mock_mp:
             mock_mp.return_value = {"success": True}
             result = await export_pdf(req)
             assert result["success"] is True
@@ -487,7 +492,9 @@ class TestHandleMultipartExportPdf:
         req.POST = {"paper_size": "a4", "filename_0": "custom.jpg", "rotation_0": "90"}
         req.FILES = {"page_0": file_obj}
 
-        with patch("apps.image_rotation.api.image_rotation_api.asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread:
+        with patch(
+            "apps.image_rotation.api.image_rotation_api.asyncio.to_thread", new_callable=AsyncMock
+        ) as mock_to_thread:
             mock_to_thread.return_value = {"success": True}
             result = await _handle_multipart_export_pdf_async(req)
             assert result["success"] is True
@@ -506,7 +513,9 @@ class TestHandleMultipartExportPdf:
         req.POST = {}
         req.FILES = {"page_0": file_obj}
 
-        with patch("apps.image_rotation.api.image_rotation_api.asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread:
+        with patch(
+            "apps.image_rotation.api.image_rotation_api.asyncio.to_thread", new_callable=AsyncMock
+        ) as mock_to_thread:
             mock_to_thread.side_effect = RuntimeError("fail")
             result = await _handle_multipart_export_pdf_async(req)
             assert result["success"] is False
@@ -517,8 +526,8 @@ class TestHandleMultipartExportPdf:
 
 class TestValidateImageFileEdge:
     def test_none_content_type(self) -> None:
-        from apps.image_rotation.api.image_rotation_api import _validate_image_file
         from apps.core.exceptions import ValidationException
+        from apps.image_rotation.api.image_rotation_api import _validate_image_file
 
         f = MagicMock()
         f.content_type = None
@@ -527,8 +536,8 @@ class TestValidateImageFileEdge:
             _validate_image_file(f)
 
     def test_empty_content_type(self) -> None:
-        from apps.image_rotation.api.image_rotation_api import _validate_image_file
         from apps.core.exceptions import ValidationException
+        from apps.image_rotation.api.image_rotation_api import _validate_image_file
 
         f = MagicMock()
         f.content_type = ""
@@ -698,25 +707,25 @@ class TestSaveExportUrl:
         from apps.image_rotation.api.image_rotation_api import save_export_url
 
         req = MagicMock()
-        req.body = json.dumps({"file_type": "zip", "media_url": "http://x.zip"}).encode()
+        req.body = json.dumps({"file_type": "zip", "media_url": "/media/image_rotation/exports/x.zip"}).encode()
         job = MagicMock()
         with patch("apps.image_rotation.api.image_rotation_api._get_job_service") as mock_svc:
             mock_svc.return_value.get_job.return_value = job
             result = save_export_url(req, "1")
             assert result["success"] is True
-            assert job.export_zip_url == "http://x.zip"
+            assert job.export_zip_url == "/media/image_rotation/exports/x.zip"
 
     def test_save_pdf(self) -> None:
         from apps.image_rotation.api.image_rotation_api import save_export_url
 
         req = MagicMock()
-        req.body = json.dumps({"file_type": "pdf", "media_url": "http://x.pdf"}).encode()
+        req.body = json.dumps({"file_type": "pdf", "media_url": "/media/image_rotation/exports/x.pdf"}).encode()
         job = MagicMock()
         with patch("apps.image_rotation.api.image_rotation_api._get_job_service") as mock_svc:
             mock_svc.return_value.get_job.return_value = job
             result = save_export_url(req, "1")
             assert result["success"] is True
-            assert job.export_pdf_url == "http://x.pdf"
+            assert job.export_pdf_url == "/media/image_rotation/exports/x.pdf"
 
 
 # ── update_job_pages ─────────────────────────────────────────────
