@@ -239,10 +239,13 @@ async def check_law_references(request: Any, payload: dict[str, Any]) -> dict[st
         if not text:
             return {"error": "text 不能为空", "references": [], "total": 0}
 
-        # 检测插件是否可用
-        from plugins import has_law_verification_plugin
+        # 检测插件是否可用（CI 类型检查环境无 plugins 子模块，用 getattr 动态获取
+        # 避免 import 语句在有/无 plugins 两环境下互斥的 mypy 报错）
+        import plugins as _plugins
 
-        if not has_law_verification_plugin():
+        has_law_verification_plugin = getattr(_plugins, "has_law_verification_plugin", None)
+
+        if not callable(has_law_verification_plugin):
             return {"error": "法规核查插件未安装", "references": [], "total": 0}
 
         # 获取威科先行凭证
