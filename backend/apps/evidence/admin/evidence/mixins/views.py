@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from django.contrib import admin
-from django.http import FileResponse, Http404, HttpResponse
+from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 
@@ -66,7 +66,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
             )
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
-    def get_form(self, request: Any, obj: Any = None, **kwargs: Any) -> Any:  # pragma: no cover
+    def get_form(self, request: HttpRequest, obj: Any = None, **kwargs: Any) -> Any:  # pragma: no cover
         form = super().get_form(request, obj=obj, **kwargs)
         if "export_template" not in form.base_fields:
             return form

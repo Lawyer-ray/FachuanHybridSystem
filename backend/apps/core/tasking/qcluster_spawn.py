@@ -40,6 +40,7 @@ def patch_django_q_mp_context_for_macos() -> None:
     def _spawn_context() -> multiprocessing.context.BaseContext:
         return multiprocessing.get_context("spawn")
 
-    _spawn_context._fachuan_spawn_patched = True
+    # setattr 绕过 mypy 的函数对象属性检查（37 行 getattr 读取同一标记）
+    setattr(_spawn_context, "_fachuan_spawn_patched", True)  # noqa: B010
     django_q_cluster.get_mp_context = _spawn_context
     logger.info("macOS 检测：django-q 子进程改用 spawn 启动，规避 fork ObjC 崩溃")

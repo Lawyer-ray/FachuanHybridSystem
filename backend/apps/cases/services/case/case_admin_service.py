@@ -148,10 +148,11 @@ class CaseAdminService:
             module = import_module("apps.documents.services.template.template_matching_service")
             template_matching_service_cls = module.TemplateMatchingService
 
-            return template_matching_service_cls().find_matching_case_folder_templates_list(
+            matched = template_matching_service_cls().find_matching_case_folder_templates_list(
                 case_type=case_type,
                 legal_statuses=legal_statuses,
             )
+            return cast(list[JSONDict], matched)
         except Exception:
             logger.exception("get_matched_folder_templates_list_failed", extra={"case_type": case_type})
             return []
@@ -445,7 +446,7 @@ class CaseAdminService:
             try:
                 filing_number = item.get("filing_number")
                 before = Case.objects.filter(filing_number=filing_number).exists() if filing_number else False
-                case_import_service.import_one(item)
+                case_import_service.import_one(cast("CaseImportPayload", item))
                 if before:
                     skipped += 1
                 else:
@@ -571,7 +572,7 @@ class CaseAdminService:
                 "案件已有建档编号,返回现有编号",
                 extra={"case_id": case_id, "filing_number": case.filing_number, "action": "handle_case_filing_change"},
             )
-            return cast(str, case.filing_number)
+            return case.filing_number
 
         # 如果已建档但没有编号,生成新编号
         created_year = case.start_date.year

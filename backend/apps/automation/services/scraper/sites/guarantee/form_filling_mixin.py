@@ -669,7 +669,7 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
                     await self._async_random_wait(1.0, 1.6)  # type: ignore[attr-defined]
                     continue
 
-                ready = await self._async_wait_court_options_ready(
+                ready = await self._async_wait_court_options_ready(  # type: ignore[attr-defined]
                     candidates=candidates, timeout_ms=self.MAX_SLOW_WAIT_MS
                 )
                 if not ready:

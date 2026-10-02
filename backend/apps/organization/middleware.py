@@ -9,7 +9,7 @@ ApiTrailingSlashMiddleware: 去除 API 路径尾部斜杠。
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import Any, cast
 
 from django.conf import settings
 from django.core.cache import cache
@@ -38,7 +38,7 @@ class OrgAccessMiddleware:
         return self._sync_dispatch(request, user)
 
     async def _pass(self, request: HttpRequest) -> HttpResponse:
-        return await self.get_response(request)
+        return cast(HttpResponse, await self.get_response(request))
 
     def _sync_dispatch(self, request: HttpRequest, user: Any) -> HttpResponse:
         cache_key = CacheKeys.user_org_access(user.id)
@@ -50,7 +50,7 @@ class OrgAccessMiddleware:
 
         request.org_access = org_access  # type: ignore[attr-defined]
         request.perm_open_access = bool(getattr(settings, "PERM_OPEN_ACCESS", False))  # type: ignore[attr-defined]
-        return self.get_response(request)
+        return cast(HttpResponse, self.get_response(request))
 
     async def _async_dispatch(self, request: HttpRequest, user: Any) -> HttpResponse:
         from asgiref.sync import sync_to_async
@@ -66,7 +66,7 @@ class OrgAccessMiddleware:
 
         request.org_access = org_access  # type: ignore[attr-defined]
         request.perm_open_access = bool(getattr(settings, "PERM_OPEN_ACCESS", False))  # type: ignore[attr-defined]
-        return await self.get_response(request)
+        return cast(HttpResponse, await self.get_response(request))
 
 
 class ApiTrailingSlashMiddleware:
@@ -81,7 +81,7 @@ class ApiTrailingSlashMiddleware:
         if path.startswith("/api/") and path != "/api/" and path.endswith("/"):
             request.path_info = path.rstrip("/")
 
-        return self.get_response(request)
+        return cast(HttpResponse, self.get_response(request))
 
 
 def invalidate_user_org_cache(user_id: int) -> None:

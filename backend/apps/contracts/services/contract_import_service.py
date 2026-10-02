@@ -286,10 +286,10 @@ class ContractImportService:
                 )
                 for inv_data in p_data.get("invoices") or []:
                     if inv_data.get("file_path"):
-                        Invoice.objects.get_or_create(
+                        Invoice.objects.get_or_create(  # type: ignore[misc]  # 发票导入数据为动态类型
                             payment=payment,
                             file_path=inv_data["file_path"],
-                            defaults={
+                            defaults={  # 导入数据动态类型，整体按 dict[str, Any] 处理
                                 "original_filename": inv_data.get("original_filename", ""),
                                 "remark": inv_data.get("remark", ""),
                                 "invoice_code": inv_data.get("invoice_code", ""),

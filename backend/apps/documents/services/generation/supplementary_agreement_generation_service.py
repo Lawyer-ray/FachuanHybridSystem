@@ -232,7 +232,7 @@ class SupplementaryAgreementGenerationService:
                 return "V1"
 
             # 构建子目录路径
-            subdir_path = self.folder_binding_service._resolve_subdir_path(  # type: ignore[attr-defined]
+            subdir_path = self.folder_binding_service._resolve_subdir_path(
                 owner_type=binding.contract.case_type if hasattr(binding, "contract") else "",
                 subdir_key=subdir_key,
             )

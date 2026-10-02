@@ -7,9 +7,9 @@ Contract Admin - Save Mixin
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from django.contrib import messages
+from django.contrib import admin, messages
 
 from apps.contracts.models import Contract, ContractStatus
 from apps.core.exceptions import BusinessException
@@ -30,7 +30,15 @@ def _get_contract_admin_action_service() -> Any:
     return build_contract_admin_action_service()
 
 
-class ContractSaveMixin:  # pragma: no cover
+if TYPE_CHECKING:
+    # mypy 视角下以 ModelAdmin 为基类，super().save_model 等钩子可解析；
+    # 运行时保持纯 mixin（object 基类），与 ModelAdmin 多继承组合使用
+    _ContractSaveMixinBase = admin.ModelAdmin
+else:
+    _ContractSaveMixinBase = object
+
+
+class ContractSaveMixin(_ContractSaveMixinBase):  # pragma: no cover
     """合同 Admin 保存/删除钩子的 Mixin"""
 
     def save_model(self, request: Any, obj: Any, form: Any, change: bool) -> None:  # pragma: no cover

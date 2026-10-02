@@ -26,7 +26,7 @@ def _cleanup_finalized_material_file(sender: Any, instance: Any, **kwargs: Any) 
         return
     try:
         abs_path = Path(settings.MEDIA_ROOT) / file_path
-        transaction.on_commit(lambda p=abs_path, mid=instance.pk, fp=file_path: _unlink_material(p, mid, fp))
+        transaction.on_commit(lambda p=abs_path, mid=instance.pk, fp=file_path: _unlink_material(p, mid, fp))  # type: ignore[misc]  # mypy 对带默认参 lambda 的推断限制
     except (OSError, ValueError):
         logger.exception(
             "post_delete: 清理归档材料文件失败",
@@ -55,7 +55,7 @@ def _cleanup_invoice_file(sender: Any, instance: Any, **kwargs: Any) -> None:  #
     file_path = getattr(instance, "file_path", "")
     if not file_path:
         return
-    transaction.on_commit(lambda fp=file_path, mid=instance.pk: _delete_invoice_file(fp, mid))
+    transaction.on_commit(lambda fp=file_path, mid=instance.pk: _delete_invoice_file(fp, mid))  # type: ignore[misc]  # mypy 对带默认参 lambda 的推断限制
 
 
 def _delete_invoice_file(file_path: str, invoice_id: int) -> None:
@@ -80,7 +80,7 @@ def _cleanup_client_payment_image(sender: Any, instance: Any, **kwargs: Any) -> 
     image_path = getattr(instance, "image_path", "")
     if not image_path:
         return
-    transaction.on_commit(lambda ip=image_path, mid=instance.pk: _delete_payment_image(ip, mid))
+    transaction.on_commit(lambda ip=image_path, mid=instance.pk: _delete_payment_image(ip, mid))  # type: ignore[misc]  # mypy 对带默认参 lambda 的推断限制
 
 
 def _delete_payment_image(image_path: str, record_id: int) -> None:

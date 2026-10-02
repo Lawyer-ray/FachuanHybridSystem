@@ -17,7 +17,7 @@ logger = logging.getLogger("apps.image_rotation")
 def _cleanup_page_files(sender: type, instance: ImageRotationPage, **kwargs: object) -> None:  # pragma: no cover
     if instance.source_image:
         try:
-            transaction.on_commit(lambda f=instance.source_image: f.delete(save=False))
+            transaction.on_commit(lambda f=instance.source_image: f.delete(save=False))  # type: ignore[misc]  # mypy 对带默认参 lambda 的推断限制
         except Exception:
             logger.exception("清理 page source_image 失败: %s", instance.id)
 

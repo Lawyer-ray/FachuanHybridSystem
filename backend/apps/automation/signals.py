@@ -38,7 +38,7 @@ def cleanup_court_document_local_file(sender: type, **kwargs: Any) -> None:  # p
         file_path = Path(settings.MEDIA_ROOT) / instance.local_file_path
     if file_path.exists():
         try:
-            transaction.on_commit(lambda p=file_path: _unlink_court_doc(p, instance.court_sms_id))
+            transaction.on_commit(lambda p=file_path: _unlink_court_doc(p, instance.court_sms_id))  # type: ignore[misc]  # mypy 对带默认参 lambda 的推断限制
         except OSError as exc:
             logger.error(
                 "清理法院文书物理文件失败",
@@ -70,7 +70,7 @@ def cleanup_gsxt_report_task_file(sender: type, **kwargs: Any) -> None:  # pragm
     instance = kwargs["instance"]
     if instance.report_file:
         try:
-            transaction.on_commit(lambda f=instance.report_file: f.delete(save=False))
+            transaction.on_commit(lambda f=instance.report_file: f.delete(save=False))  # type: ignore[misc]  # mypy 对带默认参 lambda 的推断限制
             logger.info("已清理企业信用报告文件", extra={"file_path": str(instance.report_file)})
         except Exception:
             logger.exception("清理企业信用报告失败")

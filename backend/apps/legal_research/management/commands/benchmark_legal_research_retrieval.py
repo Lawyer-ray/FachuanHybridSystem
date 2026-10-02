@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from itertools import product
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
@@ -488,7 +488,7 @@ class Command(BaseCommand):
         self.stdout.write(f"precision: {precision:.4f}")
         self.stdout.write(f"recall:    {recall:.4f}")
         self.stdout.write(f"f1:        {f1:.4f}")
-        self.stdout.write(f"ndcg@k:    {float(summary['ndcg_at_k']):.4f}")
+        self.stdout.write(f"ndcg@k:    {float(cast(float, summary['ndcg_at_k'])):.4f}")
         if query_type_metrics:
             self.stdout.write("=== Query Type Contribution ===")
             for metric in query_type_metrics:
@@ -978,17 +978,19 @@ class Command(BaseCommand):
             return
 
         def _patched_load(patched_cls: type[LegalResearchTuningConfig]) -> LegalResearchTuningConfig:
-            base = original.__get__(None, patched_cls)()
+            base: LegalResearchTuningConfig = original.__get__(None, patched_cls)()
             filtered = {k: v for k, v in payload.items() if hasattr(base, k)}
             if not filtered:
                 return base
-            return replace(base, **filtered)
+            # payload 值类型动态（int/bool/str 混合），静态无法表达，压制 arg-type
+            return replace(base, **filtered)  # type: ignore[arg-type]
 
-        LegalResearchTuningConfig.load = classmethod(_patched_load)
+        # 基准工具运行时替换配置加载入口（monkey-patch），恢复原方法后退出
+        LegalResearchTuningConfig.load = classmethod(_patched_load)  # type: ignore[method-assign,assignment]
         try:
             yield
         finally:
-            LegalResearchTuningConfig.load = original
+            LegalResearchTuningConfig.load = original  # type: ignore[method-assign,assignment]
 
     @classmethod
     def _load_cases(cls, *, path: Path) -> list[dict[str, Any]]:

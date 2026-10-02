@@ -6,5 +6,5 @@ try:
     __all__ = ["CaptchaRecognitionService", "CaptchaServiceAdapter"]
 
 except ImportError:
-    CaptchaRecognitionService = None  # type: ignore[assignment]
-    CaptchaServiceAdapter = None  # type: ignore[assignment]
+    CaptchaRecognitionService = None  # type: ignore[assignment,misc]
+    CaptchaServiceAdapter = None  # type: ignore[assignment,misc]

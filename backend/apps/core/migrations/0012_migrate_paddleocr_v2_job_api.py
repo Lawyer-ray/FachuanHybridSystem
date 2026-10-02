@@ -15,10 +15,12 @@
 - PADDLEOCR_API_TOKEN: 描述更新 (token → bearer)
 """
 
+from typing import Any
+
 from django.db import migrations
 
 
-def migrate_paddleocr_configs(apps, schema_editor):  # pragma: no cover
+def migrate_paddleocr_configs(apps: Any, schema_editor: Any) -> None:  # pragma: no cover
     """执行 PaddleOCR 配置迁移"""
     SystemConfig = apps.get_model("core", "SystemConfig")
 
@@ -71,7 +73,7 @@ def migrate_paddleocr_configs(apps, schema_editor):  # pragma: no cover
     print(f"  {'创建' if created else '更新'}: PADDLEOCR_API_TOKEN")
 
 
-def reverse_migrate(apps, schema_editor):  # pragma: no cover
+def reverse_migrate(apps: Any, schema_editor: Any) -> None:  # pragma: no cover
     """回滚：删除新配置，恢复旧配置"""
     SystemConfig = apps.get_model("core", "SystemConfig")
 

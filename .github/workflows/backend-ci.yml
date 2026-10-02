@@ -275,17 +275,17 @@ jobs:
 
       - name: Type check (mypy, full-scan ratchet)
         # 全量 apps 扫描的存量错误棘轮：只许降不许升。
-        # 2026-10-02 Batch 7 后本地实测 130（含 plugins 子模块；
-        # models 字段注解批 132 + material_classification 65 +
-        # chat_records_api 11 已清零，豁免段撤至 3 段）。
-        # CI 环境无 plugins 与本地存在小幅差异，基线暂设 145。
+        # 2026-10-02 Batch 8 后本地实测 16（含 plugins 子模块）。
+        # 剩余 16 个均为已判定暂缓项：result_admin 值类型窄化(6)、
+        # evidence 双域同名类漂移(8)、generation_service 疑似死字段(2)。
+        # CI 环境无 plugins 与本地存在小幅差异，基线暂设 30。
         # 待首个 PR 的 CI 输出实测值后，可将基线校准收紧到该值。
         env:
           PYTHONPATH: "apiSystem:."
           DJANGO_DEBUG: "1"
         run: |
           set -euo pipefail
-          BASELINE=145
+          BASELINE=30
           errors=$(uv run mypy --config-file=mypy.ini apps --no-pretty --no-error-summary 2>/dev/null | grep -c "error:" || true)
           echo "mypy full-scan errors=${errors} baseline=${BASELINE}"
           if [ "${errors}" -gt "${BASELINE}" ]; then

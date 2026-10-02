@@ -50,4 +50,4 @@ def collect_case_file_paths_for_export(
     for log in case.logs.all():
         for attachment in log.attachments.all():
             if attachment.file:
-                add_path(attachment.file.name)
+                add_path(attachment.file.name or "")

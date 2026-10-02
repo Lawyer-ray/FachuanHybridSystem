@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Callable, Final
 
 from django.contrib import admin, messages
 from django.db.models import QuerySet
@@ -45,10 +45,14 @@ class ExpressQueryToolAdmin(admin.ModelAdmin):  # pragma: no cover
     def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return False
 
-    def has_change_permission(self, request: HttpRequest, obj: ExpressQueryTool | None = None) -> bool:  # pragma: no cover
+    def has_change_permission(
+        self, request: HttpRequest, obj: ExpressQueryTool | None = None
+    ) -> bool:  # pragma: no cover
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj: ExpressQueryTool | None = None) -> bool:  # pragma: no cover
+    def has_delete_permission(
+        self, request: HttpRequest, obj: ExpressQueryTool | None = None
+    ) -> bool:  # pragma: no cover
         return False
 
     def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:  # pragma: no cover
@@ -214,13 +218,17 @@ class ExpressQueryTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return False
 
-    def has_change_permission(self, request: HttpRequest, obj: ExpressQueryTask | None = None) -> bool:  # pragma: no cover
+    def has_change_permission(
+        self, request: HttpRequest, obj: ExpressQueryTask | None = None
+    ) -> bool:  # pragma: no cover
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj: ExpressQueryTask | None = None) -> bool:  # pragma: no cover
+    def has_delete_permission(
+        self, request: HttpRequest, obj: ExpressQueryTask | None = None
+    ) -> bool:  # pragma: no cover
         return True
 
-    def get_actions(self, request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
+    def get_actions(self, request: HttpRequest, action_location: Any = ...) -> dict[str, Any]:  # pragma: no cover
         actions = super().get_actions(request)
         # 仅保留删除操作，移除其他批量操作
         if "delete_selected" in actions:

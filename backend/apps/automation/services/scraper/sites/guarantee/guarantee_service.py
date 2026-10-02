@@ -172,7 +172,7 @@ class CourtZxfwGuaranteeService(  # pragma: no cover
         await self.page.goto(self.GUARANTEE_URL, timeout=60000, wait_until="domcontentloaded")
         await self._async_random_wait(4, 6)
         raw_paths = case_data.get("material_paths") or []
-        self._material_items: list[dict[str, str]] = []
+        self._material_items = []
         for item in raw_paths:
             if isinstance(item, dict):
                 p = str(item.get("path") or "")

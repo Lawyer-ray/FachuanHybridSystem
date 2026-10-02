@@ -72,7 +72,7 @@ class MonitorService:
             # 如果是通过ServiceLocator获取的服务，调用其方法
             tasks = self.task_service.get_tasks_since(since)
 
-        stats = tasks.aggregate(
+        stats: dict[str, Any] = tasks.aggregate(
             total=Count("id"),
             pending=Count("id", filter=Q(status=ScraperTaskStatus.PENDING)),
             running=Count("id", filter=Q(status=ScraperTaskStatus.RUNNING)),

@@ -15,12 +15,12 @@ from django.utils import timezone
 from docxtpl import DocxTemplate
 
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.exceptions.error_codes import TEMPLATE_RENDER_ERROR
 from apps.core.services.filename_template_service import FilenameTemplateService
 from apps.core.utils.path import Path
 from apps.documents.services.infrastructure.wiring import get_case_service, get_document_service
 from apps.documents.services.placeholders import EnhancedContextBuilder
 from apps.documents.services.placeholders.fallback import build_docx_render_context
-from apps.core.exceptions.error_codes import TEMPLATE_RENDER_ERROR
 
 logger = logging.getLogger("apps.documents.generation")
 FUNCTION_CODE_PRESERVATION_APPLICATION = "preservation_application"
@@ -289,7 +289,7 @@ class PreservationMaterialsGenerationService:
     def _build_context(self, *, case: Any) -> dict[str, Any]:
         """构建模板上下文"""
         context_data: dict[str, Any] = {"case": case}
-        return EnhancedContextBuilder().build_context(context_data)  # type: ignore[arg-type]
+        return EnhancedContextBuilder().build_context(context_data)
 
     def _render_template(self, template_path: Path, context: dict[str, Any]) -> bytes:  # pragma: no cover
         """渲染模板"""
