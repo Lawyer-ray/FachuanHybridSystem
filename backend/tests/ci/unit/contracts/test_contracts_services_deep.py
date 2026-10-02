@@ -12,8 +12,8 @@ from apps.contracts.models import (
     Contract,
     ContractAssignment,
     ContractFinanceLog,
-    ContractPayment,
     ContractParty,
+    ContractPayment,
     ContractStatus,
     FeeMode,
     InvoiceStatus,
@@ -21,15 +21,14 @@ from apps.contracts.models import (
 )
 from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
 from apps.contracts.services.contract.domain.validator import ContractValidator
-from apps.contracts.services.contract.mutation.service import ContractMutationService
-from apps.contracts.services.contract.query.service import ContractQueryService
 from apps.contracts.services.contract.domain.workflow_service import ContractWorkflowService
+from apps.contracts.services.contract.mutation.service import ContractMutationService
 from apps.contracts.services.contract.query.contract_details_assembler import ContractDetailsAssembler
-from apps.contracts.services.payment.contract_payment_service import ContractPaymentService
+from apps.contracts.services.contract.query.service import ContractQueryService
 from apps.contracts.services.payment.contract_finance_service import ContractFinanceService
+from apps.contracts.services.payment.contract_payment_service import ContractPaymentService
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
 from apps.testing.factories import CaseFactory, ClientFactory, ContractFactory, LawyerFactory
-
 
 # ── Fixtures ──
 
@@ -510,28 +509,41 @@ class TestContractPaymentService:
 
     def test_list_payments_with_contract_filter(self, db):
         svc = ContractPaymentService()
+        admin = LawyerFactory(is_admin=True)
         c = ContractFactory()
         ContractPayment.objects.create(contract=c, amount=Decimal("1000"), received_at=date.today())
         c2 = ContractFactory()
         ContractPayment.objects.create(contract=c2, amount=Decimal("2000"), received_at=date.today())
-        qs = svc.list_payments(contract_id=c.pk)
+        qs = svc.list_payments(contract_id=c.pk, user=admin)
         assert qs.count() == 1
 
     def test_list_payments_with_invoice_status_filter(self, db):
         svc = ContractPaymentService()
+        admin = LawyerFactory(is_admin=True)
         c = ContractFactory()
         ContractPayment.objects.create(contract=c, amount=Decimal("1000"), invoice_status=InvoiceStatus.UNINVOICED)
         ContractPayment.objects.create(contract=c, amount=Decimal("2000"), invoice_status=InvoiceStatus.INVOICED_FULL)
-        qs = svc.list_payments(invoice_status=InvoiceStatus.UNINVOICED)
+        qs = svc.list_payments(invoice_status=InvoiceStatus.UNINVOICED, user=admin)
         assert qs.count() == 1
 
     def test_list_payments_with_date_range(self, db):
         svc = ContractPaymentService()
+        admin = LawyerFactory(is_admin=True)
         c = ContractFactory()
         ContractPayment.objects.create(contract=c, amount=Decimal("1000"), received_at=date(2025, 1, 15))
         ContractPayment.objects.create(contract=c, amount=Decimal("2000"), received_at=date(2025, 6, 15))
-        qs = svc.list_payments(start_date=date(2025, 3, 1), end_date=date(2025, 12, 31))
+        qs = svc.list_payments(start_date=date(2025, 3, 1), end_date=date(2025, 12, 31), user=admin)
         assert qs.count() == 1
+
+    def test_list_payments_scoped_for_non_admin(self, db):
+        svc = ContractPaymentService()
+        lawyer = LawyerFactory(is_admin=False)
+        c = ContractFactory()
+        ContractPayment.objects.create(contract=c, amount=Decimal("1000"), received_at=date.today())
+        # 未指派该律师的合同，收款不可见
+        assert svc.list_payments(user=lawyer).count() == 0
+        # 未认证（user=None）同样不可见
+        assert svc.list_payments().count() == 0
 
     def test_get_payment(self, db):
         svc = ContractPaymentService()
@@ -710,18 +722,29 @@ class TestContractFinanceService:
 
     def test_get_finance_stats_with_data(self, db):
         svc = ContractFinanceService()
+        admin = LawyerFactory(is_admin=True)
         c = ContractFactory()
         ContractPayment.objects.create(
             contract=c, amount=Decimal("1000"), invoiced_amount=Decimal("500"),
             invoice_status=InvoiceStatus.INVOICED_PARTIAL
         )
-        result = svc.get_finance_stats(contract_id=c.pk)
+        result = svc.get_finance_stats(contract_id=c.pk, user=admin)
         assert len(result["items"]) == 1
 
     def test_get_finance_stats_with_date_range(self, db):
         svc = ContractFinanceService()
+        admin = LawyerFactory(is_admin=True)
         c = ContractFactory()
         ContractPayment.objects.create(contract=c, amount=Decimal("1000"), received_at=date(2025, 6, 1))
         ContractPayment.objects.create(contract=c, amount=Decimal("2000"), received_at=date(2025, 1, 1))
-        result = svc.get_finance_stats(start_date=date(2025, 3, 1), end_date=date(2025, 12, 31))
+        result = svc.get_finance_stats(start_date=date(2025, 3, 1), end_date=date(2025, 12, 31), user=admin)
         assert len(result["items"]) == 1
+
+    def test_get_finance_stats_scoped_for_non_admin(self, db):
+        svc = ContractFinanceService()
+        lawyer = LawyerFactory(is_admin=False)
+        c = ContractFactory()
+        ContractPayment.objects.create(contract=c, amount=Decimal("1000"), received_at=date.today())
+        result = svc.get_finance_stats(user=lawyer)
+        assert result["items"] == []
+        assert result["total_received_all"] == 0

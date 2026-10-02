@@ -201,9 +201,9 @@ class TestDummyServices:
         svc = _DummyDocumentProcessorService()
         file_mock = MagicMock()
         file_mock.name = "test.pdf"
-        result = svc.process_uploaded_file(file_mock)
-        assert result.success is True
-        assert result.file_info["name"] == "test.pdf"
+        result = svc.process_uploaded_document(file_mock)
+        assert result["text"] == "ok"
+        assert result["file_name"] == "test.pdf"
 
 
 class TestCheckDjangoQ:

@@ -586,7 +586,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                 }""",
                     ws_json,
                 )
-            return await self._asave_download_file(download_info.value, download_dir, doc_name, index)
+            return await self._asave_download_file(await download_info.value, download_dir, doc_name, index)
         except Exception as exc:
             logger.info("[async] 司法送达网: Vue downloadFile 方式下载失败，尝试备选方案: %s", exc)
 

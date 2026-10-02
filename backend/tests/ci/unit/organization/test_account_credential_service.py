@@ -122,19 +122,31 @@ class TestUpdateCredential:
         svc = AccountCredentialService()
         cred = _mock_credential()
         with patch.object(svc, "get_credential", return_value=cred):
-            data = AccountCredentialUpdateDTO(site_name="new_site", account="new_acc")
-            result = svc.update_credential(1, data, _mock_user())
-            assert result.site_name == "new_site"
-            assert result.account == "new_acc"
-            cred.save.assert_called_once()
+            with patch.object(svc._access_policy, "can_update_lawyer", return_value=True):
+                data = AccountCredentialUpdateDTO(site_name="new_site", account="new_acc")
+                result = svc.update_credential(1, data, _mock_user())
+                assert result.site_name == "new_site"
+                assert result.account == "new_acc"
+                cred.save.assert_called_once()
 
     def test_no_changes(self, db: object) -> None:
         svc = AccountCredentialService()
         cred = _mock_credential()
         with patch.object(svc, "get_credential", return_value=cred):
-            data = AccountCredentialUpdateDTO()
-            svc.update_credential(1, data, _mock_user())
-            cred.save.assert_not_called()
+            with patch.object(svc._access_policy, "can_update_lawyer", return_value=True):
+                data = AccountCredentialUpdateDTO()
+                svc.update_credential(1, data, _mock_user())
+                cred.save.assert_not_called()
+
+    def test_permission_denied(self, db: object) -> None:
+        svc = AccountCredentialService()
+        cred = _mock_credential()
+        with patch.object(svc, "get_credential", return_value=cred):
+            with patch.object(svc._access_policy, "can_update_lawyer", return_value=False):
+                data = AccountCredentialUpdateDTO(site_name="new_site")
+                with pytest.raises(PermissionDenied):
+                    svc.update_credential(1, data, _mock_user())
+                cred.save.assert_not_called()
 
 
 # ── delete_credential ──────────────────────────────────────────────────
@@ -145,8 +157,18 @@ class TestDeleteCredential:
         svc = AccountCredentialService()
         cred = _mock_credential()
         with patch.object(svc, "get_credential", return_value=cred):
-            svc.delete_credential(1, _mock_user())
-            cred.delete.assert_called_once()
+            with patch.object(svc._access_policy, "can_update_lawyer", return_value=True):
+                svc.delete_credential(1, _mock_user())
+                cred.delete.assert_called_once()
+
+    def test_permission_denied(self, db: object) -> None:
+        svc = AccountCredentialService()
+        cred = _mock_credential()
+        with patch.object(svc, "get_credential", return_value=cred):
+            with patch.object(svc._access_policy, "can_update_lawyer", return_value=False):
+                with pytest.raises(PermissionDenied):
+                    svc.delete_credential(1, _mock_user())
+                cred.delete.assert_not_called()
 
 
 # ── get_credentials_by_site ─────────────────────────────────────────────

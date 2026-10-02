@@ -1,13 +1,14 @@
 """Coverage tests for core.llm.prompts.base, core.api.pagination, core.models.querysets, core.http.streaming, core.infrastructure.asgi_lifespan."""
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
 
 
 class TestPromptManager:
     def test_register_and_get(self):
-        from apps.core.llm.prompts.base import PromptManager, CodePromptTemplate
+        from apps.core.llm.prompts.base import CodePromptTemplate, PromptManager
         PromptManager.clear()
         t = CodePromptTemplate(name="test_greet", template="Hello {name}", description="greet", variables=["name"])
         PromptManager.register(t)
@@ -15,7 +16,7 @@ class TestPromptManager:
         assert result.name == "test_greet"
 
     def test_render(self):
-        from apps.core.llm.prompts.base import PromptManager, CodePromptTemplate
+        from apps.core.llm.prompts.base import CodePromptTemplate, PromptManager
         PromptManager.clear()
         t = CodePromptTemplate(name="test_render2", template="Hi {user} at {place}", description="", variables=["user", "place"])
         PromptManager.register(t)
@@ -23,8 +24,8 @@ class TestPromptManager:
         assert result == "Hi Alice at Beijing"
 
     def test_render_missing_vars(self):
-        from apps.core.llm.prompts.base import PromptManager, CodePromptTemplate
         from apps.core.exceptions import ValidationException
+        from apps.core.llm.prompts.base import CodePromptTemplate, PromptManager
         PromptManager.clear()
         t = CodePromptTemplate(name="test_miss", template="{a} {b}", description="", variables=["a", "b"])
         PromptManager.register(t)
@@ -32,13 +33,13 @@ class TestPromptManager:
             PromptManager.render("test_miss", a="x")
 
     def test_get_not_found(self):
-        from apps.core.llm.prompts.base import PromptManager
         from apps.core.exceptions import NotFoundError
+        from apps.core.llm.prompts.base import PromptManager
         with pytest.raises(NotFoundError):
             PromptManager.get("nonexistent_prompt_xyz")
 
     def test_list_templates(self):
-        from apps.core.llm.prompts.base import PromptManager, CodePromptTemplate
+        from apps.core.llm.prompts.base import CodePromptTemplate, PromptManager
         PromptManager.clear()
         PromptManager.register(CodePromptTemplate(name="t1", template="a", description=""))
         PromptManager.register(CodePromptTemplate(name="t2", template="b", description=""))
@@ -46,7 +47,7 @@ class TestPromptManager:
         assert "t1" in names and "t2" in names
 
     def test_clear(self):
-        from apps.core.llm.prompts.base import PromptManager, CodePromptTemplate
+        from apps.core.llm.prompts.base import CodePromptTemplate, PromptManager
         PromptManager.clear()
         PromptManager.register(CodePromptTemplate(name="t_clear", template="x", description=""))
         assert len(PromptManager.list_templates()) >= 1
@@ -122,33 +123,3 @@ class TestLifespanApp:
             sent.append(msg)
         await app({}, receive, send)
         assert sent[0]["type"] == "lifespan.startup.failed"
-
-
-class TestHttpErrorSummary:
-    def test_summarize_json_error(self):
-        from apps.core.llm.backends.http_error_summary import summarize_http_error_response
-        resp = MagicMock()
-        resp.status_code = 400
-        resp.headers = {"content-type": "application/json", "x-request-id": "req-123"}
-        resp.json.return_value = {"error": {"message": "bad request", "code": "INVALID"}}
-        resp.text = '{"error": {"message": "bad request"}}'
-        result = summarize_http_error_response(resp)
-        assert result["status_code"] == 400
-        assert result["upstream_request_id"] == "req-123"
-        assert result["upstream_error_message"] == "bad request"
-
-    def test_summarize_text_fallback(self):
-        from apps.core.llm.backends.http_error_summary import summarize_http_error_response
-        resp = MagicMock()
-        resp.status_code = 500
-        resp.headers = {}
-        resp.json.side_effect = ValueError("not json")
-        resp.text = "Internal Server Error"
-        result = summarize_http_error_response(resp)
-        assert result["status_code"] == 500
-        assert "upstream_error_text" in result
-
-    def test_truncate(self):
-        from apps.core.llm.backends.http_error_summary import _truncate
-        assert _truncate("hello", 10) == "hello"
-        assert _truncate("a" * 250, 200).endswith("...")

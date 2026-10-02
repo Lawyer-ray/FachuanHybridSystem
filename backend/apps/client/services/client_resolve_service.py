@@ -43,7 +43,8 @@ class ClientResolveService:
             existing = Client.objects.filter(id_number=id_number).first()
             if existing:
                 self._cache[id_number] = existing
-                logger.info("复用已有当事人", extra={"client_id": existing.pk, "id_number": id_number})
+                # 安全审计：id_number 属于 PII，禁止写入日志
+                logger.info("复用已有当事人", extra={"client_id": existing.pk})
                 return existing
 
         # 校验

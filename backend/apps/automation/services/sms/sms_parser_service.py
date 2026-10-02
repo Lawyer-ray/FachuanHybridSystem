@@ -276,7 +276,8 @@ class SMSParserService:
         match = self.SFDW_VERIFICATION_CODE_PATTERN.search(content)
         if match:
             code = match.group(1)
-            logger.info(f"提取到司法送达网验证码: {code}")
+            masked_code = code[:2] + "****" if len(code) > 2 else "****"
+            logger.info(f"提取到司法送达网验证码: {masked_code}")
             return code
         return ""
 

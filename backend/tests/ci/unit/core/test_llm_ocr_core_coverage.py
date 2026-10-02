@@ -146,15 +146,6 @@ class TestCourtApiClient:
         assert CourtApiClient is not None
 
 
-# --- automation factory ---
-
-class TestAutomationFactory:
-    def test_import(self):
-        from apps.core.exceptions.automation_factory import AutomationExceptions
-
-        assert AutomationExceptions is not None
-
-
 # --- gdrive_provider ---
 
 class TestGDriveProvider:

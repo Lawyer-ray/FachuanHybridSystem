@@ -404,7 +404,14 @@ class ICaseService(Protocol):
         """
         ...
 
-    def search_cases_for_binding_internal(self, search_term: str = "", limit: int = 20) -> list[dict[str, Any]]:
+    def search_cases_for_binding_internal(
+        self,
+        search_term: str = "",
+        limit: int = 20,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> list[dict[str, Any]]:
         """
         内部方法:搜索可绑定的案件(用于文书识别等跨模块场景)
 
@@ -413,6 +420,9 @@ class ICaseService(Protocol):
         Args:
             search_term: 搜索关键词
             limit: 返回数量限制
+            user: 当前用户（提供时按案件访问范围过滤）
+            org_access: 组织访问上下文
+            perm_open_access: 是否开放访问权限
 
         Returns:
             案件信息字典列表,每个元素包含:

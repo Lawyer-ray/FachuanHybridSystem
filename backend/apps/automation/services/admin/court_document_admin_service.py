@@ -35,70 +35,28 @@ class CourtDocumentAdminService:
     @transaction.atomic
     def batch_download_documents(self, document_ids: list[int]) -> dict[str, Any]:
         """
-        批量下载文书
+        批量下载文书（暂未接入下载消费者）
+
+        全仓无批量下载消费者：若在此处置为 DOWNLOADING，文书将永久卡死。
+        因此只做校验并直接返回明确错误，不修改任何状态。
 
         Args:
             document_ids: 文书ID列表
 
         Returns:
-            Dict[str, Any]: 下载结果统计
+            Dict[str, Any]: 下载结果统计（当前实现不会返回）
 
         Raises:
-            ValidationException: 参数验证失败
-            BusinessException: 下载失败
+            ValidationException: 参数验证失败 / 批量下载暂未接入
         """
         if not document_ids:
             raise ValidationException(message="没有选中任何文书", code="NO_DOCUMENTS_SELECTED", errors={})
 
-        try:
-            # 获取待下载的文书
-            documents = CourtDocument.objects.filter(
-                id__in=document_ids, download_status__in=[DocumentDownloadStatus.PENDING, DocumentDownloadStatus.FAILED]
-            )
-
-            if not documents.exists():
-                raise ValidationException(
-                    message="没有找到可下载的文书",
-                    code="NO_DOWNLOADABLE_DOCUMENTS",
-                    errors={"document_ids": document_ids},
-                )
-
-            # 更新状态为下载中
-            updated_count = documents.update(
-                download_status=DocumentDownloadStatus.DOWNLOADING, updated_at=timezone.now()
-            )
-
-            self.logger.info(
-                "开始批量下载文书",
-                extra={
-                    "action": "batch_download_documents",
-                    "document_count": updated_count,
-                    "document_ids": document_ids,
-                },
-            )
-
-            # 这里应该触发异步下载任务
-            # 实际实现中会调用下载服务
-
-            result = {
-                "total_requested": len(document_ids),
-                "started_download": updated_count,
-                "already_downloaded": len(document_ids) - updated_count,
-            }
-
-            self.logger.info("批量下载文书任务已启动", extra={"action": "batch_download_documents", "result": result})
-
-            return result
-
-        except Exception as e:
-            self.logger.error(
-                "批量下载文书失败",
-                extra={"action": "batch_download_documents", "document_ids": document_ids, "error": str(e)},
-                exc_info=True,
-            )
-            raise BusinessException(
-                message="批量下载文书失败", code="BATCH_DOWNLOAD_FAILED", errors={"error": str(e)}
-            ) from e
+        raise ValidationException(
+            message="批量下载暂未接入，请在法院短信详情中逐个下载",
+            code="BATCH_DOWNLOAD_NOT_IMPLEMENTED",
+            errors={},
+        )
 
     @transaction.atomic
     def batch_delete_documents(

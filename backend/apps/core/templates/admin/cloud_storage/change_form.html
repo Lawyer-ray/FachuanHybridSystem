@@ -173,7 +173,7 @@
 
   {% if onedrive_authorized %}
     <span style="color:#0a7; font-weight:bold;">已授权</span>
-    <form method="post" action="{% url 'admin:core_cloudstorageaccount_onedrive_start' onedrive_account_id %}" style="display:inline; margin-left:8px;">
+    <form method="post" action="{% url 'admin:cloud_storage_cloudstorageaccount_onedrive_start' onedrive_account_id %}" style="display:inline; margin-left:8px;">
       {% csrf_token %}
       <button type="submit" class="button">重新授权</button>
     </form>
@@ -186,7 +186,7 @@
     <button type="button" onclick="window.location.reload()" class="button" style="margin-top:8px;">刷新查看结果</button>
 
   {% else %}
-    <form method="post" action="{% url 'admin:core_cloudstorageaccount_onedrive_start' onedrive_account_id %}">
+    <form method="post" action="{% url 'admin:cloud_storage_cloudstorageaccount_onedrive_start' onedrive_account_id %}">
       {% csrf_token %}
       <button type="submit" class="button">获取设备码</button>
       <span style="color:var(--fc-text-disabled); font-size:12px; margin-left:8px;">点击后在浏览器中完成微软授权</span>
@@ -360,7 +360,7 @@
 
   {% if dropbox_authorized %}
     <span style="color:#0a7; font-weight:bold;">已授权</span>
-    <form method="post" action="{% url 'admin:core_cloudstorageaccount_dropbox_start' dropbox_account_id %}" style="display:inline; margin-left:8px;">
+    <form method="post" action="{% url 'admin:cloud_storage_cloudstorageaccount_dropbox_start' dropbox_account_id %}" style="display:inline; margin-left:8px;">
       {% csrf_token %}
       <button type="submit" class="button">重新授权</button>
     </form>
@@ -373,7 +373,7 @@
     <button type="button" onclick="window.location.reload()" class="button" style="margin-top:8px;">刷新查看结果</button>
 
   {% else %}
-    <form method="post" action="{% url 'admin:core_cloudstorageaccount_dropbox_start' dropbox_account_id %}">
+    <form method="post" action="{% url 'admin:cloud_storage_cloudstorageaccount_dropbox_start' dropbox_account_id %}">
       {% csrf_token %}
       <button type="submit" class="button">获取设备码</button>
       <span style="color:var(--fc-text-disabled); font-size:12px; margin-left:8px;">点击后在浏览器中完成 Dropbox 授权</span>

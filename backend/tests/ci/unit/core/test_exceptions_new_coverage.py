@@ -453,16 +453,6 @@ class TestErrorPresentation:
 
 
 class TestExceptionsInit:
-    def test_automation_exceptions_deprecated(self):
-        import warnings
-
-        from apps.core import exceptions
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            with pytest.warns(DeprecationWarning):
-                result = exceptions.AutomationExceptions
-
     def test_unknown_attr_raises(self):
         from apps.core import exceptions
 

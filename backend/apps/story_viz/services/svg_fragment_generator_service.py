@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -9,6 +10,16 @@ from apps.core.llm.structured_output import json_schema_instructions, parse_mode
 from apps.story_viz.schemas import AnimationScript
 
 logger = logging.getLogger("apps.story_viz")
+
+# 危险标签/协议黑名单（小写匹配）
+_UNSAFE_SVG_TOKENS: tuple[str, ...] = ("<script", "<iframe", "<foreignobject", "<embed", "<object", "javascript:")
+# 任意 on* 事件属性（如 onload= / onanimationend=）
+_EVENT_ATTR_RE = re.compile(r"\son[a-z]+\s*=")
+
+
+def _is_unsafe_fragment(svg_lowered: str) -> bool:
+    """黑名单命中即拒绝该片段（安全审计 XSS）。"""
+    return any(token in svg_lowered for token in _UNSAFE_SVG_TOKENS) or bool(_EVENT_ATTR_RE.search(svg_lowered))
 
 
 class SvgFragmentItem(BaseModel):
@@ -48,8 +59,7 @@ class SvgFragmentGeneratorService:
             clean_fragments: list[dict[str, str]] = []
             for item in parsed.fragments:
                 svg = item.svg.strip()
-                lowered = svg.lower()
-                if "<script" in lowered or "onload=" in lowered or "onclick=" in lowered:
+                if _is_unsafe_fragment(svg.lower()):
                     continue
                 clean_fragments.append({"name": item.name, "svg": svg})
             if not clean_fragments:
@@ -83,8 +93,7 @@ class SvgFragmentGeneratorService:
             clean_fragments: list[dict[str, str]] = []
             for item in parsed.fragments:
                 svg = item.svg.strip()
-                lowered = svg.lower()
-                if "<script" in lowered or "onload=" in lowered or "onclick=" in lowered:
+                if _is_unsafe_fragment(svg.lower()):
                     continue
                 clean_fragments.append({"name": item.name, "svg": svg})
             if not clean_fragments:

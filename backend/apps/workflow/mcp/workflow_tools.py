@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from django.conf import settings
+
     TEMPORAL_ADDRESS = getattr(settings, "TEMPORAL_ADDRESS", "localhost:7233")
 except Exception:
     TEMPORAL_ADDRESS = "localhost:7233"
@@ -26,18 +27,48 @@ async def _get_client():  # type: ignore[no-untyped-def]
     global _client
     if _client is None:
         from temporalio.client import Client
+
         _client = await Client.connect(TEMPORAL_ADDRESS)
     return _client
 
 
-async def start_workflow(template_slug: str, case_id: int) -> dict[str, Any]:
+async def start_workflow(
+    template_slug: str,
+    case_id: int,
+    *,
+    user: Any | None = None,
+    org_access: dict[str, Any] | None = None,
+    perm_open_access: bool = False,
+) -> dict[str, Any]:
     """启动诉讼工作流
 
     Args:
         template_slug: 流程模板标识，如 'sales-contract-dispute-test'
         case_id: 案件 ID
+        user: 发起用户（有用户上下文时校验案件访问权并记录 created_by）
+        org_access: 组织级访问上下文（与 user 配套，来自请求上下文）
+        perm_open_access: 是否开放访问（与 user 配套，来自请求上下文）
     """
     from apps.workflow.models import WorkflowRun, WorkflowTemplate
+
+    is_authenticated_user = bool(user and getattr(user, "is_authenticated", False))
+    if is_authenticated_user:
+        # 有用户上下文时校验案件访问权（安全审计 IDOR）
+        from asgiref.sync import sync_to_async
+
+        from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+        from apps.core.exceptions import ForbiddenError
+
+        has_access = await sync_to_async(CaseAccessPolicy().has_access, thread_sensitive=False)(
+            case_id=case_id,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+        )
+        if not has_access:
+            raise ForbiddenError("无权限访问此案件")
+    # 注意（安全）：MCP 直连调用链无用户上下文，此处无法校验案件归属；
+    # 用户上下文存在时（user 非空）已按 CaseAccessPolicy 校验
 
     template = await WorkflowTemplate.objects.aget(slug=template_slug, is_active=True)
     client = await _get_client()
@@ -46,6 +77,7 @@ async def start_workflow(template_slug: str, case_id: int) -> dict[str, Any]:
     run = await WorkflowRun.objects.acreate(
         template=template,
         case_id=case_id,
+        created_by=user if is_authenticated_user else None,
         temporal_workflow_id=workflow_id,
         temporal_run_id="",
         status=WorkflowRun.Status.RUNNING,
@@ -53,11 +85,13 @@ async def start_workflow(template_slug: str, case_id: int) -> dict[str, Any]:
 
     handle = await client.start_workflow(
         template.temporal_workflow_name,
-        args=[{
-            "case_id": case_id,
-            "run_id": run.id,
-            "template_id": template.id,
-        }],
+        args=[
+            {
+                "case_id": case_id,
+                "run_id": run.id,
+                "template_id": template.id,
+            }
+        ],
         id=workflow_id,
         task_queue=TASK_QUEUE,
     )
@@ -252,6 +286,7 @@ async def get_step_registry() -> list[dict[str, Any]]:
     返回按类别分组的步骤定义列表，每个步骤包含 id、name、type、mcp_tool 等信息。
     """
     from apps.workflow.api.step_registry import STEP_CATEGORIES
+
     return STEP_CATEGORIES
 
 
@@ -261,6 +296,7 @@ async def get_step_registry_flat() -> list[dict[str, Any]]:
     返回所有步骤的扁平列表，每个步骤附带 category_id 和 category_name。
     """
     from apps.workflow.api.step_registry import get_flat_step_list
+
     return get_flat_step_list()
 
 
@@ -303,18 +339,20 @@ async def create_workflow_template(
     # 将步骤列表规范化为 steps_schema 格式
     steps_schema = []
     for step in steps:
-        steps_schema.append({
-            "id": step.get("id", ""),
-            "name": step.get("name", ""),
-            "type": step.get("type", "activity"),
-            "description": step.get("description", ""),
-            "icon": step.get("icon", ""),
-            "mcp_tool": step.get("mcp_tool", ""),
-            "config": step.get("config", {}),
-            "timeout": step.get("timeout", "30s"),
-            "retry_max": step.get("retry_max", 3),
-            "on_fail": step.get("on_fail", "abort"),
-        })
+        steps_schema.append(
+            {
+                "id": step.get("id", ""),
+                "name": step.get("name", ""),
+                "type": step.get("type", "activity"),
+                "description": step.get("description", ""),
+                "icon": step.get("icon", ""),
+                "mcp_tool": step.get("mcp_tool", ""),
+                "config": step.get("config", {}),
+                "timeout": step.get("timeout", "30s"),
+                "retry_max": step.get("retry_max", 3),
+                "on_fail": step.get("on_fail", "abort"),
+            }
+        )
 
     template = await WorkflowTemplate.objects.acreate(
         name=name,
@@ -378,18 +416,20 @@ async def update_workflow_template(
     if steps is not None:
         steps_schema = []
         for step in steps:
-            steps_schema.append({
-                "id": step.get("id", ""),
-                "name": step.get("name", ""),
-                "type": step.get("type", "activity"),
-                "description": step.get("description", ""),
-                "icon": step.get("icon", ""),
-                "mcp_tool": step.get("mcp_tool", ""),
-                "config": step.get("config", {}),
-                "timeout": step.get("timeout", "30s"),
-                "retry_max": step.get("retry_max", 3),
-                "on_fail": step.get("on_fail", "abort"),
-            })
+            steps_schema.append(
+                {
+                    "id": step.get("id", ""),
+                    "name": step.get("name", ""),
+                    "type": step.get("type", "activity"),
+                    "description": step.get("description", ""),
+                    "icon": step.get("icon", ""),
+                    "mcp_tool": step.get("mcp_tool", ""),
+                    "config": step.get("config", {}),
+                    "timeout": step.get("timeout", "30s"),
+                    "retry_max": step.get("retry_max", 3),
+                    "on_fail": step.get("on_fail", "abort"),
+                }
+            )
         template.steps_schema = steps_schema
         updated_fields.append("steps_schema")
 
@@ -551,6 +591,7 @@ async def start_workflow_from_steps(
     """
     if not template_name:
         from django.utils import timezone
+
         template_name = f"临时工作流-{timezone.now().strftime('%Y%m%d%H%M%S')}"
 
     # 创建模板

@@ -217,16 +217,23 @@ def delete_identity_doc(request: Any, doc_id: int) -> dict[str, Any]:  # pragma:
 def submit_recognize_task(  # pragma: no cover
     request: Any,
     file: UploadedFile = File(...),
+    doc_type: str = "id_card",
 ) -> dict[str, Any]:
     """提交证件识别异步任务"""
     service = _get_identity_doc_service()
     rel_path = service.save_uploaded_file_to_dir(file, rel_dir="client_docs/recognize")
+    # execute_identity_doc_recognition(file_path, doc_type) 的 doc_type 为必填参数，
+    # 缺省会令任务 100% TypeError；默认取合法证件类型 id_card（DOC_TYPE_CHOICES）
+    normalized_doc_type = (doc_type or "").strip() or "id_card"
     task_service = get_task_service_port()
     task_id: str = task_service.submit_task(
         "apps.client.tasks.execute_identity_doc_recognition",
         rel_path,
+        normalized_doc_type,
     )
-    logger.info("证件识别任务已提交", extra={"task_id": task_id, "file_path": rel_path})
+    logger.info(
+        "证件识别任务已提交", extra={"task_id": task_id, "file_path": rel_path, "doc_type": normalized_doc_type}
+    )
     return {"task_id": task_id, "status": "pending"}
 
 

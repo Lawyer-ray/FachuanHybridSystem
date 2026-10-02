@@ -365,10 +365,12 @@ class InboxMessageAdmin(admin.ModelAdmin):  # pragma: no cover
         colors = {"imap": "#0d6efd", "court_inbox": "#6f42c1"}
         st = obj.source.source_type
         color = colors.get(st, "#6c757d")
-        return mark_safe(
-            f'<span style="display:inline-flex;align-items:center;gap:4px;background:{color};color:#fff;'
-            f'padding:3px 10px;border-radius:12px;font-size:11px;white-space:nowrap">'
-            f"{obj.source.display_name}</span>"
+        # display_name 用户可控，必须转义（format_html 占位符传参）
+        return format_html(
+            '<span style="display:inline-flex;align-items:center;gap:4px;background:{};color:#fff;'
+            'padding:3px 10px;border-radius:12px;font-size:11px;white-space:nowrap">{}</span>',
+            color,
+            obj.source.display_name,
         )
 
     @admin.display(description="收件人")

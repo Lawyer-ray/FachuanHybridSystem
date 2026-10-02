@@ -46,12 +46,14 @@ class StoryAnimationJobService:
         if not source_text:
             raise ValidationException(message="正文不能为空", errors={"source_text": "请输入判决书正文"})
 
-        # 去重检查：相同 viz_type + 全文哈希 视为重复输入
+        # 去重检查：相同 viz_type + 全文哈希 视为重复输入（限本人创建的记录，防越权命中他人任务）
         text_hash = hashlib.sha256(source_text.encode()).hexdigest()[:32]
+        created_by_value = created_by if getattr(created_by, "is_authenticated", False) else None
         dup = (
             StoryAnimation.objects.filter(
                 viz_type=viz_type,
                 source_hash=text_hash,
+                created_by=created_by_value,
             )
             .exclude(status__in={StoryAnimationStatus.FAILED, StoryAnimationStatus.CANCELLED})
             .order_by("-created_at")
@@ -69,7 +71,7 @@ class StoryAnimationJobService:
             status=StoryAnimationStatus.PENDING,
             current_stage=StoryAnimationStage.QUEUED,
             progress_percent=0,
-            created_by=created_by if getattr(created_by, "is_authenticated", False) else None,
+            created_by=created_by_value,
         )
         task_name = self.submit_generation(animation=animation)
         StoryAnimation.objects.filter(id=animation.id).update(task_id=task_name, started_at=timezone.now())
@@ -85,9 +87,13 @@ class StoryAnimationJobService:
             )
         )
 
-    def get_animation(self, *, animation_id: UUID | str) -> StoryAnimation:
+    def get_animation(self, *, animation_id: UUID | str, user: typing.Any = None) -> StoryAnimation:
+        """按 ID 取任务；user 非空且非 superuser 时限定本人创建（安全审计 IDOR）。"""
         try:
-            return StoryAnimation.objects.get(id=UUID(str(animation_id)))
+            qs = StoryAnimation.objects.all()
+            if user is not None and not getattr(user, "is_superuser", False):
+                qs = qs.filter(created_by=user)
+            return qs.get(id=UUID(str(animation_id)))
         except StoryAnimation.DoesNotExist:
             raise NotFoundError(message="故事可视化任务不存在", code="STORY_VIZ_NOT_FOUND", errors={}) from None
 
@@ -264,8 +270,10 @@ class StoryAnimationJobService:
         return questions[:5]
 
     @transaction.atomic
-    def request_cancel(self, *, animation_id: UUID | str) -> StoryAnimation:  # pragma: no cover
-        animation = self.get_animation(animation_id=animation_id)
+    def request_cancel(
+        self, *, animation_id: UUID | str, user: typing.Any = None
+    ) -> StoryAnimation:  # pragma: no cover
+        animation = self.get_animation(animation_id=animation_id, user=user)
         if animation.status in {
             StoryAnimationStatus.COMPLETED,
             StoryAnimationStatus.FAILED,
@@ -297,8 +305,8 @@ class StoryAnimationJobService:
         return animation
 
     @transaction.atomic
-    def retry(self, *, animation_id: UUID | str) -> StoryAnimation:  # pragma: no cover
-        animation = self.get_animation(animation_id=animation_id)
+    def retry(self, *, animation_id: UUID | str, user: typing.Any = None) -> StoryAnimation:  # pragma: no cover
+        animation = self.get_animation(animation_id=animation_id, user=user)
         if animation.status not in {StoryAnimationStatus.FAILED, StoryAnimationStatus.CANCELLED}:
             raise ValidationException(message="当前状态不允许重试", errors={"status": animation.status})
 
@@ -317,8 +325,8 @@ class StoryAnimationJobService:
         animation.refresh_from_db()
         return animation
 
-    def ask(self, *, animation_id: UUID | str, question: str, model: str | None = None) -> str:
-        animation = self.get_animation(animation_id=animation_id)
+    def ask(self, *, animation_id: UUID | str, question: str, model: str | None = None, user: typing.Any = None) -> str:
+        animation = self.get_animation(animation_id=animation_id, user=user)
         if animation.status != StoryAnimationStatus.COMPLETED:
             raise ValidationException(message="任务未完成，暂无法问答", errors={"status": animation.status})
 

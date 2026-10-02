@@ -76,7 +76,7 @@ def test_preview_api_returns_409_when_not_completed(monkeypatch: pytest.MonkeyPa
     fake_animation = SimpleNamespace(status="processing", animation_html="")
 
     class _FakeJobService:
-        def get_animation(self, *, animation_id: object) -> object:
+        def get_animation(self, *, animation_id: object, user: object = None) -> object:
             return fake_animation
 
     monkeypatch.setattr(

@@ -5,11 +5,19 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from django.utils.crypto import get_random_string
+
 from apps.organization.models import Lawyer
 
 logger = logging.getLogger("apps.organization")
 
-_DEFAULT_PASSWORD = "1234qwer"
+# 初始密码长度（随机生成，含大小写字母与数字）
+_INITIAL_PASSWORD_LENGTH = 12
+
+
+def _generate_initial_password() -> str:
+    """为导入创建的律师生成随机初始密码（安全审计：禁止硬编码弱密码）。"""
+    return get_random_string(_INITIAL_PASSWORD_LENGTH)
 
 
 class LawyerResolveService:
@@ -55,7 +63,7 @@ class LawyerResolveService:
         new_username = self._unique_username(real_name)
         lawyer = Lawyer.objects.create_user(
             username=new_username,
-            password=_DEFAULT_PASSWORD,
+            password=_generate_initial_password(),
             real_name=real_name,
             phone=phone,
             is_active=True,

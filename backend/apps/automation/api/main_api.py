@@ -54,14 +54,20 @@ def upload_file(  # pragma: no cover
     service = _get_document_processor_service()
 
     # 调用服务处理文件上传
-    result = service.process_uploaded_file(uploaded_file=file, limit=limit, preview_page=preview_page)
+    result = service.process_uploaded_document(uploaded_file=file, limit=limit, preview_page=preview_page)
 
     return {
-        "success": result.success,
-        "file_info": result.file_info,
-        "extraction": result.extraction,
-        "processing_params": result.processing_params,
-        "error": result.error,
+        "success": True,
+        "file_info": {
+            "file_name": result.get("file_name"),
+            "file_size": result.get("file_size"),
+        },
+        "extraction": {
+            "image_url": result.get("image_url"),
+            "text": result.get("text"),
+        },
+        "processing_params": {"limit": limit, "preview_page": preview_page},
+        "error": None,
     }
 
 

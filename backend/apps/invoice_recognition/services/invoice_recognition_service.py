@@ -117,8 +117,17 @@ class InvoiceRecognitionService:
 
         return False, None
 
-    def upload_and_recognize(self, task_id: int, files: list[UploadedFile]) -> list[InvoiceRecord]:  # pragma: no cover
-        task = InvoiceRecognitionTask.objects.get(pk=task_id)
+    def _get_task_for_user(self, task_id: int, user: Any | None) -> InvoiceRecognitionTask:
+        """按 ID 取任务；user 非空且非 superuser 时校验任务归属（否则视为不存在）."""
+        qs = InvoiceRecognitionTask.objects.all()
+        if user is not None and not getattr(user, "is_superuser", False):
+            qs = qs.filter(created_by=user)
+        return qs.get(pk=task_id)
+
+    def upload_and_recognize(
+        self, task_id: int, files: list[UploadedFile], *, user: Any | None = None
+    ) -> list[InvoiceRecord]:  # pragma: no cover
+        task = self._get_task_for_user(task_id, user)
         task.status = InvoiceRecognitionTaskStatus.PROCESSING
         task.save(update_fields=["status"])
 
@@ -201,8 +210,11 @@ class InvoiceRecognitionService:
 
         return records
 
-    def get_task_status(self, task_id: int) -> dict[str, Any]:
-        task = InvoiceRecognitionTask.objects.prefetch_related("records").get(pk=task_id)
+    def get_task_status(self, task_id: int, *, user: Any | None = None) -> dict[str, Any]:
+        qs = InvoiceRecognitionTask.objects.prefetch_related("records")
+        if user is not None and not getattr(user, "is_superuser", False):
+            qs = qs.filter(created_by=user)
+        task = qs.get(pk=task_id)
         task_dict: dict[str, Any] = {
             "id": task.id,
             "name": task.name,

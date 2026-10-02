@@ -14,6 +14,7 @@ from ninja import Router
 
 from apps.contracts.schemas import FinanceStatsItem, FinanceStatsOut
 from apps.contracts.services.payment.contract_finance_service import ContractFinanceService
+from apps.core.dto.request_context import extract_request_context
 
 router = Router()
 
@@ -40,6 +41,7 @@ async def finance_stats(  # pragma: no cover
     4. 返回响应
     """
     service = _get_finance_service()
+    ctx = await sync_to_async(extract_request_context)(request)
 
     # 解析日期参数
     d1 = parse_date(start_date) if start_date else None
@@ -50,6 +52,9 @@ async def finance_stats(  # pragma: no cover
         contract_id=contract_id,
         start_date=d1,
         end_date=d2,
+        user=ctx.user,
+        perm_open_access=ctx.perm_open_access,
+        org_access=ctx.org_access,
     )
 
     # 转换为 Schema

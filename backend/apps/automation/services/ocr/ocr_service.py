@@ -21,7 +21,6 @@ from PIL import Image
 
 from apps.core.protocols.ocr_types import OCRTextResult
 
-
 logger = logging.getLogger(__name__)
 
 # 全局 OCR 引擎实例缓存(按模型档位区分,避免 fast/accurate 串用同一引擎)
@@ -135,7 +134,9 @@ class OCRService:
             return "\n".join(result.txts)
         return ""
 
-    def recognize_with_boxes(self, image_path: str) -> tuple[list[list[Any]] | None, list[float] | None]:  # pragma: no cover
+    def recognize_with_boxes(
+        self, image_path: str
+    ) -> tuple[list[list[Any]] | None, list[float] | None]:  # pragma: no cover
         """
         识别图片中的文字,返回带位置信息的结果
 
@@ -250,6 +251,13 @@ class OCRService:
             return (0.0, 0.0)
         ys: list[Any] = []
         xs: list[Any] = []
+        # box 是 4 个 [x, y] 顶点列表，取所有顶点的最小 y / 最小 x 作为排序键
+        for point in self._to_list(box):
+            coords = self._to_list(point)
+            if len(coords) < 2:
+                continue
+            xs.append(float(coords[0]))
+            ys.append(float(coords[1]))
         y = min(ys) if ys else 0
         x = min(xs) if xs else 0
         return (int(y) // 12, int(x) // 8)

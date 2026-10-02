@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
-
 from ninja import Schema
+from pydantic import Field
 
 
 class FeeCalculationRequest(Schema):
@@ -31,7 +30,7 @@ class FeeCalculationResponse(Schema):
     ip_fee: float | None = None
     fixed_fee: float | None = None
     fee_name: str | None = None
-    calculation_details: ClassVar[list[str]] = []
+    calculation_details: list[str] = Field(default_factory=list)
     # 新增字段
     special_case_type: str | None = None  # 特殊案件类型
     fee_display_text: str | None = None  # 特殊费用显示文本

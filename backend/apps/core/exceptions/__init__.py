@@ -65,17 +65,6 @@ from .external import (
 
 
 def __getattr__(name: str) -> object:
-    if name == "AutomationExceptions":
-        import warnings
-
-        warnings.warn(
-            "AutomationExceptions is deprecated, use direct exception instantiation",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        from .automation_factory import AutomationExceptions as _AutomationExceptions
-
-        return _AutomationExceptions
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -136,8 +125,6 @@ __all__ = [
     "owner_timeout_error",
     "owner_network_error",
     "owner_config_error",
-    # Automation 异常工厂
-    "AutomationExceptions",
     # 异常处理器
     "register_exception_handlers",
 ]

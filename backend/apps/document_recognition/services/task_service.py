@@ -182,7 +182,15 @@ class DocumentRecognitionTaskService:
             for t in tasks
         ]
 
-    def search_cases_for_binding(self, *, search_term: str = "", limit: int = 20) -> list[dict[str, Any]]:
+    def search_cases_for_binding(
+        self,
+        *,
+        search_term: str = "",
+        limit: int = 20,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> list[dict[str, Any]]:
         """搜索可绑定的案件
 
         支持按案件名称、案号、当事人搜索.
@@ -190,6 +198,9 @@ class DocumentRecognitionTaskService:
         Args:
             search_term: 搜索关键词
             limit: 返回数量限制
+            user: 当前用户（提供时按案件访问范围过滤）
+            org_access: 组织访问上下文
+            perm_open_access: 是否开放访问权限
 
         Returns:
             案件信息字典列表
@@ -197,7 +208,13 @@ class DocumentRecognitionTaskService:
         from apps.core.interfaces import ServiceLocator
 
         case_service = ServiceLocator.get_case_service()
-        results = case_service.search_cases_for_binding_internal(search_term=search_term, limit=limit)
+        results = case_service.search_cases_for_binding_internal(
+            search_term=search_term,
+            limit=limit,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+        )
 
         logger.info(
             "案件搜索完成",

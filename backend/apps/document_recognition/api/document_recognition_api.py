@@ -587,8 +587,18 @@ async def search_cases_for_binding(
     """
     limit = min(limit, 200)
     task_service = _get_task_service()
+    user = getattr(request, "user", None)
+    if not user or not getattr(user, "is_authenticated", False):
+        user = getattr(request, "auth", None)
+    from apps.core.security import get_request_access_context
+
+    ctx = get_request_access_context(request)
     raw_results = await sync_to_async(task_service.search_cases_for_binding)(
-        search_term=q.strip() if q else "", limit=limit
+        search_term=q.strip() if q else "",
+        limit=limit,
+        user=user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
     )
 
     results = [

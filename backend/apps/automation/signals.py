@@ -38,7 +38,7 @@ def cleanup_court_document_local_file(sender: type, **kwargs: Any) -> None:  # p
         file_path = Path(settings.MEDIA_ROOT) / instance.local_file_path
     if file_path.exists():
         try:
-            transaction.on_commit(lambda p=file_path: _unlink_court_doc(p, instance.court_sms_id))  # type: ignore[misc]  # mypy 对带默认参 lambda 的推断限制
+            transaction.on_commit(lambda p=file_path: _unlink_court_doc(p, instance.scraper_task_id))  # type: ignore[misc]  # mypy 对带默认参 lambda 的推断限制
         except OSError as exc:
             logger.error(
                 "清理法院文书物理文件失败",
@@ -46,12 +46,12 @@ def cleanup_court_document_local_file(sender: type, **kwargs: Any) -> None:  # p
             )
 
 
-def _unlink_court_doc(file_path: Path, court_sms_id: Any) -> None:
+def _unlink_court_doc(file_path: Path, scraper_task_id: Any) -> None:
     try:
         file_path.unlink()
         logger.info(
             "已清理法院文书物理文件",
-            extra={"file_path": str(file_path), "court_sms_id": court_sms_id},
+            extra={"file_path": str(file_path), "scraper_task_id": scraper_task_id},
         )
     except OSError as exc:
         logger.error(

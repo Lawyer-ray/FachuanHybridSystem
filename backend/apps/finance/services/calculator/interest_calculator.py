@@ -299,7 +299,7 @@ class InterestCalculator:
                 seg_start = max(pp.start_date, rs.start)
                 seg_end = min(pp.end_date, rs.end)
 
-                if seg_start >= seg_end:
+                if seg_start > seg_end:
                     continue
 
                 # 确定利率

@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch, PropertyMock
 from typing import Any
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
 from apps.core.exceptions import NotFoundError, ValidationException
-
 
 # ── _to_session_dto ───────────────────────────────────────────────
 
@@ -161,6 +160,42 @@ class TestGetSession:
             mock_dto.return_value = MagicMock()
             svc.get_session("abc-123")
             mock_dto.assert_called_once_with(mock_session)
+
+    def test_permission_denied_for_non_owner(self):
+        from apps.core.exceptions import PermissionDenied
+
+        svc = self._make_service()
+        mock_session = MagicMock()
+        mock_session.user_id = 1
+        svc.session_repo.get_session_with_case_sync.return_value = mock_session
+
+        user = MagicMock()
+        user.id = 2
+        user.is_superuser = False
+        user.is_admin = False
+        with pytest.raises(PermissionDenied):
+            svc.get_session("abc-123", user=user)
+
+    def test_owner_and_admin_allowed(self):
+        svc = self._make_service()
+        mock_session = MagicMock()
+        mock_session.user_id = 1
+        svc.session_repo.get_session_with_case_sync.return_value = mock_session
+
+        owner = MagicMock()
+        owner.id = 1
+        owner.is_superuser = False
+        owner.is_admin = False
+        admin = MagicMock()
+        admin.id = 2
+        admin.is_superuser = False
+        admin.is_admin = True
+
+        with patch.object(svc, "_to_session_dto") as mock_dto:
+            mock_dto.return_value = MagicMock()
+            svc.get_session("abc-123", user=owner)
+            svc.get_session("abc-123", user=admin)
+            assert mock_dto.call_count == 2
 
 
 # ── update_session_status ─────────────────────────────────────────

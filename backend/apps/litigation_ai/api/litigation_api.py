@@ -88,8 +88,9 @@ async def list_sessions(  # pragma: no cover
 )
 async def get_session(request: HttpRequest, session_id: str) -> Any:  # pragma: no cover
     service = _get_conversation_service()
+    user = getattr(request, "user", None)
 
-    session = await sync_to_async(service.get_session)(session_id)
+    session = await sync_to_async(service.get_session)(session_id, user=user)
     messages = await sync_to_async(service.get_messages)(session_id)
     recommended_types = await sync_to_async(service.get_recommended_document_types)(session.case_id)
 
@@ -119,8 +120,13 @@ async def get_session(request: HttpRequest, session_id: str) -> Any:  # pragma: 
     "/sessions/{session_id}/messages",
     response={200: MessageListResponse, 404: ErrorResponse, 403: ErrorResponse},
 )
-async def get_messages(request: HttpRequest, session_id: str, limit: int = 50, offset: int = 0) -> Any:  # pragma: no cover
+async def get_messages(
+    request: HttpRequest, session_id: str, limit: int = 50, offset: int = 0
+) -> Any:  # pragma: no cover
     service = _get_conversation_service()
+    user = getattr(request, "user", None)
+
+    await sync_to_async(service.get_session)(session_id, user=user)
 
     messages = await sync_to_async(service.get_messages)(session_id, limit=limit, offset=offset)
     total = await sync_to_async(service.get_message_count)(session_id)
@@ -146,8 +152,13 @@ async def get_messages(request: HttpRequest, session_id: str, limit: int = 50, o
     "/sessions/{session_id}",
     response={200: SessionResponse, 404: ErrorResponse, 400: ErrorResponse, 403: ErrorResponse},
 )
-async def update_session_status(request: HttpRequest, session_id: str, payload: UpdateSessionStatusRequest) -> Any:  # pragma: no cover
+async def update_session_status(
+    request: HttpRequest, session_id: str, payload: UpdateSessionStatusRequest
+) -> Any:  # pragma: no cover
     service = _get_conversation_service()
+    user = getattr(request, "user", None)
+
+    await sync_to_async(service.get_session)(session_id, user=user)
     session = await sync_to_async(service.update_session_status)(session_id, payload.status)
 
     return {
@@ -177,11 +188,14 @@ async def delete_session(request: HttpRequest, session_id: str) -> Any:  # pragm
     response={200: GenerateDocumentResponse, 404: ErrorResponse, 400: ErrorResponse, 403: ErrorResponse},
 )
 @rate_limit_from_settings("LLM", by_user=True)
-async def generate_document(request: HttpRequest, session_id: str, payload: GenerateDocumentRequest) -> Any:  # pragma: no cover
+async def generate_document(
+    request: HttpRequest, session_id: str, payload: GenerateDocumentRequest
+) -> Any:  # pragma: no cover
     service = _get_document_generator_service()
 
     conversation_service = _get_conversation_service()
-    await sync_to_async(conversation_service.get_session)(session_id)
+    user = getattr(request, "user", None)
+    await sync_to_async(conversation_service.get_session)(session_id, user=user)
 
     task = await sync_to_async(service.generate_document)(session_id=session_id, template_id=payload.template_id)
 

@@ -35,8 +35,11 @@ class ConversationHistoryRepository:
             step=step,
         )
 
-    def get_by_session_id(self, session_id: str) -> QuerySet[ConversationHistory]:
-        return ConversationHistory.objects.filter(session_id=session_id)
+    def get_by_session_id(self, session_id: str, user_id: str | None = None) -> QuerySet[ConversationHistory]:
+        qs = ConversationHistory.objects.filter(session_id=session_id)
+        if user_id:
+            qs = qs.filter(user_id=user_id)
+        return qs
 
     def get_by_litigation_session_ids(self, litigation_session_ids: list[int]) -> QuerySet[ConversationHistory]:
         return ConversationHistory.objects.filter(litigation_session_id__in=litigation_session_ids)
@@ -44,8 +47,11 @@ class ConversationHistoryRepository:
     def get_all(self) -> QuerySet[ConversationHistory]:
         return ConversationHistory.objects.all()
 
-    def delete_by_session_id(self, session_id: str) -> tuple[int, dict[str, int]]:
-        return ConversationHistory.objects.filter(session_id=session_id).delete()
+    def delete_by_session_id(self, session_id: str, user_id: str | None = None) -> tuple[int, dict[str, int]]:
+        qs = ConversationHistory.objects.filter(session_id=session_id)
+        if user_id:
+            qs = qs.filter(user_id=user_id)
+        return qs.delete()
 
     async def acreate(
         self,
@@ -68,8 +74,14 @@ class ConversationHistoryRepository:
             step=step,
         )
 
-    async def aget_by_session_id(self, session_id: str) -> QuerySet[ConversationHistory]:
-        return ConversationHistory.objects.filter(session_id=session_id)
+    async def aget_by_session_id(self, session_id: str, user_id: str | None = None) -> QuerySet[ConversationHistory]:
+        qs = ConversationHistory.objects.filter(session_id=session_id)
+        if user_id:
+            qs = qs.filter(user_id=user_id)
+        return qs
 
-    async def adelete_by_session_id(self, session_id: str) -> tuple[int, dict[str, int]]:
-        return await ConversationHistory.objects.filter(session_id=session_id).adelete()
+    async def adelete_by_session_id(self, session_id: str, user_id: str | None = None) -> tuple[int, dict[str, int]]:
+        qs = ConversationHistory.objects.filter(session_id=session_id)
+        if user_id:
+            qs = qs.filter(user_id=user_id)
+        return await qs.adelete()

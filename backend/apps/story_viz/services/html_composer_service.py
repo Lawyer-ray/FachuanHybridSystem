@@ -4,6 +4,11 @@ import json
 from html import escape
 
 
+def _safe_json(value: object) -> str:
+    """json.dumps 结果转义 < >，防止注入 <script> 上下文导致 XSS（安全审计）。"""
+    return json.dumps(value, ensure_ascii=False).replace("<", "\\u003c").replace(">", "\\u003e")
+
+
 class AnimationHtmlComposerService:
     def compose(
         self,
@@ -14,8 +19,8 @@ class AnimationHtmlComposerService:
         fragment_payload: dict[str, object],
     ) -> str:
         safe_title = escape(title or "故事可视化")
-        render_json = json.dumps(render_payload, ensure_ascii=False)
-        fragment_json = json.dumps(fragment_payload, ensure_ascii=False)
+        render_json = _safe_json(render_payload)
+        fragment_json = _safe_json(fragment_payload)
 
         if viz_type == "relationship":
             body = self._relationship_body(title=safe_title, payload=render_payload)
@@ -87,8 +92,8 @@ const fragmentPayload = {fragment_json};
     def _d3_script(self, render_payload: dict[str, object]) -> str:
         edges = render_payload.get("edges", [])
         nodes = render_payload.get("nodes", [])
-        nodes_str = json.dumps(nodes, ensure_ascii=False)
-        edges_str = json.dumps(edges, ensure_ascii=False)
+        nodes_str = _safe_json(nodes)
+        edges_str = _safe_json(edges)
         return f"""
 (function(){{
 const width=Math.min(920,document.querySelector('.viz-wrap').clientWidth);
@@ -168,7 +173,7 @@ sim.on('tick',()=>{{link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr(
         nodes = render_payload.get("nodes", [])
         return f"""
 (function(){{
-const items={json.dumps(nodes, ensure_ascii=False)};
+const items={_safe_json(nodes)};
 const root=document.getElementById('viz-root');
 if(!items.length){{root.innerHTML='<div style="text-align:center;color:var(--muted);padding:40px">暂无可视化数据</div>';return;}}
 
@@ -240,7 +245,7 @@ function escapeHtml(t){{if(!t)return'';return String(t).replace(/&/g,'&amp;').re
         nodes = render_payload.get("nodes", [])
         return f"""
 (function(){{
-const nodes={json.dumps(nodes, ensure_ascii=False)};
+const nodes={_safe_json(nodes)};
 const root=document.getElementById('viz-root');
 if(!nodes.length){{root.innerHTML='<div style="text-align:center;color:var(--muted);padding:40px">暂无可视化数据</div>';return;}}
 

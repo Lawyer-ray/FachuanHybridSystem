@@ -94,8 +94,8 @@ class AccountCredentialService:
         if lawyer is None:
             raise NotFoundError(message="律师不存在", code="LAWYER_NOT_FOUND")
 
-        # 权限检查：验证用户是否有权限为该律师创建凭证
-        if not self._access_policy.can_read_lawyer(user=user, lawyer=lawyer):
+        # 权限检查：写操作复用律师更新权限（读权限不足以创建凭证）
+        if not self._access_policy.can_update_lawyer(user=user, lawyer=lawyer):
             raise PermissionDenied(message="无权限为该律师创建凭证", code="CREDENTIAL_CREATE_DENIED")
 
         credential = AccountCredential.objects.create(
@@ -134,6 +134,10 @@ class AccountCredentialService:
         """
         credential = self.get_credential(credential_id, user)
 
+        # 权限检查：写操作复用律师更新权限（读权限不足以修改凭证）
+        if not self._access_policy.can_update_lawyer(user=user, lawyer=credential.lawyer):
+            raise PermissionDenied(message="无权限修改该凭证", code="CREDENTIAL_UPDATE_DENIED")
+
         updated_fields: list[str] = []
         if data.site_name is not None:
             credential.site_name = data.site_name
@@ -164,8 +168,13 @@ class AccountCredentialService:
             NotFoundError: 凭证不存在
             PermissionDenied: 无权限删除该凭证
         """
-        # get_credential 已包含权限检查
+        # get_credential 已包含读取权限检查
         credential = self.get_credential(credential_id, user)
+
+        # 权限检查：写操作复用律师更新权限（读权限不足以删除凭证）
+        if not self._access_policy.can_update_lawyer(user=user, lawyer=credential.lawyer):
+            raise PermissionDenied(message="无权限删除该凭证", code="CREDENTIAL_DELETE_DENIED")
+
         credential.delete()
 
         logger.info("凭证删除成功", extra={"credential_id": credential_id, "action": "delete_credential"})

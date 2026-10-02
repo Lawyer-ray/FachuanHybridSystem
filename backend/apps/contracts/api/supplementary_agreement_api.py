@@ -94,7 +94,9 @@ async def create_supplementary_agreement(  # pragma: no cover
 
 
 @router.get("/supplementary-agreements/{agreement_id}", response=SupplementaryAgreementOut)
-async def get_supplementary_agreement(request: HttpRequest, agreement_id: int) -> SupplementaryAgreementOut:  # pragma: no cover
+async def get_supplementary_agreement(
+    request: HttpRequest, agreement_id: int
+) -> SupplementaryAgreementOut:  # pragma: no cover
     contract_id = await _async_resolve_contract_id_from_agreement(agreement_id)
     await _async_ensure_contract_access(request, contract_id)
     service = _get_supplementary_agreement_service()
@@ -102,7 +104,9 @@ async def get_supplementary_agreement(request: HttpRequest, agreement_id: int) -
 
 
 @router.get("/contracts/{contract_id}/supplementary-agreements", response=list[SupplementaryAgreementOut])
-async def list_supplementary_agreements(request: HttpRequest, contract_id: int) -> list[SupplementaryAgreementOut]:  # pragma: no cover
+async def list_supplementary_agreements(
+    request: HttpRequest, contract_id: int
+) -> list[SupplementaryAgreementOut]:  # pragma: no cover
     await _async_ensure_contract_access(request, contract_id)
     service = _get_supplementary_agreement_service()
     return await sync_to_async(service.list_by_contract)(contract_id)  # type: ignore[return-value]
@@ -122,9 +126,11 @@ async def update_supplementary_agreement(  # pragma: no cover
 
 
 @router.delete("/supplementary-agreements/{agreement_id}")
-async def delete_supplementary_agreement(request: HttpRequest, agreement_id: int) -> dict[str, bool]:  # pragma: no cover
+async def delete_supplementary_agreement(
+    request: HttpRequest, agreement_id: int
+) -> dict[str, bool]:  # pragma: no cover
     contract_id = await _async_resolve_contract_id_from_agreement(agreement_id)
-    _ensure_contract_access(request, contract_id)
+    await _async_ensure_contract_access(request, contract_id)
     service = _get_supplementary_agreement_service()
     await sync_to_async(service.delete_supplementary_agreement)(agreement_id)
     return {"success": True}

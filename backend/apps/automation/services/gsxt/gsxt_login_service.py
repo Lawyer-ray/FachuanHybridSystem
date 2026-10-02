@@ -82,29 +82,32 @@ async def _click_company_detail(page: Any, company_name: str, context: Any) -> A
 
     # 使用 a.search_list_item h1 匹配企业名称（新版本页面结构）
     # h1 中的关键词可能被 <font color="red"> 包裹，所以用 includes 而非精确匹配
-    link_info = await page.evaluate(f"""(() => {{
-        const items = document.querySelectorAll('a.search_list_item');
-        for (const item of items) {{
-            const h1 = item.querySelector('h1');
-            if (!h1) continue;
-            const name = h1.innerText.trim();
-            if (name === '{company_name}' || name.includes('{company_name}')) {{
-                return {{ href: item.href, name: name }};
-            }}
-        }}
-        // 模糊匹配：去除括号和空格后比较
-        const normalized = '{company_name}'.replace(/[()（）\\s]/g, '');
-        for (const item of items) {{
-            const h1 = item.querySelector('h1');
-            if (!h1) continue;
-            const name = h1.innerText.trim();
-            const normName = name.replace(/[()（）\\s]/g, '');
-            if (normName.includes(normalized) || normalized.includes(normName)) {{
-                return {{ href: item.href, name: name }};
-            }}
-        }}
-        return null;
-    }})()""")
+    link_info = await page.evaluate(
+        """(keyword) => {
+            const items = document.querySelectorAll('a.search_list_item');
+            for (const item of items) {
+                const h1 = item.querySelector('h1');
+                if (!h1) continue;
+                const name = h1.innerText.trim();
+                if (name === keyword || name.includes(keyword)) {
+                    return { href: item.href, name: name };
+                }
+            }
+            // 模糊匹配：去除括号和空格后比较
+            const normalized = keyword.replace(/[()（）\\s]/g, '');
+            for (const item of items) {
+                const h1 = item.querySelector('h1');
+                if (!h1) continue;
+                const name = h1.innerText.trim();
+                const normName = name.replace(/[()（）\\s]/g, '');
+                if (normName.includes(normalized) || normalized.includes(normName)) {
+                    return { href: item.href, name: name };
+                }
+            }
+            return null;
+        }""",
+        company_name,
+    )
 
     if not link_info:
         raise GsxtReportError(f"搜索结果中未找到企业：{company_name}")
@@ -122,30 +125,33 @@ async def _click_company_detail(page: Any, company_name: str, context: Any) -> A
 
     try:
         # 必须用 JS click 在搜索页上点击链接（不能直接导航，会被 WAF 拦截）
-        clicked = await page.evaluate(f"""(() => {{
-            const items = document.querySelectorAll('a.search_list_item');
-            for (const item of items) {{
-                const h1 = item.querySelector('h1');
-                if (!h1) continue;
-                const name = h1.innerText.trim();
-                if (name === '{company_name}' || name.includes('{company_name}')) {{
-                    item.click();
-                    return true;
-                }}
-            }}
-            const normalized = '{company_name}'.replace(/[()（）\\s]/g, '');
-            for (const item of items) {{
-                const h1 = item.querySelector('h1');
-                if (!h1) continue;
-                const name = h1.innerText.trim();
-                const normName = name.replace(/[()（）\\s]/g, '');
-                if (normName.includes(normalized) || normalized.includes(normName)) {{
-                    item.click();
-                    return true;
-                }}
-            }}
-            return false;
-        }})()""")
+        clicked = await page.evaluate(
+            """(keyword) => {
+                const items = document.querySelectorAll('a.search_list_item');
+                for (const item of items) {
+                    const h1 = item.querySelector('h1');
+                    if (!h1) continue;
+                    const name = h1.innerText.trim();
+                    if (name === keyword || name.includes(keyword)) {
+                        item.click();
+                        return true;
+                    }
+                }
+                const normalized = keyword.replace(/[()（）\\s]/g, '');
+                for (const item of items) {
+                    const h1 = item.querySelector('h1');
+                    if (!h1) continue;
+                    const name = h1.innerText.trim();
+                    const normName = name.replace(/[()（）\\s]/g, '');
+                    if (normName.includes(normalized) || normalized.includes(normName)) {
+                        item.click();
+                        return true;
+                    }
+                }
+                return false;
+            }""",
+            company_name,
+        )
 
         if clicked:
             logger.info("已点击企业链接，等待详情页加载...")

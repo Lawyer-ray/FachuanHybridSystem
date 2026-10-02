@@ -48,6 +48,7 @@ async def list_payments(  # pragma: no cover
         end_date=d2,
         user=ctx.user,
         perm_open_access=ctx.perm_open_access,
+        org_access=ctx.org_access,
     )
     return await sync_to_async(list)(qs)  # type: ignore[call-arg]
 
@@ -73,7 +74,9 @@ async def create_payment(request: HttpRequest, payload: ContractPaymentIn) -> An
 
 
 @router.put("/finance/payments/{payment_id}", response=ContractPaymentOut)
-async def update_payment(request: HttpRequest, payment_id: int, payload: ContractPaymentUpdate) -> Any:  # pragma: no cover
+async def update_payment(
+    request: HttpRequest, payment_id: int, payload: ContractPaymentUpdate
+) -> Any:  # pragma: no cover
     """更新收款记录"""
     service = _get_payment_service()
     ctx = await sync_to_async(extract_request_context)(request)

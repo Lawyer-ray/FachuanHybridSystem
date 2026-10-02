@@ -70,15 +70,13 @@ def test_get_config(mock_build, authenticated_client):
 @pytest.mark.django_db
 @patch("apps.core.dependencies.automation_adapters.build_document_processing_service")
 def test_upload_file(mock_build, authenticated_client):
-    mock_result = MagicMock()
-    mock_result.success = True
-    mock_result.file_info = {"name": "test.txt"}
-    mock_result.extraction = {"text": "hello"}
-    mock_result.processing_params = {}
-    mock_result.error = None
-
     mock_service = MagicMock()
-    mock_service.process_uploaded_file.return_value = mock_result
+    mock_service.process_uploaded_document.return_value = {
+        "file_name": "test.txt",
+        "file_size": 11,
+        "image_url": None,
+        "text": "hello",
+    }
     mock_build.return_value = mock_service
 
     f = SimpleUploadedFile("test.txt", b"hello world", content_type="text/plain")
@@ -97,16 +95,16 @@ def test_upload_file(mock_build, authenticated_client):
 @pytest.mark.django_db
 @patch("apps.core.dependencies.build_document_processing_service")
 def test_document_processor_process(mock_build, authenticated_client):
-    mock_result = MagicMock()
-    mock_result.image_url = "http://example.com/img.png"
-    mock_result.text_excerpt = "excerpt"
     mock_service = MagicMock()
-    mock_service.process_document.return_value = mock_result
+    mock_service.extract_document_content_by_path.return_value = {
+        "image_url": "http://example.com/img.png",
+        "text": "excerpt",
+    }
     mock_build.return_value = mock_service
 
     resp = authenticated_client.post(
         "/api/v1/automation/document-processor/process",
-        data=json.dumps({"file_path": "/tmp/test.pdf", "kind": "pdf"}),
+        data=json.dumps({"file_path": "documents/test.pdf", "kind": "pdf"}),
         content_type="application/json",
     )
     assert resp.status_code == 200

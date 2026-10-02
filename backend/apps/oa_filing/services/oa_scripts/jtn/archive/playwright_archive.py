@@ -128,11 +128,14 @@ class PlaywrightArchiveMixin:  # pragma: no cover
             logger.info("目标案件已在选择弹窗列表，直接选中（跳过查询）: %s", case_no)
         else:
             # 填号并执行查询
-            await popup_frame.evaluate(f"""() => {{
-                const el = document.getElementById("project_no");
-                el.removeAttribute("readonly");
-                el.value = "{case_no}";
-            }}""")
+            await popup_frame.evaluate(
+                """(caseNo) => {
+                    const el = document.getElementById("project_no");
+                    el.removeAttribute("readonly");
+                    el.value = caseNo;
+                }""",
+                case_no,
+            )
             await asyncio.sleep(SHORT_WAIT)
             await popup_frame.evaluate(IFRAME_SEARCH_FN)
 
@@ -201,16 +204,19 @@ class PlaywrightArchiveMixin:  # pragma: no cover
     async def _fill_description(self: Any, page: Page, description: str) -> None:  # pragma: no cover
         """填写案件小结（readonly textarea，需 JS 去除 readonly）。"""
         logger.info("填写案件小结: %s", description)
-        result = await page.evaluate(f"""() => {{
-            const ta = document.querySelector('{DESCRIPTION_SELECTOR}');
-            if (!ta) return 'textarea not found';
-            ta.readOnly = false;
-            ta.removeAttribute('readonly');
-            ta.value = '{description}';
-            ta.dispatchEvent(new Event('input', {{ bubbles: true }}));
-            ta.dispatchEvent(new Event('change', {{ bubbles: true }}));
-            return 'ok';
-        }}""")
+        result = await page.evaluate(
+            """({ sel, value }) => {
+                const ta = document.querySelector(sel);
+                if (!ta) return 'textarea not found';
+                ta.readOnly = false;
+                ta.removeAttribute('readonly');
+                ta.value = value;
+                ta.dispatchEvent(new Event('input', { bubbles: true }));
+                ta.dispatchEvent(new Event('change', { bubbles: true }));
+                return 'ok';
+            }""",
+            {"sel": DESCRIPTION_SELECTOR, "value": description},
+        )
         if result != "ok":
             raise RuntimeError(f"填写案件小结失败: {result}")
         await asyncio.sleep(SHORT_WAIT)
