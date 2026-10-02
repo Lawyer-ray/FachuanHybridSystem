@@ -4,6 +4,8 @@ import logging
 from datetime import datetime
 from typing import Any, cast
 
+from django.utils import timezone
+
 logger = logging.getLogger("apps.document_recognition")
 
 # 开庭时间正则表达式模式
@@ -190,7 +192,7 @@ class DatetimeExtractionMixin:
 
     def _validate_hearing_datetime(self, dt: datetime) -> tuple[bool, int, str]:
         """校验开庭时间的合理性"""
-        now = datetime.now()
+        now = timezone.localtime()
         score = 50
         reasons: list[str] = []
         days_diff = (dt.date() - now.date()).days

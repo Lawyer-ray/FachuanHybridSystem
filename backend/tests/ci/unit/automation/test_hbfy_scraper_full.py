@@ -7,7 +7,7 @@ import hashlib
 import re
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -15,7 +15,7 @@ import pytest
 def _make_scraper(url: str = "", config: dict | None = None):
     from apps.automation.services.scraper.scrapers.court_document.hbfy_scraper import HbfyCourtScraper
     scraper = HbfyCourtScraper.__new__(HbfyCourtScraper)
-    scraper.task = SimpleNamespace(url=url, config=config or {})
+    scraper.task = SimpleNamespace(url=url, config=config or {})  # type: ignore[assignment]
     scraper.debug_info = {}
     mock_recognizer = MagicMock()
     mock_recognizer.recognize.return_value = "ABCD"
@@ -925,21 +925,6 @@ class TestTryExpectDownload:
         scraper.page.locator.return_value = target
         scraper.page.expect_download.side_effect = Exception("timeout")
         result = scraper._try_expect_download("button", Path("/tmp"), prefix="test")
-        assert result is None
-
-
-# ======================================================================
-# _try_download_all_with_confirm
-# ======================================================================
-
-class TestTryDownloadAllWithConfirm:
-    def test_no_download_button(self):
-        scraper = _make_scraper()
-        scraper.page = MagicMock()
-        btn = MagicMock()
-        btn.count.return_value = 0
-        scraper.page.locator.return_value = btn
-        result = scraper._try_download_all_with_confirm(Path("/tmp"))
         assert result is None
 
 

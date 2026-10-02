@@ -7,7 +7,6 @@ Covers:
   - _get_system_config: cached value, async context fallback, SystemConfigService success/failure,
     Django settings fallback, default
   - _get_system_config_async: success, failure, fallback
-  - get_temperature / get_max_tokens: valid, invalid, ValueError
   - _normalize_api_key / _normalize_base_url
   - get_openai_compatible_* methods (sync + async)
   - get_default_backend / get_default_backend_async
@@ -167,35 +166,6 @@ class TestGetSystemConfig:
 
         result = asyncio.run(_test())
         assert result == "async_val"
-
-
-# ===========================================================================
-# get_temperature / get_max_tokens
-# ===========================================================================
-
-
-class TestGetTemperature:
-    def test_valid(self) -> None:
-        with patch.object(LLMConfig, "_get_system_config", return_value="0.5"):
-            assert LLMConfig.get_temperature() == 0.5
-
-    def test_invalid_returns_default(self) -> None:
-        with patch.object(LLMConfig, "_get_system_config", return_value="abc"):
-            assert LLMConfig.get_temperature() == 0.3
-
-    def test_none_returns_default(self) -> None:
-        with patch.object(LLMConfig, "_get_system_config", return_value=None):
-            assert LLMConfig.get_temperature() == 0.3
-
-
-class TestGetMaxTokens:
-    def test_valid(self) -> None:
-        with patch.object(LLMConfig, "_get_system_config", return_value="4000"):
-            assert LLMConfig.get_max_tokens() == 4000
-
-    def test_invalid_returns_default(self) -> None:
-        with patch.object(LLMConfig, "_get_system_config", return_value="xyz"):
-            assert LLMConfig.get_max_tokens() == 2000
 
 
 # ===========================================================================

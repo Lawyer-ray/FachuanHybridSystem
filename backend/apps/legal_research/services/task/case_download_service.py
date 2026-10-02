@@ -248,20 +248,6 @@ class CaseDownloadService:  # pragma: no cover
         return {"success": True, "file_path": str(file_path)}
 
     @classmethod
-    def download_single_file(cls, *, result_id: int) -> tuple[Path | None, str]:  # pragma: no cover
-        """下载单个文件"""
-        try:
-            result = CaseDownloadResult.objects.get(id=result_id)
-        except CaseDownloadResult.DoesNotExist:
-            return None, "结果不存在"
-
-        file_path = Path(result.file_path)
-        if not file_path.exists():
-            return None, "文件不存在"
-
-        return file_path, result.case_number
-
-    @classmethod
     def download_task_as_zip(cls, *, task_id: int) -> tuple[Path | None, str]:  # pragma: no cover
         """打包任务所有文件为 zip"""
         try:

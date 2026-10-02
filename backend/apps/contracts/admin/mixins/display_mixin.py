@@ -15,6 +15,7 @@ from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.urls import URLPattern, path, reverse
 
+from apps.contracts.admin.access import ensure_admin_contract_access
 from apps.core.exceptions import BusinessException, NotFoundError
 
 from .archive_mixin import ContractArchiveMixin, _get_contract_admin_service
@@ -151,6 +152,9 @@ class ContractDisplayMixin(ContractArchiveMixin, ContractDisplayFormatMixin):  #
         if not self.has_view_permission(request):
             raise PermissionDenied
 
+        # 行级权限校验（无权访问该合同 → 403）
+        ensure_admin_contract_access(request, object_id)
+
         # 获取合同对象,优化查询
         admin_service = _get_contract_admin_service()
         try:
@@ -268,6 +272,8 @@ class ContractDisplayMixin(ContractArchiveMixin, ContractDisplayFormatMixin):  #
         if not self.has_view_permission(request):
             return JsonResponse({"success": False, "error": "无权限"}, status=403)
 
+        ensure_admin_contract_access(request, object_id)
+
         try:
             from apps.contracts.models.folder_binding import ContractFolderBinding
 
@@ -309,12 +315,16 @@ class ContractDisplayMixin(ContractArchiveMixin, ContractDisplayFormatMixin):  #
             logger.exception("打开文件夹失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-    def tab_lazy_load_view(self, request: HttpRequest, object_id: int, tab_name: str) -> HttpResponse:  # pragma: no cover
+    def tab_lazy_load_view(
+        self, request: HttpRequest, object_id: int, tab_name: str
+    ) -> HttpResponse:  # pragma: no cover
         """Tab 懒加载视图 - 首次切换时 AJAX 获取重内容 Tab"""
         from django.template.loader import render_to_string
 
         if not self.has_view_permission(request):
             raise PermissionDenied
+
+        ensure_admin_contract_access(request, object_id)
 
         valid_tabs = {"documents", "finalized"}
         if tab_name not in valid_tabs:

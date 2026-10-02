@@ -152,4 +152,8 @@ class ContractPaymentAdmin(BaseModelAdmin):  # pragma: no cover
         js = ("contracts/js/invoice_recognition.js",)
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[ContractPayment, ContractPayment]:  # pragma: no cover
-        return super().get_queryset(request).select_related("contract")
+        """行级过滤：仅保留可访问合同下的收款记录（is_admin 全量）。"""
+        from apps.contracts.admin.access import apply_contract_related_admin_access_filter
+
+        qs = super().get_queryset(request)
+        return apply_contract_related_admin_access_filter(request, qs).select_related("contract")  # type: ignore[no-any-return]

@@ -232,9 +232,6 @@ class CaseMatcher:
         if not party_names:
             return []
 
-        # 调试：检查客户数据库
-        self.party_matching_service.debug_client_database(party_names)
-
         # 第一步：在现有客户中查找匹配
         matched_clients = self.party_matching_service.find_existing_clients_in_sms(party_names)
 

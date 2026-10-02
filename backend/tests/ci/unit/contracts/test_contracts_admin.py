@@ -10,11 +10,12 @@ from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory
 
+from apps.client.models import Client
+from apps.contracts.admin.archive_classification_rule_admin import ArchiveClassificationRuleAdmin
+from apps.contracts.admin.client_payment_admin import ClientPaymentRecordAdmin
 from apps.contracts.admin.contract_admin import ContractAdmin
 from apps.contracts.admin.contractpayment_admin import ContractPaymentAdmin
 from apps.contracts.admin.supplementary_agreement_admin import SupplementaryAgreementAdmin
-from apps.contracts.admin.archive_classification_rule_admin import ArchiveClassificationRuleAdmin
-from apps.contracts.admin.client_payment_admin import ClientPaymentRecordAdmin
 from apps.contracts.models import (
     ArchiveClassificationRule,
     ClientPaymentRecord,
@@ -23,16 +24,15 @@ from apps.contracts.models import (
     SupplementaryAgreement,
     SupplementaryAgreementParty,
 )
-from apps.client.models import Client
 
 User = get_user_model()
 
 
 def _make_request(path: str = "/admin/") -> Any:
-    """构造 admin request"""
+    """构造 admin request（对齐 LawyerManager.create_superuser：superuser 同时 is_admin=True）"""
     factory = RequestFactory()
     request = factory.get(path)
-    request.user = User(is_superuser=True, is_staff=True)
+    request.user = User(is_superuser=True, is_staff=True, is_admin=True)
     return request
 
 

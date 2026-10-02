@@ -1,4 +1,4 @@
-"""Coverage tests for core.llm.prompts.base, core.api.pagination, core.models.querysets, core.http.streaming, core.infrastructure.asgi_lifespan."""
+"""Coverage tests for core.llm.prompts.base, core.api.pagination, core.http.streaming, core.infrastructure.asgi_lifespan."""
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch

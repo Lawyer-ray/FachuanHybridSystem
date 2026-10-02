@@ -10,9 +10,9 @@ from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory
 
+from apps.cases.admin.caseassignment_admin import CaseAssignmentAdmin
 from apps.cases.admin.caselog_admin import CaseLogAdmin
 from apps.cases.admin.caseparty_admin import CasePartyAdmin
-from apps.cases.admin.caseassignment_admin import CaseAssignmentAdmin
 from apps.cases.models import Case, CaseAssignment, CaseLog, CaseParty
 from apps.contracts.models import Contract
 from apps.organization.models import Lawyer
@@ -21,10 +21,10 @@ User = get_user_model()
 
 
 def _make_request(path: str = "/admin/") -> Any:
-    """构造 admin request"""
+    """构造 admin request（对齐 LawyerManager.create_superuser：superuser 同时 is_admin=True）"""
     factory = RequestFactory()
     request = factory.get(path)
-    request.user = User(is_superuser=True, is_staff=True)
+    request.user = User(is_superuser=True, is_staff=True, is_admin=True)
     return request
 
 

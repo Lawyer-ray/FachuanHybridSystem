@@ -14,7 +14,6 @@ except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
 
-
 # --- hbfy_scraper ---
 
 class TestHbfyScraper:
@@ -308,16 +307,6 @@ class TestScrapingTasks:
         from apps.automation.tasks.scraping_tasks import execute_scraper_task
 
         assert execute_scraper_task is not None
-
-    def test_check_stuck_tasks_import(self):
-        from apps.automation.tasks.scraping_tasks import check_stuck_tasks
-
-        assert check_stuck_tasks is not None
-
-    def test_startup_check_import(self):
-        from apps.automation.tasks.scraping_tasks import startup_check
-
-        assert startup_check is not None
 
 
 # --- court_guarantee_api ---

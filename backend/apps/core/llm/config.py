@@ -122,15 +122,6 @@ class LLMConfig:
         cls._config_cache[key] = (value, time.monotonic())
 
     @classmethod
-    def invalidate_cache(cls) -> None:
-        """清空配置缓存。
-
-        Admin 修改 SystemConfig 中的 LLM 配置后可调用使改动立即生效；
-        未调用时改动也会在 TTL（默认 300 秒）后自动生效。
-        """
-        cls._config_cache.clear()
-
-    @classmethod
     def _get_system_config(cls, key: str, default: str = "") -> str:
         """
         从统一系统配置获取配置值
@@ -220,28 +211,6 @@ class LLMConfig:
             return fallback_value
 
         return default
-
-    # ============================================================
-    # 通用配置方法
-    # ============================================================
-
-    @classmethod
-    def get_temperature(cls) -> float:
-        """获取默认生成温度"""
-        temp_str = cls._get_system_config("LLM_TEMPERATURE", "0.3")
-        try:
-            return float(temp_str)
-        except (ValueError, TypeError):
-            return 0.3
-
-    @classmethod
-    def get_max_tokens(cls) -> int:
-        """获取最大输出 Token 数"""
-        tokens_str = cls._get_system_config("LLM_MAX_TOKENS", "2000")
-        try:
-            return int(tokens_str)
-        except (ValueError, TypeError):
-            return 2000
 
     # ============================================================
     # OpenAI-compatible 配置方法

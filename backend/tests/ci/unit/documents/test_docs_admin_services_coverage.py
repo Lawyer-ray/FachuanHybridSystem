@@ -88,11 +88,6 @@ class TestDocumentsServices:
 
         assert PowerOfAttorneyPlaceholderService is not None
 
-    def test_evidence_export_service_import(self):
-        from apps.documents.services.evidence.evidence_export_service import EvidenceExportService
-
-        assert EvidenceExportService is not None
-
     def test_pdf_merge_utils_import(self):
         from apps.documents.services.infrastructure.pdf_merge_utils import convert_image_to_pdf
 

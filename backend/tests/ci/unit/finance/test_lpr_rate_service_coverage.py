@@ -120,8 +120,8 @@ class TestIsDataCurrent:
         mock_rate.effective_date = date(2025, 6, 1)
         with patch("apps.finance.models.lpr_rate.LPRRate") as mock_model:
             mock_model.objects.first.return_value = mock_rate
-            with patch("apps.finance.services.lpr.rate_service.date") as mock_date:
-                mock_date.today.return_value = date(2025, 6, 15)
+            with patch("apps.finance.services.lpr.rate_service.timezone") as mock_timezone:
+                mock_timezone.localdate.return_value = date(2025, 6, 15)
                 assert self.service.is_data_current() is True
 
     def test_not_current_future_month(self) -> None:
@@ -129,8 +129,8 @@ class TestIsDataCurrent:
         mock_rate.effective_date = date(2025, 3, 1)
         with patch("apps.finance.models.lpr_rate.LPRRate") as mock_model:
             mock_model.objects.first.return_value = mock_rate
-            with patch("apps.finance.services.lpr.rate_service.date") as mock_date:
-                mock_date.today.return_value = date(2025, 6, 15)
+            with patch("apps.finance.services.lpr.rate_service.timezone") as mock_timezone:
+                mock_timezone.localdate.return_value = date(2025, 6, 15)
                 assert self.service.is_data_current() is False
 
     def test_current_last_month_before_20th(self) -> None:
@@ -138,8 +138,8 @@ class TestIsDataCurrent:
         mock_rate.effective_date = date(2025, 5, 1)
         with patch("apps.finance.models.lpr_rate.LPRRate") as mock_model:
             mock_model.objects.first.return_value = mock_rate
-            with patch("apps.finance.services.lpr.rate_service.date") as mock_date:
-                mock_date.today.return_value = date(2025, 6, 10)
+            with patch("apps.finance.services.lpr.rate_service.timezone") as mock_timezone:
+                mock_timezone.localdate.return_value = date(2025, 6, 10)
                 assert self.service.is_data_current() is True
 
     def test_current_december_to_january(self) -> None:
@@ -147,8 +147,8 @@ class TestIsDataCurrent:
         mock_rate.effective_date = date(2024, 12, 1)
         with patch("apps.finance.models.lpr_rate.LPRRate") as mock_model:
             mock_model.objects.first.return_value = mock_rate
-            with patch("apps.finance.services.lpr.rate_service.date") as mock_date:
-                mock_date.today.return_value = date(2025, 1, 10)
+            with patch("apps.finance.services.lpr.rate_service.timezone") as mock_timezone:
+                mock_timezone.localdate.return_value = date(2025, 1, 10)
                 assert self.service.is_data_current() is True
 
     def test_no_data_returns_false(self) -> None:
@@ -161,6 +161,6 @@ class TestIsDataCurrent:
         mock_rate.effective_date = date(2025, 5, 1)
         with patch("apps.finance.models.lpr_rate.LPRRate") as mock_model:
             mock_model.objects.first.return_value = mock_rate
-            with patch("apps.finance.services.lpr.rate_service.date") as mock_date:
-                mock_date.today.return_value = date(2025, 6, 25)
+            with patch("apps.finance.services.lpr.rate_service.timezone") as mock_timezone:
+                mock_timezone.localdate.return_value = date(2025, 6, 25)
                 assert self.service.is_data_current() is False

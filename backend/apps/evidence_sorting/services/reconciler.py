@@ -223,8 +223,7 @@ class ReconcilerService:
 
         # 1. 并发用 LLM 解析每张对账单
         parse_tasks = [
-            self.parse_statement_async(st.get("ocr_text", ""), backend=backend, model=model)
-            for st in statements
+            self.parse_statement_async(st.get("ocr_text", ""), backend=backend, model=model) for st in statements
         ]
         parsed_results = await asyncio.gather(*parse_tasks) if parse_tasks else []
 
@@ -265,6 +264,16 @@ class ReconcilerService:
 
         used_deliveries: set[int] = set()
 
+        # 预建反向索引：日期 → 出库单下标（含无日期桶）、月份前缀 → 下标，消除逐条线性扫描
+        deliveries_by_date: dict[str | None, list[int]] = {}
+        deliveries_by_month: dict[str, list[int]] = {}
+        dated_indices: list[int] = []
+        for idx, dn in enumerate(delivery_notes):
+            deliveries_by_date.setdefault(dn.date, []).append(idx)
+            if dn.date:
+                dated_indices.append(idx)
+                deliveries_by_month.setdefault(dn.date[:6], []).append(idx)
+
         for month_key, statement in sorted(month_map.items()):
             group = MonthGroup(
                 month=month_key,
@@ -276,10 +285,17 @@ class ReconcilerService:
             unmatched_in_statement: list[LineItem] = []
 
             for li in statement.line_items:
+                if li.date:
+                    # 日期相等的候选 + 无日期候选（金额比对），按原下标顺序
+                    candidates = sorted(deliveries_by_date.get(li.date, []) + deliveries_by_date.get(None, []))
+                else:
+                    # 无日期明细只能与有日期出库单按金额匹配
+                    candidates = dated_indices
                 found = False
-                for i, dn in enumerate(delivery_notes):
+                for i in candidates:
                     if i in used_deliveries:
                         continue
+                    dn = delivery_notes[i]
                     if self._match_delivery(li, dn):
                         dn.match_status = STATUS_MATCHED
                         group.deliveries.append(dn)
@@ -292,14 +308,14 @@ class ReconcilerService:
 
             month_yyyymm = self._month_key_to_yyyymm(month_key)
             if month_yyyymm:
-                for i, dn in enumerate(delivery_notes):
+                for i in deliveries_by_month.get(month_yyyymm, []):
                     if i in used_deliveries:
                         continue
-                    if dn.date and dn.date[:6] == month_yyyymm:
-                        dn.match_status = STATUS_UNMATCHED
-                        dn.remark = "这张单未出现在对账单中"
-                        group.deliveries.append(dn)
-                        used_deliveries.add(i)
+                    dn = delivery_notes[i]
+                    dn.match_status = STATUS_UNMATCHED
+                    dn.remark = "这张单未出现在对账单中"
+                    group.deliveries.append(dn)
+                    used_deliveries.add(i)
 
             issues: list[str] = []
             if not statement.signed:

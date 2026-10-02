@@ -45,6 +45,16 @@ def get_last_run_time(name: str) -> datetime | None:
     return task.stopped if task else None
 
 
+def get_last_run_times(names: list[str]) -> dict[str, datetime]:
+    """批量获取多个调度名称的最后运行时间（单次查询，按名称去重取最新）。"""
+    last_runs: dict[str, datetime] = {}
+    tasks = Success.objects.filter(name__in=names).order_by("-stopped")
+    for task in tasks:
+        if task.name not in last_runs:
+            last_runs[task.name] = task.stopped
+    return last_runs
+
+
 def delete_task(task_id: str) -> int:
     """删除任务，返回删除数量。"""
     deleted, _ = Task.objects.filter(id=task_id).delete()

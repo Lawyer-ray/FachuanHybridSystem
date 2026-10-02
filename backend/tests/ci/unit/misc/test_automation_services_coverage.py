@@ -2,19 +2,10 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch, PropertyMock
 from typing import Any
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
-
-
-# ── SMSMatchingStage ──────────────────────────────────────────────
-
-class TestSMSMatchingStage:
-    def test_import(self):
-        from apps.automation.services.sms.stages.sms_matching_stage import SMSMatchingStage
-        assert SMSMatchingStage is not None
-
 
 # ── CaseMaterialSync ──────────────────────────────────────────────
 
@@ -26,7 +17,6 @@ class TestCaseMaterialSync:
         except ImportError:
             pytest.skip("Module not importable")
 
-
 # ── FolderGenerationService ───────────────────────────────────────
 
 class TestFolderGenerationService:
@@ -34,14 +24,12 @@ class TestFolderGenerationService:
         from apps.documents.services.generation.folder_generation_service import FolderGenerationService
         assert FolderGenerationService is not None
 
-
 # ── ContractGenerationService ─────────────────────────────────────
 
 class TestContractGenerationServiceExtended:
     def test_import(self):
         from apps.documents.services.generation.contract_generation_service import ContractGenerationService
         assert ContractGenerationService is not None
-
 
 # ── SupplementaryAgreementGenerationService ───────────────────────
 
@@ -52,7 +40,6 @@ class TestSupplementaryAgreementGenerationServiceExtended:
         )
         assert SupplementaryAgreementGenerationService is not None
 
-
 # ── PreservationMaterialsGenerationService ────────────────────────
 
 class TestPreservationMaterialsGenerationServiceExtended:
@@ -61,7 +48,6 @@ class TestPreservationMaterialsGenerationServiceExtended:
             PreservationMaterialsGenerationService,
         )
         assert PreservationMaterialsGenerationService is not None
-
 
 # ── FrameProcessingService ────────────────────────────────────────
 
@@ -122,14 +108,12 @@ class TestFrameProcessingService:
         result = svc.is_pixel_duplicate(selection, b"thumb", [b"prev"], window=5, threshold=0.1)
         assert result is False
 
-
 # ── VideoFrameExtractService ──────────────────────────────────────
 
 class TestVideoFrameExtractService:
     def test_import(self):
         from apps.chat_records.services.extraction.video_frame_extract_service import VideoFrameExtractService
         assert VideoFrameExtractService is not None
-
 
 # ── EnhancedOpposingPartyService ──────────────────────────────────
 
@@ -140,14 +124,12 @@ class TestEnhancedOpposingPartyServiceExtended:
         )
         assert EnhancedOpposingPartyService is not None
 
-
 # ── DefensePartyService ───────────────────────────────────────────
 
 class TestDefensePartyServiceExtended:
     def test_import(self):
         from apps.documents.services.placeholders.litigation.defense_party_service import DefensePartyService
         assert DefensePartyService is not None
-
 
 # ── FolderTemplateAdminService ────────────────────────────────────
 

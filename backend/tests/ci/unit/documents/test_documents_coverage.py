@@ -5,7 +5,6 @@ Covers:
 - apps/documents/services/generation/pipeline/naming.py
 - apps/documents/services/generation/outputs.py
 - apps/documents/services/document_service_adapter.py
-- apps/documents/services/evidence/evidence_merge_usecase.py
 - apps/documents/services/generation/generation_task_service.py
 - apps/documents/services/case_contract_query.py
 """
@@ -297,75 +296,6 @@ class TestDocumentServiceAdapter:
         assert result["has_document"] is False
 
 
-# ── evidence_merge_usecase.py (MergeProgressReporter) ──────────────────────
-
-
-class TestMergeProgressReporter:
-    """MergeProgressReporter 节流逻辑。"""
-
-    @patch("apps.documents.services.evidence.evidence_merge_usecase.time")
-    @patch("apps.documents.models.EvidenceList")
-    def test_report_updates_db(self, mock_model, mock_time) -> None:
-        from apps.documents.services.evidence.evidence_merge_usecase import MergeProgressReporter
-
-        mock_time.time.return_value = 1000.0
-        reporter = MergeProgressReporter(list_id=1, min_interval_seconds=0.5)
-        reporter.report(current=50, total=100, message="处理中")
-        mock_model.objects.filter.assert_called_once_with(pk=1)
-
-    @patch("apps.documents.services.evidence.evidence_merge_usecase.time")
-    @patch("apps.documents.models.EvidenceList")
-    def test_report_throttle_same_progress_within_interval(self, mock_model, mock_time) -> None:
-        from apps.documents.services.evidence.evidence_merge_usecase import MergeProgressReporter
-
-        mock_time.time.return_value = 1000.0
-        reporter = MergeProgressReporter(list_id=1, min_interval_seconds=0.5)
-        reporter.report(current=50, total=100, message="处理中")
-
-        # 第二次同进度、间隔不够 → 不更新
-        mock_time.time.return_value = 1000.3
-        reporter.report(current=50, total=100, message="处理中")
-        assert mock_model.objects.filter.call_count == 1
-
-    @patch("apps.documents.services.evidence.evidence_merge_usecase.time")
-    @patch("apps.documents.models.EvidenceList")
-    def test_report_throttle_different_progress_updates(self, mock_model, mock_time) -> None:
-        from apps.documents.services.evidence.evidence_merge_usecase import MergeProgressReporter
-
-        mock_time.time.return_value = 1000.0
-        reporter = MergeProgressReporter(list_id=1, min_interval_seconds=0.5)
-        reporter.report(current=50, total=100, message="处理中")
-
-        # 不同进度 → 即使间隔不够也更新
-        mock_time.time.return_value = 1000.3
-        reporter.report(current=60, total=100, message="处理中")
-        assert mock_model.objects.filter.call_count == 2
-
-    @patch("apps.documents.services.evidence.evidence_merge_usecase.time")
-    @patch("apps.documents.models.EvidenceList")
-    def test_report_throttle_same_progress_after_interval(self, mock_model, mock_time) -> None:
-        from apps.documents.services.evidence.evidence_merge_usecase import MergeProgressReporter
-
-        mock_time.time.return_value = 1000.0
-        reporter = MergeProgressReporter(list_id=1, min_interval_seconds=0.5)
-        reporter.report(current=50, total=100, message="处理中")
-
-        # 同进度但间隔已过 → 更新
-        mock_time.time.return_value = 1000.6
-        reporter.report(current=50, total=100, message="处理中")
-        assert mock_model.objects.filter.call_count == 2
-
-    @patch("apps.documents.services.evidence.evidence_merge_usecase.time")
-    @patch("apps.documents.models.EvidenceList")
-    def test_report_zero_total(self, mock_model, mock_time) -> None:
-        from apps.documents.services.evidence.evidence_merge_usecase import MergeProgressReporter
-
-        mock_time.time.return_value = 1000.0
-        reporter = MergeProgressReporter(list_id=1)
-        reporter.report(current=0, total=0, message="准备中")
-        mock_model.objects.filter.assert_called_once()
-
-
 # ── generation_task_service.py ──────────────────────────────────────────────
 
 
@@ -492,16 +422,6 @@ class TestCaseContractQuery:
 
 class TestDocumentsReExportCompatibility:
     """确保 re-export 文件正确透传。"""
-
-    def test_evidence_storage_re_export(self) -> None:
-        from apps.documents.services.evidence.evidence_storage import EvidenceFileStorage
-
-        assert EvidenceFileStorage is not None
-
-    def test_evidence_service_re_export(self) -> None:
-        from apps.documents.services.evidence_service import EvidenceService
-
-        assert EvidenceService is not None
 
     def test_folder_service_re_export(self) -> None:
         from apps.documents.services.folder_service import FolderTemplateService

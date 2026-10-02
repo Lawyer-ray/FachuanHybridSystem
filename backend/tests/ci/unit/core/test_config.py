@@ -18,7 +18,6 @@ from apps.core.config.exceptions import (
     SensitiveConfigError,
 )
 
-
 # ============================================================
 # config/exceptions.py
 # ============================================================
@@ -113,14 +112,6 @@ class TestConfigUtils:
             result = get_config_value("some.key", default="default", fallback_settings_key="MY_KEY")
             assert result == "from_settings"
 
-    def test_get_nested_config_value(self) -> None:
-        from apps.core.config.utils import get_nested_config_value
-
-        config = {"key1": "value1", "key2": 42}
-        assert get_nested_config_value(config, "key1") == "value1"
-        assert get_nested_config_value(config, "key2") == 42
-        assert get_nested_config_value(config, "missing", "default") == "default"
-
     def test_is_config_manager_available(self) -> None:
         from apps.core.config.utils import is_config_manager_available
 
@@ -131,29 +122,6 @@ class TestConfigUtils:
         mock_settings = SimpleNamespace(CONFIG_MANAGER_AVAILABLE=False)
         with patch("apps.core.config.utils.settings", mock_settings):
             assert is_config_manager_available() is False
-
-    def test_get_config_manager_none(self) -> None:
-        from apps.core.config.utils import get_config_manager
-
-        mock_settings = SimpleNamespace(CONFIG_MANAGER_AVAILABLE=False)
-        with patch("apps.core.config.utils.settings", mock_settings):
-            assert get_config_manager() is None
-
-    def test_migrate_legacy_config_access(self) -> None:
-        from apps.core.config.utils import migrate_legacy_config_access
-
-        mock_settings = SimpleNamespace(CONFIG_MANAGER_AVAILABLE=False, OLD_KEY="old_value")
-        with patch("apps.core.config.utils.settings", mock_settings):
-            result = migrate_legacy_config_access("OLD_KEY", "new.key", "default")
-            assert result == "old_value"
-
-    def test_migrate_legacy_config_access_default(self) -> None:
-        from apps.core.config.utils import migrate_legacy_config_access
-
-        mock_settings = SimpleNamespace(CONFIG_MANAGER_AVAILABLE=False)
-        with patch("apps.core.config.utils.settings", mock_settings):
-            result = migrate_legacy_config_access("MISSING", "new.key", "default_val")
-            assert result == "default_val"
 
     @patch("apps.core.services.system_config_service.SystemConfigService")
     def test_get_system_config_value(self, mock_svc_cls: MagicMock) -> None:

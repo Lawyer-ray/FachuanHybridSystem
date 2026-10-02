@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ── MergeStatus / ListType / LIST_TYPE_ORDER / LIST_TYPE_PREVIOUS ──
 
 class TestMergeStatusValues:
@@ -136,6 +135,7 @@ class TestEvidenceListPageRangeDisplay:
 class TestEvidenceListOrderRangeDisplay:
     def test_no_item_count_calls_items_count(self):
         from apps.evidence.models import EvidenceList
+
         # Use real __new__ without item_count attr set
         el = EvidenceList.__new__(EvidenceList)
         el._state = MagicMock()
@@ -250,17 +250,3 @@ class TestStrMethods:
         el.title = "证据清单一"
         result = f"{el.case.name} - {el.title}"
         assert result == "测试案件 - 证据清单一"
-
-
-# ── Factory functions ──
-
-class TestFactoryFunctions:
-    def test_get_evidence_service_returns_instance(self):
-        # Import directly from the evidence app to avoid model conflicts
-        from apps.documents.services.evidence.evidence_service import EvidenceService
-        svc = EvidenceService()
-        assert svc is not None
-
-    def test_get_evidence_storage_returns_instance(self):
-        from apps.documents.services.evidence.evidence_storage import evidence_file_storage
-        assert evidence_file_storage is not None

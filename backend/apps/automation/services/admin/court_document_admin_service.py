@@ -155,12 +155,16 @@ class CourtDocumentAdminService:
             # 基础统计
             total_documents = queryset.count()
 
-            # 按状态统计
+            # 按状态统计 — 一次 aggregate 条件计数，替代逐状态 .count() 查询
+            status_counts: dict[str, Any] = queryset.aggregate(
+                **{
+                    f"status_{code}": Count("id", filter=Q(download_status=code))
+                    for code, _label in DocumentDownloadStatus.choices
+                }
+            )
             status_stats = {}
-            for status_choice in DocumentDownloadStatus.choices:
-                status_code = status_choice[0]
-                status_name = status_choice[1]
-                count = queryset.filter(download_status=status_code).count()
+            for status_code, status_name in DocumentDownloadStatus.choices:
+                count = status_counts[f"status_{status_code}"]
                 status_stats[status_code] = {
                     "name": status_name,
                     "count": count,

@@ -1,5 +1,5 @@
 """
-Tests for core/config/ - schema, field, safe_expression_evaluator, registry.
+Tests for core/config/ - schema, field, registry.
 Also core/security/auth.py.
 """
 
@@ -8,95 +8,6 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-
-class TestSafeExpressionEvaluator:
-    def test_constant(self):
-        from apps.core.config.validators.safe_expression_evaluator import safe_eval
-
-        assert safe_eval("42", {}) == 42
-        assert safe_eval("'hello'", {}) == "hello"
-        assert safe_eval("True", {}) is True
-        assert safe_eval("None", {}) is None
-
-    def test_variable_lookup(self):
-        from apps.core.config.validators.safe_expression_evaluator import safe_eval
-
-        assert safe_eval("x", {"x": 10}) == 10
-
-    def test_unknown_variable_raises(self):
-        from apps.core.config.validators.safe_expression_evaluator import safe_eval
-
-        with pytest.raises(ValueError, match="未知变量"):
-            safe_eval("unknown_var", {})
-
-    def test_comparison(self):
-        from apps.core.config.validators.safe_expression_evaluator import safe_eval
-
-        assert safe_eval("x > 5", {"x": 10}) is True
-        assert safe_eval("x < 5", {"x": 10}) is False
-        assert safe_eval("x == 10", {"x": 10}) is True
-        assert safe_eval("x != 10", {"x": 10}) is False
-        assert safe_eval("x >= 10", {"x": 10}) is True
-        assert safe_eval("x <= 10", {"x": 10}) is True
-
-    def test_boolean_ops(self):
-        from apps.core.config.validators.safe_expression_evaluator import safe_eval
-
-        assert safe_eval("True and False", {}) is False
-        assert safe_eval("True or False", {}) is True
-
-    def test_unary_ops(self):
-        from apps.core.config.validators.safe_expression_evaluator import safe_eval
-
-        assert safe_eval("not True", {}) is False
-        assert safe_eval("-5", {}) == -5
-        assert safe_eval("+5", {}) == 5
-
-    def test_in_not_in(self):
-        from apps.core.config.validators.safe_expression_evaluator import safe_eval
-
-        assert safe_eval("x in [1, 2, 3]", {"x": 2}) is True
-        assert safe_eval("x not in [1, 2, 3]", {"x": 5}) is True
-
-    def test_is_is_not(self):
-        from apps.core.config.validators.safe_expression_evaluator import safe_eval
-
-        assert safe_eval("x is None", {"x": None}) is True
-        assert safe_eval("x is not None", {"x": 5}) is True
-
-    def test_list_tuple_set(self):
-        from apps.core.config.validators.safe_expression_evaluator import safe_eval
-
-        assert safe_eval("[1, 2, 3]", {}) == [1, 2, 3]
-        result = safe_eval("(1, 2)", {})
-        assert result == (1, 2)
-        result = safe_eval("{1, 2}", {})
-        assert result == {1, 2}
-
-    def test_dict(self):
-        from apps.core.config.validators.safe_expression_evaluator import safe_eval
-
-        result = safe_eval("{'a': 1, 'b': 2}", {})
-        assert result == {"a": 1, "b": 2}
-
-    def test_syntax_error_raises(self):
-        from apps.core.config.validators.safe_expression_evaluator import safe_eval
-
-        with pytest.raises(SyntaxError, match="语法错误"):
-            safe_eval("invalid syntax !@#", {})
-
-    def test_unsupported_node_raises(self):
-        from apps.core.config.validators.safe_expression_evaluator import safe_eval
-
-        with pytest.raises(ValueError, match="不支持"):
-            safe_eval("lambda x: x", {})
-
-    def test_chained_comparison(self):
-        from apps.core.config.validators.safe_expression_evaluator import safe_eval
-
-        assert safe_eval("1 < x < 10", {"x": 5}) is True
-        assert safe_eval("1 < x < 10", {"x": 15}) is False
 
 
 class TestConfigField:
@@ -205,26 +116,6 @@ class TestConfigRegistry:
         for key, field in CONFIG_REGISTRY.items():
             assert hasattr(field, "name")
             assert field.name == key
-
-
-class TestSessionAuth:
-    def test_authenticate_authenticated_user(self):
-        from apps.core.security.auth import SessionAuth
-
-        auth = SessionAuth()
-        request = MagicMock()
-        request.user.is_authenticated = True
-        result = auth.authenticate(request, "any_key")
-        assert result is request.user
-
-    def test_authenticate_anonymous_user(self):
-        from apps.core.security.auth import SessionAuth
-
-        auth = SessionAuth()
-        request = MagicMock()
-        request.user.is_authenticated = False
-        result = auth.authenticate(request, "any_key")
-        assert result is None
 
 
 class TestJWTOrSessionAuth:

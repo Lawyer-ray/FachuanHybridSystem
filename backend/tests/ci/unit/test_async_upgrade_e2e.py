@@ -28,9 +28,7 @@ class TestContractAccessPolicyAsync:
 
     @pytest.fixture
     def policy(self):
-        from apps.contracts.services.contract.domain.access_policy import (
-            ContractAccessPolicy,
-        )
+        from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
 
         return ContractAccessPolicy()
 
@@ -227,9 +225,7 @@ class TestCoreMaterialClassificationAsync:
 
     def test_acomplete_method_exists(self):
         """_acomplete 方法应存在"""
-        from apps.core.services.material_classification_service import (
-            MaterialClassificationService,
-        )
+        from apps.core.services.material_classification_service import MaterialClassificationService
 
         # 检查类是否有 _acomplete 方法
         svc = MaterialClassificationService.__new__(
@@ -249,9 +245,7 @@ class TestDocumentsAnalysisServiceAsync:
     @pytest.mark.asyncio
     async def test_analyze_template_async_exists(self):
         """analyze_template_async 方法应存在"""
-        from apps.documents.services.external_template.analysis_service import (
-            AnalysisService,
-        )
+        from apps.documents.services.external_template.analysis_service import AnalysisService
 
         svc = AnalysisService.__new__(AnalysisService)
         assert hasattr(svc, "analyze_template_async")
@@ -259,9 +253,7 @@ class TestDocumentsAnalysisServiceAsync:
     @pytest.mark.asyncio
     async def test_upload_template_async_exists(self):
         """upload_template_async 方法应存在"""
-        from apps.documents.services.external_template.analysis_service import (
-            AnalysisService,
-        )
+        from apps.documents.services.external_template.analysis_service import AnalysisService
 
         svc = AnalysisService.__new__(AnalysisService)
         assert hasattr(svc, "upload_template_async")
@@ -272,9 +264,7 @@ class TestDocumentsTemplateMatchingAsync:
 
     def test_async_methods_exist(self):
         """所有 4 个 async 匹配方法应存在"""
-        from apps.documents.services.template.template_matching_service import (
-            TemplateMatchingService,
-        )
+        from apps.documents.services.template.template_matching_service import TemplateMatchingService
 
         svc = TemplateMatchingService.__new__(TemplateMatchingService)
         expected = [
@@ -287,33 +277,12 @@ class TestDocumentsTemplateMatchingAsync:
             assert hasattr(svc, method_name), f"Missing: {method_name}"
 
 
-class TestDocumentsEvidenceExportAsync:
-    """测试 evidence_export_service 新增的 3 个 async 方法"""
-
-    def test_async_export_methods_exist(self):
-        """所有 3 个 async 导出方法应存在"""
-        from apps.documents.services.evidence.evidence_export_service import (
-            EvidenceExportService,
-        )
-
-        svc = EvidenceExportService.__new__(EvidenceExportService)
-        expected = [
-            "export_evidence_list_with_template_async",
-            "export_evidence_list_async",
-            "export_evidence_detail_async",
-        ]
-        for method_name in expected:
-            assert hasattr(svc, method_name), f"Missing: {method_name}"
-
-
 class TestDocumentsFillingServiceAsync:
     """测试 filling_service 新增的 async 方法"""
 
     def test_async_fill_methods_exist(self):
         """async 填充方法应存在"""
-        from apps.documents.services.external_template.filling_service import (
-            FillingService,
-        )
+        from apps.documents.services.external_template.filling_service import FillingService
 
         svc = FillingService.__new__(FillingService)
         assert hasattr(svc, "fill_template_async")
@@ -325,9 +294,7 @@ class TestDocumentsJudgmentPdfExtractorAsync:
 
     def test_extract_async_exists(self):
         """extract_async 方法应存在"""
-        from apps.documents.services.extractors.judgment_pdf_extractor import (
-            JudgmentPdfExtractor,
-        )
+        from apps.documents.services.extractors.judgment_pdf_extractor import JudgmentPdfExtractor
 
         svc = JudgmentPdfExtractor.__new__(JudgmentPdfExtractor)
         assert hasattr(svc, "extract_async")
@@ -423,9 +390,7 @@ class TestAutomationNotificationAsync:
 
     def test_asend_case_chat_notification_exists(self):
         """asend_case_chat_notification 方法应存在"""
-        from apps.automation.services.sms.sms_notification_service import (
-            SMSNotificationService,
-        )
+        from apps.automation.services.sms.sms_notification_service import SMSNotificationService
 
         svc = SMSNotificationService.__new__(SMSNotificationService)
         assert hasattr(svc, "asend_case_chat_notification")
@@ -433,9 +398,7 @@ class TestAutomationNotificationAsync:
     @pytest.mark.asyncio
     async def test_asend_notification_with_no_providers(self):
         """无通知渠道时应安全返回"""
-        from apps.automation.services.sms.sms_notification_service import (
-            SMSNotificationService,
-        )
+        from apps.automation.services.sms.sms_notification_service import SMSNotificationService
 
         svc = SMSNotificationService.__new__(SMSNotificationService)
         # mock 内部方法避免实际 HTTP 调用
@@ -467,9 +430,7 @@ class TestAutomationScraperHook:
 
     def test_court_sms_tasks_entry_point_exists(self):
         """handle_scraper_task_status_change task 入口应存在"""
-        from apps.automation.workers.court_sms_tasks import (
-            handle_scraper_task_status_change,
-        )
+        from apps.automation.workers.court_sms_tasks import handle_scraper_task_status_change
 
         assert callable(handle_scraper_task_status_change)
 
@@ -485,9 +446,7 @@ class TestLitigationMiddlewareAsync:
     def test_async_methods_exist(self):
         """async middleware 方法应存在"""
         from apps.litigation_ai.agent.interfaces import IMemoryMiddleware
-        from apps.litigation_ai.agent.middleware import (
-            LitigationMemoryMiddleware,
-        )
+        from apps.litigation_ai.agent.middleware import LitigationMemoryMiddleware
 
         # 接口层
         assert hasattr(IMemoryMiddleware, "abefore_agent")
@@ -505,27 +464,21 @@ class TestLitigationSessionServicesAsync:
 
     def test_session_lifecycle_async(self):
         """acreate_session 应存在"""
-        from apps.litigation_ai.services.session.session_lifecycle_service import (
-            SessionLifecycleService,
-        )
+        from apps.litigation_ai.services.session.session_lifecycle_service import SessionLifecycleService
 
         svc = SessionLifecycleService.__new__(SessionLifecycleService)
         assert hasattr(svc, "acreate_session")
 
     def test_session_message_async(self):
         """aadd_message 应存在"""
-        from apps.litigation_ai.services.session.session_message_service import (
-            SessionMessageService,
-        )
+        from apps.litigation_ai.services.session.session_message_service import SessionMessageService
 
         svc = SessionMessageService.__new__(SessionMessageService)
         assert hasattr(svc, "aadd_message")
 
     def test_context_service_async(self):
         """abuild_case_info 应存在"""
-        from apps.litigation_ai.services.session.context_service import (
-            LitigationContextService,
-        )
+        from apps.litigation_ai.services.session.context_service import LitigationContextService
 
         svc = LitigationContextService.__new__(LitigationContextService)
         assert hasattr(svc, "abuild_case_info")
@@ -536,9 +489,7 @@ class TestLitigationEvidenceServicesAsync:
 
     def test_evidence_rag_async(self):
         """aensure_ingested 和 aretrieve 应存在"""
-        from apps.litigation_ai.services.evidence.evidence_rag_service import (
-            EvidenceRAGService,
-        )
+        from apps.litigation_ai.services.evidence.evidence_rag_service import EvidenceRAGService
 
         svc = EvidenceRAGService.__new__(EvidenceRAGService)
         assert hasattr(svc, "aensure_ingested")
@@ -546,9 +497,7 @@ class TestLitigationEvidenceServicesAsync:
 
     def test_evidence_text_extraction_async(self):
         """aextract_chunks 应存在"""
-        from apps.litigation_ai.services.evidence.evidence_text_extraction_service import (
-            EvidenceTextExtractionService,
-        )
+        from apps.litigation_ai.services.evidence.evidence_text_extraction_service import EvidenceTextExtractionService
 
         svc = EvidenceTextExtractionService.__new__(
             EvidenceTextExtractionService

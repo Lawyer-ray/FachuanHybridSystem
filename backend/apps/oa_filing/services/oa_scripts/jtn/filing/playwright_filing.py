@@ -268,9 +268,9 @@ class PlaywrightFilingMixin:  # pragma: no cover
         # 收案日期（必填，空则取当天）
         start_date: str = info.start_date
         if not start_date:
-            from datetime import date as _date
+            from django.utils import timezone as _timezone
 
-            start_date = _date.today().isoformat()
+            start_date = _timezone.localdate().isoformat()
         await self._set_field(page, f"{_p}start_date", start_date)
 
         # 客户联系人（name 带动态 GUID，用 name 属性前缀匹配）

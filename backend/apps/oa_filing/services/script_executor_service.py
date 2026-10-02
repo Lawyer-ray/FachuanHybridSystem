@@ -33,6 +33,20 @@ def _friendly_error_message(exc: Exception) -> str:
     return str(exc)
 
 
+def _ensure_contract_access(contract_id: int, user: Any) -> None:
+    """校验用户对合同的访问权限（与 contracts API 同口径；安全审计 A-04）。"""
+    from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
+
+    ContractAccessPolicy().ensure_access(contract_id=contract_id, user=user, org_access=None)
+
+
+def _ensure_case_access(case_id: int, user: Any) -> None:
+    """校验用户对案件的访问权限（与 cases API 同口径；安全审计 A-04）。"""
+    from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+
+    CaseAccessPolicy().ensure_access(case_id=case_id, user=user, org_access=None)
+
+
 class ScriptExecutorService:
     """OA 通用调度器。按 site_name 分发到对应律所适配器。"""
 
@@ -68,22 +82,9 @@ class ScriptExecutorService:
         return self._get_session_with_owner_check(ArchiveSession, session_id, user)
 
     # ------------------------------------------------------------------
-    # 业务归属校验（安全审计 A-04）
+    # 业务归属校验（安全审计 A-04）：_ensure_contract_access / _ensure_case_access
+    # 为模块级纯函数（见文件顶部），此处不再以方法形式持有。
     # ------------------------------------------------------------------
-
-    @staticmethod
-    def _ensure_contract_access(contract_id: int, user: Any) -> None:
-        """校验用户对合同的访问权限（与 contracts API 同口径）。"""
-        from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
-
-        ContractAccessPolicy().ensure_access(contract_id=contract_id, user=user, org_access=None)
-
-    @staticmethod
-    def _ensure_case_access(case_id: int, user: Any) -> None:
-        """校验用户对案件的访问权限（与 cases API 同口径）。"""
-        from apps.cases.services.case.case_access_policy import CaseAccessPolicy
-
-        CaseAccessPolicy().ensure_access(case_id=case_id, user=user, org_access=None)
 
     # ------------------------------------------------------------------
     # 凭证查找（公共）
@@ -110,9 +111,9 @@ class ScriptExecutorService:
         from apps.oa_filing.services.exceptions import ScriptExecutionError
 
         # 安全审计 A-04：校验用户对合同/案件的归属权限
-        self._ensure_contract_access(contract_id, user)
+        _ensure_contract_access(contract_id, user)
         if case_id is not None:
-            self._ensure_case_access(case_id, user)
+            _ensure_case_access(case_id, user)
 
         credential = self._find_credential(user, site_name)
         if credential is None:
@@ -166,7 +167,7 @@ class ScriptExecutorService:
 
         lookup = StampLookupService.lookup_by_file_path(file_path)
         # 安全审计 A-04：校验反查出的合同归属权限
-        self._ensure_contract_access(lookup.contract_id, user)
+        _ensure_contract_access(lookup.contract_id, user)
         credential = self._find_credential(user, site_name)
 
         session = StampSession.objects.create(
@@ -212,7 +213,7 @@ class ScriptExecutorService:
 
         lookup = StampLookupService.lookup_by_file_path(file_paths[0])
         # 安全审计 A-04：校验反查出的合同归属权限
-        self._ensure_contract_access(lookup.contract_id, user)
+        _ensure_contract_access(lookup.contract_id, user)
         credential = self._find_credential(user, site_name)
 
         session = ArchiveSession.objects.create(
@@ -264,7 +265,7 @@ class ScriptExecutorService:
         from apps.contracts.services.archive.generation.service import ArchiveGenerationService
 
         # 安全审计 A-04：校验用户对合同的归属权限
-        self._ensure_contract_access(contract_id, user)
+        _ensure_contract_access(contract_id, user)
 
         credential = self._find_credential(user, site_name)
         if credential is None:
@@ -320,7 +321,7 @@ class ScriptExecutorService:
         from apps.contracts.models import Contract
 
         # 安全审计 A-04：校验用户对合同的归属权限
-        self._ensure_contract_access(contract_id, user)
+        _ensure_contract_access(contract_id, user)
 
         credential = self._find_credential(user, site_name)
         if credential is None:
@@ -354,7 +355,7 @@ class ScriptExecutorService:
         from apps.cases.models import Case
 
         # 安全审计 A-04：校验用户对案件的归属权限
-        self._ensure_case_access(case_id, user)
+        _ensure_case_access(case_id, user)
 
         credential = self._find_credential(user, site_name)
         if credential is None:

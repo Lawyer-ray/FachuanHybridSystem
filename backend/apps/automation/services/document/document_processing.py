@@ -95,11 +95,6 @@ def render_pdf_page_to_image(file_path: str, page_num: int = 0) -> str:  # pragm
         return f"{settings.MEDIA_URL}automation/processed/{out_name}"
 
 
-def render_pdf_first_page_to_image(file_path: str) -> str:
-    """保持向后兼容性的函数"""
-    return render_pdf_page_to_image(file_path, page_num=0)
-
-
 def extract_docx_text(file_path: str, limit: int | None = None) -> str:
     """提取 .docx 文件的文本"""
     # 如果没有指定限制，使用配置的默认值

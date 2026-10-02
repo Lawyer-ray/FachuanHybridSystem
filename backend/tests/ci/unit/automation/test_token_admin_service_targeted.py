@@ -19,8 +19,10 @@ pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not i
 from django.utils import timezone
 
 from apps.automation.models import TokenAcquisitionHistory, TokenAcquisitionStatus
-from apps.automation.services.admin.token_acquisition_history_admin_service import TokenAcquisitionHistoryAdminService
 from apps.core.exceptions import BusinessException, ValidationException
+from plugins.court_automation.token_admin.token_acquisition_history_admin_service import (
+    TokenAcquisitionHistoryAdminService,
+)
 
 
 @pytest.fixture

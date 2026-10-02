@@ -101,6 +101,22 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     inlines: ClassVar[list[type[admin.TabularInline]]] = [CaseDownloadResultInline]
     actions: ClassVar[list[str]] = ["download_as_zip", "retry_failed"]
 
+    def get_queryset(self, request):  # pragma: no cover
+        """律所隔离：非 superuser 仅可见本所（创建人/凭证归属）的任务。"""
+        return self._filter_law_firm(request, super().get_queryset(request))
+
+    @staticmethod
+    def _filter_law_firm(request, qs):  # pragma: no cover
+        user = getattr(request, "user", None)
+        if getattr(user, "is_superuser", False):
+            return qs
+        law_firm_id = getattr(user, "law_firm_id", None)
+        if law_firm_id is None:
+            return qs.none()
+        return qs.filter(
+            Q(created_by__law_firm_id=law_firm_id) | Q(credential__lawyer__law_firm_id=law_firm_id)
+        ).distinct()
+
     def get_urls(self):  # type: ignore[override]  # pragma: no cover
         urls = super().get_urls()
         opts = self.model._meta
@@ -126,7 +142,9 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return super().has_add_permission(request) and self._is_feature_available()
 
-    def add_view(self, request: HttpRequest, form_url: str = "", extra_context: dict[str, Any] | None = None):  # pragma: no cover
+    def add_view(
+        self, request: HttpRequest, form_url: str = "", extra_context: dict[str, Any] | None = None
+    ):  # pragma: no cover
         if not self._is_feature_available():
             messages.error(
                 request, "功能未启用：请接入私有 wk API，或在代码中开启 LEGAL_RESEARCH_ADMIN_FEATURE_ENABLED。"
@@ -389,6 +407,10 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         return mark_safe("&nbsp;".join(buttons))
 
     def download_zip_view(self, request, object_id) -> HttpResponse:  # pragma: no cover
+        if not self.has_change_permission(request):
+            messages.error(request, "无权限执行该操作")
+            return HttpResponseRedirect(reverse("admin:legal_research_casedownloadtask_changelist"))
+
         obj = self.get_object(request, object_id)
         if obj is None:
             messages.error(request, "任务不存在")
@@ -415,6 +437,10 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         return response
 
     def retry_view(self, request, object_id) -> HttpResponse:  # pragma: no cover
+        if not self.has_change_permission(request):
+            messages.error(request, "无权限执行该操作")
+            return HttpResponseRedirect(reverse("admin:legal_research_casedownloadtask_changelist"))
+
         obj = self.get_object(request, object_id)
         if obj is None:
             messages.error(request, "任务不存在")
@@ -453,9 +479,18 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         return HttpResponseRedirect(reverse("admin:legal_research_casedownloadtask_changelist"))
 
     def result_download_view(self, request: HttpRequest, object_id: str) -> HttpResponse:  # pragma: no cover
+        if not self.has_change_permission(request):
+            messages.error(request, "无权限执行该操作")
+            return HttpResponseRedirect(reverse("admin:legal_research_casedownloadtask_changelist"))
+
         try:
             result = CaseDownloadResult.objects.select_related("task").get(pk=object_id)
         except CaseDownloadResult.DoesNotExist:
+            messages.error(request, "下载结果不存在")
+            return HttpResponseRedirect(reverse("admin:legal_research_casedownloadtask_changelist"))
+
+        # 律所隔离：结果所属任务必须在当前用户可见范围内
+        if not self.get_queryset(request).filter(pk=result.task_id).exists():
             messages.error(request, "下载结果不存在")
             return HttpResponseRedirect(reverse("admin:legal_research_casedownloadtask_changelist"))
 

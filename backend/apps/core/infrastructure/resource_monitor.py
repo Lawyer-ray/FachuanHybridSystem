@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 import os
-import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
@@ -71,8 +70,6 @@ class ResourceMonitor:
         self.restart_cooldown = int(os.getenv("RESTART_COOLDOWN_SECONDS", "300"))
 
         self._last_restart_time: datetime | None = None
-        self._monitoring_thread: threading.Thread | None = None
-        self._stop_monitoring = threading.Event()
 
         if not PSUTIL_AVAILABLE:
             logger.warning("Resource monitoring disabled - psutil not available")
@@ -211,11 +208,6 @@ class ResourceMonitor:
 
         return False, "Memory usage within acceptable limits"
 
-    def record_restart(self) -> None:
-        """记录重启时间"""
-        self._last_restart_time = datetime.now()
-        logger.info(f"Recorded restart at {self._last_restart_time}")
-
     def get_resource_recommendations(self) -> dict[str, Any]:
         """
         获取资源优化建议
@@ -254,55 +246,6 @@ class ResourceMonitor:
             "current_usage": current_usage,
         }
 
-    def start_monitoring(self, interval: int = 60) -> None:
-        """
-        启动后台资源监控
-        Requirements: 4.3, 4.4 - 持续监控和保护
-        """
-        if not self.monitoring_enabled:
-            logger.info("Resource monitoring disabled")
-            return
-
-        if self._monitoring_thread and self._monitoring_thread.is_alive():
-            logger.warning("Resource monitoring already running")
-            return
-
-        self._stop_monitoring.clear()
-        self._monitoring_thread = threading.Thread(
-            target=self._monitoring_loop, args=(interval,), daemon=True, name="ResourceMonitor"
-        )
-        self._monitoring_thread.start()
-        logger.info(f"Started resource monitoring with {interval}s interval")
-
-    def stop_monitoring(self) -> None:
-        """停止资源监控"""
-        if self._monitoring_thread and self._monitoring_thread.is_alive():
-            self._stop_monitoring.set()
-            self._monitoring_thread.join(timeout=5)
-            logger.info("Stopped resource monitoring")
-
-    def _monitoring_loop(self, interval: int) -> None:
-        """资源监控循环"""
-        while not self._stop_monitoring.wait(interval):
-            try:
-                health = self.check_resource_health()
-
-                if health["status"] == "critical":
-                    logger.error(f"Resource critical: {health['message']}")
-                elif health["status"] == "warning":
-                    logger.warning(f"Resource warning: {health['message']}")
-
-                # 检查是否需要自动重启
-                should_restart, reason = self.should_trigger_restart()
-                if should_restart:
-                    logger.critical(f"Auto restart triggered: {reason}")
-                    # 这里可以集成实际的重启逻辑
-                    # 例如:发送信号给容器管理器或记录重启请求
-                    self.record_restart()
-
-            except (OSError, ValueError, RuntimeError) as e:
-                logger.error(f"Error in resource monitoring loop: {e}")
-
 
 # 全局资源监控实例
 resource_monitor = ResourceMonitor()
@@ -316,13 +259,3 @@ def get_resource_status() -> dict[str, Any]:
 def get_resource_usage() -> ResourceUsage | None:
     """获取资源使用情况的便捷函数"""
     return resource_monitor.get_current_usage()
-
-
-def start_resource_monitoring() -> None:
-    """启动资源监控的便捷函数"""
-    resource_monitor.start_monitoring()
-
-
-def stop_resource_monitoring() -> None:
-    """停止资源监控的便捷函数"""
-    resource_monitor.stop_monitoring()

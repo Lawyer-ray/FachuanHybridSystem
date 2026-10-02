@@ -188,12 +188,28 @@ class CaseAdminViewsMixin:  # pragma: no cover
         ]
         return custom_urls + urls
 
+    def _ensure_case_access(self, request: HttpRequest, case: Case | None, *, case_id: int | None = None) -> None:
+        """行级权限校验：复用 CaseAccessPolicy.ensure_access_ctx，无权访问时抛 PermissionDenied（admin 渲染 403）。"""
+        from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+        from apps.core.exceptions import PermissionDenied as BizPermissionDenied
+        from apps.core.security import get_request_access_context
+
+        target_case_id = case.pk if case is not None else case_id
+        if target_case_id is None:
+            raise Http404("案件不存在")
+        ctx = get_request_access_context(request)
+        try:
+            CaseAccessPolicy().ensure_access_ctx(case_id=int(target_case_id), ctx=ctx, case=case)
+        except BizPermissionDenied as exc:
+            raise PermissionDenied(str(exc)) from exc
+
     def mock_trial_view(self, request: HttpRequest, object_id: int) -> HttpResponse:  # pragma: no cover
         case = self._get_case_with_relations(object_id)
         if case is None:
             raise Http404("案件不存在")
         if not self.has_view_permission(request, case):  # type: ignore[attr-defined]
             raise PermissionDenied
+        self._ensure_case_access(request, case)
         context = self.admin_site.each_context(request)  # type: ignore[attr-defined]
         context.update(
             {
@@ -222,6 +238,8 @@ class CaseAdminViewsMixin:  # pragma: no cover
 
         if not self.has_view_permission(request, case):  # type: ignore[attr-defined]
             raise PermissionDenied
+
+        self._ensure_case_access(request, case)
 
         service = self._get_case_admin_service()  # type: ignore[attr-defined]
 
@@ -350,6 +368,8 @@ class CaseAdminViewsMixin:  # pragma: no cover
 
         if not self.has_change_permission(request, case):  # type: ignore[attr-defined]
             raise PermissionDenied
+
+        self._ensure_case_access(request, case)
 
         user = getattr(request, "user", None)
         law_firm_id = getattr(user, "law_firm_id", None) if user else None
@@ -496,6 +516,9 @@ class CaseAdminViewsMixin:  # pragma: no cover
         if request.method != "POST":
             return JsonResponse({"success": False, "error": "仅支持 POST 请求"}, status=405)
 
+        if not self.has_change_permission(request):  # type: ignore[attr-defined]
+            return JsonResponse({"success": False, "error": "无权限"}, status=403)
+
         try:
             # 支持临时文件路径（未保存的情况）
             # 前端以 application/json 发送，需从 request.body 解析
@@ -523,6 +546,7 @@ class CaseAdminViewsMixin:  # pragma: no cover
             else:
                 # 已保存的文件模式
                 case_number = CaseNumber.objects.get(pk=casenumber_id)
+                self._ensure_case_access(request, case_number.case)
                 if not case_number.document_file:
                     return JsonResponse({"success": False, "error": "请先上传裁判文书文件"}, status=400)
                 file_path = case_number.document_file.path
@@ -557,6 +581,8 @@ class CaseAdminViewsMixin:  # pragma: no cover
 
         except CaseNumber.DoesNotExist:
             return JsonResponse({"success": False, "error": "案号记录不存在"}, status=404)
+        except PermissionDenied:
+            raise
         except BusinessException as e:
             logger.warning("解析裁判文书业务异常: case_number_id=%s, error=%s", casenumber_id, str(e))
             return JsonResponse({"success": False, "error": str(e.message)}, status=400)
@@ -576,6 +602,9 @@ class CaseAdminViewsMixin:  # pragma: no cover
         if request.method != "POST":
             return JsonResponse({"success": False, "error": "仅支持 POST 请求"}, status=405)
 
+        if not self.has_change_permission(request):  # type: ignore[attr-defined]
+            return JsonResponse({"success": False, "error": "无权限"}, status=403)
+
         try:
             body: dict[str, object] = {}
             if request.body:
@@ -584,6 +613,7 @@ class CaseAdminViewsMixin:  # pragma: no cover
                 body = json.loads(request.body.decode("utf-8"))
 
             case_number = CaseNumber.objects.select_related("case").get(pk=casenumber_id)
+            self._ensure_case_access(request, case_number.case)
 
             cutoff_date = self._coerce_optional_date(body.get("cutoff_date"))
             paid_amount = self._coerce_optional_decimal(body.get("paid_amount"))
@@ -616,6 +646,8 @@ class CaseAdminViewsMixin:  # pragma: no cover
             )
         except CaseNumber.DoesNotExist:
             return JsonResponse({"success": False, "error": "案号记录不存在"}, status=404)
+        except PermissionDenied:
+            raise
         except Exception:
             logger.exception("解析申请执行事项失败: case_number_id=%s", casenumber_id)
             return JsonResponse({"success": False, "error": "解析失败，请查看服务器日志"}, status=500)
@@ -761,6 +793,8 @@ class CaseAdminViewsMixin:  # pragma: no cover
         if not self.has_view_permission(request):  # type: ignore[attr-defined]
             return JsonResponse({"success": False, "error": "无权限"}, status=403)
 
+        self._ensure_case_access(request, None, case_id=object_id)
+
         try:
             from apps.cases.models.material import CaseFolderBinding
 
@@ -810,6 +844,8 @@ class CaseAdminViewsMixin:  # pragma: no cover
 
         if not self.has_view_permission(request):  # type: ignore[attr-defined]
             return JsonResponse({"success": False, "error": "无权限"}, status=403)
+
+        self._ensure_case_access(request, None, case_id=object_id)
 
         try:
             from apps.cases.models.material import CaseFolderBinding

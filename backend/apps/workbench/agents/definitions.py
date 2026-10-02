@@ -70,13 +70,13 @@ CONTEXT_SUFFIX = """当前会话信息：
 
 def _build_instructions(base: str, deps: WorkbenchDeps) -> str:
     """构建带上下文的 system prompt"""
-    from datetime import datetime
+    from django.utils import timezone
 
     summary_section = ""
     if deps.conversation_summary:
         summary_section = f"- 之前对话摘要：\n{deps.conversation_summary}"
 
-    now = datetime.now()
+    now = timezone.localtime()
     weekdays = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
     current_date = f"{now.year}年{now.month}月{now.day}日 {weekdays[now.weekday()]}"
 

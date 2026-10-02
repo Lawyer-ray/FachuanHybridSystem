@@ -32,7 +32,7 @@ class TestTokenAcquisitionHistoryAdminService:
     """Tests for TokenAcquisitionHistoryAdminService."""
 
     def _make_service(self):
-        from apps.automation.services.admin.token_acquisition_history_admin_service import (
+        from plugins.court_automation.token_admin.token_acquisition_history_admin_service import (
             TokenAcquisitionHistoryAdminService,
         )
         return TokenAcquisitionHistoryAdminService()

@@ -127,26 +127,6 @@ class TestResolveBackendForModel:
         assert LLMConfig.resolve_backend_for_model("kimi26") == "openai_compatible"
 
 
-class TestGetTemperature:
-    def test_from_config(self):
-        with patch.object(LLMConfig, "_get_system_config", return_value="0.7"):
-            assert LLMConfig.get_temperature() == 0.7
-
-    def test_invalid(self):
-        with patch.object(LLMConfig, "_get_system_config", return_value="bad"):
-            assert LLMConfig.get_temperature() == 0.3
-
-
-class TestGetMaxTokens:
-    def test_from_config(self):
-        with patch.object(LLMConfig, "_get_system_config", return_value="4096"):
-            assert LLMConfig.get_max_tokens() == 4096
-
-    def test_invalid(self):
-        with patch.object(LLMConfig, "_get_system_config", return_value="bad"):
-            assert LLMConfig.get_max_tokens() == 2000
-
-
 class TestParseBool:
     def test_bool_passthrough(self):
         assert LLMConfig._parse_bool(True, False) is True

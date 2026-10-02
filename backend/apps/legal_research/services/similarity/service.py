@@ -69,12 +69,7 @@ class CaseSimilarityService:  # pragma: no cover
     PARAGRAPH_TOP_K = 6
     PARAGRAPH_MAX_CHARS = 14000
     PASSAGE_PREVIEW_MAX_CHARS = 1400
-    FACT_FOCUS_MARKER = "本院查明"
-    MIN_EVIDENCE_SPAN_CHARS = 4
-    SIMILARITY_CACHE_PREFIX = "legal_research:similarity"
-    SIMILARITY_PROMPT_VERSION = "v2-structured"
     SIMILARITY_LOCAL_CACHE_MAX_SIZE = 1024
-    SEMANTIC_EMBEDDING_CACHE_PREFIX = "legal_research:semantic_embedding"
     SEMANTIC_VECTOR_LOCAL_CACHE_MAX_SIZE = 2048
     SEMANTIC_EMBEDDING_TEXT_MAX_CHARS = 1400
     SEMANTIC_EMBEDDING_TIMEOUT_SECONDS = 8
@@ -86,21 +81,6 @@ class CaseSimilarityService:  # pragma: no cover
     SEMANTIC_RECHECK_WEAK_SIGNAL_COUNT = 3
     SEMANTIC_RECHECK_MIN_QUERY_TERMS = 6
     SEMANTIC_RECHECK_LEXICAL_MAX = 0.62
-    HARD_CONFLICT_NEEDLES = (
-        "主体",
-        "身份",
-        "当事人关系",
-        "法律关系",
-        "合同类型",
-        "交易对象",
-        "违约方式",
-        "违约行为",
-        "损失类型",
-        "损失原因",
-        "请求权基础",
-        "法律后果",
-        "交易结构",
-    )
 
     def __init__(self, *, tuning: LegalResearchTuningConfig | None = None) -> None:  # pragma: no cover
         self._llm = ServiceLocator.get_llm_service()
@@ -577,7 +557,9 @@ class CaseSimilarityService:  # pragma: no cover
             passage_top_k=self._passage_top_k,
         )
 
-    def _vector_similarity_score(self, text_a: str, text_b: str, *, allow_semantic: bool = True) -> float:  # pragma: no cover
+    def _vector_similarity_score(
+        self, text_a: str, text_b: str, *, allow_semantic: bool = True
+    ) -> float:  # pragma: no cover
         lexical = scorers.lexical_vector_similarity_score(text_a, text_b)
         semantic = self._semantic_vector_similarity_score(text_a, text_b) if allow_semantic else None
         if semantic is None:
@@ -648,7 +630,9 @@ class CaseSimilarityService:  # pragma: no cover
             self._embedding_client = _LLMEmbeddingClientAdapter(self._llm)
         return self._embedding_client
 
-    def _repair_json_payload(self, *, raw_text: str, model: str | None = None) -> dict[str, object] | None:  # pragma: no cover
+    def _repair_json_payload(
+        self, *, raw_text: str, model: str | None = None
+    ) -> dict[str, object] | None:  # pragma: no cover
         content = (raw_text or "").strip()
         if not content:
             return None
@@ -728,43 +712,3 @@ class CaseSimilarityService:  # pragma: no cover
                 if normalized_conflicts:
                     extra_payload["conflict_count"] = len(normalized_conflicts)
         logger.info("案例相似度评分", extra=extra_payload)
-
-
-from .cache import (
-    SemanticVectorCacheManager,
-    SimilarityCacheManager,
-    build_semantic_embedding_cache_key,
-    build_similarity_cache_key,
-    normalize_embedding_text,
-)
-from .json_utils import (
-    apply_structured_adjustments,
-    extract_json,
-    extract_structured_metadata,
-    extract_transaction_tags,
-)
-from .passage import (
-    compose_passage_excerpt,
-    dedupe_passages,
-    passage_alignment_score,
-    select_relevant_passages,
-    split_paragraphs,
-)
-
-# Re-export for backward compatibility
-from .scorers import (
-    bm25_proxy_score,
-    build_candidate_excerpt,
-    char_ngrams,
-    coerce_score,
-    dedupe_tokens,
-    extract_score_from_text,
-    focus_content_after_fact_marker,
-    keyword_overlap_score,
-    lexical_vector_similarity_score,
-    metadata_hint_score,
-    normalize_score,
-    summary_overlap_score,
-    token_overlap_score,
-    tokenize,
-)

@@ -36,6 +36,12 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin):  # pragma: no cove
 
     change_form_template = "admin/cases/casechat/change_form.html"
 
+    def get_queryset(self, request: HttpRequest) -> QuerySet[CaseChat, CaseChat]:  # pragma: no cover
+        """行级过滤：仅保留可访问案件下的群聊记录（is_admin 全量）。"""
+        from apps.cases.admin.base_admin import apply_case_related_admin_access_filter
+
+        return apply_case_related_admin_access_filter(request, super().get_queryset(request))  # type: ignore[no-any-return]
+
     def chat_id_display(self, obj: CaseChat) -> str:  # pragma: no cover
         """显示群聊ID（截断显示）"""
         chat_id: str = obj.chat_id
@@ -83,7 +89,9 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin):  # pragma: no cove
 
     status_display.short_description = "状态"  # type: ignore[attr-defined]
 
-    def unbind_selected_chats(self, request: HttpRequest, queryset: QuerySet[CaseChat, CaseChat]) -> None:  # pragma: no cover
+    def unbind_selected_chats(
+        self, request: HttpRequest, queryset: QuerySet[CaseChat, CaseChat]
+    ) -> None:  # pragma: no cover
         """批量解除绑定群聊"""
         service = self._get_case_chat_service()
         success_count = 0

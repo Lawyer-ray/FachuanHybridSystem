@@ -118,10 +118,10 @@ def _generate_archive_folder_inner(
                 doc_results[i] = catalog_result
                 break
 
-    from datetime import date
+    from django.utils import timezone
 
     contract_name = contract.name or "未命名合同"
-    today_str = date.today().strftime("%Y%m%d")
+    today_str = timezone.localdate().strftime("%Y%m%d")
     generated_docs: list[str] = []
     errors: list[str] = []
 
@@ -223,7 +223,7 @@ def _write_template_doc_to_folder(
     archive_dir: Path,
 ) -> None:  # pragma: no cover
     """将单个模板文书写入归档文件夹（仅 docx）。"""
-    from datetime import date
+    from django.utils import timezone
 
     archive_category = get_archive_category(contract.case_type)
     checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
@@ -255,7 +255,7 @@ def _write_template_doc_to_folder(
         raise ValueError(f"docx文件不存在: {docx_path}")
 
     contract_name = contract.name or "未命名合同"
-    today_str = date.today().strftime("%Y%m%d")
+    today_str = timezone.localdate().strftime("%Y%m%d")
     base_name = f"{seq_num}-{doc_name}（{contract_name}）_{today_str}"
 
     dest_docx = archive_dir / f"{base_name}.docx"
@@ -268,14 +268,13 @@ def _compile_final_archive_pdf(
     case_materials_pdf_exists: bool,
 ) -> dict[str, Any]:  # pragma: no cover
     """将1-3号模板文书的docx转PDF，与4-案卷材料PDF按序号合并，生成"5-Final案卷材料.pdf"。"""
-    from datetime import date
-
     import pymupdf as fitz
+    from django.utils import timezone
 
     from apps.documents.services.infrastructure.pdf_merge_utils import resolve_material_to_temp_pdf
 
     contract_name = contract.name or "未命名合同"
-    today_str = date.today().strftime("%Y%m%d")
+    today_str = timezone.localdate().strftime("%Y%m%d")
 
     pdf_files_to_merge: list[Path] = []
     temp_pdf_files: list[Path] = []

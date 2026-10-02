@@ -60,21 +60,6 @@ def _get_scraper_map() -> dict[str, type[Any]]:
     return _scraper_map
 
 
-def check_stuck_tasks() -> None:
-    """
-    定时任务：检查卡住的任务
-    """
-    from apps.core.interfaces import ServiceLocator
-
-    monitor_service = ServiceLocator.get_monitor_service()
-    stuck_tasks = monitor_service.check_stuck_tasks(timeout_minutes=30)
-
-    if stuck_tasks:
-        monitor_service.send_alert(
-            "任务超时告警", f"发现 {len(stuck_tasks)} 个任务执行超时（>30分钟）", level="warning"
-        )
-
-
 def execute_scraper_task(task_id: int, **kwargs: Any) -> None:
     """
     执行爬虫任务（同步版本，用于 Django-Q）
@@ -207,28 +192,6 @@ def reset_running_tasks() -> int:
     running_tasks.update(status=ScraperTaskStatus.PENDING)
     logger.info("已重置 %s 个任务", count)
     return count
-
-
-def startup_check() -> dict[str, int]:
-    """
-    启动时检查
-
-    在 qcluster 启动时调用，执行以下操作：
-    1. 重置卡住的 running 任务
-    2. 处理所有待处理的任务
-    """
-    logger.info("=" * 60)
-    logger.info("执行启动检查...")
-    logger.info("=" * 60)
-
-    reset_count = reset_running_tasks()
-    pending_count = process_pending_tasks()
-
-    logger.info("=" * 60)
-    logger.info("启动检查完成: 重置 %s 个卡住任务, 提交 %s 个待处理任务", reset_count, pending_count)
-    logger.info("=" * 60)
-
-    return {"reset_count": reset_count, "pending_count": pending_count}
 
 
 def execute_preservation_quote_task(quote_id: int) -> dict[str, Any]:

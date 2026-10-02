@@ -1,6 +1,6 @@
 """测试 core.infrastructure 子模块
 
-覆盖: service_locator_base, throttling, monitoring, resource_monitor, cache,
+覆盖: service_locator_base, throttling, resource_monitor, cache,
       subprocess_runner, logging, request_context
 """
 
@@ -170,43 +170,6 @@ class TestGetRateLimitConfig:
 
 
 # ============================================================
-# monitoring.py
-# ============================================================
-
-
-class TestPerformanceMonitor:
-    """测试 PerformanceMonitor"""
-
-    def test_slow_api_threshold(self) -> None:
-        from apps.core.infrastructure.monitoring import PerformanceMonitor
-
-        assert PerformanceMonitor.SLOW_API_THRESHOLD_MS == 1000
-        assert PerformanceMonitor.SLOW_QUERY_THRESHOLD_MS == 100
-        assert PerformanceMonitor.MAX_QUERY_COUNT == 10
-
-    @patch("apps.core.infrastructure.monitoring.settings")
-    def test_should_collect_queries_debug(self, mock_settings: MagicMock) -> None:
-        from apps.core.infrastructure.monitoring import PerformanceMonitor
-
-        mock_settings.DEBUG = True
-        assert PerformanceMonitor._should_collect_queries() is True
-
-    @patch("apps.core.infrastructure.monitoring.settings")
-    def test_should_collect_queries_disabled(self, mock_settings: MagicMock) -> None:
-        from apps.core.infrastructure.monitoring import PerformanceMonitor
-
-        mock_settings.DEBUG = False
-        with patch.dict("os.environ", {"DJANGO_DB_QUERY_METRICS": ""}):
-            assert PerformanceMonitor._should_collect_queries() is False
-
-    def test_check_performance_issues_fast(self) -> None:
-        from apps.core.infrastructure.monitoring import PerformanceMonitor
-
-        # 不应该抛异常
-        PerformanceMonitor._check_performance_issues("test", duration_ms=100, query_count=5)
-
-
-# ============================================================
 # resource_monitor.py
 # ============================================================
 
@@ -236,14 +199,6 @@ class TestResourceMonitor:
         monitor = ResourceMonitor()
         assert monitor.monitoring_enabled is False
         assert monitor.get_current_usage() is None
-
-    @patch("apps.core.infrastructure.resource_monitor.PSUTIL_AVAILABLE", True)
-    def test_record_restart(self) -> None:
-        from apps.core.infrastructure.resource_monitor import ResourceMonitor
-
-        monitor = ResourceMonitor()
-        monitor.record_restart()
-        assert monitor._last_restart_time is not None
 
     @patch("apps.core.infrastructure.resource_monitor.PSUTIL_AVAILABLE", True)
     def test_should_trigger_restart_disabled(self) -> None:

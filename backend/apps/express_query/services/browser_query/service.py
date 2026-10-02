@@ -56,9 +56,9 @@ class ExpressBrowserQueryService:  # pragma: no cover
                 await asyncio.sleep(2)
 
             # 注入日期时间 + URL 页眉
-            from datetime import datetime
+            from django.utils import timezone
 
-            now_str: str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            now_str: str = timezone.localtime().strftime("%Y-%m-%d %H:%M:%S")
             watermark_id: str = "__express_watermark__"
             await page.evaluate(
                 """([text, url, id]) => {

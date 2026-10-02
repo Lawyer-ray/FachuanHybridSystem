@@ -108,11 +108,9 @@ class TestDocumentProcessing:
         except ImportError:
             pytest.skip("PyMuPDF not installed")
 
-
 # ============================================================
 # DocumentRenamer rename/filename 测试
 # ============================================================
-
 
 @pytest.mark.django_db
 class TestDocumentRenamerFilename:
@@ -146,11 +144,9 @@ class TestDocumentRenamerFilename:
         with pytest.raises(ValidationException):
             renamer.rename(str(tmp_path / "nonexistent.pdf"), "案件名", __import__("datetime").date(2025, 1, 1))
 
-
 # ============================================================
 # Extended coverage tests
 # ============================================================
-
 
 class TestSaveUploadedDocument:
     def test_save_file(self, tmp_path) -> None:
@@ -184,7 +180,6 @@ class TestSaveUploadedDocument:
         assert r1.name != r2.name
         r1.unlink(missing_ok=True)
         r2.unlink(missing_ok=True)
-
 
 class TestRenderPdfPageToImage:
     def test_basic_render(self, tmp_path) -> None:
@@ -243,25 +238,6 @@ class TestRenderPdfPageToImage:
 
         assert url  # clamped to last page
 
-    def test_render_first_page_alias(self, tmp_path) -> None:
-        import pymupdf as fitz
-
-        from apps.automation.services.document.document_processing import render_pdf_first_page_to_image
-
-        pdf_path = tmp_path / "test.pdf"
-        doc = fitz.open()
-        doc.new_page()
-        doc.save(str(pdf_path))
-        doc.close()
-
-        with patch("apps.automation.services.document.document_processing.settings") as mock_settings:
-            mock_settings.MEDIA_ROOT = str(tmp_path / "media")
-            mock_settings.MEDIA_URL = "/media/"
-            url = render_pdf_first_page_to_image(str(pdf_path))
-
-        assert url
-
-
 class TestExtractDocumentContentExtended:
     def test_pdf_content(self, tmp_path) -> None:
         import pymupdf as fitz
@@ -309,7 +285,6 @@ class TestExtractDocumentContentExtended:
 
         assert result.kind == "image"
         assert "图片OCR文字" in result.text
-
 
 class TestOcrPdfPage:
     def test_ocr_with_valid_pdf(self, tmp_path) -> None:
@@ -361,7 +336,6 @@ class TestOcrPdfPage:
 
         result = _ocr_pdf_page("/nonexistent/file.pdf", 1, 500)
         assert result is None
-
 
 class TestProcessPdfExtended:
     def test_text_pdf_returns_text(self, tmp_path) -> None:

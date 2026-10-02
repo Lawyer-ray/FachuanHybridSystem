@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -161,71 +161,6 @@ class FeishuOwnerMixin:  # pragma: no cover
                 errors={"original_error": str(e), "chat_id": chat_id},
             ) from e
 
-    async def aget_chat_owner_info(self, chat_id: str) -> dict[str, Any]:  # pragma: no cover
-        """异步版本。获取群聊群主信息"""
-        if not self.is_available():
-            raise ConfigurationException(
-                message="飞书配置不完整，无法获取群聊群主信息",
-                platform="feishu",
-                missing_config="APP_ID, APP_SECRET",
-            )
-
-        try:
-            access_token = await self._aget_tenant_access_token()
-            url = f"{self.BASE_URL}{self.ENDPOINTS['get_chat'].format(chat_id=chat_id)}"
-            params = {"user_id_type": "open_id"}
-            headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
-
-            timeout = self.config.get("TIMEOUT", 30)
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.get(url, params=params, headers=headers)
-                response.raise_for_status()
-
-            data = response.json()
-
-            if data.get("code") != 0:
-                error_msg = data.get("msg", "未知错误")
-                error_code = str(data.get("code"))
-                logger.error(f"获取飞书群聊群主信息失败: {error_msg} (code: {error_code})")
-                raise ChatProviderException(
-                    message=f"获取群聊群主信息失败: {error_msg}",
-                    platform="feishu",
-                    error_code=error_code,
-                    errors={"api_response": data, "chat_id": chat_id},
-                )
-
-            chat_data = data.get("data", {})
-            owner_info = {
-                "chat_id": chat_id,
-                "owner_id": chat_data.get("owner_id"),
-                "owner_id_type": chat_data.get("owner_id_type", "open_id"),
-                "chat_name": chat_data.get("name"),
-                "chat_mode": chat_data.get("chat_mode"),
-                "chat_type": chat_data.get("chat_type"),
-                "member_count": len(chat_data.get("members", [])),
-                "raw_data": chat_data,
-            }
-
-            logger.debug(f"成功获取群聊群主信息: {chat_id}, 群主: {owner_info.get('owner_id')}")
-            return owner_info
-
-        except ChatProviderException:
-            raise
-        except httpx.HTTPError as e:
-            logger.error(f"获取飞书群聊群主信息网络请求失败: {e!s}")
-            raise ChatProviderException(
-                message=f"网络请求失败: {e!s}",
-                platform="feishu",
-                errors={"original_error": str(e), "chat_id": chat_id},
-            ) from e
-        except Exception as e:
-            logger.error(f"获取飞书群聊群主信息时发生未知错误: {e!s}")
-            raise ChatProviderException(
-                message=f"获取群聊群主信息时发生未知错误: {e!s}",
-                platform="feishu",
-                errors={"original_error": str(e), "chat_id": chat_id},
-            ) from e
-
     async def _aconvert_union_id_to_open_id(self, union_id: str) -> str | None:  # pragma: no cover
         """异步版本。转换 union_id 为 open_id"""
         try:
@@ -258,132 +193,6 @@ class FeishuOwnerMixin:  # pragma: no cover
         except Exception as e:
             logger.error(f"转换union_id时发生错误: {union_id}, 错误: {e!s}")
             return None
-
-    def verify_owner_setting(self, chat_id: str, expected_owner_id: str) -> bool:  # pragma: no cover
-        """验证群主设置是否正确"""
-        try:
-            chat_info = self.get_chat_owner_info(chat_id)
-
-            if not chat_info:
-                logger.warning(f"无法获取群聊信息进行群主验证: {chat_id}")
-                return False
-
-            actual_owner_id = chat_info.get("owner_id")
-
-            if not actual_owner_id:
-                logger.warning(f"群聊信息中缺少群主ID: {chat_id}")
-                return False
-
-            is_match = actual_owner_id == expected_owner_id
-
-            if is_match:
-                logger.info(f"群主设置验证成功: {chat_id}, 群主: {actual_owner_id}")
-            else:
-                logger.warning(f"群主设置验证失败: {chat_id}, 期望: {expected_owner_id}, 实际: {actual_owner_id}")
-
-            return cast(bool, is_match)
-
-        except Exception as e:
-            logger.error(f"验证群主设置时发生错误: {chat_id}, 错误: {e!s}")
-            return False
-
-    def get_chat_owner_info(self, chat_id: str) -> dict[str, Any]:  # pragma: no cover
-        """获取群聊群主信息"""
-        if not self.is_available():
-            raise ConfigurationException(
-                message="飞书配置不完整，无法获取群聊群主信息",
-                platform="feishu",
-                missing_config="APP_ID, APP_SECRET",
-            )
-
-        try:
-            access_token = self._get_tenant_access_token()
-            url = f"{self.BASE_URL}{self.ENDPOINTS['get_chat'].format(chat_id=chat_id)}"
-            params = {"user_id_type": "open_id"}
-            headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
-
-            timeout = self.config.get("TIMEOUT", 30)
-            response = httpx.get(url, params=params, headers=headers, timeout=timeout)
-            response.raise_for_status()
-
-            data = response.json()
-
-            if data.get("code") != 0:
-                error_msg = data.get("msg", "未知错误")
-                error_code = str(data.get("code"))
-                logger.error(f"获取飞书群聊群主信息失败: {error_msg} (code: {error_code})")
-                raise ChatProviderException(
-                    message=f"获取群聊群主信息失败: {error_msg}",
-                    platform="feishu",
-                    error_code=error_code,
-                    errors={"api_response": data, "chat_id": chat_id},
-                )
-
-            chat_data = data.get("data", {})
-            owner_info = {
-                "chat_id": chat_id,
-                "owner_id": chat_data.get("owner_id"),
-                "owner_id_type": chat_data.get("owner_id_type", "open_id"),
-                "chat_name": chat_data.get("name"),
-                "chat_mode": chat_data.get("chat_mode"),
-                "chat_type": chat_data.get("chat_type"),
-                "member_count": len(chat_data.get("members", [])),
-                "raw_data": chat_data,
-            }
-
-            logger.debug(f"成功获取群聊群主信息: {chat_id}, 群主: {owner_info.get('owner_id')}")
-            return owner_info
-
-        except ChatProviderException:
-            raise
-        except httpx.HTTPError as e:
-            logger.error(f"获取飞书群聊群主信息网络请求失败: {e!s}")
-            raise ChatProviderException(
-                message=f"网络请求失败: {e!s}",
-                platform="feishu",
-                errors={"original_error": str(e), "chat_id": chat_id},
-            ) from e
-        except Exception as e:
-            logger.error(f"获取飞书群聊群主信息时发生未知错误: {e!s}")
-            raise ChatProviderException(
-                message=f"获取群聊群主信息时发生未知错误: {e!s}",
-                platform="feishu",
-                errors={"original_error": str(e), "chat_id": chat_id},
-            ) from e
-
-    def retry_owner_setting(self, chat_id: str, owner_id: str, max_retries: int = 3) -> bool:  # pragma: no cover
-        """重试群主设置"""
-        from .retry_config import RetryManager
-
-        if not self.owner_config.is_retry_enabled():
-            logger.info(f"重试机制已禁用，跳过群主设置重试: {chat_id}")
-            return False
-
-        retry_manager = RetryManager()
-
-        def verify_operation() -> None:  # pragma: no cover
-            if not self.verify_owner_setting(chat_id, owner_id):
-                raise owner_validation_error(
-                    message=f"群主设置验证失败: 期望群主 {owner_id}",
-                    owner_id=owner_id,
-                    chat_id=chat_id,
-                    validation_type="owner_verification",
-                )
-
-        try:
-            retry_manager.execute_with_retry(
-                operation=verify_operation,
-                operation_name=f"verify_owner_setting_{chat_id}",
-                context={"chat_id": chat_id, "owner_id": owner_id, "max_retries": max_retries},
-            )
-            summary = retry_manager.get_retry_summary()
-            logger.info(f"群主设置重试成功: {chat_id}, 摘要: {summary}")
-            return True
-
-        except Exception as e:
-            summary = retry_manager.get_retry_summary()
-            logger.error(f"群主设置重试最终失败: {chat_id}, 摘要: {summary}, 错误: {e!s}")
-            return False
 
     def _classify_feishu_error(  # pragma: no cover
         self, error_code: str, error_msg: str

@@ -454,14 +454,3 @@ class FeishuChatProvider(FeishuTokenMixin, FeishuFileMixin, FeishuOwnerMixin, Ch
         if content.text:
             message_parts.append(content.text)
         return "\n\n".join(message_parts) if message_parts else "空消息"
-
-    def _build_rich_text_message(self, content: MessageContent) -> dict[str, Any]:  # pragma: no cover
-        """构建飞书富文本消息格式（保留用于未来需求）"""
-        elements = []
-        if content.title:
-            elements.append({"tag": "div", "text": {"tag": "lark_md", "content": f"**{content.title}**"}})
-        if content.text:
-            elements.append({"tag": "div", "text": {"tag": "lark_md", "content": content.text}})
-        if content.title and content.text:
-            elements.insert(1, {"tag": "hr"})
-        return {"elements": elements}

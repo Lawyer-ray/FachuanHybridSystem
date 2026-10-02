@@ -7,11 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.evidence.services.infrastructure.pdf_merge_service import (
-    PDFMergeService,
-    PDFMergeValidator,
-    PDFMergeWorkflow,
-)
+from apps.evidence.services.infrastructure.pdf_merge_service import PDFMergeService, PDFMergeValidator, PDFMergeWorkflow
 
 
 class TestPDFMergeValidatorConstants:
@@ -99,19 +95,6 @@ class TestEvidenceExportServiceInit:
         mock_ps = MagicMock()
         svc = EvidenceExportService(placeholder_service=mock_ps)
         assert svc._placeholder_service is mock_ps
-        assert svc.placeholder_service is mock_ps
-
-
-class TestDocumentsEvidenceExportServiceInit:
-    def test_default(self) -> None:
-        from apps.documents.services.evidence.evidence_export_service import EvidenceExportService
-        svc = EvidenceExportService()
-        assert svc._placeholder_service is None
-
-    def test_injected(self) -> None:
-        from apps.documents.services.evidence.evidence_export_service import EvidenceExportService
-        mock_ps = MagicMock()
-        svc = EvidenceExportService(placeholder_service=mock_ps)
         assert svc.placeholder_service is mock_ps
 
 

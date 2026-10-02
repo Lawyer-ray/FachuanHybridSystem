@@ -359,10 +359,10 @@ def compile_case_materials_pdf(
 
         add_page_numbers(merged_doc)
 
-        from datetime import date
+        from django.utils import timezone
 
         contract_name = contract.name or "未命名合同"
-        today_str = date.today().strftime("%Y%m%d")
+        today_str = timezone.localdate().strftime("%Y%m%d")
         dest_pdf = archive_dir / f"4-案卷材料（{contract_name}）_{today_str}.pdf"
         merged_doc.save(str(dest_pdf))
         page_count = len(merged_doc)

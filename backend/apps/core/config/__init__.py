@@ -31,8 +31,6 @@ from .utils import (
     get_document_processing_config,
     get_feishu_config,
     is_config_manager_available,
-    migrate_legacy_config_access,
-    register_config_change_listener,
 )
 
 # 全局配置管理器实例（线程安全）
@@ -119,6 +117,4 @@ __all__ = [
     "get_case_chat_config",
     "get_court_sms_config",
     "is_config_manager_available",
-    "register_config_change_listener",
-    "migrate_legacy_config_access",
 ]

@@ -130,22 +130,6 @@ class TestLLMConfigMisc:
         # 超时只读 AI 平台配置；systemconfig 不再兜底
         assert LLMConfig.get_openai_compatible_timeout() == LLMConfig.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
 
-    @patch.object(LLMConfig, "_get_system_config", return_value="bad_float")
-    def test_get_temperature_invalid(self, mock_sc):
-        assert LLMConfig.get_temperature() == 0.3
-
-    @patch.object(LLMConfig, "_get_system_config", return_value="0.5")
-    def test_get_temperature_valid(self, mock_sc):
-        assert LLMConfig.get_temperature() == 0.5
-
-    @patch.object(LLMConfig, "_get_system_config", return_value="bad")
-    def test_get_max_tokens_invalid(self, mock_sc):
-        assert LLMConfig.get_max_tokens() == 2000
-
-    @patch.object(LLMConfig, "_get_system_config", return_value="4000")
-    def test_get_max_tokens_valid(self, mock_sc):
-        assert LLMConfig.get_max_tokens() == 4000
-
     @patch.object(LLMConfig, "_get_system_config", return_value="")
     def test_get_default_model_unconfigured(self, mock_sc):
         # 默认模型只读 AI 平台配置；无平台返回空

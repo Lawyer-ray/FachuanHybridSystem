@@ -1,8 +1,9 @@
 """Business logic services."""
 
 import uuid
-from datetime import datetime
 from typing import Any
+
+from django.utils import timezone
 
 from apps.core.utils.path import Path
 
@@ -19,13 +20,13 @@ def ensure_output_dir() -> Any:  # pragma: no cover
 
 
 def build_zip_filename(*, prefix: str = "rotated_images") -> str:
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = timezone.localtime().strftime("%Y%m%d_%H%M%S")
     unique_id = uuid.uuid4().hex[:8]
     return f"{prefix}_{timestamp}_{unique_id}.zip"
 
 
 def build_pdf_filename(*, prefix: str = "rotated_pages") -> str:
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = timezone.localtime().strftime("%Y%m%d_%H%M%S")
     return f"{prefix}_{timestamp}.pdf"
 
 

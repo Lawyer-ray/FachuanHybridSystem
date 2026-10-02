@@ -71,41 +71,38 @@ class PartyMatchingService:
 
         # 获取所有律师姓名，用于排除匹配
         lawyer_names = self.get_lawyer_names()
+        lawyer_name_set = set(lawyer_names)
 
         logger.info(f"开始在 {len(all_clients)} 个现有客户中查找匹配")
         logger.info(f"将排除 {len(lawyer_names)} 个律师姓名: {lawyer_names}")
 
-        # 遍历每个客户，检查其名称是否在短信提取的当事人中
+        # 预处理当事人名称：清洗、排除律师，构建精确匹配集合
+        party_name_set = {p.strip() for p in party_names if p.strip() not in lawyer_name_set}
+
+        # 预建子串索引：客户名(len>=2)包含于当事人名时 O(1) 命中判断
+        party_substrings: set[str] = set()
+        for party_name in party_name_set:
+            for i in range(len(party_name)):
+                for j in range(i + 2, len(party_name) + 1):
+                    party_substrings.add(party_name[i:j])
+
+        # 遍历每个客户，检查其名称是否与短信提取的当事人匹配（精确或双向包含）
         for client in all_clients:
             client_name = client.name.strip()
 
             # 排除律师：如果客户姓名与律师姓名匹配，跳过
-            if client_name in lawyer_names:
+            if client_name in lawyer_name_set:
                 logger.info(f"跳过律师: {client_name}")
                 continue
 
-            # 检查客户名称是否与短信中提取的当事人名称匹配
-            for party_name in party_names:
-                party_name = party_name.strip()
+            matched = client_name in party_name_set or client_name in party_substrings
+            if not matched:
+                # 当事人名(len>=2)包含于客户名
+                matched = any(p in client_name for p in party_name_set if len(p) >= 2)
 
-                # 排除律师：如果当事人姓名是律师，跳过
-                if party_name in lawyer_names:
-                    logger.info(f"跳过律师当事人: {party_name}")
-                    continue
-
-                # 精确匹配
-                if client_name == party_name:
-                    matched_clients.append(client)
-                    logger.info(f"精确匹配找到客户: {client_name}")
-                    break
-
-                # 包含匹配（客户名称包含在当事人名称中，或反之）
-                elif (len(client_name) >= 2 and client_name in party_name) or (
-                    len(party_name) >= 2 and party_name in client_name
-                ):
-                    matched_clients.append(client)
-                    logger.info(f"包含匹配找到客户: {client_name} <-> {party_name}")
-                    break
+            if matched:
+                matched_clients.append(client)
+                logger.info(f"匹配找到客户: {client_name}")
 
         # 去重（基于客户ID）
         matched_clients = self._deduplicate_clients(matched_clients)

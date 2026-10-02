@@ -1,7 +1,6 @@
 """广西司法送达新入口支持相关回归测试。"""
 
 from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
-from apps.automation.services.sms.parsing.download_link_extractor import DownloadLinkExtractor
 from apps.automation.services.sms.sms_parser_service import SMSParserService
 
 
@@ -17,11 +16,11 @@ def test_sms_parser_extract_guangxi_sfdw_link() -> None:
     assert "http://171.106.48.55:28083/sfsdw//r/TESTTOKEN001" in links
 
 
-def test_download_link_extractor_extract_guangxi_sfdw_link() -> None:
-    extractor = DownloadLinkExtractor()
+def test_sms_parser_extract_guangxi_sfdw_bare_link() -> None:
+    service = SMSParserService()
     content = "文书链接：http://171.106.48.55:28083/sfsdw//r/AbCd1234"
 
-    links = extractor.extract(content)
+    links = service.extract_download_links(content)
 
     assert links == ["http://171.106.48.55:28083/sfsdw//r/AbCd1234"]
 
@@ -50,11 +49,11 @@ def test_sms_parser_extract_same_structure_new_domain() -> None:
     assert links == ["https://new-portal.example.cn/zxfw/#/pagesAjkj/app/wssd/index?qdbh=Q1&sdbh=S1&sdsin=U1"]
 
 
-def test_download_link_extractor_extract_same_structure_new_domain() -> None:
-    extractor = DownloadLinkExtractor()
+def test_sms_parser_extract_jysd_alt_host_link() -> None:
+    service = SMSParserService()
     content = "请登录 https://alt-host.example.com/sd?key=ABCD1234 查看送达文书"
 
-    links = extractor.extract(content)
+    links = service.extract_download_links(content)
 
     assert links == ["https://alt-host.example.com/sd?key=ABCD1234"]
 

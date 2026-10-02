@@ -202,11 +202,11 @@ def _generate_single_document(
 
 def _generate_filename(contract: Contract, item: ChecklistItem) -> str:
     """生成归档文书文件名。"""
-    from datetime import date
+    from django.utils import timezone
 
     contract_name = contract.name or "未命名合同"
     item_name = item["name"]
-    today_str = date.today().strftime("%Y%m%d")
+    today_str = timezone.localdate().strftime("%Y%m%d")
     return (
         FilenameTemplateService.render_generated_doc(
             doc_type=item_name, case_name=contract_name, version="1", date=today_str

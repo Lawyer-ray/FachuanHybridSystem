@@ -171,9 +171,14 @@ class ClientPaymentRecordAdmin(admin.ModelAdmin):  # pragma: no cover
         ),
     )
 
-    def get_queryset(self, request: HttpRequest) -> QuerySet[ClientPaymentRecord, ClientPaymentRecord]:  # pragma: no cover
-        """优化查询"""
-        return super().get_queryset(request).select_related("contract", "case")
+    def get_queryset(
+        self, request: HttpRequest
+    ) -> QuerySet[ClientPaymentRecord, ClientPaymentRecord]:  # pragma: no cover
+        """行级过滤：仅保留可访问合同下的回款记录（is_admin 全量）"""
+        from apps.contracts.admin.access import apply_contract_related_admin_access_filter
+
+        qs = super().get_queryset(request)
+        return apply_contract_related_admin_access_filter(request, qs).select_related("contract", "case")  # type: ignore[no-any-return]
 
     @admin.display(description=_("图片预览"))
     def image_preview(self, obj: ClientPaymentRecord) -> str:  # pragma: no cover
@@ -211,6 +216,9 @@ class ClientPaymentRecordAdmin(admin.ModelAdmin):  # pragma: no cover
 
         from apps.cases.models import Case
 
+        if not self.has_view_permission(request):
+            return JsonResponse({"cases": [], "error": "无权限"}, status=403)
+
         contract_id = request.GET.get("contract_id")
         if not contract_id:
             return JsonResponse({"cases": []})
@@ -218,7 +226,9 @@ class ClientPaymentRecordAdmin(admin.ModelAdmin):  # pragma: no cover
         cases = Case.objects.filter(contract_id=contract_id).values("id", "name")
         return JsonResponse({"cases": list(cases)})
 
-    def save_model(self, request: HttpRequest, obj: ClientPaymentRecord, form: Any, change: bool) -> None:  # pragma: no cover
+    def save_model(
+        self, request: HttpRequest, obj: ClientPaymentRecord, form: Any, change: bool
+    ) -> None:  # pragma: no cover
         """保存模型时调用 Service 层验证"""
         from apps.contracts.services.client_payment import ClientPaymentImageService, ClientPaymentRecordService
 

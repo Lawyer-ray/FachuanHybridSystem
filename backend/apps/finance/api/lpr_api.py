@@ -8,6 +8,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from django.http import HttpRequest
+from django.utils import timezone
 from ninja import Router
 
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
@@ -443,7 +444,7 @@ def mortgage_default_calculate(  # pragma: no cover
             ],
         }
 
-        base_claim = data.claim_date or date.today()
+        base_claim = data.claim_date or timezone.localdate()
         result = calculator.calculate(**base_kwargs, claim_date=base_claim)
         payload = result.to_dict()
 

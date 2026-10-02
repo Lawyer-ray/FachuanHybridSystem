@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import date
 
+from django.utils import timezone
 from docx import Document
 from docx.document import Document as DocumentType
 
@@ -36,7 +36,7 @@ class TitleExtractor:
     def generate_output_filename(title: str, version: int = 1, task_id: str = "") -> str:
         """生成格式：{title}[修订版]V{version}_{date}_{short_id}.docx"""
         safe_title = re.sub(r'[\\/:*?"<>|]', "_", title) if title else "合同"
-        today = date.today().strftime("%Y%m%d")
+        today = timezone.localdate().strftime("%Y%m%d")
         suffix = f"_{task_id[:8]}" if task_id else ""
         return f"{safe_title}[修订版]V{version}_{today}{suffix}.docx"
 

@@ -111,8 +111,14 @@ def get_case_material_match_map(
     all_matched_material_ids: set[int] = set()
     all_unmatched: list[dict[str, Any]] = []
 
+    # 一次查询批量取回全部案件的材料，再按案件分组，消除逐案查询
+    case_ids = [c.id for c in cases]
+    materials_by_case: dict[int, list[Any]] = {}
+    for cm in CaseMaterial.objects.filter(case_id__in=case_ids).only("id", "type_name", "category", "case_id"):
+        materials_by_case.setdefault(cm.case_id, []).append(cm)
+
     for case in cases:
-        case_materials = list(CaseMaterial.objects.filter(case=case).only("id", "type_name", "category"))
+        case_materials = materials_by_case.get(case.id, [])
 
         case_matches: list[dict[str, Any]] = []
         case_code_to_material_ids: dict[str, list[int]] = {}
@@ -190,12 +196,23 @@ def _collect_matching_materials(
     code_to_case_materials: dict[str, list[Any]] = {}
     case_id_for_code: dict[str, int] = {}
 
-    for case in cases:
-        case_materials = list(
-            CaseMaterial.objects.filter(case=case)
-            .select_related("source_attachment")
-            .only("id", "type_name", "category", "source_attachment_id", "source_attachment__file", "case_id")
-        )
+    cases_list = list(cases)
+    case_ids = [c.id for c in cases_list]
+    if not case_ids:
+        return code_to_case_materials, case_id_for_code
+
+    # 一次查询批量取回全部案件的材料，再按案件分组，消除逐案查询
+    materials_by_case: dict[int, list[Any]] = {}
+    materials = (
+        CaseMaterial.objects.filter(case_id__in=case_ids)
+        .select_related("source_attachment")
+        .only("id", "type_name", "category", "source_attachment_id", "source_attachment__file", "case_id")
+    )
+    for cm in materials:
+        materials_by_case.setdefault(cm.case_id, []).append(cm)
+
+    for case in cases_list:
+        case_materials = materials_by_case.get(case.id, [])
         for cm in case_materials:
             matched_code = match_type_name_to_code(cm.type_name, keyword_map)
             if not matched_code or matched_code not in case_source_items:

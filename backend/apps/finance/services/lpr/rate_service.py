@@ -11,6 +11,8 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, NamedTuple
 
+from django.utils import timezone
+
 from apps.core.exceptions import ValidationException
 
 if TYPE_CHECKING:
@@ -179,7 +181,7 @@ class LPRRateService:
         Returns:
             True 表示数据最新，False 表示可能需要同步
         """
-        today = date.today()
+        today = timezone.localdate()
 
         try:
             latest = self.get_latest_rate()

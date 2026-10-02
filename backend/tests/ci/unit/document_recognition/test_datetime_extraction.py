@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -171,10 +171,9 @@ class TestScoreDaysDiff:
 class TestValidateHearingDatetime:
     """测试开庭时间合理性校验"""
 
-    @patch("apps.document_recognition.services._datetime_extraction_mixin.datetime")
-    def test_workday_worktime_full_hour(self, mock_dt: type, mixin: DatetimeExtractionMixin) -> None:
-        mock_dt.now.return_value = datetime(2026, 6, 1)  # Monday
-        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    @patch("apps.document_recognition.services._datetime_extraction_mixin.timezone")
+    def test_workday_worktime_full_hour(self, mock_tz: MagicMock, mixin: DatetimeExtractionMixin) -> None:
+        mock_tz.localtime.return_value = datetime(2026, 6, 1)  # Monday
         # 2026-06-15 is Monday, 9:00 AM
         dt = datetime(2026, 6, 15, 9, 0)
         is_valid, score, reasons = mixin._validate_hearing_datetime(dt)
@@ -183,43 +182,38 @@ class TestValidateHearingDatetime:
         assert "整点/半点" in reasons
         assert "工作日" in reasons
 
-    @patch("apps.document_recognition.services._datetime_extraction_mixin.datetime")
-    def test_weekend_penalty(self, mock_dt: type, mixin: DatetimeExtractionMixin) -> None:
-        mock_dt.now.return_value = datetime(2026, 6, 1)
-        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    @patch("apps.document_recognition.services._datetime_extraction_mixin.timezone")
+    def test_weekend_penalty(self, mock_tz: MagicMock, mixin: DatetimeExtractionMixin) -> None:
+        mock_tz.localtime.return_value = datetime(2026, 6, 1)
         # 2026-06-13 is Saturday
         dt = datetime(2026, 6, 13, 9, 0)
         is_valid, score, reasons = mixin._validate_hearing_datetime(dt)
         assert "周末" in reasons
 
-    @patch("apps.document_recognition.services._datetime_extraction_mixin.datetime")
-    def test_non_worktime_penalty(self, mock_dt: type, mixin: DatetimeExtractionMixin) -> None:
-        mock_dt.now.return_value = datetime(2026, 6, 1)
-        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    @patch("apps.document_recognition.services._datetime_extraction_mixin.timezone")
+    def test_non_worktime_penalty(self, mock_tz: MagicMock, mixin: DatetimeExtractionMixin) -> None:
+        mock_tz.localtime.return_value = datetime(2026, 6, 1)
         dt = datetime(2026, 6, 15, 2, 0)
         is_valid, score, reasons = mixin._validate_hearing_datetime(dt)
         assert "非工作时间" in reasons
 
-    @patch("apps.document_recognition.services._datetime_extraction_mixin.datetime")
-    def test_edge_worktime(self, mock_dt: type, mixin: DatetimeExtractionMixin) -> None:
-        mock_dt.now.return_value = datetime(2026, 6, 1)
-        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    @patch("apps.document_recognition.services._datetime_extraction_mixin.timezone")
+    def test_edge_worktime(self, mock_tz: MagicMock, mixin: DatetimeExtractionMixin) -> None:
+        mock_tz.localtime.return_value = datetime(2026, 6, 1)
         dt = datetime(2026, 6, 15, 7, 30)
         is_valid, score, reasons = mixin._validate_hearing_datetime(dt)
         assert "边缘工作时间" in reasons
 
-    @patch("apps.document_recognition.services._datetime_extraction_mixin.datetime")
-    def test_quarter_hour_bonus(self, mock_dt: type, mixin: DatetimeExtractionMixin) -> None:
-        mock_dt.now.return_value = datetime(2026, 6, 1)
-        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    @patch("apps.document_recognition.services._datetime_extraction_mixin.timezone")
+    def test_quarter_hour_bonus(self, mock_tz: MagicMock, mixin: DatetimeExtractionMixin) -> None:
+        mock_tz.localtime.return_value = datetime(2026, 6, 1)
         dt = datetime(2026, 6, 15, 9, 15)
         is_valid, score, reasons = mixin._validate_hearing_datetime(dt)
         assert "刻钟" in reasons
 
-    @patch("apps.document_recognition.services._datetime_extraction_mixin.datetime")
-    def test_score_clamped_to_0_100(self, mock_dt: type, mixin: DatetimeExtractionMixin) -> None:
-        mock_dt.now.return_value = datetime(2026, 6, 1)
-        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    @patch("apps.document_recognition.services._datetime_extraction_mixin.timezone")
+    def test_score_clamped_to_0_100(self, mock_tz: MagicMock, mixin: DatetimeExtractionMixin) -> None:
+        mock_tz.localtime.return_value = datetime(2026, 6, 1)
         # Far past + non-worktime + weekend => score should be clamped to 0
         dt = datetime(2020, 1, 4, 2, 0)  # Saturday, 2am, 6 years ago
         is_valid, score, reasons = mixin._validate_hearing_datetime(dt)
@@ -232,39 +226,35 @@ class TestValidateHearingDatetime:
 
 
 class TestSelectBestDatetime:
-    """测试最佳时间选择逻辑"""
+    """测试最佳时间选择"""
 
-    @patch("apps.document_recognition.services._datetime_extraction_mixin.datetime")
-    def test_no_results_returns_none(self, mock_dt: type, mixin: DatetimeExtractionMixin) -> None:
-        mock_dt.now.return_value = datetime(2026, 6, 1)
-        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    @patch("apps.document_recognition.services._datetime_extraction_mixin.timezone")
+    def test_no_results_returns_none(self, mock_tz: MagicMock, mixin: DatetimeExtractionMixin) -> None:
+        mock_tz.localtime.return_value = datetime(2026, 6, 1)
         result, reason = mixin._select_best_datetime([], None)
         assert result is None
         assert reason == "无法提取"
 
-    @patch("apps.document_recognition.services._datetime_extraction_mixin.datetime")
-    def test_only_ollama_valid(self, mock_dt: type, mixin: DatetimeExtractionMixin) -> None:
-        mock_dt.now.return_value = datetime(2026, 6, 1)
-        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    @patch("apps.document_recognition.services._datetime_extraction_mixin.timezone")
+    def test_only_ollama_valid(self, mock_tz: MagicMock, mixin: DatetimeExtractionMixin) -> None:
+        mock_tz.localtime.return_value = datetime(2026, 6, 1)
         ollama_dt = datetime(2026, 6, 15, 9, 0)
         result, reason = mixin._select_best_datetime([], ollama_dt)
         assert result == ollama_dt
         assert "ollama" in reason
 
-    @patch("apps.document_recognition.services._datetime_extraction_mixin.datetime")
-    def test_regex_wins_over_ollama(self, mock_dt: type, mixin: DatetimeExtractionMixin) -> None:
-        mock_dt.now.return_value = datetime(2026, 6, 1)
-        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    @patch("apps.document_recognition.services._datetime_extraction_mixin.timezone")
+    def test_regex_wins_over_ollama(self, mock_tz: MagicMock, mixin: DatetimeExtractionMixin) -> None:
+        mock_tz.localtime.return_value = datetime(2026, 6, 1)
         regex_dt = datetime(2026, 6, 15, 9, 0)
         ollama_dt = datetime(2026, 7, 20, 10, 0)
         regex_results = [(regex_dt, "2026年6月15日上午9时0分", 80)]
         result, reason = mixin._select_best_datetime(regex_results, ollama_dt)
         assert result == regex_dt
 
-    @patch("apps.document_recognition.services._datetime_extraction_mixin.datetime")
-    def test_regex_and_ollama_agree(self, mock_dt: type, mixin: DatetimeExtractionMixin) -> None:
-        mock_dt.now.return_value = datetime(2026, 6, 1)
-        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    @patch("apps.document_recognition.services._datetime_extraction_mixin.timezone")
+    def test_regex_and_ollama_agree(self, mock_tz: MagicMock, mixin: DatetimeExtractionMixin) -> None:
+        mock_tz.localtime.return_value = datetime(2026, 6, 1)
         dt = datetime(2026, 6, 15, 9, 0)
         regex_results = [(dt, "2026年6月15日上午9时0分", 80)]
         result, reason = mixin._select_best_datetime(regex_results, dt)

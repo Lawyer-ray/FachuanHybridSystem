@@ -6,12 +6,12 @@ import io
 import logging
 import re
 import zipfile
-from datetime import date
 from pathlib import Path
 from typing import Any
 
 import pymupdf as fitz
 from django.conf import settings
+from django.utils import timezone
 
 from apps.invoice_recognition.models import InvoiceCategory, InvoiceRecognitionTask, InvoiceRecord
 
@@ -130,6 +130,6 @@ class InvoiceDownloadService:
 
     def _generate_filename(self, task_name: str, category: str | None, fmt: str) -> str:
         category_part = category if category is not None else "全部"
-        today = date.today().strftime("%Y%m%d")
+        today = timezone.localdate().strftime("%Y%m%d")
         raw = f"{task_name}_{category_part}_{today}.{fmt}"
         return _ILLEGAL_CHARS_RE.sub("_", raw)

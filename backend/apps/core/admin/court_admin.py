@@ -9,7 +9,7 @@ import logging
 from typing import Any
 
 from django.contrib import admin, messages
-from django.db.models import Count, QuerySet
+from django.db.models import Count, Q, QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import URLPattern, path, reverse
 from django.utils.html import format_html
@@ -146,23 +146,27 @@ class CourtAdmin(admin.ModelAdmin):  # pragma: no cover
         ]
         return custom_urls + urls
 
-    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:  # pragma: no cover
+    def changelist_view(
+        self, request: HttpRequest, extra_context: dict[str, Any] | None = None
+    ) -> HttpResponse:  # pragma: no cover
         """自定义列表页面"""
         ctx: dict[str, Any] = extra_context or {}
 
-        total_count = Court.objects.count()
-        active_count = Court.objects.filter(is_active=True).count()
-
-        # mypy 1.8.0 对 values().annotate() 链有内部错误，用 getattr 绕过
+        # mypy 1.8.0 对 values().annotate() 链有内部错误，用 Any 绕过
         _court_mgr: Any = Court.objects
+        # 合并 total/active 两次 count 为一次 aggregate 查询
+        counts: dict[str, Any] = _court_mgr.aggregate(
+            total_count=Count("id"),
+            active_count=Count("id", filter=Q(is_active=True)),
+        )
         province_stats: list[Any] = list(
             _court_mgr.values("province").annotate(count=Count("id")).order_by("-count")[:10]
         )
         level_stats: list[Any] = list(_court_mgr.values("level").annotate(count=Count("id")).order_by("level"))
 
         ctx["statistics"] = {
-            "total_count": total_count,
-            "active_count": active_count,
+            "total_count": counts["total_count"],
+            "active_count": counts["active_count"],
             "province_stats": province_stats,
             "level_stats": level_stats,
         }
