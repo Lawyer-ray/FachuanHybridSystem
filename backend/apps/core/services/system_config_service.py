@@ -23,6 +23,21 @@ _MISSING_SENTINEL = _MissingSentinel()
 _DEFAULT_CACHE_TIMEOUT_SECONDS = 300
 
 
+def _maybe_decrypt(value: str) -> str:
+    """缓存/库值读取时解密；密钥轮换后旧密文解不开时降级返回原值（安全审计 E-01）。"""
+    from apps.core.security.secret_codec import SecretCodec
+
+    codec = SecretCodec()
+    if codec.is_encrypted(value):
+        try:
+            return codec.decrypt(value)
+        except Exception:
+            # 与库内读取的失败模式一致，避免 get_value 全线 500；轮换后应重写配置值自愈
+            return value
+    # 兼容存量明文（含旧缓存条目）：原样返回
+    return value
+
+
 class SystemConfigService:
     """系统配置服务"""
 
@@ -169,7 +184,8 @@ class SystemConfigService:
         if cached is _MISSING_SENTINEL or isinstance(cached, _MissingSentinel):
             return default
         if cached is not None:
-            return self._decode_cached_value(cached)
+            cached_str = cached if isinstance(cached, str) else str(cached)
+            return _maybe_decrypt(cached_str)
 
         config = self._repository.get_by_key(key)
         if config is None or not config.is_active:
@@ -179,31 +195,7 @@ class SystemConfigService:
         # 安全审计 E-01：缓存始终存「存储态」原值（密钥为密文），读取时再解密，
         # 避免明文密钥进入共享 Redis/落盘 RDB。
         cache.set(cache_key, config.value, timeout=self._cache_timeout)
-        return self._decode_stored_value(config.value)
-
-    @staticmethod
-    def _decode_cached_value(cached: Any) -> str:
-        value = cached if isinstance(cached, str) else str(cached)
-        return SystemConfigService._maybe_decrypt(value)
-
-    @staticmethod
-    def _decode_stored_value(value: str) -> str:
-        return SystemConfigService._maybe_decrypt(value)
-
-    @staticmethod
-    def _maybe_decrypt(value: str) -> str:
-        from apps.core.security.secret_codec import SecretCodec
-
-        codec = SecretCodec()
-        if codec.is_encrypted(value):
-            try:
-                return codec.decrypt(value)
-            except Exception:
-                # 复审结论：密钥轮换后旧密文解不开时降级返回原值（与库内读取的
-                # 失败模式一致），避免 get_value 全线 500；轮换后应重写配置值自愈。
-                return value
-        # 兼容存量明文（含旧缓存条目）：原样返回
-        return value
+        return _maybe_decrypt(config.value)
 
     @classmethod
     async def aget_value(cls, key: str, default: str = "") -> str:  # pragma: no cover
