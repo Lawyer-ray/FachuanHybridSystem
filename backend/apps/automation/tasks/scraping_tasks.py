@@ -257,7 +257,7 @@ def execute_preservation_quote_task(quote_id: int) -> dict[str, Any]:
         return {"quote_id": quote_id, "status": "skipped", "message": "记录已删除"}
 
     try:
-        token_service: TokenServiceAdapter = TokenServiceAdapter()
+        token_service = TokenServiceAdapter()  # type: ignore[valid-type, misc]
         insurance_client = CourtInsuranceClient(token_service)
         quote_service = PreservationQuoteService(
             token_service=token_service,

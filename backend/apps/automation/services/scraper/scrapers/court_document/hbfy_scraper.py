@@ -186,7 +186,7 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
                 continue
 
             uuid, image_bytes = captcha_data
-            recognized = self.captcha_recognizer.recognize(image_bytes)
+            recognized = self.captcha_recognizer.recognize(image_bytes)  # type: ignore[attr-defined]
             code = re.sub(r"[^0-9A-Za-z]", "", recognized or "")
             if not code:
                 continue
@@ -298,7 +298,7 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
                 break
             try:
                 image_bytes = captcha_image.first.screenshot()
-                recognized = self.captcha_recognizer.recognize(image_bytes)
+                recognized = self.captcha_recognizer.recognize(image_bytes)  # type: ignore[attr-defined]
                 captcha_text = re.sub(r"[^0-9A-Za-z]", "", recognized or "")
                 if not captcha_text:
                     captcha_image.first.click(force=True, timeout=1000)
@@ -502,7 +502,7 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
                 continue
 
             uuid, image_bytes = captcha_data
-            recognized = self.captcha_recognizer.recognize(image_bytes)
+            recognized = self.captcha_recognizer.recognize(image_bytes)  # type: ignore[attr-defined]
             code = re.sub(r"[^0-9A-Za-z]", "", recognized or "")
             if not code:
                 continue
@@ -616,7 +616,7 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
                 break
             try:
                 image_bytes = await captcha_image.first.screenshot()
-                recognized = self.captcha_recognizer.recognize(image_bytes)
+                recognized = self.captcha_recognizer.recognize(image_bytes)  # type: ignore[attr-defined]
                 captcha_text = re.sub(r"[^0-9A-Za-z]", "", recognized or "")
                 if not captcha_text:
                     await captcha_image.first.click(force=True, timeout=1000)
