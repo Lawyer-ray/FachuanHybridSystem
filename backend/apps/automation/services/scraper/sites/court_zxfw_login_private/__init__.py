@@ -5,7 +5,8 @@ This file re-exports from the plugin for backward compatibility.
 
 try:
     from plugins.court_automation.login.http_login import *
-    from plugins.court_automation.login.http_login import is_available
+    from plugins.court_automation.login.http_login import CourtZxfwHttpLoginService, is_available
 
-except ImportError:
+except ImportError:  # CI/类型检查环境无 plugins 子模块
     is_available = None  # type: ignore[assignment]
+    CourtZxfwHttpLoginService = None  # type: ignore[assignment,misc]

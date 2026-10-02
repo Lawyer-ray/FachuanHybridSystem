@@ -287,10 +287,16 @@ async def check_law_references(request: Any, payload: dict[str, Any]) -> dict[st
 
         # 定义回调函数
         def search_laws(law_name: str) -> list[dict[str, Any]]:
-            return adapter.search_laws_via_api(session=session, keyword=law_name)
+            # adapter 的返回类型随 plugins 子模块存在与否在 list[dict]/Any 间变化，
+            # 显式构造结果让两种环境都通过类型检查
+            results: list[dict[str, Any]] = list(adapter.search_laws_via_api(session=session, keyword=law_name))
+            return results
 
         def fetch_article(doc_id: str, article_num: int) -> str | None:
-            return adapter.fetch_law_article_via_api(session=session, doc_id=doc_id, article_num=article_num)
+            article: str | None = adapter.fetch_law_article_via_api(
+                session=session, doc_id=doc_id, article_num=article_num
+            )
+            return article
 
         # 执行核查
         from plugins.weike_api_private.law_verification import verify_references

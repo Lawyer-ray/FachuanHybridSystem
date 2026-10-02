@@ -128,15 +128,19 @@ class BaoquanTokenService:  # pragma: no cover
         不可用时自动回退到 Playwright。
         """
         try:
-            from apps.automation.services.scraper.sites.court_zxfw_login_private import is_available
+            from apps.automation.services.scraper.sites.court_zxfw_login_private import (
+                CourtZxfwHttpLoginService,
+                is_available,
+            )
 
-            if not is_available():
+            if is_available is None or not is_available():
                 logger.info("HTTP 直接插件不可用，回退到 Playwright 获取保全 Token")
                 return None
 
             import asyncio
 
-            from apps.automation.services.scraper.sites.court_zxfw_login_private import CourtZxfwHttpLoginService
+            if CourtZxfwHttpLoginService is None:
+                return None
 
             loop = asyncio.get_running_loop()
             svc = CourtZxfwHttpLoginService()
