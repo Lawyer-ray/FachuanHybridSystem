@@ -213,8 +213,8 @@ class CaseNumberService(DjangoPermsMixin):
         # 规范化案号
         normalized_number = normalize_case_number_util(number, ensure_hao=False)
 
-        # 创建案号
-        case_number = CaseNumber.objects.create(case=case, number=normalized_number, remarks=remarks)
+        # 创建案号（remarks 字段非空，None 统一收敛为空串）
+        case_number = CaseNumber.objects.create(case=case, number=normalized_number, remarks=remarks or "")
 
         logger.info(
             "创建案号成功",

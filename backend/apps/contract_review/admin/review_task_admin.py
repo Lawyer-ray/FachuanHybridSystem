@@ -16,6 +16,7 @@ from django.utils.html import format_html
 from apps.contract_review.models import ReviewTask, TaskStatus
 from apps.core.exceptions import ValidationException
 from apps.core.filesystem.upload_paths import MediaEntity
+from apps.core.services.report_html_sanitizer import sanitize_report_html
 from apps.core.services.storage_service import delete_media_file, to_media_abs
 
 logger = logging.getLogger(__name__)
@@ -293,7 +294,9 @@ class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             "opts": self.model._meta,
             "title": "新建合同审查任务",
             "has_view_permission": self.has_view_permission(request),
-            "models_json": json.dumps(models, ensure_ascii=False),
+            # 模型名来自 LLM 配置（SystemConfig/远端列表），非代码常量；
+            # JSON 内联进 <script> 时转义 < 防 </script> 闭 tag 逃逸（同 documents fill_action 模式）
+            "models_json": json.dumps(models, ensure_ascii=False).replace("<", "\\u003c"),
         }
         return TemplateResponse(
             request,
@@ -333,7 +336,9 @@ class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         text = task.review_report or ""
         text = re.sub(r"^```\w*\n?", "", text.strip())
         text = re.sub(r"\n?```$", "", text)
-        report_html = markdown.markdown(text, extensions=["tables", "fenced_code"])
+        # review_report 来自 LLM 对用户上传合同的分析，可能回显合同中的恶意 HTML；
+        # markdown 库不转义原始 HTML，落模板 |safe 前必须白名单消毒
+        report_html = sanitize_report_html(markdown.markdown(text, extensions=["tables", "fenced_code"]))
 
         context = {
             **self.admin_site.each_context(request),
@@ -374,7 +379,8 @@ class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         text = task.review_report or ""
         text = re.sub(r"^```\w*\n?", "", text.strip())
         text = re.sub(r"\n?```$", "", text)
-        report_html = markdown.markdown(text, extensions=["tables", "fenced_code"])
+        # 同 report_view：LLM 输出可能回传恶意 HTML，渲染 |safe 前先消毒
+        report_html = sanitize_report_html(markdown.markdown(text, extensions=["tables", "fenced_code"]))
 
         html_string = render_to_string(
             "admin/contract_review/reviewtask/report_pdf.html",

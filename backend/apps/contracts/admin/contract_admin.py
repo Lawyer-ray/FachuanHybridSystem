@@ -665,7 +665,7 @@ class ContractAdmin(
             for m in obj.finalized_materials.all():
                 _add(m.file_path)
             for r in obj.client_payment_records.all():
-                _add(r.image_path)  # type: ignore[arg-type]
+                _add(r.image_path)
             for p in obj.payments.all():
                 for inv in p.invoices.all():
                     _add(inv.file_path)

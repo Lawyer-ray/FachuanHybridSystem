@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import contextlib
 import io
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any, ClassVar, Protocol, runtime_checkable
 
@@ -43,7 +43,16 @@ class _EvidenceLike(Protocol):
     def case(self) -> Any: ...
     @property
     def export_version(self) -> Any: ...
-    def save(self, **kwargs: Any) -> Any: ...
+    # 与 django-stubs 的 Model.save 签名保持一致（`**kwargs: Any` 会导致
+    # 具体模型类因只接受固定关键字参数而不满足结构化协议）
+    def save(
+        self,
+        *,
+        force_insert: bool | tuple[Any, ...] = ...,
+        force_update: bool = ...,
+        using: str | None = ...,
+        update_fields: Iterable[str] | None = ...,
+    ) -> None: ...
 
 
 class PDFMergeValidator:

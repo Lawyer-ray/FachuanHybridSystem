@@ -128,4 +128,4 @@ class TestLLMConfigConstants:
         assert LLMConfig.DEFAULT_OPENAI_COMPATIBLE_MODEL == "kimi26"
         assert LLMConfig.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT == 120
         # 2026-09 Ollama 下线：唯一合法后端
-        assert LLMConfig._VALID_BACKENDS == {"openai_compatible"}
+        assert {"openai_compatible"} == LLMConfig._VALID_BACKENDS

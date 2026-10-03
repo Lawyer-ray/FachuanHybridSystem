@@ -8,20 +8,16 @@ from __future__ import annotations
 import contextlib
 import io
 from importlib import import_module
+
+# 向后兼容：测试 mock 需要
+from pathlib import Path
 from typing import Any
 
 from django.utils import timezone
 
 from apps.core.services.filename_template_service import FilenameTemplateService
-from apps.core.services.pdf_merge_service import (
-    PDFMergeServiceBase,
-    PDFMergeValidator,
-    PDFMergeWorkflowBase,
-)
+from apps.core.services.pdf_merge_service import PDFMergeServiceBase, PDFMergeValidator, PDFMergeWorkflowBase
 from apps.evidence.models import EvidenceList
-
-# 向后兼容：测试 mock 需要
-from pathlib import Path
 
 
 def _get_pdf_merge_utils_module() -> Any:

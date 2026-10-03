@@ -10,7 +10,9 @@ from apps.legal_research.services.task.feedback_loop import LegalResearchFeedbac
 
 @admin.register(LegalResearchResult)
 class LegalResearchResultAdmin(admin.ModelAdmin):  # pragma: no cover
-    list_display: ClassVar[list[str]] = [
+    # 注：django-stubs 将 ModelAdmin 的 list_display 等声明为实例变量，
+    # 子类直接裸赋值（不加 ClassVar 注解）即可满足类型检查
+    list_display = [
         "id",
         "task",
         "rank",
@@ -20,8 +22,8 @@ class LegalResearchResultAdmin(admin.ModelAdmin):  # pragma: no cover
         "has_pdf",
         "created_at",
     ]
-    list_filter: ClassVar[list[str]] = ["created_at"]
-    actions: ClassVar[list[str]] = ["mark_as_relevant", "mark_as_false_positive"]
+    list_filter = ["created_at"]
+    actions = ["mark_as_relevant", "mark_as_false_positive"]
     search_fields: ClassVar[tuple[str, ...]] = (
         "id",
         "task__id",
@@ -47,13 +49,11 @@ class LegalResearchResultAdmin(admin.ModelAdmin):  # pragma: no cover
         "created_at",
         "updated_at",
     ]
-    ordering: ClassVar[list[str]] = ["-id"]
+    ordering = ["-id"]
 
-    @admin.display(description="PDF")
+    @admin.display(description="PDF", boolean=True)
     def has_pdf(self, obj: LegalResearchResult) -> bool:  # pragma: no cover
         return bool(obj.pdf_file)
-
-    has_pdf.boolean = True
 
     @admin.display(description="人工反馈")
     def feedback_status(self, obj: LegalResearchResult) -> str:  # pragma: no cover

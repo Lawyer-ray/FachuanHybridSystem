@@ -48,7 +48,8 @@ class LLMProviderAdmin(admin.ModelAdmin):
         "updated_at",
     )
     list_filter = ("enabled",)
-    search_fields = ("name", "base_url", "default_model", "api_keys")
+    # 安全审计 E-17：api_keys 不进 search_fields——搜索词会进查询串/访问日志，泄露密钥片段
+    search_fields = ("name", "base_url", "default_model")
     ordering = ("priority", "name")
     fieldsets = (
         ("基本信息", {"fields": ("name", "enabled", "priority")}),

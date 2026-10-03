@@ -6,13 +6,15 @@ from collections.abc import Iterable
 from typing import Any
 
 from apps.cases.models import Case, CaseAssignment, CaseLog, CaseParty, SupervisingAuthority
+from apps.core.models.enums import AuthorityType
 
 
 class CaseFullCreateRepo:
     def create_case_party(
         self, *, case: Case, client_id: int, legal_status: str | None
     ) -> CaseParty:  # pragma: no cover
-        return CaseParty.objects.create(case=case, client_id=client_id, legal_status=legal_status)
+        # legal_status 字段非空（blank=True，空串表示未指定），None 统一收敛为空串
+        return CaseParty.objects.create(case=case, client_id=client_id, legal_status=legal_status or "")
 
     def create_case_assignment(self, *, case: Case, lawyer_id: int) -> CaseAssignment:  # pragma: no cover
         return CaseAssignment.objects.create(case=case, lawyer_id=lawyer_id)
@@ -32,7 +34,10 @@ class CaseFullCreateRepo:
         name: str | None,
         authority_type: str | None,
     ) -> SupervisingAuthority:  # pragma: no cover
-        return SupervisingAuthority.objects.create(case=case, name=name, authority_type=authority_type)
+        # name/authority_type 均为非空 CharField，None 统一收敛为空串/模型默认值
+        return SupervisingAuthority.objects.create(
+            case=case, name=name or "", authority_type=authority_type or AuthorityType.TRIAL
+        )
 
     def bulk_create_case_parties(self, *, case: Case, parties: Iterable[dict[str, Any]]) -> list[CaseParty]:
         results: list[Any] = []

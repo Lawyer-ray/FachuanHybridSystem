@@ -309,9 +309,18 @@ class LLMProviderService:
 
         if LLMProvider.objects.exists():
             return (0, 1)
+        # 安全审计 E-16：默认网关回退值为明文 http 公网 IP，LLM 流量（含案件事实）
+        # 会明文外发。网关 https 化前先告警提醒，可用 LLM_DEFAULT_BASE_URL 覆盖。
+        default_base_url = LLMConfig.DEFAULT_OPENAI_COMPATIBLE_BASE_URL
+        if default_base_url.startswith("http://"):
+            logger.warning(
+                "LLM 默认网关为明文 http（%s），LLM 流量将不加密传输；"
+                "请为网关配置 TLS 或通过环境变量 LLM_DEFAULT_BASE_URL 指定 https 地址",
+                default_base_url,
+            )
         LLMProvider.objects.create(
             name="律所 kimi",
-            base_url=LLMConfig.DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
+            base_url=default_base_url,
             api_keys="",
             default_model=LLMConfig.DEFAULT_OPENAI_COMPATIBLE_MODEL,
             embedding_model="",

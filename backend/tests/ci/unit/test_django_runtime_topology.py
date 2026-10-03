@@ -17,15 +17,15 @@ _REDIS_CHANNEL = "channels_redis.core.RedisChannelLayer"
 
 
 def _validate(**overrides):
-    kwargs = dict(
-        debug=False,
-        web_workers=1,
-        q_workers=1,
-        cache_backend=_LOCMEM,
-        channel_backend=_INMEM_CHANNEL,
-        redis_cache_configured=False,
-        redis_channel_configured=False,
-    )
+    kwargs = {
+        "debug": False,
+        "web_workers": 1,
+        "q_workers": 1,
+        "cache_backend": _LOCMEM,
+        "channel_backend": _INMEM_CHANNEL,
+        "redis_cache_configured": False,
+        "redis_channel_configured": False,
+    }
     kwargs.update(overrides)
     return validate_runtime_topology(**kwargs)
 

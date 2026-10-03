@@ -611,7 +611,7 @@ class TestLLMConfig:
     def test_valid_backends(self) -> None:
         from apps.core.llm.config import LLMConfig
 
-        assert LLMConfig._VALID_BACKENDS == {"openai_compatible"}
+        assert {"openai_compatible"} == LLMConfig._VALID_BACKENDS
 
 
 # ============================================================

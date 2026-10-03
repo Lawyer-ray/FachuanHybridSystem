@@ -8,14 +8,7 @@ from typing import Any
 from django.utils import timezone
 
 from apps.core.exceptions import NotFoundError, ValidationException
-from apps.documents.models import (
-    DocumentTemplate,
-    FolderTemplate,
-    GenerationConfig,
-    GenerationMethod,
-    GenerationStatus,
-    GenerationTask,
-)
+from apps.documents.models import DocumentTemplate, GenerationConfig, GenerationMethod, GenerationStatus, GenerationTask
 
 _CONFIG_TYPE_GENERATION_RULE = "generation_rule"
 
@@ -138,29 +131,6 @@ class GenerationService:
         if not getattr(template, "is_active", True):
             return False, "文书模板已禁用"
         return True, ""
-
-    def create_task(
-        self,
-        folder_template_id: int | None = None,
-        output_path: str | None = None,
-        **kwargs: Any,
-    ) -> GenerationTask:  # pragma: no cover
-        if folder_template_id is not None:
-            exists = FolderTemplate.objects.filter(id=folder_template_id).exists()
-            if not exists:
-                raise NotFoundError("文件夹模板不存在")
-
-        task = GenerationTask.objects.create(
-            document_type=kwargs.get("document_type") or "unknown",
-            generation_method=kwargs.get("generation_method") or GenerationMethod.TEMPLATE,
-            status=GenerationStatus.PENDING,
-            metadata={},
-        )
-
-        task.folder_template_id = folder_template_id
-        task.output_path = output_path
-        task.save(update_fields=["folder_template_id", "output_path"])
-        return task
 
     def update_task_status(self, task_id: int, status: str, error_message: str | None = None) -> Any:
         task = GenerationTask.objects.filter(id=task_id).first()

@@ -1,4 +1,5 @@
 """Long-tail coverage tests for automation, filesystem, and other modules."""
+
 from __future__ import annotations
 
 import asyncio
@@ -7,10 +8,9 @@ import zipfile
 from datetime import datetime
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # tests for apps.core.llm.fallback_policy (30 missing)
@@ -53,8 +53,8 @@ class TestLLMFallbackPolicy:
         assert result == "ok"
 
     def test_execute_all_unavailable(self):
-        from apps.core.llm.fallback_policy import LLMFallbackPolicy
         from apps.core.llm.exceptions import LLMBackendUnavailableError
+        from apps.core.llm.fallback_policy import LLMFallbackPolicy
 
         b1 = self._make_backend(available=False, api_key="")
         b2 = self._make_backend(available=False, base_url="")
@@ -65,8 +65,8 @@ class TestLLMFallbackPolicy:
             policy.execute(operation=lambda b: "ok")
 
     def test_execute_auth_error_raises_immediately(self):
-        from apps.core.llm.fallback_policy import LLMFallbackPolicy
         from apps.core.llm.exceptions import LLMAuthenticationError
+        from apps.core.llm.fallback_policy import LLMFallbackPolicy
 
         b = self._make_backend()
         b.side_effect = None
@@ -77,8 +77,8 @@ class TestLLMFallbackPolicy:
             policy.execute(operation=lambda b: (_ for _ in ()).throw(LLMAuthenticationError()))
 
     def test_execute_retriable_with_fallback(self):
-        from apps.core.llm.fallback_policy import LLMFallbackPolicy
         from apps.core.llm.exceptions import LLMTimeoutError
+        from apps.core.llm.fallback_policy import LLMFallbackPolicy
 
         b1 = self._make_backend()
         b2 = self._make_backend()
@@ -99,19 +99,21 @@ class TestLLMFallbackPolicy:
         assert call_count == 2
 
     def test_execute_retriable_no_fallback_raises(self):
-        from apps.core.llm.fallback_policy import LLMFallbackPolicy
         from apps.core.llm.exceptions import LLMTimeoutError
+        from apps.core.llm.fallback_policy import LLMFallbackPolicy
 
         b = self._make_backend()
         router = self._make_router([("b1", b)])
         policy = LLMFallbackPolicy(router=router)
 
         with pytest.raises(LLMTimeoutError):
-            policy.execute(operation=lambda b: (_ for _ in ()).throw(LLMTimeoutError(timeout_seconds=10)), fallback=False)
+            policy.execute(
+                operation=lambda b: (_ for _ in ()).throw(LLMTimeoutError(timeout_seconds=10)), fallback=False
+            )
 
     def test_execute_unknown_error_no_fallback_wraps(self):
-        from apps.core.llm.fallback_policy import LLMFallbackPolicy
         from apps.core.llm.exceptions import LLMAPIError
+        from apps.core.llm.fallback_policy import LLMFallbackPolicy
 
         b = self._make_backend()
         router = self._make_router([("b1", b)])
@@ -121,8 +123,8 @@ class TestLLMFallbackPolicy:
             policy.execute(operation=lambda b: (_ for _ in ()).throw(RuntimeError("boom")), fallback=False)
 
     def test_execute_unknown_error_with_fallback_continues(self):
-        from apps.core.llm.fallback_policy import LLMFallbackPolicy
         from apps.core.llm.exceptions import LLMBackendUnavailableError
+        from apps.core.llm.fallback_policy import LLMFallbackPolicy
 
         b1 = self._make_backend()
         b2 = self._make_backend(available=False, api_key="")
@@ -162,8 +164,8 @@ class TestLLMFallbackPolicy:
 
     @pytest.mark.asyncio
     async def test_execute_async_all_unavailable(self):
-        from apps.core.llm.fallback_policy import LLMFallbackPolicy
         from apps.core.llm.exceptions import LLMBackendUnavailableError
+        from apps.core.llm.fallback_policy import LLMFallbackPolicy
 
         b = self._make_backend(available=False, api_key="")
         router = self._make_router([("b1", b)])
@@ -177,8 +179,8 @@ class TestLLMFallbackPolicy:
 
     @pytest.mark.asyncio
     async def test_execute_async_auth_error(self):
-        from apps.core.llm.fallback_policy import LLMFallbackPolicy
         from apps.core.llm.exceptions import LLMAuthenticationError
+        from apps.core.llm.fallback_policy import LLMFallbackPolicy
 
         b = self._make_backend()
         router = self._make_router([("b1", b)])
@@ -200,16 +202,20 @@ class TestOwnerConfigManager:
     def _make_manager(self, **config_overrides):
         from apps.automation.services.chat.owner_config_manager import OwnerConfigManager
 
-        with patch.object(OwnerConfigManager, "_load_config", return_value={
-            "TEST_MODE": False,
-            "OWNER_VALIDATION_ENABLED": True,
-            "OWNER_RETRY_ENABLED": True,
-            "OWNER_MAX_RETRIES": 3,
-            "DEFAULT_OWNER_ID": None,
-            "TEST_OWNER_ID": None,
-            "TIMEOUT": 30,
-            **config_overrides,
-        }):
+        with patch.object(
+            OwnerConfigManager,
+            "_load_config",
+            return_value={
+                "TEST_MODE": False,
+                "OWNER_VALIDATION_ENABLED": True,
+                "OWNER_RETRY_ENABLED": True,
+                "OWNER_MAX_RETRIES": 3,
+                "DEFAULT_OWNER_ID": None,
+                "TEST_OWNER_ID": None,
+                "TIMEOUT": 30,
+                **config_overrides,
+            },
+        ):
             return OwnerConfigManager()
 
     def test_validate_owner_id_valid_open_id(self):
@@ -352,8 +358,8 @@ class TestFolderBrowsePolicy:
                 assert len(roots) >= 1
 
     def test_resolve_under_allowed_roots_network_path(self):
-        from apps.core.filesystem.browse_policy import FolderBrowsePolicy
         from apps.core.exceptions import ValidationException
+        from apps.core.filesystem.browse_policy import FolderBrowsePolicy
 
         validator = MagicMock()
         validator.is_network_path.return_value = True
@@ -362,8 +368,8 @@ class TestFolderBrowsePolicy:
             policy.resolve_under_allowed_roots("//server/share")
 
     def test_resolve_under_allowed_roots_no_roots(self):
-        from apps.core.filesystem.browse_policy import FolderBrowsePolicy
         from apps.core.exceptions import ValidationException
+        from apps.core.filesystem.browse_policy import FolderBrowsePolicy
 
         validator = MagicMock()
         validator.is_network_path.return_value = False
@@ -373,8 +379,8 @@ class TestFolderBrowsePolicy:
                 policy.resolve_under_allowed_roots("/some/path")
 
     def test_resolve_under_allowed_roots_not_dir(self, tmp_path):
-        from apps.core.filesystem.browse_policy import FolderBrowsePolicy
         from apps.core.exceptions import ValidationException
+        from apps.core.filesystem.browse_policy import FolderBrowsePolicy
 
         validator = MagicMock()
         validator.is_network_path.return_value = False
@@ -388,8 +394,8 @@ class TestFolderBrowsePolicy:
                     policy.resolve_under_allowed_roots("/some/path")
 
     def test_resolve_under_allowed_roots_not_under_root(self):
-        from apps.core.filesystem.browse_policy import FolderBrowsePolicy
         from apps.core.exceptions import ValidationException
+        from apps.core.filesystem.browse_policy import FolderBrowsePolicy
 
         validator = MagicMock()
         validator.is_network_path.return_value = False
@@ -452,8 +458,8 @@ class TestFolderBrowsePolicy:
             assert "visible" in names
 
     def test_list_subdirs_permission_error(self, tmp_path):
-        from apps.core.filesystem.browse_policy import FolderBrowsePolicy
         from apps.core.exceptions import ValidationException
+        from apps.core.filesystem.browse_policy import FolderBrowsePolicy
 
         validator = MagicMock()
         validator.is_network_path.return_value = False
@@ -509,135 +515,6 @@ class TestFolderBrowsePolicy:
             MockPath.return_value = mock_path
             result = policy._get_user_downloads_path()
             assert result is None
-
-
-# ---------------------------------------------------------------------------
-# tests for apps.documents.services.infrastructure.pdf_merge_service (49 missing)
-# ---------------------------------------------------------------------------
-
-
-class TestPDFMergeValidator:
-    def test_get_items_empty_raises(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeValidator
-        from apps.core.exceptions import ValidationException
-
-        validator = PDFMergeValidator()
-        evidence_list = MagicMock()
-        evidence_list.items.filter.return_value.exclude.return_value.order_by.return_value.exists.return_value = False
-        evidence_list.pk = 1
-        with pytest.raises(ValidationException, match="没有任何文件"):
-            validator.get_items(evidence_list)
-
-    def test_assert_supported_format_valid(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeValidator
-
-        validator = PDFMergeValidator()
-        validator.assert_supported_format(".pdf", "/test.pdf")  # no raise
-
-    def test_assert_supported_format_invalid(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeValidator
-        from apps.core.exceptions import BusinessException
-
-        validator = PDFMergeValidator()
-        with pytest.raises(BusinessException, match="不支持"):
-            validator.assert_supported_format(".xyz", "/test.xyz")
-
-
-class TestPDFMergeWorkflow:
-    def test_validator_lazy_init(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeWorkflow
-
-        workflow = PDFMergeWorkflow()
-        assert workflow.validator is not None
-
-    def test_validator_provided(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeWorkflow, PDFMergeValidator
-
-        v = PDFMergeValidator()
-        workflow = PDFMergeWorkflow(validator=v)
-        assert workflow.validator is v
-
-    def test_generate_merged_filename_evidence_list(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeWorkflow
-
-        workflow = PDFMergeWorkflow()
-        el = MagicMock()
-        el.case.name = "张三诉李四"
-        el.title = "证据清单"
-        el.export_version = 1
-
-        with patch("apps.documents.services.infrastructure.pdf_merge_service.timezone") as mock_tz:
-            mock_tz.now.return_value.strftime.return_value = "20240101"
-            result = workflow._generate_merged_filename(el)
-            assert "证据明细" in result
-            assert "张三诉李四" in result
-            assert "V1" in result
-
-    def test_generate_merged_filename_supplementary(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeWorkflow
-
-        workflow = PDFMergeWorkflow()
-        el = MagicMock()
-        el.case.name = "案件"
-        el.title = "补充证据清单A"
-        el.export_version = 2
-
-        with patch("apps.documents.services.infrastructure.pdf_merge_service.timezone") as mock_tz:
-            mock_tz.now.return_value.strftime.return_value = "20240101"
-            result = workflow._generate_merged_filename(el)
-            assert "A" in result
-
-    def test_generate_merged_filename_other_title(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeWorkflow
-
-        workflow = PDFMergeWorkflow()
-        el = MagicMock()
-        el.case.name = "案件"
-        el.title = "其他证据"
-        el.export_version = 3
-
-        with patch("apps.documents.services.infrastructure.pdf_merge_service.timezone") as mock_tz:
-            mock_tz.now.return_value.strftime.return_value = "20240101"
-            result = workflow._generate_merged_filename(el)
-            # "其他证据" doesn't start with 证据清单 or 补充证据清单, so list_suffix is empty
-            assert "证据明细(" in result
-
-
-class TestPDFMergeService:
-    def test_workflow_lazy_init(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeService
-
-        svc = PDFMergeService()
-        assert svc.workflow is not None
-
-    def test_workflow_provided(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeService, PDFMergeWorkflow
-
-        w = PDFMergeWorkflow()
-        svc = PDFMergeService(workflow=w)
-        assert svc.workflow is w
-
-    def test_add_page_numbers(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeService
-
-        svc = PDFMergeService()
-        with patch("apps.documents.services.infrastructure.pdf_merge_service.add_page_numbers_util", return_value=b"pdf"):
-            result = svc.add_page_numbers(io.BytesIO(b"test"), start_page=1)
-            assert result == b"pdf"
-
-    def test_convert_to_pdf(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeService
-
-        svc = PDFMergeService()
-        with patch.object(svc.workflow, "convert_to_pdf", return_value="/out.pdf"):
-            assert svc.convert_to_pdf("/in.docx") == "/out.pdf"
-
-    def test_get_pdf_page_count(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeService
-
-        svc = PDFMergeService()
-        with patch.object(svc.workflow, "get_pdf_page_count", return_value=5):
-            assert svc.get_pdf_page_count(io.BytesIO(b"test")) == 5
 
 
 # ---------------------------------------------------------------------------
@@ -697,7 +574,7 @@ class TestExporterService:
         assert name.endswith(".zip")
 
     def test_build_delivery_filename_basic(self):
-        from apps.evidence_sorting.services.exporter import ExporterService, DeliveryNote, STATUS_UNMATCHED
+        from apps.evidence_sorting.services.exporter import STATUS_UNMATCHED, DeliveryNote, ExporterService
 
         svc = self._make_exporter()
         dn = MagicMock(spec=DeliveryNote)
@@ -713,7 +590,7 @@ class TestExporterService:
         assert "出库单" in name
 
     def test_build_delivery_filename_no_date(self):
-        from apps.evidence_sorting.services.exporter import ExporterService, DeliveryNote
+        from apps.evidence_sorting.services.exporter import DeliveryNote, ExporterService
 
         svc = self._make_exporter()
         dn = MagicMock(spec=DeliveryNote)
@@ -728,7 +605,7 @@ class TestExporterService:
         assert "未知日期" in name
 
     def test_build_delivery_filename_unmatched_with_remark(self):
-        from apps.evidence_sorting.services.exporter import ExporterService, DeliveryNote, STATUS_UNMATCHED
+        from apps.evidence_sorting.services.exporter import STATUS_UNMATCHED, DeliveryNote, ExporterService
 
         svc = self._make_exporter()
         dn = MagicMock(spec=DeliveryNote)
@@ -743,7 +620,7 @@ class TestExporterService:
         assert "备注" in name
 
     def test_build_delivery_filename_same_date_seq(self):
-        from apps.evidence_sorting.services.exporter import ExporterService, DeliveryNote
+        from apps.evidence_sorting.services.exporter import DeliveryNote, ExporterService
 
         svc = self._make_exporter()
         dn = MagicMock(spec=DeliveryNote)
@@ -759,8 +636,9 @@ class TestExporterService:
         assert "_2" in name
 
     def test_write_category(self):
-        from apps.evidence_sorting.services.exporter import ExporterService
         import base64
+
+        from apps.evidence_sorting.services.exporter import ExporterService
 
         svc = self._make_exporter()
         zf = MagicMock()

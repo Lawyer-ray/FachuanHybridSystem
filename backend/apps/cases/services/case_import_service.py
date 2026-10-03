@@ -195,7 +195,8 @@ class CaseImportService:
                 continue
             client = self._client_resolve.resolve_with_attachments(client_data)
             legal_status = party_data.get("legal_status")
-            CaseParty.objects.get_or_create(case=case, client=client, defaults={"legal_status": legal_status})
+            # legal_status 字段非空（空串表示未指定），None 统一收敛为空串
+            CaseParty.objects.get_or_create(case=case, client=client, defaults={"legal_status": legal_status or ""})
 
         for assign_data in data.get("assignments") or []:
             lawyer_data = assign_data.get("lawyer")
@@ -212,8 +213,9 @@ class CaseImportService:
         for sa_data in data.get("supervising_authorities") or []:
             SupervisingAuthority.objects.get_or_create(
                 case=case,
-                name=sa_data.get("name"),
-                defaults={"authority_type": sa_data.get("authority_type", "TRIAL")},
+                # name 为非空 CharField，lookup 传 None 会生成 IS NULL 查询且创建时违反非空约束
+                name=sa_data.get("name") or "",
+                defaults={"authority_type": sa_data.get("authority_type") or "TRIAL"},
             )
 
         for cn_data in data.get("case_numbers") or []:
@@ -221,7 +223,8 @@ class CaseImportService:
                 CaseNumber.objects.get_or_create(
                     case=case,
                     number=cn_data["number"],
-                    defaults={"is_active": cn_data.get("is_active", False), "remarks": cn_data.get("remarks")},
+                    # remarks 为非空 TextField，None 统一收敛为空串
+                    defaults={"is_active": cn_data.get("is_active", False), "remarks": cn_data.get("remarks") or ""},
                 )
 
         from apps.cases.models.chat import CaseChat
@@ -236,7 +239,8 @@ class CaseImportService:
                     defaults={
                         "name": ch_data.get("name", ""),
                         "is_active": ch_data.get("is_active", True),
-                        "owner_id": ch_data.get("owner_id"),
+                        # owner_id 为非空 CharField，None 统一收敛为空串
+                        "owner_id": ch_data.get("owner_id") or "",
                     },
                 )
 
