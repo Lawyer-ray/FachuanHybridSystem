@@ -3,7 +3,7 @@ import { ArrowLeft, Copy, FileDown } from 'lucide-react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 
-import { getParseRecord, listParseRecords } from '../../../api'
+import { getParseRecord, listParseRecords, parseHistoryKeys } from '../../../api'
 import { cn } from '@/lib/utils'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { BTN, BTN_PRIMARY } from '../../../ui'
@@ -36,7 +36,7 @@ export function ParseHistoryDialog({ open, onOpenChange }: { open: boolean; onOp
   const [detailId, setDetailId] = useState<number | null>(null)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['doc-parse-history', group, page],
+    queryKey: parseHistoryKeys.page(group, page),
     queryFn: () => listParseRecords(group || undefined, page),
     enabled: open,
     staleTime: 10_000,
@@ -45,7 +45,7 @@ export function ParseHistoryDialog({ open, onOpenChange }: { open: boolean; onOp
   })
 
   const { data: detail, isLoading: detailLoading } = useQuery({
-    queryKey: ['doc-parse-record', detailId],
+    queryKey: parseHistoryKeys.record(detailId),
     queryFn: () => getParseRecord(detailId!),
     enabled: detailId !== null && open,
     staleTime: 60_000,

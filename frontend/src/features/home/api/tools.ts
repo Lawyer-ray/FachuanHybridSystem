@@ -31,6 +31,32 @@ export interface ConvertTemplateGroup {
 /** 模板列表 query key（DocConvertCard 订阅） */
 export const CONVERT_TEMPLATES_KEY = ['doc-convert-templates'] as const
 
+/** DOC→DOCX 历史列表/任务详情 key（ConverterHistoryDialog 订阅） */
+export const converterHistoryKeys = {
+  all: ['doc-converter-history'] as const,
+  page: (page: number) => [...converterHistoryKeys.all, page] as const,
+  job: (jobId: string | null) => [...converterHistoryKeys.all, 'job', jobId] as const,
+}
+
+/** 要素式转换历史 key（ConvertHistoryDialog 订阅；删除后按 all 前缀失效） */
+export const convertHistoryKeys = {
+  all: ['doc-convert-history'] as const,
+  page: (group: string, page: number) => [...convertHistoryKeys.all, group, page] as const,
+}
+
+/** 文档解析历史/详情 key（ParseHistoryDialog 订阅） */
+export const parseHistoryKeys = {
+  all: ['doc-parse-history'] as const,
+  page: (group: string, page: number) => [...parseHistoryKeys.all, group, page] as const,
+  record: (id: number | null) => [...parseHistoryKeys.all, 'record', id] as const,
+}
+
+/** 法院短信处理历史 key（CourtSmsHistoryDialog 订阅） */
+export const courtSmsHistoryKeys = {
+  all: ['court-sms-history'] as const,
+  page: (group: string, page: number) => [...courtSmsHistoryKeys.all, group, page] as const,
+}
+
 /** 要素式转换：取文书模板（按分类分组），替代原型里写死的下拉 */
 export async function listConvertTemplates(): Promise<ConvertTemplateGroup[]> {
   const res = await docConvertApi.get('mbid-list').json<{ categories: { category: string; items: ConvertTemplate[] }[] }>()

@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { toast } from 'sonner'
 
 import {
+  convertHistoryKeys,
   convertRecordDownloadUrl,
   deleteConvertRecord,
   listConvertRecords,
@@ -113,7 +114,7 @@ export function ConvertHistoryDialog({ open, onOpenChange }: { open: boolean; on
   const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
-    queryKey: ['doc-convert-history', group, page],
+    queryKey: convertHistoryKeys.page(group, page),
     queryFn: () => listConvertRecords(group || undefined, page),
     enabled: open,
     staleTime: 10_000,
@@ -160,7 +161,7 @@ export function ConvertHistoryDialog({ open, onOpenChange }: { open: boolean; on
             </div>
           ) : (
             items.map((it) => (
-              <Row key={it.id} item={it} onDeleted={() => void queryClient.invalidateQueries({ queryKey: ['doc-convert-history'] })} />
+              <Row key={it.id} item={it} onDeleted={() => void queryClient.invalidateQueries({ queryKey: convertHistoryKeys.all })} />
             ))
           )}
         </div>

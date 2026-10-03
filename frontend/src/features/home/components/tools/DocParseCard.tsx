@@ -30,8 +30,10 @@ export function DocParseCard() {
   const { phase, hint, outcome, submit, reset } = useDocParse()
 
   const busy = phase === 'submitting' || phase === 'polling'
-  const done = phase === 'done' && !!outcome
-  const ok = done && outcome!.ok
+  // 局部收窄：done/result 为 const 别名，TS 可沿别名条件把 result 收窄为非空
+  const result = phase === 'done' ? outcome : null
+  const done = result !== null
+  const ok = done && result.ok
   const baseName = (file?.name ?? 'document').replace(/\.[^.]+$/, '')
 
   const pick = (f: File | null) => {
@@ -136,8 +138,8 @@ export function DocParseCard() {
           busy
             ? hint
             : ok
-              ? `${outcome?.method || '解析完成'} · ${(outcome!.markdown || outcome!.text).length} 字${
-                  typeof outcome!.metadata.page_count === 'number' ? ` · ${outcome!.metadata.page_count} 页` : ''
+              ? `${result.method || '解析完成'} · ${(result.markdown || result.text).length}${
+                  typeof result.metadata.page_count === 'number' ? ` · ${result.metadata.page_count} 页` : ''
                 }`
               : undefined
         }
@@ -146,13 +148,13 @@ export function DocParseCard() {
           <>
             {ok && (
               <>
-                <button type="button" className={BTN} onClick={() => void copyOutcome(outcome)}>
+                <button type="button" className={BTN} onClick={() => void copyOutcome(result)}>
                   <Copy className="h-3.5 w-3.5" />
                   复制全文
                 </button>
-                <button type="button" className={BTN_PRIMARY} onClick={() => downloadOutcome(outcome, baseName)}>
+                <button type="button" className={BTN_PRIMARY} onClick={() => downloadOutcome(result, baseName)}>
                   <FileDown className="h-3.5 w-3.5" />
-                  {outcome!.markdown ? '下载 .md' : '下载 .txt'}
+                  {result.markdown ? '下载 .md' : '下载 .txt'}
                 </button>
               </>
             )}
@@ -169,7 +171,7 @@ export function DocParseCard() {
       >
         {ok && (
           <pre className="max-h-[320px] min-h-0 overflow-auto rounded-[10px] border border-border bg-background px-3 py-2.5 text-[11.5px] leading-[1.7] whitespace-pre-wrap break-all">
-            {outcome!.markdown || outcome!.text || '（解析结果为空）'}
+            {result.markdown || result.text || '（解析结果为空）'}
           </pre>
         )}
         {!ok && !busy && <FlowNotice kind="error">{outcome?.error || '解析失败，请重试或换个引擎'}</FlowNotice>}
