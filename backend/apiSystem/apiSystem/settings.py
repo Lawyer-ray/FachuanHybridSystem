@@ -124,8 +124,10 @@ MIDDLEWARE = [
     "django.middleware.gzip.GZipMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
-    "apps.core.middleware.token_rate_limit.TokenRateLimitMiddleware",
+    # RequestId 在限流之外：429 短路响应也要带 X-Request-ID，
+    # 且限流命中时的告警日志能关联到 request context。
     "apps.core.middleware.request_id.RequestIdMiddleware",
+    "apps.core.middleware.token_rate_limit.TokenRateLimitMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "apps.organization.middleware.ApiTrailingSlashMiddleware",
@@ -260,15 +262,31 @@ elif DB_ENGINE in ("", "postgres", "postgresql", "django.db.backends.postgresql"
     if "pytest" in sys.modules:
         _use_pool = False
 
-    # 测试/开发环境下添加数据库超时，防止 flaky test 在 psycopg socket wait 中 hang 住
-    # 导致 CI 60 分钟超时。statement_timeout 让长时间 SQL 自动失败，
-    # idle_in_transaction_session_timeout 让持有事务不释放的连接自动取消。
-    # 可通过 DB_STATEMENT_TIMEOUT_MS 环境变量覆盖（单位：毫秒），
-    # 默认 120000（2 分钟），避免 Django flush（TRUNCATE 所有表）在 CI 中超时。
+    # PG 会话级超时治理（通过连接 options 注入，对整个进程的所有连接生效）：
+    #
+    # idle_in_transaction_session_timeout —— 全局生效（DEBUG 与生产一致）。
+    #   只杀「持有未提交事务且空闲」的会话（请求中途崩溃残留的 atomic、
+    #   泄漏的事务锁），不影响健康负载：已核查长任务（批量分析 timeout=7200s、
+    #   OA 同步 3600s）的 transaction.atomic 均只包裹短 SQL（bulk_update /
+    #   bulk_create），分钟级 Playwright/文件 IO 全部在事务外，不会触发。
+    #   DEBUG 下沿用更紧的 60s（CI 中快速暴露 hang 住的事务），生产 300s。
+    #
+    # statement_timeout —— 仅 DEBUG 注入，生产不启用。原因：Django-Q worker
+    #   与 web 共用同一 DATABASES["default"]（Q_CLUSTER 无独立 alias），无法
+    #   按「web / worker」区分注入；全局 statement_timeout 会把 worker 里
+    #   长任务的慢 SQL（批量分析、OA 全量同步）中途杀掉。生产的 web 慢 SQL
+    #   治理应走请求级方案（视图/中间件内 `SET LOCAL statement_timeout`，
+    #   随事务结束自动还原），不在连接级全局设置。
     _pg_options: dict[str, object] = {"connect_timeout": 10}
+    _idle_tx_default = "60000" if DEBUG else "300000"
+    _idle_tx_timeout = os.environ.get("DB_IDLE_IN_TX_TIMEOUT_MS", _idle_tx_default)
+    _pg_opts = [f"-c idle_in_transaction_session_timeout={_idle_tx_timeout}"]
     if DEBUG:
+        # 防止 flaky test 在 psycopg socket wait 中 hang 住导致 CI 60 分钟超时。
+        # 默认 120000（2 分钟），避免 Django flush（TRUNCATE 所有表）在 CI 中超时。
         _stmt_timeout = os.environ.get("DB_STATEMENT_TIMEOUT_MS", "120000")
-        _pg_options["options"] = f"-c statement_timeout={_stmt_timeout} -c idle_in_transaction_session_timeout=60000"
+        _pg_opts.append(f"-c statement_timeout={_stmt_timeout}")
+    _pg_options["options"] = " ".join(_pg_opts)
 
     if _use_pool:
         try:
@@ -343,6 +361,10 @@ from datetime import timedelta
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=2),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
+    # 安全审计 C-14/E-07（改密后旧 token 仍有效）：签发时在 token 注入密码哈希
+    # 指纹 claim，刷新时校验一致性——密码一改旧 refresh token 全部失效，零迁移实现
+    "TOKEN_OBTAIN_PAIR_INPUT_SCHEMA": "apps.core.security.jwt_password_binding.PasswordBoundTokenObtainPairInputSchema",
+    "TOKEN_OBTAIN_PAIR_REFRESH_INPUT_SCHEMA": "apps.core.security.jwt_password_binding.PasswordBoundTokenRefreshInputSchema",
 }
 
 # 安全审计 C-13：密码重置链接实际有效期与邮件文案（30 分钟）对齐
@@ -473,9 +495,17 @@ MEDIA_X_ACCEL_PREFIX = (os.environ.get("MEDIA_X_ACCEL_PREFIX", "") or "").strip(
 # 请求体大小限制
 # ============================================================
 
-# 默认 2.5MB 太小，图片旋转工具需要上传大量 Base64 数据
-# multipart/form-data 上传也会受到此限制
-DATA_UPLOAD_MAX_MEMORY_SIZE_MB = int(os.environ.get("DJANGO_DATA_UPLOAD_MAX_MEMORY_SIZE_MB", "100"))
+# 语义：DATA_UPLOAD_MAX_MEMORY_SIZE 只限制「非 multipart」请求体（如 JSON）
+# 的大小，以及 multipart 中非文件字段的累计大小；multipart 文件上传不受
+# 它限制（文件超过 FILE_UPLOAD_MAX_MEMORY_SIZE，默认 2.5MB，即流式落盘）。
+#
+# 取值依据：全仓唯一的大 JSON body 消费方是 image_rotation
+# （/extract-pdf-fast、/detect-orientation 等以 Base64 内嵌图片/PDF）。
+# 硬约束为 extract-pdf-fast 的单 PDF 上传：前端单文件上限 50MB
+# （image_rotation.html MAX_PDF_SIZE），Base64 膨胀 4/3 ≈ 66.7MB，
+# 故 70MB 是满足现有功能的最小值。批量图片端点（detect-orientation）
+# 前端未限制张数，理论上可超任何上限，属前端契约问题，不靠此设置兜底。
+DATA_UPLOAD_MAX_MEMORY_SIZE_MB = int(os.environ.get("DJANGO_DATA_UPLOAD_MAX_MEMORY_SIZE_MB", "70"))
 DATA_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MEMORY_SIZE_MB * 1024 * 1024
 
 # 批量文档分析需要上传大量文件，默认 100 太小

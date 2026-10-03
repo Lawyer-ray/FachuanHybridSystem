@@ -389,10 +389,14 @@ def get_logging_config(base_dir: Any, debug: bool = True) -> dict[str, Any]:
             },
         },
         "loggers": {
+            # propagate=False：handlers 与 root 完全相同，若再向 root 传播，
+            # django.server / django.template / django.security 等无独立配置的
+            # 子 logger 会在相同 handler 组上双写（console/错误日志各输出两次）。
+            # django.request / django.db.backends 已有独立配置且 propagate=False，不受影响。
             "django": {
                 "handlers": ["console", "console_error", "file_error"],
                 "level": django_level,
-                "propagate": True,
+                "propagate": False,
             },
             "django.request": {
                 "handlers": ["console", "console_error", "file_error"],
