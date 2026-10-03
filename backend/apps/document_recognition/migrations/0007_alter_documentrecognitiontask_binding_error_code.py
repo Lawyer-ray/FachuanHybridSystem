@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from django.db import migrations, models
+from django.db import migrations, models, transaction
 
 
 def _normalize(apps: Any, app_label: str, model_name: str, fields: list[str]) -> None:
@@ -13,27 +13,30 @@ def _normalize(apps: Any, app_label: str, model_name: str, fields: list[str]) ->
 
 
 def normalize_null_to_empty(apps: Any, schema_editor: Any) -> None:
-    _normalize(
-        apps,
-        "document_recognition",
-        "DocumentRecognitionTask",
-        [
-            "document_type",
-            "case_number",
-            "extraction_method",
-            "llm_model",
-            "llm_backend",
-            "raw_text",
-            "renamed_file_path",
-            "binding_message",
-            "binding_error_code",
-            "error_message",
-            "notification_error",
-        ],
-    )
-
+    with transaction.atomic():
+        _normalize(
+            apps,
+            "document_recognition",
+            "DocumentRecognitionTask",
+            [
+                "document_type",
+                "case_number",
+                "extraction_method",
+                "llm_model",
+                "llm_backend",
+                "raw_text",
+                "renamed_file_path",
+                "binding_message",
+                "binding_error_code",
+                "error_message",
+                "notification_error",
+            ],
+        )
 
 class Migration(migrations.Migration):
+    # contacts 表的外键是 DEFERRABLE INITIALLY DEFERRED：UPDATE 产生的延迟触发器
+    # 事件会挡住同事务内的 ALTER TABLE（PG 限制）。数据步自包事务先提交。
+    atomic = False
     dependencies = [
         ("document_recognition", "0006_documentrecognitiontask_idx_docrec_status_created_and_more"),
     ]

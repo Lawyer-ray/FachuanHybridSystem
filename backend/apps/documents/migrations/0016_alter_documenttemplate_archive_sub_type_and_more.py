@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from django.db import migrations, models
+from django.db import migrations, models, transaction
 
 
 def _normalize(apps: Any, app_label: str, model_name: str, fields: list[str]) -> None:
@@ -13,11 +13,14 @@ def _normalize(apps: Any, app_label: str, model_name: str, fields: list[str]) ->
 
 
 def normalize_null_to_empty(apps: Any, schema_editor: Any) -> None:
-    _normalize(apps, "documents", "DocumentTemplate", ["contract_sub_type", "case_sub_type", "archive_sub_type"])
-    _normalize(apps, "documents", "ProxyMatterRule", ["case_type", "case_stage"])
-
+    with transaction.atomic():
+        _normalize(apps, "documents", "DocumentTemplate", ["contract_sub_type", "case_sub_type", "archive_sub_type"])
+        _normalize(apps, "documents", "ProxyMatterRule", ["case_type", "case_stage"])
 
 class Migration(migrations.Migration):
+    # contacts 表的外键是 DEFERRABLE INITIALLY DEFERRED：UPDATE 产生的延迟触发器
+    # 事件会挡住同事务内的 ALTER TABLE（PG 限制）。数据步自包事务先提交。
+    atomic = False
     dependencies = [
         ("documents", "0015_alter_externaltemplate_status"),
     ]
