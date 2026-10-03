@@ -63,7 +63,7 @@ async def record_step(
             "step_type": step_type,
             "status": status,
             "output_data": output_data,
-            "error_message": error_message,
+            "error_message": error_message or "",
             "started_at": timezone.now() if status == StepExecution.Status.RUNNING else None,
             "finished_at": timezone.now()
             if status in (StepExecution.Status.SUCCESS, StepExecution.Status.FAILED)
