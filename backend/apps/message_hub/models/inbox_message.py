@@ -59,7 +59,9 @@ class InboxMessage(models.Model):
         verbose_name = "收件箱消息"
         verbose_name_plural = "收件箱消息"
         ordering: ClassVar = ["-received_at"]
-        unique_together: ClassVar = [("source", "message_id")]
+        constraints: ClassVar = [
+            models.UniqueConstraint(fields=["source", "message_id"], name="uniq_inbox_message_source_msgid"),
+        ]
         indexes: ClassVar = [
             models.Index(fields=["source", "-received_at"]),
             # 搜索路径 subject/sender/body_text 均为 icontains（全表扫），

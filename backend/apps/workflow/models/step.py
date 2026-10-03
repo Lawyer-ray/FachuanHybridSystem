@@ -34,7 +34,9 @@ class StepExecution(models.Model):
 
     class Meta:
         ordering = ["started_at"]
-        unique_together = [("workflow_run", "step_id")]
+        constraints: ClassVar = [
+            models.UniqueConstraint(fields=["workflow_run", "step_id"], name="uniq_step_execution_run_step"),
+        ]
         verbose_name = "步骤执行"
         verbose_name_plural = verbose_name
 

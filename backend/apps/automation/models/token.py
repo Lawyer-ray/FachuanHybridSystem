@@ -32,7 +32,9 @@ class CourtToken(models.Model):
         app_label = "automation"
         verbose_name = "一张网Token管理"
         verbose_name_plural = "一张网Token管理"
-        unique_together: ClassVar = [["site_name", "account"]]
+        constraints: ClassVar = [
+            models.UniqueConstraint(fields=["site_name", "account"], name="uniq_courttoken_site_account"),
+        ]
         indexes: ClassVar = [
             models.Index(fields=["site_name", "account"]),
             models.Index(fields=["expires_at"]),

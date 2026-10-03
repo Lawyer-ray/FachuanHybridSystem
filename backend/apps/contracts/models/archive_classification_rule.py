@@ -59,7 +59,12 @@ class ArchiveClassificationRule(models.Model):
     class Meta:
         verbose_name = "归档分类学习规则"
         verbose_name_plural = "归档分类学习规则"
-        unique_together: ClassVar = [("archive_category", "filename_keyword")]
+        constraints: ClassVar = [
+            models.UniqueConstraint(
+                fields=["archive_category", "filename_keyword"],
+                name="uniq_archive_rule_category_keyword",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.archive_category}::{self.filename_keyword} → {self.archive_item_code}"

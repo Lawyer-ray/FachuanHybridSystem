@@ -73,7 +73,10 @@ class CourtDocument(models.Model):
             models.Index(fields=["download_status"]),
             models.Index(fields=["created_at"]),
         ]
-        unique_together: ClassVar = [["c_wsbh", "c_sdbh"]]  # 文书编号+送达编号唯一
+        # 文书编号+送达编号唯一
+        constraints: ClassVar = [
+            models.UniqueConstraint(fields=["c_wsbh", "c_sdbh"], name="uniq_courtdocument_c_wsbh_c_sdbh"),
+        ]
 
     def __str__(self) -> str:
         return f"{self.c_wsmc} - {self.get_download_status_display()}"

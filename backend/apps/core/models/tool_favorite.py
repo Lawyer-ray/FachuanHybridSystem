@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from django.conf import settings
 from django.db import models
 
@@ -22,8 +24,10 @@ class ToolFavorite(models.Model):
     class Meta:
         verbose_name = "工具收藏"
         verbose_name_plural = "工具收藏"
-        unique_together = ("user", "tool_url")
-        ordering = ["-created_at"]
+        constraints: ClassVar = [
+            models.UniqueConstraint(fields=["user", "tool_url"], name="uniq_tool_favorite_user_url"),
+        ]
+        ordering: [-created_at]
 
     def __str__(self) -> str:
         return f"{self.user} → {self.tool_name or self.tool_url}"

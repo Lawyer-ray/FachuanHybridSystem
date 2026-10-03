@@ -305,7 +305,12 @@ class DocumentTemplateFolderBinding(LifecycleModel):
         verbose_name_plural = "文件模板文件夹绑定"
         ordering: ClassVar = ["folder_template", "document_template"]
         # 同一文件模板在同一文件夹模板的同一节点只能绑定一次
-        unique_together: ClassVar = ["document_template", "folder_template", "folder_node_id"]
+        constraints: ClassVar = [
+            models.UniqueConstraint(
+                fields=["document_template", "folder_template", "folder_node_id"],
+                name="uniq_template_folder_binding_node",
+            ),
+        ]
         indexes: ClassVar = [
             models.Index(fields=["folder_template", "folder_node_id"]),
             models.Index(fields=["document_template"]),

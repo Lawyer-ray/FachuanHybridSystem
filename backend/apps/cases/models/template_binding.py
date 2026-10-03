@@ -32,7 +32,9 @@ class CaseTemplateBinding(models.Model):
     class Meta:
         verbose_name = "案件模板绑定"
         verbose_name_plural = "案件模板绑定"
-        unique_together: ClassVar = ["case", "template"]
+        constraints: ClassVar = [
+            models.UniqueConstraint(fields=["case", "template"], name="uniq_case_template_binding_case_template"),
+        ]
         indexes: ClassVar = [
             models.Index(fields=["case", "binding_source"]),
             models.Index(fields=["template"]),

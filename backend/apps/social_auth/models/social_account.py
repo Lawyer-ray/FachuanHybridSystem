@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from django.db import models
 
 
@@ -27,8 +29,8 @@ class SocialAccount(models.Model):
         verbose_name = "社交账号"
         verbose_name_plural = "社交账号"
         # 一个平台身份只能属于一位律师：否则同一个飞书号会解析出两个律师
-        unique_together = [("provider", "provider_uid")]
-        constraints = [
+        constraints: ClassVar = [
+            models.UniqueConstraint(fields=["provider", "provider_uid"], name="uniq_social_account_provider_uid"),
             # 一位律师在每个平台只能绑一个账号。换绑 = 先解绑再绑，
             # 避免后台出现「这个律师怎么有两个飞书」而无法判断该用哪个登录。
             models.UniqueConstraint(fields=["user", "provider"], name="uniq_social_account_user_provider"),
