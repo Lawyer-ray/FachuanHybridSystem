@@ -71,7 +71,7 @@ class OrientationDetectionService:
                     score = 0
 
                 scores[rotation] = score
-                logger.debug(f"方向 {rotation}°: 得分={score:.2f}")
+                logger.debug("方向 %s°: 得分=%.2f", rotation, score)
 
             best_rotation = max(scores, key=lambda rotation: scores[rotation])
             best_score = scores[best_rotation]
@@ -81,7 +81,7 @@ class OrientationDetectionService:
 
             MIN_SCORE_THRESHOLD = 10.0
             if best_score < MIN_SCORE_THRESHOLD:
-                logger.info(f"方向检测完成: 得分过低 ({best_score:.2f} < {MIN_SCORE_THRESHOLD}),保持原方向", extra={})
+                logger.info("方向检测完成: 得分过低 (%.2f < %s),保持原方向", best_score, MIN_SCORE_THRESHOLD, extra={})
                 return {
                     "rotation": 0,
                     "confidence": 0,
@@ -90,7 +90,7 @@ class OrientationDetectionService:
                     "reason": f"最高得分 {best_score:.2f} 低于阈值 {MIN_SCORE_THRESHOLD}",
                 }
 
-            logger.info(f"方向检测完成: 最佳方向={best_rotation}°, 置信度={confidence:.2f}", extra={})
+            logger.info("方向检测完成: 最佳方向=%s°, 置信度=%.2f", best_rotation, confidence, extra={})
 
             return {
                 "rotation": best_rotation,
@@ -99,7 +99,7 @@ class OrientationDetectionService:
                 "scores": scores,
             }
         except Exception as e:
-            logger.warning(f"图片方向检测失败: {e}")
+            logger.warning("图片方向检测失败: %s", e)
             return {
                 "rotation": 0,
                 "confidence": 0,
@@ -146,7 +146,7 @@ class OrientationDetectionService:
                     texts[rotation] = ""
 
                 scores[rotation] = score
-                logger.debug(f"方向 {rotation}°: 得分={score:.2f}")
+                logger.debug("方向 %s°: 得分=%.2f", rotation, score)
 
             best_rotation = max(scores, key=lambda rotation: scores[rotation])
             best_score = scores[best_rotation]
@@ -156,7 +156,7 @@ class OrientationDetectionService:
 
             MIN_SCORE_THRESHOLD = 10.0
             if best_score < MIN_SCORE_THRESHOLD:
-                logger.info(f"方向检测完成: 得分过低 ({best_score:.2f} < {MIN_SCORE_THRESHOLD}),保持原方向", extra={})
+                logger.info("方向检测完成: 得分过低 (%.2f < %s),保持原方向", best_score, MIN_SCORE_THRESHOLD, extra={})
                 return {
                     "rotation": 0,
                     "confidence": 0,
@@ -166,7 +166,7 @@ class OrientationDetectionService:
                     "ocr_text": texts.get(0, ""),
                 }
 
-            logger.info(f"方向检测完成: 最佳方向={best_rotation}°, 置信度={confidence:.2f}", extra={})
+            logger.info("方向检测完成: 最佳方向=%s°, 置信度=%.2f", best_rotation, confidence, extra={})
 
             return {
                 "rotation": best_rotation,
@@ -176,7 +176,7 @@ class OrientationDetectionService:
                 "ocr_text": ocr_text,
             }
         except Exception as e:
-            logger.warning(f"图片方向检测失败: {e}")
+            logger.warning("图片方向检测失败: %s", e)
             return {
                 "rotation": 0,
                 "confidence": 0,

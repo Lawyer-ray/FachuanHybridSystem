@@ -2,11 +2,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import tempfile
+import uuid
 from pathlib import Path
 
-from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.utils import timezone
 
+from apps.core.filesystem.upload_paths import MediaEntity
+from apps.core.services.storage_service import sanitize_upload_filename
 from apps.express_query.models import ExpressQueryTask, ExpressQueryTaskStatus
 from apps.express_query.services import ExpressBrowserQueryService, TrackingExtractionService
 
@@ -106,36 +111,45 @@ def _execute_browser_query(task: ExpressQueryTask) -> None:
     task.status = ExpressQueryTaskStatus.QUERYING
     task.save(update_fields=["status", "updated_at"])
 
-    output_rel_path = Path("express_query/results") / f"{task.id}_{task.carrier_type}_{task.tracking_number}.pdf"
-    output_abs_path = Path(settings.MEDIA_ROOT) / output_rel_path
+    # page.pdf 先写系统临时文件，再经 default_storage 保存到 media（文件名不可预测化）
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_file:
+        tmp_pdf_path = Path(tmp_file.name)
 
-    browser_service = ExpressBrowserQueryService()
-    coro = browser_service.query_and_save_pdf(
-        carrier_type=task.carrier_type,
-        tracking_number=task.tracking_number,
-        output_pdf=output_abs_path,
-    )
+    try:
+        browser_service = ExpressBrowserQueryService()
+        coro = browser_service.query_and_save_pdf(
+            carrier_type=task.carrier_type,
+            tracking_number=task.tracking_number,
+            output_pdf=tmp_pdf_path,
+        )
 
-    # 在协程内部完成查询后主动关闭 Playwright 连接，避免 asyncio.run() 销毁循环后
-    # Playwright 的 BaseSubprocessTransport.__del__ 触发 "Event loop is closed" 错误
-    async def _run_and_cleanup() -> str:
-        try:
-            result = await coro
-            return result
-        finally:
-            await ExpressBrowserQueryService.disconnect_playwright()
+        # 在协程内部完成查询后主动关闭 Playwright 连接，避免 asyncio.run() 销毁循环后
+        # Playwright 的 BaseSubprocessTransport.__del__ 触发 "Event loop is closed" 错误
+        async def _run_and_cleanup() -> str:
+            try:
+                result = await coro
+                return result
+            finally:
+                await ExpressBrowserQueryService.disconnect_playwright()
 
-    # Django-Q2 worker 没有运行中的事件循环，直接用 asyncio.run()
-    final_url = asyncio.run(_run_and_cleanup())
+        # Django-Q2 worker 没有运行中的事件循环，直接用 asyncio.run()
+        final_url = asyncio.run(_run_and_cleanup())
+        pdf_content = tmp_pdf_path.read_bytes()
+    finally:
+        tmp_pdf_path.unlink(missing_ok=True)
+
+    safe_name = sanitize_upload_filename(f"{task.tracking_number}.pdf")
+    rel_path = f"{MediaEntity.EXPRESS_QUERY_RESULTS}/{task.id}/{uuid.uuid4().hex[:8]}_{safe_name}"
+    saved_name = default_storage.save(rel_path, ContentFile(pdf_content))
 
     task.status = ExpressQueryTaskStatus.SUCCESS
     task.query_url = final_url
-    task.result_pdf.name = output_rel_path.as_posix()
+    task.result_pdf.name = saved_name
     task.result_payload = {
         "carrier_type": task.carrier_type,
         "tracking_number": task.tracking_number,
         "query_url": final_url,
-        "pdf_path": output_rel_path.as_posix(),
+        "pdf_path": saved_name,
     }
     task.finished_at = timezone.now()
     task.save(

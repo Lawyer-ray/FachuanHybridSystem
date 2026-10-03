@@ -41,6 +41,20 @@ def _get_folder_binding_service() -> Any:
     )
 
 
+async def _require_case_access(request: HttpRequest, case_id: int) -> None:
+    """案件行级访问校验（无权时由 CaseQueryService 抛 NotFoundError/PermissionDenied）"""
+    ctx = get_request_access_context(request)
+    from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+    from apps.cases.services.case.case_query_service import CaseQueryService
+
+    await sync_to_async(CaseQueryService(access_policy=CaseAccessPolicy()).get_case)(
+        case_id=case_id,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
+
+
 @router.post("/{case_id}/folder-binding", response=CaseFolderBindingResponseSchema)
 async def create_folder_binding(
     request: HttpRequest, case_id: int, data: CaseFolderBindingCreateSchema
@@ -149,6 +163,7 @@ async def delete_folder_binding(request: HttpRequest, case_id: int) -> dict[str,
 @router.get("/{case_id}/contract-folder-path", response=ContractFolderPathSchema)
 async def get_contract_folder_path(request: HttpRequest, case_id: int) -> ContractFolderPathSchema:  # pragma: no cover
     """获取案件关联合同的文件夹路径"""
+    await _require_case_access(request, case_id)
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
 

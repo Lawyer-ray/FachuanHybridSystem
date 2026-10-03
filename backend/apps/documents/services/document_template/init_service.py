@@ -80,12 +80,12 @@ class DocumentTemplateInitService:
         for folder_data in data["folder_templates"]:
             existing = FolderTemplate.objects.filter(name=folder_data["name"]).first()
             if existing:
-                logger.info(f"跳过已存在的文件夹模板: {folder_data['name']}")
+                logger.info("跳过已存在的文件夹模板: %s", folder_data["name"])
                 folder_skipped += 1
                 folder_map[folder_data["name"]] = existing
             else:
                 folder = FolderTemplate.objects.create(**folder_data)
-                logger.info(f"创建文件夹模板: {folder_data['name']}")
+                logger.info("创建文件夹模板: %s", folder_data["name"])
                 folder_created += 1
                 folder_map[folder_data["name"]] = folder
 
@@ -96,12 +96,12 @@ class DocumentTemplateInitService:
                 name=template_data["name"], template_type=template_data["template_type"]
             ).first()
             if existing_doc:
-                logger.info(f"跳过已存在的文件模板: {template_data['name']}")
+                logger.info("跳过已存在的文件模板: %s", template_data["name"])
                 doc_skipped += 1
                 doc_map[template_data["name"]] = existing_doc
             else:
                 doc = DocumentTemplate.objects.create(**template_data)
-                logger.info(f"创建文件模板: {template_data['name']}")
+                logger.info("创建文件模板: %s", template_data["name"])
                 doc_created += 1
                 doc_map[template_data["name"]] = doc
 
@@ -112,7 +112,7 @@ class DocumentTemplateInitService:
             node_id = binding_data["folder_node_id"]
 
             if doc_name not in doc_map or folder_name not in folder_map:
-                logger.warning(f"跳过绑定（模板不存在）: {doc_name} -> {folder_name}")
+                logger.warning("跳过绑定（模板不存在）: %s -> %s", doc_name, folder_name)
                 continue
 
             doc = doc_map[doc_name]
@@ -123,7 +123,7 @@ class DocumentTemplateInitService:
             ).exists()
 
             if existing_binding:
-                logger.info(f"跳过已存在的绑定: {doc_name} -> {folder_name}")
+                logger.info("跳过已存在的绑定: %s -> %s", doc_name, folder_name)
                 binding_skipped += 1
             else:
                 # 计算文件夹路径
@@ -140,7 +140,7 @@ class DocumentTemplateInitService:
                     folder_node_id=node_id,
                     folder_node_path=folder_node_path,
                 )
-                logger.info(f"创建绑定: {doc_name} -> {folder_name} (路径: {folder_node_path})")
+                logger.info("创建绑定: %s -> %s (路径: %s)", doc_name, folder_name, folder_node_path)
                 binding_created += 1
 
         return {

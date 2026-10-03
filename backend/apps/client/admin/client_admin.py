@@ -17,8 +17,16 @@ from apps.client.ports import CredentialPort, GsxtReportPort
 from apps.client.services.client_export_serializer_service import serialize_client_obj
 from apps.client.services.wiring import get_credential_port, get_gsxt_report_port
 from apps.core.admin.mixins import AdminImportExportMixin
+from apps.core.filesystem.upload_paths import MediaEntity
+from apps.core.services.storage_service import sanitize_upload_filename, to_media_abs
 
 logger = logging.getLogger("apps.client")
+
+
+def _build_gsxt_report_rel_path(*, client: Client) -> str:
+    """构造企业信用报告的 media 相对路径（client.name 经清洗，防目录逃逸）。"""
+    report_name = sanitize_upload_filename(f"{client.name[:20]}_企业信用报告.pdf") or "企业信用报告.pdf"
+    return f"{MediaEntity.CLIENT_DOCS}/{client.pk}/{report_name}"
 
 
 def _get_admin_service() -> Any:
@@ -102,8 +110,6 @@ class GsxtReportTaskInline(admin.TabularInline[Any]):  # type: ignore[type-arg] 
         change: bool,
     ) -> None:
         """保存表单集，使用端口处理报告上传。"""
-        from django.conf import settings
-
         instances = formset.save(commit=False)
         gsxt_port: GsxtReportPort = get_gsxt_report_port()
 
@@ -115,7 +121,7 @@ class GsxtReportTaskInline(admin.TabularInline[Any]):  # type: ignore[type-arg] 
             if not obj.pk:
                 continue
             client = obj.client
-            rel_path = f"client_docs/{client.pk}/{client.name[:20]}_企业信用报告.pdf"
+            rel_path = _build_gsxt_report_rel_path(client=client)
             saved_name = default_storage.save(rel_path, uploaded)
             rel_path = saved_name
             doc, _ = ClientIdentityDoc.objects.get_or_create(
@@ -287,7 +293,6 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
         task_id: int,
     ) -> Any:
         """上传企业信用报告视图。"""
-        from django.conf import settings
         from django.shortcuts import redirect
 
         if request.method != "POST" or not request.FILES.get("report_file"):
@@ -305,13 +310,12 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
         client = task.client
         uploaded: Any = request.FILES["report_file"]
 
-        rel_path = f"client_docs/{client.pk}/{client.name[:20]}_企业信用报告.pdf"
+        rel_path = _build_gsxt_report_rel_path(client=client)
         saved_name = default_storage.save(rel_path, uploaded)
         rel_path = saved_name
 
         # 读取文件内容用于端口回调
-        abs_path = Path(settings.MEDIA_ROOT) / rel_path
-        file_content = abs_path.read_bytes()
+        file_content = to_media_abs(rel_path).read_bytes()
 
         doc, _ = ClientIdentityDoc.objects.get_or_create(
             client=client,

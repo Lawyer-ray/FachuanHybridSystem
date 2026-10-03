@@ -33,7 +33,9 @@ class SessionLifecycleService:
         self.conversation_history_service = get_conversation_history_service()
         self.session_repo = LitigationSessionRepository()
 
-    def create_session(self, case_id: int, user_id: int | None = None, session_type: str | None = None) -> SessionDTO:  # pragma: no cover
+    def create_session(
+        self, case_id: int, user_id: int | None = None, session_type: str | None = None
+    ) -> SessionDTO:  # pragma: no cover
         from apps.litigation_ai.models import LitigationSession
 
         create_payload: dict[str, Any] = {
@@ -48,7 +50,9 @@ class SessionLifecycleService:
         session = LitigationSession.objects.create(**create_payload)
         return self._to_session_dto(session)
 
-    async def acreate_session(self, case_id: int, user_id: int | None = None, session_type: str | None = None) -> SessionDTO:  # pragma: no cover
+    async def acreate_session(
+        self, case_id: int, user_id: int | None = None, session_type: str | None = None
+    ) -> SessionDTO:  # pragma: no cover
         """异步版本 — 创建新会话."""
         from apps.litigation_ai.models import LitigationSession
 
@@ -64,7 +68,9 @@ class SessionLifecycleService:
         session = await LitigationSession.objects.acreate(**create_payload)
         return self._to_session_dto(session)
 
-    def get_session(self, session_id: str) -> SessionDTO:
+    def get_session(self, session_id: str, *, user: Any | None = None) -> SessionDTO:
+        from apps.core.exceptions import PermissionDenied
+
         session = self.session_repo.get_session_with_case_sync(session_id)
         if not session:
             raise NotFoundError(
@@ -72,6 +78,12 @@ class SessionLifecycleService:
                 code="SESSION_NOT_FOUND",
                 errors={"session_id": f"会话 {session_id} 不存在"},
             )
+
+        if user and session.user_id != user.id:
+            is_privileged = getattr(user, "is_superuser", False) or getattr(user, "is_admin", False)
+            if not is_privileged:
+                raise PermissionDenied(message="无权限访问此会话", code="PERMISSION_DENIED")
+
         return self._to_session_dto(session)
 
     @transaction.atomic

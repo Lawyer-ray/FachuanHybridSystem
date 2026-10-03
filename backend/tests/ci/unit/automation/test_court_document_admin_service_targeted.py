@@ -14,7 +14,6 @@ from apps.automation.models import CourtDocument, DocumentDownloadStatus, Scrape
 from apps.automation.services.admin.court_document_admin_service import CourtDocumentAdminService
 from apps.core.exceptions import BusinessException, ValidationException
 
-
 # ── Fixtures ───────────────────────────────────────────────────────
 
 
@@ -96,30 +95,20 @@ class TestBatchDownloadDocuments:
         with pytest.raises(ValidationException, match="没有选中任何文书"):
             service.batch_download_documents([])
 
-    def test_no_downloadable_docs_raises(self, service, success_doc):
-        with pytest.raises((ValidationException, BusinessException)):
-            service.batch_download_documents([success_doc.id])
-
-    def test_starts_download_for_pending(self, service, pending_doc):
-        result = service.batch_download_documents([pending_doc.id])
-        assert result["started_download"] == 1
-        assert result["total_requested"] == 1
+    def test_not_implemented_raises_and_keeps_pending_status(self, service, pending_doc):
+        with pytest.raises(ValidationException, match="批量下载暂未接入"):
+            service.batch_download_documents([pending_doc.id])
         pending_doc.refresh_from_db()
-        assert pending_doc.download_status == DocumentDownloadStatus.DOWNLOADING
+        assert pending_doc.download_status == DocumentDownloadStatus.PENDING
 
-    def test_starts_download_for_failed(self, service, failed_doc):
-        result = service.batch_download_documents([failed_doc.id])
-        assert result["started_download"] == 1
+    def test_not_implemented_raises_and_keeps_failed_status(self, service, failed_doc):
+        with pytest.raises(ValidationException, match="批量下载暂未接入"):
+            service.batch_download_documents([failed_doc.id])
         failed_doc.refresh_from_db()
-        assert failed_doc.download_status == DocumentDownloadStatus.DOWNLOADING
-
-    def test_mixed_status_counts_correctly(self, service, pending_doc, success_doc):
-        result = service.batch_download_documents([pending_doc.id, success_doc.id])
-        assert result["started_download"] == 1
-        assert result["already_downloaded"] == 1
+        assert failed_doc.download_status == DocumentDownloadStatus.FAILED
 
     def test_nonexistent_ids_raise(self, service):
-        with pytest.raises((ValidationException, BusinessException)):
+        with pytest.raises(ValidationException, match="批量下载暂未接入"):
             service.batch_download_documents([999999])
 
 

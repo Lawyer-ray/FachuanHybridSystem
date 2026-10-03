@@ -724,7 +724,7 @@ class TestDeletedModulesGone:
 
         assert hasattr(infrastructure, "CacheKeys")
         assert hasattr(infrastructure, "HealthChecker")
-        assert hasattr(infrastructure, "PerformanceMonitor")
+        assert hasattr(infrastructure, "resource_monitor")
 
     def test_no_production_references_to_deleted_symbols(self) -> None:
         """apps/ 与 plugins 下不再引用已删除符号。"""

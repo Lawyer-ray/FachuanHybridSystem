@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from apps.core.exceptions import NotFoundError
 
@@ -104,42 +104,48 @@ class CaseInternalQueryService:
     def search_cases_by_party_internal(self, party_names: list[str], status: str | None = None) -> list[CaseDTO]:
         return self.orchestrator.search_cases_by_party(party_names, status=status)
 
-    def search_cases_for_binding_internal(self, search_term: str = "", limit: int = 20) -> list[dict[str, object]]:
+    def search_cases_for_binding_internal(
+        self,
+        search_term: str = "",
+        limit: int = 20,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> list[dict[str, object]]:
         """搜索可绑定的案件(含案号和当事人信息)
 
         支持按案件名称、案号、当事人搜索; 空关键词时返回全部在办案件（创建时间倒序）.
 
             search_term: 搜索关键词
             limit: 返回数量限制
+            user: 当前用户（提供时按案件访问范围过滤，管理员见全量）
+            org_access: 组织访问上下文
+            perm_open_access: 是否开放访问权限
 
             案件信息字典列表
         """
         from django.db.models import Exists, OuterRef, Q
 
         from apps.cases.models import Case, CaseNumber, CaseParty
+        from apps.cases.services.case.case_access_policy import CaseAccessPolicy
         from apps.core.models.enums import CaseStatus
 
         limit = min(limit, 200)
 
         if not search_term or not search_term.strip():
             # 默认列表：在办案件按创建时间倒序（绑定工作台"全部案件"直接展示）
-            cases = (
-                Case.objects.filter(status=CaseStatus.ACTIVE)
-                .prefetch_related("case_numbers", "parties__client")
-                .order_by("-created_at", "-id")[:limit]
-            )
+            base_qs = Case.objects.filter(status=CaseStatus.ACTIVE)
         else:
             term = search_term.strip()
             name_query = Q(name__icontains=term)
             has_number = Exists(CaseNumber.objects.filter(case=OuterRef("pk"), number__icontains=term))
             has_party = Exists(CaseParty.objects.filter(case=OuterRef("pk"), client__name__icontains=term))
+            base_qs = Case.objects.filter(name_query | has_number | has_party).distinct()
 
-            cases = (
-                Case.objects.filter(name_query | has_number | has_party)
-                .prefetch_related("case_numbers", "parties__client")
-                .distinct()
-                .order_by("-created_at", "-id")[:limit]
-            )
+        if not perm_open_access:
+            base_qs = CaseAccessPolicy().filter_queryset(base_qs, user, org_access)
+
+        cases = base_qs.prefetch_related("case_numbers", "parties__client").order_by("-created_at", "-id")[:limit]
 
         results: list[dict[str, object]] = []
         for case in cases:

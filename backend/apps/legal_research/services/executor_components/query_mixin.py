@@ -100,9 +100,7 @@ def build_field_queries_from_elements(elements: dict[str, Any]) -> list[dict[str
     return field_queries
 
 
-def merge_query_candidates(
-    base_queries: list[str], extra_queries: list[str], *, max_queries: int = 14
-) -> list[str]:
+def merge_query_candidates(base_queries: list[str], extra_queries: list[str], *, max_queries: int = 14) -> list[str]:
     """合并并去重候选检索式列表。"""
     merged: list[str] = []
     seen: set[str] = set()
@@ -240,7 +238,9 @@ class ExecutorQueryMixin:  # pragma: no cover
         return " ".join(summary_terms[:6]).strip()
 
     @classmethod
-    def _build_feedback_search_keyword(cls, keyword: str, case_summary: str, feedback_terms: list[str]) -> str:  # pragma: no cover
+    def _build_feedback_search_keyword(
+        cls, keyword: str, case_summary: str, feedback_terms: list[str]
+    ) -> str:  # pragma: no cover
         keyword_tokens = cls._split_tokens(keyword)  # type: ignore[attr-defined]
         keyword_tokens = [token for token in keyword_tokens if not cls._is_location_or_court_token(token)]  # type: ignore[attr-defined]
         summary_terms = cls._extract_summary_terms(case_summary)  # type: ignore[attr-defined]
@@ -463,14 +463,6 @@ class ExecutorQueryMixin:  # pragma: no cover
             return {}
         return cls._sanitize_elements(parsed)
 
-    # LLM 有时会原样返回 prompt 中的示例文字，此正则匹配常见占位符模式
-    _PLACEHOLDER_RE = re.compile(
-        r"(?:案由|法律关系|争议焦点|损失类型|关键事实)"
-        r"[（(]?(?:如[：:].+?|[0-9]+)[）)]?$"
-    )
-    # 去掉括号后只剩字段名的通用标签
-    _GENERIC_LABELS = frozenset({"案由", "法律关系", "争议焦点", "损失类型", "关键事实"})
-
     @classmethod
     def _sanitize_elements(cls, elements: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover
         """过滤 LLM 返回的占位符文本，只保留真实提取的要素。"""
@@ -585,7 +577,9 @@ class ExecutorQueryMixin:  # pragma: no cover
     # ── 标题预筛 ─────────────────────────────────────────────
 
     @classmethod
-    def _title_prefilter(cls, *, keyword: str, case_summary: str, title_hint: str, min_overlap: float) -> bool:  # pragma: no cover
+    def _title_prefilter(
+        cls, *, keyword: str, case_summary: str, title_hint: str, min_overlap: float
+    ) -> bool:  # pragma: no cover
         if not title_hint or not title_hint.strip():
             return True
         query_tokens = cls._split_tokens(f"{keyword} {case_summary}")  # type: ignore[attr-defined]

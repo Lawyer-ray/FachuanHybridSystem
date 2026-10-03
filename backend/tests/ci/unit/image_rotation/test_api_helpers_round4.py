@@ -1,7 +1,7 @@
 """Tests for image_rotation/api/image_rotation_api.py — pure helper functions.
 
 Covers: _validate_image_file, _body, _decode_image_data, _serialize_job,
-_serialize_page, filter_valid_case_numbers from sms_matching_stage.
+_serialize_page.
 """
 
 from __future__ import annotations
@@ -13,11 +13,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # image_rotation_api helpers
 # ---------------------------------------------------------------------------
-
 
 class TestValidateImageFile:
     def test_valid_jpeg(self):
@@ -35,8 +33,8 @@ class TestValidateImageFile:
         _validate_image_file(f)
 
     def test_invalid_type(self):
-        from apps.image_rotation.api.image_rotation_api import _validate_image_file
         from apps.core.exceptions import ValidationException
+        from apps.image_rotation.api.image_rotation_api import _validate_image_file
         f = MagicMock()
         f.content_type = "application/pdf"
         f.size = 1024
@@ -44,8 +42,8 @@ class TestValidateImageFile:
             _validate_image_file(f)
 
     def test_too_large(self):
-        from apps.image_rotation.api.image_rotation_api import _validate_image_file
         from apps.core.exceptions import ValidationException
+        from apps.image_rotation.api.image_rotation_api import _validate_image_file
         f = MagicMock()
         f.content_type = "image/jpeg"
         f.size = 25 * 1024 * 1024  # 25MB
@@ -58,7 +56,6 @@ class TestValidateImageFile:
         f.content_type = "image/jpeg"
         f.size = None
         _validate_image_file(f)  # should not raise
-
 
 class TestBody:
     def test_parses_json(self):
@@ -82,7 +79,6 @@ class TestBody:
         result = _body(req)
         assert result == {}
 
-
 class TestDecodeImageData:
     def test_plain_base64(self):
         from apps.image_rotation.api.image_rotation_api import _decode_image_data
@@ -96,7 +92,6 @@ class TestDecodeImageData:
         data_url = f"data:image/png;base64,{raw}"
         result = _decode_image_data(data_url)
         assert result == b"image data"
-
 
 class TestSerializeJob:
     def test_serializes_job(self):
@@ -130,7 +125,6 @@ class TestSerializeJob:
 
         result = _serialize_job(job)
         assert result["display_name"] == "未命名任务"
-
 
 class TestSerializePage:
     def test_serializes_page(self):
@@ -169,36 +163,3 @@ class TestSerializePage:
 
         result = _serialize_page(page)
         assert result["source_image_url"] == ""
-
-
-# ---------------------------------------------------------------------------
-# filter_valid_case_numbers from sms_matching_stage
-# ---------------------------------------------------------------------------
-
-
-class TestFilterValidCaseNumbers:
-    def test_filters_date_format(self):
-        from apps.automation.services.sms.stages.sms_matching_stage import filter_valid_case_numbers
-        result = filter_valid_case_numbers([
-            "2025年6月1日",
-            "（2025）粤01民初100号",
-            "2025年12月17号",
-        ])
-        assert "（2025）粤01民初100号" in result
-        assert len(result) == 1
-
-    def test_empty_list(self):
-        from apps.automation.services.sms.stages.sms_matching_stage import filter_valid_case_numbers
-        assert filter_valid_case_numbers([]) == []
-
-    def test_all_valid(self):
-        from apps.automation.services.sms.stages.sms_matching_stage import filter_valid_case_numbers
-        nums = ["（2025）粤01民初100号", "（2024）京0101民初50号"]
-        result = filter_valid_case_numbers(nums)
-        assert len(result) == 2
-
-    def test_filters_year_month_day_pattern(self):
-        from apps.automation.services.sms.stages.sms_matching_stage import filter_valid_case_numbers
-        result = filter_valid_case_numbers(["2025年6月1号", "正常案号"])
-        assert "正常案号" in result
-        assert len(result) == 1

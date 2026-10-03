@@ -45,7 +45,7 @@ organization/
 | POST | `/login`、`/logout`、`/register` | 认证 |
 | GET | `/me` | 当前用户 |
 | POST | `/password-reset/{request,verify,confirm}` | 密码重置三步 |
-| — | `/lawyers`、`/lawfirms`、`/teams`、`/credentials` | 各自完整 CRUD |
+| — | `/lawyers`、`/lawfirms`、`/teams`、`/credentials` | 各自完整 CRUD（`/credentials` 写操作要求 can_update_lawyer：本人 / 同所 is_admin / superuser） |
 
 创建凭证用 `site_name`（非 platform）；创建律师用 username / real_name / license_no。
 

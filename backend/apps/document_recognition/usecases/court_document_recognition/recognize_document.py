@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import date
 from typing import Any
+
+from django.utils import timezone
 
 from apps.core.exceptions import RecognitionTimeoutError, ServiceUnavailableError, ValidationException
 from apps.core.exceptions.error_codes import TEXT_EXTRACTION_FAILED
@@ -136,7 +137,7 @@ class RecognizeCourtDocumentUsecase:
             }
             title = title_map.get(document_type, "司法文书")
             new_filename = self.document_renamer.generate_filename(
-                title=title, case_name=case_name, received_date=date.today()
+                title=title, case_name=case_name, received_date=timezone.localdate()
             )
             from apps.core.utils.path import Path
 

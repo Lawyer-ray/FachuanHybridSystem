@@ -40,9 +40,6 @@ class ArchivePlaceholderOverride(models.Model):
         verbose_name = "归档占位符覆盖"
         verbose_name_plural = "归档占位符覆盖"
         unique_together = [("contract", "template_subtype")]
-        indexes = [
-            models.Index(fields=["contract", "template_subtype"]),
-        ]
 
     def __str__(self) -> str:
         return f"Contract#{self.contract_id} {self.template_subtype}: {len(self.overrides)} overrides"

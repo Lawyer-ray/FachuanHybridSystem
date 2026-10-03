@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from apps.core.services.storage_service import sanitize_upload_filename
+
+from .base_court_scraper import media_download_target
+
 if TYPE_CHECKING:
-    from playwright.async_api import Page as AsyncPage
+    from pathlib import Path
+
     from playwright.sync_api import Page
 
 logger = logging.getLogger("apps.automation")
@@ -19,6 +22,8 @@ class ZxfwFallbackMixin:  # pragma: no cover
 
     page: Page
 
+    task_id: int
+
     def _save_page_state(self, name: str) -> dict[str, Any]:  # pragma: no cover
         if hasattr(super(), "_save_page_state"):
             return super()._save_page_state(name)  # type: ignore[no-any-return,misc]
@@ -28,18 +33,6 @@ class ZxfwFallbackMixin:  # pragma: no cover
         if hasattr(super(), "random_wait"):
             super().random_wait(min_s, max_s)  # type: ignore[misc]
 
-    # ── async stubs ──────────────────────────────────────────────────
-
-    async def _async_save_page_state(self, name: str) -> dict[str, Any]:  # pragma: no cover
-        if hasattr(super(), "_async_save_page_state"):
-            return await super()._async_save_page_state(name)  # type: ignore[no-any-return,misc]
-        return {}
-
-    async def _async_random_wait(self, min_s: float, max_s: float) -> None:  # pragma: no cover
-        import random
-
-        await asyncio.sleep(random.uniform(min_s, max_s))
-
     def _find_pdf_iframe(self) -> Any | None:  # pragma: no cover
         """查找页面中的 PDF viewer iframe"""
         try:
@@ -47,14 +40,15 @@ class ZxfwFallbackMixin:  # pragma: no cover
             logger.info("[DEBUG] 通过 #if 找到 iframe")
             return frame
         except Exception:
+            logger.debug("定位 PDF viewer iframe 失败（已忽略）", exc_info=True)
             pass
         iframes = self.page.locator("iframe").all()
         for i, iframe in enumerate(iframes):
             src = iframe.get_attribute("src") or ""
             iframe_id = iframe.get_attribute("id") or ""
-            logger.info(f"[DEBUG] 检查 iframe {i}: id={iframe_id}, src={src[:60]}...")
+            logger.info("[DEBUG] 检查 iframe %s: id=%s, src=%s...", i, iframe_id, src[:60])
             if iframe_id == "if" or "pdfjs" in src or "viewer" in src:
-                logger.info(f"[DEBUG] 找到 PDF viewer iframe (index {i})")
+                logger.info("[DEBUG] 找到 PDF viewer iframe (index %s)", i)
                 return self.page.frame_locator(f"iframe >> nth={i}")
         return None
 
@@ -71,15 +65,15 @@ class ZxfwFallbackMixin:  # pragma: no cover
             doc_item = self.page.locator(f"xpath={doc_item_xpath}")
             if doc_item.count() > 0:
                 doc_item.first.click()
-                logger.info(f"[DEBUG] 已点击第 {doc_index} 个文书项")
+                logger.info("[DEBUG] 已点击第 %s 个文书项", doc_index)
                 self.random_wait(2, 3)
             else:
-                logger.warning(f"[DEBUG] 未找到第 {doc_index} 个文书项")
+                logger.warning("[DEBUG] 未找到第 %s 个文书项", doc_index)
         except Exception as e:
-            logger.warning(f"[DEBUG] 点击文书项失败: {e}")
+            logger.warning("[DEBUG] 点击文书项失败: %s", e)
 
-    def _download_single_doc(self, frame: Any, doc_index: int, download_dir: Path) -> str | None:  # pragma: no cover
-        """在 iframe 内下载单个文书，返回文件路径或 None"""
+    def _download_single_doc(self, frame: Any, doc_index: int) -> str | None:  # pragma: no cover
+        """在 iframe 内下载单个文书，返回 media 相对路径或 None"""
         filename_default = f"document_{doc_index}.pdf"
         try:
             btn = frame.locator("#download")
@@ -88,14 +82,15 @@ class ZxfwFallbackMixin:  # pragma: no cover
             self.random_wait(1, 2)
             with self.page.expect_download(timeout=60000) as dl_info:
                 btn.first.click()
-                logger.info(f"[DEBUG] 已点击第 {doc_index} 个文书的下载按钮")
+                logger.info("[DEBUG] 已点击第 %s 个文书的下载按钮", doc_index)
             download = dl_info.value
-            filepath = download_dir / (download.suggested_filename or filename_default)
-            download.save_as(str(filepath))
-            logger.info(f"[DEBUG] 文件已保存: {filepath}")
-            return str(filepath)
+            safe_name = sanitize_upload_filename(download.suggested_filename or filename_default)
+            abs_path, rel_path = media_download_target(self.task_id, safe_name)
+            download.save_as(str(abs_path))
+            logger.info("[DEBUG] 文件已保存: %s", rel_path)
+            return rel_path
         except Exception as e:
-            logger.warning(f"[DEBUG] #download 方式失败: {e}，尝试备用 XPath")
+            logger.warning("[DEBUG] #download 方式失败: %s，尝试备用 XPath", e)
         try:
             fallback_xpath = "/html/body/div[1]/div[2]/div[5]/div/div[1]/div[2]/button[4]"
             btn = frame.locator(f"xpath={fallback_xpath}")
@@ -104,14 +99,15 @@ class ZxfwFallbackMixin:  # pragma: no cover
                 btn.first.click()
                 logger.info("[DEBUG] 通过备用 XPath 点击下载按钮")
             download = dl_info.value
-            filepath = download_dir / (download.suggested_filename or filename_default)
-            download.save_as(str(filepath))
-            return str(filepath)
+            safe_name = sanitize_upload_filename(download.suggested_filename or filename_default)
+            abs_path, rel_path = media_download_target(self.task_id, safe_name)
+            download.save_as(str(abs_path))
+            return rel_path
         except Exception as e2:
-            logger.error(f"[DEBUG] 第 {doc_index} 个文书下载失败: {e2}")
+            logger.error("[DEBUG] 第 %s 个文书下载失败: %s", doc_index, e2)
             return None
 
-    def _download_via_fallback(self, download_dir: Path) -> dict[str, Any]:  # pragma: no cover
+    def _download_via_fallback(self) -> dict[str, Any]:  # pragma: no cover
         """通过传统页面点击方式下载文书（回退机制）"""
         if self.page is None:
             error_msg = (
@@ -134,23 +130,23 @@ class ZxfwFallbackMixin:  # pragma: no cover
         try:
             doc_items = self.page.locator(f"xpath={doc_list_xpath}").all()
             doc_count = len(doc_items)
-            logger.info(f"[DEBUG] 检测到 {doc_count} 个文书项")
+            logger.info("[DEBUG] 检测到 %s 个文书项", doc_count)
         except Exception as e:
-            logger.warning(f"[DEBUG] 无法检测文书列表: {e}，尝试单文件下载")
+            logger.warning("[DEBUG] 无法检测文书列表: %s，尝试单文件下载", e)
             doc_count = 1
         if doc_count == 0:
             logger.info("[DEBUG] 未检测到文书列表，尝试直接下载")
             doc_count = 1
         for doc_index in range(1, doc_count + 1):
-            logger.info(f"[DEBUG] 下载第 {doc_index}/{doc_count} 个文书")
+            logger.info("[DEBUG] 下载第 %s/%s 个文书", doc_index, doc_count)
             try:
                 self._click_doc_item(doc_index, doc_count)
                 frame = self._find_pdf_iframe()
                 if not frame:
-                    logger.warning(f"[DEBUG] 第 {doc_index} 个文书未找到 iframe，跳过")
+                    logger.warning("[DEBUG] 第 %s 个文书未找到 iframe，跳过", doc_index)
                     failed_count += 1
                     continue
-                filepath = self._download_single_doc(frame, doc_index, download_dir)
+                filepath = self._download_single_doc(frame, doc_index)
                 if filepath:
                     downloaded_files.append(filepath)
                     success_count += 1
@@ -158,7 +154,7 @@ class ZxfwFallbackMixin:  # pragma: no cover
                     failed_count += 1
                 self.random_wait(1, 2)
             except Exception as e:
-                logger.error(f"[DEBUG] 处理第 {doc_index} 个文书时出错: {e}")
+                logger.error("[DEBUG] 处理第 %s 个文书时出错: %s", doc_index, e)
                 failed_count += 1
         if not downloaded_files:
             self._save_page_state("zxfw_final_failed")
@@ -180,152 +176,4 @@ class ZxfwFallbackMixin:  # pragma: no cover
             "failed_count": failed_count,
             "files": downloaded_files,
             "message": f"回退方式:成功下载 {success_count}/{doc_count} 份文书",
-        }
-
-    # ── async counterparts ────────────────────────────────────────────
-
-    async def _async_find_pdf_iframe(self, page: AsyncPage) -> Any | None:  # pragma: no cover
-        """异步版：查找页面中的 PDF viewer iframe"""
-        try:
-            frame = page.frame_locator("#if")
-            logger.info("[DEBUG] 通过 #if 找到 iframe (async)")
-            return frame
-        except Exception:
-            pass
-        iframes = await page.locator("iframe").all()
-        for i, iframe in enumerate(iframes):
-            src = await iframe.get_attribute("src") or ""
-            iframe_id = await iframe.get_attribute("id") or ""
-            logger.info(f"[DEBUG] 检查 iframe {i} (async): id={iframe_id}, src={src[:60]}...")
-            if iframe_id == "if" or "pdfjs" in src or "viewer" in src:
-                logger.info(f"[DEBUG] 找到 PDF viewer iframe (async, index {i})")
-                return page.frame_locator(f"iframe >> nth={i}")
-        return None
-
-    async def _async_click_doc_item(self, page: AsyncPage, doc_index: int, doc_count: int) -> None:  # pragma: no cover
-        """异步版：点击文书列表中的指定项"""
-        if doc_count <= 1 and doc_index == 1:
-            return
-        doc_item_xpath = (
-            "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
-            "/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view"
-            f"/uni-view[1]/uni-view[1]/uni-view[{doc_index}]"
-        )
-        try:
-            doc_item = page.locator(f"xpath={doc_item_xpath}")
-            if await doc_item.count() > 0:
-                await doc_item.first.click()
-                logger.info(f"[DEBUG] 已点击第 {doc_index} 个文书项 (async)")
-                await self._async_random_wait(2, 3)
-            else:
-                logger.warning(f"[DEBUG] 未找到第 {doc_index} 个文书项 (async)")
-        except Exception as e:
-            logger.warning(f"[DEBUG] 点击文书项失败 (async): {e}")
-
-    async def _async_download_single_doc(  # pragma: no cover
-        self, page: AsyncPage, frame: Any, doc_index: int, download_dir: Path
-    ) -> str | None:
-        """异步版：在 iframe 内下载单个文书，返回文件路径或 None"""
-        filename_default = f"document_{doc_index}.pdf"
-        try:
-            btn = frame.locator("#download")
-            await btn.first.wait_for(state="visible", timeout=10000)
-            await btn.first.scroll_into_view_if_needed()
-            await self._async_random_wait(1, 2)
-            async with page.expect_download(timeout=60000) as dl_info:
-                await btn.first.click()
-                logger.info(f"[DEBUG] 已点击第 {doc_index} 个文书的下载按钮 (async)")
-            download = await dl_info.value
-            filepath = download_dir / (download.suggested_filename or filename_default)
-            await download.save_as(str(filepath))
-            logger.info(f"[DEBUG] 文件已保存 (async): {filepath}")
-            return str(filepath)
-        except Exception as e:
-            logger.warning(f"[DEBUG] #download 方式失败 (async): {e}，尝试备用 XPath")
-        try:
-            fallback_xpath = "/html/body/div[1]/div[2]/div[5]/div/div[1]/div[2]/button[4]"
-            btn = frame.locator(f"xpath={fallback_xpath}")
-            await btn.first.wait_for(state="visible", timeout=5000)
-            async with page.expect_download(timeout=60000) as dl_info:
-                await btn.first.click()
-                logger.info("[DEBUG] 通过备用 XPath 点击下载按钮 (async)")
-            download = await dl_info.value
-            filepath = download_dir / (download.suggested_filename or filename_default)
-            await download.save_as(str(filepath))
-            return str(filepath)
-        except Exception as e2:
-            logger.error(f"[DEBUG] 第 {doc_index} 个文书下载失败 (async): {e2}")
-            return None
-
-    async def _async_download_via_fallback(  # pragma: no cover
-        self, page: AsyncPage, download_dir: Path
-    ) -> dict[str, Any]:
-        """异步版：通过传统页面点击方式下载文书（回退机制）"""
-        if page is None:
-            error_msg = (
-                "无法执行传统页面点击下载(异步): 浏览器页面未初始化 (page is None)。"
-                "该任务可能处于纯 API 模式(requires_browser=False)且直接 API、API 拦截均已失败，"
-                "缺少浏览器上下文无法回退到页面点击下载。"
-            )
-            logger.error(
-                error_msg, extra={"operation_type": "fallback_no_page", "timestamp": __import__("time").time()}
-            )
-            raise ValueError(error_msg)
-        downloaded_files: list[str] = []
-        success_count = 0
-        failed_count = 0
-        doc_list_xpath = (
-            "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
-            "/uni-page-wrapper/uni-page-body/uni-view/uni-view/uni-view"
-            "/uni-view[1]/uni-view[1]/uni-view"
-        )
-        try:
-            doc_items = await page.locator(f"xpath={doc_list_xpath}").all()
-            doc_count = len(doc_items)
-            logger.info(f"[DEBUG] 检测到 {doc_count} 个文书项 (async)")
-        except Exception as e:
-            logger.warning(f"[DEBUG] 无法检测文书列表 (async): {e}，尝试单文件下载")
-            doc_count = 1
-        if doc_count == 0:
-            logger.info("[DEBUG] 未检测到文书列表，尝试直接下载 (async)")
-            doc_count = 1
-        for doc_index in range(1, doc_count + 1):
-            logger.info(f"[DEBUG] 下载第 {doc_index}/{doc_count} 个文书 (async)")
-            try:
-                await self._async_click_doc_item(page, doc_index, doc_count)
-                frame = await self._async_find_pdf_iframe(page)
-                if not frame:
-                    logger.warning(f"[DEBUG] 第 {doc_index} 个文书未找到 iframe，跳过 (async)")
-                    failed_count += 1
-                    continue
-                filepath = await self._async_download_single_doc(page, frame, doc_index, download_dir)
-                if filepath:
-                    downloaded_files.append(filepath)
-                    success_count += 1
-                else:
-                    failed_count += 1
-                await self._async_random_wait(1, 2)
-            except Exception as e:
-                logger.error(f"[DEBUG] 处理第 {doc_index} 个文书时出错 (async): {e}")
-                failed_count += 1
-        if not downloaded_files:
-            await self._async_save_page_state("zxfw_final_failed")
-            raise ValueError("所有下载策略均失败，请查看调试文件 (async)")
-        logger.info(
-            "回退方式下载完成 (async)",
-            extra={
-                "operation_type": "fallback_download_summary",
-                "timestamp": __import__("time").time(),
-                "total_count": doc_count,
-                "success_count": success_count,
-                "failed_count": failed_count,
-            },
-        )
-        return {
-            "source": "zxfw.court.gov.cn",
-            "document_count": doc_count,
-            "downloaded_count": success_count,
-            "failed_count": failed_count,
-            "files": downloaded_files,
-            "message": f"回退方式(异步):成功下载 {success_count}/{doc_count} 份文书",
         }

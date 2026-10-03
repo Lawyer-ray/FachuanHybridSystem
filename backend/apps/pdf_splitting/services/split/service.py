@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import logging
 import zipfile
 from dataclasses import asdict
@@ -9,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import pymupdf as fitz
+from django.core.files.base import ContentFile
 from django.utils import timezone
 
 from apps.core.services.storage_service import sanitize_upload_filename
@@ -264,7 +266,7 @@ class PdfSplitService:
             error_message="",
         )
 
-        pdf_files: list[tuple[Path, str]] = []
+        pdf_files: list[tuple[bytes, str]] = []
         with fitz.open(storage.source_pdf_path) as source_doc:
             total = len(segments)
             seen_names: set[str] = set()
@@ -282,16 +284,17 @@ class PdfSplitService:
                     display_name = f"{display_name}.pdf"
                 display_name = self._export_utils.deduplicate_filename(display_name, seen_names)
 
-                output_path = storage.export_pdf_path(display_name)
-                self._export_utils.export_segment_pdf(source_doc, segment.page_start, segment.page_end, output_path)
-                pdf_files.append((output_path, display_name))
+                pdf_bytes = self._export_utils.export_segment_pdf(source_doc, segment.page_start, segment.page_end)
+                pdf_files.append((pdf_bytes, display_name))
 
                 progress = int(index * 100 / total)
                 PdfSplitJob.objects.filter(id=job.id).update(progress=progress)
 
-        with zipfile.ZipFile(storage.export_zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-            for file_path, filename in pdf_files:
-                zf.write(file_path, arcname=filename)
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for file_bytes, filename in pdf_files:
+                zf.writestr(filename, file_bytes)
+        storage.save_overwrite(storage.export_zip_path, ContentFile(zip_buffer.getvalue()))
 
     def render_preview(self, job: PdfSplitJob, page_no: int) -> Path:  # pragma: no cover
         storage = PdfSplitStorage(job.id)
@@ -304,8 +307,7 @@ class PdfSplitService:
                 raise ValueError("页码超出范围")
             page = doc.load_page(page_no - 1)
             pix = page.get_pixmap(matrix=fitz.Matrix(self.PREVIEW_DPI / 72, self.PREVIEW_DPI / 72))
-            preview_path.parent.mkdir(parents=True, exist_ok=True)
-            pix.save(preview_path.as_posix())
+            storage.save_overwrite(preview_path, ContentFile(pix.tobytes("png")))
         return preview_path
 
     # ==================================================================

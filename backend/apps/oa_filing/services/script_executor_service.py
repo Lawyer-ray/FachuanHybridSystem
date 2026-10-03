@@ -33,6 +33,20 @@ def _friendly_error_message(exc: Exception) -> str:
     return str(exc)
 
 
+def _ensure_contract_access(contract_id: int, user: Any) -> None:
+    """校验用户对合同的访问权限（与 contracts API 同口径；安全审计 A-04）。"""
+    from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
+
+    ContractAccessPolicy().ensure_access(contract_id=contract_id, user=user, org_access=None)
+
+
+def _ensure_case_access(case_id: int, user: Any) -> None:
+    """校验用户对案件的访问权限（与 cases API 同口径；安全审计 A-04）。"""
+    from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+
+    CaseAccessPolicy().ensure_access(case_id=case_id, user=user, org_access=None)
+
+
 class ScriptExecutorService:
     """OA 通用调度器。按 site_name 分发到对应律所适配器。"""
 
@@ -40,20 +54,37 @@ class ScriptExecutorService:
     # Session 查询（公共）
     # ------------------------------------------------------------------
 
-    def get_session(self, session_id: int) -> Any:
+    @staticmethod
+    def _can_view_all_sessions(user: Any) -> bool:
+        """admin 豁免：管理员可查看全部会话。"""
+        return bool(getattr(user, "is_superuser", False) or getattr(user, "is_admin", False))
+
+    def _get_session_with_owner_check(self, session_model: Any, session_id: int, user: Any) -> Any:
+        """按属主过滤查询会话，属主不匹配与会话不存在同样抛 DoesNotExist（安全审计 A-04）。"""
+        qs = session_model.objects.filter(pk=session_id)
+        if user is not None and not self._can_view_all_sessions(user):
+            qs = qs.filter(user_id=getattr(user, "id", None))
+        return qs.get()
+
+    def get_session(self, session_id: int, user: Any = None) -> Any:
         from apps.oa_filing.models import FilingSession
 
-        return FilingSession.objects.get(pk=session_id)
+        return self._get_session_with_owner_check(FilingSession, session_id, user)
 
-    def get_stamp_session(self, session_id: int) -> Any:
+    def get_stamp_session(self, session_id: int, user: Any = None) -> Any:
         from apps.oa_filing.models import StampSession
 
-        return StampSession.objects.get(pk=session_id)
+        return self._get_session_with_owner_check(StampSession, session_id, user)
 
-    def get_archive_session(self, session_id: int) -> Any:
+    def get_archive_session(self, session_id: int, user: Any = None) -> Any:
         from apps.oa_filing.models import ArchiveSession
 
-        return ArchiveSession.objects.get(pk=session_id)
+        return self._get_session_with_owner_check(ArchiveSession, session_id, user)
+
+    # ------------------------------------------------------------------
+    # 业务归属校验（安全审计 A-04）：_ensure_contract_access / _ensure_case_access
+    # 为模块级纯函数（见文件顶部），此处不再以方法形式持有。
+    # ------------------------------------------------------------------
 
     # ------------------------------------------------------------------
     # 凭证查找（公共）
@@ -78,6 +109,11 @@ class ScriptExecutorService:
     ) -> Any:
         from apps.oa_filing.models import FilingSession, SessionStatus
         from apps.oa_filing.services.exceptions import ScriptExecutionError
+
+        # 安全审计 A-04：校验用户对合同/案件的归属权限
+        _ensure_contract_access(contract_id, user)
+        if case_id is not None:
+            _ensure_case_access(case_id, user)
 
         credential = self._find_credential(user, site_name)
         if credential is None:
@@ -130,6 +166,8 @@ class ScriptExecutorService:
         from apps.oa_filing.services.stamp_lookup_service import StampLookupService
 
         lookup = StampLookupService.lookup_by_file_path(file_path)
+        # 安全审计 A-04：校验反查出的合同归属权限
+        _ensure_contract_access(lookup.contract_id, user)
         credential = self._find_credential(user, site_name)
 
         session = StampSession.objects.create(
@@ -174,6 +212,8 @@ class ScriptExecutorService:
         from apps.oa_filing.services.stamp_lookup_service import StampLookupService
 
         lookup = StampLookupService.lookup_by_file_path(file_paths[0])
+        # 安全审计 A-04：校验反查出的合同归属权限
+        _ensure_contract_access(lookup.contract_id, user)
         credential = self._find_credential(user, site_name)
 
         session = ArchiveSession.objects.create(
@@ -223,6 +263,9 @@ class ScriptExecutorService:
         """
         from apps.contracts.models import Contract
         from apps.contracts.services.archive.generation.service import ArchiveGenerationService
+
+        # 安全审计 A-04：校验用户对合同的归属权限
+        _ensure_contract_access(contract_id, user)
 
         credential = self._find_credential(user, site_name)
         if credential is None:
@@ -277,6 +320,9 @@ class ScriptExecutorService:
         """打开 OA 发票页面，输入案件编号并跳转到开票页面，保持浏览器打开。"""
         from apps.contracts.models import Contract
 
+        # 安全审计 A-04：校验用户对合同的归属权限
+        _ensure_contract_access(contract_id, user)
+
         credential = self._find_credential(user, site_name)
         if credential is None:
             raise RuntimeError(f"未找到匹配凭证: 站点名称={site_name}")
@@ -307,6 +353,9 @@ class ScriptExecutorService:
     def open_stamp_page(self, case_id: int, user: Any, site_name: str = "金诚同达OA") -> None:
         """打开 OA 盖章页面，登录→搜索案件→填表，保持浏览器打开。"""
         from apps.cases.models import Case
+
+        # 安全审计 A-04：校验用户对案件的归属权限
+        _ensure_case_access(case_id, user)
 
         credential = self._find_credential(user, site_name)
         if credential is None:

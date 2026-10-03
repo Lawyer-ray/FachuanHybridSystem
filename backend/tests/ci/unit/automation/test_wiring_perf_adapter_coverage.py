@@ -16,36 +16,15 @@ pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not i
 class TestAutomationWiring:
     @patch("apps.automation.services.wiring.ServiceLocator")
     def test_wiring_functions(self, mock_sl):
-        from apps.automation.services.wiring import (
-            get_case_service, get_organization_service, get_system_config_service,
-            get_document_service, get_auto_namer_service, get_llm_service,
-            get_token_service, get_task_service, get_browser_service,
-            get_security_service, get_monitor_service,
-        )
+        from apps.automation.services.wiring import get_baoquan_token_service, get_case_service, get_llm_service
 
         mock_sl.get_case_service.return_value = "case_svc"
-        mock_sl.get_organization_service.return_value = "org_svc"
-        mock_sl.get_system_config_service.return_value = "config_svc"
-        mock_sl.get_document_service.return_value = "doc_svc"
-        mock_sl.get_auto_namer_service.return_value = "namer_svc"
         mock_sl.get_llm_service.return_value = "llm_svc"
-        mock_sl.get_token_service.return_value = "token_svc"
-        mock_sl.get_task_service.return_value = "task_svc"
-        mock_sl.get_browser_service.return_value = "browser_svc"
-        mock_sl.get_security_service.return_value = "sec_svc"
-        mock_sl.get_monitor_service.return_value = "monitor_svc"
+        mock_sl.get_baoquan_token_service.return_value = "baoquan_svc"
 
         assert get_case_service() == "case_svc"
-        assert get_organization_service() == "org_svc"
-        assert get_system_config_service() == "config_svc"
-        assert get_document_service() == "doc_svc"
-        assert get_auto_namer_service() == "namer_svc"
         assert get_llm_service() == "llm_svc"
-        assert get_token_service() == "token_svc"
-        assert get_task_service() == "task_svc"
-        assert get_browser_service() == "browser_svc"
-        assert get_security_service() == "sec_svc"
-        assert get_monitor_service() == "monitor_svc"
+        assert get_baoquan_token_service() == "baoquan_svc"
 
 
 class TestPerformanceMonitorServiceAdapter:

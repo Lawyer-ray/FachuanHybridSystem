@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 from pathlib import Path
@@ -11,6 +12,8 @@ from django.conf import settings
 from django.core.files.base import File
 from django.core.management.base import BaseCommand, CommandParser
 from django.db.models.fields.files import FieldFile
+
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -121,9 +124,16 @@ class Command(BaseCommand):
                                 db_files.add(name)
                     except Exception:
                         # 跳过查询失败的 Model（如数据库表不存在等）
+                        logger.warning(
+                            "扫描 Model 文件字段失败（已忽略）: model=%s field=%s",
+                            model._meta.label,
+                            field.name,
+                            exc_info=True,
+                        )
                         continue
             except Exception:
                 # 跳过 managed=False 等异常 Model
+                logger.warning("遍历 Model 字段失败（已忽略）: model=%s", model._meta.label, exc_info=True)
                 continue
 
         return db_files

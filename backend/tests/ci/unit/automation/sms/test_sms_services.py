@@ -10,44 +10,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.automation.services.sms.court_sms_dedup_service import CourtSMSDedupService
-from apps.automation.services.sms.task_recovery_service import TaskRecoveryService
-from apps.automation.services.sms.document_renamer import DocumentRenamer
 from apps.automation.services.sms.case_folder_archive_service import CaseFolderArchiveService
-
-
-class TestCourtSMSDedupService:
-    """CourtSMSDedupService 测试。"""
-
-    def setup_method(self) -> None:
-        self.service = CourtSMSDedupService()
-
-    def test_normalize_text(self) -> None:
-        """规范化文本。"""
-        assert self.service._normalize_text("  hello  world  ") == "hello world"
-        assert self.service._normalize_text(None) == ""
-        assert self.service._normalize_text("") == ""
-
-    def test_hash_payload(self) -> None:
-        """哈希载荷。"""
-        hash1 = self.service._hash_payload("test")
-        hash2 = self.service._hash_payload("test")
-        assert hash1 == hash2
-        assert len(hash1) == 64  # SHA256 hex
-
-    def test_build_existing_sms_result(self) -> None:
-        """构建重复命中返回结构。"""
-        sms = SimpleNamespace(
-            case_id=1,
-            case_log_id=2,
-            notification_results={"feishu": {"success": True}},
-            feishu_sent_at=None,
-        )
-        result = self.service.build_existing_sms_result(sms, "/path/file.pdf")
-        assert result["success"] is True
-        assert result["deduplicated"] is True
-        assert result["case_id"] == 1
-        assert result["renamed_path"] == "/path/file.pdf"
+from apps.automation.services.sms.document_renamer import DocumentRenamer
 
 
 class TestDocumentRenamer:
@@ -194,21 +158,6 @@ class TestCaseFolderArchiveService:
             result.mkdir()
             result2 = self.service._ensure_unique_directory(parent, "test_folder")
             assert result2.name == "test_folder_2"
-
-    def test_ensure_unique_file_path(self) -> None:
-        """确保文件路径唯一。"""
-        import tempfile
-        from pathlib import Path
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            parent = Path(tmpdir)
-            target = parent / "test.pdf"
-            result = self.service._ensure_unique_file_path(target)
-            assert result.name == "test.pdf"
-
-            target.write_text("test")
-            result2 = self.service._ensure_unique_file_path(target)
-            assert result2.name == "test_2.pdf"
 
     def test_archive_sms_documents_no_case_id(self) -> None:
         """无案件 ID 跳过归档。"""

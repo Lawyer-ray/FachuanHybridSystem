@@ -321,6 +321,9 @@ class CaseBindingService:
         2. 直接使用用户选择的案件ID
         3. 触发后续通知流程
 
+        归属口径（审计 P1 修复）：非归属人非管理员对任务不可见，
+        按"任务不存在"（TASK_NOT_FOUND）拒绝，不泄露存在性。
+
         Args:
             task_id: 识别任务ID
             case_id: 用户选择的案件ID
@@ -332,6 +335,7 @@ class CaseBindingService:
         Requirements: 3.1, 3.2, 4.1, 4.2, 4.3, 4.4
         """
         from apps.document_recognition.models import DocumentRecognitionTask
+        from apps.document_recognition.services.task_service import task_ownership_q
 
         logger.info(
             "开始手动绑定文书到案件",
@@ -343,9 +347,12 @@ class CaseBindingService:
             },
         )
 
-        # 1. 获取识别任务（行锁防止并发请求重复绑定/重复建日志）
+        # 1. 获取识别任务（行锁防止并发请求重复绑定/重复绑定日志）；
+        #    归属过滤并入同一次 .get()，不破坏 select_for_update().get() 行锁链
+        ownership = task_ownership_q(user)
         try:
-            task = DocumentRecognitionTask.objects.select_for_update().get(id=task_id)
+            locked_qs = DocumentRecognitionTask.objects.select_for_update()
+            task = locked_qs.get(id=task_id) if ownership is None else locked_qs.get(ownership, id=task_id)
         except DocumentRecognitionTask.DoesNotExist:
             return BindingResult.failure_result(message=f"任务 {task_id} 不存在", error_code="TASK_NOT_FOUND")
 

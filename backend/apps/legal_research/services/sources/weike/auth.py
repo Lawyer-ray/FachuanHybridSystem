@@ -63,6 +63,7 @@ class WeikeAuthMixin:  # pragma: no cover
             try:
                 cm.__exit__(None, None, None)
             except Exception:
+                logger.debug("退出浏览器上下文管理器失败（已忽略）", exc_info=True)
                 pass
             raise
 
@@ -109,6 +110,7 @@ class WeikeAuthMixin:  # pragma: no cover
                 clicked = True
                 break
             except Exception:
+                logger.debug("旧版首页登录探测页面元素失败（已忽略）", exc_info=True)
                 continue
 
         if not clicked:

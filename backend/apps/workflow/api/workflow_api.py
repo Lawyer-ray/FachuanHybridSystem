@@ -75,10 +75,38 @@ def _validate_steps_for_user(user: Any, steps: list[Any]) -> None:
 # ── 工作流运行 ────────────────────────────────────────────────────────────────
 
 
+async def _require_run_case_access(request: Any, run_id: int) -> None:
+    """校验当前用户对工作流 run 所属案件的访问权（安全审计 IDOR）。"""
+    from asgiref.sync import sync_to_async
+    from ninja.errors import HttpError
+
+    from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+    from apps.core.security import get_request_access_context
+    from apps.workflow.models import WorkflowRun
+
+    ctx = get_request_access_context(request)
+    try:
+        case_id = await sync_to_async(
+            WorkflowRun.objects.values_list("case_id", flat=True).get, thread_sensitive=False
+        )(pk=run_id)
+    except WorkflowRun.DoesNotExist:
+        raise HttpError(404, f"工作流运行 #{run_id} 不存在") from None
+    await sync_to_async(CaseAccessPolicy().ensure_access_ctx, thread_sensitive=False)(case_id=case_id, ctx=ctx)
+
+
 @router.post("/start")
 async def start_workflow_api(request: Any, payload: StartWorkflowIn) -> dict[str, Any]:
     """启动诉讼工作流"""
-    return await start_workflow(payload.template_slug, payload.case_id)
+    from apps.core.security import get_request_access_context
+
+    ctx = get_request_access_context(request)
+    return await start_workflow(
+        payload.template_slug,
+        payload.case_id,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
 
 
 @router.get("/runs")
@@ -94,12 +122,14 @@ async def list_workflows_api(
 @router.get("/runs/{run_id}")
 async def get_workflow_detail_api(request: Any, run_id: int) -> dict[str, Any]:
     """查看诉讼工作流详情"""
+    await _require_run_case_access(request, run_id)
     return await get_workflow_detail(run_id)
 
 
 @router.post("/runs/{run_id}/approve")
 async def approve_workflow_api(request: Any, run_id: int, payload: ApproveStepIn) -> dict[str, Any]:
     """审批诉讼工作流步骤"""
+    await _require_run_case_access(request, run_id)
     result = await approve_workflow_step(run_id, payload.approved, payload.comment)
     if "error" in result:
         from ninja.errors import HttpError
@@ -111,6 +141,7 @@ async def approve_workflow_api(request: Any, run_id: int, payload: ApproveStepIn
 @router.post("/runs/{run_id}/cancel")
 async def cancel_workflow_api(request: Any, run_id: int) -> dict[str, Any]:
     """取消诉讼工作流"""
+    await _require_run_case_access(request, run_id)
     result = await cancel_workflow(run_id)
     if "error" in result:
         from ninja.errors import HttpError
@@ -122,6 +153,7 @@ async def cancel_workflow_api(request: Any, run_id: int) -> dict[str, Any]:
 @router.delete("/runs/{run_id}")
 async def delete_workflow_api(request: Any, run_id: int) -> dict[str, Any]:
     """删除诉讼工作流"""
+    await _require_run_case_access(request, run_id)
     result = await delete_workflow_run(run_id)
     if "error" in result:
         from ninja.errors import HttpError

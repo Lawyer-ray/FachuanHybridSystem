@@ -69,7 +69,8 @@ class ONNXOrientationService:
 
                 if not Path(self._model_path).exists():
                     logger.error(
-                        f"ONNX 微调模型不存在: {self._model_path}，请运行 ml-training/train_model.py 训练或检查网络连接"
+                        "ONNX 微调模型不存在: %s，请运行 ml-training/train_model.py 训练或检查网络连接",
+                        self._model_path,
                     )
                     return None
 
@@ -77,12 +78,12 @@ class ONNXOrientationService:
                     self._model_path,
                     providers=["CPUExecutionProvider"],
                 )
-                logger.info(f"ONNX 方向分类器加载成功: {self._model_path}")
+                logger.info("ONNX 方向分类器加载成功: %s", self._model_path)
             except ImportError:
                 logger.error("onnxruntime 未安装")
                 return None
             except Exception as e:
-                logger.error(f"ONNX 模型加载失败: {e}")
+                logger.error("ONNX 模型加载失败: %s", e)
                 return None
         return self._session
 
@@ -103,7 +104,7 @@ class ONNXOrientationService:
         except ImportError:
             logger.error("huggingface_hub 未安装，无法自动下载模型")
         except Exception as e:
-            logger.error(f"模型下载失败: {e}")
+            logger.error("模型下载失败: %s", e)
 
     def preprocess_image(self, image_data: bytes) -> np.ndarray:
         """预处理图片为模型输入格式
@@ -184,9 +185,7 @@ class ONNXOrientationService:
             rotation = ORIENTATION_TO_ROTATION[predicted_class]
             label = ORIENTATION_LABELS[predicted_class]
 
-            logger.info(
-                f"ONNX 方向检测: {label}, 置信度: {confidence:.4f}, rotation={rotation}°",
-            )
+            logger.info("ONNX 方向检测: %s, 置信度: %.4f, rotation=%s°", label, confidence, rotation)
 
             # 判断是否可以自动旋转
             high_confidence = confidence >= self.AUTO_ROTATE_THRESHOLD
@@ -203,7 +202,7 @@ class ONNXOrientationService:
             }
 
         except Exception as e:
-            logger.error(f"ONNX 方向检测失败: {e}")
+            logger.error("ONNX 方向检测失败: %s", e)
             return {
                 "rotation": 0,
                 "confidence": 0,

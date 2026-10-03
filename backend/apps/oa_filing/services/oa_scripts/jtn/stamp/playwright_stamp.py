@@ -137,11 +137,14 @@ class PlaywrightStampMixin:  # pragma: no cover
 
         # 3. 等待 iframe 内容加载完成，再操作 DOM
         await popup_frame.wait_for_selector("#project_no", timeout=10_000)
-        await popup_frame.evaluate(f"""() => {{
-            const el = document.getElementById("project_no");
-            el.removeAttribute("readonly");
-            el.value = "{case_no}";
-        }}""")
+        await popup_frame.evaluate(
+            """(caseNo) => {
+                const el = document.getElementById("project_no");
+                el.removeAttribute("readonly");
+                el.value = caseNo;
+            }""",
+            case_no,
+        )
         await asyncio.sleep(SHORT_WAIT)
 
         await popup_frame.evaluate(IFRAME_SEARCH_FN)
@@ -343,6 +346,7 @@ class PlaywrightStampMixin:  # pragma: no cover
             try:
                 asyncio.run(playwright.stop())
             except Exception:
+                logger.debug("清理 Playwright 资源失败（已忽略）", exc_info=True)
                 pass
 
         browser.on("disconnected", _cleanup)

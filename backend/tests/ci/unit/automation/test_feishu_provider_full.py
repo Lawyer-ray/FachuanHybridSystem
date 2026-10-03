@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from apps.automation.services.chat.feishu_provider import FeishuChatProvider
 from apps.automation.services.chat.base import MessageContent
+from apps.automation.services.chat.feishu_provider import FeishuChatProvider
 from apps.core.exceptions import (
     ChatCreationException,
     ConfigurationException,
@@ -272,20 +272,3 @@ class TestFeishuChatProvider:
         p = self._make_provider()
         result = p._build_simple_text_message(MessageContent(title="", text=""))
         assert result == "空消息"
-
-    # ─── _build_rich_text_message ───
-
-    def test_build_rich_text_both(self) -> None:
-        p = self._make_provider()
-        result = p._build_rich_text_message(MessageContent(title="T", text="B"))
-        assert len(result["elements"]) == 3  # title + hr + text
-
-    def test_build_rich_text_title_only(self) -> None:
-        p = self._make_provider()
-        result = p._build_rich_text_message(MessageContent(title="T", text=""))
-        assert len(result["elements"]) == 1
-
-    def test_build_rich_text_empty(self) -> None:
-        p = self._make_provider()
-        result = p._build_rich_text_message(MessageContent(title="", text=""))
-        assert len(result["elements"]) == 0

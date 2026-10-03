@@ -3,12 +3,15 @@
 提供常用的验证函数和验证器
 """
 
+import logging
 import re
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from apps.core.exceptions import ValidationException
+
+logger = logging.getLogger(__name__)
 
 
 class Validators:
@@ -303,6 +306,6 @@ class Validators:
                     errors={field_name: "文件内容被识别为可执行文件"},
                 )
         except (AttributeError, OSError):
-            pass
+            logger.debug("读取文件头做可执行文件检测失败（已忽略）: field=%s", field_name, exc_info=True)
 
         return uploaded_file

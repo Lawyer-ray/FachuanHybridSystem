@@ -21,6 +21,8 @@ import httpx
 
 from apps.core.exceptions import ChatProviderException, ConfigurationException
 
+from ._common import load_db_category_config, normalize_provider_config
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,24 +36,16 @@ class DingtalkTokenMixin:  # pragma: no cover
 
     def _load_config_from_db(self) -> dict[str, Any]:  # pragma: no cover
         """从 SystemConfig 加载钉钉配置"""
-        try:
-            from apps.core.config.utils import get_dingtalk_category_configs
-
-            db_configs = get_dingtalk_category_configs()
-            if not db_configs:
-                return {}
-            key_mapping = {
+        return load_db_category_config(
+            "get_dingtalk_category_configs",
+            {
                 "DINGTALK_APP_KEY": "APP_KEY",
                 "DINGTALK_APP_SECRET": "APP_SECRET",  # pragma: allowlist secret
                 "DINGTALK_AGENT_ID": "AGENT_ID",
                 "DINGTALK_DEFAULT_OWNER_ID": "DEFAULT_OWNER_ID",
-            }
-            config = {internal: db_configs[db] for db, internal in key_mapping.items() if db_configs.get(db)}
-            logger.debug(f"从 SystemConfig 加载钉钉配置: {list(config.keys())}")
-            return config
-        except Exception as e:
-            logger.debug(f"从 SystemConfig 加载配置失败，回退到 settings: {e!s}")
-            return {}
+            },
+            "钉钉",
+        )
 
     def _load_config(self) -> dict[str, Any]:  # pragma: no cover
         """加载钉钉配置"""
@@ -64,18 +58,10 @@ class DingtalkTokenMixin:  # pragma: no cover
                     "请在系统配置中设置 DINGTALK_APP_KEY 和 DINGTALK_APP_SECRET"
                 )
 
-            config.setdefault("TIMEOUT", 30)
-            try:
-                config["TIMEOUT"] = int(config["TIMEOUT"])
-            except (ValueError, TypeError):
-                config["TIMEOUT"] = 30
-
-            filtered_config = {k: v for k, v in config.items() if v is not None and v != ""}
-            logger.debug(f"最终钉钉配置: {list(filtered_config.keys())}")
-            return filtered_config
+            return normalize_provider_config(config, "钉钉")
 
         except (TypeError, ValueError) as e:
-            logger.error(f"加载钉钉配置失败: {e!s}")
+            logger.error("加载钉钉配置失败: %s", e)
             raise ConfigurationException(
                 message=f"无法加载钉钉配置: {e!s}", platform="dingtalk", errors={"original_error": str(e)}
             ) from e
@@ -84,7 +70,7 @@ class DingtalkTokenMixin:  # pragma: no cover
         """检查平台是否可用（至少需要 app_key + app_secret + default_owner_id）"""
         for config_key in ["APP_KEY", "APP_SECRET"]:
             if not self.config.get(config_key):
-                logger.debug(f"钉钉配置缺失: {config_key}")
+                logger.debug("钉钉配置缺失: %s", config_key)
                 return False
         if not self.config.get("DEFAULT_OWNER_ID"):
             logger.debug("钉钉配置缺失: DEFAULT_OWNER_ID（建群必须指定群主）")
@@ -145,12 +131,12 @@ class DingtalkTokenMixin:  # pragma: no cover
         except ChatProviderException:
             raise
         except httpx.HTTPError as e:
-            logger.error(f"请求钉钉 access_token 失败: {e!s}")
+            logger.error("请求钉钉 access_token 失败: %s", e)
             raise ChatProviderException(
                 message=f"网络请求失败: {e!s}", platform="dingtalk", errors={"original_error": str(e)}
             ) from e
         except (KeyError, ValueError) as e:
-            logger.error(f"解析钉钉 API 响应失败: {e!s}")
+            logger.error("解析钉钉 API 响应失败: %s", e)
             raise ChatProviderException(
                 message=f"API 响应格式错误: {e!s}", platform="dingtalk", errors={"original_error": str(e)}
             ) from e
@@ -219,12 +205,12 @@ class DingtalkTokenMixin:  # pragma: no cover
             except ChatProviderException:
                 raise
             except httpx.HTTPError as e:
-                logger.error(f"请求钉钉 access_token 失败: {e!s}")
+                logger.error("请求钉钉 access_token 失败: %s", e)
                 raise ChatProviderException(
                     message=f"网络请求失败: {e!s}", platform="dingtalk", errors={"original_error": str(e)}
                 ) from e
             except (KeyError, ValueError) as e:
-                logger.error(f"解析钉钉 API 响应失败: {e!s}")
+                logger.error("解析钉钉 API 响应失败: %s", e)
                 raise ChatProviderException(
                     message=f"API 响应格式错误: {e!s}", platform="dingtalk", errors={"original_error": str(e)}
                 ) from e

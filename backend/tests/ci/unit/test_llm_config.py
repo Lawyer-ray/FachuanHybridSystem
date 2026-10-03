@@ -105,40 +105,6 @@ class TestLLMConfigResolveBackend:
         assert LLMConfig.resolve_backend_for_model("") == "openai_compatible"
 
 
-class TestLLMConfigGetTemperature:
-    def test_default(self):
-        from apps.core.llm.config import LLMConfig
-
-        with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            assert LLMConfig.get_temperature() == 0.3
-
-    def test_custom(self):
-        from apps.core.llm.config import LLMConfig
-
-        with patch.object(LLMConfig, "_get_system_config", return_value="0.7"):
-            assert LLMConfig.get_temperature() == 0.7
-
-    def test_invalid(self):
-        from apps.core.llm.config import LLMConfig
-
-        with patch.object(LLMConfig, "_get_system_config", return_value="abc"):
-            assert LLMConfig.get_temperature() == 0.3
-
-
-class TestLLMConfigGetMaxTokens:
-    def test_default(self):
-        from apps.core.llm.config import LLMConfig
-
-        with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            assert LLMConfig.get_max_tokens() == 2000
-
-    def test_custom(self):
-        from apps.core.llm.config import LLMConfig
-
-        with patch.object(LLMConfig, "_get_system_config", return_value="4096"):
-            assert LLMConfig.get_max_tokens() == 4096
-
-
 class TestLLMConfigDefaults:
     def test_openai_compatible_timeout_default(self):
         from apps.core.llm.config import LLMConfig

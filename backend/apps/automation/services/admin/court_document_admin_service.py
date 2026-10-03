@@ -16,6 +16,7 @@ from django.utils import timezone
 
 from apps.automation.models import CourtDocument, DocumentDownloadStatus, ScraperTask
 from apps.core.exceptions import BusinessException, NotFoundError, ValidationException
+from apps.core.services.storage_service import resolve_media_path
 
 
 class CourtDocumentAdminService:
@@ -35,70 +36,28 @@ class CourtDocumentAdminService:
     @transaction.atomic
     def batch_download_documents(self, document_ids: list[int]) -> dict[str, Any]:
         """
-        批量下载文书
+        批量下载文书（暂未接入下载消费者）
+
+        全仓无批量下载消费者：若在此处置为 DOWNLOADING，文书将永久卡死。
+        因此只做校验并直接返回明确错误，不修改任何状态。
 
         Args:
             document_ids: 文书ID列表
 
         Returns:
-            Dict[str, Any]: 下载结果统计
+            Dict[str, Any]: 下载结果统计（当前实现不会返回）
 
         Raises:
-            ValidationException: 参数验证失败
-            BusinessException: 下载失败
+            ValidationException: 参数验证失败 / 批量下载暂未接入
         """
         if not document_ids:
             raise ValidationException(message="没有选中任何文书", code="NO_DOCUMENTS_SELECTED", errors={})
 
-        try:
-            # 获取待下载的文书
-            documents = CourtDocument.objects.filter(
-                id__in=document_ids, download_status__in=[DocumentDownloadStatus.PENDING, DocumentDownloadStatus.FAILED]
-            )
-
-            if not documents.exists():
-                raise ValidationException(
-                    message="没有找到可下载的文书",
-                    code="NO_DOWNLOADABLE_DOCUMENTS",
-                    errors={"document_ids": document_ids},
-                )
-
-            # 更新状态为下载中
-            updated_count = documents.update(
-                download_status=DocumentDownloadStatus.DOWNLOADING, updated_at=timezone.now()
-            )
-
-            self.logger.info(
-                "开始批量下载文书",
-                extra={
-                    "action": "batch_download_documents",
-                    "document_count": updated_count,
-                    "document_ids": document_ids,
-                },
-            )
-
-            # 这里应该触发异步下载任务
-            # 实际实现中会调用下载服务
-
-            result = {
-                "total_requested": len(document_ids),
-                "started_download": updated_count,
-                "already_downloaded": len(document_ids) - updated_count,
-            }
-
-            self.logger.info("批量下载文书任务已启动", extra={"action": "batch_download_documents", "result": result})
-
-            return result
-
-        except Exception as e:
-            self.logger.error(
-                "批量下载文书失败",
-                extra={"action": "batch_download_documents", "document_ids": document_ids, "error": str(e)},
-                exc_info=True,
-            )
-            raise BusinessException(
-                message="批量下载文书失败", code="BATCH_DOWNLOAD_FAILED", errors={"error": str(e)}
-            ) from e
+        raise ValidationException(
+            message="批量下载暂未接入，请在法院短信详情中逐个下载",
+            code="BATCH_DOWNLOAD_NOT_IMPLEMENTED",
+            errors={},
+        )
 
     @transaction.atomic
     def batch_delete_documents(
@@ -133,12 +92,15 @@ class CourtDocumentAdminService:
             deleted_files_count = 0
             file_errors = []
 
-            # 如果需要删除文件
+            # 如果需要删除文件（local_file_path 可能是 media 相对路径，删除前先解析）
             if delete_files:
                 for document in documents:
-                    if document.local_file_path and Path(document.local_file_path).exists():
+                    if not document.local_file_path:
+                        continue
+                    file_path = resolve_media_path(document.local_file_path)
+                    if file_path.exists():
                         try:
-                            Path(document.local_file_path).unlink()
+                            file_path.unlink()
                             deleted_files_count += 1
                         except Exception as e:
                             file_errors.append(
@@ -197,12 +159,16 @@ class CourtDocumentAdminService:
             # 基础统计
             total_documents = queryset.count()
 
-            # 按状态统计
+            # 按状态统计 — 一次 aggregate 条件计数，替代逐状态 .count() 查询
+            status_counts: dict[str, Any] = queryset.aggregate(
+                **{
+                    f"status_{code}": Count("id", filter=Q(download_status=code))
+                    for code, _label in DocumentDownloadStatus.choices
+                }
+            )
             status_stats = {}
-            for status_choice in DocumentDownloadStatus.choices:
-                status_code = status_choice[0]
-                status_name = status_choice[1]
-                count = queryset.filter(download_status=status_code).count()
+            for status_code, status_name in DocumentDownloadStatus.choices:
+                count = status_counts[f"status_{status_code}"]
                 status_stats[status_code] = {
                     "name": status_name,
                     "count": count,

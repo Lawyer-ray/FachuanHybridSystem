@@ -6,7 +6,8 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -27,11 +28,11 @@ def sync_lpr_rates() -> dict:  # pragma: no cover
         service = LPRSyncService()
         result = service.sync_latest()
 
-        logger.info(f"[LPRSchedule] LPR sync completed: {result}")
+        logger.info("[LPRSchedule] LPR sync completed: %s", result)
         return result
 
     except Exception as e:
-        logger.error(f"[LPRSchedule] LPR sync failed: {e}")
+        logger.error("[LPRSchedule] LPR sync failed: %s", e)
         raise
 
 
@@ -54,7 +55,7 @@ def setup_lpr_sync_schedule() -> None:  # pragma: no cover
     schedule_svc.create_monthly_schedule(
         name="lpr_monthly_sync",
         func="apps.finance.tasks.sync_lpr_rates",
-        next_run=datetime.now().replace(day=20, hour=9, minute=30, second=0, microsecond=0),
+        next_run=timezone.now().replace(day=20, hour=9, minute=30, second=0, microsecond=0),
         repeats=-1,
     )
 

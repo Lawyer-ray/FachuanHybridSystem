@@ -14,11 +14,17 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BasePlaceholderService)
 
 
+def _service_registration_sort_key(service_class: type[BasePlaceholderService]) -> str:
+    """占位符键冲突裁决用的确定性排序键: 服务模块路径 + 类限定名。"""
+    return f"{service_class.__module__}.{service_class.__qualname__}"
+
+
 class PlaceholderRegistry:
     """占位符服务注册表(单例模式)"""
 
     _instance: PlaceholderRegistry | None = None
     _services: ClassVar[dict[str, type[BasePlaceholderService]]] = {}
+    _key_owner_names: ClassVar[dict[str, str]] = {}
     _initialized: bool = False
 
     def __new__(cls) -> PlaceholderRegistry:
@@ -31,6 +37,7 @@ class PlaceholderRegistry:
         """初始化注册表"""
         if not self._initialized:
             PlaceholderRegistry._services = {}
+            PlaceholderRegistry._key_owner_names = {}
             PlaceholderRegistry._initialized = True
 
     @classmethod
@@ -67,9 +74,42 @@ class PlaceholderRegistry:
 
         # 注册服务
         registry._services[service_class.name] = service_class
+        cls._claim_placeholder_keys(registry, service_class)
         logger.info("注册占位符服务: %s (%s)", service_class.name, service_class.__name__)
 
         return service_class
+
+    @classmethod
+    def _claim_placeholder_keys(cls, registry: PlaceholderRegistry, service_class: type[T]) -> None:
+        """
+        登记服务声明的占位符键归属。
+
+        同一键被多个服务声明时记录 error 日志,并按服务模块路径排序取先者归属,
+        确保结果不依赖目录枚举/导入顺序。
+        """
+        for key in dict.fromkeys(service_class.placeholder_keys):
+            owner_name = registry._key_owner_names.get(key)
+            if owner_name is None or owner_name == service_class.name or owner_name not in registry._services:
+                registry._key_owner_names[key] = service_class.name
+                continue
+
+            existing_class = registry._services[owner_name]
+            candidates: list[type[BasePlaceholderService]] = [existing_class, service_class]
+            winner, loser = sorted(candidates, key=_service_registration_sort_key)
+            registry._key_owner_names[key] = winner.name
+            logger.error(
+                "占位符键注册冲突: 键 '%s' 同时由服务 '%s' 与 '%s' 声明, 按 '%s' 排序保留 '%s'",
+                key,
+                existing_class.name,
+                service_class.name,
+                _service_registration_sort_key(winner),
+                winner.name,
+                extra={
+                    "placeholder_key": key,
+                    "kept_service": winner.name,
+                    "dropped_service": loser.name,
+                },
+            )
 
     def get_service(self, name: str) -> BasePlaceholderService:
         """
@@ -123,15 +163,36 @@ class PlaceholderRegistry:
         """
         根据占位符键查找对应的服务
 
+        冲突键返回注册时确定性裁决出的归属服务,不依赖注册顺序。
+
         Args:
             placeholder_key: 占位符键
 
         Returns:
             对应的服务实例,如果没有找到则返回 None
         """
+        owner_name = self._key_owner_names.get(placeholder_key)
+        if owner_name and owner_name in self._services:
+            return self._services[owner_name]()
+
         for service_class in self._services.values():
             if placeholder_key in service_class.placeholder_keys:
                 return service_class()
+        return None
+
+    def get_placeholder_key_owner(self, placeholder_key: str) -> str | None:
+        """
+        查询占位符键的归属服务名
+
+        Args:
+            placeholder_key: 占位符键
+
+        Returns:
+            冲突裁决后拥有该键的服务名,未声明或归属服务已失效时返回 None
+        """
+        owner_name = self._key_owner_names.get(placeholder_key)
+        if owner_name and owner_name in self._services:
+            return owner_name
         return None
 
     def list_registered_services(self) -> dict[str, dict[str, Any]]:
@@ -157,4 +218,5 @@ class PlaceholderRegistry:
     def clear(self) -> None:
         """清空注册表(主要用于测试)"""
         self._services.clear()
+        self._key_owner_names.clear()
         logger.info("清空占位符服务注册表")

@@ -59,7 +59,7 @@ class ValidatorService:
 
         is_valid = match is not None
         if not is_valid:
-            logger.warning(f"案号格式无效: {case_number}")
+            logger.warning("案号格式无效: %s", case_number)
 
         return is_valid
 

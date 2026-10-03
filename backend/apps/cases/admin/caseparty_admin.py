@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from django.contrib import admin
 from django.http import HttpRequest, JsonResponse
 from django.urls import URLPattern, path
@@ -14,6 +16,12 @@ class CasePartyAdmin(admin.ModelAdmin):  # pragma: no cover
     list_per_page = 50
     list_filter = ("legal_status",)
     search_fields = ("case__name", "client__name")
+
+    def get_queryset(self, request: HttpRequest) -> Any:  # pragma: no cover
+        """行级过滤：仅保留可访问案件下的当事人记录（is_admin 全量）。"""
+        from apps.cases.admin.base_admin import apply_case_related_admin_access_filter
+
+        return apply_case_related_admin_access_filter(request, super().get_queryset(request))
 
     def is_our_client(self, obj: CaseParty) -> bool:  # pragma: no cover
         return bool(getattr(obj.client, "is_our_client", False))

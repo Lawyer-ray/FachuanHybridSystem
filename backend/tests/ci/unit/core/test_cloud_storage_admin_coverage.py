@@ -214,3 +214,28 @@ class TestResumePendingDeviceCodePolls:
     def test_resume_pending_no_pending(self):
         # Should not raise
         resume_pending_device_code_polls()
+
+
+class TestCloudStorageAdminAssetsLocation:
+    """admin 模板与 JS 已从 apps/core 迁入 apps/cloud_storage（app 自有资产就近存放）。
+
+    验证 TEMPLATES APP_DIRS / staticfiles AppDirectoriesFinder 在新路径下仍能解析，
+    ``CloudStorageAccountAdmin.change_form_template`` 与 ``Media.js`` 引用不受搬迁影响。
+    """
+
+    def test_change_form_template_resolves_to_cloud_storage_app(self):
+        from django.template.loader import get_template
+
+        template = get_template(CloudStorageAccountAdmin.change_form_template)
+        # _EngineTemplate 的 origin 属性未入 django-stubs，用 getattr 桥接
+        origin = getattr(template, "origin", None)
+        assert origin is not None, "模板应能从 cloud_storage app 目录解析出 origin"
+        assert str(origin.name).endswith("apps/cloud_storage/templates/admin/cloud_storage/change_form.html")
+
+    def test_admin_js_found_in_cloud_storage_app_static(self):
+        from django.contrib.staticfiles import finders
+
+        js_rel = CloudStorageAccountAdmin.Media.js[0]
+        found = finders.find(js_rel)
+        assert found is not None
+        assert found.endswith("apps/cloud_storage/static/admin/js/cloud_storage_admin.js")

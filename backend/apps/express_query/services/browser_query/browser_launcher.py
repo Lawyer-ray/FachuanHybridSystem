@@ -33,12 +33,14 @@ async def close_browser() -> None:  # pragma: no cover
         try:
             await _context.close()
         except Exception:
+            logger.debug("关闭浏览器上下文失败（已忽略）", exc_info=True)
             pass
         _context = None
     if _context_manager is not None:
         try:
             await _context_manager.__aexit__(None, None, None)  # type: ignore[attr-defined]
         except Exception:
+            logger.debug("退出浏览器上下文管理器失败（已忽略）", exc_info=True)
             pass
         _context_manager = None
     logger.info("Browser closed")

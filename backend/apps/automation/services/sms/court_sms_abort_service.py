@@ -154,6 +154,7 @@ class CourtSmsAbortService:
         try:
             data = SignedPackage.loads(payload)
         except Exception:
+            logger.debug("解析队列任务 payload 失败（已忽略）", exc_info=True)
             return False
         if not isinstance(data, dict):
             return False

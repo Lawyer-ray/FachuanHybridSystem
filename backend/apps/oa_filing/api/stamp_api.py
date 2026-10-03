@@ -51,4 +51,5 @@ async def apply_stamp(request: HttpRequest, payload: StampApplyIn) -> Any:
 async def get_stamp_session(request: HttpRequest, session_id: int) -> Any:
     """查询盖章申请状态。"""
     service = _get_task_executor_service()
-    return await sync_to_async(service.get_stamp_session, thread_sensitive=False)(session_id)
+    # 安全审计 A-04：传入当前用户做会话属主校验
+    return await sync_to_async(service.get_stamp_session, thread_sensitive=False)(session_id, request.user)

@@ -65,6 +65,6 @@ class MockTrialExportService:  # pragma: no cover
         output_path = output_dir / f"模拟庭审报告_{safe_case_name}_{session_id[:8]}.docx"
 
         doc.save(str(output_path))
-        logger.info(f"模拟庭审报告已导出: {output_path}")
+        logger.info("模拟庭审报告已导出: %s", output_path)
 
         return output_path

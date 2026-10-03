@@ -125,23 +125,18 @@ class CaseMaterialBindingWorkflow:
             if material.type_id not in group_order_map.get(key, []):
                 group_order_map.setdefault(key, []).append(material.type_id)
 
-        # 读取已有的分组排序，确定已有分组的 sort_index
+        # 读取已有的分组排序，确定已有分组的 sort_index，并在内存建分组 -> type_id 集合索引
         existing_orders = CaseMaterialGroupOrder.objects.filter(case_id=case_id)
         existing_max_index: dict[tuple[str, str | None, int | None], int] = {}
+        existing_type_ids_map: dict[tuple[str, str | None, int | None], set[int]] = {}
         for order in existing_orders:
             key = (order.category, order.side, order.supervising_authority_id)
             existing_max_index[key] = max(existing_max_index.get(key, -1), order.sort_index)
+            existing_type_ids_map.setdefault(key, set()).add(order.type_id)
 
         # 对每个分组维度，为未设置排序的新分组追加 sort_index
         for (category, side, authority_id), type_ids in group_order_map.items():
-            existing_type_ids = set(
-                CaseMaterialGroupOrder.objects.filter(
-                    case_id=case_id,
-                    category=category,
-                    side=side,
-                    supervising_authority_id=authority_id,
-                ).values_list("type_id", flat=True)
-            )
+            existing_type_ids = existing_type_ids_map.get((category, side, authority_id), set())
             next_index = existing_max_index.get((category, side, authority_id), -1) + 1
             for type_id in type_ids:
                 if type_id in existing_type_ids:

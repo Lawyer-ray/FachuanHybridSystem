@@ -5,7 +5,6 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from django.conf import settings
 from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
@@ -26,7 +25,7 @@ from apps.batch_printing.services.storage import BatchPrintStorage
 from apps.core.constants import LARGE_FILE_MAX_SIZE
 from apps.core.dependencies.core import build_task_submission_service
 from apps.core.exceptions import NotFoundError, ValidationException
-from apps.core.services.storage_service import normalize_to_media_rel, sanitize_upload_filename
+from apps.core.services.storage_service import normalize_to_media_rel, sanitize_upload_filename, to_media_abs
 
 logger = logging.getLogger("apps.batch_printing")
 
@@ -65,7 +64,9 @@ class BatchPrintJobService:
 
         return list(queryset)
 
-    def create_job(self, *, files: list[UploadedFile], created_by: Any | None = None) -> BatchPrintJob:  # pragma: no cover
+    def create_job(
+        self, *, files: list[UploadedFile], created_by: Any | None = None
+    ) -> BatchPrintJob:  # pragma: no cover
         if not files:
             raise ValidationException(message="请至少上传一个文件", errors={"files": "不能为空"})
 
@@ -97,11 +98,9 @@ class BatchPrintJobService:
                     )
 
                 source_path = storage.source_file_path(order=index, filename=original_name)
-                rel_path = f"batch_printing/jobs/{storage._job_id}/source/{source_path.name}"
-                saved_name = default_storage.save(rel_path, upload)
-                source_path = Path(settings.MEDIA_ROOT) / saved_name
-
-                relpath = normalize_to_media_rel(source_path.as_posix())
+                saved_name = default_storage.save(storage.rel_path_of(source_path), upload)
+                relpath = saved_name
+                source_path = to_media_abs(saved_name)
                 file_type = BatchPrintFileType.PDF if suffix == ".pdf" else BatchPrintFileType.DOCX
 
                 matched = self._rule_service.find_target(filename=original_name)

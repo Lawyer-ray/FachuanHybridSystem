@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
+from django.test import override_settings
 
 # ---------------------------------------------------------------------------
 # services/storage.py (90% coverage)
@@ -66,8 +66,9 @@ class TestPdfSplitStorage:
     def test_write_read_json(self, tmp_path):
         from apps.pdf_splitting.services.storage import PdfSplitStorage
 
-        with patch("apps.pdf_splitting.services.storage.settings") as mock_settings:
-            mock_settings.MEDIA_ROOT = str(tmp_path)
+        # write_json 走 default_storage；override_settings 触发 setting_changed，
+        # 使存储后端随 MEDIA_ROOT 一并重定向（patch 属性不会刷新已缓存的 location）
+        with override_settings(MEDIA_ROOT=str(tmp_path)):
             storage = PdfSplitStorage("test-job-id")
             json_path = storage.analysis_dir / "test.json"
             payload = {"key": "value", "number": 42}

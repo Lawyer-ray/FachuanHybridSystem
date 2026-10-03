@@ -15,7 +15,7 @@ from django.utils import timezone
 
 from apps.legal_research.admin.task_admin import LegalResearchTaskAdmin
 from apps.legal_research.models import LegalResearchTask, LegalResearchTaskEvent
-from apps.legal_research.models.task import LegalResearchTaskStatus, LegalResearchSearchMode
+from apps.legal_research.models.task import LegalResearchSearchMode, LegalResearchTaskStatus
 
 User = get_user_model()
 
@@ -307,10 +307,6 @@ class TestLegalResearchTaskAdminFeatureFlag:
 @pytest.mark.django_db
 class TestLegalResearchTaskAdminFormConfig:
     """测试表单配置方法"""
-
-    def test_configure_search_field_field(self):
-        # Deprecated method, should not raise
-        LegalResearchTaskAdmin._configure_search_field_field(form=MagicMock())
 
     def test_configure_search_url_field(self):
         from types import SimpleNamespace

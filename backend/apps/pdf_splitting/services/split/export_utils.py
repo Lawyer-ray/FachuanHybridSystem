@@ -16,11 +16,11 @@ class ExportUtils:
         return pix.tobytes("png")  # type: ignore[no-any-return]
 
     @staticmethod
-    def export_segment_pdf(source_doc: fitz.Document, page_start: int, page_end: int, output_path: Path) -> None:
+    def export_segment_pdf(source_doc: fitz.Document, page_start: int, page_end: int) -> bytes:
         segment_doc = fitz.open()
         try:
             segment_doc.insert_pdf(source_doc, from_page=page_start - 1, to_page=page_end - 1)
-            segment_doc.save(output_path.as_posix())
+            return segment_doc.tobytes()  # type: ignore[no-any-return]
         finally:
             segment_doc.close()
 

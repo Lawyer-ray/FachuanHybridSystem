@@ -47,7 +47,7 @@ class GsxtReportAdapter:
             credit_code=credit_code,
             status=gsxt_report_status.WAITING_CAPTCHA,
         )
-        logger.info(f"创建企业信用报告任务: client_id={client_id}, task_id={task.id}")
+        logger.info("创建企业信用报告任务: client_id=%s, task_id=%s", client_id, task.id)
         return task.id  # type: ignore[no-any-return]
 
     def start_login(self, credential_id: int, task_id: int) -> None:
@@ -57,7 +57,7 @@ class GsxtReportAdapter:
         account_credential_model = _get_account_credential_model()
         credential = account_credential_model.objects.get(pk=credential_id)
         start_login_gsxt(credential, task_id)
-        logger.info(f"启动国家企业信用信息公示系统登录: task_id={task_id}")
+        logger.info("启动国家企业信用信息公示系统登录: task_id=%s", task_id)
 
     def get_waiting_email_task(self, client_id: int) -> Any | None:
         """获取等待邮件的任务。"""
@@ -79,10 +79,10 @@ class GsxtReportAdapter:
             task.report_file.save(file_name, ContentFile(file_content), save=True)
             task.status = gsxt_report_status.SUCCESS
             task.save(update_fields=["report_file", "status", "updated_at"])
-            logger.info(f"上传企业信用报告成功: task_id={task_id}")
+            logger.info("上传企业信用报告成功: task_id=%s", task_id)
             return True
         except Exception as e:
-            logger.error(f"上传企业信用报告失败: task_id={task_id}, error={e}")
+            logger.error("上传企业信用报告失败: task_id=%s, error=%s", task_id, e)
             return False
 
     def get_task_status_choices(self) -> list[tuple[str, str]]:

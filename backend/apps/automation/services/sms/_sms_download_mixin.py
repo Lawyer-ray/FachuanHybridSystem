@@ -148,7 +148,7 @@ class SMSDownloadMixin:
                     if phone:
                         _add_phone(phone)
             except Exception as exc:
-                logger.warning(f"短信 {sms.id} 获取案件承办律师失败: {exc}")
+                logger.warning("短信 %s 获取案件承办律师失败: %s", sms.id, exc)
 
         # 补充管理员律师
         try:
@@ -159,7 +159,7 @@ class SMSDownloadMixin:
             if admin_lawyer and admin_lawyer.phone:
                 _add_phone(admin_lawyer.phone)
         except Exception as exc:
-            logger.warning(f"短信 {sms.id} 获取管理员律师失败: {exc}")
+            logger.warning("短信 %s 获取管理员律师失败: %s", sms.id, exc)
 
         # 最后补充所有有手机号的律师
         try:
@@ -168,7 +168,7 @@ class SMSDownloadMixin:
             for lawyer in Lawyer.objects.exclude(phone__isnull=True).exclude(phone="").order_by("id"):
                 _add_phone(str(lawyer.phone).strip())
         except Exception as exc:
-            logger.warning(f"短信 {sms.id} 获取全部律师手机号失败: {exc}")
+            logger.warning("短信 %s 获取全部律师手机号失败: %s", sms.id, exc)
 
         return phones
 
@@ -191,7 +191,7 @@ class SMSDownloadMixin:
                     f"「{platform_name}」平台需要 Playwright 浏览器支持，"
                     "但 Playwright 未安装。请运行: uv add playwright && playwright install chromium"
                 )
-                logger.warning(f"短信 {sms.id} 跳过下载任务创建: {error_msg}")
+                logger.warning("短信 %s 跳过下载任务创建: %s", sms.id, error_msg)
                 # 创建一个失败状态的任务，让流程继续而非卡住
                 task = ScraperTask.objects.create(
                     task_type=ScraperTaskType.COURT_DOCUMENT,
@@ -208,30 +208,30 @@ class SMSDownloadMixin:
             if self._is_hbfy_account_url(download_url):
                 account, password = self._extract_hbfy_credentials(sms.content)
                 if account and password:
-                    logger.info(f"短信 {sms.id} 提取到湖北账号模式凭证，将在下载阶段临时使用（不落库）")
+                    logger.info("短信 %s 提取到湖北账号模式凭证，将在下载阶段临时使用（不落库）", sms.id)
                 else:
-                    logger.warning(f"短信 {sms.id} 为湖北账号模式但未提取到完整凭证")
+                    logger.warning("短信 %s 为湖北账号模式但未提取到完整凭证", sms.id)
 
             if self._is_jysd_url(download_url):
                 lawyer_phones = self._collect_lawyer_phones(sms)
                 if lawyer_phones:
                     task_config["jysd_lawyer_phones"] = lawyer_phones
-                    logger.info(f"短信 {sms.id} 为简易送达链接，注入 {len(lawyer_phones)} 个律师手机号")
+                    logger.info("短信 %s 为简易送达链接，注入 %s 个律师手机号", sms.id, len(lawyer_phones))
                 else:
-                    logger.warning(f"短信 {sms.id} 为简易送达链接但未找到律师手机号")
+                    logger.warning("短信 %s 为简易送达链接但未找到律师手机号", sms.id)
 
             if self._is_sfdw_url(download_url):
                 verification_code = self._extract_sfdw_verification_code(sms.content)
                 if verification_code:
                     task_config["sfdw_verification_code"] = verification_code
-                    logger.info(f"短信 {sms.id} 为司法送达网链接，注入验证码")
+                    logger.info("短信 %s 为司法送达网链接，注入验证码", sms.id)
 
                 manual_tail6 = self._normalize_phone_tail6(
                     process_options.get("sfdw_phone_tail6") if isinstance(process_options, dict) else None
                 )
                 if manual_tail6:
                     task_config["sfdw_phone_tail6"] = manual_tail6
-                    logger.info(f"短信 {sms.id} 为司法送达网链接，注入手工手机号后6位")
+                    logger.info("短信 %s 为司法送达网链接，注入手工手机号后6位", sms.id)
                 else:
                     tail_candidates = self._collect_lawyer_phone_tail6_candidates(sms)
                     if tail_candidates:
@@ -242,7 +242,7 @@ class SMSDownloadMixin:
                             len(tail_candidates),
                         )
                     else:
-                        logger.warning(f"短信 {sms.id} 为司法送达网链接但未找到可用手机号后6位")
+                        logger.warning("短信 %s 为司法送达网链接但未找到可用手机号后6位", sms.id)
 
             task = ScraperTask.objects.create(
                 task_type=ScraperTaskType.COURT_DOCUMENT,
@@ -251,18 +251,18 @@ class SMSDownloadMixin:
                 config=task_config,
             )
 
-            logger.info(f"创建下载任务成功: Task ID={task.id}, URL={download_url}")
+            logger.info("创建下载任务成功: Task ID=%s, URL=%s", task.id, download_url)
 
             queue_task_id = submit_task(
                 "apps.automation.tasks.execute_scraper_task", task.id, task_name=f"court_document_download_{task.id}"
             )
 
-            logger.info(f"提交下载任务到队列: Task ID={task.id}, Queue Task ID={queue_task_id}")
+            logger.info("提交下载任务到队列: Task ID=%s, Queue Task ID=%s", task.id, queue_task_id)
 
             return task
 
         except Exception as e:
-            logger.error(f"创建下载任务失败: SMS ID={sms.id}, 错误: {e!s}")
+            logger.error("创建下载任务失败: SMS ID=%s, 错误: %s", sms.id, e)
             return None
 
     def _should_wait_for_document_download(self, sms: CourtSMS) -> bool:
@@ -285,7 +285,7 @@ class SMSDownloadMixin:
             return self._check_documents_wait_status(sms, fresh_task)
 
         except Exception as e:
-            logger.error(f"检查下载状态失败: SMS ID={sms.id}, 错误: {e!s}")
+            logger.error("检查下载状态失败: SMS ID=%s, 错误: %s", sms.id, e)
             return False
 
     def _refresh_scraper_task(self, sms: CourtSMS) -> Any:
@@ -295,19 +295,19 @@ class SMSDownloadMixin:
                 return None
             fresh_task = ScraperTask.objects.get(id=sms.scraper_task.id)
             sms.scraper_task = fresh_task
-            logger.info(f"短信 {sms.id} 刷新下载任务状态: {fresh_task.status}")
+            logger.info("短信 %s 刷新下载任务状态: %s", sms.id, fresh_task.status)
             return fresh_task
         except Exception:
-            logger.warning(f"短信 {sms.id} 的下载任务不存在，无需等待")
+            logger.warning("短信 %s 的下载任务不存在，无需等待", sms.id)
             return None
 
     def _log_completed_task_files(self, sms: CourtSMS, task: Any) -> None:
         """记录已完成任务的文件信息"""
-        logger.info(f"短信 {sms.id} 的下载任务已完成（状态: {task.status}），不再等待")
+        logger.info("短信 %s 的下载任务已完成（状态: %s），不再等待", sms.id, task.status)
         if task.result and isinstance(task.result, dict):
             files = task.result.get("files", [])
             if files:
-                logger.info(f"短信 {sms.id} 从任务结果中发现 {len(files)} 个已下载文件")
+                logger.info("短信 %s 从任务结果中发现 %s 个已下载文件", sms.id, len(files))
 
     def _check_documents_wait_status(self, sms: CourtSMS, task: Any) -> bool:  # pragma: no cover
         """根据文书记录状态判断是否需要等待"""
@@ -316,7 +316,7 @@ class SMSDownloadMixin:
             running = task.status in [ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING]
             wait_msg = "需要" if running else "不再"
             running_msg = "进行中但" if running else ""
-            logger.info(f"短信 {sms.id} 的下载任务{running_msg}没有文书记录，{wait_msg}等待")
+            logger.info("短信 %s 的下载任务%s没有文书记录，%s等待", sms.id, running_msg, wait_msg)
             return running
 
         successful = all_docs.filter(download_status="success")
@@ -324,16 +324,20 @@ class SMSDownloadMixin:
         downloading = all_docs.filter(download_status="downloading")
 
         logger.info(
-            f"短信 {sms.id} 文书状态统计: 总数={all_docs.count()}, "
-            f"成功={successful.count()}, 待下载={pending.count()}, 下载中={downloading.count()}"
+            "短信 %s 文书状态统计: 总数=%s, 成功=%s, 待下载=%s, 下载中=%s",
+            sms.id,
+            all_docs.count(),
+            successful.count(),
+            pending.count(),
+            downloading.count(),
         )
 
         if successful.exists():
-            logger.info(f"短信 {sms.id} 已有下载成功的文书，可以进行匹配")
+            logger.info("短信 %s 已有下载成功的文书，可以进行匹配", sms.id)
             return False
 
         if task.status in [ScraperTaskStatus.SUCCESS, ScraperTaskStatus.FAILED]:
-            logger.info(f"短信 {sms.id} 的下载任务已完成（状态: {task.status}），不再等待")
+            logger.info("短信 %s 的下载任务已完成（状态: %s），不再等待", sms.id, task.status)
             return False
 
         if (
@@ -343,7 +347,7 @@ class SMSDownloadMixin:
             and pending.count() == 0
             and downloading.count() == 0
         ):
-            logger.info(f"短信 {sms.id} 的下载任务运行中但所有文书都已失败，不再等待")
+            logger.info("短信 %s 的下载任务运行中但所有文书都已失败，不再等待", sms.id)
             return False
 
         should_wait = (
@@ -352,7 +356,9 @@ class SMSDownloadMixin:
             or task.status in [ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING]
         )
         logger.info(
-            f"短信 {sms.id} {'还有文书在下载中或任务进行中，需要等待' if should_wait else '下载状态检查完成，无需等待'}"
+            "短信 %s %s",
+            sms.id,
+            "还有文书在下载中或任务进行中，需要等待" if should_wait else "下载状态检查完成，无需等待",
         )
         return should_wait
 
@@ -450,19 +456,19 @@ class SMSDownloadMixin:
     ) -> CourtSMS:  # pragma: no cover
         """根据是否有下载链接决定进入下载或匹配阶段"""
         if sms.download_links:
-            logger.info(f"短信 {sms.id} 有下载链接，创建下载任务")
+            logger.info("短信 %s 有下载链接，创建下载任务", sms.id)
             scraper_task = self._create_download_task(sms, process_options=process_options)
             if scraper_task:
                 sms.scraper_task = scraper_task
                 sms.status = CourtSMSStatus.DOWNLOADING
                 sms.save()
-                logger.info(f"下载任务创建成功: SMS ID={sms.id}, Task ID={scraper_task.id}")
+                logger.info("下载任务创建成功: SMS ID=%s, Task ID=%s", sms.id, scraper_task.id)
             else:
-                logger.warning(f"下载任务创建失败，直接进入匹配: SMS ID={sms.id}")
+                logger.warning("下载任务创建失败，直接进入匹配: SMS ID=%s", sms.id)
                 sms.status = CourtSMSStatus.MATCHING
                 sms.save()
         else:
-            logger.info(f"短信 {sms.id} 无下载链接，直接进入匹配")
+            logger.info("短信 %s 无下载链接，直接进入匹配", sms.id)
             sms.status = CourtSMSStatus.MATCHING
             sms.save()
 

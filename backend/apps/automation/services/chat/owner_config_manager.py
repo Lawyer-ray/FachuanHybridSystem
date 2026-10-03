@@ -77,10 +77,10 @@ class OwnerConfigManager:
                 "FEISHU_WEBHOOK_URL": "WEBHOOK_URL",
             }
             config = {internal: db_configs[db] for db, internal in key_mapping.items() if db_configs.get(db)}
-            logger.debug(f"从SystemConfig加载飞书配置: {list(config.keys())}")
+            logger.debug("从SystemConfig加载飞书配置: %s", list(config.keys()))
             return config
         except Exception as e:
-            logger.debug(f"从SystemConfig加载配置失败，回退到settings: {e!s}")
+            logger.debug("从SystemConfig加载配置失败，回退到settings: %s", e)
             return {}
 
     def _load_config(self) -> dict[str, Any]:
@@ -111,14 +111,15 @@ class OwnerConfigManager:
                 config["TIMEOUT"] = 30
 
             logger.debug(
-                f"已加载群主配置: test_mode={config['TEST_MODE']}, "
-                f"validation_enabled={config['OWNER_VALIDATION_ENABLED']}, "
-                f"has_default_owner={bool(config.get('DEFAULT_OWNER_ID'))}"
+                "已加载群主配置: test_mode=%s, validation_enabled=%s, has_default_owner=%s",
+                config["TEST_MODE"],
+                config["OWNER_VALIDATION_ENABLED"],
+                bool(config.get("DEFAULT_OWNER_ID")),
             )
             return config
 
         except (TypeError, ValueError) as e:
-            logger.error(f"加载群主配置失败: {e!s}")
+            logger.error("加载群主配置失败: %s", e)
             raise ConfigurationException(
                 message=f"无法加载群主配置: {e!s}", platform="feishu", errors={"original_error": str(e)}
             ) from e
@@ -138,7 +139,7 @@ class OwnerConfigManager:
         default_owner = self._config.get("DEFAULT_OWNER_ID")
         if default_owner and isinstance(default_owner, str) and default_owner.strip():
             result: str = default_owner.strip()
-            logger.debug(f"使用默认群主ID: {result}")
+            logger.debug("使用默认群主ID: %s", result)
             return result
 
         # 测试环境特殊处理
@@ -146,7 +147,7 @@ class OwnerConfigManager:
             test_owner = self._config.get("TEST_OWNER_ID")
             if test_owner and isinstance(test_owner, str) and test_owner.strip():
                 test_result: str = test_owner.strip()
-                logger.debug(f"从测试环境配置加载默认群主ID: {test_result}")
+                logger.debug("从测试环境配置加载默认群主ID: %s", test_result)
                 return test_result
         logger.debug("未找到默认群主ID配置")
         return None
@@ -165,7 +166,7 @@ class OwnerConfigManager:
             manager = OwnerConfigManager()
             default_owner = manager.get_default_owner_id()
             if default_owner:
-                logger.info(f"默认群主: {default_owner}")
+                logger.info("默认群主: %s", default_owner)
         """
         return self._default_owner_id
 
@@ -199,19 +200,19 @@ class OwnerConfigManager:
             # 如果启用了验证，检查格式
             if self._config.get("OWNER_VALIDATION_ENABLED", True):
                 if self.validate_owner_id(specified_owner):
-                    logger.debug(f"使用指定的群主ID: {specified_owner}")
+                    logger.debug("使用指定的群主ID: %s", specified_owner)
                     return specified_owner
                 else:
-                    logger.warning(f"指定的群主ID格式无效，回退到默认值: {specified_owner}")
+                    logger.warning("指定的群主ID格式无效，回退到默认值: %s", specified_owner)
             else:
                 # 未启用验证，直接使用
-                logger.debug(f"使用指定的群主ID（未验证）: {specified_owner}")
+                logger.debug("使用指定的群主ID（未验证）: %s", specified_owner)
                 return specified_owner
 
         # 优先级2: 使用默认群主ID
         default_owner = self.get_default_owner_id()
         if default_owner:
-            logger.debug(f"使用默认群主ID: {default_owner}")
+            logger.debug("使用默认群主ID: %s", default_owner)
             return default_owner
 
         # 都没有配置
@@ -252,7 +253,7 @@ class OwnerConfigManager:
         is_valid = self.OPEN_ID_PATTERN.match(owner_id) or self.UNION_ID_PATTERN.match(owner_id)
 
         if not is_valid:
-            logger.debug(f"群主ID格式验证失败: {owner_id}")
+            logger.debug("群主ID格式验证失败: %s", owner_id)
 
         return is_valid is not None
 
@@ -275,7 +276,7 @@ class OwnerConfigManager:
             try:
                 manager.validate_owner_id_strict("invalid_id")
             except ValidationException as e:
-                logger.info(f"验证失败: {e.message}")
+                logger.info("验证失败: %s", e.message)
         """
         if not self.validate_owner_id(owner_id):
             raise ValidationException(
@@ -369,7 +370,7 @@ class OwnerConfigManager:
         Example:
             manager = OwnerConfigManager()
             summary = manager.get_config_summary()
-            logger.info(f"配置摘要: {summary}")
+            logger.info("配置摘要: %s", summary)
         """
         return {
             "has_default_owner": bool(self._default_owner_id),
@@ -400,10 +401,10 @@ class OwnerConfigManager:
             self._default_owner_id = self._load_default_owner_id()
 
             logger.info("群主配置重新加载完成")
-            logger.debug(f"配置摘要: {self.get_config_summary()}")
+            logger.debug("配置摘要: %s", self.get_config_summary())
 
         except Exception as e:
-            logger.error(f"重新加载群主配置失败: {e!s}")
+            logger.error("重新加载群主配置失败: %s", e)
             raise ConfigurationException(
                 message=f"重新加载配置失败: {e!s}", platform="feishu", errors={"original_error": str(e)}
             ) from e

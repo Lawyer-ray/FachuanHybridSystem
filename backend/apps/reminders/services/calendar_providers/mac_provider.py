@@ -342,4 +342,5 @@ end tell"""
                 return 2  # Denied
             return 0  # NotDetermined or other error
         except Exception:
+            logger.debug("查询 macOS 日历授权状态失败（已忽略，按未确定处理）", exc_info=True)
             return 0

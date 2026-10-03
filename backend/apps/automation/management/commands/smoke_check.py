@@ -37,18 +37,15 @@ class _DummyAutoNamerService:
 
 
 class _DummyDocumentProcessorService:
-    class _Result:
-        def __init__(self, file_name: str) -> None:
-            self.success = True
-            self.file_info = {"name": file_name}
-            self.extraction = {"text": "ok"}
-            self.processing_params = {}  # type: ignore[var-annotated]
-            self.error = None
-
-    def process_uploaded_file(
+    def process_uploaded_document(
         self, uploaded_file: Any, limit: Any | None = None, preview_page: Any | None = None
-    ) -> None:
-        return self._Result(getattr(uploaded_file, "name", "unknown"))  # type: ignore[return-value]
+    ) -> dict[str, Any]:
+        return {
+            "text": "ok",
+            "image_url": None,
+            "file_name": getattr(uploaded_file, "name", "unknown"),
+            "file_size": getattr(uploaded_file, "size", None),
+        }
 
 
 class Command(BaseCommand):

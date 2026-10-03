@@ -292,7 +292,7 @@ class MockTrialFlowService:
             )
             await self._set_step(ctx.session_id, MockTrialStep.SUMMARY)
         except Exception as e:
-            logger.error(f"法官视角分析失败: {e}", exc_info=True)
+            logger.error("法官视角分析失败: %s", e, exc_info=True)
             await self._send(
                 send_cb,
                 {"type": "error", "message": f"分析失败：{e}", "code": "JUDGE_ANALYSIS_FAILED"},
@@ -399,7 +399,7 @@ class MockTrialFlowService:
             else:
                 await self._finish_cross_exam(ctx, send_cb)
         except Exception as e:
-            logger.error(f"质证分析失败: {e}", exc_info=True)
+            logger.error("质证分析失败: %s", e, exc_info=True)
             await self._send(
                 send_cb,
                 {"type": "error", "message": f"质证分析失败：{e}", "code": "CROSS_EXAM_FAILED"},
@@ -495,7 +495,7 @@ class MockTrialFlowService:
             )
             await self._set_step(ctx.session_id, MockTrialStep.SIMULATION)
         except Exception as e:
-            logger.error(f"争议焦点归纳失败: {e}", exc_info=True)
+            logger.error("争议焦点归纳失败: %s", e, exc_info=True)
             await self._send(
                 send_cb,
                 {"type": "error", "message": f"争议焦点归纳失败：{e}", "code": "FOCUS_ANALYSIS_FAILED"},
@@ -592,7 +592,7 @@ class MockTrialFlowService:
                 "system",
             )
         except Exception as e:
-            logger.error(f"辩论回合失败: {e}", exc_info=True)
+            logger.error("辩论回合失败: %s", e, exc_info=True)
             await self._send(
                 send_cb,
                 {"type": "error", "message": f"辩论回合失败：{e}", "code": "DEBATE_TURN_FAILED"},

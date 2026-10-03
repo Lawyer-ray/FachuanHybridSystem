@@ -10,21 +10,18 @@ from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
+from django.test import override_settings
 
 
 class TestTemplateRegistry:
     def test_get_template_definition_default(self):
-        from apps.pdf_splitting.services.template_registry import (
-            get_template_definition,
-        )
+        from apps.pdf_splitting.services.template_registry import get_template_definition
 
         template = get_template_definition("nonexistent")
         assert template.key == "filing_materials_v1"
 
     def test_get_template_definition_known(self):
-        from apps.pdf_splitting.services.template_registry import (
-            get_template_definition,
-        )
+        from apps.pdf_splitting.services.template_registry import get_template_definition
 
         template = get_template_definition("filing_materials_v1")
         assert template.key == "filing_materials_v1"
@@ -57,23 +54,17 @@ class TestTemplateRegistry:
         assert label == "unknown_type_xyz"
 
     def test_get_default_filename_known(self):
-        from apps.pdf_splitting.services.template_registry import (
-            get_default_filename,
-        )
+        from apps.pdf_splitting.services.template_registry import get_default_filename
 
         assert get_default_filename("complaint") == "起诉状"
 
     def test_get_default_filename_unknown(self):
-        from apps.pdf_splitting.services.template_registry import (
-            get_default_filename,
-        )
+        from apps.pdf_splitting.services.template_registry import get_default_filename
 
         assert get_default_filename("unknown") == "未识别材料"
 
     def test_filing_materials_rules_have_keywords(self):
-        from apps.pdf_splitting.services.template_registry import (
-            FILING_MATERIALS_V1,
-        )
+        from apps.pdf_splitting.services.template_registry import FILING_MATERIALS_V1
 
         for rule in FILING_MATERIALS_V1.rules:
             assert len(rule.strong_keywords) > 0
@@ -147,7 +138,8 @@ class TestPdfSplitStorage:
         from apps.pdf_splitting.services.storage import PdfSplitStorage
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            with patch("django.conf.settings.MEDIA_ROOT", tmpdir):
+            # write_json 走 default_storage；override_settings 使存储后端随 MEDIA_ROOT 重定向
+            with override_settings(MEDIA_ROOT=Path(tmpdir)):
                 storage = PdfSplitStorage("test-json")
                 storage.ensure_dirs()
                 data = {"key": "value", "items": [1, 2, 3]}

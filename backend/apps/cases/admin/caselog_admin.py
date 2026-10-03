@@ -13,7 +13,12 @@ from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
-from apps.cases.admin.base_admin import BaseModelAdmin, BaseTabularInline
+from apps.cases.admin.base_admin import (
+    BaseModelAdmin,
+    BaseTabularInline,
+    apply_case_related_admin_access_filter,
+    get_admin_accessible_case_queryset,
+)
 from apps.cases.models import CaseLog, CaseLogAttachment
 
 
@@ -60,11 +65,8 @@ class CaseLogAdmin(BaseModelAdmin):  # pragma: no cover
 
         from apps.reminders.models import Reminder
 
-        return (
-            super()
-            .get_queryset(request)
-            .prefetch_related(Prefetch("reminders", queryset=Reminder.objects.order_by("due_at", "id")))
-        )
+        qs = apply_case_related_admin_access_filter(request, super().get_queryset(request))
+        return qs.prefetch_related(Prefetch("reminders", queryset=Reminder.objects.order_by("due_at", "id")))
 
     @admin.display(description="案件名称", ordering="case__name")
     def case_link(self, obj: CaseLog) -> str:  # pragma: no cover
@@ -120,8 +122,9 @@ class CaseLogAdmin(BaseModelAdmin):  # pragma: no cover
 
         from apps.contracts.models import Contract
 
+        accessible_cases = get_admin_accessible_case_queryset(request).values("id")
         contracts = (
-            Contract.objects.filter(status="active", cases__isnull=False)
+            Contract.objects.filter(status="active", cases__in=accessible_cases)
             .distinct()
             .order_by("name")
             .values_list("id", "name")
@@ -158,10 +161,11 @@ class CaseLogAdmin(BaseModelAdmin):  # pragma: no cover
         if not contract_id:
             return JsonResponse({"success": False, "message": _("缺少 contract_id")}, status=400)
 
-        from apps.cases.models import Case
-
         cases = (
-            Case.objects.filter(contract_id=contract_id).order_by("name").values("id", "name", "status", "start_date")
+            get_admin_accessible_case_queryset(request)
+            .filter(contract_id=contract_id)
+            .order_by("name")
+            .values("id", "name", "status", "start_date")
         )
         case_list = []
         for c in cases:
@@ -192,11 +196,10 @@ class CaseLogAdmin(BaseModelAdmin):  # pragma: no cover
 
         limit = min(int(payload.get("limit", 30)), 50)
 
-        from apps.cases.models import Case
         from apps.cases.services.case.repo.case_search_query_builder import CaseSearchQueryBuilder
 
         builder = CaseSearchQueryBuilder()
-        qs = Case.objects.all()
+        qs = get_admin_accessible_case_queryset(request)
         qs = builder.build_case_search_queryset(qs, query, status=None, limit=limit)
         cases = list(qs.values("id", "name", "status", "start_date"))
         case_list = [
@@ -228,6 +231,17 @@ class CaseLogAdmin(BaseModelAdmin):  # pragma: no cover
             return JsonResponse({"success": False, "message": _("请至少选择一个案件")}, status=400)
         if not content:
             return JsonResponse({"success": False, "message": _("日志内容不能为空")}, status=400)
+
+        # 行级案件校验：所选拼案件必须全部在当前用户可访问范围内
+        try:
+            requested_case_ids = {int(case_id) for case_id in case_ids}
+        except (TypeError, ValueError):
+            return JsonResponse({"success": False, "message": _("案件 ID 不合法")}, status=400)
+        accessible_case_ids = set(
+            get_admin_accessible_case_queryset(request).filter(id__in=requested_case_ids).values_list("id", flat=True)
+        )
+        if requested_case_ids != accessible_case_ids:
+            return JsonResponse({"success": False, "message": _("无权限为所选案件添加日志")}, status=403)
 
         user_id = getattr(request.user, "id", None)
         with transaction.atomic():

@@ -51,7 +51,7 @@ class EvidenceTextExtractionService:
             png_bytes = pix.tobytes("png")
             return (ocr.recognize_bytes(png_bytes) or "").strip()
         except Exception as e:
-            logger.warning(f"OCR 失败: {e}", exc_info=True)
+            logger.warning("OCR 失败: %s", e, exc_info=True)
             return ""
 
     async def aextract_chunks(

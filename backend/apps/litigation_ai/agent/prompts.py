@@ -135,7 +135,7 @@ def _load_prompt_from_db(document_type: str | None = None) -> str | None:
         return None
 
     except Exception as e:
-        logger.warning(f"从数据库加载提示词失败: {e}")
+        logger.warning("从数据库加载提示词失败: %s", e)
         return None
 
 

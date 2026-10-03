@@ -727,7 +727,7 @@ def _get_db_learned_rules(archive_category: str) -> list[tuple[str, str]]:
             _DB_RULES_CACHE = new_cache
             _DB_RULES_CACHE_LOADED_AT = now
         except (OSError, RuntimeError):
-            pass
+            logger.debug("刷新归档分类规则缓存失败（已忽略，沿用旧缓存）", exc_info=True)
 
     return _DB_RULES_CACHE.get(archive_category, [])
 

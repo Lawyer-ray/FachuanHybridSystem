@@ -29,6 +29,17 @@ logger = logging.getLogger(__name__)
 _MAX_LLM_OCR_CHARS = 1800
 _MAX_LLM_OCR_LINES = 80
 
+# PII 日志脱敏：18 位身份证号（前 3 后 2 保留，中间掩码）与截断长度
+_ID_NUMBER_LOG_RE = re.compile(r"\d{17}[\dXx]")
+_PII_LOG_MAX_CHARS = 200
+
+
+def _sanitize_pii_for_log(text: str) -> str:
+    """日志脱敏：掩码 18 位身份证号并截断（安全审计：OCR/LLM 内容含 PII 禁止明文 INFO）。"""
+    masked = _ID_NUMBER_LOG_RE.sub(lambda m: f"{m.group()[:3]}{'*' * 13}{m.group()[-2:]}", text)
+    return masked[:_PII_LOG_MAX_CHARS]
+
+
 # 身份证号校验位（ISO 7064 MOD 11-2）
 _ID_CARD_WEIGHTS = (7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2)
 _ID_CARD_CHECK_CODES = "10X98765432"
@@ -906,7 +917,7 @@ class IdentityExtractionService:
         try:
             llm_text = self._prepare_text_for_llm(raw_text)
             logger.info("发送 LLM 前 OCR 文本清洗完成: 原始长度=%d, 清洗后长度=%d", len(raw_text), len(llm_text))
-            logger.info("发送 LLM 前 OCR 清洗后文本内容:\n%s", llm_text)
+            logger.debug("发送 LLM 前 OCR 清洗后文本内容(脱敏截断): %s", _sanitize_pii_for_log(llm_text))
 
             prompt = get_prompt_for_doc_type(doc_type, llm_text)
             # 推理模型需要更多 token（reasoning + output），普通模型 512 足够
@@ -931,11 +942,11 @@ class IdentityExtractionService:
                 think=False,
                 fallback=True,
             )
-            logger.info(
-                "LLM 响应详情: backend=%s, model=%s, content=%r, prompt_tokens=%s, completion_tokens=%s",
+            logger.debug(
+                "LLM 响应详情(内容脱敏截断): backend=%s, model=%s, content=%s, prompt_tokens=%s, completion_tokens=%s",
                 llm_resp.backend,
                 llm_resp.model,
-                llm_resp.content,
+                _sanitize_pii_for_log(str(llm_resp.content)),
                 llm_resp.prompt_tokens,
                 llm_resp.completion_tokens,
             )

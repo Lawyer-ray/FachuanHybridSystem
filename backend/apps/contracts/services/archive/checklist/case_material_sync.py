@@ -9,6 +9,9 @@ from typing import Any
 
 from apps.contracts.models import Contract
 from apps.contracts.models.finalized_material import FinalizedMaterial, MaterialCategory
+from apps.core.exceptions import ValidationException
+from apps.core.filesystem.upload_paths import MediaEntity
+from apps.core.services.storage_service import to_media_abs
 
 from ..category_mapping import get_archive_category
 from ..constants import ARCHIVE_CHECKLIST, ARCHIVE_SUBITEM_ORDER_RULES, CASE_MATERIAL_KEYWORD_MAPPING
@@ -27,11 +30,9 @@ def _convert_to_pdf_if_needed(
     转换成功后原文件被删除，返回新的 (rel_path, safe_name)。
     转换失败时保留原文件，graceful degradation。
     """
-    from django.conf import settings as django_settings
-
     from apps.documents.services.infrastructure.pdf_merge_utils import resolve_material_to_temp_pdf
 
-    abs_path = Path(django_settings.MEDIA_ROOT) / rel_path
+    abs_path = to_media_abs(rel_path)
     if not abs_path.exists():
         return rel_path, safe_name
 
@@ -49,7 +50,7 @@ def _convert_to_pdf_if_needed(
         try:
             abs_path.unlink()
         except OSError:
-            pass
+            logger.debug("转PDF后删除原文件失败（已忽略）: path=%s", abs_path, exc_info=True)
 
         new_rel = rel_path.rsplit(".", 1)[0] + ".pdf"
         new_name = safe_name.rsplit(".", 1)[0] + ".pdf" if "." in safe_name else safe_name + ".pdf"
@@ -73,7 +74,7 @@ def _convert_to_pdf_if_needed(
         try:
             pdf_path.unlink(missing_ok=True)
         except OSError:
-            pass
+            logger.debug("清理转PDF临时文件失败（已忽略）: path=%s", pdf_path, exc_info=True)
         return rel_path, safe_name
 
 
@@ -111,8 +112,14 @@ def get_case_material_match_map(
     all_matched_material_ids: set[int] = set()
     all_unmatched: list[dict[str, Any]] = []
 
+    # 一次查询批量取回全部案件的材料，再按案件分组，消除逐案查询
+    case_ids = [c.id for c in cases]
+    materials_by_case: dict[int, list[Any]] = {}
+    for cm in CaseMaterial.objects.filter(case_id__in=case_ids).only("id", "type_name", "category", "case_id"):
+        materials_by_case.setdefault(cm.case_id, []).append(cm)
+
     for case in cases:
-        case_materials = list(CaseMaterial.objects.filter(case=case).only("id", "type_name", "category"))
+        case_materials = materials_by_case.get(case.id, [])
 
         case_matches: list[dict[str, Any]] = []
         case_code_to_material_ids: dict[str, list[int]] = {}
@@ -190,12 +197,23 @@ def _collect_matching_materials(
     code_to_case_materials: dict[str, list[Any]] = {}
     case_id_for_code: dict[str, int] = {}
 
-    for case in cases:
-        case_materials = list(
-            CaseMaterial.objects.filter(case=case)
-            .select_related("source_attachment")
-            .only("id", "type_name", "category", "source_attachment_id", "source_attachment__file", "case_id")
-        )
+    cases_list = list(cases)
+    case_ids = [c.id for c in cases_list]
+    if not case_ids:
+        return code_to_case_materials, case_id_for_code
+
+    # 一次查询批量取回全部案件的材料，再按案件分组，消除逐案查询
+    materials_by_case: dict[int, list[Any]] = {}
+    materials = (
+        CaseMaterial.objects.filter(case_id__in=case_ids)
+        .select_related("source_attachment")
+        .only("id", "type_name", "category", "source_attachment_id", "source_attachment__file", "case_id")
+    )
+    for cm in materials:
+        materials_by_case.setdefault(cm.case_id, []).append(cm)
+
+    for case in cases_list:
+        case_materials = materials_by_case.get(case.id, [])
         for cm in case_materials:
             matched_code = match_type_name_to_code(cm.type_name, keyword_map)
             if not matched_code or matched_code not in case_source_items:
@@ -304,8 +322,6 @@ def reset_and_resync_case_materials(
     archive_item_codes: list[str] | None = None,
 ) -> dict[str, Any]:  # pragma: no cover
     """重置并重新同步案件材料到归档。"""
-    from django.conf import settings as django_settings
-
     archive_category = get_archive_category(contract.case_type)
     checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
     case_source_items = {item["code"]: item for item in checklist_items if item["source"] == "case"}
@@ -337,23 +353,27 @@ def reset_and_resync_case_materials(
     )
 
     deleted_files: list[str] = []
-    media_root = Path(django_settings.MEDIA_ROOT)
 
     for mat in materials_to_delete:
-        if mat.file_path:
-            abs_file = media_root / mat.file_path
-            if abs_file.exists():
-                try:
-                    abs_file.unlink()
-                    deleted_files.append(mat.file_path)
-                    logger.info(
-                        "重置同步：删除归档文件 %s (material_id=%s, code=%s)",
-                        mat.file_path,
-                        mat.id,
-                        mat.archive_item_code,
-                    )
-                except OSError as e:
-                    logger.warning("重置同步：删除归档文件失败 %s: %s", mat.file_path, e)
+        if not mat.file_path:
+            continue
+        try:
+            abs_file = to_media_abs(mat.file_path)
+        except ValidationException as e:
+            logger.warning("重置同步：归档文件路径无效 %s: %s", mat.file_path, e.message)
+            continue
+        if abs_file.exists():
+            try:
+                abs_file.unlink()
+                deleted_files.append(mat.file_path)
+                logger.info(
+                    "重置同步：删除归档文件 %s (material_id=%s, code=%s)",
+                    mat.file_path,
+                    mat.id,
+                    mat.archive_item_code,
+                )
+            except OSError as e:
+                logger.warning("重置同步：删除归档文件失败 %s: %s", mat.file_path, e)
 
     deleted_count = len(materials_to_delete)
     mat_ids = [m.id for m in materials_to_delete]
@@ -395,7 +415,7 @@ def upload_material_to_archive_item(
 
     rel_path, safe_name = storage.save_uploaded_file(
         uploaded_file=uploaded_file,
-        rel_dir=f"contracts/finalized/{contract.id}",
+        rel_dir=f"{MediaEntity.CONTRACT_FINALIZED}/{contract.id}",
         allowed_extensions=[".pdf", ".docx", ".doc", ".jpg", ".jpeg", ".png", ".xlsx", ".xls"],
         max_size_bytes=50 * 1024 * 1024,
     )
@@ -438,8 +458,6 @@ def _copy_case_material_to_finalized(
     archive_item_code: str,
 ) -> FinalizedMaterial | None:  # pragma: no cover
     """将 CaseMaterial 的附件文件复制为 FinalizedMaterial。"""
-    from django.conf import settings as django_settings
-
     attachment = case_material.source_attachment
     if not attachment:
         return None
@@ -449,7 +467,11 @@ def _copy_case_material_to_finalized(
     if not file_path:
         return None
 
-    abs_path = Path(django_settings.MEDIA_ROOT) / file_path
+    try:
+        abs_path = to_media_abs(file_path)
+    except ValidationException as e:
+        logger.warning("案件材料文件路径无效: %s (%s)", file_path, e.message)
+        return None
     if not abs_path.exists():
         logger.warning("案件材料文件不存在: %s", abs_path)
         return None
@@ -463,7 +485,7 @@ def _copy_case_material_to_finalized(
 
     rel_path, safe_name = storage.save_uploaded_file(
         uploaded_file=ContentFile(file_content, name=original_filename),
-        rel_dir=f"contracts/finalized/{contract.id}",
+        rel_dir=f"{MediaEntity.CONTRACT_FINALIZED}/{contract.id}",
         allowed_extensions=[".docx", ".pdf", ".doc", ".jpg", ".jpeg", ".png", ".xlsx", ".xls"],
         max_size_bytes=50 * 1024 * 1024,
     )

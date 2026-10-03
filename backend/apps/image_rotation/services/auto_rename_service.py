@@ -153,7 +153,7 @@ class AutoRenameService:
                 raw_amount=data.get("raw_amount"),
             )
         except json.JSONDecodeError:
-            logger.warning(f"JSON 解析失败,尝试正则提取: {response_text[:200]}")
+            logger.warning("JSON 解析失败,尝试正则提取: %s", response_text[:200])
             return self._fallback_regex_extraction(response_text)
 
     def _normalize_date(self, date_str: str) -> str | None | None:
@@ -183,7 +183,7 @@ class AutoRenameService:
             year_prefix = "20" if int(digits_only[:2]) < 50 else "19"
             return year_prefix + digits_only
 
-        logger.warning(f"日期格式无法标准化: {date_str} -> {digits_only}")
+        logger.warning("日期格式无法标准化: %s -> %s", date_str, digits_only)
         return None
 
     def _extract_json_block(self, text: str) -> str:
@@ -391,7 +391,7 @@ class AutoRenameService:
             )
         except Exception as e:
             # 处理异常:返回失败的建议,使用原文件名
-            logger.warning(f"重命名建议生成失败: {original_filename}, 错误: {e}")
+            logger.warning("重命名建议生成失败: %s, 错误: %s", original_filename, e)
             return RenameSuggestion(
                 original_filename=original_filename,
                 suggested_filename=original_filename,

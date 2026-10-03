@@ -151,8 +151,8 @@ class TestStoryAnimationJobServiceExtended:
 
 
     def test_build_preview_payload(self):
-        from apps.story_viz.services.job_service import StoryAnimationJobService
         from apps.story_viz.models import StoryAnimationStatus
+        from apps.story_viz.services.job_service import StoryAnimationJobService
         svc = StoryAnimationJobService()
         animation = MagicMock()
         animation.id = "test-id"
@@ -161,3 +161,85 @@ class TestStoryAnimationJobServiceExtended:
         payload = svc.build_preview_payload(animation=animation)
         assert payload["has_html"] is True
         assert payload["animation_html"] == "<html>test</html>"
+
+
+# ---------------------------------------------------------------------------
+# Ownership & XSS hardening (security audit IDOR/XSS)
+# ---------------------------------------------------------------------------
+
+class TestGetAnimationOwnership:
+    """get_animation 归属校验：非 owner 且非 superuser 只能看到本人创建的任务"""
+
+    @pytest.mark.django_db
+    def test_non_owner_gets_not_found(self, law_firm):
+        from apps.core.exceptions import NotFoundError
+        from apps.story_viz.models import StoryAnimation
+        from apps.story_viz.services.job_service import StoryAnimationJobService
+        from apps.testing.factories import LawyerFactory
+
+        owner = LawyerFactory(username="svz_owner", law_firm=law_firm)
+        other = LawyerFactory(username="svz_other", law_firm=law_firm)
+        animation = StoryAnimation.objects.create(
+            source_title="测试标题",
+            source_text="测试正文",
+            viz_type="timeline",
+            created_by=owner,
+        )
+
+        svc = StoryAnimationJobService()
+        assert svc.get_animation(animation_id=str(animation.id), user=owner).id == animation.id
+        with pytest.raises(NotFoundError):
+            svc.get_animation(animation_id=str(animation.id), user=other)
+
+    @pytest.mark.django_db
+    def test_superuser_sees_all(self, law_firm):
+        from apps.story_viz.models import StoryAnimation
+        from apps.story_viz.services.job_service import StoryAnimationJobService
+        from apps.testing.factories import LawyerFactory
+
+        owner = LawyerFactory(username="svz_owner2", law_firm=law_firm)
+        admin = LawyerFactory(username="svz_admin", law_firm=law_firm, is_superuser=True)
+        animation = StoryAnimation.objects.create(
+            source_title="测试标题",
+            source_text="测试正文",
+            viz_type="timeline",
+            created_by=owner,
+        )
+
+        svc = StoryAnimationJobService()
+        assert svc.get_animation(animation_id=str(animation.id), user=admin).id == animation.id
+
+
+class TestSvgFragmentBlacklist:
+    def test_unsafe_tokens_rejected(self):
+        from apps.story_viz.services.svg_fragment_generator_service import _is_unsafe_fragment
+
+        for lowered in (
+            "<script>alert(1)</script>",
+            "<iframe src='x'></iframe>",
+            "<foreignobject>body</foreignobject>",
+            "<embed src='x'>",
+            "<object data='x'></object>",
+            "<a href='javascript:alert(1)'>x</a>",
+            "<g onload='alert(1)'></g>",
+            "<g onload = 'alert(1)'></g>",
+            "<g onanimationend='alert(1)'></g>",
+        ):
+            assert _is_unsafe_fragment(lowered), lowered
+
+    def test_safe_fragment_accepted(self):
+        from apps.story_viz.services.svg_fragment_generator_service import _is_unsafe_fragment
+
+        assert not _is_unsafe_fragment("<circle cx='0' cy='0' r='8' fill='red' />")
+        assert not _is_unsafe_fragment("<path d='m0 0 l10 10' stroke='#38bdf8' />")
+
+
+class TestHtmlComposerSafeJson:
+    def test_safe_json_escapes_angle_brackets(self):
+        from apps.story_viz.services.html_composer_service import _safe_json
+
+        out = _safe_json({"label": "</script><script>alert(1)</script>"})
+        assert "<" not in out
+        assert ">" not in out
+        assert "\\u003c" in out
+        assert "\\u003e" in out

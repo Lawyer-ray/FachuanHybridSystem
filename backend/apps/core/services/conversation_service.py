@@ -114,11 +114,13 @@ class ConversationService:  # pragma: no cover
         return self._memory
 
     def _load_history_from_db(self) -> None:  # pragma: no cover
-        """从数据库加载对话历史到会话记忆"""
+        """从数据库加载对话历史到会话记忆（按 user_id 收敛，防止跨用户读取他人会话）"""
         if self._memory is None:
             return
 
-        history = self._repository.get_by_session_id(self.session_id).order_by("created_at")[:20]
+        history = self._repository.get_by_session_id(self.session_id, user_id=self.user_id or None).order_by(
+            "created_at"
+        )[:20]
 
         for record in history:
             if record.role == "user":
@@ -296,7 +298,9 @@ class ConversationService:  # pragma: no cover
 
         history = [
             (record.role, record.content)
-            async for record in self._repository.get_by_session_id(self.session_id).order_by("created_at")[:20]
+            async for record in self._repository.get_by_session_id(
+                self.session_id, user_id=self.user_id or None
+            ).order_by("created_at")[:20]
         ]
 
         for role, content in history:
@@ -353,17 +357,17 @@ class ConversationService:  # pragma: no cover
         return f"对话轮数: {len(user_messages)}, 最近用户消息: {user_messages[-1][:50] if user_messages else '无'}..."
 
     def clear_history(self) -> None:  # pragma: no cover
-        """清除对话历史"""
+        """清除对话历史（仅清除当前用户在该会话下的记录）"""
         # 清除数据库记录
-        self._repository.delete_by_session_id(self.session_id)
+        self._repository.delete_by_session_id(self.session_id, user_id=self.user_id or None)
 
         # 清除会话记忆
         if self._memory:
             self._memory.clear()
 
     async def aclear_history(self) -> None:  # pragma: no cover
-        """异步清除对话历史"""
-        await self._repository.adelete_by_session_id(self.session_id)
+        """异步清除对话历史（仅清除当前用户在该会话下的记录）"""
+        await self._repository.adelete_by_session_id(self.session_id, user_id=self.user_id or None)
 
         # 清除会话记忆
         if self._memory:
@@ -379,7 +383,11 @@ class ConversationService:  # pragma: no cover
         Returns:
             对话记录列表
         """
-        return list(self._repository.get_by_session_id(self.session_id).order_by("-created_at")[:limit])
+        return list(
+            self._repository.get_by_session_id(self.session_id, user_id=self.user_id or None).order_by("-created_at")[
+                :limit
+            ]
+        )
 
     def chat_with_context(self, user_message: str, system_prompt: str | None = None) -> str:  # pragma: no cover
         """

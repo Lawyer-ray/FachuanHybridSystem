@@ -25,6 +25,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager, contextmanager
 from typing import TYPE_CHECKING, Any
@@ -38,6 +39,8 @@ if TYPE_CHECKING:
     from playwright.async_api import BrowserContext as AsyncBrowserContext
     from playwright.async_api import Page as AsyncPage
     from playwright.sync_api import BrowserContext, Page
+
+logger = logging.getLogger(__name__)
 
 
 @contextmanager
@@ -165,15 +168,15 @@ async def create_browser_async(  # pragma: no cover
             try:
                 await page.close()
             except Exception:
-                pass
+                logger.debug("关闭浏览器页面失败（已忽略）", exc_info=True)
             try:
                 await context.close()
             except Exception:
-                pass
+                logger.debug("关闭浏览器上下文失败（已忽略）", exc_info=True)
             try:
                 await browser.close()
             except Exception:
-                pass
+                logger.debug("关闭浏览器实例失败（已忽略）", exc_info=True)
 
 
 __all__ = [

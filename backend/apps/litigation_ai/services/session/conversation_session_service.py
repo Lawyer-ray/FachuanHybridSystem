@@ -52,8 +52,8 @@ class LitigationConversationSessionService:
     def create_session(self, case_id: int, user_id: int | None = None, session_type: str | None = None) -> SessionDTO:
         return self._lifecycle.create_session(case_id, user_id, session_type=session_type)
 
-    def get_session(self, session_id: str) -> SessionDTO:
-        return self._lifecycle.get_session(session_id)
+    def get_session(self, session_id: str, *, user: Any | None = None) -> SessionDTO:
+        return self._lifecycle.get_session(session_id, user=user)
 
     def update_session_status(
         self, session_id: str, status: str, metadata_updates: dict[str, Any] | None = None

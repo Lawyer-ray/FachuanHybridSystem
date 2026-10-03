@@ -113,7 +113,7 @@ class MonitorService:
             stuck_tasks = self.task_service.get_stuck_tasks(timeout)
 
         if stuck_tasks.exists():
-            logger.warning(f"发现 {stuck_tasks.count()} 个卡住的任务")
+            logger.warning("发现 %s 个卡住的任务", stuck_tasks.count())
 
         return list(stuck_tasks)
 
@@ -167,7 +167,7 @@ class MonitorService:
 
             if failure_rate >= threshold:
                 high_failure[task_type] = failure_rate
-                logger.warning(f"任务类型 {task_type} 失败率过高: {failure_rate:.1%} ({failed}/{total})")
+                logger.warning("任务类型 %s 失败率过高: %.1f%% (%s/%s)", task_type, (failure_rate * 100), failed, total)
 
         return high_failure
 

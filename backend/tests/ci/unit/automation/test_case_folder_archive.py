@@ -79,7 +79,18 @@ class TestCaseFolderArchiveService:
     def test_get_bound_dir_not_exists(self, MockBinding: MagicMock) -> None:
         svc = self._make_service()
         binding = MagicMock()
+        binding.storage_type = "local"
         binding.resolved_folder_path = "/nonexistent/path"
+        MockBinding.objects.filter.return_value.first.return_value = binding
+        assert svc._get_bound_case_root(1) is None
+
+    @patch("apps.automation.services.sms.case_folder_archive_service.CaseFolderBinding")
+    def test_get_bound_cloud_storage_skipped(self, MockBinding: MagicMock) -> None:
+        """云存储绑定应显式跳过（非静默）."""
+        svc = self._make_service()
+        binding = MagicMock()
+        binding.storage_type = "webdav"
+        binding.resolved_folder_path = "/some/cloud/path"
         MockBinding.objects.filter.return_value.first.return_value = binding
         assert svc._get_bound_case_root(1) is None
 
@@ -88,6 +99,7 @@ class TestCaseFolderArchiveService:
         svc = self._make_service()
         with tempfile.TemporaryDirectory() as tmpdir:
             binding = MagicMock()
+            binding.storage_type = "local"
             binding.resolved_folder_path = tmpdir
             MockBinding.objects.filter.return_value.first.return_value = binding
             result = svc._get_bound_case_root(1)
@@ -333,19 +345,41 @@ class TestCaseFolderArchiveService:
             count = svc._copy_documents(archive_folder, ["/nonexistent/file.pdf"])
             assert count == 0
 
-    # ─── _ensure_unique_file_path ───
-
-    def test_ensure_unique_file_path_no_conflict(self) -> None:
+    def test_copy_documents_name_conflict_gets_unique_suffix(self) -> None:
+        """目标文件重名时应自动加序号后缀而非覆盖."""
         svc = self._make_service()
         with tempfile.TemporaryDirectory() as tmpdir:
-            target = Path(tmpdir) / "file.pdf"
-            result = svc._ensure_unique_file_path(target)
-            assert result == target
+            archive_folder = Path(tmpdir) / "archive"
+            archive_folder.mkdir()
+            (archive_folder / "test.pdf").write_bytes(b"first")
+            src = Path(tmpdir) / "test.pdf"
+            src.write_bytes(b"second")
 
-    def test_ensure_unique_file_path_conflict(self) -> None:
+            count = svc._copy_documents(archive_folder, [str(src)])
+
+            assert count == 1
+            assert (archive_folder / "test.pdf").read_bytes() == b"first"
+            assert (archive_folder / "test_1.pdf").read_bytes() == b"second"
+
+    def test_copy_documents_relative_media_path(self) -> None:
+        """media 相对路径的源文件应正确解析后复制."""
+        from django.conf import settings as django_settings
+
         svc = self._make_service()
         with tempfile.TemporaryDirectory() as tmpdir:
-            target = Path(tmpdir) / "file.pdf"
-            target.write_bytes(b"first")
-            result = svc._ensure_unique_file_path(target)
-            assert result.name == "file_2.pdf"
+            archive_folder = Path(tmpdir) / "archive"
+            archive_folder.mkdir()
+
+            media_root = Path(tmpdir) / "media_root"
+            src_dir = media_root / "case_logs_rel_test"
+            src_dir.mkdir(parents=True)
+            (src_dir / "src.pdf").write_bytes(b"rel content")
+
+            old_media_root = django_settings.MEDIA_ROOT
+            django_settings.MEDIA_ROOT = str(media_root)
+            try:
+                count = svc._copy_documents(archive_folder, ["case_logs_rel_test/src.pdf"])
+                assert count == 1
+                assert (archive_folder / "src.pdf").read_bytes() == b"rel content"
+            finally:
+                django_settings.MEDIA_ROOT = old_media_root

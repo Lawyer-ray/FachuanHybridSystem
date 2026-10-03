@@ -11,7 +11,6 @@ import pytest
 
 from apps.core.exceptions import AuthenticationError, ForbiddenError, PermissionDenied
 
-
 # ============================================================
 # access_context.py
 # ============================================================
@@ -98,9 +97,14 @@ class TestAuthzUserMixin:
         user = SimpleNamespace(is_superuser=True, is_staff=False)
         assert self.mixin.is_superuser(user) is True
 
-    def test_is_superuser_via_is_staff(self) -> None:
-        user = SimpleNamespace(is_superuser=False, is_staff=True)
+    def test_is_superuser_via_is_admin(self) -> None:
+        user = SimpleNamespace(is_superuser=False, is_staff=False, is_admin=True)
         assert self.mixin.is_superuser(user) is True
+
+    def test_is_superuser_staff_only_rejected(self) -> None:
+        """2026Q4 审计收紧：仅 is_staff（Django admin 准入）不再视为管理员."""
+        user = SimpleNamespace(is_superuser=False, is_staff=True, is_admin=False)
+        assert self.mixin.is_superuser(user) is False
 
     def test_is_superuser_false(self) -> None:
         user = SimpleNamespace(is_superuser=False, is_staff=False)
@@ -167,6 +171,12 @@ class TestDjangoPermsMixin:
 
     def test_ensure_admin_fail(self) -> None:
         user = SimpleNamespace(is_authenticated=True, is_superuser=False, is_staff=False, is_admin=False)
+        with pytest.raises(ForbiddenError):
+            self.mixin.ensure_admin(user)
+
+    def test_ensure_admin_rejects_staff_only(self) -> None:
+        """2026Q4 审计收紧回归：is_staff=True 且 is_admin=False 的用户不能通过 ensure_admin."""
+        user = SimpleNamespace(is_authenticated=True, is_superuser=False, is_staff=True, is_admin=False)
         with pytest.raises(ForbiddenError):
             self.mixin.ensure_admin(user)
 
@@ -284,10 +294,11 @@ class TestAdminAccess:
         assert is_admin_user(user) is True
 
     def test_is_admin_user_staff(self) -> None:
+        """2026Q4 审计收紧：仅 is_staff（Django admin 准入）不再视为管理员."""
         from apps.core.security.admin_access import is_admin_user
 
         user = SimpleNamespace(is_admin=False, is_superuser=False, is_staff=True)
-        assert is_admin_user(user) is True
+        assert is_admin_user(user) is False
 
     def test_is_admin_user_admin_attr(self) -> None:
         from apps.core.security.admin_access import is_admin_user
@@ -320,6 +331,15 @@ class TestAdminAccess:
         request = SimpleNamespace(user=user, auth=None)
         with pytest.raises(PermissionDenied):
             ensure_admin_request(request)
+
+    def test_ensure_admin_request_rejects_staff_only(self) -> None:
+        """2026Q4 审计收紧回归：is_staff=True 且 is_admin=False 的用户不能通过 ensure_admin_request."""
+        from apps.core.security.admin_access import ensure_admin_request
+
+        user = SimpleNamespace(is_authenticated=True, is_admin=False, is_superuser=False, is_staff=True)
+        request = SimpleNamespace(user=user, auth=None)
+        with pytest.raises(PermissionDenied):
+            ensure_admin_request(request)  # type: ignore[arg-type]
 
     def test_apply_admin_access_filter(self) -> None:
         from apps.core.security.admin_access import apply_admin_access_filter

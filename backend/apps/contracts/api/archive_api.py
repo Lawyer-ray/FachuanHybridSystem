@@ -149,8 +149,11 @@ class LearnRulesOut(Schema):
 
 @router.post("/archive/learn-rules", response=LearnRulesOut)
 async def learn_archive_rules(request: HttpRequest) -> Any:  # pragma: no cover
-    """从已归档材料中学习分类规则（全局操作）"""
+    """从已归档材料中学习分类规则（全局操作，仅管理员）"""
     from apps.contracts.services.archive.learning_service import ArchiveLearningService
+    from apps.core.security.admin_access import ensure_admin_request
+
+    ensure_admin_request(request, message="仅管理员可执行归档规则学习", code="PERMISSION_DENIED")
 
     try:
         service = ArchiveLearningService()

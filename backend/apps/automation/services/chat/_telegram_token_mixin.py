@@ -27,6 +27,8 @@ from typing import Any
 
 from apps.core.exceptions import ConfigurationException
 
+from ._common import load_db_category_config, normalize_provider_config
+
 logger = logging.getLogger(__name__)
 
 
@@ -42,22 +44,14 @@ class TelegramTokenMixin:  # pragma: no cover
 
     def _load_config_from_db(self) -> dict[str, Any]:  # pragma: no cover
         """从 SystemConfig 加载 Telegram 配置"""
-        try:
-            from apps.core.config.utils import get_telegram_category_configs
-
-            db_configs = get_telegram_category_configs()
-            if not db_configs:
-                return {}
-            key_mapping = {
+        return load_db_category_config(
+            "get_telegram_category_configs",
+            {
                 "chat_platforms.telegram.bot_token": "BOT_TOKEN",
                 "chat_platforms.telegram.supergroup_id": "SUPERGROUP_ID",
-            }
-            config = {internal: db_configs[db] for db, internal in key_mapping.items() if db_configs.get(db)}
-            logger.debug(f"从 SystemConfig 加载 Telegram 配置: {list(config.keys())}")
-            return config
-        except Exception as e:
-            logger.debug(f"从 SystemConfig 加载配置失败: {e!s}")
-            return {}
+            },
+            " Telegram ",
+        )
 
     def _load_config(self) -> dict[str, Any]:  # pragma: no cover
         """加载 Telegram 配置"""
@@ -73,25 +67,17 @@ class TelegramTokenMixin:  # pragma: no cover
                     "请预先创建一个开启论坛功能的超级群组，并将群组 ID 配置到 TELEGRAM_SUPERGROUP_ID"
                 )
 
-            config.setdefault("TIMEOUT", 30)
-            try:
-                config["TIMEOUT"] = int(config["TIMEOUT"])
-            except (ValueError, TypeError):
-                config["TIMEOUT"] = 30
-
             # SUPERGROUP_ID 需要转为 int（Telegram chat_id 是整数）
             if config.get("SUPERGROUP_ID"):
                 try:
                     config["SUPERGROUP_ID"] = int(config["SUPERGROUP_ID"])
                 except (ValueError, TypeError):
-                    logger.warning(f"TELEGRAM_SUPERGROUP_ID 无法转为整数: {config['SUPERGROUP_ID']}")
+                    logger.warning("TELEGRAM_SUPERGROUP_ID 无法转为整数: %s", config["SUPERGROUP_ID"])
 
-            filtered_config = {k: v for k, v in config.items() if v is not None and v != ""}
-            logger.debug(f"最终 Telegram 配置: {list(filtered_config.keys())}")
-            return filtered_config
+            return normalize_provider_config(config, " Telegram ")
 
         except (TypeError, ValueError) as e:
-            logger.error(f"加载 Telegram 配置失败: {e!s}")
+            logger.error("加载 Telegram 配置失败: %s", e)
             raise ConfigurationException(
                 message=f"无法加载 Telegram 配置: {e!s}", platform="telegram", errors={"original_error": str(e)}
             ) from e
@@ -100,7 +86,7 @@ class TelegramTokenMixin:  # pragma: no cover
         """检查平台是否可用（至少需要 bot_token + supergroup_id）"""
         for config_key in ["BOT_TOKEN", "SUPERGROUP_ID"]:
             if not self.config.get(config_key):
-                logger.debug(f"Telegram 配置缺失: {config_key}")
+                logger.debug("Telegram 配置缺失: %s", config_key)
                 return False
         return True
 

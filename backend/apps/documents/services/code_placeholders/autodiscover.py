@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 def autodiscover_code_placeholders() -> list[str]:
     imported: list[str] = []
 
-    for app_config in django_apps.get_app_configs():
+    # 按应用名排序后枚举,保证各应用占位符包的注册顺序确定
+    for app_config in sorted(django_apps.get_app_configs(), key=lambda config: config.name):
         placeholders_pkg_name = app_config.name + ".placeholders"
         try:
             importlib.import_module(placeholders_pkg_name)

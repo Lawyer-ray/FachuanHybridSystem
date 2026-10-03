@@ -42,6 +42,7 @@ async def _wait_captcha_success(
             if done:
                 return True
         except Exception:
+            logger.debug("检测验证码通过状态失败（已忽略）", exc_info=True)
             return False
     return False
 
@@ -55,28 +56,31 @@ async def _click_company_detail(page: Any, company_name: str, context: Any) -> A
     """
     await asyncio.sleep(2)
 
-    link_info = await page.evaluate(f"""(() => {{
-        const items = document.querySelectorAll('a.search_list_item');
-        for (const item of items) {{
-            const h1 = item.querySelector('h1');
-            if (!h1) continue;
-            const name = h1.innerText.trim();
-            if (name === '{company_name}' || name.includes('{company_name}')) {{
-                return {{ href: item.href, name: name }};
-            }}
-        }}
-        const normalized = '{company_name}'.replace(/[()（）\\s]/g, '');
-        for (const item of items) {{
-            const h1 = item.querySelector('h1');
-            if (!h1) continue;
-            const name = h1.innerText.trim();
-            const normName = name.replace(/[()（）\\s]/g, '');
-            if (normName.includes(normalized) || normalized.includes(normName)) {{
-                return {{ href: item.href, name: name }};
-            }}
-        }}
-        return null;
-    }})()""")
+    link_info = await page.evaluate(
+        """(keyword) => {
+            const items = document.querySelectorAll('a.search_list_item');
+            for (const item of items) {
+                const h1 = item.querySelector('h1');
+                if (!h1) continue;
+                const name = h1.innerText.trim();
+                if (name === keyword || name.includes(keyword)) {
+                    return { href: item.href, name: name };
+                }
+            }
+            const normalized = keyword.replace(/[()（）\\s]/g, '');
+            for (const item of items) {
+                const h1 = item.querySelector('h1');
+                if (!h1) continue;
+                const name = h1.innerText.trim();
+                const normName = name.replace(/[()（）\\s]/g, '');
+                if (normName.includes(normalized) || normalized.includes(normName)) {
+                    return { href: item.href, name: name };
+                }
+            }
+            return null;
+        }""",
+        company_name,
+    )
 
     if not link_info:
         raise GsxtReportError(f"搜索结果中未找到企业：{company_name}")
@@ -92,30 +96,33 @@ async def _click_company_detail(page: Any, company_name: str, context: Any) -> A
     context.on("page", _on_new_page)
 
     try:
-        clicked = await page.evaluate(f"""(() => {{
-            const items = document.querySelectorAll('a.search_list_item');
-            for (const item of items) {{
-                const h1 = item.querySelector('h1');
-                if (!h1) continue;
-                const name = h1.innerText.trim();
-                if (name === '{company_name}' || name.includes('{company_name}')) {{
-                    item.click();
-                    return true;
-                }}
-            }}
-            const normalized = '{company_name}'.replace(/[()（）\\s]/g, '');
-            for (const item of items) {{
-                const h1 = item.querySelector('h1');
-                if (!h1) continue;
-                const name = h1.innerText.trim();
-                const normName = name.replace(/[()（）\\s]/g, '');
-                if (normName.includes(normalized) || normalized.includes(normName)) {{
-                    item.click();
-                    return true;
-                }}
-            }}
-            return false;
-        }})()""")
+        clicked = await page.evaluate(
+            """(keyword) => {
+                const items = document.querySelectorAll('a.search_list_item');
+                for (const item of items) {
+                    const h1 = item.querySelector('h1');
+                    if (!h1) continue;
+                    const name = h1.innerText.trim();
+                    if (name === keyword || name.includes(keyword)) {
+                        item.click();
+                        return true;
+                    }
+                }
+                const normalized = keyword.replace(/[()（）\\s]/g, '');
+                for (const item of items) {
+                    const h1 = item.querySelector('h1');
+                    if (!h1) continue;
+                    const name = h1.innerText.trim();
+                    const normName = name.replace(/[()（）\\s]/g, '');
+                    if (normName.includes(normalized) || normalized.includes(normName)) {
+                        item.click();
+                        return true;
+                    }
+                }
+                return false;
+            }""",
+            company_name,
+        )
         if clicked:
             await asyncio.sleep(8)
         else:
@@ -135,6 +142,7 @@ async def _click_company_detail(page: Any, company_name: str, context: Any) -> A
         try:
             await new_page.wait_for_load_state("domcontentloaded", timeout=30000)
         except Exception:
+            logger.debug("等待新标签页加载状态超时（已忽略）", exc_info=True)
             pass
         return new_page
 
@@ -146,9 +154,11 @@ async def _click_company_detail(page: Any, company_name: str, context: Any) -> A
                     try:
                         await p.wait_for_load_state("domcontentloaded", timeout=30000)
                     except Exception:
+                        logger.debug("等待候选页面加载状态超时（已忽略）", exc_info=True)
                         pass
                     return p
             except Exception:
+                logger.debug("读取候选页面 URL 失败（已忽略）", exc_info=True)
                 continue
         await asyncio.sleep(2)
 
@@ -198,6 +208,7 @@ async def _run_full_flow(task_id: int) -> None:  # pragma: no cover
                     if "corp-query-search-1" in page.url:
                         break
                 except Exception:
+                    logger.debug("读取搜索结果页 URL 失败（已忽略）", exc_info=True)
                     pass
 
             task.error_message = "已找到搜索结果，正在进入详情页"

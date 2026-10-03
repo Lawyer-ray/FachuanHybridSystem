@@ -40,7 +40,7 @@ def _register_providers() -> None:
         import logging
 
         logger = logging.getLogger(__name__)
-        logger.warning(f"无法导入飞书群聊提供者: {e!s}")
+        logger.warning("无法导入飞书群聊提供者: %s", e)
 
     # 注册企业微信提供者
     try:
@@ -52,7 +52,7 @@ def _register_providers() -> None:
         import logging
 
         logger = logging.getLogger(__name__)
-        logger.warning(f"无法导入企业微信群聊提供者: {e!s}")
+        logger.warning("无法导入企业微信群聊提供者: %s", e)
 
     # 注册钉钉提供者
     try:
@@ -64,7 +64,7 @@ def _register_providers() -> None:
         import logging
 
         logger = logging.getLogger(__name__)
-        logger.warning(f"无法导入钉钉群聊提供者: {e!s}")
+        logger.warning("无法导入钉钉群聊提供者: %s", e)
 
     # 注册 Telegram 提供者
     try:
@@ -76,7 +76,7 @@ def _register_providers() -> None:
         import logging
 
         logger = logging.getLogger(__name__)
-        logger.warning(f"无法导入 Telegram 群聊提供者: {e!s}")
+        logger.warning("无法导入 Telegram 群聊提供者: %s", e)
 
 
 # 模块导入时自动注册提供者（避免重复注册）

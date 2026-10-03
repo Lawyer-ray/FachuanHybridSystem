@@ -75,7 +75,7 @@ class SMSNotificationService:
         """
         if not sms.case:
             error_msg = "短信未绑定案件，无法发送群聊通知"
-            logger.warning(f"{error_msg}: SMS ID={sms.id}")
+            logger.warning("%s: SMS ID=%s", error_msg, sms.id)
             return MultiPlatformNotificationResult(
                 attempts=[
                     PlatformNotificationResult(
@@ -90,7 +90,7 @@ class SMSNotificationService:
         available_platforms = self._get_available_platforms()
         if not available_platforms:
             error_msg = "没有可用的群聊平台"
-            logger.warning(f"{error_msg}: SMS ID={sms.id}")
+            logger.warning("%s: SMS ID=%s", error_msg, sms.id)
             return MultiPlatformNotificationResult(
                 attempts=[
                     PlatformNotificationResult(
@@ -102,9 +102,10 @@ class SMSNotificationService:
             )
 
         logger.info(
-            f"开始多平台群聊通知: SMS ID={sms.id}, "
-            f"Case ID={sms.case.id}, "
-            f"可用平台={[p.value for p in available_platforms]}"
+            "开始多平台群聊通知: SMS ID=%s, Case ID=%s, 可用平台=%s",
+            sms.id,
+            sms.case.id,
+            [p.value for p in available_platforms],
         )
 
         # 顺序扇出
@@ -118,19 +119,20 @@ class SMSNotificationService:
             result.attempts.append(platform_result)
 
             if platform_result.success:
-                logger.info(f"平台 {platform.value} 通知成功: SMS ID={sms.id}, Chat ID={platform_result.chat_id}")
+                logger.info("平台 %s 通知成功: SMS ID=%s, Chat ID=%s", platform.value, sms.id, platform_result.chat_id)
             else:
-                logger.warning(f"平台 {platform.value} 通知失败: SMS ID={sms.id}, 错误={platform_result.error}")
+                logger.warning("平台 %s 通知失败: SMS ID=%s, 错误=%s", platform.value, sms.id, platform_result.error)
 
         # 汇总日志
         if result.any_success:
             logger.info(
-                f"多平台通知完成（有成功）: SMS ID={sms.id}, "
-                f"成功平台={result.successful_platforms}, "
-                f"失败平台={result.failed_platforms}"
+                "多平台通知完成（有成功）: SMS ID=%s, 成功平台=%s, 失败平台=%s",
+                sms.id,
+                result.successful_platforms,
+                result.failed_platforms,
             )
         else:
-            logger.error(f"多平台通知全部失败: SMS ID={sms.id}, 失败平台={result.failed_platforms}")
+            logger.error("多平台通知全部失败: SMS ID=%s, 失败平台=%s", sms.id, result.failed_platforms)
 
         return result
 
@@ -161,10 +163,10 @@ class SMSNotificationService:
                     platform=platform,
                 )
                 chat_id = getattr(chat, "chat_id", None)
-                logger.info(f"获取或创建群聊成功: SMS ID={sms.id}, Platform={platform.value}, Chat ID={chat_id}")
+                logger.info("获取或创建群聊成功: SMS ID=%s, Platform=%s, Chat ID=%s", sms.id, platform.value, chat_id)
             except Exception as e:
                 error_msg = f"获取或创建群聊失败: {e!s}"
-                logger.error(f"{error_msg}: SMS ID={sms.id}, Platform={platform.value}")
+                logger.error("%s: SMS ID=%s, Platform=%s", error_msg, sms.id, platform.value)
                 return PlatformNotificationResult(
                     platform=platform.value,
                     success=False,
@@ -204,7 +206,7 @@ class SMSNotificationService:
 
             except Exception as e:
                 error_msg = f"发送通知异常: {e!s}"
-                logger.error(f"{error_msg}: SMS ID={sms.id}, Platform={platform.value}, Chat ID={chat_id}")
+                logger.error("%s: SMS ID=%s, Platform=%s, Chat ID=%s", error_msg, sms.id, platform.value, chat_id)
                 return PlatformNotificationResult(
                     platform=platform.value,
                     success=False,
@@ -215,7 +217,7 @@ class SMSNotificationService:
 
         except Exception as e:
             error_msg = f"平台通知处理失败: {e!s}"
-            logger.error(f"{error_msg}: SMS ID={sms.id}, Platform={platform.value}")
+            logger.error("%s: SMS ID=%s, Platform=%s", error_msg, sms.id, platform.value)
             return PlatformNotificationResult(
                 platform=platform.value,
                 success=False,
@@ -230,7 +232,7 @@ class SMSNotificationService:
 
             return list(ChatProviderFactory.get_available_platforms())
         except Exception as e:
-            logger.warning(f"获取可用平台失败，回退到飞书: {e!s}")
+            logger.warning("获取可用平台失败，回退到飞书: %s", e)
             return [ChatPlatform.FEISHU]
 
     async def asend_case_chat_notification(
@@ -250,7 +252,7 @@ class SMSNotificationService:
         """
         if not sms.case:
             error_msg = "短信未绑定案件，无法发送群聊通知"
-            logger.warning(f"{error_msg}: SMS ID={sms.id}")
+            logger.warning("%s: SMS ID=%s", error_msg, sms.id)
             return MultiPlatformNotificationResult(
                 attempts=[
                     PlatformNotificationResult(
@@ -265,7 +267,7 @@ class SMSNotificationService:
         available_platforms = self._get_available_platforms()
         if not available_platforms:
             error_msg = "没有可用的群聊平台"
-            logger.warning(f"{error_msg}: SMS ID={sms.id}")
+            logger.warning("%s: SMS ID=%s", error_msg, sms.id)
             return MultiPlatformNotificationResult(
                 attempts=[
                     PlatformNotificationResult(
@@ -277,9 +279,10 @@ class SMSNotificationService:
             )
 
         logger.info(
-            f"开始异步多平台群聊通知: SMS ID={sms.id}, "
-            f"Case ID={sms.case.id}, "
-            f"可用平台={[p.value for p in available_platforms]}"
+            "开始异步多平台群聊通知: SMS ID=%s, Case ID=%s, 可用平台=%s",
+            sms.id,
+            sms.case.id,
+            [p.value for p in available_platforms],
         )
 
         # 并行扇出：所有平台同时发送
@@ -298,7 +301,7 @@ class SMSNotificationService:
         for platform, platform_result in zip(available_platforms, platform_results):
             if isinstance(platform_result, BaseException):
                 # gather 中某个 task 抛了未捕获异常
-                logger.error(f"平台 {platform.value} 通知异常: {platform_result}")
+                logger.error("平台 %s 通知异常: %s", platform.value, platform_result)
                 platform_result = PlatformNotificationResult(
                     platform=platform.value,
                     success=False,
@@ -307,19 +310,20 @@ class SMSNotificationService:
             result.attempts.append(platform_result)
 
             if platform_result.success:
-                logger.info(f"平台 {platform.value} 通知成功: SMS ID={sms.id}, Chat ID={platform_result.chat_id}")
+                logger.info("平台 %s 通知成功: SMS ID=%s, Chat ID=%s", platform.value, sms.id, platform_result.chat_id)
             else:
-                logger.warning(f"平台 {platform.value} 通知失败: SMS ID={sms.id}, 错误={platform_result.error}")
+                logger.warning("平台 %s 通知失败: SMS ID=%s, 错误=%s", platform.value, sms.id, platform_result.error)
 
         # 汇总日志
         if result.any_success:
             logger.info(
-                f"异步多平台通知完成（有成功）: SMS ID={sms.id}, "
-                f"成功平台={result.successful_platforms}, "
-                f"失败平台={result.failed_platforms}"
+                "异步多平台通知完成（有成功）: SMS ID=%s, 成功平台=%s, 失败平台=%s",
+                sms.id,
+                result.successful_platforms,
+                result.failed_platforms,
             )
         else:
-            logger.error(f"异步多平台通知全部失败: SMS ID={sms.id}, 失败平台={result.failed_platforms}")
+            logger.error("异步多平台通知全部失败: SMS ID=%s, 失败平台=%s", sms.id, result.failed_platforms)
 
         return result
 

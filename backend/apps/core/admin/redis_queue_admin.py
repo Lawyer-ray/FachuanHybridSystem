@@ -66,6 +66,12 @@ class RedisQueueAdmin(admin.ModelAdmin):  # pragma: no cover
     # ---- 主视图 ----
 
     def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:
+        # 覆写 changelist_view 绕过了 Django 默认的权限门禁，这里显式补回
+        if not self.has_view_permission(request):
+            from django.core.exceptions import PermissionDenied
+
+            raise PermissionDenied
+
         if not is_redis_broker():
             messages.warning(request, _("当前未使用 Valkey 作为任务队列，此功能不可用。"))
             return HttpResponseRedirect("/admin/")

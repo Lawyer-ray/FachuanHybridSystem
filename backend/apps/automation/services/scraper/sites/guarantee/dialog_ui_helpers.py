@@ -33,7 +33,7 @@ class GuaranteeDialogUIHelpersMixin:  # pragma: no cover
             if existing_rows == 0:
                 return
 
-            logger.info(f"gTwo已有{existing_rows}行数据，尝试清理")
+            logger.info("gTwo已有%s行数据，尝试清理", existing_rows)
 
             for _ in range(existing_rows + 2):
                 delete_btn = (
@@ -61,10 +61,10 @@ class GuaranteeDialogUIHelpersMixin:  # pragma: no cover
                 return document.querySelectorAll('.el-table__body-wrapper .el-table__row').length;
             }""")
             result["existing_rows_after_clear"] = remaining
-            logger.info(f"gTwo数据清理完成，剩余{remaining}行")
+            logger.info("gTwo数据清理完成，剩余%s行", remaining)
 
         except Exception as exc:
-            logger.info(f"gTwo数据清理异常（非致命）: {exc}")
+            logger.info("gTwo数据清理异常（非致命）: %s", exc)
 
     def _click_add_button(self, index: int) -> bool:  # pragma: no cover
         add_buttons = self.page.locator("xpath=//*[contains(normalize-space(text()),'添加')]")
@@ -75,6 +75,7 @@ class GuaranteeDialogUIHelpersMixin:  # pragma: no cover
                 if candidate.is_visible():
                     visible_indices.append(i)
             except Exception:
+                logger.debug("探测添加按钮可见性失败（已忽略）", exc_info=True)
                 continue
 
         if len(visible_indices) <= index:
@@ -89,6 +90,7 @@ class GuaranteeDialogUIHelpersMixin:  # pragma: no cover
                 button.click(force=True, timeout=3000)
                 return True
             except Exception:
+                logger.debug("点击添加按钮失败（已忽略）", exc_info=True)
                 return False
 
     def _click_add_button_by_section_keywords(self, keywords: list[str]) -> bool:  # pragma: no cover

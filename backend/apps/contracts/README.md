@@ -52,7 +52,7 @@ contracts/
 | 端点组 | 说明 |
 |--------|------|
 | `/contracts` CRUD + `/contracts/full`、`/{id}/lawyers`、`/{id}/parties`、`/all-parties` | 合同与当事人 |
-| `/finance/payments` CRUD + `/finance/stats` | 收款与统计 |
+| `/finance/payments` CRUD + `/finance/stats` | 收款与统计（按合同访问范围过滤：管理员全量，普通律师仅可见自己可访问的合同） |
 | `/supplementary-agreements` CRUD | 补充协议 |
 | `/{id}/folder-binding`、`/folder-browse`、`/cloud-storage-accounts`、`/{id}/folder-scan*` | 文件夹 |
 | `/{id}/archive/*` | checklist、generate-folder、scale-to-a4、sync-case-materials、confirm、upload、materials 管理、download、learn-rules |

@@ -11,10 +11,13 @@ from django.contrib import admin, messages
 from django.db.models import Q, QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import path, reverse
+from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 
+from apps.core.exceptions import ValidationException
 from apps.core.interfaces import ServiceLocator
+from apps.core.services.storage_service import to_media_abs
 from apps.legal_research.models import CaseDownloadFormat, CaseDownloadResult, CaseDownloadStatus, CaseDownloadTask
 from apps.legal_research.services.task.case_download_service import CaseDownloadService
 
@@ -101,6 +104,22 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     inlines: ClassVar[list[type[admin.TabularInline]]] = [CaseDownloadResultInline]
     actions: ClassVar[list[str]] = ["download_as_zip", "retry_failed"]
 
+    def get_queryset(self, request):  # pragma: no cover
+        """律所隔离：非 superuser 仅可见本所（创建人/凭证归属）的任务。"""
+        return self._filter_law_firm(request, super().get_queryset(request))
+
+    @staticmethod
+    def _filter_law_firm(request, qs):  # pragma: no cover
+        user = getattr(request, "user", None)
+        if getattr(user, "is_superuser", False):
+            return qs
+        law_firm_id = getattr(user, "law_firm_id", None)
+        if law_firm_id is None:
+            return qs.none()
+        return qs.filter(
+            Q(created_by__law_firm_id=law_firm_id) | Q(credential__lawyer__law_firm_id=law_firm_id)
+        ).distinct()
+
     def get_urls(self):  # type: ignore[override]  # pragma: no cover
         urls = super().get_urls()
         opts = self.model._meta
@@ -126,7 +145,9 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return super().has_add_permission(request) and self._is_feature_available()
 
-    def add_view(self, request: HttpRequest, form_url: str = "", extra_context: dict[str, Any] | None = None):  # pragma: no cover
+    def add_view(
+        self, request: HttpRequest, form_url: str = "", extra_context: dict[str, Any] | None = None
+    ):  # pragma: no cover
         if not self._is_feature_available():
             messages.error(
                 request, "功能未启用：请接入私有 wk API，或在代码中开启 LEGAL_RESEARCH_ADMIN_FEATURE_ENABLED。"
@@ -226,6 +247,7 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):  # pragma: no cover
 
             return api_optional.get_private_weike_api() is not None
         except Exception:
+            logger.debug("探测私有威科 API 可用性失败（已忽略）", exc_info=True)
             return False
 
     def save_model(self, request, obj: CaseDownloadTask, form, change) -> None:  # type: ignore[override]  # pragma: no cover
@@ -297,29 +319,21 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             try:
                 Path(zip_path).unlink(missing_ok=True)
             except (OSError, ValueError):
+                logger.debug("清理临时 ZIP 文件失败（已忽略）", exc_info=True)
                 pass
             return
 
-        # 多个任务打包
-        import zipfile
-        from datetime import datetime
+        # 多个任务打包（复用 service 统一实现）
+        zip_path, msg = CaseDownloadService.download_tasks_as_zip(task_ids=[obj.id for obj in queryset])
+        if zip_path is None:
+            messages.error(request, msg)
+            return
+
         from pathlib import Path
 
-        from django.conf import settings
+        from django.http import FileResponse
 
-        zip_filename = f"案例下载_批量_{datetime.now().strftime('%Y%m%d%H%M%S')}.zip"
-        zip_path = Path(settings.MEDIA_ROOT) / "legal_research" / "case_download" / zip_filename
-
-        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            for obj in queryset:
-                results = obj.results.filter(status="success")
-                for result in results:
-                    file_path = Path(result.file_path)
-                    if file_path.exists():
-                        safe_name = result.case_number.replace("(", "").replace(")", "").replace(" ", "_")
-                        ext = file_path.suffix.lstrip(".")
-                        zf.write(file_path, f"{obj.id}/{safe_name}.{ext}")
-
+        zip_filename = f"案例下载_批量_{timezone.now().strftime('%Y%m%d%H%M%S')}.zip"
         response: HttpResponse = FileResponse(
             open(zip_path, "rb"),
             as_attachment=True,
@@ -328,6 +342,7 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         try:
             Path(zip_path).unlink(missing_ok=True)
         except (OSError, ValueError):
+            logger.debug("清理临时 ZIP 文件失败（已忽略）", exc_info=True)
             pass
         return
 
@@ -389,6 +404,10 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         return mark_safe("&nbsp;".join(buttons))
 
     def download_zip_view(self, request, object_id) -> HttpResponse:  # pragma: no cover
+        if not self.has_change_permission(request):
+            messages.error(request, "无权限执行该操作")
+            return HttpResponseRedirect(reverse("admin:legal_research_casedownloadtask_changelist"))
+
         obj = self.get_object(request, object_id)
         if obj is None:
             messages.error(request, "任务不存在")
@@ -411,10 +430,15 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         try:
             Path(zip_path).unlink(missing_ok=True)
         except (OSError, ValueError):
+            logger.debug("清理临时 ZIP 文件失败（已忽略）", exc_info=True)
             pass
         return response
 
     def retry_view(self, request, object_id) -> HttpResponse:  # pragma: no cover
+        if not self.has_change_permission(request):
+            messages.error(request, "无权限执行该操作")
+            return HttpResponseRedirect(reverse("admin:legal_research_casedownloadtask_changelist"))
+
         obj = self.get_object(request, object_id)
         if obj is None:
             messages.error(request, "任务不存在")
@@ -453,23 +477,35 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         return HttpResponseRedirect(reverse("admin:legal_research_casedownloadtask_changelist"))
 
     def result_download_view(self, request: HttpRequest, object_id: str) -> HttpResponse:  # pragma: no cover
+        if not self.has_change_permission(request):
+            messages.error(request, "无权限执行该操作")
+            return HttpResponseRedirect(reverse("admin:legal_research_casedownloadtask_changelist"))
+
         try:
             result = CaseDownloadResult.objects.select_related("task").get(pk=object_id)
         except CaseDownloadResult.DoesNotExist:
             messages.error(request, "下载结果不存在")
             return HttpResponseRedirect(reverse("admin:legal_research_casedownloadtask_changelist"))
 
-        file_path = result.file_path
-        from pathlib import Path
+        # 律所隔离：结果所属任务必须在当前用户可见范围内
+        if not self.get_queryset(request).filter(pk=result.task_id).exists():
+            messages.error(request, "下载结果不存在")
+            return HttpResponseRedirect(reverse("admin:legal_research_casedownloadtask_changelist"))
 
-        if not Path(file_path).exists():
+        file_path = result.file_path
+        try:
+            abs_path = to_media_abs(file_path)
+        except ValidationException:
+            abs_path = None
+
+        if abs_path is None or not abs_path.exists():
             messages.error(request, "文件不存在")
             return HttpResponseRedirect(reverse("admin:legal_research_casedownloadtask_change", args=[result.task_id]))
 
         from django.http import FileResponse
 
         return FileResponse(
-            open(file_path, "rb"),
+            open(abs_path, "rb"),
             as_attachment=True,
             filename=f"{result.case_number}.{result.file_format}",
         )

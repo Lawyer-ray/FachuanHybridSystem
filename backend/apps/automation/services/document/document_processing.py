@@ -1,4 +1,6 @@
 import logging
+import os
+import tempfile
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,23 +16,6 @@ from docx import Document
 
 def get_doc_config() -> dict[str, int]:
     """获取文档处理配置"""
-    from django.conf import settings
-
-    # 尝试使用统一配置管理器
-    try:
-        if getattr(settings, "CONFIG_MANAGER_AVAILABLE", False):
-            get_unified_config = getattr(settings, "get_unified_config", None)
-            if get_unified_config:
-                return {
-                    "DEFAULT_TEXT_LIMIT": get_unified_config("features.document_processing.default_text_limit", 1500),
-                    "DEFAULT_PREVIEW_PAGE": get_unified_config("features.document_processing.default_preview_page", 1),
-                    "MAX_TEXT_LIMIT": get_unified_config("features.document_processing.max_text_limit", 10000),
-                    "MAX_PREVIEW_PAGES": get_unified_config("features.document_processing.max_preview_pages", 5),
-                }
-    except Exception:
-        pass  # 回退到传统方式
-
-    # 回退到传统配置方式
     return getattr(
         settings,
         "DOCUMENT_PROCESSING",
@@ -93,11 +78,6 @@ def render_pdf_page_to_image(file_path: str, page_num: int = 0) -> str:  # pragm
         out_path = out_dir / out_name
         pix.save(out_path.as_posix())
         return f"{settings.MEDIA_URL}automation/processed/{out_name}"
-
-
-def render_pdf_first_page_to_image(file_path: str) -> str:
-    """保持向后兼容性的函数"""
-    return render_pdf_page_to_image(file_path, page_num=0)
 
 
 def extract_docx_text(file_path: str, limit: int | None = None) -> str:
@@ -166,6 +146,7 @@ def _apply_pdf_limits(limit: int | None, preview_page: int | None, config: dict[
 
 def _ocr_pdf_page(file_path: str, page_num_1based: int, limit: int) -> str | None:  # pragma: no cover
     """将 PDF 指定页 OCR，返回文字或 None"""
+    temp_path: Path | None = None
     try:
         p = Path(file_path)
         with fitz.open(p) as doc:
@@ -173,19 +154,21 @@ def _ocr_pdf_page(file_path: str, page_num_1based: int, limit: int) -> str | Non
             page = doc.load_page(page_num)
             pix = page.get_pixmap()
 
-            temp_dir = Path(settings.MEDIA_ROOT) / "automation" / "processed"
-            temp_dir.mkdir(parents=True, exist_ok=True)
-            temp_path = temp_dir / f"temp_{uuid.uuid4().hex}_page{page_num + 1}.png"
+            # 临时调试产物不入 media，落系统 tempfile 目录，finally 统一清理
+            fd, temp_name = tempfile.mkstemp(prefix="ocr_page_", suffix=f"_page{page_num + 1}.png")
+            os.close(fd)
+            temp_path = Path(temp_name)
             pix.save(temp_path.as_posix())
 
             ocr_text = extract_text_from_image_with_rapidocr(temp_path.as_posix())
-            temp_path.relative_to(Path(settings.MEDIA_ROOT))  # 边界检查
-            temp_path.unlink(missing_ok=True)
 
-            if ocr_text.strip():
-                return ocr_text[:limit]
+        if ocr_text.strip():
+            return ocr_text[:limit]
     except Exception as e:
-        logger.info(f"OCR处理PDF失败: {e}")
+        logger.info("OCR处理PDF失败: %s", e)
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
     return None
 
 
@@ -218,10 +201,10 @@ class DocumentExtraction:
 
 def save_uploaded_document(upload: UploadedFile) -> Path:  # pragma: no cover
     """保存上传文档（委托给 storage_service）。"""
-    from apps.core.services.storage_service import save_uploaded_file
+    from apps.core.services.storage_service import save_uploaded_file, to_media_abs
 
     rel_path, _ = save_uploaded_file(upload, rel_dir="automation/uploads")
-    return Path(settings.MEDIA_ROOT) / rel_path
+    return to_media_abs(rel_path)
 
 
 def extract_document_content(

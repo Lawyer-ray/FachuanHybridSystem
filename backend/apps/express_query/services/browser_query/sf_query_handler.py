@@ -101,6 +101,7 @@ async def _dismiss_sf_overlays(page: Page) -> None:  # pragma: no cover
             await page.keyboard.press("Escape")
             await asyncio.sleep(0.3)
         except Exception:
+            logger.debug("按 Esc 键关闭弹窗失败（已忽略）", exc_info=True)
             pass
 
         try:
@@ -112,6 +113,7 @@ async def _dismiss_sf_overlays(page: Page) -> None:  # pragma: no cover
                 closed_any = True
                 continue
         except Exception:
+            logger.debug("点击下一步引导按钮失败（已忽略）", exc_info=True)
             pass
 
         try:
@@ -122,6 +124,7 @@ async def _dismiss_sf_overlays(page: Page) -> None:  # pragma: no cover
                 await asyncio.sleep(0.8)
                 closed_any = True
         except Exception:
+            logger.debug("点击同意按钮失败（已忽略）", exc_info=True)
             pass
 
         for selector in close_selectors:
@@ -161,8 +164,10 @@ async def _dismiss_sf_overlays(page: Page) -> None:  # pragma: no cover
                     await asyncio.sleep(0.5)
                     closed_any = True
                 except Exception:
+                    logger.debug("点击弹窗角标失败（已忽略）", exc_info=True)
                     pass
         except Exception:
+            logger.debug("定位弹窗关闭角标失败（已忽略）", exc_info=True)
             pass
 
         try:
@@ -179,6 +184,7 @@ async def _dismiss_sf_overlays(page: Page) -> None:  # pragma: no cover
                     });
                 }""")
         except Exception:
+            logger.debug("解除遮罩样式失败（已忽略）", exc_info=True)
             pass
 
         if not closed_any:
@@ -248,6 +254,7 @@ async def _open_sf_waybill_detail(page: Page, tracking_number: str) -> None:  # 
                     await asyncio.sleep(2)
                     detail_opened = True
             except Exception:
+                logger.debug("通过 DOM 搜索点击详情失败（已忽略）", exc_info=True)
                 pass
 
         if detail_opened:
@@ -273,6 +280,7 @@ async def _open_sf_waybill_detail(page: Page, tracking_number: str) -> None:  # 
                     logger.info("  Detail confirmed: %s", selector)
                     return
             except Exception:
+                logger.debug("探测详情页选择器失败（已忽略）", exc_info=True)
                 pass
 
         await asyncio.sleep(1)

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any
 
 from django.conf import settings
@@ -48,9 +47,11 @@ class ClientPaymentImageService:
             ValidationException: 文件格式或大小不符合要求
         """
         try:
+            from apps.core.filesystem.upload_paths import MediaEntity
+
             rel_path, _ = storage.save_uploaded_file(
                 uploaded_file=uploaded_file,
-                rel_dir=f"contracts/client_payments/{record_id}",
+                rel_dir=f"{MediaEntity.CONTRACT_CLIENT_PAYMENTS}/{record_id}",
                 allowed_extensions=self.ALLOWED_EXTENSIONS,
                 max_size_bytes=self.MAX_FILE_SIZE,
             )

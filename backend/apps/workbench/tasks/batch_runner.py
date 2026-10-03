@@ -38,7 +38,7 @@ async def _cancel_watcher(job_id: UUID, cancel_event: asyncio.Event) -> None:  #
                 cancel_event.set()
                 return
         except Exception:
-            pass
+            logger.debug("检查批量任务取消标志失败（已忽略，继续监视）: job=%s", job_id, exc_info=True)
         await asyncio.sleep(2)
 
 

@@ -45,6 +45,7 @@ class PlaywrightInvoiceMixin:
             try:
                 asyncio.run(playwright.stop())
             except Exception:
+                logger.debug("清理 Playwright 资源失败（已忽略）", exc_info=True)
                 pass
 
         browser.on("disconnected", _cleanup)
@@ -85,16 +86,19 @@ class PlaywrightInvoiceMixin:
             if oa_case_number:
                 logger.info("输入案件编号: %s", oa_case_number)
                 case_input_id = _CASE_NO_INPUT.lstrip("#")
-                await page.evaluate(f"""() => {{
-                    const el = document.getElementById("{case_input_id}");
-                    if (el) {{
-                        el.removeAttribute('readonly');
-                        el.removeAttribute('disabled');
-                        el.value = '{oa_case_number}';
-                        el.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                        el.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                    }}
-                }}""")
+                await page.evaluate(
+                    """({ inputId, value }) => {
+                        const el = document.getElementById(inputId);
+                        if (el) {
+                            el.removeAttribute('readonly');
+                            el.removeAttribute('disabled');
+                            el.value = value;
+                            el.dispatchEvent(new Event('input', { bubbles: true }));
+                            el.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                    }""",
+                    {"inputId": case_input_id, "value": oa_case_number},
+                )
                 await asyncio.sleep(_SHORT_WAIT)
 
                 # ── 点击查找 ──

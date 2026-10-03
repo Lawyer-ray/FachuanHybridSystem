@@ -216,6 +216,7 @@ async def llm_options(request: HttpRequest) -> dict[str, Any]:  # pragma: no cov
                 "models_error": model_result.error_message,
             }
         except Exception:
+            logger.debug("探测 openai_compatible 后端可用性失败（已忽略，不展示该后端）", exc_info=True)
             return None
 
     jobs: list[Any] = []

@@ -112,6 +112,22 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     ]
     actions: ClassVar[list[str]] = ["mark_as_missed_case_feedback"]
 
+    def get_queryset(self, request):  # pragma: no cover
+        """律所隔离：非 superuser 仅可见本所（创建人/凭证归属）的任务。"""
+        return self._filter_law_firm(request, super().get_queryset(request))
+
+    @staticmethod
+    def _filter_law_firm(request, qs):  # pragma: no cover
+        user = getattr(request, "user", None)
+        if getattr(user, "is_superuser", False):
+            return qs
+        law_firm_id = getattr(user, "law_firm_id", None)
+        if law_firm_id is None:
+            return qs.none()
+        return qs.filter(
+            Q(created_by__law_firm_id=law_firm_id) | Q(credential__lawyer__law_firm_id=law_firm_id)
+        ).distinct()
+
     def get_object(self, request, object_id, from_field=None):  # type: ignore[override]  # pragma: no cover
         obj = super().get_object(request, object_id, from_field=from_field)
         if obj is None:
@@ -183,7 +199,9 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return super().has_add_permission(request) and self._is_feature_available()
 
-    def add_view(self, request: HttpRequest, form_url: str = "", extra_context: dict[str, Any] | None = None):  # pragma: no cover
+    def add_view(
+        self, request: HttpRequest, form_url: str = "", extra_context: dict[str, Any] | None = None
+    ):  # pragma: no cover
         if not self._is_feature_available():
             messages.error(
                 request, "功能未启用：请接入私有 wk API，或在代码中开启 LEGAL_RESEARCH_ADMIN_FEATURE_ENABLED。"
@@ -299,10 +317,6 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
                 date_to_field.widget.attrs["placeholder"] = "例如：2024-12-31"
 
     @staticmethod
-    def _configure_search_field_field(*, form: type[forms.ModelForm]) -> None:  # pragma: no cover
-        pass  # 已废弃，保留避免调用报错
-
-    @staticmethod
     def _configure_search_url_field(*, form: type[forms.ModelForm]) -> None:  # pragma: no cover
         search_url_field = form.base_fields.get("search_url")
         if search_url_field is None:
@@ -407,7 +421,9 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         return qs.order_by("-last_login_success_at", "-login_success_count", "login_failure_count", "-id")
 
     @classmethod
-    def _filter_private_api_visual_fields(cls, fields: list[str], *, obj: LegalResearchTask | None = None) -> list[str]:  # pragma: no cover
+    def _filter_private_api_visual_fields(
+        cls, fields: list[str], *, obj: LegalResearchTask | None = None
+    ) -> list[str]:  # pragma: no cover
         if cls._should_show_private_api_visuals(obj=obj):
             return fields
         return [name for name in fields if not str(name).startswith(cls.PRIVATE_API_VISUAL_FIELD_PREFIX)]
@@ -433,6 +449,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
 
             return api_optional.get_private_weike_api() is not None
         except Exception:
+            logger.debug("探测私有威科 API 可用性失败（已忽略）", exc_info=True)
             return False
 
     @staticmethod

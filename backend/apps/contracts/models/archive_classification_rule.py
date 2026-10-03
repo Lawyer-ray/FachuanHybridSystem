@@ -60,9 +60,6 @@ class ArchiveClassificationRule(models.Model):
         verbose_name = "归档分类学习规则"
         verbose_name_plural = "归档分类学习规则"
         unique_together: ClassVar = [("archive_category", "filename_keyword")]
-        indexes: ClassVar = [
-            models.Index(fields=["archive_category", "filename_keyword"]),
-        ]
 
     def __str__(self) -> str:
         return f"{self.archive_category}::{self.filename_keyword} → {self.archive_item_code}"

@@ -8,22 +8,21 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from apps.workflow.api.workflow_api import (
-    start_workflow_api,
-    list_workflows_api,
-    get_workflow_detail_api,
     approve_workflow_api,
     cancel_workflow_api,
-    delete_workflow_api,
-    get_steps_registry,
-    get_steps_flat,
-    list_templates,
     create_template,
-    get_template,
-    update_template,
     delete_template,
+    delete_workflow_api,
     duplicate_template,
+    get_steps_flat,
+    get_steps_registry,
+    get_template,
+    get_workflow_detail_api,
+    list_templates,
+    list_workflows_api,
+    start_workflow_api,
+    update_template,
 )
-
 
 # ── start_workflow_api ────────────────────────────────────────────────────────
 
@@ -33,12 +32,21 @@ async def test_start_workflow_api():
     payload.template_slug = "test-slug"
     payload.case_id = 1
 
+    request = MagicMock()
+    request.access_ctx = None
+    request.user = MagicMock(name="req_user")
+    request.org_access = None
+    request.perm_open_access = False
+
     with patch("apps.workflow.api.workflow_api.start_workflow", new_callable=AsyncMock) as mock_start:
         mock_start.return_value = {"run_id": 1, "status": "running"}
-        result = await start_workflow_api(MagicMock(), payload)
+        result = await start_workflow_api(request, payload)
 
     assert result["status"] == "running"
-    mock_start.assert_called_once_with("test-slug", 1)
+    # 归属校验后透传用户上下文（安全审计 IDOR）
+    mock_start.assert_called_once_with(
+        "test-slug", 1, user=request.user, org_access=None, perm_open_access=False
+    )
 
 
 # ── list_workflows_api ────────────────────────────────────────────────────────
@@ -67,7 +75,8 @@ async def test_list_workflows_api_no_filters():
 
 @pytest.mark.asyncio
 async def test_get_workflow_detail_api():
-    with patch("apps.workflow.api.workflow_api.get_workflow_detail", new_callable=AsyncMock) as mock_detail:
+    with patch("apps.workflow.api.workflow_api._require_run_case_access", new_callable=AsyncMock), \
+         patch("apps.workflow.api.workflow_api.get_workflow_detail", new_callable=AsyncMock) as mock_detail:
         mock_detail.return_value = {"run_id": 1, "status": "running"}
         result = await get_workflow_detail_api(MagicMock(), run_id=1)
 
@@ -83,7 +92,8 @@ async def test_approve_workflow_api_success():
     payload.approved = True
     payload.comment = "ok"
 
-    with patch("apps.workflow.api.workflow_api.approve_workflow_step", new_callable=AsyncMock) as mock_approve:
+    with patch("apps.workflow.api.workflow_api._require_run_case_access", new_callable=AsyncMock), \
+         patch("apps.workflow.api.workflow_api.approve_workflow_step", new_callable=AsyncMock) as mock_approve:
         mock_approve.return_value = {"run_id": 1, "action": "approved"}
         result = await approve_workflow_api(MagicMock(), run_id=1, payload=payload)
 
@@ -98,7 +108,8 @@ async def test_approve_workflow_api_error():
     payload.approved = True
     payload.comment = ""
 
-    with patch("apps.workflow.api.workflow_api.approve_workflow_step", new_callable=AsyncMock) as mock_approve:
+    with patch("apps.workflow.api.workflow_api._require_run_case_access", new_callable=AsyncMock), \
+         patch("apps.workflow.api.workflow_api.approve_workflow_step", new_callable=AsyncMock) as mock_approve:
         mock_approve.return_value = {"error": "not found"}
         with pytest.raises(HttpError):
             await approve_workflow_api(MagicMock(), run_id=1, payload=payload)
@@ -108,7 +119,8 @@ async def test_approve_workflow_api_error():
 
 @pytest.mark.asyncio
 async def test_cancel_workflow_api_success():
-    with patch("apps.workflow.api.workflow_api.cancel_workflow", new_callable=AsyncMock) as mock_cancel:
+    with patch("apps.workflow.api.workflow_api._require_run_case_access", new_callable=AsyncMock), \
+         patch("apps.workflow.api.workflow_api.cancel_workflow", new_callable=AsyncMock) as mock_cancel:
         mock_cancel.return_value = {"run_id": 1, "status": "cancelled"}
         result = await cancel_workflow_api(MagicMock(), run_id=1)
 
@@ -119,7 +131,8 @@ async def test_cancel_workflow_api_success():
 async def test_cancel_workflow_api_error():
     from ninja.errors import HttpError
 
-    with patch("apps.workflow.api.workflow_api.cancel_workflow", new_callable=AsyncMock) as mock_cancel:
+    with patch("apps.workflow.api.workflow_api._require_run_case_access", new_callable=AsyncMock), \
+         patch("apps.workflow.api.workflow_api.cancel_workflow", new_callable=AsyncMock) as mock_cancel:
         mock_cancel.return_value = {"error": "not found"}
         with pytest.raises(HttpError):
             await cancel_workflow_api(MagicMock(), run_id=1)
@@ -129,7 +142,8 @@ async def test_cancel_workflow_api_error():
 
 @pytest.mark.asyncio
 async def test_delete_workflow_api_success():
-    with patch("apps.workflow.api.workflow_api.delete_workflow_run", new_callable=AsyncMock) as mock_delete:
+    with patch("apps.workflow.api.workflow_api._require_run_case_access", new_callable=AsyncMock), \
+         patch("apps.workflow.api.workflow_api.delete_workflow_run", new_callable=AsyncMock) as mock_delete:
         mock_delete.return_value = {"run_id": 1, "message": "deleted"}
         result = await delete_workflow_api(MagicMock(), run_id=1)
 
@@ -140,10 +154,47 @@ async def test_delete_workflow_api_success():
 async def test_delete_workflow_api_error():
     from ninja.errors import HttpError
 
-    with patch("apps.workflow.api.workflow_api.delete_workflow_run", new_callable=AsyncMock) as mock_delete:
+    with patch("apps.workflow.api.workflow_api._require_run_case_access", new_callable=AsyncMock), \
+         patch("apps.workflow.api.workflow_api.delete_workflow_run", new_callable=AsyncMock) as mock_delete:
         mock_delete.return_value = {"error": "not found"}
         with pytest.raises(HttpError):
             await delete_workflow_api(MagicMock(), run_id=1)
+
+
+# ── _require_run_case_access（安全审计 IDOR） ─────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_require_run_case_access_denied_without_access():
+    from apps.core.exceptions import ForbiddenError
+    from apps.workflow.api.workflow_api import _require_run_case_access
+
+    request = MagicMock()
+    request.access_ctx = None
+    request.user = MagicMock(is_authenticated=False)
+    request.org_access = None
+    request.perm_open_access = False
+
+    with patch("apps.workflow.models.WorkflowRun") as mock_run:
+        mock_run.objects.values_list.return_value.get.return_value = 1
+        with pytest.raises(ForbiddenError):
+            await _require_run_case_access(request, run_id=1)
+
+
+@pytest.mark.asyncio
+async def test_require_run_case_access_allows_admin():
+    from apps.workflow.api.workflow_api import _require_run_case_access
+
+    request = MagicMock()
+    request.access_ctx = None
+    request.user = MagicMock(is_authenticated=True, is_admin=True)
+    request.org_access = None
+    request.perm_open_access = False
+
+    with patch("apps.workflow.models.WorkflowRun") as mock_run, \
+         patch("apps.cases.services.case.case_access_policy.CaseAccessPolicy") as mock_policy:
+        mock_run.objects.values_list.return_value.get.return_value = 1
+        await _require_run_case_access(request, run_id=1)
+        mock_policy.return_value.ensure_access_ctx.assert_called_once()
 
 
 # ── get_steps_registry ────────────────────────────────────────────────────────

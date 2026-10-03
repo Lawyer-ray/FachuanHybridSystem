@@ -144,6 +144,7 @@ def _make_vevent(props: dict[str, Any]) -> Any:
 def _fetch_feed_data(token: str) -> tuple[Any, list[Reminder]] | None:
     """验证 token 并查询提醒数据。返回 (user, reminders) 或 None（token 无效）。"""
     from apps.cases.models import CaseAccessGrant, CaseAssignment
+    from apps.contracts.models import Contract, ContractAssignment
 
     try:
         feed_token = CalendarFeedToken.objects.select_related("user").get(token=token)
@@ -157,6 +158,11 @@ def _fetch_feed_data(token: str) -> tuple[Any, list[Reminder]] | None:
     granted = set(CaseAccessGrant.objects.filter(grantee=user).values_list("case_id", flat=True))
     user_case_ids = assigned | granted
 
+    # 合同可访问集合（与 ContractAccessPolicy 口径一致：直接指派 + 合同关联案件的办案成员）
+    contract_assigned = set(ContractAssignment.objects.filter(lawyer=user).values_list("contract_id", flat=True))
+    contract_via_case = set(Contract.objects.filter(cases__assignments__lawyer=user).values_list("id", flat=True))
+    user_contract_ids = contract_assigned | contract_via_case
+
     now = timezone.now()
     cutoff = now + timedelta(days=365)
 
@@ -164,7 +170,9 @@ def _fetch_feed_data(token: str) -> tuple[Any, list[Reminder]] | None:
         Reminder.objects.select_related("contract", "case", "case_log", "case_log__case")
         .filter(
             Q(due_at__gte=now) & Q(due_at__lte=cutoff),
-            Q(case_id__in=user_case_ids) | Q(case_id__isnull=True),
+            Q(case_id__in=user_case_ids)
+            | Q(case_id__isnull=True, contract_id__in=user_contract_ids)
+            | Q(case_id__isnull=True, contract_id__isnull=True),
         )
         .order_by("due_at", "id")
     )

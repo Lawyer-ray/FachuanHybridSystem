@@ -71,7 +71,7 @@ class LitigationConsumer(AsyncWebsocketConsumer):
             )
             await flow_service.handle_init(context, self._send_flow_message)
         except Exception as e:
-            logger.error(f"WebSocket 连接失败: {e}", exc_info=True)
+            logger.error("WebSocket 连接失败: %s", e, exc_info=True)
             await self.close(code=4000)
 
     async def disconnect(self, close_code: int) -> None:
@@ -79,7 +79,7 @@ class LitigationConsumer(AsyncWebsocketConsumer):
             try:
                 await self.channel_layer.group_discard(f"litigation_{self.session_id}", self.channel_name)
             except Exception as e:
-                logger.error(f"WebSocket 断开连接处理失败: {e}", exc_info=True)
+                logger.error("WebSocket 断开连接处理失败: %s", e, exc_info=True)
 
     async def receive(self, text_data: str | None = None, bytes_data: bytes | None = None) -> None:  # pragma: no cover
         try:
@@ -109,7 +109,7 @@ class LitigationConsumer(AsyncWebsocketConsumer):
 
             await handler(message)
         except Exception as e:
-            logger.error(f"处理消息失败: {e}", exc_info=True)
+            logger.error("处理消息失败: %s", e, exc_info=True)
             await self.send_error(e)
 
     def _get_message_handler(self, message_type: str) -> Any:
@@ -360,7 +360,7 @@ class LitigationConsumer(AsyncWebsocketConsumer):
             await self._send_flow_message(result)
 
         except Exception as e:
-            logger.error(f"Agent 处理消息失败: {e}", exc_info=True)
+            logger.error("Agent 处理消息失败: %s", e, exc_info=True)
             await self._handle_agent_error(e)
 
     async def _handle_select_evidence_agent(
@@ -389,7 +389,7 @@ class LitigationConsumer(AsyncWebsocketConsumer):
             await self._send_flow_message(result)
 
         except Exception as e:
-            logger.error(f"Agent 处理证据选择失败: {e}", exc_info=True)
+            logger.error("Agent 处理证据选择失败: %s", e, exc_info=True)
             await self._handle_agent_error(e)
 
     async def _handle_agent_error(self, error: Exception) -> None:

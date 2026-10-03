@@ -80,6 +80,8 @@ class MappingCreateSchema(Schema):
 @router.post("/{template_id}/analyze")
 async def analyze_template(request: HttpRequest, template_id: int) -> dict[str, Any]:  # pragma: no cover
     """触发/重新触发 LLM 分析"""
+    # 安全审计 B-05：分析会读写模板结构与映射，须校验模板律所归属
+    await _ensure_template_access(request, template_id)
     service = _get_analysis_service()
     mappings = await sync_to_async(service.analyze_template)(template_id)
     logger.info(
@@ -96,6 +98,8 @@ async def analyze_template(request: HttpRequest, template_id: int) -> dict[str, 
 @router.post("/{template_id}/confirm")
 async def confirm_mappings(request: HttpRequest, template_id: int) -> dict[str, Any]:  # pragma: no cover
     """确认字段映射"""
+    # 安全审计 B-05：确认会变更模板状态，须校验模板律所归属
+    await _ensure_template_access(request, template_id)
     service = _get_analysis_service()
     await sync_to_async(service.confirm_mappings)(template_id)
     logger.info("映射已确认", extra={"template_id": template_id})
@@ -109,6 +113,36 @@ async def _ensure_fill_access(request: HttpRequest, case_id: int) -> None:
 
     ctx = get_request_access_context(request)
     await sync_to_async(CaseAccessPolicy().ensure_access_ctx)(case_id=case_id, ctx=ctx)
+
+
+async def _ensure_template_access(request: HttpRequest, template_id: int) -> None:
+    """安全审计 B-05：分析/确认/映射/历史等端点会读写模板数据，须校验模板律所归属。
+
+    superuser 豁免；无律所用户与 /fill 口径一致（拒绝访问）；
+    跨律所模板经 get_template_or_raise 过滤后按不存在处理（404）。
+    """
+    from apps.documents.services.external_template.query_service import get_template_or_raise
+
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    if getattr(user, "is_superuser", False):
+        return
+
+    firm_id = getattr(user, "law_firm_id", None)
+    if firm_id is None:
+        from apps.core.exceptions import PermissionDenied
+
+        raise PermissionDenied(
+            message="包含无权使用的外部模板", code="TEMPLATE_FIRM_FORBIDDEN", errors={"template_ids": [template_id]}
+        )
+    await sync_to_async(get_template_or_raise)(template_id, law_firm_id=firm_id)
+
+
+async def _ensure_mapping_access(request: HttpRequest, mapping_id: int) -> None:
+    """安全审计 B-05：先取 mapping，再校验其所属模板的律所归属。"""
+    from apps.documents.services.external_template.query_service import get_mapping_or_raise
+
+    mapping = await sync_to_async(get_mapping_or_raise)(mapping_id)
+    await _ensure_template_access(request, mapping.template_id)
 
 
 @router.post("/fill")
@@ -174,6 +208,8 @@ async def preview_fill(  # pragma: no cover
 ) -> dict[str, Any]:
     """填充预览"""
     await _ensure_fill_access(request, case_id)
+    # 安全审计 B-05：预览会回显模板字段值，须校验模板律所归属
+    await _ensure_template_access(request, template_id)
     service = _get_filling_service()
     items = await sync_to_async(service.generate_preview)(
         template_id=template_id,
@@ -213,6 +249,8 @@ async def match_templates(  # pragma: no cover
         return {"success": False, "message": "无法确定所属律所"}
 
     if case_id is not None:
+        # 安全审计 B-05：按案件匹配会回读案件机构信息，须校验案件访问权
+        await _ensure_fill_access(request, case_id)
         results = await sync_to_async(service.match_by_case)(case_id=case_id, law_firm_id=law_firm_id)
     elif source_name is not None:
         results = await sync_to_async(service.match_by_source_name)(
@@ -231,6 +269,8 @@ async def match_templates(  # pragma: no cover
 @router.get("/{template_id}/custom-fields")
 async def get_custom_fields(request: HttpRequest, template_id: int) -> dict[str, Any]:  # pragma: no cover
     """获取需手动输入的自定义字段"""
+    # 安全审计 B-05：字段清单会暴露模板结构，须校验模板律所归属
+    await _ensure_template_access(request, template_id)
     service = _get_filling_service()
     fields = await sync_to_async(service.get_custom_fields)(template_id)
     return {"template_id": template_id, "fields": fields}
@@ -246,6 +286,9 @@ async def get_fill_history(  # pragma: no cover
     if case_id is not None:
         # 安全审计 B-05：按案件查历史会回读该案填充值，须校验访问权
         await _ensure_fill_access(request, case_id)
+    if template_id is not None:
+        # 安全审计 B-05：按模板查历史会回读该模板填充值，须校验模板律所归属
+        await _ensure_template_access(request, template_id)
     service = _get_filling_service()
 
     if case_id is not None:
@@ -324,6 +367,8 @@ async def list_mappings(request: HttpRequest, template_id: int) -> list[dict[str
     """获取模板的所有字段映射"""
     from apps.documents.services.external_template.query_service import get_mappings_by_template
 
+    # 安全审计 B-05：映射清单会暴露模板结构，须校验模板律所归属
+    await _ensure_template_access(request, template_id)
     mappings = await sync_to_async(get_mappings_by_template)(template_id)
 
     return [
@@ -344,6 +389,8 @@ async def create_mapping(
     request: HttpRequest, template_id: int, payload: MappingCreateSchema
 ) -> dict[str, Any]:  # pragma: no cover
     """手动添加字段映射"""
+    # 安全审计 B-05：写入映射前须校验模板律所归属
+    await _ensure_template_access(request, template_id)
     service = _get_analysis_service()
     m = await sync_to_async(service.create_manual_mapping)(
         template_id=template_id,
@@ -370,6 +417,8 @@ async def update_mapping(
     """更新字段映射"""
     from apps.documents.services.external_template.query_service import get_mapping_or_raise
 
+    # 安全审计 B-05：先取 mapping 再校验其模板律所归属
+    await _ensure_mapping_access(request, mapping_id)
     m = await sync_to_async(get_mapping_or_raise)(mapping_id)
 
     def _apply_updates() -> list[str]:
@@ -401,6 +450,8 @@ async def update_mapping(
 @router.delete("/mappings/{mapping_id}")
 async def delete_mapping(request: HttpRequest, mapping_id: int) -> dict[str, bool]:  # pragma: no cover
     """删除字段映射"""
+    # 安全审计 B-05：先取 mapping 再校验其模板律所归属
+    await _ensure_mapping_access(request, mapping_id)
     service = _get_analysis_service()
     await sync_to_async(service.delete_mapping)(mapping_id)
     logger.info("删除映射: mapping_id=%d", mapping_id)

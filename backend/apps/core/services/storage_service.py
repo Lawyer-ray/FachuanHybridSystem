@@ -9,10 +9,11 @@ import uuid
 from pathlib import Path
 from typing import Any, Protocol
 
+from django.core.files.storage import default_storage
+
 from apps.core.config import get_config
 from apps.core.exceptions import ValidationException
 from apps.core.filesystem.upload_paths import sanitize_filename
-from django.core.files.storage import default_storage
 
 # ┌─────────────────────────────────────────────────────────────┐
 # │ MEDIA FILE MANAGEMENT - UNIFIED ENTRY POINT                │
@@ -109,7 +110,7 @@ class _DefaultFileValidator:
                     errors={field_name: "文件内容被识别为可执行文件"},
                 )
         except (AttributeError, OSError):
-            pass
+            logger.debug("读取文件头做可执行文件检测失败（已忽略）: field=%s", field_name, exc_info=True)
 
         return uploaded_file
 
@@ -231,6 +232,19 @@ def to_media_abs(file_path: str) -> Path:
             errors={"file_path": "文件路径不在 MEDIA_ROOT 下"},
         ) from None
     return p
+
+
+def resolve_media_path(file_path: str) -> Path:
+    """宽松的 media 路径解析：优先 to_media_abs，失败时按原样返回 Path。
+
+    适用于存在性检查 / 读取 / 删除等场景：存量数据可能保存 media 外的绝对路径
+    （历史脏数据或测试数据），此时回退为原始 Path，由调用方按旧逻辑处理，
+    行为与手拼 ``Path(settings.MEDIA_ROOT) / x`` 时代完全兼容。
+    """
+    try:
+        return to_media_abs(file_path)
+    except ValidationException:
+        return Path(file_path)
 
 
 def normalize_to_media_rel(file_path: str) -> str:
@@ -357,6 +371,7 @@ __all__ = [
     "delete_media_file",
     "is_absolute_path",
     "normalize_to_media_rel",
+    "resolve_media_path",
     "sanitize_upload_filename",
     "save_uploaded_file",
     "to_media_abs",

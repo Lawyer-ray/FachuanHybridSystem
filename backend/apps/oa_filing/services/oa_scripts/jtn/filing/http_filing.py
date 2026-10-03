@@ -283,9 +283,9 @@ class HttpFilingMixin:  # pragma: no cover
         payload[self._project_field_name("name")] = case_info.case_name
         payload[self._project_field_name("desc")] = case_info.case_desc
 
-        from datetime import date as _date
+        from django.utils import timezone as _timezone
 
-        payload[self._project_field_name("date")] = case_info.start_date or _date.today().isoformat()
+        payload[self._project_field_name("date")] = case_info.start_date or _timezone.localdate().isoformat()
 
         for field_name in list(payload.keys()):
             if "pro_pl_name" in field_name:

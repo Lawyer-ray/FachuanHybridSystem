@@ -17,9 +17,11 @@ class MaterialService:
         保存归档材料文件。
         Returns: (rel_path, original_filename)
         """
+        from apps.core.filesystem.upload_paths import MediaEntity
+
         result: tuple[str, str] = storage.save_uploaded_file(
             uploaded_file=uploaded_file,
-            rel_dir=f"contracts/finalized/{contract_id}",
+            rel_dir=f"{MediaEntity.CONTRACT_FINALIZED}/{contract_id}",
             allowed_extensions=[".pdf"],
             max_size_bytes=100 * 1024 * 1024,
         )

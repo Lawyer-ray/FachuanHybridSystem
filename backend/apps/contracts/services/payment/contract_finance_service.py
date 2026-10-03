@@ -27,14 +27,20 @@ class ContractFinanceService:
         contract_id: int | None = None,
         start_date: date | None = None,
         end_date: date | None = None,
+        user: Any | None = None,
+        perm_open_access: bool = False,
+        org_access: dict[str, Any] | None = None,
     ) -> dict[str, Any]:  # pragma: no cover
         """
         获取财务统计数据
 
         Args:
             contract_id: 合同 ID(可选)
-            start_date: 开始日期(可选)
-            end_date: 结束日期(可选)
+            start_date: 开始日期筛选(可选)
+            end_date: 结束日期筛选(可选)
+            user: 当前用户
+            perm_open_access: 是否开放访问权限
+            org_access: 组织访问上下文（用于合同访问范围过滤）
 
         Returns:
             财务统计数据,包含:
@@ -43,6 +49,19 @@ class ContractFinanceService:
             - total_invoiced_all: 总开票金额
         """
         qs = ContractPayment.objects.all()
+
+        # 合同访问范围过滤（管理员见全量，普通律师仅统计自己可访问的合同）
+        if not perm_open_access:
+            from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
+
+            if not user or not getattr(user, "is_authenticated", False):
+                qs = qs.none()
+            else:
+                policy = ContractAccessPolicy()
+                accessible_ids = policy.filter_queryset(Contract.objects.all(), user, org_access).values_list(
+                    "id", flat=True
+                )
+                qs = qs.filter(contract_id__in=accessible_ids)
 
         # 应用筛选条件
         if contract_id:

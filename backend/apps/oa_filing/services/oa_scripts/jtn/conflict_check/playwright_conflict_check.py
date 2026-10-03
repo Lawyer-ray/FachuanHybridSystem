@@ -39,6 +39,7 @@ class PlaywrightConflictCheckMixin:
             try:
                 asyncio.run(playwright.stop())
             except Exception:
+                logger.debug("清理 Playwright 资源失败（已忽略）", exc_info=True)
                 pass
 
         browser.on("disconnected", _cleanup)

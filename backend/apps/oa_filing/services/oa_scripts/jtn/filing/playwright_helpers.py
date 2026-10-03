@@ -128,6 +128,7 @@ class PlaywrightHelpersMixin:  # pragma: no cover
             )
             logger.error("等待 CreateCustomer iframe 超时，当前 iframe 列表: %s", frames)
         except Exception:
+            logger.debug("获取当前 iframe 列表失败（已忽略）", exc_info=True)
             pass
         raise RuntimeError(f"等待 CreateCustomer iframe JS 执行超时: {last_reason}")
 

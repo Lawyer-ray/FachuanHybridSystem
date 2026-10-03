@@ -7,7 +7,7 @@
 - **双 provider**：`tianyancha`（默认，streamable_http 优先失败回退 SSE）与 `qichacha`（6 个独立 MCP Server：company / risk / ipr / operation / executive / history，能力路由表映射统一能力）
 - 统一响应协议 `{query, data, meta, raw}`，meta 含 transport 回退、API Key 池切换、observability 窗口指标
 - **API Key 池**（McpApiKeyPool）：多 key（SystemConfig 或环境变量，支持 `*_API_KEYS` 复数变量），成功 key 置偏好（30 天）、鉴权失败熔断 1h、限流熔断 2min，指纹化缓存
-- **弹性**：Django cache 结果缓存 + 失败时返回过期缓存（stale fallback，meta 标 `stale:true`）；transport 不健康隔离 10 分钟；进程级持久事件循环复用（`_get_or_create_loop`）；同步 + 异步双套 API
+- **弹性**：Django cache 结果缓存 + 失败时返回过期缓存（stale fallback，meta 标 `stale:true`）；transport 不健康隔离 10 分钟；进程级持久事件循环复用（`_get_or_create_loop`）；服务 / Provider 层纯同步，API 层经 sync_to_async 包装为 async 端点
 - **指标与告警**：按窗口聚合成功率 / 回退率 / 平均耗时，超阈值去重告警日志
 - **Admin MCP 调试工作台**：工具列表 + 参数 schema + 最近样例、执行调试、历史记录一键重放；响应经 `scrub_for_storage` 脱敏、JSON 超 50KB 截断
 

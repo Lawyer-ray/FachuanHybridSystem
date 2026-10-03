@@ -7,13 +7,15 @@
 
 import logging
 import re
-import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
-from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 
+from apps.core.filesystem.upload_paths import MediaEntity
 from apps.core.services.filename_template_service import FilenameTemplateService
+from apps.core.services.storage_service import resolve_media_path, sanitize_upload_filename
 
 if TYPE_CHECKING:
     from apps.automation.models import CourtSMS
@@ -65,7 +67,7 @@ class DocumentAttachmentService:
         获取待重命名的文书路径列表
         """
         if not sms.scraper_task:
-            logger.info(f"短信 {sms.id} 无下载任务，返回空路径列表")
+            logger.info("短信 %s 无下载任务，返回空路径列表", sms.id)
             return []
 
         document_paths: list[str] = []
@@ -75,9 +77,9 @@ class DocumentAttachmentService:
             if not document_paths:
                 document_paths = self._paths_from_task_result(sms)
 
-            logger.info(f"获取到 {len(document_paths)} 个待重命名的文书路径")
+            logger.info("获取到 %s 个待重命名的文书路径", len(document_paths))
         except Exception as e:
-            logger.warning(f"获取文书路径失败: {e!s}")
+            logger.warning("获取文书路径失败: %s", e)
 
         return document_paths
 
@@ -87,9 +89,9 @@ class DocumentAttachmentService:
         if not isinstance(sms.document_file_paths, list):
             return paths
         for file_path in sms.document_file_paths:
-            if file_path and Path(file_path).exists():
+            if file_path and resolve_media_path(file_path).exists():
                 paths.append(file_path)
-                logger.debug(f"从 CourtSMS 引用字段获取路径: {file_path}")
+                logger.debug("从 CourtSMS 引用字段获取路径: %s", file_path)
         return paths
 
     def _paths_from_court_documents(self, sms: "CourtSMS") -> list[str]:
@@ -99,9 +101,9 @@ class DocumentAttachmentService:
         if not scraper_task or not hasattr(scraper_task, "documents"):
             return paths
         for doc in scraper_task.documents.filter(download_status="success"):
-            if doc.local_file_path and Path(doc.local_file_path).exists():
+            if doc.local_file_path and resolve_media_path(doc.local_file_path).exists():
                 paths.append(doc.local_file_path)
-                logger.debug(f"从 CourtDocument 获取路径: {doc.local_file_path}")
+                logger.debug("从 CourtDocument 获取路径: %s", doc.local_file_path)
         return paths
 
     def _paths_from_task_result(self, sms: "CourtSMS") -> list[str]:
@@ -114,11 +116,11 @@ class DocumentAttachmentService:
             return paths
         files = result.get("files", [])
         for file_path in files:
-            if file_path and Path(file_path).exists():
+            if file_path and resolve_media_path(file_path).exists():
                 paths.append(file_path)
-                logger.debug(f"从 ScraperTask.result 获取路径: {file_path}")
+                logger.debug("从 ScraperTask.result 获取路径: %s", file_path)
         if files and not paths:
-            logger.warning(f"任务结果中有 {len(files)} 个文件路径，但都不存在")
+            logger.warning("任务结果中有 %s 个文件路径，但都不存在", len(files))
         return paths
 
     def get_paths_for_notification(self, sms: "CourtSMS") -> list[str]:
@@ -149,10 +151,10 @@ class DocumentAttachmentService:
                 if not document_paths and result and isinstance(result, dict):
                     self._collect_unique_paths(result.get("files", []), seen_paths, document_paths)
 
-            logger.info(f"获取到 {len(document_paths)} 个待发送通知的文书路径（已去重）")
+            logger.info("获取到 %s 个待发送通知的文书路径（已去重）", len(document_paths))
 
         except Exception as e:
-            logger.warning(f"获取通知文书路径失败: {e!s}")
+            logger.warning("获取通知文书路径失败: %s", e)
 
         return document_paths
 
@@ -165,28 +167,30 @@ class DocumentAttachmentService:
         """收集不重复的有效路径，返回新增路径列表"""
         added: list[str] = []
         for fp in file_list:
-            if fp and Path(fp).exists():
-                abs_path = str(Path(fp).resolve())
+            if fp and resolve_media_path(fp).exists():
+                abs_path = str(resolve_media_path(fp).resolve())
                 if abs_path not in seen:
                     seen.add(abs_path)
                     added.append(fp)
                     if target is not None:
                         target.append(fp)
-                    logger.debug(f"收集路径: {fp}")
+                    logger.debug("收集路径: %s", fp)
         return added
 
-    def _collect_from_court_documents(self, sms: "CourtSMS", target: list[str], seen: set[str]) -> None:  # pragma: no cover
+    def _collect_from_court_documents(
+        self, sms: "CourtSMS", target: list[str], seen: set[str]
+    ) -> None:  # pragma: no cover
         """从 CourtDocument 记录收集路径"""
         scraper_task = getattr(sms, "scraper_task", None)
         if not scraper_task or not hasattr(scraper_task, "documents"):
             return
         for doc in scraper_task.documents.filter(download_status="success"):
-            if doc.local_file_path and Path(doc.local_file_path).exists():
-                abs_path = str(Path(doc.local_file_path).resolve())
+            if doc.local_file_path and resolve_media_path(doc.local_file_path).exists():
+                abs_path = str(resolve_media_path(doc.local_file_path).resolve())
                 if abs_path not in seen:
                     target.append(doc.local_file_path)
                     seen.add(abs_path)
-                    logger.debug(f"从 CourtDocument 获取路径: {doc.local_file_path}")
+                    logger.debug("从 CourtDocument 获取路径: %s", doc.local_file_path)
 
     def rename_documents(self, sms: "CourtSMS", document_paths: list[str]) -> list[str]:
         """
@@ -202,39 +206,41 @@ class DocumentAttachmentService:
             重命名后的文书路径列表
         """
         if not document_paths:
-            logger.info(f"短信 {sms.id} 无文书需要重命名")
+            logger.info("短信 %s 无文书需要重命名", sms.id)
             return []
 
         case_name = sms.case.name if sms.case else "未知案件"
         received_date = sms.received_at.date()
         renamed_paths = []
 
-        logger.info(f"开始重命名 {len(document_paths)} 个文书: SMS ID={sms.id}")
+        logger.info("开始重命名 %s 个文书: SMS ID=%s", len(document_paths), sms.id)
 
         for file_path in document_paths:
             try:
-                if not Path(file_path).exists():
-                    logger.warning(f"文书文件不存在，跳过: {file_path}")
+                # local_file_path / 任务结果可能保存 media 相对路径，重命名前先解析为绝对路径
+                abs_file_path = resolve_media_path(file_path)
+                if not abs_file_path.exists():
+                    logger.warning("文书文件不存在，跳过: %s", file_path)
                     continue
 
                 # 获取原始文件名用于降级
-                original_name = Path(file_path).name
+                original_name = abs_file_path.name
 
                 # 使用带降级方案的重命名
                 new_path = self.renamer.rename_with_fallback(
-                    file_path, case_name, received_date, original_name=original_name
+                    str(abs_file_path), case_name, received_date, original_name=original_name
                 )
 
                 renamed_paths.append(new_path)
-                logger.info(f"文书重命名成功: {file_path} -> {new_path}")
+                logger.info("文书重命名成功: %s -> %s", file_path, new_path)
 
             except Exception as e:
-                logger.warning(f"文书重命名失败，保持原名: {file_path}, 错误: {e!s}")
+                logger.warning("文书重命名失败，保持原名: %s, 错误: %s", file_path, e)
                 # 重命名失败不影响流程，继续使用原路径
-                if Path(file_path).exists():
+                if resolve_media_path(file_path).exists():
                     renamed_paths.append(file_path)
 
-        logger.info(f"文书重命名完成: SMS ID={sms.id}, 成功重命名 {len(renamed_paths)} 个文书")
+        logger.info("文书重命名完成: SMS ID=%s, 成功重命名 %s 个文书", sms.id, len(renamed_paths))
         return renamed_paths
 
     def add_to_case_log(self, sms: "CourtSMS", file_paths: list[str]) -> bool:  # pragma: no cover
@@ -242,35 +248,34 @@ class DocumentAttachmentService:
         将文书附件添加到案件日志
         """
         if not sms.case_log or not file_paths:
-            logger.warning(f"短信 {sms.id} 没有案件日志或文件路径，无法添加附件")
+            logger.warning("短信 %s 没有案件日志或文件路径，无法添加附件", sms.id)
             return False
 
         try:
-            target_dir = Path(settings.MEDIA_ROOT) / "case_logs"
-            target_dir.mkdir(parents=True, exist_ok=True)
             success_count = 0
 
             for file_path in file_paths:
-                if self._add_single_attachment(sms, file_path, str(target_dir)):
+                if self._add_single_attachment(sms, file_path):
                     success_count += 1
 
-            logger.info(f"附件添加完成: 成功 {success_count}/{len(file_paths)} 个")
+            logger.info("附件添加完成: 成功 %s/%s 个", success_count, len(file_paths))
             return success_count > 0
 
         except (OSError, ValueError) as e:
-            logger.error(f"添加附件到案件日志失败: SMS ID={sms.id}, 错误: {e!s}")
+            logger.error("添加附件到案件日志失败: SMS ID=%s, 错误: %s", sms.id, e)
             return False
 
-    def _add_single_attachment(self, sms: "CourtSMS", file_path: str, target_dir: str) -> bool:  # pragma: no cover
+    def _add_single_attachment(self, sms: "CourtSMS", file_path: str) -> bool:  # pragma: no cover
         """添加单个附件，返回是否成功"""
         try:
-            if not Path(file_path).exists():
-                logger.warning(f"文件不存在，跳过: {file_path}")
+            src_path = resolve_media_path(file_path)
+            if not src_path.exists():
+                logger.warning("文件不存在，跳过: %s", file_path)
                 return False
 
-            renamed_filename = Path(file_path).name
+            renamed_filename = src_path.name
             if "（" not in renamed_filename or "）" not in renamed_filename:
-                logger.warning(f"文件名格式不正确，尝试修正: {renamed_filename}")
+                logger.warning("文件名格式不正确，尝试修正: %s", renamed_filename)
                 renamed_filename = self.fix_filename_format(renamed_filename, sms)
 
             max_name_length = 200
@@ -279,15 +284,15 @@ class DocumentAttachmentService:
                 ext = p.suffix or ".pdf"
                 renamed_filename = p.stem[: max_name_length - len(ext)] + ext
 
-            target_path = str(Path(target_dir) / renamed_filename)
-            if Path(target_path).exists():
-                target_path, renamed_filename = self._get_unique_filepath(target_dir, renamed_filename)
-
-            shutil.copy2(file_path, target_path)
-            relative_path = f"case_logs/{renamed_filename}"
+            safe_name = sanitize_upload_filename(renamed_filename)
+            rel_target = f"{MediaEntity.CASE_LOGS}/{safe_name}"
+            with src_path.open("rb") as f:
+                # default_storage.save 重名时自动加后缀，返回实际保存的相对路径
+                relative_path = str(default_storage.save(rel_target, ContentFile(f.read())))
+            renamed_filename = Path(relative_path).name
 
             if not sms.case_log:
-                logger.warning(f"短信 {sms.id} 无案件日志，无法写入附件")
+                logger.warning("短信 %s 无案件日志，无法写入附件", sms.id)
                 return False
 
             success = self.case_service.add_case_log_attachment_internal(
@@ -296,28 +301,15 @@ class DocumentAttachmentService:
                 file_name=renamed_filename,
             )
             if not success:
-                logger.warning(f"添加案件日志附件失败: {renamed_filename}")
+                logger.warning("添加案件日志附件失败: %s", renamed_filename)
                 return False
 
-            logger.info(f"成功添加文书附件到案件日志: {renamed_filename}")
+            logger.info("成功添加文书附件到案件日志: %s", renamed_filename)
             return True
 
         except (OSError, ValueError) as e:
-            logger.warning(f"添加文书附件失败: {file_path}, 错误: {e!s}")
+            logger.warning("添加文书附件失败: %s, 错误: %s", file_path, e)
             return False
-
-    def _get_unique_filepath(self, target_dir: str, filename: str) -> tuple[str, str]:
-        """
-        获取唯一的文件路径，如果文件已存在则自动追加数字后缀
-
-        Args:
-            target_dir: 目标目录
-            filename: 原始文件名
-
-        Returns:
-            tuple: (完整路径, 新文件名)
-        """
-        return FilenameTemplateService.get_unique_filepath(target_dir, filename)
 
     def fix_filename_format(self, filename: str, sms: "CourtSMS") -> str:
         """
@@ -375,11 +367,11 @@ class DocumentAttachmentService:
             rendered = FilenameTemplateService.render_court_doc(title=title, case_name=case_name, date=date_str)
             fixed_filename = f"{rendered}.pdf"
 
-            logger.info(f"文件名格式修正: {filename} -> {fixed_filename}")
+            logger.info("文件名格式修正: %s -> %s", filename, fixed_filename)
             return fixed_filename
 
         except Exception as e:
-            logger.warning(f"修正文件名格式失败: {filename}, 错误: {e!s}")
+            logger.warning("修正文件名格式失败: %s, 错误: %s", filename, e)
             # 返回一个基本的格式，使用原文件名作为标题
             name_without_ext = filename.rsplit(".", 1)[0] if "." in filename else filename
             fallback_title = self._sanitize_filename_part(name_without_ext) or "司法文书"
@@ -427,7 +419,7 @@ class DocumentAttachmentService:
             if not original_path:
                 return None
 
-            directory = str(Path(original_path).parent)
+            directory = str(resolve_media_path(original_path).parent)
             if not Path(directory).exists():
                 return None
 
@@ -440,11 +432,11 @@ class DocumentAttachmentService:
 
             if matches:
                 matches.sort(key=lambda p: Path(p).stat().st_mtime, reverse=True)
-                logger.info(f"找到重命名后的文件: {matches[0]}")
+                logger.info("找到重命名后的文件: %s", matches[0])
                 return matches[0]
 
             return None
 
         except Exception as e:
-            logger.warning(f"查找重命名文件失败: {e!s}")
+            logger.warning("查找重命名文件失败: %s", e)
             return None

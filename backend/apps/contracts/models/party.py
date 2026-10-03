@@ -36,9 +36,6 @@ class ContractParty(models.Model):
         unique_together = ("contract", "client")
         verbose_name = "合同当事人"
         verbose_name_plural = "合同当事人"
-        indexes: ClassVar = [
-            models.Index(fields=["client"]),
-        ]
 
     def __str__(self) -> str:
         return f"{self.contract_id}-{self.client_id}-{self.role}"
@@ -80,7 +77,6 @@ class ContractAssignment(models.Model):
         verbose_name = "合同指派"
         verbose_name_plural = "合同指派"
         unique_together = ("contract", "lawyer")
-        indexes: ClassVar = [models.Index(fields=["lawyer"])]
         ordering: ClassVar = ["-is_primary", "order"]
 
     def __str__(self) -> str:

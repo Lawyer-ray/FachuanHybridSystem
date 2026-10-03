@@ -79,7 +79,7 @@ class MatchingService:
         )
 
         total: int = base_qs.count()
-        confirmed_count: int = base_qs.filter(status=TemplateStatus.CONFIRMED).count()  # type: ignore[attr-defined]
+        confirmed_count: int = base_qs.filter(status=TemplateStatus.CONFIRMED).count()
 
         return {
             "total": total,

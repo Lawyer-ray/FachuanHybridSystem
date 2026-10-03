@@ -205,3 +205,4 @@ class TemplateStatus(models.TextChoices):
     ANALYZING = "analyzing", "分析中"
     ANALYSIS_FAILED = "analysis_failed", "分析失败"
     READY = "ready", "可填充"  # 分析完成，可以直接填充
+    CONFIRMED = "confirmed", "已确认"  # 字段映射已人工确认

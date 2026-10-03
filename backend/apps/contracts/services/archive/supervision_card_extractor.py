@@ -196,19 +196,15 @@ class SupervisionCardExtractor:
         Returns:
             绝对路径，无法解析返回 None
         """
-        path = Path(file_path)
-        if path.is_absolute() and path.exists():
-            return path
+        from apps.core.exceptions import ValidationException
+        from apps.core.services.storage_service import to_media_abs
 
-        # 尝试从 MEDIA_ROOT 解析
-        from django.conf import settings
-
-        media_root = getattr(settings, "MEDIA_ROOT", None)
-        if media_root:
-            full_path = Path(media_root) / file_path
-            if full_path.exists():
-                return full_path
-
+        try:
+            full_path = to_media_abs(file_path)
+        except ValidationException:
+            return None
+        if full_path.exists():
+            return full_path
         return None
 
     def _save_extracted_card(
@@ -255,19 +251,24 @@ class SupervisionCardExtractor:
                 archive_item_code=supervision_code,
             ).first()
 
+            from apps.core.filesystem.upload_paths import MediaEntity
             from apps.core.services import storage_service as storage
 
+            # 先写新文件；覆盖更新时再删旧文件，避免旧文件残留累积
             rel_path, _ = storage.save_uploaded_file(
                 uploaded_file=ContentFile(pdf_content, name=filename),
-                rel_dir=f"contracts/finalized/{contract.id}",
+                rel_dir=f"{MediaEntity.CONTRACT_FINALIZED}/{contract.id}",
                 allowed_extensions=[".pdf"],
                 max_size_bytes=20 * 1024 * 1024,
             )
 
             if existing:
+                old_path = existing.file_path
                 existing.file_path = rel_path
                 existing.original_filename = filename
                 existing.save(update_fields=["file_path", "original_filename"])
+                if old_path and old_path != rel_path:
+                    storage.delete_media_file(old_path)
                 return existing
             else:
                 material = FinalizedMaterial.objects.create(

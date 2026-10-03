@@ -10,11 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.core.infrastructure.resource_monitor import (
-    ResourceMonitor,
-    ResourceThresholds,
-    ResourceUsage,
-)
+from apps.core.infrastructure.resource_monitor import ResourceMonitor, ResourceThresholds, ResourceUsage
 
 
 # ===========================================================================
@@ -198,11 +194,6 @@ class TestResourceMonitorRestart:
             should, msg = mon.should_trigger_restart()
             assert should is False
 
-    def test_record_restart(self):
-        mon = self._make_mon()
-        mon.record_restart()
-        assert mon._last_restart_time is not None
-
 
 class TestResourceMonitorRecommendations:
     def _make_mon(self):
@@ -239,21 +230,6 @@ class TestResourceMonitorRecommendations:
         with patch.object(mon, "get_current_usage", return_value=None):
             result = mon.get_resource_recommendations()
             assert "message" in result
-
-
-class TestResourceMonitorStartStop:
-    def test_start_stop(self):
-        with patch("apps.core.infrastructure.resource_monitor.PSUTIL_AVAILABLE", True):
-            mon = ResourceMonitor()
-            mon.start_monitoring(interval=1)
-            mon.stop_monitoring()
-
-    def test_start_when_disabled(self):
-        with patch("apps.core.infrastructure.resource_monitor.PSUTIL_AVAILABLE", True):
-            mon = ResourceMonitor()
-            mon.monitoring_enabled = False
-            mon.start_monitoring()  # Should be no-op
-            mon.stop_monitoring()
 
 
 # ===========================================================================

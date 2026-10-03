@@ -168,7 +168,7 @@ def kill_chrome(  # pragma: no cover
                     os.kill(pid, signal.SIGTERM)
                     logger.info("已终止占用端口 %d 的进程 (PID=%d)", port, pid)
                 except (ValueError, ProcessLookupError, PermissionError):
-                    pass
+                    logger.debug("终止占用端口 %d 的进程失败（已忽略）: pid_str=%s", port, pid_str, exc_info=True)
                 time.sleep(1)
     except Exception as exc:
         logger.debug("检查端口 %d 失败: %s", port, exc)

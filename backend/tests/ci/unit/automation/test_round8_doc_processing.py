@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from apps.automation.services.document.document_processing import get_doc_config, _apply_pdf_limits
-
+from apps.automation.services.document.document_processing import _apply_pdf_limits, get_doc_config
 
 # ---------------------------------------------------------------------------
 # get_doc_config
@@ -16,8 +15,7 @@ from apps.automation.services.document.document_processing import get_doc_config
 
 class TestGetDocConfig:
     def test_default(self):
-        with patch("django.conf.settings") as mock_settings:
-            mock_settings.CONFIG_MANAGER_AVAILABLE = False
+        with patch("apps.automation.services.document.document_processing.settings") as mock_settings:
             mock_settings.DOCUMENT_PROCESSING = {
                 "DEFAULT_TEXT_LIMIT": 1500,
                 "DEFAULT_PREVIEW_PAGE": 1,
@@ -29,18 +27,10 @@ class TestGetDocConfig:
             assert result["DEFAULT_TEXT_LIMIT"] == 1500
 
     def test_custom(self):
-        with patch("django.conf.settings") as mock_settings:
-            mock_settings.CONFIG_MANAGER_AVAILABLE = False
+        with patch("apps.automation.services.document.document_processing.settings") as mock_settings:
             mock_settings.DOCUMENT_PROCESSING = {"DEFAULT_TEXT_LIMIT": 500}
             result = get_doc_config()
             assert result["DEFAULT_TEXT_LIMIT"] == 500
-
-    def test_unified_config(self):
-        with patch("django.conf.settings") as mock_settings:
-            mock_settings.CONFIG_MANAGER_AVAILABLE = True
-            mock_settings.get_unified_config = MagicMock(return_value=42)
-            result = get_doc_config()
-            assert result["DEFAULT_TEXT_LIMIT"] == 42
 
 
 # ---------------------------------------------------------------------------

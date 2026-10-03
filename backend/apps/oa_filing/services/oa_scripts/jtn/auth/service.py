@@ -169,6 +169,7 @@ class JtnAuthService:  # pragma: no cover
                     logger.info("SSO 登录: 通过选择器 '%s' 找到扫码图标", sel)
                     return
             except Exception:
+                logger.debug("点击扫码图标失败（已忽略）", exc_info=True)
                 continue
 
         # 策略 2: 宽松坐标匹配（页面右侧区域的小图标）
@@ -181,6 +182,7 @@ class JtnAuthService:  # pragma: no cover
                     logger.info("SSO 登录: 通过坐标匹配找到扫码图标 (x=%.0f, y=%.0f)", box["x"], box["y"])
                     return
             except Exception:
+                logger.debug("按坐标点击扫码图标失败（已忽略）", exc_info=True)
                 continue
 
         raise RuntimeError("未找到 SSO 扫码图标")

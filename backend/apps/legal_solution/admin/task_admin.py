@@ -5,8 +5,9 @@ from typing import Any, ClassVar
 
 from django import forms
 from django.contrib import admin, messages
-from django.db.models import Q
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.core.exceptions import PermissionDenied
+from django.db.models import Q, QuerySet
+from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import path, reverse
 from django.utils.html import format_html
 
@@ -171,14 +172,45 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         ]
         return custom + urls
 
+    def _get_accessible_task(self, request: HttpRequest, task_id: int) -> SolutionTask:  # pragma: no cover
+        """按律所归属取任务：非 superuser 仅能访问本所（创建人/凭证归属）的任务。"""
+        user = getattr(request, "user", None)
+        qs = SolutionTask.objects.filter(id=task_id)
+        if not getattr(user, "is_superuser", False):
+            law_firm_id = getattr(user, "law_firm_id", None)
+            if law_firm_id is None:
+                raise Http404("任务不存在")
+            qs = qs.filter(Q(created_by__law_firm_id=law_firm_id) | Q(credential__lawyer__law_firm_id=law_firm_id))
+        task = qs.first()
+        if task is None:
+            raise Http404("任务不存在")
+        return task
+
+    def _filter_law_firm(
+        self, request: HttpRequest, qs: QuerySet[SolutionTask, SolutionTask]
+    ) -> QuerySet[SolutionTask, SolutionTask]:  # pragma: no cover
+        user = getattr(request, "user", None)
+        if getattr(user, "is_superuser", False):
+            return qs
+        law_firm_id = getattr(user, "law_firm_id", None)
+        if law_firm_id is None:
+            return qs.none()
+        return qs.filter(
+            Q(created_by__law_firm_id=law_firm_id) | Q(credential__lawyer__law_firm_id=law_firm_id)
+        ).distinct()
+
     def preview_view(self, request: HttpRequest, task_id: int) -> HttpResponse:  # pragma: no cover
-        task = SolutionTask.objects.get(id=task_id)
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+        task = self._get_accessible_task(request, task_id)
         if not task.html_content:
             return HttpResponse("<p style='padding:20px;color:#94a3b8;'>方案尚未生成完成。</p>")
         return HttpResponse(task.html_content)
 
     def pdf_view(self, request: HttpRequest, task_id: int) -> HttpResponse:  # pragma: no cover
-        task = SolutionTask.objects.get(id=task_id)
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+        task = self._get_accessible_task(request, task_id)
         if not task.html_content:
             messages.error(request, "方案尚未生成，无法导出 PDF")
             return HttpResponseRedirect(reverse("admin:legal_solution_solutiontask_change", args=[task_id]))
@@ -192,7 +224,7 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
                 response["Content-Disposition"] = f'inline; filename="法律服务方案-{task.id}.pdf"'
                 return response
             except Exception:
-                pass
+                logger.debug("读取方案缓存 PDF 失败（已忽略，改为重新导出）: task_id=%s", task_id, exc_info=True)
 
         exporter = PdfExporter()
         pdf_bytes = exporter.export(task.html_content)
@@ -209,6 +241,9 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     def adjust_section_view(
         self, request: HttpRequest, task_id: int, section_id: int
     ) -> HttpResponse:  # pragma: no cover
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+        self._get_accessible_task(request, task_id)
         section = SolutionSection.objects.get(id=section_id, task_id=task_id)
         if request.method == "POST":
             feedback = request.POST.get("feedback", "").strip()
@@ -266,7 +301,9 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         )
 
     def regenerate_html_view(self, request: HttpRequest, task_id: int) -> HttpResponse:  # pragma: no cover
-        task = SolutionTask.objects.get(id=task_id)
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+        task = self._get_accessible_task(request, task_id)
         has_sections = task.sections.filter(status=SectionStatus.COMPLETED).exists()
         if not has_sections:
             messages.error(request, "没有已完成的段落，无法重新生成 HTML")

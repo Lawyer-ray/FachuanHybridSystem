@@ -3,7 +3,6 @@
 
 提供多种认证方式:
 - JWTAuth: 仅 JWT 认证(用于前端 API)
-- SessionAuth: 仅 Django Session 认证(用于 Admin 页面)
 - JWTOrSessionAuth: JWT 或 Session 认证(用于需要同时支持前端和 Admin 的 API)
 """
 
@@ -13,30 +12,12 @@ from typing import Any
 
 from django.conf import settings
 from django.middleware.csrf import CsrfViewMiddleware
-from ninja.security import APIKeyHeader, HttpBearer
+from ninja.security import HttpBearer
 from ninja_jwt.authentication import JWTAuth
 
 from apps.core.exceptions import PermissionDenied
 
 logger = logging.getLogger("apps.core.auth")
-
-
-class SessionAuth(APIKeyHeader):
-    """
-    Django Session 认证
-
-    用于 Django Admin 后台页面中的 AJAX 请求
-    """
-
-    param_name: str = "X-Session-Auth"  # 不实际使用,只是为了满足基类要求
-
-    def authenticate(self, request: Any, key: Any | None = None) -> Any:
-        """
-        检查 Django Session 认证
-        """
-        if request.user and request.user.is_authenticated:
-            return request.user
-        return None
 
 
 class JWTOrSessionAuth(HttpBearer):

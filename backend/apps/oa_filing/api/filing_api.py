@@ -57,4 +57,5 @@ async def execute_filing(request: HttpRequest, payload: ExecuteFilingIn) -> Any:
 async def get_session(request: HttpRequest, session_id: int) -> Any:  # pragma: no cover
     """查询立案会话状态。"""
     service = _get_executor_service()
-    return await sync_to_async(service.get_session, thread_sensitive=False)(session_id)
+    # 安全审计 A-04：传入当前用户做会话属主校验
+    return await sync_to_async(service.get_session, thread_sensitive=False)(session_id, request.user)

@@ -10,18 +10,20 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import random
 import time
 import zipfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from .base_court_scraper import BaseCourtDocumentScraper, as_async_page, as_sync_page
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 
-if TYPE_CHECKING:
-    from playwright.async_api import Page as AsyncPage
+from apps.core.filesystem.upload_paths import sanitize_filename
+from apps.core.services.storage_service import sanitize_upload_filename
+
+from .base_court_scraper import BaseCourtDocumentScraper, as_sync_page, media_download_rel_dir, media_download_target
 
 logger = logging.getLogger("apps.automation")
 
@@ -75,21 +77,18 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         # 截图保存预览页
         screenshot_preview = self.screenshot("gdems_preview")
 
-        # 准备下载目录
-        download_dir = self._prepare_download_dir()
-
         # 下载压缩包
-        zip_filepath = self._download_zip_file(download_dir)
+        zip_abs_path, zip_rel_path = self._download_zip_file()
 
         # 解压 ZIP 文件
-        extracted_files = self._extract_zip_file(zip_filepath, download_dir)
+        extracted_files = self._extract_zip_file(zip_abs_path)
 
         # 构建文件列表(用于结果显示)
         all_files: list[str] = []
 
         return {
             "source": "sd.gdems.com",
-            "zip_file": str(zip_filepath),
+            "zip_file": zip_rel_path,
             "extracted_files": extracted_files,
             "files": all_files,  # 添加 files 字段,与 zxfw 保持一致
             "file_count": len(extracted_files),
@@ -155,7 +154,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                 logger.info("已提取 canvas 通知文本，长度: %d", len(text))
             return text or ""
         except Exception as e:
-            logger.warning(f"提取 canvas 通知文本失败: {e}")
+            logger.warning("提取 canvas 通知文本失败: %s", e)
             return ""
 
     def _build_no_document_result(self, screenshot_cover: str) -> dict[str, Any]:  # pragma: no cover
@@ -172,7 +171,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         notification_text = self._extract_canvas_notification()
         if notification_text:
             preview_text = notification_text[:200] + ("..." if len(notification_text) > 200 else "")
-            logger.info(f"通知内容摘要: {preview_text}")
+            logger.info("通知内容摘要: %s", preview_text)
 
         # 保存页面状态用于调试
         self._save_page_state("gdems_no_document")
@@ -208,9 +207,10 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             try:
                 loc = page.locator(selector)
                 if loc.count() > 0 and loc.first.is_visible():
-                    logger.info(f"通过 '{selector}' 找到 {label}")
+                    logger.info("通过 '%s' 找到 %s", selector, label)
                     return loc
             except Exception:
+                logger.debug("探测候选选择器失败（已忽略）", exc_info=True)
                 pass
         return None
 
@@ -232,6 +232,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                         submit_button = btn
                         logger.info("通过文本找到确认按钮")
                 except Exception:
+                    logger.debug("按文本探测确认按钮失败（已忽略）", exc_info=True)
                     pass
 
             if submit_button and submit_button.count() > 0:
@@ -242,17 +243,14 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             else:
                 logger.warning("未找到确认按钮，可能页面已经在预览状态")
         except Exception as e:
-            logger.warning(f"点击确认按钮时出错: {e}，继续尝试下载")
+            logger.warning("点击确认按钮时出错: %s，继续尝试下载", e)
 
-    def _download_zip_file(self, download_dir: Path) -> Path:
+    def _download_zip_file(self) -> tuple[Path, str]:
         """
         下载压缩包文件
 
-        Args:
-            download_dir: 下载目录
-
         Returns:
-            ZIP 文件路径
+            (ZIP 本地绝对路径, media 相对路径)
 
         Raises:
             ValueError: 下载失败时抛出异常
@@ -282,265 +280,53 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                 logger.info("已点击下载按钮，等待下载...")
 
             download = download_info.value
-            zip_filename = download.suggested_filename or "documents.zip"
-            zip_filepath = download_dir / zip_filename
-            download.save_as(str(zip_filepath))
-            logger.info(f"ZIP 文件已保存: {zip_filepath}")
-            return zip_filepath
+            safe_name = sanitize_upload_filename(download.suggested_filename or "documents.zip")
+            zip_abs_path, zip_rel_path = media_download_target(int(self.task.id), safe_name)
+            download.save_as(str(zip_abs_path))
+            logger.info("ZIP 文件已保存: %s", zip_rel_path)
+            return zip_abs_path, zip_rel_path
 
         except Exception as e:
-            logger.error(f"下载失败: {e}")
+            logger.error("下载失败: %s", e)
             self._save_page_state("gdems_download_error")
             raise ValueError(f"文件下载失败: {e}") from e
 
-    def _extract_zip_file(self, zip_filepath: Path, download_dir: Path) -> list[str]:  # pragma: no cover
+    def _extract_zip_file(self, zip_filepath: Path) -> list[str]:  # pragma: no cover
         """
-        解压 ZIP 文件
+        解压 ZIP 文件（逐条目经 default_storage 写入 media，防止 ZipSlip）
 
         Args:
-            zip_filepath: ZIP 文件路径
-            download_dir: 下载目录
+            zip_filepath: ZIP 文件本地绝对路径
 
         Returns:
-            解压后的文件路径列表
+            解压后的文件路径列表（media 相对路径）
         """
         extracted_files: list[str] = []
 
         try:
-            extract_dir = download_dir / "extracted"
-            extract_dir.mkdir(exist_ok=True)
+            extract_rel_dir = f"{media_download_rel_dir(int(self.task.id))}/extracted"
 
             with zipfile.ZipFile(zip_filepath, "r") as zip_ref:
                 for member in zip_ref.infolist():
-                    target = (extract_dir / member.filename).resolve()
-                    if not target.is_relative_to(extract_dir.resolve()):
-                        logger.warning(f"跳过不安全的 ZIP 条目: {member.filename}")
+                    if member.is_dir():
                         continue
-                    zip_ref.extract(member, extract_dir)
-                    if not member.is_dir():
-                        extracted_files.append(str(target))
-            logger.info(f"ZIP 文件已解压,共 {len(extracted_files)} 个文件")
+                    # 防止 ZipSlip：拒绝 .. 等非法路径片段
+                    parts = [p for p in member.filename.replace("\\", "/").split("/") if p]
+                    if not parts or any(p in (".", "..") for p in parts):
+                        logger.warning("跳过不安全的 ZIP 条目: %s", member.filename)
+                        continue
+
+                    safe_name = sanitize_upload_filename(parts[-1])
+                    rel_dir = extract_rel_dir
+                    if len(parts) > 1:
+                        sub_dirs = "/".join(sanitize_filename(part) for part in parts[:-1] if sanitize_filename(part))
+                        rel_dir = f"{extract_rel_dir}/{sub_dirs}" if sub_dirs else extract_rel_dir
+                    saved = default_storage.save(f"{rel_dir}/{safe_name}", ContentFile(zip_ref.read(member)))
+                    extracted_files.append(saved)
+            logger.info("ZIP 文件已解压,共 %s 个文件", len(extracted_files))
 
         except (OSError, ValueError) as e:
-            logger.error(f"解压失败: {e}")
+            logger.error("解压失败: %s", e)
             # 解压失败不影响主流程,返回空列表
-            extracted_files: list[Any] = []  # type: ignore
+            extracted_files = []
         return extracted_files
-
-    # ── async counterparts ────────────────────────────────────────────
-
-    async def _arun(self) -> dict[str, Any]:  # pragma: no cover
-        """
-        异步版执行文书下载任务（覆盖 BaseScraper._arun）
-        """
-        from django.conf import settings
-
-        logger.info("=" * 60)
-        logger.info("处理 sd.gdems.com 链接...")
-        logger.info("=" * 60)
-
-        page = as_async_page(self.page)
-
-        # 导航到目标页面
-        logger.info("导航到: %s", self.task.url)
-        await page.goto(self.task.url, timeout=60000, wait_until="domcontentloaded")
-
-        # 等待页面加载
-        await page.wait_for_load_state("networkidle", timeout=30000)
-        await self._arandom_wait(3, 5)
-
-        # 截图保存封面页
-        screenshot_cover = await self._ascreenshot("gdems_cover")
-
-        # 检测页面状态
-        if not await self._ahas_clickable_confirm_button():
-            logger.warning("页面无可点击的确认按钮（#submit-btn），书记员可能未放置文书文件")
-            return await self._abuild_no_document_result(screenshot_cover)
-
-        # 点击"确认并预览材料"按钮
-        await self._aclick_confirm_button()
-
-        # 截图保存预览页
-        screenshot_preview = await self._ascreenshot("gdems_preview")
-
-        # 准备下载目录
-        download_dir = self._prepare_download_dir()
-
-        # 下载压缩包
-        zip_filepath = await self._adownload_zip_file(download_dir)
-
-        # 解压 ZIP 文件（纯文件 I/O，无需 async）
-        extracted_files = self._extract_zip_file(zip_filepath, download_dir)
-
-        # 构建文件列表
-        all_files: list[str] = []
-
-        return {
-            "source": "sd.gdems.com",
-            "zip_file": str(zip_filepath),
-            "extracted_files": extracted_files,
-            "files": all_files,
-            "file_count": len(extracted_files),
-            "screenshots": [screenshot_cover, screenshot_preview],
-            "message": f"成功下载并解压 {len(extracted_files)} 个文件",
-        }
-
-    async def _arandom_wait(self, min_s: float, max_s: float) -> None:  # pragma: no cover
-        """异步随机等待，模拟人工操作间隔"""
-        await asyncio.sleep(random.uniform(min_s, max_s))
-
-    async def _ascreenshot(self, name: str = "screenshot") -> str:  # pragma: no cover
-        """异步截图"""
-        from django.conf import settings
-        from django.utils import timezone
-
-        screenshot_dir = Path(settings.MEDIA_ROOT) / "automation" / "screenshots"
-        screenshot_dir.mkdir(parents=True, exist_ok=True)
-
-        filename = f"{name}_{self.task.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.png"
-        filepath = screenshot_dir / filename
-
-        page = as_async_page(self.page)
-        await page.screenshot(path=str(filepath))
-        logger.info("截图已保存: %s", filepath)
-        return str(filepath)
-
-    async def _ahas_clickable_confirm_button(self) -> bool:  # pragma: no cover
-        """异步版：检测页面是否存在可点击的确认按钮"""
-        page = as_async_page(self.page)
-        submit_btn = page.locator("#submit-btn")
-        if await submit_btn.count() > 0 and await submit_btn.first.is_visible():
-            logger.info("检测到 #submit-btn 确认按钮，页面有文书可下载")
-            return True
-
-        logger.info("未检测到 #submit-btn 确认按钮，页面可能无文书可下载")
-        return False
-
-    async def _aextract_canvas_notification(self) -> str:  # pragma: no cover
-        """异步版：提取 canvas 上绘制的通知文本"""
-        page = as_async_page(self.page)
-        try:
-            text: str = await page.evaluate("""() => {
-                var scripts = document.querySelectorAll('script:not([src])');
-                for (var s of scripts) {
-                    var content = s.textContent;
-                    var match = content.match(/var\\s+text\\s*=\\s*"((?:[^"\\\\]|\\\\.)*)"/);
-                    if (match) {
-                        try {
-                            return JSON.parse('"' + match[1] + '"');
-                        } catch(e) {
-                            return match[1]
-                                .replace(/\\\\n/g, '\\n')
-                                .replace(/\\\\t/g, '\\t')
-                                .replace(/\\\\"/g, '"');
-                        }
-                    }
-                }
-                return '';
-            }""")
-            if text:
-                logger.info("已提取 canvas 通知文本，长度: %d", len(text))
-            return text or ""
-        except Exception as e:
-            logger.warning(f"提取 canvas 通知文本失败: {e}")
-            return ""
-
-    async def _abuild_no_document_result(self, screenshot_cover: str) -> dict[str, Any]:  # pragma: no cover
-        """异步版：构建无文书可下载时的返回结果"""
-        notification_text = await self._aextract_canvas_notification()
-        if notification_text:
-            preview_text = notification_text[:200] + ("..." if len(notification_text) > 200 else "")
-            logger.info(f"通知内容摘要: {preview_text}")
-
-        self._save_page_state("gdems_no_document")
-
-        return {
-            "source": "sd.gdems.com",
-            "zip_file": "",
-            "extracted_files": [],
-            "files": [],
-            "file_count": 0,
-            "screenshots": [screenshot_cover],
-            "notification_text": notification_text,
-            "message": "书记员尚未放置文书文件，确定按钮无法点击，无文书可下载",
-        }
-
-    async def _afind_locator(self, selectors: list[str], label: str) -> Any | None:  # pragma: no cover
-        """异步版：按顺序尝试多个选择器，返回第一个可见的定位器"""
-        page = as_async_page(self.page)
-        for selector in selectors:
-            try:
-                loc = page.locator(selector)
-                if await loc.count() > 0 and await loc.first.is_visible():
-                    logger.info(f"通过 '{selector}' 找到 {label}")
-                    return loc
-            except Exception:
-                pass
-        return None
-
-    async def _aclick_confirm_button(self) -> None:  # pragma: no cover
-        """异步版：点击"确认并预览材料"按钮"""
-        page = as_async_page(self.page)
-        try:
-            selectors = [
-                "#submit-btn, #confirm-btn, .submit-btn, .confirm-btn",
-                "button:has-text('确认'), button:has-text('确定'), button:has-text('预览')",
-            ]
-            submit_button = await self._afind_locator(selectors, "确认按钮")
-
-            if not submit_button:
-                try:
-                    btn = page.get_by_text("确认并预览材料", exact=False)
-                    if await btn.count() > 0 and await btn.first.is_visible():
-                        submit_button = btn
-                        logger.info("通过文本找到确认按钮")
-                except Exception:
-                    pass
-
-            if submit_button and await submit_button.count() > 0:
-                await submit_button.first.click()
-                logger.info("已点击'确认并预览材料'按钮")
-                await page.wait_for_load_state("networkidle", timeout=30000)
-                await self._arandom_wait(5, 7)
-            else:
-                logger.warning("未找到确认按钮，可能页面已经在预览状态")
-        except Exception as e:
-            logger.warning(f"点击确认按钮时出错: {e}，继续尝试下载")
-
-    async def _adownload_zip_file(self, download_dir: Path) -> Path:  # pragma: no cover
-        """异步版：下载压缩包文件"""
-        download_xpath = "/html/body/div/div[1]/div[1]/label/a/img"
-        selectors = [
-            "a.downloadPackClass",
-            f"xpath={download_xpath}",
-            "label a:has(img)",
-            "a:has-text('送达材料')",
-            "a:has-text('下载'), button:has-text('下载'), [title*='下载']",
-        ]
-
-        page = as_async_page(self.page)
-        try:
-            download_button = await self._afind_locator(selectors, "下载按钮")
-
-            if not download_button or await download_button.count() == 0:
-                self._save_page_state("gdems_no_download_button")
-                raise ValueError("找不到下载按钮")
-
-            await download_button.first.scroll_into_view_if_needed()
-            await self._arandom_wait(1, 2)
-
-            async with page.expect_download(timeout=60000) as download_info:
-                await download_button.first.click()
-                logger.info("已点击下载按钮，等待下载...")
-
-            download = await download_info.value
-            zip_filename = download.suggested_filename or "documents.zip"
-            zip_filepath = download_dir / zip_filename
-            await download.save_as(str(zip_filepath))
-            logger.info(f"ZIP 文件已保存: {zip_filepath}")
-            return zip_filepath
-
-        except Exception as e:
-            logger.error(f"下载失败: {e}")
-            self._save_page_state("gdems_download_error")
-            raise ValueError(f"文件下载失败: {e}") from e

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 
 from playwright.sync_api import BrowserContext, Page
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -55,20 +58,24 @@ class WeikeSession:
             if self.page is not None:
                 self.page.close()
         except Exception:
+            logger.debug("关闭 Playwright 页面失败（已忽略）", exc_info=True)
             pass
         try:
             if self.context is not None:
                 self.context.close()
         except Exception:
+            logger.debug("关闭浏览器上下文失败（已忽略）", exc_info=True)
             pass
         try:
             if self.context_manager is not None:
                 self.context_manager.__exit__(None, None, None)
         except Exception:
+            logger.debug("退出浏览器上下文管理器失败（已忽略）", exc_info=True)
             pass
         try:
             close_http = getattr(self.http_client, "close", None)
             if callable(close_http):
                 close_http()
         except Exception:
+            logger.debug("关闭 HTTP 客户端失败（已忽略）", exc_info=True)
             pass

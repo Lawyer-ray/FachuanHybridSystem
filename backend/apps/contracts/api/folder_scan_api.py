@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from uuid import UUID
 
 from asgiref.sync import sync_to_async
@@ -20,6 +21,8 @@ from apps.contracts.services.contract.integrations.folder_scan_service import Co
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.core.security import get_request_access_context
 
+logger = logging.getLogger(__name__)
+
 router = Router()
 
 
@@ -36,7 +39,9 @@ def _require_contract_access(request: HttpRequest, contract_id: int) -> None:
 
 @router.post("/{contract_id}/folder-scan", response=ContractFolderScanStartOut)
 @rate_limit_from_settings("TASK", by_user=True)
-async def start_contract_scan(request: HttpRequest, contract_id: int, payload: ContractFolderScanStartIn) -> dict[str, str]:  # pragma: no cover
+async def start_contract_scan(
+    request: HttpRequest, contract_id: int, payload: ContractFolderScanStartIn
+) -> dict[str, str]:  # pragma: no cover
     await sync_to_async(_require_contract_access)(request, contract_id)
     ctx = await sync_to_async(get_request_access_context)(request)
 
@@ -55,7 +60,9 @@ async def start_contract_scan(request: HttpRequest, contract_id: int, payload: C
 
 
 @router.get("/{contract_id}/folder-scan/subfolders", response=ContractFolderScanSubfolderListOut)
-async def list_contract_scan_subfolders(request: HttpRequest, contract_id: int) -> dict[str, object]:  # pragma: no cover
+async def list_contract_scan_subfolders(
+    request: HttpRequest, contract_id: int
+) -> dict[str, object]:  # pragma: no cover
     await sync_to_async(_require_contract_access)(request, contract_id)
     service = _get_service()
     return await sync_to_async(service.list_scan_subfolders)(contract_id=contract_id)
@@ -84,7 +91,9 @@ async def get_latest_contract_scan(request: HttpRequest, contract_id: int) -> di
 
 
 @router.get("/{contract_id}/folder-scan/{session_id}", response=ContractFolderScanStatusOut)
-async def get_contract_scan_status(request: HttpRequest, contract_id: int, session_id: UUID) -> dict[str, object]:  # pragma: no cover
+async def get_contract_scan_status(
+    request: HttpRequest, contract_id: int, session_id: UUID
+) -> dict[str, object]:  # pragma: no cover
     await sync_to_async(_require_contract_access)(request, contract_id)
 
     service = _get_service()
@@ -111,7 +120,12 @@ async def confirm_contract_scan(  # pragma: no cover
         binding = await sync_to_async(lambda: session.contract.folder_binding)()
         storage_provider = await sync_to_async(service._make_provider_for_binding)(binding)
     except Exception:
-        pass
+        logger.debug(
+            "解析云存储 provider 失败（已忽略，按本地存储确认导入）: contract_id=%s session_id=%s",
+            contract_id,
+            session_id,
+            exc_info=True,
+        )
 
     return await sync_to_async(service.confirm_import)(
         contract_id=contract_id,

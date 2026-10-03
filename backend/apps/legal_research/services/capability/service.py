@@ -894,6 +894,7 @@ class LegalResearchCapabilityService:  # pragma: no cover
             try:
                 cache.delete(key)
             except Exception:
+                logger.debug("删除失败熔断缓存键失败（已忽略）", exc_info=True)
                 pass
             return False
         return True
@@ -911,6 +912,7 @@ class LegalResearchCapabilityService:  # pragma: no cover
                     timeout=self.FAILURE_CIRCUIT_COOLDOWN_SECONDS,
                 )
         except Exception:
+            logger.warning("记录失败熔断计数失败（已忽略）", exc_info=True)
             return
 
     def _clear_failure_circuit(self, *, credential_id: int) -> None:  # pragma: no cover
@@ -919,6 +921,7 @@ class LegalResearchCapabilityService:  # pragma: no cover
         try:
             cache.delete_many([count_key, open_key])
         except (TypeError, ValueError):
+            logger.debug("清除失败熔断缓存失败（已忽略）", exc_info=True)
             pass
 
     def _load_idempotent_response(  # pragma: no cover

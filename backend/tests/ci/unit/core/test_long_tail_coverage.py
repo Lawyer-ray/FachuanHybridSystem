@@ -17,7 +17,6 @@ import pytest
 # tests for apps.core.tasking.runtime (41 missing)
 # ---------------------------------------------------------------------------
 
-
 class TestTaskRunContext:
     def test_from_django_q_default_timeout(self):
         from apps.core.tasking.runtime import TaskRunContext
@@ -67,7 +66,6 @@ class TestTaskRunContext:
         )
         assert ctx.is_past_soft_deadline() is True
 
-
 class TestCancellationToken:
     def test_not_cancelled(self):
         from apps.core.tasking.runtime import CancellationToken
@@ -86,7 +84,6 @@ class TestCancellationToken:
 
         token = CancellationToken(should_cancel=lambda: None.bad_attr)
         assert token.is_cancelled() is False
-
 
 class TestProgressReporter:
     def test_report_basic(self):
@@ -194,11 +191,9 @@ class TestProgressReporter:
         reporter.report(current=-10, total=100, message="neg", force=True)
         assert updates[0][0] == 0
 
-
 # ---------------------------------------------------------------------------
 # tests for apps.core.tasking.cleanup_tasks (36 missing)
 # ---------------------------------------------------------------------------
-
 
 class TestCleanupTasks:
     def test_cleanup_temp_files_no_dir(self, tmp_path):
@@ -314,11 +309,9 @@ class TestCleanupTasks:
                 result = check_disk_space(warning_pct=80.0, critical_pct=95.0)
                 assert result["status"] == "critical"
 
-
 # ---------------------------------------------------------------------------
 # tests for apps.core.infrastructure.resource_monitor (36 missing)
 # ---------------------------------------------------------------------------
-
 
 class TestResourceMonitor:
     def test_init_no_psutil(self):
@@ -519,13 +512,6 @@ class TestResourceMonitor:
             assert should is False
             assert "within" in reason.lower()
 
-    def test_record_restart(self):
-        from apps.core.infrastructure.resource_monitor import ResourceMonitor
-
-        monitor = ResourceMonitor()
-        monitor.record_restart()
-        assert monitor._last_restart_time is not None
-
     def test_get_resource_recommendations_no_usage(self):
         from apps.core.infrastructure.resource_monitor import ResourceMonitor
 
@@ -624,59 +610,6 @@ class TestResourceMonitor:
             result = monitor.get_resource_recommendations()
             assert any("Memory" in r for r in result["recommendations"])
 
-    def test_start_monitoring_disabled(self):
-        from apps.core.infrastructure.resource_monitor import ResourceMonitor
-
-        monitor = ResourceMonitor()
-        monitor.monitoring_enabled = False
-        monitor.start_monitoring()  # should be a no-op
-
-    def test_start_and_stop_monitoring(self):
-        from apps.core.infrastructure.resource_monitor import ResourceMonitor
-
-        monitor = ResourceMonitor()
-        monitor.monitoring_enabled = True
-        # Mock check_resource_health to avoid real system calls
-        with patch.object(monitor, "check_resource_health", return_value={"status": "healthy", "message": ""}):
-            with patch.object(monitor, "should_trigger_restart", return_value=(False, "")):
-                monitor.start_monitoring(interval=1)
-                assert monitor._monitoring_thread is not None
-                assert monitor._monitoring_thread.is_alive()
-                monitor.stop_monitoring()
-                assert not monitor._monitoring_thread.is_alive()
-
-    def test_start_monitoring_already_running(self):
-        from apps.core.infrastructure.resource_monitor import ResourceMonitor
-
-        monitor = ResourceMonitor()
-        monitor.monitoring_enabled = True
-        monitor._monitoring_thread = MagicMock()
-        monitor._monitoring_thread.is_alive.return_value = True
-        monitor.start_monitoring()  # should warn and return
-
-    def test_monitoring_loop_handles_exceptions(self):
-        """_monitoring_loop should continue on exception."""
-        from apps.core.infrastructure.resource_monitor import ResourceMonitor
-
-        monitor = ResourceMonitor()
-        monitor.monitoring_enabled = True
-        call_count = 0
-
-        def side_effect():
-            nonlocal call_count
-            call_count += 1
-            if call_count < 2:
-                raise OSError("test error")
-            return {"status": "healthy", "message": ""}
-
-        with patch.object(monitor, "check_resource_health", side_effect=side_effect):
-            with patch.object(monitor, "should_trigger_restart", return_value=(False, "")):
-                monitor.start_monitoring(interval=0)
-                import time as _time
-
-                _time.sleep(0.1)
-                monitor.stop_monitoring()
-
     def test_get_bool_env(self):
         from apps.core.infrastructure.resource_monitor import ResourceMonitor
 
@@ -684,142 +617,4 @@ class TestResourceMonitor:
         assert monitor._get_bool_env("NONEXISTENT_KEY", True) is True
         assert monitor._get_bool_env("NONEXISTENT_KEY", False) is False
 
-
 # ---------------------------------------------------------------------------
-# tests for apps.automation.utils.logging_mixins.common (36 missing)
-# ---------------------------------------------------------------------------
-
-
-class TestLoggingMixinsCommon:
-    def test_get_logger(self):
-        from apps.automation.utils.logging_mixins.common import get_logger
-
-        with patch("importlib.import_module") as mock_import:
-            mock_mod = MagicMock()
-            mock_mod.logger = MagicMock()
-            mock_import.return_value = mock_mod
-            result = get_logger()
-            assert result == mock_mod.logger
-
-    def test_utc_now_iso(self):
-        from apps.automation.utils.logging_mixins.common import utc_now_iso
-
-        with patch("apps.core.telemetry.time.utc_now_iso", return_value="2024-01-01T00:00:00Z"):
-            result = utc_now_iso()
-            assert result == "2024-01-01T00:00:00Z"
-
-    def test_stable_hash_basic(self):
-        from apps.automation.utils.logging_mixins.common import stable_hash
-
-        with patch("django.conf.settings") as mock_settings:
-            mock_settings.SECRET_KEY = "test-secret"
-            h1 = stable_hash("hello")
-            h2 = stable_hash("hello")
-            assert h1 == h2
-            assert len(h1) == 32
-
-    def test_stable_hash_empty(self):
-        from apps.automation.utils.logging_mixins.common import stable_hash
-
-        with patch("django.conf.settings") as mock_settings:
-            mock_settings.SECRET_KEY = "test-secret"
-            h = stable_hash("")
-            assert len(h) == 32
-
-    def test_stable_hash_none_secret(self):
-        from apps.automation.utils.logging_mixins.common import stable_hash
-
-        with patch("django.conf.settings") as mock_settings:
-            mock_settings.SECRET_KEY = None
-            h = stable_hash("test")
-            assert len(h) == 32
-
-    def test_mask_account_email(self):
-        from apps.automation.utils.logging_mixins.common import mask_account
-
-        assert mask_account("test@example.com") == "t***t@example.com"
-        assert mask_account("ab@example.com") == "a*@example.com"
-        assert mask_account("a@example.com") == "*@example.com"
-
-    def test_mask_account_short_email(self):
-        from apps.automation.utils.logging_mixins.common import mask_account
-
-        result = mask_account("ab@x.com")
-        assert result.startswith("a*@x.com")
-
-    def test_mask_account_phone(self):
-        from apps.automation.utils.logging_mixins.common import mask_account
-
-        result = mask_account("13800138000", keep_last=4)
-        assert result.endswith("8000")
-        assert result.startswith("***")
-
-    def test_mask_account_empty(self):
-        from apps.automation.utils.logging_mixins.common import mask_account
-
-        assert mask_account("") == ""
-        assert mask_account("  ") == ""
-
-    def test_mask_account_keep_zero(self):
-        from apps.automation.utils.logging_mixins.common import mask_account
-
-        result = mask_account("abc", keep_last=0)
-        assert result == "***"
-
-    def test_sanitize_url_basic(self):
-        from apps.automation.utils.logging_mixins.common import sanitize_url
-
-        result = sanitize_url("https://example.com/path?a=1")
-        assert result == "https://example.com/path"
-
-    def test_sanitize_url_empty(self):
-        from apps.automation.utils.logging_mixins.common import sanitize_url
-
-        assert sanitize_url("") == ""
-
-    def test_sanitize_url_truncated(self):
-        from apps.automation.utils.logging_mixins.common import sanitize_url
-
-        long_url = "https://example.com/" + "a" * 300
-        result = sanitize_url(long_url, max_length=50)
-        assert result.endswith("...")
-        assert len(result) == 53  # 50 + "..."
-
-    def test_normalize_cache_key_component_empty(self):
-        from apps.automation.utils.logging_mixins.common import normalize_cache_key_component
-
-        assert normalize_cache_key_component("") == "empty"
-        assert normalize_cache_key_component("  ") == "empty"
-
-    def test_normalize_cache_key_component_simple(self):
-        from apps.automation.utils.logging_mixins.common import normalize_cache_key_component
-
-        assert normalize_cache_key_component("hello-world") == "hello-world"
-
-    def test_normalize_cache_key_component_uppercase(self):
-        from apps.automation.utils.logging_mixins.common import normalize_cache_key_component
-
-        # "Hello" lowered to "hello" matches [a-z0-9._-]+ => returned as-is
-        result = normalize_cache_key_component("Hello")
-        assert result == "hello"
-
-    def test_normalize_cache_key_component_special_chars(self):
-        from apps.automation.utils.logging_mixins.common import normalize_cache_key_component
-
-        result = normalize_cache_key_component("hello world!")
-        assert "hello" in result
-        # Should have hash appended
-        assert len(result) > 10
-
-    def test_normalize_cache_key_component_too_long(self):
-        from apps.automation.utils.logging_mixins.common import normalize_cache_key_component
-
-        result = normalize_cache_key_component("a" * 100, max_len=10)
-        assert len(result) <= 50  # trimmed + hash
-
-    def test_normalize_cache_key_component_all_special(self):
-        from apps.automation.utils.logging_mixins.common import normalize_cache_key_component
-
-        result = normalize_cache_key_component("!!!")
-        # cleaned becomes 'x' + hash
-        assert result.startswith("x-")

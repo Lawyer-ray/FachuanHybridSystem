@@ -1,5 +1,7 @@
 """第三方服务配置注册"""
 
+import os
+
 from .field import ConfigField
 
 
@@ -7,7 +9,8 @@ def register_service_configs(registry: dict[str, ConfigField]) -> None:
     registry["services.openai_compatible.base_url"] = ConfigField(
         name="services.openai_compatible.base_url",
         type=str,
-        default="http://116.196.92.175:8001/v1",
+        # 默认网关 URL 可经 LLM_DEFAULT_BASE_URL 环境变量替换（回退值保持原网关，行为零变化）
+        default=os.environ.get("LLM_DEFAULT_BASE_URL", "http://116.196.92.175:8001/v1"),
         env_var="OPENAI_COMPATIBLE_BASE_URL",
         description="OpenAI-compatible API 基础 URL",
     )

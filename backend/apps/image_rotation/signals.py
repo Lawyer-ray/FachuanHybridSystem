@@ -8,6 +8,8 @@ from django.db import transaction
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
+from apps.core.filesystem.upload_paths import MediaEntity
+
 from .models import ImageRotationJob, ImageRotationPage
 
 logger = logging.getLogger("apps.image_rotation")
@@ -32,7 +34,7 @@ def _cleanup_job_files(sender: type, instance: ImageRotationJob, **kwargs: objec
         # 清理 flat 导出文件
         for url in export_urls:
             if url:
-                rel = url.removeprefix("/media/")
+                rel = url.removeprefix(settings.MEDIA_URL)
                 flat_path = media_root / rel
                 try:
                     flat_path.unlink(missing_ok=True)
@@ -40,7 +42,7 @@ def _cleanup_job_files(sender: type, instance: ImageRotationJob, **kwargs: objec
                     logger.exception("清理导出文件失败: %s", flat_path)
 
         # 兜底：删除整个 job 目录（含 source/）
-        job_dir = media_root / "image_rotation" / "jobs" / str(job_id)
+        job_dir = media_root / MediaEntity.IMAGE_ROTATION / "jobs" / str(job_id)
         import shutil
 
         shutil.rmtree(job_dir, ignore_errors=True)

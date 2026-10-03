@@ -133,7 +133,7 @@ class SMSParserService:
         Returns:
             SMSParseResult: 解析结果
         """
-        logger.info(f"开始解析短信内容，长度: {len(content)}")
+        logger.info("开始解析短信内容，长度: %s", len(content))
 
         # 提取下载链接
         download_links = self.extract_download_links(content)
@@ -168,8 +168,11 @@ class SMSParserService:
         )
 
         logger.info(
-            f"短信解析完成: 类型={sms_type}, 链接数={len(download_links)}, "
-            f"案号数={len(case_numbers)}, 当事人数={len(party_names)}"
+            "短信解析完成: 类型=%s, 链接数=%s, 案号数=%s, 当事人数=%s",
+            sms_type,
+            len(download_links),
+            len(case_numbers),
+            len(party_names),
         )
 
         return result
@@ -276,7 +279,8 @@ class SMSParserService:
         match = self.SFDW_VERIFICATION_CODE_PATTERN.search(content)
         if match:
             code = match.group(1)
-            logger.info(f"提取到司法送达网验证码: {code}")
+            masked_code = code[:2] + "****" if len(code) > 2 else "****"
+            logger.info("提取到司法送达网验证码: %s", masked_code)
             return code
         return ""
 
@@ -295,7 +299,7 @@ class SMSParserService:
         case_numbers = extracted
 
         if case_numbers:
-            logger.info(f"提取到案号: {case_numbers}")
+            logger.info("提取到案号: %s", case_numbers)
 
         return case_numbers
 
@@ -315,7 +319,7 @@ class SMSParserService:
         existing_parties = self._find_existing_clients_in_sms(content)
 
         if existing_parties:
-            logger.info(f"在短信中找到现有客户: {existing_parties}")
+            logger.info("在短信中找到现有客户: %s", existing_parties)
             return existing_parties
 
         logger.info("在短信中未找到现有客户，尝试候选提取与匹配")
@@ -326,7 +330,7 @@ class SMSParserService:
             if hasattr(extractor, "extract"):
                 candidates = list(extractor.extract(content))
         except Exception as exc:
-            logger.warning(f"提取当事人候选失败: {exc!s}")
+            logger.warning("提取当事人候选失败: %s", exc)
             return []
 
         if not candidates:
@@ -340,7 +344,7 @@ class SMSParserService:
                 return []
             matched_clients = matcher.extract_and_match_parties_from_sms(candidates)
         except Exception as exc:
-            logger.warning(f"匹配当事人失败: {exc!s}")
+            logger.warning("匹配当事人失败: %s", exc)
             return []
 
         names: list[str] = []
@@ -353,7 +357,7 @@ class SMSParserService:
             names.append(name)
 
         if names:
-            logger.info(f"通过候选匹配找到当事人: {names}")
+            logger.info("通过候选匹配找到当事人: %s", names)
             return names
 
         logger.info("候选匹配未找到当事人，返回空列表")
@@ -374,7 +378,7 @@ class SMSParserService:
             all_clients = self.client_service.get_all_clients_internal()
             found_parties = []
 
-            logger.info(f"开始在短信中查找现有的 {len(all_clients)} 个客户")
+            logger.info("开始在短信中查找现有的 %s 个客户", len(all_clients))
 
             # 遍历每个客户，检查其名称是否在短信内容中
             for client in all_clients:
@@ -387,15 +391,15 @@ class SMSParserService:
                 # 检查客户名称是否在短信内容中出现
                 if client_name in content:
                     found_parties.append(client_name)
-                    logger.info(f"在短信中找到现有客户: {client_name}")
+                    logger.info("在短信中找到现有客户: %s", client_name)
 
             if found_parties:
-                logger.info(f"总共在短信中找到 {len(found_parties)} 个现有客户: {found_parties}")
+                logger.info("总共在短信中找到 %s 个现有客户: %s", len(found_parties), found_parties)
             else:
                 logger.info("在短信中未找到任何现有客户")
 
             return found_parties
 
         except Exception as e:
-            logger.warning(f"查找现有客户时出错: {e!s}")
+            logger.warning("查找现有客户时出错: %s", e)
             return []

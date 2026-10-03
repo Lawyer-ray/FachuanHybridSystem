@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -68,7 +67,7 @@ def create_manual_message(files: list[Any], subject: str = "", uploaded_by: Any 
     """
     source = get_or_create_manual_source()
     attachment_metas: list[dict[str, Any]] = []
-    ts = datetime.now().strftime("%Y%m%d%H%M%S")
+    ts = timezone.localtime().strftime("%Y%m%d%H%M%S")
     for part_index, uploaded in enumerate(files):
         safe_name = Path(uploaded.name).name or f"attachment_{part_index}"
         rel_path = f"message_hub/manual/{source.pk}/{ts}/{part_index}_{safe_name}"
@@ -115,7 +114,7 @@ def append_manual_attachments(message: InboxMessage, files: list[Any]) -> InboxM
     """
     metas = list(message.attachments_meta or [])
     last_pi = max((int(a.get("part_index", -1)) for a in metas), default=-1)
-    ts = datetime.now().strftime("%Y%m%d%H%M%S")
+    ts = timezone.localtime().strftime("%Y%m%d%H%M%S")
     for idx, uploaded in enumerate(files):
         pi = last_pi + 1 + idx
         safe_name = Path(uploaded.name).name or f"attachment_{pi}"

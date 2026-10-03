@@ -16,122 +16,62 @@ def get_config_value(key: str, default: Any | None = None, fallback_settings_key
     """
     获取配置值的通用函数
 
-    优先从统一配置管理器获取，如果不可用则回退到 Django settings
-
     Args:
-        key: 统一配置键（点号分隔）
+        key: 配置键
         default: 默认值
         fallback_settings_key: 回退的 Django settings 键
 
     Returns:
         配置值
     """
-    # 尝试使用统一配置管理器
-    try:
-        if getattr(settings, "CONFIG_MANAGER_AVAILABLE", False):
-            get_unified_config = getattr(settings, "get_unified_config", None)
-            if get_unified_config:
-                value = get_unified_config(key, default)
-                if value is not None:
-                    return value
-    except Exception as e:
-        logger.debug(f"从统一配置获取 {key} 失败: {e}")
-
-    # 回退到 Django settings
     if fallback_settings_key:
         return getattr(settings, fallback_settings_key, default)
 
     return default
 
 
-def get_nested_config_value(config_dict: dict[str, Any], key: str, default: Any = None) -> Any:
+def get_category_configs(category: str) -> dict[str, Any]:
     """
-    从嵌套字典中获取配置值
+    批量获取指定分类的 SystemConfig 配置
 
     Args:
-        config_dict: 配置字典
-        key: 配置键
-        default: 默认值
+        category: 配置分类（如 feishu、wechat_work、dingtalk、telegram）
 
     Returns:
-        配置值
+        配置字典，key 为 DB 键名（如 FEISHU_APP_ID），value 为配置值
     """
-    return config_dict.get(key, default)
+    try:
+        from apps.core.services.system_config_service import SystemConfigService
+
+        service = SystemConfigService()
+        result: dict[str, Any] = service.get_category_configs(category)
+        return result
+    except Exception as e:
+        logger.debug(f"从 SystemConfig 批量获取 {category} 配置失败: {e}")
+        return {}
 
 
 def get_feishu_category_configs() -> dict[str, Any]:
-    """
-    批量获取飞书分类配置
-
-    Returns:
-        飞书配置字典，key 为 DB 键名（如 FEISHU_APP_ID），value 为配置值
-    """
-    try:
-        from apps.core.services.system_config_service import SystemConfigService
-
-        service = SystemConfigService()
-        result: dict[str, Any] = service.get_category_configs("feishu")
-        return result
-    except Exception as e:
-        logger.debug(f"从 SystemConfig 批量获取飞书配置失败: {e}")
-        return {}
+    """批量获取飞书分类配置"""
+    return get_category_configs("feishu")
 
 
 def get_wechat_work_category_configs() -> dict[str, Any]:
-    """
-    批量获取企业微信分类配置
-
-    Returns:
-        企业微信配置字典，key 为 DB 键名（如 WECHAT_WORK_CORP_ID），value 为配置值
-    """
-    try:
-        from apps.core.services.system_config_service import SystemConfigService
-
-        service = SystemConfigService()
-        result: dict[str, Any] = service.get_category_configs("wechat_work")
-        return result
-    except Exception as e:
-        logger.debug(f"从 SystemConfig 批量获取企业微信配置失败: {e}")
-        return {}
+    """批量获取企业微信分类配置"""
+    return get_category_configs("wechat_work")
 
 
 def get_dingtalk_category_configs() -> dict[str, Any]:
-    """
-    批量获取钉钉分类配置
-
-    Returns:
-        钉钉配置字典，key 为 DB 键名（如 DINGTALK_APP_KEY），value 为配置值
-    """
-    try:
-        from apps.core.services.system_config_service import SystemConfigService
-
-        service = SystemConfigService()
-        result: dict[str, Any] = service.get_category_configs("dingtalk")
-        return result
-    except Exception as e:
-        logger.debug(f"从 SystemConfig 批量获取钉钉配置失败: {e}")
-        return {}
+    """批量获取钉钉分类配置"""
+    return get_category_configs("dingtalk")
 
 
 def get_telegram_category_configs() -> dict[str, Any]:
-    """
-    批量获取 Telegram 分类配置
-
-    Returns:
-        Telegram 配置字典，key 为 DB 键名（如 chat_platforms.telegram.bot_token），value 为配置值
-    """
-    try:
-        from apps.core.services.system_config_service import SystemConfigService
-
-        service = SystemConfigService()
-        result: dict[str, Any] = service.get_category_configs("telegram")
-        return result
-    except Exception as e:
-        logger.debug(f"从 SystemConfig 批量获取 Telegram 配置失败: {e}")
-        return {}
+    """批量获取 Telegram 分类配置"""
+    return get_category_configs("telegram")
 
 
-def get_system_config_value(key: str, default: Any = None) -> Any:
+def get_system_config_value(key: str, default: Any | None = None) -> Any:
     """
     获取 SystemConfig 单个配置值
 
@@ -152,7 +92,7 @@ def get_system_config_value(key: str, default: Any = None) -> Any:
         return default
 
 
-def get_feishu_config(key: str, default: Any = None) -> Any:
+def get_feishu_config(key: str, default: Any | None = None) -> Any:
     """
     获取飞书配置的便捷函数
 
@@ -163,20 +103,6 @@ def get_feishu_config(key: str, default: Any = None) -> Any:
     Returns:
         配置值
     """
-    unified_key = f"chat_platforms.feishu.{key}"
-
-    # 尝试统一配置
-    try:
-        if getattr(settings, "CONFIG_MANAGER_AVAILABLE", False):
-            get_unified_config = getattr(settings, "get_unified_config", None)
-            if get_unified_config:
-                value = get_unified_config(unified_key)
-                if value is not None:
-                    return value
-    except Exception as e:
-        logger.debug(f"从统一配置获取飞书配置 {key} 失败: {e}")
-
-    # 回退到传统配置
     feishu_config = getattr(settings, "FEISHU", {})
     value = feishu_config.get(key.upper())
     if value is not None:
@@ -188,7 +114,7 @@ def get_feishu_config(key: str, default: Any = None) -> Any:
     return court_sms_config.get(old_key, default)
 
 
-def get_document_processing_config(key: str, default: Any = None) -> Any:
+def get_document_processing_config(key: str, default: Any | None = None) -> Any:
     """
     获取文档处理配置的便捷函数
 
@@ -199,25 +125,11 @@ def get_document_processing_config(key: str, default: Any = None) -> Any:
     Returns:
         配置值
     """
-    unified_key = f"features.document_processing.{key}"
-
-    # 尝试统一配置
-    try:
-        if getattr(settings, "CONFIG_MANAGER_AVAILABLE", False):
-            get_unified_config = getattr(settings, "get_unified_config", None)
-            if get_unified_config:
-                value = get_unified_config(unified_key)
-                if value is not None:
-                    return value
-    except Exception as e:
-        logger.debug(f"从统一配置获取文档处理配置 {key} 失败: {e}")
-
-    # 回退到传统配置
     doc_config = getattr(settings, "DOCUMENT_PROCESSING", {})
     return doc_config.get(key.upper(), default)
 
 
-def get_case_chat_config(key: str, default: Any = None) -> Any:
+def get_case_chat_config(key: str, default: Any | None = None) -> Any:
     """
     获取案件群聊配置的便捷函数
 
@@ -228,25 +140,11 @@ def get_case_chat_config(key: str, default: Any = None) -> Any:
     Returns:
         配置值
     """
-    unified_key = f"features.case_chat.{key}"
-
-    # 尝试统一配置
-    try:
-        if getattr(settings, "CONFIG_MANAGER_AVAILABLE", False):
-            get_unified_config = getattr(settings, "get_unified_config", None)
-            if get_unified_config:
-                value = get_unified_config(unified_key)
-                if value is not None:
-                    return value
-    except Exception as e:
-        logger.debug(f"从统一配置获取案件群聊配置 {key} 失败: {e}")
-
-    # 回退到传统配置
     case_chat_config = getattr(settings, "CASE_CHAT", {})
     return case_chat_config.get(key.upper(), default)
 
 
-def get_court_sms_config(key: str, default: Any = None) -> Any:
+def get_court_sms_config(key: str, default: Any | None = None) -> Any:
     """
     获取法院短信配置的便捷函数
 
@@ -257,20 +155,6 @@ def get_court_sms_config(key: str, default: Any = None) -> Any:
     Returns:
         配置值
     """
-    unified_key = f"features.court_sms.{key}"
-
-    # 尝试统一配置
-    try:
-        if getattr(settings, "CONFIG_MANAGER_AVAILABLE", False):
-            get_unified_config = getattr(settings, "get_unified_config", None)
-            if get_unified_config:
-                value = get_unified_config(unified_key)
-                if value is not None:
-                    return value
-    except Exception as e:
-        logger.debug(f"从统一配置获取法院短信配置 {key} 失败: {e}")
-
-    # 回退到传统配置
     court_sms_config = getattr(settings, "COURT_SMS_PROCESSING", {})
     return court_sms_config.get(key.upper(), default)
 
@@ -283,60 +167,3 @@ def is_config_manager_available() -> bool:
         bool: 是否可用
     """
     return getattr(settings, "CONFIG_MANAGER_AVAILABLE", False)
-
-
-def get_config_manager() -> Any:
-    """
-    获取配置管理器实例
-
-    Returns:
-        ConfigManager 实例或 None
-    """
-    if is_config_manager_available():
-        return getattr(settings, "UNIFIED_CONFIG_MANAGER", None)
-    return None
-
-
-def register_config_change_listener(
-    listener: Any, key_filter: str | None = None, prefix_filter: str | None = None
-) -> None:
-    """
-    注册配置变更监听器
-
-    Args:
-        listener: 监听器实例
-        key_filter: 键过滤器
-        prefix_filter: 前缀过滤器
-    """
-    config_manager = get_config_manager()
-    if config_manager:
-        config_manager.add_listener(listener, key_filter, prefix_filter)
-    else:
-        logger.warning("配置管理器不可用，无法注册监听器")
-
-
-def migrate_legacy_config_access(legacy_settings_key: str, unified_config_key: str, default: Any = None) -> Any:
-    """
-    迁移传统配置访问的辅助函数
-
-    Args:
-        legacy_settings_key: 传统 Django settings 键
-        unified_config_key: 统一配置键
-        default: 默认值
-
-    Returns:
-        配置值
-    """
-    # 优先使用统一配置
-    if is_config_manager_available():
-        try:
-            get_unified_config = getattr(settings, "get_unified_config", None)
-            if get_unified_config:
-                value = get_unified_config(unified_config_key)
-                if value is not None:
-                    return value
-        except Exception as e:
-            logger.debug(f"从统一配置获取 {unified_config_key} 失败: {e}")
-
-    # 回退到传统配置
-    return getattr(settings, legacy_settings_key, default)

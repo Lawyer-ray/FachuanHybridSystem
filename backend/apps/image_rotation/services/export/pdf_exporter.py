@@ -7,36 +7,30 @@ from typing import Any
 import pymupdf as fitz
 from PIL import Image
 
-from apps.core.utils.path import Path
 from apps.image_rotation.services import storage
 from apps.image_rotation.services.transform import apply_rotation_for_pdf
 
 logger = logging.getLogger("apps.image_rotation")
 
 
-def generate_pdf(*, processed_images: list[tuple[bytes, int]], output_dir: Path) -> str:  # pragma: no cover
-    from django.conf import settings
+def generate_pdf(*, processed_images: list[tuple[bytes, int]]) -> str:  # pragma: no cover
     from django.core.files.base import ContentFile
     from django.core.files.storage import default_storage
 
     pdf_filename = storage.build_pdf_filename()
+    pdf_bytes = _create_pdf_from_images(processed_images)
 
-    try:
-        pdf_bytes = _create_pdf_from_images(processed_images)
-        media_root = Path(settings.MEDIA_ROOT)
-        rel_path = output_dir.relative_to(media_root).as_posix() + f"/{pdf_filename}"
-        default_storage.save(rel_path, ContentFile(pdf_bytes))
+    rel_path = storage.export_rel_path(pdf_filename)
+    default_storage.save(rel_path, ContentFile(pdf_bytes))
 
-        logger.info(
-            "PDF 文件生成成功",
-            extra={
-                "pdf_path": rel_path,
-                "page_count": len(processed_images),
-            },
-        )
-        return storage.to_media_url(pdf_filename)
-    except Exception:
-        raise
+    logger.info(
+        "PDF 文件生成成功",
+        extra={
+            "rel_path": rel_path,
+            "page_count": len(processed_images),
+        },
+    )
+    return storage.to_media_url(pdf_filename)
 
 
 def _create_pdf_from_images(images: list[tuple[bytes, int]]) -> Any:  # pragma: no cover

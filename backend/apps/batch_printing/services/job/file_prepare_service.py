@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 import logging
-import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any
-
-from django.conf import settings
 
 from apps.batch_printing.models import BatchPrintFileType, BatchPrintItem
 from apps.batch_printing.services.storage import BatchPrintStorage
 from apps.core.exceptions import ValidationException
 from apps.core.services.libreoffice import find_libreoffice
+from apps.core.services.storage_service import to_media_abs
 
 logger = logging.getLogger("apps.batch_printing")
 
@@ -25,24 +24,25 @@ class FilePrepareService:
         }
 
     def prepare_for_print(self, *, item: BatchPrintItem, storage: BatchPrintStorage) -> Path:  # pragma: no cover
-        source_abs = Path(settings.MEDIA_ROOT) / item.source_relpath
+        source_abs = to_media_abs(item.source_relpath)
         if not source_abs.exists():
             raise ValidationException(message="源文件不存在", errors={"item_id": item.id})
 
         source_stem = Path(item.source_original_name).stem or f"file_{item.order}"
         target_pdf = storage.prepared_pdf_path(order=item.order, filename_stem=source_stem)
-        target_pdf.parent.mkdir(parents=True, exist_ok=True)
 
         if item.file_type == BatchPrintFileType.PDF:
-            shutil.copyfile(source_abs, target_pdf)
+            storage.save_prepared(target_pdf, source_abs.read_bytes())
             return target_pdf
 
         if item.file_type == BatchPrintFileType.DOCX:
-            return self._convert_docx_to_pdf(source_abs=source_abs, target_pdf=target_pdf)
+            return self._convert_docx_to_pdf(source_abs=source_abs, target_pdf=target_pdf, storage=storage)
 
         raise ValidationException(message="不支持的文件类型", errors={"file_type": item.file_type})
 
-    def _convert_docx_to_pdf(self, *, source_abs: Path, target_pdf: Path) -> Path:  # pragma: no cover
+    def _convert_docx_to_pdf(
+        self, *, source_abs: Path, target_pdf: Path, storage: BatchPrintStorage
+    ) -> Path:  # pragma: no cover
         soffice_path = find_libreoffice()
         if not soffice_path:
             raise ValidationException(
@@ -50,30 +50,27 @@ class FilePrepareService:
                 errors={"docx": "请安装 LibreOffice（soffice）后再启用 DOCX 打印"},
             )
 
-        out_dir = target_pdf.parent
-        command = [
-            soffice_path,
-            "--headless",
-            "--convert-to",
-            "pdf",
-            "--outdir",
-            str(out_dir),
-            str(source_abs),
-        ]
-        result = subprocess.run(command, capture_output=True, text=True, check=False, timeout=120)
-        if result.returncode != 0:
-            raise ValidationException(
-                message="DOCX 转 PDF 失败",
-                errors={"stderr": (result.stderr or "").strip()[:500]},
-            )
+        # soffice 工作输出属系统临时目录（非业务产物），最终 PDF 经 default_storage 落盘
+        with tempfile.TemporaryDirectory(prefix="batch_print_soffice_") as tmp_dir:
+            command = [
+                soffice_path,
+                "--headless",
+                "--convert-to",
+                "pdf",
+                "--outdir",
+                tmp_dir,
+                str(source_abs),
+            ]
+            result = subprocess.run(command, capture_output=True, text=True, check=False, timeout=120)
+            if result.returncode != 0:
+                raise ValidationException(
+                    message="DOCX 转 PDF 失败",
+                    errors={"stderr": (result.stderr or "").strip()[:500]},
+                )
 
-        converted_name = source_abs.with_suffix(".pdf").name
-        converted_path = out_dir / converted_name
-        if not converted_path.exists():
-            raise ValidationException(message="DOCX 转换未生成 PDF", errors={"file": source_abs.name})
+            converted_path = Path(tmp_dir) / source_abs.with_suffix(".pdf").name
+            if not converted_path.exists():
+                raise ValidationException(message="DOCX 转换未生成 PDF", errors={"file": source_abs.name})
 
-        if converted_path != target_pdf:
-            if target_pdf.exists():
-                target_pdf.unlink()
-            converted_path.rename(target_pdf)
+            storage.save_prepared(target_pdf, converted_path.read_bytes())
         return target_pdf

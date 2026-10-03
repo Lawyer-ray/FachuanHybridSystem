@@ -6,51 +6,51 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from apps.automation.services.sms.parsing.download_link_extractor import DownloadLinkExtractor
 from apps.automation.services.sms.parsing.party_candidate_extractor import PartyCandidateExtractor
+from apps.automation.services.sms.sms_parser_service import SMSParserService
 
 
-class TestDownloadLinkExtractor:
-    """测试 DownloadLinkExtractor。"""
+class TestDownloadLinkExtraction:
+    """测试 SMSParserService 下载链接提取。"""
 
     def setup_method(self) -> None:
-        self.extractor = DownloadLinkExtractor()
+        self.service = SMSParserService()
 
     def test_empty_content(self) -> None:
-        assert self.extractor.extract("") == []
+        assert self.service.extract_download_links("") == []
 
     def test_no_links(self) -> None:
-        assert self.extractor.extract("普通短信内容") == []
+        assert self.service.extract_download_links("普通短信内容") == []
 
     def test_zxfw_link(self) -> None:
         content = "请点击 https://court.gov.cn/zxfw/#/pagesAjkj/app/wssd/index?qdbh=1&sdbh=2&sdsin=3"
-        links = self.extractor.extract(content)
+        links = self.service.extract_download_links(content)
         assert len(links) == 1
         assert "qdbh=1" in links[0]
 
     def test_gdems_link(self) -> None:
         content = "请查收 https://sd.gdcourts.gov.cn/v3/dzsd/ABC123"
-        links = self.extractor.extract(content)
+        links = self.service.extract_download_links(content)
         assert len(links) == 1
 
     def test_jysd_link(self) -> None:
         content = "请查收 https://sd.court.gov.cn/sd?key=abc123"
-        links = self.extractor.extract(content)
+        links = self.service.extract_download_links(content)
         assert len(links) == 1
 
     def test_hbfy_public_link(self) -> None:
         content = "请查收 https://hbfy.court.gov.cn/hb/msg?msg=ABC123"
-        links = self.extractor.extract(content)
+        links = self.service.extract_download_links(content)
         assert len(links) == 1
 
     def test_hbfy_account_link(self) -> None:
         content = "请登录 https://hbfy.court.gov.cn/sfsddz"
-        links = self.extractor.extract(content)
+        links = self.service.extract_download_links(content)
         assert len(links) == 1
 
     def test_sfdw_link(self) -> None:
         content = "请查收 https://sfsdw.court.gov.cn/sfsdw//r/ABC123"
-        links = self.extractor.extract(content)
+        links = self.service.extract_download_links(content)
         assert len(links) == 1
 
     def test_multiple_different_links(self) -> None:
@@ -58,51 +58,51 @@ class TestDownloadLinkExtractor:
             "链接1: https://sd.gdcourts.gov.cn/v3/dzsd/AAA "
             "链接2: https://sfsdw.court.gov.cn/sfsdw//r/BBB"
         )
-        links = self.extractor.extract(content)
+        links = self.service.extract_download_links(content)
         assert len(links) == 2
 
     def test_duplicate_links_deduped(self) -> None:
         link = "https://sd.gdcourts.gov.cn/v3/dzsd/ABC"
         content = f"{link} {link}"
-        links = self.extractor.extract(content)
+        links = self.service.extract_download_links(content)
         assert len(links) == 1
 
     def test_sanitize_trailing_punctuation(self) -> None:
-        result = self.extractor._sanitize_link("https://example.com,")
+        result = self.service._sanitize_link("https://example.com,")
         assert result == "https://example.com"
 
     def test_sanitize_trailing_chinese_period(self) -> None:
-        result = self.extractor._sanitize_link("https://example.com。")
+        result = self.service._sanitize_link("https://example.com。")
         assert result == "https://example.com"
 
     def test_is_valid_zxfw_with_all_params(self) -> None:
         link = "https://court.gov.cn/zxfw/#/pagesAjkj/app/wssd/index?qdbh=1&sdbh=2&sdsin=3"
-        assert self.extractor._is_valid(link) is True
+        assert self.service._is_valid_download_link(link) is True
 
     def test_is_valid_zxfw_missing_params(self) -> None:
         link = "https://court.gov.cn/zxfw/#/pagesAjkj/app/wssd/index?qdbh=1"
-        assert self.extractor._is_valid(link) is False
+        assert self.service._is_valid_download_link(link) is False
 
     def test_is_valid_gdems(self) -> None:
-        assert self.extractor._is_valid("https://sd.gdcourts.gov.cn/v3/dzsd/ABC") is True
+        assert self.service._is_valid_download_link("https://sd.gdcourts.gov.cn/v3/dzsd/ABC") is True
 
     def test_is_valid_jysd(self) -> None:
-        assert self.extractor._is_valid("https://sd.court.gov.cn/sd?key=abc") is True
+        assert self.service._is_valid_download_link("https://sd.court.gov.cn/sd?key=abc") is True
 
     def test_is_valid_jysd_no_key(self) -> None:
-        assert self.extractor._is_valid("https://sd.court.gov.cn/sd") is False
+        assert self.service._is_valid_download_link("https://sd.court.gov.cn/sd") is False
 
     def test_is_valid_hbfy_public(self) -> None:
-        assert self.extractor._is_valid("https://hbfy.court.gov.cn/hb/msg?msg=ABC") is True
+        assert self.service._is_valid_download_link("https://hbfy.court.gov.cn/hb/msg?msg=ABC") is True
 
     def test_is_valid_hbfy_account(self) -> None:
-        assert self.extractor._is_valid("https://hbfy.court.gov.cn/sfsddz") is True
+        assert self.service._is_valid_download_link("https://hbfy.court.gov.cn/sfsddz") is True
 
     def test_is_valid_sfdw(self) -> None:
-        assert self.extractor._is_valid("https://sfsdw.court.gov.cn/sfsdw//r/ABC") is True
+        assert self.service._is_valid_download_link("https://sfsdw.court.gov.cn/sfsdw//r/ABC") is True
 
     def test_is_valid_random_url(self) -> None:
-        assert self.extractor._is_valid("https://example.com/random") is False
+        assert self.service._is_valid_download_link("https://example.com/random") is False
 
 
 class TestPartyCandidateExtractor:

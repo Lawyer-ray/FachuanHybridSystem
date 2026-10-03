@@ -7,11 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.automation.tasks.scraping_tasks import (
-    _run_coroutine_sync,
-    check_stuck_tasks,
-    startup_check,
-)
+from apps.automation.tasks.scraping_tasks import _run_coroutine_sync
 
 
 class TestRunCoroutineSync:
@@ -28,36 +24,6 @@ class TestRunCoroutineSync:
             raise ValueError("test error")
         with pytest.raises(ValueError, match="test error"):
             _run_coroutine_sync(coro())
-
-
-class TestCheckStuckTasks:
-    """check_stuck_tasks 测试。"""
-
-    @patch("apps.core.interfaces.ServiceLocator")
-    def test_check_stuck_tasks_no_stuck(self, mock_sl: MagicMock) -> None:
-        mock_monitor = MagicMock()
-        mock_monitor.check_stuck_tasks.return_value = []
-        mock_sl.get_monitor_service.return_value = mock_monitor
-        check_stuck_tasks()
-        mock_monitor.send_alert.assert_not_called()
-
-    @patch("apps.core.interfaces.ServiceLocator")
-    def test_check_stuck_tasks_with_stuck(self, mock_sl: MagicMock) -> None:
-        mock_monitor = MagicMock()
-        mock_monitor.check_stuck_tasks.return_value = [MagicMock(), MagicMock()]
-        mock_sl.get_monitor_service.return_value = mock_monitor
-        check_stuck_tasks()
-        mock_monitor.send_alert.assert_called_once()
-
-
-class TestStartupCheck:
-    """startup_check 测试。"""
-
-    @patch("apps.automation.tasks.scraping_tasks.process_pending_tasks", return_value=5)
-    @patch("apps.automation.tasks.scraping_tasks.reset_running_tasks", return_value=2)
-    def test_startup_check(self, mock_reset: MagicMock, mock_process: MagicMock) -> None:
-        result = startup_check()
-        assert result == {"reset_count": 2, "pending_count": 5}
 
 
 class TestExecuteScraperTask:

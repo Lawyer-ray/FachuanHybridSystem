@@ -14,6 +14,9 @@ from django.urls import path
 from django.utils.html import format_html
 
 from apps.contract_review.models import ReviewTask, TaskStatus
+from apps.core.exceptions import ValidationException
+from apps.core.filesystem.upload_paths import MediaEntity
+from apps.core.services.storage_service import delete_media_file, to_media_abs
 
 logger = logging.getLogger(__name__)
 
@@ -65,24 +68,12 @@ class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         file_count = 0
 
         for task in queryset:
-            # 删除文件
-            if task.original_file:
-                original_path = Path(task.original_file)
-                if original_path.exists():
-                    try:
-                        original_path.unlink()
-                        file_count += 1
-                    except OSError as e:
-                        logger.warning("删除上传文件失败: %s - %s", original_path, e)
+            # 删除文件（落库为 media 相对路径，存量绝对路径同样兼容）
+            if task.original_file and delete_media_file(task.original_file):
+                file_count += 1
 
-            if task.output_file:
-                output_path = Path(task.output_file)
-                if output_path.exists():
-                    try:
-                        output_path.unlink()
-                        file_count += 1
-                    except OSError as e:
-                        logger.warning("删除输出文件失败: %s - %s", output_path, e)
+            if task.output_file and delete_media_file(task.output_file):
+                file_count += 1
 
             # 删除数据库记录
             repository.delete_by_id(task.id)
@@ -92,7 +83,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
 
     @admin.action(description="格式规范化（调整字体/行距/页边距）")
     def normalize_format(self, request: HttpRequest, queryset: Any) -> None:  # pragma: no cover
-        from apps.contract_review.services.format_normalizer import DocxFormatNormalizer
+        from apps.contract_review.services.format_normalizer import normalize_to_media
 
         success_count = 0
         fail_count = 0
@@ -103,28 +94,32 @@ class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
                 fail_count += 1
                 continue
 
-            original_path = Path(task.original_file)
+            try:
+                original_path = to_media_abs(task.original_file)
+            except ValidationException:
+                self.message_user(
+                    request,
+                    f"任务 {task.contract_title or task.id} 的原始文件路径无效",
+                    level="warning",
+                )
+                fail_count += 1
+                continue
+
             if not original_path.exists():
                 self.message_user(request, f"任务 {task.contract_title or task.id} 的原始文件不存在", level="warning")
                 fail_count += 1
                 continue
 
             try:
-                # 生成输出文件路径
-                output_dir = original_path.parent
-                output_filename = f"{original_path.stem}_规范化{original_path.suffix}"
-                output_path = output_dir / output_filename
-
-                # 执行格式规范化
-                normalizer = DocxFormatNormalizer(original_path, output_path)
-                result_path = normalizer.normalize()
+                # 执行格式规范化（产物经 default_storage 落盘，落库存相对路径）
+                saved_name = normalize_to_media(original_path)
 
                 # 更新任务的输出文件
-                task.output_file = str(result_path)
+                task.output_file = saved_name
                 task.save(update_fields=["output_file"])
 
                 success_count += 1
-                logger.info("格式规范化成功: %s -> %s", original_path, result_path)
+                logger.info("格式规范化成功: %s -> %s", original_path, saved_name)
 
             except Exception as e:
                 logger.exception("格式规范化失败: %s", e)
@@ -354,14 +349,18 @@ class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
 
     def report_pdf_view(self, request: HttpRequest, task_id: UUID) -> HttpResponse:  # pragma: no cover
         import markdown
-        from django.conf import settings
         from django.template.loader import render_to_string
         from weasyprint import HTML
 
         task = ReviewTask.objects.get(id=task_id)
 
-        # 检查缓存是否存在
-        cache_path = Path(task.pdf_cache_file) if task.pdf_cache_file else None
+        # 检查缓存是否存在（落库为 media 相对路径，存量绝对路径同样兼容）
+        cache_path: Path | None = None
+        if task.pdf_cache_file:
+            try:
+                cache_path = to_media_abs(task.pdf_cache_file)
+            except ValidationException:
+                cache_path = None
         if cache_path and cache_path.exists():
             # 返回缓存的 PDF
             with open(cache_path, "rb") as f:
@@ -387,13 +386,12 @@ class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         )
         pdf = HTML(string=html_string).write_pdf()
 
-        # 保存到缓存
-        rel_cache = f"contract_review/pdf_cache/{task_id}.pdf"
+        # 保存到缓存（落库存相对路径）
+        rel_cache = f"{MediaEntity.CONTRACT_REVIEW_CACHE}/{task_id}.pdf"
         saved_name = default_storage.save(rel_cache, ContentFile(pdf))
-        cache_path = Path(settings.MEDIA_ROOT) / saved_name
 
         # 更新数据库记录
-        task.pdf_cache_file = str(cache_path)
+        task.pdf_cache_file = saved_name
         task.save(update_fields=["pdf_cache_file"])
 
         filename = f"评估报告-{task.contract_title or task.id}.pdf"
@@ -423,7 +421,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
 
     def format_normalize_task_view(self, request: HttpRequest, task_id: UUID) -> HttpResponse:  # pragma: no cover
         """对单个任务执行格式调整"""
-        from apps.contract_review.services.format_normalizer import DocxFormatNormalizer
+        from apps.contract_review.services.format_normalizer import normalize_to_media
 
         try:
             task = ReviewTask.objects.get(id=task_id)
@@ -438,7 +436,14 @@ class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             messages.error(request, "该任务没有原始文件")
             return self._redirect_back(request)
 
-        original_path = Path(task.original_file)
+        try:
+            original_path = to_media_abs(task.original_file)
+        except ValidationException:
+            from django.contrib import messages
+
+            messages.error(request, f"原始文件路径无效: {task.original_file}")
+            return self._redirect_back(request)
+
         if not original_path.exists():
             from django.contrib import messages
 
@@ -446,22 +451,16 @@ class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             return self._redirect_back(request)
 
         try:
-            # 生成输出文件路径
-            output_dir = original_path.parent
-            output_filename = f"{original_path.stem}_规范化{original_path.suffix}"
-            output_path = output_dir / output_filename
-
-            # 执行格式规范化
-            normalizer = DocxFormatNormalizer(original_path, output_path)
-            result_path = normalizer.normalize()
+            # 执行格式规范化（产物经 default_storage 落盘，落库存相对路径）
+            saved_name = normalize_to_media(original_path)
 
             # 更新任务的输出文件
-            task.output_file = str(result_path)
+            task.output_file = saved_name
             task.save(update_fields=["output_file"])
 
             from django.contrib import messages
 
-            messages.success(request, f"格式规范化完成: {result_path.name}")
+            messages.success(request, f"格式规范化完成: {Path(saved_name).name}")
 
         except Exception as e:
             logger.exception("格式规范化失败: %s", e)

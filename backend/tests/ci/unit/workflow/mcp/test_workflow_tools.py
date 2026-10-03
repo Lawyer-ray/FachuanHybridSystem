@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -157,30 +157,57 @@ async def test_get_workflow_detail_with_finished_at():
 
 # ── approve_workflow_step ─────────────────────────────────────────────────────
 
-@pytest.mark.asyncio
-async def test_approve_workflow_step_success():
-    from apps.workflow.mcp.workflow_tools import approve_workflow_step
 
+def _mock_approve_run(
+    *,
+    step_id: str = "gate_1",
+    steps_schema: list | None = None,
+    workflow_name: str = "DynamicWorkflow",
+) -> MagicMock:
+    """构造 approve_workflow_step 用的 mock run（含模板步骤定义）。"""
+    if steps_schema is None:
+        steps_schema = [{"id": step_id, "type": "gate"}]
     mock_run = MagicMock()
     mock_run.id = 1
     mock_run.status = "waiting_human"
-    mock_run.current_step_id = "gate_1"
+    mock_run.current_step_id = step_id
     mock_run.temporal_workflow_id = "wf-1"
+    mock_run.template.steps_schema = steps_schema
+    mock_run.template.temporal_workflow_name = workflow_name
     mock_run.asave = AsyncMock()
+    return mock_run
 
+
+def _mock_signal_client() -> tuple[MagicMock, MagicMock]:
     mock_handle = MagicMock()
     mock_handle.signal = AsyncMock()
     mock_client = MagicMock()
     mock_client.get_workflow_handle = MagicMock(return_value=mock_handle)
+    return mock_client, mock_handle
+
+
+@pytest.mark.asyncio
+async def test_approve_workflow_step_success():
+    from apps.workflow.mcp.workflow_tools import approve_workflow_step
+
+    mock_run = _mock_approve_run()
+    mock_client, mock_handle = _mock_signal_client()
 
     with patch.object(WorkflowRun, "objects") as MockObjs, \
          patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
-        MockObjs.aget = AsyncMock(return_value=mock_run)
+        MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
 
         result = await approve_workflow_step(1, approved=True, comment="ok")
 
     assert result["action"] == "approved"
     assert result["step_id"] == "gate_1"
+    # gate 步骤未配置 signal_key → 回退通用 gate_approved
+    assert result["signal_key"] == "gate_approved"
+    mock_handle.signal.assert_awaited_once_with(
+        "gate_approved", {"approved": True, "step_id": "gate_1", "comment": "ok"}
+    )
+    mock_run.asave.assert_awaited_once()
+    assert mock_run.status == "running"
 
 
 @pytest.mark.asyncio
@@ -188,7 +215,7 @@ async def test_approve_workflow_step_not_found():
     from apps.workflow.mcp.workflow_tools import approve_workflow_step
 
     with patch.object(WorkflowRun, "objects") as MockObjs:
-        MockObjs.aget = AsyncMock(side_effect=WorkflowRun.DoesNotExist("nope"))
+        MockObjs.select_related.return_value.aget = AsyncMock(side_effect=WorkflowRun.DoesNotExist("nope"))
 
         result = await approve_workflow_step(999, approved=True)
 
@@ -199,11 +226,11 @@ async def test_approve_workflow_step_not_found():
 async def test_approve_workflow_step_wrong_status():
     from apps.workflow.mcp.workflow_tools import approve_workflow_step
 
-    mock_run = MagicMock()
+    mock_run = _mock_approve_run()
     mock_run.status = "completed"
 
     with patch.object(WorkflowRun, "objects") as MockObjs:
-        MockObjs.aget = AsyncMock(return_value=mock_run)
+        MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
 
         result = await approve_workflow_step(1, approved=True)
 
@@ -214,18 +241,14 @@ async def test_approve_workflow_step_wrong_status():
 async def test_approve_workflow_step_temporal_failure():
     from apps.workflow.mcp.workflow_tools import approve_workflow_step
 
-    mock_run = MagicMock()
-    mock_run.id = 1
-    mock_run.status = "waiting_human"
-    mock_run.current_step_id = "gate_1"
-    mock_run.temporal_workflow_id = "wf-1"
+    mock_run = _mock_approve_run()
 
     mock_client = MagicMock()
     mock_client.get_workflow_handle.side_effect = Exception("connection refused")
 
     with patch.object(WorkflowRun, "objects") as MockObjs, \
          patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
-        MockObjs.aget = AsyncMock(return_value=mock_run)
+        MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
 
         result = await approve_workflow_step(1, approved=True)
 
@@ -237,25 +260,163 @@ async def test_approve_workflow_step_temporal_failure():
 async def test_approve_workflow_step_rejected():
     from apps.workflow.mcp.workflow_tools import approve_workflow_step
 
-    mock_run = MagicMock()
-    mock_run.id = 1
-    mock_run.status = "waiting_human"
-    mock_run.current_step_id = "gate_1"
-    mock_run.temporal_workflow_id = "wf-1"
-    mock_run.asave = AsyncMock()
-
-    mock_handle = MagicMock()
-    mock_handle.signal = AsyncMock()
-    mock_client = MagicMock()
-    mock_client.get_workflow_handle = MagicMock(return_value=mock_handle)
+    mock_run = _mock_approve_run()
+    mock_client, mock_handle = _mock_signal_client()
 
     with patch.object(WorkflowRun, "objects") as MockObjs, \
          patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
-        MockObjs.aget = AsyncMock(return_value=mock_run)
+        MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
 
         result = await approve_workflow_step(1, approved=False, comment="not ready")
 
     assert result["action"] == "rejected"
+    mock_handle.signal.assert_awaited_once_with(
+        "gate_approved", {"approved": False, "step_id": "gate_1", "comment": "not ready"}
+    )
+
+
+# ── approve_workflow_step 信号名解析与校验 ───────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_approve_uses_step_level_signal_key():
+    """种子模板 gate 步骤（顶层 signal_key）→ 发送命名信号而非 gate_approved"""
+    from apps.workflow.mcp.workflow_tools import approve_workflow_step
+
+    mock_run = _mock_approve_run(
+        step_id="confirm_facts",
+        steps_schema=[
+            {"id": "collect_facts", "type": "activity"},
+            {"id": "confirm_facts", "type": "gate", "signal_key": "confirm_facts_approved"},
+            {"id": "review_complaint", "type": "gate", "signal_key": "review_complaint_approved"},
+        ],
+        workflow_name="SalesContractDisputeWorkflow",
+    )
+    mock_client, mock_handle = _mock_signal_client()
+
+    with patch.object(WorkflowRun, "objects") as MockObjs, \
+         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+        MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
+
+        result = await approve_workflow_step(1, approved=True)
+
+    assert result["signal_key"] == "confirm_facts_approved"
+    mock_handle.signal.assert_awaited_once_with(
+        "confirm_facts_approved",
+        {"approved": True, "step_id": "confirm_facts", "comment": ""},
+    )
+
+
+@pytest.mark.asyncio
+async def test_approve_uses_config_level_signal_key():
+    """config 内 signal_key（步骤注册表 config_schema 表达）同样生效"""
+    from apps.workflow.mcp.workflow_tools import approve_workflow_step
+
+    mock_run = _mock_approve_run(
+        steps_schema=[{"id": "gate_1", "type": "gate", "config": {"signal_key": "review_complaint_approved"}}],
+    )
+    mock_client, mock_handle = _mock_signal_client()
+
+    with patch.object(WorkflowRun, "objects") as MockObjs, \
+         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+        MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
+
+        result = await approve_workflow_step(1, approved=True)
+
+    assert result["signal_key"] == "review_complaint_approved"
+    mock_handle.signal.assert_awaited_once_with(
+        "review_complaint_approved",
+        {"approved": True, "step_id": "gate_1", "comment": ""},
+    )
+
+
+@pytest.mark.asyncio
+async def test_approve_rejects_unknown_signal_key():
+    """未知信号名（workflow 未注册）→ 明确报错，不发信号、不置 RUNNING"""
+    from apps.workflow.mcp.workflow_tools import approve_workflow_step
+
+    mock_run = _mock_approve_run(
+        steps_schema=[{"id": "gate_1", "type": "gate", "signal_key": "my_custom_signal"}],
+    )
+    mock_client, mock_handle = _mock_signal_client()
+
+    with patch.object(WorkflowRun, "objects") as MockObjs, \
+         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+        MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
+
+        result = await approve_workflow_step(1, approved=True)
+
+    assert "error" in result
+    assert "my_custom_signal" in result["error"]
+    mock_handle.signal.assert_not_awaited()
+    mock_run.asave.assert_not_awaited()
+    assert mock_run.status == "waiting_human"
+
+
+@pytest.mark.asyncio
+async def test_approve_rejects_signal_unsupported_by_workflow():
+    """回退 gate_approved 但目标 workflow 未注册该信号 → 报错，避免静默丢弃"""
+    from apps.workflow.mcp.workflow_tools import approve_workflow_step
+
+    mock_run = _mock_approve_run(
+        step_id="confirm_facts",
+        steps_schema=[{"id": "confirm_facts", "type": "gate"}],
+        workflow_name="SalesContractDisputeWorkflow",
+    )
+    mock_client, mock_handle = _mock_signal_client()
+
+    with patch.object(WorkflowRun, "objects") as MockObjs, \
+         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+        MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
+
+        result = await approve_workflow_step(1, approved=True)
+
+    assert "error" in result
+    assert "gate_approved" in result["error"]
+    mock_handle.signal.assert_not_awaited()
+    mock_run.asave.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_approve_rejects_step_not_in_template():
+    """current_step_id 在模板 steps 中无对应 gate 定义 → 报错"""
+    from apps.workflow.mcp.workflow_tools import approve_workflow_step
+
+    mock_run = _mock_approve_run(
+        step_id="ghost_step",
+        steps_schema=[{"id": "gate_1", "type": "gate"}],
+    )
+    mock_client, mock_handle = _mock_signal_client()
+
+    with patch.object(WorkflowRun, "objects") as MockObjs, \
+         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+        MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
+
+        result = await approve_workflow_step(1, approved=True)
+
+    assert "error" in result
+    assert "ghost_step" in result["error"]
+    mock_handle.signal.assert_not_awaited()
+    mock_run.asave.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_approve_rejects_empty_steps_schema():
+    """模板 steps_schema 为空（无法确定信号）→ 报错"""
+    from apps.workflow.mcp.workflow_tools import approve_workflow_step
+
+    mock_run = _mock_approve_run(steps_schema=[])
+    mock_client, mock_handle = _mock_signal_client()
+
+    with patch.object(WorkflowRun, "objects") as MockObjs, \
+         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+        MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
+
+        result = await approve_workflow_step(1, approved=True)
+
+    assert "error" in result
+    mock_handle.signal.assert_not_awaited()
+    mock_run.asave.assert_not_awaited()
 
 
 # ── cancel_workflow ───────────────────────────────────────────────────────────

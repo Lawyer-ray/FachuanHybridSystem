@@ -6,11 +6,12 @@ import io
 import logging
 import re
 import zipfile
-from datetime import date
 from pathlib import Path
+from typing import Any
 
 import pymupdf as fitz
 from django.conf import settings
+from django.utils import timezone
 
 from apps.invoice_recognition.models import InvoiceCategory, InvoiceRecognitionTask, InvoiceRecord
 
@@ -22,15 +23,36 @@ _ILLEGAL_CHARS_RE = re.compile(r'[\\/:*?"<>|]')
 class InvoiceDownloadService:
     """发票下载服务：单张/类目/全部，支持 PDF 合并和 ZIP 压缩。"""
 
-    def download_single(self, invoice_id: int) -> tuple[Path, str]:
-        record = InvoiceRecord.objects.get(pk=invoice_id)
+    def _get_task_for_user(self, task_id: int, user: Any | None) -> InvoiceRecognitionTask:
+        """按 ID 取任务；user 非空且非 superuser 时校验任务归属（否则视为不存在）."""
+        qs = InvoiceRecognitionTask.objects.all()
+        if user is not None and not getattr(user, "is_superuser", False):
+            qs = qs.filter(created_by=user)
+        return qs.get(pk=task_id)
+
+    def download_single(
+        self,
+        invoice_id: int,
+        task_id: int | None = None,
+        *,
+        user: Any | None = None,
+    ) -> tuple[Path, str]:
+        qs = InvoiceRecord.objects.select_related("task")
+        if task_id is not None:
+            qs = qs.filter(task_id=task_id)
+        if user is not None and not getattr(user, "is_superuser", False):
+            qs = qs.filter(task__created_by=user)
+        record = qs.get(pk=invoice_id)
         abs_path = Path(settings.MEDIA_ROOT) / record.file_path
         if not abs_path.exists():
             logger.warning("发票文件不存在: %s", abs_path)
             raise FileNotFoundError(f"文件不存在: {abs_path}")
         return abs_path, record.original_filename
 
-    def download_by_category(self, task_id: int, category: str, fmt: str = "zip") -> tuple[bytes, str]:
+    def download_by_category(
+        self, task_id: int, category: str, fmt: str = "zip", *, user: Any | None = None
+    ) -> tuple[bytes, str]:
+        task = self._get_task_for_user(task_id, user)
         records = list(
             InvoiceRecord.objects.filter(
                 task_id=task_id,
@@ -38,7 +60,6 @@ class InvoiceDownloadService:
                 is_duplicate=False,
             )
         )
-        task = InvoiceRecognitionTask.objects.get(pk=task_id)
         task_name: str = task.name
 
         try:
@@ -50,14 +71,14 @@ class InvoiceDownloadService:
         filename = self._generate_filename(task_name, category_label, fmt)
         return data, filename
 
-    def download_all(self, task_id: int, fmt: str = "zip") -> tuple[bytes, str]:
+    def download_all(self, task_id: int, fmt: str = "zip", *, user: Any | None = None) -> tuple[bytes, str]:
+        task = self._get_task_for_user(task_id, user)
         records = list(
             InvoiceRecord.objects.filter(
                 task_id=task_id,
                 is_duplicate=False,
             )
         )
-        task = InvoiceRecognitionTask.objects.get(pk=task_id)
         task_name: str = task.name
 
         data = self._merge_to_pdf(records) if fmt == "pdf" else self._pack_to_zip(records)
@@ -109,6 +130,6 @@ class InvoiceDownloadService:
 
     def _generate_filename(self, task_name: str, category: str | None, fmt: str) -> str:
         category_part = category if category is not None else "全部"
-        today = date.today().strftime("%Y%m%d")
+        today = timezone.localdate().strftime("%Y%m%d")
         raw = f"{task_name}_{category_part}_{today}.{fmt}"
         return _ILLEGAL_CHARS_RE.sub("_", raw)

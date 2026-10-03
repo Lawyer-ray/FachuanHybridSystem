@@ -7,8 +7,9 @@ import io
 import logging
 import uuid
 import zipfile
-from datetime import datetime
 from typing import Any
+
+from django.utils import timezone
 
 from apps.core.utils.path import Path
 
@@ -166,6 +167,6 @@ class ExporterService:
 
     @staticmethod
     def _build_filename() -> str:
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        ts = timezone.localtime().strftime("%Y%m%d_%H%M%S")
         uid = uuid.uuid4().hex[:8]
         return f"evidence_sorting_{ts}_{uid}.zip"

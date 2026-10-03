@@ -58,14 +58,6 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             )
         )
 
-    def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
-        return True
-
-    def has_change_permission(
-        self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None
-    ) -> bool:  # pragma: no cover
-        return True
-
     def get_fields(  # type: ignore[override]  # pragma: no cover
         self,
         request: HttpRequest,
@@ -74,11 +66,6 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         if obj is None:
             return ["name"]
         return ["name", "status", "created_by", "created_at", "finished_at"]
-
-    def has_delete_permission(
-        self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None
-    ) -> bool:  # pragma: no cover
-        return True
 
     def save_model(  # pragma: no cover
         self,

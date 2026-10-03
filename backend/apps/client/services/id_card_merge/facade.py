@@ -8,13 +8,13 @@ from typing import Any, ClassVar
 
 import cv2
 import numpy as np
+from django.conf import settings
 from django.core.files.uploadedfile import UploadedFile
 from numpy.typing import NDArray
 
-from apps.core.exceptions import ValidationException
+from apps.core.services.storage_service import delete_media_file, to_media_abs
 
 from . import detection, image_io, pdf, validation
-from .paths import ensure_output_dir, ensure_temp_dir, get_media_root
 from .transform import perspective_transform
 
 logger = logging.getLogger("apps.client")
@@ -59,7 +59,7 @@ class IdCardMergeService:
 
     def _success_result(self, pdf_path: str) -> dict[str, Any]:
         logger.info("身份证合并成功", extra={"pdf_path": pdf_path})
-        return {"success": True, "pdf_path": pdf_path, "pdf_url": f"/media/{pdf_path}"}
+        return {"success": True, "pdf_path": pdf_path, "pdf_url": f"{settings.MEDIA_URL}{pdf_path}"}
 
     def merge_id_card(self, front_image: UploadedFile, back_image: UploadedFile) -> dict[str, Any]:
         loaded = self._load_and_validate_images(front_image, back_image)
@@ -87,8 +87,8 @@ class IdCardMergeService:
                 "success": False,
                 "error": "AUTO_DETECT_FAILED",
                 "message": "无法自动检测身份证边缘，请手动选取四角",
-                "front_image_url": f"/media/{front_temp_path}",
-                "back_image_url": f"/media/{back_temp_path}",
+                "front_image_url": f"{settings.MEDIA_URL}{front_temp_path}",
+                "back_image_url": f"{settings.MEDIA_URL}{back_temp_path}",
             }
         front_transformed = self._perspective_transform(front_cv_image, front_corners)
         back_transformed = self._perspective_transform(back_cv_image, back_corners)
@@ -107,9 +107,8 @@ class IdCardMergeService:
                     "error": "INVALID_CORNERS",
                     "message": "%(label)s四角坐标无效: %(reason)s" % {"label": label, "reason": validation},
                 }
-        media_root = get_media_root()
-        front_full_path, front_rel_path = self._resolve_image_path(front_image_path, media_root)
-        back_full_path, back_rel_path = self._resolve_image_path(back_image_path, media_root)
+        front_full_path, front_rel_path = self._resolve_image_path(front_image_path)
+        back_full_path, back_rel_path = self._resolve_image_path(back_image_path)
         for label, full_path in [("正面", front_full_path), ("反面", back_full_path)]:
             if not full_path.exists():
                 logger.warning("%s图片不存在", label, extra={"path": str(full_path)})
@@ -132,34 +131,22 @@ class IdCardMergeService:
         front_transformed = self._perspective_transform(front_cv_image, front_corners_ordered)  # type: ignore[arg-type]
         back_transformed = self._perspective_transform(back_cv_image, back_corners_ordered)  # type: ignore[arg-type]
         pdf_path = self._generate_pdf(front_transformed, back_transformed)
-        self._cleanup_temp_file(front_rel_path, front_full_path)
-        self._cleanup_temp_file(back_rel_path, back_full_path)
+        self._cleanup_temp_file(front_rel_path)
+        self._cleanup_temp_file(back_rel_path)
         logger.info("手动合并身份证成功", extra={"pdf_path": pdf_path})
-        return {"success": True, "pdf_path": pdf_path, "pdf_url": f"/media/{pdf_path}"}
+        return {"success": True, "pdf_path": pdf_path, "pdf_url": f"{settings.MEDIA_URL}{pdf_path}"}
 
-    def _resolve_image_path(self, image_path: str, media_root: Path) -> tuple[Path, str]:
+    def _resolve_image_path(self, image_path: str) -> tuple[Path, str]:
         rel_path = image_path.lstrip("/")
         if rel_path.startswith("media/"):
             rel_path = rel_path[6:]
-        full_path = (media_root / rel_path).resolve()
-        try:
-            full_path.relative_to(media_root.resolve())
-        except ValueError:
-            raise ValidationException(
-                message="非法的文件路径",
-                code="INVALID_FILE_PATH",
-                errors={"path": "文件路径不在允许的范围内"},
-            ) from None
-        return (full_path, rel_path)
+        return to_media_abs(rel_path), rel_path
 
-    def _cleanup_temp_file(self, rel_path: str, full_path: Path) -> None:  # pragma: no cover
+    def _cleanup_temp_file(self, rel_path: str) -> None:  # pragma: no cover
         if "temp/" not in rel_path:
             return
-        try:
-            full_path.unlink(missing_ok=True)
-            logger.info("清理临时图片", extra={"path": str(full_path)})
-        except OSError as e:
-            logger.warning("清理临时图片失败", extra={"path": str(full_path), "error": str(e)})
+        if delete_media_file(rel_path):
+            logger.info("清理临时图片", extra={"path": rel_path})
 
     def _validate_image_format(self, image: UploadedFile) -> dict[str, Any] | None:
         return validation.validate_image_format(
@@ -181,15 +168,10 @@ class IdCardMergeService:
         )
 
     def _generate_pdf(self, front_image: NDArray[np.uint8], back_image: NDArray[np.uint8]) -> str:
-        media_root = get_media_root()
-        output_dir = ensure_output_dir(media_root)
-        temp_dir = ensure_temp_dir(media_root)
         return pdf.generate_a4_pdf(
             front_image,
             back_image,
             id_card_aspect_ratio=self.ID_CARD_ASPECT_RATIO,
-            output_dir=output_dir,
-            temp_dir=temp_dir,
             logger=logger,
         )
 

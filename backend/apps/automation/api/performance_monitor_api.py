@@ -10,7 +10,6 @@ from typing import Any
 from django.http import HttpRequest
 from ninja import Query, Router
 
-from apps.automation.schemas import HealthCheckOut, PerformanceMetricsOut, ResourceUsageOut, StatisticsReportOut
 from apps.core.exceptions import ValidationException
 from apps.core.security.admin_access import ensure_admin_request
 
@@ -25,7 +24,7 @@ def _get_performance_monitor_service() -> Any:
     return build_performance_monitor_service()
 
 
-@router.get("/metrics", response=PerformanceMetricsOut, summary="获取实时性能指标")
+@router.get("/metrics", summary="获取实时性能指标")
 def get_performance_metrics(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     """获取Token获取服务的实时性能指标"""
     ensure_admin_request(request)
@@ -35,7 +34,7 @@ def get_performance_metrics(request: HttpRequest) -> dict[str, Any]:  # pragma: 
     return {"success": True, "data": metrics}
 
 
-@router.get("/statistics", response=StatisticsReportOut, summary="获取统计报告")
+@router.get("/statistics", summary="获取统计报告")
 def get_statistics_report(  # pragma: no cover
     request: HttpRequest,
     days: int = Query(7, description="统计天数", ge=1, le=90),

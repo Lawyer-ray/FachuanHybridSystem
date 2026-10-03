@@ -164,6 +164,7 @@ class JtnCaseImportScript(
             try:
                 await self._name_search_cm.__aexit__(None, None, None)
             except Exception:
+                logger.debug("关闭名称搜索会话失败（已忽略）", exc_info=True)
                 pass
         self._name_search_cm = None
         self._context = None

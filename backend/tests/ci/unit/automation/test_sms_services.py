@@ -2,92 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import datetime, date
+from datetime import date, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.automation.services.sms.court_sms_dedup_service import (
-    CourtSMSDedupIdentity,
-    CourtSMSDedupResult,
-    CourtSMSDedupService,
-)
 from apps.automation.services.sms.case_matcher import CaseMatcher
 from apps.automation.services.sms.document_renamer import DocumentRenamer
-
-
-class TestCourtSMSDedupService:
-    """测试 CourtSMS 去重服务。"""
-
-    def setup_method(self) -> None:
-        self.service = CourtSMSDedupService()
-
-    def test_normalize_text(self) -> None:
-        assert self.service._normalize_text("  hello   world  ") == "hello world"
-        assert self.service._normalize_text(None) == ""
-        assert self.service._normalize_text("") == ""
-
-    def test_hash_payload(self) -> None:
-        h = self.service._hash_payload("test")
-        assert isinstance(h, str)
-        assert len(h) == 64  # SHA-256 hex
-
-    def test_hash_payload_deterministic(self) -> None:
-        assert self.service._hash_payload("test") == self.service._hash_payload("test")
-
-    def test_hash_payload_different_inputs(self) -> None:
-        assert self.service._hash_payload("a") != self.service._hash_payload("b")
-
-    def test_build_existing_sms_result_with_notification(self) -> None:
-        """有通知结果时 notification_sent=True。"""
-        sms = SimpleNamespace(
-            case_id=1,
-            case_log_id=1,
-            notification_results={"feishu": {"success": True}},
-            feishu_sent_at=None,
-        )
-        result = self.service.build_existing_sms_result(sms, "/tmp/test.pdf")
-        assert result["success"] is True
-        assert result["notification_sent"] is True
-        assert result["renamed_path"] == "/tmp/test.pdf"
-        assert result["deduplicated"] is True
-
-    def test_build_existing_sms_result_no_notification(self) -> None:
-        """无通知结果时 notification_sent=False。"""
-        sms = SimpleNamespace(
-            case_id=1,
-            case_log_id=1,
-            notification_results=None,
-            feishu_sent_at=None,
-        )
-        result = self.service.build_existing_sms_result(sms, "/tmp/test.pdf")
-        assert result["notification_sent"] is False
-
-    def test_build_existing_sms_result_feishu_sent_at(self) -> None:
-        """旧字段 feishu_sent_at 也视为已通知。"""
-        sms = SimpleNamespace(
-            case_id=1,
-            case_log_id=1,
-            notification_results=None,
-            feishu_sent_at=datetime(2025, 1, 1),
-        )
-        result = self.service.build_existing_sms_result(sms, "/tmp/test.pdf")
-        assert result["notification_sent"] is True
-
-
-class TestCourtSMSDedupIdentity:
-    """测试 CourtSMSDedupIdentity 数据类。"""
-
-    def test_frozen(self) -> None:
-        identity = CourtSMSDedupIdentity(event_id="SD001", event_key="abc", canonical_payload="{}")
-        with pytest.raises(AttributeError):
-            identity.event_id = "SD002"  # type: ignore[misc]
-
-    def test_defaults(self) -> None:
-        identity = CourtSMSDedupIdentity(event_id=None, event_key=None, canonical_payload=None)
-        assert identity.uses_fallback is False
 
 
 class TestCaseMatcher:

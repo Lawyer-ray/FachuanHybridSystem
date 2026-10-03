@@ -3,9 +3,6 @@ Admin模块主文件
 统一管理所有自动化工具的Admin界面
 """
 
-# 文档处理 Admin
-from .document import DocumentProcessorAdmin
-
 # 财产保全询价 Admin（已迁移到 plugin）
 try:
     from plugins.court_automation.preservation_quote.admin import PreservationQuoteAdmin
@@ -13,7 +10,7 @@ except ImportError:
     pass
 
 # 爬虫 Admin
-from .scraper import CourtDocumentAdmin, QuickDownloadAdmin, ScraperTaskAdmin, TestCourtAdmin
+from .scraper import CourtDocumentAdmin, ScraperTaskAdmin, TestCourtAdmin
 
 # 法院短信 Admin
 from .sms import CourtSMSAdmin
@@ -28,11 +25,8 @@ except ImportError:
     pass
 
 _admin_all = [
-    # 文档处理
-    "DocumentProcessorAdmin",
     # 爬虫
     "ScraperTaskAdmin",
-    "QuickDownloadAdmin",
     "CourtDocumentAdmin",
     "TestCourtAdmin",
     # 法院短信

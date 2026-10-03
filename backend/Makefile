@@ -27,8 +27,7 @@ MYPY_EXTRA_GATE = \
 	apps/core/middleware/request_id.py \
 	apps/core/middleware/security.py \
 	apps/organization/services/auth/auth_service.py \
-	plugins/court_automation/token/cache_manager.py \
-	apps/automation/utils/logging_mixins/common.py
+	plugins/court_automation/token/cache_manager.py
 
 ci-check: ## 完整镜像 GitHub CI backend job（推送前必跑，覆盖远端全部检查）
 	@echo "$(GREEN)=== GitHub CI 完整镜像预检 ===$(NC)"

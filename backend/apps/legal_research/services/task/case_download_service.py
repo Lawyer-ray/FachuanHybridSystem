@@ -4,29 +4,38 @@ from __future__ import annotations
 
 import logging
 import re
-import shutil
+import tempfile
 import zipfile
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.utils import timezone
 
+from apps.core.exceptions import ValidationException
+from apps.core.filesystem.upload_paths import MediaEntity
 from apps.core.security.secret_codec import SecretCodec
+from apps.core.services.storage_service import to_media_abs
 from apps.legal_research.models import CaseDownloadFormat, CaseDownloadResult, CaseDownloadStatus, CaseDownloadTask
-from apps.legal_research.services.sources import CaseDetail, get_case_source_client
+from apps.legal_research.services.sources import get_case_source_client
 from apps.legal_research.services.sources.weike import WeikeCaseClient, WeikeSession
 
 logger = logging.getLogger(__name__)
 
 
+def _safe_case_number(case_number: str) -> str:
+    """清洗案号中不适合做文件名的字符。"""
+    return re.sub(r'[\\\\/:*?"<>|]+', "_", case_number).strip("._ ")
+
+
 class CaseDownloadService:  # pragma: no cover
     """案例下载服务"""
 
-    DOWNLOAD_DIR = Path(settings.MEDIA_ROOT) / "legal_research" / "case_download"
+    @classmethod
+    def _task_files_rel_dir(cls, task_id: int) -> str:
+        """任务判决书文件在 media 下的相对目录"""
+        return f"{MediaEntity.LEGAL_RESEARCH}/case_download/{task_id}"
 
     @classmethod
     def parse_case_numbers(cls, text: str) -> list[str]:  # pragma: no cover
@@ -224,13 +233,11 @@ class CaseDownloadService:  # pragma: no cover
 
         file_bytes, original_filename = result
 
-        # 4. 保存文件（按案号重命名）
-        safe_case_number = re.sub(r'[\\\\/:*?"<>|]+', "_", case_number).strip("._ ")
+        # 4. 保存文件（按案号重命名，落库存 media 相对路径）
         extension = "pdf" if file_format == CaseDownloadFormat.PDF else "doc"
-        file_name = f"{safe_case_number}.{extension}"
-        rel_path = f"legal_research/case_download/{task.id}/{file_name}"
+        file_name = f"{_safe_case_number(case_number)}.{extension}"
+        rel_path = f"{cls._task_files_rel_dir(task.id)}/{file_name}"
         saved_name = default_storage.save(rel_path, ContentFile(file_bytes))
-        file_path = Path(settings.MEDIA_ROOT) / saved_name
 
         # 5. 保存结果
         CaseDownloadResult.objects.create(
@@ -239,63 +246,73 @@ class CaseDownloadService:  # pragma: no cover
             title=detail.title,
             court=detail.court_text,
             judgment_date=detail.judgment_date,
-            file_path=str(file_path),
+            file_path=saved_name,
             file_size=len(file_bytes),
             file_format=file_format,
             status="success",
         )
 
-        return {"success": True, "file_path": str(file_path)}
-
-    @classmethod
-    def download_single_file(cls, *, result_id: int) -> tuple[Path | None, str]:  # pragma: no cover
-        """下载单个文件"""
-        try:
-            result = CaseDownloadResult.objects.get(id=result_id)
-        except CaseDownloadResult.DoesNotExist:
-            return None, "结果不存在"
-
-        file_path = Path(result.file_path)
-        if not file_path.exists():
-            return None, "文件不存在"
-
-        return file_path, result.case_number
+        return {"success": True, "file_path": saved_name}
 
     @classmethod
     def download_task_as_zip(cls, *, task_id: int) -> tuple[Path | None, str]:  # pragma: no cover
         """打包任务所有文件为 zip"""
-        try:
-            task = CaseDownloadTask.objects.get(id=task_id)
-        except CaseDownloadTask.DoesNotExist:
+        return cls.download_tasks_as_zip(task_ids=[task_id])
+
+    @classmethod
+    def download_tasks_as_zip(cls, *, task_ids: list[int]) -> tuple[Path | None, str]:  # pragma: no cover
+        """打包一个或多个任务的判决书为 zip（admin 单任务/批量共用本实现）。
+
+        zip 在系统临时目录打包后经 default_storage 保存到
+        ``legal_research/case_download`` 下，返回 zip 的绝对路径。
+        """
+        tasks = list(CaseDownloadTask.objects.filter(id__in=task_ids))
+        if not tasks:
             return None, "任务不存在"
 
-        results = task.results.filter(status="success")
+        results = CaseDownloadResult.objects.filter(task_id__in=task_ids, status="success")
         if not results.exists():
             return None, "没有可下载的文件"
 
-        task_dir = cls.DOWNLOAD_DIR / str(task.id)
-        if not task_dir.exists():
-            return None, "文件目录不存在"
+        single_task_id = tasks[0].id if len(tasks) == 1 else None
+        zip_stem = str(single_task_id) if single_task_id is not None else "批量"
+        zip_filename = f"案例下载_{zip_stem}_{timezone.now().strftime('%Y%m%d%H%M%S')}.zip"
+        packed = 0
 
-        # 创建 zip
-        zip_filename = f"案例下载_{task.id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.zip"
-        zip_path = cls.DOWNLOAD_DIR / zip_filename
-
-        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            for result in results:
-                file_path = Path(result.file_path)
-                if file_path.exists():
-                    # 使用案号作为文件名
-                    safe_name = re.sub(r'[\\\\/:*?"<>|]+', "_", result.case_number).strip("._ ")
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_zip = Path(tmp_dir) / zip_filename
+            with zipfile.ZipFile(tmp_zip, "w", zipfile.ZIP_DEFLATED) as zf:
+                for result in results.select_related("task"):
+                    try:
+                        file_path = to_media_abs(result.file_path)
+                    except ValidationException:
+                        logger.warning("跳过不在 MEDIA_ROOT 内的结果文件", extra={"result_id": result.pk})
+                        continue
+                    if not file_path.exists():
+                        continue
+                    # 使用案号作为文件名（多任务时按任务 ID 分目录）
+                    safe_name = _safe_case_number(result.case_number)
                     ext = file_path.suffix.lstrip(".")
-                    zf.write(file_path, f"{safe_name}.{ext}")
+                    arc_name = f"{safe_name}.{ext}" if single_task_id else f"{result.task_id}/{safe_name}.{ext}"
+                    zf.write(file_path, arc_name)
+                    packed += 1
 
-        return zip_path, f"共 {results.count()} 个文件"
+            if packed == 0:
+                return None, "文件不存在或已被清理"
+            rel_path = f"{MediaEntity.LEGAL_RESEARCH}/case_download/{zip_filename}"
+            saved_name = default_storage.save(rel_path, ContentFile(tmp_zip.read_bytes()))
+
+        logger.info("案例下载 zip 已生成", extra={"task_ids": task_ids, "files": packed, "zip": saved_name})
+        return to_media_abs(saved_name), f"共 {packed} 个文件"
 
     @classmethod
     def delete_task_files(cls, *, task_id: int) -> int:  # pragma: no cover
         """删除任务的所有文件，返回删除的文件数"""
-        task_dir = cls.DOWNLOAD_DIR / str(task_id)
+        try:
+            task_dir = to_media_abs(cls._task_files_rel_dir(task_id))
+        except ValidationException:
+            logger.warning("任务文件目录路径无效", extra={"task_id": task_id})
+            return 0
         if not task_dir.exists():
             return 0
 
@@ -308,6 +325,7 @@ class CaseDownloadService:  # pragma: no cover
         try:
             task_dir.rmdir()
         except OSError:
+            logger.debug("删除任务目录失败（已忽略）", exc_info=True)
             pass
 
         return count

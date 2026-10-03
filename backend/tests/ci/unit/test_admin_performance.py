@@ -19,12 +19,12 @@ from django.test import RequestFactory, TestCase
 
 from apps.cases.admin.caselog_admin import CaseLogAdmin
 from apps.cases.models import Case, CaseLog
+from apps.client.models import Client
 from apps.contracts.admin.supplementary_agreement_admin import SupplementaryAgreementAdmin
 from apps.contracts.models import Contract, SupplementaryAgreement, SupplementaryAgreementParty
-from apps.client.models import Client
 from apps.core.models import ToolFavorite
 from apps.evidence.admin.evidence_admin import EvidenceListAdmin
-from apps.evidence.models import EvidenceList, EvidenceItem, ListType
+from apps.evidence.models import EvidenceItem, EvidenceList, ListType
 from apps.message_hub.models import MessageSource
 from apps.reminders.models import Reminder
 
@@ -64,7 +64,9 @@ class SupplementaryAgreementAdminPartyCountTest(TestCase):
     def _make_request(self):
         factory = RequestFactory()
         request = factory.get("/admin/contracts/supplementaryagreement/")
-        request.user = User(is_superuser=True, is_staff=True)
+        # 对齐 LawyerManager.create_superuser：superuser 同时 is_admin=True，
+        # 否则行级过滤会把未保存的 superuser 当普通用户处理导致结果集为空。
+        request.user = User(is_superuser=True, is_staff=True, is_admin=True)
         return request
 
     def test_party_count_reads_annotation_not_count_method(self) -> None:
@@ -241,8 +243,9 @@ class EvidenceListAdminChainBatchTest(TestCase):
 
     def test_batch_matches_service_layer(self) -> None:
         """批量计算结果应与服务层逐条计算完全一致。"""
-        from apps.evidence.services.core.evidence_service import EvidenceService
         from django.db.models import Count
+
+        from apps.evidence.services.core.evidence_service import EvidenceService
 
         svc = EvidenceService()
         expected = {}

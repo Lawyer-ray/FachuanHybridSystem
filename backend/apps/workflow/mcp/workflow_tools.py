@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from django.conf import settings
+
     TEMPORAL_ADDRESS = getattr(settings, "TEMPORAL_ADDRESS", "localhost:7233")
 except Exception:
     TEMPORAL_ADDRESS = "localhost:7233"
@@ -26,18 +27,48 @@ async def _get_client():  # type: ignore[no-untyped-def]
     global _client
     if _client is None:
         from temporalio.client import Client
+
         _client = await Client.connect(TEMPORAL_ADDRESS)
     return _client
 
 
-async def start_workflow(template_slug: str, case_id: int) -> dict[str, Any]:
+async def start_workflow(
+    template_slug: str,
+    case_id: int,
+    *,
+    user: Any | None = None,
+    org_access: dict[str, Any] | None = None,
+    perm_open_access: bool = False,
+) -> dict[str, Any]:
     """启动诉讼工作流
 
     Args:
         template_slug: 流程模板标识，如 'sales-contract-dispute-test'
         case_id: 案件 ID
+        user: 发起用户（有用户上下文时校验案件访问权并记录 created_by）
+        org_access: 组织级访问上下文（与 user 配套，来自请求上下文）
+        perm_open_access: 是否开放访问（与 user 配套，来自请求上下文）
     """
     from apps.workflow.models import WorkflowRun, WorkflowTemplate
+
+    is_authenticated_user = bool(user and getattr(user, "is_authenticated", False))
+    if is_authenticated_user:
+        # 有用户上下文时校验案件访问权（安全审计 IDOR）
+        from asgiref.sync import sync_to_async
+
+        from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+        from apps.core.exceptions import ForbiddenError
+
+        has_access = await sync_to_async(CaseAccessPolicy().has_access, thread_sensitive=False)(
+            case_id=case_id,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+        )
+        if not has_access:
+            raise ForbiddenError("无权限访问此案件")
+    # 注意（安全）：MCP 直连调用链无用户上下文，此处无法校验案件归属；
+    # 用户上下文存在时（user 非空）已按 CaseAccessPolicy 校验
 
     template = await WorkflowTemplate.objects.aget(slug=template_slug, is_active=True)
     client = await _get_client()
@@ -46,6 +77,7 @@ async def start_workflow(template_slug: str, case_id: int) -> dict[str, Any]:
     run = await WorkflowRun.objects.acreate(
         template=template,
         case_id=case_id,
+        created_by=user if is_authenticated_user else None,
         temporal_workflow_id=workflow_id,
         temporal_run_id="",
         status=WorkflowRun.Status.RUNNING,
@@ -53,11 +85,13 @@ async def start_workflow(template_slug: str, case_id: int) -> dict[str, Any]:
 
     handle = await client.start_workflow(
         template.temporal_workflow_name,
-        args=[{
-            "case_id": case_id,
-            "run_id": run.id,
-            "template_id": template.id,
-        }],
+        args=[
+            {
+                "case_id": case_id,
+                "run_id": run.id,
+                "template_id": template.id,
+            }
+        ],
         id=workflow_id,
         task_queue=TASK_QUEUE,
     )
@@ -140,8 +174,35 @@ async def get_workflow_detail(run_id: int) -> dict[str, Any]:
     }
 
 
+def _find_gate_step(steps_schema: Any, current_step_id: str) -> dict[str, Any] | None:
+    """从模板 steps_schema 中定位当前等待审批的 gate 步骤定义。"""
+    if not current_step_id or not isinstance(steps_schema, list):
+        return None
+    for step in steps_schema:
+        if isinstance(step, dict) and step.get("id") == current_step_id and step.get("type") == "gate":
+            return step
+    return None
+
+
+def _resolve_signal_key(step: dict[str, Any]) -> str:
+    """解析 gate 步骤的审批信号名。
+
+    兼容两种表达：step 顶层 signal_key（种子模板 / StepConfigIn）与
+    config.signal_key（步骤注册表 config_schema）；缺省回退通用 gate_approved。
+    """
+    raw = step.get("signal_key") or ""
+    if not raw:
+        cfg = step.get("config")
+        raw = cfg.get("signal_key", "") if isinstance(cfg, dict) else ""
+    return str(raw) or "gate_approved"
+
+
 async def approve_workflow_step(run_id: int, approved: bool, comment: str = "") -> dict[str, Any]:
     """审批诉讼工作流中的待确认步骤
+
+    信号名优先取模板 gate 步骤配置的 signal_key，缺省回退通用 gate_approved。
+    发送前校验目标 workflow 注册了该信号（WORKFLOW_SIGNAL_HANDLERS），
+    未注册的信号会被 Temporal 静默丢弃，必须明确报错而非假成功。
 
     Args:
         run_id: 工作流运行 ID
@@ -149,16 +210,27 @@ async def approve_workflow_step(run_id: int, approved: bool, comment: str = "") 
         comment: 审批意见（可选）
     """
     from apps.workflow.models import WorkflowRun
+    from apps.workflow.temporal.workflows import WORKFLOW_SIGNAL_HANDLERS
 
     try:
-        run = await WorkflowRun.objects.aget(pk=run_id)
+        run = await WorkflowRun.objects.select_related("template").aget(pk=run_id)
     except WorkflowRun.DoesNotExist:
         return {"error": f"工作流运行 #{run_id} 不存在"}
 
     if run.status != WorkflowRun.Status.WAITING_HUMAN:
         return {"error": f"当前状态为 {run.status}，无需审批"}
 
-    signal_key = "gate_approved"
+    step_schema = _find_gate_step(run.template.steps_schema, run.current_step_id)
+    if step_schema is None:
+        return {"error": f"模板步骤中不存在待审批的 gate 步骤 {run.current_step_id!r}，无法确定审批信号"}
+
+    signal_key = _resolve_signal_key(step_schema)
+    workflow_name = run.template.temporal_workflow_name
+    if signal_key not in WORKFLOW_SIGNAL_HANDLERS.get(workflow_name, frozenset()):
+        return {
+            "error": f"工作流 {workflow_name} 未注册审批信号 {signal_key}（步骤 {run.current_step_id}），已拒绝审批"
+        }
+
     signal_data = {"approved": approved, "step_id": run.current_step_id, "comment": comment}
 
     try:
@@ -176,6 +248,7 @@ async def approve_workflow_step(run_id: int, approved: bool, comment: str = "") 
     return {
         "run_id": run_id,
         "step_id": run.current_step_id,
+        "signal_key": signal_key,
         "action": "approved" if approved else "rejected",
         "message": f"已{'通过' if approved else '拒绝'}审批",
     }
@@ -252,6 +325,7 @@ async def get_step_registry() -> list[dict[str, Any]]:
     返回按类别分组的步骤定义列表，每个步骤包含 id、name、type、mcp_tool 等信息。
     """
     from apps.workflow.api.step_registry import STEP_CATEGORIES
+
     return STEP_CATEGORIES
 
 
@@ -261,6 +335,7 @@ async def get_step_registry_flat() -> list[dict[str, Any]]:
     返回所有步骤的扁平列表，每个步骤附带 category_id 和 category_name。
     """
     from apps.workflow.api.step_registry import get_flat_step_list
+
     return get_flat_step_list()
 
 
@@ -303,18 +378,20 @@ async def create_workflow_template(
     # 将步骤列表规范化为 steps_schema 格式
     steps_schema = []
     for step in steps:
-        steps_schema.append({
-            "id": step.get("id", ""),
-            "name": step.get("name", ""),
-            "type": step.get("type", "activity"),
-            "description": step.get("description", ""),
-            "icon": step.get("icon", ""),
-            "mcp_tool": step.get("mcp_tool", ""),
-            "config": step.get("config", {}),
-            "timeout": step.get("timeout", "30s"),
-            "retry_max": step.get("retry_max", 3),
-            "on_fail": step.get("on_fail", "abort"),
-        })
+        steps_schema.append(
+            {
+                "id": step.get("id", ""),
+                "name": step.get("name", ""),
+                "type": step.get("type", "activity"),
+                "description": step.get("description", ""),
+                "icon": step.get("icon", ""),
+                "mcp_tool": step.get("mcp_tool", ""),
+                "config": step.get("config", {}),
+                "timeout": step.get("timeout", "30s"),
+                "retry_max": step.get("retry_max", 3),
+                "on_fail": step.get("on_fail", "abort"),
+            }
+        )
 
     template = await WorkflowTemplate.objects.acreate(
         name=name,
@@ -378,18 +455,20 @@ async def update_workflow_template(
     if steps is not None:
         steps_schema = []
         for step in steps:
-            steps_schema.append({
-                "id": step.get("id", ""),
-                "name": step.get("name", ""),
-                "type": step.get("type", "activity"),
-                "description": step.get("description", ""),
-                "icon": step.get("icon", ""),
-                "mcp_tool": step.get("mcp_tool", ""),
-                "config": step.get("config", {}),
-                "timeout": step.get("timeout", "30s"),
-                "retry_max": step.get("retry_max", 3),
-                "on_fail": step.get("on_fail", "abort"),
-            })
+            steps_schema.append(
+                {
+                    "id": step.get("id", ""),
+                    "name": step.get("name", ""),
+                    "type": step.get("type", "activity"),
+                    "description": step.get("description", ""),
+                    "icon": step.get("icon", ""),
+                    "mcp_tool": step.get("mcp_tool", ""),
+                    "config": step.get("config", {}),
+                    "timeout": step.get("timeout", "30s"),
+                    "retry_max": step.get("retry_max", 3),
+                    "on_fail": step.get("on_fail", "abort"),
+                }
+            )
         template.steps_schema = steps_schema
         updated_fields.append("steps_schema")
 
@@ -551,6 +630,7 @@ async def start_workflow_from_steps(
     """
     if not template_name:
         from django.utils import timezone
+
         template_name = f"临时工作流-{timezone.now().strftime('%Y%m%d%H%M%S')}"
 
     # 创建模板

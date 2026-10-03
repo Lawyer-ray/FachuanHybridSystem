@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 from django.core.exceptions import PermissionDenied
 from django.http import HttpRequest, HttpResponse
 
+from apps.contracts.admin.access import ensure_admin_contract_access
 from apps.contracts.models.finalized_material import FinalizedMaterial
 
 if TYPE_CHECKING:
@@ -47,6 +48,8 @@ class ContractArchiveMixin:  # pragma: no cover
 
         if not self.has_change_permission(request):
             return JsonResponse({"success": False, "error": "无权限"}, status=403)
+
+        ensure_admin_contract_access(request, object_id)
 
         try:
             admin_service = _get_contract_admin_service()
@@ -103,6 +106,8 @@ class ContractArchiveMixin:  # pragma: no cover
         if not self.has_change_permission(request):
             return JsonResponse({"success": False, "error": "无权限"}, status=403)
 
+        ensure_admin_contract_access(request, object_id)
+
         try:
             admin_service = _get_contract_admin_service()
             contract = admin_service.query_service.get_contract_detail(object_id)
@@ -137,6 +142,8 @@ class ContractArchiveMixin:  # pragma: no cover
 
         if not self.has_view_permission(request):
             raise PermissionDenied
+
+        ensure_admin_contract_access(request, object_id)
 
         try:
             admin_service = _get_contract_admin_service()
@@ -177,6 +184,8 @@ class ContractArchiveMixin:  # pragma: no cover
 
         if not self.has_view_permission(request):
             raise PermissionDenied
+
+        ensure_admin_contract_access(request, object_id)
 
         try:
             material = FinalizedMaterial.objects.filter(
@@ -232,6 +241,8 @@ class ContractArchiveMixin:  # pragma: no cover
         if not self.has_change_permission(request):
             return JsonResponse({"success": False, "error": "无权限"}, status=403)
 
+        ensure_admin_contract_access(request, object_id)
+
         try:
             admin_service = _get_contract_admin_service()
             contract = admin_service.query_service.get_contract_detail(object_id)
@@ -265,6 +276,8 @@ class ContractArchiveMixin:  # pragma: no cover
 
         if not self.has_change_permission(request):
             return JsonResponse({"success": False, "error": "无权限"}, status=403)
+
+        ensure_admin_contract_access(request, object_id)
 
         try:
             import json
@@ -321,6 +334,8 @@ class ContractArchiveMixin:  # pragma: no cover
         if not self.has_change_permission(request):
             return JsonResponse({"success": False, "error": "无权限"}, status=403)
 
+        ensure_admin_contract_access(request, object_id)
+
         try:
             import json
 
@@ -364,6 +379,8 @@ class ContractArchiveMixin:  # pragma: no cover
         if not self.has_view_permission(request):
             raise PermissionDenied
 
+        ensure_admin_contract_access(request, object_id)
+
         try:
             admin_service = _get_contract_admin_service()
             contract = admin_service.query_service.get_contract_detail(object_id)
@@ -390,6 +407,8 @@ class ContractArchiveMixin:  # pragma: no cover
         if not self.has_change_permission(request):
             raise PermissionDenied
 
+        ensure_admin_contract_access(request, object_id)
+
         try:
             admin_service = _get_contract_admin_service()
             contract = admin_service.query_service.get_contract_detail(object_id)
@@ -414,6 +433,8 @@ class ContractArchiveMixin:  # pragma: no cover
 
         if not self.has_change_permission(request):
             return JsonResponse({"success": False, "error": "无权限"}, status=403)
+
+        ensure_admin_contract_access(request, object_id)
 
         try:
             admin_service = _get_contract_admin_service()
@@ -443,6 +464,8 @@ class ContractArchiveMixin:  # pragma: no cover
         if not self.has_change_permission(request):
             return JsonResponse({"success": False, "error": "无权限"}, status=403)
 
+        ensure_admin_contract_access(request, object_id)
+
         try:
             data = json.loads(request.body)
             orders: dict[str, list[int]] = data.get("orders", {})
@@ -468,6 +491,8 @@ class ContractArchiveMixin:  # pragma: no cover
 
         if not self.has_change_permission(request):
             return JsonResponse({"success": False, "error": "无权限"}, status=403)
+
+        ensure_admin_contract_access(request, object_id)
 
         try:
             data = json.loads(request.body)
@@ -524,6 +549,8 @@ class ContractArchiveMixin:  # pragma: no cover
         if not self.has_change_permission(request):
             return JsonResponse({"success": False, "error": "无权限"}, status=403)
 
+        ensure_admin_contract_access(request, object_id)
+
         try:
             uploaded_file = request.FILES.get("file")
             if not uploaded_file:
@@ -569,6 +596,8 @@ class ContractArchiveMixin:  # pragma: no cover
         if not self.has_change_permission(request):
             return JsonResponse({"success": False, "error": "无权限"}, status=403)
 
+        ensure_admin_contract_access(request, object_id)
+
         try:
             material = FinalizedMaterial.objects.filter(
                 pk=material_id,
@@ -609,6 +638,8 @@ class ContractArchiveMixin:  # pragma: no cover
         if not self.has_change_permission(request):
             return JsonResponse({"success": False, "error": "无权限"}, status=403)
 
+        ensure_admin_contract_access(request, object_id)
+
         try:
             materials = FinalizedMaterial.objects.filter(contract_id=object_id)
             deleted_count = 0
@@ -644,6 +675,8 @@ class ContractArchiveMixin:  # pragma: no cover
 
         if not self.has_change_permission(request):
             return JsonResponse({"success": False, "error": "无权限"}, status=403)
+
+        ensure_admin_contract_access(request, object_id)
 
         try:
             admin_service = _get_contract_admin_service()

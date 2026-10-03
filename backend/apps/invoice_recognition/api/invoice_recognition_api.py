@@ -14,9 +14,8 @@ from ninja import File, Router
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
 
-from apps.core.security.auth import JWTOrSessionAuth
-
 from apps.core.infrastructure.throttling import rate_limit_from_settings
+from apps.core.security.auth import JWTOrSessionAuth
 
 logger = logging.getLogger("apps.invoice_recognition")
 
@@ -112,8 +111,9 @@ async def upload_invoices(  # pragma: no cover
     from django.core.exceptions import ObjectDoesNotExist, ValidationError
 
     service = _get_recognition_service()
+    user = getattr(request, "user", None)
     try:
-        records = await sync_to_async(service.upload_and_recognize, thread_sensitive=False)(task_id, files)
+        records = await sync_to_async(service.upload_and_recognize, thread_sensitive=False)(task_id, files, user=user)
     except ObjectDoesNotExist:
         raise HttpError(404, "任务不存在")
     except ValidationError as exc:
@@ -144,7 +144,7 @@ def get_task_status(  # pragma: no cover
 
     service = _get_recognition_service()
     try:
-        data = service.get_task_status(task_id)
+        data = service.get_task_status(task_id, user=getattr(request, "user", None))
     except ObjectDoesNotExist:
         raise HttpError(404, "任务不存在")
 
@@ -187,20 +187,21 @@ def download_invoices(  # pragma: no cover
     content_type = content_type_map.get(fmt, "application/octet-stream")
 
     download_service = _get_download_service()
+    user = getattr(request, "user", None)
 
     try:
         if scope == "single":
             if invoice_id is None:
                 raise HttpError(400, "scope=single 时必须提供 invoice_id")
-            file_path, filename = download_service.download_single(invoice_id)
+            file_path, filename = download_service.download_single(invoice_id, task_id, user=user)
             with Path(file_path).open("rb") as f:
                 data = f.read()
         elif scope == "category":
             if category is None:
                 raise HttpError(400, "scope=category 时必须提供 category")
-            data, filename = download_service.download_by_category(task_id, category, fmt)
+            data, filename = download_service.download_by_category(task_id, category, fmt, user=user)
         elif scope == "all":
-            data, filename = download_service.download_all(task_id, fmt)
+            data, filename = download_service.download_all(task_id, fmt, user=user)
         else:
             raise HttpError(400, "无效的 scope 参数，允许值：single/category/all")
     except ObjectDoesNotExist:

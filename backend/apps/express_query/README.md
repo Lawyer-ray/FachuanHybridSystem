@@ -42,7 +42,7 @@ express_query/
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/tasks` | 最近 200 条任务列表 |
+| GET | `/tasks` | 最近 200 条任务列表（管理员/超管全量，普通用户仅本人创建） |
 
 ## Admin
 
@@ -63,7 +63,7 @@ express_query/
 
 - **必须人工扫码登录**：浏览器以有头模式弹出，任务进入 `waiting_login` 等待
 - EMS 页面 XPath 硬编码（与测试脚本保持一致），站点改版需同步维护
-- 结果 PDF 文件名 `{task_id}_{carrier}_{tracking}.pdf` 固定落 `MEDIA/express_query/results/`
+- 结果 PDF 经 default_storage 存 media 相对路径 `express_query/results/{task_id}/{uuid 前缀}_{运单号}.pdf`（文件名不可预测）
 
 ## 依赖模块
 

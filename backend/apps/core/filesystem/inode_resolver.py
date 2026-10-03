@@ -118,6 +118,7 @@ class InodeResolver:
                         )
                         return str(current_path)
                 except (OSError, PermissionError):
+                    logger.debug("inode 搜索中 stat 路径失败（已跳过）: path=%s", current_path, exc_info=True)
                     continue
 
             if depth < max_depth:
@@ -126,6 +127,7 @@ class InodeResolver:
                         if child.is_dir() and not child.is_symlink():
                             queue.append((child, depth + 1))
                 except (OSError, PermissionError):
+                    logger.debug("inode 搜索中遍历目录失败（已跳过）: path=%s", current_path, exc_info=True)
                     continue
 
         return None

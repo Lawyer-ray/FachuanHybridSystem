@@ -56,22 +56,6 @@ class ArbitrationDocumentSource(models.Model):
     parse_backend = models.CharField(
         "解析后端", max_length=16, choices=ParseBackend.choices, default=ParseBackend.LOCAL
     )
-    max_pages = models.PositiveIntegerField("最大翻页数", default=5, help_text="单次更新最多翻几页列表")
-    # 选择器（可配置，空则使用默认启发式探测）
-    detail_image_container_selector = models.CharField(
-        "详情图容器选择器",
-        max_length=256,
-        blank=True,
-        default="",
-        help_text="如 #content / .article；留空则自动探测内容容器",
-    )
-    detail_image_selector = models.CharField(
-        "详情图片选择器",
-        max_length=256,
-        blank=True,
-        default="img",
-        help_text="容器内匹配图片的 CSS 选择器",
-    )
     last_crawl_at = models.DateTimeField("上次爬取时间", null=True, blank=True)
     last_crawl_status = models.CharField(
         "上次爬取状态",

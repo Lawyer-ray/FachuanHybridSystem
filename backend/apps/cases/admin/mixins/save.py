@@ -84,7 +84,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):  # pragma: no cover
                 old_current_stage = old_obj.current_stage
                 old_contract_id = getattr(old_obj, "contract_id", None)
             except Case.DoesNotExist:
-                pass
+                logger.warning("读取案件旧值失败（已忽略，案件可能已被并发删除）: case_id=%s", obj.pk, exc_info=True)
 
         super().save_model(request, obj, form, change)  # type: ignore[misc]
 

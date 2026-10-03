@@ -71,6 +71,7 @@ class MediaEntity:
     CONTRACT_FINALIZED = "contracts/finalized"
     CONTRACT_INVOICES = "contracts/invoices"
     CONTRACT_EDITED = "contracts/edited"
+    CONTRACT_CLIENT_PAYMENTS = "contracts/client_payments"
 
     # ── 客户 ──
     CLIENT_DOCS = "client_docs"
@@ -84,6 +85,7 @@ class MediaEntity:
     AUTOMATION_CAPTCHA = "automation/captcha_pending"
     CONTRACT_REVIEW_UPLOADS = "contract_review/uploads"
     CONTRACT_REVIEW_CACHE = "contract_review/pdf_cache"
+    CONTRACT_REVIEW_OUTPUT = "contract_review/output"
     DOCUMENT_PARSING_UPLOADS = "document_parsing/uploads"
     PDF_SPLITTING = "pdf_splitting"
     DOC_CONVERTER_SOURCE = "doc_converter_source"

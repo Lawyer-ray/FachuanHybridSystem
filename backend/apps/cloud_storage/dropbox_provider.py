@@ -259,6 +259,7 @@ class DropboxProvider:  # pragma: no cover
             meta = self._dbx.files_get_metadata(dbx_path)
             return isinstance(meta, dropbox.files.FolderMetadata)
         except dropbox.exceptions.ApiError:
+            logger.debug("Dropbox 查询目录元数据失败（已忽略，按非目录处理）: path=%s", path, exc_info=True)
             return False
 
     def delete_file(self, path: str) -> None:
@@ -279,6 +280,7 @@ class DropboxProvider:  # pragma: no cover
         try:
             meta = self._dbx.files_get_metadata(dbx_path)
         except dropbox.exceptions.ApiError:
+            logger.debug("Dropbox 查询文件元数据失败（已忽略，按不存在处理）: path=%s", path, exc_info=True)
             return None
         name = meta.name
         rel = path.strip("/")

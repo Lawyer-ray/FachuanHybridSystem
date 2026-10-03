@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import MagicMock, patch, AsyncMock
 from dataclasses import dataclass
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -71,7 +71,7 @@ class TestTokenService:
 
 class TestTokenServiceAdapter:
     def test_init(self) -> None:
-        from apps.automation.services.scraper.core.token_service import TokenServiceAdapter, TokenService
+        from apps.automation.services.scraper.core.token_service import TokenService, TokenServiceAdapter
 
         svc = MagicMock(spec=TokenService)
         adapter = TokenServiceAdapter(service=svc, default_account="test")
@@ -332,31 +332,6 @@ class TestApiLoggingMixin:
 
         ApiLoggingMixin.log_performance_metrics_collection_success("cpu", 10, 1.5)
 
-    def test_log_performance_metrics_collection_failed(self) -> None:
-        from apps.automation.utils._logging_api_mixin import ApiLoggingMixin
-
-        ApiLoggingMixin.log_performance_metrics_collection_failed("cpu", "err", 1.5)
-
-    def test_log_performance_metric_recorded(self) -> None:
-        from apps.automation.utils._logging_api_mixin import ApiLoggingMixin
-
-        ApiLoggingMixin.log_performance_metric_recorded("cpu_usage", 75.5)
-
-    def test_log_admin_operation_start(self) -> None:
-        from apps.automation.utils._logging_api_mixin import ApiLoggingMixin
-
-        ApiLoggingMixin.log_admin_operation_start("export", user_id=1)
-
-    def test_log_admin_operation_success(self) -> None:
-        from apps.automation.utils._logging_api_mixin import ApiLoggingMixin
-
-        ApiLoggingMixin.log_admin_operation_success("export", 10, 2.5, user_id=1)
-
-    def test_log_admin_operation_failed(self) -> None:
-        from apps.automation.utils._logging_api_mixin import ApiLoggingMixin
-
-        ApiLoggingMixin.log_admin_operation_failed("export", "err", 2.5, user_id=1)
-
     def test_log_business_operation(self) -> None:
         from apps.automation.utils._logging_api_mixin import ApiLoggingMixin
 
@@ -366,60 +341,6 @@ class TestApiLoggingMixin:
         from apps.automation.utils._logging_api_mixin import ApiLoggingMixin
 
         ApiLoggingMixin.log_business_operation("create", "contract", success=False)
-
-    def test_log_cross_module_call(self) -> None:
-        from apps.automation.utils._logging_api_mixin import ApiLoggingMixin
-
-        ApiLoggingMixin.log_cross_module_call("module_a", "module_b", "Svc", "method")
-
-    def test_log_document_api_request_start(self) -> None:
-        from apps.automation.utils._logging_api_mixin import ApiLoggingMixin
-
-        ApiLoggingMixin.log_document_api_request_start("get_docs", page_num=1, page_size=10)
-
-    def test_log_document_api_request_success(self) -> None:
-        from apps.automation.utils._logging_api_mixin import ApiLoggingMixin
-
-        ApiLoggingMixin.log_document_api_request_success("get_docs", 200, 1.5, document_count=10)
-
-    def test_log_document_api_request_failed(self) -> None:
-        from apps.automation.utils._logging_api_mixin import ApiLoggingMixin
-
-        ApiLoggingMixin.log_document_api_request_failed("get_docs", "timeout", 30.0)
-
-    def test_log_document_query_statistics(self) -> None:
-        from apps.automation.utils._logging_api_mixin import ApiLoggingMixin
-
-        ApiLoggingMixin.log_document_query_statistics(100, 80, 10, 10)
-
-    def test_log_document_download_start(self) -> None:
-        from apps.automation.utils._logging_api_mixin import ApiLoggingMixin
-
-        ApiLoggingMixin.log_document_download_start("判决书", url="https://example.com/doc")
-
-    def test_log_document_download_success(self) -> None:
-        from apps.automation.utils._logging_api_mixin import ApiLoggingMixin
-
-        ApiLoggingMixin.log_document_download_success("判决书", 1024, 1.5)
-
-    def test_log_document_download_failed(self) -> None:
-        from apps.automation.utils._logging_api_mixin import ApiLoggingMixin
-
-        ApiLoggingMixin.log_document_download_failed("判决书", "err", 1.5)
-
-    def test_log_fallback_triggered(self) -> None:
-        from apps.automation.utils._logging_api_mixin import ApiLoggingMixin
-
-        ApiLoggingMixin.log_fallback_triggered("api", "browser", "timeout")
-
-    def test_log_api_error_detail(self) -> None:
-        from apps.automation.utils._logging_api_mixin import ApiLoggingMixin
-
-        ApiLoggingMixin.log_api_error_detail(
-            "get_docs", "TimeoutError", "request timed out",
-            stack_trace="trace...", request_params={"page": 1},
-            response_data={"code": 500}
-        )
 
 
 # ── captcha recognition ─────────────────────────────────────────
@@ -508,9 +429,9 @@ class TestCaptchaServiceAdapter:
 
     def test_recognize_from_base64(self) -> None:
         from apps.automation.services.captcha.captcha_recognition_service import (
-            CaptchaServiceAdapter,
             CaptchaRecognitionService,
             CaptchaResult,
+            CaptchaServiceAdapter,
         )
 
         mock_service = MagicMock(spec=CaptchaRecognitionService)
@@ -563,8 +484,8 @@ class TestAutoTokenAcquisitionService:
 
     @pytest.mark.asyncio
     async def test_acquire_token_empty_site_name(self) -> None:
-        from plugins.court_automation.token.auto_token_acquisition_service import AutoTokenAcquisitionService
         from apps.core.exceptions import ValidationException
+        from plugins.court_automation.token.auto_token_acquisition_service import AutoTokenAcquisitionService
 
         svc = AutoTokenAcquisitionService()
         with pytest.raises(ValidationException):

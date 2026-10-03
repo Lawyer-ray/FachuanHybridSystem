@@ -4,11 +4,9 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import TYPE_CHECKING, Any, cast
 
-from asgiref.sync import sync_to_async
 from django.utils import timezone
 
 from apps.automation.models import ScraperTask, ScraperTaskStatus
@@ -16,8 +14,6 @@ from apps.automation.models import ScraperTask, ScraperTaskStatus
 # 所有服务通过 ServiceLocator 获取
 
 if TYPE_CHECKING:
-    from playwright.async_api import BrowserContext as AsyncBrowserContext
-    from playwright.async_api import Page as AsyncPage
     from playwright.sync_api import BrowserContext, Page
 
 logger = logging.getLogger("apps.automation")
@@ -38,9 +34,6 @@ def _safe_save_task(task: ScraperTask) -> None:  # pragma: no cover
         task.save()
     except Exception as e:
         logger.warning("保存任务状态时出错: %s", e, exc_info=True)
-
-
-_async_safe_save_task = sync_to_async(_safe_save_task)
 
 
 def is_playwright_available() -> bool:
@@ -85,8 +78,8 @@ class BaseScraper:
         self.validator = ServiceLocator.get_validator_service()
         self.security = ServiceLocator.get_security_service()
         self.monitor = ServiceLocator.get_monitor_service()
-        self.context: BrowserContext | AsyncBrowserContext | None = None
-        self.page: Page | AsyncPage | None = None
+        self.context: BrowserContext | None = None
+        self.page: Page | None = None
         self.site_name: str | None = None  # 子类应设置网站名称
 
     def execute(self) -> dict[str, Any]:  # pragma: no cover
@@ -166,79 +159,6 @@ class BaseScraper:
         except Exception as e:
             logger.warning("清理资源时出错: %s", e)
 
-    async def aexecute(self) -> dict[str, Any]:  # pragma: no cover
-        """
-        异步执行爬虫任务。与 sync execute() 相同的生命周期，但使用 async Playwright。
-
-        Returns:
-            执行结果字典
-        """
-        from apps.core.services.browser import create_browser_async
-
-        logger.info("[async] 开始执行任务 %s: %s", self.task.id, self.task.get_task_type_display())
-
-        # 更新状态为执行中
-        self.task.status = ScraperTaskStatus.RUNNING
-        self.task.started_at = timezone.now()
-        await _async_safe_save_task(self.task)
-
-        try:
-            # 解密配置中的敏感信息
-            if self.task.config:
-                self.task.config = self.security.decrypt_config(self.task.config)
-
-            if self.requires_browser:
-                if not is_playwright_available():
-                    raise RuntimeError(
-                        "当前任务需要 Playwright 浏览器，但 Playwright 未安装。"
-                        "请运行: uv add playwright && playwright install chromium"
-                    )
-                profile_name = getattr(self, "BROWSER_PROFILE", "default")
-                async with create_browser_async(profile_name) as (page, context):
-                    self.page = page
-                    self.context = context
-                    try:
-                        result = await self._arun()
-                    finally:
-                        self.page = None
-                        self.context = None
-            else:
-                result = await self._arun()
-
-            # 更新为成功状态
-            self.task.status = ScraperTaskStatus.SUCCESS
-            self.task.result = result
-            self.task.error_message = None
-
-            logger.info("[async] 任务 %s 执行成功", self.task.id)
-            return result
-
-        except Exception as e:
-            # 更新为失败状态
-            self.task.status = ScraperTaskStatus.FAILED
-            self.task.error_message = str(e)
-            logger.error("[async] 任务 %s 执行失败: %s", self.task.id, e, exc_info=True)
-            raise
-
-        finally:
-            # 清理资源
-            self.task.finished_at = timezone.now()
-            await _async_safe_save_task(self.task)
-
-    async def _arun(self) -> dict[str, Any]:  # pragma: no cover
-        """
-        异步爬虫逻辑。子类可覆盖此方法以使用原生 async 实现。
-
-        默认实现：将同步 _run() 包装到线程池中执行，以保持向后兼容。
-
-        Returns:
-            执行结果字典
-
-        Raises:
-            NotImplementedError: 子类未实现 _run 且未覆盖此方法
-        """
-        return await asyncio.to_thread(self._run)
-
     def navigate_to_url(self, timeout: int = 30000) -> None:  # pragma: no cover
         """
         导航到任务指定的 URL
@@ -266,21 +186,19 @@ class BaseScraper:
         """
         截图（用于调试）
 
+        调试产物不入 media，落系统 tempfile 目录。
+
         Args:
             name: 截图文件名
 
         Returns:
             截图文件路径
         """
+        import tempfile
         from pathlib import Path
 
-        from django.conf import settings
-
-        screenshot_dir = Path(settings.MEDIA_ROOT) / "automation" / "screenshots"
-        screenshot_dir.mkdir(parents=True, exist_ok=True)
-
         filename = f"{name}_{self.task.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.png"
-        filepath = screenshot_dir / filename
+        filepath = Path(tempfile.gettempdir()) / filename
 
         assert self.page is not None, "浏览器页面未初始化，请先调用 execute()"
         self.page.screenshot(path=str(filepath))

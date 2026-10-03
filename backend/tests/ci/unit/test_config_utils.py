@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 
 class TestGetConfigValue:
@@ -22,42 +20,6 @@ class TestGetConfigValue:
         from apps.core.config.utils import get_config_value
         result = get_config_value("key", fallback_settings_key="MY_KEY")
         assert result == "from_settings"
-
-    @patch("apps.core.config.utils.settings")
-    def test_unified_config_available(self, mock_settings):
-        mock_settings.CONFIG_MANAGER_AVAILABLE = True
-        mock_settings.get_unified_config = MagicMock(return_value="unified_val")
-        from apps.core.config.utils import get_config_value
-        result = get_config_value("some.key")
-        assert result == "unified_val"
-
-    @patch("apps.core.config.utils.settings")
-    def test_unified_config_returns_none_fallback(self, mock_settings):
-        mock_settings.CONFIG_MANAGER_AVAILABLE = True
-        mock_settings.get_unified_config = MagicMock(return_value=None)
-        mock_settings.MY_KEY = "fb"
-        from apps.core.config.utils import get_config_value
-        result = get_config_value("key", fallback_settings_key="MY_KEY")
-        assert result == "fb"
-
-    @patch("apps.core.config.utils.settings")
-    def test_unified_config_exception(self, mock_settings):
-        mock_settings.CONFIG_MANAGER_AVAILABLE = True
-        mock_settings.get_unified_config = MagicMock(side_effect=Exception("err"))
-        mock_settings.MY_KEY = "fb"
-        from apps.core.config.utils import get_config_value
-        result = get_config_value("key", fallback_settings_key="MY_KEY")
-        assert result == "fb"
-
-
-class TestGetNestedConfigValue:
-    def test_found(self):
-        from apps.core.config.utils import get_nested_config_value
-        assert get_nested_config_value({"a": 1}, "a") == 1
-
-    def test_not_found(self):
-        from apps.core.config.utils import get_nested_config_value
-        assert get_nested_config_value({"a": 1}, "b", default="nope") == "nope"
 
 
 class TestCategoryConfigs:
@@ -135,69 +97,3 @@ class TestConfigManagerUtils:
         mock_settings.CONFIG_MANAGER_AVAILABLE = True
         from apps.core.config.utils import is_config_manager_available
         assert is_config_manager_available() is True
-
-    @patch("apps.core.config.utils.settings")
-    def test_get_config_manager_none(self, mock_settings):
-        mock_settings.CONFIG_MANAGER_AVAILABLE = False
-        from apps.core.config.utils import get_config_manager
-        assert get_config_manager() is None
-
-    @patch("apps.core.config.utils.settings")
-    def test_get_config_manager_available(self, mock_settings):
-        mock_settings.CONFIG_MANAGER_AVAILABLE = True
-        mock_manager = MagicMock()
-        mock_settings.UNIFIED_CONFIG_MANAGER = mock_manager
-        from apps.core.config.utils import get_config_manager
-        assert get_config_manager() is mock_manager
-
-
-class TestRegisterConfigChangeListener:
-    @patch("apps.core.config.utils.get_config_manager")
-    def test_with_manager(self, mock_get_mgr):
-        mock_mgr = MagicMock()
-        mock_get_mgr.return_value = mock_mgr
-        from apps.core.config.utils import register_config_change_listener
-        register_config_change_listener("listener", key_filter="k", prefix_filter="p")
-        mock_mgr.add_listener.assert_called_once_with("listener", "k", "p")
-
-    @patch("apps.core.config.utils.get_config_manager", return_value=None)
-    def test_without_manager(self, _):
-        from apps.core.config.utils import register_config_change_listener
-        # Should not raise
-        register_config_change_listener("listener")
-
-
-class TestMigrateLegacyConfigAccess:
-    @patch("apps.core.config.utils.is_config_manager_available", return_value=True)
-    @patch("apps.core.config.utils.settings")
-    def test_unified_available(self, mock_settings, _):
-        mock_settings.get_unified_config = MagicMock(return_value="unified")
-        from apps.core.config.utils import migrate_legacy_config_access
-        result = migrate_legacy_config_access("LEGACY_KEY", "unified.key")
-        assert result == "unified"
-
-    @patch("apps.core.config.utils.is_config_manager_available", return_value=False)
-    @patch("apps.core.config.utils.settings")
-    def test_fallback_to_legacy(self, mock_settings, _):
-        mock_settings.LEGACY_KEY = "legacy_val"
-        from apps.core.config.utils import migrate_legacy_config_access
-        result = migrate_legacy_config_access("LEGACY_KEY", "unified.key", default="def")
-        assert result == "legacy_val"
-
-    @patch("apps.core.config.utils.is_config_manager_available", return_value=True)
-    @patch("apps.core.config.utils.settings")
-    def test_unified_returns_none_fallback(self, mock_settings, _):
-        mock_settings.get_unified_config = MagicMock(return_value=None)
-        mock_settings.LEGACY_KEY = "from_legacy"
-        from apps.core.config.utils import migrate_legacy_config_access
-        result = migrate_legacy_config_access("LEGACY_KEY", "unified.key")
-        assert result == "from_legacy"
-
-    @patch("apps.core.config.utils.is_config_manager_available", return_value=True)
-    @patch("apps.core.config.utils.settings")
-    def test_unified_exception_fallback(self, mock_settings, _):
-        mock_settings.get_unified_config = MagicMock(side_effect=Exception("err"))
-        mock_settings.LEGACY_KEY = "legacy_val"
-        from apps.core.config.utils import migrate_legacy_config_access
-        result = migrate_legacy_config_access("LEGACY_KEY", "unified.key")
-        assert result == "legacy_val"

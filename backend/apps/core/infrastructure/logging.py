@@ -18,7 +18,7 @@ from typing import Any, ClassVar
 def _safe_get_config(key: str, default: Any = None) -> Any:
     """安全获取配置，避免循环导入"""
     try:
-        from .config import get_config
+        from apps.core.config import get_config
 
         return get_config(key, default)
     except (ImportError, AttributeError, KeyError):

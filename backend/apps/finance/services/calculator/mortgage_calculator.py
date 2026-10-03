@@ -20,6 +20,8 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from django.utils import timezone
+
 from apps.finance.services.calculator.claim import build_claim
 from apps.finance.services.calculator.mortgage_models import (
     ALLOCATION_STANCE_PRESETS,
@@ -162,7 +164,7 @@ class MortgageDefaultCalculator:
         )
         validate_step_up(step_up_rate=step_up_rate, step_up_trigger_days=step_up_trigger_days)
 
-        claim = claim_date or date.today()
+        claim = claim_date or timezone.localdate()
         validate_claim_config(
             rounding_mode=rounding_mode,
             claim_mode=claim_mode,

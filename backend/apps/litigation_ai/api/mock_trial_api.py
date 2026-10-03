@@ -76,7 +76,8 @@ async def list_sessions(
 )
 async def get_session(request: HttpRequest, session_id: str) -> Any:  # pragma: no cover
     service = _get_service()
-    session = await sync_to_async(service.get_session)(session_id)
+    user = getattr(request, "user", None)
+    session = await sync_to_async(service.get_session)(session_id, user=user)
     messages = await sync_to_async(service.get_messages)(session_id)
     return {
         "session_id": session.session_id,
@@ -99,6 +100,9 @@ async def get_session(request: HttpRequest, session_id: str) -> Any:  # pragma: 
 )
 async def get_report(request: HttpRequest, session_id: str) -> Any:  # pragma: no cover
     from apps.litigation_ai.services.mock_trial.report_service import MockTrialReportService
+
+    user = getattr(request, "user", None)
+    await sync_to_async(_get_service().get_session)(session_id, user=user)
 
     report_data = await MockTrialReportService().get_report(session_id)
     return {
@@ -132,6 +136,10 @@ async def export_report(request: HttpRequest, session_id: str) -> Any:  # pragma
 
     from apps.litigation_ai.services.mock_trial.export_service import MockTrialExportService
     from apps.litigation_ai.services.mock_trial.report_service import MockTrialReportService
+
+    # 会话归属校验（IDOR）
+    user = getattr(request, "user", None)
+    await sync_to_async(_get_service().get_session)(session_id, user=user)
 
     # 获取报告数据
     report_data = await MockTrialReportService().get_report(session_id)
@@ -177,5 +185,5 @@ async def export_report(request: HttpRequest, session_id: str) -> Any:  # pragma
         response["Content-Disposition"] = f'attachment; filename="模拟庭审报告_{case_name}.docx"'
         return response
     except Exception as e:
-        logger.error(f"导出报告失败: {e}", exc_info=True)
+        logger.error("导出报告失败: %s", e, exc_info=True)
         return Status(500, {"message": f"导出失败: {e}"})

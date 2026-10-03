@@ -1,5 +1,6 @@
 """Module for browse policy."""
 
+import logging
 import sys
 
 from django.conf import settings
@@ -8,6 +9,8 @@ from apps.core.exceptions import ValidationException
 from apps.core.utils.path import Path
 
 from .path_validator import FolderPathValidator
+
+logger = logging.getLogger(__name__)
 
 
 class FolderBrowsePolicy:
@@ -56,6 +59,7 @@ class FolderBrowsePolicy:
                 if p.isdir() and p not in resolved:  # 避免重复
                     resolved.append(p)
             except (OSError, PermissionError):
+                logger.debug("解析浏览根目录失败（已跳过）: root=%s", root, exc_info=True)
                 continue
         return resolved
 
@@ -95,6 +99,7 @@ class FolderBrowsePolicy:
                             continue
                         results.append({"name": child.name, "path": str(child)})
                 except (OSError, PermissionError):
+                    logger.debug("读取子目录信息失败（已跳过）: path=%s", child, exc_info=True)
                     continue
         except (OSError, PermissionError):
             raise ValidationException("无权限读取目录", code="BROWSE_PERMISSION_DENIED") from None

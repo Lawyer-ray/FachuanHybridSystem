@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class GuaranteeDialogPropertyClueMixin:  # pragma: no cover
@@ -47,6 +50,7 @@ class GuaranteeDialogPropertyClueMixin:  # pragma: no cover
                     updates.append("财产类型=其他")
                     break
         except (TypeError, ValueError):
+            logger.debug("填写财产类型下拉失败（已忽略）", exc_info=True)
             pass
 
         try:
@@ -83,6 +87,7 @@ class GuaranteeDialogPropertyClueMixin:  # pragma: no cover
                     updates.append("财产所有人=已选")
                     break
         except (TypeError, ValueError):
+            logger.debug("填写财产所有人下拉失败（已忽略）", exc_info=True)
             pass
 
         try:
@@ -120,6 +125,7 @@ class GuaranteeDialogPropertyClueMixin:  # pragma: no cover
                     if selected:
                         updates.append(f"省份={province_name}")
         except (TypeError, ValueError):
+            logger.debug("填写省份下拉失败（已忽略）", exc_info=True)
             pass
 
         filled_fields = self.page.evaluate(
@@ -195,5 +201,6 @@ class GuaranteeDialogPropertyClueMixin:  # pragma: no cover
                 if not has_required_select_error:
                     return True
             except Exception:
+                logger.debug("重试填写财产线索弹窗失败（已忽略）", exc_info=True)
                 continue
         return False

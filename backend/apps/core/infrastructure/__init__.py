@@ -10,7 +10,6 @@ from .cache import (
     invalidate_users_access_context,
 )
 from .health import HealthChecker
-from .monitoring import PerformanceMonitor
 from .resource_monitor import ResourceUsage, get_resource_status, get_resource_usage, resource_monitor
 from .throttling import rate_limit, rate_limit_from_settings
 
@@ -23,7 +22,6 @@ __all__ = [
     "HealthChecker",
     "invalidate_user_access_context",
     "invalidate_users_access_context",
-    "PerformanceMonitor",
     "resource_monitor",
     "ResourceUsage",
     "get_resource_usage",

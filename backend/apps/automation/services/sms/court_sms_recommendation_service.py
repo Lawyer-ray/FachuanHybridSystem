@@ -120,6 +120,7 @@ class CourtSMSRecommendationService:
             if court_doc and court_doc.c_fymc:
                 return str(court_doc.c_fymc)
         except Exception:
+            logger.debug("从关联文书提取法院名称失败（已忽略）", exc_info=True)
             pass
         return None
 

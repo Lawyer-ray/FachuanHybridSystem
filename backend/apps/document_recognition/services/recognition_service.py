@@ -7,8 +7,10 @@ Requirements: 4.5, 4.6, 4.7, 6.2, 7.1, 7.2, 7.3, 8.1, 8.2, 8.3, 8.4
 """
 
 import logging
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any
+
+from django.utils import timezone
 
 from apps.core.exceptions import RecognitionTimeoutError, ServiceUnavailableError, ValidationException
 from apps.core.exceptions.error_codes import TEXT_EXTRACTION_FAILED
@@ -478,7 +480,7 @@ class CourtDocumentRecognitionService:
 
             # 生成新文件名
             new_filename = self.document_renamer.generate_filename(
-                title=title, case_name=case_name, received_date=date.today()
+                title=title, case_name=case_name, received_date=timezone.localdate()
             )
 
             # 构建新文件路径（通用碰撞处理）

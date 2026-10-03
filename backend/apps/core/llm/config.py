@@ -12,6 +12,7 @@ Requirements: 2.1, 2.2, 2.3, 2.5, 5.1, 5.3, 5.4
 """
 
 import logging
+import os
 import time
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
@@ -42,7 +43,8 @@ class LLMConfig:
 
     # OpenAI-compatible 默认值
     DEFAULT_OPENAI_COMPATIBLE_MODEL = "kimi26"
-    DEFAULT_OPENAI_COMPATIBLE_BASE_URL = "http://116.196.92.175:8001/v1"
+    # 默认网关 URL 可经 LLM_DEFAULT_BASE_URL 环境变量替换（回退值保持原网关，行为零变化）
+    DEFAULT_OPENAI_COMPATIBLE_BASE_URL = os.environ.get("LLM_DEFAULT_BASE_URL", "http://116.196.92.175:8001/v1")
     DEFAULT_OPENAI_COMPATIBLE_TIMEOUT = 120
 
     # 跨调用缓存（async 预热后 sync 调用可复用，避免 SynchronousOnlyOperation）
@@ -120,15 +122,6 @@ class LLMConfig:
     @classmethod
     def _cache_store(cls, key: str, value: str) -> None:
         cls._config_cache[key] = (value, time.monotonic())
-
-    @classmethod
-    def invalidate_cache(cls) -> None:
-        """清空配置缓存。
-
-        Admin 修改 SystemConfig 中的 LLM 配置后可调用使改动立即生效；
-        未调用时改动也会在 TTL（默认 300 秒）后自动生效。
-        """
-        cls._config_cache.clear()
 
     @classmethod
     def _get_system_config(cls, key: str, default: str = "") -> str:
@@ -220,28 +213,6 @@ class LLMConfig:
             return fallback_value
 
         return default
-
-    # ============================================================
-    # 通用配置方法
-    # ============================================================
-
-    @classmethod
-    def get_temperature(cls) -> float:
-        """获取默认生成温度"""
-        temp_str = cls._get_system_config("LLM_TEMPERATURE", "0.3")
-        try:
-            return float(temp_str)
-        except (ValueError, TypeError):
-            return 0.3
-
-    @classmethod
-    def get_max_tokens(cls) -> int:
-        """获取最大输出 Token 数"""
-        tokens_str = cls._get_system_config("LLM_MAX_TOKENS", "2000")
-        try:
-            return int(tokens_str)
-        except (ValueError, TypeError):
-            return 2000
 
     # ============================================================
     # OpenAI-compatible 配置方法

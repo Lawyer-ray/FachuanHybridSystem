@@ -7,31 +7,7 @@ Documents Services 模块
 import importlib
 from typing import Any
 
-__all__ = [
-    "FolderTemplateService",
-    "FolderTemplateAdminService",
-    "DocumentTemplateService",
-    "PlaceholderService",
-    "PlaceholderAdminService",
-    "GenerationService",
-    "ContractGenerationService",
-    # 证据清单服务
-    "EvidenceService",
-    "EvidenceAdminService",
-    "EvidenceExportService",
-    "EvidenceListPlaceholderService",
-    "PDFMergeService",
-    "TemplateAuditLogService",
-]
-
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
-    "EvidenceAdminService": ("apps.evidence.services.evidence_admin_service", "EvidenceAdminService"),
-    "EvidenceExportService": ("apps.evidence.services.evidence_export_service", "EvidenceExportService"),
-    "EvidenceListPlaceholderService": (
-        "apps.evidence.services.evidence_list_placeholder_service",
-        "EvidenceListPlaceholderService",
-    ),
-    "EvidenceService": ("apps.evidence.services.evidence_service", "EvidenceService"),
     "FolderTemplateService": ("apps.documents.services.template.folder_service", "FolderTemplateService"),
     "FolderTemplateAdminService": (
         "apps.documents.services.template.folder_template.admin_service",
@@ -49,11 +25,10 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     ),
     "PlaceholderService": ("apps.documents.services.placeholders.placeholder_service", "PlaceholderService"),
     "DocumentTemplateService": ("apps.documents.services.template.template_service", "DocumentTemplateService"),
-    "TemplateAuditLogService": (
-        "apps.documents.services.template.template_audit_log_service",
-        "TemplateAuditLogService",
-    ),
 }
+
+# __all__ 由 _LAZY_EXPORTS 派生（单一事实源；静态列举会与 __getattr__ 懒加载脱节）
+__all__ = list(_LAZY_EXPORTS)
 
 
 def __getattr__(name: str) -> Any:

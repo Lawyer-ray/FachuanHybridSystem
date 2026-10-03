@@ -135,10 +135,9 @@ def _ensure_source_manageable(request: Any, source: Any) -> None:
         _ensure_credential_usable(request, credential)
         return
     # 无凭证来源（如手动上传）：superuser 或管理员可管理
+    # 2026Q4 审计收紧：is_staff 仅是 Django admin 准入标志，不再视为系统管理员
     user = _request_user(request)
-    if user is not None and (
-        getattr(user, "is_superuser", False) or getattr(user, "is_admin", False) or getattr(user, "is_staff", False)
-    ):
+    if user is not None and (getattr(user, "is_superuser", False) or getattr(user, "is_admin", False)):
         return
     from apps.core.exceptions import PermissionDenied
 

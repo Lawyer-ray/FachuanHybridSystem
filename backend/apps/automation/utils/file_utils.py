@@ -61,5 +61,5 @@ class FileUtils:
             result["error"] = f"文件可能损坏: {e!s}"
             return result
 
-        logger.info(f"文件校验通过: {file_path} ({file_size} bytes)")
+        logger.info("文件校验通过: %s (%s bytes)", file_path, file_size)
         return result

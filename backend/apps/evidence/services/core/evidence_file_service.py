@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -13,6 +14,8 @@ from apps.core.exceptions import ValidationException
 
 if TYPE_CHECKING:
     from apps.evidence.models import EvidenceItem
+
+logger = logging.getLogger(__name__)
 
 
 class EvidenceFileService:
@@ -101,4 +104,4 @@ class EvidenceFileService:
 
             submit_task("apps.evidence.tasks.ocr_evidence_item_task", item_id)
         except (TypeError, ValueError):
-            pass
+            logger.warning("提交证据 OCR 任务失败（已忽略，证据将不执行 OCR）: item_id=%s", item_id, exc_info=True)

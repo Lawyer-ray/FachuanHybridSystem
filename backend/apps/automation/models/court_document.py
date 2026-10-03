@@ -80,16 +80,9 @@ class CourtDocument(models.Model):
 
     @property
     def absolute_file_path(self) -> str:
-        """获取文件的绝对路径"""
+        """获取文件的绝对路径（兼容 media 相对路径与存量绝对路径）"""
         if not self.local_file_path:
             return ""
-        from pathlib import Path
+        from apps.core.services.storage_service import resolve_media_path
 
-        from django.conf import settings
-
-        # 如果已经是绝对路径,直接返回
-        file_path = Path(self.local_file_path)
-        if file_path.is_absolute():
-            return str(file_path)
-        # 否则拼接 MEDIA_ROOT
-        return str(Path(settings.MEDIA_ROOT) / self.local_file_path)
+        return str(resolve_media_path(self.local_file_path))

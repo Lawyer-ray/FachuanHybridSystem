@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Iterator
 from pathlib import Path
 
 from .protocols import CloudFileInfo
+
+logger = logging.getLogger(__name__)
 
 
 class LocalProvider:
@@ -38,6 +41,7 @@ class LocalProvider:
                         )
                     )
                 except (OSError, PermissionError):
+                    logger.debug("列目录时 stat 条目失败（已跳过）: path=%s", child, exc_info=True)
                     continue
         except (OSError, PermissionError):
             return []
@@ -115,5 +119,6 @@ class LocalProvider:
                         )
                     )
                 except (OSError, PermissionError):
+                    logger.debug("遍历目录时 stat 文件失败（已跳过）: path=%s", fp, exc_info=True)
                     continue
             yield (rel_root, dirs, file_infos)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
+from pydantic import Field
 
 from .base import Schema, datetime
 
@@ -13,7 +13,7 @@ class CaseMaterialBindingOut(Schema):
     type_id: int | None = None
     type_name: str
     side: str | None = None
-    party_ids: ClassVar[list[int]] = []
+    party_ids: list[int] = Field(default_factory=list)
     supervising_authority_id: int | None = None
 
 
@@ -34,7 +34,7 @@ class CaseMaterialBindItemIn(Schema):
     type_id: int | None = None
     type_name: str
     side: str | None = None
-    party_ids: ClassVar[list[int]] = []
+    party_ids: list[int] = Field(default_factory=list)
     supervising_authority_id: int | None = None
 
 

@@ -25,7 +25,7 @@ def remove_exif_orientation(image: Image.Image, *, exif_orientation_tag: int) ->
         new_image.paste(image)
         return new_image
     except Exception as e:
-        logger.warning(f"移除 EXIF 方向标签失败: {e}")
+        logger.warning("移除 EXIF 方向标签失败: %s", e)
         return image
 
 

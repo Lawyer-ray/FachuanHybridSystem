@@ -52,7 +52,12 @@ async def auto_namer_process(  # pragma: no cover
 async def auto_namer_process_by_path(
     request: Any, payload: AutoToolProcessIn
 ) -> AutoToolProcessOut:  # pragma: no cover
-    """通过路径处理自动命名工具"""
+    """通过路径处理自动命名工具（仅管理员：可读取 MEDIA_ROOT 内任意文件内容）"""
+    # 安全：按路径读取文件内容属于跨租户读取面，收敛为管理员专用
+    from apps.core.security.admin_access import ensure_admin_request
+
+    ensure_admin_request(request)
+
     # 使用工厂函数获取服务
     service = _get_auto_namer_service()
 

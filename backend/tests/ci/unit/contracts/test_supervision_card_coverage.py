@@ -12,8 +12,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.contracts.services.archive.supervision_card_extractor import (
-    SupervisionCardExtractor,
     _SUPERVISION_CARD_KEYWORDS,
+    SupervisionCardExtractor,
 )
 
 
@@ -38,54 +38,53 @@ class TestConstants:
 
 
 class TestResolveFilePath:
-    """测试文件路径解析"""
+    """测试文件路径解析（统一走 to_media_abs，兼容相对/绝对路径）"""
 
-    def test_absolute_path_exists(self, extractor: SupervisionCardExtractor) -> None:
-        """绝对路径且存在时应返回该路径"""
-        with patch("apps.contracts.services.archive.supervision_card_extractor.Path") as mock_path:
-            mock_instance = MagicMock()
-            mock_instance.is_absolute.return_value = True
-            mock_instance.exists.return_value = True
-            mock_path.return_value = mock_instance
-            result = extractor._resolve_file_path("/some/path/file.pdf")
-            assert result is not None
-
-    def test_absolute_path_not_exists_falls_back_to_media(
-        self, extractor: SupervisionCardExtractor
+    def test_relative_path_resolves_under_media_root(
+        self, extractor: SupervisionCardExtractor, tmp_path: Path
     ) -> None:
-        """绝对路径但不存在时，尝试 MEDIA_ROOT"""
-        with (
-            patch("apps.contracts.services.archive.supervision_card_extractor.Path") as mock_path_cls,
-            patch("django.conf.settings") as mock_settings,
-        ):
-            mock_settings.MEDIA_ROOT = "/media"
-            # First call: absolute, not exists
-            mock_abs_path = MagicMock()
-            mock_abs_path.is_absolute.return_value = True
-            mock_abs_path.exists.return_value = False
-            # Second call (MEDIA_ROOT / file_path)
-            mock_full_path = MagicMock()
-            mock_full_path.exists.return_value = True
+        """相对路径应在 MEDIA_ROOT 下解析到真实文件"""
+        media = tmp_path / "media"
+        target = media / "contracts" / "a.pdf"
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b"x")
 
-            mock_path_cls.side_effect = lambda p: mock_abs_path if p == "file.pdf" else mock_full_path
-            result = extractor._resolve_file_path("file.pdf")
-            # Should try MEDIA_ROOT path
-            assert result is not None
+        with patch("django.conf.settings.MEDIA_ROOT", str(media)):
+            result = extractor._resolve_file_path("contracts/a.pdf")
+        assert result == target.resolve()
 
-    def test_no_media_root_returns_none(
-        self, extractor: SupervisionCardExtractor
+    def test_absolute_path_under_media_root(
+        self, extractor: SupervisionCardExtractor, tmp_path: Path
     ) -> None:
-        with (
-            patch("apps.contracts.services.archive.supervision_card_extractor.Path") as mock_path_cls,
-            patch("django.conf.settings") as mock_settings,
-        ):
-            delattr(mock_settings, "MEDIA_ROOT")
-            mock_path = MagicMock()
-            mock_path.is_absolute.return_value = False
-            mock_path.exists.return_value = False
-            mock_path_cls.return_value = mock_path
-            result = extractor._resolve_file_path("file.pdf")
-            assert result is None
+        """MEDIA_ROOT 内的绝对路径应直接解析"""
+        media = tmp_path / "media"
+        target = media / "abs" / "b.pdf"
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b"x")
+
+        with patch("django.conf.settings.MEDIA_ROOT", str(media)):
+            result = extractor._resolve_file_path(str(target))
+        assert result == target.resolve()
+
+    def test_missing_file_returns_none(
+        self, extractor: SupervisionCardExtractor, tmp_path: Path
+    ) -> None:
+        media = tmp_path / "media"
+        media.mkdir()
+        with patch("django.conf.settings.MEDIA_ROOT", str(media)):
+            assert extractor._resolve_file_path("contracts/missing.pdf") is None
+
+    def test_path_outside_media_root_returns_none(
+        self, extractor: SupervisionCardExtractor, tmp_path: Path
+    ) -> None:
+        """MEDIA_ROOT 外的绝对路径不解析，返回 None"""
+        outside = tmp_path / "outside.pdf"
+        outside.write_bytes(b"x")
+        media = tmp_path / "media"
+        media.mkdir()
+
+        with patch("django.conf.settings.MEDIA_ROOT", str(media)):
+            assert extractor._resolve_file_path(str(outside)) is None
 
 
 class TestDetectAndExtract:

@@ -44,6 +44,7 @@ class ContractPaymentService(DjangoPermsMixin):
         end_date: date | None = None,
         user: Any | None = None,
         perm_open_access: bool = False,
+        org_access: dict[str, Any] | None = None,
     ) -> QuerySet[ContractPayment, ContractPayment]:
         """
         获取收款列表
@@ -55,11 +56,24 @@ class ContractPaymentService(DjangoPermsMixin):
             end_date: 结束日期筛选(可选)
             user: 当前用户
             perm_open_access: 是否开放访问权限
+            org_access: 组织访问上下文（用于合同访问范围过滤）
 
         Returns:
             收款记录查询集
         """
         qs = ContractPayment.objects.all().select_related("contract").order_by("-id")
+
+        # 合同访问范围过滤（管理员见全量，普通律师仅见自己可访问合同的收款）
+        if not perm_open_access:
+            from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
+
+            if not user or not getattr(user, "is_authenticated", False):
+                return qs.none()
+            policy = ContractAccessPolicy()
+            accessible_ids = policy.filter_queryset(Contract.objects.all(), user, org_access).values_list(
+                "id", flat=True
+            )
+            qs = qs.filter(contract_id__in=accessible_ids)
 
         # 构建筛选条件
         filters = Q()

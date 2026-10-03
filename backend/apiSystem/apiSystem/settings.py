@@ -455,6 +455,15 @@ CORS_ALLOW_HEADERS = [
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# 受保护媒体服务（默认关闭，行为零变化）
+# 开启后：非 DEBUG 环境的 /media/ 不再无路由（404），改由
+# apps.core.api.media_protected.serve_protected_media 接管（需认证，见该模块 docstring）。
+# 生产 /media/ 由网关直出无鉴权时，可通过本开关把媒体流量收回 Django 鉴权。
+MEDIA_REQUIRE_AUTH = os.environ.get("MEDIA_REQUIRE_AUTH", "false").lower() in ("1", "true", "yes")
+# 可选：nginx internal location 前缀（如 /protected_media/）。非空时视图只做鉴权，
+# 返回 X-Accel-Redirect 头由 nginx 发文件（Django 不读文件）；为空时 Django FileResponse 流式返回。
+MEDIA_X_ACCEL_PREFIX = (os.environ.get("MEDIA_X_ACCEL_PREFIX", "") or "").strip()
+
 # ============================================================
 # 请求体大小限制
 # ============================================================

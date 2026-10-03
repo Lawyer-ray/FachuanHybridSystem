@@ -102,46 +102,46 @@ class CaseNumberExtractorService:
 
         try:
             # 读取 PDF 内容
-            logger.info(f"开始从文书提取内容: {document_path}")
+            logger.info("开始从文书提取内容: %s", document_path)
             result = self.document_processing_service.extract_document_content_by_path_internal(  # type: ignore
                 document_path,
                 limit=3000,  # 限制字符数以提高处理效率
             )
 
             if not result or not result.get("text"):
-                logger.warning(f"无法从文书中提取文本内容: {document_path}")
+                logger.warning("无法从文书中提取文本内容: %s", document_path)
                 return []
 
             content = result["text"].strip()
             if not content:
-                logger.warning(f"文书内容为空: {document_path}")
+                logger.warning("文书内容为空: %s", document_path)
                 return []
 
             # 删除空格（PDF 提取的内容可能包含多余空格，影响 LLM 识别）
             original_len = len(content)
             content = content.replace(" ", "").replace("\u3000", "")  # 删除半角和全角空格
-            logger.info(f"从文书中提取到 {original_len} 字符的内容，删除空格后为 {len(content)} 字符")
+            logger.info("从文书中提取到 %s 字符的内容，删除空格后为 %s 字符", original_len, len(content))
 
             # 使用 LLM 提取案号
             extracted_numbers = self.extract_from_content(content)
 
             if extracted_numbers:
-                logger.info(f"从文书成功提取案号: {document_path}, 案号: {extracted_numbers}")
+                logger.info("从文书成功提取案号: %s, 案号: %s", document_path, extracted_numbers)
             else:
-                logger.warning(f"从文书未提取到案号: {document_path}")
+                logger.warning("从文书未提取到案号: %s", document_path)
                 # 记录文书内容的前500字符用于调试
-                logger.debug(f"文书内容预览（前500字符）: {content[:500]}")
+                logger.debug("文书内容预览（前500字符）: %s", content[:500])
 
             return extracted_numbers
 
         except (ConnectionError, LLMError) as e:
-            logger.error(f"LLM 服务不可用，无法从文书提取案号: {document_path}, 错误: {e!s}")
+            logger.error("LLM 服务不可用，无法从文书提取案号: %s, 错误: %s", document_path, e)
             return []
         except FileNotFoundError as e:
-            logger.error(f"文书文件不存在: {document_path}, 错误: {e!s}")
+            logger.error("文书文件不存在: %s, 错误: %s", document_path, e)
             return []
         except Exception as e:
-            logger.error(f"从文书提取案号失败: {document_path}, 错误: {e!s}")
+            logger.error("从文书提取案号失败: %s, 错误: %s", document_path, e)
             return []
 
     def extract_from_content(self, content: str) -> list[str]:  # pragma: no cover
@@ -158,7 +158,7 @@ class CaseNumberExtractorService:
                 response_text = self._extraction_provider.extract(content=content)
                 return self._parse_llm_response(response_text)
             except Exception as e:
-                logger.error(f"extraction_provider 提取案号失败: {e!s}")
+                logger.error("extraction_provider 提取案号失败: %s", e)
                 return []
 
         try:
@@ -173,15 +173,15 @@ class CaseNumberExtractorService:
                 logger.warning("LLM 返回空响应")
                 return []
 
-            logger.info(f"LLM 案号提取响应: {content_text}")
+            logger.info("LLM 案号提取响应: %s", content_text)
 
             return self._parse_llm_response(content_text)
 
         except LLMError as e:
-            logger.warning(f"LLM 服务不可用，使用正则降级方案: {e!s}")
+            logger.warning("LLM 服务不可用，使用正则降级方案: %s", e)
             return self._extract_fallback(content)
         except Exception as e:
-            logger.warning(f"使用 LLM 提取案号失败，使用正则降级方案: {e!s}")
+            logger.warning("使用 LLM 提取案号失败，使用正则降级方案: %s", e)
             return self._extract_fallback(content)
 
     def _build_extract_prompt(self, content: str) -> str:
@@ -214,14 +214,14 @@ class CaseNumberExtractorService:
                 result = json.loads(content_text[start_idx:end_idx])
                 if isinstance(result, dict) and isinstance(result.get("case_numbers"), list):
                     validated = self.validate_and_normalize(result["case_numbers"])
-                    logger.info(f"LLM {'成功提取' if validated else '未提取到有效'}案号: {validated}")
+                    logger.info("LLM %s案号: %s", "成功提取" if validated else "未提取到有效", validated)
                     return validated
 
-            logger.warning(f"LLM 返回格式不正确，尝试降级方案: {content_text[:100]}...")
+            logger.warning("LLM 返回格式不正确，尝试降级方案: %s...", content_text[:100])
             return self._extract_fallback(content_text)
 
         except json.JSONDecodeError as e:
-            logger.warning(f"解析 LLM JSON 响应失败，尝试降级方案: {e!s}")
+            logger.warning("解析 LLM JSON 响应失败，尝试降级方案: %s", e)
             return self._extract_fallback(content_text)
 
     def validate_and_normalize(self, case_numbers: list[str]) -> list[str]:
@@ -232,7 +232,7 @@ class CaseNumberExtractorService:
 
         try:
             case_number_svc = self.case_number_service
-            logger.info(f"开始验证 {len(case_numbers)} 个案号")
+            logger.info("开始验证 %s 个案号", len(case_numbers))
             valid_numbers: list[str] = []
             seen: set[str] = set()
 
@@ -241,20 +241,20 @@ class CaseNumberExtractorService:
                 if not normalized:
                     continue
                 if normalized in seen:
-                    logger.debug(f"案号重复，跳过: {normalized}")
+                    logger.debug("案号重复，跳过: %s", normalized)
                     continue
                 # 简式案号若已有对应的带年份完整案号，则视为重复，保留完整版
                 if self._is_yearless_subset(normalized, seen):
-                    logger.debug(f"简式案号已有完整年份版本，跳过: {normalized}")
+                    logger.debug("简式案号已有完整年份版本，跳过: %s", normalized)
                     continue
                 valid_numbers.append(normalized)
                 seen.add(normalized)
 
-            logger.info(f"案号验证完成: 输入 {len(case_numbers)} 个，有效 {len(valid_numbers)} 个")
+            logger.info("案号验证完成: 输入 %s 个，有效 %s 个", len(case_numbers), len(valid_numbers))
             return valid_numbers
 
         except Exception as e:
-            logger.error(f"案号验证和规范化失败: {e!s}")
+            logger.error("案号验证和规范化失败: %s", e)
             return []
 
     def _is_yearless_subset(self, candidate: str, existing: set[str]) -> bool:
@@ -275,7 +275,7 @@ class CaseNumberExtractorService:
 
         try:
             if not case_number or not isinstance(case_number, str):
-                logger.warning(f"案号 {idx + 1} 无效（空值或非字符串）: {case_number}")
+                logger.warning("案号 %s 无效（空值或非字符串）: %s", idx + 1, case_number)
                 return None
 
             original = case_number.strip()
@@ -284,22 +284,22 @@ class CaseNumberExtractorService:
 
             # 极大文本不可能是案号，直接截断拒绝（防正则贪婪匹配误吞整段）
             if len(original) > 60:
-                logger.warning(f"案号过长，跳过: 长度={len(original)}，开头={original[:40]}...")
+                logger.warning("案号过长，跳过: 长度=%s，开头=%s...", len(original), original[:40])
                 return None
 
             try:
                 normalized = case_number_svc.normalize_case_number(original)
             except Exception as e:
-                logger.warning(f"案号规范化失败: {original}, 错误: {e!s}")
+                logger.warning("案号规范化失败: %s, 错误: %s", original, e)
                 return None
 
             if not normalized:
-                logger.warning(f"案号规范化后为空，跳过: {original}")
+                logger.warning("案号规范化后为空，跳过: %s", original)
                 return None
 
             # 规范化后再检查长度（换行会被压缩，仍需保护）
             if len(normalized) > 60:
-                logger.warning(f"案号过长，跳过: 长度={len(normalized)}，开头={normalized[:40]}...")
+                logger.warning("案号过长，跳过: 长度=%s，开头=%s...", len(normalized), normalized[:40])
                 return None
 
             try:
@@ -307,18 +307,18 @@ class CaseNumberExtractorService:
                     len(re.findall(r"\d+", normalized)) >= 2
                 )
             except re.error as e:
-                logger.warning(f"案号格式验证失败: {normalized}, 正则错误: {e!s}")
+                logger.warning("案号格式验证失败: %s, 正则错误: %s", normalized, e)
                 return None
 
             if is_valid:
-                logger.debug(f"案号验证通过: {original} -> {normalized}")
+                logger.debug("案号验证通过: %s -> %s", original, normalized)
                 return normalized  # type: ignore
             else:
-                logger.warning(f"案号格式不正确，跳过: {original} -> {normalized}")
+                logger.warning("案号格式不正确，跳过: %s -> %s", original, normalized)
                 return None
 
         except Exception as e:
-            logger.warning(f"处理案号 {idx + 1} 时发生错误: {case_number}, 错误: {e!s}")
+            logger.warning("处理案号 %s 时发生错误: %s, 错误: %s", idx + 1, case_number, e)
             return None
 
     def sync_to_case(self, case_id: int, case_numbers: list[str], sms_id: int) -> int:
@@ -328,14 +328,14 @@ class CaseNumberExtractorService:
             return 0
 
         if not case_numbers:
-            logger.info(f"没有案号需要同步: Case ID={case_id}")
+            logger.info("没有案号需要同步: Case ID=%s", case_id)
             return 0
 
         try:
             case_number_svc = self.case_number_service
             case_numbers_to_sync = self._deduplicate(case_numbers)
             if not case_numbers_to_sync:
-                logger.info(f"去重后没有案号需要同步: Case ID={case_id}")
+                logger.info("去重后没有案号需要同步: Case ID=%s", case_id)
                 return 0
 
             existing_numbers = self._get_existing_numbers(case_id, case_number_svc)
@@ -353,7 +353,7 @@ class CaseNumberExtractorService:
             return success_count
 
         except Exception as e:
-            logger.error(f"同步案号失败: Case ID={case_id}, SMS ID={sms_id}, 错误: {e!s}")
+            logger.error("同步案号失败: Case ID=%s, SMS ID=%s, 错误: %s", case_id, sms_id, e)
             return 0
 
     def _get_existing_numbers(self, case_id: int, case_number_svc: Any) -> set[str] | None:
@@ -365,10 +365,10 @@ class CaseNumberExtractorService:
                 normalized = case_number_svc.normalize_case_number(cn)
                 if normalized:
                     result.add(normalized)
-            logger.info(f"案件现有案号数量: {len(result)}, Case ID={case_id}")
+            logger.info("案件现有案号数量: %s, Case ID=%s", len(result), case_id)
             return result
         except Exception as e:
-            logger.error(f"获取案件现有案号失败: Case ID={case_id}, 错误: {e!s}")
+            logger.error("获取案件现有案号失败: Case ID=%s, 错误: %s", case_id, e)
             return None
 
     def _write_new_numbers(
@@ -385,11 +385,11 @@ class CaseNumberExtractorService:
         for case_number in case_numbers:
             normalized = case_number_svc.normalize_case_number(case_number)
             if not normalized:
-                logger.warning(f"案号格式不正确，跳过: {case_number}")
+                logger.warning("案号格式不正确，跳过: %s", case_number)
                 continue
 
             if normalized in existing:
-                logger.info(f"案号已存在，跳过: Case ID={case_id}, 案号={normalized}")
+                logger.info("案号已存在，跳过: Case ID=%s, 案号=%s", case_id, normalized)
                 continue
 
             try:
@@ -398,11 +398,11 @@ class CaseNumberExtractorService:
                     number=normalized,
                     remarks=f"从法院短信自动提取 (SMS ID: {sms_id})",
                 )
-                logger.info(f"案号写入成功: Case ID={case_id}, 案号={normalized}")
+                logger.info("案号写入成功: Case ID=%s, 案号=%s", case_id, normalized)
                 existing.add(normalized)
                 success_count += 1
             except Exception as e:
-                logger.error(f"案号写入失败: Case ID={case_id}, 案号={normalized}, 错误: {e!s}")
+                logger.error("案号写入失败: Case ID=%s, 案号=%s, 错误: %s", case_id, normalized, e)
 
         return success_count
 
@@ -419,16 +419,16 @@ class CaseNumberExtractorService:
             found_numbers = self._regex_extract_numbers(response_text)
 
             if found_numbers:
-                logger.info(f"降级方案原始提取结果: {found_numbers}")
+                logger.info("降级方案原始提取结果: %s", found_numbers)
             else:
                 logger.warning("降级方案未匹配到任何案号模式")
 
             validated = self.validate_and_normalize(found_numbers)
-            logger.info(f"降级方案{'成功提取' if validated else '未能提取到有效'}案号: {validated}")
+            logger.info("降级方案%s案号: %s", "成功提取" if validated else "未能提取到有效", validated)
             return validated
 
         except Exception as e:
-            logger.error(f"降级方案提取案号失败: {e!s}")
+            logger.error("降级方案提取案号失败: %s", e)
             return []
 
     def _regex_extract_numbers(self, text: str) -> list[str]:
@@ -446,9 +446,9 @@ class CaseNumberExtractorService:
                     case_number = match.group(0)
                     if case_number and case_number.strip():
                         found.append(case_number.strip())
-                logger.debug(f"正则模式 {i + 1} 匹配到 {len(found)} 个结果")
+                logger.debug("正则模式 %s 匹配到 %s 个结果", i + 1, len(found))
             except re.error as e:
-                logger.warning(f"正则模式 {i + 1} 执行失败: {e!s}")
+                logger.warning("正则模式 %s 执行失败: %s", i + 1, e)
         return found
 
     def _deduplicate(self, case_numbers: list[str]) -> list[str]:
@@ -469,9 +469,9 @@ class CaseNumberExtractorService:
                     unique_numbers.append(normalized)
                     seen.add(normalized)
 
-            logger.debug(f"案号去重完成: 输入 {len(case_numbers)} 个，去重后 {len(unique_numbers)} 个")
+            logger.debug("案号去重完成: 输入 %s 个，去重后 %s 个", len(case_numbers), len(unique_numbers))
             return unique_numbers
 
         except Exception as e:
-            logger.error(f"案号去重失败: {e!s}")
+            logger.error("案号去重失败: %s", e)
             return case_numbers

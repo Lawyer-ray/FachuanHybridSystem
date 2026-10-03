@@ -34,6 +34,14 @@ class DocumentParsingTask(models.Model):
     markdown = models.TextField("Markdown", blank=True)
     metadata = models.JSONField("元数据", default=dict, blank=True)
     error_message = models.TextField("错误信息", blank=True)
+    created_by = models.ForeignKey(
+        "organization.Lawyer",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="document_parsing_tasks",
+        verbose_name="创建人",
+    )
     created_at = models.DateTimeField("创建时间", auto_now_add=True)
     completed_at = models.DateTimeField("完成时间", null=True, blank=True)
 

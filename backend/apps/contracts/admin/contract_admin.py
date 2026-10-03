@@ -233,9 +233,11 @@ class ContractAdmin(
         case_service = ServiceLocator.get_case_service()
         # 批量更新状态（单次 UPDATE 语句）
         to_archive = queryset.exclude(status=ContractStatus.ARCHIVED)
+        # update 后重新求值 to_archive 会被 exclude(status=ARCHIVED) 过滤掉，先固化目标列表
+        targets = list(to_archive)
         count = to_archive.update(status=ContractStatus.ARCHIVED)
         # 逐个关闭关联案件（业务逻辑无法批量化）
-        for contract in to_archive:
+        for contract in targets:
             closed = case_service.close_cases_by_contract_internal(contract.id)
             if closed:
                 logger.info("批量归档: 合同 %s 自动结案 %d 个关联案件", contract.id, closed)

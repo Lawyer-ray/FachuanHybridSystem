@@ -131,57 +131,6 @@ class TestSMSParserService:
 
 
 # ============================================================
-# CourtSMSDedupService 测试
-# ============================================================
-
-
-class TestCourtSMSDedupService:
-    """CourtSMSDedupService 测试"""
-
-    def test_build_existing_sms_result_with_notification(self) -> None:
-        from apps.automation.services.sms.court_sms_dedup_service import CourtSMSDedupService
-
-        svc = CourtSMSDedupService()
-        sms = MagicMock()
-        sms.case_id = 1
-        sms.case_log_id = 10
-        sms.feishu_sent_at = None
-        sms.notification_results = {"feishu": {"success": True}}
-        result = svc.build_existing_sms_result(sms, "/path/to/file.pdf")
-        assert result["success"] is True
-        assert result["notification_sent"] is True
-        assert result["deduplicated"] is True
-
-    def test_build_existing_sms_result_no_notification(self) -> None:
-        from apps.automation.services.sms.court_sms_dedup_service import CourtSMSDedupService
-
-        svc = CourtSMSDedupService()
-        sms = MagicMock()
-        sms.case_id = 1
-        sms.case_log_id = None
-        sms.feishu_sent_at = None
-        sms.notification_results = None
-        result = svc.build_existing_sms_result(sms, "/path")
-        assert result["notification_sent"] is False
-
-    def test_normalize_text(self) -> None:
-        from apps.automation.services.sms.court_sms_dedup_service import CourtSMSDedupService
-
-        svc = CourtSMSDedupService()
-        assert svc._normalize_text("  hello   world  ") == "hello world"
-        assert svc._normalize_text(None) == ""
-
-    def test_hash_payload_deterministic(self) -> None:
-        from apps.automation.services.sms.court_sms_dedup_service import CourtSMSDedupService
-
-        svc = CourtSMSDedupService()
-        h1 = svc._hash_payload("test")
-        h2 = svc._hash_payload("test")
-        assert h1 == h2
-        assert len(h1) == 64  # SHA-256
-
-
-# ============================================================
 # CaseNumberExtractorService 测试
 # ============================================================
 
@@ -336,23 +285,6 @@ class TestSMSNotificationService:
         with patch.object(svc, '_get_available_platforms', return_value=[ChatPlatform.FEISHU]):
             result = svc.send_case_chat_notification(sms)
             assert result.any_success is False
-
-
-# ============================================================
-# TaskRecoveryService 测试
-# ============================================================
-
-
-class TestTaskRecoveryService:
-    """TaskRecoveryService 测试"""
-
-    def test_defaults(self) -> None:
-        from apps.automation.services.sms.task_recovery_service import TaskRecoveryService
-
-        svc = TaskRecoveryService()
-        assert svc.stuck_timeout_minutes == 30
-        assert svc.max_retry_count == 3
-        assert svc.recovery_max_age_hours == 24
 
 
 # ============================================================

@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import MagicMock, PropertyMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -93,53 +92,6 @@ class TestFormatNormalizeAdminDisplayMethods:
         assert fieldsets[0][0] is None
         assert fieldsets[1][0] == "文件"
         assert fieldsets[2][0] == "时间"
-
-
-class TestFormatNormalizeAdminFindReferenceDocument:
-    def _make_admin(self):
-        from apps.contract_review.models import FormatNormalize
-
-        return FormatNormalizeAdmin(FormatNormalize, MagicMock())
-
-    def test_find_reference_no_dir(self) -> None:
-        admin = self._make_admin()
-        test_path = Path("/some/path/电脑维护合同[测试集].docx")
-        with patch("apps.contract_review.admin.format_normalize_admin.Path") as mock_path_cls:
-            # Simulate that the verification dir doesn't exist
-            mock_home = MagicMock()
-            mock_downloads = MagicMock()
-            mock_verification = MagicMock()
-            mock_verification.exists.return_value = False
-            mock_home.__truediv__ = MagicMock(return_value=mock_downloads)
-            mock_downloads.__truediv__ = MagicMock(return_value=mock_verification)
-            mock_path_cls.home.return_value = mock_home
-            result = admin._find_reference_document(test_path)
-            assert result is None
-
-    def test_find_reference_no_bracket_match(self) -> None:
-        admin = self._make_admin()
-        test_path = Path("/some/path/电脑维护合同.docx")
-        result = admin._find_reference_document(test_path)
-        # This should return None because there's no bracket match
-        assert result is None
-
-    def test_find_reference_with_candidates(self) -> None:
-        admin = self._make_admin()
-        test_path = Path("/some/path/电脑维护合同[测试集].docx")
-        mock_candidate = MagicMock()
-        mock_candidate.name = "电脑维护合同[验证集].docx"
-        mock_candidate.stat.return_value.st_mtime = 1000
-        with patch("apps.contract_review.admin.format_normalize_admin.Path") as mock_path_cls:
-            mock_verification = MagicMock()
-            mock_verification.exists.return_value = True
-            mock_verification.glob.return_value = [mock_candidate]
-            mock_downloads = MagicMock()
-            mock_downloads.__truediv__ = MagicMock(return_value=mock_verification)
-            mock_home = MagicMock()
-            mock_home.__truediv__ = MagicMock(return_value=mock_downloads)
-            mock_path_cls.home.return_value = mock_home
-            result = admin._find_reference_document(test_path)
-            assert result == mock_candidate
 
 
 class TestFormatNormalizeAdminViews:

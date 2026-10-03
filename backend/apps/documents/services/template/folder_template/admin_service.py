@@ -144,7 +144,7 @@ class FolderTemplateAdminService:
             初始化结果
         """
         try:
-            from .folder_template.default_templates import get_default_folder_templates
+            from apps.documents.services.folder_template.default_templates import get_default_folder_templates
 
             default_templates = get_default_folder_templates()
             existing_names = set(

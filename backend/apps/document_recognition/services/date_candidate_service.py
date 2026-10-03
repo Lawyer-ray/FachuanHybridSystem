@@ -618,6 +618,27 @@ def _resolve_reminder_service() -> Any:
     return get_reminder_service()
 
 
+def _get_task_for_update(task_id: int, user: Any | None) -> Any:
+    """行锁取任务并套归属口径（审计 P1 修复）。
+
+    归属过滤并入同一次 ``.get()``（保持 ``select_for_update().get()`` 调用链，
+    不破坏行锁防并发语义）；管理员见全量，普通用户见自己的任务与存量 NULL
+    任务（兼容旧数据口径，详见 task_service.task_ownership_q）。
+    非归属人非管理员与任务不存在同样抛 NotFoundError（404，不泄露存在性）。
+    """
+    from apps.document_recognition.models import DocumentRecognitionTask
+    from apps.document_recognition.services.task_service import task_ownership_q
+
+    qs = DocumentRecognitionTask.objects.select_for_update()
+    ownership = task_ownership_q(user)
+    try:
+        if ownership is None:
+            return qs.get(id=task_id)
+        return qs.get(ownership, id=task_id)
+    except DocumentRecognitionTask.DoesNotExist:
+        raise NotFoundError(message="任务不存在", code="TASK_NOT_FOUND", errors={}) from None
+
+
 def _build_reminder_content(reminder_type: str, context_text: str) -> str:
     label = _reminder_type_label(reminder_type)
     snippet = (context_text or "").strip()[:60]
@@ -630,10 +651,11 @@ def confirm_candidates(task_id: int, items: list[dict[str, Any]], user: Any | No
 
     每项: {candidate_id, action: confirm|skip, due_at?, reminder_type?}。
     幂等：已 confirmed 的候选直接返回原 reminder_id。
+    非归属人非管理员对任务不可见 → NotFoundError（404）。
     """
-    from apps.document_recognition.models import DateCandidateStatus, DocumentRecognitionStatus, DocumentRecognitionTask
+    from apps.document_recognition.models import DateCandidateStatus, DocumentRecognitionStatus
 
-    task = DocumentRecognitionTask.objects.select_for_update().get(id=task_id)
+    task = _get_task_for_update(task_id, user)
     if task.status != DocumentRecognitionStatus.SUCCESS:
         raise ValidationException(
             message="任务尚未识别完成，不能确认日期",
@@ -805,15 +827,14 @@ def _find_existing_reminder(reminder_service: Any, task: Any, aware_due_at: date
 
 
 @transaction.atomic
-def revoke_confirmation(task_id: int, candidate_id: int) -> dict[str, Any]:
-    """撤销确认：删除本功能创建的提醒，候选行回到待确认。"""
-    from apps.document_recognition.models import (
-        DateCandidateStatus,
-        DocumentRecognitionDateCandidate,
-        DocumentRecognitionTask,
-    )
+def revoke_confirmation(task_id: int, candidate_id: int, user: Any | None = None) -> dict[str, Any]:
+    """撤销确认：删除本功能创建的提醒，候选行回到待确认。
 
-    task = DocumentRecognitionTask.objects.select_for_update().get(id=task_id)
+    非归属人非管理员对任务不可见 → NotFoundError（404）。
+    """
+    from apps.document_recognition.models import DateCandidateStatus, DocumentRecognitionDateCandidate
+
+    task = _get_task_for_update(task_id, user)
     try:
         row = task.date_candidates.select_for_update().get(id=candidate_id)
     except DocumentRecognitionDateCandidate.DoesNotExist:

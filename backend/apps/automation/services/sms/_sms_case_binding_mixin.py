@@ -26,7 +26,7 @@ class SMSCaseBindingMixin:
     def _create_case_binding(self, sms: CourtSMS) -> bool:  # pragma: no cover
         """创建案件绑定和日志"""
         if not sms.case:
-            logger.error(f"SMS {sms.id} 没有关联案件，无法创建绑定")
+            logger.error("SMS %s 没有关联案件，无法创建绑定", sms.id)
             return False
 
         try:
@@ -36,23 +36,23 @@ class SMSCaseBindingMixin:
             from apps.core.dependencies.automation_sms_wiring import build_sms_case_log_service
 
             case_log_service = build_sms_case_log_service()
-            logger.info(f"获取 case_log_service 成功: SMS ID={sms.id}")
+            logger.info("获取 case_log_service 成功: SMS ID=%s", sms.id)
 
             admin_lawyer_dto = self.lawyer_service.get_admin_lawyer()
             if not admin_lawyer_dto:
                 logger.error("未找到管理员用户，无法创建案件日志")
                 return False
 
-            logger.info(f"获取管理员律师成功: {admin_lawyer_dto.real_name}, ID={admin_lawyer_dto.id}")
+            logger.info("获取管理员律师成功: %s, ID=%s", admin_lawyer_dto.real_name, admin_lawyer_dto.id)
 
             system_user = self.lawyer_service.get_lawyer_model(admin_lawyer_dto.id)
-            logger.info(f"获取系统用户成功: SMS ID={sms.id}")
+            logger.info("获取系统用户成功: SMS ID=%s", sms.id)
 
             if sms.case_numbers:
-                logger.info(f"开始添加案号到案件: SMS ID={sms.id}, 案号={sms.case_numbers}")
+                logger.info("开始添加案号到案件: SMS ID=%s, 案号=%s", sms.id, sms.case_numbers)
                 self._add_case_numbers_to_case(sms)
 
-            logger.info(f"开始创建案件日志: SMS ID={sms.id}, Case ID={sms.case.id}")
+            logger.info("开始创建案件日志: SMS ID=%s, Case ID=%s", sms.id, sms.case.id)
             case_log = case_log_service.create_log(
                 case_id=sms.case.id,
                 content=f"收到法院短信：{sms.content}",
@@ -62,11 +62,11 @@ class SMSCaseBindingMixin:
             sms.case_log = case_log
             sms.save()
 
-            logger.info(f"案件绑定创建成功: SMS ID={sms.id}, CaseLog ID={case_log.id}")
+            logger.info("案件绑定创建成功: SMS ID=%s, CaseLog ID=%s", sms.id, case_log.id)
             return True
 
         except Exception as e:
-            logger.exception(f"创建案件绑定失败: SMS ID={sms.id}, 错误: {e!s}")
+            logger.exception("创建案件绑定失败: SMS ID=%s, 错误: %s", sms.id, e)
             return False
 
     def _cleanup_old_case_log(self, sms: CourtSMS) -> None:
@@ -80,7 +80,7 @@ class SMSCaseBindingMixin:
 
             old_log = CaseLog.objects.filter(id=case_log_id).first()
             if not old_log:
-                logger.info(f"旧案件日志不存在，无需清理: SMS ID={sms.id}, CaseLog ID={case_log_id}")
+                logger.info("旧案件日志不存在，无需清理: SMS ID=%s, CaseLog ID=%s", sms.id, case_log_id)
                 sms.case_log = None
                 sms.save(update_fields=["case_log"])
                 return
@@ -93,7 +93,7 @@ class SMSCaseBindingMixin:
                     if attachment.file:
                         attachment.file.delete(save=False)
                 except Exception as e:
-                    logger.warning(f"删除附件文件失败: {e!s}")
+                    logger.warning("删除附件文件失败: %s", e)
             attachments.delete()
 
             # 删除旧日志
@@ -102,10 +102,10 @@ class SMSCaseBindingMixin:
             sms.case_log = None
             sms.save(update_fields=["case_log"])
 
-            logger.info(f"已清理旧案件日志及 {attachment_count} 个附件: SMS ID={sms.id}, CaseLog ID={old_log.id}")
+            logger.info("已清理旧案件日志及 %s 个附件: SMS ID=%s, CaseLog ID=%s", attachment_count, sms.id, old_log.id)
 
         except Exception as e:
-            logger.warning(f"清理旧案件日志失败，继续流程: SMS ID={sms.id}, 错误: {e!s}")
+            logger.warning("清理旧案件日志失败，继续流程: SMS ID=%s, 错误: %s", sms.id, e)
 
     def _add_case_numbers_to_case(self, sms: CourtSMS) -> None:
         """将短信中提取的案号写入案件（如果不存在）"""
@@ -115,7 +115,7 @@ class SMSCaseBindingMixin:
         try:
             valid_case_numbers = self._filter_valid_case_numbers(sms.case_numbers)
             if not valid_case_numbers:
-                logger.info(f"短信 {sms.id} 没有有效的案号需要写入")
+                logger.info("短信 %s 没有有效的案号需要写入", sms.id)
                 return
 
             admin_lawyer_dto = self.lawyer_service.get_admin_lawyer()
@@ -132,10 +132,10 @@ class SMSCaseBindingMixin:
             )
 
             if added_count > 0:
-                logger.info(f"为案件 {sms.case.id} 添加了 {added_count} 个案号: {valid_case_numbers}")
+                logger.info("为案件 %s 添加了 %s 个案号: %s", sms.case.id, added_count, valid_case_numbers)
 
         except Exception as e:
-            logger.warning(f"写入案号失败: SMS ID={sms.id}, 错误: {e!s}")
+            logger.warning("写入案号失败: SMS ID=%s, 错误: %s", sms.id, e)
 
     def _filter_valid_case_numbers(self, case_numbers: list[str]) -> list[str]:
         """过滤掉日期格式等无效案号"""

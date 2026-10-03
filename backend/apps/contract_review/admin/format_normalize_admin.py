@@ -8,7 +8,6 @@
 """
 
 import logging
-from pathlib import Path
 from typing import Any
 
 from django.contrib import admin, messages
@@ -19,6 +18,14 @@ from django.utils import timezone
 from django.utils.html import format_html
 
 from apps.contract_review.models import FormatNormalize, ReviewTask
+from apps.core.exceptions import ValidationException
+from apps.core.filesystem.upload_paths import MediaEntity
+from apps.core.services.storage_service import (
+    delete_media_file,
+    normalize_to_media_rel,
+    sanitize_upload_filename,
+    to_media_abs,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +73,11 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
 
         # 检查是否有输出文件
         if obj.output_file:
-            # 已处理：显示下载按钮
-            download_url = f"/media/{obj.output_file}"
+            # 已处理：显示下载按钮（兼容存量绝对路径数据）
+            try:
+                download_url = f"/media/{normalize_to_media_rel(obj.output_file)}"
+            except ValidationException:
+                return "—"
             reformat_url = f"/admin/contract_review/formatnormalize/{obj.pk}/execute/"
             return format_html(
                 '<a href="{}" class="btn btn-success" download style="background: #4CAF50; color: white; padding: 5px 10px; border-radius: 3px; text-decoration: none; margin-right: 5px;">下载</a>'
@@ -183,17 +193,14 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
                 return HttpResponseRedirect("/admin/contract_review/formatnormalize/upload/")
 
             try:
-                # 保存上传的文件
+                # 保存上传的文件（清洗文件名 + UUID 前缀防冲突/防注入）
                 import uuid as _uuid
-
-                # 防止文件名注入：只保留安全的文件名部分，加 UUID 前缀
-                from pathlib import Path as _Path
 
                 from django.core.files.storage import default_storage
 
-                safe_name = _Path(uploaded_file.name).name
-                file_path = f"contract_review/uploads/{_uuid.uuid4().hex[:8]}_{safe_name}"
-                saved_path = default_storage.save(file_path, uploaded_file)
+                safe_name = sanitize_upload_filename(uploaded_file.name)
+                rel_path = f"{MediaEntity.CONTRACT_REVIEW_UPLOADS}/{_uuid.uuid4().hex[:8]}_{safe_name}"
+                saved_path = default_storage.save(rel_path, uploaded_file)
 
                 # 创建任务，并保存编号类型、AI辅助选项和模型选择
                 task = ReviewTask.objects.create(
@@ -225,7 +232,6 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
         """执行格式规范化（后台线程执行，立即返回）"""
         import threading
 
-        from django.conf import settings
         from django.http import HttpResponseRedirect
 
         try:
@@ -238,7 +244,11 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
             messages.error(request, "该任务没有原始文件")
             return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
 
-        original_path = Path(settings.MEDIA_ROOT) / task.original_file
+        try:
+            original_path = to_media_abs(task.original_file)
+        except ValidationException:
+            messages.error(request, f"原始文件路径无效: {task.original_file}")
+            return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
         if not original_path.exists():
             messages.error(request, f"原始文件不存在: {original_path}")
             return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
@@ -255,29 +265,20 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
                 elif step.startswith("llm_"):
                     llm_backend = step[4:]
 
-        # 生成输出路径
-        output_dir = original_path.parent
-        output_filename = f"{original_path.stem}_规范化{original_path.suffix}"
-        output_path = output_dir / output_filename
-
-        # 查找参考文档
-        reference_path = self._find_reference_document(original_path)
-
         # 更新状态为处理中
         task.status = "processing"
         task.save(update_fields=["status"])
 
         # 后台线程执行格式化（不阻塞页面响应）
         def _run_normalize() -> None:  # pragma: no cover
-            from apps.contract_review.services.format_normalizer import DocxFormatNormalizer
+            from apps.contract_review.services.format_normalizer import normalize_to_media
 
             try:
-                normalizer = DocxFormatNormalizer(original_path, output_path, reference_path=reference_path)
-                result_path = normalizer.normalize(use_llm=use_llm, llm_backend=llm_backend)
-                task.output_file = str(result_path.relative_to(settings.MEDIA_ROOT))
+                saved_name = normalize_to_media(original_path, use_llm=use_llm, llm_backend=llm_backend)
+                task.output_file = saved_name
                 task.status = "completed"
                 task.save(update_fields=["output_file", "status"])
-                logger.info("格式规范化完成: %s", result_path)
+                logger.info("格式规范化完成: %s", saved_name)
             except Exception as e:
                 logger.exception("格式规范化失败: %s", e)
                 task.status = "failed"
@@ -289,45 +290,9 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
         llm_status = f"使用AI ({llm_backend})" if use_llm else "不使用AI"
         messages.success(
             request,
-            f"✓ 格式规范化已开始处理（{llm_status}），请稍后刷新页面查看结果。<br>"
-            f"参考文档: {reference_path.name if reference_path else '无（使用默认格式）'}",
+            f"✓ 格式规范化已开始处理（{llm_status}），请稍后刷新页面查看结果。",
         )
         return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
-
-    def _find_reference_document(self, test_path: Path) -> Path | None:  # pragma: no cover
-        """自动查找匹配的参考文档
-
-        在 ~/Downloads/验收/ 目录下查找与测试文档名称匹配的参考文档。
-        匹配规则：测试文档名称去掉 [测试集] 后，与参考文档名称的共同前缀匹配。
-        """
-        import re
-
-        verification_dir = Path.home() / "Downloads" / "验收"
-        if not verification_dir.exists():
-            return None
-
-        test_name = test_path.stem  # e.g., "电脑维护合同[测试集]"
-
-        # 提取合同标题（去掉 [测试集] 等标记）
-        title_match = re.match(r"^(.+?)[\[【]", test_name)
-        if not title_match:
-            return None
-        title_prefix = title_match.group(1)
-
-        # 查找匹配的参考文档（包含 [验证集] 或 [修订版] 的文件）
-        candidates = []
-        for f in verification_dir.glob("*.docx"):
-            if f.name.startswith(".") or f.name.startswith("~"):
-                continue
-            if "[验证集]" in f.name or "[修订版]" in f.name:
-                if title_prefix in f.name:
-                    candidates.append(f)
-
-        if candidates:
-            # 返回最新的匹配文件
-            return max(candidates, key=lambda p: p.stat().st_mtime)
-
-        return None
 
     def add_annotation_view(self, request: HttpRequest, task_id: Any) -> HttpResponse:  # pragma: no cover
         """添加批注"""
@@ -365,7 +330,6 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
 
     def delete_view(self, request: HttpRequest, task_id: Any) -> HttpResponse:  # type: ignore[override]  # pragma: no cover
         """删除任务和相关文件"""
-        from django.conf import settings
         from django.http import HttpResponseRedirect
 
         try:
@@ -375,19 +339,13 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
             return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
 
         try:
-            # 删除原始文件
+            # 删除原始文件（落库为 media 相对路径，存量绝对路径同样兼容）
             if task.original_file:
-                original_path = Path(settings.MEDIA_ROOT) / task.original_file
-                if original_path.exists():
-                    original_path.unlink()
-                    logger.info("删除原始文件: %s", original_path)
+                delete_media_file(task.original_file)
 
             # 删除输出文件
             if task.output_file:
-                output_path = Path(settings.MEDIA_ROOT) / task.output_file
-                if output_path.exists():
-                    output_path.unlink()
-                    logger.info("删除输出文件: %s", output_path)
+                delete_media_file(task.output_file)
 
             # 删除任务记录
             task_title = task.contract_title
@@ -403,10 +361,9 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
 
     def batch_execute_view(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
         """批量格式化所有待处理任务"""
-        from django.conf import settings
         from django.http import HttpResponseRedirect
 
-        from apps.contract_review.services.format_normalizer import DocxFormatNormalizer
+        from apps.contract_review.services.format_normalizer import normalize_to_media
 
         # 获取所有待处理的任务
         pending_tasks = ReviewTask.objects.filter(
@@ -424,24 +381,22 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
 
         for task in pending_tasks:
             try:
-                # 使用MEDIA_ROOT构造完整的绝对路径
-                original_path = Path(settings.MEDIA_ROOT) / task.original_file
+                try:
+                    original_path = to_media_abs(task.original_file)
+                except ValidationException:
+                    logger.warning("任务 %s 的原始文件路径无效: %s", task.id, task.original_file)
+                    error_count += 1
+                    continue
                 if not original_path.exists():
                     logger.warning("任务 %s 的原始文件不存在: %s", task.id, original_path)
                     error_count += 1
                     continue
 
-                # 生成输出文件路径
-                output_dir = original_path.parent
-                output_filename = f"{original_path.stem}_规范化{original_path.suffix}"
-                output_path = output_dir / output_filename
-
-                # 执行格式规范化
-                normalizer = DocxFormatNormalizer(original_path, output_path)
-                result_path = normalizer.normalize()
+                # 执行格式规范化（产物经 default_storage 落盘，落库存相对路径）
+                saved_name = normalize_to_media(original_path)
 
                 # 更新任务状态
-                task.output_file = str(result_path.relative_to(settings.MEDIA_ROOT))
+                task.output_file = saved_name
                 task.status = "completed"
                 task.save(update_fields=["output_file", "status"])
 
@@ -464,7 +419,6 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
 
     def batch_delete_view(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
         """批量删除所有任务和相关文件"""
-        from django.conf import settings
         from django.http import HttpResponseRedirect
 
         # 获取所有任务
@@ -482,19 +436,13 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
 
         for task in all_tasks:
             try:
-                # 删除原始文件
+                # 删除原始文件（落库为 media 相对路径，存量绝对路径同样兼容）
                 if task.original_file:
-                    original_path = Path(settings.MEDIA_ROOT) / task.original_file
-                    if original_path.exists():
-                        original_path.unlink()
-                        logger.info("删除原始文件: %s", original_path)
+                    delete_media_file(task.original_file)
 
                 # 删除输出文件
                 if task.output_file:
-                    output_path = Path(settings.MEDIA_ROOT) / task.output_file
-                    if output_path.exists():
-                        output_path.unlink()
-                        logger.info("删除输出文件: %s", output_path)
+                    delete_media_file(task.output_file)
 
                 # 删除任务记录
                 task.delete()

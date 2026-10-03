@@ -191,6 +191,7 @@ class ConfigManager:
             self.load(force_reload=True)
             return True
         except (OSError, ValueError, KeyError):
+            logger.warning("配置重载失败（已忽略，继续使用旧配置）", exc_info=True)
             return False
 
     def add_listener(

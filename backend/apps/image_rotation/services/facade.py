@@ -8,7 +8,7 @@ from typing import Any, ClassVar
 
 from apps.core.exceptions import ValidationException
 
-from . import storage, validation
+from . import validation
 from .export import generate_pdf, generate_zip
 from .transform import clean_image, resize_to_paper_size, rotate_image_for_output
 
@@ -45,14 +45,13 @@ class ImageRotationService:
             return {"success": False, "message": "所有图片处理失败", "errors": errors}
 
         try:
-            output_dir = self._get_output_dir()
-            zip_url = generate_zip(processed_images=processed_images, output_dir=output_dir)
+            zip_url = generate_zip(processed_images=processed_images)
             result: dict[str, Any] = {"success": True, "zip_url": zip_url}
             if errors:
                 result["warnings"] = errors
             return result
         except Exception as e:
-            logger.error(f"ZIP 生成失败: {e}", exc_info=True)
+            logger.error("ZIP 生成失败: %s", e, exc_info=True)
             return {"success": False, "message": f"ZIP 生成失败: {e!s}"}
 
     def _process_all_images(
@@ -76,7 +75,7 @@ class ImageRotationService:
             except ValidationException as e:
                 errors.append(f"{image_item.get('filename', f'图片{idx + 1}')}: {e.message}")
             except Exception as e:
-                logger.error(f"处理图片失败: {e}", extra={"filename": image_item.get("filename")}, exc_info=True)
+                logger.error("处理图片失败: %s", e, extra={"filename": image_item.get("filename")}, exc_info=True)
                 errors.append(f"{image_item.get('filename', f'图片{idx + 1}')}: 处理失败")
 
         return processed_images, errors
@@ -96,25 +95,20 @@ class ImageRotationService:
             except ValidationException as e:
                 errors.append(f"{page_item.get('filename', f'页面{idx + 1}')}: {e.message}")
             except Exception as e:
-                logger.error(
-                    f"处理页面失败: {e}",
-                    extra={},
-                    exc_info=True,
-                )
+                logger.error("处理页面失败: %s", e, extra={}, exc_info=True)
                 errors.append(f"{page_item.get('filename', f'页面{idx + 1}')}: 处理失败")
 
         if not processed_images:
             return {"success": False, "message": "所有页面处理失败", "errors": errors}
 
         try:
-            output_dir = self._get_output_dir()
-            pdf_url = generate_pdf(processed_images=processed_images, output_dir=output_dir)
+            pdf_url = generate_pdf(processed_images=processed_images)
             result = {"success": True, "pdf_url": pdf_url}
             if errors:
                 result["warnings"] = errors
             return result
         except Exception as e:
-            logger.error(f"PDF 生成失败: {e}", exc_info=True)
+            logger.error("PDF 生成失败: %s", e, exc_info=True)
             return {"success": False, "message": f"PDF 生成失败: {e!s}"}
 
     def _process_single_image(
@@ -142,7 +136,9 @@ class ImageRotationService:
         # 应用手动旋转（前端顺时针角度，PIL rotate 为逆时针，需取反）
         if rotation in (90, 180, 270):
             processed_bytes = rotate_image_for_output(
-                processed_bytes, rotation=(-rotation) % 360, img_format=normalized_format,
+                processed_bytes,
+                rotation=(-rotation) % 360,
+                img_format=normalized_format,
             )
 
         if paper_size != "original":
@@ -176,9 +172,6 @@ class ImageRotationService:
             )
 
         return image_bytes, rotation
-
-    def _get_output_dir(self) -> Any:
-        return storage.ensure_output_dir()
 
     def _get_unique_filename(self, filename: str, used_names: dict[str, int]) -> str:
         if not filename:

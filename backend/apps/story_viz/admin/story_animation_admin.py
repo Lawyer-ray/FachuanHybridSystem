@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from django import forms
@@ -9,6 +10,8 @@ from django.utils.html import format_html
 
 from apps.story_viz.models import StoryAnimation, StoryAnimationStatus
 from apps.story_viz.services.wiring import get_story_animation_job_service
+
+logger = logging.getLogger(__name__)
 
 
 @admin.register(StoryAnimation)
@@ -110,7 +113,9 @@ class StoryAnimationAdmin(admin.ModelAdmin):  # pragma: no cover
         "updated_at",
     ]
 
-    def get_readonly_fields(self, request: HttpRequest, obj: StoryAnimation | None = None) -> list[str]:  # pragma: no cover
+    def get_readonly_fields(
+        self, request: HttpRequest, obj: StoryAnimation | None = None
+    ) -> list[str]:  # pragma: no cover
         if obj is None:
             return []
         return list(self.readonly_fields)
@@ -149,10 +154,12 @@ class StoryAnimationAdmin(admin.ModelAdmin):  # pragma: no cover
                 if mid and mid != default_model:
                     choices.append((mid, f"{m.get('name', mid)} ({mid})"))
         except Exception:
-            pass
+            logger.debug("获取可选模型列表失败（已忽略，仅展示默认模型）", exc_info=True)
         return choices
 
-    def save_model(self, request: HttpRequest, obj: StoryAnimation, form: Any, change: bool) -> None:  # pragma: no cover
+    def save_model(
+        self, request: HttpRequest, obj: StoryAnimation, form: Any, change: bool
+    ) -> None:  # pragma: no cover
         if change:
             super().save_model(request, obj, form, change)
             return
@@ -175,7 +182,11 @@ class StoryAnimationAdmin(admin.ModelAdmin):  # pragma: no cover
                     get_story_animation_job_service().retry(animation_id=animation.id)
                     count += 1
                 except Exception:
-                    pass
+                    logger.warning(
+                        "重新排队动画任务失败（已忽略）: animation_id=%s",
+                        animation.id,
+                        exc_info=True,
+                    )
         self.message_user(request, f"已重新提交 {count} 个任务")
 
     def status_badge(self, obj: StoryAnimation) -> str:  # pragma: no cover

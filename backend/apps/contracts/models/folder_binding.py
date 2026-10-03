@@ -56,8 +56,8 @@ class ContractFolderBinding(models.Model):
     class Meta:
         verbose_name = _("合同文件夹绑定")
         verbose_name_plural = _("合同文件夹绑定")
+        # contract 列由 OneToOneField 自动唯一索引覆盖
         indexes: ClassVar = [
-            models.Index(fields=["contract"]),
             models.Index(fields=["-created_at"]),
         ]
 

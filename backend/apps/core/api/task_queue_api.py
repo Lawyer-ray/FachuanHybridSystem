@@ -123,17 +123,14 @@ def list_scheduled(request: HttpRequest) -> Any:  # pragma: no cover
     """获取定时调度任务"""
     ensure_admin_request(request, message="无权限访问任务队列", code="PERMISSION_DENIED")
 
-    from apps.core.tasking.task_queue_query import SCHEDULE_TYPE_LABELS, get_last_run_time
+    from apps.core.tasking.task_queue_query import SCHEDULE_TYPE_LABELS, get_last_run_times
     from apps.core.tasking.task_queue_query import list_scheduled as _list_scheduled
 
     schedules = _list_scheduled()
 
-    # Pre-fetch last run times per schedule name
+    # 单次查询批量预取各调度的最后运行时间
     names = [s.name for s in schedules if s.name]
-    last_runs: dict[str, datetime | None] = {}
-    if names:
-        for name in names:
-            last_runs[name] = get_last_run_time(name)
+    last_runs = get_last_run_times(names) if names else {}
 
     return [
         ScheduleOut(

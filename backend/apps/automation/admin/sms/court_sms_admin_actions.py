@@ -51,10 +51,10 @@ class CourtSMSAdminActions:  # pragma: no cover
             try:
                 service.retry_processing(sms.id)
                 success_count += 1
-                logger.info(f"管理员重新处理短信: SMS ID={sms.id}, User={request.user}")
+                logger.info("管理员重新处理短信: SMS ID=%s, User=%s", sms.id, request.user)
             except Exception as e:
                 error_count += 1
-                logger.error(f"管理员重新处理短信失败: SMS ID={sms.id}, 错误: {e!s}")
+                logger.error("管理员重新处理短信失败: SMS ID=%s, 错误: %s", sms.id, e)
 
         if success_count > 0:
             messages.success(request, f"成功重新处理 {success_count} 条短信")
@@ -82,13 +82,13 @@ class CourtSMSAdminActions:  # pragma: no cover
                     sms = service.submit_sms(content, received_datetime)
 
                     messages.success(request, f"短信提交成功!记录ID: {sms.id}")
-                    logger.info(f"管理员提交短信: SMS ID={sms.id}, User={request.user}")
+                    logger.info("管理员提交短信: SMS ID=%s, User=%s", sms.id, request.user)
 
                     return HttpResponseRedirect(reverse("admin:automation_courtsms_change", args=[cast(int, sms.id)]))
 
                 except Exception as e:
                     messages.error(request, f"提交失败: {e!s}")
-                    logger.error(f"管理员提交短信失败: User={request.user}, 错误: {e!s}")
+                    logger.error("管理员提交短信失败: User=%s, 错误: %s", request.user, e)
 
         recent_sms = CourtSMS.objects.order_by("-created_at")[:10]
 
@@ -123,7 +123,7 @@ class CourtSMSAdminActions:  # pragma: no cover
                     unique.append(case)
             return unique[:10]
         except Exception as e:
-            logger.warning(f"获取推荐案件失败: SMS ID={sms_id}, 错误: {e!s}")
+            logger.warning("获取推荐案件失败: SMS ID=%s, 错误: %s", sms_id, e)
             return []
 
     def _format_case_for_template(self, case_dto: Any) -> dict[str, Any]:  # pragma: no cover
@@ -150,7 +150,7 @@ class CourtSMSAdminActions:  # pragma: no cover
                 "parties": case.parties.all(),
             }
         except Exception as e:
-            logger.warning(f"格式化案件数据失败: Case ID={case_dto.id}, 错误: {e!s}")
+            logger.warning("格式化案件数据失败: Case ID=%s, 错误: %s", case_dto.id, e)
             return {
                 "id": case_dto.id,
                 "name": case_dto.name,
@@ -172,11 +172,11 @@ class CourtSMSAdminActions:  # pragma: no cover
                     service = _get_court_sms_service()
                     service.assign_case(sms_id, int(case_id))
                     messages.success(request, "案件指定成功!已触发文书重命名和推送通知流程")
-                    logger.info(f"管理员手动指定案件: SMS ID={sms_id}, Case ID={case_id}, User={request.user}")
+                    logger.info("管理员手动指定案件: SMS ID=%s, Case ID=%s, User=%s", sms_id, case_id, request.user)
                     return HttpResponseRedirect(reverse("admin:automation_courtsms_change", args=[sms_id]))
                 except (TypeError, ValueError) as e:
                     messages.error(request, f"指定案件失败: {e!s}")
-                    logger.error(f"管理员手动指定案件失败: SMS ID={sms_id}, Case ID={case_id}, 错误: {e!s}")
+                    logger.error("管理员手动指定案件失败: SMS ID=%s, Case ID=%s, 错误: %s", sms_id, case_id, e)
 
         case_service = _get_case_service()
         suggested_cases = self._get_suggested_cases(sms, case_service, sms_id)
@@ -253,13 +253,13 @@ class CourtSMSAdminActions:  # pragma: no cover
                         }
                     )
                 except Exception as e:
-                    logger.warning(f"格式化案件数据失败: Case ID={case_dto.id}, 错误: {e!s}")
+                    logger.warning("格式化案件数据失败: Case ID=%s, 错误: %s", case_dto.id, e)
                     continue
 
             return JsonResponse({"cases": cases_data})
 
         except Exception as e:
-            logger.error(f"AJAX 搜索案件失败: SMS ID={sms_id}, 搜索词={search_term}, 错误: {e!s}")
+            logger.error("AJAX 搜索案件失败: SMS ID=%s, 搜索词=%s, 错误: %s", sms_id, search_term, e)
             return JsonResponse({"error": "搜索失败,请重试"}, status=500)
 
     def recommendations_ajax(self, request: HttpRequest, sms_id: int) -> JsonResponse:  # pragma: no cover
@@ -293,7 +293,7 @@ class CourtSMSAdminActions:  # pragma: no cover
             )
 
         except Exception as e:
-            logger.error(f"AJAX 推荐关联案件失败: SMS ID={sms_id}, 错误: {e!s}")
+            logger.error("AJAX 推荐关联案件失败: SMS ID=%s, 错误: %s", sms_id, e)
             return JsonResponse({"error": "推荐查询失败,请重试"}, status=500)
 
     def retry_single_sms_view(self, request: HttpRequest, sms_id: int) -> HttpResponse:  # pragma: no cover
@@ -305,11 +305,11 @@ class CourtSMSAdminActions:  # pragma: no cover
             service.retry_processing(sms_id)
 
             messages.success(request, f"短信 #{sms_id} 重新处理成功!")
-            logger.info(f"管理员重新处理单个短信: SMS ID={sms_id}, User={request.user}")
+            logger.info("管理员重新处理单个短信: SMS ID=%s, User=%s", sms_id, request.user)
 
         except Exception as e:
             messages.error(request, f"重新处理失败: {e!s}")
-            logger.error(f"管理员重新处理单个短信失败: SMS ID={sms_id}, 错误: {e!s}")
+            logger.error("管理员重新处理单个短信失败: SMS ID=%s, 错误: %s", sms_id, e)
 
         return HttpResponseRedirect(reverse("admin:automation_courtsms_change", args=[sms_id]))
 
@@ -351,7 +351,7 @@ class CourtSMSAdminActions:  # pragma: no cover
 
             except Exception as e:
                 messages.warning(request, f"短信已保存,但处理任务启动失败: {e!s}")
-                logger.error(f"管理员添加短信后处理任务启动失败: SMS ID={obj.id}, 错误: {e!s}")
+                logger.error("管理员添加短信后处理任务启动失败: SMS ID=%s, 错误: %s", obj.id, e)
         else:
             previous_sms = CourtSMS.objects.filter(id=obj.id).only("status", "case_id").first()
             previous_status = previous_sms.status if previous_sms else None
@@ -372,8 +372,13 @@ class CourtSMSAdminActions:  # pragma: no cover
                     service.assign_case(obj.id, cast(int, new_case_id))
                     messages.success(request, f"短信 #{obj.id} 已绑定案件并继续后续流程")
                     logger.info(
-                        f"详情页手动绑定案件并继续流程: SMS ID={obj.id}, Case ID={new_case_id}, User={request.user}"
+                        "详情页手动绑定案件并继续流程: SMS ID=%s, Case ID=%s, User=%s",
+                        obj.id,
+                        new_case_id,
+                        request.user,
                     )
                 except Exception as e:
                     messages.error(request, f"绑定案件后继续流程失败: {e!s}")
-                    logger.error(f"详情页绑定案件后继续流程失败: SMS ID={obj.id}, Case ID={new_case_id}, 错误: {e!s}")
+                    logger.error(
+                        "详情页绑定案件后继续流程失败: SMS ID=%s, Case ID=%s, 错误: %s", obj.id, new_case_id, e
+                    )

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 import time as _time
 from typing import Any
@@ -12,6 +13,8 @@ from django.shortcuts import redirect
 from django.utils.html import format_html
 
 from .models import CloudStorageAccount
+
+logger = logging.getLogger(__name__)
 
 # In-memory store for pending device code auth: {account_id: {"user_code": ..., "verification_uri": ..., ...}}
 _pending_auth: dict[int, dict[str, Any]] = {}
@@ -28,7 +31,7 @@ def _clear_onedrive_pending(account_id: int) -> None:  # pragma: no cover
             onedrive_pending_expires_at=None,
         )
     except Exception:
-        pass
+        logger.debug("清除 OneDrive 待授权状态失败（已忽略）: account_id=%s", account_id, exc_info=True)
 
 
 def _clear_dropbox_pending(account_id: int) -> None:  # pragma: no cover
@@ -42,7 +45,7 @@ def _clear_dropbox_pending(account_id: int) -> None:  # pragma: no cover
             dropbox_pending_expires_at=None,
         )
     except Exception:
-        pass
+        logger.debug("清除 Dropbox 待授权状态失败（已忽略）: account_id=%s", account_id, exc_info=True)
 
 
 def _poll_device_code(account_id: int, device_code: str, interval: int, max_attempts: int) -> None:  # pragma: no cover
@@ -108,7 +111,7 @@ def _poll_device_code(account_id: int, device_code: str, interval: int, max_atte
                 interval += 5
 
         except Exception:
-            pass
+            logger.debug("OneDrive 设备码轮询单次失败（已忽略，继续轮询）: account_id=%s", account_id, exc_info=True)
 
     _clear_onedrive_pending(account_id)
 
@@ -178,7 +181,7 @@ def _poll_dropbox_device_code(
                 interval += 5
 
         except Exception:
-            pass
+            logger.debug("Dropbox 设备码轮询单次失败（已忽略，继续轮询）: account_id=%s", account_id, exc_info=True)
 
     _clear_dropbox_pending(account_id)
 
@@ -436,7 +439,11 @@ class CloudStorageAccountAdmin(admin.ModelAdmin):  # pragma: no cover
                     extra_context["dropbox_device_code"] = "(授权进行中，请在 Dropbox 页面完成授权后刷新)"
                     extra_context["dropbox_verification_uri"] = "https://www.dropbox.com/oauth2/authorize"
             except Exception:
-                pass
+                logger.debug(
+                    "构建云存储授权上下文失败（已忽略）: object_id=%s",
+                    object_id,
+                    exc_info=True,
+                )
 
         return super().changeform_view(request, object_id, form_url, extra_context)
 

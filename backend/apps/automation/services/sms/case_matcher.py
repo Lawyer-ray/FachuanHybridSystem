@@ -85,14 +85,14 @@ class CaseMatcher:
         try:
             has_case_numbers = bool(sms.case_numbers)
 
-            logger.info(f"开始匹配案件: 案号={sms.case_numbers}, 当事人={sms.party_names}")
+            logger.info("开始匹配案件: 案号=%s, 当事人=%s", sms.case_numbers, sms.party_names)
 
             # ========== 第一优先级：案号精确匹配 ==========
             # 系统中有相同案号 = 同一案件
             if has_case_numbers:
                 case = self._match_by_case_number_exact(sms.case_numbers)
                 if case:
-                    logger.info(f"通过案号精确匹配到案件: {case.name}")
+                    logger.info("通过案号精确匹配到案件: %s", case.name)
                     return case
                 logger.info("案号精确匹配失败，尝试当事人匹配")
 
@@ -105,7 +105,7 @@ class CaseMatcher:
                 if len(matched_cases) == 1:
                     # 唯一匹配，直接返回
                     case = matched_cases[0]
-                    logger.info(f"通过当事人匹配到唯一案件: {case.name}")
+                    logger.info("通过当事人匹配到唯一案件: %s", case.name)
                     return case
 
                 elif len(matched_cases) > 1:
@@ -114,12 +114,12 @@ class CaseMatcher:
                     if has_case_numbers:
                         case = self._narrow_down_by_case_number_features(matched_cases, sms.case_numbers)
                         if case:
-                            logger.info(f"通过案号特征筛选到案件: {case.name}")
+                            logger.info("通过案号特征筛选到案件: %s", case.name)
                             return case
 
                     # 筛选后仍有多个，选择最新的
                     case = self._select_latest_case(matched_cases)
-                    logger.info(f"当事人匹配到多个案件（共{len(matched_cases)}个），选择最新的: {case.name}")
+                    logger.info("当事人匹配到多个案件（共%s个），选择最新的: %s", len(matched_cases), case.name)
                     return case
 
             # 检查是否有匹配的案件但状态不符合要求
@@ -129,7 +129,7 @@ class CaseMatcher:
             return None
 
         except Exception as e:
-            logger.error(f"案件匹配过程中发生错误: {e!s}")
+            logger.error("案件匹配过程中发生错误: %s", e)
             raise ValidationException(
                 message=f"案件匹配失败: {e!s}", code="CASE_MATCH_FAILED", errors={"error": str(e)}
             ) from e
@@ -164,7 +164,7 @@ class CaseMatcher:
             if case.status == CaseStatus.ACTIVE:
                 return case
             else:
-                logger.info(f"案号匹配到唯一案件但已结案: {case.name}，需人工处理")
+                logger.info("案号匹配到唯一案件但已结案: %s，需人工处理", case.name)
                 return None
 
         # 多个匹配，按状态分类
@@ -173,7 +173,7 @@ class CaseMatcher:
         active_cases = [c for c in all_matched_cases if c.status == CaseStatus.ACTIVE]
         closed_cases = [c for c in all_matched_cases if c.status == CaseStatus.CLOSED]
 
-        logger.info(f"案号匹配到多个案件: 在办 {len(active_cases)} 个, 已结案 {len(closed_cases)} 个")
+        logger.info("案号匹配到多个案件: 在办 %s 个, 已结案 %s 个", len(active_cases), len(closed_cases))
 
         # 没有在办案件
         if not active_cases:
@@ -182,12 +182,12 @@ class CaseMatcher:
 
         # 只有一个在办案件，直接返回
         if len(active_cases) == 1:
-            logger.info(f"多个案件中只有一个在办，自动匹配: {active_cases[0].name}")
+            logger.info("多个案件中只有一个在办，自动匹配: %s", active_cases[0].name)
             return active_cases[0]
 
         # 多个在办案件，由人工决断
         case_names = [f"{c.name}(ID:{c.id})" for c in active_cases]
-        logger.warning(f"案号匹配到多个在办案件，需人工决断: {', '.join(case_names)}")
+        logger.warning("案号匹配到多个在办案件，需人工决断: %s", ", ".join(case_names))
         return None
 
     def _extract_party_names(self, sms: Any) -> list[str]:
@@ -210,15 +210,15 @@ class CaseMatcher:
                 try:
                     doc_parties = self.document_parser_service.extract_parties_from_document(doc_path)
                     if doc_parties and len(doc_parties) >= 2:
-                        logger.info(f"从文书提取到当事人: {doc_parties}")
+                        logger.info("从文书提取到当事人: %s", doc_parties)
                         return doc_parties
                 except Exception as e:
-                    logger.warning(f"从文书提取当事人失败: {doc_path}, 错误: {e!s}")
+                    logger.warning("从文书提取当事人失败: %s, 错误: %s", doc_path, e)
                     continue
 
         # 3. 如果文书也提取失败，返回短信中的单个当事人（总比没有好）
         if sms.party_names:
-            logger.debug(f"文书提取失败，使用短信中的当事人: {sms.party_names}")
+            logger.debug("文书提取失败，使用短信中的当事人: %s", sms.party_names)
             return cast(list[str], sms.party_names)
 
         return []
@@ -231,9 +231,6 @@ class CaseMatcher:
         """
         if not party_names:
             return []
-
-        # 调试：检查客户数据库
-        self.party_matching_service.debug_client_database(party_names)
 
         # 第一步：在现有客户中查找匹配
         matched_clients = self.party_matching_service.find_existing_clients_in_sms(party_names)
@@ -292,7 +289,7 @@ class CaseMatcher:
         """筛选破产案件"""
         filtered = [c for c in cases if "破产" in (c.name or "")]
         if filtered:
-            logger.debug(f"按破产案件筛选后剩余 {len(filtered)} 个案件")
+            logger.debug("按破产案件筛选后剩余 %s 个案件", len(filtered))
         return filtered if filtered else cases
 
     def _apply_type_filter(self, cases: list[Any], case_type: str | None) -> list[Any]:
@@ -301,7 +298,7 @@ class CaseMatcher:
             return cases
         filtered = [c for c in cases if c.case_type == case_type]
         if filtered:
-            logger.debug(f"按案件类型 {case_type} 筛选后剩余 {len(filtered)} 个案件")
+            logger.debug("按案件类型 %s 筛选后剩余 %s 个案件", case_type, len(filtered))
             return filtered
         return cases
 
@@ -311,7 +308,7 @@ class CaseMatcher:
             return cases
         filtered = [c for c in cases if c.current_stage == case_stage]
         if filtered:
-            logger.debug(f"按案件阶段 {case_stage} 筛选后剩余 {len(filtered)} 个案件")
+            logger.debug("按案件阶段 %s 筛选后剩余 %s 个案件", case_stage, len(filtered))
             return filtered
         return cases
 
@@ -325,6 +322,7 @@ class CaseMatcher:
                 cases = self.case_service.search_cases_by_case_number_internal(case_number)
                 all_cases.extend(cases)
             except Exception:
+                logger.warning("按案号 %s 查询案件失败（已忽略）", case_number, exc_info=True)
                 continue
 
         # 去重
@@ -382,23 +380,23 @@ class CaseMatcher:
 
         # 刑事案件：包含"刑"字（刑初、刑终、刑辖等）
         if "刑" in case_number:
-            logger.debug(f"从案号 {case_number} 检测到刑事案件类型")
+            logger.debug("从案号 %s 检测到刑事案件类型", case_number)
             return CaseType.CRIMINAL
 
         # 行政案件：包含"行"字（行初、行终、行辖等）
         # 注意：需要在民事之前检测，因为"行"比"民"更具体
         if "行" in case_number:
-            logger.debug(f"从案号 {case_number} 检测到行政案件类型")
+            logger.debug("从案号 %s 检测到行政案件类型", case_number)
             return CaseType.ADMINISTRATIVE
 
         # 民事案件：包含"民"字（民初、民终、民辖等）
         if "民" in case_number:
-            logger.debug(f"从案号 {case_number} 检测到民事案件类型")
+            logger.debug("从案号 %s 检测到民事案件类型", case_number)
             return CaseType.CIVIL
 
         # 破产案件：包含"破"字，在 _narrow_down_by_case_number_features 中特殊处理
         if "破" in case_number:
-            logger.debug(f"从案号 {case_number} 检测到破产案件")
+            logger.debug("从案号 %s 检测到破产案件", case_number)
             return None
 
         return None
@@ -431,10 +429,10 @@ class CaseMatcher:
         if "执" in case_number:
             # "执保"不一定是执行阶段，需要其他条件判断
             if "执保" in case_number:
-                logger.debug(f"案号 {case_number} 包含'执保'，不确定是否为执行阶段")
+                logger.debug("案号 %s 包含'执保'，不确定是否为执行阶段", case_number)
                 # 不返回执行阶段，让其他条件判断
             else:
-                logger.debug(f"从案号 {case_number} 检测到执行阶段")
+                logger.debug("从案号 %s 检测到执行阶段", case_number)
                 return CaseStage.ENFORCEMENT
 
         # 二审案件：包含"终"字
@@ -466,9 +464,11 @@ class CaseMatcher:
         selected_case = sorted_cases[0]
         if len(sorted_cases) > 1:
             logger.info(
-                f"多个案件匹配（共{len(sorted_cases)}个），"
-                f"选择最新的案件: {selected_case.name} "
-                f"(ID: {selected_case.id}, 阶段: {selected_case.current_stage})"
+                "多个案件匹配（共%s个），选择最新的案件: %s (ID: %s, 阶段: %s)",
+                len(sorted_cases),
+                selected_case.name,
+                selected_case.id,
+                selected_case.current_stage,
             )
 
         return selected_case
@@ -500,10 +500,10 @@ class CaseMatcher:
             self._collect_closed_cases_by_party(sms, closed_cases)
 
             if closed_cases:
-                logger.info(f"共发现 {len(closed_cases)} 个已结案案件，等待人工处理")
+                logger.info("共发现 %s 个已结案案件，等待人工处理", len(closed_cases))
 
         except Exception as e:
-            logger.warning(f"检查已结案案件时发生错误: {e!s}")
+            logger.warning("检查已结案案件时发生错误: %s", e)
 
     def _collect_closed_cases_by_number(self, sms: Any, closed_cases: set[Any]) -> None:
         """通过案号收集已结案案件"""
@@ -517,8 +517,9 @@ class CaseMatcher:
                 for case in self.case_service.search_cases_by_case_number_internal(num):
                     if case.status == CaseStatus.CLOSED:
                         closed_cases.add(case)
-                        logger.warning(f"发现已结案案件（案号匹配）: {case.name}")
+                        logger.warning("发现已结案案件（案号匹配）: %s", case.name)
             except Exception:
+                logger.warning("按案号 %s 查询已结案案件失败（已忽略）", num, exc_info=True)
                 continue
 
     def _collect_closed_cases_by_party(self, sms: Any, closed_cases: set[Any]) -> None:
@@ -534,7 +535,7 @@ class CaseMatcher:
         for case in self.case_service.search_cases_by_party_internal(client_names, status=CaseStatus.CLOSED.value):
             if case not in closed_cases:
                 closed_cases.add(case)
-                logger.warning(f"发现已结案案件（当事人匹配）: {case.name}")
+                logger.warning("发现已结案案件（当事人匹配）: %s", case.name)
 
 
 def _get_case_matcher() -> CaseMatcher:

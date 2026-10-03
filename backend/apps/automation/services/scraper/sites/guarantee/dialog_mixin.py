@@ -160,7 +160,7 @@ class GuaranteeDialogMixin(  # pragma: no cover
                 return errs;
             }""")
             result["api_error_details"] = api_errors
-            logger.info(f"gTwo next API errors: {api_errors}")
+            logger.info("gTwo next API errors: %s", api_errors)
 
             result["api_error_log"] = self._api_error_log[-5:] if self._api_error_log else []
 
@@ -175,7 +175,7 @@ class GuaranteeDialogMixin(  # pragma: no cover
                     result["errors_after_next"] = retry_errors
                     break
                 if "gTwo" in self.page.url:
-                    logger.info(f"gTwo数据库保存重试{retry_idx + 1}仍失败，检查表格数据")
+                    logger.info("gTwo数据库保存重试%s仍失败，检查表格数据", retry_idx + 1)
                     table_check = self.page.evaluate(r"""() => {
                         const rows = document.querySelectorAll('.el-table__body-wrapper .el-table__row');
                         return {

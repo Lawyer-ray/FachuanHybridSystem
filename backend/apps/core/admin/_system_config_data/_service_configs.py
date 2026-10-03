@@ -1,5 +1,6 @@
 """法院短信、AI、企业数据、爬虫等服务配置数据"""
 
+import os
 from typing import Any
 
 __all__ = [
@@ -30,7 +31,8 @@ def get_ai_configs() -> list[dict[str, Any]]:
             "key": "OPENAI_COMPATIBLE_BASE_URL",
             "category": "ai",
             "description": "OpenAI-compatible API 地址（兼容旧配置，kimi26 vLLM）。多平台请在「AI 平台」管理页配置",
-            "value": "http://116.196.92.175:8001/v1",
+            # 默认网关 URL 可经 LLM_DEFAULT_BASE_URL 环境变量替换（回退值保持原网关，行为零变化）
+            "value": os.environ.get("LLM_DEFAULT_BASE_URL", "http://116.196.92.175:8001/v1"),
             "is_secret": False,
         },
         {

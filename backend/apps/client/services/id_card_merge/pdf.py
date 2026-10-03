@@ -1,15 +1,21 @@
 """PDF 生成。"""
 
+import tempfile
 import uuid
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
 import cv2
 import numpy as np
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from numpy.typing import NDArray
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
+
+from apps.core.filesystem.upload_paths import MediaEntity
 
 
 def generate_a4_pdf(
@@ -17,8 +23,6 @@ def generate_a4_pdf(
     back_image: NDArray[np.uint8],
     *,
     id_card_aspect_ratio: float,
-    output_dir: Path,
-    temp_dir: Path,
     logger: Any,
 ) -> str:  # pragma: no cover
     width, height = A4
@@ -35,16 +39,16 @@ def generate_a4_pdf(
 
     unique_id = uuid.uuid4().hex[:12]
     pdf_filename = f"merged_{unique_id}.pdf"
-    pdf_path = output_dir / pdf_filename
 
-    front_temp_path = temp_dir / f"front_pdf_{unique_id}.jpg"
-    back_temp_path = temp_dir / f"back_pdf_{unique_id}.jpg"
-
-    try:
+    # 中间图片与 PDF 渲染均在系统临时目录完成，最终产物经 default_storage 落盘
+    buffer = BytesIO()
+    with tempfile.TemporaryDirectory(prefix="id_card_merge_") as tmp_dir:
+        front_temp_path = Path(tmp_dir) / f"front_pdf_{unique_id}.jpg"
+        back_temp_path = Path(tmp_dir) / f"back_pdf_{unique_id}.jpg"
         cv2.imwrite(str(front_temp_path), front_image)
         cv2.imwrite(str(back_temp_path), back_image)
 
-        c = canvas.Canvas(str(pdf_path), pagesize=A4)
+        c = canvas.Canvas(buffer, pagesize=A4)
         c.drawImage(
             str(front_temp_path),
             x,
@@ -65,14 +69,12 @@ def generate_a4_pdf(
         )
         c.save()
 
-        logger.info(
-            "PDF 生成成功",
-            extra={"pdf_path": str(pdf_path), "size": f"{width}x{height}"},
-        )
-        return f"id_card_merged/{pdf_filename}"
-    finally:
-        for tmp_path in (front_temp_path, back_temp_path):
-            try:
-                tmp_path.unlink(missing_ok=True)
-            except OSError as e:
-                logger.warning("清理临时文件失败", extra={"file": str(tmp_path), "error": str(e)})
+    saved_path = default_storage.save(
+        f"{MediaEntity.CLIENT_ID_CARDS}/{pdf_filename}",
+        ContentFile(buffer.getvalue()),
+    )
+    logger.info(
+        "PDF 生成成功",
+        extra={"rel_path": saved_path, "size": f"{width}x{height}"},
+    )
+    return saved_path

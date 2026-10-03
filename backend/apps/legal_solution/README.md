@@ -17,7 +17,7 @@ legal_solution/
 ├── models/                           # task.py=SolutionTask、section.py=SolutionSection
 ├── admin/task_admin.py               # 唯一 Admin（无 api 包）
 ├── services/
-│   ├── solution_generator.py         # 段落生成 + md→html（LLM chat temperature=0.4、重试 2 次）
+│   ├── solution_generator.py         # 段落生成 + md→html（LLM chat temperature=0.4、重试 2 次、bleach 白名单消毒）
 │   ├── task_service.py               # 创建/派发/重生成段落
 │   ├── html_renderer.py              # 渲染 report.html 模板
 │   ├── pdf_exporter.py               # WeasyPrint

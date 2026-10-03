@@ -10,22 +10,10 @@ try:
 except ImportError:
     _HAS_LOGIN = False
 
-from apps.documents.services.generation.outputs import (
-    PartyInfo,
-    ComplaintOutput,
-    DefenseOutput,
-    ExecutionRequestOutput,
-)
-from apps.documents.services.evidence.evidence_list_placeholder_service import (
-    LEGAL_STATUS_DISPLAY,
-    LEGAL_STATUS_ORDER,
-)
+from apps.documents.services.generation.outputs import ComplaintOutput, DefenseOutput, ExecutionRequestOutput, PartyInfo
 
 if _HAS_LOGIN:
-    from plugins.court_automation.token.court_login_gateway import (
-        CourtLoginGateway,
-        CourtZxfwLoginGateway,
-    )
+    from plugins.court_automation.token.court_login_gateway import CourtLoginGateway, CourtZxfwLoginGateway
 else:
     CourtLoginGateway = None  # type: ignore[assignment,misc]
     CourtZxfwLoginGateway = None  # type: ignore[assignment,misc]
@@ -117,47 +105,6 @@ class TestExecutionRequestOutput:
         assert output.principal == 50000.0
         assert output.rate_type == "lpr"
         assert output.lpr_multiplier == 1.3
-
-
-class TestLegalStatusDisplay:
-    """诉讼地位显示映射测试。"""
-
-    def test_plaintiff(self) -> None:
-        assert LEGAL_STATUS_DISPLAY["plaintiff"] == "原告"
-
-    def test_defendant(self) -> None:
-        assert LEGAL_STATUS_DISPLAY["defendant"] == "被告"
-
-    def test_third(self) -> None:
-        assert LEGAL_STATUS_DISPLAY["third"] == "第三人"
-
-    def test_applicant(self) -> None:
-        assert LEGAL_STATUS_DISPLAY["applicant"] == "申请人"
-
-    def test_respondent(self) -> None:
-        assert LEGAL_STATUS_DISPLAY["respondent"] == "被申请人"
-
-    def test_criminal_defendant(self) -> None:
-        assert LEGAL_STATUS_DISPLAY["criminal_defendant"] == "被告人"
-
-    def test_all_statuses_in_order(self) -> None:
-        """所有状态都在排序列表中。"""
-        for status in LEGAL_STATUS_DISPLAY:
-            assert status in LEGAL_STATUS_ORDER
-
-
-class TestLegalStatusOrder:
-    """诉讼地位排序测试。"""
-
-    def test_order_not_empty(self) -> None:
-        assert len(LEGAL_STATUS_ORDER) > 0
-
-    def test_order_unique(self) -> None:
-        assert len(LEGAL_STATUS_ORDER) == len(set(LEGAL_STATUS_ORDER))
-
-    def test_plaintiff_before_defendant(self) -> None:
-        """原告排在被告之前。"""
-        assert LEGAL_STATUS_ORDER.index("plaintiff") < LEGAL_STATUS_ORDER.index("defendant")
 
 
 class TestCourtLoginGateway:

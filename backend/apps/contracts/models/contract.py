@@ -105,13 +105,10 @@ class Contract(models.Model):
         verbose_name = "合同"
         verbose_name_plural = "合同"
         indexes: ClassVar = [
-            # 单字段索引 - 用于基本过滤
-            models.Index(fields=["case_type"]),
-            models.Index(fields=["status"]),
-            models.Index(fields=["is_filed"]),
+            # 单字段索引：specified_date 服务 date_hierarchy 与日期范围过滤
+            # （filing_number 由 unique=True 唯一索引覆盖；case_type/status/is_filed
+            #   由下方复合索引最左前缀覆盖；单列 btree 可反向扫描，无需单列降序索引）
             models.Index(fields=["specified_date"]),
-            models.Index(fields=["-specified_date"]),
-            models.Index(fields=["filing_number"]),
             # 复合索引 - 用于常见的组合查询
             # 按案件类型和状态查询(常用于列表过滤)
             models.Index(fields=["case_type", "status"]),

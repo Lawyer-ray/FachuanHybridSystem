@@ -726,6 +726,22 @@ class AnalysisService:
         )
         return self.analyze_template(template_id)
 
+    def confirm_mappings(self, template_id: int) -> dict[str, Any]:  # pragma: no cover
+        """确认字段映射：置模板状态为已确认并返回确认摘要。"""
+        from apps.documents.models.choices import TemplateStatus
+        from apps.documents.models.external_template import ExternalTemplate, ExternalTemplateFieldMapping
+
+        template: ExternalTemplate = ExternalTemplate.objects.get(pk=template_id)
+        mapping_count: int = ExternalTemplateFieldMapping.objects.filter(template=template).count()
+        template.status = TemplateStatus.CONFIRMED
+        template.save(update_fields=["status", "status_changed_at", "updated_at"])
+        logger.info(
+            "映射确认完成: template_id=%d, mapping_count=%d",
+            template_id,
+            mapping_count,
+        )
+        return {"template_id": template.pk, "status": template.status, "mapping_count": mapping_count}
+
     def create_manual_mapping(
         self,
         *,

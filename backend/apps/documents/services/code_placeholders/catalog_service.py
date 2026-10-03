@@ -86,7 +86,7 @@ class CodePlaceholderCatalogService:
         return _scan_placeholder_spec_files(apps_root)
 
     def _from_evidence_list(self) -> list[CodePlaceholderDefinition]:
-        from apps.documents.services.evidence.evidence_list_placeholder_service import EvidenceListPlaceholderService
+        from apps.evidence.services.admin.evidence_list_placeholder_service import EvidenceListPlaceholderService
 
         service = EvidenceListPlaceholderService()
         keys = list(service.get_placeholder_keys() or [])

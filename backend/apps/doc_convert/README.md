@@ -8,7 +8,7 @@
 - `POST /convert` 上传 .docx / .doc / .pdf（最大 20MB）+ mbid，转换后直接以附件返回 docx
 - **每次转换（无论成败）落一条 `DocConvertRecord`**：成功存产物文件，失败存错误信息（截断 2000 字符）——历史弹窗可重新下载
 - 历史记录分页（status 过滤）、重新下载产物、删除记录（信号清理物理文件）
-- 转换能力来自外部 znszj 系统，客户端从 `plugins.doc_convert` 插件动态加载（开源版无插件时抛 ZnszjNotConfiguredError）；需 `settings.ZNSZJJ_ENABLED=True` 否则 403
+- 转换能力来自外部 znszj 系统，客户端从 `plugins.doc_convert` 插件动态加载（开源版无插件时抛 ZnszjNotConfiguredError）；需 `settings.ZNSZJ_ENABLED=True` 否则 403
 
 ## 目录结构
 
