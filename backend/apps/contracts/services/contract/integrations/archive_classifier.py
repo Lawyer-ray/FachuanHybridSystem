@@ -594,7 +594,8 @@ def _collect_work_log_suggestions_cloud(
     suggestions: list[dict[str, str]] = []
     try:
         children = storage_provider.list_directory(scan_folder)
-    except Exception:
+    except Exception as exc:
+        logger.warning("云存储工作日志建议收集失败 path=%s: %s", scan_folder, exc)
         return []
 
     for child in children:

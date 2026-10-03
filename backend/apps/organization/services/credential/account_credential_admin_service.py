@@ -44,7 +44,8 @@ def _run_async(coro: Coroutine[Any, Any, Any]) -> Any:  # pragma: no cover
 
     if loop and loop.is_running():
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            return pool.submit(asyncio.run, coro).result()
+            # 60s 超时：Admin action 不应被单次异步登录无限挂住
+            return pool.submit(asyncio.run, coro).result(timeout=60)
     return asyncio.run(coro)
 
 

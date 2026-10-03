@@ -33,7 +33,9 @@ class ExecutorTaskLifecycleMixin:
                 finally:
                     close_old_connections()
 
-            return _ORM_FALLBACK_EXECUTOR.submit(_wrapped).result()
+            # 单 worker 执行器：无界等待会让共享该执行器的后续 ORM 调用全部挂死排队，
+            # 60s 超时让调用方（executor 的 except Exception → _mark_failed）能感知失败。
+            return _ORM_FALLBACK_EXECUTOR.submit(_wrapped).result(timeout=60)
         return operation()
 
     @classmethod

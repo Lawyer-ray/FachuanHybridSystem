@@ -108,17 +108,44 @@ class TestSyncAllSources:
         with (
             patch("apps.message_hub.models.MessageSource") as MockSource,
             patch("apps.core.tasking.submit_task") as mock_submit_task,
+            patch("apps.message_hub.tasks.cache") as mock_cache,
         ):
+            mock_cache.add.return_value = True
             mock_qs = MagicMock()
-            mock_qs.values_list.return_value = [1, 2, 3]
+            mock_qs.values_list.return_value = [(1, "imap"), (2, "court_inbox"), (3, "court_schedule")]
             MockSource.objects.filter.return_value = mock_qs
 
             sync_all_sources()
 
             assert mock_submit_task.call_count == 3
+            # 普通 IMAP 源不传超时
             mock_submit_task.assert_any_call(
-                "apps.message_hub.tasks.sync_source_by_id", 1, group="message_hub"
+                "apps.message_hub.tasks.sync_source_by_id", 1, group="message_hub", timeout=None
             )
+            # 一张网 Playwright 源单独给 1800s 超时
+            mock_submit_task.assert_any_call(
+                "apps.message_hub.tasks.sync_source_by_id", 2, group="message_hub", timeout=1800
+            )
+
+    def test_skips_when_lock_held(self, db):
+        """上一轮调度的锁未过期时不重复提交。"""
+        from apps.message_hub.tasks import sync_all_sources
+
+        with (
+            patch("apps.message_hub.models.MessageSource") as MockSource,
+            patch("apps.core.tasking.submit_task") as mock_submit_task,
+            patch("apps.message_hub.tasks.cache") as mock_cache,
+        ):
+            mock_cache.add.return_value = False
+            mock_qs = MagicMock()
+            mock_qs.values_list.return_value = [(1, "imap")]
+            MockSource.objects.filter.return_value = mock_qs
+
+            sync_all_sources()
+
+            mock_submit_task.assert_not_called()
+            # 拿不到锁时不应查询来源列表
+            MockSource.objects.filter.assert_not_called()
 
     def test_handles_not_implemented_source(self, db):
         """Skips sources that raise NotImplementedError."""

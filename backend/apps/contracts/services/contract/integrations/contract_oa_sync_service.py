@@ -6,7 +6,9 @@ import asyncio
 import logging
 import os
 import re
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -24,6 +26,24 @@ if TYPE_CHECKING:
     from apps.organization.models import AccountCredential
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def _allow_async_unsafe() -> Iterator[None]:
+    """作用域化放开 Django async-unsafe 检查。
+
+    Playwright 同步 API 执行期间会维护事件循环，后续同步 ORM 更新进度时
+    可能被 Django 误判为 async context。仅在需要的代码段内放行，退出时恢复，
+    避免进程级 os.environ 污染同 worker 的其他任务。
+    """
+    key = "DJANGO_ALLOW_ASYNC_UNSAFE"
+    previous = os.environ.get(key)
+    os.environ.setdefault(key, "true")
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop(key, None)
 
 
 def _is_headless() -> bool:  # pragma: no cover
@@ -81,6 +101,7 @@ class ContractOASyncService:
             "apps.contracts.services.contract.integrations.contract_oa_sync_service.run_contract_oa_sync_task",
             args=[int(session.id)],
             task_name=f"contract_oa_sync_{session.id}",
+            timeout=3600,  # 全量导入含分钟级 Playwright 流程，覆盖全局 600s 默认超时
         )
         ContractOASyncSession.objects.filter(id=session.id).update(
             status=ContractOASyncStatus.PENDING,
@@ -792,10 +813,9 @@ class ContractOASyncService:
 def run_contract_oa_sync_task(session_id: int) -> None:  # pragma: no cover
     """Django-Q 任务入口。"""
     # Playwright 同步 API 执行期间会维护事件循环，后续同步 ORM 更新进度时
-    # 可能被 Django 误判为 async context。这里沿用项目内后台任务的处理方式：
-    # 放开 async-unsafe 检查，并将整个同步流程隔离到独立线程执行。
-    os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "true")
+    # 可能被 Django 误判为 async context。作用域化放行 async-unsafe 检查，
+    # 并将整个同步流程隔离到独立线程执行。
     service = ContractOASyncService()
-    with ThreadPoolExecutor(max_workers=1, thread_name_prefix="contract-oa-sync") as pool:
+    with _allow_async_unsafe(), ThreadPoolExecutor(max_workers=1, thread_name_prefix="contract-oa-sync") as pool:
         future = pool.submit(service.run_sync_task, session_id=session_id)
-        future.result()
+        future.result(timeout=3300)  # 略小于 Q 任务 timeout=3600，留出失败上报余量

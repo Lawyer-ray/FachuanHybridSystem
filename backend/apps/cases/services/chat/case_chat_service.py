@@ -25,9 +25,9 @@ from typing import Any, cast
 
 from apps.cases.services.case.case_access_policy import CaseAccessPolicy
 from apps.core.exceptions import ChatCreationException, MessageSendException, ValidationException
+from apps.core.exceptions.error_codes import CHAT_CREATION_FAILED, SYSTEM_ERROR
 from apps.core.models.enums import ChatPlatform
 from apps.core.security import AccessContext
-from apps.core.exceptions.error_codes import CHAT_CREATION_FAILED, SYSTEM_ERROR
 
 from .naming import ChatNameBuilder
 from .notification_usecase import SendNotificationUsecase
@@ -95,7 +95,8 @@ class CaseChatService:
 
             available = ChatProviderFactory.get_available_platforms()
             return available[0] if available else ChatPlatform.FEISHU
-        except Exception:
+        except Exception as exc:
+            logger.warning("聊天平台探测失败，回退默认 FEISHU: %s", exc)
             return ChatPlatform.FEISHU
 
     def create_chat_for_case(

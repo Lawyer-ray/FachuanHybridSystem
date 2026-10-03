@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from django.contrib.admin.views.decorators import staff_member_required
 from django.http import HttpRequest, JsonResponse
@@ -10,6 +11,8 @@ from django.views.decorators.http import require_POST
 
 from .models import CloudStorageAccount
 from .onedrive_provider import OAuthTokenManager
+
+logger = logging.getLogger(__name__)
 
 
 @staff_member_required
@@ -24,8 +27,9 @@ def onedrive_start_auth(request: HttpRequest, account_id: int) -> JsonResponse: 
     try:
         result = OAuthTokenManager.start_device_code_flow(account)
         return JsonResponse(result)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=400)
+    except Exception:
+        logger.exception("onedrive_start_auth 端点失败 account_id=%s", account_id)
+        return JsonResponse({"error": "操作失败，请稍后重试"}, status=400)
 
 
 @staff_member_required
@@ -47,8 +51,9 @@ def onedrive_complete_auth(request: HttpRequest, account_id: int) -> JsonRespons
         manager = OAuthTokenManager(account)
         access_token = manager.complete_device_code_flow(device_code)
         return JsonResponse({"status": "authorized", "token_preview": access_token[:20] + "..."})
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=400)
+    except Exception:
+        logger.exception("onedrive_complete_auth 端点失败 account_id=%s", account_id)
+        return JsonResponse({"error": "操作失败，请稍后重试"}, status=400)
 
 
 @staff_member_required
@@ -65,8 +70,9 @@ def dropbox_start_auth(request: HttpRequest, account_id: int) -> JsonResponse:  
     try:
         result = DropboxOAuthTokenManager.start_device_code_flow(account)
         return JsonResponse(result)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=400)
+    except Exception:
+        logger.exception("dropbox_start_auth 端点失败 account_id=%s", account_id)
+        return JsonResponse({"error": "操作失败，请稍后重试"}, status=400)
 
 
 @staff_member_required
@@ -90,5 +96,6 @@ def dropbox_complete_auth(request: HttpRequest, account_id: int) -> JsonResponse
         manager = DropboxOAuthTokenManager(account)
         access_token = manager.complete_device_code_flow(device_code)
         return JsonResponse({"status": "authorized", "token_preview": access_token[:20] + "..."})
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=400)
+    except Exception:
+        logger.exception("dropbox_complete_auth 端点失败 account_id=%s", account_id)
+        return JsonResponse({"error": "操作失败，请稍后重试"}, status=400)

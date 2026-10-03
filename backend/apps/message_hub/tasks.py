@@ -5,10 +5,18 @@ from __future__ import annotations
 import logging
 import socket
 
+from django.core.cache import cache
+
 logger = logging.getLogger("apps.message_hub")
 
 TASK_FUNC = "apps.message_hub.tasks.sync_all_sources"
 TASK_NAME = "message_hub:sync_all_sources"
+
+# 防重叠锁：TTL 略小于 30 分钟调度间隔（调度重叠/延迟时只允许一轮提交）
+_SYNC_LOCK_KEY = "message_hub:sync_all_sources:lock"
+_SYNC_LOCK_TTL_SECONDS = 25 * 60
+# 一张网 Playwright 类 fetcher 的单源同步超时（覆盖全局 600s 默认值）
+_COURT_FETCH_TIMEOUT_SECONDS = 1800
 
 
 def _is_expected_sync_error(exc: Exception) -> bool:
@@ -50,19 +58,28 @@ def sync_source_by_id(source_id: int) -> None:  # pragma: no cover
 
 def sync_all_sources(*_args: object) -> None:  # pragma: no cover
     """为每个启用的消息来源提交独立的同步任务，避免串行阻塞。"""
-    from apps.message_hub.models import MessageSource
+    # 抢锁防重叠：上一轮调度未过期时跳过本轮，避免 Playwright 收件箱任务堆积
+    if not cache.add(_SYNC_LOCK_KEY, "1", timeout=_SYNC_LOCK_TTL_SECONDS):
+        logger.info("上一轮消息同步调度仍在锁周期内，跳过本轮: key=%s", _SYNC_LOCK_KEY)
+        return
 
-    sources = list(MessageSource.objects.filter(is_enabled=True).values_list("id", flat=True))
+    from apps.message_hub.models import MessageSource, SourceType
+
+    sources = list(MessageSource.objects.filter(is_enabled=True).values_list("id", "source_type"))
     if not sources:
         return
 
     from apps.core.tasking import submit_task
 
-    for source_id in sources:
+    court_types = {SourceType.COURT_INBOX, SourceType.COURT_SCHEDULE}
+    for source_id, source_type in sources:
+        # 一张网收件箱/庭审日程内部为分钟级 Playwright 流程，覆盖全局 600s 默认超时
+        timeout = _COURT_FETCH_TIMEOUT_SECONDS if source_type in court_types else None
         submit_task(
             "apps.message_hub.tasks.sync_source_by_id",
             source_id,
             group="message_hub",
+            timeout=timeout,
         )
     logger.info("已为 %d 个消息来源提交同步任务", len(sources))
 

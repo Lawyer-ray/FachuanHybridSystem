@@ -84,7 +84,8 @@ class BaseFolderBindingService:
             provider = self._get_provider_for_binding(binding)
             try:
                 children = provider.list_directory(path)
-            except Exception:
+            except Exception as exc:
+                logger.warning("list_subdirs 失败 path=%s: %s", path, exc)
                 return []
             results = []
             for child in children:
