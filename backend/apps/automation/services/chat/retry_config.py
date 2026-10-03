@@ -18,6 +18,8 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any, NoReturn
 
+from django.utils import timezone
+
 logger = logging.getLogger(__name__)
 
 
@@ -321,7 +323,7 @@ class RetryManager:
         self.attempts.append(
             RetryAttempt(
                 attempt_number=attempt_number + 1,
-                timestamp=datetime.now(),
+                timestamp=timezone.now(),
                 error_type=error_type,
                 error_message=str(error),
                 delay_seconds=delay,
@@ -361,7 +363,7 @@ class RetryManager:
         Raises:
             Exception: 重试失败后抛出最后一次的异常
         """
-        self.start_time = datetime.now()
+        self.start_time = timezone.now()
         self.attempts = []
         context = context or {}
 
@@ -419,7 +421,7 @@ class RetryManager:
         """
         import asyncio
 
-        self.start_time = datetime.now()
+        self.start_time = timezone.now()
         self.attempts = []
         context = context or {}
 
@@ -476,7 +478,7 @@ class RetryManager:
         if not self.start_time:
             return 0.0
 
-        return (datetime.now() - self.start_time).total_seconds()
+        return (timezone.now() - self.start_time).total_seconds()
 
     def get_retry_summary(self) -> dict[str, Any]:
         """获取重试摘要信息

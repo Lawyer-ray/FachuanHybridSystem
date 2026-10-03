@@ -34,12 +34,16 @@ class EvidenceRAGService:
                 ]
             )
 
-    async def aensure_ingested(self, evidence_item_ids: list[int], max_pages_per_item: int = 20) -> None:  # pragma: no cover
+    async def aensure_ingested(
+        self, evidence_item_ids: list[int], max_pages_per_item: int = 20
+    ) -> None:  # pragma: no cover
         """异步版本 — 确保证据已入库.文件 I/O 通过 sync_to_async 卸载到线程池."""
         from ..wiring import get_evidence_query_service
 
         extraction = EvidenceTextExtractionService()
-        items = await sync_to_async(get_evidence_query_service().list_evidence_item_ids_with_files_internal)(evidence_item_ids)
+        items = await sync_to_async(get_evidence_query_service().list_evidence_item_ids_with_files_internal)(
+            evidence_item_ids
+        )
         for item in items:
             if not item.file_path:
                 continue
@@ -65,11 +69,16 @@ class EvidenceRAGService:
 
         query_emb = embedding_service.embed_texts([query])[0]
 
-        chunks = list(EvidenceChunk.objects.filter(evidence_item_id__in=evidence_item_ids))
-        missing = [c for c in chunks if not c.embedding]
-        if missing:
-            embs = embedding_service.embed_texts([c.text for c in missing])
-            store.upsert_embeddings([c.id for c in missing], embs)
+        # 只物化轻字段（id/text）：embedding 是数十 KB 级 JSONField，原写法整表物化仅为
+        # 判空。embedding 列 NOT NULL 且取值只会是 [] 或非空向量（upsert_embeddings 是
+        # 唯一写入方），DB 侧 embedding=[] 与 Python not c.embedding 语义等价。
+        missing_rows = list(
+            EvidenceChunk.objects.filter(evidence_item_id__in=evidence_item_ids, embedding=[]).values_list("id", "text")
+        )
+        if missing_rows:
+            missing_ids = [row[0] for row in missing_rows]
+            embs = embedding_service.embed_texts([row[1] for row in missing_rows])
+            store.upsert_embeddings(missing_ids, embs)
 
         results = store.search(query_emb, evidence_item_ids=evidence_item_ids, top_k=top_k)
         return [chunk for chunk, _score in results if (chunk.text or "").strip()]
@@ -82,11 +91,17 @@ class EvidenceRAGService:
         query_emb = await sync_to_async(embedding_service.embed_texts)([query])
         query_vec = query_emb[0]
 
-        chunks = [c async for c in EvidenceChunk.objects.filter(evidence_item_id__in=evidence_item_ids)]
-        missing = [c for c in chunks if not c.embedding]
-        if missing:
-            embs = await sync_to_async(embedding_service.embed_texts)([c.text for c in missing])
-            await sync_to_async(store.upsert_embeddings)([c.id for c in missing], embs)
+        # 同步版 retrieve：只物化轻字段（id/text），避免整表物化大 embedding JSONField。
+        missing_rows = [
+            row
+            async for row in EvidenceChunk.objects.filter(
+                evidence_item_id__in=evidence_item_ids, embedding=[]
+            ).values_list("id", "text")
+        ]
+        if missing_rows:
+            missing_ids = [row[0] for row in missing_rows]
+            embs = await sync_to_async(embedding_service.embed_texts)([row[1] for row in missing_rows])
+            await sync_to_async(store.upsert_embeddings)(missing_ids, embs)
 
         results = await sync_to_async(store.search)(query_vec, evidence_item_ids=evidence_item_ids, top_k=top_k)
         return [chunk for chunk, _score in results if (chunk.text or "").strip()]

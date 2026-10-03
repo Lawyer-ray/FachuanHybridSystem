@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
+from django.utils import timezone
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -123,7 +125,7 @@ class ResourceMonitor:
                 disk_percent=disk_percent,
                 disk_used_gb=disk_used_gb,
                 disk_total_gb=disk_total_gb,
-                timestamp=datetime.now(),
+                timestamp=timezone.now(),
             )
         except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to get resource usage: {e}")
@@ -191,8 +193,8 @@ class ResourceMonitor:
         # 检查冷却时间
         if self._last_restart_time:
             cooldown_end = self._last_restart_time + timedelta(seconds=self.restart_cooldown)
-            if datetime.now() < cooldown_end:
-                remaining = (cooldown_end - datetime.now()).total_seconds()
+            if timezone.now() < cooldown_end:
+                remaining = (cooldown_end - timezone.now()).total_seconds()
                 return False, f"Restart cooldown active ({remaining:.0f}s remaining)"
 
         usage = self.get_current_usage()

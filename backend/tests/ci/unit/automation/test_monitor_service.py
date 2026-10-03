@@ -7,10 +7,9 @@ check_high_failure_rate), MonitorServiceAdapter delegation.
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # MonitorService — init and lazy properties
@@ -149,13 +148,12 @@ class TestCheckHighFailureRate:
         field_mock.choices = [("scrape", "Scrape")]
         task_svc._meta.get_field.return_value = field_mock
 
-        # First filter call returns qs with count=20, failed=15
-        qs = MagicMock()
-        qs.count.return_value = 20  # total count
-        failed_qs = MagicMock()
-        failed_qs.count.return_value = 15  # failed count
-        qs.filter.return_value = failed_qs
-        task_svc.objects.filter.return_value = qs
+        # filter().values().annotate() 一次聚合返回 scrape: total=20, failed=15
+        agg_qs = MagicMock()
+        agg_qs.values.return_value = agg_qs
+        agg_qs.annotate.return_value = agg_qs
+        agg_qs.__iter__ = MagicMock(return_value=iter([{"task_type": "scrape", "total": 20, "failed": 15}]))
+        task_svc.objects.filter.return_value = agg_qs
 
         svc = MonitorService(task_service=task_svc)
         result = svc.check_high_failure_rate(threshold=0.5, min_tasks=5)
@@ -211,10 +209,7 @@ class TestCheckHighFailureRate:
 
 class TestMonitorServiceAdapter:
     def test_delegates_all_methods(self):
-        from apps.automation.services.scraper.core.monitor_service import (
-            MonitorService,
-            MonitorServiceAdapter,
-        )
+        from apps.automation.services.scraper.core.monitor_service import MonitorService, MonitorServiceAdapter
 
         inner = MagicMock(spec=MonitorService)
         inner.get_task_statistics.return_value = {"total": 5}
@@ -248,10 +243,7 @@ class TestMonitorServiceAdapter:
             assert svc is not None
 
     def test_internal_methods(self):
-        from apps.automation.services.scraper.core.monitor_service import (
-            MonitorService,
-            MonitorServiceAdapter,
-        )
+        from apps.automation.services.scraper.core.monitor_service import MonitorService, MonitorServiceAdapter
 
         inner = MagicMock(spec=MonitorService)
         adapter = MonitorServiceAdapter(service=inner)

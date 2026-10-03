@@ -421,11 +421,20 @@ class TestCopyMappingsFrom:
 
         with patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm:
             mock_fm.objects.filter.return_value = [m1, m2]
-            mock_fm.objects.create.return_value = MagicMock()
+            # bulk_create 返回创建对象列表（与 PostgreSQL RETURNING 行为一致）
+            mock_fm.objects.bulk_create.side_effect = lambda objs: list(objs)
             result = svc._copy_mappings_from(source, target)
 
         assert len(result) == 2
-        assert mock_fm.objects.create.call_count == 2
+        assert mock_fm.objects.bulk_create.call_count == 1
+        # 逐条构造仍保持原字段映射（template/position_locator/... 逐字段拷贝）
+        ctor_calls = mock_fm.call_args_list
+        assert len(ctor_calls) == 2
+        assert ctor_calls[0].kwargs["template"] is target
+        assert ctor_calls[0].kwargs["position_description"] == "p1"
+        assert ctor_calls[0].kwargs["semantic_label"] == "l1"
+        assert ctor_calls[0].kwargs["fill_type"] == "text"
+        assert ctor_calls[1].kwargs["sort_order"] == 1
 
 
 class TestAnalyzeTemplate:

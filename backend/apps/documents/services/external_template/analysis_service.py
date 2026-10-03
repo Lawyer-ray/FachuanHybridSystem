@@ -585,17 +585,20 @@ class AnalysisService:
         from apps.documents.models.external_template import ExternalTemplateFieldMapping
 
         source_mappings = ExternalTemplateFieldMapping.objects.filter(template=source_template)
-        created: list[ExternalTemplateFieldMapping] = []
-        for m in source_mappings:
-            new_mapping = ExternalTemplateFieldMapping.objects.create(
-                template=target_template,
-                position_locator=m.position_locator,
-                position_description=m.position_description,
-                semantic_label=m.semantic_label,
-                fill_type=m.fill_type,
-                sort_order=m.sort_order,
+        # 批量写入替代逐条 create（模型无 save() 覆写与 post_save 信号，bulk_create 行为等价）
+        created: list[ExternalTemplateFieldMapping] = list(
+            ExternalTemplateFieldMapping.objects.bulk_create(
+                ExternalTemplateFieldMapping(
+                    template=target_template,
+                    position_locator=m.position_locator,
+                    position_description=m.position_description,
+                    semantic_label=m.semantic_label,
+                    fill_type=m.fill_type,
+                    sort_order=m.sort_order,
+                )
+                for m in source_mappings
             )
-            created.append(new_mapping)
+        )
         return created
 
     def _build_llm_prompt(self, structure_json: dict[str, Any]) -> str:
