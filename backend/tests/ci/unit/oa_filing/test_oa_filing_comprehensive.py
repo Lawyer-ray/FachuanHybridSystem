@@ -1,4 +1,5 @@
 """Tests for oa_filing: script_executor_service, import_session_service, client_import_service, tasks, html_parser, filing_models."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -179,6 +180,7 @@ class TestJTNAdapter:
         svc = self._make_service()
         with pytest.raises(ValueError, match="不支持"):
             from apps.oa_filing.services.oa_firm_registry import create_adapter
+
             create_adapter("UnsupportedSite", "t", "t")
 
     @pytest.mark.asyncio
@@ -334,12 +336,14 @@ class TestClientImportService:
         session = self._make_session()
         svc = ClientImportService(session)
         with patch.object(svc, "_update_session") as mock_update:
-            svc._handle_script_progress({
-                "event": "discovery_progress",
-                "discovered_count": 10,
-                "page": 2,
-                "message": "searching",
-            })
+            svc._handle_script_progress(
+                {
+                    "event": "discovery_progress",
+                    "discovered_count": 10,
+                    "page": 2,
+                    "message": "searching",
+                }
+            )
             mock_update.assert_called_once()
 
     def test_handle_script_progress_discovery_completed(self) -> None:
@@ -348,10 +352,12 @@ class TestClientImportService:
         session = self._make_session()
         svc = ClientImportService(session)
         with patch.object(svc, "_update_session") as mock_update:
-            svc._handle_script_progress({
-                "event": "discovery_completed",
-                "total_count": 50,
-            })
+            svc._handle_script_progress(
+                {
+                    "event": "discovery_completed",
+                    "total_count": 50,
+                }
+            )
             mock_update.assert_called_once()
 
     def test_handle_script_progress_import_started(self) -> None:
@@ -360,10 +366,12 @@ class TestClientImportService:
         session = self._make_session()
         svc = ClientImportService(session)
         with patch.object(svc, "_update_session") as mock_update:
-            svc._handle_script_progress({
-                "event": "import_started",
-                "total_count": 50,
-            })
+            svc._handle_script_progress(
+                {
+                    "event": "import_started",
+                    "total_count": 50,
+                }
+            )
             mock_update.assert_called_once()
 
     def test_handle_script_progress_import_progress(self) -> None:
@@ -374,12 +382,14 @@ class TestClientImportService:
         session.discovered_count = 50
         svc = ClientImportService(session)
         with patch.object(svc, "_update_session") as mock_update:
-            svc._handle_script_progress({
-                "event": "import_progress",
-                "total_count": 50,
-                "index": 5,
-                "name": "Client5",
-            })
+            svc._handle_script_progress(
+                {
+                    "event": "import_progress",
+                    "total_count": 50,
+                    "index": 5,
+                    "name": "Client5",
+                }
+            )
             mock_update.assert_called_once()
 
     def test_update_session_empty_fields(self) -> None:
@@ -387,8 +397,10 @@ class TestClientImportService:
 
         session = self._make_session()
         svc = ClientImportService(session)
-        svc._update_session()  # no-op
-        # Should not raise
+        with patch("apps.oa_filing.services.client_import_service.ClientImportSession") as mock_model:
+            assert svc._update_session() is None
+        # 无字段时早退：不应触发任何 DB update
+        mock_model.objects.filter.assert_not_called()
 
     def test_update_session_sets_attrs(self) -> None:
         from apps.oa_filing.services.client_import_service import ClientImportService
@@ -406,33 +418,41 @@ class TestClientImportService:
 
 
 class TestTasks:
+    @patch("apps.oa_filing.services.client_import_service.ClientImportService")
     @patch("apps.oa_filing.models.ClientImportSession")
-    def test_run_client_import_task_session_not_found(self, mock_model) -> None:
+    def test_run_client_import_task_session_not_found(self, mock_model, mock_svc_cls) -> None:
         from apps.oa_filing.tasks import run_client_import_task
 
         mock_model.DoesNotExist = type("DoesNotExist", (Exception,), {})
         mock_model.objects.select_related.return_value.get.side_effect = mock_model.DoesNotExist
-        # Should not raise
-        run_client_import_task(999)
+        # Session 不存在：记日志后早退
+        assert run_client_import_task(999) is None
+        mock_svc_cls.assert_not_called()
 
+    @patch("apps.oa_filing.services.client_import_service.ClientImportService")
     @patch("apps.oa_filing.models.ClientImportSession")
-    def test_run_client_import_task_already_completed(self, mock_model) -> None:
+    def test_run_client_import_task_already_completed(self, mock_model, mock_svc_cls) -> None:
         from apps.oa_filing.tasks import run_client_import_task
 
         session = MagicMock()
         session.status = "completed"
         mock_model.objects.select_related.return_value.get.return_value = session
-        run_client_import_task(1)
-        # Should return early
+        assert run_client_import_task(1) is None
+        # Should return early：不启动导入、不落库
+        mock_svc_cls.assert_not_called()
+        session.save.assert_not_called()
 
+    @patch("apps.oa_filing.services.client_import_service.ClientImportService")
     @patch("apps.oa_filing.models.ClientImportSession")
-    def test_run_client_import_task_already_cancelled(self, mock_model) -> None:
+    def test_run_client_import_task_already_cancelled(self, mock_model, mock_svc_cls) -> None:
         from apps.oa_filing.tasks import run_client_import_task
 
         session = MagicMock()
         session.status = "cancelled"
         mock_model.objects.select_related.return_value.get.return_value = session
-        run_client_import_task(1)
+        assert run_client_import_task(1) is None
+        mock_svc_cls.assert_not_called()
+        session.save.assert_not_called()
 
     @patch("apps.oa_filing.services.client_import_service.ClientImportService")
     @patch("apps.oa_filing.models.ClientImportSession")
@@ -450,39 +470,50 @@ class TestTasks:
         run_client_import_task(1)
         assert session.started_at is not None
 
+    @patch("apps.oa_filing.services.case_import_service.CaseImportService")
     @patch("apps.oa_filing.models.CaseImportSession")
-    def test_run_case_import_preview_task_session_not_found(self, mock_model) -> None:
+    def test_run_case_import_preview_task_session_not_found(self, mock_model, mock_svc_cls) -> None:
         from apps.oa_filing.tasks import run_case_import_preview_task
 
         mock_model.DoesNotExist = type("DoesNotExist", (Exception,), {})
         mock_model.objects.select_related.return_value.get.side_effect = mock_model.DoesNotExist
-        run_case_import_preview_task(999, "/tmp/test.xlsx")
+        assert run_case_import_preview_task(999, "/tmp/test.xlsx") is None
+        mock_svc_cls.assert_not_called()
 
+    @patch("apps.oa_filing.services.case_import_service.CaseImportService")
     @patch("apps.oa_filing.models.CaseImportSession")
-    def test_run_case_import_preview_task_already_completed(self, mock_model) -> None:
+    def test_run_case_import_preview_task_already_completed(self, mock_model, mock_svc_cls) -> None:
         from apps.oa_filing.tasks import run_case_import_preview_task
 
         session = MagicMock()
         session.status = "completed"
         mock_model.objects.select_related.return_value.get.return_value = session
-        run_case_import_preview_task(1, "/tmp/test.xlsx")
+        assert run_case_import_preview_task(1, "/tmp/test.xlsx") is None
+        # Should return early：不解析、不落库
+        mock_svc_cls.assert_not_called()
+        session.save.assert_not_called()
 
+    @patch("apps.oa_filing.services.case_import_service.CaseImportService")
     @patch("apps.oa_filing.models.CaseImportSession")
-    def test_run_case_import_task_session_not_found(self, mock_model) -> None:
+    def test_run_case_import_task_session_not_found(self, mock_model, mock_svc_cls) -> None:
         from apps.oa_filing.tasks import run_case_import_task
 
         mock_model.DoesNotExist = type("DoesNotExist", (Exception,), {})
         mock_model.objects.select_related.return_value.get.side_effect = mock_model.DoesNotExist
-        run_case_import_task(999, ["case1"])
+        assert run_case_import_task(999, ["case1"]) is None
+        mock_svc_cls.assert_not_called()
 
+    @patch("apps.oa_filing.services.case_import_service.CaseImportService")
     @patch("apps.oa_filing.models.CaseImportSession")
-    def test_run_case_import_task_already_completed(self, mock_model) -> None:
+    def test_run_case_import_task_already_completed(self, mock_model, mock_svc_cls) -> None:
         from apps.oa_filing.tasks import run_case_import_task
 
         session = MagicMock()
         session.status = "completed"
         mock_model.objects.select_related.return_value.get.return_value = session
-        run_case_import_task(1, ["case1"])
+        assert run_case_import_task(1, ["case1"]) is None
+        mock_svc_cls.assert_not_called()
+        session.save.assert_not_called()
 
 
 # ── filing_models ──────────────────────────────────────────────────────────
@@ -522,8 +553,14 @@ class TestFilingModels:
         from apps.oa_filing.services.oa_scripts.jtn.filing.filing_models import CaseInfo
 
         info = CaseInfo(
-            manager_id="", manager_name="Lawyer", category="03",
-            stage="0301", which_side="01", kindtype="", kindtype_sed="", kindtype_thr="",
+            manager_id="",
+            manager_name="Lawyer",
+            category="03",
+            stage="0301",
+            which_side="01",
+            kindtype="",
+            kindtype_sed="",
+            kindtype_thr="",
             case_name="Test Case",
         )
         assert info.resource == "01"

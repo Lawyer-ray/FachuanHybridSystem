@@ -1,7 +1,8 @@
 """Tests for chat_records/signals.py - post_delete file cleanup."""
 
+from unittest.mock import MagicMock, PropertyMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
 
 
 class TestDeleteFieldFile:
@@ -24,9 +25,13 @@ class TestDeleteFieldFile:
         """Does nothing when field is None/empty."""
         from apps.chat_records.signals import _delete_field_file
 
-        # Should not raise
-        _delete_field_file(None)
-        _delete_field_file(MagicMock(__bool__=lambda self: False))
+        falsy_field = MagicMock(__bool__=lambda self: False)
+        with patch("apps.chat_records.signals._safe_prune_empty_parents") as mock_prune:
+            # Should not raise
+            assert _delete_field_file(None) is None
+            assert _delete_field_file(falsy_field) is None
+        falsy_field.delete.assert_not_called()
+        mock_prune.assert_not_called()
 
     def test_handles_path_exception(self):
         """Handles case where field.path raises."""
@@ -77,8 +82,12 @@ class TestDeleteFieldFileByName:
         """Does nothing when name is empty/None."""
         from apps.chat_records.signals import _delete_field_file_by_name
 
-        _delete_field_file_by_name(None)
-        _delete_field_file_by_name("")
+        with patch("django.core.files.storage.default_storage") as mock_storage:
+            # Should not raise: 空名早退，不应触碰 storage
+            assert _delete_field_file_by_name(None) is None
+            assert _delete_field_file_by_name("") is None
+        mock_storage.exists.assert_not_called()
+        mock_storage.delete.assert_not_called()
 
 
 class TestSafePruneEmptyParents:
@@ -88,26 +97,34 @@ class TestSafePruneEmptyParents:
         """Does nothing when file_path is None."""
         from apps.chat_records.signals import _safe_prune_empty_parents
 
-        # Should not raise
-        _safe_prune_empty_parents(None)
+        with patch("pathlib.Path.rmdir") as mock_rmdir:
+            # Should not raise
+            assert _safe_prune_empty_parents(None) is None
+        mock_rmdir.assert_not_called()
 
     def test_returns_early_for_empty_path(self):
         """Does nothing when file_path is empty string."""
         from apps.chat_records.signals import _safe_prune_empty_parents
 
-        _safe_prune_empty_parents("")
+        with patch("pathlib.Path.rmdir") as mock_rmdir:
+            assert _safe_prune_empty_parents("") is None
+        mock_rmdir.assert_not_called()
 
     def test_returns_early_for_relative_path(self):
         """Does nothing for relative paths."""
         from apps.chat_records.signals import _safe_prune_empty_parents
 
-        _safe_prune_empty_parents("relative/path/file.txt")
+        with patch("pathlib.Path.rmdir") as mock_rmdir:
+            assert _safe_prune_empty_parents("relative/path/file.txt") is None
+        mock_rmdir.assert_not_called()
 
     def test_returns_early_when_not_under_media_root(self):
         """Does nothing when file is not under MEDIA_ROOT."""
         from apps.chat_records.signals import _safe_prune_empty_parents
 
-        _safe_prune_empty_parents("/tmp/some/file.txt")
+        with patch("pathlib.Path.rmdir") as mock_rmdir:
+            assert _safe_prune_empty_parents("/tmp/some/file.txt") is None
+        mock_rmdir.assert_not_called()
 
 
 class TestSignalReceivers:
@@ -160,7 +177,7 @@ class TestSignalReceivers:
 
     def test_signal_handles_missing_attribute(self):
         """Signal handlers handle missing attributes gracefully."""
-        from apps.chat_records.signals import _delete_recording_file, _delete_screenshot_file, _delete_export_file
+        from apps.chat_records.signals import _delete_export_file, _delete_recording_file, _delete_screenshot_file
 
         instance = MagicMock(spec=[])  # No attributes
 

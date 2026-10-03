@@ -51,19 +51,20 @@ class TestValidateCreateData:
             svc._validate_create_data({"name": "公司A", "client_type": Client.LEGAL})
 
     def test_legal_with_rep_passes(self, svc):
-        svc._validate_create_data(
+        result = svc._validate_create_data(
             {
                 "name": "公司A",
                 "client_type": Client.LEGAL,
                 "legal_representative": "王五",
             }
         )  # should not raise
+        assert result is None
 
     def test_natural_type_passes(self, svc):
-        svc._validate_create_data({"name": "李四", "client_type": Client.NATURAL})
+        assert svc._validate_create_data({"name": "李四", "client_type": Client.NATURAL}) is None
 
     def test_non_legal_org_passes(self, svc):
-        svc._validate_create_data({"name": "组织X", "client_type": Client.NON_LEGAL_ORG})
+        assert svc._validate_create_data({"name": "组织X", "client_type": Client.NON_LEGAL_ORG}) is None
 
 
 # ──────────── _validate_update_data ────────────
@@ -97,7 +98,9 @@ class TestValidateUpdateData:
         client.client_type = Client.LEGAL
         client.legal_representative = "已有法人"
         # Updating name only, not touching legal_representative
-        svc._validate_update_data(client, {"name": "新名称"})  # should not raise
+        result = svc._validate_update_data(client, {"name": "新名称"})  # should not raise
+        assert result is None
+        assert client.legal_representative == "已有法人"
 
 
 # ──────────── update_client ────────────
@@ -239,7 +242,8 @@ class TestEnsureClientDeletable:
 
     def test_no_relations_allows_delete(self, svc):
         client = self._make_client()
-        svc._ensure_client_deletable(client)  # 不抛即通过
+        # 无任何业务关联：守卫放行（返回 None 且不抛异常）
+        assert svc._ensure_client_deletable(client) is None
 
     def test_contract_party_blocks_delete(self, svc):
         from apps.contracts.models import Contract, ContractParty

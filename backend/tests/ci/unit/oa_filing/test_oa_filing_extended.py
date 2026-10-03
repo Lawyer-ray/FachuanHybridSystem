@@ -267,12 +267,20 @@ class TestClientImportService:
         assert ClientImportService._to_int(None) == 0
 
     def test_handle_script_progress_discovery_started(self):
+        from apps.oa_filing.models import ClientImportPhase
+
         svc = self._make_service()
         with patch("apps.oa_filing.services.client_import_service.ClientImportSession") as mock_model:
             mock_model.objects.filter.return_value.update.return_value = None
             svc._handle_script_progress({"event": "discovery_started", "message": "开始查找"})
+            kwargs = mock_model.objects.filter.return_value.update.call_args.kwargs
+        assert kwargs["phase"] == ClientImportPhase.DISCOVERING
+        assert kwargs["progress_message"] == "开始查找"
+        assert svc._session.phase == ClientImportPhase.DISCOVERING
 
     def test_handle_script_progress_discovery_progress(self):
+        from apps.oa_filing.models import ClientImportPhase
+
         svc = self._make_service()
         with patch("apps.oa_filing.services.client_import_service.ClientImportSession") as mock_model:
             mock_model.objects.filter.return_value.update.return_value = None
@@ -283,8 +291,15 @@ class TestClientImportService:
                     "page": 2,
                 }
             )
+            kwargs = mock_model.objects.filter.return_value.update.call_args.kwargs
+        assert kwargs["phase"] == ClientImportPhase.DISCOVERING
+        assert kwargs["discovered_count"] == 10
+        assert "已发现 10 条" in kwargs["progress_message"]
+        assert svc._session.discovered_count == 10
 
     def test_handle_script_progress_discovery_completed(self):
+        from apps.oa_filing.models import ClientImportPhase
+
         svc = self._make_service()
         with patch("apps.oa_filing.services.client_import_service.ClientImportSession") as mock_model:
             mock_model.objects.filter.return_value.update.return_value = None
@@ -294,8 +309,15 @@ class TestClientImportService:
                     "total_count": 50,
                 }
             )
+            kwargs = mock_model.objects.filter.return_value.update.call_args.kwargs
+        assert kwargs["phase"] == ClientImportPhase.DISCOVERING
+        assert kwargs["total_count"] == 50
+        assert kwargs["discovered_count"] == 50
+        assert "共发现 50 条" in kwargs["progress_message"]
 
     def test_handle_script_progress_import_started(self):
+        from apps.oa_filing.models import ClientImportPhase
+
         svc = self._make_service()
         with patch("apps.oa_filing.services.client_import_service.ClientImportSession") as mock_model:
             mock_model.objects.filter.return_value.update.return_value = None
@@ -305,8 +327,15 @@ class TestClientImportService:
                     "total_count": 50,
                 }
             )
+            kwargs = mock_model.objects.filter.return_value.update.call_args.kwargs
+        assert kwargs["phase"] == ClientImportPhase.IMPORTING
+        assert kwargs["total_count"] == 50
+        assert kwargs["discovered_count"] == 50
+        assert "共 50 条" in kwargs["progress_message"]
 
     def test_handle_script_progress_import_progress(self):
+        from apps.oa_filing.models import ClientImportPhase
+
         svc = self._make_service()
         with patch("apps.oa_filing.services.client_import_service.ClientImportSession") as mock_model:
             mock_model.objects.filter.return_value.update.return_value = None
@@ -318,10 +347,18 @@ class TestClientImportService:
                     "name": "测试公司",
                 }
             )
+            kwargs = mock_model.objects.filter.return_value.update.call_args.kwargs
+        assert kwargs["phase"] == ClientImportPhase.IMPORTING
+        assert kwargs["total_count"] == 50
+        assert "(5/50)" in kwargs["progress_message"]
+        assert "测试公司" in kwargs["progress_message"]
 
     def test_handle_script_progress_unknown_event(self):
         svc = self._make_service()
-        svc._handle_script_progress({"event": "unknown"})
+        with patch("apps.oa_filing.services.client_import_service.ClientImportSession") as mock_model:
+            # 未知事件：所有分支都不匹配 → 不落库
+            assert svc._handle_script_progress({"event": "unknown"}) is None
+        mock_model.objects.filter.assert_not_called()
 
 
 # ── ImportResult ──────────────────────────────────────────────────────────────

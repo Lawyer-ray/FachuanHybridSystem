@@ -1,7 +1,8 @@
 """Tests for evidence/signals.py - post_delete file cleanup."""
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 
 @pytest.mark.django_db
@@ -12,8 +13,8 @@ class TestCleanupEvidenceItemFile:
         """Signal handler deletes EvidenceItem file."""
         from unittest.mock import patch as _patch
 
-        from apps.evidence.signals import cleanup_evidence_item_file
         from apps.evidence.models import EvidenceItem
+        from apps.evidence.signals import cleanup_evidence_item_file
 
         mock_file = MagicMock()
         mock_file.__bool__ = lambda self: True
@@ -31,22 +32,29 @@ class TestCleanupEvidenceItemFile:
 
     def test_handles_no_file(self):
         """Does nothing when file is None."""
-        from apps.evidence.signals import cleanup_evidence_item_file
+        from unittest.mock import patch as _patch
+
         from apps.evidence.models import EvidenceItem
+        from apps.evidence.signals import cleanup_evidence_item_file
 
         instance = MagicMock()
         instance.file = None
 
-        # Should not raise
-        cleanup_evidence_item_file(
-            sender=EvidenceItem,
-            instance=instance,
-        )
+        with (
+            _patch("apps.evidence.signals.transaction") as mock_txn,
+            _patch("apps.evidence.signals._delete_file") as mock_del,
+        ):
+            mock_txn.on_commit.side_effect = lambda fn: fn()
+            # Should not raise: on_commit 回调把 None 交给 _delete_file（其内部早退）
+            assert cleanup_evidence_item_file(sender=EvidenceItem, instance=instance) is None
+        mock_del.assert_called_once_with(None)
 
     def test_handles_delete_exception(self):
         """Catches exception from file.delete."""
-        from apps.evidence.signals import cleanup_evidence_item_file
+        from unittest.mock import patch as _patch
+
         from apps.evidence.models import EvidenceItem
+        from apps.evidence.signals import cleanup_evidence_item_file
 
         mock_file = MagicMock()
         mock_file.__bool__ = lambda self: True
@@ -55,11 +63,12 @@ class TestCleanupEvidenceItemFile:
         instance = MagicMock()
         instance.file = mock_file
 
-        # Should not raise
-        cleanup_evidence_item_file(
-            sender=EvidenceItem,
-            instance=instance,
-        )
+        # on_commit 立即执行，让异常路径真正被走到
+        with _patch("apps.evidence.signals.transaction") as mock_txn:
+            mock_txn.on_commit.side_effect = lambda fn: fn()
+            # Should not raise
+            assert cleanup_evidence_item_file(sender=EvidenceItem, instance=instance) is None
+        mock_file.delete.assert_called_once_with(save=False)
 
     def test_ignores_wrong_sender(self):
         """Signal handler ignores non-EvidenceItem senders."""
@@ -88,8 +97,8 @@ class TestCleanupEvidenceListMergedPdf:
         """Signal handler deletes EvidenceList merged_pdf."""
         from unittest.mock import patch as _patch
 
-        from apps.evidence.signals import cleanup_evidence_list_merged_pdf
         from apps.evidence.models import EvidenceList
+        from apps.evidence.signals import cleanup_evidence_list_merged_pdf
 
         mock_pdf = MagicMock()
         mock_pdf.__bool__ = lambda self: True
@@ -107,17 +116,22 @@ class TestCleanupEvidenceListMergedPdf:
 
     def test_handles_no_merged_pdf(self):
         """Does nothing when merged_pdf is None."""
-        from apps.evidence.signals import cleanup_evidence_list_merged_pdf
+        from unittest.mock import patch as _patch
+
         from apps.evidence.models import EvidenceList
+        from apps.evidence.signals import cleanup_evidence_list_merged_pdf
 
         instance = MagicMock()
         instance.merged_pdf = None
 
-        # Should not raise
-        cleanup_evidence_list_merged_pdf(
-            sender=EvidenceList,
-            instance=instance,
-        )
+        with (
+            _patch("apps.evidence.signals.transaction") as mock_txn,
+            _patch("apps.evidence.signals._delete_file") as mock_del,
+        ):
+            mock_txn.on_commit.side_effect = lambda fn: fn()
+            # Should not raise: 回调把 None 交给 _delete_file（内部早退）
+            assert cleanup_evidence_list_merged_pdf(sender=EvidenceList, instance=instance) is None
+        mock_del.assert_called_once_with(None)
 
     def test_ignores_wrong_sender(self):
         """Signal handler ignores non-EvidenceList senders."""
@@ -155,4 +169,5 @@ class TestDeleteFileHelper:
         """_delete_file handles None gracefully."""
         from apps.evidence.signals import _delete_file
 
-        _delete_file(None)  # Should not raise
+        # Should not raise: falsy 早退
+        assert _delete_file(None) is None
