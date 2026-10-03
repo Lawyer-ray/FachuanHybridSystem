@@ -4,6 +4,7 @@
 ABC、LoginMode、AuthorizationRequest 的 session 序列化往返、TempAuth.is_expired、
 SocialAccount.__str__。
 """
+
 from __future__ import annotations
 
 import pytest
@@ -20,7 +21,9 @@ from apps.social_auth.providers.base import (
 
 class TestProviderConfig:
     def test_frozen_dataclass(self) -> None:
-        config = ProviderConfig(name="test", display_name="Test", client_id="id", client_secret="secret")
+        config = ProviderConfig(
+            name="test", display_name="Test", client_id="id", client_secret="secret"
+        )  # pragma: allowlist secret
         assert config.name == "test"
         assert config.is_enabled is True
         assert config.extra == {}
@@ -28,19 +31,30 @@ class TestProviderConfig:
 
     def test_with_extra(self) -> None:
         config = ProviderConfig(
-            name="test", display_name="Test", client_id="id", client_secret="secret", is_enabled=False, extra={"key": "val"}
+            name="test",
+            display_name="Test",
+            client_id="id",
+            client_secret="secret",  # pragma: allowlist secret
+            is_enabled=False,
+            extra={"key": "val"},
         )
         assert config.is_enabled is False
         assert config.extra == {"key": "val"}
 
     def test_require_returns_value(self) -> None:
         config = ProviderConfig(
-            name="test", display_name="Test", client_id="id", client_secret="secret", extra={"redirect_uri": "http://x/cb"}
+            name="test",
+            display_name="Test",
+            client_id="id",
+            client_secret="secret",  # pragma: allowlist secret
+            extra={"redirect_uri": "http://x/cb"},
         )
         assert config.require("redirect_uri") == "http://x/cb"
 
     def test_require_missing_raises_readable_error(self) -> None:
-        config = ProviderConfig(name="feishu", display_name="飞书", client_id="id", client_secret="secret")
+        config = ProviderConfig(
+            name="feishu", display_name="飞书", client_id="id", client_secret="secret"
+        )  # pragma: allowlist secret
         with pytest.raises(ValueError, match="缺少必要配置"):
             config.require("redirect_uri")
 
@@ -56,7 +70,9 @@ class TestTokenResponse:
 
 class TestSocialProfile:
     def test_defaults(self) -> None:
-        profile = SocialProfile(provider="wechat", provider_user_id="123", email=None, display_name=None, avatar_url=None)
+        profile = SocialProfile(
+            provider="wechat", provider_user_id="123", email=None, display_name=None, avatar_url=None
+        )
         assert profile.email is None
         assert profile.avatar_url is None
         assert profile.raw_data == {}
@@ -137,7 +153,9 @@ class TestProviderRegistry:
                 return TokenResponse(access_token="t")
 
             def get_profile(self, token_response: TokenResponse) -> SocialProfile:
-                return SocialProfile(provider=name, provider_user_id="1", email=None, display_name=None, avatar_url=None)
+                return SocialProfile(
+                    provider=name, provider_user_id="1", email=None, display_name=None, avatar_url=None
+                )
 
         DynamicProvider.__name__ = f"{name.title()}Provider"
         return DynamicProvider
@@ -166,7 +184,9 @@ class TestProviderRegistry:
     def test_get_config_returns_cached(self) -> None:
         from apps.social_auth.providers import ProviderRegistry
 
-        config = ProviderConfig(name="fake", display_name="Fake", client_id="cid", client_secret="sec")
+        config = ProviderConfig(
+            name="fake", display_name="Fake", client_id="cid", client_secret="sec"
+        )  # pragma: allowlist secret
         ProviderRegistry._configs["fake"] = config
         assert ProviderRegistry.get_config("fake") is config
 
@@ -199,27 +219,33 @@ class TestProviderRegistry:
         ProviderRegistry.register("google")(self._make_provider("google"))
 
         feishu_prefix = PROVIDER_SPECS["feishu"]["prefix"]
-        SystemConfig.objects.bulk_create([
-            SystemConfig(key=f"{feishu_prefix}APP_ID", value="cli_f", category="social_auth", is_active=True),
-            SystemConfig(key=f"{feishu_prefix}APP_SECRET", value="sec-f", category="social_auth", is_active=True),
-            SystemConfig(key=f"{feishu_prefix}ENABLED", value="true", category="social_auth", is_active=True),
-        ])
+        SystemConfig.objects.bulk_create(
+            [
+                SystemConfig(key=f"{feishu_prefix}APP_ID", value="cli_f", category="social_auth", is_active=True),
+                SystemConfig(key=f"{feishu_prefix}APP_SECRET", value="sec-f", category="social_auth", is_active=True),
+                SystemConfig(key=f"{feishu_prefix}ENABLED", value="true", category="social_auth", is_active=True),
+            ]
+        )
         try:
             ProviderRegistry.load_configs()
             assert [item["name"] for item in ProviderRegistry.enabled_list()] == ["feishu"]
 
             # 运行中补上 Google 凭证（等同在 admin 里填完保存），走真实失效入口
             google_prefix = PROVIDER_SPECS["google"]["prefix"]
-            SystemConfig.objects.bulk_create([
-                SystemConfig(
-                    key=f"{google_prefix}APP_ID",
-                    value="cid.apps.googleusercontent.com",
-                    category="social_auth",
-                    is_active=True,
-                ),
-                SystemConfig(key=f"{google_prefix}APP_SECRET", value="sec-g", category="social_auth", is_active=True),
-                SystemConfig(key=f"{google_prefix}ENABLED", value="true", category="social_auth", is_active=True),
-            ])
+            SystemConfig.objects.bulk_create(
+                [
+                    SystemConfig(
+                        key=f"{google_prefix}APP_ID",
+                        value="cid.apps.googleusercontent.com",
+                        category="social_auth",
+                        is_active=True,
+                    ),
+                    SystemConfig(
+                        key=f"{google_prefix}APP_SECRET", value="sec-g", category="social_auth", is_active=True
+                    ),
+                    SystemConfig(key=f"{google_prefix}ENABLED", value="true", category="social_auth", is_active=True),
+                ]
+            )
             invalidate_provider_configs("SOCIAL_AUTH_GOOGLE_APP_ID")
 
             assert "google" in [item["name"] for item in ProviderRegistry.enabled_list()]
@@ -238,7 +264,13 @@ class TestProviderRegistry:
 
         rows = [
             SystemConfig(key=f"{prefix}APP_ID", value="cli_abc", category="social_auth", is_active=True),
-            SystemConfig(key=f"{prefix}APP_SECRET", value="fake-secret-placeholder", category="social_auth", is_active=True, is_secret=True),
+            SystemConfig(
+                key=f"{prefix}APP_SECRET",
+                value="fake-secret-placeholder",
+                category="social_auth",
+                is_active=True,
+                is_secret=True,
+            ),
             SystemConfig(
                 key=f"{prefix}REDIRECT_URI",
                 value="http://127.0.0.1:8002/social/feishu/callback/",
@@ -270,25 +302,27 @@ class TestProviderRegistry:
         prefix = PROVIDER_SPECS["feishu"]["prefix"]
 
         # 只配 enabled + redirect_uri，不填 App ID/Secret
-        SystemConfig.objects.bulk_create([
-            SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth", is_active=True),
-            SystemConfig(
-                key=f"{prefix}REDIRECT_URI",
-                value="http://127.0.0.1:8002/social/feishu/callback/",
-                category="social_auth",
-                is_active=True,
-            ),
-            # 共用分类里的凭证（IM 群聊用）
-            SystemConfig(key="FEISHU_APP_ID", value="cli_shared", category="feishu", is_active=True),
-            SystemConfig(
-                key="FEISHU_APP_SECRET", value="shared-secret-placeholder", category="feishu", is_active=True
-            ),
-        ])
+        SystemConfig.objects.bulk_create(
+            [
+                SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth", is_active=True),
+                SystemConfig(
+                    key=f"{prefix}REDIRECT_URI",
+                    value="http://127.0.0.1:8002/social/feishu/callback/",
+                    category="social_auth",
+                    is_active=True,
+                ),
+                # 共用分类里的凭证（IM 群聊用）
+                SystemConfig(key="FEISHU_APP_ID", value="cli_shared", category="feishu", is_active=True),
+                SystemConfig(
+                    key="FEISHU_APP_SECRET", value="shared-secret-placeholder", category="feishu", is_active=True
+                ),
+            ]
+        )
         try:
             config = ProviderRegistry._build_config("feishu")
             assert config is not None
             assert config.client_id == "cli_shared"
-            assert config.client_secret == "shared-secret-placeholder"
+            assert config.client_secret == "shared-secret-placeholder"  # pragma: allowlist secret
             assert config.is_enabled is True
         finally:
             SystemConfig.objects.filter(category="social_auth").delete()
@@ -303,18 +337,24 @@ class TestProviderRegistry:
         ProviderRegistry.register("feishu")(self._make_provider("feishu"))
         prefix = PROVIDER_SPECS["feishu"]["prefix"]
 
-        SystemConfig.objects.bulk_create([
-            SystemConfig(key=f"{prefix}APP_ID", value="cli_own", category="social_auth", is_active=True),
-            SystemConfig(key=f"{prefix}APP_SECRET", value="own-secret-placeholder", category="social_auth", is_active=True),
-            SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth", is_active=True),
-            SystemConfig(key="FEISHU_APP_ID", value="cli_shared", category="feishu", is_active=True),
-            SystemConfig(key="FEISHU_APP_SECRET", value="shared-secret-placeholder", category="feishu", is_active=True),
-        ])
+        SystemConfig.objects.bulk_create(
+            [
+                SystemConfig(key=f"{prefix}APP_ID", value="cli_own", category="social_auth", is_active=True),
+                SystemConfig(
+                    key=f"{prefix}APP_SECRET", value="own-secret-placeholder", category="social_auth", is_active=True
+                ),
+                SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth", is_active=True),
+                SystemConfig(key="FEISHU_APP_ID", value="cli_shared", category="feishu", is_active=True),
+                SystemConfig(
+                    key="FEISHU_APP_SECRET", value="shared-secret-placeholder", category="feishu", is_active=True
+                ),
+            ]
+        )
         try:
             config = ProviderRegistry._build_config("feishu")
             assert config is not None
             assert config.client_id == "cli_own"
-            assert config.client_secret == "own-secret-placeholder"
+            assert config.client_secret == "own-secret-placeholder"  # pragma: allowlist secret
         finally:
             SystemConfig.objects.filter(category="social_auth").delete()
             SystemConfig.objects.filter(category="feishu").delete()
@@ -331,13 +371,15 @@ class TestProviderRegistry:
 
         plaintext = "shared-secret-plain-text"
         encrypted = SecretCodec().encrypt(plaintext)
-        SystemConfig.objects.bulk_create([
-            SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth", is_active=True),
-            SystemConfig(key="FEISHU_APP_ID", value="cli_shared", category="feishu", is_active=True),
-            SystemConfig(
-                key="FEISHU_APP_SECRET", value=encrypted, category="feishu", is_active=True, is_secret=True
-            ),
-        ])
+        SystemConfig.objects.bulk_create(
+            [
+                SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth", is_active=True),
+                SystemConfig(key="FEISHU_APP_ID", value="cli_shared", category="feishu", is_active=True),
+                SystemConfig(
+                    key="FEISHU_APP_SECRET", value=encrypted, category="feishu", is_active=True, is_secret=True
+                ),
+            ]
+        )
         try:
             config = ProviderRegistry._build_config("feishu")
             assert config is not None
@@ -366,15 +408,20 @@ class TestProviderRegistry:
         encrypted = SecretCodec().encrypt(plaintext)
         assert encrypted != plaintext
 
-        SystemConfig.objects.bulk_create([
-            SystemConfig(
-                key=f"{prefix}APP_ID", value="cid.apps.googleusercontent.com", category="social_auth", is_active=True
-            ),
-            SystemConfig(
-                key=f"{prefix}APP_SECRET", value=encrypted, category="social_auth", is_active=True, is_secret=True
-            ),
-            SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth", is_active=True),
-        ])
+        SystemConfig.objects.bulk_create(
+            [
+                SystemConfig(
+                    key=f"{prefix}APP_ID",
+                    value="cid.apps.googleusercontent.com",
+                    category="social_auth",
+                    is_active=True,
+                ),
+                SystemConfig(
+                    key=f"{prefix}APP_SECRET", value=encrypted, category="social_auth", is_active=True, is_secret=True
+                ),
+                SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth", is_active=True),
+            ]
+        )
         try:
             config = ProviderRegistry._build_config("google")
             assert config is not None
@@ -408,10 +455,12 @@ class TestProviderRegistry:
 
         ProviderRegistry.register("feishu")(self._make_provider("feishu"))
         prefix = PROVIDER_SPECS["feishu"]["prefix"]
-        SystemConfig.objects.bulk_create([
-            SystemConfig(key=f"{prefix}APP_ID", value="cli_abc", category="social_auth"),
-            SystemConfig(key=f"{prefix}ENABLED", value="false", category="social_auth"),
-        ])
+        SystemConfig.objects.bulk_create(
+            [
+                SystemConfig(key=f"{prefix}APP_ID", value="cli_abc", category="social_auth"),
+                SystemConfig(key=f"{prefix}ENABLED", value="false", category="social_auth"),
+            ]
+        )
         try:
             config = ProviderRegistry._build_config("feishu")
             assert config is not None
@@ -461,7 +510,10 @@ class TestProviderRegistry:
             },
         )
         ProviderRegistry._configs["fake"] = ProviderConfig(
-            name="fake", display_name="Fake", client_id="cli_abc", client_secret="sec"
+            name="fake",
+            display_name="Fake",
+            client_id="cli_abc",
+            client_secret="sec",  # pragma: allowlist secret
         )
         result = ProviderRegistry.enabled_list()
         assert result[0]["name"] == "fake"
@@ -567,7 +619,9 @@ class TestSocialProviderABC:
                 return TokenResponse(access_token="")
 
             def get_profile(self, token_response: TokenResponse) -> SocialProfile:
-                return SocialProfile(provider="p", provider_user_id="42", email=None, display_name=None, avatar_url=None)
+                return SocialProfile(
+                    provider="p", provider_user_id="42", email=None, display_name=None, avatar_url=None
+                )
 
         provider = SyncProvider(ProviderConfig(name="p", display_name="P", client_id="", client_secret=""))
         profile = await provider.aget_profile(TokenResponse(access_token="t"))
@@ -607,8 +661,11 @@ class TestRegisteredProviders:
                 name="feishu",
                 display_name="飞书",
                 client_id="cli_abc",
-                client_secret="fake-secret-placeholder",
-                extra={"redirect_uri": "http://127.0.0.1:8002/social/feishu/callback/", "scope": "contact:user.base:readonly"},
+                client_secret="fake-secret-placeholder",  # pragma: allowlist secret
+                extra={
+                    "redirect_uri": "http://127.0.0.1:8002/social/feishu/callback/",
+                    "scope": "contact:user.base:readonly",
+                },
             )
         )
         client_config = provider.get_client_config()
@@ -644,7 +701,7 @@ class TestRegisteredProviders:
                 name="google",
                 display_name="Google",
                 client_id="cid.apps.googleusercontent.com",
-                client_secret="fake-secret-placeholder",
+                client_secret="fake-secret-placeholder",  # pragma: allowlist secret
                 extra={"redirect_uri": redirect_uri},
             )
         )
@@ -667,12 +724,14 @@ class TestRegisteredProviders:
                 name="google",
                 display_name="Google",
                 client_id="cid.apps.googleusercontent.com",
-                client_secret="fake-secret-placeholder",
+                client_secret="fake-secret-placeholder",  # pragma: allowlist secret
                 extra={"redirect_uri": "http://127.0.0.1:8002/social/google/callback/"},
             )
         )
         url = provider.get_authorization_url(
-            AuthorizationRequest(provider="google", state="s", redirect_uri="http://127.0.0.1:8002/social/google/callback/")
+            AuthorizationRequest(
+                provider="google", state="s", redirect_uri="http://127.0.0.1:8002/social/google/callback/"
+            )
         )
 
         assert "access_type" not in url
@@ -684,7 +743,9 @@ class TestRegisteredProviders:
         from apps.social_auth.providers.google import GoogleProvider
 
         provider = GoogleProvider(
-            ProviderConfig(name="google", display_name="Google", client_id="cid", client_secret="sec")
+            ProviderConfig(
+                name="google", display_name="Google", client_id="cid", client_secret="sec"
+            )  # pragma: allowlist secret
         )
         assert provider._scope() == "openid email profile"
 
@@ -692,9 +753,79 @@ class TestRegisteredProviders:
         from apps.social_auth.providers.google import GoogleProvider
 
         provider = GoogleProvider(
-            ProviderConfig(name="google", display_name="Google", client_id="cid", client_secret="sec", extra={"scope": "openid email"})
+            ProviderConfig(
+                name="google",
+                display_name="Google",
+                client_id="cid",
+                client_secret="sec",  # pragma: allowlist secret
+                extra={"scope": "openid email"},
+            )
         )
         assert provider._scope() == "openid email"
+
+    def test_github_registered_as_redirect(self) -> None:
+        from apps.social_auth.providers.github import GitHubProvider
+
+        # 整页跳转授权：前端按 login_mode 派发到 SocialRedirectPanel
+        assert GitHubProvider.login_mode == LoginMode.REDIRECT
+
+    def test_github_endpoints(self) -> None:
+        from apps.social_auth.providers.github import GitHubProvider
+
+        endpoints = GitHubProvider.ENDPOINTS
+        assert endpoints["authorize"] == "https://github.com/login/oauth/authorize"
+        assert endpoints["token"] == "https://github.com/login/oauth/access_token"
+        assert endpoints["userinfo"] == "https://api.github.com/user"
+        assert endpoints["emails"] == "https://api.github.com/user/emails"
+
+    def test_github_authorization_url_encodes_scope_and_redirect(self) -> None:
+        """scope 含空格与冒号、redirect_uri 含斜杠，都必须编码后拼进 URL。"""
+        from apps.social_auth.providers.github import GitHubProvider
+
+        redirect_uri = "http://127.0.0.1:8002/social/github/callback/"
+        provider = GitHubProvider(
+            ProviderConfig(
+                name="github",
+                display_name="GitHub",
+                client_id="Iv1.abc123",
+                client_secret="fake-secret-placeholder",  # pragma: allowlist secret
+                extra={"redirect_uri": redirect_uri},
+            )
+        )
+        url = provider.get_authorization_url(
+            AuthorizationRequest(provider="github", state="st-123", redirect_uri=redirect_uri)
+        )
+
+        assert " " not in url
+        assert "scope=read%3Auser%20user%3Aemail" in url
+        assert "redirect_uri=http%3A%2F%2F127.0.0.1%3A8002%2Fsocial%2Fgithub%2Fcallback%2F" in url
+        assert "state=st-123" in url
+        # 授权 URL 会进浏览器地址栏，绝不能带出密钥
+        assert "fake-secret-placeholder" not in url
+
+    def test_github_scope_falls_back_to_default(self) -> None:
+        from apps.social_auth.providers.github import GitHubProvider
+
+        provider = GitHubProvider(
+            ProviderConfig(
+                name="github", display_name="GitHub", client_id="cid", client_secret="sec"
+            )  # pragma: allowlist secret
+        )
+        assert provider._scope() == "read:user user:email"
+
+    def test_github_scope_from_extra(self) -> None:
+        from apps.social_auth.providers.github import GitHubProvider
+
+        provider = GitHubProvider(
+            ProviderConfig(
+                name="github",
+                display_name="GitHub",
+                client_id="cid",
+                client_secret="sec",  # pragma: allowlist secret
+                extra={"scope": "read:user"},
+            )
+        )
+        assert provider._scope() == "read:user"
 
 
 class TestModels:
@@ -720,7 +851,5 @@ class TestModels:
         from apps.social_auth.models import SocialAccount
 
         user = Lawyer.objects.create_user(username="soc_test_user", password="x")
-        account = SocialAccount.objects.create(
-            user=user, provider="feishu", provider_uid="ou_abc", display_name="张三"
-        )
+        account = SocialAccount.objects.create(user=user, provider="feishu", provider_uid="ou_abc", display_name="张三")
         assert str(account) == f"feishu:ou_abc → {user}"

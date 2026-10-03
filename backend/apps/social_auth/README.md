@@ -14,6 +14,7 @@
 | `providers/feishu.py` | 飞书自建应用（`embedded_qr`：授权页内嵌二维码） |
 | `providers/wechat.py` | 微信开放平台（`redirect`：整页跳转授权） |
 | `providers/google.py` | Google（`redirect`：整页跳转授权，OAuth 2.0 授权码 / OIDC） |
+| `providers/github.py` | GitHub（`redirect`：整页跳转授权，OAuth 2.0 授权码） |
 | `providers/__init__.py` | `ProviderRegistry` 注册表，import 时注册内置 Provider |
 | `models/social_account.py` | `SocialAccount`：一条记录 = 一个「律师 ↔ 某平台身份」绑定 |
 | `models/temp_auth.py` | `TempAuth`：一次性授权码，5 分钟过期，用完即删 |
@@ -80,7 +81,7 @@
 | 模式 | 表现 | 代表 |
 |---|---|---|
 | `embedded_qr` | 授权页内嵌在登录卡里显示二维码 | 飞书 |
-| `redirect` | 整页跳转到第三方授权页 | 微信、Google |
+| `redirect` | 整页跳转到第三方授权页 | 微信、Google、GitHub |
 
 新增 Provider 只需实现 `SocialProvider` 协议 + 在 `providers/__init__.py` 注册；
 前端按 `login_mode` 自动派发到 `SocialQrPanel` / `SocialRedirectPanel`，**不需要改前端分支结构**。
@@ -122,6 +123,10 @@
 | `SOCIAL_AUTH_GOOGLE_REDIRECT_URI` | 必须与 Console 里「已获授权的重定向 URI」**完全一致**（精确匹配、不支持通配符、含结尾斜杠）：`http://localhost:8002/social/google/callback/`。**host 必须与「浏览器访问前端的 host」一致**——cookie 区分 host、不区分端口，本项目其余配置统一用 `localhost`。正式域名必须 HTTPS（Google 仅对 `localhost` / `127.0.0.1` 放行 http） |
 | `SOCIAL_AUTH_GOOGLE_SCOPE` | `openid email profile`，空格分隔且必须以 `openid` 开头。全为非敏感范围，无需 Google 审核 |
 | `SOCIAL_AUTH_GOOGLE_ENABLED` | 同飞书 |
+| `SOCIAL_AUTH_GITHUB_APP_ID` / `_APP_SECRET` | GitHub → Settings → Developer settings → OAuth Apps 创建（免费、即时生效、无需审核），Client ID/Secret 填在此处。**没有可借的共用凭证，必须填**（留空则该入口自动隐藏） |
+| `SOCIAL_AUTH_GITHUB_REDIRECT_URI` | 必须与 OAuth App 登记的 Callback URL **完全一致**（精确匹配、含结尾斜杠）：`http://localhost:8002/social/github/callback/`。host 须与浏览器访问前端的 host 一致（cookie 区分 host）。GitHub 允许 `localhost` 的 http 回调（回环地址端口可不同），正式域名需 HTTPS |
+| `SOCIAL_AUTH_GITHUB_SCOPE` | `read:user user:email`，空格分隔。read:user 取昵称/头像，user:email 允许调 `/user/emails` 取私密邮箱（邮箱仅展示，身份判定用数字 id） |
+| `SOCIAL_AUTH_GITHUB_ENABLED` | 同飞书 |
 
 另需在 `backend/.env` 配 `FRONTEND_BASE_URL`（默认 `http://localhost:5090`），用于拼回调跳转地址与 CORS/CSRF 白名单。
 
@@ -219,6 +224,22 @@ borrowed 路径（有解密）；微信从未配置过；Google 必须用本分�
 现已统一走 `ProviderRegistry._decrypt_secret`（未加密的值原样返回、解密失败返回空串，
 绝不把密文当密钥用），`_build_config` 与 `_borrow_credentials` 共用，单测
 `test_own_secret_is_decrypted` 兜住。**新增 Provider 若使用本分类凭证，勿绕过这条路径。**
+
+### 9. GitHub：token 响应必须协商 JSON，身份键用数字 id
+
+1. token 端点（`github.com/login/oauth/access_token`）按请求头协商响应格式，
+   **必须带 `Accept: application/json`**，否则返回 `access_token=...&scope=...`
+   的 urlencoded 纯文本，`resp.json()` 直接抛解析异常。且 GitHub 对无效 code
+   可能返回 **HTTP 200 + error body**，不能只看状态码。
+2. 身份唯一键用数字 `id`。`login`（用户名）可以改名、`email` 可以更换或始终
+   私密——拿它们当唯一键会导致改名后登录身份漂移（与 Google 用 `sub` 同一原则）。
+3. 私密邮箱在 `/user` 里是 null，要单独调 `/user/emails` 取 primary（需
+   `user:email` scope）。邮箱只是展示信息，取不到不影响登录。
+4. 网络门槛同 Google 踩坑 6：**后端进程**要能访问 `github.com` /
+   `api.github.com`（httpx 读 `HTTPS_PROXY`，启动后端的终端先 `proxy_on`）；
+   **用户浏览器**要能打开 `github.com/login/oauth/authorize` 授权页。国内
+   直连 github 多数时间可达但间歇性超时，无出口代理的国内服务器上该登录方式
+   不保证可用。
 
 ---
 

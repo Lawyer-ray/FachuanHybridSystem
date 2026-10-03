@@ -8,6 +8,7 @@ import { useState, type ComponentType } from 'react'
 import type { SocialProviderInfo, SocialSession } from '../social-api'
 import { socialAuthApi } from '../social-api'
 import { spacedBrand } from '../social-format'
+import { GitHubIcon } from './GitHubIcon'
 import { GoogleIcon } from './GoogleIcon'
 
 /**
@@ -19,6 +20,7 @@ import { GoogleIcon } from './GoogleIcon'
  */
 const BRAND_MARKS: Record<string, ComponentType<{ size?: number }>> = {
   google: GoogleIcon,
+  github: GitHubIcon,
 }
 
 interface Props {

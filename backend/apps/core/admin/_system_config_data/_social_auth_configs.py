@@ -150,4 +150,52 @@ def get_social_auth_configs() -> list[dict[str, Any]]:
             "value": "true",
             "is_secret": False,
         },
+        # ============ GitHub 登录 ============
+        {
+            "key": "SOCIAL_AUTH_GITHUB_APP_ID",
+            "category": "social_auth",
+            "description": (
+                "GitHub OAuth App 的 Client ID。在 GitHub → Settings → Developer settings → OAuth Apps → "
+                "New OAuth App 创建（免费、即时生效、无需审核）；未配置则登录页不显示 GitHub 入口"
+            ),
+            "value": "",
+            "is_secret": False,
+        },
+        {
+            "key": "SOCIAL_AUTH_GITHUB_APP_SECRET",
+            "category": "social_auth",
+            "description": "GitHub OAuth App 的 Client Secret（生成时仅显示一次，请勿泄露）",
+            "value": "",
+            "is_secret": True,
+        },
+        {
+            "key": "SOCIAL_AUTH_GITHUB_REDIRECT_URI",
+            "category": "social_auth",
+            "description": (
+                # 注意：SystemConfig.description 是 varchar(255)，必须控制在 255 字符内
+                "GitHub 授权回调地址。必须与 OAuth App 登记的 Callback URL 完全一致（精确匹配、含结尾斜杠），"
+                "且为后端可达地址，host 与浏览器访问前端的 host 一致，"
+                "例如 http://localhost:8002/social/github/callback/。GitHub 允许 localhost 的 http 回调，"
+                "正式域名需 HTTPS。"
+            ),
+            "value": "http://localhost:8002/social/github/callback/",
+            "is_secret": False,
+        },
+        {
+            "key": "SOCIAL_AUTH_GITHUB_SCOPE",
+            "category": "social_auth",
+            "description": (
+                "授权范围，空格分隔。read:user 取昵称与头像，user:email 取私密邮箱"
+                "（邮箱仅作展示，账号识别用不可变的数字 id，不依赖邮箱）"
+            ),
+            "value": "read:user user:email",
+            "is_secret": False,
+        },
+        {
+            "key": "SOCIAL_AUTH_GITHUB_ENABLED",
+            "category": "social_auth",
+            "description": "是否启用 GitHub 登录（填 false 可临时下线该登录方式）",
+            "value": "true",
+            "is_secret": False,
+        },
     ]
