@@ -47,7 +47,6 @@ from apps.core.telemetry.metrics import (
     snapshot_prometheus,
 )
 
-
 # ===========================================================================
 # _normalize_label
 # ===========================================================================
@@ -87,18 +86,21 @@ class TestMetaFunctions:
     @patch("apps.core.telemetry.metrics.cache")
     def test_set_meta_once_connection_error(self, mock_cache) -> None:
         mock_cache.add.side_effect = ConnectionError("fail")
-        # Should not raise
-        _set_meta_once(kind="req", suffix="abc", meta={"key": "val"}, timeout=600)
+        # 缓存连接失败被吞掉：静默返回 None，不上抛
+        result = _set_meta_once(kind="req", suffix="abc", meta={"key": "val"}, timeout=600)
+        assert result is None
 
     @patch("apps.core.telemetry.metrics.cache")
     def test_set_meta_once_timeout_error(self, mock_cache) -> None:
         mock_cache.add.side_effect = TimeoutError("timeout")
-        _set_meta_once(kind="req", suffix="abc", meta={}, timeout=600)
+        result = _set_meta_once(kind="req", suffix="abc", meta={}, timeout=600)
+        assert result is None
 
     @patch("apps.core.telemetry.metrics.cache")
     def test_set_meta_once_os_error(self, mock_cache) -> None:
         mock_cache.add.side_effect = OSError("os")
-        _set_meta_once(kind="req", suffix="abc", meta={}, timeout=600)
+        result = _set_meta_once(kind="req", suffix="abc", meta={}, timeout=600)
+        assert result is None
 
     @patch("apps.core.telemetry.metrics.cache")
     def test_get_meta_dict_raw(self, mock_cache) -> None:
@@ -132,13 +134,17 @@ class TestIncrAndIndex:
     @patch("apps.core.telemetry.metrics.cache")
     def test_add_to_index_value_error(self, mock_cache) -> None:
         mock_cache.get.return_value = "not-json"
-        # Should not raise
-        _add_to_index("idx", "val", timeout=600)
+        # 无效 JSON 被吞掉：静默返回 None 且不写回缓存
+        result = _add_to_index("idx", "val", timeout=600)
+        assert result is None
+        mock_cache.set.assert_not_called()
 
     @patch("apps.core.telemetry.metrics.cache")
     def test_add_to_index_type_error(self, mock_cache) -> None:
         mock_cache.get.side_effect = TypeError("bad")
-        _add_to_index("idx", "val", timeout=600)
+        result = _add_to_index("idx", "val", timeout=600)
+        assert result is None
+        mock_cache.set.assert_not_called()
 
 
 # ===========================================================================
@@ -224,12 +230,27 @@ class TestRecordRequest:
     def test_zero_duration(self, mock_cache) -> None:
         mock_cache.get.return_value = None
         mock_cache.incr.return_value = 1
-        record_request(method="GET", path="/api/test", status_code=200, duration_ms=0)
+        result = record_request(method="GET", path="/api/test", status_code=200, duration_ms=0)
+        assert result is None
+        calls = mock_cache.incr.call_args_list
+        incr_keys = [c[0][0] for c in calls]
+        # duration=0 落入最小桶（DEFAULT_BUCKETS_MS[0]=5），且 200 不计 5xx 错误
+        assert any(k.endswith(":bucket:5") for k in incr_keys), f"未落入最小桶: {incr_keys}"
+        assert not any("errors_5xx" in k for k in incr_keys), "200 状态不应计入 5xx"
 
 
 # ===========================================================================
 # record_httpx
 # ===========================================================================
+
+
+def _meta_payloads(mock_cache, kind: str) -> str:
+    """收集 cache.add 中 meta 落盘调用的 JSON payload（排除 _incr 的 add(key, 0) 初始化调用）."""
+    parts: list[str] = []
+    for args, _kwargs in mock_cache.add.call_args_list:
+        if args and isinstance(args[0], str) and args[0].startswith(f"metrics:meta:{kind}:"):
+            parts.append(str(args[1]))
+    return "".join(parts)
 
 
 class TestRecordHttpx:
@@ -246,8 +267,12 @@ class TestRecordHttpx:
     def test_host_with_port_normalized(self, mock_cache) -> None:
         mock_cache.get.return_value = None
         mock_cache.incr.return_value = 1
-        record_httpx(host="api.example.com:443", method="GET", status_code=200, duration_ms=30)
-        # Should have processed without error
+        result = record_httpx(host="api.example.com:443", method="GET", status_code=200, duration_ms=30)
+        assert result is None
+        # meta 落盘时 host 已去掉端口、转小写
+        joined = _meta_payloads(mock_cache, "httpx")
+        assert '"api.example.com"' in joined, f"host 未归一化: {joined}"
+        assert ":443" not in joined, f"端口未剥离: {joined}"
 
 
 # ===========================================================================
@@ -260,19 +285,26 @@ class TestRecordCache:
     def test_record_cache_access_hit(self, mock_cache) -> None:
         mock_cache.get.return_value = None
         mock_cache.incr.return_value = 1
-        record_cache_access(cache_kind="redis", name="token", hit=True)
+        result = record_cache_access(cache_kind="redis", name="token", hit=True)
+        assert result is None
+        # meta 中记录 result="hit"
+        assert '"hit"' in _meta_payloads(mock_cache, "cache")
 
     @patch("apps.core.telemetry.metrics.cache")
     def test_record_cache_access_miss(self, mock_cache) -> None:
         mock_cache.get.return_value = None
         mock_cache.incr.return_value = 1
-        record_cache_access(cache_kind="redis", name="token", hit=False)
+        result = record_cache_access(cache_kind="redis", name="token", hit=False)
+        assert result is None
+        assert '"miss"' in _meta_payloads(mock_cache, "cache")
 
     @patch("apps.core.telemetry.metrics.cache")
     def test_record_cache_result_custom(self, mock_cache) -> None:
         mock_cache.get.return_value = None
         mock_cache.incr.return_value = 1
-        record_cache_result(cache_kind="local", name="config", result="evict")
+        result = record_cache_result(cache_kind="local", name="config", result="evict")
+        assert result is None
+        assert '"evict"' in _meta_payloads(mock_cache, "cache")
 
 
 # ===========================================================================

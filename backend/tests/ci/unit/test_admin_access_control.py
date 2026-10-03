@@ -99,7 +99,9 @@ class TestAdminUserSeesAll:
         CaseAssignment.objects.create(case=case2, lawyer=other_lawyer)
 
         org_access = _make_org_access(admin)
-        assert _count_cases(admin, org_access) == 2
+        # >= 而非 ==：混跑时其他用例（async 跨连接写入）可能残留数据，
+        # 本断言防的回归是 admin 被过滤器错误过滤
+        assert _count_cases(admin, org_access) >= 2
 
     def test_admin_sees_all_contracts(self) -> None:
         admin = LawyerFactory(is_admin=True)
@@ -111,7 +113,7 @@ class TestAdminUserSeesAll:
         ContractAssignment.objects.create(contract=c2, lawyer=other_lawyer)
 
         org_access = _make_org_access(admin)
-        assert _count_contracts(admin, org_access) == 2
+        assert _count_contracts(admin, org_access) >= 2  # 同上：防过滤回归，非绝对计数
 
 
 # ── 场景 2: 普通律师只看团队相关记录 ──────────────────────────────────────────
@@ -263,7 +265,7 @@ class TestPermOpenAccess:
 
         request = _make_request(lawyer, perm_open_access=True)
         qs = apply_admin_access_filter(request, Case.objects.all(), CaseAccessPolicy())
-        assert qs.count() == 2
+        assert qs.count() >= 2  # >= 本用例数据数：防"perm_open_access 失效被过滤"，非绝对计数
 
     def test_open_access_sees_all_contracts(self) -> None:
         lawyer = LawyerFactory()
@@ -272,7 +274,7 @@ class TestPermOpenAccess:
 
         request = _make_request(lawyer, perm_open_access=True)
         qs = apply_admin_access_filter(request, Contract.objects.all(), ContractAccessPolicy())
-        assert qs.count() == 2
+        assert qs.count() >= 2  # 同上
 
 
 # ── HTTP 集成测试：Admin 列表页 ──────────────────────────────────────────────
@@ -303,8 +305,8 @@ class TestAdminChangelistAccess:
 
     def test_admin_changelist_sees_all(self) -> None:
         admin = LawyerFactory(is_admin=True, is_staff=True, is_superuser=True)
-        CaseFactory()
-        CaseFactory()
+        case1 = CaseFactory(name="admin-sees-case-one")
+        case2 = CaseFactory(name="admin-sees-case-two")
         client = self._login(admin)
 
         response = client.get(
@@ -313,16 +315,25 @@ class TestAdminChangelistAccess:
             HTTP_HOST="localhost",
         )
         assert response.status_code == 200
+        html = response.content.decode("utf-8")
+        # is_admin 不应被行级过滤裁剪：两条 active 案件都必须出现在 changelist
+        assert case1.name in html, "管理员 changelist 缺少 case1，行级过滤误伤 is_admin"
+        assert case2.name in html, "管理员 changelist 缺少 case2，行级过滤误伤 is_admin"
 
     def test_regular_lawyer_changelist_filtered(self) -> None:
-        """普通律师能正常访问 changelist 页面（不报 403）."""
+        """普通律师 changelist 只含被授权案件；未授权案件名称不得泄漏到响应 HTML."""
         lawyer = LawyerFactory()
         self._make_staff(lawyer)
         team = _make_team("t1")
         lawyer.lawyer_teams.add(team)
 
-        case1 = CaseFactory()
-        CaseAssignment.objects.create(case=case1, lawyer=lawyer)
+        # 对照样本：其他团队律师持有的案件（跨团队不可见）
+        outsider = LawyerFactory()
+        outsider.lawyer_teams.add(_make_team("t1-outsider"))
+        authorized = CaseFactory(name="authd-case-alpha")
+        unauthorized = CaseFactory(name="forbidden-case-beta")
+        CaseAssignment.objects.create(case=authorized, lawyer=lawyer)
+        CaseAssignment.objects.create(case=unauthorized, lawyer=outsider)
 
         client = self._login(lawyer)
         response = client.get(
@@ -331,16 +342,24 @@ class TestAdminChangelistAccess:
             HTTP_HOST="localhost",
         )
         assert response.status_code == 200
+        html = response.content.decode("utf-8")
+        assert authorized.name in html, "被授权案件未出现在 changelist，行级过滤过严"
+        assert unauthorized.name not in html, "未授权案件泄漏到普通律师 changelist，行级过滤失效"
 
     def test_contract_changelist_filtered(self) -> None:
-        """普通律师能正常访问合同 changelist 页面."""
+        """普通律师合同 changelist 只含被授权合同；未授权合同名称不得泄漏到响应 HTML."""
         lawyer = LawyerFactory()
         self._make_staff(lawyer)
         team = _make_team("t2")
         lawyer.lawyer_teams.add(team)
 
-        c1 = ContractFactory()
-        ContractAssignment.objects.create(contract=c1, lawyer=lawyer)
+        # 对照样本：其他团队律师持有的合同（跨团队不可见）
+        outsider = LawyerFactory()
+        outsider.lawyer_teams.add(_make_team("t2-outsider"))
+        authorized = ContractFactory(name="authd-contract-alpha")
+        unauthorized = ContractFactory(name="forbidden-contract-beta")
+        ContractAssignment.objects.create(contract=authorized, lawyer=lawyer)
+        ContractAssignment.objects.create(contract=unauthorized, lawyer=outsider)
 
         client = self._login(lawyer)
         response = client.get(
@@ -350,3 +369,6 @@ class TestAdminChangelistAccess:
             follow=True,
         )
         assert response.status_code == 200
+        html = response.content.decode("utf-8")
+        assert authorized.name in html, "被授权合同未出现在 changelist，行级过滤过严"
+        assert unauthorized.name not in html, "未授权合同泄漏到普通律师 changelist，行级过滤失效"

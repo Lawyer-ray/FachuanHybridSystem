@@ -19,8 +19,9 @@ class TestAccessPolicy:
 
         admin = MagicMock()
         admin.is_staff = True
-        # Should not raise
-        ensure_can_access_project(user=admin, project=MagicMock())
+        # 管理员放行：静默通过（无 PermissionDenied 即通过）
+        result = ensure_can_access_project(user=admin, project=MagicMock())
+        assert result is None
 
     def test_no_user_raises(self) -> None:
         from apps.chat_records.services.core.access_policy import ensure_can_access_project
@@ -50,8 +51,9 @@ class TestAccessPolicy:
         user.id = 42
         project = MagicMock()
         project.created_by_id = 42
-        # Should not raise
-        ensure_can_access_project(user=user, project=project)
+        # 创建人放行：静默通过（无 PermissionDenied 即通过）
+        result = ensure_can_access_project(user=user, project=project)
+        assert result is None
 
     def test_non_owner_raises(self) -> None:
         from apps.chat_records.services.core.access_policy import ensure_can_access_project

@@ -11,11 +11,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from apps.core.exceptions import ValidationException
-from apps.core.services.storage_service import (
-    ALLOWED_EXTENSIONS,
-    ALLOWED_MIME_TYPES,
-    validate_file,
-)
+from apps.core.services.storage_service import ALLOWED_EXTENSIONS, ALLOWED_MIME_TYPES, validate_file
 
 
 class TestValidateFile:
@@ -28,23 +24,23 @@ class TestValidateFile:
 
     def test_valid_pdf(self):
         f = self._make_file()
-        validate_file(f)  # should not raise
+        assert validate_file(f) is None  # 静默通过
 
     def test_valid_jpg(self):
         f = self._make_file(name="photo.jpg", content_type="image/jpeg")
-        validate_file(f)
+        assert validate_file(f) is None
 
     def test_valid_png(self):
         f = self._make_file(name="image.png", content_type="image/png")
-        validate_file(f)
+        assert validate_file(f) is None
 
     def test_valid_docx(self):
         f = self._make_file(name="report.docx", content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-        validate_file(f)
+        assert validate_file(f) is None
 
     def test_valid_doc(self):
         f = self._make_file(name="report.doc", content_type="application/msword")
-        validate_file(f)
+        assert validate_file(f) is None
 
     def test_file_too_large(self):
         f = self._make_file(size=20 * 1024 * 1024 + 1)
@@ -54,7 +50,7 @@ class TestValidateFile:
 
     def test_file_exactly_max_size(self):
         f = self._make_file(size=20 * 1024 * 1024)
-        validate_file(f)
+        assert validate_file(f) is None  # 恰好等于上限：边界放行
 
     def test_invalid_extension(self):
         f = self._make_file(name="script.exe", content_type="application/octet-stream")
@@ -90,11 +86,11 @@ class TestValidateFile:
 
     def test_zero_size(self):
         f = self._make_file(size=0)
-        validate_file(f)
+        assert validate_file(f) is None  # 0 字节不触发大小校验
 
     def test_uppercase_extension_treated_as_lowercase(self):
         f = self._make_file(name="test.PDF", content_type="application/pdf")
-        validate_file(f)
+        assert validate_file(f) is None  # 大小写扩展名归一化后放行
 
 
 class TestStorageServiceConstants:

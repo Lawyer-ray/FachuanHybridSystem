@@ -74,7 +74,7 @@ def test_can_delete_client_false(mock_perm, policy: ClientAccessPolicy) -> None:
 @patch.object(ClientAccessPolicy, "has_perm", return_value=True)
 def test_ensure_can_create_client_passes(mock_perm, policy: ClientAccessPolicy) -> None:
     """有权限时不抛出异常。"""
-    policy.ensure_can_create_client(_user())
+    assert policy.ensure_can_create_client(_user()) is None
 
 
 @patch.object(ClientAccessPolicy, "has_perm", return_value=False)
@@ -87,7 +87,7 @@ def test_ensure_can_create_client_raises(mock_perm, policy: ClientAccessPolicy) 
 @patch.object(ClientAccessPolicy, "has_perm", return_value=True)
 def test_ensure_can_update_client_passes(mock_perm, policy: ClientAccessPolicy) -> None:
     """有权限时不抛出异常。"""
-    policy.ensure_can_update_client(_user())
+    assert policy.ensure_can_update_client(_user()) is None
 
 
 @patch.object(ClientAccessPolicy, "has_perm", return_value=False)
@@ -100,7 +100,7 @@ def test_ensure_can_update_client_raises(mock_perm, policy: ClientAccessPolicy) 
 @patch.object(ClientAccessPolicy, "has_perm", return_value=True)
 def test_ensure_can_delete_client_passes(mock_perm, policy: ClientAccessPolicy) -> None:
     """有权限时不抛出异常。"""
-    policy.ensure_can_delete_client(_user())
+    assert policy.ensure_can_delete_client(_user()) is None
 
 
 @patch.object(ClientAccessPolicy, "has_perm", return_value=False)
