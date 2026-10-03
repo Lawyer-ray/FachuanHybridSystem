@@ -70,7 +70,10 @@ class DaolvSifaSongdaScraper(BaseCourtDocumentScraper):  # pragma: no cover
         if captcha_recognizer is None:
             from apps.automation.services.scraper.core.captcha_recognizer import get_captcha_recognizer
 
-            self.captcha_recognizer = get_captcha_recognizer(task=self.task)
+            # is-not-None 收窄：无私有 plugins 环境下 stub 将该名置为 None（识别能力不可用）
+            self.captcha_recognizer = (
+                get_captcha_recognizer(task=self.task) if get_captcha_recognizer is not None else None
+            )
         else:
             self.captcha_recognizer = captcha_recognizer
 

@@ -7,17 +7,6 @@ Documents Services 模块
 import importlib
 from typing import Any
 
-__all__ = [
-    "FolderTemplateService",
-    "FolderTemplateAdminService",
-    "DocumentTemplateService",
-    "PlaceholderService",
-    "PlaceholderAdminService",
-    "GenerationService",
-    "ContractGenerationService",
-    "PDFMergeService",
-]
-
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "FolderTemplateService": ("apps.documents.services.template.folder_service", "FolderTemplateService"),
     "FolderTemplateAdminService": (
@@ -37,6 +26,9 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "PlaceholderService": ("apps.documents.services.placeholders.placeholder_service", "PlaceholderService"),
     "DocumentTemplateService": ("apps.documents.services.template.template_service", "DocumentTemplateService"),
 }
+
+# __all__ 由 _LAZY_EXPORTS 派生（单一事实源；静态列举会与 __getattr__ 懒加载脱节）
+__all__ = list(_LAZY_EXPORTS)
 
 
 def __getattr__(name: str) -> Any:
