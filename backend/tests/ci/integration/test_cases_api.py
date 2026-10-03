@@ -99,6 +99,8 @@ def test_search_cases_empty_query(authenticated_client):
     _make_case()
     resp = authenticated_client.get("/api/v1/cases/cases/search", {"q": ""})
     assert resp.status_code == 200
+    # 空关键词搜索必须返回空列表（不允许退化为全量列表泄露数据）
+    assert resp.json() == []
 
 
 @pytest.mark.django_db
@@ -436,6 +438,12 @@ def test_upload_log_attachments(authenticated_client):
     upload = SimpleUploadedFile("证据.pdf", b"%PDF-1.4", content_type="application/pdf")
     resp = authenticated_client.post(f"/api/v1/cases/logs/{log.id}/attachments", {"files": upload})
     assert resp.status_code == 200
+    # 上传成功必须落库 1 条附件记录，且响应返回附件列表
+    from apps.cases.models import CaseLogAttachment
+
+    data = resp.json()
+    assert isinstance(data, list) and len(data) == 1
+    assert CaseLogAttachment.objects.filter(log=log).count() == 1
 
 
 # ===================================================================
@@ -633,6 +641,11 @@ def test_calculate_litigation_fee_with_preservation(authenticated_client):
         content_type="application/json",
     )
     assert resp.status_code == 200
+    data = resp.json()
+    # 财产保全金额 > 0 时，保全费必须被计算且为正数；受理费同理
+    assert data["acceptance_fee"] is not None and data["acceptance_fee"] > 0
+    assert data["preservation_fee"] is not None and data["preservation_fee"] > 0
+    assert data["calculation_details"]
 
 
 # ===================================================================
@@ -645,6 +658,8 @@ def test_get_folder_binding_empty(authenticated_client):
     case = _make_case()
     resp = authenticated_client.get(f"/api/v1/cases/{case.id}/folder-binding")
     assert resp.status_code == 200
+    # 未绑定的案件必须返回 null（而非错误体或伪造绑定）
+    assert resp.json() is None
 
 
 @pytest.mark.django_db
@@ -666,8 +681,24 @@ def test_browse_folders(authenticated_client):
 
 @pytest.mark.django_db
 def test_cloud_storage_accounts(authenticated_client):
+    from apps.cloud_storage.models import CloudStorageAccount
+
+    active = CloudStorageAccount.objects.create(
+        name="审计用活跃账号", storage_type=CloudStorageAccount.StorageType.LOCAL, is_active=True
+    )
+    CloudStorageAccount.objects.create(
+        name="审计用停用账号", storage_type=CloudStorageAccount.StorageType.LOCAL, is_active=False
+    )
     resp = authenticated_client.get("/api/v1/cases/cloud-storage-accounts")
     assert resp.status_code == 200
+    data = resp.json()
+    # 只返回启用账号，且必须携带绑定所需的字段
+    assert isinstance(data, list)
+    names = [a["name"] for a in data]
+    assert "审计用活跃账号" in names
+    assert "审计用停用账号" not in names
+    active_entry = next(a for a in data if a["id"] == active.id)
+    assert active_entry["storage_type"] == "local"
 
 
 # ===================================================================
@@ -680,6 +711,11 @@ def test_get_case_template_bindings(authenticated_client):
     case = _make_case()
     resp = authenticated_client.get(f"/api/v1/cases/{case.id}/template-bindings")
     assert resp.status_code == 200
+    # 响应必须是分组信封结构（categories/total_count），而非裸数组/空体
+    data = resp.json()
+    assert isinstance(data, dict)
+    assert isinstance(data["categories"], list)
+    assert data["total_count"] == 0
 
 
 @pytest.mark.django_db

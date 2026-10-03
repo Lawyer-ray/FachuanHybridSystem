@@ -8,7 +8,6 @@ import pytest
 
 from apps.workbench.models import WorkbenchSession
 
-
 # ===================================================================
 # Session CRUD
 # ===================================================================
@@ -91,14 +90,23 @@ def test_delete_session(authenticated_client):
 
 @pytest.mark.django_db
 def test_list_messages(authenticated_client):
+    from apps.workbench.models import WorkbenchMessage
+
     create_resp = authenticated_client.post(
         "/api/v1/workbench/sessions",
         data=json.dumps({"title": "消息测试会话"}),
         content_type="application/json",
     )
     session_id = create_resp.json()["id"]
+    WorkbenchMessage.objects.create(session_id=session_id, role=WorkbenchMessage.Role.USER, content="审计锚点消息")
     resp = authenticated_client.get(f"/api/v1/workbench/sessions/{session_id}/messages")
     assert resp.status_code == 200
+    # 消息列表必须返回分页信封，且含本用例造的消息锚点
+    data = resp.json()
+    assert isinstance(data["items"], list)
+    assert data["count"] == 1
+    assert data["items"][0]["content"] == "审计锚点消息"
+    assert data["items"][0]["role"] == "user"
 
 
 # ===================================================================
@@ -146,3 +154,7 @@ def test_list_batch_jobs(authenticated_client):
     session_id = create_resp.json()["id"]
     resp = authenticated_client.get(f"/api/v1/workbench/sessions/{session_id}/batch-jobs")
     assert resp.status_code == 200
+    # 批量任务列表必须返回分页信封（新建会话无任务 → 空列表）
+    data = resp.json()
+    assert isinstance(data["items"], list)
+    assert data["count"] == 0
