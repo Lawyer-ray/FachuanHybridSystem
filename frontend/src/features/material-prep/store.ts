@@ -7,6 +7,7 @@ import {
   applyPageSelection,
   appendMatsToDraft,
   buildInitialDraft,
+  ensureSegIds,
   flatRefs,
   isSelectionContiguous,
   pageIndexOf,
@@ -54,6 +55,8 @@ interface ReaderState {
 
   open: (id: number) => Promise<void>
   close: () => void
+  /** 全局重置（登出时调用）：清空阅读器全部状态并释放缓存，丢弃未落盘的防抖保存 */
+  resetAll: () => void
   /** 不可变更新 draft，并防抖保存到后端 */
   update: (fn: (d: DraftState) => DraftState) => void
   setPickInfo: (i: number) => void
@@ -157,7 +160,8 @@ export const useReader = create<ReaderState>((set, get) => ({
       const ds = detail.draft_state
       // 未拆过的包 draft_state 是 {}（无 segs 键），只有存过草稿才有有效分段
       const hasStored = !!ds && 'segs' in ds && ds.segs.length > 0
-      const draft = hasStored ? (ds as DraftState) : buildInitialDraft(detail, mats)
+      // 存量草稿的段可能没有 id（id 是后加的字段），读取时兜底补齐
+      const draft = hasStored ? ensureSegIds(ds as DraftState) : buildInitialDraft(detail, mats)
       set({ detail, draft, status: 'ready' })
     } catch (e) {
       if (get().openId !== id) return
@@ -192,6 +196,33 @@ export const useReader = create<ReaderState>((set, get) => ({
         assignOpen: false,
       })
     }, READER_CLOSE_MS)
+  },
+
+  resetAll: () => {
+    // 取消未落盘的防抖保存：登出后 token 已清，保存只会报错；草稿按丢弃处理
+    if (saveTimer) {
+      clearTimeout(saveTimer)
+      saveTimer = null
+    }
+    latestDraft = null
+    clearPdfDocuments()
+    clearBytesCache()
+    set({
+      openId: null,
+      detail: null,
+      draft: null,
+      status: 'idle',
+      error: '',
+      closing: false,
+      pickInfo: -1,
+      zoom: 1,
+      cols: 1,
+      selMode: false,
+      selPages: [],
+      lastAnchor: -1,
+      ocrPending: null,
+      assignOpen: false,
+    })
   },
 
   update: (fn) => {

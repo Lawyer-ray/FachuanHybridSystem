@@ -50,10 +50,15 @@ export async function getPdfSplitJob(jobId: string): Promise<PdfSplitJobPayload>
  * 按关键字模糊检索当事人。
  * isOurClient 限定范围：委托人传 true（我方当事人）、对方当事人传 false。
  */
-export async function searchClients(keyword: string, isOurClient: boolean): Promise<ClientHit[]> {
+export async function searchClients(
+  keyword: string,
+  isOurClient: boolean,
+  signal?: AbortSignal,
+): Promise<ClientHit[]> {
   return clientApi
     .get('parties/search', {
       searchParams: { keyword, is_our_client: isOurClient ? 'true' : 'false' },
+      signal,
     })
     .json<ClientHit[]>()
 }
@@ -133,9 +138,9 @@ export async function ocrImage(image: Blob): Promise<OcrResult> {
 /** 搜索真实案件（归案 modal 用）；模块级建一次客户端，避免每次检索重复 create */
 const coreApi = createApiClient() // prefix = API_BASE_URL(/api/v1)
 
-export async function searchCases(q: string): Promise<CaseRow[]> {
+export async function searchCases(q: string, signal?: AbortSignal): Promise<CaseRow[]> {
   if (!q.trim()) return []
-  return coreApi.get('cases/search', { searchParams: { q, limit: '10' } }).json<CaseRow[]>()
+  return coreApi.get('cases/search', { searchParams: { q, limit: '10' }, signal }).json<CaseRow[]>()
 }
 
 const bytesCache = new Map<string, Promise<ArrayBuffer>>()

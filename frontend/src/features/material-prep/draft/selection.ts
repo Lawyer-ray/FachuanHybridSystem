@@ -1,5 +1,6 @@
 import type { DraftState, PageKey, Segment } from '../types'
 import { matLabel, segMats } from './labels'
+import { nextSegId } from './seg-id'
 
 /**
  * 选页 → 独立 / 合并 / 删除编排。所有运算基于「扁平页序」，保证跨段连续性判定一致。
@@ -63,16 +64,18 @@ export function splitOutPages(d: DraftState, picked: PageKey[]): DraftState {
   const k1 = slice[slice.length - 1]!.k
   if (k0 === 0 && k1 === sg.refs.length - 1) return d // 这就是整份材料
   const parts: Segment[] = []
+  // 头部沿用原段 id（它顶替原段的位置），切出的新段与尾段各自取新 id
   if (k0 > 0)
-    parts.push({ t: sg.t, fn: sg.fn, refs: sg.refs.slice(0, k0), manual: sg.manual })
+    parts.push({ id: sg.id, t: sg.t, fn: sg.fn, refs: sg.refs.slice(0, k0), manual: sg.manual })
   parts.push({
+    id: nextSegId(),
     t: '',
     fn: splitBase(sg, d.mats) + '-P' + picked[0]!.p + splitExt(sg),
     refs: picked,
     manual: true,
   })
   if (k1 < sg.refs.length - 1)
-    parts.push({ t: sg.t, fn: sg.fn, refs: sg.refs.slice(k1 + 1), manual: sg.manual })
+    parts.push({ id: nextSegId(), t: sg.t, fn: sg.fn, refs: sg.refs.slice(k1 + 1), manual: sg.manual })
   const segs = [...d.segs.slice(0, si), ...parts, ...d.segs.slice(si + 1)]
   return { ...d, segs }
 }
@@ -86,7 +89,7 @@ export function mergePagesIntoNew(d: DraftState, picked: PageKey[]): DraftState 
     const refs = sg.refs.filter((r) => !taken.has(`${r.mi}:${r.p}`))
     if (refs.length) segs.push({ ...sg, refs })
   }
-  segs.push({ t: '', fn: '合并材料.pdf', refs: picked, manual: true })
+  segs.push({ id: nextSegId(), t: '', fn: '合并材料.pdf', refs: picked, manual: true })
   return { ...d, segs }
 }
 

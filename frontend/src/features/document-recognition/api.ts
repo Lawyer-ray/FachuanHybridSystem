@@ -41,8 +41,8 @@ export async function revokeDate(taskId: number, candidateId: number): Promise<v
 }
 
 /** 搜索可绑定案件（本域自有的 search-cases 端点） */
-export async function searchCasesForBinding(q: string): Promise<CaseSearchItem[]> {
+export async function searchCasesForBinding(q: string, signal?: AbortSignal): Promise<CaseSearchItem[]> {
   return documentRecognitionApi
-    .get('court-document/search-cases', { searchParams: { q, limit: 10 } })
+    .get('court-document/search-cases', { searchParams: { q, limit: 10 }, signal })
     .json<CaseSearchItem[]>()
 }

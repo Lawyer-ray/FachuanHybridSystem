@@ -78,7 +78,7 @@ export function Rail({
                 const whole = isWholeMat(draft, si)
                 return (
                   <button
-                    key={si}
+                    key={sg.id}
                     type="button"
                     onClick={() => onFocusSeg(si)}
                     className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-left hover:bg-secondary"
@@ -114,7 +114,7 @@ export function Rail({
               const sg = draft.segs[si]!
               return (
                 <button
-                  key={si}
+                  key={sg.id}
                   type="button"
                   onClick={() => onFocusSeg(si)}
                   className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-left hover:bg-secondary"

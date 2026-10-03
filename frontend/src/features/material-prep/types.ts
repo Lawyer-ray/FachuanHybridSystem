@@ -23,6 +23,8 @@ export interface PageKey {
 
 /** 一段材料 */
 export interface Segment {
+  /** 稳定标识：列表 key 用。split/merge/删页后数组索引会漂移，不能用 si 当 key（会错绑状态） */
+  id: string
   t: string
   fn: string
   refs: PageKey[]

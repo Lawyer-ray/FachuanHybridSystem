@@ -133,8 +133,12 @@ export interface CaseSearchItem {
   parties: string[]
 }
 
-export async function searchCasesForAssign(q: string, limit = 10): Promise<CaseSearchItem[]> {
+export async function searchCasesForAssign(
+  q: string,
+  limit = 10,
+  signal?: AbortSignal,
+): Promise<CaseSearchItem[]> {
   return caseSearchApi
-    .get('court-document/search-cases', { searchParams: { q, limit: String(limit) } })
+    .get('court-document/search-cases', { searchParams: { q, limit: String(limit) }, signal })
     .json<CaseSearchItem[]>()
 }

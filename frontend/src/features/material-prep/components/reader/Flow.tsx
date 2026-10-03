@@ -124,7 +124,7 @@ export function Flow({
         const firstMat = seg.refs.length ? mats[seg.refs[0]!.mi] : undefined
         return (
           <section
-            key={si}
+            key={seg.id}
             id={`seg-${si}`}
             className={`mp-seg flex flex-col gap-1.5 transition-opacity ${focused ? '' : 'opacity-95'}`}
           >

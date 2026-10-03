@@ -20,8 +20,8 @@ function fixture(): DraftState {
       { partIndex: 1, n: '证据.pdf', k: 'pdf', pages: 2 },
     ],
     segs: [
-      { t: '起诉状', fn: '起诉状.pdf', refs: [{ mi: 0, p: 1 }, { mi: 0, p: 2 }, { mi: 0, p: 3 }], manual: false },
-      { t: '证据', fn: '证据.pdf', refs: [{ mi: 1, p: 1 }, { mi: 1, p: 2 }], manual: false },
+      { id: 'seg-a', t: '起诉状', fn: '起诉状.pdf', refs: [{ mi: 0, p: 1 }, { mi: 0, p: 2 }, { mi: 0, p: 3 }], manual: false },
+      { id: 'seg-b', t: '证据', fn: '证据.pdf', refs: [{ mi: 1, p: 1 }, { mi: 1, p: 2 }], manual: false },
     ],
     infos: [],
   }

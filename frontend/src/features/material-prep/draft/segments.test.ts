@@ -17,6 +17,7 @@ import {
   splitSegment,
   toggleSegDone,
 } from './segments'
+import { ensureSegIds } from './seg-id'
 
 function fixture(): DraftState {
   return {
@@ -25,8 +26,8 @@ function fixture(): DraftState {
       { partIndex: 1, n: '证据.pdf', k: 'pdf', pages: 2 },
     ],
     segs: [
-      { t: '起诉状', fn: '起诉状.pdf', refs: [{ mi: 0, p: 1 }, { mi: 0, p: 2 }, { mi: 0, p: 3 }], manual: false },
-      { t: '证据', fn: '证据.pdf', refs: [{ mi: 1, p: 1 }, { mi: 1, p: 2 }], manual: true },
+      { id: 'seg-a', t: '起诉状', fn: '起诉状.pdf', refs: [{ mi: 0, p: 1 }, { mi: 0, p: 2 }, { mi: 0, p: 3 }], manual: false },
+      { id: 'seg-b', t: '证据', fn: '证据.pdf', refs: [{ mi: 1, p: 1 }, { mi: 1, p: 2 }], manual: true },
     ],
     infos: [],
   }
@@ -71,6 +72,46 @@ describe('mergeSegment', () => {
     // 前段 manual=false，后段 manual=true → 合并后人工
     expect(d.segs[0]!.manual).toBe(true)
     expect(mergeSegment(d0, 0)).toBe(d0) // si=0 不可并入
+  })
+})
+
+describe('段 id 稳定性', () => {
+  it('splitSegment：前半段沿用原段 id，新段拿到与全部既有段不重复的唯一 id', () => {
+    const d0 = fixture()
+    const d = splitSegment(d0, 0, 1)
+    expect(d.segs[0]!.id).toBe(d0.segs[0]!.id)
+    expect(d.segs[1]!.id).not.toBe(d0.segs[0]!.id)
+    const ids = d.segs.map((sg) => sg.id)
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it('mergeSegment：合并结果保留前段 id；先切后并 id 仍全局唯一', () => {
+    const d0 = fixture()
+    const split = splitSegment(d0, 0, 1)
+    const merged = mergeSegment(split, 1)
+    expect(merged.segs[0]!.id).toBe(d0.segs[0]!.id)
+    const ids = merged.segs.map((sg) => sg.id)
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it('resetSegments：重新生成的初始分段 id 唯一', () => {
+    const d = resetSegments(fixture())
+    const ids = d.segs.map((sg) => sg.id)
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it('ensureSegIds：存量无 id 草稿兜底补齐，已有 id 的原样保留', () => {
+    const legacy = {
+      ...fixture(),
+      segs: fixture().segs.map(({ id: _id, ...sg }) => sg),
+    } as unknown as DraftState
+    const d = ensureSegIds(legacy)
+    expect(d.segs.every((sg) => typeof sg.id === 'string' && sg.id)).toBe(true)
+    const ids = d.segs.map((sg) => sg.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    // 已有 id 的草稿返回原引用，不重复赋 id
+    const d0 = fixture()
+    expect(ensureSegIds(d0)).toBe(d0)
   })
 })
 
