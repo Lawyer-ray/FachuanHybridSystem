@@ -20,10 +20,9 @@ import json
 import uuid
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
-
 
 # ==================== Exceptions ====================
 
@@ -277,10 +276,10 @@ class TestReviewService:
     @patch("apps.contract_review.services.review.review_service.TitleExtractor")
     @patch("apps.contract_review.services.review.review_service.PartyIdentifier")
     @patch("apps.contract_review.services.review.review_service.ContentExtractor")
-    @patch("apps.contract_review.services.review.review_service.settings")
+    @patch("apps.contract_review.services.review.review_service.to_media_abs")
     def test_upload_contract_success(
         self,
-        mock_settings,
+        mock_to_media_abs,
         mock_extractor_cls,
         mock_party_id_cls,
         mock_title_extractor_cls,
@@ -292,7 +291,7 @@ class TestReviewService:
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            mock_settings.MEDIA_ROOT = tmpdir
+            mock_to_media_abs.side_effect = lambda _saved: Path(tmpdir) / "saved.docx"
             mock_storage.save.side_effect = lambda rel, f: rel
 
             mock_file = MagicMock()
@@ -314,20 +313,22 @@ class TestReviewService:
             task = service.upload_contract(mock_file, user, model_name="gpt-4")
             assert task.contract_title == "测试合同"
             assert task.party_a == "A公司"
+            # 落库协议：original_file 存 media 相对路径
+            assert task.original_file.startswith("contract_review/uploads/")
 
     @patch("apps.contract_review.services.review.review_service.default_storage")
     @patch("apps.contract_review.services.review.review_service.PartyIdentifier")
     @patch("apps.contract_review.services.review.review_service.ContentExtractor")
-    @patch("apps.contract_review.services.review.review_service.settings")
+    @patch("apps.contract_review.services.review.review_service.to_media_abs")
     def test_upload_contract_extraction_error(
-        self, mock_settings, mock_extractor_cls, mock_party_id_cls, mock_storage, service, user
+        self, mock_to_media_abs, mock_extractor_cls, mock_party_id_cls, mock_storage, service, user
     ):
-        from apps.contract_review.services.exceptions import ExtractionError
-
         import tempfile
 
+        from apps.contract_review.services.exceptions import ExtractionError
+
         with tempfile.TemporaryDirectory() as tmpdir:
-            mock_settings.MEDIA_ROOT = tmpdir
+            mock_to_media_abs.side_effect = lambda _saved: Path(tmpdir) / "saved.docx"
             mock_storage.save.side_effect = lambda rel, f: rel
 
             mock_file = MagicMock()
@@ -377,8 +378,8 @@ class TestReviewService:
         assert result == mock_task
 
     def test_get_result_file_success(self, service):
-        import tempfile
         import os
+        import tempfile
 
         with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
             f.write(b"test")
@@ -387,7 +388,11 @@ class TestReviewService:
             mock_task = SimpleNamespace(status="completed", output_file=tmp_path)
             service._repository = MagicMock()
             service._repository.get_by_id_required.return_value = mock_task
-            result = service.get_result_file(uuid.uuid4())
+            with patch(
+                "apps.contract_review.services.review.review_service.to_media_abs",
+                return_value=Path(tmp_path),
+            ):
+                result = service.get_result_file(uuid.uuid4())
             assert result.exists()
         finally:
             os.unlink(tmp_path)
@@ -477,13 +482,13 @@ class TestPartyIdentifier:
         assert result.get("party_d") == "D公司"
 
     def test_find_party_method(self):
-        from apps.contract_review.services.review.party_identifier import PartyIdentifier, _PARTY_PATTERNS
+        from apps.contract_review.services.review.party_identifier import _PARTY_PATTERNS, PartyIdentifier
 
         result = PartyIdentifier._find_party("甲方：测试公司", _PARTY_PATTERNS["party_a"])
         assert result == "测试公司"
 
     def test_find_party_no_match(self):
-        from apps.contract_review.services.review.party_identifier import PartyIdentifier, _PARTY_PATTERNS
+        from apps.contract_review.services.review.party_identifier import _PARTY_PATTERNS, PartyIdentifier
 
         result = PartyIdentifier._find_party("无匹配文字", _PARTY_PATTERNS["party_a"])
         assert result == ""

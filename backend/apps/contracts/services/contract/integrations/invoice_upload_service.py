@@ -21,11 +21,12 @@ class InvoiceUploadService:
     def save_invoice_file(self, uploaded_file: Any, payment_id: int) -> Invoice:  # pragma: no cover
         """保存发票文件并创建 Invoice 记录。文件保存失败时抛出异常，不创建 DB 记录。"""
         from apps.contracts.models import Invoice
+        from apps.core.filesystem.upload_paths import MediaEntity
 
         try:
             rel_path, original_filename = storage.save_uploaded_file(
                 uploaded_file=uploaded_file,
-                rel_dir=f"contracts/invoices/{payment_id}",
+                rel_dir=f"{MediaEntity.CONTRACT_INVOICES}/{payment_id}",
                 allowed_extensions=_ALLOWED_EXTENSIONS,
                 max_size_bytes=_MAX_SIZE_BYTES,
                 use_uuid_name=True,

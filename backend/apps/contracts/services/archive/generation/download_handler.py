@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from io import BytesIO
-from pathlib import Path
 from typing import Any
 
 from apps.contracts.models import Contract
@@ -153,14 +152,16 @@ def _is_item_by_name(contract: Contract, archive_item_code: str, name_keyword: s
 
 def _read_material_file(material: FinalizedMaterial) -> dict[str, Any]:
     """读取单个材料文件的内容。"""
-    from django.conf import settings as django_settings
+    from apps.core.exceptions import ValidationException
+    from apps.core.services.storage_service import to_media_abs
 
     if not material.file_path:
         return {"error": f"文件路径缺失: {material.original_filename}"}
 
-    file_path = Path(material.file_path)
-    if not file_path.is_absolute():
-        file_path = Path(django_settings.MEDIA_ROOT) / file_path
+    try:
+        file_path = to_media_abs(material.file_path)
+    except ValidationException as e:
+        return {"error": f"文件路径无效: {material.original_filename} ({e.message})"}
 
     if not file_path.exists():
         return {"error": f"文件不存在: {material.original_filename}"}
@@ -187,7 +188,9 @@ def _merge_materials_to_pdf(
 ) -> dict[str, Any]:  # pragma: no cover
     """将多个材料文件合并为一个 PDF。"""
     import pymupdf as fitz  # PyMuPDF
-    from django.conf import settings as django_settings
+
+    from apps.core.exceptions import ValidationException
+    from apps.core.services.storage_service import to_media_abs
 
     merged_doc = fitz.open()
     filenames: list[str] = []
@@ -200,9 +203,11 @@ def _merge_materials_to_pdf(
                 logger.warning("合并时文件路径缺失: %s", material.original_filename)
                 continue
 
-            file_path = Path(material.file_path)
-            if not file_path.is_absolute():
-                file_path = Path(django_settings.MEDIA_ROOT) / file_path
+            try:
+                file_path = to_media_abs(material.file_path)
+            except ValidationException as e:
+                logger.warning("合并时文件路径无效: %s (%s)", material.original_filename, e.message)
+                continue
 
             if not file_path.exists():
                 logger.warning("合并时文件不存在: %s", material.original_filename)
@@ -225,7 +230,7 @@ def _merge_materials_to_pdf(
                     try:
                         pdf_path.unlink(missing_ok=True)
                     except OSError:
-                        pass
+                        logger.debug("清理合并用临时PDF失败（已忽略）: path=%s", pdf_path, exc_info=True)
 
         if len(merged_doc) == 0:
             return {"error": "没有可合并的文件"}

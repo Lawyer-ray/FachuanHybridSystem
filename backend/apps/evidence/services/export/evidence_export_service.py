@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -15,13 +16,15 @@ from docx.shared import Cm
 from docxtpl import DocxTemplate
 
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.exceptions.error_codes import TEMPLATE_RENDER_ERROR
 from apps.core.services.filename_template_service import FilenameTemplateService
 from apps.documents.services.placeholders.fallback import build_docx_render_context
 from apps.evidence.models import EvidenceItem, EvidenceList
-from apps.core.exceptions.error_codes import TEMPLATE_RENDER_ERROR
 
 if TYPE_CHECKING:
     from apps.core.interfaces import IEvidenceListPlaceholderService
+
+logger = logging.getLogger(__name__)
 
 
 class EvidenceExportService:
@@ -57,7 +60,9 @@ class EvidenceExportService:
             self._placeholder_service = get_evidence_list_placeholder_service()
         return self._placeholder_service
 
-    def export_evidence_list_with_template(self, list_id: int, template_id: int | None = None) -> tuple[bytes, str]:  # pragma: no cover
+    def export_evidence_list_with_template(
+        self, list_id: int, template_id: int | None = None
+    ) -> tuple[bytes, str]:  # pragma: no cover
         """
         使用模板导出证据清单
 
@@ -158,11 +163,7 @@ class EvidenceExportService:
         Raises:
             NotFoundError: 模板不存在
         """
-        from apps.documents.models import (
-            DocumentCaseFileSubType,
-            DocumentTemplate,
-            DocumentTemplateType,
-        )
+        from apps.documents.models import DocumentCaseFileSubType, DocumentTemplate, DocumentTemplateType
 
         try:
             return DocumentTemplate.objects.get(
@@ -495,7 +496,12 @@ class EvidenceExportService:
                     item.file.seek(0)
                     zf.writestr(arc_name, item.file.read())
                 except (TypeError, ValueError):
-                    pass
+                    logger.warning(
+                        "导出证据 ZIP 时写入证据文件失败（已忽略，该文件将缺失）: item_id=%s arc_name=%s",
+                        item.id,
+                        arc_name,
+                        exc_info=True,
+                    )
 
         buf.seek(0)
         version = evidence_list.export_version

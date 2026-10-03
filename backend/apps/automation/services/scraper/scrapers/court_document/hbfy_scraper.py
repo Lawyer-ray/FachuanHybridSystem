@@ -172,6 +172,7 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
         try:
             return uuid, base64.b64decode(img_base64)
         except Exception:
+            logger.debug("解析公开验证码图片失败（已忽略）", exc_info=True)
             return None
 
     def _find_public_sms_info_with_captcha(self, session: requests.Session, msg: str) -> dict[str, Any]:
@@ -313,6 +314,7 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
                 if page.locator("button:has-text('下载全部')").count() > 0:
                     return
             except Exception:
+                logger.debug("尝试自动识别公开验证码失败（已忽略）", exc_info=True)
                 continue
 
     def _try_expect_download(self, selector: str, download_dir: Path, prefix: str) -> str | None:  # pragma: no cover
@@ -330,4 +332,5 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
             logger.info("湖北免账号下载成功: %s", filepath)
             return str(filepath)
         except Exception:
+            logger.debug("尝试免登录下载文书失败（已忽略）", exc_info=True)
             return None

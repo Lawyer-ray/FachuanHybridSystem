@@ -1,38 +1,41 @@
 """Business logic services."""
 
+from __future__ import annotations
+
+import io
 import logging
 import uuid
 import zipfile
 
-from apps.core.utils.path import Path
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+
 from apps.image_rotation.services import storage
 
 logger = logging.getLogger("apps.image_rotation")
 
 
-def generate_zip(*, processed_images: list[tuple[str, bytes, str]], output_dir: Path) -> str:  # pragma: no cover
+def generate_zip(*, processed_images: list[tuple[str, bytes, str]]) -> str:  # pragma: no cover
     zip_filename = storage.build_zip_filename()
-    zip_path = output_dir / zip_filename
 
-    try:
-        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            used_names: dict[str, int] = {}
-            for filename, image_bytes, _img_format in processed_images:
-                unique_filename = _get_unique_filename(filename, used_names)
-                zf.writestr(unique_filename, image_bytes)
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        used_names: dict[str, int] = {}
+        for filename, image_bytes, _img_format in processed_images:
+            unique_filename = _get_unique_filename(filename, used_names)
+            zf.writestr(unique_filename, image_bytes)
 
-        logger.info(
-            "ZIP 文件生成成功",
-            extra={
-                "zip_path": str(zip_path),
-                "file_count": len(processed_images),
-            },
-        )
-        return storage.to_media_url(zip_filename)
-    except Exception:
-        if zip_path.exists():
-            zip_path.unlink()
-        raise
+    rel_path = storage.export_rel_path(zip_filename)
+    default_storage.save(rel_path, ContentFile(buffer.getvalue()))
+
+    logger.info(
+        "ZIP 文件生成成功",
+        extra={
+            "rel_path": rel_path,
+            "file_count": len(processed_images),
+        },
+    )
+    return storage.to_media_url(zip_filename)
 
 
 def _get_unique_filename(filename: str, used_names: dict[str, int]) -> str:

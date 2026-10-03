@@ -4,7 +4,11 @@
 「一张网收件箱 / 庭审日程」适配器由 plugins/message_hub/services/court/ 提供。
 """
 
+import logging
+
 from django.apps import AppConfig
+
+logger = logging.getLogger(__name__)
 
 
 class MessageHubConfig(AppConfig):
@@ -21,4 +25,4 @@ class MessageHubConfig(AppConfig):
             with allow_startup_db():
                 _register_schedule()
         except Exception:
-            pass
+            logger.warning("注册 message_hub 定时任务调度失败（已忽略）", exc_info=True)

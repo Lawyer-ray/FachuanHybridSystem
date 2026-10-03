@@ -186,21 +186,19 @@ class BaseScraper:
         """
         截图（用于调试）
 
+        调试产物不入 media，落系统 tempfile 目录。
+
         Args:
             name: 截图文件名
 
         Returns:
             截图文件路径
         """
+        import tempfile
         from pathlib import Path
 
-        from django.conf import settings
-
-        screenshot_dir = Path(settings.MEDIA_ROOT) / "automation" / "screenshots"
-        screenshot_dir.mkdir(parents=True, exist_ok=True)
-
         filename = f"{name}_{self.task.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.png"
-        filepath = screenshot_dir / filename
+        filepath = Path(tempfile.gettempdir()) / filename
 
         assert self.page is not None, "浏览器页面未初始化，请先调用 execute()"
         self.page.screenshot(path=str(filepath))

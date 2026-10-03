@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 from collections import OrderedDict
 from typing import Any
 
 from django.core.cache import cache
+
+logger = logging.getLogger(__name__)
 
 SIMILARITY_CACHE_PREFIX = "legal_research:similarity"
 SIMILARITY_PROMPT_VERSION = "v2-structured"
@@ -145,6 +148,7 @@ class SimilarityCacheManager:
         try:
             cache.set(cache_key, payload, timeout=self._cache_ttl)
         except Exception:
+            logger.debug("写入相似度结果缓存失败（已忽略）", exc_info=True)
             return
 
     def _read_local(self, cache_key: str) -> Any | None:  # pragma: no cover
@@ -199,6 +203,7 @@ class SemanticVectorCacheManager:
         try:
             payload = cache.get(cache_key)
         except Exception:
+            logger.debug("读取语义向量缓存失败（已忽略）", exc_info=True)
             return None
         if isinstance(payload, list) and payload:
             vector = coerce_float_list(payload)
@@ -212,4 +217,5 @@ class SemanticVectorCacheManager:
         try:
             cache.set(cache_key, vector, timeout=self._cache_ttl)
         except Exception:
+            logger.debug("写入语义向量缓存失败（已忽略）", exc_info=True)
             pass

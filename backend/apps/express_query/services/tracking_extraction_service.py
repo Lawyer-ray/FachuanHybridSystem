@@ -104,10 +104,12 @@ class TrackingExtractionService:
                 try:
                     new_doc.close()
                 except Exception:
+                    logger.debug("关闭 PDF 文档失败（已忽略）", exc_info=True)
                     pass
                 try:
                     doc.close()
                 except (TypeError, ValueError):
+                    logger.debug("关闭原 PDF 文档失败（已忽略）", exc_info=True)
                     pass
         except Exception as exc:
             logger.warning("PDF 截断失败（不影响后续流程）: %s", exc)

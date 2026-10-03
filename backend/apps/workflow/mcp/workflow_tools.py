@@ -174,8 +174,35 @@ async def get_workflow_detail(run_id: int) -> dict[str, Any]:
     }
 
 
+def _find_gate_step(steps_schema: Any, current_step_id: str) -> dict[str, Any] | None:
+    """从模板 steps_schema 中定位当前等待审批的 gate 步骤定义。"""
+    if not current_step_id or not isinstance(steps_schema, list):
+        return None
+    for step in steps_schema:
+        if isinstance(step, dict) and step.get("id") == current_step_id and step.get("type") == "gate":
+            return step
+    return None
+
+
+def _resolve_signal_key(step: dict[str, Any]) -> str:
+    """解析 gate 步骤的审批信号名。
+
+    兼容两种表达：step 顶层 signal_key（种子模板 / StepConfigIn）与
+    config.signal_key（步骤注册表 config_schema）；缺省回退通用 gate_approved。
+    """
+    raw = step.get("signal_key") or ""
+    if not raw:
+        cfg = step.get("config")
+        raw = cfg.get("signal_key", "") if isinstance(cfg, dict) else ""
+    return str(raw) or "gate_approved"
+
+
 async def approve_workflow_step(run_id: int, approved: bool, comment: str = "") -> dict[str, Any]:
     """审批诉讼工作流中的待确认步骤
+
+    信号名优先取模板 gate 步骤配置的 signal_key，缺省回退通用 gate_approved。
+    发送前校验目标 workflow 注册了该信号（WORKFLOW_SIGNAL_HANDLERS），
+    未注册的信号会被 Temporal 静默丢弃，必须明确报错而非假成功。
 
     Args:
         run_id: 工作流运行 ID
@@ -183,16 +210,27 @@ async def approve_workflow_step(run_id: int, approved: bool, comment: str = "") 
         comment: 审批意见（可选）
     """
     from apps.workflow.models import WorkflowRun
+    from apps.workflow.temporal.workflows import WORKFLOW_SIGNAL_HANDLERS
 
     try:
-        run = await WorkflowRun.objects.aget(pk=run_id)
+        run = await WorkflowRun.objects.select_related("template").aget(pk=run_id)
     except WorkflowRun.DoesNotExist:
         return {"error": f"工作流运行 #{run_id} 不存在"}
 
     if run.status != WorkflowRun.Status.WAITING_HUMAN:
         return {"error": f"当前状态为 {run.status}，无需审批"}
 
-    signal_key = "gate_approved"
+    step_schema = _find_gate_step(run.template.steps_schema, run.current_step_id)
+    if step_schema is None:
+        return {"error": f"模板步骤中不存在待审批的 gate 步骤 {run.current_step_id!r}，无法确定审批信号"}
+
+    signal_key = _resolve_signal_key(step_schema)
+    workflow_name = run.template.temporal_workflow_name
+    if signal_key not in WORKFLOW_SIGNAL_HANDLERS.get(workflow_name, frozenset()):
+        return {
+            "error": f"工作流 {workflow_name} 未注册审批信号 {signal_key}（步骤 {run.current_step_id}），已拒绝审批"
+        }
+
     signal_data = {"approved": approved, "step_id": run.current_step_id, "comment": comment}
 
     try:
@@ -210,6 +248,7 @@ async def approve_workflow_step(run_id: int, approved: bool, comment: str = "") 
     return {
         "run_id": run_id,
         "step_id": run.current_step_id,
+        "signal_key": signal_key,
         "action": "approved" if approved else "rejected",
         "message": f"已{'通过' if approved else '拒绝'}审批",
     }

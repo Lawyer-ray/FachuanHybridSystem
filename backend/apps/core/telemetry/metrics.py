@@ -76,6 +76,7 @@ def _set_meta_once(*, kind: str, suffix: str, meta: dict[str, Any], timeout: int
     try:
         cache.add(key, json.dumps(meta, ensure_ascii=False, separators=(",", ":")), timeout=timeout)
     except (ConnectionError, TimeoutError, OSError):
+        logger.debug("写入指标元数据缓存失败（已忽略）: key=%s", key, exc_info=True)
         return
 
 
@@ -129,6 +130,7 @@ def _add_to_index(index_key: str, value: str, *, timeout: int) -> None:
             items = items[-200:]
         cache.set(index_key, json.dumps(items, ensure_ascii=False), timeout=timeout)
     except (ValueError, TypeError, KeyError, ConnectionError, TimeoutError, OSError):
+        logger.debug("更新指标索引缓存失败（已忽略）: key=%s", index_key, exc_info=True)
         return
 
 

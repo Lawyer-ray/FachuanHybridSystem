@@ -185,6 +185,70 @@ class TestDynamicWorkflowGateApprovedSignalRouting:
         assert dw._pending_gates["x"].approved is True
 
 
+class TestDynamicWorkflowNamedGateSignals:
+    """confirm_facts_approved / review_complaint_approved 与 gate_approved 行为等价。"""
+
+    @pytest.mark.asyncio
+    async def test_confirm_facts_approved_routes_by_step_id(self):
+        dw = DynamicWorkflow()
+        await dw.confirm_facts_approved({"step_id": "confirm_facts", "approved": True, "comment": "ok"})
+        gate = dw._pending_gates["confirm_facts"]
+        assert gate.approved is True
+        assert gate.comment == "ok"
+
+    @pytest.mark.asyncio
+    async def test_review_complaint_approved_routes_by_step_id(self):
+        dw = DynamicWorkflow()
+        await dw.review_complaint_approved({"step_id": "review_complaint", "approved": False, "comment": "redo"})
+        gate = dw._pending_gates["review_complaint"]
+        assert gate.approved is False
+        assert gate.comment == "redo"
+
+    @pytest.mark.asyncio
+    async def test_named_signal_overrides_gate_approved_same_step(self):
+        dw = DynamicWorkflow()
+        await dw.gate_approved({"step_id": "g1", "approved": False})
+        await dw.confirm_facts_approved({"step_id": "g1", "approved": True, "comment": "override"})
+        assert dw._pending_gates["g1"].approved is True
+        assert dw._pending_gates["g1"].comment == "override"
+
+    @pytest.mark.asyncio
+    async def test_named_signal_default_step_id(self):
+        dw = DynamicWorkflow()
+        await dw.review_complaint_approved({"approved": True})
+        assert "" in dw._pending_gates
+        assert dw._pending_gates[""].approved is True
+
+    def test_current_state_reports_named_signal_gate(self):
+        dw = DynamicWorkflow()
+        dw._pending_gates["confirm_facts"] = GateResult(approved=True, comment="named")
+        state = dw.current_state()
+        assert state["pending_gates"]["confirm_facts"]["comment"] == "named"
+
+
+class TestWorkflowSignalHandlersRegistry:
+    """WORKFLOW_SIGNAL_HANDLERS 与类上声明的 @workflow.signal handler 保持一致。"""
+
+    def test_registry_covers_registered_workflows(self):
+        from apps.workflow.temporal.workflows import WORKFLOW_SIGNAL_HANDLERS
+
+        assert WORKFLOW_SIGNAL_HANDLERS["DynamicWorkflow"] == frozenset(
+            {"gate_approved", "confirm_facts_approved", "review_complaint_approved"}
+        )
+        assert WORKFLOW_SIGNAL_HANDLERS["SalesContractDisputeWorkflow"] == frozenset(
+            {"confirm_facts_approved", "review_complaint_approved"}
+        )
+
+    def test_every_registered_signal_has_callable_handler(self):
+        from apps.workflow.temporal.workflows import WORKFLOW_SIGNAL_HANDLERS
+
+        for wf_cls in (DynamicWorkflow, SalesContractDisputeWorkflow):
+            for signal_name in WORKFLOW_SIGNAL_HANDLERS[wf_cls.__name__]:
+                assert callable(getattr(wf_cls, signal_name, None)), (
+                    f"{wf_cls.__name__} 缺少信号 {signal_name} 的 handler"
+                )
+
+
 class TestDynamicWorkflowCurrentStateWithPending:
     def test_reports_pending_gates(self):
         dw = DynamicWorkflow()

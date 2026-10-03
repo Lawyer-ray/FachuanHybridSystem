@@ -23,6 +23,17 @@ def _get_court_document_admin_service() -> Any:
     return CourtDocumentAdminService()
 
 
+def _media_download_href(local_file_path: str) -> str:
+    """构造 /media/ 下载链接的相对路径部分（兼容存量绝对/相对数据）。"""
+    from apps.core.exceptions import ValidationException
+    from apps.core.services.storage_service import normalize_to_media_rel
+
+    try:
+        return normalize_to_media_rel(local_file_path)
+    except ValidationException:
+        return local_file_path
+
+
 @admin.register(CourtDocument)
 class CourtDocumentAdmin(admin.ModelAdmin):  # pragma: no cover
     """
@@ -218,7 +229,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):  # pragma: no cover
                 "border-radius: 3px; text-decoration: none; display: inline-block; font-size: 12px; "
                 'line-height: 1.4; white-space: nowrap;">'
                 "{}</a>",
-                obj.local_file_path,
+                _media_download_href(obj.local_file_path),
                 "下载",
             )
         return format_html('<span style="color: var(--fc-text-disabled);">{}</span>', "-")
@@ -237,7 +248,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):  # pragma: no cover
                 "border-radius: 4px; text-decoration: none; display: inline-block; font-size: 13px; "
                 'line-height: 1.4; white-space: nowrap;">'
                 "{}</a>",
-                obj.local_file_path,
+                _media_download_href(obj.local_file_path),
                 filename,
                 "下载文件",
             )
@@ -264,7 +275,9 @@ class CourtDocumentAdmin(admin.ModelAdmin):  # pragma: no cover
     actions = ["batch_download_documents", "batch_delete_with_files", "retry_failed_downloads"]
 
     @admin.action(description="批量下载选中的文书")
-    def batch_download_documents(self, request: HttpRequest, queryset: QuerySet[CourtDocument]) -> None:  # pragma: no cover
+    def batch_download_documents(
+        self, request: HttpRequest, queryset: QuerySet[CourtDocument]
+    ) -> None:  # pragma: no cover
         """批量下载文书"""
         try:
             service = _get_court_document_admin_service()
@@ -279,7 +292,9 @@ class CourtDocumentAdmin(admin.ModelAdmin):  # pragma: no cover
             self.message_user(request, f"❌ 批量下载失败: {e!s}", level=messages.ERROR)
 
     @admin.action(description="删除选中的文书（包含文件）")
-    def batch_delete_with_files(self, request: HttpRequest, queryset: QuerySet[CourtDocument]) -> None:  # pragma: no cover
+    def batch_delete_with_files(
+        self, request: HttpRequest, queryset: QuerySet[CourtDocument]
+    ) -> None:  # pragma: no cover
         """批量删除文书和文件"""
         try:
             service = _get_court_document_admin_service()
@@ -296,7 +311,9 @@ class CourtDocumentAdmin(admin.ModelAdmin):  # pragma: no cover
             self.message_user(request, f"❌ 批量删除失败: {e!s}", level=messages.ERROR)
 
     @admin.action(description="重试失败的下载")
-    def retry_failed_downloads(self, request: HttpRequest, queryset: QuerySet[CourtDocument]) -> None:  # pragma: no cover
+    def retry_failed_downloads(
+        self, request: HttpRequest, queryset: QuerySet[CourtDocument]
+    ) -> None:  # pragma: no cover
         """重试失败的下载"""
         try:
             service = _get_court_document_admin_service()

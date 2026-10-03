@@ -6,6 +6,8 @@ import json
 import tempfile
 from pathlib import Path
 
+from django.test import override_settings
+
 from apps.pdf_splitting.services.split.export_utils import ExportUtils
 from apps.pdf_splitting.services.storage import PdfSplitStorage
 
@@ -105,10 +107,9 @@ class TestPdfSplitStorage:
     def test_write_json(self) -> None:
         """写入 JSON 文件。"""
         with tempfile.TemporaryDirectory() as tmpdir:
-            import django.conf
-            old = django.conf.settings.MEDIA_ROOT
-            django.conf.settings.MEDIA_ROOT = tmpdir
-            try:
+            # write_json 走 default_storage；override_settings 触发 setting_changed，
+            # 使存储后端随 MEDIA_ROOT 一并重定向（直接赋值不会刷新已缓存的 location）
+            with override_settings(MEDIA_ROOT=Path(tmpdir)):
                 storage = PdfSplitStorage("test-json")
                 storage.ensure_dirs()
                 data = {"segments": [{"type": "complaint"}]}
@@ -116,8 +117,6 @@ class TestPdfSplitStorage:
 
                 written = json.loads(storage.segments_json_path.read_text(encoding="utf-8"))
                 assert written["segments"][0]["type"] == "complaint"
-            finally:
-                django.conf.settings.MEDIA_ROOT = old
 
     def test_cleanup(self) -> None:
         """清理目录。"""

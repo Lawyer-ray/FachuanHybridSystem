@@ -527,7 +527,12 @@ def save_export_url(request: HttpRequest, job_id: str) -> dict[str, Any]:  # pra
             return {"success": False, "message": "缺少 file_type 或 media_url"}
         # 安全审计 B-12：只接受本服务生成的 image_rotation 媒体 URL，
         # 防 /media/../../ 任意路径经 download 端点读任意文件。
-        if not media_url.startswith("/media/image_rotation/") or ".." in media_url:
+        from django.conf import settings
+
+        from apps.core.filesystem.upload_paths import MediaEntity
+
+        allowed_prefix = f"{settings.MEDIA_URL}{MediaEntity.IMAGE_ROTATION}/"
+        if not media_url.startswith(allowed_prefix) or ".." in media_url:
             return {"success": False, "message": "无效的导出文件 URL"}
         job = _get_job_service().get_job(job_id)
         if file_type == "zip":
@@ -560,7 +565,7 @@ def download_job_export(request: HttpRequest, job_id: str, file_type: str) -> An
 
     # 从 flat 路径直接读取文件（安全审计 B-12：resolve 后强制收敛在 MEDIA_ROOT 内，
     # 兼容存量库中已写入的恶意/异常 URL）
-    rel = media_url.removeprefix("/media/")
+    rel = media_url.removeprefix(settings.MEDIA_URL)
     file_path = Path(str(settings.MEDIA_ROOT)) / rel
     media_root = Path(str(settings.MEDIA_ROOT)).resolve()
     if not file_path.resolve().is_relative_to(media_root):

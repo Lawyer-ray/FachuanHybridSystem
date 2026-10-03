@@ -252,6 +252,7 @@ class WeikeSearchMixin:  # pragma: no cover
             try:
                 page.remove_listener("request", _on_request)
             except Exception:
+                logger.debug("移除请求监听器失败（已忽略）", exc_info=True)
                 pass
 
         if intercepted is not None:
@@ -570,6 +571,7 @@ class WeikeSearchMixin:  # pragma: no cover
                 page.wait_for_timeout(2500)
                 return True
             except Exception:
+                logger.debug("点击下一页按钮失败（已忽略）", exc_info=True)
                 continue
         return False
 

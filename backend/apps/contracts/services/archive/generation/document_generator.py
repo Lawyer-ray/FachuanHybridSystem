@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any
 
 from apps.contracts.models import Contract
@@ -224,43 +223,40 @@ def _save_as_material(
     """将生成的文书保存为 FinalizedMaterial 记录。"""
     from django.core.files.base import ContentFile
 
+    from apps.core.filesystem.upload_paths import MediaEntity
+    from apps.core.services import storage_service as storage
+
     try:
+        # 先写新文件；覆盖更新时再删旧文件，避免旧文件残留累积
+        rel_path, _ = storage.save_uploaded_file(
+            uploaded_file=ContentFile(content, name=filename),
+            rel_dir=f"{MediaEntity.CONTRACT_FINALIZED}/{contract.id}",
+            allowed_extensions=[".docx", ".pdf"],
+            max_size_bytes=20 * 1024 * 1024,
+        )
+
         existing = FinalizedMaterial.objects.filter(
             contract=contract,
             archive_item_code=archive_item_code,
         ).first()
 
         if existing:
-            from apps.core.services import storage_service as storage
-
-            rel_path, _ = storage.save_uploaded_file(
-                uploaded_file=ContentFile(content, name=filename),
-                rel_dir=f"contracts/finalized/{contract.id}",
-                allowed_extensions=[".docx", ".pdf"],
-                max_size_bytes=20 * 1024 * 1024,
-            )
+            old_path = existing.file_path
             existing.file_path = rel_path
             existing.original_filename = filename
             existing.save(update_fields=["file_path", "original_filename"])
+            if old_path and old_path != rel_path:
+                storage.delete_media_file(old_path)
             return existing
-        else:
-            from apps.core.services import storage_service as storage
 
-            rel_path, _ = storage.save_uploaded_file(
-                uploaded_file=ContentFile(content, name=filename),
-                rel_dir=f"contracts/finalized/{contract.id}",
-                allowed_extensions=[".docx", ".pdf"],
-                max_size_bytes=20 * 1024 * 1024,
-            )
-
-            material = FinalizedMaterial.objects.create(
-                contract=contract,
-                file_path=rel_path,
-                original_filename=filename,
-                category=MaterialCategory.ARCHIVE_DOCUMENT,
-                archive_item_code=archive_item_code,
-            )
-            return material
+        material = FinalizedMaterial.objects.create(
+            contract=contract,
+            file_path=rel_path,
+            original_filename=filename,
+            category=MaterialCategory.ARCHIVE_DOCUMENT,
+            archive_item_code=archive_item_code,
+        )
+        return material
 
     except Exception as e:
         logger.exception("保存归档文书材料失败: %s", filename)

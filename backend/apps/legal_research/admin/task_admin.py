@@ -449,6 +449,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
 
             return api_optional.get_private_weike_api() is not None
         except Exception:
+            logger.debug("探测私有威科 API 可用性失败（已忽略）", exc_info=True)
             return False
 
     @staticmethod

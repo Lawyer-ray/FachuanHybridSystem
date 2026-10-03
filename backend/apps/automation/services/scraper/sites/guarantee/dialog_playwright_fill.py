@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class GuaranteeDialogPlaywrightFillMixin:  # pragma: no cover
@@ -31,6 +34,7 @@ class GuaranteeDialogPlaywrightFillMixin:  # pragma: no cover
                     updates.append(f"{placeholder}={value}")
                     return
                 except Exception:
+                    logger.debug("填充可见输入框失败（已忽略）", exc_info=True)
                     continue
 
         def _select_first_visible_option(preferred_texts: list[str]) -> str | None:  # pragma: no cover
@@ -46,6 +50,7 @@ class GuaranteeDialogPlaywrightFillMixin:  # pragma: no cover
                         continue
                     visible.append(text)
                 except Exception:
+                    logger.debug("读取下拉选项失败（已忽略）", exc_info=True)
                     continue
 
             if not visible:
@@ -72,6 +77,7 @@ class GuaranteeDialogPlaywrightFillMixin:  # pragma: no cover
                     option.click(timeout=1500)
                     return text
                 except Exception:
+                    logger.debug("点击下拉选项失败（已忽略）", exc_info=True)
                     continue
             return None
 
@@ -262,6 +268,7 @@ class GuaranteeDialogPlaywrightFillMixin:  # pragma: no cover
                     if clicked:
                         updates.append("省份=广东")
                 except Exception:
+                    logger.debug("按标签选择下拉项失败（已忽略）", exc_info=True)
                     pass
 
             updates.extend(self._fill_property_clue_dialog_v15(defaults))  # type: ignore[attr-defined]

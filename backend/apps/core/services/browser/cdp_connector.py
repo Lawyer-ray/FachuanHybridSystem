@@ -41,11 +41,13 @@ async def connect_cdp_browser(  # pragma: no cover
 
     # 从 cdp_url 中提取端口
     import re
+
     port_match = re.search(r":(\d+)$", profile.cdp_url)
     port = int(port_match.group(1)) if port_match else 9222
 
     # 如果 CDP 端口未就绪，自动启动 Chrome
     from .chrome_process import is_cdp_ready, launch_chrome
+
     chrome_process = None
     if not is_cdp_ready(port):
         logger.info("CDP 端口 %d 未就绪，自动启动 Chrome...", port)
@@ -77,14 +79,15 @@ async def connect_cdp_browser(  # pragma: no cover
             if browser:
                 await browser.close()
         except Exception:
-            pass
+            logger.debug("CDP 关闭浏览器失败（已忽略）", exc_info=True)
         try:
             await pw.__aexit__(None, None, None)  # type: ignore[attr-defined]
         except Exception:
-            pass
+            logger.debug("CDP 退出 Playwright 失败（已忽略）", exc_info=True)
         # 清理自动启动的 Chrome 进程
         if chrome_process is not None:
             from .chrome_process import kill_chrome
+
             kill_chrome(chrome_process)
         logger.debug("Playwright CDP 已断开")
 

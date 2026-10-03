@@ -284,15 +284,6 @@ class TestFixFilenameFormat:
 
 
 @pytest.mark.django_db
-class TestGetUniqueFilepath:
-    def test_unique_path(self, service, tmp_path):
-        target = str(tmp_path)
-        path, name = service._get_unique_filepath(target, "test.pdf")
-        assert path.startswith(target)
-        assert name == "test.pdf"
-
-
-@pytest.mark.django_db
 class TestFindRenamedFile:
     def test_no_path(self, service, court_sms):
         assert service._find_renamed_file("", court_sms) is None

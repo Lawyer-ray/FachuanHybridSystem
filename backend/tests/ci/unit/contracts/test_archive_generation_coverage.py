@@ -107,19 +107,21 @@ class TestScalePagesToA4:
         assert result["scaled_count"] == 0
 
     @patch("apps.contracts.services.archive.generation.pdf_utils.FinalizedMaterial")
-    def test_material_file_not_found(self, mock_fm):
+    def test_material_file_not_found(self, mock_fm, tmp_path):
+        from django.conf import settings
+
         from apps.contracts.services.archive.generation.pdf_utils import scale_pages_to_a4
 
         material = MagicMock()
-        material.file_path = "/nonexistent.pdf"
+        material.file_path = "contracts/finalized/1/missing.pdf"
         material.original_filename = "missing.pdf"
         mock_fm.objects.filter.return_value.order_by.return_value = [material]
 
+        media = tmp_path / "media"
+        media.mkdir()
+
         contract = MagicMock()
-        with patch("apps.contracts.services.archive.generation.pdf_utils.Path") as mock_path:
-            mock_path.return_value.expanduser.return_value.resolve.return_value = Path("/nonexistent.pdf")
-            mock_path.return_value.is_absolute.return_value = True
-            mock_path.return_value.exists.return_value = False
+        with patch.object(settings, "MEDIA_ROOT", str(media)):
             result = scale_pages_to_a4(contract)
             assert result["success"] is True
             assert len(result["errors"]) > 0
@@ -190,72 +192,94 @@ class TestIsItemByName:
 # ── download_handler: _read_material_file ─────────────────────────
 
 class TestReadMaterialFile:
-    def test_file_not_found(self):
+    def _media(self, tmp_path: Path) -> Path:
+        media = tmp_path / "media"
+        media.mkdir(parents=True, exist_ok=True)
+        return media
+
+    def test_file_not_found(self, tmp_path: Path):
+        from django.conf import settings
+
         from apps.contracts.services.archive.generation.download_handler import _read_material_file
 
+        media = self._media(tmp_path)
         material = MagicMock()
-        material.file_path = "/nonexistent/file.pdf"
+        material.file_path = "contracts/finalized/1/missing.pdf"
         material.original_filename = "test.pdf"
 
-        with patch("apps.contracts.services.archive.generation.download_handler.Path") as mock_path:
-            mock_instance = MagicMock()
-            mock_instance.is_absolute.return_value = True
-            mock_instance.exists.return_value = False
-            mock_path.return_value = mock_instance
+        with patch.object(settings, "MEDIA_ROOT", str(media)):
             result = _read_material_file(material)
-            assert "error" in result
+        assert "error" in result
 
-    def test_pdf_content_type(self):
+    def test_invalid_path_returns_error(self, tmp_path: Path):
+        """MEDIA_ROOT 外的存量绝对路径返回错误而非崩溃"""
+        from django.conf import settings
+
         from apps.contracts.services.archive.generation.download_handler import _read_material_file
 
+        media = self._media(tmp_path)
         material = MagicMock()
-        material.file_path = "/tmp/test.pdf"
+        material.file_path = str(tmp_path / "outside.pdf")
+        material.original_filename = "outside.pdf"
+
+        with patch.object(settings, "MEDIA_ROOT", str(media)):
+            result = _read_material_file(material)
+        assert "error" in result
+
+    def test_pdf_content_type(self, tmp_path: Path):
+        from django.conf import settings
+
+        from apps.contracts.services.archive.generation.download_handler import _read_material_file
+
+        media = self._media(tmp_path)
+        target = media / "contracts" / "finalized" / "1" / "test.pdf"
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b"PDF content")
+
+        material = MagicMock()
+        material.file_path = "contracts/finalized/1/test.pdf"
         material.original_filename = "test.pdf"
 
-        with patch("apps.contracts.services.archive.generation.download_handler.Path") as mock_path:
-            mock_instance = MagicMock()
-            mock_instance.is_absolute.return_value = True
-            mock_instance.exists.return_value = True
-            mock_instance.read_bytes.return_value = b"PDF content"
-            mock_instance.suffix = ".pdf"
-            mock_path.return_value = mock_instance
+        with patch.object(settings, "MEDIA_ROOT", str(media)):
             result = _read_material_file(material)
-            assert result["content_type"] == "application/pdf"
-            assert result["content"] == b"PDF content"
+        assert result["content_type"] == "application/pdf"
+        assert result["content"] == b"PDF content"
 
-    def test_docx_content_type(self):
+    def test_docx_content_type(self, tmp_path: Path):
+        from django.conf import settings
+
         from apps.contracts.services.archive.generation.download_handler import _read_material_file
 
+        media = self._media(tmp_path)
+        target = media / "contracts" / "finalized" / "1" / "test.docx"
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b"DOCX content")
+
         material = MagicMock()
-        material.file_path = "/tmp/test.docx"
+        material.file_path = "contracts/finalized/1/test.docx"
         material.original_filename = "test.docx"
 
-        with patch("apps.contracts.services.archive.generation.download_handler.Path") as mock_path:
-            mock_instance = MagicMock()
-            mock_instance.is_absolute.return_value = True
-            mock_instance.exists.return_value = True
-            mock_instance.read_bytes.return_value = b"DOCX content"
-            mock_instance.suffix = ".docx"
-            mock_path.return_value = mock_instance
+        with patch.object(settings, "MEDIA_ROOT", str(media)):
             result = _read_material_file(material)
-            assert "wordprocessingml" in result["content_type"]
+        assert "wordprocessingml" in result["content_type"]
 
-    def test_other_content_type(self):
+    def test_other_content_type(self, tmp_path: Path):
+        from django.conf import settings
+
         from apps.contracts.services.archive.generation.download_handler import _read_material_file
 
+        media = self._media(tmp_path)
+        target = media / "contracts" / "finalized" / "1" / "test.xlsx"
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b"XLSX content")
+
         material = MagicMock()
-        material.file_path = "/tmp/test.xlsx"
+        material.file_path = "contracts/finalized/1/test.xlsx"
         material.original_filename = "test.xlsx"
 
-        with patch("apps.contracts.services.archive.generation.download_handler.Path") as mock_path:
-            mock_instance = MagicMock()
-            mock_instance.is_absolute.return_value = True
-            mock_instance.exists.return_value = True
-            mock_instance.read_bytes.return_value = b"XLSX content"
-            mock_instance.suffix = ".xlsx"
-            mock_path.return_value = mock_instance
+        with patch.object(settings, "MEDIA_ROOT", str(media)):
             result = _read_material_file(material)
-            assert result["content_type"] == "application/octet-stream"
+        assert result["content_type"] == "application/octet-stream"
 
     @pytest.mark.parametrize("file_path", ["", None])
     def test_file_path_missing(self, file_path):

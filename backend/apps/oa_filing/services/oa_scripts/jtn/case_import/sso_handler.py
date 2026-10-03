@@ -135,6 +135,7 @@ class JtnSsoHandlerMixin:  # pragma: no cover
         try:
             content_text = str(await page.content() or "")
         except Exception:
+            logger.debug("读取门户页面内容失败（已忽略）", exc_info=True)
             return False
         markers = ("推荐应用", "搜索应用/平台名称", "IMS", "aijagent")
         return any(marker in content_text for marker in markers)
@@ -166,4 +167,5 @@ class JtnSsoHandlerMixin:  # pragma: no cover
                 response.raise_for_status()
                 return not self._is_sso_login_page(url=str(response.url), html_text=response.text)
         except Exception:
+            logger.debug("探测案件列表可访问性失败（已忽略）", exc_info=True)
             return False

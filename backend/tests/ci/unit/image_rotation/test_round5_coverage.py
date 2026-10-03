@@ -7,7 +7,6 @@ import json
 import os
 import tempfile
 import uuid
-from pathlib import Path as PyPath
 from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
@@ -607,17 +606,6 @@ class TestStorage:
         result = to_media_url("test.zip")
         assert result == "/media/image_rotation/test.zip"
 
-    def test_ensure_output_dir_no_media_root(self):
-        from apps.image_rotation.services.storage import ensure_output_dir
-
-        with patch("apps.image_rotation.services.storage.Path") as mock_path_cls:
-            mock_settings = MagicMock()
-            mock_settings.MEDIA_ROOT = None
-            with patch("apps.core.utils.path.Path", return_value=mock_path_cls):
-                with patch("django.conf.settings", mock_settings):
-                    with pytest.raises(RuntimeError, match="MEDIA_ROOT"):
-                        ensure_output_dir()
-
 
 # =========================================================================
 # job_service (mocked models, no DB)
@@ -837,11 +825,7 @@ class TestImageRotationServiceFull:
         svc = ImageRotationService()
         img_b64 = __import__("base64").b64encode(_make_test_image()).decode()
         images = [{"filename": "test.jpg", "data": img_b64, "format": "jpeg", "rotation": 0}]
-        with (
-            patch.object(svc, "_get_output_dir") as mock_dir,
-            patch("apps.image_rotation.services.facade.generate_zip") as mock_zip,
-        ):
-            mock_dir.return_value = PyPath("/tmp/test")
+        with patch("apps.image_rotation.services.facade.generate_zip") as mock_zip:
             mock_zip.return_value = "/media/test.zip"
             result = svc.export_images(images)
             assert result["success"] is True
@@ -862,11 +846,7 @@ class TestImageRotationServiceFull:
         svc = ImageRotationService()
         img_b64 = __import__("base64").b64encode(_make_test_image()).decode()
         images = [{"filename": "test.jpg", "data": img_b64, "format": "jpeg", "rotation": 0}]
-        with (
-            patch.object(svc, "_get_output_dir") as mock_dir,
-            patch("apps.image_rotation.services.facade.generate_zip", side_effect=RuntimeError("zip fail")),
-        ):
-            mock_dir.return_value = PyPath("/tmp/test")
+        with patch("apps.image_rotation.services.facade.generate_zip", side_effect=RuntimeError("zip fail")):
             result = svc.export_images(images)
             assert result["success"] is False
             assert "ZIP 生成失败" in result["message"]
@@ -877,11 +857,7 @@ class TestImageRotationServiceFull:
         svc = ImageRotationService()
         img_b64 = __import__("base64").b64encode(_make_test_image()).decode()
         pages = [{"data": img_b64, "rotation": 0}]
-        with (
-            patch.object(svc, "_get_output_dir") as mock_dir,
-            patch("apps.image_rotation.services.facade.generate_pdf") as mock_pdf,
-        ):
-            mock_dir.return_value = PyPath("/tmp/test")
+        with patch("apps.image_rotation.services.facade.generate_pdf") as mock_pdf:
             mock_pdf.return_value = "/media/test.pdf"
             result = svc.export_as_pdf(pages)
             assert result["success"] is True
@@ -901,11 +877,7 @@ class TestImageRotationServiceFull:
         svc = ImageRotationService()
         img_b64 = __import__("base64").b64encode(_make_test_image()).decode()
         pages = [{"data": img_b64, "rotation": 0}]
-        with (
-            patch.object(svc, "_get_output_dir") as mock_dir,
-            patch("apps.image_rotation.services.facade.generate_pdf", side_effect=RuntimeError("pdf err")),
-        ):
-            mock_dir.return_value = PyPath("/tmp/test")
+        with patch("apps.image_rotation.services.facade.generate_pdf", side_effect=RuntimeError("pdf err")):
             result = svc.export_as_pdf(pages)
             assert result["success"] is False
             assert "PDF 生成失败" in result["message"]

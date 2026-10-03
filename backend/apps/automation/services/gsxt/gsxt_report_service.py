@@ -42,6 +42,7 @@ async def _wait_captcha_success(
             if done:
                 return True
         except Exception:
+            logger.debug("检测验证码通过状态失败（已忽略）", exc_info=True)
             return False
     return False
 
@@ -141,6 +142,7 @@ async def _click_company_detail(page: Any, company_name: str, context: Any) -> A
         try:
             await new_page.wait_for_load_state("domcontentloaded", timeout=30000)
         except Exception:
+            logger.debug("等待新标签页加载状态超时（已忽略）", exc_info=True)
             pass
         return new_page
 
@@ -152,9 +154,11 @@ async def _click_company_detail(page: Any, company_name: str, context: Any) -> A
                     try:
                         await p.wait_for_load_state("domcontentloaded", timeout=30000)
                     except Exception:
+                        logger.debug("等待候选页面加载状态超时（已忽略）", exc_info=True)
                         pass
                     return p
             except Exception:
+                logger.debug("读取候选页面 URL 失败（已忽略）", exc_info=True)
                 continue
         await asyncio.sleep(2)
 
@@ -204,6 +208,7 @@ async def _run_full_flow(task_id: int) -> None:  # pragma: no cover
                     if "corp-query-search-1" in page.url:
                         break
                 except Exception:
+                    logger.debug("读取搜索结果页 URL 失败（已忽略）", exc_info=True)
                     pass
 
             task.error_message = "已找到搜索结果，正在进入详情页"

@@ -150,6 +150,7 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
                     await locator.first.wait_for(state="visible", timeout=300)
                     return frame  # type: ignore[no-any-return]
                 except Exception:
+                    logger.debug("探测 frame 内选择器失败（已忽略）", exc_info=True)
                     continue
             await asyncio.sleep(0.2)
         return None
@@ -255,6 +256,7 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
                 await page.wait_for_load_state("networkidle")
                 await asyncio.sleep(_MEDIUM_WAIT)
         except Exception:
+            logger.debug("关闭模态对话框失败（已忽略）", exc_info=True)
             pass
 
         selector = "#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_no"
@@ -304,6 +306,7 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
                         has_visible_user = True
                         break
                     except Exception:
+                        logger.debug("探测 IMS 登录用户名输入框失败（已忽略）", exc_info=True)
                         continue
 
                 has_visible_password = False
@@ -316,11 +319,13 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
                         has_visible_password = True
                         break
                     except Exception:
+                        logger.debug("探测 IMS 登录密码输入框失败（已忽略）", exc_info=True)
                         continue
 
                 if has_visible_user and has_visible_password:
                     return frame
             except Exception:
+                logger.debug("探测 IMS 登录表单 frame 失败（已忽略）", exc_info=True)
                 continue
         return None
 
@@ -331,6 +336,7 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
         try:
             return await login_frame.locator('input[type="password"]').first.is_visible(timeout=500)  # type: ignore[no-any-return]
         except Exception:
+            logger.debug("探测 IMS 密码输入框可见性失败（已忽略）", exc_info=True)
             return False
 
     async def _try_playwright_ims_form_login(self: Any, page: Page) -> bool:  # pragma: no cover
@@ -361,6 +367,7 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
                 user_input = candidate
                 break
             except Exception:
+                logger.debug("等待 IMS 用户名输入框可见失败（已忽略）", exc_info=True)
                 continue
 
         for selector in password_selectors:
@@ -370,6 +377,7 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
                 password_input = candidate
                 break
             except Exception:
+                logger.debug("等待 IMS 密码输入框可见失败（已忽略）", exc_info=True)
                 continue
 
         if user_input is None or password_input is None:
@@ -398,6 +406,7 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
                     submitted = True
                     break
                 except Exception:
+                    logger.debug("点击 IMS 登录按钮失败（已忽略）", exc_info=True)
                     continue
 
             if not submitted:

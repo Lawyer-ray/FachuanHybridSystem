@@ -1,22 +1,18 @@
 """Business logic services."""
 
-import uuid
-from typing import Any
+from __future__ import annotations
 
+import uuid
+
+from django.conf import settings
 from django.utils import timezone
 
-from apps.core.utils.path import Path
+from apps.core.filesystem.upload_paths import MediaEntity
 
 
-def ensure_output_dir() -> Any:  # pragma: no cover
-    from django.conf import settings
-
-    media_root = getattr(settings, "MEDIA_ROOT", None)
-    if not media_root:
-        raise RuntimeError("MEDIA_ROOT 未配置")
-    output_dir = Path(str(media_root)) / "image_rotation"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    return output_dir
+def export_rel_path(filename: str) -> str:
+    """导出文件在 media 下的相对路径。"""
+    return f"{MediaEntity.IMAGE_ROTATION}/{filename}"
 
 
 def build_zip_filename(*, prefix: str = "rotated_images") -> str:
@@ -31,4 +27,4 @@ def build_pdf_filename(*, prefix: str = "rotated_pages") -> str:
 
 
 def to_media_url(filename: str) -> str:
-    return f"/media/image_rotation/{filename}"
+    return f"{settings.MEDIA_URL}{MediaEntity.IMAGE_ROTATION}/{filename}"

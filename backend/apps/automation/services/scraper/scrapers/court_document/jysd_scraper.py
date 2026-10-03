@@ -16,10 +16,11 @@ from __future__ import annotations
 import logging
 import re
 import time
-from pathlib import Path
 from typing import Any
 
-from .base_court_scraper import BaseCourtDocumentScraper, as_sync_page
+from apps.core.services.storage_service import sanitize_upload_filename
+
+from .base_court_scraper import BaseCourtDocumentScraper, as_sync_page, media_download_target
 
 logger = logging.getLogger("apps.automation")
 
@@ -37,8 +38,6 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
     def run(self) -> dict[str, Any]:  # pragma: no cover
         """执行文书下载任务"""
         logger.info("开始处理简易送达链接: %s", self.task.url)
-
-        download_dir = self._prepare_download_dir()
 
         # 获取律师手机号列表
         lawyer_phones = self._get_lawyer_phones()
@@ -100,7 +99,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             raise ValueError("简易送达: 无法进入文书详情页面")
 
         # 下载文书
-        files = self._download_documents_from_table(iframe, download_dir)
+        files = self._download_documents_from_table(iframe)
 
         if not files:
             self._save_page_state("jysd_no_documents")
@@ -267,7 +266,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     # ==================== 文书下载 ====================
 
-    def _download_documents_from_table(self, iframe: Any, download_dir: Path) -> list[str]:  # pragma: no cover
+    def _download_documents_from_table(self, iframe: Any) -> list[str]:  # pragma: no cover
         """从文书详情页面的 el-table 表格中下载文书
 
         文书详情页面结构：
@@ -321,7 +320,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                     f" ({doc_name})" if doc_name else "",
                 )
 
-                filepath = self._download_row_document(row, iframe, download_dir, doc_name, i)
+                filepath = self._download_row_document(row, iframe, doc_name, i)
                 if filepath:
                     files.append(filepath)
 
@@ -334,7 +333,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         return files
 
     def _download_row_document(  # pragma: no cover
-        self, row: Any, iframe: Any, download_dir: Path, doc_name: str, index: int
+        self, row: Any, iframe: Any, doc_name: str, index: int
     ) -> str | None:
         """下载单行文书
 
@@ -346,12 +345,11 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         Args:
             row: 表格行 Locator
             iframe: iframe Frame 对象
-            download_dir: 下载目录
             doc_name: 文书名称
             index: 文书序号
 
         Returns:
-            下载文件路径，失败返回 None
+            下载文件路径（media 相对路径），失败返回 None
         """
         page = as_sync_page(self.page)
 
@@ -361,7 +359,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             if download_btn.count() > 0:
                 with page.expect_download(timeout=15000) as download_info:
                     download_btn.first.click(force=True, timeout=5000)
-                return self._save_download(download_info.value, download_dir, doc_name, index)
+                return self._save_download(download_info.value, doc_name, index)
         except Exception:
             logger.info("简易送达: Playwright click 超时，尝试 JS click")
 
@@ -369,7 +367,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         try:
             with page.expect_download(timeout=15000) as download_info:
                 row.evaluate("r => r.querySelector('button')?.click()")
-            return self._save_download(download_info.value, download_dir, doc_name, index)
+            return self._save_download(download_info.value, doc_name, index)
         except Exception:
             logger.info("简易送达: JS click 也超时，检查确认对话框")
 
@@ -383,36 +381,36 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                 logger.info("简易送达: 检测到下载确认对话框，点击'下载文书并核验'")
                 with page.expect_download(timeout=30000) as download_info:
                     confirm_btn.first.click(force=True, timeout=5000)
-                return self._save_download(download_info.value, download_dir, doc_name, index)
+                return self._save_download(download_info.value, doc_name, index)
         except Exception as exc:
             logger.warning("简易送达: 确认对话框下载也失败: %s", exc)
 
         return None
 
-    def _save_download(self, download: Any, download_dir: Path, doc_name: str, index: int) -> str:
+    def _save_download(self, download: Any, doc_name: str, index: int) -> str:
         """保存下载文件
 
         Args:
             download: Playwright Download 对象
-            download_dir: 下载目录
             doc_name: 文书名称
             index: 文书序号
 
         Returns:
-            保存的文件路径
+            保存的文件路径（media 相对路径）
         """
         suggested = download.suggested_filename or ""
         if doc_name and doc_name.endswith(".pdf"):
-            filename = self._safe_filename(doc_name)
+            filename = doc_name
         elif suggested:
-            filename = self._safe_filename(suggested)
+            filename = suggested
         else:
             filename = f"jysd_doc_{index}_{int(time.time())}.pdf"
 
-        filepath = download_dir / filename
-        download.save_as(str(filepath))
-        logger.info("简易送达: 下载成功: %s", filepath)
-        return str(filepath)
+        safe_name = sanitize_upload_filename(self._safe_filename(filename))
+        abs_path, rel_path = media_download_target(int(self.task.id), safe_name)
+        download.save_as(str(abs_path))
+        logger.info("简易送达: 下载成功: %s", rel_path)
+        return rel_path
 
     @staticmethod
     def _safe_filename(name: str) -> str:

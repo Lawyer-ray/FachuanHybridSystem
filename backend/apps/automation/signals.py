@@ -31,11 +31,10 @@ def cleanup_court_document_local_file(sender: type, **kwargs: Any) -> None:  # p
     instance = kwargs["instance"]
     if not instance.local_file_path:
         return
-    from django.conf import settings
 
-    file_path = Path(instance.local_file_path)
-    if not file_path.is_absolute():
-        file_path = Path(settings.MEDIA_ROOT) / instance.local_file_path
+    from apps.core.services.storage_service import resolve_media_path
+
+    file_path = resolve_media_path(instance.local_file_path)
     if file_path.exists():
         try:
             transaction.on_commit(lambda p=file_path: _unlink_court_doc(p, instance.scraper_task_id))  # type: ignore[misc]  # mypy 对带默认参 lambda 的推断限制

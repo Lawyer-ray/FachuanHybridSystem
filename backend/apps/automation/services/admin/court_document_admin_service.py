@@ -16,6 +16,7 @@ from django.utils import timezone
 
 from apps.automation.models import CourtDocument, DocumentDownloadStatus, ScraperTask
 from apps.core.exceptions import BusinessException, NotFoundError, ValidationException
+from apps.core.services.storage_service import resolve_media_path
 
 
 class CourtDocumentAdminService:
@@ -91,12 +92,15 @@ class CourtDocumentAdminService:
             deleted_files_count = 0
             file_errors = []
 
-            # 如果需要删除文件
+            # 如果需要删除文件（local_file_path 可能是 media 相对路径，删除前先解析）
             if delete_files:
                 for document in documents:
-                    if document.local_file_path and Path(document.local_file_path).exists():
+                    if not document.local_file_path:
+                        continue
+                    file_path = resolve_media_path(document.local_file_path)
+                    if file_path.exists():
                         try:
-                            Path(document.local_file_path).unlink()
+                            file_path.unlink()
                             deleted_files_count += 1
                         except Exception as e:
                             file_errors.append(

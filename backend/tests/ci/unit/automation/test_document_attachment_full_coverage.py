@@ -3,13 +3,13 @@
 Covers: get_paths_for_renaming, _paths_from_sms_reference, _paths_from_court_documents,
 _paths_from_task_result, get_paths_for_notification, _collect_unique_paths,
 rename_documents, fix_filename_format, _sanitize_filename_part,
-_find_renamed_file, _get_unique_filepath, lazy properties.
+_find_renamed_file, lazy properties.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -149,6 +149,34 @@ class TestPathsFromCourtDocuments:
         with patch.object(Path, "exists", return_value=False):
             result = svc._paths_from_court_documents(sms)
         assert result == []
+
+    def test_relative_media_path_resolved(self):
+        """media 相对路径（新落库约定）应经 MEDIA_ROOT 解析后命中文件."""
+        from django.conf import settings as django_settings
+
+        sms = MagicMock()
+        doc = MagicMock()
+        doc.download_status = "success"
+        doc.local_file_path = "case_logs/9/documents/rel.pdf"
+        sms.scraper_task.documents.filter.return_value = [doc]
+        svc = self._svc()
+
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            media_root = Path(tmpdir)
+            rel_dir = media_root / "case_logs" / "9" / "documents"
+            rel_dir.mkdir(parents=True)
+            (rel_dir / "rel.pdf").write_bytes(b"pdf")
+
+            old_media_root = django_settings.MEDIA_ROOT
+            django_settings.MEDIA_ROOT = str(media_root)
+            try:
+                result = svc._paths_from_court_documents(sms)
+            finally:
+                django_settings.MEDIA_ROOT = old_media_root
+
+        assert result == ["case_logs/9/documents/rel.pdf"]
 
 
 # ---------------------------------------------------------------------------
@@ -550,21 +578,6 @@ class TestFindRenamedFile:
         with patch("glob.glob", side_effect=RuntimeError("boom")):
             result = svc._find_renamed_file("/tmp/original.pdf", sms)
         assert result is None
-
-
-# ---------------------------------------------------------------------------
-# _get_unique_filepath
-# ---------------------------------------------------------------------------
-
-
-class TestGetUniqueFilepath:
-    def test_delegates(self):
-        from apps.automation.services.sms.document_attachment_service import DocumentAttachmentService
-        svc = DocumentAttachmentService()
-        with patch("apps.core.services.filename_template_service.FilenameTemplateService.get_unique_filepath", return_value=("/tmp/doc_1.pdf", "doc_1.pdf")):
-            path, name = svc._get_unique_filepath("/tmp", "doc.pdf")
-        assert path == "/tmp/doc_1.pdf"
-        assert name == "doc_1.pdf"
 
 
 # ---------------------------------------------------------------------------

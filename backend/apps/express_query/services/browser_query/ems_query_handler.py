@@ -60,6 +60,7 @@ async def query_ems(page: Page, tracking_number: str) -> None:  # pragma: no cov
         try:
             body_text = (await page.locator("body").text_content()) or ""
         except Exception:
+            logger.debug("读取页面正文失败（已忽略）", exc_info=True)
             pass
         _logged_in_keywords = ("退出", "我的EMS", "个人中心", "我的快递")
         if any(kw in body_text for kw in _logged_in_keywords):
@@ -83,6 +84,7 @@ async def query_ems(page: Page, tracking_number: str) -> None:  # pragma: no cov
         try:
             await page.wait_for_load_state("networkidle", timeout=8000)
         except Exception:
+            logger.debug("等待页面加载完成失败（已忽略）", exc_info=True)
             pass
         await asyncio.sleep(2)
 
@@ -139,6 +141,7 @@ async def _dismiss_ems_overlays(page: Page) -> None:  # pragma: no cover
             await page.keyboard.press("Escape")
             await asyncio.sleep(0.2)
         except Exception:
+            logger.debug("按 Esc 键关闭弹窗失败（已忽略）", exc_info=True)
             pass
 
         for selector in close_selectors:
@@ -176,6 +179,7 @@ async def _dismiss_ems_overlays(page: Page) -> None:  # pragma: no cover
                 await asyncio.sleep(0.5)
                 closed_any = True
         except Exception:
+            logger.debug("点击弹窗角标失败（已忽略）", exc_info=True)
             pass
 
         try:
@@ -188,6 +192,7 @@ async def _dismiss_ems_overlays(page: Page) -> None:  # pragma: no cover
                     });
                 }""")
         except Exception:
+            logger.debug("解除弹窗遮罩失败（已忽略）", exc_info=True)
             pass
 
         if not closed_any:
@@ -233,6 +238,7 @@ async def _open_ems_waybill_detail(page: Page, tracking_number: str) -> None:  #
         try:
             await click_first(page, [f"text={tracking_number}"])
         except Exception:
+            logger.debug("点击运单号文本失败（已忽略）", exc_info=True)
             pass
 
         # DOM 搜索点击详情按钮
@@ -267,6 +273,7 @@ async def _open_ems_waybill_detail(page: Page, tracking_number: str) -> None:  #
                 logger.info("  Triggered detail click via DOM")
                 await asyncio.sleep(2)
         except Exception:
+            logger.debug("通过 DOM 点击详情入口失败（已忽略）", exc_info=True)
             pass
 
         if not detail_entered:
@@ -285,6 +292,7 @@ async def _open_ems_waybill_detail(page: Page, tracking_number: str) -> None:  #
                         logger.info("  EMS detail page confirmed: %s", selector)
                         break
                 except Exception:
+                    logger.debug("探测详情页选择器失败（已忽略）", exc_info=True)
                     pass
             break
 
@@ -350,8 +358,10 @@ async def _ems_expand_all_tracking(page: Page) -> None:  # pragma: no cover
                             logger.info("  Clicked expand button: %s [#%d]", selector, idx)
                             await asyncio.sleep(1)
                     except Exception:
+                        logger.debug("点击展开轨迹按钮失败（已忽略）", exc_info=True)
                         continue
             except Exception:
+                logger.debug("尝试展开轨迹入口失败（已忽略）", exc_info=True)
                 continue
 
         # JS 兜底：在页面中搜索包含"展开全部"等文本的可点击元素
@@ -377,6 +387,7 @@ async def _ems_expand_all_tracking(page: Page) -> None:  # pragma: no cover
                 logger.info("  Clicked expand button via JS DOM search")
                 await asyncio.sleep(1)
         except Exception:
+            logger.debug("通过 DOM 搜索点击展开按钮失败（已忽略）", exc_info=True)
             pass
 
         await asyncio.sleep(1)
@@ -388,6 +399,7 @@ async def _ems_expand_all_tracking(page: Page) -> None:  # pragma: no cover
         }""")
         await asyncio.sleep(1)
     except Exception:
+        logger.debug("滚动页面到底部失败（已忽略）", exc_info=True)
         pass
 
     logger.info("  EMS tracking expansion complete")

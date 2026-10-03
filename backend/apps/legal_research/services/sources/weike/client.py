@@ -95,6 +95,7 @@ class WeikeCaseClient(WeikeAuthMixin, WeikeSearchMixin, WeikeDocumentMixin, Weik
             try:
                 cm.__exit__(None, None, None)
             except Exception:
+                logger.debug("退出浏览器上下文管理器失败（已忽略）", exc_info=True)
                 pass
             raise
 

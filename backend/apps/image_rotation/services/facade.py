@@ -8,7 +8,7 @@ from typing import Any, ClassVar
 
 from apps.core.exceptions import ValidationException
 
-from . import storage, validation
+from . import validation
 from .export import generate_pdf, generate_zip
 from .transform import clean_image, resize_to_paper_size, rotate_image_for_output
 
@@ -45,8 +45,7 @@ class ImageRotationService:
             return {"success": False, "message": "所有图片处理失败", "errors": errors}
 
         try:
-            output_dir = self._get_output_dir()
-            zip_url = generate_zip(processed_images=processed_images, output_dir=output_dir)
+            zip_url = generate_zip(processed_images=processed_images)
             result: dict[str, Any] = {"success": True, "zip_url": zip_url}
             if errors:
                 result["warnings"] = errors
@@ -107,8 +106,7 @@ class ImageRotationService:
             return {"success": False, "message": "所有页面处理失败", "errors": errors}
 
         try:
-            output_dir = self._get_output_dir()
-            pdf_url = generate_pdf(processed_images=processed_images, output_dir=output_dir)
+            pdf_url = generate_pdf(processed_images=processed_images)
             result = {"success": True, "pdf_url": pdf_url}
             if errors:
                 result["warnings"] = errors
@@ -142,7 +140,9 @@ class ImageRotationService:
         # 应用手动旋转（前端顺时针角度，PIL rotate 为逆时针，需取反）
         if rotation in (90, 180, 270):
             processed_bytes = rotate_image_for_output(
-                processed_bytes, rotation=(-rotation) % 360, img_format=normalized_format,
+                processed_bytes,
+                rotation=(-rotation) % 360,
+                img_format=normalized_format,
             )
 
         if paper_size != "original":
@@ -176,9 +176,6 @@ class ImageRotationService:
             )
 
         return image_bytes, rotation
-
-    def _get_output_dir(self) -> Any:
-        return storage.ensure_output_dir()
 
     def _get_unique_filename(self, filename: str, used_names: dict[str, int]) -> str:
         if not filename:

@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from django.conf import settings
-
 from apps.automation.models import CourtSMS
+from apps.core.services.storage_service import resolve_media_path
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -80,6 +82,7 @@ class CourtSMSDocumentReferenceService:  # pragma: no cover
                     digest.update(chunk)
             return digest.hexdigest()
         except OSError:
+            logger.debug("计算文件 SHA-256 摘要失败（已忽略）", exc_info=True)
             return None
 
     def has_any_references(self, sms: CourtSMS) -> bool:  # pragma: no cover
@@ -228,9 +231,7 @@ class CourtSMSDocumentReferenceService:  # pragma: no cover
         if not raw_path:
             return None
 
-        path = Path(str(raw_path))
-        if not path.is_absolute():
-            path = Path(settings.MEDIA_ROOT) / path
+        path = resolve_media_path(str(raw_path))
 
         if path.exists():
             return path.resolve().as_posix()

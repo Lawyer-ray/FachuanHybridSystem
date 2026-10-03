@@ -15,9 +15,15 @@ import random
 import time
 import zipfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from .base_court_scraper import BaseCourtDocumentScraper, as_sync_page
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+
+from apps.core.filesystem.upload_paths import sanitize_filename
+from apps.core.services.storage_service import sanitize_upload_filename
+
+from .base_court_scraper import BaseCourtDocumentScraper, as_sync_page, media_download_rel_dir, media_download_target
 
 logger = logging.getLogger("apps.automation")
 
@@ -71,21 +77,18 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         # 截图保存预览页
         screenshot_preview = self.screenshot("gdems_preview")
 
-        # 准备下载目录
-        download_dir = self._prepare_download_dir()
-
         # 下载压缩包
-        zip_filepath = self._download_zip_file(download_dir)
+        zip_abs_path, zip_rel_path = self._download_zip_file()
 
         # 解压 ZIP 文件
-        extracted_files = self._extract_zip_file(zip_filepath, download_dir)
+        extracted_files = self._extract_zip_file(zip_abs_path)
 
         # 构建文件列表(用于结果显示)
         all_files: list[str] = []
 
         return {
             "source": "sd.gdems.com",
-            "zip_file": str(zip_filepath),
+            "zip_file": zip_rel_path,
             "extracted_files": extracted_files,
             "files": all_files,  # 添加 files 字段,与 zxfw 保持一致
             "file_count": len(extracted_files),
@@ -207,6 +210,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                     logger.info(f"通过 '{selector}' 找到 {label}")
                     return loc
             except Exception:
+                logger.debug("探测候选选择器失败（已忽略）", exc_info=True)
                 pass
         return None
 
@@ -228,6 +232,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                         submit_button = btn
                         logger.info("通过文本找到确认按钮")
                 except Exception:
+                    logger.debug("按文本探测确认按钮失败（已忽略）", exc_info=True)
                     pass
 
             if submit_button and submit_button.count() > 0:
@@ -240,15 +245,12 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         except Exception as e:
             logger.warning(f"点击确认按钮时出错: {e}，继续尝试下载")
 
-    def _download_zip_file(self, download_dir: Path) -> Path:
+    def _download_zip_file(self) -> tuple[Path, str]:
         """
         下载压缩包文件
 
-        Args:
-            download_dir: 下载目录
-
         Returns:
-            ZIP 文件路径
+            (ZIP 本地绝对路径, media 相对路径)
 
         Raises:
             ValueError: 下载失败时抛出异常
@@ -278,47 +280,53 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                 logger.info("已点击下载按钮，等待下载...")
 
             download = download_info.value
-            zip_filename = download.suggested_filename or "documents.zip"
-            zip_filepath = download_dir / zip_filename
-            download.save_as(str(zip_filepath))
-            logger.info(f"ZIP 文件已保存: {zip_filepath}")
-            return zip_filepath
+            safe_name = sanitize_upload_filename(download.suggested_filename or "documents.zip")
+            zip_abs_path, zip_rel_path = media_download_target(int(self.task.id), safe_name)
+            download.save_as(str(zip_abs_path))
+            logger.info(f"ZIP 文件已保存: {zip_rel_path}")
+            return zip_abs_path, zip_rel_path
 
         except Exception as e:
             logger.error(f"下载失败: {e}")
             self._save_page_state("gdems_download_error")
             raise ValueError(f"文件下载失败: {e}") from e
 
-    def _extract_zip_file(self, zip_filepath: Path, download_dir: Path) -> list[str]:  # pragma: no cover
+    def _extract_zip_file(self, zip_filepath: Path) -> list[str]:  # pragma: no cover
         """
-        解压 ZIP 文件
+        解压 ZIP 文件（逐条目经 default_storage 写入 media，防止 ZipSlip）
 
         Args:
-            zip_filepath: ZIP 文件路径
-            download_dir: 下载目录
+            zip_filepath: ZIP 文件本地绝对路径
 
         Returns:
-            解压后的文件路径列表
+            解压后的文件路径列表（media 相对路径）
         """
         extracted_files: list[str] = []
 
         try:
-            extract_dir = download_dir / "extracted"
-            extract_dir.mkdir(exist_ok=True)
+            extract_rel_dir = f"{media_download_rel_dir(int(self.task.id))}/extracted"
 
             with zipfile.ZipFile(zip_filepath, "r") as zip_ref:
                 for member in zip_ref.infolist():
-                    target = (extract_dir / member.filename).resolve()
-                    if not target.is_relative_to(extract_dir.resolve()):
+                    if member.is_dir():
+                        continue
+                    # 防止 ZipSlip：拒绝 .. 等非法路径片段
+                    parts = [p for p in member.filename.replace("\\", "/").split("/") if p]
+                    if not parts or any(p in (".", "..") for p in parts):
                         logger.warning(f"跳过不安全的 ZIP 条目: {member.filename}")
                         continue
-                    zip_ref.extract(member, extract_dir)
-                    if not member.is_dir():
-                        extracted_files.append(str(target))
+
+                    safe_name = sanitize_upload_filename(parts[-1])
+                    rel_dir = extract_rel_dir
+                    if len(parts) > 1:
+                        sub_dirs = "/".join(sanitize_filename(part) for part in parts[:-1] if sanitize_filename(part))
+                        rel_dir = f"{extract_rel_dir}/{sub_dirs}" if sub_dirs else extract_rel_dir
+                    saved = default_storage.save(f"{rel_dir}/{safe_name}", ContentFile(zip_ref.read(member)))
+                    extracted_files.append(saved)
             logger.info(f"ZIP 文件已解压,共 {len(extracted_files)} 个文件")
 
         except (OSError, ValueError) as e:
             logger.error(f"解压失败: {e}")
             # 解压失败不影响主流程,返回空列表
-            extracted_files: list[Any] = []  # type: ignore
+            extracted_files = []
         return extracted_files

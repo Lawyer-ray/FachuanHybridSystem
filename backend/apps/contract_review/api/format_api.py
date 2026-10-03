@@ -9,6 +9,8 @@ from ninja import Router
 
 from apps.contract_review.models import ReviewTask
 from apps.contract_review.schemas.format_schemas import FormatNormalizeIn, FormatNormalizeOut
+from apps.core.exceptions import ValidationException
+from apps.core.services.storage_service import to_media_abs
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -56,7 +58,14 @@ async def normalize_format(  # pragma: no cover
                 "message": "原始文件不存在",
             }
 
-        original_path = Path(task.original_file)
+        try:
+            original_path = to_media_abs(task.original_file)
+        except ValidationException:
+            return {
+                "task_id": task.id,
+                "status": "failed",
+                "message": f"原始文件路径无效: {task.original_file}",
+            }
         if not original_path.exists():
             return {
                 "task_id": task.id,
@@ -65,31 +74,15 @@ async def normalize_format(  # pragma: no cover
             }
 
         try:
-            # 执行格式规范化
-            from apps.contract_review.services.format_normalizer import DocxFormatNormalizer
+            # 执行格式规范化（产物经 default_storage 落盘，落库存相对路径）
+            from apps.contract_review.services.format_normalizer import normalize_to_media
 
-            # 生成输出文件路径
-            output_dir = original_path.parent
-            output_filename = f"{original_path.stem}_规范化{original_path.suffix}"
-            output_path = output_dir / output_filename
-
-            # 获取参考文档路径
-            reference_path = None
+            # 获取参考文档路径（to_media_abs 保证路径在 MEDIA_ROOT 内，防止路径遍历攻击）
+            reference_path: Path | None = None
             if payload.reference_file:
-                reference_path = Path(payload.reference_file)
-                # 安全：验证参考文档路径在 MEDIA_ROOT 内，防止路径遍历攻击
-                from django.conf import settings
-
-                media_root = Path(settings.MEDIA_ROOT).resolve()
                 try:
-                    resolved_ref = reference_path.resolve()
-                    if not resolved_ref.is_relative_to(media_root):
-                        return {
-                            "task_id": task.id,
-                            "status": "failed",
-                            "message": "无效的参考文档路径",
-                        }
-                except (ValueError, OSError):
+                    reference_path = to_media_abs(payload.reference_file)
+                except ValidationException:
                     return {
                         "task_id": task.id,
                         "status": "failed",
@@ -102,17 +95,16 @@ async def normalize_format(  # pragma: no cover
                         "message": f"参考文档不存在: {reference_path}",
                     }
 
-            normalizer = DocxFormatNormalizer(original_path, output_path, reference_path)
-            result_path = normalizer.normalize()
+            saved_name = normalize_to_media(original_path, reference_path=reference_path)
 
             # 更新任务的输出文件
-            task.output_file = str(result_path)
+            task.output_file = saved_name
             task.save(update_fields=["output_file"])
 
             return {
                 "task_id": task.id,
                 "status": "success",
-                "output_file": str(result_path),
+                "output_file": saved_name,
                 "message": "格式规范化完成",
             }
 
@@ -148,7 +140,12 @@ def download_normalized(request: HttpRequest, task_id: UUID) -> FileResponse:  #
 
         raise Http404("输出文件不存在")
 
-    output_path = Path(task.output_file)
+    try:
+        output_path = to_media_abs(task.output_file)
+    except ValidationException:
+        from django.http import Http404
+
+        raise Http404("输出文件不存在")
     if not output_path.exists():
         from django.http import Http404
 

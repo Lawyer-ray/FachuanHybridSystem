@@ -79,6 +79,7 @@ class TokenRateLimitMiddleware:
                 cache.set(bucket_key, 1, timeout=_TOKEN_RATE_WINDOW + 5)
                 return 1
         except Exception:
+            logger.warning("令牌限流计数失败（已忽略，本次放行）", exc_info=True)
             return 0  # 缓存故障时放行
 
     @staticmethod
@@ -100,6 +101,7 @@ class TokenRateLimitMiddleware:
                 await cache.aset(bucket_key, 1, timeout=_TOKEN_RATE_WINDOW + 5)
                 return 1
         except Exception:
+            logger.warning("令牌限流计数失败（已忽略，本次放行）", exc_info=True)
             return 0
 
     @staticmethod

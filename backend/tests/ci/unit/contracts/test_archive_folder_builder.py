@@ -116,6 +116,97 @@ class TestWriteTemplateDocToFolder:
                         )
 
 
+class TestPublishArchiveProducts:
+    """归档产物统一经 save_file_to_bound_folder 写入绑定目录。"""
+
+    def test_publishes_all_files_with_archive_subdir_key(self, tmp_path: Path) -> None:
+        from apps.contracts.services.archive.generation.folder_builder import _publish_archive_products
+
+        (tmp_path / "1-案卷封面（TestContract）_20261002.docx").write_bytes(b"a")
+        (tmp_path / "5-Final案卷材料（TestContract）_20261002.pdf").write_bytes(b"b")
+
+        contract = _make_contract()
+        with patch(
+            "apps.contracts.services.folder.folder_binding_service.FolderBindingService"
+        ) as mock_svc_cls:
+            mock_svc = mock_svc_cls.return_value
+            mock_svc.save_file_to_bound_folder.return_value = "/bound/归档文件夹/1.docx"
+
+            errors = _publish_archive_products(contract, tmp_path)
+
+        assert errors == []
+        assert mock_svc.save_file_to_bound_folder.call_count == 2
+        first_call = mock_svc.save_file_to_bound_folder.call_args_list[0]
+        assert first_call.kwargs["subdir_key"] == "archive"
+        assert first_call.kwargs["file_name"] == "1-案卷封面（TestContract）_20261002.docx"
+        assert first_call.kwargs["file_content"] == b"a"
+        assert first_call.kwargs["owner_id"] == 1
+
+    def test_collects_errors_per_file(self, tmp_path: Path) -> None:
+        from apps.contracts.services.archive.generation.folder_builder import _publish_archive_products
+
+        (tmp_path / "4-案卷材料.pdf").write_bytes(b"x")
+
+        contract = _make_contract()
+        with patch(
+            "apps.contracts.services.folder.folder_binding_service.FolderBindingService"
+        ) as mock_svc_cls:
+            mock_svc = mock_svc_cls.return_value
+            mock_svc.save_file_to_bound_folder.side_effect = RuntimeError("disk full")
+
+            errors = _publish_archive_products(contract, tmp_path)
+
+        assert len(errors) == 1
+        assert "4-案卷材料.pdf" in errors[0]
+
+    def test_no_binding_returns_error_entry(self, tmp_path: Path) -> None:
+        from apps.contracts.services.archive.generation.folder_builder import _publish_archive_products
+
+        (tmp_path / "4-案卷材料.pdf").write_bytes(b"x")
+
+        contract = _make_contract()
+        with patch(
+            "apps.contracts.services.folder.folder_binding_service.FolderBindingService"
+        ) as mock_svc_cls:
+            mock_svc = mock_svc_cls.return_value
+            mock_svc.save_file_to_bound_folder.return_value = None
+
+            errors = _publish_archive_products(contract, tmp_path)
+
+        assert errors == ["4-案卷材料.pdf: 合同未绑定文件夹"]
+
+
+class TestArchiveSubdirKey:
+    """归档 subdir_key 在合同绑定服务中映射到「归档文件夹」。"""
+
+    def test_archive_subdir_maps_to_archive_folder(self) -> None:
+        from apps.contracts.services.folder.folder_binding_service import ARCHIVE_SUBDIR_KEY, FolderBindingService
+
+        svc = FolderBindingService()
+        assert ARCHIVE_SUBDIR_KEY == "archive"
+        assert svc._resolve_subdir_path(owner_type="litigation", subdir_key=ARCHIVE_SUBDIR_KEY) == "归档文件夹"
+
+    def test_archive_product_lands_in_bound_archive_folder(self, db, tmp_path: Path) -> None:
+        """端到端：归档产物经 save_file_to_bound_folder 落到绑定目录的「归档文件夹」。"""
+        from apps.contracts.models.folder_binding import ContractFolderBinding
+        from apps.contracts.services.folder.folder_binding_service import ARCHIVE_SUBDIR_KEY, FolderBindingService
+        from apps.testing.factories import ContractFactory
+
+        contract = ContractFactory()
+        ContractFolderBinding.objects.create(contract=contract, folder_path=str(tmp_path))
+
+        saved = FolderBindingService().save_file_to_bound_folder(
+            owner_id=contract.id,
+            file_content=b"docx-content",
+            file_name="1-案卷封面.docx",
+            subdir_key=ARCHIVE_SUBDIR_KEY,
+        )
+
+        expected = tmp_path / "归档文件夹" / "1-案卷封面.docx"
+        assert saved == str(expected)
+        assert expected.read_bytes() == b"docx-content"
+
+
 class TestCompileFinalArchivePdf:
     def test_no_case_materials_pdf(self, tmp_path: Path) -> None:
         contract = _make_contract()

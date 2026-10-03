@@ -6,6 +6,10 @@ from pathlib import Path
 from uuid import UUID
 
 from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+
+from apps.core.filesystem.upload_paths import MediaEntity
 
 
 class PdfSplitStorage:
@@ -14,7 +18,7 @@ class PdfSplitStorage:
 
     @property
     def job_root(self) -> Path:
-        return Path(settings.MEDIA_ROOT) / "pdf_splitting" / "jobs" / self._job_id
+        return Path(settings.MEDIA_ROOT) / MediaEntity.PDF_SPLITTING / "jobs" / self._job_id
 
     @property
     def source_dir(self) -> Path:
@@ -48,6 +52,16 @@ class PdfSplitStorage:
     def export_zip_path(self) -> Path:
         return self.exports_dir / "split_result.zip"
 
+    def rel_path_of(self, path: Path) -> str:
+        """把 job 目录内的绝对路径转换为 media 相对路径（供 default_storage 使用）。"""
+        return path.relative_to(Path(settings.MEDIA_ROOT)).as_posix()
+
+    def save_overwrite(self, path: Path, content: ContentFile[bytes]) -> None:
+        rel_path = self.rel_path_of(path)
+        if default_storage.exists(rel_path):
+            default_storage.delete(rel_path)
+        default_storage.save(rel_path, content)
+
     def ensure_dirs(self) -> None:  # pragma: no cover
         for path in (self.source_dir, self.analysis_dir, self.previews_dir, self.exports_dir):
             path.mkdir(parents=True, exist_ok=True)
@@ -56,8 +70,10 @@ class PdfSplitStorage:
         shutil.rmtree(self.job_root, ignore_errors=True)
 
     def write_json(self, path: Path, payload: object) -> None:  # pragma: no cover
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        self.save_overwrite(
+            path,
+            ContentFile(json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")),
+        )
 
     def read_json(self, path: Path, default: object) -> object:  # pragma: no cover
         if not path.exists():

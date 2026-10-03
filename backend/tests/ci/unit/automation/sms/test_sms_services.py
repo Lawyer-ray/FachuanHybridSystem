@@ -159,21 +159,6 @@ class TestCaseFolderArchiveService:
             result2 = self.service._ensure_unique_directory(parent, "test_folder")
             assert result2.name == "test_folder_2"
 
-    def test_ensure_unique_file_path(self) -> None:
-        """确保文件路径唯一。"""
-        import tempfile
-        from pathlib import Path
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            parent = Path(tmpdir)
-            target = parent / "test.pdf"
-            result = self.service._ensure_unique_file_path(target)
-            assert result.name == "test.pdf"
-
-            target.write_text("test")
-            result2 = self.service._ensure_unique_file_path(target)
-            assert result2.name == "test_2.pdf"
-
     def test_archive_sms_documents_no_case_id(self) -> None:
         """无案件 ID 跳过归档。"""
         sms = SimpleNamespace(id=1, case_id=None)

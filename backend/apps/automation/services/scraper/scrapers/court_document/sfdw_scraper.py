@@ -18,10 +18,11 @@ from __future__ import annotations
 import logging
 import re
 import time
-from pathlib import Path
 from typing import Any
 
-from .base_court_scraper import BaseCourtDocumentScraper, as_sync_page
+from apps.core.services.storage_service import sanitize_upload_filename
+
+from .base_court_scraper import BaseCourtDocumentScraper, as_sync_page, media_download_target
 
 logger = logging.getLogger("apps.automation")
 
@@ -41,8 +42,6 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
     def run(self) -> dict[str, Any]:  # pragma: no cover
         """执行文书下载任务"""
         logger.info("开始处理司法送达网链接: %s", self.task.url)
-
-        download_dir = self._prepare_download_dir()
 
         # 导航到目标页面
         self.navigate_to_url(timeout=30000)
@@ -71,7 +70,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         logger.info("司法送达网: 获取到 %d 份文书", len(ws_list))
 
         # 下载文书
-        files = self._download_all_documents(ws_list, download_dir)
+        files = self._download_all_documents(ws_list)
 
         if not files:
             self._save_page_state("sfdw_no_downloads")
@@ -235,9 +234,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     # ==================== 文书下载 ====================
 
-    def _download_all_documents(
-        self, ws_list: list[dict[str, Any]], download_dir: Path
-    ) -> list[str]:  # pragma: no cover
+    def _download_all_documents(self, ws_list: list[dict[str, Any]]) -> list[str]:  # pragma: no cover
         """逐个下载所有文书
 
         使用 Vue 实例的 downloadFile 方法触发下载。
@@ -245,10 +242,9 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
         Args:
             ws_list: 文书列表
-            download_dir: 下载目录
 
         Returns:
-            下载成功的文件路径列表
+            下载成功的文件路径列表（media 相对路径）
         """
         page = as_sync_page(self.page)
         files: list[str] = []
@@ -260,7 +256,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
             logger.info("司法送达网: 下载第 %d/%d 个文书 (%s)", i + 1, len(ws_list), doc_name)
 
-            filepath = self._download_single_document(ws, i, download_dir, doc_name)
+            filepath = self._download_single_document(ws, i, doc_name)
             if filepath:
                 files.append(filepath)
 
@@ -270,7 +266,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         return files
 
     def _download_single_document(  # pragma: no cover
-        self, ws: dict[str, Any], index: int, download_dir: Path, doc_name: str
+        self, ws: dict[str, Any], index: int, doc_name: str
     ) -> str | None:
         """下载单个文书
 
@@ -282,11 +278,10 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         Args:
             ws: 文书数据
             index: 文书索引
-            download_dir: 下载目录
             doc_name: 文书名称
 
         Returns:
-            下载文件路径，失败返回 None
+            下载文件路径（media 相对路径），失败返回 None
         """
         page = as_sync_page(self.page)
 
@@ -311,7 +306,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                 }""",
                     ws_json,
                 )
-            return self._save_download_file(download_info.value, download_dir, doc_name, index)
+            return self._save_download_file(download_info.value, doc_name, index)
         except Exception as exc:
             logger.info("司法送达网: Vue downloadFile 方式下载失败，尝试备选方案: %s", exc)
 
@@ -348,7 +343,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             page.remove_listener("download", on_download)
 
             if captured_downloads:
-                return self._save_download_file(captured_downloads[0], download_dir, doc_name, index)
+                return self._save_download_file(captured_downloads[0], doc_name, index)
 
         except Exception as exc:
             logger.warning("司法送达网: 备选下载方案也失败: %s", exc)
@@ -356,30 +351,30 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         logger.warning("司法送达网: 文书 %s 下载失败", doc_name)
         return None
 
-    def _save_download_file(self, download: Any, download_dir: Path, doc_name: str, index: int) -> str:
+    def _save_download_file(self, download: Any, doc_name: str, index: int) -> str:
         """保存下载文件
 
         Args:
             download: Playwright Download 对象
-            download_dir: 下载目录
             doc_name: 文书名称
             index: 文书索引
 
         Returns:
-            保存的文件路径
+            保存的文件路径（media 相对路径）
         """
         suggested = download.suggested_filename or ""
         if doc_name and (doc_name.endswith(".pdf") or doc_name.endswith(".doc")):
-            filename = self._safe_filename(doc_name)
+            filename = doc_name
         elif suggested:
-            filename = self._safe_filename(suggested)
+            filename = suggested
         else:
             filename = f"sfdw_doc_{index}_{int(time.time())}.pdf"
 
-        filepath = download_dir / filename
-        download.save_as(str(filepath))
-        logger.info("司法送达网: 下载成功: %s", filepath)
-        return str(filepath)
+        safe_name = sanitize_upload_filename(self._safe_filename(filename))
+        abs_path, rel_path = media_download_target(int(self.task.id), safe_name)
+        download.save_as(str(abs_path))
+        logger.info("司法送达网: 下载成功: %s", rel_path)
+        return rel_path
 
     @staticmethod
     def _safe_filename(name: str) -> str:

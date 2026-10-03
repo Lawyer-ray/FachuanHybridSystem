@@ -95,4 +95,5 @@ class ExpressBrowserQueryService:  # pragma: no cover
                 await page.close()
                 logger.info("Closed query result tab")
             except Exception:
+                logger.debug("关闭查询结果页失败（已忽略）", exc_info=True)
                 pass

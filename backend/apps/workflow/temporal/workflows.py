@@ -270,6 +270,14 @@ class SalesContractDisputeWorkflow:
 # 读取 WorkflowTemplate.steps_schema，按顺序执行各步骤。
 # ════════════════════════════════════════════════════════════════
 
+# 各 workflow 类注册的审批信号名（与类内 @workflow.signal handler 一一对应）。
+# 审批入口（mcp/workflow_tools.approve_workflow_step）发送信号前据此校验：
+# 向未注册信号的 workflow 发送会被 Temporal 静默丢弃，必须提前拒绝。
+WORKFLOW_SIGNAL_HANDLERS: dict[str, frozenset[str]] = {
+    "SalesContractDisputeWorkflow": frozenset({"confirm_facts_approved", "review_complaint_approved"}),
+    "DynamicWorkflow": frozenset({"gate_approved", "confirm_facts_approved", "review_complaint_approved"}),
+}
+
 
 def _resolve_dotted(obj: Any, path: str) -> Any:
     """按点号路径从 dict 中取值，如 'previous_step.result.need_complaint'"""
@@ -369,7 +377,9 @@ class DynamicWorkflow:
     根据 WorkflowTemplate.steps_schema 逐步执行，支持 8 种步骤类型：
     activity, gate, wait, condition, delay, llm, http, code
 
-    信号: 使用通用 gate_approved 信号，通过 data.step_id 路由到正确 gate。
+    信号: gate 步骤配置了 signal_key 时使用对应命名信号
+    （见 WORKFLOW_SIGNAL_HANDLERS），否则使用通用 gate_approved，
+    均通过 data.step_id 路由到正确 gate。
     """
 
     def __init__(self) -> None:
@@ -821,6 +831,14 @@ class DynamicWorkflow:
 
     # ── 通用信号 ──
 
+    def _record_gate_result(self, data: dict) -> None:
+        """记录一次审批结果（gate/wait 共用），按 data.step_id 路由。"""
+        step_id = data.get("step_id", "")
+        self._pending_gates[step_id] = GateResult(
+            approved=data.get("approved", False),
+            comment=data.get("comment", ""),
+        )
+
     @workflow.signal
     async def gate_approved(self, data: dict) -> None:
         """通用 gate/wait 审批信号
@@ -830,11 +848,17 @@ class DynamicWorkflow:
           - approved: bool
           - comment: str (可选)
         """
-        step_id = data.get("step_id", "")
-        self._pending_gates[step_id] = GateResult(
-            approved=data.get("approved", False),
-            comment=data.get("comment", ""),
-        )
+        self._record_gate_result(data)
+
+    @workflow.signal
+    async def confirm_facts_approved(self, data: dict) -> None:
+        """按 gate 步骤配置 signal_key 命名的审批信号（行为与 gate_approved 等价）"""
+        self._record_gate_result(data)
+
+    @workflow.signal
+    async def review_complaint_approved(self, data: dict) -> None:
+        """按 gate 步骤配置 signal_key 命名的审批信号（行为与 gate_approved 等价）"""
+        self._record_gate_result(data)
 
     @workflow.query
     def current_state(self) -> dict:

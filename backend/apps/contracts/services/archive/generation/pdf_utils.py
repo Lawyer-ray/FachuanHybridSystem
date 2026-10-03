@@ -10,6 +10,8 @@ from typing import Any
 
 from apps.contracts.models import Contract
 from apps.contracts.models.finalized_material import FinalizedMaterial
+from apps.core.exceptions import ValidationException
+from apps.core.services.storage_service import delete_media_file, normalize_to_media_rel, to_media_abs
 
 from ..category_mapping import get_archive_category
 from ..constants import ARCHIVE_CHECKLIST, ARCHIVE_SKIP_CODES, ARCHIVE_SKIP_TEMPLATES
@@ -18,6 +20,24 @@ logger = logging.getLogger("apps.contracts.archive")
 
 A4_W, A4_H = 595.0, 842.0
 TOLERANCE = 1.0
+
+
+def _replace_material_file(material: FinalizedMaterial, new_content: bytes) -> None:
+    """以「先存新文件、再删旧文件」的方式替换材料文件。
+
+    避免就地覆盖用户原件导致不可逆丢失；新文件写入成功后才删除旧文件，
+    并将 FinalizedMaterial.file_path 回写为新路径。
+    """
+    from django.core.files.base import ContentFile
+    from django.core.files.storage import default_storage
+
+    old_path = material.file_path
+    old_rel = normalize_to_media_rel(old_path)
+    new_rel = default_storage.save(old_rel, ContentFile(new_content))
+    if new_rel != old_rel:
+        delete_media_file(old_path)
+    material.file_path = new_rel
+    material.save(update_fields=["file_path"])
 
 
 def _is_a4(page: Any) -> bool:
@@ -43,8 +63,6 @@ def scale_pages_to_a4(contract: Contract) -> dict[str, Any]:  # pragma: no cover
     if not pdf_materials:
         return {"success": True, "scaled_count": 0, "skipped_count": 0, "errors": []}
 
-    from django.conf import settings as django_settings
-
     scaled_count = 0
     skipped_count = 0
     errors: list[str] = []
@@ -54,9 +72,11 @@ def scale_pages_to_a4(contract: Contract) -> dict[str, Any]:  # pragma: no cover
             errors.append(f"{material.original_filename}: 文件路径缺失")
             continue
 
-        file_path = Path(material.file_path)
-        if not file_path.is_absolute():
-            file_path = Path(django_settings.MEDIA_ROOT) / file_path
+        try:
+            file_path = to_media_abs(material.file_path)
+        except ValidationException as e:
+            errors.append(f"{material.original_filename}: 文件路径无效 - {e.message}")
+            continue
 
         if not file_path.exists():
             errors.append(f"{material.original_filename}: 文件不存在")
@@ -96,8 +116,12 @@ def scale_pages_to_a4(contract: Contract) -> dict[str, Any]:  # pragma: no cover
 
                     new_page.show_pdf_page(target_rect, src_doc, page.number)
 
-            out_doc.save(str(file_path), deflate=True)
+            buffer = BytesIO()
+            out_doc.save(buffer, deflate=True)
             out_doc.close()
+
+            # 写新文件后替换旧文件，避免就地覆盖用户原件不可逆
+            _replace_material_file(material, buffer.getvalue())
             scaled_count += 1
 
             logger.info(
@@ -214,7 +238,6 @@ def add_page_numbers(doc: Any, start_page: int = 1) -> None:  # pragma: no cover
 def merge_materials_to_single_pdf(materials: list[FinalizedMaterial]) -> dict[str, Any]:  # pragma: no cover
     """将多个材料文件合并为一个 PDF（通用工具方法）。"""
     import pymupdf as fitz
-    from django.conf import settings as django_settings
 
     merged_doc = fitz.open()
 
@@ -224,9 +247,11 @@ def merge_materials_to_single_pdf(materials: list[FinalizedMaterial]) -> dict[st
                 logger.warning("合并时文件路径缺失: %s", material.original_filename)
                 continue
 
-            file_path = Path(material.file_path)
-            if not file_path.is_absolute():
-                file_path = Path(django_settings.MEDIA_ROOT) / file_path
+            try:
+                file_path = to_media_abs(material.file_path)
+            except ValidationException as e:
+                logger.warning("合并时文件路径无效: %s (%s)", material.original_filename, e.message)
+                continue
 
             if not file_path.exists():
                 logger.warning("合并时文件不存在: %s", material.original_filename)
@@ -253,7 +278,7 @@ def merge_materials_to_single_pdf(materials: list[FinalizedMaterial]) -> dict[st
                         try:
                             Path(pdf_result).unlink()
                         except OSError:
-                            pass
+                            logger.debug("清理 DOCX 转换临时PDF失败（已忽略）: path=%s", pdf_result, exc_info=True)
                     else:
                         logger.warning("DOCX转PDF失败: %s", material.original_filename)
                 except (OSError, ValueError) as e:
@@ -278,6 +303,9 @@ def compile_case_materials_pdf(
     archive_dir: Path,
 ) -> dict[str, Any]:  # pragma: no cover
     """将归档检查清单中非1-3号的已上传材料合并为"4-案卷材料.pdf"。
+
+    archive_dir 为本地组装（staging）目录：产物先在本地组装完成，
+    由 folder_builder 统一经 save_file_to_bound_folder 写入绑定目录。
 
     Returns:
         {"written": bool, "page_count": int, "skipped": bool, "error": str|None}
@@ -316,8 +344,6 @@ def compile_case_materials_pdf(
     if not materials_to_merge:
         return {"written": False, "skipped": True, "page_count": 0, "error": None}
 
-    from django.conf import settings as django_settings
-
     merged_doc = fitz.open()
 
     try:
@@ -328,9 +354,11 @@ def compile_case_materials_pdf(
                 logger.warning("案卷材料文件路径缺失: %s", material.original_filename)
                 continue
 
-            file_path = Path(material.file_path)
-            if not file_path.is_absolute():
-                file_path = Path(django_settings.MEDIA_ROOT) / file_path
+            try:
+                file_path = to_media_abs(material.file_path)
+            except ValidationException as e:
+                logger.warning("案卷材料文件路径无效: %s (%s)", material.original_filename, e.message)
+                continue
 
             if not file_path.exists():
                 logger.warning("案卷材料文件不存在: %s", material.original_filename)
@@ -352,7 +380,7 @@ def compile_case_materials_pdf(
                     try:
                         pdf_path.unlink(missing_ok=True)
                     except OSError:
-                        pass
+                        logger.debug("清理合并用临时PDF失败（已忽略）: path=%s", pdf_path, exc_info=True)
 
         if len(merged_doc) == 0:
             return {"written": False, "skipped": True, "page_count": 0, "error": "没有可合并的文件"}

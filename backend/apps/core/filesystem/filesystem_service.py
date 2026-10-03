@@ -33,6 +33,7 @@ class FolderFilesystemService:
                 self.validator.mkdirs(subdir_path)
             return True
         except (OSError, PermissionError):
+            logger.warning("创建目录结构失败（已忽略）: base_path=%s", base_path, exc_info=True)
             return False
 
     def save_bytes(self, base_path: str, relative_dir_parts: list[str], file_name: str, content: bytes) -> str:

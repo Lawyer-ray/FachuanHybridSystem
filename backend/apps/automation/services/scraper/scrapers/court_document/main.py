@@ -225,6 +225,7 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):  # pragma: no cover
         try:
             return int(as_sync_page(self.page).locator(selector).count()) > 0
         except Exception:
+            logger.debug("探测页面选择器失败（已忽略）", exc_info=True)
             return False
 
     # ── 道律平台动态解析 ─────────────────────────────────────────

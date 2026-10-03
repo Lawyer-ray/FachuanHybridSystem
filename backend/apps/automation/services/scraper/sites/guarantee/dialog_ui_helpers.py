@@ -75,6 +75,7 @@ class GuaranteeDialogUIHelpersMixin:  # pragma: no cover
                 if candidate.is_visible():
                     visible_indices.append(i)
             except Exception:
+                logger.debug("探测添加按钮可见性失败（已忽略）", exc_info=True)
                 continue
 
         if len(visible_indices) <= index:
@@ -89,6 +90,7 @@ class GuaranteeDialogUIHelpersMixin:  # pragma: no cover
                 button.click(force=True, timeout=3000)
                 return True
             except Exception:
+                logger.debug("点击添加按钮失败（已忽略）", exc_info=True)
                 return False
 
     def _click_add_button_by_section_keywords(self, keywords: list[str]) -> bool:  # pragma: no cover

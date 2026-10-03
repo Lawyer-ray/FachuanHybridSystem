@@ -151,6 +151,7 @@ class GuaranteeUploadMixin:  # pragma: no cover
                             "buffer": Path(file_path).read_bytes(),
                         }
                     except OSError:
+                        logger.debug("读取上传文件构建请求体失败（已忽略）", exc_info=True)
                         pass
                 break
         return file_path
@@ -361,6 +362,7 @@ class GuaranteeUploadMixin:  # pragma: no cover
                         self._wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
                         self._random_wait(3.5, 5.0)  # type: ignore[attr-defined]
                     except Exception:
+                        logger.debug("逐个上传材料文件失败（已忽略）", exc_info=True)
                         continue
             else:
                 upload_payload = self._build_file_payloads(chosen_files)
@@ -383,6 +385,7 @@ class GuaranteeUploadMixin:  # pragma: no cover
                     self._wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
                     self._random_wait(1.8, 2.8)  # type: ignore[attr-defined]
                 except Exception:
+                    logger.debug("批量上传材料文件失败（已忽略）", exc_info=True)
                     continue
 
         complaint_path = next(
@@ -440,6 +443,7 @@ class GuaranteeUploadMixin:  # pragma: no cover
                         )
                         self._random_wait(1.8, 2.4)  # type: ignore[attr-defined]
                     except (TypeError, ValueError):
+                        logger.debug("重试上传起诉状失败（已忽略）", exc_info=True)
                         continue
 
             if any("身份证明材料" in err for err in errors):
@@ -516,6 +520,7 @@ class GuaranteeUploadMixin:  # pragma: no cover
                                     self._random_wait(1.6, 2.2)  # type: ignore[attr-defined]
                                     break
                                 except (TypeError, ValueError):
+                                    logger.debug("兜底上传身份证明材料失败（已忽略）", exc_info=True)
                                     continue
 
             if any("请上传" in err or "正在进行上传" in err or "当前正在进行上传操作" in err for err in errors):
@@ -584,6 +589,7 @@ class GuaranteeUploadMixin:  # pragma: no cover
                                 )
                                 break
                             except (TypeError, ValueError):
+                                logger.debug("最终重试上传身份证明材料失败（已忽略）", exc_info=True)
                                 continue
 
                 for _ in range(4):
@@ -653,6 +659,7 @@ class GuaranteeUploadMixin:  # pragma: no cover
                         self._random_wait(1.8, 2.4)  # type: ignore[attr-defined]
                         break
                     except Exception:
+                        logger.debug("重试上传材料文件失败（已忽略）", exc_info=True)
                         continue
 
         return uploaded
@@ -717,6 +724,7 @@ class GuaranteeUploadMixin:  # pragma: no cover
                         self._random_wait(1.8, 2.4)  # type: ignore[attr-defined]
                         break
                     except Exception:
+                        logger.debug("重试上传证据材料失败（已忽略）", exc_info=True)
                         continue
 
         return uploaded

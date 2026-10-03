@@ -322,6 +322,7 @@ class CaseMatcher:
                 cases = self.case_service.search_cases_by_case_number_internal(case_number)
                 all_cases.extend(cases)
             except Exception:
+                logger.warning("按案号 %s 查询案件失败（已忽略）", case_number, exc_info=True)
                 continue
 
         # 去重
@@ -516,6 +517,7 @@ class CaseMatcher:
                         closed_cases.add(case)
                         logger.warning(f"发现已结案案件（案号匹配）: {case.name}")
             except Exception:
+                logger.warning("按案号 %s 查询已结案案件失败（已忽略）", num, exc_info=True)
                 continue
 
     def _collect_closed_cases_by_party(self, sms: Any, closed_cases: set[Any]) -> None:

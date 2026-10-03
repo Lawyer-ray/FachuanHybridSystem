@@ -256,6 +256,7 @@ class GuaranteeBaseMixin:  # pragma: no cover
                             button.click(force=True, timeout=3000)
                             return name
                         except Exception:
+                            logger.debug("点击候选按钮失败（已忽略）", exc_info=True)
                             continue
         return None
 

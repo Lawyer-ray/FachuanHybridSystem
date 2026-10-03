@@ -177,6 +177,7 @@ async def _click_company_detail(page: Any, company_name: str, context: Any) -> A
         try:
             await new_page.wait_for_load_state("domcontentloaded", timeout=30000)
         except Exception:
+            logger.debug("等待新标签页加载状态超时（已忽略）", exc_info=True)
             pass
         logger.info("新标签页就绪: %s", new_page.url[:80])
         return new_page
@@ -191,9 +192,11 @@ async def _click_company_detail(page: Any, company_name: str, context: Any) -> A
                     try:
                         await p.wait_for_load_state("domcontentloaded", timeout=30000)
                     except Exception:
+                        logger.debug("等待候选页面加载状态超时（已忽略）", exc_info=True)
                         pass
                     return p
             except Exception:
+                logger.debug("读取候选页面 URL 失败（已忽略）", exc_info=True)
                 continue
         await asyncio.sleep(2)
 
@@ -252,6 +255,7 @@ async def _run_full_flow(credential: GsxtCredentialProtocol, task_id: int) -> No
                         login_success = True
                         break
                 except Exception:
+                    logger.debug("读取登录页 URL 失败（已忽略）", exc_info=True)
                     pass
 
             if not login_success:
@@ -292,6 +296,7 @@ async def _run_full_flow(credential: GsxtCredentialProtocol, task_id: int) -> No
                         logger.info("搜索结果页已加载: %s", page.url)
                         break
                 except Exception:
+                    logger.debug("读取搜索结果页 URL 失败（已忽略）", exc_info=True)
                     pass
             else:
                 raise GsxtReportError(f"等待搜索结果超时（{REPORT_CAPTCHA_TIMEOUT}秒）")

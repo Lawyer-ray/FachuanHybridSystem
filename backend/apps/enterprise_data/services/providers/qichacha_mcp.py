@@ -14,12 +14,15 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from apps.core.exceptions import ValidationException
 from apps.enterprise_data.services.clients import McpToolClient
 from apps.enterprise_data.services.providers.adapters import QichachaResponseAdapter
 from apps.enterprise_data.services.types import ProviderConfig, ProviderResponse
+
+logger = logging.getLogger(__name__)
 
 # 每个 MCP Server 的路径后缀
 _SERVER_PATHS: dict[str, str] = {
@@ -117,6 +120,12 @@ class QichachaMcpProvider:
                     meta=self._build_response_meta(result),
                 )
             except Exception:
+                logger.debug(
+                    "企查查 MCP Server 调用工具失败（已忽略，尝试下一个 Server）: server=%s tool=%s",
+                    server_key,
+                    normalized_tool,
+                    exc_info=True,
+                )
                 continue
         raise ValidationException(
             message=f"企查查工具调用失败: {normalized_tool}",
@@ -168,7 +177,8 @@ class QichachaMcpProvider:
                 if phone:
                     data["phone"] = phone
             except Exception:
-                pass  # 电话获取失败不影响主流程
+                # 电话获取失败不影响主流程
+                logger.debug("补充企查查联系电话失败（已忽略）: company_id=%s", company_id, exc_info=True)
 
         return ProviderResponse(
             data=data,
@@ -188,12 +198,15 @@ class QichachaMcpProvider:
         # 补充电话号码（工商信息不含电话，需单独调 get_contact_info）
         if not data.get("phone"):
             try:
-                contact_result = await client.acall_tool(tool_name="get_contact_info", arguments={"searchKey": company_id})
+                contact_result = await client.acall_tool(
+                    tool_name="get_contact_info", arguments={"searchKey": company_id}
+                )
                 phone = self._extract_phone_from_contact(contact_result["payload"])
                 if phone:
                     data["phone"] = phone
             except Exception:
-                pass  # 电话获取失败不影响主流程
+                # 电话获取失败不影响主流程
+                logger.debug("补充企查查联系电话失败（已忽略）: company_id=%s", company_id, exc_info=True)
 
         return ProviderResponse(
             data=data,

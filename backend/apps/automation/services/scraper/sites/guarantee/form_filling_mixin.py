@@ -423,6 +423,7 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
                 self._random_wait(0.2, 0.4)  # type: ignore[attr-defined]
                 return True
             except Exception:
+                logger.debug("填写咨询员编号失败（已忽略）", exc_info=True)
                 continue
 
         filled = self.page.evaluate(
@@ -520,6 +521,7 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
                         dropdown_input.press("Control+a", timeout=1200)
                         dropdown_input.press("Backspace", timeout=1200)
                     except Exception:
+                        logger.debug("清空下拉输入框失败（已忽略）", exc_info=True)
                         pass
 
             dropdown_input.fill("")
@@ -530,9 +532,11 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
                 try:
                     dropdown_input.press("Enter", timeout=2000)
                 except Exception:
+                    logger.debug("回车提交下拉搜索失败（已忽略）", exc_info=True)
                     pass
             return True
         except Exception:
+            logger.debug("重开并搜索下拉输入框失败（已忽略）", exc_info=True)
             return False
 
     def _reopen_and_search_court_dropdown(  # pragma: no cover

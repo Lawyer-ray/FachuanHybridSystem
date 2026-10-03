@@ -1,11 +1,11 @@
 """短信文书提取与重命名 Mixin"""
 
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from apps.automation.models import CourtSMS, CourtSMSStatus
 from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
+from apps.core.services.storage_service import resolve_media_path
 
 if TYPE_CHECKING:
     from apps.automation.services.sms.case_folder_archive_service import CaseFolderArchiveService
@@ -91,13 +91,13 @@ class SMSDocumentMixin:
         try:
             if isinstance(sms.document_file_paths, list):
                 for file_path in sms.document_file_paths:
-                    if file_path and Path(file_path).exists():
+                    if file_path and resolve_media_path(file_path).exists():
                         document_paths.append(file_path)
 
             if sms.scraper_task and hasattr(sms.scraper_task, "documents"):
                 documents = sms.scraper_task.documents.filter(download_status="success")
                 for doc in documents:
-                    if doc.local_file_path and Path(doc.local_file_path).exists():
+                    if doc.local_file_path and resolve_media_path(doc.local_file_path).exists():
                         document_paths.append(doc.local_file_path)
 
             if not document_paths and sms.scraper_task:
@@ -105,7 +105,7 @@ class SMSDocumentMixin:
                 if result and isinstance(result, dict):
                     files = result.get("files", [])
                     for file_path in files:
-                        if file_path and Path(file_path).exists():
+                        if file_path and resolve_media_path(file_path).exists():
                             document_paths.append(file_path)
 
         except Exception as e:
@@ -125,7 +125,7 @@ class SMSDocumentMixin:
             if sms.scraper_task:
                 document_paths = self.document_attachment.get_paths_for_renaming(sms)
             elif isinstance(sms.document_file_paths, list) and sms.document_file_paths:
-                document_paths = [p for p in sms.document_file_paths if p and Path(p).exists()]
+                document_paths = [p for p in sms.document_file_paths if p and resolve_media_path(p).exists()]
                 logger.info(f"短信 {sms.id} 无下载任务，使用 document_file_paths: {len(document_paths)} 个文件")
             else:
                 logger.info(f"短信 {sms.id} 无下载任务且无文书文件，跳过重命名")

@@ -140,7 +140,7 @@ class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin
                 "使用回退机制:传统页面点击下载",
                 extra={"operation_type": "fallback_attempt", "timestamp": time.time()},
             )
-            result = self._download_via_fallback(download_dir)
+            result = self._download_via_fallback()
             result["method"] = "fallback"
             result["direct_api_error"] = {"type": type(direct_api_error).__name__, "message": str(direct_api_error)}
             result["api_intercept_error"] = {

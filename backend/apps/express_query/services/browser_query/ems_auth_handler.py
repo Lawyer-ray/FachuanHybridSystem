@@ -30,6 +30,7 @@ async def is_ems_dialog_visible(page: Page) -> bool:  # pragma: no cover
         if await dialog.count() > 0 and await dialog.first.is_visible():
             return True
     except Exception:
+        logger.debug("检测登录弹窗容器失败（已忽略）", exc_info=True)
         pass
     # 方法2: 可见的"扫码登录"文字
     try:
@@ -37,6 +38,7 @@ async def is_ems_dialog_visible(page: Page) -> bool:  # pragma: no cover
         if await qr.count() > 0 and await qr.first.is_visible():
             return True
     except Exception:
+        logger.debug("检测扫码登录文字失败（已忽略）", exc_info=True)
         pass
     # 方法3: 协议文字
     try:
@@ -44,6 +46,7 @@ async def is_ems_dialog_visible(page: Page) -> bool:  # pragma: no cover
         if await agree.count() > 0 and await agree.first.is_visible():
             return True
     except Exception:
+        logger.debug("检测服务协议文字失败（已忽略）", exc_info=True)
         pass
     return False
 
@@ -61,6 +64,7 @@ async def ems_click_login_button(page: Page) -> bool:  # pragma: no cover
         try:
             count = await loc.count()
         except Exception:
+            logger.debug("统计登录按钮数量失败（已忽略）", exc_info=True)
             continue
         for i in range(min(count, 5)):
             target = loc.nth(i)
@@ -69,6 +73,7 @@ async def ems_click_login_button(page: Page) -> bool:  # pragma: no cover
                     await target.click(force=True, timeout=3000)
                     return True
             except Exception:
+                logger.debug("点击登录按钮失败（已忽略）", exc_info=True)
                 continue
     # JS 兜底
     try:
@@ -84,6 +89,7 @@ async def ems_click_login_button(page: Page) -> bool:  # pragma: no cover
         }""")
         return bool(clicked)
     except Exception:
+        logger.debug("点击 EMS 登录按钮失败（已忽略）", exc_info=True)
         return False
 
 
@@ -105,6 +111,7 @@ async def wait_for_ems_login(  # pragma: no cover
         try:
             body = (await page.locator("body").text_content()) or ""
         except Exception:
+            logger.debug("读取页面正文失败（已忽略）", exc_info=True)
             pass
         user_visible = any(kw in body for kw in ("退出", "我的EMS", "个人中心", "我的快递"))
         if user_visible or not login_visible:
@@ -143,6 +150,7 @@ async def ems_handle_agreement_and_wait(
             if await qr_loc.count() > 0 and await qr_loc.first.is_visible():
                 has_qr = True
         except Exception:
+            logger.debug("检测扫码登录入口失败（已忽略）", exc_info=True)
             pass
 
         # 检测待处理的 checkbox
@@ -152,6 +160,7 @@ async def ems_handle_agreement_and_wait(
             if await cb_loc.count() > 0 and await cb_loc.first.is_visible():
                 has_checkbox = True
         except Exception:
+            logger.debug("检测协议勾选框失败（已忽略）", exc_info=True)
             pass
 
         logger.info(
@@ -218,6 +227,7 @@ async def ems_handle_agreement_and_wait(
         try:
             body = (await page.locator("body").text_content()) or ""
         except Exception:
+            logger.debug("读取页面正文失败（已忽略）", exc_info=True)
             pass
 
         has_logged_in_indicators = any(kw in body for kw in ("退出", "我的EMS", "个人中心", "我的快递"))
@@ -285,6 +295,7 @@ async def _ems_ensure_agreement_checked(page: Page) -> bool:  # pragma: no cover
             await asyncio.sleep(0.6)
             return True
     except Exception:
+        logger.debug("勾选协议复选框失败（已忽略）", exc_info=True)
         pass
     return False
 
@@ -320,6 +331,7 @@ async def _ems_open_last_agreement_and_accept(context: BrowserContext, page: Pag
     try:
         await agreement_page.wait_for_load_state("domcontentloaded", timeout=5000)
     except Exception:
+        logger.debug("等待协议页加载失败（已忽略）", exc_info=True)
         pass
 
     # 等待协议弹层出现
@@ -329,6 +341,7 @@ async def _ems_open_last_agreement_and_accept(context: BrowserContext, page: Pag
             await modal_loc.first.wait_for(timeout=4000)
             logger.info("  Agreement modal appeared")
     except Exception:
+        logger.debug("等待协议弹层出现失败（已忽略）", exc_info=True)
         pass
 
     # 点击最后一个条款滚动到底部
@@ -344,6 +357,7 @@ async def _ems_open_last_agreement_and_accept(context: BrowserContext, page: Pag
             await agreement_page.close()
             logger.info("  Closed agreement page")
         except Exception:
+            logger.debug("关闭协议页失败（已忽略）", exc_info=True)
             pass
 
     return accepted
@@ -426,6 +440,7 @@ async def _ems_accept_agreement_on_page(agreement_page: Page) -> None:  # pragma
                 await asyncio.sleep(0.5)
                 break
         except Exception:
+            logger.debug("点击协议条款失败（已忽略）", exc_info=True)
             continue
 
     accept_selectors: list[str] = [
@@ -441,6 +456,7 @@ async def _ems_accept_agreement_on_page(agreement_page: Page) -> None:  # pragma
                 await asyncio.sleep(1)
                 return
         except Exception:
+            logger.debug("点击同意按钮失败（已忽略）", exc_info=True)
             continue
     logger.warning("Accept button not found on agreement page")
 

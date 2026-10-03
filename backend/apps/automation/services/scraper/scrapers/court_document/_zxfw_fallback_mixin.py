@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from apps.core.services.storage_service import sanitize_upload_filename
+
+from .base_court_scraper import media_download_target
+
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from playwright.sync_api import Page
 
 logger = logging.getLogger("apps.automation")
@@ -16,6 +21,8 @@ class ZxfwFallbackMixin:  # pragma: no cover
     """传统页面点击回退下载方法"""
 
     page: Page
+
+    task_id: int
 
     def _save_page_state(self, name: str) -> dict[str, Any]:  # pragma: no cover
         if hasattr(super(), "_save_page_state"):
@@ -33,6 +40,7 @@ class ZxfwFallbackMixin:  # pragma: no cover
             logger.info("[DEBUG] 通过 #if 找到 iframe")
             return frame
         except Exception:
+            logger.debug("定位 PDF viewer iframe 失败（已忽略）", exc_info=True)
             pass
         iframes = self.page.locator("iframe").all()
         for i, iframe in enumerate(iframes):
@@ -64,8 +72,8 @@ class ZxfwFallbackMixin:  # pragma: no cover
         except Exception as e:
             logger.warning(f"[DEBUG] 点击文书项失败: {e}")
 
-    def _download_single_doc(self, frame: Any, doc_index: int, download_dir: Path) -> str | None:  # pragma: no cover
-        """在 iframe 内下载单个文书，返回文件路径或 None"""
+    def _download_single_doc(self, frame: Any, doc_index: int) -> str | None:  # pragma: no cover
+        """在 iframe 内下载单个文书，返回 media 相对路径或 None"""
         filename_default = f"document_{doc_index}.pdf"
         try:
             btn = frame.locator("#download")
@@ -76,10 +84,11 @@ class ZxfwFallbackMixin:  # pragma: no cover
                 btn.first.click()
                 logger.info(f"[DEBUG] 已点击第 {doc_index} 个文书的下载按钮")
             download = dl_info.value
-            filepath = download_dir / (download.suggested_filename or filename_default)
-            download.save_as(str(filepath))
-            logger.info(f"[DEBUG] 文件已保存: {filepath}")
-            return str(filepath)
+            safe_name = sanitize_upload_filename(download.suggested_filename or filename_default)
+            abs_path, rel_path = media_download_target(self.task_id, safe_name)
+            download.save_as(str(abs_path))
+            logger.info(f"[DEBUG] 文件已保存: {rel_path}")
+            return rel_path
         except Exception as e:
             logger.warning(f"[DEBUG] #download 方式失败: {e}，尝试备用 XPath")
         try:
@@ -90,14 +99,15 @@ class ZxfwFallbackMixin:  # pragma: no cover
                 btn.first.click()
                 logger.info("[DEBUG] 通过备用 XPath 点击下载按钮")
             download = dl_info.value
-            filepath = download_dir / (download.suggested_filename or filename_default)
-            download.save_as(str(filepath))
-            return str(filepath)
+            safe_name = sanitize_upload_filename(download.suggested_filename or filename_default)
+            abs_path, rel_path = media_download_target(self.task_id, safe_name)
+            download.save_as(str(abs_path))
+            return rel_path
         except Exception as e2:
             logger.error(f"[DEBUG] 第 {doc_index} 个文书下载失败: {e2}")
             return None
 
-    def _download_via_fallback(self, download_dir: Path) -> dict[str, Any]:  # pragma: no cover
+    def _download_via_fallback(self) -> dict[str, Any]:  # pragma: no cover
         """通过传统页面点击方式下载文书（回退机制）"""
         if self.page is None:
             error_msg = (
@@ -136,7 +146,7 @@ class ZxfwFallbackMixin:  # pragma: no cover
                     logger.warning(f"[DEBUG] 第 {doc_index} 个文书未找到 iframe，跳过")
                     failed_count += 1
                     continue
-                filepath = self._download_single_doc(frame, doc_index, download_dir)
+                filepath = self._download_single_doc(frame, doc_index)
                 if filepath:
                     downloaded_files.append(filepath)
                     success_count += 1

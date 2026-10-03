@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import tempfile
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -16,6 +17,8 @@ from django.conf import settings
 from playwright.sync_api import BrowserContext, Page
 
 from apps.automation.services.scraper.scrapers.base import BaseScraper
+from apps.core.filesystem.upload_paths import MediaEntity
+from apps.core.services.storage_service import resolve_media_path, to_media_abs
 
 if TYPE_CHECKING:
     from apps.core.interfaces import ICourtDocumentService
@@ -25,6 +28,22 @@ logger = logging.getLogger("apps.automation")
 # 调试模式配置(从 Django settings 读取)
 DEBUG_MODE = getattr(settings, "DEBUG", False)  # 跟随 Django DEBUG 设置
 PAUSE_ON_ERROR = False  # 设置为 True 在错误时暂停(需要手动继续)
+
+
+def media_download_rel_dir(task_id: int) -> str:
+    """文书下载目录的 media 相对路径：case_logs/{task_id}/documents"""
+    return f"{MediaEntity.CASE_LOGS}/{task_id}/documents"
+
+
+def media_download_target(task_id: int, safe_name: str) -> tuple[Path, str]:
+    """构造 Playwright download.save_as 的落点（media 内），返回 (本地绝对路径, media 相对路径)。
+
+    save_as 只接受本地文件系统路径，故经 to_media_abs 构造；落库/任务结果保存相对路径。
+    """
+    rel_path = f"{media_download_rel_dir(task_id)}/{safe_name}"
+    abs_path = to_media_abs(rel_path)
+    abs_path.parent.mkdir(parents=True, exist_ok=True)
+    return abs_path, rel_path
 
 
 def as_sync_page(page: Page | None) -> Page:
@@ -181,14 +200,14 @@ class BaseCourtDocumentScraper(BaseScraper):
         """
         保存页面状态(截图 + HTML + 元素分析)
 
+        调试产物不入 media，统一落系统 tempfile 目录。
+
         Args:
             name: 状态名称
 
         Returns:
             保存的文件路径字典
         """
-        download_dir = self._prepare_download_dir()
-
         # 浏览器页面未初始化时，跳过截图/HTML/元素分析，避免用断言掩盖真实下载错误
         if self.page is None:
             logger.warning(f"[DEBUG] 无法保存页面状态 {name}: 浏览器页面未初始化 (self.page is None)")
@@ -197,14 +216,16 @@ class BaseCourtDocumentScraper(BaseScraper):
         # 保存截图
         screenshot_path = self.screenshot(name)
 
+        debug_dir = Path(tempfile.gettempdir())
+
         # 保存 HTML
-        html_path = download_dir / f"{name}_page.html"
+        html_path = debug_dir / f"{self.task.id}_{name}_page.html"
         with open(html_path, "w", encoding="utf-8") as f:
             f.write(self.page.content())
 
         # 保存元素分析
         analysis = self._analyze_page_elements()
-        analysis_path = download_dir / f"{name}_analysis.json"
+        analysis_path = debug_dir / f"{self.task.id}_{name}_analysis.json"
         with open(analysis_path, "w", encoding="utf-8") as f:
             json.dump(analysis, f, ensure_ascii=False, indent=2)
 
@@ -229,18 +250,12 @@ class BaseCourtDocumentScraper(BaseScraper):
 
     def _prepare_download_dir(self) -> Path:  # pragma: no cover
         """
-        准备下载目录
+        准备下载目录（media 相对布局 case_logs/{task_id}/documents，经 to_media_abs 构造）
 
         Returns:
             下载目录路径
         """
-        # 如果任务关联了案件,使用案件 ID 作为目录名
-        case_id = self.task.case_id
-        if case_id is not None:
-            download_dir = Path(settings.MEDIA_ROOT) / "case_logs" / str(case_id) / "documents"
-        else:
-            download_dir = Path(settings.MEDIA_ROOT) / "automation" / "downloads" / f"task_{self.task.id}"
-
+        download_dir = to_media_abs(media_download_rel_dir(int(self.task.id)))
         download_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"下载目录: {download_dir}")
 
@@ -277,11 +292,11 @@ class BaseCourtDocumentScraper(BaseScraper):
 
             # 根据下载结果更新状态
             if success:
-                # 获取文件大小
+                # 获取文件大小（local_file_path 可能是 media 相对路径，需先解析）
                 file_size = None
                 if filepath:
                     try:
-                        file_size = Path(filepath).stat().st_size
+                        file_size = resolve_media_path(filepath).stat().st_size
                     except Exception as e:
                         logger.warning(f"无法获取文件大小: {e}")
 

@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import numpy as np
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
+import numpy as np
 import pytest
 
 from apps.client.services.id_card_merge.facade import IdCardMergeService
 from apps.core.exceptions import ValidationException
+from apps.core.services.storage_service import to_media_abs
 
 
 def _make_service():
@@ -180,22 +181,20 @@ class TestResolveImagePath:
 
     def test_strips_leading_slash(self):
         svc = _make_service()
-        media_root = Path("/media")
-        with patch("apps.client.services.id_card_merge.facade.get_media_root", return_value=media_root):
-            full, rel = svc._resolve_image_path("/uploads/test.jpg", media_root)
-            assert rel == "uploads/test.jpg"
+        full, rel = svc._resolve_image_path("/uploads/test.jpg")
+        assert rel == "uploads/test.jpg"
+        assert full == to_media_abs("uploads/test.jpg")
 
     def test_strips_media_prefix(self):
         svc = _make_service()
-        media_root = Path("/media")
-        full, rel = svc._resolve_image_path("media/uploads/test.jpg", media_root)
+        full, rel = svc._resolve_image_path("media/uploads/test.jpg")
         assert rel == "uploads/test.jpg"
+        assert full == to_media_abs("uploads/test.jpg")
 
     def test_raises_on_path_traversal(self):
         svc = _make_service()
-        media_root = Path("/media")
         with pytest.raises(ValidationException):
-            svc._resolve_image_path("/../../../etc/passwd", media_root)
+            svc._resolve_image_path("/../../../etc/passwd")
 
 
 class TestSuccessResult:

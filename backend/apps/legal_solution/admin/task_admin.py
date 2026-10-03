@@ -224,7 +224,7 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
                 response["Content-Disposition"] = f'inline; filename="法律服务方案-{task.id}.pdf"'
                 return response
             except Exception:
-                pass
+                logger.debug("读取方案缓存 PDF 失败（已忽略，改为重新导出）: task_id=%s", task_id, exc_info=True)
 
         exporter = PdfExporter()
         pdf_bytes = exporter.export(task.html_content)

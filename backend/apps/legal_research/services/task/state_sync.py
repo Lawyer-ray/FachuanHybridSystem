@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import logging
+
 from django.utils import timezone
 
 from apps.legal_research.models import LegalResearchTask, LegalResearchTaskStatus
+
+logger = logging.getLogger(__name__)
 
 
 def sync_failed_queue_state(
@@ -20,6 +24,7 @@ def sync_failed_queue_state(
 
         q_task_info = TaskQueryService().get_failed_task_info(task.q_task_id)
     except Exception:
+        logger.warning("回填失败状态时查询队列任务信息失败（已忽略）", exc_info=True)
         return False
 
     if q_task_info is None:

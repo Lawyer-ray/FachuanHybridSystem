@@ -8,12 +8,11 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
-from pathlib import Path
 
-from django.conf import settings
 from django.utils import timezone
 
 from apps.contract_review.models.review_task import ReviewTask, TaskStatus
+from apps.core.services.storage_service import delete_media_file
 
 logger = logging.getLogger(__name__)
 
@@ -47,33 +46,18 @@ def cleanup_old_files(days: int = 30) -> dict[str, int]:  # pragma: no cover
     # 查找需要清理的任务
     old_tasks = ReviewTask.objects.filter(created_at__lt=cutoff_date).exclude(status__in=[TaskStatus.PROCESSING])
 
-    upload_dir = Path(settings.MEDIA_ROOT) / "contract_review" / "uploads"
-    output_dir = Path(settings.MEDIA_ROOT) / "contract_review" / "output"
-
     upload_count = 0
     output_count = 0
     deleted_count = 0
 
     for task in old_tasks:
-        # 删除上传文件
-        if task.original_file:
-            original_path = Path(task.original_file)
-            if original_path.exists():
-                try:
-                    original_path.unlink()
-                    upload_count += 1
-                except OSError as e:
-                    logger.warning("删除上传文件失败: %s - %s", original_path, e)
+        # 删除上传文件（落库为 media 相对路径，存量绝对路径同样兼容）
+        if task.original_file and delete_media_file(task.original_file):
+            upload_count += 1
 
         # 删除输出文件
-        if task.output_file:
-            output_path = Path(task.output_file)
-            if output_path.exists():
-                try:
-                    output_path.unlink()
-                    output_count += 1
-                except OSError as e:
-                    logger.warning("删除输出文件失败: %s - %s", output_path, e)
+        if task.output_file and delete_media_file(task.output_file):
+            output_count += 1
 
         # 删除数据库记录
         try:

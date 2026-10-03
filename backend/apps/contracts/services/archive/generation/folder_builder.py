@@ -37,12 +37,11 @@ def generate_archive_folder(contract: Contract) -> dict[str, Any]:  # pragma: no
 
     流程：
     1. 先调用 generate_archive_documents() 生成模板文书到 DB
-    2. 在合同绑定文件夹下创建"归档文件夹"目录
-    3. 将1-3号模板文书写入（仅 docx）
-    4. 将剩余材料项合并为"4-案卷材料.pdf"（带页码）
-    5. 将1-3号docx转PDF，与4号合并为"5-Final案卷材料.pdf"（无页码）
+    2. 在本地 staging 目录组装产物（1-3号 docx、4-案卷材料.pdf、5-Final案卷材料.pdf）
+    3. 产物统一经 save_file_to_bound_folder() 写入绑定目录的「归档文件夹」子目录
 
-    云存储模式：先在本地临时目录完成所有操作，最后上传到云存储。
+    本地与云存储均在 staging 目录完成组装，最后统一发布，
+    收敛"本地直写 + 云侧手写上传循环"双实现为单一入口。
     """
     import shutil
     import tempfile
@@ -62,50 +61,39 @@ def generate_archive_folder(contract: Contract) -> dict[str, Any]:  # pragma: no
     is_cloud = storage_type != "local"
 
     if is_cloud:
-        from apps.cloud_storage.factory import create_provider_for_binding
-
-        provider = create_provider_for_binding(binding)
-        cloud_archive_path = f"{binding.folder_path.rstrip('/')}/{ARCHIVE_FOLDER_NAME}"
-        # 用临时目录代替本地路径
-        temp_dir = tempfile.mkdtemp(prefix="archive_")
-        archive_dir = Path(temp_dir) / ARCHIVE_FOLDER_NAME
-        archive_dir.mkdir(parents=True, exist_ok=True)
-        local_work_dir = Path(temp_dir)
+        archive_dir_target = f"{binding.folder_path.rstrip('/')}/{ARCHIVE_FOLDER_NAME}"
     else:
-        provider = None
-        cloud_archive_path = ""
-        temp_dir = None
         folder_path = Path(binding.folder_path)
         if not folder_path.exists():
             return {"success": False, "error": f"绑定文件夹不存在: {binding.folder_path}"}
-        archive_dir = folder_path / ARCHIVE_FOLDER_NAME
-        archive_dir.mkdir(parents=True, exist_ok=True)
-        local_work_dir = folder_path
+        archive_dir_target = str(folder_path / ARCHIVE_FOLDER_NAME)
+
+    # 统一在本地临时目录组装产物，发布时再由 save_file_to_bound_folder 落盘
+    temp_dir = tempfile.mkdtemp(prefix="archive_")
+    staging_dir = Path(temp_dir) / ARCHIVE_FOLDER_NAME
+    staging_dir.mkdir(parents=True, exist_ok=True)
 
     try:
         return _generate_archive_folder_inner(
             contract=contract,
-            archive_dir=archive_dir,
-            local_work_dir=local_work_dir,
-            provider=provider,
-            cloud_archive_path=cloud_archive_path,
-            is_cloud=is_cloud,
+            staging_dir=staging_dir,
+            archive_dir_target=archive_dir_target,
+            folder_path_display=binding.folder_path,
         )
     finally:
-        # 云存储模式：清理临时目录
-        if temp_dir and Path(temp_dir).exists():
-            shutil.rmtree(temp_dir, ignore_errors=True)
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 def _generate_archive_folder_inner(
     contract: Contract,
-    archive_dir: Path,
-    local_work_dir: Path,
-    provider: Any,
-    cloud_archive_path: str,
-    is_cloud: bool,
+    staging_dir: Path,
+    archive_dir_target: str,
+    folder_path_display: str,
 ) -> dict[str, Any]:  # pragma: no cover
-    """归档文件夹生成的核心逻辑（本地和云存储共用）。"""
+    """归档文件夹生成的核心逻辑（本地和云存储共用）。
+
+    产物先写入本地 staging 目录，最后统一发布到绑定目录。
+    """
 
     # 生成模板文书到 DB
     doc_results = generate_archive_documents(contract)
@@ -137,7 +125,7 @@ def _generate_archive_folder_inner(
                 template_subtype=template_subtype,
                 seq_num=seq_num,
                 doc_name=doc_name,
-                archive_dir=archive_dir,
+                archive_dir=staging_dir,
             )
             generated_docs.append(base_name)
         except Exception as e:
@@ -149,7 +137,7 @@ def _generate_archive_folder_inner(
     case_materials_name = f"4-案卷材料（{contract_name}）_{today_str}"
     case_materials_pdf_exists = False
     try:
-        mat_result = compile_case_materials_pdf(contract, archive_dir)
+        mat_result = compile_case_materials_pdf(contract, staging_dir)
         if mat_result.get("written"):
             generated_docs.append(case_materials_name)
             case_materials_pdf_exists = True
@@ -166,7 +154,7 @@ def _generate_archive_folder_inner(
     try:
         final_result = _compile_final_archive_pdf(
             contract=contract,
-            archive_dir=archive_dir,
+            archive_dir=staging_dir,
             case_materials_pdf_exists=case_materials_pdf_exists,
         )
         if final_result.get("written"):
@@ -180,39 +168,56 @@ def _generate_archive_folder_inner(
         logger.exception("生成Final案卷材料PDF失败")
 
     logger.info(
-        "归档文件夹生成完成: %s, 成功 %d 项, 失败 %d 项",
-        archive_dir,
+        "归档文件夹组装完成: %s, 成功 %d 项, 失败 %d 项",
+        staging_dir,
         len(generated_docs),
         len(errors),
-        extra={"contract_id": contract.id, "archive_dir": str(archive_dir)},
+        extra={"contract_id": contract.id, "staging_dir": str(staging_dir)},
     )
 
-    # 云存储：将临时目录中的文件上传到云存储
-    if is_cloud and provider and generated_docs:
-        try:
-            provider.mkdir(cloud_archive_path)
-            for f in archive_dir.iterdir():
-                if f.is_file():
-                    cloud_file_path = f"{cloud_archive_path.rstrip('/')}/{f.name}"
-                    provider.write_file(cloud_file_path, f.read_bytes())
-            logger.info(
-                "归档文件夹已上传到云存储: %s, %d 个文件",
-                cloud_archive_path,
-                len(list(archive_dir.iterdir())),
-                extra={"contract_id": contract.id, "cloud_archive_path": cloud_archive_path},
-            )
-        except Exception as e:
-            errors.append(f"上传到云存储失败: {e}")
-            logger.exception("archive_cloud_upload_failed", extra={"contract_id": contract.id})
+    # 产物统一经 save_file_to_bound_folder 写入绑定目录（本地/云存储单一入口）
+    errors.extend(_publish_archive_products(contract, staging_dir))
 
     return {
         "success": True,
-        "archive_dir": cloud_archive_path if is_cloud else str(archive_dir),
+        "archive_dir": archive_dir_target,
         "generated_docs": generated_docs,
         "errors": errors,
-        "folder_path": str(local_work_dir),
+        "folder_path": folder_path_display,
         "doc_results": doc_results,
     }
+
+
+def _publish_archive_products(contract: Contract, staging_dir: Path) -> list[str]:  # pragma: no cover
+    """将 staging 目录中的归档产物写入合同绑定目录的「归档文件夹」子目录。
+
+    统一经 FolderBindingService.save_file_to_bound_folder() 落盘：
+    本地绑定走 filesystem_service，云存储绑定走 provider，避免双实现。
+    """
+    from apps.contracts.services.folder.folder_binding_service import ARCHIVE_SUBDIR_KEY, FolderBindingService
+
+    binding_service = FolderBindingService()
+    publish_errors: list[str] = []
+    for product in sorted(staging_dir.iterdir()):
+        if not product.is_file():
+            continue
+        try:
+            saved_path = binding_service.save_file_to_bound_folder(
+                owner_id=contract.id,
+                file_content=product.read_bytes(),
+                file_name=product.name,
+                subdir_key=ARCHIVE_SUBDIR_KEY,
+            )
+            if saved_path is None:
+                publish_errors.append(f"{product.name}: 合同未绑定文件夹")
+        except Exception as e:
+            publish_errors.append(f"{product.name}: {e}")
+            logger.exception(
+                "归档产物写入绑定目录失败: %s",
+                product.name,
+                extra={"contract_id": contract.id, "product": product.name},
+            )
+    return publish_errors
 
 
 def _write_template_doc_to_folder(
@@ -222,8 +227,10 @@ def _write_template_doc_to_folder(
     doc_name: str,
     archive_dir: Path,
 ) -> None:  # pragma: no cover
-    """将单个模板文书写入归档文件夹（仅 docx）。"""
+    """将单个模板文书写入归档组装目录（仅 docx，archive_dir 为本地 staging 目录）。"""
     from django.utils import timezone
+
+    from apps.core.services.storage_service import to_media_abs
 
     archive_category = get_archive_category(contract.case_type)
     checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
@@ -245,11 +252,10 @@ def _write_template_doc_to_folder(
     if not material:
         raise ValueError(f"模板文书尚未生成: {template_subtype}")
 
-    docx_path = Path(material.file_path)
-    if not docx_path.is_absolute():
-        from django.conf import settings as django_settings
+    if not material.file_path:
+        raise ValueError(f"模板文书文件路径缺失: {template_subtype}")
 
-        docx_path = Path(django_settings.MEDIA_ROOT) / docx_path
+    docx_path = to_media_abs(material.file_path)
 
     if not docx_path.exists():
         raise ValueError(f"docx文件不存在: {docx_path}")

@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from types import SimpleNamespace
 from typing import Any
 
 from apps.legal_research.services.sources import CaseDetail
+
+logger = logging.getLogger(__name__)
 
 
 class ExecutorCacheMixin:
@@ -76,6 +79,7 @@ class ExecutorCacheMixin:
 
             payload = cache.get(cache_key)
         except Exception:
+            logger.debug("读取案例详情缓存失败（已忽略）", exc_info=True)
             return None
         if not isinstance(payload, dict):
             return None
@@ -91,6 +95,7 @@ class ExecutorCacheMixin:
 
             cache.set(cache_key, payload, timeout=max(60, int(ttl_seconds)))
         except (TypeError, ValueError):
+            logger.debug("写入案例详情缓存失败（已忽略）", exc_info=True)
             return
 
     @staticmethod

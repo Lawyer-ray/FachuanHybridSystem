@@ -191,7 +191,7 @@ class ImapFetcher(MessageFetcher):  # pragma: no cover
             try:
                 m.logout()
             except Exception:
-                pass
+                logger.debug("IMAP 登出失败（已忽略）", exc_info=True)
 
     def _process_single_uid(self, m: Any, source: Any, uid_bytes: bytes) -> tuple[int, bool]:  # pragma: no cover
         """处理单封邮件，返回 (uid, is_new)。"""
@@ -286,7 +286,7 @@ class ImapFetcher(MessageFetcher):  # pragma: no cover
             try:
                 m.logout()
             except Exception:
-                pass
+                logger.debug("IMAP 登出失败（已忽略）", exc_info=True)
 
 
 def _extract_imap_host(url_or_name: str) -> str:  # pragma: no cover

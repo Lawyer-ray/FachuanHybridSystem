@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
-
-from django.conf import settings as django_settings
 
 from apps.contracts.models import Contract
 from apps.contracts.models.finalized_material import FinalizedMaterial
+from apps.core.services.storage_service import delete_media_file
 
 
 def get_contract_or_none(contract_id: int) -> Contract | None:  # pragma: no cover
@@ -24,12 +22,7 @@ def get_material_or_none(material_id: int, contract_id: int) -> FinalizedMateria
 def delete_material(material: FinalizedMaterial) -> None:  # pragma: no cover
     """删除归档材料（含文件清理）。"""
     if material.file_path:
-        abs_file = Path(django_settings.MEDIA_ROOT) / material.file_path
-        if abs_file.exists():
-            try:
-                abs_file.unlink()
-            except OSError:
-                pass
+        delete_media_file(material.file_path)
     material.delete()
 
 

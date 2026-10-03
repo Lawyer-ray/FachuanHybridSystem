@@ -21,6 +21,9 @@ from .contract_subdir_path_resolver import ContractSubdirPathResolver
 
 logger = logging.getLogger("apps.contracts")
 
+# 归档产物写入绑定目录时使用的 subdir_key，映射到「归档文件夹」子目录
+ARCHIVE_SUBDIR_KEY = "archive"
+
 
 class FolderBindingService(FolderBindingCrudService):
     """
@@ -66,6 +69,10 @@ class FolderBindingService(FolderBindingCrudService):
         )
 
     def _resolve_subdir_path(self, *, owner_type: str, subdir_key: str) -> str | None:
+        if subdir_key == ARCHIVE_SUBDIR_KEY:
+            from apps.contracts.services.archive.constants import ARCHIVE_FOLDER_NAME
+
+            return ARCHIVE_FOLDER_NAME
         return self._subdir_path_resolver.resolve(case_type=owner_type, subdir_key=subdir_key)
 
     def _sanitize_file_name(self, file_name: str) -> str:

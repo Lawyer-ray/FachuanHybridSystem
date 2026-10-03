@@ -3,12 +3,12 @@ from __future__ import annotations
 import logging
 import os
 import re
-import shutil
 import uuid
 from pathlib import Path
 from typing import Any
 
 import pymupdf as fitz
+from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
 from django.utils import timezone
@@ -72,7 +72,7 @@ class PdfSplitJobService:
                 resolved_path = self._validate_local_pdf_path(source_path or "")
                 original_name = resolved_path.name
                 original_abs_path = resolved_path.as_posix()
-                shutil.copyfile(resolved_path, storage.source_pdf_path)
+                storage.save_overwrite(storage.source_pdf_path, ContentFile(resolved_path.read_bytes()))
                 source_type = PdfSplitSourceType.LOCAL_PATH
 
             total_pages = self._validate_pdf_file(storage.source_pdf_path)

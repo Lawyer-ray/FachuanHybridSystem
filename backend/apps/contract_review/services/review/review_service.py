@@ -3,9 +3,9 @@ from __future__ import annotations
 import logging
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from io import BytesIO
 from pathlib import Path
 
-from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import UploadedFile
@@ -14,7 +14,10 @@ from docx.document import Document as DocumentType
 
 from apps.contract_review.models.review_task import ProcessStep, ReviewTask, TaskStatus
 from apps.contract_review.repositories.review_task_repository import ReviewTaskRepository
+from apps.core.exceptions import ValidationException
+from apps.core.filesystem.upload_paths import MediaEntity
 from apps.core.llm.service import LLMService, get_llm_service
+from apps.core.services.storage_service import sanitize_upload_filename, to_media_abs
 
 from ..exceptions import ContractReviewError, ExtractionError
 from ..extraction.content_extractor import ContentExtractor
@@ -30,10 +33,12 @@ from .typo_checker import TypoChecker
 logger = logging.getLogger(__name__)
 
 
-def _output_dir() -> Path:  # pragma: no cover
-    d = Path(settings.MEDIA_ROOT) / "contract_review" / "output"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+def _resolve_task_file(file_path: str, error_message: str) -> Path:  # pragma: no cover
+    """把落库路径解析为 MEDIA_ROOT 下的绝对路径（兼容存量绝对路径数据）。"""
+    try:
+        return to_media_abs(file_path)
+    except ValidationException as e:
+        raise ContractReviewError(error_message) from e
 
 
 class ReviewService:  # pragma: no cover
@@ -53,11 +58,12 @@ class ReviewService:  # pragma: no cover
         if not filename.lower().endswith(".docx"):
             raise ContractReviewError("仅支持 .docx 格式文件")
 
-        # 保存文件
+        # 保存文件（落库协议：media 相对路径）
         task_id = uuid.uuid4()
-        rel_path = f"contract_review/uploads/{task_id}_{filename}"
+        safe_name = sanitize_upload_filename(filename)
+        rel_path = f"{MediaEntity.CONTRACT_REVIEW_UPLOADS}/{task_id}_{safe_name}"
         saved_name = default_storage.save(rel_path, file)
-        save_path = Path(settings.MEDIA_ROOT) / saved_name
+        save_path = to_media_abs(saved_name)
 
         # 提取内容 + 识别甲乙方
         extractor = ContentExtractor()
@@ -69,7 +75,7 @@ class ReviewService:  # pragma: no cover
             task = self._repository.create(
                 id=task_id,
                 user=user,
-                original_file=str(save_path),
+                original_file=saved_name,
                 status=TaskStatus.EXTRACTION_FAILED,
                 error_message=str(e),
                 model_name=model_name,
@@ -84,7 +90,7 @@ class ReviewService:  # pragma: no cover
         task = self._repository.create(
             id=task_id,
             user=user,
-            original_file=str(save_path),
+            original_file=saved_name,
             contract_title=title or filename.rsplit(".", 1)[0],
             party_a=parties.get("party_a", ""),
             party_b=parties.get("party_b", ""),
@@ -153,7 +159,7 @@ class ReviewService:  # pragma: no cover
         task = self._repository.get_by_id_required(task_id)
         if task.status != TaskStatus.COMPLETED:
             raise ContractReviewError("任务尚未完成")
-        path = Path(task.output_file)
+        path = _resolve_task_file(task.output_file, "结果文件不存在")
         if not path.exists():
             raise ContractReviewError("结果文件不存在")
         return path
@@ -161,7 +167,7 @@ class ReviewService:  # pragma: no cover
     def get_original_file(self, task_id: uuid.UUID) -> Path:  # pragma: no cover
         """获取原始上传文件路径"""
         task = self._repository.get_by_id_required(task_id)
-        path = Path(task.original_file)
+        path = _resolve_task_file(task.original_file, "原始文件不存在")
         if not path.exists():
             raise ContractReviewError("原始文件不存在")
         return path
@@ -182,9 +188,10 @@ def process_review(task_id_str: str) -> None:  # pragma: no cover
     repository.update(task_id, status=TaskStatus.PROCESSING)
 
     try:
-        doc = Document(task.original_file)
+        original_path = to_media_abs(task.original_file)
+        doc = Document(str(original_path))
         extractor = ContentExtractor()
-        extraction = extractor.extract_with_mapping(Path(task.original_file))
+        extraction = extractor.extract_with_mapping(original_path)
         paragraphs = extraction.paragraphs
 
         llm: LLMService = get_llm_service()
@@ -318,21 +325,23 @@ def process_review(task_id_str: str) -> None:  # pragma: no cover
             _update_step(repository, task, ProcessStep.HEADING_NUMBERING)
             HeadingNumbering(llm).apply_numbering(doc, model_name=task.model_name)
 
-        # 保存输出文件
+        # 保存输出文件（经 default_storage 落盘，落库存相对路径）
         output_name = title_extractor.generate_output_filename(
             task.contract_title,
             task_id=str(task.id),
         )
-        output_path = _output_dir() / output_name
-        doc.save(str(output_path))
+        output_rel = f"{MediaEntity.CONTRACT_REVIEW_OUTPUT}/{sanitize_upload_filename(output_name)}"
+        buffer = BytesIO()
+        doc.save(buffer)
+        saved_name = default_storage.save(output_rel, ContentFile(buffer.getvalue()))
 
         repository.update(
             task.id,
-            output_file=str(output_path),
+            output_file=saved_name,
             status=TaskStatus.COMPLETED,
             current_step="",
         )
-        logger.info("审查完成: %s -> %s", task_id, output_name)
+        logger.info("审查完成: %s -> %s", task_id, saved_name)
 
     except Exception as e:
         logger.exception("审查任务失败: %s", task_id)

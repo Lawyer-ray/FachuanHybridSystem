@@ -5,13 +5,15 @@ from __future__ import annotations
 import logging
 import os
 import re
-import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from django.utils import timezone
 
 from apps.cases.models import CaseFolderBinding
+from apps.core.exceptions import ValidationException
+from apps.core.filesystem.filesystem_service import FolderFilesystemService
+from apps.core.services.storage_service import resolve_media_path
 
 if TYPE_CHECKING:
     from apps.automation.models import CourtSMS
@@ -27,6 +29,16 @@ class CaseFolderArchiveService:
     DEFAULT_EVENT_SUMMARY = "收到材料"
     EVENT_MARKDOWN_FILENAME = "法院短信.md"
     MAX_SCAN_DEPTH = 4
+
+    def __init__(self, filesystem_service: FolderFilesystemService | None = None) -> None:
+        """支持注入文件系统写入服务（默认即时构造）."""
+        self._filesystem_service = filesystem_service
+
+    @property
+    def filesystem_service(self) -> FolderFilesystemService:
+        if self._filesystem_service is None:
+            self._filesystem_service = FolderFilesystemService()
+        return self._filesystem_service
 
     def archive_sms_documents(self, sms: CourtSMS, renamed_paths: list[str]) -> bool:  # pragma: no cover
         """执行归档流程，返回是否成功归档."""
@@ -62,6 +74,12 @@ class CaseFolderArchiveService:
     def _get_bound_case_root(self, case_id: int) -> Path | None:  # pragma: no cover
         binding = CaseFolderBinding.objects.filter(case_id=case_id).first()
         if not binding or not binding.resolved_folder_path:
+            return None
+
+        # 本服务依赖本地目录扫描（邮件目录发现/事件目录创建），云存储绑定明确跳过而非静默不归档
+        storage_type = str(getattr(binding, "storage_type", "") or "local")
+        if storage_type != "local":
+            logger.warning(f"案件 {case_id} 绑定为云存储({storage_type})，法院短信案件目录归档暂不支持，已跳过")
             return None
 
         root = Path(binding.resolved_folder_path).expanduser()
@@ -210,8 +228,9 @@ class CaseFolderArchiveService:
                 return with_suffix
             index += 1
 
-    def _write_sms_markdown(self, archive_folder: Path, sms: CourtSMS, renamed_paths: list[str]) -> Path:  # pragma: no cover
-        markdown_path = archive_folder / self.EVENT_MARKDOWN_FILENAME
+    def _write_sms_markdown(
+        self, archive_folder: Path, sms: CourtSMS, renamed_paths: list[str]
+    ) -> Path:  # pragma: no cover
         sms_type_display = sms.get_sms_type_display() if sms.sms_type else "未分类"
         case_name = sms.case.name if sms.case else "未关联案件"
 
@@ -235,31 +254,37 @@ class CaseFolderArchiveService:
         for file_path in renamed_paths:
             lines.append(f"- {Path(file_path).name}")
 
-        markdown_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        return markdown_path
+        content = ("\n".join(lines) + "\n").encode("utf-8")
+        return self._save_bytes_to_archive(archive_folder, self.EVENT_MARKDOWN_FILENAME, content)
 
     def _copy_documents(self, archive_folder: Path, renamed_paths: list[str]) -> int:  # pragma: no cover
         copied_count = 0
         for file_path in renamed_paths:
-            src = Path(file_path)
+            src = resolve_media_path(file_path)
             if not src.exists() or not src.is_file():
                 logger.warning(f"归档复制时文件不存在，跳过: {file_path}")
                 continue
 
-            target = self._ensure_unique_file_path(archive_folder / src.name)
-            shutil.copy2(src, target)
+            self._save_bytes_to_archive(archive_folder, src.name, src.read_bytes())
             copied_count += 1
         return copied_count
 
-    def _ensure_unique_file_path(self, target_path: Path) -> Path:
-        if not target_path.exists():
-            return target_path
-
-        stem = target_path.stem
-        suffix = target_path.suffix
-        index = 2
-        while True:
-            candidate = target_path.with_name(f"{stem}_{index}{suffix}")
-            if not candidate.exists():
-                return candidate
-            index += 1
+    def _save_bytes_to_archive(self, archive_folder: Path, file_name: str, content: bytes) -> Path:
+        """通过 core filesystem 服务写入归档目录（文件名清洗 + 越界校验 + 自动唯一后缀）。"""
+        try:
+            saved_path = self.filesystem_service.save_bytes(
+                base_path=str(archive_folder),
+                relative_dir_parts=[],
+                file_name=file_name,
+                content=content,
+            )
+        except ValidationException:
+            # 文件名含非法字符等场景，降级为时间戳命名，避免归档中断
+            fallback_name = f"{timezone.localtime().strftime('%Y%m%d_%H%M%S')}_{len(content)}.bin"
+            saved_path = self.filesystem_service.save_bytes(
+                base_path=str(archive_folder),
+                relative_dir_parts=[],
+                file_name=fallback_name,
+                content=content,
+            )
+        return Path(saved_path)

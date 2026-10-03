@@ -367,6 +367,12 @@ class TestProcessPdfExtended:
         with patch("apps.automation.services.document.document_processing.settings") as mock_settings:
             mock_settings.MEDIA_ROOT = str(tmp_path / "media")
             mock_settings.MEDIA_URL = "/media/"
+            mock_settings.DOCUMENT_PROCESSING = {
+                "DEFAULT_TEXT_LIMIT": 1500,
+                "DEFAULT_PREVIEW_PAGE": 1,
+                "MAX_TEXT_LIMIT": 10000,
+                "MAX_PREVIEW_PAGES": 5,
+            }
             with patch(
                 "apps.automation.services.document.document_processing.extract_text_from_image_with_rapidocr"
             ) as mock_ocr:
