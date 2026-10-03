@@ -52,9 +52,10 @@ def test_trigger_case_import_no_credential(mock_cred, authenticated_client):
         "/api/v1/case-import",
         {"file": f},
     )
-    # API returns {"error": "..."} which doesn't match CaseImportSessionOut schema
-    # This causes 500 due to schema validation failure
-    assert resp.status_code in (200, 500)
+    # 缺 OA 凭证抛 ValidationException 400（旧实现返回裸 {"error"} 且会撞
+    # CaseImportSessionOut 响应 schema 导致 500）
+    assert resp.status_code == 400
+    assert "未找到OA账号凭证" in resp.json()["message"]
 
 
 @pytest.mark.django_db
@@ -86,9 +87,9 @@ def test_batch_create_cases_session_not_found(authenticated_client):
         data=json.dumps({"cases": [{"case_no": "CASE-001"}]}),
         content_type="application/json",
     )
-    assert resp.status_code == 200
-    data = resp.json()
-    assert "error" in data
+    # 会话不存在走 NotFoundError 404，与其他 case-import 端点同语义
+    assert resp.status_code == 404
+    assert "会话不存在" in resp.json()["message"]
 
 
 # ===================================================================

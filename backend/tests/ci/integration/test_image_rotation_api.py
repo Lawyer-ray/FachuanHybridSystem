@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import json
 import base64
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ===================================================================
 # Extract PDF fast
@@ -60,10 +59,10 @@ def test_detect_page_orientation_no_data(authenticated_client):
         data=json.dumps({"data": ""}),
         content_type="application/json",
     )
-    assert resp.status_code == 200
+    # 缺参不得伪装成 {rotation:0}（等于谎报无需旋转），走 ValidationException 400
+    assert resp.status_code == 400
     data = resp.json()
-    assert data["rotation"] == 0
-    assert data["confidence"] == 0
+    assert "data" in data["message"]
 
 
 @pytest.mark.django_db
