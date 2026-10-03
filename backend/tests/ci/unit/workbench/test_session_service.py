@@ -56,19 +56,19 @@ class TestListSessions:
         svc.create_session(title="会话1", user=user)
         svc.create_session(title="会话2", user=user)
         result = svc.list_sessions(user=user)
-        assert result["count"] == 2
+        assert result["total"] == 2
         assert len(result["items"]) == 2
 
     def test_list_excludes_other_users(self, svc, user, other_user) -> None:
         svc.create_session(title="我的会话", user=user)
         svc.create_session(title="别人的会话", user=other_user)
         result = svc.list_sessions(user=user)
-        assert result["count"] == 1
+        assert result["total"] == 1
         assert result["items"][0]["title"] == "我的会话"
 
     def test_list_unauthenticated_returns_empty(self, svc) -> None:
         result = svc.list_sessions(user=None)
-        assert result == {"items": [], "count": 0}
+        assert result == {"items": [], "total": 0, "page": 1, "page_size": 20, "total_pages": 1}
 
     def test_list_with_message_stats(self, svc, user) -> None:
         session = svc.create_session(title="有消息的会话", user=user)
@@ -81,8 +81,9 @@ class TestListSessions:
         for i in range(5):
             svc.create_session(title=f"会话{i}", user=user)
         result = svc.list_sessions(user=user, page=1, page_size=2)
-        assert result["count"] == 5
+        assert result["total"] == 5
         assert len(result["items"]) == 2
+        assert result["total_pages"] == 3
 
 
 class TestGetSession:

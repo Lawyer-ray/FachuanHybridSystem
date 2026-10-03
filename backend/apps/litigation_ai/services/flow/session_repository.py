@@ -27,10 +27,11 @@ class LitigationSessionRepository:
     def get_session_for_update_sync(self, session_id: str) -> Any:
         return self._model().objects.select_for_update().filter(session_id=session_id).first()
 
-    def list_sessions_sync(self, *, filters: dict[str, Any], limit: int, offset: int) -> tuple[int, list[Any]]:
+    def list_sessions_sync(self, *, filters: dict[str, Any], page: int = 1, page_size: int = 20) -> dict[str, Any]:
+        from apps.core.api.pagination import paginate_queryset
+
         qs = self._model().objects.filter(**(filters or {})).order_by("-created_at")
-        total = qs.count()
-        return total, list(qs[offset : offset + limit])
+        return paginate_queryset(qs, page=page, page_size=page_size)
 
     async def get_session(self, session_id: str) -> Any:  # pragma: no cover
         model = self._model()

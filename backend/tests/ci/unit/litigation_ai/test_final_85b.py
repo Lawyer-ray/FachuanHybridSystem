@@ -9,7 +9,6 @@ import pytest
 
 from apps.core.exceptions import NotFoundError, ValidationException
 
-
 # ============================================================================
 # session/session_lifecycle_service.py — SessionLifecycleService
 # ============================================================================
@@ -119,12 +118,18 @@ class TestSessionLifecycleServiceListSessions:
         mock_session.metadata = {}
         mock_session.created_at = None
         mock_session.updated_at = None
-        svc.session_repo.list_sessions_sync.return_value = (1, [mock_session])
+        svc.session_repo.list_sessions_sync.return_value = {
+            "items": [mock_session],
+            "total": 1,
+            "page": 1,
+            "page_size": 20,
+            "total_pages": 1,
+        }
         svc.conversation_history_service.count_messages_by_litigation_session_ids_internal.return_value = {1: 5}
         result = svc.list_sessions(case_id=1)
         assert result["total"] == 1
-        assert len(result["sessions"]) == 1
-        assert result["sessions"][0]["message_count"] == 5
+        assert len(result["items"]) == 1
+        assert result["items"][0]["message_count"] == 5
 
 
 class TestSessionLifecycleServiceDeleteSession:
@@ -254,9 +259,7 @@ class TestEvidenceDigestService:
 
 class TestEvidenceVectorStoreService:
     def test_init(self):
-        from apps.litigation_ai.services.evidence.evidence_vector_store_service import (
-            EvidenceVectorStoreService,
-        )
+        from apps.litigation_ai.services.evidence.evidence_vector_store_service import EvidenceVectorStoreService
 
         svc = EvidenceVectorStoreService.__new__(EvidenceVectorStoreService)
         assert svc is not None

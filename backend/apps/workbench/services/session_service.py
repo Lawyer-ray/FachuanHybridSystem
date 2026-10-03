@@ -60,30 +60,32 @@ class WorkbenchSessionService(PermissionMixin):
         page: int = 1,
         page_size: int = 20,
     ) -> dict[str, Any]:  # pragma: no cover
-        """获取当前用户的工作台会话列表"""
+        """获取当前用户的工作台会话列表（标准分页信封 items/total/page/page_size/total_pages）"""
+        from apps.core.api.pagination import paginate_queryset
+
+        page = max(1, page)
+        page_size = max(1, min(page_size, 100))
         if not user or not getattr(user, "is_authenticated", False):
-            return {"items": [], "count": 0}
+            return {"items": [], "total": 0, "page": page, "page_size": page_size, "total_pages": 1}
 
         cache_key = f"workbench:sessions:user={user.id}:page={page}"
         cached = cache.get(cache_key)
         if cached is not None:
             return cached  # type: ignore[no-any-return]
 
-        qs = WorkbenchSession.objects.filter(user=user).order_by("-updated_at")
-
-        offset = (page - 1) * page_size
-        total = qs.count()
-
         last_msg_subquery = (
             WorkbenchMessage.objects.filter(session_id=OuterRef("id"), role="assistant")
             .order_by("-created_at")
             .values("content")[:1]
         )
-        items = list(
-            qs[offset : offset + page_size].annotate(
-                _last_msg=Subquery(last_msg_subquery),
-            )
+        qs = (
+            WorkbenchSession.objects.filter(user=user)
+            .order_by("-updated_at")
+            .annotate(_last_msg=Subquery(last_msg_subquery))
         )
+
+        page_data = paginate_queryset(qs, page=page, page_size=page_size)
+        items = page_data["items"]
 
         session_ids = [item.id for item in items]
         message_stats: dict[int, dict[str, int]] = {}
@@ -113,7 +115,13 @@ class WorkbenchSessionService(PermissionMixin):
             data["storage_bytes"] = item.storage_bytes
             result.append(data)
 
-        result_data: dict[str, Any] = {"items": result, "count": total}
+        result_data: dict[str, Any] = {
+            "items": result,
+            "total": page_data["total"],
+            "page": page_data["page"],
+            "page_size": page_data["page_size"],
+            "total_pages": page_data["total_pages"],
+        }
         cache.set(cache_key, result_data, 30)  # 缓存 30 秒
         return result_data
 

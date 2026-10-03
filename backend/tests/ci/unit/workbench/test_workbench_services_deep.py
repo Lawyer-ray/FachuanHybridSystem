@@ -1,4 +1,5 @@
 """Tests for workbench.api.workbench_api and workbench.services.batch_service, message_service, chat_service."""
+
 from __future__ import annotations
 
 import csv
@@ -91,31 +92,33 @@ class TestWorkbenchSessionService:
 
     def test_list_sessions_unauthenticated(self) -> None:
         result = self.svc.list_sessions(user=None)
-        assert result == {"items": [], "count": 0}
+        assert result == {"items": [], "total": 0, "page": 1, "page_size": 20, "total_pages": 1}
 
     def test_list_sessions_authenticated(self, wb_user: Any) -> None:
         self.svc.create_session(title="S1", user=wb_user)
         cache.clear()
         result = self.svc.list_sessions(user=wb_user)
-        assert result["count"] >= 1
+        assert result["total"] >= 1
 
     def test_list_sessions_caching(self, wb_user: Any) -> None:
         self.svc.create_session(title="Cached", user=wb_user)
         cache.clear()
         result1 = self.svc.list_sessions(user=wb_user, page=1)
         result2 = self.svc.list_sessions(user=wb_user, page=1)
-        assert result1["count"] == result2["count"]
+        assert result1["total"] == result2["total"]
 
     def test_list_sessions_pagination(self, wb_user: Any) -> None:
         for i in range(5):
             self.svc.create_session(title=f"P{i}", user=wb_user)
         cache.clear()
         result = self.svc.list_sessions(user=wb_user, page=1, page_size=2)
-        assert result["count"] == 5
+        assert result["total"] == 5
         assert len(result["items"]) == 2
+        assert result["total_pages"] == 3
 
     def test_get_session_not_found(self, wb_user: Any) -> None:
         from apps.core.exceptions import NotFoundError
+
         with pytest.raises(NotFoundError):
             self.svc.get_user_session(wb_user, 999999)
 
@@ -138,6 +141,7 @@ class TestWorkbenchSessionService:
         session = self.svc.create_session(title="Del", user=wb_user)
         self.svc.delete_session(session.id, user=wb_user)
         from apps.core.exceptions import NotFoundError
+
         with pytest.raises(NotFoundError):
             self.svc.get_user_session(wb_user, session.id)
 
@@ -165,6 +169,7 @@ class TestWorkbenchSessionService:
     def test_get_other_user_session_raises(self, wb_user: Any, wb_other_user: Any) -> None:
         session = self.svc.create_session(title="Other's", user=wb_other_user)
         from apps.core.exceptions import NotFoundError
+
         with pytest.raises(NotFoundError):
             self.svc.get_user_session(wb_user, session.id)
 
@@ -216,6 +221,7 @@ class TestWorkbenchMessageService:
     def test_truncate_messages_not_found(self, wb_user: Any) -> None:
         session = self.session_svc.create_session(title="TruncTest2", user=wb_user)
         from apps.core.exceptions import NotFoundError
+
         with pytest.raises(NotFoundError):
             self.msg_svc.truncate_messages(session.id, 999999, user=wb_user)
 
@@ -237,11 +243,13 @@ class TestWorkbenchMessageService:
         session = self.session_svc.create_session(title="FbTest3", user=wb_user)
         msg = WorkbenchMessage.objects.create(session_id=session.id, role="assistant", content="Ans")
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException):
             self.msg_svc.submit_feedback(msg.id, rating="neutral", user=wb_user)
 
     def test_submit_feedback_message_not_found(self, wb_user: Any) -> None:
         from apps.core.exceptions import NotFoundError
+
         with pytest.raises(NotFoundError):
             self.msg_svc.submit_feedback(999999, rating="good", user=wb_user)
 
@@ -286,11 +294,13 @@ class TestBatchAnalysisService:
 
     def test_validate_files_empty(self) -> None:
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException, match="至少一个文件"):
             self.svc.validate_files([])
 
     def test_validate_files_invalid_ext(self) -> None:
         from apps.core.exceptions import ValidationException
+
         f = MagicMock()
         f.name = "test.pdf"
         with pytest.raises(ValidationException, match="不支持"):
@@ -308,14 +318,13 @@ class TestBatchAnalysisService:
 
     def test_get_job_by_id_not_found(self) -> None:
         from apps.core.exceptions import NotFoundError
+
         with pytest.raises(NotFoundError):
             self.svc.get_job_by_id(uuid.uuid4())
 
     def test_mark_completed(self) -> None:
         session = WorkbenchSession.objects.create(title="t")
-        job = BatchJob.objects.create(
-            session_id=session.id, job_type="doc_analysis", prompt="p", total_items=1
-        )
+        job = BatchJob.objects.create(session_id=session.id, job_type="doc_analysis", prompt="p", total_items=1)
         self.svc.mark_completed(job.id, "Done!")
         job.refresh_from_db()
         assert job.status == BatchJobStatus.COMPLETED
@@ -324,9 +333,7 @@ class TestBatchAnalysisService:
 
     def test_mark_failed(self) -> None:
         session = WorkbenchSession.objects.create(title="t")
-        job = BatchJob.objects.create(
-            session_id=session.id, job_type="doc_analysis", prompt="p", total_items=1
-        )
+        job = BatchJob.objects.create(session_id=session.id, job_type="doc_analysis", prompt="p", total_items=1)
         self.svc.mark_failed(job.id, "Error occurred")
         job.refresh_from_db()
         assert job.status == BatchJobStatus.FAILED
@@ -334,9 +341,7 @@ class TestBatchAnalysisService:
 
     def test_mark_failed_truncates_long_error(self) -> None:
         session = WorkbenchSession.objects.create(title="t")
-        job = BatchJob.objects.create(
-            session_id=session.id, job_type="doc_analysis", prompt="p", total_items=1
-        )
+        job = BatchJob.objects.create(session_id=session.id, job_type="doc_analysis", prompt="p", total_items=1)
         long_error = "x" * 5000
         self.svc.mark_failed(job.id, long_error)
         job.refresh_from_db()
@@ -344,33 +349,23 @@ class TestBatchAnalysisService:
 
     def test_get_failed_items_detail(self) -> None:
         session = WorkbenchSession.objects.create(title="t")
-        job = BatchJob.objects.create(
-            session_id=session.id, job_type="doc_analysis", prompt="p", total_items=2
-        )
-        BatchJobItem.objects.create(
-            job=job, file_name="a.docx", status=BatchJobStatus.FAILED, error="err1"
-        )
-        BatchJobItem.objects.create(
-            job=job, file_name="b.docx", status=BatchJobStatus.COMPLETED
-        )
+        job = BatchJob.objects.create(session_id=session.id, job_type="doc_analysis", prompt="p", total_items=2)
+        BatchJobItem.objects.create(job=job, file_name="a.docx", status=BatchJobStatus.FAILED, error="err1")
+        BatchJobItem.objects.create(job=job, file_name="b.docx", status=BatchJobStatus.COMPLETED)
         detail = self.svc.get_failed_items_detail(job.id)
         assert len(detail) == 1
         assert detail[0]["error"] == "err1"
 
     def test_list_batch_jobs(self) -> None:
         session = WorkbenchSession.objects.create(title="t")
-        BatchJob.objects.create(
-            session_id=session.id, job_type="doc_analysis", prompt="p", total_items=1
-        )
+        BatchJob.objects.create(session_id=session.id, job_type="doc_analysis", prompt="p", total_items=1)
         result = self.svc.list_batch_jobs(session.id)
         assert result["count"] >= 1
 
     def test_list_batch_jobs_pagination(self) -> None:
         session = WorkbenchSession.objects.create(title="t")
         for i in range(5):
-            BatchJob.objects.create(
-                session_id=session.id, job_type="doc_analysis", prompt=f"p{i}", total_items=1
-            )
+            BatchJob.objects.create(session_id=session.id, job_type="doc_analysis", prompt=f"p{i}", total_items=1)
         result = self.svc.list_batch_jobs(session.id, page=1, page_size=2)
         assert result["count"] == 5
         assert len(result["items"]) == 2
@@ -378,8 +373,7 @@ class TestBatchAnalysisService:
     def test_retry_failed_not_in_terminal_state(self) -> None:
         session = WorkbenchSession.objects.create(title="t")
         job = BatchJob.objects.create(
-            session_id=session.id, job_type="doc_analysis", prompt="p",
-            total_items=1, status=BatchJobStatus.RUNNING
+            session_id=session.id, job_type="doc_analysis", prompt="p", total_items=1, status=BatchJobStatus.RUNNING
         )
         result = self.svc.retry_failed(job.id)
         assert result["success"] is False
@@ -387,8 +381,7 @@ class TestBatchAnalysisService:
     def test_retry_failed_no_failed_items(self) -> None:
         session = WorkbenchSession.objects.create(title="t")
         job = BatchJob.objects.create(
-            session_id=session.id, job_type="doc_analysis", prompt="p",
-            total_items=1, status=BatchJobStatus.COMPLETED
+            session_id=session.id, job_type="doc_analysis", prompt="p", total_items=1, status=BatchJobStatus.COMPLETED
         )
         result = self.svc.retry_failed(job.id)
         assert result["success"] is False
@@ -397,8 +390,7 @@ class TestBatchAnalysisService:
     def test_retry_failed_pending_state(self) -> None:
         session = WorkbenchSession.objects.create(title="t")
         job = BatchJob.objects.create(
-            session_id=session.id, job_type="doc_analysis", prompt="p",
-            total_items=1, status=BatchJobStatus.PENDING
+            session_id=session.id, job_type="doc_analysis", prompt="p", total_items=1, status=BatchJobStatus.PENDING
         )
         result = self.svc.retry_failed(job.id)
         assert result["success"] is False
@@ -406,8 +398,7 @@ class TestBatchAnalysisService:
     def test_request_cancel_completed_job(self) -> None:
         session = WorkbenchSession.objects.create(title="t")
         job = BatchJob.objects.create(
-            session_id=session.id, job_type="doc_analysis", prompt="p",
-            total_items=1, status=BatchJobStatus.COMPLETED
+            session_id=session.id, job_type="doc_analysis", prompt="p", total_items=1, status=BatchJobStatus.COMPLETED
         )
         result = self.svc.request_cancel(job.id)
         assert result.status == BatchJobStatus.COMPLETED
@@ -415,17 +406,14 @@ class TestBatchAnalysisService:
     def test_request_cancel_already_cancelled(self) -> None:
         session = WorkbenchSession.objects.create(title="t")
         job = BatchJob.objects.create(
-            session_id=session.id, job_type="doc_analysis", prompt="p",
-            total_items=1, status=BatchJobStatus.CANCELLED
+            session_id=session.id, job_type="doc_analysis", prompt="p", total_items=1, status=BatchJobStatus.CANCELLED
         )
         result = self.svc.request_cancel(job.id)
         assert result.status == BatchJobStatus.CANCELLED
 
     def test_get_completed_items(self) -> None:
         session = WorkbenchSession.objects.create(title="t")
-        job = BatchJob.objects.create(
-            session_id=session.id, job_type="doc_analysis", prompt="p", total_items=2
-        )
+        job = BatchJob.objects.create(session_id=session.id, job_type="doc_analysis", prompt="p", total_items=2)
         BatchJobItem.objects.create(job=job, file_name="a.docx", status=BatchJobStatus.COMPLETED)
         BatchJobItem.objects.create(job=job, file_name="b.docx", status=BatchJobStatus.FAILED)
         items = list(self.svc.get_completed_items(job.id))
@@ -433,9 +421,7 @@ class TestBatchAnalysisService:
 
     def test_get_active_items(self) -> None:
         session = WorkbenchSession.objects.create(title="t")
-        job = BatchJob.objects.create(
-            session_id=session.id, job_type="doc_analysis", prompt="p", total_items=3
-        )
+        job = BatchJob.objects.create(session_id=session.id, job_type="doc_analysis", prompt="p", total_items=3)
         BatchJobItem.objects.create(job=job, file_name="a.docx", status=BatchJobStatus.RUNNING)
         BatchJobItem.objects.create(job=job, file_name="b.docx", status=BatchJobStatus.COMPLETED)
         BatchJobItem.objects.create(job=job, file_name="c.docx", status=BatchJobStatus.PENDING)
@@ -445,9 +431,14 @@ class TestBatchAnalysisService:
     def test_get_job_progress(self) -> None:
         session = WorkbenchSession.objects.create(title="t")
         job = BatchJob.objects.create(
-            session_id=session.id, job_type="doc_analysis", prompt="p", total_items=3,
-            status=BatchJobStatus.RUNNING, started_processing_at=datetime.now(),
-            completed_items=1, failed_items=0
+            session_id=session.id,
+            job_type="doc_analysis",
+            prompt="p",
+            total_items=3,
+            status=BatchJobStatus.RUNNING,
+            started_processing_at=datetime.now(),
+            completed_items=1,
+            failed_items=0,
         )
         BatchJobItem.objects.create(job=job, file_name="a.docx", status=BatchJobStatus.COMPLETED)
         result_job, items = self.svc.get_job_progress(job.id)
@@ -456,9 +447,7 @@ class TestBatchAnalysisService:
 
     def test_save_batch_messages(self, wb_user: Any) -> None:
         session = WorkbenchSession.objects.create(title="t")
-        job = BatchJob.objects.create(
-            session_id=session.id, job_type="doc_analysis", prompt="p", total_items=1
-        )
+        job = BatchJob.objects.create(session_id=session.id, job_type="doc_analysis", prompt="p", total_items=1)
         count = self.svc.save_batch_messages(
             job.id,
             [{"content": "Result 1", "metadata": {"key": "val"}}, {"content": "Result 2"}],
@@ -477,25 +466,30 @@ class TestBatchAnalysisService:
 class TestEstimateTokens:
     def test_empty_text(self) -> None:
         from apps.workbench.services.chat_service import _estimate_tokens
+
         assert _estimate_tokens("") == 0
 
     def test_chinese_text(self) -> None:
         from apps.workbench.services.chat_service import _estimate_tokens
+
         result = _estimate_tokens("你好世界")
         assert result > 0
 
     def test_english_text(self) -> None:
         from apps.workbench.services.chat_service import _estimate_tokens
+
         result = _estimate_tokens("hello world")
         assert result > 0
 
     def test_mixed_text(self) -> None:
         from apps.workbench.services.chat_service import _estimate_tokens
+
         result = _estimate_tokens("hello你好world")
         assert result > 0
 
     def test_long_text(self) -> None:
         from apps.workbench.services.chat_service import _estimate_tokens
+
         result = _estimate_tokens("这是一段很长的中文文本" * 100)
         assert result > 100
 
@@ -503,40 +497,44 @@ class TestEstimateTokens:
 class TestConvertModelMessages:
     def test_user_message(self) -> None:
         from apps.workbench.services.chat_service import _convert_to_model_messages
+
         msg = SimpleNamespace(role="user", content="Hello", tool_output=None, tool_call_id=None, tool_name=None)
         result = _convert_to_model_messages([msg])
         assert len(result) == 1
 
     def test_assistant_message(self) -> None:
         from apps.workbench.services.chat_service import _convert_to_model_messages
+
         msg = SimpleNamespace(role="assistant", content="Hi", tool_output=None, tool_call_id=None, tool_name=None)
         result = _convert_to_model_messages([msg])
         assert len(result) == 1
 
     def test_tool_message(self) -> None:
         from apps.workbench.services.chat_service import _convert_to_model_messages
+
         msg = SimpleNamespace(
-            role="tool", content="call",
-            tool_output={"result": "ok"}, tool_call_id="tc1", tool_name="search"
+            role="tool", content="call", tool_output={"result": "ok"}, tool_call_id="tc1", tool_name="search"
         )
         result = _convert_to_model_messages([msg])
         assert len(result) == 1
 
     def test_tool_message_string_output(self) -> None:
         from apps.workbench.services.chat_service import _convert_to_model_messages
+
         msg = SimpleNamespace(
-            role="tool", content="call",
-            tool_output="raw string", tool_call_id="tc2", tool_name="calc"
+            role="tool", content="call", tool_output="raw string", tool_call_id="tc2", tool_name="calc"
         )
         result = _convert_to_model_messages([msg])
         assert len(result) == 1
 
     def test_empty_list(self) -> None:
         from apps.workbench.services.chat_service import _convert_to_model_messages
+
         assert _convert_to_model_messages([]) == []
 
     def test_mixed_messages(self) -> None:
         from apps.workbench.services.chat_service import _convert_to_model_messages
+
         messages = [
             SimpleNamespace(role="user", content="q", tool_output=None, tool_call_id=None, tool_name=None),
             SimpleNamespace(role="assistant", content="a", tool_output=None, tool_call_id=None, tool_name=None),
@@ -548,6 +546,7 @@ class TestConvertModelMessages:
 class TestChatServiceApproval:
     def test_resolve_approval_delegates(self) -> None:
         from apps.workbench.services.chat_service import WorkbenchChatService
+
         svc = WorkbenchChatService()
         svc.approval_manager = MagicMock()
         svc.approval_manager.resolve.return_value = True
@@ -557,6 +556,7 @@ class TestChatServiceApproval:
 
     def test_resolve_approval_reject(self) -> None:
         from apps.workbench.services.chat_service import WorkbenchChatService
+
         svc = WorkbenchChatService()
         svc.approval_manager = MagicMock()
         svc.approval_manager.resolve.return_value = False
@@ -567,6 +567,7 @@ class TestChatServiceApproval:
 class TestAgentMap:
     def test_agent_map_keys(self) -> None:
         from apps.workbench.services.chat_service import AGENT_MAP
+
         assert "triage" in AGENT_MAP
         assert "case" in AGENT_MAP
         assert "contract" in AGENT_MAP
@@ -574,10 +575,12 @@ class TestAgentMap:
 
     def test_usage_limits(self) -> None:
         from apps.workbench.services.chat_service import USAGE_LIMITS
+
         assert USAGE_LIMITS.request_limit == 50
 
     def test_constants(self) -> None:
-        from apps.workbench.services.chat_service import MAX_HISTORY_TOKENS, MAX_HISTORY_MESSAGES, SUMMARY_THRESHOLD
+        from apps.workbench.services.chat_service import MAX_HISTORY_MESSAGES, MAX_HISTORY_TOKENS, SUMMARY_THRESHOLD
+
         assert MAX_HISTORY_TOKENS > 0
         assert MAX_HISTORY_MESSAGES > 0
         assert SUMMARY_THRESHOLD > 0

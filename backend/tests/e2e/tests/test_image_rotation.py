@@ -36,6 +36,7 @@ def rotation_page(admin_page: Page, base_url: str) -> Page:
 # 1. 静态资源加载
 # ------------------------------------------------------------------
 
+
 class TestStaticAssets:
     """验证所有 JS / CSS 文件正确加载，无 404。"""
 
@@ -50,7 +51,9 @@ class TestStaticAssets:
         rotation_page.wait_for_selector("[x-data]", state="attached", timeout=10000)
 
         # 过滤掉已知的非关键警告（如 favicon 404）
-        critical_errors = [e for e in errors if "404" in e or "Failed to load" in e or "SyntaxError" in e or "ReferenceError" in e]
+        critical_errors = [
+            e for e in errors if "404" in e or "Failed to load" in e or "SyntaxError" in e or "ReferenceError" in e
+        ]
         assert not critical_errors, f"页面加载有关键错误: {critical_errors}"
 
     def test_css_loaded(self, rotation_page: Page) -> None:
@@ -84,6 +87,7 @@ class TestStaticAssets:
 # ------------------------------------------------------------------
 # 2. Alpine.js 初始化
 # ------------------------------------------------------------------
+
 
 class TestAlpineInit:
     """验证 Alpine.js 应用正确初始化。"""
@@ -130,6 +134,7 @@ class TestAlpineInit:
 # 3. Tab 导航
 # ------------------------------------------------------------------
 
+
 class TestTabNavigation:
     """验证 Tab 切换功能。"""
 
@@ -175,6 +180,7 @@ class TestTabNavigation:
 # ------------------------------------------------------------------
 # 4. 旋转工具 Tab
 # ------------------------------------------------------------------
+
 
 class TestToolTab:
     """验证旋转工具 Tab 的 UI 元素。"""
@@ -225,6 +231,7 @@ class TestToolTab:
 # 5. 历史记录 Tab
 # ------------------------------------------------------------------
 
+
 class TestHistoryTab:
     """验证历史记录 Tab 的 UI 元素。"""
 
@@ -251,15 +258,14 @@ class TestHistoryTab:
         empty_msg = self.page.locator(".history-empty", has_text="暂无历史记录")
         items = self.page.locator(".history-item")
         # 至少一个可见
-        either_visible = (
-            empty_msg.is_visible() or items.count() > 0
-        )
+        either_visible = empty_msg.is_visible() or items.count() > 0
         assert either_visible, "历史列表和空状态都不可见"
 
 
 # ------------------------------------------------------------------
 # 6. 弹窗 / 模态框
 # ------------------------------------------------------------------
+
 
 class TestModals:
     """验证弹窗功能。"""
@@ -279,15 +285,17 @@ class TestModals:
 # 7. API 端点可达性
 # ------------------------------------------------------------------
 
+
 class TestAPIEndpoints:
     """验证关键 API 端点可访问（需登录态）。"""
 
     def test_jobs_list_api(self, rotation_page: Page, base_url: str) -> None:
-        """历史任务列表 API 可访问。"""
+        """历史任务列表 API 可访问（标准分页信封）。"""
         response = rotation_page.evaluate("""
             fetch('/api/v1/image-rotation/jobs?page=1&page_size=5')
                 .then(r => r.json())
-                .then(d => ({ success: d.success, hasJobs: Array.isArray(d.jobs) }))
+                .then(d => ({ hasItems: Array.isArray(d.items), total: d.total, totalPages: d.total_pages }))
         """)
-        assert response["success"] is True
-        assert response["hasJobs"] is True
+        assert response["hasItems"] is True
+        assert isinstance(response["total"], int)
+        assert isinstance(response["totalPages"], int)

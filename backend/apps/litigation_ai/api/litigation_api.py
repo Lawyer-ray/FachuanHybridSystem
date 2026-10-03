@@ -66,20 +66,19 @@ async def create_session(request: HttpRequest, payload: CreateSessionRequest) ->
 
 @router.get("/sessions", response={200: SessionListResponse, 403: ErrorResponse})
 async def list_sessions(  # pragma: no cover
-    request: HttpRequest, case_id: int | None = None, status: str | None = None, limit: int = 20, offset: int = 0
+    request: HttpRequest, case_id: int | None = None, status: str | None = None, page: int = 1, page_size: int = 20
 ) -> Any:
     service = _get_conversation_service()
     user = getattr(request, "user", None)
 
-    sessions_data = await sync_to_async(service.list_sessions)(
+    return await sync_to_async(service.list_sessions)(
         user_id=user.id if user else None,
         case_id=case_id,
         status=status,
         session_type="doc_gen",
-        limit=limit,
-        offset=offset,
+        page=page,
+        page_size=page_size,
     )
-    return {"count": sessions_data["total"], "results": sessions_data["sessions"]}
 
 
 @router.get(

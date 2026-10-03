@@ -105,7 +105,8 @@ class TestContractHttpSmoke:
         )
         _assert_status(list_response)
         listed_contracts = get_json_response(list_response)
-        assert any(item["id"] == contract_id for item in listed_contracts)
+        # 列表端点现为标准分页信封（不传 page 默认 page=1）
+        assert any(item["id"] == contract_id for item in listed_contracts["items"])
 
         detail_response = api_client.get(
             f"/api/v1/contracts/contracts/{contract_id}",
@@ -679,3 +680,23 @@ class TestContractAdminSmoke:
         material_two.refresh_from_db()
         assert material_two.order == 0
         assert material_one.order == 1
+
+
+@pytest.mark.django_db
+@pytest.mark.integration
+def test_contract_list_envelope_and_page_size_cap(api_client: Client) -> None:
+    """列表端点标准信封：不传 page 默认 page=1；page_size cap 500。"""
+    for i in range(3):
+        ContractFactory(name=f"分页上限合同{i}")
+
+    resp = api_client.get(
+        "/api/v1/contracts/contracts",
+        {"page_size": 999},
+        HTTP_HOST="localhost",
+    )
+    _assert_status(resp)
+    data = get_json_response(resp)
+    assert isinstance(data["items"], list)
+    assert data["total"] >= 3
+    assert data["page"] == 1
+    assert data["page_size"] == 500  # cap 生效

@@ -17,7 +17,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ==================== Models ====================
 
 
@@ -131,29 +130,44 @@ class TestWorkbenchSessionService:
     def test_list_sessions_no_user(self, db):
         service = self._make_service()
         result = service.list_sessions(user=None)
-        assert result == {"items": [], "count": 0}
+        assert result == {"items": [], "total": 0, "page": 1, "page_size": 20, "total_pages": 1}
 
     def test_list_sessions_not_authenticated(self, db):
         service = self._make_service()
         user = SimpleNamespace(is_authenticated=False)
         result = service.list_sessions(user=user)
-        assert result == {"items": [], "count": 0}
+        assert result == {"items": [], "total": 0, "page": 1, "page_size": 20, "total_pages": 1}
 
     def test_list_sessions_with_user(self, db, wb_lawyer):
         service = self._make_service()
         service.create_session(title="会话1", user=wb_lawyer)
         service.create_session(title="会话2", user=wb_lawyer)
         result = service.list_sessions(user=wb_lawyer)
-        assert result["count"] == 2
+        assert result["total"] == 2
         assert len(result["items"]) == 2
+        assert result["page"] == 1
+        assert result["page_size"] == 20
+        assert result["total_pages"] == 1
 
     def test_list_sessions_pagination(self, db, wb_lawyer):
         service = self._make_service()
         for i in range(5):
             service.create_session(title=f"会话{i}", user=wb_lawyer)
         result = service.list_sessions(user=wb_lawyer, page=1, page_size=2)
-        assert result["count"] == 5
+        assert result["total"] == 5
         assert len(result["items"]) == 2
+        assert result["page_size"] == 2
+        assert result["total_pages"] == 3
+
+    def test_list_sessions_page_size_cap(self, db, wb_lawyer):
+        """page_size cap：>100 收敛到 100（paginate_queryset）。"""
+        service = self._make_service()
+        for i in range(3):
+            service.create_session(title=f"会话{i}", user=wb_lawyer)
+        result = service.list_sessions(user=wb_lawyer, page=1, page_size=999)
+        assert result["page_size"] == 100
+        assert result["total"] == 3
+        assert len(result["items"]) == 3
 
     def test_get_session(self, db, wb_lawyer):
         service = self._make_service()

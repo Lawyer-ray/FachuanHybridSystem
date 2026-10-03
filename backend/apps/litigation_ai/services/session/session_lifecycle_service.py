@@ -166,8 +166,8 @@ class SessionLifecycleService:
         case_id: int | None = None,
         status: str | None = None,
         session_type: str | None = None,
-        limit: int = 20,
-        offset: int = 0,
+        page: int = 1,
+        page_size: int = 20,
     ) -> dict[str, Any]:
         filters: dict[str, Any] = {}
         if user_id:
@@ -179,7 +179,8 @@ class SessionLifecycleService:
         if session_type:
             filters["session_type"] = session_type
 
-        total_count, sessions = self.session_repo.list_sessions_sync(filters=filters, limit=limit, offset=offset)
+        page_data = self.session_repo.list_sessions_sync(filters=filters, page=page, page_size=page_size)
+        sessions = page_data["items"]
         message_counts = self.conversation_history_service.count_messages_by_litigation_session_ids_internal(
             litigation_session_ids=[s.id for s in sessions]
         )
@@ -199,7 +200,13 @@ class SessionLifecycleService:
                 }
             )
 
-        return {"sessions": results, "total": total_count, "limit": limit, "offset": offset}
+        return {
+            "items": results,
+            "total": page_data["total"],
+            "page": page_data["page"],
+            "page_size": page_data["page_size"],
+            "total_pages": page_data["total_pages"],
+        }
 
     @transaction.atomic
     def delete_session(self, session_id: str, user: Any | None = None) -> None:

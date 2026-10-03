@@ -20,7 +20,6 @@ from apps.contracts.models import Contract
 from apps.organization.models import LawFirm, Lawyer
 from apps.reminders.models import Reminder
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -135,12 +134,14 @@ class TestValidationErrors:
         past_date = (datetime.now() - timedelta(days=30)).isoformat()
         resp = authenticated_client.post(
             "/api/v1/reminders/create",
-            data=json.dumps({
-                "case_id": case.id,
-                "reminder_type": "hearing",
-                "content": "过去日期提醒",
-                "due_at": past_date,
-            }),
+            data=json.dumps(
+                {
+                    "case_id": case.id,
+                    "reminder_type": "hearing",
+                    "content": "过去日期提醒",
+                    "due_at": past_date,
+                }
+            ),
             content_type="application/json",
         )
         # Should accept past dates (user might want to record historical reminders)
@@ -150,11 +151,13 @@ class TestValidationErrors:
     def test_create_client_invalid_phone(self, authenticated_client):
         resp = authenticated_client.post(
             "/api/v1/client/clients",
-            data=json.dumps({
-                "name": "电话测试客户",
-                "client_type": "natural",
-                "phone": "not-a-phone",
-            }),
+            data=json.dumps(
+                {
+                    "name": "电话测试客户",
+                    "client_type": "natural",
+                    "phone": "not-a-phone",
+                }
+            ),
             content_type="application/json",
         )
         # Should either validate phone or accept as-is
@@ -224,11 +227,13 @@ class TestCaseBusinessLogic:
     def test_create_case_persists_to_db(self, authenticated_client, contract):
         resp = authenticated_client.post(
             "/api/v1/cases/cases",
-            data=json.dumps({
-                "name": "持久化测试案件",
-                "contract_id": contract.id,
-                "case_type": "civil",
-            }),
+            data=json.dumps(
+                {
+                    "name": "持久化测试案件",
+                    "contract_id": contract.id,
+                    "case_type": "civil",
+                }
+            ),
             content_type="application/json",
         )
         if resp.status_code == 200:
@@ -275,10 +280,12 @@ class TestCaseBusinessLogic:
         case = _make_case()
         resp = authenticated_client.post(
             "/api/v1/cases/logs",
-            data=json.dumps({
-                "case_id": case.id,
-                "content": "测试日志内容",
-            }),
+            data=json.dumps(
+                {
+                    "case_id": case.id,
+                    "content": "测试日志内容",
+                }
+            ),
             content_type="application/json",
         )
         if resp.status_code == 200:
@@ -296,12 +303,14 @@ class TestClientBusinessLogic:
     def test_create_natural_client(self, authenticated_client):
         resp = authenticated_client.post(
             "/api/v1/client/clients",
-            data=json.dumps({
-                "name": "张三",
-                "client_type": "natural",
-                "is_our_client": True,
-                "phone": "13800138000",
-            }),
+            data=json.dumps(
+                {
+                    "name": "张三",
+                    "client_type": "natural",
+                    "is_our_client": True,
+                    "phone": "13800138000",
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 200
@@ -314,12 +323,14 @@ class TestClientBusinessLogic:
     def test_create_legal_client(self, authenticated_client):
         resp = authenticated_client.post(
             "/api/v1/client/clients",
-            data=json.dumps({
-                "name": "某某科技有限公司",
-                "client_type": "legal",
-                "legal_representative": "王五",
-                "credit_code": "91110108MA01XXXXX",
-            }),
+            data=json.dumps(
+                {
+                    "name": "某某科技有限公司",
+                    "client_type": "legal",
+                    "legal_representative": "王五",
+                    "credit_code": "91110108MA01XXXXX",
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 200
@@ -360,12 +371,14 @@ class TestReminderBusinessLogic:
         due = (datetime.now() + timedelta(days=7)).isoformat()
         resp = authenticated_client.post(
             "/api/v1/reminders/create",
-            data=json.dumps({
-                "case_id": case.id,
-                "reminder_type": "hearing",
-                "content": "开庭提醒测试",
-                "due_at": due,
-            }),
+            data=json.dumps(
+                {
+                    "case_id": case.id,
+                    "reminder_type": "hearing",
+                    "content": "开庭提醒测试",
+                    "due_at": due,
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 200
@@ -415,11 +428,15 @@ class TestReminderBusinessLogic:
         case1 = _make_case(name="案件1")
         case2 = _make_case(name="案件2")
         Reminder.objects.create(
-            case=case1, reminder_type="hearing", content="提醒1",
+            case=case1,
+            reminder_type="hearing",
+            content="提醒1",
             due_at=datetime.now() + timedelta(days=1),
         )
         Reminder.objects.create(
-            case=case2, reminder_type="deadline", content="提醒2",
+            case=case2,
+            reminder_type="deadline",
+            content="提醒2",
             due_at=datetime.now() + timedelta(days=2),
         )
         resp = authenticated_client.get("/api/v1/reminders/list", {"case_id": case1.id})
@@ -435,10 +452,12 @@ class TestContractBusinessLogic:
     def test_create_contract_persists(self, authenticated_client):
         resp = authenticated_client.post(
             "/api/v1/contracts/contracts",
-            data=json.dumps({
-                "name": "持久化测试合同",
-                "case_type": "civil",
-            }),
+            data=json.dumps(
+                {
+                    "name": "持久化测试合同",
+                    "case_type": "civil",
+                }
+            ),
             content_type="application/json",
         )
         if resp.status_code == 200:
@@ -451,8 +470,9 @@ class TestContractBusinessLogic:
         resp = authenticated_client.get("/api/v1/contracts/contracts")
         assert resp.status_code == 200
         data = resp.json()
-        assert isinstance(data, list)
-        assert len(data) >= 1
+        # 列表端点为标准分页信封（不传 page 默认 page=1）
+        assert isinstance(data["items"], list)
+        assert data["total"] >= 1
 
 
 class TestOrganizationBusinessLogic:
@@ -462,10 +482,12 @@ class TestOrganizationBusinessLogic:
     def test_login_returns_token(self, api_client, lawyer):
         resp = api_client.post(
             "/api/v1/organization/login",
-            data=json.dumps({
-                "username": lawyer.username,
-                "password": "testpass123",
-            }),
+            data=json.dumps(
+                {
+                    "username": lawyer.username,
+                    "password": "testpass123",
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 200
@@ -476,10 +498,12 @@ class TestOrganizationBusinessLogic:
     def test_login_wrong_password(self, api_client, lawyer):
         resp = api_client.post(
             "/api/v1/organization/login",
-            data=json.dumps({
-                "username": lawyer.username,
-                "password": "wrongpassword",
-            }),
+            data=json.dumps(
+                {
+                    "username": lawyer.username,
+                    "password": "wrongpassword",
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code in (400, 401, 200)
@@ -550,11 +574,13 @@ class TestEdgeCases:
         for i in range(5):
             resp = authenticated_client.post(
                 "/api/v1/cases/cases",
-                data=json.dumps({
-                    "name": f"并发测试案件{i}",
-                    "contract_id": contract.id,
-                    "case_type": "civil",
-                }),
+                data=json.dumps(
+                    {
+                        "name": f"并发测试案件{i}",
+                        "contract_id": contract.id,
+                        "case_type": "civil",
+                    }
+                ),
                 content_type="application/json",
             )
             if resp.status_code == 200:

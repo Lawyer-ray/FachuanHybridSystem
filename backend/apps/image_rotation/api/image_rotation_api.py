@@ -447,18 +447,16 @@ def create_job(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
 
 
 @router.get("/jobs")
-def list_jobs(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
-    """分页列出历史任务"""
+def list_jobs(request: HttpRequest, page: int = 1, page_size: int = 20) -> dict[str, Any]:  # pragma: no cover
+    """分页列出历史任务（标准信封 items/total/page/page_size/total_pages）"""
     try:
-        page = int(request.GET.get("page", 1))
-        page_size = int(request.GET.get("page_size", 20))
         result = _get_job_service().list_jobs(page=page, page_size=page_size)
         return {
-            "success": True,
-            "jobs": [_serialize_job(j) for j in result["jobs"]],
-            "total_count": result["total_count"],
+            "items": [_serialize_job(j) for j in result["items"]],
+            "total": result["total"],
             "page": result["page"],
             "page_size": result["page_size"],
+            "total_pages": result["total_pages"],
         }
     except Exception as exc:
         logger.error("list_jobs 失败: %s", exc, exc_info=True)

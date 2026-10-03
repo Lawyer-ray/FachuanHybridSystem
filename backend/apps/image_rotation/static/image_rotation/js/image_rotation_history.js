@@ -346,10 +346,10 @@ window.ImageRotationHistory = (function () {
         try {
             var resp = await fetch('/api/v1/image-rotation/jobs?page=' + page + '&page_size=20');
             var data = await resp.json();
-            if (data.success) {
-                this.historyJobs = data.jobs;
+            if (Array.isArray(data.items)) {
+                this.historyJobs = data.items;
                 this.historyPage = data.page;
-                this.historyTotalCount = data.total_count;
+                this.historyTotalCount = data.total;
             }
         } catch (err) {
             console.warn('加载历史记录失败:', err);

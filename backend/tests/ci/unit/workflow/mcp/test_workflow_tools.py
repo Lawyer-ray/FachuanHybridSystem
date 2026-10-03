@@ -34,9 +34,11 @@ async def test_start_workflow_success():
     mock_client = AsyncMock()
     mock_client.start_workflow = AsyncMock(return_value=mock_handle)
 
-    with patch.object(WorkflowTemplate, "objects") as MockTemplateObjs, \
-         patch.object(WorkflowRun, "objects") as MockRunObjs, \
-         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+    with (
+        patch.object(WorkflowTemplate, "objects") as MockTemplateObjs,
+        patch.object(WorkflowRun, "objects") as MockRunObjs,
+        patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
+    ):
         MockTemplateObjs.aget = AsyncMock(return_value=mock_template)
         MockRunObjs.acreate = AsyncMock(return_value=mock_run)
         mock_run.asave = AsyncMock()
@@ -60,6 +62,31 @@ async def test_start_workflow_template_not_found():
 
 # ── list_workflows ────────────────────────────────────────────────────────────
 
+
+class _AsyncIter:
+    """把同步 list 包装成 async 迭代器（模拟 queryset 切片的 async for 行为）。"""
+
+    def __init__(self, items):
+        self._items = items
+
+    async def _gen(self):
+        for it in self._items:
+            yield it
+
+    def __aiter__(self):
+        return self._gen()
+
+
+def _mock_qs(runs, total):
+    qs = MagicMock()
+    qs.filter.return_value = qs
+    ordered = MagicMock()
+    qs.order_by.return_value = ordered
+    ordered.acount = AsyncMock(return_value=total)
+    ordered.__getitem__ = MagicMock(return_value=_AsyncIter(runs))
+    return qs
+
+
 @pytest.mark.asyncio
 async def test_list_workflows_basic():
     from apps.workflow.mcp.workflow_tools import list_workflows
@@ -73,21 +100,45 @@ async def test_list_workflows_basic():
     mock_run.current_step_id = "step1"
     mock_run.started_at = datetime(2025, 1, 1, 12, 0, 0)
 
-    async def mock_aiter():
-        yield mock_run
-
     with patch.object(WorkflowRun, "objects") as MockObjs:
-        mock_qs = MagicMock()
-        mock_qs.filter.return_value = mock_qs
-        mock_qs.order_by.return_value.__getitem__ = MagicMock(return_value=mock_aiter())
-        MockObjs.select_related.return_value = mock_qs
+        MockObjs.select_related.return_value = _mock_qs([mock_run], total=1)
 
         result = await list_workflows(case_id=1, status="running")
 
-    assert isinstance(result, list)
+    assert isinstance(result["items"], list)
+    assert len(result["items"]) == 1
+    assert result["total"] == 1
+    assert result["page"] == 1
+    assert result["page_size"] == 20
+    assert result["total_pages"] == 1
+
+
+@pytest.mark.asyncio
+async def test_list_workflows_limit_cap():
+    """limit cap：>100 收敛到 100，total_pages 按收敛后的 page_size 计算。"""
+    from apps.workflow.mcp.workflow_tools import list_workflows
+
+    mock_run = MagicMock()
+    mock_run.id = 1
+    mock_run.temporal_workflow_id = "wf-1"
+    mock_run.template.name = "Template A"
+    mock_run.case.name = "Case A"
+    mock_run.status = "running"
+    mock_run.current_step_id = "step1"
+    mock_run.started_at = datetime(2025, 1, 1, 12, 0, 0)
+
+    with patch.object(WorkflowRun, "objects") as MockObjs:
+        MockObjs.select_related.return_value = _mock_qs([mock_run], total=150)
+
+        result = await list_workflows(limit=999)
+
+    assert result["page_size"] == 100  # cap 生效
+    assert result["total"] == 150
+    assert result["total_pages"] == 2
 
 
 # ── get_workflow_detail ───────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_get_workflow_detail_success():
@@ -193,8 +244,10 @@ async def test_approve_workflow_step_success():
     mock_run = _mock_approve_run()
     mock_client, mock_handle = _mock_signal_client()
 
-    with patch.object(WorkflowRun, "objects") as MockObjs, \
-         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+    with (
+        patch.object(WorkflowRun, "objects") as MockObjs,
+        patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
+    ):
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
 
         result = await approve_workflow_step(1, approved=True, comment="ok")
@@ -246,8 +299,10 @@ async def test_approve_workflow_step_temporal_failure():
     mock_client = MagicMock()
     mock_client.get_workflow_handle.side_effect = Exception("connection refused")
 
-    with patch.object(WorkflowRun, "objects") as MockObjs, \
-         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+    with (
+        patch.object(WorkflowRun, "objects") as MockObjs,
+        patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
+    ):
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
 
         result = await approve_workflow_step(1, approved=True)
@@ -263,8 +318,10 @@ async def test_approve_workflow_step_rejected():
     mock_run = _mock_approve_run()
     mock_client, mock_handle = _mock_signal_client()
 
-    with patch.object(WorkflowRun, "objects") as MockObjs, \
-         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+    with (
+        patch.object(WorkflowRun, "objects") as MockObjs,
+        patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
+    ):
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
 
         result = await approve_workflow_step(1, approved=False, comment="not ready")
@@ -294,8 +351,10 @@ async def test_approve_uses_step_level_signal_key():
     )
     mock_client, mock_handle = _mock_signal_client()
 
-    with patch.object(WorkflowRun, "objects") as MockObjs, \
-         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+    with (
+        patch.object(WorkflowRun, "objects") as MockObjs,
+        patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
+    ):
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
 
         result = await approve_workflow_step(1, approved=True)
@@ -317,8 +376,10 @@ async def test_approve_uses_config_level_signal_key():
     )
     mock_client, mock_handle = _mock_signal_client()
 
-    with patch.object(WorkflowRun, "objects") as MockObjs, \
-         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+    with (
+        patch.object(WorkflowRun, "objects") as MockObjs,
+        patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
+    ):
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
 
         result = await approve_workflow_step(1, approved=True)
@@ -340,8 +401,10 @@ async def test_approve_rejects_unknown_signal_key():
     )
     mock_client, mock_handle = _mock_signal_client()
 
-    with patch.object(WorkflowRun, "objects") as MockObjs, \
-         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+    with (
+        patch.object(WorkflowRun, "objects") as MockObjs,
+        patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
+    ):
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
 
         result = await approve_workflow_step(1, approved=True)
@@ -365,8 +428,10 @@ async def test_approve_rejects_signal_unsupported_by_workflow():
     )
     mock_client, mock_handle = _mock_signal_client()
 
-    with patch.object(WorkflowRun, "objects") as MockObjs, \
-         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+    with (
+        patch.object(WorkflowRun, "objects") as MockObjs,
+        patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
+    ):
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
 
         result = await approve_workflow_step(1, approved=True)
@@ -388,8 +453,10 @@ async def test_approve_rejects_step_not_in_template():
     )
     mock_client, mock_handle = _mock_signal_client()
 
-    with patch.object(WorkflowRun, "objects") as MockObjs, \
-         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+    with (
+        patch.object(WorkflowRun, "objects") as MockObjs,
+        patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
+    ):
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
 
         result = await approve_workflow_step(1, approved=True)
@@ -408,8 +475,10 @@ async def test_approve_rejects_empty_steps_schema():
     mock_run = _mock_approve_run(steps_schema=[])
     mock_client, mock_handle = _mock_signal_client()
 
-    with patch.object(WorkflowRun, "objects") as MockObjs, \
-         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+    with (
+        patch.object(WorkflowRun, "objects") as MockObjs,
+        patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
+    ):
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
 
         result = await approve_workflow_step(1, approved=True)
@@ -420,6 +489,7 @@ async def test_approve_rejects_empty_steps_schema():
 
 
 # ── cancel_workflow ───────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_cancel_workflow_success():
@@ -435,8 +505,10 @@ async def test_cancel_workflow_success():
     mock_client = MagicMock()
     mock_client.get_workflow_handle = MagicMock(return_value=mock_handle)
 
-    with patch.object(WorkflowRun, "objects") as MockObjs, \
-         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+    with (
+        patch.object(WorkflowRun, "objects") as MockObjs,
+        patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
+    ):
         MockObjs.aget = AsyncMock(return_value=mock_run)
 
         result = await cancel_workflow(1)
@@ -467,8 +539,10 @@ async def test_cancel_workflow_temporal_failure():
     mock_client = MagicMock()
     mock_client.get_workflow_handle.side_effect = Exception("timeout")
 
-    with patch.object(WorkflowRun, "objects") as MockObjs, \
-         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+    with (
+        patch.object(WorkflowRun, "objects") as MockObjs,
+        patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
+    ):
         MockObjs.aget = AsyncMock(return_value=mock_run)
 
         result = await cancel_workflow(1)
@@ -477,6 +551,7 @@ async def test_cancel_workflow_temporal_failure():
 
 
 # ── delete_workflow_run ───────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_delete_workflow_run_success():
@@ -494,8 +569,10 @@ async def test_delete_workflow_run_success():
     mock_client = MagicMock()
     mock_client.get_workflow_handle = MagicMock(return_value=mock_handle)
 
-    with patch.object(WorkflowRun, "objects") as MockObjs, \
-         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+    with (
+        patch.object(WorkflowRun, "objects") as MockObjs,
+        patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
+    ):
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
 
         result = await delete_workflow_run(1)
@@ -535,9 +612,11 @@ async def test_delete_workflow_run_completed_no_cancel():
 
 # ── get_step_registry / get_step_registry_flat ────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_get_step_registry():
     from apps.workflow.mcp.workflow_tools import get_step_registry
+
     result = await get_step_registry()
     assert isinstance(result, list)
 
@@ -545,11 +624,13 @@ async def test_get_step_registry():
 @pytest.mark.asyncio
 async def test_get_step_registry_flat():
     from apps.workflow.mcp.workflow_tools import get_step_registry_flat
+
     result = await get_step_registry_flat()
     assert isinstance(result, list)
 
 
 # ── create_workflow_template ──────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_create_workflow_template_success():
@@ -561,8 +642,7 @@ async def test_create_workflow_template_success():
     mock_template.slug = "test"
     mock_template.category = "litigation"
 
-    with patch.object(WorkflowTemplate, "objects") as MockObjs, \
-         patch("django.utils.text.slugify", return_value="test"):
+    with patch.object(WorkflowTemplate, "objects") as MockObjs, patch("django.utils.text.slugify", return_value="test"):
         MockObjs.filter.return_value.aexists = AsyncMock(return_value=False)
         MockObjs.acreate = AsyncMock(return_value=mock_template)
 
@@ -592,8 +672,7 @@ async def test_create_workflow_template_slug_collision():
         call_count += 1
         return call_count == 1
 
-    with patch.object(WorkflowTemplate, "objects") as MockObjs, \
-         patch("django.utils.text.slugify", return_value="test"):
+    with patch.object(WorkflowTemplate, "objects") as MockObjs, patch("django.utils.text.slugify", return_value="test"):
         MockObjs.filter.return_value.aexists = mock_exists
         MockObjs.acreate = AsyncMock(return_value=mock_template)
 
@@ -627,6 +706,7 @@ async def test_create_workflow_template_with_explicit_slug():
 
 
 # ── update_workflow_template ──────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_update_workflow_template_not_found():
@@ -719,6 +799,7 @@ async def test_update_workflow_template_deactivate():
 
 # ── list_workflow_templates ───────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_list_workflow_templates():
     from apps.workflow.mcp.workflow_tools import list_workflow_templates
@@ -749,6 +830,7 @@ async def test_list_workflow_templates():
 
 
 # ── get_workflow_template ─────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_get_workflow_template_not_found():
@@ -789,6 +871,7 @@ async def test_get_workflow_template_success():
 
 # ── delete_workflow_template ──────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_delete_workflow_template_not_found():
     from apps.workflow.mcp.workflow_tools import delete_workflow_template
@@ -820,6 +903,7 @@ async def test_delete_workflow_template_success():
 
 # ── duplicate_workflow_template ───────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_duplicate_workflow_template_not_found():
     from apps.workflow.mcp.workflow_tools import duplicate_workflow_template
@@ -850,8 +934,7 @@ async def test_duplicate_workflow_template_success():
     mock_new.name = "Copy"
     mock_new.slug = "copy"
 
-    with patch.object(WorkflowTemplate, "objects") as MockObjs, \
-         patch("django.utils.text.slugify", return_value="copy"):
+    with patch.object(WorkflowTemplate, "objects") as MockObjs, patch("django.utils.text.slugify", return_value="copy"):
         MockObjs.aget = AsyncMock(return_value=mock_source)
         MockObjs.filter.return_value.aexists = AsyncMock(return_value=False)
         MockObjs.acreate = AsyncMock(return_value=mock_new)
@@ -879,8 +962,10 @@ async def test_duplicate_workflow_template_with_new_name():
     mock_new.name = "Custom Name"
     mock_new.slug = "custom-name"
 
-    with patch.object(WorkflowTemplate, "objects") as MockObjs, \
-         patch("django.utils.text.slugify", return_value="custom-name"):
+    with (
+        patch.object(WorkflowTemplate, "objects") as MockObjs,
+        patch("django.utils.text.slugify", return_value="custom-name"),
+    ):
         MockObjs.aget = AsyncMock(return_value=mock_source)
         MockObjs.filter.return_value.aexists = AsyncMock(return_value=False)
         MockObjs.acreate = AsyncMock(return_value=mock_new)

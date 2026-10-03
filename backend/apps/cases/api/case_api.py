@@ -24,6 +24,11 @@ from apps.core.dto.request_context import extract_request_context
 
 router = Router()
 
+# 未显式传 limit 时的默认上限：宽过滤（如 status=active）也不能全表序列化
+CASES_DEFAULT_LIMIT = 200
+# 显式 limit 的硬上限（向后兼容：上限内任意 limit 均生效）
+CASES_MAX_LIMIT = 2000
+
 
 def _serialize_case(case: Any) -> dict:
     """将 Case 模型序列化为 JSON 安全的 dict（在 sync 上下文内完成 from_orm + dump）。
@@ -83,18 +88,17 @@ async def list_cases(  # pragma: no cover
 ) -> list[dict[str, Any]]:
     """获取案件列表（contract_id 可按合同过滤，供前端详情按需加载）
 
-    限额策略：显式传 limit 时按它截断（上限 2000）；未传且无任何过滤参数时
-    应用默认上限 1000（防止全表序列化）；带过滤参数的查询结果集天然小，不设限。
+    限额策略（返回信封保持裸数组，供前端 workbench/material-prep 现状消费）：
+    - 显式传 limit 时按它截断，上限 2000（向后兼容，上限内任意 limit 均生效）；
+    - 未传 limit 时应用默认上限 200——含带过滤参数的宽过滤（如 status=active），
+      防止单请求全表序列化。窄过滤消费方（contract_id 明细）结果集远小于 200，不受影响。
     """
     service = _get_case_query_facade()
     ctx = extract_request_context(request)
-    has_filter = any([case_type, status, case_number, contract_id])
     if limit is not None:
-        effective_limit: int | None = max(1, min(limit, 2000))
-    elif not has_filter:
-        effective_limit = 1000
+        effective_limit: int | None = max(1, min(limit, CASES_MAX_LIMIT))
     else:
-        effective_limit = None
+        effective_limit = CASES_DEFAULT_LIMIT
 
     def _do() -> list[dict[str, Any]]:
         if case_number:

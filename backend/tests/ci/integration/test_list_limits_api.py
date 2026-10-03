@@ -2,7 +2,8 @@
 
 覆盖四个端点：
 - GET /api/v1/client/clients（limit 默认 1000）
-- GET /api/v1/cases/cases（显式 limit 生效；无过滤无 limit 时默认上限——单测分支见下）
+- GET /api/v1/cases/cases（显式 limit 生效；不传 limit 时一律默认上限 200，
+  含带过滤参数的宽过滤——单测分支见下）
 - GET /api/v1/organization/lawyers（page_size=500 放开历史截断）
 - GET /api/v1/contacts/contacts（limit 默认 1000，需 admin）
 
@@ -42,15 +43,25 @@ class TestCasesLimit:
         assert len(resp.json()) == 2
 
     def test_filtered_query_unaffected_by_default_cap(self, authenticated_client):
-        """带过滤参数（contract_id）的查询不受默认上限影响——消费方契约。"""
+        """窄过滤（contract_id）结果集小于默认上限，消费方拿到的仍是全量明细。"""
         contract = self._make_cases(3)
         resp = authenticated_client.get(f"/api/v1/cases/cases?contract_id={contract.pk}")
         assert resp.status_code == 200
         assert len(resp.json()) == 3
 
+    def test_broad_filter_capped_by_default_limit(self, authenticated_client):
+        """宽过滤（status=active）不传 limit 时应用默认上限 200，防止全表序列化。"""
+        contract = self._make_cases(3)
+        CaseFactory(contract=contract)  # 默认 status=active，共 4 条在办
+        resp = authenticated_client.get("/api/v1/cases/cases?status=active")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, list)
+        assert len(data) == 4  # 结果集 < 200 时不受截断，但上限守卫已生效（切片见下方单测分支）
+
     @pytest.mark.asyncio
     async def test_no_filter_uses_default_cap(self):
-        """无过滤、无显式 limit 时应用默认上限 1000（handler 决策分支）。"""
+        """无过滤、无显式 limit 时应用默认上限 200（handler 决策分支）。"""
         from unittest.mock import MagicMock, patch
 
         from apps.cases.api import case_api
@@ -72,7 +83,7 @@ class TestCasesLimit:
         ):
             facade.return_value.list_cases.return_value = qs
             result = await case_api.list_cases(request)
-        assert qs.slices == [slice(1000)]
+        assert qs.slices == [slice(200)]
         assert result == []
 
 

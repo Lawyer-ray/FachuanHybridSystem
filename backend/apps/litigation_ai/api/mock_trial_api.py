@@ -56,18 +56,17 @@ async def create_session(request: HttpRequest, payload: CreateMockTrialSessionRe
 
 @router.get("/sessions", response={200: MockTrialSessionListResponse, 403: ErrorResponse})
 async def list_sessions(
-    request: HttpRequest, case_id: int | None = None, limit: int = 20, offset: int = 0
+    request: HttpRequest, case_id: int | None = None, page: int = 1, page_size: int = 20
 ) -> Any:  # pragma: no cover
     service = _get_service()
     user = getattr(request, "user", None)
-    data = await sync_to_async(service.list_sessions)(
+    return await sync_to_async(service.list_sessions)(
         user_id=user.id if user else None,
         case_id=case_id,
         session_type="mock_trial",
-        limit=limit,
-        offset=offset,
+        page=page,
+        page_size=page_size,
     )
-    return {"count": data["total"], "results": data["sessions"]}
 
 
 @router.get(

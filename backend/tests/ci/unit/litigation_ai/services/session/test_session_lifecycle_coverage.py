@@ -318,11 +318,17 @@ class TestListSessions:
 
     def test_empty_list(self):
         svc = self._make_service()
-        svc.session_repo.list_sessions_sync.return_value = (0, [])
+        svc.session_repo.list_sessions_sync.return_value = {
+            "items": [],
+            "total": 0,
+            "page": 1,
+            "page_size": 20,
+            "total_pages": 1,
+        }
         svc.conversation_history_service.count_messages_by_litigation_session_ids_internal.return_value = {}
         result = svc.list_sessions()
         assert result["total"] == 0
-        assert result["sessions"] == []
+        assert result["items"] == []
 
     def test_with_sessions(self):
         svc = self._make_service()
@@ -336,13 +342,19 @@ class TestListSessions:
         mock_s1.created_at = None
         mock_s1.updated_at = None
 
-        svc.session_repo.list_sessions_sync.return_value = (1, [mock_s1])
+        svc.session_repo.list_sessions_sync.return_value = {
+            "items": [mock_s1],
+            "total": 1,
+            "page": 1,
+            "page_size": 20,
+            "total_pages": 1,
+        }
         svc.conversation_history_service.count_messages_by_litigation_session_ids_internal.return_value = {1: 5}
 
         result = svc.list_sessions(user_id=1, case_id=10, status="active", session_type="litigation")
         assert result["total"] == 1
-        assert len(result["sessions"]) == 1
-        assert result["sessions"][0]["message_count"] == 5
+        assert len(result["items"]) == 1
+        assert result["items"][0]["message_count"] == 5
 
 
 # ── _detach_legacy_tables ─────────────────────────────────────────
