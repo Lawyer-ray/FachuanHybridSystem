@@ -8,10 +8,13 @@ from typing import Any
 from django.db import connection, transaction
 
 from apps.core.exceptions import ConflictError, ValidationException
-from apps.core.models.enums import CaseType
 from apps.core.exceptions.error_codes import FILING_NUMBER_GENERATION_FAILED
+from apps.core.models.enums import CaseType
 
 logger = logging.getLogger("apps.contracts")
+
+# 合同建档序号专用的 PostgreSQL 事务级咨询锁 key（固定 bigint，勿复用到其他业务）
+_CONTRACT_FILING_SEQUENCE_LOCK_KEY = 8_801_001
 
 
 class FilingNumberService:
@@ -118,12 +121,11 @@ class FilingNumberService:
         """
         获取合同的下一个序号(并发安全)
 
-        使用数据库行级锁确保序号唯一性
-
-        策略:
-        1. 使用 select_for_update() 锁定查询
-        2. 统计当年已有建档编号的合同数量
-        3. 返回 count + 1 作为新序号
+        策略(PostgreSQL 事务级咨询锁 + 取最大序号, 无需迁移):
+        1. 用 pg_advisory_xact_lock 串行化同年份的并发建档——Django 聚合查询
+           (count/max)会静默丢弃 select_for_update, 行级锁在这里无效
+        2. 取当年已用编号的最大后缀而非 count, 删除中间序号的合同后
+           也不会与存量编号冲突(旧 count+1 方案会造成该年度建档永久卡死)
 
         Args:
             year: 年份
@@ -136,14 +138,28 @@ class FilingNumberService:
         from apps.contracts.models import Contract
 
         with transaction.atomic():
-            qs = Contract.objects.filter(filing_number__startswith=f"{year}_", filing_number__isnull=False).exclude(
-                filing_number=""
-            )
-            if connection.features.has_select_for_update:
-                qs = qs.select_for_update()
-            count = qs.count()
+            if connection.vendor == "postgresql":
+                with connection.cursor() as cursor:
+                    # 事务级咨询锁：并发建档串行化（Django 聚合查询会丢弃
+                    # select_for_update，行级锁对聚合无效）
+                    cursor.execute("SELECT pg_advisory_xact_lock(%s)", [_CONTRACT_FILING_SEQUENCE_LOCK_KEY])
 
-            return count + 1
+            # 取当年已用最大序号而非 count：删除中间序号也不会与存量冲突
+            max_seq = 0
+            for filing_number in (
+                Contract.objects.filter(filing_number__startswith=f"{year}_", filing_number__isnull=False)
+                .exclude(filing_number="")
+                .values_list("filing_number", flat=True)
+            ):
+                parts = str(filing_number).split("_")
+                if not parts[-1].isdigit():
+                    # 脏数据防御：后缀不是纯数字（如手工录入的编号）时跳过
+                    continue
+                value = int(parts[-1])
+                if value > max_seq:
+                    max_seq = value
+
+            return max_seq + 1
 
     def _format_case_type_label(self, case_type: str) -> Any:
         """
