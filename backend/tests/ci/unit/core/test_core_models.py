@@ -100,9 +100,9 @@ class TestCaseModel:
         case.clean()  # 不应抛出异常
 
     @pytest.mark.django_db
-    def test_clean_none_stage(self) -> None:
-        """current_stage 为 None 不应报错。"""
-        case = CaseFactory(current_stage=None)
+    def test_clean_empty_stage(self) -> None:
+        """current_stage 为空（归一后空值用空串表示）不应报错。"""
+        case = CaseFactory(current_stage="")
         case.clean()
 
     @pytest.mark.django_db
