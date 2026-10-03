@@ -43,8 +43,10 @@ class LPRRate(models.Model):
         ordering: ClassVar = ["-effective_date"]
         verbose_name = "LPR利率"
         verbose_name_plural = "LPR利率"
-        indexes = [
-            models.Index(fields=["effective_date"], name="%(app_label)s_lpr_eff_date_idx"),
+        # effective_date 已有 unique=True 的唯一索引，不再单列重复建索引
+        constraints: ClassVar = [
+            models.CheckConstraint(condition=models.Q(rate_1y__gte=0), name="chk_lprrate_rate_1y_nonneg"),
+            models.CheckConstraint(condition=models.Q(rate_5y__gte=0), name="chk_lprrate_rate_5y_nonneg"),
         ]
 
     def __str__(self) -> str:

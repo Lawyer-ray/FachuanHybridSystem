@@ -83,3 +83,11 @@ class PropertyClueAttachment(models.Model):
         indexes: ClassVar = [
             models.Index(fields=["property_clue"], name="idx_pca_propclue"),
         ]
+        constraints: ClassVar = [
+            # 导入路径 get_or_create(property_clue, file_path) 的查重键。
+            # 注意：PropertyClue 本身不加 (client, clue_type) 唯一约束——
+            # 同一客户同类型多条线索是合法数据（如多个银行账户）
+            models.UniqueConstraint(
+                fields=["property_clue", "file_path"], name="uniq_propertyclueattachment_pc_file_path"
+            ),
+        ]

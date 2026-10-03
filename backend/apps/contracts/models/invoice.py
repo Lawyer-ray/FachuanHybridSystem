@@ -66,6 +66,10 @@ class Invoice(models.Model):
         indexes: ClassVar = [
             models.Index(fields=["payment", "-uploaded_at"]),
         ]
+        constraints: ClassVar = [
+            # 导入路径 get_or_create(payment, file_path) 的查重键
+            models.UniqueConstraint(fields=["payment", "file_path"], name="uniq_invoice_payment_file_path"),
+        ]
 
     def __str__(self) -> str:
         return self.original_filename or f"发票 #{self.id}"

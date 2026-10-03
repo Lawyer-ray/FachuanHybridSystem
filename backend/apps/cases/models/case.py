@@ -106,6 +106,10 @@ class Case(models.Model):
             models.Index(fields=["current_stage"]),
             models.Index(fields=["status"]),
         ]
+        constraints: ClassVar = [
+            # NULL 不参与校验（PG check 约束对 NULL 放行）
+            models.CheckConstraint(condition=models.Q(target_amount__gte=0), name="chk_case_target_amount_nonneg"),
+        ]
 
     def __str__(self) -> str:
         return f"{self.name}"

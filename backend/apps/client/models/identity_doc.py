@@ -97,3 +97,10 @@ class ClientIdentityDoc(models.Model):
         indexes: ClassVar = [
             models.Index(fields=["client", "doc_type"], name="idx_iddoc_clt_doctype"),
         ]
+        constraints: ClassVar = [
+            # 导入路径 get_or_create(client, file_path) 的查重键；存量 NULL 行
+            # （模型/DB 漂移老数据）在 PG 下互不冲突
+            models.UniqueConstraint(fields=["client", "file_path"], name="uniq_clientidentitydoc_client_file_path"),
+            # 上传服务 get_or_create(client, doc_type)：一人一证件类型
+            models.UniqueConstraint(fields=["client", "doc_type"], name="uniq_clientidentitydoc_client_doctype"),
+        ]

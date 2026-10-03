@@ -69,6 +69,10 @@ class FinalizedMaterial(models.Model):
         indexes: ClassVar = [
             models.Index(fields=["contract", "order", "-uploaded_at"]),
         ]
+        constraints: ClassVar = [
+            # 导入路径 get_or_create(contract, file_path) 的查重键
+            models.UniqueConstraint(fields=["contract", "file_path"], name="uniq_finalizedmaterial_contract_file_path"),
+        ]
 
     def __str__(self) -> str:
         return f"{self.original_filename} ({self.get_category_display()})"

@@ -68,7 +68,11 @@ class ContractAssignment(models.Model):
     lawyer_id: int
     contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name="assignments", verbose_name="合同")
     lawyer = models.ForeignKey(
-        "organization.Lawyer", on_delete=models.CASCADE, related_name="contract_assignments", verbose_name="律师"
+        # PROTECT：删除律师不得静默抹掉合同指派（办案历史），须先走转办流程
+        "organization.Lawyer",
+        on_delete=models.PROTECT,
+        related_name="contract_assignments",
+        verbose_name="律师",
     )
     is_primary = models.BooleanField(default=False, verbose_name="是否主办律师")
     order = models.IntegerField(default=0, verbose_name="排序")

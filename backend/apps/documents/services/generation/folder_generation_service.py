@@ -726,8 +726,14 @@ class FolderGenerationService:
         # 5. 放入当事人证件材料 → "身份证明"文件夹
         from apps.core.services.storage_service import to_media_abs
 
+        # 关联数据一次性取齐：原写法在每个 identity_path 外层循环里重复执行
+        # parties 查询，且 select_related 管不到 identity_docs（每个当事人再查一次）
+        identity_parties = list(case.parties.select_related("client").prefetch_related("client__identity_docs"))
+        attorney_assignments = list(case.assignments.select_related("lawyer"))
+        active_case_numbers = list(case.case_numbers.filter(is_active=True).exclude(document_file=""))
+
         for identity_path in identity_paths:
-            for party in case.parties.select_related("client"):
+            for party in identity_parties:
                 for identity_doc in party.client.identity_docs.all():
                     doc_type_display = (
                         identity_doc.get_doc_type_display()
@@ -746,7 +752,7 @@ class FolderGenerationService:
 
         # 6. 放入律师执业证 → "委托材料"文件夹
         for attorney_path in attorney_paths:
-            for assignment in case.assignments.select_related("lawyer"):
+            for assignment in attorney_assignments:
                 lawyer = assignment.lawyer
                 _collect_single_file(
                     attorney_path,
@@ -760,7 +766,7 @@ class FolderGenerationService:
 
         # 7. 放入已生效案号裁判文书 → "执行依据及生效证明"文件夹
         for exec_path in execution_paths:
-            for case_number in case.case_numbers.filter(is_active=True).exclude(document_file=""):
+            for case_number in active_case_numbers:
                 _collect_single_file(
                     exec_path,
                     getattr(case_number, "document_file", None),

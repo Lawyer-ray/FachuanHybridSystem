@@ -119,6 +119,15 @@ class Contract(models.Model):
             # 按案件类型、状态和指定日期查询(常用于复杂过滤)
             models.Index(fields=["case_type", "status", "-specified_date"]),
         ]
+        constraints: ClassVar = [
+            # OA 同步的查重键：此前既无索引也无唯一约束，同步循环里每案一次
+            # 全表扫，两个并发同步会各自建重复合同。NULL 互不冲突（未关联 OA 的合同不受影响）
+            models.UniqueConstraint(fields=["law_firm_oa_case_number"], name="uniq_contract_law_firm_oa_case_number"),
+            models.CheckConstraint(
+                condition=models.Q(risk_rate__gte=0) & models.Q(risk_rate__lte=100),
+                name="chk_contract_risk_rate_range",
+            ),
+        ]
 
     def __str__(self) -> str:
         return str(self.name)

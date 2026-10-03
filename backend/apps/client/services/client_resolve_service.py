@@ -71,31 +71,40 @@ class ClientResolveService:
         return client
 
     def resolve_with_attachments(self, data: dict[str, Any]) -> Client:
-        """resolve Client 并还原 identity_docs 和 property_clues（含附件）。"""
+        """resolve Client 并还原 identity_docs 和 property_clues（含附件）。
+
+        整体包在事务里：中途任一步失败会留下「客户已建、证件/线索残缺」的
+        半成品（client admin 的 JSON 导入路径没有外层 atomic）。
+        """
+        from django.db import transaction
+
         from apps.client.models import PropertyClue, PropertyClueAttachment
 
-        client = self.resolve(data)
+        with transaction.atomic():
+            client = self.resolve(data)
 
-        for doc in data.get("identity_docs") or []:
-            if doc.get("file_path"):
-                ClientIdentityDoc.objects.get_or_create(
-                    client=client,
-                    file_path=doc["file_path"],
-                    defaults={"doc_type": doc.get("doc_type", "id_card_front")},
-                )
-
-        for clue in data.get("property_clues") or []:
-            pc, _created = PropertyClue.objects.get_or_create(
-                client=client,
-                clue_type=clue.get("clue_type", "other"),
-                defaults={"content": clue.get("content", "")},
-            )
-            for att in clue.get("attachments") or []:
-                if att.get("file_path"):
-                    PropertyClueAttachment.objects.get_or_create(
-                        property_clue=pc,
-                        file_path=att["file_path"],
-                        defaults={"file_name": att.get("file_name", "")},
+            for doc in data.get("identity_docs") or []:
+                if doc.get("file_path"):
+                    ClientIdentityDoc.objects.get_or_create(
+                        client=client,
+                        file_path=doc["file_path"],
+                        defaults={"doc_type": doc.get("doc_type", "id_card_front")},
                     )
+
+            for clue in data.get("property_clues") or []:
+                # content 进查重键：同类多条线索是合法数据（一个客户多个银行账户）。
+                # 旧写法只按 (client, clue_type) 查重，重导入会静默吞掉同类型其余账户
+                pc, _created = PropertyClue.objects.get_or_create(
+                    client=client,
+                    clue_type=clue.get("clue_type", "other"),
+                    content=clue.get("content", ""),
+                )
+                for att in clue.get("attachments") or []:
+                    if att.get("file_path"):
+                        PropertyClueAttachment.objects.get_or_create(
+                            property_clue=pc,
+                            file_path=att["file_path"],
+                            defaults={"file_name": att.get("file_name", "")},
+                        )
 
         return client
