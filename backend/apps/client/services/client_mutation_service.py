@@ -150,6 +150,7 @@ class ClientMutationService:
             raise
 
         client = self.query_service.get_client(client_id=client_id, user=user)
+        self._ensure_client_deletable(client)
         file_paths = self.deletion_workflow.collect_client_file_paths(client_id=client.pk)
         client.delete()
         self.deletion_workflow.cleanup_files_on_commit(file_paths=file_paths)
@@ -158,6 +159,33 @@ class ClientMutationService:
             "客户删除成功",
             extra={"client_id": client_id, "user_id": getattr(user, "id", None), "action": "delete_client"},
         )
+
+    @staticmethod
+    def _ensure_client_deletable(client: Client) -> None:
+        """删除客户前检查业务关联：当事人关系已全部 PROTECT，这里给出可操作的引导信息。
+
+        模型层 PROTECT 只能抛裸 ProtectedError（500），守卫层先拦下并说明
+        需要先清理哪些关联，客户才允许删除。
+        """
+        related_counts = {
+            "合同": client.contracts.count(),
+            "案件": client.case_parties.count(),
+            "补充协议": client.supplementary_agreements.count(),
+            "企查报告任务": client.gsxt_report_tasks.count(),
+        }
+        blocking = {label: count for label, count in related_counts.items() if count > 0}
+        if blocking:
+            detail = "、".join(f"{label} {count} 条" for label, count in blocking.items())
+            logger.warning(
+                "客户存在业务关联，拒绝删除: client=%s, %s",
+                client.pk,
+                detail,
+                extra={"client_id": client.pk, "action": "delete_client_blocked"},
+            )
+            raise ValidationException(
+                message=f"该客户仍有业务关联（{detail}），请先解除或清理相关记录后再删除",
+                code="CLIENT_HAS_BUSINESS_RELATIONS",
+            )
 
     @transaction.atomic
     def create_client_with_docs(

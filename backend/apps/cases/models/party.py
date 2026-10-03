@@ -15,7 +15,11 @@ class CaseParty(models.Model):
     id: int
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="parties", verbose_name="案件")
     client = models.ForeignKey(
-        "client.Client", on_delete=models.CASCADE, related_name="case_parties", verbose_name="当事人"
+        # PROTECT：删除客户不得静默抹掉案件当事人（业务数据），须先解除关联（同 CaseAssignment.lawyer 的防护语义）
+        "client.Client",
+        on_delete=models.PROTECT,
+        related_name="case_parties",
+        verbose_name="当事人",
     )
     legal_status = models.CharField(
         max_length=32, choices=LegalStatus.choices, blank=True, default="", verbose_name="诉讼地位"

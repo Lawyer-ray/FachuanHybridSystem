@@ -51,11 +51,13 @@ class TestValidateCreateData:
             svc._validate_create_data({"name": "公司A", "client_type": Client.LEGAL})
 
     def test_legal_with_rep_passes(self, svc):
-        svc._validate_create_data({
-            "name": "公司A",
-            "client_type": Client.LEGAL,
-            "legal_representative": "王五",
-        })  # should not raise
+        svc._validate_create_data(
+            {
+                "name": "公司A",
+                "client_type": Client.LEGAL,
+                "legal_representative": "王五",
+            }
+        )  # should not raise
 
     def test_natural_type_passes(self, svc):
         svc._validate_create_data({"name": "李四", "client_type": Client.NATURAL})
@@ -105,6 +107,7 @@ class TestUpdateClient:
     @pytest.mark.django_db
     def test_update_with_valid_data(self, db):
         from apps.testing.factories import ClientFactory
+
         client = ClientFactory(name="原名", client_type=Client.NATURAL)
         mock_policy = MagicMock()
         svc = ClientMutationService(access_policy=mock_policy)
@@ -115,6 +118,7 @@ class TestUpdateClient:
     @pytest.mark.django_db
     def test_non_updatable_field_ignored(self, db):
         from apps.testing.factories import ClientFactory
+
         client = ClientFactory(name="原始", client_type=Client.NATURAL)
         mock_policy = MagicMock()
         svc = ClientMutationService(access_policy=mock_policy)
@@ -125,9 +129,8 @@ class TestUpdateClient:
     @pytest.mark.django_db
     def test_update_legal_type_with_rep(self, db):
         from apps.testing.factories import ClientFactory
-        client = ClientFactory(
-            client_type=Client.LEGAL, name="公司", legal_representative="旧法人"
-        )
+
+        client = ClientFactory(client_type=Client.LEGAL, name="公司", legal_representative="旧法人")
         mock_policy = MagicMock()
         svc = ClientMutationService(access_policy=mock_policy)
         result = svc.update_client(
@@ -145,6 +148,7 @@ class TestDeleteClient:
     @pytest.mark.django_db
     def test_delete_removes_client(self, db):
         from apps.testing.factories import ClientFactory
+
         client = ClientFactory(name="待删", client_type=Client.NATURAL)
         mock_workflow = MagicMock()
         mock_workflow.collect_client_file_paths.return_value = []
@@ -221,3 +225,51 @@ class TestConstants:
         assert "phone" in ClientMutationService._UPDATABLE_FIELDS
         assert "client_type" in ClientMutationService._UPDATABLE_FIELDS
         assert "is_our_client" in ClientMutationService._UPDATABLE_FIELDS
+
+
+# ──────────── _ensure_client_deletable（PROTECT 守卫） ────────────
+
+
+@pytest.mark.django_db
+class TestEnsureClientDeletable:
+    """删除客户前的业务关联守卫：模型层 PROTECT 的可操作前置拦截。"""
+
+    def _make_client(self):
+        return Client.objects.create(name="测试客户", client_type=Client.LEGAL)
+
+    def test_no_relations_allows_delete(self, svc):
+        client = self._make_client()
+        svc._ensure_client_deletable(client)  # 不抛即通过
+
+    def test_contract_party_blocks_delete(self, svc):
+        from apps.contracts.models import Contract, ContractParty
+
+        client = self._make_client()
+        contract = Contract.objects.create(name="测试合同")
+        ContractParty.objects.create(contract=contract, client=client)
+        with pytest.raises(ValidationException, match="合同"):
+            svc._ensure_client_deletable(client)
+
+    def test_case_party_blocks_delete(self, svc):
+        from datetime import date
+
+        from apps.cases.models import Case, CaseParty
+
+        client = self._make_client()
+        case = Case.objects.create(name="测试案件", created_at=date(2026, 1, 1))
+        CaseParty.objects.create(case=case, client=client)
+        with pytest.raises(ValidationException, match="案件"):
+            svc._ensure_client_deletable(client)
+
+    def test_error_code_and_no_partial_delete(self, svc):
+        """有业务关联时抛业务异常而非裸 ProtectedError，且客户未被删除。"""
+        from apps.contracts.models import Contract, ContractParty
+
+        client = self._make_client()
+        contract = Contract.objects.create(name="测试合同")
+        ContractParty.objects.create(contract=contract, client=client)
+
+        with pytest.raises(ValidationException) as exc_info:
+            svc.delete_client(client_id=client.pk, user=MagicMock())
+        assert exc_info.value.code == "CLIENT_HAS_BUSINESS_RELATIONS"
+        assert Client.objects.filter(pk=client.pk).exists()
