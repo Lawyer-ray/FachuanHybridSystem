@@ -32,14 +32,14 @@ class TestRunBatchAnalysis:
         with patch(f"{_MOD}.asyncio") as mock_asyncio:
             mock_asyncio.get_running_loop.return_value = MagicMock()
             with patch(f"{_MOD}.concurrent.futures.ThreadPoolExecutor") as MockPool:
-                mock_pool = MagicMock()
+                mock_pool = MockPool.return_value
                 mock_future = MagicMock()
                 mock_future.result.return_value = None
                 mock_pool.submit.return_value = mock_future
-                MockPool.return_value.__enter__ = MagicMock(return_value=mock_pool)
-                MockPool.return_value.__exit__ = MagicMock(return_value=False)
                 run_batch_analysis(job_id)
                 mock_pool.submit.assert_called_once()
+                # 显式池（非 with）：无论结果如何都要释放，避免形式超时
+                mock_pool.shutdown.assert_called_once_with(wait=False, cancel_futures=True)
 
 
 class TestRunBatchRetry:
@@ -63,14 +63,13 @@ class TestRunBatchRetry:
         with patch(f"{_MOD}.asyncio") as mock_asyncio:
             mock_asyncio.get_running_loop.return_value = MagicMock()
             with patch(f"{_MOD}.concurrent.futures.ThreadPoolExecutor") as MockPool:
-                mock_pool = MagicMock()
+                mock_pool = MockPool.return_value
                 mock_future = MagicMock()
                 mock_future.result.return_value = None
                 mock_pool.submit.return_value = mock_future
-                MockPool.return_value.__enter__ = MagicMock(return_value=mock_pool)
-                MockPool.return_value.__exit__ = MagicMock(return_value=False)
                 run_batch_retry(job_id, item_ids)
                 mock_pool.submit.assert_called_once()
+                mock_pool.shutdown.assert_called_once_with(wait=False, cancel_futures=True)
 
 
 class TestSyncLlmChat:
