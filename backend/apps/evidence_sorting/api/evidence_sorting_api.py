@@ -20,7 +20,13 @@ router = Router(tags=["案件材料整理"], auth=JWTOrSessionAuth())
 
 
 def _body(request: HttpRequest) -> dict[str, Any]:
-    return json.loads(request.body or b"{}")  # type: ignore[no-any-return]
+    """解析 JSON 请求体；格式非法时按 400 拒绝而非裸抛 500。"""
+    from apps.core.exceptions import ValidationException
+
+    try:
+        return json.loads(request.body or b"{}")  # type: ignore[no-any-return]
+    except json.JSONDecodeError as exc:
+        raise ValidationException(f"请求体不是合法 JSON：{exc.msg}", code="INVALID_JSON") from exc
 
 
 @router.post("/classify")

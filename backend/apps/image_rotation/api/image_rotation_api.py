@@ -49,7 +49,13 @@ def _validate_image_file(file_obj: UploadedFile) -> None:
 
 
 def _body(request: HttpRequest) -> dict[str, Any]:
-    return cast(dict[str, Any], json.loads(request.body or b"{}"))
+    """解析 JSON 请求体；格式非法时按 400 拒绝而非裸抛 500。"""
+    from apps.core.exceptions import ValidationException
+
+    try:
+        return cast(dict[str, Any], json.loads(request.body or b"{}"))
+    except json.JSONDecodeError as exc:
+        raise ValidationException(f"请求体不是合法 JSON：{exc.msg}", code="INVALID_JSON") from exc
 
 
 def _decode_image_data(data: str) -> bytes:

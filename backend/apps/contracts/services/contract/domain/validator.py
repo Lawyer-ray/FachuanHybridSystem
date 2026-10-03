@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from apps.contracts.models import FeeMode
 from apps.core.config.business_config import BusinessConfig
 from apps.core.exceptions import ValidationException
+
+
+def _amount_positive(value: Any) -> bool:
+    """金额/比例用 Decimal 判正，避免 float 精度误差与非数值崩溃。"""
+    try:
+        return Decimal(str(value)) > 0
+    except (InvalidOperation, TypeError, ValueError):
+        return False
 
 
 class ContractValidator:
@@ -37,17 +46,17 @@ class ContractValidator:
             raise ValidationException("收费模式验证失败", errors=errors)
 
     def _validate_fixed(self, data: dict[str, Any], errors: dict[str, str]) -> None:
-        if not data.get("fixed_amount") or float(data["fixed_amount"]) <= 0:
+        if not data.get("fixed_amount") or not _amount_positive(data["fixed_amount"]):
             errors["fixed_amount"] = "固定收费需填写金额"
 
     def _validate_semi_risk(self, data: dict[str, Any], errors: dict[str, str]) -> None:
-        if not data.get("fixed_amount") or float(data["fixed_amount"]) <= 0:
+        if not data.get("fixed_amount") or not _amount_positive(data["fixed_amount"]):
             errors["fixed_amount"] = "半风险需填写前期金额"
-        if not data.get("risk_rate") or float(data["risk_rate"]) <= 0:
+        if not data.get("risk_rate") or not _amount_positive(data["risk_rate"]):
             errors["risk_rate"] = "半风险需填写风险比例"
 
     def _validate_full_risk(self, data: dict[str, Any], errors: dict[str, str]) -> None:
-        if not data.get("risk_rate") or float(data["risk_rate"]) <= 0:
+        if not data.get("risk_rate") or not _amount_positive(data["risk_rate"]):
             errors["risk_rate"] = "全风险需填写风险比例"
 
     def _validate_custom(self, data: dict[str, Any], errors: dict[str, str]) -> None:

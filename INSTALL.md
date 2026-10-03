@@ -158,6 +158,13 @@ valkey-cli ping
 
 如果已有 Redis 在运行，Valkey 可直接替代，无需迁移数据。
 
+> **缓存拓扑守卫（v27.2.7+）**：未配置 Redis/Valkey 时，缓存降级为进程内 LocMemCache。
+> 单进程（`runserver`、单 worker）下这是自洽的；但**多进程拓扑**（`uvicorn --workers N`、
+> web 与 qcluster 分容器部署）下各进程缓存互相不可见，会导致限流计数失真、配置缓存不一致。
+> 因此生产多进程启动时未配置 Redis 会直接 `RuntimeError` 拒绝启动；临时豁免可设
+> `DJANGO_ALLOW_LOCMEM_CACHE=true`（会打 WARNING 提醒尽快配置）。配置入口：`REDIS_URL`
+> 或 `DJANGO_CACHE_REDIS_URL`。单进程生产启动未配置 Redis 时也会打 WARNING，不阻断。
+
 ### 2.3 初始化数据库与用户
 
 按 `backend/.env` 里的 `DB_NAME/DB_USER/DB_PASSWORD` 保持一致（默认示例：`fachuan_dev/postgres/postgres`）：
