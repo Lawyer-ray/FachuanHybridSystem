@@ -16,9 +16,8 @@ from ninja import Router
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.core.security.auth import JWTOrSessionAuth
 from apps.organization.models import Lawyer
-from apps.social_auth.models import SocialAccount, TempAuth
 from apps.social_auth.providers import ProviderRegistry, get_provider_spec
-from apps.social_auth.services import SocialAccountNotFoundError, unbind_social_account
+from apps.social_auth.services import exchange_temp_code_for_jwt, list_bound_accounts, try_unbind_social_account
 from apps.social_auth.views import STATE_TTL_SECONDS, build_authorization_session, sanitize_next_url
 
 from .social_auth_schemas import (
@@ -104,32 +103,15 @@ async def token_exchange(request: HttpRequest, payload: TokenExchangeIn) -> Toke
     code 是 TempAuth 的 UUID（不是 Provider 的授权码）——Provider 授权码
     已在回调时用过并作废，这里避免把真 token 放进 URL。
     """
-    try:
-        temp = await TempAuth.objects.select_related("user").aget(token=payload.code)
-    except TempAuth.DoesNotExist:
-        return TokenExchangeOut(success=False, message="授权码无效或已过期")
-
-    if temp.is_expired:
-        await temp.adelete()
-        return TokenExchangeOut(success=False, message="授权码已过期，请重新扫码")
-
-    user = temp.user
-    if not user.is_active:
-        await temp.adelete()
-        return TokenExchangeOut(success=False, message="账号未激活，请联系管理员")
-
-    from ninja_jwt.tokens import RefreshToken
-
-    refresh = RefreshToken.for_user(user)  # type: ignore[misc]
-
-    await temp.adelete()
-
+    result = await exchange_temp_code_for_jwt(payload.code)
+    if not result.success:
+        return TokenExchangeOut(success=False, message=result.message)
     return TokenExchangeOut(
         success=True,
-        access=str(refresh.access_token),
-        refresh=str(refresh),
-        user_id=user.id,
-        username=user.username,
+        access=result.access,
+        refresh=result.refresh,
+        user_id=result.user_id,
+        username=result.username,
     )
 
 
@@ -144,14 +126,15 @@ async def token_exchange(request: HttpRequest, payload: TokenExchangeIn) -> Toke
 @router.get("/bindings", response=BoundAccountsOut, auth=JWTOrSessionAuth())
 async def list_bindings(request: HttpRequest) -> BoundAccountsOut:  # pragma: no cover
     """列出当前用户已绑定的社交账号，供个人设置页展示。"""
+    user: Lawyer = request.auth  # type: ignore[attr-defined]
     accounts = [
         BoundAccountOut(
             provider=row.provider,
             display_name=row.display_name,
             avatar_url=row.avatar_url,
-            bound_at=row.created_at.isoformat(),
+            bound_at=row.bound_at,
         )
-        async for row in SocialAccount.objects.filter(user=request.auth).order_by("provider")  # type: ignore[attr-defined]
+        for row in await list_bound_accounts(user)
     ]
     return BoundAccountsOut(accounts=accounts)
 
@@ -193,9 +176,8 @@ def create_bind_session(
 @router.delete("/{provider}/bind", response=UnbindOut, auth=JWTOrSessionAuth())
 async def unbind_provider(request: HttpRequest, provider: str) -> UnbindOut:  # pragma: no cover
     """解除当前用户与某个 Provider 的绑定。"""
-    try:
-        await unbind_social_account(request.auth, provider)  # type: ignore[attr-defined]
-    except SocialAccountNotFoundError:
+    unbound = await try_unbind_social_account(request.auth, provider)  # type: ignore[attr-defined]
+    if not unbound:
         return UnbindOut(success=False, message="未找到绑定记录")
     return UnbindOut(success=True)
 

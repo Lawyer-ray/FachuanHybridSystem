@@ -128,6 +128,14 @@ class CaseAccessPolicy(OrgAllowedLawyersMixin):
             message=message,
         )
 
+    def ensure_case_log_access_ctx(self, *, case_log_id: int, ctx: AccessContext) -> None:
+        """通过案件日志定位所属案件后校验访问权（reminders 原口径：日志不存在则跳过）。"""
+        from apps.cases.models import CaseLog
+
+        log = CaseLog.objects.filter(pk=case_log_id).values("case_id").first()
+        if log:
+            self.ensure_access_ctx(case_id=log["case_id"], ctx=ctx)
+
     def filter_queryset_ctx(self, qs: QuerySet[Any, Any], ctx: AccessContext) -> QuerySet[Any, Any]:
         return self.filter_queryset(
             qs=qs, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access

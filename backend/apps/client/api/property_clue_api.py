@@ -48,8 +48,7 @@ async def create_property_clue(request: Any, client_id: int, payload: PropertyCl
         # Re-fetch with prefetch_related to populate Django's queryset cache
         # so Django Ninja serialization (which runs in the async event loop)
         # won't trigger sync ORM calls on obj.attachments.all().
-        from apps.client.models import PropertyClue
-        return PropertyClue.objects.prefetch_related("attachments").get(pk=obj.pk)
+        return service.refetch_with_attachments(obj)
 
     clue = await _create()
 

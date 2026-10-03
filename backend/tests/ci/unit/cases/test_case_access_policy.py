@@ -1,4 +1,5 @@
 """案件访问策略单元测试。"""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -23,6 +24,7 @@ def _user(**kwargs) -> SimpleNamespace:
 
 
 # ── has_access ─────────────────────────────────────────────────────────────
+
 
 def test_has_access_open_perm(policy: CaseAccessPolicy) -> None:
     """开放权限直接通过。"""
@@ -87,6 +89,7 @@ def test_has_access_repo_check(policy: CaseAccessPolicy) -> None:
 
 # ── ensure_access ──────────────────────────────────────────────────────────
 
+
 def test_ensure_access_raises_on_no_access(policy: CaseAccessPolicy) -> None:
     """无权限时抛出 ForbiddenError。"""
     with pytest.raises(ForbiddenError):
@@ -99,6 +102,7 @@ def test_ensure_access_passes_on_access(policy: CaseAccessPolicy) -> None:
 
 
 # ── can_access ─────────────────────────────────────────────────────────────
+
 
 def test_can_access_authenticated(policy: CaseAccessPolicy) -> None:
     """认证用户返回 True。"""
@@ -116,6 +120,7 @@ def test_can_access_none(policy: CaseAccessPolicy) -> None:
 
 
 # ── filter_queryset ────────────────────────────────────────────────────────
+
 
 def test_filter_queryset_open_perm(policy: CaseAccessPolicy) -> None:
     """开放权限返回原始 queryset。"""
@@ -140,6 +145,7 @@ def test_filter_queryset_admin(policy: CaseAccessPolicy) -> None:
 
 # ── _get_extra_cases ───────────────────────────────────────────────────────
 
+
 def test_get_extra_cases_none(policy: CaseAccessPolicy) -> None:
     """None org_access 返回空集合。"""
     assert policy._get_extra_cases(None) == set()
@@ -160,3 +166,37 @@ def test_get_extra_cases_list(policy: CaseAccessPolicy) -> None:
     """extra_cases 为 list 类型转为 set 返回。"""
     result = policy._get_extra_cases({"extra_cases": [3, 4]})
     assert result == {3, 4}
+
+
+# ── ensure_case_log_access_ctx（reminders 下沉：日志 → 案件定位） ─────────
+
+
+def _ctx(**kwargs: object) -> SimpleNamespace:
+    defaults: dict[str, object] = {"user": _user(), "org_access": None, "perm_open_access": False}
+    defaults.update(kwargs)
+    return SimpleNamespace(**defaults)
+
+
+def test_ensure_case_log_access_ctx_delegates_case_id(policy: CaseAccessPolicy) -> None:
+    """日志存在时按其 case_id 委托 ensure_access_ctx。"""
+    from unittest.mock import patch
+
+    with patch("apps.cases.services.case.case_access_policy.CaseAccessPolicy.ensure_access_ctx") as mock_ensure:
+        with patch("apps.cases.models.CaseLog") as mock_log:
+            mock_log.objects.filter.return_value.values.return_value.first.return_value = {"case_id": 42}
+            policy.ensure_case_log_access_ctx(case_log_id=7, ctx=_ctx())  # type: ignore[arg-type]
+
+    mock_ensure.assert_called_once()
+    assert mock_ensure.call_args.kwargs["case_id"] == 42
+
+
+def test_ensure_case_log_access_ctx_missing_log_skips(policy: CaseAccessPolicy) -> None:
+    """日志不存在时跳过校验（与 reminders API 时期口径一致）。"""
+    from unittest.mock import patch
+
+    with patch("apps.cases.services.case.case_access_policy.CaseAccessPolicy.ensure_access_ctx") as mock_ensure:
+        with patch("apps.cases.models.CaseLog") as mock_log:
+            mock_log.objects.filter.return_value.values.return_value.first.return_value = None
+            policy.ensure_case_log_access_ctx(case_log_id=7, ctx=_ctx())  # type: ignore[arg-type]
+
+    mock_ensure.assert_not_called()

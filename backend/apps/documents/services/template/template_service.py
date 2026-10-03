@@ -313,6 +313,41 @@ class DocumentTemplateService:
             queryset = queryset.filter(is_active=is_active)
         return list(queryset)
 
+    def prewarm_template(self, obj: DocumentTemplate) -> DocumentTemplate:
+        """预热模板的惰性关系，避免 Ninja 异步序列化触发 sync ORM 调用。
+
+        以 prefetch_related 重新拉取并填充 Django 查询缓存，
+        使 resolve_folder_bindings 序列化时不再发起新查询。
+        """
+        return DocumentTemplate.objects.prefetch_related("folder_bindings__folder_template").get(pk=obj.pk)
+
+    def list_templates_prewarmed(
+        self, template_type: str | None = None, case_type: str | None = None, is_active: bool | None = None
+    ) -> list[DocumentTemplate]:
+        """按过滤条件列出模板并预热全部惰性关系（异步序列化安全）。
+
+        过滤口径与 ``list_templates`` 一致；额外物化 folder_bindings /
+        folder_template 关系，避免 Django Ninja 序列化在事件循环里触发
+        sync ORM 调用。
+        """
+        qs = DocumentTemplate.objects.prefetch_related("folder_bindings__folder_template")
+        if template_type is not None:
+            qs = qs.filter(template_type=template_type)
+        if case_type is not None:
+            qs = qs.filter(case_types__contains=[case_type])
+        if is_active is not None:
+            qs = qs.filter(is_active=is_active)
+
+        # Materialize and return raw objects; pre-warm all lazy relations
+        # so Django Ninja serialization won't trigger sync ORM calls.
+        objs = list(qs)
+        for obj in objs:
+            _ = list(obj.folder_bindings.all())
+            for binding in obj.folder_bindings.all():
+                _ = binding.folder_template_id
+                _ = binding.folder_template.name
+        return objs
+
     def delete_template(self, template_id: int) -> bool:
         """
         删除模板(软删除)

@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.client.services.property_clue_service import _CONTENT_TEMPLATES, _VALID_CLUE_TYPES, PropertyClueService
 from apps.core.exceptions import NotFoundError, ValidationException
-from apps.client.services.property_clue_service import PropertyClueService, _VALID_CLUE_TYPES, _CONTENT_TEMPLATES
 
 
 def _mock_internal_query_service() -> MagicMock:
@@ -188,3 +188,20 @@ class TestConstants:
     def test_content_templates_keys(self) -> None:
         assert "bank" in _CONTENT_TEMPLATES
         assert "wechat" in _CONTENT_TEMPLATES
+
+
+# ── refetch_with_attachments（API 下沉：prefetch 重取） ──────────────────
+
+
+def test_refetch_with_attachments_prefetches() -> None:
+    """按主键重取并预取附件关系，供序列化层避免 async 上下文 sync ORM。"""
+    clue = _make_clue(id=3)
+    clue.pk = 3
+    svc = PropertyClueService()
+    with patch("apps.client.services.property_clue_service.PropertyClue") as mock_model:
+        mock_model.objects.prefetch_related.return_value.get.return_value = clue
+        result = svc.refetch_with_attachments(clue)  # type: ignore[arg-type]
+
+    mock_model.objects.prefetch_related.assert_called_once_with("attachments")
+    mock_model.objects.prefetch_related.return_value.get.assert_called_once_with(pk=3)
+    assert result is clue
