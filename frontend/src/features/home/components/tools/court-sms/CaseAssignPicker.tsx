@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Check, Loader2, Search } from 'lucide-react'
 
-import { searchCasesForAssign, type CaseSearchItem } from '../../../api'
+import { searchCasesForBinding, type CaseSearchItem } from '@/features/document-recognition'
 import { cn } from '@/lib/utils'
 
 /**
@@ -25,7 +25,7 @@ export function CaseAssignPicker({
   const kwTrim = kw.trim()
   const { data: results = [], isFetching: searching } = useQuery({
     queryKey: ['court-sms-case-search', kwTrim],
-    queryFn: ({ signal }) => searchCasesForAssign(kwTrim, 10, signal),
+    queryFn: ({ signal }) => searchCasesForBinding(kwTrim, { limit: 10, signal }),
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   })

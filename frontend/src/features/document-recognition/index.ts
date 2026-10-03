@@ -28,4 +28,5 @@ export {
   type ParsedCandidate,
 } from './domain'
 export { ACCEPT_EXTENSIONS, MAX_FILE_MB } from './constants'
+export { searchCasesForBinding } from './api'
 export type { TaskOut, DateCandidate, CaseRecommendation, CaseSearchItem } from './types'

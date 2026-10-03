@@ -1,13 +1,14 @@
 import { memo, useMemo } from 'react'
 import { FileText } from 'lucide-react'
-import { format, isToday, isYesterday } from 'date-fns'
+import { format, isToday, isYesterday, parseISO } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import type { InboxMessage } from '../types'
 import { cn } from '@/lib/utils'
 
 function timeLabel(iso: string): string {
   try {
-    const d = new Date(iso)
+    // parseISO 而非 new Date：naive / date-only 串不会被按 UTC 零点解析偏移
+    const d = parseISO(iso)
     if (isToday(d)) return '今天 ' + format(d, 'HH:mm')
     if (isYesterday(d)) return '昨天 ' + format(d, 'HH:mm')
     return format(d, 'MM-dd', { locale: zhCN })

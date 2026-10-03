@@ -40,9 +40,16 @@ export async function revokeDate(taskId: number, candidateId: number): Promise<v
   await documentRecognitionApi.post(`court-document/task/${taskId}/dates/${candidateId}/revoke`)
 }
 
-/** 搜索可绑定案件（本域自有的 search-cases 端点） */
-export async function searchCasesForBinding(q: string, signal?: AbortSignal): Promise<CaseSearchItem[]> {
+/** 搜索可绑定案件（本域自有的 search-cases 端点；空词返回全部在办）。
+ *  跨域消费方（如 home 的法院短信人工分配）经 index.ts 出口复用。 */
+export async function searchCasesForBinding(
+  q: string,
+  opts?: { limit?: number; signal?: AbortSignal },
+): Promise<CaseSearchItem[]> {
   return documentRecognitionApi
-    .get('court-document/search-cases', { searchParams: { q, limit: 10 }, signal })
+    .get('court-document/search-cases', {
+      searchParams: { q, limit: String(opts?.limit ?? 10) },
+      signal: opts?.signal,
+    })
     .json<CaseSearchItem[]>()
 }

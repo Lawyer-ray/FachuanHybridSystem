@@ -1,4 +1,3 @@
-import { createApiClient } from '@/lib/api'
 import { automationApi } from './tools'
 import { API_BASE_URL, withAuthToken } from './download'
 
@@ -121,24 +120,4 @@ export async function abortCourtSmsTask(smsId: number): Promise<void> {
     .post(`court-sms/${smsId}/abort-and-delete`)
     .json<{ success?: boolean; message?: string }>()
   if (res.success === false) throw new Error(res.message || '停止任务失败')
-}
-
-/** 案件搜索：复用文书识别域的 search-cases 端点（按名/案号/当事人模糊搜，空词返回全部在办） */
-const caseSearchApi = createApiClient({ prefix: '/api/v1/document-recognition' })
-
-export interface CaseSearchItem {
-  id: number
-  name: string
-  case_numbers: string[]
-  parties: string[]
-}
-
-export async function searchCasesForAssign(
-  q: string,
-  limit = 10,
-  signal?: AbortSignal,
-): Promise<CaseSearchItem[]> {
-  return caseSearchApi
-    .get('court-document/search-cases', { searchParams: { q, limit: String(limit) }, signal })
-    .json<CaseSearchItem[]>()
 }

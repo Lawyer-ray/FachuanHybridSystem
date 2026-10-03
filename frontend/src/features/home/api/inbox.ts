@@ -1,4 +1,7 @@
+import { parseISO } from 'date-fns'
+
 import { createApiClient } from '@/lib/api'
+import type { InboxMessage } from '@/features/material-prep'
 import type { InboxItem } from '../types'
 
 /** 待处理流入 / 收件箱资源（/api/v1/inbox）+ 归一化。 */
@@ -8,25 +11,27 @@ export const inboxApi = createApiClient({ prefix: '/api/v1/inbox' })
 /** 首页收件箱卡的 query key（InboxCard 订阅，court-sms 提交后 invalidate） */
 export const HOME_INBOX_KEY = ['home-inbox'] as const
 
-/** 后端 InboxMessageOut（/inbox/messages）——只声明前端用到的字段 */
-export interface InboxMessageOut {
-  id: number
-  source_name: string
-  source_type: string
-  subject: string
-  sender: string
-  recipient: string
-  received_at: string
-  has_attachments: boolean
-  attachment_count: number
-  segs: number
-  named: number
-  pages: number
-  mats: number
-  types: string[]
-  compose: string
-  created_at: string
-}
+/** 后端 InboxMessageOut（/inbox/messages）——material-prep 域 InboxMessage 的投影，
+ *  只声明首页卡用到的字段（类型来源唯一，避免两份手抄漂移） */
+export type InboxMessageOut = Pick<
+  InboxMessage,
+  | 'id'
+  | 'source_name'
+  | 'source_type'
+  | 'subject'
+  | 'sender'
+  | 'recipient'
+  | 'received_at'
+  | 'has_attachments'
+  | 'attachment_count'
+  | 'segs'
+  | 'named'
+  | 'pages'
+  | 'mats'
+  | 'types'
+  | 'compose'
+  | 'created_at'
+>
 
 const INBOX_ICON: Record<string, InboxItem['kind']> = {
   court_sms: 'sms',
@@ -63,9 +68,11 @@ export async function listInbox(limit = 6): Promise<InboxItem[]> {
   return rows.slice(0, limit).map(toInboxItem)
 }
 
-/** received_at → 相对时间（今天 HH:mm / 昨天 HH:mm / M月D日） */
+/** received_at → 相对时间（今天 HH:mm / 昨天 HH:mm / M月D日）。
+ *  parseISO 而非 new Date：后者对 date-only / 空格分隔等非严格 ISO 形态
+ *  按 UTC 解析（见 CalendarPanel 的 parseKey 教训），naive 串会偏移。 */
 export function formatRelative(iso: string): string {
-  const d = new Date(iso)
+  const d = parseISO(iso)
   if (Number.isNaN(d.getTime())) return ''
   const now = new Date()
   const sameDay = (a: Date, b: Date) =>

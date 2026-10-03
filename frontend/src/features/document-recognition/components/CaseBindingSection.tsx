@@ -38,7 +38,7 @@ export function CaseBindingSection({ task, onBound }: Props) {
   const kwTrim = kw.trim()
   const { data: searched = [], isFetching: searching } = useQuery({
     queryKey: ['doc-recognition-case-search', kwTrim],
-    queryFn: ({ signal }) => searchCasesForBinding(kwTrim, signal),
+    queryFn: ({ signal }) => searchCasesForBinding(kwTrim, { signal }),
     enabled: !isBound && kwTrim.length >= 2,
     staleTime: 30_000,
     placeholderData: keepPreviousData,

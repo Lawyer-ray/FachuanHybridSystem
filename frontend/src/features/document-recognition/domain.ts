@@ -1,5 +1,7 @@
 /** 纯领域逻辑：候选行归一化与不可变更新（vitest 单测点）。 */
 
+import { parseISO } from 'date-fns'
+
 import { ACCEPT_EXTENSIONS, DEFAULT_CHECK_CONFIDENCE, MAX_FILE_MB } from './constants'
 import type { CaseRecommendation, ContactInfo, DateCandidate, TaskOut } from './types'
 
@@ -33,10 +35,12 @@ export interface CandidateRow {
 
 const pad2 = (n: number) => String(n).padStart(2, '0')
 
-/** ISO（含时区偏移或 naive）→ datetime-local 需要的本地 "YYYY-MM-DDTHH:mm" */
+/** ISO（含时区偏移或 naive）→ datetime-local 需要的本地 "YYYY-MM-DDTHH:mm"。
+ *  parseISO 而非 new Date：naive 串（后端 naive 本地时间）按本地解析，
+ *  date-only 形态不会被 new Date 误按 UTC 零点解析偏一天。 */
 export function toLocalInputValue(iso: string | null | undefined): string {
   if (!iso) return ''
-  const d = new Date(iso)
+  const d = parseISO(iso)
   if (Number.isNaN(d.getTime())) return ''
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`
 }

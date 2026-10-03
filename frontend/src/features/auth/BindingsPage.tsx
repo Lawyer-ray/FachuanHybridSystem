@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation, useNavigate } from 'react-router'
+import { parseISO } from 'date-fns'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { AppNavbar } from '@/components/shared/AppNavbar'
@@ -32,7 +33,8 @@ interface Row {
 }
 
 function boundAtText(iso: string): string {
-  const date = new Date(iso)
+  // parseISO 而非 new Date：naive / date-only 串不会被按 UTC 零点解析偏移
+  const date = parseISO(iso)
   return Number.isNaN(date.getTime()) ? '' : `绑定于 ${date.toLocaleDateString('zh-CN')}`
 }
 
