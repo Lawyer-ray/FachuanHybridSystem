@@ -164,11 +164,11 @@ async def get_conversation_history(request: Any, session_id: str) -> Any:
     if not user or not getattr(user, "is_authenticated", False):
         user = getattr(request, "auth", None)
     user_id = str(getattr(user, "id", "") or "")
-    is_admin = bool(
-        getattr(user, "is_admin", False) or getattr(user, "is_superuser", False) or getattr(user, "is_staff", False)
-    )
+    is_admin = bool(getattr(user, "is_admin", False) or getattr(user, "is_superuser", False))
 
-    result = await aget_conversation_history_impl(session_id=session_id, user_id=(None if is_admin else user_id), limit=50)
+    result = await aget_conversation_history_impl(
+        session_id=session_id, user_id=(None if is_admin else user_id), limit=50
+    )
     messages = [
         ConversationMessage(  # type: ignore[call-arg]
             role=m["role"],
@@ -191,7 +191,7 @@ def sync_prompt_templates(request: Any) -> Any:
     user = getattr(request, "user", None)
     if not user or not getattr(user, "is_authenticated", False):
         user = getattr(request, "auth", None)
-    is_admin = bool(getattr(user, "is_superuser", False) or getattr(user, "is_staff", False))
+    is_admin = bool(getattr(user, "is_admin", False) or getattr(user, "is_superuser", False))
     if not is_admin:
         raise PermissionDenied(message="需要管理员权限", code="PERMISSION_DENIED")
 
@@ -248,7 +248,7 @@ async def test_model_connection(request: Any, model_id: str = "") -> dict[str, A
     """测试指定模型的连通性（仅管理员可用）"""
     from apps.core.llm.service import get_llm_service
 
-    is_admin = request.user and (request.user.is_staff or request.user.is_superuser)
+    is_admin = request.user and (getattr(request.user, "is_admin", False) or request.user.is_superuser)
     if not is_admin:
         raise PermissionDenied(message="需要管理员权限", code="PERMISSION_DENIED")
 

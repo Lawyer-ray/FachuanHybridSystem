@@ -12,6 +12,7 @@ from django.utils import timezone
 from ninja import Router
 
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
+from apps.core.security.admin_access import is_admin_user
 from apps.core.security.auth import JWTOrSessionAuth
 from apps.finance.schemas.lpr_schemas import (
     BankProfileListResponse,
@@ -131,8 +132,8 @@ def sync_lpr_rates(  # pragma: no cover
     """
     user: User = request.user
 
-    # 检查权限
-    if not user.is_staff:
+    # 检查权限（2026Q4 审计收紧：统一走 is_admin/is_superuser 判定，不再认可 is_staff）
+    if not is_admin_user(user):
         raise PermissionDenied(message="需要管理员权限才能同步LPR数据", code="PERMISSION_DENIED")
 
     logger.info(f"[LPRSync] User {user.id} triggered manual LPR sync")

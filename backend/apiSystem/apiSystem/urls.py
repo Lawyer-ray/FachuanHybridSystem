@@ -6,14 +6,17 @@ URL configuration for apiSystem project.
 - /api/ - 重定向到 /api/v1/
 """
 
+import re
+
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
-from django.urls import include, path
+from django.urls import URLPattern, include, path, re_path
 
+from apps.core.api.media_protected import serve_protected_media
 from apps.organization.views import register
 from apps.social_auth.views import SocialCallbackView, SocialLoginView
 
@@ -80,7 +83,27 @@ urlpatterns = [
     path("", root_redirect),
 ]
 
+
 # 媒体文件服务
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    urlpatterns += staticfiles_urlpatterns()
+def media_urlpatterns() -> list[URLPattern]:
+    """按 settings 返回媒体路由（逻辑独立成函数便于单测）。
+
+    - DEBUG：开发环境维持原状（static 直出 + staticfiles）；
+    - 非 DEBUG 且 MEDIA_REQUIRE_AUTH（默认 False，行为零变化）：/media/ 交给
+      鉴权视图 serve_protected_media 接管（替代原先生产环境无路由/404 的现状）；
+    - 其余：维持现状（不注册媒体路由，由网关/外部静态服务直出）。
+
+    注意：Django 6.x 的 ``static()`` 在 ``DEBUG=False`` 时是无操作（返回空列表），
+    因此鉴权分支不能用 ``static()``，须按其原语义用 ``re_path`` 直接构造。
+    """
+    if settings.DEBUG:
+        return static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) + staticfiles_urlpatterns()
+    if getattr(settings, "MEDIA_REQUIRE_AUTH", False):
+        prefix = settings.MEDIA_URL
+        if not prefix.endswith("/"):
+            prefix = f"{prefix}/"
+        return [re_path(r"^%s(?P<path>.*)$" % re.escape(prefix.lstrip("/")), serve_protected_media)]
+    return []
+
+
+urlpatterns += media_urlpatterns()

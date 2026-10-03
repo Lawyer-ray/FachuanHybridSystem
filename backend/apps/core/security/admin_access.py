@@ -17,12 +17,8 @@ def get_request_user(request: HttpRequest) -> Any | None:
 
 
 def is_admin_user(user: Any | None) -> bool:
-    return bool(
-        user
-        and (
-            getattr(user, "is_admin", False) or getattr(user, "is_superuser", False) or getattr(user, "is_staff", False)
-        )
-    )
+    # 2026Q4 审计收紧：is_staff 仅是 Django admin 准入标志，不再视为系统管理员
+    return bool(user and (getattr(user, "is_admin", False) or getattr(user, "is_superuser", False)))
 
 
 def ensure_admin_request(

@@ -20,14 +20,8 @@ class AuthzUserMixin:
         return self.is_authenticated(user)
 
     def is_superuser(self, user: Any | None) -> bool:
-        return bool(
-            user
-            and (
-                getattr(user, "is_superuser", False)
-                or getattr(user, "is_staff", False)
-                or getattr(user, "is_admin", False)
-            )
-        )
+        # 2026Q4 审计收紧：is_staff 仅是 Django admin 准入标志，不再视为系统管理员
+        return bool(user and (getattr(user, "is_superuser", False) or getattr(user, "is_admin", False)))
 
     def get_user_id(self, user: Any | None) -> int | None:
         return getattr(user, "id", None) if user else None
@@ -63,11 +57,7 @@ class DjangoPermsMixin(AuthzUserMixin):
         raise ForbiddenError(str(message))
 
     def has_perm(self, user: Any | None, perm: str) -> bool:
-        return bool(
-            user
-            and self.is_authenticated(user)
-            and (user.has_perm(perm) or self.is_superuser(user))
-        )
+        return bool(user and self.is_authenticated(user) and (user.has_perm(perm) or self.is_superuser(user)))
 
     def ensure_has_perm(self, user: Any | None, perm: str, message: _StrOrPromise) -> None:
         self.ensure_authenticated(user)

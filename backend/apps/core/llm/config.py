@@ -12,6 +12,7 @@ Requirements: 2.1, 2.2, 2.3, 2.5, 5.1, 5.3, 5.4
 """
 
 import logging
+import os
 import time
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
@@ -42,7 +43,8 @@ class LLMConfig:
 
     # OpenAI-compatible 默认值
     DEFAULT_OPENAI_COMPATIBLE_MODEL = "kimi26"
-    DEFAULT_OPENAI_COMPATIBLE_BASE_URL = "http://116.196.92.175:8001/v1"
+    # 默认网关 URL 可经 LLM_DEFAULT_BASE_URL 环境变量替换（回退值保持原网关，行为零变化）
+    DEFAULT_OPENAI_COMPATIBLE_BASE_URL = os.environ.get("LLM_DEFAULT_BASE_URL", "http://116.196.92.175:8001/v1")
     DEFAULT_OPENAI_COMPATIBLE_TIMEOUT = 120
 
     # 跨调用缓存（async 预热后 sync 调用可复用，避免 SynchronousOnlyOperation）

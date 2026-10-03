@@ -9,6 +9,8 @@ import httpx
 
 from apps.core.exceptions import ChatProviderException, ConfigurationException
 
+from ._common import load_db_category_config, normalize_provider_config
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,25 +25,17 @@ class WeChatWorkTokenMixin:  # pragma: no cover
 
     def _load_config_from_db(self) -> dict[str, Any]:  # pragma: no cover
         """从 SystemConfig 加载企业微信配置"""
-        try:
-            from apps.core.config.utils import get_wechat_work_category_configs
-
-            db_configs = get_wechat_work_category_configs()
-            if not db_configs:
-                return {}
-            key_mapping = {
+        return load_db_category_config(
+            "get_wechat_work_category_configs",
+            {
                 "WECHAT_WORK_CORP_ID": "CORP_ID",
                 "WECHAT_WORK_AGENT_ID": "AGENT_ID",
                 "WECHAT_WORK_SECRET": "SECRET",  # pragma: allowlist secret
                 "WECHAT_WORK_DEFAULT_OWNER_ID": "DEFAULT_OWNER_ID",
                 "WECHAT_WORK_DEFAULT_MEMBER_IDS": "DEFAULT_MEMBER_IDS",
-            }
-            config = {internal: db_configs[db] for db, internal in key_mapping.items() if db_configs.get(db)}
-            logger.debug(f"从 SystemConfig 加载企业微信配置: {list(config.keys())}")
-            return config
-        except Exception as e:
-            logger.debug(f"从 SystemConfig 加载配置失败: {e!s}")
-            return {}
+            },
+            "企业微信",
+        )
 
     def _load_config(self) -> dict[str, Any]:  # pragma: no cover
         """加载企业微信配置"""
@@ -54,15 +48,7 @@ class WeChatWorkTokenMixin:  # pragma: no cover
                     "请在系统配置中设置 WECHAT_WORK_CORP_ID 和 WECHAT_WORK_SECRET"
                 )
 
-            config.setdefault("TIMEOUT", 30)
-            try:
-                config["TIMEOUT"] = int(config["TIMEOUT"])
-            except (ValueError, TypeError):
-                config["TIMEOUT"] = 30
-
-            filtered_config = {k: v for k, v in config.items() if v is not None and v != ""}
-            logger.debug(f"最终企业微信配置: {list(filtered_config.keys())}")
-            return filtered_config
+            return normalize_provider_config(config, "企业微信")
 
         except (TypeError, ValueError) as e:
             logger.error(f"加载企业微信配置失败: {e!s}")

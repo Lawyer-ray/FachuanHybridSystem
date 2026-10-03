@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from typing import Any
 
 from apps.core.exceptions import ValidationException
@@ -59,9 +60,10 @@ class EnhancedContextBuilder:
             try:
                 service_result = service.generate(context_data)
                 normalized_result = normalize_service_result(service_result, expected_keys=service_keys)
-                if normalized_result:
-                    context.update(normalized_result)
-                    logger.debug("服务 %s 生成了 %s 个占位符", service.name, len(normalized_result))
+                owned_result = self._owned_result(service, normalized_result)
+                if owned_result:
+                    context.update(owned_result)
+                    logger.debug("服务 %s 生成了 %s 个占位符", service.name, len(owned_result))
             except Exception as e:
                 logger.error(
                     "占位符服务执行失败: %s",
@@ -73,7 +75,7 @@ class EnhancedContextBuilder:
                     },
                     exc_info=True,
                 )
-                context.update(dict.fromkeys(service_keys, PLACEHOLDER_FALLBACK_VALUE))
+                context.update(self._owned_result(service, dict.fromkeys(service_keys, PLACEHOLDER_FALLBACK_VALUE)))
                 # 继续执行其他服务,不中断整个流程
                 continue
 
@@ -160,6 +162,22 @@ class EnhancedContextBuilder:
                 errors={"contract_id": f"合同 {contract_id} 上下文构建失败: {e!s}"},
             ) from e
 
+    def _owned_result(self, service: Any, result: Mapping[str, Any]) -> dict[str, Any]:
+        """
+        过滤服务返回值,只保留该服务拥有归属权的占位符键。
+
+        多个服务声明同一键时,注册表在注册阶段按确定性规则裁决出唯一归属服务;
+        非归属服务的同键输出会被丢弃,避免按执行顺序互相覆盖
+        (如合同流中诉讼服务把「案由」覆盖为兜底值 "/" 的问题)。
+        注册表未提供归属查询时不做过滤,保持原行为。
+        """
+        get_owner = getattr(self.registry, "get_placeholder_key_owner", None)
+        if not callable(get_owner):
+            return dict(result)
+
+        service_name = getattr(service, "name", "")
+        return {key: value for key, value in result.items() if get_owner(key) in (None, service_name)}
+
     def _get_relevant_services(self, required_placeholders: list[str] | None = None) -> Any:
         """
         获取相关的占位符服务
@@ -173,12 +191,18 @@ class EnhancedContextBuilder:
             # 如果没有指定占位符,返回所有服务
             return self.registry.get_all_services()
 
-        # 根据占位符键查找相关服务
+        # 根据占位符键查找相关服务(按服务类型去重,注册表每次返回新实例,不能按对象身份去重)
         relevant_services: list[Any] = []
+        seen_service_types: set[type[Any]] = set()
         for placeholder_key in required_placeholders:
             service = self.registry.get_service_for_placeholder(placeholder_key)
-            if service and service not in relevant_services:
-                relevant_services.append(service)
+            if service is None:
+                continue
+            service_type = type(service)
+            if service_type in seen_service_types:
+                continue
+            seen_service_types.add(service_type)
+            relevant_services.append(service)
 
         return relevant_services
 

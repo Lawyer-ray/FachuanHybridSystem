@@ -16,7 +16,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NoReturn
 
 logger = logging.getLogger(__name__)
 
@@ -281,6 +281,70 @@ class RetryManager:
             return RetryErrorType.NETWORK_ERROR
         return self._classify_by_message(str(exception).lower())
 
+    def _raise_if_total_timeout(self, operation_name: str, context: dict[str, Any]) -> None:
+        """检查总超时，超时则抛出 owner_timeout_error（供同步/异步重试循环共用）"""
+        if not self._is_total_timeout():
+            return
+
+        logger.error(f"操作总超时: {operation_name}, 耗时: {self._get_elapsed_time():.2f}秒")
+        from apps.core.exceptions import owner_timeout_error
+
+        raise owner_timeout_error(
+            message=f"操作总超时: {operation_name}",
+            timeout_seconds=self.config.get_timeout_seconds(),
+            errors={
+                "operation_name": operation_name,
+                "elapsed_time": self._get_elapsed_time(),
+                "attempts": len(self.attempts),
+                "context": context,
+            },
+        )
+
+    def _handle_operation_error(self, error: Exception, operation_name: str, attempt_number: int) -> float | None:
+        """分类操作错误并决定是否重试（供同步/异步重试循环共用）
+
+        Returns:
+            需要重试时返回延迟秒数（失败尝试已记录到 self.attempts）；无需重试时返回 None
+        """
+        error_type = self.classify_error(error)
+
+        logger.warning(
+            f"操作失败: {operation_name}, 尝试 {attempt_number + 1}, 错误类型: {error_type.value}, 错误: {error!s}"
+        )
+
+        if not self.config.should_retry(error_type, attempt_number):
+            logger.error(f"不再重试: {operation_name}, 错误类型: {error_type.value}")
+            return None
+
+        delay = self.config.calculate_delay(error_type, attempt_number)
+
+        self.attempts.append(
+            RetryAttempt(
+                attempt_number=attempt_number + 1,
+                timestamp=datetime.now(),
+                error_type=error_type,
+                error_message=str(error),
+                delay_seconds=delay,
+                success=False,
+            )
+        )
+        return delay
+
+    def _raise_retry_exhausted(self, operation_name: str, context: dict[str, Any]) -> NoReturn:
+        """所有重试均失败且无可用异常时抛出 owner_retry_error（供同步/异步重试循环共用）"""
+        from apps.core.exceptions import owner_retry_error
+
+        raise owner_retry_error(
+            message=f"操作重试失败: {operation_name}",
+            retry_count=len(self.attempts),
+            max_retries=self.config.max_retries,
+            errors={
+                "operation_name": operation_name,
+                "attempts": [attempt.to_dict() for attempt in self.attempts],
+                "context": context,
+            },
+        )
+
     def execute_with_retry(
         self, operation: Callable[[], Any], operation_name: str = "operation", context: dict[str, Any] | None = None
     ) -> Any:
@@ -304,33 +368,16 @@ class RetryManager:
         logger.info(f"开始执行带重试的操作: {operation_name}")
 
         attempt_number = 0
-        last_exception = None
+        last_exception: Exception | None = None
 
         while True:
             try:
-                # 检查总超时
-                if self._is_total_timeout():
-                    logger.error(f"操作总超时: {operation_name}, 耗时: {self._get_elapsed_time():.2f}秒")
-                    from apps.core.exceptions import owner_timeout_error
+                self._raise_if_total_timeout(operation_name, context)
 
-                    raise owner_timeout_error(
-                        message=f"操作总超时: {operation_name}",
-                        timeout_seconds=self.config.get_timeout_seconds(),
-                        errors={
-                            "operation_name": operation_name,
-                            "elapsed_time": self._get_elapsed_time(),
-                            "attempts": len(self.attempts),
-                            "context": context,
-                        },
-                    )
-
-                # 执行操作
                 logger.debug(f"执行操作尝试 {attempt_number + 1}: {operation_name}")
                 result = operation()
 
-                # 操作成功
                 if self.attempts:
-                    # 更新最后一次尝试为成功
                     self.attempts[-1].success = True
 
                 logger.info(f"操作成功: {operation_name}, 尝试次数: {attempt_number + 1}")
@@ -338,57 +385,21 @@ class RetryManager:
 
             except Exception as e:
                 last_exception = e
-                error_type = self.classify_error(e)
-
-                logger.warning(
-                    f"操作失败: {operation_name}, 尝试 {attempt_number + 1}, 错误类型: {error_type.value}, 错误: {e!s}"
-                )
-
-                # 检查是否应该重试
-                if not self.config.should_retry(error_type, attempt_number):
-                    logger.error(f"不再重试: {operation_name}, 错误类型: {error_type.value}")
+                delay = self._handle_operation_error(e, operation_name, attempt_number)
+                if delay is None:
                     break
 
-                # 计算延迟时间
-                delay = self.config.calculate_delay(error_type, attempt_number)
-
-                # 记录重试尝试
-                attempt = RetryAttempt(
-                    attempt_number=attempt_number + 1,
-                    timestamp=datetime.now(),
-                    error_type=error_type,
-                    error_message=str(e),
-                    delay_seconds=delay,
-                    success=False,
-                )
-                self.attempts.append(attempt)
-
-                # 如果有延迟，等待
                 if delay > 0:
                     logger.info(f"等待重试: {operation_name}, 延迟 {delay:.2f} 秒")
                     time.sleep(delay)
 
                 attempt_number += 1
 
-        # 所有重试都失败了
         logger.error(f"操作最终失败: {operation_name}, 总尝试次数: {len(self.attempts)}")
 
-        # 抛出最后一次的异常
-        if last_exception:
+        if last_exception is not None:
             raise last_exception
-        else:
-            from apps.core.exceptions import owner_retry_error
-
-            raise owner_retry_error(
-                message=f"操作重试失败: {operation_name}",
-                retry_count=len(self.attempts),
-                max_retries=self.config.max_retries,
-                errors={
-                    "operation_name": operation_name,
-                    "attempts": [attempt.to_dict() for attempt in self.attempts],
-                    "context": context,
-                },
-            )
+        self._raise_retry_exhausted(operation_name, context)
 
     async def async_execute_with_retry(
         self, operation: Callable[[], Any], operation_name: str = "operation", context: dict[str, Any] | None = None
@@ -415,25 +426,11 @@ class RetryManager:
         logger.info(f"开始执行异步带重试的操作: {operation_name}")
 
         attempt_number = 0
-        last_exception = None
+        last_exception: Exception | None = None
 
         while True:
             try:
-                # 检查总超时
-                if self._is_total_timeout():
-                    logger.error(f"操作总超时: {operation_name}, 耗时: {self._get_elapsed_time():.2f}秒")
-                    from apps.core.exceptions import owner_timeout_error
-
-                    raise owner_timeout_error(
-                        message=f"操作总超时: {operation_name}",
-                        timeout_seconds=self.config.get_timeout_seconds(),
-                        errors={
-                            "operation_name": operation_name,
-                            "elapsed_time": self._get_elapsed_time(),
-                            "attempts": len(self.attempts),
-                            "context": context,
-                        },
-                    )
+                self._raise_if_total_timeout(operation_name, context)
 
                 # 执行操作（支持同步和异步函数）
                 logger.debug(f"执行操作尝试 {attempt_number + 1}: {operation_name}")
@@ -442,7 +439,6 @@ class RetryManager:
                 else:
                     result = operation()
 
-                # 操作成功
                 if self.attempts:
                     self.attempts[-1].success = True
 
@@ -451,56 +447,21 @@ class RetryManager:
 
             except Exception as e:
                 last_exception = e
-                error_type = self.classify_error(e)
-
-                logger.warning(
-                    f"操作失败: {operation_name}, 尝试 {attempt_number + 1}, 错误类型: {error_type.value}, 错误: {e!s}"
-                )
-
-                # 检查是否应该重试
-                if not self.config.should_retry(error_type, attempt_number):
-                    logger.error(f"不再重试: {operation_name}, 错误类型: {error_type.value}")
+                delay = self._handle_operation_error(e, operation_name, attempt_number)
+                if delay is None:
                     break
 
-                # 计算延迟时间
-                delay = self.config.calculate_delay(error_type, attempt_number)
-
-                # 记录重试尝试
-                attempt = RetryAttempt(
-                    attempt_number=attempt_number + 1,
-                    timestamp=datetime.now(),
-                    error_type=error_type,
-                    error_message=str(e),
-                    delay_seconds=delay,
-                    success=False,
-                )
-                self.attempts.append(attempt)
-
-                # 如果有延迟，异步等待
                 if delay > 0:
                     logger.info(f"等待重试: {operation_name}, 延迟 {delay:.2f} 秒")
                     await asyncio.sleep(delay)
 
                 attempt_number += 1
 
-        # 所有重试都失败了
         logger.error(f"操作最终失败: {operation_name}, 总尝试次数: {len(self.attempts)}")
 
-        if last_exception:
+        if last_exception is not None:
             raise last_exception
-        else:
-            from apps.core.exceptions import owner_retry_error
-
-            raise owner_retry_error(
-                message=f"操作重试失败: {operation_name}",
-                retry_count=len(self.attempts),
-                max_retries=self.config.max_retries,
-                errors={
-                    "operation_name": operation_name,
-                    "attempts": [attempt.to_dict() for attempt in self.attempts],
-                    "context": context,
-                },
-            )
+        self._raise_retry_exhausted(operation_name, context)
 
     def _is_total_timeout(self) -> bool:
         """检查是否总超时"""
