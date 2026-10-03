@@ -1,0 +1,52 @@
+# pip-audit 豁免清单（带标注）
+# ---------------------------------------------------------------------------
+# 格式（7 列，竖线分隔）:
+#   <漏洞ID> | <包名@锁定版本> | <严重度> | <添加日期> | <复评日期> | <状态> | <豁免理由>
+# 约定:
+#   - CI（backend-ci.yml）用 `awk -F' *[|] *' '{printf "--ignore-vuln %s ", $1}'`
+#     从本文件生成 pip-audit 参数；修改豁免只改本文件，不改 workflow。
+#   - 复评日期过了当天，CI 的 hygiene 步骤直接 fail（棘轮：只许降不许拖）。
+#   - 复评动作二选一：锁定版本已升级/上游已撤 advisory → 删除该行；
+#     仍命中且确需豁免 → 更新复评日期（+3~6 个月）并补理由。
+#   - 严重度来源：OSV API 的 CVSS 向量估算（非官方评分）。
+#   - 状态取值: active=仍命中且豁免中 / stale=已不命中待清退。
+# 生成参数本地预演:
+#   awk -F' *[|] *' '{printf "--ignore-vuln %s ", $1}' devtools/pip-audit-ignores.txt
+# ---------------------------------------------------------------------------
+# ===== 2026-10 批次（v27.2.6 #511 引入；2026-10-03 复核：本地 venv 与 CI 实测均
+# 0 命中（上游修订了 advisory 版本范围），全部标 stale，2026-11-01 前清退）=====
+CVE-2026-3219 | pip@26.2.1 | Low | 2026-09-24 | 2026-11-01 | stale | 构建工具链漏洞，不进运行时镜像；当前锁定版本已不命中
+CVE-2026-6357 | pip@26.2.1 | Low | 2026-09-24 | 2026-11-01 | stale | pip 自更新路径，CI 一次性环境内不可达；已不命中
+PYSEC-2026-196 | pip@26.2.1 | Medium | 2026-09-24 | 2026-11-01 | stale | console_scripts 本地提权路径，CI 一次性环境；已不命中
+CVE-2026-42304 | twisted@26.4.0 | Medium | 2026-09-24 | 2026-11-01 | stale | twisted.names DNS DoS；主应用不经 twisted DNS 解析；已不命中
+CVE-2026-46678 | pydantic-ai@2.51.0 | High | 2026-09-24 | 2026-11-01 | stale | SSRF 元数据绕过；出网 LLM 调用不含 169.254 网段目标；已不命中
+PYSEC-2026-89 | markdown@3.11 | Medium | 2026-09-24 | 2026-11-01 | stale | 服务端 markdown 渲染输入均来自内部管理员；已不命中
+PYSEC-2026-161 | starlette@1.7.0 | High | 2026-09-24 | 2026-11-01 | stale | Host 校验绕过；网关层已强制 Host/Origin；已不命中
+PYSEC-2025-183 | pyjwt@2.15.1 | Medium | 2026-09-24 | 2026-11-01 | stale | 上游 disputed 条目；密钥长度策略由我方 secret 门禁覆盖；已不命中
+PYSEC-2026-175 | pyjwt@2.15.1 | Low | 2026-09-24 | 2026-11-01 | stale | PyJWKClient 未启用外部 JWKS uri；已不命中
+PYSEC-2026-177 | pyjwt@2.15.1 | Low | 2026-09-24 | 2026-11-01 | stale | 无 PyJWKClient 刷新路径；已不命中
+PYSEC-2026-178 | pyjwt@2.15.1 | Low | 2026-09-24 | 2026-11-01 | stale | 未使用 detached JWS；已不命中
+PYSEC-2026-179 | pyjwt@2.15.1 | High | 2026-09-24 | 2026-11-01 | stale | token 均为内部签发固定算法；已不命中
+CVE-2026-54911 | ujson@6.0.0 | Medium | 2026-09-24 | 2026-11-01 | stale | 序列化输入非攻击者可控 UTF-8 截断流；已不命中
+GHSA-6v7p-g79w-8964 | msgpack@1.2.3 | Medium | 2026-09-24 | 2026-11-01 | stale | 反序列化数据来源为内部 Redis；已不命中
+GHSA-4xgf-cpjx-pc3j | pydantic-settings@2.15.0 | Low | 2026-09-24 | 2026-11-01 | stale | secrets_dir 符号链接场景需容器内本地攻击者；已不命中
+CVE-2026-48990 | joserfc@1.7.5 | Low | 2026-09-24 | 2026-11-01 | stale | 未使用 b64=false RFC7797 载荷；已不命中
+CVE-2026-49452 | weasyprint@70.0 | Medium | 2026-09-24 | 2026-11-01 | stale | PDF 渲染输入为内部模板；已不命中
+PYSEC-2026-3412 | weasyprint@70.0 | Medium | 2026-09-24 | 2026-11-01 | stale | 同上；已不命中
+CVE-2026-49477 | soupsieve@2.10 | Medium | 2026-09-24 | 2026-11-01 | stale | 选择器为硬编码常量，非用户输入；已不命中
+CVE-2026-49476 | soupsieve@2.10 | Medium | 2026-09-24 | 2026-11-01 | stale | 大选择器列表内存耗尽同上；已不命中
+PYSEC-2026-3072 | soupsieve@2.10 | Medium | 2026-09-24 | 2026-11-01 | stale | ReDoS 同上；已不命中
+PYSEC-2026-3071 | soupsieve@2.10 | Medium | 2026-09-24 | 2026-11-01 | stale | 同上；已不命中
+PYSEC-2026-3444 | httplib2@0.32.0 | Medium | 2026-09-24 | 2026-11-01 | stale | 出网请求响应体大小受网关限制；已不命中
+CVE-2026-52870 | mcp@2.2.0 | High | 2026-09-24 | 2026-11-01 | stale | MCP server 部署于内网，task handler 未暴露公网；已不命中
+CVE-2026-52869 | mcp@2.2.0 | High | 2026-09-24 | 2026-11-01 | stale | HTTP transport 认证主体；同上内网边界；已不命中
+CVE-2026-59950 | mcp@2.2.0 | High | 2026-09-24 | 2026-11-01 | stale | WebSocket transport Host/Origin 校验；同上；已不命中
+PYSEC-2026-3481 | mcp@2.2.0 | High | 2026-09-24 | 2026-11-01 | stale | 同 CVE-2026-52870；已不命中
+PYSEC-2026-3482 | mcp@2.2.0 | High | 2026-09-24 | 2026-11-01 | stale | 同 CVE-2026-52869；已不命中
+PYSEC-2026-3483 | mcp@2.2.0 | High | 2026-09-24 | 2026-11-01 | stale | 同 CVE-2026-59950；已不命中
+CVE-2026-59881 | aiohttp@3.14.3 | Low | 2026-09-24 | 2026-11-01 | stale | WS 客户端压缩帧，需恶意服务端；已不命中
+CVE-2026-69243 | aiohttp@3.14.3 | Medium | 2026-09-24 | 2026-11-01 | stale | 请求走私需前端无规范化代理；已不命中
+CVE-2026-69244 | aiohttp@3.14.3 | Medium | 2026-09-24 | 2026-11-01 | stale | 堆越界读需恶意服务端；已不命中
+CVE-2026-69248 | cryptography@50.0.1 | High | 2026-09-24 | 2026-11-01 | stale | 未启用证书名 permittedSubtrees 校验路径；已不命中
+CVE-2026-69247 | cryptography@50.0.1 | High | 2026-09-24 | 2026-11-01 | stale | PKCS#7 解密预言需攻击者可控密文入口；已不命中
+CVE-2026-69249 | cryptography@50.0.1 | Medium | 2026-09-24 | 2026-11-01 | stale | 证书链构建 DoS 需恶意中间证书注入；已不命中
