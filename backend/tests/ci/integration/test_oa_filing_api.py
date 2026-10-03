@@ -107,8 +107,10 @@ def test_trigger_client_import_no_credential(mock_cred, authenticated_client):
         data=json.dumps({"headless": True}),
         content_type="application/json",
     )
-    # API returns {"error": "..."} which doesn't match ClientImportSessionOut schema
-    assert resp.status_code in (200, 500)
+    # 缺 OA 凭证抛 ValidationException 400（旧实现返回裸 {"error"} 且会撞
+    # ClientImportSessionOut 响应 schema 导致 500）
+    assert resp.status_code == 400
+    assert "未找到OA账号凭证" in resp.json()["message"]
 
 
 @pytest.mark.django_db
