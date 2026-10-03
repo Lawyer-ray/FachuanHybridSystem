@@ -21,14 +21,20 @@ def _get_contact_service() -> Any:
 
 
 @router.get("/contacts", response=list[CaseContactOut])
-async def list_contacts(request: HttpRequest, case_id: int | None = None, stage: str | None = None) -> list[CaseContactOut]:  # pragma: no cover
+async def list_contacts(  # pragma: no cover
+    request: HttpRequest,
+    case_id: int | None = None,
+    stage: str | None = None,
+    limit: int = 1000,
+) -> list[CaseContactOut]:
     service = _get_contact_service()
     ctx = extract_request_context(request)
+    bounded_limit = max(1, min(limit, 2000))
 
     @sync_to_async
     def _fetch() -> list[dict]:
         qs = service.list_contacts(case_id=case_id, stage=stage, user=ctx.user)
-        return [CaseContactOut.from_orm(c).model_dump() for c in qs]
+        return [CaseContactOut.from_orm(c).model_dump() for c in qs[:bounded_limit]]
 
     return await _fetch()  # type: ignore[return-value]
 
@@ -79,7 +85,9 @@ async def get_contact(request: HttpRequest, contact_id: int) -> CaseContactOut: 
 
 
 @router.put("/contacts/{contact_id}", response=CaseContactOut)
-async def update_contact(request: HttpRequest, contact_id: int, payload: CaseContactUpdate) -> CaseContactOut:  # pragma: no cover
+async def update_contact(
+    request: HttpRequest, contact_id: int, payload: CaseContactUpdate
+) -> CaseContactOut:  # pragma: no cover
     service = _get_contact_service()
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude_unset=True)

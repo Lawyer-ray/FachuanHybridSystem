@@ -125,7 +125,7 @@ class InsuranceQuote(models.Model):
         help_text="maxApplyAmount",
     )
     status = models.CharField(max_length=32, choices=QuoteItemStatus.choices, verbose_name="查询状态")
-    error_message = models.TextField(null=True, blank=True, verbose_name="错误信息")
+    error_message = models.TextField(blank=True, default="", verbose_name="错误信息")
     response_data = models.JSONField(null=True, blank=True, verbose_name="完整响应", help_text="API 返回的完整响应数据")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
 

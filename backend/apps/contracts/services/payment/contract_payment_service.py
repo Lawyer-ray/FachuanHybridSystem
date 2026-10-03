@@ -125,7 +125,7 @@ class ContractPaymentService(DjangoPermsMixin):
         received_at: date | None = None,
         invoice_status: str | None = None,
         invoiced_amount: Decimal | None = None,
-        note: str | None = None,
+        note: str | None = "",
         user: Any | None = None,
         perm_open_access: bool = False,
         confirm: bool = False,
@@ -195,7 +195,7 @@ class ContractPaymentService(DjangoPermsMixin):
             received_at=received_at or timezone.localdate(),
             invoice_status=inv_status,
             invoiced_amount=invoiced_amount_dec,
-            note=note,
+            note=note or "",
         )
 
         # 记录财务日志

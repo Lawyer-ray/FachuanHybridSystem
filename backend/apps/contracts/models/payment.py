@@ -27,7 +27,7 @@ class ContractPayment(models.Model):
         max_length=32, choices=InvoiceStatus.choices, default=InvoiceStatus.UNINVOICED, verbose_name="开票状态"
     )
     invoiced_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name="已开票金额")
-    note = models.CharField(max_length=255, blank=True, null=True, verbose_name="备注")
+    note = models.CharField(max_length=255, blank=True, default="", verbose_name="备注")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 

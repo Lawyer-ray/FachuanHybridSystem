@@ -99,12 +99,14 @@ class ClientIn(Schema):
 
     name: str
     is_our_client: bool | None = True
-    phone: str | None = None
-    address: str | None = None
+    # 这些列已归一为 NOT NULL（空字符串语义），默认 '' 而非 None
+    phone: str | None = ""
+    address: str | None = ""
     client_type: str
+    # id_number 是 unique 列：未填写保持 None（PG 多 NULL 共存）
     id_number: str | None = None
-    legal_representative: str | None = None
-    legal_representative_id_number: str | None = None
+    legal_representative: str | None = ""
+    legal_representative_id_number: str | None = ""
 
 
 class ClientUpdateIn(Schema):

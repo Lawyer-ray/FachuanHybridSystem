@@ -28,7 +28,6 @@ from apps.automation.models import (
     TokenAcquisitionStatus,
 )
 
-
 # ── CourtToken ────────────────────────────────────────────────────
 
 
@@ -287,7 +286,7 @@ class TestCourtDocumentModel:
             c_fymc="北京法院",
             c_wjgs="pdf",
             dt_cjsj=timezone.now(),
-            local_file_path=None,
+            local_file_path="",
         )
         assert doc.absolute_file_path == ""
 

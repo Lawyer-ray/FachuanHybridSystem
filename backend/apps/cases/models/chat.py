@@ -32,8 +32,8 @@ class CaseChat(models.Model):
 
     owner_id = models.CharField(
         max_length=64,
-        null=True,
         blank=True,
+        default="",
         verbose_name="群主ID",
         help_text="飞书用户的open_id或其他平台的用户标识符",
     )

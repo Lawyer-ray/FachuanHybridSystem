@@ -44,12 +44,7 @@ class LawyerServiceAdapter(ILawyerService):
         return None
 
     def get_all_lawyer_names(self) -> list[str]:
-        names = (
-            self.service.get_lawyer_queryset()
-            .filter(real_name__isnull=False)
-            .exclude(real_name="")
-            .values_list("real_name", flat=True)
-        )
+        names = self.service.get_lawyer_queryset().exclude(real_name="").values_list("real_name", flat=True)
         return cast("list[str]", list(names))
 
     def get_lawyer_model(self, lawyer_id: int) -> Lawyer | None:

@@ -51,7 +51,7 @@ class CourtDocument(models.Model):
         default=DocumentDownloadStatus.PENDING,
         verbose_name="下载状态",
     )
-    local_file_path = models.CharField(max_length=1024, null=True, blank=True, verbose_name="本地文件路径")
+    local_file_path = models.CharField(max_length=1024, blank=True, default="", verbose_name="本地文件路径")
     file_size = models.BigIntegerField(null=True, blank=True, verbose_name="文件大小(字节)")
     error_message = models.TextField(null=True, blank=True, verbose_name="错误信息")
 

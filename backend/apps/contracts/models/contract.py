@@ -66,11 +66,11 @@ class Contract(models.Model):
     risk_rate: models.DecimalField = models.DecimalField(
         max_digits=5, decimal_places=2, blank=True, null=True, verbose_name="风险比例(%)"
     )
-    custom_terms: models.TextField = models.TextField(blank=True, null=True, verbose_name="自定义收费条款")
+    custom_terms: models.TextField = models.TextField(blank=True, default="", verbose_name="自定义收费条款")
     law_firm_oa_url: models.URLField = models.URLField(
         max_length=500,
         blank=True,
-        null=True,
+        default="",
         verbose_name="律所OA链接",
     )
     law_firm_oa_case_number: models.CharField = models.CharField(

@@ -282,3 +282,74 @@ def resolve_contract_folder_browse_roots() -> list[str]:
     if sys.platform.startswith("win"):
         return ["C:\\"]
     return ["/home", "/mnt"]
+
+
+def resolve_web_worker_count() -> int:
+    """归一 web 进程数（守卫盲区修正：合并所有已知 worker 信号取最大值）。
+
+    - WEB_CONCURRENCY: 社区惯例显式声明
+    - UVICORN_WORKERS: docker-entrypoint.sh 实际消费的变量（容器内缺省 4）
+    - GUNICORN_WORKERS: 兼容 gunicorn 部署脚本
+    旧守卫只看 WEB_CONCURRENCY（缺省 1），标准 Docker 部署下永远不触发。
+    """
+    counts: list[int] = []
+    for name in ("WEB_CONCURRENCY", "UVICORN_WORKERS", "GUNICORN_WORKERS"):
+        raw = (os.environ.get(name, "") or "").strip()
+        if not raw:
+            continue
+        try:
+            counts.append(max(int(raw), 1))
+        except ValueError:
+            continue
+    return max(counts) if counts else 1
+
+
+def validate_runtime_topology(
+    *,
+    debug: bool,
+    web_workers: int,
+    q_workers: int,
+    cache_backend: str,
+    channel_backend: str,
+    redis_cache_configured: bool,
+    redis_channel_configured: bool,
+) -> list[str]:
+    """启动期缓存/通道拓扑校验（fail-fast + 引导式 WARNING）。
+
+    - 生产多进程 + 进程本地后端：RuntimeError（可用 DJANGO_ALLOW_LOCMEM_CACHE=true
+      显式豁免，豁免后降级为 WARNING，把决定权交给部署者）。
+    - 生产单进程 + 无 Redis：WARNING 引导配置（不 fail，保护最小单机部署）。
+
+    Returns: 需要打印的 WARNING 文案列表。
+    """
+    if debug:
+        return []
+    allow_local = _env_bool("DJANGO_ALLOW_LOCMEM_CACHE", False)
+    multiprocess = web_workers > 1 or q_workers > 1
+    warnings: list[str] = []
+    topology = f"web_workers={web_workers}, q_workers={q_workers}"
+
+    if not redis_cache_configured and cache_backend.endswith("LocMemCache"):
+        hint = "设置 REDIS_URL（或 DJANGO_CACHE_REDIS_URL）"
+        if multiprocess and not allow_local:
+            raise RuntimeError(
+                f"生产多进程拓扑（{topology}）使用 LocMemCache：限流计数与缓存按进程分裂。"
+                f"请 {hint}；确知风险的自担场景可设 DJANGO_ALLOW_LOCMEM_CACHE=true 显式豁免。"
+            )
+        if multiprocess:
+            warnings.append(f"DJANGO_ALLOW_LOCMEM_CACHE=true 已放行 LocMemCache（{topology}）；建议尽快 {hint}")
+        else:
+            warnings.append(f"生产环境未配置 Redis，cache 使用 LocMemCache（单进程拓扑自洽）；建议 {hint}")
+
+    if not redis_channel_configured and channel_backend.endswith("InMemoryChannelLayer"):
+        hint = "设置 REDIS_URL（或 DJANGO_CHANNEL_REDIS_URL）"
+        if multiprocess and not allow_local:
+            raise RuntimeError(
+                f"生产多进程拓扑（{topology}）使用 InMemoryChannelLayer：跨进程 WebSocket 推送不可达。"
+                f"请 {hint}；或设 DJANGO_ALLOW_LOCMEM_CACHE=true 显式豁免。"
+            )
+        if multiprocess:
+            warnings.append(f"InMemoryChannelLayer 已被显式豁免（{topology}）；建议尽快 {hint}")
+        else:
+            warnings.append("生产环境未配置 Redis，channel layer 为进程内存实现；建议 " + hint)
+    return warnings

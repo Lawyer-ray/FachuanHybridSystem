@@ -90,7 +90,7 @@ class DocumentRecognitionTask(models.Model):
         verbose_name="案件日志",
     )
     binding_message = models.CharField(max_length=512, null=True, blank=True, verbose_name="绑定消息")
-    binding_error_code = models.CharField(max_length=64, null=True, blank=True, verbose_name="绑定错误码")
+    binding_error_code = models.CharField(max_length=64, blank=True, default="", verbose_name="绑定错误码")
     error_message = models.TextField(null=True, blank=True, verbose_name="错误信息")
     notification_sent = models.BooleanField(default=False, verbose_name="通知已发送")
     notification_sent_at = models.DateTimeField(null=True, blank=True, verbose_name="通知发送时间")

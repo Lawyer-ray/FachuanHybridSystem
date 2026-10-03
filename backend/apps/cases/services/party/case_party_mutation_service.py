@@ -112,7 +112,6 @@ class CasePartyMutationService:
             return
         our_party_statuses = list(
             parties_qs.filter(client__is_our_client=True)
-            .exclude(legal_status__isnull=True)
             .exclude(legal_status="")
             .values_list("legal_status", "client__name")
         )
@@ -176,7 +175,9 @@ class CasePartyMutationService:
         return party
 
     @transaction.atomic
-    def update_party(self, *, party_id: int, data: dict[str, Any], user: Any | None = None) -> CaseParty:  # pragma: no cover
+    def update_party(
+        self, *, party_id: int, data: dict[str, Any], user: Any | None = None
+    ) -> CaseParty:  # pragma: no cover
         party = self.repo.get_party_for_update(party_id)
         if not party:
             raise NotFoundError(

@@ -32,7 +32,7 @@ class ContractCaseCreationWorkflow:
             self.case_service.create_case_party(
                 case_id=case_dto.id,
                 client_id=party.client_id,
-                legal_status=None,
+                legal_status="",
             )
 
         for assignment in contract.assignments.all():

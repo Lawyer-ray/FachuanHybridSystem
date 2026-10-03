@@ -412,7 +412,7 @@ class CaseBindingService:
         task.case_log_id = case_log_id
         task.binding_success = True
         task.binding_message = f"手动绑定到案件 {case_name}"
-        task.binding_error_code = None
+        task.binding_error_code = ""
         task.save(update_fields=["case", "case_log", "binding_success", "binding_message", "binding_error_code"])
 
         # 9. 触发飞书通知：事务提交后再发（网络 IO 不进事务、不拉长锁持有时间）；

@@ -153,7 +153,7 @@ class CaseMaterialService:
                 raise ValidationException(message=_("当事人方向不合法"), errors={"side": side})
             supervising_authority_id = None
         else:
-            side = None
+            side = ""
             if not supervising_authority_id:
                 raise ValidationException(
                     message=_("必须选择主管机关"),

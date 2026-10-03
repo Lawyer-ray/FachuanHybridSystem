@@ -17,13 +17,17 @@ except ImportError:
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 from apps.core.config.django_runtime import (
+    resolve_cache_redis_url,
     resolve_channel_layers,
+    resolve_channel_redis_url,
     resolve_contract_folder_browse_roots,
     resolve_cors_and_csrf,
     resolve_perm_open_access,
     resolve_q_cluster,
     resolve_rate_limit,
     resolve_security_config,
+    resolve_web_worker_count,
+    validate_runtime_topology,
 )
 
 # 从环境变量读取配置
@@ -624,22 +628,26 @@ CHANNEL_LAYERS = resolve_channel_layers()
 ASGI_APPLICATION = "apiSystem.asgi.application"
 
 if not DEBUG:
-    _web_concurrency = int(os.environ.get("WEB_CONCURRENCY", "1") or "1")
-    _q_workers = int(os.environ.get("DJANGO_Q_WORKERS", "1") or "1")
-    _multiprocess = _web_concurrency > 1 or _q_workers > 1
-    if _multiprocess:
-        _cache_backend = ((CACHES or {}).get("default", {}) or {}).get("BACKEND", "")
-        if _cache_backend == "django.core.cache.backends.locmem.LocMemCache":
-            raise RuntimeError(
-                "生产多进程环境必须配置 Redis cache（设置 REDIS_URL 或 DJANGO_CACHE_REDIS_URL）以保证限流一致性"
-            )
+    # 拓扑守卫：web 进程数合并 WEB_CONCURRENCY/UVICORN_WORKERS/GUNICORN_WORKERS
+    # （盲区修正：docker-entrypoint.sh 的 uvicorn 缺省 4 workers 此前不被察觉）；
+    # q_workers 复用 Q_CLUSTER 已解析值（其缺省 8 与旧守卫读 DJANGO_Q_WORKERS
+    # 的缺省 1 不一致，一并消除）。校验逻辑在 django_runtime.validate_runtime_topology。
+    _channel_layers_map: dict[str, Any] = dict(CHANNEL_LAYERS.items()) if isinstance(CHANNEL_LAYERS, dict) else {}
+    _topology_warnings = validate_runtime_topology(
+        debug=DEBUG,
+        web_workers=resolve_web_worker_count(),
+        q_workers=int(Q_CLUSTER["workers"]),  # type: ignore[arg-type]
+        cache_backend=((CACHES or {}).get("default", {}) or {}).get("BACKEND", ""),
+        channel_backend=(_channel_layers_map.get("default") or {}).get("BACKEND", ""),
+        redis_cache_configured=bool(resolve_cache_redis_url()),
+        redis_channel_configured=bool(resolve_channel_redis_url()),
+    )
+    if _topology_warnings:
+        import logging as _logging
 
-        _channel_layers: dict[str, Any] = dict(CHANNEL_LAYERS.items()) if isinstance(CHANNEL_LAYERS, dict) else {}
-        _channel_backend = (_channel_layers.get("default") or {}).get("BACKEND", "")
-        if _channel_backend == "channels.layers.InMemoryChannelLayer":
-            raise RuntimeError(
-                "生产多进程环境必须配置 Redis channel layer（设置 REDIS_URL 或 DJANGO_CHANNEL_REDIS_URL）"
-            )
+        _settings_logger = _logging.getLogger("apiSystem.settings")
+        for _warn in _topology_warnings:
+            _settings_logger.warning(_warn)
 
 # ============================================================
 # Django Admin 界面配置

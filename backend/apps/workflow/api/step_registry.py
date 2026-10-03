@@ -22,8 +22,18 @@ STEP_CATEGORIES: list[dict[str, Any]] = [
                 "description": "暂停流程，等待人工审批后继续",
                 "icon": "ShieldCheck",
                 "config_schema": {
-                    "signal_key": {"type": "string", "required": True, "label": "Signal Key", "placeholder": "e.g. confirm_facts_approved"},
-                    "prompt": {"type": "textarea", "required": False, "label": "审批提示", "placeholder": "展示给审批人的说明文字"},
+                    "signal_key": {
+                        "type": "string",
+                        "required": True,
+                        "label": "Signal Key",
+                        "placeholder": "e.g. confirm_facts_approved",
+                    },
+                    "prompt": {
+                        "type": "textarea",
+                        "required": False,
+                        "label": "审批提示",
+                        "placeholder": "展示给审批人的说明文字",
+                    },
                     "timeout_hours": {"type": "number", "required": False, "label": "超时(小时)", "default": 72},
                 },
             },
@@ -34,7 +44,12 @@ STEP_CATEGORIES: list[dict[str, Any]] = [
                 "description": "等待外部事件触发后继续（如法院短信、邮件回复）",
                 "icon": "Clock",
                 "config_schema": {
-                    "event_type": {"type": "select", "required": True, "label": "事件类型", "options": ["court_sms", "email_reply", "custom"]},
+                    "event_type": {
+                        "type": "select",
+                        "required": True,
+                        "label": "事件类型",
+                        "options": ["court_sms", "email_reply", "custom"],
+                    },
                     "timeout_hours": {"type": "number", "required": False, "label": "超时(小时)", "default": 168},
                 },
             },
@@ -45,8 +60,18 @@ STEP_CATEGORIES: list[dict[str, Any]] = [
                 "description": "根据条件判断走不同分支",
                 "icon": "GitFork",
                 "config_schema": {
-                    "field": {"type": "string", "required": True, "label": "判断字段", "placeholder": "e.g. previous_step.result.need_complaint"},
-                    "operator": {"type": "select", "required": True, "label": "运算符", "options": ["eq", "neq", "gt", "lt", "contains", "exists"]},
+                    "field": {
+                        "type": "string",
+                        "required": True,
+                        "label": "判断字段",
+                        "placeholder": "e.g. previous_step.result.need_complaint",
+                    },
+                    "operator": {
+                        "type": "select",
+                        "required": True,
+                        "label": "运算符",
+                        "options": ["eq", "neq", "gt", "lt", "contains", "exists"],
+                    },
                     "value": {"type": "string", "required": True, "label": "比较值"},
                 },
             },
@@ -68,7 +93,12 @@ STEP_CATEGORIES: list[dict[str, Any]] = [
                 "icon": "Brain",
                 "config_schema": {
                     "system_prompt": {"type": "textarea", "required": True, "label": "系统提示词"},
-                    "user_prompt_template": {"type": "textarea", "required": True, "label": "用户提示词模板", "help": "可用 {{previous_step.output}} 引用前序步骤输出"},
+                    "user_prompt_template": {
+                        "type": "textarea",
+                        "required": True,
+                        "label": "用户提示词模板",
+                        "help": "可用 {{previous_step.output}} 引用前序步骤输出",
+                    },
                     "model": {"type": "string", "required": False, "label": "模型", "placeholder": "留空使用默认模型"},
                     "output_key": {"type": "string", "required": False, "label": "输出字段名", "default": "result"},
                 },
@@ -80,8 +110,18 @@ STEP_CATEGORIES: list[dict[str, Any]] = [
                 "description": "发送 HTTP 请求调用外部 API",
                 "icon": "Globe",
                 "config_schema": {
-                    "method": {"type": "select", "required": True, "label": "方法", "options": ["GET", "POST", "PUT", "DELETE", "PATCH"]},
-                    "url": {"type": "string", "required": True, "label": "URL", "placeholder": "https://api.example.com/endpoint"},
+                    "method": {
+                        "type": "select",
+                        "required": True,
+                        "label": "方法",
+                        "options": ["GET", "POST", "PUT", "DELETE", "PATCH"],
+                    },
+                    "url": {
+                        "type": "string",
+                        "required": True,
+                        "label": "URL",
+                        "placeholder": "https://api.example.com/endpoint",
+                    },
                     "headers": {"type": "textarea", "required": False, "label": "请求头 (JSON)"},
                     "body": {"type": "textarea", "required": False, "label": "请求体 (JSON)"},
                 },
@@ -93,7 +133,12 @@ STEP_CATEGORIES: list[dict[str, Any]] = [
                 "description": "执行自定义 Python 代码片段",
                 "icon": "Code",
                 "config_schema": {
-                    "code": {"type": "textarea", "required": True, "label": "Python 代码", "help": "可用 context['previous_output'] 访问前序步骤输出"},
+                    "code": {
+                        "type": "textarea",
+                        "required": True,
+                        "label": "Python 代码",
+                        "help": "可用 context['previous_output'] 访问前序步骤输出",
+                    },
                     "timeout_seconds": {"type": "number", "required": False, "label": "超时(秒)", "default": 30},
                 },
             },
@@ -112,7 +157,13 @@ STEP_CATEGORIES: list[dict[str, Any]] = [
                 "icon": "FileSearch",
                 "mcp_tool": "get_case",
                 "config_schema": {
-                    "case_id_source": {"type": "select", "required": True, "label": "案件ID来源", "options": ["workflow_input", "previous_step"], "default": "workflow_input"},
+                    "case_id_source": {
+                        "type": "select",
+                        "required": True,
+                        "label": "案件ID来源",
+                        "options": ["workflow_input", "previous_step"],
+                        "default": "workflow_input",
+                    },
                 },
             },
             {
@@ -132,7 +183,12 @@ STEP_CATEGORIES: list[dict[str, Any]] = [
                 "icon": "BookOpen",
                 "mcp_tool": "create_case_log",
                 "config_schema": {
-                    "content_template": {"type": "textarea", "required": True, "label": "日志内容模板", "help": "可用 {{变量}} 插入前序步骤输出"},
+                    "content_template": {
+                        "type": "textarea",
+                        "required": True,
+                        "label": "日志内容模板",
+                        "help": "可用 {{变量}} 插入前序步骤输出",
+                    },
                 },
             },
         ],
@@ -218,7 +274,13 @@ STEP_CATEGORIES: list[dict[str, Any]] = [
                 "icon": "Download",
                 "mcp_tool": "download_litigation_document",
                 "config_schema": {
-                    "document_id_source": {"type": "select", "required": True, "label": "文档ID来源", "options": ["previous_step", "manual"], "default": "previous_step"},
+                    "document_id_source": {
+                        "type": "select",
+                        "required": True,
+                        "label": "文档ID来源",
+                        "options": ["previous_step", "manual"],
+                        "default": "previous_step",
+                    },
                     "document_id": {"type": "number", "required": False, "label": "文档ID"},
                 },
             },
@@ -299,7 +361,13 @@ STEP_CATEGORIES: list[dict[str, Any]] = [
                 "icon": "IdCard",
                 "mcp_tool": "get_company_profile",
                 "config_schema": {
-                    "company_name_source": {"type": "select", "required": True, "label": "企业名来源", "options": ["workflow_input", "previous_step"], "default": "workflow_input"},
+                    "company_name_source": {
+                        "type": "select",
+                        "required": True,
+                        "label": "企业名来源",
+                        "options": ["workflow_input", "previous_step"],
+                        "default": "workflow_input",
+                    },
                 },
             },
             {
@@ -364,7 +432,12 @@ STEP_CATEGORIES: list[dict[str, Any]] = [
                 "description": "通过消息中心发送通知",
                 "icon": "Mail",
                 "config_schema": {
-                    "channel": {"type": "select", "required": True, "label": "渠道", "options": ["feishu", "dingtalk", "wechat_work", "email"]},
+                    "channel": {
+                        "type": "select",
+                        "required": True,
+                        "label": "渠道",
+                        "options": ["feishu", "dingtalk", "wechat_work", "email"],
+                    },
                     "content_template": {"type": "textarea", "required": True, "label": "消息内容模板"},
                 },
             },
@@ -401,7 +474,12 @@ STEP_CATEGORIES: list[dict[str, Any]] = [
                 "icon": "RefreshCw",
                 "mcp_tool": "convert_document",
                 "config_schema": {
-                    "target_format": {"type": "select", "required": True, "label": "目标格式", "options": ["pdf", "docx", "xlsx", "png"]},
+                    "target_format": {
+                        "type": "select",
+                        "required": True,
+                        "label": "目标格式",
+                        "options": ["pdf", "docx", "xlsx", "png"],
+                    },
                 },
             },
             {
@@ -455,9 +533,7 @@ if _HAS_COURT_FILING:
     # 在诉讼流程分类中，build_litigation_context 之后插入
     for _cat in STEP_CATEGORIES:
         if _cat["id"] == "litigation":
-            _ctx_idx = next(
-                i for i, s in enumerate(_cat["steps"]) if s["id"] == "build_litigation_context"
-            )
+            _ctx_idx = next(i for i, s in enumerate(_cat["steps"]) if s["id"] == "build_litigation_context")
             _cat["steps"].insert(_ctx_idx + 1, _COURT_FILING_STEP)
             break
 

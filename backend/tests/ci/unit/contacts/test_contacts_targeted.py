@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # schemas/contact_schemas.py (0% coverage)
 # ---------------------------------------------------------------------------
@@ -33,7 +32,8 @@ class TestContactSchemas:
         from apps.contacts.schemas.contact_schemas import CaseContactIn
 
         schema = CaseContactIn(case_id=1, name="张法官", role="judge")
-        assert schema.phone is None
+        # 未填字段默认空串（NOT NULL 列的空字符串语义），显式 None 仍可传入
+        assert schema.phone == ""
 
     def test_case_contact_update_schema(self):
         from apps.contacts.schemas.contact_schemas import CaseContactUpdate

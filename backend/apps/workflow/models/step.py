@@ -27,7 +27,7 @@ class StepExecution(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, verbose_name="状态")
     input_data = models.JSONField(default=dict, blank=True, verbose_name="输入数据")
     output_data = models.JSONField(null=True, blank=True, verbose_name="输出数据")
-    error_message = models.TextField(null=True, blank=True, verbose_name="错误信息")
+    error_message = models.TextField(blank=True, default="", verbose_name="错误信息")
     attempts = models.IntegerField(default=0, verbose_name="尝试次数")
     started_at = models.DateTimeField(null=True, blank=True, verbose_name="开始时间")
     finished_at = models.DateTimeField(null=True, blank=True, verbose_name="结束时间")

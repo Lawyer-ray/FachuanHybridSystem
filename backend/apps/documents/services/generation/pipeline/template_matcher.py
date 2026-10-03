@@ -10,9 +10,7 @@ class TemplateMatcher:
         from apps.documents.models import DocumentContractSubType, DocumentTemplate, DocumentTemplateType
 
         templates = DocumentTemplate.objects.filter(template_type=DocumentTemplateType.CONTRACT, is_active=True).filter(
-            Q(contract_sub_type__isnull=True)
-            | Q(contract_sub_type="")
-            | Q(contract_sub_type=DocumentContractSubType.CONTRACT)
+            Q(contract_sub_type="") | Q(contract_sub_type=DocumentContractSubType.CONTRACT)
         )
 
         for template in templates:

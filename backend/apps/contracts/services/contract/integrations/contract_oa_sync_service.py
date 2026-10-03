@@ -155,7 +155,7 @@ class ContractOASyncService:
             # 暂存待更新的字段值，在 bulk 查询后再赋值
             contracts_to_update.append(
                 # 占位，稍后用真实对象替换；这里先保存元信息
-                {"_id": contract_id, "case_number": case_number or None, "oa_url": oa_url or None}
+                {"_id": contract_id, "case_number": case_number or None, "oa_url": oa_url or ""}
             )
 
         if contracts_to_update:
@@ -720,8 +720,7 @@ class ContractOASyncService:
     def _build_missing_contract_queryset(self) -> Any:
         return (
             Contract.objects.filter(
-                Q(law_firm_oa_url__isnull=True)
-                | Q(law_firm_oa_url="")
+                Q(law_firm_oa_url="")
                 | Q(law_firm_oa_url="None")
                 | Q(law_firm_oa_case_number__isnull=True)
                 | Q(law_firm_oa_case_number="")
@@ -750,7 +749,7 @@ class ContractOASyncService:
         with transaction.atomic():
             Contract.objects.filter(id=contract.id).update(
                 law_firm_oa_case_number=case_no or None,
-                law_firm_oa_url=detail_url or None,
+                law_firm_oa_url=detail_url or "",
             )
 
     def _resolve_oa_credential(self, *, lawyer_id: int | None) -> AccountCredential:

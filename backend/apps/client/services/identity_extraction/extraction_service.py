@@ -678,12 +678,12 @@ class IdentityExtractionService:
         extracted: dict[str, Any] = {
             "name": name,
             "id_number": id_number,
-            "address": address,
+            "address": address or "",
             "expiry_date": expiry_date,
             "gender": gender,
             "ethnicity": ethnicity,
             "birth_date": birth_date,
-            "phone": phone.group(1) if phone else None,
+            "phone": phone.group(1) if phone else "",
         }
         extracted["field_confidence"] = self._compute_id_card_field_confidence(extracted, narrative_used)
 
@@ -760,10 +760,10 @@ class IdentityExtractionService:
             "company_name": company_name,
             "credit_code": credit_code,
             "legal_representative": legal_rep,
-            "address": address,
+            "address": address or "",
             "business_scope": business_scope,
             "registration_date": registration_date,
-            "phone": phone,
+            "phone": phone or "",
         }
 
         # 如果一个字段都没提取到，返回 None 让后续流程处理
