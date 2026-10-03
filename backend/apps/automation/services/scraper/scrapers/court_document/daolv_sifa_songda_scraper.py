@@ -212,7 +212,10 @@ class DaolvSifaSongdaScraper(BaseCourtDocumentScraper):  # pragma: no cover
             if image_resp.status_code != 200:
                 continue
 
-            recognized = self.captcha_recognizer.recognize(image_resp.content)
+            recognizer = self.captcha_recognizer
+            if recognizer is None:  # 无私有 plugins 环境下识别能力不可用
+                continue
+            recognized = recognizer.recognize(image_resp.content)
             captcha = re.sub(r"[^0-9A-Za-z]", "", recognized or "")
             if not captcha:
                 continue

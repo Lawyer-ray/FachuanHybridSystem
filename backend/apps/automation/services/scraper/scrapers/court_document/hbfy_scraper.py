@@ -184,7 +184,10 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
                 continue
 
             uuid, image_bytes = captcha_data
-            recognized = self.captcha_recognizer.recognize(image_bytes)  # type: ignore[attr-defined]
+            recognizer = self.captcha_recognizer
+            if recognizer is None:  # 无私有 plugins 环境下识别能力不可用
+                continue
+            recognized = recognizer.recognize(image_bytes)
             code = re.sub(r"[^0-9A-Za-z]", "", recognized or "")
             if not code:
                 continue
@@ -296,7 +299,10 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
                 break
             try:
                 image_bytes = captcha_image.first.screenshot()
-                recognized = self.captcha_recognizer.recognize(image_bytes)  # type: ignore[attr-defined]
+                recognizer = self.captcha_recognizer
+                if recognizer is None:  # 无私有 plugins 环境下识别能力不可用
+                    break
+                recognized = recognizer.recognize(image_bytes)
                 captcha_text = re.sub(r"[^0-9A-Za-z]", "", recognized or "")
                 if not captcha_text:
                     captcha_image.first.click(force=True, timeout=1000)
