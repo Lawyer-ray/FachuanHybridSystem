@@ -91,6 +91,21 @@ class TestExecuteScraperTask:
         task.max_retries = 3
         MockModel.objects.get.return_value = task
 
+        # retry_count 已改为数据库原子自增 + refresh_from_db 回填内存，
+        # 用 db_state 模拟数据库侧状态
+        db_state = {"retry_count": 0}
+
+        def fake_refresh(fields=None, **kwargs):
+            if fields and "retry_count" in fields:
+                task.retry_count = db_state["retry_count"]
+
+        def fake_update(**kwargs):
+            db_state["retry_count"] += 1
+            return 1
+
+        task.refresh_from_db.side_effect = fake_refresh
+        MockModel.objects.filter.return_value.update.side_effect = fake_update
+
         mock_scraper_class = MagicMock()
         mock_scraper_class.return_value.execute.side_effect = RuntimeError("fail")
         mock_map.return_value = {"document": mock_scraper_class}

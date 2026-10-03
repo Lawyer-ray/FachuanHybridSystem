@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 
 from apps.automation.models import CourtSMS, CourtSMSStatus
@@ -507,9 +508,16 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                 sms.status = CourtSMSStatus.MATCHING
                 sms.save()
             else:
-                # 重试进入：worker 崩溃后重新执行，递增重试计数
-                sms.retry_count += 1
-                sms.save(update_fields=["retry_count", "updated_at"])
+                # 重试进入：worker 崩溃后重新执行，递增重试计数。
+                # 用数据库原子自增而非内存读改写：Django-Q 重投递与恢复服务并发时
+                # `retry_count += 1` 会互相覆盖导致计数丢失，下方 `>= 3` 的
+                # OCR-OOM 熔断随之失效
+                CourtSMS.objects.filter(pk=sms.pk).update(
+                    retry_count=F("retry_count") + 1,
+                    # update() 不触发 auto_now，需显式刷新 updated_at
+                    updated_at=timezone.now(),
+                )
+                sms.refresh_from_db(fields=["retry_count", "updated_at"])
                 logger.info("短信 %s 重新进入匹配阶段，当前重试次数: %s", sms.id, sms.retry_count)
 
             # 匹配重试次数保护：如果短信已经多次处于 MATCHING 状态但未能完成

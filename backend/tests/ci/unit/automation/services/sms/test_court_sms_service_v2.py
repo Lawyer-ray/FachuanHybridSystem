@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -682,16 +682,26 @@ class TestProcessParsing:
 
 class TestProcessMatching:
 
+    @patch(f"{_MOD}.CourtSMS")
     @patch(f"{_MOD}.SMSParserService")
     @patch(f"{_MOD}.CaseMatcher")
-    def test_retry_limit_sets_pending_manual(self, MockMatcher, MockParser):
+    def test_retry_limit_sets_pending_manual(self, MockMatcher, MockParser, MockCourtSMS):
         from apps.automation.services.sms.court_sms_service import CourtSMSService
 
         svc = CourtSMSService()
         sms_obj = _make_sms(sms_id=5, status="matching", retry_count=2)
         sms_obj.case = None
+
+        # retry_count 已改为数据库原子自增 + refresh_from_db 回填内存
+        def fake_refresh(fields=None, **kwargs):
+            if fields and "retry_count" in fields:
+                sms_obj.retry_count += 1
+
+        sms_obj.refresh_from_db.side_effect = fake_refresh
+
         result = svc._process_matching(sms_obj)
         assert sms_obj.status == "pending_manual"
+        assert sms_obj.retry_count == 3
 
     @patch(f"{_MOD}.SMSParserService")
     @patch(f"{_MOD}.CaseMatcher")
