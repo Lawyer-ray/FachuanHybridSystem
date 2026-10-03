@@ -195,7 +195,7 @@ class ContractPaymentService(DjangoPermsMixin):
             received_at=received_at or timezone.localdate(),
             invoice_status=inv_status,
             invoiced_amount=invoiced_amount_dec,
-            note=note,
+            note=note or "",
         )
 
         # 记录财务日志
