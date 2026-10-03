@@ -2,7 +2,7 @@
 
 从 api/workflow_api.py 下沉（四层架构清偿：API 层只留工厂与参数提取）。
 逻辑整体平移而非重写：响应 dict 字段名与中文文案是既有契约，前端依赖。
-遵循 Service 层禁用 @staticmethod 约定，工具函数写在模块级。
+遵循 Service 层禁用静态方法装饰器的约定，工具函数写在模块级。
 """
 
 from __future__ import annotations

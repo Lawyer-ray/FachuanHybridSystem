@@ -16,10 +16,11 @@ class CaseContactIn(Schema):
     authority_id: int | None = None
     name: str
     role: str
-    phone: str | None = None
-    address: str | None = None
-    stage: str | None = None
-    note: str | None = None
+    # 这些列已归一为 NOT NULL（空字符串语义），默认 '' 而非 None
+    phone: str | None = ""
+    address: str | None = ""
+    stage: str | None = ""
+    note: str | None = ""
 
 
 class CaseContactOut(ModelSchema, SchemaMixin):
