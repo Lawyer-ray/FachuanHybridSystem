@@ -6,7 +6,9 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // api-schema.d.ts 是 openapi-typescript 生成物（3 万+ 行），不参与 lint；
+  // 再生成流程见 src/types/README.md
+  globalIgnores(['dist', 'src/types/api-schema.d.ts']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

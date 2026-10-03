@@ -17,7 +17,9 @@ repos:
         exclude: ^frontend/pnpm-lock\.yaml$
       - id: check-added-large-files
         args: ['--maxkb=1000']
-        exclude: ^backend/\.secrets\.baseline$
+        # openapi.json 是 export_openapi_schema 的生成物快照（约 1.1MB），
+        # 内容经 detect-secrets 与隐私扫描，不属于意外提交的大文件
+        exclude: ^backend/\.secrets\.baseline$|^backend/openapi\.json$
       - id: check-json
         exclude: ^frontend_2026/tsconfig\.(app|node)\.json$
       - id: check-toml
