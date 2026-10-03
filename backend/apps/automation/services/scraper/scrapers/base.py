@@ -118,7 +118,7 @@ class BaseScraper:
             # 更新为成功状态
             self.task.status = ScraperTaskStatus.SUCCESS
             self.task.result = result
-            self.task.error_message = None
+            self.task.error_message = ""
 
             logger.info("任务 %s 执行成功", self.task.id)
             return result

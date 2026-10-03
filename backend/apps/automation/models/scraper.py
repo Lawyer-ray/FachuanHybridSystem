@@ -59,7 +59,7 @@ class ScraperTask(LifecycleModel):
     )
     config = models.JSONField(default=dict, verbose_name="配置", help_text="存储账号、密码、文件路径等")
     result = models.JSONField(null=True, blank=True, verbose_name="执行结果")
-    error_message = models.TextField(null=True, blank=True, verbose_name="错误信息")
+    error_message = models.TextField(blank=True, default="", verbose_name="错误信息")
     retry_count = models.IntegerField(default=0, verbose_name="重试次数")
     max_retries = models.IntegerField(default=3, verbose_name="最大重试次数")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
@@ -68,10 +68,18 @@ class ScraperTask(LifecycleModel):
     finished_at = models.DateTimeField(null=True, blank=True, verbose_name="完成时间")
     scheduled_at = models.DateTimeField(null=True, blank=True, verbose_name="计划执行时间", help_text="留空则立即执行")
     captcha_image_path = models.CharField(
-        max_length=500, null=True, blank=True, verbose_name="验证码图片路径", help_text="手动验证码模式下存储待识别图片路径"
+        max_length=500,
+        blank=True,
+        default="",
+        verbose_name="验证码图片路径",
+        help_text="手动验证码模式下存储待识别图片路径",
     )
     captcha_answer = models.CharField(
-        max_length=64, null=True, blank=True, verbose_name="验证码答案", help_text="用户手动输入的验证码答案"
+        max_length=64,
+        blank=True,
+        default="",
+        verbose_name="验证码答案",
+        help_text="用户手动输入的验证码答案",
     )
 
     class Meta:

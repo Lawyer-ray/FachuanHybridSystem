@@ -53,7 +53,7 @@ class CourtDocument(models.Model):
     )
     local_file_path = models.CharField(max_length=1024, blank=True, default="", verbose_name="本地文件路径")
     file_size = models.BigIntegerField(null=True, blank=True, verbose_name="文件大小(字节)")
-    error_message = models.TextField(null=True, blank=True, verbose_name="错误信息")
+    error_message = models.TextField(blank=True, default="", verbose_name="错误信息")
 
     # 时间戳
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="记录创建时间")

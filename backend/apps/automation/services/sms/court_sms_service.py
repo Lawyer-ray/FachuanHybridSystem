@@ -241,7 +241,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
 
         try:
             sms.case_id = case_id
-            sms.error_message = None
+            sms.error_message = ""
             sms.save()
 
             logger.info("手动指定案件成功: SMS ID=%s, Case ID=%s", sms_id, case_id)
@@ -329,7 +329,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             has_manual_case = sms.case_id is not None
 
             sms.status = CourtSMSStatus.PENDING
-            sms.error_message = None
+            sms.error_message = ""
             sms.retry_count += 1
             sms.scraper_task = None
             sms.notification_results = None

@@ -85,23 +85,23 @@ class TokenAcquisitionHistory(LifecycleModel):
     captcha_attempts: models.IntegerField = models.IntegerField(default=0, verbose_name="验证码尝试次数")
     network_retries: models.IntegerField = models.IntegerField(default=0, verbose_name="网络重试次数")
     token_preview: models.CharField = models.CharField(
-        max_length=50, null=True, blank=True, verbose_name="Token预览", help_text="Token 前50个字符"
+        max_length=50, blank=True, default="", verbose_name="Token预览", help_text="Token 前50个字符"
     )
     token_fingerprint: models.CharField = models.CharField(
         max_length=64,
-        null=True,
         blank=True,
+        default="",
         verbose_name="Token指纹",
         help_text="Token的SHA256指纹(用于排查重复/归因,不可反推Token)",
     )
     token_redacted: models.CharField = models.CharField(
         max_length=32,
-        null=True,
         blank=True,
+        default="",
         verbose_name="Token脱敏摘要",
         help_text="脱敏后的Token摘要(仅用于人工排查)",
     )
-    error_message: models.TextField = models.TextField(null=True, blank=True, verbose_name="错误信息")
+    error_message: models.TextField = models.TextField(blank=True, default="", verbose_name="错误信息")
     error_details: models.JSONField = models.JSONField(
         null=True, blank=True, verbose_name="详细错误信息", help_text="包含完整的错误堆栈和上下文"
     )
@@ -135,7 +135,7 @@ class TokenAcquisitionHistory(LifecycleModel):
             raw = self.token_preview
             self.token_fingerprint = fingerprint_sha256(raw)
             self.token_redacted = mask_secret(raw)
-            self.token_preview = None
+            self.token_preview = ""
 
         if self.error_message:
             self.error_message = scrub_text(self.error_message)

@@ -115,7 +115,7 @@ class TestRetryFailedQuotes:
         assert result["retried_count"] == 1
         failed_quote.refresh_from_db()
         assert failed_quote.status == QuoteStatus.PENDING
-        assert failed_quote.error_message is None
+        assert failed_quote.error_message == ""
         assert failed_quote.started_at is None
         assert failed_quote.finished_at is None
 

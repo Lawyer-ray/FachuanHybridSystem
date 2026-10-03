@@ -83,7 +83,7 @@ async def submit_captcha_answer(request: Any, task_id: int, payload: CaptchaAnsw
 
     task.captcha_answer = answer
     task.status = ScraperTaskStatus.RUNNING
-    task.error_message = None
+    task.error_message = ""
     await task.asave(update_fields=["captcha_answer", "status", "error_message", "updated_at"])
 
     logger.info("✅ 验证码答案已提交: task=%s", task_id)

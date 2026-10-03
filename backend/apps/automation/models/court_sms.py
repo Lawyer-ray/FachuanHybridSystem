@@ -50,7 +50,7 @@ class CourtSMS(models.Model):
 
     # 解析结果
     sms_type = models.CharField(
-        max_length=32, choices=CourtSMSType.choices, null=True, blank=True, verbose_name="短信类型"
+        max_length=32, choices=CourtSMSType.choices, blank=True, default="", verbose_name="短信类型"
     )
     download_links = models.JSONField(default=list, verbose_name="下载链接列表")
     case_numbers = models.JSONField(default=list, verbose_name="案号列表")
@@ -75,7 +75,7 @@ class CourtSMS(models.Model):
     status = models.CharField(
         max_length=32, choices=CourtSMSStatus.choices, default=CourtSMSStatus.PENDING, verbose_name="处理状态"
     )
-    error_message = models.TextField(null=True, blank=True, verbose_name="错误信息")
+    error_message = models.TextField(blank=True, default="", verbose_name="错误信息")
     retry_count = models.IntegerField(default=0, verbose_name="重试次数")
 
     # 关联
@@ -106,7 +106,7 @@ class CourtSMS(models.Model):
 
     # 飞书通知（保留字段，向后兼容）
     feishu_sent_at = models.DateTimeField(null=True, blank=True, verbose_name="飞书发送时间")
-    feishu_error = models.TextField(null=True, blank=True, verbose_name="飞书发送错误")
+    feishu_error = models.TextField(blank=True, default="", verbose_name="飞书发送错误")
 
     # 多平台通知结果
     notification_results = models.JSONField(null=True, blank=True, default=None, verbose_name="多平台通知结果")

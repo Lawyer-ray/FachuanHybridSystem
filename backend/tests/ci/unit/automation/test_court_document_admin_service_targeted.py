@@ -204,7 +204,7 @@ class TestRetryFailedDownloads:
         assert result["retried_count"] == 1
         failed_doc.refresh_from_db()
         assert failed_doc.download_status == DocumentDownloadStatus.PENDING
-        assert failed_doc.error_message is None
+        assert failed_doc.error_message == ""
 
     def test_retries_specific_ids(self, service, failed_doc, scraper_task):
         another_failed = CourtDocument.objects.create(

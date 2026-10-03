@@ -122,7 +122,7 @@ class CourtDocumentService:
                 # 如果之前下载失败，重置状态以便重新下载
                 if document.download_status == DocumentDownloadStatus.FAILED:
                     document.download_status = DocumentDownloadStatus.PENDING
-                    document.error_message = None
+                    document.error_message = ""
                 document.save()
 
             from apps.automation.utils.logging import AutomationLogger
