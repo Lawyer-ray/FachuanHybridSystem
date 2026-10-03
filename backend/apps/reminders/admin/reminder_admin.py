@@ -15,9 +15,8 @@ from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonRes
 from django.template.response import TemplateResponse
 from django.urls import URLPattern, path, reverse
 from django.utils import timezone
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.utils.safestring import mark_safe
 from simple_history.admin import SimpleHistoryAdmin
 
 from ..models import Reminder, ReminderType
@@ -121,19 +120,19 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):  # pragma: no cover
 
     @admin.display(description="扩展数据")
     def metadata_display(self, obj: Reminder) -> str:  # pragma: no cover
-        from django.utils.html import escape
-
         data = obj.metadata if isinstance(obj.metadata, dict) else {}
         if not data:
             return "—"
-        rows = "".join(
-            f'<tr><td style="padding:4px 12px 4px 0;font-weight:600;white-space:nowrap;vertical-align:top;'
-            f'color:#475569;border-bottom:1px solid #f1f5f9">{escape(str(key))}</td>'
-            f'<td style="padding:4px 0;border-bottom:1px solid #f1f5f9">{escape(str(value))}</td></tr>'
-            for key, value in data.items()
+        # format_html 系列自动转义插值参数并返回 SafeString：
+        # 直接返回（勿再包 str()，否则 SafeString 标记丢失、admin 会显示原始 HTML 标签）
+        rows = format_html_join(
+            "",
+            '<tr><td style="padding:4px 12px 4px 0;font-weight:600;white-space:nowrap;vertical-align:top;'
+            'color:#475569;border-bottom:1px solid #f1f5f9">{}</td>'
+            '<td style="padding:4px 0;border-bottom:1px solid #f1f5f9">{}</td></tr>',
+            ((str(key), str(value)) for key, value in data.items()),
         )
-        # key/value 已在生成 rows 时逐项 escape()
-        return str(mark_safe(f'<table style="border-spacing:0;font-size:13px">{rows}</table>'))  # nosec B703, B308
+        return format_html('<table style="border-spacing:0;font-size:13px">{}</table>', rows)
 
     def get_urls(self) -> list[URLPattern]:  # pragma: no cover
         urls = super().get_urls()

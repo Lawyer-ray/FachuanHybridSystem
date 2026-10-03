@@ -151,6 +151,12 @@ _ADDRESS_LINE_FALLBACK_PATTERN = re.compile(
 )
 _TRAILING_GENDER_PATTERN = re.compile(r"(?:\s|[，,])(?:男|女)\s*$")
 _TRAILING_BIRTH_INFO_PATTERN = re.compile(r"(?:\s|[，,])\d{4}年\d{1,2}月\d{1,2}日(?:出生)?\s*$")
+# 名称候选中的电话/长数字串：剥离后避免把「张三 138…」这类含手机号的行整行当名称
+_PHONE_IN_NAME_PATTERN = re.compile(
+    r"(?<!\d)(?:\+?86[-\s]?)?1[3-9]\d{9}(?!\d)"
+    r"|(?<!\d)(?:\+?86[-\s]?)?0\d{2,3}[-\s]?\d{7,8}(?!\d)"
+    r"|(?<!\d)\d{15,18}(?!\d)"
+)
 _ENUMERATION_PREFIX_PATTERN = re.compile(r"(?m)^\s*(?:[（(]?[一二三四五六七八九十\d]+[）)\.、]|[-*•])\s*")
 
 _LEGAL_KEYWORDS: tuple[str, ...] = (
@@ -319,6 +325,7 @@ def _extract_name_smart(text: str) -> str | None:
 def _clean_name_candidate(name_part: str) -> str:
     """清洗名称候选值（保留公司括号地名，不做激进删减）"""
     name = _ROLE_PREFIX_CLEANUP_PATTERN.sub("", name_part.strip())
+    name = _PHONE_IN_NAME_PATTERN.sub(" ", name)
     name = _ETHNICITY_PATTERN.sub("", name)
     name = _BIRTH_DATE_PATTERN.sub("", name)
     name = _TRAILING_BIRTH_INFO_PATTERN.sub("", name)
@@ -407,12 +414,39 @@ def _extract_parties(text: str) -> list[dict[str, Any]]:
             if party_info["name"]:  # 只有名称不为空才添加
                 parties.append(party_info)
 
-    # 如果没有找到角色标签，尝试直接解析
+    # 无角色标签时按行独立解析：含姓名+电话的行各成一块，
+    # 其余行（纯字段行等）并入当前块，避免多客户文本只解析出第一个客户
     if not parties:
-        party_info = _parse_single_party(text, use_smart_name=True)
+        return _parse_unlabeled_lines(text)
+
+    return parties
+
+
+def _is_standalone_party_line(line: str) -> bool:
+    """判断一行是否为自含姓名+电话的独立当事人块（如「张三 138…」含手机号的行）"""
+    if not _PHONE_FALLBACK_PATTERN.search(line):
+        return False
+    name = _clean_name_candidate(line)
+    return _is_valid_name_candidate(name)
+
+
+def _parse_unlabeled_lines(text: str) -> list[dict[str, Any]]:
+    """无角色标签时按行分块解析：姓名+电话同行的独立成块，其余行并入当前块"""
+    blocks: list[str] = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if blocks and not _is_standalone_party_line(line):
+            blocks[-1] += f"\n{line}"
+        else:
+            blocks.append(line)
+
+    parties: list[dict[str, Any]] = []
+    for block in blocks:
+        party_info = _parse_single_party(block, use_smart_name=True)
         if party_info["name"]:
             parties.append(party_info)
-
     return parties
 
 
