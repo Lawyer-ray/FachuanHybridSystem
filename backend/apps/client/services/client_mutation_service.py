@@ -160,8 +160,7 @@ class ClientMutationService:
             extra={"client_id": client_id, "user_id": getattr(user, "id", None), "action": "delete_client"},
         )
 
-    @staticmethod
-    def _ensure_client_deletable(client: Client) -> None:
+    def _ensure_client_deletable(self, client: Client) -> None:
         """删除客户前检查业务关联：当事人关系已全部 PROTECT，这里给出可操作的引导信息。
 
         模型层 PROTECT 只能抛裸 ProtectedError（500），守卫层先拦下并说明
