@@ -70,7 +70,7 @@ class EvidenceFileService:
             with contextlib.suppress(Exception):
                 item.file.delete(save=False)
 
-        item.file = None
+        item.file = ""
         item.file_name = ""
         item.file_size = 0
         item.page_count = 0

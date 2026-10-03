@@ -83,7 +83,10 @@ class GenerationTask(models.Model):
         max_length=20, choices=GenerationStatus.choices, default=GenerationStatus.PENDING, verbose_name="生成状态"
     )
     result_file = models.FileField(
-        upload_to=DatedUUIDPath(MediaEntity.GENERATED_DOCUMENTS), null=True, blank=True, verbose_name="生成文件"
+        upload_to=DatedUUIDPath(MediaEntity.GENERATED_DOCUMENTS),
+        blank=True,
+        default="",
+        verbose_name="生成文件",
     )
     error_message = models.TextField(blank=True, verbose_name="错误信息")
     metadata: Any = models.JSONField(default=dict, verbose_name="任务元数据", help_text="存储生成参数、token消耗等信息")

@@ -41,8 +41,8 @@ class GsxtReportTask(models.Model):
     error_message = models.TextField(blank=True, verbose_name="错误信息")
     report_file = models.FileField(
         upload_to=DatedUUIDPath(MediaEntity.GSXT_REPORTS),
-        null=True,
         blank=True,
+        default="",
         verbose_name="报告文件",
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")

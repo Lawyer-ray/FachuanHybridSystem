@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { hasToken } from '@/lib/token'
-import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
+import { ErrorBoundary, PageErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { BindingsPageLazy, LoginPage, SocialCallbackPage } from '@/features/auth'
 import { HomePage } from '@/features/home'
 import { WorkbenchPageLazy } from '@/features/workbench'
@@ -39,7 +39,9 @@ export default function App() {
           path="/"
           element={
             <RequireAuth>
-              <HomePage />
+              <PageErrorBoundary>
+                <HomePage />
+              </PageErrorBoundary>
             </RequireAuth>
           }
         />
@@ -47,9 +49,11 @@ export default function App() {
           path="/material-prep"
           element={
             <RequireAuth>
-              <Suspense fallback={<RouteFallback />}>
-                <DeskPage />
-              </Suspense>
+              <PageErrorBoundary>
+                <Suspense fallback={<RouteFallback />}>
+                  <DeskPage />
+                </Suspense>
+              </PageErrorBoundary>
             </RequireAuth>
           }
         />
@@ -58,9 +62,11 @@ export default function App() {
           path="/material-prep/:id"
           element={
             <RequireAuth>
-              <Suspense fallback={<RouteFallback />}>
-                <DeskPage />
-              </Suspense>
+              <PageErrorBoundary>
+                <Suspense fallback={<RouteFallback />}>
+                  <DeskPage />
+                </Suspense>
+              </PageErrorBoundary>
             </RequireAuth>
           }
         />
@@ -69,9 +75,11 @@ export default function App() {
           path="/cases"
           element={
             <RequireAuth>
-              <Suspense fallback={<RouteFallback />}>
-                <WorkbenchPageLazy />
-              </Suspense>
+              <PageErrorBoundary>
+                <Suspense fallback={<RouteFallback />}>
+                  <WorkbenchPageLazy />
+                </Suspense>
+              </PageErrorBoundary>
             </RequireAuth>
           }
         />
@@ -80,9 +88,11 @@ export default function App() {
           path="/settings/bindings"
           element={
             <RequireAuth>
-              <Suspense fallback={<RouteFallback />}>
-                <BindingsPageLazy />
-              </Suspense>
+              <PageErrorBoundary>
+                <Suspense fallback={<RouteFallback />}>
+                  <BindingsPageLazy />
+                </Suspense>
+              </PageErrorBoundary>
             </RequireAuth>
           }
         />

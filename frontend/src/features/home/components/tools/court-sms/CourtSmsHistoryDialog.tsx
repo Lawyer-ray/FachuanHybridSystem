@@ -3,7 +3,7 @@ import { ChevronRight, FileText, History } from 'lucide-react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 
-import { listCourtSms, type CourtSmsGroup, type CourtSmsListItem } from '../../../api'
+import { courtSmsHistoryKeys, listCourtSms, type CourtSmsGroup, type CourtSmsListItem } from '../../../api'
 import { cn } from '@/lib/utils'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { SMS_STATUS_LABEL } from './stages'
@@ -82,7 +82,7 @@ export function CourtSmsHistoryDialog({
   const [page, setPage] = useState(1)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['court-sms-history', group, page],
+    queryKey: courtSmsHistoryKeys.page(group, page),
     queryFn: () => listCourtSms(group, page),
     enabled: open,
     staleTime: 10_000,

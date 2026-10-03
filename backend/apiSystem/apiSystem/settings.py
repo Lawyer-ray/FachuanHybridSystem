@@ -457,7 +457,8 @@ CORS_ALLOW_HEADERS = [
 ]
 
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+# 环境变量可覆盖（与 STATIC_ROOT 同款惯例），默认 backend/apiSystem/media
+MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT") or (BASE_DIR / "media"))
 
 # 受保护媒体服务（默认关闭，行为零变化）
 # 开启后：非 DEBUG 环境的 /media/ 不再无路由（404），改由

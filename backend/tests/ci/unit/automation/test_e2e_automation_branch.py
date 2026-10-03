@@ -323,7 +323,7 @@ class TestCreateTokenAcquisitionHistoryRealDB:
         history = adapter.create_token_acquisition_history_internal(data)
 
         history.refresh_from_db()
-        assert history.token_preview is None
+        assert history.token_preview == ""
         assert history.token_fingerprint
         assert history.token_redacted
 

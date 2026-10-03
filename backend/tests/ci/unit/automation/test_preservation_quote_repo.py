@@ -241,7 +241,7 @@ class TestResetForRetry:
             repo = PreservationQuoteRepository()
             await repo.reset_for_retry(quote=quote)
             assert quote.status == "pending"  # QuoteStatus.PENDING
-            assert quote.error_message is None
+            assert quote.error_message == ""
             assert quote.started_at is None
             assert quote.finished_at is None
 

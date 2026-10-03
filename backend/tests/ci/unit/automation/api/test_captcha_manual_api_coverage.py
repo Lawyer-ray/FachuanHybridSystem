@@ -91,7 +91,7 @@ class TestGetCaptchaImage:
 class TestSubmitCaptchaAnswer:
     @pytest.mark.asyncio
     async def test_task_not_found(self) -> None:
-        from apps.automation.api.captcha_manual_api import submit_captcha_answer, CaptchaAnswerIn
+        from apps.automation.api.captcha_manual_api import CaptchaAnswerIn, submit_captcha_answer
         request = MagicMock()
         mock_manager = MagicMock()
         with patch("apps.automation.models.ScraperTask") as MockTask:
@@ -104,7 +104,7 @@ class TestSubmitCaptchaAnswer:
 
     @pytest.mark.asyncio
     async def test_wrong_status(self) -> None:
-        from apps.automation.api.captcha_manual_api import submit_captcha_answer, CaptchaAnswerIn
+        from apps.automation.api.captcha_manual_api import CaptchaAnswerIn, submit_captcha_answer
         from apps.automation.models import ScraperTaskStatus
         request = MagicMock()
         task = SimpleNamespace(status=ScraperTaskStatus.RUNNING)
@@ -118,7 +118,7 @@ class TestSubmitCaptchaAnswer:
 
     @pytest.mark.asyncio
     async def test_empty_answer(self) -> None:
-        from apps.automation.api.captcha_manual_api import submit_captcha_answer, CaptchaAnswerIn
+        from apps.automation.api.captcha_manual_api import CaptchaAnswerIn, submit_captcha_answer
         from apps.automation.models import ScraperTaskStatus
         request = MagicMock()
         task = SimpleNamespace(status=ScraperTaskStatus.WAITING_FOR_CAPTCHA)
@@ -132,7 +132,7 @@ class TestSubmitCaptchaAnswer:
 
     @pytest.mark.asyncio
     async def test_success(self) -> None:
-        from apps.automation.api.captcha_manual_api import submit_captcha_answer, CaptchaAnswerIn
+        from apps.automation.api.captcha_manual_api import CaptchaAnswerIn, submit_captcha_answer
         from apps.automation.models import ScraperTaskStatus
         request = MagicMock()
         task = MagicMock()
@@ -148,5 +148,5 @@ class TestSubmitCaptchaAnswer:
             assert result.success is True
             assert task.captcha_answer == "XYZ"
             assert task.status == ScraperTaskStatus.RUNNING
-            assert task.error_message is None
+            assert task.error_message == ""
             task.asave.assert_called_once()

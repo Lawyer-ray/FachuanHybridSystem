@@ -428,7 +428,7 @@ jobs:
             --cov=apps.client.services.text_parser \
             --cov=apps.enterprise_data.services.clients.api_key_pool \
             --cov=apps \
-            --cov-report=term-missing --cov-fail-under=25 \
+            --cov-report=term-missing --cov-fail-under=75 \
             tests/ci/unit/
 
   backend-integration-smoke:

@@ -51,7 +51,7 @@ class SolutionTaskService:
         task = section.task
         renderer = HtmlRenderer()
         task.html_content = renderer.render(task)
-        task.pdf_file = None
+        task.pdf_file = ""
         task.save(update_fields=["html_content", "pdf_file", "updated_at"])
 
     def _dispatch(self, task: SolutionTask) -> None:  # pragma: no cover

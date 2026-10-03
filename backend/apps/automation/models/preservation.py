@@ -56,7 +56,7 @@ class PreservationQuote(LifecycleModel):
     total_companies = models.IntegerField(default=0, verbose_name="保险公司总数")
     success_count = models.IntegerField(default=0, verbose_name="成功查询数")
     failed_count = models.IntegerField(default=0, verbose_name="失败查询数")
-    error_message = models.TextField(null=True, blank=True, verbose_name="错误信息")
+    error_message = models.TextField(blank=True, default="", verbose_name="错误信息")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     started_at = models.DateTimeField(null=True, blank=True, verbose_name="开始时间")
     finished_at = models.DateTimeField(null=True, blank=True, verbose_name="完成时间")

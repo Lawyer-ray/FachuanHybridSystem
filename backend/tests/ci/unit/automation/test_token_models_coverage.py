@@ -7,10 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.automation.models.token import (
-    CourtToken,
-    TokenAcquisitionHistory,
-)
+from apps.automation.models.token import CourtToken, TokenAcquisitionHistory
 
 
 class TestCourtToken:
@@ -23,8 +20,9 @@ class TestCourtToken:
         assert "test_user" in result
 
     def test_is_expired_true(self):
-        from django.utils import timezone
         import datetime
+
+        from django.utils import timezone
 
         obj = SimpleNamespace(
             expires_at=timezone.now() - datetime.timedelta(hours=1),
@@ -32,8 +30,9 @@ class TestCourtToken:
         assert CourtToken.is_expired(obj) is True
 
     def test_is_expired_false(self):
-        from django.utils import timezone
         import datetime
+
+        from django.utils import timezone
 
         obj = SimpleNamespace(
             expires_at=timezone.now() + datetime.timedelta(hours=1),
@@ -79,7 +78,7 @@ class TestTokenAcquisitionHistory:
             TokenAcquisitionHistory.on_save_scrub_sensitive_fields(obj)
             assert obj.token_fingerprint == "fp"
             assert obj.token_redacted == "masked"
-            assert obj.token_preview is None
+            assert obj.token_preview == ""
 
     def test_on_save_scrub_without_token_preview(self):
         obj = SimpleNamespace(
@@ -131,6 +130,6 @@ class TestTokenAcquisitionHistory:
             TokenAcquisitionHistory.on_save_scrub_sensitive_fields(obj)
             assert obj.token_fingerprint == "fp"
             assert obj.token_redacted == "masked"
-            assert obj.token_preview is None
+            assert obj.token_preview == ""
             assert obj.error_message == "scrubbed_err"
             assert obj.error_details == {"detail": "scrubbed"}

@@ -76,7 +76,9 @@ class SolutionSection(models.Model):
         verbose_name = "方案段落"
         verbose_name_plural = "方案段落"
         ordering: ClassVar = ["order"]
-        unique_together: ClassVar = [("task", "section_type")]
+        constraints: ClassVar = [
+            models.UniqueConstraint(fields=["task", "section_type"], name="uniq_solution_section_task_type"),
+        ]
 
     def __str__(self) -> str:
         return f"{self.task_id} | {self.get_section_type_display()} | v{self.version}"

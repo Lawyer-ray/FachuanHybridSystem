@@ -27,7 +27,7 @@
 #   [16] unit-coverage        → backend-unit-coverage (≥85%)
 #   [17] integration-smoke    → backend-integration-smoke
 #   [18] property-smoke       → backend-property-smoke
-#   [19] apps-coverage        → backend-coverage (≥25%)
+#   [19] apps-coverage        → backend-coverage (≥75%)
 #   [20] tsc                  → frontend (Type check)
 #   [21] eslint               → frontend (Lint)
 #   [22] vite-build           → frontend (Build)
@@ -426,12 +426,12 @@ if [ "$RUN_BACKEND" = true ]; then
     fi
 
     # [19] Apps coverage（对齐 backend-coverage job）
-    header "19/22" "全局覆盖率基线 (≥25%)"
+    header "19/22" "全局覆盖率基线 (≥75%)"
     if $BACKEND_PYTEST -c pytest.ini \
       -o addopts="--import-mode=importlib -q --tb=short --strict-markers --timeout=60" \
       --reuse-db \
       --cov=apps \
-      --cov-report=term-missing --cov-fail-under=25 \
+      --cov-report=term-missing --cov-fail-under=75 \
       tests/ci/unit/ 2>&1; then
       pass "apps-coverage"
     else

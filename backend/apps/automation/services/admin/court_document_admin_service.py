@@ -287,7 +287,7 @@ class CourtDocumentAdminService:
 
             # 重置状态为待下载
             retried_count = failed_documents.update(
-                download_status=DocumentDownloadStatus.PENDING, error_message=None, updated_at=timezone.now()
+                download_status=DocumentDownloadStatus.PENDING, error_message="", updated_at=timezone.now()
             )
 
             result = {"retried_count": retried_count, "message": f"已重置 {retried_count} 个失败的下载任务"}

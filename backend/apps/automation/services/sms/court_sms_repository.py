@@ -27,7 +27,7 @@ class CourtSMSRepository:
         sms.save(update_fields=["error_message", "updated_at"])
 
     def clear_error(self, *, sms: CourtSMS) -> None:
-        sms.error_message = None
+        sms.error_message = ""
         sms.save(update_fields=["error_message", "updated_at"])
 
     def reset_retry_fields(self, *, sms: CourtSMS) -> None:
@@ -38,5 +38,5 @@ class CourtSMSRepository:
 
     def set_status(self, *, sms: CourtSMS, status: str, error_message: str | None = None) -> None:
         sms.status = status
-        sms.error_message = error_message
+        sms.error_message = error_message or ""
         sms.save(update_fields=["status", "error_message", "updated_at"])

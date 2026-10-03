@@ -53,7 +53,7 @@ class CourtDocument(models.Model):
     )
     local_file_path = models.CharField(max_length=1024, blank=True, default="", verbose_name="本地文件路径")
     file_size = models.BigIntegerField(null=True, blank=True, verbose_name="文件大小(字节)")
-    error_message = models.TextField(null=True, blank=True, verbose_name="错误信息")
+    error_message = models.TextField(blank=True, default="", verbose_name="错误信息")
 
     # 时间戳
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="记录创建时间")
@@ -73,7 +73,10 @@ class CourtDocument(models.Model):
             models.Index(fields=["download_status"]),
             models.Index(fields=["created_at"]),
         ]
-        unique_together: ClassVar = [["c_wsbh", "c_sdbh"]]  # 文书编号+送达编号唯一
+        # 文书编号+送达编号唯一
+        constraints: ClassVar = [
+            models.UniqueConstraint(fields=["c_wsbh", "c_sdbh"], name="uniq_courtdocument_c_wsbh_c_sdbh"),
+        ]
 
     def __str__(self) -> str:
         return f"{self.c_wsmc} - {self.get_download_status_display()}"

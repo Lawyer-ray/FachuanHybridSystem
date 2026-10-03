@@ -91,7 +91,7 @@ class DocumentTemplateWorkflow:
                 template.file_path = ""
             if file_path is not None:
                 template.file_path = normalized_file_path or ""
-                template.file = None
+                template.file = ""
             template.save()
             self._clear_template_cache()
         return template
@@ -114,7 +114,9 @@ class DocumentTemplateWorkflow:
             is_active=data.get("is_active", True),
         )
 
-    def update_from_dict(self, template: DocumentTemplate, data: dict[str, Any]) -> DocumentTemplate:  # pragma: no cover
+    def update_from_dict(
+        self, template: DocumentTemplate, data: dict[str, Any]
+    ) -> DocumentTemplate:  # pragma: no cover
         file_path = data.get("file_path")
         if file_path is not None:
             if file_path and (not self.validator.validate_file_path(file_path)):

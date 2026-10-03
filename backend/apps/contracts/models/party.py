@@ -33,7 +33,9 @@ class ContractParty(models.Model):
     role = models.CharField(max_length=16, choices=PartyRole.choices, default=PartyRole.PRINCIPAL, verbose_name="身份")
 
     class Meta:
-        unique_together = ("contract", "client")
+        constraints: ClassVar = [
+            models.UniqueConstraint(fields=["contract", "client"], name="uniq_contract_party_contract_client"),
+        ]
         verbose_name = "合同当事人"
         verbose_name_plural = "合同当事人"
 
@@ -80,7 +82,9 @@ class ContractAssignment(models.Model):
     class Meta:
         verbose_name = "合同指派"
         verbose_name_plural = "合同指派"
-        unique_together = ("contract", "lawyer")
+        constraints: ClassVar = [
+            models.UniqueConstraint(fields=["contract", "lawyer"], name="uniq_contract_assignment_contract_lawyer"),
+        ]
         ordering: ClassVar = ["-is_primary", "order"]
 
     def __str__(self) -> str:

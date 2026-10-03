@@ -68,7 +68,7 @@ class TestCourtSMSRepository:
         """清除错误信息。"""
         sms = MagicMock()
         self.repo.clear_error(sms=sms)
-        assert sms.error_message is None
+        assert sms.error_message == ""
         sms.save.assert_called_once()
 
     def test_set_status(self) -> None:

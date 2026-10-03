@@ -123,12 +123,12 @@ ci-check-full: ## 完整 CI 镜像 + 远端独立 Job（coverage 门槛 + 全量
 		--cov=apps.enterprise_data.services.clients.api_key_pool \
 		--cov-report=term-missing --cov-fail-under=85 \
 		tests/ci/unit/
-	@echo "📊 [E6] 全局覆盖率基线 (≥25%)..."
+	@echo "📊 [E6] 全局覆盖率基线 (≥75%)..."
 	$(TEST_ENV) $(PYTEST) -c pytest.ini \
 		-o addopts="--import-mode=importlib -q --tb=short --strict-markers --timeout=60" \
 		--reuse-db \
 		--cov=apps \
-		--cov-report=term-missing --cov-fail-under=25 \
+		--cov-report=term-missing --cov-fail-under=75 \
 		tests/ci/unit/
 	@echo ""
 	@echo "$(GREEN)✅ 完整 CI 镜像 + 扩展检查全部通过!$(NC)"

@@ -25,7 +25,7 @@ export { inboxApi, listInbox, formatRelative } from './inbox'
 export type { InboxMessageOut } from './inbox'
 
 export { automationApi, docConvertApi, docConverterApi } from './tools'
-export { submitCourtSms, listConvertTemplates, convertDocument, createConverterJob, getConverterJob, converterDownloadUrl, converterItemDownloadUrl, copyConverterItemsToClipboard, listConverterJobs, listConvertRecords, convertRecordDownloadUrl, deleteConvertRecord, DOC_CONVERT_TIMEOUT_MS, CONVERT_TEMPLATES_KEY } from './tools'
+export { submitCourtSms, listConvertTemplates, convertDocument, createConverterJob, getConverterJob, converterDownloadUrl, converterItemDownloadUrl, copyConverterItemsToClipboard, listConverterJobs, listConvertRecords, convertRecordDownloadUrl, deleteConvertRecord, DOC_CONVERT_TIMEOUT_MS, CONVERT_TEMPLATES_KEY, converterHistoryKeys, convertHistoryKeys, parseHistoryKeys, courtSmsHistoryKeys } from './tools'
 export { HOME_INBOX_KEY } from './inbox'
 export type { ConvertTemplateGroup, ConvertResult, ConverterJob, ConverterItem, ConverterJobItem, ConvertRecordItem } from './tools'
 

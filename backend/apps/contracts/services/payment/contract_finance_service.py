@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 from typing import Any
 
 from django.db.models import Sum
@@ -71,19 +72,18 @@ class ContractFinanceService:
         if end_date:
             qs = qs.filter(received_at__lte=end_date)
 
-        # 按合同汇总
-        totals = {}
+        # 按合同汇总（金额全程 Decimal，出口统一转 float，避免浮点累加漂移）
+        totals: dict[int, dict[str, Decimal]] = {}
         for p in qs.values("contract_id").annotate(total_received=Sum("amount"), total_invoiced=Sum("invoiced_amount")):
-            c_id = p["contract_id"]
-            totals[c_id] = {
-                "total_received": float(p["total_received"] or 0),
-                "total_invoiced": float(p["total_invoiced"] or 0),
+            totals[p["contract_id"]] = {
+                "total_received": p["total_received"] or Decimal("0"),
+                "total_invoiced": p["total_invoiced"] or Decimal("0"),
             }
 
         # 获取合同固定金额
         contract_ids = list(totals.keys())
         contracts = Contract.objects.filter(id__in=contract_ids) if contract_ids else Contract.objects.none()
-        fixed_map = {c.id: float(c.fixed_amount) if c.fixed_amount is not None else None for c in contracts}
+        fixed_map = {c.id: c.fixed_amount for c in contracts}
 
         # 构建统计明细
         items: list[Any] = []
@@ -97,15 +97,15 @@ class ContractFinanceService:
             items.append(
                 {
                     "contract_id": cid,
-                    "total_received": t["total_received"],
-                    "total_invoiced": t["total_invoiced"],
+                    "total_received": float(t["total_received"]),
+                    "total_invoiced": float(t["total_invoiced"]),
                     "unpaid_amount": unpaid,
                 }
             )
 
-        # 计算总计
-        all_received = sum(i["total_received"] for i in items)
-        all_invoiced = sum(i["total_invoiced"] for i in items)
+        # 计算总计（Decimal 求和后单次转换）
+        all_received = float(sum((t["total_received"] for t in totals.values()), Decimal("0")))
+        all_invoiced = float(sum((t["total_invoiced"] for t in totals.values()), Decimal("0")))
 
         return {
             "items": items,

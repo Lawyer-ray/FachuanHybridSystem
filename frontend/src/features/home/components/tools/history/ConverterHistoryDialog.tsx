@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 
 import {
+  converterHistoryKeys,
   converterDownloadUrl,
   converterItemDownloadUrl,
   getConverterJob,
@@ -40,7 +41,7 @@ export function ConverterHistoryDialog({ open, onOpenChange }: { open: boolean; 
   const [pickedId, setPickedId] = useState<string | null>(null)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['doc-converter-history', page],
+    queryKey: converterHistoryKeys.page(page),
     queryFn: () => listConverterJobs(page),
     enabled: open,
     staleTime: 10_000,
@@ -49,7 +50,7 @@ export function ConverterHistoryDialog({ open, onOpenChange }: { open: boolean; 
   })
 
   const { data: job, isLoading: jobLoading } = useQuery({
-    queryKey: ['doc-converter-job', pickedId],
+    queryKey: converterHistoryKeys.job(pickedId),
     queryFn: () => getConverterJob(pickedId!),
     enabled: pickedId !== null && open,
     staleTime: 60_000,

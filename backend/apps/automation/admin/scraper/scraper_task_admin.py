@@ -225,6 +225,6 @@ class ScraperTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     @admin.action(description="重置失败任务状态")
     def reset_failed_tasks(self, request: Any, queryset: Any) -> None:  # pragma: no cover
         """重置失败任务，允许重新执行"""
-        count = queryset.filter(status="failed").update(status="pending", retry_count=0, error_message=None)
+        count = queryset.filter(status="failed").update(status="pending", retry_count=0, error_message="")
         logger.info("已重置 %d 个失败任务", count)
         self.message_user(request, f"已重置 {count} 个失败任务")

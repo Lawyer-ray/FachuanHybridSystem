@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from django.db import models
 
 
@@ -39,7 +41,11 @@ class ArchivePlaceholderOverride(models.Model):
     class Meta:
         verbose_name = "归档占位符覆盖"
         verbose_name_plural = "归档占位符覆盖"
-        unique_together = [("contract", "template_subtype")]
+        constraints: ClassVar = [
+            models.UniqueConstraint(
+                fields=["contract", "template_subtype"], name="uniq_archive_override_contract_subtype"
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"Contract#{self.contract_id} {self.template_subtype}: {len(self.overrides)} overrides"

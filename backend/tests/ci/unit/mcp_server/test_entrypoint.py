@@ -20,6 +20,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 BACKEND_DIR = Path(__file__).resolve().parents[4]
 
 _PROBE = (
@@ -54,6 +56,12 @@ def _run_probe() -> subprocess.CompletedProcess[str]:
     )
 
 
+# 本地连得上 PG 时，连接池对不存在的探针库会退避重试（实测 ~33s），
+# 全局 --timeout=30 会卡线误杀；与 _run_probe 的 subprocess timeout=120 对齐。
+_TIMEOUT = pytest.mark.timeout(120)
+
+
+@_TIMEOUT
 def test_entrypoint_bootstraps_django_and_keeps_stdout_clean() -> None:
     result = _run_probe()
 
@@ -66,6 +74,7 @@ def test_entrypoint_bootstraps_django_and_keeps_stdout_clean() -> None:
     assert int(lines[0].split()[1]) > 0, "MCP 未注册任何工具"
 
 
+@_TIMEOUT
 def test_bootstrap_logs_go_to_stderr() -> None:
     """Django 启动日志应落在 stderr，而不是 JSON-RPC 通道所在的 stdout。"""
     result = _run_probe()

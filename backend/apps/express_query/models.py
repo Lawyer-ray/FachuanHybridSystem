@@ -52,7 +52,10 @@ class ExpressQueryTask(models.Model):
     id: int
     title = models.CharField(max_length=255, blank=True, default="", verbose_name="任务名称")
     waybill_image = models.FileField(
-        upload_to=DatedUUIDPath(MediaEntity.EXPRESS_QUERY_WAYBILLS), blank=True, null=True, verbose_name="邮单页面"
+        upload_to=DatedUUIDPath(MediaEntity.EXPRESS_QUERY_WAYBILLS),
+        blank=True,
+        default="",
+        verbose_name="邮单页面",
     )
     status = models.CharField(
         max_length=32,
@@ -70,7 +73,10 @@ class ExpressQueryTask(models.Model):
     ocr_text = models.TextField(blank=True, default="", verbose_name="OCR文本")
     query_url = models.URLField(blank=True, default="", verbose_name="查询页面URL")
     result_pdf = models.FileField(
-        upload_to=DatedUUIDPath(MediaEntity.EXPRESS_QUERY_RESULTS), blank=True, null=True, verbose_name="查询结果PDF"
+        upload_to=DatedUUIDPath(MediaEntity.EXPRESS_QUERY_RESULTS),
+        blank=True,
+        default="",
+        verbose_name="查询结果PDF",
     )
     result_payload = models.JSONField(default=dict, blank=True, verbose_name="执行结果")
     queue_task_id = models.CharField(max_length=64, blank=True, default="", verbose_name="队列任务ID")
