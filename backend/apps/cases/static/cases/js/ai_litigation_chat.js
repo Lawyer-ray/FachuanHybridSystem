@@ -52,7 +52,7 @@ function aiLitigationTabApp(config = {}) {
                 }
 
                 const data = await response.json();
-                const list = (data.results || data.sessions || []).map(s => ({
+                const list = (data.items || []).map(s => ({
                     session_id: s.session_id,
                     case_id: s.case_id,
                     document_type: s.document_type || '',

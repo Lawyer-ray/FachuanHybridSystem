@@ -13,25 +13,33 @@ class TestSafePruneEdgeCases:
         from apps.chat_records.signals import _safe_prune_empty_parents
 
         # Relative path should return early
-        _safe_prune_empty_parents("relative/path.mp4")
+        with patch("pathlib.Path.rmdir") as mock_rmdir:
+            assert _safe_prune_empty_parents("relative/path.mp4") is None
+        mock_rmdir.assert_not_called()
 
     def test_returns_when_not_under_media_root(self) -> None:
         from apps.chat_records.signals import _safe_prune_empty_parents
 
-        _safe_prune_empty_parents("/tmp/some/file.mp4")
+        with patch("pathlib.Path.rmdir") as mock_rmdir:
+            assert _safe_prune_empty_parents("/tmp/some/file.mp4") is None
+        mock_rmdir.assert_not_called()
 
     def test_handles_path_resolve_exception(self) -> None:
         from apps.chat_records.signals import _safe_prune_empty_parents
 
         # Path that can't resolve
-        _safe_prune_empty_parents(None)
+        with patch("pathlib.Path.rmdir") as mock_rmdir:
+            assert _safe_prune_empty_parents(None) is None
+        mock_rmdir.assert_not_called()
 
     def test_handles_media_root_resolve_exception(self) -> None:
         from apps.chat_records.signals import _safe_prune_empty_parents
 
         with patch("apps.chat_records.signals.settings") as mock_settings:
             type(mock_settings).MEDIA_ROOT = MagicMock(side_effect=Exception("bad root"))
-            _safe_prune_empty_parents("/some/absolute/path.mp4")
+            with patch("pathlib.Path.rmdir") as mock_rmdir:
+                assert _safe_prune_empty_parents("/some/absolute/path.mp4") is None
+            mock_rmdir.assert_not_called()
 
     def test_prunes_empty_dirs_up_to_stop_at(self, tmp_path: Path) -> None:
         from apps.chat_records.signals import _safe_prune_empty_parents
@@ -48,6 +56,11 @@ class TestSafePruneEdgeCases:
             # After delete, file is gone; prune should walk up from deep/
             (chat_dir / "file.mp4").unlink()
             _safe_prune_empty_parents(file_path)
+
+        # deep/ 与 sub/ 已被剪掉，chat_records/ 停止点保留
+        assert not (media_root / "chat_records" / "sub" / "deep").exists()
+        assert not (media_root / "chat_records" / "sub").exists()
+        assert (media_root / "chat_records").exists()
 
     def test_stops_at_chat_records_dir(self, tmp_path: Path) -> None:
         from apps.chat_records.signals import _safe_prune_empty_parents
@@ -101,8 +114,9 @@ class TestDeleteFieldFileByNameEdgeCases:
 
         with patch("django.core.files.storage.default_storage") as mock_storage:
             mock_storage.exists.side_effect = Exception("storage error")
-            # Should not raise
-            _delete_field_file_by_name("test.mp4")
+            # Should not raise: 异常被吞掉，delete 不应被调用
+            assert _delete_field_file_by_name("test.mp4") is None
+        mock_storage.delete.assert_not_called()
 
     def test_storage_has_no_path_method(self) -> None:
         from apps.chat_records.signals import _delete_field_file_by_name

@@ -17,7 +17,7 @@ class TestWorkbenchSessionService:
 
         svc = WorkbenchSessionService()
         result = svc.list_sessions(user=None)
-        assert result == {"items": [], "count": 0}
+        assert result == {"items": [], "total": 0, "page": 1, "page_size": 20, "total_pages": 1}
 
     def test_list_sessions_anonymous_user(self) -> None:
         from apps.workbench.services.session_service import WorkbenchSessionService
@@ -26,7 +26,7 @@ class TestWorkbenchSessionService:
         mock_user = MagicMock()
         mock_user.is_authenticated = False
         result = svc.list_sessions(user=mock_user)
-        assert result == {"items": [], "count": 0}
+        assert result == {"items": [], "total": 0, "page": 1, "page_size": 20, "total_pages": 1}
 
     def test_invalidate_session_cache_no_user(self) -> None:
         from apps.workbench.services.session_service import WorkbenchSessionService
@@ -75,8 +75,8 @@ class TestWorkbenchMessageService:
     """WorkbenchMessageService 测试"""
 
     def test_submit_feedback_invalid_rating(self) -> None:
-        from apps.workbench.services.message_service import WorkbenchMessageService
         from apps.core.exceptions import ValidationException
+        from apps.workbench.services.message_service import WorkbenchMessageService
 
         svc = WorkbenchMessageService(session_service=MagicMock())
         with pytest.raises(ValidationException, match="rating"):

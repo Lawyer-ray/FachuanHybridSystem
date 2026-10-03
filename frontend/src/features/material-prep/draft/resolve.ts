@@ -8,6 +8,7 @@ import type {
   PageKey,
   Segment,
 } from '../types'
+import { nextSegId } from './seg-id'
 
 /**
  * 附件 → 源素材解析（本目录唯一含副作用模块：PDF 需载入文档取页数）。
@@ -58,7 +59,7 @@ export function initialSegments(mats: BundleMat[]): Segment[] {
   return mats.map((m, mi) => {
     const refs: PageKey[] = []
     for (let p = 1; p <= m.pages; p++) refs.push({ mi, p })
-    return { t: '', fn: m.n, refs, manual: false }
+    return { id: nextSegId(), t: '', fn: m.n, refs, manual: false }
   })
 }
 

@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import logging
 import re
+import tempfile
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
@@ -82,8 +84,9 @@ class LPRSyncService:
             result = self._parse_lpr_table_from_page(page)
 
             if not result:
-                logger.warning("[LPRSync] No data found, taking screenshot for debug")
-                page.screenshot(path="/tmp/lpr_sync_debug.png")
+                debug_screenshot = Path(tempfile.gettempdir()) / "lpr_sync_debug.png"
+                page.screenshot(path=str(debug_screenshot))
+                logger.warning("[LPRSync] No data found, debug screenshot saved to %s", debug_screenshot)
 
             return result
 

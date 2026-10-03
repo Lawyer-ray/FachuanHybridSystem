@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from django.apps import apps as django_apps
+
+from apps.core.infrastructure.async_context import allow_async_unsafe
 
 from .oa_firm_registry import create_adapter
 
@@ -190,16 +191,17 @@ class ScriptExecutorService:
     ) -> None:
         from apps.oa_filing.models import FilingSession, SessionStatus
 
-        os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
-        try:
-            asyncio.run(self._dispatch_filing(site_name, credential, contract_id, case_id))
-            FilingSession.objects.filter(pk=session_id).update(status=SessionStatus.COMPLETED)
-            logger.info("立案完成: session=%d", session_id)
-        except Exception as exc:
-            FilingSession.objects.filter(pk=session_id).update(
-                status=SessionStatus.FAILED, error_message=_friendly_error_message(exc)
-            )
-            logger.error("立案失败: session=%d, error=%s", session_id, exc)
+        # 事件循环线程内执行 asyncio.run + sync ORM：仅执行期间放行 async-unsafe，退出恢复。
+        with allow_async_unsafe():
+            try:
+                asyncio.run(self._dispatch_filing(site_name, credential, contract_id, case_id))
+                FilingSession.objects.filter(pk=session_id).update(status=SessionStatus.COMPLETED)
+                logger.info("立案完成: session=%d", session_id)
+            except Exception as exc:
+                FilingSession.objects.filter(pk=session_id).update(
+                    status=SessionStatus.FAILED, error_message=_friendly_error_message(exc)
+                )
+                logger.error("立案失败: session=%d, error=%s", session_id, exc)
 
     async def _dispatch_filing(self, site_name: str, credential: Any, contract_id: int, case_id: int | None) -> None:
         adapter = create_adapter(site_name, str(credential.account), str(credential.password))
@@ -241,16 +243,17 @@ class ScriptExecutorService:
     def _run_stamp_in_thread(self, session_id: int, site_name: str) -> None:
         from apps.oa_filing.models import StampSession, StampSessionStatus
 
-        os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
-        try:
-            asyncio.run(self._dispatch_stamp(session_id, site_name))
-            StampSession.objects.filter(pk=session_id).update(status=StampSessionStatus.COMPLETED)
-            logger.info("盖章完成: session=%d", session_id)
-        except Exception as exc:
-            StampSession.objects.filter(pk=session_id).update(
-                status=StampSessionStatus.FAILED, error_message=_friendly_error_message(exc)
-            )
-            logger.error("盖章失败: session=%d, error=%s", session_id, exc)
+        # 事件循环线程内执行 asyncio.run + sync ORM：仅执行期间放行 async-unsafe，退出恢复。
+        with allow_async_unsafe():
+            try:
+                asyncio.run(self._dispatch_stamp(session_id, site_name))
+                StampSession.objects.filter(pk=session_id).update(status=StampSessionStatus.COMPLETED)
+                logger.info("盖章完成: session=%d", session_id)
+            except Exception as exc:
+                StampSession.objects.filter(pk=session_id).update(
+                    status=StampSessionStatus.FAILED, error_message=_friendly_error_message(exc)
+                )
+                logger.error("盖章失败: session=%d, error=%s", session_id, exc)
 
     async def _dispatch_stamp(self, session_id: int, site_name: str) -> None:
         from apps.oa_filing.models import StampSession
@@ -295,16 +298,17 @@ class ScriptExecutorService:
     def _run_archive_in_thread(self, session_id: int, site_name: str) -> None:
         from apps.oa_filing.models import ArchiveSession, ArchiveSessionStatus
 
-        os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
-        try:
-            asyncio.run(self._dispatch_archive(session_id, site_name))
-            ArchiveSession.objects.filter(pk=session_id).update(status=ArchiveSessionStatus.COMPLETED)
-            logger.info("归档完成: session=%d", session_id)
-        except Exception as exc:
-            ArchiveSession.objects.filter(pk=session_id).update(
-                status=ArchiveSessionStatus.FAILED, error_message=_friendly_error_message(exc)
-            )
-            logger.error("归档失败: session=%d, error=%s", session_id, exc)
+        # 事件循环线程内执行 asyncio.run + sync ORM：仅执行期间放行 async-unsafe，退出恢复。
+        with allow_async_unsafe():
+            try:
+                asyncio.run(self._dispatch_archive(session_id, site_name))
+                ArchiveSession.objects.filter(pk=session_id).update(status=ArchiveSessionStatus.COMPLETED)
+                logger.info("归档完成: session=%d", session_id)
+            except Exception as exc:
+                ArchiveSession.objects.filter(pk=session_id).update(
+                    status=ArchiveSessionStatus.FAILED, error_message=_friendly_error_message(exc)
+                )
+                logger.error("归档失败: session=%d, error=%s", session_id, exc)
 
     async def _dispatch_archive(self, session_id: int, site_name: str) -> None:
         from apps.oa_filing.models import ArchiveSession
@@ -327,8 +331,6 @@ class ScriptExecutorService:
         """
 
         def _run() -> None:
-            os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
-
             async def _main() -> None:
                 try:
                     adapter = create_adapter(site_name, str(credential.account), str(credential.password))
@@ -339,7 +341,9 @@ class ScriptExecutorService:
                 await adapter.wait_open_browsers_closed()
                 logger.info("OA 半自动浏览器已关闭，资源已回收: %s", method_name)
 
-            asyncio.run(_main())
+            # 事件循环线程内可能执行 sync ORM：仅执行期间放行 async-unsafe，退出恢复。
+            with allow_async_unsafe():
+                asyncio.run(_main())
 
         threading.Thread(target=_run, daemon=True, name=f"oa-open-{method_name}").start()
 

@@ -696,41 +696,38 @@ class TestCheckTaskAccess:
 
 
 class TestFormatApiCheckTaskAccess:
-    """format_api._check_task_access 测试"""
+    """FormatTaskService.check_task_access 测试（原 format_api._check_task_access 下沉）"""
+
+    def _service(self):
+        from apps.contract_review.services.format_service import FormatTaskService
+
+        return FormatTaskService()
 
     def test_none_user(self):
-        from apps.contract_review.api.format_api import _check_task_access
-
         task = MagicMock()
-        assert _check_task_access(task, None) is False
+        assert self._service().check_task_access(task, None) is False
 
     def test_superuser(self):
-        from apps.contract_review.api.format_api import _check_task_access
-
         task = MagicMock()
         user = MagicMock()
         user.is_superuser = True
-        assert _check_task_access(task, user) is True
+        assert self._service().check_task_access(task, user) is True
 
     def test_same_user(self):
-        from apps.contract_review.api.format_api import _check_task_access
-
         user = MagicMock()
         user.is_superuser = False
         user.id = 1
         task = MagicMock()
         task.user_id = 1
-        assert _check_task_access(task, user) is True
+        assert self._service().check_task_access(task, user) is True
 
     def test_different_user(self):
-        from apps.contract_review.api.format_api import _check_task_access
-
         user = MagicMock()
         user.is_superuser = False
         user.id = 2
         task = MagicMock()
         task.user_id = 1
-        assert _check_task_access(task, user) is False
+        assert self._service().check_task_access(task, user) is False
 
 
 # ==================== Review API endpoints ====================
@@ -867,32 +864,30 @@ class TestReviewApiGetModels:
 
 
 class TestFormatApiNormalize:
-    """normalize_format API 测试"""
+    """normalize_format API 测试（任务获取/权限已下沉 FormatTaskService）"""
 
-    @patch("apps.contract_review.api.format_api.ReviewTask")
+    @patch("apps.contract_review.services.format_service.ReviewTask")
     @pytest.mark.asyncio
     async def test_task_not_found(self, mock_model):
-        from django.http import Http404
-
         from apps.contract_review.api.format_api import normalize_format
         from apps.contract_review.schemas.format_schemas import FormatNormalizeIn
+        from apps.core.exceptions import NotFoundError
 
         mock_model.DoesNotExist = type("DoesNotExist", (Exception,), {})
         mock_model.objects.get.side_effect = mock_model.DoesNotExist
 
         request = MagicMock()
         payload = FormatNormalizeIn(task_id=uuid.uuid4())
-        # 任务不存在走 Http404（与同文件 download_normalized 对齐），不再 200+failed
-        with pytest.raises(Http404):
+        # 任务不存在走 NotFoundError→404（与同文件 download_normalized 对齐），不再 200+failed
+        with pytest.raises(NotFoundError):
             await normalize_format(request, payload)
 
-    @patch("apps.contract_review.api.format_api.ReviewTask")
+    @patch("apps.contract_review.services.format_service.ReviewTask")
     @pytest.mark.asyncio
     async def test_no_permission(self, mock_model):
-        from django.http import Http404
-
         from apps.contract_review.api.format_api import normalize_format
         from apps.contract_review.schemas.format_schemas import FormatNormalizeIn
+        from apps.core.exceptions import NotFoundError
 
         mock_task = MagicMock()
         mock_task.user_id = 1
@@ -904,11 +899,11 @@ class TestFormatApiNormalize:
         request.user.id = 2
 
         payload = FormatNormalizeIn(task_id=uuid.uuid4())
-        # 无权操作走 Http404（与同文件 download_normalized 对齐），不再 200+failed
-        with pytest.raises(Http404):
+        # 无权操作走 NotFoundError→404（与同文件 download_normalized 对齐），不再 200+failed
+        with pytest.raises(NotFoundError):
             await normalize_format(request, payload)
 
-    @patch("apps.contract_review.api.format_api.ReviewTask")
+    @patch("apps.contract_review.services.format_service.ReviewTask")
     @pytest.mark.asyncio
     async def test_no_original_file(self, mock_model):
         from apps.contract_review.api.format_api import normalize_format
@@ -930,9 +925,9 @@ class TestFormatApiNormalize:
 
 
 class TestFormatApiDownloadNormalized:
-    """download_normalized API 测试"""
+    """download_normalized API 测试（任务获取/权限已下沉 FormatTaskService）"""
 
-    @patch("apps.contract_review.api.format_api.ReviewTask")
+    @patch("apps.contract_review.services.format_service.ReviewTask")
     def test_task_not_found(self, mock_model):
         from apps.contract_review.api.format_api import download_normalized
 

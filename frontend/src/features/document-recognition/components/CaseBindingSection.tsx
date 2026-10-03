@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link2, Loader2, Search, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -23,16 +24,32 @@ type Picked = { id: number; name: string; number: string }
  */
 export function CaseBindingSection({ task, onBound }: Props) {
   const [kw, setKw] = useState('')
-  const [results, setResults] = useState<{ id: number; name: string; number: string }[]>([])
   const [picked, setPicked] = useState<Picked | null>(null)
   const [autoPicked, setAutoPicked] = useState(false)
-  const [searching, setSearching] = useState(false)
+  // 失焦收起候选；重新输入即展开（对齐旧实现 onBlur 清空 results 的行为）
+  const [listHidden, setListHidden] = useState(false)
   const [binding, setBinding] = useState(false)
-  const timer = useRef(0)
 
   const caseName = task.binding?.case_name || null
   const isBound = Boolean(task.binding?.success && caseName)
   const reco = useMemo(() => task.recommendations ?? [], [task.recommendations])
+
+  // 搜索：至少 2 字符才查（与旧防抖版一致）；上一请求由 signal 自动中止，无响应竞态
+  const kwTrim = kw.trim()
+  const { data: searched = [], isFetching: searching } = useQuery({
+    queryKey: ['doc-recognition-case-search', kwTrim],
+    queryFn: ({ signal }) => searchCasesForBinding(kwTrim, { signal }),
+    enabled: !isBound && kwTrim.length >= 2,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  })
+  const results = useMemo(
+    () =>
+      listHidden
+        ? []
+        : searched.map((c) => ({ id: c.id, name: c.name, number: c.case_numbers?.[0] ?? `案件 ${c.id}` })),
+    [listHidden, searched],
+  )
 
   // 推荐唯一高分时自动预选（仅一次；用户手动改动后不再覆盖）
   const autoPick = useMemo(() => pickAutoRecommendation(reco), [reco])
@@ -47,29 +64,6 @@ export function CaseBindingSection({ task, onBound }: Props) {
     })
     setAutoPicked(true)
   }, [autoPick])
-
-  // 搜索防抖（300ms，至少 2 字符）
-  useEffect(() => {
-    if (isBound || kw.trim().length < 2) {
-      setResults([])
-      return
-    }
-    window.clearTimeout(timer.current)
-    timer.current = window.setTimeout(async () => {
-      setSearching(true)
-      try {
-        const items = await searchCasesForBinding(kw.trim())
-        setResults(
-          items.map((c) => ({ id: c.id, name: c.name, number: c.case_numbers?.[0] ?? `案件 ${c.id}` })),
-        )
-      } catch {
-        setResults([])
-      } finally {
-        setSearching(false)
-      }
-    }, 300)
-    return () => window.clearTimeout(timer.current)
-  }, [kw, isBound])
 
   const doBind = async () => {
     if (!picked || binding) return
@@ -148,7 +142,7 @@ export function CaseBindingSection({ task, onBound }: Props) {
       <div
         className="relative min-w-0"
         onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setResults([])
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setListHidden(true)
         }}
       >
         <div className="flex items-center gap-1.5">
@@ -161,6 +155,7 @@ export function CaseBindingSection({ task, onBound }: Props) {
               onChange={(e) => {
                 setPicked(null)
                 setAutoPicked(false)
+                setListHidden(false)
                 setKw(e.target.value)
               }}
             />
@@ -189,7 +184,6 @@ export function CaseBindingSection({ task, onBound }: Props) {
                 onClick={() => {
                   setAutoPicked(false)
                   setPicked(c)
-                  setResults([])
                 }}
                 className="min-w-0 border-b border-border px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-secondary/60"
               >

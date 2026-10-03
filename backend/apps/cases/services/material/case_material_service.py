@@ -442,22 +442,13 @@ class CaseMaterialService:
         if not ids:
             raise ValidationException(message=_("请选择要删除的文件"), errors={"attachment_ids": ids})
 
-        attachments = list(
-            CaseLogAttachment.objects.filter(id__in=ids, log__case_id=case_id, bound_material__isnull=True)
-        )
+        attachments = CaseLogAttachment.objects.filter(id__in=ids, log__case_id=case_id, bound_material__isnull=True)
+        deleted_ids: list[int] = list(attachments.values_list("id", flat=True))
 
-        deleted_ids: list[int] = []
         with transaction.atomic():
-            for att in attachments:
-                att_id = att.id
-                attachment_file = getattr(att, "file", None)
-                if attachment_file:
-                    try:
-                        attachment_file.delete(save=False)
-                    except Exception:
-                        logger.warning("删除附件物理文件失败: attachment_id=%s", att_id)
-                att.delete()
-                deleted_ids.append(att_id)
+            # 物理文件由 post_delete 信号清理（apps/cases/signals.py），queryset delete
+            # 同样逐对象触发信号，物理文件清理语义与逐条 att.delete() 等价且无重复删除
+            attachments.delete()
 
         deleted_set = set(deleted_ids)
         skipped_ids = sorted(set(ids) - deleted_set)
@@ -527,26 +518,22 @@ class CaseMaterialService:
         if category not in {CaseMaterialCategory.PARTY, CaseMaterialCategory.NON_PARTY}:
             raise ValidationException(message=_("材料大类不合法"), errors={"category": category})
 
-        materials = list(
-            CaseMaterial.objects.select_related("source_attachment").filter(case_id=case_id, category=category)
+        material_rows = list(
+            CaseMaterial.objects.filter(case_id=case_id, category=category).values_list("id", "source_attachment_id")
         )
-        if not materials:
+        if not material_rows:
             return {"category": category, "deleted_count": 0}
 
-        deleted_count = 0
+        material_ids = [mid for mid, _ in material_rows]
+        attachment_ids = [aid for _, aid in material_rows if aid]
+        deleted_count = len(material_rows)
+
         with transaction.atomic():
-            for material in materials:
-                attachment = material.source_attachment
-                material.delete()
-                if attachment:
-                    attachment_file = getattr(attachment, "file", None)
-                    if attachment_file:
-                        try:
-                            attachment_file.delete(save=False)
-                        except Exception:
-                            logger.warning("删除附件物理文件失败: attachment_id=%s", attachment.id)
-                    attachment.delete()
-                deleted_count += 1
+            # 物理文件由 post_delete 信号清理（apps/cases/signals.py），queryset delete
+            # 同样逐对象触发信号，与逐条 material.delete()/attachment.delete() 语义等价
+            CaseMaterial.objects.filter(pk__in=material_ids).delete()
+            if attachment_ids:
+                CaseLogAttachment.objects.filter(pk__in=attachment_ids).delete()
 
         # 清理该分类下的分组排序记录
         CaseMaterialGroupOrder.objects.filter(case_id=case_id, category=category).delete()

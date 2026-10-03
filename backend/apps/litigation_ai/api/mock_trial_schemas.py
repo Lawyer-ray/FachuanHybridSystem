@@ -5,6 +5,8 @@ from typing import Any
 
 from ninja import Schema
 
+from apps.core.api.pagination import PaginatedOut
+
 
 class CreateMockTrialSessionRequest(Schema):
     case_id: int
@@ -24,9 +26,8 @@ class MockTrialSessionDetailResponse(MockTrialSessionResponse):
     messages: list[dict[str, Any]] = []
 
 
-class MockTrialSessionListResponse(Schema):
-    count: int
-    results: list[dict[str, Any]]
+class MockTrialSessionListResponse(PaginatedOut):
+    items: list[dict[str, Any]]
 
 
 class MockTrialReportResponse(Schema):

@@ -4,12 +4,36 @@ Django-Q 后台任务 —— 爬虫与保全询价
 
 import asyncio
 import logging
-from collections.abc import Coroutine
+import os
+from collections.abc import Coroutine, Iterator
 from concurrent.futures import Future
+from contextlib import contextmanager
 from threading import Thread
 from typing import Any
 
+from django.db.models import F
+
 logger = logging.getLogger("apps.automation")
+
+
+@contextmanager
+def _allow_async_unsafe() -> Iterator[None]:
+    """
+    作用域化开启 DJANGO_ALLOW_ASYNC_UNSAFE。
+
+    爬虫任务在 Django-Q worker 的异步上下文里跑同步 ORM，需要临时放开
+    Django 的异步安全检查；进程常驻，全局 setdefault 会让同一 worker 里的
+    其他任务也绕过检查，故进入时置 true、退出时恢复旧值。
+    """
+    previous = os.environ.get("DJANGO_ALLOW_ASYNC_UNSAFE")
+    os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop("DJANGO_ALLOW_ASYNC_UNSAFE", None)
+        else:
+            os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = previous
 
 
 def _run_coroutine_sync[T](coro: Coroutine[Any, Any, T]) -> T:
@@ -71,78 +95,85 @@ def execute_scraper_task(task_id: int, **kwargs: Any) -> None:
     if kwargs:
         logger.debug("忽略额外参数: %s", kwargs)
 
-    import os
-
-    os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "true")
-
     from ..models import ScraperTask, ScraperTaskStatus
 
-    try:
-        task = ScraperTask.objects.get(id=task_id)
-    except ScraperTask.DoesNotExist:
-        logger.error("任务不存在: %s", task_id)
-        return
+    with _allow_async_unsafe():
+        try:
+            task = ScraperTask.objects.get(id=task_id)
+        except ScraperTask.DoesNotExist:
+            logger.error("任务不存在: %s", task_id)
+            return
 
-    if not task.should_execute_now():
-        logger.info("任务 %s 尚未到执行时间，跳过", task_id)
-        return
+        if not task.should_execute_now():
+            logger.info("任务 %s 尚未到执行时间，跳过", task_id)
+            return
 
-    logger.info("开始执行爬虫任务 %s: %s (优先级: %s)", task_id, task.get_task_type_display(), task.priority)
+        logger.info("开始执行爬虫任务 %s: %s (优先级: %s)", task_id, task.get_task_type_display(), task.priority)
 
-    scraper_map = _get_scraper_map()
-    scraper_class = scraper_map.get(task.task_type)
+        scraper_map = _get_scraper_map()
+        scraper_class = scraper_map.get(task.task_type)
 
-    if not scraper_class:
-        error_msg = f"不支持的任务类型: {task.task_type}"
-        logger.error(error_msg)
-        task.status = "failed"
-        task.error_message = error_msg
-        task.save()
-        return
-
-    try:
-        scraper = scraper_class(task)
-        result = scraper.execute()
-        logger.info("任务 %s 执行完成: %s", task_id, result)
-    except Exception as e:
-        logger.error("任务 %s 执行异常: %s", task_id, e, exc_info=True)
-
-        if task.can_retry():
-            task.retry_count += 1
-            task.status = "pending"
+        if not scraper_class:
+            error_msg = f"不支持的任务类型: {task.task_type}"
+            logger.error(error_msg)
+            task.status = "failed"
+            task.error_message = error_msg
             task.save()
+            return
 
-            from datetime import timedelta
+        try:
+            scraper = scraper_class(task)
+            result = scraper.execute()
+            logger.info("任务 %s 执行完成: %s", task_id, result)
+        except Exception as e:
+            logger.error("任务 %s 执行异常: %s", task_id, e, exc_info=True)
 
-            from django.utils import timezone
+            # 并发防御：Django-Q 重投递与恢复服务可能并发处理同一任务，
+            # 读改写 retry_count 会互相覆盖导致计数丢失。先刷新拿最新计数
+            # 再判断 can_retry()，最后用条件原子更新抢占（旧值未变才生效）
+            task.refresh_from_db(fields=["retry_count"])
+            if task.can_retry():
+                updated = ScraperTask.objects.filter(pk=task.pk, retry_count=task.retry_count).update(
+                    retry_count=F("retry_count") + 1,
+                    status=ScraperTaskStatus.PENDING,
+                )
+                if not updated:
+                    # 并发方已抢占本次重试配额，避免重复安排重试计划
+                    logger.warning("任务 %s 重试计数已被并发更新，跳过本次重试安排", task_id)
+                    return
+                task.refresh_from_db(fields=["retry_count", "status"])
 
-            from apps.core.tasking import ScheduleQueryService
+                from datetime import timedelta
 
-            delay_seconds = min(2 ** (task.retry_count - 1) * 60, 3600)
-            next_run_time = timezone.now() + timedelta(seconds=delay_seconds)
+                from django.utils import timezone
 
-            ScheduleQueryService().create_once_schedule(
-                func="apps.automation.tasks.execute_scraper_task",
-                args=str(task.id),
-                name=f"retry_task_{task.id}_{task.retry_count}",
-                next_run=next_run_time,
-            )
+                from apps.core.tasking import ScheduleQueryService
 
-            logger.info(
-                "任务 %s 将在 %s 秒后重试（第 %s/%s 次，指数退避），计划执行时间: %s",
-                task_id,
-                delay_seconds,
-                task.retry_count,
-                task.max_retries,
-                next_run_time,
-            )
-        else:
-            # 重试耗尽必须落终态：否则任务停在 running，只能等 qcluster 重启时
-            # reset_running_tasks 兜底转回 pending 再空转一轮
-            task.status = ScraperTaskStatus.FAILED
-            task.error_message = f"重试 {task.max_retries} 次后仍失败: {e}"
-            task.save()
-            logger.error("任务 %s 重试耗尽（%s/%s），标记为失败", task_id, task.retry_count, task.max_retries)
+                delay_seconds = min(2 ** (task.retry_count - 1) * 60, 3600)
+                next_run_time = timezone.now() + timedelta(seconds=delay_seconds)
+
+                ScheduleQueryService().create_once_schedule(
+                    func="apps.automation.tasks.execute_scraper_task",
+                    args=str(task.id),
+                    name=f"retry_task_{task.id}_{task.retry_count}",
+                    next_run=next_run_time,
+                )
+
+                logger.info(
+                    "任务 %s 将在 %s 秒后重试（第 %s/%s 次，指数退避），计划执行时间: %s",
+                    task_id,
+                    delay_seconds,
+                    task.retry_count,
+                    task.max_retries,
+                    next_run_time,
+                )
+            else:
+                # 重试耗尽必须落终态：否则任务停在 running，只能等 qcluster 重启时
+                # reset_running_tasks 兜底转回 pending 再空转一轮
+                task.status = ScraperTaskStatus.FAILED
+                task.error_message = f"重试 {task.max_retries} 次后仍失败: {e}"
+                task.save()
+                logger.error("任务 %s 重试耗尽（%s/%s），标记为失败", task_id, task.retry_count, task.max_retries)
 
 
 def process_pending_tasks() -> int:
@@ -269,4 +300,7 @@ def execute_preservation_quote_task(quote_id: int) -> dict[str, Any]:
         except Exception as update_error:
             logger.error("更新任务状态失败: %s", update_error)
 
-        raise
+        # 不再向上 raise：django-q2 会按 max_attempts 重跑抛异常的任务，
+        # 保险询价外呼会被重复提交。失败已落库（QuoteStatus.FAILED）并记录
+        # 日志，这里返回失败结果让 Q 视为执行完成即可
+        return {"quote_id": quote_id, "status": "failed", "error": "execution_error", "message": str(e)}

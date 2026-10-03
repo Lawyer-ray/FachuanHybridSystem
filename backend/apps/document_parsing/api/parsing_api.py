@@ -23,6 +23,7 @@ from apps.document_parsing.schemas.parsing_schemas import (
     TaskStatusResponse,
 )
 from apps.document_parsing.services import get_document_parser
+from apps.document_parsing.services.task_dispatch_service import DocumentParsingTaskDispatchService
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,11 @@ router = Router()
 # ---------------------------------------------------------------------------
 # 内部工具
 # ---------------------------------------------------------------------------
+
+
+def _get_task_dispatch_service() -> DocumentParsingTaskDispatchService:
+    """工厂函数：创建异步解析任务调度服务实例"""
+    return DocumentParsingTaskDispatchService()
 
 
 def _needs_async(backend: str) -> bool:
@@ -141,32 +147,20 @@ async def parse_document(
         # _needs_async 内部调用 get_document_parser 会触发 SystemConfig ORM 读取,
         # 在 async 视图中必须通过 sync_to_async 调用,否则触发 SynchronousOnlyOperation
         if await sync_to_async(_needs_async, thread_sensitive=False)(backend):
-            from apps.core.tasking import submit_task
-            from apps.document_parsing.models import DocumentParsingTask
-
             # 与 admin upload_view 同款模式：建 DocumentParsingTask 记录 + 约定的
             # task_name（document_parsing_{id}），document_parsing_hook 才能把
             # 成功/失败状态回写——前端报错文案引导用户去后台「解析任务」查看，
             # 没有这条记录那里就什么都看不到（此前 task_name 用文件名，hook 全部跳过）。
             # created_by 记录归属人（审计 P1 修复），records 列表/详情按其过滤。
-            parsing_task = await sync_to_async(DocumentParsingTask.objects.create, thread_sensitive=False)(
+            task_id = await _get_task_dispatch_service().submit_parse_task(
                 file_name=file_name,
-                file_path=str(file_path),
-                file_size=file.size,
-                status=DocumentParsingTask.Status.PROCESSING,
+                file_path=file_path,
+                file_size=file.size or 0,
+                backend=backend,
+                extract_tables=extract_tables,
+                extract_images=extract_images,
+                return_markdown=return_markdown,
                 created_by=get_request_user(request),
-            )
-            task_id = await sync_to_async(submit_task, thread_sensitive=False)(
-                "apps.document_parsing.tasks.execute_parse_document",
-                str(file_path),
-                Path(file_name).suffix.lstrip("."),
-                backend,
-                extract_tables,
-                extract_images,
-                return_markdown,
-                task_name=f"document_parsing_{parsing_task.id}",
-                hook="apps.document_parsing.tasks.document_parsing_hook",
-                timeout=600,
             )
             logger.info("文档解析任务已提交: task_id=%s, file=%s", task_id, saved_name)
             return ParseDocumentResponse(

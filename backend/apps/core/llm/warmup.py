@@ -24,7 +24,8 @@ def _is_external_outage(exc: BaseException) -> bool:
         return True
     try:
         from redis.exceptions import ConnectionError as RedisConnectionError
-    except Exception:
+    except Exception as exc:
+        logger.warning("redis 异常判定失败: %s", exc)
         return False
     return isinstance(exc, RedisConnectionError)
 

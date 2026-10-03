@@ -63,7 +63,7 @@ async def record_step(
             "step_type": step_type,
             "status": status,
             "output_data": output_data,
-            "error_message": error_message,
+            "error_message": error_message or "",
             "started_at": timezone.now() if status == StepExecution.Status.RUNNING else None,
             "finished_at": timezone.now()
             if status in (StepExecution.Status.SUCCESS, StepExecution.Status.FAILED)
@@ -653,7 +653,9 @@ async def generic_code_exec(code: str, context: dict | None = None) -> dict:
 
     def _exec_in_thread() -> dict:
         """在隔离线程中执行编译后的代码"""
-        exec(compiled, restricted_globals)  # noqa: S102
+        # 沙箱化表达式执行器：前置 _validate_ast 白名单校验 +
+        # 受限 builtins + 30s 超时，与上方 noqa: S102 的设计豁免一致
+        exec(compiled, restricted_globals)  # noqa: S102  # nosec B102
         return {k: v for k, v in restricted_globals.items() if not k.startswith("_") and k not in ("json", "context")}
 
     import asyncio

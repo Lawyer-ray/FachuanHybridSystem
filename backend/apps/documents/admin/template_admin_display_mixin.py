@@ -8,10 +8,7 @@ from typing import Any
 from django.contrib import admin
 from django.utils.html import format_html
 
-from apps.documents.models import (
-    DocumentCaseStage,
-    DocumentTemplate,
-)
+from apps.documents.models import DocumentCaseStage, DocumentTemplate
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +75,8 @@ class TemplateAdminDisplayMixin:
         """渲染替换词预览容器（由前端 JS 动态填充）"""
         from django.utils.safestring import mark_safe
 
-        return mark_safe(
+        # 纯静态占位 HTML，内容由前端 JS 填充，无动态数据
+        return mark_safe(  # nosec B308
             '<div id="placeholder-preview">'
             '<div class="preview-empty">选择或上传文件后，自动检测模板中的替换词</div>'
             "</div>"

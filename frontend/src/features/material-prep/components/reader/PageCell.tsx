@@ -310,6 +310,7 @@ function PdfPageView({ messageId, partIndex, pageNum }: { messageId: number; par
 
 function PhotoPageView({ messageId, partIndex }: { messageId: number; partIndex: number }) {
   const [url, setUrl] = useState<string | null>(null)
+  const [error, setError] = useState(false)
   useEffect(() => {
     let alive = true
     let objectUrl: string | null = null
@@ -319,13 +320,21 @@ function PhotoPageView({ messageId, partIndex }: { messageId: number; partIndex:
         if (alive) setUrl(objectUrl)
         else URL.revokeObjectURL(objectUrl) // 卸载后才回来：别漏 revoke
       })
-      .catch(() => {})
+      .catch(() => {
+        // 加载失败要有可见反馈（与 PdfPageView 的 error 分支同款），不能静默吞掉
+        if (alive) setError(true)
+      })
     return () => {
       alive = false
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
   }, [messageId, partIndex])
 
+  if (error) {
+    return (
+      <div className="grid h-48 place-items-center text-xs text-muted-foreground">该页加载失败</div>
+    )
+  }
   if (!url) {
     return (
       <div className="grid h-56 place-items-center bg-zinc-50 text-xs text-muted-foreground">

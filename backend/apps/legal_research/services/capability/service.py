@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
 import re
 import threading
 import time
@@ -25,6 +24,7 @@ from apps.core.exceptions import (
     ServiceUnavailableError,
     ValidationException,
 )
+from apps.core.infrastructure.async_context import allow_async_unsafe
 from apps.core.llm.config import LLMConfig
 from apps.legal_research.models import LegalResearchSearchMode, LegalResearchTask, LegalResearchTaskStatus
 from apps.legal_research.schemas.legal_research_schemas import (
@@ -412,16 +412,17 @@ class LegalResearchCapabilityService:  # pragma: no cover
         return keyword, "\n".join(part for part in summary_parts if part)[:8000]
 
     def _execute_with_timeout(self, *, task_id: str, timeout_ms: int) -> dict[str, Any]:  # pragma: no cover
-        os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "true")
-        executor = LegalResearchExecutor()
-        pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix=self.THREAD_NAME_PREFIX)
-        future = pool.submit(executor.run, task_id=task_id)
-        try:
-            timeout_seconds = max(1.0, float(timeout_ms) / 1000.0)
-            payload = future.result(timeout=timeout_seconds)
-            return payload if isinstance(payload, dict) else {}
-        finally:
-            pool.shutdown(wait=False, cancel_futures=True)
+        # 执行器线程内跑 Playwright sync + sync ORM：仅执行期间放行 async-unsafe，退出恢复。
+        with allow_async_unsafe():
+            executor = LegalResearchExecutor()
+            pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix=self.THREAD_NAME_PREFIX)
+            future = pool.submit(executor.run, task_id=task_id)
+            try:
+                timeout_seconds = max(1.0, float(timeout_ms) / 1000.0)
+                payload = future.result(timeout=timeout_seconds)
+                return payload if isinstance(payload, dict) else {}
+            finally:
+                pool.shutdown(wait=False, cancel_futures=True)
 
     @staticmethod
     def _mark_timeout(*, task: LegalResearchTask, timeout_ms: int) -> None:  # pragma: no cover

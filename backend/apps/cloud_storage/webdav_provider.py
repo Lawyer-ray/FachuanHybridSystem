@@ -206,7 +206,8 @@ class WebDAVProvider:  # pragma: no cover
     def _parse_propfind_response(self, xml_text: str, base_path: str) -> list[CloudFileInfo]:
         """Parse PROPFIND XML response into CloudFileInfo list."""
         import urllib.parse
-        from xml.etree import ElementTree
+
+        from defusedxml import DefusedXmlException, ElementTree
 
         results: list[CloudFileInfo] = []
 
@@ -216,8 +217,9 @@ class WebDAVProvider:  # pragma: no cover
         dav_root_prefix = server_url.path.rstrip("/")
 
         try:
+            # defusedxml 防御 XML 实体扩展（XXE / billion-laughs），解析 WebDAV 服务器响应
             root = ElementTree.fromstring(xml_text)
-        except ElementTree.ParseError:
+        except (ElementTree.ParseError, DefusedXmlException):
             return results
 
         base_href = self._full_path(base_path).rstrip("/")
@@ -296,11 +298,12 @@ class WebDAVProvider:  # pragma: no cover
         resp = self._session.request("PROPFIND", url, headers={"Depth": "0"}, timeout=30)
         if resp.status_code >= 400:
             return False
-        from xml.etree import ElementTree
+        from defusedxml import DefusedXmlException, ElementTree
 
         try:
+            # defusedxml 防御 XML 实体扩展（XXE / billion-laughs），解析 WebDAV 服务器响应
             root = ElementTree.fromstring(resp.text)
-        except ElementTree.ParseError:
+        except (ElementTree.ParseError, DefusedXmlException):
             return False
         for elem in root.iter():
             if elem.tag.endswith("}resourcetype") or elem.tag == "resourcetype":
@@ -400,11 +403,12 @@ class WebDAVProvider:  # pragma: no cover
         resp = await client.request("PROPFIND", url, headers={"Depth": "0"}, timeout=30)
         if resp.status_code >= 400:
             return False
-        from xml.etree import ElementTree
+        from defusedxml import DefusedXmlException, ElementTree
 
         try:
+            # defusedxml 防御 XML 实体扩展（XXE / billion-laughs），解析 WebDAV 服务器响应
             root = ElementTree.fromstring(resp.text)
-        except ElementTree.ParseError:
+        except (ElementTree.ParseError, DefusedXmlException):
             return False
         for elem in root.iter():
             if elem.tag.endswith("}resourcetype") or elem.tag == "resourcetype":

@@ -15,8 +15,9 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import datetime
 from typing import Any
+
+from django.utils import timezone
 
 # ┌─────────────────────────────────────────────────────────────┐
 # │ MEDIA PATH FACTORY - UNIFIED DIRECTORY NAMING              │
@@ -141,7 +142,7 @@ class DatedUUIDPath:
         self.entity = entity
 
     def __call__(self, instance: Any, filename: str) -> str:
-        now = datetime.now()
+        now = timezone.now()
         ext = ""
         if "." in filename:
             ext = "." + filename.rsplit(".", 1)[-1].lower()
@@ -165,7 +166,7 @@ class DatedOriginalPath:
         self.entity = entity
 
     def __call__(self, instance: Any, filename: str) -> str:
-        now = datetime.now()
+        now = timezone.now()
         safe_name = _sanitize(filename)
         return f"{self.entity}/{now:%Y/%m}/{safe_name}"
 

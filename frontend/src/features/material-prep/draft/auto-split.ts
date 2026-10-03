@@ -1,4 +1,5 @@
 import type { DraftState, PageKey, PdfSplitSegmentSuggestion, Segment } from '../types'
+import { nextSegId } from './seg-id'
 
 /**
  * 云端 PDF 自动拆分 + 源素材改名。
@@ -21,6 +22,7 @@ export function applyAutoSplit(
       const refs: PageKey[] = []
       for (let p = item.page_start; p <= item.page_end; p++) refs.push({ mi, p })
       return {
+        id: nextSegId(),
         t: item.segment_type === 'unrecognized' ? '' : item.segment_label,
         fn: item.filename.replace(/\.pdf$/i, ''),
         refs,

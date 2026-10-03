@@ -43,7 +43,7 @@ function mockTrialApp(config = {}) {
                 const resp = await fetch(`/api/v1/mock-trial/sessions?case_id=${this.caseId}`, { credentials: 'include' });
                 if (!resp.ok) return;
                 const data = await resp.json();
-                this.sessions = (data.results || []).sort((a, b) =>
+                this.sessions = (data.items || []).sort((a, b) =>
                     Date.parse(b.updated_at || b.created_at || '') - Date.parse(a.updated_at || a.created_at || '')
                 );
             } catch (e) { console.error('加载会话失败:', e); }

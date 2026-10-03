@@ -18,9 +18,11 @@ class SearchResultItem:
 def search_clients(q: str, limit: int) -> list[SearchResultItem]:
     from apps.client.models import Client
 
-    qs: QuerySet = Client.objects.filter(
-        Q(name__icontains=q) | Q(phone__icontains=q) | Q(id_number__icontains=q)
-    ).distinct()[:limit]
+    qs: QuerySet = (
+        Client.objects.filter(Q(name__icontains=q) | Q(phone__icontains=q) | Q(id_number__icontains=q))
+        .order_by("-created_at", "-id")
+        .distinct()[:limit]
+    )
     return [SearchResultItem(id=c.id, title=c.name, subtitle=c.phone or "") for c in qs]
 
 
@@ -32,6 +34,7 @@ def search_cases(q: str, limit: int) -> list[SearchResultItem]:
             Q(name__icontains=q) | Q(case_numbers__number__icontains=q) | Q(parties__client__name__icontains=q)
         )
         .prefetch_related("case_numbers")
+        .order_by("-created_at", "-id")
         .distinct()[:limit]
     )
     results: list[SearchResultItem] = []
@@ -47,9 +50,11 @@ def search_cases(q: str, limit: int) -> list[SearchResultItem]:
 def search_contracts(q: str, limit: int) -> list[SearchResultItem]:
     from apps.contracts.models import Contract
 
-    qs: QuerySet = Contract.objects.filter(
-        Q(name__icontains=q) | Q(contract_parties__client__name__icontains=q)
-    ).distinct()[:limit]
+    qs: QuerySet = (
+        Contract.objects.filter(Q(name__icontains=q) | Q(contract_parties__client__name__icontains=q))
+        .order_by("-created_at", "-id")
+        .distinct()[:limit]
+    )
     return [SearchResultItem(id=c.id, title=c.name or "", subtitle="") for c in qs]
 
 

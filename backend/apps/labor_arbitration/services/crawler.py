@@ -199,9 +199,11 @@ class FoshanLaborAwardCrawler:
                 crawl_status="success",
             )
 
-        # 只保存图片 URL，不下载到本地
-        for idx, img_url in enumerate(img_urls):
-            ArbitrationDocumentImage.objects.create(document=doc, page_index=idx, source_url=img_url)
+        # 只保存图片 URL，不下载到本地（批量写入，页码顺序与 img_urls 一致）
+        ArbitrationDocumentImage.objects.bulk_create(
+            ArbitrationDocumentImage(document=doc, page_index=idx, source_url=img_url)
+            for idx, img_url in enumerate(img_urls)
+        )
         self.stats["images"] += len(img_urls)
         return doc
 

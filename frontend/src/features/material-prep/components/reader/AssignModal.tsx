@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Loader2, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -34,8 +35,6 @@ export function AssignModal({
   const [target, setTarget] = useState<Target>('existing')
   const [contract, setContract] = useState<ContractOpt>('has')
   const [q, setQ] = useState('')
-  const [cases, setCases] = useState<CaseRow[]>([])
-  const [loading, setLoading] = useState(false)
   const [pickCase, setPickCase] = useState<CaseRow | null>(null)
 
   const who = infos.find((f) => f.k === '委托人')?.v || ''
@@ -47,12 +46,27 @@ export function AssignModal({
   })
   const setField = (k: string, v: string) => setFields((prev) => ({ ...prev, [k]: v }))
 
+  // 案件检索：queryKey 随输入变化，上一请求由 signal 自动中止（无响应竞态）
+  const kw = q.trim()
+  const { data: searched = [], isFetching: loading, error } = useQuery({
+    queryKey: ['mp-case-search', kw],
+    queryFn: ({ signal }) => searchCases(kw, signal),
+    enabled: open && target === 'existing' && !!kw,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  })
+  // 空关键词不显示旧候选（对齐旧实现「清空输入即清列表」）
+  const cases = kw ? searched : []
+
+  useEffect(() => {
+    if (error) toast.error('案件搜索失败，请检查后端')
+  }, [error])
+
   useEffect(() => {
     if (!open) return
     setTarget('existing')
     setContract('has')
     setQ('')
-    setCases([])
     setPickCase(null)
     setFields({
       委托人: infos.find((f) => f.k === '委托人')?.v || '',
@@ -77,23 +91,6 @@ export function AssignModal({
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [open, onCancel])
-
-  useEffect(() => {
-    if (!open || target !== 'existing') return
-    if (!q.trim()) {
-      setCases([])
-      setLoading(false)
-      return
-    }
-    const t = setTimeout(() => {
-      setLoading(true)
-      searchCases(q)
-        .then((rows) => setCases(rows))
-        .catch(() => toast.error('案件搜索失败，请检查后端'))
-        .finally(() => setLoading(false))
-    }, 220)
-    return () => clearTimeout(t)
-  }, [q, target, open])
 
   // 焦点陷阱：本弹窗是手写 DOM 层、不在 Radix Dialog 体系内，Tab 必须圈在
   // 弹窗内循环，否则键盘用户会聚焦到被遮住的背景内容上

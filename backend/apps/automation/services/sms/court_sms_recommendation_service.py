@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date
 
-from django.db.models import Q, QuerySet
+from django.db.models import Q
 
 from apps.automation.models.court_sms import CourtSMS
 from apps.automation.utils.text_utils import TextUtils
@@ -78,13 +79,16 @@ class CourtSMSRecommendationService:
             .distinct()
             .prefetch_related("case_numbers", "parties__client", "supervising_authorities")
         )
+        # 一次 list() 同时完成求值与 prefetch 触发，供下方迭代与日志计数复用，
+        # 避免完整迭代后再为日志重跑一遍昂贵的 COUNT。
+        candidate_rows = list(candidates)
 
         results = self._score_and_rank(
-            candidates, normalized_numbers, year_court_prefixes, court_name, cleaned_party_names
+            candidate_rows, normalized_numbers, year_court_prefixes, court_name, cleaned_party_names
         )
         logger.info(
             "推荐关联案件: 候选=%d, 返回=%d",
-            candidates.count(),
+            len(candidate_rows),
             len(results),
         )
         return results
@@ -173,7 +177,7 @@ class CourtSMSRecommendationService:
 
     def _score_and_rank(
         self,
-        candidates: QuerySet[Case],
+        candidates: Sequence[Case],
         normalized_numbers: list[str],
         year_court_prefixes: list[str],
         court_name: str | None,

@@ -22,7 +22,9 @@ import {
  * localStorage 里若被 Native 壳等宿主写入了 api_base_url，仍然优先生效。
  */
 export function getApiBaseUrl(): string {
-  return localStorage.getItem('api_base_url') || import.meta.env.VITE_API_BASE_URL || '/api/v1'
+  // node 单测环境无 localStorage（模块加载期就会读本函数），跳过读取
+  const stored = typeof localStorage === 'undefined' ? null : localStorage.getItem('api_base_url')
+  return stored || import.meta.env.VITE_API_BASE_URL || '/api/v1'
 }
 
 /** 模块级缓存，避免每次调用都读 localStorage */
@@ -42,30 +44,91 @@ let isRefreshing = false
 let refreshPromise: Promise<string | null> | null = null
 
 /**
- * 刷新 access token
+ * 跨 tab 刷新协调：后端 refresh token 是「被首个请求消费」的一次性轮换语义，
+ * 多 tab 同时 401 时第二个 tab 拿旧 refresh 去刷必然失败、被误登出。
+ * 协议：刷新方先写时间戳租约（auth:refresh-lease），成功后写完成信号
+ * （auth:refresh-done，storage 事件只在其他 tab 触发）；其他 tab 发现
+ * 新鲜租约就等信号共享新 token，而不是自己也去刷。
  */
-async function refreshAccessToken(): Promise<string> {
+const REFRESH_LEASE_KEY = 'auth:refresh-lease'
+const REFRESH_DONE_KEY = 'auth:refresh-done'
+
+/** 租约新鲜窗口：超过视为持约 tab 已死（崩溃/卡死），可自行刷新 */
+const REFRESH_LEASE_MS = 10_000
+
+/** 等待其他 tab 完成信号的上限，超时后自行重试一次 */
+const REFRESH_WAIT_MS = 3_000
+
+/** 判断刷新租约是否仍在有效期内（纯函数，便于单测）。 */
+export function isLeaseFresh(lease: string | null, now = Date.now(), maxAge = REFRESH_LEASE_MS): boolean {
+  if (lease === null) return false
+  const ts = Number(lease)
+  // ts > 0：挡掉 ''/'abc' 这类脏值（Number('') 是 0，会被窗口判定误判为新鲜）
+  return Number.isFinite(ts) && ts > 0 && now - ts < maxAge
+}
+
+/** 等待其他 tab 写入的刷新完成信号（storage 事件）。无论等到与否都 resolve，由调用方自决。 */
+function waitForRefreshDoneSignal(timeoutMs = REFRESH_WAIT_MS): Promise<void> {
+  return new Promise((resolve) => {
+    const finish = () => {
+      window.removeEventListener('storage', onStorage)
+      clearTimeout(timer)
+      resolve()
+    }
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === REFRESH_DONE_KEY) finish()
+    }
+    const timer = setTimeout(finish, timeoutMs)
+    window.addEventListener('storage', onStorage)
+  })
+}
+
+/**
+ * 持租约执行刷新：写 lease → 刷新 → 广播 done 信号，finally 撤租约。
+ */
+async function refreshWithLease(): Promise<string> {
   const refreshToken = getRefreshToken()
   if (!refreshToken) {
     throw new Error('No refresh token')
   }
 
-  const response = await ky
-    .post(`${API_BASE_URL}/token/refresh`, {
-      json: { refresh: refreshToken },
+  localStorage.setItem(REFRESH_LEASE_KEY, String(Date.now()))
+  try {
+    const response = await ky
+      .post(`${API_BASE_URL}/token/refresh`, {
+        json: { refresh: refreshToken },
+      })
+      .json<TokenRefreshResponse>()
+
+    setTokens({
+      access: response.access,
+      refresh: refreshToken,
     })
-    .json<TokenRefreshResponse>()
+    // 广播给等待中的 tab（storage 事件只在写入方以外的页面触发）
+    localStorage.setItem(REFRESH_DONE_KEY, String(Date.now()))
 
-  setTokens({
-    access: response.access,
-    refresh: refreshToken,
-  })
-
-  return response.access
+    return response.access
+  } finally {
+    localStorage.removeItem(REFRESH_LEASE_KEY)
+  }
 }
 
 /**
- * 单飞刷新 access token：并发调用共享同一个 Promise，只发一次 /token/refresh。
+ * 刷新 access token（跨 tab 协调）：其他 tab 持新鲜租约时等它完成并共享
+ * 新 token；等不到信号（3s 超时）或新 token 仍不可用时，自行重试一次。
+ */
+async function refreshAccessToken(): Promise<string> {
+  if (isLeaseFresh(localStorage.getItem(REFRESH_LEASE_KEY))) {
+    await waitForRefreshDoneSignal()
+    const shared = getAccessToken()
+    if (shared && !shouldRefreshToken()) return shared
+  }
+  return refreshWithLease()
+}
+
+/**
+ * 单飞刷新 access token：本 tab 并发调用共享同一个 Promise，只发一次 /token/refresh；
+ * 跨 tab 的一致性由 refreshAccessToken 内的租约协调兜底。
  * 刷新失败时清空令牌并返回 null（不抛出，由调用方决定如何处置）。
  */
 function refreshAccessTokenSingleFlight(): Promise<string | null> {
@@ -119,8 +182,8 @@ export function createApiClient(options?: Options): KyInstance {
         ...(options?.hooks?.beforeRequest || []),
       ],
       afterResponse: [
-        async ({ request, response }) => {
-          if (response.status === 401 && !request.url.includes('/token/')) {
+        async ({ request, response, retryCount }) => {
+          if (response.status === 401 && !request.url.includes('/token/') && retryCount === 0) {
             // 复用单飞刷新：并发请求同时 401 时只发一次 refresh，
             // 否则后续请求会拿已被首个请求消费掉的 refresh token 误判会话失效
             const newToken = await refreshAccessTokenSingleFlight()
@@ -132,8 +195,10 @@ export function createApiClient(options?: Options): KyInstance {
               headers: new Headers(request.headers),
             })
             retryRequest.headers.set('Authorization', `Bearer ${newToken}`)
-            // 用全局 ky 重试：绕开实例 hooks，避免再次 401 时无限递归
-            return ky(retryRequest)
+            // 走 ky.retry 强制重试：复用本实例的完整选项（含请求级 timeout——上传类
+            // 300s；hook 收到的 options 已被 ky 剥掉 timeout，raw ky() 又会退回默认
+            // 10s 误杀大上传）。retryCount === 0 守卫防止重试再 401 时无限刷新
+            return ky.retry({ request: retryRequest })
           }
           return response
         },

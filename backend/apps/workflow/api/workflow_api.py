@@ -78,9 +78,10 @@ async def list_workflows_api(
     request: Any,
     case_id: int | None = None,
     status: str | None = None,
-) -> list[dict[str, Any]]:
-    """查询诉讼工作流列表"""
-    return await list_workflows(case_id, status)
+    limit: int = 20,
+) -> dict[str, Any]:
+    """查询诉讼工作流列表（标准信封 items/total/page/page_size/total_pages；limit cap 100）"""
+    return await list_workflows(case_id, status, limit=limit)
 
 
 @router.get("/runs/{run_id}")

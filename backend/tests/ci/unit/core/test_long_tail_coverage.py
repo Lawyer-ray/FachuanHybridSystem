@@ -454,11 +454,14 @@ class TestResourceMonitor:
         assert "disabled" in reason.lower()
 
     def test_should_trigger_restart_cooldown(self):
+        from django.utils import timezone
+
         from apps.core.infrastructure.resource_monitor import ResourceMonitor
 
         monitor = ResourceMonitor()
         monitor.auto_restart_enabled = True
-        monitor._last_restart_time = datetime.now()
+        # 与 should_trigger_restart 内部一致使用 aware datetime（USE_TZ=True 下 naive 比较会 TypeError）
+        monitor._last_restart_time = timezone.now()
         should, reason = monitor.should_trigger_restart()
         assert should is False
         assert "cooldown" in reason.lower()

@@ -25,8 +25,9 @@ class GsxtReportTask(models.Model):
     id: int
 
     client = models.ForeignKey(
+        # PROTECT：删除客户不得静默抹掉报告任务记录，须先清理任务
         "client.Client",
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="gsxt_report_tasks",
         verbose_name="当事人",
     )

@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Loader2, X } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { createReminder, listReminderTypes, searchTargetOptions, REMINDER_TYPES_KEY, type TargetOption } from '../api'
@@ -47,9 +47,9 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
   const [busy, setBusy] = useState(false)
   // 关联对象：kw=输入框文本，picked=已选中的候选（null 表示未选）
   const [kw, setKw] = useState('')
-  const [options, setOptions] = useState<TargetOption[]>([])
   const [picked, setPicked] = useState<TargetOption | null>(null)
-  const [searching, setSearching] = useState(false)
+  // 点候选兜底层收起；重新输入即展开（对齐旧实现「点别处清空 options」）
+  const [optionsHidden, setOptionsHidden] = useState(false)
   // 候选分类筛选：'all' / contract / case / case_log
   const [tab, setTab] = useState('all')
 
@@ -59,6 +59,21 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
     staleTime: 10 * 60_000,
   })
 
+  // 关键字联想：输入即查（上一请求由 signal 自动中止，无响应竞态）；
+  // 选中 picked 后隐藏候选列表，展示 picked 行
+  const kwTrim = kw.trim()
+  const { data: searched = [], isFetching: searching } = useQuery({
+    queryKey: ['reminder-target-options', kwTrim],
+    queryFn: ({ signal }) => searchTargetOptions(kwTrim, signal),
+    enabled: day != null && !!kwTrim && !picked,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  })
+  const options = useMemo(
+    () => (picked || optionsHidden ? [] : searched),
+    [picked, optionsHidden, searched],
+  )
+
   // 每次打开都重置表单（否则上次填的内容会留着）
   useEffect(() => {
     if (day) {
@@ -67,34 +82,11 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
       setTime(defaultTime)
       setBusy(false)
       setKw('')
-      setOptions([])
       setPicked(null)
-      setSearching(false)
+      setOptionsHidden(false)
       setTab('all')
     }
   }, [day, defaultTime])
-
-  // 关键字联想：输入停止 300ms 后打接口（避开逐字符请求）
-  const debounce = useRef(0)
-  useEffect(() => {
-    const q = kw.trim()
-    window.clearTimeout(debounce.current)
-    if (!q || picked) {
-      setOptions([])
-      return
-    }
-    debounce.current = window.setTimeout(async () => {
-      setSearching(true)
-      try {
-        setOptions(await searchTargetOptions(q))
-      } catch {
-        setOptions([])
-      } finally {
-        setSearching(false)
-      }
-    }, 300)
-    return () => window.clearTimeout(debounce.current)
-  }, [kw, picked])
 
   // 当前 tab 下可见的候选
   const visibleOptions = useMemo(
@@ -185,14 +177,17 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
                 <input
                   className="h-9 w-full rounded-[8px] border border-input bg-background px-2.5 text-[12.5px] outline-none focus:border-ring/40"
                   value={kw}
-                  onChange={(e) => setKw(e.target.value)}
+                  onChange={(e) => {
+                    setOptionsHidden(false)
+                    setKw(e.target.value)
+                  }}
                   placeholder={searching ? '搜索中…' : '输入当事人名称 / 案号搜索'}
                 />
 
                 {options.length > 0 && (
                   <>
                     {/* 兜底层：点别处收起候选 */}
-                    <div className="fixed inset-0 z-40" onClick={() => setOptions([])} aria-hidden />
+                    <div className="fixed inset-0 z-40" onClick={() => setOptionsHidden(true)} aria-hidden />
                     {/* 候选面板**向上**展开：输入框在弹窗中部，向下会顶出视口。
                         自身限高可滚，不把弹窗撑高。 */}
                     <div className="absolute inset-x-0 bottom-[calc(100%+4px)] z-50 max-h-[228px] overflow-hidden rounded-[10px] border border-border bg-card shadow-[0_10px_28px_rgba(0,0,0,.14)]">
@@ -230,7 +225,6 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
                             onClick={() => {
                               setPicked(o)
                               setKw('')
-                              setOptions([])
                             }}
                           >
                             <span className="flex-none rounded bg-secondary px-1.5 py-[1px] text-[10px] font-semibold text-secondary-foreground">

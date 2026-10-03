@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+from django.utils import timezone
 
 from apps.core.infrastructure.resource_monitor import ResourceMonitor, ResourceThresholds, ResourceUsage
 
@@ -163,7 +164,8 @@ class TestResourceMonitorRestart:
 
     def test_cooldown_active(self):
         mon = self._make_mon()
-        mon._last_restart_time = datetime.now()
+        # 与 should_trigger_restart 内部一致使用 aware datetime（USE_TZ=True 下 naive 比较会 TypeError）
+        mon._last_restart_time = timezone.now()
         should, msg = mon.should_trigger_restart()
         assert should is False
         assert "cooldown" in msg.lower() or "remaining" in msg.lower()

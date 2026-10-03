@@ -56,32 +56,6 @@ def _ensure_contract_access(request: Any, contract_id: int) -> None:
     )
 
 
-async def _async_resolve_contract_id_from_agreement(agreement_id: int) -> int:
-    """异步从补充协议 ID 解析其所属合同 ID。"""
-    from apps.contracts.models import SupplementaryAgreement
-
-    try:
-        agreement = await SupplementaryAgreement.objects.values("contract_id").aget(pk=agreement_id)
-    except SupplementaryAgreement.DoesNotExist:
-        from apps.core.exceptions import NotFoundError
-
-        raise NotFoundError(f"补充协议 {agreement_id} 不存在")
-    return agreement["contract_id"]
-
-
-def _resolve_contract_id_from_agreement(agreement_id: int) -> int:
-    """从补充协议 ID 解析其所属合同 ID。"""
-    from apps.contracts.models import SupplementaryAgreement
-
-    try:
-        agreement = SupplementaryAgreement.objects.values("contract_id").get(pk=agreement_id)
-    except SupplementaryAgreement.DoesNotExist:
-        from apps.core.exceptions import NotFoundError
-
-        raise NotFoundError(f"补充协议 {agreement_id} 不存在")
-    return agreement["contract_id"]
-
-
 @router.post("/supplementary-agreements", response=SupplementaryAgreementOut)
 async def create_supplementary_agreement(  # pragma: no cover
     request: HttpRequest, payload: SupplementaryAgreementIn
@@ -97,9 +71,9 @@ async def create_supplementary_agreement(  # pragma: no cover
 async def get_supplementary_agreement(
     request: HttpRequest, agreement_id: int
 ) -> SupplementaryAgreementOut:  # pragma: no cover
-    contract_id = await _async_resolve_contract_id_from_agreement(agreement_id)
-    await _async_ensure_contract_access(request, contract_id)
     service = _get_supplementary_agreement_service()
+    contract_id = await service.aresolve_contract_id(agreement_id)
+    await _async_ensure_contract_access(request, contract_id)
     return await sync_to_async(service.get_supplementary_agreement)(agreement_id)  # type: ignore[return-value]
 
 
@@ -116,9 +90,9 @@ async def list_supplementary_agreements(
 async def update_supplementary_agreement(  # pragma: no cover
     request: HttpRequest, agreement_id: int, payload: SupplementaryAgreementUpdate
 ) -> SupplementaryAgreementOut:
-    contract_id = await _async_resolve_contract_id_from_agreement(agreement_id)
-    await _async_ensure_contract_access(request, contract_id)
     service = _get_supplementary_agreement_service()
+    contract_id = await service.aresolve_contract_id(agreement_id)
+    await _async_ensure_contract_access(request, contract_id)
     data = payload.model_dump(exclude_unset=True)
     return await sync_to_async(service.update_supplementary_agreement)(
         agreement_id=agreement_id, name=data.get("name"), party_ids=data.get("party_ids")
@@ -129,8 +103,8 @@ async def update_supplementary_agreement(  # pragma: no cover
 async def delete_supplementary_agreement(
     request: HttpRequest, agreement_id: int
 ) -> dict[str, bool]:  # pragma: no cover
-    contract_id = await _async_resolve_contract_id_from_agreement(agreement_id)
-    await _async_ensure_contract_access(request, contract_id)
     service = _get_supplementary_agreement_service()
+    contract_id = await service.aresolve_contract_id(agreement_id)
+    await _async_ensure_contract_access(request, contract_id)
     await sync_to_async(service.delete_supplementary_agreement)(agreement_id)
     return {"success": True}

@@ -49,6 +49,10 @@ def _make_case(**kwargs):
 def test_get_status(authenticated_client):
     resp = authenticated_client.get("/api/v1/automation/status")
     assert resp.status_code == 200
+    data = resp.json()
+    # 状态端点必须返回结构化状态体（debug 布尔标志），而非空体/HTML
+    assert isinstance(data, dict)
+    assert isinstance(data.get("debug"), bool)
 
 
 @pytest.mark.django_db
@@ -60,6 +64,9 @@ def test_get_config(mock_build, authenticated_client):
 
     resp = authenticated_client.get("/api/v1/automation/config")
     assert resp.status_code == 200
+    # 配置端点必须透传服务返回的配置内容
+    assert resp.json() == {"version": "1.0"}
+    mock_service.get_automation_config.assert_called_once()
 
 
 # ===================================================================
@@ -85,6 +92,13 @@ def test_upload_file(mock_build, authenticated_client):
         {"file": f},
     )
     assert resp.status_code == 200
+    # 上传结果必须透传服务返回的文件元数据（嵌套在 file_info/extraction 内）
+    data = resp.json()
+    assert data["success"] is True
+    assert data["file_info"]["file_name"] == "test.txt"
+    assert data["file_info"]["file_size"] == 11
+    assert data["extraction"]["text"] == "hello"
+    mock_service.process_uploaded_document.assert_called_once()
 
 
 # ===================================================================
@@ -108,6 +122,14 @@ def test_document_processor_process(mock_build, authenticated_client):
         content_type="application/json",
     )
     assert resp.status_code == 200
+    # 处理结果必须透传服务返回的提取内容（text_excerpt/image_url）
+    data = resp.json()
+    assert data["text_excerpt"] == "excerpt"
+    assert data["image_url"] == "http://example.com/img.png"
+    mock_service.extract_document_content_by_path.assert_called_once()
+    call_kwargs = mock_service.extract_document_content_by_path.call_args.kwargs
+    # 用户路径必须被收敛到 MEDIA_ROOT 内后传给服务
+    assert call_kwargs["file_path"].endswith("documents/test.pdf")
 
 
 # ===================================================================
@@ -199,6 +221,12 @@ def test_list_sms(mock_build, authenticated_client):
 
     resp = authenticated_client.get("/api/v1/automation/court-sms")
     assert resp.status_code == 200
+    # 列表端点必须返回分页结构（items 列表），而非裸数组/空体
+    data = resp.json()
+    assert isinstance(data, dict)
+    assert data["items"] == []
+    assert data["count"] == 0
+    mock_service.list_sms.assert_called_once()
 
 
 @pytest.mark.django_db
@@ -236,6 +264,12 @@ def test_get_sms_detail(mock_build, mock_doc_ref, authenticated_client):
 
     resp = authenticated_client.get("/api/v1/automation/court-sms/1")
     assert resp.status_code == 200
+    # 详情端点必须透传服务返回的短信内容锚点
+    data = resp.json()
+    assert data["id"] == 1
+    assert data["content"] == "test"
+    assert data["status"] == "pending"
+    mock_service.get_sms_detail.assert_called_once_with(1)
 
 
 @pytest.mark.django_db
@@ -285,6 +319,11 @@ def test_performance_health(mock_build, authenticated_client):
 
     resp = authenticated_client.get("/api/v1/automation/performance/health")
     assert resp.status_code == 200
+    # 健康检查必须透传服务返回的系统指标
+    data = resp.json()
+    assert data["status"] == "healthy"
+    assert data["version"] == "1.0"
+    mock_service.get_system_metrics.assert_called_once()
 
 
 # ===================================================================

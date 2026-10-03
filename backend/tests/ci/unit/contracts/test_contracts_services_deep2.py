@@ -18,18 +18,17 @@ from apps.contracts.models import (
     SupplementaryAgreement,
     SupplementaryAgreementParty,
 )
-from apps.contracts.services.supplementary.supplementary_agreement_service import SupplementaryAgreementService
 from apps.contracts.services.assignment.filing_number_service import FilingNumberService
-from apps.contracts.services.contract.query.progress_service import ContractProgressService
-from apps.contracts.services.contract.query.display_service import ContractDisplayService
-from apps.contracts.services.contract.query.template_cache import ContractTemplateCache
-from apps.contracts.services.contract.query.contract_list_assembler import ContractListAssembler
-from apps.contracts.services.contract.query.contract_dto_assembler import ContractDtoAssembler
-from apps.contracts.services.contract.query.facade import ContractQueryFacade
 from apps.contracts.services.contract.domain.validator import ContractValidator
+from apps.contracts.services.contract.query.contract_dto_assembler import ContractDtoAssembler
+from apps.contracts.services.contract.query.contract_list_assembler import ContractListAssembler
+from apps.contracts.services.contract.query.display_service import ContractDisplayService
+from apps.contracts.services.contract.query.facade import ContractQueryFacade
+from apps.contracts.services.contract.query.progress_service import ContractProgressService
+from apps.contracts.services.contract.query.template_cache import ContractTemplateCache
+from apps.contracts.services.supplementary.supplementary_agreement_service import SupplementaryAgreementService
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.testing.factories import CaseFactory, ClientFactory, ContractFactory, LawyerFactory
-
 
 # ── SupplementaryAgreementService tests ──
 
@@ -126,6 +125,32 @@ class TestSupplementaryAgreementService:
         with pytest.raises(NotFoundError):
             svc.delete_supplementary_agreement(99999)
 
+    def test_resolve_contract_id(self, db):
+        svc = self._make_service()
+        c = ContractFactory()
+        sa = SupplementaryAgreement.objects.create(contract=c, name="SA")
+        assert svc.resolve_contract_id(sa.pk) == c.pk
+
+    def test_resolve_contract_id_not_found(self, db):
+        svc = self._make_service()
+        with pytest.raises(NotFoundError, match="补充协议 99999 不存在"):
+            svc.resolve_contract_id(99999)
+
+    @pytest.mark.asyncio
+    async def test_aresolve_contract_id(self, db):
+        from asgiref.sync import sync_to_async
+
+        svc = self._make_service()
+        c = await sync_to_async(ContractFactory)()
+        sa = await sync_to_async(SupplementaryAgreement.objects.create)(contract=c, name="SA")
+        assert await svc.aresolve_contract_id(sa.pk) == c.pk
+
+    @pytest.mark.asyncio
+    async def test_aresolve_contract_id_not_found(self, db):
+        svc = self._make_service()
+        with pytest.raises(NotFoundError, match="补充协议 99999 不存在"):
+            await svc.aresolve_contract_id(99999)
+
 
 # ── FilingNumberService tests ──
 
@@ -217,8 +242,10 @@ class TestContractProgressService:
         svc = ContractProgressService()
         c = ContractFactory()
         ContractPayment.objects.create(
-            contract=c, amount=Decimal("1000"), invoiced_amount=Decimal("500"),
-            invoice_status=InvoiceStatus.INVOICED_PARTIAL
+            contract=c,
+            amount=Decimal("1000"),
+            invoiced_amount=Decimal("500"),
+            invoice_status=InvoiceStatus.INVOICED_PARTIAL,
         )
         result = svc.get_invoice_summary(c)
         assert result["total_received"] == Decimal("1000")
@@ -230,8 +257,10 @@ class TestContractProgressService:
         svc = ContractProgressService()
         c = ContractFactory()
         ContractPayment.objects.create(
-            contract=c, amount=Decimal("1000"), invoiced_amount=Decimal("1000"),
-            invoice_status=InvoiceStatus.INVOICED_FULL
+            contract=c,
+            amount=Decimal("1000"),
+            invoiced_amount=Decimal("1000"),
+            invoice_status=InvoiceStatus.INVOICED_FULL,
         )
         result = svc.get_invoice_summary(c)
         assert result["has_pending"] is False
@@ -297,15 +326,9 @@ class TestContractTemplateCache:
 class TestContractDisplayService:
     def _make_service(self):
         mock_doc_svc = MagicMock()
-        mock_doc_svc.find_matching_contract_templates.return_value = [
-            {"name": "起诉状", "type_display": "文书"}
-        ]
-        mock_doc_svc.find_matching_folder_templates.return_value = [
-            {"name": "民事案件文件夹"}
-        ]
-        mock_doc_svc.check_has_matching_templates.return_value = {
-            "has_folder": True, "has_document": True
-        }
+        mock_doc_svc.find_matching_contract_templates.return_value = [{"name": "起诉状", "type_display": "文书"}]
+        mock_doc_svc.find_matching_folder_templates.return_value = [{"name": "民事案件文件夹"}]
+        mock_doc_svc.check_has_matching_templates.return_value = {"has_folder": True, "has_document": True}
         return ContractDisplayService(
             document_service=mock_doc_svc,
             template_cache=ContractTemplateCache(),
@@ -358,9 +381,7 @@ class TestContractDisplayService:
 
     def test_has_matched_templates_no_folder(self, db):
         mock_doc_svc = MagicMock()
-        mock_doc_svc.check_has_matching_templates.return_value = {
-            "has_folder": False, "has_document": True
-        }
+        mock_doc_svc.check_has_matching_templates.return_value = {"has_folder": False, "has_document": True}
         svc = ContractDisplayService(document_service=mock_doc_svc, template_cache=ContractTemplateCache())
         c = ContractFactory(case_type="criminal")
         assert svc.has_matched_templates(c) is False
@@ -461,13 +482,12 @@ class TestArchiveQueryService:
         reorder_materials(c.pk, {})
 
     def test_move_material(self, db):
-        from apps.contracts.services.archive.archive_query_service import move_material
         from apps.contracts.models import FinalizedMaterial
+        from apps.contracts.services.archive.archive_query_service import move_material
 
         c = ContractFactory()
         material = FinalizedMaterial.objects.create(
-            contract=c, original_filename="test.pdf", file_path="test.pdf",
-            archive_item_code="A", category="OTHER"
+            contract=c, original_filename="test.pdf", file_path="test.pdf", archive_item_code="A", category="OTHER"
         )
         move_material(material, "B")
         material.refresh_from_db()

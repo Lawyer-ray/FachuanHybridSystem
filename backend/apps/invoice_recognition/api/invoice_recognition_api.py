@@ -22,6 +22,18 @@ logger = logging.getLogger("apps.invoice_recognition")
 router = Router(tags=["发票识别"], auth=JWTOrSessionAuth())
 
 
+def _batch_envelope(items: list[dict[str, Any]]) -> dict[str, Any]:
+    """批量操作结果统一使用标准分页信封（单页语义：page=1，total=len）。"""
+    count = len(items)
+    return {
+        "items": items,
+        "total": count,
+        "page": 1,
+        "page_size": count,
+        "total_pages": 1,
+    }
+
+
 @router.post("/quick-recognize")
 async def quick_recognize(  # pragma: no cover
     request: Any,
@@ -79,7 +91,7 @@ async def quick_recognize(  # pragma: no cover
 
         results_data.append(result_dict)
 
-    return {"results": results_data}
+    return _batch_envelope(results_data)
 
 
 def _get_recognition_service() -> Any:
@@ -131,7 +143,7 @@ async def upload_invoices(  # pragma: no cover
         }
         for r in records
     ]
-    return {"success": True, "count": len(records), "records": record_list}
+    return _batch_envelope(record_list)
 
 
 @router.get("/{task_id}/status")

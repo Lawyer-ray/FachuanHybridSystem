@@ -20,7 +20,6 @@ from apps.contracts.models import Contract
 from apps.organization.models import LawFirm, Lawyer
 from apps.reminders.models import Reminder
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -57,6 +56,14 @@ def _make_lawyer(firm, **kwargs):
     )
 
 
+def _assert_error_body(resp) -> None:
+    """断言错误响应体非空：必须携带 detail/message/error 之一的非空文案."""
+    data = resp.json()
+    assert isinstance(data, dict), f"错误响应应为 JSON 对象，实际: {data!r}"
+    msg = data.get("detail") or data.get("message") or data.get("error")
+    assert msg, f"错误响应体缺少 detail/message/error 字段: {data!r}"
+
+
 # ===================================================================
 # 1. Error Handling: 404 for Non-Existent Resources
 # ===================================================================
@@ -72,21 +79,36 @@ class TestNotFoundErrors:
         if resp.status_code == 200:
             data = resp.json()
             assert data.get("success") is False or "error" in data or "detail" in data
+        else:
+            # 404 分支必须返回带错误文案的错误体，而非空体
+            _assert_error_body(resp)
 
     @pytest.mark.django_db
     def test_get_nonexistent_client(self, authenticated_client):
         resp = authenticated_client.get("/api/v1/client/clients/999999")
         assert resp.status_code in (404, 200)
+        if resp.status_code == 200:
+            # 200 分支不允许返回看似正常的客户数据
+            data = resp.json()
+            assert data.get("success") is False or "error" in data or "detail" in data
+        else:
+            _assert_error_body(resp)
 
     @pytest.mark.django_db
     def test_get_nonexistent_reminder(self, authenticated_client):
         resp = authenticated_client.get("/api/v1/reminders/999999")
         assert resp.status_code in (404, 200)
+        if resp.status_code == 404:
+            _assert_error_body(resp)
 
     @pytest.mark.django_db
     def test_delete_nonexistent_case(self, authenticated_client):
         resp = authenticated_client.delete("/api/v1/cases/cases/999999")
         assert resp.status_code in (404, 200, 204)
+        if resp.status_code == 404:
+            _assert_error_body(resp)
+        # 无论如何，不存在的案件不应被创建/保留
+        assert not Case.objects.filter(id=999999).exists()
 
     @pytest.mark.django_db
     def test_update_nonexistent_client(self, authenticated_client):
@@ -96,6 +118,10 @@ class TestNotFoundErrors:
             content_type="application/json",
         )
         assert resp.status_code in (404, 200)
+        if resp.status_code == 404:
+            _assert_error_body(resp)
+        # 更新不存在的客户绝不能凭空创建记录
+        assert not Client.objects.filter(name="不存在的客户").exists()
 
 
 # ===================================================================
@@ -128,6 +154,13 @@ class TestValidationErrors:
         )
         # Should handle missing required fields gracefully
         assert resp.status_code in (400, 422, 200)
+        if resp.status_code == 200:
+            # 接受时必须真实落库并可回查
+            data = resp.json()
+            assert data["id"]
+            assert Case.objects.filter(id=data["id"], name="无合同案件").exists()
+        else:
+            _assert_error_body(resp)
 
     @pytest.mark.django_db
     def test_create_reminder_past_due_date(self, authenticated_client):
@@ -135,12 +168,14 @@ class TestValidationErrors:
         past_date = (datetime.now() - timedelta(days=30)).isoformat()
         resp = authenticated_client.post(
             "/api/v1/reminders/create",
-            data=json.dumps({
-                "case_id": case.id,
-                "reminder_type": "hearing",
-                "content": "过去日期提醒",
-                "due_at": past_date,
-            }),
+            data=json.dumps(
+                {
+                    "case_id": case.id,
+                    "reminder_type": "hearing",
+                    "content": "过去日期提醒",
+                    "due_at": past_date,
+                }
+            ),
             content_type="application/json",
         )
         # Should accept past dates (user might want to record historical reminders)
@@ -150,11 +185,13 @@ class TestValidationErrors:
     def test_create_client_invalid_phone(self, authenticated_client):
         resp = authenticated_client.post(
             "/api/v1/client/clients",
-            data=json.dumps({
-                "name": "电话测试客户",
-                "client_type": "natural",
-                "phone": "not-a-phone",
-            }),
+            data=json.dumps(
+                {
+                    "name": "电话测试客户",
+                    "client_type": "natural",
+                    "phone": "not-a-phone",
+                }
+            ),
             content_type="application/json",
         )
         # Should either validate phone or accept as-is
@@ -168,6 +205,11 @@ class TestValidationErrors:
             content_type="application/json",
         )
         assert resp.status_code in (400, 422, 200)
+        if resp.status_code != 200:
+            # 非法 JSON 必须被拒绝且错误体带文案
+            _assert_error_body(resp)
+        # 任何情况下都不应创建出脏数据客户
+        assert not Client.objects.filter(name__icontains="not valid json").exists()
 
 
 # ===================================================================
@@ -180,8 +222,13 @@ class TestAuthentication:
 
     @pytest.mark.django_db
     def test_unauthenticated_list_cases(self, api_client):
+        # 造锚点数据：若鉴权失效退化为 200 全量列表，锚点案件名必须不出现在响应里
+        _make_case(name="未授权泄露锚点案件")
         resp = api_client.get("/api/v1/cases/cases")
         assert resp.status_code in (401, 403, 302)
+        if resp.status_code != 302:
+            _assert_error_body(resp)
+        assert "未授权泄露锚点案件" not in resp.content.decode("utf-8", errors="ignore")
 
     @pytest.mark.django_db
     def test_unauthenticated_create_client(self, api_client):
@@ -191,16 +238,26 @@ class TestAuthentication:
             content_type="application/json",
         )
         assert resp.status_code in (401, 403, 302)
+        if resp.status_code != 302:
+            _assert_error_body(resp)
+        # 未认证写入绝不能落库
+        assert not Client.objects.filter(name="未认证客户").exists()
 
     @pytest.mark.django_db
     def test_unauthenticated_list_reminders(self, api_client):
         resp = api_client.get("/api/v1/reminders/list")
         assert resp.status_code in (401, 403, 302)
+        if resp.status_code != 302:
+            _assert_error_body(resp)
 
     @pytest.mark.django_db
     def test_unauthenticated_list_contracts(self, api_client):
+        _make_contract(name="未授权泄露锚点合同")
         resp = api_client.get("/api/v1/contracts/contracts")
         assert resp.status_code in (401, 403, 302)
+        if resp.status_code != 302:
+            _assert_error_body(resp)
+        assert "未授权泄露锚点合同" not in resp.content.decode("utf-8", errors="ignore")
 
     @pytest.mark.django_db
     def test_authenticated_user_can_list_cases(self, authenticated_client):
@@ -224,11 +281,13 @@ class TestCaseBusinessLogic:
     def test_create_case_persists_to_db(self, authenticated_client, contract):
         resp = authenticated_client.post(
             "/api/v1/cases/cases",
-            data=json.dumps({
-                "name": "持久化测试案件",
-                "contract_id": contract.id,
-                "case_type": "civil",
-            }),
+            data=json.dumps(
+                {
+                    "name": "持久化测试案件",
+                    "contract_id": contract.id,
+                    "case_type": "civil",
+                }
+            ),
             content_type="application/json",
         )
         if resp.status_code == 200:
@@ -275,10 +334,12 @@ class TestCaseBusinessLogic:
         case = _make_case()
         resp = authenticated_client.post(
             "/api/v1/cases/logs",
-            data=json.dumps({
-                "case_id": case.id,
-                "content": "测试日志内容",
-            }),
+            data=json.dumps(
+                {
+                    "case_id": case.id,
+                    "content": "测试日志内容",
+                }
+            ),
             content_type="application/json",
         )
         if resp.status_code == 200:
@@ -296,12 +357,14 @@ class TestClientBusinessLogic:
     def test_create_natural_client(self, authenticated_client):
         resp = authenticated_client.post(
             "/api/v1/client/clients",
-            data=json.dumps({
-                "name": "张三",
-                "client_type": "natural",
-                "is_our_client": True,
-                "phone": "13800138000",
-            }),
+            data=json.dumps(
+                {
+                    "name": "张三",
+                    "client_type": "natural",
+                    "is_our_client": True,
+                    "phone": "13800138000",
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 200
@@ -314,12 +377,14 @@ class TestClientBusinessLogic:
     def test_create_legal_client(self, authenticated_client):
         resp = authenticated_client.post(
             "/api/v1/client/clients",
-            data=json.dumps({
-                "name": "某某科技有限公司",
-                "client_type": "legal",
-                "legal_representative": "王五",
-                "credit_code": "91110108MA01XXXXX",
-            }),
+            data=json.dumps(
+                {
+                    "name": "某某科技有限公司",
+                    "client_type": "legal",
+                    "legal_representative": "王五",
+                    "credit_code": "91110108MA01XXXXX",
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 200
@@ -360,12 +425,14 @@ class TestReminderBusinessLogic:
         due = (datetime.now() + timedelta(days=7)).isoformat()
         resp = authenticated_client.post(
             "/api/v1/reminders/create",
-            data=json.dumps({
-                "case_id": case.id,
-                "reminder_type": "hearing",
-                "content": "开庭提醒测试",
-                "due_at": due,
-            }),
+            data=json.dumps(
+                {
+                    "case_id": case.id,
+                    "reminder_type": "hearing",
+                    "content": "开庭提醒测试",
+                    "due_at": due,
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 200
@@ -415,11 +482,15 @@ class TestReminderBusinessLogic:
         case1 = _make_case(name="案件1")
         case2 = _make_case(name="案件2")
         Reminder.objects.create(
-            case=case1, reminder_type="hearing", content="提醒1",
+            case=case1,
+            reminder_type="hearing",
+            content="提醒1",
             due_at=datetime.now() + timedelta(days=1),
         )
         Reminder.objects.create(
-            case=case2, reminder_type="deadline", content="提醒2",
+            case=case2,
+            reminder_type="deadline",
+            content="提醒2",
             due_at=datetime.now() + timedelta(days=2),
         )
         resp = authenticated_client.get("/api/v1/reminders/list", {"case_id": case1.id})
@@ -435,10 +506,12 @@ class TestContractBusinessLogic:
     def test_create_contract_persists(self, authenticated_client):
         resp = authenticated_client.post(
             "/api/v1/contracts/contracts",
-            data=json.dumps({
-                "name": "持久化测试合同",
-                "case_type": "civil",
-            }),
+            data=json.dumps(
+                {
+                    "name": "持久化测试合同",
+                    "case_type": "civil",
+                }
+            ),
             content_type="application/json",
         )
         if resp.status_code == 200:
@@ -451,8 +524,9 @@ class TestContractBusinessLogic:
         resp = authenticated_client.get("/api/v1/contracts/contracts")
         assert resp.status_code == 200
         data = resp.json()
-        assert isinstance(data, list)
-        assert len(data) >= 1
+        # 列表端点为标准分页信封（不传 page 默认 page=1）
+        assert isinstance(data["items"], list)
+        assert data["total"] >= 1
 
 
 class TestOrganizationBusinessLogic:
@@ -462,10 +536,12 @@ class TestOrganizationBusinessLogic:
     def test_login_returns_token(self, api_client, lawyer):
         resp = api_client.post(
             "/api/v1/organization/login",
-            data=json.dumps({
-                "username": lawyer.username,
-                "password": "testpass123",
-            }),
+            data=json.dumps(
+                {
+                    "username": lawyer.username,
+                    "password": "testpass123",
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 200
@@ -476,16 +552,22 @@ class TestOrganizationBusinessLogic:
     def test_login_wrong_password(self, api_client, lawyer):
         resp = api_client.post(
             "/api/v1/organization/login",
-            data=json.dumps({
-                "username": lawyer.username,
-                "password": "wrongpassword",
-            }),
+            data=json.dumps(
+                {
+                    "username": lawyer.username,
+                    "password": "wrongpassword",
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code in (400, 401, 200)
         if resp.status_code == 200:
             data = resp.json()
             assert data.get("success") is False or "error" in data
+            # 错误密码绝不能签发 token
+            assert not (data.get("access") or data.get("token"))
+        else:
+            _assert_error_body(resp)
 
     @pytest.mark.django_db
     def test_list_lawyers(self, authenticated_client, law_firm):
@@ -550,11 +632,13 @@ class TestEdgeCases:
         for i in range(5):
             resp = authenticated_client.post(
                 "/api/v1/cases/cases",
-                data=json.dumps({
-                    "name": f"并发测试案件{i}",
-                    "contract_id": contract.id,
-                    "case_type": "civil",
-                }),
+                data=json.dumps(
+                    {
+                        "name": f"并发测试案件{i}",
+                        "contract_id": contract.id,
+                        "case_type": "civil",
+                    }
+                ),
                 content_type="application/json",
             )
             if resp.status_code == 200:

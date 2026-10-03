@@ -4,7 +4,6 @@
 
 import asyncio
 import io
-import re
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -25,6 +24,8 @@ from apps.automation.schemas import (
     CourtSMSCopyDocsIn,
     CourtSMSCopyDocsOut,
     CourtSMSDetailOut,
+    CourtSmsDocumentRenameIn,
+    CourtSmsDocumentRenameOut,
     CourtSMSListOut,
     CourtSMSSubmitIn,
     CourtSMSSubmitOut,
@@ -320,54 +321,14 @@ async def download_all_documents(request: Any, sms_id: int) -> FileResponse:  # 
     return FileResponse(zip_buffer, as_attachment=True, filename=f"courtsms_{sms_id}_documents.zip")
 
 
-@router.post("/court-sms/{sms_id}/documents/{ref_index}/rename")
-async def rename_document(
-    request: Any, sms_id: int, ref_index: int, payload: dict[str, Any]
-) -> dict[str, Any]:  # pragma: no cover
+@router.post("/court-sms/{sms_id}/documents/{ref_index}/rename", response=CourtSmsDocumentRenameOut)
+async def rename_document(  # pragma: no cover
+    request: Any, sms_id: int, ref_index: int, payload: CourtSmsDocumentRenameIn
+) -> CourtSmsDocumentRenameOut:
     """重命名单个关联文书"""
-    from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
-    from apps.automation.services.sms.court_sms_repository import CourtSMSRepository
+    from apps.automation.services.sms.court_sms_document_rename_service import CourtSMSDocumentRenameService
 
-    sms = await sync_to_async(CourtSMSRepository().get_by_id_or_none)(sms_id=sms_id)
-    if sms is None:
-        raise Http404("短信记录不存在")
-
-    references = await sync_to_async(CourtSMSDocumentReferenceService().collect)(sms)
-    from apps.core.exceptions import ValidationException
-
-    if ref_index < 0 or ref_index >= len(references):
-        raise ValidationException("文书索引超出范围", code="DOC_INDEX_OUT_OF_RANGE")
-
-    ref = references[ref_index]
-    file_path = Path(ref.file_path)
-    if not file_path.exists() or not file_path.is_file():
-        raise ValidationException("文书文件不存在", code="DOC_FILE_NOT_FOUND")
-
-    raw_stem = str(payload.get("new_stem", "") or "").strip()
-    if not raw_stem:
-        raise ValidationException("文件名不能为空", code="EMPTY_FILENAME")
-    if "." in raw_stem:
-        raise ValidationException("只能修改文件名，不能修改扩展名", code="FILENAME_HAS_EXTENSION")
-
-    new_stem = re.sub(r'[\\/:*?"<>|]', "", raw_stem).strip()
-    if not new_stem:
-        raise ValidationException("文件名包含非法字符", code="INVALID_FILENAME")
-
-    new_path = file_path.with_name(f"{new_stem}{file_path.suffix}")
-    if new_path == file_path:
-        return {"success": True, "message": "文件名未变化"}
-    if new_path.exists():
-        raise ValidationException(f"目标文件已存在：{new_path.name}", code="TARGET_EXISTS")
-
-    old_abs = str(file_path.resolve())
-    await asyncio.to_thread(file_path.rename, new_path)
-    new_abs = str(new_path.resolve())
-
-    # 同步引用
-    from apps.automation.admin.sms.court_sms_admin import CourtSMSAdmin
-    from apps.automation.models import CourtSMS
-
-    admin_instance = CourtSMSAdmin(CourtSMS, None)  # type: ignore[arg-type]
-    await sync_to_async(admin_instance._sync_document_references)(sms, old_abs, new_abs, ref.court_document_id)
-
-    return {"success": True, "new_name": new_path.name}
+    result = await CourtSMSDocumentRenameService().rename_document(
+        sms_id=sms_id, ref_index=ref_index, new_stem=payload.new_stem
+    )
+    return CourtSmsDocumentRenameOut(success=result.success, message=result.message, new_name=result.new_name)

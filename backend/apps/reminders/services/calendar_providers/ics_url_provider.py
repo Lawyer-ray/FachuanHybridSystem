@@ -113,7 +113,8 @@ class IcsUrlProvider:
             pass  # hostname is a domain, not an IP
 
         # Block common local hostnames
-        blocked_hosts = {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
+        # "0.0.0.0" 是 SSRF 拦截名单条目，并非 bind 地址
+        blocked_hosts = {"localhost", "127.0.0.1", "::1", "0.0.0.0"}  # nosec B104
         if hostname.lower() in blocked_hosts:
             return "不允许访问本地地址"
 

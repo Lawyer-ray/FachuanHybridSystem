@@ -36,10 +36,14 @@ class ContractQueryService:
                 "supplementary_agreements__parties__client",
                 "finalized_materials",
                 "client_payment_records",
+                # cases 仅供列表 DTO（contract_list_assembler 的 case_dtos）prefetch 展开，
+                # 消除循环内 contract.cases.all() 的 N+1。
+                "cases",
             )
             # 用 DB 层聚合替代 ContractOut.resolve_total_received/invoiced 中的 Python 循环求和。
             # case_count 用相关子查询而非 Count("cases")：同一 annotate 链上再 join cases 会与
             # payments 的 Sum 互相放大（笛卡尔积），子查询各算各的互不干扰。
+            # （子查询负责 case_count 计数，上方 prefetch 负责 DTO 展开，两者并存不冲突。）
             .annotate(
                 _total_received=Sum("payments__amount"),
                 _total_invoiced=Sum("payments__invoiced_amount"),

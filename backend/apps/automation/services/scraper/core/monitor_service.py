@@ -112,10 +112,11 @@ class MonitorService:
             # 如果是通过ServiceLocator获取的服务，调用其方法
             stuck_tasks = self.task_service.get_stuck_tasks(timeout)
 
-        if stuck_tasks.exists():
-            logger.warning("发现 %s 个卡住的任务", stuck_tasks.count())
+        stuck = list(stuck_tasks)
+        if stuck:
+            logger.warning("发现 %s 个卡住的任务", len(stuck))
 
-        return list(stuck_tasks)
+        return stuck
 
     def check_high_failure_rate(self, threshold: float = 0.5, min_tasks: int = 10) -> dict[str, float]:
         """
@@ -139,30 +140,46 @@ class MonitorService:
             # 如果是服务，获取任务类型
             task_type_choices = getattr(self.task_service, "get_task_type_choices", lambda: [])()
 
-        for task_type, _ in task_type_choices:
-            if hasattr(self.task_service, "objects"):
-                tasks = self.task_service.objects.filter(
-                    task_type=task_type,
+        if hasattr(self.task_service, "objects"):
+            # 一次按 task_type 的分组聚合替代循环内逐类型 2 条 COUNT（2N 条查询 → 1 条），
+            # 统计口径与原逐类型查询一致：仅 SUCCESS/FAILED 且 created_at >= since。
+            stats: dict[Any, tuple[int, int]] = {
+                row["task_type"]: (row["total"], row["failed"])
+                for row in self.task_service.objects.filter(
+                    task_type__in=[t for t, _ in task_type_choices],
                     created_at__gte=since,
                     status__in=[ScraperTaskStatus.SUCCESS, ScraperTaskStatus.FAILED],
                 )
+                .values("task_type")
+                .annotate(
+                    total=Count("id"),
+                    failed=Count("id", filter=Q(status=ScraperTaskStatus.FAILED)),
+                )
+            }
+        else:
+            stats = {}
+
+        for task_type, _ in task_type_choices:
+            if hasattr(self.task_service, "objects"):
+                total, failed = stats.get(task_type, (0, 0))
             else:
-                # 如果是通过ServiceLocator获取的服务，调用其方法
+                # 如果是服务，获取指定类型的任务（保持原逐类型统计逻辑）
                 tasks = self.task_service.get_tasks_by_type_and_status(
                     task_type, [ScraperTaskStatus.SUCCESS, ScraperTaskStatus.FAILED], since
                 )
-
-            if hasattr(tasks, "count"):
-                total = tasks.count()
-                if total < min_tasks:
-                    continue
-                failed = tasks.filter(status=ScraperTaskStatus.FAILED).count()
-            else:
-                # 如果是列表或其他类型
-                total = len(tasks) if tasks else 0
-                if total < min_tasks:
-                    continue
-                failed = len([t for t in tasks if getattr(t, "status", None) == ScraperTaskStatus.FAILED])
+                if hasattr(tasks, "count"):
+                    total = tasks.count()
+                    if total < min_tasks:
+                        continue
+                    failed = tasks.filter(status=ScraperTaskStatus.FAILED).count()
+                else:
+                    # 如果是列表或其他类型
+                    total = len(tasks) if tasks else 0
+                    if total < min_tasks:
+                        continue
+                    failed = len([t for t in tasks if getattr(t, "status", None) == ScraperTaskStatus.FAILED])
+            if total < min_tasks:
+                continue
             failure_rate = failed / total
 
             if failure_rate >= threshold:

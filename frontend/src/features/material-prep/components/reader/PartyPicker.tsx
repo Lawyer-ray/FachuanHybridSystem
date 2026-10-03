@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { LoaderCircle, User, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { searchClients } from '../../api'
-import type { ClientHit } from '../../types'
 
 const SEP = '、'
 
 /**
  * 当事人标签检索填报：委托人 / 对方当事人字段专用。
- * 字段本身是可输入框，输入姓名或单位实时从后端客户库模糊检索出下拉候选；
+ * 字段本身是可输入框，输入姓名或单位实时从后端客户库模糊检索出下拉候选
+ * （query 随输入换 key，上一请求由 signal 自动中止，无响应竞态）；
  * 选择一项变成一个可删除的标签，可继续输入添加多个；回车可把自由文本直接填入。
  * 交互贴合「输入 → 出下拉 → 选中变标签、标签可删」的预期。
  */
@@ -25,21 +26,21 @@ export function PartyPicker({
   isOurClient: boolean
 }) {
   const [q, setQ] = useState('')
-  const [hits, setHits] = useState<ClientHit[]>([])
-  const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
 
   const tags = useMemo(() => value.split(SEP).map((s) => s.trim()).filter(Boolean), [value])
   const tagSet = useMemo(() => new Set(tags), [tags])
 
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current)
-    },
-    [],
-  )
+  const kwTrim = q.trim()
+  const { data: searched = [], isFetching: loading } = useQuery({
+    queryKey: ['mp-party-search', kwTrim, isOurClient],
+    queryFn: ({ signal }) => searchClients(kwTrim, isOurClient, signal),
+    enabled: !!kwTrim,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  })
+  const hits = useMemo(() => searched.slice(0, 12), [searched])
 
   useEffect(() => {
     if (!open) return
@@ -54,26 +55,7 @@ export function PartyPicker({
 
   const startSearch = (kw: string) => {
     setQ(kw)
-    if (timer.current) clearTimeout(timer.current)
-    const t = kw.trim()
-    if (!t) {
-      setHits([])
-      setLoading(false)
-      setOpen(true)
-      return
-    }
-    setLoading(true)
     setOpen(true)
-    timer.current = setTimeout(async () => {
-      try {
-        const list = await searchClients(t, isOurClient)
-        setHits(list.slice(0, 12))
-      } catch {
-        setHits([])
-      } finally {
-        setLoading(false)
-      }
-    }, 240)
   }
 
   const addTag = (name: string) => {
@@ -84,7 +66,6 @@ export function PartyPicker({
     }
     onChange(value ? `${value}${SEP}${n}` : n)
     setQ('')
-    setHits([])
   }
 
   const removeTag = (n: string) => {

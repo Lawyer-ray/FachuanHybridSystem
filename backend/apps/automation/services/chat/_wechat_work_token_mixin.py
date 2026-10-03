@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
+from django.utils import timezone
 
 from apps.core.exceptions import ChatProviderException, ConfigurationException
 
@@ -72,7 +73,7 @@ class WeChatWorkTokenMixin:  # pragma: no cover
         if (
             self._access_token
             and self._token_expires_at
-            and datetime.now() < self._token_expires_at - timedelta(minutes=5)
+            and timezone.now() < self._token_expires_at - timedelta(minutes=5)
         ):
             return self._access_token
 
@@ -107,7 +108,7 @@ class WeChatWorkTokenMixin:  # pragma: no cover
 
             self._access_token = data["access_token"]
             expires_in = data.get("expires_in", 7200)
-            self._token_expires_at = datetime.now() + timedelta(seconds=expires_in)
+            self._token_expires_at = timezone.now() + timedelta(seconds=expires_in)
 
             logger.debug("已获取企业微信 access_token")
             if self._access_token is None:
@@ -131,7 +132,7 @@ class WeChatWorkTokenMixin:  # pragma: no cover
         if (
             self._access_token
             and self._token_expires_at
-            and datetime.now() < self._token_expires_at - timedelta(minutes=5)
+            and timezone.now() < self._token_expires_at - timedelta(minutes=5)
         ):
             return self._access_token
 
@@ -143,7 +144,7 @@ class WeChatWorkTokenMixin:  # pragma: no cover
             if (
                 self._access_token
                 and self._token_expires_at
-                and datetime.now() < self._token_expires_at - timedelta(minutes=5)
+                and timezone.now() < self._token_expires_at - timedelta(minutes=5)
             ):
                 return self._access_token
 
@@ -179,7 +180,7 @@ class WeChatWorkTokenMixin:  # pragma: no cover
 
                 self._access_token = data["access_token"]
                 expires_in = data.get("expires_in", 7200)
-                self._token_expires_at = datetime.now() + timedelta(seconds=expires_in)
+                self._token_expires_at = timezone.now() + timedelta(seconds=expires_in)
 
                 logger.debug("已获取企业微信 access_token")
                 if self._access_token is None:

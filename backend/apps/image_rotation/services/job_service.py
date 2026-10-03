@@ -87,20 +87,13 @@ class ImageRotationJobService:
 
     @staticmethod
     def list_jobs(*, created_by: Any = None, page: int = 1, page_size: int = 20) -> dict[str, Any]:
+        from apps.core.api.pagination import paginate_queryset
+
         qs = ImageRotationJob.objects.all()
         if created_by is not None:
             qs = qs.filter(created_by=created_by)
 
-        total = qs.count()
-        start = (page - 1) * page_size
-        jobs = list(qs[start : start + page_size])
-
-        return {
-            "total_count": total,
-            "page": page,
-            "page_size": page_size,
-            "jobs": jobs,
-        }
+        return paginate_queryset(qs, page=page, page_size=page_size)
 
     @staticmethod
     def get_job_detail(job_id: str | uuid.UUID) -> tuple[ImageRotationJob, list[ImageRotationPage]]:

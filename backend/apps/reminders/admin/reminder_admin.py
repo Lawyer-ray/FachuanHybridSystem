@@ -132,7 +132,8 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):  # pragma: no cover
             f'<td style="padding:4px 0;border-bottom:1px solid #f1f5f9">{escape(str(value))}</td></tr>'
             for key, value in data.items()
         )
-        return str(mark_safe(f'<table style="border-spacing:0;font-size:13px">{rows}</table>'))
+        # key/value 已在生成 rows 时逐项 escape()
+        return str(mark_safe(f'<table style="border-spacing:0;font-size:13px">{rows}</table>'))  # nosec B703, B308
 
     def get_urls(self) -> list[URLPattern]:  # pragma: no cover
         urls = super().get_urls()

@@ -28,7 +28,11 @@ class ContractParty(models.Model):
         Contract, on_delete=models.CASCADE, related_name="contract_parties", verbose_name="合同"
     )
     client = models.ForeignKey(
-        "client.Client", on_delete=models.CASCADE, related_name="contracts", verbose_name="当事人"
+        # PROTECT：删除客户不得静默抹掉合同当事人（业务数据），须先解除关联（同 ContractAssignment.lawyer 的防护语义）
+        "client.Client",
+        on_delete=models.PROTECT,
+        related_name="contracts",
+        verbose_name="当事人",
     )
     role = models.CharField(max_length=16, choices=PartyRole.choices, default=PartyRole.PRINCIPAL, verbose_name="身份")
 

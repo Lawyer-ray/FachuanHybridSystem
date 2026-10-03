@@ -101,8 +101,9 @@ export async function parseDocument(file: File, opts: ParseDocumentIn): Promise<
   body.append('return_markdown', String(opts.returnMarkdown))
   const res = await documentParsingApi.post('parse', { body, timeout: DOC_PARSE_TIMEOUT_MS }).json<Record<string, unknown>>()
 
-  const taskId = res.task_id == null ? null : String(res.task_id)
-  const status = res.status == null ? 'completed' : String(res.status)
+  const taskId = res.task_id === null || res.task_id === undefined ? null : String(res.task_id)
+  // 缺状态按后端 DocumentParsingTask 初始态 pending 处理（待轮询），绝不当成 completed
+  const status = res.status === null || res.status === undefined ? 'pending' : String(res.status)
   // 同步路径：success 且无 task_id，markdown/text 直接在顶层
   if (!taskId) {
     if (res.success === false) {

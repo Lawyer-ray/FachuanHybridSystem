@@ -178,14 +178,17 @@ class TestSaveUploadedPdf:
         target.parent.mkdir(parents=True, exist_ok=True)
         try:
             mock_storage = MagicMock()
-            with patch("django.core.files.storage.default_storage", mock_storage), \
-                 patch("django.core.files.base.ContentFile") as mock_cf:
+            with (
+                patch("django.core.files.storage.default_storage", mock_storage),
+                patch("django.core.files.base.ContentFile") as mock_cf,
+            ):
                 mock_cf.return_value = MagicMock()
                 result = svc._save_uploaded_pdf(file, target)
                 assert result.endswith(".pdf")
                 mock_storage.save.assert_called_once()
         finally:
             import shutil
+
             shutil.rmtree(target.parent, ignore_errors=True)
 
 
@@ -294,10 +297,12 @@ class TestNormalizeConfirmedSegments:
         from apps.pdf_splitting.services.job_service import PdfSplitJobService
 
         svc = PdfSplitJobService()
-        with patch("apps.pdf_splitting.services.job_service.PdfSplitSegmentType") as mock_type, \
-             patch("apps.pdf_splitting.services.job_service.PdfSplitReviewFlag") as mock_flag, \
-             patch("apps.pdf_splitting.services.job_service.sanitize_upload_filename", side_effect=lambda x: x), \
-             patch("apps.pdf_splitting.services.job_service.get_default_filename", return_value="default.pdf"):
+        with (
+            patch("apps.pdf_splitting.services.job_service.PdfSplitSegmentType") as mock_type,
+            patch("apps.pdf_splitting.services.job_service.PdfSplitReviewFlag") as mock_flag,
+            patch("apps.pdf_splitting.services.job_service.sanitize_upload_filename", side_effect=lambda x: x),
+            patch("apps.pdf_splitting.services.job_service.get_default_filename", return_value="default.pdf"),
+        ):
             mock_type.choices = [("contract", "C"), ("complaint", "Co"), ("unrecognized", "U")]
             mock_type.UNRECOGNIZED = "unrecognized"
             mock_flag.NORMAL = "normal"
@@ -316,10 +321,12 @@ class TestNormalizeConfirmedSegments:
         from apps.pdf_splitting.services.job_service import PdfSplitJobService
 
         svc = PdfSplitJobService()
-        with patch("apps.pdf_splitting.services.job_service.PdfSplitSegmentType") as mock_type, \
-             patch("apps.pdf_splitting.services.job_service.PdfSplitReviewFlag") as mock_flag, \
-             patch("apps.pdf_splitting.services.job_service.sanitize_upload_filename", side_effect=lambda x: x), \
-             patch("apps.pdf_splitting.services.job_service.get_default_filename", return_value="default.pdf"):
+        with (
+            patch("apps.pdf_splitting.services.job_service.PdfSplitSegmentType") as mock_type,
+            patch("apps.pdf_splitting.services.job_service.PdfSplitReviewFlag") as mock_flag,
+            patch("apps.pdf_splitting.services.job_service.sanitize_upload_filename", side_effect=lambda x: x),
+            patch("apps.pdf_splitting.services.job_service.get_default_filename", return_value="default.pdf"),
+        ):
             mock_type.choices = [("contract", "C"), ("unrecognized", "U")]
             mock_type.UNRECOGNIZED = "unrecognized"
             mock_flag.NORMAL = "normal"
@@ -337,10 +344,12 @@ class TestNormalizeConfirmedSegments:
         from apps.pdf_splitting.services.job_service import PdfSplitJobService
 
         svc = PdfSplitJobService()
-        with patch("apps.pdf_splitting.services.job_service.PdfSplitSegmentType") as mock_type, \
-             patch("apps.pdf_splitting.services.job_service.PdfSplitReviewFlag") as mock_flag, \
-             patch("apps.pdf_splitting.services.job_service.sanitize_upload_filename", side_effect=lambda x: x), \
-             patch("apps.pdf_splitting.services.job_service.get_default_filename", return_value="default.pdf"):
+        with (
+            patch("apps.pdf_splitting.services.job_service.PdfSplitSegmentType") as mock_type,
+            patch("apps.pdf_splitting.services.job_service.PdfSplitReviewFlag") as mock_flag,
+            patch("apps.pdf_splitting.services.job_service.sanitize_upload_filename", side_effect=lambda x: x),
+            patch("apps.pdf_splitting.services.job_service.get_default_filename", return_value="default.pdf"),
+        ):
             mock_type.choices = [("contract", "C"), ("unrecognized", "U")]
             mock_type.UNRECOGNIZED = "unrecognized"
             mock_flag.NORMAL = "normal"
@@ -357,10 +366,12 @@ class TestNormalizeConfirmedSegments:
         from apps.pdf_splitting.services.job_service import PdfSplitJobService
 
         svc = PdfSplitJobService()
-        with patch("apps.pdf_splitting.services.job_service.PdfSplitSegmentType") as mock_type, \
-             patch("apps.pdf_splitting.services.job_service.PdfSplitReviewFlag") as mock_flag, \
-             patch("apps.pdf_splitting.services.job_service.sanitize_upload_filename", side_effect=lambda x: x), \
-             patch("apps.pdf_splitting.services.job_service.get_default_filename", return_value="default.pdf"):
+        with (
+            patch("apps.pdf_splitting.services.job_service.PdfSplitSegmentType") as mock_type,
+            patch("apps.pdf_splitting.services.job_service.PdfSplitReviewFlag") as mock_flag,
+            patch("apps.pdf_splitting.services.job_service.sanitize_upload_filename", side_effect=lambda x: x),
+            patch("apps.pdf_splitting.services.job_service.get_default_filename", return_value="default.pdf"),
+        ):
             mock_type.choices = [("unrecognized", "U")]
             mock_type.UNRECOGNIZED = "unrecognized"
             mock_flag.NORMAL = "normal"
@@ -399,24 +410,37 @@ class TestSerializeSegment:
 class TestMarkCompletedFailed:
     @pytest.mark.django_db
     def test_mark_completed(self):
+        from apps.pdf_splitting.models import PdfSplitJobStatus
         from apps.pdf_splitting.services.job_service import PdfSplitJobService
 
         svc = PdfSplitJobService()
         job_id = uuid.uuid4()
-        svc.mark_completed(job_id=job_id, export_zip_relpath="test.zip")
-        # Should not raise even if job doesn't exist (filter().update() is a no-op)
+        with patch("apps.pdf_splitting.services.job_service.PdfSplitJob") as mock_job:
+            svc.mark_completed(job_id=job_id, export_zip_relpath="test.zip")
+        mock_job.objects.filter.assert_called_once_with(id=job_id)
+        kwargs = mock_job.objects.filter.return_value.update.call_args.kwargs
+        assert kwargs["status"] == PdfSplitJobStatus.COMPLETED
+        assert kwargs["progress"] == 100
+        assert kwargs["export_zip_relpath"] == "test.zip"
+        assert kwargs["error_message"] == ""
 
     @pytest.mark.django_db
     def test_mark_failed(self):
+        from apps.pdf_splitting.models import PdfSplitJobStatus
         from apps.pdf_splitting.services.job_service import PdfSplitJobService
 
         svc = PdfSplitJobService()
         job_id = uuid.uuid4()
-        svc.mark_failed(job_id=job_id, error_message="Something went wrong")
-        # Should not raise even if job doesn't exist (filter().update() is a no-op)
+        with patch("apps.pdf_splitting.services.job_service.PdfSplitJob") as mock_job:
+            svc.mark_failed(job_id=job_id, error_message="Something went wrong")
+        mock_job.objects.filter.assert_called_once_with(id=job_id)
+        kwargs = mock_job.objects.filter.return_value.update.call_args.kwargs
+        assert kwargs["status"] == PdfSplitJobStatus.FAILED
+        assert kwargs["error_message"] == "Something went wrong"
 
 
 # ── PdfSplitService internals ─────────────────────────────────────
+
 
 class TestBuildPageSplitDrafts:
     def test_generates_drafts(self):
@@ -460,32 +484,46 @@ class TestUpdateProgress:
         from apps.pdf_splitting.services.split.service import PdfSplitService
 
         svc = PdfSplitService()
-        svc._update_progress(job_id=uuid.uuid4(), resolved_pages=5, total_pages=20)
-        # Should not raise
+        with patch("apps.pdf_splitting.services.split.service.PdfSplitJob") as mock_job:
+            svc._update_progress(job_id="job-1", resolved_pages=5, total_pages=20)
+        kwargs = mock_job.objects.filter.return_value.update.call_args.kwargs
+        assert kwargs["total_pages"] == 20
+        assert kwargs["processed_pages"] == 5
+        assert kwargs["current_page"] == 5
+        assert kwargs["progress"] == 25
 
     @pytest.mark.django_db
     def test_updates_on_last_page(self):
         from apps.pdf_splitting.services.split.service import PdfSplitService
 
         svc = PdfSplitService()
-        svc._update_progress(job_id=uuid.uuid4(), resolved_pages=20, total_pages=20)
-        # Should not raise
+        with patch("apps.pdf_splitting.services.split.service.PdfSplitJob") as mock_job:
+            svc._update_progress(job_id="job-1", resolved_pages=20, total_pages=20)
+        kwargs = mock_job.objects.filter.return_value.update.call_args.kwargs
+        assert kwargs["progress"] == 100
+        assert kwargs["processed_pages"] == 20
 
     @pytest.mark.django_db
     def test_no_update_on_non_fifth(self):
         from apps.pdf_splitting.services.split.service import PdfSplitService
 
         svc = PdfSplitService()
-        svc._update_progress(job_id=uuid.uuid4(), resolved_pages=3, total_pages=20)
-        # Should not raise (no-op)
+        with patch("apps.pdf_splitting.services.split.service.PdfSplitJob") as mock_job:
+            # 第 3 页既非 5 的倍数也非最后一页 → 不落库
+            svc._update_progress(job_id="job-1", resolved_pages=3, total_pages=20)
+        mock_job.objects.filter.assert_not_called()
 
     @pytest.mark.django_db
     def test_zero_total_pages(self):
         from apps.pdf_splitting.services.split.service import PdfSplitService
 
         svc = PdfSplitService()
-        svc._update_progress(job_id=uuid.uuid4(), resolved_pages=0, total_pages=0)
-        # Should not raise
+        with patch("apps.pdf_splitting.services.split.service.PdfSplitJob") as mock_job:
+            # 0 % 5 == 0 → 会落库，progress 按 0 页防除零为 0
+            svc._update_progress(job_id="job-1", resolved_pages=0, total_pages=0)
+        kwargs = mock_job.objects.filter.return_value.update.call_args.kwargs
+        assert kwargs["progress"] == 0
+        assert kwargs["total_pages"] == 0
 
 
 class TestBuildDescriptor:
@@ -493,8 +531,10 @@ class TestBuildDescriptor:
         from apps.pdf_splitting.services.split.service import PdfSplitService
 
         svc = PdfSplitService()
-        with patch.object(svc._segment_detector, "normalize_text", return_value="normalized"), \
-             patch.object(svc._segment_detector, "score_page", return_value=[]):
+        with (
+            patch.object(svc._segment_detector, "normalize_text", return_value="normalized"),
+            patch.object(svc._segment_detector, "score_page", return_value=[]),
+        ):
             desc = svc._build_descriptor(
                 page_no=1,
                 text="Hello World",

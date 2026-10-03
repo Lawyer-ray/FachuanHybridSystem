@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
+from django.utils import timezone
 
 from apps.core.exceptions import ChatProviderException, ConfigurationException
 
@@ -69,7 +70,7 @@ class FeishuTokenMixin:  # pragma: no cover
         if (
             self._access_token
             and self._token_expires_at
-            and datetime.now() < self._token_expires_at - timedelta(minutes=5)
+            and timezone.now() < self._token_expires_at - timedelta(minutes=5)
         ):
             return self._access_token
 
@@ -102,7 +103,7 @@ class FeishuTokenMixin:  # pragma: no cover
 
             self._access_token = data["tenant_access_token"]
             expires_in = data.get("expire", 7200)
-            self._token_expires_at = datetime.now() + timedelta(seconds=expires_in)
+            self._token_expires_at = timezone.now() + timedelta(seconds=expires_in)
 
             logger.debug("已获取飞书访问令牌")
             if self._access_token is None:
@@ -126,7 +127,7 @@ class FeishuTokenMixin:  # pragma: no cover
         if (
             self._access_token
             and self._token_expires_at
-            and datetime.now() < self._token_expires_at - timedelta(minutes=5)
+            and timezone.now() < self._token_expires_at - timedelta(minutes=5)
         ):
             return self._access_token
 
@@ -138,7 +139,7 @@ class FeishuTokenMixin:  # pragma: no cover
             if (
                 self._access_token
                 and self._token_expires_at
-                and datetime.now() < self._token_expires_at - timedelta(minutes=5)
+                and timezone.now() < self._token_expires_at - timedelta(minutes=5)
             ):
                 return self._access_token
 
@@ -174,7 +175,7 @@ class FeishuTokenMixin:  # pragma: no cover
 
                 self._access_token = data["tenant_access_token"]
                 expires_in = data.get("expire", 7200)
-                self._token_expires_at = datetime.now() + timedelta(seconds=expires_in)
+                self._token_expires_at = timezone.now() + timedelta(seconds=expires_in)
 
                 logger.debug("已获取飞书访问令牌")
                 if self._access_token is None:

@@ -107,14 +107,26 @@ async def start_workflow(
     }
 
 
-async def list_workflows(case_id: int | None = None, status: str | None = None) -> list[dict[str, Any]]:
+async def list_workflows(
+    case_id: int | None = None,
+    status: str | None = None,
+    limit: int = 20,
+) -> dict[str, Any]:
     """查询诉讼工作流列表
 
     Args:
         case_id: 按案件 ID 筛选（可选）
         status: 按状态筛选（可选：running/waiting_human/waiting_event/completed/failed）
+        limit: 返回条数上限（默认 20，cap 100）
+
+    Returns:
+        标准分页信封 {items, total, page, page_size, total_pages}（单页语义，page=1）
     """
+    import math
+
     from apps.workflow.models import WorkflowRun
+
+    effective_limit = max(1, min(limit, 100))
 
     qs = WorkflowRun.objects.select_related("template", "case")
     if case_id:
@@ -122,20 +134,28 @@ async def list_workflows(case_id: int | None = None, status: str | None = None) 
     if status:
         qs = qs.filter(status=status)
 
-    runs = [r async for r in qs.order_by("-started_at")[:20]]
+    ordered = qs.order_by("-started_at")
+    total = await ordered.acount()
+    runs = [r async for r in ordered[:effective_limit]]
 
-    return [
-        {
-            "run_id": r.id,
-            "workflow_id": r.temporal_workflow_id,
-            "template": r.template.name,
-            "case_name": r.case.name,
-            "status": r.status,
-            "current_step": r.current_step_id,
-            "started_at": r.started_at.isoformat(),
-        }
-        for r in runs
-    ]
+    return {
+        "items": [
+            {
+                "run_id": r.id,
+                "workflow_id": r.temporal_workflow_id,
+                "template": r.template.name,
+                "case_name": r.case.name,
+                "status": r.status,
+                "current_step": r.current_step_id,
+                "started_at": r.started_at.isoformat(),
+            }
+            for r in runs
+        ],
+        "total": total,
+        "page": 1,
+        "page_size": effective_limit,
+        "total_pages": max(1, math.ceil(total / effective_limit)),
+    }
 
 
 async def get_workflow_detail(run_id: int) -> dict[str, Any]:

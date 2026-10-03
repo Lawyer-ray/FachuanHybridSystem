@@ -109,7 +109,7 @@ document.addEventListener('alpine:init', () => {
                 }
 
                 const data = await response.json();
-                this.results = data.results || [];
+                this.results = data.items || [];
 
                 // 更新表单字段
                 if (this.successCount > 0) {

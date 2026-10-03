@@ -9,7 +9,7 @@ import {
   submitCourtSms,
   type CourtSmsDetail,
 } from '../../../api'
-import { HOME_INBOX_KEY } from '../../../api'
+import { HOME_INBOX_KEY, courtSmsHistoryKeys } from '../../../api'
 import { smsStageInfo, SMS_STAGES, type SmsTerminal } from './stages'
 
 /** 轮询节奏：2s 一拍，与 doc-parse / doc-converter 一致 */
@@ -92,8 +92,10 @@ export function useCourtSms(): UseCourtSmsResult {
       timer.current = window.setTimeout(resolve, ms)
     })
 
+  // 收件箱卡片与历史弹窗都要失效：终态/删除/刷新都会改变历史列表的内容
   const invalidateInbox = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: HOME_INBOX_KEY })
+    void queryClient.invalidateQueries({ queryKey: courtSmsHistoryKeys.all })
   }, [queryClient])
 
   const poll = useCallback(

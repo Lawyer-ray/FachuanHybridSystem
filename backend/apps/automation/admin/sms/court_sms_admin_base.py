@@ -224,16 +224,14 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
     def case_numbers_display(self, obj: CourtSMS) -> SafeString | str:  # pragma: no cover
         """案号显示"""
         if obj.case_numbers:
-            parts = [format_html("{}", n) for n in obj.case_numbers]
-            return mark_safe("<br>".join(str(p) for p in parts))
+            return format_html_join("<br>", "{}", ((n,) for n in obj.case_numbers))
         return "-"
 
     @admin.display(description=_("提取的当事人"))
     def party_names_display(self, obj: CourtSMS) -> SafeString | str:  # pragma: no cover
         """当事人显示"""
         if obj.party_names:
-            parts = [format_html("{}", n) for n in obj.party_names]
-            return mark_safe("<br>".join(str(p) for p in parts))
+            return format_html_join("<br>", "{}", ((n,) for n in obj.party_names))
         return "-"
 
     @admin.display(description=_("下载链接"))
@@ -343,7 +341,8 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
                 )
             )
 
-        script = mark_safe(
+        # 纯静态重命名脚本，无任何动态数据插值
+        script = mark_safe(  # nosec B703, B308
             "<script>"
             "(function(){"
             " if(window.__courtSmsDocRenameBound){return;}"
@@ -395,7 +394,8 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
             fail_platforms = [k for k, v in results.items() if isinstance(v, dict) and not v.get("success")]
 
             if success_platforms:
-                parts = [mark_safe('<span style="color: var(--fc-success-text);">✓ 通知成功</span>')]
+                # 纯静态成功标识，无动态数据
+                parts = [mark_safe('<span style="color: var(--fc-success-text);">✓ 通知成功</span>')]  # nosec B703, B308
                 for p in success_platforms:
                     info = results[p]
                     sent_at = info.get("sent_at", "")
@@ -412,7 +412,8 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
                             ", ".join(fail_platforms),
                         )
                     )
-                return mark_safe("".join(str(p) for p in parts))
+                # SafeString 经 conditional_escape 原样透传，动态值已在上方 escape
+                return format_html_join("", "{}", ((p,) for p in parts))
             elif fail_platforms:
                 first_error = ""
                 for p in fail_platforms:
@@ -487,10 +488,12 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
     def recommended_cases_display(self, obj: CourtSMS) -> SafeString:  # pragma: no cover
         """推荐关联案件卡片（AJAX 加载 + Select2 集成）"""
         if not obj.id:
-            return mark_safe('<span style="color:var(--fc-text-disabled);">保存后可查看推荐案件</span>')
+            # 纯静态提示文案，无动态数据
+            return mark_safe('<span style="color:var(--fc-text-disabled);">保存后可查看推荐案件</span>')  # nosec B308
 
         if not (obj.case_numbers or obj.party_names):
-            return mark_safe(
+            # 纯静态提示文案，无动态数据
+            return mark_safe(  # nosec B308
                 '<p style="color:var(--fc-text-disabled);margin:8px 0;">短信中未提取到案号或当事人信息，无法推荐关联案件。'
                 "请使用上方的搜索框手动查找。</p>"
             )

@@ -39,9 +39,8 @@ export {
   courtSmsDocDownloadUrl,
   courtSmsDownloadAllUrl,
   copyCourtSmsDocsToClipboard,
-  searchCasesForAssign,
 } from './court-sms'
-export type { CourtSmsDetail, CaseSearchItem, CourtSmsListItem, CourtSmsGroup } from './court-sms'
+export type { CourtSmsDetail, CourtSmsListItem, CourtSmsGroup } from './court-sms'
 export { withAuthToken, triggerDownload } from './download'
 
 export {

@@ -77,6 +77,21 @@ class TestExecuteScraperTaskExtra:
                     task.max_retries = 3
                     MockModel.objects.get.return_value = task
 
+                    # retry_count 已改为数据库原子自增 + refresh_from_db 回填内存，
+                    # 用 db_state 模拟数据库侧状态
+                    db_state = {"retry_count": 1}
+
+                    def fake_refresh(fields=None, **kwargs):
+                        if fields and "retry_count" in fields:
+                            task.retry_count = db_state["retry_count"]
+
+                    def fake_update(**kwargs):
+                        db_state["retry_count"] += 1
+                        return 1
+
+                    task.refresh_from_db.side_effect = fake_refresh
+                    MockModel.objects.filter.return_value.update.side_effect = fake_update
+
                     mock_cls = MagicMock()
                     mock_cls.return_value.execute.side_effect = RuntimeError("fail")
                     mock_map.return_value = {"document": mock_cls}
@@ -148,8 +163,12 @@ class TestExecutePreservationQuoteTask:
                     MockStatus.FAILED = "failed"
                     quote = MagicMock()
                     MockQuote.objects.get.return_value = quote
-                    with pytest.raises(RuntimeError, match="network error"):
-                        execute_preservation_quote_task(quote_id=1)
+                    # 失败落库后不再向上 raise：避免 django-q2 按 max_attempts
+                    # 自动重跑导致保险询价外呼被重复提交
+                    result = execute_preservation_quote_task(quote_id=1)
+                    assert result["status"] == "failed"
+                    assert result["error"] == "execution_error"
+                    quote.save.assert_called_once()
 
     def test_does_not_exist_exception(self):
         from django.core.exceptions import ObjectDoesNotExist

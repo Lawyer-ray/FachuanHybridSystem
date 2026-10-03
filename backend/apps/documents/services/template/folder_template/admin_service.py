@@ -291,7 +291,8 @@ class FolderTemplateAdminService:
 
     def render_structure_preview(self, structure: dict[str, Any]) -> Any:
         html = self.render_structure_tree(structure)
-        return mark_safe(f'<div class="folder-structure-preview">{html}</div>')
+        # 树中的动态节点名已在 render_structure_tree 内 escape()
+        return mark_safe(f'<div class="folder-structure-preview">{html}</div>')  # nosec B703, B308
 
     def duplicate_template(self, template: Any) -> Any:  # pragma: no cover
         """

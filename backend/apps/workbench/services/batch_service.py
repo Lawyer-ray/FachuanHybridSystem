@@ -12,6 +12,7 @@ from typing import Any
 from uuid import UUID
 
 from django.core.files.base import ContentFile
+from django.db import transaction
 from django.utils import timezone
 
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -149,44 +150,56 @@ class BatchAnalysisService(PermissionMixin):
 
         total = len(word_files) + len(excel_items_data)
 
-        job = BatchJob.objects.create(
-            session_id=session_id,
-            job_type="doc_analysis",
-            prompt=prompt,
-            llm_model=llm_model,
-            total_items=total,
-            metadata={"concurrency": concurrency},
-        )
-
-        # 创建 Word items（原逻辑）
-        items: list[BatchJobItem] = []
-        for f in word_files:
-            items.append(
-                BatchJobItem(
-                    job=job,
-                    file_name=f.name,
-                    file=f,
-                )
+        # Job 与 items 同事务落库：bulk_create 失败时 job 一并回滚，不留无子项的僵尸任务
+        with transaction.atomic():
+            job = BatchJob.objects.create(
+                session_id=session_id,
+                job_type="doc_analysis",
+                prompt=prompt,
+                llm_model=llm_model,
+                total_items=total,
+                metadata={"concurrency": concurrency},
             )
 
-        # 创建 Excel row items（每行一个 .txt 文件）
-        for file_name, text_content in excel_items_data:
-            txt_file = ContentFile(text_content.encode("utf-8"), name=file_name)
-            item = BatchJobItem(job=job, file_name=file_name)
-            item.file.save(file_name, txt_file, save=False)
-            items.append(item)
+            # 创建 Word items（原逻辑）
+            items: list[BatchJobItem] = []
+            for f in word_files:
+                items.append(
+                    BatchJobItem(
+                        job=job,
+                        file_name=f.name,
+                        file=f,
+                    )
+                )
 
-        BatchJobItem.objects.bulk_create(items)
+            # 创建 Excel row items（每行一个 .txt 文件）
+            for file_name, text_content in excel_items_data:
+                txt_file = ContentFile(text_content.encode("utf-8"), name=file_name)
+                item = BatchJobItem(job=job, file_name=file_name)
+                item.file.save(file_name, txt_file, save=False)
+                items.append(item)
 
-        # 提交 Django Q2 任务
+            BatchJobItem.objects.bulk_create(items)
+
+        # 提交 Django Q2 任务（事务外，避免 Q worker 在事务提交前读到半份数据）
         from apps.core.dependencies.core import build_task_submission_service
 
-        task_id = build_task_submission_service().submit(
-            "apps.workbench.tasks.run_batch_analysis",
-            args=[str(job.id)],
-            task_name=f"batch_analysis_{job.id}",
-            timeout=7200,  # 2 小时超时（622 个文件需要较长时间）
-        )
+        try:
+            task_id = build_task_submission_service().submit(
+                "apps.workbench.tasks.run_batch_analysis",
+                args=[str(job.id)],
+                task_name=f"batch_analysis_{job.id}",
+                timeout=7200,  # 2 小时超时（622 个文件需要较长时间）
+            )
+        except Exception:
+            # submit 失败时把 job 标记为 FAILED，不留永远 PENDING 的僵尸任务
+            logger.exception("批量分析任务提交失败: job=%s", job.id)
+            BatchJob.objects.filter(id=job.id).update(
+                status=BatchJobStatus.FAILED,
+                error_message="任务提交失败，请稍后重试",
+                finished_at=timezone.now(),
+            )
+            raise
         BatchJob.objects.filter(id=job.id).update(
             task_id=str(task_id),
             started_at=timezone.now(),

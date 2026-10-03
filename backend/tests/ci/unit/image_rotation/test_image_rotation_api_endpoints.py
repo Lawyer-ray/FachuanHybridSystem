@@ -574,7 +574,6 @@ class TestListJobs:
         from apps.image_rotation.api.image_rotation_api import list_jobs
 
         req = MagicMock()
-        req.GET = {"page": "1", "page_size": "10"}
         job = MagicMock()
         job.id = 1
         job.name = "Test"
@@ -586,24 +585,45 @@ class TestListJobs:
 
         with patch("apps.image_rotation.api.image_rotation_api._get_job_service") as mock_svc:
             mock_svc.return_value.list_jobs.return_value = {
-                "jobs": [job],
-                "total_count": 1,
+                "items": [job],
+                "total": 1,
                 "page": 1,
                 "page_size": 10,
+                "total_pages": 1,
             }
-            result = list_jobs(req)
-            assert result["success"] is True
-            assert len(result["jobs"]) == 1
+            result = list_jobs(req, page=1, page_size=10)
+            assert isinstance(result["items"], list)
+            assert len(result["items"]) == 1
+            assert result["total"] == 1
+            assert result["page"] == 1
+            assert result["page_size"] == 10
+            assert result["total_pages"] == 1
 
     def test_exception(self) -> None:
         from apps.image_rotation.api.image_rotation_api import list_jobs
 
         req = MagicMock()
-        req.GET = {}
         with patch("apps.image_rotation.api.image_rotation_api._get_job_service") as mock_svc:
             mock_svc.return_value.list_jobs.side_effect = RuntimeError("fail")
             result = list_jobs(req)
             assert result["success"] is False
+
+    def test_service_page_size_cap(self) -> None:
+        """service 层 page_size cap：>100 收敛到 100（paginate_queryset）。"""
+        from apps.image_rotation.services import job_service
+
+        with patch.object(job_service, "ImageRotationJob") as mock_model:
+            qs = MagicMock()
+            mock_model.objects.all.return_value = qs
+            qs.count.return_value = 150
+            qs.__getitem__.return_value = []
+
+            result = job_service.ImageRotationJobService.list_jobs(page=1, page_size=999)
+
+        assert result["page_size"] == 100
+        assert result["total"] == 150
+        assert result["total_pages"] == 2
+        assert result["items"] == []
 
 
 # ── get_job_detail ───────────────────────────────────────────────

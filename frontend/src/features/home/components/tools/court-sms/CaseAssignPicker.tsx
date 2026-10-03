@@ -1,12 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Check, Loader2, Search } from 'lucide-react'
 
-import { searchCasesForAssign, type CaseSearchItem } from '../../../api'
+import { searchCasesForBinding, type CaseSearchItem } from '@/features/document-recognition'
 import { cn } from '@/lib/utils'
 
 /**
  * 人工分配案件的搜索选择器（法院短信匹配不到案件时用）。
- * 挂载即拉一版在办案件作为候选；输入关键词后 300ms 防抖搜索（名/案号/当事人）。
+ * 挂载即拉一版在办案件作为候选；输入关键词实时检索（名/案号/当事人），
+ * 上一请求由 query 的 signal 自动中止，无响应竞态。
  * 选中后由父级调 onAssign —— assign 成功后端会继续跑重命名→通知，弹窗回到处理中。
  */
 export function CaseAssignPicker({
@@ -17,27 +19,16 @@ export function CaseAssignPicker({
   onAssign: (caseId: number) => Promise<void>
 }) {
   const [kw, setKw] = useState('')
-  const [results, setResults] = useState<CaseSearchItem[]>([])
   const [picked, setPicked] = useState<CaseSearchItem | null>(null)
-  const [searching, setSearching] = useState(false)
-  const timer = useRef(0)
 
-  useEffect(() => {
-    const run = async (q: string) => {
-      setSearching(true)
-      try {
-        setResults(await searchCasesForAssign(q))
-      } catch {
-        setResults([])
-      } finally {
-        setSearching(false)
-      }
-    }
-    // 空关键词 = 后端返回在办案件列表，正好作为初始候选
-    window.clearTimeout(timer.current)
-    timer.current = window.setTimeout(() => void run(kw.trim()), kw ? 300 : 0)
-    return () => window.clearTimeout(timer.current)
-  }, [kw])
+  // 空关键词 = 后端返回在办案件列表，正好作为初始候选（挂载即查）
+  const kwTrim = kw.trim()
+  const { data: results = [], isFetching: searching } = useQuery({
+    queryKey: ['court-sms-case-search', kwTrim],
+    queryFn: ({ signal }) => searchCasesForBinding(kwTrim, { limit: 10, signal }),
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  })
 
   const inputText = picked ? `${picked.case_numbers[0] ?? `案件 ${picked.id}`} · ${picked.name}` : kw
 
@@ -68,7 +59,6 @@ export function CaseAssignPicker({
               type="button"
               onClick={() => {
                 setPicked(c)
-                setResults([])
               }}
               className="min-w-0 border-b border-border px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-secondary/60"
             >

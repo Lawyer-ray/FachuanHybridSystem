@@ -53,10 +53,15 @@ def run_batch_analysis(job_id: str) -> None:  # pragma: no cover
     """
     try:
         asyncio.get_running_loop()
-        # 已有运行中的循环 → 用线程隔离执行
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        # 已有运行中的循环 → 用线程隔离执行。
+        # 不用 with：超时后 with 退出会 shutdown(wait=True) 继续阻塞到线程自然结束，
+        # 使 future.result(timeout=...) 沦为形式超时，这里改为直接丢弃未完成任务。
+        pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        try:
             future = pool.submit(asyncio.run, _run_batch_async(UUID(job_id)))
             future.result(timeout=7200)  # 2 小时超时
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
     except RuntimeError:
         # 没有运行中的循环 → 直接用 asyncio.run()
         asyncio.run(_run_batch_async(UUID(job_id)))
@@ -66,9 +71,13 @@ def run_batch_retry(job_id: str, item_ids: list[str]) -> None:  # pragma: no cov
     """Django Q2 入口点：重试失败的 item"""
     try:
         asyncio.get_running_loop()
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        # 同 run_batch_analysis：不用 with，避免超时后 shutdown(wait=True) 阻塞到线程自然结束
+        pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        try:
             future = pool.submit(asyncio.run, _run_batch_retry_async(UUID(job_id), [UUID(i) for i in item_ids]))
             future.result(timeout=3600)
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
     except RuntimeError:
         asyncio.run(_run_batch_retry_async(UUID(job_id), [UUID(i) for i in item_ids]))
 
@@ -223,7 +232,10 @@ async def _run_batch_async(job_id: UUID) -> None:  # pragma: no cover
 
     extractor = DocTextExtractor()
     try:
-        items = [item async for item in BatchJobItem.objects.filter(job_id=job_id)]
+        # 幂等：排除已完成 item，任务被 kill 后重跑时不重复消耗 LLM token（对齐重试路径只处理未完成项的模式）
+        items = [
+            item async for item in BatchJobItem.objects.filter(job_id=job_id).exclude(status=BatchJobStatus.COMPLETED)
+        ]
 
         # ── Phase 1: 批量文本提取 ──
         doc_items = [
@@ -304,10 +316,13 @@ async def _run_batch_async(job_id: UUID) -> None:  # pragma: no cover
             async with semaphore:
                 await analyze_item(item, index)
 
-        tasks = [throttled_analyze(item, i) for i, item in enumerate(items)]
-        await asyncio.gather(*tasks, return_exceptions=True)
-
-        thread_pool.shutdown(wait=False)
+        try:
+            tasks = [throttled_analyze(item, i) for i, item in enumerate(items)]
+            await asyncio.gather(*tasks, return_exceptions=True)
+        finally:
+            # 取消（外层 CancelledError 跳过后续代码）或异常时也必须释放线程池，
+            # 否则每次取消泄漏最多 concurrency 个线程；cancel_futures 丢弃排队任务。
+            thread_pool.shutdown(wait=False, cancel_futures=True)
 
         # 取消监视器
         cancel_task.cancel()
@@ -490,10 +505,13 @@ async def _run_batch_retry_async(job_id: UUID, item_ids: list[UUID]) -> None:  #
             async with semaphore:
                 await analyze_item(item, index)
 
-        tasks = [throttled_analyze(item, i) for i, item in enumerate(items)]
-        await asyncio.gather(*tasks, return_exceptions=True)
+        try:
+            tasks = [throttled_analyze(item, i) for i, item in enumerate(items)]
+            await asyncio.gather(*tasks, return_exceptions=True)
+        finally:
+            # 同主路径：取消/异常时也释放线程池，避免泄漏
+            thread_pool.shutdown(wait=False, cancel_futures=True)
 
-        thread_pool.shutdown(wait=False)
         cancel_task.cancel()
         try:
             await cancel_task

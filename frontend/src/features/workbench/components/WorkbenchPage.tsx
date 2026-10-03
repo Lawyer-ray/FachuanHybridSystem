@@ -16,8 +16,12 @@ import { FilterBar } from './FilterBar'
  * 交互语义（与 38 号原型终态一致）：
  * 左键行 / → = 详情页（开发中提示）；右键行 / 👁 = 抽屉预览。
  */
+
+/** 默认筛选（与 FilterBar「清除全部筛选」一致）；空态判定也以它为基准 */
+const DEFAULT_FILTER: WorkbenchFilter = { status: 'active', cat: '', fee: '', q: '' }
+
 export function WorkbenchPage() {
-  const [filter, setFilter] = useState<WorkbenchFilter>({ status: 'active', cat: '', fee: '', q: '' })
+  const [filter, setFilter] = useState<WorkbenchFilter>(DEFAULT_FILTER)
   const [page, setPage] = useState(1)
   const { deals, total, totalPages, fetching, facets, totalContracts, activeCount, isLoading, error, refetch } =
     useWorkbenchData(filter, page)
@@ -38,6 +42,12 @@ export function WorkbenchPage() {
     setPage(p)
     window.scrollTo({ top: 0 })
   }, [])
+  // 空态判定：total 是「当前筛选命中数」、totalContracts 是全库总数（facets）。
+  // 全库一条都没有（含默认视图零命中）才是真·没有合同数据；其余空列表都是筛选导致，
+  // 给「清除筛选」出口。此前内外两个条件同写 deals.length === 0，「清除筛选」永不可达。
+  const noFiltersActive =
+    !filter.q.trim() && !filter.cat && !filter.fee && filter.status === DEFAULT_FILTER.status
+  const emptyIsNoData = totalContracts === 0 || (noFiltersActive && total === 0)
 
   return (
     <div className="min-h-screen bg-background">
@@ -69,7 +79,7 @@ export function WorkbenchPage() {
               </button>
             </div>
           ) : deals.length === 0 ? (
-            deals.length === 0 ? (
+            emptyIsNoData ? (
               <div className="py-[90px] text-center text-[13px] text-muted-foreground">还没有合同数据</div>
             ) : (
               <div className="py-[90px] text-center text-[13px] text-muted-foreground">
@@ -77,7 +87,7 @@ export function WorkbenchPage() {
                 <button
                   type="button"
                   className="ml-1.5 cursor-pointer underline underline-offset-3"
-                  onClick={() => onFilterChange({ status: 'active', cat: '', fee: '', q: '' })}
+                  onClick={() => onFilterChange(DEFAULT_FILTER)}
                 >
                   清除筛选
                 </button>

@@ -7,6 +7,7 @@
  * 不是把内部实现摊开。子模块内仍可使用的私有函数不必出现在这里。
  */
 
+export { nextSegId, ensureSegIds } from './seg-id'
 export { resolveMats, buildInitialDraft } from './resolve'
 export {
   matLabel,

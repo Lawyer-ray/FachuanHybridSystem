@@ -3,6 +3,7 @@
 覆盖：授权页 URL 构造、回调的 state 校验与安全分支、open redirect 防护、
 内嵌二维码 session 端点、以及飞书 Provider 的接口地址与错误处理。
 """
+
 from __future__ import annotations
 
 import time
@@ -15,6 +16,7 @@ from django.test import RequestFactory
 
 from apps.social_auth.providers.base import AuthorizationRequest, LoginMode, ProviderConfig
 from apps.social_auth.providers.feishu import FeishuProvider
+from apps.social_auth.providers.github import GitHubProvider
 from apps.social_auth.providers.wechat import WeChatProvider
 
 
@@ -25,7 +27,7 @@ class TestFeishuProvider:
                 name="feishu",
                 display_name="飞书",
                 client_id="cli_abc",
-                client_secret="fake-secret-placeholder",
+                client_secret="fake-secret-placeholder",  # pragma: allowlist secret
                 extra={
                     "redirect_uri": "http://127.0.0.1:8002/social/feishu/callback/",
                     "scope": "contact:user.base:readonly",
@@ -56,7 +58,11 @@ class TestFeishuProvider:
     def test_authorization_url_defaults_scope(self) -> None:
         provider = FeishuProvider(
             ProviderConfig(
-                name="feishu", display_name="飞书", client_id="cli_abc", client_secret="s", extra={"redirect_uri": "http://x/cb"}
+                name="feishu",
+                display_name="飞书",
+                client_id="cli_abc",
+                client_secret="s",
+                extra={"redirect_uri": "http://x/cb"},
             )
         )
         assert "scope=contact:user.base:readonly" in provider.get_authorization_url(self._request())
@@ -127,9 +133,7 @@ class TestFeishuProvider:
     async def test_aexchange_code(self) -> None:
         with patch("httpx.AsyncClient") as mock_client_cls:
             client = mock_client_cls.return_value.__aenter__.return_value
-            client.post = AsyncMock(
-                return_value=MagicMock(status_code=200, json=lambda: {"access_token": "async-tok"})
-            )
+            client.post = AsyncMock(return_value=MagicMock(status_code=200, json=lambda: {"access_token": "async-tok"}))
             result = await self._provider().aexchange_code("c", self._request())
         assert result.access_token == "async-tok"
 
@@ -141,7 +145,7 @@ class TestWeChatProvider:
                 name="wechat",
                 display_name="微信",
                 client_id="wx_appid",
-                client_secret="fake-wx-secret-placeholder",
+                client_secret="fake-wx-secret-placeholder",  # pragma: allowlist secret
                 extra={"redirect_uri": "http://127.0.0.1:8002/social/wechat/callback/"},
             )
         )
@@ -173,6 +177,135 @@ class TestWeChatProvider:
         assert profile.provider == "wechat"
         assert profile.provider_user_id == "oXYZ"
         assert profile.display_name == "昵称"
+
+
+class TestGitHubProvider:
+    def _provider(self) -> GitHubProvider:
+        return GitHubProvider(
+            ProviderConfig(
+                name="github",
+                display_name="GitHub",
+                client_id="Iv1.abc123",
+                client_secret="fake-gh-secret-placeholder",  # pragma: allowlist secret
+                extra={
+                    "redirect_uri": "http://localhost:8002/social/github/callback/",
+                    "scope": "read:user user:email",
+                },
+            )
+        )
+
+    def _request(self) -> AuthorizationRequest:
+        return AuthorizationRequest(
+            provider="github",
+            state="GHST",
+            redirect_uri="http://localhost:8002/social/github/callback/",
+            created_at=1.0,
+        )
+
+    def test_login_mode_is_redirect(self) -> None:
+        assert self._provider().login_mode == LoginMode.REDIRECT
+
+    def test_authorization_url(self) -> None:
+        url = self._provider().get_authorization_url(self._request())
+        assert url.startswith("https://github.com/login/oauth/authorize")
+        assert "client_id=Iv1.abc123" in url
+        assert "scope=read%3Auser%20user%3Aemail" in url
+        assert "state=GHST" in url
+        # GitHub 文档不列 response_type（Web 流程固定 code），不应拼进 URL
+        assert "response_type" not in url
+        assert "fake-gh-secret-placeholder" not in url
+
+    def test_exchange_code_sends_accept_json_header(self) -> None:
+        """GitHub 按请求头协商响应格式，缺 Accept: application/json 会返回 urlencoded 文本。"""
+        with patch("httpx.post") as mock_post:
+            mock_post.return_value = MagicMock(
+                status_code=200, json=lambda: {"access_token": "gho_abc", "token_type": "bearer"}
+            )
+            result = self._provider().exchange_code("goodcode", self._request())
+            headers = mock_post.call_args.kwargs["headers"]
+        assert headers["Accept"] == "application/json"
+        assert result.access_token == "gho_abc"
+
+    def test_exchange_code_rejects_error_even_on_http_200(self) -> None:
+        """GitHub 对无效 code 可能返回 HTTP 200 + error body，必须识别为失败。"""
+        with patch("httpx.post") as mock_post:
+            mock_post.return_value = MagicMock(
+                status_code=200,
+                json=lambda: {"error": "bad_verification_code", "error_description": "The code passed is incorrect"},
+            )
+            with pytest.raises(ValueError, match="code passed is incorrect"):
+                self._provider().exchange_code("bad", self._request())
+
+    def test_get_profile_uses_numeric_id_and_primary_email(self) -> None:
+        """身份键用数字 id（login 可改名）；私密邮箱走 /user/emails 的 primary。"""
+        user_resp = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "id": 12345,
+                "login": "octocat",
+                "name": None,
+                "email": None,
+                "avatar_url": "https://avatars/x.png",
+            },
+        )
+        emails_resp = MagicMock(
+            status_code=200,
+            json=lambda: [
+                {"email": "secondary@example.com", "primary": False, "verified": True},
+                {"email": "primary@example.com", "primary": True, "verified": True},
+            ],
+        )
+        with patch("httpx.get", side_effect=[user_resp, emails_resp]):
+            profile = self._provider().get_profile(MagicMock(access_token="gho_abc"))
+        assert profile.provider == "github"
+        assert profile.provider_user_id == "12345"
+        # name 为空时回落 login 作为展示名
+        assert profile.display_name == "octocat"
+        assert profile.email == "primary@example.com"
+
+    def test_get_profile_tolerates_emails_failure(self) -> None:
+        """/user/emails 不可用（如未授权 user:email scope 返回 403）不影响登录，回落公开邮箱。"""
+        user_resp = MagicMock(
+            status_code=200,
+            json=lambda: {"id": 12345, "login": "octocat", "name": "The Octocat", "email": "public@example.com"},
+        )
+        emails_resp = MagicMock(status_code=403, json=lambda: {"message": "Forbidden"})
+        with patch("httpx.get", side_effect=[user_resp, emails_resp]):
+            profile = self._provider().get_profile(MagicMock(access_token="gho_abc"))
+        assert profile.provider_user_id == "12345"
+        assert profile.email == "public@example.com"
+
+    def test_get_profile_rejects_user_failure(self) -> None:
+        user_resp = MagicMock(status_code=401, json=lambda: {"message": "Bad credentials"})
+        emails_resp = MagicMock(status_code=200, json=lambda: [])
+        with patch("httpx.get", side_effect=[user_resp, emails_resp]):
+            with pytest.raises(ValueError, match="获取 GitHub 用户信息失败"):
+                self._provider().get_profile(MagicMock(access_token="bad"))
+
+    @pytest.mark.asyncio
+    async def test_aexchange_code(self) -> None:
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            client = mock_client_cls.return_value.__aenter__.return_value
+            client.post = AsyncMock(return_value=MagicMock(status_code=200, json=lambda: {"access_token": "async-tok"}))
+            result = await self._provider().aexchange_code("c", self._request())
+        assert result.access_token == "async-tok"
+
+    @pytest.mark.asyncio
+    async def test_aget_profile(self) -> None:
+        client = MagicMock()
+        client.get = AsyncMock(
+            side_effect=[
+                MagicMock(status_code=200, json=lambda: {"id": 7, "login": "octo", "name": None, "email": None}),
+                MagicMock(
+                    status_code=200, json=lambda: [{"email": "p@example.com", "primary": True, "verified": True}]
+                ),
+            ]
+        )
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client_cls.return_value.__aenter__.return_value = client
+            profile = await self._provider().aget_profile(MagicMock(access_token="gho_abc"))
+        assert profile.provider_user_id == "7"
+        assert profile.email == "p@example.com"
 
 
 class TestAuthorizationSession:
@@ -365,7 +498,9 @@ class TestCreateSessionApi:
         from apps.social_auth.api.social_auth_api import create_session
 
         params = inspect.signature(create_session).parameters
-        schema_params = [p for p in params.values() if isinstance(p.annotation, type) and issubclass(p.annotation, Schema)]
+        schema_params = [
+            p for p in params.values() if isinstance(p.annotation, type) and issubclass(p.annotation, Schema)
+        ]
         assert schema_params == [], "session 端点不应要求 body，否则裸 POST 会 422"
 
     def test_uses_lenient_rate_limit_tier(self) -> None:
@@ -409,17 +544,19 @@ class TestCreateSessionApi:
             )
         )
         prefix = PROVIDER_SPECS["feishu"]["prefix"]
-        SystemConfig.objects.bulk_create([
-            SystemConfig(key=f"{prefix}APP_ID", value="cli_abc", category="social_auth"),
-            SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth"),
-            SystemConfig(
-                key=f"{prefix}REDIRECT_URI",
-                value="http://127.0.0.1:8002/social/feishu/callback/",
-                category="social_auth",
-            ),
-            SystemConfig(key="FEISHU_APP_ID", value="cli_shared", category="feishu"),
-            SystemConfig(key="FEISHU_APP_SECRET", value="borrowed-secret-placeholder", category="feishu"),
-        ])
+        SystemConfig.objects.bulk_create(
+            [
+                SystemConfig(key=f"{prefix}APP_ID", value="cli_abc", category="social_auth"),
+                SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth"),
+                SystemConfig(
+                    key=f"{prefix}REDIRECT_URI",
+                    value="http://127.0.0.1:8002/social/feishu/callback/",
+                    category="social_auth",
+                ),
+                SystemConfig(key="FEISHU_APP_ID", value="cli_shared", category="feishu"),
+                SystemConfig(key="FEISHU_APP_SECRET", value="borrowed-secret-placeholder", category="feishu"),
+            ]
+        )
         try:
             ProviderRegistry.clear_configs()
             req = RequestFactory().post("/api/v1/social/feishu/session", HTTP_HOST="127.0.0.1:8002")

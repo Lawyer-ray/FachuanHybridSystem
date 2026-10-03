@@ -156,7 +156,7 @@ class TestDjangoPermsMixin:
 
     def test_ensure_authenticated_pass(self) -> None:
         user = SimpleNamespace(is_authenticated=True)
-        self.mixin.ensure_authenticated(user)  # 不抛异常
+        assert self.mixin.ensure_authenticated(user) is None  # 静默通过
 
     def test_ensure_authenticated_fail(self) -> None:
         with pytest.raises(ForbiddenError):
@@ -164,10 +164,10 @@ class TestDjangoPermsMixin:
 
     def test_ensure_admin_pass_superuser(self) -> None:
         user = SimpleNamespace(is_authenticated=True, is_superuser=True, is_staff=False)
-        self.mixin.ensure_admin(user)  # 不抛异常
+        assert self.mixin.ensure_admin(user) is None  # 静默通过
 
     def test_ensure_admin_pass_open_access(self) -> None:
-        self.mixin.ensure_admin(None, perm_open_access=True)  # 不抛异常
+        assert self.mixin.ensure_admin(None, perm_open_access=True) is None  # 静默通过
 
     def test_ensure_admin_fail(self) -> None:
         user = SimpleNamespace(is_authenticated=True, is_superuser=False, is_staff=False, is_admin=False)
@@ -210,7 +210,7 @@ class TestPermissionMixin:
     def test_check_authenticated_pass(self) -> None:
         user = SimpleNamespace(is_authenticated=True)
         ctx = self.AccessContext(user=user, org_access=None, perm_open_access=False)
-        self.mixin.check_authenticated(ctx)  # 不抛异常
+        assert self.mixin.check_authenticated(ctx) is None  # 静默通过
 
     def test_check_authenticated_fail(self) -> None:
         ctx = self.AccessContext(user=None, org_access=None, perm_open_access=False)
@@ -219,7 +219,7 @@ class TestPermissionMixin:
 
     def test_check_authenticated_open_access(self) -> None:
         ctx = self.AccessContext(user=None, org_access=None, perm_open_access=True)
-        self.mixin.check_authenticated(ctx)  # 不抛异常
+        assert self.mixin.check_authenticated(ctx) is None  # 静默通过
 
     def test_is_authenticated_user_true(self) -> None:
         user = SimpleNamespace(is_authenticated=True)
@@ -236,7 +236,7 @@ class TestPermissionMixin:
 
     def test_check_resource_access_open(self) -> None:
         ctx = self.AccessContext(user=None, org_access=None, perm_open_access=True)
-        self.mixin.check_resource_access(ctx, lambda c: False)  # 通过
+        assert self.mixin.check_resource_access(ctx, lambda c: False) is None  # 开放访问直接通过
 
     def test_check_resource_access_authenticated(self) -> None:
         user = SimpleNamespace(is_authenticated=True)
@@ -255,7 +255,7 @@ class TestPermissionMixin:
         user = SimpleNamespace(is_authenticated=True)
         ctx = self.AccessContext(user=user, org_access=None, perm_open_access=False)
         # resource_check 返回 True 时，已认证用户通过
-        self.mixin.check_resource_access(ctx, lambda c: True)
+        assert self.mixin.check_resource_access(ctx, lambda c: True) is None
 
 
 # ============================================================
@@ -322,7 +322,7 @@ class TestAdminAccess:
 
         user = SimpleNamespace(is_authenticated=True, is_admin=False, is_superuser=True, is_staff=False)
         request = SimpleNamespace(user=user)
-        ensure_admin_request(request)  # 不抛异常
+        assert ensure_admin_request(request) is None  # 静默通过
 
     def test_ensure_admin_request_fail(self) -> None:
         from apps.core.security.admin_access import ensure_admin_request

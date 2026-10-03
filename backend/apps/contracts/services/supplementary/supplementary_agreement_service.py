@@ -75,8 +75,8 @@ class SupplementaryAgreementService:
         except Contract.DoesNotExist:
             raise NotFoundError("合同不存在") from None
 
-        # 2. 创建补充协议
-        agreement = SupplementaryAgreement.objects.create(contract=contract, name=name)
+        # 2. 创建补充协议（name 列非空、blank=True，无名称时落空串）
+        agreement = SupplementaryAgreement.objects.create(contract=contract, name=name or "")
 
         # 3. 添加当事人关联
         if party_ids:
@@ -94,9 +94,7 @@ class SupplementaryAgreementService:
         )
 
         # 5. Refresh with prefetch so async serialization doesn't hit the DB
-        return SupplementaryAgreement.objects.prefetch_related(
-            "parties__client__identity_docs"
-        ).get(id=agreement.id)
+        return SupplementaryAgreement.objects.prefetch_related("parties__client__identity_docs").get(id=agreement.id)
 
     @transaction.atomic
     def update_supplementary_agreement(
@@ -147,11 +145,35 @@ class SupplementaryAgreementService:
         )
 
         # 5. Refresh with prefetch so async serialization doesn't hit the DB
-        return SupplementaryAgreement.objects.prefetch_related(
-            "parties__client__identity_docs"
-        ).get(id=agreement.id)
+        return SupplementaryAgreement.objects.prefetch_related("parties__client__identity_docs").get(id=agreement.id)
 
-    def get_supplementary_agreement(self, agreement_id: int, prefetch: bool = True) -> SupplementaryAgreement:  # pragma: no cover
+    def resolve_contract_id(self, agreement_id: int) -> int:
+        """从补充协议 ID 解析其所属合同 ID。
+
+        Raises:
+            NotFoundError: 补充协议不存在
+        """
+        try:
+            agreement = SupplementaryAgreement.objects.values("contract_id").get(pk=agreement_id)
+        except SupplementaryAgreement.DoesNotExist:
+            raise NotFoundError(f"补充协议 {agreement_id} 不存在") from None
+        return int(agreement["contract_id"])
+
+    async def aresolve_contract_id(self, agreement_id: int) -> int:
+        """异步从补充协议 ID 解析其所属合同 ID（aget 原生异步，无需 sync_to_async）。
+
+        Raises:
+            NotFoundError: 补充协议不存在
+        """
+        try:
+            agreement = await SupplementaryAgreement.objects.values("contract_id").aget(pk=agreement_id)
+        except SupplementaryAgreement.DoesNotExist:
+            raise NotFoundError(f"补充协议 {agreement_id} 不存在") from None
+        return int(agreement["contract_id"])
+
+    def get_supplementary_agreement(
+        self, agreement_id: int, prefetch: bool = True
+    ) -> SupplementaryAgreement:  # pragma: no cover
         """
         获取补充协议
 

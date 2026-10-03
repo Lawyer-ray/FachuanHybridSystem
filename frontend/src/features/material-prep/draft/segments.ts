@@ -1,6 +1,7 @@
 import type { AssignInfo, BundleMat, DraftState, PackStatus, PageKey, Segment } from '../types'
 import { matLabel } from './labels'
 import { initialSegments } from './resolve'
+import { nextSegId } from './seg-id'
 
 /**
  * 基础段不可变运算：所有函数返回新的 DraftState。
@@ -19,6 +20,7 @@ export function splitSegment(d: DraftState, si: number, k: number): DraftState {
   const tail = cur.refs.slice(k + 1)
   const tailFirst = tail[0]! // 非空由上方 k < refs.length-1 守卫保证
   const newSeg: Segment = {
+    id: nextSegId(),
     t: '',
     fn: matLabel(d.mats, tailFirst.mi),
     refs: tail,
@@ -93,7 +95,7 @@ export function appendMatsToDraft(d: DraftState, added: BundleMat[]): DraftState
     const mi = d.mats.length + idx
     const refs: PageKey[] = []
     for (let p = 1; p <= m.pages; p++) refs.push({ mi, p })
-    segs.push({ t: '', fn: m.n, refs, manual: false })
+    segs.push({ id: nextSegId(), t: '', fn: m.n, refs, manual: false })
   })
   return { ...d, mats, segs }
 }

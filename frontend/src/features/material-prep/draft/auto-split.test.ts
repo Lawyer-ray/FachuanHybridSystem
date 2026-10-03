@@ -10,9 +10,9 @@ function fixture(): DraftState {
       { partIndex: 1, n: '证据.pdf', k: 'pdf', pages: 2 },
     ],
     segs: [
-      { t: '起诉状', fn: '起诉状.pdf', refs: [{ mi: 0, p: 1 }, { mi: 0, p: 2 }, { mi: 0, p: 3 }], manual: false },
-      { t: '证据', fn: '起诉状-手动改名', refs: [{ mi: 0, p: 1 }], manual: true },
-      { t: '证据', fn: '证据.pdf', refs: [{ mi: 1, p: 1 }, { mi: 1, p: 2 }], manual: false },
+      { id: 'seg-a', t: '起诉状', fn: '起诉状.pdf', refs: [{ mi: 0, p: 1 }, { mi: 0, p: 2 }, { mi: 0, p: 3 }], manual: false },
+      { id: 'seg-b', t: '证据', fn: '起诉状-手动改名', refs: [{ mi: 0, p: 1 }], manual: true },
+      { id: 'seg-c', t: '证据', fn: '证据.pdf', refs: [{ mi: 1, p: 1 }, { mi: 1, p: 2 }], manual: false },
     ],
     infos: [],
   }
@@ -73,7 +73,7 @@ function singleSourceFixture(): DraftState {
   return {
     mats: [{ partIndex: 0, n: '合并扫描.pdf', k: 'pdf', pages: 3 }],
     segs: [
-      { t: '', fn: '合并扫描.pdf', refs: [{ mi: 0, p: 1 }, { mi: 0, p: 2 }, { mi: 0, p: 3 }], manual: false },
+      { id: 'seg-x', t: '', fn: '合并扫描.pdf', refs: [{ mi: 0, p: 1 }, { mi: 0, p: 2 }, { mi: 0, p: 3 }], manual: false },
     ],
     infos: [],
   }
@@ -87,8 +87,8 @@ function twoSourceFixture(): DraftState {
       { partIndex: 1, n: '证据.pdf', k: 'pdf', pages: 2 },
     ],
     segs: [
-      { t: '', fn: '起诉状.pdf', refs: [{ mi: 0, p: 1 }, { mi: 0, p: 2 }, { mi: 0, p: 3 }], manual: false },
-      { t: '', fn: '证据.pdf', refs: [{ mi: 1, p: 1 }, { mi: 1, p: 2 }], manual: false },
+      { id: 'seg-p', t: '', fn: '起诉状.pdf', refs: [{ mi: 0, p: 1 }, { mi: 0, p: 2 }, { mi: 0, p: 3 }], manual: false },
+      { id: 'seg-q', t: '', fn: '证据.pdf', refs: [{ mi: 1, p: 1 }, { mi: 1, p: 2 }], manual: false },
     ],
     infos: [],
   }
@@ -122,6 +122,7 @@ describe('applyAutoSplit 云端拆分建议应用', () => {
       ...singleSourceFixture(),
       segs: [
         {
+          id: 'seg-cross',
           t: '',
           fn: 'x.pdf',
           refs: [{ mi: 0, p: 1 }, { mi: 0, p: 2 }, { mi: 0, p: 3 }, { mi: 1, p: 1 }],

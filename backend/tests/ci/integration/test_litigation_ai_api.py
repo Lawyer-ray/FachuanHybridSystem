@@ -11,7 +11,6 @@ from apps.cases.models import Case
 from apps.contracts.models import Contract
 from apps.litigation_ai.models.session import LitigationSession
 
-
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
@@ -66,13 +65,42 @@ def test_create_litigation_session(mock_get_svc, authenticated_client):
 @patch("apps.litigation_ai.api.litigation_api._get_conversation_service")
 def test_list_litigation_sessions(mock_get_svc, authenticated_client):
     mock_svc = MagicMock()
-    mock_svc.list_sessions.return_value = {"total": 0, "sessions": []}
+    mock_svc.list_sessions.return_value = {
+        "items": [],
+        "total": 0,
+        "page": 1,
+        "page_size": 20,
+        "total_pages": 1,
+    }
     mock_get_svc.return_value = mock_svc
 
     resp = authenticated_client.get("/api/v1/litigation/sessions")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["count"] == 0
+    assert data["total"] == 0
+    assert data["items"] == []
+
+
+@pytest.mark.django_db
+def test_list_litigation_sessions_envelope_and_page_size_cap(authenticated_client):
+    """真实 DB：标准信封结构 + page_size cap（>100 收敛到 100）。"""
+    from apps.organization.models import Lawyer
+
+    user = Lawyer.objects.get(username="testuser")
+    contract = Contract.objects.create(name="分页上限合同", case_type="civil")
+    case = Case.objects.create(name="分页上限案件", contract=contract)
+    for _ in range(3):
+        LitigationSession.objects.create(case=case, user=user)
+
+    resp = authenticated_client.get("/api/v1/litigation/sessions?page=1&page_size=999")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert isinstance(data["items"], list)
+    assert len(data["items"]) == 3
+    assert data["total"] == 3
+    assert data["page"] == 1
+    assert data["page_size"] == 100  # cap 生效
+    assert data["total_pages"] == 1
 
 
 @pytest.mark.django_db
@@ -225,13 +253,45 @@ def test_create_mock_trial_session(mock_get_svc, authenticated_client):
 @patch("apps.litigation_ai.api.mock_trial_api._get_service")
 def test_list_mock_trial_sessions(mock_get_svc, authenticated_client):
     mock_svc = MagicMock()
-    mock_svc.list_sessions.return_value = {"total": 0, "sessions": []}
+    mock_svc.list_sessions.return_value = {
+        "items": [],
+        "total": 0,
+        "page": 1,
+        "page_size": 20,
+        "total_pages": 1,
+    }
     mock_get_svc.return_value = mock_svc
 
     resp = authenticated_client.get("/api/v1/mock-trial/sessions")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["count"] == 0
+    assert data["total"] == 0
+    assert data["items"] == []
+    assert data["page_size"] == 20
+    assert data["total_pages"] == 1
+
+
+@pytest.mark.django_db
+def test_list_mock_trial_sessions_envelope_and_page_size_cap(authenticated_client):
+    """真实 DB：标准信封结构 + page_size cap（>100 收敛到 100），且仅返回 mock_trial 会话。"""
+    from apps.organization.models import Lawyer
+
+    user = Lawyer.objects.get(username="testuser")
+    contract = Contract.objects.create(name="庭审上限合同", case_type="civil")
+    case = Case.objects.create(name="庭审上限案件", contract=contract)
+    for _ in range(2):
+        LitigationSession.objects.create(case=case, user=user, session_type="mock_trial")
+    LitigationSession.objects.create(case=case, user=user)  # doc_gen 会话不应混入
+
+    resp = authenticated_client.get("/api/v1/mock-trial/sessions?page=1&page_size=999")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert isinstance(data["items"], list)
+    assert len(data["items"]) == 2
+    assert data["total"] == 2
+    assert data["page"] == 1
+    assert data["page_size"] == 100  # cap 生效
+    assert data["total_pages"] == 1
 
 
 @pytest.mark.django_db

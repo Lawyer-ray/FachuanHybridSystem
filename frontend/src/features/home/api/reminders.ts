@@ -126,8 +126,10 @@ function splitTargetName(targetType: TargetType, rawName: string): { title: stri
  * 按关键字联想关联对象（合同 / 案件 / 案件日志）。
  * 与 admin 提醒日历用的是同一个接口，返回已拆好 title/hint 的结果。
  */
-export async function searchTargetOptions(q: string): Promise<TargetOption[]> {
-  const res = await remindersApi.get('target-options', { searchParams: { q } }).json<{ items?: RawTargetOption[] }>()
+export async function searchTargetOptions(q: string, signal?: AbortSignal): Promise<TargetOption[]> {
+  const res = await remindersApi
+    .get('target-options', { searchParams: { q }, signal })
+    .json<{ items?: RawTargetOption[] }>()
   return (res.items ?? []).map((raw) => {
     const { title, hint } = splitTargetName(raw.target_type, raw.name ?? '')
     return {

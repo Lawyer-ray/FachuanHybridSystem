@@ -1,9 +1,10 @@
 """Coverage tests for automation.services.chat mixins (feishu, dingtalk, wechat_work)."""
 
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
-from datetime import datetime, timedelta
 
 import pytest
+from django.utils import timezone
 
 
 class TestFeishuTokenMixin:
@@ -46,7 +47,8 @@ class TestFeishuTokenMixin:
     def test_get_tenant_access_token_cached(self):
         obj = self._make()
         obj._access_token = "cached_token"
-        obj._token_expires_at = datetime.now() + timedelta(hours=1)
+        # 与 mixin 内部一致使用 aware datetime（USE_TZ=True 下 naive 比较会 TypeError）
+        obj._token_expires_at = timezone.now() + timedelta(hours=1)
         result = obj._get_tenant_access_token()
         assert result == "cached_token"
 

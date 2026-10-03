@@ -16,12 +16,13 @@ from apps.core.exceptions import ValidationException
 
 def test_non_advisor_skipped() -> None:
     """非顾问合同不做标题日期校验，即使标题/日期明显不匹配也不报错。"""
-    validate_advisor_contract_title_dates(
+    result = validate_advisor_contract_title_dates(
         case_type="civil",
         title="2024-2025年度 某某合同",
         start_date=date(2026, 8, 12),
         end_date=date(2027, 8, 11),
     )
+    assert result is None
 
 
 # ---------------------------------------------------------------------------
@@ -31,22 +32,24 @@ def test_non_advisor_skipped() -> None:
 
 def test_missing_title_skipped() -> None:
     """没有标题时跳过校验。"""
-    validate_advisor_contract_title_dates(
+    result = validate_advisor_contract_title_dates(
         case_type="advisor",
         title=None,
         start_date=date(2026, 8, 12),
         end_date=date(2027, 8, 11),
     )
+    assert result is None
 
 
 def test_missing_dates_skipped() -> None:
     """没有日期时跳过校验。"""
-    validate_advisor_contract_title_dates(
+    result = validate_advisor_contract_title_dates(
         case_type="advisor",
         title="某某公司常法顾问-2026年8月12日至2027年8月11日",
         start_date=None,
         end_date=None,
     )
+    assert result is None
 
 
 # ---------------------------------------------------------------------------
@@ -56,12 +59,13 @@ def test_missing_dates_skipped() -> None:
 
 def test_no_date_in_title_skipped() -> None:
     """标题中不含任何日期信息时跳过校验。"""
-    validate_advisor_contract_title_dates(
+    result = validate_advisor_contract_title_dates(
         case_type="advisor",
         title="某某公司常法顾问合同",
         start_date=date(2026, 8, 12),
         end_date=date(2027, 8, 11),
     )
+    assert result is None
 
 
 # ---------------------------------------------------------------------------
@@ -71,22 +75,24 @@ def test_no_date_in_title_skipped() -> None:
 
 def test_full_chinese_date_correct() -> None:
     """标题中的完整中文日期与实际日期完全一致 → 通过。"""
-    validate_advisor_contract_title_dates(
+    result = validate_advisor_contract_title_dates(
         case_type="advisor",
         title="某某公司常法顾问-2026年8月12日至2027年8月11日",
         start_date=date(2026, 8, 12),
         end_date=date(2027, 8, 11),
     )
+    assert result is None
 
 
 def test_full_chinese_date_correct_padded() -> None:
     """带零填充的日期也能正确解析。"""
-    validate_advisor_contract_title_dates(
+    result = validate_advisor_contract_title_dates(
         case_type="advisor",
         title="某某公司常法顾问-2026年08月12日至2027年08月11日",
         start_date=date(2026, 8, 12),
         end_date=date(2027, 8, 11),
     )
+    assert result is None
 
 
 def test_full_chinese_date_wrong_start() -> None:
@@ -129,22 +135,24 @@ def test_full_chinese_date_wrong_day() -> None:
 
 def test_year_range_dash_correct() -> None:
     """2026-2027 年度，实际日期跨越 2026~2027 → 通过。"""
-    validate_advisor_contract_title_dates(
+    result = validate_advisor_contract_title_dates(
         case_type="advisor",
         title="某某公司2026-2027年度常法顾问合同",
         start_date=date(2026, 8, 12),
         end_date=date(2027, 8, 11),
     )
+    assert result is None
 
 
 def test_year_range_tilde_correct() -> None:
     """波浪线分隔的年份范围也能识别。"""
-    validate_advisor_contract_title_dates(
+    result = validate_advisor_contract_title_dates(
         case_type="advisor",
         title="某某公司2026～2027年度常法顾问合同",
         start_date=date(2026, 8, 12),
         end_date=date(2027, 8, 11),
     )
+    assert result is None
 
 
 def test_year_range_wrong_past() -> None:
@@ -171,22 +179,24 @@ def test_year_range_wrong_offset() -> None:
 
 def test_year_range_cross_year_contract() -> None:
     """跨年合同（从 2025 年底到 2027 年初），标题 2025-2027 → 通过。"""
-    validate_advisor_contract_title_dates(
+    result = validate_advisor_contract_title_dates(
         case_type="advisor",
         title="某某公司2025-2027年度常法顾问合同",
         start_date=date(2025, 12, 1),
         end_date=date(2027, 1, 31),
     )
+    assert result is None
 
 
 def test_year_range_swapped_order() -> None:
     """标题年份范围倒序（2027-2026），但实际日期 2026~2027 → 自动交换，通过。"""
-    validate_advisor_contract_title_dates(
+    result = validate_advisor_contract_title_dates(
         case_type="advisor",
         title="某某公司2027-2026年度常法顾问合同",
         start_date=date(2026, 8, 12),
         end_date=date(2027, 8, 11),
     )
+    assert result is None
 
 
 # ---------------------------------------------------------------------------
@@ -196,12 +206,13 @@ def test_year_range_swapped_order() -> None:
 
 def test_short_year_range_correct() -> None:
     """两位年份缩写 26-27 正确解析为 2026-2027。"""
-    validate_advisor_contract_title_dates(
+    result = validate_advisor_contract_title_dates(
         case_type="advisor",
         title="某某公司26-27年度常法顾问合同",
         start_date=date(2026, 8, 12),
         end_date=date(2027, 8, 11),
     )
+    assert result is None
 
 
 def test_short_year_range_wrong() -> None:

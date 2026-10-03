@@ -180,14 +180,17 @@ class TestCreateAuditLog:
         from apps.documents.models import FolderTemplate
 
         instance.__class__ = FolderTemplate
-        # Should not raise
-        _create_audit_log(instance, "delete")
+        # Should not raise: service 缺失时早退，但服务查找必须发生过
+        assert _create_audit_log(instance, "delete") is None
+        mock.assert_called_once_with()
 
     def test_unknown_content_type(self) -> None:
         instance = MagicMock()
         instance.__class__ = dict
-        # Should not raise
-        _create_audit_log(instance, "delete")
+        with patch("apps.documents.signals._get_audit_log_service") as mock_get_svc:
+            # Should not raise: content_type 为 None 时在服务查找之前早退
+            assert _create_audit_log(instance, "delete") is None
+        mock_get_svc.assert_not_called()
 
 
 class TestInvalidateTemplateMatchingCache:
@@ -214,16 +217,22 @@ class TestInvalidateTemplateMatchingCache:
     def test_exception_handled(self, mock_bump: MagicMock) -> None:
         from apps.documents.models import DocumentTemplate
 
-        # Should not raise
-        _invalidate_template_matching_cache(DocumentTemplate)
+        # Should not raise: bump 异常被捕获并记 warning
+        assert _invalidate_template_matching_cache(DocumentTemplate) is None
+        mock_bump.assert_called_once()
 
 
 class TestDeleteFileHelpers:
-    def test_delete_charfield_file_none(self) -> None:
-        _delete_charfield_file(None)  # should not raise
+    @patch("apps.documents.signals.Path")
+    def test_delete_charfield_file_none(self, mock_path_cls: MagicMock) -> None:
+        assert _delete_charfield_file(None) is None
+        # 早退：不应构造任何 Path
+        mock_path_cls.assert_not_called()
 
-    def test_delete_charfield_file_empty(self) -> None:
-        _delete_charfield_file("")  # should not raise
+    @patch("apps.documents.signals.Path")
+    def test_delete_charfield_file_empty(self, mock_path_cls: MagicMock) -> None:
+        assert _delete_charfield_file("") is None
+        mock_path_cls.assert_not_called()
 
     @patch("apps.documents.signals.Path")
     def test_delete_charfield_file_absolute(self, mock_path_cls: MagicMock) -> None:
@@ -262,10 +271,13 @@ class TestDeleteFileHelpers:
         mock_path.exists.return_value = True
         mock_path.unlink.side_effect = OSError("perm denied")
         mock_path_cls.return_value = mock_path
-        _delete_charfield_file("/locked.docx")  # should not raise
+        # OSError 被吞掉（仅记日志），但 unlink 确实被尝试过
+        assert _delete_charfield_file("/locked.docx") is None
+        mock_path.unlink.assert_called_once()
 
     def test_delete_file_field_none(self) -> None:
-        _delete_file_field(None)  # should not raise
+        # falsy 入参早退，不应触发任何删除
+        assert _delete_file_field(None) is None
 
     def test_delete_file_field_valid(self) -> None:
         field_file = MagicMock()
@@ -275,4 +287,6 @@ class TestDeleteFileHelpers:
     def test_delete_file_field_exception(self) -> None:
         field_file = MagicMock()
         field_file.delete.side_effect = Exception("boom")
-        _delete_file_field(field_file)  # should not raise
+        # 异常被吞掉（仅记日志），但 delete(save=False) 确实被调用过
+        assert _delete_file_field(field_file) is None
+        field_file.delete.assert_called_once_with(save=False)

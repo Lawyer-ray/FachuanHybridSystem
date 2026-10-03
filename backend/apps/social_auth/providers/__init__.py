@@ -42,6 +42,14 @@ PROVIDER_SPECS: dict[str, dict[str, Any]] = {
         "enabled_key": "SOCIAL_AUTH_WECHAT_ENABLED",
         "extra_keys": ("REDIRECT_URI",),
     },
+    "github": {
+        "display_name": "GitHub",
+        "prefix": "SOCIAL_AUTH_GITHUB_",
+        "enabled_key": "SOCIAL_AUTH_GITHUB_ENABLED",
+        "extra_keys": ("REDIRECT_URI", "SCOPE"),
+        # 与 google 相同：无可复用的共用凭证分类，必须在本分类填
+        # APP_ID / APP_SECRET，否则视为未配置完成（不出现在登录页）
+    },
     "google": {
         "display_name": "Google",
         "prefix": "SOCIAL_AUTH_GOOGLE_",
@@ -251,4 +259,4 @@ class ProviderRegistry:
 # 导入所有 Provider 以触发 @register 装饰器。
 # 顺序即 ProviderRegistry.names() 的顺序，也就是登录页按钮的先后（保持字母序，
 # 与 isort 的排序一致，避免被 lint 重排后 UI 顺序悄悄变化）。
-from . import feishu, google, wechat
+from . import feishu, github, google, wechat

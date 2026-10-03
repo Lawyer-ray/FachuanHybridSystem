@@ -10,7 +10,6 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from apps.automation.models.invoice_recognition import InvoiceRecognitionTask, InvoiceRecognitionTaskStatus
 
-
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
@@ -58,8 +57,12 @@ def test_quick_recognize(mock_get_svc, authenticated_client):
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data["results"]) == 1
-    assert data["results"][0]["success"] is True
+    assert isinstance(data["items"], list)
+    assert len(data["items"]) == 1
+    assert data["items"][0]["success"] is True
+    assert data["total"] == 1
+    assert data["page"] == 1
+    assert data["total_pages"] == 1
 
 
 # ===================================================================
@@ -92,8 +95,12 @@ def test_upload_invoices(mock_get_svc, authenticated_client):
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["success"] is True
-    assert data["count"] == 1
+    assert isinstance(data["items"], list)
+    assert len(data["items"]) == 1
+    assert data["total"] == 1
+    assert data["page"] == 1
+    assert data["page_size"] == 1
+    assert data["total_pages"] == 1
 
 
 # ===================================================================
@@ -148,8 +155,6 @@ def test_download_invoices_all(mock_get_svc, authenticated_client):
     mock_svc.download_all.return_value = (b"fake zip data", "invoices.zip")
     mock_get_svc.return_value = mock_svc
 
-    resp = authenticated_client.get(
-        f"/api/v1/invoice-recognition/{task.id}/download?scope=all&fmt=zip"
-    )
+    resp = authenticated_client.get(f"/api/v1/invoice-recognition/{task.id}/download?scope=all&fmt=zip")
     assert resp.status_code == 200
     assert resp["Content-Disposition"].startswith("attachment")

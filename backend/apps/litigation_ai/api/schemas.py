@@ -5,6 +5,8 @@ from typing import Any
 
 from ninja import Schema
 
+from apps.core.api.pagination import PaginatedOut
+
 
 class CreateSessionRequest(Schema):
     case_id: int
@@ -20,9 +22,8 @@ class SessionResponse(Schema):
     updated_at: datetime
 
 
-class SessionListResponse(Schema):
-    count: int
-    results: list[dict[str, Any]]
+class SessionListResponse(PaginatedOut):
+    items: list[dict[str, Any]]
 
 
 class MessageResponse(Schema):

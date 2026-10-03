@@ -2,18 +2,12 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
 from datetime import datetime
+from unittest.mock import patch
 
 import pytest
 
-from apps.core.filesystem.upload_paths import (
-    DatedOriginalPath,
-    DatedUUIDPath,
-    EntityIdPath,
-    EntitySubPath,
-    _sanitize,
-)
+from apps.core.filesystem.upload_paths import DatedOriginalPath, DatedUUIDPath, EntityIdPath, EntitySubPath, _sanitize
 
 
 class TestSanitize:
@@ -46,9 +40,9 @@ class TestSanitize:
 
 class TestDatedUUIDPath:
     @patch("apps.core.filesystem.upload_paths.uuid")
-    @patch("apps.core.filesystem.upload_paths.datetime")
-    def test_call(self, mock_dt, mock_uuid):
-        mock_dt.now.return_value = datetime(2024, 6, 15)
+    @patch("apps.core.filesystem.upload_paths.timezone")
+    def test_call(self, mock_tz, mock_uuid):
+        mock_tz.now.return_value = datetime(2024, 6, 15)
         mock_uuid.uuid4.return_value.hex = "abc123def456"
         path_fn = DatedUUIDPath("my_entity")
         result = path_fn(None, "test.pdf")
@@ -63,9 +57,9 @@ class TestDatedUUIDPath:
 
 
 class TestDatedOriginalPath:
-    @patch("apps.core.filesystem.upload_paths.datetime")
-    def test_call(self, mock_dt):
-        mock_dt.now.return_value = datetime(2024, 3, 1)
+    @patch("apps.core.filesystem.upload_paths.timezone")
+    def test_call(self, mock_tz):
+        mock_tz.now.return_value = datetime(2024, 3, 1)
         path_fn = DatedOriginalPath("docs")
         result = path_fn(None, "report.pdf")
         assert result == "docs/2024/03/report.pdf"

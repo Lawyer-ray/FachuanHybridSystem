@@ -222,7 +222,7 @@ class TestCaseMaterialServiceDeleteMaterial:
     def test_delete_all_materials_empty(self, MockGroupOrder):
         svc = _make_service()
         with patch("apps.cases.services.material.case_material_service.CaseMaterial") as MockMat:
-            MockMat.objects.select_related().filter.return_value = []
+            MockMat.objects.filter.return_value.values_list.return_value = []
             result = svc.delete_all_materials(case_id=1, category="party")
             assert result["deleted_count"] == 0
 
@@ -252,11 +252,16 @@ class TestCaseMaterialServiceDeleteAttachments:
         att.id = 10
         att.file = MagicMock()
         with patch("apps.cases.services.material.case_material_service.CaseLogAttachment") as MockAtt:
-            MockAtt.objects.filter.return_value = [att]
+            qs = MagicMock()
+            qs.values_list.return_value = [10]
+            MockAtt.objects.filter.return_value = qs
             result = svc.delete_attachments(case_id=1, attachment_ids=[10])
         assert result == {"deleted_count": 1, "deleted_ids": [10], "skipped_ids": []}
-        att.file.delete.assert_called_once_with(save=False)
-        att.delete.assert_called_once()
+        # 物理文件由 post_delete 信号清理（apps/cases/signals.py），服务层不再手动
+        # 物理删除，也不再逐条 att.delete()，统一走 queryset delete
+        qs.delete.assert_called_once()
+        att.file.delete.assert_not_called()
+        att.delete.assert_not_called()
 
     @patch("apps.cases.services.material.case_material_service.transaction")
     def test_delete_attachments_skips_absent_or_bound(self, mock_tx):
@@ -265,7 +270,9 @@ class TestCaseMaterialServiceDeleteAttachments:
         att.id = 10
         att.file = None
         with patch("apps.cases.services.material.case_material_service.CaseLogAttachment") as MockAtt:
-            MockAtt.objects.filter.return_value = [att]
+            qs = MagicMock()
+            qs.values_list.return_value = [10]
+            MockAtt.objects.filter.return_value = qs
             result = svc.delete_attachments(case_id=1, attachment_ids=[10, 99])
         assert result["deleted_count"] == 1
         assert result["deleted_ids"] == [10]
@@ -275,6 +282,8 @@ class TestCaseMaterialServiceDeleteAttachments:
     def test_delete_attachments_verifies_case_access(self, mock_tx):
         svc = _make_service()
         with patch("apps.cases.services.material.case_material_service.CaseLogAttachment") as MockAtt:
-            MockAtt.objects.filter.return_value = []
+            qs = MagicMock()
+            qs.values_list.return_value = []
+            MockAtt.objects.filter.return_value = qs
             svc.delete_attachments(case_id=1, attachment_ids=[1])
         svc._case_service.get_case.assert_called_once()

@@ -1,7 +1,8 @@
 """Tests for express_query/signals.py - post_delete file cleanup."""
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 class TestDeleteTaskFiles:
@@ -38,10 +39,16 @@ class TestDeleteTaskFiles:
         instance.waybill_image = None
         instance.result_pdf = None
 
-        with patch("apps.express_query.signals.transaction") as mock_txn:
+        with (
+            patch("apps.express_query.signals.transaction") as mock_txn,
+            patch("apps.express_query.signals._safe_delete_file_field") as mock_del,
+        ):
             mock_txn.on_commit.side_effect = lambda fn: fn()
-            # Should not raise
-            delete_task_files(sender=MagicMock, instance=instance)
+            # Should not raise: 两个空字段都进入安全删除分支（各自早退）
+            assert delete_task_files(sender=MagicMock, instance=instance) is None
+        assert mock_del.call_count == 2
+        mock_del.assert_any_call(None, "邮单文件")
+        mock_del.assert_any_call(None, "结果PDF")
 
     def test_handles_file_not_found(self):
         """Handles FileNotFoundError gracefully."""
@@ -83,14 +90,17 @@ class TestSafeDeleteFileField:
         """Skips None field."""
         from apps.express_query.signals import _safe_delete_file_field
 
-        _safe_delete_file_field(None, "test description")  # Should not raise
+        # Should not raise: None 早退
+        assert _safe_delete_file_field(None, "test description") is None
 
     def test_skips_field_without_name(self):
         """Skips field without name attribute."""
         from apps.express_query.signals import _safe_delete_file_field
 
         mock_file = type("NoName", (), {})()
-        _safe_delete_file_field(mock_file, "test description")
+        # 无 name 属性 → 早退
+        assert _safe_delete_file_field(mock_file, "test description") is None
+        assert not hasattr(mock_file, "delete")
 
     def test_skips_field_with_empty_name(self):
         """Skips field with empty name."""
@@ -98,7 +108,9 @@ class TestSafeDeleteFileField:
 
         mock_file = MagicMock()
         mock_file.name = ""
-        _safe_delete_file_field(mock_file, "test description")
+        assert _safe_delete_file_field(mock_file, "test description") is None
+        # 空 name 早退：不应触发删除
+        mock_file.delete.assert_not_called()
 
     def test_handles_generic_exception(self):
         """Handles generic exceptions during deletion."""
@@ -108,5 +120,6 @@ class TestSafeDeleteFileField:
         mock_file.name = "test.pdf"
         mock_file.delete.side_effect = Exception("unexpected error")
 
-        # Should not raise
-        _safe_delete_file_field(mock_file, "test description")
+        # Should not raise: 异常被捕获记 warning，但删除确实被尝试过
+        assert _safe_delete_file_field(mock_file, "test description") is None
+        mock_file.delete.assert_called_once_with(save=False)

@@ -59,7 +59,11 @@ class SupplementaryAgreementParty(models.Model):
         SupplementaryAgreement, on_delete=models.CASCADE, related_name="parties", verbose_name="补充协议"
     )
     client = models.ForeignKey(
-        "client.Client", on_delete=models.CASCADE, related_name="supplementary_agreements", verbose_name="当事人"
+        # PROTECT：删除客户不得静默抹掉补充协议当事人（业务数据），须先解除关联
+        "client.Client",
+        on_delete=models.PROTECT,
+        related_name="supplementary_agreements",
+        verbose_name="当事人",
     )
     role = models.CharField(max_length=16, choices=PartyRole.choices, default=PartyRole.PRINCIPAL, verbose_name="身份")
 
