@@ -58,7 +58,7 @@ class TelegramFileMixin:  # pragma: no cover
         except MessageSendException:
             raise
         except Exception as e:
-            logger.error(f"发送 Telegram 文件时发生未知错误: {e!s}")
+            logger.error("发送 Telegram 文件时发生未知错误: %s", e)
             raise MessageSendException(
                 message=f"发送文件时发生未知错误: {e!s}",
                 platform="telegram",
@@ -93,7 +93,7 @@ class TelegramFileMixin:  # pragma: no cover
             if not resp_data.get("ok"):
                 error_msg = resp_data.get("description", "未知错误")
                 error_code = resp_data.get("error_code", "unknown")
-                logger.error(f"发送 Telegram 文件失败: {error_msg} (error_code: {error_code})")
+                logger.error("发送 Telegram 文件失败: %s (error_code: %s)", error_msg, error_code)
                 raise MessageSendException(
                     message=f"文件发送失败: {error_msg}",
                     platform="telegram",
@@ -102,7 +102,7 @@ class TelegramFileMixin:  # pragma: no cover
                     errors={"api_response": resp_data, "file_path": file_path},
                 )
 
-            logger.info(f"成功发送 Telegram 文件到群聊: {chat_id} (文件: {file_name})")
+            logger.info("成功发送 Telegram 文件到群聊: %s (文件: %s)", chat_id, file_name)
 
             return ChatResult(
                 success=True, chat_id=chat_id, message=f"文件发送成功: {file_name}", raw_response=resp_data
@@ -111,7 +111,7 @@ class TelegramFileMixin:  # pragma: no cover
         except MessageSendException:
             raise
         except httpx.HTTPError as e:
-            logger.error(f"发送 Telegram 文件网络请求失败: {e!s}")
+            logger.error("发送 Telegram 文件网络请求失败: %s", e)
             raise MessageSendException(
                 message=f"文件发送网络请求失败: {e!s}",
                 platform="telegram",
@@ -134,6 +134,6 @@ class TelegramFileMixin:  # pragma: no cover
             try:
                 return parts[0], int(parts[1])
             except ValueError:
-                logger.warning(f"无法解析 Telegram 话题 ID: {chat_id}")
+                logger.warning("无法解析 Telegram 话题 ID: %s", chat_id)
                 return chat_id, None
         return chat_id, None

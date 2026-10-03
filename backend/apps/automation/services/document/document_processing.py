@@ -165,7 +165,7 @@ def _ocr_pdf_page(file_path: str, page_num_1based: int, limit: int) -> str | Non
         if ocr_text.strip():
             return ocr_text[:limit]
     except Exception as e:
-        logger.info(f"OCR处理PDF失败: {e}")
+        logger.info("OCR处理PDF失败: %s", e)
     finally:
         if temp_path is not None:
             temp_path.unlink(missing_ok=True)

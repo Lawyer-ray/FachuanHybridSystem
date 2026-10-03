@@ -51,7 +51,7 @@ class FeishuTokenMixin:  # pragma: no cover
             return normalize_provider_config(config, "飞书")
 
         except (TypeError, ValueError) as e:
-            logger.error(f"加载飞书配置失败: {e!s}")
+            logger.error("加载飞书配置失败: %s", e)
             raise ConfigurationException(
                 message=f"无法加载飞书配置: {e!s}", platform="feishu", errors={"original_error": str(e)}
             ) from e
@@ -60,7 +60,7 @@ class FeishuTokenMixin:  # pragma: no cover
         """检查平台是否可用"""
         for config_key in ["APP_ID", "APP_SECRET"]:
             if not self.config.get(config_key):
-                logger.debug(f"飞书配置缺失: {config_key}")
+                logger.debug("飞书配置缺失: %s", config_key)
                 return False
         return True
 
@@ -110,12 +110,12 @@ class FeishuTokenMixin:  # pragma: no cover
             return self._access_token
 
         except httpx.HTTPError as e:
-            logger.error(f"请求飞书访问令牌失败: {e!s}")
+            logger.error("请求飞书访问令牌失败: %s", e)
             raise ChatProviderException(
                 message=f"网络请求失败: {e!s}", platform="feishu", errors={"original_error": str(e)}
             ) from e
         except (KeyError, ValueError) as e:
-            logger.error(f"解析飞书API响应失败: {e!s}")
+            logger.error("解析飞书API响应失败: %s", e)
             raise ChatProviderException(
                 message=f"API响应格式错误: {e!s}", platform="feishu", errors={"original_error": str(e)}
             ) from e
@@ -182,12 +182,12 @@ class FeishuTokenMixin:  # pragma: no cover
                 return self._access_token
 
             except httpx.HTTPError as e:
-                logger.error(f"请求飞书访问令牌失败: {e!s}")
+                logger.error("请求飞书访问令牌失败: %s", e)
                 raise ChatProviderException(
                     message=f"网络请求失败: {e!s}", platform="feishu", errors={"original_error": str(e)}
                 ) from e
             except (KeyError, ValueError) as e:
-                logger.error(f"解析飞书API响应失败: {e!s}")
+                logger.error("解析飞书API响应失败: %s", e)
                 raise ChatProviderException(
                     message=f"API响应格式错误: {e!s}", platform="feishu", errors={"original_error": str(e)}
                 ) from e

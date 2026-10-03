@@ -56,7 +56,7 @@ class PasswordResetService:
 
             # 即使用户不存在也返回成功（防止用户枚举）
             if not user:
-                logger.warning(f"尝试重置不存在的邮箱: {email[:3]}***{email[-4:]}")
+                logger.warning("尝试重置不存在的邮箱: %s***%s", email[:3], email[-4:])
                 return True, "如果该邮箱存在，我们已发送重置链接"
 
             # 检查发送频率
@@ -81,13 +81,13 @@ class PasswordResetService:
             if success:
                 # 记录最后发送时间
                 cls._update_last_send_time(user)
-                logger.info(f"密码重置邮件已发送: user_id={user.pk}")
+                logger.info("密码重置邮件已发送: user_id=%s", user.pk)
                 return True, "重置链接已发送到您的邮箱"
             else:
                 return False, "邮件发送失败，请稍后再试或联系管理员"
 
         except (ValueError, TypeError, Lawyer.DoesNotExist) as e:
-            logger.error(f"请求密码重置失败: {e}", exc_info=True)
+            logger.error("请求密码重置失败: %s", e, exc_info=True)
             return False, "系统错误，请稍后再试"
 
     @classmethod
@@ -117,7 +117,7 @@ class PasswordResetService:
             return True, user, "Token 有效"
 
         except (ValueError, TypeError, UnicodeDecodeError, Lawyer.DoesNotExist) as e:
-            logger.error(f"验证 token 失败: {e}", exc_info=True)
+            logger.error("验证 token 失败: %s", e, exc_info=True)
             return False, None, "无效的重置链接"
 
     @classmethod
@@ -151,11 +151,11 @@ class PasswordResetService:
                     username=user.username or user.phone or "用户",
                 )
 
-            logger.info(f"用户 {user.pk} 密码重置成功")
+            logger.info("用户 %s 密码重置成功", user.pk)
             return True, "密码重置成功"
 
         except (ValueError, TypeError) as e:
-            logger.error(f"重置密码失败: {e}", exc_info=True)
+            logger.error("重置密码失败: %s", e, exc_info=True)
             return False, "系统错误，请稍后再试"
 
     @classmethod

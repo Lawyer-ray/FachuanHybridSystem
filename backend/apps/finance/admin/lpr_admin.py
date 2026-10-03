@@ -131,7 +131,7 @@ class LPRRateAdmin(BaseModelAdmin):  # pragma: no cover
             status = service.get_sync_status()
             extra_context["sync_status"] = status
         except Exception as e:
-            logger.warning(f"[LPRAdmin] Failed to get sync status: {e}")
+            logger.warning("[LPRAdmin] Failed to get sync status: %s", e)
             extra_context["sync_status"] = None
 
         return super().changelist_view(request, extra_context=extra_context)  # type: ignore[return-value]
@@ -142,7 +142,7 @@ class LPRRateAdmin(BaseModelAdmin):  # pragma: no cover
         from apps.finance.services.lpr import LPRSyncService
 
         user: User = request.user
-        logger.info(f"[LPRAdmin] User {user.id} triggered sync from admin")
+        logger.info("[LPRAdmin] User %s triggered sync from admin", user.id)
 
         try:
             service = LPRSyncService()
@@ -153,10 +153,10 @@ class LPRRateAdmin(BaseModelAdmin):  # pragma: no cover
                 "LPR数据同步成功：新增 %(created)s 条，更新 %(updated)s 条，跳过 %(skipped)s 条" % result,
             )
         except BusinessException as e:
-            logger.error(f"[LPRAdmin] Sync failed: {e}")
+            logger.error("[LPRAdmin] Sync failed: %s", e)
             self.message_user(request, f"同步失败: {e}", level="error")
         except Exception as e:
-            logger.error(f"[LPRAdmin] Unexpected error during sync: {e}")
+            logger.error("[LPRAdmin] Unexpected error during sync: %s", e)
             self.message_user(request, f"同步失败: {e!s}", level="error")
 
         return HttpResponseRedirect("../")

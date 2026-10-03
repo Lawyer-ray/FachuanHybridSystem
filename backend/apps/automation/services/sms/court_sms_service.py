@@ -209,7 +209,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                 document_file_paths=[],
             )
 
-            logger.info(f"创建短信记录成功: ID={sms.id}, 长度={len(content)}")
+            logger.info("创建短信记录成功: ID=%s, 长度=%s", sms.id, len(content))
 
             task_id = submit_task(
                 "apps.automation.workers.court_sms_tasks.process_sms",
@@ -217,12 +217,12 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                 task_name=f"court_sms_processing_{sms.id}",
             )
 
-            logger.info(f"提交异步处理任务: SMS ID={sms.id}, Task ID={task_id}")
+            logger.info("提交异步处理任务: SMS ID=%s, Task ID=%s", sms.id, task_id)
 
             return sms
 
         except Exception as e:
-            logger.error(f"提交短信处理失败: {e!s}")
+            logger.error("提交短信处理失败: %s", e)
             raise ValidationException(
                 message=f"提交短信处理失败: {e!s}", code=SMS_SUBMIT_FAILED, errors={"error": str(e)}
             ) from e
@@ -244,7 +244,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             sms.error_message = None
             sms.save()
 
-            logger.info(f"手动指定案件成功: SMS ID={sms_id}, Case ID={case_id}")
+            logger.info("手动指定案件成功: SMS ID=%s, Case ID=%s", sms_id, case_id)
 
             success = self._create_case_binding(sms)
             if success:
@@ -255,16 +255,16 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                     self._reattach_existing_documents(sms)
                     sms.status = CourtSMSStatus.NOTIFYING
                     sms.save()
-                    logger.info(f"案件绑定创建成功，文书已重命名，跳过重命名阶段: SMS ID={sms_id}")
+                    logger.info("案件绑定创建成功，文书已重命名，跳过重命名阶段: SMS ID=%s", sms_id)
                 else:
                     sms.status = CourtSMSStatus.RENAMING
                     sms.save()
-                    logger.info(f"案件绑定创建成功，进入重命名阶段: SMS ID={sms_id}")
+                    logger.info("案件绑定创建成功，进入重命名阶段: SMS ID=%s", sms_id)
             else:
                 sms.status = CourtSMSStatus.FAILED
                 sms.error_message = "创建案件绑定失败"
                 sms.save()
-                logger.error(f"案件绑定创建失败: SMS ID={sms_id}")
+                logger.error("案件绑定创建失败: SMS ID=%s", sms_id)
                 return sms
 
             task_id = submit_task(
@@ -273,12 +273,12 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                 task_name=f"court_sms_continue_{sms.id}",
             )
 
-            logger.info(f"触发后续处理任务: SMS ID={sms.id}, Task ID={task_id}")
+            logger.info("触发后续处理任务: SMS ID=%s, Task ID=%s", sms.id, task_id)
 
             return sms
 
         except Exception as e:
-            logger.error(f"手动指定案件失败: SMS ID={sms_id}, Case ID={case_id}, 错误: {e!s}")
+            logger.error("手动指定案件失败: SMS ID=%s, Case ID=%s, 错误: %s", sms_id, case_id, e)
             raise ValidationException(
                 message=f"手动指定案件失败: {e!s}", code=CASE_ASSIGNMENT_FAILED, errors={"error": str(e)}
             ) from e
@@ -312,7 +312,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             return
 
         self.document_attachment.add_to_case_log(sms, renamed_files)
-        logger.info(f"已将 {len(renamed_files)} 个已有文书重新绑定到新案件日志: SMS ID={sms.id}")
+        logger.info("已将 %s 个已有文书重新绑定到新案件日志: SMS ID=%s", len(renamed_files), sms.id)
 
     def retry_processing(self, sms_id: int) -> CourtSMS:  # pragma: no cover
         """重新处理短信
@@ -342,7 +342,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             sms.save()
 
             logger.info(
-                f"重置短信状态成功: SMS ID={sms_id}, 重试次数={sms.retry_count}, 保留案件关联={has_manual_case}"
+                "重置短信状态成功: SMS ID=%s, 重试次数=%s, 保留案件关联=%s", sms_id, sms.retry_count, has_manual_case
             )
 
             if has_manual_case:
@@ -359,12 +359,12 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                     task_name=f"court_sms_retry_{sms.id}_{sms.retry_count}",
                 )
 
-            logger.info(f"重新提交处理任务: SMS ID={sms.id}, Task ID={task_id}")
+            logger.info("重新提交处理任务: SMS ID=%s, Task ID=%s", sms.id, task_id)
 
             return sms
 
         except Exception as e:
-            logger.error(f"重新处理短信失败: SMS ID={sms_id}, 错误: {e!s}")
+            logger.error("重新处理短信失败: SMS ID=%s, 错误: %s", sms_id, e)
             raise ValidationException(
                 message=f"重新处理短信失败: {e!s}", code=SMS_RETRY_FAILED, errors={"error": str(e)}
             ) from e
@@ -376,12 +376,12 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         except CourtSMS.DoesNotExist as e:
             raise NotFoundError(f"短信记录不存在: ID={sms_id}") from e
         sms.delete()
-        logger.info(f"删除短信记录: ID={sms_id}")
+        logger.info("删除短信记录: ID=%s", sms_id)
 
     def batch_delete_sms(self, sms_ids: list[int]) -> int:  # pragma: no cover
         """批量删除短信，返回删除数量"""
         deleted_count, _ = CourtSMS.objects.filter(id__in=sms_ids).delete()
-        logger.info(f"批量删除短信记录: 请求={len(sms_ids)}条, 实际删除={deleted_count}条")
+        logger.info("批量删除短信记录: 请求=%s条, 实际删除=%s条", len(sms_ids), deleted_count)
         return deleted_count
 
     def process_sms(self, sms_id: int, process_options: dict[str, Any] | None = None) -> CourtSMS:  # pragma: no cover
@@ -391,7 +391,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         except CourtSMS.DoesNotExist as e:
             raise NotFoundError(f"短信记录不存在: ID={sms_id}") from e
 
-        logger.info(f"开始处理短信: ID={sms_id}, 状态={sms.status}")
+        logger.info("开始处理短信: ID=%s, 状态=%s", sms_id, sms.status)
 
         try:
             if sms.status == CourtSMSStatus.PENDING:
@@ -401,7 +401,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                 sms = self._process_downloading_or_matching(sms, process_options=process_options)
 
             if sms.status == CourtSMSStatus.DOWNLOADING:
-                logger.info(f"短信 {sms_id} 进入下载阶段，等待下载完成")
+                logger.info("短信 %s 进入下载阶段，等待下载完成", sms_id)
                 return sms
 
             if sms.status == CourtSMSStatus.MATCHING:
@@ -413,11 +413,11 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             if sms.status == CourtSMSStatus.NOTIFYING:
                 sms = self._process_notifying(sms)
 
-            logger.info(f"短信处理完成: ID={sms_id}, 最终状态={sms.status}")
+            logger.info("短信处理完成: ID=%s, 最终状态=%s", sms_id, sms.status)
             return sms
 
         except Exception as e:
-            logger.error(f"处理短信失败: ID={sms_id}, 错误: {e!s}")
+            logger.error("处理短信失败: ID=%s, 错误: %s", sms_id, e)
             sms.status = CourtSMSStatus.FAILED
             sms.error_message = str(e)
             sms.save()
@@ -434,7 +434,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         except CourtSMS.DoesNotExist as e:
             raise NotFoundError(f"短信记录不存在: ID={sms_id}") from e
 
-        logger.info(f"从匹配阶段开始处理短信: ID={sms_id}")
+        logger.info("从匹配阶段开始处理短信: ID=%s", sms_id)
 
         try:
             if sms.status == CourtSMSStatus.MATCHING:
@@ -445,7 +445,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                 sms = self._process_notifying(sms)
             return sms
         except Exception as e:
-            logger.error(f"从匹配阶段处理短信失败: ID={sms_id}, 错误: {e!s}")
+            logger.error("从匹配阶段处理短信失败: ID=%s, 错误: %s", sms_id, e)
             raise
 
     def _process_from_renaming(self, sms_id: int) -> CourtSMS:  # pragma: no cover
@@ -455,17 +455,17 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         except CourtSMS.DoesNotExist as e:
             raise NotFoundError(f"短信记录不存在: ID={sms_id}") from e
 
-        logger.info(f"从重命名阶段开始处理短信: ID={sms_id}")
+        logger.info("从重命名阶段开始处理短信: ID=%s", sms_id)
 
         try:
             if sms.status == CourtSMSStatus.RENAMING:
                 sms = self._process_renaming(sms)
             if sms.status == CourtSMSStatus.NOTIFYING:
                 sms = self._process_notifying(sms)
-            logger.info(f"手动关联案件处理完成: ID={sms_id}, 最终状态={sms.status}")
+            logger.info("手动关联案件处理完成: ID=%s, 最终状态=%s", sms_id, sms.status)
             return sms
         except Exception as e:
-            logger.error(f"从重命名阶段处理短信失败: ID={sms_id}, 错误: {e!s}")
+            logger.error("从重命名阶段处理短信失败: ID=%s, 错误: %s", sms_id, e)
             sms.status = CourtSMSStatus.FAILED
             sms.error_message = str(e)
             sms.save()
@@ -473,7 +473,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
 
     def _process_parsing(self, sms: CourtSMS) -> CourtSMS:  # pragma: no cover
         """处理解析阶段"""
-        logger.info(f"开始解析短信: ID={sms.id}")
+        logger.info("开始解析短信: ID=%s", sms.id)
 
         try:
             sms.status = CourtSMSStatus.PARSING
@@ -487,16 +487,16 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             sms.party_names = parse_result.party_names
             sms.save()
 
-            logger.info(f"短信解析完成: ID={sms.id}, 类型={parse_result.sms_type}")
+            logger.info("短信解析完成: ID=%s, 类型=%s", sms.id, parse_result.sms_type)
             return sms
 
         except Exception as e:
-            logger.error(f"短信解析失败: ID={sms.id}, 错误: {e!s}")
+            logger.error("短信解析失败: ID=%s, 错误: %s", sms.id, e)
             raise
 
     def _process_matching(self, sms: CourtSMS) -> CourtSMS:  # pragma: no cover
         """处理案件匹配阶段"""
-        logger.info(f"开始匹配案件: SMS ID={sms.id}")
+        logger.info("开始匹配案件: SMS ID=%s", sms.id)
 
         try:
             # 仅在状态不是 MATCHING 时才更新（避免无意义的 save 刷新 updated_at，
@@ -510,7 +510,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                 # 重试进入：worker 崩溃后重新执行，递增重试计数
                 sms.retry_count += 1
                 sms.save(update_fields=["retry_count", "updated_at"])
-                logger.info(f"短信 {sms.id} 重新进入匹配阶段，当前重试次数: {sms.retry_count}")
+                logger.info("短信 %s 重新进入匹配阶段，当前重试次数: %s", sms.id, sms.retry_count)
 
             # 匹配重试次数保护：如果短信已经多次处于 MATCHING 状态但未能完成
             # （通常因 OCR 处理导致 worker OOM），超过阈值后标记为待人工处理，
@@ -518,8 +518,10 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             matching_retry_limit = 3
             if sms.retry_count >= matching_retry_limit:
                 logger.warning(
-                    f"短信 {sms.id} 匹配重试次数已达 {sms.retry_count} 次（上限 {matching_retry_limit}），"
-                    f"疑似 OCR 内存不足导致 worker 反复崩溃，标记为待人工处理"
+                    "短信 %s 匹配重试次数已达 %s 次（上限 %s），疑似 OCR 内存不足导致 worker 反复崩溃，标记为待人工处理",
+                    sms.id,
+                    sms.retry_count,
+                    matching_retry_limit,
                 )
                 sms.status = CourtSMSStatus.PENDING_MANUAL
                 sms.error_message = (
@@ -530,7 +532,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                 return sms
 
             if sms.case:
-                logger.info(f"短信 {sms.id} 已手动指定案件: {sms.case.id}")
+                logger.info("短信 %s 已手动指定案件: %s", sms.id, sms.case.id)
                 success = self._create_case_binding(sms)
                 if success:
                     sms.status = CourtSMSStatus.RENAMING
@@ -541,34 +543,34 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                 return sms
 
             should_wait = self._should_wait_for_document_download(sms)
-            logger.info(f"短信 {sms.id} 下载等待检查结果: {should_wait}")
+            logger.info("短信 %s 下载等待检查结果: %s", sms.id, should_wait)
 
             if should_wait:
-                logger.info(f"短信 {sms.id} 需要等待文书下载完成后再进行匹配，保持 MATCHING 状态")
+                logger.info("短信 %s 需要等待文书下载完成后再进行匹配，保持 MATCHING 状态", sms.id)
                 return sms
 
             self._extract_and_update_sms_from_documents(sms)
 
-            logger.info(f"开始自动匹配案件: SMS ID={sms.id}, 只匹配状态为'在办'的案件")
+            logger.info("开始自动匹配案件: SMS ID=%s, 只匹配状态为'在办'的案件", sms.id)
             matched_case_dto = self.matcher.match(sms)
 
             if matched_case_dto:
                 sms.case_id = matched_case_dto.id
                 sms.save()
-                logger.info(f"案件匹配成功: SMS ID={sms.id}, Case ID={matched_case_dto.id}")
+                logger.info("案件匹配成功: SMS ID=%s, Case ID=%s", sms.id, matched_case_dto.id)
 
                 success = self._create_case_binding(sms)
                 if success:
                     sms.status = CourtSMSStatus.RENAMING
                     sms.save()
-                    logger.info(f"案件自动绑定成功: SMS ID={sms.id}")
+                    logger.info("案件自动绑定成功: SMS ID=%s", sms.id)
                 else:
                     sms.status = CourtSMSStatus.FAILED
                     sms.error_message = "创建案件绑定失败"
                     sms.save()
-                    logger.error(f"案件绑定失败: SMS ID={sms.id}")
+                    logger.error("案件绑定失败: SMS ID=%s", sms.id)
             else:
-                logger.info(f"案件匹配失败，标记为待人工处理: SMS ID={sms.id}")
+                logger.info("案件匹配失败，标记为待人工处理: SMS ID=%s", sms.id)
                 sms.status = CourtSMSStatus.PENDING_MANUAL
                 sms.error_message = "未能匹配到唯一的在办案件，需要人工处理"
                 sms.save()
@@ -576,7 +578,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             return sms
 
         except Exception as e:
-            logger.error(f"案件匹配失败: SMS ID={sms.id}, 错误: {e!s}")
+            logger.error("案件匹配失败: SMS ID=%s, 错误: %s", sms.id, e)
             sms.status = CourtSMSStatus.FAILED
             sms.error_message = f"案件匹配过程中发生错误: {e!s}"
             sms.save()
@@ -584,14 +586,14 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
 
     def _process_notifying(self, sms: CourtSMS) -> CourtSMS:  # pragma: no cover
         """处理通知阶段"""
-        logger.info(f"开始发送案件群聊通知: SMS ID={sms.id}")
+        logger.info("开始发送案件群聊通知: SMS ID=%s", sms.id)
 
         try:
             sms.status = CourtSMSStatus.NOTIFYING
             sms.save()
 
             document_paths = self.document_attachment.get_paths_for_notification(sms)
-            logger.info(f"准备发送 {len(document_paths)} 个文件到群聊: SMS ID={sms.id}")
+            logger.info("准备发送 %s 个文件到群聊: SMS ID=%s", len(document_paths), sms.id)
 
             notification_is_optional = bool(sms.case)
             if sms.case:
@@ -601,13 +603,13 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                 sms.notification_results = result.to_notification_results()
 
                 if result.any_success:
-                    logger.info(f"案件群聊通知成功: SMS ID={sms.id}, 成功平台={result.successful_platforms}")
+                    logger.info("案件群聊通知成功: SMS ID=%s, 成功平台=%s", sms.id, result.successful_platforms)
                 else:
                     error_detail = "; ".join(f"{r.platform}: {r.error}" for r in result.attempts if not r.success)
-                    logger.error(f"案件群聊通知失败: SMS ID={sms.id}, 原因: {error_detail}")
+                    logger.error("案件群聊通知失败: SMS ID=%s, 原因: %s", sms.id, error_detail)
             else:
                 error_detail = "短信未绑定案件，无法发送群聊通知"
-                logger.warning(f"{error_detail}: SMS ID={sms.id}")
+                logger.warning("%s: SMS ID=%s", error_detail, sms.id)
                 sms.notification_results = {"none": {"success": False, "error": error_detail}}
 
             # 判断最终状态：检查 notification_results 中是否有任何平台成功
@@ -618,21 +620,21 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
 
             if any_platform_success:
                 sms.status = CourtSMSStatus.COMPLETED
-                logger.info(f"案件群聊通知发送成功，短信处理完成: SMS ID={sms.id}")
+                logger.info("案件群聊通知发送成功，短信处理完成: SMS ID=%s", sms.id)
             elif notification_is_optional:
                 sms.status = CourtSMSStatus.COMPLETED
                 sms.error_message = "案件群聊通知发送失败（不影响文书归档）"
-                logger.warning(f"案件群聊通知发送失败，但文书已归档，短信标记为完成: SMS ID={sms.id}")
+                logger.warning("案件群聊通知发送失败，但文书已归档，短信标记为完成: SMS ID=%s", sms.id)
             else:
                 sms.status = CourtSMSStatus.FAILED
                 sms.error_message = "案件群聊通知发送失败"
-                logger.error(f"案件群聊通知发送失败，短信标记为失败: SMS ID={sms.id}")
+                logger.error("案件群聊通知发送失败，短信标记为失败: SMS ID=%s", sms.id)
 
             sms.save()
             return sms
 
         except Exception as e:
-            logger.error(f"案件群聊通知发送失败: SMS ID={sms.id}, 错误: {e!s}")
+            logger.error("案件群聊通知发送失败: SMS ID=%s, 错误: %s", sms.id, e)
             sms.notification_results = sms.notification_results or {}
             sms.notification_results["_exception"] = {"success": False, "error": str(e)}
             if sms.case:

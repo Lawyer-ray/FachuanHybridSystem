@@ -41,5 +41,5 @@ class ScreenshotUtils:
             return result
 
         except Exception as e:
-            logger.warning(f"收集截图失败: {e}")
+            logger.warning("收集截图失败: %s", e)
             return []

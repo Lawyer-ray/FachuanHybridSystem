@@ -19,7 +19,7 @@ class ApiLoggingMixin:
             "timestamp": datetime.now().isoformat(),
         }
         extra.update(kwargs)
-        logger.debug(f"开始收集{metric_type}性能指标", extra=extra)
+        logger.debug("开始收集%s性能指标", metric_type, extra=extra)
 
     @staticmethod
     def log_performance_metrics_collection_success(
@@ -35,7 +35,7 @@ class ApiLoggingMixin:
             "timestamp": datetime.now().isoformat(),
         }
         extra.update(kwargs)
-        logger.debug(f"{metric_type}性能指标收集成功", extra=extra)
+        logger.debug("%s性能指标收集成功", metric_type, extra=extra)
 
     @staticmethod
     def log_business_operation(

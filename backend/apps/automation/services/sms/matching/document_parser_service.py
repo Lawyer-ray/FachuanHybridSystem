@@ -79,18 +79,18 @@ class DocumentParserService:
             result = doc_service.extract_document_content_by_path_internal(document_path, limit=3000)  # type: ignore
 
             if not result.get("text"):
-                logger.warning(f"无法从文书中提取文本: {document_path}")
+                logger.warning("无法从文书中提取文本: %s", document_path)
                 return []
 
             # 删除换行符，便于匹配
             content = result["text"].replace("\n", "").replace("\r", "")
-            logger.info(f"从文书中提取到 {len(result['text'])} 字符的内容，删除换行符后为 {len(content)} 字符")
+            logger.info("从文书中提取到 %s 字符的内容，删除换行符后为 %s 字符", len(result["text"]), len(content))
 
             # 在现有客户数据库中匹配当事人（不使用 LLM）
             return self.match_parties_from_content(content)
 
         except Exception as e:
-            logger.error(f"从文书提取当事人失败: {e!s}")
+            logger.error("从文书提取当事人失败: %s", e)
             return []
 
     def match_parties_from_content(self, content: str) -> list[str]:
@@ -117,7 +117,7 @@ class DocumentParserService:
 
             matched_parties = []
 
-            logger.info(f"开始在文书内容中匹配 {len(all_clients)} 个现有客户")
+            logger.info("开始在文书内容中匹配 %s 个现有客户", len(all_clients))
 
             for client in all_clients:
                 client_name = client.name.strip()
@@ -129,17 +129,17 @@ class DocumentParserService:
                 # 检查客户名称是否出现在文书内容中
                 if len(client_name) >= 2 and client_name in content:
                     matched_parties.append(client_name)
-                    logger.info(f"在文书中匹配到客户: {client_name}")
+                    logger.info("在文书中匹配到客户: %s", client_name)
 
             if matched_parties:
-                logger.info(f"从文书内容中匹配到 {len(matched_parties)} 个当事人: {matched_parties}")
+                logger.info("从文书内容中匹配到 %s 个当事人: %s", len(matched_parties), matched_parties)
             else:
                 logger.info("从文书内容中未匹配到任何当事人")
 
             return matched_parties
 
         except Exception as e:
-            logger.warning(f"从文书内容匹配当事人失败: {e!s}")
+            logger.warning("从文书内容匹配当事人失败: %s", e)
             return []
 
     def get_all_document_paths(self, sms: Any) -> list[str]:
@@ -175,11 +175,11 @@ class DocumentParserService:
                             document_paths.append(file_path)
 
                     if files and not document_paths:
-                        logger.warning(f"任务结果中有 {len(files)} 个文件路径，但都不存在")
+                        logger.warning("任务结果中有 %s 个文件路径，但都不存在", len(files))
 
-            logger.info(f"获取到 {len(document_paths)} 个已下载的文书路径")
+            logger.info("获取到 %s 个已下载的文书路径", len(document_paths))
         except Exception as e:
-            logger.warning(f"获取文书路径失败: {e!s}")
+            logger.warning("获取文书路径失败: %s", e)
 
         return document_paths
 
@@ -194,11 +194,11 @@ class DocumentParserService:
             # 通过律师服务获取所有律师姓名
             lawyer_names = self.lawyer_service.get_all_lawyer_names()
 
-            logger.info(f"获取到 {len(lawyer_names)} 个律师姓名: {lawyer_names}")
+            logger.info("获取到 %s 个律师姓名: %s", len(lawyer_names), lawyer_names)
             return lawyer_names
 
         except Exception as e:
-            logger.warning(f"获取律师姓名失败: {e!s}")
+            logger.warning("获取律师姓名失败: %s", e)
             # 如果获取失败，返回空列表，不影响主流程
             return []
 

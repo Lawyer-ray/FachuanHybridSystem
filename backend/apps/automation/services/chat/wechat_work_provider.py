@@ -81,7 +81,7 @@ class WeChatWorkProvider(WeChatWorkTokenMixin, WeChatWorkFileMixin, ChatProvider
             )
 
         try:
-            logger.info(f"创建企业微信群聊: {chat_name}, 群主: {effective_owner_id}")
+            logger.info("创建企业微信群聊: %s, 群主: %s", chat_name, effective_owner_id)
 
             # 企业微信建群至少需要2个成员，从配置读取默认初始成员（纯配置校验，无需网络）
             extra_member_ids = self.config.get("DEFAULT_MEMBER_IDS", "")
@@ -118,7 +118,7 @@ class WeChatWorkProvider(WeChatWorkTokenMixin, WeChatWorkFileMixin, ChatProvider
             errcode = data.get("errcode", 0)
             if errcode != 0:
                 error_msg = data.get("errmsg", "未知错误")
-                logger.error(f"创建企业微信群聊失败: {error_msg} (errcode: {errcode})")
+                logger.error("创建企业微信群聊失败: %s (errcode: %s)", error_msg, errcode)
                 raise ChatCreationException(
                     message=f"创建群聊失败: {error_msg}",
                     platform="wechat_work",
@@ -139,7 +139,7 @@ class WeChatWorkProvider(WeChatWorkTokenMixin, WeChatWorkFileMixin, ChatProvider
                     errors={"api_response": data},
                 )
 
-            logger.info(f"成功创建企业微信群聊: {chat_name} (ID: {chat_id}), 群主: {effective_owner_id}")
+            logger.info("成功创建企业微信群聊: %s (ID: %s), 群主: %s", chat_name, chat_id, effective_owner_id)
 
             # 新群创建后立即发送首条消息，确保群在客户端可见
             self._send_initial_message(chat_id, chat_name)
@@ -158,14 +158,14 @@ class WeChatWorkProvider(WeChatWorkTokenMixin, WeChatWorkFileMixin, ChatProvider
         except ChatCreationException:
             raise
         except httpx.HTTPError as e:
-            logger.error(f"创建企业微信群聊网络请求失败: {e!s}")
+            logger.error("创建企业微信群聊网络请求失败: %s", e)
             raise ChatCreationException(
                 message=f"网络请求失败: {e!s}",
                 platform="wechat_work",
                 errors={"original_error": str(e), "chat_name": chat_name},
             ) from e
         except Exception as e:
-            logger.error(f"创建企业微信群聊时发生未知错误: {e!s}")
+            logger.error("创建企业微信群聊时发生未知错误: %s", e)
             raise ChatCreationException(
                 message=f"创建群聊时发生未知错误: {e!s}",
                 platform="wechat_work",
@@ -193,7 +193,7 @@ class WeChatWorkProvider(WeChatWorkTokenMixin, WeChatWorkFileMixin, ChatProvider
                 "text": {"content": message_text},
             }
 
-            logger.debug(f"发送企业微信消息请求: chat_id={chat_id}")
+            logger.debug("发送企业微信消息请求: chat_id=%s", chat_id)
 
             timeout = self.config.get("TIMEOUT", 30)
             response = httpx.post(url, json=payload, headers=headers, timeout=timeout)
@@ -204,7 +204,7 @@ class WeChatWorkProvider(WeChatWorkTokenMixin, WeChatWorkFileMixin, ChatProvider
             errcode = data.get("errcode", 0)
             if errcode != 0:
                 error_msg = data.get("errmsg", "未知错误")
-                logger.error(f"发送企业微信消息失败: {error_msg} (errcode: {errcode})")
+                logger.error("发送企业微信消息失败: %s (errcode: %s)", error_msg, errcode)
                 raise MessageSendException(
                     message=f"发送消息失败: {error_msg}",
                     platform="wechat_work",
@@ -214,14 +214,14 @@ class WeChatWorkProvider(WeChatWorkTokenMixin, WeChatWorkFileMixin, ChatProvider
                 )
 
             msg_id = data.get("msgid", "")
-            logger.info(f"成功发送企业微信消息到群聊: {chat_id} (消息ID: {msg_id})")
+            logger.info("成功发送企业微信消息到群聊: %s (消息ID: %s)", chat_id, msg_id)
 
             return ChatResult(success=True, chat_id=chat_id, message=str(_("消息发送成功")), raw_response=data)
 
         except MessageSendException:
             raise
         except httpx.HTTPError as e:
-            logger.error(f"发送企业微信消息网络请求失败: {e!s}")
+            logger.error("发送企业微信消息网络请求失败: %s", e)
             raise MessageSendException(
                 message=f"网络请求失败: {e!s}",
                 platform="wechat_work",
@@ -229,7 +229,7 @@ class WeChatWorkProvider(WeChatWorkTokenMixin, WeChatWorkFileMixin, ChatProvider
                 errors={"original_error": str(e)},
             ) from e
         except Exception as e:
-            logger.error(f"发送企业微信消息时发生未知错误: {e!s}")
+            logger.error("发送企业微信消息时发生未知错误: %s", e)
             raise MessageSendException(
                 message=f"发送消息时发生未知错误: {e!s}",
                 platform="wechat_work",
@@ -260,7 +260,7 @@ class WeChatWorkProvider(WeChatWorkTokenMixin, WeChatWorkFileMixin, ChatProvider
             errcode = data.get("errcode", 0)
             if errcode != 0:
                 error_msg = data.get("errmsg", "未知错误")
-                logger.error(f"获取企业微信群聊信息失败: {error_msg} (errcode: {errcode})")
+                logger.error("获取企业微信群聊信息失败: %s (errcode: %s)", error_msg, errcode)
                 return ChatResult(
                     success=False,
                     chat_id=chat_id,
@@ -281,7 +281,7 @@ class WeChatWorkProvider(WeChatWorkTokenMixin, WeChatWorkFileMixin, ChatProvider
             )
 
         except Exception as e:
-            logger.error(f"获取企业微信群聊信息失败: {e!s}")
+            logger.error("获取企业微信群聊信息失败: %s", e)
             return ChatResult(
                 success=False,
                 chat_id=chat_id,
@@ -301,6 +301,6 @@ class WeChatWorkProvider(WeChatWorkTokenMixin, WeChatWorkFileMixin, ChatProvider
                 text=f"案件群聊「{chat_name}」已创建，后续法院文书通知将在此群推送。",
             )
             self.send_message(chat_id, initial_content)
-            logger.debug(f"已发送企业微信群初始消息: {chat_id}")
+            logger.debug("已发送企业微信群初始消息: %s", chat_id)
         except Exception as e:
-            logger.warning(f"发送企业微信群初始消息失败（不影响主流程）: {chat_id}, 错误: {e!s}")
+            logger.warning("发送企业微信群初始消息失败（不影响主流程）: %s, 错误: %s", chat_id, e)

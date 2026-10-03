@@ -46,7 +46,7 @@ class CourtZxfwGuaranteeService(  # pragma: no cover
                 except Exception:
                     body = "<无法读取>"
                 self._api_error_log.append({"url": url, "status": response.status, "body": body})
-                logger.info(f"gTwo API error: {url} status={response.status} body={body[:500]}")
+                logger.info("gTwo API error: %s status=%s body=%s", url, response.status, body[:500])
 
         page.on("response", _on_response)
 

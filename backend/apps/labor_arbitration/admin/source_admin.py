@@ -39,17 +39,7 @@ class ArbitrationDocumentSourceAdmin(admin.ModelAdmin):
     )
     fieldsets = (
         ("基本信息", {"fields": ("name", "district", "list_url", "enabled")}),
-        (
-            "爬取配置",
-            {
-                "fields": (
-                    "parse_backend",
-                    "max_pages",
-                    "detail_image_container_selector",
-                    "detail_image_selector",
-                )
-            },
-        ),
+        ("爬取配置", {"fields": ("parse_backend",)}),
         ("更新操作", {"fields": ("update_button",)}),
         ("上次爬取", {"fields": ("last_crawl_status", "last_crawl_at", "last_crawl_summary_display")}),
     )

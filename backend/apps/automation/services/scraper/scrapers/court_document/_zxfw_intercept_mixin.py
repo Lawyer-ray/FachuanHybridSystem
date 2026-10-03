@@ -72,7 +72,7 @@ class ZxfwInterceptMixin:
         api_url = "https://zxfw.court.gov.cn/yzw/yzw-zxfw-sdfw/api/v1/sdfw/getWsListBySdbhNew"
         intercepted_data: dict[str, Any] | None = None
         start_time = time.time()
-        logger.info(f"开始拦截 API 响应(导航前注册),超时时间: {timeout}ms")
+        logger.info("开始拦截 API 响应(导航前注册),超时时间: %sms", timeout)
 
         def handle_response(response: Any) -> None:  # pragma: no cover
             nonlocal intercepted_data
@@ -94,7 +94,8 @@ class ZxfwInterceptMixin:
                     )
                 except Exception as e:
                     logger.error(
-                        f"解析 API 响应失败: {e}",
+                        "解析 API 响应失败: %s",
+                        e,
                         extra={
                             "operation_type": "api_intercept_parse_error",
                             "timestamp": time.time(),
@@ -105,7 +106,7 @@ class ZxfwInterceptMixin:
 
         try:
             self.page.on("response", handle_response)
-            logger.info(f"已注册 API 响应监听器: {api_url}")
+            logger.info("已注册 API 响应监听器: %s", api_url)
             self._debug_log("开始导航到目标页面")
             self.navigate_to_url()
             self._debug_log("等待页面加载 (networkidle)")
@@ -133,7 +134,8 @@ class ZxfwInterceptMixin:
                     )
         except Exception as e:
             logger.error(
-                f"API 拦截过程出错: {e}",
+                "API 拦截过程出错: %s",
+                e,
                 extra={"operation_type": "api_intercept_error", "timestamp": time.time(), "error": str(e)},
                 exc_info=True,
             )
@@ -142,7 +144,7 @@ class ZxfwInterceptMixin:
                 self.page.remove_listener("response", handle_response)
                 logger.info("已移除 API 响应监听器")
             except Exception as e:
-                logger.warning(f"移除监听器失败: {e}")
+                logger.warning("移除监听器失败: %s", e)
         return intercepted_data
 
     def _download_via_api_intercept_with_navigation(self, download_dir: Path) -> dict[str, Any]:
@@ -166,7 +168,8 @@ class ZxfwInterceptMixin:
         if len(documents) == 0:
             raise ValueError("API 响应中没有文书数据")
         logger.info(
-            f"成功获取文书列表,共 {len(documents)} 个文书",
+            "成功获取文书列表,共 %s 个文书",
+            len(documents),
             extra={
                 "operation_type": "api_intercept_parse_success",
                 "timestamp": time.time(),
@@ -178,7 +181,7 @@ class ZxfwInterceptMixin:
         success_count = 0
         failed_count = 0
         for i, document_data in enumerate(documents, 1):
-            logger.info(f"处理第 {i}/{len(documents)} 个文书: {document_data.get('c_wsmc', 'Unknown')}")
+            logger.info("处理第 %s/%s 个文书: %s", i, len(documents), document_data.get("c_wsmc", "Unknown"))
             download_result = self._download_document_directly(
                 document_data=document_data, download_dir=download_dir, download_timeout=60000
             )
@@ -195,7 +198,7 @@ class ZxfwInterceptMixin:
                 import time as _time
 
                 delay = random.uniform(1, 2)
-                logger.info(f"等待 {delay:.2f} 秒后继续下载下一个文书")
+                logger.info("等待 %.2f 秒后继续下载下一个文书", delay)
                 _time.sleep(delay)
         db_save_result = self._save_documents_batch(documents_with_results)
         logger.info(

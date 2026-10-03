@@ -85,7 +85,7 @@ class CourtDocumentService:
                 dt_cjsj = datetime.fromisoformat(dt_cjsj.replace("Z", "+00:00"))
             except ValueError:
                 # 如果解析失败，使用当前时间
-                logger.warning(f"无法解析时间格式: {dt_cjsj}，使用当前时间")
+                logger.warning("无法解析时间格式: %s，使用当前时间", dt_cjsj)
                 dt_cjsj = timezone.now()
 
         # 创建或获取文书记录（处理唯一约束冲突）
@@ -111,8 +111,10 @@ class CourtDocumentService:
             if not created:
                 # 记录已存在，更新 scraper_task 关联和其他可能变化的字段
                 logger.info(
-                    f"文书记录已存在，更新关联: Document ID={document.id}, "
-                    f"旧 Task ID={document.scraper_task_id}, 新 Task ID={scraper_task_id}"
+                    "文书记录已存在，更新关联: Document ID=%s, 旧 Task ID=%s, 新 Task ID=%s",
+                    document.id,
+                    document.scraper_task_id,
+                    scraper_task_id,
                 )
                 document.scraper_task = scraper_task
                 if case_id and not document.case_id:
@@ -132,7 +134,7 @@ class CourtDocumentService:
             return document
 
         except Exception as e:
-            logger.error(f"创建文书记录失败: {e}", extra={"scraper_task_id": scraper_task_id, "api_data": api_data})
+            logger.error("创建文书记录失败: %s", e, extra={"scraper_task_id": scraper_task_id, "api_data": api_data})
             from apps.core.exceptions import BusinessException
 
             raise BusinessException(

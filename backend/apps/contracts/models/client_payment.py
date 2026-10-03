@@ -66,7 +66,7 @@ class ClientPaymentRecord(models.Model):
         verbose_name_plural = "客户回款"
         ordering = ["-created_at"]
         indexes: ClassVar = [
-            models.Index(fields=["contract"]),
+            # contract 列由 FK 自动索引覆盖
             models.Index(fields=["-created_at"]),
         ]
 

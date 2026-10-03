@@ -49,7 +49,7 @@ class MockTrialReportService:
                 "judge_report_saved_at": self._now_iso(),
             },
         )
-        logger.info(f"法官视角报告已保存: {session_id}")
+        logger.info("法官视角报告已保存: %s", session_id)
 
     async def save_cross_exam_result(
         self,

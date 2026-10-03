@@ -70,7 +70,7 @@ class SecurityService:
             encrypted = self.cipher.encrypt(text.encode())
             return base64.urlsafe_b64encode(encrypted).decode()
         except Exception as e:
-            logger.error(f"加密失败: {e}")
+            logger.error("加密失败: %s", e)
             raise
 
     def decrypt(self, encrypted_text: str) -> str:
@@ -91,7 +91,7 @@ class SecurityService:
             decrypted = self.cipher.decrypt(encrypted)
             return decrypted.decode()
         except Exception as e:
-            logger.error(f"解密失败: {e}")
+            logger.error("解密失败: %s", e)
             raise
 
     def mask_sensitive_data(self, data: dict[str, Any], keys: list[Any] | None = None) -> dict[str, Any]:

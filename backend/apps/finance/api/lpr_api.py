@@ -136,7 +136,7 @@ def sync_lpr_rates(  # pragma: no cover
     if not is_admin_user(user):
         raise PermissionDenied(message="需要管理员权限才能同步LPR数据", code="PERMISSION_DENIED")
 
-    logger.info(f"[LPRSync] User {user.id} triggered manual LPR sync")
+    logger.info("[LPRSync] User %s triggered manual LPR sync", user.id)
 
     try:
         from apps.core.tasking import submit_task
@@ -154,7 +154,7 @@ def sync_lpr_rates(  # pragma: no cover
         )
 
     except Exception as e:
-        logger.error(f"[LPRSync] Failed to submit sync task: {e}")
+        logger.error("[LPRSync] Failed to submit sync task: %s", e)
         return LPRSyncResponse(
             success=False,
             message=f"提交同步任务失败: {e!s}",

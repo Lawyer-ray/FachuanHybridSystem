@@ -62,7 +62,7 @@ class FeishuFileMixin:  # pragma: no cover
         except MessageSendException:
             raise
         except Exception as e:
-            logger.error(f"发送飞书文件时发生未知错误: {e!s}")
+            logger.error("发送飞书文件时发生未知错误: %s", e)
             raise MessageSendException(
                 message=f"发送文件时发生未知错误: {e!s}",
                 platform="feishu",
@@ -90,7 +90,10 @@ class FeishuFileMixin:  # pragma: no cover
                 if response.status_code >= 400:
                     error_body = response.text
                     logger.error(
-                        f"上传飞书文件HTTP错误: status={response.status_code}, 响应体={error_body}, 文件={file_name}"
+                        "上传飞书文件HTTP错误: status=%s, 响应体=%s, 文件=%s",
+                        response.status_code,
+                        error_body,
+                        file_name,
                     )
                     response.raise_for_status()
 
@@ -101,14 +104,14 @@ class FeishuFileMixin:  # pragma: no cover
                 error_code = str(resp_data.get("code"))
                 # 文件过大错误（234006）给出友好提示
                 if error_code == "234006":
-                    logger.warning(f"飞书文件过大: {file_name}")
+                    logger.warning("飞书文件过大: %s", file_name)
                     raise MessageSendException(
                         message=f"文件过大，飞书限制 {self.MAX_FILE_SIZE / (1024 * 1024):.0f}MB",
                         platform="feishu",
                         error_code="FILE_TOO_LARGE",
                         errors={"api_response": resp_data, "file_path": file_path},
                     )
-                logger.error(f"上传飞书文件失败: {error_msg} (code: {error_code})")
+                logger.error("上传飞书文件失败: %s (code: %s)", error_msg, error_code)
                 raise MessageSendException(
                     message=f"文件上传失败: {error_msg}",
                     platform="feishu",
@@ -124,20 +127,20 @@ class FeishuFileMixin:  # pragma: no cover
                     message="API响应中缺少文件key", platform="feishu", errors={"api_response": resp_data}
                 )
 
-            logger.debug(f"成功上传文件到飞书: {file_name} (key: {file_key})")
+            logger.debug("成功上传文件到飞书: %s (key: %s)", file_name, file_key)
             return file_key
 
         except MessageSendException:
             raise
         except httpx.HTTPError as e:
-            logger.error(f"上传飞书文件网络请求失败: {e!s}")
+            logger.error("上传飞书文件网络请求失败: %s", e)
             raise MessageSendException(
                 message=f"文件上传网络请求失败: {e!s}",
                 platform="feishu",
                 errors={"original_error": str(e), "file_path": file_path},
             ) from e
         except Exception as e:
-            logger.error(f"上传飞书文件时发生未知错误: {e!s}")
+            logger.error("上传飞书文件时发生未知错误: %s", e)
             raise MessageSendException(
                 message=f"文件上传时发生未知错误: {e!s}",
                 platform="feishu",
@@ -156,7 +159,7 @@ class FeishuFileMixin:  # pragma: no cover
             content = {"file_key": file_key}
             payload = {"receive_id": chat_id, "msg_type": "file", "content": json.dumps(content, ensure_ascii=False)}
 
-            logger.debug(f"发送飞书文件消息请求URL: {url}")
+            logger.debug("发送飞书文件消息请求URL: %s", url)
 
             timeout = self.config.get("TIMEOUT", 30)
             response = httpx.post(url, params=params, json=payload, headers=headers, timeout=timeout)
@@ -164,7 +167,10 @@ class FeishuFileMixin:  # pragma: no cover
             if response.status_code >= 400:
                 error_body = response.text
                 logger.error(
-                    f"发送飞书文件消息HTTP错误: status={response.status_code}, 响应体={error_body}, chat_id={chat_id}"
+                    "发送飞书文件消息HTTP错误: status=%s, 响应体=%s, chat_id=%s",
+                    response.status_code,
+                    error_body,
+                    chat_id,
                 )
                 response.raise_for_status()
 
@@ -173,7 +179,7 @@ class FeishuFileMixin:  # pragma: no cover
             if data.get("code") != 0:
                 error_msg = data.get("msg", "未知错误")
                 error_code = str(data.get("code"))
-                logger.error(f"发送飞书文件消息失败: {error_msg} (code: {error_code})")
+                logger.error("发送飞书文件消息失败: %s (code: %s)", error_msg, error_code)
                 raise MessageSendException(
                     message=f"发送文件消息失败: {error_msg}",
                     platform="feishu",
@@ -189,14 +195,14 @@ class FeishuFileMixin:  # pragma: no cover
 
             message_data = data.get("data", {})
             message_id = message_data.get("message_id")
-            logger.info(f"成功发送飞书文件到群聊: {chat_id} (文件: {file_name}, 消息ID: {message_id})")
+            logger.info("成功发送飞书文件到群聊: %s (文件: %s, 消息ID: %s)", chat_id, file_name, message_id)
 
             return ChatResult(success=True, chat_id=chat_id, message=f"文件发送成功: {file_name}", raw_response=data)
 
         except MessageSendException:
             raise
         except httpx.HTTPError as e:
-            logger.error(f"发送飞书文件消息网络请求失败: {e!s}")
+            logger.error("发送飞书文件消息网络请求失败: %s", e)
             raise MessageSendException(
                 message=f"发送文件消息网络请求失败: {e!s}",
                 platform="feishu",

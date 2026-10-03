@@ -81,16 +81,16 @@ class FeishuChatProvider(FeishuTokenMixin, FeishuFileMixin, FeishuOwnerMixin, Ch
             try:
                 self.owner_config.validate_owner_id_strict(effective_owner_id)
             except Exception as e:
-                logger.warning(f"群主ID验证失败，继续使用: {effective_owner_id}, 错误: {e!s}")
+                logger.warning("群主ID验证失败，继续使用: %s, 错误: %s", effective_owner_id, e)
 
         if effective_owner_id.startswith("on_"):
             open_id = self._convert_union_id_to_open_id(effective_owner_id)
             if open_id:
                 payload["owner_id"] = open_id
                 payload["user_id_list"] = [open_id]
-                logger.debug(f"转换union_id为open_id: {effective_owner_id} -> {open_id}")
+                logger.debug("转换union_id为open_id: %s -> %s", effective_owner_id, open_id)
             else:
-                logger.warning(f"无法转换union_id为open_id: {effective_owner_id}")
+                logger.warning("无法转换union_id为open_id: %s", effective_owner_id)
         else:
             payload["owner_id"] = effective_owner_id
             payload["user_id_list"] = [effective_owner_id]
@@ -106,8 +106,8 @@ class FeishuChatProvider(FeishuTokenMixin, FeishuFileMixin, FeishuOwnerMixin, Ch
         """根据飞书 API 错误码抛出对应异常"""
         error_msg = data.get("msg", "未知错误")
         error_code = str(data.get("code"))
-        logger.error(f"创建飞书群聊失败: {error_msg} (code: {error_code})")
-        logger.error(f"完整响应: {data}")
+        logger.error("创建飞书群聊失败: %s (code: %s)", error_msg, error_code)
+        logger.error("完整响应: %s", data)
 
         exc_or_class = self._classify_feishu_error(error_code, error_msg)
         errors = {
@@ -143,7 +143,7 @@ class FeishuChatProvider(FeishuTokenMixin, FeishuFileMixin, FeishuOwnerMixin, Ch
         effective_owner_id: str | None = None
         try:
             effective_owner_id = self.owner_config.get_effective_owner_id(owner_id)
-            logger.info(f"创建飞书群聊: {chat_name}, 指定群主: {owner_id}, 有效群主: {effective_owner_id}")
+            logger.info("创建飞书群聊: %s, 指定群主: %s, 有效群主: %s", chat_name, owner_id, effective_owner_id)
 
             access_token = self._get_tenant_access_token()
             url = f"{self.BASE_URL}{self.ENDPOINTS['create_chat']}"
@@ -164,15 +164,15 @@ class FeishuChatProvider(FeishuTokenMixin, FeishuFileMixin, FeishuOwnerMixin, Ch
             if effective_owner_id:
                 self._build_owner_payload(effective_owner_id, payload)
 
-            logger.debug(f"创建飞书群聊请求URL: {url}, 参数: {params}, 请求体: {payload}")
+            logger.debug("创建飞书群聊请求URL: %s, 参数: %s, 请求体: %s", url, params, payload)
 
             timeout = self.config.get("TIMEOUT", 30)
             response = httpx.post(url, params=params, json=payload, headers=headers, timeout=timeout)
-            logger.debug(f"飞书API响应状态码: {response.status_code}, 内容: {response.text}")
+            logger.debug("飞书API响应状态码: %s, 内容: %s", response.status_code, response.text)
             response.raise_for_status()
 
             data = response.json()
-            logger.debug(f"飞书API响应数据: {data}")
+            logger.debug("飞书API响应数据: %s", data)
 
             if data.get("code") != 0:
                 self._raise_feishu_api_error(data, chat_name, owner_id, effective_owner_id, payload)
@@ -184,7 +184,7 @@ class FeishuChatProvider(FeishuTokenMixin, FeishuFileMixin, FeishuOwnerMixin, Ch
                     message="API响应中缺少群聊ID", platform="feishu", errors={"api_response": data}
                 )
 
-            logger.info(f"成功创建飞书群聊: {chat_name} (ID: {chat_id}), 群主: {effective_owner_id}")
+            logger.info("成功创建飞书群聊: %s (ID: %s), 群主: %s", chat_name, chat_id, effective_owner_id)
 
             result = ChatResult(
                 success=True, chat_id=chat_id, chat_name=chat_name, message="群聊创建成功", raw_response=data
@@ -200,7 +200,7 @@ class FeishuChatProvider(FeishuTokenMixin, FeishuFileMixin, FeishuOwnerMixin, Ch
         except ChatCreationException:
             raise
         except httpx.HTTPError as e:
-            logger.error(f"创建飞书群聊网络请求失败: {e!s}")
+            logger.error("创建飞书群聊网络请求失败: %s", e)
             from apps.core.exceptions import owner_network_error
 
             raise owner_network_error(
@@ -211,7 +211,7 @@ class FeishuChatProvider(FeishuTokenMixin, FeishuFileMixin, FeishuOwnerMixin, Ch
                 errors={"original_error": str(e), "chat_name": chat_name, "specified_owner_id": owner_id},
             ) from e
         except Exception as e:
-            logger.error(f"创建飞书群聊时发生未知错误: {e!s}")
+            logger.error("创建飞书群聊时发生未知错误: %s", e)
             raise ChatCreationException(
                 message=f"创建群聊时发生未知错误: {e!s}",
                 platform="feishu",
@@ -234,7 +234,7 @@ class FeishuChatProvider(FeishuTokenMixin, FeishuFileMixin, FeishuOwnerMixin, Ch
             message_text = self._build_simple_text_message(content)
             payload = {"receive_id": chat_id, "msg_type": "text", "content": json.dumps({"text": message_text})}
 
-            logger.debug(f"发送飞书消息请求URL: {url}")
+            logger.debug("发送飞书消息请求URL: %s", url)
 
             timeout = self.config.get("TIMEOUT", 30)
             response = httpx.post(url, params=params, json=payload, headers=headers, timeout=timeout)
@@ -245,7 +245,7 @@ class FeishuChatProvider(FeishuTokenMixin, FeishuFileMixin, FeishuOwnerMixin, Ch
             if data.get("code") != 0:
                 error_msg = data.get("msg", "未知错误")
                 error_code = str(data.get("code"))
-                logger.error(f"发送飞书消息失败: {error_msg} (code: {error_code})")
+                logger.error("发送飞书消息失败: %s (code: %s)", error_msg, error_code)
                 raise MessageSendException(
                     message=f"发送消息失败: {error_msg}",
                     platform="feishu",
@@ -256,14 +256,14 @@ class FeishuChatProvider(FeishuTokenMixin, FeishuFileMixin, FeishuOwnerMixin, Ch
 
             message_data = data.get("data", {})
             message_id = message_data.get("message_id")
-            logger.info(f"成功发送飞书消息到群聊: {chat_id} (消息ID: {message_id})")
+            logger.info("成功发送飞书消息到群聊: %s (消息ID: %s)", chat_id, message_id)
 
             return ChatResult(success=True, chat_id=chat_id, message="消息发送成功", raw_response=data)
 
         except MessageSendException:
             raise
         except httpx.HTTPError as e:
-            logger.error(f"发送飞书消息网络请求失败: {e!s}")
+            logger.error("发送飞书消息网络请求失败: %s", e)
             raise MessageSendException(
                 message=f"网络请求失败: {e!s}",
                 platform="feishu",
@@ -271,7 +271,7 @@ class FeishuChatProvider(FeishuTokenMixin, FeishuFileMixin, FeishuOwnerMixin, Ch
                 errors={"original_error": str(e), "content": content.__dict__},
             ) from e
         except Exception as e:
-            logger.error(f"发送飞书消息时发生未知错误: {e!s}")
+            logger.error("发送飞书消息时发生未知错误: %s", e)
             raise MessageSendException(
                 message=f"发送消息时发生未知错误: {e!s}",
                 platform="feishu",

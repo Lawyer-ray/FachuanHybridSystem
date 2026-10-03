@@ -5,11 +5,13 @@ from pathlib import Path
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
-from django.core.files.storage import default_storage
 from django.http import HttpRequest
 from ninja import File, Router, UploadedFile
 
+from apps.core.filesystem.upload_paths import MediaEntity
+from apps.core.security.admin_access import get_request_user
 from apps.core.security.auth import JWTOrSessionAuth
+from apps.core.services.storage_service import save_uploaded_file
 from apps.document_parsing.schemas.parsing_schemas import (
     DocumentParsingRecordDetailOut,
     DocumentParsingRecordListOut,
@@ -51,10 +53,23 @@ def _needs_async(backend: str) -> bool:
     return getattr(parser, "requires_async_execution", False)
 
 
+# 上传白名单：覆盖解析后端（local/mineru/textin）的核心能力——文档 pdf/docx/doc + 常见图片
+_ALLOWED_UPLOAD_EXTENSIONS = [".pdf", ".docx", ".doc", ".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp", ".gif"]
+_MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024
+
+
 def _save_upload(file: UploadedFile) -> tuple[str, Path]:
-    """保存上传文件，返回 (saved_name, file_path)。"""
-    file_name = file.name or "uploaded"
-    saved_name = default_storage.save(f"document_parsing/uploads/{file_name}", file)
+    """保存上传文件，返回 (saved_name, file_path)。
+
+    委托 storage_service.save_uploaded_file：清洗文件名、校验扩展名白名单与大小上限，
+    统一落入 MediaEntity.DOCUMENT_PARSING_UPLOADS 目录。
+    """
+    saved_name, _ = save_uploaded_file(
+        uploaded_file=file,
+        rel_dir=MediaEntity.DOCUMENT_PARSING_UPLOADS,
+        allowed_extensions=_ALLOWED_UPLOAD_EXTENSIONS,
+        max_size_bytes=_MAX_UPLOAD_SIZE_BYTES,
+    )
     file_path = Path(settings.MEDIA_ROOT) / saved_name
     return saved_name, file_path
 
@@ -133,11 +148,13 @@ async def parse_document(
             # task_name（document_parsing_{id}），document_parsing_hook 才能把
             # 成功/失败状态回写——前端报错文案引导用户去后台「解析任务」查看，
             # 没有这条记录那里就什么都看不到（此前 task_name 用文件名，hook 全部跳过）。
+            # created_by 记录归属人（审计 P1 修复），records 列表/详情按其过滤。
             parsing_task = await sync_to_async(DocumentParsingTask.objects.create, thread_sensitive=False)(
                 file_name=file_name,
                 file_path=str(file_path),
                 file_size=file.size,
                 status=DocumentParsingTask.Status.PROCESSING,
+                created_by=get_request_user(request),
             )
             task_id = await sync_to_async(submit_task, thread_sensitive=False)(
                 "apps.document_parsing.tasks.execute_parse_document",
@@ -304,10 +321,13 @@ def list_records(
     """分页列出历史解析记录（最新在前），供前端历史弹窗浏览。
 
     status 可选值：pending / processing / completed / failed。
+    归属过滤：普通用户仅见自己的记录与存量 NULL 记录；管理员全量。
     """
     from apps.document_parsing.services.record_service import DocumentParsingRecordService
 
-    items, count, num_pages = DocumentParsingRecordService().list_records(status=status, page=page, page_size=page_size)
+    items, count, num_pages = DocumentParsingRecordService().list_records(
+        status=status, page=page, page_size=page_size, user=get_request_user(request)
+    )
     return DocumentParsingRecordListOut(
         items=[DocumentParsingRecordOut(**item) for item in items],
         count=count,
@@ -323,7 +343,12 @@ def list_records(
     auth=JWTOrSessionAuth(),
 )
 def get_record(request: HttpRequest, record_id: int) -> DocumentParsingRecordDetailOut:
-    """按记录 id 取解析全文（text / markdown / metadata），历史点开查看用。"""
+    """按记录 id 取解析全文（text / markdown / metadata），历史点开查看用。
+
+    归属过滤：普通用户仅可读自己的记录与存量 NULL 记录，否则 404。
+    """
     from apps.document_parsing.services.record_service import DocumentParsingRecordService
 
-    return DocumentParsingRecordDetailOut(**DocumentParsingRecordService().get_record(record_id))
+    return DocumentParsingRecordDetailOut(
+        **DocumentParsingRecordService().get_record(record_id, user=get_request_user(request))
+    )

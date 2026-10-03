@@ -154,7 +154,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                 logger.info("已提取 canvas 通知文本，长度: %d", len(text))
             return text or ""
         except Exception as e:
-            logger.warning(f"提取 canvas 通知文本失败: {e}")
+            logger.warning("提取 canvas 通知文本失败: %s", e)
             return ""
 
     def _build_no_document_result(self, screenshot_cover: str) -> dict[str, Any]:  # pragma: no cover
@@ -171,7 +171,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         notification_text = self._extract_canvas_notification()
         if notification_text:
             preview_text = notification_text[:200] + ("..." if len(notification_text) > 200 else "")
-            logger.info(f"通知内容摘要: {preview_text}")
+            logger.info("通知内容摘要: %s", preview_text)
 
         # 保存页面状态用于调试
         self._save_page_state("gdems_no_document")
@@ -207,7 +207,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             try:
                 loc = page.locator(selector)
                 if loc.count() > 0 and loc.first.is_visible():
-                    logger.info(f"通过 '{selector}' 找到 {label}")
+                    logger.info("通过 '%s' 找到 %s", selector, label)
                     return loc
             except Exception:
                 logger.debug("探测候选选择器失败（已忽略）", exc_info=True)
@@ -243,7 +243,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             else:
                 logger.warning("未找到确认按钮，可能页面已经在预览状态")
         except Exception as e:
-            logger.warning(f"点击确认按钮时出错: {e}，继续尝试下载")
+            logger.warning("点击确认按钮时出错: %s，继续尝试下载", e)
 
     def _download_zip_file(self) -> tuple[Path, str]:
         """
@@ -283,11 +283,11 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             safe_name = sanitize_upload_filename(download.suggested_filename or "documents.zip")
             zip_abs_path, zip_rel_path = media_download_target(int(self.task.id), safe_name)
             download.save_as(str(zip_abs_path))
-            logger.info(f"ZIP 文件已保存: {zip_rel_path}")
+            logger.info("ZIP 文件已保存: %s", zip_rel_path)
             return zip_abs_path, zip_rel_path
 
         except Exception as e:
-            logger.error(f"下载失败: {e}")
+            logger.error("下载失败: %s", e)
             self._save_page_state("gdems_download_error")
             raise ValueError(f"文件下载失败: {e}") from e
 
@@ -313,7 +313,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                     # 防止 ZipSlip：拒绝 .. 等非法路径片段
                     parts = [p for p in member.filename.replace("\\", "/").split("/") if p]
                     if not parts or any(p in (".", "..") for p in parts):
-                        logger.warning(f"跳过不安全的 ZIP 条目: {member.filename}")
+                        logger.warning("跳过不安全的 ZIP 条目: %s", member.filename)
                         continue
 
                     safe_name = sanitize_upload_filename(parts[-1])
@@ -323,10 +323,10 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                         rel_dir = f"{extract_rel_dir}/{sub_dirs}" if sub_dirs else extract_rel_dir
                     saved = default_storage.save(f"{rel_dir}/{safe_name}", ContentFile(zip_ref.read(member)))
                     extracted_files.append(saved)
-            logger.info(f"ZIP 文件已解压,共 {len(extracted_files)} 个文件")
+            logger.info("ZIP 文件已解压,共 %s 个文件", len(extracted_files))
 
         except (OSError, ValueError) as e:
-            logger.error(f"解压失败: {e}")
+            logger.error("解压失败: %s", e)
             # 解压失败不影响主流程,返回空列表
             extracted_files = []
         return extracted_files

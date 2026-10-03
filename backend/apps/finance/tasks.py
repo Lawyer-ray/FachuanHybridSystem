@@ -28,11 +28,11 @@ def sync_lpr_rates() -> dict:  # pragma: no cover
         service = LPRSyncService()
         result = service.sync_latest()
 
-        logger.info(f"[LPRSchedule] LPR sync completed: {result}")
+        logger.info("[LPRSchedule] LPR sync completed: %s", result)
         return result
 
     except Exception as e:
-        logger.error(f"[LPRSchedule] LPR sync failed: {e}")
+        logger.error("[LPRSchedule] LPR sync failed: %s", e)
         raise
 
 

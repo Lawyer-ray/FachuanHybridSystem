@@ -6,6 +6,7 @@ from typing import Any
 
 import httpx
 import pytest
+from django.db import connection
 
 from apps.core.llm.backends.base import OpenAIProviderConfig
 from apps.core.models import LLMProvider
@@ -102,6 +103,64 @@ class TestLLMProviderModelParsing:
             extra_models="mimo-v1\nmimo-v2,mimo-v1",
         )
         assert provider.parsed_models() == ["mimo-v1", "mimo-v2"]
+
+
+class TestApiKeyEncryptionAtRest:
+    """api_keys 改为 EncryptedTextField 后：落库密文、读回明文、解析逻辑不变。"""
+
+    @staticmethod
+    def _raw_api_keys(provider_id: int) -> str:
+        """绕过 ORM 字段转换，直接读取库中的原始存储值。"""
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT api_keys FROM core_llmprovider WHERE id = %s", [provider_id])
+            row = cursor.fetchone()
+        return str(row[0]) if row else ""
+
+    @pytest.mark.django_db
+    def test_api_keys_encrypted_at_rest_and_round_trip(self) -> None:
+        raw = "sk-plain-1\nsk-plain-2|kimi-2.6,glm53"  # pragma: allowlist secret
+        provider = LLMProvider.objects.create(
+            name="加密平台",
+            base_url="http://law/v1",
+            api_keys=raw,
+            default_model="kimi26",
+        )
+
+        stored = self._raw_api_keys(provider.id)
+        assert stored.startswith("enc:v1:")
+        assert "sk-plain-1" not in stored  # pragma: allowlist secret
+
+        reloaded = LLMProvider.objects.get(pk=provider.pk)
+        assert reloaded.api_keys == raw
+        # key 池拆分与模型白名单逻辑保持不变
+        assert reloaded.parsed_key_entries() == [
+            ("sk-plain-1", []),
+            ("sk-plain-2", ["kimi-2.6", "glm53"]),
+        ]
+
+    @pytest.mark.django_db
+    def test_api_keys_blank_stays_empty(self) -> None:
+        provider = LLMProvider.objects.create(
+            name="无Key平台", base_url="http://law/v1", api_keys="", default_model="kimi26"
+        )
+        assert self._raw_api_keys(provider.id) == ""
+        assert LLMProvider.objects.get(pk=provider.pk).parsed_api_keys() == []
+
+    @pytest.mark.django_db
+    def test_legacy_plaintext_row_reads_passthrough(self) -> None:
+        """数据迁移执行前的存量明文行：读取按原文透传，key 池解析不受影响。"""
+        provider = LLMProvider.objects.create(
+            name="存量平台", base_url="http://law/v1", api_keys="", default_model="kimi26"
+        )
+        legacy = "sk-legacy-1\nsk-legacy-2"  # pragma: allowlist secret
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE core_llmprovider SET api_keys = %s WHERE id = %s",
+                [legacy, provider.id],
+            )
+
+        reloaded = LLMProvider.objects.get(pk=provider.pk)
+        assert reloaded.parsed_api_keys() == ["sk-legacy-1", "sk-legacy-2"]  # pragma: allowlist secret
 
 
 class _FakeResponse:

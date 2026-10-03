@@ -115,6 +115,14 @@ class DocumentRecognitionTask(models.Model):
         related_name="recognition_tasks",
         verbose_name="来源法院短信",
     )
+    created_by: Any = models.ForeignKey(
+        "organization.Lawyer",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="document_recognition_tasks",
+        verbose_name="创建人",
+    )
 
     class Meta:
         managed = True

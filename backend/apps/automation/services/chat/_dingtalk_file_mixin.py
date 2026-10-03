@@ -55,7 +55,7 @@ class DingtalkFileMixin:  # pragma: no cover
         except MessageSendException:
             raise
         except Exception as e:
-            logger.error(f"发送钉钉文件时发生未知错误: {e!s}")
+            logger.error("发送钉钉文件时发生未知错误: %s", e)
             raise MessageSendException(
                 message=f"发送文件时发生未知错误: {e!s}",
                 platform="dingtalk",
@@ -85,7 +85,7 @@ class DingtalkFileMixin:  # pragma: no cover
             errcode = resp_data.get("errcode", 0)
             if errcode != 0:
                 error_msg = resp_data.get("errmsg", "未知错误")
-                logger.error(f"上传钉钉媒体文件失败: {error_msg} (errcode: {errcode})")
+                logger.error("上传钉钉媒体文件失败: %s (errcode: %s)", error_msg, errcode)
                 raise MessageSendException(
                     message=f"文件上传失败: {error_msg}",
                     platform="dingtalk",
@@ -101,20 +101,20 @@ class DingtalkFileMixin:  # pragma: no cover
                     errors={"api_response": resp_data},
                 )
 
-            logger.debug(f"成功上传媒体文件到钉钉: {file_name} (media_id: {media_id})")
+            logger.debug("成功上传媒体文件到钉钉: %s (media_id: %s)", file_name, media_id)
             return media_id
 
         except MessageSendException:
             raise
         except httpx.HTTPError as e:
-            logger.error(f"上传钉钉媒体文件网络请求失败: {e!s}")
+            logger.error("上传钉钉媒体文件网络请求失败: %s", e)
             raise MessageSendException(
                 message=f"文件上传网络请求失败: {e!s}",
                 platform="dingtalk",
                 errors={"original_error": str(e), "file_path": file_path},
             ) from e
         except Exception as e:
-            logger.error(f"上传钉钉媒体文件时发生未知错误: {e!s}")
+            logger.error("上传钉钉媒体文件时发生未知错误: %s", e)
             raise MessageSendException(
                 message=f"文件上传时发生未知错误: {e!s}",
                 platform="dingtalk",
@@ -148,14 +148,14 @@ class DingtalkFileMixin:  # pragma: no cover
 
             data = response.json()
 
-            logger.info(f"成功发送钉钉文件到群聊: {chat_id} (文件: {file_name})")
+            logger.info("成功发送钉钉文件到群聊: %s (文件: %s)", chat_id, file_name)
 
             return ChatResult(success=True, chat_id=chat_id, message=f"文件发送成功: {file_name}", raw_response=data)
 
         except MessageSendException:
             raise
         except httpx.HTTPError as e:
-            logger.error(f"发送钉钉文件消息网络请求失败: {e!s}")
+            logger.error("发送钉钉文件消息网络请求失败: %s", e)
             raise MessageSendException(
                 message=f"发送文件消息网络请求失败: {e!s}",
                 platform="dingtalk",

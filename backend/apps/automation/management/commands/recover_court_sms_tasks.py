@@ -84,7 +84,7 @@ class Command(BaseCommand):
             self.stdout.write("=" * 60)
         elif recovered_count > 0 or reset_count > 0:
             # 静默模式下只在有实际操作时输出简要信息
-            logger.info(f"法院短信任务恢复完成: 恢复 {recovered_count} 个，重置 {reset_count} 个")
+            logger.info("法院短信任务恢复完成: 恢复 %s 个，重置 %s 个", recovered_count, reset_count)
 
     def _show_current_status(self, max_age: Any) -> None:
         """显示当前任务状态"""
@@ -182,10 +182,10 @@ class Command(BaseCommand):
                 sms.save()
 
                 reset_count += 1
-                logger.info(f"重置卡住任务: SMS ID={sms.id}, 原状态={sms.status}")
+                logger.info("重置卡住任务: SMS ID=%s, 原状态=%s", sms.id, sms.status)
 
             except Exception as e:
-                logger.error(f"重置任务失败: SMS ID={sms.id}, 错误: {e!s}")
+                logger.error("重置任务失败: SMS ID=%s, 错误: %s", sms.id, e)
                 if verbose:
                     self.stdout.write(self.style.ERROR(f"重置任务 {sms.id} 失败: {e!s}"))
 
@@ -290,9 +290,9 @@ class Command(BaseCommand):
             try:
                 if self._recover_single_sms(sms, submit_task):
                     recovered_count += 1
-                    logger.info(f"恢复任务: SMS ID={sms.id}, 状态={sms.status}")
+                    logger.info("恢复任务: SMS ID=%s, 状态=%s", sms.id, sms.status)
             except Exception as e:
-                logger.error(f"恢复任务失败: SMS ID={sms.id}, 错误: {e!s}")
+                logger.error("恢复任务失败: SMS ID=%s, 错误: %s", sms.id, e)
                 if verbose:
                     self.stdout.write(self.style.ERROR(f"恢复任务 {sms.id} 失败: {e!s}"))
 

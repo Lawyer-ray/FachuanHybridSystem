@@ -169,7 +169,7 @@ class RetryConfig:
             ),
         }
 
-        logger.debug(f"已加载重试配置: enabled={self.enabled}, max_retries={self.max_retries}")
+        logger.debug("已加载重试配置: enabled=%s, max_retries=%s", self.enabled, self.max_retries)
 
     def is_enabled(self) -> bool:
         return self.enabled
@@ -286,7 +286,7 @@ class RetryManager:
         if not self._is_total_timeout():
             return
 
-        logger.error(f"操作总超时: {operation_name}, 耗时: {self._get_elapsed_time():.2f}秒")
+        logger.error("操作总超时: %s, 耗时: %.2f秒", operation_name, self._get_elapsed_time())
         from apps.core.exceptions import owner_timeout_error
 
         raise owner_timeout_error(
@@ -309,11 +309,11 @@ class RetryManager:
         error_type = self.classify_error(error)
 
         logger.warning(
-            f"操作失败: {operation_name}, 尝试 {attempt_number + 1}, 错误类型: {error_type.value}, 错误: {error!s}"
+            "操作失败: %s, 尝试 %s, 错误类型: %s, 错误: %s", operation_name, attempt_number + 1, error_type.value, error
         )
 
         if not self.config.should_retry(error_type, attempt_number):
-            logger.error(f"不再重试: {operation_name}, 错误类型: {error_type.value}")
+            logger.error("不再重试: %s, 错误类型: %s", operation_name, error_type.value)
             return None
 
         delay = self.config.calculate_delay(error_type, attempt_number)
@@ -365,7 +365,7 @@ class RetryManager:
         self.attempts = []
         context = context or {}
 
-        logger.info(f"开始执行带重试的操作: {operation_name}")
+        logger.info("开始执行带重试的操作: %s", operation_name)
 
         attempt_number = 0
         last_exception: Exception | None = None
@@ -374,13 +374,13 @@ class RetryManager:
             try:
                 self._raise_if_total_timeout(operation_name, context)
 
-                logger.debug(f"执行操作尝试 {attempt_number + 1}: {operation_name}")
+                logger.debug("执行操作尝试 %s: %s", attempt_number + 1, operation_name)
                 result = operation()
 
                 if self.attempts:
                     self.attempts[-1].success = True
 
-                logger.info(f"操作成功: {operation_name}, 尝试次数: {attempt_number + 1}")
+                logger.info("操作成功: %s, 尝试次数: %s", operation_name, attempt_number + 1)
                 return result
 
             except Exception as e:
@@ -390,12 +390,12 @@ class RetryManager:
                     break
 
                 if delay > 0:
-                    logger.info(f"等待重试: {operation_name}, 延迟 {delay:.2f} 秒")
+                    logger.info("等待重试: %s, 延迟 %.2f 秒", operation_name, delay)
                     time.sleep(delay)
 
                 attempt_number += 1
 
-        logger.error(f"操作最终失败: {operation_name}, 总尝试次数: {len(self.attempts)}")
+        logger.error("操作最终失败: %s, 总尝试次数: %s", operation_name, len(self.attempts))
 
         if last_exception is not None:
             raise last_exception
@@ -423,7 +423,7 @@ class RetryManager:
         self.attempts = []
         context = context or {}
 
-        logger.info(f"开始执行异步带重试的操作: {operation_name}")
+        logger.info("开始执行异步带重试的操作: %s", operation_name)
 
         attempt_number = 0
         last_exception: Exception | None = None
@@ -433,7 +433,7 @@ class RetryManager:
                 self._raise_if_total_timeout(operation_name, context)
 
                 # 执行操作（支持同步和异步函数）
-                logger.debug(f"执行操作尝试 {attempt_number + 1}: {operation_name}")
+                logger.debug("执行操作尝试 %s: %s", attempt_number + 1, operation_name)
                 if asyncio.iscoroutinefunction(operation):
                     result = await operation()
                 else:
@@ -442,7 +442,7 @@ class RetryManager:
                 if self.attempts:
                     self.attempts[-1].success = True
 
-                logger.info(f"操作成功: {operation_name}, 尝试次数: {attempt_number + 1}")
+                logger.info("操作成功: %s, 尝试次数: %s", operation_name, attempt_number + 1)
                 return result
 
             except Exception as e:
@@ -452,12 +452,12 @@ class RetryManager:
                     break
 
                 if delay > 0:
-                    logger.info(f"等待重试: {operation_name}, 延迟 {delay:.2f} 秒")
+                    logger.info("等待重试: %s, 延迟 %.2f 秒", operation_name, delay)
                     await asyncio.sleep(delay)
 
                 attempt_number += 1
 
-        logger.error(f"操作最终失败: {operation_name}, 总尝试次数: {len(self.attempts)}")
+        logger.error("操作最终失败: %s, 总尝试次数: %s", operation_name, len(self.attempts))
 
         if last_exception is not None:
             raise last_exception

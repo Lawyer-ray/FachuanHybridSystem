@@ -92,7 +92,7 @@ class TelegramProvider(TelegramTokenMixin, TelegramFileMixin, ChatProvider):  # 
 
         try:
             supergroup_id = self.config.get("SUPERGROUP_ID")
-            logger.info(f"创建 Telegram 论坛话题: {chat_name}, 超级群组: {supergroup_id}")
+            logger.info("创建 Telegram 论坛话题: %s, 超级群组: %s", chat_name, supergroup_id)
 
             url = self._get_bot_api_url("createForumTopic")
             payload = {
@@ -109,7 +109,7 @@ class TelegramProvider(TelegramTokenMixin, TelegramFileMixin, ChatProvider):  # 
             if not data.get("ok"):
                 error_msg = data.get("description", "未知错误")
                 error_code = data.get("error_code", "unknown")
-                logger.error(f"创建 Telegram 论坛话题失败: {error_msg} (error_code: {error_code})")
+                logger.error("创建 Telegram 论坛话题失败: %s (error_code: %s)", error_msg, error_code)
                 raise ChatCreationException(
                     message=f"创建话题失败: {error_msg}",
                     platform="telegram",
@@ -135,7 +135,7 @@ class TelegramProvider(TelegramTokenMixin, TelegramFileMixin, ChatProvider):  # 
             # 后续消息发送时自动解析并携带 message_thread_id
             combined_chat_id = f"{supergroup_id}:{thread_id}"
 
-            logger.info(f"成功创建 Telegram 论坛话题: {chat_name} (thread_id: {thread_id})")
+            logger.info("成功创建 Telegram 论坛话题: %s (thread_id: %s)", chat_name, thread_id)
 
             # 发送初始消息到话题
             self._send_initial_message(combined_chat_id, chat_name)
@@ -158,14 +158,14 @@ class TelegramProvider(TelegramTokenMixin, TelegramFileMixin, ChatProvider):  # 
         except ChatCreationException:
             raise
         except httpx.HTTPError as e:
-            logger.error(f"创建 Telegram 论坛话题网络请求失败: {e!s}")
+            logger.error("创建 Telegram 论坛话题网络请求失败: %s", e)
             raise ChatCreationException(
                 message=f"网络请求失败: {e!s}",
                 platform="telegram",
                 errors={"original_error": str(e), "chat_name": chat_name},
             ) from e
         except Exception as e:
-            logger.error(f"创建 Telegram 论坛话题时发生未知错误: {e!s}")
+            logger.error("创建 Telegram 论坛话题时发生未知错误: %s", e)
             raise ChatCreationException(
                 message=f"创建话题时发生未知错误: {e!s}",
                 platform="telegram",
@@ -211,7 +211,7 @@ class TelegramProvider(TelegramTokenMixin, TelegramFileMixin, ChatProvider):  # 
             if not data.get("ok"):
                 error_msg = data.get("description", "未知错误")
                 error_code = data.get("error_code", "unknown")
-                logger.error(f"发送 Telegram 消息失败: {error_msg} (error_code: {error_code})")
+                logger.error("发送 Telegram 消息失败: %s (error_code: %s)", error_msg, error_code)
                 raise MessageSendException(
                     message=f"发送消息失败: {error_msg}",
                     platform="telegram",
@@ -222,14 +222,14 @@ class TelegramProvider(TelegramTokenMixin, TelegramFileMixin, ChatProvider):  # 
 
             message_data = data.get("result", {})
             message_id = message_data.get("message_id")
-            logger.info(f"成功发送 Telegram 消息到群聊: {chat_id} (消息ID: {message_id})")
+            logger.info("成功发送 Telegram 消息到群聊: %s (消息ID: %s)", chat_id, message_id)
 
             return ChatResult(success=True, chat_id=chat_id, message="消息发送成功", raw_response=data)
 
         except MessageSendException:
             raise
         except httpx.HTTPError as e:
-            logger.error(f"发送 Telegram 消息网络请求失败: {e!s}")
+            logger.error("发送 Telegram 消息网络请求失败: %s", e)
             raise MessageSendException(
                 message=f"网络请求失败: {e!s}",
                 platform="telegram",
@@ -237,7 +237,7 @@ class TelegramProvider(TelegramTokenMixin, TelegramFileMixin, ChatProvider):  # 
                 errors={"original_error": str(e)},
             ) from e
         except Exception as e:
-            logger.error(f"发送 Telegram 消息时发生未知错误: {e!s}")
+            logger.error("发送 Telegram 消息时发生未知错误: %s", e)
             raise MessageSendException(
                 message=f"发送消息时发生未知错误: {e!s}",
                 platform="telegram",
@@ -276,7 +276,7 @@ class TelegramProvider(TelegramTokenMixin, TelegramFileMixin, ChatProvider):  # 
             if not data.get("ok"):
                 error_msg = data.get("description", "未知错误")
                 error_code = data.get("error_code", "unknown")
-                logger.error(f"获取 Telegram 群聊信息失败: {error_msg} (error_code: {error_code})")
+                logger.error("获取 Telegram 群聊信息失败: %s (error_code: %s)", error_msg, error_code)
                 raise ChatProviderException(
                     message=f"获取群聊信息失败: {error_msg}",
                     platform="telegram",
@@ -295,7 +295,7 @@ class TelegramProvider(TelegramTokenMixin, TelegramFileMixin, ChatProvider):  # 
                     "is_topic": True,
                 }
 
-            logger.debug(f"成功获取 Telegram 群聊信息: {target_chat_id} (名称: {chat_name})")
+            logger.debug("成功获取 Telegram 群聊信息: %s (名称: %s)", target_chat_id, chat_name)
 
             return ChatResult(
                 success=True,
@@ -308,14 +308,14 @@ class TelegramProvider(TelegramTokenMixin, TelegramFileMixin, ChatProvider):  # 
         except ChatProviderException:
             raise
         except httpx.HTTPError as e:
-            logger.error(f"获取 Telegram 群聊信息网络请求失败: {e!s}")
+            logger.error("获取 Telegram 群聊信息网络请求失败: %s", e)
             raise ChatProviderException(
                 message=f"网络请求失败: {e!s}",
                 platform="telegram",
                 errors={"original_error": str(e), "chat_id": chat_id},
             ) from e
         except Exception as e:
-            logger.error(f"获取 Telegram 群聊信息时发生未知错误: {e!s}")
+            logger.error("获取 Telegram 群聊信息时发生未知错误: %s", e)
             raise ChatProviderException(
                 message=f"获取群聊信息时发生未知错误: {e!s}",
                 platform="telegram",
@@ -334,6 +334,6 @@ class TelegramProvider(TelegramTokenMixin, TelegramFileMixin, ChatProvider):  # 
                 text=f"案件论坛话题「{chat_name}」已创建，后续法院文书通知将在此话题推送。",
             )
             self.send_message(chat_id, initial_content)
-            logger.debug(f"已发送 Telegram 初始消息: {chat_id}")
+            logger.debug("已发送 Telegram 初始消息: %s", chat_id)
         except Exception as e:
-            logger.warning(f"发送 Telegram 初始消息失败（不影响主流程）: {chat_id}, 错误: {e!s}")
+            logger.warning("发送 Telegram 初始消息失败（不影响主流程）: %s, 错误: %s", chat_id, e)

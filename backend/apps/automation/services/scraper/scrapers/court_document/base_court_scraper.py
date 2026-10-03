@@ -94,15 +94,15 @@ class BaseCourtDocumentScraper(BaseScraper):
     def _debug_log(self, message: str, data: Any | None = None) -> None:  # pragma: no cover
         """调试日志"""
         if DEBUG_MODE:
-            logger.info(f"[DEBUG] {message}")
+            logger.info("[DEBUG] %s", message)
             if data:
-                logger.info(f"[DEBUG] Data: {data}")
+                logger.info("[DEBUG] Data: %s", data)
 
     def _save_debug_info(self, key: str, value: Any) -> None:  # pragma: no cover
         """保存调试信息"""
         self.debug_info[key] = value
         if DEBUG_MODE:
-            logger.info(f"[DEBUG] Saved {key}: {type(value)}")
+            logger.info("[DEBUG] Saved %s: %s", key, type(value))
 
     def _analyze_page_elements(self) -> dict[str, Any]:  # pragma: no cover
         """
@@ -210,7 +210,7 @@ class BaseCourtDocumentScraper(BaseScraper):
         """
         # 浏览器页面未初始化时，跳过截图/HTML/元素分析，避免用断言掩盖真实下载错误
         if self.page is None:
-            logger.warning(f"[DEBUG] 无法保存页面状态 {name}: 浏览器页面未初始化 (self.page is None)")
+            logger.warning("[DEBUG] 无法保存页面状态 %s: 浏览器页面未初始化 (self.page is None)", name)
             return {"name": name, "screenshot": None, "html": None, "analysis": None}
 
         # 保存截图
@@ -229,18 +229,18 @@ class BaseCourtDocumentScraper(BaseScraper):
         with open(analysis_path, "w", encoding="utf-8") as f:
             json.dump(analysis, f, ensure_ascii=False, indent=2)
 
-        logger.info(f"[DEBUG] 页面状态已保存: {name}")
-        logger.info(f"  - 截图: {screenshot_path}")
-        logger.info(f"  - HTML: {html_path}")
-        logger.info(f"  - 分析: {analysis_path}")
+        logger.info("[DEBUG] 页面状态已保存: %s", name)
+        logger.info("  - 截图: %s", screenshot_path)
+        logger.info("  - HTML: %s", html_path)
+        logger.info("  - 分析: %s", analysis_path)
 
         # 打印关键信息
-        logger.info(f"  - URL: {analysis['url']}")
-        logger.info(f"  - 标题: {analysis['title']}")
-        logger.info(f"  - 按钮数: {len(analysis['buttons'])}")
-        logger.info(f"  - 链接数: {len(analysis['links'])}")
-        logger.info(f"  - 下载元素数: {len(analysis['download_elements'])}")
-        logger.info(f"  - iframe数: {len(analysis['iframes'])}")
+        logger.info("  - URL: %s", analysis["url"])
+        logger.info("  - 标题: %s", analysis["title"])
+        logger.info("  - 按钮数: %s", len(analysis["buttons"]))
+        logger.info("  - 链接数: %s", len(analysis["links"]))
+        logger.info("  - 下载元素数: %s", len(analysis["download_elements"]))
+        logger.info("  - iframe数: %s", len(analysis["iframes"]))
 
         return {
             "screenshot": screenshot_path,
@@ -257,7 +257,7 @@ class BaseCourtDocumentScraper(BaseScraper):
         """
         download_dir = to_media_abs(media_download_rel_dir(int(self.task.id)))
         download_dir.mkdir(parents=True, exist_ok=True)
-        logger.info(f"下载目录: {download_dir}")
+        logger.info("下载目录: %s", download_dir)
 
         return download_dir
 
@@ -298,7 +298,7 @@ class BaseCourtDocumentScraper(BaseScraper):
                     try:
                         file_size = resolve_media_path(filepath).stat().st_size
                     except Exception as e:
-                        logger.warning(f"无法获取文件大小: {e}")
+                        logger.warning("无法获取文件大小: %s", e)
 
                 # 更新为成功状态
                 document = self.document_service.update_download_status(
@@ -327,7 +327,8 @@ class BaseCourtDocumentScraper(BaseScraper):
         except Exception as e:
             # 捕获所有异常,记录详细日志,但不抛出
             logger.error(
-                f"保存文书记录到数据库失败: {e}",
+                "保存文书记录到数据库失败: %s",
+                e,
                 extra={
                     "operation_type": "save_document_to_db_error",
                     "timestamp": time.time(),

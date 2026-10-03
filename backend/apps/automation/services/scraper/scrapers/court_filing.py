@@ -78,7 +78,7 @@ class CourtFilingScraper(BaseScraper):  # pragma: no cover
             username: 用户名
             password: 密码
         """
-        logger.info(f"登录用户: {username}")
+        logger.info("登录用户: %s", username)
 
         # TODO: 根据实际网站调整选择器
         # 示例：
@@ -92,7 +92,7 @@ class CourtFilingScraper(BaseScraper):  # pragma: no cover
     def _fill_case_info(self) -> None:  # pragma: no cover
         """填写案件信息"""
         case = self.task.case
-        logger.info(f"填写案件信息: {case.name if case else 'N/A'}")
+        logger.info("填写案件信息: %s", case.name if case else "N/A")
 
         # TODO: 根据实际网站调整字段映射
         # 示例：
@@ -109,7 +109,7 @@ class CourtFilingScraper(BaseScraper):  # pragma: no cover
         Args:
             file_paths: 文件路径列表
         """
-        logger.info(f"上传 {len(file_paths)} 个文件")
+        logger.info("上传 %s 个文件", len(file_paths))
 
         # TODO: 根据实际网站调整上传逻辑
         # 示例：

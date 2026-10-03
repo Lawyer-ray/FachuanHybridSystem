@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from django.db import models
 
+from apps.core.model_fields.encrypted import EncryptedTextField
+
 
 class DocumentParseProvider(models.Model):
     """文档解析平台配置。
@@ -30,7 +32,7 @@ class DocumentParseProvider(models.Model):
         choices=ProviderType.choices,
         verbose_name="解析服务",
     )
-    credentials = models.TextField(blank=True, default="", verbose_name="凭证")
+    credentials = EncryptedTextField(blank=True, default="", verbose_name="凭证")
     concurrency_per_key = models.PositiveIntegerField(default=3, verbose_name="每凭证并发上限")
     priority = models.PositiveIntegerField(default=10, verbose_name="优先级")
     enabled = models.BooleanField(default=True, verbose_name="启用")

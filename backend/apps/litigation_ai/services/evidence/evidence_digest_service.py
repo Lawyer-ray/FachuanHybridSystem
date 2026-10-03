@@ -110,7 +110,7 @@ class EvidenceDigestService:
             logger.warning("RAG 服务不可用,使用简单文本匹配")
             return self._simple_text_search(query, evidence_item_ids, top_k)
         except Exception as e:
-            logger.error(f"RAG 检索失败: {e}")
+            logger.error("RAG 检索失败: %s", e)
             return self._simple_text_search(query, evidence_item_ids, top_k)
 
     async def asearch_evidence_for_agent(
@@ -151,7 +151,7 @@ class EvidenceDigestService:
             logger.warning("RAG 服务不可用,使用简单文本匹配")
             return self._simple_text_search(query, evidence_item_ids, top_k)
         except Exception as e:
-            logger.error(f"RAG 检索失败: {e}")
+            logger.error("RAG 检索失败: %s", e)
             return self._simple_text_search(query, evidence_item_ids, top_k)
 
     def _simple_text_search(

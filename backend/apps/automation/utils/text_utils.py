@@ -91,12 +91,12 @@ class TextUtils:
             normalized = TextUtils.normalize_case_number(m)
             # 排除日期格式（如 2025年12月17号）
             if TextUtils.DATE_PATTERN.match(m):
-                logger.debug(f"排除日期格式: {m}")
+                logger.debug("排除日期格式: %s", m)
                 continue
             if normalized and normalized not in case_numbers:
                 case_numbers.append(normalized)
 
         if case_numbers:
-            logger.info(f"提取到 {len(case_numbers)} 个案号: {case_numbers}")
+            logger.info("提取到 %s 个案号: %s", len(case_numbers), case_numbers)
 
         return case_numbers

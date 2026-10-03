@@ -55,7 +55,7 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
             )
             await flow.handle_init(ctx, self._send_message)
         except Exception as e:
-            logger.error(f"MockTrial WebSocket 连接失败: {e}", exc_info=True)
+            logger.error("MockTrial WebSocket 连接失败: %s", e, exc_info=True)
             await self.close(code=4000)
 
     async def disconnect(self, close_code: int) -> None:
@@ -63,7 +63,7 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
             try:
                 await self.channel_layer.group_discard(f"mock_trial_{self.session_id}", self.channel_name)
             except Exception as e:
-                logger.error(f"MockTrial WebSocket 断开失败: {e}", exc_info=True)
+                logger.error("MockTrial WebSocket 断开失败: %s", e, exc_info=True)
 
     async def receive(self, text_data: str | None = None, bytes_data: bytes | None = None) -> None:  # pragma: no cover
         try:
@@ -90,7 +90,7 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
         except json.JSONDecodeError as e:
             await self._send_error(f"消息格式错误: {e}")
         except Exception as e:
-            logger.error(f"MockTrial 处理消息失败: {e}", exc_info=True)
+            logger.error("MockTrial 处理消息失败: %s", e, exc_info=True)
             await self._send_error(e)
 
     def _get_handler(self, msg_type: str) -> Any:
@@ -218,7 +218,7 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
 
         repo = LitigationSessionRepository()
         await repo.update_metadata(self.session_id or "", {"debate_difficulty": difficulty})
-        logger.info(f"辩论难度已设置为: {difficulty}")
+        logger.info("辩论难度已设置为: %s", difficulty)
 
     # ---- Helpers ----
 

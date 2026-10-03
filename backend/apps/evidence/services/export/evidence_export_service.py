@@ -114,12 +114,11 @@ class EvidenceExportService:
         try:
             context = self.placeholder_service.get_evidence_list_context(list_id)
         except Exception as e:
-            import traceback
-
+            logger.exception("获取证据清单占位符上下文失败: list_id=%s", list_id)
             raise ValidationException(
                 message="获取占位符上下文失败",
                 code=TEMPLATE_RENDER_ERROR,
-                errors={"context": f"获取占位符数据时发生错误: {e!s}\n{traceback.format_exc()}"},
+                errors={"context": f"获取占位符数据时发生错误: {e!s}"},
             ) from e
 
         # 使用 docxtpl 渲染模板
@@ -135,12 +134,11 @@ class EvidenceExportService:
             content = buffer.read()
         except Exception as e:
             # Requirements: 6.4
-            import traceback
-
+            logger.exception("渲染证据清单模板失败: list_id=%s template_id=%s", list_id, template_id)
             raise ValidationException(
                 message="模板渲染失败",
                 code=TEMPLATE_RENDER_ERROR,
-                errors={"template": f"渲染模板时发生错误: {e!s}\n{traceback.format_exc()}"},
+                errors={"template": f"渲染模板时发生错误: {e!s}"},
             ) from e
 
         # 获取版本号

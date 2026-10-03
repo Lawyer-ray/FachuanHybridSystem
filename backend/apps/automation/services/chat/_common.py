@@ -55,10 +55,10 @@ def load_db_category_config(loader_name: str, key_mapping: Mapping[str, str], pl
         if not db_configs:
             return {}
         config = {internal: db_configs[db] for db, internal in key_mapping.items() if db_configs.get(db)}
-        logger.debug(f"从 SystemConfig 加载{platform_label}配置: {list(config.keys())}")
+        logger.debug("从 SystemConfig 加载%s配置: %s", platform_label, list(config.keys()))
         return config
     except Exception as e:
-        logger.debug(f"从 SystemConfig 加载配置失败，回退到 settings: {e!s}")
+        logger.debug("从 SystemConfig 加载配置失败，回退到 settings: %s", e)
         return {}
 
 
@@ -71,5 +71,5 @@ def normalize_provider_config(config: dict[str, Any], platform_label: str) -> di
         config["TIMEOUT"] = 30
 
     filtered_config = {k: v for k, v in config.items() if v is not None and v != ""}
-    logger.debug(f"最终{platform_label}配置: {list(filtered_config.keys())}")
+    logger.debug("最终%s配置: %s", platform_label, list(filtered_config.keys()))
     return filtered_config

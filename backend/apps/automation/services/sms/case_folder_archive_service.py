@@ -43,21 +43,21 @@ class CaseFolderArchiveService:
     def archive_sms_documents(self, sms: CourtSMS, renamed_paths: list[str]) -> bool:  # pragma: no cover
         """执行归档流程，返回是否成功归档."""
         if not sms.case_id:
-            logger.info(f"短信 {sms.id} 未关联案件，跳过案件目录归档")
+            logger.info("短信 %s 未关联案件，跳过案件目录归档", sms.id)
             return False
         if not renamed_paths:
-            logger.info(f"短信 {sms.id} 无重命名文书，跳过案件目录归档")
+            logger.info("短信 %s 无重命名文书，跳过案件目录归档", sms.id)
             return False
 
         case_root = self._get_bound_case_root(sms.case_id)
         if case_root is None:
-            logger.info(f"短信 {sms.id} 案件未绑定可用文件夹，跳过案件目录归档")
+            logger.info("短信 %s 案件未绑定可用文件夹，跳过案件目录归档", sms.id)
             return False
 
         mail_folder = self._find_mail_folder(case_root)
         if mail_folder is None:
             mail_folder = self._create_mail_folder(case_root)
-            logger.info(f"短信 {sms.id} 未找到邮件目录，已自动创建: {mail_folder}")
+            logger.info("短信 %s 未找到邮件目录，已自动创建: %s", sms.id, mail_folder)
 
         event_folder_name = self._build_event_folder_name(sms, renamed_paths)
         archive_folder = self._ensure_unique_directory(mail_folder, event_folder_name)
@@ -67,7 +67,11 @@ class CaseFolderArchiveService:
         copied_count = self._copy_documents(archive_folder, renamed_paths)
 
         logger.info(
-            f"短信 {sms.id} 案件目录归档完成: 目录={archive_folder}, 文书={copied_count}, md={markdown_path.name}"
+            "短信 %s 案件目录归档完成: 目录=%s, 文书=%s, md=%s",
+            sms.id,
+            archive_folder,
+            copied_count,
+            markdown_path.name,
         )
         return True
 
@@ -79,12 +83,12 @@ class CaseFolderArchiveService:
         # 本服务依赖本地目录扫描（邮件目录发现/事件目录创建），云存储绑定明确跳过而非静默不归档
         storage_type = str(getattr(binding, "storage_type", "") or "local")
         if storage_type != "local":
-            logger.warning(f"案件 {case_id} 绑定为云存储({storage_type})，法院短信案件目录归档暂不支持，已跳过")
+            logger.warning("案件 %s 绑定为云存储(%s)，法院短信案件目录归档暂不支持，已跳过", case_id, storage_type)
             return None
 
         root = Path(binding.resolved_folder_path).expanduser()
         if not root.exists() or not root.is_dir():
-            logger.warning(f"案件 {case_id} 绑定目录不可访问: {root}")
+            logger.warning("案件 %s 绑定目录不可访问: %s", case_id, root)
             return None
         return root
 
@@ -262,7 +266,7 @@ class CaseFolderArchiveService:
         for file_path in renamed_paths:
             src = resolve_media_path(file_path)
             if not src.exists() or not src.is_file():
-                logger.warning(f"归档复制时文件不存在，跳过: {file_path}")
+                logger.warning("归档复制时文件不存在，跳过: %s", file_path)
                 continue
 
             self._save_bytes_to_archive(archive_folder, src.name, src.read_bytes())

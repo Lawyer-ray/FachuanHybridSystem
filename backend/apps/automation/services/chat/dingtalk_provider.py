@@ -93,7 +93,7 @@ class DingtalkProvider(DingtalkTokenMixin, DingtalkFileMixin, ChatProvider):  # 
             )
 
         try:
-            logger.info(f"创建钉钉群聊: {chat_name}, 群主: {effective_owner_id}")
+            logger.info("创建钉钉群聊: %s, 群主: %s", chat_name, effective_owner_id)
 
             access_token = self._get_access_token()
             url = f"{self.API_BASE_URL}/v1.0/chat/groups"
@@ -148,7 +148,7 @@ class DingtalkProvider(DingtalkTokenMixin, DingtalkFileMixin, ChatProvider):  # 
                     errors={"api_response": data},
                 )
 
-            logger.info(f"成功创建钉钉群聊: {chat_name} (ID: {chat_id}), 群主: {effective_owner_id}")
+            logger.info("成功创建钉钉群聊: %s (ID: %s), 群主: %s", chat_name, chat_id, effective_owner_id)
 
             # 新群创建后立即发送首条消息，确保群在客户端可见
             self._send_initial_message(chat_id, chat_name)
@@ -167,14 +167,14 @@ class DingtalkProvider(DingtalkTokenMixin, DingtalkFileMixin, ChatProvider):  # 
         except ChatCreationException:
             raise
         except httpx.HTTPError as e:
-            logger.error(f"创建钉钉群聊网络请求失败: {e!s}")
+            logger.error("创建钉钉群聊网络请求失败: %s", e)
             raise ChatCreationException(
                 message=f"网络请求失败: {e!s}",
                 platform="dingtalk",
                 errors={"original_error": str(e), "chat_name": chat_name},
             ) from e
         except Exception as e:
-            logger.error(f"创建钉钉群聊时发生未知错误: {e!s}")
+            logger.error("创建钉钉群聊时发生未知错误: %s", e)
             raise ChatCreationException(
                 message=f"创建群聊时发生未知错误: {e!s}",
                 platform="dingtalk",
@@ -220,7 +220,7 @@ class DingtalkProvider(DingtalkTokenMixin, DingtalkFileMixin, ChatProvider):  # 
                 "msgParam": f'{{"content":"{message_text}"}}',
             }
 
-            logger.debug(f"发送钉钉消息请求: chat_id={chat_id}")
+            logger.debug("发送钉钉消息请求: chat_id=%s", chat_id)
 
             timeout = self.config.get("TIMEOUT", 30)
             response = httpx.post(url, json=payload, headers=headers, timeout=timeout)
@@ -232,7 +232,7 @@ class DingtalkProvider(DingtalkTokenMixin, DingtalkFileMixin, ChatProvider):  # 
             error_code = data.get("code")
             if error_code and error_code != "OK":
                 error_msg = data.get("message", "未知错误")
-                logger.error(f"发送钉钉消息失败: {error_msg} (code: {error_code})")
+                logger.error("发送钉钉消息失败: %s (code: %s)", error_msg, error_code)
                 raise MessageSendException(
                     message=f"发送消息失败: {error_msg}",
                     platform="dingtalk",
@@ -241,7 +241,7 @@ class DingtalkProvider(DingtalkTokenMixin, DingtalkFileMixin, ChatProvider):  # 
                     errors={"api_response": data},
                 )
 
-            logger.info(f"成功发送钉钉消息到群聊: {chat_id}")
+            logger.info("成功发送钉钉消息到群聊: %s", chat_id)
 
             return ChatResult(success=True, chat_id=chat_id, message="消息发送成功", raw_response=data)
 
@@ -250,7 +250,7 @@ class DingtalkProvider(DingtalkTokenMixin, DingtalkFileMixin, ChatProvider):  # 
         except ConfigurationException:
             raise
         except httpx.HTTPError as e:
-            logger.error(f"发送钉钉消息网络请求失败: {e!s}")
+            logger.error("发送钉钉消息网络请求失败: %s", e)
             raise MessageSendException(
                 message=f"网络请求失败: {e!s}",
                 platform="dingtalk",
@@ -258,7 +258,7 @@ class DingtalkProvider(DingtalkTokenMixin, DingtalkFileMixin, ChatProvider):  # 
                 errors={"original_error": str(e)},
             ) from e
         except Exception as e:
-            logger.error(f"发送钉钉消息时发生未知错误: {e!s}")
+            logger.error("发送钉钉消息时发生未知错误: %s", e)
             raise MessageSendException(
                 message=f"发送消息时发生未知错误: {e!s}",
                 platform="dingtalk",
@@ -296,7 +296,7 @@ class DingtalkProvider(DingtalkTokenMixin, DingtalkFileMixin, ChatProvider):  # 
             error_code = data.get("code")
             if error_code and error_code != "OK":
                 error_msg = data.get("message", "未知错误")
-                logger.error(f"获取钉钉群聊信息失败: {error_msg} (code: {error_code})")
+                logger.error("获取钉钉群聊信息失败: %s (code: %s)", error_msg, error_code)
                 raise ChatProviderException(
                     message=f"获取群聊信息失败: {error_msg}",
                     platform="dingtalk",
@@ -305,7 +305,7 @@ class DingtalkProvider(DingtalkTokenMixin, DingtalkFileMixin, ChatProvider):  # 
                 )
 
             chat_name = data.get("title", "")
-            logger.debug(f"成功获取钉钉群聊信息: {chat_id} (名称: {chat_name})")
+            logger.debug("成功获取钉钉群聊信息: %s (名称: %s)", chat_id, chat_name)
 
             return ChatResult(
                 success=True,
@@ -318,14 +318,14 @@ class DingtalkProvider(DingtalkTokenMixin, DingtalkFileMixin, ChatProvider):  # 
         except ChatProviderException:
             raise
         except httpx.HTTPError as e:
-            logger.error(f"获取钉钉群聊信息网络请求失败: {e!s}")
+            logger.error("获取钉钉群聊信息网络请求失败: %s", e)
             raise ChatProviderException(
                 message=f"网络请求失败: {e!s}",
                 platform="dingtalk",
                 errors={"original_error": str(e), "chat_id": chat_id},
             ) from e
         except Exception as e:
-            logger.error(f"获取钉钉群聊信息时发生未知错误: {e!s}")
+            logger.error("获取钉钉群聊信息时发生未知错误: %s", e)
             raise ChatProviderException(
                 message=f"获取群聊信息时发生未知错误: {e!s}",
                 platform="dingtalk",
@@ -344,6 +344,6 @@ class DingtalkProvider(DingtalkTokenMixin, DingtalkFileMixin, ChatProvider):  # 
                 text=f"案件群聊「{chat_name}」已创建，后续法院文书通知将在此群推送。",
             )
             self.send_message(chat_id, initial_content)
-            logger.debug(f"已发送钉钉群初始消息: {chat_id}")
+            logger.debug("已发送钉钉群初始消息: %s", chat_id)
         except Exception as e:
-            logger.warning(f"发送钉钉群初始消息失败（不影响主流程）: {chat_id}, 错误: {e!s}")
+            logger.warning("发送钉钉群初始消息失败（不影响主流程）: %s, 错误: %s", chat_id, e)

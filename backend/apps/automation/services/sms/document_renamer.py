@@ -142,20 +142,20 @@ class DocumentRenamer:
             extraction = extract_document_content(document_path, limit=self.title_extraction_limit)
 
             if not extraction.text:
-                logger.warning(f"无法从文书中提取文本内容: {document_path}")
+                logger.warning("无法从文书中提取文本内容: %s", document_path)
                 return self._extract_title_from_filename(document_path)
 
             # 规则提取标题（不调用 LLM）
             title = self._extract_title_from_text(extraction.text)
             if title:
-                logger.info(f"规则提取文书标题成功: {title}")
+                logger.info("规则提取文书标题成功: %s", title)
                 return title
 
-            logger.warning(f"规则未能从正文提取标题，使用文件名降级: {document_path}")
+            logger.warning("规则未能从正文提取标题，使用文件名降级: %s", document_path)
             return self._extract_title_from_filename(document_path)
 
         except Exception as e:
-            logger.error(f"提取文书标题失败: {document_path}, 错误: {e!s}")
+            logger.error("提取文书标题失败: %s, 错误: %s", document_path, e)
             # 抛出异常让调用方处理降级逻辑
             raise
 
@@ -359,11 +359,11 @@ class DocumentRenamer:
             # 重命名文件
             original_path.rename(new_path)
 
-            logger.info(f"文书重命名成功: {document_path} -> {new_path}")
+            logger.info("文书重命名成功: %s -> %s", document_path, new_path)
             return str(new_path)
 
         except Exception as e:
-            logger.error(f"文书重命名失败: {document_path}, 错误: {e!s}")
+            logger.error("文书重命名失败: %s, 错误: %s", document_path, e)
             # 抛出异常让调用方处理降级逻辑
             raise
 
@@ -385,7 +385,7 @@ class DocumentRenamer:
         try:
             return self.rename(document_path, case_name, received_date)
         except Exception as e:
-            logger.warning(f"重命名失败，使用降级方案: {e!s}")
+            logger.warning("重命名失败，使用降级方案: %s", e)
 
             # 降级方案：使用原始文件名（去除扩展名）作为标题
             if original_name:
@@ -403,9 +403,9 @@ class DocumentRenamer:
                 fallback_path, _ = FilenameTemplateService.get_unique_filepath(original_path.parent, fallback_filename)
 
                 original_path.rename(fallback_path)
-                logger.info(f"使用降级方案重命名成功: {document_path} -> {fallback_path}")
+                logger.info("使用降级方案重命名成功: %s -> %s", document_path, fallback_path)
                 return str(fallback_path)
 
             except Exception as fallback_error:
-                logger.error(f"降级方案也失败: {fallback_error!s}")
+                logger.error("降级方案也失败: %s", fallback_error)
                 return document_path

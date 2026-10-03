@@ -344,13 +344,13 @@ class ConversationFlowService:  # pragma: no cover
             from apps.core.llm.config import LLMConfig
 
             # 记录详细错误信息到控制台
-            logger.error(f"[AI诉状生成] 生成失败: {type(e).__name__}: {e}")
+            logger.error("[AI诉状生成] 生成失败: %s: %s", type(e).__name__, e)
             api_key = await LLMConfig.get_openai_compatible_api_key_async()
             base_url = await LLMConfig.get_openai_compatible_base_url_async()
             default_model = await LLMConfig.get_openai_compatible_model_async()
-            logger.error(f"[AI诉状生成] 当前配置 - API Key 已配置: {bool(api_key)}")
-            logger.error(f"[AI诉状生成] 当前配置 - Base URL: {base_url}")
-            logger.error(f"[AI诉状生成] 当前配置 - Model: {default_model}")
+            logger.error("[AI诉状生成] 当前配置 - API Key 已配置: %s", bool(api_key))
+            logger.error("[AI诉状生成] 当前配置 - Base URL: %s", base_url)
+            logger.error("[AI诉状生成] 当前配置 - Model: %s", default_model)
 
             if isinstance(e, openai.AuthenticationError):
                 msg = "\n".join(

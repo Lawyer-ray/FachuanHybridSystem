@@ -73,7 +73,7 @@ class ChatProviderFactory:
         if platform in cls._instances:
             del cls._instances[platform]
 
-        logger.debug(f"已注册群聊提供者: {platform.value} -> {provider_class.__name__}")
+        logger.debug("已注册群聊提供者: %s -> %s", platform.value, provider_class.__name__)
 
     @classmethod
     def get_provider(cls, platform: ChatPlatform) -> ChatProvider:
@@ -124,11 +124,11 @@ class ChatProviderFactory:
             # 缓存实例
             cls._instances[platform] = instance
 
-            logger.debug(f"已创建群聊提供者实例: {platform.value}")
+            logger.debug("已创建群聊提供者实例: %s", platform.value)
             return instance
 
         except Exception as e:
-            logger.error(f"创建群聊提供者实例失败: {platform.value}, 错误: {e!s}")
+            logger.error("创建群聊提供者实例失败: %s, 错误: %s", platform.value, e)
             raise ConfigurationException(
                 message=f"无法创建群聊提供者实例: {platform.value}",
                 platform=platform.value,
@@ -148,7 +148,7 @@ class ChatProviderFactory:
         Example:
             platforms = ChatProviderFactory.get_available_platforms()
             for platform in platforms:
-                logger.info(f"可用平台: {platform.label}")
+                logger.info("可用平台: %s", platform.label)
         """
         available_platforms = []
 
@@ -158,12 +158,12 @@ class ChatProviderFactory:
                 if provider.is_available():
                     available_platforms.append(platform)
                 else:
-                    logger.debug(f"平台 {platform.value} 已注册但不可用（配置不完整）")
+                    logger.debug("平台 %s 已注册但不可用（配置不完整）", platform.value)
             except Exception as e:
-                logger.warning(f"检查平台 {platform.value} 可用性时出错: {e!s}")
+                logger.warning("检查平台 %s 可用性时出错: %s", platform.value, e)
                 continue
 
-        logger.debug(f"可用的群聊平台: {[p.value for p in available_platforms]}")
+        logger.debug("可用的群聊平台: %s", [p.value for p in available_platforms])
         return available_platforms
 
     @classmethod
@@ -215,6 +215,6 @@ class ChatProviderFactory:
             del cls._providers[platform]
             if platform in cls._instances:
                 del cls._instances[platform]
-            logger.info(f"已注销群聊提供者: {platform.value}")
+            logger.info("已注销群聊提供者: %s", platform.value)
             return True
         return False

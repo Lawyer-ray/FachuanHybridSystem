@@ -46,9 +46,9 @@ class ZxfwFallbackMixin:  # pragma: no cover
         for i, iframe in enumerate(iframes):
             src = iframe.get_attribute("src") or ""
             iframe_id = iframe.get_attribute("id") or ""
-            logger.info(f"[DEBUG] 检查 iframe {i}: id={iframe_id}, src={src[:60]}...")
+            logger.info("[DEBUG] 检查 iframe %s: id=%s, src=%s...", i, iframe_id, src[:60])
             if iframe_id == "if" or "pdfjs" in src or "viewer" in src:
-                logger.info(f"[DEBUG] 找到 PDF viewer iframe (index {i})")
+                logger.info("[DEBUG] 找到 PDF viewer iframe (index %s)", i)
                 return self.page.frame_locator(f"iframe >> nth={i}")
         return None
 
@@ -65,12 +65,12 @@ class ZxfwFallbackMixin:  # pragma: no cover
             doc_item = self.page.locator(f"xpath={doc_item_xpath}")
             if doc_item.count() > 0:
                 doc_item.first.click()
-                logger.info(f"[DEBUG] 已点击第 {doc_index} 个文书项")
+                logger.info("[DEBUG] 已点击第 %s 个文书项", doc_index)
                 self.random_wait(2, 3)
             else:
-                logger.warning(f"[DEBUG] 未找到第 {doc_index} 个文书项")
+                logger.warning("[DEBUG] 未找到第 %s 个文书项", doc_index)
         except Exception as e:
-            logger.warning(f"[DEBUG] 点击文书项失败: {e}")
+            logger.warning("[DEBUG] 点击文书项失败: %s", e)
 
     def _download_single_doc(self, frame: Any, doc_index: int) -> str | None:  # pragma: no cover
         """在 iframe 内下载单个文书，返回 media 相对路径或 None"""
@@ -82,15 +82,15 @@ class ZxfwFallbackMixin:  # pragma: no cover
             self.random_wait(1, 2)
             with self.page.expect_download(timeout=60000) as dl_info:
                 btn.first.click()
-                logger.info(f"[DEBUG] 已点击第 {doc_index} 个文书的下载按钮")
+                logger.info("[DEBUG] 已点击第 %s 个文书的下载按钮", doc_index)
             download = dl_info.value
             safe_name = sanitize_upload_filename(download.suggested_filename or filename_default)
             abs_path, rel_path = media_download_target(self.task_id, safe_name)
             download.save_as(str(abs_path))
-            logger.info(f"[DEBUG] 文件已保存: {rel_path}")
+            logger.info("[DEBUG] 文件已保存: %s", rel_path)
             return rel_path
         except Exception as e:
-            logger.warning(f"[DEBUG] #download 方式失败: {e}，尝试备用 XPath")
+            logger.warning("[DEBUG] #download 方式失败: %s，尝试备用 XPath", e)
         try:
             fallback_xpath = "/html/body/div[1]/div[2]/div[5]/div/div[1]/div[2]/button[4]"
             btn = frame.locator(f"xpath={fallback_xpath}")
@@ -104,7 +104,7 @@ class ZxfwFallbackMixin:  # pragma: no cover
             download.save_as(str(abs_path))
             return rel_path
         except Exception as e2:
-            logger.error(f"[DEBUG] 第 {doc_index} 个文书下载失败: {e2}")
+            logger.error("[DEBUG] 第 %s 个文书下载失败: %s", doc_index, e2)
             return None
 
     def _download_via_fallback(self) -> dict[str, Any]:  # pragma: no cover
@@ -130,20 +130,20 @@ class ZxfwFallbackMixin:  # pragma: no cover
         try:
             doc_items = self.page.locator(f"xpath={doc_list_xpath}").all()
             doc_count = len(doc_items)
-            logger.info(f"[DEBUG] 检测到 {doc_count} 个文书项")
+            logger.info("[DEBUG] 检测到 %s 个文书项", doc_count)
         except Exception as e:
-            logger.warning(f"[DEBUG] 无法检测文书列表: {e}，尝试单文件下载")
+            logger.warning("[DEBUG] 无法检测文书列表: %s，尝试单文件下载", e)
             doc_count = 1
         if doc_count == 0:
             logger.info("[DEBUG] 未检测到文书列表，尝试直接下载")
             doc_count = 1
         for doc_index in range(1, doc_count + 1):
-            logger.info(f"[DEBUG] 下载第 {doc_index}/{doc_count} 个文书")
+            logger.info("[DEBUG] 下载第 %s/%s 个文书", doc_index, doc_count)
             try:
                 self._click_doc_item(doc_index, doc_count)
                 frame = self._find_pdf_iframe()
                 if not frame:
-                    logger.warning(f"[DEBUG] 第 {doc_index} 个文书未找到 iframe，跳过")
+                    logger.warning("[DEBUG] 第 %s 个文书未找到 iframe，跳过", doc_index)
                     failed_count += 1
                     continue
                 filepath = self._download_single_doc(frame, doc_index)
@@ -154,7 +154,7 @@ class ZxfwFallbackMixin:  # pragma: no cover
                     failed_count += 1
                 self.random_wait(1, 2)
             except Exception as e:
-                logger.error(f"[DEBUG] 处理第 {doc_index} 个文书时出错: {e}")
+                logger.error("[DEBUG] 处理第 %s 个文书时出错: %s", doc_index, e)
                 failed_count += 1
         if not downloaded_files:
             self._save_page_state("zxfw_final_failed")

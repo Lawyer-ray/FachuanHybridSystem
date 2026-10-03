@@ -56,7 +56,7 @@ class LPRSyncService:
         try:
             lpr_data_list = self._fetch_with_playwright()
         except Exception as e:
-            logger.error(f"[LPRSync] Fetch failed: {e}")
+            logger.error("[LPRSync] Fetch failed: %s", e)
             raise BusinessException(message=f"获取LPR数据失败: {e}", code="LPR_SYNC_FAILED")
 
         if not lpr_data_list:
@@ -72,7 +72,7 @@ class LPRSyncService:
         """
         from apps.core.services.browser import create_browser
 
-        logger.info(f"[LPRSync] Fetching LPR data via Playwright from {LPR_DATA_URL}")
+        logger.info("[LPRSync] Fetching LPR data via Playwright from %s", LPR_DATA_URL)
 
         with create_browser() as (page, context):
             page.goto(LPR_DATA_URL, wait_until="networkidle", timeout=60000)
@@ -99,7 +99,7 @@ class LPRSyncService:
         lpr_data_list: list[LPRData] = []
 
         rows = page.query_selector_all("table tr")
-        logger.info(f"[LPRSync] Found {len(rows)} table rows")
+        logger.info("[LPRSync] Found %s table rows", len(rows))
 
         for row in rows:
             try:
@@ -107,7 +107,7 @@ class LPRSyncService:
                 if lpr:
                     lpr_data_list.append(lpr)
             except Exception as e:
-                logger.debug(f"[LPRSync] Failed to parse row: {e}")
+                logger.debug("[LPRSync] Failed to parse row: %s", e)
                 continue
 
         seen_dates = set()
@@ -117,7 +117,7 @@ class LPRSyncService:
                 seen_dates.add(data.effective_date)
                 unique_data.append(data)
 
-        logger.info(f"[LPRSync] Parsed {len(unique_data)} unique LPR records")
+        logger.info("[LPRSync] Parsed %s unique LPR records", len(unique_data))
         return unique_data
 
     def _parse_single_row(self, row: Any) -> LPRData | None:
@@ -221,13 +221,13 @@ class LPRSyncService:
                     )
                     if created:
                         created_count += 1
-                        logger.info(f"[LPRSync] Created LPR record: {data.effective_date}")
+                        logger.info("[LPRSync] Created LPR record: %s", data.effective_date)
                     else:
                         updated_count += 1
-                        logger.info(f"[LPRSync] Updated LPR record: {data.effective_date}")
+                        logger.info("[LPRSync] Updated LPR record: %s", data.effective_date)
                 except Exception as e:
                     skipped_count += 1
-                    logger.warning(f"[LPRSync] Failed to save LPR data for {data.effective_date}: {e}")
+                    logger.warning("[LPRSync] Failed to save LPR data for %s: %s", data.effective_date, e)
 
         result = {
             "created": created_count,
@@ -236,7 +236,7 @@ class LPRSyncService:
             "total": len(lpr_data_list),
         }
 
-        logger.info(f"[LPRSync] Sync completed: {result}")
+        logger.info("[LPRSync] Sync completed: %s", result)
         return result
 
     def get_sync_status(self) -> dict:
@@ -281,5 +281,5 @@ class LPRSyncService:
             result = self.sync_latest()
             return {"synced": True, "sync_result": result, "error": None}
         except Exception as e:
-            logger.error(f"[LPRSync] Auto-sync failed: {e}")
+            logger.error("[LPRSync] Auto-sync failed: %s", e)
             return {"synced": False, "sync_result": None, "error": str(e)}

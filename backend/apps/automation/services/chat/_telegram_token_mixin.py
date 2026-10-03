@@ -72,12 +72,12 @@ class TelegramTokenMixin:  # pragma: no cover
                 try:
                     config["SUPERGROUP_ID"] = int(config["SUPERGROUP_ID"])
                 except (ValueError, TypeError):
-                    logger.warning(f"TELEGRAM_SUPERGROUP_ID 无法转为整数: {config['SUPERGROUP_ID']}")
+                    logger.warning("TELEGRAM_SUPERGROUP_ID 无法转为整数: %s", config["SUPERGROUP_ID"])
 
             return normalize_provider_config(config, " Telegram ")
 
         except (TypeError, ValueError) as e:
-            logger.error(f"加载 Telegram 配置失败: {e!s}")
+            logger.error("加载 Telegram 配置失败: %s", e)
             raise ConfigurationException(
                 message=f"无法加载 Telegram 配置: {e!s}", platform="telegram", errors={"original_error": str(e)}
             ) from e
@@ -86,7 +86,7 @@ class TelegramTokenMixin:  # pragma: no cover
         """检查平台是否可用（至少需要 bot_token + supergroup_id）"""
         for config_key in ["BOT_TOKEN", "SUPERGROUP_ID"]:
             if not self.config.get(config_key):
-                logger.debug(f"Telegram 配置缺失: {config_key}")
+                logger.debug("Telegram 配置缺失: %s", config_key)
                 return False
         return True
 

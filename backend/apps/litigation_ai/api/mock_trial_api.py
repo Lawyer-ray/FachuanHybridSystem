@@ -185,5 +185,5 @@ async def export_report(request: HttpRequest, session_id: str) -> Any:  # pragma
         response["Content-Disposition"] = f'attachment; filename="模拟庭审报告_{case_name}.docx"'
         return response
     except Exception as e:
-        logger.error(f"导出报告失败: {e}", exc_info=True)
+        logger.error("导出报告失败: %s", e, exc_info=True)
         return Status(500, {"message": f"导出失败: {e}"})

@@ -51,7 +51,7 @@ class WeChatWorkTokenMixin:  # pragma: no cover
             return normalize_provider_config(config, "企业微信")
 
         except (TypeError, ValueError) as e:
-            logger.error(f"加载企业微信配置失败: {e!s}")
+            logger.error("加载企业微信配置失败: %s", e)
             raise ConfigurationException(
                 message=f"无法加载企业微信配置: {e!s}", platform="wechat_work", errors={"original_error": str(e)}
             ) from e
@@ -60,7 +60,7 @@ class WeChatWorkTokenMixin:  # pragma: no cover
         """检查平台是否可用（至少需要 corp_id + agent_id + secret + default_owner_id）"""
         for config_key in ["CORP_ID", "AGENT_ID", "SECRET"]:
             if not self.config.get(config_key):
-                logger.debug(f"企业微信配置缺失: {config_key}")
+                logger.debug("企业微信配置缺失: %s", config_key)
                 return False
         if not self.config.get("DEFAULT_OWNER_ID"):
             logger.debug("企业微信配置缺失: DEFAULT_OWNER_ID（建群必须指定群主）")
@@ -115,12 +115,12 @@ class WeChatWorkTokenMixin:  # pragma: no cover
             return self._access_token
 
         except httpx.HTTPError as e:
-            logger.error(f"请求企业微信 access_token 失败: {e!s}")
+            logger.error("请求企业微信 access_token 失败: %s", e)
             raise ChatProviderException(
                 message=f"网络请求失败: {e!s}", platform="wechat_work", errors={"original_error": str(e)}
             ) from e
         except (KeyError, ValueError) as e:
-            logger.error(f"解析企业微信 API 响应失败: {e!s}")
+            logger.error("解析企业微信 API 响应失败: %s", e)
             raise ChatProviderException(
                 message=f"API 响应格式错误: {e!s}", platform="wechat_work", errors={"original_error": str(e)}
             ) from e
@@ -187,12 +187,12 @@ class WeChatWorkTokenMixin:  # pragma: no cover
                 return self._access_token
 
             except httpx.HTTPError as e:
-                logger.error(f"请求企业微信 access_token 失败: {e!s}")
+                logger.error("请求企业微信 access_token 失败: %s", e)
                 raise ChatProviderException(
                     message=f"网络请求失败: {e!s}", platform="wechat_work", errors={"original_error": str(e)}
                 ) from e
             except (KeyError, ValueError) as e:
-                logger.error(f"解析企业微信 API 响应失败: {e!s}")
+                logger.error("解析企业微信 API 响应失败: %s", e)
                 raise ChatProviderException(
                     message=f"API 响应格式错误: {e!s}", platform="wechat_work", errors={"original_error": str(e)}
                 ) from e

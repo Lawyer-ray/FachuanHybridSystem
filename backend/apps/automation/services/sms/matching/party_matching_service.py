@@ -73,8 +73,8 @@ class PartyMatchingService:
         lawyer_names = self.get_lawyer_names()
         lawyer_name_set = set(lawyer_names)
 
-        logger.info(f"开始在 {len(all_clients)} 个现有客户中查找匹配")
-        logger.info(f"将排除 {len(lawyer_names)} 个律师姓名: {lawyer_names}")
+        logger.info("开始在 %s 个现有客户中查找匹配", len(all_clients))
+        logger.info("将排除 %s 个律师姓名: %s", len(lawyer_names), lawyer_names)
 
         # 预处理当事人名称：清洗、排除律师，构建精确匹配集合
         party_name_set = {p.strip() for p in party_names if p.strip() not in lawyer_name_set}
@@ -92,7 +92,7 @@ class PartyMatchingService:
 
             # 排除律师：如果客户姓名与律师姓名匹配，跳过
             if client_name in lawyer_name_set:
-                logger.info(f"跳过律师: {client_name}")
+                logger.info("跳过律师: %s", client_name)
                 continue
 
             matched = client_name in party_name_set or client_name in party_substrings
@@ -102,13 +102,13 @@ class PartyMatchingService:
 
             if matched:
                 matched_clients.append(client)
-                logger.info(f"匹配找到客户: {client_name}")
+                logger.info("匹配找到客户: %s", client_name)
 
         # 去重（基于客户ID）
         matched_clients = self._deduplicate_clients(matched_clients)
 
         if matched_clients:
-            logger.info(f"在现有客户中找到 {len(matched_clients)} 个匹配: {[c.name for c in matched_clients]}")
+            logger.info("在现有客户中找到 %s 个匹配: %s", len(matched_clients), [c.name for c in matched_clients])
         else:
             logger.info("在现有客户中未找到匹配")
 
@@ -138,7 +138,7 @@ class PartyMatchingService:
 
             # 排除律师姓名
             if party_name in lawyer_names:
-                logger.info(f"跳过律师当事人: {party_name}")
+                logger.info("跳过律师当事人: %s", party_name)
                 continue
 
             if len(party_name) >= 2:  # 至少2个字符才进行匹配
@@ -150,17 +150,17 @@ class PartyMatchingService:
                     if client.name.strip() not in lawyer_names:
                         filtered_clients.append(client)
                     else:
-                        logger.info(f"过滤掉律师客户记录: {client.name}")
+                        logger.info("过滤掉律师客户记录: %s", client.name)
 
                 matched_clients.extend(filtered_clients)
                 if filtered_clients:
-                    logger.info(f"模糊匹配找到客户: {party_name} -> {[c.name for c in filtered_clients]}")
+                    logger.info("模糊匹配找到客户: %s -> %s", party_name, [c.name for c in filtered_clients])
 
         # 去重（基于客户ID）
         matched_clients = self._deduplicate_clients(matched_clients)
 
         if matched_clients:
-            logger.info(f"模糊匹配找到 {len(matched_clients)} 个客户: {[c.name for c in matched_clients]}")
+            logger.info("模糊匹配找到 %s 个客户: %s", len(matched_clients), [c.name for c in matched_clients])
 
         return matched_clients
 
@@ -175,11 +175,11 @@ class PartyMatchingService:
             # 通过律师服务获取所有律师姓名
             lawyer_names = self.lawyer_service.get_all_lawyer_names()
 
-            logger.info(f"获取到 {len(lawyer_names)} 个律师姓名: {lawyer_names}")
+            logger.info("获取到 %s 个律师姓名: %s", len(lawyer_names), lawyer_names)
             return lawyer_names
 
         except Exception as e:
-            logger.warning(f"获取律师姓名失败: {e!s}")
+            logger.warning("获取律师姓名失败: %s", e)
             # 如果获取失败，返回空列表，不影响主流程
             return []
 
@@ -193,7 +193,7 @@ class PartyMatchingService:
         try:
             # 获取所有客户
             all_clients = self.client_service.get_all_clients_internal()
-            logger.info(f"客户数据库总数: {len(all_clients)}")
+            logger.info("客户数据库总数: %s", len(all_clients))
 
             # 检查是否有包含关键词的客户
             for party_name in party_names:
@@ -203,12 +203,12 @@ class PartyMatchingService:
                         matching_clients.append(client.name)
 
                 if matching_clients:
-                    logger.info(f"当事人 '{party_name}' 在客户库中找到相似记录: {matching_clients}")
+                    logger.info("当事人 '%s' 在客户库中找到相似记录: %s", party_name, matching_clients)
                 else:
-                    logger.info(f"当事人 '{party_name}' 在客户库中未找到相似记录")
+                    logger.info("当事人 '%s' 在客户库中未找到相似记录", party_name)
 
         except Exception as e:
-            logger.warning(f"调试客户数据库失败: {e!s}")
+            logger.warning("调试客户数据库失败: %s", e)
 
     def _deduplicate_clients(self, clients: list[Any]) -> list[Any]:
         """

@@ -62,7 +62,7 @@ class FeishuOwnerMixin:  # pragma: no cover
             if data.get("code") != 0:
                 error_msg = data.get("msg", "未知错误")
                 error_code = str(data.get("code"))
-                logger.error(f"获取飞书群聊信息失败: {error_msg} (code: {error_code})")
+                logger.error("获取飞书群聊信息失败: %s (code: %s)", error_msg, error_code)
                 raise ChatProviderException(
                     message=f"获取群聊信息失败: {error_msg}",
                     platform="feishu",
@@ -72,7 +72,7 @@ class FeishuOwnerMixin:  # pragma: no cover
 
             chat_data = data.get("data", {})
             chat_name = chat_data.get("name", "")
-            logger.debug(f"成功获取飞书群聊信息: {chat_id} (名称: {chat_name})")
+            logger.debug("成功获取飞书群聊信息: %s (名称: %s)", chat_id, chat_name)
 
             return ChatResult(
                 success=True,
@@ -85,14 +85,14 @@ class FeishuOwnerMixin:  # pragma: no cover
         except ChatProviderException:
             raise
         except httpx.HTTPError as e:
-            logger.error(f"获取飞书群聊信息网络请求失败: {e!s}")
+            logger.error("获取飞书群聊信息网络请求失败: %s", e)
             raise ChatProviderException(
                 message=f"网络请求失败: {e!s}",
                 platform="feishu",
                 errors={"original_error": str(e), "chat_id": chat_id},
             ) from e
         except Exception as e:
-            logger.error(f"获取飞书群聊信息时发生未知错误: {e!s}")
+            logger.error("获取飞书群聊信息时发生未知错误: %s", e)
             raise ChatProviderException(
                 message=f"获取群聊信息时发生未知错误: {e!s}",
                 platform="feishu",
@@ -155,16 +155,16 @@ class FeishuOwnerMixin:  # pragma: no cover
                 user_data = data.get("data", {}).get("user", {})
                 open_id = user_data.get("open_id")
                 if open_id:
-                    logger.info(f"成功转换union_id为open_id: {union_id} -> {open_id}")
+                    logger.info("成功转换union_id为open_id: %s -> %s", union_id, open_id)
                     return str(open_id)
                 else:
-                    logger.warning(f"API响应中缺少open_id: {union_id}")
+                    logger.warning("API响应中缺少open_id: %s", union_id)
                     return None
             else:
                 error_msg = data.get("msg", "未知错误")
-                logger.warning(f"转换union_id失败: {union_id}, 错误: {error_msg}")
+                logger.warning("转换union_id失败: %s, 错误: %s", union_id, error_msg)
                 return None
 
         except Exception as e:
-            logger.error(f"转换union_id时发生错误: {union_id}, 错误: {e!s}")
+            logger.error("转换union_id时发生错误: %s, 错误: %s", union_id, e)
             return None

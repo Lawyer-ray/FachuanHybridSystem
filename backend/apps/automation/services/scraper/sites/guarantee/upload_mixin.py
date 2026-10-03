@@ -336,11 +336,11 @@ class GuaranteeUploadMixin:  # pragma: no cover
                 chosen_files = _pick_materials([[]])
 
             if not chosen_files:
-                logger.warning(f"[gThree] 未匹配到文件: label={label_text[:80]}")
+                logger.warning("[gThree] 未匹配到文件: label=%s", label_text[:80])
                 continue
 
             logger.info(
-                f"[gThree] 准备上传: label={label_text[:80]}, files={[f.rsplit('/', 1)[-1] for f in chosen_files]}"
+                "[gThree] 准备上传: label=%s, files=%s", label_text[:80], [f.rsplit("/", 1)[-1] for f in chosen_files]
             )
 
             # 身份证明材料逐个文件上传（Vue 上传组件多文件时可能只处理第一个）

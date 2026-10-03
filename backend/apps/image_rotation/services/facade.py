@@ -51,7 +51,7 @@ class ImageRotationService:
                 result["warnings"] = errors
             return result
         except Exception as e:
-            logger.error(f"ZIP 生成失败: {e}", exc_info=True)
+            logger.error("ZIP 生成失败: %s", e, exc_info=True)
             return {"success": False, "message": f"ZIP 生成失败: {e!s}"}
 
     def _process_all_images(
@@ -75,7 +75,7 @@ class ImageRotationService:
             except ValidationException as e:
                 errors.append(f"{image_item.get('filename', f'图片{idx + 1}')}: {e.message}")
             except Exception as e:
-                logger.error(f"处理图片失败: {e}", extra={"filename": image_item.get("filename")}, exc_info=True)
+                logger.error("处理图片失败: %s", e, extra={"filename": image_item.get("filename")}, exc_info=True)
                 errors.append(f"{image_item.get('filename', f'图片{idx + 1}')}: 处理失败")
 
         return processed_images, errors
@@ -95,11 +95,7 @@ class ImageRotationService:
             except ValidationException as e:
                 errors.append(f"{page_item.get('filename', f'页面{idx + 1}')}: {e.message}")
             except Exception as e:
-                logger.error(
-                    f"处理页面失败: {e}",
-                    extra={},
-                    exc_info=True,
-                )
+                logger.error("处理页面失败: %s", e, extra={}, exc_info=True)
                 errors.append(f"{page_item.get('filename', f'页面{idx + 1}')}: 处理失败")
 
         if not processed_images:
@@ -112,7 +108,7 @@ class ImageRotationService:
                 result["warnings"] = errors
             return result
         except Exception as e:
-            logger.error(f"PDF 生成失败: {e}", exc_info=True)
+            logger.error("PDF 生成失败: %s", e, exc_info=True)
             return {"success": False, "message": f"PDF 生成失败: {e!s}"}
 
     def _process_single_image(

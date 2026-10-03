@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from django.db import models
 
+from apps.core.model_fields.encrypted import EncryptedTextField
+
 _BEARER_PREFIX = "bearer "
 _MODEL_SEPARATOR = ","
 
@@ -79,7 +81,7 @@ class LLMProvider(models.Model):
 
     name = models.CharField(max_length=50, unique=True, verbose_name="平台名称")
     base_url = models.CharField(max_length=500, verbose_name="API 地址")
-    api_keys = models.TextField(blank=True, default="", verbose_name="API Keys")
+    api_keys = EncryptedTextField(blank=True, default="", verbose_name="API Keys")
     default_model = models.CharField(max_length=100, verbose_name="默认模型")
     extra_models = models.TextField(blank=True, default="", verbose_name="模型列表")
     embedding_model = models.CharField(max_length=100, blank=True, default="", verbose_name="向量模型")

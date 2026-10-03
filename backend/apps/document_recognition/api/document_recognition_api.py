@@ -19,6 +19,7 @@ from ninja.files import UploadedFile
 from pydantic import BaseModel, Field
 
 from apps.core.exceptions import ValidationException
+from apps.core.security.admin_access import get_request_user
 
 logger = logging.getLogger("apps.document_recognition")
 
@@ -330,6 +331,7 @@ async def recognize_document(
     prebound = None
     if source_court_sms_id:
         prebound = await sync_to_async(_load_pipeline_prebinding)(source_court_sms_id)
+    task_creator = get_request_user(request)
 
     def _create_and_submit() -> Any:
         task = _get_task_service().create_task(
@@ -339,6 +341,7 @@ async def recognize_document(
             case_id=prebound["case_id"] if prebound else None,
             case_log_id=prebound["case_log_id"] if prebound else None,
             llm_model=requested_model,
+            created_by=task_creator,
         )
         submit_task(
             "apps.document_recognition.tasks.execute_document_recognition_task",
@@ -394,12 +397,13 @@ async def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchem
 
     响应含日期候选（date_candidates）、日期确认进度（date_confirmation_status）；
     任务识别成功且未绑定时附案件绑定推荐（recommendations）。
+    归属过滤：普通用户仅可见自己创建的与存量 NULL 的任务，否则 404。
     """
 
     def _do() -> Any:
         from apps.document_recognition.services import date_candidate_service
 
-        task = _get_task_service().get_task(task_id, select_case=True)
+        task = _get_task_service().get_task(task_id, select_case=True, user=get_request_user(request))
 
         # 构建响应
         recognition = None
@@ -479,6 +483,7 @@ async def confirm_date_candidates(
 
     只有确认过的候选才会写入重要日期提醒；任务已绑定时提醒挂案件日志，
     未绑定时创建独立提醒（记一笔快捕获场景）。已确认项幂等返回原提醒。
+    归属过滤：普通用户仅可见自己创建的与存量 NULL 的任务，否则 404。
     """
     from apps.document_recognition.services import date_candidate_service
 
@@ -486,7 +491,7 @@ async def confirm_date_candidates(
         results = date_candidate_service.confirm_candidates(
             task_id,
             [item.model_dump() for item in payload.items],
-            user=getattr(request, "user", None),
+            user=get_request_user(request),
         )
         # 确认会刷新任务级状态，重新读取避免返回旧值
         task = _get_task_service().get_task(task_id)
@@ -508,11 +513,12 @@ async def revoke_date_candidate(
 
     删除由文书识别创建的提醒（metadata.source=document_recognition），
     候选回到待确认状态；非本功能创建的提醒拒绝撤销。
+    归属过滤：普通用户仅可见自己创建的与存量 NULL 的任务，否则 404。
     """
     from apps.document_recognition.services import date_candidate_service
 
     def _do() -> Any:
-        result = date_candidate_service.revoke_confirmation(task_id, candidate_id)
+        result = date_candidate_service.revoke_confirmation(task_id, candidate_id, user=get_request_user(request))
         return DateRevokeResponseSchema(
             success=True,
             candidate_id=result["candidate_id"],
@@ -526,11 +532,11 @@ async def revoke_date_candidate(
 
 @router.get("/court-document/tasks/pending", response=list[PendingTaskOutSchema])
 async def list_pending_tasks(request: Any, limit: int = 10) -> list[PendingTaskOutSchema]:  # pragma: no cover
-    """待确认日期的识别任务（工作台侧栏）"""
+    """待确认日期的识别任务（工作台侧栏，按归属过滤：自己的 + 存量 NULL；管理员全量）"""
     limit = min(limit, 50)
 
     def _do() -> list[dict[str, Any]]:
-        raw: list[dict[str, Any]] = _get_task_service().pending_tasks(limit=limit)
+        raw: list[dict[str, Any]] = _get_task_service().pending_tasks(limit=limit, user=get_request_user(request))
         return raw
 
     raw = await sync_to_async(_do)()
@@ -626,6 +632,8 @@ async def manual_bind_case(
 
     将识别任务手动绑定到指定案件，触发后续流程（创建日志、设置提醒、通知）。
 
+    归属过滤：普通用户仅可绑定自己创建的与存量 NULL 的任务，否则 404。
+
     Args:
         task_id: 识别任务ID
         payload: 包含 case_id 的请求体
@@ -635,10 +643,11 @@ async def manual_bind_case(
 
     Requirements: 3.1
     """
+    task_owner = get_request_user(request)
 
     # 1. 获取任务并检查是否已绑定（在 sync 上下文中）
     def _check_bound() -> Any:
-        task = _get_task_service().get_task(task_id, select_case=True)
+        task = _get_task_service().get_task(task_id, select_case=True, user=task_owner)
         if task.binding_success:
             return ManualBindingResponseSchema(
                 success=False,
@@ -657,7 +666,7 @@ async def manual_bind_case(
     # 2. 调用服务层执行手动绑定（返回的是 dataclass，非 ORM 对象）
     binding_service = _get_case_binding_service()
     result = await sync_to_async(binding_service.manual_bind_document_to_case)(
-        task_id=task_id, case_id=payload.case_id, user=getattr(request, "user", None)
+        task_id=task_id, case_id=payload.case_id, user=task_owner
     )
 
     return ManualBindingResponseSchema(
@@ -679,6 +688,8 @@ async def update_task_info(
 
     用户发现识别结果不正确时，可手动修改案号和关键时间。
 
+    归属过滤：普通用户仅可改写自己创建的与存量 NULL 的任务，否则 404。
+
     Args:
         task_id: 识别任务ID
         payload: 包含 case_number 和/或 key_time 的请求体
@@ -692,6 +703,7 @@ async def update_task_info(
             task_id,
             case_number=payload.case_number,
             key_time=payload.key_time,
+            user=get_request_user(request),
         )
         return UpdateInfoResponseSchema(
             success=True,

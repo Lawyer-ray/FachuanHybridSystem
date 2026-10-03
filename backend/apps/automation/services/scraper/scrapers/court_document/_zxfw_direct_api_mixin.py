@@ -31,12 +31,12 @@ class ZxfwDirectApiMixin:  # pragma: no cover
             qdbh = params.get("qdbh", [None])[0]
             sdsin = params.get("sdsin", [None])[0]
             if sdbh and qdbh and sdsin:
-                logger.info(f"提取 URL 参数成功: sdbh={sdbh}, qdbh={qdbh}, sdsin={sdsin}")
+                logger.info("提取 URL 参数成功: sdbh=%s, qdbh=%s, sdsin=%s", sdbh, qdbh, sdsin)
                 return {"sdbh": sdbh, "qdbh": qdbh, "sdsin": sdsin}
-            logger.warning(f"URL 参数不完整: sdbh={sdbh}, qdbh={qdbh}, sdsin={sdsin}")
+            logger.warning("URL 参数不完整: sdbh=%s, qdbh=%s, sdsin=%s", sdbh, qdbh, sdsin)
             return None
         except Exception as e:
-            logger.error(f"解析 URL 参数失败: {e}")
+            logger.error("解析 URL 参数失败: %s", e)
             return None
 
     def _fetch_documents_via_direct_api(self, params: dict[str, str]) -> list[dict[str, Any]]:  # pragma: no cover
@@ -61,7 +61,7 @@ class ZxfwDirectApiMixin:  # pragma: no cover
             ),
         }
         payload = {"sdbh": params.get("sdbh"), "qdbh": params.get("qdbh"), "sdsin": params.get("sdsin")}
-        logger.info(f"直接调用 API: {api_url}, payload: {payload}")
+        logger.info("直接调用 API: %s, payload: %s", api_url, payload)
         start_time = time.time()
         with httpx.Client(headers=headers, timeout=30.0) as client:
             response = client.post(api_url, json=payload)
@@ -82,7 +82,7 @@ class ZxfwDirectApiMixin:  # pragma: no cover
         documents = api_data.get("data", [])
         if not isinstance(documents, list):
             raise ValueError(f"API 响应 data 字段格式错误: {type(documents)}")
-        logger.info(f"直接 API 获取到 {len(documents)} 个文书")
+        logger.info("直接 API 获取到 %s 个文书", len(documents))
         return documents
 
     def _download_document_directly(  # pragma: no cover
@@ -186,7 +186,7 @@ class ZxfwDirectApiMixin:  # pragma: no cover
             ),
         }
         payload = {"sdbh": params.get("sdbh"), "qdbh": params.get("qdbh"), "sdsin": params.get("sdsin")}
-        logger.info(f"发送签收确认: {api_url}, payload: {payload}")
+        logger.info("发送签收确认: %s, payload: %s", api_url, payload)
         try:
             with httpx.Client(headers=headers, timeout=30.0) as client:
                 resp = client.post(api_url, json=payload)
@@ -213,13 +213,13 @@ class ZxfwDirectApiMixin:  # pragma: no cover
         documents = self._fetch_documents_via_direct_api(params)
         if len(documents) == 0:
             raise ValueError("API 返回的文书列表为空")
-        logger.info(f"直接 API 获取到 {len(documents)} 个文书,开始下载")
+        logger.info("直接 API 获取到 %s 个文书,开始下载", len(documents))
         downloaded_files: list[str] = []
         documents_with_results: list[tuple[dict[str, Any], tuple[bool, str | None, str | None]]] = []
         success_count = 0
         failed_count = 0
         for i, document_data in enumerate(documents, 1):
-            logger.info(f"下载第 {i}/{len(documents)} 个文书: {document_data.get('c_wsmc', 'Unknown')}")
+            logger.info("下载第 %s/%s 个文书: %s", i, len(documents), document_data.get("c_wsmc", "Unknown"))
             download_result = self._download_document_directly(
                 document_data=document_data, download_dir=download_dir, download_timeout=60000
             )

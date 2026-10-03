@@ -70,7 +70,7 @@ class PDFExtractionService:
             if not pages:
                 return {"success": False, "filename": filename, "message": "所有页面提取失败", "pages": []}
 
-            logger.info(f"PDF 页面提取完成: {filename}", extra={})
+            logger.info("PDF 页面提取完成: %s", filename, extra={})
             return {"success": True, "filename": filename, "pages": pages}
         finally:
             pdf_document.close()
@@ -86,7 +86,9 @@ class PDFExtractionService:
                 page_result = self._extract_single_page(page, page_num + 1, filename)
                 pages.append(page_result)
             except Exception as e:
-                logger.warning(f"页面提取失败: 第 {page_num + 1} 页", extra={"pdf_filename": filename, "error": str(e)})
+                logger.warning(
+                    "页面提取失败: 第 %s 页", page_num + 1, extra={"pdf_filename": filename, "error": str(e)}
+                )
         return pages
 
     def _open_pdf_document(self, pdf_data: str, filename: str) -> Any:  # pragma: no cover
@@ -101,7 +103,7 @@ class PDFExtractionService:
                 pdf_data = pdf_data.split(",", 1)[1]
             pdf_bytes = base64.b64decode(pdf_data)
         except Exception as e:
-            logger.warning(f"PDF Base64 解码失败: {e}", extra={"pdf_filename": filename})
+            logger.warning("PDF Base64 解码失败: %s", e, extra={"pdf_filename": filename})
             return {"success": False, "filename": filename, "message": "PDF 数据解码失败", "pages": []}
 
         if len(pdf_bytes) > self.MAX_PDF_SIZE:
@@ -143,7 +145,9 @@ class PDFExtractionService:
                 page_result = self._extract_page_without_detection(page, page_num + 1)
                 pages.append(page_result)
             except Exception as e:
-                logger.warning(f"页面提取失败: 第 {page_num + 1} 页", extra={"pdf_filename": filename, "error": str(e)})
+                logger.warning(
+                    "页面提取失败: 第 %s 页", page_num + 1, extra={"pdf_filename": filename, "error": str(e)}
+                )
         return pages
 
     def _extract_page_without_detection(self, page: Any, page_number: int) -> dict[str, Any]:
@@ -193,7 +197,7 @@ class PDFExtractionService:
             image_bytes = base64.b64decode(image_data)
             return self._detect_page_orientation(image_bytes)
         except Exception as e:
-            logger.warning(f"页面方向检测失败: {e}")
+            logger.warning("页面方向检测失败: %s", e)
             return {
                 "rotation": 0,
                 "confidence": 0,
@@ -282,7 +286,7 @@ class PDFExtractionService:
             svc = get_onnx_orientation_service()
             return svc.detect_orientation(image_data)
         except Exception as e:
-            logger.warning(f"页面方向检测失败,使用默认方向: {e}", extra={})
+            logger.warning("页面方向检测失败,使用默认方向: %s", e, extra={})
             return {
                 "rotation": 0,
                 "confidence": 0,

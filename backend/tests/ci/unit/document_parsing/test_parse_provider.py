@@ -1,8 +1,9 @@
 """DocumentParseProvider 模型 / ParseProviderService / 数据迁移测试"""
 
 import pytest
+from django.db import connection
 
-from apps.core.models import DocumentParseProvider
+from apps.core.models import DocumentParseProvider, LLMProvider
 from apps.core.services.document_parse_provider_service import ParseProviderService
 
 
@@ -44,9 +45,11 @@ class TestParseProviderService:
             name="M2", provider_type="mineru", priority=1, enabled=False, credentials="k2"
         )
 
-        assert ParseProviderService.get_provider("textin").name == "T1"
+        textin = ParseProviderService.get_provider("textin")
+        mineru = ParseProviderService.get_provider("mineru")
         # 禁用平台不返回；mineru 启用的是 M1
-        assert ParseProviderService.get_provider("mineru").name == "M1"
+        assert textin is not None and textin.name == "T1"
+        assert mineru is not None and mineru.name == "M1"
         assert ParseProviderService.get_provider("local") is None
 
     @pytest.mark.django_db
@@ -128,3 +131,85 @@ class TestSeedMigration:
         mineru = DocumentParseProvider.objects.get(provider_type="mineru")
         assert mineru.parsed_credentials() == ["mkey-a", "mkey-b"]
         assert mineru.priority == 10
+
+
+class TestCredentialsEncryptionAtRest:
+    """credentials 改为 EncryptedTextField 后：落库密文、读回明文、解析不变。"""
+
+    @pytest.mark.django_db
+    def test_credentials_encrypted_at_rest_and_round_trip(self) -> None:
+        raw = "app-1|secret-1\napp-2|secret-2"  # pragma: allowlist secret
+        provider = DocumentParseProvider.objects.create(
+            name="T1", provider_type="textin", credentials=raw
+        )
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT credentials FROM core_documentparseprovider WHERE id = %s", [provider.id]
+            )
+            stored = cursor.fetchone()[0]
+        assert stored.startswith("enc:v1:")
+        assert "secret-1" not in stored  # pragma: allowlist secret
+
+        reloaded = DocumentParseProvider.objects.get(pk=provider.pk)
+        assert reloaded.credentials == raw
+        assert reloaded.parsed_credentials() == ["app-1|secret-1", "app-2|secret-2"]
+        assert DocumentParseProvider.split_textin_credential(reloaded.parsed_credentials()[0]) == (
+            "app-1",
+            "secret-1",
+        )
+
+
+class TestEncryptExistingSecretsMigration:
+    """0028 数据迁移：存量明文凭证加密回写，重复执行幂等。"""
+
+    @pytest.mark.django_db
+    def test_plaintext_rows_encrypted_in_place(self) -> None:
+        from importlib import import_module
+        from unittest.mock import MagicMock
+
+        from django.apps import apps
+
+        module = import_module(
+            "apps.core.migrations.0028_alter_documentparseprovider_credentials_and_more"
+        )
+
+        llm = LLMProvider.objects.create(
+            name="存量平台", base_url="http://law/v1", api_keys="", default_model="kimi26"
+        )
+        textin = DocumentParseProvider.objects.create(
+            name="存量T1", provider_type="textin", credentials=""
+        )
+        # 模拟迁移前已落库的明文行（绕过 ORM 加密直接写库）
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE core_llmprovider SET api_keys = %s WHERE id = %s",
+                ["sk-old-1\nsk-old-2", llm.id],
+            )
+            cursor.execute(
+                "UPDATE core_documentparseprovider SET credentials = %s WHERE id = %s",
+                ["old-app|old-secret", textin.id],
+            )
+
+        module.encrypt_existing_secrets(apps, MagicMock())
+
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT api_keys FROM core_llmprovider WHERE id = %s", [llm.id])
+            llm_stored = cursor.fetchone()[0]
+            cursor.execute(
+                "SELECT credentials FROM core_documentparseprovider WHERE id = %s", [textin.id]
+            )
+            textin_stored = cursor.fetchone()[0]
+        assert llm_stored.startswith("enc:v1:")
+        assert "sk-old-1" not in llm_stored  # pragma: allowlist secret
+        assert textin_stored.startswith("enc:v1:")
+        assert "old-secret" not in textin_stored  # pragma: allowlist secret
+
+        # ORM 读回明文，key 池 / 凭证拆分逻辑不变
+        assert LLMProvider.objects.get(pk=llm.pk).parsed_api_keys() == ["sk-old-1", "sk-old-2"]  # pragma: allowlist secret
+        assert DocumentParseProvider.objects.get(pk=textin.pk).parsed_credentials() == [
+            "old-app|old-secret"
+        ]
+
+        # 幂等：重复执行不报错，明文读回结果不变
+        module.encrypt_existing_secrets(apps, MagicMock())
+        assert DocumentParseProvider.objects.get(pk=textin.pk).credentials == "old-app|old-secret"  # pragma: allowlist secret
