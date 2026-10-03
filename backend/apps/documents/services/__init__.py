@@ -16,7 +16,6 @@ __all__ = [
     "GenerationService",
     "ContractGenerationService",
     "PDFMergeService",
-    "TemplateAuditLogService",
 ]
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
@@ -37,10 +36,6 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     ),
     "PlaceholderService": ("apps.documents.services.placeholders.placeholder_service", "PlaceholderService"),
     "DocumentTemplateService": ("apps.documents.services.template.template_service", "DocumentTemplateService"),
-    "TemplateAuditLogService": (
-        "apps.documents.services.template.template_audit_log_service",
-        "TemplateAuditLogService",
-    ),
 }
 
 

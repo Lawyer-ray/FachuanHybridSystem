@@ -27,8 +27,6 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 
-from apps.automation.services.scraper.core.captcha_recognizer import CaptchaRecognizer
-
 from .base_court_scraper import BaseCourtDocumentScraper
 
 logger = logging.getLogger("apps.automation")
@@ -65,14 +63,14 @@ class DaolvSifaSongdaScraper(BaseCourtDocumentScraper):  # pragma: no cover
     def __init__(
         self,
         task: Any,
-        captcha_recognizer: CaptchaRecognizer | None = None,
+        captcha_recognizer: Any = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(task, **kwargs)
         if captcha_recognizer is None:
             from apps.automation.services.scraper.core.captcha_recognizer import get_captcha_recognizer
 
-            self.captcha_recognizer: CaptchaRecognizer = get_captcha_recognizer(task=self.task)
+            self.captcha_recognizer = get_captcha_recognizer(task=self.task)
         else:
             self.captcha_recognizer = captcha_recognizer
 

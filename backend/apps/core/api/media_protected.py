@@ -48,6 +48,8 @@ from pathlib import Path
 from urllib.parse import quote
 
 from django.conf import settings
+from django.core.exceptions import SuspiciousFileOperation
+from django.core.files.storage import default_storage
 from django.http import (
     FileResponse,
     HttpRequest,
@@ -107,6 +109,9 @@ def serve_protected_media(request: HttpRequest, path: str) -> HttpResponseBase:
         response["Content-Type"] = content_type
         return response
 
-    if not abs_path.is_file():
+    # 流式回读统一走 storage API：相对路径经 Django storage 的 safe_join 收敛，
+    # 不以用户输入直接构造文件系统路径
+    try:
+        return FileResponse(default_storage.open(rel_path), content_type=content_type)
+    except (FileNotFoundError, SuspiciousFileOperation, ValueError):
         return HttpResponseNotFound()
-    return FileResponse(abs_path.open("rb"), content_type=content_type)
