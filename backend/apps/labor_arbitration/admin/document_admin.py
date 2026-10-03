@@ -127,7 +127,9 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
             f'">显示图片（共 {len(images)} 页）</button>'
             "</div>"
         )
-        return mark_safe(html)
+        # 动态部分（source_url）已 html_escape，
+        # preview_id 由整型 pk 组成，onclick 为静态脚本
+        return mark_safe(html)  # nosec B703, B308
 
     @admin.display(description="解析文本")
     def parsed_text_display(self, obj: ArbitrationDocument) -> SafeString:

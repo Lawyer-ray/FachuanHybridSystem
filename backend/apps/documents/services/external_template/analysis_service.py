@@ -18,6 +18,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 from xml.etree import ElementTree as ET
 
+from defusedxml import DefusedXmlException
+from defusedxml.ElementTree import fromstring as safe_fromstring
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
@@ -389,8 +391,9 @@ class AnalysisService:
 
         body_xml: str = doc.element.xml
         try:
-            root: ET.Element = ET.fromstring(body_xml)
-        except ET.ParseError:
+            # defusedxml 防御 XML 实体扩展（用户上传的 docx 内 XML 不受信任）
+            root: ET.Element = safe_fromstring(body_xml)
+        except (ET.ParseError, DefusedXmlException):
             logger.info("复选框提取: XML 解析失败，跳过")
             return checkboxes
 

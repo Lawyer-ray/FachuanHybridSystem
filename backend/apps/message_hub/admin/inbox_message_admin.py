@@ -395,7 +395,8 @@ class InboxMessageAdmin(admin.ModelAdmin):  # pragma: no cover
     @admin.display(description="附件")
     def attachments_display(self, obj: InboxMessage) -> SafeString:  # pragma: no cover
         if not obj.has_attachments:
-            return mark_safe('<span style="color:#ccc">—</span>')
+            # 纯静态占位符，无动态数据
+            return mark_safe('<span style="color:#ccc">—</span>')  # nosec B308
         count = len(obj.attachments_meta)
         return format_html('<span style="color:#007bff">{} 个附件</span>', count)
 
@@ -405,15 +406,19 @@ class InboxMessageAdmin(admin.ModelAdmin):  # pragma: no cover
 
         content = obj.body_html or obj.body_text or ""
         if not content:
-            return mark_safe('<span style="color:#999">无正文</span>')
+            # 纯静态占位文案，无动态数据
+            return mark_safe('<span style="color:#999">无正文</span>')  # nosec B308
         if obj.body_html:
             escaped = html.escape(obj.body_html)
-            return mark_safe(
+            # body_html 已 html.escape（默认转义引号）后置于
+            # srcdoc 属性，iframe 带 sandbox="" 禁止脚本执行
+            return mark_safe(  # nosec B703, B308
                 f'<iframe srcdoc="{escaped}" sandbox="" '
                 f'style="width:100%;height:400px;border:1px solid #ddd;background:#fff" '
                 f'loading="lazy"></iframe>'
             )
-        return mark_safe(
+        # content 已 html.escape，其余为静态样式
+        return mark_safe(  # nosec B703, B308
             '<div style="border:1px solid #ddd;padding:12px;max-height:400px;overflow:auto;background:#fff;white-space:pre-wrap">'
             + html.escape(content)
             + "</div>"
@@ -422,7 +427,8 @@ class InboxMessageAdmin(admin.ModelAdmin):  # pragma: no cover
     @admin.display(description="附件操作")
     def attachments_actions(self, obj: InboxMessage) -> SafeString:  # pragma: no cover
         if not obj.attachments_meta:
-            return mark_safe('<span style="color:#999">无附件</span>')
+            # 纯静态占位文案，无动态数据
+            return mark_safe('<span style="color:#999">无附件</span>')  # nosec B308
         from django.urls import reverse
 
         title_effective = "当前下载名"
@@ -550,4 +556,6 @@ class InboxMessageAdmin(admin.ModelAdmin):  # pragma: no cover
             """
         )
 
-        return mark_safe("".join(parts))
+        # 所有动态值（文件名/大小/文案）均经 escape/escapejs，
+        # URL 均为 reverse() 生成的内部 admin URL
+        return mark_safe("".join(parts))  # nosec B703, B308

@@ -94,7 +94,9 @@ class ONNXOrientationService:
 
             MODEL_DIR.mkdir(parents=True, exist_ok=True)
             logger.info("本地无模型，正在从 HuggingFace Hub 下载...")
-            hf_hub_download(
+            # 自有仓库 Fachuan/orientation-classifier，
+            # revision 固定为 v1.0 tag 防止供应链投毒（见下方 revision 参数）
+            hf_hub_download(  # nosec B615
                 repo_id="Fachuan/orientation-classifier",
                 filename="fachuan-orientation-classifier.onnx",
                 revision="v1.0",  # 固定版本防止供应链投毒

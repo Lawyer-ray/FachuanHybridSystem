@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from xml.etree import ElementTree as ET
 
+from defusedxml.ElementTree import fromstring as safe_fromstring
 from django.apps import apps
 from django.conf import settings
 from django.db.models import QuerySet
@@ -434,9 +435,9 @@ class FillingService:
             checkbox_index: int = locator.get("checkbox_index", 0)
             checked: bool = value.lower() in ("true", "1", "yes")
 
-            # 解析文档 XML 查找复选框
+            # 解析文档 XML 查找复选框（defusedxml 防御 XML 实体扩展，docx 不受信任）
             body_xml: str = doc.element.xml
-            root: ET.Element = ET.fromstring(body_xml)
+            root: ET.Element = safe_fromstring(body_xml)
 
             # Word 复选框命名空间
             ns: dict[str, str] = {

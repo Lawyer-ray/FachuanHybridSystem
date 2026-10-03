@@ -17,6 +17,8 @@ import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from defusedxml.ElementTree import fromstring as safe_fromstring
+
 if TYPE_CHECKING:
     from apps.documents.models.external_template import ExternalTemplate
 
@@ -169,7 +171,8 @@ class FingerprintService:
         Returns:
             去除文本内容后的 XML 字符串
         """
-        root: ET.Element = ET.fromstring(xml_content)
+        # defusedxml 防御 XML 实体扩展（用户上传的 docx 内 XML 不受信任）
+        root: ET.Element = safe_fromstring(xml_content)
 
         for elem in root.iter():
             elem.text = None
@@ -190,7 +193,8 @@ class FingerprintService:
         Returns:
             去除样式属性后的 XML 字符串
         """
-        root: ET.Element = ET.fromstring(xml_content)
+        # defusedxml 防御 XML 实体扩展（用户上传的 docx 内 XML 不受信任）
+        root: ET.Element = safe_fromstring(xml_content)
 
         self._remove_style_elements(root)
 

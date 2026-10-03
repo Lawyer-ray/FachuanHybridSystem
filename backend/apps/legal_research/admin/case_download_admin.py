@@ -401,7 +401,8 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):  # pragma: no cover
 
         if not buttons:
             return "—"
-        return mark_safe("&nbsp;".join(buttons))
+        # 链接均为 reverse() 生成的内部 admin URL，无用户可控数据
+        return mark_safe("&nbsp;".join(buttons))  # nosec B703, B308
 
     def download_zip_view(self, request, object_id) -> HttpResponse:  # pragma: no cover
         if not self.has_change_permission(request):
