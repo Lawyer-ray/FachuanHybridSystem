@@ -29,7 +29,9 @@ def _get_case_number_service() -> Any:
 
 
 @router.get("/case-numbers", response=list[CaseNumberOut])
-async def list_case_numbers(request: HttpRequest, case_id: int | None = None) -> list[CaseNumberOut]:  # pragma: no cover
+async def list_case_numbers(
+    request: HttpRequest, case_id: int | None = None
+) -> list[CaseNumberOut]:  # pragma: no cover
     """获取案号列表"""
     service = _get_case_number_service()
     ctx = extract_request_context(request)
@@ -37,7 +39,10 @@ async def list_case_numbers(request: HttpRequest, case_id: int | None = None) ->
     @sync_to_async
     def _fetch() -> list[Any]:
         qs = service.list_numbers(
-            case_id=case_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+            case_id=case_id,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
         )
         # Eagerly evaluate queryset so Django Ninja serialization
         # (which runs in the async event loop) won't trigger sync ORM calls.
@@ -55,7 +60,10 @@ async def get_case_number(request: HttpRequest, number_id: int) -> CaseNumberOut
     @sync_to_async
     def _get() -> Any:
         return service.get_number(
-            number_id=number_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+            number_id=number_id,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
         )
 
     return cast(CaseNumberOut, await _get())
@@ -70,15 +78,21 @@ async def create_case_number(request: HttpRequest, payload: CaseNumberIn) -> Cas
     @sync_to_async
     def _create() -> Any:
         return service.create_number(
-            case_id=payload.case_id, number=payload.number, remarks=payload.remarks,
-            user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+            case_id=payload.case_id,
+            number=payload.number,
+            remarks=payload.remarks,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
         )
 
     return cast(CaseNumberOut, await _create())
 
 
 @router.put("/case-numbers/{number_id}", response=CaseNumberOut)
-async def update_case_number(request: HttpRequest, number_id: int, payload: CaseNumberUpdate) -> CaseNumberOut:  # pragma: no cover
+async def update_case_number(
+    request: HttpRequest, number_id: int, payload: CaseNumberUpdate
+) -> CaseNumberOut:  # pragma: no cover
     """更新案号"""
     service = _get_case_number_service()
     ctx = extract_request_context(request)
@@ -87,8 +101,11 @@ async def update_case_number(request: HttpRequest, number_id: int, payload: Case
     @sync_to_async
     def _update() -> Any:
         return service.update_number(
-            number_id=number_id, data=data, user=ctx.user,
-            org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+            number_id=number_id,
+            data=data,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
         )
 
     return cast(CaseNumberOut, await _update())
@@ -103,7 +120,10 @@ async def delete_case_number(request: HttpRequest, number_id: int) -> Any:  # pr
     @sync_to_async
     def _delete() -> Any:
         return service.delete_number(
-            number_id=number_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+            number_id=number_id,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
         )
 
     return await _delete()
@@ -117,12 +137,12 @@ async def upload_temp_document(request: HttpRequest) -> dict[str, Any]:  # pragm
     try:
         file = request.FILES.get("file")
         if not file:
-            return {"success": False, "error": "未上传文件"}
+            return {"success": False, "message": "未上传文件"}
 
         # 验证文件类型
         ext = os.path.splitext(file.name or "")[1].lower()
         if ext not in [".pdf"]:
-            return {"success": False, "error": "仅支持 PDF 格式"}
+            return {"success": False, "message": "仅支持 PDF 格式"}
 
         # 防止 path traversal：只保留文件名部分，去掉路径分隔符
         safe_name = Path(str(file.name or "")).name
@@ -144,4 +164,4 @@ async def upload_temp_document(request: HttpRequest) -> dict[str, Any]:  # pragm
         }
 
     except (OSError, ValueError) as e:
-        return {"success": False, "error": f"上传失败: {e!s}"}
+        return {"success": False, "message": f"上传失败: {e!s}"}

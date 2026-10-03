@@ -233,11 +233,13 @@ async def check_law_references(request: Any, payload: dict[str, Any]) -> dict[st
     """
 
     def _do_check() -> dict[str, Any]:
+        from apps.core.exceptions import ExternalServiceError, NotFoundError, PermissionDenied, ValidationException
+
         text = str(payload.get("text") or "").strip()
         credential_id = int(payload.get("credential_id") or 0)
 
         if not text:
-            return {"error": "text 不能为空", "references": [], "total": 0}
+            raise ValidationException("text 不能为空", code="TEXT_REQUIRED")
 
         # 检测插件是否可用（CI 类型检查环境无 plugins 子模块，用 getattr 动态获取
         # 避免 import 语句在有/无 plugins 两环境下互斥的 mypy 报错）
@@ -246,7 +248,7 @@ async def check_law_references(request: Any, payload: dict[str, Any]) -> dict[st
         has_law_verification_plugin = getattr(_plugins, "has_law_verification_plugin", None)
 
         if not callable(has_law_verification_plugin):
-            return {"error": "法规核查插件未安装", "references": [], "total": 0}
+            raise ValidationException("法规核查插件未安装", code="PLUGIN_NOT_INSTALLED")
 
         # 获取威科先行凭证
         from apps.core.security.secret_codec import SecretCodec
@@ -255,16 +257,14 @@ async def check_law_references(request: Any, payload: dict[str, Any]) -> dict[st
         try:
             cred = AccountCredential.objects.select_related("lawyer").get(id=credential_id)
         except AccountCredential.DoesNotExist:
-            return {"error": f"凭证 ID {credential_id} 不存在", "references": [], "total": 0}
+            raise NotFoundError(message=f"凭证 ID {credential_id} 不存在", code="CREDENTIAL_NOT_FOUND", errors={})
 
         # 安全审计 A-07：凭证归属校验（superuser 例外），与 LegalResearchTaskService 同口径
         user = getattr(request, "user", None)
         if user is None or not getattr(user, "is_authenticated", False):
             user = getattr(request, "auth", None)
-        if user is None:
-            return {"error": "请先登录", "references": [], "total": 0}
         if not getattr(user, "is_superuser", False) and cred.lawyer.law_firm_id != getattr(user, "law_firm_id", None):
-            return {"error": "无权限使用该账号凭证", "references": [], "total": 0}
+            raise PermissionDenied(message="无权限使用该账号凭证", code="CREDENTIAL_FORBIDDEN", errors={})
 
         codec = SecretCodec()
         password = codec.try_decrypt(cred.password)
@@ -286,7 +286,7 @@ async def check_law_references(request: Any, payload: dict[str, Any]) -> dict[st
                 login_url=_sanitize_weike_login_url(cred.url),
             )
         except Exception as e:
-            return {"error": f"威科先行登录失败: {e}", "references": [], "total": 0}
+            raise ExternalServiceError(f"威科先行登录失败: {e}", code="WEIKE_LOGIN_FAILED") from e
 
         # 定义回调函数
         def search_laws(law_name: str) -> list[dict[str, Any]]:
@@ -307,7 +307,7 @@ async def check_law_references(request: Any, payload: dict[str, Any]) -> dict[st
         try:
             results = verify_references(text, search_laws_fn=search_laws, fetch_article_fn=fetch_article)
         except Exception as e:
-            return {"error": f"核查失败: {e}", "references": [], "total": 0}
+            raise ExternalServiceError(f"核查失败: {e}", code="VERIFY_FAILED") from e
 
         return {
             "references": [

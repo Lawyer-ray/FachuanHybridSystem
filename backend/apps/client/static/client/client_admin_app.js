@@ -134,7 +134,7 @@ function clientAdminApp() {
                         this.showSuccess('文本解析成功，表单已自动填充');
                     }
                 } else {
-                    this.showError(data.error || '解析失败，请检查文本格式');
+                    this.showError(data.message || data.error || '解析失败，请检查文本格式');
                 }
             } catch (error) {
                 console.error('[ClientAdminApp] 解析请求失败:', error);

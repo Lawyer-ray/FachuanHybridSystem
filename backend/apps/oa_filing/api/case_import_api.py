@@ -6,8 +6,7 @@ import logging
 import os
 from typing import Any
 
-from django.http import HttpRequest, HttpResponse, JsonResponse
-from django.utils import timezone
+from django.http import HttpRequest
 from ninja import Router, UploadedFile
 
 from apps.oa_filing.schemas.case_import_schemas import CaseImportSessionOut, CasePreviewItem, CasePreviewResponse
@@ -25,28 +24,25 @@ def trigger_case_import(request: HttpRequest) -> Any:  # pragma: no cover
     """触发从OA导入案件（预览模式）。
 
     接收上传的Excel文件，解析案件编号，预览匹配结果。
+    路由挂载时已带 JWTOrSessionAuth，进入本函数即已认证。
     """
-    import json
-
+    from apps.core.exceptions import ValidationException
     from apps.oa_filing.services.import_session_service import get_credential
 
-    if not request.user.is_authenticated:
-        return {"error": "未登录"}
-
     lawyer_id = getattr(request.user, "id", None)
-    if lawyer_id is None:
-        return {"error": "无效用户"}
+    if lawyer_id is None:  # pragma: no cover — 路由已认证，防御性分支
+        raise ValidationException("无效用户", code="INVALID_USER")
 
     # 查找用户的 OA 凭证
     credential = get_credential(lawyer_id, "金诚同达OA")
 
     if not credential:
-        return {"error": "未找到OA账号凭证"}
+        raise ValidationException("未找到OA账号凭证", code="OA_CREDENTIAL_NOT_FOUND")
 
     # 获取上传的文件
     file: UploadedFile | None = request.FILES.get("file")  # type: ignore[assignment]
     if not file:
-        return {"error": "未上传文件"}
+        raise ValidationException("未上传文件", code="FILE_REQUIRED")
 
     # 保存上传的文件
     import uuid
@@ -96,19 +92,14 @@ def get_case_import_session(request: HttpRequest, session_id: int) -> Any:  # pr
 
 
 @router.post("/case-import/{session_id}/execute")
-def execute_case_import(request: HttpRequest, session_id: int) -> HttpResponse:  # pragma: no cover
+def execute_case_import(request: HttpRequest, session_id: int) -> dict[str, Any]:  # pragma: no cover
     """执行案件导入。
 
     对预览阶段标记为 unmatched 的案件，从OA提取数据并创建/更新合同。
     """
     import json
 
-    if not request.user.is_authenticated:
-        return JsonResponse({"error": "未登录"}, status=401)
-
-    lawyer_id = getattr(request.user, "id", None)
-    if lawyer_id is None:
-        return JsonResponse({"error": "无效用户"}, status=400)
+    from apps.core.exceptions import ValidationException
 
     # 获取会话
     from apps.core.security.admin_access import get_request_user
@@ -116,7 +107,9 @@ def execute_case_import(request: HttpRequest, session_id: int) -> HttpResponse: 
 
     session = get_case_session_or_none(session_id, lawyer_id=getattr(get_request_user(request), "id", None))
     if session is None:
-        return JsonResponse({"error": "会话不存在"}, status=404)
+        from apps.core.exceptions import NotFoundError
+
+        raise NotFoundError(message="会话不存在", code="SESSION_NOT_FOUND", errors={})
 
     # 解析请求体
     try:
@@ -124,10 +117,10 @@ def execute_case_import(request: HttpRequest, session_id: int) -> HttpResponse: 
         case_nos = body.get("case_nos", [])
         matched_case_nos = body.get("matched_case_nos", [])
     except json.JSONDecodeError:
-        return JsonResponse({"error": "无效的请求数据"}, status=400)
+        raise ValidationException("无效的请求数据", code="INVALID_BODY")
 
     if not case_nos:
-        return JsonResponse({"error": "案件编号列表为空"}, status=400)
+        raise ValidationException("案件编号列表为空", code="EMPTY_CASE_NOS")
 
     # 启动后台任务执行导入
     from apps.core.tasking import submit_task
@@ -143,23 +136,23 @@ def execute_case_import(request: HttpRequest, session_id: int) -> HttpResponse: 
 
     logger.info("启动案件导入任务: session_id=%d case_nos=%d", session_id, len(case_nos))
 
-    return JsonResponse(
-        {
-            "message": "导入任务已启动",
-            "session_id": session_id,
-        }
-    )
+    return {
+        "message": "导入任务已启动",
+        "session_id": session_id,
+    }
 
 
-@router.get("/case-import/{session_id}/preview")
-def get_case_import_preview(request: HttpRequest, session_id: int) -> JsonResponse:  # pragma: no cover
+@router.get("/case-import/{session_id}/preview", response=CasePreviewResponse)
+def get_case_import_preview(request: HttpRequest, session_id: int) -> Any:  # pragma: no cover
     """获取案件导入预览结果。"""
     from apps.core.security.admin_access import get_request_user
     from apps.oa_filing.services.import_session_service import get_case_session_or_none
 
     session = get_case_session_or_none(session_id, lawyer_id=getattr(get_request_user(request), "id", None))
     if session is None:
-        return JsonResponse({"error": "会话不存在"}, status=404)
+        from apps.core.exceptions import NotFoundError
+
+        raise NotFoundError(message="会话不存在", code="SESSION_NOT_FOUND", errors={})
 
     result_data = session.result_data or {}
     preview_list = result_data.get("preview", [])
@@ -179,14 +172,12 @@ def get_case_import_preview(request: HttpRequest, session_id: int) -> JsonRespon
     matched = sum(1 for item in preview_items if item.status == "matched")
     unmatched = sum(1 for item in preview_items if item.status == "unmatched")
 
-    response = CasePreviewResponse(
+    return CasePreviewResponse(
         total_cases=total,
         matched=matched,
         unmatched=unmatched,
         preview=preview_items,
     )
-
-    return JsonResponse(response.model_dump())
 
 
 @router.post("/case-import/{session_id}/batch-create")
@@ -197,23 +188,25 @@ def batch_create_cases(request: HttpRequest, session_id: int) -> Any:  # pragma:
     """
     import json
 
+    from apps.core.exceptions import NotFoundError, ValidationException
+
     # 获取会话
     from apps.core.security.admin_access import get_request_user
     from apps.oa_filing.services.import_session_service import get_case_session_or_none
 
     session = get_case_session_or_none(session_id, lawyer_id=getattr(get_request_user(request), "id", None))
     if session is None:
-        return {"error": "会话不存在"}
+        raise NotFoundError(message="会话不存在", code="SESSION_NOT_FOUND", errors={})
 
     # 解析请求体
     try:
         body = json.loads(request.body)
         cases = body.get("cases", [])
     except json.JSONDecodeError:
-        return {"error": "无效的请求数据"}
+        raise ValidationException("无效的请求数据", code="INVALID_BODY")
 
     if not cases:
-        return {"error": "案件列表为空"}
+        raise ValidationException("案件列表为空", code="EMPTY_CASES")
 
     # 提交后台任务
     from apps.core.tasking import submit_task

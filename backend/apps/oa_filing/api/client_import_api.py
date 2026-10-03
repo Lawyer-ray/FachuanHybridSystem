@@ -21,17 +21,15 @@ CLIENT_IMPORT_TASK_TIMEOUT_SECONDS = int(os.environ.get("OA_CLIENT_IMPORT_TASK_T
 
 @router.post("/client-import", response=ClientImportSessionOut)
 def trigger_client_import(request: HttpRequest) -> Any:  # pragma: no cover
-    """触发从OA导入客户。"""
+    """触发从OA导入客户。路由挂载时已带 JWTOrSessionAuth，进入本函数即已认证。"""
     import json
 
+    from apps.core.exceptions import ValidationException
     from apps.oa_filing.services.import_session_service import get_credential
 
-    if not request.user.is_authenticated:
-        return {"error": "未登录"}
-
     lawyer_id = getattr(request.user, "id", None)
-    if lawyer_id is None:
-        return {"error": "无效用户"}
+    if lawyer_id is None:  # pragma: no cover — 路由已认证，防御性分支
+        raise ValidationException("无效用户", code="INVALID_USER")
 
     headless = True
     limit: int | None = None
@@ -48,9 +46,9 @@ def trigger_client_import(request: HttpRequest) -> Any:  # pragma: no cover
                         try:
                             parsed_limit = int(raw_limit)
                         except (TypeError, ValueError):
-                            return {"error": "导入数量必须是大于 0 的整数"}
+                            raise ValidationException("导入数量必须是大于 0 的整数", code="INVALID_LIMIT")
                         if parsed_limit <= 0:
-                            return {"error": "导入数量必须是大于 0 的整数"}
+                            raise ValidationException("导入数量必须是大于 0 的整数", code="INVALID_LIMIT")
                         limit = parsed_limit
         except json.JSONDecodeError:
             # 非 JSON 请求体时使用默认值
@@ -61,7 +59,7 @@ def trigger_client_import(request: HttpRequest) -> Any:  # pragma: no cover
     credential = get_credential(lawyer_id, "金诚同达OA")
 
     if not credential:
-        return {"error": "未找到OA账号凭证"}
+        raise ValidationException("未找到OA账号凭证", code="OA_CREDENTIAL_NOT_FOUND")
 
     # 创建导入会话
     from apps.oa_filing.services.import_session_service import create_client_session, get_lawyer
@@ -104,7 +102,9 @@ def batch_create_clients(request: HttpRequest, session_id: int) -> dict[str, Any
 
     同步校验请求数据后，将实际的批量处理逻辑提交给后台任务执行，避免大批次请求阻塞 HTTP 线程。
     """
-    from django.http import JsonResponse
+    import json
+
+    from apps.core.exceptions import NotFoundError, ValidationException
 
     # 获取会话
     from apps.core.security.admin_access import get_request_user
@@ -112,19 +112,17 @@ def batch_create_clients(request: HttpRequest, session_id: int) -> dict[str, Any
 
     session = get_client_session_or_none(session_id, lawyer_id=getattr(get_request_user(request), "id", None))
     if session is None:
-        return JsonResponse({"error": "会话不存在"}, status=404)  # type: ignore[return-value]
+        raise NotFoundError(message="会话不存在", code="SESSION_NOT_FOUND", errors={})
 
     # 解析请求体
-    import json
-
     try:
         body = json.loads(request.body)
         customers = body.get("customers", [])
     except json.JSONDecodeError:
-        return JsonResponse({"error": "无效的请求数据"}, status=400)  # type: ignore[return-value]
+        raise ValidationException("无效的请求数据", code="INVALID_BODY")
 
     if not customers:
-        return JsonResponse({"error": "客户列表为空"}, status=400)  # type: ignore[return-value]
+        raise ValidationException("客户列表为空", code="EMPTY_CUSTOMERS")
 
     # 提交后台任务
     from apps.core.tasking import submit_task

@@ -333,29 +333,31 @@ async def rename_document(
         raise Http404("短信记录不存在")
 
     references = await sync_to_async(CourtSMSDocumentReferenceService().collect)(sms)
+    from apps.core.exceptions import ValidationException
+
     if ref_index < 0 or ref_index >= len(references):
-        return {"success": False, "error": "文书索引超出范围"}
+        raise ValidationException("文书索引超出范围", code="DOC_INDEX_OUT_OF_RANGE")
 
     ref = references[ref_index]
     file_path = Path(ref.file_path)
     if not file_path.exists() or not file_path.is_file():
-        return {"success": False, "error": "文书文件不存在"}
+        raise ValidationException("文书文件不存在", code="DOC_FILE_NOT_FOUND")
 
     raw_stem = str(payload.get("new_stem", "") or "").strip()
     if not raw_stem:
-        return {"success": False, "error": "文件名不能为空"}
+        raise ValidationException("文件名不能为空", code="EMPTY_FILENAME")
     if "." in raw_stem:
-        return {"success": False, "error": "只能修改文件名，不能修改扩展名"}
+        raise ValidationException("只能修改文件名，不能修改扩展名", code="FILENAME_HAS_EXTENSION")
 
     new_stem = re.sub(r'[\\/:*?"<>|]', "", raw_stem).strip()
     if not new_stem:
-        return {"success": False, "error": "文件名包含非法字符"}
+        raise ValidationException("文件名包含非法字符", code="INVALID_FILENAME")
 
     new_path = file_path.with_name(f"{new_stem}{file_path.suffix}")
     if new_path == file_path:
         return {"success": True, "message": "文件名未变化"}
     if new_path.exists():
-        return {"success": False, "error": f"目标文件已存在：{new_path.name}"}
+        raise ValidationException(f"目标文件已存在：{new_path.name}", code="TARGET_EXISTS")
 
     old_abs = str(file_path.resolve())
     await asyncio.to_thread(file_path.rename, new_path)
