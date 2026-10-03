@@ -27,7 +27,7 @@ class ToolFavorite(models.Model):
         constraints: ClassVar = [
             models.UniqueConstraint(fields=["user", "tool_url"], name="uniq_tool_favorite_user_url"),
         ]
-        ordering: [-created_at]
+        ordering = ["-created_at"]
 
     def __str__(self) -> str:
         return f"{self.user} → {self.tool_name or self.tool_url}"
