@@ -39,10 +39,10 @@ parser = ParserFactory.create_parser(backend="auto")
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/parse` | 解析文档（同步返回或建异步任务） |
+| POST | `/parse` | 解析文档（同步返回或建异步任务）；上传经 storage_service 落盘（扩展名白名单 pdf/docx/doc + 常见图片、50MB 上限、UUID 文件名） |
 | POST | `/extract-text` | 纯文本提取（可 max_length） |
 | GET | `/task/{task_id}` | 异步任务状态 / 结果轮询 |
-| GET | `/records` | 历史解析记录分页（status 过滤） |
+| GET | `/records` | 历史解析记录分页（status 过滤；按归属过滤：普通用户仅自己 + 存量 NULL，admin 全量） |
 | GET | `/records/{record_id}` | 记录全文详情 |
 
 ## 配置

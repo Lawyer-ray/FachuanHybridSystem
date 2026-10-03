@@ -55,9 +55,9 @@ legal_research/
 
 ## Admin
 
-- `LegalResearchTaskAdmin`：私有 API 阶段指标/时间线/接口返回可视化（插件可用时）、取消任务按钮
+- `LegalResearchTaskAdmin`：私有 API 阶段指标/时间线/接口返回可视化（插件可用时）、取消任务按钮；列表按律所隔离
 - `LegalResearchResultAdmin`：人工反馈（标记真实命中/误命中 → 在线微调）
-- `CaseDownloadTaskAdmin`：打包下载 / 重试失败项 action
+- `CaseDownloadTaskAdmin`：打包下载 / 重试失败项 action；列表按律所隔离（产物落 `legal_research/case_download/` 下 media 相对路径，zip 经系统临时目录打包）
 
 ## 异步任务与信号
 

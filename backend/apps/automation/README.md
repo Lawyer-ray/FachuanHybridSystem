@@ -22,7 +22,7 @@
 automation/
 ├── api/            # 7 个路由文件：main_api、court_sms_api、document_processor_api、
 │                   #   auto_namer_api、captcha_recognition_api、captcha_manual_api、performance_monitor_api
-├── admin/          # document/、scraper/、sms/、token/(stub)、tools_hub_admin
+├── admin/          # scraper/、sms/、token/(stub)、tools_hub_admin
 ├── integrations/chat/message_sender.py   # ChatMessageSender Protocol + Provider 适配
 ├── management/commands/  # bench_http、clear_token_cache、download_ocr_models、
 │                         #   optimize_token_performance、process_pending_tasks、
@@ -31,7 +31,7 @@ automation/
 │                   #   preservation、scraper、token
 ├── schemas/        # captcha、court_document、court_sms、document、performance
 ├── services/
-│   ├── sms/        # 法院短信闭环核心（解析/匹配/重命名/去重/恢复/归档/通知 + stages/ 阶段处理器）
+│   ├── sms/        # 法院短信闭环核心（解析/匹配/重命名/去重/恢复/归档/通知）
 │   ├── scraper/    # core/(cookie/token/monitor/security...) + scrapers/(8 站点) + sites/(一张网+担保)
 │   ├── ocr/        # OCR 引擎（adapter、mac_vision、paddleocr_api、pdf_text_extractor）
 │   ├── gsxt/       # 企业信用报告（登录、邮件收取、逆向登录）
@@ -39,7 +39,7 @@ automation/
 │   ├── ai/         # AI 工具服务与提示词
 │   ├── document/、litigation/、captcha/(stub)、token/(stub)
 │   ├── config_service.py、wiring.py
-├── tasks/          # scraping_tasks（爬虫任务执行/卡死检查/询价）、gsxt_tasks
+├── tasks/          # scraping_tasks（爬虫任务执行/询价）、gsxt_tasks
 ├── usecases/       # court_sms/（process、retry_download、submission）、token/auto_login
 ├── workers/        # court_sms_tasks（Django-Q 异步任务入口）
 ├── utils/、signals.py（文件清理）、checks.py（系统检查）、dtos.py、exceptions.py
