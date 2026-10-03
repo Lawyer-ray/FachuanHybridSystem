@@ -8,6 +8,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { safeHttpUrl } from '@/lib/url'
 import { copyTextToClipboard, fmtMoney, lawyerCopyText, partyCopyText, relDue } from '../domain'
 import { useContractCases } from '../hooks/use-contract-cases'
 import type { WorkbenchDeal } from '../types'
@@ -166,7 +167,7 @@ export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
             {deal.no &&
               (deal.oaUrl ? (
                 <a
-                  href={deal.oaUrl}
+                  href={safeHttpUrl(deal.oaUrl, '#')}
                   target="_blank"
                   rel="noreferrer"
                   className="underline underline-offset-3 tabular-nums hover:text-foreground"

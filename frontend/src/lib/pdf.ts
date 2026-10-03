@@ -118,6 +118,11 @@ export function clearPdfDocuments(): void {
   }
 }
 
+/** 全局清理入口（登出时调用）：清空 PDF 文档缓存，语义与 clearPdfDocuments 一致。 */
+export function clearPdfCache(): void {
+  clearPdfDocuments()
+}
+
 /** 把 PDF 的一页渲染到 canvas，返回画好的 canvas（未附加到 DOM）。 */
 export async function renderPdfPage(
   pdf: pdfjsLib.PDFDocumentProxy,

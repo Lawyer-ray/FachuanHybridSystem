@@ -9,6 +9,7 @@ import { useDialogWidthDrag, useSplitDrag } from '../hooks/use-split-drag'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { errMessage } from '@/lib/errors'
+import { safeHttpUrl } from '@/lib/url'
 import { cn } from '@/lib/utils'
 
 import { CaseBindingSection } from './CaseBindingSection'
@@ -306,7 +307,7 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
             </span>
             {!hasPreview && fileUrl && (
               <a
-                href={fileUrl}
+                href={safeHttpUrl(fileUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground transition-colors hover:text-foreground"

@@ -88,6 +88,15 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
     // 清空 react-query 缓存：否则换账号登录后在 staleTime 窗口内
     // 会直接命中上一账号的日历/收件箱/合同等缓存数据
     queryClient.clear()
+    // 清空材料预处理阅读器状态与 PDF/字节缓存（换账号不得残留上一账号的材料内容）。
+    // 走动态 import：这条依赖链上有 pdfjs-dist（~1MB 懒加载 chunk），
+    // 静态引会把整个材料预处理域拖进首屏包（AppNavbar 经 HomePage 进 entry chunk）
+    void import('@/features/material-prep/store')
+      .then((m) => m.useReader.getState().resetAll())
+      .catch(() => {})
+    void import('@/lib/pdf')
+      .then((m) => m.clearPdfCache())
+      .catch(() => {})
     navigate('/login', { replace: true })
     onLogout?.()
   }

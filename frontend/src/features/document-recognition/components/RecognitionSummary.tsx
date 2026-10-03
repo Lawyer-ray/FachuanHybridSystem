@@ -3,6 +3,7 @@ import { ExternalLink, MapPin, TriangleAlert, UserRound } from 'lucide-react'
 import { DOC_TYPE_LABELS, EXTRACTION_METHOD_LABELS } from '../constants'
 import { formatContacts, resolveMediaUrl } from '../domain'
 import type { RecognitionInfo, TaskOut } from '../types'
+import { safeHttpUrl } from '@/lib/url'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -56,7 +57,7 @@ export function RecognitionSummary({ task, recognition }: Props) {
         )}
         {fileUrl && (
           <a
-            href={fileUrl}
+            href={safeHttpUrl(fileUrl)}
             target="_blank"
             rel="noopener noreferrer"
             className="ml-auto inline-flex items-center gap-1 rounded-[6px] border border-border px-2 py-[3px] text-[11px] text-muted-foreground transition-colors hover:border-ring/40 hover:text-foreground"

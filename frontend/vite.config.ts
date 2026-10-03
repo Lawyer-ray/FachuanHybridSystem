@@ -60,8 +60,10 @@ export default defineConfig({
     },
   },
   build: {
-    target: 'es2022',
+    target: "es2022",
     reportCompressedSize: false,
+    // 生产 sourcemap：线上报错可对回源码定位（配合 lib/error-logging 的前缀输出）
+    sourcemap: true,
     // material-prep 懒加载 chunk 含 pdfjs（~520KB）属预期：只在进入该路由时才下载。
     // 阈值放宽到 600，避免这条已知大 chunk 的告警长期刷屏、掩盖新出现的问题。
     chunkSizeWarningLimit: 600,
