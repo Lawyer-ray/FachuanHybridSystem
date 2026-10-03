@@ -83,7 +83,7 @@ class DocumentTemplate(LifecycleModel):
         storage=document_template_storage,
         upload_to="",  # 存储类会自动处理路径
         blank=True,
-        null=True,
+        default="",
         verbose_name="上传文件",
     )
     file_path: Any = models.CharField(

@@ -38,8 +38,8 @@ class LegalResearchResult(models.Model):
     pdf_file = models.FileField(
         upload_to=EntityIdPath(MediaEntity.LEGAL_RESEARCH),
         max_length=255,
-        null=True,
         blank=True,
+        default="",
         verbose_name="PDF文件",
     )
     metadata = models.JSONField(default=dict, blank=True, verbose_name="扩展信息")

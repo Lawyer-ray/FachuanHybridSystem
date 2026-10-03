@@ -131,7 +131,7 @@ class EvidenceList(models.Model):
         upload_to=DatedUUIDPath(MediaEntity.EVIDENCE_MERGED),
         storage=evidence_file_storage,
         blank=True,
-        null=True,
+        default="",
         verbose_name="合并PDF",
         help_text="将所有证据文件合并为一个PDF,便于打印和提交",
     )
@@ -311,7 +311,7 @@ class EvidenceItem(models.Model):
     file = models.FileField(
         upload_to=DatedUUIDPath(MediaEntity.EVIDENCE_FILES),
         blank=True,
-        null=True,
+        default="",
         verbose_name="证据文件",
     )
     file_name = models.CharField(

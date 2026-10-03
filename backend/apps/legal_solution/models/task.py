@@ -47,8 +47,8 @@ class SolutionTask(models.Model):
     pdf_file = models.FileField(
         upload_to=DatedUUIDPath(MediaEntity.LEGAL_SOLUTION),
         max_length=255,
-        null=True,
         blank=True,
+        default="",
         verbose_name="PDF文件",
     )
     created_by = models.ForeignKey(

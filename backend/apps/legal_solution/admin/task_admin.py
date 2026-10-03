@@ -314,7 +314,7 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         # 清除旧 PDF 缓存
         if task.pdf_file:
             task.pdf_file.delete(save=False)
-            task.pdf_file = None
+            task.pdf_file = ""
         task.save(update_fields=["html_content", "pdf_file", "updated_at"])
         messages.success(request, "HTML 已重新生成")
         return HttpResponseRedirect(reverse("admin:legal_solution_solutiontask_change", args=[task_id]))

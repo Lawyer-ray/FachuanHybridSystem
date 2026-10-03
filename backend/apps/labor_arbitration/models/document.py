@@ -148,7 +148,9 @@ class ArbitrationDocumentImage(models.Model):
         verbose_name="文书",
     )
     # 不再下载图片到本地，只保存原图 URL（source_url），供后续 OCR 按需拉取
-    image = models.FileField("图片", upload_to=DatedUUIDPath(MediaEntity.LABOR_ARBITRATION_DOCS), null=True, blank=True)
+    image = models.FileField(
+        "图片", upload_to=DatedUUIDPath(MediaEntity.LABOR_ARBITRATION_DOCS), blank=True, default=""
+    )
     page_index = models.PositiveIntegerField("页码", default=0)
     source_url = models.URLField("原图 URL", max_length=1024, blank=True, default="")
     file_size = models.BigIntegerField("文件大小(字节)", null=True, blank=True)

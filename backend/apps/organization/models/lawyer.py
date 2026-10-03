@@ -75,15 +75,15 @@ class Lawyer(AbstractUser):
     license_pdf = models.FileField(
         upload_to=DatedOriginalPath(MediaEntity.LAWYER_LICENSES),
         storage=KeepOriginalNameStorage(),
-        null=True,
         blank=True,
+        default="",
         validators=[FileExtensionValidator(["pdf"])],
         verbose_name="执业证文件",
     )
     avatar = models.ImageField(
         upload_to=DatedUUIDPath(MediaEntity.AVATARS),
-        null=True,
         blank=True,
+        default="",
         verbose_name="头像",
     )
 

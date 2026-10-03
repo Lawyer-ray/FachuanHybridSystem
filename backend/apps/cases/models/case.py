@@ -165,7 +165,7 @@ class CaseNumber(models.Model):
     document_file = models.FileField(
         upload_to=DatedUUIDPath(MediaEntity.CASE_DOCUMENTS),
         blank=True,
-        null=True,
+        default="",
         verbose_name=_("裁判文书文件"),
         help_text=_("上传PDF格式的裁判文书，用于自动提取执行依据主文"),
     )
