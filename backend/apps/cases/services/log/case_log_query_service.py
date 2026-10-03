@@ -56,20 +56,26 @@ class CaseLogQueryService:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
+        limit: int | None = None,
+        offset: int = 0,
     ) -> list[CaseLog]:
         """取日志列表并批量预热提醒缓存（单次查询，供 API 序列化）。
 
         async 视图里 Ninja 序列化不能触发同步 ORM；逐条预热是 N+1，
         这里用批量导出接口一次取全，写进每个对象已有的缓存属性。
+
+        limit/offset 供 API 分页：日志表写入频繁，不传 case_id 的全量拉取
+        会把整表（含正文与附件 prefetch）载入内存，必须设上限。
         """
-        objs = list(
-            self.list_logs(
-                case_id=case_id,
-                user=user,
-                org_access=org_access,
-                perm_open_access=perm_open_access,
-            )
+        qs = self.list_logs(
+            case_id=case_id,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
         )
+        if limit is not None:
+            qs = qs[offset : offset + limit]
+        objs = list(qs)
         self.warm_reminder_cache(objs)
         return objs
 

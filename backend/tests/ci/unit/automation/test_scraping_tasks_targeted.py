@@ -9,6 +9,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.automation.models import ScraperTaskStatus
+
 try:
     from plugins.court_automation import filing
 except ImportError:
@@ -56,7 +58,10 @@ class TestExecuteScraperTaskExtra:
 
                 execute_scraper_task(1)
                 # retry_count should NOT be incremented since can_retry is False
-                task.save.assert_not_called()
+                task.save.assert_called_once()
+                # 重试耗尽必须落终态，否则任务停在 running 等 qcluster 重启兜底
+                assert task.status == ScraperTaskStatus.FAILED
+                assert task.error_message
 
     def test_execute_task_exception_retry_schedules(self):
         with patch("apps.automation.models.ScraperTask") as MockModel:

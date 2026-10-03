@@ -72,6 +72,15 @@ class ArchiveAdapter(Protocol):
         """打开 OA 盖章页面，登录→搜索案件→填表，保持浏览器打开。"""
         ...
 
+    async def wait_open_browsers_closed(self) -> None:
+        """等待 open_* 打开的半自动浏览器全部关闭并回收 Playwright 资源。
+
+        调度器在 open_* 返回后调用本方法"压住"事件循环：浏览器交接给用户期间
+        循环必须存活，否则 disconnected 事件永远无法触发，driver 进程泄漏。
+        默认空实现（无半自动浏览器场景的律所无需关心）。
+        """
+        return None
+
 
 @runtime_checkable
 class ConflictCheckAdapter(Protocol):
@@ -84,6 +93,10 @@ class ConflictCheckAdapter(Protocol):
     ) -> None:
         """打开 OA 利益冲突信息预检页面，填入当事人名称并搜索，保持浏览器打开。"""
         ...
+
+    async def wait_open_browsers_closed(self) -> None:
+        """等待半自动浏览器关闭并回收资源（见 ArchiveAdapter 中的说明）。"""
+        return None
 
 
 @runtime_checkable

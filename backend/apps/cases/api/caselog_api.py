@@ -24,10 +24,19 @@ def _get_caselog_service() -> CaseLogService:
 
 
 @router.get("/logs", response=list[CaseLogOut])
-async def list_logs(request: HttpRequest, case_id: int | None = None) -> list[CaseLogOut]:  # pragma: no cover
-    """获取日志列表"""
+async def list_logs(
+    request: HttpRequest,
+    case_id: int | None = None,
+    limit: int = 200,
+    offset: int = 0,
+) -> list[CaseLogOut]:  # pragma: no cover
+    """获取日志列表（limit/offset 分页；不传 case_id 时同样只返回最近 limit 条）"""
     service = _get_caselog_service()
     ctx = extract_request_context(request)
+
+    # 日志表写入频繁，全量物化会随数据量线性劣化直至超时，上限硬收敛
+    bounded_limit = max(1, min(limit, 1000))
+    bounded_offset = max(0, offset)
 
     @sync_to_async
     def _fetch() -> list[Any]:
@@ -37,6 +46,8 @@ async def list_logs(request: HttpRequest, case_id: int | None = None) -> list[Ca
             user=ctx.user,
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,
+            limit=bounded_limit,
+            offset=bounded_offset,
         )
 
     return cast(list[CaseLogOut], await _fetch())

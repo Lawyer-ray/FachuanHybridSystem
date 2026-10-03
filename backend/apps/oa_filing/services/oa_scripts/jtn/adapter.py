@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -51,6 +52,10 @@ class JTNAdapter(
         self._account = account
         self._password = password
         self._auth = JtnAuthService(account, password)
+        # 本次适配器实例打开的半自动浏览器（playwright, browser）。
+        # 回收（wait_open_browsers_closed）只处理自己打开的会话，
+        # 不误等其他线程/请求打开的浏览器。
+        self._opened_sessions: list[tuple[Any, Any]] = []
 
     # ==================================================================
     # FilingAdapter
@@ -240,6 +245,7 @@ class JTNAdapter(
         script = JtnArchiveScript(account=str(credential.account), password=str(credential.password))
         playwright, browser = await script.open_page(oa_case_number, description, file_paths or [])
         _cleanup_stale_sessions()
+        self._opened_sessions.append((playwright, browser))
         _active_browser_sessions.append((playwright, browser))
 
     async def open_invoice_page(
@@ -253,6 +259,7 @@ class JTNAdapter(
         script = JtnInvoiceScript(account=str(credential.account), password=str(credential.password))
         playwright, browser = await script.open_page(oa_case_number)
         _cleanup_stale_sessions()
+        self._opened_sessions.append((playwright, browser))
         _active_browser_sessions.append((playwright, browser))
 
     async def open_stamp_page(
@@ -266,6 +273,7 @@ class JTNAdapter(
         script = JtnStampScript(account=str(credential.account), password=str(credential.password))
         playwright, browser = await script.open_page(oa_case_number)
         _cleanup_stale_sessions()
+        self._opened_sessions.append((playwright, browser))
         _active_browser_sessions.append((playwright, browser))
 
     # ==================================================================
@@ -283,7 +291,36 @@ class JTNAdapter(
         script = JtnConflictCheckScript(account=str(credential.account), password=str(credential.password))
         playwright, browser = await script.open_page(keyword)
         _cleanup_stale_sessions()
+        self._opened_sessions.append((playwright, browser))
         _active_browser_sessions.append((playwright, browser))
+
+    async def wait_open_browsers_closed(self) -> None:
+        """等本次实例打开的半自动浏览器全部关闭，再逐个停掉 Playwright driver。
+
+        事件循环一退出，Playwright 的 disconnected 事件就永远无法触发——此前
+        靠 disconnected 回调里 asyncio.run(playwright.stop()) 收尾，在运行中的
+        循环里必抛 RuntimeError 被吞，node driver 进程全部泄漏。调度器现在会在
+        open_* 返回后调用本方法压住循环，直到浏览器关闭、资源回收完毕。
+        """
+        sessions, self._opened_sessions = self._opened_sessions, []
+
+        async def _drain_one(playwright: Any, browser: Any) -> None:
+            try:
+                if browser.is_connected():
+                    await browser.wait_for_event("close", timeout=0)
+            except Exception:
+                logger.debug("等待 OA 浏览器关闭时出错（继续回收 driver）", exc_info=True)
+            try:
+                await playwright.stop()
+            except Exception:
+                logger.debug("停止 Playwright driver 失败（已忽略）", exc_info=True)
+
+        await asyncio.gather(*(_drain_one(pw, br) for pw, br in sessions))
+        for pair in sessions:
+            try:
+                _active_browser_sessions.remove(pair)
+            except ValueError:
+                pass
 
     # ==================================================================
     # CaseImportAdapter
