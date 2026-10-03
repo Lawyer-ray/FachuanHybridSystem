@@ -33,8 +33,12 @@ async def list_lawyers(  # pragma: no cover
     search: str | None = None,
     law_firm_id: int | None = None,
 ) -> list[LawyerOut]:
+    # 显式放开 service 层默认 page_size=20 的截断：前端办案页需要全量律师
+    # （量级=律所人数，几十~几百），此前只拿前 20 条导致执业证号/律所补不全
     filters = LawyerListFiltersDTO(search=search, law_firm_id=law_firm_id)
-    return await sync_to_async(lambda: list(_lawyer_service.list_lawyers(filters=filters, user=get_request_user(request))))()  # type: ignore[return-value]
+    return await sync_to_async(
+        lambda: list(_lawyer_service.list_lawyers(filters=filters, user=get_request_user(request), page_size=500))
+    )()  # type: ignore[return-value]
 
 
 @router.get("/lawyers/{lawyer_id}", response=LawyerOut)

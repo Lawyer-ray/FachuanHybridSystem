@@ -18,7 +18,7 @@ class CaseParty(models.Model):
         "client.Client", on_delete=models.CASCADE, related_name="case_parties", verbose_name="当事人"
     )
     legal_status = models.CharField(
-        max_length=32, choices=LegalStatus.choices, blank=True, null=True, verbose_name="诉讼地位"
+        max_length=32, choices=LegalStatus.choices, blank=True, default="", verbose_name="诉讼地位"
     )
 
     class Meta:

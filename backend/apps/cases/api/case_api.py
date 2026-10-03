@@ -79,10 +79,22 @@ async def list_cases(  # pragma: no cover
     status: str | None = None,
     case_number: str | None = None,
     contract_id: int | None = None,
+    limit: int | None = None,
 ) -> list[dict[str, Any]]:
-    """获取案件列表（contract_id 可按合同过滤，供前端详情按需加载）"""
+    """获取案件列表（contract_id 可按合同过滤，供前端详情按需加载）
+
+    限额策略：显式传 limit 时按它截断（上限 2000）；未传且无任何过滤参数时
+    应用默认上限 1000（防止全表序列化）；带过滤参数的查询结果集天然小，不设限。
+    """
     service = _get_case_query_facade()
     ctx = extract_request_context(request)
+    has_filter = any([case_type, status, case_number, contract_id])
+    if limit is not None:
+        effective_limit: int | None = max(1, min(limit, 2000))
+    elif not has_filter:
+        effective_limit = 1000
+    else:
+        effective_limit = None
 
     def _do() -> list[dict[str, Any]]:
         if case_number:
@@ -95,16 +107,15 @@ async def list_cases(  # pragma: no cover
                 )
             )
         else:
-            raw = list(
-                service.list_cases(
-                    case_type=case_type,
-                    status=status,
-                    contract_id=contract_id,
-                    user=ctx.user,
-                    org_access=ctx.org_access,
-                    perm_open_access=ctx.perm_open_access,
-                )
+            qs = service.list_cases(
+                case_type=case_type,
+                status=status,
+                contract_id=contract_id,
+                user=ctx.user,
+                org_access=ctx.org_access,
+                perm_open_access=ctx.perm_open_access,
             )
+            raw = list(qs[:effective_limit]) if effective_limit is not None else list(qs)
         return [_serialize_case(c) for c in raw]
 
     return await sync_to_async(_do)()

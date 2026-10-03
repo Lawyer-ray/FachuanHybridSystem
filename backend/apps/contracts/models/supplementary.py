@@ -21,7 +21,7 @@ class SupplementaryAgreement(models.Model):
     contract = models.ForeignKey(
         Contract, on_delete=models.CASCADE, related_name="supplementary_agreements", verbose_name="合同"
     )
-    name = models.CharField(max_length=200, blank=True, null=True, verbose_name="补充协议名称")
+    name = models.CharField(max_length=200, blank=True, default="", verbose_name="补充协议名称")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="修改时间")
 

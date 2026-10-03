@@ -11,11 +11,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.core.exceptions import AuthenticationError, NotFoundError, PermissionDenied
+from apps.organization.services.lawyer.adapter import LawyerServiceAdapter
 from apps.organization.services.lawyer.facade import LawyerService
 from apps.organization.services.lawyer.query import LawyerQueryService
-from apps.organization.services.lawyer.adapter import LawyerServiceAdapter
 from apps.organization.services.lawyer.upload import LawyerUploadService
-
 
 # ── LawyerService (facade) ────────────────────────────────────────────────
 
@@ -261,7 +260,7 @@ class TestLawyerServiceAdapter:
 
     def test_get_all_lawyer_names(self) -> None:
         mock_service = MagicMock()
-        mock_service.get_lawyer_queryset.return_value.filter.return_value.exclude.return_value.values_list.return_value = ["Alice", "Bob"]
+        mock_service.get_lawyer_queryset.return_value.exclude.return_value.values_list.return_value = ["Alice", "Bob"]
         adapter = LawyerServiceAdapter(service=mock_service)
         result = adapter.get_all_lawyer_names()
         assert result == ["Alice", "Bob"]
@@ -284,7 +283,7 @@ class TestLawyerServiceAdapter:
 
     def test_get_all_lawyer_names_internal(self) -> None:
         mock_service = MagicMock()
-        mock_service.get_lawyer_queryset.return_value.filter.return_value.exclude.return_value.values_list.return_value = []
+        mock_service.get_lawyer_queryset.return_value.exclude.return_value.values_list.return_value = []
         adapter = LawyerServiceAdapter(service=mock_service)
         result = adapter.get_all_lawyer_names_internal()
         assert result == []

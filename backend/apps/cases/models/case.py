@@ -50,7 +50,7 @@ class Case(models.Model):
     start_date = models.DateField(default=date.today, verbose_name=_("收案日期"))
     effective_date = models.DateField(blank=True, null=True, verbose_name=_("生效日期"))
     specified_date = models.DateField(blank=True, null=True, verbose_name=_("指定日期"))
-    cause_of_action = models.CharField(max_length=128, blank=True, null=True, verbose_name=_("案由"))
+    cause_of_action = models.CharField(max_length=128, blank=True, default="", verbose_name=_("案由"))
     target_amount = models.DecimalField(
         max_digits=14, decimal_places=2, blank=True, null=True, verbose_name=_("涉案金额")
     )
@@ -62,11 +62,10 @@ class Case(models.Model):
         choices=SimpleCaseType.choices,
         default=SimpleCaseType.CIVIL,
         blank=True,
-        null=True,
         verbose_name=_("案件类型"),
     )
     current_stage = models.CharField(
-        max_length=64, choices=CaseStage.choices, blank=True, null=True, verbose_name=_("当前阶段")
+        max_length=64, choices=CaseStage.choices, blank=True, default="", verbose_name=_("当前阶段")
     )
     previous_case = models.ForeignKey(
         "self",
@@ -159,7 +158,7 @@ class CaseNumber(models.Model):
     document_name = models.CharField(
         max_length=128,
         blank=True,
-        null=True,
+        default="",
         verbose_name=_("文书名称"),
         help_text=_("如：民事判决书、民事调解书、执行证书等"),
     )
@@ -172,7 +171,7 @@ class CaseNumber(models.Model):
     )
     document_content = models.TextField(
         blank=True,
-        null=True,
+        default="",
         verbose_name=_("执行依据主文"),
         help_text=_("从裁判文书自动提取的判决/调解主文内容"),
     )
@@ -210,11 +209,11 @@ class CaseNumber(models.Model):
     )
     execution_manual_text = models.TextField(
         blank=True,
-        null=True,
+        default="",
         verbose_name=_("申请执行事项（手工最终文本）"),
         help_text=_("有值时模板生成优先使用该文本"),
     )
-    remarks = models.TextField(blank=True, null=True, verbose_name=_("备注"))
+    remarks = models.TextField(blank=True, default="", verbose_name=_("备注"))
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
 
     history = HistoricalRecords()
@@ -244,13 +243,12 @@ class SupervisingAuthority(models.Model):
     case = models.ForeignKey(
         Case, on_delete=models.CASCADE, related_name="supervising_authorities", verbose_name=_("案件")
     )
-    name = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("名称"))
+    name = models.CharField(max_length=255, blank=True, default="", verbose_name=_("名称"))
     authority_type = models.CharField(
         max_length=32,
         choices=AuthorityType.choices,
         default=AuthorityType.TRIAL,
         blank=True,
-        null=True,
         verbose_name=_("性质"),
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))

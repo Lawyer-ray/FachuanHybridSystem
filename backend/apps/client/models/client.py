@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -27,15 +27,15 @@ class Client(models.Model):
     ]
 
     name = models.CharField(max_length=255, verbose_name="名称")
-    phone = models.CharField(max_length=20, blank=True, null=True, verbose_name="联系电话")
-    address = models.CharField(max_length=255, blank=True, null=True, default="", verbose_name="住所地")
+    phone = models.CharField(max_length=20, blank=True, default="", verbose_name="联系电话")
+    address = models.CharField(max_length=255, blank=True, default="", verbose_name="住所地")
     client_type = models.CharField(max_length=16, choices=CLIENT_TYPE_CHOICES, default=LEGAL, verbose_name="主体类型")
     id_number = models.CharField(
         max_length=64, blank=True, null=True, unique=True, verbose_name="身份证号码或统一社会信用代码"
     )
-    legal_representative = models.CharField(max_length=255, blank=True, null=True, verbose_name="法定代表人或负责人")
+    legal_representative = models.CharField(max_length=255, blank=True, default="", verbose_name="法定代表人或负责人")
     legal_representative_id_number = models.CharField(
-        max_length=64, blank=True, null=True, verbose_name="法定代表人/负责人身份证号码"
+        max_length=64, blank=True, default="", verbose_name="法定代表人/负责人身份证号码"
     )
     is_our_client = models.BooleanField(default=False, verbose_name="是否为我方当事人")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
@@ -49,6 +49,13 @@ class Client(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        # id_number 是 unique 字段：空值必须存 NULL 而不是 ''（PG 多 NULL 共存，
+        # '' 会与存量空串互撞唯一约束）。同 Lawyer.phone/email 的既有范式。
+        if self.id_number == "":
+            self.id_number = None
+        super().save(*args, **kwargs)
 
     def clean(self) -> None:
         if self.client_type == self.LEGAL and not self.legal_representative:

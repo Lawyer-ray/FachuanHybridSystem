@@ -335,8 +335,27 @@ jobs:
             --skip-websocket \
             --skip-q
 
+      - name: Dependency audit ignore-list hygiene
+        # 豁免棘轮：复评日期过期即 fail，强制清退或续期（约定见 devtools/pip-audit-ignores.txt 头部）
+        run: |
+          set -euo pipefail
+          today="$(date -u +%F)"
+          expired="$(grep -Ev '^[[:space:]]*(#|$)' devtools/pip-audit-ignores.txt \
+            | awk -F' *[|] *' -v t="$today" 'NF>=7 && $5 != "" && $5 < t {print "  " $1 " (" $2 ") 复评日 " $5 " 已过"}' || true)"
+          if [ -n "${expired}" ]; then
+            echo "::error::以下 pip-audit 豁免已过复评日期，请复评后更新清单（升级删除或续期）："
+            echo "${expired}"
+            exit 1
+          fi
+          echo "豁免条目 $(grep -cEv '^[[:space:]]*(#|$)' devtools/pip-audit-ignores.txt) 条，均未过期。"
+
       - name: Dependency audit (pip-audit)
-        run: uv run pip-audit --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-6357 --ignore-vuln CVE-2026-42304 --ignore-vuln CVE-2026-46678 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2026-161 --ignore-vuln PYSEC-2025-183 --ignore-vuln PYSEC-2026-175 --ignore-vuln PYSEC-2026-177 --ignore-vuln PYSEC-2026-178 --ignore-vuln PYSEC-2026-179 --ignore-vuln PYSEC-2026-196 --ignore-vuln CVE-2026-54911 --ignore-vuln GHSA-6v7p-g79w-8964 --ignore-vuln GHSA-4xgf-cpjx-pc3j --ignore-vuln CVE-2026-48990 --ignore-vuln CVE-2026-49452 --ignore-vuln CVE-2026-49477 --ignore-vuln CVE-2026-49476 --ignore-vuln PYSEC-2026-3444 --ignore-vuln PYSEC-2026-3072 --ignore-vuln PYSEC-2026-3071 --ignore-vuln PYSEC-2026-3412 --ignore-vuln CVE-2026-52870 --ignore-vuln CVE-2026-52869 --ignore-vuln CVE-2026-59950 --ignore-vuln CVE-2026-59881 --ignore-vuln CVE-2026-69243 --ignore-vuln CVE-2026-69244 --ignore-vuln CVE-2026-69248 --ignore-vuln CVE-2026-69247 --ignore-vuln CVE-2026-69249 --ignore-vuln PYSEC-2026-3482 --ignore-vuln PYSEC-2026-3483 --ignore-vuln PYSEC-2026-3481
+        run: |
+          set -euo pipefail
+          ignore_args="$(grep -Ev '^[[:space:]]*(#|$)' devtools/pip-audit-ignores.txt \
+            | awk -F' *[|] *' '{printf "--ignore-vuln %s ", $1}')"
+          # shellcheck disable=SC2086
+          uv run pip-audit ${ignore_args}
 
       - name: Static security scan (bandit)
         run: uv run bandit -r apps -q -lll -x "*/migrations/*,*/static/*,*/staticfiles/*,*/media/*,*/venv*/*,*/htmlcov/*"
@@ -576,3 +595,32 @@ jobs:
           uv run python apiSystem/manage.py smoke_check \
             --skip-websocket \
             --skip-q
+
+      - name: Install Playwright browsers
+        run: uv run playwright install --with-deps chromium
+
+      - name: E2E (Django Admin via Playwright live_server)
+        # tests/e2e 此前从未被任何 workflow 执行（仅 smoke_check），本步骤接入。
+        # 过渡期先跑 -m smoke 子集（21 用例）观察稳定性，两周后去掉 -m smoke 跑全量 108 例。
+        env:
+          DJANGO_DEBUG: "1"
+          DB_ENGINE: "sqlite"
+          DATABASE_PATH: "tests/e2e/e2e_ci.sqlite3"
+          DJANGO_ALLOW_ASYNC_UNSAFE: "true"
+          PYTHONPATH: "apiSystem:."
+        run: |
+          uv run pytest -c pytest.ini \
+            -o "addopts=--import-mode=importlib -q --tb=short --strict-markers --timeout=180" \
+            --no-cov --reuse-db \
+            --browser chromium \
+            --tracing retain-on-failure \
+            -m smoke \
+            tests/e2e/
+
+      - name: Upload e2e failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-playwright-traces
+          path: backend/test-results/
+          retention-days: 7

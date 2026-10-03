@@ -57,7 +57,7 @@ class Lawyer(AbstractUser):
             self.email = None
         super().save(**kwargs)  # type: ignore[arg-type]
 
-    real_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="真实姓名")
+    real_name = models.CharField(max_length=255, blank=True, default="", verbose_name="真实姓名")
     law_firm_id: int | None  # 外键ID字段
     phone = models.CharField(max_length=20, unique=True, null=True, blank=True, verbose_name="手机号码")
     email = models.EmailField("email address", blank=True, null=True, unique=True)  # type: ignore[assignment]

@@ -125,7 +125,7 @@ class ContractPaymentService(DjangoPermsMixin):
         received_at: date | None = None,
         invoice_status: str | None = None,
         invoiced_amount: Decimal | None = None,
-        note: str | None = None,
+        note: str | None = "",
         user: Any | None = None,
         perm_open_access: bool = False,
         confirm: bool = False,

@@ -42,12 +42,12 @@ class ClientPaymentRecord(models.Model):
     image_path = models.CharField(
         max_length=500,
         blank=True,
-        null=True,
+        default="",
         verbose_name="凭证图片路径",
     )
     note = models.TextField(
         blank=True,
-        null=True,
+        default="",
         verbose_name="备注",
     )
     created_at = models.DateTimeField(

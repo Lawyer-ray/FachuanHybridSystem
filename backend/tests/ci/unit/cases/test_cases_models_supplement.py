@@ -9,6 +9,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 
 from apps.cases.models.case import Case, CaseFilingNumberSequence, CaseNumber, SupervisingAuthority
+from apps.cases.models.folder_scan_session import CaseFolderScanSession, CaseFolderScanStatus
 from apps.cases.models.material import (
     CaseFolderBinding,
     CaseMaterial,
@@ -18,10 +19,8 @@ from apps.cases.models.material import (
     CaseMaterialType,
 )
 from apps.cases.models.template_binding import BindingSource, CaseTemplateBinding
-from apps.cases.models.folder_scan_session import CaseFolderScanSession, CaseFolderScanStatus
 from apps.core.models.enums import AuthorityType, CaseStage, SimpleCaseType
 from apps.testing.factories import CaseFactory, ContractFactory, LawyerFactory
-
 
 # ============================================================
 # CaseNumber
@@ -113,7 +112,7 @@ class TestSupervisingAuthority:
     def test_str_neither(self):
         case = CaseFactory()
         # authority_type 有默认值，所以至少有 type 分支
-        sa = SupervisingAuthority.objects.create(case=case, name=None, authority_type=None)
+        sa = SupervisingAuthority.objects.create(case=case, name="", authority_type="")
         result = str(sa)
         assert "主管机关" in result
 

@@ -96,7 +96,7 @@ class TestValidateOurPartyLegalStatus:
         # plaintiff_side has opposing_group = defendant_side
         mock_config.get_legal_status_label.return_value = "原告"
         mock_qs = MagicMock()
-        mock_qs.filter.return_value.exclude.return_value.exclude.return_value.values_list.return_value = [
+        mock_qs.filter.return_value.exclude.return_value.values_list.return_value = [
             ("defendant_side", "已有被告"),
         ]
         with pytest.raises(ValidationException, match="我方当事人诉讼地位冲突"):
@@ -113,7 +113,7 @@ class TestValidateOurPartyLegalStatus:
         mock_config.is_legal_status_valid_for_case_type.return_value = True
         mock_qs = MagicMock()
         # No existing parties with conflicting statuses
-        mock_qs.filter.return_value.exclude.return_value.exclude.return_value.values_list.return_value = []
+        mock_qs.filter.return_value.exclude.return_value.values_list.return_value = []
         svc._validate_our_party_legal_status(
             case_id=1, legal_status="plaintiff_side", client_id=10, parties_qs=mock_qs
         )
@@ -127,7 +127,7 @@ class TestValidateOurPartyLegalStatus:
         mock_config.is_legal_status_valid_for_case_type.return_value = True
         mock_config.get_legal_status_label.return_value = "上诉人"
         mock_qs = MagicMock()
-        mock_qs.filter.return_value.exclude.return_value.exclude.return_value.values_list.return_value = [
+        mock_qs.filter.return_value.exclude.return_value.values_list.return_value = [
             ("appellee_side", "已有被上诉人"),
         ]
         with pytest.raises(ValidationException):
@@ -144,7 +144,7 @@ class TestValidateOurPartyLegalStatus:
         mock_config.is_legal_status_valid_for_case_type.return_value = True
         mock_config.get_legal_status_label.return_value = "刑事被告人"
         mock_qs = MagicMock()
-        mock_qs.filter.return_value.exclude.return_value.exclude.return_value.values_list.return_value = [
+        mock_qs.filter.return_value.exclude.return_value.values_list.return_value = [
             ("criminal_victim_side", "已有刑事被害人"),
         ]
         with pytest.raises(ValidationException):

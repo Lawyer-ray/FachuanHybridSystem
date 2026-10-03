@@ -22,16 +22,16 @@ class ProxyMatterRule(models.Model):
     case_type = models.CharField(
         max_length=32,
         choices=SimpleCaseType.choices,
-        null=True,
         blank=True,
+        default="",
         verbose_name="案件类型",
         help_text="兼容旧数据字段，请使用“案件类型（多选）”",
     )
     case_stage = models.CharField(
         max_length=64,
         choices=CaseStage.choices,
-        null=True,
         blank=True,
+        default="",
         verbose_name="当前阶段",
         help_text="为空表示匹配任意案件阶段",
     )

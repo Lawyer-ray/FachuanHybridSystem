@@ -328,7 +328,9 @@ class CourtDocumentAdminService:
             downloaded_files = set(
                 CourtDocument.objects.filter(
                     download_status=DocumentDownloadStatus.SUCCESS, local_file_path__isnull=False
-                ).values_list("local_file_path", flat=True)
+                )
+                .exclude(local_file_path="")
+                .values_list("local_file_path", flat=True)
             )
 
             # 扫描文件系统中的文件

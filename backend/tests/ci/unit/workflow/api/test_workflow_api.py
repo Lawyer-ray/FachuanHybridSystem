@@ -219,7 +219,7 @@ def test_get_steps_flat():
 
 @pytest.mark.django_db
 def test_list_templates_basic():
-    with patch("apps.workflow.api.workflow_api.WorkflowTemplate") as MockTemplate:
+    with patch("apps.workflow.services.template_service.WorkflowTemplate") as MockTemplate:
         mock_t = MagicMock()
         mock_t.id = 1
         mock_t.name = "Test"
@@ -241,7 +241,7 @@ def test_list_templates_basic():
 
 @pytest.mark.django_db
 def test_list_templates_with_filters():
-    with patch("apps.workflow.api.workflow_api.WorkflowTemplate") as MockTemplate:
+    with patch("apps.workflow.services.template_service.WorkflowTemplate") as MockTemplate:
         mock_qs = MagicMock()
         mock_qs.filter.return_value = mock_qs
         mock_qs.__iter__ = MagicMock(return_value=iter([]))
@@ -265,8 +265,8 @@ def test_create_template_basic():
     payload.steps = None
     payload.is_active = None
 
-    with patch("apps.workflow.api.workflow_api.WorkflowTemplate") as MockTemplate, \
-         patch("apps.workflow.api.workflow_api.slugify", return_value="test-template"):
+    with patch("apps.workflow.services.template_service.WorkflowTemplate") as MockTemplate, \
+         patch("apps.workflow.services.template_service.slugify", return_value="test-template"):
         MockTemplate.objects.filter.return_value.exists.return_value = False
         mock_t = MagicMock()
         mock_t.id = 1
@@ -291,7 +291,7 @@ def test_create_template_with_slug():
     payload.steps = []
     payload.is_active = True
 
-    with patch("apps.workflow.api.workflow_api.WorkflowTemplate") as MockTemplate:
+    with patch("apps.workflow.services.template_service.WorkflowTemplate") as MockTemplate:
         MockTemplate.objects.filter.return_value.exists.return_value = False
         mock_t = MagicMock()
         mock_t.id = 2
@@ -322,8 +322,8 @@ def test_create_template_slug_collision():
         call_count += 1
         return call_count == 1
 
-    with patch("apps.workflow.api.workflow_api.WorkflowTemplate") as MockTemplate, \
-         patch("apps.workflow.api.workflow_api.slugify", return_value="test"):
+    with patch("apps.workflow.services.template_service.WorkflowTemplate") as MockTemplate, \
+         patch("apps.workflow.services.template_service.slugify", return_value="test"):
         MockTemplate.objects.filter.return_value.exists = mock_exists
         mock_t = MagicMock()
         mock_t.id = 3
@@ -352,7 +352,7 @@ def test_get_template_success():
     mock_t.created_at = datetime(2025, 1, 1)
     mock_t.updated_at = datetime(2025, 1, 2)
 
-    with patch("apps.workflow.api.workflow_api.WorkflowTemplate") as MockTemplate:
+    with patch("apps.workflow.services.template_service.WorkflowTemplate") as MockTemplate:
         MockTemplate.objects.get.return_value = mock_t
         result = get_template(MagicMock(), template_id=1)
 
@@ -378,7 +378,7 @@ def test_update_template_name():
     mock_t.name = "Old"
     mock_t.save = MagicMock()
 
-    with patch("apps.workflow.api.workflow_api.WorkflowTemplate") as MockTemplate:
+    with patch("apps.workflow.services.template_service.WorkflowTemplate") as MockTemplate:
         MockTemplate.objects.get.return_value = mock_t
         result = update_template(MagicMock(), template_id=1, payload=payload)
 
@@ -405,7 +405,7 @@ def test_update_template_steps():
     mock_t.name = "Test"
     mock_t.save = MagicMock()
 
-    with patch("apps.workflow.api.workflow_api.WorkflowTemplate") as MockTemplate:
+    with patch("apps.workflow.services.template_service.WorkflowTemplate") as MockTemplate:
         MockTemplate.objects.get.return_value = mock_t
         result = update_template(MagicMock(), template_id=1, payload=payload)
 
@@ -428,7 +428,7 @@ def test_update_template_deactivate():
     mock_t.name = "Test"
     mock_t.save = MagicMock()
 
-    with patch("apps.workflow.api.workflow_api.WorkflowTemplate") as MockTemplate:
+    with patch("apps.workflow.services.template_service.WorkflowTemplate") as MockTemplate:
         MockTemplate.objects.get.return_value = mock_t
         result = update_template(MagicMock(), template_id=1, payload=payload)
 
@@ -443,7 +443,7 @@ def test_delete_template():
     mock_t.name = "Test"
     mock_t.delete = MagicMock()
 
-    with patch("apps.workflow.api.workflow_api.WorkflowTemplate") as MockTemplate:
+    with patch("apps.workflow.services.template_service.WorkflowTemplate") as MockTemplate:
         MockTemplate.objects.get.return_value = mock_t
         result = delete_template(MagicMock(), template_id=1)
 
@@ -468,7 +468,7 @@ def test_duplicate_template():
     new_t.name = "Original (副本)"
     new_t.slug = "original-copy"
 
-    with patch("apps.workflow.api.workflow_api.WorkflowTemplate") as MockTemplate:
+    with patch("apps.workflow.services.template_service.WorkflowTemplate") as MockTemplate:
         MockTemplate.objects.get.return_value = source
         MockTemplate.objects.filter.return_value.exists.return_value = False
         MockTemplate.objects.create.return_value = new_t
@@ -501,7 +501,7 @@ def test_duplicate_template_slug_collision():
         call_count += 1
         return call_count == 1
 
-    with patch("apps.workflow.api.workflow_api.WorkflowTemplate") as MockTemplate:
+    with patch("apps.workflow.services.template_service.WorkflowTemplate") as MockTemplate:
         MockTemplate.objects.get.return_value = source
         MockTemplate.objects.filter.return_value.exists = mock_exists
         MockTemplate.objects.create.return_value = new_t

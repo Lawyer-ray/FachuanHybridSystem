@@ -59,7 +59,7 @@ class DocumentTemplate(LifecycleModel):
         max_length=30,
         choices=DocumentContractSubType.choices,
         blank=True,
-        null=True,
+        default="",
         verbose_name="合同子类型",
         help_text="仅在选择'合同文件模板'时有效,必须选择合同模板或补充协议模板",
     )
@@ -67,7 +67,7 @@ class DocumentTemplate(LifecycleModel):
         max_length=50,
         choices=DocumentCaseFileSubType.choices,
         blank=True,
-        null=True,
+        default="",
         verbose_name="案件文件子类型",
         help_text="仅在选择'案件文件模板'时有效,可选择诉状材料、证据材料、授权委托材料等",
     )
@@ -75,7 +75,7 @@ class DocumentTemplate(LifecycleModel):
         max_length=50,
         choices=DocumentArchiveSubType.choices,
         blank=True,
-        null=True,
+        default="",
         verbose_name="归档文件子类型",
         help_text="仅在选择'归档文件模板'时有效,可选择案卷封面、结案归档登记表等",
     )

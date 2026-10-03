@@ -97,7 +97,6 @@ class CaseTemplateBindingRepo:
         """
         return list(
             case.parties.filter(client__is_our_client=True)
-            .exclude(legal_status__isnull=True)
             .exclude(legal_status="")
             .values_list("legal_status", flat=True)  # type: ignore[arg-type]
             .distinct()

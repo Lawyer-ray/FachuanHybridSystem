@@ -8,7 +8,9 @@ from unittest.mock import MagicMock
 import pytest
 
 from apps.core.exceptions import ValidationException
-from apps.workflow.api.workflow_api import _validate_steps_for_user
+from apps.workflow.services import get_workflow_template_service
+
+_validate_steps_for_user = get_workflow_template_service().validate_steps_for_user
 
 
 def _step(**kwargs: object) -> SimpleNamespace:

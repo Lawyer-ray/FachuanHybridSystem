@@ -16,7 +16,9 @@ logger = logging.getLogger("apps.cases")
 
 class CasePartyQueryService:
     def base_queryset(self) -> QuerySet[CaseParty, CaseParty]:  # pragma: no cover
-        return CaseParty.objects.select_related("case", "client").prefetch_related("client__identity_docs").order_by("-id")
+        return (
+            CaseParty.objects.select_related("case", "client").prefetch_related("client__identity_docs").order_by("-id")
+        )
 
     def list_parties(self, *, case_id: int | None = None) -> QuerySet[CaseParty, CaseParty]:
         qs = self.base_queryset()
@@ -44,10 +46,7 @@ class CasePartyQueryService:
             )
 
         existing_statuses: list[str] = list(
-            CaseParty.objects.filter(case_id=case_id)
-            .exclude(legal_status__isnull=True)
-            .exclude(legal_status="")
-            .values_list("legal_status", flat=True)  # type: ignore[arg-type]
+            CaseParty.objects.filter(case_id=case_id).exclude(legal_status="").values_list("legal_status", flat=True)  # type: ignore[arg-type]
         )
 
         compatible_statuses = business_config.get_legal_statuses_for_case_type(case.case_type)

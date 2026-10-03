@@ -78,8 +78,8 @@ class CaseMaterial(models.Model):
     side = models.CharField(
         max_length=32,
         choices=CaseMaterialSide.choices,
-        null=True,
         blank=True,
+        default="",
         verbose_name="当事人方向",
     )
     parties = models.ManyToManyField(CaseParty, blank=True, related_name="materials", verbose_name="关联当事人")
@@ -115,8 +115,8 @@ class CaseMaterialGroupOrder(models.Model):
     side = models.CharField(
         max_length=32,
         choices=CaseMaterialSide.choices,
-        null=True,
         blank=True,
+        default="",
         verbose_name="当事人方向",
     )
     supervising_authority = models.ForeignKey(

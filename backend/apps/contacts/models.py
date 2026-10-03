@@ -34,16 +34,16 @@ class CaseContact(models.Model):
         default=ContactRole.OTHER,
         verbose_name="角色",
     )
-    phone = models.CharField(max_length=32, blank=True, null=True, verbose_name="电话")
-    address = models.CharField(max_length=255, blank=True, null=True, verbose_name="收件地址")
+    phone = models.CharField(max_length=32, blank=True, default="", verbose_name="电话")
+    address = models.CharField(max_length=255, blank=True, default="", verbose_name="收件地址")
     stage = models.CharField(
         max_length=64,
         choices=CaseStage.choices,
         blank=True,
-        null=True,
+        default="",
         verbose_name="所属阶段",
     )
-    note = models.CharField(max_length=255, blank=True, null=True, verbose_name="备注")
+    note = models.CharField(max_length=255, blank=True, default="", verbose_name="备注")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 

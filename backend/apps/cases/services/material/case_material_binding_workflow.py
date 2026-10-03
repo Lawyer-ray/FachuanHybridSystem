@@ -71,7 +71,7 @@ class CaseMaterialBindingWorkflow:
                         raise ValidationException(message="当事人方向不合法", errors={"side": side})
                     supervising_authority_id = None
                 else:
-                    side = None
+                    side = ""
                     if not supervising_authority_id:
                         raise ValidationException(
                             message="必须选择主管机关", errors={"supervising_authority_id": "required"}
