@@ -2,34 +2,20 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { FileText, Landmark, Mail, Paperclip, Search, Users } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { createApiClient } from '@/lib/api'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import { CATEGORY_ORDER, runSearch } from '../api'
+import type { CategoryKey, Hit } from '../types'
 
 /**
  * 全局检索（⌘K）。
  *
- * 后端已有现成接口：GET /api/v1/search?q=，跨 6 类实体并发搜索
- * （客户 / 案件 / 合同 / 收件箱 / 法院短信 / 联系人），每类最多 10 条。
- * 这里做命令面板：⌘K 唤起、输入即搜（防抖 250ms）、↑↓ 选、回车跳、
+ * 命令面板：⌘K 唤起、输入即搜（防抖 250ms）、↑↓ 选、回车跳、
  * Esc 关。跳转目标只指向已存在的页面，未实现的类别点选后给明确提示。
  */
 
-const searchApi = createApiClient({ prefix: '/api/v1/search' })
-
-interface Hit {
-  category: string
-  id: number
-  title: string
-  subtitle: string
-}
-
 /** 空结果集：固定引用，避免每次渲染都是新数组导致下游 useMemo 抖动 */
 const EMPTY_HITS: Hit[] = []
-
-/** 类别 key 联合：CATEGORIES 是封闭字典，用联合类型索引（而非 Record<string, …>），
- *  让 noUncheckedIndexedAccess 下也不需要运行时判空 */
-type CategoryKey = 'cases' | 'clients' | 'contracts' | 'inbox' | 'court_sms' | 'contacts'
 
 /**
  * 各类别 → 展示名 / 图标 / 点击后的去处。
@@ -48,24 +34,11 @@ const CATEGORIES: Record<CategoryKey, { label: string; icon: typeof Users; to?: 
   contacts: { label: '联系人', icon: Paperclip },
 }
 
-const CATEGORY_ORDER: readonly CategoryKey[] = ['cases', 'clients', 'contracts', 'inbox', 'court_sms', 'contacts']
-
 /** 输入防抖间隔（ms）：输入即搜，但请求攒一撮再发，避免每次按键都重排结果列表 */
 const DEBOUNCE_MS = 250
 
 /** 全局检索 query key 前缀（本组件独用，完整 key 为 [前缀, 检索词]） */
 const GLOBAL_SEARCH_KEY = 'global-search'
-
-async function runSearch(q: string): Promise<Hit[]> {
-  const res = await searchApi.get('', { searchParams: { q, limit: 8 } }).json<Record<string, { id: number; title: string; subtitle: string }[]>>()
-  const out: Hit[] = []
-  for (const cat of CATEGORY_ORDER) {
-    for (const it of res[cat] ?? []) {
-      out.push({ category: cat, id: it.id, title: it.title, subtitle: it.subtitle })
-    }
-  }
-  return out
-}
 
 export function GlobalSearch({
   open,
@@ -301,7 +274,7 @@ export function GlobalSearch({
         <div className="flex items-center gap-3 border-t border-border px-4 py-2 text-[10.5px] text-muted-foreground">
           <span>↑↓ 选择</span>
           <span>↵ 打开</span>
-          <span>Esc 关闭</span>
+          <span>Esc 关</span>
         </div>
       </DialogContent>
     </Dialog>

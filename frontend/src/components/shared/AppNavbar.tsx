@@ -22,7 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { GlobalSearch } from './GlobalSearch'
+import { GlobalSearch } from '@/features/search'
 
 /**
  * 全局顶层导航（全站唯一一套，首页 / 材料预处理等所有页面共用）。
