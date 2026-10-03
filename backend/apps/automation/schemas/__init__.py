@@ -19,6 +19,8 @@ from .court_sms import (
     CourtSMSCopyDocsIn,
     CourtSMSCopyDocsOut,
     CourtSMSDetailOut,
+    CourtSmsDocumentRenameIn,
+    CourtSmsDocumentRenameOut,
     CourtSMSListOut,
     CourtSMSSubmitIn,
     CourtSMSSubmitOut,
@@ -86,6 +88,8 @@ _schema_all = [
     "CourtSMSAbortOut",
     "CourtSMSCopyDocsIn",
     "CourtSMSCopyDocsOut",
+    "CourtSmsDocumentRenameIn",
+    "CourtSmsDocumentRenameOut",
     # Document Delivery
 ]
 

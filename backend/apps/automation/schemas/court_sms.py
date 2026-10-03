@@ -222,6 +222,25 @@ class CourtSMSCopyDocsOut(BaseModel):
     reason: str | None = Field(None, description="失败原因（unsupported = 后端非 macOS，前端可走浏览器剪贴板降级）")
 
 
+class CourtSmsDocumentRenameIn(BaseModel):
+    """重命名单个关联文书请求"""
+
+    new_stem: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="新文件名主体（不含扩展名；不能为空、不能含扩展名点号）",
+    )
+
+
+class CourtSmsDocumentRenameOut(BaseModel):
+    """重命名单个关联文书响应"""
+
+    success: bool = Field(..., description="是否成功")
+    message: str | None = Field(None, description="附加说明（如「文件名未变化」）")
+    new_name: str | None = Field(None, description="重命名后的完整文件名（文件名未变化时为空）")
+
+
 class CourtSMSAssignCaseIn(BaseModel):
     """手动指定案件请求"""
 
