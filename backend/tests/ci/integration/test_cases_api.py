@@ -701,7 +701,7 @@ def test_upload_temp_document_no_file(authenticated_client):
     assert resp.status_code == 200
     data = resp.json()
     assert data["success"] is False
-    assert "未上传文件" in data["error"]
+    assert "未上传文件" in data["message"]
 
 
 @pytest.mark.django_db
@@ -713,7 +713,7 @@ def test_upload_temp_document_wrong_extension(authenticated_client):
     assert resp.status_code == 200
     data = resp.json()
     assert data["success"] is False
-    assert "PDF" in data["error"]
+    assert "PDF" in data["message"]
 
 
 @pytest.mark.django_db

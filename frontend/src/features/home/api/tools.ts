@@ -1,4 +1,4 @@
-import { createApiClient } from '@/lib/api'
+import { createApiClient, UPLOAD_TIMEOUT_MS } from '@/lib/api'
 import type { ConvertTemplate } from '../types'
 import { withAuthToken } from './download'
 
@@ -91,7 +91,9 @@ export interface ConverterJob {
 export async function createConverterJob(files: File[]): Promise<string> {
   const body = new FormData()
   for (const f of files) body.append('files', f, f.name)
-  const res = await docConverterApi.post('jobs', { body }).json<{ job_id?: string; success?: boolean; message?: string }>()
+  const res = await docConverterApi
+    .post('jobs', { body, timeout: UPLOAD_TIMEOUT_MS })
+    .json<{ job_id?: string; success?: boolean; message?: string }>()
   // 业务失败兜底：后端若返回 200 + success:false（或异常缺 job_id），别拿 undefined 去轮询
   if (res.success === false || !res.job_id) {
     throw new Error(res.message || '创建转换任务失败')

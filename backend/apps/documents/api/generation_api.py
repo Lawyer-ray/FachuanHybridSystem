@@ -13,9 +13,9 @@ from asgiref.sync import sync_to_async
 from ninja import Router, Schema
 
 from apps.core.exceptions import ValidationException
+from apps.core.exceptions.error_codes import CONTRACT_GENERATION_FAILED
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.core.security.auth import JWTOrSessionAuth
-from apps.core.exceptions.error_codes import CONTRACT_GENERATION_FAILED
 
 from .download_response_factory import build_download_response
 
@@ -72,7 +72,9 @@ async def preview_contract_context(request: Any, contract_id: int) -> Any:  # pr
 
 
 @router.get("/contracts/{contract_id}/supplementary-agreements/{agreement_id}/preview")
-async def preview_supplementary_agreement_context(request: Any, contract_id: int, agreement_id: int) -> Any:  # pragma: no cover
+async def preview_supplementary_agreement_context(
+    request: Any, contract_id: int, agreement_id: int
+) -> Any:  # pragma: no cover
     """补充协议占位符预览"""
     await sync_to_async(_require_contract_access)(request, contract_id)
     service = _get_supplementary_agreement_service()
@@ -81,7 +83,9 @@ async def preview_supplementary_agreement_context(request: Any, contract_id: int
 
 
 @router.get("/contracts/{contract_id}/archive-preview")
-async def preview_archive_context(request: Any, contract_id: int, template_subtype: str = "") -> Any:  # pragma: no cover
+async def preview_archive_context(
+    request: Any, contract_id: int, template_subtype: str = ""
+) -> Any:  # pragma: no cover
     """归档文书占位符预览
 
     Args:
@@ -91,7 +95,7 @@ async def preview_archive_context(request: Any, contract_id: int, template_subty
     await sync_to_async(_require_contract_access)(request, contract_id)
 
     if not template_subtype:
-        return {"success": False, "error": "缺少 template_subtype 参数"}
+        raise ValidationException("缺少 template_subtype 参数", code="TEMPLATE_SUBTYPE_REQUIRED")
 
     from apps.contracts.services.archive import ArchiveGenerationService
 
@@ -110,7 +114,7 @@ async def get_archive_overrides(request: Any, contract_id: int, template_subtype
     await sync_to_async(_require_contract_access)(request, contract_id)
 
     if not template_subtype:
-        return {"success": False, "error": "缺少 template_subtype 参数"}
+        raise ValidationException("缺少 template_subtype 参数", code="TEMPLATE_SUBTYPE_REQUIRED")
 
     from apps.contracts.services.archive.override_service import get_override
 
@@ -139,7 +143,7 @@ async def save_archive_overrides(  # pragma: no cover
     await sync_to_async(_require_contract_access)(request, contract_id)
 
     if not template_subtype:
-        return {"success": False, "error": "缺少 template_subtype 参数"}
+        raise ValidationException("缺少 template_subtype 参数", code="TEMPLATE_SUBTYPE_REQUIRED")
 
     overrides = payload.overrides if payload else {}
 
@@ -156,7 +160,9 @@ async def save_archive_overrides(  # pragma: no cover
 
 
 @router.delete("/contracts/{contract_id}/archive-placeholder-overrides")
-async def delete_archive_overrides(request: Any, contract_id: int, template_subtype: str = "") -> Any:  # pragma: no cover
+async def delete_archive_overrides(
+    request: Any, contract_id: int, template_subtype: str = ""
+) -> Any:  # pragma: no cover
     """删除归档文书占位符覆盖值（放弃修改）
 
     Args:
@@ -166,7 +172,7 @@ async def delete_archive_overrides(request: Any, contract_id: int, template_subt
     await sync_to_async(_require_contract_access)(request, contract_id)
 
     if not template_subtype:
-        return {"success": False, "error": "缺少 template_subtype 参数"}
+        raise ValidationException("缺少 template_subtype 参数", code="TEMPLATE_SUBTYPE_REQUIRED")
 
     from apps.contracts.services.archive.override_service import delete_override
 
@@ -195,15 +201,13 @@ async def download_contract_document(request: Any, contract_id: int, split_fee: 
     service = _get_contract_generation_service()
 
     # 生成合同文档
-    content, filename, saved_path, error = await sync_to_async(
-        service.generate_contract_document_result
-    )(contract_id, split_fee=split_fee)
+    content, filename, saved_path, error = await sync_to_async(service.generate_contract_document_result)(
+        contract_id, split_fee=split_fee
+    )
 
     if error:
         logger.warning("生成合同文档失败: %s", error, extra={"contract_id": contract_id, "error": error})
-        raise ValidationException(
-            message="生成合同文档失败", code=CONTRACT_GENERATION_FAILED, errors={"detail": error}
-        )
+        raise ValidationException(message="生成合同文档失败", code=CONTRACT_GENERATION_FAILED, errors={"detail": error})
 
     if saved_path:
         logger.info(
@@ -250,9 +254,9 @@ async def download_contract_folder(request: Any, contract_id: int) -> Any:  # pr
     service = _get_folder_generation_service()
 
     # 生成文件夹 ZIP
-    zip_content, zip_filename, extract_path, error = await sync_to_async(
-        service.generate_folder_with_documents_result
-    )(contract_id)
+    zip_content, zip_filename, extract_path, error = await sync_to_async(service.generate_folder_with_documents_result)(
+        contract_id
+    )
 
     if error:
         logger.warning("生成合同文件夹失败: %s", error, extra={"contract_id": contract_id, "error": error})
@@ -281,7 +285,9 @@ async def download_contract_folder(request: Any, contract_id: int) -> Any:  # pr
 
 @router.get("/contracts/{contract_id}/supplementary-agreements/{agreement_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-async def download_supplementary_agreement(request: Any, contract_id: int, agreement_id: int) -> Any:  # pragma: no cover
+async def download_supplementary_agreement(
+    request: Any, contract_id: int, agreement_id: int
+) -> Any:  # pragma: no cover
     """
     下载补充协议文档(DOCX 格式)
 
@@ -300,9 +306,9 @@ async def download_supplementary_agreement(request: Any, contract_id: int, agree
     service = _get_supplementary_agreement_service()
 
     # 生成补充协议文档
-    content, filename, saved_path, error = await sync_to_async(
-        service.generate_supplementary_agreement_result
-    )(contract_id, agreement_id)
+    content, filename, saved_path, error = await sync_to_async(service.generate_supplementary_agreement_result)(
+        contract_id, agreement_id
+    )
 
     if error:
         logger.warning(

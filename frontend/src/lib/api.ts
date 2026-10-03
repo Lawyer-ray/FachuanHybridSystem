@@ -65,6 +65,29 @@ async function refreshAccessToken(): Promise<string> {
 }
 
 /**
+ * 单飞刷新 access token：并发调用共享同一个 Promise，只发一次 /token/refresh。
+ * 刷新失败时清空令牌并返回 null（不抛出，由调用方决定如何处置）。
+ */
+function refreshAccessTokenSingleFlight(): Promise<string | null> {
+  if (isRefreshing && refreshPromise) {
+    return refreshPromise
+  }
+
+  isRefreshing = true
+  refreshPromise = refreshAccessToken()
+    .catch(() => {
+      clearTokens()
+      return null
+    })
+    .finally(() => {
+      isRefreshing = false
+      refreshPromise = null
+    })
+
+  return refreshPromise
+}
+
+/**
  * 获取有效的 access token
  */
 async function getValidAccessToken(): Promise<string | null> {
@@ -72,22 +95,7 @@ async function getValidAccessToken(): Promise<string | null> {
   if (!token) return null
 
   if (shouldRefreshToken()) {
-    if (isRefreshing && refreshPromise) {
-      return refreshPromise
-    }
-
-    isRefreshing = true
-    refreshPromise = refreshAccessToken()
-      .catch(() => {
-        clearTokens()
-        return null
-      })
-      .finally(() => {
-        isRefreshing = false
-        refreshPromise = null
-      })
-
-    return refreshPromise
+    return refreshAccessTokenSingleFlight()
   }
 
   return token
@@ -113,18 +121,19 @@ export function createApiClient(options?: Options): KyInstance {
       afterResponse: [
         async ({ request, response }) => {
           if (response.status === 401 && !request.url.includes('/token/')) {
-            try {
-              const newToken = await refreshAccessToken()
-              const retryRequest = new Request(request, {
-                headers: new Headers(request.headers),
-              })
-              retryRequest.headers.set('Authorization', `Bearer ${newToken}`)
-              return ky(retryRequest)
-            } catch {
-              clearTokens()
+            // 复用单飞刷新：并发请求同时 401 时只发一次 refresh，
+            // 否则后续请求会拿已被首个请求消费掉的 refresh token 误判会话失效
+            const newToken = await refreshAccessTokenSingleFlight()
+            if (!newToken) {
               window.location.href = '/login'
               throw new Error('Session expired')
             }
+            const retryRequest = new Request(request, {
+              headers: new Headers(request.headers),
+            })
+            retryRequest.headers.set('Authorization', `Bearer ${newToken}`)
+            // 用全局 ky 重试：绕开实例 hooks，避免再次 401 时无限递归
+            return ky(retryRequest)
           }
           return response
         },
@@ -138,5 +147,11 @@ export function createApiClient(options?: Options): KyInstance {
  * 默认 API 客户端实例
  */
 export const api = createApiClient()
+
+/**
+ * 上传类请求超时：ky 默认仅 10s，多文件整包上传（如 90+ 页扫描包）必被误杀，
+ * 参照 parseDocument 的 300s 口径统一放行（convertDocument 90s 是转换等待，不含大上传）。
+ */
+export const UPLOAD_TIMEOUT_MS = 300_000
 
 export default api

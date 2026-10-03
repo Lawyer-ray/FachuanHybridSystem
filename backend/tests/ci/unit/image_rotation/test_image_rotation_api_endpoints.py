@@ -84,13 +84,14 @@ class TestExtractPdfFast:
 class TestDetectPageOrientation:
     @pytest.mark.asyncio
     async def test_no_data(self) -> None:
+        from apps.core.exceptions import ValidationException
         from apps.image_rotation.api.image_rotation_api import detect_page_orientation
 
         req = MagicMock()
         req.body = json.dumps({}).encode()
-        result = await detect_page_orientation(req)
-        assert result["rotation"] == 0
-        assert result["confidence"] == 0
+        # 检测失败/缺参不得回退成 {rotation: 0}——那等于谎报「确认无需旋转」
+        with pytest.raises(ValidationException):
+            await detect_page_orientation(req)
 
     @pytest.mark.asyncio
     async def test_success(self) -> None:
@@ -109,14 +110,17 @@ class TestDetectPageOrientation:
 
     @pytest.mark.asyncio
     async def test_exception(self) -> None:
+        from apps.core.exceptions import ExternalServiceError
         from apps.image_rotation.api.image_rotation_api import detect_page_orientation
 
         req = MagicMock()
         req.body = json.dumps({"data": "bad"}).encode()
         with patch("apps.image_rotation.api.image_rotation_api._get_pdf_service") as mock_svc:
             mock_svc.return_value.detect_single_page_orientation.side_effect = RuntimeError("err")
-            result = await detect_page_orientation(req)
-            assert result["rotation"] == 0
+            # 异常不得伪装成 rotation=0 的成功结果，交给全局异常体系
+            with pytest.raises(ExternalServiceError) as exc_info:
+                await detect_page_orientation(req)
+            assert "err" in str(exc_info.value.__cause__)
 
 
 # ── detect_orientation ───────────────────────────────────────────

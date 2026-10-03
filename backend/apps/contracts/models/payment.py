@@ -40,6 +40,22 @@ class ContractPayment(models.Model):
             models.Index(fields=["contract", "received_at"]),
             models.Index(fields=["invoice_status"]),
         ]
+        constraints: ClassVar = [
+            # 导入路径 get_or_create(contract, received_at, amount) 的查重键，
+            # 兜住并发/重复导入产生的重复收款（财务数据完整性）
+            models.UniqueConstraint(
+                fields=["contract", "received_at", "amount"],
+                name="uniq_contractpayment_contract_received_amount",
+            ),
+            models.CheckConstraint(condition=models.Q(amount__gte=0), name="chk_contractpayment_amount_nonneg"),
+            models.CheckConstraint(
+                condition=models.Q(invoiced_amount__gte=0), name="chk_contractpayment_invoiced_nonneg"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(invoiced_amount__lte=models.F("amount")),
+                name="chk_contractpayment_invoiced_le_amount",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"合同#{self.contract_id} 收款 ¥{self.amount}"

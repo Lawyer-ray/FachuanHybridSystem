@@ -11,7 +11,6 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from apps.contract_review.models.review_task import ReviewTask
 
-
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
@@ -168,9 +167,9 @@ def test_normalize_format_task_not_found(authenticated_client):
         data=json.dumps({"task_id": str(fake_id)}),
         content_type="application/json",
     )
-    assert resp.status_code == 200
+    # 任务不存在走全局异常 404（与同文件 download 端点语义对齐）
+    assert resp.status_code == 404
     data = resp.json()
-    assert data["status"] == "failed"
     assert "不存在" in data["message"]
 
 

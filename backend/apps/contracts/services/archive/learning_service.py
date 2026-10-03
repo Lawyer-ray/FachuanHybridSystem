@@ -7,6 +7,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from django.db.models import F
+
 from apps.contracts.models import ArchiveClassificationRule, FinalizedMaterial
 from apps.contracts.services.archive.category_mapping import get_archive_category
 from apps.contracts.services.contract.integrations.archive_classifier import (
@@ -41,8 +43,8 @@ def _learn_keywords_for_material(
         if created:
             learned += 1
         elif rule.archive_item_code == material.archive_item_code:
-            rule.hit_count += 1
-            rule.save(update_fields=["hit_count", "updated_at"])
+            # F() 原子自增：读-改-写在并行学习任务下会互相覆盖计数
+            ArchiveClassificationRule.objects.filter(pk=rule.pk).update(hit_count=F("hit_count") + 1)
             updated += 1
     return learned, updated, ambiguous
 

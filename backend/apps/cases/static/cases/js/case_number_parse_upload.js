@@ -75,7 +75,7 @@
                             parseBtn.dataset.tempFilePath = data.temp_file_path;
                         }
                     } else {
-                        showToast('上传失败: ' + data.error, 'error');
+                        showToast('上传失败: ' + (data.message || data.error), 'error');
                     }
                 } catch (e) {
                     showToast('上传失败: 响应解析错误', 'error');

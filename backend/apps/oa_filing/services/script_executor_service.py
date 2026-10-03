@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -19,6 +20,42 @@ from .oa_firm_registry import create_adapter
 logger = logging.getLogger("apps.oa_filing")
 
 _executor = ThreadPoolExecutor(max_workers=2)
+
+# 排队上限：共享池只有 2 个 worker，浏览器流程一跑就是几分钟起；两个槽占满后
+# 后续任务只会无限静默排队（进程重启即丢失且用户无感知）。超过上限的新任务
+# 立即置 FAILED 并报错，把「卡死」变成「可见的失败」。
+_MAX_QUEUED_JOBS = 4
+_queued_slots = threading.Semaphore(_MAX_QUEUED_JOBS)
+
+
+def _submit_session_job(
+    session_model: Any,
+    session_id: int,
+    failed_status: Any,
+    label: str,
+    fn: Any,
+    /,
+    *args: Any,
+) -> None:
+    """提交 OA 任务到共享池；排队满时立即把会话置 FAILED 并抛 ScriptExecutionError。"""
+    from apps.oa_filing.services.exceptions import ScriptExecutionError
+
+    if not _queued_slots.acquire(blocking=False):
+        session_model.objects.filter(pk=session_id).update(
+            status=failed_status,
+            error_message=f"{label}排队已满（前序任务仍在执行），请稍后重试",
+        )
+        raise ScriptExecutionError(f"{label}排队已满，请稍后重试")
+
+    def _run(*a: Any) -> None:
+        _queued_slots.release()  # 已开始执行，腾出排队名额（运行时长不受此限制）
+        fn(*a)
+
+    try:
+        _executor.submit(_run, *args)
+    except Exception:
+        _queued_slots.release()
+        raise
 
 
 def _friendly_error_message(exc: Exception) -> str:
@@ -129,7 +166,18 @@ class ScriptExecutorService:
         )
         logger.info("开始立案: session=%d, site=%s", session.id, site_name)
 
-        _executor.submit(self._run_in_thread, session.id, site_name, credential, contract_id, case_id)
+        _submit_session_job(
+            FilingSession,
+            session.id,
+            SessionStatus.FAILED,
+            "立案",
+            self._run_in_thread,
+            session.id,
+            site_name,
+            credential,
+            contract_id,
+            case_id,
+        )
         return FilingSession.objects.get(pk=session.id)
 
     def _run_in_thread(
@@ -179,7 +227,15 @@ class ScriptExecutorService:
             status=StampSessionStatus.IN_PROGRESS,
         )
         logger.info("开始盖章: session=%d, oa_no=%s", session.id, lookup.oa_case_number)
-        _executor.submit(self._run_stamp_in_thread, session.id, site_name)
+        _submit_session_job(
+            StampSession,
+            session.id,
+            StampSessionStatus.FAILED,
+            "盖章",
+            self._run_stamp_in_thread,
+            session.id,
+            site_name,
+        )
         return StampSession.objects.get(pk=session.id)
 
     def _run_stamp_in_thread(self, session_id: int, site_name: str) -> None:
@@ -225,7 +281,15 @@ class ScriptExecutorService:
             status=ArchiveSessionStatus.IN_PROGRESS,
         )
         logger.info("开始归档: session=%d, oa_no=%s", session.id, lookup.oa_case_number)
-        _executor.submit(self._run_archive_in_thread, session.id, site_name)
+        _submit_session_job(
+            ArchiveSession,
+            session.id,
+            ArchiveSessionStatus.FAILED,
+            "归档",
+            self._run_archive_in_thread,
+            session.id,
+            site_name,
+        )
         return ArchiveSession.objects.get(pk=session.id)
 
     def _run_archive_in_thread(self, session_id: int, site_name: str) -> None:
@@ -250,8 +314,34 @@ class ScriptExecutorService:
         await adapter.execute_archive(session)
 
     # ------------------------------------------------------------------
-    # 打开 OA 页面
+    # 打开 OA 页面（半自动：浏览器交接给用户操作）
     # ------------------------------------------------------------------
+
+    def _spawn_open_page_thread(self, method_name: str, site_name: str, credential: Any, *args: Any) -> None:
+        """半自动 open_* 流程跑在独立 daemon 线程上，不占共享 2-worker 池。
+
+        线程要活到用户关闭浏览器为止：open_* 返回后调用 adapter 的
+        wait_open_browsers_closed 压住事件循环，等浏览器关闭并回收 Playwright
+        driver 后线程才退出。此前协程一返回 asyncio.run 就退出关闭循环，
+        disconnected 事件永远无法触发，node driver 进程随每次操作泄漏。
+        """
+
+        def _run() -> None:
+            os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+
+            async def _main() -> None:
+                try:
+                    adapter = create_adapter(site_name, str(credential.account), str(credential.password))
+                    await getattr(adapter, method_name)(credential, *args)
+                except Exception:
+                    logger.error("打开 OA 页面失败: %s", method_name, exc_info=True)
+                    return
+                await adapter.wait_open_browsers_closed()
+                logger.info("OA 半自动浏览器已关闭，资源已回收: %s", method_name)
+
+            asyncio.run(_main())
+
+        threading.Thread(target=_run, daemon=True, name=f"oa-open-{method_name}").start()
 
     def open_oa_page(
         self, contract_id: int, user: Any, description: str = "详见卷宗", site_name: str = "金诚同达OA"
@@ -287,30 +377,7 @@ class ScriptExecutorService:
         else:
             logger.info("未找到 5-Final案卷材料，打开 OA 跳过自动上传", extra={"contract_id": contract_id})
 
-        _executor.submit(
-            self._run_open_oa_in_thread,
-            site_name,
-            credential,
-            oa_case_number,
-            description,
-            file_paths,
-        )
-
-    def _run_open_oa_in_thread(
-        self,
-        site_name: str,
-        credential: Any,
-        oa_case_number: str,
-        description: str,
-        file_paths: list[str],
-    ) -> None:
-        os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
-        try:
-            adapter = create_adapter(site_name, str(credential.account), str(credential.password))
-            asyncio.run(adapter.open_oa_page(credential, oa_case_number, description, file_paths))
-            logger.info("OA 页面已打开")
-        except Exception as exc:
-            logger.error("打开 OA 页面失败: %s", exc, exc_info=True)
+        self._spawn_open_page_thread("open_oa_page", site_name, credential, oa_case_number, description, file_paths)
 
     # ------------------------------------------------------------------
     # 申请开票
@@ -330,21 +397,7 @@ class ScriptExecutorService:
         contract = Contract.objects.filter(pk=contract_id).first()
         oa_case_number = contract.law_firm_oa_case_number if contract else ""
 
-        _executor.submit(self._run_open_invoice_in_thread, site_name, credential, oa_case_number)
-
-    def _run_open_invoice_in_thread(
-        self,
-        site_name: str,
-        credential: Any,
-        oa_case_number: str,
-    ) -> None:
-        os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
-        try:
-            adapter = create_adapter(site_name, str(credential.account), str(credential.password))
-            asyncio.run(adapter.open_invoice_page(credential, oa_case_number))
-            logger.info("开票页面已打开")
-        except Exception as exc:
-            logger.error("打开开票页面失败: %s", exc, exc_info=True)
+        self._spawn_open_page_thread("open_invoice_page", site_name, credential, oa_case_number)
 
     # ------------------------------------------------------------------
     # 申请所函盖章
@@ -366,21 +419,7 @@ class ScriptExecutorService:
         if case and case.contract:
             oa_case_number = case.contract.law_firm_oa_case_number or ""
 
-        _executor.submit(self._run_open_stamp_in_thread, site_name, credential, oa_case_number)
-
-    def _run_open_stamp_in_thread(
-        self,
-        site_name: str,
-        credential: Any,
-        oa_case_number: str,
-    ) -> None:
-        os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
-        try:
-            adapter = create_adapter(site_name, str(credential.account), str(credential.password))
-            asyncio.run(adapter.open_stamp_page(credential, oa_case_number))
-            logger.info("盖章页面已打开")
-        except Exception as exc:
-            logger.error("打开盖章页面失败: %s", exc, exc_info=True)
+        self._spawn_open_page_thread("open_stamp_page", site_name, credential, oa_case_number)
 
     # ------------------------------------------------------------------
     # 利益冲突信息预检
@@ -397,18 +436,4 @@ class ScriptExecutorService:
         if credential is None:
             raise RuntimeError(f"未找到匹配凭证: 站点名称={site_name}")
 
-        _executor.submit(self._run_open_conflict_check_in_thread, site_name, credential, keyword)
-
-    def _run_open_conflict_check_in_thread(
-        self,
-        site_name: str,
-        credential: Any,
-        keyword: str,
-    ) -> None:
-        os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
-        try:
-            adapter = create_adapter(site_name, str(credential.account), str(credential.password))
-            asyncio.run(adapter.open_conflict_check_page(credential, keyword))
-            logger.info("利冲检查页面已打开")
-        except Exception as exc:
-            logger.error("打开利冲检查页面失败: %s", exc, exc_info=True)
+        self._spawn_open_page_thread("open_conflict_check_page", site_name, credential, keyword)

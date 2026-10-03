@@ -36,19 +36,16 @@ async def normalize_format(  # pragma: no cover
         try:
             task = ReviewTask.objects.get(id=payload.task_id)
         except ReviewTask.DoesNotExist:
-            return {
-                "task_id": payload.task_id,
-                "status": "failed",
-                "message": "任务不存在",
-            }
+            # 与同文件 download_normalized 一致：不存在/无权用 404，而非 200+failed
+            from django.http import Http404
+
+            raise Http404("任务不存在")
 
         # 权限检查
         if not _check_task_access(task, request.user):
-            return {
-                "task_id": payload.task_id,
-                "status": "failed",
-                "message": "无权操作此任务",
-            }
+            from django.http import Http404
+
+            raise Http404("无权操作此任务")
 
         # 检查原始文件是否存在
         if not task.original_file:

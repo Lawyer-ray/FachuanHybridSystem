@@ -101,7 +101,9 @@ async def detect_page_orientation(request: HttpRequest) -> dict[str, Any]:  # pr
     payload = _body(request)
     data: str = payload.get("data", "")
     if not data:
-        return {"rotation": 0, "confidence": 0}
+        from apps.core.exceptions import ValidationException
+
+        raise ValidationException("缺少 data 参数", code="MISSING_DATA")
     try:
         t0 = time.perf_counter()
         service = _get_pdf_service()
@@ -112,8 +114,14 @@ async def detect_page_orientation(request: HttpRequest) -> dict[str, Any]:  # pr
         result["elapsed_ms"] = round((time.perf_counter() - t0) * 1000, 1)
         return result
     except Exception as exc:
+        # 检测失败不能回退成 {rotation: 0}：那等于谎报「确认无需旋转」，
+        # 错误会静默固化进导出产物。交给全局异常体系返回真实失败。
         logger.error("detect_page_orientation 失败: %s", exc, exc_info=True)
-        return {"rotation": 0, "confidence": 0}
+        from apps.core.exceptions import ExternalServiceError
+
+        raise ExternalServiceError(
+            "页面方向检测失败，请稍后重试或手动确认方向", code="ORIENTATION_DETECT_FAILED"
+        ) from exc
 
 
 @router.post("/detect-orientation")
@@ -151,6 +159,8 @@ async def detect_orientation(request: HttpRequest) -> dict[str, Any]:  # pragma:
                     "confidence": 0,
                     "ocr_text": "",
                     "elapsed_ms": 0,
+                    # 显式失败标记：区分「检测结果为 0 度」与「检测失败回退 0」
+                    "error": str(exc),
                 }
 
     results = await asyncio.gather(*[_process_image(img) for img in images])
@@ -188,7 +198,13 @@ async def extract_text(request: HttpRequest) -> dict[str, Any]:  # pragma: no co
                 }
             except Exception as exc:
                 logger.error("extract_text 失败: %s", exc, exc_info=True)
-                return {"filename": img.get("filename", ""), "ocr_text": "", "raw_texts": []}
+                return {
+                    "filename": img.get("filename", ""),
+                    "ocr_text": "",
+                    "raw_texts": [],
+                    # 显式失败标记：空文本可能是「无文字」也可能是「识别失败」
+                    "error": str(exc),
+                }
 
     results = await asyncio.gather(*[_extract_one(img) for img in images])
     return {"success": True, "results": list(results)}

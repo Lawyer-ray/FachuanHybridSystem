@@ -872,6 +872,8 @@ class TestFormatApiNormalize:
     @patch("apps.contract_review.api.format_api.ReviewTask")
     @pytest.mark.asyncio
     async def test_task_not_found(self, mock_model):
+        from django.http import Http404
+
         from apps.contract_review.api.format_api import normalize_format
         from apps.contract_review.schemas.format_schemas import FormatNormalizeIn
 
@@ -880,13 +882,15 @@ class TestFormatApiNormalize:
 
         request = MagicMock()
         payload = FormatNormalizeIn(task_id=uuid.uuid4())
-        result = await normalize_format(request, payload)
-        assert result["status"] == "failed"
-        assert "不存在" in result["message"]
+        # 任务不存在走 Http404（与同文件 download_normalized 对齐），不再 200+failed
+        with pytest.raises(Http404):
+            await normalize_format(request, payload)
 
     @patch("apps.contract_review.api.format_api.ReviewTask")
     @pytest.mark.asyncio
     async def test_no_permission(self, mock_model):
+        from django.http import Http404
+
         from apps.contract_review.api.format_api import normalize_format
         from apps.contract_review.schemas.format_schemas import FormatNormalizeIn
 
@@ -900,9 +904,9 @@ class TestFormatApiNormalize:
         request.user.id = 2
 
         payload = FormatNormalizeIn(task_id=uuid.uuid4())
-        result = await normalize_format(request, payload)
-        assert result["status"] == "failed"
-        assert "无权" in result["message"]
+        # 无权操作走 Http404（与同文件 download_normalized 对齐），不再 200+failed
+        with pytest.raises(Http404):
+            await normalize_format(request, payload)
 
     @patch("apps.contract_review.api.format_api.ReviewTask")
     @pytest.mark.asyncio

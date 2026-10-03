@@ -138,19 +138,20 @@ export function DocConverterCard() {
         toast.success(`已复制 ${res.copied} 个文件（同 Finder 复制），到微信对话框直接 ⌘V 粘贴发送`)
         return
       }
-      if (await copyNames()) toast.info('当前环境不支持复制文件本体，已复制文件名')
+      // 降级也要复制「本次选中」的文件名（单件复制时不能变成全部成功件）
+      if (await copyNames(items)) toast.info('当前环境不支持复制文件本体，已复制文件名')
       else toast.error('复制失败，请改用打包下载')
     } catch {
-      if (await copyNames()) toast.info('当前环境不支持复制文件本体，已复制文件名')
+      if (await copyNames(items)) toast.info('当前环境不支持复制文件本体，已复制文件名')
       else toast.error('复制失败，请改用打包下载')
     } finally {
       setCopyBusy(false)
     }
   }
 
-  const copyNames = async () => {
+  const copyNames = async (items: typeof okItems) => {
     try {
-      await navigator.clipboard.writeText(okItems.map((it) => it.name).join('\n'))
+      await navigator.clipboard.writeText(items.map((it) => it.name).join('\n'))
       return true
     } catch {
       return false

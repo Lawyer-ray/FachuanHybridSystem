@@ -223,6 +223,17 @@ jobs:
       - name: Lint (ruff, core + apiSystem)
         run: uv run ruff check apps/core apiSystem --config ruff.toml
 
+      - name: Cache mypy
+        # mypy 三道门里 full-scan 每次冷启动要全量扫描 40+ app，缓存 .mypy_cache
+        # 可复用增量分析结果（mypy 自身按源文件哈希做失效判断）
+        uses: actions/cache@v6
+        with:
+          path: backend/.mypy_cache
+          key: mypy-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('backend/uv.lock', 'backend/mypy.ini') }}-${{ github.sha }}
+          restore-keys: |
+            mypy-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('backend/uv.lock', 'backend/mypy.ini') }}-
+            mypy-${{ runner.os }}-${{ matrix.python-version }}-
+
       - name: Type check (mypy, changed files)
         env:
           PYTHONPATH: "apiSystem:."

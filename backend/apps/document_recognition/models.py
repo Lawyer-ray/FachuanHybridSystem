@@ -130,6 +130,14 @@ class DocumentRecognitionTask(models.Model):
         verbose_name = "文书识别任务"
         verbose_name_plural = "文书识别任务"
         ordering: ClassVar[list[str]] = ["-created_at"]
+        # case/case_log/status 的索引随 automation/0004 迁走模型时被删除后
+        # 未在此重建：该表带 raw_text 持续增长，按 case 归属过滤（案件详情聚合）
+        # 与按 status 过滤（工作台待确认列表）都会退化为顺序扫描
+        indexes: ClassVar[list[models.Index]] = [
+            models.Index(fields=["status", "-created_at"], name="idx_docrec_status_created"),
+            models.Index(fields=["case"], name="idx_docrec_case"),
+            models.Index(fields=["case_log"], name="idx_docrec_case_log"),
+        ]
 
     def __str__(self) -> str:
         return f"识别任务 #{self.id} - {self.get_status_display()}"

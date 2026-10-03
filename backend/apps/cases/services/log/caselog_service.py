@@ -117,10 +117,17 @@ class CaseLogService:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
+        limit: int | None = None,
+        offset: int = 0,
     ) -> list[CaseLog]:
         """获取日志列表并批量预热提醒缓存（供 async API 序列化，避免逐条查询）。"""
         return self.query_service.list_logs_with_reminders(
-            case_id=case_id, user=user, org_access=org_access, perm_open_access=perm_open_access
+            case_id=case_id,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+            limit=limit,
+            offset=offset,
         )
 
     def get_log(

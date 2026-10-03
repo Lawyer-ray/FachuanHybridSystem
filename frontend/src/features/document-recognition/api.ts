@@ -1,6 +1,6 @@
 /** 文书识别 API 客户端（/api/v1/document-recognition，JWT 自动携带）。 */
 
-import { createApiClient } from '@/lib/api'
+import { createApiClient, UPLOAD_TIMEOUT_MS } from '@/lib/api'
 
 import type { CaseSearchItem, ConfirmItemIn, ConfirmItemOut, TaskOut } from './types'
 
@@ -10,7 +10,9 @@ export const documentRecognitionApi = createApiClient({ prefix: '/api/v1/documen
 export async function recognizeFile(file: File): Promise<{ task_id: number }> {
   const body = new FormData()
   body.append('file', file)
-  return documentRecognitionApi.post('court-document/recognize', { body }).json<{ task_id: number }>()
+  return documentRecognitionApi
+    .post('court-document/recognize', { body, timeout: UPLOAD_TIMEOUT_MS })
+    .json<{ task_id: number }>()
 }
 
 /** 查询任务状态与结果（含日期候选、绑定推荐） */

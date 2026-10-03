@@ -75,7 +75,7 @@ def execute_scraper_task(task_id: int, **kwargs: Any) -> None:
 
     os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "true")
 
-    from ..models import ScraperTask
+    from ..models import ScraperTask, ScraperTaskStatus
 
     try:
         task = ScraperTask.objects.get(id=task_id)
@@ -136,6 +136,13 @@ def execute_scraper_task(task_id: int, **kwargs: Any) -> None:
                 task.max_retries,
                 next_run_time,
             )
+        else:
+            # 重试耗尽必须落终态：否则任务停在 running，只能等 qcluster 重启时
+            # reset_running_tasks 兜底转回 pending 再空转一轮
+            task.status = ScraperTaskStatus.FAILED
+            task.error_message = f"重试 {task.max_retries} 次后仍失败: {e}"
+            task.save()
+            logger.error("任务 %s 重试耗尽（%s/%s），标记为失败", task_id, task.retry_count, task.max_retries)
 
 
 def process_pending_tasks() -> int:

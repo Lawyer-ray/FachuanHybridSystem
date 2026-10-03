@@ -35,6 +35,15 @@ class SupplementaryAgreement(models.Model):
             models.Index(fields=["contract", "-created_at"]),
             models.Index(fields=["-created_at"]),
         ]
+        constraints: ClassVar = [
+            # 导入路径 get_or_create(contract, name) 的查重键；空名（''）的
+            # 未命名协议允许存在多份，不参与唯一性
+            models.UniqueConstraint(
+                fields=["contract", "name"],
+                name="uniq_supplementaryagreement_contract_name",
+                condition=~models.Q(name=""),
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"合同#{self.contract_id} {self.name or '未命名补充协议'}"

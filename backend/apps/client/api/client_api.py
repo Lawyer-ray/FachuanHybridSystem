@@ -121,7 +121,7 @@ async def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str
         if result.get("name"):
             return {"success": True, "client": result, "parse_method": "regex"}
         else:
-            return {"success": False, "error": "未能解析出客户信息"}
+            return {"success": False, "message": "未能解析出客户信息"}
 
 
 @router.get("/parse-text")

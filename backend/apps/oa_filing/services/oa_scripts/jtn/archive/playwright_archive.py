@@ -296,16 +296,9 @@ class PlaywrightArchiveMixin:  # pragma: no cover
         browser = await playwright.chromium.launch(headless=False)
         context = await browser.new_context()
         page = await context.new_page()
-
-        # 用户关闭浏览器时自动清理 playwright，释放进程
-        def _cleanup(_: Any = None) -> None:
-            try:
-                asyncio.run(playwright.stop())
-            except Exception:
-                logger.debug("清理 Playwright 资源失败（已忽略）", exc_info=True)
-                pass
-
-        browser.on("disconnected", _cleanup)
+        # 浏览器关闭后的回收由 adapter.wait_open_browsers_closed 负责（调度器压住
+        # 事件循环直到用户关掉浏览器）；脚本执行中途的异常路径在下方 except 里
+        # 显式 browser.close() + playwright.stop()。
 
         try:
             await self._login(page, context)

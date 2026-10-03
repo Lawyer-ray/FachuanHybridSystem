@@ -36,7 +36,11 @@ class CaseAssignment(models.Model):
     id: int
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="assignments", verbose_name="案件")
     lawyer = models.ForeignKey(
-        "organization.Lawyer", on_delete=models.CASCADE, related_name="case_assignments", verbose_name="律师"
+        # PROTECT：删除律师不得静默抹掉案件指派（会改变案件访问范围），须先走转办流程
+        "organization.Lawyer",
+        on_delete=models.PROTECT,
+        related_name="case_assignments",
+        verbose_name="律师",
     )
 
     class Meta:
@@ -54,7 +58,11 @@ class CaseAccessGrant(models.Model):
     id: int
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="access_grants", verbose_name="案件")
     grantee = models.ForeignKey(
-        "organization.Lawyer", on_delete=models.CASCADE, related_name="case_access_grants", verbose_name="获授权律师"
+        # PROTECT：同 CaseAssignment，授权记录是办案历史的一部分
+        "organization.Lawyer",
+        on_delete=models.PROTECT,
+        related_name="case_access_grants",
+        verbose_name="获授权律师",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
