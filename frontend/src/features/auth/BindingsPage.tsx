@@ -23,10 +23,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { socialBindingsApi, type BoundAccount, type SocialProviderInfo } from './social-api'
+import { BINDINGS_KEY, CATALOG_KEY } from './constants'
 import { BindProviderDialog } from './components/BindProviderDialog'
-
-const BINDINGS_KEY = ['social-bindings']
-const CATALOG_KEY = ['social-provider-catalog']
 
 interface Row {
   provider: SocialProviderInfo

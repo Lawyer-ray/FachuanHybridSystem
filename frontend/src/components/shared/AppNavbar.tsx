@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { LogOut, Menu, Plus, Search, User } from 'lucide-react'
 
 import { useAuth } from '@/features/auth'
@@ -50,6 +50,7 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
   const setUser = useAuth((s) => s.setUser)
   const logout = useAuth((s) => s.logout)
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   // auth store 在刷新页面（init 路径）时只放了 {id:0, username:''} 占位，
   // 拿不到真实用户名。navbar 又得显示用户名，所以这里补拉一次
@@ -84,6 +85,9 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
   const handleLogout = () => {
     setLogoutOpen(false)
     logout()
+    // 清空 react-query 缓存：否则换账号登录后在 staleTime 窗口内
+    // 会直接命中上一账号的日历/收件箱/合同等缓存数据
+    queryClient.clear()
     navigate('/login', { replace: true })
     onLogout?.()
   }

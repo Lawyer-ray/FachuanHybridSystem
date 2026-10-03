@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { FileDown, Trash2 } from 'lucide-react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 
@@ -117,6 +117,8 @@ export function ConvertHistoryDialog({ open, onOpenChange }: { open: boolean; on
     queryFn: () => listConvertRecords(group || undefined, page),
     enabled: open,
     staleTime: 10_000,
+    // 翻页/切组时保留上一屏数据，避免列表闪「正在加载…」、弹窗高度跳动
+    placeholderData: keepPreviousData,
   })
 
   const items = data?.items ?? []

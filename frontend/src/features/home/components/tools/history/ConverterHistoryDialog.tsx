@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ArrowLeft, CheckCircle2, FileDown, XCircle } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 
 import {
@@ -44,6 +44,8 @@ export function ConverterHistoryDialog({ open, onOpenChange }: { open: boolean; 
     queryFn: () => listConverterJobs(page),
     enabled: open,
     staleTime: 10_000,
+    // 翻页时保留上一页数据，避免列表闪「正在加载…」、弹窗高度跳动
+    placeholderData: keepPreviousData,
   })
 
   const { data: job, isLoading: jobLoading } = useQuery({

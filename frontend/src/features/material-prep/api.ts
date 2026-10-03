@@ -1,4 +1,4 @@
-import { createApiClient } from '@/lib/api'
+import { createApiClient, UPLOAD_TIMEOUT_MS } from '@/lib/api'
 import { MANUAL_SOURCE_TYPE } from './constants'
 import type {
   AssignInfo,
@@ -36,7 +36,9 @@ export async function createPdfSplitJob(file: File): Promise<string> {
   body.append('template_key', 'filing_materials_v1')
   body.append('split_mode', 'content_analysis')
   body.append('ocr_profile', 'accurate')
-  const result = await pdfSplitApi.post('jobs', { body }).json<{ job_id: string }>()
+  const result = await pdfSplitApi
+    .post('jobs', { body, timeout: UPLOAD_TIMEOUT_MS })
+    .json<{ job_id: string }>()
   return result.job_id
 }
 
@@ -82,6 +84,7 @@ export async function uploadPack(files: File[], subject?: string): Promise<Inbox
   return inboxApi
     .post('messages/upload', {
       body: toFormData(files, subject),
+      timeout: UPLOAD_TIMEOUT_MS,
     })
     .json<InboxMessageDetail>()
 }
@@ -91,6 +94,7 @@ export async function appendPackFiles(id: number, files: File[]): Promise<InboxM
   return inboxApi
     .post(`messages/${id}/attachments`, {
       body: toFormData(files),
+      timeout: UPLOAD_TIMEOUT_MS,
     })
     .json<InboxMessageDetail>()
 }
@@ -121,7 +125,9 @@ export async function setPackStatusRemote(
 export async function ocrImage(image: Blob): Promise<OcrResult> {
   const fd = new FormData()
   fd.append('file', image, 'page.png')
-  return inboxApi.post('ocr', { body: fd }).json<OcrResult>()
+  return inboxApi
+    .post('ocr', { body: fd, timeout: UPLOAD_TIMEOUT_MS })
+    .json<OcrResult>()
 }
 
 /** 搜索真实案件（归案 modal 用）；模块级建一次客户端，避免每次检索重复 create */

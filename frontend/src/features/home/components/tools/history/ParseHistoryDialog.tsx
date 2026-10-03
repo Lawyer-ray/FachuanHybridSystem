@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ArrowLeft, Copy, FileDown } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 
 import { getParseRecord, listParseRecords } from '../../../api'
@@ -40,6 +40,8 @@ export function ParseHistoryDialog({ open, onOpenChange }: { open: boolean; onOp
     queryFn: () => listParseRecords(group || undefined, page),
     enabled: open,
     staleTime: 10_000,
+    // 翻页/切组时保留上一屏数据，避免列表闪「正在加载…」、弹窗高度跳动
+    placeholderData: keepPreviousData,
   })
 
   const { data: detail, isLoading: detailLoading } = useQuery({

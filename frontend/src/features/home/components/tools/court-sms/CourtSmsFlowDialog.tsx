@@ -107,6 +107,15 @@ export function CourtSmsFlowDialog({
     }
   }
 
+  // 重试失败（后端拒绝/网络）也要给用户交代，否则按钮恢复原状像什么都没发生
+  const onRetryClick = async () => {
+    try {
+      await flow.retry()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '重试失败，请稍后重试')
+    }
+  }
+
   const headline: Record<FlowTone, string> = {
     running: '正在处理法院短信…',
     success: '处理完成',
@@ -157,7 +166,11 @@ export function CourtSmsFlowDialog({
           busy={flow.actionBusy}
           onAssign={async (caseId) => {
             // 失败时 CaseAssignPicker 维持原状可重试；成功后基调切回 running 继续跟进
-            await flow.assignCase(caseId)
+            try {
+              await flow.assignCase(caseId)
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : '指定案件失败，请重试')
+            }
           }}
         />
         {/* 不再放提示条：subline 已说明「指定后自动归档并发送通知」，省下的高度给候选列表 */}
@@ -194,7 +207,7 @@ export function CourtSmsFlowDialog({
             </button>
           )}
           {(tone === 'error' || tone === 'manual') && canRetry && (
-            <button type="button" className={BTN} disabled={flow.actionBusy} onClick={() => void flow.retry()}>
+            <button type="button" className={BTN} disabled={flow.actionBusy} onClick={() => void onRetryClick()}>
               {tone === 'manual' ? '重新自动匹配' : '重试处理'}
             </button>
           )}
