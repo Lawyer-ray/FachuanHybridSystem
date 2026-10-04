@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from django.db.models import Count, F, IntegerField, OuterRef, QuerySet, Subquery, Sum
+from django.db.models import Count, DecimalField, F, IntegerField, OuterRef, QuerySet, Subquery, Sum
 from django.db.models.expressions import RawSQL
 
 from apps.cases.models import Case
-from apps.contracts.models import Contract
+from apps.contracts.models import Contract, ContractPayment
 from apps.core.exceptions import NotFoundError
 from apps.core.security.access_context import AccessContext
 
@@ -41,12 +41,26 @@ class ContractQueryService:
                 "cases",
             )
             # 用 DB 层聚合替代 ContractOut.resolve_total_received/invoiced 中的 Python 循环求和。
-            # case_count 用相关子查询而非 Count("cases")：同一 annotate 链上再 join cases 会与
-            # payments 的 Sum 互相放大（笛卡尔积），子查询各算各的互不干扰。
-            # （子查询负责 case_count 计数，上方 prefetch 负责 DTO 展开，两者并存不冲突。）
+            # case_count 与两处金额合计均用相关子查询而非 Sum/Count 注解：同一 annotate 链上
+            # Sum("payments__amount") 之后，非 admin 过滤（access_policy.filter_queryset）还会追加
+            # assignments/cases 的 OR JOIN，payments 行会被复制 N 份导致 SUM 放大；子查询各算各的
+            # 互不干扰，天然免疫 join 扇出。
+            # （子查询负责聚合计数，上方 prefetch 负责 DTO 展开，两者并存不冲突。）
             .annotate(
-                _total_received=Sum("payments__amount"),
-                _total_invoiced=Sum("payments__invoiced_amount"),
+                _total_received=Subquery(
+                    ContractPayment.objects.filter(contract_id=OuterRef("pk"))
+                    .values("contract_id")
+                    .annotate(s=Sum("amount"))
+                    .values("s")[:1],
+                    output_field=DecimalField(max_digits=14, decimal_places=2),
+                ),
+                _total_invoiced=Subquery(
+                    ContractPayment.objects.filter(contract_id=OuterRef("pk"))
+                    .values("contract_id")
+                    .annotate(s=Sum("invoiced_amount"))
+                    .values("s")[:1],
+                    output_field=DecimalField(max_digits=14, decimal_places=2),
+                ),
                 _case_count=Subquery(
                     Case.objects.filter(contract_id=OuterRef("pk"))
                     .values("contract_id")

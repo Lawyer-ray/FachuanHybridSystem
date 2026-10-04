@@ -246,11 +246,21 @@ class InterestCalculator:
         principal_periods = sorted(principal_periods, key=lambda x: x.start_date)
         self._validate_principal_periods(principal_periods)
 
-        # 根据日期包含模式调整每个本金时间段
-        adjusted_periods = []
-        for pp in principal_periods:
-            calc_start, calc_end = self._apply_date_inclusion(pp.start_date, pp.end_date, date_inclusion)
-            adjusted_periods.append(PrincipalPeriod(calc_start, calc_end, pp.principal))
+        # date_inclusion 只作用于整体计息区间的首尾：对排序后第一段的 start_date、最后一段的
+        # end_date 按 date_inclusion 收缩，中间分界保持原样。否则多段时每个段都 +1/-1，
+        # 中间分界天会被重复削掉（如 neither 时总天数会比 both 少 2×段数，而非少 2）。
+        overall_start, overall_end = self._apply_date_inclusion(
+            principal_periods[0].start_date, principal_periods[-1].end_date, date_inclusion
+        )
+        last_index = len(principal_periods) - 1
+        adjusted_periods = [
+            PrincipalPeriod(
+                overall_start if i == 0 else pp.start_date,
+                overall_end if i == last_index else pp.end_date,
+                pp.principal,
+            )
+            for i, pp in enumerate(principal_periods)
+        ]
 
         # 判断使用自定义利率还是LPR利率
         if custom_rate_unit and custom_rate_value is not None:
@@ -371,6 +381,13 @@ class InterestCalculator:
             if period.start_date > period.end_date:
                 raise ValidationException(
                     message="第%(index)s段开始日期不能晚于结束日期" % {"index": i + 1}, code="INVALID_DATE_RANGE"
+                )
+
+            # 验证与前一段时间不重叠：重叠区间会被交叉分段重复计息（双计）
+            if i > 0 and period.start_date <= periods[i - 1].end_date:
+                raise ValidationException(
+                    message="第%(cur)s段与第%(prev)s段时间重叠，请调整本金分段" % {"cur": i + 1, "prev": i},
+                    code="OVERLAPPING_PERIODS",
                 )
 
         # 注意：时间段之间允许有空隙，不强制连续

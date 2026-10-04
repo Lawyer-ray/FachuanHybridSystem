@@ -219,7 +219,6 @@ class SupplementaryAgreementGenerationService:
         Returns:
             版本号字符串 (如 "V1", "V2", "V3")
         """
-        import re
         from datetime import date
 
         if not contract_id or not self.folder_binding_service:
@@ -254,20 +253,13 @@ class SupplementaryAgreementGenerationService:
                     return "V1"
                 names = [f.name for f in folder_path.iterdir() if f.is_file()]
 
-            # 构建文件名模式（不包含版本号和日期）
-            today_str = date.today().strftime("%Y%m%d")
-            # 匹配格式: 补充协议名称(合同名称)V数字_日期.docx
-            pattern = re.compile(
-                rf"^{re.escape(agreement_name)}\({re.escape(contract_name)}\)V(\d+)_{today_str}\.docx$"
-            )
+            # 查找已存在的版本号（括号兼容全角/半角，见 naming.find_max_doc_version）
+            from .pipeline.naming import find_max_doc_version
 
-            # 查找已存在的版本号
-            max_version = 0
-            for name in names:
-                match = pattern.match(name)
-                if match:
-                    version_num = int(match.group(1))
-                    max_version = max(max_version, version_num)
+            today_str = date.today().strftime("%Y%m%d")
+            max_version = find_max_doc_version(
+                names=names, doc_type=agreement_name, case_name=contract_name, date_str=today_str
+            )
 
             return f"V{max_version + 1}"
 

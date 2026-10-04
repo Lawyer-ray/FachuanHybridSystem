@@ -244,6 +244,9 @@ class TestResolveScanScope:
     def test_cloud_subfolder_not_exists_raises(self):
         svc = self._make_service()
         provider = MagicMock()
+        # 判不可访问需 is_dir()（PROPFIND）与 exists() 兜底都为 False，
+        # 坚果云 HEAD 对目录 403 时 is_dir() 仍可命中
+        provider.is_dir.return_value = False
         provider.exists.return_value = False
         with pytest.raises(ValidationException, match="不可访问"):
             svc._resolve_scan_scope("/bucket/root", "nonexistent", storage_provider=provider)

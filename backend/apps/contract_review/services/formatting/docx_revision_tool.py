@@ -158,7 +158,11 @@ class DocxRevisionTool:
         # 在 paragraph XML 中定位并替换
         p_elem = paragraph._element
         first_elem = runs[first_run]._element
-        insert_before = first_elem
+
+        # 必须在移除循环之前记录插入位置：first_elem 被移除后 `first_elem in p_elem` 恒为
+        # False，旧写法会退化成段尾插入，修订块落到段落末尾、残余 run 语序被打乱。
+        # （index 处的元素就是 first_elem 的原位，移除后按该下标插入即可回到原位置。）
+        insert_pos = list(p_elem).index(first_elem)
 
         # 移除涉及的 run 元素
         for i in range(first_run, last_run + 1):
@@ -166,8 +170,7 @@ class DocxRevisionTool:
             if elem.getparent() is p_elem:
                 p_elem.remove(elem)
 
-        # 插入新元素
-        insert_pos = list(p_elem).index(insert_before) if insert_before in p_elem else len(list(p_elem))
+        # 插入新元素（insert_pos 已在移除前记录）
 
         elements: list[etree._Element] = []
         if prefix:

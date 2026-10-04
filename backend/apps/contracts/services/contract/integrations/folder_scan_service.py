@@ -407,7 +407,9 @@ class ContractFolderScanService:
                         message="扫描子文件夹越界",
                         errors={"scan_subfolder": normalized_subfolder},
                     )
-                if not storage_provider.exists(str(scan_path)):
+                # 与 _get_accessible_binding 一致：先 is_dir()（PROPFIND）再 exists() 兜底。
+                # 坚果云等 WebDAV 的 HEAD 对目录返回 403，单用 exists() 会把存在的子目录判死。
+                if not (storage_provider.is_dir(str(scan_path)) or storage_provider.exists(str(scan_path))):
                     raise ValidationException(
                         message="扫描子文件夹不可访问",
                         errors={"scan_subfolder": normalized_subfolder},

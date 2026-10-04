@@ -26,17 +26,12 @@ from __future__ import annotations
 import zipfile
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
-from apps.documents.services.external_template.filling_service import (
-    FillingService,
-    FillPreviewItem,
-    FillReport,
-)
+from apps.documents.services.external_template.filling_service import FillingService, FillPreviewItem, FillReport
 from apps.documents.services.placeholders.fallback import PLACEHOLDER_FALLBACK_VALUE
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -320,51 +315,160 @@ class TestWriteText:
 
 
 class TestWriteCheckbox:
-    def test_w14_checked(self) -> None:
+    """复选框写入必须落在 doc.element 本体（保存后仍生效），而非脱钩的解析副本。"""
+
+    # -- 构造真实 docx（内存） --------------------------------------------------
+
+    @staticmethod
+    def _make_w14_doc(initial: str = "0"):
+        from docx import Document
+        from docx.oxml import OxmlElement
+        from docx.oxml.ns import qn
+
+        doc = Document()
+        para = doc.add_paragraph("选项：")
+        sdt = OxmlElement("w:sdt")
+        sdt_pr = OxmlElement("w:sdtPr")
+        cb = OxmlElement("w14:checkbox")
+        checked = OxmlElement("w14:checked")
+        checked.set(qn("w14:val"), initial)
+        cb.append(checked)
+        sdt_pr.append(cb)
+        sdt.append(sdt_pr)
+        para._element.append(sdt)
+        return doc
+
+    @staticmethod
+    def _w14_checked_val(doc) -> str | None:
+        ns = {"w14": "http://schemas.microsoft.com/office/word/2010/wordml"}
+        found = doc.element.findall(".//w14:checkbox/w14:checked", ns)
+        if not found:
+            return None
+        return found[0].get("{http://schemas.microsoft.com/office/word/2010/wordml}val")
+
+    # -- w14 新版 --------------------------------------------------------------
+
+    def test_w14_checked_persists_after_save_reload(self, tmp_path) -> None:
+        """勾选后 doc.element 立即变更，保存重开仍是新值（回归：解析副本永不生效）。"""
+        from docx import Document
+
         svc = _make_service()
-        xml = '''<root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-                        xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml">
-            <w:sdt>
-                <w:sdtPr>
-                    <w14:checkbox>
-                        <w14:checked w14:val="0"/>
-                    </w14:checkbox>
-                </w:sdtPr>
-            </w:sdt>
-        </root>'''
-        doc = MagicMock()
-        doc.element.xml = xml
+        doc = self._make_w14_doc(initial="0")
+
+        result = svc._write_checkbox(doc, {"type": "checkbox", "checkbox_index": 0}, "true")
+
+        assert result is True
+        assert self._w14_checked_val(doc) == "1"
+
+        saved = tmp_path / "checkbox.docx"
+        doc.save(str(saved))
+        reopened = Document(str(saved))
+        assert self._w14_checked_val(reopened) == "1"
+
+    def test_w14_unchecked(self, tmp_path) -> None:
+        from docx import Document
+
+        svc = _make_service()
+        doc = self._make_w14_doc(initial="1")
+
+        result = svc._write_checkbox(doc, {"type": "checkbox", "checkbox_index": 0}, "false")
+
+        assert result is True
+        assert self._w14_checked_val(doc) == "0"
+
+        saved = tmp_path / "checkbox.docx"
+        doc.save(str(saved))
+        reopened = Document(str(saved))
+        assert self._w14_checked_val(reopened) == "0"
+
+    def test_w14_no_checked_element_is_noop(self) -> None:
+        """w14:checkbox 无 w14:checked 子元素时返回 True（无状态可写）。"""
+        from docx import Document
+        from docx.oxml import OxmlElement
+
+        doc = Document()
+        para = doc.add_paragraph()
+        sdt = OxmlElement("w:sdt")
+        sdt_pr = OxmlElement("w:sdtPr")
+        sdt_pr.append(OxmlElement("w14:checkbox"))
+        sdt.append(sdt_pr)
+        para._element.append(sdt)
+
+        svc = _make_service()
         result = svc._write_checkbox(doc, {"type": "checkbox", "checkbox_index": 0}, "true")
         assert result is True
 
-    def test_w14_unchecked(self) -> None:
+    # -- 旧版 w:ffData ----------------------------------------------------------
+
+    @staticmethod
+    def _make_ff_doc(state_tag: str | None, initial: str = "0"):
+        from docx import Document
+        from docx.oxml import OxmlElement
+        from docx.oxml.ns import qn
+
+        doc = Document()
+        para = doc.add_paragraph("选项：")
+        sdt = OxmlElement("w:sdt")
+        sdt_pr = OxmlElement("w:sdtPr")
+        ff = OxmlElement("w:ffData")
+        cb = OxmlElement("w:checkBox")
+        if state_tag is not None:
+            state = OxmlElement(state_tag)
+            state.set(qn("w:val"), initial)
+            cb.append(state)
+        ff.append(cb)
+        sdt_pr.append(ff)
+        sdt.append(sdt_pr)
+        para._element.append(sdt)
+        return doc
+
+    @staticmethod
+    def _ff_state_val(doc, state_tag: str) -> str | None:
+        ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+        found = doc.element.findall(f".//w:ffData/w:checkBox/w:{state_tag}", ns)
+        if not found:
+            return None
+        return found[0].get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
+
+    def test_old_format_checked_element(self) -> None:
         svc = _make_service()
-        xml = '''<root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-                        xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml">
-            <w:sdt>
-                <w:sdtPr>
-                    <w14:checkbox>
-                        <w14:checked w14:val="1"/>
-                    </w14:checkbox>
-                </w:sdtPr>
-            </w:sdt>
-        </root>'''
-        doc = MagicMock()
-        doc.element.xml = xml
+        doc = self._make_ff_doc("w:checked", initial="0")
+
+        result = svc._write_checkbox(doc, {"type": "checkbox", "checkbox_index": 0}, "true")
+
+        assert result is True
+        assert self._ff_state_val(doc, "checked") == "1"
+
+    def test_old_format_default_element(self) -> None:
+        svc = _make_service()
+        doc = self._make_ff_doc("w:default", initial="1")
+
         result = svc._write_checkbox(doc, {"type": "checkbox", "checkbox_index": 0}, "false")
+
+        assert result is True
+        assert self._ff_state_val(doc, "default") == "0"
+
+    def test_old_format_no_state_element_is_noop(self) -> None:
+        svc = _make_service()
+        doc = self._make_ff_doc(None)
+
+        result = svc._write_checkbox(doc, {"type": "checkbox", "checkbox_index": 0}, "true")
         assert result is True
 
+    # -- 边界与异常 --------------------------------------------------------------
+
     def test_out_of_bounds(self) -> None:
+        from docx import Document
+
         svc = _make_service()
-        doc = MagicMock()
-        doc.element.xml = "<root/>"
+        doc = Document()  # 无任何复选框
         result = svc._write_checkbox(doc, {"type": "checkbox", "checkbox_index": 5}, "true")
         assert result is False
 
     def test_exception(self) -> None:
         svc = _make_service()
         doc = MagicMock()
-        doc.element.xml = "not xml"
+        doc.element.findall.side_effect = Exception("err")
         result = svc._write_checkbox(doc, {"type": "checkbox", "checkbox_index": 0}, "true")
         assert result is False
 

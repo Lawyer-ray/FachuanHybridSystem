@@ -331,18 +331,12 @@ class ContractGenerationService:
             # 构建文件名模式（不包含版本号和日期）
             template_prefix = re.sub(r"\.(docx?|doc)$", "", template_name or "合同", flags=re.IGNORECASE)
             today_str = date.today().strftime("%Y%m%d")
-            # 匹配格式: 模板名称（合同名称）V数字_日期.docx
-            pattern = re.compile(
-                rf"^{re.escape(template_prefix)}（{re.escape(contract_name)}）V(\d+)_{today_str}\.docx$"
-            )
+            # 查找已存在的版本号（括号兼容全角/半角，见 naming.find_max_doc_version）
+            from .pipeline.naming import find_max_doc_version
 
-            # 查找已存在的版本号
-            max_version = 0
-            for name in names:
-                match = pattern.match(name)
-                if match:
-                    version_num = int(match.group(1))
-                    max_version = max(max_version, version_num)
+            max_version = find_max_doc_version(
+                names=names, doc_type=template_prefix, case_name=contract_name, date_str=today_str
+            )
 
             return f"V{max_version + 1}"
 

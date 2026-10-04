@@ -119,3 +119,38 @@ class TestDocxRevisionTool:
         xml_str = para._element.xml
         assert "w:del" in xml_str
         assert "w:ins" in xml_str
+
+    def test_apply_revision_cross_run_inserted_before_trailing_run(self):
+        """跨 run 修订块必须插在被替换首 run 的原位，而非段落末尾。
+
+        构造 4-run 段落（前缀/中间/尾巴/末尾），对「中间+尾巴」跨 run 文本做修订：
+        del/ins 块应位于「前缀」run 之后、「末尾」run 之前，且末尾 run 原文保留。
+        """
+        from docx import Document
+        from lxml import etree
+
+        tool = DocxRevisionTool()
+        doc = Document()
+        para = doc.add_paragraph()
+        prefix_run = para.add_run("前缀AAA")
+        para.add_run("中间BBB")
+        para.add_run("尾巴CCC")
+        tail_run = para.add_run("末尾DDD")
+
+        result = tool.apply_revision(para, "中间BBB尾巴CCC", "替换EE")
+        assert result is True
+
+        children = list(para._element)
+        prefix_idx = children.index(prefix_run._element)
+        tail_idx = children.index(tail_run._element)
+        assert prefix_idx < tail_idx
+
+        # del/ins 修订块夹在前缀与末尾之间（旧 bug 会落到段尾，夹层为空）
+        in_between = children[prefix_idx + 1 : tail_idx]
+        localnames = [etree.QName(c).localname for c in in_between]
+        assert "del" in localnames
+        assert "ins" in localnames
+        # 前缀与末尾 run 原文保留、语序不变
+        assert prefix_run.text == "前缀AAA"
+        assert tail_run.text == "末尾DDD"
+        assert children.index(prefix_run._element) < children.index(tail_run._element)

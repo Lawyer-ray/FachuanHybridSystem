@@ -389,6 +389,50 @@ class TestContractQueryService:
         result = svc.get_contract_with_details_model_internal(99999)
         assert result is None
 
+    def test_list_contracts_non_admin_payment_totals_not_amplified(self, db):
+        """非 admin 列表：指派/案件的 OR JOIN 不得放大收款合计（Sum 注解扇出回归）。
+
+        org_access 放行 2 名律师时，WHERE 保留 2 条指派 join 行，Sum("payments__amount")
+        注解把每笔付款复制 2 份得到 2 倍金额；Subquery 聚合与外层 join 解耦，必须得到真实和。
+        """
+        user = LawyerFactory()
+        other_lawyer = LawyerFactory()
+        contract = ContractFactory()
+        ContractAssignment.objects.create(contract=contract, lawyer=user)
+        ContractAssignment.objects.create(contract=contract, lawyer=other_lawyer)
+        ContractPayment.objects.create(contract=contract, amount=Decimal("100.00"), invoiced_amount=Decimal("60.00"))
+        ContractPayment.objects.create(contract=contract, amount=Decimal("50.00"), invoiced_amount=Decimal("0"))
+
+        org_access = {"lawyers": {user.id, other_lawyer.id}}
+        row = ContractQueryService().list_contracts(user=user, org_access=org_access).get(pk=contract.pk)
+        assert row._total_received == Decimal("150.00")
+        assert row._total_invoiced == Decimal("60.00")
+
+    def test_list_contracts_non_admin_via_case_assignments_not_amplified(self, db):
+        """经多个案件指派访问（cases__assignments 分支多次命中）同样不得放大。"""
+        from apps.cases.models import CaseAssignment
+
+        user = LawyerFactory()
+        contract = ContractFactory()
+        for _ in range(2):
+            case = CaseFactory(contract=contract)
+            CaseAssignment.objects.create(case=case, lawyer=user)
+        ContractPayment.objects.create(contract=contract, amount=Decimal("80.00"))
+
+        row = ContractQueryService().list_contracts(user=user).get(pk=contract.pk)
+        # 旧 Sum 注解在 2 条案件指派 join 下会得到 160.00
+        assert row._total_received == Decimal("80.00")
+
+    def test_list_contracts_non_admin_no_payments_totals_are_none(self, db):
+        """无付款的合同：子查询聚合注解返回 None（与旧 Sum 行为一致，resolve 层兜 0）。"""
+        user = LawyerFactory()
+        contract = ContractFactory()
+        ContractAssignment.objects.create(contract=contract, lawyer=user)
+
+        row = ContractQueryService().list_contracts(user=user).get(pk=contract.pk)
+        assert row._total_received is None
+        assert row._total_invoiced is None
+
 
 # ── ContractWorkflowService tests ──
 
