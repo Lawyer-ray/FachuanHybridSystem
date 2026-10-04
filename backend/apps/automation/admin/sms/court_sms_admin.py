@@ -12,7 +12,6 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-from django.conf import settings
 from django.contrib import admin, messages
 from django.http import (
     FileResponse,
@@ -201,13 +200,6 @@ class CourtSMSAdmin(CourtSMSAdminActions, CourtSMSAdminBase):  # pragma: no cove
         cleaned = re.sub(r'[<>:"|?*\x00-\x1f\x7f]', "", cleaned)
         return cleaned.strip()
 
-    def _normalize_path_like(self, raw_path: str | Path | None) -> str:  # pragma: no cover
-        """将相对/绝对路径统一为规范绝对路径（不要求文件存在）"""
-        path = Path(str(raw_path or ""))
-        if not path.is_absolute():
-            path = Path(settings.MEDIA_ROOT) / path
-        return path.resolve(strict=False).as_posix()
-
     def _sync_document_references(  # pragma: no cover
         self,
         sms: CourtSMS,
@@ -215,89 +207,5 @@ class CourtSMSAdmin(CourtSMSAdminActions, CourtSMSAdminBase):  # pragma: no cove
         new_path: str,
         court_document_id: int | None,
     ) -> None:
-        """同步重命名后的引用路径，保证后续下载命中新文件名"""
-        old_norm = self._normalize_path_like(old_path)
-        new_norm = self._normalize_path_like(new_path)
-
-        self._sync_sms_document_paths(sms, old_norm, new_norm)
-        self._sync_scraper_result_paths(sms, old_norm, new_norm)
-        self._sync_case_log_attachment_paths(sms, old_norm, new_norm)
-
-        if court_document_id:
-            from apps.automation.models import CourtDocument
-
-            CourtDocument.objects.filter(id=court_document_id).update(local_file_path=new_norm)
-
-    def _sync_sms_document_paths(self, sms: CourtSMS, old_norm: str, new_norm: str) -> None:  # pragma: no cover
-        paths = sms.document_file_paths if isinstance(sms.document_file_paths, list) else []
-        changed = False
-        updated_paths: list[str] = []
-
-        for raw in paths:
-            current = str(raw)
-            if self._normalize_path_like(current) == old_norm:
-                updated_paths.append(new_norm)
-                changed = True
-            else:
-                updated_paths.append(current)
-
-        if changed:
-            sms.document_file_paths = updated_paths
-            sms.save(update_fields=["document_file_paths", "updated_at"])
-
-    def _sync_scraper_result_paths(self, sms: CourtSMS, old_norm: str, new_norm: str) -> None:  # pragma: no cover
-        task = sms.scraper_task
-        if not task or not isinstance(task.result, dict):
-            return
-
-        result = task.result
-        changed = False
-
-        for key in ("files", "renamed_files"):
-            values = result.get(key)
-            if not isinstance(values, list):
-                continue
-            updated: list[str] = []
-            key_changed = False
-            for raw in values:
-                current = str(raw)
-                if self._normalize_path_like(current) == old_norm:
-                    updated.append(new_norm)
-                    key_changed = True
-                else:
-                    updated.append(current)
-            if key_changed:
-                result[key] = updated
-                changed = True
-
-        if changed:
-            task.result = result
-            task.save(update_fields=["result", "updated_at"])
-
-    def _sync_case_log_attachment_paths(self, sms: CourtSMS, old_norm: str, new_norm: str) -> None:  # pragma: no cover
-        if not sms.case_log:
-            return
-
-        media_root = Path(settings.MEDIA_ROOT).resolve()
-        new_path = Path(new_norm).resolve(strict=False)
-
-        try:
-            relative_new_path = new_path.relative_to(media_root).as_posix()
-        except ValueError:
-            return
-
-        attachments = getattr(sms.case_log, "attachments", None)
-        if attachments is None:
-            return
-
-        for attachment in attachments.all():
-            file_obj = getattr(attachment, "file", None)
-            if not file_obj:
-                continue
-
-            current_raw = getattr(file_obj, "path", "") or getattr(file_obj, "name", "")
-            if self._normalize_path_like(current_raw) != old_norm:
-                continue
-
-            attachment.file.name = relative_new_path
-            attachment.save(update_fields=["file"])
+        """同步重命名后的引用路径（薄委托，实现在 Service 层）"""
+        CourtSMSDocumentReferenceService().sync_document_references(sms, old_path, new_path, court_document_id)

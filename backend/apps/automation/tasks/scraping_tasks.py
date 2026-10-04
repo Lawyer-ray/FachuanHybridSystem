@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 from django.db.models import F
+from django.utils import timezone
 
 from apps.core.infrastructure.async_context import allow_async_unsafe
 from apps.core.infrastructure.sync_async_bridge import run_coro_sync
@@ -58,6 +59,19 @@ def execute_scraper_task(task_id: int, **kwargs: Any) -> None:
             logger.info("任务 %s 尚未到执行时间，跳过", task_id)
             return
 
+        # 执行抢占：pending → running 的条件原子更新（CAS）。
+        # Django-Q 双入队 / 恢复服务并发领取同一任务时，只有一个 update 生效，
+        # 抢占失败方直接退出，避免同一任务被并发执行两次
+        claimed = ScraperTask.objects.filter(pk=task.pk, status=ScraperTaskStatus.PENDING).update(
+            status=ScraperTaskStatus.RUNNING,
+            started_at=timezone.now(),
+        )
+        if not claimed:
+            logger.info("任务 %s 已被其他 worker 抢占或状态已变更（当前: %s），跳过执行", task_id, task.status)
+            return
+        # 同步内存对象，避免 BaseScraper.execute 内的普通 save 用旧值覆盖
+        task.refresh_from_db(fields=["status", "started_at"])
+
         logger.info("开始执行爬虫任务 %s: %s (优先级: %s)", task_id, task.get_task_type_display(), task.priority)
 
         scraper_map = _get_scraper_map()
@@ -94,8 +108,6 @@ def execute_scraper_task(task_id: int, **kwargs: Any) -> None:
                 task.refresh_from_db(fields=["retry_count", "status"])
 
                 from datetime import timedelta
-
-                from django.utils import timezone
 
                 from apps.core.tasking import ScheduleQueryService
 

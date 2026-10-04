@@ -196,7 +196,9 @@ class DocumentAttachmentService:
         """
         重命名文书列表，返回重命名后的路径
 
-        使用 DocumentRenamer 对每个文件进行重命名，处理重命名失败的情况
+        使用 DocumentRenamer 对每个文件进行重命名，处理重命名失败的情况；
+        重命名完成后同步回写各处引用（CourtDocument.local_file_path、短信引用
+        字段、任务结果），避免下载 404 / 原件成孤儿。
 
         Args:
             sms: CourtSMS 实例
@@ -212,6 +214,9 @@ class DocumentAttachmentService:
         case_name = sms.case.name if sms.case else "未知案件"
         received_date = sms.received_at.date()
         renamed_paths = []
+        # 记录 (旧绝对路径, 新绝对路径) 与 旧路径 → CourtDocument.id 映射，重命名后回写引用
+        rename_pairs: list[tuple[str, str]] = []
+        court_doc_ids = self._build_court_document_id_map(sms)
 
         logger.info("开始重命名 %s 个文书: SMS ID=%s", len(document_paths), sms.id)
 
@@ -225,6 +230,7 @@ class DocumentAttachmentService:
 
                 # 获取原始文件名用于降级
                 original_name = abs_file_path.name
+                old_abs = str(abs_file_path.resolve())
 
                 # 使用带降级方案的重命名
                 new_path = self.renamer.rename_with_fallback(
@@ -234,6 +240,10 @@ class DocumentAttachmentService:
                 renamed_paths.append(new_path)
                 logger.info("文书重命名成功: %s -> %s", file_path, new_path)
 
+                new_abs = str(resolve_media_path(new_path).resolve())
+                if new_abs != old_abs:
+                    rename_pairs.append((old_abs, new_abs))
+
             except Exception as e:
                 logger.warning("文书重命名失败，保持原名: %s, 错误: %s", file_path, e)
                 # 重命名失败不影响流程，继续使用原路径
@@ -241,7 +251,52 @@ class DocumentAttachmentService:
                     renamed_paths.append(file_path)
 
         logger.info("文书重命名完成: SMS ID=%s, 成功重命名 %s 个文书", sms.id, len(renamed_paths))
+
+        # 物理重命名完成后回写引用，与手动重命名（admin/API）共用同一同步逻辑
+        if rename_pairs:
+            self._sync_references_after_rename(sms, rename_pairs, court_doc_ids)
+
         return renamed_paths
+
+    def _build_court_document_id_map(self, sms: "CourtSMS") -> dict[str, int]:
+        """构建 规范化绝对路径 → CourtDocument.id 映射（用于重命名后回写引用）"""
+        mapping: dict[str, int] = {}
+        scraper_task = getattr(sms, "scraper_task", None)
+        if not scraper_task or not hasattr(scraper_task, "documents"):
+            return mapping
+
+        try:
+            documents = list(scraper_task.documents.all())
+        except Exception as e:
+            logger.warning("获取 CourtDocument 列表失败，跳过引用回写映射: SMS ID=%s, 错误: %s", sms.id, e)
+            return mapping
+
+        for doc in documents:
+            if not doc.local_file_path:
+                continue
+            try:
+                mapping[str(resolve_media_path(doc.local_file_path).resolve())] = int(doc.id)
+            except Exception as e:
+                logger.warning("解析 CourtDocument 路径失败: doc_id=%s, 错误: %s", doc.id, e)
+        return mapping
+
+    def _sync_references_after_rename(
+        self,
+        sms: "CourtSMS",
+        rename_pairs: list[tuple[str, str]],
+        court_doc_ids: dict[str, int],
+    ) -> None:
+        """将新旧路径映射传给引用同步服务，回写 CourtDocument 等引用字段"""
+        from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
+
+        reference_service = CourtSMSDocumentReferenceService()
+        for old_abs, new_abs in rename_pairs:
+            try:
+                reference_service.sync_document_references(sms, old_abs, new_abs, court_doc_ids.get(old_abs))
+                logger.info("已同步重命名后的文书引用: %s -> %s", old_abs, new_abs)
+            except Exception as e:
+                # 引用同步失败不阻断主流程（文件已完成重命名），记录日志供人工修复
+                logger.error("同步文书引用失败: SMS ID=%s, %s -> %s, 错误: %s", sms.id, old_abs, new_abs, e)
 
     def add_to_case_log(self, sms: "CourtSMS", file_paths: list[str]) -> bool:  # pragma: no cover
         """

@@ -315,6 +315,18 @@ class InboxMessageAdmin(admin.ModelAdmin):  # pragma: no cover
         # 构造短信内容（用于记录来源）
         content = f"[来自收件箱] {msg.subject or '(无主题)'}\n发件人: {msg.sender}\n消息ID: {msg.message_id}"
 
+        # 幂等去重：同一收件箱消息重复点击提交时返回既有短信记录，不重复处理
+        from apps.automation.services.sms.court_sms_delivery_dedup import build_delivery_event_key, build_lookup_keys
+
+        duplicate_sms = (
+            CourtSMS.objects.filter(delivery_event_key__in=build_lookup_keys(content, msg.received_at))
+            .order_by("id")
+            .first()
+        )
+        if duplicate_sms is not None:
+            messages.info(request, f"该消息已提交过短信处理（SMS #{duplicate_sms.id}），已跳过重复提交")
+            return redirect(reverse("admin:automation_courtsms_change", args=[duplicate_sms.id]))
+
         # 从主题提取案号（全角/半角括号）
         case_numbers: list[str] = []
         if msg.subject:
@@ -334,6 +346,7 @@ class InboxMessageAdmin(admin.ModelAdmin):  # pragma: no cover
             status=CourtSMSStatus.MATCHING,
             document_file_paths=attachment_paths,
             case_numbers=case_numbers,
+            delivery_event_key=build_delivery_event_key(content, msg.received_at),
         )
 
         logger.info(
