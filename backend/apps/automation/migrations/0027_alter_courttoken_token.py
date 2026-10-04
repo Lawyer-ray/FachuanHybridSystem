@@ -5,9 +5,11 @@
 import apps.core.model_fields.encrypted
 from apps.core.model_fields.encrypted import EncryptedTextField
 from django.db import connections, migrations
+from django.db.backends.base.schema import BaseDatabaseSchemaEditor
+from django.db.migrations.state import StateApps
 
 
-def encrypt_existing_tokens(apps, schema_editor):
+def encrypt_existing_tokens(apps: StateApps, schema_editor: BaseDatabaseSchemaEditor) -> None:
     """存量明文 token 就地加密。
 
     - 读取走裸 SQL 游标：values_list / 模型读取都会触发 from_db_value 解密，
@@ -29,7 +31,7 @@ def encrypt_existing_tokens(apps, schema_editor):
         CourtToken.objects.filter(id=token_id).update(token=field.get_prep_value(raw))
 
 
-def noop_reverse(apps, schema_editor):
+def noop_reverse(apps: StateApps, schema_editor: BaseDatabaseSchemaEditor) -> None:
     """回滚不安全（解密回明文），反向保持现状由 AlterField 自然回退类型。"""
     # 故意留空：反向迁移仅回退字段类型，不回写明文
     return None
