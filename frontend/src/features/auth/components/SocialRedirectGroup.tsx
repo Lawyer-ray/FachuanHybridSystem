@@ -2,13 +2,13 @@
  * 登录页的跳转型社交登录按钮组。
  *
  * 与绑定页的 SocialRedirectPanel（单 Provider 面板 + 指引文案）不同：登录页把
- * 多个 redirect 型 Provider 与账密表单同页堆叠——共享一条「或使用以下方式登录」
- * 分割线与错误位，按钮只保留图标 + 文案。跳转进行中禁用全部按钮，避免连点双跳。
+ * 多个 redirect 型 Provider 与账密表单同页排成一行等宽小按钮（Cloudflare 式：
+ * 图标 + 短名，provider 少于 4 个时不喧宾夺主）——共享一条「或使用以下方式登录」
+ * 分割线与错误位。跳转进行中禁用全部按钮，避免连点双跳。
  */
 import { useState } from 'react'
 import type { SocialProviderInfo, SocialSession } from '../social-api'
 import { socialAuthApi } from '../social-api'
-import { spacedBrand } from '../social-format'
 import { BRAND_MARKS } from './brand-marks'
 
 interface Props {
@@ -46,16 +46,16 @@ export function SocialRedirectGroup({ providers, createSession }: Props) {
             <button
               key={provider.name}
               type="button"
-              className={`fc-btn${Mark ? ' fc-btn--brand' : ''}`}
+              className={`fc-btn fc-btn--compact${Mark ? ' fc-btn--brand' : ''}`}
               disabled={pendingName !== ''}
               onClick={() => void start(provider)}
             >
               {pending ? (
-                '正在跳转…'
+                '跳转中…'
               ) : (
                 <>
                   {Mark && <Mark />}
-                  {spacedBrand('使用', provider.display_name, '登录')}
+                  {provider.display_name || provider.name}
                 </>
               )}
             </button>

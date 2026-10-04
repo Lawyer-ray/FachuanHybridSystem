@@ -17,6 +17,7 @@ from django.test import RequestFactory
 from apps.social_auth.providers.base import AuthorizationRequest, LoginMode, ProviderConfig
 from apps.social_auth.providers.feishu import FeishuProvider
 from apps.social_auth.providers.github import GitHubProvider
+from apps.social_auth.providers.microsoft import MicrosoftProvider
 from apps.social_auth.providers.wechat import WeChatProvider
 
 
@@ -306,6 +307,116 @@ class TestGitHubProvider:
             profile = await self._provider().aget_profile(MagicMock(access_token="gho_abc"))
         assert profile.provider_user_id == "7"
         assert profile.email == "p@example.com"
+
+
+class TestMicrosoftProvider:
+    def _provider(self) -> MicrosoftProvider:
+        return MicrosoftProvider(
+            ProviderConfig(
+                name="microsoft",
+                display_name="微软",
+                client_id="ms-app-client-id",
+                client_secret="fake-ms-secret-placeholder",  # pragma: allowlist secret
+                extra={
+                    "redirect_uri": "http://localhost:8002/social/microsoft/callback/",
+                    "scope": "openid profile email",
+                },
+            )
+        )
+
+    def _request(self) -> AuthorizationRequest:
+        return AuthorizationRequest(
+            provider="microsoft",
+            state="MSST",
+            redirect_uri="http://localhost:8002/social/microsoft/callback/",
+            created_at=1.0,
+        )
+
+    def test_login_mode_is_redirect(self) -> None:
+        assert self._provider().login_mode == LoginMode.REDIRECT
+
+    def test_endpoints_pin_common_tenant(self) -> None:
+        """授权/令牌端点固定 common 租户（个人号 + 组织号通吃），userinfo 走 Graph。"""
+        endpoints = MicrosoftProvider.ENDPOINTS
+        assert endpoints["authorize"] == "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+        assert endpoints["token"] == "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+        assert endpoints["userinfo"] == "https://graph.microsoft.com/oidc/userinfo"
+
+    def test_authorization_url(self) -> None:
+        url = self._provider().get_authorization_url(self._request())
+        assert url.startswith("https://login.microsoftonline.com/common/oauth2/v2.0/authorize")
+        assert "client_id=ms-app-client-id" in url
+        # OIDC scope：空格必须编码为 %20
+        assert "scope=openid%20profile%20email" in url
+        assert "state=MSST" in url
+        assert "response_mode=query" in url
+        assert "fake-ms-secret-placeholder" not in url
+
+    def test_exchange_code_sends_redirect_uri_and_rejects_error(self) -> None:
+        """Entra 的 token 请求必须带与授权时一致的 redirect_uri；error body 识别为失败。"""
+        with patch("httpx.post") as mock_post:
+            mock_post.return_value = MagicMock(
+                status_code=200,
+                json=lambda: {"access_token": "ms-token", "expires_in": 3599},
+            )
+            result = self._provider().exchange_code("goodcode", self._request())
+            sent = mock_post.call_args.kwargs["data"]
+        assert sent["redirect_uri"] == "http://localhost:8002/social/microsoft/callback/"
+        assert sent["grant_type"] == "authorization_code"
+        assert result.access_token == "ms-token"
+
+        with patch("httpx.post") as mock_post_err:
+            mock_post_err.return_value = MagicMock(
+                status_code=400,
+                json=lambda: {"error": "invalid_grant", "error_description": "code expired"},
+            )
+            with pytest.raises(ValueError, match="code expired"):
+                self._provider().exchange_code("bad", self._request())
+
+    def test_get_profile_uses_sub_as_identity_key(self) -> None:
+        """身份键用 sub（Entra 按应用分配的稳定标识），不用可变的 email。"""
+        with patch("httpx.get") as mock_get:
+            mock_get.return_value = MagicMock(
+                status_code=200,
+                json=lambda: {
+                    "sub": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                    "oid": "ffffffff-1111-2222-3333-444444444444",
+                    "name": "张律师",
+                    "email": "lawyer@example.com",
+                    "picture": "https://graph.microsoft.com/v1.0/me/photo/$value",
+                },
+            )
+            profile = self._provider().get_profile(MagicMock(access_token="ms-token"))
+        assert profile.provider == "microsoft"
+        assert profile.provider_user_id == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+        assert profile.display_name == "张律师"
+        assert profile.email == "lawyer@example.com"
+
+    def test_get_profile_rejects_missing_sub(self) -> None:
+        with patch("httpx.get") as mock_get:
+            mock_get.return_value = MagicMock(status_code=200, json=lambda: {"name": "无 sub"})
+            with pytest.raises(ValueError, match="缺少 sub"):
+                self._provider().get_profile(MagicMock(access_token="tok"))
+
+    @pytest.mark.asyncio
+    async def test_aexchange_and_aget_profile(self) -> None:
+        client = MagicMock()
+        client.post = AsyncMock(
+            side_effect=[
+                MagicMock(status_code=200, json=lambda: {"access_token": "async-ms"}),
+            ]
+        )
+        client.get = AsyncMock(
+            side_effect=[
+                MagicMock(status_code=200, json=lambda: {"sub": "sub-1", "name": "A", "email": "a@x.com"}),
+            ]
+        )
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client_cls.return_value.__aenter__.return_value = client
+            token = await self._provider().aexchange_code("c", self._request())
+            profile = await self._provider().aget_profile(token)
+        assert token.access_token == "async-ms"
+        assert profile.provider_user_id == "sub-1"
 
 
 class TestAuthorizationSession:

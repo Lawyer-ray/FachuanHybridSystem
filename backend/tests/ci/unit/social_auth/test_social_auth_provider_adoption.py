@@ -98,10 +98,15 @@ class TestAdoptSocialAuthConfigs:
         assert SocialAuthProvider.objects.filter(name="github").count() == 1
 
     def test_noop_when_no_legacy_rows(self) -> None:
-        """全新环境（无 social_auth 分类行）执行收养是安全的空操作。"""
+        """全新环境（无 social_auth 分类行）执行收养是安全的空操作。
+
+        0007 起迁移会为微软插入默认行，所以「全新环境」不再等于表为空——
+        空操作的判据是「不新增任何收养行」。
+        """
+        before = set(SocialAuthProvider.objects.values_list("name", flat=True))
         adopt_social_auth_configs(django_apps, None)
 
-        assert not SocialAuthProvider.objects.exists()
+        assert set(SocialAuthProvider.objects.values_list("name", flat=True)) == before
 
     def test_bad_ciphertext_treated_as_unconfigured(self) -> None:
         """解不开的密文按「未配置」处理，绝不把密文搬进新表当明文。"""

@@ -15,6 +15,7 @@
 | `providers/wechat.py` | 微信开放平台（`redirect`：整页跳转授权） |
 | `providers/google.py` | Google（`redirect`：整页跳转授权，OAuth 2.0 授权码 / OIDC） |
 | `providers/github.py` | GitHub（`redirect`：整页跳转授权，OAuth 2.0 授权码） |
+| `providers/microsoft.py` | 微软（`redirect`：整页跳转授权，OAuth 2.0 / OIDC，Entra ID） |
 | `providers/__init__.py` | `ProviderRegistry` 注册表，import 时注册内置 Provider |
 | `models/social_account.py` | `SocialAccount`：一条记录 = 一个「律师 ↔ 某平台身份」绑定 |
 | `models/temp_auth.py` | `TempAuth`：一次性授权码，5 分钟过期，用完即删 |
@@ -81,7 +82,7 @@
 | 模式 | 表现 | 代表 |
 |---|---|---|
 | `embedded_qr` | 授权页内嵌在登录卡里显示二维码 | 飞书 |
-| `redirect` | 整页跳转到第三方授权页 | 微信、Google、GitHub |
+| `redirect` | 整页跳转到第三方授权页 | 微信、Google、GitHub、微软 |
 
 新增 Provider 只需实现 `SocialProvider` 协议 + 在 `providers/__init__.py` 注册；
 前端按 `login_mode` 自动派发到 `SocialQrPanel` / `SocialRedirectPanel`，**不需要改前端分支结构**。
@@ -110,31 +111,26 @@
 
 ## 五、配置
 
-全部走 SystemConfig 的 `social_auth` 分类（Admin → 核心系统 → 系统配置）：
+配置存 **`SocialAuthProvider` 表**（一行一个平台，Admin → 其他工具 → 社交登录），
+2026-10-04 起从 SystemConfig 的 `SOCIAL_AUTH_*` KV 收养而来（旧 KV 行已删除）。
+secret 走 `EncryptedTextField` 模型层透明加解密；`priority` 定登录页按钮顺序
+（feishu 10 / github 20 / google 30 / microsoft 35 / wechat 40）。
 
-| key | 说明 |
-|---|---|
-| `SOCIAL_AUTH_FEISHU_APP_ID` / `_APP_SECRET` | 留空则复用「飞书配置」分类的 `FEISHU_APP_ID` / `FEISHU_APP_SECRET`（扫码与案件群聊共用同一自建应用） |
-| `SOCIAL_AUTH_FEISHU_REDIRECT_URI` | **后端**可达地址，如 `http://127.0.0.1:8002/social/feishu/callback/`；必须在飞书后台「安全设置 → 重定向 URL」精确登记，否则授权页返回 `redirect_uri unmatch` |
-| `SOCIAL_AUTH_FEISHU_SCOPE` | 最小集 `contact:user.base:readonly` |
-| `SOCIAL_AUTH_FEISHU_ENABLED` | 填 `false` 可临时下线该登录方式 |
-| `SOCIAL_AUTH_WECHAT_*` | 同上，微信未配置则登录页不显示微信入口 |
-| `SOCIAL_AUTH_GOOGLE_APP_ID` / `_APP_SECRET` | Google Cloud Console → Google Auth Platform → 客户端创建，应用类型必须选「Web 应用」。**Google 没有可借的共用凭证，必须在本分类填**（留空则该入口自动隐藏） |
-| `SOCIAL_AUTH_GOOGLE_REDIRECT_URI` | 必须与 Console 里「已获授权的重定向 URI」**完全一致**（精确匹配、不支持通配符、含结尾斜杠）：`http://localhost:8002/social/google/callback/`。**host 必须与「浏览器访问前端的 host」一致**——cookie 区分 host、不区分端口，本项目其余配置统一用 `localhost`。正式域名必须 HTTPS（Google 仅对 `localhost` / `127.0.0.1` 放行 http） |
-| `SOCIAL_AUTH_GOOGLE_SCOPE` | `openid email profile`，空格分隔且必须以 `openid` 开头。全为非敏感范围，无需 Google 审核 |
-| `SOCIAL_AUTH_GOOGLE_ENABLED` | 同飞书 |
-| `SOCIAL_AUTH_GITHUB_APP_ID` / `_APP_SECRET` | GitHub → Settings → Developer settings → OAuth Apps 创建（免费、即时生效、无需审核），Client ID/Secret 填在此处。**没有可借的共用凭证，必须填**（留空则该入口自动隐藏） |
-| `SOCIAL_AUTH_GITHUB_REDIRECT_URI` | 必须与 OAuth App 登记的 Callback URL **完全一致**（精确匹配、含结尾斜杠）：`http://localhost:8002/social/github/callback/`。host 须与浏览器访问前端的 host 一致（cookie 区分 host）。GitHub 允许 `localhost` 的 http 回调（回环地址端口可不同），正式域名需 HTTPS |
-| `SOCIAL_AUTH_GITHUB_SCOPE` | `read:user user:email`，空格分隔。read:user 取昵称/头像，user:email 允许调 `/user/emails` 取私密邮箱（邮箱仅展示，身份判定用数字 id） |
-| `SOCIAL_AUTH_GITHUB_ENABLED` | 同飞书 |
+各平台登记要点（Client ID/Secret 填进表行，`redirect_uri` 必须与平台后台登记**完全一致**）：
+
+| 平台 | 注册入口 | 回调地址（默认） | 要点 |
+|---|---|---|---|
+| 飞书 | 飞书开放平台自建应用 | `http://127.0.0.1:8002/social/feishu/callback/` | 凭证留空自动借用「系统配置 → 飞书配置」的 IM 共用应用，通常无需填写 |
+| GitHub | Settings → Developer settings → OAuth Apps（免费即时） | `http://localhost:8002/social/github/callback/` | 允许 localhost http 回调（回环端口可不同）；OAuth App 别选 GitHub App（强制 https） |
+| Google | Google Cloud Console → 客户端（Web 应用） | `http://localhost:8002/social/google/callback/` | 精确匹配含结尾斜杠；仅 localhost/127.0.0.1 放行 http |
+| 微软 | Azure 门户 → App registrations（免费） | `http://localhost:8002/social/microsoft/callback/` | 官方允许 `http://localhost` 且**匹配时忽略端口**（RFC 8252）；租户固定 `common`（个人 Outlook 号 + 工作/学校号通吃）；scope 必须以 `openid` 开头 |
+| 微信 | 微信开放平台网站应用 | — | 未配置则登录页不显示；平台侧要求公网域名回调，本地部署实际不可用 |
+
+**配置生效时机**：Admin 保存即时生效（同进程信号失效缓存）；但**脚本直写**
+（如 `manage.py shell`）或**多 worker 部署下其它 worker 改配置**收不到信号，
+由 30 秒 TTL 兜底自动重建（`providers/__init__.py` 的 `_CONFIG_TTL_SECONDS`），无需重启后端。
 
 另需在 `backend/.env` 配 `FRONTEND_BASE_URL`（默认 `http://localhost:5090`），用于拼回调跳转地址与 CORS/CSRF 白名单。
-
-> **配置生效时机**：Admin 保存即时生效（同进程信号失效缓存）；但**脚本直写 SystemConfig**
-> （如 `manage.py shell` / 初始化脚本）或**多 worker 部署下其它 worker 改配置**收不到信号，
-> 由 30 秒 TTL 兜底自动重建（`providers/__init__.py` 的 `_CONFIG_TTL_SECONDS`），无需重启后端。
-
-> `SOCIAL_AUTH_*` 前缀不能省：`SystemConfig.key` 全局唯一，不能与 IM 群聊分类下的 `FEISHU_APP_ID` 重名。
 
 ---
 

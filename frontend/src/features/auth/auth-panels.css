@@ -181,7 +181,7 @@
 }
 
 /* ---------- 登录页：账密表单下方的社交按钮组 ---------- */
-/* 与 .fc-redirect 的区别：多 Provider 共享一条分割线与错误位，按钮只留图标+文案 */
+/* 与 .fc-redirect 的区别：多 Provider 等宽一行小按钮（Cloudflare 式），共享分割线与错误位 */
 .fc-social {
   margin-top: 2rem;
 }
@@ -206,10 +206,19 @@
   background: var(--rule-soft);
 }
 
+/* 等宽一行：2~4 个 Provider 各占一列。minmax 取 96px 让三列在 345px 表单栏
+   里放得下（96×3 + 2×12 gap = 312）；再多收窄成换行，不缩成看不清的图标 */
 .fc-social__buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 0.875rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 0.75rem;
+}
+
+/* 紧凑变体：降高度与字号，图标 + 短名，视觉分量低于账密主按钮 */
+.fc-social__buttons .fc-btn--compact {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  gap: 0.5rem;
 }
 
 .fc-form__legal {

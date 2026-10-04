@@ -824,6 +824,42 @@ class TestRegisteredProviders:
         # 整页跳转授权：前端按 login_mode 派发到 SocialRedirectPanel
         assert GitHubProvider.login_mode == LoginMode.REDIRECT
 
+    def test_microsoft_registered_as_redirect(self) -> None:
+        from apps.social_auth.providers.microsoft import MicrosoftProvider
+
+        assert MicrosoftProvider.login_mode == LoginMode.REDIRECT
+
+    @pytest.mark.django_db
+    def test_microsoft_default_row_created_by_migration(self) -> None:
+        """迁移 0007 为微软插入默认配置行：client_id 留空 → 登录页不显示，admin 可填。"""
+        from django.apps import apps
+
+        from apps.social_auth.migrations._microsoft_helpers import add_microsoft_provider, remove_microsoft_provider
+
+        SocialAuthProvider = apps.get_model("social_auth", "SocialAuthProvider")
+        try:
+            add_microsoft_provider(apps, None)
+            row = SocialAuthProvider.objects.get(name="microsoft")
+            assert row.display_name == "微软"
+            assert row.enabled is True
+            assert row.priority == 35
+            assert (row.client_id or "") == ""
+
+            add_microsoft_provider(apps, None)
+            assert SocialAuthProvider.objects.filter(name="microsoft").count() == 1
+
+            remove_microsoft_provider(apps, None)
+            assert not SocialAuthProvider.objects.filter(name="microsoft").exists()
+        finally:
+            SocialAuthProvider.objects.filter(name="microsoft").delete()
+
+    def test_microsoft_in_provider_specs_without_fallback(self) -> None:
+        from apps.social_auth.providers import PROVIDER_SPECS
+
+        spec = PROVIDER_SPECS["microsoft"]
+        assert spec["display_name"] == "微软"
+        assert "fallback_credentials" not in spec
+
     def test_github_endpoints(self) -> None:
         from apps.social_auth.providers.github import GitHubProvider
 

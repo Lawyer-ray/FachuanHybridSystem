@@ -52,6 +52,11 @@ PROVIDER_SPECS: dict[str, dict[str, Any]] = {
         # 无可复用的共用凭证分类，必须填 client_id / client_secret，
         # 否则视为未配置完成（不出现在登录页）
     },
+    "microsoft": {
+        "display_name": "微软",
+        # 无可复用的共用凭证分类，必须填 client_id / client_secret，
+        # 否则视为未配置完成（不出现在登录页）
+    },
 }
 
 
@@ -268,4 +273,4 @@ class ProviderRegistry:
 
 
 # 导入所有 Provider 以触发 @register 装饰器。
-from . import feishu, github, google, wechat
+from . import feishu, github, google, microsoft, wechat

@@ -8,8 +8,10 @@
 import type { ComponentType } from 'react'
 import { GitHubIcon } from './GitHubIcon'
 import { GoogleIcon } from './GoogleIcon'
+import { MicrosoftIcon } from './MicrosoftIcon'
 
 export const BRAND_MARKS: Record<string, ComponentType<{ size?: number }>> = {
   google: GoogleIcon,
   github: GitHubIcon,
+  microsoft: MicrosoftIcon,
 }

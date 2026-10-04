@@ -22,7 +22,7 @@ class SocialAuthProvider(models.Model):
         max_length=50,
         unique=True,
         verbose_name="平台标识",
-        help_text="与代码注册的 Provider 名一致：feishu / wechat / github / google",
+        help_text="与代码注册的 Provider 名一致：feishu / wechat / github / google / microsoft",
     )
     display_name = models.CharField(max_length=50, verbose_name="显示名称", help_text="登录页按钮上的文案")
     client_id = models.CharField(
