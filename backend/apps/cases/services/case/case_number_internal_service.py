@@ -11,7 +11,9 @@ logger = logging.getLogger("apps.cases")
 
 
 class CaseNumberInternalService:
-    def add_case_number_internal(self, case_id: int, case_number: str, user_id: int | None = None) -> bool:  # pragma: no cover
+    def add_case_number_internal(
+        self, case_id: int, case_number: str, user_id: int | None = None
+    ) -> bool:  # pragma: no cover
         if not case_number or not case_number.strip():
             return False
 

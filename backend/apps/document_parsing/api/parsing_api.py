@@ -224,15 +224,16 @@ async def extract_text(
 
         # --- 异步路径 ---
         if await sync_to_async(_needs_async, thread_sensitive=False)(backend):
-            from apps.core.tasking import submit_task
-
-            task_id = await sync_to_async(submit_task, thread_sensitive=False)(
-                "apps.document_parsing.tasks.execute_extract_text",
-                str(file_path),
-                backend,
-                max_length,
-                task_name=f"extract_text_{saved_name}",
-                timeout=600,
+            # 与 parse 同款模式（安全修复）：建 DocumentParsingTask 记录 +
+            # task_name 约定（document_parsing_{id}）供 hook 回写状态，
+            # 对外返回记录 id（轮询端点据此做归属校验）。
+            task_id = await _get_task_dispatch_service().submit_extract_text_task(
+                file_name=file.name or "uploaded",
+                file_path=file_path,
+                file_size=file.size or 0,
+                backend=backend,
+                max_length=max_length,
+                created_by=get_request_user(request),
             )
             logger.info("文本提取任务已提交: task_id=%s, file=%s", task_id, saved_name)
             return ExtractTextResponse(
@@ -283,11 +284,14 @@ def get_task_status(request: HttpRequest, task_id: str) -> TaskStatusResponse:
 
     轮询此端点直到 status 为 "success" 或 "failure"，
     成功时 result 字段包含完整的解析结果。
-    """
-    from apps.core.tasking.query import TaskQueryService
 
-    svc = TaskQueryService()
-    info = svc.get_task_status(task_id)
+    安全修复：task_id 为解析记录 id（提交端点返回），service 层先做
+    归属校验（本人/管理员可见，与 /records 同口径）再查队列状态，
+    无权或不存在一律 404，不泄露他人解析全文。
+    """
+    from apps.document_parsing.services.task_status_service import DocumentParsingTaskStatusService
+
+    info = DocumentParsingTaskStatusService().get_task_status(task_id, user=get_request_user(request))
 
     return TaskStatusResponse(
         task_id=info["task_id"],

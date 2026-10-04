@@ -1,5 +1,6 @@
 import { automationApi } from './tools'
 import { API_BASE_URL, withAuthToken } from './download'
+import type { components } from '@/types/api-schema'
 
 /**
  * 法院短信处理链路 API（对接后端 apps/automation，路径已按 OpenAPI 核对）：
@@ -7,27 +8,25 @@ import { API_BASE_URL, withAuthToken } from './download'
  *   - 详情     = GET  /automation/court-sms/{id}               （CourtSMSDetailOut，含案件/文书引用）
  *   - 人工分配 = POST /automation/court-sms/{id}/assign-case   （匹配不到案件时手动指定，随后继续处理）
  *   - 重新处理 = POST /automation/court-sms/{id}/retry         （保留手动绑定案件，仅重跑后续流程）
- *   - 单件下载 = GET  /automation/court-sms/{id}/documents/{ref_index}/download
- *   - 打包下载 = GET  /automation/court-sms/{id}/documents/download-all
+ *   - 单件下载 = GET /automation/court-sms/{id}/documents/{ref_index}/download
+ *   - 打包下载 = GET /automation/court-sms/{id}/documents/download-all
  */
 
-/** 后端 CourtSMSDetailOut 的前端投影——只声明弹窗用到的字段 */
-export interface CourtSmsDetail {
-  id: number
-  content: string
-  sms_type: string | null
+/**
+ * GET court-sms/{id} 的响应（基于生成物 CourtSMSDetailOut 的消费投影）：
+ * · Omit 掉时间戳与 feishu 字段（弹窗不用）；
+ * · case / documents / download_links / case_numbers / party_names 生成物声明为
+ *   「可选 + 裸 dict」（schema 未覆盖），此处按真实结构手写收紧，业务当必用。
+ */
+export type CourtSmsDetail = Omit<
+  components['schemas']['CourtSMSDetailOut'],
+  'received_at' | 'created_at' | 'updated_at' | 'case' | 'documents' | 'download_links' | 'case_numbers' | 'party_names'
+> & {
   download_links: string[]
   case_numbers: string[]
   party_names: string[]
-  status: string
-  error_message: string | null
-  retry_count: number
-  /** 下载子任务（ScraperTask）状态与最近错误——downloading 卡住时它比 SMS 状态先知道 */
-  download_task_status: string | null
-  download_task_error: string | null
   case: { id: number; name: string } | null
   documents: { id: number | null; name: string; source: string; download_url: string | null }[]
-  notification_results: Record<string, unknown> | null
 }
 
 /** 单件文书下载地址（带 token，供 <a download> 直链使用；文件名后端已重命名） */
@@ -49,9 +48,10 @@ export async function copyCourtSmsDocsToClipboard(
   smsId: number,
   indexes: number[],
 ): Promise<{ success: boolean; copied: number; reason: string | null }> {
+  // message 为 schema 未声明的业务失败文案字段，交联补充
   const res = await automationApi
     .post(`court-sms/${smsId}/documents/copy-to-clipboard`, { json: { indexes } })
-    .json<{ success?: boolean; copied?: number; reason?: string; message?: string }>()
+    .json<components['schemas']['CourtSMSCopyDocsOut'] & { message?: string }>()
   if (res.success === undefined && res.message) throw new Error(res.message)
   return { success: res.success === true, copied: Number(res.copied ?? 0), reason: res.reason ?? null }
 }
@@ -61,22 +61,13 @@ export async function getCourtSmsDetail(smsId: number): Promise<CourtSmsDetail> 
   return automationApi.get(`court-sms/${smsId}`).json<CourtSmsDetail>()
 }
 
-/** 列表行（后端 CourtSMSListOut，content 已截 100 字） */
-export interface CourtSmsListItem {
-  id: number
-  content: string
-  received_at: string
-  sms_type: string | null
-  status: string
-  case_name: string | null
-  has_documents: boolean
-  created_at: string
-}
+/** 列表行（GET court-sms 的行，生成物 CourtSMSListOut，content 已截 100 字） */
+export type CourtSmsListItem = components['schemas']['CourtSMSListOut']
 
 /** 历史筛选组：needs_action = 待人工/失败/下载失败（点开即可处理），completed = 已完成 */
 export type CourtSmsGroup = 'all' | 'needs_action' | 'completed'
 
-/** 分页查询短信列表（历史弹窗用，page_size 后端固定 20） */
+/** 分页查询短信列表（历史弹窗用，page_size 后端固定 20；响应为生成物 PagedCourtSMSListOut） */
 export async function listCourtSms(
   group: CourtSmsGroup,
   page: number,
@@ -88,7 +79,7 @@ export async function listCourtSms(
         page: String(page),
       },
     })
-    .json<{ items?: CourtSmsListItem[]; count?: number }>()
+    .json<components['schemas']['PagedCourtSMSListOut']>()
   return { items: res.items ?? [], count: res.count ?? 0 }
 }
 

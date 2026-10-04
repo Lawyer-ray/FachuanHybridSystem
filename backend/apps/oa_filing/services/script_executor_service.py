@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -15,6 +14,7 @@ from typing import Any
 from django.apps import apps as django_apps
 
 from apps.core.infrastructure.async_context import allow_async_unsafe
+from apps.core.infrastructure.sync_async_bridge import run_coro_sync
 
 from .oa_firm_registry import create_adapter
 
@@ -191,10 +191,11 @@ class ScriptExecutorService:
     ) -> None:
         from apps.oa_filing.models import FilingSession, SessionStatus
 
-        # 事件循环线程内执行 asyncio.run + sync ORM：仅执行期间放行 async-unsafe，退出恢复。
+        # 事件循环线程内执行协程 + sync ORM：async 化需整体改造 executor 链（adapter/
+        # jtn 脚本内部大量 sync ORM 与 Playwright 混排），暂保留作用域化放行，退出恢复。
         with allow_async_unsafe():
             try:
-                asyncio.run(self._dispatch_filing(site_name, credential, contract_id, case_id))
+                run_coro_sync(self._dispatch_filing(site_name, credential, contract_id, case_id))
                 FilingSession.objects.filter(pk=session_id).update(status=SessionStatus.COMPLETED)
                 logger.info("立案完成: session=%d", session_id)
             except Exception as exc:
@@ -243,10 +244,10 @@ class ScriptExecutorService:
     def _run_stamp_in_thread(self, session_id: int, site_name: str) -> None:
         from apps.oa_filing.models import StampSession, StampSessionStatus
 
-        # 事件循环线程内执行 asyncio.run + sync ORM：仅执行期间放行 async-unsafe，退出恢复。
+        # 事件循环线程内执行协程 + sync ORM：async 化需整体改造 executor 链，暂保留作用域化放行。
         with allow_async_unsafe():
             try:
-                asyncio.run(self._dispatch_stamp(session_id, site_name))
+                run_coro_sync(self._dispatch_stamp(session_id, site_name))
                 StampSession.objects.filter(pk=session_id).update(status=StampSessionStatus.COMPLETED)
                 logger.info("盖章完成: session=%d", session_id)
             except Exception as exc:
@@ -298,10 +299,10 @@ class ScriptExecutorService:
     def _run_archive_in_thread(self, session_id: int, site_name: str) -> None:
         from apps.oa_filing.models import ArchiveSession, ArchiveSessionStatus
 
-        # 事件循环线程内执行 asyncio.run + sync ORM：仅执行期间放行 async-unsafe，退出恢复。
+        # 事件循环线程内执行协程 + sync ORM：async 化需整体改造 executor 链，暂保留作用域化放行。
         with allow_async_unsafe():
             try:
-                asyncio.run(self._dispatch_archive(session_id, site_name))
+                run_coro_sync(self._dispatch_archive(session_id, site_name))
                 ArchiveSession.objects.filter(pk=session_id).update(status=ArchiveSessionStatus.COMPLETED)
                 logger.info("归档完成: session=%d", session_id)
             except Exception as exc:
@@ -341,9 +342,10 @@ class ScriptExecutorService:
                 await adapter.wait_open_browsers_closed()
                 logger.info("OA 半自动浏览器已关闭，资源已回收: %s", method_name)
 
-            # 事件循环线程内可能执行 sync ORM：仅执行期间放行 async-unsafe，退出恢复。
+            # 事件循环线程内可能执行 sync ORM：async 化需整体改造 executor 链，暂保留作用域化。
             with allow_async_unsafe():
-                asyncio.run(_main())
+                # 统一桥接：一次性 loop + 退出前清理 Django 连接（旧为裸 asyncio.run）
+                run_coro_sync(_main(), thread_name_prefix="oa-open-page")
 
         threading.Thread(target=_run, daemon=True, name=f"oa-open-{method_name}").start()
 

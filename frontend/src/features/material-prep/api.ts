@@ -1,4 +1,5 @@
 import { createApiClient, UPLOAD_TIMEOUT_MS } from '@/lib/api'
+import type { components } from '@/types/api-schema'
 import { MANUAL_SOURCE_TYPE } from './constants'
 import type {
   AssignInfo,
@@ -22,6 +23,11 @@ export const inboxApi = createApiClient({ prefix: '/api/v1/inbox' })
 export const clientApi = createApiClient({ prefix: '/api/v1/client' })
 const pdfSplitApi = createApiClient({ prefix: '/api/v1/pdf-splitting' })
 
+/**
+ * GET /pdf-splitting/jobs/{job_id} 的响应。
+ * 手写保留：生成物给该端点挂的是 doc-converter 的 JobOut（无 job_id / segments 字段），
+ * shape 不符，按真实返回维护。
+ */
 interface PdfSplitJobPayload {
   job_id: string
   status: string
@@ -29,6 +35,9 @@ interface PdfSplitJobPayload {
   segments: PdfSplitSegmentSuggestion[]
   error_message: string
 }
+
+/** POST /pdf-splitting/jobs 的响应（生成物 JobSubmitOut） */
+type PdfSplitJobSubmit = components['schemas']['JobSubmitOut']
 
 export async function createPdfSplitJob(file: File): Promise<string> {
   const body = new FormData()
@@ -38,7 +47,7 @@ export async function createPdfSplitJob(file: File): Promise<string> {
   body.append('ocr_profile', 'accurate')
   const result = await pdfSplitApi
     .post('jobs', { body, timeout: UPLOAD_TIMEOUT_MS })
-    .json<{ job_id: string }>()
+    .json<PdfSplitJobSubmit>()
   return result.job_id
 }
 
@@ -75,13 +84,18 @@ export async function getPackDetail(id: number): Promise<InboxMessageDetail> {
   return inboxApi.get(`messages/${id}`).json<InboxMessageDetail>()
 }
 
-/** 删除材料包（收件箱消息）：后端先清理附件物理文件，再删 DB 记录 */
-export async function deletePack(id: number): Promise<{ ok: boolean; message_id: number }> {
+/** 删除材料包（收件箱消息）：后端先清理附件物理文件，再删 DB 记录。
+ *  响应为生成物 MessageAckOut（{ok, message_id}） */
+export async function deletePack(id: number): Promise<components['schemas']['MessageAckOut']> {
   return inboxApi.delete(`messages/${id}`).json()
 }
 
-/** 重命名材料包标题（收件箱消息 subject） */
-export async function renamePack(id: number, subject: string): Promise<{ ok: boolean; message_id: number; subject: string }> {
+/** 重命名材料包标题（收件箱消息 subject）。
+ *  响应为生成物 MessageRenameOut（{ok, message_id, subject}） */
+export async function renamePack(
+  id: number,
+  subject: string,
+): Promise<components['schemas']['MessageRenameOut']> {
   return inboxApi.put(`messages/${id}`, { json: { subject } }).json()
 }
 

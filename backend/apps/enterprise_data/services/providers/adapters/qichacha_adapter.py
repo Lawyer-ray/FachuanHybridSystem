@@ -92,26 +92,44 @@ class QichachaResponseAdapter:
 
     def normalize_company_summary(self, item: dict[str, Any]) -> dict[str, str]:
         return {
-            "company_id": self.pick_str(item, ("company_id", "companyId", "id", "creditCode", "keyNo", "统一社会信用代码")),
+            "company_id": self.pick_str(
+                item, ("company_id", "companyId", "id", "creditCode", "keyNo", "统一社会信用代码")
+            ),
             "company_name": self.pick_str(item, ("company_name", "companyName", "name", "entName", "企业名称")),
-            "legal_person": self.pick_str(item, ("legalPersonName", "legal_person", "legalRepresentative", "operName", "法定代表人")),
+            "legal_person": self.pick_str(
+                item, ("legalPersonName", "legal_person", "legalRepresentative", "operName", "法定代表人")
+            ),
             "status": self.pick_str(item, ("regStatus", "status", "openStatus", "operatingStatus", "经营状态")),
-            "establish_date": self.pick_str(item, ("startDate", "estiblishTime", "establishDate", "foundedDate", "成立日期")),
+            "establish_date": self.pick_str(
+                item, ("startDate", "estiblishTime", "establishDate", "foundedDate", "成立日期")
+            ),
             "registered_capital": self.pick_str(item, ("regCapital", "registeredCapital", "regCapCur", "注册资本")),
             "phone": self.pick_str(item, ("phone", "phoneNumber", "contactPhone", "tel", "联系电话")),
         }
 
     def normalize_company_profile(self, item: dict[str, Any]) -> dict[str, str]:
         return {
-            "company_id": self.pick_str(item, ("company_id", "companyId", "id", "creditCode", "keyNo", "统一社会信用代码")),
+            "company_id": self.pick_str(
+                item, ("company_id", "companyId", "id", "creditCode", "keyNo", "统一社会信用代码")
+            ),
             "company_name": self.pick_str(item, ("company_name", "companyName", "name", "entName", "企业名称")),
             "unified_social_credit_code": self.pick_str(
                 item,
-                ("creditCode", "unifiedSocialCreditCode", "socialCreditCode", "unified_social_credit_code", "统一社会信用代码"),
+                (
+                    "creditCode",
+                    "unifiedSocialCreditCode",
+                    "socialCreditCode",
+                    "unified_social_credit_code",
+                    "统一社会信用代码",
+                ),
             ),
-            "legal_person": self.pick_str(item, ("legalPersonName", "legal_person", "legalRepresentative", "operName", "法定代表人")),
+            "legal_person": self.pick_str(
+                item, ("legalPersonName", "legal_person", "legalRepresentative", "operName", "法定代表人")
+            ),
             "status": self.pick_str(item, ("regStatus", "status", "openStatus", "operatingStatus", "经营状态")),
-            "establish_date": self.pick_str(item, ("startDate", "estiblishTime", "establishDate", "foundedDate", "成立日期")),
+            "establish_date": self.pick_str(
+                item, ("startDate", "estiblishTime", "establishDate", "foundedDate", "成立日期")
+            ),
             "registered_capital": self.pick_str(item, ("regCapital", "registeredCapital", "regCapCur", "注册资本")),
             "address": self.pick_str(item, ("regLocation", "address", "registeredAddress", "domicile", "注册地址")),
             "business_scope": self.pick_str(item, ("businessScope", "scope", "operatingScope", "经营范围")),

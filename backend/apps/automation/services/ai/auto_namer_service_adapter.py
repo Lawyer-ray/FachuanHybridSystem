@@ -7,7 +7,7 @@
 import logging
 from typing import Any
 
-from apps.automation.services.ai.prompts import DEFAULT_FILENAME_PROMPT
+from apps.automation.services.ai.prompts import fill_default_prompt
 from apps.core.exceptions import BusinessException, ValidationException
 from apps.core.interfaces import IAutoNamerService, IDocumentProcessingService
 
@@ -69,9 +69,9 @@ class AutoNamerServiceAdapter(IAutoNamerService):
                     errors={},
                 )
 
-            # 使用默认提示词
-            if prompt is None:
-                prompt = DEFAULT_FILENAME_PROMPT
+            # 使用默认提示词（使用时填充当前日期，模板保持静态）
+            used_default = prompt is None
+            prompt = fill_default_prompt(prompt)
 
             logger.info(
                 "开始生成文件名",
@@ -79,7 +79,7 @@ class AutoNamerServiceAdapter(IAutoNamerService):
                     "action": "generate_filename_start",
                     "content_length": len(document_content),
                     "model": model,
-                    "has_custom_prompt": prompt != DEFAULT_FILENAME_PROMPT,
+                    "has_custom_prompt": not used_default,
                 },
             )
 

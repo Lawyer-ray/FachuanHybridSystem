@@ -14,60 +14,64 @@ _MOD = "apps.workbench.tasks.batch_runner"
 
 
 class TestRunBatchAnalysis:
-    def test_no_loop_calls_asyncio_run(self):
+    def test_delegates_to_bridge_with_timeout(self):
         from apps.workbench.tasks.batch_runner import run_batch_analysis
 
         job_id = str(uuid4())
-        with patch(f"{_MOD}.asyncio") as mock_asyncio:
-            mock_asyncio.get_running_loop.side_effect = RuntimeError("no loop")
-            mock_asyncio.run = MagicMock()
+
+        def _swallow(coro, **kwargs):
+            coro.close()
+            return None
+
+        with (
+            patch(f"{_MOD}._run_batch_async") as mock_async,
+            patch(f"{_MOD}.run_coro_sync", side_effect=_swallow) as mock_bridge,
+        ):
+            mock_async.return_value = None
             run_batch_analysis(job_id)
-            mock_asyncio.run.assert_called_once()
+            mock_bridge.assert_called_once()
+            assert mock_bridge.call_args.kwargs["timeout"] == 7200
 
-    def test_with_loop_uses_thread_pool(self):
+    def test_with_loop_uses_thread_pool_via_bridge(self):
+        """线程隔离语义已下沉到 sync_async_bridge：入口只负责委托。"""
         from apps.workbench.tasks.batch_runner import run_batch_analysis
 
         job_id = str(uuid4())
-        with patch(f"{_MOD}.asyncio") as mock_asyncio:
-            mock_asyncio.get_running_loop.return_value = MagicMock()
-            with patch(f"{_MOD}.concurrent.futures.ThreadPoolExecutor") as MockPool:
-                mock_pool = MockPool.return_value
-                mock_future = MagicMock()
-                mock_future.result.return_value = None
-                mock_pool.submit.return_value = mock_future
-                run_batch_analysis(job_id)
-                mock_pool.submit.assert_called_once()
-                # 显式池（非 with）：无论结果如何都要释放，避免形式超时
-                mock_pool.shutdown.assert_called_once_with(wait=False, cancel_futures=True)
+        with (
+            patch(f"{_MOD}._run_batch_async") as mock_async,
+            patch("apps.core.infrastructure.sync_async_bridge._has_running_loop", return_value=True),
+            patch("apps.core.infrastructure.sync_async_bridge.ThreadPoolExecutor") as MockPool,
+        ):
+            mock_async.return_value = MagicMock()
+            mock_pool = MockPool.return_value
+            mock_future = MagicMock()
+            mock_future.result.return_value = None
+            mock_pool.submit.return_value = mock_future
+            run_batch_analysis(job_id)
+            mock_pool.submit.assert_called_once()
+            # 显式池（非 with）：无论结果如何都要释放，避免形式超时
+            mock_pool.shutdown.assert_called_once_with(wait=False, cancel_futures=True)
 
 
 class TestRunBatchRetry:
-    def test_no_loop_calls_asyncio_run(self):
+    def test_delegates_to_bridge_with_timeout(self):
         from apps.workbench.tasks.batch_runner import run_batch_retry
 
         job_id = str(uuid4())
         item_ids = [str(uuid4())]
-        with patch(f"{_MOD}.asyncio") as mock_asyncio:
-            mock_asyncio.get_running_loop.side_effect = RuntimeError("no loop")
-            mock_asyncio.run = MagicMock()
+
+        def _swallow(coro, **kwargs):
+            coro.close()
+            return None
+
+        with (
+            patch(f"{_MOD}._run_batch_retry_async") as mock_async,
+            patch(f"{_MOD}.run_coro_sync", side_effect=_swallow) as mock_bridge,
+        ):
+            mock_async.return_value = None
             run_batch_retry(job_id, item_ids)
-            mock_asyncio.run.assert_called_once()
-
-    def test_with_loop_uses_thread_pool(self):
-        from apps.workbench.tasks.batch_runner import run_batch_retry
-
-        job_id = str(uuid4())
-        item_ids = [str(uuid4())]
-        with patch(f"{_MOD}.asyncio") as mock_asyncio:
-            mock_asyncio.get_running_loop.return_value = MagicMock()
-            with patch(f"{_MOD}.concurrent.futures.ThreadPoolExecutor") as MockPool:
-                mock_pool = MockPool.return_value
-                mock_future = MagicMock()
-                mock_future.result.return_value = None
-                mock_pool.submit.return_value = mock_future
-                run_batch_retry(job_id, item_ids)
-                mock_pool.submit.assert_called_once()
-                mock_pool.shutdown.assert_called_once_with(wait=False, cancel_futures=True)
+            mock_bridge.assert_called_once()
+            assert mock_bridge.call_args.kwargs["timeout"] == 3600
 
 
 class TestSyncLlmChat:

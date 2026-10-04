@@ -6,7 +6,6 @@ from ninja import File, Router, Schema
 from ninja.files import UploadedFile
 
 from apps.client.schemas import IdentityDocDetailOut, IdentityRecognizeOut
-from apps.client.services.wiring import get_task_service_port
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 
 logger = logging.getLogger(__name__)
@@ -33,6 +32,18 @@ def _get_id_card_merge_service() -> Any:
     from apps.client.services.id_card_merge import IdCardMergeService
 
     return IdCardMergeService()
+
+
+def _get_identity_doc_task_service() -> Any:
+    """工厂函数：创建 IdentityDocTaskService 实例"""
+    from apps.client.services.identity_doc_task_service import IdentityDocTaskService
+
+    return IdentityDocTaskService()
+
+
+def _identity_request_user(request: Any) -> Any:
+    """提取认证用户（JWT 模式在 request.auth，Session 模式在 request.user）。"""
+    return getattr(request, "auth", None) or getattr(request, "user", None)
 
 
 @router.post("/identity-doc/recognize", response=IdentityRecognizeOut)
@@ -219,22 +230,18 @@ def submit_recognize_task(  # pragma: no cover
     file: UploadedFile = File(...),
     doc_type: str = "id_card",
 ) -> dict[str, Any]:
-    """提交证件识别异步任务"""
-    service = _get_identity_doc_service()
-    rel_path = service.save_uploaded_file_to_dir(file, rel_dir="client_docs/recognize")
-    # execute_identity_doc_recognition(file_path, doc_type) 的 doc_type 为必填参数，
-    # 缺省会令任务 100% TypeError；默认取合法证件类型 id_card（DOC_TYPE_CHOICES）
-    normalized_doc_type = (doc_type or "").strip() or "id_card"
-    task_service = get_task_service_port()
-    task_id: str = task_service.submit_task(
-        "apps.client.tasks.execute_identity_doc_recognition",
-        rel_path,
-        normalized_doc_type,
+    """提交证件识别异步任务。
+
+    安全修复：返回的 task_id 为 ClientIdentityDocParseTask 记录 id
+    （响应形状不变），Django-Q 原始 id 不再对外暴露。
+    """
+    service = _get_identity_doc_task_service()
+    result: dict[str, Any] = service.submit_recognize_task(
+        uploaded_file=file,
+        doc_type=doc_type,
+        user=_identity_request_user(request),
     )
-    logger.info(
-        "证件识别任务已提交", extra={"task_id": task_id, "file_path": rel_path, "doc_type": normalized_doc_type}
-    )
-    return {"task_id": task_id, "status": "pending"}
+    return result
 
 
 @router.get("/identity-doc/task/{task_id}")
@@ -242,7 +249,11 @@ def get_recognize_task_status(  # pragma: no cover
     request: Any,
     task_id: str,
 ) -> dict[str, Any]:
-    """查询证件识别任务状态"""
-    task_service = get_task_service_port()
-    result: dict[str, Any] = task_service.get_task_status(task_id)
+    """查询证件识别任务状态。
+
+    安全修复：task_id 为记录 id（兼容存量 Q id），service 层先做归属
+    校验（本人/管理员），无权或不存在一律 404，不泄露他人证件 OCR 结果。
+    """
+    service = _get_identity_doc_task_service()
+    result: dict[str, Any] = service.get_task_status(task_id, user=_identity_request_user(request))
     return result

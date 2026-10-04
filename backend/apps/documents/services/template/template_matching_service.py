@@ -112,7 +112,9 @@ class TemplateMatchingService:
             logger.exception("查找合同模板失败", extra={"case_type": case_type})
             raise
 
-    def find_matching_folder_templates(self, template_type: str, case_type: str | None = None) -> list[dict[str, Any]]:  # pragma: no cover
+    def find_matching_folder_templates(
+        self, template_type: str, case_type: str | None = None
+    ) -> list[dict[str, Any]]:  # pragma: no cover
         version = self._get_folder_templates_cache_version()
         cache_key = CacheKeys.documents_matching_folder_templates(
             template_type=template_type,

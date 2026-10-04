@@ -36,7 +36,9 @@ class McpWorkbenchAdmin(admin.ModelAdmin):  # pragma: no cover
             return {}
         return {"view": True, "add": False, "change": False, "delete": False}
 
-    def changelist_view(self, request: Any, extra_context: dict[str, Any] | None = None) -> TemplateResponse:  # pragma: no cover
+    def changelist_view(
+        self, request: Any, extra_context: dict[str, Any] | None = None
+    ) -> TemplateResponse:  # pragma: no cover
         service = McpWorkbenchService()
         providers = service.list_providers()
         provider_names = [str(item.get("name", "") or "").strip() for item in providers if item.get("name")]
@@ -149,7 +151,9 @@ class McpWorkbenchAdmin(admin.ModelAdmin):  # pragma: no cover
         return ""
 
     @staticmethod
-    def _pick_selected_provider(*, request: Any, provider_names: list[str], default_provider: str) -> str:  # pragma: no cover
+    def _pick_selected_provider(
+        *, request: Any, provider_names: list[str], default_provider: str
+    ) -> str:  # pragma: no cover
         selected = str(request.POST.get("provider", "") or "").strip()
         if not selected:
             selected = str(request.GET.get("provider", "") or "").strip()
@@ -165,7 +169,9 @@ class McpWorkbenchAdmin(admin.ModelAdmin):  # pragma: no cover
         return str(request.GET.get("tool", "") or "").strip()
 
     @staticmethod
-    def _pick_selected_tool(*, tools: list[dict[str, Any]], selected_tool_name: str) -> dict[str, Any] | None:  # pragma: no cover
+    def _pick_selected_tool(
+        *, tools: list[dict[str, Any]], selected_tool_name: str
+    ) -> dict[str, Any] | None:  # pragma: no cover
         if not selected_tool_name:
             return None
         for item in tools:

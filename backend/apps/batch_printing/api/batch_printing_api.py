@@ -91,7 +91,9 @@ async def get_rule(request: HttpRequest, rule_id: int) -> PrintKeywordRuleOut:  
 
 
 @router.put("/rules/{rule_id}", response=PrintKeywordRuleOut)
-async def update_rule(request: HttpRequest, rule_id: int, payload: PrintKeywordRuleUpdateIn) -> PrintKeywordRuleOut:  # pragma: no cover
+async def update_rule(
+    request: HttpRequest, rule_id: int, payload: PrintKeywordRuleUpdateIn
+) -> PrintKeywordRuleOut:  # pragma: no cover
     service = get_rule_service()
     rule = await sync_to_async(service.update_rule)(rule_id=rule_id, payload=payload.model_dump(exclude_unset=True))
     return PrintKeywordRuleOut(**service.build_rule_payload(rule=rule))
@@ -117,7 +119,9 @@ async def list_batch_print_jobs(  # pragma: no cover
 @router.post("/jobs", response=BatchPrintSubmitOut)
 async def create_batch_print_job(request: HttpRequest) -> BatchPrintSubmitOut:  # pragma: no cover
     files = list(request.FILES.getlist("files"))
-    job = await sync_to_async(get_batch_print_job_service().create_job)(files=files, created_by=getattr(request, "user", None))
+    job = await sync_to_async(get_batch_print_job_service().create_job)(
+        files=files, created_by=getattr(request, "user", None)
+    )
     return BatchPrintSubmitOut(job_id=str(job.id), status=job.status)
 
 

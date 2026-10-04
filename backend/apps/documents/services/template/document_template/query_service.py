@@ -88,7 +88,9 @@ class DocumentTemplateQueryService:
             result.append(self.assembler.to_dto(template))
         return result
 
-    def get_templates_by_case_type_internal(self, case_type: str, is_active: bool = True) -> list[Any]:  # pragma: no cover
+    def get_templates_by_case_type_internal(
+        self, case_type: str, is_active: bool = True
+    ) -> list[Any]:  # pragma: no cover
 
         queryset = DocumentTemplate.objects.all()
         if is_active:

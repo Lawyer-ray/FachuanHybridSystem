@@ -30,6 +30,14 @@ class DocumentParsingTask(models.Model):
         default=Status.PENDING,
     )
     backend_used = models.CharField("解析后端", max_length=50, blank=True)
+    q_task_id = models.CharField(
+        "队列任务ID",
+        max_length=100,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="Django-Q 任务 ID（安全修复：对外仅暴露本记录 id，Q id 仅内部反查用）",
+    )
     text = models.TextField("纯文本", blank=True)
     markdown = models.TextField("Markdown", blank=True)
     metadata = models.JSONField("元数据", default=dict, blank=True)

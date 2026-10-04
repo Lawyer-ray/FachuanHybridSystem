@@ -52,20 +52,36 @@ class TestSyncLlmChat:
 
 
 class TestRunBatchAnalysis:
-    def test_run_batch_analysis_no_loop(self):
-        with patch("apps.workbench.tasks.batch_runner._run_batch_async"):
-            with patch("apps.workbench.tasks.batch_runner.asyncio") as mock_asyncio:
-                mock_asyncio.get_running_loop.side_effect = RuntimeError("no loop")
-                mock_asyncio.run = MagicMock()
-                run_batch_analysis("00000000-0000-0000-0000-000000000001")
-                mock_asyncio.run.assert_called_once()
+    def test_run_batch_analysis_delegates_to_bridge(self):
+        """入口应统一委托 run_coro_sync，并携带 7200s 超时。"""
+
+        def _swallow(coro, **kwargs):  # 关闭未消费协程，避免 never-awaited 告警
+            coro.close()
+            return None
+
+        with (
+            patch("apps.workbench.tasks.batch_runner.run_coro_sync", side_effect=_swallow) as mock_bridge,
+            patch("apps.workbench.tasks.batch_runner._run_batch_async") as mock_async,
+        ):
+            mock_async.return_value = None
+            run_batch_analysis("00000000-0000-0000-0000-000000000001")
+            mock_bridge.assert_called_once()
+            assert mock_bridge.call_args.kwargs["timeout"] == 7200
 
 
 class TestRunBatchRetry:
-    def test_run_batch_retry_no_loop(self):
-        with patch("apps.workbench.tasks.batch_runner._run_batch_retry_async"):
-            with patch("apps.workbench.tasks.batch_runner.asyncio") as mock_asyncio:
-                mock_asyncio.get_running_loop.side_effect = RuntimeError("no loop")
-                mock_asyncio.run = MagicMock()
-                run_batch_retry("00000000-0000-0000-0000-000000000001", ["00000000-0000-0000-0000-000000000002"])
-                mock_asyncio.run.assert_called_once()
+    def test_run_batch_retry_delegates_to_bridge(self):
+        """重试入口应统一委托 run_coro_sync，并携带 3600s 超时。"""
+
+        def _swallow(coro, **kwargs):
+            coro.close()
+            return None
+
+        with (
+            patch("apps.workbench.tasks.batch_runner.run_coro_sync", side_effect=_swallow) as mock_bridge,
+            patch("apps.workbench.tasks.batch_runner._run_batch_retry_async") as mock_async,
+        ):
+            mock_async.return_value = None
+            run_batch_retry("00000000-0000-0000-0000-000000000001", ["00000000-0000-0000-0000-000000000002"])
+            mock_bridge.assert_called_once()
+            assert mock_bridge.call_args.kwargs["timeout"] == 3600

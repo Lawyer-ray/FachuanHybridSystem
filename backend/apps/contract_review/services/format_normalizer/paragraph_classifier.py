@@ -42,9 +42,17 @@ class ParagraphClassifier:
         """检测一级标题"""
         # 一级标题特征：简短、明确的标题
         level0_keywords = [
-            "服务内容", "服务范围", "费用", "保密义务", "责任限制",
-            "免责条款", "合同期限", "违约责任", "服务响应时间",
-            "争议解决", "其他约定"
+            "服务内容",
+            "服务范围",
+            "费用",
+            "保密义务",
+            "责任限制",
+            "免责条款",
+            "合同期限",
+            "违约责任",
+            "服务响应时间",
+            "争议解决",
+            "其他约定",
         ]
 
         for keyword in level0_keywords:
@@ -59,14 +67,14 @@ class ParagraphClassifier:
 
         # 1. 以数字开头，描述具体事项
         if len(text) >= 2 and text[0].isdigit() and text[1] in "、.":
-            if any(keyword in text for keyword in [
-                "费用", "责任", "义务", "权利", "期限", "范围",
-                "甲方", "乙方", "双方", "维护", "服务"
-            ]):
+            if any(
+                keyword in text
+                for keyword in ["费用", "责任", "义务", "权利", "期限", "范围", "甲方", "乙方", "双方", "维护", "服务"]
+            ):
                 return 1
 
         # 2. 以"一、"、"二、"等开头
-        if (len(text) >= 2 and text[0] in "一二三四五六七八九十" and text[1] == "、"):
+        if len(text) >= 2 and text[0] in "一二三四五六七八九十" and text[1] == "、":
             return 1
 
         # 3. 包含"乙方"、"甲方"等关键词
@@ -85,10 +93,24 @@ class ParagraphClassifier:
             return 2
 
         # 2. 包含具体的操作或细节
-        if any(keyword in text for keyword in [
-            "安装", "维修", "检测", "调试", "排查", "维护", "更新",
-            "提供", "送修", "维修后", "若", "甲方", "乙方"
-        ]):
+        if any(
+            keyword in text
+            for keyword in [
+                "安装",
+                "维修",
+                "检测",
+                "调试",
+                "排查",
+                "维护",
+                "更新",
+                "提供",
+                "送修",
+                "维修后",
+                "若",
+                "甲方",
+                "乙方",
+            ]
+        ):
             return 2
 
         return -1

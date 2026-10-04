@@ -92,9 +92,11 @@ async def get_dashboard_stats(request: HttpRequest) -> dict[str, Any]:  # pragma
         _guarded(stf(service._case_type_stats)()),
         _guarded(stf(service._case_trend)(timezone.localdate() - timedelta(days=365))),
         _guarded(stf(service._case_status_distribution)()),
-        _guarded(stf(service._fee_stats)(
-            timezone.localdate().replace(day=1), timezone.localdate(), timezone.localdate() - timedelta(days=365)
-        )),
+        _guarded(
+            stf(service._fee_stats)(
+                timezone.localdate().replace(day=1), timezone.localdate(), timezone.localdate() - timedelta(days=365)
+            )
+        ),
         _guarded(stf(service._reminder_counts)(timezone.now())),
         _guarded(stf(service._upcoming_reminders)(timezone.now())),
         _guarded(stf(service._client_count)()),

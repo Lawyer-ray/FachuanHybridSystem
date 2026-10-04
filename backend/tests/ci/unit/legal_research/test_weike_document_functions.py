@@ -21,7 +21,6 @@ from apps.legal_research.services.sources.weike.document import (
 )
 from apps.legal_research.services.sources.weike.types import WeikeCaseDetail, WeikeSearchItem
 
-
 # ── html_to_text ──────────────────────────────────────────────────────
 
 
@@ -51,6 +50,43 @@ class TestHtmlToText:
     def test_multiple_newlines_collapsed(self) -> None:
         result = html_to_text("<p>a</p>\n\n\n<p>b</p>")
         assert "\n\n\n" not in result
+
+    # ── 标签过滤变体（CodeQL py/bad-tag-filter #3228 回归） ──────────────
+
+    def test_script_end_tag_with_space_removed(self) -> None:
+        result = html_to_text('<script src="foo">secret()</script ><p>ok</p>')
+        assert "secret" not in result
+        assert "ok" in result
+
+    def test_script_end_tag_with_attrs_removed(self) -> None:
+        result = html_to_text('<script src="foo">secret()</script foo="bar"><p>ok</p>')
+        assert "secret" not in result
+        assert "ok" in result
+
+    def test_script_end_tag_with_tab_newline_removed(self) -> None:
+        result = html_to_text('<script src="foo">secret()</script\t\n bar><p>ok</p>')
+        assert "secret" not in result
+        assert "ok" in result
+
+    def test_script_open_tag_variants_removed(self) -> None:
+        result = html_to_text("<script \n>secret()</script><p>ok</p>")
+        assert "secret" not in result
+        assert "ok" in result
+
+    def test_script_tag_name_bounded(self) -> None:
+        """``<scriptfoo>`` 不是 script 标签，按普通标签剥离、保留其文本。"""
+        result = html_to_text("<scriptfoo>visible</scriptfoo>")
+        assert "visible" in result
+
+    def test_script_mixed_case_removed(self) -> None:
+        result = html_to_text("<sCrIpT>secret()</ScRiPt><p>ok</p>")
+        assert "secret" not in result
+        assert "ok" in result
+
+    def test_style_end_tag_variants_removed(self) -> None:
+        result = html_to_text('<style >.x{color:red}</style foo="bar"><p>ok</p>')
+        assert "color" not in result
+        assert "ok" in result
 
 
 # ── normalize_dom_text ─────────────────────────────────────────────────
@@ -145,9 +181,7 @@ class TestDetailDocIdCandidates:
         assert result.count("same") == 1
 
     def test_empty_values_skipped(self) -> None:
-        item = WeikeSearchItem(
-            doc_id_raw="", doc_id_unquoted="", detail_url="", title_hint="", search_id="", module=""
-        )
+        item = WeikeSearchItem(doc_id_raw="", doc_id_unquoted="", detail_url="", title_hint="", search_id="", module="")
         assert detail_doc_id_candidates(item) == []
 
 
@@ -233,9 +267,18 @@ class TestSummarizeHtmlPayload:
 class TestBuildDownloadFilename:
     def test_with_title(self) -> None:
         detail = WeikeCaseDetail(
-            doc_id_raw="raw", doc_id_unquoted="uq", detail_url="", search_id="",
-            module="", title="Test Case", court_text="", document_number="",
-            judgment_date="", case_digest="", content_text="", raw_meta={},
+            doc_id_raw="raw",
+            doc_id_unquoted="uq",
+            detail_url="",
+            search_id="",
+            module="",
+            title="Test Case",
+            court_text="",
+            document_number="",
+            judgment_date="",
+            case_digest="",
+            content_text="",
+            raw_meta={},
         )
         result = build_download_filename(detail)
         assert "Test Case" in result
@@ -243,18 +286,36 @@ class TestBuildDownloadFilename:
 
     def test_empty_title_uses_fallback(self) -> None:
         detail = WeikeCaseDetail(
-            doc_id_raw="raw", doc_id_unquoted="uq", detail_url="", search_id="",
-            module="", title="", court_text="", document_number="",
-            judgment_date="", case_digest="", content_text="", raw_meta={},
+            doc_id_raw="raw",
+            doc_id_unquoted="uq",
+            detail_url="",
+            search_id="",
+            module="",
+            title="",
+            court_text="",
+            document_number="",
+            judgment_date="",
+            case_digest="",
+            content_text="",
+            raw_meta={},
         )
         result = build_download_filename(detail)
         assert "uq" in result
 
     def test_special_chars_replaced(self) -> None:
         detail = WeikeCaseDetail(
-            doc_id_raw="", doc_id_unquoted="", detail_url="", search_id="",
-            module="", title='A/B:C*D?"E<F>G', court_text="", document_number="",
-            judgment_date="", case_digest="", content_text="", raw_meta={},
+            doc_id_raw="",
+            doc_id_unquoted="",
+            detail_url="",
+            search_id="",
+            module="",
+            title='A/B:C*D?"E<F>G',
+            court_text="",
+            document_number="",
+            judgment_date="",
+            case_digest="",
+            content_text="",
+            raw_meta={},
         )
         result = build_download_filename(detail)
         assert "/" not in result.split("_下载")[0]

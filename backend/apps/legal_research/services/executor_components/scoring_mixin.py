@@ -176,15 +176,21 @@ class ExecutorScoringMixin:  # pragma: no cover
         )
 
     @classmethod
-    def _deferred_rerank_budget(cls, *, task: LegalResearchTask, matched: int, deferred_count: int) -> int:  # pragma: no cover
+    def _deferred_rerank_budget(
+        cls, *, task: LegalResearchTask, matched: int, deferred_count: int
+    ) -> int:  # pragma: no cover
         target_count = int(task.target_count)
         remaining_target = max(1, target_count - matched)
         budget = max(cls.DEFERRED_RERANK_KEEP_MIN, remaining_target * cls.DEFERRED_RERANK_MULTIPLIER)
         return min(deferred_count, budget)
 
     @staticmethod
-    def _should_rerank(*, coarse_score: float, threshold: float, rerank_used: int, rerank_budget: int) -> bool:  # pragma: no cover
-        return should_rerank(coarse_score=coarse_score, threshold=threshold, rerank_used=rerank_used, rerank_budget=rerank_budget)
+    def _should_rerank(
+        *, coarse_score: float, threshold: float, rerank_used: int, rerank_budget: int
+    ) -> bool:  # pragma: no cover
+        return should_rerank(
+            coarse_score=coarse_score, threshold=threshold, rerank_used=rerank_used, rerank_budget=rerank_budget
+        )
 
     # ── 单候选重排流水线 ─────────────────────────────────────
 

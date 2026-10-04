@@ -1085,7 +1085,10 @@ export interface paths {
         put?: never;
         /**
          * Submit Recognize Task
-         * @description 提交证件识别异步任务
+         * @description 提交证件识别异步任务。
+         *
+         *     安全修复：返回的 task_id 为 ClientIdentityDocParseTask 记录 id
+         *     （响应形状不变），Django-Q 原始 id 不再对外暴露。
          */
         post: operations["apps_client_api_clientidentitydoc_api_submit_recognize_task"];
         delete?: never;
@@ -1103,7 +1106,10 @@ export interface paths {
         };
         /**
          * Get Recognize Task Status
-         * @description 查询证件识别任务状态
+         * @description 查询证件识别任务状态。
+         *
+         *     安全修复：task_id 为记录 id（兼容存量 Q id），service 层先做归属
+         *     校验（本人/管理员），无权或不存在一律 404，不泄露他人证件 OCR 结果。
          */
         get: operations["apps_client_api_clientidentitydoc_api_get_recognize_task_status"];
         put?: never;
@@ -7580,6 +7586,10 @@ export interface paths {
          *
          *     轮询此端点直到 status 为 "success" 或 "failure"，
          *     成功时 result 字段包含完整的解析结果。
+         *
+         *     安全修复：task_id 为解析记录 id（提交端点返回），service 层先做
+         *     归属校验（本人/管理员可见，与 /records 同口径）再查队列状态，
+         *     无权或不存在一律 404，不泄露他人解析全文。
          */
         get: operations["apps_document_parsing_api_parsing_api_get_task_status"];
         put?: never;
@@ -10657,6 +10667,321 @@ export interface components {
             /** Content */
             content?: string | null;
         };
+        /** CaseAssignmentOut */
+        CaseAssignmentOut: {
+            lawyer_detail: components["schemas"]["LawyerOutFromDTO"];
+            /** ID */
+            id?: number | null;
+            /** 案件 */
+            case: number;
+            /** 律师 */
+            lawyer: number;
+        };
+        /** CaseChatOut */
+        CaseChatOut: {
+            /** ID */
+            id?: number | null;
+            /**
+             * 平台
+             * @default feishu
+             */
+            platform: string;
+            /** 群名 */
+            name: string;
+            /**
+             * 是否有效
+             * @default true
+             */
+            is_active: boolean;
+        };
+        /** CaseContactOut */
+        CaseContactOut: {
+            /** Role Display */
+            role_display: string | null;
+            /** Stage Display */
+            stage_display: string | null;
+            /** Authority Name */
+            authority_name: string | null;
+            /** Case Id */
+            case_id: number;
+            /** Authority Id */
+            authority_id: number | null;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+            /** ID */
+            id?: number | null;
+            /** 姓名 */
+            name: string;
+            /**
+             * 角色
+             * @default other
+             */
+            role: string;
+            /**
+             * 电话
+             * @default
+             */
+            phone: string | null;
+            /**
+             * 收件地址
+             * @default
+             */
+            address: string | null;
+            /**
+             * 所属阶段
+             * @default
+             */
+            stage: string | null;
+            /**
+             * 备注
+             * @default
+             */
+            note: string | null;
+        };
+        /** CaseLogActorOut */
+        CaseLogActorOut: {
+            /** Id */
+            id: number;
+            /** Username */
+            username: string;
+            /** Real Name */
+            real_name?: string | null;
+            /** Phone */
+            phone?: string | null;
+        };
+        /** CaseLogAttachmentOut */
+        CaseLogAttachmentOut: {
+            /** File Path */
+            file_path: string | null;
+            /** Media Url */
+            media_url: string | null;
+            /** Uploaded At */
+            uploaded_at: string;
+            /** ID */
+            id?: number | null;
+            /** 日志 */
+            log: number;
+            /**
+             * 原始文件名
+             * @default
+             */
+            original_filename: string | null;
+        };
+        /** CaseLogOut */
+        CaseLogOut: {
+            /** Attachments */
+            attachments: components["schemas"]["CaseLogAttachmentOut"][];
+            /** Reminders */
+            reminders: components["schemas"]["ReminderLiteOut"][];
+            actor_detail: components["schemas"]["CaseLogActorOut"];
+            /** Reminder Type */
+            reminder_type?: string | null;
+            /** Reminder Time */
+            reminder_time?: string | null;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+            /** ID */
+            id?: number | null;
+            /** 案件 */
+            case: number;
+            /** 日志内容 */
+            content: string;
+            /** 操作人 */
+            actor: number;
+        };
+        /** CaseNumberOut */
+        CaseNumberOut: {
+            /** Created At */
+            created_at: string;
+            /** ID */
+            id?: number | null;
+            /** 案号 */
+            number: string;
+            /**
+             * 备注
+             * @default
+             */
+            remarks: string | null;
+        };
+        /** CaseOut */
+        CaseOut: {
+            /** Parties */
+            parties: components["schemas"]["CasePartyOut"][];
+            /** Assignments */
+            assignments: components["schemas"]["CaseAssignmentOut"][];
+            /** Logs */
+            logs: components["schemas"]["CaseLogOut"][];
+            /** Case Numbers */
+            case_numbers: components["schemas"]["CaseNumberOut"][];
+            /** Supervising Authorities */
+            supervising_authorities: components["schemas"]["SupervisingAuthorityOut"][];
+            /** Chats */
+            chats: components["schemas"]["CaseChatOut"][];
+            /** Contract Id */
+            contract_id: number | null;
+            /**
+             * Contacts
+             * @default []
+             */
+            contacts: components["schemas"]["CaseContactOut"][];
+            /** ID */
+            id?: number | null;
+            /** 案件名称 */
+            name: string;
+            /**
+             * 案件状态
+             * @default active
+             */
+            status: string;
+            /**
+             * 是否已建档
+             * @default false
+             */
+            is_filed: boolean;
+            /**
+             * 建档编号
+             * @description 格式: {年份}_{案件类型}_{AJ}_{序号}
+             */
+            filing_number?: string | null;
+            /**
+             * 案件类型
+             * @default civil
+             */
+            case_type: string | null;
+            /**
+             * 收案日期
+             * Format: date
+             */
+            start_date?: string;
+            /** 生效日期 */
+            effective_date?: string | null;
+            /** 指定日期 */
+            specified_date?: string | null;
+            /** 涉案金额 */
+            target_amount?: string | null;
+            /** 财产保全金额 */
+            preservation_amount?: string | null;
+            /**
+             * 案由
+             * @default
+             */
+            cause_of_action: string | null;
+            /**
+             * 当前阶段
+             * @default
+             */
+            current_stage: string | null;
+        };
+        /** CasePartyOut */
+        CasePartyOut: {
+            client_detail: components["schemas"]["ClientLiteOut"];
+            /** ID */
+            id?: number | null;
+            /** 案件 */
+            case: number;
+            /** 当事人 */
+            client: number;
+            /**
+             * 诉讼地位
+             * @default
+             */
+            legal_status: string | null;
+        };
+        /** ClientIdentityDocLiteOut */
+        ClientIdentityDocLiteOut: {
+            /** Doc Type */
+            doc_type: string;
+            /** File Path */
+            file_path: string;
+            /** Uploaded At */
+            uploaded_at: string;
+            /** Media Url */
+            media_url?: string | null;
+        };
+        /** ClientLiteOut */
+        ClientLiteOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Is Our Client */
+            is_our_client: boolean;
+            /** Phone */
+            phone?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Client Type */
+            client_type: string;
+            /** Id Number */
+            id_number?: string | null;
+            /** Legal Representative */
+            legal_representative?: string | null;
+            /** Legal Representative Id Number */
+            legal_representative_id_number?: string | null;
+            /** Client Type Label */
+            client_type_label: string;
+            /** Identity Docs */
+            identity_docs: components["schemas"]["ClientIdentityDocLiteOut"][];
+        };
+        /** LawyerOutFromDTO */
+        LawyerOutFromDTO: {
+            /** Id */
+            id: number;
+            /** Username */
+            username: string;
+            /** Real Name */
+            real_name?: string | null;
+            /** Phone */
+            phone?: string | null;
+        };
+        /** ReminderLiteOut */
+        ReminderLiteOut: {
+            /** Id */
+            id: number;
+            /** Contract Id */
+            contract_id?: number | null;
+            /** Case Log Id */
+            case_log_id?: number | null;
+            /** Reminder Type */
+            reminder_type: string;
+            /** Reminder Type Label */
+            reminder_type_label: string;
+            /** Content */
+            content: string;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /** Due At */
+            due_at: string;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+        };
+        /** SupervisingAuthorityOut */
+        SupervisingAuthorityOut: {
+            /** Created At */
+            created_at: string;
+            /** Authority Type Display */
+            authority_type_display: string | null;
+            /** ID */
+            id?: number | null;
+            /**
+             * 名称
+             * @default
+             */
+            name: string | null;
+            /**
+             * 性质
+             * @default trial
+             */
+            authority_type: string | null;
+        };
         /** CaseIn */
         CaseIn: {
             /** 案件名称 */
@@ -10767,60 +11092,6 @@ export interface components {
             /** Authority Type */
             authority_type?: string | null;
         };
-        /** CasePartyOut */
-        CasePartyOut: {
-            client_detail: components["schemas"]["ClientLiteOut"];
-            /** ID */
-            id?: number | null;
-            /** 案件 */
-            case: number;
-            /** 当事人 */
-            client: number;
-            /**
-             * 诉讼地位
-             * @default
-             */
-            legal_status: string | null;
-        };
-        /** ClientIdentityDocLiteOut */
-        ClientIdentityDocLiteOut: {
-            /** Doc Type */
-            doc_type: string;
-            /** File Path */
-            file_path: string;
-            /**
-             * Uploaded At
-             * Format: date-time
-             */
-            uploaded_at: string;
-            /** Media Url */
-            media_url?: string | null;
-        };
-        /** ClientLiteOut */
-        ClientLiteOut: {
-            /** Id */
-            id: number;
-            /** Name */
-            name: string;
-            /** Is Our Client */
-            is_our_client: boolean;
-            /** Phone */
-            phone?: string | null;
-            /** Address */
-            address?: string | null;
-            /** Client Type */
-            client_type: string;
-            /** Id Number */
-            id_number?: string | null;
-            /** Legal Representative */
-            legal_representative?: string | null;
-            /** Legal Representative Id Number */
-            legal_representative_id_number?: string | null;
-            /** Client Type Label */
-            client_type_label: string;
-            /** Identity Docs */
-            identity_docs: components["schemas"]["ClientIdentityDocLiteOut"][];
-        };
         /** CasePartyIn */
         CasePartyIn: {
             /** Case Id */
@@ -10839,27 +11110,6 @@ export interface components {
             /** Legal Status */
             legal_status?: string | null;
         };
-        /** CaseAssignmentOut */
-        CaseAssignmentOut: {
-            lawyer_detail: components["schemas"]["LawyerOutFromDTO"];
-            /** ID */
-            id?: number | null;
-            /** 案件 */
-            case: number;
-            /** 律师 */
-            lawyer: number;
-        };
-        /** LawyerOutFromDTO */
-        LawyerOutFromDTO: {
-            /** Id */
-            id: number;
-            /** Username */
-            username: string;
-            /** Real Name */
-            real_name?: string | null;
-            /** Phone */
-            phone?: string | null;
-        };
         /** CaseAssignmentIn */
         CaseAssignmentIn: {
             /** Case Id */
@@ -10873,93 +11123,6 @@ export interface components {
             case_id?: number | null;
             /** Lawyer Id */
             lawyer_id?: number | null;
-        };
-        /** CaseLogActorOut */
-        CaseLogActorOut: {
-            /** Id */
-            id: number;
-            /** Username */
-            username: string;
-            /** Real Name */
-            real_name?: string | null;
-            /** Phone */
-            phone?: string | null;
-        };
-        /** CaseLogAttachmentOut */
-        CaseLogAttachmentOut: {
-            /** File Path */
-            file_path: string | null;
-            /** Media Url */
-            media_url: string | null;
-            /** ID */
-            id?: number | null;
-            /** 日志 */
-            log: number;
-            /**
-             * 原始文件名
-             * @default
-             */
-            original_filename: string | null;
-            /**
-             * 上传时间
-             * Format: date-time
-             */
-            uploaded_at: string;
-        };
-        /** CaseLogOut */
-        CaseLogOut: {
-            /** Attachments */
-            attachments: components["schemas"]["CaseLogAttachmentOut"][];
-            /** Reminders */
-            reminders: components["schemas"]["ReminderLiteOut"][];
-            actor_detail: components["schemas"]["CaseLogActorOut"];
-            /** Reminder Type */
-            reminder_type?: string | null;
-            /** Reminder Time */
-            reminder_time?: string | null;
-            /** ID */
-            id?: number | null;
-            /** 案件 */
-            case: number;
-            /** 日志内容 */
-            content: string;
-            /** 操作人 */
-            actor: number;
-            /**
-             * 创建日期
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * 修改日期
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** ReminderLiteOut */
-        ReminderLiteOut: {
-            /** Id */
-            id: number;
-            /** Contract Id */
-            contract_id?: number | null;
-            /** Case Log Id */
-            case_log_id?: number | null;
-            /** Reminder Type */
-            reminder_type: string;
-            /** Reminder Type Label */
-            reminder_type_label: string;
-            /** Content */
-            content: string;
-            /** Metadata */
-            metadata?: {
-                [key: string]: unknown;
-            };
-            /** Due At */
-            due_at: string;
-            /** Created At */
-            created_at: string;
-            /** Updated At */
-            updated_at: string;
         };
         /** CaseLogIn */
         CaseLogIn: {
@@ -11010,23 +11173,6 @@ export interface components {
             case_id?: number | null;
             /** Grantee Id */
             grantee_id?: number | null;
-        };
-        /** CaseNumberOut */
-        CaseNumberOut: {
-            /** ID */
-            id?: number | null;
-            /** 案号 */
-            number: string;
-            /**
-             * 备注
-             * @default
-             */
-            remarks: string | null;
-            /**
-             * 创建时间
-             * Format: date-time
-             */
-            created_at: string;
         };
         /** CaseNumberUpdate */
         CaseNumberUpdate: {
@@ -11734,58 +11880,6 @@ export interface components {
             /** Mode */
             mode?: string | null;
         };
-        /** CaseContactOut */
-        CaseContactOut: {
-            /** Role Display */
-            role_display: string | null;
-            /** Stage Display */
-            stage_display: string | null;
-            /** Authority Name */
-            authority_name: string | null;
-            /** Case Id */
-            case_id: number;
-            /** Authority Id */
-            authority_id: number | null;
-            /** ID */
-            id?: number | null;
-            /** 姓名 */
-            name: string;
-            /**
-             * 角色
-             * @default other
-             */
-            role: string;
-            /**
-             * 电话
-             * @default
-             */
-            phone: string | null;
-            /**
-             * 收件地址
-             * @default
-             */
-            address: string | null;
-            /**
-             * 所属阶段
-             * @default
-             */
-            stage: string | null;
-            /**
-             * 备注
-             * @default
-             */
-            note: string | null;
-            /**
-             * 创建时间
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * 更新时间
-             * Format: date-time
-             */
-            updated_at: string;
-        };
         /** CaseContactIn */
         CaseContactIn: {
             /** Case Id */
@@ -11892,6 +11986,44 @@ export interface components {
             is_primary: boolean;
             /** Order */
             order: number;
+        };
+        /**
+         * ContractFacetCountOut
+         * @description 筛选 chips 计数行（value 供过滤参数、label 供展示）
+         */
+        ContractFacetCountOut: {
+            /** Value */
+            value: string;
+            /** Label */
+            label: string;
+            /** N */
+            n: number;
+        };
+        /**
+         * ContractListPageOut
+         * @description 合同分页列表输出 Schema（GET /contracts/contracts 实际返回形状）。
+         *
+         *     与 ContractPaginatedOut 不同：本 Schema 按 list_contracts_page 服务返回定形
+         *     （facets 计数而非 total_pages）；items 在 slim=true 时剔除 finalized_materials
+         *     （由端点 exclude_unset=True 实现，此处声明保持全集）。
+         */
+        ContractListPageOut: {
+            /** Items */
+            items: components["schemas"]["ContractOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Status Counts */
+            status_counts: {
+                [key: string]: number;
+            };
+            /** Cat Counts */
+            cat_counts: components["schemas"]["ContractFacetCountOut"][];
+            /** Fee Counts */
+            fee_counts: components["schemas"]["ContractFacetCountOut"][];
         };
         /**
          * ContractOut
@@ -13032,7 +13164,7 @@ export interface components {
              *
              *     4.  **年月日**：
              *         *   使用今天的系统日期，格式为8位数字 `YYYYMMDD`。
-             *         *   **当前日期：20261003**
+             *         *   **当前日期：{current_date}**
              *         *   你必须使用上面提供的这个日期，无需自行更改或计算。
              *
              *     5.  **命名示例**：
@@ -13759,6 +13891,38 @@ export interface components {
              * @description 要复制的文书引用下标列表（详情 documents 数组的下标）
              */
             indexes: number[];
+        };
+        /**
+         * CourtSmsDocumentRenameOut
+         * @description 重命名单个关联文书响应
+         */
+        CourtSmsDocumentRenameOut: {
+            /**
+             * Success
+             * @description 是否成功
+             */
+            success: boolean;
+            /**
+             * Message
+             * @description 附加说明（如「文件名未变化」）
+             */
+            message?: string | null;
+            /**
+             * New Name
+             * @description 重命名后的完整文件名（文件名未变化时为空）
+             */
+            new_name?: string | null;
+        };
+        /**
+         * CourtSmsDocumentRenameIn
+         * @description 重命名单个关联文书请求
+         */
+        CourtSmsDocumentRenameIn: {
+            /**
+             * New Stem
+             * @description 新文件名主体（不含扩展名；不能为空、不能含扩展名点号）
+             */
+            new_stem: string;
         };
         /**
          * TaskSubmitResponseSchema
@@ -15257,6 +15421,18 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /**
+         * MessageRenameOut
+         * @description 消息重命名确认（返回更新后的标题）。
+         */
+        MessageRenameOut: {
+            /** Ok */
+            ok: boolean;
+            /** Message Id */
+            message_id: number;
+            /** Subject */
+            subject: string;
+        };
         /** RenameMessageIn */
         RenameMessageIn: {
             /**
@@ -15264,6 +15440,16 @@ export interface components {
              * @default
              */
             subject: string;
+        };
+        /**
+         * MessageAckOut
+         * @description 消息写操作确认（删除 / 草稿保存等）。
+         */
+        MessageAckOut: {
+            /** Ok */
+            ok: boolean;
+            /** Message Id */
+            message_id: number;
         };
         /** OcrBlockOut */
         OcrBlockOut: {
@@ -18846,6 +19032,20 @@ export interface components {
             /** Prompt */
             prompt: string;
         };
+        /**
+         * JobListOut
+         * @description 历史任务分页列表（GET /doc-converter/jobs 实际返回形状）
+         */
+        JobListOut: {
+            /** Items */
+            items: components["schemas"]["JobOut"][];
+            /** Count */
+            count: number;
+            /** Page */
+            page: number;
+            /** Num Pages */
+            num_pages: number;
+        };
         /** ItemOut */
         ItemOut: {
             /**
@@ -18872,6 +19072,18 @@ export interface components {
             job: components["schemas"]["JobOut"];
             /** Items */
             items: components["schemas"]["ItemOut"][];
+        };
+        /**
+         * ClipboardCopyOut
+         * @description 转换产物复制到系统剪贴板结果（非 macOS 时 success=false / reason=unsupported）
+         */
+        ClipboardCopyOut: {
+            /** Success */
+            success: boolean;
+            /** Copied */
+            copied: number;
+            /** Reason */
+            reason?: string | null;
         };
         /** CopyItemsIn */
         CopyItemsIn: {
@@ -19427,8 +19639,11 @@ export interface components {
             /** Access */
             access: string;
         };
-        /** TokenObtainPairInputSchema */
-        TokenObtainPairInputSchema: {
+        /**
+         * PasswordBoundTokenObtainPairInputSchema
+         * @description /token/pair — 签发时绑定密码指纹。
+         */
+        PasswordBoundTokenObtainPairInputSchema: {
             /**
              * Password
              * Format: password
@@ -19440,15 +19655,21 @@ export interface components {
              */
             username: string;
         };
-        /** TokenRefreshOutputSchema */
-        TokenRefreshOutputSchema: {
+        /**
+         * _PasswordBoundTokenRefreshOutputSchema
+         * @description 刷新输出：在标准刷新流程前校验密码绑定。
+         */
+        _PasswordBoundTokenRefreshOutputSchema: {
             /** Refresh */
             refresh: string;
             /** Access */
             access: string | null;
         };
-        /** TokenRefreshInputSchema */
-        TokenRefreshInputSchema: {
+        /**
+         * PasswordBoundTokenRefreshInputSchema
+         * @description /token/refresh — 刷新前校验密码绑定。
+         */
+        PasswordBoundTokenRefreshInputSchema: {
             /** Refresh */
             refresh: string;
         };
@@ -21343,7 +21564,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CaseOut"][];
+                };
             };
         };
     };
@@ -21367,7 +21590,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CaseOut"][];
+                };
             };
         };
     };
@@ -22980,7 +23205,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ContractListPageOut"];
+                };
             };
         };
     };
@@ -24586,11 +24813,7 @@ export interface operations {
     };
     apps_automation_api_court_sms_api_rename_document: {
         parameters: {
-            query: {
-                payload: {
-                    [key: string]: unknown;
-                };
-            };
+            query?: never;
             header?: never;
             path: {
                 sms_id: number;
@@ -24598,14 +24821,20 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourtSmsDocumentRenameIn"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CourtSmsDocumentRenameOut"];
+                };
             };
         };
     };
@@ -26742,7 +26971,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MessageRenameOut"];
+                };
             };
         };
     };
@@ -26762,7 +26993,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MessageAckOut"];
+                };
             };
         };
     };
@@ -31448,7 +31681,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["JobListOut"];
+                };
             };
         };
     };
@@ -31602,7 +31837,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ClipboardCopyOut"];
+                };
             };
         };
     };
@@ -32560,7 +32797,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TokenObtainPairInputSchema"];
+                "application/json": components["schemas"]["PasswordBoundTokenObtainPairInputSchema"];
             };
         };
         responses: {
@@ -32584,7 +32821,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TokenRefreshInputSchema"];
+                "application/json": components["schemas"]["PasswordBoundTokenRefreshInputSchema"];
             };
         };
         responses: {
@@ -32594,7 +32831,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TokenRefreshOutputSchema"];
+                    "application/json": components["schemas"]["_PasswordBoundTokenRefreshOutputSchema"];
                 };
             };
         };

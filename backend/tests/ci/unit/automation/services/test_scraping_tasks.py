@@ -1,9 +1,6 @@
 """Tests for scraping_tasks.py and related task functions."""
 
-import asyncio
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 # ============================================================
 # reset_running_tasks
@@ -29,24 +26,7 @@ class TestResetRunningTasks:
 
 
 # ============================================================
-# _run_coroutine_sync
+# 私有桥 _run_coroutine_sync 已收敛到
+# apps.core.infrastructure.sync_async_bridge.run_coro_sync，
+# 行为测试见 tests/ci/unit/core/test_sync_async_bridge.py
 # ============================================================
-
-class TestRunCoroutineSync:
-    def test_run_simple_coroutine(self):
-        from apps.automation.tasks.scraping_tasks import _run_coroutine_sync
-
-        async def coro():
-            return 42
-
-        result = _run_coroutine_sync(coro())
-        assert result == 42
-
-    def test_run_coroutine_with_exception(self):
-        from apps.automation.tasks.scraping_tasks import _run_coroutine_sync
-
-        async def coro():
-            raise ValueError("test error")
-
-        with pytest.raises(ValueError, match="test error"):
-            _run_coroutine_sync(coro())

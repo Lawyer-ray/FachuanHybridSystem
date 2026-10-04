@@ -413,6 +413,8 @@ class LegalResearchCapabilityService:  # pragma: no cover
 
     def _execute_with_timeout(self, *, task_id: str, timeout_ms: int) -> dict[str, Any]:  # pragma: no cover
         # 执行器线程内跑 Playwright sync + sync ORM：仅执行期间放行 async-unsafe，退出恢复。
+        # async 化需整体改造 executor 链（LegalResearchExecutor 全链 sync ORM + Playwright 混排），
+        # 暂保留作用域化。
         with allow_async_unsafe():
             executor = LegalResearchExecutor()
             pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix=self.THREAD_NAME_PREFIX)

@@ -43,15 +43,22 @@ class ContractPaymentOut(ModelSchema, SchemaMixin):
         ]
 
     @staticmethod
-    def resolve_invoice_status_label(obj: ContractPayment) -> str:
+    def resolve_invoice_status_label(obj: Any) -> str:
+        if isinstance(obj, dict):
+            # re-validation：直接取预计算 label，避免把 None 当 label 丢失
+            return str(obj.get("invoice_status_label") or "")
         return SchemaMixin._get_display(obj, "invoice_status") or ""
 
     @staticmethod
-    def resolve_created_at(obj: ContractPayment) -> Any:
+    def resolve_created_at(obj: Any) -> Any:
+        if isinstance(obj, dict):
+            return obj.get("created_at")
         return SchemaMixin._resolve_datetime(getattr(obj, "created_at", None))
 
     @staticmethod
-    def resolve_updated_at(obj: ContractPayment) -> Any:
+    def resolve_updated_at(obj: Any) -> Any:
+        if isinstance(obj, dict):
+            return obj.get("updated_at")
         return SchemaMixin._resolve_datetime(getattr(obj, "updated_at", None))
 
 

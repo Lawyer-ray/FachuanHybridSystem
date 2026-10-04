@@ -65,16 +65,16 @@ export function rowsFromTask(task: TaskOut): CandidateRow[] {
   return (task.date_candidates ?? []).map((c: DateCandidate) => ({
     key: `c-${c.id}`,
     candidateId: c.id,
-    checked: c.status === 'pending' && shouldDefaultCheck(c.confidence),
+    checked: c.status === 'pending' && shouldDefaultCheck(c.confidence ?? null),
     dueLocal: toLocalInputValue(c.due_at),
     reminderType: c.reminder_type,
     label: c.reminder_type_label,
     contextText: c.context_text ?? '',
     content: '',
     source: c.source,
-    confidence: c.confidence,
+    confidence: c.confidence ?? null,
     status: c.status,
-    reminderId: c.reminder_id,
+    reminderId: c.reminder_id ?? null,
   }))
 }
 

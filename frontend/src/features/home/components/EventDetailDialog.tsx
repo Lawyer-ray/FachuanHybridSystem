@@ -86,7 +86,7 @@ export function EventDetailDialog({ event, onClose, onOpenCase, onToggleComplete
           {/* 合并提示：同一庭审被多次同步 */}
           {event.members > 1 && (
             <div className="mt-4 rounded-[8px] border border-border bg-secondary/50 px-3 py-2 text-[11px] text-muted-foreground">
-              同一庭审在系统里有 {event.members} 条同步记录，已合并展示（关联 reminder #{event.member_ids.join('、#')}）
+              同一庭审在系统里有 {event.members} 条同步记录，已合并展示（关联 reminder #{(event.member_ids ?? []).join('、#')}）
             </div>
           )}
 

@@ -29,10 +29,14 @@ class PdfSplittingToolAdmin(admin.ModelAdmin):  # pragma: no cover
     def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return False
 
-    def has_change_permission(self, request: HttpRequest, obj: PdfSplittingTool | None = None) -> bool:  # pragma: no cover
+    def has_change_permission(
+        self, request: HttpRequest, obj: PdfSplittingTool | None = None
+    ) -> bool:  # pragma: no cover
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj: PdfSplittingTool | None = None) -> bool:  # pragma: no cover
+    def has_delete_permission(
+        self, request: HttpRequest, obj: PdfSplittingTool | None = None
+    ) -> bool:  # pragma: no cover
         return False
 
     def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:  # pragma: no cover

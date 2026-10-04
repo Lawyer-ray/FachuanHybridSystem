@@ -2,7 +2,12 @@
  * 材料预处理数据模型。
  * 一个「材料包」= 后端收件箱里的一条 manual_upload InboxMessage。
  * 拆分的中间态存在该消息的 draft_state（后端视为不透明 JSON，语义由此处定义）。
+ *
+ * 后端端点形状取自 openapi-typescript 生成物（src/types/api-schema.d.ts）；
+ * draft_state 等前端自有语义与 schema 未覆盖处保留手写并注明原因。
  */
+
+import type { components } from '@/types/api-schema'
 
 export type MaterialKind = 'pdf' | 'photo' | 'office'
 
@@ -34,16 +39,13 @@ export interface Segment {
   confidence?: number
 }
 
-/** 后端 PDF 拆分接口返回的页段候选。 */
-export interface PdfSplitSegmentSuggestion {
-  page_start: number
-  page_end: number
-  segment_type: string
-  segment_label: string
-  filename: string
-  confidence: number
-  review_flag: string
-}
+/** 后端 PDF 拆分接口返回的页段候选。
+ *  取生成物 SegmentOut 的消费子集（id/order 等字段本域不消费，收进投影反而
+ *  逼测试夹具补无关字段） */
+export type PdfSplitSegmentSuggestion = Pick<
+  components['schemas']['SegmentOut'],
+  'page_start' | 'page_end' | 'segment_type' | 'segment_label' | 'filename' | 'confidence' | 'review_flag'
+>
 
 /** 标来源：页码（可选框选矩形，归一化 0-1） */
 export interface SrcRef {
@@ -92,21 +94,11 @@ export interface AssignInfo {
   contractFields?: Record<string, string>
 }
 
-/** OCR 识别出的文字块（坐标为归一化 0-1 相对值） */
-export interface OcrBlock {
-  x: number
-  y: number
-  w: number
-  h: number
-  text: string
-  score: number
-}
+/** OCR 识别出的文字块（坐标为归一化 0-1 相对值；生成物 OcrBlockOut） */
+export type OcrBlock = components['schemas']['OcrBlockOut']
 
-export interface OcrResult {
-  width: number
-  height: number
-  blocks: OcrBlock[]
-}
+/** OCR 整页结果（生成物 OcrResultOut） */
+export type OcrResult = components['schemas']['OcrResultOut']
 
 /** OCR 框选取字：页面上拖出的一个待确认框（坐标归一化 0-1） */
 export interface OcrPending {
@@ -117,65 +109,38 @@ export interface OcrPending {
   loading: boolean
 }
 
-/** 案件搜索行（来自 /cases/search） */
-export interface CaseRow {
-  id: number
-  name: string
-  filing_number?: string | null
-  case_numbers?: { number?: string }[]
-}
+/** 案件搜索行（来自 /cases/search，生成物 CaseOut）。
+ *  消费子集投影；id 覆写为必有（生成物按 ModelSchema 口径可选可空）。 */
+export type CaseRow = Pick<
+  components['schemas']['CaseOut'],
+  'name' | 'filing_number' | 'case_numbers'
+> & { id: number }
 
-/** 后端 /clients 检索命中的当事人（客户库），用于委托人/对方当事人填入 */
-export interface ClientHit {
-  id: number
-  name: string
-  is_our_client: boolean
+/** 后端 /clients 检索命中的当事人（客户库），用于委托人/对方当事人填入。
+ *  基于生成物 PartyListOut；client_type 为 schema 未声明的额外字段，按可选保留 */
+export type ClientHit = components['schemas']['PartyListOut'] & {
   client_type?: string | null
-  phone?: string | null
 }
 
-/** 收件箱附件元信息（来自后端 AttachmentMeta） */
-export interface AttachmentMeta {
-  filename: string
-  original_filename: string | null
-  custom_filename: string | null
-  size: number
-  content_type: string
-  part_index: number
-  /** PDF 页数（后端上传时/详情读取时回填算好）；缺失时前端下载 PDF 自行数页数兜底 */
-  page_count?: number | null
-}
+/** 收件箱附件元信息（生成物 AttachmentMeta）。
+ *  PDF 页数（page_count）由后端上传时/详情读取时回填算好；缺失时前端下载 PDF 自行数页数兜底 */
+export type AttachmentMeta = components['schemas']['AttachmentMeta']
 
-/** 收件箱消息列表项 */
-export interface InboxMessage {
-  id: number
-  source_name: string
-  source_type: string
-  subject: string
-  sender: string
-  recipient: string
-  received_at: string
-  has_attachments: boolean
-  attachment_count: number
-  uploaded_by_id: number | null
-  uploaded_by_name: string
-  created_at: string
+/** 收件箱消息列表项（生成物 InboxMessageOut；status 收窄为材料包三态，
+ *  后端实际取值即来自本域写入 draft_state 的枚举） */
+export type InboxMessage = Omit<components['schemas']['InboxMessageOut'], 'status'> & {
   status: PackStatus
-  /** 分类进度：段数与已归类数 */
-  segs: number
-  named: number
-  pages: number
-  mats: number
-  types: string[]
-  compose: string
 }
 
-/** 收件箱消息详情 */
-export interface InboxMessageDetail extends InboxMessage {
-  body_text: string
-  body_html: string
-  attachments: AttachmentMeta[]
-  /** 拆分草稿。从未进过阅读器的包后端返回 {}（空对象，不满足 DraftState 形状），
-   *  消费方必须按「可能没有有效草稿」处理（store.open / setPackStatusRemote 均如此）。 */
+/** 收件箱消息详情（生成物 InboxMessageDetailOut，仅覆写两处）：
+ *  · status 同 InboxMessage 收窄；
+ *  · draft_state 是前端自有草稿语义。从未进过阅读器的包后端返回 {}
+ *   （空对象，不满足 DraftState 形状），消费方必须按「可能没有有效草稿」处理
+ *   （store.open / setPackStatusRemote 均如此）。 */
+export type InboxMessageDetail = Omit<
+  components['schemas']['InboxMessageDetailOut'],
+  'status' | 'draft_state'
+> & {
+  status: PackStatus
   draft_state: DraftState | Record<string, never>
 }

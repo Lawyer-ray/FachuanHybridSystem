@@ -217,7 +217,9 @@ class LitigationContextService:
 
         from apps.litigation_ai.placeholders import LitigationPlaceholderContextService, LitigationPlaceholderKeys
 
-        fixed_blocks = await sync_to_async(LitigationPlaceholderContextService().build_fixed_blocks)(case_id, document_type)
+        fixed_blocks = await sync_to_async(LitigationPlaceholderContextService().build_fixed_blocks)(
+            case_id, document_type
+        )
 
         return {
             "case_id": case_id,

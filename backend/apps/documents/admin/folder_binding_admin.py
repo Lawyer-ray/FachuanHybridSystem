@@ -68,7 +68,9 @@ class DocumentTemplateFolderBindingForm(forms.ModelForm[DocumentTemplateFolderBi
             self._extract_nodes(structure.get("children", []), choices, "")
         return choices
 
-    def _extract_nodes(self, children: list[Any], choices: list[tuple[str, str]], prefix: str) -> None:  # pragma: no cover
+    def _extract_nodes(
+        self, children: list[Any], choices: list[tuple[str, str]], prefix: str
+    ) -> None:  # pragma: no cover
         """递归提取节点"""
         for child in children:
             node_id = child.get("id", "")
@@ -145,7 +147,9 @@ class DocumentTemplateFolderBindingAdmin(admin.ModelAdmin):  # pragma: no cover
             return format_html('<span style="color: #666; font-family: monospace;">{}</span>', obj.folder_node_path)
         return "-"
 
-    def save_model(self, request: HttpRequest, obj: DocumentTemplateFolderBinding, form: Any, change: bool) -> None:  # pragma: no cover
+    def save_model(
+        self, request: HttpRequest, obj: DocumentTemplateFolderBinding, form: Any, change: bool
+    ) -> None:  # pragma: no cover
         """保存时自动计算路径"""
         # 路径会在模型的save方法中自动计算
         super().save_model(request, obj, form, change)

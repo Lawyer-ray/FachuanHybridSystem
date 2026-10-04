@@ -33,7 +33,9 @@ class RecordingExtractFacade:
         self._task_submission_service = task_submission_service
 
     @transaction.atomic
-    def submit(self, *, user: Any, recording_id: str, params: RecordingExtractParams) -> ChatRecordRecording:  # pragma: no cover
+    def submit(
+        self, *, user: Any, recording_id: str, params: RecordingExtractParams
+    ) -> ChatRecordRecording:  # pragma: no cover
         from .video_frame_extract_service import VideoFrameExtractService
 
         try:

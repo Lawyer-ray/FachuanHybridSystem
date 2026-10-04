@@ -39,7 +39,9 @@ logger = logging.getLogger("apps.litigation_ai")
 class AdversarialTrialService:  # pragma: no cover
     """多 Agent 对抗模拟庭审引擎 — 严格按照民事诉讼法庭审程序."""
 
-    def __init__(self, config: AdversarialConfig, case_info: dict[str, Any], evidence_text: str) -> None:  # pragma: no cover
+    def __init__(
+        self, config: AdversarialConfig, case_info: dict[str, Any], evidence_text: str
+    ) -> None:  # pragma: no cover
         self.config = config
         self.case_info = case_info
         self.evidence_text = evidence_text
@@ -98,12 +100,16 @@ class AdversarialTrialService:  # pragma: no cover
             }
         )
 
-    async def _agent_speak(self, agent: Agent, prompt: str, send_cb: Callable[..., Any], stage: str) -> str:  # pragma: no cover
+    async def _agent_speak(
+        self, agent: Agent, prompt: str, send_cb: Callable[..., Any], stage: str
+    ) -> str:  # pragma: no cover
         content = await agent.respond(prompt)
         await self._record_and_send(send_cb, agent.role, content, stage, model=agent.model)
         return content
 
-    async def _wait_or_ai(self, agent: Agent, prompt: str, send_cb: Callable[..., Any], stage: str) -> str | None:  # pragma: no cover
+    async def _wait_or_ai(
+        self, agent: Agent, prompt: str, send_cb: Callable[..., Any], stage: str
+    ) -> str | None:  # pragma: no cover
         if self.config.user_role == agent.role:
             await send_cb(
                 {
@@ -205,7 +211,9 @@ class AdversarialTrialService:  # pragma: no cover
         )
         return await self._wait_or_ai(self.plaintiff, prompt, send_cb, "plaintiff_statement")
 
-    async def phase_6_defendant_response(self, send_cb: Callable[..., Any], p_statement: str) -> str | None:  # pragma: no cover
+    async def phase_6_defendant_response(
+        self, send_cb: Callable[..., Any], p_statement: str
+    ) -> str | None:  # pragma: no cover
         """第六阶段：被告答辩."""
         label = "被上诉人答辩" if self.is_second else "被告答辩"
         await self._send_stage(send_cb, "defendant_response", label)

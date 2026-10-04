@@ -7,6 +7,7 @@ import json
 import pytest
 
 from apps.chat_records.models import ChatRecordProject as Project
+from apps.chat_records.models import ChatRecordScreenshot as Screenshot
 
 # ===================================================================
 # Export Types & Statuses
@@ -111,6 +112,17 @@ def test_upload_screenshots(authenticated_client):
     )
     # May return 500 if image processing libraries are not available
     assert resp.status_code in (200, 500)
+    if resp.status_code == 200:
+        # 上传成功必须返回创建的截图列表并真实落库
+        data = resp.json()
+        assert isinstance(data, list) and len(data) >= 1
+        assert data[0]["project"] == project.id
+        assert Screenshot.objects.filter(project_id=project.id).exists()
+    else:
+        # 500 分支：伪图片字节触发解析失败，错误必须是结构化信封且不落脏数据
+        data = resp.json()
+        assert data["code"] == "INTERNAL_ERROR"
+        assert not Screenshot.objects.filter(project_id=project.id).exists()
 
 
 # ===================================================================

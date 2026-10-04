@@ -40,7 +40,7 @@ export function SmsSuccessBody({ detail }: { detail: CourtSmsDetail }) {
   const [open, setOpen] = useState(false)
   const [copyingIdx, setCopyingIdx] = useState<number | null>(null)
   const docs = detail.documents
-  const notify = notifySummary(detail.notification_results)
+  const notify = notifySummary(detail.notification_results ?? null)
 
   const copyDoc = async (i: number, name: string) => {
     setCopyingIdx(i)

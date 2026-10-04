@@ -11,7 +11,9 @@ from .client_schemas import ClientIdentityDocOut, ClientOut
 from .contract_schemas import (
     ClientPaymentRecordOut,
     ContractAssignmentOut,
+    ContractFacetCountOut,
     ContractIn,
+    ContractListPageOut,
     ContractOut,
     ContractPaginatedOut,
     ContractUpdate,
@@ -115,5 +117,7 @@ __all__ = [
     "ContractAssignmentOut",
     "ContractOut",
     "ContractPaginatedOut",
+    "ContractFacetCountOut",
+    "ContractListPageOut",
     "ContractUpdate",
 ]

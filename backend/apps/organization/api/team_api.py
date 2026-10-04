@@ -27,8 +27,14 @@ _team_service = _get_team_service()
 
 
 @router.get("/teams", response=list[TeamOut])
-async def list_teams(request: HttpRequest, law_firm_id: int | None = None, team_type: str | None = None) -> list[TeamOut]:  # pragma: no cover
-    return await sync_to_async(lambda: list(_team_service.list_teams(law_firm_id=law_firm_id, team_type=team_type, user=get_request_user(request))))()  # type: ignore[return-value]
+async def list_teams(
+    request: HttpRequest, law_firm_id: int | None = None, team_type: str | None = None
+) -> list[TeamOut]:  # pragma: no cover
+    return await sync_to_async(
+        lambda: list(
+            _team_service.list_teams(law_firm_id=law_firm_id, team_type=team_type, user=get_request_user(request))
+        )
+    )()  # type: ignore[return-value]
 
 
 @router.post("/teams", response=TeamOut)

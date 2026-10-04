@@ -27,7 +27,9 @@ _APPS_ROOT = Path(__file__).resolve().parents[3] / "apps"
 # 棘轮实际生效依赖本地全量 pytest，抬基线时须先跑真实计数。
 
 # API layer calling Model.objects directly
-API_MODEL_OBJECTS_RATCHET = 55
+# 2026-10-03：apps/*/api/ 下 .objects. 已全量清零（实测 0），基线 55 → 0，
+# 任何回流立即失败。ORM 查询必须下沉到 Service 层。
+API_MODEL_OBJECTS_RATCHET = 0
 
 # Service layer using @staticmethod
 # 2026-09-07 重校准：d93103c43 设立基线时实际已 251（同 commit 引入的

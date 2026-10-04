@@ -75,7 +75,9 @@ class McpWorkbenchService:
             for item in descriptors
         ]
 
-    def describe_tools(self, *, provider: str | None = None, actor_is_superuser: bool = False) -> dict[str, Any]:  # pragma: no cover
+    def describe_tools(
+        self, *, provider: str | None = None, actor_is_superuser: bool = False
+    ) -> dict[str, Any]:  # pragma: no cover
         self._ensure_superuser(actor_is_superuser=actor_is_superuser)
 
         # Resolve provider name cheaply (without building full config) for cache-key lookup.
@@ -401,7 +403,9 @@ class McpWorkbenchService:
         )
         return sample
 
-    def _load_samples_batch(self, *, provider: str, tool_names: list[str]) -> dict[str, dict[str, Any]]:  # pragma: no cover
+    def _load_samples_batch(
+        self, *, provider: str, tool_names: list[str]
+    ) -> dict[str, dict[str, Any]]:  # pragma: no cover
         if not tool_names:
             return {}
         result: dict[str, dict[str, Any]] = {}
@@ -445,7 +449,9 @@ class McpWorkbenchService:
                     result[tool_name] = sample
         return result
 
-    def _store_sample(self, *, provider: str, tool_name: str, data: Any, captured_at: datetime) -> None:  # pragma: no cover
+    def _store_sample(
+        self, *, provider: str, tool_name: str, data: Any, captured_at: datetime
+    ) -> None:  # pragma: no cover
         sample = {
             "captured_at": captured_at.isoformat(),
             "data": self._truncate_data(data),

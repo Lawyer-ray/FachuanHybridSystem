@@ -13,7 +13,9 @@ logger = logging.getLogger("apps.litigation_ai")
 class DebateService:  # pragma: no cover
     """辩论模拟：围绕争议焦点进行多轮辩论."""
 
-    async def analyze_focuses(self, *, case_info: dict[str, Any], evidence_text: str) -> DisputeFocusResult:  # pragma: no cover
+    async def analyze_focuses(
+        self, *, case_info: dict[str, Any], evidence_text: str
+    ) -> DisputeFocusResult:  # pragma: no cover
         """归纳争议焦点."""
         chain = DisputeFocusChain()
         return await chain.arun(case_info=case_info, evidence_text=evidence_text)

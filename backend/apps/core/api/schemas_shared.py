@@ -19,7 +19,9 @@ __all__: list[str] = [
 class ClientIdentityDocLiteOut(Schema):
     doc_type: str
     file_path: str
-    uploaded_at: datetime
+    # uploaded_at 允许 str：response= 端点对 mode="json" dump re-validation 时保持
+    # ISO 字符串原样透传，避免 datetime 对象经 str() 改变线上格式
+    uploaded_at: datetime | str
     media_url: str | None = None
 
     @classmethod

@@ -33,9 +33,7 @@ class Command(BaseCommand):
             finance_dir.mkdir(parents=True, exist_ok=True)
         else:
             core_dir = Path(__file__).resolve().parent.parent.parent / "data"
-            finance_dir = (
-                Path(__file__).resolve().parent.parent.parent.parent / "finance" / "data"
-            )
+            finance_dir = Path(__file__).resolve().parent.parent.parent.parent / "finance" / "data"
             core_dir.mkdir(parents=True, exist_ok=True)
             finance_dir.mkdir(parents=True, exist_ok=True)
 
@@ -58,13 +56,15 @@ class Command(BaseCommand):
 
         data = []
         for c in causes:
-            data.append({
-                "code": c.code,
-                "name": c.name,
-                "case_type": c.case_type,
-                "parent_code": c.parent.code if c.parent else None,
-                "level": c.level,
-            })
+            data.append(
+                {
+                    "code": c.code,
+                    "name": c.name,
+                    "case_type": c.case_type,
+                    "parent_code": c.parent.code if c.parent else None,
+                    "level": c.level,
+                }
+            )
 
         output_file = output_dir / "seed_causes_of_action.json"
         output_file.write_text(
@@ -84,13 +84,15 @@ class Command(BaseCommand):
 
         data = []
         for c in courts:
-            data.append({
-                "code": c.code,
-                "name": c.name,
-                "parent_code": c.parent.code if c.parent else None,
-                "level": c.level,
-                "province": c.province or "",
-            })
+            data.append(
+                {
+                    "code": c.code,
+                    "name": c.name,
+                    "parent_code": c.parent.code if c.parent else None,
+                    "level": c.level,
+                    "province": c.province or "",
+                }
+            )
 
         output_file = output_dir / "seed_courts.json"
         output_file.write_text(
@@ -110,12 +112,14 @@ class Command(BaseCommand):
 
         data = []
         for r in rates:
-            data.append({
-                "effective_date": str(r.effective_date),
-                "rate_1y": str(r.rate_1y),
-                "rate_5y": str(r.rate_5y),
-                "source": r.source or "",
-            })
+            data.append(
+                {
+                    "effective_date": str(r.effective_date),
+                    "rate_1y": str(r.rate_1y),
+                    "rate_5y": str(r.rate_5y),
+                    "source": r.source or "",
+                }
+            )
 
         output_file = output_dir / "seed_lpr_rates.json"
         output_file.write_text(

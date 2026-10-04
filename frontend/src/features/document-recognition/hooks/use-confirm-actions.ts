@@ -42,12 +42,14 @@ export function useConfirmActions({ isFileMode, task, rows, onSaved, onClose, on
           reminder_type: r.reminderType,
         }))
         const res = await confirmDates(task.task_id, items)
-        const errors = res.results.filter((x) => x.status === 'error')
+        // 生成物里 results 是可选数组（后端异常路径可能缺省），按空处理
+        const results = res.results ?? []
+        const errors = results.filter((x) => x.status === 'error')
         if (errors.length) {
           toast.warning(`${errors.length} 条未写入：${errors[0]?.message ?? '未知原因'}`)
         } else {
-          const reused = res.results.filter((x) => x.message.includes('复用')).length
-          toast.success(`已写入 ${res.results.length} 条提醒${reused ? `（${reused} 条复用了既有提醒）` : ''}`)
+          const reused = results.filter((x) => x.message.includes('复用')).length
+          toast.success(`已写入 ${results.length} 条提醒${reused ? `（${reused} 条复用了既有提醒）` : ''}`)
         }
         await refresh()
         onSaved()

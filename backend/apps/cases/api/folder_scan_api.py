@@ -41,7 +41,9 @@ async def _require_case_access_async(request: HttpRequest, case_id: int) -> None
 
 @router.post("/{case_id}/folder-scan", response=CaseFolderScanStartOut)
 @rate_limit_from_settings("TASK", by_user=True)
-async def start_case_scan(request: HttpRequest, case_id: int, payload: CaseFolderScanStartIn) -> dict[str, str]:  # pragma: no cover
+async def start_case_scan(
+    request: HttpRequest, case_id: int, payload: CaseFolderScanStartIn
+) -> dict[str, str]:  # pragma: no cover
     await _require_case_access_async(request, case_id)
     ctx = get_request_access_context(request)
 
@@ -66,7 +68,9 @@ async def list_case_scan_subfolders(request: HttpRequest, case_id: int) -> dict[
 
 
 @router.get("/{case_id}/folder-scan/{session_id}", response=CaseFolderScanStatusOut)
-async def get_case_scan_status(request: HttpRequest, case_id: int, session_id: UUID) -> dict[str, object]:  # pragma: no cover
+async def get_case_scan_status(
+    request: HttpRequest, case_id: int, session_id: UUID
+) -> dict[str, object]:  # pragma: no cover
     await _require_case_access_async(request, case_id)
 
     service = _get_service()

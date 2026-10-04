@@ -4,11 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import re
-from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -20,30 +17,13 @@ from django.utils import timezone
 
 from apps.contracts.models import Contract, ContractOASyncSession, ContractOASyncStatus, ContractParty
 from apps.core.dependencies.core import build_task_submission_service
+from apps.core.infrastructure.async_context import allow_async_unsafe
 
 if TYPE_CHECKING:
     from apps.oa_filing.services.oa_scripts.jtn.case_import import JtnCaseImportScript, OAListCaseCandidate
     from apps.organization.models import AccountCredential
 
 logger = logging.getLogger(__name__)
-
-
-@contextmanager
-def _allow_async_unsafe() -> Iterator[None]:
-    """作用域化放开 Django async-unsafe 检查。
-
-    Playwright 同步 API 执行期间会维护事件循环，后续同步 ORM 更新进度时
-    可能被 Django 误判为 async context。仅在需要的代码段内放行，退出时恢复，
-    避免进程级 os.environ 污染同 worker 的其他任务。
-    """
-    key = "DJANGO_ALLOW_ASYNC_UNSAFE"
-    previous = os.environ.get(key)
-    os.environ.setdefault(key, "true")
-    try:
-        yield
-    finally:
-        if previous is None:
-            os.environ.pop(key, None)
 
 
 def _is_headless() -> bool:  # pragma: no cover
@@ -816,6 +796,6 @@ def run_contract_oa_sync_task(session_id: int) -> None:  # pragma: no cover
     # 可能被 Django 误判为 async context。作用域化放行 async-unsafe 检查，
     # 并将整个同步流程隔离到独立线程执行。
     service = ContractOASyncService()
-    with _allow_async_unsafe(), ThreadPoolExecutor(max_workers=1, thread_name_prefix="contract-oa-sync") as pool:
+    with allow_async_unsafe(), ThreadPoolExecutor(max_workers=1, thread_name_prefix="contract-oa-sync") as pool:
         future = pool.submit(service.run_sync_task, session_id=session_id)
         future.result(timeout=3300)  # 略小于 Q 任务 timeout=3600，留出失败上报余量

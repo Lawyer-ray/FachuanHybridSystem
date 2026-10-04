@@ -291,6 +291,47 @@ class TestEnterpriseProviderRegistry:
         assert registry.get_alert_fallback_rate_threshold() == 0.35
         assert registry.get_alert_avg_latency_ms_threshold() == 3000
 
+    def test_read_sensitive_str_failure_logs_key_name_only(self, caplog: pytest.LogCaptureFixture) -> None:
+        """配置读取失败时仅记录配置键名与异常类型，不泄漏密钥值（CodeQL #1391 回归）。"""
+        import logging
+
+        from apps.enterprise_data.services.provider_registry import EnterpriseProviderRegistry
+
+        mock_config = MagicMock()
+        mock_config.get_value.side_effect = RuntimeError("decrypt failed for sk-live-SECRET-VALUE")
+        registry = EnterpriseProviderRegistry(config_service=mock_config)
+
+        with caplog.at_level(logging.WARNING, logger="apps.enterprise_data.services.provider_registry"):
+            result = registry._read_sensitive_str("TIANYANCHA_MCP_API_KEY")
+
+        assert result == ""
+        assert "Read system config failed" in caplog.text
+        warning = caplog.records[-1]
+        # 只记录配置键名（非机密常量）与异常类型名
+        assert warning.key == "TIANYANCHA_MCP_API_KEY"  # type: ignore[attr-defined]
+        assert warning.error_type == "RuntimeError"  # type: ignore[attr-defined]
+        # 异常消息里即使携带密钥样字符串，也不会进入日志
+        assert "sk-live-SECRET-VALUE" not in caplog.text
+
+    def test_get_provider_success_path_never_logs_api_key_value(self, caplog: pytest.LogCaptureFixture) -> None:
+        """get_provider 成功路径全程不打印 API Key 明文。"""
+        import logging
+
+        from apps.enterprise_data.services.provider_registry import EnterpriseProviderRegistry
+
+        secret_value = "sk-live-TIANYANCHA-SECRET-000111"  # pragma: allowlist secret
+        mock_config = MagicMock()
+        mock_config.get_value.side_effect = lambda key, default="": (
+            secret_value if "API_KEY" in key else "streamable_http"
+        )
+        registry = EnterpriseProviderRegistry(config_service=mock_config)
+
+        with caplog.at_level(logging.DEBUG, logger="apps.enterprise_data.services.provider_registry"):
+            provider = registry.get_provider("tianyancha")
+
+        assert provider is not None
+        assert secret_value not in caplog.text
+
 
 # ============================================================
 # McpToolClient 补充测试

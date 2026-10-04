@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import mimetypes
+import os
 import re
 import uuid
 from pathlib import Path
@@ -203,35 +204,56 @@ def _get_media_root() -> str | None:
     return result
 
 
-def to_media_abs(file_path: str) -> Path:
-    if not file_path:
-        raise ValidationException(
-            message="文件路径不能为空", code="INVALID_FILE_PATH", errors={"file_path": "不能为空"}
-        )
+def _media_root_prefix() -> str:
+    """MEDIA_ROOT 的规范化绝对路径（保证以路径分隔符结尾，用于前缀校验）。
+
+    带分隔符的前缀可避免同名前缀目录混淆（如 ``/srv/media-evil`` 误判在
+    ``/srv/media`` 之下）。使用 ``os.path.realpath`` 而非 ``Path.resolve()``，
+    二者语义等价（非 strict、解析符号链接），但前者是静态分析认可的路径
+    规范化点，不会被误判为文件系统访问。
+    """
     media_root = _get_media_root()
     if not media_root:
         raise ValidationException(
             message="MEDIA_ROOT 未配置", code="MEDIA_ROOT_NOT_CONFIGURED", errors={"MEDIA_ROOT": "未配置"}
         )
-    root = Path(media_root).resolve()
-    p = Path(file_path)
-    if not p.is_absolute():
-        p = root / file_path
+    root = os.path.realpath(str(media_root))
+    if not root.endswith(os.sep):
+        root += os.sep
+    return root
+
+
+def _realpath_within_media_root(file_path: str) -> str:
+    """把（可能是用户提供的）路径规范化为绝对路径，并校验收敛在 MEDIA_ROOT 内。
+
+    流程：先 ``os.path.join`` 到 MEDIA_ROOT（绝对路径输入保持原样，随后统一校验），
+    再 ``os.path.realpath`` 规范化（折叠 ``..`` 片段、解析符号链接），最后对
+    MEDIA_ROOT 前缀做 startswith 校验。``../`` 穿越、绝对路径越界、符号链接
+    逃逸、同前缀目录混淆均抛 ``ValidationException(FILE_PATH_OUTSIDE_MEDIA_ROOT)``。
+    """
+    root_prefix = _media_root_prefix()
     try:
-        p = p.resolve()
-    except Exception:
+        candidate = os.path.join(root_prefix, file_path)
+        resolved = os.path.realpath(candidate)
+    except (OSError, ValueError, RuntimeError):
         raise ValidationException(
             message="文件路径无效", code="INVALID_FILE_PATH", errors={"file_path": "无效"}
         ) from None
-    try:
-        p.relative_to(root)
-    except ValueError:
+    if not resolved.startswith(root_prefix):
         raise ValidationException(
             message="文件路径不在 MEDIA_ROOT 下",
             code="FILE_PATH_OUTSIDE_MEDIA_ROOT",
             errors={"file_path": "文件路径不在 MEDIA_ROOT 下"},
-        ) from None
-    return p
+        )
+    return resolved
+
+
+def to_media_abs(file_path: str) -> Path:
+    if not file_path:
+        raise ValidationException(
+            message="文件路径不能为空", code="INVALID_FILE_PATH", errors={"file_path": "不能为空"}
+        )
+    return Path(_realpath_within_media_root(file_path))
 
 
 def resolve_media_path(file_path: str) -> Path:
@@ -255,28 +277,11 @@ def normalize_to_media_rel(file_path: str) -> str:
     if not is_absolute_path(file_path):
         return file_path.replace("\\", "/").lstrip("/")
 
-    media_root = _get_media_root()
-    if not media_root:
-        raise ValidationException(
-            message="MEDIA_ROOT 未配置", code="MEDIA_ROOT_NOT_CONFIGURED", errors={"MEDIA_ROOT": "未配置"}
-        )
-    root = Path(media_root).resolve()
-    p = Path(file_path)
-    try:
-        abs_path = p.resolve()
-    except Exception:
-        raise ValidationException(
-            message="文件路径无效", code="INVALID_FILE_PATH", errors={"file_path": "无效"}
-        ) from None
-    try:
-        rel = abs_path.relative_to(root)
-    except ValueError:
-        raise ValidationException(
-            message="文件路径不在 MEDIA_ROOT 下",
-            code="FILE_PATH_OUTSIDE_MEDIA_ROOT",
-            errors={"file_path": "文件路径不在 MEDIA_ROOT 下"},
-        ) from None
-    return str(rel).replace("\\", "/")
+    root_prefix = _media_root_prefix()
+    resolved = _realpath_within_media_root(file_path)
+    root = root_prefix[: -len(os.sep)] or os.sep
+    rel = os.path.relpath(resolved, root)
+    return rel.replace("\\", "/")
 
 
 def save_uploaded_file(
@@ -336,25 +341,13 @@ def delete_media_file(file_path: str) -> bool:  # pragma: no cover
     if not file_path:
         return False
 
-    media_root = _get_media_root()
-    if not media_root:
-        return False
-    root = Path(media_root).resolve()
-    p = Path(file_path)
-    if not p.is_absolute():
-        p = root / file_path
-
     try:
-        p = p.resolve()
-    except Exception:
-        logger.exception("文件路径解析失败", extra={"file_path": file_path})
+        resolved = _realpath_within_media_root(file_path)
+    except ValidationException:
+        logger.debug("拒绝删除 MEDIA_ROOT 外的文件: file_path=%s", file_path)
         return False
 
-    try:
-        p.relative_to(root)
-    except ValueError:
-        return False
-
+    p = Path(resolved)
     try:
         p.unlink(missing_ok=True)
     except (OSError, ValueError):

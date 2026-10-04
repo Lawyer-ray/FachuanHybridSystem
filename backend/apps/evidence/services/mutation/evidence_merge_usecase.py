@@ -42,7 +42,9 @@ class MergeProgressReporter:
 
 
 class EvidenceMergeUseCase:
-    def merge(self, *, list_id: int, reporter: MergeProgressReporter | None = None) -> dict[str, Any]:  # pragma: no cover
+    def merge(
+        self, *, list_id: int, reporter: MergeProgressReporter | None = None
+    ) -> dict[str, Any]:  # pragma: no cover
         from apps.evidence.models import EvidenceList, MergeStatus
         from apps.evidence.services.core.evidence_service import EvidenceService
         from apps.evidence.services.infrastructure.pdf_merge_service import PDFMergeService

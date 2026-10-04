@@ -454,7 +454,8 @@ class TestCaseLogSchemas:
         obj_none = SimpleNamespace(file=None, uploaded_at=None)
         assert CaseLogAttachmentOut.resolve_file_path(obj_none) is None
         assert CaseLogAttachmentOut.resolve_media_url(obj_none) is None
-        assert CaseLogAttachmentOut.resolve_uploaded_at(obj_none) is None
+        # uploaded_at 的 schema union 为 datetime | str（不含 None），空值收敛为空串
+        assert CaseLogAttachmentOut.resolve_uploaded_at(obj_none) == ""
 
         # 测试 file 有值时返回路径
         mock_file = MagicMock()

@@ -1,5 +1,5 @@
 import { createApiClient, UPLOAD_TIMEOUT_MS } from '@/lib/api'
-import type { ConvertTemplate } from '../types'
+import type { components } from '@/types/api-schema'
 import { withAuthToken } from './download'
 
 /** 快捷工具资源：法院短信、要素式转换、DOC→DOCX。 */
@@ -9,8 +9,9 @@ export const docConvertApi = createApiClient({ prefix: '/api/v1/doc-convert' })
 export const docConverterApi = createApiClient({ prefix: '/api/v1/doc-converter' })
 
 /**
- * 收法院短信：POST /automation/court-sms。返回新建短信记录的 id，
- * 调用方拿它轮询 GET court-sms/{id} 跟踪处理进度（弹窗动画用）。
+ * 收法院短信：POST /automation/court-sms。
+ * 手写保留：生成物 CourtSMSSubmitOut 的 data 是裸 dict（schema 未覆盖 {id} 结构），
+ * 且业务失败文案 message 未声明，按真实返回维护。
  */
 export async function submitCourtSms(content: string): Promise<number> {
   const res = await automationApi
@@ -23,10 +24,8 @@ export async function submitCourtSms(content: string): Promise<number> {
   return res.data.id
 }
 
-export interface ConvertTemplateGroup {
-  category: string
-  items: ConvertTemplate[]
-}
+/** 模板分类组（GET /doc-convert/mbid-list 的行，生成物 MbidCategoryOut；items 行即 ConvertTemplate） */
+export type ConvertTemplateGroup = components['schemas']['MbidCategoryOut']
 
 /** 模板列表 query key（DocConvertCard 订阅） */
 export const CONVERT_TEMPLATES_KEY = ['doc-convert-templates'] as const
@@ -57,9 +56,9 @@ export const courtSmsHistoryKeys = {
   page: (group: string, page: number) => [...courtSmsHistoryKeys.all, group, page] as const,
 }
 
-/** 要素式转换：取文书模板（按分类分组），替代原型里写死的下拉 */
+/** 要素式转换：取文书模板（按分类分组，GET /doc-convert/mbid-list，生成物 MbidListResponse），替代原型里写死的下拉 */
 export async function listConvertTemplates(): Promise<ConvertTemplateGroup[]> {
-  const res = await docConvertApi.get('mbid-list').json<{ categories: { category: string; items: ConvertTemplate[] }[] }>()
+  const res = await docConvertApi.get('mbid-list').json<components['schemas']['MbidListResponse']>()
   return res.categories ?? []
 }
 
@@ -113,13 +112,14 @@ export interface ConverterJob {
   items: ConverterItem[]
 }
 
-/** DOC 转 DOCX：提交 multipart files[]，返回任务 id（进度需轮询 getConverterJob） */
+/** DOC 转 DOCX：提交 multipart files[]，返回任务 id（进度需轮询 getConverterJob）。
+ *  响应为生成物 JobSubmitOut；success / message 是 schema 未声明的业务失败字段，交联补充 */
 export async function createConverterJob(files: File[]): Promise<string> {
   const body = new FormData()
   for (const f of files) body.append('files', f, f.name)
   const res = await docConverterApi
     .post('jobs', { body, timeout: UPLOAD_TIMEOUT_MS })
-    .json<{ job_id?: string; success?: boolean; message?: string }>()
+    .json<components['schemas']['JobSubmitOut'] & { success?: boolean; message?: string }>()
   // 业务失败兜底：后端若返回 200 + success:false（或异常缺 job_id），别拿 undefined 去轮询
   if (res.success === false || !res.job_id) {
     throw new Error(res.message || '创建转换任务失败')
@@ -127,10 +127,11 @@ export async function createConverterJob(files: File[]): Promise<string> {
   return res.job_id
 }
 
-/** 查转换进度（后端返回 { job: {...}, items: [...] }） */
+/** 查转换进度（GET /doc-converter/jobs/{id}，生成物 JobProgressOut：{ job: JobOut, items: ItemOut[] }） */
 export async function getConverterJob(jobId: string): Promise<ConverterJob> {
-  const res = await docConverterApi.get(`jobs/${jobId}`).json<{ job?: Record<string, unknown>; items?: Record<string, unknown>[] }>()
-  const j = res.job ?? {}
+  const res = await docConverterApi.get(`jobs/${jobId}`).json<components['schemas']['JobProgressOut']>()
+  // job / items 生成物声明为必有；字段级仍留缺省兜底，防后端异常路径
+  const j = res.job
   const items: ConverterItem[] = (res.items ?? []).map((raw) => {
     const original = typeof raw.original_name === 'string' ? raw.original_name : '未命名'
     const url = typeof raw.download_url === 'string' ? raw.download_url : ''
@@ -143,7 +144,7 @@ export async function getConverterJob(jobId: string): Promise<ConverterJob> {
   })
   return {
     jobId,
-    status: String(j.status ?? 'pending'),
+    status: j.status || 'pending',
     total: Number(j.total_files ?? 0),
     done: Number(j.converted_files ?? 0),
     failed: Number(j.failed_files ?? 0),
@@ -165,7 +166,11 @@ export function converterItemDownloadUrl(jobId: string, itemId: string): string 
 // 历史记录（DOC 转 DOCX 任务 / 要素式转换记录）
 // ---------------------------------------------------------------------------
 
-/** DOC 转 DOCX 历史任务列表项 */
+/** DOC 转 DOCX 历史任务列表分页（GET /doc-converter/jobs，生成物 JobListOut：{items: JobOut[], count, page, num_pages}） */
+export type ConverterJobsPage = components['schemas']['JobListOut']
+
+/** DOC 转 DOCX 历史任务列表项（前端域投影：total_files→total、converted_files→done 等改名）。
+ *  行形状来自生成物 JobOut（ConverterJobsPage['items'][number]）。 */
 export interface ConverterJobItem {
   id: string
   status: string
@@ -176,22 +181,22 @@ export interface ConverterJobItem {
   createdAt: string
 }
 
-/** 分页列出历史转换任务（最新在前） */
+/** 分页列出历史转换任务（最新在前）；解析用生成物 JobListOut，再投影为 ConverterJobItem */
 export async function listConverterJobs(
   page = 1,
 ): Promise<{ items: ConverterJobItem[]; count: number; page: number; num_pages: number }> {
   const res = await docConverterApi
     .get('jobs', { searchParams: { page: String(page) } })
-    .json<{ items: Record<string, unknown>[]; count: number; page: number; num_pages: number }>()
+    .json<ConverterJobsPage>()
   return {
     items: res.items.map((j) => ({
-      id: String(j.id ?? ''),
-      status: String(j.status ?? 'pending'),
-      total: Number(j.total_files ?? 0),
-      done: Number(j.converted_files ?? 0),
-      failed: Number(j.failed_files ?? 0),
-      hasZip: typeof j.download_url === 'string' && j.download_url !== '',
-      createdAt: String(j.created_at ?? ''),
+      id: j.id,
+      status: j.status,
+      total: j.total_files,
+      done: j.converted_files,
+      failed: j.failed_files,
+      hasZip: j.download_url !== '',
+      createdAt: j.created_at ?? '',
     })),
     count: res.count,
     page: res.page,
@@ -199,26 +204,17 @@ export async function listConverterJobs(
   }
 }
 
-/** 要素式转换历史记录项 */
-export interface ConvertRecordItem {
-  id: number
-  original_name: string
-  mbid: string
-  mbid_name: string
-  status: string
-  error_message: string | null
-  has_file: boolean
-  created_at: string
-}
+/** 要素式转换历史记录项（GET /doc-convert/records 的行，生成物 DocConvertRecordOut） */
+export type ConvertRecordItem = components['schemas']['DocConvertRecordOut']
 
-/** 分页列出要素式转换历史（最新在前）；status 可筛 success/failed */
+/** 分页列出要素式转换历史（最新在前；status 可筛 success/failed；响应为生成物 DocConvertRecordListOut） */
 export async function listConvertRecords(
   status?: string,
   page = 1,
 ): Promise<{ items: ConvertRecordItem[]; count: number; page: number; num_pages: number }> {
   return docConvertApi
     .get('records', { searchParams: { ...(status ? { status } : {}), page: String(page) } })
-    .json<{ items: ConvertRecordItem[]; count: number; page: number; num_pages: number }>()
+    .json<components['schemas']['DocConvertRecordListOut']>()
 }
 
 /** 要素式历史产物下载地址（带 token） */
@@ -233,15 +229,14 @@ export async function deleteConvertRecord(recordId: number): Promise<void> {
 
 /**
  * 复制转换产物到**系统**剪贴板（后端 NSPasteboard 写 file-url，同 Finder ⌘C）。
- * 后端非 macOS 时返回 reason=unsupported，调用方降级复制文件名。
+ * 响应为生成物 ClipboardCopyOut（{success, copied, reason}）；后端非 macOS 时
+ * 返回 reason=unsupported，调用方降级复制文件名。
  */
 export async function copyConverterItemsToClipboard(
   jobId: string,
   itemIds: string[],
-): Promise<{ success: boolean; copied: number; reason: string | null }> {
-  const res = await docConverterApi
+): Promise<components['schemas']['ClipboardCopyOut']> {
+  return docConverterApi
     .post(`jobs/${jobId}/items/copy-to-clipboard`, { json: { item_ids: itemIds } })
-    .json<{ success?: boolean; copied?: number; reason?: string; message?: string }>()
-  if (res.success === undefined && res.message) throw new Error(res.message)
-  return { success: res.success === true, copied: Number(res.copied ?? 0), reason: res.reason ?? null }
+    .json<components['schemas']['ClipboardCopyOut']>()
 }

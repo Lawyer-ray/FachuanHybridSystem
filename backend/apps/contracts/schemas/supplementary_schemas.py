@@ -70,18 +70,29 @@ class SupplementaryAgreementPartyOut(ModelSchema):
     @staticmethod
     def resolve_client_detail(obj: Any) -> ClientOut | None:
         """解析完整的客户信息"""
+        if isinstance(obj, dict):
+            detail = obj.get("client_detail")
+            if isinstance(detail, dict):
+                return ClientOut(**detail)
+            return detail
         return ClientOut.from_model(obj.client) if obj.client else None
 
     @staticmethod
     def resolve_client_name(obj: Any) -> str:
+        if isinstance(obj, dict):
+            return str(obj.get("client_name") or "")
         return obj.client.name if obj.client else ""
 
     @staticmethod
     def resolve_is_our_client(obj: Any) -> bool:
+        if isinstance(obj, dict):
+            return bool(obj.get("is_our_client"))
         return bool(obj.client.is_our_client) if obj.client else False
 
     @staticmethod
     def resolve_role_label(obj: Any) -> str:
+        if isinstance(obj, dict):
+            return str(obj.get("role_label") or "")
         return obj.get_role_display() if obj.role else ""
 
 
@@ -96,6 +107,9 @@ class SupplementaryAgreementOut(ModelSchema, SchemaMixin):
 
     @staticmethod
     def resolve_parties(obj: Any) -> list[SupplementaryAgreementPartyOut]:
+        if isinstance(obj, dict):
+            # re-validation：直接取预计算 parties，避免在 dict 上走 ORM 分支
+            return obj.get("parties", [])  # type: ignore[no-any-return]
         # Use prefetch cache when available to avoid synchronous DB queries
         # in async contexts (SynchronousOnlyOperation).
         prefetched = getattr(obj, "_prefetched_objects_cache", {})
@@ -107,8 +121,12 @@ class SupplementaryAgreementOut(ModelSchema, SchemaMixin):
 
     @staticmethod
     def resolve_created_at(obj: Any) -> str:
+        if isinstance(obj, dict):
+            return str(obj.get("created_at") or "")
         return SchemaMixin._resolve_datetime_iso(getattr(obj, "created_at", None))  # type: ignore[return-value]
 
     @staticmethod
     def resolve_updated_at(obj: Any) -> str:
+        if isinstance(obj, dict):
+            return str(obj.get("updated_at") or "")
         return SchemaMixin._resolve_datetime_iso(getattr(obj, "updated_at", None))  # type: ignore[return-value]

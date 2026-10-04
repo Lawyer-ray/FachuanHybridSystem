@@ -186,7 +186,9 @@ class CauseCourtInitializationService:  # pragma: no cover
 
         return result
 
-    async def _get_zxfw_token(self, credential_id: int | None = None, *, lawyer_id: int | None = None) -> str:  # pragma: no cover
+    async def _get_zxfw_token(
+        self, credential_id: int | None = None, *, lawyer_id: int | None = None
+    ) -> str:  # pragma: no cover
         """获取法院一张网 Token (HS256 格式)
 
         Args:
@@ -233,7 +235,9 @@ class CauseCourtInitializationService:  # pragma: no cover
 
         return token
 
-    async def _acquire_zxfw_token(self, credential_id: int | None = None, *, lawyer_id: int | None = None) -> str:  # pragma: no cover
+    async def _acquire_zxfw_token(
+        self, credential_id: int | None = None, *, lawyer_id: int | None = None
+    ) -> str:  # pragma: no cover
         """自动登录并获取一张网 Token
 
         Args:
@@ -310,7 +314,9 @@ class CauseCourtInitializationService:  # pragma: no cover
         logger.info(f"✅ 一张网 Token 已保存: {account}")
         return token
 
-    async def _get_token(self, credential_id: int | None = None, *, lawyer_id: int | None = None) -> str:  # pragma: no cover
+    async def _get_token(
+        self, credential_id: int | None = None, *, lawyer_id: int | None = None
+    ) -> str:  # pragma: no cover
         from .wiring import get_baoquan_token_service
 
         baoquan_token_service = get_baoquan_token_service()

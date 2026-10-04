@@ -28,9 +28,7 @@ def get_case_contract_info(case_id: int) -> Any:  # pragma: no cover
 
 async def aget_case_contract_info(case_id: int) -> Any:  # pragma: no cover
     """异步获取案件绑定的合同 ID 和文件夹绑定 ID。"""
-    return await Case.objects.filter(pk=case_id).values(
-        "contract_id", "contract__folder_binding__id"
-    ).afirst()
+    return await Case.objects.filter(pk=case_id).values("contract_id", "contract__folder_binding__id").afirst()
 
 
 def get_active_template_or_none(template_id: int) -> Any:  # pragma: no cover

@@ -29,14 +29,10 @@ class ContractAccessRepo:
         lawyer_ids_list = list(lawyer_ids)
         if not lawyer_ids_list:
             return False
-        return await ContractAssignment.objects.filter(
-            contract_id=contract_id, lawyer_id__in=lawyer_ids_list
-        ).aexists()
+        return await ContractAssignment.objects.filter(contract_id=contract_id, lawyer_id__in=lawyer_ids_list).aexists()
 
     async def ahas_case_assignment_access(self, *, contract_id: int, user_id: int) -> bool:  # pragma: no cover
-        return await Contract.objects.filter(
-            id=contract_id, cases__assignments__lawyer_id=user_id
-        ).aexists()
+        return await Contract.objects.filter(id=contract_id, cases__assignments__lawyer_id=user_id).aexists()
 
 
 class ContractAccessPolicy(OrgAllowedLawyersMixin):
@@ -122,19 +118,13 @@ class ContractAccessPolicy(OrgAllowedLawyersMixin):
         allowed_lawyers = self.get_allowed_lawyer_ids(user, org_access)
 
         if contract is not None:
-            if allowed_lawyers and await contract.assignments.filter(
-                lawyer_id__in=list(allowed_lawyers)
-            ).aexists():
+            if allowed_lawyers and await contract.assignments.filter(lawyer_id__in=list(allowed_lawyers)).aexists():
                 return True
-            if user_id and await contract.cases.filter(
-                assignments__lawyer_id=user_id
-            ).aexists():
+            if user_id and await contract.cases.filter(assignments__lawyer_id=user_id).aexists():
                 return True
             return False
 
-        if await self.contract_access_repo.ahas_assignment_access(
-            contract_id=contract_id, lawyer_ids=allowed_lawyers
-        ):
+        if await self.contract_access_repo.ahas_assignment_access(contract_id=contract_id, lawyer_ids=allowed_lawyers):
             return True
 
         if user_id and await self.contract_access_repo.ahas_case_assignment_access(

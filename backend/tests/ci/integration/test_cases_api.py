@@ -300,6 +300,12 @@ def test_update_assignment(authenticated_client, law_firm):
         content_type="application/json",
     )
     assert resp.status_code == 200
+    # 更新必须回显该 assignment 且改派到新律师（响应与 DB 双锚点）
+    data = resp.json()
+    assert data["id"] == assignment.id
+    assert data["lawyer"] == lawyer2.id
+    assignment.refresh_from_db()
+    assert assignment.lawyer_id == lawyer2.id
 
 
 @pytest.mark.skip(reason="org_access parameter mismatch - real bug to fix")
@@ -560,6 +566,12 @@ def test_update_grant(authenticated_client, law_firm):
         content_type="application/json",
     )
     assert resp.status_code == 200
+    # 更新必须回显该 grant 且换绑到新被授权人（响应与 DB 双锚点）
+    data = resp.json()
+    assert data["id"] == grant.id
+    assert data["grantee"] == grantee2.id
+    grant.refresh_from_db()
+    assert grant.grantee_id == grantee2.id
 
 
 @pytest.mark.skip(reason="org_access parameter mismatch - real bug to fix")

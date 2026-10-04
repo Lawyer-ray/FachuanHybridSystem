@@ -1,55 +1,23 @@
 import { createApiClient } from '@/lib/api'
+import type { components, operations } from '@/types/api-schema'
 
 /** 日程 / 庭期提醒资源（/api/v1/reminders）。 */
 
 export const remindersApi = createApiClient({ prefix: '/api/v1/reminders' })
 
-/** 日历上的一条事件（GET /reminders/calendar）。同一庭审的多条同步已由后端合并。 */
-export interface CalendarEvent {
-  id: number
-  kind: string
-  kind_label: string
-  /** 主标题：后端优先取关联对象名，取不到才退回 content */
-  title: string
-  /** content 原文 */
-  content: string
-  day: string
-  time: string
-  time_range: string
-  place: string
-  person: string
-  /** 真实案号（后端取自案件的 CaseNumber），如 （2026）粤0608民初8233号 */
-  case_no: string
-  hearing_type: string
-  target_type: string
-  target_name: string
-  case_id: number | null
-  is_today: boolean
-  is_overdue: boolean
-  /** 已完成（合并事件 = 后端已确认全部成员 reminder 都完成） */
-  is_completed: boolean
-  /** 合并了几条原始 reminder（同一庭审被多次同步时 >1） */
-  members: number
-  member_ids: number[]
-}
+/**
+ * 日历上的一条事件（GET /reminders/calendar 的行，生成物 CalendarEventItemOut）。
+ * 同一庭审的多条同步已由后端合并。
+ * 注意：生成物里 member_ids / case_id 为可选——member_ids 消费处按 `?? []` 兜底
+ * （domain.ts 的 eventReminderIds 已如此），合并语义以后端为准。 */
+export type CalendarEvent = components['schemas']['CalendarEventItemOut']
 
-/** 工作台统计（后端按合并后口径算好，前端不要再自己数）。
+/** 工作台统计（生成物 CalendarStatsOut；后端按合并后口径算好，前端不要再自己数）。
  *  today / deadline_in_7days 是紧急度指标，只数未完成；month_court 保持全量。 */
-export interface CalendarStats {
-  today: number
-  today_done: number
-  deadline_in_7days: number
-  month_court: number
-}
+export type CalendarStats = components['schemas']['CalendarStatsOut']
 
-/** GET /reminders/calendar 的响应 */
-export interface CalendarMonth {
-  year: number
-  month: number
-  stats: CalendarStats
-  /** YYYY-MM-DD → 当日事件（已合并、已排序） */
-  days: Record<string, CalendarEvent[]>
-}
+/** GET /reminders/calendar 的响应（按 operationId 取生成物） */
+export type CalendarMonth = operations['apps_reminders_api_reminder_api_get_calendar_month']['responses'][200]['content']['application/json']
 
 /**
  * 取某月日历视图。合并、归一化、统计都在后端做——
@@ -62,13 +30,14 @@ export async function fetchCalendarMonth(year: number, month: number): Promise<C
 }
 
 /**
- * 批量标记完成 / 取消完成。合并事件的全部 member_ids 必须一起传
+ * 批量标记完成 / 取消完成（生成物 ReminderCompleteOut = 实际更新条数）。
+ * 合并事件的全部 member_ids 必须一起传
  * （用 domain.ts 的 eventReminderIds 取），否则下次合并回显未完成。
  */
 export async function setRemindersCompleted(reminderIds: number[], isCompleted: boolean): Promise<number> {
   const res = await remindersApi
     .post('complete', { json: { reminder_ids: reminderIds, is_completed: isCompleted } })
-    .json<{ updated: number }>()
+    .json<components['schemas']['ReminderCompleteOut']>()
   return res.updated
 }
 
@@ -103,14 +72,6 @@ export interface TargetOption {
   hint: string
 }
 
-/** wire 上的原始字段 */
-interface RawTargetOption {
-  id: number
-  name: string
-  target_type: TargetType
-  target_type_label: string
-}
-
 /** 后端原始 name 标签 → title + hint */
 function splitTargetName(targetType: TargetType, rawName: string): { title: string; hint: string } {
   const name = rawName.trim()
@@ -124,17 +85,19 @@ function splitTargetName(targetType: TargetType, rawName: string): { title: stri
 
 /**
  * 按关键字联想关联对象（合同 / 案件 / 案件日志）。
- * 与 admin 提醒日历用的是同一个接口，返回已拆好 title/hint 的结果。
+ * 与 admin 提醒日历用的是同一个接口（生成物 TargetOptionsOut），返回已拆好 title/hint 的结果。
  */
 export async function searchTargetOptions(q: string, signal?: AbortSignal): Promise<TargetOption[]> {
   const res = await remindersApi
     .get('target-options', { searchParams: { q }, signal })
-    .json<{ items?: RawTargetOption[] }>()
+    .json<components['schemas']['TargetOptionsOut']>()
   return (res.items ?? []).map((raw) => {
-    const { title, hint } = splitTargetName(raw.target_type, raw.name ?? '')
+    // 生成物把 target_type 声明为裸 string；后端实际只会返回三值，收窄给 TargetOption
+    const targetType = raw.target_type as TargetType
+    const { title, hint } = splitTargetName(targetType, raw.name ?? '')
     return {
       id: raw.id,
-      target_type: raw.target_type,
+      target_type: targetType,
       target_type_label: raw.target_type_label,
       title,
       hint,
@@ -142,23 +105,15 @@ export async function searchTargetOptions(q: string, signal?: AbortSignal): Prom
   })
 }
 
-/** 提醒类型选项（GET /reminders/types），用于新增安排弹窗的下拉 */
-export interface ReminderTypeOption {
-  value: string
-  label: string
-}
+/** 提醒类型选项（GET /reminders/types 的行，生成物 ReminderTypeItem），用于新增安排弹窗的下拉 */
+export type ReminderTypeOption = components['schemas']['ReminderTypeItem']
 
 export async function listReminderTypes(): Promise<ReminderTypeOption[]> {
   return remindersApi.get('types').json<ReminderTypeOption[]>()
 }
 
-export interface ParsedReminder {
-  content: string
-  reminder_type: string
-  reminder_type_label: string
-  due_at: string
-  source_text: string
-}
+/** POST /reminders/parse 的响应行（生成物 ParsedReminderOut） */
+export type ParsedReminder = components['schemas']['ParsedReminderOut']
 
 /**
  * 用文本解析提醒。后端是规则抽取而非 LLM：需要显式日期（如「2026-09-28 09:30 …」）
@@ -169,6 +124,11 @@ export async function parseReminder(text: string): Promise<ParsedReminder[]> {
   return res ?? []
 }
 
+/**
+ * 手写保留：新建安排的前端入参形状（target_type + target_id 统一表达），
+ * 与 wire 上的 ReminderIn（contract_id / case_id / case_log_id 三字段）不同，
+ * 发送时在 createReminder 内拆开，故不能直接引用生成物。
+ */
 export interface CreateReminderIn {
   reminder_type: string
   content: string

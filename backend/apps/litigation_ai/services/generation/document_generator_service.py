@@ -16,7 +16,9 @@ logger = logging.getLogger("apps.litigation_ai")
 
 class DocumentGeneratorService:  # pragma: no cover
     @transaction.atomic
-    def generate_document(self, session_id: str, template_id: int | None = None) -> GenerationTaskDTO:  # pragma: no cover
+    def generate_document(
+        self, session_id: str, template_id: int | None = None
+    ) -> GenerationTaskDTO:  # pragma: no cover
         from ..wiring import get_conversation_history_service, get_generation_task_service
 
         session = LitigationSession.objects.filter(session_id=session_id).select_related("case").first()
@@ -93,7 +95,9 @@ class DocumentGeneratorService:  # pragma: no cover
 
         return task
 
-    def _get_structured_content(self, session: LitigationSession, raw_content: str) -> dict[str, str]:  # pragma: no cover
+    def _get_structured_content(
+        self, session: LitigationSession, raw_content: str
+    ) -> dict[str, str]:  # pragma: no cover
         draft = (session.metadata or {}).get("draft")
         if isinstance(draft, dict):
             if session.document_type in ["complaint", "counterclaim"] and (
@@ -129,7 +133,9 @@ class DocumentGeneratorService:  # pragma: no cover
             raise NotFoundError(message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": case_id})
         return case_dto
 
-    def _render(self, case_dto: Any, document_type: str, structured: dict[str, str]) -> tuple[str, bytes]:  # pragma: no cover
+    def _render(
+        self, case_dto: Any, document_type: str, structured: dict[str, str]
+    ) -> tuple[str, bytes]:  # pragma: no cover
         from apps.litigation_ai.dependencies import (
             get_complaint_output_class,
             get_defense_output_class,

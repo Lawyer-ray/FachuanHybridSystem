@@ -74,7 +74,9 @@ class JudgePerspectiveChain:  # pragma: no cover
     def __init__(self, model: str | None = None) -> None:  # pragma: no cover
         self._model = model
 
-    def _build_messages(self, case_info: dict[str, Any], evidence_text: str) -> list[dict[str, str]]:  # pragma: no cover
+    def _build_messages(
+        self, case_info: dict[str, Any], evidence_text: str
+    ) -> list[dict[str, str]]:  # pragma: no cover
         cause = case_info.get("cause_of_action", "")
         cause_knowledge = _get_cause_knowledge(cause)
         cause_section = f"\n\n## 本案由特定关注点\n\n{cause_knowledge}" if cause_knowledge else ""
@@ -168,7 +170,9 @@ class CrossExamChain:  # pragma: no cover
     def __init__(self, model: str | None = None) -> None:  # pragma: no cover
         self._model = model
 
-    async def arun(self, *, case_info: dict[str, Any], evidence_info: dict[str, Any]) -> CrossExamResult:  # pragma: no cover
+    async def arun(
+        self, *, case_info: dict[str, Any], evidence_info: dict[str, Any]
+    ) -> CrossExamResult:  # pragma: no cover
         from asgiref.sync import sync_to_async
 
         from apps.litigation_ai.services.wiring import get_llm_service

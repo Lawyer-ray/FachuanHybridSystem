@@ -14,7 +14,9 @@ logger = logging.getLogger("apps.express_query")
 
 
 @receiver(post_delete, sender=ExpressQueryTask)
-def delete_task_files(sender: type[ExpressQueryTask], instance: ExpressQueryTask, **kwargs: object) -> None:  # pragma: no cover
+def delete_task_files(
+    sender: type[ExpressQueryTask], instance: ExpressQueryTask, **kwargs: object
+) -> None:  # pragma: no cover
     """删除任务时彻底清理所有关联文件"""
     waybill = instance.waybill_image
     pdf = instance.result_pdf

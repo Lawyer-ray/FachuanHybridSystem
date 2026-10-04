@@ -127,15 +127,23 @@ class TestConvertViaLibreoffice:
         # Get a real fd for mkstemp to return so os.close() doesn't fail
         real_fd = os.open(os.devnull, os.O_RDONLY)
 
-        with patch(
-            "apps.documents.services.infrastructure.pdf_merge_utils._find_libreoffice", return_value="/usr/bin/soffice"
-        ):
-            with patch("subprocess.run", return_value=MagicMock(returncode=0, stderr="")):
-                with patch("tempfile.mkdtemp", return_value=output_dir):
-                    with patch("tempfile.mkstemp", return_value=(real_fd, final_path)):
-                        with patch.object(shutil_mod, "move"):
-                            with patch.object(shutil_mod, "rmtree"):
-                                result = _convert_via_libreoffice(docx_path)
+        try:
+            with patch(
+                "apps.documents.services.infrastructure.pdf_merge_utils._find_libreoffice",
+                return_value="/usr/bin/soffice",
+            ):
+                with patch("subprocess.run", return_value=MagicMock(returncode=0, stderr="")):
+                    with patch("tempfile.mkdtemp", return_value=output_dir):
+                        with patch("tempfile.mkstemp", return_value=(real_fd, final_path)):
+                            with patch.object(shutil_mod, "move"):
+                                with patch.object(shutil_mod, "rmtree"):
+                                    result = _convert_via_libreoffice(docx_path)
+        finally:
+            # 生产代码可能已 os.close(real_fd)，重复关闭仅忽略 EBADF
+            try:
+                os.close(real_fd)
+            except OSError:
+                pass  # 仅忽略重复关闭的 EBADF，生产代码可能已关闭该 fd
         assert result is not None
 
 
@@ -180,8 +188,15 @@ class TestConvertDocxToPdf:
                     # 必须用真实 fd：生产代码会 os.close(fd)，写死 3 会误关
                     # pytest 捕获用的文件描述符导致 teardown 崩溃
                     real_fd = os.open(os.devnull, os.O_RDONLY)
-                    with patch("tempfile.mkstemp", return_value=(real_fd, str(tmp_path / "out.pdf"))):
-                        result = convert_docx_to_pdf(docx_path)
+                    try:
+                        with patch("tempfile.mkstemp", return_value=(real_fd, str(tmp_path / "out.pdf"))):
+                            result = convert_docx_to_pdf(docx_path)
+                    finally:
+                        # 生产代码可能已 os.close(real_fd)，重复关闭仅忽略 EBADF
+                        try:
+                            os.close(real_fd)
+                        except OSError:
+                            pass  # 仅忽略重复关闭的 EBADF
 
         assert result is not None
 

@@ -12,7 +12,7 @@ from ninja import Form, Query, Router, Schema
 
 from apps.core.exceptions import NotFoundError
 from apps.message_hub.models import InboxMessage
-from apps.message_hub.schemas import InboxMessageDetailOut, InboxMessageOut
+from apps.message_hub.schemas import InboxMessageDetailOut, InboxMessageOut, MessageAckOut, MessageRenameOut
 
 logger = logging.getLogger("apps.message_hub")
 router = Router()
@@ -107,7 +107,7 @@ def update_draft(request: HttpRequest, message_id: int, payload: DraftIn) -> dic
     return {"ok": True, "message_id": msg.pk}
 
 
-@router.put("/messages/{message_id}")
+@router.put("/messages/{message_id}", response=MessageRenameOut)
 def rename_message(request: HttpRequest, message_id: int, payload: RenameMessageIn) -> dict[str, Any]:
     """重命名材料包标题（收件箱消息 subject）。"""
     from apps.message_hub.services.manual_upload_service import rename_manual_message
@@ -127,7 +127,7 @@ def get_message(request: HttpRequest, message_id: int) -> Any:  # pragma: no cov
     return msg
 
 
-@router.delete("/messages/{message_id}")
+@router.delete("/messages/{message_id}", response=MessageAckOut)
 def delete_message(request: HttpRequest, message_id: int) -> dict[str, Any]:  # pragma: no cover
     """删除收件箱消息（材料包）：先清理附件物理文件，再删 DB 记录（破坏性，前端需二次确认）。"""
     from apps.message_hub.services.manual_upload_service import delete_manual_message

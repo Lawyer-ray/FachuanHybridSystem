@@ -281,3 +281,11 @@ def test_sync_all_sources(authenticated_client):
     resp = authenticated_client.post("/api/v1/inbox/sources/sync-all")
     # May return 405 due to route conflict with /sources/<source_id>
     assert resp.status_code in (200, 405)
+    if resp.status_code == 200:
+        # 路由命中时必须返回成功信封与提交数量文案
+        data = resp.json()
+        assert data["success"] is True
+        assert "同步任务" in data["message"]
+    else:
+        # 405 分支是路由吞并（ninja 默认纯文本响应）
+        assert b"Method not allowed" in resp.content

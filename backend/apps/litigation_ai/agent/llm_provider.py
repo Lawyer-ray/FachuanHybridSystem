@@ -23,7 +23,9 @@ class AgentLLMStreamChunk:  # pragma: no cover
 
 
 class AgentLLMAdapter:  # pragma: no cover
-    def __init__(self, llm_service: Any, model: str | None = None, temperature: float = 0.7) -> None:  # pragma: no cover
+    def __init__(
+        self, llm_service: Any, model: str | None = None, temperature: float = 0.7
+    ) -> None:  # pragma: no cover
         self._llm_service = llm_service
         self._model = model
         self._temperature = temperature

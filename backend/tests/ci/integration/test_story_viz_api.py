@@ -270,3 +270,13 @@ def test_list_models(mock_get_models, authenticated_client):
     # NOTE: Due to route ordering, /animations/{animation_id} matches before /animations/models
     # causing 422 (UUID validation failure for "models" string)
     assert resp.status_code in (200, 422)
+    if resp.status_code == 200:
+        # 模型清单必须透传 mock 的模型锚点
+        data = resp.json()
+        assert data["models"][0]["id"] == "qwen3:0.6b"
+        assert data["models"][0]["backend"] == "ollama"
+    else:
+        # 422 分支锚定 "models" 被当作 animation_id 解析（path 位置 UUID 校验失败）
+        data = resp.json()
+        assert data["code"] == "VALIDATION_ERROR"
+        assert data["errors"][0]["loc"] == ["path", "animation_id"]

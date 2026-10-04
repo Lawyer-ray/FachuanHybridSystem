@@ -117,9 +117,7 @@ async def _get_case_info_async(case_id: int, **kwargs: Any) -> dict[str, Any]:
     return await LitigationContextService().aget_case_info_for_agent(case_id)
 
 
-async def _get_evidence_list_async(
-    case_id: int, ownership: str | None = None, **kwargs: Any
-) -> list[dict[str, Any]]:
+async def _get_evidence_list_async(case_id: int, ownership: str | None = None, **kwargs: Any) -> list[dict[str, Any]]:
     """get_evidence_list 的异步实现。"""
     from apps.litigation_ai.services.session.context_service import LitigationContextService
 

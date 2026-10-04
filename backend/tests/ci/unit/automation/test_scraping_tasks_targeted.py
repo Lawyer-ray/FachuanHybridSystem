@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
-from concurrent.futures import Future
-from threading import Thread
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,21 +15,11 @@ except ImportError:
 
 
 from apps.automation.tasks.scraping_tasks import (
-    _run_coroutine_sync,
     execute_preservation_quote_task,
     execute_scraper_task,
     process_pending_tasks,
     reset_running_tasks,
 )
-
-
-class TestRunCoroutineSyncEdge:
-    def test_run_with_nested_exception(self):
-        async def coro():
-            raise TypeError("nested")
-
-        with pytest.raises(TypeError, match="nested"):
-            _run_coroutine_sync(coro())
 
 
 class TestExecuteScraperTaskExtra:
@@ -147,7 +134,7 @@ class TestExecutePreservationQuoteTask:
 
         with patch("apps.automation.models.PreservationQuote") as MockQuote:
             MockQuote.objects.filter.return_value.exists.return_value = True
-            with patch("apps.automation.tasks.scraping_tasks._run_coroutine_sync") as mock_run:
+            with patch("apps.automation.tasks.scraping_tasks.run_coro_sync") as mock_run:
                 mock_run.side_effect = TokenError("token expired")
                 with patch("apps.automation.models.QuoteStatus") as MockStatus:
                     MockStatus.FAILED = "failed"
@@ -160,7 +147,7 @@ class TestExecutePreservationQuoteTask:
     def test_general_exception(self):
         with patch("apps.automation.models.PreservationQuote") as MockQuote:
             MockQuote.objects.filter.return_value.exists.return_value = True
-            with patch("apps.automation.tasks.scraping_tasks._run_coroutine_sync") as mock_run:
+            with patch("apps.automation.tasks.scraping_tasks.run_coro_sync") as mock_run:
                 mock_run.side_effect = RuntimeError("network error")
                 with patch("apps.automation.models.QuoteStatus") as MockStatus:
                     MockStatus.FAILED = "failed"
@@ -178,7 +165,7 @@ class TestExecutePreservationQuoteTask:
 
         with patch("apps.automation.models.PreservationQuote") as MockQuote:
             MockQuote.objects.filter.return_value.exists.return_value = True
-            with patch("apps.automation.tasks.scraping_tasks._run_coroutine_sync") as mock_run:
+            with patch("apps.automation.tasks.scraping_tasks.run_coro_sync") as mock_run:
                 mock_run.side_effect = ObjectDoesNotExist("matching query does not exist")
                 result = execute_preservation_quote_task(quote_id=1)
                 assert result["status"] == "skipped"

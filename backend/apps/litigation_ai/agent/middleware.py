@@ -310,7 +310,9 @@ class LitigationMemoryMiddleware(IMemoryMiddleware):  # pragma: no cover
             )
             return state
 
-    async def asave_user_message(self, content: str, metadata: dict[str, Any] | None = None) -> None:  # pragma: no cover
+    async def asave_user_message(
+        self, content: str, metadata: dict[str, Any] | None = None
+    ) -> None:  # pragma: no cover
         """异步版本 — 保存用户消息."""
         try:
             await sync_to_async(self.conversation_service.add_message)(

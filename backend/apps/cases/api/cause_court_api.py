@@ -108,7 +108,9 @@ async def get_cause_by_id(request: HttpRequest, cause_id: int) -> Any:  # pragma
 
 
 @router.get("/courts-data", response=list[CourtSchema])
-async def get_courts(request: HttpRequest, search: str | None = None, limit: int | None = 50) -> Any:  # pragma: no cover
+async def get_courts(
+    request: HttpRequest, search: str | None = None, limit: int | None = 50
+) -> Any:  # pragma: no cover
     """
     获取法院列表
 

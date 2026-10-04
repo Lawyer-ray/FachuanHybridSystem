@@ -10,6 +10,7 @@ from ninja import Router
 from apps.contracts.schemas import (
     ContractAssignmentOut,
     ContractIn,
+    ContractListPageOut,
     ContractOut,
     ContractPartyIn,
     ContractPartyOut,
@@ -54,7 +55,7 @@ def _get_access_policy() -> Any:
     return get_contract_domain_service().access_policy
 
 
-@router.get("/contracts")
+@router.get("/contracts", response=ContractListPageOut, by_alias=True, exclude_unset=True)
 async def list_contracts(  # pragma: no cover
     request: HttpRequest,
     case_type: str | None = None,
@@ -111,7 +112,7 @@ class ContractWithCasesIn(ContractIn):
     cases: list[dict[str, Any]] | None = None
 
 
-@router.post("/contracts/full", response=ContractOut)
+@router.post("/contracts/full", response=ContractOut, by_alias=True)
 async def create_contract_with_cases(request: HttpRequest, payload: ContractWithCasesIn) -> Any:  # pragma: no cover
     service = _get_domain_service()
     ctx = await sync_to_async(extract_request_context)(request)
@@ -135,7 +136,7 @@ async def create_contract_with_cases(request: HttpRequest, payload: ContractWith
     return await sync_to_async(_do)()
 
 
-@router.get("/contracts/{contract_id}", response=ContractOut)
+@router.get("/contracts/{contract_id}", response=ContractOut, by_alias=True)
 async def get_contract(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """
     获取合同详情
@@ -157,7 +158,7 @@ async def get_contract(request: HttpRequest, contract_id: int) -> Any:  # pragma
     return await sync_to_async(_do)()
 
 
-@router.put("/contracts/{contract_id}", response=ContractOut)
+@router.put("/contracts/{contract_id}", response=ContractOut, by_alias=True)
 async def update_contract(  # pragma: no cover
     request: HttpRequest,
     contract_id: int,
@@ -189,7 +190,7 @@ async def update_contract(  # pragma: no cover
     return await sync_to_async(_do)()
 
 
-@router.post("/contracts", response=ContractOut)
+@router.post("/contracts", response=ContractOut, by_alias=True)
 async def create_contract(  # pragma: no cover
     request: HttpRequest,
     payload: ContractIn,

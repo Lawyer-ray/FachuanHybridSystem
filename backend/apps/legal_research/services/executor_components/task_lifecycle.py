@@ -12,6 +12,9 @@ from django.utils import timezone
 from apps.legal_research.models import LegalResearchTask, LegalResearchTaskStatus
 
 logger = logging.getLogger(__name__)
+# 归类说明：这是模块级单 worker 的 **sync 函数排队执行器**（排队的是 ORM 兜底
+# callable 而非协程），与 apps.core.infrastructure.sync_async_bridge 的协程桥
+# 不是同一问题域，故不纳入统一桥接收敛范围。
 _ORM_FALLBACK_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="legal-research-orm")
 _T = TypeVar("_T")
 
