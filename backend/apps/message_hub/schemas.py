@@ -23,6 +23,19 @@ class AttachmentMeta(Schema):
     page_count: int | None = None
 
 
+class MessageAckOut(Schema):
+    """消息写操作确认（删除 / 草稿保存等）。"""
+
+    ok: bool
+    message_id: int
+
+
+class MessageRenameOut(MessageAckOut):
+    """消息重命名确认（返回更新后的标题）。"""
+
+    subject: str
+
+
 class InboxMessageOut(SchemaMixin, Schema):
     """收件箱消息列表项。"""
 

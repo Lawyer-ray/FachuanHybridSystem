@@ -166,8 +166,11 @@ export function converterItemDownloadUrl(jobId: string, itemId: string): string 
 // 历史记录（DOC 转 DOCX 任务 / 要素式转换记录）
 // ---------------------------------------------------------------------------
 
-/** DOC 转 DOCX 历史任务列表项。
- *  手写保留：GET /doc-converter/jobs 生成物未声明响应 schema（裸响应），按真实返回维护 */
+/** DOC 转 DOCX 历史任务列表分页（GET /doc-converter/jobs，生成物 JobListOut：{items: JobOut[], count, page, num_pages}） */
+export type ConverterJobsPage = components['schemas']['JobListOut']
+
+/** DOC 转 DOCX 历史任务列表项（前端域投影：total_files→total、converted_files→done 等改名）。
+ *  行形状来自生成物 JobOut（ConverterJobsPage['items'][number]）。 */
 export interface ConverterJobItem {
   id: string
   status: string
@@ -178,22 +181,22 @@ export interface ConverterJobItem {
   createdAt: string
 }
 
-/** 分页列出历史转换任务（最新在前）；响应 schema 未声明，行字段按真实返回读 */
+/** 分页列出历史转换任务（最新在前）；解析用生成物 JobListOut，再投影为 ConverterJobItem */
 export async function listConverterJobs(
   page = 1,
 ): Promise<{ items: ConverterJobItem[]; count: number; page: number; num_pages: number }> {
   const res = await docConverterApi
     .get('jobs', { searchParams: { page: String(page) } })
-    .json<{ items: Record<string, unknown>[]; count: number; page: number; num_pages: number }>()
+    .json<ConverterJobsPage>()
   return {
     items: res.items.map((j) => ({
-      id: String(j.id ?? ''),
-      status: String(j.status ?? 'pending'),
-      total: Number(j.total_files ?? 0),
-      done: Number(j.converted_files ?? 0),
-      failed: Number(j.failed_files ?? 0),
-      hasZip: typeof j.download_url === 'string' && j.download_url !== '',
-      createdAt: String(j.created_at ?? ''),
+      id: j.id,
+      status: j.status,
+      total: j.total_files,
+      done: j.converted_files,
+      failed: j.failed_files,
+      hasZip: j.download_url !== '',
+      createdAt: j.created_at ?? '',
     })),
     count: res.count,
     page: res.page,
@@ -226,16 +229,14 @@ export async function deleteConvertRecord(recordId: number): Promise<void> {
 
 /**
  * 复制转换产物到**系统**剪贴板（后端 NSPasteboard 写 file-url，同 Finder ⌘C）。
- * 后端非 macOS 时返回 reason=unsupported，调用方降级复制文件名。
- * 手写保留：该端点生成物未声明响应 schema，按真实返回维护。
+ * 响应为生成物 ClipboardCopyOut（{success, copied, reason}）；后端非 macOS 时
+ * 返回 reason=unsupported，调用方降级复制文件名。
  */
 export async function copyConverterItemsToClipboard(
   jobId: string,
   itemIds: string[],
-): Promise<{ success: boolean; copied: number; reason: string | null }> {
-  const res = await docConverterApi
+): Promise<components['schemas']['ClipboardCopyOut']> {
+  return docConverterApi
     .post(`jobs/${jobId}/items/copy-to-clipboard`, { json: { item_ids: itemIds } })
-    .json<{ success?: boolean; copied?: number; reason?: string; message?: string }>()
-  if (res.success === undefined && res.message) throw new Error(res.message)
-  return { success: res.success === true, copied: Number(res.copied ?? 0), reason: res.reason ?? null }
+    .json<components['schemas']['ClipboardCopyOut']>()
 }

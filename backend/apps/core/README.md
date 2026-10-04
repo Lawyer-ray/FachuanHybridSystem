@@ -82,14 +82,17 @@ from apps.core.exceptions import ValidationException, PermissionDenied, NotFound
 
 # 验证器（Utils 类方法）
 from apps.core.utils.validators import Validators
-Validators.validate_phone("138****8000")   # 抛 ValidationException（示例为占位号）
+
+Validators.validate_phone("138****8000")  # 抛 ValidationException（示例为占位号）
 
 # 服务定位器
 from apps.core.interfaces import ServiceLocator
+
 llm = ServiceLocator.get_llm_service()
 
 # 浏览器
 from apps.core.services.browser import create_browser
+
 with create_browser() as (page, context):
     page.goto("https://example.com")
 ```

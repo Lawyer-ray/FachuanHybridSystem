@@ -103,7 +103,11 @@ class DocxFormatNormalizer:  # pragma: no cover
             prefixed = sum(1 for r in results.values() if r["prefix"])
             logger.info(
                 "LLM 分析完成: %d 段落, ilvl=0:%d ilvl=1:%d ilvl=2:%d, 有前缀:%d",
-                len(results), h0, h1, h2, prefixed,
+                len(results),
+                h0,
+                h1,
+                h2,
+                prefixed,
             )
             return results
 
@@ -350,10 +354,10 @@ class DocxFormatNormalizer:  # pragma: no cover
             if llm_prefix and stripped_text.startswith(llm_prefix):
                 # 保留前导空白，去掉 prefix
                 leading = text[: len(text) - len(text.lstrip())]
-                new_text = leading + stripped_text[len(llm_prefix):]
+                new_text = leading + stripped_text[len(llm_prefix) :]
                 new_text = new_text.lstrip("、．.,，：:").lstrip()
                 # 恢复前导空白
-                new_text = leading + new_text[len(leading):] if new_text.startswith(leading) else new_text
+                new_text = leading + new_text[len(leading) :] if new_text.startswith(leading) else new_text
 
         # LLM 没有 prefix 时，用简单规则 fallback
         if new_text == text:
@@ -371,25 +375,25 @@ class DocxFormatNormalizer:  # pragma: no cover
 
         # 保留前导空白
         leading = text[: len(text) - len(text.lstrip())]
-        core = text[len(leading):]
+        core = text[len(leading) :]
 
         patterns = [
             # 多级编号（优先）："1.2.", "2.3.", "1.2.3."
-            re.compile(r'^\d+(?:\.\d+)+[、．.：:]?\s*'),
+            re.compile(r"^\d+(?:\.\d+)+[、．.：:]?\s*"),
             # 括号中文数字："（一）", "(一)", "（一）、", "(一)、"
-            re.compile(r'^[（(][一二三四五六七八九十]+[)）][、．.：:]?\s*'),
+            re.compile(r"^[（(][一二三四五六七八九十]+[)）][、．.：:]?\s*"),
             # 中文数字+顿号："一、"
-            re.compile(r'^[一二三四五六七八九十]+、\s*'),
+            re.compile(r"^[一二三四五六七八九十]+、\s*"),
             # 括号阿拉伯数字："(1)", "（1）"
-            re.compile(r'^[（(]\d+[)）][、．.：:]?\s*'),
+            re.compile(r"^[（(]\d+[)）][、．.：:]?\s*"),
             # 单级数字编号："1、", "2.", "3．"
-            re.compile(r'^\d+[、．.]\s*'),
+            re.compile(r"^\d+[、．.]\s*"),
         ]
 
         for pattern in patterns:
             match = pattern.match(core)
             if match:
-                result = core[match.end():]
+                result = core[match.end() :]
                 # 清理残留标点
                 result = result.lstrip("、．.,，：:").lstrip()
                 if result:
@@ -494,9 +498,7 @@ class DocxFormatNormalizer:  # pragma: no cover
 
         nsmap = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
         numbering_elm = etree.Element(qn("w:numbering"), nsmap=nsmap)
-        numbering_xml = etree.tostring(
-            numbering_elm, xml_declaration=True, encoding="UTF-8", standalone=True
-        )
+        numbering_xml = etree.tostring(numbering_elm, xml_declaration=True, encoding="UTF-8", standalone=True)
 
         part_name = PackURI("/word/numbering.xml")
         content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"
@@ -526,11 +528,7 @@ class DocxFormatNormalizer:  # pragma: no cover
                         from lxml import etree
 
                         pPr = ref_p._element.find(qn("w:pPr"))
-                        new_p.append(
-                            etree.fromstring(etree.tostring(pPr))
-                            if pPr is not None
-                            else OxmlElement("w:pPr")
-                        )
+                        new_p.append(etree.fromstring(etree.tostring(pPr)) if pPr is not None else OxmlElement("w:pPr"))
                         for ref_run in ref_p.runs:
                             new_p.append(etree.fromstring(etree.tostring(ref_run._element)))
                         doc_header._element.append(new_p)
@@ -546,7 +544,7 @@ class DocxFormatNormalizer:  # pragma: no cover
 
                     has_page_field = False
                     for p in ref_footer.paragraphs:
-                        for instr in p._element.findall('.//' + qn("w:instrText")):
+                        for instr in p._element.findall(".//" + qn("w:instrText")):
                             if instr.text and "PAGE" in instr.text:
                                 has_page_field = True
                                 break

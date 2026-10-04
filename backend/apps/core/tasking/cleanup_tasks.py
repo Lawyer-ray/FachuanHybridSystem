@@ -139,5 +139,3 @@ def _register_schedules() -> None:
                 logger.info("已注册定时任务: %s", name)
     except Exception:
         logger.debug("定时任务注册跳过（未就绪）")
-
-

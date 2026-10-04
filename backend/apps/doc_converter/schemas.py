@@ -39,6 +39,23 @@ class JobProgressOut(Schema):
     items: list[ItemOut]
 
 
+class JobListOut(Schema):
+    """历史任务分页列表（GET /doc-converter/jobs 实际返回形状）"""
+
+    items: list[JobOut]
+    count: int
+    page: int
+    num_pages: int
+
+
+class ClipboardCopyOut(Schema):
+    """转换产物复制到系统剪贴板结果（非 macOS 时 success=false / reason=unsupported）"""
+
+    success: bool
+    copied: int
+    reason: str | None = None
+
+
 class HealthOut(Schema):
     libreoffice_available: bool
     libreoffice_path: str | None = None

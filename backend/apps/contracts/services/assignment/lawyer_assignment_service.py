@@ -53,7 +53,9 @@ class LawyerAssignmentService:
         return self._lawyer_service
 
     @transaction.atomic
-    def set_contract_lawyers(self, contract_id: int, lawyer_ids: list[int]) -> list[ContractAssignment]:  # pragma: no cover
+    def set_contract_lawyers(
+        self, contract_id: int, lawyer_ids: list[int]
+    ) -> list[ContractAssignment]:  # pragma: no cover
         """
         设置合同律师(第一个为主办律师)
 

@@ -56,7 +56,9 @@ def create_credential(request: HttpRequest, payload: AccountCredentialIn) -> Acc
 
 
 @router.put("/credentials/{cred_id}", response=AccountCredentialOut)
-def update_credential(request: HttpRequest, cred_id: int, payload: AccountCredentialUpdateIn) -> AccountCredentialOut:  # pragma: no cover
+def update_credential(
+    request: HttpRequest, cred_id: int, payload: AccountCredentialUpdateIn
+) -> AccountCredentialOut:  # pragma: no cover
     dto = AccountCredentialUpdateDTO(
         site_name=payload.site_name,
         url=payload.url,

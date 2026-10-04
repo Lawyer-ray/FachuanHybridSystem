@@ -169,9 +169,12 @@ class EnterpriseProviderRegistry:
         try:
             return str(self._config.get_value(key, "") or "").strip()
         except Exception as exc:
+            # CodeQL #1391（py/clear-text-logging-sensitive-data）定性为误报并内联抑制：
+            # 本条日志只记录 SystemConfig 的配置键名（本文件硬编码的非机密常量）与
+            # 异常类型名；API Key 真实值（get_value 返回值 / 环境变量读取结果）不会流入。
             logger.warning(
                 "Read system config failed, fallback env var",
-                extra={"key": key, "error_type": type(exc).__name__},
+                extra={"key": key, "error_type": type(exc).__name__},  # codeql[py/clear-text-logging-sensitive-data]
             )
             return ""
 

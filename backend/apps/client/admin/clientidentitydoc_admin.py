@@ -61,7 +61,9 @@ class ClientIdentityDocAdmin(admin.ModelAdmin):  # pragma: no cover
 
     file_link.short_description = "文件"  # type: ignore[attr-defined]
 
-    def save_model(self, request: HttpRequest, obj: ClientIdentityDoc, form: Any, change: bool) -> None:  # pragma: no cover
+    def save_model(
+        self, request: HttpRequest, obj: ClientIdentityDoc, form: Any, change: bool
+    ) -> None:  # pragma: no cover
         """保存时处理文件上传并自动重命名"""
         service = _get_identity_doc_service()
         uploaded_file = form.cleaned_data.get("file_upload")
@@ -77,7 +79,9 @@ class ClientIdentityDocAdmin(admin.ModelAdmin):  # pragma: no cover
         except Exception as e:
             messages.warning(request, "文件重命名失败: %(error)s" % {"error": str(e)})
 
-    def rename_files(self, request: HttpRequest, queryset: QuerySet[ClientIdentityDoc, ClientIdentityDoc]) -> None:  # pragma: no cover
+    def rename_files(
+        self, request: HttpRequest, queryset: QuerySet[ClientIdentityDoc, ClientIdentityDoc]
+    ) -> None:  # pragma: no cover
         """批量重命名文件"""
         service = _get_identity_doc_service()
         success_count = 0

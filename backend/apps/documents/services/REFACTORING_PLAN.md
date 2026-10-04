@@ -235,7 +235,7 @@ from .evidence_admin_service import EvidenceAdminService
 
 __all__ = [
     "EvidenceService",
-    "EvidenceQueryService", 
+    "EvidenceQueryService",
     "EvidenceAdminService",
     # 兼容旧导入
 ]

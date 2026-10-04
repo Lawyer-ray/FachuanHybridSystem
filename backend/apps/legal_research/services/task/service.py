@@ -35,7 +35,9 @@ class LegalResearchTaskService:  # pragma: no cover
     CREATE_PENDING_MESSAGE = "任务已创建，等待调度"
     RETRY_PENDING_MESSAGE = "任务已重置，等待调度"
 
-    def create_task(self, *, payload: LegalResearchTaskCreateIn, user: Any | None) -> LegalResearchTask:  # pragma: no cover
+    def create_task(
+        self, *, payload: LegalResearchTaskCreateIn, user: Any | None
+    ) -> LegalResearchTask:  # pragma: no cover
         credential_model = _get_account_credential_model()
         credential = (
             credential_model.objects.select_related("lawyer", "lawyer__law_firm")
@@ -211,7 +213,9 @@ class LegalResearchTaskService:  # pragma: no cover
 
         raise PermissionDenied(message="无权限访问该任务", code="PERMISSION_DENIED")
 
-    def ensure_task_ready_for_download(self, *, task_id: int, user: Any | None) -> LegalResearchTask:  # pragma: no cover
+    def ensure_task_ready_for_download(
+        self, *, task_id: int, user: Any | None
+    ) -> LegalResearchTask:  # pragma: no cover
         task = self.get_task(task_id=task_id, user=user)
         if task.status not in (LegalResearchTaskStatus.COMPLETED, LegalResearchTaskStatus.RUNNING):
             raise ValidationException("任务尚未生成可下载结果")

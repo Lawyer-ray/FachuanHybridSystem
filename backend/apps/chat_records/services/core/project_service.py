@@ -30,7 +30,9 @@ class ProjectService:
         return project
 
     @transaction.atomic
-    def create_project(self, *, name: str, description: str = "", created_by: Any | None = None) -> ChatRecordProject:  # pragma: no cover
+    def create_project(
+        self, *, name: str, description: str = "", created_by: Any | None = None
+    ) -> ChatRecordProject:  # pragma: no cover
         if not name or not name.strip():
             raise ValidationException("项目名称不能为空")
         project = ChatRecordProject.objects.create(

@@ -9,15 +9,17 @@ from collections.abc import Iterator
 from django.http import HttpRequest, HttpResponse, HttpResponseBase
 
 # 危险的 Content-Type，可能导致 XSS（浏览器会渲染/执行）
-_DANGEROUS_CONTENT_TYPES = frozenset({
-    "text/html",
-    "text/xml",
-    "application/xhtml+xml",
-    "image/svg+xml",
-    "application/xml",
-    "application/javascript",
-    "text/javascript",
-})
+_DANGEROUS_CONTENT_TYPES = frozenset(
+    {
+        "text/html",
+        "text/xml",
+        "application/xhtml+xml",
+        "image/svg+xml",
+        "application/xml",
+        "application/javascript",
+        "text/javascript",
+    }
+)
 
 
 def build_range_file_response(

@@ -16,10 +16,10 @@
 #   [5]  ruff-changed         → backend (Lint ruff changed files)
 #   [6]  ruff-full            → backend-ruff-full / backend (core + apiSystem)
 #   [7]  mypy-changed         → backend (Type check mypy changed files)
-#   [8]  mypy-curated         → backend (Type check mypy curated gate)
-#   [9]  mypy-strict          → backend-mypy-strict
-#   [10] mypy-extra           → backend-mypy (extra gate)
-#   [11] structure-smoke      → backend (Tests collection smoke)
+#   [8]  mypy-curated+full    → backend (Type check mypy curated gate + full-scan ratchet)
+#   [9]  structure-tests      → backend (Tests structure, real run)
+#   [10] mypy-strict          → backend-mypy-strict
+#   [11] mypy-extra           → backend-mypy (extra gate)
 #   [12] unit-tests           → backend (Tests unit)
 #   [13] smoke-check          → backend (Smoke check minimal)
 #   [14] pip-audit            → backend (Dependency audit)
@@ -280,8 +280,10 @@ if [ "$RUN_BACKEND" = true ]; then
     skip "mypy-changed（无基准 commit）"
   fi
 
-  # [8] Mypy curated gate（对齐 backend job 的 Type check mypy curated gate step）
-  header "8/22" "Mypy 检查 (curated gate)"
+  # [8] Mypy curated gate + apps 全量门（对齐 backend job 的 curated gate + full-scan ratchet step）
+  # 2026-10-03：apps 全量错误清零后追加全量硬门禁（本地实测 0 错 / 2312 文件 / ~48s）。
+  # curated 保留作快速反馈（含 apps 外的 apiSystem/apiSystem/api.py）。
+  header "8/22" "Mypy 检查 (curated gate + apps 全量)"
   MYPY_CURATED=(
     apps/core/services/wiring.py
     apps/core/protocols/common/__init__.py
@@ -291,15 +293,27 @@ if [ "$RUN_BACKEND" = true ]; then
     apiSystem/apiSystem/api.py
     apps/workbench/services/chat_service.py
   )
-  if PYTHONPATH=apiSystem:. $BACKEND_PYTHON -m mypy --config-file=mypy.ini --follow-imports=silent "${MYPY_CURATED[@]}" 2>&1; then
-    pass "mypy-curated"
+  if PYTHONPATH=apiSystem:. $BACKEND_PYTHON -m mypy --config-file=mypy.ini --follow-imports=silent "${MYPY_CURATED[@]}" 2>&1 \
+    && PYTHONPATH=apiSystem:. $BACKEND_PYTHON -m mypy --config-file=mypy.ini apps 2>&1; then
+    pass "mypy-curated+full"
   else
-    fail "mypy-curated"
+    fail "mypy-curated+full"
+  fi
+
+  # [9] Structure tests（对齐 backend job 的 Tests structure, real run step）
+  # 2026-10-03：从 --full collect-only 升级为默认真跑（实测 ~18s，无需数据库），
+  # 让 test_quality_ratchet / four_layer_architecture 等防回潮棘轮在本地
+  # make ci 即生效，而不只依赖远端 CI。
+  header "9/22" "结构测试 (structure, real run)"
+  if $BACKEND_PYTEST -c pytest.ini --no-cov -q tests/ci/structure/ 2>&1; then
+    pass "structure-tests"
+  else
+    fail "structure-tests"
   fi
 
   if [ "$MODE" = "full" ]; then
-    # [9] Mypy strict gate（对齐 backend-mypy-strict job）
-    header "9/22" "Mypy 检查 (strict gate)"
+    # [10] Mypy strict gate（对齐 backend-mypy-strict job）
+    header "10/22" "Mypy 检查 (strict gate)"
     MYPY_STRICT=(
       "${MYPY_CURATED[@]}"
       apps/organization/services/access/organization_access_policy.py
@@ -310,8 +324,8 @@ if [ "$RUN_BACKEND" = true ]; then
       fail "mypy-strict"
     fi
 
-    # [10] Mypy extra gate（对齐 backend-mypy job）
-    header "10/22" "Mypy 检查 (extra gate)"
+    # [11] Mypy extra gate（对齐 backend-myp job）
+    header "11/22" "Mypy 检查 (extra gate)"
     MYPY_EXTRA=(
       apps/core/security/auth.py
       apps/core/infrastructure/throttling.py
@@ -324,14 +338,6 @@ if [ "$RUN_BACKEND" = true ]; then
       pass "mypy-extra"
     else
       fail "mypy-extra"
-    fi
-
-    # [11] Structure smoke（对齐 backend job 的 Tests collection smoke step）
-    header "11/22" "结构测试 (structure smoke)"
-    if $BACKEND_PYTEST -c pytest.ini --no-cov --collect-only -q tests/ci/structure/ 2>&1; then
-      pass "structure-smoke"
-    else
-      fail "structure-smoke"
     fi
 
     # [12] Unit tests（对齐 backend job 的 Tests unit step）
@@ -350,7 +356,6 @@ if [ "$RUN_BACKEND" = true ]; then
       fail "smoke-check"
     fi
   else
-    skip "structure-smoke（需要 --full）"
     skip "unit-tests（需要 --full）"
     skip "smoke-check（需要 --full）"
     skip "mypy-strict（需要 --full）"
@@ -384,8 +389,9 @@ if [ "$RUN_BACKEND" = true ]; then
   fi
 
   # [15] Bandit（对齐 backend job 的 Static security scan step）
+  # 2026-10-03：-lll 存量清零后升级为 -ll（MEDIUM 以上全拦）
   header "15/22" "静态安全扫描 (bandit)"
-  if $BACKEND_PYTHON -m bandit -r apps -q -lll -x "*/migrations/*,*/static/*,*/staticfiles/*,*/media/*,*/venv*/*,*/htmlcov/*" 2>&1; then
+  if $BACKEND_PYTHON -m bandit -r apps -q -ll -x "*/migrations/*,*/static/*,*/staticfiles/*,*/media/*,*/venv*/*,*/htmlcov/*" 2>&1; then
     pass "bandit"
   else
     fail "bandit"
@@ -426,12 +432,13 @@ if [ "$RUN_BACKEND" = true ]; then
     fi
 
     # [19] Apps coverage（对齐 backend-coverage job）
-    header "19/22" "全局覆盖率基线 (≥75%)"
+    # 2026-10-03：覆盖率棘轮 75 → 78（当前实测 83.41，余量充足）
+    header "19/22" "全局覆盖率基线 (≥78%)"
     if $BACKEND_PYTEST -c pytest.ini \
       -o addopts="--import-mode=importlib -q --tb=short --strict-markers --timeout=60" \
       --reuse-db \
       --cov=apps \
-      --cov-report=term-missing --cov-fail-under=75 \
+      --cov-report=term-missing --cov-fail-under=78 \
       tests/ci/unit/ 2>&1; then
       pass "apps-coverage"
     else

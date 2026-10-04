@@ -101,7 +101,6 @@ dependencies = [
 [dependency-groups]
 dev = [
     # --- 代码格式化 ---
-    "black==26.5.1",
     "isort==9.0.2",
     "ruff==0.16.9",
     # --- 类型检查 ---
@@ -135,26 +134,6 @@ test = [
 
 [tool.uv]
 default-groups = ["dev", "test"]
-
-[tool.black]
-line-length = 120
-target-version = ['py312']
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.git
-  | \.mypy_cache
-  | \.pytest_cache
-  | \.hypothesis
-  | \.tox
-  | \.venv
-  | _build
-  | buck-out
-  | build
-  | dist
-  | migrations
-)/
-'''
 
 [tool.isort]
 profile = "black"

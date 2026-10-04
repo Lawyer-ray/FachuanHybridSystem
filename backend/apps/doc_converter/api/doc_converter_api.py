@@ -11,7 +11,16 @@ from ninja.files import UploadedFile
 
 from apps.core.exceptions import NotFoundError
 from apps.doc_converter.models import DocConverterJobStatus
-from apps.doc_converter.schemas import CopyItemsIn, HealthOut, JobProgressOut, JobSubmitOut, SaveToDirIn, SaveToDirOut
+from apps.doc_converter.schemas import (
+    ClipboardCopyOut,
+    CopyItemsIn,
+    HealthOut,
+    JobListOut,
+    JobProgressOut,
+    JobSubmitOut,
+    SaveToDirIn,
+    SaveToDirOut,
+)
 from apps.doc_converter.services.converter_service import DocConverterService
 from apps.doc_converter.services.engine import find_libreoffice
 
@@ -43,7 +52,7 @@ def create_conversion_job(  # pragma: no cover
     }
 
 
-@router.get("/jobs", summary="历史转换任务列表")
+@router.get("/jobs", response=JobListOut, summary="历史转换任务列表")
 def list_conversion_jobs(request: Any, page: int = 1, page_size: int = 20) -> dict[str, Any]:  # pragma: no cover
     """分页列出历史转换任务（最新在前），供前端历史弹窗浏览与重新下载。"""
     jobs, count, num_pages = _service.list_jobs(page=page, page_size=page_size, user=_request_user(request))
@@ -104,7 +113,7 @@ def download_single_file(request: Any, job_id: UUID, item_id: UUID) -> FileRespo
     )
 
 
-@router.post("/jobs/{job_id}/items/copy-to-clipboard", summary="复制转换文件到系统剪贴板")
+@router.post("/jobs/{job_id}/items/copy-to-clipboard", response=ClipboardCopyOut, summary="复制转换文件到系统剪贴板")
 def copy_items_to_clipboard(  # pragma: no cover
     request: Any, job_id: UUID, payload: CopyItemsIn
 ) -> dict[str, Any]:

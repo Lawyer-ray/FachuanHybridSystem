@@ -89,7 +89,9 @@ class EvidenceMutationService:
         return previous_list
 
     @transaction.atomic
-    def update_evidence_list(self, *, evidence_list: EvidenceList, title: str | None = None) -> EvidenceList:  # pragma: no cover
+    def update_evidence_list(
+        self, *, evidence_list: EvidenceList, title: str | None = None
+    ) -> EvidenceList:  # pragma: no cover
         if title is not None:
             if not title or not title.strip():
                 raise ValidationException(
@@ -128,7 +130,9 @@ class EvidenceMutationService:
         return True
 
     @transaction.atomic
-    def create_evidence_item(self, *, evidence_list: EvidenceList, name: str, purpose: str) -> EvidenceItem:  # pragma: no cover
+    def create_evidence_item(
+        self, *, evidence_list: EvidenceList, name: str, purpose: str
+    ) -> EvidenceItem:  # pragma: no cover
         if not name or not name.strip():
             raise ValidationException(
                 message="证据名称不能为空",

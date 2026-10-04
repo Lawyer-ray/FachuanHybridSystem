@@ -109,9 +109,7 @@ async def download_legal_rep_certificate(request: Any, case_id: int, client_id: 
     contract_id = case["contract_id"] if case else None
 
     service = _get_authorization_material_generation_service()
-    content, filename = await sync_to_async(service.generate_legal_rep_certificate_document)(
-        case_id, client_id
-    )
+    content, filename = await sync_to_async(service.generate_legal_rep_certificate_document)(case_id, client_id)
 
     logger.info(
         "法定代表人身份证明书生成成功",
@@ -136,9 +134,9 @@ async def download_power_of_attorney_combined(
     contract_id = case["contract_id"] if case else None
 
     service = _get_authorization_material_generation_service()
-    content, filename = await sync_to_async(
-        service.generate_power_of_attorney_combined_document
-    )(case_id, payload.client_ids)
+    content, filename = await sync_to_async(service.generate_power_of_attorney_combined_document)(
+        case_id, payload.client_ids
+    )
 
     logger.info(
         "授权委托书(合并授权)生成成功",
@@ -193,9 +191,7 @@ async def download_power_of_attorney(request: Any, case_id: int, client_id: int)
     contract_id = case["contract_id"] if case else None
 
     service = _get_authorization_material_generation_service()
-    content, filename = await sync_to_async(service.generate_power_of_attorney_document)(
-        case_id, client_id
-    )
+    content, filename = await sync_to_async(service.generate_power_of_attorney_document)(case_id, client_id)
 
     logger.info(
         "授权委托书生成成功",

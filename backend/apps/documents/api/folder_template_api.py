@@ -63,7 +63,9 @@ async def create_folder_template(request: Any, payload: FolderTemplateIn) -> Any
 
 
 @router.put("/folder-templates/{template_id}", response=FolderTemplateOut)
-async def update_folder_template(request: Any, template_id: int, payload: FolderTemplateUpdate) -> Any:  # pragma: no cover
+async def update_folder_template(
+    request: Any, template_id: int, payload: FolderTemplateUpdate
+) -> Any:  # pragma: no cover
     """更新文件夹模板"""
     service = _get_folder_template_service()
     template = await sync_to_async(service.update_template_from_dict)(template_id, schema_to_update_dict(payload))

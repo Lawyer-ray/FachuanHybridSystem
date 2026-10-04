@@ -28,7 +28,9 @@ _lawfirm_service = _get_lawfirm_service()
 
 @router.get("/lawfirms", response=list[LawFirmOut])
 async def list_lawfirms(request: HttpRequest, name: str | None = None) -> list[LawFirmOut]:  # pragma: no cover
-    return await sync_to_async(lambda: list(_lawfirm_service.list_lawfirms(name=name, user=get_request_user(request))))()  # type: ignore[return-value]
+    return await sync_to_async(
+        lambda: list(_lawfirm_service.list_lawfirms(name=name, user=get_request_user(request)))
+    )()  # type: ignore[return-value]
 
 
 @router.get("/lawfirms/{law_firm_id}", response=LawFirmOut)
@@ -48,14 +50,18 @@ async def create_lawfirm(request: HttpRequest, payload: LawFirmIn) -> LawFirmOut
 
 
 @router.put("/lawfirms/{law_firm_id}", response=LawFirmOut)
-async def update_lawfirm(request: HttpRequest, law_firm_id: int, payload: LawFirmUpdateIn) -> LawFirmOut:  # pragma: no cover
+async def update_lawfirm(
+    request: HttpRequest, law_firm_id: int, payload: LawFirmUpdateIn
+) -> LawFirmOut:  # pragma: no cover
     dto = LawFirmUpdateDTO(
         name=payload.name,
         address=payload.address,
         phone=payload.phone,
         social_credit_code=payload.social_credit_code,
     )
-    return await sync_to_async(_lawfirm_service.update_lawfirm)(lawfirm_id=law_firm_id, data=dto, user=get_request_user(request))  # type: ignore[return-value]
+    return await sync_to_async(_lawfirm_service.update_lawfirm)(
+        lawfirm_id=law_firm_id, data=dto, user=get_request_user(request)
+    )  # type: ignore[return-value]
 
 
 @router.delete("/lawfirms/{law_firm_id}")

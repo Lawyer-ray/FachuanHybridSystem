@@ -73,6 +73,8 @@ ci-check: ## 完整镜像 GitHub CI backend job（推送前必跑，覆盖远端
 	fi
 	@echo "🔍 [7/13] Mypy (curated gate)..."
 	@PYTHONPATH=apiSystem:. $(PYTHON) -m mypy --config-file=mypy.ini --follow-imports=silent $(MYPY_CURATED_GATE)
+	@echo "🔍 [7b/13] Mypy (apps 全量门，2026-10-03 清零后新增，基线 0 错)..."
+	@PYTHONPATH=apiSystem:. $(PYTHON) -m mypy --config-file=mypy.ini apps
 	@echo "🧪 [8/13] 结构测试 (structure smoke)..."
 	$(TEST_ENV) $(PYTEST) tests/ci/structure/ -q --no-header --no-cov $(ARGS)
 	@echo "🧪 [9/13] 单元测试 (unit)..."
@@ -82,7 +84,7 @@ ci-check: ## 完整镜像 GitHub CI backend job（推送前必跑，覆盖远端
 	@echo "🔐 [11/13] 依赖安全审计 (pip-audit)..."
 	@$(PYTHON) -m pip_audit --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-6357 --ignore-vuln CVE-2026-42304
 	@echo "🛡️ [12/13] 静态安全扫描 (bandit)..."
-	@$(PYTHON) -m bandit -r apps -q -lll -x "*/migrations/*,*/static/*,*/staticfiles/*,*/media/*,*/venv*/*,*/htmlcov/*"
+	@$(PYTHON) -m bandit -r apps -q -ll -x "*/migrations/*,*/static/*,*/staticfiles/*,*/media/*,*/venv*/*,*/htmlcov/*"
 	@echo "📎 [13/13] Pre-commit hooks (changed files)..."
 	@CI_BASE=$$(git rev-parse --abbrev-ref @{u} 2>/dev/null | sed 's|origin/||' || true); \
 	if [ -z "$$CI_BASE" ] || ! git rev-parse "$$CI_BASE" &>/dev/null; then CI_BASE="main"; fi; \
@@ -123,12 +125,12 @@ ci-check-full: ## 完整 CI 镜像 + 远端独立 Job（coverage 门槛 + 全量
 		--cov=apps.enterprise_data.services.clients.api_key_pool \
 		--cov-report=term-missing --cov-fail-under=85 \
 		tests/ci/unit/
-	@echo "📊 [E6] 全局覆盖率基线 (≥75%)..."
+	@echo "📊 [E6] 全局覆盖率基线 (≥78%)..."
 	$(TEST_ENV) $(PYTEST) -c pytest.ini \
 		-o addopts="--import-mode=importlib -q --tb=short --strict-markers --timeout=60" \
 		--reuse-db \
 		--cov=apps \
-		--cov-report=term-missing --cov-fail-under=75 \
+		--cov-report=term-missing --cov-fail-under=78 \
 		tests/ci/unit/
 	@echo ""
 	@echo "$(GREEN)✅ 完整 CI 镜像 + 扩展检查全部通过!$(NC)"
@@ -313,8 +315,8 @@ lint: ## 全量代码检查 apps/
 
 lint-full: lint ## 全量代码检查（lint 别名）
 
-format: ## 格式化代码
-	$(PYTHON) -m black apps --line-length=120
+format: ## 格式化代码（black 已退役，统一 ruff format；line-length=120 沿用 ruff.toml）
+	$(PYTHON) -m ruff format apps --config ruff.toml
 	$(PYTHON) -m isort apps
 
 typecheck-ratchet: ## 类型检查（仅棘轮路径）

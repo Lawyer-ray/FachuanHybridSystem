@@ -22,28 +22,30 @@ function makeContract(partial: Partial<ContractListItem> = {}): ContractListItem
     case_type_label: '民商事',
     status: 'active',
     status_label: '在办',
-    specified_date: null,
+    specified_date: '2026-09-20',
     start_date: '2026-01-10',
     end_date: '2026-10-01',
     is_filed: false,
     filing_number: null,
     fee_mode: '固定收费',
-    fixed_amount: 50000,
+    fixed_amount: '50000',
     risk_rate: null,
     custom_terms: null,
     representation_stages: [],
     law_firm_oa_url: null,
     law_firm_oa_case_number: 'OA-001',
+    has_matched_templates: false,
+    can_archive: false,
     total_received: 20000,
-    total_invoiced: null,
+    total_invoiced: 0,
     unpaid_amount: 30000,
     contract_parties: [
-      { id: 1, role_label: '委托人', client_detail: { id: 1, name: '张三', is_our_client: true, phone: '13800000000', address: null, client_type_label: '自然人', id_number: '4401***', legal_representative: null } },
-      { id: 2, role_label: '对方当事人', client_detail: { id: 2, name: '李四公司', is_our_client: false, phone: null, address: '广州市', client_type_label: '法人', id_number: null, legal_representative: '王五' } },
+      { id: 1, contract: 1, client: 1, role: 'PRINCIPAL', role_label: '委托人', client_detail: { id: 1, name: '张三', is_our_client: true, phone: '13800000000', address: null, client_type: 'natural', client_type_label: '自然人', id_number: '4401***', legal_representative: null, legal_representative_id_number: null, identity_docs: [] } },
+      { id: 2, contract: 1, client: 2, role: 'OPPOSING', role_label: '对方当事人', client_detail: { id: 2, name: '李四公司', is_our_client: false, phone: null, address: '广州市', client_type: 'legal', client_type_label: '法人', id_number: null, legal_representative: '王五', legal_representative_id_number: null, identity_docs: [] } },
     ],
-    assignments: [{ id: 1, lawyer_id: 9, lawyer_name: null, is_primary: true }],
-    primary_lawyer: { id: 9, real_name: '赵律师', phone: '13900000000', law_firm_name: '某律所' },
-    reminders: [{ id: 1, content: '开庭', due_at: '2026-10-01T09:00:00Z', reminder_type_label: '开庭' }],
+    assignments: [{ id: 1, lawyer_id: 9, lawyer_name: '', is_primary: true, order: 0 }],
+    primary_lawyer: { id: 9, username: 'zhao', real_name: '赵律师', phone: '13900000000', law_firm_name: '某律所' },
+    reminders: [{ id: 1, reminder_type: 'court', content: '开庭', due_at: '2026-10-01T09:00:00Z', reminder_type_label: '开庭', metadata: {}, created_at: '2026-09-28T08:00:00Z', updated_at: '2026-09-28T08:00:00Z' }],
     payments: [],
     client_payment_records: [],
     supplementary_agreements: [],
@@ -57,9 +59,10 @@ function makeCase(partial: Partial<CaseListItem> = {}): CaseListItem {
     id: 11,
     contract_id: 1,
     name: '张三与李四买卖合同纠纷',
+    case_type: 'civil',
     status: '在办',
     current_stage: '一审',
-    case_numbers: [{ id: 1, number: '(2026)粤01民初1号' }],
+    case_numbers: [{ id: 1, number: '(2026)粤01民初1号', remarks: null, created_at: '2026-08-01T00:00:00Z' }],
     supervising_authorities: [],
     cause_of_action: '买卖合同纠纷',
     target_amount: null,
@@ -69,6 +72,9 @@ function makeCase(partial: Partial<CaseListItem> = {}): CaseListItem {
     parties: [],
     logs: [],
     contacts: [],
+    assignments: [],
+    chats: [],
+    is_filed: false,
     ...partial,
   }
 }
@@ -127,7 +133,10 @@ describe('buildDeals', () => {
       [
         makeCase({
           current_stage: '',
-          case_numbers: [{ id: 1, number: 'A号' }, { id: 2, number: 'B号' }],
+          case_numbers: [
+            { id: 1, number: 'A号', remarks: null, created_at: '2026-08-01T00:00:00Z' },
+            { id: 2, number: 'B号', remarks: null, created_at: '2026-08-02T00:00:00Z' },
+          ],
         }),
       ],
       TODAY,
@@ -147,7 +156,14 @@ describe('buildDeals', () => {
               created_at: '2026-09-01T10:30:00',
               actor_detail: { id: 1, real_name: '赵律师', username: 'zhao' },
               content: '立案',
-              attachments: [{ id: 1 }, { id: 2 }],
+              attachments: [
+                { id: 1, log: 1, original_filename: 'a.pdf', file_path: null, media_url: null, uploaded_at: '2026-09-01T00:00:00Z' },
+                { id: 2, log: 1, original_filename: 'b.pdf', file_path: null, media_url: null, uploaded_at: '2026-09-01T00:00:00Z' },
+              ],
+              reminders: [],
+              updated_at: '2026-09-01T10:31:00',
+              case: 11,
+              actor: 1,
               reminder_time: null,
             },
             {
@@ -156,6 +172,10 @@ describe('buildDeals', () => {
               actor_detail: { id: 2, real_name: '', username: 'qian' },
               content: '开庭',
               attachments: [],
+              reminders: [],
+              updated_at: '2026-10-01T09:01:00',
+              case: 11,
+              actor: 2,
               reminder_time: '2026-10-01T08:00:00Z',
             },
           ],
@@ -178,10 +198,12 @@ describe('buildDeals', () => {
     const dc = buildDealCases(
       [
         makeCase({
-          supervising_authorities: [{ id: 1, name: '佛山中院', authority_type_display: '法院' }],
+          supervising_authorities: [{ id: 1, name: '佛山中院', authority_type: 'trial', authority_type_display: '法院', created_at: '2026-01-01T00:00:00Z' }],
           parties: [
             {
               id: 1,
+              case: 11,
+              client: 1,
               legal_status: '原告',
               client_detail: {
                 id: 1,
@@ -189,14 +211,17 @@ describe('buildDeals', () => {
                 is_our_client: true,
                 phone: null,
                 address: null,
+                client_type: 'natural',
                 client_type_label: '自然人',
                 id_number: null,
                 legal_representative: null,
+                legal_representative_id_number: null,
+                identity_docs: [],
               },
             },
           ],
           contacts: [
-            { id: 1, name: '王五', role_display: '证人', phone: '138', note: '关键证人', stage_display: '已通知' },
+            { id: 1, name: '王五', role: 'witness', phone: '138', address: null, stage: '', note: '关键证人', authority_name: null, case_id: 11, authority_id: null, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', role_display: '证人', stage_display: '已通知' },
           ],
         }),
       ],
@@ -218,9 +243,9 @@ describe('buildDeals', () => {
         makeContract({
           id: 1,
           assignments: [
-            { id: 1, lawyer_id: 9, lawyer_name: null, is_primary: true }, // 回落到律师表
-            { id: 2, lawyer_id: 10, lawyer_name: '孙主办', is_primary: false }, // 优先 assignment 名
-            { id: 3, lawyer_id: 99, lawyer_name: null, is_primary: false }, // 都没有 → 空
+            { id: 1, lawyer_id: 9, lawyer_name: '', is_primary: true, order: 0 }, // 回落到律师表
+            { id: 2, lawyer_id: 10, lawyer_name: '孙主办', is_primary: false, order: 1 }, // 优先 assignment 名
+            { id: 3, lawyer_id: 99, lawyer_name: '', is_primary: false, order: 2 }, // 都没有 → 空
           ],
         }),
       ],

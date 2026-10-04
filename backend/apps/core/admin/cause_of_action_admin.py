@@ -174,7 +174,9 @@ class CauseOfActionAdmin(admin.ModelAdmin):  # pragma: no cover
         ]
         return custom_urls + urls
 
-    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:  # pragma: no cover
+    def changelist_view(
+        self, request: HttpRequest, extra_context: dict[str, Any] | None = None
+    ) -> HttpResponse:  # pragma: no cover
         """自定义列表页面"""
         extra_context = extra_context or {}
 

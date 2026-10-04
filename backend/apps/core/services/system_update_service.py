@@ -46,7 +46,9 @@ class SystemUpdateService:  # pragma: no cover
         self._task_timeout_seconds = task_timeout_seconds
         self._step_timeout_seconds = step_timeout_seconds
 
-    def trigger_update(self, *, triggered_by: str, enable_post_update_setup: bool = False) -> dict[str, Any]:  # pragma: no cover
+    def trigger_update(
+        self, *, triggered_by: str, enable_post_update_setup: bool = False
+    ) -> dict[str, Any]:  # pragma: no cover
         """触发异步更新任务。"""
         current_state = self.get_state()
         if str(current_state.get("status")) in {"queued", "running"}:
@@ -304,7 +306,9 @@ class SystemUpdateService:  # pragma: no cover
             check=True,
         )
 
-    def _append_step(self, steps: list[dict[str, Any]], *, name: str, output: SubprocessOutput) -> None:  # pragma: no cover
+    def _append_step(
+        self, steps: list[dict[str, Any]], *, name: str, output: SubprocessOutput
+    ) -> None:  # pragma: no cover
         steps.append(
             {
                 "name": name,

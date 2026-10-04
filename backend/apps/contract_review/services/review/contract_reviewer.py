@@ -218,7 +218,9 @@ class ContractReviewer:  # pragma: no cover
             return ""
 
     @staticmethod
-    def _build_revision_prompt(text: str, represented_party: str, party_a: str, party_b: str) -> str:  # pragma: no cover
+    def _build_revision_prompt(
+        text: str, represented_party: str, party_a: str, party_b: str
+    ) -> str:  # pragma: no cover
         party_label = _PARTY_LABELS.get(represented_party, "甲方")
         party_name = party_a if represented_party == "party_a" else party_b
         return (

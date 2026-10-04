@@ -2,65 +2,15 @@
 Django-Q 后台任务 —— 爬虫与保全询价
 """
 
-import asyncio
 import logging
-import os
-from collections.abc import Coroutine, Iterator
-from concurrent.futures import Future
-from contextlib import contextmanager
-from threading import Thread
 from typing import Any
 
 from django.db.models import F
 
+from apps.core.infrastructure.async_context import allow_async_unsafe
+from apps.core.infrastructure.sync_async_bridge import run_coro_sync
+
 logger = logging.getLogger("apps.automation")
-
-
-@contextmanager
-def _allow_async_unsafe() -> Iterator[None]:
-    """
-    作用域化开启 DJANGO_ALLOW_ASYNC_UNSAFE。
-
-    爬虫任务在 Django-Q worker 的异步上下文里跑同步 ORM，需要临时放开
-    Django 的异步安全检查；进程常驻，全局 setdefault 会让同一 worker 里的
-    其他任务也绕过检查，故进入时置 true、退出时恢复旧值。
-    """
-    previous = os.environ.get("DJANGO_ALLOW_ASYNC_UNSAFE")
-    os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
-    try:
-        yield
-    finally:
-        if previous is None:
-            os.environ.pop("DJANGO_ALLOW_ASYNC_UNSAFE", None)
-        else:
-            os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = previous
-
-
-def _run_coroutine_sync[T](coro: Coroutine[Any, Any, T]) -> T:
-    """
-    在同步上下文中安全执行协程。
-
-    Django-Q worker 某些场景下会存在运行中的事件循环，此时不能直接调用 asyncio.run。
-    """
-    try:
-        asyncio.get_running_loop()
-    except RuntimeError:
-        return asyncio.run(coro)
-
-    future: Future[T] = Future()
-
-    def _runner() -> None:
-        try:
-            result = asyncio.run(coro)
-        except Exception as exc:
-            future.set_exception(exc)
-        else:
-            future.set_result(result)
-
-    thread = Thread(target=_runner, name="automation-quote-task-runner", daemon=True)
-    thread.start()
-    thread.join()
-    return future.result()
 
 
 def _get_scraper_map() -> dict[str, type[Any]]:
@@ -97,7 +47,7 @@ def execute_scraper_task(task_id: int, **kwargs: Any) -> None:
 
     from ..models import ScraperTask, ScraperTaskStatus
 
-    with _allow_async_unsafe():
+    with allow_async_unsafe():
         try:
             task = ScraperTask.objects.get(id=task_id)
         except ScraperTask.DoesNotExist:
@@ -265,7 +215,10 @@ def execute_preservation_quote_task(quote_id: int) -> dict[str, Any]:
             insurance_client=insurance_client,
         )
 
-        raw_result = _run_coroutine_sync(quote_service.execute_quote(quote_id))
+        raw_result = run_coro_sync(
+            quote_service.execute_quote(quote_id),
+            thread_name_prefix="automation-quote-task-runner",
+        )
         result: dict[str, Any] = raw_result
 
         logger.info("✅ 询价任务 #%s 执行完成: %s", quote_id, result)

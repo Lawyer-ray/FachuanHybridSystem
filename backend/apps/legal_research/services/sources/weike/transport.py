@@ -28,7 +28,9 @@ class WeikeTransportMixin:  # pragma: no cover
             raise RuntimeError("Playwright请求上下文未就绪")
         return session.page.request.get(url, timeout=timeout)
 
-    def _request_post_json(self, *, session: WeikeSession, url: str, payload: dict[str, Any], timeout: int) -> Any:  # pragma: no cover
+    def _request_post_json(
+        self, *, session: WeikeSession, url: str, payload: dict[str, Any], timeout: int
+    ) -> Any:  # pragma: no cover
         if session.http_client is not None:
             return session.http_client.post(url, json=payload, timeout=max(1.0, timeout / 1000))
 

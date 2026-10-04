@@ -39,7 +39,9 @@ class FolderTemplateIdService:
                 seen.add(id_val)
         return duplicates
 
-    def find_global_duplicates(self, ids: list[str], exclude_template_id: int | None = None) -> set[str]:  # pragma: no cover
+    def find_global_duplicates(
+        self, ids: list[str], exclude_template_id: int | None = None
+    ) -> set[str]:  # pragma: no cover
         if not ids:
             return set()
 

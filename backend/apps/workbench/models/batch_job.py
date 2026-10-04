@@ -55,7 +55,9 @@ class BatchJob(models.Model):
     cancel_requested = models.BooleanField("请求取消", default=False)
     task_id = models.CharField("Django Q2 任务ID", max_length=255, blank=True, default="")
     summary = models.TextField("汇总结论", blank=True, default="")
-    summary_file = models.FileField("汇总文件", upload_to=DatedUUIDPath(MediaEntity.WORKBENCH_SUMMARY), blank=True, default="")
+    summary_file = models.FileField(
+        "汇总文件", upload_to=DatedUUIDPath(MediaEntity.WORKBENCH_SUMMARY), blank=True, default=""
+    )
     detail_zip_file = models.FileField(
         "分析详情 ZIP", upload_to=DatedUUIDPath(MediaEntity.WORKBENCH_DETAIL), blank=True, default=""
     )

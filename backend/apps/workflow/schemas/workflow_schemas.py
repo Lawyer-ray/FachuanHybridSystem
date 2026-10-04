@@ -55,6 +55,7 @@ class WorkflowDetailOut(Schema):
 
 class StepConfigIn(Schema):
     """步骤配置输入"""
+
     id: str
     name: str
     type: str  # activity | gate | wait | condition | delay | llm | http | code
@@ -77,6 +78,7 @@ class StepConfigIn(Schema):
 
 class TemplateCreateIn(Schema):
     """创建模板输入"""
+
     name: str
     slug: str = ""
     category: str = "litigation"
@@ -88,6 +90,7 @@ class TemplateCreateIn(Schema):
 
 class TemplateUpdateIn(Schema):
     """更新模板输入"""
+
     name: str | None = None
     slug: str | None = None
     category: str | None = None
@@ -99,6 +102,7 @@ class TemplateUpdateIn(Schema):
 
 class TemplateListOut(Schema):
     """模板列表输出"""
+
     id: int
     name: str
     slug: str
@@ -113,6 +117,7 @@ class TemplateListOut(Schema):
 
 class TemplateDetailOut(Schema):
     """模板详情输出"""
+
     id: int
     name: str
     slug: str

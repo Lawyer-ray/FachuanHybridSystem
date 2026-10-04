@@ -43,9 +43,7 @@ async def build_chat_stream(
 
     presenter = ExceptionPresenter()
 
-    conversation_service = await asyncio.to_thread(
-        conversation_service_factory, session_id=session_id, user_id=user_id
-    )
+    conversation_service = await asyncio.to_thread(conversation_service_factory, session_id=session_id, user_id=user_id)
 
     meta_json = json.dumps(
         {"type": "meta", "session_id": conversation_service.session_id},

@@ -109,14 +109,12 @@ export interface OcrPending {
   loading: boolean
 }
 
-/** 案件搜索行（来自 /cases/search）。
- *  手写保留：生成物未给该端点声明响应 schema（裸响应），形状按真实返回维护 */
-export interface CaseRow {
-  id: number
-  name: string
-  filing_number?: string | null
-  case_numbers?: { number?: string }[]
-}
+/** 案件搜索行（来自 /cases/search，生成物 CaseOut）。
+ *  消费子集投影；id 覆写为必有（生成物按 ModelSchema 口径可选可空）。 */
+export type CaseRow = Pick<
+  components['schemas']['CaseOut'],
+  'name' | 'filing_number' | 'case_numbers'
+> & { id: number }
 
 /** 后端 /clients 检索命中的当事人（客户库），用于委托人/对方当事人填入。
  *  基于生成物 PartyListOut；client_type 为 schema 未声明的额外字段，按可选保留 */

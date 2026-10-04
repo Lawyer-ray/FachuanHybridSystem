@@ -143,7 +143,9 @@ class CourtSMSAdmin(CourtSMSAdminActions, CourtSMSAdminBase):  # pragma: no cove
         archive_name = f"courtsms_{sms_id}_documents.zip"
         return FileResponse(zip_buffer, as_attachment=True, filename=archive_name)
 
-    def rename_document_view(self, request: HttpRequest, sms_id: int, ref_index: int) -> HttpResponse:  # pragma: no cover
+    def rename_document_view(
+        self, request: HttpRequest, sms_id: int, ref_index: int
+    ) -> HttpResponse:  # pragma: no cover
         """手动重命名关联文书（仅允许修改文件名）"""
         if request.method != "POST":
             return HttpResponseNotAllowed(["POST"])

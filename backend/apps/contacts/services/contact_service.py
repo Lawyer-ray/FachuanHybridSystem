@@ -169,17 +169,12 @@ class CaseContactService(DjangoPermsMixin):
         # Build a single Q filter covering all (name, role, authority__name) combos
         combo_q = reduce(
             operator.or_,
-            [
-                Q(name=r["name"], role=r["role"], authority__name=r["authority__name"])
-                for r in grouped
-            ],
+            [Q(name=r["name"], role=r["role"], authority__name=r["authority__name"]) for r in grouped],
         )
 
         # Batch query 1: collect all case_ids per group
         all_contacts = (
-            CaseContact.objects.filter(combo_q)
-            .values("name", "role", "authority__name", "case_id")
-            .distinct()
+            CaseContact.objects.filter(combo_q).values("name", "role", "authority__name", "case_id").distinct()
         )
         case_id_map: dict[tuple[str, str, str], list[int]] = {}
         for cc in all_contacts:

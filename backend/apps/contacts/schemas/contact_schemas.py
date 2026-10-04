@@ -29,6 +29,10 @@ class CaseContactOut(ModelSchema, SchemaMixin):
     authority_name: str | None
     case_id: int
     authority_id: int | None
+    # created_at / updated_at 允许 str：response= 端点对 mode="json" dump 做
+    # re-validation 时保持 ISO 字符串原样透传，避免 datetime 对象经 str() 改变线上格式
+    created_at: datetime | str
+    updated_at: datetime | str
 
     class Meta:
         model = CaseContact
@@ -40,8 +44,6 @@ class CaseContactOut(ModelSchema, SchemaMixin):
             "address",
             "stage",
             "note",
-            "created_at",
-            "updated_at",
         ]
 
     @staticmethod
@@ -75,16 +77,18 @@ class CaseContactOut(ModelSchema, SchemaMixin):
         return obj.authority.name if obj.authority else None
 
     @staticmethod
-    def resolve_created_at(obj: Any) -> datetime | None:
+    def resolve_created_at(obj: Any) -> datetime | str:
         if isinstance(obj, dict):
-            return obj.get("created_at")
-        return SchemaMixin._resolve_datetime(getattr(obj, "created_at", None))
+            value = obj.get("created_at")
+            return value if value is not None else ""
+        return SchemaMixin._resolve_datetime(getattr(obj, "created_at", None)) or ""
 
     @staticmethod
-    def resolve_updated_at(obj: Any) -> datetime | None:
+    def resolve_updated_at(obj: Any) -> datetime | str:
         if isinstance(obj, dict):
-            return obj.get("updated_at")
-        return SchemaMixin._resolve_datetime(getattr(obj, "updated_at", None))
+            value = obj.get("updated_at")
+            return value if value is not None else ""
+        return SchemaMixin._resolve_datetime(getattr(obj, "updated_at", None)) or ""
 
 
 class CaseContactUpdate(Schema):

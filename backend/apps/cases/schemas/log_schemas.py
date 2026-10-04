@@ -68,22 +68,32 @@ class CaseLogUpdate(_CaseLogReminderMixin):
 class CaseLogAttachmentOut(ModelSchema, SchemaMixin):
     file_path: str | None
     media_url: str | None
+    # uploaded_at 允许 str：response= 端点对 mode="json" dump re-validation 时保持
+    # ISO 字符串原样透传，避免 datetime 对象经 str() 改变线上格式
+    uploaded_at: datetime | str
 
     class Meta:
         model = CaseLogAttachment
-        fields: ClassVar = ["id", "log", "original_filename", "uploaded_at"]
+        fields: ClassVar = ["id", "log", "original_filename"]
 
     @staticmethod
-    def resolve_file_path(obj: CaseLogAttachment) -> str | None:
+    def resolve_file_path(obj: Any) -> str | None:
+        if isinstance(obj, dict):
+            return obj.get("file_path")
         return SchemaMixin._get_file_path(obj.file)
 
     @staticmethod
-    def resolve_media_url(obj: CaseLogAttachment) -> str | None:
+    def resolve_media_url(obj: Any) -> str | None:
+        if isinstance(obj, dict):
+            return obj.get("media_url")
         return SchemaMixin._get_file_url(obj.file)
 
     @staticmethod
-    def resolve_uploaded_at(obj: CaseLogAttachment) -> datetime | None:
-        return SchemaMixin._resolve_datetime(getattr(obj, "uploaded_at", None))
+    def resolve_uploaded_at(obj: Any) -> datetime | str:
+        if isinstance(obj, dict):
+            value = obj.get("uploaded_at")
+            return value if value is not None else ""
+        return SchemaMixin._resolve_datetime(getattr(obj, "uploaded_at", None)) or ""
 
 
 class CaseLogActorOut(Schema):
@@ -108,6 +118,10 @@ class CaseLogOut(ModelSchema, SchemaMixin):
     actor_detail: CaseLogActorOut
     reminder_type: str | None = None
     reminder_time: str | None = None
+    # created_at / updated_at 允许 str：response= 端点对 mode="json" dump 做
+    # re-validation 时保持 ISO 字符串原样透传，避免 datetime 对象经 str() 改变线上格式
+    created_at: datetime | str
+    updated_at: datetime | str
 
     class Meta:
         model = CaseLog
@@ -116,8 +130,6 @@ class CaseLogOut(ModelSchema, SchemaMixin):
             "case",
             "content",
             "actor",
-            "created_at",
-            "updated_at",
         ]
 
     @staticmethod
@@ -224,23 +236,22 @@ class CaseLogOut(ModelSchema, SchemaMixin):
         raise ValueError("无法解析 actor_detail")
 
     @staticmethod
-    def resolve_created_at(obj: Any) -> datetime | None:
+    def resolve_created_at(obj: Any) -> datetime | str | None:
         if isinstance(obj, dict):
-            value = obj.get("created_at")
-        else:
-            value = getattr(obj, "created_at", None)
-        # During re-validation, value is already a datetime/str — return as-is
+            # re-validation：mode="json" dump 的 ISO 字符串原样返回（union 字段保留
+            # str，不转 datetime），保证响应渲染与裸 dict 路径逐字节一致
+            return obj.get("created_at")
+        value = getattr(obj, "created_at", None)
         if value is not None and not hasattr(value, "year"):
             # value is a string or other — try datetime parsing
             return SchemaMixin._resolve_datetime(value)
         return value
 
     @staticmethod
-    def resolve_updated_at(obj: Any) -> datetime | None:
+    def resolve_updated_at(obj: Any) -> datetime | str | None:
         if isinstance(obj, dict):
-            value = obj.get("updated_at")
-        else:
-            value = getattr(obj, "updated_at", None)
+            return obj.get("updated_at")
+        value = getattr(obj, "updated_at", None)
         if value is not None and not hasattr(value, "year"):
             return SchemaMixin._resolve_datetime(value)
         return value

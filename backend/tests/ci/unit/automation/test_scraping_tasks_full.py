@@ -2,30 +2,24 @@
 
 from __future__ import annotations
 
-import asyncio
 from unittest.mock import MagicMock, patch
 
-import pytest
 
-from apps.automation.tasks.scraping_tasks import _run_coroutine_sync
+class TestModuleContract:
+    """私有桥收敛后的模块契约。
 
+    _run_coroutine_sync / _allow_async_unsafe 已收敛到
+    apps.core.infrastructure.sync_async_bridge / async_context，
+    模块内不应再残留私有版本（行为测试见 tests/ci/unit/core/ 对应文件）。
+    """
 
-class TestRunCoroutineSync:
-    """_run_coroutine_sync 测试。"""
+    def test_private_bridge_symbols_removed(self) -> None:
+        from apps.automation.tasks import scraping_tasks as module
 
-    def test_run_without_existing_loop(self) -> None:
-        async def coro() -> str:
-            return "result"
-
-        result = _run_coroutine_sync(coro())
-        assert result == "result"
-
-    def test_run_with_exception(self) -> None:
-        async def coro() -> None:
-            raise ValueError("test error")
-
-        with pytest.raises(ValueError, match="test error"):
-            _run_coroutine_sync(coro())
+        assert not hasattr(module, "_run_coroutine_sync")
+        assert not hasattr(module, "_allow_async_unsafe")
+        assert hasattr(module, "run_coro_sync")
+        assert hasattr(module, "allow_async_unsafe")
 
 
 class TestExecuteScraperTask:

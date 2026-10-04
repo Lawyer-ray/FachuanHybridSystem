@@ -5,9 +5,11 @@
 所有 ORM 访问和 Pydantic 序列化均在 sync_to_async 闭包内完成，
 防止 SynchronousOnlyOperation 和 Django Ninja re-validation 时的懒加载。
 
-注意：list/get/create/update 端点不使用 response= 注解，
-与 contracts 端点保持一致，避免 Ninja 对已序列化的 dict 做 re-validation
-（re-validation 会因 FK 字段别名/嵌套 schema 处理失败）。
+search / list 端点已补 response=list[CaseOut] 声明（openapi 生成物需要响应形状）：
+_schema.py 内相关嵌套 Schema 均已支持 dict re-validation（resolver 带 dict 分支、
+datetime 字段用 datetime | str 保留 mode="json" 的 ISO 字符串原样透传），
+响应体与裸 dict 路径逐字节一致。get/create/update 仍不使用 response= 注解
+（与 contracts 端点保持一致，避免 Ninja 对已序列化的 dict 做 re-validation）。
 """
 
 from __future__ import annotations
@@ -52,7 +54,7 @@ def _get_case_mutation_facade() -> CaseService:
     return _get_case_service()
 
 
-@router.get("/cases/search")
+@router.get("/cases/search", response=list[CaseOut], by_alias=True)
 async def search_cases(  # pragma: no cover
     request: HttpRequest,
     q: str,
@@ -77,7 +79,7 @@ async def search_cases(  # pragma: no cover
     return await sync_to_async(_do)()
 
 
-@router.get("/cases")
+@router.get("/cases", response=list[CaseOut], by_alias=True)
 async def list_cases(  # pragma: no cover
     request: HttpRequest,
     case_type: str | None = None,

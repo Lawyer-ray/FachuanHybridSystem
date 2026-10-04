@@ -39,9 +39,17 @@ DEFAULT_FILENAME_PROMPT = dedent(
 """
 ).strip()
 
-# 2. 生成当前日期，并将其格式化到模板中
-current_date_str = time.strftime("%Y%m%d")
-DEFAULT_FILENAME_PROMPT = DEFAULT_FILENAME_PROMPT.format(current_date=current_date_str)
+# 2. 当前日期在使用时填充（保持模板静态）：import 时 format 会让
+#    AutoToolProcessIn.prompt 的 schema default 每日变化，openapi 快照随生成日期漂移
+
+
+def fill_default_prompt(template: str | None = None) -> str:
+    """返回填充了当前日期的命名提示词。
+
+    模板中的 {current_date} 占位在调用时替换；自定义模板不含占位时原样返回。
+    """
+    base = DEFAULT_FILENAME_PROMPT if template is None else template
+    return base.replace("{current_date}", time.strftime("%Y%m%d"))
 
 
 def build_prompt(base: str, text: str) -> str:

@@ -74,7 +74,9 @@ class HeadingNumbering:  # pragma: no cover
 
         logger.info("已为 %d 个标题段落应用编号（%d 个编号区域）", applied, len([s for s in sections if s]))
 
-    def _identify_headings_via_llm(self, doc: DocumentType, model_name: str) -> list[tuple[int, int]]:  # pragma: no cover
+    def _identify_headings_via_llm(
+        self, doc: DocumentType, model_name: str
+    ) -> list[tuple[int, int]]:  # pragma: no cover
         """用 LLM 识别标题段落及层级，返回 (段落索引, 层级0/1/2)"""
         lines: list[str] = []
         for i, p in enumerate(doc.paragraphs):
@@ -121,7 +123,9 @@ class HeadingNumbering:  # pragma: no cover
         return []
 
     @staticmethod
-    def _supplement_missed_headings(doc: DocumentType, headings: list[tuple[int, int]]) -> list[tuple[int, int]]:  # pragma: no cover
+    def _supplement_missed_headings(
+        doc: DocumentType, headings: list[tuple[int, int]]
+    ) -> list[tuple[int, int]]:  # pragma: no cover
         """补充 LLM 漏识别的编号段落：原始有 numPr 的段落（有真实编号或有编号前缀文本）"""
         heading_indices = {idx for idx, _ in headings}
         ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -301,9 +305,7 @@ class HeadingNumbering:  # pragma: no cover
         if partname in partnames:
             partname = package.next_partname("/word/numbering%d.xml")
 
-        numbering_xml = (
-            '<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"/>'
-        )
+        numbering_xml = '<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"/>'
         numbering_part = NumberingPart(partname, CT.WML_NUMBERING, parse_xml(numbering_xml), package)
         doc.part.relate_to(numbering_part, RT.NUMBERING)
         return numbering_part
@@ -327,7 +329,9 @@ class HeadingNumbering:  # pragma: no cover
         return num_id
 
     @staticmethod
-    def _apply_num_to_paragraphs(doc: DocumentType, headings: list[tuple[int, int]], num_id: int) -> None:  # pragma: no cover
+    def _apply_num_to_paragraphs(
+        doc: DocumentType, headings: list[tuple[int, int]], num_id: int
+    ) -> None:  # pragma: no cover
         """将编号样式应用到标题段落"""
         for para_idx, level in headings:
             para = doc.paragraphs[para_idx]

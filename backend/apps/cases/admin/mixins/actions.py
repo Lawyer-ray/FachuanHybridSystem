@@ -40,7 +40,9 @@ class CaseAdminActionsMixin(CaseAdminServiceMixin):  # pragma: no cover
 
         return super().response_change(request, obj)  # type: ignore[misc, no-any-return]
 
-    def create_feishu_chat_for_selected_cases(self, request: HttpRequest, queryset: QuerySet[Case, Case]) -> None:  # pragma: no cover
+    def create_feishu_chat_for_selected_cases(
+        self, request: HttpRequest, queryset: QuerySet[Case, Case]
+    ) -> None:  # pragma: no cover
         service = self._get_case_chat_service()
         success_count = 0
         error_count = 0

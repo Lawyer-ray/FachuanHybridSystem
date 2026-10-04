@@ -42,6 +42,9 @@ class FinalizedMaterialOut(Schema):
 
     @staticmethod
     def resolve_category_label(obj: Any) -> str:
+        if isinstance(obj, dict):
+            # re-validation：列表端点 dump 后二次过 schema，直接取预计算值
+            return str(obj.get("category_label") or "")
         try:
             return str(obj.get_category_display())
         except (AttributeError, ValueError):
@@ -51,12 +54,16 @@ class FinalizedMaterialOut(Schema):
     def resolve_filename(obj: Any) -> str:
         from pathlib import Path
 
+        if isinstance(obj, dict):
+            return str(obj.get("filename") or "")
         return Path(obj.file_path).name if obj.file_path else ""
 
     @staticmethod
     def resolve_file_url(obj: Any) -> str:
         from django.conf import settings
 
+        if isinstance(obj, dict):
+            return str(obj.get("file_url") or "")
         if obj.file_path:
             media_url = getattr(settings, "MEDIA_URL", "/media/")
             return f"{media_url}{obj.file_path}"
@@ -64,12 +71,16 @@ class FinalizedMaterialOut(Schema):
 
     @staticmethod
     def resolve_uploaded_at(obj: Any) -> str | None:
+        if isinstance(obj, dict):
+            return obj.get("uploaded_at")
         if obj.uploaded_at:
             return str(obj.uploaded_at.isoformat())
         return None
 
     @staticmethod
     def resolve_created_at(obj: Any) -> str | None:
+        if isinstance(obj, dict):
+            return obj.get("created_at")
         if hasattr(obj, "created_at") and obj.created_at:
             return str(obj.created_at.isoformat())
         return None
@@ -87,14 +98,20 @@ class ClientPaymentRecordOut(Schema):
 
     @staticmethod
     def resolve_contract(obj: Any) -> int:
+        if isinstance(obj, dict):
+            return int(obj["contract"])
         return int(obj.contract_id)
 
     @staticmethod
     def resolve_amount(obj: Any) -> float:
+        if isinstance(obj, dict):
+            return float(obj.get("amount") or 0)
         return float(obj.amount or 0)
 
     @staticmethod
     def resolve_created_at(obj: Any) -> str | None:
+        if isinstance(obj, dict):
+            return obj.get("created_at")
         if obj.created_at:
             return str(obj.created_at.isoformat())
         return None
@@ -450,7 +467,11 @@ class ContractOut(ModelSchema):
     @staticmethod
     def resolve_finalized_materials(obj: Any) -> list:
         if isinstance(obj, dict):
-            return obj.get("finalized_materials", [])  # type: ignore[no-any-return]
+            if "finalized_materials" not in obj:
+                # slim 投影（list 端点剔除归档材料）：抛 AttributeError 让该字段
+                # 视为「未提供」，配合端点 exclude_unset=True 保持 slim 响应不含该键
+                raise AttributeError("finalized_materials")
+            return obj["finalized_materials"]  # type: ignore[no-any-return]
         try:
             return list(obj.finalized_materials.all())
         except Exception:
@@ -503,3 +524,28 @@ class ContractPaginatedOut(Schema):
     page: int
     page_size: int
     total_pages: int
+
+
+class ContractFacetCountOut(Schema):
+    """筛选 chips 计数行（value 供过滤参数、label 供展示）"""
+
+    value: str
+    label: str
+    n: int
+
+
+class ContractListPageOut(Schema):
+    """合同分页列表输出 Schema（GET /contracts/contracts 实际返回形状）。
+
+    与 ContractPaginatedOut 不同：本 Schema 按 list_contracts_page 服务返回定形
+    （facets 计数而非 total_pages）；items 在 slim=true 时剔除 finalized_materials
+    （由端点 exclude_unset=True 实现，此处声明保持全集）。
+    """
+
+    items: list[ContractOut]
+    total: int
+    page: int
+    page_size: int
+    status_counts: dict[str, int]
+    cat_counts: list[ContractFacetCountOut]
+    fee_counts: list[ContractFacetCountOut]

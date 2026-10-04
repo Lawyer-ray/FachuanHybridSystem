@@ -85,14 +85,17 @@ export async function getPackDetail(id: number): Promise<InboxMessageDetail> {
 }
 
 /** 删除材料包（收件箱消息）：后端先清理附件物理文件，再删 DB 记录。
- *  手写保留：生成物未声明该端点响应 schema，返回形状按真实返回维护 */
-export async function deletePack(id: number): Promise<{ ok: boolean; message_id: number }> {
+ *  响应为生成物 MessageAckOut（{ok, message_id}） */
+export async function deletePack(id: number): Promise<components['schemas']['MessageAckOut']> {
   return inboxApi.delete(`messages/${id}`).json()
 }
 
 /** 重命名材料包标题（收件箱消息 subject）。
- *  手写保留：生成物未声明该端点响应 schema，返回形状按真实返回维护 */
-export async function renamePack(id: number, subject: string): Promise<{ ok: boolean; message_id: number; subject: string }> {
+ *  响应为生成物 MessageRenameOut（{ok, message_id, subject}） */
+export async function renamePack(
+  id: number,
+  subject: string,
+): Promise<components['schemas']['MessageRenameOut']> {
   return inboxApi.put(`messages/${id}`, { json: { subject } }).json()
 }
 

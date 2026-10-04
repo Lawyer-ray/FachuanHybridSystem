@@ -1,5 +1,6 @@
 """Tests for admin service modules."""
 
+import asyncio
 from datetime import timedelta
 from decimal import Decimal
 from typing import Any
@@ -133,29 +134,8 @@ class TestPreservationQuoteAdminService:
         assert result["error_count"] == 1
 
 
-import asyncio
-
 # ============================================================
-# scraping_tasks.py - _run_coroutine_sync
+# scraping_tasks.py 的 _run_coroutine_sync 已收敛到统一工具
+# apps.core.infrastructure.sync_async_bridge.run_coro_sync，
+# 行为测试见 tests/ci/unit/core/test_sync_async_bridge.py
 # ============================================================
-
-class TestRunCoroutineSync:
-    """Tests for _run_coroutine_sync helper."""
-
-    def test_run_simple_coroutine(self):
-        from apps.automation.tasks.scraping_tasks import _run_coroutine_sync
-
-        async def coro():
-            return 42
-
-        result = _run_coroutine_sync(coro())
-        assert result == 42
-
-    def test_run_coroutine_with_exception(self):
-        from apps.automation.tasks.scraping_tasks import _run_coroutine_sync
-
-        async def coro():
-            raise ValueError("test error")
-
-        with pytest.raises(ValueError, match="test error"):
-            _run_coroutine_sync(coro())

@@ -27,7 +27,9 @@ class PropertyClueAttachmentInlineForm(forms.ModelForm[PropertyClueAttachment]):
         fields = ("file_name", "file_path")
 
 
-class PropertyClueAttachmentInline(admin.TabularInline[PropertyClueAttachment, PropertyClueAttachment]):  # pragma: no cover
+class PropertyClueAttachmentInline(
+    admin.TabularInline[PropertyClueAttachment, PropertyClueAttachment]
+):  # pragma: no cover
     """财产线索附件内联编辑"""
 
     model = PropertyClueAttachment

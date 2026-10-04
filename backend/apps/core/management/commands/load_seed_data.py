@@ -70,9 +70,7 @@ class Command(BaseCommand):
         from pathlib import Path
 
         core_data_dir = Path(__file__).resolve().parent.parent.parent / "data"
-        finance_data_dir = (
-            Path(__file__).resolve().parent.parent.parent.parent / "finance" / "data"
-        )
+        finance_data_dir = Path(__file__).resolve().parent.parent.parent.parent / "finance" / "data"
 
         for label, path in [
             ("案由", core_data_dir / "seed_causes_of_action.json"),

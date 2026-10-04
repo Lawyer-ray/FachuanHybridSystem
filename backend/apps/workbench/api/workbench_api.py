@@ -328,7 +328,9 @@ async def cancel_batch_analysis(request: Any, job_id: UUID) -> dict[str, Any]:  
 
 
 @router.get("/batch/{job_id}/download")
-async def download_batch_summary(request: Any, job_id: UUID, relevant_only: bool = False) -> FileResponse:  # pragma: no cover
+async def download_batch_summary(
+    request: Any, job_id: UUID, relevant_only: bool = False
+) -> FileResponse:  # pragma: no cover
     """下载批量分析汇总 CSV 文件"""
     ctx = extract_request_context(request)
     batch_service = ServiceLocator.get_workbench_batch_service()
