@@ -45,7 +45,9 @@
   padding: 48px 24px;
 }
 
-/* 品牌字标 */
+/* 品牌字标：一个节点两种形态（媒体查询换位，读屏不重复）
+   - 大屏：视口左上角「页面铭牌」——品牌属边框层，卡片专注任务层
+   - 小屏：回到卡片流内当页头（手机无边角空间，品牌直接压在表单上方） */
 .fc-mark {
   display: flex;
   align-items: baseline;
@@ -405,15 +407,64 @@
   color: var(--ink-3) !important;
 }
 
+/* ---------- 断点：字标换位 ---------- */
+/* 小屏（<760px）：卡片流内页头，自上而下落入 */
+@media (max-width: 759.98px) {
+  .fc-mark {
+    margin-bottom: 28px;
+  }
+
+  .fc-eyebrow {
+    margin-top: 24px;
+  }
+}
+
+/* 大屏（≥760px）：视口左上角铭牌（fixed 脱离卡片流），从左边缘滑入；
+   副标字距从 0.34em 收拢到 0.18em——编辑风的「落定」，一帧不多 */
+@media (min-width: 760px) {
+  .fc-mark {
+    position: fixed;
+    top: 40px;
+    left: 48px;
+    z-index: 1;
+  }
+
+  .fc-mark strong {
+    font-size: 1.125rem;
+  }
+
+  .fc-eyebrow {
+    margin-top: 8px;
+  }
+}
+
 /* ---------- 进场：三段淡入上移（尊重降低动效偏好） ---------- */
 @media (prefers-reduced-motion: no-preference) {
-  .fc-mark, .fc-eyebrow, .fc-title, .fc-sub {
+  .fc-eyebrow, .fc-title, .fc-sub {
     animation: fc-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .fc-tabs, .fc-fields, .fc-social, .fc-qr {
     animation: fc-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
     animation-delay: 0.08s;
+  }
+
+  @media (max-width: 759.98px) {
+    /* 小屏页头：从头顶落入（品牌压在表单上方，方向语义向下） */
+    .fc-mark {
+      animation: fc-mark-drop 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+  }
+
+  @media (min-width: 760px) {
+    /* 大屏铭牌：从左边缘滑入（它属于边缘，从边缘来），与卡片内容同时起步 */
+    .fc-mark {
+      animation: fc-mark-corner 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .fc-mark__meta {
+      animation: fc-meta-settle 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
+    }
   }
 
   @keyframes fc-rise {
@@ -424,6 +475,39 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  @keyframes fc-mark-drop {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fc-mark-corner {
+    from {
+      opacity: 0;
+      transform: translateX(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes fc-meta-settle {
+    from {
+      opacity: 0;
+      letter-spacing: 0.34em;
+    }
+    to {
+      opacity: 1;
+      letter-spacing: 0.18em;
     }
   }
 }
