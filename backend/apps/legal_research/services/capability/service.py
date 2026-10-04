@@ -24,7 +24,6 @@ from apps.core.exceptions import (
     ServiceUnavailableError,
     ValidationException,
 )
-from apps.core.infrastructure.async_context import allow_async_unsafe
 from apps.core.llm.config import LLMConfig
 from apps.legal_research.models import LegalResearchSearchMode, LegalResearchTask, LegalResearchTaskStatus
 from apps.legal_research.schemas.legal_research_schemas import (
@@ -412,23 +411,19 @@ class LegalResearchCapabilityService:  # pragma: no cover
         return keyword, "\n".join(part for part in summary_parts if part)[:8000]
 
     def _execute_with_timeout(self, *, task_id: str, timeout_ms: int) -> dict[str, Any]:  # pragma: no cover
-        # 【保留作用域化放行】与 legal_research/tasks.execute_legal_research_task 跑的是
-        # 同一个 LegalResearchExecutor.run：同步 Playwright 的 _set_running_loop 使执行器
-        # 线程带上运行中循环，_save_result 等直连 sync ORM 段（见
-        # executor_components/result_persistence.py）依赖本放行。环境变量为进程级，
-        # 在本线程设置即可覆盖 executor 线程的整个执行窗口（含 future.result 等待期）。
-        # 改造清单见 tasks.execute_legal_research_task 注释（_save_result 接入
-        # _run_orm_safely 或全链 async 化），两处放行须一并清偿。
-        with allow_async_unsafe():
-            executor = LegalResearchExecutor()
-            pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix=self.THREAD_NAME_PREFIX)
-            future = pool.submit(executor.run, task_id=task_id)
-            try:
-                timeout_seconds = max(1.0, float(timeout_ms) / 1000.0)
-                payload = future.result(timeout=timeout_seconds)
-                return payload if isinstance(payload, dict) else {}
-            finally:
-                pool.shutdown(wait=False, cancel_futures=True)
+        # 与 legal_research/tasks.execute_legal_research_task 跑的是同一个
+        # LegalResearchExecutor.run：同步 Playwright 使执行器线程带运行中循环，
+        # 执行器全部 ORM 段已统一经 _run_orm_safely 摆渡（见 tasks.py 注释），
+        # 无需 allow_async_unsafe 放行。
+        executor = LegalResearchExecutor()
+        pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix=self.THREAD_NAME_PREFIX)
+        future = pool.submit(executor.run, task_id=task_id)
+        try:
+            timeout_seconds = max(1.0, float(timeout_ms) / 1000.0)
+            payload = future.result(timeout=timeout_seconds)
+            return payload if isinstance(payload, dict) else {}
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
 
     @staticmethod
     def _mark_timeout(*, task: LegalResearchTask, timeout_ms: int) -> None:  # pragma: no cover

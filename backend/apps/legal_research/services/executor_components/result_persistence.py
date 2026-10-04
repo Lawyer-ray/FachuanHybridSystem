@@ -9,15 +9,46 @@ from django.utils import timezone
 
 from apps.core.filesystem.upload_paths import sanitize_filename
 from apps.legal_research.models import LegalResearchResult, LegalResearchTask
+from apps.legal_research.services.executor_components.task_lifecycle import ExecutorTaskLifecycleMixin
 from apps.legal_research.services.sources import CaseDetail
 
 
 class ExecutorResultPersistenceMixin:
     CONTENT_EXCERPT_MAX_CHARS = 12000
 
+    @classmethod
+    def _save_result(
+        cls,
+        *,
+        task: LegalResearchTask,
+        detail: CaseDetail,
+        similarity: Any,
+        rank: int,
+        pdf: tuple[bytes, str],
+        coarse_score: float | None = None,
+        coarse_reason: str = "",
+        extra_metadata: dict[str, Any] | None = None,
+    ) -> None:
+        # 候选循环与同步 Playwright 逐条交错，本线程挂着 Playwright 的运行中循环，
+        # 直连 sync ORM 会抛 SynchronousOnlyOperation——ORM 段整体经
+        # _run_orm_safely 摆渡到单 worker 线程（transaction.atomic 随 callable
+        # 一起搬线程；原子体内禁止再嵌套其他摆渡调用，单 worker 会死锁）。
+        ExecutorTaskLifecycleMixin._run_orm_safely(
+            lambda: cls._save_result_tx(
+                task=task,
+                detail=detail,
+                similarity=similarity,
+                rank=rank,
+                pdf=pdf,
+                coarse_score=coarse_score,
+                coarse_reason=coarse_reason,
+                extra_metadata=extra_metadata,
+            )
+        )
+
     @staticmethod
     @transaction.atomic
-    def _save_result(
+    def _save_result_tx(
         *,
         task: LegalResearchTask,
         detail: CaseDetail,
