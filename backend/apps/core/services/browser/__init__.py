@@ -147,21 +147,29 @@ async def create_browser_async(  # pragma: no cover
             humanize=profile.anti_detection,
         )
 
-        context_args = profile.to_context_args()
-        if profile.anti_detection:
-            anti_opts = anti_detection.get_context_options()
-            anti_opts.update(context_args)
-            context_args = anti_opts
+        try:
+            context_args = profile.to_context_args()
+            if profile.anti_detection:
+                anti_opts = anti_detection.get_context_options()
+                anti_opts.update(context_args)
+                context_args = anti_opts
 
-        context = await browser.new_context(**context_args)
-        context.set_default_timeout(profile.timeout)
-        context.set_default_navigation_timeout(profile.navigation_timeout)
+            context = await browser.new_context(**context_args)
+            context.set_default_timeout(profile.timeout)
+            context.set_default_navigation_timeout(profile.navigation_timeout)
 
-        page = await context.new_page()
-        page.on("dialog", lambda d: d.accept())
+            page = await context.new_page()
+            page.on("dialog", lambda d: d.accept())
 
-        # macOS 补充指纹补丁
-        await anti_detection.apply_macos_patches_async(page)
+            # macOS 补充指纹补丁
+            await anti_detection.apply_macos_patches_async(page)
+        except Exception:
+            # 浏览器已启动但初始化中途失败：先回收 CloakBrowser 实例再抛出，避免泄漏
+            try:
+                await browser.close()
+            except Exception:
+                logger.debug("中途失败时回收浏览器实例失败（已忽略）", exc_info=True)
+            raise
 
         try:
             yield page, context

@@ -84,25 +84,21 @@ class TokenRateLimitMiddleware:
 
     @staticmethod
     async def _async_check_rate(bucket_key: str) -> int:
-        # NOTE: Redis 后端下 aget/aset 分两步执行，无原子比较-递增。
+        # NOTE: 与同步版对称的 aadd + aincr 语义（aadd 命中即首计数，未命中走原子自增），
+        # 避免此前 aget+aset 两步读改写在并发下丢计数；
         # 生产优先使用 Redis（见 infrastructure.cache.get_cache_config），
-        # 在 Gunicorn 多 worker / 多实例下绕过窗口比同步版更大。
         # 如需严格原子性，应改用 Redis INCR + 过期策略。
         try:
-            if await cache.aget(bucket_key) is None:
-                await cache.aset(bucket_key, 1, timeout=_TOKEN_RATE_WINDOW + 5)
+            if await cache.aadd(bucket_key, 1, timeout=_TOKEN_RATE_WINDOW + 5):
                 return 1
             try:
-                val = await cache.aget(bucket_key)
-                new_val = (val or 0) + 1
-                await cache.aset(bucket_key, new_val, timeout=_TOKEN_RATE_WINDOW + 5)
-                return new_val
-            except Exception:
+                return int(await cache.aincr(bucket_key))
+            except ValueError:
                 await cache.aset(bucket_key, 1, timeout=_TOKEN_RATE_WINDOW + 5)
                 return 1
         except Exception:
             logger.warning("令牌限流计数失败（已忽略，本次放行）", exc_info=True)
-            return 0
+            return 0  # 缓存故障时放行
 
     @staticmethod
     def _bucket_key(ip: str) -> str:

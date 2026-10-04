@@ -117,8 +117,8 @@ class SystemConfigService:
 
         config.save()
 
-        # 清除缓存
-        self._clear_cache(config.key)
+        # 缓存清理推迟到事务提交后：提交前并发读会把旧值重新回填缓存
+        transaction.on_commit(lambda: self._clear_cache(config.key))
 
         return config
 
@@ -144,8 +144,8 @@ class SystemConfigService:
         key = config.key
         self._repository.delete(config_id)
 
-        # 清除缓存
-        self._clear_cache(key)
+        # 缓存清理推迟到事务提交后：提交前并发读会把旧值重新回填缓存
+        transaction.on_commit(lambda: self._clear_cache(key))
 
         return True
 

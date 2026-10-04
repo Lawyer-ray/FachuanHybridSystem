@@ -81,9 +81,12 @@ class TestTryHttpBaoquanToken:
         mock_module = MagicMock()
         mock_module.is_available.return_value = False
 
-        with patch.dict("sys.modules", {
-            "apps.automation.services.scraper.sites.court_zxfw_login_private": mock_module,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "apps.automation.services.scraper.sites.court_zxfw_login_private": mock_module,
+            },
+        ):
             result = await svc._try_http_baoquan_token("account", "password")
 
         assert result is None
@@ -106,9 +109,12 @@ class TestTryHttpBaoquanToken:
         mock_loop.run_in_executor = AsyncMock(side_effect=lambda executor, fn: fn())
 
         with (
-            patch.dict("sys.modules", {
-                "apps.automation.services.scraper.sites.court_zxfw_login_private": mock_module,
-            }),
+            patch.dict(
+                "sys.modules",
+                {
+                    "apps.automation.services.scraper.sites.court_zxfw_login_private": mock_module,
+                },
+            ),
             patch("asyncio.get_running_loop", return_value=mock_loop),
         ):
             result = await svc._try_http_baoquan_token("account", "password")
@@ -121,6 +127,7 @@ class TestTryHttpBaoquanToken:
         svc = BaoquanTokenService()
 
         import builtins
+
         real_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):  # type: ignore[no-untyped-def]
@@ -132,3 +139,35 @@ class TestTryHttpBaoquanToken:
             result = await svc._try_http_baoquan_token("account", "password")
 
         assert result is None
+
+
+class TestAcquireBaoquanTokenHttpPath:
+    """测试 _acquire_baoquan_token 的 HTTP 快路径落库（回归：不落库导致每次请求重新登录）。"""
+
+    @pytest.mark.asyncio
+    async def test_http_token_saved_via_save_token_internal(self) -> None:
+        """HTTP 快路径获取的 Token 应调用 save_token_internal 落库后返回。"""
+        svc = BaoquanTokenService()
+        http_token = f"{BaoquanTokenService._BAOQUAN_TOKEN_PREFIX}.http_token"  # allowlist secret
+
+        mock_token_store = MagicMock()
+        mock_token_store.save_token_internal = MagicMock(return_value=None)
+
+        async def mock_sync(fn, **kw):  # type: ignore[no-untyped-def]
+            return fn()
+
+        with (
+            patch.object(BaoquanTokenService, "_try_http_baoquan_token", new=AsyncMock(return_value=http_token)),
+            patch("apps.core.services.wiring.get_court_token_store_service", return_value=mock_token_store),
+            patch("asgiref.sync.sync_to_async", side_effect=mock_sync),
+        ):
+            result = await svc._acquire_baoquan_token(account="acct", password="pwd", credential_id=7)  # pragma: allowlist secret
+
+        assert result == http_token
+        mock_token_store.save_token_internal.assert_called_once()
+        call_kwargs = mock_token_store.save_token_internal.call_args.kwargs
+        assert call_kwargs["site_name"] == "court_baoquan"
+        assert call_kwargs["account"] == "acct"
+        assert call_kwargs["token"] == http_token
+        assert call_kwargs["expires_in"] == 3600
+        assert call_kwargs["credential_id"] == 7

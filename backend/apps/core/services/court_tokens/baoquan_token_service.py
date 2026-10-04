@@ -72,6 +72,18 @@ class BaoquanTokenService:  # pragma: no cover
         # 没有此目录时自动跳过，走下面的 Playwright 流程
         http_token = await self._try_http_baoquan_token(account, password)
         if http_token:
+            # HTTP 快路径同样落库，避免每次请求都重新登录（与下方 Playwright 路径口径一致）
+            from apps.core.services.wiring import get_court_token_store_service
+
+            token_store = get_court_token_store_service()
+            await sync_to_async(token_store.save_token_internal)(
+                site_name=self.BAOQUAN_SITE_NAME,
+                account=account,
+                token=http_token,
+                expires_in=3600,
+                credential_id=credential_id,
+            )
+            logger.info(f"✅ 保全 Token 已保存(HTTP 快路径): {account}")
             return http_token
 
         # ── 回退: Playwright 浏览器流程 ──

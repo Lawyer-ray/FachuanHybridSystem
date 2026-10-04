@@ -21,6 +21,8 @@ _SYSTEM_UPDATE_LOCK_CACHE_KEY: Final[str] = "core:system_update:lock"
 _DEFAULT_LOCK_TIMEOUT_SECONDS: Final[int] = 30 * 60
 _DEFAULT_TASK_TIMEOUT_SECONDS: Final[int] = 15 * 60
 _DEFAULT_STEP_TIMEOUT_SECONDS: Final[int] = 60
+# 重型步骤（uv sync / migrate）冷缓存时耗时远超 git 操作，单独放宽超时
+_HEAVY_STEP_TIMEOUT_SECONDS: Final[int] = 600
 
 
 class SystemUpdateService:  # pragma: no cover
@@ -36,6 +38,7 @@ class SystemUpdateService:  # pragma: no cover
         lock_timeout_seconds: int = _DEFAULT_LOCK_TIMEOUT_SECONDS,
         task_timeout_seconds: int = _DEFAULT_TASK_TIMEOUT_SECONDS,
         step_timeout_seconds: int = _DEFAULT_STEP_TIMEOUT_SECONDS,
+        heavy_step_timeout_seconds: int = _HEAVY_STEP_TIMEOUT_SECONDS,
     ) -> None:
         self._task_submission_service = task_submission_service
         self._subprocess_runner = subprocess_runner or SubprocessRunner(allowed_programs={"git", "uv"})
@@ -45,6 +48,7 @@ class SystemUpdateService:  # pragma: no cover
         self._lock_timeout_seconds = lock_timeout_seconds
         self._task_timeout_seconds = task_timeout_seconds
         self._step_timeout_seconds = step_timeout_seconds
+        self._heavy_step_timeout_seconds = heavy_step_timeout_seconds
 
     def trigger_update(
         self, *, triggered_by: str, enable_post_update_setup: bool = False
@@ -285,7 +289,7 @@ class SystemUpdateService:  # pragma: no cover
         args = ["uv", "sync", "--project", str(self._backend_root)]
         return self._subprocess_runner.run(
             args=args,
-            timeout_seconds=float(self._step_timeout_seconds),
+            timeout_seconds=float(self._heavy_step_timeout_seconds),
             check=True,
         )
 
@@ -302,7 +306,7 @@ class SystemUpdateService:  # pragma: no cover
         ]
         return self._subprocess_runner.run(
             args=args,
-            timeout_seconds=float(self._step_timeout_seconds),
+            timeout_seconds=float(self._heavy_step_timeout_seconds),
             check=True,
         )
 

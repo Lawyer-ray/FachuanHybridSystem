@@ -1,4 +1,8 @@
-"""系统配置 Admin 的默认配置数据和环境变量映射"""
+"""系统配置 Admin 的默认配置数据和环境变量映射
+
+社交登录配置已独立为 ``SocialAuthProvider`` 表（admin「社交登录」管理页），
+不再在此处播种。
+"""
 
 from typing import Any, cast
 
@@ -13,7 +17,6 @@ from ._service_configs import (
     get_ocr_configs,
     get_scraper_configs,
 )
-from ._social_auth_configs import get_social_auth_configs
 
 __all__ = ["get_default_configs"]
 
@@ -30,6 +33,5 @@ def get_default_configs() -> list[dict[str, Any]]:
         + get_ocr_configs()
         + get_email_configs()
         + get_filename_template_configs()
-        + get_social_auth_configs()
     )
     return configs
