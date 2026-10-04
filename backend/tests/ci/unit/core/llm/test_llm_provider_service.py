@@ -180,6 +180,35 @@ class _FakeResponse:
         return self._payload
 
 
+class _FakeHttpClient:
+    """工厂返回的共享 httpx.Client 替身（GET/POST 分发到注入的函数）。"""
+
+    def __init__(
+        self,
+        get: Any = lambda *a, **kw: _FakeResponse({}),
+        post: Any = lambda *a, **kw: _FakeResponse({}),
+    ) -> None:
+        self._get = get
+        self._post = post
+
+    def get(self, url: str, headers: dict[str, str] | None = None, timeout: float | None = None) -> _FakeResponse:
+        return self._get(url, headers=headers, timeout=timeout)
+
+    def post(
+        self,
+        url: str,
+        headers: dict[str, str] | None = None,
+        json: dict[str, Any] | None = None,
+        timeout: float | None = None,
+    ) -> _FakeResponse:
+        return self._post(url, headers=headers, json=json, timeout=timeout)
+
+
+def _patch_client(monkeypatch: pytest.MonkeyPatch, client: _FakeHttpClient) -> None:
+    """把服务模块的 httpx 工厂替换为测试替身。"""
+    monkeypatch.setattr(service_module, "get_sync_http_client", lambda: client)
+
+
 class TestFetchRemoteModels:
     def test_aggregates_union_and_intersection_per_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
         payloads = {
@@ -193,7 +222,7 @@ class TestFetchRemoteModels:
             token = str((headers or {}).get("Authorization", "")).removeprefix("Bearer ")
             return _FakeResponse(payloads[token])
 
-        monkeypatch.setattr(service_module.httpx, "get", fake_get)
+        _patch_client(monkeypatch, _FakeHttpClient(get=fake_get))
 
         result = LLMProviderService.fetch_remote_models("http://gw/v1/", ["k1", "k2"], probe_chat=False)
 
@@ -211,7 +240,7 @@ class TestFetchRemoteModels:
             calls.append(headers or {})
             return _FakeResponse({"data": [{"id": "m1"}]})
 
-        monkeypatch.setattr(service_module.httpx, "get", fake_get)
+        _patch_client(monkeypatch, _FakeHttpClient(get=fake_get))
 
         result = LLMProviderService.fetch_remote_models("http://gw/v1", [], probe_chat=False)
 
@@ -224,7 +253,7 @@ class TestFetchRemoteModels:
         def fake_get(url: str, headers: dict[str, str] | None = None, timeout: float | None = None) -> _FakeResponse:
             return _FakeResponse(status_code=403)
 
-        monkeypatch.setattr(service_module.httpx, "get", fake_get)
+        _patch_client(monkeypatch, _FakeHttpClient(get=fake_get))
 
         result = LLMProviderService.fetch_remote_models("http://gw/v1", ["k1"], probe_chat=False)
 
@@ -234,7 +263,9 @@ class TestFetchRemoteModels:
         assert result.per_key[0].error == "HTTP 403"
 
     def test_accepts_plain_string_data(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(service_module.httpx, "get", lambda *a, **kw: _FakeResponse({"data": ["m1", "m1", "m2"]}))
+        _patch_client(
+            monkeypatch, _FakeHttpClient(get=lambda *a, **kw: _FakeResponse({"data": ["m1", "m1", "m2"]}))
+        )
 
         result = LLMProviderService.fetch_remote_models("http://gw/v1", ["k1"], probe_chat=False)
 
@@ -244,7 +275,7 @@ class TestFetchRemoteModels:
         def boom(*args: Any, **kwargs: Any) -> Any:
             raise AssertionError("不应发起请求")
 
-        monkeypatch.setattr(service_module.httpx, "get", boom)
+        _patch_client(monkeypatch, _FakeHttpClient(get=boom))
 
         result = LLMProviderService.fetch_remote_models("  ", ["k1"])
 
@@ -256,7 +287,7 @@ class TestFetchRemoteModels:
         def fake_get(url: str, headers: dict[str, str] | None = None, timeout: float | None = None) -> _FakeResponse:
             raise httpx.ConnectError("refused")
 
-        monkeypatch.setattr(service_module.httpx, "get", fake_get)
+        _patch_client(monkeypatch, _FakeHttpClient(get=fake_get))
 
         result = LLMProviderService.fetch_remote_models("http://gw/v1", ["k1"], probe_chat=False)
 
@@ -361,16 +392,18 @@ class TestChatCapabilityProbe:
     """``/v1/models`` 会列出向量/重排/OCR 等非对话模型，需单独探测对话能力。"""
 
     @staticmethod
-    def _patch_get(monkeypatch: pytest.MonkeyPatch, models_by_key: dict[str, list[str]]) -> None:
+    def _patch_client(
+        monkeypatch: pytest.MonkeyPatch,
+        models_by_key: dict[str, list[str]],
+        post: Any = lambda *a, **kw: _FakeResponse(status_code=200),
+    ) -> None:
         def fake_get(url: str, headers: dict[str, str] | None = None, timeout: float | None = None) -> _FakeResponse:
             token = str((headers or {}).get("Authorization", "")).removeprefix("Bearer ")
             return _FakeResponse({"data": [{"id": m} for m in models_by_key[token]]})
 
-        monkeypatch.setattr(service_module.httpx, "get", fake_get)
+        _patch_client(monkeypatch, _FakeHttpClient(get=fake_get, post=post))
 
     def test_non_chat_model_is_excluded(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        self._patch_get(monkeypatch, {"k1": ["chat-model", "embed-model"]})
-
         def fake_post(
             url: str,
             headers: dict[str, str] | None = None,
@@ -380,7 +413,7 @@ class TestChatCapabilityProbe:
             model = str((json or {}).get("model", ""))
             return _FakeResponse(status_code=200 if model == "chat-model" else 400)
 
-        monkeypatch.setattr(service_module.httpx, "post", fake_post)
+        self._patch_client(monkeypatch, {"k1": ["chat-model", "embed-model"]}, fake_post)
 
         result = LLMProviderService.fetch_remote_models("http://gw/v1", ["k1"])
 
@@ -388,12 +421,10 @@ class TestChatCapabilityProbe:
         assert result.chat_models == ["chat-model"]
 
     def test_probe_disabled_skips_requests(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        self._patch_get(monkeypatch, {"k1": ["m1"]})
-
         def boom(*args: Any, **kwargs: Any) -> Any:
             raise AssertionError("probe_chat=False 时不应发起对话探测")
 
-        monkeypatch.setattr(service_module.httpx, "post", boom)
+        self._patch_client(monkeypatch, {"k1": ["m1"]}, boom)
 
         result = LLMProviderService.fetch_remote_models("http://gw/v1", ["k1"], probe_chat=False)
 
@@ -402,12 +433,11 @@ class TestChatCapabilityProbe:
 
     def test_unknown_verdict_keeps_model(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """探测无法判定（网络异常）时按支持处理，避免漏掉可用模型。"""
-        self._patch_get(monkeypatch, {"k1": ["m1"]})
 
         def boom(*args: Any, **kwargs: Any) -> Any:
             raise httpx.ConnectError("refused")
 
-        monkeypatch.setattr(service_module.httpx, "post", boom)
+        self._patch_client(monkeypatch, {"k1": ["m1"]}, boom)
 
         result = LLMProviderService.fetch_remote_models("http://gw/v1", ["k1"])
 
@@ -415,8 +445,7 @@ class TestChatCapabilityProbe:
 
     def test_server_error_verdict_keeps_model(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """5xx 属网关侧问题，不代表模型不支持对话。"""
-        self._patch_get(monkeypatch, {"k1": ["m1"]})
-        monkeypatch.setattr(service_module.httpx, "post", lambda *a, **kw: _FakeResponse(status_code=503))
+        self._patch_client(monkeypatch, {"k1": ["m1"]}, lambda *a, **kw: _FakeResponse(status_code=503))
 
         result = LLMProviderService.fetch_remote_models("http://gw/v1", ["k1"])
 
@@ -424,7 +453,6 @@ class TestChatCapabilityProbe:
 
     def test_probe_uses_a_key_authorized_for_that_model(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """探测 m2 必须用授权它的 k2，而不是列表里第一个 Key。"""
-        self._patch_get(monkeypatch, {"k1": ["m1"], "k2": ["m1", "m2"]})
         seen: list[tuple[str, str]] = []
 
         def fake_post(
@@ -437,7 +465,7 @@ class TestChatCapabilityProbe:
             seen.append((token, str((json or {}).get("model", ""))))
             return _FakeResponse(status_code=200)
 
-        monkeypatch.setattr(service_module.httpx, "post", fake_post)
+        self._patch_client(monkeypatch, {"k1": ["m1"], "k2": ["m1", "m2"]}, fake_post)
 
         LLMProviderService.fetch_remote_models("http://gw/v1", ["k1", "k2"])
 
@@ -446,11 +474,6 @@ class TestChatCapabilityProbe:
 
     def test_failed_key_models_are_not_probed(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """拉取失败的 Key 不参与探测。"""
-
-        def fake_get(url: str, headers: dict[str, str] | None = None, timeout: float | None = None) -> _FakeResponse:
-            return _FakeResponse({"data": [{"id": "m1"}]})
-
-        monkeypatch.setattr(service_module.httpx, "get", fake_get)
         probed: list[str] = []
 
         def fake_post(
@@ -462,9 +485,41 @@ class TestChatCapabilityProbe:
             probed.append(str((json or {}).get("model", "")))
             return _FakeResponse(status_code=200)
 
-        monkeypatch.setattr(service_module.httpx, "post", fake_post)
+        self._patch_client(monkeypatch, {"k1": ["m1"]}, fake_post)
 
         result = LLMProviderService.fetch_remote_models("http://gw/v1", ["k1"])
 
         assert result.chat_models == ["m1"]
         assert probed == ["m1"]
+
+    def test_budget_exceeded_keeps_remaining_models(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """超出总时间预算的探测被跳过并记 warning，被跳过模型按「支持」保留。"""
+        import threading
+
+        release = threading.Event()
+        first_call = threading.Event()
+
+        def fake_post(
+            url: str,
+            headers: dict[str, str] | None = None,
+            json: dict[str, Any] | None = None,
+            timeout: float | None = None,
+        ) -> _FakeResponse:
+            if not first_call.is_set():
+                first_call.set()
+                release.wait(timeout=5)  # 模拟首个探测卡死，耗尽预算
+            return _FakeResponse(status_code=200)
+
+        self._patch_client(monkeypatch, {"k1": ["m1", "m2", "m3"]}, fake_post)
+
+        original_budget = LLMProviderService._PROBE_TOTAL_BUDGET_SECONDS
+        monkeypatch.setattr(LLMProviderService, "_PROBE_TOTAL_BUDGET_SECONDS", 0.2)
+        try:
+            result = LLMProviderService.fetch_remote_models("http://gw/v1", ["k1"])
+        finally:
+            release.set()
+            monkeypatch.setattr(LLMProviderService, "_PROBE_TOTAL_BUDGET_SECONDS", original_budget)
+
+        assert result.models == ["m1", "m2", "m3"]
+        # 预算耗尽后跳过的模型按「支持」保留
+        assert result.chat_models == ["m1", "m2", "m3"]

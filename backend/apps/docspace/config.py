@@ -7,6 +7,8 @@ import logging
 import httpx
 from asgiref.sync import sync_to_async
 
+from apps.core.http.httpx_clients import get_sync_http_client
+
 logger = logging.getLogger(__name__)
 
 # 运行时缓存自动发现的 folder_id（进程生命周期内有效）
@@ -105,7 +107,7 @@ def _discover_my_folder_id() -> int:
         return 0
 
     try:
-        resp = httpx.get(
+        resp = get_sync_http_client().get(
             f"{portal}/api/2.0/files/@my",
             headers={"Authorization": f"Bearer {token}"},
             timeout=10.0,

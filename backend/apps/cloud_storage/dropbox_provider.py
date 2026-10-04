@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
-import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
+from asgiref.sync import sync_to_async
 
 from .protocols import CloudFileInfo
 
@@ -86,6 +87,10 @@ class DropboxOAuthTokenManager:  # pragma: no cover
             update_fields=["dropbox_access_token", "dropbox_refresh_token", "dropbox_token_expires_at", "updated_at"]
         )
 
+    async def _asave_token(self, token_data: _TokenData) -> None:  # pragma: no cover
+        """异步保存 token（ORM 写入经 sync_to_async，避免在事件循环内触发 SynchronousOnlyOperation）。"""
+        await sync_to_async(self._save_token)(token_data)
+
     @staticmethod
     def start_device_code_flow(account: Any) -> dict[str, Any]:  # pragma: no cover
         """Initiate Dropbox device code flow. Returns dict with user_code, verification_uri, device_code."""
@@ -111,41 +116,57 @@ class DropboxOAuthTokenManager:  # pragma: no cover
             "interval": data.get("interval", 5),
         }
 
-    def complete_device_code_flow(self, device_code: str, interval: int = 5) -> str:  # pragma: no cover
-        """Poll for token until user authorizes or timeout. Returns access_token."""
+    async def acomplete_device_code_flow(
+        self,
+        device_code: str,
+        *,
+        interval: int = 5,
+        max_attempts: int = 60,
+    ) -> str:  # pragma: no cover
+        """Poll for token until user authorizes or timeout (async). Returns access_token.
+
+        设备码轮询的**唯一实现**（API 端点与 Admin 后台线程都走这里）。
+        注意 Dropbox 的 pending 响应是 HTTP 400 + error JSON，因此**不能**
+        ``raise_for_status``，按 body 中的 error 字段分流；单次网络失败继续轮询；
+        ``slow_down`` 按协议递增轮询间隔。
+        """
         app_key = self._account.dropbox_app_key
         app_secret = self._account.get_decrypted_dropbox_app_secret()
         current_interval = interval
 
-        for i in range(60):
-            time.sleep(current_interval)
-            resp = httpx.post(
-                TOKEN_URL,
-                data={
-                    "client_id": app_key,
-                    "client_secret": app_secret,
-                    "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-                    "device_code": device_code,
-                },
-                timeout=30,
-            )
-            resp.raise_for_status()
-            data = resp.json()
+        async with httpx.AsyncClient() as client:
+            for _ in range(max_attempts):
+                await asyncio.sleep(current_interval)
+                try:
+                    resp = await client.post(
+                        TOKEN_URL,
+                        data={
+                            "client_id": app_key,
+                            "client_secret": app_secret,
+                            "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                            "device_code": device_code,
+                        },
+                        timeout=30,
+                    )
+                    data = resp.json()
+                except Exception:
+                    logger.debug("Dropbox 设备码轮询单次失败（已忽略，继续轮询）", exc_info=True)
+                    continue
 
-            if "access_token" in data:
-                token_data = _TokenData(
-                    access_token=data["access_token"],
-                    refresh_token=data.get("refresh_token", ""),
-                    expires_at=datetime.now(UTC) + timedelta(seconds=data.get("expires_in", 14400)),
-                )
-                self._save_token(token_data)
-                return token_data.access_token
+                if "access_token" in data:
+                    token_data = _TokenData(
+                        access_token=data["access_token"],
+                        refresh_token=data.get("refresh_token", ""),
+                        expires_at=datetime.now(UTC) + timedelta(seconds=data.get("expires_in", 14400)),
+                    )
+                    await self._asave_token(token_data)
+                    return token_data.access_token
 
-            error = data.get("error", "")
-            if error in ("access_denied", "expired_token"):
-                raise RuntimeError("授权被拒绝或已过期，请重试")
-            if error == "slow_down":
-                current_interval += 5
+                error = data.get("error", "")
+                if error in ("access_denied", "expired_token"):
+                    raise RuntimeError("授权被拒绝或已过期，请重试")
+                if error == "slow_down":
+                    current_interval += 5
 
         raise RuntimeError("授权超时，请重试")
 

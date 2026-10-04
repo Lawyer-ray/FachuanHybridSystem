@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 import time
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass, field
@@ -61,25 +62,34 @@ def _parse_webdav_properties(propstat: Any) -> tuple[bool, int, float]:  # type:
 class _RateLimiter:  # pragma: no cover
     min_interval: float = _DEFAULT_RATE_LIMIT_INTERVAL
     _last_call: float = field(default=0.0, init=False)
+    # threading.Lock 保护 _last_call 的读/写：wait_if_needed（同步线程）与
+    # await_if_needed（事件循环）会并发访问同一实例，无锁共享会丢失限速节拍。
+    _thread_lock: threading.Lock = field(default_factory=threading.Lock, init=False)
     _lock: Any = field(default=None, init=False)  # asyncio.Lock 延迟创建
 
     def _ensure_lock(self) -> None:
         if self._lock is None:
             self._lock = asyncio.Lock()
 
+    def _reserve_slot(self) -> float:
+        """在锁内预约下一个可调用时刻，返回需要等待的秒数。"""
+        with self._thread_lock:
+            now = time.monotonic()
+            start = max(now, self._last_call + self.min_interval)
+            self._last_call = start
+        return start - now
+
     def wait_if_needed(self) -> None:  # pragma: no cover
-        elapsed = time.monotonic() - self._last_call
-        if elapsed < self.min_interval:
-            time.sleep(self.min_interval - elapsed)
-        self._last_call = time.monotonic()
+        delay = self._reserve_slot()
+        if delay > 0:
+            time.sleep(delay)
 
     async def await_if_needed(self) -> None:  # pragma: no cover
         self._ensure_lock()
         async with self._lock:  # type: ignore[union-attr]
-            elapsed = time.monotonic() - self._last_call
-            if elapsed < self.min_interval:
-                await asyncio.sleep(self.min_interval - elapsed)
-            self._last_call = time.monotonic()
+            delay = self._reserve_slot()
+            if delay > 0:
+                await asyncio.sleep(delay)
 
 
 class WebDAVProvider:  # pragma: no cover

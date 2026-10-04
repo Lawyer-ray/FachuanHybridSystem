@@ -94,7 +94,8 @@ class TestFolderDiscovery:
             assert kwargs["headers"]["Authorization"] == "Bearer tok"  # type: ignore[index]
             return httpx.Response(200, json={"response": {"current": {"id": 33}}}, request=httpx.Request("GET", url))
 
-        monkeypatch.setattr(docspace_config.httpx, "get", fake_get)
+        fake_client = type("_FakeHttpClient", (), {"get": staticmethod(fake_get)})()
+        monkeypatch.setattr(docspace_config, "get_sync_http_client", lambda: fake_client)
         assert _discover_my_folder_id() == 33
 
     def test_http_error_returns_zero(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -105,7 +106,8 @@ class TestFolderDiscovery:
             # 挂上 request 让 raise_for_status 走真实的 5xx 分支
             return httpx.Response(500, request=httpx.Request("GET", url))
 
-        monkeypatch.setattr(docspace_config.httpx, "get", raise_get)
+        fake_client = type("_FakeHttpClient", (), {"get": staticmethod(raise_get)})()
+        monkeypatch.setattr(docspace_config, "get_sync_http_client", lambda: fake_client)
         assert _discover_my_folder_id() == 0
 
     def test_root_folder_id_cached_per_process(self, monkeypatch: pytest.MonkeyPatch) -> None:

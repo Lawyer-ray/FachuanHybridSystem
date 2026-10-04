@@ -97,31 +97,12 @@ class DocumentParsingToolAdmin(admin.ModelAdmin):  # pragma: no cover
 
         except Exception as e:
             logger.error("提交文档解析后台任务失败: %s - %s", uploaded_file.name, str(e))
-            # 回退：同步解析（兼容后台任务不可用的情况）
-            try:
-                from apps.document_parsing.services import get_document_parser
-
-                parser = get_document_parser(backend=backend)
-                result = parser.parse_document(
-                    file_path=str(file_path),
-                    file_type=Path(uploaded_file.name or "uploaded").suffix.lstrip("."),
-                    extract_tables=True,
-                    extract_images=False,
-                    return_markdown=True,
-                )
-
-                task.mark_completed(
-                    text=result.text,
-                    markdown=result.markdown or "",
-                    metadata=result.metadata or {},
-                    backend_used=result.parse_method,
-                )
-                messages.success(request, f"解析完成：{uploaded_file.name}")
-
-            except Exception as inner_e:
-                logger.error("文档解析失败: %s - %s", uploaded_file.name, str(inner_e))
-                task.mark_failed(str(inner_e))
-                messages.error(request, f"解析失败：{inner_e}")
+            # 不做同步解析回退：云端后端（mineru/textin）内部轮询最长 300-360s，
+            # 同步解析会把 Admin 请求线程挂起数分钟。这里只标记任务失败并提示
+            # 用户重试 / 检查后台任务 worker（Django-Q）是否运行。
+            error_message = f"后台任务提交失败：{e}。请重试上传，或检查后台任务 worker（Django-Q）是否运行。"
+            task.mark_failed(error_message)
+            messages.error(request, error_message)
 
         # 跳转到任务详情
         return HttpResponseRedirect(reverse("admin:document_parsing_documentparsingtask_change", args=[task.id]))
