@@ -1,5 +1,5 @@
 import { Check, ChevronDown, Search } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import type { ConvertTemplateGroup } from '../../api'
 import type { ConvertTemplate } from '../../types'
@@ -27,6 +27,8 @@ export function TemplateCombobox({
   const [up, setUp] = useState(false)
   const [kw, setKw] = useState('')
   const wrapRef = useRef<HTMLDivElement>(null)
+  // 弹层 listbox 的挂点 id（触发按钮 aria-controls 指向它）
+  const listId = useId()
 
   // 点击面板外关闭（mousedown 防止先失焦把点击吞掉）
   useEffect(() => {
@@ -74,10 +76,15 @@ export function TemplateCombobox({
 
   return (
     <div className="relative min-w-0" ref={wrapRef}>
+      {/* 触发按钮按「按钮 + listbox 弹层」模式接（同 Radix Select）：haspopup 声明
+          弹层类型，expanded/controls 随开合指向下方列表 */}
       <button
         type="button"
         disabled={disabled}
         onClick={openPanel}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={listId}
         className={cn(FIELD, 'flex items-center justify-between gap-2 text-left', disabled && 'opacity-60')}
       >
         <span className={cn('min-w-0 truncate', !selected && 'text-muted-foreground')} title={selected?.name}>
@@ -97,6 +104,7 @@ export function TemplateCombobox({
             <Search className="h-3.5 w-3.5 flex-none text-muted-foreground" />
             <input
               autoFocus
+              aria-label="搜索文书类型"
               value={kw}
               onChange={(e) => setKw(e.target.value)}
               onKeyDown={(e) => {
@@ -110,31 +118,44 @@ export function TemplateCombobox({
               className="min-w-0 flex-1 border-none bg-transparent text-[12px] outline-none placeholder:text-muted-foreground"
             />
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          {/* listbox 只包模板行；搜索行在列表外。空结果时不声明 listbox 角色，
+              免得空文案 div 成了 listbox 的非法子节点。分组标题用 group +
+              labelledby 关联（键盘上下键未实现，不加 aria-activedescendant） */}
+          <div
+            id={listId}
+            role={filtered.length > 0 ? 'listbox' : undefined}
+            aria-label="文书类型候选"
+            className="min-h-0 flex-1 overflow-y-auto"
+          >
             {filtered.length === 0 ? (
               <div className="px-3 py-4 text-center text-[11.5px] text-muted-foreground">没有匹配的文书类型</div>
             ) : (
-              filtered.map((g) => (
-                <div key={g.category}>
-                  <div className="sticky top-0 bg-secondary/80 px-3 py-1 text-[10px] font-semibold text-muted-foreground backdrop-blur-sm">
-                    {g.category}
+              filtered.map((g, gi) => {
+                const groupId = `${listId}-g${gi}`
+                return (
+                  <div key={g.category} role="group" aria-labelledby={groupId}>
+                    <div id={groupId} className="sticky top-0 bg-secondary/80 px-3 py-1 text-[10px] font-semibold text-muted-foreground backdrop-blur-sm">
+                      {g.category}
+                    </div>
+                    {g.items.map((it) => (
+                      <button
+                        key={it.mbid}
+                        type="button"
+                        role="option"
+                        aria-selected={value === it.mbid}
+                        onClick={() => pick(it)}
+                        className={cn(
+                          'flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-secondary/60',
+                          value === it.mbid && 'bg-secondary/40',
+                        )}
+                      >
+                        <span className="min-w-0 flex-1 truncate text-[12px] text-foreground">{it.name}</span>
+                        {value === it.mbid && <Check className="h-3.5 w-3.5 flex-none text-status-green" />}
+                      </button>
+                    ))}
                   </div>
-                  {g.items.map((it) => (
-                    <button
-                      key={it.mbid}
-                      type="button"
-                      onClick={() => pick(it)}
-                      className={cn(
-                        'flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-secondary/60',
-                        value === it.mbid && 'bg-secondary/40',
-                      )}
-                    >
-                      <span className="min-w-0 flex-1 truncate text-[12px] text-foreground">{it.name}</span>
-                      {value === it.mbid && <Check className="h-3.5 w-3.5 flex-none text-status-green" />}
-                    </button>
-                  ))}
-                </div>
-              ))
+                )
+              })
             )}
           </div>
         </div>

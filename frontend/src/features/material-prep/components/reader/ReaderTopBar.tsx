@@ -40,6 +40,7 @@ export function ReaderTopBar({
             onClick={onRename}
             className="grid h-[18px] w-[18px] flex-none place-items-center rounded text-secondary-foreground opacity-70 transition-colors hover:bg-secondary hover:opacity-100"
             title="重命名材料包"
+            aria-label="重命名材料包"
           >
             <Pencil className="h-3 w-3" />
           </button>
@@ -74,6 +75,7 @@ export function ReaderTopBar({
           onClick={onClose}
           className="grid h-8 w-8 place-items-center rounded-lg text-secondary-foreground hover:bg-secondary"
           title="关闭 (Esc)"
+          aria-label="关闭"
         >
           <X className="h-4 w-4" />
         </button>

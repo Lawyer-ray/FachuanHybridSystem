@@ -61,6 +61,7 @@ export function TodayCard({ events, loading, error, onRetry, onOpenEvent, onTogg
                 type="button"
                 onClick={() => onToggleComplete(e)}
                 title={isDone ? '标记为未完成' : '标记为完成'}
+                aria-label={isDone ? '标记为未完成' : '标记为完成'}
                 className={cn(
                   'mt-[2px] flex h-[17px] w-[17px] flex-none items-center justify-center rounded-full border-[1.5px] transition-colors',
                   isDone ? 'border-foreground bg-foreground text-background' : 'border-input text-transparent hover:border-ring/50',

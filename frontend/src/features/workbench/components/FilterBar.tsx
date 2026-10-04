@@ -47,6 +47,7 @@ function ActiveChip({ text, onRemove }: { text: string; onRemove: () => void }) 
       <button
         type="button"
         title="移除"
+        aria-label="移除"
         className="flex size-4 items-center justify-center rounded-full bg-white/20 text-[10px] leading-none hover:bg-white/40"
         onClick={onRemove}
       >

@@ -93,6 +93,7 @@ export function DealRow({ deal, onOpenSheet, onDetailNotReady }: DealRowProps) {
           type="button"
           data-prev
           title="快速预览（右键行同效）"
+          aria-label="快速预览"
           className="flex size-[27px] items-center justify-center rounded-[8px] text-muted-foreground/70 opacity-40 transition-all hover:bg-foreground hover:text-background hover:opacity-100 group-hover:opacity-100"
           onClick={(e) => {
             e.stopPropagation()
@@ -104,6 +105,7 @@ export function DealRow({ deal, onOpenSheet, onDetailNotReady }: DealRowProps) {
         <button
           type="button"
           title="打开详情（开发中）"
+          aria-label="打开详情"
           className="flex size-[27px] items-center justify-center rounded-[8px] text-muted-foreground/70 opacity-40 transition-all hover:bg-foreground hover:text-background hover:opacity-100 group-hover:opacity-100"
           onClick={(e) => {
             e.stopPropagation()

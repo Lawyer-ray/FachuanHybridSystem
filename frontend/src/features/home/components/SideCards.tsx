@@ -217,6 +217,7 @@ export function QuickAdd({ onAdded }: QuickAddProps) {
             <button
               type="button"
               title="移除文件"
+              aria-label="移除文件"
               className="flex h-5 w-5 flex-none items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               onClick={() => setFile(null)}
             >
@@ -245,6 +246,7 @@ export function QuickAdd({ onAdded }: QuickAddProps) {
         <button
           type="button"
           title="上传文书识别"
+          aria-label="上传文书识别"
           className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           onClick={() => fileRef.current?.click()}
         >

@@ -47,6 +47,7 @@ export function MetaPanel({
             <button
               type="button"
               title="删除这个字段"
+              aria-label="删除这个字段"
               onClick={() => {
                 if (armDel === f.k) {
                   ops.removeInfo(di)

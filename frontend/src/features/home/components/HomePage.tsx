@@ -11,6 +11,7 @@ import { CalendarPanel, type CalendarView } from './CalendarPanel'
 import { ToolDock } from './ToolDock'
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { PageFade } from '@/components/shared/PageFade'
+import { useMediaQuery } from '@/hooks/use-media'
 import { useToday } from '@/hooks/use-today'
 import { errMessage } from '@/lib/errors'
 import { InboxCard, QuickAdd } from './SideCards'
@@ -18,13 +19,6 @@ import { TodayCard } from './TodayCard'
 import { AddReminderDialog } from './AddReminderDialog'
 import { DaySheet } from './DaySheet'
 import type { InboxItem } from '../types'
-
-/** 手机端展开抽屉的宽度阈值（与原型一致） */
-const MOBILE_MAX = 760
-
-function isMobile(): boolean {
-  return typeof window !== 'undefined' && window.innerWidth < MOBILE_MAX
-}
 
 /** 点新增时的默认时刻：点今天取"现在"，点其他日期取 09:00 */
 function defaultTimeFor(day: string, today: string): string {
@@ -47,6 +41,9 @@ export function HomePage() {
   // useToday 跨零点自动重算：整夜不关的工作台不会把「今天」冻结在昨天
   const todayDate = useToday()
   const today = useMemo(() => todayKey(todayDate), [todayDate])
+  // 手机端抽屉口径：与本页 max-[760px]: 的 Tailwind 类一致（旧 isMobile() 读
+  // innerWidth 瞬间值且无 resize 订阅，跨过断点后点日期不会开抽屉）
+  const isMobile = useMediaQuery('(max-width: 760px)')
   const [sheetDay, setSheetDay] = useState<string | null>(null)
   // 新增安排弹窗（day=null 关闭）；由日历空白格与手机抽屉「＋新增」共同打开
   const [adding, setAdding] = useState<{ day: string; time: string } | null>(null)
@@ -112,8 +109,8 @@ export function HomePage() {
 
   /* 日历点某天：桌面端只高亮，手机端开抽屉 */
   const handleSelectDay = useCallback((key: string) => {
-    if (isMobile()) setSheetDay(key)
-  }, [])
+    if (isMobile) setSheetDay(key)
+  }, [isMobile])
 
   const handleOpenEvent = useCallback((e: import('../api').CalendarEvent) => {
     if (e.case_id) {

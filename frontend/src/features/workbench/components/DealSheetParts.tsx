@@ -9,6 +9,7 @@ export function CopyButton({ title, getText }: { title: string; getText: () => s
     <button
       type="button"
       title={title}
+      aria-label={title}
       className="mt-0.5 flex size-6 flex-none items-center justify-center rounded-[7px] text-muted-foreground/50 opacity-60 transition-all hover:bg-foreground hover:text-background hover:opacity-100"
       onClick={(e) => {
         e.stopPropagation()

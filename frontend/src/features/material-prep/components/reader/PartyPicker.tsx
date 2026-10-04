@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { LoaderCircle, User, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -29,6 +29,9 @@ export function PartyPicker({
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
+  // 候选 listbox 的挂点 id（输入框 aria-controls 指向它）；委托人 / 对方当事人
+  // 两个实例同屏渲染，用 useId 避免静态 id 撞车
+  const listId = useId()
 
   const tags = useMemo(() => value.split(SEP).map((s) => s.trim()).filter(Boolean), [value])
   const tagSet = useMemo(() => new Set(tags), [tags])
@@ -45,6 +48,8 @@ export function PartyPicker({
     placeholderData: keepPreviousData,
   })
   const hits = useMemo(() => searched.slice(0, 12), [searched])
+  // 下拉是否可见：aria-expanded 与渲染条件必须同源，否则读屏器会报错误状态
+  const expanded = open && kwTrim !== ''
 
   useEffect(() => {
     if (!open) return
@@ -101,7 +106,15 @@ export function PartyPicker({
             </button>
           </span>
         ))}
+        {/* combobox ARIA：输入框声明 listbox 弹层（aria-expanded 与下方渲染条件
+            同源），aria-label 取 placeholder——placeholder 对读屏器不是可靠标签。
+            键盘无上下键高亮，不加 aria-activedescendant，Enter/退格语义不变 */}
         <input
+          role="combobox"
+          aria-expanded={expanded}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-label={placeholder}
           value={q}
           onChange={(e) => startSearch(e.target.value)}
           onFocus={() => setOpen(true)}
@@ -120,8 +133,13 @@ export function PartyPicker({
         />
       </div>
 
-      {open && q.trim() && (
-        <div className="absolute left-0 right-0 z-20 mt-1 max-h-52 overflow-y-auto rounded-md border border-border bg-popover py-0.5 shadow-md">
+      {expanded && (
+        <div
+          id={listId}
+          role={!loading && hits.length > 0 ? 'listbox' : undefined}
+          aria-label="当事人候选"
+          className="absolute left-0 right-0 z-20 mt-1 max-h-52 overflow-y-auto rounded-md border border-border bg-popover py-0.5 shadow-md"
+        >
           {loading && (
             <span className="flex items-center gap-1.5 px-2 py-2 text-[12px] text-muted-foreground">
               <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
@@ -133,11 +151,14 @@ export function PartyPicker({
               没有匹配的当事人，回车可直接填入
             </span>
           )}
+          {/* aria-selected 对齐视觉「已选」徽标：已在标签里的候选标 true */}
           {!loading &&
             hits.map((h) => (
               <button
                 key={h.id}
                 type="button"
+                role="option"
+                aria-selected={tagSet.has(h.name)}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => addTag(h.name)}
                 className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-[13px] hover:bg-secondary"

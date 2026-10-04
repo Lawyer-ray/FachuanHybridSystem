@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -46,6 +46,10 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
   const [content, setContent] = useState('')
   const [time, setTime] = useState(defaultTime)
   const [busy, setBusy] = useState(false)
+  // combobox ARIA 挂点：aria-controls / label htmlFor 都指向候选列表与输入框，
+  // 用 useId 防止未来同弹窗多实例时 id 撞车
+  const targetInputId = useId()
+  const targetListId = useId()
   // 关联对象：kw=输入框文本，picked=已选中的候选（null 表示未选）
   const [kw, setKw] = useState('')
   const [picked, setPicked] = useState<TargetOption | null>(null)
@@ -153,7 +157,11 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
           {/* 关联对象：可选。不绑的话 admin 日历里会显示成"独立提醒" */}
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-[12px] font-medium">关联案件 / 合同</span>
+              {/* htmlFor 关联下方检索输入框（同「类型」字段的写法）；选中态展示行
+                  没有可聚焦控件，此时 label 指向未挂载的输入框，无副作用 */}
+              <label htmlFor={targetInputId} className="text-[12px] font-medium">
+                关联案件 / 合同
+              </label>
               {picked && (
                 <button
                   type="button"
@@ -177,7 +185,16 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
               </div>
             ) : (
               <div className="relative">
+                {/* combobox ARIA：输入框声明 listbox 弹层（aria-expanded 随候选
+                    有无开合，aria-controls 指向下方列表）；候选来自后端联想，
+                    aria-autocomplete="list"。键盘上下键未实现，不加
+                    aria-activedescendant——只做静态语义，不发明新交互 */}
                 <input
+                  id={targetInputId}
+                  role="combobox"
+                  aria-expanded={options.length > 0}
+                  aria-controls={targetListId}
+                  aria-autocomplete="list"
                   className="h-9 w-full rounded-[8px] border border-input bg-background px-2.5 text-[12.5px] outline-none focus:border-ring/40"
                   value={kw}
                   onChange={(e) => {
@@ -218,12 +235,20 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
                           },
                         )}
                       </div>
-                      {/* 结果列表 */}
-                      <div className="max-h-[184px] overflow-y-auto py-1">
+                      {/* 结果列表：listbox 只包结果行，上方的分类 tab 留在
+                          listbox 外（它们仍是普通按钮，混进来会破坏语义） */}
+                      <div
+                        id={targetListId}
+                        role="listbox"
+                        aria-label="关联对象候选"
+                        className="max-h-[184px] overflow-y-auto py-1"
+                      >
                         {visibleOptions.map((o) => (
                           <button
                             key={`${o.target_type}-${o.id}`}
                             type="button"
+                            role="option"
+                            aria-selected={false}
                             className="flex w-full items-center gap-2 px-2.5 py-[7px] text-left transition-colors hover:bg-secondary"
                             onClick={() => {
                               setPicked(o)
