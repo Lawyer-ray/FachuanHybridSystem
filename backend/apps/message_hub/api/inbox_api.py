@@ -51,9 +51,11 @@ def list_messages(  # pragma: no cover
     source_type: str | None = None,
     has_attachments: bool | None = None,
     search: str | None = None,
-    limit: int | None = None,
+    limit: int = 500,
 ) -> Any:
-    """收件箱消息列表（limit 截取前 N 条，收件箱会持续增长，调用方只取首页展示时应传 limit）。"""
+    """收件箱消息列表（limit 截取前 N 条；收件箱持续增长，服务端兜底默认 500，
+    需要更大结果集的消费方显式传 limit——不传即全量的旧行为会让「打开收件箱」
+    随表增长恶化为全站最重请求，每行还要跑 7 个 draft_state resolver）。"""
     qs = _get_base_queryset()
 
     if source_id is not None:
@@ -67,7 +69,7 @@ def list_messages(  # pragma: no cover
 
         qs = qs.filter(Q(subject__icontains=search) | Q(sender__icontains=search) | Q(body_text__icontains=search))
 
-    if limit is not None and limit > 0:
+    if limit > 0:
         qs = qs[:limit]
 
     return qs

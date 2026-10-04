@@ -82,16 +82,15 @@ class ClientQueryFacade:
             .order_by("-contract__specified_date")
         )
 
-        # 只回查询用户有权访问的案件/合同（与 cases/contracts 列表口径一致）
+        # 只回查询用户有权访问的案件/合同（与 cases/contracts 列表口径一致）。
+        # 用 values("id") 子查询而非物化 Python set：后者会把该用户全部可见 ID
+        # 拉进内存再生成大 IN 列表，千级案件时每详情请求多拉千级 int；
+        # 子查询交给 PG 一次执行（同款写法见 search_service 的 court_sms 路径）。
         if user is not None:
-            visible_case_ids = set(
-                CaseAccessPolicy().filter_queryset(Case.objects.all(), user, None).values_list("id", flat=True)
-            )
-            visible_contract_ids = set(
-                ContractAccessPolicy().filter_queryset(Contract.objects.all(), user, None).values_list("id", flat=True)
-            )
-            case_parties = case_parties.filter(case_id__in=visible_case_ids)
-            contract_parties = contract_parties.filter(contract_id__in=visible_contract_ids)
+            visible_cases = CaseAccessPolicy().filter_queryset(Case.objects.all(), user, None).values("id")
+            visible_contracts = ContractAccessPolicy().filter_queryset(Contract.objects.all(), user, None).values("id")
+            case_parties = case_parties.filter(case_id__in=visible_cases)
+            contract_parties = contract_parties.filter(contract_id__in=visible_contracts)
 
         cases = [
             {

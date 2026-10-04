@@ -174,6 +174,41 @@ class RateLimiter:
             return False, info
         return True, info
 
+    async def ais_allowed(
+        self, request: HttpRequest, key_func: Callable[[HttpRequest], str] | None = None
+    ) -> tuple[bool, dict[str, int]]:
+        """is_allowed 的异步版：aadd/aincr 全异步缓存 I/O，不阻塞事件循环。
+
+        计数口径与同步版完全一致（同 key、同窗口、同溢出判定），
+        实现方式对齐 TokenRateLimitMiddleware 的异步分支。
+        """
+        current_time = int(time.time())
+        bucket = current_time // self.window
+        window_end = (bucket + 1) * self.window
+        cache_key = f"{self.get_cache_key(request, key_func)}:{bucket}"
+
+        count: int
+        if await cache.aadd(cache_key, 1, timeout=self.window + 5):
+            count = 1
+        else:
+            try:
+                count = int(await cache.aincr(cache_key))
+            except ValueError:
+                await cache.aset(cache_key, 1, timeout=self.window + 5)
+                count = 1
+
+        remaining = max(0, self.requests - count)
+        info = {
+            "limit": self.requests,
+            "remaining": remaining,
+            "reset": window_end,
+            "window": self.window,
+        }
+
+        if count > self.requests:
+            return False, info
+        return True, info
+
 
 # 预定义的限流器实例
 default_limiter = RateLimiter(requests=100, window=60)  # 每分钟 100 次
@@ -238,7 +273,9 @@ def rate_limit(
             @wraps(func)
             async def async_wrapper(request: HttpRequest, *args: Any, **kwargs: Any) -> Any:
                 _limiter = limiter or RateLimiter(requests=requests, window=window)
-                allowed, info = _limiter.is_allowed(request, key_func)
+                # 异步端点走 ais_allowed：同步 is_allowed 的 cache.add/incr 是阻塞
+                # socket，会在事件循环上放大所有并发流的首字节延迟抖动
+                allowed, info = await _limiter.ais_allowed(request, key_func)
                 if not allowed:
                     wait_seconds = max(0, info["reset"] - int(time.time()))
                     raise RateLimitError(
