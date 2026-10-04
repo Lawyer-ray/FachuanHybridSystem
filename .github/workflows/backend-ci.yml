@@ -298,7 +298,7 @@ jobs:
           DJANGO_DEBUG: "1"
         run: |
           set -euo pipefail
-          BASELINE=75
+          BASELINE=47
           errors=$(uv run mypy --config-file=mypy.ini apps --no-pretty --no-error-summary 2>/dev/null | grep -c "error:" || true)
           echo "mypy full-scan errors=${errors} baseline=${BASELINE}"
           if [ "${errors}" -gt "${BASELINE}" ]; then
