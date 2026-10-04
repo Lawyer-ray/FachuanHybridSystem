@@ -65,6 +65,8 @@ class TestBuildRangeFileResponse:
         request = factory.get("/test")
         resp = build_range_file_response(request, "/nonexistent/file.pdf")
         assert resp.status_code == 404
+        # 缺失文件不泄露任何内容
+        assert resp.content == b""
 
     def test_empty_path(self):
         from django.test import RequestFactory
@@ -75,6 +77,7 @@ class TestBuildRangeFileResponse:
         request = factory.get("/test")
         resp = build_range_file_response(request, "")
         assert resp.status_code == 404
+        assert resp.content == b""
 
     def test_full_request(self):
         from django.test import RequestFactory
@@ -140,6 +143,9 @@ class TestBuildRangeFileResponse:
             try:
                 resp = build_range_file_response(request, f.name)
                 assert resp.status_code == 416
+                # RFC 7233：越界 Range 的 Content-Range 用 */{size} 语法
+                assert resp["Content-Range"] == "bytes */2"
+                assert resp["Accept-Ranges"] == "bytes"
             finally:
                 os.unlink(f.name)
 
@@ -156,6 +162,7 @@ class TestBuildRangeFileResponse:
             try:
                 resp = build_range_file_response(request, f.name)
                 assert resp.status_code == 416
+                assert resp["Content-Range"] == "bytes */4"
             finally:
                 os.unlink(f.name)
 
@@ -172,6 +179,8 @@ class TestBuildRangeFileResponse:
             try:
                 resp = build_range_file_response(request, f.name)
                 assert resp.status_code == 206
+                assert resp["Content-Range"] == "bytes 0-4/11"
+                assert resp["Content-Length"] == "5"
             finally:
                 os.unlink(f.name)
 

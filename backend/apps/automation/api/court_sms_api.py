@@ -27,6 +27,7 @@ from apps.automation.schemas import (
     CourtSmsDocumentRenameIn,
     CourtSmsDocumentRenameOut,
     CourtSMSListOut,
+    CourtSMSSubmitDataOut,
     CourtSMSSubmitIn,
     CourtSMSSubmitOut,
 )
@@ -56,7 +57,9 @@ async def submit_sms(request: Any, payload: CourtSMSSubmitIn) -> CourtSMSSubmitO
 
     sms = await sync_to_async(service.submit_sms)(content=payload.content, received_at=payload.received_at)
 
-    return CourtSMSSubmitOut(success=True, data={"id": sms.id, "status": sms.status, "created_at": sms.created_at})
+    return CourtSMSSubmitOut(
+        success=True, data=CourtSMSSubmitDataOut(id=sms.id, status=sms.status, created_at=sms.created_at)
+    )
 
 
 @router.post("/court-sms/form", response=CourtSMSSubmitOut)
@@ -74,7 +77,9 @@ async def submit_sms_form(  # pragma: no cover
 
     sms = await sync_to_async(service.submit_sms)(content=content, received_at=received_at)
 
-    return CourtSMSSubmitOut(success=True, data={"id": sms.id, "status": sms.status, "created_at": sms.created_at})
+    return CourtSMSSubmitOut(
+        success=True, data=CourtSMSSubmitDataOut(id=sms.id, status=sms.status, created_at=sms.created_at)
+    )
 
 
 # ============================================================================
@@ -176,7 +181,9 @@ async def retry_processing(request: Any, sms_id: int) -> CourtSMSSubmitOut:  # p
 
     sms = await sync_to_async(service.retry_processing)(sms_id)
 
-    return CourtSMSSubmitOut(success=True, data={"id": sms.id, "status": sms.status, "created_at": sms.created_at})
+    return CourtSMSSubmitOut(
+        success=True, data=CourtSMSSubmitDataOut(id=sms.id, status=sms.status, created_at=sms.created_at)
+    )
 
 
 # ============================================================================

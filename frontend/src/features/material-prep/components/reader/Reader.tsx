@@ -196,7 +196,9 @@ export function Reader() {
       {/* 三栏主体 */}
       <div className="relative flex min-h-0 flex-1 bg-[#f1f1f3]">
         {narrow && (railOpen || metaOpen) && (
+          // 窄屏遮罩：仅 pointer 点按关闭，键盘用户走面板内显式关闭（aria-hidden 不入 tab 序）
           <div
+            aria-hidden
             className="fixed inset-0 z-30 bg-black/20"
             onClick={() => {
               setRailOpen(false)

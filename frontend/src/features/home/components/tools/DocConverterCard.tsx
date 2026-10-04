@@ -94,7 +94,7 @@ export function DocConverterCard() {
           setPhase('timeout')
         } else {
           polls.current += 1
-          timer.current = window.setTimeout(tick, DOC_CONVERTER_POLL_MS)
+          timer.current = window.setTimeout(() => { void tick() }, DOC_CONVERTER_POLL_MS)
         }
       } catch {
         if (cancelled.current) return
@@ -178,7 +178,7 @@ export function DocConverterCard() {
         />
 
         <div className="mt-auto flex items-center gap-2">
-          <button type="button" className={BTN_PRIMARY} onClick={submit} disabled={phase === 'running'}>
+          <button type="button" className={BTN_PRIMARY} onClick={() => { void submit() }} disabled={phase === 'running'}>
             {phase === 'running' && <Spinner />}
             开始转换
           </button>

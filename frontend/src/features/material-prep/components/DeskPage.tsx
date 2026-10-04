@@ -122,18 +122,27 @@ export function DeskPage() {
     [judgePack, leaving],
   )
 
+  // judge 是 async（返回 Promise）；键盘导航 / 弹窗回调期望 void 返回，
+  // 统一包一层 fire-and-forget（内部 busy/leaving 守卫防重入，无需等待结果）
+  const judgeVoid = useCallback(
+    (pack: { id: number }, target: 'done' | 'filed') => {
+      void judge(pack, target)
+    },
+    [judge],
+  )
+
   const openAt = useCallback(
     (index: number) => {
       const p = visible[index]
       if (p) {
-        openPack(p.id)
-        navigate(`/material-prep/${p.id}`)
+        void openPack(p.id)
+        void navigate(`/material-prep/${p.id}`)
       }
     },
     [visible, openPack, navigate],
   )
 
-  useDeskKeyboard({ visible, openId, sel, setSel, openAt, judge, gridRef })
+  useDeskKeyboard({ visible, openId, sel, setSel, openAt, judge: judgeVoid, gridRef })
   useDeskRing({ sel, visible, tab, gridRef, wrapRef, ringRef })
 
   const confirmDelete = useCallback(() => {
@@ -171,7 +180,7 @@ export function DeskPage() {
       onDrop={(e) => {
         e.preventDefault()
         dragDepth.current = 0
-        handleFiles(e.dataTransfer.files)
+        void handleFiles(e.dataTransfer.files)
       }}
     >
       {/* 顶部导航：与首页共用同一套（components/shared/AppNavbar） */}
@@ -209,7 +218,7 @@ export function DeskPage() {
               tab={tab}
               leaving={leaving}
               onOpen={openAt}
-              onReject={(p) => judge(p, 'filed')}
+              onReject={(p) => { void judge(p, 'filed') }}
               onAccept={setAssigning}
               onRename={setRenameTarget}
               onDelete={setDeleteTarget}
@@ -219,7 +228,7 @@ export function DeskPage() {
         </main>
       </PageFade>
 
-      <DeskDropLayer dragging={dragging} fileInputRef={fileInputRef} onFiles={handleFiles} />
+      <DeskDropLayer dragging={dragging} fileInputRef={fileInputRef} onFiles={(fs) => { void handleFiles(fs) }} />
 
       {openId != null && <Reader />}
 
@@ -228,7 +237,7 @@ export function DeskPage() {
         onAssignCancel={() => setAssigning(null)}
         onAssignConfirm={(p) => {
           setAssigning(null)
-          judge(p, 'done')
+          void judge(p, 'done')
         }}
         deleteTarget={deleteTarget}
         onDeleteCancel={() => setDeleteTarget(null)}

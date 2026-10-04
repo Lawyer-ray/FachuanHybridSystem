@@ -10,7 +10,6 @@ import tempfile
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from django.http import HttpRequest
 
 
@@ -41,6 +40,8 @@ class TestBuildRangeFileResponse:
         request = _make_request()
         response = build_range_file_response(request, "/nonexistent/file.txt")
         assert response.status_code == 404
+        # 缺失文件不泄露任何内容
+        assert response.content == b""
 
     def test_empty_file_path(self) -> None:
         from apps.core.http.streaming import build_range_file_response
@@ -48,6 +49,7 @@ class TestBuildRangeFileResponse:
         request = _make_request()
         response = build_range_file_response(request, "")
         assert response.status_code == 404
+        assert response.content == b""
 
     def test_full_file_response(self, temp_file: str) -> None:
         from apps.core.http.streaming import build_range_file_response
@@ -93,6 +95,9 @@ class TestBuildRangeFileResponse:
         request = _make_request(range_header=f"bytes={file_size + 100}-{file_size + 200}")
         response = build_range_file_response(request, temp_file)
         assert response.status_code == 416
+        # RFC 7233：越界 Range 的 Content-Range 用 */{size} 语法
+        assert response.get("Content-Range") == f"bytes */{file_size}"
+        assert response.get("Accept-Ranges") == "bytes"
 
     def test_custom_content_type(self, temp_file: str) -> None:
         from apps.core.http.streaming import build_range_file_response
@@ -145,6 +150,7 @@ class TestBuildRangeFileResponse:
         request = _make_request(range_header="bytes=500-100")
         response = build_range_file_response(request, temp_file)
         assert response.status_code == 416
+        assert response.get("Content-Range") == f"bytes */{os.path.getsize(temp_file)}"
 
     def test_attachment_sets_filename(self, temp_file: str) -> None:
         from apps.core.http.streaming import build_range_file_response

@@ -102,9 +102,9 @@ function scheduleSave(draft: DraftState, id: number, immediate = false): Promise
       if (!d) return resolve()
       saveDraft(mid, d)
         .then(() => resolve())
-        .catch((e) => {
+        .catch((e: unknown) => {
           toast.error('拆分草稿保存失败，请检查后端连接')
-          reject(e)
+          reject(e instanceof Error ? e : new Error(String(e)))
         })
     }, immediate ? 0 : 450)
   })

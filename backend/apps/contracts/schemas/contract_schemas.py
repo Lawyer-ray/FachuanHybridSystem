@@ -16,7 +16,12 @@ from apps.contracts.models import Contract, FeeMode
 from apps.core.api.schemas_shared import ReminderLiteOut as ReminderOut
 from apps.core.models.enums import CaseStage
 
-from .lawyer_schemas import LawyerOut
+from .lawyer_schemas import ContractLawyerOut
+
+# 兼容别名：resolve_* 函数体经此名字调用（运行时查模块全局），存量测试
+# patch("apps.contracts.schemas.contract_schemas.LawyerOut") 仍可拦截；
+# 类本体更名 ContractLawyerOut 以避免与 organization.LawyerOut 的 OpenAPI 组件名冲突
+LawyerOut = ContractLawyerOut
 from .party_schemas import ContractPartyIn, ContractPartyOut
 from .payment_schemas import ContractPaymentOut
 from .supplementary_schemas import SupplementaryAgreementInput, SupplementaryAgreementOut
@@ -237,7 +242,7 @@ class ContractOut(ModelSchema):
     total_invoiced: float
     unpaid_amount: float | None
     assignments: list[ContractAssignmentOut]
-    primary_lawyer: LawyerOut | None
+    primary_lawyer: ContractLawyerOut | None
     # 新增显示字段 (Requirements: 1.4, 7.1)
     matched_document_template: str | None = None
     matched_folder_templates: str | None = None
@@ -414,7 +419,7 @@ class ContractOut(ModelSchema):
         return [ContractAssignmentOut.from_assignment(a) for a in obj.assignments.all()]
 
     @staticmethod
-    def resolve_primary_lawyer(obj: Any) -> LawyerOut | None:
+    def resolve_primary_lawyer(obj: Any) -> ContractLawyerOut | None:
         if isinstance(obj, dict):
             return obj.get("primary_lawyer", None)
         dto = getattr(obj, "primary_lawyer_dto", None)

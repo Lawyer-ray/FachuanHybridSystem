@@ -24,7 +24,9 @@ import {
 export function getApiBaseUrl(): string {
   // node 单测环境无 localStorage（模块加载期就会读本函数），跳过读取
   const stored = typeof localStorage === 'undefined' ? null : localStorage.getItem('api_base_url')
-  return stored || import.meta.env.VITE_API_BASE_URL || '/api/v1'
+  // import.meta.env 自定义变量类型是 any（vite/client 的索引签名），as 收窄成可选字符串
+  const envBase = import.meta.env.VITE_API_BASE_URL as string | undefined
+  return stored || envBase || '/api/v1'
 }
 
 /** 模块级缓存，避免每次调用都读 localStorage */

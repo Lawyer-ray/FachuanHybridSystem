@@ -88,7 +88,7 @@ export function CourtSmsCard() {
           placeholder="粘贴短信全文，如：某某区人民法院：张某诉李某民间借贷纠纷案定于9月29日9时30分开庭…"
         />
         <div className="mt-auto flex flex-wrap items-center gap-2">
-          <button type="button" className={BTN_PRIMARY} onClick={submit} disabled={busy}>
+          <button type="button" className={BTN_PRIMARY} onClick={() => { void submit() }} disabled={busy}>
             {busy && <Spinner />}
             {busy ? '处理中' : '提交短信'}
           </button>

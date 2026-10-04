@@ -11,8 +11,8 @@ import pytest
 
 from apps.core.exceptions import (
     AuthenticationError,
-    BusinessException,
     BusinessError,
+    BusinessException,
     ConflictError,
     ForbiddenError,
     NotFoundError,
@@ -21,7 +21,6 @@ from apps.core.exceptions import (
     UnauthorizedError,
     ValidationException,
 )
-
 
 # ============================================================
 # BusinessException / BusinessError
@@ -197,6 +196,10 @@ class TestLLMExceptions:
 
         exc = LLMAPIError("error")
         assert exc.status_code is None
+        # 未提供上游状态码时：code 仍为 LLM_API_ERROR，errors 不含 status_code
+        assert exc.code == "LLM_API_ERROR"
+        assert exc.errors.get("status_code") is None
+        assert str(exc.message) == "error"
 
     def test_llm_authentication_error(self) -> None:
         from apps.core.llm.exceptions import LLMAuthenticationError

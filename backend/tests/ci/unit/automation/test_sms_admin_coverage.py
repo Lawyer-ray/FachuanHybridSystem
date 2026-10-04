@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
-from django.test import RequestFactory
 from django.http import JsonResponse
+from django.test import RequestFactory
 
 from apps.automation.admin.sms.court_sms_admin_actions import CourtSMSAdminActions
 from apps.automation.models import CourtSMS
@@ -39,34 +40,46 @@ class TestCourtSMSAdminActionsSubmitSmsView:
             mock_render.return_value = MagicMock(status_code=200)
             result = mixin.submit_sms_view(request)
             assert result.status_code == 200
+            mock_render.assert_called_once()
+            args, _kwargs = mock_render.call_args
+            assert args[1] == "admin/automation/courtsms/submit_sms.html"
+            assert args[2]["title"] == "提交法院短信"
 
     def test_submit_sms_view_post_empty_content(self):
-        from django.test import Client
-
         mixin = CourtSMSAdminActions()
         mixin.model = MagicMock()
         mixin.model._meta = MagicMock()
         # Use a request that includes messages middleware
-        with patch("apps.automation.admin.sms.court_sms_admin_actions.messages"):
+        with patch("apps.automation.admin.sms.court_sms_admin_actions.messages") as mock_messages:
             request = _make_request(method="POST", data={"content": ""})
             with patch("apps.automation.admin.sms.court_sms_admin_actions.render") as mock_render:
                 mock_render.return_value = MagicMock(status_code=200)
                 result = mixin.submit_sms_view(request)
                 assert result.status_code == 200
+                # 空内容应提示错误并回落到表单页
+                mock_messages.error.assert_called_once()
+                assert "不能为空" in mock_messages.error.call_args[0][1]
+                mock_render.assert_called_once()
 
     def test_submit_sms_view_post_success(self):
         mixin = CourtSMSAdminActions()
         mixin.model = MagicMock()
         mixin.model._meta = MagicMock()
-        with patch("apps.automation.admin.sms.court_sms_admin_actions.messages"):
+        with patch("apps.automation.admin.sms.court_sms_admin_actions.messages") as mock_messages:
             request = _make_request(method="POST", data={"content": "法院短信内容"})
             with patch("apps.automation.admin.sms.court_sms_admin_actions._get_court_sms_service") as mock_svc:
                 mock_sms = MagicMock()
                 mock_sms.id = 1
                 mock_svc.return_value.submit_sms.return_value = mock_sms
-                with patch("apps.automation.admin.sms.court_sms_admin_actions.reverse", return_value="/admin/change/1/"):
+                with patch(
+                    "apps.automation.admin.sms.court_sms_admin_actions.reverse", return_value="/admin/change/1/"
+                ):
                     result = mixin.submit_sms_view(request)
                     assert result.status_code == 302
+                    # 成功提交后重定向到新记录的 change 页
+                    assert result.url == "/admin/change/1/"
+                    mock_svc.return_value.submit_sms.assert_called_once_with("法院短信内容", None)
+                    mock_messages.success.assert_called_once()
 
 
 @pytest.mark.django_db
@@ -78,6 +91,7 @@ class TestCourtSMSAdminActionsSearchCasesAjax:
         request = _make_request(method="POST")
         result = mixin.search_cases_ajax(request, sms_id=1)
         assert result.status_code == 405
+        assert json.loads(result.content) == {"error": "只支持 GET 请求"}
 
     def test_search_cases_ajax_empty_query(self):
         import json as json_mod
@@ -108,6 +122,11 @@ class TestCourtSMSAdminActionsSearchCasesAjax:
 
             result = mixin.search_cases_ajax(request, sms_id=1)
             assert result.status_code == 200
+            # 命中的案件应通过 detail 数据返回 id 与名称
+            data = json.loads(result.content)
+            assert len(data["cases"]) == 1
+            assert data["cases"][0]["id"] == 1
+            assert data["cases"][0]["name"] == "张三案"
 
     def test_search_cases_ajax_exception(self):
         mixin = CourtSMSAdminActions()
@@ -116,6 +135,7 @@ class TestCourtSMSAdminActionsSearchCasesAjax:
             mock_svc.return_value.search_cases_by_party_internal.side_effect = Exception("DB error")
             result = mixin.search_cases_ajax(request, sms_id=1)
             assert result.status_code == 500
+            assert json.loads(result.content) == {"error": "搜索失败,请重试"}
 
 
 @pytest.mark.django_db
@@ -203,3 +223,4 @@ class TestCourtSMSAdminActionsRecommendations:
         request = _make_request(method="POST")
         result = mixin.recommendations_ajax(request, sms_id=1)
         assert result.status_code == 405
+        assert json.loads(result.content) == {"error": "只支持 GET 请求"}

@@ -44,7 +44,7 @@ from .folder_scan_schemas import (
 )
 
 # Lawyer, Reminder, Case Schemas
-from .lawyer_schemas import CaseOut, LawyerOut
+from .lawyer_schemas import CaseOut, ContractLawyerOut
 
 # Party Schemas
 from .party_schemas import ContractPartyIn, ContractPartyOut, ContractPartySourceOut
@@ -74,7 +74,7 @@ __all__ = [
     "ClientIdentityDocOut",
     "ClientOut",
     # Lawyer, Reminder, Case
-    "LawyerOut",
+    "ContractLawyerOut",
     "ReminderOut",
     "CaseOut",
     # Party

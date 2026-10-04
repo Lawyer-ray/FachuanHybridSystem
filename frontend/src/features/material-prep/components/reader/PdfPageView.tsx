@@ -75,7 +75,7 @@ export function PdfPageView({ messageId, partIndex, pageNum }: { messageId: numb
         if (!cancelled) setState('error')
       }
     }
-    run()
+    void run()
     return () => {
       cancelled = true
     }

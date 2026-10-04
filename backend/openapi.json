@@ -11010,7 +11010,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JobSubmitOut"
+                  "$ref": "#/components/schemas/PdfSplitJobSubmitOut"
                 }
               }
             }
@@ -11099,7 +11099,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JobOut"
+                  "$ref": "#/components/schemas/PdfSplitJobOut"
                 }
               }
             }
@@ -11177,7 +11177,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JobSubmitOut"
+                  "$ref": "#/components/schemas/PdfSplitJobSubmitOut"
                 }
               }
             }
@@ -11225,7 +11225,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JobSubmitOut"
+                  "$ref": "#/components/schemas/PdfSplitJobSubmitOut"
                 }
               }
             }
@@ -23864,59 +23864,39 @@
       },
       "LawyerOut": {
         "properties": {
+          "license_pdf_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Pdf Url"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "law_firm_detail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LawFirmOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
-            "title": "Id",
-            "type": "integer"
-          },
-          "username": {
-            "title": "Username",
-            "type": "string"
-          },
-          "real_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Real Name"
-          },
-          "phone": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Phone"
-          },
-          "is_admin": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Is Admin"
-          },
-          "is_active": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Is Active"
-          },
-          "law_firm": {
             "anyOf": [
               {
                 "type": "integer"
@@ -23925,22 +23905,64 @@
                 "type": "null"
               }
             ],
-            "title": "Law Firm"
+            "title": "ID"
           },
-          "law_firm_name": {
+          "username": {
+            "description": "必填；长度为150个字符或以下；只能包含字母、数字、特殊字符“@”、“.”、“-”和“_”。",
+            "maxLength": 150,
+            "title": "用户名",
+            "type": "string"
+          },
+          "real_name": {
             "anyOf": [
               {
+                "maxLength": 255,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Law Firm Name"
+            "default": "",
+            "title": "真实姓名"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "手机号码"
+          },
+          "license_no": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "执业证号"
+          },
+          "is_admin": {
+            "default": false,
+            "title": "是否律所管理员",
+            "type": "boolean"
+          },
+          "is_active": {
+            "default": true,
+            "description": "指明用户是否被认为是活跃的。以反选代替删除帐号。",
+            "title": "有效",
+            "type": "boolean"
           }
         },
         "required": [
-          "id",
           "username"
         ],
         "title": "LawyerOut",
@@ -29699,6 +29721,91 @@
         "title": "ContractFacetCountOut",
         "type": "object"
       },
+      "ContractLawyerOut": {
+        "description": "合同场景下的律师精简投影（如 ContractOut.primary_lawyer）。\n\n命名必须带 Contract 前缀：OpenAPI 组件按类名注册，与\napps.organization.schemas.LawyerOut 同名会互相覆盖（后注册者胜出），\n曾经导致快照里的 LawyerOut 丢失 license_no / law_firm_detail，\n/organization/lawyers 端点在生成物中挂错 schema。",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          },
+          "real_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Real Name"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "is_admin": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Admin"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "law_firm": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Law Firm"
+          },
+          "law_firm_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Law Firm Name"
+          }
+        },
+        "required": [
+          "id",
+          "username"
+        ],
+        "title": "ContractLawyerOut",
+        "type": "object"
+      },
       "ContractListPageOut": {
         "description": "合同分页列表输出 Schema（GET /contracts/contracts 实际返回形状）。\n\n与 ContractPaginatedOut 不同：本 Schema 按 list_contracts_page 服务返回定形\n（facets 计数而非 total_pages）；items 在 slim=true 时剔除 finalized_materials\n（由端点 exclude_unset=True 实现，此处声明保持全集）。",
         "properties": {
@@ -29841,7 +29948,7 @@
           "primary_lawyer": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/LawyerOut"
+                "$ref": "#/components/schemas/ContractLawyerOut"
               },
               {
                 "type": "null"
@@ -32886,6 +32993,40 @@
         "title": "QuoteExecuteResponseSchema",
         "type": "object"
       },
+      "CourtSMSSubmitDataOut": {
+        "description": "提交/重试成功后返回的短信记录信息（CourtSMSSubmitOut.data）",
+        "properties": {
+          "id": {
+            "description": "短信记录 ID",
+            "title": "Id",
+            "type": "integer"
+          },
+          "status": {
+            "default": "",
+            "description": "处理状态（pending 等）",
+            "title": "Status",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "记录创建时间",
+            "title": "Created At"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "CourtSMSSubmitDataOut",
+        "type": "object"
+      },
       "CourtSMSSubmitOut": {
         "description": "提交法院短信响应",
         "example": {
@@ -32903,10 +33044,8 @@
             "type": "boolean"
           },
           "data": {
-            "additionalProperties": true,
-            "description": "短信记录信息",
-            "title": "Data",
-            "type": "object"
+            "$ref": "#/components/schemas/CourtSMSSubmitDataOut",
+            "description": "短信记录信息"
           }
         },
         "required": [
@@ -34468,7 +34607,29 @@
         "title": "UpdateInfoRequestSchema",
         "type": "object"
       },
-      "JobSubmitOut": {
+      "PdfSplitJobSubmitOut": {
+        "description": "任务提交响应（同上，避免与 doc_converter.JobSubmitOut 同名互踩）",
+        "properties": {
+          "job_id": {
+            "description": "任务ID",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "status": {
+            "description": "状态",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "status"
+        ],
+        "title": "PdfSplitJobSubmitOut",
+        "type": "object"
+      },
+      "PdfSplitJobOut": {
+        "description": "任务详情响应。\n\n命名必须带 PdfSplit 前缀：OpenAPI 组件按类名注册，与 doc_converter.JobOut\n同名会互相覆盖（后注册者胜出），导致该端点在快照里挂上错误 schema。",
         "properties": {
           "job_id": {
             "title": "Job Id",
@@ -34478,90 +34639,71 @@
             "title": "Status",
             "type": "string"
           },
-          "total_files": {
-            "title": "Total Files",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "job_id",
-          "status",
-          "total_files"
-        ],
-        "title": "JobSubmitOut",
-        "type": "object"
-      },
-      "JobOut": {
-        "properties": {
-          "id": {
-            "format": "uuid",
-            "title": "Id",
+          "split_mode": {
+            "title": "Split Mode",
             "type": "string"
           },
-          "status": {
-            "title": "Status",
+          "ocr_profile": {
+            "title": "Ocr Profile",
             "type": "string"
-          },
-          "total_files": {
-            "title": "Total Files",
-            "type": "integer"
-          },
-          "converted_files": {
-            "title": "Converted Files",
-            "type": "integer"
-          },
-          "failed_files": {
-            "title": "Failed Files",
-            "type": "integer"
           },
           "progress": {
             "title": "Progress",
             "type": "integer"
           },
-          "error_message": {
-            "title": "Error Message",
-            "type": "string"
+          "total_pages": {
+            "title": "Total Pages",
+            "type": "integer"
+          },
+          "processed_pages": {
+            "title": "Processed Pages",
+            "type": "integer"
+          },
+          "current_page": {
+            "title": "Current Page",
+            "type": "integer"
+          },
+          "summary": {
+            "additionalProperties": true,
+            "title": "Summary",
+            "type": "object"
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/SegmentOut"
+            },
+            "title": "Segments",
+            "type": "array"
           },
           "download_url": {
             "default": "",
             "title": "Download Url",
             "type": "string"
           },
-          "created_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created At"
+          "pdf_url": {
+            "default": "",
+            "title": "Pdf Url",
+            "type": "string"
           },
-          "finished_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Finished At"
+          "error_message": {
+            "default": "",
+            "title": "Error Message",
+            "type": "string"
           }
         },
         "required": [
-          "id",
+          "job_id",
           "status",
-          "total_files",
-          "converted_files",
-          "failed_files",
+          "split_mode",
+          "ocr_profile",
           "progress",
-          "error_message"
+          "total_pages",
+          "processed_pages",
+          "current_page",
+          "summary",
+          "segments"
         ],
-        "title": "JobOut",
+        "title": "PdfSplitJobOut",
         "type": "object"
       },
       "SegmentOut": {
@@ -44456,6 +44598,29 @@
         "title": "OptimizePromptIn",
         "type": "object"
       },
+      "JobSubmitOut": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "total_files": {
+            "title": "Total Files",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "job_id",
+          "status",
+          "total_files"
+        ],
+        "title": "JobSubmitOut",
+        "type": "object"
+      },
       "JobListOut": {
         "description": "历史任务分页列表（GET /doc-converter/jobs 实际返回形状）",
         "properties": {
@@ -44486,6 +44651,79 @@
           "num_pages"
         ],
         "title": "JobListOut",
+        "type": "object"
+      },
+      "JobOut": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "total_files": {
+            "title": "Total Files",
+            "type": "integer"
+          },
+          "converted_files": {
+            "title": "Converted Files",
+            "type": "integer"
+          },
+          "failed_files": {
+            "title": "Failed Files",
+            "type": "integer"
+          },
+          "progress": {
+            "title": "Progress",
+            "type": "integer"
+          },
+          "error_message": {
+            "title": "Error Message",
+            "type": "string"
+          },
+          "download_url": {
+            "default": "",
+            "title": "Download Url",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "total_files",
+          "converted_files",
+          "failed_files",
+          "progress",
+          "error_message"
+        ],
+        "title": "JobOut",
         "type": "object"
       },
       "ItemOut": {

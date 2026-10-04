@@ -114,7 +114,7 @@ export function DocParseCard() {
         </label>
 
         <div className="mt-auto flex items-center gap-2">
-          <button type="button" className={BTN_PRIMARY} onClick={run} disabled={busy}>
+          <button type="button" className={BTN_PRIMARY} onClick={() => { void run() }} disabled={busy}>
             {busy && <Spinner />}
             {busy ? '解析中' : '开始解析'}
           </button>
@@ -159,7 +159,7 @@ export function DocParseCard() {
               </>
             )}
             {!ok && !busy && (
-              <button type="button" className={BTN_PRIMARY} onClick={run}>
+              <button type="button" className={BTN_PRIMARY} onClick={() => { void run() }}>
                 再次解析
               </button>
             )}

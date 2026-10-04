@@ -215,8 +215,8 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
                     if (row) setOverrides((prev) => ({ ...prev, [key]: { checked: !row.checked } }))
                   }}
                   onPatch={(key, patch) => setOverrides((prev) => patchRowWithOverride(prev, key, patch))}
-                  onSkip={doSkip}
-                  onRevoke={doRevoke}
+                  onSkip={(row) => { void doSkip(row) }}
+                  onRevoke={(row) => { void doRevoke(row) }}
                 />
                 {rows.length > 0 && rows.every((r) => r.status !== 'pending') && (
                   <span className="mt-1 block text-center text-[11.5px] text-status-green">全部处理完成</span>
@@ -245,7 +245,7 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
             <Button variant="outline" onClick={onClose} disabled={busy}>
               关闭
             </Button>
-            <Button onClick={doConfirm} disabled={busy || writableCount === 0} className={cn(busy && 'opacity-80')}>
+            <Button onClick={() => { void doConfirm() }} disabled={busy || writableCount === 0} className={cn(busy && 'opacity-80')}>
               {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               写入 {writableCount} 条提醒
             </Button>

@@ -88,6 +88,8 @@ class TestCaseAdminRowLevelAccess:
 
         response = CaseAdmin(Case, AdminSite()).open_folder_view(request, case.pk)
         assert response.status_code == 404
+        # 行级校验通过：404 的成因是未绑定文件夹，而非权限拒绝
+        assert json.loads(response.content)["error"] == "未绑定文件夹"
 
 
 @pytest.mark.django_db

@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
+from django.http import Http404, JsonResponse
 from django.test import RequestFactory
-from django.http import JsonResponse, Http404
 
-from apps.evidence.admin.evidence.mixins.views import (
-    EvidenceListAdminViewsMixin,
-    EvidenceListAdminServiceMixin,
-)
+from apps.evidence.admin.evidence.mixins.views import EvidenceListAdminServiceMixin, EvidenceListAdminViewsMixin
 from apps.evidence.models import EvidenceList
 
 User = get_user_model()
@@ -163,6 +161,7 @@ class TestEvidenceListAdminViewsMixinReorder:
         request = _make_request(method="GET")
         result = mixin.reorder_view(request, pk=1)
         assert result.status_code == 405
+        assert json.loads(result.content) == {"error": "Method not allowed"}
 
     def test_reorder_view_success(self):
         import json as json_mod
@@ -179,6 +178,9 @@ class TestEvidenceListAdminViewsMixinReorder:
             mock_svc.return_value.reorder_items = MagicMock()
             result = mixin.reorder_view(request, pk=1)
             assert result.status_code == 200
+            assert json.loads(result.content) == {"success": True}
+            # service 应以 (pk, item_ids) 被调用
+            mock_svc.return_value.reorder_items.assert_called_once_with(1, [1, 2, 3])
 
 
 @pytest.mark.django_db
@@ -193,3 +195,4 @@ class TestEvidenceListAdminViewsMixinMergeStatus:
             MockEL.objects.select_related.return_value.get.side_effect = MockEL.DoesNotExist()
             result = mixin.merge_status_view(request, pk=999999)
             assert result.status_code == 404
+            assert json.loads(result.content) == {"error": "证据清单不存在"}

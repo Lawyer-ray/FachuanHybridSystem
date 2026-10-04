@@ -412,9 +412,13 @@ class LegalResearchCapabilityService:  # pragma: no cover
         return keyword, "\n".join(part for part in summary_parts if part)[:8000]
 
     def _execute_with_timeout(self, *, task_id: str, timeout_ms: int) -> dict[str, Any]:  # pragma: no cover
-        # 执行器线程内跑 Playwright sync + sync ORM：仅执行期间放行 async-unsafe，退出恢复。
-        # async 化需整体改造 executor 链（LegalResearchExecutor 全链 sync ORM + Playwright 混排），
-        # 暂保留作用域化。
+        # 【保留作用域化放行】与 legal_research/tasks.execute_legal_research_task 跑的是
+        # 同一个 LegalResearchExecutor.run：同步 Playwright 的 _set_running_loop 使执行器
+        # 线程带上运行中循环，_save_result 等直连 sync ORM 段（见
+        # executor_components/result_persistence.py）依赖本放行。环境变量为进程级，
+        # 在本线程设置即可覆盖 executor 线程的整个执行窗口（含 future.result 等待期）。
+        # 改造清单见 tasks.execute_legal_research_task 注释（_save_result 接入
+        # _run_orm_safely 或全链 async 化），两处放行须一并清偿。
         with allow_async_unsafe():
             executor = LegalResearchExecutor()
             pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix=self.THREAD_NAME_PREFIX)

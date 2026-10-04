@@ -8,17 +8,15 @@ export const automationApi = createApiClient({ prefix: '/api/v1/automation' })
 export const docConvertApi = createApiClient({ prefix: '/api/v1/doc-convert' })
 export const docConverterApi = createApiClient({ prefix: '/api/v1/doc-converter' })
 
-/**
- * 收法院短信：POST /automation/court-sms。
- * 手写保留：生成物 CourtSMSSubmitOut 的 data 是裸 dict（schema 未覆盖 {id} 结构），
- * 且业务失败文案 message 未声明，按真实返回维护。
- */
+/** 收法院短信：POST /automation/court-sms（响应为生成物 CourtSMSSubmitOut）。
+ *  后端已为 data 补了嵌套 Schema（此前是裸 dict，{id} 结构 schema 未覆盖）；
+ *  message 为 schema 未声明的业务失败文案字段，交联补充。 */
 export async function submitCourtSms(content: string): Promise<number> {
   const res = await automationApi
     .post('court-sms', { json: { content } })
-    .json<{ success?: boolean; message?: string; data?: { id?: number } }>()
+    .json<components['schemas']['CourtSMSSubmitOut'] & { message?: string }>()
   // 业务失败兜底：后端 200 + success:false 或缺 id 时，别拿 undefined 去轮询
-  if (res.success === false || !res.data?.id) {
+  if (res.success === false || typeof res.data.id !== 'number') {
     throw new Error(res.message || '短信提交失败')
   }
   return res.data.id

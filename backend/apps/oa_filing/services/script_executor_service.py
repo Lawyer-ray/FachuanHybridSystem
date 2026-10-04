@@ -13,7 +13,6 @@ from typing import Any
 
 from django.apps import apps as django_apps
 
-from apps.core.infrastructure.async_context import allow_async_unsafe
 from apps.core.infrastructure.sync_async_bridge import run_coro_sync
 
 from .oa_firm_registry import create_adapter
@@ -191,18 +190,22 @@ class ScriptExecutorService:
     ) -> None:
         from apps.oa_filing.models import FilingSession, SessionStatus
 
-        # 事件循环线程内执行协程 + sync ORM：async 化需整体改造 executor 链（adapter/
-        # jtn 脚本内部大量 sync ORM 与 Playwright 混排），暂保留作用域化放行，退出恢复。
-        with allow_async_unsafe():
-            try:
-                run_coro_sync(self._dispatch_filing(site_name, credential, contract_id, case_id))
-                FilingSession.objects.filter(pk=session_id).update(status=SessionStatus.COMPLETED)
-                logger.info("立案完成: session=%d", session_id)
-            except Exception as exc:
-                FilingSession.objects.filter(pk=session_id).update(
-                    status=SessionStatus.FAILED, error_message=_friendly_error_message(exc)
-                )
-                logger.error("立案失败: session=%d, error=%s", session_id, exc)
+        # 协程链已全量 async 化，无需 allow_async_unsafe（本批次已清偿）：
+        # - _dispatch_filing → adapter.execute_filing 的 ORM 全部走 aget/afirst/aiterator，
+        #   JTN 脚本只用 async Playwright/HTTP（create_browser_async），Cookie 持久化在磁盘；
+        # - run_coro_sync 返回后事件循环已关闭，下方 sync update 在普通线程池工作线程上
+        #   执行，不触发 Django 的 async 上下文保护。
+        # 维护约束：新增律所 adapter 的 execute_* 协程内禁止 sync ORM（须 aget/aupdate
+        # 或 sync_to_async 包裹），否则运行中的循环会立刻抛 SynchronousOnlyOperation。
+        try:
+            run_coro_sync(self._dispatch_filing(site_name, credential, contract_id, case_id))
+            FilingSession.objects.filter(pk=session_id).update(status=SessionStatus.COMPLETED)
+            logger.info("立案完成: session=%d", session_id)
+        except Exception as exc:
+            FilingSession.objects.filter(pk=session_id).update(
+                status=SessionStatus.FAILED, error_message=_friendly_error_message(exc)
+            )
+            logger.error("立案失败: session=%d, error=%s", session_id, exc)
 
     async def _dispatch_filing(self, site_name: str, credential: Any, contract_id: int, case_id: int | None) -> None:
         adapter = create_adapter(site_name, str(credential.account), str(credential.password))
@@ -244,17 +247,18 @@ class ScriptExecutorService:
     def _run_stamp_in_thread(self, session_id: int, site_name: str) -> None:
         from apps.oa_filing.models import StampSession, StampSessionStatus
 
-        # 事件循环线程内执行协程 + sync ORM：async 化需整体改造 executor 链，暂保留作用域化放行。
-        with allow_async_unsafe():
-            try:
-                run_coro_sync(self._dispatch_stamp(session_id, site_name))
-                StampSession.objects.filter(pk=session_id).update(status=StampSessionStatus.COMPLETED)
-                logger.info("盖章完成: session=%d", session_id)
-            except Exception as exc:
-                StampSession.objects.filter(pk=session_id).update(
-                    status=StampSessionStatus.FAILED, error_message=_friendly_error_message(exc)
-                )
-                logger.error("盖章失败: session=%d, error=%s", session_id, exc)
+        # 协程链已全量 async 化，无需 allow_async_unsafe：_dispatch_stamp 用 aget 预取
+        # session（含 select_related credential），adapter/脚本纯 async Playwright，链内
+        # 无 sync ORM；run_coro_sync 返回后循环已关闭，下方 sync update 安全。
+        try:
+            run_coro_sync(self._dispatch_stamp(session_id, site_name))
+            StampSession.objects.filter(pk=session_id).update(status=StampSessionStatus.COMPLETED)
+            logger.info("盖章完成: session=%d", session_id)
+        except Exception as exc:
+            StampSession.objects.filter(pk=session_id).update(
+                status=StampSessionStatus.FAILED, error_message=_friendly_error_message(exc)
+            )
+            logger.error("盖章失败: session=%d, error=%s", session_id, exc)
 
     async def _dispatch_stamp(self, session_id: int, site_name: str) -> None:
         from apps.oa_filing.models import StampSession
@@ -299,17 +303,18 @@ class ScriptExecutorService:
     def _run_archive_in_thread(self, session_id: int, site_name: str) -> None:
         from apps.oa_filing.models import ArchiveSession, ArchiveSessionStatus
 
-        # 事件循环线程内执行协程 + sync ORM：async 化需整体改造 executor 链，暂保留作用域化放行。
-        with allow_async_unsafe():
-            try:
-                run_coro_sync(self._dispatch_archive(session_id, site_name))
-                ArchiveSession.objects.filter(pk=session_id).update(status=ArchiveSessionStatus.COMPLETED)
-                logger.info("归档完成: session=%d", session_id)
-            except Exception as exc:
-                ArchiveSession.objects.filter(pk=session_id).update(
-                    status=ArchiveSessionStatus.FAILED, error_message=_friendly_error_message(exc)
-                )
-                logger.error("归档失败: session=%d, error=%s", session_id, exc)
+        # 协程链已全量 async 化，无需 allow_async_unsafe：_dispatch_archive 用 aget 预取
+        # session（含 select_related credential），adapter/脚本纯 async Playwright，链内
+        # 无 sync ORM；run_coro_sync 返回后循环已关闭，下方 sync update 安全。
+        try:
+            run_coro_sync(self._dispatch_archive(session_id, site_name))
+            ArchiveSession.objects.filter(pk=session_id).update(status=ArchiveSessionStatus.COMPLETED)
+            logger.info("归档完成: session=%d", session_id)
+        except Exception as exc:
+            ArchiveSession.objects.filter(pk=session_id).update(
+                status=ArchiveSessionStatus.FAILED, error_message=_friendly_error_message(exc)
+            )
+            logger.error("归档失败: session=%d, error=%s", session_id, exc)
 
     async def _dispatch_archive(self, session_id: int, site_name: str) -> None:
         from apps.oa_filing.models import ArchiveSession
@@ -342,10 +347,10 @@ class ScriptExecutorService:
                 await adapter.wait_open_browsers_closed()
                 logger.info("OA 半自动浏览器已关闭，资源已回收: %s", method_name)
 
-            # 事件循环线程内可能执行 sync ORM：async 化需整体改造 executor 链，暂保留作用域化。
-            with allow_async_unsafe():
-                # 统一桥接：一次性 loop + 退出前清理 Django 连接（旧为裸 asyncio.run）
-                run_coro_sync(_main(), thread_name_prefix="oa-open-page")
+            # _main 协程链纯 async Playwright（open_* + wait_open_browsers_closed），
+            # 全程无任何 ORM 调用，无需 allow_async_unsafe。
+            # 统一桥接：一次性 loop + 退出前清理 Django 连接（旧为裸 asyncio.run）
+            run_coro_sync(_main(), thread_name_prefix="oa-open-page")
 
         threading.Thread(target=_run, daemon=True, name=f"oa-open-{method_name}").start()
 

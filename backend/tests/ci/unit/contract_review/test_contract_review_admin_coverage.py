@@ -270,6 +270,8 @@ class TestReviewTaskAdminRedirectBack:
         request.META = {"HTTP_REFERER": "/admin/contract_review/reviewtask/"}
         result = admin._redirect_back(request)
         assert result.status_code == 302
+        # 有 Referer 时回到来源页
+        assert result.url == "/admin/contract_review/reviewtask/"
 
     def test_redirect_back_without_referer(self):
         admin = _make_admin()
@@ -277,6 +279,8 @@ class TestReviewTaskAdminRedirectBack:
         request.META = {}
         result = admin._redirect_back(request)
         assert result.status_code == 302
+        # 无 Referer 时回落到 changelist
+        assert result.url == "/admin/contract_review/reviewtask/"
 
 
 @pytest.mark.django_db

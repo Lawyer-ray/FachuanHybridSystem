@@ -17,10 +17,10 @@ either anti-pattern grows beyond its baseline:
    payload / side-effect assertions instead.
 
 Baselines were measured on 2026-10-03 after the integration-layer cleanup
-batches (128 pure status-code tests cleared, see 966c3d67). The remaining
-zero-assert tests are intentional fail-via-exception patterns (property
-tests calling ``json.loads`` / "never raises" contracts); the remaining
-pure status-code tests are concentrated in unit-layer coverage files.
+batches (128 pure status-code tests cleared, see 966c3d67); on 2026-10-04 the
+remaining 163 unit-layer pure status-code tests were cleared to 0 as well.
+The remaining zero-assert tests are intentional fail-via-exception patterns
+(property tests calling ``json.loads`` / "never raises" contracts).
 Only lower these baselines; never raise them.
 """
 
@@ -33,10 +33,11 @@ from pathlib import Path
 # Measured 2026-10-03 (AST scan of all 27468 test functions under tests/ci/).
 # Zero-assert: integration 1 (smoke_check contract, fail-via-exception),
 # property 4 (hypothesis fail-via-exception), unit 1 (schemas_and_services
-# coverage). Pure status-code: unit 163 (coverage-fill tests).
+# coverage). Pure status-code: unit 163 cleared to 0 on 2026-10-04 (unit-layer
+# coverage batches strengthened with payload/DB-state/mock assertions).
 # 清理后下调；严禁上调。
 ZERO_ASSERTION_RATCHET = 6
-PURE_STATUS_CODE_RATCHET = 163
+PURE_STATUS_CODE_RATCHET = 0
 
 _TESTS_CI_ROOT = Path(__file__).resolve().parents[1]
 

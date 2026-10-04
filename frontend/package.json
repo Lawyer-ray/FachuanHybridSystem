@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
-    "gen:api": "openapi-typescript ../backend/openapi.json -o src/types/api-schema.d.ts"
+    "gen:api": "openapi-typescript ../backend/openapi.json -o src/types/api-schema.d.ts",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.23",
@@ -44,6 +45,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react-swc": "^4.3.3",
+    "@vitest/coverage-v8": "^5.0.3",
     "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",

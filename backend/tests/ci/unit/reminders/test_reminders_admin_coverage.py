@@ -257,29 +257,39 @@ class TestReminderAdminCalendarViewMethods:
 
     def test_calendar_create_view_not_post(self):
         admin = _make_admin()
+        admin.message_user = MagicMock()
         request = MagicMock()
         request.method = "GET"
         with patch("apps.reminders.admin.reminder_admin.reverse", return_value="/admin/calendar/"):
             result = admin.calendar_create_view(request)
             assert result.status_code == 302
+            assert result.url == "/admin/calendar/"
+            admin.message_user.assert_not_called()
+            assert Reminder.objects.count() == 0
 
     def test_calendar_create_view_no_permission(self):
         admin = _make_admin()
         admin.has_add_permission = MagicMock(return_value=False)
+        admin.message_user = MagicMock()
         request = MagicMock()
         request.method = "POST"
         with patch("apps.reminders.admin.reminder_admin.reverse", return_value="/admin/calendar/"):
             result = admin.calendar_create_view(request)
             assert result.status_code == 302
+            assert result.url == "/admin/calendar/"
+            admin.message_user.assert_called_once()
+            assert "权限" in admin.message_user.call_args[0][1]
+            assert Reminder.objects.count() == 0
 
     def test_calendar_create_view_empty_content(self):
         admin = _make_admin()
         admin.has_add_permission = MagicMock(return_value=True)
+        admin.message_user = MagicMock()
         request = MagicMock()
         request.method = "POST"
         request.POST = {
             "content": "",
-            "reminder_type": "general",
+            "reminder_type": "other",
             "due_date": "2025-06-01",
             "due_time": "10:00",
             "target_type": "",
@@ -291,10 +301,15 @@ class TestReminderAdminCalendarViewMethods:
         with patch("apps.reminders.admin.reminder_admin.reverse", return_value="/admin/calendar/"):
             result = admin.calendar_create_view(request)
             assert result.status_code == 302
+            assert result.url == "/admin/calendar/"
+            admin.message_user.assert_called_once()
+            assert "提醒事项不能为空" in admin.message_user.call_args[0][1]
+            assert Reminder.objects.count() == 0
 
     def test_calendar_create_view_invalid_type(self):
         admin = _make_admin()
         admin.has_add_permission = MagicMock(return_value=True)
+        admin.message_user = MagicMock()
         request = MagicMock()
         request.method = "POST"
         request.POST = {
@@ -311,15 +326,20 @@ class TestReminderAdminCalendarViewMethods:
         with patch("apps.reminders.admin.reminder_admin.reverse", return_value="/admin/calendar/"):
             result = admin.calendar_create_view(request)
             assert result.status_code == 302
+            assert result.url == "/admin/calendar/"
+            admin.message_user.assert_called_once()
+            assert "提醒类型不合法" in admin.message_user.call_args[0][1]
+            assert Reminder.objects.count() == 0
 
     def test_calendar_create_view_missing_date(self):
         admin = _make_admin()
         admin.has_add_permission = MagicMock(return_value=True)
+        admin.message_user = MagicMock()
         request = MagicMock()
         request.method = "POST"
         request.POST = {
             "content": "test",
-            "reminder_type": "general",
+            "reminder_type": "other",
             "due_date": "",
             "due_time": "10:00",
             "target_type": "",
@@ -331,15 +351,20 @@ class TestReminderAdminCalendarViewMethods:
         with patch("apps.reminders.admin.reminder_admin.reverse", return_value="/admin/calendar/"):
             result = admin.calendar_create_view(request)
             assert result.status_code == 302
+            assert result.url == "/admin/calendar/"
+            admin.message_user.assert_called_once()
+            assert "请选择提醒日期和时间" in admin.message_user.call_args[0][1]
+            assert Reminder.objects.count() == 0
 
     def test_calendar_create_view_invalid_target_type(self):
         admin = _make_admin()
         admin.has_add_permission = MagicMock(return_value=True)
+        admin.message_user = MagicMock()
         request = MagicMock()
         request.method = "POST"
         request.POST = {
             "content": "test",
-            "reminder_type": "general",
+            "reminder_type": "other",
             "due_date": "2025-06-01",
             "due_time": "10:00",
             "target_type": "invalid",
@@ -351,15 +376,20 @@ class TestReminderAdminCalendarViewMethods:
         with patch("apps.reminders.admin.reminder_admin.reverse", return_value="/admin/calendar/"):
             result = admin.calendar_create_view(request)
             assert result.status_code == 302
+            assert result.url == "/admin/calendar/"
+            admin.message_user.assert_called_once()
+            assert "请选择合法的关联对象类型" in admin.message_user.call_args[0][1]
+            assert Reminder.objects.count() == 0
 
     def test_calendar_create_view_target_id_without_type(self):
         admin = _make_admin()
         admin.has_add_permission = MagicMock(return_value=True)
+        admin.message_user = MagicMock()
         request = MagicMock()
         request.method = "POST"
         request.POST = {
             "content": "test",
-            "reminder_type": "general",
+            "reminder_type": "other",
             "due_date": "2025-06-01",
             "due_time": "10:00",
             "target_type": "",
@@ -371,15 +401,20 @@ class TestReminderAdminCalendarViewMethods:
         with patch("apps.reminders.admin.reminder_admin.reverse", return_value="/admin/calendar/"):
             result = admin.calendar_create_view(request)
             assert result.status_code == 302
+            assert result.url == "/admin/calendar/"
+            admin.message_user.assert_called_once()
+            assert "请选择关联对象类型" in admin.message_user.call_args[0][1]
+            assert Reminder.objects.count() == 0
 
     def test_calendar_create_view_type_without_id(self):
         admin = _make_admin()
         admin.has_add_permission = MagicMock(return_value=True)
+        admin.message_user = MagicMock()
         request = MagicMock()
         request.method = "POST"
         request.POST = {
             "content": "test",
-            "reminder_type": "general",
+            "reminder_type": "other",
             "due_date": "2025-06-01",
             "due_time": "10:00",
             "target_type": "contract",
@@ -391,15 +426,20 @@ class TestReminderAdminCalendarViewMethods:
         with patch("apps.reminders.admin.reminder_admin.reverse", return_value="/admin/calendar/"):
             result = admin.calendar_create_view(request)
             assert result.status_code == 302
+            assert result.url == "/admin/calendar/"
+            admin.message_user.assert_called_once()
+            assert "关联对象ID必须是正整数" in admin.message_user.call_args[0][1]
+            assert Reminder.objects.count() == 0
 
     def test_calendar_create_view_invalid_datetime(self):
         admin = _make_admin()
         admin.has_add_permission = MagicMock(return_value=True)
+        admin.message_user = MagicMock()
         request = MagicMock()
         request.method = "POST"
         request.POST = {
             "content": "test",
-            "reminder_type": "general",
+            "reminder_type": "other",
             "due_date": "not-a-date",
             "due_time": "not-a-time",
             "target_type": "",
@@ -411,6 +451,10 @@ class TestReminderAdminCalendarViewMethods:
         with patch("apps.reminders.admin.reminder_admin.reverse", return_value="/admin/calendar/"):
             result = admin.calendar_create_view(request)
             assert result.status_code == 302
+            assert result.url == "/admin/calendar/"
+            admin.message_user.assert_called_once()
+            assert "提醒时间格式不正确" in admin.message_user.call_args[0][1]
+            assert Reminder.objects.count() == 0
 
     def test_calendar_target_options_view_not_get(self):
         admin = _make_admin()
@@ -419,6 +463,7 @@ class TestReminderAdminCalendarViewMethods:
         request.method = "POST"
         result = admin.calendar_target_options_view(request)
         assert result.status_code == 405
+        assert json.loads(result.content) == {"items": [], "groups": []}
 
     def test_calendar_target_options_view_no_permission(self):
         admin = _make_admin()
@@ -427,6 +472,7 @@ class TestReminderAdminCalendarViewMethods:
         request.method = "GET"
         result = admin.calendar_target_options_view(request)
         assert result.status_code == 403
+        assert json.loads(result.content) == {"items": [], "groups": []}
 
     def test_calendar_sync_providers_view_no_permission(self):
         admin = _make_admin()
@@ -434,6 +480,7 @@ class TestReminderAdminCalendarViewMethods:
         request = MagicMock()
         result = admin.calendar_sync_providers_view(request)
         assert result.status_code == 403
+        assert json.loads(result.content) == {"providers": []}
 
     def test_calendar_sync_preview_view_no_permission(self):
         admin = _make_admin()
@@ -441,6 +488,7 @@ class TestReminderAdminCalendarViewMethods:
         request = MagicMock()
         result = admin.calendar_sync_preview_view(request)
         assert result.status_code == 403
+        assert json.loads(result.content) == {"events": [], "error": "无权限"}
 
     def test_calendar_sync_preview_view_invalid_source(self):
         admin = _make_admin()
@@ -449,6 +497,7 @@ class TestReminderAdminCalendarViewMethods:
         request.POST = {"source": "invalid"}
         result = admin.calendar_sync_preview_view(request)
         assert result.status_code == 400
+        assert "不支持的来源" in json.loads(result.content)["error"]
 
     def test_calendar_sync_preview_view_ics_no_file(self):
         admin = _make_admin()
@@ -458,6 +507,7 @@ class TestReminderAdminCalendarViewMethods:
         request.FILES = {}
         result = admin.calendar_sync_preview_view(request)
         assert result.status_code == 400
+        assert json.loads(result.content)["error"] == "未选择文件"
 
     def test_calendar_sync_preview_view_ics_wrong_ext(self):
         admin = _make_admin()
@@ -470,6 +520,7 @@ class TestReminderAdminCalendarViewMethods:
         request.FILES = {"ics_file": mock_file}
         result = admin.calendar_sync_preview_view(request)
         assert result.status_code == 400
+        assert json.loads(result.content)["error"] == "仅支持 .ics 文件"
 
     def test_calendar_sync_preview_view_ics_too_large(self):
         admin = _make_admin()
@@ -482,6 +533,7 @@ class TestReminderAdminCalendarViewMethods:
         request.FILES = {"ics_file": mock_file}
         result = admin.calendar_sync_preview_view(request)
         assert result.status_code == 400
+        assert json.loads(result.content)["error"] == "文件大小超过 5MB 限制"
 
     def test_calendar_sync_preview_view_url_empty(self):
         admin = _make_admin()
@@ -490,6 +542,7 @@ class TestReminderAdminCalendarViewMethods:
         request.POST = {"source": "ics_url", "url": ""}
         result = admin.calendar_sync_preview_view(request)
         assert result.status_code == 400
+        assert json.loads(result.content)["error"] == "URL 不能为空"
 
     def test_calendar_sync_import_view_no_permission(self):
         admin = _make_admin()
@@ -497,6 +550,7 @@ class TestReminderAdminCalendarViewMethods:
         request = MagicMock()
         result = admin.calendar_sync_import_view(request)
         assert result.status_code == 403
+        assert json.loads(result.content) == {"created": 0, "skipped": 0, "error": "无权限"}
 
     def test_calendar_sync_import_view_invalid_json(self):
         admin = _make_admin()
@@ -505,6 +559,7 @@ class TestReminderAdminCalendarViewMethods:
         request.POST = {"events": "not-json"}
         result = admin.calendar_sync_import_view(request)
         assert result.status_code == 400
+        assert json.loads(result.content)["error"] == "事件数据格式错误"
 
     def test_calendar_sync_import_view_not_list(self):
         admin = _make_admin()
@@ -513,6 +568,7 @@ class TestReminderAdminCalendarViewMethods:
         request.POST = {"events": '{"key": "value"}'}
         result = admin.calendar_sync_import_view(request)
         assert result.status_code == 400
+        assert json.loads(result.content)["error"] == "事件数据格式错误"
 
     def test_calendar_sync_open_privacy_non_darwin(self):
         admin = _make_admin()
@@ -529,6 +585,7 @@ class TestReminderAdminCalendarViewMethods:
         request = MagicMock()
         result = admin.calendar_sync_calendars_view(request)
         assert result.status_code == 403
+        assert json.loads(result.content) == {"calendars": []}
 
     def test_calendar_sync_calendars_view_invalid_provider(self):
         admin = _make_admin()
@@ -537,6 +594,7 @@ class TestReminderAdminCalendarViewMethods:
         request.GET = {"provider": "invalid"}
         result = admin.calendar_sync_calendars_view(request)
         assert result.status_code == 400
+        assert json.loads(result.content) == {"calendars": []}
 
     def test_calendar_sync_clear_view_no_permission(self):
         admin = _make_admin()
@@ -544,6 +602,7 @@ class TestReminderAdminCalendarViewMethods:
         request = MagicMock()
         result = admin.calendar_sync_clear_view(request)
         assert result.status_code == 403
+        assert json.loads(result.content) == {"deleted": 0, "error": "无权限"}
 
     def test_calendar_export_view_no_permission(self):
         admin = _make_admin()
@@ -551,6 +610,7 @@ class TestReminderAdminCalendarViewMethods:
         request = MagicMock()
         result = admin.calendar_export_view(request)
         assert result.status_code == 403
+        assert result.content.decode() == "无权限"
 
     def test_group_events_by_day_unbound(self):
         admin = _make_admin()

@@ -92,9 +92,9 @@ export function CaseAssignPicker({
       <button
         type="button"
         disabled={!picked || busy}
-        onClick={async () => {
+        onClick={() => {
           if (!picked) return
-          await onAssign(picked.id)
+          void onAssign(picked.id)
         }}
         className={cn(
           'flex h-[34px] items-center justify-center gap-1.5 rounded-[9px] bg-foreground text-[12.5px] font-semibold text-background transition-opacity hover:opacity-85',

@@ -82,6 +82,7 @@ class TestFetchModelsViewGuards:
         client.force_login(admin_user)
         response = client.get(_url(provider))
         assert response.status_code == 405
+        assert response.json() == {"ok": False, "error": "仅支持 POST 请求"}
 
     @pytest.mark.django_db
     def test_missing_base_url_returns_400(

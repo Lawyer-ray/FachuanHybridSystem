@@ -102,8 +102,8 @@ export function applyPageSelection(d: DraftState, selPages: PageKey[]): DraftSta
   const flat = flatRefs(d)
   const idx = flatIndexesOf(flat, selPages)
   if (!idx.length) return d
-  // 首尾下标的非空由上一行守卫保证
-  const slice = flat.slice(idx[0]!, idx[idx.length - 1]! + 1)
+  // 首尾下标的非空由上一行守卫保证；slice 起止参数本身接受 undefined
+  const slice = flat.slice(idx[0], idx[idx.length - 1]! + 1)
   const involved = new Set(slice.map((f) => f.si))
   if (involved.size === 1) return splitOutPages(d, selPages)
   return mergePagesIntoNew(d, selPages)

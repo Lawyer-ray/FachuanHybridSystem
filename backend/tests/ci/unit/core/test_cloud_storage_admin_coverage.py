@@ -157,9 +157,15 @@ class TestCloudStorageAccountAdminChangeformView:
     def test_changeform_view_new(self):
         admin = _make_admin()
         request = _make_request()
-        with patch.object(CloudStorageAccountAdmin.__bases__[0], "changeform_view", return_value=HttpResponse()):
+        with patch.object(
+            CloudStorageAccountAdmin.__bases__[0], "changeform_view", return_value=HttpResponse()
+        ) as mock_super:
             result = admin.changeform_view(request, object_id=None)
             assert result.status_code == 200
+            # 新建表单（无 object_id）不注入授权上下文
+            mock_super.assert_called_once()
+            ctx = mock_super.call_args.args[3]
+            assert "show_onedrive_auth" not in ctx
 
     def test_changeform_view_edit_onedrive(self):
         admin = _make_admin()
@@ -169,10 +175,21 @@ class TestCloudStorageAccountAdminChangeformView:
         account.storage_type = "onedrive"
         account.onedrive_refresh_token = ""
         account.onedrive_pending_device_code = ""
-        with patch.object(CloudStorageAccountAdmin.__bases__[0], "changeform_view", return_value=HttpResponse()):
+        with patch.object(
+            CloudStorageAccountAdmin.__bases__[0], "changeform_view", return_value=HttpResponse()
+        ) as mock_super:
             with patch.object(CloudStorageAccount.objects, "get", return_value=account):
                 result = admin.changeform_view(request, object_id=1)
                 assert result.status_code == 200
+                # OneDrive 账号应注入授权面板上下文
+                mock_super.assert_called_once()
+                ctx = mock_super.call_args.args[3]
+                assert ctx["show_onedrive_auth"] is True
+                assert ctx["onedrive_account_id"] == 1
+                # 无 pending 设备码、无 refresh token：pending 为 falsy，authorized 为 False
+                assert not ctx["onedrive_pending"]
+                assert ctx["onedrive_authorized"] is False
+                assert ctx["show_dropbox_auth"] is False
 
 
 @pytest.mark.django_db
@@ -184,12 +201,15 @@ class TestCloudStorageAccountAdminAuthViews:
         request = _make_request(method="GET")
         result = admin._start_auth_view(request, object_id=1)
         assert result.status_code == 302
+        # GET 请求直接弹回账号 change 页
+        assert result.url.endswith("/admin/cloud_storage/cloudstorageaccount/1/change/")
 
     def test_start_dropbox_auth_view_not_post(self):
         admin = _make_admin()
         request = _make_request(method="GET")
         result = admin._start_dropbox_auth_view(request, object_id=1)
         assert result.status_code == 302
+        assert result.url.endswith("/admin/cloud_storage/cloudstorageaccount/1/change/")
 
 
 @pytest.mark.django_db

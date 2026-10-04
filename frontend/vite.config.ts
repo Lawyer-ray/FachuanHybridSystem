@@ -24,7 +24,12 @@ export default defineConfig({
         'src/**/*.d.ts',
         'src/main.tsx',
         'src/vite-env.d.ts',
+        'src/types/api-schema.demo.ts',
       ],
+      // 棘轮（2026-10-04 实测 37.9%，阈值留抖动余量）：只升不降，
+      // 新增未测试的组件/页面会拉低全量数字并被拦下——升级方式为
+      // 补测后同步抬高此处数字
+      thresholds: { lines: 35, functions: 29, statements: 35, branches: 29 },
     },
   },
   plugins: [react(), tailwindcss()],
