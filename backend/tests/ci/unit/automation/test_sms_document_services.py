@@ -1,4 +1,5 @@
 """Tests for SMS DocumentAttachmentService and DocumentRenamer covering rename and attachment logic."""
+
 from __future__ import annotations
 
 import re
@@ -10,7 +11,6 @@ import pytest
 
 from apps.automation.services.sms.document_attachment_service import DocumentAttachmentService
 from apps.automation.services.sms.document_renamer import DocumentRenamer
-
 
 # ── DocumentAttachmentService ──
 
@@ -53,8 +53,8 @@ class TestDocumentAttachmentService:
     def test_add_to_case_log_no_log(self, svc):
         sms = MagicMock()
         sms.case_log = None
-        svc.add_to_case_log(sms, ["/path/to/doc.pdf"])
-        # Should not raise
+        # 无案件日志时返回 False（不添加附件）
+        assert svc.add_to_case_log(sms, ["/path/to/doc.pdf"]) is False
 
 
 # ── DocumentRenamer ──
@@ -126,6 +126,6 @@ class TestDocumentRenamer:
 
     def test_sms_type_to_label_known_types(self, renamer):
         # DocumentRenamer might not have this method - skip if not present
-        if hasattr(renamer, '_sms_type_to_label'):
+        if hasattr(renamer, "_sms_type_to_label"):
             result = renamer._sms_type_to_label("judgment")
             assert isinstance(result, str)

@@ -11,6 +11,7 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -81,11 +82,14 @@ class TestConcurrencyOptimizerQueue:
     async def test_release_logs_error(self) -> None:
         """release_resource should handle errors gracefully."""
         opt = self._make()
-        with patch("plugins.court_automation.token.concurrency_optimizer.logger"):
+        with patch("plugins.court_automation.token.concurrency_optimizer.logger") as mock_logger:
             # Force an error in _get_lock by mocking
             with patch.object(opt, "_get_lock", side_effect=RuntimeError("lock error")):
                 # Should not raise
-                await opt.release_resource("id1", "site1", "acct1")
+                result = await opt.release_resource("id1", "site1", "acct1")
+            # 异常被吞掉并记录 error 日志
+            assert result is None
+            mock_logger.error.assert_called_once()
 
     def test_wake_next_eligible_wakes_eligible(self) -> None:
         """_wake_next_eligible should wake the first eligible entry."""

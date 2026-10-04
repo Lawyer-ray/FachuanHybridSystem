@@ -16,12 +16,14 @@ class TestRunCoroutineSync:
     def test_run_without_existing_loop(self) -> None:
         async def coro() -> str:
             return "result"
+
         result = _run_coroutine_sync(coro())
         assert result == "result"
 
     def test_run_with_exception(self) -> None:
         async def coro() -> None:
             raise ValueError("test error")
+
         with pytest.raises(ValueError, match="test error"):
             _run_coroutine_sync(coro())
 
@@ -32,22 +34,30 @@ class TestExecuteScraperTask:
     @patch("apps.automation.models.ScraperTask")
     def test_execute_task_not_found(self, MockModel: MagicMock) -> None:
         from apps.automation.tasks.scraping_tasks import execute_scraper_task
+
         MockModel.objects.get.side_effect = MockModel.DoesNotExist()
         execute_scraper_task(999)
+        # 任务不存在时早退，不做任何后续更新
+        MockModel.objects.get.assert_called_once_with(id=999)
+        MockModel.objects.filter.assert_not_called()
 
     @patch("apps.automation.tasks.scraping_tasks._get_scraper_map")
     @patch("apps.automation.models.ScraperTask")
     def test_execute_task_not_due(self, MockModel: MagicMock, mock_map: MagicMock) -> None:
         from apps.automation.tasks.scraping_tasks import execute_scraper_task
+
         task = MagicMock()
         task.should_execute_now.return_value = False
         MockModel.objects.get.return_value = task
         execute_scraper_task(1)
+        # 未到执行时间直接跳过，不获取 scraper map
+        mock_map.assert_not_called()
 
     @patch("apps.automation.tasks.scraping_tasks._get_scraper_map")
     @patch("apps.automation.models.ScraperTask")
     def test_execute_task_unsupported_type(self, MockModel: MagicMock, mock_map: MagicMock) -> None:
         from apps.automation.tasks.scraping_tasks import execute_scraper_task
+
         task = MagicMock()
         task.should_execute_now.return_value = True
         task.task_type = "unsupported"
@@ -60,6 +70,7 @@ class TestExecuteScraperTask:
     @patch("apps.automation.models.ScraperTask")
     def test_execute_task_success(self, MockModel: MagicMock, mock_map: MagicMock) -> None:
         from apps.automation.tasks.scraping_tasks import execute_scraper_task
+
         task = MagicMock()
         task.should_execute_now.return_value = True
         task.task_type = "document"
@@ -74,13 +85,16 @@ class TestExecuteScraperTask:
         mock_map.return_value = {"document": mock_scraper_class}
 
         execute_scraper_task(1)
+        # 成功路径：实例化对应 scraper 并执行
+        mock_scraper_class.assert_called_once_with(task)
+        mock_scraper_instance.execute.assert_called_once()
 
     @patch("apps.core.tasking.ScheduleQueryService")
     @patch("apps.automation.tasks.scraping_tasks._get_scraper_map")
     @patch("apps.automation.models.ScraperTask")
-    def test_execute_task_with_retry(self, MockModel: MagicMock, mock_map: MagicMock,
-                                      MockSched: MagicMock) -> None:
+    def test_execute_task_with_retry(self, MockModel: MagicMock, mock_map: MagicMock, MockSched: MagicMock) -> None:
         from apps.automation.tasks.scraping_tasks import execute_scraper_task
+
         task = MagicMock()
         task.should_execute_now.return_value = True
         task.task_type = "document"
@@ -122,6 +136,7 @@ class TestProcessPendingTasks:
     @patch("apps.automation.models.ScraperTaskStatus")
     def test_process_no_pending(self, MockStatus: MagicMock, MockModel: MagicMock, mock_submit: MagicMock) -> None:
         from apps.automation.tasks.scraping_tasks import process_pending_tasks
+
         MockModel.objects.filter.return_value.order_by.return_value.count.return_value = 0
         result = process_pending_tasks()
         assert result == 0
@@ -131,6 +146,7 @@ class TestProcessPendingTasks:
     @patch("apps.automation.models.ScraperTaskStatus")
     def test_process_with_pending(self, MockStatus: MagicMock, MockModel: MagicMock, mock_submit: MagicMock) -> None:
         from apps.automation.tasks.scraping_tasks import process_pending_tasks
+
         task = MagicMock()
         task.should_execute_now.return_value = True
         task.id = 1
@@ -149,6 +165,7 @@ class TestResetRunningTasks:
     @patch("apps.automation.models.ScraperTaskStatus")
     def test_reset_no_running(self, MockStatus: MagicMock, MockModel: MagicMock) -> None:
         from apps.automation.tasks.scraping_tasks import reset_running_tasks
+
         MockModel.objects.filter.return_value.count.return_value = 0
         result = reset_running_tasks()
         assert result == 0
@@ -157,6 +174,7 @@ class TestResetRunningTasks:
     @patch("apps.automation.models.ScraperTaskStatus")
     def test_reset_with_running(self, MockStatus: MagicMock, MockModel: MagicMock) -> None:
         from apps.automation.tasks.scraping_tasks import reset_running_tasks
+
         qs = MagicMock()
         qs.count.return_value = 3
         MockModel.objects.filter.return_value = qs

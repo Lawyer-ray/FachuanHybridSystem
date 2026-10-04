@@ -1,7 +1,8 @@
 """Tests for organization/signals.py - post_delete file cleanup."""
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 class TestCleanupLawyerLicensePdf:
@@ -34,8 +35,9 @@ class TestCleanupLawyerLicensePdf:
         instance.pk = 1
         instance.license_pdf = None
 
-        # Should not raise
-        _cleanup_lawyer_license_pdf(sender=MagicMock, instance=instance)
+        # Should not raise；无文件时不应调度任何清理
+        assert _cleanup_lawyer_license_pdf(sender=MagicMock, instance=instance) is None
+        mock_txn.on_commit.assert_not_called()
 
     @patch("apps.organization.signals.transaction")
     def test_handles_delete_exception(self, mock_txn):
@@ -52,8 +54,10 @@ class TestCleanupLawyerLicensePdf:
         instance.pk = 1
         instance.license_pdf = mock_pdf
 
-        # Should not raise
-        _cleanup_lawyer_license_pdf(sender=MagicMock, instance=instance)
+        # Should not raise（删除失败被吞掉且仍调度了清理）
+        assert _cleanup_lawyer_license_pdf(sender=MagicMock, instance=instance) is None
+        mock_txn.on_commit.assert_called_once()
+        mock_pdf.delete.assert_called_once_with(save=False)
 
 
 class TestCleanupLawyerAvatar:
@@ -86,8 +90,9 @@ class TestCleanupLawyerAvatar:
         instance.pk = 1
         instance.avatar = None
 
-        # Should not raise
-        _cleanup_lawyer_avatar(sender=MagicMock, instance=instance)
+        # Should not raise；无头像时不应调度任何清理
+        assert _cleanup_lawyer_avatar(sender=MagicMock, instance=instance) is None
+        mock_txn.on_commit.assert_not_called()
 
     @patch("apps.organization.signals.transaction")
     def test_handles_delete_exception(self, mock_txn):
@@ -104,5 +109,7 @@ class TestCleanupLawyerAvatar:
         instance.pk = 1
         instance.avatar = mock_avatar
 
-        # Should not raise
-        _cleanup_lawyer_avatar(sender=MagicMock, instance=instance)
+        # Should not raise（删除失败被吞掉且仍调度了清理）
+        assert _cleanup_lawyer_avatar(sender=MagicMock, instance=instance) is None
+        mock_txn.on_commit.assert_called_once()
+        mock_avatar.delete.assert_called_once_with(save=False)

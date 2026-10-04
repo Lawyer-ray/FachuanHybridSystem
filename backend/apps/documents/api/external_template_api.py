@@ -152,28 +152,12 @@ async def fill_templates(
     """执行填充（单个或批量），返回文件信息"""
     await _ensure_fill_access(request, payload.case_id)
     # 安全审计 B-05：填充模板须属于当前律所（superuser 豁免）
-    _user = getattr(request, "auth", None) or getattr(request, "user", None)
-    if not getattr(_user, "is_superuser", False):
-        from apps.documents.models.external_template import ExternalTemplate
+    from apps.documents.services.external_template.query_service import ensure_templates_owned
 
-        def _fetch_own_template_ids() -> set[int]:
-            firm_id = getattr(_user, "law_firm_id", None)
-            return set(
-                ExternalTemplate.objects.filter(pk__in=list(payload.template_ids), law_firm_id=firm_id).values_list(
-                    "pk", flat=True
-                )
-            )
-
-        _own_ids: set[int] = await sync_to_async(_fetch_own_template_ids)()
-        _foreign = [tid for tid in payload.template_ids if tid not in _own_ids]
-        if _foreign:
-            from apps.core.exceptions import PermissionDenied
-
-            raise PermissionDenied(
-                message="包含无权使用的外部模板", code="TEMPLATE_FIRM_FORBIDDEN", errors={"template_ids": _foreign}
-            )
-    service = _get_filling_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
+    await sync_to_async(ensure_templates_owned)(payload.template_ids, user)
+
+    service = _get_filling_service()
 
     batch_task = await sync_to_async(service.batch_fill)(
         case_id=payload.case_id,
@@ -415,27 +399,18 @@ async def update_mapping(
     request: HttpRequest, mapping_id: int, payload: MappingUpdateSchema
 ) -> dict[str, Any]:  # pragma: no cover
     """更新字段映射"""
-    from apps.documents.services.external_template.query_service import get_mapping_or_raise
+    from apps.documents.services.external_template.query_service import get_mapping_or_raise, update_mapping_fields
 
     # 安全审计 B-05：先取 mapping 再校验其模板律所归属
     await _ensure_mapping_access(request, mapping_id)
     m = await sync_to_async(get_mapping_or_raise)(mapping_id)
 
-    def _apply_updates() -> list[str]:
-        update_fields: list[str] = ["updated_at"]
-        if payload.semantic_label is not None:
-            m.semantic_label = payload.semantic_label
-            update_fields.append("semantic_label")
-        if payload.fill_type is not None:
-            m.fill_type = payload.fill_type
-            update_fields.append("fill_type")
-        if payload.position_description is not None:
-            m.position_description = payload.position_description
-            update_fields.append("position_description")
-        m.save(update_fields=update_fields)
-        return update_fields
-
-    await sync_to_async(_apply_updates)()
+    await sync_to_async(update_mapping_fields)(
+        m,
+        semantic_label=payload.semantic_label,
+        fill_type=payload.fill_type,
+        position_description=payload.position_description,
+    )
     logger.info("更新映射: mapping_id=%d", mapping_id)
     return {
         "id": m.id,

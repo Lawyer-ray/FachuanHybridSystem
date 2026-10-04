@@ -6,6 +6,7 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -38,8 +39,16 @@ class TestPerformanceMonitorServiceAdapter:
     @patch("apps.automation.utils.logging.AutomationLogger")
     @patch("django.utils.timezone.now")
     def test_get_system_metrics(
-        self, mock_now, mock_logger, mock_load, mock_pids,
-        mock_net, mock_disk, mock_mem, mock_cpu_count, mock_cpu_pct,
+        self,
+        mock_now,
+        mock_logger,
+        mock_load,
+        mock_pids,
+        mock_net,
+        mock_disk,
+        mock_mem,
+        mock_cpu_count,
+        mock_cpu_pct,
     ):
         from plugins.court_automation.token.performance_monitor_service_adapter import PerformanceMonitorServiceAdapter
 
@@ -83,4 +92,5 @@ class TestPerformanceMonitorServiceAdapter:
         from plugins.court_automation.token.performance_monitor_service_adapter import PerformanceMonitorServiceAdapter
 
         adapter = PerformanceMonitorServiceAdapter()
-        adapter.record_performance_metric("test_metric", 42.0, {"tag": "value"})
+        # 指标记录为 fire-and-forget，静默返回 None
+        assert adapter.record_performance_metric("test_metric", 42.0, {"tag": "value"}) is None

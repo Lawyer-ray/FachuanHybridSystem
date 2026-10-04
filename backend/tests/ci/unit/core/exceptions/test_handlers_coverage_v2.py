@@ -27,6 +27,7 @@ def _make_fake_api():
         def decorator(fn):
             _HANDLERS[exc_class] = fn
             return fn
+
         return decorator
 
     def _create_response(request, payload, status):
@@ -81,6 +82,7 @@ def _register_all(fake_api):
 # ===================================================================
 # _get_user_id
 # ===================================================================
+
 
 class TestGetUserId:
     """Tests for the _get_user_id helper."""
@@ -146,31 +148,38 @@ class TestGetUserId:
 # _safe_log_value
 # ===================================================================
 
+
 class TestSafeLogValue:
     """Tests for _safe_log_value sanitisation helper."""
 
     def test_none_returns_none(self):
         from apps.core.exceptions.handlers import _safe_log_value
+
         assert _safe_log_value(None) is None
 
     def test_int_passthrough(self):
         from apps.core.exceptions.handlers import _safe_log_value
+
         assert _safe_log_value(42) == 42
 
     def test_float_passthrough(self):
         from apps.core.exceptions.handlers import _safe_log_value
+
         assert _safe_log_value(3.14) == 3.14
 
     def test_bool_passthrough(self):
         from apps.core.exceptions.handlers import _safe_log_value
+
         assert _safe_log_value(True) is True
 
     def test_short_string_passthrough(self):
         from apps.core.exceptions.handlers import _safe_log_value
+
         assert _safe_log_value("hello") == "hello"
 
     def test_long_string_truncated(self):
         from apps.core.exceptions.handlers import _safe_log_value
+
         long = "x" * 300
         result = _safe_log_value(long)
         assert len(result) == 203  # 200 + "..."
@@ -178,45 +187,53 @@ class TestSafeLogValue:
 
     def test_dict_limits_keys_and_recurses(self):
         from apps.core.exceptions.handlers import _safe_log_value
+
         data = {"key": "value", "num": 123}
         assert _safe_log_value(data) == {"key": "value", "num": 123}
 
     def test_dict_long_key_truncated(self):
         from apps.core.exceptions.handlers import _safe_log_value
+
         data = {"a" * 200: "ok"}
         result = _safe_log_value(data)
         assert len(next(iter(result.keys()))) == 100
 
     def test_dict_max_50_keys(self):
         from apps.core.exceptions.handlers import _safe_log_value
+
         data = {f"k{i}": i for i in range(60)}
         result = _safe_log_value(data)
         assert len(result) == 50
 
     def test_list_recursion(self):
         from apps.core.exceptions.handlers import _safe_log_value
+
         data = ["a", "b", 3]
         assert _safe_log_value(data) == ["a", "b", 3]
 
     def test_list_max_50_items(self):
         from apps.core.exceptions.handlers import _safe_log_value
+
         data = list(range(60))
         result = _safe_log_value(data)
         assert len(result) == 50
 
     def test_tuple_recursion(self):
         from apps.core.exceptions.handlers import _safe_log_value
+
         data = (1, 2, 3)
         assert _safe_log_value(data) == (1, 2, 3)
 
     def test_tuple_max_50_items(self):
         from apps.core.exceptions.handlers import _safe_log_value
+
         data = tuple(range(60))
         result = _safe_log_value(data)
         assert len(result) == 50
 
     def test_depth_limit_returns_str(self):
         from apps.core.exceptions.handlers import _safe_log_value
+
         # 6 levels of nesting: depth 0→1→2→3→4 hits the depth>=4 guard at the 5th recursion
         result = _safe_log_value({"a": {"b": {"c": {"d": {"e": {"f": "too deep"}}}}}}, depth=0)
         # At depth 4, the inner dict {e: {f: "too deep"}} is str()-ified and truncated
@@ -225,6 +242,7 @@ class TestSafeLogValue:
 
     def test_depth_exactly_4_returns_str(self):
         from apps.core.exceptions.handlers import _safe_log_value
+
         # A non-container value at exactly depth 4
         result = _safe_log_value("hello", depth=4)
         assert result == "hello"[:200]
@@ -252,6 +270,7 @@ class TestSafeLogValue:
 # ===================================================================
 # _log_extra
 # ===================================================================
+
 
 class TestLogExtra:
     """Tests for _log_extra helper."""
@@ -284,11 +303,13 @@ class TestLogExtra:
 # _attach_request_meta
 # ===================================================================
 
+
 class TestAttachRequestMeta:
     """Tests for _attach_request_meta helper."""
 
     def test_non_dict_payload_returned_as_is(self, fake_request):
         from apps.core.exceptions.handlers import _attach_request_meta
+
         assert _attach_request_meta(fake_request, "string") == "string"
         assert _attach_request_meta(fake_request, 42) == 42
 
@@ -298,7 +319,9 @@ class TestAttachRequestMeta:
 
         payload: dict[str, Any] = {}
         # Patch the import inside the function
-        with patch.dict("sys.modules", {"apps.core.infrastructure.request_context": MagicMock(get_trace_ids=mock_trace)}):
+        with patch.dict(
+            "sys.modules", {"apps.core.infrastructure.request_context": MagicMock(get_trace_ids=mock_trace)}
+        ):
             result = _attach_request_meta(fake_request, payload)
 
         assert result["request_id"] == "req-123"
@@ -365,33 +388,40 @@ class TestAttachRequestMeta:
 # _parse_retry_after
 # ===================================================================
 
+
 class TestParseRetryAfter:
     """Tests for _parse_retry_after helper."""
 
     def test_int_passthrough(self):
         from apps.core.exceptions.handlers import _parse_retry_after
+
         assert _parse_retry_after(30) == 30
 
     def test_string_parsable(self):
         from apps.core.exceptions.handlers import _parse_retry_after
+
         assert _parse_retry_after("60") == 60
 
     def test_none_returns_none(self):
         from apps.core.exceptions.handlers import _parse_retry_after
+
         assert _parse_retry_after(None) is None
 
     def test_unparsable_string(self):
         from apps.core.exceptions.handlers import _parse_retry_after
+
         assert _parse_retry_after("abc") is None
 
     def test_float_string(self):
         from apps.core.exceptions.handlers import _parse_retry_after
+
         assert _parse_retry_after("3.5") is None
 
 
 # ===================================================================
 # _set_retry_after_header
 # ===================================================================
+
 
 class TestSetRetryAfterHeader:
     """Tests for _set_retry_after_header helper."""
@@ -435,31 +465,38 @@ class TestSetRetryAfterHeader:
 # _resolve_llm_status_code
 # ===================================================================
 
+
 class TestResolveLlmStatusCode:
     """Tests for _resolve_llm_status_code helper."""
 
     def test_429_maps_to_429(self):
         from apps.core.exceptions.handlers import _resolve_llm_status_code
+
         assert _resolve_llm_status_code(429) == 429
 
     def test_503_maps_to_503(self):
         from apps.core.exceptions.handlers import _resolve_llm_status_code
+
         assert _resolve_llm_status_code(503) == 503
 
     def test_504_maps_to_504(self):
         from apps.core.exceptions.handlers import _resolve_llm_status_code
+
         assert _resolve_llm_status_code(504) == 504
 
     def test_unknown_upstream_maps_to_502(self):
         from apps.core.exceptions.handlers import _resolve_llm_status_code
+
         assert _resolve_llm_status_code(400) == 502
 
     def test_none_maps_to_502(self):
         from apps.core.exceptions.handlers import _resolve_llm_status_code
+
         assert _resolve_llm_status_code(None) == 502
 
     def test_0_is_falsy_maps_to_502(self):
         from apps.core.exceptions.handlers import _resolve_llm_status_code
+
         assert _resolve_llm_status_code(0) == 502
 
 
@@ -467,31 +504,36 @@ class TestResolveLlmStatusCode:
 # register_exception_handlers — wiring
 # ===================================================================
 
+
 class TestRegisterExceptionHandlers:
     """Test that register_exception_handlers wires up all expected handlers."""
 
     def test_registers_all_client_error_handlers(self, _register_all):
+        from apps.core.exceptions.base import BusinessError, BusinessException
         from apps.core.exceptions.common import (
+            AuthenticationError,
+            ConflictError,
+            NotFoundError,
+            PermissionDenied,
+            RateLimitError,
+            ValidationException,
+        )
+
+        for exc_cls in (
             ValidationException,
             AuthenticationError,
             PermissionDenied,
             NotFoundError,
             ConflictError,
             RateLimitError,
-        )
-        from apps.core.exceptions.base import BusinessException, BusinessError
-
-        for exc_cls in (ValidationException, AuthenticationError, PermissionDenied,
-                        NotFoundError, ConflictError, RateLimitError,
-                        BusinessException, BusinessError):
+            BusinessException,
+            BusinessError,
+        ):
             assert exc_cls in _HANDLERS, f"{exc_cls.__name__} not registered"
 
     def test_registers_server_error_handlers(self, _register_all):
-        from apps.core.exceptions.external import (
-            ServiceUnavailableError,
-            RecognitionTimeoutError,
-            ExternalServiceError,
-        )
+        from apps.core.exceptions.external import ExternalServiceError, RecognitionTimeoutError, ServiceUnavailableError
+
         for exc_cls in (ServiceUnavailableError, RecognitionTimeoutError, ExternalServiceError):
             assert exc_cls in _HANDLERS, f"{exc_cls.__name__} not registered"
 
@@ -502,8 +544,7 @@ class TestRegisterExceptionHandlers:
         from ninja.errors import HttpError
         from ninja.errors import ValidationError as NinjaValidationError
 
-        for exc_cls in (Http404, ObjectDoesNotExist, DjangoPermissionDenied,
-                        NinjaValidationError, HttpError):
+        for exc_cls in (Http404, ObjectDoesNotExist, DjangoPermissionDenied, NinjaValidationError, HttpError):
             assert exc_cls in _HANDLERS, f"{exc_cls.__name__} not registered"
 
     def test_registers_llm_handlers(self, _register_all):
@@ -524,6 +565,7 @@ class TestRegisterExceptionHandlers:
 # ===================================================================
 # Client error handlers
 # ===================================================================
+
 
 class TestClientErrorHandlers:
     """Test each 4xx handler returns correct status and payload."""
@@ -633,6 +675,7 @@ class TestClientErrorHandlers:
 # Server error handlers
 # ===================================================================
 
+
 class TestServerErrorHandlers:
     """Test each 5xx handler."""
 
@@ -664,6 +707,7 @@ class TestServerErrorHandlers:
 # ===================================================================
 # LLM handlers
 # ===================================================================
+
 
 class TestLLMHandlers:
     """Test LLM-specific exception handlers."""
@@ -727,12 +771,16 @@ class TestLLMHandlers:
     def test_llm_import_error_silently_skipped(self, fake_api):
         """When LLM module is missing, registration should not raise."""
         import sys
+
         saved = sys.modules.get("apps.core.llm.exceptions")
         # Force ImportError
         sys.modules["apps.core.llm.exceptions"] = None  # type: ignore[assignment]
         try:
             from apps.core.exceptions.handlers import register_exception_handlers
-            register_exception_handlers(fake_api)  # Should not raise
+
+            assert register_exception_handlers(fake_api) is None  # Should not raise
+            # 其余通用 handler 仍应完成注册（被 fixture 的 _HANDLERS 捕获）
+            assert len(_HANDLERS) > 0
         finally:
             if saved is not None:
                 sys.modules["apps.core.llm.exceptions"] = saved
@@ -743,6 +791,7 @@ class TestLLMHandlers:
 # ===================================================================
 # Django handlers
 # ===================================================================
+
 
 class TestDjangoHandlers:
     """Test Django built-in exception handlers."""
@@ -809,6 +858,7 @@ class TestDjangoHandlers:
 # JWT handler
 # ===================================================================
 
+
 class TestJWTHandler:
     """Test JWT token validation handler."""
 
@@ -851,11 +901,14 @@ class TestJWTHandler:
     def test_jwt_import_error_silently_skipped(self, fake_api):
         """When ninja_jwt module is missing, registration should not raise."""
         import sys
+
         saved = sys.modules.get("ninja_jwt.exceptions")
         sys.modules["ninja_jwt.exceptions"] = None  # type: ignore[assignment]
         try:
             from apps.core.exceptions.handlers import register_exception_handlers
-            register_exception_handlers(fake_api)
+
+            assert register_exception_handlers(fake_api) is None
+            assert len(_HANDLERS) > 0
         finally:
             if saved is not None:
                 sys.modules["ninja_jwt.exceptions"] = saved
@@ -866,6 +919,7 @@ class TestJWTHandler:
 # ===================================================================
 # Fallback handler
 # ===================================================================
+
 
 class TestFallbackHandler:
     """Test the catch-all fallback handler."""
@@ -895,6 +949,7 @@ class TestFallbackHandler:
 # _register_llm_handlers — additional edge cases
 # ===================================================================
 
+
 class TestRegisterLLMHandlersEdgeCases:
     """Test _register_llm_handlers error paths."""
 
@@ -914,10 +969,12 @@ class TestRegisterLLMHandlersEdgeCases:
                     pass
                 except Exception:
                     import logging
+
                     logging.getLogger("api").exception("Failed to register LLM exception handlers")
 
             mock_llm.side_effect = _side_effect
             # Call register_exception_handlers to trigger the path
             from apps.core.exceptions.handlers import register_exception_handlers
+
             register_exception_handlers(fake_api)
             mock_llm.assert_called_once()

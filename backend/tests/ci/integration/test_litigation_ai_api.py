@@ -183,6 +183,9 @@ def test_delete_litigation_session(mock_get_svc, authenticated_client):
 
     resp = authenticated_client.delete("/api/v1/litigation/sessions/test-uuid")
     assert resp.status_code == 204
+    # 服务层按 URL 中的 session_id 与当前用户执行删除
+    args = mock_svc.delete_session.call_args.args
+    assert args[0] == "test-uuid"
 
 
 # ===================================================================
@@ -325,3 +328,5 @@ def test_delete_mock_trial_session(mock_get_svc, authenticated_client):
 
     resp = authenticated_client.delete("/api/v1/mock-trial/sessions/mock-uuid")
     assert resp.status_code == 204
+    args = mock_svc.delete_session.call_args.args
+    assert args[0] == "mock-uuid"

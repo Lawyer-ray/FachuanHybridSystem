@@ -7,10 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.chat_records.services.extraction.video_frame_extract_service import (
-    FFProbeInfo,
-    VideoFrameExtractService,
-)
+from apps.chat_records.services.extraction.video_frame_extract_service import FFProbeInfo, VideoFrameExtractService
 
 
 class TestFFProbeInfo:
@@ -99,22 +96,28 @@ class TestVideoFrameExtractService:
 
     @patch("apps.chat_records.services.extraction.video_frame_extract_service.shutil.which")
     def test_ensure_ffmpeg_not_found(self, mock_which):
+        from apps.core.exceptions import ValidationException
+
         mock_which.return_value = None
         svc = self._make()
-        # May or may not raise depending on whether ffmpeg is installed
-        try:
-            svc._ensure_ffmpeg()
-        except Exception:
-            pass  # Expected if ffmpeg not installed
+        with patch.object(svc, "_find_tool", return_value=None):
+            # 找不到 ffmpeg 时必须抛校验异常（与环境是否安装 ffmpeg 解耦）
+            with pytest.raises(ValidationException, match="ffmpeg"):
+                svc._ensure_ffmpeg()
 
-    @patch("apps.chat_records.services.extraction.video_frame_extract_service.shutil.which", return_value="/usr/bin/ffprobe")
+    @patch(
+        "apps.chat_records.services.extraction.video_frame_extract_service.shutil.which",
+        return_value="/usr/bin/ffprobe",
+    )
     @patch.object(VideoFrameExtractService, "_ensure_ffmpeg")
     def test_probe_video_not_exists(self, mock_ensure, mock_which):
         svc = self._make()
         with pytest.raises(Exception):
             svc.probe("/nonexistent/video.mp4")
 
-    @patch("apps.chat_records.services.extraction.video_frame_extract_service.shutil.which", return_value="/usr/bin/ffmpeg")
+    @patch(
+        "apps.chat_records.services.extraction.video_frame_extract_service.shutil.which", return_value="/usr/bin/ffmpeg"
+    )
     @patch.object(VideoFrameExtractService, "_ensure_ffmpeg")
     def test_probe_duration_by_ffmpeg_no_duration(self, mock_ensure, mock_which):
         svc = self._make()

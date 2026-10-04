@@ -75,19 +75,9 @@ async def create_folder_binding(
     # Resolve storage_account if provided
     storage_account = None
     if data.storage_account_id and data.storage_type != "local":
-        from apps.cloud_storage.models import CloudStorageAccount
+        from apps.cloud_storage.account_service import resolve_active_storage_account
 
-        storage_account = await CloudStorageAccount.objects.filter(
-            id=data.storage_account_id, storage_type=data.storage_type, is_active=True
-        ).afirst()
-        if storage_account is None:
-            from apps.core.exceptions import ValidationException
-
-            raise ValidationException(
-                message="指定的云存储账号不存在或已禁用",
-                code="STORAGE_ACCOUNT_NOT_FOUND",
-                errors={"storage_account_id": data.storage_account_id},
-            )
+        storage_account = await resolve_active_storage_account(data.storage_account_id, data.storage_type)
 
     binding = await sync_to_async(service.create_binding)(
         owner_id=contract_id,

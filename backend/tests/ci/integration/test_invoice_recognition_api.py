@@ -139,6 +139,10 @@ def test_get_task_status_not_found(mock_get_svc, authenticated_client):
 
     resp = authenticated_client.get("/api/v1/invoice-recognition/99999/status")
     assert resp.status_code == 404
+    body = resp.json()
+    assert body["code"] == "HTTP_ERROR"  # 通用 HTTP 错误信封
+    assert body["message"]  # 有明确错误信息
+    assert body["errors"] == {}  # 不泄露任务数据
 
 
 # ===================================================================

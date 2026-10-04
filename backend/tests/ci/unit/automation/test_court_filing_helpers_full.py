@@ -16,10 +16,10 @@ except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
 
-
 # ---------------------------------------------------------------------------
 # Helper to create fake party objects
 # ---------------------------------------------------------------------------
+
 
 def _make_party(
     *,
@@ -52,31 +52,37 @@ def _make_party(
 # _normalize_filing_type
 # ======================================================================
 
+
 class TestNormalizeFilingType:
     def test_valid_civil(self):
         from plugins.court_automation.filing.helpers import _normalize_filing_type
+
         result = _normalize_filing_type(requested_filing_type="civil", case=None, parties=[])
         assert result == "civil"
 
     def test_valid_execution(self):
         from plugins.court_automation.filing.helpers import _normalize_filing_type
+
         result = _normalize_filing_type(requested_filing_type="execution", case=None, parties=[])
         assert result == "execution"
 
     def test_invalid_falls_to_infer(self):
         from plugins.court_automation.filing.helpers import _normalize_filing_type
+
         with patch("plugins.court_automation.filing.helpers._infer_filing_type", return_value="civil"):
             result = _normalize_filing_type(requested_filing_type="bogus", case=MagicMock(), parties=[])
             assert result == "civil"
 
     def test_none_falls_to_infer(self):
         from plugins.court_automation.filing.helpers import _normalize_filing_type
+
         with patch("plugins.court_automation.filing.helpers._infer_filing_type", return_value="execution"):
             result = _normalize_filing_type(requested_filing_type=None, case=MagicMock(), parties=[])
             assert result == "execution"
 
     def test_case_insensitive(self):
         from plugins.court_automation.filing.helpers import _normalize_filing_type
+
         result = _normalize_filing_type(requested_filing_type="CIVIL", case=None, parties=[])
         assert result == "civil"
 
@@ -85,21 +91,26 @@ class TestNormalizeFilingType:
 # _normalize_filing_engine
 # ======================================================================
 
+
 class TestNormalizeFilingEngine:
     def test_valid_api(self):
         from plugins.court_automation.filing.helpers import _normalize_filing_engine
+
         assert _normalize_filing_engine("api") == "api"
 
     def test_valid_playwright(self):
         from plugins.court_automation.filing.helpers import _normalize_filing_engine
+
         assert _normalize_filing_engine("playwright") == "playwright"
 
     def test_invalid_defaults_to_api(self):
         from plugins.court_automation.filing.helpers import _normalize_filing_engine
+
         assert _normalize_filing_engine("unknown") == "api"
 
     def test_none_defaults_to_api(self):
         from plugins.court_automation.filing.helpers import _normalize_filing_engine
+
         assert _normalize_filing_engine(None) == "api"
 
 
@@ -107,13 +118,16 @@ class TestNormalizeFilingEngine:
 # _resolve_court_name
 # ======================================================================
 
+
 class TestResolveCourtName:
     def test_already_has_people_court(self):
         from plugins.court_automation.filing.helpers import _resolve_court_name
+
         assert _resolve_court_name("广州市天河区人民法院") == "广州市天河区人民法院"
 
     def test_found_in_db(self):
         from plugins.court_automation.filing.helpers import _resolve_court_name
+
         mock_court = SimpleNamespace(name="北京市朝阳区人民法院")
         with patch("apps.core.models.Court") as MockCourt:
             MockCourt.objects.filter.return_value.first.return_value = mock_court
@@ -122,6 +136,7 @@ class TestResolveCourtName:
 
     def test_not_in_db_appends_suffix(self):
         from plugins.court_automation.filing.helpers import _resolve_court_name
+
         with patch("apps.core.models.Court") as MockCourt:
             MockCourt.objects.filter.return_value.first.return_value = None
             result = _resolve_court_name("天河区")
@@ -132,21 +147,25 @@ class TestResolveCourtName:
 # _infer_filing_type
 # ======================================================================
 
+
 class TestInferFilingType:
     def test_execution_by_status(self):
         from plugins.court_automation.filing.helpers import _infer_filing_type
+
         party = _make_party(legal_status="applicant")
         result = _infer_filing_type(case=SimpleNamespace(name="", cause_of_action=""), parties=[party])
         assert result == "execution"
 
     def test_execution_by_cause_keyword(self):
         from plugins.court_automation.filing.helpers import _infer_filing_type
+
         case = SimpleNamespace(name="某案", cause_of_action="申请执行")
         result = _infer_filing_type(case=case, parties=[])
         assert result == "execution"
 
     def test_execution_by_material_type_name(self):
         from plugins.court_automation.filing.helpers import _infer_filing_type
+
         case = SimpleNamespace(name="普通案", cause_of_action="借款纠纷")
         mock_material = SimpleNamespace(type_name="执行申请书")
         with patch("apps.cases.models.CaseMaterial") as MockCM:
@@ -156,6 +175,7 @@ class TestInferFilingType:
 
     def test_civil_default(self):
         from plugins.court_automation.filing.helpers import _infer_filing_type
+
         case = SimpleNamespace(name="普通案", cause_of_action="借款纠纷")
         with patch("apps.cases.models.CaseMaterial") as MockCM:
             MockCM.objects.filter.return_value.values_list.return_value = []
@@ -167,22 +187,28 @@ class TestInferFilingType:
 # _resolve_original_case_number
 # ======================================================================
 
+
 class TestResolveOriginalCaseNumber:
     def test_no_case_numbers(self):
         from plugins.court_automation.filing.helpers import _resolve_original_case_number
+
         case = SimpleNamespace(case_numbers=None)
         assert _resolve_original_case_number(case) == ""
 
     def test_active_number(self):
         from plugins.court_automation.filing.helpers import _resolve_original_case_number
+
         mock_qs = MagicMock()
-        mock_qs.filter.return_value.order_by.return_value.values_list.return_value.first.return_value = "2025粤01民初1号"
+        mock_qs.filter.return_value.order_by.return_value.values_list.return_value.first.return_value = (
+            "2025粤01民初1号"
+        )
         case = SimpleNamespace(case_numbers=mock_qs)
         result = _resolve_original_case_number(case)
         assert result == "2025粤01民初1号"
 
     def test_fallback_number(self):
         from plugins.court_automation.filing.helpers import _resolve_original_case_number
+
         mock_qs = MagicMock()
         mock_qs.filter.return_value.order_by.return_value.values_list.return_value.first.return_value = None
         mock_qs.order_by.return_value.values_list.return_value.first.return_value = "2025粤02民初2号"
@@ -192,6 +218,7 @@ class TestResolveOriginalCaseNumber:
 
     def test_no_numbers_at_all(self):
         from plugins.court_automation.filing.helpers import _resolve_original_case_number
+
         mock_qs = MagicMock()
         mock_qs.filter.return_value.order_by.return_value.values_list.return_value.first.return_value = None
         mock_qs.order_by.return_value.values_list.return_value.first.return_value = None
@@ -203,9 +230,11 @@ class TestResolveOriginalCaseNumber:
 # _build_party_payloads
 # ======================================================================
 
+
 class TestBuildPartyPayloads:
     def test_natural_plaintiff(self):
         from plugins.court_automation.filing.helpers import _build_party_payloads
+
         party = _make_party(legal_status="plaintiff", client_type="natural")
         plaintiffs, defendants, third = _build_party_payloads([party])
         assert len(plaintiffs) == 1
@@ -215,6 +244,7 @@ class TestBuildPartyPayloads:
 
     def test_legal_defendant(self):
         from plugins.court_automation.filing.helpers import _build_party_payloads
+
         party = _make_party(
             legal_status="defendant",
             client_type="legal",
@@ -230,12 +260,14 @@ class TestBuildPartyPayloads:
 
     def test_third_party(self):
         from plugins.court_automation.filing.helpers import _build_party_payloads
+
         party = _make_party(legal_status="third")
         _, _, third = _build_party_payloads([party])
         assert len(third) == 1
 
     def test_unknown_status_excluded(self):
         from plugins.court_automation.filing.helpers import _build_party_payloads
+
         party = _make_party(legal_status="unknown_role")
         p, d, t = _build_party_payloads([party])
         assert len(p) == 0 and len(d) == 0 and len(t) == 0
@@ -245,25 +277,31 @@ class TestBuildPartyPayloads:
 # _to_valid_mobile
 # ======================================================================
 
+
 class TestToValidMobile:
     def test_valid(self):
         from plugins.court_automation.filing.helpers import _to_valid_mobile
+
         assert _to_valid_mobile("13800138000") == "13800138000"  # pragma: allowlist secret
 
     def test_with_spaces(self):
         from plugins.court_automation.filing.helpers import _to_valid_mobile
+
         assert _to_valid_mobile("138 0013 8000") == "13800138000"  # pragma: allowlist secret
 
     def test_invalid_short(self):
         from plugins.court_automation.filing.helpers import _to_valid_mobile
+
         assert _to_valid_mobile("123") == ""
 
     def test_invalid_starts_with_wrong_digit(self):
         from plugins.court_automation.filing.helpers import _to_valid_mobile
+
         assert _to_valid_mobile("23800138000") == ""
 
     def test_empty(self):
         from plugins.court_automation.filing.helpers import _to_valid_mobile
+
         assert _to_valid_mobile("") == ""
 
 
@@ -271,9 +309,11 @@ class TestToValidMobile:
 # _apply_execution_party_fallbacks
 # ======================================================================
 
+
 class TestApplyExecutionPartyFallbacks:
     def test_fills_phone_from_agent(self):
         from plugins.court_automation.filing.helpers import _apply_execution_party_fallbacks
+
         plaintiffs = [{"client_type": "natural", "phone": "", "address": "北京"}]
         agents = [{"phone": "13800138000"}]  # pragma: allowlist secret
         _apply_execution_party_fallbacks(plaintiffs=plaintiffs, agents=agents)
@@ -281,6 +321,7 @@ class TestApplyExecutionPartyFallbacks:
 
     def test_skips_non_natural(self):
         from plugins.court_automation.filing.helpers import _apply_execution_party_fallbacks
+
         plaintiffs = [{"client_type": "legal", "phone": "", "address": ""}]
         agents = [{"phone": "13800138000"}]  # pragma: allowlist secret
         _apply_execution_party_fallbacks(plaintiffs=plaintiffs, agents=agents)
@@ -288,6 +329,7 @@ class TestApplyExecutionPartyFallbacks:
 
     def test_no_fallback_when_phone_exists(self):
         from plugins.court_automation.filing.helpers import _apply_execution_party_fallbacks
+
         plaintiffs = [{"client_type": "natural", "phone": "13900139000", "address": ""}]  # pragma: allowlist secret
         agents = [{"phone": "13800138000"}]  # pragma: allowlist secret
         _apply_execution_party_fallbacks(plaintiffs=plaintiffs, agents=agents)
@@ -295,6 +337,7 @@ class TestApplyExecutionPartyFallbacks:
 
     def test_preserves_address(self):
         from plugins.court_automation.filing.helpers import _apply_execution_party_fallbacks
+
         plaintiffs = [{"client_type": "natural", "phone": "", "address": "  上海  "}]
         agents = []
         _apply_execution_party_fallbacks(plaintiffs=plaintiffs, agents=agents)
@@ -305,13 +348,20 @@ class TestApplyExecutionPartyFallbacks:
 # _build_agent_payloads
 # ======================================================================
 
+
 class TestBuildAgentPayloads:
     def test_builds_from_assignment(self):
         from plugins.court_automation.filing.helpers import _build_agent_payloads
+
         law_firm = SimpleNamespace(name="测试律师事务所", address="广州天河")
         lawyer = SimpleNamespace(
-            id=1, real_name="王律师", username="wang", id_card="110101199003077715",  # pragma: allowlist secret
-            license_no="12345", phone="13800138000", law_firm=law_firm,  # pragma: allowlist secret
+            id=1,
+            real_name="王律师",
+            username="wang",
+            id_card="110101199003077715",  # pragma: allowlist secret
+            license_no="12345",
+            phone="13800138000",
+            law_firm=law_firm,  # pragma: allowlist secret
         )
         assignment = SimpleNamespace(lawyer=lawyer)
         case = SimpleNamespace(assignments=MagicMock())
@@ -324,9 +374,15 @@ class TestBuildAgentPayloads:
 
     def test_deduplicates_lawyers(self):
         from plugins.court_automation.filing.helpers import _build_agent_payloads
+
         lawyer = SimpleNamespace(
-            id=1, real_name="王律师", username="wang", id_card="110101199003077715",  # pragma: allowlist secret
-            license_no="12345", phone="13800138000", law_firm=SimpleNamespace(name="所", address=""),  # pragma: allowlist secret
+            id=1,
+            real_name="王律师",
+            username="wang",
+            id_card="110101199003077715",  # pragma: allowlist secret
+            license_no="12345",
+            phone="13800138000",
+            law_firm=SimpleNamespace(name="所", address=""),  # pragma: allowlist secret
         )
         assignment1 = SimpleNamespace(lawyer=lawyer)
         assignment2 = SimpleNamespace(lawyer=lawyer)
@@ -338,9 +394,15 @@ class TestBuildAgentPayloads:
 
     def test_uses_fallback_phone_from_party(self):
         from plugins.court_automation.filing.helpers import _build_agent_payloads
+
         lawyer = SimpleNamespace(
-            id=1, real_name="王律师", username="wang", id_card="",
-            license_no="12345", phone="", law_firm=SimpleNamespace(name="所", address=""),
+            id=1,
+            real_name="王律师",
+            username="wang",
+            id_card="",
+            license_no="12345",
+            phone="",
+            law_firm=SimpleNamespace(name="所", address=""),
         )
         case = SimpleNamespace(assignments=MagicMock())
         case.assignments.select_related.return_value.order_by.return_value = [SimpleNamespace(lawyer=lawyer)]
@@ -353,9 +415,15 @@ class TestBuildAgentPayloads:
 
     def test_skips_lawyer_without_name(self):
         from plugins.court_automation.filing.helpers import _build_agent_payloads
+
         lawyer = SimpleNamespace(
-            id=1, real_name="", username="", id_card="",
-            license_no="", phone="", law_firm=None,
+            id=1,
+            real_name="",
+            username="",
+            id_card="",
+            license_no="",
+            phone="",
+            law_firm=None,
         )
         case = SimpleNamespace(assignments=MagicMock())
         case.assignments.select_related.return_value.order_by.return_value = [SimpleNamespace(lawyer=lawyer)]
@@ -365,11 +433,17 @@ class TestBuildAgentPayloads:
 
     def test_requester_added_if_not_in_assignments(self):
         from plugins.court_automation.filing.helpers import _build_agent_payloads
+
         case = SimpleNamespace(assignments=MagicMock())
         case.assignments.select_related.return_value.order_by.return_value = []
         requester = SimpleNamespace(
-            id=99, real_name="请求人", username="req", id_card="110101199003077715",  # pragma: allowlist secret
-            license_no="54321", phone="13700137000", law_firm=SimpleNamespace(name="所", address=""),  # pragma: allowlist secret
+            id=99,
+            real_name="请求人",
+            username="req",
+            id_card="110101199003077715",  # pragma: allowlist secret
+            license_no="54321",
+            phone="13700137000",
+            law_firm=SimpleNamespace(name="所", address=""),  # pragma: allowlist secret
         )
         with patch("apps.organization.models.Lawyer") as MockLawyer:
             MockLawyer.objects.select_related.return_value.filter.return_value.first.return_value = requester
@@ -382,9 +456,11 @@ class TestBuildAgentPayloads:
 # _build_execution_reason_text / _build_execution_request_text
 # ======================================================================
 
+
 class TestExecutionTexts:
     def test_reason_with_cause_and_case_number(self):
         from plugins.court_automation.filing.helpers import _build_execution_reason_text
+
         case = SimpleNamespace(cause_of_action="借款纠纷")
         result = _build_execution_reason_text(case=case, original_case_number="2025粤01民初1号")
         assert "被执行人" in result
@@ -393,6 +469,7 @@ class TestExecutionTexts:
 
     def test_reason_without_cause(self):
         from plugins.court_automation.filing.helpers import _build_execution_reason_text
+
         case = SimpleNamespace(cause_of_action="")
         result = _build_execution_reason_text(case=case, original_case_number="")
         assert "被执行人" in result
@@ -400,8 +477,11 @@ class TestExecutionTexts:
 
     def test_request_uses_service_when_available(self):
         from plugins.court_automation.filing.helpers import _build_execution_request_text
+
         case = SimpleNamespace(id=1, case_numbers=None)
-        with patch("apps.documents.services.placeholders.litigation.execution_request_service.ExecutionRequestService") as MockSvc:
+        with patch(
+            "apps.documents.services.placeholders.litigation.execution_request_service.ExecutionRequestService"
+        ) as MockSvc:
             mock_instance = MockSvc.return_value
             mock_instance.generate.return_value = {"申请执行事项": "一、请求执行\n二、承担费用"}
             result = _build_execution_request_text(case=case)
@@ -409,8 +489,12 @@ class TestExecutionTexts:
 
     def test_request_fallback(self):
         from plugins.court_automation.filing.helpers import _build_execution_request_text
+
         case = SimpleNamespace(id=1, case_numbers=None)
-        with patch("apps.documents.services.placeholders.litigation.execution_request_service.ExecutionRequestService", side_effect=TypeError("nope")):
+        with patch(
+            "apps.documents.services.placeholders.litigation.execution_request_service.ExecutionRequestService",
+            side_effect=TypeError("nope"),
+        ):
             result = _build_execution_request_text(case=case)
             assert "强制执行" in result
 
@@ -419,20 +503,24 @@ class TestExecutionTexts:
 # _normalize_text
 # ======================================================================
 
+
 class TestNormalizeText:
     def test_removes_punctuation(self):
         from plugins.court_automation.filing.helpers import _normalize_text
+
         result = _normalize_text("Hello-World (test)")
         assert "-" not in result
         assert "(" not in result
 
     def test_lowercases(self):
         from plugins.court_automation.filing.helpers import _normalize_text
+
         result = _normalize_text("ABC")
         assert result == "abc"
 
     def test_empty(self):
         from plugins.court_automation.filing.helpers import _normalize_text
+
         assert _normalize_text("") == ""
 
 
@@ -440,23 +528,28 @@ class TestNormalizeText:
 # _score_slot_for_signal
 # ======================================================================
 
+
 class TestScoreSlotForSignal:
     def test_empty_signal(self):
         from plugins.court_automation.filing.helpers import _score_slot_for_signal
+
         assert _score_slot_for_signal(signal="", strong=(), weak=(), exclude=()) == 0
 
     def test_strong_match(self):
         from plugins.court_automation.filing.helpers import _score_slot_for_signal
+
         score = _score_slot_for_signal(signal="民事起诉状", strong=("起诉状",), weak=(), exclude=())
         assert score >= 5
 
     def test_weak_match(self):
         from plugins.court_automation.filing.helpers import _score_slot_for_signal
+
         score = _score_slot_for_signal(signal="诉讼请求文件", strong=(), weak=("诉讼请求",), exclude=())
         assert score >= 2
 
     def test_exclude_penalty(self):
         from plugins.court_automation.filing.helpers import _score_slot_for_signal
+
         score = _score_slot_for_signal(signal="执行申请书", strong=("起诉状",), weak=(), exclude=("执行申请书",))
         assert score < 0
 
@@ -465,26 +558,34 @@ class TestScoreSlotForSignal:
 # _score_slot_deduplicated
 # ======================================================================
 
+
 class TestScoreSlotDeduplicated:
     def test_empty_signals(self):
         from plugins.court_automation.filing.helpers import _score_slot_deduplicated
+
         assert _score_slot_deduplicated(primary_signals=[], secondary_signals=[], strong=(), weak=(), exclude=()) == 0
 
     def test_primary_gets_double_weight(self):
         from plugins.court_automation.filing.helpers import _score_slot_deduplicated
+
         score = _score_slot_deduplicated(
             primary_signals=["民事起诉状"],
             secondary_signals=[],
-            strong=("起诉状",), weak=(), exclude=(),
+            strong=("起诉状",),
+            weak=(),
+            exclude=(),
         )
         assert score == 10  # 5 * 2
 
     def test_secondary_deduplicated(self):
         from plugins.court_automation.filing.helpers import _score_slot_deduplicated
+
         score = _score_slot_deduplicated(
             primary_signals=[],
             secondary_signals=["起诉状文件1.pdf", "起诉状文件2.pdf"],
-            strong=("起诉状",), weak=(), exclude=(),
+            strong=("起诉状",),
+            weak=(),
+            exclude=(),
         )
         assert score == 5  # counted only once
 
@@ -493,15 +594,18 @@ class TestScoreSlotDeduplicated:
 # _build_material_slot_signals
 # ======================================================================
 
+
 class TestBuildMaterialSlotSignals:
     def test_with_type_name(self):
         from plugins.court_automation.filing.helpers import _build_material_slot_signals
+
         material = SimpleNamespace(type_name="起诉状", type=None, source_attachment=None)
         primary, secondary = _build_material_slot_signals(material=material, file_path=Path("/tmp/doc.pdf"))
         assert any("起诉状" in s for s in primary)
 
     def test_with_material_type(self):
         from plugins.court_automation.filing.helpers import _build_material_slot_signals
+
         mat_type = SimpleNamespace(name="授权委托书")
         material = SimpleNamespace(type_name="", type=mat_type, source_attachment=None)
         primary, secondary = _build_material_slot_signals(material=material, file_path=Path("/tmp/doc.pdf"))
@@ -509,10 +613,9 @@ class TestBuildMaterialSlotSignals:
 
     def test_secondary_includes_filename(self):
         from plugins.court_automation.filing.helpers import _build_material_slot_signals
+
         material = SimpleNamespace(type_name="", type=None, source_attachment=None)
-        primary, secondary = _build_material_slot_signals(
-            material=material, file_path=Path("/tmp/证据材料.pdf")
-        )
+        primary, secondary = _build_material_slot_signals(material=material, file_path=Path("/tmp/证据材料.pdf"))
         assert any("证据材料" in s for s in secondary)
 
 
@@ -520,37 +623,39 @@ class TestBuildMaterialSlotSignals:
 # _match_slot
 # ======================================================================
 
+
 class TestMatchSlot:
     def test_matches_civil_complaint_to_slot_0(self):
         from plugins.court_automation.filing.helpers import _match_slot
+
         material = SimpleNamespace(type_name="民事起诉状", type=None, source_attachment=None)
         slot = _match_slot(material=material, file_path=Path("/tmp/complaint.pdf"), filing_type="civil")
         assert slot == "0"
 
     def test_matches_identity_to_slot_1(self):
         from plugins.court_automation.filing.helpers import _match_slot
+
         material = SimpleNamespace(type_name="身份证明", type=None, source_attachment=None)
         slot = _match_slot(material=material, file_path=Path("/tmp/id.pdf"), filing_type="civil")
         assert slot == "1"
 
     def test_delivery_address_to_slot_4(self):
         from plugins.court_automation.filing.helpers import _match_slot
+
         material = SimpleNamespace(type_name="其他", type=None, source_attachment=None)
-        slot = _match_slot(
-            material=material, file_path=Path("/tmp/送达地址确认书.pdf"), filing_type="civil"
-        )
+        slot = _match_slot(material=material, file_path=Path("/tmp/送达地址确认书.pdf"), filing_type="civil")
         assert slot == "4"
 
     def test_default_slot_for_unknown(self):
         from plugins.court_automation.filing.helpers import _match_slot
+
         material = SimpleNamespace(type_name="", type=None, source_attachment=None)
-        slot = _match_slot(
-            material=material, file_path=Path("/tmp/unknown.pdf"), filing_type="civil"
-        )
+        slot = _match_slot(material=material, file_path=Path("/tmp/unknown.pdf"), filing_type="civil")
         assert slot == "5"  # default for civil
 
     def test_execution_application_slot_0(self):
         from plugins.court_automation.filing.helpers import _match_slot
+
         material = SimpleNamespace(type_name="执行申请书", type=None, source_attachment=None)
         slot = _match_slot(material=material, file_path=Path("/tmp/apply.pdf"), filing_type="execution")
         assert slot == "0"
@@ -560,6 +665,7 @@ class TestMatchSlot:
 # _build_session_status_payload
 # ======================================================================
 
+
 class TestBuildSessionStatusPayload:
     def _make_task(self, *, status, task_id=1, result=None, error_message=""):
         task = SimpleNamespace(id=task_id, status=status, result=result or {}, error_message=error_message)
@@ -567,6 +673,7 @@ class TestBuildSessionStatusPayload:
 
     def test_pending_status(self):
         from plugins.court_automation.filing.helpers import _build_session_status_payload
+
         with patch("apps.automation.models.ScraperTaskStatus") as MockStatus:
             MockStatus.PENDING = "pending"
             MockStatus.RUNNING = "running"
@@ -578,6 +685,7 @@ class TestBuildSessionStatusPayload:
 
     def test_running_status(self):
         from plugins.court_automation.filing.helpers import _build_session_status_payload
+
         with patch("apps.automation.models.ScraperTaskStatus") as MockStatus:
             MockStatus.PENDING = "pending"
             MockStatus.RUNNING = "running"
@@ -588,6 +696,7 @@ class TestBuildSessionStatusPayload:
 
     def test_success_status(self):
         from plugins.court_automation.filing.helpers import _build_session_status_payload
+
         with patch("apps.automation.models.ScraperTaskStatus") as MockStatus:
             MockStatus.PENDING = "pending"
             MockStatus.RUNNING = "running"
@@ -598,6 +707,7 @@ class TestBuildSessionStatusPayload:
 
     def test_failed_status_with_error(self):
         from plugins.court_automation.filing.helpers import _build_session_status_payload
+
         with patch("apps.automation.models.ScraperTaskStatus") as MockStatus:
             MockStatus.PENDING = "pending"
             MockStatus.RUNNING = "running"
@@ -609,6 +719,7 @@ class TestBuildSessionStatusPayload:
 
     def test_failed_status_no_error_fallback(self):
         from plugins.court_automation.filing.helpers import _build_session_status_payload
+
         with patch("apps.automation.models.ScraperTaskStatus") as MockStatus:
             MockStatus.PENDING = "pending"
             MockStatus.RUNNING = "running"
@@ -619,6 +730,7 @@ class TestBuildSessionStatusPayload:
 
     def test_timing_included(self):
         from plugins.court_automation.filing.helpers import _build_session_status_payload
+
         with patch("apps.automation.models.ScraperTaskStatus") as MockStatus:
             MockStatus.PENDING = "pending"
             MockStatus.RUNNING = "running"
@@ -631,6 +743,7 @@ class TestBuildSessionStatusPayload:
 
     def test_failed_with_result_message(self):
         from plugins.court_automation.filing.helpers import _build_session_status_payload
+
         with patch("apps.automation.models.ScraperTaskStatus") as MockStatus:
             MockStatus.PENDING = "pending"
             MockStatus.RUNNING = "running"
@@ -644,16 +757,20 @@ class TestBuildSessionStatusPayload:
 # _update_session_task
 # ======================================================================
 
+
 class TestUpdateSessionTask:
     def test_noop_when_session_id_none(self):
         from plugins.court_automation.filing.helpers import _update_session_task
 
-        # Should not raise
-        _update_session_task(session_id=None, status="running")
+        with patch("apps.automation.models.ScraperTask") as mock_task:
+            # session_id=None 直接早退，不触达数据库
+            assert _update_session_task(session_id=None, status="running") is None
+            mock_task.objects.filter.assert_not_called()
 
     @patch("plugins.court_automation.filing.helpers.timezone")
     def test_update_without_async(self, mock_tz):
         from plugins.court_automation.filing.helpers import _update_session_task
+
         mock_tz.now.return_value = "2026-01-01"
         with patch("apps.automation.models.ScraperTask") as MockTask:
             MockTask.objects.filter.return_value.update.return_value = 1
@@ -665,6 +782,7 @@ class TestUpdateSessionTask:
     @patch("plugins.court_automation.filing.helpers.timezone")
     def test_update_in_async_context(self, mock_tz):
         from plugins.court_automation.filing.helpers import _SESSION_UPDATE_EXECUTOR, _update_session_task
+
         mock_tz.now.return_value = "2026-01-01"
         mock_loop = MagicMock()
         with patch("asyncio.get_running_loop", return_value=mock_loop):
@@ -677,12 +795,16 @@ class TestUpdateSessionTask:
 # _build_materials_map (complex, needs mocking)
 # ======================================================================
 
+
 class TestBuildMaterialsMap:
     def test_returns_empty_when_no_materials(self):
         from plugins.court_automation.filing.helpers import _build_materials_map
-        with patch("apps.cases.models.CaseMaterial") as MockCM, \
-             patch("apps.cases.models.CaseMaterialCategory") as MockCat, \
-             patch("apps.cases.models.CaseMaterialSide") as MockSide:
+
+        with (
+            patch("apps.cases.models.CaseMaterial") as MockCM,
+            patch("apps.cases.models.CaseMaterialCategory") as MockCat,
+            patch("apps.cases.models.CaseMaterialSide") as MockSide,
+        ):
             MockCat.PARTY = "party"
             MockSide.OUR = "our"
             mock_qs = MagicMock()
@@ -698,6 +820,7 @@ class TestBuildMaterialsMap:
 
     def test_maps_pdf_to_slot(self):
         from plugins.court_automation.filing.helpers import _build_materials_map
+
         mock_file = MagicMock()
         mock_file.path = "/tmp/起诉状.pdf"
         mock_attachment = MagicMock()
@@ -710,10 +833,12 @@ class TestBuildMaterialsMap:
         mock_material.type_name = "民事起诉状"
         mock_material.type = None
 
-        with patch("apps.cases.models.CaseMaterial") as MockCM, \
-             patch("apps.cases.models.CaseMaterialCategory") as MockCat, \
-             patch("apps.cases.models.CaseMaterialSide") as MockSide, \
-             patch("plugins.court_automation.filing.helpers.Path") as MockPath:
+        with (
+            patch("apps.cases.models.CaseMaterial") as MockCM,
+            patch("apps.cases.models.CaseMaterialCategory") as MockCat,
+            patch("apps.cases.models.CaseMaterialSide") as MockSide,
+            patch("plugins.court_automation.filing.helpers.Path") as MockPath,
+        ):
             MockCat.PARTY = "party"
             MockSide.OUR = "our"
 
@@ -742,8 +867,10 @@ class TestBuildMaterialsMap:
 # _get_organization_service
 # ======================================================================
 
+
 class TestGetOrganizationService:
     def test_returns_service(self):
         from plugins.court_automation.filing.helpers import _get_organization_service
+
         with patch("apps.core.dependencies.build_organization_service", return_value="mock_svc"):
             assert _get_organization_service() == "mock_svc"

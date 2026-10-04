@@ -53,8 +53,8 @@ class ProxyMatterRuleAdminForm(forms.ModelForm[ProxyMatterRule]):  # pragma: no 
         instance = super().save(commit=False)
         selected = [str(x) for x in self.cleaned_data.get("case_types_field", []) if x]
         instance.case_types = selected
-        # 兼容历史逻辑: 同步一个主值到旧字段
-        instance.case_type = selected[0] if selected else None
+        # 兼容历史逻辑: 同步一个主值到旧字段（空串表示「任意类型」，字段非空不可为 None）
+        instance.case_type = selected[0] if selected else ""
         if commit:
             instance.save()
         return instance

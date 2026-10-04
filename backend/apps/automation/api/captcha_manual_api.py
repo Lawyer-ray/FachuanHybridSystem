@@ -6,16 +6,19 @@
 前端通过这些接口展示验证码图片并接收用户输入。
 """
 
-import asyncio
-import logging
 from typing import Any
 
 from django.http import FileResponse, HttpResponse
 from ninja import Router, Schema
 
-logger = logging.getLogger("apps.automation")
+from apps.automation.services.captcha.manual_captcha_service import ManualCaptchaService
 
 router = Router(tags=["手动验证码"])
+
+
+def _get_manual_captcha_service() -> ManualCaptchaService:
+    """工厂函数：创建手动验证码服务实例。"""
+    return ManualCaptchaService()
 
 
 class CaptchaAnswerIn(Schema):
@@ -38,25 +41,11 @@ async def get_captcha_image(request: Any, task_id: int) -> HttpResponse | FileRe
 
     返回 PNG 格式的验证码图片。仅当任务处于 WAITING_FOR_CAPTCHA 状态时可用。
     """
-    from apps.automation.models import ScraperTask, ScraperTaskStatus
-
-    try:
-        task = await ScraperTask.objects.aget(id=task_id)
-    except ScraperTask.DoesNotExist:
-        return HttpResponse("任务不存在", status=404)
-
-    if task.status != ScraperTaskStatus.WAITING_FOR_CAPTCHA:
-        return HttpResponse("当前任务不在等待验证码状态", status=400)
-
-    image_path = task.captcha_image_path
-    if not image_path:
-        return HttpResponse("验证码图片不存在", status=404)
-
-    try:
-        file_obj = await asyncio.to_thread(open, image_path, "rb")
-        return FileResponse(file_obj, content_type="image/png")
-    except FileNotFoundError:
-        return HttpResponse("验证码图片文件已丢失", status=404)
+    payload = await _get_manual_captcha_service().get_captcha_image(task_id)
+    if payload.error_status is not None:
+        return HttpResponse(payload.error_message, status=payload.error_status)
+    assert payload.file_obj is not None
+    return FileResponse(payload.file_obj, content_type="image/png")
 
 
 @router.post("/{task_id}/answer", response=CaptchaAnswerOut)  # 安全审计 B-32
@@ -67,24 +56,5 @@ async def submit_captcha_answer(request: Any, task_id: int, payload: CaptchaAnsw
     将用户输入的验证码写入任务记录，并恢复任务为 RUNNING 状态。
     后台 ManualCaptchaRecognizer 会轮询检测到答案并继续执行。
     """
-    from apps.automation.models import ScraperTask, ScraperTaskStatus
-
-    try:
-        task = await ScraperTask.objects.aget(id=task_id)
-    except ScraperTask.DoesNotExist:
-        return CaptchaAnswerOut(success=False, message="任务不存在")
-
-    if task.status != ScraperTaskStatus.WAITING_FOR_CAPTCHA:
-        return CaptchaAnswerOut(success=False, message=f"当前任务状态为 {task.status}，不在等待验证码状态")
-
-    answer = payload.answer.strip()
-    if not answer:
-        return CaptchaAnswerOut(success=False, message="验证码答案不能为空")
-
-    task.captcha_answer = answer
-    task.status = ScraperTaskStatus.RUNNING
-    task.error_message = ""
-    await task.asave(update_fields=["captcha_answer", "status", "error_message", "updated_at"])
-
-    logger.info("✅ 验证码答案已提交: task=%s", task_id)
-    return CaptchaAnswerOut(success=True, message="验证码已提交，任务继续执行")
+    result = await _get_manual_captcha_service().submit_answer(task_id, payload.answer)
+    return CaptchaAnswerOut(success=result.success, message=result.message)

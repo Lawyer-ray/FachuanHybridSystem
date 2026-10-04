@@ -12,7 +12,6 @@ from django.core.exceptions import ValidationError
 
 from apps.invoice_recognition.services.invoice_recognition_service import InvoiceRecognitionService
 
-
 # ============================================================================
 # _validate_file tests
 # ============================================================================
@@ -31,21 +30,22 @@ class TestValidateFile:
         f = Mock()
         f.name = "test.pdf"
         f.size = 1024
-        svc._validate_file(f)  # should not raise
+        # 合法文件静默通过（返回 None）
+        assert svc._validate_file(f) is None
 
     def test_valid_jpg(self):
         svc = self._make_service()
         f = Mock()
         f.name = "photo.jpg"
         f.size = 2048
-        svc._validate_file(f)
+        assert svc._validate_file(f) is None
 
     def test_valid_png(self):
         svc = self._make_service()
         f = Mock()
         f.name = "image.png"
         f.size = 512
-        svc._validate_file(f)
+        assert svc._validate_file(f) is None
 
     def test_invalid_extension(self):
         svc = self._make_service()
@@ -68,7 +68,8 @@ class TestValidateFile:
         f = Mock()
         f.name = "FILE.PDF"
         f.size = 100
-        svc._validate_file(f)  # should not raise
+        # 扩展名大小写不敏感，静默通过
+        assert svc._validate_file(f) is None
 
 
 # ============================================================================

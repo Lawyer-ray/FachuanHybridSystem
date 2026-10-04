@@ -12,6 +12,7 @@ import pytest
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
+from apps.client.models import Client
 from apps.contracts.models import (
     ArchiveClassificationRule,
     ArchivePlaceholderOverride,
@@ -39,9 +40,7 @@ from apps.contracts.models import (
     SupplementaryAgreement,
     SupplementaryAgreementParty,
 )
-from apps.client.models import Client
 from apps.organization.models import Lawyer
-
 
 # ── Contract Model Extended ─────────────────────────────────────────────────
 
@@ -81,9 +80,7 @@ class TestContractModelExtended:
         from apps.core.models.enums import CaseStage
 
         valid_stage = CaseStage.choices[0][0]
-        contract = Contract(
-            name="clean合同", case_type="civil", representation_stages=[valid_stage]
-        )
+        contract = Contract(name="clean合同", case_type="civil", representation_stages=[valid_stage])
         contract.clean()
         assert valid_stage in contract.representation_stages
 
@@ -94,7 +91,8 @@ class TestContractModelExtended:
             case_type="civil",
             representation_stages=["invalid_stage_xyz"],
         )
-        contract.clean()  # Should not raise
+        # normalize 阶段的 ValidationException 被 clean 吞掉（返回 None）
+        assert contract.clean() is None
 
 
 # ── ContractPayment Extended ────────────────────────────────────────────────
@@ -153,9 +151,7 @@ class TestContractFinanceLogModel:
     def test_default_level(self) -> None:
         contract = Contract.objects.create(name="default_level合同", case_type="civil")
         lawyer = Lawyer.objects.create_user(username="dl_actor", real_name="律师")
-        log = ContractFinanceLog.objects.create(
-            contract=contract, action="test", actor=lawyer
-        )
+        log = ContractFinanceLog.objects.create(contract=contract, action="test", actor=lawyer)
         assert log.level == LogLevel.INFO
 
 
@@ -253,9 +249,7 @@ class TestClientPaymentRecordExtended:
 
     def test_str(self) -> None:
         contract = Contract.objects.create(name="cpr合同", case_type="civil")
-        record = ClientPaymentRecord.objects.create(
-            contract=contract, amount=Decimal("25000.00")
-        )
+        record = ClientPaymentRecord.objects.create(contract=contract, amount=Decimal("25000.00"))
         result = str(record)
         assert "25000" in result
 
@@ -276,9 +270,7 @@ class TestContractFolderBindingModel:
 
     def test_create(self) -> None:
         contract = Contract.objects.create(name="fb合同", case_type="civil")
-        binding = ContractFolderBinding.objects.create(
-            contract=contract, folder_path="/contracts/fb"
-        )
+        binding = ContractFolderBinding.objects.create(contract=contract, folder_path="/contracts/fb")
         assert binding.folder_path == "/contracts/fb"
 
 
@@ -322,9 +314,7 @@ class TestContractTypeFolderRootPresetModel:
     """ContractTypeFolderRootPreset model tests."""
 
     def test_create(self) -> None:
-        preset = ContractTypeFolderRootPreset.objects.create(
-            case_type="civil", root_path="/contracts/civil"
-        )
+        preset = ContractTypeFolderRootPreset.objects.create(case_type="civil", root_path="/contracts/civil")
         assert preset.root_path == "/contracts/civil"
 
 
@@ -355,9 +345,7 @@ class TestContractAssignmentModel:
     def test_create(self) -> None:
         contract = Contract.objects.create(name="assign合同", case_type="civil")
         lawyer = Lawyer.objects.create_user(username="assign_lawyer", real_name="指派律师")
-        assignment = ContractAssignment.objects.create(
-            contract=contract, lawyer=lawyer
-        )
+        assignment = ContractAssignment.objects.create(contract=contract, lawyer=lawyer)
         assert assignment.contract == contract
         assert assignment.lawyer == lawyer
 

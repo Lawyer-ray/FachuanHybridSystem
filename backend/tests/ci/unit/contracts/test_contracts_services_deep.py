@@ -104,7 +104,7 @@ def admin_user(db, law_firm):
 @pytest.mark.django_db
 class TestContractValidator:
     def test_validate_fee_mode_fixed_ok(self, validator):
-        validator.validate_fee_mode({"fee_mode": FeeMode.FIXED, "fixed_amount": 10000})
+        assert validator.validate_fee_mode({"fee_mode": FeeMode.FIXED, "fixed_amount": 10000}) is None
 
     def test_validate_fee_mode_fixed_missing_amount(self, validator):
         with pytest.raises(ValidationException):
@@ -115,7 +115,9 @@ class TestContractValidator:
             validator.validate_fee_mode({"fee_mode": FeeMode.FIXED, "fixed_amount": 0})
 
     def test_validate_fee_mode_semi_risk_ok(self, validator):
-        validator.validate_fee_mode({"fee_mode": FeeMode.SEMI_RISK, "fixed_amount": 5000, "risk_rate": 10})
+        assert (
+            validator.validate_fee_mode({"fee_mode": FeeMode.SEMI_RISK, "fixed_amount": 5000, "risk_rate": 10}) is None
+        )
 
     def test_validate_fee_mode_semi_risk_missing_rate(self, validator):
         with pytest.raises(ValidationException):
@@ -126,7 +128,7 @@ class TestContractValidator:
             validator.validate_fee_mode({"fee_mode": FeeMode.SEMI_RISK, "risk_rate": 10})
 
     def test_validate_fee_mode_full_risk_ok(self, validator):
-        validator.validate_fee_mode({"fee_mode": FeeMode.FULL_RISK, "risk_rate": 15})
+        assert validator.validate_fee_mode({"fee_mode": FeeMode.FULL_RISK, "risk_rate": 15}) is None
 
     def test_validate_fee_mode_full_risk_missing_rate(self, validator):
         with pytest.raises(ValidationException):
@@ -137,7 +139,7 @@ class TestContractValidator:
             validator.validate_fee_mode({"fee_mode": FeeMode.FULL_RISK, "risk_rate": 0})
 
     def test_validate_fee_mode_custom_ok(self, validator):
-        validator.validate_fee_mode({"fee_mode": FeeMode.CUSTOM, "custom_terms": "自定义条款"})
+        assert validator.validate_fee_mode({"fee_mode": FeeMode.CUSTOM, "custom_terms": "自定义条款"}) is None
 
     def test_validate_fee_mode_custom_empty(self, validator):
         with pytest.raises(ValidationException):
@@ -148,7 +150,8 @@ class TestContractValidator:
             validator.validate_fee_mode({"fee_mode": FeeMode.CUSTOM, "custom_terms": "   "})
 
     def test_validate_fee_mode_none(self, validator):
-        validator.validate_fee_mode({})
+        # 无 fee_mode 时静默通过
+        assert validator.validate_fee_mode({}) is None
 
     def test_validate_stages_empty(self, validator):
         assert validator.validate_stages([], "civil") == []
@@ -209,7 +212,7 @@ class TestContractAccessPolicy:
 
     def test_ensure_access_passes(self, access_policy, admin_user):
         c = ContractFactory()
-        access_policy.ensure_access(contract_id=c.id, user=admin_user, org_access=None)
+        assert access_policy.ensure_access(contract_id=c.id, user=admin_user, org_access=None) is None
 
     def test_has_access_with_contract_obj_admin(self, access_policy, admin_user):
         c = ContractFactory()
@@ -224,7 +227,7 @@ class TestContractAccessPolicy:
 
         c = ContractFactory()
         ctx = AccessContext(user=admin_user, org_access=None, perm_open_access=False)
-        access_policy.ensure_access_ctx(contract_id=c.id, ctx=ctx)
+        assert access_policy.ensure_access_ctx(contract_id=c.id, ctx=ctx) is None
 
 
 # ── ContractMutationService tests ──
@@ -445,11 +448,13 @@ class TestContractWorkflowService:
         wf.lawyer_assignment_service.get_all_lawyers.return_value = [lawyer]
         wf.create_contract_with_cases(
             {"name": "test", "case_type": "civil"},
-            cases_data=[{
-                "name": "case1",
-                "case_type": "civil",
-                "parties": [{"client_id": 1, "legal_status": "原告"}],
-            }],
+            cases_data=[
+                {
+                    "name": "case1",
+                    "case_type": "civil",
+                    "parties": [{"client_id": 1, "legal_status": "原告"}],
+                }
+            ],
             assigned_lawyer_ids=[1],
         )
         wf.case_service.create_case_assignment.assert_called()
@@ -725,8 +730,10 @@ class TestContractFinanceService:
         admin = LawyerFactory(is_admin=True)
         c = ContractFactory()
         ContractPayment.objects.create(
-            contract=c, amount=Decimal("1000"), invoiced_amount=Decimal("500"),
-            invoice_status=InvoiceStatus.INVOICED_PARTIAL
+            contract=c,
+            amount=Decimal("1000"),
+            invoiced_amount=Decimal("500"),
+            invoice_status=InvoiceStatus.INVOICED_PARTIAL,
         )
         result = svc.get_finance_stats(contract_id=c.pk, user=admin)
         assert len(result["items"]) == 1

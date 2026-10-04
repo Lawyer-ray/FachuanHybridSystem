@@ -2,26 +2,21 @@
 
 from __future__ import annotations
 
-import logging
+import io
 
 from django.http import FileResponse, HttpRequest
 from ninja import File, Form, Router, UploadedFile
 
 from apps.core.security.auth import JWTOrSessionAuth
-
-from apps.docspace import config
-from apps.docspace.models import DocSpaceDocument
 from apps.docspace.schemas import DocSpaceConfigOut, DocSpaceDocumentOut, DocSpaceUploadOut
-from apps.docspace.services.docspace_client import DocSpaceClient
+from apps.docspace.services.document_service import DocSpaceDocumentService
 
 router = Router(auth=JWTOrSessionAuth())
 
-logger = logging.getLogger(__name__)
 
-
-async def _aget_client() -> DocSpaceClient:
-    """异步获取 DocSpace 客户端实例。"""
-    return DocSpaceClient(portal_url=await config.aget_portal_url(), api_token=await config.aget_api_token())
+def _get_document_service() -> DocSpaceDocumentService:
+    """工厂函数：创建 DocSpace 文档服务实例。"""
+    return DocSpaceDocumentService()
 
 
 # ── 配置 ──────────────────────────────────────────────────
@@ -29,6 +24,8 @@ async def _aget_client() -> DocSpaceClient:
 
 @router.get("/config", response=DocSpaceConfigOut, summary="获取 DocSpace 配置")
 def get_docspace_config(request: HttpRequest) -> DocSpaceConfigOut:
+    from apps.docspace import config
+
     return DocSpaceConfigOut(
         portal_url=config.get_portal_url(),
         enabled=config.is_configured(),
@@ -44,33 +41,13 @@ async def upload_file(
     file: UploadedFile = File(...),
     folder_id: int | None = Form(default=None),
 ) -> DocSpaceUploadOut:
-    target_folder = folder_id or await config.aget_root_folder_id()
-    if not target_folder:
-        from ninja.errors import HttpError
-
-        raise HttpError(400, "未配置默认文件夹，请指定 folder_id")
-
-    content = file.read()
-    client = await _aget_client()
-    ds_file = await client.aupload_file(target_folder, file.name or "untitled", content)
-
-    # 创建本地映射记录（DocSpace 对相同内容去重，可能已存在）
-    doc, created = await DocSpaceDocument.objects.aget_or_create(
-        docspace_file_id=ds_file.id,
-        defaults={
-            "lawyer": request.auth,  # type: ignore[attr-defined]
-            "title": ds_file.title,
-            "docspace_folder_id": ds_file.folder_id,
-            "file_ext": ds_file.file_ext,
-            "content_length": ds_file.content_length,
-            "web_url": ds_file.web_url or "",
-        },
+    service = _get_document_service()
+    doc = await service.upload_file(
+        lawyer=request.auth,  # type: ignore[attr-defined]
+        content=file.read(),
+        filename=file.name or "untitled",
+        folder_id=folder_id,
     )
-    # get_or_create 不更新已存在记录的 web_url，补丁更新
-    if not created and not doc.web_url and ds_file.web_url:
-        doc.web_url = ds_file.web_url
-        await doc.asave(update_fields=["web_url"])
-
     return DocSpaceUploadOut(
         id=doc.id,
         title=doc.title,
@@ -89,31 +66,8 @@ async def create_document(
     request: HttpRequest,
     title: str = Form(default="新建文档.docx"),
 ) -> DocSpaceUploadOut:
-    target_folder = await config.aget_root_folder_id()
-    if not target_folder:
-        from ninja.errors import HttpError
-
-        raise HttpError(400, "未配置默认文件夹")
-
-    client = await _aget_client()
-    ds_file = await client.acreate_empty_docx(target_folder, title)
-
-    # DocSpace 对相同内容去重，可能已存在
-    doc, created = await DocSpaceDocument.objects.aget_or_create(
-        docspace_file_id=ds_file.id,
-        defaults={
-            "lawyer": request.auth,  # type: ignore[attr-defined]
-            "title": ds_file.title,
-            "docspace_folder_id": ds_file.folder_id,
-            "file_ext": ds_file.file_ext,
-            "content_length": ds_file.content_length,
-            "web_url": ds_file.web_url or "",
-        },
-    )
-    if not created and not doc.web_url and ds_file.web_url:
-        doc.web_url = ds_file.web_url
-        await doc.asave(update_fields=["web_url"])
-
+    service = _get_document_service()
+    doc = await service.create_document(lawyer=request.auth, title=title)  # type: ignore[attr-defined]
     return DocSpaceUploadOut(
         id=doc.id,
         title=doc.title,
@@ -129,10 +83,8 @@ async def create_document(
 
 @router.get("/documents", response=list[DocSpaceDocumentOut], summary="列出当前用户的文档")
 async def list_documents(request: HttpRequest) -> list[DocSpaceDocumentOut]:
-    docs = [
-        doc
-        async for doc in DocSpaceDocument.objects.filter(lawyer=request.auth).order_by("-updated_at")[:50]  # type: ignore[attr-defined]
-    ]
+    service = _get_document_service()
+    docs = await service.list_documents(lawyer=request.auth)  # type: ignore[attr-defined]
     return [DocSpaceDocumentOut.model_validate(doc) for doc in docs]
 
 
@@ -141,7 +93,8 @@ async def list_documents(request: HttpRequest) -> list[DocSpaceDocumentOut]:
 
 @router.get("/documents/{doc_id}", response=DocSpaceDocumentOut, summary="获取文档详情")
 async def get_document(request: HttpRequest, doc_id: int) -> DocSpaceDocumentOut:
-    doc = await _aget_user_doc(request, doc_id)
+    service = _get_document_service()
+    doc = await service.get_user_doc(doc_id=doc_id, lawyer=request.auth)  # type: ignore[attr-defined]
     return DocSpaceDocumentOut.model_validate(doc)
 
 
@@ -150,14 +103,8 @@ async def get_document(request: HttpRequest, doc_id: int) -> DocSpaceDocumentOut
 
 @router.delete("/documents/{doc_id}", summary="删除文档")
 async def delete_document(request: HttpRequest, doc_id: int) -> dict[str, bool]:
-    doc = await _aget_user_doc(request, doc_id)
-    # 删除远端文件（忽略远端不存在的情况）
-    try:
-        client = await _aget_client()
-        await client.adelete_file(doc.docspace_file_id)
-    except Exception:
-        logger.warning("DocSpace 远端删除失败，继续删除本地记录: file_id=%s", doc.docspace_file_id)
-    await doc.adelete()
+    service = _get_document_service()
+    await service.delete_document(doc_id=doc_id, lawyer=request.auth)  # type: ignore[attr-defined]
     return {"ok": True}
 
 
@@ -166,12 +113,8 @@ async def delete_document(request: HttpRequest, doc_id: int) -> dict[str, bool]:
 
 @router.get("/documents/{doc_id}/download", summary="下载文档")
 async def download_document(request: HttpRequest, doc_id: int) -> FileResponse:
-    doc = await _aget_user_doc(request, doc_id)
-    client = await _aget_client()
-    content, filename = await client.adownload_file(doc.docspace_file_id)
-
-    import io
-
+    service = _get_document_service()
+    content, filename = await service.download_document(doc_id=doc_id, lawyer=request.auth)  # type: ignore[attr-defined]
     return FileResponse(
         io.BytesIO(content),
         as_attachment=True,
@@ -184,29 +127,6 @@ async def download_document(request: HttpRequest, doc_id: int) -> FileResponse:
 
 @router.post("/sync/{doc_id}", response=DocSpaceDocumentOut, summary="刷新文档元数据")
 async def sync_document(request: HttpRequest, doc_id: int) -> DocSpaceDocumentOut:
-    doc = await _aget_user_doc(request, doc_id)
-    client = await _aget_client()
-    ds_file = await client.aget_file_info(doc.docspace_file_id)
-
-    # 更新本地映射
-    doc.title = ds_file.title
-    doc.content_length = ds_file.content_length
-    doc.web_url = ds_file.web_url or ""
-    doc.last_editor = request.auth  # type: ignore[attr-defined]
-    await doc.asave(update_fields=["title", "content_length", "web_url", "last_editor", "updated_at"])
-
-    out = DocSpaceDocumentOut.model_validate(doc)
-    return out
-
-
-# ── 工具函数 ──────────────────────────────────────────────
-
-
-async def _aget_user_doc(request: HttpRequest, doc_id: int) -> DocSpaceDocument:
-    """异步获取当前用户的文档，不存在则 404。"""
-    from ninja.errors import HttpError
-
-    doc = await DocSpaceDocument.objects.filter(id=doc_id, lawyer=request.auth).afirst()  # type: ignore[attr-defined]
-    if doc is None:
-        raise HttpError(404, "文档不存在")
-    return doc
+    service = _get_document_service()
+    doc = await service.sync_document(doc_id=doc_id, lawyer=request.auth)  # type: ignore[attr-defined]
+    return DocSpaceDocumentOut.model_validate(doc)

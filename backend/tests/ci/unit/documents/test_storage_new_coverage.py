@@ -89,9 +89,7 @@ class TestGetDocxTemplatesSource:
 class TestResolveDocxTemplatePath:
     def test_absolute_path_returned_as_is(self):
         """安全审计 B-04：模板根之外的绝对路径拒绝。"""
-        import pytest as _pytest
-
-        with _pytest.raises(ValueError, match="越界"):
+        with pytest.raises(ValueError, match="越界"):
             resolve_docx_template_path("/absolute/path/file.docx")
 
     @patch("apps.documents.storage.get_docx_templates_root")

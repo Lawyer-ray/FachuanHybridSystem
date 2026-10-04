@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from apps.documents.services.code_placeholders.registry import (
-    CodePlaceholderDefinition,
-    CodePlaceholderRegistry,
-)
+import pytest
+
+from apps.documents.services.code_placeholders.registry import CodePlaceholderDefinition, CodePlaceholderRegistry
 from apps.documents.services.generation.output_storage import GeneratedDocumentStorage
 
 
@@ -36,11 +35,9 @@ class TestCodePlaceholderDefinition:
 
     def test_frozen(self) -> None:
         defn = CodePlaceholderDefinition(key="test", source="test", category="test")
-        try:
+        with pytest.raises(AttributeError):
             defn.key = "changed"  # type: ignore
-            raise AssertionError("应抛出异常")
-        except AttributeError:
-            pass
+        assert defn.key == "test"  # 原值未被修改
 
 
 class TestCodePlaceholderRegistry:
@@ -57,10 +54,12 @@ class TestCodePlaceholderRegistry:
 
     def test_register_definitions(self) -> None:
         registry = CodePlaceholderRegistry()
-        registry.register([
-            CodePlaceholderDefinition(key="key1", source="test", category="basic"),
-            CodePlaceholderDefinition(key="key2", source="test", category="basic"),
-        ])
+        registry.register(
+            [
+                CodePlaceholderDefinition(key="key1", source="test", category="basic"),
+                CodePlaceholderDefinition(key="key2", source="test", category="basic"),
+            ]
+        )
         defs = registry.list_definitions()
         assert len(defs) == 2
         assert any(d.key == "key1" for d in defs)
@@ -89,10 +88,12 @@ class TestCodePlaceholderRegistry:
 
     def test_list_sorted(self) -> None:
         registry = CodePlaceholderRegistry()
-        registry.register([
-            CodePlaceholderDefinition(key="z_key", source="test", category="basic"),
-            CodePlaceholderDefinition(key="a_key", source="test", category="basic"),
-        ])
+        registry.register(
+            [
+                CodePlaceholderDefinition(key="z_key", source="test", category="basic"),
+                CodePlaceholderDefinition(key="a_key", source="test", category="basic"),
+            ]
+        )
         defs = registry.list_definitions()
         assert defs[0].key == "a_key"
         assert defs[1].key == "z_key"

@@ -16,7 +16,6 @@ from apps.cases.services.data.cause_court_data_service import (
 )
 from apps.core.exceptions import ValidationException
 
-
 # ---------------------------------------------------------------------------
 # CauseCourtDataParser tests
 # ---------------------------------------------------------------------------
@@ -188,9 +187,7 @@ class TestCauseCourtJsonProvider:
             "criminal": ["刑事案由.json"],
             "bankruptcy": [],
         }
-        self.provider = CauseCourtJsonProvider(
-            cache=self.cache, parser=self.parser, case_type_file_map=self.file_map
-        )
+        self.provider = CauseCourtJsonProvider(cache=self.cache, parser=self.parser, case_type_file_map=self.file_map)
 
     def test_get_causes_by_type_bankruptcy_returns_empty(self):
         result = self.provider.get_causes_by_type("bankruptcy")
@@ -301,4 +298,7 @@ class TestCauseCourtDataService:
         assert result == []
 
     def test_flatten_tree_delegates(self):
-        self.service._flatten_tree({"name": "test"})
+        tree = {"name": "root", "children": [{"name": "child"}, {"name": ""}]}
+        result = self.service._flatten_tree(tree)
+        # 委托给真实 parser.flatten_tree：拍平树节点并跳过空名称
+        assert result == [{"id": "", "name": "root"}, {"id": "", "name": "child"}]

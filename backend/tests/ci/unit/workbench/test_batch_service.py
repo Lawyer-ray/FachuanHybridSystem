@@ -37,12 +37,13 @@ class TestValidateFiles:
     def test_valid_docx(self, svc) -> None:
         f = MagicMock()
         f.name = "test.docx"
-        svc.validate_files([f])  # Should not raise
+        # 合法扩展名静默通过
+        assert svc.validate_files([f]) is None
 
     def test_valid_xlsx(self, svc) -> None:
         f = MagicMock()
         f.name = "test.xlsx"
-        svc.validate_files([f])  # Should not raise
+        assert svc.validate_files([f]) is None
 
 
 class TestGetJobById:

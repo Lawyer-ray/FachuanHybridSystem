@@ -62,11 +62,14 @@ class TestAddCaseNumbersToCase:
         mixin = _make_mixin()
         sms = SimpleNamespace(id=1, case=None, case_numbers=["2024-CA-123"])
         mixin._add_case_numbers_to_case(sms)
+        # 无案件早退，不触达 case_service
+        mixin._cs.add_case_number_internal.assert_not_called()
 
     def test_no_case_numbers(self) -> None:
         mixin = _make_mixin()
         sms = SimpleNamespace(id=1, case=MagicMock(), case_numbers=[])
         mixin._add_case_numbers_to_case(sms)
+        mixin._cs.add_case_number_internal.assert_not_called()
 
     def test_valid_numbers_added(self) -> None:
         mixin = _make_mixin()
@@ -83,7 +86,9 @@ class TestAddCaseNumbersToCase:
         sms = SimpleNamespace(id=1, case=case, case_numbers=["（2024）粤0106民初123号"])
         mixin._cs.add_case_number_internal.side_effect = Exception("db error")
         mixin._ls.get_admin_lawyer.return_value = SimpleNamespace(id=10)
+        # 异常被吞掉，不向上抛
         mixin._add_case_numbers_to_case(sms)
+        mixin._cs.add_case_number_internal.assert_called_once()
 
     def test_all_invalid_numbers(self) -> None:
         mixin = _make_mixin()
@@ -97,7 +102,10 @@ class TestCleanupOldCaseLog:
     def test_no_case_log_id(self) -> None:
         mixin = _make_mixin()
         sms = SimpleNamespace(id=1, case_log_id=None)
-        mixin._cleanup_old_case_log(sms)
+        with patch("apps.cases.models.CaseLog") as mock_log:
+            mixin._cleanup_old_case_log(sms)
+            # 无 case_log_id 直接早退，不查询数据库
+            mock_log.objects.filter.assert_not_called()
 
     def test_log_not_found(self) -> None:
         mixin = _make_mixin()
@@ -137,4 +145,6 @@ class TestCleanupOldCaseLog:
         sms = SimpleNamespace(id=1, case_log_id=42)
         with patch("apps.cases.models.CaseLog") as mock_log:
             mock_log.objects.filter.side_effect = Exception("db error")
+            # 异常被吞掉，不向上抛
             mixin._cleanup_old_case_log(sms)
+            mock_log.objects.filter.assert_called_once()

@@ -1,4 +1,5 @@
 """Tests for litigation_ai: middleware, schemas, tools, flow_messenger, placeholder_render, types, choices, session_shared."""
+
 from __future__ import annotations
 
 import asyncio
@@ -6,7 +7,6 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 
 # ── choices ────────────────────────────────────────────────────────────────
 
@@ -307,8 +307,10 @@ class TestLitigationMemoryMiddleware:
         mock_service.add_message.side_effect = RuntimeError("fail")
         mw._conversation_service = mock_service
 
-        # Should not raise
-        mw.save_user_message("hello")
+        # 异常被吞掉（Should not raise），add_message 确实被调用过
+        result = mw.save_user_message("hello")
+        assert result is None
+        mock_service.add_message.assert_called_once()
 
 
 class TestSummarizationConfig:
@@ -427,8 +429,10 @@ class TestSchemas:
         from apps.litigation_ai.agent.schemas import GenerateDraftInput
 
         inp = GenerateDraftInput(
-            case_id=1, document_type="complaint",
-            litigation_goal="win", evidence_context="context",
+            case_id=1,
+            document_type="complaint",
+            litigation_goal="win",
+            evidence_context="context",
         )
         assert inp.case_id == 1
 
@@ -743,11 +747,7 @@ class TestPromptTemplateService:
 
 class TestInterfaces:
     def test_abstract_methods(self) -> None:
-        from apps.litigation_ai.agent.interfaces import (
-            IAgentFactory,
-            ILitigationAgentService,
-            IMemoryMiddleware,
-        )
+        from apps.litigation_ai.agent.interfaces import IAgentFactory, ILitigationAgentService, IMemoryMiddleware
 
         # Verify they're abstract
         with pytest.raises(TypeError):

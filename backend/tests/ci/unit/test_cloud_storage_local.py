@@ -102,7 +102,7 @@ class TestDeleteFile:
         assert not provider.exists("testroot/top.txt")
 
     def test_delete_nonexistent_no_error(self, provider: LocalProvider):
-        provider.delete_file("nope.txt")
+        assert provider.delete_file("nope.txt") is None
 
 
 class TestGetFileInfo:

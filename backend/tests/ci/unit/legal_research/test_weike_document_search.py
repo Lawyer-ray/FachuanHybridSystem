@@ -17,8 +17,7 @@ class TestWeikeDocumentMixinHelpers:
         from apps.legal_research.services.sources.weike.types import WeikeSearchItem
 
         item = WeikeSearchItem(
-            doc_id_raw="abc", doc_id_unquoted="abc_unquoted",
-            detail_url="", title_hint="", search_id="", module=""
+            doc_id_raw="abc", doc_id_unquoted="abc_unquoted", detail_url="", title_hint="", search_id="", module=""
         )
         result = WeikeDocumentMixin._detail_doc_id_candidates(item)
         assert "abc" in result
@@ -28,8 +27,7 @@ class TestWeikeDocumentMixinHelpers:
         from apps.legal_research.services.sources.weike.types import WeikeSearchItem
 
         item = WeikeSearchItem(
-            doc_id_raw="abc", doc_id_unquoted="abc",
-            detail_url="", title_hint="", search_id="", module=""
+            doc_id_raw="abc", doc_id_unquoted="abc", detail_url="", title_hint="", search_id="", module=""
         )
         result = WeikeDocumentMixin._detail_doc_id_candidates(item)
         assert len(result) == 1
@@ -53,33 +51,23 @@ class TestWeikeDocumentMixinHelpers:
     # ── _is_session_restricted_response ──
 
     def test_is_session_restricted_code_match(self):
-        result = WeikeDocumentMixin._is_session_restricted_response(
-            status=200, payload={"code": "C_001_009"}
-        )
+        result = WeikeDocumentMixin._is_session_restricted_response(status=200, payload={"code": "C_001_009"})
         assert result is True
 
     def test_is_session_restricted_code_case_insensitive(self):
-        result = WeikeDocumentMixin._is_session_restricted_response(
-            status=200, payload={"code": "c_001_009"}
-        )
+        result = WeikeDocumentMixin._is_session_restricted_response(status=200, payload={"code": "c_001_009"})
         assert result is True
 
     def test_is_session_restricted_400_with_code(self):
-        result = WeikeDocumentMixin._is_session_restricted_response(
-            status=400, payload={"code": "C_001_009"}
-        )
+        result = WeikeDocumentMixin._is_session_restricted_response(status=400, payload={"code": "C_001_009"})
         assert result is True
 
     def test_is_session_restricted_normal(self):
-        result = WeikeDocumentMixin._is_session_restricted_response(
-            status=200, payload={"code": "OK"}
-        )
+        result = WeikeDocumentMixin._is_session_restricted_response(status=200, payload={"code": "OK"})
         assert result is False
 
     def test_is_session_restricted_none_payload(self):
-        result = WeikeDocumentMixin._is_session_restricted_response(
-            status=200, payload=None
-        )
+        result = WeikeDocumentMixin._is_session_restricted_response(status=200, payload=None)
         assert result is False
 
     # ── _raise_if_session_restricted ──
@@ -89,10 +77,11 @@ class TestWeikeDocumentMixinHelpers:
         session = MagicMock()
         session.restricted_until_epoch = 0.0
         # Should not raise
-        mixin._raise_if_session_restricted(session=session, stage="test")
+        assert mixin._raise_if_session_restricted(session=session, stage="test") is None
 
     def test_raise_if_session_restricted_restricted(self):
         import time
+
         mixin = WeikeDocumentMixin.__new__(WeikeDocumentMixin)
         session = MagicMock()
         session.restricted_until_epoch = time.time() + 60
@@ -124,11 +113,18 @@ class TestWeikeDocumentMixinHelpers:
         from apps.legal_research.services.sources.weike.types import WeikeCaseDetail
 
         detail = WeikeCaseDetail(
-            doc_id_raw="abc", doc_id_unquoted="abc",
-            detail_url="", search_id="", module="",
-            title="张某诉李某合同纠纷", court_text="",
-            document_number="", judgment_date="",
-            case_digest="", content_text="", raw_meta={}
+            doc_id_raw="abc",
+            doc_id_unquoted="abc",
+            detail_url="",
+            search_id="",
+            module="",
+            title="张某诉李某合同纠纷",
+            court_text="",
+            document_number="",
+            judgment_date="",
+            case_digest="",
+            content_text="",
+            raw_meta={},
         )
         filename = WeikeDocumentMixin._build_download_filename(detail)
         assert "张某诉李某合同纠纷" in filename
@@ -138,11 +134,18 @@ class TestWeikeDocumentMixinHelpers:
         from apps.legal_research.services.sources.weike.types import WeikeCaseDetail
 
         detail = WeikeCaseDetail(
-            doc_id_raw="abc", doc_id_unquoted="abc",
-            detail_url="", search_id="", module="",
-            title='张某\\李某:合同*纠纷?', court_text="",
-            document_number="", judgment_date="",
-            case_digest="", content_text="", raw_meta={}
+            doc_id_raw="abc",
+            doc_id_unquoted="abc",
+            detail_url="",
+            search_id="",
+            module="",
+            title="张某\\李某:合同*纠纷?",
+            court_text="",
+            document_number="",
+            judgment_date="",
+            case_digest="",
+            content_text="",
+            raw_meta={},
         )
         filename = WeikeDocumentMixin._build_download_filename(detail)
         assert "\\" not in filename
@@ -153,11 +156,18 @@ class TestWeikeDocumentMixinHelpers:
         from apps.legal_research.services.sources.weike.types import WeikeCaseDetail
 
         detail = WeikeCaseDetail(
-            doc_id_raw="abc", doc_id_unquoted="id123",
-            detail_url="", search_id="", module="",
-            title="", court_text="",
-            document_number="", judgment_date="",
-            case_digest="", content_text="", raw_meta={}
+            doc_id_raw="abc",
+            doc_id_unquoted="id123",
+            detail_url="",
+            search_id="",
+            module="",
+            title="",
+            court_text="",
+            document_number="",
+            judgment_date="",
+            case_digest="",
+            content_text="",
+            raw_meta={},
         )
         filename = WeikeDocumentMixin._build_download_filename(detail)
         assert "id123" in filename
@@ -170,7 +180,7 @@ class TestWeikeDocumentMixinHelpers:
         assert "hello" in result
 
     def test_html_to_text_removes_style(self):
-        result = WeikeDocumentMixin._html_to_text('<p>hello</p><style>.cls{color:red}</style>')
+        result = WeikeDocumentMixin._html_to_text("<p>hello</p><style>.cls{color:red}</style>")
         assert "hello" in result
         # style content should be removed or replaced
 
@@ -211,16 +221,12 @@ class TestWeikeDocumentMixinHelpers:
 
     def test_extract_dom_field_match(self):
         result = WeikeDocumentMixin._extract_dom_field(
-            text="审理法院：广州市天河区人民法院",
-            patterns=(r"审理法院[:：]\s*([^\n]+)",)
+            text="审理法院：广州市天河区人民法院", patterns=(r"审理法院[:：]\s*([^\n]+)",)
         )
         assert "广州市天河区人民法院" in result
 
     def test_extract_dom_field_no_match(self):
-        result = WeikeDocumentMixin._extract_dom_field(
-            text="没有法院信息",
-            patterns=(r"审理法院[:：]\s*([^\n]+)",)
-        )
+        result = WeikeDocumentMixin._extract_dom_field(text="没有法院信息", patterns=(r"审理法院[:：]\s*([^\n]+)",))
         assert result == ""
 
     def test_extract_dom_field_multiple_patterns(self):
@@ -229,7 +235,7 @@ class TestWeikeDocumentMixinHelpers:
             patterns=(
                 r"审理法院[:：]\s*([^\n]+)",
                 r"案号[:：]\s*([^\n]+)",
-            )
+            ),
         )
         assert "2025" in result
 
@@ -257,7 +263,7 @@ class TestWeikeDocumentMixinHelpers:
                     "courtText": "广州法院",
                     "documentNumber": "粤01民初123号",
                     "judgmentDate": "2025-01-15",
-                }
+                },
             }
         }
         result = WeikeDocumentMixin._summarize_meta_payload(payload)

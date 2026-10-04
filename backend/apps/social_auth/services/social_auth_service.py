@@ -112,3 +112,12 @@ async def unbind_social_account(user: Lawyer, provider: str) -> None:
     deleted, _ = await SocialAccount.objects.filter(user=user, provider=provider).adelete()
     if not deleted:
         raise SocialAccountNotFoundError(f"未找到 {provider} 的绑定记录")
+
+
+async def try_unbind_social_account(user: Lawyer, provider: str) -> bool:
+    """``unbind_social_account`` 的非抛错版本：未找到绑定记录时返回 False。"""
+    try:
+        await unbind_social_account(user, provider)
+    except SocialAccountNotFoundError:
+        return False
+    return True

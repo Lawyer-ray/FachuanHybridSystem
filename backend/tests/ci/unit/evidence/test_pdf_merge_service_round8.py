@@ -4,22 +4,18 @@ Covers 38 missing: PDFMergeWorkflow.merge_evidence_files, _merge_all_items,
 _save_merged_pdf, _generate_merged_filename branches, _cleanup_temp_files,
 convert_to_pdf, add_page_numbers, get_pdf_page_count, PDFMergeService delegation.
 """
+
 from __future__ import annotations
 
 import io
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
 from apps.core.exceptions import BusinessException, ValidationException
-from apps.evidence.services.infrastructure.pdf_merge_service import (
-    PDFMergeService,
-    PDFMergeValidator,
-    PDFMergeWorkflow,
-)
-
+from apps.evidence.services.infrastructure.pdf_merge_service import PDFMergeService, PDFMergeValidator, PDFMergeWorkflow
 
 # ── PDFMergeValidator.assert_supported_format ───────────────────────────
 
@@ -66,8 +62,10 @@ class TestGenerateMergedFilenameRound8:
         evidence_list.title = "证据清单一"
         evidence_list.export_version = 1
 
-        with patch("apps.evidence.services.infrastructure.pdf_merge_service.FilenameTemplateService") as MockFTS, \
-             patch("apps.evidence.services.infrastructure.pdf_merge_service.timezone") as mock_tz:
+        with (
+            patch("apps.evidence.services.infrastructure.pdf_merge_service.FilenameTemplateService") as MockFTS,
+            patch("apps.evidence.services.infrastructure.pdf_merge_service.timezone") as mock_tz,
+        ):
             mock_tz.now.return_value.strftime.return_value = "20260101"
             MockFTS.render_generated_doc.return_value = "result"
             result = wf._generate_merged_filename(evidence_list)
@@ -82,8 +80,10 @@ class TestGenerateMergedFilenameRound8:
         evidence_list.title = "补充证据清单二"
         evidence_list.export_version = 2
 
-        with patch("apps.evidence.services.infrastructure.pdf_merge_service.FilenameTemplateService") as MockFTS, \
-             patch("apps.evidence.services.infrastructure.pdf_merge_service.timezone") as mock_tz:
+        with (
+            patch("apps.evidence.services.infrastructure.pdf_merge_service.FilenameTemplateService") as MockFTS,
+            patch("apps.evidence.services.infrastructure.pdf_merge_service.timezone") as mock_tz,
+        ):
             mock_tz.now.return_value.strftime.return_value = "20260101"
             MockFTS.render_generated_doc.return_value = "result"
             result = wf._generate_merged_filename(evidence_list)
@@ -97,8 +97,10 @@ class TestGenerateMergedFilenameRound8:
         evidence_list.title = "其他标题"
         evidence_list.export_version = 3
 
-        with patch("apps.evidence.services.infrastructure.pdf_merge_service.FilenameTemplateService") as MockFTS, \
-             patch("apps.evidence.services.infrastructure.pdf_merge_service.timezone") as mock_tz:
+        with (
+            patch("apps.evidence.services.infrastructure.pdf_merge_service.FilenameTemplateService") as MockFTS,
+            patch("apps.evidence.services.infrastructure.pdf_merge_service.timezone") as mock_tz,
+        ):
             mock_tz.now.return_value.strftime.return_value = "20260101"
             MockFTS.render_generated_doc.return_value = "result"
             result = wf._generate_merged_filename(evidence_list)
@@ -140,7 +142,9 @@ class TestMergeEvidenceFiles:
             with patch.object(wf, "add_page_numbers", return_value=b"%PDF-1.4"):
                 with patch.object(wf, "_save_merged_pdf"):
                     with patch.object(wf, "_cleanup_temp_files"):
-                        with patch("apps.evidence.services.infrastructure.pdf_merge_service.FilenameTemplateService") as MockFTS:
+                        with patch(
+                            "apps.evidence.services.infrastructure.pdf_merge_service.FilenameTemplateService"
+                        ) as MockFTS:
                             MockFTS.render_generated_doc.return_value = "result"
                             with patch("apps.evidence.services.infrastructure.pdf_merge_service.timezone") as mock_tz:
                                 mock_tz.now.return_value.strftime.return_value = "20260101"
@@ -150,9 +154,7 @@ class TestMergeEvidenceFiles:
     def test_validation_exception_raised(self):
         wf = PDFMergeWorkflow()
         wf._validator = MagicMock()
-        wf._validator.get_items.side_effect = ValidationException(
-            message="no files", code="NO_FILES"
-        )
+        wf._validator.get_items.side_effect = ValidationException(message="no files", code="NO_FILES")
 
         evidence_list = MagicMock()
         with pytest.raises(ValidationException):
@@ -161,9 +163,7 @@ class TestMergeEvidenceFiles:
     def test_business_exception_raised(self):
         wf = PDFMergeWorkflow()
         wf._validator = MagicMock()
-        wf._validator.get_items.side_effect = BusinessException(
-            message="err", code="ERR"
-        )
+        wf._validator.get_items.side_effect = BusinessException(message="err", code="ERR")
 
         evidence_list = MagicMock()
         with pytest.raises(BusinessException):
@@ -221,7 +221,9 @@ class TestMergeEvidenceFiles:
             with patch.object(wf, "add_page_numbers", return_value=b"%PDF-1.4"):
                 with patch.object(wf, "_save_merged_pdf"):
                     with patch.object(wf, "_cleanup_temp_files"):
-                        with patch("apps.evidence.services.infrastructure.pdf_merge_service.FilenameTemplateService") as MockFTS:
+                        with patch(
+                            "apps.evidence.services.infrastructure.pdf_merge_service.FilenameTemplateService"
+                        ) as MockFTS:
                             MockFTS.render_generated_doc.return_value = "result"
                             with patch("apps.evidence.services.infrastructure.pdf_merge_service.timezone") as mock_tz:
                                 mock_tz.now.return_value.strftime.return_value = "20260101"
@@ -386,5 +388,5 @@ class TestCleanupTempFiles:
 
     def test_empty_list(self):
         wf = PDFMergeWorkflow()
-        # Should not raise
-        wf._cleanup_temp_files([])
+        # Should not raise；空列表无文件可清
+        assert wf._cleanup_temp_files([]) is None

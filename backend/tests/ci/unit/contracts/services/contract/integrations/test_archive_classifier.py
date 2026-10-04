@@ -682,5 +682,10 @@ class TestGetItemName:
 
 class TestReloadLearnedCodeRules:
     def test_reload_does_not_raise(self):
-        # Should not raise even if _learned_rules module doesn't exist
+        from apps.contracts.services.contract.integrations import archive_classifier as mod
+
+        before = mod._LEARNED_CODE_RULES
+        # 重载成功后全局规则表仍为 dict（即使 _learned_rules 模块缺失也不抛）
         reload_learned_code_rules()
+        assert isinstance(mod._LEARNED_CODE_RULES, dict)
+        assert mod._LEARNED_CODE_RULES is not before or isinstance(mod._LEARNED_CODE_RULES, dict)

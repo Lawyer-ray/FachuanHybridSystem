@@ -20,7 +20,8 @@ class TestRunClientImportTask:
             mock_model.DoesNotExist = type("DoesNotExist", (Exception,), {})
             mock_qs.get.side_effect = mock_model.DoesNotExist("not found")
             mock_model.objects.select_related.return_value = mock_qs
-            run_client_import_task(999)
+            # 会话不存在时记日志并静默返回，不让 Q worker 崩溃
+            assert run_client_import_task(999) is None
 
     def test_skips_completed_session(self) -> None:
         from apps.oa_filing.tasks import run_client_import_task
@@ -128,7 +129,7 @@ class TestRunCaseImportPreviewTask:
         with patch("apps.oa_filing.models.CaseImportSession") as mock_model:
             mock_model.DoesNotExist = type("DoesNotExist", (Exception,), {})
             mock_model.objects.select_related.return_value.get.side_effect = mock_model.DoesNotExist()
-            run_case_import_preview_task(999, "/tmp/test.xlsx")
+            assert run_case_import_preview_task(999, "/tmp/test.xlsx") is None
 
     def test_skips_completed_session(self) -> None:
         from apps.oa_filing.tasks import run_case_import_preview_task
@@ -157,7 +158,7 @@ class TestRunCaseImportTask:
         with patch("apps.oa_filing.models.CaseImportSession") as mock_model:
             mock_model.DoesNotExist = type("DoesNotExist", (Exception,), {})
             mock_model.objects.select_related.return_value.get.side_effect = mock_model.DoesNotExist()
-            run_case_import_task(999, ["case-001"])
+            assert run_case_import_task(999, ["case-001"]) is None
 
     def test_skips_completed_session(self) -> None:
         from apps.oa_filing.tasks import run_case_import_task

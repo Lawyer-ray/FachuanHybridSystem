@@ -1,4 +1,5 @@
 """Tests for evidence_sorting services: reconciler, classifier, exporter."""
+
 from __future__ import annotations
 
 import json
@@ -184,15 +185,17 @@ class TestReconcilerParseLlmResponse:
 
     def test_valid_json(self) -> None:
         svc = self._svc()
-        text = json.dumps({
-            "month": "2023-08",
-            "total_amount": 187480,
-            "signed": True,
-            "line_items": [
-                {"date": "20230801", "amount": 50000, "description": "item1"},
-                {"date": "20230815", "amount": 60000, "description": "item2"},
-            ],
-        })
+        text = json.dumps(
+            {
+                "month": "2023-08",
+                "total_amount": 187480,
+                "signed": True,
+                "line_items": [
+                    {"date": "20230801", "amount": 50000, "description": "item1"},
+                    {"date": "20230815", "amount": 60000, "description": "item2"},
+                ],
+            }
+        )
         info = svc._parse_llm_response(text)
         assert info.month == "2023-08"
         assert info.total_amount == 187480.0
@@ -378,9 +381,7 @@ class TestReconcilerBuildFolderName:
         st = StatementInfo(month="2022-08", signed=True)
         dn = DeliveryNote(filename="d1.pdf", date="20220801", amount="100", match_status=STATUS_UNMATCHED)
         group = MonthGroup(month="2022年08月", folder_name="", deliveries=[dn])
-        result = svc._build_folder_name(
-            "2022年08月", st, group, [FOLDER_DELIVERY_MISMATCH]
-        )
+        result = svc._build_folder_name("2022年08月", st, group, [FOLDER_DELIVERY_MISMATCH])
         assert "出库单无法确认" in result
 
 
@@ -484,7 +485,10 @@ class TestExporterWriteImage:
     def test_invalid_base64_does_not_crash(self) -> None:
         buf = BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
-            ExporterService._write_image(zf, "bad.jpg", "not-valid-base64!")
+            assert ExporterService._write_image(zf, "bad.jpg", "not-valid-base64!") is None
+        # 非法 base64 图片不应写入 zip
+        with zipfile.ZipFile(buf) as zf:
+            assert zf.namelist() == []
 
 
 class TestExporterExportZipIntegration:

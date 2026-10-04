@@ -251,7 +251,9 @@ class TestDocumentTemplateAdminDisplayMethods:
         admin = self._make_admin()
         obj = MagicMock()
         obj.pk = 1
-        with patch("apps.documents.admin.template_admin_display_mixin._get_template_service", side_effect=Exception("fail")):
+        with patch(
+            "apps.documents.admin.template_admin_display_mixin._get_template_service", side_effect=Exception("fail")
+        ):
             result = admin.placeholder_count_display(obj)
             assert "错误" in str(result)
 
@@ -273,7 +275,9 @@ class TestDocumentTemplateAdminDisplayMethods:
         admin = self._make_admin()
         obj = MagicMock()
         obj.pk = 1
-        with patch("apps.documents.admin.template_admin_display_mixin._get_template_service", side_effect=Exception("fail")):
+        with patch(
+            "apps.documents.admin.template_admin_display_mixin._get_template_service", side_effect=Exception("fail")
+        ):
             result = admin.placeholders_display(obj)
             assert "提取失败" in str(result)
 
@@ -281,7 +285,9 @@ class TestDocumentTemplateAdminDisplayMethods:
         admin = self._make_admin()
         obj = MagicMock()
         obj.pk = 1
-        with patch("apps.documents.admin.template_admin_display_mixin._get_template_service", side_effect=Exception("fail")):
+        with patch(
+            "apps.documents.admin.template_admin_display_mixin._get_template_service", side_effect=Exception("fail")
+        ):
             result = admin.undefined_placeholders_display(obj)
             assert "检查失败" in str(result)
 
@@ -320,7 +326,8 @@ class TestDocumentTemplateAdminActions:
         request = MagicMock()
         queryset = MagicMock()
         queryset.count.return_value = 5
-        admin.refresh_placeholders(request, queryset)
+        assert admin.refresh_placeholders(request, queryset) is None
+        queryset.count.assert_called_once_with()
 
     def test_duplicate_templates(self) -> None:
         admin = self._make_admin()
@@ -366,8 +373,9 @@ class TestDocumentTemplateAdminViews:
         request = MagicMock()
         obj = MagicMock()
         form = MagicMock()
-        with patch("django.contrib.admin.ModelAdmin.save_model"):
-            admin_inst.save_model(request, obj, form, change=False)
+        with patch("django.contrib.admin.ModelAdmin.save_model") as super_save:
+            assert admin_inst.save_model(request, obj, form, change=False) is None
+        super_save.assert_called_once_with(request, obj, form, False)
 
     def test_extract_placeholders_view_not_post(self) -> None:
         admin = self._make_admin()
@@ -400,8 +408,10 @@ class TestDocumentTemplateAdminViews:
             assert result.status_code in (302, 301)
 
     def test_build_llm_model_choices_with_default(self) -> None:
-        with patch("apps.core.llm.config.LLMConfig") as mock_config, \
-             patch("apps.core.llm.model_list_service.ModelListService") as mock_model_svc:
+        with (
+            patch("apps.core.llm.config.LLMConfig") as mock_config,
+            patch("apps.core.llm.model_list_service.ModelListService") as mock_model_svc,
+        ):
             mock_config.get_openai_compatible_model.return_value = "test-model"
             mock_model_svc.return_value.get_result.return_value = MagicMock(models=[])
             choices = DocumentTemplateAdmin._build_llm_model_choices()
@@ -410,8 +420,10 @@ class TestDocumentTemplateAdminViews:
             assert any("test-model" in c[0] for c in choices)
 
     def test_build_llm_model_choices_with_models(self) -> None:
-        with patch("apps.core.llm.config.LLMConfig") as mock_config, \
-             patch("apps.core.llm.model_list_service.ModelListService") as mock_model_svc:
+        with (
+            patch("apps.core.llm.config.LLMConfig") as mock_config,
+            patch("apps.core.llm.model_list_service.ModelListService") as mock_model_svc,
+        ):
             mock_config.get_openai_compatible_model.return_value = "default-model"
             mock_result = MagicMock()
             mock_result.models = [
@@ -423,8 +435,10 @@ class TestDocumentTemplateAdminViews:
             assert len(choices) >= 2
 
     def test_build_llm_model_choices_exception(self) -> None:
-        with patch("apps.core.llm.config.LLMConfig") as mock_config, \
-             patch("apps.core.llm.model_list_service.ModelListService", side_effect=Exception("fail")):
+        with (
+            patch("apps.core.llm.config.LLMConfig") as mock_config,
+            patch("apps.core.llm.model_list_service.ModelListService", side_effect=Exception("fail")),
+        ):
             mock_config.get_default_model.return_value = ""
             choices = DocumentTemplateAdmin._build_llm_model_choices()
             # Should fall back to a default

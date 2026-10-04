@@ -10,6 +10,7 @@ Covers:
 - validate_legal_status_compatibility: incompatible status, case not found
 - validate_party_in_contract_scope: no contract, contract not found, party not in scope
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -21,6 +22,7 @@ from apps.core.exceptions import ConflictError, NotFoundError, ValidationExcepti
 
 def _make_service(**deps):
     from apps.cases.services.party.case_party_mutation_service import CasePartyMutationService
+
     return CasePartyMutationService(
         client_service=deps.get("client_service", MagicMock()),
         contract_service=deps.get("contract_service", MagicMock()),
@@ -34,12 +36,14 @@ def _make_service(**deps):
 class TestValidatePartyInContractScope:
     def test_no_contract_id(self):
         from types import SimpleNamespace
+
         svc = _make_service()
         svc.repo.get_case.return_value = SimpleNamespace(contract_id=None)
         assert svc.validate_party_in_contract_scope(1, 10) is True
 
     def test_contract_not_found(self):
         from types import SimpleNamespace
+
         svc = _make_service()
         svc.repo.get_case.return_value = SimpleNamespace(contract_id=1)
         svc.contract_service.get_all_parties.side_effect = NotFoundError("nf")
@@ -48,6 +52,7 @@ class TestValidatePartyInContractScope:
 
     def test_party_not_in_scope(self):
         from types import SimpleNamespace
+
         svc = _make_service()
         svc.repo.get_case.return_value = SimpleNamespace(contract_id=1)
         svc.contract_service.get_all_parties.return_value = [{"id": 99}]
@@ -230,7 +235,11 @@ class TestValidateUpdateReferences:
         party.case_id = 1
         party.client_id = 10
         # No case_id or client_id in data, or same values
-        svc._validate_update_references({}, party)
+        result = svc._validate_update_references({}, party)
+        # 无变更字段时静默通过，且不查询案件/客户
+        assert result is None
+        svc.repo.get_case.assert_not_called()
+        svc.client_service.validate_client_exists.assert_not_called()
 
 
 # ── _validate_update_uniqueness ───────────────────────────────────────────────
@@ -242,8 +251,12 @@ class TestValidateUpdateUniqueness:
         party = MagicMock()
         party.case_id = 1
         party.client_id = 10
-        # Same values, should return without querying
-        svc._validate_update_uniqueness(1, party, 1, 10)
+        with patch("apps.cases.services.party.case_party_mutation_service.CaseParty") as MockCP:
+            # Same values, should return without querying
+            result = svc._validate_update_uniqueness(1, party, 1, 10)
+            assert result is None
+            # 同案件同客户直接早退，不做重复性查询
+            MockCP.objects.filter.assert_not_called()
 
     def test_conflict_raises(self):
         svc = _make_service()

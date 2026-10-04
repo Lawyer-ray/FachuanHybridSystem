@@ -1,4 +1,5 @@
 """Tests for feedback_loop, event_service, state_sync, keywords, llm_preflight."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -139,7 +140,9 @@ class TestFeedbackLoopService:
         from apps.legal_research.services.task.feedback_loop import LegalResearchFeedbackLoopService
 
         svc, config = self._make_service()
-        svc.apply_feedback(feedback_type="unknown_type")
+        assert svc.apply_feedback(feedback_type="unknown_type") is None
+        # 未知反馈类型应被忽略，不产生任何阈值/权重写入
+        config.set_value.assert_not_called()
         # Should not raise, just log warning
 
     def test_record_result_feedback_relevant(self) -> None:
@@ -335,9 +338,7 @@ class TestEventServiceNormalization:
     def test_sanitize_node_sensitive_key_hint(self) -> None:
         from apps.legal_research.services.task.event_service import LegalResearchTaskEventService
 
-        result = LegalResearchTaskEventService._sanitize_node(
-            value="secret_value", level=0, key_hint="api_key"
-        )
+        result = LegalResearchTaskEventService._sanitize_node(value="secret_value", level=0, key_hint="api_key")
         assert result == "***"
 
     def test_sanitize_node_long_string(self) -> None:

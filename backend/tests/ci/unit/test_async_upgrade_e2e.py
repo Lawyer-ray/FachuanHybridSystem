@@ -35,25 +35,19 @@ class TestContractAccessPolicyAsync:
     @pytest.mark.asyncio
     async def test_ahas_access_returns_false_for_unauthenticated(self, policy):
         """未认证用户 ahas_access 应返回 False"""
-        result = await policy.ahas_access(
-            contract_id=1, user=None, org_access=None
-        )
+        result = await policy.ahas_access(contract_id=1, user=None, org_access=None)
         assert result is False
 
     @pytest.mark.asyncio
     async def test_ahas_access_returns_true_for_admin(self, policy, admin_lawyer):
         """管理员 ahas_access 应返回 True"""
-        result = await policy.ahas_access(
-            contract_id=1, user=admin_lawyer, org_access=None
-        )
+        result = await policy.ahas_access(contract_id=1, user=admin_lawyer, org_access=None)
         assert result is True
 
     @pytest.mark.asyncio
     async def test_ahas_access_returns_true_for_open_access(self, policy):
         """perm_open_access=True 时应返回 True"""
-        result = await policy.ahas_access(
-            contract_id=1, user=None, org_access=None, perm_open_access=True
-        )
+        result = await policy.ahas_access(contract_id=1, user=None, org_access=None, perm_open_access=True)
         assert result is True
 
     @pytest.mark.asyncio
@@ -62,16 +56,12 @@ class TestContractAccessPolicyAsync:
         from apps.core.exceptions.common import PermissionDenied
 
         with pytest.raises(PermissionDenied):
-            await policy.aensure_access(
-                contract_id=1, user=None, org_access=None
-            )
+            await policy.aensure_access(contract_id=1, user=None, org_access=None)
 
     @pytest.mark.asyncio
     async def test_aensure_access_passes_for_admin(self, policy, admin_lawyer):
         """管理员 aensure_access 不应抛出异常"""
-        await policy.aensure_access(
-            contract_id=1, user=admin_lawyer, org_access=None
-        )
+        assert await policy.aensure_access(contract_id=1, user=admin_lawyer, org_access=None) is None
 
 
 # ─────────────────────────────────────────────
@@ -83,9 +73,7 @@ class TestContractAccessPolicyAsync:
 class TestContractApiAsyncViews:
     """测试 contracts API 端点是否正确处理 async 权限检查"""
 
-    def test_update_contract_with_access(
-        self, authenticated_client, contract
-    ):
+    def test_update_contract_with_access(self, authenticated_client, contract):
         """有权限时更新合同应成功"""
         response = authenticated_client.patch(
             f"/api/v1/contracts/{contract.id}/",
@@ -95,13 +83,9 @@ class TestContractApiAsyncViews:
         # 200 或 403 都是正常响应（取决于 fixture 的权限设置）
         assert response.status_code in (200, 403, 404)
 
-    def test_delete_contract_with_access(
-        self, authenticated_client, contract
-    ):
+    def test_delete_contract_with_access(self, authenticated_client, contract):
         """删除合同应正确处理权限"""
-        response = authenticated_client.delete(
-            f"/api/v1/contracts/{contract.id}/"
-        )
+        response = authenticated_client.delete(f"/api/v1/contracts/{contract.id}/")
         assert response.status_code in (200, 204, 403, 404)
 
 
@@ -116,23 +100,17 @@ class TestCaseApiAsyncViews:
 
     def test_list_parties(self, authenticated_client, case):
         """caseparty 列表接口应正常响应"""
-        response = authenticated_client.get(
-            f"/api/v1/cases/{case.id}/parties/"
-        )
+        response = authenticated_client.get(f"/api/v1/cases/{case.id}/parties/")
         assert response.status_code in (200, 403, 404)
 
     def test_list_assignments(self, authenticated_client, case):
         """caseassignment 列表接口应正常响应"""
-        response = authenticated_client.get(
-            f"/api/v1/cases/{case.id}/assignments/"
-        )
+        response = authenticated_client.get(f"/api/v1/cases/{case.id}/assignments/")
         assert response.status_code in (200, 403, 404)
 
     def test_list_access_grants(self, authenticated_client, case):
         """caseaccess 列表接口应正常响应"""
-        response = authenticated_client.get(
-            f"/api/v1/cases/{case.id}/access-grants/"
-        )
+        response = authenticated_client.get(f"/api/v1/cases/{case.id}/access-grants/")
         assert response.status_code in (200, 403, 404)
 
 
@@ -165,17 +143,13 @@ class TestCoreEmailServiceAsync:
 
         # asend 方法通过 asyncio.to_thread 委托给同步方法
         # mock 整个同步方法以避免实际 SMTP 和 DB 调用
-        with patch.object(
-            EmailService, "send_password_reset_email", return_value=True
-        ) as mock_sync:
+        with patch.object(EmailService, "send_password_reset_email", return_value=True) as mock_sync:
             await EmailService.asend_password_reset_email(
                 to_email="test@example.com",
                 username="testuser",
                 reset_url="http://example.com/reset/token123",
             )
-            mock_sync.assert_called_once_with(
-                "test@example.com", "testuser", "http://example.com/reset/token123", 30
-            )
+            mock_sync.assert_called_once_with("test@example.com", "testuser", "http://example.com/reset/token123", 30)
 
 
 class TestCorePdfUtilsAsync:
@@ -228,9 +202,7 @@ class TestCoreMaterialClassificationAsync:
         from apps.core.services.material_classification_service import MaterialClassificationService
 
         # 检查类是否有 _acomplete 方法
-        svc = MaterialClassificationService.__new__(
-            MaterialClassificationService
-        )
+        svc = MaterialClassificationService.__new__(MaterialClassificationService)
         assert hasattr(svc, "_acomplete")
 
 
@@ -309,9 +281,7 @@ class TestDocumentsSignalsAsync:
 
         from apps.documents.signals import log_delete
 
-        assert inspect.iscoroutinefunction(
-            log_delete
-        ), "log_delete should be async def"
+        assert inspect.iscoroutinefunction(log_delete), "log_delete should be async def"
 
 
 # ─────────────────────────────────────────────
@@ -349,9 +319,7 @@ class TestAutomationChatProviderAsync:
             "asend_file",
         ]:
             method = getattr(ChatProvider, method_name)
-            assert inspect.iscoroutinefunction(
-                method
-            ), f"{method_name} should be a coroutine function"
+            assert inspect.iscoroutinefunction(method), f"{method_name} should be a coroutine function"
 
     @pytest.mark.asyncio
     async def test_asend_message_delegates_to_sync(self):
@@ -397,24 +365,19 @@ class TestAutomationNotificationAsync:
 
     @pytest.mark.asyncio
     async def test_asend_notification_with_no_providers(self):
-        """无通知渠道时应安全返回"""
+        """无通知渠道时应安全返回失败结果而不抛异常"""
         from apps.automation.services.sms.sms_notification_service import SMSNotificationService
 
         svc = SMSNotificationService.__new__(SMSNotificationService)
-        # mock 内部方法避免实际 HTTP 调用
-        with patch.object(
-            svc, "_notify_single_platform", return_value=True
-        ):
-            # 不应抛出异常
-            try:
-                await svc.asend_case_chat_notification(
-                    sms_id=1,
-                    case_number="test",
-                    sms_content="test",
-                    sms_time="2026-01-01",
-                )
-            except Exception:
-                pass  # 可能因为 mock 不完整而失败，但方法存在即可
+        sms = MagicMock()
+        sms.case = MagicMock(id=1)  # 已绑定案件，但无可用平台
+        with patch.object(svc, "_get_available_platforms", return_value=[]):
+            result = await svc.asend_case_chat_notification(sms=sms)
+        # 无可用平台：返回失败信封而非抛异常
+        assert len(result.attempts) == 1
+        assert result.attempts[0].platform == "none"
+        assert result.attempts[0].success is False
+        assert result.attempts[0].error == "没有可用的群聊平台"
 
 
 class TestAutomationScraperHook:
@@ -499,9 +462,7 @@ class TestLitigationEvidenceServicesAsync:
         """aextract_chunks 应存在"""
         from apps.litigation_ai.services.evidence.evidence_text_extraction_service import EvidenceTextExtractionService
 
-        svc = EvidenceTextExtractionService.__new__(
-            EvidenceTextExtractionService
-        )
+        svc = EvidenceTextExtractionService.__new__(EvidenceTextExtractionService)
         assert hasattr(svc, "aextract_chunks")
 
 
@@ -607,6 +568,4 @@ class TestAsyncMethodsNonBlocking:
             obj = module
             for attr in method_path.split("."):
                 obj = getattr(obj, attr)
-            assert inspect.iscoroutinefunction(
-                obj
-            ), f"{method_path} should be async"
+            assert inspect.iscoroutinefunction(obj), f"{method_path} should be async"

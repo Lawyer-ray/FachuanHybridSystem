@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.contracts.services.contract_import_service import (
-    ContractImportService,
     _CONTRACT_FIELDS,
+    ContractImportService,
     _parse_contract_reminders_for_create,
 )
 
@@ -148,6 +148,7 @@ class TestContractImportService:
         # ValidationException is raised for empty name
         assert "合同名称不能为空" in str(exc_info.value) or exc_info.value is not None
 
+    @pytest.mark.django_db
     @patch("apps.contracts.services.contract_import_service.transaction")
     def test_resolve_reuses_existing_by_filing_number(self, mock_txn: MagicMock) -> None:
         mock_txn.atomic = MagicMock(return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()))
@@ -155,11 +156,11 @@ class TestContractImportService:
         existing = MagicMock()
         with patch("apps.contracts.models.Contract") as MockC:
             MockC.objects.filter.return_value.first.return_value = existing
-            # The resolve method is decorated with @transaction.atomic
-            # We test the logic by calling the unwrapped version
-            # Since it's a decorator, we need to test via the actual method
-            # but mock the ORM. Let's test the _parse function instead.
-            pass
+            payload = {"name": "新合同", "filing_number": "（2026）粤0606民初1号"}
+            result = svc.resolve(payload)
+        # 已有同案号合同时直接复用，不新建
+        assert result is existing
+        MockC.objects.create.assert_not_called()
 
     def test_resolve_with_filing_number_filter(self) -> None:
         """Test that filing_number is used for lookup."""

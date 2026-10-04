@@ -129,7 +129,8 @@ class EnhancedContextBuilder:
             from apps.documents.services.infrastructure.wiring import get_contract_service
 
             contract_service = get_contract_service()
-            contract_dto = contract_service.get_contract_internal(contract_id)
+            # adapter 无 get_contract_internal（那是 query_service 的方法），调公开的 get_contract
+            contract_dto = contract_service.get_contract(contract_id)
 
             if not contract_dto:
                 raise ValidationException(

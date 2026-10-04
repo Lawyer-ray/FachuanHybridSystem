@@ -1,7 +1,8 @@
 """Tests for legal_solution/signals.py - post_delete file cleanup."""
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 class TestCleanupSolutionTaskPdf:
@@ -34,8 +35,9 @@ class TestCleanupSolutionTaskPdf:
         instance.pk = 42
         instance.pdf_file = None
 
-        # Should not raise
-        _cleanup_solution_task_pdf(sender=MagicMock, instance=instance)
+        # Should not raise；无 PDF 时不应调度任何清理
+        assert _cleanup_solution_task_pdf(sender=MagicMock, instance=instance) is None
+        mock_txn.on_commit.assert_not_called()
 
     @patch("apps.legal_solution.signals.transaction")
     def test_handles_delete_exception(self, mock_txn):
@@ -52,5 +54,7 @@ class TestCleanupSolutionTaskPdf:
         instance.pk = 42
         instance.pdf_file = mock_pdf
 
-        # Should not raise
-        _cleanup_solution_task_pdf(sender=MagicMock, instance=instance)
+        # Should not raise（删除失败被吞掉且仍调度了清理）
+        assert _cleanup_solution_task_pdf(sender=MagicMock, instance=instance) is None
+        mock_txn.on_commit.assert_called_once()
+        mock_pdf.delete.assert_called_once_with(save=False)

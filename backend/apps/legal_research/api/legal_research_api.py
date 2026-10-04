@@ -210,20 +210,6 @@ async def download_all_results(request: Any, task_id: int) -> HttpResponse:  # p
 # ──────────────────────────────────────────────────────────────
 
 
-def _sanitize_weike_login_url(raw_url: Any) -> str | None:
-    """仅接受 https 的 wkinfo.com.cn（或其子域）登录页，其余回退默认（安全审计 E-13）。"""
-    from urllib.parse import urlparse
-
-    login_url = str(raw_url or "").strip()
-    if not login_url:
-        return None
-    parsed = urlparse(login_url)
-    host = (parsed.hostname or "").lower()
-    if parsed.scheme == "https" and (host == "wkinfo.com.cn" or host.endswith(".wkinfo.com.cn")):
-        return login_url
-    return None
-
-
 @router.post("/law-verification/check", response=dict[str, Any])
 async def check_law_references(request: Any, payload: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover
     """核查文档中的法规引用.
@@ -231,100 +217,19 @@ async def check_law_references(request: Any, payload: dict[str, Any]) -> dict[st
     请求: {"text": "文档全文", "credential_id": 6}
     响应: {"references": [...], "total": N}
     """
+    from apps.legal_research.services.law_verification_service import LawVerificationService
 
-    def _do_check() -> dict[str, Any]:
-        from apps.core.exceptions import ExternalServiceError, NotFoundError, PermissionDenied, ValidationException
+    user = getattr(request, "user", None)
+    if user is None or not getattr(user, "is_authenticated", False):
+        user = getattr(request, "auth", None)
 
-        text = str(payload.get("text") or "").strip()
-        credential_id = int(payload.get("credential_id") or 0)
-
-        if not text:
-            raise ValidationException("text 不能为空", code="TEXT_REQUIRED")
-
-        # 检测插件是否可用（CI 类型检查环境无 plugins 子模块，用 getattr 动态获取
-        # 避免 import 语句在有/无 plugins 两环境下互斥的 mypy 报错）
-        import plugins as _plugins
-
-        has_law_verification_plugin = getattr(_plugins, "has_law_verification_plugin", None)
-
-        if not callable(has_law_verification_plugin):
-            raise ValidationException("法规核查插件未安装", code="PLUGIN_NOT_INSTALLED")
-
-        # 获取威科先行凭证
-        from apps.core.security.secret_codec import SecretCodec
-        from apps.organization.models import AccountCredential
-
-        try:
-            cred = AccountCredential.objects.select_related("lawyer").get(id=credential_id)
-        except AccountCredential.DoesNotExist:
-            raise NotFoundError(message=f"凭证 ID {credential_id} 不存在", code="CREDENTIAL_NOT_FOUND", errors={})
-
-        # 安全审计 A-07：凭证归属校验（superuser 例外），与 LegalResearchTaskService 同口径
-        user = getattr(request, "user", None)
-        if user is None or not getattr(user, "is_authenticated", False):
-            user = getattr(request, "auth", None)
-        if not getattr(user, "is_superuser", False) and cred.lawyer.law_firm_id != getattr(user, "law_firm_id", None):
-            raise PermissionDenied(message="无权限使用该账号凭证", code="CREDENTIAL_FORBIDDEN", errors={})
-
-        codec = SecretCodec()
-        password = codec.try_decrypt(cred.password)
-
-        # 建立威科先行会话
-        from apps.legal_research.services.sources.weike.client import WeikeCaseClient
-        from plugins.weike_api_private.adapter import PrivateWeikeApiAdapter
-
-        adapter = PrivateWeikeApiAdapter()
-        client = WeikeCaseClient()
-
-        try:
-            session = adapter.open_http_session(
-                client=client,
-                username=cred.account,
-                password=password,
-                # 安全审计 E-13：login_url 强制 wkinfo 域白名单 + https，
-                # 防止经凭证 url 字段把账号密码提交到任意站点。
-                login_url=_sanitize_weike_login_url(cred.url),
-            )
-        except Exception as e:
-            raise ExternalServiceError(f"威科先行登录失败: {e}", code="WEIKE_LOGIN_FAILED") from e
-
-        # 定义回调函数
-        def search_laws(law_name: str) -> list[dict[str, Any]]:
-            # adapter 的返回类型随 plugins 子模块存在与否在 list[dict]/Any 间变化，
-            # 显式构造结果让两种环境都通过类型检查
-            results: list[dict[str, Any]] = list(adapter.search_laws_via_api(session=session, keyword=law_name))
-            return results
-
-        def fetch_article(doc_id: str, article_num: int) -> str | None:
-            article: str | None = adapter.fetch_law_article_via_api(
-                session=session, doc_id=doc_id, article_num=article_num
-            )
-            return article
-
-        # 执行核查
-        from plugins.weike_api_private.law_verification import verify_references
-
-        try:
-            results = verify_references(text, search_laws_fn=search_laws, fetch_article_fn=fetch_article)
-        except Exception as e:
-            raise ExternalServiceError(f"核查失败: {e}", code="VERIFY_FAILED") from e
-
-        return {
-            "references": [
-                {
-                    "law_name": r.get("law_name", ""),
-                    "article_num": r.get("article_num"),
-                    "status": r.get("status"),
-                    "validity": r.get("validity"),
-                    "article_text": r.get("article_text"),
-                    "reference_text": r.get("reference_text"),
-                    "similarity": r.get("similarity"),
-                    "weike_url": r.get("weike_url"),
-                }
-                for r in results
-            ],
-            "total": len(results),
-        }
-
+    service = LawVerificationService()
     loop = get_running_loop()
-    return await loop.run_in_executor(None, _do_check)
+    return await loop.run_in_executor(
+        None,
+        lambda: service.check_references(
+            text=str(payload.get("text") or ""),
+            credential_id=int(payload.get("credential_id") or 0),
+            user=user,
+        ),
+    )

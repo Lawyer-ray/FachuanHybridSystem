@@ -41,6 +41,10 @@ def resolve_media_url(file_path: str) -> str | None:
     """
     if not file_path:
         return None
+    # 安全审计 C-12：拒绝含 .. 的相对段，防止拼接出 /media/../ 形式的越界 URL
+    if ".." in Path(file_path).parts:
+        logger.warning("媒体URL解析拒绝包含..的路径", extra={"file_path": file_path})
+        return None
     try:
         root, root_str, media_url = _get_media_root()
         p = Path(file_path)

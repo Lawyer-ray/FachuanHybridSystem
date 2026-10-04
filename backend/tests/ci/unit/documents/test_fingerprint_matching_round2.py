@@ -7,12 +7,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ── FingerprintService ──
+
 
 class TestFingerprintService:
     def _make_service(self):
         from apps.documents.services.external_template.fingerprint_service import FingerprintService
+
         return FingerprintService()
 
     def test_strip_text_content(self):
@@ -39,6 +40,7 @@ class TestFingerprintService:
         result = svc._strip_style_attributes(xml)
         # After removing style elements, rFonts/sz/color/b/i should be gone
         import xml.etree.ElementTree as ET
+
         root = ET.fromstring(result)
         # Find all elements and check none are style elements
         tags = {elem.tag for elem in root.iter()}
@@ -51,6 +53,7 @@ class TestFingerprintService:
     def test_remove_style_elements_recursive(self):
         svc = self._make_service()
         import xml.etree.ElementTree as ET
+
         ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
         root = ET.fromstring(f'''<root xmlns:w="{ns}">
             <w:p>
@@ -71,18 +74,14 @@ class TestFingerprintService:
 
     def test_find_matching_template_found(self):
         svc = self._make_service()
-        with patch(
-            "apps.documents.models.external_template.ExternalTemplate"
-        ) as mock_tpl:
+        with patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl:
             mock_tpl.objects.filter.return_value.order_by.return_value.first.return_value = MagicMock(id=1, name="tpl")
             result = svc.find_matching_template("abc123", 1)
         assert result is not None
 
     def test_find_matching_template_not_found(self):
         svc = self._make_service()
-        with patch(
-            "apps.documents.models.external_template.ExternalTemplate"
-        ) as mock_tpl:
+        with patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl:
             mock_tpl.objects.filter.return_value.order_by.return_value.first.return_value = None
             result = svc.find_matching_template("abc123", 1)
         assert result is None
@@ -90,9 +89,11 @@ class TestFingerprintService:
 
 # ── MatchingService ──
 
+
 class TestMatchingService:
     def _make_service(self):
         from apps.documents.services.external_template.matching_service import MatchingService
+
         return MatchingService()
 
     def test_match_by_case_no_case(self):
@@ -110,6 +111,7 @@ class TestMatchingService:
         with patch("apps.documents.services.external_template.matching_service.apps") as mock_apps:
             mock_case_model = MagicMock()
             mock_case_model.objects.get.return_value = MagicMock()
+
             def get_model_side(app, model):
                 if model == "Case":
                     return mock_case_model
@@ -120,6 +122,7 @@ class TestMatchingService:
                     mock_auth.objects.filter.return_value.first.return_value = auth_instance
                     return mock_auth
                 return MagicMock()
+
             mock_apps.get_model.side_effect = get_model_side
             with patch.object(svc, "match_by_source_name", return_value=["tpl"]) as mock_match:
                 result = svc.match_by_case(1, 1)
@@ -130,6 +133,7 @@ class TestMatchingService:
         with patch("apps.documents.services.external_template.matching_service.apps") as mock_apps:
             mock_case_model = MagicMock()
             mock_case_model.objects.get.return_value = MagicMock()
+
             def get_model_side(app, model):
                 if model == "Case":
                     return mock_case_model
@@ -138,58 +142,58 @@ class TestMatchingService:
                     mock_auth.objects.filter.return_value.first.return_value = None
                     return mock_auth
                 return MagicMock()
+
             mock_apps.get_model.side_effect = get_model_side
             result = svc.match_by_case(1, 1)
         assert result == []
 
     def test_match_by_source_name_exact(self):
         svc = self._make_service()
-        with patch(
-            "apps.documents.models.external_template.ExternalTemplate"
-        ) as mock_tpl:
+        with patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl:
             mock_qs = MagicMock()
             mock_qs.exists.return_value = True
             mock_tpl.objects.filter.return_value.order_by.return_value = mock_qs
-            mock_tpl.objects.filter.return_value.order_by.return_value.__iter__ = MagicMock(return_value=iter([MagicMock()]))
+            mock_tpl.objects.filter.return_value.order_by.return_value.__iter__ = MagicMock(
+                return_value=iter([MagicMock()])
+            )
             result = svc.match_by_source_name("北京市朝阳区人民法院", 1)
         assert len(result) == 1
 
     def test_match_by_source_name_fallback_to_parent_court(self):
         svc = self._make_service()
-        with patch(
-            "apps.documents.models.external_template.ExternalTemplate"
-        ) as mock_tpl:
+        with patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl:
             mock_qs = MagicMock()
-            mock_qs.exists.return_value = False
+            # 第一次（原法院）无模板，第二次（父法院）命中
+            mock_qs.exists.side_effect = [False, True]
+            mock_qs.__iter__.return_value = iter(["tpl_parent"])
             mock_tpl.objects.filter.return_value.order_by.return_value = mock_qs
 
             with patch("apps.documents.services.external_template.matching_service.apps") as mock_apps:
                 mock_court_model = MagicMock()
                 court = MagicMock()
                 court.parent_id = 10
-                mock_court_model.objects.filter.return_value.first.return_value = court
-
                 parent = MagicMock()
                 parent.name = "北京市中级人民法院"
+                parent.parent_id = None  # 父法院无更上级，递归到此为止
+                # 法院查询序列：原法院 -> 父法院(pk) -> 递归中按父法院名再查
+                mock_court_model.objects.filter.return_value.first.side_effect = [court, parent, parent]
 
                 def get_model_side(app, model):
                     if model == "Court":
-                        mock_court_model.objects.filter.return_value.first.side_effect = [court, parent]
                         return mock_court_model
                     return MagicMock()
 
                 mock_apps.get_model.side_effect = get_model_side
 
-                with patch.object(svc, "match_by_source_name") as mock_match:
-                    mock_match.return_value = ["tpl"]
-                    # Call will recursively call match_by_source_name for parent
-                    result = svc.match_by_source_name("北京市朝阳区人民法院", 1)
+                result = svc.match_by_source_name("北京市朝阳区人民法院", 1)
+
+        # 回退到父法院后命中其模板列表
+        assert result == ["tpl_parent"]
+        assert mock_tpl.objects.filter.call_count == 2
 
     def test_match_by_source_name_no_parent(self):
         svc = self._make_service()
-        with patch(
-            "apps.documents.models.external_template.ExternalTemplate"
-        ) as mock_tpl:
+        with patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl:
             mock_qs = MagicMock()
             mock_qs.exists.return_value = False
             mock_tpl.objects.filter.return_value.order_by.return_value = mock_qs
@@ -211,9 +215,7 @@ class TestMatchingService:
 
     def test_match_by_source_name_court_not_found(self):
         svc = self._make_service()
-        with patch(
-            "apps.documents.models.external_template.ExternalTemplate"
-        ) as mock_tpl:
+        with patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl:
             mock_qs = MagicMock()
             mock_qs.exists.return_value = False
             mock_tpl.objects.filter.return_value.order_by.return_value = mock_qs
@@ -233,11 +235,10 @@ class TestMatchingService:
 
     def test_get_template_statistics(self):
         svc = self._make_service()
-        with patch(
-            "apps.documents.models.external_template.ExternalTemplate"
-        ) as mock_tpl, patch(
-            "apps.documents.models.choices.TemplateStatus"
-        ) as mock_status:
+        with (
+            patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl,
+            patch("apps.documents.models.choices.TemplateStatus") as mock_status,
+        ):
             mock_status.READY = "ready"
             base_qs = MagicMock()
             base_qs.exclude.return_value.values.return_value.annotate.return_value.order_by.return_value = [
@@ -260,10 +261,12 @@ class TestMatchingService:
             auth = MagicMock()
             auth.name = "法院"
             mock_auth_model.objects.filter.return_value.first.return_value = auth
+
             def get_model_side(app, model):
                 if model == "SupervisingAuthority":
                     return mock_auth_model
                 return MagicMock()
+
             mock_apps.get_model.side_effect = get_model_side
             result = svc._get_source_name_from_case(case)
         assert result == "法院"
@@ -274,10 +277,12 @@ class TestMatchingService:
         with patch("apps.documents.services.external_template.matching_service.apps") as mock_apps:
             mock_auth_model = MagicMock()
             mock_auth_model.objects.filter.return_value.first.return_value = None
+
             def get_model_side(app, model):
                 if model == "SupervisingAuthority":
                     return mock_auth_model
                 return MagicMock()
+
             mock_apps.get_model.side_effect = get_model_side
             result = svc._get_source_name_from_case(case)
         assert result is None

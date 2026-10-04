@@ -277,3 +277,71 @@ class TestReviewTaskAdminRedirectBack:
         request.META = {}
         result = admin._redirect_back(request)
         assert result.status_code == 302
+
+
+@pytest.mark.django_db
+class TestReportViewSanitization:
+    """评估报告视图 XSS 消毒：review_report 为 LLM 对用户合同的输出，可能回显恶意 HTML"""
+
+    def _make_task_and_request(self, review_report: str, path: str):
+        """创建任务 + 以真实已保存的 superuser 构造请求。
+
+        不复用 _make_request 的未保存假用户：each_context 会按 request.user
+        过滤 ToolFavorite，未保存实例在 queryset 过滤时抛 ValueError。
+        """
+        from apps.organization.models import LawFirm, Lawyer
+
+        firm = LawFirm.objects.create(name="报告消毒测试律所")
+        user = Lawyer.objects.create_user(
+            username="sanuser",
+            password="testpass123",  # pragma: allowlist secret
+            law_firm=firm,
+            is_staff=True,
+            is_superuser=True,
+        )
+        task = ReviewTask.objects.create(
+            user=user,
+            original_file="恶意合同.docx",
+            review_report=review_report,
+        )
+        factory = RequestFactory()
+        request = factory.get(path)
+        request.user = user
+        return task, request
+
+    def test_report_view_strips_script_and_event_attrs(self):
+        """report_view 的 report_html 必须经白名单消毒（脚本/事件属性剥离）"""
+        admin = _make_admin()
+        task, request = self._make_task_and_request(
+            "# 审查结论\n\n"
+            '<script>alert("xss")</script>\n\n'
+            '<img src="https://evil.example.com/a.png" onerror="alert(1)">\n\n'
+            '<a href="javascript:alert(1)">点我</a>',
+            path="/admin/contract_review/reviewtask/report/",
+        )
+        response = admin.report_view(request, task.id)
+        html = str(response.context_data["report_html"])
+        # script 标签剥离（内部文本保留为纯文本，不可执行）、事件属性剥离、危险协议剥离
+        assert "<script" not in html
+        assert "onerror" not in html
+        assert "javascript:" not in html
+        # 正常 markdown 输出保留
+        assert "<h1>" in html
+
+    def test_report_pdf_view_strips_script_and_event_attrs(self):
+        """report_pdf_view 渲染 PDF 前同样消毒"""
+        from unittest.mock import patch
+
+        admin = _make_admin()
+        task, request = self._make_task_and_request(
+            '# 审查结论\n\n<script>alert("pdf-xss")</script>\n\n<p onclick="evil()">条款</p>',
+            path="/admin/contract_review/reviewtask/report/pdf/",
+        )
+        with patch("weasyprint.HTML") as mock_html:
+            mock_html.return_value.write_pdf.return_value = b"%PDF-1.4 fake"
+            response = admin.report_pdf_view(request, task.id)
+        assert response.status_code == 200
+        rendered = str(mock_html.call_args.kwargs.get("string", ""))
+        assert "<script>" not in rendered
+        assert "onclick" not in rendered
+        assert "<h1>" in rendered

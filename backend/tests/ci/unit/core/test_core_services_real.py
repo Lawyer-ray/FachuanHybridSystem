@@ -134,7 +134,7 @@ class TestPermissions:
             perm_open_access=False,
         )
         mixin = PermissionMixin()
-        mixin.check_authenticated(ctx)  # should not raise
+        assert mixin.check_authenticated(ctx) is None  # should not raise
 
     def test_check_authenticated_fail(self) -> None:
         from apps.core.exceptions import AuthenticationError
@@ -168,7 +168,8 @@ class TestPermissions:
 
         ctx = AccessContext(user=None, org_access=None, perm_open_access=True)
         mixin = PermissionMixin()
-        mixin.check_resource_access(ctx, lambda c: False)  # should not raise
+        # perm_open_access=True 时开放访问，即使检查器返回 False 也不抛异常
+        assert mixin.check_resource_access(ctx, lambda c: False) is None
 
     def test_check_resource_access_denied(self) -> None:
         from apps.core.exceptions import AuthenticationError
@@ -611,7 +612,7 @@ class TestLLMConfig:
     def test_valid_backends(self) -> None:
         from apps.core.llm.config import LLMConfig
 
-        assert LLMConfig._VALID_BACKENDS == {"openai_compatible"}
+        assert {"openai_compatible"} == LLMConfig._VALID_BACKENDS
 
 
 # ============================================================
@@ -691,7 +692,7 @@ class TestCacheService:
     def test_invalidate_cache_missing_key(self) -> None:
         from apps.core.services.cache_service import invalidate_cache
 
-        invalidate_cache("nonexistent_key")  # should not raise
+        assert invalidate_cache("nonexistent_key") is None  # should not raise
 
 
 # ============================================================

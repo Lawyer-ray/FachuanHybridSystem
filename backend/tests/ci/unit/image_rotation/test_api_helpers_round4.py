@@ -17,24 +17,29 @@ import pytest
 # image_rotation_api helpers
 # ---------------------------------------------------------------------------
 
+
 class TestValidateImageFile:
     def test_valid_jpeg(self):
         from apps.image_rotation.api.image_rotation_api import _validate_image_file
+
         f = MagicMock()
         f.content_type = "image/jpeg"
         f.size = 1024
-        _validate_image_file(f)  # should not raise
+        # 合法图片静默通过（返回 None）
+        assert _validate_image_file(f) is None
 
     def test_valid_png(self):
         from apps.image_rotation.api.image_rotation_api import _validate_image_file
+
         f = MagicMock()
         f.content_type = "image/png"
         f.size = 1024
-        _validate_image_file(f)
+        assert _validate_image_file(f) is None
 
     def test_invalid_type(self):
         from apps.core.exceptions import ValidationException
         from apps.image_rotation.api.image_rotation_api import _validate_image_file
+
         f = MagicMock()
         f.content_type = "application/pdf"
         f.size = 1024
@@ -44,6 +49,7 @@ class TestValidateImageFile:
     def test_too_large(self):
         from apps.core.exceptions import ValidationException
         from apps.image_rotation.api.image_rotation_api import _validate_image_file
+
         f = MagicMock()
         f.content_type = "image/jpeg"
         f.size = 25 * 1024 * 1024  # 25MB
@@ -52,14 +58,18 @@ class TestValidateImageFile:
 
     def test_none_size_ok(self):
         from apps.image_rotation.api.image_rotation_api import _validate_image_file
+
         f = MagicMock()
         f.content_type = "image/jpeg"
         f.size = None
-        _validate_image_file(f)  # should not raise
+        # size 为 None 时跳过大小校验，静默通过
+        assert _validate_image_file(f) is None
+
 
 class TestBody:
     def test_parses_json(self):
         from apps.image_rotation.api.image_rotation_api import _body
+
         req = MagicMock()
         req.body = b'{"key": "value"}'
         result = _body(req)
@@ -67,6 +77,7 @@ class TestBody:
 
     def test_empty_body(self):
         from apps.image_rotation.api.image_rotation_api import _body
+
         req = MagicMock()
         req.body = b""
         result = _body(req)
@@ -74,28 +85,34 @@ class TestBody:
 
     def test_none_body(self):
         from apps.image_rotation.api.image_rotation_api import _body
+
         req = MagicMock()
         req.body = None
         result = _body(req)
         assert result == {}
 
+
 class TestDecodeImageData:
     def test_plain_base64(self):
         from apps.image_rotation.api.image_rotation_api import _decode_image_data
+
         data = base64.b64encode(b"hello").decode()
         result = _decode_image_data(data)
         assert result == b"hello"
 
     def test_data_url_prefix(self):
         from apps.image_rotation.api.image_rotation_api import _decode_image_data
+
         raw = base64.b64encode(b"image data").decode()
         data_url = f"data:image/png;base64,{raw}"
         result = _decode_image_data(data_url)
         assert result == b"image data"
 
+
 class TestSerializeJob:
     def test_serializes_job(self):
         from apps.image_rotation.api.image_rotation_api import _serialize_job
+
         job = MagicMock()
         job.id = 1
         job.name = "Test Job"
@@ -114,6 +131,7 @@ class TestSerializeJob:
 
     def test_empty_name_fallback(self):
         from apps.image_rotation.api.image_rotation_api import _serialize_job
+
         job = MagicMock()
         job.id = 1
         job.name = ""
@@ -126,9 +144,11 @@ class TestSerializeJob:
         result = _serialize_job(job)
         assert result["display_name"] == "未命名任务"
 
+
 class TestSerializePage:
     def test_serializes_page(self):
         from apps.image_rotation.api.image_rotation_api import _serialize_page
+
         page = MagicMock()
         page.id = 1
         page.original_filename = "scan.jpg"
@@ -150,6 +170,7 @@ class TestSerializePage:
 
     def test_no_source_image(self):
         from apps.image_rotation.api.image_rotation_api import _serialize_page
+
         page = MagicMock()
         page.id = 1
         page.original_filename = "scan.jpg"

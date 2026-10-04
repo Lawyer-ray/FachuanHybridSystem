@@ -137,6 +137,10 @@ class PropertyClueService:
 
         return clue
 
+    def refetch_with_attachments(self, clue: PropertyClue) -> PropertyClue:
+        """按主键重新拉取并预取附件，供序列化层避免 async 上下文触发 sync ORM。"""
+        return PropertyClue.objects.prefetch_related("attachments").get(pk=clue.pk)
+
     def get_clue(self, clue_id: int, user: Any = None) -> PropertyClue:
         """获取单个财产线索，不存在则抛出 NotFoundError。"""
         self._ensure_view(user)

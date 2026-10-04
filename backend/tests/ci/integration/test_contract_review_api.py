@@ -48,7 +48,11 @@ def test_upload_contract(mock_build, authenticated_client):
     mock_svc.upload_contract.return_value = mock_task
     mock_build.return_value = mock_svc
 
-    f = SimpleUploadedFile("contract.docx", b"fake docx content", content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    f = SimpleUploadedFile(
+        "contract.docx",
+        b"fake docx content",
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
     resp = authenticated_client.post(
         "/api/v1/contract-review/upload",
         {"file": f, "model_name": ""},
@@ -86,15 +90,17 @@ def test_confirm_party(mock_build, authenticated_client):
 
     resp = authenticated_client.post(
         f"/api/v1/contract-review/{task.id}/confirm-party",
-        data=json.dumps({
-            "represented_party": "party_a",
-            "reviewer_name": "法穿AI",
-            "selected_steps": ["contract_review"],
-            "party_a": "甲方修正",
-            "party_b": "",
-            "party_c": "",
-            "party_d": "",
-        }),
+        data=json.dumps(
+            {
+                "represented_party": "party_a",
+                "reviewer_name": "法穿AI",
+                "selected_steps": ["contract_review"],
+                "party_a": "甲方修正",
+                "party_b": "",
+                "party_c": "",
+                "party_d": "",
+            }
+        ),
         content_type="application/json",
     )
     assert resp.status_code == 200
@@ -178,3 +184,4 @@ def test_download_normalized_not_found(authenticated_client):
     fake_id = uuid.uuid4()
     resp = authenticated_client.get(f"/api/v1/contract-review/format/{fake_id}/download-normalized")
     assert resp.status_code == 404
+    assert "不存在" in resp.json()["message"]

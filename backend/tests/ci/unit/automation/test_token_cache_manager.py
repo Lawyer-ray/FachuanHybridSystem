@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -10,6 +11,7 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -49,8 +51,9 @@ class TestTokenCacheManager:
     @patch("plugins.court_automation.token.cache_manager.record_cache_access")
     @patch("plugins.court_automation.token.cache_manager.performance_monitor")
     @patch("plugins.court_automation.token.cache_manager.cache")
-    def test_get_cached_token_hit(self, mock_cache: MagicMock, mock_pm: MagicMock,
-                                   mock_rec_access: MagicMock, mock_rec_result: MagicMock) -> None:
+    def test_get_cached_token_hit(
+        self, mock_cache: MagicMock, mock_pm: MagicMock, mock_rec_access: MagicMock, mock_rec_result: MagicMock
+    ) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
         mock_cache.get.return_value = {"token": "abc123"}
@@ -61,8 +64,9 @@ class TestTokenCacheManager:
     @patch("plugins.court_automation.token.cache_manager.record_cache_access")
     @patch("plugins.court_automation.token.cache_manager.performance_monitor")
     @patch("plugins.court_automation.token.cache_manager.cache")
-    def test_get_cached_token_miss(self, mock_cache: MagicMock, mock_pm: MagicMock,
-                                    mock_rec_access: MagicMock, mock_rec_result: MagicMock) -> None:
+    def test_get_cached_token_miss(
+        self, mock_cache: MagicMock, mock_pm: MagicMock, mock_rec_access: MagicMock, mock_rec_result: MagicMock
+    ) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
         mock_cache.get.return_value = None
@@ -73,8 +77,9 @@ class TestTokenCacheManager:
     @patch("plugins.court_automation.token.cache_manager.record_cache_access")
     @patch("plugins.court_automation.token.cache_manager.performance_monitor")
     @patch("plugins.court_automation.token.cache_manager.cache")
-    def test_get_cached_token_exception(self, mock_cache: MagicMock, mock_pm: MagicMock,
-                                         mock_rec_access: MagicMock, mock_rec_result: MagicMock) -> None:
+    def test_get_cached_token_exception(
+        self, mock_cache: MagicMock, mock_pm: MagicMock, mock_rec_access: MagicMock, mock_rec_result: MagicMock
+    ) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
         mock_cache.get.side_effect = RuntimeError("cache down")
@@ -124,8 +129,9 @@ class TestTokenCacheManager:
         mgr.cache_prefix = "auto_token"
         mock_tz.now.return_value = datetime(2025, 1, 1, 12, 0, 0)
         mock_cache.set.side_effect = RuntimeError("fail")
-        # Should not raise
+        # 异常被吞掉，但 set 确实被调用过一次
         mgr.cache_token("site", "acct", "tok")
+        mock_cache.set.assert_called_once()
 
     # ─── invalidate_token_cache ───
 
@@ -142,6 +148,8 @@ class TestTokenCacheManager:
         mgr.cache_prefix = "auto_token"
         mock_cache.delete.side_effect = RuntimeError("fail")
         mgr.invalidate_token_cache("site", "acct")
+        # 异常被吞掉，但 delete 确实被调用过一次
+        mock_cache.delete.assert_called_once()
 
     # ─── get_cached_credentials ───
 
@@ -150,7 +158,17 @@ class TestTokenCacheManager:
     def test_get_cached_credentials_hit(self, mock_cache: MagicMock, mock_pm: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
-        cred_data = [{"id": 1, "lawyer_id": 1, "lawyer_name": "张三", "site_name": "s", "url": None, "account": "a", "password": ""}]
+        cred_data = [
+            {
+                "id": 1,
+                "lawyer_id": 1,
+                "lawyer_name": "张三",
+                "site_name": "s",
+                "url": None,
+                "account": "a",
+                "password": "",
+            }
+        ]
         mock_cache.get.return_value = cred_data
         result = mgr.get_cached_credentials("s")
         assert result is not None
@@ -192,6 +210,8 @@ class TestTokenCacheManager:
         mgr.cache_prefix = "auto_token"
         mock_cache.set.side_effect = RuntimeError("fail")
         mgr.cache_credentials("s", [])
+        # 异常被吞掉，但 set 确实被调用过一次
+        mock_cache.set.assert_called_once()
 
     # ─── invalidate_credentials_cache ───
 
@@ -208,6 +228,8 @@ class TestTokenCacheManager:
         mgr.cache_prefix = "auto_token"
         mock_cache.delete.side_effect = RuntimeError("fail")
         mgr.invalidate_credentials_cache("site")
+        # 异常被吞掉，但 delete 确实被调用过一次
+        mock_cache.delete.assert_called_once()
 
     # ─── get_cached_account_stats ───
 
@@ -253,6 +275,8 @@ class TestTokenCacheManager:
         mgr.cache_prefix = "auto_token"
         mock_cache.set.side_effect = RuntimeError("fail")
         mgr.cache_account_stats("acct", "site", {})
+        # 异常被吞掉，但 set 确实被调用过一次
+        mock_cache.set.assert_called_once()
 
     # ─── invalidate_account_stats_cache ───
 
@@ -269,6 +293,8 @@ class TestTokenCacheManager:
         mgr.cache_prefix = "auto_token"
         mock_cache.delete.side_effect = RuntimeError("fail")
         mgr.invalidate_account_stats_cache("acct", "site")
+        # 异常被吞掉，但 delete 确实被调用过一次
+        mock_cache.delete.assert_called_once()
 
     # ─── blacklist ───
 
@@ -310,6 +336,8 @@ class TestTokenCacheManager:
         mgr.cache_prefix = "auto_token"
         mock_cache.set.side_effect = RuntimeError("fail")
         mgr.cache_blacklist(["a"])
+        # 异常被吞掉，但 set 确实被调用过一次
+        mock_cache.set.assert_called_once()
 
     @patch("plugins.court_automation.token.cache_manager.cache")
     def test_invalidate_blacklist_cache(self, mock_cache: MagicMock) -> None:
@@ -324,6 +352,8 @@ class TestTokenCacheManager:
         mgr.cache_prefix = "auto_token"
         mock_cache.delete.side_effect = RuntimeError("fail")
         mgr.invalidate_blacklist_cache()
+        # 异常被吞掉，但 delete 确实被调用过一次
+        mock_cache.delete.assert_called_once()
 
     # ─── invalidate_site_cache ───
 
@@ -366,14 +396,17 @@ class TestTokenCacheManager:
 
     # ─── clear_all_cache ───
 
+    @patch("plugins.court_automation.token.cache_manager.cache")
     @patch("django.conf.settings")
-    def test_clear_all_cache_not_allowed(self, mock_settings: MagicMock) -> None:
+    def test_clear_all_cache_not_allowed(self, mock_settings: MagicMock, mock_cache: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
         mock_settings.DEBUG = False
         # No-op when not allowed
         with patch.dict("os.environ", {"ALLOW_CACHE_CLEAR": ""}):
             mgr.clear_all_cache()
+        # 未授权时应完全跳过清理
+        mock_cache.clear.assert_not_called()
 
     @patch("plugins.court_automation.token.cache_manager.cache")
     @patch("django.conf.settings")
@@ -391,18 +424,24 @@ class TestTokenCacheManager:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
         mock_settings.DEBUG = True
-        mock_settings.CACHES = {"default": {"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": "redis://localhost"}}
-        with patch("plugins.court_automation.token.cache_manager.TokenCacheManager._clear_redis_namespace_cache") as mock_clear:
+        mock_settings.CACHES = {
+            "default": {"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": "redis://localhost"}
+        }
+        with patch(
+            "plugins.court_automation.token.cache_manager.TokenCacheManager._clear_redis_namespace_cache"
+        ) as mock_clear:
             mgr.clear_all_cache()
             mock_clear.assert_called_once()
 
     # ─── _clear_redis_namespace_cache ───
 
-    def test_clear_redis_no_location(self) -> None:
+    def test_clear_redis_no_location(self, caplog: pytest.LogCaptureFixture) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
         # No location, should warn
-        mgr._clear_redis_namespace_cache({})
+        with caplog.at_level(logging.WARNING, logger="plugins.court_automation.token.cache_manager"):
+            mgr._clear_redis_namespace_cache({})
+        assert any("token_cache_clear_redis_location_missing" in r.message for r in caplog.records)
 
     def test_clear_redis_with_valkey(self) -> None:
         mgr = self._make_manager()
@@ -414,7 +453,7 @@ class TestTokenCacheManager:
         with patch.dict("sys.modules", {"valkey": mock_valkey}):
             mgr._clear_redis_namespace_cache(
                 {"LOCATION": "redis://localhost", "KEY_PREFIX": "lf", "VERSION": 1},
-                backend="django.core.cache.backends.redis.RedisCache"
+                backend="django.core.cache.backends.redis.RedisCache",
             )
             mock_client.keys.assert_called_once()
             mock_client.delete.assert_called_once()
@@ -433,21 +472,27 @@ class TestTokenCacheManager:
             pattern = mock_client.keys.call_args[0][0]
             assert "auto_token:*" in pattern
 
-    def test_clear_redis_module_not_found(self) -> None:
+    def test_clear_redis_module_not_found(self, caplog: pytest.LogCaptureFixture) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
         import sys
+
         # Remove valkey from modules to simulate not found
         with patch.dict("sys.modules", {"valkey": None}):
-            mgr._clear_redis_namespace_cache({"LOCATION": "redis://localhost"})
+            with caplog.at_level(logging.WARNING, logger="plugins.court_automation.token.cache_manager"):
+                mgr._clear_redis_namespace_cache({"LOCATION": "redis://localhost"})
+        # 导入失败应记录告警而不是向上抛
+        assert caplog.records, "期望记录 valkey 导入失败告警"
 
-    def test_clear_redis_exception(self) -> None:
+    def test_clear_redis_exception(self, caplog: pytest.LogCaptureFixture) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
         mock_valkey = MagicMock()
         mock_valkey.from_url.side_effect = RuntimeError("conn fail")
         with patch.dict("sys.modules", {"valkey": mock_valkey}):
-            mgr._clear_redis_namespace_cache({"LOCATION": "redis://localhost"})
+            with caplog.at_level(logging.WARNING, logger="plugins.court_automation.token.cache_manager"):
+                mgr._clear_redis_namespace_cache({"LOCATION": "redis://localhost"})
+        assert any("缓存清除失败" in r.message for r in caplog.records)
 
     # ─── get_cache_statistics ───
 
@@ -460,13 +505,22 @@ class TestTokenCacheManager:
 
     def test_warm_up_cache_success(self) -> None:
         mgr = self._make_manager()
-        with patch("plugins.court_automation.token.account_selection_strategy.AccountSelectionStrategy"):
+        with patch(
+            "plugins.court_automation.token.account_selection_strategy.AccountSelectionStrategy"
+        ) as mock_strategy:
             mgr.warm_up_cache("site")
+            mock_strategy.assert_called_once()
 
-    def test_warm_up_cache_exception(self) -> None:
+    def test_warm_up_cache_exception(self, caplog: pytest.LogCaptureFixture) -> None:
         mgr = self._make_manager()
-        with patch("plugins.court_automation.token.account_selection_strategy.AccountSelectionStrategy", side_effect=RuntimeError("fail")):
-            mgr.warm_up_cache("site")
+        with patch(
+            "plugins.court_automation.token.account_selection_strategy.AccountSelectionStrategy",
+            side_effect=RuntimeError("fail"),
+        ) as mock_strategy:
+            with caplog.at_level(logging.WARNING, logger="plugins.court_automation.token.cache_manager"):
+                mgr.warm_up_cache("site")
+        mock_strategy.assert_called_once()
+        assert any("缓存预热失败" in r.message for r in caplog.records)
 
     # ─── get_cached_token cache_data with None token ───
 
@@ -474,8 +528,9 @@ class TestTokenCacheManager:
     @patch("plugins.court_automation.token.cache_manager.record_cache_access")
     @patch("plugins.court_automation.token.cache_manager.performance_monitor")
     @patch("plugins.court_automation.token.cache_manager.cache")
-    def test_get_cached_token_data_present_but_token_none(self, mock_cache: MagicMock, mock_pm: MagicMock,
-                                                           mock_rec_access: MagicMock, mock_rec_result: MagicMock) -> None:
+    def test_get_cached_token_data_present_but_token_none(
+        self, mock_cache: MagicMock, mock_pm: MagicMock, mock_rec_access: MagicMock, mock_rec_result: MagicMock
+    ) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
         mock_cache.get.return_value = {"token": None}

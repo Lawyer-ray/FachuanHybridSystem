@@ -27,10 +27,9 @@ def svc() -> Any:
 
 class TestGetLanczos:
     def test_returns_constant(self) -> None:
-        from apps.chat_records.services.export.pdf_export_service import _get_lanczos
-
         # Reset global cache
         import apps.chat_records.services.export.pdf_export_service as mod
+        from apps.chat_records.services.export.pdf_export_service import _get_lanczos
 
         mod._LANCZOS = None
         result = _get_lanczos()
@@ -101,15 +100,19 @@ class TestExportPdf:
         layout.images_per_page = 1
         callback = MagicMock()
 
-        with patch.object(svc, "_build_pdf_bytes", return_value=b"data"):
+        with patch.object(svc, "_build_pdf_bytes", return_value=b"data") as mock_build:
             with patch.object(svc, "_register_pdf_font", return_value="Helvetica"):
-                svc.export_pdf(
+                result = svc.export_pdf(
                     project=project,
                     screenshots=screenshots,
                     layout=layout,
                     filename="cb.pdf",
                     progress_callback=callback,
                 )
+        assert result.name == "cb.pdf"
+        assert result.read() == b"data"
+        # 进度回调应透传给底层构建器
+        assert mock_build.call_args.kwargs["progress_callback"] is callback
 
 
 # ── _build_pdf_bytes (integration via mocking reportlab) ─────────
@@ -142,6 +145,7 @@ class TestBuildPdfBytes:
         class FakeOpen:
             def __enter__(self):
                 return img_buf
+
             def __exit__(self, *args):
                 img_buf.seek(0)
 
@@ -152,9 +156,7 @@ class TestBuildPdfBytes:
         layout.show_page_number = True
         layout.images_per_page = 1
 
-        with patch(
-            "reportlab.pdfgen.canvas"
-        ) as mock_canvas:
+        with patch("reportlab.pdfgen.canvas") as mock_canvas:
             mock_c = MagicMock()
             mock_canvas.Canvas.return_value = mock_c
             with patch.object(svc, "_register_pdf_font", return_value="Helvetica"):
@@ -185,6 +187,7 @@ class TestBuildPdfBytes:
             class FO:
                 def __enter__(self):
                     return buf
+
                 def __exit__(self, *args):
                     buf.seek(0)
 
@@ -196,9 +199,7 @@ class TestBuildPdfBytes:
         layout.show_page_number = False
         layout.images_per_page = 2
 
-        with patch(
-            "reportlab.pdfgen.canvas"
-        ) as mock_canvas:
+        with patch("reportlab.pdfgen.canvas") as mock_canvas:
             mock_c = MagicMock()
             mock_canvas.Canvas.return_value = mock_c
             with patch.object(svc, "_register_pdf_font", return_value="Helvetica"):
@@ -221,9 +222,7 @@ class TestBuildPdfBytes:
         layout.show_page_number = False
         layout.images_per_page = 1
 
-        with patch(
-            "reportlab.pdfgen.canvas"
-        ) as mock_canvas:
+        with patch("reportlab.pdfgen.canvas") as mock_canvas:
             mock_c = MagicMock()
             mock_canvas.Canvas.return_value = mock_c
             with patch.object(svc, "_register_pdf_font", return_value="Helvetica"):
@@ -249,6 +248,7 @@ class TestBuildPdfBytes:
         class FO:
             def __enter__(self):
                 return img_buf
+
             def __exit__(self, *args):
                 img_buf.seek(0)
 
@@ -259,9 +259,7 @@ class TestBuildPdfBytes:
         layout.show_page_number = True
         layout.images_per_page = 1
 
-        with patch(
-            "reportlab.pdfgen.canvas"
-        ) as mock_canvas:
+        with patch("reportlab.pdfgen.canvas") as mock_canvas:
             mock_c = MagicMock()
             mock_canvas.Canvas.return_value = mock_c
             with patch.object(svc, "_register_pdf_font", return_value="Helvetica"):

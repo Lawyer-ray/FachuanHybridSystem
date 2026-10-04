@@ -8,6 +8,7 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -153,7 +154,8 @@ class TestSaveCookies:
             cookie_service=self.cookie_service,
         )
         svc._cookie_service = None
-        svc._save_cookies("testuser")  # Should not raise
+        # 未注入 cookie 服务时静默跳过保存
+        assert svc._save_cookies("testuser") is None
 
 
 class TestCheckLoginSuccess:

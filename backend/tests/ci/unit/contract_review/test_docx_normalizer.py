@@ -21,9 +21,7 @@ class TestDocxFormatNormalizerInit:
         assert normalizer.output_path == Path("/tmp/out.docx")
 
     def test_init_with_reference(self):
-        normalizer = DocxFormatNormalizer(
-            input_path="/tmp/test.docx", reference_path="/tmp/ref.docx"
-        )
+        normalizer = DocxFormatNormalizer(input_path="/tmp/test.docx", reference_path="/tmp/ref.docx")
         assert normalizer.reference_path == Path("/tmp/ref.docx")
 
     def test_init_no_reference(self):
@@ -144,8 +142,9 @@ class TestDocxFormatNormalizerStripPrefix:
         para = MagicMock()
         para.text = "普通文本"
         para.runs = []
-        normalizer._strip_prefix(para, 0)
-        # Should not modify - no prefix match
+        # 无匹配前缀时段落保持不动
+        assert normalizer._strip_prefix(para, 0) is None
+        assert para.text == "普通文本"
 
     def test_strip_prefix_llm_prefix_no_match_in_text(self):
         normalizer = DocxFormatNormalizer(input_path="/tmp/test.docx")
@@ -153,5 +152,6 @@ class TestDocxFormatNormalizerStripPrefix:
         para = MagicMock()
         para.text = "普通文本"
         para.runs = []
-        normalizer._strip_prefix(para, 0)
-        # Should not modify - prefix doesn't match text
+        # LLM 给出的前缀不在段落文本中时不做剥离
+        assert normalizer._strip_prefix(para, 0) is None
+        assert para.text == "普通文本"

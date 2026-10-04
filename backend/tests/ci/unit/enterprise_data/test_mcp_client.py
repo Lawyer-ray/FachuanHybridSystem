@@ -38,8 +38,12 @@ class TestMcpToolClientInit:
 
     def test_init_empty_api_key_fallback(self):
         client = McpToolClient(
-            provider_name="test", transport="sse", base_url="", sse_url="",
-            api_key="", api_keys=None,
+            provider_name="test",
+            transport="sse",
+            base_url="",
+            sse_url="",
+            api_key="",
+            api_keys=None,
         )
         assert client._api_key == ""
 
@@ -185,7 +189,8 @@ class TestMcpToolClientRateLimit:
         mock_cache.add.return_value = True
         mock_cache.incr.return_value = 1
         client = _make_client(rate_limit_requests=10)
-        client._acquire_rate_limit(action="test")  # Should not raise
+        assert client._acquire_rate_limit(action="test") is None  # Should not raise
+        mock_cache.add.assert_called_once()
 
     @patch("apps.enterprise_data.services.clients.mcp_tool_client.cache")
     def test_acquire_rate_limit_exceeded(self, mock_cache):

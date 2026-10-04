@@ -67,3 +67,15 @@ def test_convert_document_invalid_mbid(mock_records, authenticated_client):
     )
     # 插件未安装时返回 503；插件安装时 mbid 无效返回 400；ZNSZJ 关闭返回 403
     assert resp.status_code in (400, 403, 503)
+    if resp.status_code == 400:
+        # mbid 校验失败：错误信封带无效 mbid 锚点
+        body = resp.json()
+        assert body["code"] == "INVALID_MBID"
+        assert "invalid-mbid" in body["message"]
+        assert body["errors"]["mbid"] == "invalid-mbid"
+        # 失败路径应落一条转换失败记录（mock 记录服务已打桩）
+        mock_records.return_value.record_failure.assert_called_once()
+    else:
+        body = resp.json()
+        assert body["code"]  # 403/503 也须返回带 code 的错误信封
+        assert body["message"]

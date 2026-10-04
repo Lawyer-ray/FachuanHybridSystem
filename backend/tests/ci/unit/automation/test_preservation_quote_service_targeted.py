@@ -165,7 +165,8 @@ class TestValidateCreateParams:
 
     def test_valid_params(self):
         svc = self._make_service()
-        svc._validate_create_params(Decimal("100000"), "2550", "127000", None)
+        # 合法参数静默通过（返回 None）
+        assert svc._validate_create_params(Decimal("100000"), "2550", "127000", None) is None
 
     def test_negative_amount(self):
         svc = self._make_service()

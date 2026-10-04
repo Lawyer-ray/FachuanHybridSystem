@@ -401,11 +401,21 @@ class TestContractDisplayService:
 
     def test_clear_cache_for_case_type(self, db):
         svc = self._make_service()
-        svc.clear_cache_for_case_type("civil")
+        with patch("apps.contracts.services.contract.query.template_cache.cache") as mock_cache:
+            svc.clear_cache_for_case_type("civil")
+            # 应按当前版本键批量删除缓存
+            mock_cache.delete_many.assert_called_once()
+            keys = mock_cache.delete_many.call_args[0][0]
+            assert len(keys) == 3
 
     def test_clear_all_cache(self, db):
         svc = self._make_service()
-        svc.clear_all_cache()
+        with patch("apps.contracts.services.contract.query.template_cache.cache") as mock_cache:
+            svc.clear_all_cache()
+            # 对全部 CaseType 逐一清理
+            from apps.core.models.enums import CaseType
+
+            assert mock_cache.delete_many.call_count == len(CaseType.choices)
 
 
 # ── ContractListAssembler tests ──
@@ -415,7 +425,8 @@ class TestContractDisplayService:
 class TestContractListAssembler:
     def test_enrich_empty(self, db):
         assembler = ContractListAssembler()
-        assembler.enrich([])
+        # 空列表早退
+        assert assembler.enrich([]) is None
 
     def test_enrich_with_contracts(self, db):
         assembler = ContractListAssembler()
@@ -479,7 +490,8 @@ class TestArchiveQueryService:
         from apps.contracts.services.archive.archive_query_service import reorder_materials
 
         c = ContractFactory()
-        reorder_materials(c.pk, {})
+        # 空 orders 早退，返回 None 且不抛异常
+        assert reorder_materials(c.pk, {}) is None
 
     def test_move_material(self, db):
         from apps.contracts.models import FinalizedMaterial

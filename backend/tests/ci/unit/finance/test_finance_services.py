@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import pytest
 from datetime import date
 from decimal import Decimal
 from unittest.mock import MagicMock
+
+import pytest
 
 from apps.core.exceptions import ValidationException
 
@@ -13,6 +14,7 @@ from apps.core.exceptions import ValidationException
 class TestCalculationPeriod:
     def test_calculate_basic(self):
         from apps.finance.services.calculator.interest_calculator import CalculationPeriod
+
         period = CalculationPeriod(
             start_date=date(2026, 1, 1),
             end_date=date(2026, 1, 31),
@@ -26,6 +28,7 @@ class TestCalculationPeriod:
 
     def test_calculate_zero_days(self):
         from apps.finance.services.calculator.interest_calculator import CalculationPeriod
+
         period = CalculationPeriod(
             start_date=date(2026, 1, 1),
             end_date=date(2026, 1, 1),
@@ -40,6 +43,7 @@ class TestCalculationPeriod:
 class TestInterestCalculator:
     def _make_calculator(self, rate_service=None):
         from apps.finance.services.calculator.interest_calculator import InterestCalculator
+
         return InterestCalculator(rate_service=rate_service)
 
     def test_start_after_end_raises(self):
@@ -101,6 +105,7 @@ class TestInterestCalculator:
 class TestInterestCalculatorDateInclusion:
     def _make_calculator(self):
         from apps.finance.services.calculator.interest_calculator import InterestCalculator
+
         return InterestCalculator(rate_service=MagicMock())
 
     def test_both(self):
@@ -131,6 +136,7 @@ class TestInterestCalculatorDateInclusion:
 class TestInterestCalculatorGetYearDays:
     def _make_calculator(self):
         from apps.finance.services.calculator.interest_calculator import InterestCalculator
+
         return InterestCalculator(rate_service=MagicMock())
 
     def test_fixed_365(self):
@@ -154,12 +160,13 @@ class TestInterestCalculatorValidatePrincipalPeriods:
     def _make_calculator(self):
         from apps.finance.services.calculator.interest_calculator import InterestCalculator
         from apps.finance.services.lpr.rate_service import PrincipalPeriod
+
         return InterestCalculator(rate_service=MagicMock()), PrincipalPeriod
 
     def test_valid_periods(self):
         calc, PP = self._make_calculator()
         periods = [PP(date(2026, 1, 1), date(2026, 1, 31), Decimal("10000"))]
-        calc._validate_principal_periods(periods)
+        assert calc._validate_principal_periods(periods) is None
 
     def test_zero_principal_raises(self):
         calc, PP = self._make_calculator()
@@ -176,9 +183,8 @@ class TestInterestCalculatorValidatePrincipalPeriods:
 
 class TestInterestCalculationResultToDict:
     def test_to_dict(self):
-        from apps.finance.services.calculator.interest_calculator import (
-            InterestCalculationResult, CalculationPeriod
-        )
+        from apps.finance.services.calculator.interest_calculator import CalculationPeriod, InterestCalculationResult
+
         result = InterestCalculationResult(
             total_interest=Decimal("100.00"),
             total_principal=Decimal("10000"),
@@ -195,6 +201,7 @@ class TestInterestCalculationResultToDict:
 class TestCreatePrincipalPeriods:
     def test_create_periods(self):
         from apps.finance.services.calculator.interest_calculator import InterestCalculator
+
         changes = [
             {"start_date": date(2026, 1, 1), "end_date": date(2026, 1, 31), "principal": "10000"},
             {"start_date": date(2026, 2, 1), "end_date": date(2026, 2, 28), "principal": "20000"},

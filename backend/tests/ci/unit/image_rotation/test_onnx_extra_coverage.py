@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import io
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import numpy as np
 import pytest
@@ -20,11 +20,13 @@ def _make_test_image(width: int = 100, height: int = 100, color: str = "white", 
 class TestONNXServiceRound2:
     def test_init_custom_path(self):
         from apps.image_rotation.services.orientation.onnx_service import ONNXOrientationService
+
         svc = ONNXOrientationService(model_path="/custom/model.onnx")
         assert svc._model_path == "/custom/model.onnx"
 
     def test_session_not_loaded_returns_none(self):
         from apps.image_rotation.services.orientation.onnx_service import ONNXOrientationService
+
         svc = ONNXOrientationService(model_path="/nonexistent/model.onnx")
         with patch("apps.image_rotation.services.orientation.onnx_service.Path") as mock_path_cls:
             mock_path_cls.return_value.exists.return_value = False
@@ -33,6 +35,7 @@ class TestONNXServiceRound2:
 
     def test_session_import_error(self):
         from apps.image_rotation.services.orientation.onnx_service import ONNXOrientationService
+
         svc = ONNXOrientationService(model_path="/nonexistent.onnx")
         with patch.dict("sys.modules", {"onnxruntime": None}):
             with patch("apps.image_rotation.services.orientation.onnx_service.Path") as mock_path_cls:
@@ -42,6 +45,7 @@ class TestONNXServiceRound2:
 
     def test_session_load_error(self):
         from apps.image_rotation.services.orientation.onnx_service import ONNXOrientationService
+
         svc = ONNXOrientationService(model_path="/bad/model.onnx")
         with patch("apps.image_rotation.services.orientation.onnx_service.Path") as mock_path_cls:
             mock_path_cls.return_value.exists.return_value = True
@@ -53,6 +57,7 @@ class TestONNXServiceRound2:
 
     def test_session_caches(self):
         from apps.image_rotation.services.orientation.onnx_service import ONNXOrientationService
+
         svc = ONNXOrientationService()
         mock_session = MagicMock()
         svc._session = mock_session
@@ -60,20 +65,28 @@ class TestONNXServiceRound2:
 
     def test_download_from_hub_import_error(self):
         from apps.image_rotation.services.orientation.onnx_service import ONNXOrientationService
+
         svc = ONNXOrientationService()
         with patch.dict("sys.modules", {"huggingface_hub": None}):
-            svc._download_from_hub()  # should not raise
+            # huggingface_hub 不可用时异常被吞掉，静默返回
+            assert svc._download_from_hub() is None
 
     def test_download_from_hub_exception(self):
         from apps.image_rotation.services.orientation.onnx_service import ONNXOrientationService
+
         svc = ONNXOrientationService()
         mock_hub = MagicMock()
         mock_hub.hf_hub_download.side_effect = RuntimeError("download fail")
         with patch.dict("sys.modules", {"huggingface_hub": mock_hub}):
-            svc._download_from_hub()  # should not raise
+            with patch("apps.image_rotation.services.orientation.onnx_service.MODEL_DIR") as mock_dir:
+                # 下载失败异常被吞掉，静默返回
+                assert svc._download_from_hub() is None
+        mock_hub.hf_hub_download.assert_called_once()
+        mock_dir.mkdir.assert_called_once()
 
     def test_preprocess_image(self):
         from apps.image_rotation.services.orientation.onnx_service import ONNXOrientationService
+
         svc = ONNXOrientationService()
         img_data = _make_test_image(200, 200)
         result = svc.preprocess_image(img_data)
@@ -82,6 +95,7 @@ class TestONNXServiceRound2:
 
     def test_preprocess_image_rgba(self):
         from apps.image_rotation.services.orientation.onnx_service import ONNXOrientationService
+
         svc = ONNXOrientationService()
         img = Image.new("RGBA", (100, 100), (255, 0, 0, 128))
         buf = io.BytesIO()
@@ -91,6 +105,7 @@ class TestONNXServiceRound2:
 
     def test_detect_orientation_no_session(self):
         from apps.image_rotation.services.orientation.onnx_service import ONNXOrientationService
+
         svc = ONNXOrientationService()
         svc._session = None
         with patch.object(type(svc), "session", new_callable=PropertyMock, return_value=None):
@@ -99,6 +114,7 @@ class TestONNXServiceRound2:
 
     def test_detect_orientation_success(self):
         from apps.image_rotation.services.orientation.onnx_service import ONNXOrientationService
+
         svc = ONNXOrientationService()
         mock_session = MagicMock()
         logits = np.array([[2.0, 0.5, 0.3, 0.1]], dtype=np.float32)
@@ -112,6 +128,7 @@ class TestONNXServiceRound2:
 
     def test_detect_orientation_high_conf_nonzero_rotation(self):
         from apps.image_rotation.services.orientation.onnx_service import ONNXOrientationService
+
         svc = ONNXOrientationService()
         mock_session = MagicMock()
         logits = np.array([[0.1, 5.0, 0.1, 0.1]], dtype=np.float32)
@@ -123,6 +140,7 @@ class TestONNXServiceRound2:
 
     def test_detect_orientation_exception(self):
         from apps.image_rotation.services.orientation.onnx_service import ONNXOrientationService
+
         svc = ONNXOrientationService()
         mock_session = MagicMock()
         mock_session.run.side_effect = RuntimeError("inference fail")
@@ -132,6 +150,7 @@ class TestONNXServiceRound2:
 
     def test_detect_orientation_from_file(self):
         from apps.image_rotation.services.orientation.onnx_service import ONNXOrientationService
+
         svc = ONNXOrientationService()
         svc._session = None
         with patch.object(type(svc), "session", new_callable=PropertyMock, return_value=None):
@@ -141,6 +160,7 @@ class TestONNXServiceRound2:
 
     def test_get_onnx_orientation_service_singleton(self):
         import apps.image_rotation.services.orientation.onnx_service as mod
+
         mod._onnx_service = None
         svc = mod.get_onnx_orientation_service()
         assert svc is not None
@@ -149,10 +169,8 @@ class TestONNXServiceRound2:
         mod._onnx_service = None  # cleanup
 
     def test_orientation_labels_and_mappings(self):
-        from apps.image_rotation.services.orientation.onnx_service import (
-            ORIENTATION_LABELS,
-            ORIENTATION_TO_ROTATION,
-        )
+        from apps.image_rotation.services.orientation.onnx_service import ORIENTATION_LABELS, ORIENTATION_TO_ROTATION
+
         assert len(ORIENTATION_LABELS) == 4
         assert len(ORIENTATION_TO_ROTATION) == 4
         assert ORIENTATION_TO_ROTATION[0] == 0

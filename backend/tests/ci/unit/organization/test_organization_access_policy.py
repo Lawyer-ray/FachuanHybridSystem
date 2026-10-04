@@ -59,7 +59,7 @@ class TestEnsureAuthenticated:
             policy.ensure_authenticated(SimpleNamespace(is_authenticated=False))
 
     def test_authenticated_passes(self, policy: OrganizationAccessPolicy) -> None:
-        policy.ensure_authenticated(_user())
+        assert policy.ensure_authenticated(_user()) is None
 
 
 # ── can_create ─────────────────────────────────────────────────────────

@@ -57,13 +57,10 @@ def _ensure_target_access(
             perm_open_access=ctx.perm_open_access,
         )
     elif case_log_id is not None:
-        from apps.cases.models import CaseLog
+        from apps.cases.services.case.case_access_policy import CaseAccessPolicy
 
-        log = CaseLog.objects.filter(pk=case_log_id).values("case_id").first()
-        if log:
-            from apps.cases.services.case.case_access_policy import CaseAccessPolicy
-
-            CaseAccessPolicy().ensure_access_ctx(case_id=log["case_id"], ctx=ctx)
+        # 案件日志 → 案件的定位查询已下沉至 CaseAccessPolicy（日志不存在则跳过）
+        CaseAccessPolicy().ensure_case_log_access_ctx(case_log_id=case_log_id, ctx=ctx)
 
 
 @router.post("/parse", response=list[ParsedReminderOut])

@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
 from apps.core.exceptions import ConflictError, NotFoundError, ValidationException
-
-
 
 
 class TestCasePartyMutationServiceValidatePartyInContractScope:
@@ -232,9 +230,7 @@ class TestCasePartyMutationServiceDeleteParty:
 
         with patch("apps.cases.services.party.case_party_mutation_service.CaseParty") as mock_cls:
             mock_cls.objects.filter.return_value.only.return_value.first.return_value = None
-            svc = CasePartyMutationService(
-                client_service=MagicMock(), contract_service=MagicMock(), repo=MagicMock()
-            )
+            svc = CasePartyMutationService(client_service=MagicMock(), contract_service=MagicMock(), repo=MagicMock())
             with pytest.raises(NotFoundError, match="当事人不存在"):
                 svc.delete_party(party_id=1)
 
@@ -247,9 +243,7 @@ class TestCasePartyMutationServiceDeleteParty:
         mock_party.client_id = 20
         with patch("apps.cases.services.party.case_party_mutation_service.CaseParty") as mock_cls:
             mock_cls.objects.filter.return_value.only.return_value.first.return_value = mock_party
-            svc = CasePartyMutationService(
-                client_service=MagicMock(), contract_service=MagicMock(), repo=MagicMock()
-            )
+            svc = CasePartyMutationService(client_service=MagicMock(), contract_service=MagicMock(), repo=MagicMock())
             result = svc.delete_party(party_id=1)
             assert result == {"success": True}
             mock_party.delete.assert_called_once()
@@ -265,9 +259,7 @@ class TestCasePartyMutationServiceDeleteParty:
         user.id = 42
         with patch("apps.cases.services.party.case_party_mutation_service.CaseParty") as mock_cls:
             mock_cls.objects.filter.return_value.only.return_value.first.return_value = mock_party
-            svc = CasePartyMutationService(
-                client_service=MagicMock(), contract_service=MagicMock(), repo=MagicMock()
-            )
+            svc = CasePartyMutationService(client_service=MagicMock(), contract_service=MagicMock(), repo=MagicMock())
             result = svc.delete_party(party_id=1, user=user)
             assert result == {"success": True}
 
@@ -280,9 +272,7 @@ class TestCasePartyMutationServiceValidateUpdateReferences:
 
         repo = MagicMock()
         repo.get_case.return_value = None
-        svc = CasePartyMutationService(
-            client_service=MagicMock(), contract_service=MagicMock(), repo=repo
-        )
+        svc = CasePartyMutationService(client_service=MagicMock(), contract_service=MagicMock(), repo=repo)
         party = MagicMock()
         party.case_id = 1
         with pytest.raises(NotFoundError, match="案件不存在"):
@@ -293,9 +283,7 @@ class TestCasePartyMutationServiceValidateUpdateReferences:
 
         client_service = MagicMock()
         client_service.validate_client_exists.return_value = False
-        svc = CasePartyMutationService(
-            client_service=client_service, contract_service=MagicMock(), repo=MagicMock()
-        )
+        svc = CasePartyMutationService(client_service=client_service, contract_service=MagicMock(), repo=MagicMock())
         party = MagicMock()
         party.case_id = 1
         party.client_id = 10
@@ -305,23 +293,23 @@ class TestCasePartyMutationServiceValidateUpdateReferences:
     def test_same_ids_skip_validation(self) -> None:
         from apps.cases.services.party.case_party_mutation_service import CasePartyMutationService
 
-        svc = CasePartyMutationService(
-            client_service=MagicMock(), contract_service=MagicMock(), repo=MagicMock()
-        )
+        svc = CasePartyMutationService(client_service=MagicMock(), contract_service=MagicMock(), repo=MagicMock())
         party = MagicMock()
         party.case_id = 1
         party.client_id = 10
         # Should not raise
-        svc._validate_update_references({"case_id": 1, "client_id": 10}, party)
+        result = svc._validate_update_references({"case_id": 1, "client_id": 10}, party)
+        # 与当前值一致时跳过校验，不查询案件/客户
+        assert result is None
+        svc.repo.get_case.assert_not_called()
+        svc.client_service.validate_client_exists.assert_not_called()
 
     def test_same_case_new_client_checks_client(self) -> None:
         from apps.cases.services.party.case_party_mutation_service import CasePartyMutationService
 
         client_service = MagicMock()
         client_service.validate_client_exists.return_value = False
-        svc = CasePartyMutationService(
-            client_service=client_service, contract_service=MagicMock(), repo=MagicMock()
-        )
+        svc = CasePartyMutationService(client_service=client_service, contract_service=MagicMock(), repo=MagicMock())
         party = MagicMock()
         party.case_id = 1
         party.client_id = 10
@@ -333,9 +321,7 @@ class TestCasePartyMutationServiceValidateUpdateReferences:
 
         repo = MagicMock()
         repo.get_case.return_value = MagicMock()
-        svc = CasePartyMutationService(
-            client_service=MagicMock(), contract_service=MagicMock(), repo=repo
-        )
+        svc = CasePartyMutationService(client_service=MagicMock(), contract_service=MagicMock(), repo=repo)
         party = MagicMock()
         party.case_id = 1
         party.client_id = 10
@@ -350,23 +336,23 @@ class TestCasePartyMutationServiceValidateUpdateUniqueness:
     def test_same_ids_no_conflict(self) -> None:
         from apps.cases.services.party.case_party_mutation_service import CasePartyMutationService
 
-        svc = CasePartyMutationService(
-            client_service=MagicMock(), contract_service=MagicMock(), repo=MagicMock()
-        )
+        svc = CasePartyMutationService(client_service=MagicMock(), contract_service=MagicMock(), repo=MagicMock())
         party = MagicMock()
         party.case_id = 1
         party.client_id = 10
-        # Same case_id and client_id - should return early
-        svc._validate_update_uniqueness(1, party, 1, 10)
+        with patch("apps.cases.services.party.case_party_mutation_service.CaseParty") as MockCP:
+            # Same case_id and client_id - should return early
+            result = svc._validate_update_uniqueness(1, party, 1, 10)
+            assert result is None
+            # 同案件同客户直接早退，不做重复性查询
+            MockCP.objects.filter.assert_not_called()
 
     def test_duplicate_raises(self) -> None:
         from apps.cases.services.party.case_party_mutation_service import CasePartyMutationService
 
         with patch("apps.cases.services.party.case_party_mutation_service.CaseParty") as mock_cls:
             mock_cls.objects.filter.return_value.exclude.return_value.exists.return_value = True
-            svc = CasePartyMutationService(
-                client_service=MagicMock(), contract_service=MagicMock(), repo=MagicMock()
-            )
+            svc = CasePartyMutationService(client_service=MagicMock(), contract_service=MagicMock(), repo=MagicMock())
             party = MagicMock()
             party.case_id = 1
             party.client_id = 10
@@ -381,9 +367,7 @@ class TestCasePartyMutationServiceInit:
         from apps.cases.services.party.case_party_mutation_service import CasePartyMutationService
 
         with patch("apps.cases.services.party.case_party_mutation_service.CasePartyCommandRepo"):
-            svc = CasePartyMutationService(
-                client_service=MagicMock(), contract_service=MagicMock()
-            )
+            svc = CasePartyMutationService(client_service=MagicMock(), contract_service=MagicMock())
             assert svc.client_service is not None
             assert svc.contract_service is not None
 
@@ -391,7 +375,5 @@ class TestCasePartyMutationServiceInit:
         from apps.cases.services.party.case_party_mutation_service import CasePartyMutationService
 
         repo = MagicMock()
-        svc = CasePartyMutationService(
-            client_service=MagicMock(), contract_service=MagicMock(), repo=repo
-        )
+        svc = CasePartyMutationService(client_service=MagicMock(), contract_service=MagicMock(), repo=repo)
         assert svc.repo is repo

@@ -43,7 +43,10 @@ class TestModuleHelpers:
     def test_log_inline_formset_none_formset(self) -> None:
         inline = MagicMock()
         inline.formset = None
-        _log_inline_formset(inline, MagicMock())
+        logger = MagicMock()
+        _log_inline_formset(inline, logger)
+        # 无 formset 直接早退，不记录任何日志
+        logger.warning.assert_not_called()
 
     def test_log_inline_formset_with_errors(self) -> None:
         logger = MagicMock()

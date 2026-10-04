@@ -1,7 +1,8 @@
 """Tests for case_material_sync module."""
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from apps.contracts.services.archive.checklist.case_material_sync import (
     _apply_initial_order_for_synced,
@@ -12,12 +13,18 @@ from apps.contracts.services.archive.checklist.case_material_sync import (
 
 class TestApplyInitialOrderForSynced:
     def test_empty_synced(self):
-        # Should not raise
-        _apply_initial_order_for_synced([])
+        with patch("apps.contracts.services.archive.checklist.case_material_sync.FinalizedMaterial") as MockMaterial:
+            # 空列表早退，不查询数据库
+            assert _apply_initial_order_for_synced([]) is None
+            MockMaterial.objects.filter.assert_not_called()
 
     def test_single_item_no_reorder(self, db):
-        # Single item should not need reordering
-        _apply_initial_order_for_synced([{"material_id": 99999, "archive_item_code": "code"}])
+        with patch("apps.contracts.services.archive.checklist.case_material_sync.FinalizedMaterial") as MockMaterial:
+            # material_id 不存在时查不到材料，不做任何重排/保存
+            MockMaterial.objects.filter.return_value = []
+            result = _apply_initial_order_for_synced([{"material_id": 99999, "archive_item_code": "code"}])
+            assert result is None
+            MockMaterial.objects.filter.assert_called_once()
 
 
 class TestUploadMaterialToArchiveItem:
@@ -51,6 +58,7 @@ class TestUploadMaterialToArchiveItem:
         # Use a code that exists in the real ARCHIVE_CHECKLIST for 'litigation'
         # Let's check what codes exist
         from apps.contracts.services.archive.constants import ARCHIVE_CHECKLIST
+
         litigation_items = ARCHIVE_CHECKLIST.get("litigation", [])
         if not litigation_items:
             pytest.skip("No litigation checklist items found")
@@ -110,9 +118,7 @@ class TestConvertToPdfIfNeeded:
         pdf.write_bytes(b"%PDF-1.4")
 
         with patch("django.conf.settings.MEDIA_ROOT", str(tmp_path)):
-            rel, name = _convert_to_pdf_if_needed(
-                "contracts/finalized/1/abc.pdf", "材料.pdf", 1
-            )
+            rel, name = _convert_to_pdf_if_needed("contracts/finalized/1/abc.pdf", "材料.pdf", 1)
         assert rel == "contracts/finalized/1/abc.pdf"
         assert name == "材料.pdf"
 
@@ -132,9 +138,7 @@ class TestConvertToPdfIfNeeded:
                 return_value=(fake_pdf, True),
             ),
         ):
-            rel, name = _convert_to_pdf_if_needed(
-                "contracts/finalized/1/abc.docx", "起诉状.docx", 1
-            )
+            rel, name = _convert_to_pdf_if_needed("contracts/finalized/1/abc.docx", "起诉状.docx", 1)
 
         assert rel == "contracts/finalized/1/abc.pdf"
         assert name == "起诉状.pdf"
@@ -156,9 +160,7 @@ class TestConvertToPdfIfNeeded:
                 return_value=(None, False),
             ),
         ):
-            rel, name = _convert_to_pdf_if_needed(
-                "contracts/finalized/1/abc.docx", "起诉状.docx", 1
-            )
+            rel, name = _convert_to_pdf_if_needed("contracts/finalized/1/abc.docx", "起诉状.docx", 1)
 
         assert rel == "contracts/finalized/1/abc.docx"
         assert name == "起诉状.docx"
@@ -171,9 +173,7 @@ class TestConvertToPdfIfNeeded:
         xlsx.write_bytes(b"PK\x03\x04")
 
         with patch("django.conf.settings.MEDIA_ROOT", str(tmp_path)):
-            rel, name = _convert_to_pdf_if_needed(
-                "contracts/finalized/1/abc.xlsx", "表格.xlsx", 1
-            )
+            rel, name = _convert_to_pdf_if_needed("contracts/finalized/1/abc.xlsx", "表格.xlsx", 1)
 
         assert rel == "contracts/finalized/1/abc.xlsx"
         assert name == "表格.xlsx"

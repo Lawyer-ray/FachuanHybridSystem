@@ -65,30 +65,29 @@ class TestLoadDefaultOwnerId:
 
 
 class TestLoadConfig:
+    def _bare_manager(self) -> OwnerConfigManager:
+        # 跳过 __init__ 的整链路加载，直接测 _load_config_from_db 的映射逻辑
+        return object.__new__(OwnerConfigManager)
+
     def test_loads_from_db(self) -> None:
-        with (
-            patch("apps.core.config.utils.get_feishu_category_configs") as mock_get,
-            patch.dict(os.environ, {}, clear=False),
-            patch.object(OwnerConfigManager, "_load_config", wraps=None),
-        ):
+        with patch("apps.core.config.utils.get_feishu_category_configs") as mock_get:
             mock_get.return_value = {"FEISHU_APP_ID": "app123", "FEISHU_APP_SECRET": "secret"}
-            mgr = OwnerConfigManager()
+            config = self._bare_manager()._load_config_from_db()
+        assert config["APP_ID"] == "app123"
+        assert config["APP_SECRET"] == "secret"
 
     def test_loads_from_env(self) -> None:
         with (
             patch("apps.core.config.utils.get_feishu_category_configs", return_value=None),
             patch.dict(os.environ, {"FEISHU_APP_ID": "env_app", "FEISHU_APP_SECRET": "env_secret"}, clear=False),
-            patch.object(OwnerConfigManager, "_load_config", wraps=None),
         ):
-            mgr = OwnerConfigManager()
+            # DB 无配置时返回空 dict，由上层回退到 SystemConfigService/env
+            assert self._bare_manager()._load_config_from_db() == {}
 
     def test_db_import_error(self) -> None:
-        with (
-            patch("apps.core.config.utils.get_feishu_category_configs", side_effect=ImportError("no module")),
-            patch.dict(os.environ, {}, clear=False),
-            patch.object(OwnerConfigManager, "_load_config", wraps=None),
-        ):
-            mgr = OwnerConfigManager()
+        with patch("apps.core.config.utils.get_feishu_category_configs", side_effect=ImportError("no module")):
+            # 导入异常被吞掉，返回空配置
+            assert self._bare_manager()._load_config_from_db() == {}
 
 
 class TestGetEffectiveOwnerId:

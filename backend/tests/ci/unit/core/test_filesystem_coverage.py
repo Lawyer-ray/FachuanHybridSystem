@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.core.filesystem.filesystem_service import FolderFilesystemService
 from apps.core.exceptions import ValidationException
+from apps.core.filesystem.filesystem_service import FolderFilesystemService
 
 
 class TestFolderFilesystemService:
@@ -46,8 +46,10 @@ class TestFolderFilesystemService:
             mock_parent.__truediv__ = MagicMock(return_value=child_candidate)
 
             MockPath.return_value = mock_path_obj
-            with patch("builtins.open", MagicMock()):
-                svc.save_bytes("/base", ["sub"], "test.txt", b"data")
+            with patch("builtins.open", MagicMock()) as mock_open:
+                result = svc.save_bytes("/base", ["sub"], "test.txt", b"data")
+        assert result == str(child_candidate)
+        mock_open.assert_called_once_with(str(child_candidate), "wb")
 
     def test_get_unique_path_no_conflict(self):
         svc, validator = self._make()

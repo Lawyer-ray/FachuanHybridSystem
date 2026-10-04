@@ -11,15 +11,14 @@ from apps.cases.services.case.case_access_policy import CaseAccessPolicy
 from apps.cases.services.case.case_command_service import CaseCommandService
 from apps.cases.services.case.case_query_service import CaseQueryService
 from apps.cases.services.case.case_search_service import CaseSearchService
-from apps.cases.services.log.caselog_service import CaseLogService
 from apps.cases.services.log.case_log_mutation_service import CaseLogMutationService
 from apps.cases.services.log.case_log_query_service import CaseLogQueryService
-from apps.cases.services.party.case_party_service import CasePartyService
+from apps.cases.services.log.caselog_service import CaseLogService
 from apps.cases.services.number.case_number_service import CaseNumberService
+from apps.cases.services.party.case_party_service import CasePartyService
 from apps.core.exceptions import ForbiddenError, NotFoundError, ValidationException
 from apps.core.security.access_context import AccessContext
 from apps.testing.factories import CaseFactory, CaseLogFactory, ClientFactory, ContractFactory, LawyerFactory
-
 
 # ── Fixtures ──
 
@@ -73,11 +72,12 @@ class TestCaseAccessPolicy:
             access_policy.ensure_access(case_id=1, user=None, org_access=None)
 
     def test_ensure_access_passes(self, access_policy, admin_user):
-        access_policy.ensure_access(case_id=1, user=admin_user, org_access=None)
+        # 管理员有权限，静默通过（返回 None）
+        assert access_policy.ensure_access(case_id=1, user=admin_user, org_access=None) is None
 
     def test_ensure_access_ctx(self, access_policy, admin_user):
         ctx = AccessContext(user=admin_user, org_access=None, perm_open_access=False)
-        access_policy.ensure_access_ctx(case_id=1, ctx=ctx)
+        assert access_policy.ensure_access_ctx(case_id=1, ctx=ctx) is None
 
     def test_can_access_authenticated(self, access_policy, lawyer):
         assert access_policy.can_access(lawyer)
@@ -110,7 +110,7 @@ class TestCaseAccessPolicy:
         assert result.count() >= 1
 
     def test_filter_queryset_no_allowed(self, access_policy, db):
-        from apps.organization.models import Lawyer, LawFirm
+        from apps.organization.models import LawFirm, Lawyer
 
         firm = LawFirm.objects.create(name="EmptyFirm")
         u = Lawyer.objects.create_user(username="nobody_case", password="p", law_firm=firm)
@@ -149,9 +149,7 @@ class TestCaseCommandService:
 
     def test_update_case(self, case_command_service, admin_user):
         c = CaseFactory()
-        updated = case_command_service.update_case(
-            c.pk, {"name": "Updated"}, user=admin_user, perm_open_access=True
-        )
+        updated = case_command_service.update_case(c.pk, {"name": "Updated"}, user=admin_user, perm_open_access=True)
         assert updated.name == "Updated"
 
     def test_update_case_not_found(self, case_command_service, admin_user):
@@ -211,8 +209,8 @@ class TestCaseCommandService:
             case_command_service._validate_stage("不存在的阶段", "civil")
 
     def test_validate_contract_no_service(self, case_command_service):
-        # No contract service, should pass silently
-        case_command_service._validate_contract(1)
+        # 未注入合同服务时跳过校验，静默通过
+        assert case_command_service._validate_contract(1) is None
 
 
 # ── CaseSearchService tests ──

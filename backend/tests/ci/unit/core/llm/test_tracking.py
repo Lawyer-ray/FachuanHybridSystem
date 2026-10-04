@@ -62,7 +62,7 @@ class TestRecordLlmCall:
                 side_effect=RuntimeError("db down"),
             ),
         ):
-            tracking.record_llm_call(**_write_kwargs())  # 不应抛出
+            assert tracking.record_llm_call(**_write_kwargs()) is None  # 不应抛出
 
     def test_caller_truncated_to_200(self) -> None:
         kwargs = _write_kwargs()
@@ -98,7 +98,7 @@ class TestArecordLlmCall:
                 side_effect=RuntimeError("db down"),
             ),
         ):
-            await tracking.arecord_llm_call(**_write_kwargs())  # 不应抛出
+            assert await tracking.arecord_llm_call(**_write_kwargs()) is None  # 不应抛出
 
 
 class TestIsTrackingEnabled:

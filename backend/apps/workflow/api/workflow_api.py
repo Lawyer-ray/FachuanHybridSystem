@@ -41,21 +41,12 @@ def _get_template_service() -> WorkflowTemplateService:
 
 async def _require_run_case_access(request: Any, run_id: int) -> None:
     """校验当前用户对工作流 run 所属案件的访问权（安全审计 IDOR）。"""
-    from asgiref.sync import sync_to_async
-    from ninja.errors import HttpError
-
-    from apps.cases.services.case.case_access_policy import CaseAccessPolicy
     from apps.core.security import get_request_access_context
-    from apps.workflow.models import WorkflowRun
+
+    from ..services.run_access_service import WorkflowRunAccessService
 
     ctx = get_request_access_context(request)
-    try:
-        case_id = await sync_to_async(
-            WorkflowRun.objects.values_list("case_id", flat=True).get, thread_sensitive=False
-        )(pk=run_id)
-    except WorkflowRun.DoesNotExist:
-        raise HttpError(404, f"工作流运行 #{run_id} 不存在") from None
-    await sync_to_async(CaseAccessPolicy().ensure_access_ctx, thread_sensitive=False)(case_id=case_id, ctx=ctx)
+    await WorkflowRunAccessService().ensure_run_case_access(run_id=run_id, ctx=ctx)
 
 
 @router.post("/start")

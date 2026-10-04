@@ -13,9 +13,11 @@ from apps.core.exceptions import NotFoundError, ValidationException
 
 # ── _normalize_scan_subfolder ─────────────────────────────────────
 
+
 class TestNormalizeScanSubfolder:
     def _make_service(self):
         from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
+
         return ContractFolderScanService()
 
     def test_empty_returns_empty(self):
@@ -71,9 +73,11 @@ class TestNormalizeScanSubfolder:
 
 # ── _is_within_root ───────────────────────────────────────────────
 
+
 class TestIsWithinRoot:
     def _make_service(self):
         from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
+
         return ContractFolderScanService()
 
     def test_within_root(self):
@@ -96,9 +100,11 @@ class TestIsWithinRoot:
 
 # ── _extract_scan_subfolder ───────────────────────────────────────
 
+
 class TestExtractScanSubfolder:
     def _make_service(self):
         from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
+
         return ContractFolderScanService()
 
     def test_none_payload(self):
@@ -120,16 +126,19 @@ class TestExtractScanSubfolder:
 
 # ── _ensure_contract_exists ───────────────────────────────────────
 
+
 class TestEnsureContractExists:
     def _make_service(self):
         from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
+
         return ContractFolderScanService()
 
     @patch("apps.contracts.services.contract.integrations.folder_scan_service.Contract")
     def test_exists(self, mock_contract):
         svc = self._make_service()
         mock_contract.objects.filter.return_value.exists.return_value = True
-        svc._ensure_contract_exists(1)  # Should not raise
+        # 合同存在时静默通过（返回 None）
+        assert svc._ensure_contract_exists(1) is None
 
     @patch("apps.contracts.services.contract.integrations.folder_scan_service.Contract")
     def test_not_found(self, mock_contract):
@@ -141,9 +150,11 @@ class TestEnsureContractExists:
 
 # ── _relative_path_str ────────────────────────────────────────────
 
+
 class TestRelativePathStr:
     def _make_service(self):
         from apps.contracts.services.contract.integrations._candidate_post_processor import CandidatePostProcessor
+
         return CandidatePostProcessor(scan_service=MagicMock())
 
     def test_unresolvable_path(self):
@@ -158,9 +169,11 @@ class TestRelativePathStr:
 
 # ── build_status_payload ──────────────────────────────────────────
 
+
 class TestBuildStatusPayload:
     def _make_service(self):
         from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
+
         return ContractFolderScanService()
 
     def test_basic_payload(self):
@@ -201,9 +214,11 @@ class TestBuildStatusPayload:
 
 # ── _resolve_scan_scope ───────────────────────────────────────────
 
+
 class TestResolveScanScope:
     def _make_service(self):
         from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
+
         return ContractFolderScanService()
 
     def test_empty_subfolder(self):
@@ -242,9 +257,11 @@ class TestResolveScanScope:
 
 # ── _get_accessible_binding ───────────────────────────────────────
 
+
 class TestGetAccessibleBinding:
     def _make_service(self):
         from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
+
         return ContractFolderScanService()
 
     @patch("apps.contracts.services.contract.integrations.folder_scan_service.ContractFolderBinding")
@@ -257,9 +274,11 @@ class TestGetAccessibleBinding:
 
 # ── _make_provider_for_binding ────────────────────────────────────
 
+
 class TestMakeProviderForBinding:
     def _make_service(self):
         from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
+
         return ContractFolderScanService()
 
     def test_local_returns_none(self):
@@ -281,14 +300,17 @@ class TestMakeProviderForBinding:
 
 # ── get_session / get_latest_session ──────────────────────────────
 
+
 class TestGetSession:
     def _make_service(self):
         from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
+
         return ContractFolderScanService()
 
     @patch("apps.contracts.services.contract.integrations.folder_scan_service.ContractFolderScanSession")
     def test_not_found_raises(self, mock_session):
         import uuid
+
         svc = self._make_service()
         mock_session.DoesNotExist = type("DoesNotExist", (Exception,), {})
         mock_session.objects.get.side_effect = mock_session.DoesNotExist
@@ -304,29 +326,36 @@ class TestGetSession:
 
 # ── _normalize_docx_name (module-level) ───────────────────────────
 
+
 class TestNormalizeDocxName:
     def test_strips_whitespace(self):
         from apps.contracts.services.contract.integrations.folder_scan_service import _normalize_docx_name
+
         assert _normalize_docx_name("  hello  world  ") == "helloworld"
 
     def test_lowercase(self):
         from apps.contracts.services.contract.integrations.folder_scan_service import _normalize_docx_name
+
         assert _normalize_docx_name("TEST.DOCX") == "test.docx"
 
     def test_empty(self):
         from apps.contracts.services.contract.integrations.folder_scan_service import _normalize_docx_name
+
         assert _normalize_docx_name("") == ""
 
     def test_none(self):
         from apps.contracts.services.contract.integrations.folder_scan_service import _normalize_docx_name
+
         assert _normalize_docx_name(None) == ""  # type: ignore[arg-type]
 
 
 # ── _QUALITY_CARD_TITLE constant ──────────────────────────────────
 
+
 class TestConstants:
     def test_quality_card_title(self):
         from apps.contracts.services.contract.integrations._import_pipeline import ImportPipeline
+
         assert "监督卡" in ImportPipeline._QUALITY_CARD_TITLE
 
     def test_active_statuses(self):
@@ -340,11 +369,14 @@ class TestConstants:
 
 # ── run_contract_folder_scan_task ──────────────────────────────────
 
+
 class TestRunContractFolderScanTask:
     def test_delegates_to_service(self):
         from apps.contracts.services.contract.integrations.folder_scan_service import run_contract_folder_scan_task
 
-        with patch("apps.contracts.services.contract.integrations.folder_scan_service.ContractFolderScanService") as mock_cls:
+        with patch(
+            "apps.contracts.services.contract.integrations.folder_scan_service.ContractFolderScanService"
+        ) as mock_cls:
             mock_instance = MagicMock()
             mock_cls.return_value = mock_instance
             run_contract_folder_scan_task("session-id-123")

@@ -161,6 +161,10 @@ class TestConfigSystemIntegrity:
         """apps.core.config 公共 API 全部可用。"""
         from apps.core.config import ConfigException, ConfigManager, get_config, get_config_manager
 
+        assert issubclass(ConfigException, Exception)
+        assert callable(get_config)
+        assert callable(get_config_manager)
+
     def test_get_config_manager_is_singleton(self) -> None:
         """get_config_manager() 返回单例。"""
         from apps.core.config import get_config_manager
@@ -252,6 +256,9 @@ class TestRetainedModulesStillWork:
         """from apps.core.utils import IdCardUtils, IdCardInfo 成功。"""
         from apps.core.utils import IdCardInfo, IdCardUtils
 
+        assert callable(IdCardUtils)
+        assert IdCardInfo is not None
+
     def test_utils_all_only_two_names(self) -> None:
         """apps.core.utils.__all__ 只保留 IdCardInfo/IdCardUtils。"""
         from apps.core import utils
@@ -262,9 +269,14 @@ class TestRetainedModulesStillWork:
         """utils 子模块全部可用。"""
         from apps.core.utils import id_card_utils, path, startup_db, validators
 
+        assert all(mod is not None for mod in (id_card_utils, path, startup_db, validators))
+
     def test_id_card_utils_functional(self) -> None:
         """IdCardUtils 可实际调用。"""
         from apps.core.utils import IdCardInfo, IdCardUtils
+
+        assert callable(IdCardUtils)
+        assert IdCardInfo is not None
 
         result = IdCardUtils.validate_id_card("11010519491231002X")
         assert isinstance(result, dict)
@@ -350,11 +362,15 @@ class TestQclusterSpawnPatch:
         """patch 函数可导入。"""
         from apps.core.tasking.qcluster_spawn import patch_django_q_mp_context_for_macos
 
+        assert callable(patch_django_q_mp_context_for_macos)
+
     def test_patch_is_idempotent_and_sets_attr(self) -> None:
         """调用后 get_mp_context 被替换且带 _fachuan_spawn_patched；重复调用幂等。"""
         from django_q import cluster as django_q_cluster
 
         from apps.core.tasking.qcluster_spawn import patch_django_q_mp_context_for_macos
+
+        assert callable(patch_django_q_mp_context_for_macos)
 
         # 保存原始状态以便恢复
         original = django_q_cluster.get_mp_context

@@ -1,4 +1,5 @@
 """提醒验证器和解析器单元测试。"""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -20,14 +21,14 @@ from apps.reminders.services.validators import (
     normalize_content,
     normalize_due_at,
     normalize_metadata,
-    normalize_target_id,
     normalize_reminder_type,
+    normalize_target_id,
     validate_binding_exclusive,
     validate_positive_id,
 )
 
-
 # ── normalize_target_id ────────────────────────────────────────────────────
+
 
 def test_normalize_target_id_none() -> None:
     """None 返回 None。"""
@@ -59,9 +60,10 @@ def test_normalize_target_id_bool() -> None:
 
 # ── validate_positive_id ───────────────────────────────────────────────────
 
+
 def test_validate_positive_id_valid() -> None:
-    """正整数不抛出异常。"""
-    validate_positive_id(1, field_name="id")
+    """正整数不抛出异常且返回 None。"""
+    assert validate_positive_id(1, field_name="id") is None
 
 
 def test_validate_positive_id_zero() -> None:
@@ -84,14 +86,15 @@ def test_validate_positive_id_bool() -> None:
 
 # ── validate_binding_exclusive ─────────────────────────────────────────────
 
+
 def test_binding_exclusive_none_all() -> None:
     """全部 None 不抛出异常。"""
-    validate_binding_exclusive(contract_id=None, case_id=None, case_log_id=None)
+    assert validate_binding_exclusive(contract_id=None, case_id=None, case_log_id=None) is None
 
 
 def test_binding_exclusive_one_bound() -> None:
     """绑定一个不抛出异常。"""
-    validate_binding_exclusive(contract_id=1, case_id=None, case_log_id=None)
+    assert validate_binding_exclusive(contract_id=1, case_id=None, case_log_id=None) is None
 
 
 def test_binding_exclusive_two_bound() -> None:
@@ -107,6 +110,7 @@ def test_binding_exclusive_three_bound() -> None:
 
 
 # ── normalize_reminder_type ────────────────────────────────────────────────
+
 
 def test_normalize_reminder_type_valid() -> None:
     """有效类型正常返回。"""
@@ -127,6 +131,7 @@ def test_normalize_reminder_type_invalid() -> None:
 
 
 # ── normalize_content ──────────────────────────────────────────────────────
+
 
 def test_normalize_content_valid() -> None:
     """有效内容正常返回。"""
@@ -152,6 +157,7 @@ def test_normalize_content_too_long() -> None:
 
 # ── normalize_due_at ───────────────────────────────────────────────────────
 
+
 def test_normalize_due_at_naive_makes_aware() -> None:
     """naive datetime 被转为 aware。"""
     naive = datetime(2024, 6, 15, 10, 0, 0)
@@ -167,6 +173,7 @@ def test_normalize_due_at_aware_unchanged() -> None:
 
 
 # ── normalize_metadata ─────────────────────────────────────────────────────
+
 
 def test_normalize_metadata_none() -> None:
     """None 返回空字典。"""
@@ -192,6 +199,7 @@ def test_normalize_metadata_non_serializable() -> None:
 
 
 # ── _infer_reminder_type ───────────────────────────────────────────────────
+
 
 def test_infer_type_hearing() -> None:
     """开庭关键词推断为 hearing。"""
@@ -235,6 +243,7 @@ def test_infer_type_submission() -> None:
 
 # ── _parse_date ────────────────────────────────────────────────────────────
 
+
 def test_parse_date_dash_format() -> None:
     """YYYY-MM-DD 格式。"""
     result = _parse_date("2024-06-15")
@@ -276,6 +285,7 @@ def test_parse_date_empty() -> None:
 
 # ── _extract_time_near_date ────────────────────────────────────────────────
 
+
 def test_extract_time_pm() -> None:
     """下午时间解析。"""
     text = "2024-06-15下午3点开庭"
@@ -310,6 +320,7 @@ def test_extract_time_no_time() -> None:
 
 
 # ── parse_reminders_from_text ──────────────────────────────────────────────
+
 
 def test_parse_reminders_basic() -> None:
     """基本提醒解析。"""
@@ -347,6 +358,7 @@ def test_parse_reminders_dedup_same_date() -> None:
 
 # ── _extract_sentence ──────────────────────────────────────────────────────
 
+
 def test_extract_sentence_basic() -> None:
     """基本句子提取。"""
     text = "2024年6月15日开庭，请准时到庭。"
@@ -355,6 +367,7 @@ def test_extract_sentence_basic() -> None:
 
 
 # ── _generate_content ──────────────────────────────────────────────────────
+
 
 def test_generate_content_short() -> None:
     """短句子不截断。"""

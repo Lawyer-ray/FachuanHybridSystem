@@ -965,8 +965,8 @@ class TestProcessReview:
             mock_repo = MagicMock()
             mock_repo.get_by_id.return_value = None
             mock_repo_cls.return_value = mock_repo
-            # Should not raise
-            process_review(str(uuid.uuid4()))
+            # 任务不存在时静默返回，不抛异常
+            assert process_review(str(uuid.uuid4())) is None
 
     def test_process_review_task_already_completed(self):
         from apps.contract_review.services.review.review_service import process_review
@@ -977,5 +977,5 @@ class TestProcessReview:
             mock_task.status = "completed"
             mock_repo.get_by_id.return_value = mock_task
             mock_repo_cls.return_value = mock_repo
-            # Should not raise, just skip
-            process_review(str(uuid.uuid4()))
+            # 已完成的任务直接跳过，不重复处理
+            assert process_review(str(uuid.uuid4())) is None

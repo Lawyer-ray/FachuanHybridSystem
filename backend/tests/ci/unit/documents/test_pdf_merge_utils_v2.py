@@ -67,7 +67,9 @@ class TestConvertViaLibreoffice:
         docx_path = str(tmp_path / "test.docx")
         Path(docx_path).write_bytes(b"PKfake")
 
-        with patch("apps.documents.services.infrastructure.pdf_merge_utils._find_libreoffice", return_value="/usr/bin/soffice"):
+        with patch(
+            "apps.documents.services.infrastructure.pdf_merge_utils._find_libreoffice", return_value="/usr/bin/soffice"
+        ):
             with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="soffice", timeout=60)):
                 with patch("tempfile.mkdtemp", return_value=str(tmp_path / "out")):
                     os.makedirs(tmp_path / "out", exist_ok=True)
@@ -80,7 +82,9 @@ class TestConvertViaLibreoffice:
         docx_path = str(tmp_path / "test.docx")
         Path(docx_path).write_bytes(b"PKfake")
 
-        with patch("apps.documents.services.infrastructure.pdf_merge_utils._find_libreoffice", return_value="/usr/bin/soffice"):
+        with patch(
+            "apps.documents.services.infrastructure.pdf_merge_utils._find_libreoffice", return_value="/usr/bin/soffice"
+        ):
             with patch("subprocess.run", return_value=MagicMock(returncode=1, stderr="error")):
                 with patch("tempfile.mkdtemp", return_value=str(tmp_path / "out")):
                     os.makedirs(tmp_path / "out", exist_ok=True)
@@ -93,7 +97,9 @@ class TestConvertViaLibreoffice:
         docx_path = str(tmp_path / "test.docx")
         Path(docx_path).write_bytes(b"PKfake")
 
-        with patch("apps.documents.services.infrastructure.pdf_merge_utils._find_libreoffice", return_value="/usr/bin/soffice"):
+        with patch(
+            "apps.documents.services.infrastructure.pdf_merge_utils._find_libreoffice", return_value="/usr/bin/soffice"
+        ):
             with patch("subprocess.run", return_value=MagicMock(returncode=0, stderr="")):
                 with patch("tempfile.mkdtemp", return_value=str(tmp_path / "empty")):
                     os.makedirs(tmp_path / "empty", exist_ok=True)
@@ -121,7 +127,9 @@ class TestConvertViaLibreoffice:
         # Get a real fd for mkstemp to return so os.close() doesn't fail
         real_fd = os.open(os.devnull, os.O_RDONLY)
 
-        with patch("apps.documents.services.infrastructure.pdf_merge_utils._find_libreoffice", return_value="/usr/bin/soffice"):
+        with patch(
+            "apps.documents.services.infrastructure.pdf_merge_utils._find_libreoffice", return_value="/usr/bin/soffice"
+        ):
             with patch("subprocess.run", return_value=MagicMock(returncode=0, stderr="")):
                 with patch("tempfile.mkdtemp", return_value=output_dir):
                     with patch("tempfile.mkstemp", return_value=(real_fd, final_path)):
@@ -169,7 +177,10 @@ class TestConvertDocxToPdf:
                     mock_doc_instance = MagicMock()
                     mock_doc_instance.paragraphs = [MagicMock(text="Hello")]
                     mock_doc.return_value = mock_doc_instance
-                    with patch("tempfile.mkstemp", return_value=(3, str(tmp_path / "out.pdf"))):
+                    # 必须用真实 fd：生产代码会 os.close(fd)，写死 3 会误关
+                    # pytest 捕获用的文件描述符导致 teardown 崩溃
+                    real_fd = os.open(os.devnull, os.O_RDONLY)
+                    with patch("tempfile.mkstemp", return_value=(real_fd, str(tmp_path / "out.pdf"))):
                         result = convert_docx_to_pdf(docx_path)
 
         assert result is not None

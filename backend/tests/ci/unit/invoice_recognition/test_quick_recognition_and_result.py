@@ -1,4 +1,5 @@
 """Tests for invoice_recognition: quick_recognition_service and recognition_result."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -10,7 +11,6 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from apps.invoice_recognition.services.invoice_parser import InvoiceParser, ParsedInvoice
 from apps.invoice_recognition.services.quick_recognition_service import QuickRecognitionService
 from apps.invoice_recognition.services.recognition_result import RecognitionResult
-
 
 # ---------------------------------------------------------------------------
 # RecognitionResult
@@ -49,13 +49,13 @@ class TestQuickRecognitionValidateFile:
     def test_valid_pdf(self) -> None:
         svc = self._svc()
         f = SimpleUploadedFile("test.pdf", b"content", content_type="application/pdf")
-        # Should not raise
-        svc._validate_file(f)
+        # 合法文件静默通过（返回 None）
+        assert svc._validate_file(f) is None
 
     def test_valid_jpg(self) -> None:
         svc = self._svc()
         f = SimpleUploadedFile("test.jpg", b"content", content_type="image/jpeg")
-        svc._validate_file(f)
+        assert svc._validate_file(f) is None
 
     def test_invalid_extension(self) -> None:
         svc = self._svc()

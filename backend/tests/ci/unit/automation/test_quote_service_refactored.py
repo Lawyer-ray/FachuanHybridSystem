@@ -26,6 +26,7 @@ from plugins.court_automation.preservation_quote.service import PreservationQuot
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_service() -> PreservationQuoteService:
     """Create PreservationQuoteService with mocked dependencies."""
     return PreservationQuoteService(
@@ -39,17 +40,21 @@ def _make_service() -> PreservationQuoteService:
 # _validate_create_params
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestValidateCreateParams:
     """Test _validate_create_params pure validation logic."""
 
     def test_valid_params_pass(self) -> None:
         """Valid params do not raise."""
         svc = _make_service()
-        svc._validate_create_params(
-            preserve_amount=Decimal("10000"),
-            corp_id="2550",
-            category_id="127000",
-            credential_id=1,
+        assert (
+            svc._validate_create_params(
+                preserve_amount=Decimal("10000"),
+                corp_id="2550",
+                category_id="127000",
+                credential_id=1,
+            )
+            is None
         )
 
     def test_zero_amount_raises(self) -> None:
@@ -132,11 +137,14 @@ class TestValidateCreateParams:
     def test_none_credential_id_passes(self) -> None:
         """None credential_id is accepted."""
         svc = _make_service()
-        svc._validate_create_params(
-            preserve_amount=Decimal("10000"),
-            corp_id="2550",
-            category_id="127000",
-            credential_id=None,  # type: ignore[arg-type]
+        assert (
+            svc._validate_create_params(
+                preserve_amount=Decimal("10000"),
+                corp_id="2550",
+                category_id="127000",
+                credential_id=None,  # type: ignore[arg-type]
+            )
+            is None
         )
 
     def test_multiple_errors_collected(self) -> None:
@@ -148,7 +156,7 @@ class TestValidateCreateParams:
                 corp_id="",
                 category_id="",
                 credential_id=-1,
-        )
+            )
         errors = exc_info.value.errors
         assert "preserve_amount" in errors
         assert "corp_id" in errors
@@ -158,27 +166,34 @@ class TestValidateCreateParams:
     def test_large_amount_passes(self) -> None:
         """Large valid amount passes."""
         svc = _make_service()
-        svc._validate_create_params(
-            preserve_amount=Decimal("999999999999"),
-            corp_id="2550",
-            category_id="127000",
-            credential_id=1,
+        assert (
+            svc._validate_create_params(
+                preserve_amount=Decimal("999999999999"),
+                corp_id="2550",
+                category_id="127000",
+                credential_id=1,
+            )
+            is None
         )
 
     def test_small_positive_amount_passes(self) -> None:
         """Smallest positive amount passes."""
         svc = _make_service()
-        svc._validate_create_params(
-            preserve_amount=Decimal("0.01"),
-            corp_id="2550",
-            category_id="127000",
-            credential_id=1,
+        assert (
+            svc._validate_create_params(
+                preserve_amount=Decimal("0.01"),
+                corp_id="2550",
+                category_id="127000",
+                credential_id=1,
+            )
+            is None
         )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # determine_quote_status (from execute_quote)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestExecuteQuoteStatusLogic:
     """Test the status determination logic from execute_quote."""
@@ -219,6 +234,7 @@ class TestExecuteQuoteStatusLogic:
 # ═══════════════════════════════════════════════════════════════════════════
 # list_quotes validation
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestListQuotesValidation:
     """Test list_quotes parameter validation logic."""

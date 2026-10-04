@@ -196,10 +196,14 @@ class TestReminderAdminCalendarViewMethods:
         request.GET = {}
         request.META = {"SERVER_NAME": "localhost", "SERVER_PORT": "80"}
         with patch("apps.reminders.admin.reminder_admin.reverse", return_value="/admin/calendar/"):
-            with patch.object(ReminderAdmin, "changelist_view", wraps=ReminderAdmin.changelist_view) as wrapped:
-                # This will call super().changelist_view which needs a real model
-                # Just test the context update path
-                pass
+            with patch("django.contrib.admin.ModelAdmin.changelist_view", return_value=MagicMock()) as super_view:
+                response = admin.changelist_view(request, extra_context={"foo": "bar"})
+        assert response is super_view.return_value
+        # changelist_view 必须透传扩展上下文并注入 calendar_url
+        super_view.assert_called_once()
+        passed_context = super_view.call_args.kwargs["extra_context"]
+        assert passed_context["foo"] == "bar"
+        assert passed_context["calendar_url"] == "/admin/calendar/"
 
     def test_calendar_create_view_not_post(self) -> None:
         admin = self._make_admin()

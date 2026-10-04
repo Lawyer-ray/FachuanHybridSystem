@@ -12,6 +12,7 @@ from django.utils import timezone
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -141,7 +142,9 @@ class TestBlacklistManagement:
 
     def test_remove_nonexistent(self) -> None:
         strategy = AccountSelectionStrategy()
-        strategy.remove_from_blacklist("nonexistent@test.com")  # Should not raise
+        # 移除不存在的账号应静默 no-op，黑名单保持为空
+        strategy.remove_from_blacklist("nonexistent@test.com")
+        assert "nonexistent@test.com" not in strategy.get_blacklist()
 
     def test_clear_blacklist(self) -> None:
         strategy = AccountSelectionStrategy()
@@ -254,4 +257,7 @@ class TestUpdateAccountStatistics:
             mock_locator.get_organization_service.return_value = org_svc
             org_svc.get_credential_by_account.side_effect = Exception("db error")
             # Should not raise
-            await strategy.update_account_statistics("test@test.com", "court", success=True)
+            result = await strategy.update_account_statistics("test@test.com", "court", success=True)
+            # 异常被吞掉，静默返回 None
+            assert result is None
+            org_svc.get_credential_by_account.assert_called_once()

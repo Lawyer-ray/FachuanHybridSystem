@@ -301,9 +301,7 @@ class TestCaseLogVersionModel:
         case = Case.objects.create(name="ver案件", contract=contract)
         lawyer = Lawyer.objects.create_user(username="ver_actor", real_name="律师")
         log = CaseLog.objects.create(case=case, actor=lawyer, content="版本日志")
-        version = CaseLogVersion.objects.create(
-            log=log, content="旧内容", actor=lawyer
-        )
+        version = CaseLogVersion.objects.create(log=log, content="旧内容", actor=lawyer)
         result = str(version)
         assert str(log.id) in result
 
@@ -351,9 +349,7 @@ class TestSupervisingAuthorityModelExtended:
 
     def test_str_with_name_and_type(self) -> None:
         case = self._make_case()
-        auth = SupervisingAuthority.objects.create(
-            case=case, name="北京法院", authority_type="trial"
-        )
+        auth = SupervisingAuthority.objects.create(case=case, name="北京法院", authority_type="trial")
         result = str(auth)
         assert "北京法院" in result
 
@@ -422,7 +418,8 @@ class TestCaseModelExtended:
             contract=contract,
             current_stage="first_trial",
         )
-        case.clean()  # Should not raise
+        # 合法阶段应静默通过（返回 None）
+        assert case.clean() is None
 
     def test_clean_invalid_stage_raises(self) -> None:
         contract = Contract.objects.create(name="clean_invalid合同", case_type="civil")
@@ -437,7 +434,8 @@ class TestCaseModelExtended:
     def test_clean_no_stage(self) -> None:
         contract = Contract.objects.create(name="clean_none合同", case_type="civil")
         case = Case(name="clean_none案件", contract=contract, current_stage=None)
-        case.clean()  # Should not raise
+        # 无阶段时跳过校验，静默通过
+        assert case.clean() is None
 
 
 # ── Material Models ─────────────────────────────────────────────────────────
@@ -520,18 +518,14 @@ class TestCaseFolderBindingModel:
     def test_str(self) -> None:
         contract = Contract.objects.create(name="folder合同", case_type="civil")
         case = Case.objects.create(name="folder案件", contract=contract)
-        binding = CaseFolderBinding.objects.create(
-            case=case, folder_path="/data/cases/folder案件"
-        )
+        binding = CaseFolderBinding.objects.create(case=case, folder_path="/data/cases/folder案件")
         result = str(binding)
         assert "folder案件" in result
 
     def test_resolved_folder_path_no_relative(self) -> None:
         contract = Contract.objects.create(name="resolved合同", case_type="civil")
         case = Case.objects.create(name="resolved案件", contract=contract)
-        binding = CaseFolderBinding.objects.create(
-            case=case, folder_path="/data/folder"
-        )
+        binding = CaseFolderBinding.objects.create(case=case, folder_path="/data/folder")
         assert binding.resolved_folder_path == "/data/folder"
 
     def test_resolved_folder_path_with_relative(self) -> None:
@@ -551,18 +545,14 @@ class TestCaseFolderBindingModel:
     def test_folder_path_display_short(self) -> None:
         contract = Contract.objects.create(name="short合同", case_type="civil")
         case = Case.objects.create(name="short案件", contract=contract)
-        binding = CaseFolderBinding.objects.create(
-            case=case, folder_path="/short"
-        )
+        binding = CaseFolderBinding.objects.create(case=case, folder_path="/short")
         assert binding.folder_path_display == "/short"
 
     def test_folder_path_display_long_truncated(self) -> None:
         contract = Contract.objects.create(name="long合同", case_type="civil")
         case = Case.objects.create(name="long案件", contract=contract)
         long_path = "/data/" + "a" * 100
-        binding = CaseFolderBinding.objects.create(
-            case=case, folder_path=long_path
-        )
+        binding = CaseFolderBinding.objects.create(case=case, folder_path=long_path)
         result = binding.folder_path_display
         assert "..." in result
         assert len(result) <= 50
@@ -570,9 +560,7 @@ class TestCaseFolderBindingModel:
     def test_resolved_folder_path_no_contract(self) -> None:
         """Case with no contract falls back to folder_path."""
         case = Case.objects.create(name="no_contract案件", contract=None)
-        binding = CaseFolderBinding.objects.create(
-            case=case, folder_path="/fallback"
-        )
+        binding = CaseFolderBinding.objects.create(case=case, folder_path="/fallback")
         assert binding.resolved_folder_path == "/fallback"
 
 
@@ -587,9 +575,7 @@ class TestCasePartyModelExtended:
         contract = Contract.objects.create(name="party_str合同", case_type="civil")
         case = Case.objects.create(name="party_str案件", contract=contract)
         client = Client.objects.create(name="当事人A", client_type="natural")
-        party = CaseParty.objects.create(
-            case=case, client=client, legal_status="plaintiff"
-        )
+        party = CaseParty.objects.create(case=case, client=client, legal_status="plaintiff")
         result = str(party)
         assert str(case.id) in result
         assert str(client.id) in result
@@ -656,10 +642,10 @@ class TestValidateLogAttachmentFunction:
         mock_file = MagicMock()
         mock_file.name = "test.pdf"
         mock_file.size = 1024
-        # Should not raise
+        # 合法文件静默通过（返回 None）
         from apps.cases.models.log import validate_log_attachment
 
-        validate_log_attachment(mock_file)
+        assert validate_log_attachment(mock_file) is None
 
     def test_invalid_extension_raises(self) -> None:
         mock_file = MagicMock()

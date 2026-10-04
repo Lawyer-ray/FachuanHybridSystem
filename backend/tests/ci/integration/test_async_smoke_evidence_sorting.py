@@ -37,6 +37,14 @@ class TestEvidenceSortingSmoke:
             )
 
         assert resp.status_code in (200, 201), f"Classify failed: {resp.content}"
+        # 响应信封 + 本用例 mock 的图片锚点
+        data = resp.json()
+        assert data["success"] is True
+        assert len(data["images"]) == 1
+        assert data["images"][0]["filename"] == "stmt.jpg"
+        assert data["images"][0]["category"] == "statement"
+        assert data["images"][0]["amount"] == "50000"
+        assert data["errors"] == []
 
     def test_classify_empty_images(self, authenticated_client):
         """Classifying with no images should return an error or empty result."""
@@ -47,3 +55,8 @@ class TestEvidenceSortingSmoke:
         )
         # Should return 200 with success=False or 400
         assert resp.status_code in (200, 400, 422)
+        # 空图片列表：200 信封内 success=False + 明确原因（不触发分类服务）
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["success"] is False
+        assert "图片" in body["message"]

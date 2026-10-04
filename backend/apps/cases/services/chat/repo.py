@@ -73,7 +73,8 @@ class CaseChatRepository:
                 chat_id=chat_id,
                 name=name,
                 is_active=is_active,
-                owner_id=owner_id,
+                # owner_id 字段非空（空串表示未知群主），None 统一收敛为空串
+                owner_id=owner_id or "",
                 owner_verified=owner_verified,
                 creation_audit_log=creation_audit_log or {},
             )

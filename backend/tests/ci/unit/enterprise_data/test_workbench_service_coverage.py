@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock, patch, PropertyMock
 from typing import Any
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -55,7 +55,7 @@ class TestEnsureSuperuser:
         with patch("apps.enterprise_data.services.workbench.service.EnterpriseProviderRegistry"):
             with patch("apps.enterprise_data.services.workbench.service.EnterpriseDataMetricsService"):
                 svc = McpWorkbenchService(enforce_superuser=False)
-                svc._ensure_superuser(actor_is_superuser=False)  # Should not raise
+                assert svc._ensure_superuser(actor_is_superuser=False) is None  # Should not raise
 
     def test_is_superuser_passes(self):
         from apps.enterprise_data.services.workbench.service import McpWorkbenchService
@@ -63,7 +63,7 @@ class TestEnsureSuperuser:
         with patch("apps.enterprise_data.services.workbench.service.EnterpriseProviderRegistry"):
             with patch("apps.enterprise_data.services.workbench.service.EnterpriseDataMetricsService"):
                 svc = McpWorkbenchService(enforce_superuser=True)
-                svc._ensure_superuser(actor_is_superuser=True)
+                assert svc._ensure_superuser(actor_is_superuser=True) is None
 
     def test_not_superuser_raises(self):
         from apps.core.exceptions import PermissionDenied

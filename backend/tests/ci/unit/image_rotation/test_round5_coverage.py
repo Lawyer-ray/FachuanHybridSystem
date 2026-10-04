@@ -558,7 +558,8 @@ class TestValidateFileSize:
     def test_ok(self):
         from apps.image_rotation.services.validation import validate_file_size
 
-        validate_file_size(image_bytes=b"x" * 100, max_file_size=1000)
+        # 未超限静默通过（返回 None）
+        assert validate_file_size(image_bytes=b"x" * 100, max_file_size=1000) is None
 
     def test_too_large(self):
         from apps.image_rotation.services.validation import validate_file_size

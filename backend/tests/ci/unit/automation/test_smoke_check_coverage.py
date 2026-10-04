@@ -43,6 +43,12 @@ class TestMaybeSwitchSqliteDb:
             mock_conn.all.return_value = []
 
             cmd._maybe_switch_sqlite_db("/tmp/test.db")
+            # sqlite 引擎下应切换 DB：建父目录 + 记录路径 + 关闭连接
+            mock_path_cls.assert_called_once_with("/tmp/test.db")
+            mock_path_instance.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
+            assert cmd._database_path is not None
+            assert mock_settings.DATABASES["default"]["NAME"] is not None
+            mock_conn.all.assert_called_once()
 
 
 class TestEnsureSmokeSuperuser:
@@ -112,6 +118,8 @@ class TestCheckAdminPages:
         client = MagicMock()
         client.get.return_value = MagicMock(status_code=200)
         cmd._check_admin_pages(client)
+        # 三个 admin 页面全部 GET 且状态码 200，不抛 CommandError
+        assert client.get.call_count == 3
 
     def test_failure_raises(self):
         from django.core.management.base import CommandError
@@ -135,8 +143,10 @@ class TestCheckWebsocket:
         cmd = self._cmd()
         client = MagicMock()
         user = MagicMock()
-        # Should not raise
-        cmd._check_websocket(client, user)
+        # websocket 已下线：应为 no-op 且不触碰 client/user
+        result = cmd._check_websocket(client, user)
+        assert result is None
+        client.get.assert_not_called()
 
 
 class TestCheckDiskSpace:

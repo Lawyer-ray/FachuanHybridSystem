@@ -82,9 +82,8 @@ class TestOCRRuntimeProfile:
         assert profile.workers == 4
 
     def test_frozen(self) -> None:
+        import pytest
+
         profile = OCRRuntimeProfile(key="test", use_v5=False, dpi=150, workers=1)
-        try:
+        with pytest.raises(AttributeError):
             profile.key = "changed"  # type: ignore
-            raise AssertionError("应抛出异常")
-        except AttributeError:
-            pass

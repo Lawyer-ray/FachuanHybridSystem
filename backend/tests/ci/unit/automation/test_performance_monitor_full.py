@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -98,9 +99,11 @@ class TestPerformanceMonitor:
     def test_record_acquisition_end_success(self, mock_cache: MagicMock) -> None:
         pm = self._make_monitor()
         # Mock _update_counters and _decrement_concurrent_count to avoid complex cache.get sequencing
-        with patch.object(pm, "_update_counters"), \
-             patch.object(pm, "_check_alerts"), \
-             patch.object(pm, "_decrement_concurrent_count"):
+        with (
+            patch.object(pm, "_update_counters"),
+            patch.object(pm, "_check_alerts"),
+            patch.object(pm, "_decrement_concurrent_count"),
+        ):
             mock_cache.get.return_value = {"site_name": "site", "account": "acct"}
             pm.record_acquisition_end("id1", success=True, duration=5.0, login_duration=2.0)
             mock_cache.set.assert_called()  # updated acquisition data
@@ -108,35 +111,51 @@ class TestPerformanceMonitor:
     @patch("plugins.court_automation.token.performance_monitor.cache")
     def test_record_acquisition_end_failure(self, mock_cache: MagicMock) -> None:
         pm = self._make_monitor()
-        with patch.object(pm, "_update_counters"), \
-             patch.object(pm, "_check_alerts"), \
-             patch.object(pm, "_decrement_concurrent_count"):
+        with patch.object(pm, "_update_counters"), patch.object(pm, "_decrement_concurrent_count"):
             mock_cache.get.return_value = None
             pm.record_acquisition_end("id1", success=False, duration=5.0, error_type="timeout")
+            # 无采集数据时跳过回写，不应有 cache.set
+            mock_cache.set.assert_not_called()
 
     @patch("plugins.court_automation.token.performance_monitor.cache")
     def test_record_acquisition_end_high_duration_alert(self, mock_cache: MagicMock) -> None:
         pm = self._make_monitor()
-        with patch.object(pm, "_update_counters"), \
-             patch.object(pm, "_check_alerts") as mock_alerts, \
-             patch.object(pm, "_decrement_concurrent_count"):
+        with (
+            patch.object(pm, "_update_counters"),
+            patch.object(pm, "_check_alerts") as mock_alerts,
+            patch.object(pm, "_decrement_concurrent_count"),
+        ):
             mock_cache.get.return_value = {"site_name": "s"}
             pm.record_acquisition_end("id1", success=True, duration=200.0)
             mock_alerts.assert_called_once()
 
     # ─── get_real_time_metrics ───
 
-    @patch("plugins.court_automation.token.performance_monitor.performance_monitor._get_average_durations", return_value=(10.0, 5.0))
-    @patch("plugins.court_automation.token.performance_monitor.performance_monitor._get_concurrent_count", return_value=2)
+    @patch(
+        "plugins.court_automation.token.performance_monitor.performance_monitor._get_average_durations",
+        return_value=(10.0, 5.0),
+    )
+    @patch(
+        "plugins.court_automation.token.performance_monitor.performance_monitor._get_concurrent_count", return_value=2
+    )
     @patch("plugins.court_automation.token.performance_monitor.cache")
     def test_get_real_time_metrics(self, mock_cache: MagicMock, mock_conc: MagicMock, mock_dur: MagicMock) -> None:
         pm = self._make_monitor()
         pm._cache_stats = {"hits": 5, "misses": 5, "total_requests": 10}
         # Mock _get_counters
-        with patch.object(pm, "_get_counters", return_value={
-            "total": 10, "success": 8, "failed": 2,
-            "timeout": 1, "network_error": 0, "captcha_error": 0, "credential_error": 0,
-        }):
+        with patch.object(
+            pm,
+            "_get_counters",
+            return_value={
+                "total": 10,
+                "success": 8,
+                "failed": 2,
+                "timeout": 1,
+                "network_error": 0,
+                "captcha_error": 0,
+                "credential_error": 0,
+            },
+        ):
             metrics = pm.get_real_time_metrics()
             assert metrics.total_acquisitions == 10
             assert metrics.success_rate == 80.0
@@ -149,8 +168,12 @@ class TestPerformanceMonitor:
         pm = self._make_monitor()
         mock_tz.now.return_value = datetime(2025, 1, 1)
         mock_metrics = PerformanceMetrics(
-            total_acquisitions=100, success_rate=95.0, avg_duration=30.0,
-            concurrent_acquisitions=2, cache_hit_rate=85.0, timeout_count=1,
+            total_acquisitions=100,
+            success_rate=95.0,
+            avg_duration=30.0,
+            concurrent_acquisitions=2,
+            cache_hit_rate=85.0,
+            timeout_count=1,
         )
         with patch.object(pm, "get_real_time_metrics", return_value=mock_metrics):
             result = pm.check_health()
@@ -161,8 +184,12 @@ class TestPerformanceMonitor:
         pm = self._make_monitor()
         mock_tz.now.return_value = datetime(2025, 1, 1)
         mock_metrics = PerformanceMetrics(
-            total_acquisitions=100, success_rate=50.0, avg_duration=30.0,
-            concurrent_acquisitions=2, cache_hit_rate=85.0, timeout_count=1,
+            total_acquisitions=100,
+            success_rate=50.0,
+            avg_duration=30.0,
+            concurrent_acquisitions=2,
+            cache_hit_rate=85.0,
+            timeout_count=1,
         )
         with patch.object(pm, "get_real_time_metrics", return_value=mock_metrics):
             result = pm.check_health()
@@ -173,8 +200,12 @@ class TestPerformanceMonitor:
         pm = self._make_monitor()
         mock_tz.now.return_value = datetime(2025, 1, 1)
         mock_metrics = PerformanceMetrics(
-            total_acquisitions=100, success_rate=90.0, avg_duration=200.0,
-            concurrent_acquisitions=10, cache_hit_rate=85.0, timeout_count=1,
+            total_acquisitions=100,
+            success_rate=90.0,
+            avg_duration=200.0,
+            concurrent_acquisitions=10,
+            cache_hit_rate=85.0,
+            timeout_count=1,
         )
         with patch.object(pm, "get_real_time_metrics", return_value=mock_metrics):
             result = pm.check_health()
@@ -185,8 +216,12 @@ class TestPerformanceMonitor:
         pm = self._make_monitor()
         mock_tz.now.return_value = datetime(2025, 1, 1)
         mock_metrics = PerformanceMetrics(
-            total_acquisitions=100, success_rate=90.0, avg_duration=30.0,
-            concurrent_acquisitions=2, cache_hit_rate=30.0, timeout_count=1,
+            total_acquisitions=100,
+            success_rate=90.0,
+            avg_duration=30.0,
+            concurrent_acquisitions=2,
+            cache_hit_rate=30.0,
+            timeout_count=1,
         )
         with patch.object(pm, "get_real_time_metrics", return_value=mock_metrics):
             result = pm.check_health()
@@ -197,8 +232,12 @@ class TestPerformanceMonitor:
         pm = self._make_monitor()
         mock_tz.now.return_value = datetime(2025, 1, 1)
         mock_metrics = PerformanceMetrics(
-            total_acquisitions=100, success_rate=90.0, avg_duration=30.0,
-            concurrent_acquisitions=2, cache_hit_rate=85.0, timeout_count=20,
+            total_acquisitions=100,
+            success_rate=90.0,
+            avg_duration=30.0,
+            concurrent_acquisitions=2,
+            cache_hit_rate=85.0,
+            timeout_count=20,
         )
         with patch.object(pm, "get_real_time_metrics", return_value=mock_metrics):
             result = pm.check_health()
@@ -290,13 +329,18 @@ class TestPerformanceMonitor:
 
     # ─── _check_alerts ───
 
-    def test_check_alerts_high_duration(self) -> None:
-        pm = self._make_monitor()
-        with patch.object(pm, "_check_alerts") as mock_check:
-            mock_check.return_value = None
-            # Call through to the real method
-            pm._check_alerts("id1", True, 200.0, None)
+    def test_check_alerts_high_duration(self, caplog: pytest.LogCaptureFixture) -> None:
+        import logging
 
-    def test_check_alerts_failure(self) -> None:
         pm = self._make_monitor()
-        pm._check_alerts("id1", False, 5.0, "network_error")
+        with caplog.at_level(logging.WARNING, logger="plugins.court_automation.token.performance_monitor"):
+            pm._check_alerts("id1", True, 200.0, None)
+        assert any("Token获取耗时过长" in r.message for r in caplog.records)
+
+    def test_check_alerts_failure(self, caplog: pytest.LogCaptureFixture) -> None:
+        import logging
+
+        pm = self._make_monitor()
+        with caplog.at_level(logging.WARNING, logger="plugins.court_automation.token.performance_monitor"):
+            pm._check_alerts("id1", False, 5.0, "network_error")
+        assert any("Token获取失败: network_error" in r.message for r in caplog.records)

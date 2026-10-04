@@ -3,6 +3,7 @@
 覆盖: webdav_provider, onedrive_provider, s3_provider, dropbox_provider,
       protocols, exceptions, factory, null_provider, local
 """
+
 from __future__ import annotations
 
 import time
@@ -92,8 +93,7 @@ class TestWebDAVProvider:
 
         mock_requests.Session.return_value = MagicMock()
         provider = WebDAVProvider(
-            username="u", app_password="p", root_path="/docs",
-            webdav_url="https://dav.example.com/dav/"
+            username="u", app_password="p", root_path="/docs", webdav_url="https://dav.example.com/dav/"
         )
         url = provider._url("file.txt")
         assert url.startswith("https://dav.example.com/dav/")
@@ -145,7 +145,8 @@ class TestWebDAVProvider:
         mock_session.request.return_value = MagicMock(status_code=204)
 
         provider = WebDAVProvider(username="u", app_password="p")
-        provider.delete_file("file.txt")  # 不抛异常
+        assert provider.delete_file("file.txt") is None
+        assert mock_session.request.call_args.args[0] == "DELETE"
 
     @patch("apps.cloud_storage.webdav_provider.requests")
     def test_delete_file_404_ok(self, mock_requests: MagicMock) -> None:
@@ -156,7 +157,8 @@ class TestWebDAVProvider:
         mock_session.request.return_value = MagicMock(status_code=404)
 
         provider = WebDAVProvider(username="u", app_password="p")
-        provider.delete_file("missing.txt")  # 404 不报错
+        assert provider.delete_file("missing.txt") is None
+        mock_session.request.assert_called_once()
 
     @patch("apps.cloud_storage.webdav_provider.requests")
     def test_jianguoyun_alias(self, mock_requests: MagicMock) -> None:
@@ -230,7 +232,8 @@ class TestOneDriveProvider:
         mock_client.delete.return_value = MagicMock(status_code=204)
 
         provider = OneDriveProvider(access_token="t")
-        provider.delete_file("file.txt")  # 不抛异常
+        assert provider.delete_file("file.txt") is None
+        mock_client.delete.assert_called_once()
 
     @patch("apps.cloud_storage.onedrive_provider.httpx.Client")
     def test_children_url_root(self, mock_client_cls: MagicMock) -> None:

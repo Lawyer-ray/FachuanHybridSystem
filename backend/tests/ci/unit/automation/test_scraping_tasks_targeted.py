@@ -30,6 +30,7 @@ class TestRunCoroutineSyncEdge:
     def test_run_with_nested_exception(self):
         async def coro():
             raise TypeError("nested")
+
         with pytest.raises(TypeError, match="nested"):
             _run_coroutine_sync(coro())
 
@@ -38,8 +39,10 @@ class TestExecuteScraperTaskExtra:
     def test_execute_with_kwargs_logs(self):
         with patch("apps.automation.models.ScraperTask") as MockModel:
             MockModel.objects.get.side_effect = MockModel.DoesNotExist()
-            # Should not raise even with extra kwargs
-            execute_scraper_task(999, extra="param")
+            # 带 kwargs 也不应抛异常，且不做后续更新
+            result = execute_scraper_task(999, extra="param")
+            assert result is None
+            MockModel.objects.filter.assert_not_called()
 
     def test_execute_task_exception_no_retry(self):
         with patch("apps.automation.models.ScraperTask") as MockModel:

@@ -6,8 +6,10 @@ import { defineConfig } from "vitest/config"
 export default defineConfig({
   test: {
     globals: true,
-    // 仓库当前未装 jsdom（此前无用例所以没暴露）。纯逻辑用例用 node 环境即可；
-    // 需要 DOM 的组件测试请先 `pnpm add -D jsdom` 再改回 'jsdom'。
+    // 双环境策略：默认 node（纯逻辑单测，速度快、无 DOM 噪音）；
+    // 需要 DOM 的 hooks/组件测试在文件头加 docblock `// @vitest-environment jsdom`
+    // 单文件切到 jsdom（命名约定 **/*.dom.test.tsx），对既有 node 用例零影响。
+    // 注：vitest 3 起 environmentMatchGlobs 已移除，per-file docblock 是官方推荐做法。
     environment: 'node',
     setupFiles: ['./src/test-setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],

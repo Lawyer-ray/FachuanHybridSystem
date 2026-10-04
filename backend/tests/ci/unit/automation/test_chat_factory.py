@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from apps.automation.services.chat.factory import ChatProviderFactory
+import pytest
+
 from apps.automation.services.chat.base import ChatProvider
-from apps.core.models.enums import ChatPlatform
+from apps.automation.services.chat.factory import ChatProviderFactory
 from apps.core.dto.chat import ChatResult, MessageContent
+from apps.core.models.enums import ChatPlatform
 
 
 class _StubProvider(ChatProvider):
@@ -99,11 +101,10 @@ class TestChatProviderFactory:
 
     def test_get_provider_not_registered_raises(self) -> None:
         """获取未注册的提供者抛出异常。"""
-        try:
+        from apps.core.exceptions import UnsupportedPlatformException
+
+        with pytest.raises(UnsupportedPlatformException):
             ChatProviderFactory.get_provider(ChatPlatform.FEISHU)
-            raise AssertionError("应抛出异常")
-        except Exception:
-            pass
 
 
 class TestChatResult:

@@ -4,6 +4,7 @@ Covers 142 missing: _resolve_court_name, _infer_filing_type, _resolve_original_c
 _build_party_payloads, _build_agent_payloads, _build_materials_map,
 _build_session_status_payload, _update_session_task, _run_filing, _match_slot fallbacks.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -146,7 +147,9 @@ class TestResolveOriginalCaseNumber:
         from plugins.court_automation.filing.helpers import _resolve_original_case_number
 
         mock_qs = MagicMock()
-        mock_qs.filter.return_value.order_by.return_value.values_list.return_value.first.return_value = "(2024)京01民初123号"
+        mock_qs.filter.return_value.order_by.return_value.values_list.return_value.first.return_value = (
+            "(2024)京01民初123号"
+        )
         case = SimpleNamespace(case_numbers=mock_qs)
         result = _resolve_original_case_number(case)
         assert result == "(2024)京01民初123号"
@@ -470,9 +473,7 @@ class TestBuildExecutionRequestText:
     def test_generated_text_success(self, MockSvc):
         from plugins.court_automation.filing.helpers import _build_execution_request_text
 
-        MockSvc.return_value.generate.return_value = {
-            "申请执行事项": "请求强制执行"
-        }
+        MockSvc.return_value.generate.return_value = {"申请执行事项": "请求强制执行"}
         case = SimpleNamespace(id=1)
         result = _build_execution_request_text(case=case)
         assert "请求强制执行" in result
@@ -481,9 +482,7 @@ class TestBuildExecutionRequestText:
     def test_generated_text_fallback_key(self, MockSvc):
         from plugins.court_automation.filing.helpers import _build_execution_request_text
 
-        MockSvc.return_value.generate.return_value = {
-            "申请执行事项": "fallback text"
-        }
+        MockSvc.return_value.generate.return_value = {"申请执行事项": "fallback text"}
         case = SimpleNamespace(id=1)
         result = _build_execution_request_text(case=case)
         assert "fallback text" in result
@@ -512,7 +511,9 @@ class TestBuildExecutionRequestText:
     def test_generated_text_strips_special_chars(self):
         from plugins.court_automation.filing.helpers import _build_execution_request_text
 
-        with patch("apps.documents.services.placeholders.litigation.execution_request_service.ExecutionRequestService") as MockSvc:
+        with patch(
+            "apps.documents.services.placeholders.litigation.execution_request_service.ExecutionRequestService"
+        ) as MockSvc:
             MockSvc.return_value.generate.return_value = {
                 "ENFORCEMENT_EXECUTION_REQUEST": "line1\aline2\r\nline3\rline4"
             }
@@ -525,7 +526,9 @@ class TestBuildExecutionRequestText:
     def test_generated_text_empty_falls_through(self):
         from plugins.court_automation.filing.helpers import _build_execution_request_text
 
-        with patch("apps.documents.services.placeholders.litigation.execution_request_service.ExecutionRequestService") as MockSvc:
+        with patch(
+            "apps.documents.services.placeholders.litigation.execution_request_service.ExecutionRequestService"
+        ) as MockSvc:
             MockSvc.return_value.generate.return_value = {}
             case = SimpleNamespace(id=1)
             with patch("plugins.court_automation.filing.helpers._resolve_original_case_number", return_value=""):
@@ -650,29 +653,40 @@ class TestUpdateSessionTask:
     def test_none_session_id_returns(self):
         from plugins.court_automation.filing.helpers import _update_session_task
 
-        # Should return without error
-        _update_session_task(session_id=None, status="running")
+        with patch("apps.automation.models.ScraperTask") as mock_task:
+            # Should return without error
+            result = _update_session_task(session_id=None, status="running")
+            # session_id 为空直接早退，不触达数据库
+            assert result is None
+            mock_task.objects.filter.assert_not_called()
 
     def test_basic_update(self):
-        from apps.automation.models import ScraperTask
         from plugins.court_automation.filing.helpers import _update_session_task
 
-        _update_session_task(session_id=999999, status="running")
-        # Should not raise
+        with patch("apps.automation.models.ScraperTask") as mock_task:
+            _update_session_task(session_id=999999, status="running")
+            mock_task.objects.filter.assert_called_once_with(id=999999)
+            update_kwargs = mock_task.objects.filter.return_value.update.call_args.kwargs
+            assert update_kwargs["status"] == "running"
 
     def test_update_with_options(self):
-        from apps.automation.models import ScraperTask
         from plugins.court_automation.filing.helpers import _update_session_task
 
-        _update_session_task(
-            session_id=999999,
-            status="failed",
-            error_message="error",
-            result={"key": "value"},
-            set_started=True,
-            set_finished=True,
-        )
-        # Should not raise
+        with patch("apps.automation.models.ScraperTask") as mock_task:
+            _update_session_task(
+                session_id=999999,
+                status="failed",
+                error_message="error",
+                result={"key": "value"},
+                set_started=True,
+                set_finished=True,
+            )
+            update_kwargs = mock_task.objects.filter.return_value.update.call_args.kwargs
+            assert update_kwargs["status"] == "failed"
+            assert update_kwargs["error_message"] == "error"
+            assert update_kwargs["result"] == {"key": "value"}
+            assert "started_at" in update_kwargs
+            assert "finished_at" in update_kwargs
 
 
 # ── _match_slot fallbacks ──────────────────────────────────────────────
@@ -687,7 +701,9 @@ class TestMatchSlotFallbacks:
         material.type = None
         material.source_attachment = None
 
-        result = _match_slot(material=material, file_path=Path("/test/执行申请书.pdf"), filing_type=_FILING_TYPE_EXECUTION)
+        result = _match_slot(
+            material=material, file_path=Path("/test/执行申请书.pdf"), filing_type=_FILING_TYPE_EXECUTION
+        )
         assert result == "0"
 
     def test_delivery_address_slot(self):
@@ -767,8 +783,11 @@ class TestScoreSlotDeduplicated:
         from plugins.court_automation.filing.helpers import _score_slot_deduplicated
 
         result = _score_slot_deduplicated(
-            primary_signals=[], secondary_signals=[],
-            strong=("合同",), weak=(), exclude=(),
+            primary_signals=[],
+            secondary_signals=[],
+            strong=("合同",),
+            weak=(),
+            exclude=(),
         )
         assert result == 0
 
@@ -776,8 +795,11 @@ class TestScoreSlotDeduplicated:
         from plugins.court_automation.filing.helpers import _score_slot_deduplicated
 
         result = _score_slot_deduplicated(
-            primary_signals=["合同原件"], secondary_signals=[],
-            strong=("合同",), weak=(), exclude=(),
+            primary_signals=["合同原件"],
+            secondary_signals=[],
+            strong=("合同",),
+            weak=(),
+            exclude=(),
         )
         assert result == 10
 
@@ -785,8 +807,11 @@ class TestScoreSlotDeduplicated:
         from plugins.court_automation.filing.helpers import _score_slot_deduplicated
 
         result = _score_slot_deduplicated(
-            primary_signals=[], secondary_signals=["合同原件.pdf"],
-            strong=("合同",), weak=(), exclude=(),
+            primary_signals=[],
+            secondary_signals=["合同原件.pdf"],
+            strong=("合同",),
+            weak=(),
+            exclude=(),
         )
         assert result == 5
 
@@ -814,7 +839,12 @@ class TestRunFiling:
         filing_svc.file_case.return_value = {"success": True, "message": "立案成功"}
         MockFiling.return_value = filing_svc
 
-        _run_filing("acc", "pwd", {"case_id": 1, "court_name": "广州市天河区人民法院", "cause_of_action": "合同纠纷"}, session_id=1)
+        _run_filing(
+            "acc",
+            "pwd",
+            {"case_id": 1, "court_name": "广州市天河区人民法院", "cause_of_action": "合同纠纷"},
+            session_id=1,
+        )
         assert mock_update.call_count >= 1
 
     @patch("plugins.court_automation.filing.helpers._update_session_task")
@@ -831,7 +861,12 @@ class TestRunFiling:
         login_svc.login.return_value = {"success": False, "message": "密码错误"}
         MockLogin.return_value = login_svc
 
-        _run_filing("acc", "pwd", {"case_id": 1, "court_name": "广州市天河区人民法院", "cause_of_action": "合同纠纷"}, session_id=2)
+        _run_filing(
+            "acc",
+            "pwd",
+            {"case_id": 1, "court_name": "广州市天河区人民法院", "cause_of_action": "合同纠纷"},
+            session_id=2,
+        )
         # Should have called update with FAILED
         last_call = mock_update.call_args_list[-1]
         assert "FAILED" in str(last_call) or "failed" in str(last_call).lower()
@@ -850,7 +885,12 @@ class TestRunFiling:
         login_svc.login.side_effect = RuntimeError("browser crash")
         MockLogin.return_value = login_svc
 
-        _run_filing("acc", "pwd", {"case_id": 1, "court_name": "广州市天河区人民法院", "cause_of_action": "合同纠纷"}, session_id=3)
+        _run_filing(
+            "acc",
+            "pwd",
+            {"case_id": 1, "court_name": "广州市天河区人民法院", "cause_of_action": "合同纠纷"},
+            session_id=3,
+        )
         last_call = mock_update.call_args_list[-1]
         assert "FAILED" in str(last_call) or "failed" in str(last_call).lower()
 
@@ -873,7 +913,13 @@ class TestRunFiling:
         filing_svc.file_execution.return_value = {"success": True, "message": "执行立案成功"}
         MockFiling.return_value = filing_svc
 
-        _run_filing("acc", "pwd", {"case_id": 1, "court_name": "广州市天河区人民法院", "cause_of_action": "合同纠纷"}, filing_type="execution", session_id=4)
+        _run_filing(
+            "acc",
+            "pwd",
+            {"case_id": 1, "court_name": "广州市天河区人民法院", "cause_of_action": "合同纠纷"},
+            filing_type="execution",
+            session_id=4,
+        )
         filing_svc.file_execution.assert_called_once()
 
     @patch("plugins.court_automation.filing.helpers._update_session_task")
@@ -895,6 +941,11 @@ class TestRunFiling:
         filing_svc.file_case.return_value = {"success": False, "message": "立案失败"}
         MockFiling.return_value = filing_svc
 
-        _run_filing("acc", "pwd", {"case_id": 1, "court_name": "广州市天河区人民法院", "cause_of_action": "合同纠纷"}, session_id=5)
+        _run_filing(
+            "acc",
+            "pwd",
+            {"case_id": 1, "court_name": "广州市天河区人民法院", "cause_of_action": "合同纠纷"},
+            session_id=5,
+        )
         last_call = mock_update.call_args_list[-1]
         assert "FAILED" in str(last_call) or "failed" in str(last_call).lower()

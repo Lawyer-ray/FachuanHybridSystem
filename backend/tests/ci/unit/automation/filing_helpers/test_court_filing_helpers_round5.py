@@ -14,6 +14,7 @@ Covers:
 - _build_session_status_payload: timing with no timing key in result
 - _update_session_task: with set_started, set_finished, asyncio path
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -26,7 +27,6 @@ try:
     from plugins.court_automation import filing
 except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
-
 
 
 # ── _infer_filing_type ────────────────────────────────────────────────────────
@@ -120,8 +120,7 @@ class TestBuildPartyPayloadsThirdParty:
         from plugins.court_automation.filing.helpers import _build_party_payloads
 
         client = SimpleNamespace(
-            client_type="natural", name="王五", address="", phone="",
-            id_number="000000000000000000"
+            client_type="natural", name="王五", address="", phone="", id_number="000000000000000000"
         )
         party = SimpleNamespace(client=client, legal_status="third")
         plaintiffs, defendants, thirds = _build_party_payloads([party])
@@ -132,10 +131,7 @@ class TestBuildPartyPayloadsThirdParty:
     def test_empty_status_goes_to_nothing(self, _mock_gender):
         from plugins.court_automation.filing.helpers import _build_party_payloads
 
-        client = SimpleNamespace(
-            client_type="natural", name="赵六", address="", phone="",
-            id_number=""
-        )
+        client = SimpleNamespace(client_type="natural", name="赵六", address="", phone="", id_number="")
         party = SimpleNamespace(client=client, legal_status="")
         plaintiffs, defendants, thirds = _build_party_payloads([party])
         assert len(plaintiffs) == 0
@@ -172,16 +168,26 @@ class TestBuildAgentPayloadsEdge:
         from plugins.court_automation.filing.helpers import _build_agent_payloads
 
         assignment_lawyer = SimpleNamespace(
-            id=1, real_name="", username="lawyer1", phone="12000000000",
-            id_card="", license_no="", law_firm=SimpleNamespace(name="", address="")
+            id=1,
+            real_name="",
+            username="lawyer1",
+            phone="12000000000",
+            id_card="",
+            license_no="",
+            law_firm=SimpleNamespace(name="", address=""),
         )
         assignment = SimpleNamespace(lawyer=assignment_lawyer)
         qs_mock = MagicMock()
         qs_mock.select_related.return_value.order_by.return_value = [assignment]
 
         requester_lawyer = SimpleNamespace(
-            id=99, real_name="请求律师", username="", phone="12000000001",
-            id_card="", license_no="", law_firm=SimpleNamespace(name="请求所", address="")
+            id=99,
+            real_name="请求律师",
+            username="",
+            phone="12000000001",
+            id_card="",
+            license_no="",
+            law_firm=SimpleNamespace(name="请求所", address=""),
         )
 
         case = SimpleNamespace(assignments=qs_mock)
@@ -195,10 +201,7 @@ class TestBuildAgentPayloadsEdge:
     def test_lawyer_with_no_name_skipped(self):
         from plugins.court_automation.filing.helpers import _build_agent_payloads
 
-        lawyer = SimpleNamespace(
-            id=1, real_name="", username="", phone="",
-            id_card="", license_no="", law_firm=None
-        )
+        lawyer = SimpleNamespace(id=1, real_name="", username="", phone="", id_card="", license_no="", law_firm=None)
         assignment = SimpleNamespace(lawyer=lawyer)
         qs_mock = MagicMock()
         qs_mock.select_related.return_value.order_by.return_value = [assignment]
@@ -245,7 +248,9 @@ class TestMatchSlotEdge:
         from plugins.court_automation.filing.helpers import _FILING_TYPE_EXECUTION, _match_slot
 
         material = SimpleNamespace(type_name="执行申请书", type=None, source_attachment=None)
-        result = _match_slot(material=material, file_path=Path("/tmp/执行申请书.pdf"), filing_type=_FILING_TYPE_EXECUTION)
+        result = _match_slot(
+            material=material, file_path=Path("/tmp/执行申请书.pdf"), filing_type=_FILING_TYPE_EXECUTION
+        )
         assert result == "0"
 
     def test_delivery_address_returns_slot_4(self):
@@ -274,9 +279,7 @@ class TestBuildMaterialSlotSignalsWithAttachments:
         attachment_log = SimpleNamespace(content="some log")
         attachment = SimpleNamespace(file=SimpleNamespace(name="test.pdf"), log=attachment_log)
         material = SimpleNamespace(type_name="起诉状", type=mat_type, source_attachment=attachment)
-        primary, secondary = _build_material_slot_signals(
-            material=material, file_path=Path("/tmp/起诉状.pdf")
-        )
+        primary, secondary = _build_material_slot_signals(material=material, file_path=Path("/tmp/起诉状.pdf"))
         assert any("起诉状" in s for s in primary)
         assert any("起诉状类型" in s for s in primary)
 
@@ -322,8 +325,7 @@ class TestBuildSessionStatusPayloadNoTiming:
         from plugins.court_automation.filing.helpers import _build_session_status_payload
 
         task = SimpleNamespace(
-            id=2, status=ScraperTaskStatus.SUCCESS,
-            result={"timing": {"overall_start": 1.0}}, error_message=""
+            id=2, status=ScraperTaskStatus.SUCCESS, result={"timing": {"overall_start": 1.0}}, error_message=""
         )
         payload = _build_session_status_payload(task=task)
         assert payload["timing"]["overall_start"] == 1.0
@@ -336,8 +338,11 @@ class TestUpdateSessionTaskFlags:
     def test_none_session_id_noop(self):
         from plugins.court_automation.filing.helpers import _update_session_task
 
-        # session_id=None is a noop, no DB access
-        _update_session_task(session_id=None, status="running", set_started=True, set_finished=True)
+        with patch("apps.automation.models.ScraperTask") as mock_task:
+            # session_id=None is a noop, no DB access
+            result = _update_session_task(session_id=None, status="running", set_started=True, set_finished=True)
+            assert result is None
+            mock_task.objects.filter.assert_not_called()
 
     @pytest.mark.django_db
     def test_set_started_and_finished(self):
@@ -347,14 +352,19 @@ class TestUpdateSessionTaskFlags:
             mock_tz.now.return_value = "now"
             with patch("plugins.court_automation.filing.helpers.asyncio") as mock_asyncio:
                 mock_asyncio.get_running_loop.side_effect = RuntimeError("no loop")
-                _update_session_task(
-                    session_id=1,
-                    status="running",
-                    error_message="",
-                    result={"key": "val"},
-                    set_started=True,
-                    set_finished=True,
-                )
+                with patch("apps.automation.models.ScraperTask") as mock_task:
+                    _update_session_task(
+                        session_id=1,
+                        status="running",
+                        error_message="",
+                        result={"key": "val"},
+                        set_started=True,
+                        set_finished=True,
+                    )
+                    update_kwargs = mock_task.objects.filter.return_value.update.call_args.kwargs
+                    assert update_kwargs["status"] == "running"
+                    assert "started_at" in update_kwargs
+                    assert "finished_at" in update_kwargs
 
 
 # ── _build_execution_request_text — newline cleanup ───────────────────────────

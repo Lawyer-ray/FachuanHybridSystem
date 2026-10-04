@@ -16,7 +16,7 @@ class TestExecuteExpressQueryTask:
             mock_model.DoesNotExist = type("DoesNotExist", (Exception,), {})
             mock_model.objects.get.side_effect = mock_model.DoesNotExist()
             # Should return silently
-            execute_express_query_task(999)
+            assert execute_express_query_task(999) is None
 
     def test_ocr_no_tracking_number(self) -> None:
         mock_task = MagicMock()
@@ -73,7 +73,7 @@ class TestExecuteManualExpressQueryTask:
         with patch("apps.express_query.tasks.ExpressQueryTask") as mock_model:
             mock_model.DoesNotExist = type("DoesNotExist", (Exception,), {})
             mock_model.objects.get.side_effect = mock_model.DoesNotExist()
-            execute_manual_express_query_task(999)
+            assert execute_manual_express_query_task(999) is None
 
     def test_missing_tracking_number(self) -> None:
         mock_task = MagicMock()

@@ -41,13 +41,19 @@ class TestStartTemporalWorkerAddArguments:
 
 class TestStartTemporalWorkerSandboxLogging:
     def test_no_module_loaded_does_not_raise(self):
+        import logging
+
         from apps.workflow.management.commands.start_temporal_worker import Command
 
         cmd = Command()
+        root = logging.getLogger()
+        before = list(root.filters)
         # 模块未加载时不应抛异常
         with patch.dict(sys.modules, {"apps.core.infrastructure.logging": None}):
             with cmd._temporal_sandbox_logging():
                 pass
+        # 上下文退出后 root.filters 必须完整恢复，不留副作用
+        assert list(root.filters) == before
 
     def test_does_not_mutate_filter_class(self):
         """关键回归测试：绝不能改动 RequestContextFilter 类本身。

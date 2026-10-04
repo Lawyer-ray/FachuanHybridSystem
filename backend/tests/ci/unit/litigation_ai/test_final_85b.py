@@ -139,8 +139,11 @@ class TestSessionLifecycleServiceDeleteSession:
         svc = SessionLifecycleService.__new__(SessionLifecycleService)
         mock_session = Mock()
         mock_session._meta.related_objects = []
-        with patch.object(svc, "_detach_legacy_tables"):
-            svc._detach_related_rows(mock_session)  # should not raise
+        with patch.object(svc, "_detach_legacy_tables") as mock_legacy:
+            result = svc._detach_related_rows(mock_session)
+        # 无关联对象时循环体为空，但仍执行 legacy 表清理
+        assert result is None
+        mock_legacy.assert_called_once_with(mock_session)
 
 
 # ============================================================================

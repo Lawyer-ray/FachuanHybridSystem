@@ -625,3 +625,46 @@ def test_extract_name_from_first_meaningful_line_skips_empty() -> None:
     # 覆盖 334：跳过空行后返回有效名称
     result = _extract_name_from_first_meaningful_line("\n\n\n某某律师事务所")
     assert result == "某某律师事务所"
+
+
+# ── 修复回归：无标签多客户按行分块 / 名称剥离电话 ────────────────────────────
+
+
+def test_extract_parties_unlabeled_lines_multi_party() -> None:
+    # 无角色标签的多行文本：每行含姓名+手机号的独立成块，不丢客户
+    text = "张三 13800138000\n李四 13900139000"
+    parties = _extract_parties(text)
+    assert [p["name"] for p in parties] == ["张三", "李四"]
+    assert [p["phone"] for p in parties] == ["13800138000", "13900139000"]
+
+
+def test_extract_parties_unlabeled_single_client_keeps_fields() -> None:
+    # 无角色标签的单客户多行文本：字段行并入同一块，不拆散
+    text = "张三\n身份证号码：100000000000000001\n联系电话：00000000000"
+    parties = _extract_parties(text)
+    assert len(parties) == 1
+    assert parties[0]["name"] == "张三"
+    assert parties[0]["id_number"] == "100000000000000001"
+    assert parties[0]["phone"] == "00000000000"
+
+
+def test_extract_name_smart_strips_inline_phone() -> None:
+    # 姓名与电话同行：名称只保留姓名部分，不吞整行
+    assert _extract_name_smart("张三 13800138000") == "张三"
+
+
+def test_extract_parties_labeled_groups_regression() -> None:
+    # 带甲方/乙方标签：分组语义保持不变，各方电话各归各
+    text = "甲方：张三\n联系电话：13800138000\n乙方：李四\n联系电话：13900139000"
+    parties = _extract_parties(text)
+    assert [p["name"] for p in parties] == ["张三", "李四"]
+    phones = {p["name"]: p["phone"] for p in parties}
+    assert phones["张三"] == "13800138000"
+    assert phones["李四"] == "13900139000"
+
+
+def test_parse_client_text_labeled_inline_phone_regression() -> None:
+    # 带标签且姓名与电话同行：名称剥离电话
+    result = parse_client_text("甲方：张三 13800138000")
+    assert result["name"] == "张三"
+    assert result["phone"] == "13800138000"

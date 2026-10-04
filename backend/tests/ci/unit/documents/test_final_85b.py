@@ -6,12 +6,11 @@ import io
 from datetime import date, datetime
 from decimal import Decimal
 from types import SimpleNamespace
-from unittest.mock import MagicMock, Mock, patch, PropertyMock
+from unittest.mock import MagicMock, Mock, PropertyMock, patch
 
 import pytest
 
 from apps.core.exceptions import NotFoundError, ValidationException
-
 
 # ============================================================================
 # enforcement_basic_service.py — Enforcement placeholder services
@@ -102,9 +101,7 @@ class TestEnforcementCaseNumberService:
 
 class TestEnforcementCourtService:
     def test_generate_returns_empty_when_no_case_id(self):
-        from apps.documents.services.placeholders.litigation.enforcement_basic_service import (
-            EnforcementCourtService,
-        )
+        from apps.documents.services.placeholders.litigation.enforcement_basic_service import EnforcementCourtService
 
         svc = EnforcementCourtService.__new__(EnforcementCourtService)
         svc.case_details_accessor = Mock()
@@ -112,9 +109,7 @@ class TestEnforcementCourtService:
         assert result == {}
 
     def test_get_court_returns_name(self):
-        from apps.documents.services.placeholders.litigation.enforcement_basic_service import (
-            EnforcementCourtService,
-        )
+        from apps.documents.services.placeholders.litigation.enforcement_basic_service import EnforcementCourtService
 
         svc = EnforcementCourtService.__new__(EnforcementCourtService)
         svc.case_details_accessor = Mock()
@@ -125,15 +120,11 @@ class TestEnforcementCourtService:
         assert result == "佛山市中级人民法院"
 
     def test_get_court_returns_empty_when_no_authorities(self):
-        from apps.documents.services.placeholders.litigation.enforcement_basic_service import (
-            EnforcementCourtService,
-        )
+        from apps.documents.services.placeholders.litigation.enforcement_basic_service import EnforcementCourtService
 
         svc = EnforcementCourtService.__new__(EnforcementCourtService)
         svc.case_details_accessor = Mock()
-        svc.case_details_accessor.require_case_details.return_value = {
-            "supervising_authorities": []
-        }
+        svc.case_details_accessor.require_case_details.return_value = {"supervising_authorities": []}
         result = svc.get_court(1)
         assert result == ""
 
@@ -325,123 +316,6 @@ class TestPreservationPropertyClueService:
 
 
 # ============================================================================
-# pdf_merge_service.py — PDFMergeValidator
-# ============================================================================
-
-
-class TestPDFMergeValidator:
-    def test_assert_supported_format_valid(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeValidator
-
-        validator = PDFMergeValidator()
-        validator.assert_supported_format(".pdf", "/path/file.pdf")  # no exception
-
-    def test_assert_supported_format_invalid(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeValidator
-
-        validator = PDFMergeValidator()
-        with pytest.raises(Exception):
-            validator.assert_supported_format(".exe", "/path/file.exe")
-
-    def test_get_items_raises_when_empty(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeValidator
-
-        validator = PDFMergeValidator()
-        mock_list = Mock()
-        mock_list.pk = 1
-        mock_list.items.filter.return_value.exclude.return_value.order_by.return_value.exists.return_value = False
-        with pytest.raises(ValidationException):
-            validator.get_items(mock_list)
-
-
-class TestPDFMergeWorkflow:
-    def test_validator_lazy(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeWorkflow
-
-        wf = PDFMergeWorkflow()
-        assert wf._validator is None
-        v = wf.validator
-        assert wf._validator is not None
-
-    def test_generate_merged_filename_with_evidence_prefix(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeWorkflow
-
-        wf = PDFMergeWorkflow()
-        mock_list = Mock()
-        mock_list.case.name = "张某诉李某"
-        mock_list.title = "证据清单（一）"
-        mock_list.export_version = 1
-        with patch("apps.documents.services.infrastructure.pdf_merge_service.timezone") as mock_tz:
-            mock_tz.now.return_value.strftime.return_value = "20250609"
-            result = wf._generate_merged_filename(mock_list)
-            assert "张某诉李某" in result
-            assert "（一）" in result
-
-    def test_generate_merged_filename_with_supplement(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeWorkflow
-
-        wf = PDFMergeWorkflow()
-        mock_list = Mock()
-        mock_list.case.name = "Test"
-        mock_list.title = "补充证据清单"
-        mock_list.export_version = 2
-        with patch("apps.documents.services.infrastructure.pdf_merge_service.timezone") as mock_tz:
-            mock_tz.now.return_value.strftime.return_value = "20250609"
-            result = wf._generate_merged_filename(mock_list)
-            assert "Test" in result
-
-    def test_generate_merged_filename_other_title(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeWorkflow
-
-        wf = PDFMergeWorkflow()
-        mock_list = Mock()
-        mock_list.case.name = "Test"
-        mock_list.title = "其他标题"
-        mock_list.export_version = 3
-        with patch("apps.documents.services.infrastructure.pdf_merge_service.timezone") as mock_tz:
-            mock_tz.now.return_value.strftime.return_value = "20250609"
-            result = wf._generate_merged_filename(mock_list)
-            assert "Test" in result
-
-
-class TestPDFMergeService:
-    def test_workflow_lazy(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeService
-
-        svc = PDFMergeService()
-        assert svc._workflow is None
-        w = svc.workflow
-        assert svc._workflow is not None
-
-    def test_convert_to_pdf_delegates(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeService
-
-        svc = PDFMergeService()
-        svc._workflow = Mock()
-        svc._workflow.convert_to_pdf.return_value = "/tmp/output.pdf"
-        result = svc.convert_to_pdf("/tmp/input.docx")
-        assert result == "/tmp/output.pdf"
-
-    def test_add_page_numbers_delegates(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeService
-
-        svc = PDFMergeService()
-        svc._workflow = Mock()
-        svc._workflow.add_page_numbers.return_value = b"pdf_bytes"
-        result = svc.add_page_numbers(io.BytesIO(b"input"))
-        assert result == b"pdf_bytes"
-
-    def test_get_pdf_page_count_delegates(self):
-        from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeService
-
-        svc = PDFMergeService()
-        svc._workflow = Mock()
-        svc._workflow.get_pdf_page_count.return_value = 5
-        result = svc.get_pdf_page_count(io.BytesIO(b"pdf"))
-        assert result == 5
-
-
-# ============================================================================
 # case_detail_service.py — CaseDetailService
 # ============================================================================
 
@@ -491,8 +365,8 @@ class TestCaseDetailServiceExtractCauseOfAction:
 
 class TestCaseDetailServiceExtractSupervisingAuthority:
     def test_returns_trial_authority(self):
-        from apps.documents.services.placeholders.contract.case_detail_service import CaseDetailService
         from apps.core.models.enums import AuthorityType
+        from apps.documents.services.placeholders.contract.case_detail_service import CaseDetailService
 
         svc = CaseDetailService()
         authority = Mock()
@@ -602,9 +476,7 @@ class TestPreservationMaterialsGenerationService:
 
         svc = PreservationMaterialsGenerationService()
         assert svc._party_service is None
-        with patch(
-            "apps.documents.services.placeholders.litigation.PreservationPartyService"
-        ) as MockPS:
+        with patch("apps.documents.services.placeholders.litigation.PreservationPartyService") as MockPS:
             _ = svc.party_service
             assert svc._party_service is not None
 
@@ -615,9 +487,7 @@ class TestPreservationMaterialsGenerationService:
 
         svc = PreservationMaterialsGenerationService()
         assert svc._signature_service is None
-        with patch(
-            "apps.documents.services.placeholders.litigation.PreservationSignatureService"
-        ) as MockSS:
+        with patch("apps.documents.services.placeholders.litigation.PreservationSignatureService") as MockSS:
             _ = svc.signature_service
             assert svc._signature_service is not None
 
@@ -628,9 +498,7 @@ class TestPreservationMaterialsGenerationService:
 
         svc = PreservationMaterialsGenerationService()
         assert svc._property_clue_service is None
-        with patch(
-            "apps.documents.services.placeholders.litigation.PreservationPropertyClueService"
-        ) as MockPCS:
+        with patch("apps.documents.services.placeholders.litigation.PreservationPropertyClueService") as MockPCS:
             _ = svc.property_clue_service
             assert svc._property_clue_service is not None
 
@@ -675,9 +543,7 @@ class TestPreservationMaterialsGenerationService:
 
         svc = PreservationMaterialsGenerationService()
         case = SimpleNamespace(name="张某诉李某")
-        with patch(
-            "apps.documents.services.generation.preservation_materials_generation_service.timezone"
-        ) as mock_tz:
+        with patch("apps.documents.services.generation.preservation_materials_generation_service.timezone") as mock_tz:
             mock_tz.now.return_value.strftime.return_value = "20250609"
             with patch(
                 "apps.documents.services.generation.preservation_materials_generation_service.FilenameTemplateService"
@@ -698,9 +564,7 @@ class TestLitigationGenerationService:
 
         svc = LitigationGenerationService()
         assert svc._llm_generator is None
-        with patch(
-            "apps.documents.services.generation.litigation_generation_service.LitigationLLMGenerator"
-        ):
+        with patch("apps.documents.services.generation.litigation_generation_service.LitigationLLMGenerator"):
             _ = svc.llm_generator
             assert svc._llm_generator is not None
 
@@ -709,9 +573,7 @@ class TestLitigationGenerationService:
 
         svc = LitigationGenerationService()
         assert svc._context_builder is None
-        with patch(
-            "apps.documents.services.generation.litigation_generation_service.LitigationContextBuilder"
-        ):
+        with patch("apps.documents.services.generation.litigation_generation_service.LitigationContextBuilder"):
             _ = svc.context_builder
             assert svc._context_builder is not None
 
@@ -719,9 +581,7 @@ class TestLitigationGenerationService:
         from apps.documents.services.generation.litigation_generation_service import LitigationGenerationService
 
         svc = LitigationGenerationService()
-        with patch(
-            "apps.documents.services.placeholders.litigation.FilenameService"
-        ) as MockFS:
+        with patch("apps.documents.services.placeholders.litigation.FilenameService") as MockFS:
             with pytest.raises(ValidationException):
                 svc._generate_filename(1, "invalid_type")
 
@@ -756,7 +616,9 @@ class TestLitigationGenerationService:
         from apps.documents.services.generation.litigation_generation_service import LitigationGenerationService
 
         svc = LitigationGenerationService()
-        result = svc._get_mock_complaint_output({"cause_of_action": "合同纠纷", "plaintiff": "张三", "defendant": "李四"})
+        result = svc._get_mock_complaint_output(
+            {"cause_of_action": "合同纠纷", "plaintiff": "张三", "defendant": "李四"}
+        )
         assert "合同纠纷" in result.title
         assert len(result.parties) == 2
         assert result.parties[0].role == "原告"
@@ -775,9 +637,7 @@ class TestLitigationGenerationService:
         svc = LitigationGenerationService()
         mock_cs = Mock()
         mock_cs.get_case_by_id_internal.return_value = None
-        with patch(
-            "apps.documents.services.generation.litigation_generation_service.ServiceLocator"
-        ) as MockSL:
+        with patch("apps.documents.services.generation.litigation_generation_service.ServiceLocator") as MockSL:
             MockSL.get_case_service.return_value = mock_cs
             with pytest.raises(NotFoundError):
                 svc.generate_complaint_document(999)
@@ -788,9 +648,7 @@ class TestLitigationGenerationService:
         svc = LitigationGenerationService()
         mock_cs = Mock()
         mock_cs.get_case_by_id_internal.return_value = None
-        with patch(
-            "apps.documents.services.generation.litigation_generation_service.ServiceLocator"
-        ) as MockSL:
+        with patch("apps.documents.services.generation.litigation_generation_service.ServiceLocator") as MockSL:
             MockSL.get_case_service.return_value = mock_cs
             with pytest.raises(NotFoundError):
                 svc.generate_defense_document(999)

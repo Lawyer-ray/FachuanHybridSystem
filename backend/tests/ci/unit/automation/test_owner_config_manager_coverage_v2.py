@@ -88,7 +88,8 @@ class TestValidateOwnerIdStrict:
         ):
             mgr = OwnerConfigManager()
             valid_id = "ou_" + "a" * 32
-            mgr.validate_owner_id_strict(valid_id)  # Should not raise
+            # 合法 ID 静默通过（返回 None）
+            assert mgr.validate_owner_id_strict(valid_id) is None
 
     def test_invalid_raises(self) -> None:
         with (

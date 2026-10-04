@@ -10,6 +10,7 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -302,7 +303,12 @@ class TestOwnerConfigManager:
         from apps.automation.services.chat.owner_config_manager import OwnerConfigManager
 
         mgr = object.__new__(OwnerConfigManager)
-        mgr._config = {"TEST_MODE": False, "OWNER_VALIDATION_ENABLED": True, "OWNER_RETRY_ENABLED": True, "OWNER_MAX_RETRIES": 3}
+        mgr._config = {
+            "TEST_MODE": False,
+            "OWNER_VALIDATION_ENABLED": True,
+            "OWNER_RETRY_ENABLED": True,
+            "OWNER_MAX_RETRIES": 3,
+        }
         mgr._default_owner_id = "ou_" + "f" * 32
         summary = mgr.get_config_summary()
         assert summary["has_default_owner"] is True
@@ -322,25 +328,43 @@ class TestOwnerConfigManager:
 
 
 class TestApiLoggingMixin:
-    def test_log_performance_metrics_collection_start(self) -> None:
+    _LOGGER_NAME = "apps.automation.utils._logging_api_mixin"
+
+    def test_log_performance_metrics_collection_start(self, caplog: pytest.LogCaptureFixture) -> None:
+        import logging
+
         from apps.automation.utils._logging_api_mixin import ApiLoggingMixin
 
-        ApiLoggingMixin.log_performance_metrics_collection_start("cpu")
+        with caplog.at_level(logging.DEBUG, logger=self._LOGGER_NAME):
+            ApiLoggingMixin.log_performance_metrics_collection_start("cpu")
+        assert any("开始收集cpu性能指标" in r.message for r in caplog.records)
 
-    def test_log_performance_metrics_collection_success(self) -> None:
+    def test_log_performance_metrics_collection_success(self, caplog: pytest.LogCaptureFixture) -> None:
+        import logging
+
         from apps.automation.utils._logging_api_mixin import ApiLoggingMixin
 
-        ApiLoggingMixin.log_performance_metrics_collection_success("cpu", 10, 1.5)
+        with caplog.at_level(logging.DEBUG, logger=self._LOGGER_NAME):
+            ApiLoggingMixin.log_performance_metrics_collection_success("cpu", 10, 1.5)
+        assert any("cpu性能指标收集成功" in r.message for r in caplog.records)
 
-    def test_log_business_operation(self) -> None:
+    def test_log_business_operation(self, caplog: pytest.LogCaptureFixture) -> None:
+        import logging
+
         from apps.automation.utils._logging_api_mixin import ApiLoggingMixin
 
-        ApiLoggingMixin.log_business_operation("create", "contract", resource_id=1, user_id=1)
+        with caplog.at_level(logging.INFO, logger=self._LOGGER_NAME):
+            ApiLoggingMixin.log_business_operation("create", "contract", resource_id=1, user_id=1)
+        assert any("业务操作: create contract" in r.message for r in caplog.records)
 
-    def test_log_business_operation_failure(self) -> None:
+    def test_log_business_operation_failure(self, caplog: pytest.LogCaptureFixture) -> None:
+        import logging
+
         from apps.automation.utils._logging_api_mixin import ApiLoggingMixin
 
-        ApiLoggingMixin.log_business_operation("create", "contract", success=False)
+        with caplog.at_level(logging.ERROR, logger=self._LOGGER_NAME):
+            ApiLoggingMixin.log_business_operation("create", "contract", success=False)
+        assert any("业务操作: create contract" in r.message for r in caplog.records)
 
 
 # ── captcha recognition ─────────────────────────────────────────
@@ -395,7 +419,8 @@ class TestCaptchaRecognitionService:
         from apps.automation.services.captcha.captcha_recognition_service import CaptchaRecognitionService
 
         svc = CaptchaRecognitionService()
-        svc._validate_image_size(b"x" * 100)  # should not raise
+        # 合法尺寸应静默通过（返回 None 不抛异常）
+        assert svc._validate_image_size(b"x" * 100) is None
 
     def test_validate_image_size_too_large(self) -> None:
         from apps.automation.services.captcha.captcha_recognition_service import CaptchaRecognitionService

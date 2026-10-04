@@ -17,6 +17,7 @@ Covers:
 - _normalize_insurance_company: empty allowed_options with empty name
 - _build_cause_candidates: full-width space replacement
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -30,7 +31,6 @@ try:
     from plugins.court_automation import filing
 except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
-
 
 
 # ── _get_case_number ──────────────────────────────────────────────────────────
@@ -71,7 +71,9 @@ class TestGetCaseCourtName:
         mock_ordered.exclude.return_value.first.return_value = None
         case = SimpleNamespace(supervising_authorities=MagicMock(all=MagicMock(return_value=mock_all)))
 
-        with patch("plugins.court_automation.guarantee.helpers._resolve_court_name", return_value="天河区人民法院") as mock_resolve:
+        with patch(
+            "plugins.court_automation.guarantee.helpers._resolve_court_name", return_value="天河区人民法院"
+        ) as mock_resolve:
             result = _get_case_court_name(case)
             assert result == "天河区人民法院"
             mock_resolve.assert_called_once()
@@ -102,9 +104,7 @@ class TestGetCaseCourtName:
         mock_ordered.exclude.return_value = mock_excluded1
         mock_excluded1.exclude.return_value = mock_excluded2
 
-        case = SimpleNamespace(
-            supervising_authorities=MagicMock(all=MagicMock(return_value=mock_all))
-        )
+        case = SimpleNamespace(supervising_authorities=MagicMock(all=MagicMock(return_value=mock_all)))
         assert _get_case_court_name(case) is None
 
     def test_any_named_authority_fallback(self):
@@ -118,7 +118,9 @@ class TestGetCaseCourtName:
         mock_ordered.exclude.return_value.first.return_value = fallback
         case = SimpleNamespace(supervising_authorities=MagicMock(all=MagicMock(return_value=mock_all)))
 
-        with patch("plugins.court_automation.guarantee.helpers._resolve_court_name", return_value="番禺区人民法院") as mock_resolve:
+        with patch(
+            "plugins.court_automation.guarantee.helpers._resolve_court_name", return_value="番禺区人民法院"
+        ) as mock_resolve:
             result = _get_case_court_name(case)
             assert result == "番禺区人民法院"
 
@@ -129,9 +131,14 @@ class TestGetCaseCourtName:
 class TestListPartyPayloads:
     def _make_party(self, pid, status, is_our=False):
         client = SimpleNamespace(
-            is_our_client=is_our, name=f"Client{pid}", id_number=f"11010119900101{pid:04d}",
-            phone="13800000000", address="测试地址", client_type="natural",
-            legal_representative="", legal_representative_id_number=""
+            is_our_client=is_our,
+            name=f"Client{pid}",
+            id_number=f"11010119900101{pid:04d}",
+            phone="13800000000",
+            address="测试地址",
+            client_type="natural",
+            legal_representative="",
+            legal_representative_id_number="",
         )
         return SimpleNamespace(id=pid, client=client, legal_status=status, name=f"Party{pid}")
 
@@ -179,9 +186,14 @@ class TestListPartyPayloads:
 class TestPickPartyPayload:
     def _make_party(self, pid, status, is_our=False):
         client = SimpleNamespace(
-            is_our_client=is_our, name=f"Client{pid}", id_number=f"11010119900101{pid:04d}",
-            phone="13800000000", address="测试地址", client_type="natural",
-            legal_representative="", legal_representative_id_number=""
+            is_our_client=is_our,
+            name=f"Client{pid}",
+            id_number=f"11010119900101{pid:04d}",
+            phone="13800000000",
+            address="测试地址",
+            client_type="natural",
+            legal_representative="",
+            legal_representative_id_number="",
         )
         return SimpleNamespace(id=pid, client=client, legal_status=status, name=f"Party{pid}")
 
@@ -214,10 +226,7 @@ class TestListOpponentCaseParties:
     def test_fallback_to_respondent_statuses(self):
         from plugins.court_automation.guarantee.helpers import _list_opponent_case_parties
 
-        p1 = SimpleNamespace(
-            client=SimpleNamespace(is_our_client=True),
-            legal_status="defendant_side"
-        )
+        p1 = SimpleNamespace(client=SimpleNamespace(is_our_client=True), legal_status="defendant_side")
         result = _list_opponent_case_parties(case_parties=[p1])
         # No non-our clients, fallback to respondent statuses
         assert len(result) >= 0  # depends on whether defendant_side is in _RESPONDENT_SIDE_STATUSES
@@ -225,10 +234,7 @@ class TestListOpponentCaseParties:
     def test_fallback_to_all_when_no_respondent(self):
         from plugins.court_automation.guarantee.helpers import _list_opponent_case_parties
 
-        p1 = SimpleNamespace(
-            client=SimpleNamespace(is_our_client=True),
-            legal_status="unknown"
-        )
+        p1 = SimpleNamespace(client=SimpleNamespace(is_our_client=True), legal_status="unknown")
         result = _list_opponent_case_parties(case_parties=[p1])
         assert len(result) == 1
 
@@ -276,7 +282,9 @@ class TestBuildPlaintiffAgentPayload:
         assignments_mock = MagicMock()
         assignments_mock.select_related.return_value = mock_select_related
         case = SimpleNamespace(assignments=assignments_mock)
-        result = _build_plaintiff_agent_payload(case=case, requester_id=None, fallback_party={"name": "原告", "phone": "12000000000"})
+        result = _build_plaintiff_agent_payload(
+            case=case, requester_id=None, fallback_party={"name": "原告", "phone": "12000000000"}
+        )
         assert result["party_type"] == "agent"
         assert result["name"] == "原告"
 
@@ -284,13 +292,19 @@ class TestBuildPlaintiffAgentPayload:
         from plugins.court_automation.guarantee.helpers import _build_plaintiff_agent_payload
 
         lawyer = SimpleNamespace(
-            real_name="律师A", username="a", id_card="123", phone="12000000000",
-            license_no="L001", law_firm=SimpleNamespace(name="律所A")
+            real_name="律师A",
+            username="a",
+            id_card="123",
+            phone="12000000000",
+            license_no="L001",
+            law_firm=SimpleNamespace(name="律所A"),
         )
         case = SimpleNamespace(assignments=MagicMock())
         with patch("apps.organization.models.Lawyer") as MockLawyer:
             MockLawyer.objects.select_related.return_value.filter.return_value.first.return_value = lawyer
-            result = _build_plaintiff_agent_payload(case=case, requester_id=10, fallback_party={"name": "原告", "phone": ""})
+            result = _build_plaintiff_agent_payload(
+                case=case, requester_id=10, fallback_party={"name": "原告", "phone": ""}
+            )
             assert result["name"] == "律师A"
 
 
@@ -301,7 +315,9 @@ class TestBuildPrimaryRespondentPropertyClueEmpty:
     def test_no_parties_returns_default(self):
         from plugins.court_automation.guarantee.helpers import _build_primary_respondent_property_clue
 
-        with patch("plugins.court_automation.guarantee.helpers._build_selected_respondent_property_clues", return_value=[]):
+        with patch(
+            "plugins.court_automation.guarantee.helpers._build_selected_respondent_property_clues", return_value=[]
+        ):
             result = _build_primary_respondent_property_clue(
                 case_parties=[], selected_respondents=[], preserve_amount=None
             )
@@ -314,15 +330,18 @@ class TestBuildPrimaryRespondentPropertyClueEmpty:
 class TestExtractQuoteCompanyOptionsEdge:
     def test_items_not_a_list(self):
         from plugins.court_automation.guarantee.helpers import _extract_quote_company_options
+
         assert _extract_quote_company_options(quote_context={"items": "not a list"}) == []
 
     def test_non_dict_items(self):
         from plugins.court_automation.guarantee.helpers import _extract_quote_company_options
+
         result = _extract_quote_company_options(quote_context={"items": ["str", 123]})
         assert result == []
 
     def test_empty_company_name(self):
         from plugins.court_automation.guarantee.helpers import _extract_quote_company_options
+
         result = _extract_quote_company_options(quote_context={"items": [{"company_name": "", "status": "success"}]})
         assert result == []
 
@@ -350,10 +369,12 @@ class TestResolveInsuranceCompanyDefaultsEdge:
 class TestNormalizeInsuranceCompanyEdge:
     def test_empty_name_empty_allowed_returns_default(self):
         from plugins.court_automation.guarantee.helpers import _DEFAULT_INSURANCE_COMPANY, _normalize_insurance_company
+
         assert _normalize_insurance_company("", allowed_options=[]) == _DEFAULT_INSURANCE_COMPANY
 
     def test_empty_name_with_allowed_returns_first(self):
         from plugins.court_automation.guarantee.helpers import _normalize_insurance_company
+
         assert _normalize_insurance_company("", allowed_options=["X", "Y"]) == "X"
 
 
@@ -363,6 +384,7 @@ class TestNormalizeInsuranceCompanyEdge:
 class TestBuildCauseCandidatesFullWidthSpace:
     def test_fullwidth_space_replaced(self):
         from plugins.court_automation.guarantee.helpers import _build_cause_candidates
+
         result = _build_cause_candidates("买卖合同　纠纷")
         # fullwidth space replaced with regular space
         assert any("买卖合同 纠纷" in c for c in result)
@@ -374,7 +396,12 @@ class TestBuildCauseCandidatesFullWidthSpace:
 class TestUpdateSessionTaskGuarantee:
     def test_none_session_id_noop(self):
         from plugins.court_automation.guarantee.helpers import _update_session_task
-        _update_session_task(session_id=None, status="running")
+
+        with patch("apps.automation.models.ScraperTask") as mock_task:
+            result = _update_session_task(session_id=None, status="running")
+            # session_id=None 直接早退，不触达数据库
+            assert result is None
+            mock_task.objects.filter.assert_not_called()
 
     @pytest.mark.django_db
     def test_set_started_and_finished(self):
@@ -384,10 +411,12 @@ class TestUpdateSessionTaskGuarantee:
             mock_tz.now.return_value = "now"
             with patch("plugins.court_automation.guarantee.helpers.asyncio") as mock_asyncio:
                 mock_asyncio.get_running_loop.side_effect = RuntimeError("no loop")
-                _update_session_task(
-                    session_id=1, status="running",
-                    set_started=True, set_finished=True
-                )
+                with patch("apps.automation.models.ScraperTask") as mock_task:
+                    _update_session_task(session_id=1, status="running", set_started=True, set_finished=True)
+                    update_kwargs = mock_task.objects.filter.return_value.update.call_args.kwargs
+                    assert update_kwargs["status"] == "running"
+                    assert "started_at" in update_kwargs
+                    assert "finished_at" in update_kwargs
 
 
 # ── _build_session_status_payload — timing ────────────────────────────────────
@@ -399,9 +428,7 @@ class TestGuaranteeSessionStatusPayloadTiming:
         from plugins.court_automation.guarantee.helpers import _build_session_status_payload
 
         task = SimpleNamespace(
-            id=1, status=ScraperTaskStatus.FAILED,
-            result={"timing": {"overall_start": 1.0}},
-            error_message="fail"
+            id=1, status=ScraperTaskStatus.FAILED, result={"timing": {"overall_start": 1.0}}, error_message="fail"
         )
         payload = _build_session_status_payload(task=task)
         assert payload["timing"]["overall_start"] == 1.0
@@ -419,8 +446,7 @@ class TestGuaranteeSessionStatusPayloadTiming:
         from plugins.court_automation.guarantee.helpers import _build_session_status_payload
 
         task = SimpleNamespace(
-            id=1, status=ScraperTaskStatus.FAILED,
-            result={"message": "result msg"}, error_message=""
+            id=1, status=ScraperTaskStatus.FAILED, result={"message": "result msg"}, error_message=""
         )
         payload = _build_session_status_payload(task=task)
         assert payload["message"] == "result msg"
@@ -430,8 +456,7 @@ class TestGuaranteeSessionStatusPayloadTiming:
         from plugins.court_automation.guarantee.helpers import _build_session_status_payload
 
         task = SimpleNamespace(
-            id=1, status=ScraperTaskStatus.RUNNING,
-            result={"message": "running msg"}, error_message=""
+            id=1, status=ScraperTaskStatus.RUNNING, result={"message": "running msg"}, error_message=""
         )
         payload = _build_session_status_payload(task=task)
         assert payload["message"] == "running msg"
@@ -441,8 +466,7 @@ class TestGuaranteeSessionStatusPayloadTiming:
         from plugins.court_automation.guarantee.helpers import _build_session_status_payload
 
         task = SimpleNamespace(
-            id=1, status=ScraperTaskStatus.SUCCESS,
-            result={"message": "success msg"}, error_message=""
+            id=1, status=ScraperTaskStatus.SUCCESS, result={"message": "success msg"}, error_message=""
         )
         payload = _build_session_status_payload(task=task)
         assert payload["message"] == "success msg"

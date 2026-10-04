@@ -13,6 +13,7 @@ Targets remaining uncovered branches:
 - reset_for_retry: clears fields
 - save_premium_results: clean_decimal edge cases (null, empty, TypeError)
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -27,7 +28,6 @@ except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
 
-
 # ---------------------------------------------------------------------------
 # validate_create_params — all valid with positive credential_id
 # ---------------------------------------------------------------------------
@@ -36,13 +36,17 @@ except ImportError:
 class TestValidateCreateParamsRound4:
     def test_positive_credential_id_passes(self):
         from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
+
         repo = PreservationQuoteRepository()
-        # Should not raise
-        repo.validate_create_params(
-            preserve_amount=Decimal("500"),
-            corp_id="2550",
-            category_id="127000",
-            credential_id=42,
+        # 合法参数静默通过（返回 None）
+        assert (
+            repo.validate_create_params(
+                preserve_amount=Decimal("500"),
+                corp_id="2550",
+                category_id="127000",
+                credential_id=42,
+            )
+            is None
         )
 
     def test_multiple_errors_collected(self):
@@ -93,12 +97,13 @@ class TestGetQuoteModel:
         from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         mock_quote = MagicMock()
-        with patch(
-            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
-            new_callable=AsyncMock,
-        ) as mock_sync, patch(
-            "plugins.court_automation.preservation_quote.preservation_quote.repo.PreservationQuote"
-        ) as MockModel:
+        with (
+            patch(
+                "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
+                new_callable=AsyncMock,
+            ) as mock_sync,
+            patch("plugins.court_automation.preservation_quote.preservation_quote.repo.PreservationQuote") as MockModel,
+        ):
             mock_sync.return_value = mock_quote
             result = await PreservationQuoteRepository().get_quote_model(quote_id=1)
         assert result is mock_quote
@@ -108,12 +113,13 @@ class TestGetQuoteModel:
         from apps.core.exceptions import NotFoundError
         from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
-        with patch(
-            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
-            new_callable=AsyncMock,
-        ) as mock_sync, patch(
-            "plugins.court_automation.preservation_quote.preservation_quote.repo.PreservationQuote"
-        ) as MockModel:
+        with (
+            patch(
+                "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
+                new_callable=AsyncMock,
+            ) as mock_sync,
+            patch("plugins.court_automation.preservation_quote.preservation_quote.repo.PreservationQuote") as MockModel,
+        ):
             MockModel.DoesNotExist = type("DoesNotExist", (Exception,), {})
             mock_sync.side_effect = MockModel.DoesNotExist
             with pytest.raises(NotFoundError):
@@ -190,11 +196,12 @@ class TestSavePremiumResultsEdge:
             ),
         ]
 
-        with patch(
-            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
-            new_callable=AsyncMock,
-        ) as mock_sync, patch(
-            "plugins.court_automation.preservation_quote.preservation_quote.repo.InsuranceQuote"
+        with (
+            patch(
+                "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
+                new_callable=AsyncMock,
+            ) as mock_sync,
+            patch("plugins.court_automation.preservation_quote.preservation_quote.repo.InsuranceQuote"),
         ):
             mock_sync.return_value = None
             repo = PreservationQuoteRepository()
@@ -227,11 +234,12 @@ class TestSavePremiumResultsEdge:
             ),
         ]
 
-        with patch(
-            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
-            new_callable=AsyncMock,
-        ) as mock_sync, patch(
-            "plugins.court_automation.preservation_quote.preservation_quote.repo.InsuranceQuote"
+        with (
+            patch(
+                "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
+                new_callable=AsyncMock,
+            ) as mock_sync,
+            patch("plugins.court_automation.preservation_quote.preservation_quote.repo.InsuranceQuote"),
         ):
             mock_sync.return_value = None
             repo = PreservationQuoteRepository()
@@ -246,11 +254,12 @@ class TestSavePremiumResultsEdge:
         quote = MagicMock()
         quote.id = 1
 
-        with patch(
-            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
-            new_callable=AsyncMock,
-        ) as mock_sync, patch(
-            "plugins.court_automation.preservation_quote.preservation_quote.repo.InsuranceQuote"
+        with (
+            patch(
+                "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
+                new_callable=AsyncMock,
+            ) as mock_sync,
+            patch("plugins.court_automation.preservation_quote.preservation_quote.repo.InsuranceQuote"),
         ):
             mock_sync.return_value = None
             repo = PreservationQuoteRepository()

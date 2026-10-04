@@ -9,15 +9,12 @@ from __future__ import annotations
 
 import subprocess
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
+from apps.chat_records.services.extraction.video_frame_extract_service import FFProbeInfo, VideoFrameExtractService
 from apps.core.exceptions import ValidationException
-from apps.chat_records.services.extraction.video_frame_extract_service import (
-    FFProbeInfo,
-    VideoFrameExtractService,
-)
 
 
 @pytest.fixture
@@ -47,9 +44,7 @@ class TestEnsureOutputPatternSafe:
 
 class TestProbeDurationByFfmpeg:
     def test_parses_duration(self, svc: VideoFrameExtractService) -> None:
-        with patch(
-            "apps.chat_records.services.extraction.video_frame_extract_service.SubprocessRunner"
-        ) as MockRunner:
+        with patch("apps.chat_records.services.extraction.video_frame_extract_service.SubprocessRunner") as MockRunner:
             mock_result = MagicMock()
             mock_result.stderr = "Duration: 01:30:45.50"
             mock_result.stdout = ""
@@ -58,9 +53,7 @@ class TestProbeDurationByFfmpeg:
             assert result == 1 * 3600 + 30 * 60 + 45.5
 
     def test_no_duration_match(self, svc: VideoFrameExtractService) -> None:
-        with patch(
-            "apps.chat_records.services.extraction.video_frame_extract_service.SubprocessRunner"
-        ) as MockRunner:
+        with patch("apps.chat_records.services.extraction.video_frame_extract_service.SubprocessRunner") as MockRunner:
             mock_result = MagicMock()
             mock_result.stderr = "no duration here"
             mock_result.stdout = ""
@@ -69,9 +62,7 @@ class TestProbeDurationByFfmpeg:
             assert result == 0.0
 
     def test_exception_returns_zero(self, svc: VideoFrameExtractService) -> None:
-        with patch(
-            "apps.chat_records.services.extraction.video_frame_extract_service.SubprocessRunner"
-        ) as MockRunner:
+        with patch("apps.chat_records.services.extraction.video_frame_extract_service.SubprocessRunner") as MockRunner:
             MockRunner.return_value.run.side_effect = RuntimeError("cannot run")
             result = svc._probe_duration_by_ffmpeg("/some/video.mp4")
             assert result == 0.0
@@ -87,6 +78,7 @@ class TestProbe:
         self, mock_ensure: MagicMock, mock_find: MagicMock, svc: VideoFrameExtractService
     ) -> None:
         import os
+
         # Create a temp file to pass the exists() check
         tmpfile = "/tmp/test_video_for_probe.mp4"
         with open(tmpfile, "w") as f:
@@ -114,6 +106,7 @@ class TestProbe:
         self, mock_dur: MagicMock, mock_ensure: MagicMock, mock_find: MagicMock, svc: VideoFrameExtractService
     ) -> None:
         import os
+
         tmpfile = "/tmp/test_video_zero_dur.mp4"
         with open(tmpfile, "w") as f:
             f.write("fake")
@@ -130,6 +123,7 @@ class TestProbe:
         self, mock_dur: MagicMock, mock_ensure: MagicMock, mock_find: MagicMock, svc: VideoFrameExtractService
     ) -> None:
         import os
+
         tmpfile = "/tmp/test_video_fallback.mp4"
         with open(tmpfile, "w") as f:
             f.write("fake")
@@ -148,6 +142,7 @@ class TestProbe:
         """When ffprobe fails to parse, the exception is caught and duration=0,
         which triggers the 'cannot parse duration' ValidationException."""
         import os
+
         tmpfile = "/tmp/test_video_err.mp4"
         with open(tmpfile, "w") as f:
             f.write("fake")
@@ -175,13 +170,9 @@ class TestFindTool:
         assert svc._find_tool("ffmpeg") == "/usr/bin/ffmpeg"
 
     @patch("apps.chat_records.services.extraction.video_frame_extract_service.shutil.which")
-    def test_not_found_checks_standard_paths(
-        self, mock_which: MagicMock, svc: VideoFrameExtractService
-    ) -> None:
+    def test_not_found_checks_standard_paths(self, mock_which: MagicMock, svc: VideoFrameExtractService) -> None:
         mock_which.return_value = None
-        with patch(
-            "apps.chat_records.services.extraction.video_frame_extract_service.Path"
-        ) as MockPath:
+        with patch("apps.chat_records.services.extraction.video_frame_extract_service.Path") as MockPath:
             # All paths don't exist
             MockPath.return_value.exists.return_value = False
             result = svc._find_tool("ffmpeg")
@@ -195,8 +186,8 @@ class TestCheckFfmpegExit:
     def test_zero_exit(self, svc: VideoFrameExtractService) -> None:
         proc = MagicMock()
         proc.wait.return_value = 0
-        # Should not raise
-        svc._check_ffmpeg_exit(proc)
+        # 退出码 0 视为成功，不抛异常
+        assert svc._check_ffmpeg_exit(proc) is None
 
     def test_nonzero_exit_with_stderr(self, svc: VideoFrameExtractService) -> None:
         proc = MagicMock()

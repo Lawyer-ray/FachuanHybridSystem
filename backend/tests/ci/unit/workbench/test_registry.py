@@ -51,7 +51,9 @@ class TestTaskRegistry:
         loop.close()
 
     def test_unregister_nonexistent_no_error(self, registry) -> None:
-        registry.unregister("nonexistent")  # Should not raise
+        # 移除不存在的任务应静默 no-op（返回 None，不抛 KeyError）
+        assert registry.unregister("nonexistent") is None
+        assert registry._tasks.get("nonexistent") is None
 
     def test_cancel_running_task(self, registry) -> None:
         loop = asyncio.new_event_loop()

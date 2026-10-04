@@ -8,12 +8,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.utils import timezone
 
-
 # ── _normalize_match_text ────────────────────────────────────────
+
 
 class TestNormalizeMatchText:
     def _make_service(self):
         from apps.contracts.services.contract.integrations.contract_oa_sync_service import ContractOASyncService
+
         return ContractOASyncService()
 
     def test_strips_whitespace(self):
@@ -44,9 +45,11 @@ class TestNormalizeMatchText:
 
 # ── _extract_lawsuit_party_tokens ─────────────────────────────────
 
+
 class TestExtractLawsuitPartyTokens:
     def _make_service(self):
         from apps.contracts.services.contract.integrations.contract_oa_sync_service import ContractOASyncService
+
         return ContractOASyncService()
 
     def test_no_sue_keyword(self):
@@ -75,9 +78,11 @@ class TestExtractLawsuitPartyTokens:
 
 # ── _split_party_tokens ──────────────────────────────────────────
 
+
 class TestSplitPartyTokens:
     def _make_service(self):
         from apps.contracts.services.contract.integrations.contract_oa_sync_service import ContractOASyncService
+
         return ContractOASyncService()
 
     def test_basic_split_by_comma(self):
@@ -106,9 +111,11 @@ class TestSplitPartyTokens:
 
 # ── _build_relaxed_party_markers ──────────────────────────────────
 
+
 class TestBuildRelaxedPartyMarkers:
     def _make_service(self):
         from apps.contracts.services.contract.integrations.contract_oa_sync_service import ContractOASyncService
+
         return ContractOASyncService()
 
     def test_company_suffix_stripped(self):
@@ -141,9 +148,11 @@ class TestBuildRelaxedPartyMarkers:
 
 # ── _extract_sso_login_url ────────────────────────────────────────
 
+
 class TestExtractSSOLoginURL:
     def _make_service(self):
         from apps.contracts.services.contract.integrations.contract_oa_sync_service import ContractOASyncService
+
         return ContractOASyncService()
 
     def test_no_jtn_in_message(self):
@@ -167,9 +176,11 @@ class TestExtractSSOLoginURL:
 
 # ── _is_stale_active_session ──────────────────────────────────────
 
+
 class TestIsStaleActiveSession:
     def _make_service(self):
         from apps.contracts.services.contract.integrations.contract_oa_sync_service import ContractOASyncService
+
         return ContractOASyncService()
 
     def test_non_active_status(self):
@@ -180,6 +191,7 @@ class TestIsStaleActiveSession:
 
     def test_no_updated_at(self):
         from apps.contracts.models import ContractOASyncStatus
+
         svc = self._make_service()
         session = MagicMock()
         session.status = ContractOASyncStatus.RUNNING
@@ -188,6 +200,7 @@ class TestIsStaleActiveSession:
 
     def test_recent_session_not_stale(self):
         from apps.contracts.models import ContractOASyncStatus
+
         svc = self._make_service()
         session = MagicMock()
         session.status = ContractOASyncStatus.RUNNING
@@ -196,6 +209,7 @@ class TestIsStaleActiveSession:
 
     def test_old_session_is_stale(self):
         from apps.contracts.models import ContractOASyncStatus
+
         svc = self._make_service()
         session = MagicMock()
         session.status = ContractOASyncStatus.PENDING
@@ -205,9 +219,11 @@ class TestIsStaleActiveSession:
 
 # ── build_status_payload ──────────────────────────────────────────
 
+
 class TestBuildStatusPayload:
     def _make_service(self):
         from apps.contracts.services.contract.integrations.contract_oa_sync_service import ContractOASyncService
+
         return ContractOASyncService()
 
     def test_basic_payload(self):
@@ -258,22 +274,31 @@ class TestBuildStatusPayload:
 
 # ── _update_session ───────────────────────────────────────────────
 
+
 class TestUpdateSession:
     def _make_service(self):
         from apps.contracts.services.contract.integrations.contract_oa_sync_service import ContractOASyncService
+
         return ContractOASyncService()
 
     def test_empty_fields_noop(self):
+        from unittest.mock import patch as _patch
+
         svc = self._make_service()
         session = MagicMock()
         session.id = 1
-        svc._update_session(session)
-        # Should not crash
+        with _patch(
+            "apps.contracts.services.contract.integrations.contract_oa_sync_service.ContractOASyncSession"
+        ) as MockSession:
+            # 无字段时早退，不写数据库
+            assert svc._update_session(session) is None
+            MockSession.objects.filter.assert_not_called()
 
     @pytest.mark.django_db
     def test_updates_set_on_session(self):
-        from apps.contracts.services.contract.integrations.contract_oa_sync_service import ContractOASyncService
         from unittest.mock import patch as _patch
+
+        from apps.contracts.services.contract.integrations.contract_oa_sync_service import ContractOASyncService
 
         svc = ContractOASyncService()
         session = MagicMock()
@@ -286,9 +311,11 @@ class TestUpdateSession:
 
 # ── _serialize_missing_contracts ──────────────────────────────────
 
+
 class TestSerializeMissingContracts:
     def _make_service(self):
         from apps.contracts.services.contract.integrations.contract_oa_sync_service import ContractOASyncService
+
         return ContractOASyncService()
 
     def test_empty_list(self):
@@ -310,9 +337,11 @@ class TestSerializeMissingContracts:
 
 # ── save_manual_contract_oa_fields ────────────────────────────────
 
+
 class TestSaveManualContractOAFields:
     def _make_service(self):
         from apps.contracts.services.contract.integrations.contract_oa_sync_service import ContractOASyncService
+
         return ContractOASyncService()
 
     def test_invalid_contract_id(self):
@@ -325,18 +354,14 @@ class TestSaveManualContractOAFields:
     def test_invalid_url(self):
         svc = self._make_service()
         with patch.object(svc, "list_missing_oa_contracts", return_value=[]):
-            result = svc.save_manual_contract_oa_fields(
-                updates=[{"id": 1, "law_firm_oa_url": "not-a-url"}]
-            )
+            result = svc.save_manual_contract_oa_fields(updates=[{"id": 1, "law_firm_oa_url": "not-a-url"}])
             assert result["error_count"] == 1
 
     @pytest.mark.django_db
     def test_contract_not_found(self):
         svc = self._make_service()
         with patch.object(svc, "list_missing_oa_contracts", return_value=[]):
-            result = svc.save_manual_contract_oa_fields(
-                updates=[{"id": 999999, "law_firm_oa_case_number": "CN-001"}]
-            )
+            result = svc.save_manual_contract_oa_fields(updates=[{"id": 999999, "law_firm_oa_case_number": "CN-001"}])
             assert result["error_count"] == 1
 
     @pytest.mark.django_db
@@ -356,9 +381,11 @@ class TestSaveManualContractOAFields:
 
 # ── _filter_candidates_by_contract_name ───────────────────────────
 
+
 class TestFilterCandidatesByContractName:
     def _make_service(self):
         from apps.contracts.services.contract.integrations.contract_oa_sync_service import ContractOASyncService
+
         return ContractOASyncService()
 
     def test_empty_candidates(self):
@@ -391,9 +418,11 @@ class TestFilterCandidatesByContractName:
 
 # ── _build_name_search_keywords ───────────────────────────────────
 
+
 class TestBuildNameSearchKeywords:
     def _make_service(self):
         from apps.contracts.services.contract.integrations.contract_oa_sync_service import ContractOASyncService
+
         return ContractOASyncService()
 
     def test_empty_name(self):

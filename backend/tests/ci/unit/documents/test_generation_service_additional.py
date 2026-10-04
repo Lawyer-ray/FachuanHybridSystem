@@ -27,11 +27,11 @@ def svc() -> GenerationService:
 
 class TestValidateTemplateUpdate:
     def test_no_template_id_returns(self, svc: GenerationService) -> None:
-        # Should not raise
-        svc._validate_template_update({})
+        # Should not raise（无模板 ID 时跳过校验）
+        assert svc._validate_template_update({}) is None
 
     def test_none_template_id_returns(self, svc: GenerationService) -> None:
-        svc._validate_template_update({"document_template_id": None})
+        assert svc._validate_template_update({"document_template_id": None}) is None
 
     @patch("apps.documents.services.generation.generation_service.DocumentTemplate")
     def test_template_not_found(self, MockDT: MagicMock, svc: GenerationService) -> None:
@@ -100,9 +100,7 @@ class TestDeleteGenerationConfig:
 class TestUpdateTaskStatusFull:
     @patch("apps.documents.services.generation.generation_service.timezone")
     @patch("apps.documents.services.generation.generation_service.GenerationTask")
-    def test_completed_sets_time(
-        self, MockTask: MagicMock, mock_tz: MagicMock, svc: GenerationService
-    ) -> None:
+    def test_completed_sets_time(self, MockTask: MagicMock, mock_tz: MagicMock, svc: GenerationService) -> None:
         task = MagicMock()
         MockTask.objects.filter.return_value.first.return_value = task
         mock_time = MagicMock()
@@ -115,9 +113,7 @@ class TestUpdateTaskStatusFull:
 
     @patch("apps.documents.services.generation.generation_service.timezone")
     @patch("apps.documents.services.generation.generation_service.GenerationTask")
-    def test_failed_with_message(
-        self, MockTask: MagicMock, mock_tz: MagicMock, svc: GenerationService
-    ) -> None:
+    def test_failed_with_message(self, MockTask: MagicMock, mock_tz: MagicMock, svc: GenerationService) -> None:
         task = MagicMock()
         task.id = 10
         MockTask.objects.filter.return_value.first.return_value = task
@@ -131,9 +127,7 @@ class TestUpdateTaskStatusFull:
 
     @patch("apps.documents.services.generation.generation_service.timezone")
     @patch("apps.documents.services.generation.generation_service.GenerationTask")
-    def test_pending_clears_time(
-        self, MockTask: MagicMock, mock_tz: MagicMock, svc: GenerationService
-    ) -> None:
+    def test_pending_clears_time(self, MockTask: MagicMock, mock_tz: MagicMock, svc: GenerationService) -> None:
         task = MagicMock()
         MockTask.objects.filter.return_value.first.return_value = task
         result = svc.update_task_status(1, "pending")
@@ -150,9 +144,7 @@ class TestUpdateTaskStatusFull:
     def test_invalid_status(self, MockTask: MagicMock, svc: GenerationService) -> None:
         task = MagicMock()
         MockTask.objects.filter.return_value.first.return_value = task
-        with patch(
-            "apps.documents.models.GenerationStatus"
-        ) as MockStatus:
+        with patch("apps.documents.models.GenerationStatus") as MockStatus:
             MockStatus.choices = [("pending", "P")]
             with pytest.raises(ValidationException, match="无效"):
                 svc.update_task_status(1, "bogus")
@@ -164,9 +156,7 @@ class TestUpdateTaskStatusFull:
 class TestAddGeneratedFile:
     @patch("apps.documents.services.generation.generation_service.timezone")
     @patch("apps.documents.services.generation.generation_service.GenerationTask")
-    def test_appends_file(
-        self, MockTask: MagicMock, mock_tz: MagicMock, svc: GenerationService
-    ) -> None:
+    def test_appends_file(self, MockTask: MagicMock, mock_tz: MagicMock, svc: GenerationService) -> None:
         task = MagicMock()
         task.generated_files = []
         MockTask.objects.filter.return_value.first.return_value = task
@@ -189,9 +179,7 @@ class TestAddGeneratedFile:
 class TestAddErrorLog:
     @patch("apps.documents.services.generation.generation_service.timezone")
     @patch("apps.documents.services.generation.generation_service.GenerationTask")
-    def test_appends_log(
-        self, MockTask: MagicMock, mock_tz: MagicMock, svc: GenerationService
-    ) -> None:
+    def test_appends_log(self, MockTask: MagicMock, mock_tz: MagicMock, svc: GenerationService) -> None:
         task = MagicMock()
         task.error_logs = []
         MockTask.objects.filter.return_value.first.return_value = task

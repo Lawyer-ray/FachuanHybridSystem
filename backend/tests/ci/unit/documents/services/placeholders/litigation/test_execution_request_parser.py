@@ -272,7 +272,9 @@ class TestApplySplitBurdenAdjustment:
         assert items[0].amount == Decimal("10000")
 
     def test_empty_items(self) -> None:
-        apply_split_burden_adjustment([])
+        items: list = []
+        assert apply_split_burden_adjustment(items) is None
+        assert items == []  # 空列表不产生任何副作用
         # No error
 
     def test_excluded_items_skipped(self) -> None:

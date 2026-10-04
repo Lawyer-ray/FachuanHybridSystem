@@ -50,12 +50,14 @@ def _make_service(**kwargs: Any) -> ContractFolderScanService:
 
 def _make_processor(**kwargs: Any) -> Any:
     from apps.contracts.services.contract.integrations._candidate_post_processor import CandidatePostProcessor
+
     kwargs.setdefault("scan_service", MagicMock())
     return CandidatePostProcessor(**kwargs)
 
 
 def _make_pipeline(**kwargs: Any) -> Any:
     from apps.contracts.services.contract.integrations._import_pipeline import ImportPipeline
+
     return ImportPipeline()
 
 
@@ -112,7 +114,8 @@ class TestEnsureContractExists:
         svc = _make_service()
         with patch("apps.contracts.services.contract.integrations.folder_scan_service.Contract") as mock_model:
             mock_model.objects.filter.return_value.exists.return_value = True
-            svc._ensure_contract_exists(1)
+            # 合同存在时静默通过（返回 None）
+            assert svc._ensure_contract_exists(1) is None
 
     def test_not_found(self) -> None:
         svc = _make_service()

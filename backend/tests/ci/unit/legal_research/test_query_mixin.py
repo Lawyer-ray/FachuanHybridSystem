@@ -29,9 +29,7 @@ class TestExecutorQueryMixin:
         assert result.count("违约") == 1
 
     def test_expand_terms_with_synonyms_max_tokens(self):
-        result = ExecutorQueryMixin._expand_terms_with_synonyms(
-            ["买卖合同纠纷", "借款合同纠纷"], max_tokens=3
-        )
+        result = ExecutorQueryMixin._expand_terms_with_synonyms(["买卖合同纠纷", "借款合同纠纷"], max_tokens=3)
         assert len(result) <= 3
 
     def test_expand_terms_with_synonyms_strips_empty(self):
@@ -74,9 +72,7 @@ class TestExecutorQueryMixin:
         assert len(result) == 1
 
     def test_merge_query_candidates_max(self):
-        result = ExecutorQueryMixin._merge_query_candidates(
-            ["q1", "q2", "q3"], ["q4", "q5"], max_queries=3
-        )
+        result = ExecutorQueryMixin._merge_query_candidates(["q1", "q2", "q3"], ["q4", "q5"], max_queries=3)
         assert len(result) == 3
 
     def test_merge_query_candidates_empty_strings_filtered(self):
@@ -96,9 +92,18 @@ class TestExecutorQueryMixin:
         assert result is True
 
     def test_title_prefilter_no_tokens(self):
-        # _title_prefilter calls cls._split_tokens which requires the full executor
-        # Skip this test as it needs the complete class hierarchy
-        pass
+        class _MinimalQueryMixin(ExecutorQueryMixin):
+            @staticmethod
+            def _split_tokens(text: str) -> list[str]:
+                return []
+
+        # 查询无有效 token 时直接放行
+        assert (
+            _MinimalQueryMixin._title_prefilter(
+                keyword="关键词", case_summary="摘要", title_hint="某判决书", min_overlap=0.5
+            )
+            is True
+        )
 
     # ── _build_element_based_queries ──
 

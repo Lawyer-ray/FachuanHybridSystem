@@ -18,7 +18,6 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
         "ContractGenerationService",
     ),
     "GenerationService": ("apps.documents.services.generation.generation_service", "GenerationService"),
-    "PDFMergeService": ("apps.documents.services.infrastructure.pdf_merge_service", "PDFMergeService"),
     "PlaceholderAdminService": (
         "apps.documents.services.placeholders.placeholder_admin_service",
         "PlaceholderAdminService",

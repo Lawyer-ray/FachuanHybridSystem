@@ -4,6 +4,7 @@
 find_code_by_source, find_code_by_name, get_template_items,
 get_auto_detect_items, match_type_name_to_code, fill_material_details_from_ids
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -25,7 +26,6 @@ from apps.contracts.services.archive.checklist.material_mapping import (
     fill_material_details_from_ids,
     match_type_name_to_code,
 )
-
 
 # ── _get_source ───────────────────────────────────────────────────
 
@@ -161,7 +161,8 @@ class TestGetAutoDetectItems:
 
 class TestApplySubitemOrder:
     def test_no_details_no_error(self) -> None:
-        _apply_subitem_order({})
+        # 空明细应为 no-op（返回 None，不抛异常）
+        assert _apply_subitem_order({}) is None
 
     def test_single_item_no_sort(self) -> None:
         details = {"nl_4": [{"original_filename": "test.pdf", "order": 0}]}
@@ -277,9 +278,7 @@ class TestFillMaterialDetailsFromIds:
         mat.order = 0
         mat.file_path = "path/to/test.pdf"
 
-        details: dict[str, list[dict[str, Any]]] = {
-            "code_a": [{"id": 1}]
-        }
+        details: dict[str, list[dict[str, Any]]] = {"code_a": [{"id": 1}]}
         code_to_ids = {"code_a": [1]}
 
         fill_material_details_from_ids(details, code_to_ids, [mat])

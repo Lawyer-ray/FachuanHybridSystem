@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from django.core.cache import cache
 
 from apps.organization.models import AccountCredential, LawFirm, Lawyer, Team
@@ -53,6 +52,12 @@ def test_login_wrong_password(api_client, law_firm):
     )
     # May return 401 (auth failure), 429 (rate limit), or 200 (with success=False)
     assert resp.status_code in (200, 401, 429)
+    # 缓存已清空、单次错误密码请求，实际走 AuthenticationError → 401 错误信封
+    assert resp.status_code == 401
+    body = resp.json()
+    assert body["code"] == "INVALID_CREDENTIALS"
+    assert body["message"] == "用户名或密码错误"
+    assert "user" not in body  # 认证失败不得泄露用户数据
 
 
 @pytest.mark.django_db
@@ -162,6 +167,10 @@ def test_delete_lawfirm(authenticated_client):
     resp = authenticated_client.delete(f"/api/v1/organization/lawfirms/{firm.id}")
     # May return 403 if user doesn't own this firm
     assert resp.status_code in (200, 403)
+    # 超管用户删除无律师/无团队的律所：200 + 真实落库删除
+    assert resp.status_code == 200
+    assert resp.json()["success"] is True
+    assert not LawFirm.objects.filter(id=firm.id).exists()
 
 
 # ===================================================================
@@ -181,13 +190,26 @@ def test_list_lawyers(authenticated_client):
 @pytest.mark.django_db
 def test_create_lawyer(authenticated_client):
     firm = _get_user_firm()
+    # 端点签名含 File 参数（license_pdf/avatar），契约要求 multipart 表单且
+    # Schema 字段嵌套在 payload 键下（JSON 字符串）；平铺 JSON/表单一律 422
     resp = authenticated_client.post(
         "/api/v1/organization/lawyers",
-        data=json.dumps({"username": "newlawyer", "password": "testpass123", "real_name": "新律师", "law_firm_id": firm.id}),
-        content_type="application/json",
+        {
+            "payload": json.dumps(
+                {"username": "newlawyer", "password": "testpass123", "real_name": "新律师", "law_firm_id": firm.id}
+            )
+        },
     )
     # May return 422 if multipart form is required for file upload fields
     assert resp.status_code in (200, 422)
+    # 正确契约编码下应创建成功
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["username"] == "newlawyer"
+    assert data["real_name"] == "新律师"
+    created = Lawyer.objects.filter(username="newlawyer").first()
+    assert created is not None  # 写操作真实落库
+    assert created.law_firm_id == firm.id
 
 
 @pytest.mark.django_db
@@ -201,13 +223,26 @@ def test_get_lawyer_detail(authenticated_client):
 @pytest.mark.django_db
 def test_update_lawyer(authenticated_client):
     user = Lawyer.objects.get(username="testuser")
+    # 端点签名含 File 参数，契约要求 multipart 表单 + payload 嵌套 JSON 字符串
+    # （test client 的 put(dict) 默认 urlencoded，须手工构造 multipart 体）
+    from django.test.client import MULTIPART_CONTENT, encode_multipart
+
+    multipart_body = encode_multipart(
+        boundary="BoUnDaRyStRiNg",
+        data={"payload": json.dumps({"real_name": "更新后的名字"})},
+    )
     resp = authenticated_client.put(
         f"/api/v1/organization/lawyers/{user.id}",
-        data=json.dumps({"real_name": "更新后的名字"}),
-        content_type="application/json",
+        multipart_body,
+        content_type=MULTIPART_CONTENT,
     )
     # May return 422 if multipart form is required
     assert resp.status_code in (200, 422)
+    # 正确契约编码下应更新成功
+    assert resp.status_code == 200
+    assert resp.json()["real_name"] == "更新后的名字"
+    user.refresh_from_db()
+    assert user.real_name == "更新后的名字"  # 写操作真实落库
 
 
 @pytest.mark.django_db
@@ -306,7 +341,9 @@ def test_create_credential(authenticated_client):
     user = Lawyer.objects.get(username="testuser")
     resp = authenticated_client.post(
         "/api/v1/organization/credentials",
-        data=json.dumps({"lawyer_id": user.id, "site_name": "新站点", "account": "new@example.com", "password": "secret"}),
+        data=json.dumps(
+            {"lawyer_id": user.id, "site_name": "新站点", "account": "new@example.com", "password": "secret"}
+        ),
         content_type="application/json",
     )
     assert resp.status_code == 200
@@ -317,7 +354,9 @@ def test_create_credential(authenticated_client):
 @pytest.mark.django_db
 def test_get_credential_detail(authenticated_client):
     user = Lawyer.objects.get(username="testuser")
-    cred = AccountCredential.objects.create(lawyer=user, site_name="详情站点", account="detail@example.com", password="enc")
+    cred = AccountCredential.objects.create(
+        lawyer=user, site_name="详情站点", account="detail@example.com", password="enc"
+    )
     resp = authenticated_client.get(f"/api/v1/organization/credentials/{cred.id}")
     assert resp.status_code == 200
     assert resp.json()["site_name"] == "详情站点"
@@ -334,6 +373,15 @@ def test_update_credential(authenticated_client):
     )
     # May return 500 if password field is not directly updatable
     assert resp.status_code in (200, 500)
+    # 服务层支持 site_name/account 直接更新：200 + 真实落库
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["site_name"] == "更新后"  # 本用例创建的凭证锚点
+    assert data["account"] == "updated@example.com"
+    assert "password" not in data  # 凭证密文不得出现在响应中
+    cred.refresh_from_db()
+    assert cred.site_name == "更新后"
+    assert cred.account == "updated@example.com"
 
 
 @pytest.mark.django_db

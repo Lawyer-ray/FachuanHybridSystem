@@ -19,4 +19,5 @@ class CasePartyCommandRepo:
         return CaseParty.objects.filter(case_id=case_id, client_id=client_id).exists()
 
     def create_party(self, *, case: Case, client_id: int, legal_status: str | None) -> CaseParty:  # pragma: no cover
-        return CaseParty.objects.create(case=case, client_id=client_id, legal_status=legal_status)
+        # legal_status 字段非空（空串表示未指定），None 统一收敛为空串
+        return CaseParty.objects.create(case=case, client_id=client_id, legal_status=legal_status or "")

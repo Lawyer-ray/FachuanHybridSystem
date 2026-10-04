@@ -30,11 +30,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.core.exceptions import ValidationException
-from apps.core.services.bound_folder_scan_service import (
-    BoundFolderScanService,
-    _VersionInfo,
-)
-
+from apps.core.services.bound_folder_scan_service import BoundFolderScanService, _VersionInfo
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -186,6 +182,7 @@ class TestDeduplicateFiles:
         f2.write_bytes(b"new")
         # Ensure different mtimes
         import os
+
         os.utime(f1, (1000, 1000))
         os.utime(f2, (2000, 2000))
 
@@ -240,7 +237,7 @@ class TestNotify:
         cb.assert_called_once_with("scanning", 50, "test.pdf")
 
     def test_without_callback(self) -> None:
-        BoundFolderScanService._notify(None, "scanning", 50, "test.pdf")
+        assert BoundFolderScanService._notify(None, "scanning", 50, "test.pdf") is None
 
 
 class TestBuildCandidate:
@@ -334,10 +331,12 @@ class TestScanFolder:
         """Cloud storage scanning delegates to _scan_cloud method."""
         svc = _make_service()
         mock_provider = MagicMock()
-        svc._scan_cloud = MagicMock(return_value={
-            "summary": {"total_files": 1, "deduped_files": 1, "classified_files": 1},
-            "candidates": [],
-        })
+        svc._scan_cloud = MagicMock(
+            return_value={
+                "summary": {"total_files": 1, "deduped_files": 1, "classified_files": 1},
+                "candidates": [],
+            }
+        )
         result = svc.scan_folder(
             folder_path="/cloud",
             domain="contract",

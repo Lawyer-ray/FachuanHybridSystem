@@ -71,6 +71,9 @@ class TestExtractAndUpdateFromDocuments:
         court_sms.save()
         # 无 scraper_task 且无文书文件：应跳过且不报错
         sms_document_mixin._extract_and_update_sms_from_documents(court_sms)
+        sms_document_mixin.case_number_extractor.extract_from_document.assert_not_called()
+        court_sms.refresh_from_db()
+        assert court_sms.case_numbers == []
 
     def test_extracts_without_scraper_task_when_document_file_paths_exist(
         self, sms_document_mixin, court_sms, tmp_path
@@ -192,9 +195,7 @@ class TestProcessRenaming:
         assert result.status == CourtSMSStatus.NOTIFYING
 
     def test_no_document_paths(self, sms_document_mixin, court_sms):
-        task = ScraperTask.objects.create(
-            task_type=ScraperTaskType.COURT_DOCUMENT, url="https://example.com"
-        )
+        task = ScraperTask.objects.create(task_type=ScraperTaskType.COURT_DOCUMENT, url="https://example.com")
         court_sms.scraper_task = task
         court_sms.save()
         sms_document_mixin.document_attachment.get_paths_for_renaming.return_value = []
@@ -220,21 +221,32 @@ class TestSaveRenamedPaths:
         assert task.result["renamed_files"] == ["/new/path.pdf"]
 
     def test_empty_paths_skips(self, sms_document_mixin, court_sms):
+        task = ScraperTask.objects.create(
+            task_type=ScraperTaskType.COURT_DOCUMENT,
+            url="https://example.com",
+            result={"files": ["old.pdf"]},
+        )
+        court_sms.scraper_task = task
+        court_sms.save()
         sms_document_mixin._save_renamed_paths(court_sms, [])
-        # No error
+        # 空路径应早退，不写入 renamed_files
+        task.refresh_from_db()
+        assert "renamed_files" not in task.result
 
     def test_no_scraper_task_skips(self, sms_document_mixin, court_sms):
         court_sms.scraper_task = None
         court_sms.save()
-        sms_document_mixin._save_renamed_paths(court_sms, ["/path.pdf"])
-        # No error
+        result = sms_document_mixin._save_renamed_paths(court_sms, ["/path.pdf"])
+        # 无 scraper_task 时静默早退
+        assert result is None
 
 
 @pytest.mark.django_db
 class TestAttachToCaseLog:
     def test_no_renamed_paths(self, sms_document_mixin, court_sms):
         sms_document_mixin._attach_to_case_log(court_sms, [])
-        # No error
+        # 空路径早退，不应调用附件服务
+        sms_document_mixin.document_attachment.add_to_case_log.assert_not_called()
 
     def test_with_case_log_calls_attachment(self, sms_document_mixin):
         """Test using MagicMock SMS (not saved to DB) to avoid FK assignment issues."""
@@ -250,9 +262,12 @@ class TestSyncCaseNumbersFromDocuments:
     def test_no_case(self, sms_document_mixin, court_sms):
         court_sms.case = None
         sms_document_mixin._sync_case_numbers_from_documents(court_sms, ["/path.pdf"])
+        # 无案件时早退，不触发文书案号提取
+        sms_document_mixin.case_number_extractor.extract_from_document.assert_not_called()
 
     def test_no_renamed_paths(self, sms_document_mixin, court_sms):
         sms_document_mixin._sync_case_numbers_from_documents(court_sms, [])
+        sms_document_mixin.case_number_extractor.extract_from_document.assert_not_called()
 
     def test_already_has_case_numbers_skips_extraction(self, sms_document_mixin, tmp_path):
         """Test with MagicMock SMS to avoid FK assignment issues."""
@@ -270,6 +285,8 @@ class TestSyncCaseNumbersFromDocuments:
 class TestSyncPartyNamesFromDocuments:
     def test_no_renamed_paths(self, sms_document_mixin, court_sms):
         sms_document_mixin._sync_party_names_from_documents(court_sms, [])
+        # 空路径早退，不触发当事人提取
+        sms_document_mixin.matcher.extract_parties_from_document.assert_not_called()
 
     def test_already_has_parties(self, sms_document_mixin, court_sms):
         court_sms.party_names = ["张某"]
@@ -282,9 +299,12 @@ class TestArchiveToCaseFolder:
     def test_no_case_id(self, sms_document_mixin, court_sms):
         court_sms.case_id = None
         sms_document_mixin._archive_to_case_folder(court_sms, ["/path.pdf"])
+        # 未关联案件时早退，不触发归档
+        sms_document_mixin.case_folder_archive.archive_sms_documents.assert_not_called()
 
     def test_no_paths(self, sms_document_mixin, court_sms):
         sms_document_mixin._archive_to_case_folder(court_sms, [])
+        sms_document_mixin.case_folder_archive.archive_sms_documents.assert_not_called()
 
     def test_calls_archive(self, sms_document_mixin):
         """Test with MagicMock SMS to avoid FK assignment issues."""

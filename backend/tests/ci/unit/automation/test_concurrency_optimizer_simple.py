@@ -1,4 +1,5 @@
 """Tests for ConcurrencyOptimizer covering config, resource tracking, and optimization."""
+
 from __future__ import annotations
 
 import asyncio
@@ -7,6 +8,7 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -107,7 +109,8 @@ class TestGetLock:
 
 class TestCleanupResources:
     def test_cleanup_empty(self, optimizer):
-        asyncio.run(optimizer.cleanup_resources())  # should not raise
+        # 无资源时清理为 no-op，返回 None 且不抛异常
+        assert asyncio.run(optimizer.cleanup_resources()) is None
 
 
 class TestOptimizeConcurrency:
@@ -123,17 +126,16 @@ class TestOptimizeConcurrency:
 
 class TestAcquireAndRelease:
     def test_acquire_and_release(self, optimizer):
-        try:
-            result = asyncio.run(
-                asyncio.wait_for(
-                    optimizer.acquire_resource("test_id", "test_site", "test_account"),
-                    timeout=2,
-                )
+        result = asyncio.run(
+            asyncio.wait_for(
+                optimizer.acquire_resource("test_id", "test_site", "test_account"),
+                timeout=2,
             )
-            if result:
-                asyncio.run(optimizer.release_resource("test_id", "test_site", "test_account"))
-        except (TimeoutError, Exception):
-            pass  # Some implementations might timeout
+        )
+        # 资源获取应成功，随后释放
+        assert result is True
+        release_result = asyncio.run(optimizer.release_resource("test_id", "test_site", "test_account"))
+        assert release_result is None or release_result is True
 
 
 class TestCheckConcurrencyLimits:

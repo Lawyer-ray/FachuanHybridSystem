@@ -29,23 +29,35 @@ class TestWorkbenchSessionService:
         assert result == {"items": [], "total": 0, "page": 1, "page_size": 20, "total_pages": 1}
 
     def test_invalidate_session_cache_no_user(self) -> None:
+        from unittest.mock import patch
+
         from apps.workbench.services.session_service import WorkbenchSessionService
 
-        # Should not raise
-        WorkbenchSessionService._invalidate_session_cache(None)
+        with patch("apps.workbench.services.session_service.cache") as mock_cache:
+            # 无用户直接早退，不清缓存
+            WorkbenchSessionService._invalidate_session_cache(None)
+            mock_cache.delete_many.assert_not_called()
 
     def test_invalidate_session_cache_anonymous(self) -> None:
+        from unittest.mock import patch
+
         from apps.workbench.services.session_service import WorkbenchSessionService
 
         mock_user = MagicMock()
         mock_user.is_authenticated = False
-        WorkbenchSessionService._invalidate_session_cache(mock_user)
+        with patch("apps.workbench.services.session_service.cache") as mock_cache:
+            WorkbenchSessionService._invalidate_session_cache(mock_user)
+            mock_cache.delete_many.assert_not_called()
 
     def test_increment_storage_zero_delta(self) -> None:
+        from unittest.mock import patch
+
         from apps.workbench.services.session_service import WorkbenchSessionService
 
-        # Should not raise, zero delta means no-op
-        WorkbenchSessionService.increment_storage(1, 0)
+        # delta=0 时 no-op，不触发数据库更新
+        with patch("apps.workbench.models.WorkbenchSession") as MockSession:
+            WorkbenchSessionService.increment_storage(1, 0)
+            MockSession.objects.filter.update.assert_not_called()
 
 
 class TestCalcMessageBytes:

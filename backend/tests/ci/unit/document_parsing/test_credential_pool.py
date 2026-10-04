@@ -54,8 +54,8 @@ class TestCredentialPool:
 
     def test_release_out_of_range_is_noop(self) -> None:
         pool = CredentialPool(["a"])
-        pool.release(0, success=True)
-        pool.release(99, success=True)  # 不抛错
+        assert pool.release(0, success=True) is None
+        assert pool.release(99, success=True) is None  # 越界静默忽略
 
     def test_thread_safety(self) -> None:
         pool = CredentialPool(["k"] * 4, concurrency_per_key=1)

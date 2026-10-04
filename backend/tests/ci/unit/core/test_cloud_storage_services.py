@@ -84,8 +84,8 @@ class TestLocalProvider:
         assert not f.exists()
 
     def test_delete_nonexistent_file(self):
-        # Should not raise
-        self.provider.delete_file("nonexistent.txt")
+        # Should not raise（本地删除语义与 WebDAV 一致：不存在不报错）
+        assert self.provider.delete_file("nonexistent.txt") is None
 
     def test_get_file_info_exists(self):
         (Path(self.tmpdir) / "info.txt").write_bytes(b"hello")

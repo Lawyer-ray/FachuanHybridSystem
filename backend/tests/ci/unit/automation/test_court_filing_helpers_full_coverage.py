@@ -24,7 +24,6 @@ except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
 
-
 # ---------------------------------------------------------------------------
 # _resolve_court_name
 # ---------------------------------------------------------------------------
@@ -35,6 +34,7 @@ class TestResolveCourtName:
 
     def _fn(self):
         from plugins.court_automation.filing.helpers import _resolve_court_name
+
         return _resolve_court_name
 
     def test_already_has_renmfy(self):
@@ -57,6 +57,7 @@ class TestResolveCourtName:
 class TestNormalizeFilingType:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _normalize_filing_type
+
         return _normalize_filing_type
 
     def test_valid_type_civil(self):
@@ -91,6 +92,7 @@ class TestNormalizeFilingType:
 class TestNormalizeFilingEngine:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _normalize_filing_engine
+
         return _normalize_filing_engine
 
     def test_valid_engine(self):
@@ -114,6 +116,7 @@ class TestNormalizeFilingEngine:
 class TestInferFilingType:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _infer_filing_type
+
         return _infer_filing_type
 
     def test_execution_hint_statuses(self):
@@ -180,6 +183,7 @@ class TestInferFilingType:
 class TestResolveOriginalCaseNumber:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _resolve_original_case_number
+
         return _resolve_original_case_number
 
     def test_no_case_numbers_attr(self):
@@ -218,6 +222,7 @@ class TestResolveOriginalCaseNumber:
 class TestToValidMobile:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _to_valid_mobile
+
         return _to_valid_mobile
 
     def test_valid_mobile(self):
@@ -253,6 +258,7 @@ class TestToValidMobile:
 class TestBuildPartyPayloads:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _build_party_payloads
+
         return _build_party_payloads
 
     def _make_party(self, legal_status: str, client_type: str = "natural", **client_kw):
@@ -327,6 +333,7 @@ class TestBuildPartyPayloads:
 class TestApplyExecutionPartyFallbacks:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _apply_execution_party_fallbacks
+
         return _apply_execution_party_fallbacks
 
     def test_fills_phone_from_agent(self):
@@ -372,15 +379,25 @@ class TestApplyExecutionPartyFallbacks:
 class TestBuildAgentPayloads:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _build_agent_payloads
+
         return _fn
 
     def _fn_import(self):
         from plugins.court_automation.filing.helpers import _build_agent_payloads
+
         return _build_agent_payloads
 
-    def _make_assignment(self, lawyer_id=1, real_name="律师A", username="lv_a",
-                         phone="13800138000", id_card="110101199001011234",
-                         license_no="12345", firm_name="律所A", firm_addr="地址A"):
+    def _make_assignment(
+        self,
+        lawyer_id=1,
+        real_name="律师A",
+        username="lv_a",
+        phone="13800138000",
+        id_card="110101199001011234",
+        license_no="12345",
+        firm_name="律所A",
+        firm_addr="地址A",
+    ):
         assignment = MagicMock()
         lawyer = MagicMock()
         lawyer.id = lawyer_id
@@ -478,6 +495,7 @@ class TestBuildAgentPayloads:
 class TestBuildExecutionReasonText:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _build_execution_reason_text
+
         return _build_execution_reason_text
 
     def test_with_cause_and_case_number(self):
@@ -509,6 +527,7 @@ class TestBuildExecutionReasonText:
 class TestBuildExecutionRequestText:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _build_execution_request_text
+
         return _build_execution_request_text
 
     def test_generated_text_returned(self):
@@ -539,7 +558,12 @@ class TestBuildExecutionRequestText:
     def test_exception_falls_back(self):
         case = MagicMock()
         case.id = 1
-        case.case_numbers = MagicMock(**{"filter.return_value.order_by.return_value.values_list.return_value.first.return_value": None, "order_by.return_value.values_list.return_value.first.return_value": None})
+        case.case_numbers = MagicMock(
+            **{
+                "filter.return_value.order_by.return_value.values_list.return_value.first.return_value": None,
+                "order_by.return_value.values_list.return_value.first.return_value": None,
+            }
+        )
         with patch(
             "apps.documents.services.placeholders.litigation.execution_request_service.ExecutionRequestService"
         ) as mock_svc:
@@ -550,9 +574,11 @@ class TestBuildExecutionRequestText:
     def test_fallback_with_case_number(self):
         case = MagicMock()
         case.id = 1
-        case.case_numbers = MagicMock(**{
-            "filter.return_value.order_by.return_value.values_list.return_value.first.return_value": "(2025)粤01执1号"
-        })
+        case.case_numbers = MagicMock(
+            **{
+                "filter.return_value.order_by.return_value.values_list.return_value.first.return_value": "(2025)粤01执1号"
+            }
+        )
         with patch(
             "apps.documents.services.placeholders.litigation.execution_request_service.ExecutionRequestService"
         ) as mock_svc:
@@ -569,6 +595,7 @@ class TestBuildExecutionRequestText:
 class TestNormalizeText:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _normalize_text
+
         return _normalize_text
 
     def test_strips_special_chars(self):
@@ -590,6 +617,7 @@ class TestNormalizeText:
 class TestScoreSlotForSignal:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _score_slot_for_signal
+
         return _score_slot_for_signal
 
     def test_empty_signal(self):
@@ -624,6 +652,7 @@ class TestScoreSlotForSignal:
 class TestBuildMaterialSlotSignals:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _build_material_slot_signals
+
         return _build_material_slot_signals
 
     def test_basic_signals(self):
@@ -670,6 +699,7 @@ class TestBuildMaterialSlotSignals:
 class TestScoreSlotDeduplicated:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _score_slot_deduplicated
+
         return _score_slot_deduplicated
 
     def test_empty_signals(self):
@@ -735,6 +765,7 @@ class TestScoreSlotDeduplicated:
 class TestMatchSlot:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _match_slot
+
         return _match_slot
 
     def test_returns_default_when_no_signals(self):
@@ -783,6 +814,7 @@ class TestMatchSlot:
 class TestBuildMaterialsMap:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _build_materials_map
+
         return _build_materials_map
 
     @patch("apps.cases.models.CaseMaterial")
@@ -846,6 +878,7 @@ class TestBuildMaterialsMap:
 class TestBuildSessionStatusPayload:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _build_session_status_payload
+
         return _build_session_status_payload
 
     def test_pending_status(self):
@@ -946,11 +979,14 @@ class TestBuildSessionStatusPayload:
 class TestUpdateSessionTask:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _update_session_task
+
         return _update_session_task
 
     def test_none_session_id_returns(self):
-        self._fn()(session_id=None, status="running")
-        # Should not raise
+        with patch("apps.automation.models.ScraperTask") as mock_task:
+            # session_id=None 直接早退，不触达数据库
+            assert self._fn()(session_id=None, status="running") is None
+            mock_task.objects.filter.assert_not_called()
 
     @patch("plugins.court_automation.filing.helpers.asyncio.get_running_loop")
     @patch("plugins.court_automation.filing.helpers._SESSION_UPDATE_EXECUTOR")
@@ -976,6 +1012,7 @@ class TestUpdateSessionTask:
 class TestGetOrganizationService:
     def test_returns_service(self):
         from plugins.court_automation.filing.helpers import _get_organization_service
+
         with patch("apps.core.dependencies.build_organization_service", return_value="svc"):
             result = _get_organization_service()
             assert result == "svc"

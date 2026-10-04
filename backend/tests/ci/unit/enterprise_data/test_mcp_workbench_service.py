@@ -1,4 +1,5 @@
 """Tests for enterprise_data.services.workbench.service - McpWorkbenchService."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -32,11 +33,11 @@ class TestMcpWorkbenchServiceInit:
 class TestEnsureSuperuser:
     def test_not_enforced(self) -> None:
         svc = McpWorkbenchService(enforce_superuser=False)
-        svc._ensure_superuser(actor_is_superuser=False)  # Should not raise
+        assert svc._ensure_superuser(actor_is_superuser=False) is None  # Should not raise
 
     def test_enforced_with_superuser(self) -> None:
         svc = McpWorkbenchService(enforce_superuser=True)
-        svc._ensure_superuser(actor_is_superuser=True)  # Should not raise
+        assert svc._ensure_superuser(actor_is_superuser=True) is None  # Should not raise
 
     def test_enforced_without_superuser(self) -> None:
         svc = McpWorkbenchService(enforce_superuser=True)

@@ -7,8 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.client.utils.media import resolve_media_url, _get_media_root
-
+from apps.client.utils.media import _get_media_root, resolve_media_url
 
 # ---------------------------------------------------------------------------
 # _get_media_root
@@ -97,3 +96,17 @@ class TestResolveMediaUrl:
             mock_settings.MEDIA_URL = "/media/"
             result = resolve_media_url.__wrapped__("test.pdf")
             assert result is None
+
+    def test_dotdot_rejected(self):
+        """安全审计 C-12：含 .. 的路径拒绝生成媒体 URL，防越界拼接"""
+        import apps.client.utils.media as mod
+
+        mod._cached_media_root = None
+        mod._cached_media_url = None
+        with patch.object(mod, "settings") as mock_settings:
+            mock_settings.MEDIA_ROOT = "/tmp/media"
+            mock_settings.MEDIA_URL = "/media/"
+            assert resolve_media_url.__wrapped__("../etc/passwd") is None
+            assert resolve_media_url.__wrapped__("uploads/../../secret.pdf") is None
+            # 绝对路径中已逃逸 MEDIA_ROOT 的 .. 同样拒绝
+            assert resolve_media_url.__wrapped__("/tmp/media/../secret.pdf") is None

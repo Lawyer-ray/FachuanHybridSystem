@@ -10,12 +10,12 @@ import pytest
 
 try:
     from plugins import has_message_hub_plugin
+
     _HAS_MH = has_message_hub_plugin()
 except ImportError:
     _HAS_MH = False
 
 pytestmark = pytest.mark.skipif(not _HAS_MH, reason="message_hub plugin not installed")
-
 
 
 class TestDocumentRecognitionModules:
@@ -121,7 +121,7 @@ class TestChatRecordsServices:
         admin_user = MagicMock()
         admin_user.is_staff = True
         # Admin should not raise
-        ensure_can_access_project(user=admin_user, project=MagicMock())
+        assert ensure_can_access_project(user=admin_user, project=MagicMock()) is None
 
     def test_access_policy_no_user_raises(self) -> None:
         from apps.chat_records.services.core.access_policy import ensure_can_access_project

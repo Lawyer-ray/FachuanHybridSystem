@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 _META = {"provider": "qcc", "transport": "mcp", "tool": "search", "capability": "search"}
 
@@ -28,6 +27,10 @@ def test_list_providers(authenticated_client):
     with patch("apps.enterprise_data.api.enterprise_data_api._service", return_value=_mock_service()):
         resp = authenticated_client.get("/api/v1/enterprise-data/providers")
         assert resp.status_code == 200
+        data = resp.json()
+        # 信封为 EnterpriseProvidersOut：providers 列表挂在 items 下
+        assert "items" in data
+        assert isinstance(data["items"], list)
 
 
 @pytest.mark.django_db

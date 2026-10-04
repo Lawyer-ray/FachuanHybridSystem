@@ -9,8 +9,9 @@ from apps.documents.models import ProxyMatterRule
 
 class ProxyMatterRuleSeed(TypedDict):
     case_types: list[str]
-    case_type: str | None
-    case_stage: str | None
+    # 模型字段为非空 CharField（blank=True，空串表示「任意」），种子数据不使用 None
+    case_type: str
+    case_stage: str
     legal_statuses: list[str]
     legal_status_match_mode: str
     items_text: str

@@ -24,6 +24,7 @@ class TestScriptExecutorMappings:
     @pytest.fixture()
     def svc(self):
         from apps.oa_filing.services.oa_scripts.jtn.adapter import JTNAdapter
+
         return JTNAdapter("test", "test")
 
     def test_map_case_category_civil(self, svc):
@@ -253,6 +254,7 @@ class TestScriptExecutorMappings:
 
         with pytest.raises(ValueError, match="不支持"):
             from apps.oa_filing.services.oa_firm_registry import create_adapter
+
             create_adapter("unsupported", "t", "t")
 
 
@@ -267,25 +269,30 @@ class TestPresetDiscoveryService:
     @pytest.fixture()
     def svc(self):
         from apps.batch_printing.services.preset.preset_discovery_service import PresetDiscoveryService
+
         return PresetDiscoveryService()
 
     def test_extract_printer_name_valid(self, svc):
         from pathlib import Path
+
         p = Path("/tmp/com.apple.print.custompresets.forprinter.HP-Laser.plist")
         assert svc._extract_printer_name(p) == "HP-Laser"
 
     def test_extract_printer_name_wrong_prefix(self, svc):
         from pathlib import Path
+
         p = Path("/tmp/wrong_prefix.plist")
         assert svc._extract_printer_name(p) == ""
 
     def test_extract_printer_name_wrong_suffix(self, svc):
         from pathlib import Path
+
         p = Path("/tmp/com.apple.print.custompresets.forprinter.X.txt")
         assert svc._extract_printer_name(p) == ""
 
     def test_load_plist_nonexistent(self, svc):
         from pathlib import Path
+
         result = svc._load_plist(Path("/nonexistent/file.plist"))
         assert result is None
 
@@ -295,7 +302,9 @@ class TestPresetDiscoveryService:
 
     def test_walk_preset_nodes_list(self, svc):
         records: list = []
-        svc._walk_preset_nodes([{"PMPresetName": "test", "PMPrintSettings": {"key": "val"}}], printer_name="P", records=records)
+        svc._walk_preset_nodes(
+            [{"PMPresetName": "test", "PMPrintSettings": {"key": "val"}}], printer_name="P", records=records
+        )
         assert len(records) == 1
         assert records[0].preset_name == "test"
 
@@ -439,6 +448,7 @@ class TestAnimationHtmlComposerService:
     @pytest.fixture()
     def svc(self):
         from apps.story_viz.services.html_composer_service import AnimationHtmlComposerService
+
         return AnimationHtmlComposerService()
 
     def test_compose_timeline(self, svc):
@@ -624,7 +634,7 @@ class TestImageRotationApiHelpers:
 
         f = SimpleUploadedFile("test.jpg", b"data", content_type="image/jpeg")
         # Should not raise
-        _validate_image_file(f)
+        assert _validate_image_file(f) is None
 
     def test_validate_image_file_bad_type(self):
         from django.core.files.uploadedfile import SimpleUploadedFile

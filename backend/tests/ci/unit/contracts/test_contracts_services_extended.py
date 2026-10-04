@@ -177,7 +177,8 @@ class TestContractValidator:
 
     def test_validate_fixed_valid(self) -> None:
         v = self._make_validator()
-        v.validate_fee_mode({"fee_mode": "FIXED", "fixed_amount": 1000})
+        # 合法输入静默通过（返回 None，不抛异常）
+        assert v.validate_fee_mode({"fee_mode": "FIXED", "fixed_amount": 1000}) is None
 
     def test_validate_fixed_no_amount(self) -> None:
         from apps.core.exceptions import ValidationException
@@ -195,11 +196,16 @@ class TestContractValidator:
 
     def test_validate_semi_risk_valid(self) -> None:
         v = self._make_validator()
-        v.validate_fee_mode({
-            "fee_mode": "SEMI_RISK",
-            "fixed_amount": 5000,
-            "risk_rate": 10,
-        })
+        assert (
+            v.validate_fee_mode(
+                {
+                    "fee_mode": "SEMI_RISK",
+                    "fixed_amount": 5000,
+                    "risk_rate": 10,
+                }
+            )
+            is None
+        )
 
     def test_validate_semi_risk_missing_rate(self) -> None:
         from apps.core.exceptions import ValidationException
@@ -210,7 +216,7 @@ class TestContractValidator:
 
     def test_validate_full_risk_valid(self) -> None:
         v = self._make_validator()
-        v.validate_fee_mode({"fee_mode": "FULL_RISK", "risk_rate": 15})
+        assert v.validate_fee_mode({"fee_mode": "FULL_RISK", "risk_rate": 15}) is None
 
     def test_validate_full_risk_missing_rate(self) -> None:
         from apps.core.exceptions import ValidationException
@@ -221,7 +227,7 @@ class TestContractValidator:
 
     def test_validate_custom_valid(self) -> None:
         v = self._make_validator()
-        v.validate_fee_mode({"fee_mode": "CUSTOM", "custom_terms": "按年收费"})
+        assert v.validate_fee_mode({"fee_mode": "CUSTOM", "custom_terms": "按年收费"}) is None
 
     def test_validate_custom_empty_terms(self) -> None:
         from apps.core.exceptions import ValidationException
@@ -249,7 +255,8 @@ class TestContractValidator:
 
     def test_validate_no_fee_mode(self) -> None:
         v = self._make_validator()
-        v.validate_fee_mode({})  # Should not raise
+        # 无收费模式时静默通过
+        assert v.validate_fee_mode({}) is None
 
 
 # ── ContractAccessPolicy ────────────────────────────────────────────────────
@@ -315,9 +322,9 @@ class TestContractAccessPolicy:
 
     def test_ensure_access_passes_with_access(self) -> None:
         policy, _ = self._make_policy()
-        policy.ensure_access(
-            contract_id=1, user=None, org_access=None, perm_open_access=True
-        )
+        # 有访问权限时静默返回 None（不抛 PermissionDenied）
+        result = policy.ensure_access(contract_id=1, user=None, org_access=None, perm_open_access=True)
+        assert result is None
 
     def test_can_create_contract_authenticated(self) -> None:
         policy, _ = self._make_policy()
@@ -363,7 +370,7 @@ class TestContractAccessPolicy:
 
         policy, _ = self._make_policy()
         ctx = AccessContext(user=None, org_access=None, perm_open_access=True)
-        policy.ensure_access_ctx(contract_id=1, ctx=ctx)
+        assert policy.ensure_access_ctx(contract_id=1, ctx=ctx) is None
 
     def test_filter_queryset_ctx(self) -> None:
         from apps.core.security.access_context import AccessContext
@@ -393,8 +400,10 @@ class TestContractsSignals:
         instance.file_path = test_file.name
         instance.pk = 1
 
-        with patch("apps.contracts.signals.settings") as mock_settings, \
-             patch("apps.contracts.signals.transaction") as mock_txn:
+        with (
+            patch("apps.contracts.signals.settings") as mock_settings,
+            patch("apps.contracts.signals.transaction") as mock_txn,
+        ):
             mock_settings.MEDIA_ROOT = str(tmp_path)
             # Execute on_commit callback immediately for testing
             mock_txn.on_commit.side_effect = lambda fn: fn()
@@ -407,8 +416,10 @@ class TestContractsSignals:
 
         instance = MagicMock()
         instance.file_path = ""
-        _cleanup_finalized_material_file(None, instance)
-        # No exception, no file operations
+        with patch("apps.contracts.signals.transaction") as mock_txn:
+            _cleanup_finalized_material_file(None, instance)
+        # 无文件路径时应直接早退，不注册 on_commit 回调
+        mock_txn.on_commit.assert_not_called()
 
     def test_cleanup_finalized_material_file_not_exists(self, tmp_path: Any) -> None:
         """When file doesn't exist, should not raise."""
@@ -418,12 +429,15 @@ class TestContractsSignals:
         instance.file_path = "nonexistent/file.pdf"
         instance.pk = 2
 
-        with patch("apps.contracts.signals.settings") as mock_settings, \
-             patch("apps.contracts.signals.transaction") as mock_txn:
+        with (
+            patch("apps.contracts.signals.settings") as mock_settings,
+            patch("apps.contracts.signals.transaction") as mock_txn,
+        ):
             mock_settings.MEDIA_ROOT = str(tmp_path)
             mock_txn.on_commit.side_effect = lambda fn: fn()
             _cleanup_finalized_material_file(None, instance)
-        # No exception raised
+        # on_commit 回调已注册并立即执行（文件不存在则静默跳过）
+        mock_txn.on_commit.assert_called_once()
 
     def test_cleanup_finalized_material_oserror_handled(self, tmp_path: Any) -> None:
         from apps.contracts.signals import _cleanup_finalized_material_file
@@ -436,27 +450,38 @@ class TestContractsSignals:
         instance.file_path = "error.pdf"
         instance.pk = 3
 
-        with patch("apps.contracts.signals.settings") as mock_settings, \
-             patch("apps.contracts.signals.transaction") as mock_txn:
+        with (
+            patch("apps.contracts.signals.settings") as mock_settings,
+            patch("apps.contracts.signals.transaction") as mock_txn,
+        ):
             mock_settings.MEDIA_ROOT = str(tmp_path)
             mock_txn.on_commit.side_effect = lambda fn: fn()
             with patch("pathlib.Path.unlink", side_effect=OSError("Permission denied")):
-                # Should not raise
-                _cleanup_finalized_material_file(None, instance)
+                # Should not raise; OSError 被吞掉并记录异常日志
+                with patch("apps.contracts.signals.logger.exception") as mock_exc:
+                    _cleanup_finalized_material_file(None, instance)
+        assert mock_exc.called
+        # unlink 失败后文件应仍然存在
+        assert test_file.exists()
 
     def test_cleanup_invoice_file_no_path(self) -> None:
         from apps.contracts.signals import _cleanup_invoice_file
 
         instance = MagicMock()
         instance.file_path = ""
-        _cleanup_invoice_file(None, instance)
+        with patch("apps.contracts.signals.transaction") as mock_txn:
+            _cleanup_invoice_file(None, instance)
+        # 无路径直接早退，不注册回调
+        mock_txn.on_commit.assert_not_called()
 
     def test_cleanup_client_payment_image_no_path(self) -> None:
         from apps.contracts.signals import _cleanup_client_payment_image
 
         instance = MagicMock()
         instance.image_path = ""
-        _cleanup_client_payment_image(None, instance)
+        with patch("apps.contracts.signals.transaction") as mock_txn:
+            _cleanup_client_payment_image(None, instance)
+        mock_txn.on_commit.assert_not_called()
 
 
 # ── Archive Constants ───────────────────────────────────────────────────────
@@ -556,9 +581,7 @@ class TestCompositionExtended:
     def test_build_without_services(self, MockQS: Any, MockAP: Any, MockQF: Any) -> None:
         from apps.contracts.services.contract.wiring import build_contract_service
 
-        with patch(
-            "apps.contracts.services.assignment.lawyer_assignment_service.LawyerAssignmentService"
-        ):
+        with patch("apps.contracts.services.assignment.lawyer_assignment_service.LawyerAssignmentService"):
             result = build_contract_service(case_service=None, lawyer_service=None)
             assert result is not None
 

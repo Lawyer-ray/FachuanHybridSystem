@@ -19,7 +19,7 @@ class TestTeamService:
         service = TeamService()
         # Should not raise for valid team types
         for valid_type in TeamType.values:
-            service._validate_team_type(valid_type)
+            assert service._validate_team_type(valid_type) is None
 
     def test_validate_team_type_invalid(self):
         from apps.core.exceptions import ValidationException
@@ -31,7 +31,7 @@ class TestTeamService:
 
 class TestDtoAssemblers:
     def test_import(self):
-        from apps.organization.services.dto_assemblers import LawyerDtoAssembler, LawFirmDtoAssembler
+        from apps.organization.services.dto_assemblers import LawFirmDtoAssembler, LawyerDtoAssembler
 
         assert LawyerDtoAssembler is not None
         assert LawFirmDtoAssembler is not None

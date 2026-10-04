@@ -53,7 +53,10 @@ class TestDisconnect:
     async def test_disconnect_exception_logged(self) -> None:
         consumer = _make_consumer(session_id="s1")
         consumer.channel_layer.group_discard = AsyncMock(side_effect=RuntimeError("fail"))
-        await consumer.disconnect(1000)
+        # channel 异常被吞掉，disconnect 静默返回
+        result = await consumer.disconnect(1000)
+        assert result is None
+        consumer.channel_layer.group_discard.assert_awaited_once()
 
 
 class TestSendError:
@@ -77,9 +80,7 @@ class TestSendError:
     async def test_send_error_exception(self) -> None:
         consumer = _make_consumer()
         exc = ValueError("boom")
-        with patch(
-            "apps.litigation_ai.consumers.litigation_consumer.settings"
-        ) as mock_settings:
+        with patch("apps.litigation_ai.consumers.litigation_consumer.settings") as mock_settings:
             mock_settings.DEBUG = False
             with patch("apps.core.exceptions.error_presentation.ExceptionPresenter") as MockPresenter:
                 mock_presenter = MagicMock()

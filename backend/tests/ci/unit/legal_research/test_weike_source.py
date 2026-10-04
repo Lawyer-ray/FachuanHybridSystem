@@ -81,15 +81,9 @@ class TestWeikeDocumentMixinStatic:
         assert len(result) <= 50
 
     def test_is_session_restricted_response(self):
-        assert WeikeDocumentMixin._is_session_restricted_response(
-            status=400, payload={"code": "C_001_009"}
-        ) is True
-        assert WeikeDocumentMixin._is_session_restricted_response(
-            status=200, payload={"code": "C_001_009"}
-        ) is True
-        assert WeikeDocumentMixin._is_session_restricted_response(
-            status=200, payload={"code": "OK"}
-        ) is False
+        assert WeikeDocumentMixin._is_session_restricted_response(status=400, payload={"code": "C_001_009"}) is True
+        assert WeikeDocumentMixin._is_session_restricted_response(status=200, payload={"code": "C_001_009"}) is True
+        assert WeikeDocumentMixin._is_session_restricted_response(status=200, payload={"code": "OK"}) is False
 
     def test_build_download_filename(self):
         detail = _make_detail(title="买卖合同纠纷判决书")
@@ -129,9 +123,7 @@ class TestWeikeDocumentMixinStatic:
 
     def test_extract_dom_field(self):
         text = "审理法院：北京市朝阳区人民法院"
-        result = WeikeDocumentMixin._extract_dom_field(
-            text=text, patterns=(r"(?:审理法院|法院)[:：]\s*([^\n]+)",)
-        )
+        result = WeikeDocumentMixin._extract_dom_field(text=text, patterns=(r"(?:审理法院|法院)[:：]\s*([^\n]+)",))
         assert "北京市朝阳区人民法院" in result
 
     def test_extract_dom_field_no_match(self):
@@ -170,8 +162,8 @@ class TestWeikeDocumentSessionRestricted:
     def test_raise_if_session_restricted_expired(self):
         mixin = WeikeDocumentMixin()
         session = _make_session(restricted_until_epoch=time.time() - 10)
-        # Should not raise
-        mixin._raise_if_session_restricted(session=session, stage="test")
+        # 过期的限流时间不应触发异常
+        assert mixin._raise_if_session_restricted(session=session, stage="test") is None
 
 
 # ── WeikeSearchMixin tests ────────────────────────────────────

@@ -4,17 +4,20 @@ Covers: validate_legal_status_compatibility with client_id (our party legal stat
 _validate_our_party_legal_status with conflicting/opposing/no-opposing statuses,
 create_party with user logging.
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+import apps.cases.services.party.case_party_mutation_service  # 预热导入：避免 patch 装饰器在 models 被 mock 后才触发包导入
 from apps.core.exceptions import NotFoundError, ValidationException
 
 
 def _make_service(**deps):
     from apps.cases.services.party.case_party_mutation_service import CasePartyMutationService
+
     return CasePartyMutationService(
         client_service=deps.get("client_service", MagicMock()),
         contract_service=deps.get("contract_service", MagicMock()),
@@ -26,16 +29,12 @@ class TestValidateLegalStatusCompatibilityWithClientId:
     @patch("apps.cases.services.party.case_party_mutation_service.business_config")
     @patch("apps.cases.models.CaseParty")
     @patch("apps.cases.models.Case")
-    def test_valid_status_with_client_id_calls_validate_our_party(
-        self, mock_case_cls, mock_case_party, mock_config
-    ):
+    def test_valid_status_with_client_id_calls_validate_our_party(self, mock_case_cls, mock_case_party, mock_config):
         mock_case_cls.objects.filter.return_value.only.return_value.first.return_value = MagicMock()
         mock_config.is_legal_status_valid_for_case_type.return_value = True
         svc = _make_service()
-        with patch.object(svc, '_validate_our_party_legal_status') as mock_validate:
-            result = svc.validate_legal_status_compatibility(
-                case_id=1, legal_status="plaintiff_side", client_id=10
-            )
+        with patch.object(svc, "_validate_our_party_legal_status") as mock_validate:
+            result = svc.validate_legal_status_compatibility(case_id=1, legal_status="plaintiff_side", client_id=10)
             assert result is True
             mock_validate.assert_called_once()
 
@@ -49,18 +48,17 @@ class TestValidateOurPartyLegalStatus:
         svc.client_service.get_client_internal.return_value = mock_client_dto
         mock_qs = MagicMock()
         # Should not raise - returns early
-        svc._validate_our_party_legal_status(
-            case_id=1, legal_status="plaintiff_side", client_id=10, parties_qs=mock_qs
-        )
+        svc._validate_our_party_legal_status(case_id=1, legal_status="plaintiff_side", client_id=10, parties_qs=mock_qs)
+        # 非我方客户早退，不校验业务配置
+        mock_config.is_legal_status_valid_for_case_type.assert_not_called()
 
     @patch("apps.cases.services.party.case_party_mutation_service.business_config")
     def test_no_client_dto_returns_early(self, mock_config):
         svc = _make_service()
         svc.client_service.get_client_internal.return_value = None
         mock_qs = MagicMock()
-        svc._validate_our_party_legal_status(
-            case_id=1, legal_status="plaintiff_side", client_id=10, parties_qs=mock_qs
-        )
+        svc._validate_our_party_legal_status(case_id=1, legal_status="plaintiff_side", client_id=10, parties_qs=mock_qs)
+        mock_config.is_legal_status_valid_for_case_type.assert_not_called()
 
     @patch("apps.cases.services.party.case_party_mutation_service.business_config")
     def test_invalid_new_status_returns_early(self, mock_config):
@@ -70,9 +68,9 @@ class TestValidateOurPartyLegalStatus:
         svc.client_service.get_client_internal.return_value = mock_client_dto
         mock_config.is_legal_status_valid_for_case_type.return_value = False
         mock_qs = MagicMock()
-        svc._validate_our_party_legal_status(
-            case_id=1, legal_status="bad_status", client_id=10, parties_qs=mock_qs
-        )
+        svc._validate_our_party_legal_status(case_id=1, legal_status="bad_status", client_id=10, parties_qs=mock_qs)
+        # 新地位非法时早退，不查询既有当事人
+        mock_qs.filter.assert_not_called()
 
     @patch("apps.cases.services.party.case_party_mutation_service.business_config")
     def test_no_opposing_group_returns_early(self, mock_config):
@@ -82,9 +80,9 @@ class TestValidateOurPartyLegalStatus:
         svc.client_service.get_client_internal.return_value = mock_client_dto
         mock_config.is_legal_status_valid_for_case_type.return_value = True
         mock_qs = MagicMock()
-        svc._validate_our_party_legal_status(
-            case_id=1, legal_status="unknown_status", client_id=10, parties_qs=mock_qs
-        )
+        svc._validate_our_party_legal_status(case_id=1, legal_status="unknown_status", client_id=10, parties_qs=mock_qs)
+        # 无对立组映射时早退
+        mock_qs.filter.assert_not_called()
 
     @patch("apps.cases.services.party.case_party_mutation_service.business_config")
     def test_conflicting_opposing_status_raises(self, mock_config):
@@ -114,9 +112,11 @@ class TestValidateOurPartyLegalStatus:
         mock_qs = MagicMock()
         # No existing parties with conflicting statuses
         mock_qs.filter.return_value.exclude.return_value.values_list.return_value = []
-        svc._validate_our_party_legal_status(
+        result = svc._validate_our_party_legal_status(
             case_id=1, legal_status="plaintiff_side", client_id=10, parties_qs=mock_qs
         )
+        # 无冲突时静默通过
+        assert result is None
 
     @patch("apps.cases.services.party.case_party_mutation_service.business_config")
     def test_appellant_opposing_appellee_raises(self, mock_config):

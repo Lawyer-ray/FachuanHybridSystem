@@ -415,9 +415,7 @@ class TestBaseFolderBindingServiceMethods:
         from apps.core.filesystem.folder_binding_base import BaseFolderBindingService
 
         svc = BaseFolderBindingService()
-        binding = SimpleNamespace(
-            storage_type="s3", storage_account=Mock(), folder_path="/cloud/path", id=1
-        )
+        binding = SimpleNamespace(storage_type="s3", storage_account=Mock(), folder_path="/cloud/path", id=1)
         mock_provider = Mock()
         mock_provider.is_dir.return_value = True
         with patch.object(svc, "_get_provider_for_binding", return_value=mock_provider):
@@ -429,9 +427,7 @@ class TestBaseFolderBindingServiceMethods:
         from apps.core.filesystem.folder_binding_base import BaseFolderBindingService
 
         svc = BaseFolderBindingService()
-        binding = SimpleNamespace(
-            storage_type="s3", storage_account=Mock(), folder_path="/cloud/path", id=1
-        )
+        binding = SimpleNamespace(storage_type="s3", storage_account=Mock(), folder_path="/cloud/path", id=1)
         mock_provider = Mock()
         mock_provider.is_dir.return_value = False
         mock_provider.exists.return_value = False
@@ -444,9 +440,7 @@ class TestBaseFolderBindingServiceMethods:
         from apps.core.filesystem.folder_binding_base import BaseFolderBindingService
 
         svc = BaseFolderBindingService()
-        binding = SimpleNamespace(
-            storage_type="s3", storage_account=Mock(), folder_path="/cloud/path", id=1
-        )
+        binding = SimpleNamespace(storage_type="s3", storage_account=Mock(), folder_path="/cloud/path", id=1)
         mock_provider = Mock()
         mock_provider.is_dir.side_effect = RuntimeError("boom")
         with patch.object(svc, "_get_provider_for_binding", return_value=mock_provider):
@@ -470,8 +464,7 @@ class TestBaseFolderBindingServiceMethods:
 
         svc = BaseFolderBindingService()
         binding = SimpleNamespace(
-            storage_type="local", folder_path="/missing", id=1,
-            folder_inode=None, folder_device=None
+            storage_type="local", folder_path="/missing", id=1, folder_inode=None, folder_device=None
         )
         with patch.object(svc, "check_folder_accessible", return_value=False):
             ok, repaired = svc.check_and_repair_path(binding)
@@ -483,14 +476,16 @@ class TestBaseFolderBindingServiceMethods:
 
         svc = BaseFolderBindingService()
         binding = SimpleNamespace()  # no folder_inode attr
-        svc._maybe_fill_inode(binding)  # should not raise
+        assert svc._maybe_fill_inode(binding) is None  # should not raise
 
     def test_maybe_fill_inode_skips_when_already_set(self):
         from apps.core.filesystem.folder_binding_base import BaseFolderBindingService
 
         svc = BaseFolderBindingService()
         binding = SimpleNamespace(folder_inode=12345)
-        svc._maybe_fill_inode(binding)  # should return early
+        assert svc._maybe_fill_inode(binding) is None  # should return early
+        # 已有 inode 时不重新解析
+        assert binding.folder_inode == 12345
 
     def test_maybe_fill_inode_backfills(self):
         from apps.core.filesystem.folder_binding_base import BaseFolderBindingService
@@ -690,6 +685,7 @@ class TestS3ProviderGetFileInfo:
         error = ClientError({"Error": {"Code": "404"}}, "HeadObject")
 
         call_count = [0]
+
         def mock_head(**kwargs):
             call_count[0] += 1
             if call_count[0] == 1:
