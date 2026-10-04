@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from django.contrib.postgres.indexes import GinIndex
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from simple_history.models import HistoricalRecords
@@ -106,6 +107,8 @@ class Case(models.Model):
             models.Index(fields=["start_date"]),
             models.Index(fields=["current_stage"]),
             models.Index(fields=["status"]),
+            # 全局搜索 name__icontains 走 trigram（随数据增长上保险）
+            GinIndex(fields=["name"], name="cases_case_name_trgm", opclasses=["gin_trgm_ops"]),
         ]
         constraints: ClassVar = [
             # NULL 不参与校验（PG check 约束对 NULL 放行）

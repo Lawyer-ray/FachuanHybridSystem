@@ -6,6 +6,7 @@
 
 from typing import ClassVar
 
+from django.contrib.postgres.indexes import GinIndex
 from django.db import models
 
 
@@ -43,6 +44,8 @@ class Court(models.Model):
             models.Index(fields=["level"], name="core_court_level_dc4c2b_idx"),
             models.Index(fields=["name"], name="core_court_name_6afac9_idx"),
             models.Index(fields=["is_active"], name="core_court_is_acti_16a9bd_idx"),
+            # icontains 模糊补全走 trigram（btree 对 %x% 无效，数千行全国法院全表扫）
+            GinIndex(fields=["name"], name="core_court_name_trgm", opclasses=["gin_trgm_ops"]),
         ]
 
     def __str__(self) -> str:
