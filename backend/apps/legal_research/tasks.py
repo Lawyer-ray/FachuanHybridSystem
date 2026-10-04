@@ -17,11 +17,26 @@ from apps.legal_research.services.task.executor import LegalResearchExecutor
 
 
 def execute_legal_research_task(task_id: str) -> dict[str, Any]:  # pragma: no cover
-    # Playwright 同步API内部会维护事件循环，执行过程中同步 ORM 读写
-    # 可能触发 Django 的 async 上下文保护。任务是后台同步执行流程，
-    # 这里显式放开该限制（仅执行期间，退出恢复），避免误判失败。
-    # async 化需整体改造 executor 链（LegalResearchExecutor 全链 sync ORM +
-    # Playwright 混排），暂保留作用域化。
+    # 【保留作用域化放行的原因】Weike 客户端是同步 Playwright：playwright 的
+    # _impl/_sync_base 在每次 sync 调用返回用户代码前执行 asyncio._set_running_loop，
+    # open_session 之后执行器线程长期挂着"运行中循环"，同线程任何直接 sync ORM
+    # 都会抛 SynchronousOnlyOperation。环境变量是进程级的，在提交线程设置即可
+    # 覆盖 worker 线程的整个执行窗口（本函数阻塞在 future.result，窗口恰好重合）。
+    #
+    # ORM 段与 Playwright/HTTP 段在 LegalResearchExecutor.run（650 行主循环 + 9 个
+    # executor_components mixin）内深度交错，无法分段 aget/aupdate 化：
+    # - 已循环安全的段：task_lifecycle 的 ORM（_save_task_safely/_acquire_task/
+    #   _is_cancel_requested）经 _run_orm_safely 在检测到运行循环时摆渡到单 worker 线程；
+    # - 仍直连 sync ORM 的段：executor_components/result_persistence.py 的 _save_result
+    #   （get_or_create + result.save，@transaction.atomic）在候选循环内每命中一篇调用
+    #   一次，与 Playwright 检索/下载逐条交错，是本放行的硬依赖。
+    #
+    # 去掉本放行的改造清单：① _save_result 整体接入 _run_orm_safely（注意
+    # transaction.atomic 需随 callable 一起搬线程，且禁止与其他 ORM 摆渡嵌套——
+    # _ORM_FALLBACK_EXECUTOR 单 worker 会死锁）；② 或将 Weike 客户端 +
+    # LegalResearchExecutor 全链改 async Playwright（约 2800 行 mixin + 650 行主循环
+    # 重写）。两者均为整体改造，见 apps/legal_research/services/capability/service.py
+    # 的 _execute_with_timeout——它跑的是同一执行器，清偿时须一并处理。
     with allow_async_unsafe():
         executor = LegalResearchExecutor()
         # 隔离到独立线程，避免上游异步上下文导致 ORM 抛出
@@ -37,8 +52,14 @@ def execute_legal_research_task(task_id: str) -> dict[str, Any]:  # pragma: no c
 
 def execute_case_download_task(task_id: int) -> dict[str, Any]:  # pragma: no cover
     """执行案例下载任务"""
-    # 同 execute_legal_research_task：Playwright sync + sync ORM，仅执行期间放行。
-    # async 化需整体改造 executor 链，暂保留作用域化。
+    # 同 execute_legal_research_task 的保留原因：同步 Playwright 的 _set_running_loop
+    # 使执行线程带上运行中循环。CaseDownloadService.execute_task 的 ORM 段
+    # （task.save 进度更新、CaseDownloadResult.objects.create 结果落库）与 Playwright
+    # 段（open_session/search_cases/fetch_case_detail/download_pdf）在逐案循环内交错
+    # （每 5 案一次进度落库 + 每案 1-2 次结果落库），且未接入 _run_orm_safely 摆渡，
+    # 去掉放行会在首个进度落库处抛 SynchronousOnlyOperation。改造需把逐案循环与
+    # Weike 客户端一起 async 化（同 execute_legal_research_task 注释的改造清单②），
+    # 属整体改造，暂保留作用域化。
     with allow_async_unsafe():
         service = CaseDownloadService()
         with ThreadPoolExecutor(max_workers=1, thread_name_prefix="case-download-executor") as pool:
