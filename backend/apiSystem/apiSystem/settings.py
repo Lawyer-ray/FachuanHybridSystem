@@ -124,6 +124,11 @@ MIDDLEWARE = [
     "django.middleware.gzip.GZipMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    # 请求级 statement_timeout（仅生产 + PostgreSQL 生效，DEBUG/非 PG 自动跳过）：
+    # 放在所有会查 DB 的中间件（限流/Session/Auth/视图）之外，覆盖面最大；
+    # 紧贴 RequestId 保持基础设施中间件分组。Django-Q worker 不跑中间件栈，
+    # 其长任务 SQL 不受影响（详见模块 docstring 的防误伤论证）。
+    "apps.core.middleware.db_statement_timeout.DbStatementTimeoutMiddleware",
     # RequestId 在限流之外：429 短路响应也要带 X-Request-ID，
     # 且限流命中时的告警日志能关联到 request context。
     "apps.core.middleware.request_id.RequestIdMiddleware",
@@ -275,8 +280,10 @@ elif DB_ENGINE in ("", "postgres", "postgresql", "django.db.backends.postgresql"
     #   与 web 共用同一 DATABASES["default"]（Q_CLUSTER 无独立 alias），无法
     #   按「web / worker」区分注入；全局 statement_timeout 会把 worker 里
     #   长任务的慢 SQL（批量分析、OA 全量同步）中途杀掉。生产的 web 慢 SQL
-    #   治理应走请求级方案（视图/中间件内 `SET LOCAL statement_timeout`，
-    #   随事务结束自动还原），不在连接级全局设置。
+    #   治理走请求级方案：DbStatementTimeoutMiddleware（见 MIDDLEWARE 注册处）
+    #   在每个 web 请求内 SET/RESET statement_timeout（env
+    #   DB_WEB_STATEMENT_TIMEOUT_MS，默认 60000；worker 进程不跑中间件栈，
+    #   长任务不受影响），不在连接级全局设置。
     _pg_options: dict[str, object] = {"connect_timeout": 10}
     _idle_tx_default = "60000" if DEBUG else "300000"
     _idle_tx_timeout = os.environ.get("DB_IDLE_IN_TX_TIMEOUT_MS", _idle_tx_default)
