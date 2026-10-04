@@ -217,7 +217,8 @@ class TestManualSession:
         assert handle.context is context
         assert handle.page is page
         assert handle.playwright is None  # CloakBrowser: driver 停止内嵌在 browser.close()
-        launch_mock.assert_awaited_once_with(headless=True, humanize=True)
+        # 手动会话强制有头（半自动=人机协作），profile 的 headless=True 被豁免覆盖
+        launch_mock.assert_awaited_once_with(headless=False, humanize=True)
         # 反检测上下文参数合并进 new_context
         _, kwargs = browser.new_context.await_args
         assert kwargs["locale"] == "zh-CN"

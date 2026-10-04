@@ -107,6 +107,12 @@ async def create_browser_async_manual(  # pragma: no cover
     if isinstance(profile, str):
         profile = get_profile(profile)
 
+    # 半自动会话按定义是「人机协作」：get_profile 的 PLAYWRIGHT_HEADED 全局
+    # 开关只应作用于全自动链路；手动会话除非调用方显式传 headless，一律强制
+    # 有头——开关为 false 时浏览器不可见，用户无从操作（如所函盖章上传文件）。
+    if "headless" not in kwargs:
+        kwargs["headless"] = False
+
     if kwargs:
         profile = dataclasses.replace(profile, **kwargs)
 
