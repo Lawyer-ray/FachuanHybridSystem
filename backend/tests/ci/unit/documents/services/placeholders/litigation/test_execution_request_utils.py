@@ -35,7 +35,6 @@ from apps.documents.services.placeholders.litigation.execution_request_utils imp
     to_docx_hard_breaks,
 )
 
-
 # ---------------------------------------------------------------------------
 # parse_decimal
 # ---------------------------------------------------------------------------

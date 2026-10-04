@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from datetime import date
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -29,7 +29,6 @@ from apps.documents.models.choices import LegalStatusMatchMode
 from apps.documents.services.placeholders.authorization_materials.power_of_attorney_service import (
     PowerOfAttorneyPlaceholderService,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -42,7 +42,6 @@ from apps.documents.services.placeholders.litigation.execution_request_models im
     ParsedInterestParams,
 )
 
-
 # ---------------------------------------------------------------------------
 # parse_interest_params
 # ---------------------------------------------------------------------------

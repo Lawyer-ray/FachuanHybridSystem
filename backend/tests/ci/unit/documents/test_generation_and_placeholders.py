@@ -6,13 +6,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from apps.documents.services.generation.outputs import ComplaintOutput, DefenseOutput, ExecutionRequestOutput, PartyInfo
 from apps.documents.services.generation.result import GenerationResult
-from apps.documents.services.generation.outputs import (
-    ComplaintOutput,
-    DefenseOutput,
-    ExecutionRequestOutput,
-    PartyInfo,
-)
 from apps.documents.services.placeholders.base import BasePlaceholderService
 from apps.documents.services.placeholders.fallback import (
     PLACEHOLDER_FALLBACK_VALUE,
@@ -24,7 +19,6 @@ from apps.documents.services.placeholders.fallback import (
     resolve_render_variable,
 )
 from apps.documents.services.placeholders.types import PlaceholderContextData
-
 
 # ---------------------------------------------------------------------------
 # GenerationResult

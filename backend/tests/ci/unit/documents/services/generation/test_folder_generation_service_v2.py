@@ -26,16 +26,12 @@ from datetime import date
 from io import BytesIO
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
 from apps.core.exceptions import NotFoundError, ValidationException
-from apps.documents.services.generation.folder_generation_service import (
-    DocumentPlacement,
-    FolderGenerationService,
-)
-
+from apps.documents.services.generation.folder_generation_service import DocumentPlacement, FolderGenerationService
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch, PropertyMock
 from typing import Any
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
-
 
 # ── TemplateMatchingService ────────────────────────────────────────
 
@@ -58,8 +57,8 @@ class TestFindMatchingCaseDocumentTemplateNames:
 
     @patch("apps.documents.services.template.template_matching_service.DocumentTemplate")
     def test_all_case_types_matches_any(self, mock_model):
-        from apps.documents.services.template.template_matching_service import TemplateMatchingService
         from apps.documents.models.choices import LegalStatusMatchMode
+        from apps.documents.services.template.template_matching_service import TemplateMatchingService
 
         template = MagicMock()
         template.name = "通用模板"

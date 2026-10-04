@@ -3,8 +3,8 @@ Tests for documents/services/document_template/ - validation_service, placeholde
 """
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
 from pathlib import Path as RealPath
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -13,9 +13,7 @@ from apps.core.exceptions import ValidationException
 
 class TestDocumentTemplateValidationService:
     def _make_service(self):
-        from apps.documents.services.document_template.validation_service import (
-            DocumentTemplateValidationService,
-        )
+        from apps.documents.services.document_template.validation_service import DocumentTemplateValidationService
 
         return DocumentTemplateValidationService()
 
@@ -110,9 +108,7 @@ class TestPlaceholderExtractor:
     def test_pattern_matches(self):
         import re
 
-        from apps.documents.services.document_template.placeholder_extractor import (
-            PLACEHOLDER_PATTERN,
-        )
+        from apps.documents.services.document_template.placeholder_extractor import PLACEHOLDER_PATTERN
 
         text = "{{ case_name }} 和 {{defendant}} 以及 {{原告.姓名}}"
         matches = PLACEHOLDER_PATTERN.findall(text)
@@ -122,9 +118,7 @@ class TestPlaceholderExtractor:
     def test_pattern_no_match(self):
         import re
 
-        from apps.documents.services.document_template.placeholder_extractor import (
-            PLACEHOLDER_PATTERN,
-        )
+        from apps.documents.services.document_template.placeholder_extractor import PLACEHOLDER_PATTERN
 
         text = "No placeholders here"
         matches = PLACEHOLDER_PATTERN.findall(text)
@@ -178,9 +172,7 @@ class TestFolderTemplateRepo:
 class TestFolderTemplateStructureRules:
     def _make_rules(self, internal_dup=None, global_dup=None):
         from apps.documents.services.folder_template.id_service import FolderTemplateIdService
-        from apps.documents.services.folder_template.structure_rules import (
-            FolderTemplateStructureRules,
-        )
+        from apps.documents.services.folder_template.structure_rules import FolderTemplateStructureRules
 
         id_service = MagicMock(spec=FolderTemplateIdService)
         id_service.collect_structure_ids.return_value = {"a", "b"}

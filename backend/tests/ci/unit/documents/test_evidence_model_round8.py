@@ -13,7 +13,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ── MergeStatus / ListType choices ─────────────────────────────────────
 # These are TextChoices defined before the conflicting model classes,
 # so they can be imported without triggering the model registration conflict.

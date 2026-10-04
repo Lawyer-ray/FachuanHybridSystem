@@ -203,7 +203,9 @@ class TestDefensePartyService:
 # ---------------------------------------------------------------------------
 class TestSupplementaryAgreementPrincipalService:
     def _get_service(self):
-        from apps.documents.services.placeholders.supplementary.principal_service import SupplementaryAgreementPrincipalService
+        from apps.documents.services.placeholders.supplementary.principal_service import (
+            SupplementaryAgreementPrincipalService,
+        )
         return SupplementaryAgreementPrincipalService.__new__(SupplementaryAgreementPrincipalService)
 
     def _make_client(self, name="委托人A", client_type="natural", **kwargs):
@@ -315,7 +317,9 @@ class TestSupplementaryAgreementPrincipalService:
 # ---------------------------------------------------------------------------
 class TestEnhancedOpposingPartyService:
     def _get_service(self):
-        from apps.documents.services.placeholders.contract.enhanced_opposing_party_service import EnhancedOpposingPartyService
+        from apps.documents.services.placeholders.contract.enhanced_opposing_party_service import (
+            EnhancedOpposingPartyService,
+        )
         return EnhancedOpposingPartyService.__new__(EnhancedOpposingPartyService)
 
     # _extract_cause_of_action

@@ -13,7 +13,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -23,15 +23,12 @@ from apps.documents.services.placeholders.litigation.execution_request_models im
     ParsedInterestParams,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 def _make_service() -> Any:
-    from apps.documents.services.placeholders.litigation.execution_request_service import (
-        ExecutionRequestService,
-    )
+    from apps.documents.services.placeholders.litigation.execution_request_service import ExecutionRequestService
     return ExecutionRequestService()
 
 
