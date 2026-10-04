@@ -26,6 +26,10 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 15_000,
+      // 律师工作台高频切窗（复制案号、查微信），默认的焦点重拉会每次齐发
+      // 3-5 个请求；各处已有 30-60s staleTime，焦点即时性没有业务诉求。
+      // 个别确需焦点刷新的 query 在 useQuery 处单独开。
+      refetchOnWindowFocus: false,
       // 会话过期类错误（api.ts 401 刷新失败路径）不重试：重试只会再吃一次 401；
       // 其余错误重试一次（与原 retry: 1 口径一致）
       retry: (failureCount, error) =>
