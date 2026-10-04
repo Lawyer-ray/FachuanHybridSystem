@@ -9,15 +9,17 @@
    ============================================================ */
 
 .fc-auth {
-  /* 白底色板：暖灰阶 + 深黄铜点缀 */
+  /* 白底色板：暖灰阶 + 深黄铜点缀。
+     对比度刻意收紧：ink-2 ≈ 7:1（正文/标签），ink-3 ≈ 3.5:1（仅装饰性微标），
+     灰阶一旦过浅，白底上中文会直接「发虚」。 */
   --paper: #ffffff;
   --paper-soft: #faf9f6;
   --ink: #17150f;
-  --ink-2: #6f6a5e;
-  --ink-3: #a5a093;
-  --line: #e8e5de;
-  --line-strong: #d3cfc5;
-  --accent: #a8842c;
+  --ink-2: #57523f;
+  --ink-3: #857f6f;
+  --line: #e5e2da;
+  --line-strong: #cdc9bd;
+  --accent: #9a7824;
 
   color-scheme: light;
   min-height: 100dvh;
@@ -27,7 +29,8 @@
   color: var(--ink);
   font-family:
     -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
-  -webkit-font-smoothing: antialiased;
+  /* 不设 -webkit-font-smoothing: antialiased——macOS 上它会关闭亚像素渲染，
+     中文笔画整体变细发虚（比应用其余部分明显更淡）；保持默认渲染与全站一致 */
 }
 
 .fc-auth ::selection {
@@ -92,9 +95,9 @@
   margin-top: 40px;
   padding-top: 16px;
   border-top: 1px solid var(--line);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   line-height: 1.8;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 
 /* ---------- 登录方式：下划线标签页 ---------- */
@@ -112,13 +115,13 @@
   background: none;
   cursor: pointer;
   font-family: inherit;
-  font-size: 0.8125rem;
-  color: var(--ink-3);
+  font-size: 0.875rem;
+  color: var(--ink-2);
   transition: color 0.2s ease;
 }
 
 .fc-tab:hover {
-  color: var(--ink-2);
+  color: var(--ink);
 }
 
 .fc-tab--on {
@@ -148,10 +151,11 @@
 .fc-field__label {
   display: block;
   font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
-  font-size: 0.6875rem;
-  letter-spacing: 0.16em;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 
 .fc-field__row {
