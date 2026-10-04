@@ -18,6 +18,7 @@ from apps.core.services.browser import (
 )
 
 from ..auth.service import JtnAuthService
+from ..case_dialog import confirm_case_selection, select_case_radio_in_frame
 from .constants import (
     _POPUP_IFRAME_KEYWORD,
     DEFAULT_STAMP_COPIES,
@@ -155,30 +156,13 @@ class PlaywrightStampMixin:  # pragma: no cover
 
         await popup_frame.evaluate(IFRAME_SEARCH_FN)
 
-        # 4. 轮询等待搜索结果中出现目标案件编号，校验后选择匹配行
+        # 4. 轮询等待搜索结果中出现目标案件编号并勾选（勾选校验与强制置位见
+        #    case_dialog.select_case_radio_in_frame——查询异步重渲染会清选中态）
         import time as _time
 
         deadline = _time.monotonic() + 30
         while True:
-            matched = await popup_frame.evaluate(
-                """(expected) => {{
-                const radios = document.querySelectorAll('input[type="radio"]');
-                for (const radio of radios) {{
-                    const row = radio.closest('tr');
-                    if (!row) continue;
-                    const tds = row.querySelectorAll('td');
-                    if (tds.length < 2) continue;
-                    const caseNo = tds[1].textContent.trim();
-                    if (caseNo === expected) {{
-                        radio.click();
-                        return true;
-                    }}
-                }}
-                return false;
-            }}""",
-                case_no,
-            )
-            if matched:
+            if await select_case_radio_in_frame(popup_frame, case_no):
                 break
             if _time.monotonic() > deadline:
                 raise RuntimeError(f"搜索结果中未找到案件: {case_no}")
@@ -187,16 +171,10 @@ class PlaywrightStampMixin:  # pragma: no cover
         await asyncio.sleep(SHORT_WAIT)
         logger.info("已选择案件: %s", case_no)
 
-        # 5. 点击 layui 层的"选择"按钮
-        await page.evaluate("""() => {
-            const layers = document.querySelectorAll(".layui-layer");
-            for (const layer of layers) {
-                for (const a of layer.querySelectorAll("a")) {
-                    if (a.innerText.trim() === "选择") { a.click(); return; }
-                }
-            }
-        }""")
-        await asyncio.sleep(POPUP_WAIT)
+        # 5. 点「选择」回填并验证弹窗真正关闭。行未勾上时 OA 弹「请选择对应的
+        #    案件信息」且弹窗保持打开，静默失败会让后续 file_type 被遮罩挡住
+        #    （2026-10-04 所函盖章实测踩坑）。
+        await confirm_case_selection(page, case_no, self._find_popup_frame, wait_after_click=POPUP_WAIT)
         logger.info("案件已回填到主页面")
 
     async def _find_popup_frame(self: Any, page: Page) -> Any:  # pragma: no cover

@@ -19,6 +19,7 @@ from apps.core.services.browser import (
 )
 
 from ..auth.service import JtnAuthService
+from ..case_dialog import confirm_case_selection, select_case_radio_in_frame
 from .archive_models import ArchiveFormData
 from .constants import (
     _POPUP_IFRAME_KEYWORD,
@@ -159,46 +160,18 @@ class PlaywrightArchiveMixin:  # pragma: no cover
         await asyncio.sleep(SHORT_WAIT)
         logger.info("已选择案件: %s", case_no)
 
-        # 5. 点击 layui 层的"选择"按钮
-        await page.evaluate("""() => {
-            const layers = document.querySelectorAll(".layui-layer");
-            for (const layer of layers) {
-                for (const a of layer.querySelectorAll("a")) {
-                    if (a.innerText.trim() === "选择") { a.click(); return; }
-                }
-            }
-        }""")
-        await asyncio.sleep(POPUP_WAIT)
+        # 5. 点「选择」回填并验证弹窗真正关闭。行未勾上时 OA 弹「请选择对应的
+        #    案件信息」且弹窗保持打开，静默失败会让后续表单控件被遮罩挡住。
+        await confirm_case_selection(page, case_no, self._find_popup_frame, wait_after_click=POPUP_WAIT)
         logger.info("案件已回填到主页面")
 
     async def _select_case_in_current_list(self: Any, popup_frame: Any, case_no: str) -> bool:
         """若目标案件已出现在弹窗当前列表中，选中其 radio 并返回 True，否则返回 False。
 
-        列表来源不区分（初始加载或查询结果），仅按案件编号匹配。选中后校验
-        checked 状态，未生效则强制设置并派发 change 事件，避免出现"找到了案件
-        却选不中"的情况。
+        逻辑在 jtn.case_dialog.select_case_radio_in_frame（盖章/归档共用）：
+        勾选后校验 checked，未生效则强制设置并派发 change 事件。
         """
-        selected = await popup_frame.evaluate(
-            """(expected) => {
-                const radios = document.querySelectorAll('input[type="radio"]');
-                for (const radio of radios) {
-                    const row = radio.closest('tr');
-                    if (!row) continue;
-                    const tds = row.querySelectorAll('td');
-                    if (tds.length < 2) continue;
-                    const caseNo = tds[1].textContent.trim();
-                    if (caseNo === expected) {
-                        if (!radio.checked) radio.click();
-                        if (!radio.checked) radio.checked = true;
-                        radio.dispatchEvent(new Event('change', { bubbles: true }));
-                        return true;
-                    }
-                }
-                return false;
-            }""",
-            case_no,
-        )
-        return bool(selected)
+        return await select_case_radio_in_frame(popup_frame, case_no)
 
     async def _find_popup_frame(self: Any, page: Page) -> Any:  # pragma: no cover
         """查找案件搜索弹窗的 iframe。"""
