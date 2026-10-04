@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -137,9 +137,7 @@ class TestRecrawlDocument:
     @pytest.mark.django_db(transaction=True)
     async def test_async_body_uses_acount(self, doc: ArbitrationDocument):
         """真 async 断言：图片计数走 acount（async 查询）。"""
-        await ArbitrationDocumentImage.objects.acreate(
-            document=doc, page_index=0, source_url="https://x/1.png"
-        )
+        await ArbitrationDocumentImage.objects.acreate(document=doc, page_index=0, source_url="https://x/1.png")
         with patch("apps.labor_arbitration.tasks.FoshanLaborAwardCrawler"):
             from apps.labor_arbitration.tasks import _recrawl_document_async
 

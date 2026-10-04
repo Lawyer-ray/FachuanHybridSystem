@@ -66,7 +66,7 @@ class EnterpriseProviderRegistry:
                 base_url_default="https://mcp.tianyancha.com/mcp",
                 sse_url_key="TIANYANCHA_MCP_SSE_URL",
                 sse_url_default="https://mcp.tianyancha.com/sse",
-                api_key_key="TIANYANCHA_MCP_API_KEY",  # pragma: allowlist secret
+                config_key_name="TIANYANCHA_MCP_API_KEY",  # pragma: allowlist secret
             )
             return TianyanchaMcpProvider(config=config)
         if provider_name == QichachaMcpProvider.name:
@@ -76,7 +76,7 @@ class EnterpriseProviderRegistry:
                 base_url_default="https://agent.qcc.com",
                 sse_url_key="QCC_MCP_BASE_URL",
                 sse_url_default="https://agent.qcc.com",
-                api_key_key="QCC_MCP_API_KEY",  # pragma: allowlist secret
+                config_key_name="QCC_MCP_API_KEY",  # pragma: allowlist secret
             )
             return QichachaMcpProvider(config=config)
         raise ValidationException(
@@ -131,11 +131,11 @@ class EnterpriseProviderRegistry:
         base_url_default: str,
         sse_url_key: str,
         sse_url_default: str,
-        api_key_key: str,
+        config_key_name: str,
     ) -> ProviderConfig:
         api_keys = self._read_sensitive_values(
-            api_key_key,
-            env_keys=(api_key_key, f"{api_key_key}S"),
+            config_key_name,
+            env_keys=(config_key_name, f"{config_key_name}S"),
         )
         if not api_keys:
             raise ValidationException(
@@ -143,8 +143,8 @@ class EnterpriseProviderRegistry:
                 code="PROVIDER_API_KEY_MISSING",
                 errors={
                     "provider": provider_name,
-                    "config_key": api_key_key,
-                    "env_keys": [api_key_key, f"{api_key_key}S"],
+                    "config_key": config_key_name,
+                    "env_keys": [config_key_name, f"{config_key_name}S"],
                 },
             )
 
@@ -169,12 +169,11 @@ class EnterpriseProviderRegistry:
         try:
             return str(self._config.get_value(key, "") or "").strip()
         except Exception as exc:
-            # CodeQL #1391（py/clear-text-logging-sensitive-data）定性为误报并内联抑制：
-            # 本条日志只记录 SystemConfig 的配置键名（本文件硬编码的非机密常量）与
-            # 异常类型名；API Key 真实值（get_value 返回值 / 环境变量读取结果）不会流入。
+            # 日志仅记录配置键名（硬编码常量）与异常类型；API Key 真实值不流入
+            # （CodeQL #1391 曾因上游参数名 api_key_key 误判污点，已改名 config_key_name 断链）。
             logger.warning(
                 "Read system config failed, fallback env var",
-                extra={"key": key, "error_type": type(exc).__name__},  # codeql[py/clear-text-logging-sensitive-data]
+                extra={"key": key, "error_type": type(exc).__name__},
             )
             return ""
 

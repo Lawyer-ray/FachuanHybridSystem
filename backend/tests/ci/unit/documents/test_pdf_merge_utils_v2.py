@@ -143,7 +143,7 @@ class TestConvertViaLibreoffice:
             try:
                 os.close(real_fd)
             except OSError:
-                pass
+                pass  # 仅忽略重复关闭的 EBADF，生产代码可能已关闭该 fd
         assert result is not None
 
 
@@ -196,7 +196,7 @@ class TestConvertDocxToPdf:
                         try:
                             os.close(real_fd)
                         except OSError:
-                            pass
+                            pass  # 仅忽略重复关闭的 EBADF
 
         assert result is not None
 
