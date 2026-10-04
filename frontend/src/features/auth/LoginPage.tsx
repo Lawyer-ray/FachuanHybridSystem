@@ -4,7 +4,7 @@
  * 视觉：白底极简（灰阶 + 单一黄铜点缀），样式自包含于 login.css。
  * 单栏左对齐、发丝线分隔，视觉重心让给账密表单。
  *
- * 开场 MG「奇点 · Super Intelligence」v3（≈9.7s，国际大片规格）：
+ * 开场 MG「奇点 · Super Intelligence」v3.1（≈7.9s，国际大片规格）：
  * 深空粒子场 → 螺旋卷入（弧线加速而非直线）→ 奇点蓄能爆发（暖闪 + 三层
  * 冲击波 + 抛射粒子 + 巨字残影）→「法穿」带景深模糊炸出 → SUPER
  * INTELLIGENCE 逐字母点亮后坍缩为 SI COPILOT（长名缩写的动效叙事）
@@ -39,15 +39,15 @@ import { SocialRedirectGroup } from './components/SocialRedirectGroup'
 const QR_TAB: LoginMethod = { id: QR_METHOD_ID, kind: 'embedded_qr', label: '扫码登录', provider: null }
 
 /** 开场动画时间轴（与 login.css 里 fc-intro 系列的 delay 保持同步） */
-const INTRO_READY_MS = 8900
-const INTRO_UNMOUNT_MS = 9700
+const INTRO_READY_MS = 7100
+const INTRO_UNMOUNT_MS = 7900
 
 /** 螺旋卷入的主演粒子：极径/初始角/卷入角均按黄金角确定性推导（重渲染不闪） */
 const INTRO_DOTS = Array.from({ length: 30 }, (_, i) => ({
   a: `${((i * 137.508) % 360).toFixed(1)}deg`,
   r: `${(24 + ((i * 53) % 26)).toFixed(1)}vmin`,
   spin: `${(180 + ((i * 61) % 300)).toFixed(0)}deg`,
-  d: `${(((i * 37) % 12) / 12 * 1.2).toFixed(2)}s`,
+  d: `${(((i * 37) % 12) / 12 * 0.8).toFixed(2)}s`,
   s: 3 + ((i * 29) % 3),
   brass: i % 5 === 0,
 }))
@@ -173,7 +173,7 @@ export function LoginPage() {
                     <span
                       key={ci}
                       className="fc-intro__letter"
-                      style={{ animationDelay: `${6.45 + (wi * 8 + ci) * 0.055}s` }}
+                      style={{ animationDelay: `${4.8 + (wi * 8 + ci) * 0.055}s` }}
                     >
                       {ch}
                     </span>
