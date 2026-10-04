@@ -9,6 +9,7 @@ Covers:
 - _handle_select_evidence_agent
 - _handle_agent_error
 """
+
 from __future__ import annotations
 
 import json
@@ -19,6 +20,7 @@ import pytest
 
 def _make_consumer(**kwargs):
     from apps.litigation_ai.consumers.litigation_consumer import LitigationConsumer
+
     c = LitigationConsumer.__new__(LitigationConsumer)
     c.session_id = kwargs.get("session_id", "test_session")
     c.user = MagicMock()
@@ -186,6 +188,11 @@ class TestHandleSelectEvidenceAgent:
             with patch("apps.litigation_ai.consumers.litigation_consumer.settings") as ms:
                 ms.DEBUG = False
                 await c._handle_select_evidence_agent([1], [1], [])
+        # agent 异常被捕获并通过 send_error 下发错误信封
+        c.send.assert_awaited()
+        payload = json.loads(c.send.call_args[1]["text_data"])
+        assert payload["type"] == "error"
+        assert payload["code"] == "ERR"
 
 
 # ── _handle_agent_error ──────────────────────────────────────────────────────

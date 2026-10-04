@@ -1,4 +1,5 @@
 """当事人 ID 卡合并校验与 JSON 导入校验单元测试。"""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -16,8 +17,8 @@ from apps.client.services.id_card_merge.validation import (
 from apps.client.services.importer.validator import ClientJsonImportValidator
 from apps.core.exceptions import ValidationException
 
-
 # ── validate_image_format ──────────────────────────────────────────────────
+
 
 def test_validate_image_format_valid() -> None:
     """有效格式返回 None。"""
@@ -68,6 +69,7 @@ def test_validate_image_format_no_content_type() -> None:
 
 # ── validate_image_size ────────────────────────────────────────────────────
 
+
 def test_validate_image_size_valid() -> None:
     """足够大的图片返回 None。"""
     image = np.zeros((500, 600, 3), dtype=np.uint8)
@@ -92,14 +94,18 @@ def test_validate_image_size_borderline() -> None:
 
 # ── order_corners ──────────────────────────────────────────────────────────
 
+
 def test_order_corners_basic() -> None:
     """基本角点排序。"""
-    corners = np.array([
-        [100, 100],  # top-left
-        [300, 100],  # top-right
-        [300, 200],  # bottom-right
-        [100, 200],  # bottom-left
-    ], dtype=np.float32)
+    corners = np.array(
+        [
+            [100, 100],  # top-left
+            [300, 100],  # top-right
+            [300, 200],  # bottom-right
+            [100, 200],  # bottom-left
+        ],
+        dtype=np.float32,
+    )
     ordered = order_corners(corners)
     assert ordered.shape == (4, 2)
     # top-left 应有最小 sum
@@ -107,6 +113,7 @@ def test_order_corners_basic() -> None:
 
 
 # ── validate_corners ───────────────────────────────────────────────────────
+
 
 def test_validate_corners_valid() -> None:
     """有效四角坐标返回 None。"""
@@ -141,11 +148,10 @@ def test_validate_corners_non_numeric() -> None:
 
 # ── is_convex_quadrilateral ────────────────────────────────────────────────
 
+
 def test_is_convex_true() -> None:
     """凸四边形返回 True。"""
-    corners = np.array([
-        [0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]
-    ], dtype=np.float32)
+    corners = np.array([[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]], dtype=np.float32)
     assert is_convex_quadrilateral(corners) is True
 
 
@@ -157,25 +163,35 @@ def test_is_convex_wrong_count() -> None:
 
 # ── ClientJsonImportValidator ──────────────────────────────────────────────
 
-class TestClientJsonImportValidator:
 
+class TestClientJsonImportValidator:
     def _validator(self) -> ClientJsonImportValidator:
         return ClientJsonImportValidator()
 
     def test_valid_natural(self) -> None:
         """有效自然人数据不抛出异常。"""
-        self._validator().validate({
-            "name": "张三",
-            "client_type": "natural",
-        })
+        assert (
+            self._validator().validate(
+                {
+                    "name": "张三",
+                    "client_type": "natural",
+                }
+            )
+            is None
+        )
 
     def test_valid_legal(self) -> None:
         """有效法人数据不抛出异常。"""
-        self._validator().validate({
-            "name": "北京科技有限公司",
-            "client_type": "legal",
-            "legal_representative": "李四",
-        })
+        assert (
+            self._validator().validate(
+                {
+                    "name": "北京科技有限公司",
+                    "client_type": "legal",
+                    "legal_representative": "李四",
+                }
+            )
+            is None
+        )
 
     def test_missing_name(self) -> None:
         """缺少名称抛出异常。"""
@@ -199,44 +215,57 @@ class TestClientJsonImportValidator:
 
     def test_identity_docs_valid(self) -> None:
         """有效证件文档不抛出异常。"""
-        self._validator().validate({
-            "name": "张三",
-            "client_type": "natural",
-            "identity_docs": [{"doc_type": "id_card", "file_path": "docs/1.pdf"}],
-        })
+        assert (
+            self._validator().validate(
+                {
+                    "name": "张三",
+                    "client_type": "natural",
+                    "identity_docs": [{"doc_type": "id_card", "file_path": "docs/1.pdf"}],
+                }
+            )
+            is None
+        )
 
     def test_identity_docs_not_list(self) -> None:
         """证件文档非列表抛出异常。"""
         with pytest.raises(ValidationException):
-            self._validator().validate({
-                "name": "张三",
-                "client_type": "natural",
-                "identity_docs": "not_a_list",
-            })
+            self._validator().validate(
+                {
+                    "name": "张三",
+                    "client_type": "natural",
+                    "identity_docs": "not_a_list",
+                }
+            )
 
     def test_identity_docs_missing_doc_type(self) -> None:
         """证件文档缺少 doc_type 抛出异常。"""
         with pytest.raises(ValidationException):
-            self._validator().validate({
-                "name": "张三",
-                "client_type": "natural",
-                "identity_docs": [{"file_path": "docs/1.pdf"}],
-            })
+            self._validator().validate(
+                {
+                    "name": "张三",
+                    "client_type": "natural",
+                    "identity_docs": [{"file_path": "docs/1.pdf"}],
+                }
+            )
 
     def test_identity_docs_missing_file_path(self) -> None:
         """证件文档缺少 file_path 抛出异常。"""
         with pytest.raises(ValidationException):
-            self._validator().validate({
-                "name": "张三",
-                "client_type": "natural",
-                "identity_docs": [{"doc_type": "id_card"}],
-            })
+            self._validator().validate(
+                {
+                    "name": "张三",
+                    "client_type": "natural",
+                    "identity_docs": [{"doc_type": "id_card"}],
+                }
+            )
 
     def test_identity_docs_invalid_item_type(self) -> None:
         """证件文档项非字典抛出异常。"""
         with pytest.raises(ValidationException):
-            self._validator().validate({
-                "name": "张三",
-                "client_type": "natural",
-                "identity_docs": ["not_a_dict"],
-            })
+            self._validator().validate(
+                {
+                    "name": "张三",
+                    "client_type": "natural",
+                    "identity_docs": ["not_a_dict"],
+                }
+            )

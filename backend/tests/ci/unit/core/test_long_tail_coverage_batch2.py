@@ -245,7 +245,7 @@ class TestOwnerConfigManager:
     def test_validate_owner_id_strict_valid(self):
         m = self._make_manager()
         hex32 = "c" * 32
-        m.validate_owner_id_strict(f"ou_{hex32}")  # no raise
+        assert m.validate_owner_id_strict(f"ou_{hex32}") is None  # no raise
 
     def test_get_effective_owner_specified_valid(self):
         m = self._make_manager()

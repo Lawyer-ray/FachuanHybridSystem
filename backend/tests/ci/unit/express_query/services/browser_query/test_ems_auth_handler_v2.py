@@ -3,22 +3,20 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 
 _MOD = "apps.express_query.services.browser_query.ems_auth_handler"
 
 
 class TestConstants:
-
     def test_xpath_constants_defined(self):
         from apps.express_query.services.browser_query.ems_auth_handler import (
-            EMS_LOGIN_AGREE_CHECKBOX_XPATH,
-            EMS_AGREEMENT_MODAL_XPATH,
-            EMS_AGREEMENT_LAST_CLAUSE_XPATH,
             EMS_AGREEMENT_ACCEPT_BUTTON_XPATH,
+            EMS_AGREEMENT_LAST_CLAUSE_XPATH,
+            EMS_AGREEMENT_MODAL_XPATH,
+            EMS_LOGIN_AGREE_CHECKBOX_XPATH,
         )
 
         assert EMS_LOGIN_AGREE_CHECKBOX_XPATH
@@ -28,7 +26,6 @@ class TestConstants:
 
 
 class TestIsEmsDialogVisible:
-
     @pytest.mark.asyncio
     async def test_dialog_scan_visible(self):
         from apps.express_query.services.browser_query.ems_auth_handler import is_ems_dialog_visible
@@ -95,7 +92,6 @@ class TestIsEmsDialogVisible:
 
 
 class TestEmsClickLoginButton:
-
     @pytest.mark.asyncio
     async def test_returns_true_when_found(self):
         from apps.express_query.services.browser_query.ems_auth_handler import ems_click_login_button
@@ -141,6 +137,7 @@ class TestEmsClickLoginButton:
         from apps.express_query.services.browser_query.ems_auth_handler import ems_click_login_button
 
         page = MagicMock()
+
         # Second selector finds a visible element
         def locator_side_effect(sel):
             loc = MagicMock()
@@ -160,7 +157,6 @@ class TestEmsClickLoginButton:
 
 
 class TestWaitForEmsLogin:
-
     @pytest.mark.asyncio
     async def test_success_when_user_visible(self):
         from apps.express_query.services.browser_query.ems_auth_handler import wait_for_ems_login
@@ -177,7 +173,8 @@ class TestWaitForEmsLogin:
             return_value=True,
         ):
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                await wait_for_ems_login(page, timeout_seconds=5)
+                # 已登录（正文含"退出 我的EMS"）时立即返回
+                assert await wait_for_ems_login(page, timeout_seconds=5) is None
 
     @pytest.mark.asyncio
     async def test_login_dialog_disappears(self):
@@ -195,11 +192,11 @@ class TestWaitForEmsLogin:
             return_value=False,
         ):
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                await wait_for_ems_login(page, timeout_seconds=5)
+                # 登录弹窗已消失且未检出登录态：轮询到超时后静默返回
+                assert await wait_for_ems_login(page, timeout_seconds=5) is None
 
 
 class TestEmsHandleAgreementAndWait:
-
     @pytest.mark.asyncio
     async def test_timeout_raises(self):
         from apps.express_query.services.browser_query.ems_auth_handler import ems_handle_agreement_and_wait
@@ -209,9 +206,7 @@ class TestEmsHandleAgreementAndWait:
         context.pages = []
 
         # Dialog always visible, no QR, no checkbox -> loops then times out
-        with patch(
-            f"{_MOD}.is_ems_dialog_visible", new_callable=AsyncMock, return_value=True
-        ):
+        with patch(f"{_MOD}.is_ems_dialog_visible", new_callable=AsyncMock, return_value=True):
             with patch("asyncio.sleep", new_callable=AsyncMock):
                 # Set the deadline to be in the past
                 with patch("asyncio.get_running_loop") as mock_loop:
@@ -225,15 +220,11 @@ class TestEmsHandleAgreementAndWait:
         context2 = MagicMock()
         context2.pages = []
 
-        with patch(
-            f"{_MOD}.is_ems_dialog_visible", new_callable=AsyncMock, return_value=False
-        ):
+        with patch(f"{_MOD}.is_ems_dialog_visible", new_callable=AsyncMock, return_value=False):
             with patch("asyncio.sleep", new_callable=AsyncMock):
                 # Timeout should raise
                 with pytest.raises(TimeoutError):
-                    await ems_handle_agreement_and_wait(
-                        context2, page2, timeout_seconds=0
-                    )
+                    await ems_handle_agreement_and_wait(context2, page2, timeout_seconds=0)
 
     @pytest.mark.asyncio
     async def test_qr_visible_breaks_loop(self):
@@ -248,9 +239,7 @@ class TestEmsHandleAgreementAndWait:
         async def fake_is_dialog(p):
             return False
 
-        with patch(
-            f"{_MOD}.is_ems_dialog_visible", side_effect=fake_is_dialog
-        ):
+        with patch(f"{_MOD}.is_ems_dialog_visible", side_effect=fake_is_dialog):
             with patch("asyncio.sleep", new_callable=AsyncMock):
                 # QR visible, no checkbox -> should break from agreement loop
                 # and then timeout in the scan wait loop
@@ -279,7 +268,6 @@ class TestEmsHandleAgreementAndWait:
 
 
 class TestEmsEnsureAgreementChecked:
-
     @pytest.mark.asyncio
     async def test_exact_xpath_clicked(self):
         from apps.express_query.services.browser_query.ems_auth_handler import _ems_ensure_agreement_checked
@@ -292,9 +280,7 @@ class TestEmsEnsureAgreementChecked:
         checkbox_loc.first.click = AsyncMock()
         page.locator.return_value = checkbox_loc
 
-        with patch(
-            f"{_MOD}.click_locator_if_visible", new_callable=AsyncMock, return_value=True
-        ):
+        with patch(f"{_MOD}.click_locator_if_visible", new_callable=AsyncMock, return_value=True):
             result = await _ems_ensure_agreement_checked(page)
             assert result is True
 
@@ -303,12 +289,8 @@ class TestEmsEnsureAgreementChecked:
         from apps.express_query.services.browser_query.ems_auth_handler import _ems_ensure_agreement_checked
 
         page = MagicMock()
-        with patch(
-            f"{_MOD}.click_locator_if_visible", new_callable=AsyncMock, return_value=False
-        ):
-            with patch(
-                f"{_MOD}.click_first", new_callable=AsyncMock, return_value=False
-            ):
+        with patch(f"{_MOD}.click_locator_if_visible", new_callable=AsyncMock, return_value=False):
+            with patch(f"{_MOD}.click_first", new_callable=AsyncMock, return_value=False):
                 page.evaluate = AsyncMock(return_value=True)
                 result = await _ems_ensure_agreement_checked(page)
                 assert result is True
@@ -318,19 +300,14 @@ class TestEmsEnsureAgreementChecked:
         from apps.express_query.services.browser_query.ems_auth_handler import _ems_ensure_agreement_checked
 
         page = MagicMock()
-        with patch(
-            f"{_MOD}.click_locator_if_visible", new_callable=AsyncMock, return_value=False
-        ):
-            with patch(
-                f"{_MOD}.click_first", new_callable=AsyncMock, return_value=False
-            ):
+        with patch(f"{_MOD}.click_locator_if_visible", new_callable=AsyncMock, return_value=False):
+            with patch(f"{_MOD}.click_first", new_callable=AsyncMock, return_value=False):
                 page.evaluate = AsyncMock(return_value=False)
                 result = await _ems_ensure_agreement_checked(page)
                 assert result is False
 
 
 class TestEmsTryAgreementCheckbox:
-
     @pytest.mark.asyncio
     async def test_xpath_strategy_success(self):
         from apps.express_query.services.browser_query.ems_auth_handler import _ems_try_agreement_checkbox
@@ -387,7 +364,6 @@ class TestEmsTryAgreementCheckbox:
 
 
 class TestIsEmsLoginWindow:
-
     @pytest.mark.asyncio
     async def test_login_url(self):
         from apps.express_query.services.browser_query.ems_auth_handler import is_ems_login_window
@@ -430,15 +406,12 @@ class TestIsEmsLoginWindow:
 
 
 class TestEmsScrollAgreementAndAccept:
-
     @pytest.mark.asyncio
     async def test_button_clicked(self):
         from apps.express_query.services.browser_query.ems_auth_handler import _ems_scroll_agreement_and_accept
 
         page = MagicMock()
-        with patch(
-            f"{_MOD}.click_locator_if_visible", new_callable=AsyncMock, return_value=True
-        ):
+        with patch(f"{_MOD}.click_locator_if_visible", new_callable=AsyncMock, return_value=True):
             result = await _ems_scroll_agreement_and_accept(page)
             assert result is True
 
@@ -447,15 +420,12 @@ class TestEmsScrollAgreementAndAccept:
         from apps.express_query.services.browser_query.ems_auth_handler import _ems_scroll_agreement_and_accept
 
         page = MagicMock()
-        with patch(
-            f"{_MOD}.click_locator_if_visible", new_callable=AsyncMock, return_value=False
-        ):
+        with patch(f"{_MOD}.click_locator_if_visible", new_callable=AsyncMock, return_value=False):
             result = await _ems_scroll_agreement_and_accept(page)
             assert result is True
 
 
 class TestEmsOpenLastAgreementAndAccept:
-
     @pytest.mark.asyncio
     async def test_checkbox_not_found_returns_false(self):
         from apps.express_query.services.browser_query.ems_auth_handler import _ems_open_last_agreement_and_accept
@@ -464,15 +434,12 @@ class TestEmsOpenLastAgreementAndAccept:
         context = MagicMock()
         context.pages = [page]
 
-        with patch(
-            f"{_MOD}.click_locator_if_visible", new_callable=AsyncMock, return_value=False
-        ):
+        with patch(f"{_MOD}.click_locator_if_visible", new_callable=AsyncMock, return_value=False):
             result = await _ems_open_last_agreement_and_accept(context, page)
             assert result is False
 
 
 class TestEmsAcceptAgreementOnPage:
-
     @pytest.mark.asyncio
     async def test_accept_button_clicked(self):
         from apps.express_query.services.browser_query.ems_auth_handler import _ems_accept_agreement_on_page

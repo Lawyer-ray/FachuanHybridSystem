@@ -443,7 +443,7 @@ class TestSubprocessRunner:
         from apps.core.infrastructure.subprocess_runner import SubprocessRunner
 
         runner = SubprocessRunner(allowed_programs={"echo", "ls"})
-        runner._validate_args(["echo", "hello"])  # 不抛异常
+        assert runner._validate_args(["echo", "hello"]) is None  # 不抛异常
 
     def test_validate_args_whitelist_fail(self) -> None:
         from apps.core.infrastructure.subprocess_runner import SubprocessRunner

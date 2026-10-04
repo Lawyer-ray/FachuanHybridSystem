@@ -87,7 +87,8 @@ class TestEnsureCaseExists:
     @patch("apps.cases.services.material.folder_scan_service.Case")
     def test_passes_when_found(self, MockCase):
         MockCase.objects.filter.return_value.exists.return_value = True
-        _ensure_case_exists(1)
+        # 案件存在时静默通过（返回 None，不抛 NotFoundError）
+        assert _ensure_case_exists(1) is None
 
 
 # ---------------------------------------------------------------------------
@@ -588,14 +589,27 @@ class TestTryRepairBindingPath:
         from apps.cases.services.material.folder_scan_service import _try_repair_binding_path
 
         binding = _make_binding(relative_path="")
-        _try_repair_binding_path(binding)
+        with patch("apps.core.dependencies.build_contract_folder_binding_service") as mock_build:
+            assert _try_repair_binding_path(binding) is None
+            # 无相对路径直接早退，不构建修复服务
+            mock_build.assert_not_called()
 
     def test_noop_when_no_case(self):
         from apps.cases.services.material.folder_scan_service import _try_repair_binding_path
 
-        binding = _make_binding(relative_path="sub")
-        binding.case = MagicMock(side_effect=AttributeError)
-        _try_repair_binding_path(binding)
+        # 注意：binding.case 需在「属性访问」时抛 AttributeError 才能命中早退分支；
+        # MagicMock 子类的 property 抛 AttributeError 会被 __getattr__ 兜底吞掉，
+        # 因此这里必须用普通对象
+        class _NoCaseBinding:
+            relative_path = "sub"
+
+            @property
+            def case(self):
+                raise AttributeError("case unavailable")
+
+        with patch("apps.core.dependencies.build_contract_folder_binding_service") as mock_build:
+            _try_repair_binding_path(_NoCaseBinding())
+            mock_build.assert_not_called()
 
     def test_noop_when_no_contract(self):
         from apps.cases.services.material.folder_scan_service import _try_repair_binding_path
@@ -604,4 +618,7 @@ class TestTryRepairBindingPath:
         case.contract_id = None
         binding = _make_binding(relative_path="sub")
         binding.case = case
-        _try_repair_binding_path(binding)
+        with patch("apps.core.dependencies.build_contract_folder_binding_service") as mock_build:
+            _try_repair_binding_path(binding)
+            # 案件未关联合同，早退
+            mock_build.assert_not_called()

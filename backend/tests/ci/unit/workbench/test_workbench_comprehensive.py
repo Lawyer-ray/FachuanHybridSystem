@@ -227,8 +227,10 @@ class TestWorkbenchSessionService:
     def test_increment_storage_zero_delta(self, db):
         service = self._make_service()
         session = service.create_session(title="零增量")
-        # Should not raise
+        # 零增量为 no-op：storage_bytes 保持不变
         service.increment_storage(session.id, 0)
+        session.refresh_from_db()
+        assert session.storage_bytes == 0
 
 
 # ==================== Message Service ====================

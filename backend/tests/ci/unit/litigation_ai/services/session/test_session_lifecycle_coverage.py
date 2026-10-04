@@ -11,9 +11,11 @@ from apps.core.exceptions import NotFoundError, ValidationException
 
 # ── _to_session_dto ───────────────────────────────────────────────
 
+
 class TestToSessionDTO:
     def _make_service(self):
         from apps.litigation_ai.services.session.session_lifecycle_service import SessionLifecycleService
+
         with patch.object(SessionLifecycleService, "__init__", lambda self: None):
             svc = SessionLifecycleService()
             svc.case_service = MagicMock()
@@ -79,9 +81,11 @@ class TestToSessionDTO:
 
 # ── create_session ────────────────────────────────────────────────
 
+
 class TestCreateSession:
     def _make_service(self):
         from apps.litigation_ai.services.session.session_lifecycle_service import SessionLifecycleService
+
         with patch.object(SessionLifecycleService, "__init__", lambda self: None):
             svc = SessionLifecycleService()
             svc.case_service = MagicMock()
@@ -136,9 +140,11 @@ class TestCreateSession:
 
 # ── get_session ───────────────────────────────────────────────────
 
+
 class TestGetSession:
     def _make_service(self):
         from apps.litigation_ai.services.session.session_lifecycle_service import SessionLifecycleService
+
         with patch.object(SessionLifecycleService, "__init__", lambda self: None):
             svc = SessionLifecycleService()
             svc.case_service = MagicMock()
@@ -200,9 +206,11 @@ class TestGetSession:
 
 # ── update_session_status ─────────────────────────────────────────
 
+
 class TestUpdateSessionStatus:
     def _make_service(self):
         from apps.litigation_ai.services.session.session_lifecycle_service import SessionLifecycleService
+
         with patch.object(SessionLifecycleService, "__init__", lambda self: None):
             svc = SessionLifecycleService()
             svc.case_service = MagicMock()
@@ -259,9 +267,11 @@ class TestUpdateSessionStatus:
 
 # ── delete_session ────────────────────────────────────────────────
 
+
 class TestDeleteSession:
     def _make_service(self):
         from apps.litigation_ai.services.session.session_lifecycle_service import SessionLifecycleService
+
         with patch.object(SessionLifecycleService, "__init__", lambda self: None):
             svc = SessionLifecycleService()
             svc.case_service = MagicMock()
@@ -306,9 +316,11 @@ class TestDeleteSession:
 
 # ── list_sessions ─────────────────────────────────────────────────
 
+
 class TestListSessions:
     def _make_service(self):
         from apps.litigation_ai.services.session.session_lifecycle_service import SessionLifecycleService
+
         with patch.object(SessionLifecycleService, "__init__", lambda self: None):
             svc = SessionLifecycleService()
             svc.case_service = MagicMock()
@@ -359,9 +371,11 @@ class TestListSessions:
 
 # ── _detach_legacy_tables ─────────────────────────────────────────
 
+
 class TestDetachLegacyTables:
     def _make_service(self):
         from apps.litigation_ai.services.session.session_lifecycle_service import SessionLifecycleService
+
         with patch.object(SessionLifecycleService, "__init__", lambda self: None):
             svc = SessionLifecycleService()
             svc.case_service = MagicMock()
@@ -374,8 +388,10 @@ class TestDetachLegacyTables:
         svc = self._make_service()
         mock_conn.vendor = "postgresql"
         session = MagicMock()
-        svc._detach_legacy_tables(session)
-        # Should return without doing anything
+        result = svc._detach_legacy_tables(session)
+        # 非 sqlite 引擎直接早退（返回 None，不开游标）
+        assert result is None
+        mock_conn.cursor.assert_not_called()
 
     @patch("django.db.connection")
     def test_table_not_exists(self, mock_conn):
@@ -392,9 +408,11 @@ class TestDetachLegacyTables:
 
 # ── get_recommended_document_types ────────────────────────────────
 
+
 class TestGetRecommendedDocumentTypes:
     def _make_service(self):
         from apps.litigation_ai.services.session.session_lifecycle_service import SessionLifecycleService
+
         with patch.object(SessionLifecycleService, "__init__", lambda self: None):
             svc = SessionLifecycleService()
             svc.case_service = MagicMock()

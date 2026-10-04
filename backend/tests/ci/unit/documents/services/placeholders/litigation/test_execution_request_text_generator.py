@@ -25,7 +25,6 @@ from apps.documents.services.placeholders.litigation.execution_request_text_gene
     generate_request_text,
 )
 
-
 # ---------------------------------------------------------------------------
 # build_fee_desc
 # ---------------------------------------------------------------------------
@@ -347,6 +346,10 @@ class TestGenerateRequestText:
             has_double_interest_clause=False,
             joint_liability_text="",
         )
+        assert isinstance(result, str)
+        assert "(2026)粤01号" in result
+        # 空的连带责任文本不应产出连带段落
+        assert "连带" not in result
         # Should not crash
 
     def test_empty_priority_text_item(self) -> None:

@@ -9,6 +9,7 @@ import pytest
 
 try:
     from plugins import has_message_hub_plugin
+
     _HAS_MH = has_message_hub_plugin()
 except ImportError:
     _HAS_MH = False
@@ -49,7 +50,10 @@ def _make_message(source, message_id, subject, sender, body_text=""):
 def test_list_messages(authenticated_client, law_firm):
     user = Lawyer.objects.get(username="testuser")
     cred = AccountCredential.objects.create(
-        lawyer=user, site_name="邮箱", account="test@example.com", password="enc"  # pragma: allowlist secret
+        lawyer=user,
+        site_name="邮箱",
+        account="test@example.com",
+        password="enc",  # pragma: allowlist secret
     )
     source = _make_source(cred)
     _make_message(source, "msg-001", "测试邮件", "sender@example.com", "邮件内容")
@@ -64,7 +68,10 @@ def test_list_messages(authenticated_client, law_firm):
 def test_list_messages_filter_source(authenticated_client, law_firm):
     user = Lawyer.objects.get(username="testuser")
     cred = AccountCredential.objects.create(
-        lawyer=user, site_name="邮箱2", account="test2@example.com", password="enc"  # pragma: allowlist secret
+        lawyer=user,
+        site_name="邮箱2",
+        account="test2@example.com",
+        password="enc",  # pragma: allowlist secret
     )
     source = _make_source(cred, name="过滤邮箱")
     _make_message(source, "msg-002", "过滤邮件", "filter@example.com", "内容")
@@ -78,7 +85,10 @@ def test_list_messages_filter_source(authenticated_client, law_firm):
 def test_list_messages_search(authenticated_client, law_firm):
     user = Lawyer.objects.get(username="testuser")
     cred = AccountCredential.objects.create(
-        lawyer=user, site_name="搜索邮箱", account="search@example.com", password="enc"  # pragma: allowlist secret
+        lawyer=user,
+        site_name="搜索邮箱",
+        account="search@example.com",
+        password="enc",  # pragma: allowlist secret
     )
     source = _make_source(cred, name="搜索邮箱")
     _make_message(source, "msg-003", "包含关键词的邮件", "search@example.com", "测试内容")
@@ -93,7 +103,10 @@ def test_list_messages_limit(authenticated_client, law_firm):
     """limit 截取前 N 条（按 received_at 倒序），供首页收件箱卡片省流量。"""
     user = Lawyer.objects.get(username="testuser")
     cred = AccountCredential.objects.create(
-        lawyer=user, site_name="分页邮箱", account="limit@example.com", password="enc"  # pragma: allowlist secret
+        lawyer=user,
+        site_name="分页邮箱",
+        account="limit@example.com",
+        password="enc",  # pragma: allowlist secret
     )
     source = _make_source(cred, name="分页邮箱")
     _make_message(source, "msg-101", "第一封", "a@example.com")
@@ -122,7 +135,10 @@ def test_list_messages_limit(authenticated_client, law_firm):
 def test_get_message_detail(authenticated_client, law_firm):
     user = Lawyer.objects.get(username="testuser")
     cred = AccountCredential.objects.create(
-        lawyer=user, site_name="详情邮箱", account="detail@example.com", password="enc"  # pragma: allowlist secret
+        lawyer=user,
+        site_name="详情邮箱",
+        account="detail@example.com",
+        password="enc",  # pragma: allowlist secret
     )
     source = _make_source(cred, name="详情邮箱")
     msg = _make_message(source, "msg-004", "详情邮件", "detail@example.com", "详情内容")
@@ -135,7 +151,10 @@ def test_get_message_detail(authenticated_client, law_firm):
 def test_rename_message(authenticated_client, law_firm):
     user = Lawyer.objects.get(username="testuser")
     cred = AccountCredential.objects.create(
-        lawyer=user, site_name="重命名邮箱", account="rename@example.com", password="enc"  # pragma: allowlist secret
+        lawyer=user,
+        site_name="重命名邮箱",
+        account="rename@example.com",
+        password="enc",  # pragma: allowlist secret
     )
     source = _make_source(cred, name="重命名邮箱")
     msg = _make_message(source, "msg-005", "旧标题", "rename@example.com")
@@ -166,29 +185,41 @@ def test_list_sources(authenticated_client):
 def test_create_source(authenticated_client, law_firm):
     user = Lawyer.objects.get(username="testuser")
     cred = AccountCredential.objects.create(
-        lawyer=user, site_name="新建源", account="new@example.com", password="enc"  # pragma: allowlist secret
+        lawyer=user,
+        site_name="新建源",
+        account="new@example.com",
+        password="enc",  # pragma: allowlist secret
     )
     resp = authenticated_client.post(
         "/api/v1/inbox/sources",
-        data=json.dumps({
-            "display_name": "新建来源",
-            "source_type": "imap",
-            "credential_id": cred.id,
-            "is_enabled": True,
-            "poll_interval_minutes": 30,
-            "sync_since": "2024-01-01T00:00:00Z",
-        }),
+        data=json.dumps(
+            {
+                "display_name": "新建来源",
+                "source_type": "imap",
+                "credential_id": cred.id,
+                "is_enabled": True,
+                "poll_interval_minutes": 30,
+                "sync_since": "2024-01-01T00:00:00Z",
+            }
+        ),
         content_type="application/json",
     )
     # May return 500 if sync_since is required by DB constraint
     assert resp.status_code in (201, 500)
+    if resp.status_code == 201:
+        # 创建成功必须真实落库且响应携带 id
+        assert resp.json()["id"]
+        assert MessageSource.objects.filter(display_name="新建来源", credential=cred).exists()
 
 
 @pytest.mark.django_db
 def test_get_source_detail(authenticated_client, law_firm):
     user = Lawyer.objects.get(username="testuser")
     cred = AccountCredential.objects.create(
-        lawyer=user, site_name="来源详情", account="detail_src@example.com", password="enc"  # pragma: allowlist secret
+        lawyer=user,
+        site_name="来源详情",
+        account="detail_src@example.com",
+        password="enc",  # pragma: allowlist secret
     )
     source = _make_source(cred, name="详情来源")
     resp = authenticated_client.get(f"/api/v1/inbox/sources/{source.id}")
@@ -200,7 +231,10 @@ def test_get_source_detail(authenticated_client, law_firm):
 def test_update_source(authenticated_client, law_firm):
     user = Lawyer.objects.get(username="testuser")
     cred = AccountCredential.objects.create(
-        lawyer=user, site_name="更新来源", account="upd_src@example.com", password="enc"  # pragma: allowlist secret
+        lawyer=user,
+        site_name="更新来源",
+        account="upd_src@example.com",
+        password="enc",  # pragma: allowlist secret
     )
     source = _make_source(cred, name="更新前")
     resp = authenticated_client.put(
@@ -216,7 +250,10 @@ def test_update_source(authenticated_client, law_firm):
 def test_delete_source(authenticated_client, law_firm):
     user = Lawyer.objects.get(username="testuser")
     cred = AccountCredential.objects.create(
-        lawyer=user, site_name="删除来源", account="del_src@example.com", password="enc"  # pragma: allowlist secret
+        lawyer=user,
+        site_name="删除来源",
+        account="del_src@example.com",
+        password="enc",  # pragma: allowlist secret
     )
     source = _make_source(cred, name="待删除来源")
     resp = authenticated_client.delete(f"/api/v1/inbox/sources/{source.id}")
@@ -228,7 +265,10 @@ def test_delete_source(authenticated_client, law_firm):
 def test_sync_source(authenticated_client, law_firm):
     user = Lawyer.objects.get(username="testuser")
     cred = AccountCredential.objects.create(
-        lawyer=user, site_name="同步来源", account="sync@example.com", password="enc"  # pragma: allowlist secret
+        lawyer=user,
+        site_name="同步来源",
+        account="sync@example.com",
+        password="enc",  # pragma: allowlist secret
     )
     source = _make_source(cred, name="同步来源")
     resp = authenticated_client.post(f"/api/v1/inbox/sources/{source.id}/sync")

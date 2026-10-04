@@ -1,4 +1,5 @@
 """Targeted tests for legal_research module to push coverage to 80%+."""
+
 from __future__ import annotations
 
 import json
@@ -86,8 +87,10 @@ class TestFeedbackMixin:
         from apps.legal_research.services.executor_components.feedback_mixin import ExecutorFeedbackMixin
 
         weights = {}
-        with patch.object(ExecutorFeedbackMixin, "_split_tokens", return_value=["合同", "纠纷"], create=True), \
-             patch.object(ExecutorFeedbackMixin, "_is_location_or_court_token", return_value=False, create=True):
+        with (
+            patch.object(ExecutorFeedbackMixin, "_split_tokens", return_value=["合同", "纠纷"], create=True),
+            patch.object(ExecutorFeedbackMixin, "_is_location_or_court_token", return_value=False, create=True),
+        ):
             ExecutorFeedbackMixin._apply_query_performance_feedback(
                 search_keyword="合同纠纷",
                 metric={"scanned": 10, "matched": 3},
@@ -101,8 +104,10 @@ class TestFeedbackMixin:
         from apps.legal_research.services.executor_components.feedback_mixin import ExecutorFeedbackMixin
 
         weights = {"合同": 2, "纠纷": 1}
-        with patch.object(ExecutorFeedbackMixin, "_split_tokens", return_value=["合同", "纠纷"], create=True), \
-             patch.object(ExecutorFeedbackMixin, "_is_location_or_court_token", return_value=False, create=True):
+        with (
+            patch.object(ExecutorFeedbackMixin, "_split_tokens", return_value=["合同", "纠纷"], create=True),
+            patch.object(ExecutorFeedbackMixin, "_is_location_or_court_token", return_value=False, create=True),
+        ):
             ExecutorFeedbackMixin._apply_query_performance_feedback(
                 search_keyword="合同 纠纷",
                 metric={"scanned": 30, "matched": 0},
@@ -422,15 +427,22 @@ class TestCacheMixin:
         from apps.legal_research.services.executor_components.cache_mixin import ExecutorCacheMixin
 
         detail = SimpleNamespace(
-            doc_id_raw="RAW", doc_id_unquoted="UNQ", detail_url="", search_id="",
-            module="", title="", court_text="", document_number="", judgment_date="",
-            case_digest="", content_text="", raw_meta=None,
+            doc_id_raw="RAW",
+            doc_id_unquoted="UNQ",
+            detail_url="",
+            search_id="",
+            module="",
+            title="",
+            court_text="",
+            document_number="",
+            judgment_date="",
+            case_digest="",
+            content_text="",
+            raw_meta=None,
         )
         with patch("django.core.cache.cache.set", side_effect=TypeError("bad type")):
-            # Should not raise
-            ExecutorCacheMixin._save_case_detail_cache(
-                cache_key="test", detail=detail, ttl_seconds=100
-            )
+            # Should not raise（缓存写失败不影响主流程）
+            assert ExecutorCacheMixin._save_case_detail_cache(cache_key="test", detail=detail, ttl_seconds=100) is None
 
 
 # ---------------------------------------------------------------------------
@@ -476,9 +488,7 @@ class TestTaskLifecycle:
         from apps.legal_research.models import LegalResearchTaskStatus
         from apps.legal_research.services.executor_components.task_lifecycle import ExecutorTaskLifecycleMixin
 
-        with patch(
-            "apps.legal_research.services.executor_components.task_lifecycle.LegalResearchTask"
-        ) as mock_model:
+        with patch("apps.legal_research.services.executor_components.task_lifecycle.LegalResearchTask") as mock_model:
             mock_model.objects.filter.return_value.values_list.return_value.first.return_value = (
                 LegalResearchTaskStatus.CANCELLED
             )
@@ -489,9 +499,7 @@ class TestTaskLifecycle:
         from apps.legal_research.models import LegalResearchTaskStatus
         from apps.legal_research.services.executor_components.task_lifecycle import ExecutorTaskLifecycleMixin
 
-        with patch(
-            "apps.legal_research.services.executor_components.task_lifecycle.LegalResearchTask"
-        ) as mock_model:
+        with patch("apps.legal_research.services.executor_components.task_lifecycle.LegalResearchTask") as mock_model:
             mock_model.objects.filter.return_value.values_list.return_value.first.return_value = (
                 LegalResearchTaskStatus.RUNNING
             )
@@ -611,8 +619,8 @@ class TestWeikeTypes:
         from apps.legal_research.services.sources.weike.types import WeikeSession
 
         session = WeikeSession()
-        # Should not raise
-        session.close()
+        # Should not raise（所有资源为 None 时直接返回）
+        assert session.close() is None
 
     def test_weike_session_close_with_mocks(self):
         from apps.legal_research.services.sources.weike.types import WeikeSession
@@ -636,8 +644,9 @@ class TestWeikeTypes:
         page = MagicMock()
         page.close.side_effect = Exception("fail")
         session = WeikeSession(page=page, http_client="no_close_method")
-        # Should not raise
-        session.close()
+        # Should not raise（单个资源关闭失败不影响其余清理）
+        assert session.close() is None
+        page.close.assert_called_once_with()
 
     def test_weike_search_item(self):
         from apps.legal_research.services.sources.weike.types import WeikeSearchItem
@@ -860,8 +869,12 @@ class TestWeikeDocumentFunctions:
         from apps.legal_research.services.sources.weike.types import WeikeSearchItem
 
         item = WeikeSearchItem(
-            doc_id_raw="RAW", doc_id_unquoted="UNQ",
-            detail_url="", title_hint="", search_id="", module="",
+            doc_id_raw="RAW",
+            doc_id_unquoted="UNQ",
+            detail_url="",
+            title_hint="",
+            search_id="",
+            module="",
         )
         result = detail_doc_id_candidates(item)
         assert "RAW" in result
@@ -925,10 +938,18 @@ class TestWeikeDocumentFunctions:
         from apps.legal_research.services.sources.weike.types import WeikeCaseDetail
 
         detail = WeikeCaseDetail(
-            doc_id_raw="RAW", doc_id_unquoted="UNQ", detail_url="",
-            search_id="", module="", title="合同纠纷案",
-            court_text="", document_number="", judgment_date="",
-            case_digest="", content_text="", raw_meta={},
+            doc_id_raw="RAW",
+            doc_id_unquoted="UNQ",
+            detail_url="",
+            search_id="",
+            module="",
+            title="合同纠纷案",
+            court_text="",
+            document_number="",
+            judgment_date="",
+            case_digest="",
+            content_text="",
+            raw_meta={},
         )
         result = build_download_filename(detail)
         assert "合同纠纷案" in result
@@ -939,10 +960,18 @@ class TestWeikeDocumentFunctions:
         from apps.legal_research.services.sources.weike.types import WeikeCaseDetail
 
         detail = WeikeCaseDetail(
-            doc_id_raw="RAW", doc_id_unquoted="DOC123", detail_url="",
-            search_id="", module="", title="",
-            court_text="", document_number="", judgment_date="",
-            case_digest="", content_text="", raw_meta={},
+            doc_id_raw="RAW",
+            doc_id_unquoted="DOC123",
+            detail_url="",
+            search_id="",
+            module="",
+            title="",
+            court_text="",
+            document_number="",
+            judgment_date="",
+            case_digest="",
+            content_text="",
+            raw_meta={},
         )
         result = build_download_filename(detail)
         assert "DOC123" in result

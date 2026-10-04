@@ -13,6 +13,7 @@ Targets remaining uncovered branches:
 - _detect_case_stage_from_number: zhibao path logged
 - _narrow_down_by_case_number_features: bankruptcy + single filtered
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -97,12 +98,14 @@ class TestMatchNoPartiesHasCaseNumbers(_HelpersMixin):
 class TestMatchByCaseNumberExactAllClosed(_HelpersMixin):
     def _make_matcher(self, all_cases=None):
         from apps.automation.services.sms.case_matcher import CaseMatcher
+
         matcher = CaseMatcher(case_service=MagicMock())
         matcher._get_all_cases_by_numbers = MagicMock(return_value=all_cases or [])
         return matcher
 
     def test_multiple_all_closed_returns_none(self):
         from apps.core.models.enums import CaseStatus
+
         c1 = self._make_case(case_id=1, status=CaseStatus.CLOSED)
         c2 = self._make_case(case_id=2, status=CaseStatus.CLOSED)
         c3 = self._make_case(case_id=3, status=CaseStatus.CLOSED)
@@ -164,7 +167,9 @@ class TestGetActiveCasesByNumbers(_HelpersMixin):
 
 
 class TestCheckAndLogClosedCasesDedup(_HelpersMixin):
-    def test_same_case_from_both_paths_deduped(self):
+    def test_same_case_from_both_paths_deduped(self, caplog):
+        import logging
+
         from apps.automation.services.sms.case_matcher import CaseMatcher
         from apps.core.models.enums import CaseStatus
 
@@ -181,8 +186,10 @@ class TestCheckAndLogClosedCasesDedup(_HelpersMixin):
 
         sms = self._make_sms(case_numbers=["123"], party_names=["张三"])
         with patch("apps.automation.utils.text_utils.TextUtils.normalize_case_number", side_effect=lambda x: x):
-            matcher._check_and_log_closed_cases(sms)
-        # Should not raise, case added once to set
+            with caplog.at_level(logging.INFO, logger="apps.automation.services.sms.case_matcher"):
+                matcher._check_and_log_closed_cases(sms)
+        # 两条路径命中同一案件应去重：仅发现 1 个已结案案件
+        assert any("共发现 1 个已结案案件" in r.message for r in caplog.records)
 
 
 # ---------------------------------------------------------------------------
@@ -235,6 +242,7 @@ class TestCollectClosedCasesByPartyEdge(_HelpersMixin):
 class TestDetectCaseTypeNoMatch(_HelpersMixin):
     def test_no_recognized_type_returns_none(self):
         from apps.automation.services.sms.case_matcher import CaseMatcher
+
         result = CaseMatcher()._detect_case_type_from_number("（2025）粤01执123号")
         # 执 is not 刑/行/民/破, so returns None
         assert result is None
@@ -248,6 +256,7 @@ class TestDetectCaseTypeNoMatch(_HelpersMixin):
 class TestDetectCaseStageZhibao(_HelpersMixin):
     def test_zhibao_returns_none_with_log(self):
         from apps.automation.services.sms.case_matcher import CaseMatcher
+
         result = CaseMatcher()._detect_case_stage_from_number("（2025）粤01执保123号")
         assert result is None
 
@@ -260,6 +269,7 @@ class TestDetectCaseStageZhibao(_HelpersMixin):
 class TestNarrowDownBankruptcySingle(_HelpersMixin):
     def test_bankruptcy_single_match_returns_it(self):
         from apps.automation.services.sms.case_matcher import CaseMatcher
+
         c1 = self._make_case(name="某公司破产重整案")
         c2 = self._make_case(case_id=2, name="普通民事案")
         result = CaseMatcher()._narrow_down_by_case_number_features([c1, c2], ["（2025）粤01破1号"])
@@ -274,6 +284,7 @@ class TestNarrowDownBankruptcySingle(_HelpersMixin):
 class TestFindAllMatchingCasesEdge(_HelpersMixin):
     def test_no_cases_from_search(self):
         from apps.automation.services.sms.case_matcher import CaseMatcher
+
         matcher = CaseMatcher(case_service=MagicMock())
         matcher.case_service.search_cases_by_party_internal.return_value = []
 

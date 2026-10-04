@@ -11,6 +11,7 @@ from PIL import Image
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -44,6 +45,7 @@ class TestIsAutoRecognizeEnabled:
 
     def test_plugin_not_installed(self):
         import sys
+
         old = sys.modules.pop("plugins", None)
         try:
             with patch("apps.core.services.system_config_service.SystemConfigService") as MockConfig:
@@ -105,7 +107,8 @@ class TestDecodeBase64Image:
 class TestValidateImageSize:
     def test_valid_size(self):
         svc = CaptchaRecognitionService()
-        svc._validate_image_size(b"x" * 100)  # no raise
+        # 未超限静默通过（返回 None）
+        assert svc._validate_image_size(b"x" * 100) is None
 
     def test_too_large(self):
         svc = CaptchaRecognitionService(config={"max_file_size": 100})
@@ -119,7 +122,8 @@ class TestValidateImageFormat:
         img = Image.new("RGB", (10, 10), color=(255, 255, 255))
         buf = BytesIO()
         img.save(buf, format="PNG")
-        svc._validate_image_format(buf.getvalue())  # no raise
+        # 合法 PNG 静默通过（返回 None）
+        assert svc._validate_image_format(buf.getvalue()) is None
 
     def test_invalid_format(self):
         svc = CaptchaRecognitionService(config={"supported_formats": {"PNG"}})
@@ -148,7 +152,9 @@ class TestRecognizeFromBase64:
         result = svc.recognize_from_base64("   ")
         assert result.success is False
 
-    @patch("plugins.court_automation.captcha.captcha_recognition_service._is_auto_recognize_enabled", return_value=False)
+    @patch(
+        "plugins.court_automation.captcha.captcha_recognition_service._is_auto_recognize_enabled", return_value=False
+    )
     def test_auto_recognize_disabled(self, _mock):
         svc = CaptchaRecognitionService()
         result = svc.recognize_from_base64(_make_valid_png_base64())

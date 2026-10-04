@@ -4,8 +4,9 @@ Note: signals.py uses relative imports from .models and DocConverterStorage,
 so we import the signal handler functions via the apps.doc_converter.signals path.
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 class TestCleanupJobFiles:
@@ -112,8 +113,9 @@ class TestCleanupItemFiles:
 
         with patch("apps.doc_converter.signals.transaction") as mock_txn:
             mock_txn.on_commit.side_effect = lambda fn: fn()
-            # Should not raise
-            _cleanup_item_files(sender=MagicMock, instance=instance)
+            # Should not raise；清理经 on_commit 调度，内部逐字段判空
+            assert _cleanup_item_files(sender=MagicMock, instance=instance) is None
+            mock_txn.on_commit.assert_called_once()
 
     def test_handles_file_delete_exception(self):
         """Catches exception from file.delete and continues."""

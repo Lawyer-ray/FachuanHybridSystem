@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ── cache_mixin ────────────────────────────────────────────────────────────
 
 
@@ -131,17 +130,13 @@ class TestCacheMixin:
 
 class TestResultPersistence:
     def test_build_content_excerpt_empty(self) -> None:
-        from apps.legal_research.services.executor_components.result_persistence import (
-            ExecutorResultPersistenceMixin,
-        )
+        from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
         assert ExecutorResultPersistenceMixin._build_content_excerpt("") == ""
         assert ExecutorResultPersistenceMixin._build_content_excerpt(None) == ""  # type: ignore[arg-type]
 
     def test_build_content_excerpt_normalizes(self) -> None:
-        from apps.legal_research.services.executor_components.result_persistence import (
-            ExecutorResultPersistenceMixin,
-        )
+        from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
         text = "line1\r\nline2\rline3\n\n\n\nline4"
         result = ExecutorResultPersistenceMixin._build_content_excerpt(text)
@@ -149,41 +144,31 @@ class TestResultPersistence:
         assert "\n\n\n" not in result
 
     def test_build_content_excerpt_truncates(self) -> None:
-        from apps.legal_research.services.executor_components.result_persistence import (
-            ExecutorResultPersistenceMixin,
-        )
+        from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
         text = "x" * 20000
         result = ExecutorResultPersistenceMixin._build_content_excerpt(text)
         assert len(result) == ExecutorResultPersistenceMixin.CONTENT_EXCERPT_MAX_CHARS
 
     def test_sanitize_pdf_filename_basic(self) -> None:
-        from apps.legal_research.services.executor_components.result_persistence import (
-            ExecutorResultPersistenceMixin,
-        )
+        from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
         assert ExecutorResultPersistenceMixin._sanitize_pdf_filename("test.pdf", fallback="fb") == "test.pdf"
 
     def test_sanitize_pdf_filename_adds_extension(self) -> None:
-        from apps.legal_research.services.executor_components.result_persistence import (
-            ExecutorResultPersistenceMixin,
-        )
+        from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
         result = ExecutorResultPersistenceMixin._sanitize_pdf_filename("test", fallback="fb")
         assert result.endswith(".pdf")
 
     def test_sanitize_pdf_filename_strips_path(self) -> None:
-        from apps.legal_research.services.executor_components.result_persistence import (
-            ExecutorResultPersistenceMixin,
-        )
+        from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
         result = ExecutorResultPersistenceMixin._sanitize_pdf_filename("/path/to/file.pdf", fallback="fb")
         assert result == "file.pdf"
 
     def test_sanitize_pdf_filename_sanitizes_special_chars(self) -> None:
-        from apps.legal_research.services.executor_components.result_persistence import (
-            ExecutorResultPersistenceMixin,
-        )
+        from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
         result = ExecutorResultPersistenceMixin._sanitize_pdf_filename("file name@#.pdf", fallback="fb")
         assert "@" not in result
@@ -191,17 +176,13 @@ class TestResultPersistence:
         assert result.endswith(".pdf")
 
     def test_sanitize_pdf_filename_empty_uses_fallback(self) -> None:
-        from apps.legal_research.services.executor_components.result_persistence import (
-            ExecutorResultPersistenceMixin,
-        )
+        from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
         result = ExecutorResultPersistenceMixin._sanitize_pdf_filename("", fallback="fallback_id")
         assert "fallback" in result.lower()
 
     def test_extract_similarity_metadata_dict(self) -> None:
-        from apps.legal_research.services.executor_components.result_persistence import (
-            ExecutorResultPersistenceMixin,
-        )
+        from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
         sim = MagicMock()
         sim.metadata = {"keyword_score": 0.8, "vector_score": 0.7}
@@ -210,9 +191,7 @@ class TestResultPersistence:
         assert result["similarity_structured"]["keyword_score"] == 0.8
 
     def test_extract_similarity_metadata_empty(self) -> None:
-        from apps.legal_research.services.executor_components.result_persistence import (
-            ExecutorResultPersistenceMixin,
-        )
+        from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
         sim = MagicMock()
         sim.metadata = {}
@@ -220,9 +199,7 @@ class TestResultPersistence:
         assert result == {}
 
     def test_extract_similarity_metadata_none(self) -> None:
-        from apps.legal_research.services.executor_components.result_persistence import (
-            ExecutorResultPersistenceMixin,
-        )
+        from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
         sim = MagicMock()
         sim.metadata = None
@@ -504,7 +481,7 @@ class TestSourceGateway:
             MAX_PAGE_WINDOW = 2000
 
         # Should not sleep
-        ZeroBackoffMixin._sleep_for_retry(attempt=1)
+        assert ZeroBackoffMixin._sleep_for_retry(attempt=1) is None
 
     @patch("apps.legal_research.services.executor_components.source_gateway.time.sleep")
     def test_sleep_for_retry_positive_backoff(self, mock_sleep) -> None:

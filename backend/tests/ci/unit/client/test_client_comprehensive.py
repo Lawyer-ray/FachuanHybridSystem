@@ -15,12 +15,11 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
 from apps.core.exceptions import ForbiddenError, ValidationException
-
 
 # ==================== Text Parser ====================
 
@@ -298,9 +297,10 @@ class TestClientMutationService:
     def test_validate_create_data_legal_with_representative(self):
         service = self._make_service()
         # Should not raise
-        service._validate_create_data({
-            "name": "公司", "client_type": "legal", "legal_representative": "张三"
-        })
+        assert (
+            service._validate_create_data({"name": "公司", "client_type": "legal", "legal_representative": "张三"})
+            is None
+        )
 
     def test_validate_update_data_type_change_to_legal_without_rep(self, db):
         from apps.client.models import Client
@@ -446,8 +446,13 @@ class TestClientExportSerializerService:
 
         svc = ClientExportSerializerService()
         mock_client = SimpleNamespace(
-            name="test", client_type="natural", id_number="", phone="",
-            address="", legal_representative="", legal_representative_id_number="",
+            name="test",
+            client_type="natural",
+            id_number="",
+            phone="",
+            address="",
+            legal_representative="",
+            legal_representative_id_number="",
             is_our_client=False,
             identity_docs=MagicMock(all=MagicMock(return_value=[])),
             property_clues=MagicMock(all=MagicMock(return_value=[])),
@@ -686,8 +691,9 @@ class TestClientModel:
         assert Client.NON_LEGAL_ORG == "non_legal_org"
 
     def test_client_clean_legal_needs_representative(self, db):
-        from apps.client.models import Client
         from django.core.exceptions import ValidationError
+
+        from apps.client.models import Client
 
         client = Client(name="公司", client_type="legal")
         with pytest.raises(ValidationError):
@@ -697,8 +703,8 @@ class TestClientModel:
         from apps.client.models import Client
 
         client = Client(name="张三", client_type="natural")
-        # Should not raise
-        client.clean()
+        # 自然人无法定代表人也合法
+        assert client.clean() is None
 
 
 # ==================== Client Identity Doc Service ====================

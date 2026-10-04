@@ -245,7 +245,7 @@ class TestDocxFormatNormalizer:
         n = self._make_normalizer()
         para = MagicMock()
         para.text = ""
-        n._strip_prefix(para, 0)
+        assert n._strip_prefix(para, 0) is None
         # Should return early without changes
 
     def test_strip_prefix_uses_llm_prefix(self):

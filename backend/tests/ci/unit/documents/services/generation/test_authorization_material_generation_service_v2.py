@@ -7,14 +7,14 @@ import zipfile
 from datetime import date
 from pathlib import Path, PurePosixPath
 from typing import Any
-from unittest.mock import MagicMock, PropertyMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_service(**overrides: Any) -> Any:
     """Build service with mocked dependencies."""
@@ -70,6 +70,7 @@ def _make_party(
 # Service property tests
 # ---------------------------------------------------------------------------
 
+
 class TestServiceProperties:
     def test_case_service_raises_when_none(self):
         svc = _make_service(case_service=None)
@@ -96,6 +97,7 @@ class TestServiceProperties:
 # _get_case
 # ---------------------------------------------------------------------------
 
+
 class TestGetCase:
     def test_returns_case_when_found(self):
         case = _make_case()
@@ -115,6 +117,7 @@ class TestGetCase:
 # ---------------------------------------------------------------------------
 # _get_our_client
 # ---------------------------------------------------------------------------
+
 
 class TestGetOurClient:
     def test_returns_matching_our_client(self):
@@ -149,6 +152,7 @@ class TestGetOurClient:
 # _get_our_legal_client
 # ---------------------------------------------------------------------------
 
+
 class TestGetOurLegalClient:
     def test_returns_matching_legal_client(self):
         party = _make_party(client_id=10, is_our=True, client_type="legal")
@@ -172,6 +176,7 @@ class TestGetOurLegalClient:
 # ---------------------------------------------------------------------------
 # _build_context / _build_power_of_attorney_context
 # ---------------------------------------------------------------------------
+
 
 class TestBuildContext:
     @patch("apps.documents.services.generation.authorization_material_generation_service.EnhancedContextBuilder")
@@ -203,6 +208,7 @@ class TestBuildContext:
 # _get_template_path
 # ---------------------------------------------------------------------------
 
+
 class TestGetTemplatePath:
     def test_valid_path(self):
         from apps.core.utils.path import Path as CorePath
@@ -228,6 +234,7 @@ class TestGetTemplatePath:
 # _get_power_of_attorney_template_from_db
 # ---------------------------------------------------------------------------
 
+
 class TestGetPoATemplateFromDb:
     @patch("apps.documents.services.generation.authorization_material_generation_service.DocumentTemplate")
     def test_returns_template_when_found(self, mock_model):
@@ -251,16 +258,18 @@ class TestGetPoATemplateFromDb:
 # _validate_power_of_attorney_context
 # ---------------------------------------------------------------------------
 
+
 class TestValidatePoAContext:
     def test_always_passes(self):
         svc = _make_service()
         # Should not raise
-        svc._validate_power_of_attorney_context({"代理事项": ""})
+        assert svc._validate_power_of_attorney_context({"代理事项": ""}) is None
 
 
 # ---------------------------------------------------------------------------
 # _count_our_parties
 # ---------------------------------------------------------------------------
+
 
 class TestCountOurParties:
     def test_counts_our_parties(self):
@@ -281,6 +290,7 @@ class TestCountOurParties:
 # ---------------------------------------------------------------------------
 # _get_our_parties / _get_all_parties
 # ---------------------------------------------------------------------------
+
 
 class TestParties:
     def test_get_our_parties_filters(self):
@@ -319,6 +329,7 @@ class TestParties:
 # Filename builders
 # ---------------------------------------------------------------------------
 
+
 class TestFilenameBuilders:
     @patch("apps.documents.services.generation.authorization_material_generation_service.FilenameTemplateService")
     @patch("apps.documents.services.generation.authorization_material_generation_service.timezone")
@@ -355,6 +366,7 @@ class TestFilenameBuilders:
 # generate_authority_letter_document
 # ---------------------------------------------------------------------------
 
+
 class TestGenerateAuthorityLetter:
     @patch("apps.documents.services.generation.authorization_material_generation_service.FilenameTemplateService")
     @patch("apps.documents.services.generation.authorization_material_generation_service.EnhancedContextBuilder")
@@ -364,9 +376,7 @@ class TestGenerateAuthorityLetter:
         case = _make_case()
         svc = _make_service()
         svc.case_service.get_case_model_internal.return_value = case
-        svc.case_service.get_case_template_bindings_by_name_internal.return_value = [
-            MagicMock(template_id=100)
-        ]
+        svc.case_service.get_case_template_bindings_by_name_internal.return_value = [MagicMock(template_id=100)]
         mock_dto = MagicMock()
         mock_dto.file_path = "/templates/suohan.docx"
         svc.document_service.get_template_by_id_internal.return_value = mock_dto
@@ -394,14 +404,20 @@ class TestGenerateAuthorityLetter:
         svc.case_service.get_case_internal.return_value = MagicMock(case_type="litigation", current_stage="first_trial")
         svc.case_service.get_case_template_bindings_by_name_internal.return_value = []
         # Mock the filter query for document templates
-        with patch("apps.documents.services.generation.authorization_material_generation_service.DocumentTemplate") as mock_tmpl:
+        with patch(
+            "apps.documents.services.generation.authorization_material_generation_service.DocumentTemplate"
+        ) as mock_tmpl:
             mock_tmpl.objects.filter.return_value = []
             with patch("apps.documents.services.generation.authorization_material_generation_service.Path") as MockPath:
                 mock_path = MagicMock()
                 mock_path.exists.return_value = True
                 MockPath.return_value = mock_path
-                with patch("apps.documents.services.generation.authorization_material_generation_service.get_docx_templates_root") as mock_root:
-                    mock_root.return_value.__truediv__ = MagicMock(return_value=MagicMock(__truediv__=MagicMock(return_value=mock_path)))
+                with patch(
+                    "apps.documents.services.generation.authorization_material_generation_service.get_docx_templates_root"
+                ) as mock_root:
+                    mock_root.return_value.__truediv__ = MagicMock(
+                        return_value=MagicMock(__truediv__=MagicMock(return_value=mock_path))
+                    )
                     with patch("apps.documents.services.generation.pipeline.DocxRenderer") as mock_renderer:
                         mock_renderer.return_value.render.return_value = b"content"
                         content, filename = svc.generate_authority_letter_document(case_id=1)
@@ -411,6 +427,7 @@ class TestGenerateAuthorityLetter:
 # ---------------------------------------------------------------------------
 # generate_legal_rep_certificate_document
 # ---------------------------------------------------------------------------
+
 
 class TestGenerateLegalRepCertificate:
     @patch("apps.documents.services.generation.authorization_material_generation_service.FilenameTemplateService")
@@ -425,14 +442,20 @@ class TestGenerateLegalRepCertificate:
         svc.case_service.get_case_model_internal.return_value = case
         svc.case_service.get_case_template_bindings_by_name_internal.return_value = []
         svc.case_service.get_case_internal.return_value = MagicMock(case_type="litigation", current_stage="first_trial")
-        with patch("apps.documents.services.generation.authorization_material_generation_service.DocumentTemplate") as mock_tmpl:
+        with patch(
+            "apps.documents.services.generation.authorization_material_generation_service.DocumentTemplate"
+        ) as mock_tmpl:
             mock_tmpl.objects.filter.return_value = []
             with patch("apps.documents.services.generation.authorization_material_generation_service.Path") as MockPath:
                 mock_path = MagicMock()
                 mock_path.exists.return_value = True
                 MockPath.return_value = mock_path
-                with patch("apps.documents.services.generation.authorization_material_generation_service.get_docx_templates_root") as mock_root:
-                    mock_root.return_value.__truediv__ = MagicMock(return_value=MagicMock(__truediv__=MagicMock(return_value=mock_path)))
+                with patch(
+                    "apps.documents.services.generation.authorization_material_generation_service.get_docx_templates_root"
+                ) as mock_root:
+                    mock_root.return_value.__truediv__ = MagicMock(
+                        return_value=MagicMock(__truediv__=MagicMock(return_value=mock_path))
+                    )
                     with patch("apps.documents.services.generation.pipeline.DocxRenderer") as mock_renderer:
                         mock_renderer.return_value.render.return_value = b"cert"
                         content, fn = svc.generate_legal_rep_certificate_document(case_id=1, client_id=10)
@@ -443,6 +466,7 @@ class TestGenerateLegalRepCertificate:
 # ---------------------------------------------------------------------------
 # generate_power_of_attorney_document
 # ---------------------------------------------------------------------------
+
 
 class TestGeneratePowerOfAttorney:
     @patch("apps.documents.services.generation.authorization_material_generation_service.FilenameTemplateService")
@@ -455,9 +479,7 @@ class TestGeneratePowerOfAttorney:
         case.parties.select_related.return_value.all.return_value = [party]
         svc = _make_service()
         svc.case_service.get_case_model_internal.return_value = case
-        svc.case_service.get_case_template_bindings_by_name_internal.return_value = [
-            MagicMock(template_id=200)
-        ]
+        svc.case_service.get_case_template_bindings_by_name_internal.return_value = [MagicMock(template_id=200)]
         mock_dto = MagicMock()
         mock_dto.file_path = "/templates/poa.docx"
         svc.document_service.get_template_by_id_internal.return_value = mock_dto
@@ -483,7 +505,9 @@ class TestGeneratePowerOfAttorney:
         svc.case_service.get_case_model_internal.return_value = case
         svc.case_service.get_case_template_bindings_by_name_internal.return_value = []
         svc.case_service.get_case_internal.return_value = MagicMock(case_type="litigation", current_stage="first_trial")
-        with patch("apps.documents.services.generation.authorization_material_generation_service.DocumentTemplate") as mock_tmpl:
+        with patch(
+            "apps.documents.services.generation.authorization_material_generation_service.DocumentTemplate"
+        ) as mock_tmpl:
             # first call: get_template_path_from_case_bindings -> empty filter
             # second call: _get_power_of_attorney_template_from_db -> returns template
             mock_tmpl.objects.filter.return_value.order_by.return_value.first.return_value = MagicMock(
@@ -503,6 +527,7 @@ class TestGeneratePowerOfAttorney:
 # generate_power_of_attorney_combined_document
 # ---------------------------------------------------------------------------
 
+
 class TestGeneratePOACombined:
     @patch("apps.documents.services.generation.authorization_material_generation_service.FilenameTemplateService")
     @patch("apps.documents.services.generation.authorization_material_generation_service.EnhancedContextBuilder")
@@ -515,9 +540,7 @@ class TestGeneratePOACombined:
         case.parties.select_related.return_value.all.return_value = [p1, p2]
         svc = _make_service()
         svc.case_service.get_case_model_internal.return_value = case
-        svc.case_service.get_case_template_bindings_by_name_internal.return_value = [
-            MagicMock(template_id=300)
-        ]
+        svc.case_service.get_case_template_bindings_by_name_internal.return_value = [MagicMock(template_id=300)]
         mock_dto = MagicMock()
         mock_dto.file_path = "/templates/poa_combined.docx"
         svc.document_service.get_template_by_id_internal.return_value = mock_dto
@@ -527,9 +550,7 @@ class TestGeneratePOACombined:
             MockPath.return_value = mock_path
             with patch("apps.documents.services.generation.pipeline.DocxRenderer") as mock_renderer:
                 mock_renderer.return_value.render.return_value = b"combined"
-                content, fn = svc.generate_power_of_attorney_combined_document(
-                    case_id=1, client_ids=[10, 20]
-                )
+                content, fn = svc.generate_power_of_attorney_combined_document(case_id=1, client_ids=[10, 20])
                 assert content == b"combined"
 
 
@@ -537,10 +558,12 @@ class TestGeneratePOACombined:
 # _render_template
 # ---------------------------------------------------------------------------
 
+
 class TestRenderTemplate:
     def test_raises_when_file_missing(self):
         svc = _make_service()
         from apps.core.exceptions import ValidationException
+
         with patch("apps.documents.services.generation.authorization_material_generation_service.Path") as MockPath:
             mock_path = MagicMock()
             mock_path.exists.return_value = False
@@ -551,6 +574,7 @@ class TestRenderTemplate:
     def test_raises_on_render_error(self):
         svc = _make_service()
         from apps.core.exceptions import ValidationException
+
         with patch("apps.documents.services.generation.authorization_material_generation_service.Path") as MockPath:
             mock_path = MagicMock()
             mock_path.exists.return_value = True
@@ -564,6 +588,7 @@ class TestRenderTemplate:
 # ---------------------------------------------------------------------------
 # _zip_add_missing_markdown
 # ---------------------------------------------------------------------------
+
 
 class TestZipAddMissingMarkdown:
     def test_writes_deduped_markdown(self):
@@ -582,6 +607,7 @@ class TestZipAddMissingMarkdown:
 # generate_full_authorization_package
 # ---------------------------------------------------------------------------
 
+
 class TestGenerateFullAuthorizationPackage:
     def test_raises_when_no_our_parties(self):
         svc = _make_service()
@@ -589,6 +615,7 @@ class TestGenerateFullAuthorizationPackage:
         case.parties.select_related.return_value.all.return_value = []
         svc.case_service.get_case_model_internal.return_value = case
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException, match="没有我方当事人"):
             svc.generate_full_authorization_package(case_id=1)
 
@@ -622,11 +649,13 @@ class TestGenerateFullAuthorizationPackage:
 # _DOC_TYPE_LABELS and class constants
 # ---------------------------------------------------------------------------
 
+
 class TestClassConstants:
     def test_doc_type_labels_has_expected_keys(self):
         from apps.documents.services.generation.authorization_material_generation_service import (
             AuthorizationMaterialGenerationService,
         )
+
         labels = AuthorizationMaterialGenerationService._DOC_TYPE_LABELS
         assert "id_card" in labels
         assert "business_license" in labels
@@ -636,12 +665,14 @@ class TestClassConstants:
         from apps.documents.services.generation.authorization_material_generation_service import (
             AuthorizationMaterialGenerationService,
         )
+
         assert {"business_license", "legal_rep_id_card"} == AuthorizationMaterialGenerationService._OUR_LEGAL_REQUIRED
 
 
 # ---------------------------------------------------------------------------
 # _has_template_in_case_bindings
 # ---------------------------------------------------------------------------
+
 
 class TestHasTemplateInCaseBindings:
     def test_returns_true_when_path_found(self):
@@ -658,6 +689,7 @@ class TestHasTemplateInCaseBindings:
 # ---------------------------------------------------------------------------
 # _get_template_path_from_case_bindings
 # ---------------------------------------------------------------------------
+
 
 class TestGetTemplatePathFromCaseBindings:
     def test_returns_path_from_binding(self):

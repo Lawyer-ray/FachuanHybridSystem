@@ -4,6 +4,7 @@
 format_path_for_display, is_browsable_path, compute_parent_path,
 check_and_repair_path 等。
 """
+
 from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
@@ -173,8 +174,10 @@ class TestCheckAndRepairPath:
         mock_provider = MagicMock()
         mock_provider.is_dir.return_value = True
 
-        with patch.object(svc, "_is_cloud_storage", return_value=True), \
-             patch.object(svc, "_get_provider_for_binding", return_value=mock_provider):
+        with (
+            patch.object(svc, "_is_cloud_storage", return_value=True),
+            patch.object(svc, "_get_provider_for_binding", return_value=mock_provider),
+        ):
             accessible, repaired = svc.check_and_repair_path(binding)
             assert accessible is True
             assert repaired is False
@@ -189,8 +192,10 @@ class TestCheckAndRepairPath:
         mock_provider = MagicMock()
         mock_provider.is_dir.side_effect = Exception("error")
 
-        with patch.object(svc, "_is_cloud_storage", return_value=True), \
-             patch.object(svc, "_get_provider_for_binding", return_value=mock_provider):
+        with (
+            patch.object(svc, "_is_cloud_storage", return_value=True),
+            patch.object(svc, "_get_provider_for_binding", return_value=mock_provider),
+        ):
             accessible, repaired = svc.check_and_repair_path(binding)
             assert accessible is False
             assert repaired is False
@@ -206,9 +211,11 @@ class TestCheckAndRepairPath:
     def test_inaccessible_with_inode_finds_new_path(self) -> None:
         svc = BaseFolderBindingService()
         binding = _make_binding(folder_path="/old/path", folder_inode=12345, folder_device=1)
-        with patch.object(svc, "check_folder_accessible", return_value=False), \
-             patch.object(svc, "_search_by_inode", return_value="/new/path"), \
-             patch.object(svc.inode_resolver, "get_inode_info", return_value=(12345, 1)):
+        with (
+            patch.object(svc, "check_folder_accessible", return_value=False),
+            patch.object(svc, "_search_by_inode", return_value="/new/path"),
+            patch.object(svc.inode_resolver, "get_inode_info", return_value=(12345, 1)),
+        ):
             accessible, repaired = svc.check_and_repair_path(binding)
             assert accessible is True
             assert repaired is True
@@ -218,8 +225,10 @@ class TestCheckAndRepairPath:
     def test_inaccessible_inode_not_found(self) -> None:
         svc = BaseFolderBindingService()
         binding = _make_binding(folder_path="/old", folder_inode=12345, folder_device=1)
-        with patch.object(svc, "check_folder_accessible", return_value=False), \
-             patch.object(svc, "_search_by_inode", return_value=None):
+        with (
+            patch.object(svc, "check_folder_accessible", return_value=False),
+            patch.object(svc, "_search_by_inode", return_value=None),
+        ):
             accessible, repaired = svc.check_and_repair_path(binding)
             assert accessible is False
             assert repaired is False
@@ -232,7 +241,7 @@ class TestMaybeFillInode:
     def test_no_inode_attr(self) -> None:
         svc = BaseFolderBindingService()
         binding = SimpleNamespace(id=1, folder_path="/test")
-        svc._maybe_fill_inode(binding)  # Should not raise
+        assert svc._maybe_fill_inode(binding) is None  # Should not raise
 
     def test_inode_already_set(self) -> None:
         svc = BaseFolderBindingService()

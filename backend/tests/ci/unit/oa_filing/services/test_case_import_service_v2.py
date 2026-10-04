@@ -53,7 +53,9 @@ class TestCasePreviewResult:
 
 class TestCaseImportResult:
     def test_creation(self) -> None:
-        r = CaseImportResult(case_no="c1", status="created", contract_id=5, message="ok", customer_ids=[1], conflict_warnings=["w1"])
+        r = CaseImportResult(
+            case_no="c1", status="created", contract_id=5, message="ok", customer_ids=[1], conflict_warnings=["w1"]
+        )
         assert r.contract_id == 5
         assert r.conflict_warnings == ["w1"]
 
@@ -352,8 +354,10 @@ class TestImportSingleCaseData:
         svc = _make_service()
         oa_data = MagicMock()
         oa_data.conflicts = []
-        with patch.object(svc, "_check_conflicts", return_value=[]), \
-             patch.object(svc, "_create_or_update_case", return_value=10):
+        with (
+            patch.object(svc, "_check_conflicts", return_value=[]),
+            patch.object(svc, "_create_or_update_case", return_value=10),
+        ):
             result = svc._import_single_case_data("c1", oa_data, should_exist=False)
             assert result.status == "created"
             assert result.contract_id == 10
@@ -362,8 +366,10 @@ class TestImportSingleCaseData:
         svc = _make_service()
         oa_data = MagicMock()
         oa_data.conflicts = []
-        with patch.object(svc, "_check_conflicts", return_value=[]), \
-             patch.object(svc, "_create_or_update_case", return_value=10):
+        with (
+            patch.object(svc, "_check_conflicts", return_value=[]),
+            patch.object(svc, "_create_or_update_case", return_value=10),
+        ):
             result = svc._import_single_case_data("c1", oa_data, should_exist=True)
             assert result.status == "updated"
 
@@ -371,8 +377,10 @@ class TestImportSingleCaseData:
         svc = _make_service()
         oa_data = MagicMock()
         oa_data.conflicts = []
-        with patch.object(svc, "_check_conflicts", return_value=[]), \
-             patch.object(svc, "_create_or_update_case", return_value=None):
+        with (
+            patch.object(svc, "_check_conflicts", return_value=[]),
+            patch.object(svc, "_create_or_update_case", return_value=None),
+        ):
             result = svc._import_single_case_data("c1", oa_data)
             assert result.status == "error"
 
@@ -389,8 +397,10 @@ class TestImportSingleCaseData:
         svc = _make_service()
         oa_data = MagicMock()
         oa_data.conflicts = [MagicMock(name="张三")]
-        with patch.object(svc, "_check_conflicts", return_value=["利益冲突: 张三"]), \
-             patch.object(svc, "_create_or_update_case", return_value=10):
+        with (
+            patch.object(svc, "_check_conflicts", return_value=["利益冲突: 张三"]),
+            patch.object(svc, "_create_or_update_case", return_value=10),
+        ):
             result = svc._import_single_case_data("c1", oa_data)
             assert result.conflict_warnings == ["利益冲突: 张三"]
 
@@ -464,13 +474,15 @@ class TestAssignLawyer:
     def test_empty_name_noop(self) -> None:
         svc = _make_service()
         contract = MagicMock()
-        svc._assign_lawyer(contract, "")
+        # 空姓名直接 no-op，不触碰律师查询
+        with patch(self._LAZY_LAWYER) as MockLawyer:
+            assert svc._assign_lawyer(contract, "") is None
+            MockLawyer.objects.filter.assert_not_called()
 
     def test_found_lawyer(self) -> None:
         svc = _make_service()
         contract = MagicMock()
-        with patch(self._LAZY_LAWYER) as MockLawyer, \
-             patch(self._LAZY_CA) as MockAssign:
+        with patch(self._LAZY_LAWYER) as MockLawyer, patch(self._LAZY_CA) as MockAssign:
             lawyer = MagicMock()
             MockLawyer.objects.filter.return_value.first.return_value = lawyer
             MockAssign.objects.get_or_create.return_value = (MagicMock(), False)
@@ -482,7 +494,9 @@ class TestAssignLawyer:
         contract = MagicMock()
         with patch(self._LAZY_LAWYER) as MockLawyer:
             MockLawyer.objects.filter.return_value.first.return_value = None
-            svc._assign_lawyer(contract, "Unknown")
+            # 找不到律师不抛异常，real_name 与 username 各查一次
+            assert svc._assign_lawyer(contract, "Unknown") is None
+            assert MockLawyer.objects.filter.call_count == 2
 
 
 # ===========================================================================
@@ -515,7 +529,9 @@ class TestPreviewCases:
     def test_exception_returns_error(self) -> None:
         svc = _make_service()
         with patch("apps.oa_filing.services.case_import_service.Contract") as MockContract:
-            MockContract.objects.filter.return_value.prefetch_related.return_value.exists.side_effect = RuntimeError("db error")
+            MockContract.objects.filter.return_value.prefetch_related.return_value.exists.side_effect = RuntimeError(
+                "db error"
+            )
             results = svc.preview_cases(["c1"])
             assert results[0].status == "error"
 

@@ -9,6 +9,7 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -234,10 +235,12 @@ class TestConcurrencyOptimizer:
 
     def test_wake_next_eligible_empty_queue(self) -> None:
         opt = self._make_optimizer()
-        opt._wake_next_eligible()  # No error
+        # 空队列时应安全 no-op（返回 None）
+        assert opt._wake_next_eligible() is None
 
     def test_wake_next_eligible_cleans_expired(self) -> None:
         import time
+
         opt = self._make_optimizer()
         entry = MagicMock()
         entry.enqueued_at = time.time() - 9999  # expired

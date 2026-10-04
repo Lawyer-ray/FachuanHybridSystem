@@ -10,7 +10,6 @@ import pytest
 
 from apps.core.exceptions import NotFoundError, ValidationException
 
-
 # ============================================================================
 # chat_records/services/extraction/extract_helpers.py
 # ============================================================================
@@ -152,8 +151,8 @@ class TestFrameProcessingService:
         assert result is True
 
     def test_check_ocr_similarity_empty_text(self):
-        from apps.chat_records.services.extraction.frame_processing_service import FrameProcessingService
         from apps.chat_records.services.extraction.extract_helpers import DedupState
+        from apps.chat_records.services.extraction.frame_processing_service import FrameProcessingService
 
         svc = FrameProcessingService()
         state = DedupState()
@@ -161,8 +160,8 @@ class TestFrameProcessingService:
         assert result is None
 
     def test_check_ocr_similarity_no_kept_texts(self):
-        from apps.chat_records.services.extraction.frame_processing_service import FrameProcessingService
         from apps.chat_records.services.extraction.extract_helpers import DedupState
+        from apps.chat_records.services.extraction.frame_processing_service import FrameProcessingService
 
         svc = FrameProcessingService()
         state = DedupState()
@@ -170,8 +169,8 @@ class TestFrameProcessingService:
         assert result is None
 
     def test_get_ocr_frame_score_empty_text(self):
-        from apps.chat_records.services.extraction.frame_processing_service import FrameProcessingService
         from apps.chat_records.services.extraction.extract_helpers import DedupState
+        from apps.chat_records.services.extraction.frame_processing_service import FrameProcessingService
 
         svc = FrameProcessingService()
         state = DedupState()
@@ -179,8 +178,8 @@ class TestFrameProcessingService:
         assert result == 0.0
 
     def test_get_ocr_frame_score_no_kept_texts(self):
-        from apps.chat_records.services.extraction.frame_processing_service import FrameProcessingService
         from apps.chat_records.services.extraction.extract_helpers import DedupState
+        from apps.chat_records.services.extraction.frame_processing_service import FrameProcessingService
 
         svc = FrameProcessingService()
         state = DedupState()
@@ -188,8 +187,8 @@ class TestFrameProcessingService:
         assert result == 0.0
 
     def test_process_ocr_for_frame_no_service(self):
-        from apps.chat_records.services.extraction.frame_processing_service import FrameProcessingService
         from apps.chat_records.services.extraction.extract_helpers import DedupState
+        from apps.chat_records.services.extraction.frame_processing_service import FrameProcessingService
 
         svc = FrameProcessingService()
         state = DedupState()
@@ -254,8 +253,10 @@ class TestPdfMergeUtils:
 
 class TestEvidenceModels:
     def test_evidence_module_skipped(self):
-        # Skip due to model conflict between apps.documents and apps.evidence
-        pass
+        # apps.documents 与 apps.evidence 存在同名模型冲突，evidence 用例在此文件禁用
+        import pytest
+
+        pytest.skip("Evidence 模型与 apps.documents 冲突，evidence 用例由 tests/ci/unit/evidence/ 承载")
 
 
 # ============================================================================

@@ -5,6 +5,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from apps.automation.services.sms.court_sms_repository import CourtSMSRepository
 
 
@@ -27,11 +29,9 @@ class TestCourtSMSRepository:
         """未找到短信记录抛出异常。"""
         mock_model.objects.filter.return_value.first.return_value = None
         from apps.core.exceptions import NotFoundError
-        try:
+
+        with pytest.raises(NotFoundError):
             self.repo.get_by_id(sms_id=999)
-            raise AssertionError("应抛出 NotFoundError")
-        except NotFoundError:
-            pass
 
     @patch("apps.automation.services.sms.court_sms_repository.CourtSMS")
     def test_get_by_id_or_none_found(self, mock_model) -> None:

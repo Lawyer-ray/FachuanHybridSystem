@@ -29,9 +29,7 @@ class TestContractServiceAdapterInit:
         from apps.contracts.services.contract.contract_service_adapter import ContractServiceAdapter
 
         case_svc = MagicMock()
-        with patch(
-            "apps.contracts.services.contract.contract_service_adapter.ContractService"
-        ) as mock_cs_cls:
+        with patch("apps.contracts.services.contract.contract_service_adapter.ContractService") as mock_cs_cls:
             mock_cs_cls.return_value = MagicMock()
             adapter = ContractServiceAdapter(contract_service=None, case_service=case_svc)
             mock_cs_cls.assert_called_once_with(case_service=case_svc)
@@ -223,9 +221,7 @@ class TestContractServiceAdapterGetContractLawyers:
         contract.assignments.select_related.return_value.order_by.return_value = [assignment]
         adapter.contract_service.query_service.get_contract_internal.return_value = contract
 
-        with patch(
-            "apps.contracts.services.contract.contract_service_adapter.LawyerDTO.from_model"
-        ) as mock_dto:
+        with patch("apps.contracts.services.contract.contract_service_adapter.LawyerDTO.from_model") as mock_dto:
             mock_dto.return_value = MagicMock()
             result = adapter.get_contract_lawyers(1)
             assert len(result) == 1
@@ -272,9 +268,7 @@ class TestContractServiceAdapterFeeModeDisplay:
         from apps.contracts.services.contract.contract_service_adapter import ContractServiceAdapter
 
         adapter = ContractServiceAdapter(contract_service=MagicMock())
-        with patch(
-            "apps.contracts.models.contract.FeeMode"
-        ) as mock_fee:
+        with patch("apps.contracts.models.contract.FeeMode") as mock_fee:
             mock_fee.choices = [("fixed", "固定收费"), ("hourly", "计时收费")]
             result = adapter.get_fee_mode_display_internal("fixed")
             assert result == "固定收费"
@@ -283,9 +277,7 @@ class TestContractServiceAdapterFeeModeDisplay:
         from apps.contracts.services.contract.contract_service_adapter import ContractServiceAdapter
 
         adapter = ContractServiceAdapter(contract_service=MagicMock())
-        with patch(
-            "apps.contracts.models.contract.FeeMode"
-        ) as mock_fee:
+        with patch("apps.contracts.models.contract.FeeMode") as mock_fee:
             mock_fee.choices = [("fixed", "固定收费")]
             result = adapter.get_fee_mode_display_internal("unknown")
             assert result == "unknown"
@@ -339,12 +331,15 @@ class TestContractServiceAdapterContractModelInternal:
         from apps.contracts.services.contract.contract_service_adapter import ContractServiceAdapter
 
         adapter = ContractServiceAdapter(contract_service=MagicMock())
+        expected = MagicMock()
         with (
             pytest.warns(DeprecationWarning, match="已弃用"),
             patch("apps.contracts.services.contract.contract_service_adapter.Contract") as mock_contract,
         ):
-            mock_contract.objects.prefetch_related.return_value.get.return_value = MagicMock()
-            adapter.get_contract_model_internal(1)
+            mock_contract.objects.prefetch_related.return_value.get.return_value = expected
+            result = adapter.get_contract_model_internal(1)
+        # 仍返回底层 Model 查询结果
+        assert result is expected
 
 
 class TestContractServiceAdapterEnsureContractAccessCtx:
@@ -356,6 +351,4 @@ class TestContractServiceAdapterEnsureContractAccessCtx:
         adapter = ContractServiceAdapter(contract_service=MagicMock())
         ctx = MagicMock()
         adapter.ensure_contract_access_ctx(1, ctx)
-        adapter.contract_service.access_policy.ensure_access_ctx.assert_called_once_with(
-            contract_id=1, ctx=ctx
-        )
+        adapter.contract_service.access_policy.ensure_access_ctx.assert_called_once_with(contract_id=1, ctx=ctx)

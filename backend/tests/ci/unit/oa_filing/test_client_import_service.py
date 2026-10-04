@@ -64,7 +64,10 @@ class TestClientImportService:
         """_update_session with no fields should be a no-op."""
         svc = ClientImportService.__new__(ClientImportService)
         svc._session = MagicMock()
-        svc._update_session()
+        with patch("apps.oa_filing.services.client_import_service.ClientImportSession") as MockSession:
+            assert svc._update_session() is None
+            # 无字段时直接返回，不写库
+            MockSession.objects.filter.assert_not_called()
 
     def test_update_session_updates_fields(self) -> None:
         mock_session = MagicMock()
@@ -90,22 +93,26 @@ class TestClientImportService:
         svc = ClientImportService.__new__(ClientImportService)
         svc._session = MagicMock()
         with patch.object(svc, "_update_session") as mock_update:
-            svc._handle_script_progress({
-                "event": "discovery_progress",
-                "discovered_count": 5,
-                "page": 2,
-                "message": "查找中",
-            })
+            svc._handle_script_progress(
+                {
+                    "event": "discovery_progress",
+                    "discovered_count": 5,
+                    "page": 2,
+                    "message": "查找中",
+                }
+            )
             mock_update.assert_called_once()
 
     def test_handle_script_progress_discovery_completed(self) -> None:
         svc = ClientImportService.__new__(ClientImportService)
         svc._session = MagicMock()
         with patch.object(svc, "_update_session") as mock_update:
-            svc._handle_script_progress({
-                "event": "discovery_completed",
-                "total_count": 10,
-            })
+            svc._handle_script_progress(
+                {
+                    "event": "discovery_completed",
+                    "total_count": 10,
+                }
+            )
             mock_update.assert_called_once()
             call_kwargs = mock_update.call_args[1]
             assert call_kwargs["total_count"] == 10
@@ -114,10 +121,12 @@ class TestClientImportService:
         svc = ClientImportService.__new__(ClientImportService)
         svc._session = MagicMock()
         with patch.object(svc, "_update_session") as mock_update:
-            svc._handle_script_progress({
-                "event": "import_started",
-                "total_count": 10,
-            })
+            svc._handle_script_progress(
+                {
+                    "event": "import_started",
+                    "total_count": 10,
+                }
+            )
             mock_update.assert_called_once()
 
     def test_handle_script_progress_import_progress(self) -> None:
@@ -126,12 +135,14 @@ class TestClientImportService:
         svc._session.total_count = 10
         svc._session.discovered_count = 10
         with patch.object(svc, "_update_session") as mock_update:
-            svc._handle_script_progress({
-                "event": "import_progress",
-                "index": 5,
-                "name": "张三",
-                "total_count": 10,
-            })
+            svc._handle_script_progress(
+                {
+                    "event": "import_progress",
+                    "index": 5,
+                    "name": "张三",
+                    "total_count": 10,
+                }
+            )
             mock_update.assert_called_once()
 
     def test_handle_script_progress_unknown_event(self) -> None:

@@ -16,10 +16,10 @@ import pytest
 
 from apps.automation.services.sms._sms_document_mixin import SMSDocumentMixin
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 class _StubSMSDocumentMixin(SMSDocumentMixin):
     """Concrete subclass that overrides abstract properties with mocks."""
@@ -55,6 +55,7 @@ def _make_mixin() -> _StubSMSDocumentMixin:
 # ═══════════════════════════════════════════════════════════════════════════
 # dedup_document_paths (extracted from _get_document_paths_for_extraction)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestDedupDocumentPaths:
     """Test the deduplication logic used in _get_document_paths_for_extraction."""
@@ -96,6 +97,7 @@ class TestDedupDocumentPaths:
 # ═══════════════════════════════════════════════════════════════════════════
 # _extract_from_single_document - document update detection
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestExtractFromSingleDocument:
     """Test _extract_from_single_document logic with mocked extractors."""
@@ -160,6 +162,7 @@ class TestExtractFromSingleDocument:
 # _save_renamed_paths - result dict construction
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestSaveRenamedPaths:
     """Test _save_renamed_paths result dict construction logic."""
 
@@ -173,7 +176,8 @@ class TestSaveRenamedPaths:
         mixin = _make_mixin()
         sms = MagicMock()
         sms.scraper_task = None
-        mixin._save_renamed_paths(sms, ["/a.pdf"])
+        # 无 scraper_task 直接早退（返回 None，不写 result）
+        assert mixin._save_renamed_paths(sms, ["/a.pdf"]) is None
 
     def test_sets_renamed_files_in_result(self) -> None:
         mixin = _make_mixin()
@@ -204,6 +208,7 @@ class TestSaveRenamedPaths:
 # ═══════════════════════════════════════════════════════════════════════════
 # _sync_party_names_from_documents - skip logic
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestSyncPartyNamesLogic:
     """Test the skip logic in _sync_party_names_from_documents."""

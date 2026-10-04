@@ -10,7 +10,6 @@ import pytest
 
 from apps.story_viz.models.story_animation import StoryAnimation, StoryAnimationStatus
 
-
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
@@ -102,6 +101,9 @@ def test_retry_animation(mock_get_svc, authenticated_client):
 
     resp = authenticated_client.post(f"/api/v1/story-viz/animations/{anim.id}/retry")
     assert resp.status_code == 200
+    data = resp.json()
+    assert data["id"] == str(anim.id)
+    assert data["cancel_requested"] is False  # 重试不清除取消标记语义由 payload 决定
 
 
 # ===================================================================
@@ -140,6 +142,9 @@ def test_cancel_animation(mock_get_svc, authenticated_client):
 
     resp = authenticated_client.post(f"/api/v1/story-viz/animations/{anim.id}/cancel")
     assert resp.status_code == 200
+    data = resp.json()
+    assert data["id"] == str(anim.id)
+    assert data["cancel_requested"] is True  # 取消请求已登记
 
 
 # ===================================================================
@@ -158,6 +163,8 @@ def test_preview_animation_not_completed(mock_get_svc, authenticated_client):
 
     resp = authenticated_client.get(f"/api/v1/story-viz/animations/{anim.id}/preview")
     assert resp.status_code == 409
+    # 未完成的动画预览以纯文本返回明确原因（非 JSON 信封）
+    assert "完成" in resp.content.decode()
 
 
 @pytest.mark.django_db
@@ -173,6 +180,8 @@ def test_preview_animation_completed(mock_get_svc, authenticated_client):
 
     resp = authenticated_client.get(f"/api/v1/story-viz/animations/{anim.id}/preview")
     assert resp.status_code == 200
+    # 预览内容即动画 HTML
+    assert "test" in resp.content.decode()
 
 
 # ===================================================================
@@ -261,5 +270,3 @@ def test_list_models(mock_get_models, authenticated_client):
     # NOTE: Due to route ordering, /animations/{animation_id} matches before /animations/models
     # causing 422 (UUID validation failure for "models" string)
     assert resp.status_code in (200, 422)
-
-

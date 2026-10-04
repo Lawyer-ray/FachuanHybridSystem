@@ -248,7 +248,7 @@ class TestJtnClientImportScriptExtractKeyId:
 class TestJtnClientImportScriptEmitProgress:
     def test_no_callback(self):
         svc = _make_script()
-        svc._emit_progress("test_event")  # Should not raise
+        assert svc._emit_progress("test_event") is None  # Should not raise
 
     def test_callback_called(self):
         cb = MagicMock()
@@ -259,4 +259,6 @@ class TestJtnClientImportScriptEmitProgress:
     def test_callback_exception_handled(self):
         cb = MagicMock(side_effect=TypeError("bad"))
         svc = _make_script(progress_callback=cb)
-        svc._emit_progress("test_event")  # Should not raise
+        # 回调异常应被吞掉，不影响主流程
+        assert svc._emit_progress("test_event") is None
+        cb.assert_called_once()

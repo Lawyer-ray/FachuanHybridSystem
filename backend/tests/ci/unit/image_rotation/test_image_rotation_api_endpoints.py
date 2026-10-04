@@ -555,7 +555,8 @@ class TestValidateImageFileEdge:
         f = MagicMock()
         f.content_type = "image/webp"
         f.size = 100
-        _validate_image_file(f)  # should not raise
+        # 合法格式静默通过（返回 None）
+        assert _validate_image_file(f) is None
 
     def test_valid_tiff(self) -> None:
         from apps.image_rotation.api.image_rotation_api import _validate_image_file
@@ -563,7 +564,7 @@ class TestValidateImageFileEdge:
         f = MagicMock()
         f.content_type = "image/tiff"
         f.size = 100
-        _validate_image_file(f)
+        assert _validate_image_file(f) is None
 
 
 # ── list_jobs ────────────────────────────────────────────────────

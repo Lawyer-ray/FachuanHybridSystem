@@ -1,4 +1,5 @@
 """Tests for reminders.services.validators."""
+
 from __future__ import annotations
 
 import json
@@ -47,7 +48,7 @@ class TestNormalizeTargetId:
 
 class TestValidatePositiveId:
     def test_valid(self) -> None:
-        validate_positive_id(1, field_name="test")  # No error
+        assert validate_positive_id(1, field_name="test") is None
 
     def test_zero_raises(self) -> None:
         with pytest.raises(ValidationException):
@@ -64,10 +65,10 @@ class TestValidatePositiveId:
 
 class TestValidateBindingExclusive:
     def test_all_none(self) -> None:
-        validate_binding_exclusive(contract_id=None, case_id=None, case_log_id=None)
+        assert validate_binding_exclusive(contract_id=None, case_id=None, case_log_id=None) is None
 
     def test_one_bound(self) -> None:
-        validate_binding_exclusive(contract_id=1, case_id=None, case_log_id=None)
+        assert validate_binding_exclusive(contract_id=1, case_id=None, case_log_id=None) is None
 
     def test_two_bound_raises(self) -> None:
         with pytest.raises(ValidationException, match="最多只能绑定一个"):
@@ -80,7 +81,7 @@ class TestValidateBindingExclusive:
 
 class TestValidateFkExists:
     def test_all_none(self) -> None:
-        validate_fk_exists(contract_id=None, case_id=None, case_log_id=None)
+        assert validate_fk_exists(contract_id=None, case_id=None, case_log_id=None) is None
 
     def test_contract_exists(self) -> None:
         mock_query = MagicMock()
@@ -97,7 +98,8 @@ class TestValidateFkExists:
     def test_case_exists(self) -> None:
         mock_query = MagicMock()
         mock_query.exists.return_value = True
-        validate_fk_exists(contract_id=None, case_id=1, case_log_id=None, case_target_query=mock_query)
+        assert validate_fk_exists(contract_id=None, case_id=1, case_log_id=None, case_target_query=mock_query) is None
+        mock_query.exists.assert_called_once_with(1)
 
     def test_case_not_exists_raises(self) -> None:
         mock_query = MagicMock()
@@ -108,7 +110,10 @@ class TestValidateFkExists:
     def test_case_log_exists(self) -> None:
         mock_query = MagicMock()
         mock_query.exists.return_value = True
-        validate_fk_exists(contract_id=None, case_id=None, case_log_id=1, case_log_target_query=mock_query)
+        assert (
+            validate_fk_exists(contract_id=None, case_id=None, case_log_id=1, case_log_target_query=mock_query) is None
+        )
+        mock_query.exists.assert_called_once_with(1)
 
     def test_case_log_not_exists_raises(self) -> None:
         mock_query = MagicMock()

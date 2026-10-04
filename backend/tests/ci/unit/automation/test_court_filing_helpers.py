@@ -202,7 +202,20 @@ class TestNormalizeFilingType:
 
     def test_none_uses_infer(self):
         case = SimpleNamespace(id=1, name="test", cause_of_action="")
-        parties = [SimpleNamespace(legal_status="plaintiff", client=SimpleNamespace(client_type="natural", name="A", address="", phone="", id_number="", legal_representative="", legal_representative_id_number=""))]
+        parties = [
+            SimpleNamespace(
+                legal_status="plaintiff",
+                client=SimpleNamespace(
+                    client_type="natural",
+                    name="A",
+                    address="",
+                    phone="",
+                    id_number="",
+                    legal_representative="",
+                    legal_representative_id_number="",
+                ),
+            )
+        ]
         with patch("apps.cases.models.CaseMaterial.objects.filter") as mock_filter:
             mock_filter.return_value.values_list.return_value = []
             result = _normalize_filing_type(requested_filing_type=None, case=case, parties=parties)
@@ -256,9 +269,12 @@ class TestBuildExecutionReasonText:
 class TestBuildSessionStatusPayload:
     def test_pending_status(self):
         from apps.automation.models import ScraperTaskStatus
+
         task = SimpleNamespace(
-            id=1, status=ScraperTaskStatus.PENDING,
-            result=None, error_message=None,
+            id=1,
+            status=ScraperTaskStatus.PENDING,
+            result=None,
+            error_message=None,
         )
         payload = _build_session_status_payload(task=task)
         assert payload["status"] == "in_progress"
@@ -266,8 +282,10 @@ class TestBuildSessionStatusPayload:
 
     def test_running_with_message(self):
         from apps.automation.models import ScraperTaskStatus
+
         task = SimpleNamespace(
-            id=2, status=ScraperTaskStatus.RUNNING,
+            id=2,
+            status=ScraperTaskStatus.RUNNING,
             result={"message": "正在处理", "timing": {"start": 1.0}},
             error_message=None,
         )
@@ -277,9 +295,12 @@ class TestBuildSessionStatusPayload:
 
     def test_success_status(self):
         from apps.automation.models import ScraperTaskStatus
+
         task = SimpleNamespace(
-            id=3, status=ScraperTaskStatus.SUCCESS,
-            result={"message": "完成"}, error_message=None,
+            id=3,
+            status=ScraperTaskStatus.SUCCESS,
+            result={"message": "完成"},
+            error_message=None,
         )
         payload = _build_session_status_payload(task=task)
         assert payload["status"] == "completed"
@@ -287,9 +308,12 @@ class TestBuildSessionStatusPayload:
 
     def test_failed_status_with_error(self):
         from apps.automation.models import ScraperTaskStatus
+
         task = SimpleNamespace(
-            id=4, status=ScraperTaskStatus.FAILED,
-            result=None, error_message="登录失败",
+            id=4,
+            status=ScraperTaskStatus.FAILED,
+            result=None,
+            error_message="登录失败",
         )
         payload = _build_session_status_payload(task=task)
         assert payload["status"] == "failed"
@@ -298,18 +322,24 @@ class TestBuildSessionStatusPayload:
 
     def test_failed_no_error_uses_default(self):
         from apps.automation.models import ScraperTaskStatus
+
         task = SimpleNamespace(
-            id=5, status=ScraperTaskStatus.FAILED,
-            result=None, error_message="",
+            id=5,
+            status=ScraperTaskStatus.FAILED,
+            result=None,
+            error_message="",
         )
         payload = _build_session_status_payload(task=task)
         assert "立案失败" in payload["message"]
 
     def test_failed_with_result_message(self):
         from apps.automation.models import ScraperTaskStatus
+
         task = SimpleNamespace(
-            id=6, status=ScraperTaskStatus.FAILED,
-            result={"message": "具体错误信息"}, error_message="",
+            id=6,
+            status=ScraperTaskStatus.FAILED,
+            result={"message": "具体错误信息"},
+            error_message="",
         )
         payload = _build_session_status_payload(task=task)
         assert "具体错误信息" in payload["message"]
@@ -321,7 +351,9 @@ class TestBuildSessionStatusPayload:
 class TestResolveOriginalCaseNumber:
     def test_active_number(self):
         mock_qs = MagicMock()
-        mock_qs.filter.return_value.order_by.return_value.values_list.return_value.first.return_value = "(2023)粤01民初1号"
+        mock_qs.filter.return_value.order_by.return_value.values_list.return_value.first.return_value = (
+            "(2023)粤01民初1号"
+        )
         case = SimpleNamespace(case_numbers=mock_qs)
         result = _resolve_original_case_number(case)
         assert result == "(2023)粤01民初1号"
@@ -456,12 +488,24 @@ class TestApplyExecutionPartyFallbacks:
 # ---------------------------------------------------------------------------
 class TestUpdateSessionTask:
     def test_none_session_id(self):
-        # Should not raise
-        _update_session_task(session_id=None, status="running")
+        with patch("apps.automation.models.ScraperTask") as mock_task:
+            # session_id=None 直接早退，不触达数据库
+            assert _update_session_task(session_id=None, status="running") is None
+            mock_task.objects.filter.assert_not_called()
 
     def test_update_with_result_and_error(self):
         # Verify parameters are accepted without error
-        _update_session_task(session_id=None, status="running", error_message="err", result={"key": "val"}, set_started=False, set_finished=False)
+        with patch("apps.automation.models.ScraperTask") as mock_task:
+            result = _update_session_task(
+                session_id=None,
+                status="running",
+                error_message="err",
+                result={"key": "val"},
+                set_started=False,
+                set_finished=False,
+            )
+            assert result is None
+            mock_task.objects.filter.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

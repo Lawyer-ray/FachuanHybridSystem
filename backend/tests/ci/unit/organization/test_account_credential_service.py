@@ -41,7 +41,10 @@ class TestListCredentials:
         with patch.object(svc, "_get_base_queryset") as mock_qs:
             mock_qs.return_value = MagicMock()
             result = svc.list_credentials(user=user)
-            # Superuser branch: no filter applied
+        # 超级用户不做律所过滤，直接返回全量查询集
+        assert result is mock_qs.return_value
+        mock_qs.return_value.filter.assert_not_called()
+        # Superuser branch: no filter applied
 
     def test_non_superuser_filters_by_firm(self) -> None:
         svc = AccountCredentialService()

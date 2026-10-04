@@ -213,7 +213,7 @@ class TestResumePendingDeviceCodePolls:
 
     def test_resume_pending_no_pending(self):
         # Should not raise
-        resume_pending_device_code_polls()
+        assert resume_pending_device_code_polls() is None
 
 
 class TestCloudStorageAdminAssetsLocation:

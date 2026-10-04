@@ -1,7 +1,8 @@
 """Tests for cases/signals.py - post_delete file cleanup."""
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 
 @pytest.mark.django_db
@@ -29,17 +30,23 @@ class TestCleanupLogAttachmentFile:
 
     def test_handles_no_file_gracefully(self):
         """Signal handler does nothing when file is empty/None."""
+        from unittest.mock import patch as _patch
+
         from apps.cases.signals import _cleanup_log_attachment_file
 
         instance = MagicMock()
         instance.pk = 1
         instance.file = None
 
-        # Should not raise
-        _cleanup_log_attachment_file(sender=MagicMock, instance=instance)
+        with _patch("apps.cases.signals.transaction") as mock_txn:
+            _cleanup_log_attachment_file(sender=MagicMock, instance=instance)
+            # 无文件直接跳过，不注册 on_commit 回调
+            mock_txn.on_commit.assert_not_called()
 
     def test_handles_file_delete_exception(self):
         """Signal handler catches exceptions during file deletion."""
+        from unittest.mock import patch as _patch
+
         from apps.cases.signals import _cleanup_log_attachment_file
 
         mock_file = MagicMock()
@@ -51,8 +58,15 @@ class TestCleanupLogAttachmentFile:
         instance.pk = 1
         instance.file = mock_file
 
-        # Should not raise
-        _cleanup_log_attachment_file(sender=MagicMock, instance=instance)
+        with (
+            _patch("apps.cases.signals.transaction") as mock_txn,
+            _patch("apps.cases.signals.logger.exception") as mock_exc,
+        ):
+            # 立即执行 on_commit 回调，让删除异常在处理器内部被捕获
+            mock_txn.on_commit.side_effect = lambda fn: fn()
+            _cleanup_log_attachment_file(sender=MagicMock, instance=instance)
+        mock_file.delete.assert_called_once_with(save=False)
+        mock_exc.assert_called_once()
 
 
 @pytest.mark.django_db
@@ -80,17 +94,23 @@ class TestCleanupCaseNumberDocumentFile:
 
     def test_handles_no_document_file(self):
         """Signal handler does nothing when document_file is None."""
+        from unittest.mock import patch as _patch
+
         from apps.cases.signals import _cleanup_case_number_document_file
 
         instance = MagicMock()
         instance.pk = 1
         instance.document_file = None
 
-        # Should not raise
-        _cleanup_case_number_document_file(sender=MagicMock, instance=instance)
+        with _patch("apps.cases.signals.transaction") as mock_txn:
+            _cleanup_case_number_document_file(sender=MagicMock, instance=instance)
+            # 无文件直接跳过，不注册 on_commit 回调
+            mock_txn.on_commit.assert_not_called()
 
     def test_handles_document_file_delete_exception(self):
         """Signal handler catches exceptions during document file deletion."""
+        from unittest.mock import patch as _patch
+
         from apps.cases.signals import _cleanup_case_number_document_file
 
         mock_file = MagicMock()
@@ -102,5 +122,12 @@ class TestCleanupCaseNumberDocumentFile:
         instance.pk = 1
         instance.document_file = mock_file
 
-        # Should not raise
-        _cleanup_case_number_document_file(sender=MagicMock, instance=instance)
+        with (
+            _patch("apps.cases.signals.transaction") as mock_txn,
+            _patch("apps.cases.signals.logger.exception") as mock_exc,
+        ):
+            # 立即执行 on_commit 回调，让删除异常在处理器内部被捕获
+            mock_txn.on_commit.side_effect = lambda fn: fn()
+            _cleanup_case_number_document_file(sender=MagicMock, instance=instance)
+        mock_file.delete.assert_called_once_with(save=False)
+        mock_exc.assert_called_once()

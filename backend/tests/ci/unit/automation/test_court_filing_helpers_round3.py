@@ -21,7 +21,6 @@ except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
 
-
 # ---------------------------------------------------------------------------
 # _infer_filing_type — execution hints
 # ---------------------------------------------------------------------------
@@ -30,6 +29,7 @@ except ImportError:
 class TestInferFilingTypeExecutionHints:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _infer_filing_type
+
         return _infer_filing_type
 
     def test_applicant_status_returns_execution(self):
@@ -75,6 +75,7 @@ class TestInferFilingTypeExecutionHints:
 class TestResolveOriginalCaseNumber:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _resolve_original_case_number
+
         return _resolve_original_case_number
 
     def test_no_case_numbers(self):
@@ -121,6 +122,7 @@ class TestResolveOriginalCaseNumber:
 class TestBuildPartyPayloadsLegal:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _build_party_payloads
+
         return _build_party_payloads
 
     def test_legal_person(self):
@@ -178,6 +180,7 @@ class TestBuildPartyPayloadsLegal:
 class TestToValidMobile:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _to_valid_mobile
+
         return _to_valid_mobile
 
     def test_valid_mobile(self):
@@ -204,6 +207,7 @@ class TestToValidMobile:
 class TestApplyExecutionPartyFallbacks:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _apply_execution_party_fallbacks
+
         return _apply_execution_party_fallbacks
 
     def test_fills_phone_from_agent(self):
@@ -238,6 +242,7 @@ class TestApplyExecutionPartyFallbacks:
 class TestBuildExecutionReasonText:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _build_execution_reason_text
+
         return _build_execution_reason_text
 
     def test_with_cause(self):
@@ -267,6 +272,7 @@ class TestBuildExecutionReasonText:
 class TestNormalizeText:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _normalize_text
+
         return _normalize_text
 
     def test_strips_special_chars(self):
@@ -285,6 +291,7 @@ class TestNormalizeText:
 class TestScoreSlotForSignal:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _score_slot_for_signal
+
         return _score_slot_for_signal
 
     def test_empty_signal(self):
@@ -308,29 +315,33 @@ class TestScoreSlotForSignal:
 class TestScoreSlotDeduplicated:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _score_slot_deduplicated
+
         return _score_slot_deduplicated
 
     def test_empty_signals(self):
-        assert self._fn()(
-            primary_signals=[], secondary_signals=[], strong=("a",), weak=(), exclude=()
-        ) == 0
+        assert self._fn()(primary_signals=[], secondary_signals=[], strong=("a",), weak=(), exclude=()) == 0
 
     def test_primary_strong_match_doubled(self):
-        assert self._fn()(
-            primary_signals=["起诉状"], secondary_signals=[], strong=("起诉状",), weak=(), exclude=()
-        ) == 10  # 5 * 2
+        assert (
+            self._fn()(primary_signals=["起诉状"], secondary_signals=[], strong=("起诉状",), weak=(), exclude=()) == 10
+        )  # 5 * 2
 
     def test_primary_exclude_doubled(self):
-        assert self._fn()(
-            primary_signals=["执行申请书"], secondary_signals=[], strong=(), weak=(), exclude=("执行申请书",)
-        ) == -12  # -6 * 2
+        assert (
+            self._fn()(
+                primary_signals=["执行申请书"], secondary_signals=[], strong=(), weak=(), exclude=("执行申请书",)
+            )
+            == -12
+        )  # -6 * 2
 
     def test_secondary_deduplicated(self):
         # Same keyword in multiple secondary signals should only count once
         score = self._fn()(
             primary_signals=[],
             secondary_signals=["起诉状.pdf", "起诉状_副本.pdf"],
-            strong=("起诉状",), weak=(), exclude=()
+            strong=("起诉状",),
+            weak=(),
+            exclude=(),
         )
         assert score == 5  # counted once, not twice
 
@@ -343,6 +354,7 @@ class TestScoreSlotDeduplicated:
 class TestMatchSlotFallback:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _match_slot
+
         return _match_slot
 
     def test_execution_apply_fallback(self):
@@ -407,6 +419,7 @@ class TestMatchSlotFallback:
 class TestBuildSessionStatusPayload:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _build_session_status_payload
+
         return _build_session_status_payload
 
     def test_pending_status(self):
@@ -463,16 +476,19 @@ class TestBuildSessionStatusPayload:
 class TestUpdateSessionTask:
     def _fn(self):
         from plugins.court_automation.filing.helpers import _update_session_task
+
         return _update_session_task
 
     def test_none_session_id(self):
-        self._fn()(session_id=None, status="running")
+        with patch("apps.automation.models.ScraperTask") as mock_task:
+            # session_id=None 直接早退，不触达数据库
+            assert self._fn()(session_id=None, status="running") is None
+            mock_task.objects.filter.assert_not_called()
 
     def test_with_all_flags(self):
         # _do_update runs in the current thread when no event loop is running
         # We need to patch the inner imports too
-        with patch("apps.automation.models.ScraperTask") as MockTask, \
-             patch("django.db.close_old_connections"):
+        with patch("apps.automation.models.ScraperTask") as MockTask, patch("django.db.close_old_connections"):
             self._fn()(
                 session_id=1,
                 status="success",

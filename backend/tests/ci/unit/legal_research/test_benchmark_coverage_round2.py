@@ -15,6 +15,7 @@ Covers branches NOT already tested in test_benchmark_coverage.py:
   - _count_labeled_cases pooled with both expected and judgments
   - _normalize_search_mode
 """
+
 from __future__ import annotations
 
 import json
@@ -24,10 +25,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.legal_research.management.commands.benchmark_legal_research_retrieval import (
-    Command,
-    CredentialRef,
-)
+from apps.legal_research.management.commands.benchmark_legal_research_retrieval import Command, CredentialRef
 
 
 class TestNormalizeRelevanceGradeExtended:
@@ -299,41 +297,69 @@ class TestBuildQueryTypeMetricsExtended:
                 "unjudged_count": 10,
             },
         }
-        result = Command._build_query_type_metrics(
-            query_type_stats=stats, total_tp=7, total_cases=15, labeled_cases=11
-        )
+        result = Command._build_query_type_metrics(query_type_stats=stats, total_tp=7, total_cases=15, labeled_cases=11)
         assert len(result) == 2
         assert result[0]["query_type"] == "primary"
         assert result[1]["query_type"] == "expansion"
 
     def test_extras_beyond_order(self):
         stats = {
-            "custom_type": {"total_cases": 3, "labeled_cases": 2, "tp": 1, "fp": 0, "fn": 0, "judged_count": 5, "unjudged_count": 1, "errors": 0},
-            "primary": {"total_cases": 5, "labeled_cases": 4, "tp": 3, "fp": 1, "fn": 0, "judged_count": 10, "unjudged_count": 2, "errors": 0},
+            "custom_type": {
+                "total_cases": 3,
+                "labeled_cases": 2,
+                "tp": 1,
+                "fp": 0,
+                "fn": 0,
+                "judged_count": 5,
+                "unjudged_count": 1,
+                "errors": 0,
+            },
+            "primary": {
+                "total_cases": 5,
+                "labeled_cases": 4,
+                "tp": 3,
+                "fp": 1,
+                "fn": 0,
+                "judged_count": 10,
+                "unjudged_count": 2,
+                "errors": 0,
+            },
         }
-        result = Command._build_query_type_metrics(
-            query_type_stats=stats, total_tp=4, total_cases=8, labeled_cases=6
-        )
+        result = Command._build_query_type_metrics(query_type_stats=stats, total_tp=4, total_cases=8, labeled_cases=6)
         # primary first (ordered), then custom_type
         assert result[0]["query_type"] == "primary"
         assert result[1]["query_type"] == "custom_type"
 
     def test_contribution_rate_zero_tp(self):
         stats = {
-            "primary": {"total_cases": 2, "labeled_cases": 2, "tp": 0, "fp": 0, "fn": 0, "judged_count": 5, "unjudged_count": 0, "errors": 0},
+            "primary": {
+                "total_cases": 2,
+                "labeled_cases": 2,
+                "tp": 0,
+                "fp": 0,
+                "fn": 0,
+                "judged_count": 5,
+                "unjudged_count": 0,
+                "errors": 0,
+            },
         }
-        result = Command._build_query_type_metrics(
-            query_type_stats=stats, total_tp=0, total_cases=2, labeled_cases=2
-        )
+        result = Command._build_query_type_metrics(query_type_stats=stats, total_tp=0, total_cases=2, labeled_cases=2)
         assert result[0]["contribution_rate"] == 0.0
 
     def test_labeled_case_ratio_zero_labeled(self):
         stats = {
-            "primary": {"total_cases": 2, "labeled_cases": 0, "tp": 0, "fp": 0, "fn": 0, "judged_count": 0, "unjudged_count": 0, "errors": 0},
+            "primary": {
+                "total_cases": 2,
+                "labeled_cases": 0,
+                "tp": 0,
+                "fp": 0,
+                "fn": 0,
+                "judged_count": 0,
+                "unjudged_count": 0,
+                "errors": 0,
+            },
         }
-        result = Command._build_query_type_metrics(
-            query_type_stats=stats, total_tp=0, total_cases=2, labeled_cases=0
-        )
+        result = Command._build_query_type_metrics(query_type_stats=stats, total_tp=0, total_cases=2, labeled_cases=0)
         assert result[0]["labeled_case_ratio"] == 0.0
 
 
@@ -344,10 +370,16 @@ class TestQueryTypeMetricValueExtended:
         assert Command._query_type_metric_value(summary={}, query_type="primary", key="f1") == 0.0
 
     def test_metrics_not_list(self):
-        assert Command._query_type_metric_value(summary={"query_type_metrics": "bad"}, query_type="primary", key="f1") == 0.0
+        assert (
+            Command._query_type_metric_value(summary={"query_type_metrics": "bad"}, query_type="primary", key="f1")
+            == 0.0
+        )
 
     def test_metrics_item_not_dict(self):
-        assert Command._query_type_metric_value(summary={"query_type_metrics": ["bad"]}, query_type="primary", key="f1") == 0.0
+        assert (
+            Command._query_type_metric_value(summary={"query_type_metrics": ["bad"]}, query_type="primary", key="f1")
+            == 0.0
+        )
 
     def test_bad_value_returns_zero(self):
         summary = {"query_type_metrics": [{"query_type": "primary", "f1": "not_a_number"}]}
@@ -359,10 +391,12 @@ class TestNormalizeSearchMode:
 
     def test_empty_returns_expanded(self):
         from apps.legal_research.models import LegalResearchSearchMode
+
         assert Command._normalize_search_mode("") == LegalResearchSearchMode.EXPANDED
 
     def test_single_variants(self):
         from apps.legal_research.models import LegalResearchSearchMode
+
         assert Command._normalize_search_mode("single") == LegalResearchSearchMode.SINGLE
         assert Command._normalize_search_mode("strict") == LegalResearchSearchMode.SINGLE
         assert Command._normalize_search_mode("单检索") == LegalResearchSearchMode.SINGLE
@@ -371,11 +405,13 @@ class TestNormalizeSearchMode:
 
     def test_expanded_variants(self):
         from apps.legal_research.models import LegalResearchSearchMode
+
         assert Command._normalize_search_mode("expanded") == LegalResearchSearchMode.EXPANDED
         assert Command._normalize_search_mode("random_text") == LegalResearchSearchMode.EXPANDED
 
     def test_none_returns_expanded(self):
         from apps.legal_research.models import LegalResearchSearchMode
+
         assert Command._normalize_search_mode(None) == LegalResearchSearchMode.EXPANDED
 
 
@@ -566,20 +602,26 @@ class TestTemporaryTuningOverrides:
     """Test _temporary_tuning_overrides context manager."""
 
     def test_no_payload_yields(self):
+        from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
+
+        original = LegalResearchTuningConfig.__dict__.get("load")
         with Command._temporary_tuning_overrides({}):
-            pass  # Should not raise
+            # 空 payload 不应替换 load 入口
+            assert LegalResearchTuningConfig.__dict__.get("load") is original
+        assert LegalResearchTuningConfig.__dict__.get("load") is original
 
     def test_valid_override(self):
         from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 
-        original_load = LegalResearchTuningConfig.load
+        original_descriptor = LegalResearchTuningConfig.__dict__.get("load")
         try:
-            with Command._temporary_tuning_overrides(
-                {"similarity_local_cache_max_size": 9999}
-            ):
-                pass  # Override applied and reverted
+            with Command._temporary_tuning_overrides({"similarity_local_cache_max_size": 9999}):
+                # 非空 payload 应把 load 替换为带覆盖的 patched 版本
+                assert LegalResearchTuningConfig.__dict__.get("load") is not original_descriptor
+            # 退出上下文后恢复原始 load
+            assert LegalResearchTuningConfig.__dict__.get("load") is original_descriptor
         finally:
-            LegalResearchTuningConfig.load = original_load
+            LegalResearchTuningConfig.load = original_descriptor
 
 
 class TestCredentialRef:

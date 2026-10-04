@@ -8,7 +8,6 @@ import pytest
 
 from apps.chat_records.models import ChatRecordProject as Project
 
-
 # ===================================================================
 # Export Types & Statuses
 # ===================================================================
@@ -128,3 +127,5 @@ def test_reorder_screenshots_empty(authenticated_client):
         content_type="application/json",
     )
     assert resp.status_code == 200
+    # 空列表视为合法重排（项目无截图时集合相等），返回统一成功信封
+    assert resp.json() == {"success": True}

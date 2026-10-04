@@ -2,6 +2,7 @@
 
 Targets branches NOT covered by existing test files.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -186,9 +187,7 @@ class TestScoreSlotForSignalR3:
 
 class TestScoreSlotDeduplicatedR3:
     def test_empty_signals(self):
-        assert _score_slot_deduplicated(
-            primary_signals=[], secondary_signals=[], strong=(), weak=(), exclude=()
-        ) == 0
+        assert _score_slot_deduplicated(primary_signals=[], secondary_signals=[], strong=(), weak=(), exclude=()) == 0
 
     def test_primary_signal_weighted(self):
         score = _score_slot_deduplicated(
@@ -258,9 +257,7 @@ class TestMatchSlotR3:
 class TestBuildMaterialSlotSignalsR3:
     def test_type_name_in_primary(self):
         material = SimpleNamespace(type_name="身份证", type=None, source_attachment=None)
-        primary, secondary = _build_material_slot_signals(
-            material=material, file_path=Path("/docs/evidence.pdf")
-        )
+        primary, secondary = _build_material_slot_signals(material=material, file_path=Path("/docs/evidence.pdf"))
         assert any("身份证" in s for s in primary)
 
     def test_material_type_name_in_primary(self):
@@ -316,18 +313,24 @@ class TestBuildSessionStatusPayloadR3:
 
 class TestUpdateSessionTaskR3:
     def test_none_session_id_does_nothing(self):
-        _update_session_task(session_id=None, status="running")
+        with patch("apps.automation.models.ScraperTask") as mock_task:
+            # session_id=None 直接早退，不触达数据库
+            assert _update_session_task(session_id=None, status="running") is None
+            mock_task.objects.filter.assert_not_called()
 
     def test_set_started_and_finished_keys(self):
         # Calls with real session_id will attempt DB access; verify no crash on None path
-        _update_session_task(
-            session_id=None,
-            status="finished",
-            error_message=None,
-            result={"k": "v"},
-            set_started=True,
-            set_finished=True,
-        )
+        with patch("apps.automation.models.ScraperTask") as mock_task:
+            result = _update_session_task(
+                session_id=None,
+                status="finished",
+                error_message=None,
+                result={"k": "v"},
+                set_started=True,
+                set_finished=True,
+            )
+            assert result is None
+            mock_task.objects.filter.assert_not_called()
 
 
 class TestResolveOriginalCaseNumberR3:
@@ -337,7 +340,9 @@ class TestResolveOriginalCaseNumberR3:
 
     def test_active_number_first(self):
         mock_numbers = MagicMock()
-        mock_numbers.filter.return_value.order_by.return_value.values_list.return_value.first.return_value = "(2024)粤01民初1号"
+        mock_numbers.filter.return_value.order_by.return_value.values_list.return_value.first.return_value = (
+            "(2024)粤01民初1号"
+        )
         case = SimpleNamespace(case_numbers=mock_numbers)
         result = _resolve_original_case_number(case)
         assert "(2024)" in result

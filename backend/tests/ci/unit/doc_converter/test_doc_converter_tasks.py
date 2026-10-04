@@ -39,7 +39,7 @@ class TestRunConversionJob:
         # It won't raise, but we can verify it doesn't crash
         with patch("apps.doc_converter.tasks.DocConverterStorage"):
             # Should not raise - exception is caught internally
-            run_conversion_job(str(fake_id))
+            assert run_conversion_job(str(fake_id)) is None
 
     def test_handles_exception_marks_failed(self, db):
         """Exception during conversion marks job as FAILED."""

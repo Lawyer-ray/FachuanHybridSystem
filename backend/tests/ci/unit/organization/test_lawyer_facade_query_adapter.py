@@ -3,6 +3,7 @@
 Covers: lawyer facade methods, query service branches, adapter conversions,
 upload service, _validate_team_type.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -108,22 +109,30 @@ class TestLawyerQueryService:
         user = MagicMock()
         user.is_superuser = True
         from apps.organization.dtos import LawyerListFiltersDTO
+
         filters = LawyerListFiltersDTO(search="test", law_firm_id=None)
         with patch("apps.organization.services.lawyer.query.Lawyer") as MockLawyer:
             mock_qs = MagicMock()
             MockLawyer.objects.select_related.return_value.prefetch_related.return_value = mock_qs
             result = self.svc.list_lawyers(filters=filters, user=user)
-            mock_qs.filter.assert_called()
+        # search 过滤走 Q 对象查询，链上最终按 id 倒序后切片返回
+        mock_qs.filter.assert_called_once()
+        assert result is mock_qs.filter.return_value.order_by.return_value.__getitem__.return_value
 
     def test_list_lawyers_with_firm_filter(self) -> None:
         user = MagicMock()
         user.is_superuser = True
         from apps.organization.dtos import LawyerListFiltersDTO
+
         filters = LawyerListFiltersDTO(search=None, law_firm_id=5)
         with patch("apps.organization.services.lawyer.query.Lawyer") as MockLawyer:
             mock_qs = MagicMock()
             MockLawyer.objects.select_related.return_value.prefetch_related.return_value = mock_qs
             result = self.svc.list_lawyers(filters=filters, user=user)
+        # 超级用户不受自身律所限制，但仍按显式 law_firm_id 过滤
+        mock_qs.filter.assert_called_once_with(law_firm_id=5)
+        mock_qs.filter.return_value.order_by.assert_called_once_with("-id")
+        assert result is mock_qs.filter.return_value.order_by.return_value.__getitem__.return_value
 
     def test_get_team_members(self) -> None:
         with patch("apps.organization.services.lawyer.query.Lawyer") as MockLawyer:

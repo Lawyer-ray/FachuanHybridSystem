@@ -25,8 +25,19 @@ from unittest.mock import MagicMock, PropertyMock, patch
 import pytest
 from django.http import Http404, HttpRequest, HttpResponse
 from ninja import NinjaAPI
-from ninja.errors import HttpError, ValidationError as NinjaValidationError
+from ninja.errors import HttpError
+from ninja.errors import ValidationError as NinjaValidationError
 
+from apps.core.exceptions.base import BusinessError, BusinessException
+from apps.core.exceptions.common import (
+    AuthenticationError,
+    ConflictError,
+    NotFoundError,
+    PermissionDenied,
+    RateLimitError,
+    ValidationException,
+)
+from apps.core.exceptions.external import ExternalServiceError, RecognitionTimeoutError, ServiceUnavailableError
 from apps.core.exceptions.handlers import (
     _attach_request_meta,
     _get_user_id,
@@ -36,21 +47,6 @@ from apps.core.exceptions.handlers import (
     _safe_log_value,
     register_exception_handlers,
 )
-from apps.core.exceptions.base import BusinessException, BusinessError
-from apps.core.exceptions.common import (
-    AuthenticationError,
-    ConflictError,
-    NotFoundError,
-    PermissionDenied,
-    RateLimitError,
-    ValidationException,
-)
-from apps.core.exceptions.external import (
-    ExternalServiceError,
-    RecognitionTimeoutError,
-    ServiceUnavailableError,
-)
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -164,6 +160,7 @@ class TestSafeLogValue:
         class Custom:
             def __str__(self):
                 return "custom"
+
         result = _safe_log_value(Custom())
         assert result == "custom"
 
@@ -291,10 +288,13 @@ class TestResolveLlmStatusCode:
 class TestRegisterExceptionHandlers:
     def test_registers_without_error(self) -> None:
         api = NinjaAPI()
-        register_exception_handlers(api)  # should not raise
+        assert register_exception_handlers(api) is None  # should not raise
+        assert len(api._exception_handlers) > 0
 
     def test_handlers_count(self) -> None:
         api = _make_api()
+        # 注册的异常处理器数量应保持稳定（核心业务异常族 + 框架异常）
+        assert len(api._exception_handlers) >= 8
         # The handlers are registered via api.exception_handler decorator
         # We verify by triggering exceptions
 
@@ -426,6 +426,7 @@ class TestObjectDoesNotExistHandler:
         api = _make_api()
         req = _mock_request()
         from django.core.exceptions import ObjectDoesNotExist
+
         exc = ObjectDoesNotExist("object not found")
         response = api._exception_handlers[ObjectDoesNotExist](req, exc)
         assert response.status_code == 404
@@ -436,6 +437,7 @@ class TestDjangoPermissionDeniedHandler:
         api = _make_api()
         req = _mock_request()
         from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
+
         exc = DjangoPermissionDenied("no access")
         response = api._exception_handlers[DjangoPermissionDenied](req, exc)
         assert response.status_code == 403

@@ -50,7 +50,7 @@ class TestValidators:
     def test_validate_positive_id_valid(self):
         from apps.reminders.services.validators import validate_positive_id
 
-        validate_positive_id(1, field_name="test")  # no error
+        assert validate_positive_id(1, field_name="test") is None
 
     def test_validate_positive_id_zero(self):
         from apps.reminders.services.validators import validate_positive_id
@@ -67,12 +67,12 @@ class TestValidators:
     def test_validate_binding_exclusive_none(self):
         from apps.reminders.services.validators import validate_binding_exclusive
 
-        validate_binding_exclusive(contract_id=None, case_id=None, case_log_id=None)
+        assert validate_binding_exclusive(contract_id=None, case_id=None, case_log_id=None) is None
 
     def test_validate_binding_exclusive_one(self):
         from apps.reminders.services.validators import validate_binding_exclusive
 
-        validate_binding_exclusive(contract_id=1, case_id=None, case_log_id=None)
+        assert validate_binding_exclusive(contract_id=1, case_id=None, case_log_id=None) is None
 
     def test_validate_binding_exclusive_two_raises(self):
         from apps.reminders.services.validators import validate_binding_exclusive
@@ -91,7 +91,10 @@ class TestValidators:
 
         mock_query = MagicMock()
         mock_query.exists.return_value = True
-        validate_fk_exists(contract_id=1, case_id=None, case_log_id=None, contract_target_query=mock_query)
+        assert (
+            validate_fk_exists(contract_id=1, case_id=None, case_log_id=None, contract_target_query=mock_query) is None
+        )
+        mock_query.exists.assert_called_once_with(1)
 
     def test_validate_fk_exists_contract_not_found(self):
         from apps.reminders.services.validators import validate_fk_exists
@@ -106,14 +109,18 @@ class TestValidators:
 
         mock_query = MagicMock()
         mock_query.exists.return_value = True
-        validate_fk_exists(contract_id=None, case_id=1, case_log_id=None, case_target_query=mock_query)
+        assert validate_fk_exists(contract_id=None, case_id=1, case_log_id=None, case_target_query=mock_query) is None
+        mock_query.exists.assert_called_once_with(1)
 
     def test_validate_fk_exists_case_log_success(self):
         from apps.reminders.services.validators import validate_fk_exists
 
         mock_query = MagicMock()
         mock_query.exists.return_value = True
-        validate_fk_exists(contract_id=None, case_id=None, case_log_id=1, case_log_target_query=mock_query)
+        assert (
+            validate_fk_exists(contract_id=None, case_id=None, case_log_id=1, case_log_target_query=mock_query) is None
+        )
+        mock_query.exists.assert_called_once_with(1)
 
     def test_validate_fk_exists_missing_port(self):
         from apps.reminders.services.validators import validate_fk_exists
@@ -158,6 +165,7 @@ class TestValidators:
 
     def test_normalize_due_at_aware(self):
         from django.utils import timezone
+
         from apps.reminders.services.validators import normalize_due_at
 
         now = timezone.now()
@@ -165,6 +173,7 @@ class TestValidators:
 
     def test_normalize_due_at_naive(self):
         from django.utils import timezone
+
         from apps.reminders.services.validators import normalize_due_at
 
         naive = datetime(2026, 1, 1, 12, 0, 0)
@@ -191,78 +200,58 @@ class TestValidators:
 
 class TestReminderParser:
     def test_parse_empty_text(self):
-        from apps.reminders.services.reminder_parser_service import (
-            parse_reminders_from_text,
-        )
+        from apps.reminders.services.reminder_parser_service import parse_reminders_from_text
 
         assert parse_reminders_from_text("") == []
         assert parse_reminders_from_text(None) == []
 
     def test_parse_no_date(self):
-        from apps.reminders.services.reminder_parser_service import (
-            parse_reminders_from_text,
-        )
+        from apps.reminders.services.reminder_parser_service import parse_reminders_from_text
 
         assert parse_reminders_from_text("今天天气不错") == []
 
     def test_parse_hearing_date(self):
-        from apps.reminders.services.reminder_parser_service import (
-            parse_reminders_from_text,
-        )
+        from apps.reminders.services.reminder_parser_service import parse_reminders_from_text
 
         results = parse_reminders_from_text("开庭日期2026年06月15日")
         assert len(results) > 0
         assert results[0].reminder_type == "hearing"
 
     def test_parse_evidence_deadline(self):
-        from apps.reminders.services.reminder_parser_service import (
-            parse_reminders_from_text,
-        )
+        from apps.reminders.services.reminder_parser_service import parse_reminders_from_text
 
         results = parse_reminders_from_text("举证期限2026年07月20日")
         assert len(results) > 0
         assert results[0].reminder_type == "evidence_deadline"
 
     def test_parse_appeal_deadline(self):
-        from apps.reminders.services.reminder_parser_service import (
-            parse_reminders_from_text,
-        )
+        from apps.reminders.services.reminder_parser_service import parse_reminders_from_text
 
         results = parse_reminders_from_text("上诉期限2026年08月01日")
         assert len(results) > 0
         assert results[0].reminder_type == "appeal_deadline"
 
     def test_parse_with_time(self):
-        from apps.reminders.services.reminder_parser_service import (
-            parse_reminders_from_text,
-        )
+        from apps.reminders.services.reminder_parser_service import parse_reminders_from_text
 
         results = parse_reminders_from_text("开庭日期2026年06月15日下午3点")
         assert len(results) > 0
         assert "15:00" in results[0].due_at
 
     def test_parse_iso_date(self):
-        from apps.reminders.services.reminder_parser_service import (
-            parse_reminders_from_text,
-        )
+        from apps.reminders.services.reminder_parser_service import parse_reminders_from_text
 
         results = parse_reminders_from_text("缴费期限 2026-07-01")
         assert len(results) > 0
 
     def test_parse_duplicate_date(self):
-        from apps.reminders.services.reminder_parser_service import (
-            parse_reminders_from_text,
-        )
+        from apps.reminders.services.reminder_parser_service import parse_reminders_from_text
 
-        results = parse_reminders_from_text(
-            "开庭日期2026年06月15日，再次提醒2026年06月15日"
-        )
+        results = parse_reminders_from_text("开庭日期2026年06月15日，再次提醒2026年06月15日")
         assert len(results) == 1  # deduped
 
     def test_infer_reminder_type(self):
-        from apps.reminders.services.reminder_parser_service import (
-            _infer_reminder_type,
-        )
+        from apps.reminders.services.reminder_parser_service import _infer_reminder_type
 
         assert _infer_reminder_type("开庭传票") == "hearing"
         assert _infer_reminder_type("保全到期") == "asset_preservation_expires"
@@ -282,9 +271,7 @@ class TestReminderParser:
         assert _parse_date("invalid") is None
 
     def test_extract_sentence(self):
-        from apps.reminders.services.reminder_parser_service import (
-            _extract_sentence,
-        )
+        from apps.reminders.services.reminder_parser_service import _extract_sentence
 
         text = "这是第一句话。开庭日期2026年06月15日下午3点。这是第三句话。"
         sentence = _extract_sentence(text, 7, 25)

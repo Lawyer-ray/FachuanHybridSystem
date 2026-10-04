@@ -5,6 +5,7 @@ _is_within_root, _relative_path_str, _extract_scan_subfolder,
 _post_process_candidates, _collect_docx_files, _learn_from_import_correction,
 _normalize_docx_name.
 """
+
 from __future__ import annotations
 
 import os
@@ -26,11 +27,13 @@ def _make_service():
 
 def _make_processor():
     from apps.contracts.services.contract.integrations._candidate_post_processor import CandidatePostProcessor
+
     return CandidatePostProcessor(scan_service=MagicMock())
 
 
 def _make_pipeline():
     from apps.contracts.services.contract.integrations._import_pipeline import ImportPipeline
+
     return ImportPipeline()
 
 
@@ -250,11 +253,14 @@ class TestGetSession:
         from uuid import UUID
 
         svc = _make_service()
-        with patch("apps.contracts.services.contract.integrations.folder_scan_service.ContractFolderScanSession") as MockSession:
+        with patch(
+            "apps.contracts.services.contract.integrations.folder_scan_service.ContractFolderScanSession"
+        ) as MockSession:
             MockSession.DoesNotExist = Exception
             MockSession.objects.get.side_effect = MockSession.DoesNotExist
 
             from apps.core.exceptions import NotFoundError
+
             with pytest.raises(NotFoundError):
                 svc.get_session(contract_id=1, session_id=UUID("12345678-1234-5678-1234-567812345678"))
 
@@ -271,7 +277,9 @@ class TestPostProcessCandidates:
             "suggested_category": "archive_document",
         }
 
-        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material") as mock_cls:
+        with patch(
+            "apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material"
+        ) as mock_cls:
             mock_cls.return_value = {
                 "category": "matched",
                 "archive_item_code": "l_0",
@@ -296,7 +304,9 @@ class TestPostProcessCandidates:
             "suggested_category": "archive_document",
         }
 
-        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material") as mock_cls:
+        with patch(
+            "apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material"
+        ) as mock_cls:
             mock_cls.return_value = {"category": "skip", "reason": "不需要"}
             result = svc.post_process_candidates(
                 candidates=[candidate],
@@ -314,7 +324,9 @@ class TestPostProcessCandidates:
             "suggested_category": "archive_document",
         }
 
-        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material") as mock_cls:
+        with patch(
+            "apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material"
+        ) as mock_cls:
             mock_cls.return_value = {
                 "category": "unmatched",
                 "archive_item_code": "",
@@ -337,7 +349,9 @@ class TestPostProcessCandidates:
             "suggested_category": "authorization_material",
         }
 
-        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material") as mock_cls:
+        with patch(
+            "apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material"
+        ) as mock_cls:
             mock_cls.return_value = {
                 "category": "matched",
                 "archive_item_code": "l_2",
@@ -361,7 +375,9 @@ class TestPostProcessCandidates:
             "suggested_category": "case_material",
         }
 
-        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material") as mock_cls:
+        with patch(
+            "apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material"
+        ) as mock_cls:
             mock_cls.return_value = {
                 "category": "matched",
                 "archive_item_code": "l_1",
@@ -387,8 +403,16 @@ class TestPostProcessCandidates:
             "selected": True,
         }
 
-        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material") as mock_cls:
-            mock_cls.return_value = {"category": "matched", "archive_item_code": "x", "archive_item_name": "x", "confidence": 0.5, "reason": ""}
+        with patch(
+            "apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material"
+        ) as mock_cls:
+            mock_cls.return_value = {
+                "category": "matched",
+                "archive_item_code": "x",
+                "archive_item_name": "x",
+                "confidence": 0.5,
+                "reason": "",
+            }
             result = svc.post_process_candidates(
                 candidates=[candidate],
                 archive_category="litigation",
@@ -422,8 +446,16 @@ class TestPostProcessCandidates:
             "suggested_category": "case_material",
         }
 
-        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material") as mock_cls:
-            mock_cls.return_value = {"category": "matched", "archive_item_code": "x", "archive_item_name": "x", "confidence": 0.5, "reason": ""}
+        with patch(
+            "apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material"
+        ) as mock_cls:
+            mock_cls.return_value = {
+                "category": "matched",
+                "archive_item_code": "x",
+                "archive_item_name": "x",
+                "confidence": 0.5,
+                "reason": "",
+            }
             result = svc.post_process_candidates(
                 candidates=[candidate],
                 archive_category="litigation",
@@ -457,32 +489,34 @@ class TestCollectDocxFiles:
 class TestLearnFromImportCorrection:
     def test_no_code_returns(self):
         svc = _make_service()
-        svc._learn_from_import_correction(
-            candidate={}, actual_archive_item_code="", contract_id=1
-        )
-        # Should return without doing anything
+        with patch("apps.contracts.services.contract.integrations.folder_scan_service.Contract") as MockContract:
+            svc._learn_from_import_correction(candidate={}, actual_archive_item_code="", contract_id=1)
+            # 实际 code 为空应直接早退，不触达数据库
+            MockContract.objects.filter.assert_not_called()
 
     def test_same_code_returns(self):
         svc = _make_service()
         candidate = {"archive_item_code": "l_1"}
-        svc._learn_from_import_correction(
-            candidate=candidate, actual_archive_item_code="l_1", contract_id=1
-        )
-        # No learning needed
+        with patch("apps.contracts.services.contract.integrations.folder_scan_service.Contract") as MockContract:
+            svc._learn_from_import_correction(candidate=candidate, actual_archive_item_code="l_1", contract_id=1)
+            # 预测与实际一致，无需学习
+            MockContract.objects.filter.assert_not_called()
 
     def test_non_case_material_returns(self):
         svc = _make_service()
         candidate = {"archive_item_code": "old", "suggested_category": "other"}
-        svc._learn_from_import_correction(
-            candidate=candidate, actual_archive_item_code="l_1", contract_id=1
-        )
+        with patch("apps.contracts.services.contract.integrations.folder_scan_service.Contract") as MockContract:
+            svc._learn_from_import_correction(candidate=candidate, actual_archive_item_code="l_1", contract_id=1)
+            # 非案件材料不学习
+            MockContract.objects.filter.assert_not_called()
 
     def test_no_filename_returns(self):
         svc = _make_service()
         candidate = {"archive_item_code": "old", "suggested_category": "case_material", "filename": ""}
-        svc._learn_from_import_correction(
-            candidate=candidate, actual_archive_item_code="l_1", contract_id=1
-        )
+        with patch("apps.contracts.services.contract.integrations.folder_scan_service.Contract") as MockContract:
+            svc._learn_from_import_correction(candidate=candidate, actual_archive_item_code="l_1", contract_id=1)
+            # 无文件名无法提取关键词，早退
+            MockContract.objects.filter.assert_not_called()
 
     def test_successful_learning(self):
         svc = _make_service()
@@ -560,6 +594,8 @@ class TestLearnFromImportCorrection:
                         svc._learn_from_import_correction(
                             candidate=candidate, actual_archive_item_code="l_1", contract_id=1
                         )
+                        # 异常被吞掉，不应走到 get_or_create
+                        MockRule.objects.get_or_create.assert_not_called()
 
     def test_no_contract_type(self):
         svc = _make_service()
@@ -575,6 +611,9 @@ class TestLearnFromImportCorrection:
             with patch("apps.contracts.services.archive.category_mapping.get_archive_category") as mock_cat:
                 mock_cat.return_value = "litigation"
 
-                svc._learn_from_import_correction(
-                    candidate=candidate, actual_archive_item_code="l_1", contract_id=999999
-                )
+                with patch("apps.contracts.models.ArchiveClassificationRule") as MockRule:
+                    svc._learn_from_import_correction(
+                        candidate=candidate, actual_archive_item_code="l_1", contract_id=999999
+                    )
+                    # 找不到合同应早退，不创建学习规则
+                    MockRule.objects.get_or_create.assert_not_called()

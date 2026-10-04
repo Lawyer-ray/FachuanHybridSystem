@@ -20,7 +20,7 @@ class TestCheckZnszjEnabled:
     def test_enabled_does_not_raise(self):
         with patch("apps.doc_convert.api.doc_convert_api.settings") as mock_settings:
             mock_settings.ZNSZJ_ENABLED = True
-            _check_znszj_enabled()
+            assert _check_znszj_enabled() is None
 
     def test_disabled_raises(self):
         with patch("apps.doc_convert.api.doc_convert_api.settings") as mock_settings:

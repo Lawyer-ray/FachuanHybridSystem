@@ -113,8 +113,12 @@ def _decode_disposition(raw: str) -> str:
 @pytest.mark.django_db
 def test_multiple_uploads_share_one_manual_source(authenticated_client, law_firm, tmp_path, settings):
     settings.MEDIA_ROOT = str(tmp_path)
-    r1 = _upload(authenticated_client, [SimpleUploadedFile("a.pdf", b"%PDF-a", content_type="application/pdf")], "第一批")
-    r2 = _upload(authenticated_client, [SimpleUploadedFile("b.pdf", b"%PDF-b", content_type="application/pdf")], "第二批")
+    r1 = _upload(
+        authenticated_client, [SimpleUploadedFile("a.pdf", b"%PDF-a", content_type="application/pdf")], "第一批"
+    )
+    r2 = _upload(
+        authenticated_client, [SimpleUploadedFile("b.pdf", b"%PDF-b", content_type="application/pdf")], "第二批"
+    )
     assert r1.status_code == 201 and r2.status_code == 201
 
     count = MessageSource.objects.filter(source_type=SourceType.MANUAL_UPLOAD).count()
@@ -134,6 +138,9 @@ def test_upload_requires_authentication(api_client_unauth, tmp_path, settings):
         "未认证上传",
     )
     assert resp.status_code == 401  # pragma: no cover
+    body = resp.json()
+    assert body["code"] == "HTTP_ERROR"  # pragma: no cover
+    assert body["message"]  # pragma: no cover
 
 
 @pytest.mark.django_db

@@ -30,9 +30,7 @@ class TestMonitorServiceInit:
         from apps.automation.services.scraper.core.monitor_service import MonitorService
 
         svc = MonitorService()
-        with patch(
-            "apps.core.interfaces.ServiceLocator.get_task_service", return_value="injected"
-        ):
+        with patch("apps.core.interfaces.ServiceLocator.get_task_service", return_value="injected"):
             assert svc.task_service == "injected"
 
     def test_lazy_task_service_fallback_to_model(self):
@@ -121,17 +119,16 @@ class TestCheckStuckTasks:
         assert result == []
 
     def test_with_service_locator_service(self):
-        """When task_service has no 'objects' attr, it delegates to get_stuck_tasks."""
+        """task_service 无 objects 属性时委托给 get_stuck_tasks 分支。"""
         from apps.automation.services.scraper.core.monitor_service import MonitorService
 
-        # Create a mock that has get_stuck_tasks but NOT objects
-        task_svc = MagicMock()
-        del task_svc.objects  # remove objects attr
-        # But the code checks hasattr(self.task_service, 'objects') first
-        # and then calls self.task_service.get_stuck_tasks(timeout)
-        # However the result needs .exists() — so this branch only works
-        # when the returned result supports it. Let's just test the model path.
-        pass
+        task_svc = MagicMock(spec=["get_stuck_tasks"])  # spec 确保无 objects 属性
+        svc = MonitorService(task_service=task_svc)
+        task_svc.get_stuck_tasks.return_value = []
+        result = svc.check_stuck_tasks(timeout_minutes=5)
+        # 委托给了 get_stuck_tasks，且无卡住任务时返回空列表
+        task_svc.get_stuck_tasks.assert_called_once()
+        assert result == []
 
 
 # ---------------------------------------------------------------------------
@@ -186,14 +183,15 @@ class TestCheckHighFailureRate:
         class FakeList:
             def __init__(self, items):
                 self._items = items
+
             def __iter__(self):
                 return iter(self._items)
+
             def __len__(self):
                 return len(self._items)
 
         items = FakeList(
-            [MagicMock(status="failed") for _ in range(8)]
-            + [MagicMock(status="success") for _ in range(2)]
+            [MagicMock(status="failed") for _ in range(8)] + [MagicMock(status="success") for _ in range(2)]
         )
         task_svc.get_tasks_by_type_and_status.return_value = items
 
@@ -235,9 +233,7 @@ class TestMonitorServiceAdapter:
         from apps.automation.services.scraper.core.monitor_service import MonitorServiceAdapter
 
         adapter = MonitorServiceAdapter()
-        with patch(
-            "apps.automation.services.scraper.core.monitor_service.MonitorService"
-        ) as MockSvc:
+        with patch("apps.automation.services.scraper.core.monitor_service.MonitorService") as MockSvc:
             MockSvc.return_value = MagicMock()
             svc = adapter.service
             assert svc is not None

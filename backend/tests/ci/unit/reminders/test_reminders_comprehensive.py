@@ -17,7 +17,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ==================== Models ====================
 
 
@@ -83,8 +82,8 @@ class TestReminderModel:
         from apps.reminders.models import Reminder
 
         reminder = Reminder(case=case, reminder_type="hearing", content="开庭", due_at=datetime.now())
-        # Should not raise
-        reminder.clean()
+        # Should not raise; clean() 无返回值，校验通过时不应抛 ValidationError
+        assert reminder.clean() is None
 
     def test_meta(self):
         from apps.reminders.models import Reminder
@@ -122,8 +121,9 @@ class TestReminderSchemas:
         assert data.case_id is None
 
     def test_reminder_in_multiple_bindings_raises(self):
-        from apps.reminders.schemas import ReminderIn
         from pydantic import ValidationError
+
+        from apps.reminders.schemas import ReminderIn
 
         with pytest.raises(ValidationError):
             ReminderIn(
@@ -135,8 +135,9 @@ class TestReminderSchemas:
             )
 
     def test_reminder_in_invalid_id(self):
-        from apps.reminders.schemas import ReminderIn
         from pydantic import ValidationError
+
+        from apps.reminders.schemas import ReminderIn
 
         with pytest.raises(ValidationError):
             ReminderIn(
@@ -147,8 +148,9 @@ class TestReminderSchemas:
             )
 
     def test_reminder_in_blank_content_raises(self):
-        from apps.reminders.schemas import ReminderIn
         from pydantic import ValidationError
+
+        from apps.reminders.schemas import ReminderIn
 
         with pytest.raises(ValidationError):
             ReminderIn(
@@ -259,7 +261,7 @@ class TestReminderValidators:
         from apps.reminders.services import validators
 
         assert validators is not None
-        assert hasattr(validators, '_CONTENT_MAX_LENGTH')
+        assert hasattr(validators, "_CONTENT_MAX_LENGTH")
 
 
 # ==================== Reminder Parser Service ====================

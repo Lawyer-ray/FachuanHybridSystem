@@ -14,6 +14,7 @@ import pytest
 
 def _make_scraper(url: str = "", config: dict | None = None):
     from apps.automation.services.scraper.scrapers.court_document.hbfy_scraper import HbfyCourtScraper
+
     scraper = HbfyCourtScraper.__new__(HbfyCourtScraper)
     scraper.task = SimpleNamespace(url=url, config=config or {})  # type: ignore[assignment]
     scraper.debug_info = {}
@@ -26,6 +27,7 @@ def _make_scraper(url: str = "", config: dict | None = None):
 # ======================================================================
 # run()
 # ======================================================================
+
 
 class TestRun:
     def test_raises_for_unknown_url(self):
@@ -50,6 +52,7 @@ class TestRun:
 # _extract_public_msg_code
 # ======================================================================
 
+
 class TestExtractPublicMsgCode:
     def test_extracts_code(self):
         scraper = _make_scraper()
@@ -67,6 +70,7 @@ class TestExtractPublicMsgCode:
 # ======================================================================
 # _public_need_captcha
 # ======================================================================
+
 
 class TestPublicNeedCaptcha:
     def test_yes(self):
@@ -89,6 +93,7 @@ class TestPublicNeedCaptcha:
 # ======================================================================
 # _public_doc_list
 # ======================================================================
+
 
 class TestPublicDocList:
     def test_dict_wrapped(self):
@@ -114,6 +119,7 @@ class TestPublicDocList:
 # _public_has_downloadable_docs
 # ======================================================================
 
+
 class TestPublicHasDownloadableDocs:
     def test_has_download(self):
         scraper = _make_scraper()
@@ -131,6 +137,7 @@ class TestPublicHasDownloadableDocs:
 # ======================================================================
 # _extract_account_credentials_from_content
 # ======================================================================
+
 
 class TestExtractAccountCredentials:
     def test_full_match(self):
@@ -162,6 +169,7 @@ class TestExtractAccountCredentials:
 # _safe_filename
 # ======================================================================
 
+
 class TestSafeFilename:
     def test_removes_special_chars(self):
         scraper = _make_scraper()
@@ -189,6 +197,7 @@ class TestSafeFilename:
 # _encode_user_code
 # ======================================================================
 
+
 class TestEncodeUserCode:
     def test_base64_no_padding(self):
         scraper = _make_scraper()
@@ -208,6 +217,7 @@ class TestEncodeUserCode:
 # _encode_password
 # ======================================================================
 
+
 class TestEncodePassword:
     def test_double_md5(self):
         scraper = _make_scraper()
@@ -226,6 +236,7 @@ class TestEncodePassword:
 # ======================================================================
 # _extract_download_candidates
 # ======================================================================
+
 
 class TestExtractDownloadCandidates:
     def test_extracts_download_link(self):
@@ -264,6 +275,7 @@ class TestExtractDownloadCandidates:
 # ======================================================================
 # _guess_filename
 # ======================================================================
+
 
 class TestGuessFilename:
     def test_content_disposition_utf8(self):
@@ -306,6 +318,7 @@ class TestGuessFilename:
 # _resolve_account_credentials
 # ======================================================================
 
+
 class TestResolveAccountCredentials:
     def test_direct_config(self):
         scraper = _make_scraper(config={"hbfy_account": "user", "hbfy_password": "pass"})
@@ -346,6 +359,7 @@ class TestResolveAccountCredentials:
 # ======================================================================
 # _find_public_sms_info
 # ======================================================================
+
 
 class TestFindPublicSmsInfo:
     def test_success(self):
@@ -395,6 +409,7 @@ class TestFindPublicSmsInfo:
 # _get_public_captcha
 # ======================================================================
 
+
 class TestGetPublicCaptcha:
     def test_success(self):
         scraper = _make_scraper()
@@ -440,14 +455,17 @@ class TestGetPublicCaptcha:
 # _find_public_sms_info_with_captcha
 # ======================================================================
 
+
 class TestFindPublicSmsInfoWithCaptcha:
     def test_success_on_first_try(self):
         scraper = _make_scraper()
         session = MagicMock()
         sms_data = {"docList": [{"downloadPath": "/f.pdf", "docName": "doc"}]}
-        with patch.object(scraper, "_get_public_captcha", return_value=("uuid1", b"img")), \
-             patch.object(scraper, "_find_public_sms_info", return_value=sms_data), \
-             patch.object(scraper, "_public_has_downloadable_docs", return_value=True):
+        with (
+            patch.object(scraper, "_get_public_captcha", return_value=("uuid1", b"img")),
+            patch.object(scraper, "_find_public_sms_info", return_value=sms_data),
+            patch.object(scraper, "_public_has_downloadable_docs", return_value=True),
+        ):
             result = scraper._find_public_sms_info_with_captcha(session, "MSG")
             assert result == sms_data
             scraper.captcha_recognizer.recognize.assert_called_with(b"img")
@@ -458,9 +476,11 @@ class TestFindPublicSmsInfoWithCaptcha:
         scraper.captcha_recognizer.recognize.side_effect = [None, "1234"]
         session = MagicMock()
         sms_data = {"docList": [{"downloadPath": "/f.pdf"}]}
-        with patch.object(scraper, "_get_public_captcha", return_value=("uuid1", b"img")), \
-             patch.object(scraper, "_find_public_sms_info", return_value=sms_data), \
-             patch.object(scraper, "_public_has_downloadable_docs", return_value=True):
+        with (
+            patch.object(scraper, "_get_public_captcha", return_value=("uuid1", b"img")),
+            patch.object(scraper, "_find_public_sms_info", return_value=sms_data),
+            patch.object(scraper, "_public_has_downloadable_docs", return_value=True),
+        ):
             result = scraper._find_public_sms_info_with_captcha(session, "MSG")
             assert result == sms_data
             assert scraper.captcha_recognizer.recognize.call_count == 2
@@ -469,9 +489,11 @@ class TestFindPublicSmsInfoWithCaptcha:
         scraper = _make_scraper()
         scraper.captcha_recognizer.recognize.return_value = None
         session = MagicMock()
-        with patch.object(scraper, "_get_public_captcha", return_value=("uuid1", b"img")), \
-             patch.object(scraper, "_find_public_sms_info", return_value={}), \
-             patch.object(scraper, "_public_has_downloadable_docs", return_value=False):
+        with (
+            patch.object(scraper, "_get_public_captcha", return_value=("uuid1", b"img")),
+            patch.object(scraper, "_find_public_sms_info", return_value={}),
+            patch.object(scraper, "_public_has_downloadable_docs", return_value=False),
+        ):
             with pytest.raises(ValueError, match="验证码校验后仍未获取"):
                 scraper._find_public_sms_info_with_captcha(session, "MSG")
 
@@ -479,6 +501,7 @@ class TestFindPublicSmsInfoWithCaptcha:
 # ======================================================================
 # _download_public_documents
 # ======================================================================
+
 
 class TestDownloadPublicDocuments:
     def test_downloads_files(self):
@@ -495,8 +518,12 @@ class TestDownloadPublicDocuments:
             ]
         }
         download_dir = Path("/tmp/hbfy_test")
-        with patch("apps.automation.services.scraper.scrapers.court_document.hbfy_scraper.settings") as mock_settings, \
-             patch("apps.automation.services.scraper.scrapers.court_document.hbfy_scraper.default_storage") as mock_storage:
+        with (
+            patch("apps.automation.services.scraper.scrapers.court_document.hbfy_scraper.settings") as mock_settings,
+            patch(
+                "apps.automation.services.scraper.scrapers.court_document.hbfy_scraper.default_storage"
+            ) as mock_storage,
+        ):
             mock_settings.MEDIA_ROOT = "/tmp"
             mock_storage.save.side_effect = lambda rel, f: rel
             with patch.object(Path, "write_bytes"):
@@ -519,31 +546,39 @@ class TestDownloadPublicDocuments:
         file_resp.content = b"content"
         session.get.return_value = file_resp
         sms_info = {"docList": [{"downloadPath": "https://example.com/doc.pdf", "docName": "文档"}]}
-        with patch("apps.automation.services.scraper.scrapers.court_document.hbfy_scraper.settings") as mock_settings, \
-             patch("apps.automation.services.scraper.scrapers.court_document.hbfy_scraper.default_storage") as mock_storage:
+        with (
+            patch("apps.automation.services.scraper.scrapers.court_document.hbfy_scraper.settings") as mock_settings,
+            patch(
+                "apps.automation.services.scraper.scrapers.court_document.hbfy_scraper.default_storage"
+            ) as mock_storage,
+        ):
             mock_settings.MEDIA_ROOT = "/tmp"
             mock_storage.save.side_effect = lambda rel, f: rel
             with patch("pathlib.Path.write_bytes"):
                 with patch("pathlib.Path.__truediv__", return_value=Path("/tmp/test.pdf")):
-                    scraper._download_public_documents(session, sms_info, Path("/tmp"))
+                    result = scraper._download_public_documents(session, sms_info, Path("/tmp"))
+        # 绝对 URL 应直接 GET 下载并产出一条下载记录
+        session.get.assert_called_once_with("https://example.com/doc.pdf", timeout=30)
+        assert len(result) == 1
 
 
 # ======================================================================
 # _fetch_record_entries
 # ======================================================================
 
+
 class TestFetchRecordEntries:
     def test_extracts_entries(self):
         scraper = _make_scraper()
         session = MagicMock()
-        html = '''
+        html = """
         <td title="文书1">
             <a onclick="toViewInput('DOC001');return false;">查看</a>
         </td>
         <td title="文书2">
             <a onclick="toViewInput('DOC002');return false;">查看</a>
         </td>
-        '''
+        """
         resp = MagicMock()
         resp.status_code = 200
         resp.text = html
@@ -576,7 +611,7 @@ class TestFetchRecordEntries:
     def test_html_entities_in_title(self):
         scraper = _make_scraper()
         session = MagicMock()
-        html = '''<td title="文书&amp;test"><a onclick="toViewInput('ID1');return false;">X</a></td>'''
+        html = """<td title="文书&amp;test"><a onclick="toViewInput('ID1');return false;">X</a></td>"""
         resp = MagicMock()
         resp.status_code = 200
         resp.text = html
@@ -589,20 +624,29 @@ class TestFetchRecordEntries:
 # _download_record_document
 # ======================================================================
 
+
 class TestDownloadRecordDocument:
     def test_success(self):
         scraper = _make_scraper()
         session = MagicMock()
         input_resp = MagicMock()
         input_resp.status_code = 200
-        input_resp.text = '<a href="/deli/TsysFilesInfo/tsysfilesinfo!downloadByPath.action?path=/files/doc.pdf">下载</a>'
+        input_resp.text = (
+            '<a href="/deli/TsysFilesInfo/tsysfilesinfo!downloadByPath.action?path=/files/doc.pdf">下载</a>'
+        )
         file_resp = MagicMock()
         file_resp.status_code = 200
         file_resp.content = b"PDF"
         file_resp.headers = {"Content-Disposition": 'filename="test.pdf"', "Content-Type": "application/pdf"}
         session.get.side_effect = [input_resp, file_resp]
-        with patch("apps.automation.services.scraper.scrapers.court_document.daolv_sifa_songda_scraper.settings") as mock_settings, \
-             patch("apps.automation.services.scraper.scrapers.court_document.daolv_sifa_songda_scraper.default_storage") as mock_storage:
+        with (
+            patch(
+                "apps.automation.services.scraper.scrapers.court_document.daolv_sifa_songda_scraper.settings"
+            ) as mock_settings,
+            patch(
+                "apps.automation.services.scraper.scrapers.court_document.daolv_sifa_songda_scraper.default_storage"
+            ) as mock_storage,
+        ):
             mock_settings.MEDIA_ROOT = "/tmp"
             mock_storage.save.side_effect = lambda rel, f: rel
             with patch("pathlib.Path.write_bytes"):
@@ -645,6 +689,7 @@ class TestDownloadRecordDocument:
 # ======================================================================
 # _login_account_session
 # ======================================================================
+
 
 class TestLoginHbfyAccountSession:
     def test_success_on_first_try(self):
@@ -746,50 +791,76 @@ class TestLoginHbfyAccountSession:
 # _run_public_mode_http_first
 # ======================================================================
 
+
 class TestRunPublicModeHttpFirst:
     def test_success_http(self):
         scraper = _make_scraper("http://dzsd.hbfy.gov.cn/hb/msg=ABC123")
-        with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")), \
-             patch.object(scraper, "_extract_public_msg_code", return_value="ABC123"), \
-             patch.object(scraper, "_find_public_sms_info", return_value={"docList": [{"downloadPath": "/f.pdf", "docName": "doc"}]}), \
-             patch.object(scraper, "_public_need_captcha", return_value=False), \
-             patch.object(scraper, "_public_has_downloadable_docs", return_value=True), \
-             patch.object(scraper, "_download_public_documents", return_value=["/tmp/doc.pdf"]), \
-             patch("requests.Session"):
+        with (
+            patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")),
+            patch.object(scraper, "_extract_public_msg_code", return_value="ABC123"),
+            patch.object(
+                scraper,
+                "_find_public_sms_info",
+                return_value={"docList": [{"downloadPath": "/f.pdf", "docName": "doc"}]},
+            ),
+            patch.object(scraper, "_public_need_captcha", return_value=False),
+            patch.object(scraper, "_public_has_downloadable_docs", return_value=True),
+            patch.object(scraper, "_download_public_documents", return_value=["/tmp/doc.pdf"]),
+            patch("requests.Session"),
+        ):
             result = scraper._run_public_mode_http_first()
             assert result["downloaded_count"] == 1
             assert result["mode"] == "public_http"
 
     def test_no_files_falls_to_playwright(self):
         scraper = _make_scraper("http://dzsd.hbfy.gov.cn/hb/msg=ABC123")
-        with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")), \
-             patch.object(scraper, "_extract_public_msg_code", return_value="ABC123"), \
-             patch.object(scraper, "_find_public_sms_info", return_value={}), \
-             patch.object(scraper, "_public_need_captcha", return_value=False), \
-             patch.object(scraper, "_public_has_downloadable_docs", return_value=False), \
-             patch.object(scraper, "_find_public_sms_info_with_captcha", return_value={}), \
-             patch.object(scraper, "_download_public_documents", return_value=[]), \
-             patch.object(scraper, "_run_public_mode_playwright", return_value={"mode": "public_playwright", "downloaded_count": 1, "files": ["/tmp/f.pdf"], "message": "ok"}), \
-             patch("requests.Session"):
+        with (
+            patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")),
+            patch.object(scraper, "_extract_public_msg_code", return_value="ABC123"),
+            patch.object(scraper, "_find_public_sms_info", return_value={}),
+            patch.object(scraper, "_public_need_captcha", return_value=False),
+            patch.object(scraper, "_public_has_downloadable_docs", return_value=False),
+            patch.object(scraper, "_find_public_sms_info_with_captcha", return_value={}),
+            patch.object(scraper, "_download_public_documents", return_value=[]),
+            patch.object(
+                scraper,
+                "_run_public_mode_playwright",
+                return_value={
+                    "mode": "public_playwright",
+                    "downloaded_count": 1,
+                    "files": ["/tmp/f.pdf"],
+                    "message": "ok",
+                },
+            ),
+            patch("requests.Session"),
+        ):
             result = scraper._run_public_mode_http_first()
             assert result["mode"] == "public_playwright"
 
     def test_missing_msg_raises(self):
         scraper = _make_scraper("http://dzsd.hbfy.gov.cn/hb/msg=")
-        with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")), \
-             patch.object(scraper, "_extract_public_msg_code", return_value=""):
+        with (
+            patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")),
+            patch.object(scraper, "_extract_public_msg_code", return_value=""),
+        ):
             with pytest.raises(ValueError, match="msg"):
                 scraper._run_public_mode_http_first()
 
     def test_needs_captcha_then_success(self):
         scraper = _make_scraper("http://dzsd.hbfy.gov.cn/hb/msg=ABC123")
-        with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")), \
-             patch.object(scraper, "_extract_public_msg_code", return_value="ABC123"), \
-             patch.object(scraper, "_find_public_sms_info", return_value={}), \
-             patch.object(scraper, "_public_need_captcha", return_value=True), \
-             patch.object(scraper, "_find_public_sms_info_with_captcha", return_value={"docList": [{"downloadPath": "/f.pdf", "docName": "doc"}]}), \
-             patch.object(scraper, "_download_public_documents", return_value=["/tmp/doc.pdf"]), \
-             patch("requests.Session"):
+        with (
+            patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")),
+            patch.object(scraper, "_extract_public_msg_code", return_value="ABC123"),
+            patch.object(scraper, "_find_public_sms_info", return_value={}),
+            patch.object(scraper, "_public_need_captcha", return_value=True),
+            patch.object(
+                scraper,
+                "_find_public_sms_info_with_captcha",
+                return_value={"docList": [{"downloadPath": "/f.pdf", "docName": "doc"}]},
+            ),
+            patch.object(scraper, "_download_public_documents", return_value=["/tmp/doc.pdf"]),
+            patch("requests.Session"),
+        ):
             result = scraper._run_public_mode_http_first()
             assert result["downloaded_count"] == 1
 
@@ -798,24 +869,29 @@ class TestRunPublicModeHttpFirst:
 # _run_account_mode
 # ======================================================================
 
+
 class TestRunAccountModeHttpFirst:
     def test_success(self):
         scraper = _make_scraper("http://dzsd.hbfy.gov.cn/sfsddz", config={"hbfy_account": "u", "hbfy_password": "p"})
-        with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")), \
-             patch.object(scraper, "_login_account_session"), \
-             patch.object(scraper, "_fetch_record_entries", return_value=[{"id": "D1", "title": "文书"}]), \
-             patch.object(scraper, "_download_record_document", return_value="/tmp/doc.pdf"), \
-             patch("requests.Session"):
+        with (
+            patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")),
+            patch.object(scraper, "_login_account_session"),
+            patch.object(scraper, "_fetch_record_entries", return_value=[{"id": "D1", "title": "文书"}]),
+            patch.object(scraper, "_download_record_document", return_value="/tmp/doc.pdf"),
+            patch("requests.Session"),
+        ):
             result = scraper._run_account_mode(source_domain="dzsd.hbfy.gov.cn")
             assert result["downloaded_count"] == 1
             assert result["mode"] == "account_http"
 
     def test_no_entries_raises(self):
         scraper = _make_scraper("http://dzsd.hbfy.gov.cn/sfsddz", config={"hbfy_account": "u", "hbfy_password": "p"})
-        with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")), \
-             patch.object(scraper, "_login_account_session"), \
-             patch.object(scraper, "_fetch_record_entries", return_value=[]), \
-             patch("requests.Session"):
+        with (
+            patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")),
+            patch.object(scraper, "_login_account_session"),
+            patch.object(scraper, "_fetch_record_entries", return_value=[]),
+            patch("requests.Session"),
+        ):
             with pytest.raises(ValueError, match="未发现可查阅文书"):
                 scraper._run_account_mode(source_domain="dzsd.hbfy.gov.cn")
 
@@ -823,31 +899,39 @@ class TestRunAccountModeHttpFirst:
         scraper = _make_scraper("http://dzsd.hbfy.gov.cn/sfsddz", config={"hbfy_account": "u", "hbfy_password": "p"})
         # Two lists return same ID
         entries = [{"id": "D1", "title": "文书"}, {"id": "D1", "title": "文书"}]
-        with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")), \
-             patch.object(scraper, "_login_account_session"), \
-             patch.object(scraper, "_fetch_record_entries", return_value=entries), \
-             patch.object(scraper, "_download_record_document", return_value="/tmp/doc.pdf"), \
-             patch("requests.Session"):
+        with (
+            patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")),
+            patch.object(scraper, "_login_account_session"),
+            patch.object(scraper, "_fetch_record_entries", return_value=entries),
+            patch.object(scraper, "_download_record_document", return_value="/tmp/doc.pdf"),
+            patch("requests.Session"),
+        ):
             result = scraper._run_account_mode(source_domain="dzsd.hbfy.gov.cn")
             assert result["document_count"] == 1
 
     def test_all_downloads_fail(self):
         scraper = _make_scraper("http://dzsd.hbfy.gov.cn/sfsddz", config={"hbfy_account": "u", "hbfy_password": "p"})
-        with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")), \
-             patch.object(scraper, "_login_account_session"), \
-             patch.object(scraper, "_fetch_record_entries", return_value=[{"id": "D1", "title": "文书"}]), \
-             patch.object(scraper, "_download_record_document", return_value=None), \
-             patch("requests.Session"):
+        with (
+            patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")),
+            patch.object(scraper, "_login_account_session"),
+            patch.object(scraper, "_fetch_record_entries", return_value=[{"id": "D1", "title": "文书"}]),
+            patch.object(scraper, "_download_record_document", return_value=None),
+            patch("requests.Session"),
+        ):
             with pytest.raises(ValueError, match="未下载成功"):
                 scraper._run_account_mode(source_domain="dzsd.hbfy.gov.cn")
 
     def test_partial_success(self):
         scraper = _make_scraper("http://dzsd.hbfy.gov.cn/sfsddz", config={"hbfy_account": "u", "hbfy_password": "p"})
-        with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")), \
-             patch.object(scraper, "_login_account_session"), \
-             patch.object(scraper, "_fetch_record_entries", return_value=[{"id": "D1", "title": "A"}, {"id": "D2", "title": "B"}]), \
-             patch.object(scraper, "_download_record_document", side_effect=["/tmp/a.pdf", Exception("fail")]), \
-             patch("requests.Session"):
+        with (
+            patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")),
+            patch.object(scraper, "_login_account_session"),
+            patch.object(
+                scraper, "_fetch_record_entries", return_value=[{"id": "D1", "title": "A"}, {"id": "D2", "title": "B"}]
+            ),
+            patch.object(scraper, "_download_record_document", side_effect=["/tmp/a.pdf", Exception("fail")]),
+            patch("requests.Session"),
+        ):
             result = scraper._run_account_mode(source_domain="dzsd.hbfy.gov.cn")
             assert result["downloaded_count"] == 1
             assert result["failed_count"] == 1
@@ -857,15 +941,18 @@ class TestRunAccountModeHttpFirst:
 # _run_public_mode_playwright
 # ======================================================================
 
+
 class TestRunPublicModePlaywright:
     def test_success_via_selector(self):
         scraper = _make_scraper("http://dzsd.hbfy.gov.cn/hb/msg=ABC")
         scraper.page = MagicMock()
         scraper.context = MagicMock()
-        with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")), \
-             patch.object(scraper, "navigate_to_url"), \
-             patch.object(scraper, "_solve_public_captcha_if_present"), \
-             patch.object(scraper, "_try_expect_download", return_value="/tmp/doc.pdf"):
+        with (
+            patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")),
+            patch.object(scraper, "navigate_to_url"),
+            patch.object(scraper, "_solve_public_captcha_if_present"),
+            patch.object(scraper, "_try_expect_download", return_value="/tmp/doc.pdf"),
+        ):
             result = scraper._run_public_mode_playwright()
             assert result["downloaded_count"] == 1
             assert result["mode"] == "public_playwright"
@@ -874,11 +961,13 @@ class TestRunPublicModePlaywright:
         scraper = _make_scraper("http://dzsd.hbfy.gov.cn/hb/msg=ABC")
         scraper.page = MagicMock()
         scraper.context = MagicMock()
-        with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")), \
-             patch.object(scraper, "navigate_to_url"), \
-             patch.object(scraper, "_solve_public_captcha_if_present"), \
-             patch.object(scraper, "_try_expect_download", return_value=None), \
-             patch.object(scraper, "_save_page_state"):
+        with (
+            patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")),
+            patch.object(scraper, "navigate_to_url"),
+            patch.object(scraper, "_solve_public_captcha_if_present"),
+            patch.object(scraper, "_try_expect_download", return_value=None),
+            patch.object(scraper, "_save_page_state"),
+        ):
             with pytest.raises(ValueError, match="未下载到任何文书"):
                 scraper._run_public_mode_playwright()
 
@@ -886,6 +975,7 @@ class TestRunPublicModePlaywright:
 # ======================================================================
 # _try_expect_download
 # ======================================================================
+
 
 class TestTryExpectDownload:
     def test_success(self):
@@ -932,6 +1022,7 @@ class TestTryExpectDownload:
 # _solve_public_captcha_if_present
 # ======================================================================
 
+
 class TestSolvePublicCaptchaIfPresent:
     def test_no_captcha_input(self):
         scraper = _make_scraper()
@@ -939,5 +1030,7 @@ class TestSolvePublicCaptchaIfPresent:
         captcha_input = MagicMock()
         captcha_input.count.return_value = 0
         scraper.page.locator.return_value = captcha_input
-        # Should not raise
-        scraper._solve_public_captcha_if_present()
+        # 无验证码输入框时静默跳过（返回 None），且不等待
+        assert scraper._solve_public_captcha_if_present() is None
+        captcha_input.count.assert_called_once()
+        captcha_input.wait_for.assert_not_called()

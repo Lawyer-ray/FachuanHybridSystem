@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
 from dataclasses import dataclass
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -41,7 +41,7 @@ class TestExtractJson:
         assert extract_json("not json at all") is None
 
     def test_non_dict_json(self) -> None:
-        assert extract_json('[1, 2, 3]') is None
+        assert extract_json("[1, 2, 3]") is None
 
     def test_json_with_language_fence(self) -> None:
         result = extract_json('```python\n{"key": "val"}\n```')
@@ -120,20 +120,17 @@ class TestApplyStructuredAdjustments:
 
     def test_low_component_score(self) -> None:
         result = apply_structured_adjustments(
-            score=0.9, payload={"facts_match": 0.1, "legal_relation_match": 1.0, "dispute_match": 1.0, "damage_match": 1.0}
+            score=0.9,
+            payload={"facts_match": 0.1, "legal_relation_match": 1.0, "dispute_match": 1.0, "damage_match": 1.0},
         )
         assert result <= 0.55
 
     def test_hard_conflict(self) -> None:
-        result = apply_structured_adjustments(
-            score=0.9, payload={"key_conflicts": ["主体不同"]}
-        )
+        result = apply_structured_adjustments(score=0.9, payload={"key_conflicts": ["主体不同"]})
         assert result <= 0.62
 
     def test_evidence_spans_few(self) -> None:
-        result = apply_structured_adjustments(
-            score=0.9, payload={"evidence_spans": ["单条证据"]}
-        )
+        result = apply_structured_adjustments(score=0.9, payload={"evidence_spans": ["单条证据"]})
         assert result <= 0.82
 
     def test_evidence_spans_low_hit_ratio(self) -> None:
@@ -200,30 +197,41 @@ class TestHardConflictNeedles:
 
 
 from apps.legal_research.services.similarity.cache import (
-    SimilarityCacheManager,
     SemanticVectorCacheManager,
-    build_similarity_cache_key,
+    SimilarityCacheManager,
     build_semantic_embedding_cache_key,
+    build_similarity_cache_key,
     coerce_float_list,
+    deserialize_similarity_result,
     normalize_embedding_text,
     serialize_similarity_result,
-    deserialize_similarity_result,
 )
 
 
 class TestBuildSimilarityCacheKey:
     def test_basic(self) -> None:
         key = build_similarity_cache_key(
-            mode="full", model="gpt-4", keyword="合同", case_summary="summary",
-            title="title", case_digest="digest", candidate_excerpt="excerpt"
+            mode="full",
+            model="gpt-4",
+            keyword="合同",
+            case_summary="summary",
+            title="title",
+            case_digest="digest",
+            candidate_excerpt="excerpt",
         )
         assert key.startswith("legal_research:similarity:")
         assert len(key) > 30
 
     def test_with_first_score(self) -> None:
         key = build_similarity_cache_key(
-            mode="full", model=None, keyword="k", case_summary="s",
-            title="t", case_digest="d", candidate_excerpt="c", first_score=0.85
+            mode="full",
+            model=None,
+            keyword="k",
+            case_summary="s",
+            title="t",
+            case_digest="d",
+            candidate_excerpt="c",
+            first_score=0.85,
         )
         assert "similarity:" in key
 
@@ -337,7 +345,7 @@ class TestSemanticVectorCacheManager:
 
     def test_write_local_empty_key(self) -> None:
         mgr = SemanticVectorCacheManager(cache_ttl=300)
-        mgr.write_local(cache_key="", vector=[1.0])  # should not raise
+        assert mgr.write_local(cache_key="", vector=[1.0]) is None  # should not raise
 
     def test_local_cache_eviction(self) -> None:
         mgr = SemanticVectorCacheManager(cache_ttl=300, local_cache_max_size=2)

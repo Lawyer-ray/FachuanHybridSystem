@@ -20,6 +20,7 @@ from plugins.court_automation.guarantee import helpers
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_case_party(
     *,
     party_id: int = 1,
@@ -62,6 +63,7 @@ class _FakeClientService:
 # _resolve_court_name
 # ======================================================================
 
+
 class TestResolveCourtName:
     def test_none_input(self):
         assert helpers._resolve_court_name(None) is None
@@ -88,6 +90,7 @@ class TestResolveCourtName:
 # ======================================================================
 # _normalize_insurance_company
 # ======================================================================
+
 
 class TestNormalizeInsuranceCompany:
     def test_empty_returns_default(self):
@@ -121,6 +124,7 @@ class TestNormalizeInsuranceCompany:
 # _parse_preserve_amount
 # ======================================================================
 
+
 class TestParsePreserveAmount:
     def test_none(self):
         assert helpers._parse_preserve_amount(None) is None
@@ -146,6 +150,7 @@ class TestParsePreserveAmount:
 # _normalize_consultant_code
 # ======================================================================
 
+
 class TestNormalizeConsultantCode:
     def test_sunshine_with_empty_code(self):
         result = helpers._normalize_consultant_code(
@@ -160,15 +165,14 @@ class TestNormalizeConsultantCode:
         assert result == "12345"
 
     def test_other_company(self):
-        result = helpers._normalize_consultant_code(
-            insurance_company_name="平安财险", consultant_code=None
-        )
+        result = helpers._normalize_consultant_code(insurance_company_name="平安财险", consultant_code=None)
         assert result == ""
 
 
 # ======================================================================
 # _normalize_property_clue_content
 # ======================================================================
+
 
 class TestNormalizePropertyClueContent:
     def test_empty(self):
@@ -190,6 +194,7 @@ class TestNormalizePropertyClueContent:
 # _normalize_property_value
 # ======================================================================
 
+
 class TestNormalizePropertyValue:
     def test_none(self):
         assert helpers._normalize_property_value(None) == ""
@@ -210,6 +215,7 @@ class TestNormalizePropertyValue:
 # ======================================================================
 # _build_property_clue_info
 # ======================================================================
+
 
 class TestBuildPropertyClueInfo:
     def test_known_type(self):
@@ -240,6 +246,7 @@ class TestBuildPropertyClueInfo:
 # ======================================================================
 # _build_cause_candidates
 # ======================================================================
+
 
 class TestBuildCauseCandidates:
     def test_empty(self):
@@ -275,6 +282,7 @@ class TestBuildCauseCandidates:
 # ======================================================================
 # _normalize_party_type
 # ======================================================================
+
 
 class TestNormalizePartyType:
     def test_natural(self):
@@ -315,6 +323,7 @@ class TestNormalizePartyType:
 # _build_party_payload_from_case_party
 # ======================================================================
 
+
 class TestBuildPartyPayloadFromCaseParty:
     def test_natural_party(self):
         party = _make_case_party(client_type="natural", client_name="张三")
@@ -325,8 +334,11 @@ class TestBuildPartyPayloadFromCaseParty:
 
     def test_legal_party(self):
         party = _make_case_party(
-            client_type="legal", client_name="某公司", id_number="91440101MA59TEST8X",
-            legal_rep="李四", legal_rep_id="110101199003077715",  # pragma: allowlist secret
+            client_type="legal",
+            client_name="某公司",
+            id_number="91440101MA59TEST8X",
+            legal_rep="李四",
+            legal_rep_id="110101199003077715",  # pragma: allowlist secret
         )
         result = helpers._build_party_payload_from_case_party(party=party)
         assert result["party_type"] == "legal"
@@ -334,8 +346,15 @@ class TestBuildPartyPayloadFromCaseParty:
 
     def test_missing_name_raises_error(self):
         client = SimpleNamespace(
-            id=1, client_type="natural", name="", id_number="110101199003077715", phone="",
-            address="广州市天河区", is_our_client=False, legal_representative="", legal_representative_id_number="",
+            id=1,
+            client_type="natural",
+            name="",
+            id_number="110101199003077715",
+            phone="",
+            address="广州市天河区",
+            is_our_client=False,
+            legal_representative="",
+            legal_representative_id_number="",
         )
         party = SimpleNamespace(id=1, legal_status="defendant", client=client)
         with pytest.raises(ValueError, match="客户姓名不能为空"):
@@ -349,6 +368,7 @@ class TestBuildPartyPayloadFromCaseParty:
 # ======================================================================
 # _list_party_payloads / _pick_party_payload
 # ======================================================================
+
 
 class TestListAndPickPartyPayloads:
     def test_list_filters_by_status_and_side(self):
@@ -409,6 +429,7 @@ class TestListAndPickPartyPayloads:
 # _normalize_selected_party_ids
 # ======================================================================
 
+
 class TestNormalizeSelectedPartyIds:
     def test_none(self):
         assert helpers._normalize_selected_party_ids(None) is None
@@ -426,6 +447,7 @@ class TestNormalizeSelectedPartyIds:
 # ======================================================================
 # _list_opponent_case_parties
 # ======================================================================
+
 
 class TestListOpponentCaseParties:
     def test_opponent_by_is_our_client(self):
@@ -450,6 +472,7 @@ class TestListOpponentCaseParties:
 # _list_opponent_party_payloads
 # ======================================================================
 
+
 class TestListOpponentPartyPayloads:
     def test_returns_payloads(self):
         opponent = _make_case_party(is_our_client=False, legal_status="defendant")
@@ -461,6 +484,7 @@ class TestListOpponentPartyPayloads:
 # ======================================================================
 # _build_respondent_options
 # ======================================================================
+
 
 class TestBuildRespondentOptions:
     def test_returns_options(self):
@@ -474,6 +498,7 @@ class TestBuildRespondentOptions:
 # ======================================================================
 # _extract_quote_company_options
 # ======================================================================
+
 
 class TestExtractQuoteCompanyOptions:
     def test_none(self):
@@ -507,6 +532,7 @@ class TestExtractQuoteCompanyOptions:
 # _resolve_insurance_company_defaults
 # ======================================================================
 
+
 class TestResolveInsuranceCompanyDefaults:
     def test_none_context(self):
         default, options = helpers._resolve_insurance_company_defaults(quote_context=None)
@@ -518,7 +544,7 @@ class TestResolveInsuranceCompanyDefaults:
             "items": [
                 {"company_name": "阳光财险", "status": "success"},
                 {"company_name": "平安财险", "status": "success"},
-            ]
+            ],
         }
         default, options = helpers._resolve_insurance_company_defaults(quote_context=context)
         assert default == "阳光财险"
@@ -528,7 +554,7 @@ class TestResolveInsuranceCompanyDefaults:
             "recommended_company": "不存在",
             "items": [
                 {"company_name": "A公司", "status": "success"},
-            ]
+            ],
         }
         default, options = helpers._resolve_insurance_company_defaults(quote_context=context)
         assert default == "A公司"
@@ -537,6 +563,7 @@ class TestResolveInsuranceCompanyDefaults:
 # ======================================================================
 # _build_session_status_payload
 # ======================================================================
+
 
 class TestBuildSessionStatusPayload:
     def _make_task(self, status, task_id=1, result=None, error_message=""):
@@ -594,9 +621,13 @@ class TestBuildSessionStatusPayload:
 # _update_session_task
 # ======================================================================
 
+
 class TestUpdateSessionTask:
     def test_noop_when_none(self):
-        helpers._update_session_task(session_id=None, status="running")
+        with patch("apps.automation.models.ScraperTask") as mock_task:
+            # session_id=None 直接早退，不触达数据库
+            assert helpers._update_session_task(session_id=None, status="running") is None
+            mock_task.objects.filter.assert_not_called()
 
     @patch("plugins.court_automation.guarantee.helpers.timezone")
     def test_sync_update(self, mock_tz):
@@ -619,6 +650,7 @@ class TestUpdateSessionTask:
 # ======================================================================
 # _get_case_number / _has_case_number
 # ======================================================================
+
 
 class TestCaseNumberHelpers:
     def test_get_case_number_from_table(self):
@@ -654,6 +686,7 @@ class TestCaseNumberHelpers:
 # _get_case_court_name
 # ======================================================================
 
+
 class TestGetCaseCourtName:
     def test_trial_authority(self):
         sa = SimpleNamespace(name="天河区", authority_type="trial")
@@ -683,6 +716,7 @@ class TestGetCaseCourtName:
 # ======================================================================
 # _build_plaintiff_agent_payload
 # ======================================================================
+
 
 class TestBuildPlaintiffAgentPayload:
     def test_with_lawyer(self):
@@ -721,6 +755,7 @@ class TestBuildPlaintiffAgentPayload:
 # _build_case_quote_context
 # ======================================================================
 
+
 class TestBuildCaseQuoteContext:
     def test_no_preserve_amount(self):
         case = SimpleNamespace(preservation_amount=None)
@@ -728,6 +763,7 @@ class TestBuildCaseQuoteContext:
 
     def test_with_binding(self):
         from apps.automation.models import QuoteItemStatus
+
         quote_item = SimpleNamespace(
             id=1,
             company_name="平安财险",
@@ -767,6 +803,7 @@ class TestBuildCaseQuoteContext:
 # _build_reusable_quote_options
 # ======================================================================
 
+
 class TestBuildReusableQuoteOptions:
     def test_no_preserve_amount(self):
         case = SimpleNamespace(id=1, preservation_amount=None)
@@ -780,6 +817,7 @@ class TestBuildReusableQuoteOptions:
 # ======================================================================
 # _get_organization_service / _get_client_service
 # ======================================================================
+
 
 class TestServiceGetters:
     def test_org_service(self):

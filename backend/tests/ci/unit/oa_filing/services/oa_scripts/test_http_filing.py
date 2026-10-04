@@ -7,11 +7,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from apps.oa_filing.services.oa_scripts.jtn.filing.filing_models import FilingFormState, ResolvedCustomer
 from apps.oa_filing.services.oa_scripts.jtn.filing.http_filing import HttpFilingMixin
-from apps.oa_filing.services.oa_scripts.jtn.filing.filing_models import (
-    FilingFormState,
-    ResolvedCustomer,
-)
 
 
 class TestHttpFilingMixinProjectFieldName:
@@ -43,7 +40,7 @@ class TestHttpFilingMixinParseJsonObject:
 
     def test_non_dict_raises(self):
         with pytest.raises(RuntimeError, match="OA 接口返回格式异常"):
-            HttpFilingMixin._parse_json_object('[1, 2, 3]')
+            HttpFilingMixin._parse_json_object("[1, 2, 3]")
 
     def test_whitespace_stripped(self):
         result = HttpFilingMixin._parse_json_object('  {"a": 1}  ')
@@ -95,11 +92,11 @@ class TestHttpFilingMixinExtractFilingFormState:
 class TestHttpFilingMixinAssertSubmitSuccess:
     def test_success_marker(self):
         svc = HttpFilingMixin()
-        svc._assert_http_submit_success("案件保存未提交成功")
+        assert svc._assert_http_submit_success("案件保存未提交成功") is None
 
     def test_another_success_marker(self):
         svc = HttpFilingMixin()
-        svc._assert_http_submit_success("保存并提交成功")
+        assert svc._assert_http_submit_success("保存并提交成功") is None
 
     def test_alert_raises(self):
         svc = HttpFilingMixin()
@@ -135,7 +132,9 @@ class TestHttpFilingMixinApplyConflictPayload:
 
         svc = HttpFilingMixin()
         payload: dict[str, str] = {}
-        parties = [ConflictPartyInfo(name="Opponent", category="B", legal_position="D", customer_type="A", is_payer="0")]
+        parties = [
+            ConflictPartyInfo(name="Opponent", category="B", legal_position="D", customer_type="A", is_payer="0")
+        ]
         svc._apply_conflict_payload(payload=payload, parties=parties)
         assert len([k for k in payload if "pro_pci_name_" in k]) == 1
 

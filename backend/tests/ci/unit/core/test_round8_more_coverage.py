@@ -311,7 +311,7 @@ class TestInvoiceRecognitionServiceValidation:
         mock_file = MagicMock()
         mock_file.name = "test.pdf"
         mock_file.size = 1000
-        svc._validate_file(mock_file)  # Should not raise
+        assert svc._validate_file(mock_file) is None  # Should not raise
 
     def test_validate_file_no_name(self):
         svc = self._make_service()

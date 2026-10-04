@@ -14,7 +14,6 @@ _MOD = "apps.workbench.tasks.batch_runner"
 
 
 class TestRunBatchAnalysis:
-
     def test_no_loop_calls_asyncio_run(self):
         from apps.workbench.tasks.batch_runner import run_batch_analysis
 
@@ -43,7 +42,6 @@ class TestRunBatchAnalysis:
 
 
 class TestRunBatchRetry:
-
     def test_no_loop_calls_asyncio_run(self):
         from apps.workbench.tasks.batch_runner import run_batch_retry
 
@@ -73,7 +71,6 @@ class TestRunBatchRetry:
 
 
 class TestSyncLlmChat:
-
     def test_success(self):
         from apps.workbench.tasks.batch_runner import _sync_llm_chat
 
@@ -155,7 +152,6 @@ class TestSyncLlmChat:
 
 
 class TestCancelWatcher:
-
     @pytest.mark.asyncio
     async def test_sets_event_when_cancelled(self):
         from apps.workbench.tasks.batch_runner import _cancel_watcher
@@ -180,12 +176,14 @@ class TestCancelWatcher:
         cancel_event = asyncio.Event()
         cancel_event.set()
 
-        await _cancel_watcher(job_id, cancel_event)
-        # Should return immediately since event is already set
+        with patch(f"{_MOD}.BatchJob") as MockJob:
+            result = await _cancel_watcher(job_id, cancel_event)
+            # event 已置位应立即返回，不查询数据库
+            assert result is None
+            MockJob.objects.filter.assert_not_called()
 
 
 class TestIncrementCounter:
-
     @pytest.mark.asyncio
     async def test_increments_completed(self):
         from apps.workbench.tasks.batch_runner import _increment_counter
@@ -199,9 +197,7 @@ class TestIncrementCounter:
 
             # Second call: values().afirst() to read current state
             mock_values_qs = MagicMock()
-            mock_values_qs.afirst = AsyncMock(
-                return_value={"total_items": 10, "completed_items": 6, "failed_items": 2}
-            )
+            mock_values_qs.afirst = AsyncMock(return_value={"total_items": 10, "completed_items": 6, "failed_items": 2})
 
             # Third call: aupdate for progress
             mock_progress_qs = MagicMock()
@@ -256,6 +252,7 @@ class TestIncrementCounter:
 
             await _increment_counter(job_id, "completed_items")
             # No crash; afirst returned None so progress update is skipped
+            assert call_count == 2  # 仅递增 + 读取，无第三次进度更新
 
     @pytest.mark.asyncio
     async def test_zero_total_items(self):
@@ -268,9 +265,7 @@ class TestIncrementCounter:
             mock_update_qs.aupdate = AsyncMock(return_value=1)
 
             mock_values_qs = MagicMock()
-            mock_values_qs.afirst = AsyncMock(
-                return_value={"total_items": 0, "completed_items": 0, "failed_items": 0}
-            )
+            mock_values_qs.afirst = AsyncMock(return_value={"total_items": 0, "completed_items": 0, "failed_items": 0})
 
             call_count = 0
 
@@ -288,10 +283,10 @@ class TestIncrementCounter:
 
             await _increment_counter(job_id, "completed_items")
             # No progress update since total_items is 0
+            assert call_count == 2  # 仅递增 + 读取，无第三次进度更新
 
 
 class TestAnalyzeSingleItem:
-
     @pytest.mark.asyncio
     async def test_short_text_single_chunk(self):
         from apps.workbench.tasks.batch_runner import _analyze_single_item
@@ -375,7 +370,6 @@ class TestAnalyzeSingleItem:
 
 
 class TestRunBatchAsync:
-
     @pytest.mark.asyncio
     async def test_sets_status_running(self):
         from apps.workbench.tasks.batch_runner import _run_batch_async
@@ -429,7 +423,6 @@ class TestRunBatchAsync:
 
 
 class TestRunBatchRetryAsync:
-
     @pytest.mark.asyncio
     async def test_job_not_found_returns_early(self):
         from apps.workbench.tasks.batch_runner import _run_batch_retry_async
@@ -443,7 +436,8 @@ class TestRunBatchRetryAsync:
             with patch(f"{_MOD}.DocTextExtractor") as MockExtractor:
                 MockExtractor.return_value.cleanup = MagicMock()
                 await _run_batch_retry_async(job_id, [])
-                # Should return early without error
+                # 任务不存在时早退，不更新任务状态
+                MockJob.objects.filter.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_empty_item_ids_no_analysis(self):
@@ -468,6 +462,8 @@ class TestRunBatchRetryAsync:
                     MockExtractor.return_value.cleanup = MagicMock()
                     # get_llm_service 不 mock 会真实初始化（读 SystemConfig），被
                     # pytest-django 拦 DB 后写「重试任务异常」进共享 error.log
-                    with patch(f"{_MOD}.timezone"), patch("apps.core.llm.service.get_llm_service"):
+                    with patch(f"{_MOD}.timezone"), patch("apps.core.llm.service.get_llm_service") as mock_llm_svc:
                         await _run_batch_retry_async(job_id, [])
-                        # No items to process
+                        # No items to process: 取一次待重试列表 + 结束后一次已完成统计
+                        assert MockItem.objects.filter.call_count == 2
+                        mock_llm_svc.assert_called()

@@ -11,6 +11,7 @@ Covers uncovered branches in WeikeDocumentMixin:
     login required, normal success, playwright error
   - _record_detail_event
 """
+
 from __future__ import annotations
 
 import time
@@ -21,7 +22,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.legal_research.services.sources.weike.types import WeikeCaseDetail, WeikeSearchItem, WeikeSession
-
 
 # ---------------------------------------------------------------------------
 # Helper to create a mixin instance with required protocol attributes
@@ -72,7 +72,7 @@ class TestRaiseIfSessionRestricted:
         m = _make_mixin()
         session = _make_session(restricted_until_epoch=0.0)
         # Should not raise
-        m._raise_if_session_restricted(session=session, stage="test")
+        assert m._raise_if_session_restricted(session=session, stage="test") is None
 
     def test_restricted_raises(self) -> None:
         m = _make_mixin()
@@ -83,7 +83,8 @@ class TestRaiseIfSessionRestricted:
     def test_restricted_in_past(self) -> None:
         m = _make_mixin()
         session = _make_session(restricted_until_epoch=time.time() - 10)
-        m._raise_if_session_restricted(session=session, stage="test")
+        # 过去的限流时间已失效，不应抛异常
+        assert m._raise_if_session_restricted(session=session, stage="test") is None
 
     def test_wait_seconds_at_least_1(self) -> None:
         m = _make_mixin()
@@ -360,9 +361,7 @@ class TestFetchCaseDetailViaDom:
         m = _make_mixin()
         mock_page = MagicMock()
         mock_locator = MagicMock()
-        mock_locator.inner_text.return_value = (
-            "标题：张某诉李某合同纠纷判决书\n审理法院：北京市朝阳区人民法院\n案号：(2024)京0105民初1号\n裁判日期：2024年6月1日\n正文内容。"
-        )
+        mock_locator.inner_text.return_value = "标题：张某诉李某合同纠纷判决书\n审理法院：北京市朝阳区人民法院\n案号：(2024)京0105民初1号\n裁判日期：2024年6月1日\n正文内容。"
         mock_page.locator.return_value = mock_locator
         session = _make_session(page=mock_page)
         item = _make_item(title_hint="hint")
@@ -405,9 +404,7 @@ class TestFetchCaseDetailDomFallback:
         # Make DOM fallback return a result
         mock_page = MagicMock()
         mock_locator = MagicMock()
-        mock_locator.inner_text.return_value = (
-            "标题：张某诉李某合同纠纷判决书\n审理法院：北京市朝阳区人民法院\n案号：(2024)京0105民初1号\n裁判日期：2024年6月1日"
-        )
+        mock_locator.inner_text.return_value = "标题：张某诉李某合同纠纷判决书\n审理法院：北京市朝阳区人民法院\n案号：(2024)京0105民初1号\n裁判日期：2024年6月1日"
         mock_page.locator.return_value = mock_locator
         session.page = mock_page
 

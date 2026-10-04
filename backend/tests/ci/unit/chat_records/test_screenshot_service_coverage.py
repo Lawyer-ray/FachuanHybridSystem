@@ -3,6 +3,7 @@
 覆盖: get_screenshot, _validate_upload_file, _compute_hashes,
 update_screenshot, delete_screenshot 等分支。
 """
+
 from __future__ import annotations
 
 from io import BytesIO
@@ -11,8 +12,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.core.exceptions import NotFoundError, ValidationException
 from apps.chat_records.services.core.screenshot_service import ScreenshotService
+from apps.core.exceptions import NotFoundError, ValidationException
 
 
 def _make_file(content_type: str = "image/png", size: int = 100, content: bytes = b"fake") -> MagicMock:
@@ -51,7 +52,7 @@ class TestValidateUploadFile:
     def test_valid_file(self) -> None:
         svc = ScreenshotService(project_service=MagicMock())
         f = _make_file(content_type="image/jpeg", size=100)
-        svc._validate_upload_file(f)  # Should not raise
+        assert svc._validate_upload_file(f) is None  # Should not raise
 
     def test_empty_content_type(self) -> None:
         svc = ScreenshotService(project_service=MagicMock())

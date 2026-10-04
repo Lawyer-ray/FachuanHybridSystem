@@ -54,7 +54,6 @@ def _make_sms(
 
 
 class TestCourtSMSServiceInit:
-
     @patch(f"{_MOD}.CaseMatcher")
     @patch(f"{_MOD}.SMSParserService")
     def test_defaults_when_no_args(self, MockParser, MockMatcher):
@@ -92,7 +91,6 @@ class TestCourtSMSServiceInit:
 
 
 class TestLazyProperties:
-
     @patch(f"{_MOD}.SMSParserService")
     @patch(f"{_MOD}.CaseMatcher")
     def test_case_service_lazy(self, MockMatcher, MockParser):
@@ -100,9 +98,7 @@ class TestLazyProperties:
 
         svc = CourtSMSService()
         mock_service = MagicMock()
-        with patch(
-            f"{_MOD}.build_sms_case_service", create=True
-        ) as mock_build:
+        with patch(f"{_MOD}.build_sms_case_service", create=True) as mock_build:
             # The import path is from core.dependencies.automation_sms_wiring
             with patch(
                 "apps.core.dependencies.automation_sms_wiring.build_sms_case_service",
@@ -160,9 +156,7 @@ class TestLazyProperties:
         from apps.automation.services.sms.court_sms_service import CourtSMSService
 
         svc = CourtSMSService()
-        with patch(
-            f"{_SMS_MOD}.case_folder_archive_service.CaseFolderArchiveService"
-        ) as MockArch:
+        with patch(f"{_SMS_MOD}.case_folder_archive_service.CaseFolderArchiveService") as MockArch:
             result = svc.case_folder_archive
             assert result is MockArch.return_value
 
@@ -172,9 +166,7 @@ class TestLazyProperties:
         from apps.automation.services.sms.court_sms_service import CourtSMSService
 
         svc = CourtSMSService()
-        with patch(
-            f"{_SMS_MOD}.case_number_extractor_service.CaseNumberExtractorService"
-        ) as MockExt:
+        with patch(f"{_SMS_MOD}.case_number_extractor_service.CaseNumberExtractorService") as MockExt:
             result = svc.case_number_extractor
             assert result is MockExt.return_value
 
@@ -184,9 +176,7 @@ class TestLazyProperties:
         from apps.automation.services.sms.court_sms_service import CourtSMSService
 
         svc = CourtSMSService()
-        with patch(
-            f"{_SMS_MOD}.document_attachment_service.DocumentAttachmentService"
-        ) as MockDA:
+        with patch(f"{_SMS_MOD}.document_attachment_service.DocumentAttachmentService") as MockDA:
             result = svc.document_attachment
             assert result is MockDA.return_value
 
@@ -196,9 +186,7 @@ class TestLazyProperties:
         from apps.automation.services.sms.court_sms_service import CourtSMSService
 
         svc = CourtSMSService()
-        with patch(
-            f"{_SMS_MOD}.sms_notification_service.SMSNotificationService"
-        ) as MockNotif:
+        with patch(f"{_SMS_MOD}.sms_notification_service.SMSNotificationService") as MockNotif:
             result = svc.notification
             assert result is MockNotif.return_value
 
@@ -209,7 +197,6 @@ class TestLazyProperties:
 
 
 class TestGetSmsDetail:
-
     @patch(f"{_MOD}.CourtSMS")
     @patch(f"{_MOD}.SMSParserService")
     @patch(f"{_MOD}.CaseMatcher")
@@ -243,7 +230,6 @@ class TestGetSmsDetail:
 
 
 class TestListSms:
-
     @patch(f"{_MOD}.CourtSMS")
     @patch(f"{_MOD}.SMSParserService")
     @patch(f"{_MOD}.CaseMatcher")
@@ -318,7 +304,6 @@ class TestListSms:
 
 
 class TestSubmitSms:
-
     @patch(f"{_MOD}.submit_task")
     @patch(f"{_MOD}.CourtSMS")
     @patch(f"{_MOD}.timezone")
@@ -470,7 +455,8 @@ class TestAssignCase:
 
         svc = CourtSMSService()
         sms = _make_sms(case_log=None, scraper_task=MagicMock())
-        svc._reattach_existing_documents(sms)  # should not crash
+        # 无 case_log 时早退（返回 None，不触碰附件服务）
+        assert svc._reattach_existing_documents(sms) is None
 
     @patch(f"{_MOD}.SMSParserService")
     @patch(f"{_MOD}.CaseMatcher")
@@ -492,7 +478,6 @@ class TestAssignCase:
 
 
 class TestRetryProcessing:
-
     @patch(f"{_MOD}.submit_task")
     @patch(f"{_MOD}.CourtSMS")
     @patch(f"{_MOD}.SMSParserService")
@@ -543,7 +528,6 @@ class TestRetryProcessing:
 
 
 class TestDeleteSms:
-
     @patch(f"{_MOD}.CourtSMS")
     @patch(f"{_MOD}.SMSParserService")
     @patch(f"{_MOD}.CaseMatcher")
@@ -597,7 +581,6 @@ class TestDeleteSms:
 
 
 class TestProcessSms:
-
     @patch(f"{_MOD}.CourtSMS")
     @patch(f"{_MOD}.SMSParserService")
     @patch(f"{_MOD}.CaseMatcher")
@@ -643,7 +626,6 @@ class TestProcessSms:
 
 
 class TestProcessParsing:
-
     @patch(f"{_MOD}.SMSParserService")
     @patch(f"{_MOD}.CaseMatcher")
     def test_success(self, MockMatcher, MockParser):
@@ -681,7 +663,6 @@ class TestProcessParsing:
 
 
 class TestProcessMatching:
-
     @patch(f"{_MOD}.CourtSMS")
     @patch(f"{_MOD}.SMSParserService")
     @patch(f"{_MOD}.CaseMatcher")
@@ -776,7 +757,6 @@ class TestProcessMatching:
 
 
 class TestProcessNotifying:
-
     @patch(f"{_MOD}.SMSParserService")
     @patch(f"{_MOD}.CaseMatcher")
     def test_no_case_logs_warning(self, MockMatcher, MockParser):
@@ -854,11 +834,11 @@ class TestProcessNotifying:
 
 
 class TestModuleLevelFunctions:
-
     @patch("apps.automation.usecases.court_sms.process_sms.ProcessSmsUsecase")
     @patch("apps.automation.workers.court_sms_tasks.ServiceLocator")
     def test_process_sms_async(self, mock_locator, mock_uc):
         from apps.automation.workers.court_sms_tasks import process_sms
+
         process_sms(1, process_options={"key": "val"})
         mock_uc.return_value.execute.assert_called_once_with(sms_id=1, process_options={"key": "val"})
 
@@ -866,6 +846,7 @@ class TestModuleLevelFunctions:
     @patch("apps.automation.workers.court_sms_tasks.ServiceLocator")
     def test_process_sms_from_matching(self, mock_locator, mock_uc):
         from apps.automation.workers.court_sms_tasks import process_sms_from_matching
+
         process_sms_from_matching(1)
         mock_uc.return_value.execute.assert_called_once_with(sms_id=1)
 
@@ -873,6 +854,7 @@ class TestModuleLevelFunctions:
     @patch("apps.automation.workers.court_sms_tasks.ServiceLocator")
     def test_process_sms_from_renaming(self, mock_locator, mock_uc):
         from apps.automation.workers.court_sms_tasks import process_sms_from_renaming
+
         process_sms_from_renaming(1)
         mock_uc.return_value.execute.assert_called_once_with(sms_id=1)
 
@@ -880,5 +862,6 @@ class TestModuleLevelFunctions:
     @patch("apps.automation.workers.court_sms_tasks.ServiceLocator")
     def test_retry_download_task(self, mock_locator, mock_uc):
         from apps.automation.workers.court_sms_tasks import retry_download_task
+
         retry_download_task(42, extra="data")
         mock_uc.return_value.execute.assert_called_once_with(sms_id=42)

@@ -9,24 +9,25 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
 
+from apps.automation.services.scraper.core.captcha_recognizer import CaptchaRecognizer
 from apps.automation.services.sms.court_sms_recommendation_service import (
-    RecommendationResult,
     _COURT_NAME_PATTERN,
     _YEAR_COURT_PREFIX_PATTERN,
-)
-from apps.automation.services.scraper.core.captcha_recognizer import CaptchaRecognizer
-from apps.documents.services.smart_fill.service import (
-    PlaceholderResult,
-    SmartFillResult,
-    SYSTEM_PROMPT,
-    USER_PROMPT_TEMPLATE,
-    AUTO_FILL_KEYS,
+    RecommendationResult,
 )
 from apps.batch_printing.services.job.file_prepare_service import FilePrepareService
+from apps.documents.services.smart_fill.service import (
+    AUTO_FILL_KEYS,
+    SYSTEM_PROMPT,
+    USER_PROMPT_TEMPLATE,
+    PlaceholderResult,
+    SmartFillResult,
+)
 
 pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not installed")
 
@@ -91,11 +92,8 @@ class TestCaptchaRecognizer:
 
     def test_cannot_instantiate(self) -> None:
         """不能直接实例化抽象类。"""
-        try:
+        with pytest.raises(TypeError):
             CaptchaRecognizer()
-            raise AssertionError("应抛出 TypeError")
-        except TypeError:
-            pass
 
 
 class TestSmartFillResult:

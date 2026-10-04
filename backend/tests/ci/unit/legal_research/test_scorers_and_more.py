@@ -1,10 +1,10 @@
 """Tests for legal_research scorers, case_download_service, and signals."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ── scorers ────────────────────────────────────────────────────────────────
 
@@ -366,8 +366,9 @@ class TestSignals:
         instance.pdf_file = None
         instance.pk = 1
 
-        # Should not raise
-        _cleanup_legal_research_pdf(sender=None, instance=instance)
+        # Should not raise；pdf_file 为 None 时不应调度任何清理
+        assert _cleanup_legal_research_pdf(sender=None, instance=instance) is None
+        mock_txn.on_commit.assert_not_called()
 
     @patch("apps.legal_research.signals.transaction")
     def test_signal_handler_delete_fails(self, mock_txn: MagicMock) -> None:
@@ -380,4 +381,5 @@ class TestSignals:
         instance.pk = 1
 
         # Should not raise (catches exception)
-        _cleanup_legal_research_pdf(sender=None, instance=instance)
+        assert _cleanup_legal_research_pdf(sender=None, instance=instance) is None
+        mock_txn.on_commit.assert_called_once()

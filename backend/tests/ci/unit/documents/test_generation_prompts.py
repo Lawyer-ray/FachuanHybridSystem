@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-from apps.documents.services.generation.prompts import (
-    PromptSpec,
-    _SafeDict,
-    COMPLAINT_PROMPT,
-    DEFENSE_PROMPT,
-)
+import pytest
+
+from apps.documents.services.generation.prompts import COMPLAINT_PROMPT, DEFENSE_PROMPT, PromptSpec, _SafeDict
 
 
 class TestSafeDict:
@@ -89,8 +86,6 @@ class TestPromptSpec:
             user_template="test",
             format_instructions="test",
         )
-        try:
+        with pytest.raises(AttributeError):
             spec.system_prompt = "changed"  # type: ignore
-            raise AssertionError("应抛出异常")
-        except AttributeError:
-            pass
+        assert spec.system_prompt == "test"  # 原值未被修改

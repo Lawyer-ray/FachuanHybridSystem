@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.workbench.services.chat_service import _estimate_tokens, _convert_to_model_messages
+from apps.workbench.services.chat_service import _convert_to_model_messages, _estimate_tokens
 
 
 class TestEstimateTokens:
@@ -121,17 +121,25 @@ class TestWorkbenchSessionService:
         assert WorkbenchSessionService is not None
 
     def test_invalidate_session_cache_no_user(self):
+        from unittest.mock import patch
+
         from apps.workbench.services.session_service import WorkbenchSessionService
 
-        # Should not raise
-        WorkbenchSessionService._invalidate_session_cache(None)
+        with patch("apps.workbench.services.session_service.cache") as mock_cache:
+            # 无用户直接早退，不清缓存
+            WorkbenchSessionService._invalidate_session_cache(None)
+            mock_cache.delete_many.assert_not_called()
 
     def test_invalidate_session_cache_anonymous(self):
+        from unittest.mock import patch
+
         from apps.workbench.services.session_service import WorkbenchSessionService
 
         user = MagicMock()
         user.is_authenticated = False
-        WorkbenchSessionService._invalidate_session_cache(user)
+        with patch("apps.workbench.services.session_service.cache") as mock_cache:
+            WorkbenchSessionService._invalidate_session_cache(user)
+            mock_cache.delete_many.assert_not_called()
 
 
 class TestWorkbenchChatService:

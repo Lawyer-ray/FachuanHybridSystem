@@ -261,9 +261,12 @@ class TestBuildMaterialSlotSignals:
 
 class TestScoreSlotDeduplicated:
     def test_empty_signals(self) -> None:
-        assert _score_slot_deduplicated(
-            primary_signals=[], secondary_signals=[], strong=("a",), weak=("b",), exclude=("c",)
-        ) == 0
+        assert (
+            _score_slot_deduplicated(
+                primary_signals=[], secondary_signals=[], strong=("a",), weak=("b",), exclude=("c",)
+            )
+            == 0
+        )
 
     def test_primary_strong_match(self) -> None:
         score = _score_slot_deduplicated(
@@ -285,8 +288,11 @@ class TestScoreSlotDeduplicated:
 
     def test_secondary_dedup(self) -> None:
         score = _score_slot_deduplicated(
-            primary_signals=[], secondary_signals=["起诉状.pdf", "起诉状_backup.pdf"],
-            strong=("起诉状",), weak=(), exclude=(),
+            primary_signals=[],
+            secondary_signals=["起诉状.pdf", "起诉状_backup.pdf"],
+            strong=("起诉状",),
+            weak=(),
+            exclude=(),
         )
         assert score == 5
 
@@ -308,8 +314,13 @@ class TestMatchSlot:
 class TestBuildPartyPayloads:
     def test_natural_person(self) -> None:
         client = SimpleNamespace(
-            client_type="natural", name="Zhang", address="GZ", phone="13800138000",
-            id_number="440106199001011234", legal_representative="", legal_representative_id_number="",
+            client_type="natural",
+            name="Zhang",
+            address="GZ",
+            phone="13800138000",
+            id_number="440106199001011234",
+            legal_representative="",
+            legal_representative_id_number="",
         )
         party = SimpleNamespace(client=client, legal_status="plaintiff")
         plaintiffs, defendants, third = _build_party_payloads([party])
@@ -318,8 +329,13 @@ class TestBuildPartyPayloads:
 
     def test_legal_person(self) -> None:
         client = SimpleNamespace(
-            client_type="company", name="GZ Tech", address="TH", phone="020-1234",
-            id_number="91440100MA5XXXXX", legal_representative="Li", legal_representative_id_number="440106199001011234",
+            client_type="company",
+            name="GZ Tech",
+            address="TH",
+            phone="020-1234",
+            id_number="91440100MA5XXXXX",
+            legal_representative="Li",
+            legal_representative_id_number="440106199001011234",
         )
         party = SimpleNamespace(client=client, legal_status="defendant")
         plaintiffs, defendants, third = _build_party_payloads([party])
@@ -329,8 +345,13 @@ class TestBuildPartyPayloads:
 
     def test_third_party(self) -> None:
         client = SimpleNamespace(
-            client_type="natural", name="Wang", address="", phone="", id_number="",
-            legal_representative="", legal_representative_id_number="",
+            client_type="natural",
+            name="Wang",
+            address="",
+            phone="",
+            id_number="",
+            legal_representative="",
+            legal_representative_id_number="",
         )
         party = SimpleNamespace(client=client, legal_status="third")
         plaintiffs, defendants, third = _build_party_payloads([party])
@@ -338,8 +359,13 @@ class TestBuildPartyPayloads:
 
     def test_unknown_status(self) -> None:
         client = SimpleNamespace(
-            client_type="natural", name="X", address="", phone="", id_number="",
-            legal_representative="", legal_representative_id_number="",
+            client_type="natural",
+            name="X",
+            address="",
+            phone="",
+            id_number="",
+            legal_representative="",
+            legal_representative_id_number="",
         )
         party = SimpleNamespace(client=client, legal_status="other")
         plaintiffs, defendants, third = _build_party_payloads([party])
@@ -361,7 +387,9 @@ class TestBuildSessionStatusPayload:
         assert payload["message"] == "Processing..."
 
     def test_running_with_timing(self) -> None:
-        task = SimpleNamespace(status="running", id=3, result={"message": "ok", "timing": {"start": 1.0}}, error_message="")
+        task = SimpleNamespace(
+            status="running", id=3, result={"message": "ok", "timing": {"start": 1.0}}, error_message=""
+        )
         payload = _build_session_status_payload(task=task)
         assert "timing" in payload
 
@@ -437,7 +465,10 @@ class TestApplyExecutionPartyFallbacks:
 
 class TestUpdateSessionTask:
     def test_none_session_id(self) -> None:
-        _update_session_task(session_id=None, status="running")
+        with patch("apps.automation.models.ScraperTask") as mock_task:
+            # session_id=None 直接早退，不触达数据库
+            assert _update_session_task(session_id=None, status="running") is None
+            mock_task.objects.filter.assert_not_called()
 
     @patch("apps.automation.models.ScraperTask")
     @patch("django.db.close_old_connections")
@@ -453,6 +484,8 @@ class TestUpdateSessionTask:
     def test_update_with_finished(self, mock_close: Any, mock_task_cls: Any) -> None:
         mock_qs = MagicMock()
         mock_task_cls.objects.filter.return_value = mock_qs
-        _update_session_task(session_id=2, status="success", error_message="", result={"key": "val"}, set_started=True, set_finished=True)
+        _update_session_task(
+            session_id=2, status="success", error_message="", result={"key": "val"}, set_started=True, set_finished=True
+        )
         mock_task_cls.objects.filter.assert_called_once_with(id=2)
         mock_qs.update.assert_called_once()

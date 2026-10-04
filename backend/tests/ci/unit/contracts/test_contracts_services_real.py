@@ -1,10 +1,11 @@
 """contracts 模块真实执行测试 - 覆盖 archive/constants, category_mapping, file_hash_utils, domain/validator 等。"""
+
 from __future__ import annotations
 
 import hashlib
-import pytest
 from pathlib import Path
 
+import pytest
 
 # ============================================================
 # contracts/services/archive/constants.py
@@ -184,15 +185,15 @@ class TestContractValidator:
         from apps.contracts.services.contract.domain.validator import ContractValidator
 
         validator = ContractValidator()
-        # Should not raise
-        validator.validate_fee_mode({"fee_mode": "CUSTOM", "custom_terms": "Some terms"})
+        # 有条款文本时静默通过（返回 None）
+        assert validator.validate_fee_mode({"fee_mode": "CUSTOM", "custom_terms": "Some terms"}) is None
 
     def test_validate_none_fee_mode(self) -> None:
         from apps.contracts.services.contract.domain.validator import ContractValidator
 
         validator = ContractValidator()
         # None fee_mode should pass without validation
-        validator.validate_fee_mode({})
+        assert validator.validate_fee_mode({}) is None
 
     def test_validate_full_risk_no_rate(self) -> None:
         from apps.contracts.services.contract.domain.validator import ContractValidator
@@ -234,8 +235,8 @@ class TestContractModels:
 @pytest.mark.django_db
 class TestContractPartyModels:
     def test_contract_party_creation(self) -> None:
-        from apps.contracts.models import Contract, ContractParty
         from apps.client.models import Client
+        from apps.contracts.models import Contract, ContractParty
 
         contract = Contract.objects.create(name="Party Test Contract")
         client = Client.objects.create(name="Party Client", client_type=Client.NATURAL, is_our_client=True)

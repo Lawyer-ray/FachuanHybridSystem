@@ -10,13 +10,14 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
 
 if _HAS_LOGIN:
-    from plugins.court_automation.token.cache_manager import TokenCacheManager
     from plugins.court_automation.token.account_selection_strategy import AccountSelectionStrategy
+    from plugins.court_automation.token.cache_manager import TokenCacheManager
 else:
     TokenCacheManager = None  # type: ignore[assignment,misc]
     AccountSelectionStrategy = None  # type: ignore[assignment,misc]
@@ -99,10 +100,18 @@ class TestTokenCacheManager:
     def test_get_cached_credentials_hit(self, mock_perf, mock_cache) -> None:
         """凭证缓存命中。"""
         mock_cache.get.return_value = [
-            {"id": 1, "lawyer_id": 1, "lawyer_name": "test", "site_name": "site1",
-             "url": None, "account": "test", "password": "",
-             "login_success_count": 0, "login_failure_count": 0,
-             "last_login_success_at": None}
+            {
+                "id": 1,
+                "lawyer_id": 1,
+                "lawyer_name": "test",
+                "site_name": "site1",
+                "url": None,
+                "account": "test",
+                "password": "",
+                "login_success_count": 0,
+                "login_failure_count": 0,
+                "last_login_success_at": None,
+            }
         ]
         result = self.manager.get_cached_credentials("site1")
         assert result is not None
@@ -199,15 +208,25 @@ class TestAccountSelectionStrategy:
 
         accounts = [
             AccountCredentialDTO(
-                id=1, lawyer_id=1, lawyer_name="律师1",
-                site_name="site1", url=None, account="acc1", password="",
+                id=1,
+                lawyer_id=1,
+                lawyer_name="律师1",
+                site_name="site1",
+                url=None,
+                account="acc1",
+                password="",
                 login_success_count=10,
                 login_failure_count=1,
                 last_login_success_at="2025-01-01T12:00:00",
             ),
             AccountCredentialDTO(
-                id=2, lawyer_id=2, lawyer_name="律师2",
-                site_name="site1", url=None, account="acc2", password="",
+                id=2,
+                lawyer_id=2,
+                lawyer_name="律师2",
+                site_name="site1",
+                url=None,
+                account="acc2",
+                password="",
                 login_success_count=1,
                 login_failure_count=5,
                 last_login_success_at="2025-01-01T12:00:00",
@@ -222,8 +241,13 @@ class TestAccountSelectionStrategy:
 
         accounts = [
             AccountCredentialDTO(
-                id=1, lawyer_id=1, lawyer_name="律师1",
-                site_name="site1", url=None, account="acc1", password="",
+                id=1,
+                lawyer_id=1,
+                lawyer_name="律师1",
+                site_name="site1",
+                url=None,
+                account="acc1",
+                password="",
                 login_success_count=5,
                 login_failure_count=0,
             ),
@@ -234,4 +258,5 @@ class TestAccountSelectionStrategy:
     def test_remove_from_blacklist_not_exists(self) -> None:
         """移除不存在的黑名单项。"""
         self.strategy.remove_from_blacklist("nonexistent")
-        # 不应报错
+        # 移除不存在的账号是 no-op，黑名单保持为空
+        assert "nonexistent" not in self.strategy.get_blacklist()

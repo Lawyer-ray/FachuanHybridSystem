@@ -44,6 +44,7 @@ class TestCheckDbPerformanceCommand:
             return [0]
 
         fetchall_count = [0]
+
         def mock_fetchall() -> list:
             idx = fetchall_count[0]
             fetchall_count[0] += 1
@@ -61,7 +62,10 @@ class TestCheckDbPerformanceCommand:
         mock_connection.cursor.return_value = mock_cursor
 
         with patch("apps.core.management.commands.check_db_performance.connection", mock_connection):
-            cmd.handle()
+            assert cmd.handle() is None
+        written = "".join(str(c.args[0]) for c in cmd.stdout.write.call_args_list)
+        assert "数据库引擎: sqlite" in written
+        assert "test_table: 42 行" in written
         cmd.stdout.write.assert_called()
 
     def test_unsupported_vendor(self) -> None:
@@ -77,7 +81,9 @@ class TestCheckDbPerformanceCommand:
         mock_connection.vendor = "mysql"
 
         with patch("apps.core.management.commands.check_db_performance.connection", mock_connection):
-            cmd.handle()
+            assert cmd.handle() is None
+        written = "".join(str(c.args[0]) for c in cmd.stdout.write.call_args_list)
+        assert "仅对 SQLite / PostgreSQL" in written
 
 
 class TestAnalyzePerformanceCommand:
@@ -98,7 +104,9 @@ class TestAnalyzePerformanceCommand:
         from apps.core.management.commands.analyze_performance import Command
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False) as f:
-            f.write('{"metric_type":"api_performance","path":"/api/test","method":"GET","duration_ms":150,"query_count":3,"status_code":200}\n')
+            f.write(
+                '{"metric_type":"api_performance","path":"/api/test","method":"GET","duration_ms":150,"query_count":3,"status_code":200}\n'
+            )
             f.flush()
             cmd = Command()
             result = cmd._parse_logs(f.name, 24)

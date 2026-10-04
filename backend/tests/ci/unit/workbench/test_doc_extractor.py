@@ -50,7 +50,9 @@ class TestExtractTextErrors:
 
 class TestCleanup:
     def test_cleanup_no_error(self, extractor) -> None:
-        extractor.cleanup()  # Should not raise
+        # 无临时目录时清理为 no-op，且不抛异常
+        assert extractor.cleanup() is None
+        assert extractor._batch_temp_dir is None
 
     def test_cleanup_with_temp_dirs(self, extractor) -> None:
         # Simulate some temp dirs

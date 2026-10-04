@@ -1,4 +1,5 @@
 """Long-tail coverage tests batch 3: scan service, log schemas, LLM backend."""
+
 from __future__ import annotations
 
 import io
@@ -118,7 +119,7 @@ class TestBoundFolderScanService:
     def test_notify_without_callback(self):
         from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 
-        BoundFolderScanService._notify(None, "status", 50, "file.pdf")  # no-op
+        assert BoundFolderScanService._notify(None, "status", 50, "file.pdf") is None  # no-op
 
     def test_extract_parent_folder_hint_direct(self, tmp_path):
         from apps.core.services.bound_folder_scan_service import BoundFolderScanService
@@ -181,9 +182,13 @@ class TestBoundFolderScanService:
 
         with pytest.raises(ValidationException, match="不支持"):
             svc._build_candidate(
-                path=f, base_name="test", version_token="",
-                extraction_method="none", text_excerpt="",
-                domain="unsupported", enable_recognition=False,
+                path=f,
+                base_name="test",
+                version_token="",
+                extraction_method="none",
+                text_excerpt="",
+                domain="unsupported",
+                enable_recognition=False,
                 classification_context=None,
             )
 
@@ -192,13 +197,19 @@ class TestBoundFolderScanService:
         f = tmp_path / "test.pdf"
         f.touch()
         svc._classification_service.classify_contract_material.return_value = {
-            "category": "archive_document", "confidence": 0.9, "reason": "test"
+            "category": "archive_document",
+            "confidence": 0.9,
+            "reason": "test",
         }
 
         result = svc._build_candidate(
-            path=f, base_name="test", version_token="",
-            extraction_method="none", text_excerpt="",
-            domain="contract", enable_recognition=False,
+            path=f,
+            base_name="test",
+            version_token="",
+            extraction_method="none",
+            text_excerpt="",
+            domain="contract",
+            enable_recognition=False,
             classification_context=None,
         )
         assert result["suggested_category"] == "archive_document"
@@ -208,15 +219,23 @@ class TestBoundFolderScanService:
         f = tmp_path / "test.pdf"
         f.touch()
         svc._classification_service.classify_case_material.return_value = {
-            "category": "起诉状", "side": "plaintiff", "type_name_hint": "",
-            "suggested_supervising_authority_id": None, "suggested_party_ids": [],
-            "confidence": 0.8, "reason": "test",
+            "category": "起诉状",
+            "side": "plaintiff",
+            "type_name_hint": "",
+            "suggested_supervising_authority_id": None,
+            "suggested_party_ids": [],
+            "confidence": 0.8,
+            "reason": "test",
         }
 
         result = svc._build_candidate(
-            path=f, base_name="test", version_token="",
-            extraction_method="none", text_excerpt="",
-            domain="case", enable_recognition=False,
+            path=f,
+            base_name="test",
+            version_token="",
+            extraction_method="none",
+            text_excerpt="",
+            domain="case",
+            enable_recognition=False,
             classification_context=None,
         )
         assert result["suggested_category"] == "起诉状"
@@ -244,7 +263,9 @@ class TestBoundFolderScanService:
     def test_scan_folder_with_files(self, tmp_path):
         svc = self._make_service()
         svc._classification_service.classify_contract_material.return_value = {
-            "category": "archive_document", "confidence": 0.5, "reason": ""
+            "category": "archive_document",
+            "confidence": 0.5,
+            "reason": "",
         }
         (tmp_path / "contract.pdf").touch()
 

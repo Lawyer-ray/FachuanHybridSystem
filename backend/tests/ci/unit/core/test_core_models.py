@@ -97,13 +97,13 @@ class TestCaseModel:
     def test_clean_valid_stage(self) -> None:
         """有效 current_stage 不应报错。"""
         case = CaseFactory(current_stage="first_trial")
-        case.clean()  # 不应抛出异常
+        assert case.clean() is None  # 不应抛出异常
 
     @pytest.mark.django_db
     def test_clean_empty_stage(self) -> None:
         """current_stage 为空（归一后空值用空串表示）不应报错。"""
         case = CaseFactory(current_stage="")
-        case.clean()
+        assert case.clean() is None
 
     @pytest.mark.django_db
     def test_clean_invalid_stage(self) -> None:
@@ -254,7 +254,7 @@ class TestReminderModel:
         """只绑定一个目标时 clean 应通过。"""
         case = CaseFactory()
         r = Reminder(case=case, reminder_type="hearing", content="test", due_at=datetime.datetime.now(datetime.UTC))
-        r.clean()  # 不应抛出异常
+        assert r.clean() is None  # 不应抛出异常
 
     @pytest.mark.django_db
     def test_clean_two_bindings_raises(self) -> None:
@@ -262,8 +262,10 @@ class TestReminderModel:
         contract = ContractFactory()
         case = CaseFactory(contract=contract)
         r = Reminder(
-            contract=contract, case=case,
-            reminder_type="hearing", content="test",
+            contract=contract,
+            case=case,
+            reminder_type="hearing",
+            content="test",
             due_at=datetime.datetime.now(datetime.UTC),
         )
         with pytest.raises(ValidationError):
@@ -291,8 +293,10 @@ class TestReminderModel:
         case = CaseFactory(contract=contract)
         with pytest.raises(IntegrityError):
             Reminder.objects.create(
-                contract=contract, case=case,
-                reminder_type="hearing", content="test",
+                contract=contract,
+                case=case,
+                reminder_type="hearing",
+                content="test",
                 due_at=datetime.datetime.now(datetime.UTC),
             )
 
@@ -352,7 +356,9 @@ class TestCauseOfActionModel:
     @pytest.mark.django_db
     def test_full_path_nested(self) -> None:
         parent = CauseOfAction.objects.create(name="合同纠纷", code="001", case_type="civil", is_active=True)
-        child = CauseOfAction.objects.create(name="买卖合同纠纷", code="001-01", case_type="civil", parent=parent, is_active=True)
+        child = CauseOfAction.objects.create(
+            name="买卖合同纠纷", code="001-01", case_type="civil", parent=parent, is_active=True
+        )
         assert child.full_path == "合同纠纷 > 买卖合同纠纷"
 
 
@@ -380,8 +386,11 @@ class TestAccountCredentialModel:
     def test_success_rate_all_success(self) -> None:
         lawyer = LawyerFactory()
         cred = AccountCredential.objects.create(
-            lawyer=lawyer, site_name="test", account="user",
-            login_success_count=10, login_failure_count=0,
+            lawyer=lawyer,
+            site_name="test",
+            account="user",
+            login_success_count=10,
+            login_failure_count=0,
         )
         assert cred.success_rate == 1.0
 
@@ -389,8 +398,11 @@ class TestAccountCredentialModel:
     def test_success_rate_all_failure(self) -> None:
         lawyer = LawyerFactory()
         cred = AccountCredential.objects.create(
-            lawyer=lawyer, site_name="test", account="user",
-            login_success_count=0, login_failure_count=5,
+            lawyer=lawyer,
+            site_name="test",
+            account="user",
+            login_success_count=0,
+            login_failure_count=5,
         )
         assert cred.success_rate == 0.0
 
@@ -398,8 +410,11 @@ class TestAccountCredentialModel:
     def test_success_rate_mixed(self) -> None:
         lawyer = LawyerFactory()
         cred = AccountCredential.objects.create(
-            lawyer=lawyer, site_name="test", account="user",
-            login_success_count=3, login_failure_count=1,
+            lawyer=lawyer,
+            site_name="test",
+            account="user",
+            login_success_count=3,
+            login_failure_count=1,
         )
         assert cred.success_rate == pytest.approx(0.75)
 
@@ -514,6 +529,7 @@ class TestCaseMaterialType:
     @pytest.mark.django_db
     def test_str_with_law_firm(self) -> None:
         from apps.organization.models import LawFirm
+
         firm = LawFirm.objects.create(name="测试律所")
         mtype = CaseMaterialType.objects.create(name="起诉状", category="party", law_firm=firm)
         result = str(mtype)

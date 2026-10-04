@@ -25,15 +25,17 @@ class TestHeadingNumberingApplyNumbering:
     def test_no_llm_skips(self):
         hn = HeadingNumbering(llm_service=None)
         doc = MagicMock()
-        hn.apply_numbering(doc)  # Should not raise
+        # 无 LLM 服务时直接跳过，不触碰文档
+        assert hn.apply_numbering(doc) is None
 
     def test_no_headings_skips(self):
         mock_llm = MagicMock()
         hn = HeadingNumbering(llm_service=mock_llm)
         doc = MagicMock()
         doc.paragraphs = []
-        with patch.object(hn, "_identify_headings_via_llm", return_value=[]):
-            hn.apply_numbering(doc)  # Should not raise
+        with patch.object(hn, "_identify_headings_via_llm", return_value=[]) as mock_identify:
+            assert hn.apply_numbering(doc) is None
+            mock_identify.assert_called_once()
 
 
 class TestHeadingNumberingParseLlmResponse:
@@ -88,8 +90,9 @@ class TestHeadingNumberingStripManualNumbers:
         para.text = "一、产品名称"
         para.runs = [MagicMock(text="一、产品名称")]
         doc.paragraphs = [para]
-        # Just ensure it doesn't raise
-        HeadingNumbering._strip_manual_numbers(doc, [(0, 0)])
+        # 手动编号前缀应从 run 中剥离
+        assert HeadingNumbering._strip_manual_numbers(doc, [(0, 0)]) is None
+        assert para.runs[0].text == "产品名称"
 
     def test_strip_decimal_numbering(self):
         doc = MagicMock()
@@ -97,7 +100,8 @@ class TestHeadingNumberingStripManualNumbers:
         para.text = "1. 付款条款"
         para.runs = [MagicMock(text="1. 付款条款")]
         doc.paragraphs = [para]
-        HeadingNumbering._strip_manual_numbers(doc, [(0, 0)])
+        assert HeadingNumbering._strip_manual_numbers(doc, [(0, 0)]) is None
+        assert para.runs[0].text == "付款条款"
 
 
 class TestHeadingNumberingSupplementMissedHeadings:

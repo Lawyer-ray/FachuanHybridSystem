@@ -5,11 +5,11 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from apps.documents.services.folder_template.default_templates import get_default_folder_templates
 from apps.automation.services.sms.court_sms_document_reference_service import (
     CourtSMSDocumentReference,
     CourtSMSDocumentReferenceService,
 )
+from apps.documents.services.folder_template.default_templates import get_default_folder_templates
 
 
 class TestDefaultFolderTemplates:
@@ -92,12 +92,11 @@ class TestCourtSMSDocumentReference:
         assert ref.download_status_display is None
 
     def test_frozen(self) -> None:
+        import pytest
+
         ref = CourtSMSDocumentReference(display_name="test", file_path="/path", source="test")
-        try:
+        with pytest.raises(AttributeError):
             ref.display_name = "changed"  # type: ignore
-            raise AssertionError("应抛出异常")
-        except AttributeError:
-            pass
 
 
 class TestCourtSMSDocumentReferenceService:

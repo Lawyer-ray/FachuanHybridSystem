@@ -159,12 +159,17 @@ class TestWorkbenchSessionService:
         assert session.storage_bytes == original
 
     def test_invalidate_cache_no_user(self) -> None:
-        WorkbenchSessionService._invalidate_session_cache(None)
+        with patch("apps.workbench.services.session_service.cache") as mock_cache:
+            WorkbenchSessionService._invalidate_session_cache(None)
+            # 无用户直接早退，不清缓存
+            mock_cache.delete_many.assert_not_called()
 
     def test_invalidate_cache_unauthenticated(self) -> None:
         user = MagicMock()
         user.is_authenticated = False
-        WorkbenchSessionService._invalidate_session_cache(user)
+        with patch("apps.workbench.services.session_service.cache") as mock_cache:
+            WorkbenchSessionService._invalidate_session_cache(user)
+            mock_cache.delete_many.assert_not_called()
 
     def test_get_other_user_session_raises(self, wb_user: Any, wb_other_user: Any) -> None:
         session = self.svc.create_session(title="Other's", user=wb_other_user)
@@ -309,12 +314,13 @@ class TestBatchAnalysisService:
     def test_validate_files_valid(self) -> None:
         f = MagicMock()
         f.name = "test.docx"
-        self.svc.validate_files([f])
+        # 合法扩展名静默通过
+        assert self.svc.validate_files([f]) is None
 
     def test_validate_files_valid_xls(self) -> None:
         f = MagicMock()
         f.name = "data.xlsx"
-        self.svc.validate_files([f])
+        assert self.svc.validate_files([f]) is None
 
     def test_get_job_by_id_not_found(self) -> None:
         from apps.core.exceptions import NotFoundError

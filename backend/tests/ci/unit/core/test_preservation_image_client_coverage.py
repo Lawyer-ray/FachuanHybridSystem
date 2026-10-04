@@ -1,4 +1,5 @@
 """Coverage tests for image_rotation, client extraction services."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -6,8 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # --- image_rotation auto_rename_service ---
+
 
 class TestAutoRenameService:
     def test_extraction_result(self):
@@ -52,6 +53,7 @@ class TestAutoRenameService:
 
 # --- image_rotation api ---
 
+
 class TestImageRotationApi:
     def test_validate_image_file_valid(self):
         from apps.image_rotation.api.image_rotation_api import _validate_image_file
@@ -59,7 +61,7 @@ class TestImageRotationApi:
         file_obj = MagicMock()
         file_obj.content_type = "image/jpeg"
         file_obj.size = 1024
-        _validate_image_file(file_obj)  # Should not raise
+        assert _validate_image_file(file_obj) is None  # Should not raise
 
     def test_validate_image_file_invalid_type(self):
         from apps.image_rotation.api.image_rotation_api import _validate_image_file
@@ -81,6 +83,7 @@ class TestImageRotationApi:
 
 
 # --- client identity_extraction ---
+
 
 class TestIdentityExtractionService:
     def test_init(self):

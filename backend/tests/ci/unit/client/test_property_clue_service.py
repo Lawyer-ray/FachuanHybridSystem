@@ -36,7 +36,7 @@ class TestValidateClueType:
     def test_valid_types(self) -> None:
         svc = PropertyClueService()
         for clue_type in _VALID_CLUE_TYPES:
-            svc._validate_clue_type(clue_type)
+            assert svc._validate_clue_type(clue_type) is None
 
     def test_invalid_type(self) -> None:
         svc = PropertyClueService()

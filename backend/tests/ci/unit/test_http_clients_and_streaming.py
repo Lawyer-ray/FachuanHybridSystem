@@ -51,13 +51,16 @@ class TestHttpxEventHooks:
             hooks = _httpx_event_hooks()
             response = MagicMock()
             response.request.extensions = {}
-            hooks["response"][0](response)  # Should not raise
+            # 无 started_at 扩展时不抛异常
+            assert hooks["response"][0](response) is None
 
 
 class TestBuildRangeFileResponse:
     def test_missing_file(self):
         from django.test import RequestFactory
+
         from apps.core.http.streaming import build_range_file_response
+
         factory = RequestFactory()
         request = factory.get("/test")
         resp = build_range_file_response(request, "/nonexistent/file.pdf")
@@ -65,7 +68,9 @@ class TestBuildRangeFileResponse:
 
     def test_empty_path(self):
         from django.test import RequestFactory
+
         from apps.core.http.streaming import build_range_file_response
+
         factory = RequestFactory()
         request = factory.get("/test")
         resp = build_range_file_response(request, "")
@@ -73,7 +78,9 @@ class TestBuildRangeFileResponse:
 
     def test_full_request(self):
         from django.test import RequestFactory
+
         from apps.core.http.streaming import build_range_file_response
+
         factory = RequestFactory()
         request = factory.get("/test")
         with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f:
@@ -88,7 +95,9 @@ class TestBuildRangeFileResponse:
 
     def test_head_request(self):
         from django.test import RequestFactory
+
         from apps.core.http.streaming import build_range_file_response
+
         factory = RequestFactory()
         request = factory.head("/test")
         with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f:
@@ -103,7 +112,9 @@ class TestBuildRangeFileResponse:
 
     def test_range_request(self):
         from django.test import RequestFactory
+
         from apps.core.http.streaming import build_range_file_response
+
         factory = RequestFactory()
         request = factory.get("/test", HTTP_RANGE="bytes=0-4")
         with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f:
@@ -118,7 +129,9 @@ class TestBuildRangeFileResponse:
 
     def test_range_start_beyond_file(self):
         from django.test import RequestFactory
+
         from apps.core.http.streaming import build_range_file_response
+
         factory = RequestFactory()
         request = factory.get("/test", HTTP_RANGE="bytes=100-200")
         with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f:
@@ -132,7 +145,9 @@ class TestBuildRangeFileResponse:
 
     def test_invalid_range_header(self):
         from django.test import RequestFactory
+
         from apps.core.http.streaming import build_range_file_response
+
         factory = RequestFactory()
         request = factory.get("/test", HTTP_RANGE="bytes=")
         with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f:
@@ -146,7 +161,9 @@ class TestBuildRangeFileResponse:
 
     def test_head_request_with_range(self):
         from django.test import RequestFactory
+
         from apps.core.http.streaming import build_range_file_response
+
         factory = RequestFactory()
         request = factory.head("/test", HTTP_RANGE="bytes=0-4")
         with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f:
@@ -160,7 +177,9 @@ class TestBuildRangeFileResponse:
 
     def test_as_attachment(self):
         from django.test import RequestFactory
+
         from apps.core.http.streaming import build_range_file_response
+
         factory = RequestFactory()
         request = factory.get("/test")
         with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f:

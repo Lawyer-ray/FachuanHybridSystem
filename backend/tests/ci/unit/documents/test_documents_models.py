@@ -21,12 +21,11 @@ from apps.documents.models.choices import (
     LegalStatusMatchMode,
 )
 from apps.documents.models.document_template import DocumentTemplate, DocumentTemplateFolderBinding
-from apps.evidence.models import EvidenceItem, EvidenceList, ListType, MergeStatus
 from apps.documents.models.folder_template import FolderTemplate
 from apps.documents.models.generation import GenerationConfig, GenerationMethod, GenerationStatus, GenerationTask
 from apps.documents.models.placeholder import Placeholder
+from apps.evidence.models import EvidenceItem, EvidenceList, ListType, MergeStatus
 from apps.testing.factories import CaseFactory, ContractFactory, LawyerFactory
-
 
 # ============================================================
 # DocumentTemplate
@@ -60,7 +59,7 @@ class TestDocumentTemplate:
         """只提供 file_path 应通过"""
         t = DocumentTemplate(name="路径模板", file_path="templates/x.docx")
         t.file = None
-        t.clean()  # 不应抛异常
+        assert t.clean() is None  # 不应抛异常
 
     def test_template_type_display_contract_with_sub(self):
         t = DocumentTemplate.objects.create(
@@ -155,18 +154,14 @@ class TestDocumentTemplate:
 class TestGenerationTask:
     def test_str_with_case(self):
         case = CaseFactory(name="测试案件")
-        task = GenerationTask.objects.create(
-            case=case, document_type="起诉状", status=GenerationStatus.PENDING
-        )
+        task = GenerationTask.objects.create(case=case, document_type="起诉状", status=GenerationStatus.PENDING)
         result = str(task)
         assert "测试案件" in result
         assert "起诉状" in result
 
     def test_str_with_contract(self):
         contract = ContractFactory(name="测试合同")
-        task = GenerationTask.objects.create(
-            contract=contract, document_type="合同", status=GenerationStatus.COMPLETED
-        )
+        task = GenerationTask.objects.create(contract=contract, document_type="合同", status=GenerationStatus.COMPLETED)
         result = str(task)
         assert "测试合同" in result
 
@@ -187,8 +182,9 @@ class TestGenerationTask:
         assert task.duration_seconds == 0
 
     def test_duration_seconds_with_times(self):
-        from django.utils import timezone
         from datetime import timedelta
+
+        from django.utils import timezone
 
         now = timezone.now()
         task = GenerationTask(created_at=now, completed_at=now + timedelta(seconds=60))

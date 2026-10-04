@@ -52,6 +52,7 @@ class TestBrowserProfile:
 
     def test_from_env(self):
         import os
+
         from apps.core.services.browser.profiles import BrowserProfile
 
         with patch.dict(os.environ, {"BROWSER_TEST_HEADLESS": "false"}):
@@ -73,7 +74,7 @@ class TestBrowserProfile:
             assert p.name == "default"
 
     def test_register_profile(self):
-        from apps.core.services.browser.profiles import BrowserProfile, register_profile, get_profile
+        from apps.core.services.browser.profiles import BrowserProfile, get_profile, register_profile
 
         custom = BrowserProfile(name="custom_test_xyz")
         register_profile(custom)
@@ -108,7 +109,7 @@ class TestCleanup:
         from apps.core.services.browser.launcher import _cleanup
 
         # Should not raise
-        _cleanup(None, None, None)
+        assert _cleanup(None, None, None) is None
 
     def test_cleanup_with_mock_objects(self):
         from apps.core.services.browser.launcher import _cleanup
@@ -126,5 +127,7 @@ class TestCleanup:
 
         page = MagicMock()
         page.close.side_effect = Exception("fail")
-        _cleanup(page, None, None)
+        # close 抛异常时 _cleanup 吞掉异常并继续
+        assert _cleanup(page, None, None) is None
+        page.close.assert_called_once_with()
         # Should not raise

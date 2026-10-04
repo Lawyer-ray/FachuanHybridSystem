@@ -250,7 +250,7 @@ class TestConfigManager:
 
     def test_set_schema(self) -> None:
         schema = MagicMock(spec=ConfigSchema)
-        self.mgr.set_schema(schema)
+        assert self.mgr.set_schema(schema) is None
         # Should not raise
 
     def test_nested_config_merge(self) -> None:

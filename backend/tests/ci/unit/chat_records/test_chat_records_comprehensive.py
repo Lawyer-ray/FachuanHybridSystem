@@ -15,7 +15,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ==================== Choices ====================
 
 
@@ -158,14 +157,14 @@ class TestChatRecordSchemas:
     def test_screenshot_out_resolve_image_url_error(self):
         from apps.chat_records.schemas import ScreenshotOut
 
-        mock_image = MagicMock(type=property(lambda self: 1/0))
-        mock_image.url = property(lambda self: 1/0)
-        obj = SimpleNamespace(image=mock_image, id=1)
-        # The url property itself would raise, but our implementation handles it
-        try:
-            result = ScreenshotOut.resolve_image_url(obj)
-        except ZeroDivisionError:
-            result = ""  # Expected since the mock raises on .url access
+        class _BoomImage:
+            @property
+            def url(self):
+                raise ZeroDivisionError("boom")
+
+        obj = SimpleNamespace(image=_BoomImage(), id=1)
+        # url 属性抛异常时 resolve_image_url 应吞掉异常并返回空串
+        assert ScreenshotOut.resolve_image_url(obj) == ""
         # Either way the function handles errors gracefully
 
     def test_recording_out_resolve_video_url_no_video(self):
@@ -239,7 +238,7 @@ class TestChatRecordAccessPolicy:
         user.is_superuser = True
         # Admin user should pass without error
         with patch("apps.chat_records.services.core.access_policy.is_admin_user", return_value=True):
-            ensure_can_access_project(user=user, project=MagicMock())
+            assert ensure_can_access_project(user=user, project=MagicMock()) is None
 
     def test_ensure_can_access_no_user(self):
         from apps.chat_records.services.core.access_policy import ensure_can_access_project
@@ -263,7 +262,8 @@ class TestChatRecordAccessPolicy:
         user = SimpleNamespace(is_authenticated=True, id=1, is_superuser=False)
         project = SimpleNamespace(created_by_id=1)
         with patch("apps.chat_records.services.core.access_policy.is_admin_user", return_value=False):
-            ensure_can_access_project(user=user, project=project)
+            # 创建者本人可访问
+            assert ensure_can_access_project(user=user, project=project) is None
 
     def test_ensure_can_access_non_owner(self):
         from apps.chat_records.services.core.access_policy import ensure_can_access_project

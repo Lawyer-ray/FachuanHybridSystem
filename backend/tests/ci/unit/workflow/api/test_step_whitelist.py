@@ -35,20 +35,24 @@ class TestValidateStepsForUser:
             _validate_steps_for_user(_user(is_superuser=False), [_step(type="http")])
 
     def test_http_type_allowed_for_superuser(self) -> None:
-        _validate_steps_for_user(_user(is_superuser=True), [_step(type="http")])
+        # 超管使用 http 类型静默通过（返回 None）
+        assert _validate_steps_for_user(_user(is_superuser=True), [_step(type="http")]) is None
 
     def test_mcp_tool_field_bypass_blocked(self) -> None:
         """复审关键用例：type 合法但携带 mcp_tool 字段，非超管必须被拒。"""
         with pytest.raises(ValidationException):
-            _validate_steps_for_user(
-                _user(is_superuser=False), [_step(type="llm", mcp_tool="get_case")]
-            )
+            _validate_steps_for_user(_user(is_superuser=False), [_step(type="llm", mcp_tool="get_case")])
 
     def test_mcp_tool_field_allowed_for_superuser(self) -> None:
-        _validate_steps_for_user(_user(is_superuser=True), [_step(type="llm", mcp_tool="get_case")])
+        # 超管携带 mcp_tool 字段静默通过
+        assert _validate_steps_for_user(_user(is_superuser=True), [_step(type="llm", mcp_tool="get_case")]) is None
 
     def test_safe_types_pass(self) -> None:
-        _validate_steps_for_user(
-            _user(is_superuser=False),
-            [_step(type="activity"), _step(type="gate"), _step(type="llm")],
+        # 普通用户的安全类型组合静默通过
+        assert (
+            _validate_steps_for_user(
+                _user(is_superuser=False),
+                [_step(type="activity"), _step(type="gate"), _step(type="llm")],
+            )
+            is None
         )

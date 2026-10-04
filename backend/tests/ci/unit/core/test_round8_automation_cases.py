@@ -10,6 +10,7 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -147,7 +148,7 @@ class TestCaseCommandService:
 
     def test_validate_contract_no_service(self):
         svc = CaseCommandService(contract_service=None)
-        svc._validate_contract(1)  # Should not raise
+        assert svc._validate_contract(1) is None  # Should not raise（无服务时跳过校验）
 
     def test_validate_contract_not_found(self):
         mock_cs = MagicMock()
@@ -295,6 +296,7 @@ class TestSegmentDetector:
 class TestJudgmentPdfExtractor:
     def setup_method(self):
         from apps.documents.services.extractors.judgment_pdf_extractor import JudgmentPdfExtractor
+
         self.extractor = JudgmentPdfExtractor()
 
     def test_extract_case_number(self):
@@ -352,7 +354,6 @@ class TestJudgmentPdfExtractor:
         # normalized = "HelloWorld" (no space), index 5 = "W" in normalized -> position 6 in original
         result = self.extractor._map_normalized_to_original(original, 5)
         assert original[result] == "W"
-
 
     def test_end_keywords(self):
         assert len(self.extractor.END_KEYWORDS) > 0

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -63,9 +63,7 @@ class TestCaseFolderBindingServiceAccessPolicy:
     def test_access_policy_created_lazily(self) -> None:
         from apps.cases.services.template.folder_binding_service import CaseFolderBindingService
 
-        with patch(
-            "apps.cases.services.template.folder_binding_service.CaseAccessPolicy"
-        ) as mock_policy_cls:
+        with patch("apps.cases.services.template.folder_binding_service.CaseAccessPolicy") as mock_policy_cls:
             mock_policy_cls.return_value = MagicMock()
             svc = CaseFolderBindingService()
             policy = svc.access_policy
@@ -101,8 +99,8 @@ class TestCaseFolderBindingServiceRequireAdmin:
         ctx = MagicMock()
         ctx.user = MagicMock()
         ctx.user.is_authenticated = True
-        # Should not raise
-        svc.require_admin(ctx)
+        # 已认证用户静默通过（返回 None，不抛 PermissionDenied）
+        assert svc.require_admin(ctx) is None
 
 
 class TestCaseFolderBindingServiceGetCaseInternal:

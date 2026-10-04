@@ -18,17 +18,8 @@ from apps.documents.models.choices import (
     DocumentContractType,
     DocumentTemplateType,
 )
-from apps.documents.models.document_template import (
-    DocumentTemplate,
-    DocumentTemplateFolderBinding,
-)
-from apps.documents.models.generation import (
-    GenerationConfig,
-    GenerationMethod,
-    GenerationStatus,
-    GenerationTask,
-)
-
+from apps.documents.models.document_template import DocumentTemplate, DocumentTemplateFolderBinding
+from apps.documents.models.generation import GenerationConfig, GenerationMethod, GenerationStatus, GenerationTask
 
 # ---------------------------------------------------------------------------
 # Generation enums
@@ -240,13 +231,13 @@ class TestDocumentTemplate:
         tpl = self._make_tpl(name="test")
         tpl.file = MagicMock()  # type: ignore[attr-defined]
         tpl.file_path = ""
-        tpl.clean()  # should not raise
+        assert tpl.clean() is None  # should not raise
 
     def test_clean_with_path_only(self) -> None:
         tpl = self._make_tpl(name="test")
         tpl.file = None  # type: ignore[attr-defined]
         tpl.file_path = "/templates/test.docx"
-        tpl.clean()  # should not raise
+        assert tpl.clean() is None  # should not raise
 
     def test_get_file_location_with_file(self) -> None:
         mock_file = MagicMock()
@@ -374,9 +365,7 @@ class TestDocumentTemplateFolderBinding:
     def test_find_node_path(self) -> None:
         binding = DocumentTemplateFolderBinding.__new__(DocumentTemplateFolderBinding)
         children = [
-            {"id": "a", "name": "Level1", "children": [
-                {"id": "b", "name": "Level2", "children": []}
-            ]},
+            {"id": "a", "name": "Level1", "children": [{"id": "b", "name": "Level2", "children": []}]},
             {"id": "c", "name": "Other", "children": []},
         ]
         result = binding._find_node_path(children, "b", [])

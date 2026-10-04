@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from apps.contracts.models.finalized_material import MaterialCategory
-
 
 # ============================================================
 # get_template_items
@@ -21,10 +20,22 @@ class TestGetTemplateItems:
         from apps.contracts.services.archive.checklist.checklist_query import get_template_items
 
         checklist = [
-            {"code": "t1", "name": "封面", "template": "case_cover", "required": True, "auto_detect": None,
-             "source": "template"},
-            {"code": "t2", "name": "正本", "template": None, "required": True, "auto_detect": None,
-             "source": "contract"},
+            {
+                "code": "t1",
+                "name": "封面",
+                "template": "case_cover",
+                "required": True,
+                "auto_detect": None,
+                "source": "template",
+            },
+            {
+                "code": "t2",
+                "name": "正本",
+                "template": None,
+                "required": True,
+                "auto_detect": None,
+                "source": "contract",
+            },
         ]
         with patch(
             "apps.contracts.services.archive.checklist.checklist_query.ARCHIVE_CHECKLIST",
@@ -38,8 +49,14 @@ class TestGetTemplateItems:
         from apps.contracts.services.archive.checklist.checklist_query import get_template_items
 
         checklist = [
-            {"code": "t1", "name": "正本", "template": None, "required": True, "auto_detect": None,
-             "source": "contract"},
+            {
+                "code": "t1",
+                "name": "正本",
+                "template": None,
+                "required": True,
+                "auto_detect": None,
+                "source": "contract",
+            },
         ]
         with patch(
             "apps.contracts.services.archive.checklist.checklist_query.ARCHIVE_CHECKLIST",
@@ -71,10 +88,22 @@ class TestGetAutoDetectItems:
         from apps.contracts.services.archive.checklist.checklist_query import get_auto_detect_items
 
         checklist = [
-            {"code": "a1", "name": "合同正本", "template": None, "required": True, "auto_detect": "filename",
-             "source": "contract"},
-            {"code": "a2", "name": "其他", "template": None, "required": False, "auto_detect": None,
-             "source": "upload"},
+            {
+                "code": "a1",
+                "name": "合同正本",
+                "template": None,
+                "required": True,
+                "auto_detect": "filename",
+                "source": "contract",
+            },
+            {
+                "code": "a2",
+                "name": "其他",
+                "template": None,
+                "required": False,
+                "auto_detect": None,
+                "source": "upload",
+            },
         ]
         with patch(
             "apps.contracts.services.archive.checklist.checklist_query.ARCHIVE_CHECKLIST",
@@ -88,8 +117,14 @@ class TestGetAutoDetectItems:
         from apps.contracts.services.archive.checklist.checklist_query import get_auto_detect_items
 
         checklist = [
-            {"code": "a1", "name": "其他", "template": None, "required": False, "auto_detect": None,
-             "source": "upload"},
+            {
+                "code": "a1",
+                "name": "其他",
+                "template": None,
+                "required": False,
+                "auto_detect": None,
+                "source": "upload",
+            },
         ]
         with patch(
             "apps.contracts.services.archive.checklist.checklist_query.ARCHIVE_CHECKLIST",
@@ -218,7 +253,8 @@ class TestApplySubitemOrder:
     def test_no_details_no_error(self) -> None:
         from apps.contracts.services.archive.checklist.checklist_query import _apply_subitem_order
 
-        _apply_subitem_order({})
+        # 空明细应为 no-op（返回 None，不抛异常）
+        assert _apply_subitem_order({}) is None
 
     def test_single_detail_no_reorder(self) -> None:
         from apps.contracts.services.archive.checklist.checklist_query import _apply_subitem_order
@@ -282,8 +318,14 @@ class TestGetChecklistWithStatus:
         mock_contract.case_type = "civil"
 
         checklist = [
-            {"code": "c1", "name": "合同正本", "source": "contract", "template": None,
-             "required": True, "auto_detect": None},
+            {
+                "code": "c1",
+                "name": "合同正本",
+                "source": "contract",
+                "template": None,
+                "required": True,
+                "auto_detect": None,
+            },
         ]
 
         with (
@@ -295,9 +337,7 @@ class TestGetChecklistWithStatus:
                 "apps.contracts.services.archive.checklist.checklist_query.ARCHIVE_CHECKLIST",
                 {"litigation": checklist},
             ),
-            patch(
-                "apps.contracts.services.archive.checklist.checklist_query.FinalizedMaterial"
-            ) as mock_fm,
+            patch("apps.contracts.services.archive.checklist.checklist_query.FinalizedMaterial") as mock_fm,
             patch(
                 "apps.contracts.services.archive.checklist.checklist_query.map_contract_materials",
                 return_value={},
@@ -333,8 +373,14 @@ class TestGetChecklistWithStatus:
         mock_contract.case_type = "civil"
 
         checklist = [
-            {"code": "c1", "name": "合同正本", "source": "contract", "template": None,
-             "required": True, "auto_detect": None},
+            {
+                "code": "c1",
+                "name": "合同正本",
+                "source": "contract",
+                "template": None,
+                "required": True,
+                "auto_detect": None,
+            },
         ]
 
         with (
@@ -346,9 +392,7 @@ class TestGetChecklistWithStatus:
                 "apps.contracts.services.archive.checklist.checklist_query.ARCHIVE_CHECKLIST",
                 {"litigation": checklist},
             ),
-            patch(
-                "apps.contracts.services.archive.checklist.checklist_query.FinalizedMaterial"
-            ) as mock_fm,
+            patch("apps.contracts.services.archive.checklist.checklist_query.FinalizedMaterial") as mock_fm,
             patch(
                 "apps.contracts.services.archive.checklist.checklist_query.map_contract_materials",
                 return_value={},

@@ -33,17 +33,19 @@ def _seed_feishu_config() -> None:
     from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
 
     prefix = PROVIDER_SPECS["feishu"]["prefix"]
-    SystemConfig.objects.bulk_create([
-        SystemConfig(key=f"{prefix}APP_ID", value="cli_test", category="social_auth"),
-        SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth"),
-        SystemConfig(
-            key=f"{prefix}REDIRECT_URI",
-            value="http://testserver/social/feishu/callback/",
-            category="social_auth",
-        ),
-        SystemConfig(key="FEISHU_APP_ID", value="cli_shared", category="feishu"),
-        SystemConfig(key="FEISHU_APP_SECRET", value="borrowed-secret-placeholder", category="feishu"),
-    ])
+    SystemConfig.objects.bulk_create(
+        [
+            SystemConfig(key=f"{prefix}APP_ID", value="cli_test", category="social_auth"),
+            SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth"),
+            SystemConfig(
+                key=f"{prefix}REDIRECT_URI",
+                value="http://testserver/social/feishu/callback/",
+                category="social_auth",
+            ),
+            SystemConfig(key="FEISHU_APP_ID", value="cli_shared", category="feishu"),
+            SystemConfig(key="FEISHU_APP_SECRET", value="borrowed-secret-placeholder", category="feishu"),
+        ]
+    )
     ProviderRegistry.clear_configs()
 
 
@@ -108,7 +110,8 @@ class TestTokenExchange:
 
     def test_token_exchange_invalid_code(self, api_client: Any) -> None:
         resp = api_client.post(
-            "/api/v1/social/token-exchange", data={"code": "00000000-0000-0000-0000-000000000000"},
+            "/api/v1/social/token-exchange",
+            data={"code": "00000000-0000-0000-0000-000000000000"},
             content_type="application/json",
         )
         assert resp.status_code == 200
@@ -149,6 +152,10 @@ class TestBindingEndpoints:
     def test_bindings_requires_auth(self, api_client: Any) -> None:
         resp = api_client.get("/api/v1/social/bindings")
         assert resp.status_code == 401
+        body = resp.json()
+        assert body["code"] == "HTTP_ERROR"
+        assert body["message"] == "Unauthorized"  # 有明确错误信息
+        assert "accounts" not in body  # 未认证不泄露任何绑定数据
 
     def test_bindings_lists_sorted_accounts(self, authenticated_client: Any) -> None:
         from apps.organization.models import Lawyer
@@ -188,6 +195,10 @@ class TestProviderCatalog:
     def test_provider_catalog_requires_auth(self, api_client: Any) -> None:
         resp = api_client.get("/api/v1/social/provider-catalog")
         assert resp.status_code == 401
+        body = resp.json()
+        assert body["code"] == "HTTP_ERROR"
+        assert body["message"] == "Unauthorized"
+        assert "providers" not in body  # 未认证不泄露提供商目录
 
     def test_provider_catalog_lists_disabled_as_gray(self, authenticated_client: Any, feishu_enabled: Any) -> None:
         resp = authenticated_client.get("/api/v1/social/provider-catalog")

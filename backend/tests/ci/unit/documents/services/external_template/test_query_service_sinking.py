@@ -41,7 +41,8 @@ def test_superuser_bypasses_query() -> None:
 def test_all_owned_passes() -> None:
     with patch(f"{MODULE}.ExternalTemplate") as mock_model:
         mock_model.objects = _manager_owning({1, 2})
-        ensure_templates_owned([1, 2], _user())  # 不抛异常
+        assert ensure_templates_owned([1, 2], _user()) is None  # 不抛异常
+        mock_model.objects.filter.assert_called_once()
 
 
 def test_foreign_templates_rejected() -> None:

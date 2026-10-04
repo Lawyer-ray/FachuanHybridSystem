@@ -1,4 +1,5 @@
 """Coverage tests for litigation consumer."""
+
 from __future__ import annotations
 
 import json
@@ -39,9 +40,13 @@ class TestLitigationConsumerDisconnect:
         consumer = LitigationConsumer.__new__(LitigationConsumer)
         consumer.__init__()
         consumer.session_id = None
+        consumer.channel_layer = AsyncMock()
+        consumer.channel_name = "test-channel"
 
-        # Should not raise
-        await consumer.disconnect(1000)
+        # 无 session 时直接跳过，不触碰 channel layer
+        result = await consumer.disconnect(1000)
+        assert result is None
+        consumer.channel_layer.group_discard.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_disconnect_exception(self):
@@ -52,8 +57,10 @@ class TestLitigationConsumerDisconnect:
         consumer.channel_layer.group_discard.side_effect = Exception("channel error")
         consumer.channel_name = "test-channel"
 
-        # Should not raise
-        await consumer.disconnect(1000)
+        # channel 异常被吞掉，不向上抛
+        result = await consumer.disconnect(1000)
+        assert result is None
+        consumer.channel_layer.group_discard.assert_called_once()
 
 
 class TestLitigationConsumerSendMessage:

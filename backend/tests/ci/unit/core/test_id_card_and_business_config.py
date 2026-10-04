@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from apps.core.utils.id_card_utils import IdCardUtils, IdCardInfo, ID_CARD_WEIGHTS, ID_CARD_CHECK_CODES
+from apps.core.utils.id_card_utils import ID_CARD_CHECK_CODES, ID_CARD_WEIGHTS, IdCardInfo, IdCardUtils
 
 
 # ===========================================================================
@@ -164,26 +164,31 @@ class TestIdCardConstants:
 class TestBusinessConfig:
     def test_get_stage_label(self):
         from apps.core.config.business_config import business_config
+
         label = business_config.get_stage_label("first_trial")
         assert label == "一审"
 
     def test_get_stage_label_unknown(self):
         from apps.core.config.business_config import business_config
+
         label = business_config.get_stage_label("nonexistent_stage")
         assert label == "nonexistent_stage"
 
     def test_get_legal_status_label(self):
         from apps.core.config.business_config import business_config
+
         label = business_config.get_legal_status_label("plaintiff")
         assert label == "原告"
 
     def test_get_legal_status_label_unknown(self):
         from apps.core.config.business_config import business_config
+
         label = business_config.get_legal_status_label("nonexistent_status")
         assert label == "nonexistent_status"
 
     def test_get_stages_for_civil(self):
         from apps.core.config.business_config import business_config
+
         stages = business_config.get_stages_for_case_type("civil")
         values = [s[0] for s in stages]
         assert "first_trial" in values
@@ -191,12 +196,14 @@ class TestBusinessConfig:
 
     def test_get_stages_for_none(self):
         from apps.core.config.business_config import business_config
+
         stages = business_config.get_stages_for_case_type(None)
         # Stages with empty applicable_case_types are universal
         assert isinstance(stages, list)
 
     def test_get_legal_statuses_for_civil(self):
         from apps.core.config.business_config import business_config
+
         statuses = business_config.get_legal_statuses_for_case_type("civil")
         values = [s[0] for s in statuses]
         assert "plaintiff" in values
@@ -204,15 +211,18 @@ class TestBusinessConfig:
 
     def test_is_legal_status_valid_for_case_type(self):
         from apps.core.config.business_config import business_config
+
         assert business_config.is_legal_status_valid_for_case_type("plaintiff", "civil") is True
 
     def test_is_stage_valid_for_case_type(self):
         from apps.core.config.business_config import business_config
+
         assert business_config.is_stage_valid_for_case_type("first_trial", "civil") is True
         assert business_config.is_stage_valid_for_case_type("labor_arbitration", "civil") is False
 
     def test_invalidate_config_cache(self):
         from apps.core.config.business_config import business_config
+
         # Should not raise
-        business_config.invalidate_config_cache()
-        business_config.invalidate_config_cache(case_type="civil")
+        assert business_config.invalidate_config_cache() is None
+        assert business_config.invalidate_config_cache(case_type="civil") is None

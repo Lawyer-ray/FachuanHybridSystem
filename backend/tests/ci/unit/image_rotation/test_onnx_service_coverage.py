@@ -1,9 +1,10 @@
 """Coverage tests for onnx_service orientation detection."""
+
 from __future__ import annotations
 
 import struct
-from unittest.mock import MagicMock, patch, mock_open
 from types import SimpleNamespace
+from unittest.mock import MagicMock, mock_open, patch
 
 import numpy as np
 import pytest
@@ -97,7 +98,8 @@ class TestDownloadFromHub:
 
         svc = ONNXOrientationService()
         with patch.dict("sys.modules", {"huggingface_hub": None}):
-            svc._download_from_hub()  # Should not raise
+            # huggingface_hub 不可用时异常被吞掉，静默返回
+            assert svc._download_from_hub() is None
 
     def test_download_exception(self):
         from apps.image_rotation.services.orientation.onnx_service import ONNXOrientationService
@@ -107,7 +109,9 @@ class TestDownloadFromHub:
         mock_hub.hf_hub_download.side_effect = Exception("network error")
 
         with patch.dict("sys.modules", {"huggingface_hub": mock_hub}):
-            svc._download_from_hub()  # Should not raise
+            # 下载失败异常被吞掉，静默返回
+            assert svc._download_from_hub() is None
+        mock_hub.hf_hub_download.assert_called_once()
 
 
 class TestPreprocessImage:
@@ -116,8 +120,9 @@ class TestPreprocessImage:
 
         svc = ONNXOrientationService()
         # Create a small valid PNG in memory
-        from PIL import Image
         import io
+
+        from PIL import Image
 
         img = Image.new("RGB", (100, 100), color=(128, 128, 128))
         buf = io.BytesIO()
@@ -132,8 +137,9 @@ class TestPreprocessImage:
         from apps.image_rotation.services.orientation.onnx_service import ONNXOrientationService
 
         svc = ONNXOrientationService()
-        from PIL import Image
         import io
+
+        from PIL import Image
 
         img = Image.new("RGBA", (50, 50), color=(128, 128, 128, 255))
         buf = io.BytesIO()
@@ -165,8 +171,9 @@ class TestDetectOrientation:
         mock_session.run.return_value = [logits]
         svc._session = mock_session
 
-        from PIL import Image
         import io
+
+        from PIL import Image
 
         img = Image.new("RGB", (100, 100), color=(128, 128, 128))
         buf = io.BytesIO()
@@ -189,8 +196,9 @@ class TestDetectOrientation:
         mock_session.run.return_value = [logits]
         svc._session = mock_session
 
-        from PIL import Image
         import io
+
+        from PIL import Image
 
         img = Image.new("RGB", (100, 100), color=(128, 128, 128))
         buf = io.BytesIO()
@@ -226,8 +234,9 @@ class TestDetectOrientation:
         mock_session.run.return_value = [logits]
         svc._session = mock_session
 
-        from PIL import Image
         import io
+
+        from PIL import Image
 
         img = Image.new("RGB", (100, 100), color=(128, 128, 128))
         buf = io.BytesIO()

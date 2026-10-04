@@ -3,6 +3,7 @@ organization/services/access/org_access_computation_service.py (missing: 1 line)
 organization/services/auth/auth_service.py (missing: 4 lines) +
 organization/services/auth/password_reset_service.py (missing: 16 lines).
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -11,26 +12,30 @@ import pytest
 
 from apps.core.exceptions import AuthenticationError, NotFoundError, PermissionDenied
 
-
 # ── AuthService deep branches ────────────────────────────────────────────
 
 
 class TestAuthServiceDeep:
     def test_login_success(self) -> None:
         from apps.organization.services.auth.auth_service import AuthService
+
         svc = AuthService()
         request = MagicMock()
         # Need to return a real Lawyer instance to pass isinstance check
         from apps.organization.models import Lawyer
+
         mock_user = MagicMock(spec=Lawyer)
         mock_user.is_authenticated = True
-        with patch("apps.organization.services.auth.auth_service.authenticate", return_value=mock_user), \
-             patch("apps.organization.services.auth.auth_service.login") as mock_login:
+        with (
+            patch("apps.organization.services.auth.auth_service.authenticate", return_value=mock_user),
+            patch("apps.organization.services.auth.auth_service.login") as mock_login,
+        ):
             result = svc.login(request, "user", "pass")
             mock_login.assert_called_once()
 
     def test_login_failure(self) -> None:
         from apps.organization.services.auth.auth_service import AuthService
+
         svc = AuthService()
         request = MagicMock()
         with patch("apps.organization.services.auth.auth_service.authenticate", return_value=None):
@@ -39,6 +44,7 @@ class TestAuthServiceDeep:
 
     def test_logout(self) -> None:
         from apps.organization.services.auth.auth_service import AuthService
+
         svc = AuthService()
         request = MagicMock()
         with patch("apps.organization.services.auth.auth_service.logout") as mock_logout:
@@ -48,6 +54,7 @@ class TestAuthServiceDeep:
     @pytest.mark.django_db
     def test_register_first_user_grants_admin(self) -> None:
         from apps.organization.services.auth.auth_service import AuthService
+
         svc = AuthService()
         with patch("apps.organization.services.auth.auth_service.Lawyer") as MockLawyer:
             MockLawyer.objects.exists.return_value = False
@@ -61,6 +68,7 @@ class TestAuthServiceDeep:
     @pytest.mark.django_db
     def test_register_not_first_user(self) -> None:
         from apps.organization.services.auth.auth_service import AuthService
+
         svc = AuthService()
         with patch("apps.organization.services.auth.auth_service.Lawyer") as MockLawyer:
             MockLawyer.objects.exists.return_value = True
@@ -73,6 +81,7 @@ class TestAuthServiceDeep:
     @pytest.mark.django_db
     def test_register_bootstrap_token_required(self) -> None:
         from apps.organization.services.auth.auth_service import AuthService
+
         svc = AuthService()
         with patch("apps.organization.services.auth.auth_service.Lawyer") as MockLawyer:
             MockLawyer.objects.exists.return_value = False
@@ -86,6 +95,7 @@ class TestAuthServiceDeep:
     @pytest.mark.django_db
     def test_auto_register_not_first_user(self) -> None:
         from apps.organization.services.auth.auth_service import AuthService
+
         svc = AuthService()
         with patch("apps.organization.services.auth.auth_service.Lawyer") as MockLawyer:
             MockLawyer.objects.exists.return_value = True
@@ -95,6 +105,7 @@ class TestAuthServiceDeep:
     @pytest.mark.django_db
     def test_auto_register_success(self) -> None:
         from apps.organization.services.auth.auth_service import AuthService
+
         svc = AuthService()
         with patch("apps.organization.services.auth.auth_service.Lawyer") as MockLawyer:
             MockLawyer.objects.exists.return_value = False
@@ -109,6 +120,7 @@ class TestAuthServiceDeep:
 class TestPasswordResetService:
     def test_request_password_reset_no_user(self) -> None:
         from apps.organization.services.auth.password_reset_service import PasswordResetService
+
         with patch("apps.organization.services.auth.password_reset_service.Lawyer") as MockLawyer:
             MockLawyer.objects.filter.return_value.first.return_value = None
             success, msg = PasswordResetService.request_password_reset("noexist@test.com")
@@ -117,8 +129,10 @@ class TestPasswordResetService:
 
     @patch("apps.organization.services.auth.password_reset_service.cache")
     def test_request_password_reset_rate_limited(self, mock_cache: MagicMock) -> None:
-        from apps.organization.services.auth.password_reset_service import PasswordResetService
         from django.utils import timezone
+
+        from apps.organization.services.auth.password_reset_service import PasswordResetService
+
         mock_cache.get.return_value = timezone.now()  # within cooldown
         with patch("apps.organization.services.auth.password_reset_service.Lawyer") as MockLawyer:
             mock_user = MagicMock()
@@ -132,6 +146,7 @@ class TestPasswordResetService:
     @patch("apps.organization.services.auth.password_reset_service.EmailService")
     def test_request_password_reset_email_success(self, mock_email: MagicMock, mock_cache: MagicMock) -> None:
         from apps.organization.services.auth.password_reset_service import PasswordResetService
+
         mock_cache.get.return_value = None  # no rate limit
         mock_email.send_password_reset_email.return_value = True
         with patch("apps.organization.services.auth.password_reset_service.Lawyer") as MockLawyer:
@@ -147,6 +162,7 @@ class TestPasswordResetService:
     @patch("apps.organization.services.auth.password_reset_service.EmailService")
     def test_request_password_reset_email_failure(self, mock_email: MagicMock, mock_cache: MagicMock) -> None:
         from apps.organization.services.auth.password_reset_service import PasswordResetService
+
         mock_cache.get.return_value = None
         mock_email.send_password_reset_email.return_value = False
         with patch("apps.organization.services.auth.password_reset_service.Lawyer") as MockLawyer:
@@ -160,9 +176,11 @@ class TestPasswordResetService:
             assert "邮件发送失败" in msg
 
     def test_verify_reset_token_invalid_uid(self) -> None:
-        from apps.organization.services.auth.password_reset_service import PasswordResetService
         from django.utils.encoding import force_bytes
         from django.utils.http import urlsafe_base64_encode
+
+        from apps.organization.services.auth.password_reset_service import PasswordResetService
+
         # Use a valid base64 but non-existent user ID
         uid = urlsafe_base64_encode(force_bytes(999999))
         with patch("apps.organization.services.auth.password_reset_service.Lawyer") as MockLawyer:
@@ -173,8 +191,11 @@ class TestPasswordResetService:
 
     def test_verify_reset_token_invalid_token(self) -> None:
         from apps.organization.services.auth.password_reset_service import PasswordResetService
-        with patch("apps.organization.services.auth.password_reset_service.Lawyer") as MockLawyer, \
-             patch("apps.organization.services.auth.password_reset_service.password_reset_token_generator") as mock_gen:
+
+        with (
+            patch("apps.organization.services.auth.password_reset_service.Lawyer") as MockLawyer,
+            patch("apps.organization.services.auth.password_reset_service.password_reset_token_generator") as mock_gen,
+        ):
             mock_user = MagicMock()
             mock_user.pk = 1
             MockLawyer.objects.filter.return_value.first.return_value = mock_user
@@ -184,8 +205,11 @@ class TestPasswordResetService:
 
     def test_verify_reset_token_valid(self) -> None:
         from apps.organization.services.auth.password_reset_service import PasswordResetService
-        with patch("apps.organization.services.auth.password_reset_service.Lawyer") as MockLawyer, \
-             patch("apps.organization.services.auth.password_reset_service.password_reset_token_generator") as mock_gen:
+
+        with (
+            patch("apps.organization.services.auth.password_reset_service.Lawyer") as MockLawyer,
+            patch("apps.organization.services.auth.password_reset_service.password_reset_token_generator") as mock_gen,
+        ):
             mock_user = MagicMock()
             mock_user.pk = 1
             MockLawyer.objects.filter.return_value.first.return_value = mock_user
@@ -196,15 +220,23 @@ class TestPasswordResetService:
 
     def test_reset_password_invalid_token(self) -> None:
         from apps.organization.services.auth.password_reset_service import PasswordResetService
-        with patch("apps.organization.services.auth.password_reset_service.PasswordResetService.verify_reset_token") as mock_verify:
+
+        with patch(
+            "apps.organization.services.auth.password_reset_service.PasswordResetService.verify_reset_token"
+        ) as mock_verify:
             mock_verify.return_value = (False, None, "invalid")
             success, msg = PasswordResetService.reset_password("uid", "token", "new_pass")
             assert success is False
 
     def test_reset_password_success(self) -> None:
         from apps.organization.services.auth.password_reset_service import PasswordResetService
-        with patch("apps.organization.services.auth.password_reset_service.PasswordResetService.verify_reset_token") as mock_verify, \
-             patch("apps.organization.services.auth.password_reset_service.EmailService") as mock_email:
+
+        with (
+            patch(
+                "apps.organization.services.auth.password_reset_service.PasswordResetService.verify_reset_token"
+            ) as mock_verify,
+            patch("apps.organization.services.auth.password_reset_service.EmailService") as mock_email,
+        ):
             mock_user = MagicMock()
             mock_user.email = "user@test.com"
             mock_user.username = "testuser"
@@ -216,8 +248,13 @@ class TestPasswordResetService:
 
     def test_reset_password_no_email(self) -> None:
         from apps.organization.services.auth.password_reset_service import PasswordResetService
-        with patch("apps.organization.services.auth.password_reset_service.PasswordResetService.verify_reset_token") as mock_verify, \
-             patch("apps.organization.services.auth.password_reset_service.EmailService") as mock_email:
+
+        with (
+            patch(
+                "apps.organization.services.auth.password_reset_service.PasswordResetService.verify_reset_token"
+            ) as mock_verify,
+            patch("apps.organization.services.auth.password_reset_service.EmailService") as mock_email,
+        ):
             mock_user = MagicMock()
             mock_user.email = None
             mock_user.username = "testuser"
@@ -233,14 +270,16 @@ class TestPasswordResetService:
 class TestOrganizationServiceAdapter:
     def test_lazy_properties(self) -> None:
         from apps.organization.services.organization_service_adapter import OrganizationServiceAdapter
+
         adapter = OrganizationServiceAdapter()
         # Access properties to trigger lazy init
-        _ = adapter.lawfirm_service
-        _ = adapter.team_service
-        _ = adapter.lawyer_service
+        assert adapter.lawfirm_service is not None
+        assert adapter.team_service is not None
+        assert adapter.lawyer_service is not None
 
     def test_get_law_firm_found(self) -> None:
         from apps.organization.services.organization_service_adapter import OrganizationServiceAdapter
+
         adapter = OrganizationServiceAdapter()
         mock_lawfirm = MagicMock()
         adapter._lawfirm_service = MagicMock()
@@ -252,6 +291,7 @@ class TestOrganizationServiceAdapter:
 
     def test_get_law_firm_not_found(self) -> None:
         from apps.organization.services.organization_service_adapter import OrganizationServiceAdapter
+
         adapter = OrganizationServiceAdapter()
         adapter._lawfirm_service = MagicMock()
         adapter._lawfirm_service.get_lawfirm_by_id.return_value = None
@@ -260,6 +300,7 @@ class TestOrganizationServiceAdapter:
 
     def test_get_team_found(self) -> None:
         from apps.organization.services.organization_service_adapter import OrganizationServiceAdapter
+
         adapter = OrganizationServiceAdapter()
         adapter._team_service = MagicMock()
         mock_team = MagicMock()
@@ -271,6 +312,7 @@ class TestOrganizationServiceAdapter:
 
     def test_get_team_not_found(self) -> None:
         from apps.organization.services.organization_service_adapter import OrganizationServiceAdapter
+
         adapter = OrganizationServiceAdapter()
         adapter._team_service = MagicMock()
         adapter._team_service.get_team.side_effect = NotFoundError("not found")
@@ -279,6 +321,7 @@ class TestOrganizationServiceAdapter:
 
     def test_get_default_lawyer_id_admin(self) -> None:
         from apps.organization.services.organization_service_adapter import OrganizationServiceAdapter
+
         adapter = OrganizationServiceAdapter()
         adapter._lawyer_service = MagicMock()
         mock_admin = MagicMock()
@@ -289,6 +332,7 @@ class TestOrganizationServiceAdapter:
 
     def test_get_default_lawyer_id_fallback(self) -> None:
         from apps.organization.services.organization_service_adapter import OrganizationServiceAdapter
+
         adapter = OrganizationServiceAdapter()
         adapter._lawyer_service = MagicMock()
         # No admin found
@@ -301,6 +345,7 @@ class TestOrganizationServiceAdapter:
 
     def test_get_default_lawyer_id_none(self) -> None:
         from apps.organization.services.organization_service_adapter import OrganizationServiceAdapter
+
         adapter = OrganizationServiceAdapter()
         adapter._lawyer_service = MagicMock()
         adapter._lawyer_service.get_lawyer_queryset.return_value.filter.return_value.order_by.return_value.first.return_value = None
@@ -310,6 +355,7 @@ class TestOrganizationServiceAdapter:
 
     def test_has_credential_for_lawyer(self) -> None:
         from apps.organization.services.organization_service_adapter import OrganizationServiceAdapter
+
         adapter = OrganizationServiceAdapter()
         adapter._account_credential_service = MagicMock()
         mock_cred = MagicMock()
@@ -320,6 +366,7 @@ class TestOrganizationServiceAdapter:
 
     def test_get_credential_for_lawyer_found(self) -> None:
         from apps.organization.services.organization_service_adapter import OrganizationServiceAdapter
+
         adapter = OrganizationServiceAdapter()
         adapter._account_credential_service = MagicMock()
         mock_cred = MagicMock()
@@ -332,6 +379,7 @@ class TestOrganizationServiceAdapter:
 
     def test_get_credential_for_lawyer_not_found(self) -> None:
         from apps.organization.services.organization_service_adapter import OrganizationServiceAdapter
+
         adapter = OrganizationServiceAdapter()
         adapter._account_credential_service = MagicMock()
         mock_cred = MagicMock()
@@ -344,6 +392,7 @@ class TestOrganizationServiceAdapter:
 
     def test_internal_methods(self) -> None:
         from apps.organization.services.organization_service_adapter import OrganizationServiceAdapter
+
         adapter = OrganizationServiceAdapter()
         adapter._account_credential_service = MagicMock()
         adapter._account_credential_service.list_all_credentials.return_value = []

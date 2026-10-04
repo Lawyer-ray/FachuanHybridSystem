@@ -171,7 +171,7 @@ class TestFolderPathValidator:
 
         v = self._make()
         # Should not raise
-        v.ensure_within_base(Path("/base"), Path("/base/sub"))
+        assert v.ensure_within_base(Path("/base"), Path("/base/sub")) is None
 
     def test_ensure_within_base_violation(self):
         from apps.core.utils.path import Path

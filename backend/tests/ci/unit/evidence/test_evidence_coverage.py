@@ -28,7 +28,9 @@ class TestEvidenceOCRServiceExtractAndSave:
         with patch("apps.evidence.models.EvidenceItem") as MockItem:
             MockItem.DoesNotExist = type("DoesNotExist", (Exception,), {})
             MockItem.objects.get.side_effect = MockItem.DoesNotExist
-            svc.extract_and_save(999)
+            # 证据项不存在时记日志后静默返回
+            assert svc.extract_and_save(999) is None
+            MockItem.objects.get.assert_called_once_with(pk=999)
 
     def test_item_no_file(self):
         from apps.evidence.services.ai.evidence_ocr_service import EvidenceOCRService
@@ -206,7 +208,9 @@ class TestEvidenceMergeUseCase:
         uc = EvidenceMergeUseCase()
         with patch("apps.evidence.models.EvidenceList") as MockList:
             MockList.DoesNotExist = type("DoesNotExist", (Exception,), {})
-            MockList.objects.select_for_update.return_value.select_related.return_value.get.side_effect = MockList.DoesNotExist
+            MockList.objects.select_for_update.return_value.select_related.return_value.get.side_effect = (
+                MockList.DoesNotExist
+            )
 
             with patch("apps.evidence.services.mutation.evidence_merge_usecase.transaction") as mock_tx:
                 mock_tx.atomic.return_value.__enter__ = MagicMock()
@@ -242,7 +246,9 @@ class TestEvidenceWiring:
     def test_get_evidence_list_placeholder_service(self):
         from apps.evidence.services.wiring import get_evidence_list_placeholder_service
 
-        with patch("apps.evidence.services.admin.evidence_list_placeholder_service.EvidenceListPlaceholderService") as MockSvc:
+        with patch(
+            "apps.evidence.services.admin.evidence_list_placeholder_service.EvidenceListPlaceholderService"
+        ) as MockSvc:
             mock_instance = MagicMock()
             MockSvc.return_value = mock_instance
             result = get_evidence_list_placeholder_service()

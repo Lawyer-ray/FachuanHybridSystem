@@ -40,6 +40,7 @@ from apps.documents.services.external_template.analysis_service import AnalysisS
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_service(**kwargs: Any) -> AnalysisService:
     defaults = {
         "fingerprint_service": MagicMock(),
@@ -77,7 +78,7 @@ class TestInit:
 class TestValidateFile:
     def test_valid(self) -> None:
         svc = _make_service()
-        svc._validate_file(_make_file("doc.docx"))
+        assert svc._validate_file(_make_file("doc.docx")) is None
 
     def test_non_docx(self) -> None:
         svc = _make_service()
@@ -101,7 +102,7 @@ class TestValidateParseable:
     def test_valid(self) -> None:
         svc = _make_service()
         with patch("docx.Document"):
-            svc._validate_parseable(Path("/tmp/test.docx"))
+            assert svc._validate_parseable(Path("/tmp/test.docx")) is None
 
     def test_invalid(self) -> None:
         svc = _make_service()
@@ -113,8 +114,10 @@ class TestValidateParseable:
 class TestSaveFile:
     def test_saves_file(self, tmp_path: Any) -> None:
         svc = _make_service()
-        with patch("apps.documents.services.external_template.analysis_service.settings") as mock_settings, \
-             patch("apps.documents.services.external_template.analysis_service.default_storage") as mock_storage:
+        with (
+            patch("apps.documents.services.external_template.analysis_service.settings") as mock_settings,
+            patch("apps.documents.services.external_template.analysis_service.default_storage") as mock_storage,
+        ):
             mock_settings.MEDIA_ROOT = str(tmp_path)
             mock_storage.save.return_value = "documents/external_templates/1/test-uuid.docx"
             f = _make_file()
@@ -127,7 +130,9 @@ class TestHandleVersioning:
     def test_first_version(self) -> None:
         svc = _make_service()
         with patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl:
-            mock_tpl.objects.filter.return_value.order_by.return_value.values_list.return_value.first.return_value = None
+            mock_tpl.objects.filter.return_value.order_by.return_value.values_list.return_value.first.return_value = (
+                None
+            )
             mock_tpl.objects.filter.return_value.filter.return_value.update.return_value = 0
             version, deactivated = svc._handle_versioning(law_firm_id=1, source_name="src")
         assert version == 1
@@ -149,12 +154,17 @@ class TestUploadTemplate:
         uploaded_by = MagicMock()
         uploaded_by.law_firm_id = 1
 
-        with patch.object(svc, "_validate_file"), \
-             patch.object(svc, "_save_file", return_value=(Path("/tmp/x.docx"), "rel/doc.docx")), \
-             patch.object(svc, "_validate_parseable"), \
-             patch.object(svc, "_handle_versioning", return_value=(1, 0)), \
-             patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl, \
-             patch("django.db.transaction.atomic", side_effect=lambda: MagicMock(__enter__=lambda s: None, __exit__=lambda *a: None)):
+        with (
+            patch.object(svc, "_validate_file"),
+            patch.object(svc, "_save_file", return_value=(Path("/tmp/x.docx"), "rel/doc.docx")),
+            patch.object(svc, "_validate_parseable"),
+            patch.object(svc, "_handle_versioning", return_value=(1, 0)),
+            patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl,
+            patch(
+                "django.db.transaction.atomic",
+                side_effect=lambda: MagicMock(__enter__=lambda s: None, __exit__=lambda *a: None),
+            ),
+        ):
             mock_tpl.objects.create.return_value = MagicMock(id=1, name="tpl", version=1)
             result = svc.upload_template(_make_file(), "tpl", "src", uploaded_by)
 
@@ -175,9 +185,11 @@ class TestUploadTemplate:
         fake_path = tmp_path / "test.docx"
         fake_path.write_bytes(b"bad")
 
-        with patch.object(svc, "_validate_file"), \
-             patch.object(svc, "_save_file", return_value=(fake_path, "rel/doc.docx")), \
-             patch.object(svc, "_validate_parseable", side_effect=ValidationError("unparseable")):
+        with (
+            patch.object(svc, "_validate_file"),
+            patch.object(svc, "_save_file", return_value=(fake_path, "rel/doc.docx")),
+            patch.object(svc, "_validate_parseable", side_effect=ValidationError("unparseable")),
+        ):
             with pytest.raises(ValidationError):
                 svc.upload_template(_make_file(), "tpl", "src", uploaded_by)
         assert not fake_path.exists()
@@ -249,7 +261,7 @@ class TestExtractCheckboxes:
 
     def test_w14_checkbox(self) -> None:
         svc = _make_service()
-        xml = '''<root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+        xml = """<root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
                         xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml">
             <w:sdt>
                 <w:sdtPr>
@@ -261,7 +273,7 @@ class TestExtractCheckboxes:
                     <w:r><w:t>Option A</w:t></w:r>
                 </w:sdtContent>
             </w:sdt>
-        </root>'''
+        </root>"""
         doc = MagicMock()
         doc.element.xml = xml
         result = svc._extract_checkboxes(doc)
@@ -271,7 +283,7 @@ class TestExtractCheckboxes:
 
     def test_unchecked_checkbox(self) -> None:
         svc = _make_service()
-        xml = '''<root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+        xml = """<root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
                         xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml">
             <w:sdt>
                 <w:sdtPr>
@@ -281,7 +293,7 @@ class TestExtractCheckboxes:
                     <w:r><w:t>Opt</w:t></w:r>
                 </w:sdtContent>
             </w:sdt>
-        </root>'''
+        </root>"""
         doc = MagicMock()
         doc.element.xml = xml
         result = svc._extract_checkboxes(doc)
@@ -364,7 +376,13 @@ class TestCreateFieldMappings:
     def test_paragraph_type(self) -> None:
         svc = _make_service()
         template = MagicMock()
-        mappings = [{"position_locator": {"type": "paragraph", "paragraph_index": 0}, "semantic_label": "name", "fill_type": "text"}]
+        mappings = [
+            {
+                "position_locator": {"type": "paragraph", "paragraph_index": 0},
+                "semantic_label": "name",
+                "fill_type": "text",
+            }
+        ]
 
         with patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm:
             mock_fm.objects.create.return_value = MagicMock()
@@ -377,7 +395,13 @@ class TestCreateFieldMappings:
     def test_table_cell_type(self) -> None:
         svc = _make_service()
         template = MagicMock()
-        mappings = [{"position_locator": {"type": "table_cell", "table_index": 1, "row": 2, "col": 3}, "semantic_label": "val", "fill_type": "text"}]
+        mappings = [
+            {
+                "position_locator": {"type": "table_cell", "table_index": 1, "row": 2, "col": 3},
+                "semantic_label": "val",
+                "fill_type": "text",
+            }
+        ]
 
         with patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm:
             mock_fm.objects.create.return_value = MagicMock()
@@ -389,7 +413,13 @@ class TestCreateFieldMappings:
     def test_checkbox_type(self) -> None:
         svc = _make_service()
         template = MagicMock()
-        mappings = [{"position_locator": {"type": "checkbox", "checkbox_index": 0}, "semantic_label": "chk", "fill_type": "checkbox"}]
+        mappings = [
+            {
+                "position_locator": {"type": "checkbox", "checkbox_index": 0},
+                "semantic_label": "chk",
+                "fill_type": "checkbox",
+            }
+        ]
 
         with patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm:
             mock_fm.objects.create.return_value = MagicMock()
@@ -401,7 +431,13 @@ class TestCreateFieldMappings:
     def test_invalid_fill_type_fallback(self) -> None:
         svc = _make_service()
         template = MagicMock()
-        mappings = [{"position_locator": {"type": "paragraph", "paragraph_index": 0}, "semantic_label": "x", "fill_type": "invalid_type"}]
+        mappings = [
+            {
+                "position_locator": {"type": "paragraph", "paragraph_index": 0},
+                "semantic_label": "x",
+                "fill_type": "invalid_type",
+            }
+        ]
 
         with patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm:
             mock_fm.objects.create.return_value = MagicMock()
@@ -416,8 +452,12 @@ class TestCopyMappingsFrom:
         svc = _make_service()
         source = MagicMock()
         target = MagicMock()
-        m1 = MagicMock(position_locator={}, position_description="p1", semantic_label="l1", fill_type="text", sort_order=0)
-        m2 = MagicMock(position_locator={}, position_description="p2", semantic_label="l2", fill_type="checkbox", sort_order=1)
+        m1 = MagicMock(
+            position_locator={}, position_description="p1", semantic_label="l1", fill_type="text", sort_order=0
+        )
+        m2 = MagicMock(
+            position_locator={}, position_description="p2", semantic_label="l2", fill_type="checkbox", sort_order=1
+        )
 
         with patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm:
             mock_fm.objects.filter.return_value = [m1, m2]
@@ -446,12 +486,18 @@ class TestAnalyzeTemplate:
             mock_tpl_obj.pk = 1
             mock_tpl_obj.file_path = "doc.docx"
 
-            with patch.object(svc, "extract_structure", return_value={"paragraphs": []}), \
-                 patch.object(svc._fingerprint_service, "compute_fingerprint", return_value="fp123"), \
-                 patch.object(svc._fingerprint_service, "find_matching_template", return_value=None), \
-                 patch.object(svc, "_build_llm_prompt", return_value="prompt"), \
-                 patch.object(svc._llm_service, "complete", return_value=MagicMock(content='[{"semantic_label":"x","fill_type":"text","position_locator":{}}]')), \
-                 patch.object(svc, "_create_field_mappings", return_value=[MagicMock()]):
+            with (
+                patch.object(svc, "extract_structure", return_value={"paragraphs": []}),
+                patch.object(svc._fingerprint_service, "compute_fingerprint", return_value="fp123"),
+                patch.object(svc._fingerprint_service, "find_matching_template", return_value=None),
+                patch.object(svc, "_build_llm_prompt", return_value="prompt"),
+                patch.object(
+                    svc._llm_service,
+                    "complete",
+                    return_value=MagicMock(content='[{"semantic_label":"x","fill_type":"text","position_locator":{}}]'),
+                ),
+                patch.object(svc, "_create_field_mappings", return_value=[MagicMock()]),
+            ):
                 result = svc.analyze_template(1)
 
         assert len(result) == 1
@@ -468,10 +514,12 @@ class TestAnalyzeTemplate:
             mock_tpl_obj.pk = 1
             mock_tpl_obj.file_path = "doc.docx"
 
-            with patch.object(svc, "extract_structure", return_value={}), \
-                 patch.object(svc._fingerprint_service, "compute_fingerprint", return_value="fp123"), \
-                 patch.object(svc._fingerprint_service, "find_matching_template", return_value=matched), \
-                 patch.object(svc, "_copy_mappings_from", return_value=[MagicMock()]):
+            with (
+                patch.object(svc, "extract_structure", return_value={}),
+                patch.object(svc._fingerprint_service, "compute_fingerprint", return_value="fp123"),
+                patch.object(svc._fingerprint_service, "find_matching_template", return_value=matched),
+                patch.object(svc, "_copy_mappings_from", return_value=[MagicMock()]),
+            ):
                 result = svc.analyze_template(1)
 
         assert len(result) == 1
@@ -486,12 +534,14 @@ class TestAnalyzeTemplate:
             mock_tpl.objects.get.return_value = mock_tpl_obj
             mock_tpl_obj.file_path = "doc.docx"
 
-            with patch.object(svc, "extract_structure", return_value={}), \
-                 patch.object(svc._fingerprint_service, "compute_fingerprint", return_value="fp123"), \
-                 patch.object(svc._fingerprint_service, "find_matching_template", return_value=mock_tpl_obj), \
-                 patch.object(svc, "_build_llm_prompt", return_value="prompt"), \
-                 patch.object(svc._llm_service, "complete", return_value=MagicMock(content='[]')), \
-                 patch.object(svc, "_create_field_mappings", return_value=[]):
+            with (
+                patch.object(svc, "extract_structure", return_value={}),
+                patch.object(svc._fingerprint_service, "compute_fingerprint", return_value="fp123"),
+                patch.object(svc._fingerprint_service, "find_matching_template", return_value=mock_tpl_obj),
+                patch.object(svc, "_build_llm_prompt", return_value="prompt"),
+                patch.object(svc._llm_service, "complete", return_value=MagicMock(content="[]")),
+                patch.object(svc, "_create_field_mappings", return_value=[]),
+            ):
                 result = svc.analyze_template(1)
 
         # mapping_source should still be None (self-match was excluded)
@@ -513,8 +563,10 @@ class TestAnalyzeTemplate:
 class TestRetryAnalysis:
     def test_deletes_and_reanalyzes(self) -> None:
         svc = _make_service()
-        with patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm, \
-             patch.object(svc, "analyze_template", return_value=[]) as mock_analyze:
+        with (
+            patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm,
+            patch.object(svc, "analyze_template", return_value=[]) as mock_analyze,
+        ):
             mock_fm.objects.filter.return_value.delete.return_value = (3, {})
             result = svc.retry_analysis(1)
         mock_analyze.assert_called_once_with(1)
@@ -523,8 +575,10 @@ class TestRetryAnalysis:
 class TestCreateManualMapping:
     def test_creates_mapping(self) -> None:
         svc = _make_service()
-        with patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl, \
-             patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm:
+        with (
+            patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl,
+            patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm,
+        ):
             mock_tpl.objects.get.return_value = MagicMock()
             mock_fm.objects.filter.return_value.order_by.return_value.values_list.return_value.first.return_value = 2
             mock_fm.objects.create.return_value = MagicMock()

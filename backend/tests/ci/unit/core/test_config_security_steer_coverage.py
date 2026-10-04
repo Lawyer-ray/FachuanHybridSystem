@@ -79,7 +79,7 @@ class TestConfigSchema:
 
         schema = ConfigSchema()
         schema.register(ConfigField(name="key", type=str, required=True))
-        schema.validate_and_raise({"key": "value"})  # Should not raise
+        assert schema.validate_and_raise({"key": "value"}) is None  # Should not raise
 
     def test_get_suggestions_exact(self):
         from apps.core.config.schema.field import ConfigField

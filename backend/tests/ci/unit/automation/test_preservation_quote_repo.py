@@ -18,7 +18,6 @@ except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
 
-
 # ---------------------------------------------------------------------------
 # validate_create_params
 # ---------------------------------------------------------------------------
@@ -27,18 +26,24 @@ except ImportError:
 class TestValidateCreateParams:
     def _repo(self):
         from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
+
         return PreservationQuoteRepository()
 
     def test_all_valid(self):
-        self._repo().validate_create_params(
-            preserve_amount=Decimal("1000"),
-            corp_id="2550",
-            category_id="127000",
-            credential_id=1,
+        # 全部参数合法时静默通过（返回 None）
+        assert (
+            self._repo().validate_create_params(
+                preserve_amount=Decimal("1000"),
+                corp_id="2550",
+                category_id="127000",
+                credential_id=1,
+            )
+            is None
         )
 
     def test_negative_amount(self):
         from plugins.court_automation.preservation_quote.exceptions import ValidationError
+
         with pytest.raises(ValidationError):
             self._repo().validate_create_params(
                 preserve_amount=Decimal("-1"),
@@ -49,6 +54,7 @@ class TestValidateCreateParams:
 
     def test_zero_amount(self):
         from plugins.court_automation.preservation_quote.exceptions import ValidationError
+
         with pytest.raises(ValidationError):
             self._repo().validate_create_params(
                 preserve_amount=Decimal("0"),
@@ -59,6 +65,7 @@ class TestValidateCreateParams:
 
     def test_empty_corp_id(self):
         from plugins.court_automation.preservation_quote.exceptions import ValidationError
+
         with pytest.raises(ValidationError):
             self._repo().validate_create_params(
                 preserve_amount=Decimal("100"),
@@ -69,6 +76,7 @@ class TestValidateCreateParams:
 
     def test_empty_category_id(self):
         from plugins.court_automation.preservation_quote.exceptions import ValidationError
+
         with pytest.raises(ValidationError):
             self._repo().validate_create_params(
                 preserve_amount=Decimal("100"),
@@ -79,6 +87,7 @@ class TestValidateCreateParams:
 
     def test_invalid_credential_id(self):
         from plugins.court_automation.preservation_quote.exceptions import ValidationError
+
         with pytest.raises(ValidationError):
             self._repo().validate_create_params(
                 preserve_amount=Decimal("100"),
@@ -88,11 +97,15 @@ class TestValidateCreateParams:
             )
 
     def test_none_credential_id_ok(self):
-        self._repo().validate_create_params(
-            preserve_amount=Decimal("100"),
-            corp_id="2550",
-            category_id="127000",
-            credential_id=None,
+        # credential_id 为 None（可选）时静默通过
+        assert (
+            self._repo().validate_create_params(
+                preserve_amount=Decimal("100"),
+                corp_id="2550",
+                category_id="127000",
+                credential_id=None,
+            )
+            is None
         )
 
 
@@ -135,9 +148,7 @@ class TestFinalizeQuote:
         ) as mock_sync:
             mock_sync.return_value = None
             repo = PreservationQuoteRepository()
-            await repo.finalize_quote(
-                quote=quote, success_count=5, failed_count=0, error_message=None
-            )
+            await repo.finalize_quote(quote=quote, success_count=5, failed_count=0, error_message=None)
             assert quote.status == "success"  # QuoteStatus.SUCCESS
 
     @pytest.mark.asyncio
@@ -153,9 +164,7 @@ class TestFinalizeQuote:
         ) as mock_sync:
             mock_sync.return_value = None
             repo = PreservationQuoteRepository()
-            await repo.finalize_quote(
-                quote=quote, success_count=0, failed_count=3, error_message="all fail"
-            )
+            await repo.finalize_quote(quote=quote, success_count=0, failed_count=3, error_message="all fail")
             assert quote.error_message == "all fail"
 
     @pytest.mark.asyncio
@@ -171,9 +180,7 @@ class TestFinalizeQuote:
         ) as mock_sync:
             mock_sync.return_value = None
             repo = PreservationQuoteRepository()
-            await repo.finalize_quote(
-                quote=quote, success_count=0, failed_count=3, error_message=None
-            )
+            await repo.finalize_quote(quote=quote, success_count=0, failed_count=3, error_message=None)
             assert quote.error_message == "所有保险公司查询均失败"
 
     @pytest.mark.asyncio
@@ -189,9 +196,7 @@ class TestFinalizeQuote:
         ) as mock_sync:
             mock_sync.return_value = None
             repo = PreservationQuoteRepository()
-            await repo.finalize_quote(
-                quote=quote, success_count=3, failed_count=2, error_message=None
-            )
+            await repo.finalize_quote(quote=quote, success_count=3, failed_count=2, error_message=None)
             # partial_success status
             assert quote.success_count == 3
             assert quote.failed_count == 2
@@ -270,7 +275,15 @@ class TestSavePremiumResultsCleanDecimal:
                 premium=Decimal("100"),
                 status="success",
                 error_message=None,
-                response_data={"data": {"minPremium": None, "minAmount": "", "maxAmount": "null", "minRate": "0.5", "maxRate": 1000}},
+                response_data={
+                    "data": {
+                        "minPremium": None,
+                        "minAmount": "",
+                        "maxAmount": "null",
+                        "minRate": "0.5",
+                        "maxRate": 1000,
+                    }
+                },
             ),
             SimpleNamespace(
                 company=company,
@@ -281,12 +294,13 @@ class TestSavePremiumResultsCleanDecimal:
             ),
         ]
 
-        with patch(
-            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
-            new_callable=AsyncMock,
-        ) as mock_sync, patch(
-            "plugins.court_automation.preservation_quote.preservation_quote.repo.InsuranceQuote"
-        ) as MockIQ:
+        with (
+            patch(
+                "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
+                new_callable=AsyncMock,
+            ) as mock_sync,
+            patch("plugins.court_automation.preservation_quote.preservation_quote.repo.InsuranceQuote") as MockIQ,
+        ):
             mock_sync.return_value = None
             repo = PreservationQuoteRepository()
             success, failed = await repo.save_premium_results(quote=quote, results=results)
@@ -315,12 +329,13 @@ class TestSavePremiumResultsCleanDecimal:
             ),
         ]
 
-        with patch(
-            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
-            new_callable=AsyncMock,
-        ) as mock_sync, patch(
-            "plugins.court_automation.preservation_quote.preservation_quote.repo.InsuranceQuote"
-        ) as MockIQ:
+        with (
+            patch(
+                "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
+                new_callable=AsyncMock,
+            ) as mock_sync,
+            patch("plugins.court_automation.preservation_quote.preservation_quote.repo.InsuranceQuote") as MockIQ,
+        ):
             mock_sync.return_value = None
             repo = PreservationQuoteRepository()
             success, failed = await repo.save_premium_results(quote=quote, results=results)

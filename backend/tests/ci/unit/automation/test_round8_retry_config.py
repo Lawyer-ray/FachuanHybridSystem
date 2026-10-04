@@ -8,14 +8,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.automation.services.chat.retry_config import (
-    RetryErrorType,
-    RetryStrategy,
-    RetryAttempt,
     ErrorStrategyConfig,
+    RetryAttempt,
     RetryConfig,
+    RetryErrorType,
     RetryManager,
+    RetryStrategy,
 )
-
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -99,13 +98,14 @@ class TestRetryConfig:
             assert config.get_strategy(RetryErrorType.PERMISSION_ERROR) == RetryStrategy.NO_RETRY
 
     def test_get_strategy_unknown(self):
+        from apps.automation.services.chat.retry_config import RetryErrorType, RetryStrategy
+
         with patch("apps.automation.services.chat.retry_config._get_system_config_service") as mock_svc:
             mock_svc.return_value = MagicMock(get_value=MagicMock(return_value=""))
             config = RetryConfig()
-            # When error type is not in error_strategies dict, it falls back to EXPONENTIAL_BACKOFF
-            # But RetryErrorType enum won't accept a random string, so this path can't be hit
-            # via the normal public API. Skip this test.
-            pass
+            # 枚举成员均有显式策略；移除一项后应走默认回退分支（指数退避）
+            config.error_strategies.pop(RetryErrorType.UNKNOWN_ERROR, None)
+            assert config.get_strategy(RetryErrorType.UNKNOWN_ERROR) == RetryStrategy.EXPONENTIAL_BACKOFF
 
     def test_should_retry_enabled(self):
         with patch("apps.automation.services.chat.retry_config._get_system_config_service") as mock_svc:
@@ -116,10 +116,12 @@ class TestRetryConfig:
 
     def test_should_retry_disabled(self):
         with patch("apps.automation.services.chat.retry_config._get_system_config_service") as mock_svc:
+
             def fake_get_value(key, default=""):
                 if key == "FEISHU_OWNER_RETRY_ENABLED":
                     return "false"
                 return ""
+
             mock_svc.return_value = MagicMock(get_value=fake_get_value)
             config = RetryConfig()
             assert config.should_retry(RetryErrorType.NETWORK_ERROR, 0) is False

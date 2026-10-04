@@ -25,6 +25,7 @@ Targets remaining uncovered branches:
 - _update_session_task: with event loop executor path
 - _run_guarantee: success, login failure, guarantee failure, exception, browser hold failure
 """
+
 from __future__ import annotations
 
 import time
@@ -40,7 +41,6 @@ except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
 
-
 # ---------------------------------------------------------------------------
 # _get_case_number — empty filing_number
 # ---------------------------------------------------------------------------
@@ -49,6 +49,7 @@ except ImportError:
 class TestGetCaseNumberEdge:
     def test_empty_filing_number(self):
         from plugins.court_automation.guarantee.helpers import _get_case_number
+
         case = MagicMock()
         case.case_numbers.exclude.return_value.exclude.return_value.values_list.return_value.first.return_value = None
         case.filing_number = ""
@@ -56,6 +57,7 @@ class TestGetCaseNumberEdge:
 
     def test_none_filing_number(self):
         from plugins.court_automation.guarantee.helpers import _get_case_number
+
         case = MagicMock()
         case.case_numbers.exclude.return_value.exclude.return_value.values_list.return_value.first.return_value = None
         case.filing_number = None
@@ -111,18 +113,22 @@ class TestGetCaseCourtNameFallback:
 class TestResolveCourtNameEdge:
     def test_empty_string(self):
         from plugins.court_automation.guarantee.helpers import _resolve_court_name
+
         assert _resolve_court_name("") is None
 
     def test_none(self):
         from plugins.court_automation.guarantee.helpers import _resolve_court_name
+
         assert _resolve_court_name(None) is None
 
     def test_already_has_renfayuan(self):
         from plugins.court_automation.guarantee.helpers import _resolve_court_name
+
         assert _resolve_court_name("天河区人民法院") == "天河区人民法院"
 
     def test_not_in_db_appends(self):
         from plugins.court_automation.guarantee.helpers import _resolve_court_name
+
         with patch("apps.core.models.Court") as MockCourt:
             MockCourt.objects.filter.return_value.first.return_value = None
             result = _resolve_court_name("天河区")
@@ -137,16 +143,14 @@ class TestResolveCourtNameEdge:
 class TestNormalizeConsultantCodeEdge:
     def test_sunshine_with_empty_string_code(self):
         from plugins.court_automation.guarantee.helpers import _normalize_consultant_code
-        result = _normalize_consultant_code(
-            insurance_company_name="阳光财产保险股份有限公司", consultant_code=""
-        )
+
+        result = _normalize_consultant_code(insurance_company_name="阳光财产保险股份有限公司", consultant_code="")
         assert result == "08740007"
 
     def test_non_sunshine_with_code(self):
         from plugins.court_automation.guarantee.helpers import _normalize_consultant_code
-        result = _normalize_consultant_code(
-            insurance_company_name="平安", consultant_code="12345"
-        )
+
+        result = _normalize_consultant_code(insurance_company_name="平安", consultant_code="12345")
         assert result == "12345"
 
 
@@ -158,14 +162,17 @@ class TestNormalizeConsultantCodeEdge:
 class TestNormalizePropertyValueEdge:
     def test_integer_no_decimal_point(self):
         from plugins.court_automation.guarantee.helpers import _normalize_property_value
+
         assert _normalize_property_value("500") == "500"
 
     def test_with_commas_and_decimal(self):
         from plugins.court_automation.guarantee.helpers import _normalize_property_value
+
         assert _normalize_property_value("1,234.50") == "1234.5"
 
     def test_all_zeros_after_decimal(self):
         from plugins.court_automation.guarantee.helpers import _normalize_property_value
+
         assert _normalize_property_value("100.00") == "100"
 
 
@@ -177,12 +184,14 @@ class TestNormalizePropertyValueEdge:
 class TestBuildPropertyClueInfoEdge:
     def test_empty_clue_type_defaults(self):
         from plugins.court_automation.guarantee.helpers import _build_property_clue_info
+
         result = _build_property_clue_info(clue_type="", raw_content="线索内容")
         assert "财产线索" in result
         assert "线索内容" in result
 
     def test_none_clue_type(self):
         from plugins.court_automation.guarantee.helpers import _build_property_clue_info
+
         result = _build_property_clue_info(clue_type=None, raw_content="")
         assert "财产线索" in result
 
@@ -195,6 +204,7 @@ class TestBuildPropertyClueInfoEdge:
 class TestBuildSelectedRespondentPropertyClues:
     def _fn(self):
         from plugins.court_automation.guarantee.helpers import _build_selected_respondent_property_clues
+
         return _build_selected_respondent_property_clues
 
     def test_with_clues_from_client_service(self):
@@ -208,9 +218,7 @@ class TestBuildSelectedRespondentPropertyClues:
         clue.clue_type = "bank"
         clue.content = "工商银行账户"
 
-        with patch(
-            "plugins.court_automation.guarantee.helpers._get_client_service"
-        ) as mock_svc:
+        with patch("plugins.court_automation.guarantee.helpers._get_client_service") as mock_svc:
             svc = MagicMock()
             svc.get_property_clues_by_client_internal.return_value = [clue]
             mock_svc.return_value = svc
@@ -229,9 +237,7 @@ class TestBuildSelectedRespondentPropertyClues:
         party.client.name = "被告"
         party.client.address = ""
 
-        with patch(
-            "plugins.court_automation.guarantee.helpers._get_client_service"
-        ) as mock_svc:
+        with patch("plugins.court_automation.guarantee.helpers._get_client_service") as mock_svc:
             svc = MagicMock()
             mock_svc.return_value = svc
             result = self._fn()(
@@ -251,9 +257,7 @@ class TestBuildSelectedRespondentPropertyClues:
         party.client.address = ""
         party.client.is_our_client = False
 
-        with patch(
-            "plugins.court_automation.guarantee.helpers._get_client_service"
-        ) as mock_svc:
+        with patch("plugins.court_automation.guarantee.helpers._get_client_service") as mock_svc:
             svc = MagicMock()
             svc.get_property_clues_by_client_internal.return_value = []
             mock_svc.return_value = svc
@@ -273,9 +277,8 @@ class TestBuildSelectedRespondentPropertyClues:
 class TestBuildPrimaryRespondentPropertyClue:
     def test_empty_case_parties_returns_default(self):
         from plugins.court_automation.guarantee.helpers import _build_primary_respondent_property_clue
-        with patch(
-            "plugins.court_automation.guarantee.helpers._get_client_service"
-        ) as mock_svc:
+
+        with patch("plugins.court_automation.guarantee.helpers._get_client_service") as mock_svc:
             mock_svc.return_value = MagicMock()
             result = _build_primary_respondent_property_clue(
                 case_parties=[],
@@ -293,6 +296,7 @@ class TestBuildPrimaryRespondentPropertyClue:
 class TestBuildCaseQuoteContext:
     def _fn(self):
         from plugins.court_automation.guarantee.helpers import _build_case_quote_context
+
         return _build_case_quote_context
 
     def test_no_preserve_amount(self):
@@ -308,9 +312,7 @@ class TestBuildCaseQuoteContext:
             "plugins.court_automation.guarantee.helpers._find_reusable_binding",
             return_value=None,
         ):
-            with patch(
-                "apps.automation.models.CasePreservationQuoteBinding"
-            ) as MockBinding:
+            with patch("apps.automation.models.CasePreservationQuoteBinding") as MockBinding:
                 MockBinding.objects.select_related.return_value.filter.return_value.order_by.return_value.first.return_value = None
                 result = self._fn()(case=case)
         assert result is None
@@ -324,6 +326,7 @@ class TestBuildCaseQuoteContext:
 class TestBuildReusableQuoteOptions:
     def _fn(self):
         from plugins.court_automation.guarantee.helpers import _build_reusable_quote_options
+
         return _build_reusable_quote_options
 
     def test_none_amount_returns_empty(self):
@@ -350,11 +353,13 @@ class TestBuildReusableQuoteOptions:
 class TestExtractQuoteCompanyOptionsEdge:
     def test_items_is_not_list(self):
         from plugins.court_automation.guarantee.helpers import _extract_quote_company_options
+
         ctx = {"items": "not a list"}
         assert _extract_quote_company_options(quote_context=ctx) == []
 
     def test_company_name_empty_skipped(self):
         from plugins.court_automation.guarantee.helpers import _extract_quote_company_options
+
         ctx = {"items": [{"company_name": "", "status": "success"}]}
         assert _extract_quote_company_options(quote_context=ctx) == []
 
@@ -367,6 +372,7 @@ class TestExtractQuoteCompanyOptionsEdge:
 class TestResolveInsuranceCompanyDefaultsEdge:
     def test_recommended_not_in_options(self):
         from plugins.court_automation.guarantee.helpers import _resolve_insurance_company_defaults
+
         ctx = {
             "recommended_company": "不在列表",
             "items": [
@@ -378,6 +384,7 @@ class TestResolveInsuranceCompanyDefaultsEdge:
 
     def test_empty_recommended(self):
         from plugins.court_automation.guarantee.helpers import _resolve_insurance_company_defaults
+
         ctx = {
             "recommended_company": "",
             "items": [
@@ -396,11 +403,13 @@ class TestResolveInsuranceCompanyDefaultsEdge:
 class TestBuildCauseCandidatesEdge:
     def test_fullwidth_space(self):
         from plugins.court_automation.guarantee.helpers import _build_cause_candidates
+
         result = _build_cause_candidates("买卖合同纠纷　借款合同纠纷")
         assert len(result) >= 1
 
     def test_cause_without_jiufen(self):
         from plugins.court_automation.guarantee.helpers import _build_cause_candidates
+
         result = _build_cause_candidates("离婚")
         assert "离婚" in result
         assert len(result) == 1  # no suffix removal without 纠纷
@@ -473,6 +482,7 @@ class TestPickPartyPayloadWithPayloads:
 class TestListOpponentCasePartiesEdge:
     def test_empty_returns_empty(self):
         from plugins.court_automation.guarantee.helpers import _list_opponent_case_parties
+
         result = _list_opponent_case_parties(case_parties=[])
         assert result == []
 
@@ -514,6 +524,7 @@ class TestBuildPlaintiffAgentPayloadEdge:
 class TestGuaranteeSessionStatusPayloadEdge:
     def _fn(self):
         from plugins.court_automation.guarantee.helpers import _build_session_status_payload
+
         return _build_session_status_payload
 
     def test_running_non_dict_result(self):
@@ -562,8 +573,7 @@ class TestGuaranteeUpdateSessionTaskEdge:
 
         with patch("plugins.court_automation.guarantee.helpers.asyncio") as mock_asyncio:
             mock_asyncio.get_running_loop.side_effect = RuntimeError("no loop")
-            with patch("apps.automation.models.ScraperTask") as MockTask, \
-                 patch("django.db.close_old_connections"):
+            with patch("apps.automation.models.ScraperTask") as MockTask, patch("django.db.close_old_connections"):
                 _update_session_task(
                     session_id=1,
                     status="success",
@@ -583,11 +593,16 @@ class TestGuaranteeUpdateSessionTaskEdge:
 class TestRunGuarantee:
     def _fn(self):
         from plugins.court_automation.guarantee.helpers import _run_guarantee
+
         return _run_guarantee
 
     def test_login_failure(self):
-        with patch("apps.core.services.browser.create_browser") as mock_browser, \
-             patch("plugins.court_automation.guarantee.helpers._update_session_task"):
+        from apps.automation.models import ScraperTaskStatus
+
+        with (
+            patch("apps.core.services.browser.create_browser") as mock_browser,
+            patch("plugins.court_automation.guarantee.helpers._update_session_task") as mock_update,
+        ):
             page = MagicMock()
             context = MagicMock()
             mock_browser.return_value.__enter__ = MagicMock(return_value=(page, context))
@@ -603,17 +618,30 @@ class TestRunGuarantee:
                     case_data={},
                     session_id=1,
                 )
+                # 登录失败：终态应为 FAILED 且带登录错误信息
+                final_kwargs = mock_update.call_args.kwargs
+                assert final_kwargs["status"] == ScraperTaskStatus.FAILED
+                assert final_kwargs["error_message"] == "密码错误"
+                assert final_kwargs["result"]["stage"] == "login.failed"
 
     def test_exception_during_guarantee(self):
-        with patch("apps.core.services.browser.create_browser") as mock_browser, \
-             patch("plugins.court_automation.guarantee.helpers._update_session_task"):
+        from apps.automation.models import ScraperTaskStatus
+
+        with (
+            patch("apps.core.services.browser.create_browser") as mock_browser,
+            patch("plugins.court_automation.guarantee.helpers._update_session_task") as mock_update,
+        ):
             page = MagicMock()
             context = MagicMock()
             mock_browser.return_value.__enter__ = MagicMock(return_value=(page, context))
             mock_browser.return_value.__exit__ = MagicMock(return_value=False)
 
-            with patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService") as MockLogin, \
-                 patch("apps.automation.services.scraper.sites.court_zxfw_guarantee.CourtZxfwGuaranteeService") as MockGuarantee:
+            with (
+                patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService") as MockLogin,
+                patch(
+                    "apps.automation.services.scraper.sites.court_zxfw_guarantee.CourtZxfwGuaranteeService"
+                ) as MockGuarantee,
+            ):
                 login_instance = MockLogin.return_value
                 login_instance.login.return_value = {"success": True}
                 login_instance.fetch_baoquan_token.return_value = {"success": True}
@@ -627,17 +655,30 @@ class TestRunGuarantee:
                     case_data={},
                     session_id=1,
                 )
+                # 异常被兜底捕获：终态 FAILED 且错误信息含异常内容
+                final_kwargs = mock_update.call_args.kwargs
+                assert final_kwargs["status"] == ScraperTaskStatus.FAILED
+                assert "playwright crash" in final_kwargs["error_message"]
+                assert final_kwargs["result"]["stage"] == "guarantee.exception"
 
     def test_guarantee_failure(self):
-        with patch("apps.core.services.browser.create_browser") as mock_browser, \
-             patch("plugins.court_automation.guarantee.helpers._update_session_task"):
+        from apps.automation.models import ScraperTaskStatus
+
+        with (
+            patch("apps.core.services.browser.create_browser") as mock_browser,
+            patch("plugins.court_automation.guarantee.helpers._update_session_task") as mock_update,
+        ):
             page = MagicMock()
             context = MagicMock()
             mock_browser.return_value.__enter__ = MagicMock(return_value=(page, context))
             mock_browser.return_value.__exit__ = MagicMock(return_value=False)
 
-            with patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService") as MockLogin, \
-                 patch("apps.automation.services.scraper.sites.court_zxfw_guarantee.CourtZxfwGuaranteeService") as MockGuarantee:
+            with (
+                patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService") as MockLogin,
+                patch(
+                    "apps.automation.services.scraper.sites.court_zxfw_guarantee.CourtZxfwGuaranteeService"
+                ) as MockGuarantee,
+            ):
                 login_instance = MockLogin.return_value
                 login_instance.login.return_value = {"success": True}
                 login_instance.fetch_baoquan_token.return_value = {"success": True}
@@ -651,17 +692,29 @@ class TestRunGuarantee:
                     case_data={},
                     session_id=1,
                 )
+                final_kwargs = mock_update.call_args.kwargs
+                assert final_kwargs["status"] == ScraperTaskStatus.FAILED
+                assert final_kwargs["error_message"] == "表单填写失败"
+                assert final_kwargs["result"]["stage"] == "guarantee.failed"
 
     def test_guarantee_success(self):
-        with patch("apps.core.services.browser.create_browser") as mock_browser, \
-             patch("plugins.court_automation.guarantee.helpers._update_session_task"):
+        from apps.automation.models import ScraperTaskStatus
+
+        with (
+            patch("apps.core.services.browser.create_browser") as mock_browser,
+            patch("plugins.court_automation.guarantee.helpers._update_session_task") as mock_update,
+        ):
             page = MagicMock()
             context = MagicMock()
             mock_browser.return_value.__enter__ = MagicMock(return_value=(page, context))
             mock_browser.return_value.__exit__ = MagicMock(return_value=False)
 
-            with patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService") as MockLogin, \
-                 patch("apps.automation.services.scraper.sites.court_zxfw_guarantee.CourtZxfwGuaranteeService") as MockGuarantee:
+            with (
+                patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService") as MockLogin,
+                patch(
+                    "apps.automation.services.scraper.sites.court_zxfw_guarantee.CourtZxfwGuaranteeService"
+                ) as MockGuarantee,
+            ):
                 login_instance = MockLogin.return_value
                 login_instance.login.return_value = {"success": True}
                 login_instance.fetch_baoquan_token.return_value = {"success": True}
@@ -675,6 +728,9 @@ class TestRunGuarantee:
                     case_data={},
                     session_id=1,
                 )
+                final_kwargs = mock_update.call_args.kwargs
+                assert final_kwargs["status"] == ScraperTaskStatus.SUCCESS
+                assert final_kwargs["result"]["stage"] == "guarantee.success"
 
 
 # ---------------------------------------------------------------------------
@@ -685,11 +741,13 @@ class TestRunGuarantee:
 class TestServiceGetters:
     def test_get_organization_service(self):
         from plugins.court_automation.guarantee.helpers import _get_organization_service
+
         with patch("apps.core.dependencies.build_organization_service", return_value="svc"):
             assert _get_organization_service() == "svc"
 
     def test_get_client_service(self):
         from plugins.court_automation.guarantee.helpers import _get_client_service
+
         with patch("apps.core.dependencies.build_client_service", return_value="cs"):
             assert _get_client_service() == "cs"
 
@@ -702,6 +760,7 @@ class TestServiceGetters:
 class TestFindReusableBinding:
     def test_delegates_to_model(self):
         from plugins.court_automation.guarantee.helpers import _find_reusable_binding
+
         with patch("apps.automation.models.CasePreservationQuoteBinding") as MockModel:
             MockModel.objects.select_related.return_value.filter.return_value.order_by.return_value.first.return_value = "binding"
             result = _find_reusable_binding(case_id=1, preserve_amount=Decimal("100"))
@@ -716,11 +775,13 @@ class TestFindReusableBinding:
 class TestNormalizeInsuranceCompanyEdge:
     def test_empty_no_options_uses_default(self):
         from plugins.court_automation.guarantee.helpers import _normalize_insurance_company
+
         result = _normalize_insurance_company("", allowed_options=[])
         # empty allowed_options is falsy, so falls to default
         assert result == "中国平安财产保险股份有限公司"
 
     def test_whitespace_only_name(self):
         from plugins.court_automation.guarantee.helpers import _normalize_insurance_company
+
         result = _normalize_insurance_company("   ")
         assert result == "中国平安财产保险股份有限公司"

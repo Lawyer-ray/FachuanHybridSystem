@@ -542,7 +542,8 @@ class TestAcquireRateLimit:
         with patch("apps.enterprise_data.services.clients.mcp_tool_client.cache") as mock_cache:
             mock_cache.add.return_value = True
             mock_cache.incr.return_value = 1
-            client._acquire_rate_limit(action="test")
+            assert client._acquire_rate_limit(action="test") is None
+            mock_cache.add.assert_called_once()
 
     def test_over_limit_raises(self) -> None:
         client = _make_client(rate_limit_requests=5, rate_limit_window_seconds=60)
@@ -605,8 +606,24 @@ class TestCallTool:
     def test_success(self) -> None:
         client = _make_client()
         client._acquire_rate_limit = MagicMock()
-        raw_result = {"payload": {"result": "ok"}, "raw": {"is_error": False, "structured_content": None, "content": []}}
-        with patch.object(client, "_execute_with_api_key_failover", return_value=(raw_result, {"transport": "streamable_http", "attempt_count": 1, "api_key_pool_size": 1, "api_key_attempt_count": 1, "api_key_switched": False})):
+        raw_result = {
+            "payload": {"result": "ok"},
+            "raw": {"is_error": False, "structured_content": None, "content": []},
+        }
+        with patch.object(
+            client,
+            "_execute_with_api_key_failover",
+            return_value=(
+                raw_result,
+                {
+                    "transport": "streamable_http",
+                    "attempt_count": 1,
+                    "api_key_pool_size": 1,
+                    "api_key_attempt_count": 1,
+                    "api_key_switched": False,
+                },
+            ),
+        ):
             result = client.call_tool(tool_name="my_tool", arguments={"q": "test"})
         assert result["payload"] == {"result": "ok"}
         assert result["duration_ms"] >= 0
@@ -629,7 +646,9 @@ class TestCallTool:
 class TestListTools:
     def test_returns_names(self) -> None:
         client = _make_client()
-        with patch.object(client, "describe_tools", return_value=[{"name": "t1"}, {"name": "t2"}, {"description": "no-name"}]):
+        with patch.object(
+            client, "describe_tools", return_value=[{"name": "t1"}, {"name": "t2"}, {"description": "no-name"}]
+        ):
             tools = client.list_tools()
         assert tools == ["t1", "t2"]
 

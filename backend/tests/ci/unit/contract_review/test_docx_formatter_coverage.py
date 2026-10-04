@@ -6,11 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.contract_review.services.formatting.docx_formatter import (
-    DocxFormatter,
-    _FONT_SIZE,
-    _HEADING_STYLES,
-)
+from apps.contract_review.services.formatting.docx_formatter import _FONT_SIZE, _HEADING_STYLES, DocxFormatter
 
 
 @pytest.fixture
@@ -180,7 +176,8 @@ class TestCleanStyleIndentChars:
         style.element.find.return_value = None
         doc = MagicMock()
         doc.styles = [style]
-        DocxFormatter._clean_style_indent_chars(doc)
+        assert DocxFormatter._clean_style_indent_chars(doc) is None
+        style.element.find.assert_called_once()
 
     def test_no_ind_skipped(self) -> None:
         s_pPr = MagicMock()
@@ -189,7 +186,8 @@ class TestCleanStyleIndentChars:
         style.element.find.return_value = s_pPr
         doc = MagicMock()
         doc.styles = [style]
-        DocxFormatter._clean_style_indent_chars(doc)
+        assert DocxFormatter._clean_style_indent_chars(doc) is None
+        s_pPr.find.assert_called_once()
 
 
 # ── format_document ───────────────────────────────────────────────────

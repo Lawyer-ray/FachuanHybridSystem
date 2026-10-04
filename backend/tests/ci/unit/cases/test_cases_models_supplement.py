@@ -259,7 +259,8 @@ class TestCase:
 
     def test_clean_valid_stage(self):
         case = Case(name="测试", current_stage=CaseStage.FIRST_TRIAL)
-        case.clean()  # 不应抛异常
+        # 合法阶段静默通过（返回 None）
+        assert case.clean() is None
 
     def test_clean_invalid_stage(self):
         case = Case(name="测试", current_stage="invalid_stage")
@@ -268,7 +269,8 @@ class TestCase:
 
     def test_clean_no_stage(self):
         case = Case(name="测试", current_stage=None)
-        case.clean()  # 不应抛异常
+        # 无阶段跳过校验，静默通过
+        assert case.clean() is None
 
     def test_default_values(self):
         case = Case.objects.create(name="默认值测试")

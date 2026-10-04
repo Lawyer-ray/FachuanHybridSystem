@@ -98,7 +98,9 @@ def test_ensure_access_raises_on_no_access(policy: CaseAccessPolicy) -> None:
 
 def test_ensure_access_passes_on_access(policy: CaseAccessPolicy) -> None:
     """有权限时不抛出异常。"""
-    policy.ensure_access(case_id=1, user=None, org_access=None, perm_open_access=True)
+    result = policy.ensure_access(case_id=1, user=None, org_access=None, perm_open_access=True)
+    # 静默通过返回 None
+    assert result is None
 
 
 # ── can_access ─────────────────────────────────────────────────────────────

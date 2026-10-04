@@ -11,7 +11,6 @@ from apps.cases.models import Case
 from apps.contracts.models import Contract
 from apps.organization.models import Lawyer
 
-
 # ── CaseAccessPolicy ────────────────────────────────────────────────────────
 
 
@@ -81,9 +80,9 @@ class TestCaseAccessPolicy:
 
     def test_ensure_access_passes(self) -> None:
         policy, _ = self._make_policy()
-        policy.ensure_access(
-            case_id=1, user=None, org_access=None, perm_open_access=True
-        )
+        # 有开放权限时静默通过（返回 None，不抛 ForbiddenError）
+        result = policy.ensure_access(case_id=1, user=None, org_access=None, perm_open_access=True)
+        assert result is None
 
     def test_can_access_authenticated(self) -> None:
         policy, _ = self._make_policy()
@@ -141,7 +140,7 @@ class TestCaseAccessPolicy:
 
         policy, _ = self._make_policy()
         ctx = AccessContext(user=None, org_access=None, perm_open_access=True)
-        policy.ensure_access_ctx(case_id=1, ctx=ctx)
+        assert policy.ensure_access_ctx(case_id=1, ctx=ctx) is None
 
     def test_filter_queryset_ctx(self) -> None:
         from apps.core.security.access_context import AccessContext
@@ -149,7 +148,10 @@ class TestCaseAccessPolicy:
         policy, _ = self._make_policy()
         qs = MagicMock()
         ctx = AccessContext(user=None, org_access=None, perm_open_access=True)
-        policy.filter_queryset_ctx(qs, ctx)
+        result = policy.filter_queryset_ctx(qs, ctx)
+        # 开放权限下返回原始 qs，不会退化为 qs.none()
+        assert result == qs
+        qs.none.assert_not_called()
 
 
 # ── ChatNameBuilder ─────────────────────────────────────────────────────────
@@ -257,9 +259,11 @@ class TestCaseCommandService:
 
         contract_svc = MagicMock()
         access_policy = MagicMock()
-        return CaseCommandService(
-            contract_service=contract_svc, access_policy=access_policy
-        ), contract_svc, access_policy
+        return (
+            CaseCommandService(contract_service=contract_svc, access_policy=access_policy),
+            contract_svc,
+            access_policy,
+        )
 
     def test_create_case_basic(self) -> None:
         from apps.core.security.access_context import AccessContext
@@ -313,7 +317,8 @@ class TestCaseCommandService:
         from apps.cases.services.case.case_command_service import CaseCommandService
 
         service = CaseCommandService(contract_service=None)
-        service._validate_contract(1)  # Should not raise
+        # 未注入合同服务时跳过校验，静默通过
+        assert service._validate_contract(1) is None
 
     def test_validate_stage_valid(self) -> None:
         service, contract_svc, _ = self._make_service()

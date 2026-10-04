@@ -63,7 +63,8 @@ class TestValidateStage:
 class TestValidateContract:
     def test_no_contract_service(self, svc):
         svc._contract_service = None
-        svc._validate_contract(1)  # should not raise
+        # 未注入合同服务时跳过校验，静默通过
+        assert svc._validate_contract(1) is None
 
     def test_contract_not_found(self, svc, mock_contract_service):
         mock_contract_service.get_contract.return_value = None
@@ -82,7 +83,9 @@ class TestValidateContract:
         mock_contract_service.get_contract.return_value = MagicMock()
         mock_contract_service.validate_contract_active.return_value = True
         svc._contract_service = mock_contract_service
-        svc._validate_contract(1)  # should not raise
+        # 合同存在且激活，静默通过
+        assert svc._validate_contract(1) is None
+        mock_contract_service.validate_contract_active.assert_called_once()
 
 
 # ──────────── _resolve_stage_from_contract ────────────
@@ -121,6 +124,7 @@ class TestCreateCase:
     @pytest.mark.django_db
     def test_create_basic(self, svc):
         from apps.core.security.permissions import AccessContext
+
         ctx = AccessContext(user=None, org_access=None, perm_open_access=True)
         case = Case.objects.create(name="新建案件", case_type="civil")
         assert case.name == "新建案件"
@@ -150,6 +154,7 @@ class TestCloseCasesByContractInternal:
     @pytest.mark.django_db
     def test_closes_active_cases(self, svc):
         from apps.core.models.enums import CaseStatus
+
         contract = ContractFactory()
         case1 = CaseFactory(contract=contract, status=CaseStatus.ACTIVE)
         case2 = CaseFactory(contract=contract, status=CaseStatus.ACTIVE)
@@ -163,6 +168,7 @@ class TestCloseCasesByContractInternal:
     @pytest.mark.django_db
     def test_no_active_cases(self, svc):
         from apps.core.models.enums import CaseStatus
+
         contract = ContractFactory()
         CaseFactory(contract=contract, status=CaseStatus.CLOSED)
         count = svc.close_cases_by_contract_internal(contract.id)
@@ -185,9 +191,7 @@ class TestCreateCaseFull:
             pass
         # Since CaseFullCreateWorkflow is imported locally, test it via the service method
         # We need to mock it at import source
-        with patch(
-            "apps.cases.services.case.workflows.case_full_create_workflow.CaseFullCreateWorkflow"
-        ) as MockWF:
+        with patch("apps.cases.services.case.workflows.case_full_create_workflow.CaseFullCreateWorkflow") as MockWF:
             MockWF.return_value.run.return_value = mock_result
             result = service.create_case_full(data={"name": "test"}, actor_id=1)
             assert result is mock_result
@@ -195,9 +199,7 @@ class TestCreateCaseFull:
 
     def test_type_error_on_non_dict(self):
         service = CaseCommandService()
-        with patch(
-            "apps.cases.services.case.workflows.case_full_create_workflow.CaseFullCreateWorkflow"
-        ) as MockWF:
+        with patch("apps.cases.services.case.workflows.case_full_create_workflow.CaseFullCreateWorkflow") as MockWF:
             MockWF.return_value.run.return_value = "not a dict"
             with pytest.raises(TypeError, match="非 dict"):
                 service.create_case_full(data={})
@@ -225,9 +227,7 @@ class TestContextVariants:
         with patch.object(service, "delete_case") as mock_delete:
             ctx = AccessContext(user=None, org_access=None, perm_open_access=True)
             service.delete_case_ctx(case_id=1, ctx=ctx)
-            mock_delete.assert_called_once_with(
-                1, user=None, org_access=None, perm_open_access=True
-            )
+            mock_delete.assert_called_once_with(1, user=None, org_access=None, perm_open_access=True)
 
     def test_update_case_ctx(self):
         from apps.core.security.permissions import AccessContext

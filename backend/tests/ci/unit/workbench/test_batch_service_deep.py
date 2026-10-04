@@ -22,6 +22,7 @@ def svc():
 @pytest.fixture
 def session(db):
     from apps.workbench.models import WorkbenchSession
+
     return WorkbenchSession.objects.create(title="批量分析测试会话")
 
 
@@ -65,22 +66,22 @@ class TestValidateFiles:
     def test_doc_valid(self, svc):
         f = MagicMock(name="test.doc")
         f.name = "test.doc"
-        svc.validate_files([f])  # should not raise
+        assert svc.validate_files([f]) is None  # 合法扩展名静默通过
 
     def test_docx_valid(self, svc):
         f = MagicMock(name="test.docx")
         f.name = "test.docx"
-        svc.validate_files([f])
+        assert svc.validate_files([f]) is None
 
     def test_xls_valid(self, svc):
         f = MagicMock(name="test.xls")
         f.name = "test.xls"
-        svc.validate_files([f])
+        assert svc.validate_files([f]) is None
 
     def test_xlsx_valid(self, svc):
         f = MagicMock(name="test.xlsx")
         f.name = "test.xlsx"
-        svc.validate_files([f])
+        assert svc.validate_files([f]) is None
 
     def test_pdf_invalid(self, svc):
         f = MagicMock()
@@ -98,7 +99,7 @@ class TestValidateFiles:
         files = [MagicMock(name=f"file{i}.docx") for i in range(3)]
         for i, f in enumerate(files):
             f.name = f"file{i}.docx"
-        svc.validate_files(files)
+        assert svc.validate_files(files) is None  # 全部合法静默通过
 
 
 # ──────────── get_job_by_id ────────────
@@ -123,8 +124,12 @@ class TestGetJobById:
 class TestGetJobProgress:
     def test_basic(self, svc, session):
         job = BatchJob.objects.create(
-            session=session, job_type="doc_analysis", prompt="p", llm_model="m",
-            total_items=2, status=BatchJobStatus.PENDING,
+            session=session,
+            job_type="doc_analysis",
+            prompt="p",
+            llm_model="m",
+            total_items=2,
+            status=BatchJobStatus.PENDING,
         )
         BatchJobItem.objects.create(job=job, file_name="a.docx")
         result_job, items = svc.get_job_progress(job.id)
@@ -133,9 +138,13 @@ class TestGetJobProgress:
 
     def test_eta_calculation(self, svc, session):
         job = BatchJob.objects.create(
-            session=session, job_type="doc_analysis", prompt="p", llm_model="m",
+            session=session,
+            job_type="doc_analysis",
+            prompt="p",
+            llm_model="m",
             total_items=10,
-            completed_items=5, failed_items=0,
+            completed_items=5,
+            failed_items=0,
             started_processing_at=timezone.now() - timedelta(minutes=5),
             status=BatchJobStatus.RUNNING,
         )
@@ -152,8 +161,11 @@ class TestListBatchJobs:
     def test_pagination(self, svc, session):
         for i in range(5):
             BatchJob.objects.create(
-                session=session, job_type="doc_analysis",
-                prompt=f"p{i}", llm_model="m", total_items=1,
+                session=session,
+                job_type="doc_analysis",
+                prompt=f"p{i}",
+                llm_model="m",
+                total_items=1,
             )
         result = svc.list_batch_jobs(session.id, page=1, page_size=2)
         assert result["count"] == 5

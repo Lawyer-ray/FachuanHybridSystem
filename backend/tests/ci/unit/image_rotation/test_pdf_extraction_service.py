@@ -28,11 +28,13 @@ class TestOrientationServiceLazy:
 
     def test_lazy_load(self) -> None:
         svc = PDFExtractionService()
-        with patch(
-            "apps.image_rotation.services.pdf_extraction_service.PDFExtractionService.orientation_service",
-            new_callable=lambda: property(lambda self: MagicMock()),
-        ):
-            pass
+        with patch("apps.image_rotation.services.orientation.service.OrientationDetectionService") as MockOrientation:
+            MockOrientation.return_value = MagicMock(name="orientation_svc")
+            first = svc.orientation_service
+            second = svc.orientation_service
+        # 首次访问懒加载构造，之后复用同一实例
+        MockOrientation.assert_called_once()
+        assert first is second is svc._orientation_service
 
 
 # ── _validate_page_count ───────────────────────────────────────────────
@@ -158,8 +160,10 @@ class TestExtractWithDetection:
         page = MagicMock()
         page.rect = SimpleNamespace(width=595, height=842)
         doc = [page]
-        with patch.object(service, "_extract_page_image", return_value=b"png_data"), \
-             patch.object(service, "_detect_page_orientation", return_value={"rotation": 0, "confidence": 0.9}):
+        with (
+            patch.object(service, "_extract_page_image", return_value=b"png_data"),
+            patch.object(service, "_detect_page_orientation", return_value={"rotation": 0, "confidence": 0.9}),
+        ):
             result = service._extract_all_pages_with_detection(doc, "test.pdf", 1)
             assert len(result) == 1
 
@@ -201,8 +205,10 @@ class TestExtractPages:
         mock_doc.__len__ = MagicMock(return_value=2)
         mock_doc.close = MagicMock()
         pages = [{"page_number": 1}, {"page_number": 2}]
-        with patch.object(svc, "_open_pdf_document", return_value=mock_doc), \
-             patch.object(svc, "_extract_all_pages_with_detection", return_value=pages):
+        with (
+            patch.object(svc, "_open_pdf_document", return_value=mock_doc),
+            patch.object(svc, "_extract_all_pages_with_detection", return_value=pages),
+        ):
             result = svc.extract_pages("data", "test.pdf")
             assert result["success"] is True
             assert len(result["pages"]) == 2

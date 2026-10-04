@@ -1,4 +1,5 @@
 """合同验证器、访问策略与分类映射单元测试。"""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -15,8 +16,8 @@ from apps.contracts.services.contract.integrations.file_hash_utils import (
 )
 from apps.core.exceptions import PermissionDenied, ValidationException
 
-
 # ── get_archive_category ───────────────────────────────────────────────────
+
 
 def test_archive_category_civil() -> None:
     """民事 → 诉讼/仲裁。"""
@@ -60,8 +61,8 @@ def test_archive_category_administrative() -> None:
 
 # ── ContractValidator ──────────────────────────────────────────────────────
 
-class TestContractValidator:
 
+class TestContractValidator:
     def _make_validator(self, stages=None) -> ContractValidator:
         mock_config = MagicMock()
         mock_config.get_stages_for_case_type.return_value = stages or [
@@ -73,7 +74,7 @@ class TestContractValidator:
     def test_validate_fee_mode_fixed_valid(self) -> None:
         """固定收费有效。"""
         v = self._make_validator()
-        v.validate_fee_mode({"fee_mode": "FIXED", "fixed_amount": 10000})
+        assert v.validate_fee_mode({"fee_mode": "FIXED", "fixed_amount": 10000}) is None
 
     def test_validate_fee_mode_fixed_no_amount(self) -> None:
         """固定收费无金额抛出异常。"""
@@ -90,7 +91,7 @@ class TestContractValidator:
     def test_validate_fee_mode_semi_risk_valid(self) -> None:
         """半风险收费有效。"""
         v = self._make_validator()
-        v.validate_fee_mode({"fee_mode": "SEMI_RISK", "fixed_amount": 5000, "risk_rate": 10})
+        assert v.validate_fee_mode({"fee_mode": "SEMI_RISK", "fixed_amount": 5000, "risk_rate": 10}) is None
 
     def test_validate_fee_mode_semi_risk_missing_rate(self) -> None:
         """半风险收费缺少比例抛出异常。"""
@@ -107,7 +108,7 @@ class TestContractValidator:
     def test_validate_fee_mode_full_risk_valid(self) -> None:
         """全风险收费有效。"""
         v = self._make_validator()
-        v.validate_fee_mode({"fee_mode": "FULL_RISK", "risk_rate": 15})
+        assert v.validate_fee_mode({"fee_mode": "FULL_RISK", "risk_rate": 15}) is None
 
     def test_validate_fee_mode_full_risk_missing_rate(self) -> None:
         """全风险收费缺少比例抛出异常。"""
@@ -118,7 +119,7 @@ class TestContractValidator:
     def test_validate_fee_mode_custom_valid(self) -> None:
         """自定义收费有效。"""
         v = self._make_validator()
-        v.validate_fee_mode({"fee_mode": "CUSTOM", "custom_terms": "按小时收费"})
+        assert v.validate_fee_mode({"fee_mode": "CUSTOM", "custom_terms": "按小时收费"}) is None
 
     def test_validate_fee_mode_custom_empty_terms(self) -> None:
         """自定义收费条款为空抛出异常。"""
@@ -129,7 +130,7 @@ class TestContractValidator:
     def test_validate_fee_mode_none(self) -> None:
         """无 fee_mode 不抛出异常。"""
         v = self._make_validator()
-        v.validate_fee_mode({})
+        assert v.validate_fee_mode({}) is None
 
     def test_validate_stages_valid(self) -> None:
         """有效阶段不抛出异常。"""
@@ -151,8 +152,8 @@ class TestContractValidator:
 
 # ── ContractAccessPolicy ──────────────────────────────────────────────────
 
-class TestContractAccessPolicy:
 
+class TestContractAccessPolicy:
     def _policy(self) -> ContractAccessPolicy:
         return ContractAccessPolicy(contract_access_repo=MagicMock())
 
@@ -190,7 +191,8 @@ class TestContractAccessPolicy:
     def test_ensure_access_passes(self) -> None:
         """有权限时不抛出异常。"""
         p = self._policy()
-        p.ensure_access(contract_id=1, user=None, org_access=None, perm_open_access=True)
+        result = p.ensure_access(contract_id=1, user=None, org_access=None, perm_open_access=True)
+        assert result is None
 
     def test_can_create_contract_authenticated(self) -> None:
         """认证用户可创建合同。"""
@@ -226,6 +228,7 @@ class TestContractAccessPolicy:
 
 # ── file_hash_utils ────────────────────────────────────────────────────────
 
+
 def test_compute_file_hash_from_bytes_basic() -> None:
     """基本 bytes 哈希计算。"""
     result = compute_file_hash_from_bytes(b"hello world")
@@ -252,6 +255,7 @@ def test_compute_file_hash_from_bytes_different() -> None:
 def test_compute_file_hash_nonexistent_file() -> None:
     """不存在的文件返回空字符串。"""
     from pathlib import Path
+
     result = compute_file_hash(Path("/nonexistent/file.txt"))
     assert result == ""
 

@@ -1,4 +1,5 @@
 """Targeted tests for express_query module to push coverage to 80%+."""
+
 from __future__ import annotations
 
 import re
@@ -7,7 +8,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # models
@@ -173,7 +173,7 @@ class TestExpressQueryTasks:
         from apps.express_query.tasks import execute_express_query_task
 
         # Should not raise even if task doesn't exist
-        execute_express_query_task(999999)
+        assert execute_express_query_task(999999) is None
 
     @patch("apps.express_query.tasks.TrackingExtractionService")
     def test_execute_task_no_tracking(self, mock_extract_cls):
@@ -204,7 +204,7 @@ class TestExpressQueryTasks:
     def test_execute_manual_task_not_found(self, mock_browser_cls):
         from apps.express_query.tasks import execute_manual_express_query_task
 
-        execute_manual_express_query_task(999999)
+        assert execute_manual_express_query_task(999999) is None
 
     @patch("apps.express_query.tasks.ExpressBrowserQueryService")
     def test_execute_manual_task_missing_tracking(self, mock_browser_cls):

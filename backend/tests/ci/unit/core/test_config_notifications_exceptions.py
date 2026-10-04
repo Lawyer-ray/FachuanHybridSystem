@@ -16,12 +16,7 @@ from apps.core.config.exceptions import (
     ConfigValidationError,
     SensitiveConfigError,
 )
-from apps.core.config.notifications import (
-    ConfigChangeEvent,
-    ConfigChangeListener,
-    ConfigNotificationManager,
-)
-
+from apps.core.config.notifications import ConfigChangeEvent, ConfigChangeListener, ConfigNotificationManager
 
 # ---------------------------------------------------------------------------
 # Config exceptions
@@ -132,9 +127,10 @@ class TestConfigChangeListener:
                 pass
 
         listener = MyListener()
-        listener.on_config_added("k", "v")
-        listener.on_config_removed("k", "v")
-        listener.on_config_reloaded()
+        # 默认实现是 no-op，返回 None 且不抛异常
+        assert listener.on_config_added("k", "v") is None
+        assert listener.on_config_removed("k", "v") is None
+        assert listener.on_config_reloaded() is None
 
 
 # ---------------------------------------------------------------------------
@@ -246,8 +242,9 @@ class TestConfigNotificationManager:
         listener = MagicMock(spec=ConfigChangeListener)
         listener.on_config_changed.side_effect = Exception("boom")
         self.mgr.add_listener(listener)
-        # Should not raise
-        self.mgr.notify_change("key", "old", "new")
+        # Should not raise: 单个监听器异常不影响整体分发
+        assert self.mgr.notify_change("key", "old", "new") is None
+        listener.on_config_changed.assert_called_once_with("key", "old", "new")
 
     def test_notify_reload(self) -> None:
         listener = MagicMock(spec=ConfigChangeListener)
@@ -260,7 +257,8 @@ class TestConfigNotificationManager:
         listener.on_config_reloaded.side_effect = Exception("boom")
         self.mgr.add_listener(listener)
         # Should not raise
-        self.mgr.notify_reload()
+        assert self.mgr.notify_reload() is None
+        listener.on_config_reloaded.assert_called_once_with()
 
     def test_event_history(self) -> None:
         self.mgr.notify_change("k1", None, "v1")

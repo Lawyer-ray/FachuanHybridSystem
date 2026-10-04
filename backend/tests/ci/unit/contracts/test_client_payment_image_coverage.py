@@ -2,14 +2,15 @@
 
 覆盖: save_image, delete_image, get_image_url 所有分支。
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.core.exceptions import ValidationException
 from apps.contracts.services.client_payment.client_payment_image_service import ClientPaymentImageService
+from apps.core.exceptions import ValidationException
 
 
 class TestSaveImage:
@@ -45,8 +46,10 @@ class TestSaveImage:
 class TestDeleteImage:
     def test_delete_empty_path_returns_early(self) -> None:
         svc = ClientPaymentImageService()
-        svc.delete_image("")  # Should not raise
-        svc.delete_image("")  # noqa: also test empty string
+        with patch("apps.contracts.services.client_payment.client_payment_image_service.storage") as mock_storage:
+            svc.delete_image("")
+            # 空路径早退，不触达存储层
+            mock_storage.delete_media_file.assert_not_called()
 
     def test_delete_success(self) -> None:
         svc = ClientPaymentImageService()
@@ -59,13 +62,17 @@ class TestDeleteImage:
         svc = ClientPaymentImageService()
         with patch("apps.contracts.services.client_payment.client_payment_image_service.storage") as mock_storage:
             mock_storage.delete_media_file.return_value = False
-            svc.delete_image("nonexistent.jpg")  # Should not raise
+            svc.delete_image("nonexistent.jpg")
+            # 文件不存在仅记录告警，不抛异常
+            mock_storage.delete_media_file.assert_called_once_with("nonexistent.jpg")
 
     def test_delete_exception_handled(self) -> None:
         svc = ClientPaymentImageService()
         with patch("apps.contracts.services.client_payment.client_payment_image_service.storage") as mock_storage:
             mock_storage.delete_media_file.side_effect = OSError("permission denied")
-            svc.delete_image("some/file.jpg")  # Should not raise
+            svc.delete_image("some/file.jpg")
+            # 异常被吞掉，但删除确实被尝试过
+            mock_storage.delete_media_file.assert_called_once_with("some/file.jpg")
 
 
 class TestGetImageUrl:

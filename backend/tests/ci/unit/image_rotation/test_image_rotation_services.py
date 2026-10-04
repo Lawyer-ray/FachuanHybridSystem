@@ -23,7 +23,7 @@ class TestOrientationDetectionService:
 
         svc = OrientationDetectionService()
         svc._ocr_service = None
-        with patch.object(type(svc), 'ocr_service', new_callable=lambda: property(lambda self: None)):
+        with patch.object(type(svc), "ocr_service", new_callable=lambda: property(lambda self: None)):
             result = svc.detect_orientation(b"fake_image_data")
             assert result["rotation"] == 0
             assert result["method"] == "none"
@@ -33,7 +33,7 @@ class TestOrientationDetectionService:
 
         svc = OrientationDetectionService()
         svc._ocr_service = None
-        with patch.object(type(svc), 'ocr_service', new_callable=lambda: property(lambda self: None)):
+        with patch.object(type(svc), "ocr_service", new_callable=lambda: property(lambda self: None)):
             result = svc.detect_orientation_with_text(b"fake_image_data")
             assert result["rotation"] == 0
             assert "ocr_text" in result
@@ -54,7 +54,7 @@ class TestOrientationDetectionService:
 
         svc = OrientationDetectionService()
         svc._ocr_service = None
-        with patch.object(type(svc), 'ocr_service', new_callable=lambda: property(lambda self: None)):
+        with patch.object(type(svc), "ocr_service", new_callable=lambda: property(lambda self: None)):
             result = svc.detect_batch([])
             assert result == []
 
@@ -63,7 +63,7 @@ class TestOrientationDetectionService:
 
         svc = OrientationDetectionService()
         svc._ocr_service = None
-        with patch.object(type(svc), 'ocr_service', new_callable=lambda: property(lambda self: None)):
+        with patch.object(type(svc), "ocr_service", new_callable=lambda: property(lambda self: None)):
             fake_img = base64.b64encode(b"fake_data").decode()
             result = svc.detect_batch([{"data": fake_img, "filename": "test.jpg"}])
             assert len(result) == 1
@@ -142,8 +142,8 @@ class TestImageValidation:
     def test_validate_file_size_ok(self) -> None:
         from apps.image_rotation.services.validation import validate_file_size
 
-        # Should not raise
-        validate_file_size(image_bytes=b"x" * 100, max_file_size=1000)
+        # 未超限静默通过（返回 None）
+        assert validate_file_size(image_bytes=b"x" * 100, max_file_size=1000) is None
 
     def test_validate_file_size_exceeded(self) -> None:
         from apps.core.exceptions import ValidationException
@@ -180,7 +180,9 @@ class TestAutoRenameService:
     def test_extract_info_with_llm_client(self) -> None:
         mock_client = MagicMock()
         mock_resp = MagicMock()
-        mock_resp.content = '{"date": "20250630", "amount": "65500元", "raw_date": "2025年6月30日", "raw_amount": "65500元"}'
+        mock_resp.content = (
+            '{"date": "20250630", "amount": "65500元", "raw_date": "2025年6月30日", "raw_amount": "65500元"}'
+        )
         mock_client.complete.return_value = mock_resp
         svc = self._make_service(llm_client=mock_client)
         result = svc.extract_info("2025年6月30日 费用65500元")
@@ -216,7 +218,7 @@ class TestAutoRenameService:
 
     def test_parse_extraction_response_invalid_json(self) -> None:
         svc = self._make_service()
-        result = svc._parse_extraction_response('not json')
+        result = svc._parse_extraction_response("not json")
         assert result.date is None
 
     def test_normalize_date_8_digits(self) -> None:
