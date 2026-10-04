@@ -102,19 +102,25 @@ class RateResolver:
         return sorted((rate_events or []), key=lambda e: date.fromisoformat(str(e.get("date"))))
 
     def _base_contract_rate(self, on: date) -> Decimal:
-        """无分段事件时的基座合同年利率（固定或 LPR+基点）."""
+        """无分段事件时的基座合同年利率（固定或 LPR+基点）.
+
+        LPR 模式一次取全量快照再内存二分：每个重定价日一条 get_rate_at
+        查询的旧模式，30 年年重定价贷款单次计算要打 30 条同构 SQL。
+        """
         if self.rate_mode == RATE_MODE_FIXED:
             assert self.fixed_rate is not None  # validation 已保证
             return self.fixed_rate
 
+        assert self.rate_service is not None
+        rate_service = self.rate_service
+        snapshot = rate_service.get_rates_snapshot()
         cache: dict[date, Decimal] = {}
 
         def resolve(on_: date) -> Decimal:
             rdate = last_repricing_date(self.start_date, on_, self.repricing_day)
             if rdate not in cache:
-                assert self.rate_service is not None
-                rate = self.rate_service.get_rate_at(rdate)
-                base = rate.rate_5y if self.lpr_type == "5y" else rate.rate_1y
+                rate_1y, rate_5y = rate_service.rate_at_from_snapshot(snapshot, rdate)
+                base = rate_5y if self.lpr_type == "5y" else rate_1y
                 cache[rdate] = base + self.basis_points / Decimal("100")
             return cache[rdate]
 

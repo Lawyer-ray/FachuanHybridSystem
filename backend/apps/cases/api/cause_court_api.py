@@ -52,15 +52,23 @@ class CourtSchema(Schema):
     name: str
 
 
+_service_singleton: Any = None
+
+
 def _get_cause_court_data_service() -> Any:
     """
-    创建 CauseCourtDataService 实例
+    获取 CauseCourtDataService（进程级单例）
 
-        CauseCourtDataService 实例
+        此前每请求新建实例：CauseCourtDataCache 跟着重建，而 lru_cache 装在
+        实例方法上，导致 809KB 法院.json 每请求重新加载+递归 flatten。
+        单例后 JSON 解析结果进程内常驻，DbProvider 的可用性探测也只跑一次。
     """
-    from apps.cases.services import CauseCourtDataService
+    global _service_singleton
+    if _service_singleton is None:
+        from apps.cases.services import CauseCourtDataService
 
-    return CauseCourtDataService()
+        _service_singleton = CauseCourtDataService()
+    return _service_singleton
 
 
 @router.get("/causes-data", response=list[CauseSchema])

@@ -58,4 +58,8 @@ def load_lpr_seed_data(*, force: bool = False) -> dict[str, Any]:
             loaded += 1
 
     logger.info("LPR 种子数据加载完成: %d 条", loaded)
+    # 快照缓存失效：见 rate_service.get_rates_snapshot
+    from apps.finance.services.lpr.rate_service import LPRRateService
+
+    LPRRateService.invalidate_rates_cache()
     return {"loaded": loaded, "skipped": False}

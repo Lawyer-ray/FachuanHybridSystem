@@ -199,20 +199,28 @@ class SystemConfigService:
 
     @classmethod
     async def aget_value(cls, key: str, default: str = "") -> str:  # pragma: no cover
-        """异步获取配置值 — 使用 async ORM"""
-        # classmethod 无实例状态,仓库本身无状态,直接实例化走 repo 保持与其他方法一致的数据访问路径
+        """异步获取配置值 — 与 get_value 共用同一份缓存（aget/aset），miss 才走 async ORM
+
+        此前直接查库绕过缓存层，每条 SSE 流固定多 1 条查询；缓存口径与
+        get_value 一致：存「存储态」原值（密钥为密文），读取时再解密
+        （安全审计 E-01），get_value 的失效路径（事务提交后 _clear_cache）
+        对本方法同样生效——两边 key 相同。
+        """
+        cache_key = f"system_config:{key}"
+        cached = await cache.aget(cache_key)
+        if isinstance(cached, _MissingSentinel):
+            return default
+        if cached is not None:
+            cached_str = cached if isinstance(cached, str) else str(cached)
+            return _maybe_decrypt(cached_str)
+
         repository = SystemConfigRepository()
         config = await repository.aget_active_by_key(key)
         if config is None:
+            await cache.aset(cache_key, _MISSING_SENTINEL, timeout=_DEFAULT_CACHE_TIMEOUT_SECONDS)
             return default
-        value: str = config.value
-        if config.is_secret:
-            from apps.core.security.secret_codec import SecretCodec
-
-            codec = SecretCodec()
-            if codec.is_encrypted(value):
-                value = codec.decrypt(value)
-        return value
+        await cache.aset(cache_key, config.value, timeout=_DEFAULT_CACHE_TIMEOUT_SECONDS)
+        return _maybe_decrypt(config.value)
 
     def warm_cache(
         self, keys: Iterable[str], timeout: int | None = _DEFAULT_CACHE_TIMEOUT_SECONDS
