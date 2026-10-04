@@ -142,7 +142,7 @@ export async function getParseTaskTask(taskId: string): Promise<ParseTaskStatus>
     .json<components['schemas']['TaskStatusResponse']>()
   const status = res.status || 'not_found'
   const raw = res.result
-  const outcome = raw && typeof raw === 'object' ? toOutcome(raw as OutcomeSource) : null
+  const outcome = raw && typeof raw === 'object' ? toOutcome(raw) : null
   return { taskId: res.task_id || taskId, status: status as ParseTaskStatus['status'], outcome }
 }
 
