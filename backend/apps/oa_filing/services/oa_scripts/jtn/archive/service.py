@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from apps.core.services.browser import BrowserSessionHandle
+
 from .archive_models import ArchiveFormData
 from .playwright_archive import PlaywrightArchiveMixin
 
@@ -22,6 +24,6 @@ class JtnArchiveScript(PlaywrightArchiveMixin):
 
     async def open_page(
         self, oa_case_number: str, description: str = "详见卷宗", file_paths: list[str] | None = None
-    ) -> tuple:
-        """打开归档页面并填写，返回 (playwright, browser)。"""
+    ) -> BrowserSessionHandle:
+        """打开归档页面并填写，返回浏览器会话句柄（长生命周期，交给用户操作）。"""
         return await self._open_page(oa_case_number, description, file_paths or [])

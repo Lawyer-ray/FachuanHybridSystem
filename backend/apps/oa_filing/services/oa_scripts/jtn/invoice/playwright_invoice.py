@@ -8,6 +8,8 @@ from typing import Any
 
 from playwright.async_api import Page
 
+from apps.core.services.browser import BrowserSessionHandle, close_browser_session, create_browser_async_manual
+
 from ..auth.service import JtnAuthService
 
 logger = logging.getLogger("apps.oa_filing.jtn_invoice")
@@ -31,17 +33,13 @@ class PlaywrightInvoiceMixin:
     _password: str
     _auth: JtnAuthService
 
-    async def _open_page(self: Any, oa_case_number: str) -> tuple[Any, Any]:
-        """打开发票页面，输入案件编号→搜索→点击申请对外开票，返回 (playwright, browser)。"""
-        from playwright.async_api import async_playwright
-
-        playwright = await async_playwright().start()
-        browser = await playwright.chromium.launch(headless=False)
-        context = await browser.new_context()
-        page = await context.new_page()
+    async def _open_page(self: Any, oa_case_number: str) -> BrowserSessionHandle:
+        """打开发票页面，输入案件编号→搜索→点击申请对外开票，返回浏览器会话句柄（长生命周期）。"""
+        session = await create_browser_async_manual("jtn")
+        page, context = session.page, session.context
         # 浏览器关闭后的回收由 adapter.wait_open_browsers_closed 负责（调度器压住
         # 事件循环直到用户关掉浏览器）；脚本执行中途的异常路径在下方 except 里
-        # 显式 browser.close() + playwright.stop()。
+        # 通过工厂的 close_browser_session 显式回收。
 
         try:
             # ── 登录 ──
@@ -126,9 +124,8 @@ class PlaywrightInvoiceMixin:
                     await asyncio.sleep(_MEDIUM_WAIT)
 
             logger.info("开票页面已打开")
-            return playwright, browser
+            return session
 
         except Exception:
-            await browser.close()
-            await playwright.stop()
+            await close_browser_session(session)
             raise

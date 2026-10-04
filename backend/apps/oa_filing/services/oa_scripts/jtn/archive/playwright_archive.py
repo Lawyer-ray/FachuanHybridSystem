@@ -10,7 +10,13 @@ from typing import Any
 from playwright.async_api import Page
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
-from apps.core.services.browser import BrowserProfile, create_browser_async
+from apps.core.services.browser import (
+    BrowserProfile,
+    BrowserSessionHandle,
+    close_browser_session,
+    create_browser_async,
+    create_browser_async_manual,
+)
 
 from ..auth.service import JtnAuthService
 from .archive_models import ArchiveFormData
@@ -288,20 +294,16 @@ class PlaywrightArchiveMixin:  # pragma: no cover
         oa_case_number: str,
         description: str = "详见卷宗",
         file_paths: list[str] | None = None,
-    ) -> tuple[Any, Any]:
-        """打开归档页面，填写案件编号和小结，若提供 file_paths 则在最后一步将对应文件上传到"案件业务卷宗"，返回 (playwright, browser) 保持浏览器打开。"""
-        from playwright.async_api import async_playwright
-
-        playwright = await async_playwright().start()
-        browser = await playwright.chromium.launch(headless=False)
-        context = await browser.new_context()
-        page = await context.new_page()
+    ) -> BrowserSessionHandle:
+        """打开归档页面，填写案件编号和小结，若提供 file_paths 则在最后一步将对应文件上传到"案件业务卷宗"，返回浏览器会话句柄（长生命周期）。"""
+        session = await create_browser_async_manual("jtn")
+        page = session.page
         # 浏览器关闭后的回收由 adapter.wait_open_browsers_closed 负责（调度器压住
         # 事件循环直到用户关掉浏览器）；脚本执行中途的异常路径在下方 except 里
-        # 显式 browser.close() + playwright.stop()。
+        # 通过工厂的 close_browser_session 显式回收。
 
         try:
-            await self._login(page, context)
+            await self._login(page, session.context)
             await self._navigate(page)
 
             if oa_case_number:
@@ -314,9 +316,8 @@ class PlaywrightArchiveMixin:  # pragma: no cover
                 await self._upload_files(page, file_paths)
 
             logger.info("归档页面已打开并填写完成")
-            return playwright, browser
+            return session
 
         except Exception:
-            await browser.close()
-            await playwright.stop()
+            await close_browser_session(session)
             raise

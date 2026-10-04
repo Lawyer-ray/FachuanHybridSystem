@@ -9,7 +9,13 @@ from typing import Any
 
 from playwright.async_api import Page
 
-from apps.core.services.browser import BrowserProfile, create_browser_async
+from apps.core.services.browser import (
+    BrowserProfile,
+    BrowserSessionHandle,
+    close_browser_session,
+    create_browser_async,
+    create_browser_async_manual,
+)
 
 from ..auth.service import JtnAuthService
 from .constants import (
@@ -332,20 +338,16 @@ class PlaywrightStampMixin:  # pragma: no cover
     # 打开页面并填写（不上传、不保存）
     # ------------------------------------------------------------------
 
-    async def _open_page(self: Any, oa_case_number: str) -> tuple[Any, Any]:
-        """打开盖章页面，登录→搜索案件→填表，返回 (playwright, browser)。"""
-        from playwright.async_api import async_playwright
-
-        playwright = await async_playwright().start()
-        browser = await playwright.chromium.launch(headless=False)
-        context = await browser.new_context()
-        page = await context.new_page()
+    async def _open_page(self: Any, oa_case_number: str) -> BrowserSessionHandle:
+        """打开盖章页面，登录→搜索案件→填表，返回浏览器会话句柄（长生命周期）。"""
+        session = await create_browser_async_manual("jtn")
+        page = session.page
         # 浏览器关闭后的回收由 adapter.wait_open_browsers_closed 负责（调度器压住
         # 事件循环直到用户关掉浏览器）；脚本执行中途的异常路径在下方 except 里
-        # 显式 browser.close() + playwright.stop()。
+        # 通过工厂的 close_browser_session 显式回收。
 
         try:
-            await self._login_to_stamp(page, context)
+            await self._login_to_stamp(page, session.context)
             await self._navigate_to_stamp_page(page)
 
             if oa_case_number:
@@ -369,9 +371,8 @@ class PlaywrightStampMixin:  # pragma: no cover
                 logger.info("盖章份数: %d", DEFAULT_STAMP_COPIES)
 
             logger.info("盖章表单已填写完成")
-            return playwright, browser
+            return session
 
         except Exception:
-            await browser.close()
-            await playwright.stop()
+            await close_browser_session(session)
             raise

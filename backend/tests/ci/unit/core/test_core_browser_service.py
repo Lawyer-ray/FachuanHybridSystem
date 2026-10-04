@@ -3,11 +3,38 @@
 from __future__ import annotations
 
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from apps.core.services.browser.profiles import BrowserProfile, get_profile, register_profile
+
+
+def _make_manual_handle(
+    connected: bool = True,
+    close_raises: bool = False,
+    fire_events_on_register: bool = True,
+) -> BrowserSessionHandle:
+    from apps.core.services.browser import BrowserSessionHandle
+
+    browser = MagicMock()
+    browser.is_connected.return_value = connected
+    if fire_events_on_register:
+        # 注册即触发，模拟"用户随后关闭浏览器"让 wait_user_closed 立即返回
+        browser.on = MagicMock(side_effect=lambda _evt, handler: handler(browser))
+    else:
+        browser.on = MagicMock()
+    browser.close = AsyncMock(side_effect=RuntimeError("boom") if close_raises else None)
+    context = MagicMock()
+    context.close = AsyncMock(side_effect=RuntimeError("boom") if close_raises else None)
+    page = MagicMock()
+    page.close = AsyncMock(side_effect=RuntimeError("boom") if close_raises else None)
+    return BrowserSessionHandle(
+        profile=BrowserProfile(name="jtn", headless=False),
+        browser=browser,
+        context=context,
+        page=page,
+    )
 
 
 class TestBrowserProfile:
@@ -132,6 +159,135 @@ class TestChromeProcess:
 
         # 没有 Chrome 运行时应该返回 False
         assert is_cdp_ready(port=19999) is False
+
+
+class TestJtnProfile:
+    """jtn 预定义 Profile（OA 半自动页面专用）测试。"""
+
+    def test_jtn_profile_registered_headed(self) -> None:
+        # 屏蔽 SystemConfig PLAYWRIGHT_HEADED 覆盖，避免 Redis 缓存在测试间泄漏导致断言波动
+        with patch("apps.core.services.browser.profiles._apply_headless_override", lambda p: p):
+            p = get_profile("jtn")
+        assert p.name == "jtn"
+        assert p.headless is False  # 半自动浏览器必须可见
+        assert p.is_cdp is False
+        assert p.timeout == 60_000
+        assert p.navigation_timeout == 60_000
+
+
+class TestManualSession:
+    """手动生命周期浏览器会话（create_browser_async_manual）测试。"""
+
+    @pytest.mark.asyncio
+    async def test_rejects_cdp_profile_without_launch(self) -> None:
+        from apps.core.services.browser import create_browser_async_manual
+
+        cdp_profile = BrowserProfile(name="cdp_manual", cdp_url="http://localhost:9222")
+        with patch("apps.core.services.browser.launcher.ensure_browser_binary") as ensure_mock:
+            with pytest.raises(NotImplementedError, match="create_browser_async"):
+                await create_browser_async_manual(cdp_profile)
+        ensure_mock.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_rejects_remote_profile(self) -> None:
+        from apps.core.services.browser import create_browser_async_manual
+
+        remote = BrowserProfile(name="remote_manual", remote_url="ws://remote:3000")
+        with pytest.raises(NotImplementedError):
+            await create_browser_async_manual(remote)
+
+    @pytest.mark.asyncio
+    async def test_launch_returns_handle(self) -> None:
+        from apps.core.services.browser import BrowserSessionHandle, create_browser_async_manual
+
+        browser = MagicMock()
+        context = MagicMock()
+        page = MagicMock()
+        page.add_init_script = AsyncMock()
+        browser.new_context = AsyncMock(return_value=context)
+        context.new_page = AsyncMock(return_value=page)
+
+        profile = BrowserProfile(name="manual_test", headless=True, anti_detection=True)
+        with patch("apps.core.services.browser.launcher.ensure_browser_binary", return_value="/bin/chrome"), \
+             patch("cloakbrowser.launch_async", new=AsyncMock(return_value=browser)) as launch_mock:
+            handle = await create_browser_async_manual(profile)
+
+        assert isinstance(handle, BrowserSessionHandle)
+        assert handle.browser is browser
+        assert handle.context is context
+        assert handle.page is page
+        assert handle.playwright is None  # CloakBrowser: driver 停止内嵌在 browser.close()
+        launch_mock.assert_awaited_once_with(headless=True, humanize=True)
+        # 反检测上下文参数合并进 new_context
+        _, kwargs = browser.new_context.await_args
+        assert kwargs["locale"] == "zh-CN"
+        assert kwargs["timezone_id"] == "Asia/Shanghai"
+        context.set_default_timeout.assert_called_once_with(profile.timeout)
+        context.set_default_navigation_timeout.assert_called_once_with(profile.navigation_timeout)
+        page.on.assert_called_once()  # dialog 自动接受
+
+    @pytest.mark.asyncio
+    async def test_close_browser_session_closes_in_order(self) -> None:
+        from apps.core.services.browser import BrowserSessionHandle, close_browser_session
+
+        session = _make_manual_handle()
+        await close_browser_session(session)
+
+        session.page.close.assert_awaited_once()
+        session.context.close.assert_awaited_once()
+        session.browser.close.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_close_browser_session_best_effort_never_raises(self) -> None:
+        from apps.core.services.browser import close_browser_session
+
+        session = _make_manual_handle(close_raises=True)
+        await close_browser_session(session)  # 不应抛
+
+        session.page.close.assert_awaited_once()
+        session.browser.close.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_close_browser_session_stops_raw_playwright_driver(self) -> None:
+        from apps.core.services.browser import BrowserSessionHandle, close_browser_session
+
+        session = _make_manual_handle()
+        playwright = MagicMock()
+        playwright.stop = AsyncMock()
+        session.playwright = playwright
+
+        await close_browser_session(session)
+
+        playwright.stop.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_handle_helpers_delegate_to_browser(self) -> None:
+        session = _make_manual_handle(connected=False)
+        assert session.is_connected() is False
+
+    @pytest.mark.asyncio
+    async def test_wait_user_closed_blocks_until_close_event(self) -> None:
+        """连接中的浏览器：wait_user_closed 挂起直到 close 事件触发，不提前返回。"""
+        import asyncio
+
+        session = _make_manual_handle(connected=True, fire_events_on_register=False)
+        task = asyncio.create_task(session.wait_user_closed())
+        await asyncio.sleep(0)  # 让协程跑到 await closed.wait()
+        assert not task.done()
+
+        handlers = {c.args[0]: c.args[1] for c in session.browser.on.call_args_list}
+        assert "disconnected" in handlers
+        handlers["disconnected"](session.browser)  # 模拟用户关闭窗口
+
+        await asyncio.wait_for(task, timeout=1)
+
+    @pytest.mark.asyncio
+    async def test_wait_user_closed_skips_when_disconnected(self) -> None:
+        session = _make_manual_handle(connected=False, fire_events_on_register=False)
+        await session.wait_user_closed()  # 不应挂死
+        # 已断开时仍先注册监听（防竞态），但不进入等待
+        session.browser.on.assert_called_once()
+        assert session.browser.on.call_args.args[0] == "disconnected"
 
 
 class TestAntiDetection:

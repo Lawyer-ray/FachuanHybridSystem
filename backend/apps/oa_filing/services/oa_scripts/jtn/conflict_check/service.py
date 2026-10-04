@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from apps.core.services.browser import BrowserSessionHandle
+
 from .playwright_conflict_check import PlaywrightConflictCheckMixin
 
 
@@ -15,6 +17,6 @@ class JtnConflictCheckScript(PlaywrightConflictCheckMixin):
         self._password = password
         self._auth = JtnAuthService(account, password)
 
-    async def open_page(self, keyword: str) -> tuple:
-        """打开利冲检查页面并搜索当事人名称，返回 (playwright, browser)。"""
+    async def open_page(self, keyword: str) -> BrowserSessionHandle:
+        """打开利冲检查页面并搜索当事人名称，返回浏览器会话句柄（长生命周期，交给用户操作）。"""
         return await self._open_page(keyword)

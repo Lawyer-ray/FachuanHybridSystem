@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from apps.core.services.browser import BrowserSessionHandle
+
 from .playwright_stamp import PlaywrightStampMixin
 from .stamp_models import StampFormData
 
@@ -20,6 +22,6 @@ class JtnStampScript(PlaywrightStampMixin):
         """执行盖章申请全流程。"""
         await self._run_stamp_application(form_data)
 
-    async def open_page(self, oa_case_number: str) -> tuple:
-        """打开盖章页面并填写，返回 (playwright, browser)。"""
+    async def open_page(self, oa_case_number: str) -> BrowserSessionHandle:
+        """打开盖章页面并填写，返回浏览器会话句柄（长生命周期，交给用户操作）。"""
         return await self._open_page(oa_case_number)
