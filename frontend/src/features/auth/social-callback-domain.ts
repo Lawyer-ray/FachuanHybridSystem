@@ -17,7 +17,11 @@ export function sanitizeRedirect(raw: string | null): string {
 /** 把后端回调的 error 参数映射为可读文案；未知错误码统一归一，避免把后端细节透给用户 */
 export function resolveCallbackError(error: string | null): string {
   if (!error) return ''
-  const code = (error in SOCIAL_LOGIN_ERROR_TEXT ? error : 'exchange_failed') as SocialLoginErrorCode
+  // hasOwnProperty 而非 in：error 来自 URL 参数，'toString'/'constructor' 这类
+  // 原型链键会被 in 误判为已知错误码，透出 undefined 文案
+  const code = (
+    Object.prototype.hasOwnProperty.call(SOCIAL_LOGIN_ERROR_TEXT, error) ? error : 'exchange_failed'
+  ) as SocialLoginErrorCode
   return SOCIAL_LOGIN_ERROR_TEXT[code]
 }
 

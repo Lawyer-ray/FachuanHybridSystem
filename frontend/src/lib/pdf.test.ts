@@ -11,9 +11,11 @@ import { getDocument } from 'pdfjs-dist'
 import {
   PDF_RENDER_MAX_WIDTH,
   PDF_RENDER_WIDTH,
+  canvasToRetainedImg,
   clearPdfDocuments,
   loadPdfDocument,
   pdfRenderWidthFor,
+  releaseRetainedImg,
 } from './pdf'
 
 function makeTask(numPages = 3) {
@@ -126,5 +128,95 @@ describe('clearPdfDocuments', () => {
     vi.mocked(getDocument).mockReturnValueOnce(again as never)
     await loadPdfDocument('a', new ArrayBuffer(4))
     expect(getDocument).toHaveBeenCalledTimes(3)
+  })
+})
+
+/** node 环境无 Image/URL.createObjectURL：用可控行为的替身验证登记/回收契约 */
+class FakeImage {
+  decoding = ''
+  style: Record<string, string> = {}
+  onload: (() => void) | null = null
+  onerror: (() => void) | null = null
+  private _src = ''
+  get src(): string {
+    return this._src
+  }
+  set src(v: string) {
+    this._src = v
+    this.emit()
+  }
+  /** 模拟浏览器异步事件：默认解码成功 */
+  protected emit(): void {
+    queueMicrotask(() => this.onload?.())
+  }
+}
+
+/** 解码必失败的替身：src 赋值后异步触发 onerror */
+class FakeErrImage extends FakeImage {
+  protected override emit(): void {
+    queueMicrotask(() => this.onerror?.())
+  }
+}
+
+describe('canvasToRetainedImg 的 blob URL 回收（releaseRetainedImg）', () => {
+  let createObjectURL: ReturnType<typeof vi.fn>
+  let revokeObjectURL: ReturnType<typeof vi.fn>
+  const fakeCanvas = { toBlob: (cb: (b: Blob | null) => void) => cb(new Blob(['x'])) }
+
+  beforeEach(() => {
+    let seq = 0
+    createObjectURL = vi.fn(() => `blob:fake-${seq++}`)
+    revokeObjectURL = vi.fn()
+    URL.createObjectURL = createObjectURL as unknown as typeof URL.createObjectURL
+    URL.revokeObjectURL = revokeObjectURL as unknown as typeof URL.revokeObjectURL
+    vi.stubGlobal('Image', FakeImage)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    // 还原替身，避免影响同文件其他用例（node 本无这两个静态方法，删掉即可）
+    const urlCtor = URL as unknown as Record<string, unknown>
+    delete urlCtor.createObjectURL
+    delete urlCtor.revokeObjectURL
+  })
+
+  it('创建登记 1 条 URL；release 后 revoke 恰好一次，且幂等', async () => {
+    const img = await canvasToRetainedImg(fakeCanvas as unknown as HTMLCanvasElement)
+    expect(createObjectURL).toHaveBeenCalledTimes(1)
+    expect(revokeObjectURL).not.toHaveBeenCalled()
+
+    releaseRetainedImg(img as unknown as HTMLImageElement)
+    expect(revokeObjectURL).toHaveBeenCalledTimes(1)
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:fake-0')
+
+    // 重复 release（清理路径 + 替换路径都可能调）不产生第二次 revoke
+    releaseRetainedImg(img as unknown as HTMLImageElement)
+    expect(revokeObjectURL).toHaveBeenCalledTimes(1)
+  })
+
+  it('多张驻留图各自登记，release 只回收自己的 URL', async () => {
+    const a = await canvasToRetainedImg(fakeCanvas as unknown as HTMLCanvasElement)
+    const b = await canvasToRetainedImg(fakeCanvas as unknown as HTMLCanvasElement)
+    expect(createObjectURL).toHaveBeenCalledTimes(2)
+
+    releaseRetainedImg(a as unknown as HTMLImageElement)
+    expect(revokeObjectURL).toHaveBeenCalledTimes(1)
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:fake-0')
+
+    releaseRetainedImg(b as unknown as HTMLImageElement)
+    expect(revokeObjectURL).toHaveBeenCalledTimes(2)
+    expect(revokeObjectURL).toHaveBeenLastCalledWith('blob:fake-1')
+  })
+
+  it('未登记的 img（非驻留图）直接 no-op，不误 revoke', () => {
+    releaseRetainedImg(new FakeImage() as unknown as HTMLImageElement)
+    expect(revokeObjectURL).not.toHaveBeenCalled()
+  })
+
+  it('解码失败时立即回收刚创建的 blob URL，不留悬挂', async () => {
+    vi.stubGlobal('Image', FakeErrImage)
+    await expect(canvasToRetainedImg(fakeCanvas as unknown as HTMLCanvasElement)).rejects.toThrow('驻留图解码失败')
+    expect(createObjectURL).toHaveBeenCalledTimes(1)
+    expect(revokeObjectURL).toHaveBeenCalledTimes(1)
   })
 })

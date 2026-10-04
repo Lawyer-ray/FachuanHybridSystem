@@ -195,24 +195,29 @@ class LitigationAgentService(ILitigationAgentService):
         # 更新会话元数据
         @sync_to_async
         def update_session() -> None:
-            session = LitigationSession.objects.filter(session_id=session_id).first()
-            if not session:
-                raise NotFoundError(
-                    message="会话不存在",
-                    code="SESSION_NOT_FOUND",
-                    errors={"session_id": session_id},
-                )
+            from django.db import transaction
 
-            metadata = session.metadata or {}
-            metadata.update(
-                {
-                    "evidence_item_ids": evidence_item_ids,
-                    "our_evidence_item_ids": our_evidence_item_ids,
-                    "opponent_evidence_item_ids": opponent_evidence_item_ids,
-                }
-            )
-            session.metadata = metadata
-            session.save(update_fields=["metadata"])
+            # 锁内读改写：select_for_update 行锁串行化并发 RMW，
+            # 无锁版本「先读后写整列」在并发下会丢其他写入方落下的键
+            with transaction.atomic():
+                session = LitigationSession.objects.select_for_update().filter(session_id=session_id).first()
+                if not session:
+                    raise NotFoundError(
+                        message="会话不存在",
+                        code="SESSION_NOT_FOUND",
+                        errors={"session_id": session_id},
+                    )
+
+                metadata = session.metadata or {}
+                metadata.update(
+                    {
+                        "evidence_item_ids": evidence_item_ids,
+                        "our_evidence_item_ids": our_evidence_item_ids,
+                        "opponent_evidence_item_ids": opponent_evidence_item_ids,
+                    }
+                )
+                session.metadata = metadata
+                session.save(update_fields=["metadata"])
 
         await update_session()
 

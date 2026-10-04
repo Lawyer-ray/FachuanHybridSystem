@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react'
 
+import { useQueryClient } from '@tanstack/react-query'
+
 import { usePollSession, type PollLease } from '@/hooks/use-poll-session'
 
 import {
@@ -7,6 +9,7 @@ import {
   parseDocument,
   DOC_PARSE_MAX_POLLS,
   DOC_PARSE_POLL_MS,
+  parseHistoryKeys,
   type ParseDocumentIn,
   type ParseOutcome,
 } from '../../api'
@@ -56,9 +59,20 @@ export interface UseDocParseResult extends DocParseState {
  * 终态写进 state 覆盖新提交（详见 use-poll-session.ts 头注释）。
  */
 export function useDocParse(): UseDocParseResult {
+  const queryClient = useQueryClient()
   const [phase, setPhase] = useState<ParsePhase>('idle')
   const [outcome, setOutcome] = useState<ParseOutcome | null>(null)
   const pollSession = usePollSession()
+
+  /** 写终态并失效解析历史列表：这条新记录到终态才完整落库，旧缓存的历史里看不到它 */
+  const finish = useCallback(
+    (o: ParseOutcome | null) => {
+      setOutcome(o)
+      setPhase('done')
+      void queryClient.invalidateQueries({ queryKey: parseHistoryKeys.all })
+    },
+    [queryClient],
+  )
 
   const reset = useCallback(() => {
     // 只失效会话：正在跑的轮询会自检退出，不再打接口、不再写 state
@@ -76,14 +90,13 @@ export function useDocParse(): UseDocParseResult {
         const s = await getParseTaskTask(taskId)
         if (lease.isStale()) return
         if (s.status === 'success' || s.status === 'failure') {
-          setOutcome(s.outcome)
-          setPhase('done')
+          finish(s.outcome)
           return
         }
         if (s.status === 'not_found') {
           notFoundStreak++
           if (notFoundStreak >= NOT_FOUND_GRACE_POLLS) {
-            setOutcome({
+            finish({
               ok: false,
               markdown: '',
               text: '',
@@ -91,7 +104,6 @@ export function useDocParse(): UseDocParseResult {
               error: '解析任务排队后没有执行起来——多为后台 worker 未运行，可到「解析任务」查看',
               metadata: {},
             })
-            setPhase('done')
             return
           }
           // 仍在宽限期内：任务可能刚被 worker 摘走还没落库，继续等
@@ -106,7 +118,7 @@ export function useDocParse(): UseDocParseResult {
       await lease.sleep(DOC_PARSE_POLL_MS)
     }
     if (lease.isStale()) return
-    setOutcome({
+    finish({
       ok: false,
       markdown: '',
       text: '',
@@ -114,8 +126,7 @@ export function useDocParse(): UseDocParseResult {
       error: '解析超时（超过 5 分钟仍无结果），请到后台「解析任务」查看',
       metadata: {},
     })
-    setPhase('done')
-  }, [])
+  }, [finish])
 
   const submit = useCallback(
     async (file: File, opts: ParseDocumentIn) => {
@@ -133,11 +144,10 @@ export function useDocParse(): UseDocParseResult {
           await pollTask(taskId, lease)
           return
         }
-        setOutcome(sync)
-        setPhase('done')
+        finish(sync)
       } catch {
         if (lease.isStale()) return
-        setOutcome({
+        finish({
           ok: false,
           markdown: '',
           text: '',
@@ -145,10 +155,9 @@ export function useDocParse(): UseDocParseResult {
           error: '提交解析失败，请检查文件格式或稍后重试',
           metadata: {},
         })
-        setPhase('done')
       }
     },
-    [pollSession, pollTask],
+    [pollSession, pollTask, finish],
   )
 
   return { phase, outcome, hint: PHASE_HINT[phase], submit, reset }

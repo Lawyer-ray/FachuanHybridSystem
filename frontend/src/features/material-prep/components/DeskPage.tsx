@@ -142,6 +142,9 @@ export function DeskPage() {
     [visible, openPack, navigate],
   )
 
+  // 「不接」回调稳定化：内联箭头会透传到 PackCard 打穿 memo
+  const rejectPack = useCallback((p: InboxMessage) => { void judge(p, 'filed') }, [judge])
+
   useDeskKeyboard({ visible, openId, sel, setSel, openAt, judge: judgeVoid, gridRef })
   useDeskRing({ sel, visible, tab, gridRef, wrapRef, ringRef })
 
@@ -218,7 +221,7 @@ export function DeskPage() {
               tab={tab}
               leaving={leaving}
               onOpen={openAt}
-              onReject={(p) => { void judge(p, 'filed') }}
+              onReject={rejectPack}
               onAccept={setAssigning}
               onRename={setRenameTarget}
               onDelete={setDeleteTarget}

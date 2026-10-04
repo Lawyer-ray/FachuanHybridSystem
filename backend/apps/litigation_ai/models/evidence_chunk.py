@@ -26,3 +26,13 @@ class EvidenceChunk(models.Model):
         verbose_name = "证据片段"
         verbose_name_plural = "证据片段"
         # evidence_item 为 FK 自带索引，勿重复声明
+        constraints = [
+            # 并发 ingest 幂等：同一证据条目的同一起始页只允许一条 chunk，
+            # 配合 bulk_create(ignore_conflicts=True) 消除并发入库翻倍。
+            # page_start 可空（负缓存标记行等），PG 默认 NULLS DISTINCT 下
+            # 多个 NULL 行互不冲突，不挡历史数据。
+            models.UniqueConstraint(
+                fields=["evidence_item", "page_start"],
+                name="uniq_evidencechunk_item_page_start",
+            ),
+        ]

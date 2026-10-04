@@ -202,3 +202,48 @@ describe('useReader.appendFiles 跨包守卫', () => {
     expect(toastMock.success).toHaveBeenCalledWith('已追加 1 份材料')
   })
 })
+
+describe('useReader.removeInfo 取字态下标同步', () => {
+  /** 三字段草稿：取字态默认指向 infos[2]（对方当事人） */
+  function openWithInfos() {
+    const draft = draftOf(1)
+    draft.infos = [
+      { k: '委托人', v: '张三', src: '', srcRef: null },
+      { k: '标的额', v: '', src: '', srcRef: null },
+      { k: '对方当事人', v: '李四', src: '', srcRef: null },
+    ]
+    useReader.setState({ openId: 1, detail: detail(1, []), draft, status: 'ready' })
+    useReader.getState().setPickInfo(2)
+  }
+
+  it('删除取字字段之前的字段：pickInfo 随数组前移 -1，仍指向原字段', () => {
+    openWithInfos()
+    useReader.getState().removeInfo(0) // 删掉 infos[0] 委托人
+    const s = useReader.getState()
+    expect(s.draft?.infos.map((f) => f.k)).toEqual(['标的额', '对方当事人'])
+    expect(s.pickInfo).toBe(1) // 仍指向 对方当事人
+  })
+
+  it('删除的正是取字字段：退出取字态（pickInfo=-1，ocrPending 清空）', () => {
+    openWithInfos()
+    useReader.setState({ ocrPending: { mi: 0, p: 1, rect: { x: 0, y: 0, w: 0.1, h: 0.1 }, text: '', loading: false } })
+    useReader.getState().removeInfo(2)
+    const s = useReader.getState()
+    expect(s.draft?.infos).toHaveLength(2)
+    expect(s.pickInfo).toBe(-1)
+    expect(s.ocrPending).toBeNull()
+  })
+
+  it('删除取字字段之后的字段：pickInfo 不动；非取字态删除：pickInfo 保持 -1', () => {
+    openWithInfos()
+    useReader.getState().setPickInfo(1) // 取字指向 标的额
+    useReader.getState().removeInfo(2) // 删掉它之后的 对方当事人
+    expect(useReader.getState().pickInfo).toBe(1)
+    expect(useReader.getState().draft?.infos.map((f) => f.k)).toEqual(['委托人', '标的额'])
+
+    useReader.getState().setPickInfo(-1)
+    useReader.getState().removeInfo(0)
+    expect(useReader.getState().pickInfo).toBe(-1)
+    expect(useReader.getState().draft?.infos.map((f) => f.k)).toEqual(['标的额'])
+  })
+})

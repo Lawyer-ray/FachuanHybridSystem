@@ -1,6 +1,6 @@
 import { createApiClient, UPLOAD_TIMEOUT_MS } from '@/lib/api'
 import type { components } from '@/types/api-schema'
-import { withAuthToken } from './download'
+import { API_BASE_URL, withAuthToken } from './download'
 
 /** 快捷工具资源：法院短信、要素式转换、DOC→DOCX。 */
 
@@ -150,14 +150,15 @@ export async function getConverterJob(jobId: string): Promise<ConverterJob> {
   }
 }
 
-/** 转换完成后的 ZIP 下载地址（带 token 供 <a> 直链下载） */
+/** 转换完成后的 ZIP 下载地址（带 token 供 <a> 直链下载）。
+ *  必须拼 API_BASE_URL：宿主注入绝对地址时（VITE_API_BASE_URL），裸 /api/v1 会打到宿主页面域上 404。 */
 export function converterDownloadUrl(jobId: string): string {
-  return withAuthToken(`/api/v1/doc-converter/jobs/${jobId}/download`)
+  return withAuthToken(`${API_BASE_URL}/doc-converter/jobs/${jobId}/download`)
 }
 
 /** 单件转换产物下载地址（带 token） */
 export function converterItemDownloadUrl(jobId: string, itemId: string): string {
-  return withAuthToken(`/api/v1/doc-converter/jobs/${jobId}/items/${itemId}/download`)
+  return withAuthToken(`${API_BASE_URL}/doc-converter/jobs/${jobId}/items/${itemId}/download`)
 }
 
 // ---------------------------------------------------------------------------
@@ -215,9 +216,9 @@ export async function listConvertRecords(
     .json<components['schemas']['DocConvertRecordListOut']>()
 }
 
-/** 要素式历史产物下载地址（带 token） */
+/** 要素式历史产物下载地址（带 token；同上必须拼 API_BASE_URL） */
 export function convertRecordDownloadUrl(recordId: number): string {
-  return withAuthToken(`/api/v1/doc-convert/records/${recordId}/download`)
+  return withAuthToken(`${API_BASE_URL}/doc-convert/records/${recordId}/download`)
 }
 
 /** 删除一条要素式转换记录（产物文件随之后端清理） */

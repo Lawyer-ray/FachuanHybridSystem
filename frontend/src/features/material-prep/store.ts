@@ -12,6 +12,7 @@ import {
   isEmptyDraft,
   isSelectionContiguous,
   pageIndexOf,
+  removeInfoField,
   removePages,
   renameMat,
   resolveMats,
@@ -61,6 +62,8 @@ interface ReaderState {
   /** 不可变更新 draft，并防抖保存到后端 */
   update: (fn: (d: DraftState) => DraftState) => void
   setPickInfo: (i: number) => void
+  /** 删除信息字段（含取字态 pickInfo 下标同步校正） */
+  removeInfo: (di: number) => void
   setZoom: (z: number) => void
   setCols: (n: number) => void
   toggleSelMode: () => void
@@ -239,6 +242,16 @@ export const useReader = create<ReaderState>((set, get) => ({
   setPickInfo: (i) => {
     set({ pickInfo: i, selPages: [], ocrPending: null })
     if (i >= 0) set({ selMode: false })
+  },
+  /** 删除信息字段：取字态（pickInfo≥0）下同步校正下标——删在取字字段之前 →
+   *  infos 前移一位（pickInfo-1）；删的正是取字字段 → 退出取字态。
+   *  与 MetaPanel armDel 记字段名防漂移是同型的下标漂移问题。 */
+  removeInfo: (di) => {
+    const { pickInfo } = get()
+    get().update((d) => removeInfoField(d, di))
+    if (pickInfo < 0) return
+    if (di < pickInfo) set({ pickInfo: pickInfo - 1 })
+    else if (di === pickInfo) set({ pickInfo: -1, selPages: [], ocrPending: null })
   },
   setZoom: (z) => set({ zoom: z }),
   setCols: (n) => set({ cols: n }),

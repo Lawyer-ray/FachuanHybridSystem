@@ -9,6 +9,7 @@
  * 「发起后冲微任务」再按需推进计时器，不能直接 await submit。
  */
 import { act, renderHook } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../api', () => ({
@@ -16,6 +17,8 @@ vi.mock('../../api', () => ({
   getParseTaskTask: vi.fn(),
   DOC_PARSE_MAX_POLLS: 150,
   DOC_PARSE_POLL_MS: 2000,
+  // hook 终态会 invalidate 该 key（无需真实查询，仅需形状存在）
+  parseHistoryKeys: { all: ['doc-parse-history'] },
 }))
 
 import { getParseTaskTask, parseDocument } from '../../api'
@@ -45,7 +48,11 @@ function submitOf(taskId: string) {
 type HookResult = ReturnType<typeof useDocParse>
 
 function setup() {
-  return renderHook(() => useDocParse())
+  // hook 内 useQueryClient invalidate 历史 key，需要 Provider 包裹
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return renderHook(() => useDocParse(), {
+    wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>,
+  })
 }
 
 /** 发起 submit 但不等待（其内部 await pollTask 会陪到终态），只冲微任务让上传落地 */

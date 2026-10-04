@@ -8,11 +8,14 @@
  * （会话号守卫后旧循环必须自检退出）。
  */
 import { act, renderHook } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../api', () => ({
   createConverterJob: vi.fn(),
   getConverterJob: vi.fn(),
+  // hook 终态会 invalidate 该 key（无需真实查询，仅需形状存在）
+  converterHistoryKeys: { all: ['doc-converter-history'] },
 }))
 
 import { createConverterJob, getConverterJob } from '../../api'
@@ -32,7 +35,11 @@ function makeJob(jobId: string, over: Partial<ConverterJob> = {}): ConverterJob 
 type HookResult = ReturnType<typeof useConverterJob>
 
 function setup() {
-  return renderHook(() => useConverterJob())
+  // hook 内 useQueryClient invalidate 历史 key，需要 Provider 包裹
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return renderHook(() => useConverterJob(), {
+    wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>,
+  })
 }
 
 /** 发起 submit 但不等待（内部 poll 会陪到终态），只冲微任务让提交落地 */

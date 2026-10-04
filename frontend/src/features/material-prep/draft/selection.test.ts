@@ -148,3 +148,40 @@ describe('removePages', () => {
     expect(removePages(d0, [])).toBe(d0)
   })
 })
+
+/** ⌘ 乱序点选场景底稿：单个 5 页 PDF 一整段（扁平序 = P1..P5） */
+function fivePageFixture(): DraftState {
+  return {
+    mats: [{ partIndex: 0, n: '合同.pdf', k: 'pdf', pages: 5 }],
+    segs: [
+      {
+        id: 'seg-x',
+        t: '合同',
+        fn: '合同.pdf',
+        refs: [1, 2, 3, 4, 5].map((p) => ({ mi: 0, p })),
+        manual: false,
+      },
+    ],
+    infos: [],
+  }
+}
+
+describe('⌘ 乱序点选落段按文档序 normalize', () => {
+  it('先点 P5 再点 P4 后切出：新段 refs 是文档序，命名起始页用文档序首项', () => {
+    const d = splitOutPages(fivePageFixture(), [{ mi: 0, p: 5 }, { mi: 0, p: 4 }])
+    // 从尾部切出：只剩头段 + 新段
+    expect(d.segs).toHaveLength(2)
+    expect(d.segs[1]!.refs).toEqual([{ mi: 0, p: 4 }, { mi: 0, p: 5 }])
+    expect(d.segs[1]!.fn).toBe('合同-P4.pdf')
+  })
+
+  it('乱序跨段合并：合并段 refs 仍按文档扁平序', () => {
+    const d = mergePagesIntoNew(fixture(), [{ mi: 1, p: 1 }, { mi: 0, p: 3 }])
+    expect(d.segs.at(-1)!.refs).toEqual([{ mi: 0, p: 3 }, { mi: 1, p: 1 }])
+  })
+
+  it('applyPageSelection 全链路：乱序传入切出后段内页序不颠倒', () => {
+    const d = applyPageSelection(fivePageFixture(), [{ mi: 0, p: 5 }, { mi: 0, p: 4 }])
+    expect(d.segs[1]!.refs).toEqual([{ mi: 0, p: 4 }, { mi: 0, p: 5 }])
+  })
+})

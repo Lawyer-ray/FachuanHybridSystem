@@ -49,6 +49,7 @@ function stamp() {
 
 export const PackCard = memo(function PackCard({
   pack,
+  index,
   finished,
   leaving,
   onOpen,
@@ -56,13 +57,16 @@ export const PackCard = memo(function PackCard({
   onAccept,
 }: {
   pack: InboxMessage
+  /** 在父级 packs 列表中的下标（onOpen 按下标定位） */
+  index: number
   /** 拆分与归类是否全部完成（segs>0 且 named===segs）——决定归案按钮是否可用 */
   finished: boolean
   /** 离场方向：不接=left / 归案=right（触发动画后由父级移除） */
   leaving?: 'left' | 'right' | null
-  onOpen: () => void
-  onReject: () => void
-  onAccept: () => void
+  /** 逐卡回调直接透传父级稳定引用，包内自己闭包 index/pack —— 否则 memo 被 map 里的内联箭头打穿 */
+  onOpen: (index: number) => void
+  onReject: (pack: InboxMessage) => void
+  onAccept: (pack: InboxMessage) => void
 }) {
   const pct = pack.segs ? Math.round((pack.named / pack.segs) * 100) : 0
   const kinds = pack.types ?? []
@@ -80,7 +84,7 @@ export const PackCard = memo(function PackCard({
       {/* 打开材料包的拉伸点击层：覆盖整卡、承担键盘可达，避免在 role=button 上嵌交互按钮 */}
       <button
         type="button"
-        onClick={onOpen}
+        onClick={() => onOpen(index)}
         aria-label={`打开材料包：${pack.subject || `材料包 ${pack.id}`}`}
         className="absolute inset-0 z-[1] cursor-pointer"
       />
@@ -197,7 +201,7 @@ export const PackCard = memo(function PackCard({
         <span className="ml-auto flex flex-none items-center gap-[6px]">
           <button
             type="button"
-            onClick={onReject}
+            onClick={() => onReject(pack)}
             title="不接：已归档留痕，未建案"
             className="h-[31px] flex-none rounded-[7px] border border-transparent bg-transparent px-[13px] text-[12.5px] font-medium text-secondary-foreground transition-colors hover:border-border hover:bg-secondary hover:text-foreground"
           >
@@ -205,7 +209,7 @@ export const PackCard = memo(function PackCard({
           </button>
           <button
             type="button"
-            onClick={onAccept}
+            onClick={() => onAccept(pack)}
             disabled={!finished}
             title={finished ? '归案：绑定案件后进入办案流程' : '先完成拆分与归类'}
             className={cn(

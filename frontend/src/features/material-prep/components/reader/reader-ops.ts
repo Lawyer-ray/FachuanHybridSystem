@@ -7,7 +7,6 @@ import {
   splitSegment as segSplit,
   toggleSegDone as segToggleDone,
   addInfoField as infoAdd,
-  removeInfoField as infoRemove,
   setInfoValue as infoSetValue,
 } from '../../draft'
 import type { DraftState, InfoField, PageKey } from '../../types'
@@ -50,10 +49,17 @@ export function buildFlowOps(
   }
 }
 
-export function buildMetaOps(update: Update): MetaOps {
+/**
+ * removeInfo 走 store 的同名 action（非纯 update）：取字态下还要同步校正 pickInfo 下标。
+ * 其余 add/setValue 仍是纯 draft 操作，经 update 接线。
+ */
+export function buildMetaOps(
+  update: Update,
+  removeInfo: (di: number) => void,
+): MetaOps {
   return {
     addInfo: (field) => update((d) => infoAdd(d, field)),
-    removeInfo: (di) => update((d) => infoRemove(d, di)),
+    removeInfo,
     setValue: (di, v) => update((d) => infoSetValue(d, di, v)),
   }
 }

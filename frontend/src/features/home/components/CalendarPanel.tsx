@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { KIND_ROW, WEEKDAYS } from '../constants'
@@ -52,6 +52,12 @@ export function CalendarPanel({
   onOpenAdd,
 }: Props) {
   const [selected, setSelected] = useState(today)
+  // 跨零点跟随：useState(today) 只取初值，长开页面跨天后默认高亮会冻结在昨天。
+  // today 是 HomePage useToday 的 dateKey（跨天才换引用），这里仅当用户没有
+  // 选中别的日子（仍停在旧今天或更早）时跟着挪到新今天，不覆盖用户选择。
+  useEffect(() => {
+    setSelected((prev) => (prev <= today ? today : prev))
+  }, [today])
   // 每格最多行数（超出折叠成「+N 更多」）按视口断点自适应：≥2400 → 5、≥1600 → 4、否则 3。
   // matchMedia 只在跨断点时通知，替代原先「每次 resize 重算 + 120ms 防抖」——
   // 断点内拖动窗口不再触发任何重渲染，防抖也随之不再需要。
@@ -60,6 +66,16 @@ export function CalendarPanel({
   const maxRows = ultraWide ? 5 : wide ? 4 : 3
   // 详情弹窗：点日历格里的事件打开
   const [detail, setDetail] = useState<CalendarEvent | null>(null)
+  // 详情弹窗快照保鲜：勾选完成后 HomePage 会 invalidate 日历 query 重取，
+  // eventsByDay 换新对象时用同 id 的新事件替换 detail 里的旧快照——
+  // 否则弹窗停留在勾选前的完成态（网格已刷新、弹窗没跟上）。
+  useEffect(() => {
+    setDetail((prev) => {
+      if (!prev) return prev
+      const fresh = (eventsByDay[prev.day] ?? []).find((e) => e.id === prev.id)
+      return fresh && fresh !== prev ? fresh : prev
+    })
+  }, [eventsByDay])
 
   const cells = buildMonthGrid(view.year, view.month)
 
