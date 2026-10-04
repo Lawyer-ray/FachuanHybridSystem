@@ -7,6 +7,8 @@ SocialAccount.__str__。
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from apps.social_auth.providers.base import (
@@ -188,6 +190,9 @@ class TestProviderRegistry:
             name="fake", display_name="Fake", client_id="cid", client_secret="sec"
         )  # pragma: allowlist secret
         ProviderRegistry._configs["fake"] = config
+        # 手动注入的缓存要补时钟戳，否则 get_config 的 TTL 兜底会判过期去查库
+        # （本用例无 django_db 标记，查库即错）
+        ProviderRegistry._configs_loaded_at = time.monotonic()
         assert ProviderRegistry.get_config("fake") is config
 
     def test_clear_configs_clears_all(self) -> None:
@@ -249,6 +254,90 @@ class TestProviderRegistry:
             invalidate_provider_configs("SOCIAL_AUTH_GOOGLE_APP_ID")
 
             assert "google" in [item["name"] for item in ProviderRegistry.enabled_list()]
+        finally:
+            SystemConfig.objects.filter(category="social_auth").delete()
+            ProviderRegistry.clear_configs()
+
+    @pytest.mark.django_db
+    def test_stale_cache_picks_up_cross_process_write(self) -> None:
+        """跨进程写库收不到信号（manage.py 脚本直写 / 多 worker 部署），TTL 到期后必须自动看到新凭证。
+
+        回归（2026-10-04 实测）：从脚本直写 SystemConfig 后，运行中后端缓存非空
+        不重建，绑定页长期显示「该登录方式暂未开放」，只能重启。本用例不触发
+        信号，完全依赖 TTL 兜底。
+        """
+        from apps.core.models import SystemConfig
+        from apps.social_auth.providers import _CONFIG_TTL_SECONDS, PROVIDER_SPECS, ProviderRegistry
+
+        def enabled_names() -> list[str]:
+            return [item["name"] for item in ProviderRegistry.enabled_list()]
+
+        # setup_method 会清空注册表（类内惯例），先注册本用例需要的两个名字
+        ProviderRegistry.register("google")(self._make_provider("google"))
+        ProviderRegistry.register("github")(self._make_provider("github"))
+
+        google_prefix = PROVIDER_SPECS["google"]["prefix"]
+        github_prefix = PROVIDER_SPECS["github"]["prefix"]
+        try:
+            SystemConfig.objects.bulk_create(
+                [
+                    SystemConfig(key=f"{google_prefix}APP_ID", value="cid-g", category="social_auth", is_active=True),
+                    SystemConfig(
+                        key=f"{google_prefix}APP_SECRET", value="sec-g", category="social_auth", is_active=True
+                    ),
+                    SystemConfig(key=f"{google_prefix}ENABLED", value="true", category="social_auth", is_active=True),
+                ]
+            )
+            ProviderRegistry.load_configs()
+            assert enabled_names() == ["google"]
+
+            # 另一个进程直写 GitHub 凭证：本进程收不到信号，TTL 内仍读旧缓存
+            SystemConfig.objects.bulk_create(
+                [
+                    SystemConfig(key=f"{github_prefix}APP_ID", value="Iv1.gh", category="social_auth", is_active=True),
+                    SystemConfig(
+                        key=f"{github_prefix}APP_SECRET", value="sec-gh", category="social_auth", is_active=True
+                    ),
+                    SystemConfig(key=f"{github_prefix}ENABLED", value="true", category="social_auth", is_active=True),
+                ]
+            )
+            assert "github" not in enabled_names()
+
+            # 时间越过 TTL（模拟 30 秒后），下一次读取自动重建
+            ProviderRegistry._configs_loaded_at -= _CONFIG_TTL_SECONDS + 1
+            assert "github" in enabled_names()
+        finally:
+            SystemConfig.objects.filter(category="social_auth").delete()
+            ProviderRegistry.clear_configs()
+
+    @pytest.mark.django_db
+    def test_get_config_refreshes_stale_credentials(self) -> None:
+        """已缓存的 Provider 在 TTL 过期后也要拿到跨进程改过的新值（get_config 自带 TTL 兜底）。"""
+        from apps.core.models import SystemConfig
+        from apps.social_auth.providers import _CONFIG_TTL_SECONDS, PROVIDER_SPECS, ProviderRegistry
+
+        ProviderRegistry.register("google")(self._make_provider("google"))
+
+        google_prefix = PROVIDER_SPECS["google"]["prefix"]
+        try:
+            SystemConfig.objects.bulk_create(
+                [
+                    SystemConfig(key=f"{google_prefix}APP_ID", value="cid-old", category="social_auth", is_active=True),
+                    SystemConfig(
+                        key=f"{google_prefix}APP_SECRET", value="sec-g", category="social_auth", is_active=True
+                    ),
+                    SystemConfig(key=f"{google_prefix}ENABLED", value="true", category="social_auth", is_active=True),
+                ]
+            )
+            ProviderRegistry.load_configs()
+            assert ProviderRegistry.get_config("google").client_id == "cid-old"
+
+            # 跨进程换凭证（不触发信号）：TTL 内仍是旧值
+            SystemConfig.objects.filter(key=f"{google_prefix}APP_ID").update(value="cid-new")
+            assert ProviderRegistry.get_config("google").client_id == "cid-old"
+
+            ProviderRegistry._configs_loaded_at -= _CONFIG_TTL_SECONDS + 1
+            assert ProviderRegistry.get_config("google").client_id == "cid-new"
         finally:
             SystemConfig.objects.filter(category="social_auth").delete()
             ProviderRegistry.clear_configs()

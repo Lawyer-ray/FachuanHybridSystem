@@ -11,6 +11,7 @@ SystemConfig 键名映射到 ProviderConfig。
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from apps.core.models import SystemConfig
@@ -21,6 +22,12 @@ logger = logging.getLogger(__name__)
 
 # SystemConfig 分类名
 CATEGORY = "social_auth"
+
+# 配置缓存 TTL：信号失效只在「写配置的那个进程」内生效（Admin 保存 → 同进程信号），
+# 但 DB 也会被其它进程改——manage.py 脚本直写、多 worker 部署里其它 worker 的 Admin 写入
+# ——运行中进程收不到任何信号，缓存将永久滞留在写入前（实测：绑定页长期显示
+# 「该登录方式暂未开放」，只能重启）。TTL 让缓存最多滞后这么久后自动重建。
+_CONFIG_TTL_SECONDS = 30.0
 
 # 每个 Provider 在 SystemConfig 中的键名前缀与字段映射。
 # 新增 Provider 只在这里加一行 + 一个 provider 文件，无需改动其它代码。
@@ -76,6 +83,9 @@ class ProviderRegistry:
     # 所以 clear_configs() 一律整体清空（见该方法注释）。
     _configs: dict[str, ProviderConfig] = {}
 
+    # 上次 load_configs 的单调时钟戳，供 TTL 兜底判断（见 _CONFIG_TTL_SECONDS）
+    _configs_loaded_at: float = 0.0
+
     @classmethod
     def register(cls, name: str) -> Any:
         def decorator(provider_cls: type[Any]) -> type[Any]:
@@ -129,6 +139,7 @@ class ProviderRegistry:
             config = cls._build_config(name)
             if config is not None and config.is_enabled:
                 cls._configs[name] = config
+        cls._configs_loaded_at = time.monotonic()
 
     @classmethod
     def _build_config(cls, name: str) -> ProviderConfig | None:
@@ -221,7 +232,23 @@ class ProviderRegistry:
         return rows.get("FEISHU_APP_ID", ""), cls._decrypt_secret(rows.get("FEISHU_APP_SECRET", ""))
 
     @classmethod
+    def ensure_configs_fresh(cls) -> None:
+        """缓存为空或超过 TTL 时重建，读取方统一走这里。
+
+        裸的「缓存非空就不重建」守卫对**同进程**写入是对的——SystemConfig 信号
+        会即时清缓存；但对**跨进程**写入（manage.py 脚本直写、多 worker 部署里
+        其它 worker 的 Admin 保存）收不到任何信号，缓存会永久滞留在写入前，
+        实测表现为绑定页长期「该登录方式暂未开放」、只能重启后端。
+        TTL 是兜底而非主路径：同进程信号失效后缓存已空，这里立即重建，零额外代价。
+        """
+        if not cls._configs or (time.monotonic() - cls._configs_loaded_at) >= _CONFIG_TTL_SECONDS:
+            cls.load_configs()
+
+    @classmethod
     def get_config(cls, name: str) -> ProviderConfig:
+        # 先做 TTL 兜底（见 ensure_configs_fresh）：跨进程改过凭证/开关时，
+        # 已缓存的 Provider 也要拿到新值，而不是只照顾「缓存里还没有」的名字
+        cls.ensure_configs_fresh()
         if name not in cls._configs:
             # 允许运行中新增配置（例如刚跑完「初始化默认配置」）而无需重启
             config = cls._build_config(name)
@@ -235,8 +262,7 @@ class ProviderRegistry:
     @classmethod
     def enabled_list(cls) -> list[dict[str, Any]]:
         """返回已启用的 Provider 列表（供前端渲染）。"""
-        if not cls._configs:
-            cls.load_configs()
+        cls.ensure_configs_fresh()
 
         result: list[dict[str, Any]] = []
         for name in cls._providers:

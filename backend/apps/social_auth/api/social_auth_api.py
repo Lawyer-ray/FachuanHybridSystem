@@ -39,8 +39,7 @@ router = Router()
 @router.get("/providers", response=ProvidersListOut, auth=None)
 def list_providers(request: HttpRequest) -> ProvidersListOut:  # pragma: no cover
     """列出已启用的登录方式，供登录页渲染二维码 / 按钮。"""
-    if not ProviderRegistry._configs:
-        ProviderRegistry.load_configs()
+    ProviderRegistry.ensure_configs_fresh()
 
     providers = []
     for item in ProviderRegistry.enabled_list():
@@ -76,8 +75,7 @@ def create_session(
     跳转意图，让前端裸 POST 即可。若声明 Schema 参数（哪怕是空 Schema），
     Ninja 也会要求 body 必须存在，导致无 body 的请求 422。
     """
-    if not ProviderRegistry._configs:
-        ProviderRegistry.load_configs()
+    ProviderRegistry.ensure_configs_fresh()
 
     session = build_authorization_session(
         request,
@@ -152,8 +150,7 @@ def create_bind_session(
     带上 ``bind_user_id``：回调时据此把 Provider 身份关联到当前用户，
     而不是走登录/自动建号逻辑。
     """
-    if not ProviderRegistry._configs:
-        ProviderRegistry.load_configs()
+    ProviderRegistry.ensure_configs_fresh()
 
     user: Lawyer = request.auth  # type: ignore[attr-defined]
     session = build_authorization_session(
@@ -189,8 +186,7 @@ def list_provider_catalog(request: HttpRequest) -> ProvidersListOut:  # pragma: 
     与 ``/providers`` 的区别：那个只给登录页用、只返回已启用的，这里给已登录用户
     看「还能绑定哪些平台」，未配置的也要显示（灰态），所以不能复用同一份数据源。
     """
-    if not ProviderRegistry._configs:
-        ProviderRegistry.load_configs()
+    ProviderRegistry.ensure_configs_fresh()
 
     providers = []
     for name in ProviderRegistry.names():

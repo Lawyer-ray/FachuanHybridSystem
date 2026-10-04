@@ -144,8 +144,7 @@ class SocialLoginView(View):
     """GET /social/{provider}/login/ — 重定向到 Provider 授权页（REDIRECT 型）。"""
 
     def get(self, request: HttpRequest, provider: str) -> HttpResponse:  # pragma: no cover
-        if not ProviderRegistry._configs:
-            ProviderRegistry.load_configs()
+        ProviderRegistry.ensure_configs_fresh()
 
         session = build_authorization_session(
             request,
