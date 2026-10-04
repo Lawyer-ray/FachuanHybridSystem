@@ -17,7 +17,13 @@ from apps.core.exceptions import ValidationException
 from apps.core.filesystem.upload_paths import MediaEntity
 from apps.core.security.secret_codec import SecretCodec
 from apps.core.services.storage_service import to_media_abs
-from apps.legal_research.models import CaseDownloadFormat, CaseDownloadResult, CaseDownloadStatus, CaseDownloadTask
+from apps.legal_research.models import (
+    CaseDownloadFormat,
+    CaseDownloadResult,
+    CaseDownloadResultStatus,
+    CaseDownloadStatus,
+    CaseDownloadTask,
+)
 from apps.legal_research.services.sources import get_case_source_client
 from apps.legal_research.services.sources.weike import WeikeCaseClient, WeikeSession
 
@@ -200,7 +206,7 @@ class CaseDownloadService:  # pragma: no cover
             CaseDownloadResult.objects.create(
                 task=task,
                 case_number=case_number,
-                status="failed",
+                status=CaseDownloadResultStatus.FAILED,
                 error_message="未找到案例",
                 file_format=file_format,
             )
@@ -225,7 +231,7 @@ class CaseDownloadService:  # pragma: no cover
                 title=detail.title,
                 court=detail.court_text,
                 judgment_date=detail.judgment_date,
-                status="failed",
+                status=CaseDownloadResultStatus.FAILED,
                 error_message="下载失败",
                 file_format=file_format,
             )
@@ -249,7 +255,7 @@ class CaseDownloadService:  # pragma: no cover
             file_path=saved_name,
             file_size=len(file_bytes),
             file_format=file_format,
-            status="success",
+            status=CaseDownloadResultStatus.SUCCESS,
         )
 
         return {"success": True, "file_path": saved_name}
@@ -270,7 +276,7 @@ class CaseDownloadService:  # pragma: no cover
         if not tasks:
             return None, "任务不存在"
 
-        results = CaseDownloadResult.objects.filter(task_id__in=task_ids, status="success")
+        results = CaseDownloadResult.objects.filter(task_id__in=task_ids, status=CaseDownloadResultStatus.SUCCESS)
         if not results.exists():
             return None, "没有可下载的文件"
 

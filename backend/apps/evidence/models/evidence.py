@@ -226,13 +226,14 @@ class EvidenceList(models.Model):
         indexes: ClassVar = [
             models.Index(fields=["case", "order"]),
             models.Index(fields=["case", "list_type"]),
-            models.Index(fields=["created_by"]),
+            # created_by 为 FK 自带索引，勿重复声明
         ]
         # 同一案件不能有重复的清单类型
         constraints: ClassVar = [models.UniqueConstraint(fields=["case", "list_type"], name="unique_case_list_type")]
 
     def __str__(self) -> str:
-        return f"{self.case.name} - {self.title}"
+        # 用 case_id 拼接，避免 admin/日志列表逐行触发 FK 查询（N+1）
+        return f"案件#{self.case_id} - {self.title}"
 
     @property
     def start_order(self) -> int:

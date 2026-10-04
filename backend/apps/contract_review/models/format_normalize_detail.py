@@ -10,6 +10,14 @@ from django.utils import timezone
 from .review_task import ReviewTask
 
 
+class FormatMethod(models.TextChoices):
+    """格式化方法（数据库值不变，仅枚举化）"""
+
+    POI = "poi", "POI服务"
+    PYTHON = "python", "Python"
+    AUTO = "auto", "自动选择"
+
+
 class FormatNormalizeDetail(models.Model):
     """格式调整详情"""
 
@@ -17,14 +25,10 @@ class FormatNormalizeDetail(models.Model):
         ReviewTask, on_delete=models.CASCADE, related_name="format_detail", verbose_name="关联任务"
     )
 
-    # 格式化方法
-    FORMAT_METHOD_CHOICES = [
-        ("poi", "POI服务"),
-        ("python", "Python"),
-        ("auto", "自动选择"),
-    ]
+    # 格式化方法（枚举化前的历史常量别名，数据库值不变）
+    FORMAT_METHOD_CHOICES = FormatMethod.choices
     format_method = models.CharField(
-        max_length=20, choices=FORMAT_METHOD_CHOICES, default="auto", verbose_name="格式化方法"
+        max_length=20, choices=FormatMethod.choices, default=FormatMethod.AUTO, verbose_name="格式化方法"
     )
 
     # 版本信息
@@ -40,7 +44,7 @@ class FormatNormalizeDetail(models.Model):
     )
 
     # 时间戳
-    created_at = models.DateTimeField(default=timezone.now, verbose_name="创建时间")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     completed_at = models.DateTimeField(null=True, blank=True, verbose_name="完成时间")
 
     # 处理日志

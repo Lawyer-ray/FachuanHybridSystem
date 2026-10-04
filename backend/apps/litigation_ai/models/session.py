@@ -66,7 +66,7 @@ class LitigationSession(models.Model):
         verbose_name_plural = "AI文书生成会话"
         ordering: ClassVar = ["-created_at"]
         indexes: ClassVar = [
-            models.Index(fields=["session_id"]),
+            # session_id 为 unique 字段自带唯一索引，勿重复声明
             models.Index(fields=["case", "-created_at"]),
             models.Index(fields=["user", "-created_at"]),
             models.Index(fields=["status"]),

@@ -87,6 +87,12 @@ class StoryAnimation(models.Model):
             models.Index(fields=["viz_type", "-created_at"]),
             models.Index(fields=["source_hash"]),
         ]
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.CheckConstraint(
+                condition=models.Q(progress_percent__gte=0) & models.Q(progress_percent__lte=100),
+                name="chk_story_animation_progress_range",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.source_title} ({self.get_status_display()})"

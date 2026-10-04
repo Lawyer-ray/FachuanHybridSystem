@@ -54,8 +54,7 @@ class CaseContact(models.Model):
         verbose_name_plural = "案件工作人员"
         ordering: ClassVar = ["created_at"]
         indexes: ClassVar = [
-            models.Index(fields=["case"]),
-            models.Index(fields=["authority"]),
+            # case/authority 为 FK 自带索引，勿重复声明
             models.Index(fields=["stage"]),
             models.Index(fields=["role"]),
         ]

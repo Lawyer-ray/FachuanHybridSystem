@@ -34,25 +34,28 @@ def client_identity_doc_upload_path(instance: Any, filename: str) -> str:
     return f"client_identity_docs/{new_filename}"
 
 
+class IdentityDocType(models.TextChoices):
+    ID_CARD = "id_card", "身份证"
+    PASSPORT = "passport", "护照"
+    HK_MACAO_PERMIT = "hk_macao_permit", "港澳通行证"
+    RESIDENCE_PERMIT = "residence_permit", "居住证"
+    HOUSEHOLD_REGISTER = "household_register", "户口本"
+    BUSINESS_LICENSE = "business_license", "营业执照"
+    LEGAL_REP_ID_CARD = "legal_rep_id_card", "法定代表人/负责人身份证"
+
+
 class ClientIdentityDoc(models.Model):
     id: int
     client_id: int
-    ID_CARD = "id_card"
-    PASSPORT = "passport"
-    HK_MACAO_PERMIT = "hk_macao_permit"
-    RESIDENCE_PERMIT = "residence_permit"
-    HOUSEHOLD_REGISTER = "household_register"
-    BUSINESS_LICENSE = "business_license"
-    LEGAL_REP_ID_CARD = "legal_rep_id_card"
-    DOC_TYPE_CHOICES: ClassVar[list[tuple[str, Any]]] = [
-        (ID_CARD, "身份证"),
-        (PASSPORT, "护照"),
-        (HK_MACAO_PERMIT, "港澳通行证"),
-        (RESIDENCE_PERMIT, "居住证"),
-        (HOUSEHOLD_REGISTER, "户口本"),
-        (BUSINESS_LICENSE, "营业执照"),
-        (LEGAL_REP_ID_CARD, "法定代表人/负责人身份证"),
-    ]
+    # 枚举化前的历史常量别名（数据库值不变），消费方仍可 ClientIdentityDoc.ID_CARD 引用
+    ID_CARD = IdentityDocType.ID_CARD
+    PASSPORT = IdentityDocType.PASSPORT
+    HK_MACAO_PERMIT = IdentityDocType.HK_MACAO_PERMIT
+    RESIDENCE_PERMIT = IdentityDocType.RESIDENCE_PERMIT
+    HOUSEHOLD_REGISTER = IdentityDocType.HOUSEHOLD_REGISTER
+    BUSINESS_LICENSE = IdentityDocType.BUSINESS_LICENSE
+    LEGAL_REP_ID_CARD = IdentityDocType.LEGAL_REP_ID_CARD
+    DOC_TYPE_CHOICES: ClassVar[list[tuple[str, Any]]] = IdentityDocType.choices
 
     _NATURAL_DOC_TYPES: ClassVar[frozenset[str]] = frozenset(
         {
@@ -66,7 +69,7 @@ class ClientIdentityDoc(models.Model):
     _LEGAL_DOC_TYPES: ClassVar[frozenset[str]] = frozenset({BUSINESS_LICENSE, LEGAL_REP_ID_CARD})
 
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="identity_docs", verbose_name="当事人")
-    doc_type = models.CharField(max_length=32, choices=DOC_TYPE_CHOICES, verbose_name="证件类型")
+    doc_type = models.CharField(max_length=32, choices=IdentityDocType.choices, verbose_name="证件类型")
     file_path = models.CharField(max_length=512, verbose_name="文件路径")
     expiry_date = models.DateField(null=True, blank=True, verbose_name="到期日期")
     uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="上传时间")

@@ -14,7 +14,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # __getattr__ delegation — verify documents.models can resolve evidence names
 # ---------------------------------------------------------------------------
@@ -144,12 +143,12 @@ def _make_evidence_list():
 
 class TestDocumentsEvidenceListStr:
     def test_str(self) -> None:
+        # __str__ 用 case_id 拼（避免 admin N+1），不再访问 FK 对象；
+        # __new__ 构造的实例没有 _state，直接写 __dict__ 绕开 FK 描述符 setter
         el = _make_evidence_list()
-        mock_case = MagicMock()
-        mock_case.name = "张三案"
-        type(el).case = mock_case  # type: ignore[assignment]
+        el.__dict__["case_id"] = 42
         el.title = "证据清单一"
-        assert str(el) == "张三案 - 证据清单一"
+        assert str(el) == "案件#42 - 证据清单一"
 
 
 class TestDocumentsEvidenceListEndPage:

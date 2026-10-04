@@ -122,7 +122,7 @@ class ExternalTemplate(models.Model):
         indexes: ClassVar = [
             models.Index(fields=["law_firm", "source_name"]),
             models.Index(fields=["law_firm", "is_active"]),
-            models.Index(fields=["structure_fingerprint"]),
+            # structure_fingerprint 字段已 db_index=True，勿在 Meta 重复声明
             models.Index(fields=["status"]),
         ]
 

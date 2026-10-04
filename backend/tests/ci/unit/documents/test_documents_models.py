@@ -156,14 +156,16 @@ class TestGenerationTask:
         case = CaseFactory(name="测试案件")
         task = GenerationTask.objects.create(case=case, document_type="起诉状", status=GenerationStatus.PENDING)
         result = str(task)
-        assert "测试案件" in result
+        # __str__ 用 case_id 拼（避免 admin N+1），不再触发 FK 查询取名称
+        assert f"案件#{case.id}" in result
         assert "起诉状" in result
 
     def test_str_with_contract(self):
         contract = ContractFactory(name="测试合同")
         task = GenerationTask.objects.create(contract=contract, document_type="合同", status=GenerationStatus.COMPLETED)
         result = str(task)
-        assert "测试合同" in result
+        # __str__ 用 contract_id 拼（避免 admin N+1），不再触发 FK 查询取名称
+        assert f"合同#{contract.id}" in result
 
     def test_str_unlinked(self):
         task = GenerationTask.objects.create(document_type="通用", status=GenerationStatus.FAILED)
@@ -290,7 +292,8 @@ class TestEvidenceList:
     def test_str(self):
         case = CaseFactory(name="证据案件")
         el = EvidenceList.objects.create(case=case, title="证据清单一", list_type=ListType.LIST_1)
-        assert "证据案件" in str(el)
+        # __str__ 用 case_id 拼（避免 admin N+1），不再触发 FK 查询取名称
+        assert f"案件#{case.id}" in str(el)
         assert "证据清单一" in str(el)
 
     def test_end_page_zero_total(self):

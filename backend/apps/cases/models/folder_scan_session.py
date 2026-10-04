@@ -59,6 +59,12 @@ class CaseFolderScanSession(models.Model):
             models.Index(fields=["case", "-created_at"]),
             models.Index(fields=["status", "-created_at"]),
         ]
+        constraints: ClassVar = [
+            models.CheckConstraint(
+                condition=models.Q(progress__gte=0) & models.Q(progress__lte=100),
+                name="chk_case_folder_scan_progress_range",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"case:{self.case_id} session:{self.id} status:{self.status}"

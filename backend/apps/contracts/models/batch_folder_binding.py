@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
-
 from django.db import models
 
 from apps.core.models.enums import CaseType
@@ -43,7 +41,7 @@ class ContractTypeFolderRootPreset(models.Model):
     class Meta:
         verbose_name = "合同类型根目录预设"
         verbose_name_plural = "合同类型根目录预设"
-        indexes: ClassVar = [models.Index(fields=["case_type"])]
+        # case_type 为 unique 字段自带唯一索引，无需额外索引
 
     def __str__(self) -> str:
         return f"{self.get_case_type_display()} - {self.root_path}"

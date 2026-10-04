@@ -56,4 +56,4 @@ class GsxtReportTask(models.Model):
         ordering: ClassVar = ["-created_at"]
 
     def __str__(self) -> str:
-        return ""
+        return f"GsxtReportTask #{self.id}"

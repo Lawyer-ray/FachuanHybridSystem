@@ -123,7 +123,7 @@ class CourtSMS(models.Model):
         indexes: ClassVar = [
             models.Index(fields=["status", "-received_at"]),
             models.Index(fields=["sms_type"]),
-            models.Index(fields=["case"]),
+            # case 为 FK 自带索引，勿重复声明
         ]
         constraints: ClassVar = [
             models.UniqueConstraint(

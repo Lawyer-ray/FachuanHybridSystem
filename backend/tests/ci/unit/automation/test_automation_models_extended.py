@@ -5,9 +5,10 @@ CourtSMS, CourtDocument, InvoiceRecognitionTask, InvoiceRecord,
 CourtToken, TokenAcquisitionHistory, CasePreservationQuoteBinding。
 """
 
+from datetime import timedelta
+
 import pytest
 from django.utils import timezone
-from datetime import timedelta
 
 from apps.automation.models.court_document import CourtDocument, DocumentDownloadStatus
 from apps.automation.models.court_sms import CourtSMS, CourtSMSStatus, CourtSMSType
@@ -29,7 +30,6 @@ from apps.automation.models.preservation import (
 from apps.automation.models.scraper import ScraperTask, ScraperTaskStatus, ScraperTaskType
 from apps.automation.models.token import CourtToken, TokenAcquisitionHistory, TokenAcquisitionStatus
 from apps.testing.factories import CaseFactory, ClientFactory, LawyerFactory
-
 
 # ============================================================
 # PreservationQuote
@@ -126,7 +126,7 @@ class TestGsxtReportTask:
             company_name="测试公司",
             status=GsxtReportStatus.PENDING,
         )
-        assert str(task) == ""
+        assert str(task) == f"GsxtReportTask #{task.id}"
 
     def test_status_choices(self):
         assert GsxtReportStatus.PENDING.value == "pending"

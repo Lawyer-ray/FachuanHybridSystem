@@ -100,6 +100,20 @@ class LegalResearchTask(models.Model):
             models.Index(fields=["credential", "-created_at"]),
             models.Index(fields=["created_by", "-created_at"]),
         ]
+        constraints: ClassVar = [
+            models.CheckConstraint(
+                condition=models.Q(progress__gte=0) & models.Q(progress__lte=100),
+                name="chk_lr_task_progress_range",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(min_similarity_score__gte=0) & models.Q(min_similarity_score__lte=1),
+                name="chk_lr_task_min_similarity_range",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(target_count__lte=models.F("max_candidates")),
+                name="chk_lr_task_target_le_max_candidates",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.id} | {self.keyword} | {self.status}"

@@ -13,9 +13,18 @@ from django.db import models
 from .choices import TemplateAuditAction
 
 
+class AuditContentType(models.TextChoices):
+    """审计对象类型（数据库值不变，仅枚举化）"""
+
+    FOLDER_TEMPLATE = "folder_template", "文件夹模板"
+    DOCUMENT_TEMPLATE = "document_template", "文件模板"
+    PLACEHOLDER = "placeholder", "替换词"
+    GENERATION_CONFIG = "generation_config", "生成配置"
+
+
 class TemplateAuditLog(models.Model):
     """
-    模板审计日志
+    模板审计日志模型
 
     记录所有模板相关的修改历史,用于审计追踪.
 
@@ -24,14 +33,10 @@ class TemplateAuditLog(models.Model):
 
     id: int
     user_id: int  # 外键ID字段
-    CONTENT_TYPE_CHOICES: ClassVar = [
-        ("folder_template", "文件夹模板"),
-        ("document_template", "文件模板"),
-        ("placeholder", "替换词"),
-        ("generation_config", "生成配置"),
-    ]
+    # 枚举化前的历史常量别名（数据库值不变）
+    CONTENT_TYPE_CHOICES: ClassVar = AuditContentType.choices
 
-    content_type = models.CharField(max_length=50, choices=CONTENT_TYPE_CHOICES, verbose_name="对象类型")
+    content_type = models.CharField(max_length=50, choices=AuditContentType.choices, verbose_name="对象类型")
     object_id = models.PositiveIntegerField(verbose_name="对象ID")
     object_repr = models.CharField(max_length=500, verbose_name="对象描述")
     action = models.CharField(max_length=20, choices=TemplateAuditAction.choices, verbose_name="操作类型")
@@ -53,7 +58,7 @@ class TemplateAuditLog(models.Model):
         indexes: ClassVar = [
             models.Index(fields=["content_type", "object_id"]),
             models.Index(fields=["action"]),
-            models.Index(fields=["user"]),
+            # user 为 FK 自带索引，勿重复声明
             models.Index(fields=["-created_at"]),
         ]
 

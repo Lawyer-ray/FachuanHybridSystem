@@ -60,18 +60,18 @@ class DocumentRecognitionTask(models.Model):
         default=DocumentRecognitionStatus.PENDING,
         verbose_name="任务状态",
     )
-    document_type = models.CharField(max_length=32, null=True, blank=True, verbose_name="文书类型")
-    case_number = models.CharField(max_length=128, null=True, blank=True, verbose_name="案号")
+    document_type = models.CharField(max_length=32, blank=True, default="", verbose_name="文书类型")
+    case_number = models.CharField(max_length=128, blank=True, default="", verbose_name="案号")
     key_time = models.DateTimeField(null=True, blank=True, verbose_name="关键时间")
     confidence = models.FloatField(null=True, blank=True, verbose_name="置信度")
-    extraction_method = models.CharField(max_length=32, null=True, blank=True, verbose_name="提取方式")
-    llm_model = models.CharField(max_length=100, null=True, blank=True, verbose_name="LLM 模型")
-    llm_backend = models.CharField(max_length=32, null=True, blank=True, verbose_name="LLM 后端")
+    extraction_method = models.CharField(max_length=32, blank=True, default="", verbose_name="提取方式")
+    llm_model = models.CharField(max_length=100, blank=True, default="", verbose_name="LLM 模型")
+    llm_backend = models.CharField(max_length=32, blank=True, default="", verbose_name="LLM 后端")
     llm_latency_ms = models.IntegerField(null=True, blank=True, verbose_name="LLM 耗时(ms)")
     degraded = models.BooleanField(null=True, blank=True, verbose_name="降级识别")
-    raw_text = models.TextField(null=True, blank=True, verbose_name="原始文本")
+    raw_text = models.TextField(blank=True, default="", verbose_name="原始文本")
     party_names = models.JSONField(default=list, blank=True, verbose_name="识别出的当事人")
-    renamed_file_path = models.CharField(max_length=1024, null=True, blank=True, verbose_name="重命名后路径")
+    renamed_file_path = models.CharField(max_length=1024, blank=True, default="", verbose_name="重命名后路径")
     binding_success = models.BooleanField(null=True, verbose_name="绑定成功")
     case: Any = models.ForeignKey(
         "cases.Case",
@@ -89,12 +89,12 @@ class DocumentRecognitionTask(models.Model):
         related_name="recognition_tasks",
         verbose_name="案件日志",
     )
-    binding_message = models.CharField(max_length=512, null=True, blank=True, verbose_name="绑定消息")
+    binding_message = models.CharField(max_length=512, blank=True, default="", verbose_name="绑定消息")
     binding_error_code = models.CharField(max_length=64, blank=True, default="", verbose_name="绑定错误码")
-    error_message = models.TextField(null=True, blank=True, verbose_name="错误信息")
+    error_message = models.TextField(blank=True, default="", verbose_name="错误信息")
     notification_sent = models.BooleanField(default=False, verbose_name="通知已发送")
     notification_sent_at = models.DateTimeField(null=True, blank=True, verbose_name="通知发送时间")
-    notification_error = models.TextField(null=True, blank=True, verbose_name="通知错误信息")
+    notification_error = models.TextField(blank=True, default="", verbose_name="通知错误信息")
     notification_file_sent = models.BooleanField(default=False, verbose_name="文件已发送")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     started_at = models.DateTimeField(null=True, blank=True, verbose_name="开始时间")
@@ -130,13 +130,10 @@ class DocumentRecognitionTask(models.Model):
         verbose_name = "文书识别任务"
         verbose_name_plural = "文书识别任务"
         ordering: ClassVar[list[str]] = ["-created_at"]
-        # case/case_log/status 的索引随 automation/0004 迁走模型时被删除后
-        # 未在此重建：该表带 raw_text 持续增长，按 case 归属过滤（案件详情聚合）
-        # 与按 status 过滤（工作台待确认列表）都会退化为顺序扫描
+        # 该表带 raw_text 持续增长，按 status 过滤（工作台待确认列表）依赖复合索引；
+        # case/case_log 为 FK，建表时（automation/0005 create_model）已自带单列索引
         indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["status", "-created_at"], name="idx_docrec_status_created"),
-            models.Index(fields=["case"], name="idx_docrec_case"),
-            models.Index(fields=["case_log"], name="idx_docrec_case_log"),
         ]
 
     def __str__(self) -> str:

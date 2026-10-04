@@ -73,7 +73,7 @@ class SupplementaryAgreementParty(models.Model):
                 fields=["supplementary_agreement", "client"], name="uniq_supplementary_party_agreement_client"
             ),
         ]
-        indexes: ClassVar = [models.Index(fields=["client"])]
+        # client 为 FK 自带索引；supplementary_agreement 由唯一约束覆盖，均无需额外索引
         verbose_name = "补充协议当事人"
         verbose_name_plural = "补充协议当事人"
 

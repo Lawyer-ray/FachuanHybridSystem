@@ -33,7 +33,13 @@ class PropertyClue(models.Model):
         (OTHER, "其他"),
     ]
 
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="property_clues", verbose_name="当事人")
+    client = models.ForeignKey(
+        # PROTECT：删除客户不得静默抹掉财产线索（业务数据），须先解除关联（同 CaseParty.client 的防护语义）
+        Client,
+        on_delete=models.PROTECT,
+        related_name="property_clues",
+        verbose_name="当事人",
+    )
     clue_type = models.CharField(max_length=16, choices=CLUE_TYPE_CHOICES, default=BANK, verbose_name="线索类型")
     content = models.TextField(blank=True, default="", verbose_name="线索内容")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
@@ -50,9 +56,7 @@ class PropertyClue(models.Model):
         verbose_name_plural = "财产线索"
         db_table = "cases_propertyclue"
         managed = True
-        indexes: ClassVar = [
-            models.Index(fields=["client"], name="idx_propclue_client"),
-        ]
+        # client 为 FK 自带索引，勿重复声明
 
 
 class PropertyClueAttachment(models.Model):
@@ -80,9 +84,7 @@ class PropertyClueAttachment(models.Model):
         verbose_name_plural = "财产线索附件"
         db_table = "cases_propertyclueattachment"
         managed = True
-        indexes: ClassVar = [
-            models.Index(fields=["property_clue"], name="idx_pca_propclue"),
-        ]
+        # property_clue 为 FK 自带索引，勿重复声明
         constraints: ClassVar = [
             # 导入路径 get_or_create(property_clue, file_path) 的查重键。
             # 注意：PropertyClue 本身不加 (client, clue_type) 唯一约束——

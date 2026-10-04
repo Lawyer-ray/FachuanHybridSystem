@@ -31,6 +31,12 @@ class AccountCredential(models.Model):
         verbose_name = "账号密码"
         verbose_name_plural = "账号密码"
         ordering: ClassVar = ["-last_login_success_at", "-login_success_count", "login_failure_count"]
+        constraints: ClassVar = [
+            # 同一律师在同一站点不得登记重复账号凭证
+            models.UniqueConstraint(
+                fields=["lawyer", "site_name", "account"], name="uniq_credential_lawyer_site_account"
+            ),
+        ]
         indexes: ClassVar = [
             models.Index(fields=["site_name", "-last_login_success_at"]),
         ]

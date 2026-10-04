@@ -53,32 +53,29 @@ class TestGenerationTask:
 
     def test_str_with_case(self) -> None:
         task = MagicMock(spec=GenerationTask)
-        case_mock = MagicMock()
-        case_mock.name = "Test Case"
-        task.case = case_mock
-        task.contract = None
+        # __str__ 用 *_id 拼（避免 admin N+1），不再访问 FK 对象
+        task.case_id = 101
+        task.contract_id = None
         task.document_type = "起诉状"
         task.get_status_display.return_value = "等待中"
         result = GenerationTask.__str__(task)
-        assert "Test Case" in result
+        assert "案件#101" in result
         assert "起诉状" in result
 
     def test_str_with_contract(self) -> None:
         task = MagicMock(spec=GenerationTask)
-        contract_mock = MagicMock()
-        contract_mock.name = "Test Contract"
-        task.case = None
-        task.contract = contract_mock
+        task.case_id = None
+        task.contract_id = 202
         task.document_type = "合同"
         task.get_status_display.return_value = "已完成"
         result = GenerationTask.__str__(task)
-        assert "Test Contract" in result
+        assert "合同#202" in result
 
     def test_str_no_resource(self) -> None:
         # Use MagicMock for the instance to avoid Django model _state issues
         task = MagicMock(spec=GenerationTask)
-        task.case = None
-        task.contract = None
+        task.case_id = None
+        task.contract_id = None
         task.document_type = "起诉状"
         task.status = "pending"
         task.get_status_display.return_value = "等待中"

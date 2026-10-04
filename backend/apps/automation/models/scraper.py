@@ -57,7 +57,7 @@ class ScraperTask(LifecycleModel):
         related_name="scraper_tasks",
         verbose_name="关联案件",
     )
-    config = models.JSONField(default=dict, verbose_name="配置", help_text="存储账号、密码、文件路径等")
+    config = models.JSONField(default=dict, verbose_name="配置", help_text="存储任务配置参数、文件路径等")
     result = models.JSONField(null=True, blank=True, verbose_name="执行结果")
     error_message = models.TextField(blank=True, default="", verbose_name="错误信息")
     retry_count = models.IntegerField(default=0, verbose_name="重试次数")
@@ -90,8 +90,14 @@ class ScraperTask(LifecycleModel):
         indexes: ClassVar = [
             models.Index(fields=["status", "priority", "-created_at"]),
             models.Index(fields=["task_type"]),
-            models.Index(fields=["case"]),
+            # case 为 FK 自带索引，勿重复声明
             models.Index(fields=["scheduled_at"]),
+        ]
+        constraints: ClassVar = [
+            models.CheckConstraint(
+                condition=models.Q(priority__gte=1) & models.Q(priority__lte=10),
+                name="chk_scraper_task_priority_range",
+            ),
         ]
 
     def __str__(self) -> str:

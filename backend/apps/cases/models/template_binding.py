@@ -37,7 +37,7 @@ class CaseTemplateBinding(models.Model):
         ]
         indexes: ClassVar = [
             models.Index(fields=["case", "binding_source"]),
-            models.Index(fields=["template"]),
+            # template 为 FK 自带索引，勿重复声明
         ]
 
     def __str__(self) -> str:

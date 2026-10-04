@@ -109,16 +109,21 @@ class GenerationTask(models.Model):
         indexes: ClassVar = [
             models.Index(fields=["case", "-created_at"]),
             models.Index(fields=["contract", "-created_at"]),
-            models.Index(fields=["litigation_session"]),
+            # litigation_session 为 FK 自带索引，勿重复声明
             models.Index(fields=["status"]),
             models.Index(fields=["generation_method"]),
             models.Index(fields=["created_by", "-created_at"]),
         ]
 
     def __str__(self) -> str:
-        resource = self.case or self.contract
-        resource_name = resource.name if resource else "未关联"
-        return f"{resource_name} - {self.document_type} ({self.get_status_display()})"
+        # 用 *_id 拼接，避免 admin/日志列表逐行触发 FK 查询（N+1）
+        if self.case_id:
+            resource = f"案件#{self.case_id}"
+        elif self.contract_id:
+            resource = f"合同#{self.contract_id}"
+        else:
+            resource = "未关联"
+        return f"{resource} - {self.document_type} ({self.get_status_display()})"
 
     @property
     def is_ai_generated(self) -> bool:

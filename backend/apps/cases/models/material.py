@@ -27,8 +27,9 @@ class CaseMaterialType(models.Model):
     category = models.CharField(max_length=32, choices=CaseMaterialCategory.choices, verbose_name="材料大类")
     name = models.CharField(max_length=64, verbose_name="类型名称")
     law_firm = models.ForeignKey(
+        # SET_NULL：删除律所后材料类型退化为全局可用，不级联删除类型定义
         "organization.LawFirm",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="case_material_types",
@@ -49,7 +50,8 @@ class CaseMaterialType(models.Model):
         ]
 
     def __str__(self) -> str:
-        scope = self.law_firm.name if self.law_firm_id and self.law_firm else "全局"
+        # 用 law_firm_id 拼接，避免 admin/日志列表逐行触发 FK 查询（N+1）
+        scope = f"律所#{self.law_firm_id}" if self.law_firm_id else "全局"
         category_display = self.get_category_display()
         return f"{scope}-{category_display}-{self.name}"
 
@@ -201,7 +203,8 @@ class CaseFolderBinding(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.case.name} - {self.folder_path}"
+        # 用 case_id 拼接，避免 admin/日志列表逐行触发 FK 查询（N+1）
+        return f"案件#{self.case_id} - {self.folder_path}"
 
     @property
     def folder_path_display(self) -> str:

@@ -33,8 +33,11 @@ class RepresentedParty(models.TextChoices):
 class ReviewTask(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
+        # SET_NULL：删除律师账号不销毁审查任务历史，保留审计记录
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="review_tasks",
         verbose_name="用户",
     )

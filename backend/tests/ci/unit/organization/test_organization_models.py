@@ -52,7 +52,8 @@ class TestTeam:
             law_firm=firm,
         )
         result = str(team)
-        assert "测试律所" in result
+        # __str__ 用 law_firm_id 拼（避免 admin N+1），不再触发 FK 查询取名称
+        assert result.startswith(f"{firm.id}-")
         assert "律师团队" in result
         assert "民事团队" in result
 

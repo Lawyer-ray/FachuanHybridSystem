@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from apps.evidence.models import EvidenceList, EvidenceItem, ListType, MergeStatus
+from apps.evidence.models import EvidenceItem, EvidenceList, ListType, MergeStatus
 
 
 class TestMergeStatusChoices:
@@ -103,9 +103,9 @@ class TestEvidenceListOrderRangeDisplay:
 
 class TestEvidenceListStr:
     def test_str(self) -> None:
-        case = SimpleNamespace(name="测试案件")
-        obj = SimpleNamespace(case=case, title="证据清单一")
-        assert EvidenceList.__str__(obj) == "测试案件 - 证据清单一"  # type: ignore[arg-type]
+        # __str__ 用 case_id 拼（避免 admin N+1），不再访问 FK 对象
+        obj = SimpleNamespace(case_id=7, title="证据清单一")
+        assert EvidenceList.__str__(obj) == "案件#7 - 证据清单一"  # type: ignore[arg-type]
 
 
 class TestEvidenceItemPageRangeDisplay:

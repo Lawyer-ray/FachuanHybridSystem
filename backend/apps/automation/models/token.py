@@ -36,7 +36,7 @@ class CourtToken(models.Model):
             models.UniqueConstraint(fields=["site_name", "account"], name="uniq_courttoken_site_account"),
         ]
         indexes: ClassVar = [
-            models.Index(fields=["site_name", "account"]),
+            # (site_name, account) 已由唯一约束 uniq_courttoken_site_account 覆盖
             models.Index(fields=["expires_at"]),
         ]
 
