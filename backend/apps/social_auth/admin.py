@@ -41,7 +41,7 @@ class SocialAuthProviderAdmin(admin.ModelAdmin):  # pragma: no cover
     # 安全审计 E-17 同款约束：client_secret 不进 search_fields——搜索词会进查询串/访问日志，泄露密钥片段
     search_fields = ("name", "display_name", "redirect_uri")
     ordering = ("priority", "name")
-    list_editable = ("enabled", "priority")
+    # 不用 list_editable：列表页只做排查浏览，启停/排序进详情页改，避免误触批量保存
     readonly_fields = ("created_at", "updated_at")
 
     fieldsets = (
