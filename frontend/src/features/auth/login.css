@@ -86,13 +86,6 @@
   line-height: 1.25;
 }
 
-.fc-sub {
-  margin-top: 8px;
-  font-size: 0.8125rem;
-  line-height: 1.7;
-  color: var(--ink-2);
-}
-
 /* ---------- 登录方式：下划线标签页 ---------- */
 .fc-tabs {
   display: flex;
@@ -390,15 +383,16 @@
   color: var(--ink-3) !important;
 }
 
-/* ---------- 断点：字标换位 ---------- */
-/* 小屏（<760px）：卡片流内页头，自上而下落入 */
+/* ---------- 断点：字标 ---------- */
+/* 小屏（<760px）：整个隐藏卡片内字标——浏览器标题栏已有「法穿SI Copilot」，
+   卡片里再放一份既占首屏又重复 */
 @media (max-width: 759.98px) {
   .fc-mark {
-    margin-bottom: 28px;
+    display: none;
   }
 
   .fc-eyebrow {
-    margin-top: 24px;
+    margin-top: 8px;
   }
 }
 
@@ -421,9 +415,9 @@
   }
 }
 
-/* ---------- 开场 MG：封面拆解（≈3.8s，每会话一次；时间轴与 LoginPage 常量同步） ----------
-   0.1s 线拉出 → 0.55s「法穿」升起 → 1.75s 副标大振幅落定 → 2.45s EST 行
-   → 2.9s 整组朝左上角铭牌缩小飞去（封面「变成」页面边框）→ 3.2s 表单级联登台 */
+/* ---------- 开场 MG「奇点 · Super Intelligence」（≈6.2s，每会话一次；时间轴与 LoginPage 常量同步） ----------
+   星散墨点汇聚成奇点点火 → 「法穿」升起 → SUPER INTELLIGENCE 逐字母点亮后
+   收拢坍缩为 SI COPILOT（长名缩写的动效叙事）→ 整组飞向左上角铭牌 → 表单登台 */
 .fc-intro {
   position: fixed;
   inset: 0;
@@ -438,10 +432,54 @@
   animation: fc-intro-out 0.45s ease forwards;
 }
 
+/* 星散节点层：dot 以中心为原点按 --dx/--dy 散布，journey 动画完成汇聚 */
+.fc-intro__dots {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fc-intro__dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--s, 4px);
+  height: var(--s, 4px);
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+
+.fc-intro__dot--brass {
+  background: var(--accent);
+}
+
 .fc-intro__stage {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+/* 奇点：core 是点火的核心点，wave 是点火瞬间的冲击波环 */
+.fc-intro__corewrap {
+  position: absolute;
+  display: grid;
+  place-items: center;
+}
+
+.fc-intro__core {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.fc-intro__wave {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  opacity: 0;
 }
 
 .fc-intro__word {
@@ -461,10 +499,23 @@
   background: var(--accent);
 }
 
+.fc-intro__phrase {
+  display: flex;
+  gap: 1.25em;
+  margin-top: clamp(22px, 3.5vh, 30px);
+}
+
+.fc-intro__phrase-word {
+  display: flex;
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  font-size: 0.9375rem;
+  color: var(--ink-2);
+}
+
 .fc-intro__meta {
   margin-top: clamp(22px, 3.5vh, 30px);
   font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
-  font-size: 0.8125rem;
+  font-size: 0.9375rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--ink-2);
@@ -494,13 +545,6 @@
     animation-delay: 0.08s;
   }
 
-  @media (max-width: 759.98px) {
-    /* 小屏页头：从头顶落入（品牌压在表单上方，方向语义向下） */
-    .fc-auth--ready .fc-mark {
-      animation: fc-mark-drop 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-    }
-  }
-
   @media (min-width: 760px) {
     /* 大屏铭牌：从左边缘滑入（它属于边缘，从边缘来），与卡片内容同时起步 */
     .fc-auth--ready .fc-mark {
@@ -512,33 +556,57 @@
     }
   }
 
-  /* 开场时间轴（未加 --ready 门：intro 覆盖层自身即时间轴宿主） */
-  .fc-intro__rule {
-    transform: scaleX(0);
-    animation: fc-rule-draw 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+  /* ---- 开场时间轴（宿主是 intro 覆盖层自身，不加 --ready 门） ----
+     0–1.1s 星散漂移 → 1.2–3.7s 错峰加速汇聚 → 3.0s 奇点点火+冲击波
+     → 3.15s「法穿」升起 → 3.45s SUPER INTELLIGENCE 逐字母点亮（延迟在 JSX 内联）
+     → 4.65s 短语坍缩 → 4.8s SI COPILOT 落定 → 5.15s EST → 5.45s 飞向铭牌 */
+  .fc-intro__dot {
+    /* 前段星散漂移（微外扩呼吸）→ 中段 ease-in 加速汇聚 → 末段被奇点吸收 */
+    animation: fc-dot-journey 2.8s cubic-bezier(0.45, 0.05, 0.7, 0.6) both;
+    animation-delay: var(--d, 0s);
+  }
+
+  .fc-intro__core {
+    animation: fc-core-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 3s both;
+  }
+
+  .fc-intro__wave {
+    animation: fc-wave 0.7s cubic-bezier(0.16, 1, 0.3, 1) 3.05s both;
   }
 
   .fc-intro__char {
-    animation: fc-char-rise 0.95s cubic-bezier(0.16, 1, 0.3, 1) 0.55s both;
+    animation: fc-char-rise 0.95s cubic-bezier(0.16, 1, 0.3, 1) 3.15s both;
   }
 
   .fc-intro__char--2 {
-    animation-delay: 0.72s;
+    animation-delay: 3.32s;
+  }
+
+  .fc-intro__rule {
+    transform: scaleX(0);
+    animation: fc-rule-draw 0.6s cubic-bezier(0.16, 1, 0.3, 1) 3.5s both;
+  }
+
+  .fc-intro__letter {
+    animation: fc-letter-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .fc-intro__phrase {
+    animation: fc-phrase-collapse 0.35s cubic-bezier(0.5, 0, 0.2, 1) 4.65s both;
   }
 
   .fc-intro__meta {
-    animation: fc-meta-settle-big 1s cubic-bezier(0.16, 1, 0.3, 1) 1.75s both;
+    animation: fc-meta-settle-big 0.9s cubic-bezier(0.16, 1, 0.3, 1) 4.8s both;
   }
 
   .fc-intro__est {
-    animation: fc-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) 2.45s both;
+    animation: fc-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) 5.15s both;
   }
 
-  /* 点睛：整组朝左上角铭牌位置缩小飞去；origin 取视口比例点，
-     落点即 .fc-mark 大屏铭牌（小屏卡片页头同向，读感一致） */
+  /* 点睛：整组朝左上角铭牌位置缩小飞去；origin 取视口比例点 */
   .fc-intro__stage {
     transform-origin: 16vw 10vh;
-    animation: fc-stage-exit 0.6s cubic-bezier(0.5, 0, 0.2, 1) 2.9s both;
+    animation: fc-stage-exit 0.6s cubic-bezier(0.5, 0, 0.2, 1) 5.45s both;
   }
 
   @keyframes fc-intro-out {
@@ -548,9 +616,54 @@
     }
   }
 
-  @keyframes fc-rule-draw {
-    to {
-      transform: scaleX(1);
+  @keyframes fc-dot-journey {
+    0% {
+      opacity: 0;
+      transform: translate(var(--dx), var(--dy)) scale(0.3);
+    }
+    8% {
+      opacity: 0.9;
+    }
+    30% {
+      transform: translate(calc(var(--dx) * 1.14), calc(var(--dy) * 1.14)) scale(0.85);
+    }
+    60% {
+      opacity: 0.9;
+    }
+    88% {
+      transform: translate(0, 0) scale(0.6);
+    }
+    100% {
+      opacity: 0;
+      transform: translate(0, 0) scale(0);
+    }
+  }
+
+  @keyframes fc-core-pop {
+    0% {
+      opacity: 0;
+      transform: scale(0.2);
+    }
+    40% {
+      opacity: 1;
+    }
+    70% {
+      transform: scale(1.6);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(0.4);
+    }
+  }
+
+  @keyframes fc-wave {
+    0% {
+      opacity: 0.9;
+      transform: scale(0.2);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(2.6);
     }
   }
 
@@ -565,10 +678,38 @@
     }
   }
 
+  @keyframes fc-rule-draw {
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  @keyframes fc-letter-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* 长名坍缩为缩写：收窄 + 淡出，与 meta 的落定构成一收一放 */
+  @keyframes fc-phrase-collapse {
+    40% {
+      opacity: 0.9;
+    }
+    to {
+      opacity: 0;
+      transform: scaleX(0.14);
+    }
+  }
+
   @keyframes fc-meta-settle-big {
     from {
       opacity: 0;
-      letter-spacing: 0.6em;
+      letter-spacing: 0.5em;
     }
     to {
       opacity: 1;
@@ -590,17 +731,6 @@
     from {
       opacity: 0;
       transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  @keyframes fc-mark-drop {
-    from {
-      opacity: 0;
-      transform: translateY(-8px);
     }
     to {
       opacity: 1;
