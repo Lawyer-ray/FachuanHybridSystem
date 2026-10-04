@@ -525,7 +525,8 @@ class TestCreateSessionApi:
 
         from apps.core.models import SystemConfig
         from apps.social_auth.api.social_auth_api import create_session
-        from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
+        from apps.social_auth.models import SocialAuthProvider
+        from apps.social_auth.providers import ProviderRegistry
         from apps.social_auth.providers.base import LoginMode, SocialProfile, SocialProvider, TokenResponse
 
         ProviderRegistry.register("feishu")(
@@ -543,16 +544,14 @@ class TestCreateSessionApi:
                 },
             )
         )
-        prefix = PROVIDER_SPECS["feishu"]["prefix"]
+        # 平台行不填凭证 → 借用「飞书配置」分类下的共用凭证
+        SocialAuthProvider.objects.create(
+            name="feishu",
+            display_name="飞书",
+            redirect_uri="http://127.0.0.1:8002/social/feishu/callback/",
+        )
         SystemConfig.objects.bulk_create(
             [
-                SystemConfig(key=f"{prefix}APP_ID", value="cli_abc", category="social_auth"),
-                SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth"),
-                SystemConfig(
-                    key=f"{prefix}REDIRECT_URI",
-                    value="http://127.0.0.1:8002/social/feishu/callback/",
-                    category="social_auth",
-                ),
                 SystemConfig(key="FEISHU_APP_ID", value="cli_shared", category="feishu"),
                 SystemConfig(key="FEISHU_APP_SECRET", value="borrowed-secret-placeholder", category="feishu"),
             ]
@@ -568,6 +567,6 @@ class TestCreateSessionApi:
             assert result.state
             assert result.goto
         finally:
-            SystemConfig.objects.filter(category="social_auth").delete()
+            SocialAuthProvider.objects.filter(name="feishu").delete()
             SystemConfig.objects.filter(category="feishu").delete()
             ProviderRegistry.clear_configs()
