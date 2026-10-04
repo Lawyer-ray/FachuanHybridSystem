@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
+from django.contrib.postgres.indexes import GinIndex
 from django.db import models
 from django.db.models import Q
 
@@ -124,6 +125,8 @@ class CourtSMS(models.Model):
             models.Index(fields=["status", "-received_at"]),
             models.Index(fields=["sms_type"]),
             # case 为 FK 自带索引，勿重复声明
+            # 全局搜索 content__icontains 走 trigram（短信正文模糊检索）
+            GinIndex(fields=["content"], name="courtsms_content_trgm", opclasses=["gin_trgm_ops"]),
         ]
         constraints: ClassVar = [
             models.UniqueConstraint(
