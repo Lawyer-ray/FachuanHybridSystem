@@ -2,7 +2,7 @@
 
 覆盖 ``apps/core/api/media_protected.py`` 与 ``apiSystem/urls.py`` 的媒体路由逻辑：
 
-1. 默认关闭时行为不变：``MEDIA_REQUIRE_AUTH`` 默认 False，urlpatterns 不含鉴权视图，
+1. 默认启用（安全默认）：``MEDIA_REQUIRE_AUTH`` 默认 True，非 DEBUG 下注册鉴权视图；
    ``media_urlpatterns()`` 返回空；
 2. DEBUG 分支保持：仍返回 static 直出路由（不接管）；
 3. 开启后：未认证 403；带合法用户 200（小文件流式返回）；
@@ -61,24 +61,35 @@ def _get(path: str = SAMPLE_REL, user: Any = None, query: dict[str, str] | None 
     return serve_protected_media(request, path)
 
 
-# ── 1. 默认关闭：行为不变 ────────────────────────────────────────────────────
+# ── 1. 默认启用（安全默认）+ 显式关闭回退 ──────────────────────────────────
 
 
-class TestDefaultOff:
-    def test_setting_default_false_when_env_unset(self, monkeypatch: Any) -> None:
+class TestDefaultOn:
+    def test_setting_default_true_when_env_unset(self, monkeypatch: Any) -> None:
         monkeypatch.delenv("MEDIA_REQUIRE_AUTH", raising=False)
-        expected = os.environ.get("MEDIA_REQUIRE_AUTH", "false").lower() in ("1", "true", "yes")
-        assert expected is False
-        assert settings.MEDIA_REQUIRE_AUTH is expected
+        assert settings.MEDIA_REQUIRE_AUTH is True
 
-    def test_no_urlpatterns_when_require_auth_off(self) -> None:
+    def test_setting_explicitly_disabled(self, monkeypatch: Any) -> None:
+        # settings 常量在启动时已求值，这里验证的是 env 覆盖语义：
+        # 显式 false 时该表达式（settings.py 同款写法）求值为 False
+        monkeypatch.setenv("MEDIA_REQUIRE_AUTH", "false")
+        resolved = os.environ.get("MEDIA_REQUIRE_AUTH", "true").lower() in ("1", "true", "yes")
+        assert resolved is False
+
+    def test_urlpatterns_register_protected_view_by_default(self) -> None:
+        with override_settings(DEBUG=False, MEDIA_REQUIRE_AUTH=True):
+            patterns = media_urlpatterns()
+        assert patterns, "非 DEBUG 默认应注册鉴权媒体路由"
+        assert all(getattr(p, "callback", None) is serve_protected_media for p in patterns)
+
+    def test_no_urlpatterns_when_require_auth_explicitly_off(self) -> None:
         with override_settings(DEBUG=False, MEDIA_REQUIRE_AUTH=False):
             assert media_urlpatterns() == []
 
     def test_project_urlpatterns_exclude_protected_view_when_off(self) -> None:
-        """默认关闭时，项目 urlpatterns 不注册 serve_protected_media（现状零变化）。"""
+        """显式关闭时，项目 urlpatterns 不注册 serve_protected_media（旧行为）。"""
         if settings.MEDIA_REQUIRE_AUTH:
-            pytest.skip("MEDIA_REQUIRE_AUTH 环境变量已显式开启，跳过默认关闭断言")
+            pytest.skip("MEDIA_REQUIRE_AUTH 环境变量已显式开启，跳过关闭断言")
         from apiSystem import urls as project_urls
 
         callbacks = [getattr(p, "callback", None) for p in project_urls.urlpatterns]

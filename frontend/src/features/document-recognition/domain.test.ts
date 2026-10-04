@@ -218,4 +218,20 @@ describe('resolveMediaUrl（media 链接解析）', () => {
     expect(resolveMediaUrl(null)).toBe('')
     expect(resolveMediaUrl('')).toBe('')
   })
+
+  it('media 鉴权：有 access token 时拼 ?token=（img/iframe 裸链接场景）', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => (k === 'access_token' ? 'jwt-abc' : null),
+      setItem: () => {},
+      removeItem: () => {},
+      clear: () => {},
+    })
+    try {
+      expect(resolveMediaUrl('/media/a.pdf', 'http://127.0.0.1:8002')).toBe(
+        'http://127.0.0.1:8002/media/a.pdf?token=jwt-abc',
+      )
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
 })

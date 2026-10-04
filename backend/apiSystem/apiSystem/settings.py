@@ -489,11 +489,12 @@ MEDIA_URL = "/media/"
 # 环境变量可覆盖（与 STATIC_ROOT 同款惯例），默认 backend/apiSystem/media
 MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT") or (BASE_DIR / "media"))
 
-# 受保护媒体服务（默认关闭，行为零变化）
-# 开启后：非 DEBUG 环境的 /media/ 不再无路由（404），改由
-# apps.core.api.media_protected.serve_protected_media 接管（需认证，见该模块 docstring）。
-# 生产 /media/ 由网关直出无鉴权时，可通过本开关把媒体流量收回 Django 鉴权。
-MEDIA_REQUIRE_AUTH = os.environ.get("MEDIA_REQUIRE_AUTH", "false").lower() in ("1", "true", "yes")
+# 受保护媒体服务（默认启用——安全默认）：非 DEBUG 环境的 /media/ 由
+# apps.core.api.media_protected.serve_protected_media 鉴权后发送（JWT 头 /
+# ?token= / Session），案件文书、证件扫描件不再可被 URL 枚举裸读。
+# DEBUG 开发环境仍走 static 直出不受影响；确需网关直出时显式设
+# MEDIA_REQUIRE_AUTH=false 回到旧行为（不注册媒体路由）。
+MEDIA_REQUIRE_AUTH = os.environ.get("MEDIA_REQUIRE_AUTH", "true").lower() in ("1", "true", "yes")
 # 可选：nginx internal location 前缀（如 /protected_media/）。非空时视图只做鉴权，
 # 返回 X-Accel-Redirect 头由 nginx 发文件（Django 不读文件）；为空时 Django FileResponse 流式返回。
 MEDIA_X_ACCEL_PREFIX = (os.environ.get("MEDIA_X_ACCEL_PREFIX", "") or "").strip()
