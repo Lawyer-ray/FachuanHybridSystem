@@ -625,7 +625,7 @@
         ]
       }
     },
-    "/api/v1organization/login": {
+    "/api/v1/organization/login": {
       "post": {
         "operationId": "apps_organization_api_auth_api_login_view",
         "summary": "Login View",
@@ -657,7 +657,7 @@
         }
       }
     },
-    "/api/v1organization/logout": {
+    "/api/v1/organization/logout": {
       "post": {
         "operationId": "apps_organization_api_auth_api_logout_view",
         "summary": "Logout View",
@@ -677,7 +677,7 @@
         ]
       }
     },
-    "/api/v1organization/register": {
+    "/api/v1/organization/register": {
       "post": {
         "operationId": "apps_organization_api_auth_api_register_view",
         "summary": "Register View",
@@ -710,7 +710,7 @@
         }
       }
     },
-    "/api/v1organization/me": {
+    "/api/v1/organization/me": {
       "get": {
         "operationId": "apps_organization_api_auth_api_me_view",
         "summary": "Me View",
@@ -737,7 +737,7 @@
         ]
       }
     },
-    "/api/v1organization/password-reset/request": {
+    "/api/v1/organization/password-reset/request": {
       "post": {
         "operationId": "apps_organization_api_auth_api_request_password_reset",
         "summary": "Request Password Reset",
@@ -770,7 +770,7 @@
         }
       }
     },
-    "/api/v1organization/password-reset/verify": {
+    "/api/v1/organization/password-reset/verify": {
       "post": {
         "operationId": "apps_organization_api_auth_api_verify_reset_token",
         "summary": "Verify Reset Token",
@@ -803,7 +803,7 @@
         }
       }
     },
-    "/api/v1organization/password-reset/confirm": {
+    "/api/v1/organization/password-reset/confirm": {
       "post": {
         "operationId": "apps_organization_api_auth_api_confirm_password_reset",
         "summary": "Confirm Password Reset",
@@ -836,7 +836,7 @@
         }
       }
     },
-    "/api/v1organization/lawyers": {
+    "/api/v1/organization/lawyers": {
       "get": {
         "operationId": "apps_organization_api_lawyer_api_list_lawyers",
         "summary": "List Lawyers",
@@ -968,7 +968,7 @@
         ]
       }
     },
-    "/api/v1organization/lawyers/{lawyer_id}": {
+    "/api/v1/organization/lawyers/{lawyer_id}": {
       "get": {
         "operationId": "apps_organization_api_lawyer_api_get_lawyer",
         "summary": "Get Lawyer",
@@ -1111,7 +1111,7 @@
         ]
       }
     },
-    "/api/v1organization/credentials": {
+    "/api/v1/organization/credentials": {
       "get": {
         "operationId": "apps_organization_api_accountcredential_api_list_credentials",
         "summary": "List Credentials",
@@ -1210,7 +1210,7 @@
         ]
       }
     },
-    "/api/v1organization/credentials/{cred_id}": {
+    "/api/v1/organization/credentials/{cred_id}": {
       "get": {
         "operationId": "apps_organization_api_accountcredential_api_get_credential",
         "summary": "Get Credential",
@@ -1320,7 +1320,7 @@
         ]
       }
     },
-    "/api/v1organization/lawfirms": {
+    "/api/v1/organization/lawfirms": {
       "get": {
         "operationId": "apps_organization_api_lawfirm_api_list_lawfirms",
         "summary": "List Lawfirms",
@@ -1403,7 +1403,7 @@
         ]
       }
     },
-    "/api/v1organization/lawfirms/{law_firm_id}": {
+    "/api/v1/organization/lawfirms/{law_firm_id}": {
       "get": {
         "operationId": "apps_organization_api_lawfirm_api_get_lawfirm",
         "summary": "Get Lawfirm",
@@ -1513,7 +1513,7 @@
         ]
       }
     },
-    "/api/v1organization/teams": {
+    "/api/v1/organization/teams": {
       "get": {
         "operationId": "apps_organization_api_team_api_list_teams",
         "summary": "List Teams",
@@ -1612,7 +1612,7 @@
         ]
       }
     },
-    "/api/v1organization/teams/{team_id}": {
+    "/api/v1/organization/teams/{team_id}": {
       "get": {
         "operationId": "apps_organization_api_team_api_get_team",
         "summary": "Get Team",
@@ -1722,7 +1722,7 @@
         ]
       }
     },
-    "/api/v1client/clients": {
+    "/api/v1/client/clients": {
       "get": {
         "operationId": "apps_client_api_client_api_list_clients",
         "summary": "List Clients",
@@ -1849,7 +1849,7 @@
         ]
       }
     },
-    "/api/v1client/parties/search": {
+    "/api/v1/client/parties/search": {
       "get": {
         "operationId": "apps_client_api_client_api_search_parties",
         "summary": "Search Parties",
@@ -1908,7 +1908,7 @@
         ]
       }
     },
-    "/api/v1client/clients/parse-text": {
+    "/api/v1/client/clients/parse-text": {
       "post": {
         "operationId": "apps_client_api_client_api_parse_client_text",
         "summary": "Parse Client Text",
@@ -1939,7 +1939,7 @@
         ]
       }
     },
-    "/api/v1client/parse-text": {
+    "/api/v1/client/parse-text": {
       "get": {
         "operationId": "apps_client_api_client_api_parse_text_get",
         "summary": "Parse Text Get",
@@ -1971,7 +1971,7 @@
         ]
       }
     },
-    "/api/v1client/clients/validate-id-card": {
+    "/api/v1/client/clients/validate-id-card": {
       "post": {
         "operationId": "apps_client_api_client_api_validate_id_card",
         "summary": "Validate Id Card",
@@ -2009,7 +2009,7 @@
         ]
       }
     },
-    "/api/v1client/clients/check-oa-credential": {
+    "/api/v1/client/clients/check-oa-credential": {
       "get": {
         "operationId": "apps_client_api_client_api_check_oa_credential",
         "summary": "Check Oa Credential",
@@ -2037,7 +2037,7 @@
         ]
       }
     },
-    "/api/v1client/clients/{client_id}": {
+    "/api/v1/client/clients/{client_id}": {
       "get": {
         "operationId": "apps_client_api_client_api_get_client",
         "summary": "Get Client",
@@ -2150,7 +2150,7 @@
         ]
       }
     },
-    "/api/v1client/clients-with-docs": {
+    "/api/v1/client/clients-with-docs": {
       "post": {
         "operationId": "apps_client_api_client_api_create_client_with_docs",
         "summary": "Create Client With Docs",
@@ -2214,7 +2214,7 @@
         ]
       }
     },
-    "/api/v1client/clients/{client_id}/related-items": {
+    "/api/v1/client/clients/{client_id}/related-items": {
       "get": {
         "operationId": "apps_client_api_client_api_get_related_items",
         "summary": "Get Related Items",
@@ -2252,7 +2252,7 @@
         ]
       }
     },
-    "/api/v1client/clients/enterprise/search": {
+    "/api/v1/client/clients/enterprise/search": {
       "get": {
         "operationId": "apps_client_api_client_enterprise_api_search_enterprise_companies",
         "summary": "Search Enterprise Companies",
@@ -2315,7 +2315,7 @@
         ]
       }
     },
-    "/api/v1client/clients/enterprise/prefill": {
+    "/api/v1/client/clients/enterprise/prefill": {
       "get": {
         "operationId": "apps_client_api_client_enterprise_api_get_enterprise_prefill",
         "summary": "Get Enterprise Prefill",
@@ -2368,7 +2368,7 @@
         ]
       }
     },
-    "/api/v1client/identity-doc/recognize": {
+    "/api/v1/client/identity-doc/recognize": {
       "post": {
         "operationId": "apps_client_api_clientidentitydoc_api_recognize_identity_doc",
         "summary": "Recognize Identity Doc",
@@ -2444,7 +2444,7 @@
         ]
       }
     },
-    "/api/v1client/clients/{client_id}/identity-docs": {
+    "/api/v1/client/clients/{client_id}/identity-docs": {
       "post": {
         "operationId": "apps_client_api_clientidentitydoc_api_add_identity_doc",
         "summary": "Add Identity Doc",
@@ -2505,7 +2505,7 @@
         ]
       }
     },
-    "/api/v1client/identity-docs/merge-id-card": {
+    "/api/v1/client/identity-docs/merge-id-card": {
       "post": {
         "operationId": "apps_client_api_clientidentitydoc_api_merge_id_card",
         "summary": "Merge Id Card",
@@ -2553,7 +2553,7 @@
         ]
       }
     },
-    "/api/v1client/identity-docs/merge-id-card-direct": {
+    "/api/v1/client/identity-docs/merge-id-card-direct": {
       "post": {
         "operationId": "apps_client_api_clientidentitydoc_api_merge_id_card_direct",
         "summary": "Merge Id Card Direct",
@@ -2601,7 +2601,7 @@
         ]
       }
     },
-    "/api/v1client/identity-docs/merge-id-card-manual": {
+    "/api/v1/client/identity-docs/merge-id-card-manual": {
       "post": {
         "operationId": "apps_client_api_clientidentitydoc_api_merge_id_card_manual",
         "summary": "Merge Id Card Manual",
@@ -2632,7 +2632,7 @@
         ]
       }
     },
-    "/api/v1client/identity-docs/bind-merged": {
+    "/api/v1/client/identity-docs/bind-merged": {
       "post": {
         "operationId": "apps_client_api_clientidentitydoc_api_bind_merged_doc",
         "summary": "Bind Merged Doc",
@@ -2663,7 +2663,7 @@
         ]
       }
     },
-    "/api/v1client/identity-docs/{doc_id}": {
+    "/api/v1/client/identity-docs/{doc_id}": {
       "get": {
         "operationId": "apps_client_api_clientidentitydoc_api_get_identity_doc",
         "summary": "Get Identity Doc",
@@ -2730,7 +2730,7 @@
         ]
       }
     },
-    "/api/v1client/identity-doc/recognize/submit": {
+    "/api/v1/client/identity-doc/recognize/submit": {
       "post": {
         "operationId": "apps_client_api_clientidentitydoc_api_submit_recognize_task",
         "summary": "Submit Recognize Task",
@@ -2783,7 +2783,7 @@
         ]
       }
     },
-    "/api/v1client/identity-doc/task/{task_id}": {
+    "/api/v1/client/identity-doc/task/{task_id}": {
       "get": {
         "operationId": "apps_client_api_clientidentitydoc_api_get_recognize_task_status",
         "summary": "Get Recognize Task Status",
@@ -2814,7 +2814,7 @@
         ]
       }
     },
-    "/api/v1client/clients/{client_id}/property-clues": {
+    "/api/v1/client/clients/{client_id}/property-clues": {
       "post": {
         "operationId": "apps_client_api_property_clue_api_create_property_clue",
         "summary": "Create Property Clue",
@@ -2902,7 +2902,7 @@
         ]
       }
     },
-    "/api/v1client/property-clues/content-template": {
+    "/api/v1/client/property-clues/content-template": {
       "get": {
         "operationId": "apps_client_api_property_clue_api_get_content_template",
         "summary": "Get Content Template",
@@ -2940,7 +2940,7 @@
         ]
       }
     },
-    "/api/v1client/property-clues/{clue_id}": {
+    "/api/v1/client/property-clues/{clue_id}": {
       "get": {
         "operationId": "apps_client_api_property_clue_api_get_property_clue",
         "summary": "Get Property Clue",
@@ -3053,7 +3053,7 @@
         ]
       }
     },
-    "/api/v1client/property-clues/{clue_id}/attachments": {
+    "/api/v1/client/property-clues/{clue_id}/attachments": {
       "post": {
         "operationId": "apps_client_api_property_clue_api_upload_attachment",
         "summary": "Upload Attachment",
@@ -3112,7 +3112,7 @@
         ]
       }
     },
-    "/api/v1client/property-clue-attachments/{attachment_id}": {
+    "/api/v1/client/property-clue-attachments/{attachment_id}": {
       "delete": {
         "operationId": "apps_client_api_property_clue_api_delete_attachment",
         "summary": "Delete Attachment",
@@ -3143,7 +3143,7 @@
         ]
       }
     },
-    "/api/v1cases/cases/search": {
+    "/api/v1/cases/cases/search": {
       "get": {
         "operationId": "apps_cases_api_case_api_search_cases",
         "summary": "Search Cases",
@@ -3202,7 +3202,7 @@
         ]
       }
     },
-    "/api/v1cases/cases": {
+    "/api/v1/cases/cases": {
       "get": {
         "operationId": "apps_cases_api_case_api_list_cases",
         "summary": "List Cases",
@@ -3344,7 +3344,7 @@
         ]
       }
     },
-    "/api/v1cases/cases/{case_id}": {
+    "/api/v1/cases/cases/{case_id}": {
       "get": {
         "operationId": "apps_cases_api_case_api_get_case",
         "summary": "Get Case",
@@ -3443,7 +3443,7 @@
         ]
       }
     },
-    "/api/v1cases/cases/full": {
+    "/api/v1/cases/cases/full": {
       "post": {
         "operationId": "apps_cases_api_case_api_create_case_full",
         "summary": "Create Case Full",
@@ -3474,7 +3474,7 @@
         ]
       }
     },
-    "/api/v1cases/parties": {
+    "/api/v1/cases/parties": {
       "get": {
         "operationId": "apps_cases_api_caseparty_api_list_parties",
         "summary": "List Parties",
@@ -3557,7 +3557,7 @@
         ]
       }
     },
-    "/api/v1cases/parties/{party_id}": {
+    "/api/v1/cases/parties/{party_id}": {
       "get": {
         "operationId": "apps_cases_api_caseparty_api_get_party",
         "summary": "Get Party",
@@ -3667,7 +3667,7 @@
         ]
       }
     },
-    "/api/v1cases/assignments": {
+    "/api/v1/cases/assignments": {
       "get": {
         "operationId": "apps_cases_api_caseassignment_api_list_assignments",
         "summary": "List Assignments",
@@ -3766,7 +3766,7 @@
         ]
       }
     },
-    "/api/v1cases/assignments/{assignment_id}": {
+    "/api/v1/cases/assignments/{assignment_id}": {
       "get": {
         "operationId": "apps_cases_api_caseassignment_api_get_assignment",
         "summary": "Get Assignment",
@@ -3876,7 +3876,7 @@
         ]
       }
     },
-    "/api/v1cases/logs": {
+    "/api/v1/cases/logs": {
       "get": {
         "operationId": "apps_cases_api_caselog_api_list_logs",
         "summary": "List Logs",
@@ -3981,7 +3981,7 @@
         ]
       }
     },
-    "/api/v1cases/logs/{log_id}": {
+    "/api/v1/cases/logs/{log_id}": {
       "get": {
         "operationId": "apps_cases_api_caselog_api_get_log",
         "summary": "Get Log",
@@ -4094,7 +4094,7 @@
         ]
       }
     },
-    "/api/v1cases/logs/{log_id}/attachments": {
+    "/api/v1/cases/logs/{log_id}/attachments": {
       "post": {
         "operationId": "apps_cases_api_caselog_api_upload_log_attachments",
         "summary": "Upload Log Attachments",
@@ -4125,7 +4125,7 @@
         ]
       }
     },
-    "/api/v1cases/grants": {
+    "/api/v1/cases/grants": {
       "get": {
         "operationId": "apps_cases_api_caseaccess_api_list_grants",
         "summary": "List Grants",
@@ -4224,7 +4224,7 @@
         ]
       }
     },
-    "/api/v1cases/grants/{grant_id}": {
+    "/api/v1/cases/grants/{grant_id}": {
       "get": {
         "operationId": "apps_cases_api_caseaccess_api_get_grant",
         "summary": "Get Grant",
@@ -4334,7 +4334,7 @@
         ]
       }
     },
-    "/api/v1cases/case-numbers": {
+    "/api/v1/cases/case-numbers": {
       "get": {
         "operationId": "apps_cases_api_casenumber_api_list_case_numbers",
         "summary": "List Case Numbers",
@@ -4419,7 +4419,7 @@
         ]
       }
     },
-    "/api/v1cases/case-numbers/{number_id}": {
+    "/api/v1/cases/case-numbers/{number_id}": {
       "get": {
         "operationId": "apps_cases_api_casenumber_api_get_case_number",
         "summary": "Get Case Number",
@@ -4532,7 +4532,7 @@
         ]
       }
     },
-    "/api/v1cases/upload-temp-document": {
+    "/api/v1/cases/upload-temp-document": {
       "post": {
         "operationId": "apps_cases_api_casenumber_api_upload_temp_document",
         "summary": "Upload Temp Document",
@@ -4553,7 +4553,7 @@
         ]
       }
     },
-    "/api/v1cases/causes-data": {
+    "/api/v1/cases/causes-data": {
       "get": {
         "operationId": "apps_cases_api_cause_court_api_get_causes",
         "summary": "Get Causes",
@@ -4635,7 +4635,7 @@
         ]
       }
     },
-    "/api/v1cases/causes-tree": {
+    "/api/v1/cases/causes-tree": {
       "get": {
         "operationId": "apps_cases_api_cause_court_api_get_causes_tree",
         "summary": "Get Causes Tree",
@@ -4684,7 +4684,7 @@
         ]
       }
     },
-    "/api/v1cases/cause/{cause_id}": {
+    "/api/v1/cases/cause/{cause_id}": {
       "get": {
         "operationId": "apps_cases_api_cause_court_api_get_cause_by_id",
         "summary": "Get Cause By Id",
@@ -4715,7 +4715,7 @@
         ]
       }
     },
-    "/api/v1cases/courts-data": {
+    "/api/v1/cases/courts-data": {
       "get": {
         "operationId": "apps_cases_api_cause_court_api_get_courts",
         "summary": "Get Courts",
@@ -4781,7 +4781,7 @@
         ]
       }
     },
-    "/api/v1cases/calculate-fee": {
+    "/api/v1/cases/calculate-fee": {
       "post": {
         "operationId": "apps_cases_api_litigation_fee_api_calculate_fee",
         "summary": "Calculate Fee",
@@ -4819,7 +4819,7 @@
         ]
       }
     },
-    "/api/v1cases/{case_id}/generate-folder": {
+    "/api/v1/cases/{case_id}/generate-folder": {
       "post": {
         "operationId": "apps_cases_api_folder_generation_api_generate_case_folder",
         "summary": "Generate Case Folder",
@@ -4850,7 +4850,7 @@
         ]
       }
     },
-    "/api/v1cases/{case_id}/folder-binding": {
+    "/api/v1/cases/{case_id}/folder-binding": {
       "post": {
         "operationId": "apps_cases_api_folder_binding_api_create_folder_binding",
         "summary": "Create Folder Binding",
@@ -4970,7 +4970,7 @@
         ]
       }
     },
-    "/api/v1cases/{case_id}/contract-folder-path": {
+    "/api/v1/cases/{case_id}/contract-folder-path": {
       "get": {
         "operationId": "apps_cases_api_folder_binding_api_get_contract_folder_path",
         "summary": "Get Contract Folder Path",
@@ -5008,7 +5008,7 @@
         ]
       }
     },
-    "/api/v1cases/folder-browse": {
+    "/api/v1/cases/folder-browse": {
       "get": {
         "operationId": "apps_cases_api_folder_binding_api_browse_folders",
         "summary": "Browse Folders",
@@ -5088,7 +5088,7 @@
         ]
       }
     },
-    "/api/v1cases/cloud-storage-accounts": {
+    "/api/v1/cases/cloud-storage-accounts": {
       "get": {
         "operationId": "apps_cases_api_folder_binding_api_list_cloud_storage_accounts",
         "summary": "List Cloud Storage Accounts",
@@ -5109,7 +5109,7 @@
         ]
       }
     },
-    "/api/v1cases/{case_id}/materials/bind-candidates": {
+    "/api/v1/cases/{case_id}/materials/bind-candidates": {
       "get": {
         "operationId": "apps_cases_api_case_material_api_list_bind_candidates",
         "summary": "List Bind Candidates",
@@ -5150,7 +5150,7 @@
         ]
       }
     },
-    "/api/v1cases/{case_id}/materials/bind": {
+    "/api/v1/cases/{case_id}/materials/bind": {
       "post": {
         "operationId": "apps_cases_api_case_material_api_bind_materials",
         "summary": "Bind Materials",
@@ -5190,7 +5190,7 @@
         ]
       }
     },
-    "/api/v1cases/{case_id}/materials/group-order": {
+    "/api/v1/cases/{case_id}/materials/group-order": {
       "post": {
         "operationId": "apps_cases_api_case_material_api_save_group_order",
         "summary": "Save Group Order",
@@ -5230,7 +5230,7 @@
         ]
       }
     },
-    "/api/v1cases/{case_id}/materials/upload": {
+    "/api/v1/cases/{case_id}/materials/upload": {
       "post": {
         "operationId": "apps_cases_api_case_material_api_upload_materials",
         "summary": "Upload Materials",
@@ -5267,7 +5267,7 @@
         ]
       }
     },
-    "/api/v1cases/{case_id}/materials/{material_id}/replace": {
+    "/api/v1/cases/{case_id}/materials/{material_id}/replace": {
       "post": {
         "operationId": "apps_cases_api_case_material_api_replace_material_file",
         "summary": "Replace Material File",
@@ -5324,7 +5324,7 @@
         ]
       }
     },
-    "/api/v1cases/{case_id}/materials/group-rename": {
+    "/api/v1/cases/{case_id}/materials/group-rename": {
       "post": {
         "operationId": "apps_cases_api_case_material_api_rename_group",
         "summary": "Rename Group",
@@ -5372,7 +5372,7 @@
         ]
       }
     },
-    "/api/v1cases/{case_id}/materials/attachments": {
+    "/api/v1/cases/{case_id}/materials/attachments": {
       "delete": {
         "operationId": "apps_cases_api_case_material_api_delete_attachments",
         "summary": "Delete Attachments",
@@ -5420,7 +5420,7 @@
         ]
       }
     },
-    "/api/v1cases/{case_id}/materials/{material_id}": {
+    "/api/v1/cases/{case_id}/materials/{material_id}": {
       "delete": {
         "operationId": "apps_cases_api_case_material_api_delete_material",
         "summary": "Delete Material",
@@ -5467,7 +5467,7 @@
         ]
       }
     },
-    "/api/v1cases/{case_id}/materials": {
+    "/api/v1/cases/{case_id}/materials": {
       "delete": {
         "operationId": "apps_cases_api_case_material_api_delete_all_materials",
         "summary": "Delete All Materials",
@@ -5515,7 +5515,7 @@
         ]
       }
     },
-    "/api/v1cases/{case_id}/folder-scan": {
+    "/api/v1/cases/{case_id}/folder-scan": {
       "post": {
         "operationId": "apps_cases_api_folder_scan_api_start_case_scan",
         "summary": "Start Case Scan",
@@ -5562,7 +5562,7 @@
         ]
       }
     },
-    "/api/v1cases/{case_id}/folder-scan/subfolders": {
+    "/api/v1/cases/{case_id}/folder-scan/subfolders": {
       "get": {
         "operationId": "apps_cases_api_folder_scan_api_list_case_scan_subfolders",
         "summary": "List Case Scan Subfolders",
@@ -5599,7 +5599,7 @@
         ]
       }
     },
-    "/api/v1cases/{case_id}/folder-scan/{session_id}": {
+    "/api/v1/cases/{case_id}/folder-scan/{session_id}": {
       "get": {
         "operationId": "apps_cases_api_folder_scan_api_get_case_scan_status",
         "summary": "Get Case Scan Status",
@@ -5646,7 +5646,7 @@
         ]
       }
     },
-    "/api/v1cases/{case_id}/folder-scan/{session_id}/stage": {
+    "/api/v1/cases/{case_id}/folder-scan/{session_id}/stage": {
       "post": {
         "operationId": "apps_cases_api_folder_scan_api_stage_case_scan",
         "summary": "Stage Case Scan",
@@ -5703,7 +5703,7 @@
         ]
       }
     },
-    "/api/v1cases/{case_id}/template-bindings": {
+    "/api/v1/cases/{case_id}/template-bindings": {
       "get": {
         "operationId": "apps_cases_api_template_binding_api_get_case_template_bindings",
         "summary": "Get Case Template Bindings",
@@ -5787,7 +5787,7 @@
         ]
       }
     },
-    "/api/v1cases/{case_id}/template-bindings/{binding_id}": {
+    "/api/v1/cases/{case_id}/template-bindings/{binding_id}": {
       "delete": {
         "operationId": "apps_cases_api_template_binding_api_unbind_template_from_case",
         "summary": "Unbind Template From Case",
@@ -5834,7 +5834,7 @@
         ]
       }
     },
-    "/api/v1cases/{case_id}/available-templates": {
+    "/api/v1/cases/{case_id}/available-templates": {
       "get": {
         "operationId": "apps_cases_api_template_binding_api_get_available_templates",
         "summary": "Get Available Templates",
@@ -5876,7 +5876,7 @@
         ]
       }
     },
-    "/api/v1cases/{case_id}/generate-template": {
+    "/api/v1/cases/{case_id}/generate-template": {
       "post": {
         "operationId": "apps_cases_api_template_binding_api_generate_template_document",
         "summary": "Generate Template Document",
@@ -5917,7 +5917,7 @@
         ]
       }
     },
-    "/api/v1cases/{case_id}/unified-generate": {
+    "/api/v1/cases/{case_id}/unified-generate": {
       "post": {
         "operationId": "apps_cases_api_template_binding_api_unified_generate_template",
         "summary": "Unified Generate Template",
@@ -5958,7 +5958,7 @@
         ]
       }
     },
-    "/api/v1contacts/contacts": {
+    "/api/v1/contacts/contacts": {
       "get": {
         "operationId": "apps_contacts_api_contact_api_list_contacts",
         "summary": "List Contacts",
@@ -6067,7 +6067,7 @@
         ]
       }
     },
-    "/api/v1contacts/contacts/search": {
+    "/api/v1/contacts/contacts/search": {
       "get": {
         "operationId": "apps_contacts_api_contact_api_search_contacts",
         "summary": "Search Contacts",
@@ -6157,7 +6157,7 @@
         ]
       }
     },
-    "/api/v1contacts/contacts/{contact_id}": {
+    "/api/v1/contacts/contacts/{contact_id}": {
       "get": {
         "operationId": "apps_contacts_api_contact_api_get_contact",
         "summary": "Get Contact",
@@ -6267,7 +6267,7 @@
         ]
       }
     },
-    "/api/v1contracts/contracts": {
+    "/api/v1/contracts/contracts": {
       "get": {
         "operationId": "apps_contracts_api_contract_api_list_contracts",
         "summary": "List Contracts",
@@ -6475,7 +6475,7 @@
         ]
       }
     },
-    "/api/v1contracts/contracts/full": {
+    "/api/v1/contracts/contracts/full": {
       "post": {
         "operationId": "apps_contracts_api_contract_api_create_contract_with_cases",
         "summary": "Create Contract With Cases",
@@ -6512,7 +6512,7 @@
         ]
       }
     },
-    "/api/v1contracts/contracts/{contract_id}": {
+    "/api/v1/contracts/contracts/{contract_id}": {
       "get": {
         "operationId": "apps_contracts_api_contract_api_get_contract",
         "summary": "Get Contract",
@@ -6666,7 +6666,7 @@
         ]
       }
     },
-    "/api/v1contracts/contracts/{contract_id}/lawyers": {
+    "/api/v1/contracts/contracts/{contract_id}/lawyers": {
       "put": {
         "operationId": "apps_contracts_api_contract_api_update_contract_lawyers",
         "summary": "Update Contract Lawyers",
@@ -6717,7 +6717,7 @@
         ]
       }
     },
-    "/api/v1contracts/contracts/{contract_id}/all-parties": {
+    "/api/v1/contracts/contracts/{contract_id}/all-parties": {
       "get": {
         "operationId": "apps_contracts_api_contract_api_get_contract_all_parties",
         "summary": "Get Contract All Parties",
@@ -6758,7 +6758,7 @@
         ]
       }
     },
-    "/api/v1contracts/contracts/{contract_id}/parties": {
+    "/api/v1/contracts/contracts/{contract_id}/parties": {
       "post": {
         "operationId": "apps_contracts_api_contract_api_add_contract_party",
         "summary": "Add Contract Party",
@@ -6806,7 +6806,7 @@
         ]
       }
     },
-    "/api/v1contracts/contracts/{contract_id}/parties/{client_id}": {
+    "/api/v1/contracts/contracts/{contract_id}/parties/{client_id}": {
       "delete": {
         "operationId": "apps_contracts_api_contract_api_remove_contract_party",
         "summary": "Remove Contract Party",
@@ -6846,7 +6846,7 @@
         ]
       }
     },
-    "/api/v1contracts/finance/payments": {
+    "/api/v1/contracts/finance/payments": {
       "get": {
         "operationId": "apps_contracts_api_contractpayment_api_list_payments",
         "summary": "List Payments",
@@ -6979,7 +6979,7 @@
         ]
       }
     },
-    "/api/v1contracts/finance/payments/{payment_id}": {
+    "/api/v1/contracts/finance/payments/{payment_id}": {
       "put": {
         "operationId": "apps_contracts_api_contractpayment_api_update_payment",
         "summary": "Update Payment",
@@ -7056,7 +7056,7 @@
         ]
       }
     },
-    "/api/v1contracts/finance/stats": {
+    "/api/v1/contracts/finance/stats": {
       "get": {
         "operationId": "apps_contracts_api_contractfinance_api_finance_stats",
         "summary": "Finance Stats",
@@ -7133,7 +7133,7 @@
         ]
       }
     },
-    "/api/v1contracts/supplementary-agreements": {
+    "/api/v1/contracts/supplementary-agreements": {
       "post": {
         "operationId": "apps_contracts_api_supplementary_agreement_api_create_supplementary_agreement",
         "summary": "Create Supplementary Agreement",
@@ -7170,7 +7170,7 @@
         ]
       }
     },
-    "/api/v1contracts/supplementary-agreements/{agreement_id}": {
+    "/api/v1/contracts/supplementary-agreements/{agreement_id}": {
       "get": {
         "operationId": "apps_contracts_api_supplementary_agreement_api_get_supplementary_agreement",
         "summary": "Get Supplementary Agreement",
@@ -7280,7 +7280,7 @@
         ]
       }
     },
-    "/api/v1contracts/contracts/{contract_id}/supplementary-agreements": {
+    "/api/v1/contracts/contracts/{contract_id}/supplementary-agreements": {
       "get": {
         "operationId": "apps_contracts_api_supplementary_agreement_api_list_supplementary_agreements",
         "summary": "List Supplementary Agreements",
@@ -7321,7 +7321,7 @@
         ]
       }
     },
-    "/api/v1contracts/{contract_id}/folder-binding": {
+    "/api/v1/contracts/{contract_id}/folder-binding": {
       "post": {
         "operationId": "apps_contracts_api_folder_binding_api_create_folder_binding",
         "summary": "Create Folder Binding",
@@ -7441,7 +7441,7 @@
         ]
       }
     },
-    "/api/v1contracts/folder-browse": {
+    "/api/v1/contracts/folder-browse": {
       "get": {
         "operationId": "apps_contracts_api_folder_binding_api_browse_folders",
         "summary": "Browse Folders",
@@ -7521,7 +7521,7 @@
         ]
       }
     },
-    "/api/v1contracts/cloud-storage-accounts": {
+    "/api/v1/contracts/cloud-storage-accounts": {
       "get": {
         "operationId": "apps_contracts_api_folder_binding_api_list_cloud_storage_accounts",
         "summary": "List Cloud Storage Accounts",
@@ -7542,7 +7542,7 @@
         ]
       }
     },
-    "/api/v1contracts/{contract_id}/folder-scan": {
+    "/api/v1/contracts/{contract_id}/folder-scan": {
       "post": {
         "operationId": "apps_contracts_api_folder_scan_api_start_contract_scan",
         "summary": "Start Contract Scan",
@@ -7589,7 +7589,7 @@
         ]
       }
     },
-    "/api/v1contracts/{contract_id}/folder-scan/subfolders": {
+    "/api/v1/contracts/{contract_id}/folder-scan/subfolders": {
       "get": {
         "operationId": "apps_contracts_api_folder_scan_api_list_contract_scan_subfolders",
         "summary": "List Contract Scan Subfolders",
@@ -7626,7 +7626,7 @@
         ]
       }
     },
-    "/api/v1contracts/{contract_id}/folder-scan/latest": {
+    "/api/v1/contracts/{contract_id}/folder-scan/latest": {
       "get": {
         "operationId": "apps_contracts_api_folder_scan_api_get_latest_contract_scan",
         "summary": "Get Latest Contract Scan",
@@ -7664,7 +7664,7 @@
         ]
       }
     },
-    "/api/v1contracts/{contract_id}/folder-scan/{session_id}": {
+    "/api/v1/contracts/{contract_id}/folder-scan/{session_id}": {
       "get": {
         "operationId": "apps_contracts_api_folder_scan_api_get_contract_scan_status",
         "summary": "Get Contract Scan Status",
@@ -7711,7 +7711,7 @@
         ]
       }
     },
-    "/api/v1contracts/{contract_id}/folder-scan/{session_id}/confirm": {
+    "/api/v1/contracts/{contract_id}/folder-scan/{session_id}/confirm": {
       "post": {
         "operationId": "apps_contracts_api_folder_scan_api_confirm_contract_scan",
         "summary": "Confirm Contract Scan",
@@ -7768,7 +7768,7 @@
         ]
       }
     },
-    "/api/v1contracts/archive/learn-rules": {
+    "/api/v1/contracts/archive/learn-rules": {
       "post": {
         "operationId": "apps_contracts_api_archive_api_learn_archive_rules",
         "summary": "Learn Archive Rules",
@@ -7796,7 +7796,7 @@
         ]
       }
     },
-    "/api/v1contracts/{contract_id}/archive/download-item/{archive_item_code}": {
+    "/api/v1/contracts/{contract_id}/archive/download-item/{archive_item_code}": {
       "get": {
         "operationId": "apps_contracts_api_archive_api_download_archive_item",
         "summary": "Download Archive Item",
@@ -7836,7 +7836,7 @@
         ]
       }
     },
-    "/api/v1contracts/{contract_id}/archive/checklist": {
+    "/api/v1/contracts/{contract_id}/archive/checklist": {
       "get": {
         "operationId": "apps_contracts_api_archive_api_get_archive_checklist",
         "summary": "Get Archive Checklist",
@@ -7874,7 +7874,7 @@
         ]
       }
     },
-    "/api/v1contracts/{contract_id}/archive/generate-folder": {
+    "/api/v1/contracts/{contract_id}/archive/generate-folder": {
       "post": {
         "operationId": "apps_contracts_api_archive_api_generate_archive_folder",
         "summary": "Generate Archive Folder",
@@ -7912,7 +7912,7 @@
         ]
       }
     },
-    "/api/v1contracts/{contract_id}/archive/toggle-compact": {
+    "/api/v1/contracts/{contract_id}/archive/toggle-compact": {
       "post": {
         "operationId": "apps_contracts_api_archive_api_toggle_compact_archive",
         "summary": "Toggle Compact Archive",
@@ -7950,7 +7950,7 @@
         ]
       }
     },
-    "/api/v1contracts/{contract_id}/archive/sync-case-materials": {
+    "/api/v1/contracts/{contract_id}/archive/sync-case-materials": {
       "post": {
         "operationId": "apps_contracts_api_archive_api_sync_case_materials",
         "summary": "Sync Case Materials",
@@ -7988,7 +7988,7 @@
         ]
       }
     },
-    "/api/v1contracts/{contract_id}/archive/reset-and-resync": {
+    "/api/v1/contracts/{contract_id}/archive/reset-and-resync": {
       "post": {
         "operationId": "apps_contracts_api_archive_api_reset_and_resync_case_materials",
         "summary": "Reset And Resync Case Materials",
@@ -8026,7 +8026,7 @@
         ]
       }
     },
-    "/api/v1contracts/{contract_id}/archive/scale-to-a4": {
+    "/api/v1/contracts/{contract_id}/archive/scale-to-a4": {
       "post": {
         "operationId": "apps_contracts_api_archive_api_scale_to_a4",
         "summary": "Scale To A4",
@@ -8064,7 +8064,7 @@
         ]
       }
     },
-    "/api/v1contracts/{contract_id}/archive/confirm": {
+    "/api/v1/contracts/{contract_id}/archive/confirm": {
       "post": {
         "operationId": "apps_contracts_api_archive_api_confirm_archive",
         "summary": "Confirm Archive",
@@ -8102,7 +8102,7 @@
         ]
       }
     },
-    "/api/v1contracts/{contract_id}/archive/upload": {
+    "/api/v1/contracts/{contract_id}/archive/upload": {
       "post": {
         "operationId": "apps_contracts_api_archive_api_upload_archive_item",
         "summary": "Upload Archive Item",
@@ -8140,7 +8140,7 @@
         ]
       }
     },
-    "/api/v1contracts/{contract_id}/archive/materials/{material_id}": {
+    "/api/v1/contracts/{contract_id}/archive/materials/{material_id}": {
       "delete": {
         "operationId": "apps_contracts_api_archive_api_delete_archive_material",
         "summary": "Delete Archive Material",
@@ -8187,7 +8187,7 @@
         ]
       }
     },
-    "/api/v1contracts/{contract_id}/archive/reorder": {
+    "/api/v1/contracts/{contract_id}/archive/reorder": {
       "post": {
         "operationId": "apps_contracts_api_archive_api_reorder_archive_materials",
         "summary": "Reorder Archive Materials",
@@ -8235,7 +8235,7 @@
         ]
       }
     },
-    "/api/v1contracts/{contract_id}/archive/materials/{material_id}/move": {
+    "/api/v1/contracts/{contract_id}/archive/materials/{material_id}/move": {
       "post": {
         "operationId": "apps_contracts_api_archive_api_move_archive_material",
         "summary": "Move Archive Material",
@@ -8292,7 +8292,7 @@
         ]
       }
     },
-    "/api/v1contracts/{contract_id}/archive/materials/{material_id}/preview": {
+    "/api/v1/contracts/{contract_id}/archive/materials/{material_id}/preview": {
       "get": {
         "operationId": "apps_contracts_api_archive_api_preview_archive_material",
         "summary": "Preview Archive Material",
@@ -8332,7 +8332,7 @@
         ]
       }
     },
-    "/api/v1contracts/{contract_id}/archive/clear-all": {
+    "/api/v1/contracts/{contract_id}/archive/clear-all": {
       "post": {
         "operationId": "apps_contracts_api_archive_api_clear_all_archive_materials",
         "summary": "Clear All Archive Materials",
@@ -8370,7 +8370,7 @@
         ]
       }
     },
-    "/api/v1automation/document-processor/process": {
+    "/api/v1/automation/document-processor/process": {
       "post": {
         "operationId": "apps_automation_api_document_processor_api_process_document",
         "summary": "Process Document",
@@ -8408,7 +8408,7 @@
         ]
       }
     },
-    "/api/v1automation/document-processor/process-by-path": {
+    "/api/v1/automation/document-processor/process-by-path": {
       "post": {
         "operationId": "apps_automation_api_document_processor_api_process_document_by_path",
         "summary": "Process Document By Path",
@@ -8446,7 +8446,7 @@
         ]
       }
     },
-    "/api/v1automation/auto-namer/process": {
+    "/api/v1/automation/auto-namer/process": {
       "post": {
         "operationId": "apps_automation_api_auto_namer_api_auto_namer_process",
         "summary": "Auto Namer Process",
@@ -8548,7 +8548,7 @@
         ]
       }
     },
-    "/api/v1automation/auto-namer/process-by-path": {
+    "/api/v1/automation/auto-namer/process-by-path": {
       "post": {
         "operationId": "apps_automation_api_auto_namer_api_auto_namer_process_by_path",
         "summary": "Auto Namer Process By Path",
@@ -8586,7 +8586,7 @@
         ]
       }
     },
-    "/api/v1automation/captcha/recognize": {
+    "/api/v1/automation/captcha/recognize": {
       "post": {
         "operationId": "apps_automation_api_captcha_recognition_api_recognize_captcha",
         "summary": "Recognize Captcha",
@@ -8619,7 +8619,7 @@
         }
       }
     },
-    "/api/v1automation/captcha/manual/{task_id}/image": {
+    "/api/v1/automation/captcha/manual/{task_id}/image": {
       "get": {
         "operationId": "apps_automation_api_captcha_manual_api_get_captcha_image",
         "summary": "Get Captcha Image",
@@ -8650,7 +8650,7 @@
         ]
       }
     },
-    "/api/v1automation/captcha/manual/{task_id}/answer": {
+    "/api/v1/automation/captcha/manual/{task_id}/answer": {
       "post": {
         "operationId": "apps_automation_api_captcha_manual_api_submit_captcha_answer",
         "summary": "Submit Captcha Answer",
@@ -8698,7 +8698,7 @@
         ]
       }
     },
-    "/api/v1automation/preservation-quotes": {
+    "/api/v1/automation/preservation-quotes": {
       "post": {
         "operationId": "plugins_court_automation_preservation_quote_api_endpoint_create_preservation_quote",
         "summary": "Create Preservation Quote",
@@ -8805,7 +8805,7 @@
         ]
       }
     },
-    "/api/v1automation/preservation-quotes/{quote_id}": {
+    "/api/v1/automation/preservation-quotes/{quote_id}": {
       "get": {
         "operationId": "plugins_court_automation_preservation_quote_api_endpoint_get_preservation_quote",
         "summary": "Get Preservation Quote",
@@ -8843,7 +8843,7 @@
         ]
       }
     },
-    "/api/v1automation/preservation-quotes/{quote_id}/execute": {
+    "/api/v1/automation/preservation-quotes/{quote_id}/execute": {
       "post": {
         "operationId": "plugins_court_automation_preservation_quote_api_endpoint_execute_preservation_quote",
         "summary": "Execute Preservation Quote",
@@ -8881,7 +8881,7 @@
         ]
       }
     },
-    "/api/v1automation/preservation-quotes/{quote_id}/retry": {
+    "/api/v1/automation/preservation-quotes/{quote_id}/retry": {
       "post": {
         "operationId": "plugins_court_automation_preservation_quote_api_endpoint_retry_preservation_quote",
         "summary": "Retry Preservation Quote",
@@ -8919,7 +8919,7 @@
         ]
       }
     },
-    "/api/v1automation/court-sms": {
+    "/api/v1/automation/court-sms": {
       "post": {
         "operationId": "apps_automation_api_court_sms_api_submit_sms",
         "summary": "Submit Sms",
@@ -9110,7 +9110,7 @@
         ]
       }
     },
-    "/api/v1automation/court-sms/form": {
+    "/api/v1/automation/court-sms/form": {
       "post": {
         "operationId": "apps_automation_api_court_sms_api_submit_sms_form",
         "summary": "Submit Sms Form",
@@ -9170,7 +9170,7 @@
         ]
       }
     },
-    "/api/v1automation/court-sms/{sms_id}": {
+    "/api/v1/automation/court-sms/{sms_id}": {
       "get": {
         "operationId": "apps_automation_api_court_sms_api_get_sms_detail",
         "summary": "Get Sms Detail",
@@ -9237,7 +9237,7 @@
         ]
       }
     },
-    "/api/v1automation/court-sms/{sms_id}/assign-case": {
+    "/api/v1/automation/court-sms/{sms_id}/assign-case": {
       "post": {
         "operationId": "apps_automation_api_court_sms_api_assign_case",
         "summary": "Assign Case",
@@ -9285,7 +9285,7 @@
         ]
       }
     },
-    "/api/v1automation/court-sms/{sms_id}/retry": {
+    "/api/v1/automation/court-sms/{sms_id}/retry": {
       "post": {
         "operationId": "apps_automation_api_court_sms_api_retry_processing",
         "summary": "Retry Processing",
@@ -9323,7 +9323,7 @@
         ]
       }
     },
-    "/api/v1automation/court-sms/batch-delete": {
+    "/api/v1/automation/court-sms/batch-delete": {
       "post": {
         "operationId": "apps_automation_api_court_sms_api_batch_delete_sms",
         "summary": "Batch Delete Sms",
@@ -9361,7 +9361,7 @@
         ]
       }
     },
-    "/api/v1automation/court-sms/{sms_id}/abort-and-delete": {
+    "/api/v1/automation/court-sms/{sms_id}/abort-and-delete": {
       "post": {
         "operationId": "apps_automation_api_court_sms_api_abort_and_delete_sms",
         "summary": "Abort And Delete Sms",
@@ -9399,7 +9399,7 @@
         ]
       }
     },
-    "/api/v1automation/court-sms/{sms_id}/documents/{ref_index}/download": {
+    "/api/v1/automation/court-sms/{sms_id}/documents/{ref_index}/download": {
       "get": {
         "operationId": "apps_automation_api_court_sms_api_download_document",
         "summary": "Download Document",
@@ -9439,7 +9439,7 @@
         ]
       }
     },
-    "/api/v1automation/court-sms/{sms_id}/documents/copy-to-clipboard": {
+    "/api/v1/automation/court-sms/{sms_id}/documents/copy-to-clipboard": {
       "post": {
         "operationId": "apps_automation_api_court_sms_api_copy_documents_to_clipboard",
         "summary": "Copy Documents To Clipboard",
@@ -9487,7 +9487,7 @@
         ]
       }
     },
-    "/api/v1automation/court-sms/{sms_id}/documents/download-all": {
+    "/api/v1/automation/court-sms/{sms_id}/documents/download-all": {
       "get": {
         "operationId": "apps_automation_api_court_sms_api_download_all_documents",
         "summary": "Download All Documents",
@@ -9518,7 +9518,7 @@
         ]
       }
     },
-    "/api/v1automation/court-sms/{sms_id}/documents/{ref_index}/rename": {
+    "/api/v1/automation/court-sms/{sms_id}/documents/{ref_index}/rename": {
       "post": {
         "operationId": "apps_automation_api_court_sms_api_rename_document",
         "summary": "Rename Document",
@@ -9575,7 +9575,7 @@
         ]
       }
     },
-    "/api/v1automation/file/upload": {
+    "/api/v1/automation/file/upload": {
       "post": {
         "operationId": "apps_automation_api_main_api_upload_file",
         "summary": "Upload File",
@@ -9659,7 +9659,7 @@
         ]
       }
     },
-    "/api/v1automation/config": {
+    "/api/v1/automation/config": {
       "get": {
         "operationId": "apps_automation_api_main_api_get_config",
         "summary": "Get Config",
@@ -9680,7 +9680,7 @@
         ]
       }
     },
-    "/api/v1automation/status": {
+    "/api/v1/automation/status": {
       "get": {
         "operationId": "apps_automation_api_main_api_get_status",
         "summary": "Get Status",
@@ -9701,7 +9701,7 @@
         ]
       }
     },
-    "/api/v1automation/performance/metrics": {
+    "/api/v1/automation/performance/metrics": {
       "get": {
         "operationId": "apps_automation_api_performance_monitor_api_get_performance_metrics",
         "summary": "获取实时性能指标",
@@ -9723,7 +9723,7 @@
         ]
       }
     },
-    "/api/v1automation/performance/statistics": {
+    "/api/v1/automation/performance/statistics": {
       "get": {
         "operationId": "apps_automation_api_performance_monitor_api_get_statistics_report",
         "summary": "获取统计报告",
@@ -9778,7 +9778,7 @@
         ]
       }
     },
-    "/api/v1automation/performance/health": {
+    "/api/v1/automation/performance/health": {
       "get": {
         "operationId": "apps_automation_api_performance_monitor_api_health_check",
         "summary": "健康检查",
@@ -9800,7 +9800,7 @@
         ]
       }
     },
-    "/api/v1automation/performance/resource-usage": {
+    "/api/v1/automation/performance/resource-usage": {
       "get": {
         "operationId": "apps_automation_api_performance_monitor_api_get_resource_usage",
         "summary": "获取资源使用情况",
@@ -9822,7 +9822,7 @@
         ]
       }
     },
-    "/api/v1automation/performance/optimize-concurrency": {
+    "/api/v1/automation/performance/optimize-concurrency": {
       "post": {
         "operationId": "apps_automation_api_performance_monitor_api_optimize_concurrency",
         "summary": "优化并发配置",
@@ -9844,7 +9844,7 @@
         ]
       }
     },
-    "/api/v1automation/performance/cache-stats": {
+    "/api/v1/automation/performance/cache-stats": {
       "get": {
         "operationId": "apps_automation_api_performance_monitor_api_get_cache_statistics",
         "summary": "获取缓存统计",
@@ -9866,7 +9866,7 @@
         ]
       }
     },
-    "/api/v1automation/performance/cache/warm-up": {
+    "/api/v1/automation/performance/cache/warm-up": {
       "post": {
         "operationId": "apps_automation_api_performance_monitor_api_warm_up_cache",
         "summary": "预热缓存",
@@ -9900,7 +9900,7 @@
         ]
       }
     },
-    "/api/v1automation/performance/cache/clear": {
+    "/api/v1/automation/performance/cache/clear": {
       "delete": {
         "operationId": "apps_automation_api_performance_monitor_api_clear_cache",
         "summary": "清除缓存",
@@ -9922,7 +9922,7 @@
         ]
       }
     },
-    "/api/v1automation/performance/metrics/reset": {
+    "/api/v1/automation/performance/metrics/reset": {
       "post": {
         "operationId": "apps_automation_api_performance_monitor_api_reset_performance_metrics",
         "summary": "重置性能指标",
@@ -9944,7 +9944,7 @@
         ]
       }
     },
-    "/api/v1automation/performance/resources/cleanup": {
+    "/api/v1/automation/performance/resources/cleanup": {
       "post": {
         "operationId": "apps_automation_api_performance_monitor_api_cleanup_resources",
         "summary": "清理资源",
@@ -11956,7 +11956,7 @@
         ]
       }
     },
-    "/api/v1story-viz/animations/{animation_id}": {
+    "/api/v1/story-viz/animations/{animation_id}": {
       "get": {
         "operationId": "apps_story_viz_api_animation_api_get_story_animation_status",
         "summary": "Get Story Animation Status",
@@ -11994,7 +11994,7 @@
         ]
       }
     },
-    "/api/v1story-viz/animations/{animation_id}/retry": {
+    "/api/v1/story-viz/animations/{animation_id}/retry": {
       "post": {
         "operationId": "apps_story_viz_api_animation_api_retry_story_animation",
         "summary": "Retry Story Animation",
@@ -12032,7 +12032,7 @@
         ]
       }
     },
-    "/api/v1story-viz/animations/{animation_id}/cancel": {
+    "/api/v1/story-viz/animations/{animation_id}/cancel": {
       "post": {
         "operationId": "apps_story_viz_api_animation_api_cancel_story_animation",
         "summary": "Cancel Story Animation",
@@ -12070,7 +12070,7 @@
         ]
       }
     },
-    "/api/v1story-viz/animations/{animation_id}/preview": {
+    "/api/v1/story-viz/animations/{animation_id}/preview": {
       "get": {
         "operationId": "apps_story_viz_api_animation_api_preview_story_animation",
         "summary": "Preview Story Animation",
@@ -12101,7 +12101,7 @@
         ]
       }
     },
-    "/api/v1story-viz/animations/{animation_id}/detail": {
+    "/api/v1/story-viz/animations/{animation_id}/detail": {
       "get": {
         "operationId": "apps_story_viz_api_animation_api_get_story_animation_detail",
         "summary": "Get Story Animation Detail",
@@ -12139,7 +12139,7 @@
         ]
       }
     },
-    "/api/v1story-viz/animations/{animation_id}/ask": {
+    "/api/v1/story-viz/animations/{animation_id}/ask": {
       "post": {
         "operationId": "apps_story_viz_api_animation_api_ask_story_animation",
         "summary": "Ask Story Animation",
@@ -12187,7 +12187,7 @@
         ]
       }
     },
-    "/api/v1story-viz/animations/models": {
+    "/api/v1/story-viz/animations/models": {
       "get": {
         "operationId": "apps_story_viz_api_animation_api_list_models",
         "summary": "List Models",
@@ -12763,7 +12763,7 @@
         ]
       }
     },
-    "/api/v1reminders/parse": {
+    "/api/v1/reminders/parse": {
       "post": {
         "operationId": "apps_reminders_api_reminder_api_parse_reminders",
         "summary": "Parse Reminders",
@@ -12805,7 +12805,7 @@
         ]
       }
     },
-    "/api/v1reminders/list": {
+    "/api/v1/reminders/list": {
       "get": {
         "operationId": "apps_reminders_api_reminder_api_list_reminders",
         "summary": "List Reminders",
@@ -12885,7 +12885,7 @@
         ]
       }
     },
-    "/api/v1reminders/create": {
+    "/api/v1/reminders/create": {
       "post": {
         "operationId": "apps_reminders_api_reminder_api_create_reminder",
         "summary": "Create Reminder",
@@ -12922,7 +12922,7 @@
         ]
       }
     },
-    "/api/v1reminders/types": {
+    "/api/v1/reminders/types": {
       "get": {
         "operationId": "apps_reminders_api_reminder_api_get_types",
         "summary": "Get Types",
@@ -12953,7 +12953,7 @@
         ]
       }
     },
-    "/api/v1reminders/target-options": {
+    "/api/v1/reminders/target-options": {
       "get": {
         "operationId": "apps_reminders_api_reminder_api_get_target_options",
         "summary": "Get Target Options",
@@ -12992,7 +12992,7 @@
         ]
       }
     },
-    "/api/v1reminders/calendar": {
+    "/api/v1/reminders/calendar": {
       "get": {
         "operationId": "apps_reminders_api_reminder_api_get_calendar_month",
         "summary": "Get Calendar Month",
@@ -13041,7 +13041,7 @@
         ]
       }
     },
-    "/api/v1reminders/complete": {
+    "/api/v1/reminders/complete": {
       "post": {
         "operationId": "apps_reminders_api_reminder_api_complete_reminders",
         "summary": "Complete Reminders",
@@ -13079,7 +13079,7 @@
         ]
       }
     },
-    "/api/v1reminders/{reminder_id}": {
+    "/api/v1/reminders/{reminder_id}": {
       "get": {
         "operationId": "apps_reminders_api_reminder_api_get_reminder",
         "summary": "Get Reminder",
@@ -13189,7 +13189,7 @@
         ]
       }
     },
-    "/api/v1reminders/ics/feed": {
+    "/api/v1/reminders/ics/feed": {
       "get": {
         "operationId": "apps_reminders_api_calendar_feed_api_calendar_feed",
         "summary": "Calendar Feed",
@@ -13216,7 +13216,7 @@
         ]
       }
     },
-    "/api/v1reminders/ics/feed/token": {
+    "/api/v1/reminders/ics/feed/token": {
       "get": {
         "operationId": "apps_reminders_api_calendar_feed_api_get_or_create_token",
         "summary": "Get Or Create Token",
@@ -13232,7 +13232,7 @@
         ]
       }
     },
-    "/api/v1reminders/ics/feed/token/regenerate": {
+    "/api/v1/reminders/ics/feed/token/regenerate": {
       "post": {
         "operationId": "apps_reminders_api_calendar_feed_api_regenerate_token",
         "summary": "Regenerate Token",
@@ -13248,7 +13248,7 @@
         ]
       }
     },
-    "/api/v1inbox/messages": {
+    "/api/v1/inbox/messages": {
       "get": {
         "operationId": "apps_message_hub_api_inbox_api_list_messages",
         "summary": "List Messages",
@@ -13361,7 +13361,7 @@
         ]
       }
     },
-    "/api/v1inbox/messages/upload": {
+    "/api/v1/inbox/messages/upload": {
       "post": {
         "operationId": "apps_message_hub_api_inbox_api_upload_messages",
         "summary": "Upload Messages",
@@ -13407,7 +13407,7 @@
         ]
       }
     },
-    "/api/v1inbox/messages/{message_id}/draft": {
+    "/api/v1/inbox/messages/{message_id}/draft": {
       "put": {
         "operationId": "apps_message_hub_api_inbox_api_update_draft",
         "summary": "Update Draft",
@@ -13448,7 +13448,7 @@
         ]
       }
     },
-    "/api/v1inbox/messages/{message_id}": {
+    "/api/v1/inbox/messages/{message_id}": {
       "put": {
         "operationId": "apps_message_hub_api_inbox_api_rename_message",
         "summary": "Rename Message",
@@ -13568,7 +13568,7 @@
         ]
       }
     },
-    "/api/v1inbox/messages/{message_id}/attachments/{part_index}/download": {
+    "/api/v1/inbox/messages/{message_id}/attachments/{part_index}/download": {
       "get": {
         "operationId": "apps_message_hub_api_inbox_api_download_attachment",
         "summary": "Download Attachment",
@@ -13608,7 +13608,7 @@
         ]
       }
     },
-    "/api/v1inbox/messages/{message_id}/attachments/{part_index}/preview": {
+    "/api/v1/inbox/messages/{message_id}/attachments/{part_index}/preview": {
       "get": {
         "operationId": "apps_message_hub_api_inbox_api_preview_attachment",
         "summary": "Preview Attachment",
@@ -13648,7 +13648,7 @@
         ]
       }
     },
-    "/api/v1inbox/messages/{message_id}/attachments": {
+    "/api/v1/inbox/messages/{message_id}/attachments": {
       "post": {
         "operationId": "apps_message_hub_api_inbox_api_append_attachments",
         "summary": "Append Attachments",
@@ -13704,7 +13704,7 @@
         ]
       }
     },
-    "/api/v1inbox/ocr": {
+    "/api/v1/inbox/ocr": {
       "post": {
         "operationId": "apps_message_hub_api_inbox_api_ocr_recognize",
         "summary": "Ocr Recognize",
@@ -13732,7 +13732,7 @@
         ]
       }
     },
-    "/api/v1inbox/messages/{message_id}/attachments/{part_index}/rename": {
+    "/api/v1/inbox/messages/{message_id}/attachments/{part_index}/rename": {
       "post": {
         "operationId": "apps_message_hub_api_inbox_api_rename_attachment",
         "summary": "Rename Attachment",
@@ -13782,7 +13782,7 @@
         ]
       }
     },
-    "/api/v1inbox/sources": {
+    "/api/v1/inbox/sources": {
       "get": {
         "operationId": "apps_message_hub_api_message_source_api_list_sources",
         "summary": "List Sources",
@@ -13848,7 +13848,7 @@
         ]
       }
     },
-    "/api/v1inbox/sources/{source_id}": {
+    "/api/v1/inbox/sources/{source_id}": {
       "get": {
         "operationId": "apps_message_hub_api_message_source_api_get_source",
         "summary": "Get Source",
@@ -13958,7 +13958,7 @@
         ]
       }
     },
-    "/api/v1inbox/sources/{source_id}/sync": {
+    "/api/v1/inbox/sources/{source_id}/sync": {
       "post": {
         "operationId": "apps_message_hub_api_message_source_api_sync_source",
         "summary": "Sync Source",
@@ -13988,7 +13988,7 @@
         ]
       }
     },
-    "/api/v1inbox/sources/sync-all": {
+    "/api/v1/inbox/sources/sync-all": {
       "post": {
         "operationId": "apps_message_hub_api_message_source_api_sync_all_sources",
         "summary": "Sync All Sources",
@@ -22275,7 +22275,7 @@
         ]
       }
     },
-    "/api/v1social/providers": {
+    "/api/v1/social/providers": {
       "get": {
         "operationId": "apps_social_auth_api_social_auth_api_list_providers",
         "summary": "List Providers",
@@ -22298,7 +22298,7 @@
         ]
       }
     },
-    "/api/v1social/{provider}/session": {
+    "/api/v1/social/{provider}/session": {
       "post": {
         "operationId": "apps_social_auth_api_social_auth_api_create_session",
         "summary": "Create Session",
@@ -22341,7 +22341,7 @@
         ]
       }
     },
-    "/api/v1social/token-exchange": {
+    "/api/v1/social/token-exchange": {
       "post": {
         "operationId": "apps_social_auth_api_social_auth_api_token_exchange",
         "summary": "Token Exchange",
@@ -22374,7 +22374,7 @@
         }
       }
     },
-    "/api/v1social/bindings": {
+    "/api/v1/social/bindings": {
       "get": {
         "operationId": "apps_social_auth_api_social_auth_api_list_bindings",
         "summary": "List Bindings",
@@ -22402,7 +22402,7 @@
         ]
       }
     },
-    "/api/v1social/{provider}/bind-session": {
+    "/api/v1/social/{provider}/bind-session": {
       "post": {
         "operationId": "apps_social_auth_api_social_auth_api_create_bind_session",
         "summary": "Create Bind Session",
@@ -22450,7 +22450,7 @@
         ]
       }
     },
-    "/api/v1social/{provider}/bind": {
+    "/api/v1/social/{provider}/bind": {
       "delete": {
         "operationId": "apps_social_auth_api_social_auth_api_unbind_provider",
         "summary": "Unbind Provider",
@@ -22488,7 +22488,7 @@
         ]
       }
     },
-    "/api/v1social/provider-catalog": {
+    "/api/v1/social/provider-catalog": {
       "get": {
         "operationId": "apps_social_auth_api_social_auth_api_list_provider_catalog",
         "summary": "List Provider Catalog",
