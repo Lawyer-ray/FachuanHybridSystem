@@ -49,6 +49,9 @@ async def on_court_reply(case_id: int, status: str, documents: list | None = Non
             "gate_approved",
             {"step_id": run.current_step_id, "approved": True, "comment": status, "documents": documents or []},
         )
-        run.status = WorkflowRun.Status.RUNNING
-        await run.asave(update_fields=["status"])
+        # 条件更新：仅当 run 仍处于 WAITING_EVENT 时置 RUNNING，
+        # 避免 worker 已写入终态后被本地乐观写覆盖（与 approve_workflow_step 同口径）
+        await WorkflowRun.objects.filter(pk=run.pk, status=WorkflowRun.Status.WAITING_EVENT).aupdate(
+            status=WorkflowRun.Status.RUNNING
+        )
         logger.info("Workflow %s 收到法院回复: %s", run.temporal_workflow_id, status)

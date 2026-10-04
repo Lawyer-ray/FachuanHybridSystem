@@ -194,11 +194,25 @@ class CaseFolderScanService:
             started_by=started_by if getattr(started_by, "is_authenticated", False) else None,
         )
 
-        task_id = build_task_submission_service().submit(
-            "apps.cases.services.material.folder_scan_service.run_case_folder_scan_task",
-            args=[str(session.id)],
-            task_name=f"case_folder_scan_{session.id}",
-        )
+        try:
+            task_id = build_task_submission_service().submit(
+                "apps.cases.services.material.folder_scan_service.run_case_folder_scan_task",
+                args=[str(session.id)],
+                task_name=f"case_folder_scan_{session.id}",
+            )
+        except Exception as exc:
+            # 提交失败时把 session 置 FAILED，避免永远卡在 PENDING（轮询端无恢复入口）
+            error_msg = f"任务提交失败: {type(exc).__name__}"
+            logger.exception(
+                "case_folder_scan_submit_failed", extra={"session_id": str(session.id), "case_id": case_id}
+            )
+            CaseFolderScanSession.objects.filter(id=session.id).update(
+                status=CaseFolderScanStatus.FAILED,
+                error_message=error_msg,
+                updated_at=timezone.now(),
+            )
+            session.refresh_from_db()
+            return session
 
         CaseFolderScanSession.objects.filter(id=session.id).update(
             status=CaseFolderScanStatus.RUNNING,

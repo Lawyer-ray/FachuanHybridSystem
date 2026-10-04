@@ -108,10 +108,12 @@ class CaseSearchService:
     ) -> QuerySet[Case, Case]:
         qs = get_case_queryset().order_by("-id")
 
+        # status/case_type 是 Case 自身字段（与 Contract 同名但语义独立），
+        # 按 contract__ 过滤会丢掉无合同关联的案件，这里直接过滤 Case 字段
         if case_type:
-            qs = qs.filter(contract__case_type=case_type)
+            qs = qs.filter(case_type=case_type)
         if status:
-            qs = qs.filter(contract__status=status)
+            qs = qs.filter(status=status)
         if contract_id is not None:
             qs = qs.filter(contract_id=contract_id)
 

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
+
+from apps.core.models.enums import CaseStatus
 
 from .assignment_schemas import CaseAssignmentCreate, CaseAssignmentOut
 from .base import Case, CaseAssignment, CaseChat, CaseLog, CaseParty, ModelSchema, Schema
@@ -135,7 +137,8 @@ class CaseOut(ModelSchema):
 
 class CaseUpdate(Schema):
     name: str | None = None
-    status: str | None = None
+    # 状态取值来自 Case 模型状态枚举（CaseStatus），非法值在入参校验阶段返回 422
+    status: Literal[CaseStatus.ACTIVE, CaseStatus.CLOSED] | None = None
     is_filed: bool | None = None
     case_type: str | None = None
     target_amount: float | None = None

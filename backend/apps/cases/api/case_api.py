@@ -167,7 +167,13 @@ async def update_case(request: HttpRequest, case_id: int, payload: CaseUpdate) -
     data = payload.model_dump(exclude_unset=True)
 
     def _update() -> dict[str, Any]:
-        case = service.update_case(case_id, data, user=ctx.user)
+        case = service.update_case(
+            case_id,
+            data,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
+        )
         return _serialize_case(case)
 
     return await sync_to_async(_update)()
@@ -179,7 +185,12 @@ async def delete_case(request: HttpRequest, case_id: int) -> dict[str, bool]:  #
     service = _get_case_mutation_facade()
     ctx = extract_request_context(request)
 
-    await sync_to_async(service.delete_case)(case_id, user=ctx.user)
+    await sync_to_async(service.delete_case)(
+        case_id,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
 
     return {"success": True}
 

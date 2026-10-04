@@ -51,28 +51,42 @@ async def test_start_workflow_api():
 # ── list_workflows_api ────────────────────────────────────────────────────────
 
 
+def _request_with_ctx() -> tuple:
+    """构造带访问上下文属性的请求对象（get_request_access_context 读取这些属性）。"""
+    user = MagicMock(name="req_user")
+    request = MagicMock()
+    request.access_ctx = None
+    request.user = user
+    request.org_access = None
+    request.perm_open_access = False
+    return request, user
+
+
 @pytest.mark.asyncio
 async def test_list_workflows_api():
+    request, user = _request_with_ctx()
     with patch("apps.workflow.api.workflow_api.list_workflows", new_callable=AsyncMock) as mock_list:
         mock_list.return_value = {"items": [{"run_id": 1}], "total": 1, "page": 1, "page_size": 20, "total_pages": 1}
-        result = await list_workflows_api(MagicMock(), case_id=1, status="running")
+        result = await list_workflows_api(request, case_id=1, status="running")
 
     assert isinstance(result["items"], list)
     assert len(result["items"]) == 1
     assert result["total"] == 1
     assert result["total_pages"] == 1
-    mock_list.assert_called_once_with(1, "running", limit=20)
+    # 列表按当前用户可见案件过滤（安全审计 IDOR），用户上下文透传到查询层
+    mock_list.assert_called_once_with(1, "running", limit=20, user=user, org_access=None, perm_open_access=False)
 
 
 @pytest.mark.asyncio
 async def test_list_workflows_api_no_filters():
+    request, user = _request_with_ctx()
     with patch("apps.workflow.api.workflow_api.list_workflows", new_callable=AsyncMock) as mock_list:
         mock_list.return_value = {"items": [], "total": 0, "page": 1, "page_size": 20, "total_pages": 1}
-        result = await list_workflows_api(MagicMock(), case_id=None, status=None)
+        result = await list_workflows_api(request, case_id=None, status=None)
 
     assert result["items"] == []
     assert result["total"] == 0
-    mock_list.assert_called_once_with(None, None, limit=20)
+    mock_list.assert_called_once_with(None, None, limit=20, user=user, org_access=None, perm_open_access=False)
 
 
 # ── get_workflow_detail_api ───────────────────────────────────────────────────

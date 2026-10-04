@@ -169,6 +169,8 @@ async def test_get_workflow_detail_success():
 
     with patch.object(WorkflowRun, "objects") as MockObjs:
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
+        # 条件更新走 WorkflowRun.objects.filter(...).aupdate(...)（非 run.asave）
+        MockObjs.filter.return_value.aupdate = AsyncMock(return_value=1)
         mock_run.step_executions.all.return_value = mock_step_iter()
 
         result = await get_workflow_detail(1)
@@ -199,6 +201,8 @@ async def test_get_workflow_detail_with_finished_at():
 
     with patch.object(WorkflowRun, "objects") as MockObjs:
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
+        # 条件更新走 WorkflowRun.objects.filter(...).aupdate(...)（非 run.asave）
+        MockObjs.filter.return_value.aupdate = AsyncMock(return_value=1)
         mock_run.step_executions.all.return_value = empty_iter()
 
         result = await get_workflow_detail(2)
@@ -249,6 +253,8 @@ async def test_approve_workflow_step_success():
         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
     ):
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
+        # 条件更新走 WorkflowRun.objects.filter(...).aupdate(...)（非 run.asave）
+        MockObjs.filter.return_value.aupdate = AsyncMock(return_value=1)
 
         result = await approve_workflow_step(1, approved=True, comment="ok")
 
@@ -259,8 +265,9 @@ async def test_approve_workflow_step_success():
     mock_handle.signal.assert_awaited_once_with(
         "gate_approved", {"approved": True, "step_id": "gate_1", "comment": "ok"}
     )
-    mock_run.asave.assert_awaited_once()
-    assert mock_run.status == "running"
+    # 条件更新：仅当 run 仍为 WAITING_HUMAN 时置 RUNNING（不覆盖 worker 终态）
+    MockObjs.filter.assert_called_once_with(pk=1, status=WorkflowRun.Status.WAITING_HUMAN)
+    MockObjs.filter.return_value.aupdate.assert_awaited_once_with(status=WorkflowRun.Status.RUNNING)
 
 
 @pytest.mark.asyncio
@@ -284,6 +291,8 @@ async def test_approve_workflow_step_wrong_status():
 
     with patch.object(WorkflowRun, "objects") as MockObjs:
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
+        # 条件更新走 WorkflowRun.objects.filter(...).aupdate(...)（非 run.asave）
+        MockObjs.filter.return_value.aupdate = AsyncMock(return_value=1)
 
         result = await approve_workflow_step(1, approved=True)
 
@@ -304,6 +313,8 @@ async def test_approve_workflow_step_temporal_failure():
         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
     ):
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
+        # 条件更新走 WorkflowRun.objects.filter(...).aupdate(...)（非 run.asave）
+        MockObjs.filter.return_value.aupdate = AsyncMock(return_value=1)
 
         result = await approve_workflow_step(1, approved=True)
 
@@ -323,6 +334,8 @@ async def test_approve_workflow_step_rejected():
         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
     ):
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
+        # 条件更新走 WorkflowRun.objects.filter(...).aupdate(...)（非 run.asave）
+        MockObjs.filter.return_value.aupdate = AsyncMock(return_value=1)
 
         result = await approve_workflow_step(1, approved=False, comment="not ready")
 
@@ -356,6 +369,8 @@ async def test_approve_uses_step_level_signal_key():
         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
     ):
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
+        # 条件更新走 WorkflowRun.objects.filter(...).aupdate(...)（非 run.asave）
+        MockObjs.filter.return_value.aupdate = AsyncMock(return_value=1)
 
         result = await approve_workflow_step(1, approved=True)
 
@@ -381,6 +396,8 @@ async def test_approve_uses_config_level_signal_key():
         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
     ):
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
+        # 条件更新走 WorkflowRun.objects.filter(...).aupdate(...)（非 run.asave）
+        MockObjs.filter.return_value.aupdate = AsyncMock(return_value=1)
 
         result = await approve_workflow_step(1, approved=True)
 
@@ -406,6 +423,8 @@ async def test_approve_rejects_unknown_signal_key():
         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
     ):
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
+        # 条件更新走 WorkflowRun.objects.filter(...).aupdate(...)（非 run.asave）
+        MockObjs.filter.return_value.aupdate = AsyncMock(return_value=1)
 
         result = await approve_workflow_step(1, approved=True)
 
@@ -433,6 +452,8 @@ async def test_approve_rejects_signal_unsupported_by_workflow():
         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
     ):
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
+        # 条件更新走 WorkflowRun.objects.filter(...).aupdate(...)（非 run.asave）
+        MockObjs.filter.return_value.aupdate = AsyncMock(return_value=1)
 
         result = await approve_workflow_step(1, approved=True)
 
@@ -458,6 +479,8 @@ async def test_approve_rejects_step_not_in_template():
         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
     ):
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
+        # 条件更新走 WorkflowRun.objects.filter(...).aupdate(...)（非 run.asave）
+        MockObjs.filter.return_value.aupdate = AsyncMock(return_value=1)
 
         result = await approve_workflow_step(1, approved=True)
 
@@ -480,6 +503,8 @@ async def test_approve_rejects_empty_steps_schema():
         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
     ):
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
+        # 条件更新走 WorkflowRun.objects.filter(...).aupdate(...)（非 run.asave）
+        MockObjs.filter.return_value.aupdate = AsyncMock(return_value=1)
 
         result = await approve_workflow_step(1, approved=True)
 
@@ -574,6 +599,8 @@ async def test_delete_workflow_run_success():
         patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client),
     ):
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
+        # 条件更新走 WorkflowRun.objects.filter(...).aupdate(...)（非 run.asave）
+        MockObjs.filter.return_value.aupdate = AsyncMock(return_value=1)
 
         result = await delete_workflow_run(1)
 
@@ -604,6 +631,8 @@ async def test_delete_workflow_run_completed_no_cancel():
 
     with patch.object(WorkflowRun, "objects") as MockObjs:
         MockObjs.select_related.return_value.aget = AsyncMock(return_value=mock_run)
+        # 条件更新走 WorkflowRun.objects.filter(...).aupdate(...)（非 run.asave）
+        MockObjs.filter.return_value.aupdate = AsyncMock(return_value=1)
 
         result = await delete_workflow_run(1)
 

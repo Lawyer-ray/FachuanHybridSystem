@@ -71,8 +71,21 @@ async def list_workflows_api(
     status: str | None = None,
     limit: int = 20,
 ) -> dict[str, Any]:
-    """查询诉讼工作流列表（标准信封 items/total/page/page_size/total_pages；limit cap 100）"""
-    return await list_workflows(case_id, status, limit=limit)
+    """查询诉讼工作流列表（标准信封 items/total/page/page_size/total_pages；limit cap 100）
+
+    安全审计 IDOR：按当前用户可见案件过滤（与 run 详情/审批/取消同口径）。
+    """
+    from apps.core.security import get_request_access_context
+
+    ctx = get_request_access_context(request)
+    return await list_workflows(
+        case_id,
+        status,
+        limit=limit,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
 
 
 @router.get("/runs/{run_id}")

@@ -20,11 +20,21 @@ class FolderTemplateUsecases:
     structure_rules: FolderTemplateStructureRules
 
     def list_templates(
-        self, *, case_type: str | None = None, case_stage: str | None = None, is_active: bool | None = None
+        self,
+        *,
+        template_type: str | None = None,
+        case_type: str | None = None,
+        case_stage: str | None = None,
+        is_active: bool | None = None,
     ) -> list[FolderTemplate]:
         return cast(
             list[FolderTemplate],
-            self.query_service.list_templates(case_type=case_type, case_stage=case_stage, is_active=is_active),
+            self.query_service.list_templates(
+                template_type=template_type,
+                case_type=case_type,
+                case_stage=case_stage,
+                is_active=is_active,
+            ),
         )
 
     def get_template_by_id(self, *, template_id: int) -> FolderTemplate:

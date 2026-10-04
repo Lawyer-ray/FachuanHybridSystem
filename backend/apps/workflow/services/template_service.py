@@ -93,21 +93,23 @@ class WorkflowTemplateService:
                     errors={"type": step_type or "mcp_tool"},
                 )
 
-    def _unique_slug(self, base_slug: str, *, copy_mode: bool = False) -> str:
-        """slug 唯一化：普通模式 base-1/base-2…；copy 模式 base-copy[-N]。"""
-        if copy_mode:
-            new_slug = f"{base_slug}-copy"
-            counter = 1
-            while WorkflowTemplate.objects.filter(slug=new_slug).exists():
-                new_slug = f"{base_slug}-copy-{counter}"
-                counter += 1
-            return new_slug
-        slug = base_slug
+    def _unique_slug(self, base_slug: str, *, copy_mode: bool = False, exclude_pk: int | None = None) -> str:
+        """slug 唯一化：普通模式 base[-N]；copy 模式 base-copy[-N]。
+
+        exclude_pk 用于更新场景排除自身，避免"slug 未改名也被加后缀"。
+        """
+        slug = f"{base_slug}-copy" if copy_mode else base_slug
         counter = 1
-        while WorkflowTemplate.objects.filter(slug=slug).exists():
-            slug = f"{base_slug}-{counter}"
+        while self._slug_taken(slug, exclude_pk=exclude_pk):
+            slug = f"{base_slug}-copy-{counter}" if copy_mode else f"{base_slug}-{counter}"
             counter += 1
         return slug
+
+    def _slug_taken(self, slug: str, *, exclude_pk: int | None = None) -> bool:
+        if exclude_pk is None:
+            return WorkflowTemplate.objects.filter(slug=slug).exists()
+        # 更新场景：排除自身，slug 未变化时不视为占用
+        return WorkflowTemplate.objects.exclude(pk=exclude_pk).filter(slug=slug).exists()
 
     def list_templates(self, *, category: str | None = None, is_active: bool | None = None) -> list[dict[str, Any]]:
         qs = WorkflowTemplate.objects.all()
@@ -157,7 +159,9 @@ class WorkflowTemplateService:
         if payload.name is not None:
             template.name = payload.name
         if payload.slug is not None:
-            template.slug = payload.slug
+            # slug 唯一化（与 create/duplicate 同口径）：撞车时自动加后缀而非 IntegrityError 500；
+            # 排除自身，slug 未变化时不加后缀
+            template.slug = self._unique_slug(payload.slug, exclude_pk=template.pk)
         if payload.category is not None:
             template.category = payload.category
         if payload.description is not None:

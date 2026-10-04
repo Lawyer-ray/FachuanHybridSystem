@@ -111,6 +111,10 @@ async def list_workflows(
     case_id: int | None = None,
     status: str | None = None,
     limit: int = 20,
+    *,
+    user: Any | None = None,
+    org_access: dict[str, Any] | None = None,
+    perm_open_access: bool = False,
 ) -> dict[str, Any]:
     """查询诉讼工作流列表
 
@@ -118,6 +122,9 @@ async def list_workflows(
         case_id: 按案件 ID 筛选（可选）
         status: 按状态筛选（可选：running/waiting_human/waiting_event/completed/failed）
         limit: 返回条数上限（默认 20，cap 100）
+        user: 当前用户（安全审计 IDOR：有用户上下文时按案件访问权过滤）
+        org_access: 组织级访问上下文（与 user 配套，来自请求上下文）
+        perm_open_access: 是否开放访问（与 user 配套，来自请求上下文）
 
     Returns:
         标准分页信封 {items, total, page, page_size, total_pages}（单页语义，page=1）
@@ -133,6 +140,24 @@ async def list_workflows(
         qs = qs.filter(case_id=case_id)
     if status:
         qs = qs.filter(status=status)
+    if user is not None:
+        # 有用户上下文（REST 列表）时按案件访问权过滤；
+        # MCP 直连链路无用户上下文，维持原有不过滤口径（同 start_workflow）
+        from asgiref.sync import sync_to_async
+
+        from apps.cases.models import Case
+        from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+
+        def _accessible_case_ids() -> Any:
+            return CaseAccessPolicy().filter_queryset(
+                Case.objects.values("id"),
+                user=user,
+                org_access=org_access,
+                perm_open_access=perm_open_access,
+            )
+
+        accessible_case_ids = await sync_to_async(_accessible_case_ids, thread_sensitive=False)()
+        qs = qs.filter(case_id__in=accessible_case_ids)
 
     ordered = qs.order_by("-started_at")
     total = await ordered.acount()
@@ -262,8 +287,11 @@ async def approve_workflow_step(run_id: int, approved: bool, comment: str = "") 
         logger.warning("Temporal signal 发送失败: run_id=%s, error=%s", run_id, e)
         return {"error": f"Temporal 信号发送失败: {e}"}
 
-    run.status = WorkflowRun.Status.RUNNING
-    await run.asave(update_fields=["status"])
+    # 条件更新：仅当 run 仍处于 WAITING_HUMAN 时置 RUNNING，
+    # 避免 worker 已写入终态（completed/failed）后被本地乐观写覆盖（竞态）
+    await WorkflowRun.objects.filter(pk=run_id, status=WorkflowRun.Status.WAITING_HUMAN).aupdate(
+        status=WorkflowRun.Status.RUNNING
+    )
 
     return {
         "run_id": run_id,

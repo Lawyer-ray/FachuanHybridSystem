@@ -409,7 +409,7 @@ async def download_litigation_document(document_id: int) -> dict:
     service = LitigationGenerationService()
 
     def _download() -> dict:
-        filename, doc_bytes = service.generate_complaint_document(document_id)
+        filename, doc_bytes = service.generate_complaint_document(document_id, skip_llm=False)
         return {"filename": filename, "size": len(doc_bytes)}
 
     return await asyncio.to_thread(_download)
