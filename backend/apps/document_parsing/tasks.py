@@ -36,11 +36,12 @@ def document_parsing_hook(task: Any) -> None:
 
     result = task.result or {}
     if isinstance(result, dict) and result.get("success"):
+        # backend_used：parse 结果用 parse_method，extract-text 结果用 method
         parsing_task.mark_completed(
             text=result.get("text", ""),
             markdown=result.get("markdown", ""),
             metadata=result.get("metadata", {}),
-            backend_used=result.get("parse_method", "unknown"),
+            backend_used=result.get("parse_method") or result.get("method") or "unknown",
         )
         logger.info("document_parsing_hook: Task(id=%s) 已标记为完成", task_id)
     else:
