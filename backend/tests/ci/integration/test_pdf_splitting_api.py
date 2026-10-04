@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -31,8 +31,10 @@ def test_create_pdf_split_job(authenticated_client):
 @pytest.mark.django_db
 def test_get_pdf_split_job(authenticated_client):
     job_id = uuid4()
-    with patch("apps.pdf_splitting.services.PdfSplitJobService.get_job") as mock_get, \
-         patch("apps.pdf_splitting.services.PdfSplitJobService.build_job_payload") as mock_payload:
+    with (
+        patch("apps.pdf_splitting.services.PdfSplitJobService.get_job") as mock_get,
+        patch("apps.pdf_splitting.services.PdfSplitJobService.build_job_payload") as mock_payload,
+    ):
         mock_job = MagicMock()
         mock_get.return_value = mock_job
         mock_payload.return_value = {
@@ -89,21 +91,26 @@ def test_cancel_pdf_split_job(authenticated_client):
 @pytest.mark.django_db
 def test_get_pdf_split_download_not_found(authenticated_client):
     job_id = uuid4()
-    with patch("apps.pdf_splitting.services.PdfSplitJobService.get_job") as mock_get, \
-         patch("apps.pdf_splitting.services.storage.PdfSplitStorage") as mock_storage:
+    with (
+        patch("apps.pdf_splitting.services.PdfSplitJobService.get_job") as mock_get,
+        patch("apps.pdf_splitting.services.storage.PdfSplitStorage") as mock_storage,
+    ):
         mock_get.return_value = MagicMock()
         storage_instance = MagicMock()
         storage_instance.export_zip_path.exists.return_value = False
         mock_storage.return_value = storage_instance
         resp = authenticated_client.get(f"/api/v1/pdf-splitting/jobs/{job_id}/download")
         assert resp.status_code == 404
+        assert resp.content == b""  # 产物缺失时不得返回任何文件数据
 
 
 @pytest.mark.django_db
 def test_get_pdf_split_raw_not_found(authenticated_client):
     job_id = uuid4()
-    with patch("apps.pdf_splitting.services.PdfSplitJobService.get_job") as mock_get, \
-         patch("apps.pdf_splitting.services.storage.PdfSplitStorage") as mock_storage:
+    with (
+        patch("apps.pdf_splitting.services.PdfSplitJobService.get_job") as mock_get,
+        patch("apps.pdf_splitting.services.storage.PdfSplitStorage") as mock_storage,
+    ):
         mock_job = MagicMock()
         mock_job.source_original_name = "test.pdf"
         mock_get.return_value = mock_job
@@ -112,3 +119,4 @@ def test_get_pdf_split_raw_not_found(authenticated_client):
         mock_storage.return_value = storage_instance
         resp = authenticated_client.get(f"/api/v1/pdf-splitting/jobs/{job_id}/pdf")
         assert resp.status_code == 404
+        assert resp.content == b""  # 源 PDF 缺失时不得返回任何文件数据

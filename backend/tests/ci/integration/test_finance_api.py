@@ -8,7 +8,6 @@ import pytest
 
 from apps.finance.models import LPRRate
 
-
 # ===================================================================
 # LPR Rates
 # ===================================================================
@@ -57,6 +56,12 @@ def test_get_latest_lpr_rate_not_found(authenticated_client):
     resp = authenticated_client.get("/api/v1/lpr/rates/latest")
     # May return 404 or 200 with error depending on implementation
     assert resp.status_code in (404, 200, 500)
+    # 无数据时服务抛 NotFoundError → 404 错误信封
+    assert resp.status_code == 404
+    body = resp.json()
+    assert body["code"] == "LPR_RATE_NOT_FOUND"
+    assert body["message"] == "暂无LPR利率数据"
+    assert "rate_1y" not in body  # 错误响应不得夹带利率数据
 
 
 @pytest.mark.django_db
@@ -74,14 +79,16 @@ def test_calculate_interest(authenticated_client):
     LPRRate.objects.create(effective_date="2024-07-01", rate_1y=3.35, rate_5y=3.85, source="manual")
     resp = authenticated_client.post(
         "/api/v1/lpr/calculate",
-        data=json.dumps({
-            "start_date": "2024-01-01",
-            "end_date": "2024-06-30",
-            "principal": 100000,
-            "rate_mode": "lpr",
-            "rate_type": "1y",
-            "year_days": 365,
-        }),
+        data=json.dumps(
+            {
+                "start_date": "2024-01-01",
+                "end_date": "2024-06-30",
+                "principal": 100000,
+                "rate_mode": "lpr",
+                "rate_type": "1y",
+                "year_days": 365,
+            }
+        ),
         content_type="application/json",
     )
     assert resp.status_code == 200
@@ -95,10 +102,12 @@ def test_calculate_interest(authenticated_client):
 def test_calculate_interest_missing_fields(authenticated_client):
     resp = authenticated_client.post(
         "/api/v1/lpr/calculate",
-        data=json.dumps({
-            "rate_mode": "lpr",
-            "rate_type": "1y",
-        }),
+        data=json.dumps(
+            {
+                "rate_mode": "lpr",
+                "rate_type": "1y",
+            }
+        ),
         content_type="application/json",
     )
     assert resp.status_code == 200

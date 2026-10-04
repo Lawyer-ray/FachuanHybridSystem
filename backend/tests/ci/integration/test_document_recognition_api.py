@@ -45,6 +45,13 @@ def test_recognize_document_unsupported_format(authenticated_client):
     )
     # Should return 422 or similar validation error
     assert resp.status_code in (422, 400, 500)
+    # 文件格式校验在任务创建前执行：ValidationException → 400 错误信封
+    assert resp.status_code == 400
+    body = resp.json()
+    assert body["code"] == "UNSUPPORTED_FILE_FORMAT"
+    assert "不支持的文件格式" in body["message"]
+    assert ".exe" in body["errors"]["file"]  # 错误详情指明本用例上传的扩展名
+    assert "task_id" not in body  # 校验失败不得创建任务
 
 
 # ===================================================================

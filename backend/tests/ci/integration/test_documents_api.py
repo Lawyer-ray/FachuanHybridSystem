@@ -6,8 +6,8 @@ import json
 
 import pytest
 
-from apps.contracts.models import Contract
 from apps.cases.models import Case
+from apps.contracts.models import Contract
 from apps.documents.models import DocumentTemplate, FolderTemplate, Placeholder
 
 
@@ -111,11 +111,13 @@ def test_list_folder_templates(authenticated_client):
 def test_create_folder_template(authenticated_client):
     resp = authenticated_client.post(
         "/api/v1/documents/folder-templates",
-        data=json.dumps({
-            "name": "新建文件夹模板",
-            "case_type": "civil",
-            "structure": {"folders": ["起诉材料", "证据材料"]},
-        }),
+        data=json.dumps(
+            {
+                "name": "新建文件夹模板",
+                "case_type": "civil",
+                "structure": {"folders": ["起诉材料", "证据材料"]},
+            }
+        ),
         content_type="application/json",
     )
     assert resp.status_code == 200
@@ -203,13 +205,15 @@ def test_list_placeholders(authenticated_client):
 def test_create_placeholder(authenticated_client):
     resp = authenticated_client.post(
         "/api/v1/documents/placeholders",
-        data=json.dumps({
-            "key": "{{被告名称}}",
-            "display_name": "被告名称",
-            "example_value": "某某公司",
-            "description": "被告的名称",
-            "is_active": True,
-        }),
+        data=json.dumps(
+            {
+                "key": "{{被告名称}}",
+                "display_name": "被告名称",
+                "example_value": "某某公司",
+                "description": "被告的名称",
+                "is_active": True,
+            }
+        ),
         content_type="application/json",
     )
     assert resp.status_code == 200
@@ -220,7 +224,9 @@ def test_create_placeholder(authenticated_client):
 
 @pytest.mark.django_db
 def test_get_placeholder_detail(authenticated_client):
-    ph = Placeholder.objects.create(key="{{案件编号}}", display_name="案件编号", example_value="2024-001", is_active=True)
+    ph = Placeholder.objects.create(
+        key="{{案件编号}}", display_name="案件编号", example_value="2024-001", is_active=True
+    )
     resp = authenticated_client.get(f"/api/v1/documents/placeholders/{ph.id}")
     assert resp.status_code == 200
     assert resp.json()["key"] == "{{案件编号}}"
@@ -239,13 +245,15 @@ def test_update_placeholder(authenticated_client):
     ph = Placeholder.objects.create(key="{{旧键}}", display_name="旧名", example_value="旧值", is_active=True)
     resp = authenticated_client.put(
         f"/api/v1/documents/placeholders/{ph.id}",
-        data=json.dumps({
-            "key": "{{新键}}",
-            "display_name": "新名",
-            "example_value": "新值",
-            "description": "新描述",
-            "is_active": True,
-        }),
+        data=json.dumps(
+            {
+                "key": "{{新键}}",
+                "display_name": "新名",
+                "example_value": "新值",
+                "description": "新描述",
+                "is_active": True,
+            }
+        ),
         content_type="application/json",
     )
     assert resp.status_code == 200
@@ -266,3 +274,17 @@ def test_preview_placeholders(authenticated_client):
     resp = authenticated_client.get(f"/api/v1/documents/placeholders/preview/{contract.id}")
     # May return 400 if contract lacks required data for context building
     assert resp.status_code in (200, 400)
+    body = resp.json()
+    if resp.status_code == 400:
+        # 产品 bug：context_builder.py:132 调用 ContractServiceAdapter.get_contract_internal，
+        # 该方法不存在（AttributeError 被包装为 CONTEXT_BUILD_ERROR），当前预览端点必 400
+        assert body["code"] == "CONTEXT_BUILD_ERROR"
+        assert body["message"] == "构建合同上下文失败"
+        assert "get_contract_internal" in body["errors"]["contract_id"]
+        pytest.xfail(
+            "占位符预览端点因 ContractServiceAdapter 缺 get_contract_internal 而不可用（产品 bug，修复后本用例转绿）"
+        )
+    assert resp.status_code == 200
+    assert body["contract_id"] == contract.id  # 本用例创建的合同锚点
+    assert isinstance(body["values"], dict)
+    assert isinstance(body["missing_keys"], list)
