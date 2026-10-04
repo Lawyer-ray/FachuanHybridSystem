@@ -97,7 +97,8 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
     void import('@/lib/pdf')
       .then((m) => m.clearPdfCache())
       .catch(() => {})
-    navigate('/login', { replace: true })
+    // react-router 的 navigate 返回 void | Promise<void>，这里 fire-and-forget
+    void navigate('/login', { replace: true })
     onLogout?.()
   }
 
@@ -180,7 +181,7 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
             {user?.username || '我的账号'}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => navigate('/settings/bindings')}>账号绑定</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { void navigate('/settings/bindings') }}>账号绑定</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onSelect={() => setLogoutOpen(true)}>
             <LogOut className="h-3.5 w-3.5" />

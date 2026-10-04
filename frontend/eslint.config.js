@@ -13,13 +13,14 @@ export default defineConfig([
     files: ['**/*.{ts,tsx}'],
     extends: [
       js.configs.recommended,
-      tseslint.configs.recommended,
+      tseslint.configs.recommendedTypeChecked,
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
     languageOptions: {
       ecmaVersion: 'latest',
       globals: globals.browser,
+      parserOptions: { projectService: true },
     },
     rules: {
       // React Compiler 规则：setState in effect 是常见合法模式（表单重置、路由变化等）
@@ -39,6 +40,18 @@ export default defineConfig([
       '@typescript-eslint/no-this-alias': 'off',
       'no-unused-vars': 'off',
       'no-constant-binary-expression': 'off',
+      // 测试文件的 type-checked 降噪：mock（vi.fn() 返回 any）、fire-and-forget
+      // 断言、无 await 的 async mock 实现都是测试惯用写法，不按产线口径检查。
+      // 生产代码不在此豁免范围，仍走完整 recommendedTypeChecked。
+      '@typescript-eslint/unbound-method': 'off',
+      '@typescript-eslint/require-await': 'off',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-floating-promises': 'off',
     },
   },
 ])

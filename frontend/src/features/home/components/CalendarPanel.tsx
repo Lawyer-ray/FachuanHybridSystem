@@ -212,7 +212,7 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenAdd
         onOpenAdd(cell.key as string)
       }}
       onKeyDown={(ev) => {
-        // 键盘可达：Enter / Space 等价于点空白处（打开该日新增）；事件行详情仍走鼠标
+        // 键盘可达：Enter / Space 等价于点空白处（打开该日新增）；事件行详情见事件行自身的 onKeyDown
         if (ev.key === 'Enter' || ev.key === ' ') {
           ev.preventDefault()
           onPick(cell.key as string)
@@ -245,6 +245,8 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenAdd
             <div
               key={e.id}
               data-calendar-event={e.id}
+              role="button"
+              tabIndex={0}
               className={cn(
                 'flex flex-col justify-center gap-px rounded-[5px] px-[6px] py-[3px] text-[11.5px] transition-[filter] hover:brightness-95',
                 KIND_ROW[e.kind],
@@ -252,6 +254,16 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenAdd
                 e.is_completed && 'opacity-55',
               )}
               onClick={(ev) => {
+                ev.stopPropagation()
+                onOpenDetail(e)
+              }}
+              onKeyDown={(ev) => {
+                // 键盘可达：Enter / Space 打开事件详情（等价点击事件行）
+                if (ev.key !== 'Enter' && ev.key !== ' ') return
+                // 行首完成勾选按钮自身可激活，按键交给按钮，不重复触发详情
+                if ((ev.target as HTMLElement).closest('button')) return
+                ev.preventDefault()
+                // 不冒泡到日历格（否则会触发「点空白处新增」）
                 ev.stopPropagation()
                 onOpenDetail(e)
               }}

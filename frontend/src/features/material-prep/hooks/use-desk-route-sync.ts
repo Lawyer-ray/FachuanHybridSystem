@@ -23,7 +23,7 @@ export function useDeskRouteSync() {
   useEffect(() => {
     if (id == null) return
     if (useReader.getState().openId === Number(id)) return
-    openPack(Number(id))
+    void openPack(Number(id))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
@@ -31,7 +31,7 @@ export function useDeskRouteSync() {
   useEffect(() => {
     const open = openId != null
     if (wasOpenRef.current && !open && id != null) {
-      navigate('/material-prep', { replace: true })
+      void navigate('/material-prep', { replace: true })
     }
     if (open) wasOpenRef.current = true
   }, [openId, id, navigate])
@@ -39,7 +39,7 @@ export function useDeskRouteSync() {
   // 3. 关闭阅读器后让列表卡片进度/状态跟上次变化
   useEffect(() => {
     if (prevOpenId.current != null && openId == null) {
-      judgePack.invalidate()
+      void judgePack.invalidate()
     }
     prevOpenId.current = openId
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -33,7 +33,7 @@ export function LoginPage() {
   // 每次进登录页都重新请求且无失败痕迹）。拉不到就只留账密，不影响登录。
   const { data: providers = [] } = useQuery({
     queryKey: SOCIAL_PROVIDERS_KEY,
-    queryFn: socialAuthApi.listProviders,
+    queryFn: () => socialAuthApi.listProviders(),
     staleTime: 5 * 60_000,
   })
   // 推断保留 NonEmptyArray（buildLoginMethods 恒非空），active 因此不需要判空
@@ -67,7 +67,7 @@ export function LoginPage() {
               )}
 
               {active.kind === 'password' && (
-                <PasswordLoginForm onLoggedIn={() => navigate('/', { replace: true })} />
+                <PasswordLoginForm onLoggedIn={() => { void navigate('/', { replace: true }) }} />
               )}
               {active.kind === 'embedded_qr' && active.provider && (
                 <SocialQrPanel provider={active.provider} />

@@ -172,8 +172,12 @@ export const socialBindingsApi = {
     return data.providers ?? []
   },
 
-  /** 发起绑定授权。授权完成后后端把身份关联到当前登录用户，不新建律师账号。 */
-  async createBindSession(provider: string, redirect = '/settings/bindings'): Promise<SocialSession> {
+  /**
+   * 发起绑定授权。授权完成后后端把身份关联到当前登录用户，不新建律师账号。
+   * 用箭头函数属性（而非方法简写）：调用方需要稳定的方法引用传入子组件
+   * （见 BindProviderDialog），箭头属性不依赖 this，解绑传引用是安全的。
+   */
+  createBindSession: async (provider: string, redirect = '/settings/bindings'): Promise<SocialSession> => {
     // 与登录会话同样的单槽覆盖问题（bind_user_id 不同也不该并发），key 里带 redirect 归组
     return shareInflightSession(`bind:${provider}:${redirect}`, () =>
       requestSession(

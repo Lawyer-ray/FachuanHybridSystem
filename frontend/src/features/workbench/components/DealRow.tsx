@@ -20,12 +20,22 @@ export function DealRow({ deal, onOpenSheet, onDetailNotReady }: DealRowProps) {
   return (
     <div
       data-deal-id={deal.id}
+      role="button"
+      tabIndex={0}
       className={
         'group flex cursor-pointer items-center gap-[18px] border-b border-border px-4 py-3 transition-colors last:border-b-0 hover:bg-secondary active:bg-secondary ' +
         (today ? 'today' : '')
       }
       onClick={(e) => {
         if ((e.target as HTMLElement).closest('[data-prev]')) return
+        onDetailNotReady()
+      }}
+      onKeyDown={(e) => {
+        // 键盘可达：Enter / Space 等价左键行（详情占位）；右键抽屉无键盘等价，走 👁 按钮
+        if (e.key !== 'Enter' && e.key !== ' ') return
+        // 行内按钮自身可激活：按键交给按钮，不重复触发行级动作
+        if ((e.target as HTMLElement).closest('button')) return
+        e.preventDefault()
         onDetailNotReady()
       }}
       onContextMenu={(e) => {

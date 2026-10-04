@@ -46,7 +46,7 @@ export function SocialCallbackPage() {
 
     // 绑定流程：身份已在后端关联到当前用户，这里没有码要换，直接回落地页
     if (bound) {
-      navigate(withQuery(redirect, { bound }), { replace: true })
+      void navigate(withQuery(redirect, { bound }), { replace: true })
       return
     }
 
@@ -66,7 +66,7 @@ export function SocialCallbackPage() {
           id: res.user_id ?? 0,
           username: res.username ?? '',
         })
-        navigate(redirect, { replace: true })
+        void navigate(redirect, { replace: true })
       } catch (err) {
         fail(err instanceof Error ? err.message : SOCIAL_LOGIN_ERROR_TEXT.exchange_failed)
       }
@@ -80,7 +80,7 @@ export function SocialCallbackPage() {
       {status === 'failed' && (
         <button
           type="button"
-          onClick={() => navigate('/login', { replace: true })}
+          onClick={() => { void navigate('/login', { replace: true }) }}
           className="text-xs text-primary underline-offset-4 hover:underline"
         >
           返回登录页

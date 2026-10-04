@@ -122,7 +122,7 @@ export function HomePage() {
   const navigate = useNavigate()
   const goPack = useCallback(
     (id: number) => {
-      navigate(`/material-prep/${id}`)
+      void navigate(`/material-prep/${id}`)
     },
     [navigate],
   )

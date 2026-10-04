@@ -129,7 +129,7 @@ export function GlobalSearch({
     onOpenChange(false)
     // 已建页的类别：无论鼠标点还是键盘回车都真正跳转（此前键盘回车只关面板不跳）
     if (meta?.to) {
-      navigate(meta.to(hit.id))
+      void navigate(meta.to(hit.id))
       return
     }
     onPickUnavailable?.(meta?.label ?? hit.category)

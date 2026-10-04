@@ -95,7 +95,7 @@ export function DocConvertCard() {
         />
 
         <div className="mt-auto flex items-center gap-2">
-          <button type="button" className={BTN_PRIMARY} onClick={submit} disabled={busy}>
+          <button type="button" className={BTN_PRIMARY} onClick={() => { void submit() }} disabled={busy}>
             {busy && <Spinner />}
             {busy ? '转换中' : '转换'}
           </button>

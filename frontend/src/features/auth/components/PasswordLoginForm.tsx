@@ -41,7 +41,7 @@ export function PasswordLoginForm({ onLoggedIn }: Props) {
   }
 
   return (
-    <form className="fc-fields" onSubmit={submit}>
+    <form className="fc-fields" onSubmit={(e) => { void submit(e) }}>
       <div className="fc-field">
         <label className="fc-field__label" htmlFor="fc-username">
           用户名 / Username

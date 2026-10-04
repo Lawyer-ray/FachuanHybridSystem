@@ -142,7 +142,7 @@ export function CaseBindingSection({ task, onBound }: Props) {
       <div
         className="relative min-w-0"
         onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setListHidden(true)
+          if (!e.currentTarget.contains(e.relatedTarget)) setListHidden(true)
         }}
       >
         <div className="flex items-center gap-1.5">
@@ -165,7 +165,7 @@ export function CaseBindingSection({ task, onBound }: Props) {
             type="button"
             className="h-[34px] flex-none rounded-[9px] bg-primary px-3 text-[12.5px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             disabled={!picked || binding}
-            onClick={doBind}
+            onClick={() => { void doBind() }}
           >
             {binding ? '绑定中…' : '绑定案件'}
           </button>

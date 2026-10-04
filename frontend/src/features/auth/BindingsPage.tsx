@@ -45,8 +45,8 @@ export function BindingsPage() {
   const [bindingProvider, setBindingProvider] = useState<SocialProviderInfo | null>(null)
   const [unbindTarget, setUnbindTarget] = useState<BoundAccount | null>(null)
 
-  const bindingsQuery = useQuery({ queryKey: BINDINGS_KEY, queryFn: socialBindingsApi.list })
-  const catalogQuery = useQuery({ queryKey: CATALOG_KEY, queryFn: socialBindingsApi.catalog, staleTime: 60_000 })
+  const bindingsQuery = useQuery({ queryKey: BINDINGS_KEY, queryFn: () => socialBindingsApi.list() })
+  const catalogQuery = useQuery({ queryKey: CATALOG_KEY, queryFn: () => socialBindingsApi.catalog(), staleTime: 60_000 })
 
   // 回调页带 bound=<provider> 回来即绑定成功：提示一次并把标记从 URL 清掉，
   // 否则刷新页面会重复弹提示
@@ -56,7 +56,7 @@ export function BindingsPage() {
     const params = new URLSearchParams(location.search)
     params.delete('bound')
     const search = params.toString()
-    navigate({ pathname: location.pathname, search: search ? `?${search}` : '' }, { replace: true })
+    void navigate({ pathname: location.pathname, search: search ? `?${search}` : '' }, { replace: true })
     toast.success('绑定成功，现在可以用它登录了')
     void queryClient.invalidateQueries({ queryKey: BINDINGS_KEY })
   }, [boundParam, location.pathname, location.search, navigate, queryClient])

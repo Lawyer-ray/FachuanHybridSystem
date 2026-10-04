@@ -24,7 +24,9 @@ export function DaySheet({ day, today, events, onClose, onOpenEvent, onToggleCom
 
   return (
     <>
+      {/* 抽屉遮罩：仅 pointer 点按关闭，键盘用户走右上「关闭」按钮（aria-hidden 不入 tab 序） */}
       <div
+        aria-hidden
         className={`fixed inset-0 z-60 bg-foreground/40 backdrop-blur-[2px] transition-[opacity,visibility] duration-250 ${
           open ? 'visible opacity-100' : 'invisible opacity-0'
         }`}

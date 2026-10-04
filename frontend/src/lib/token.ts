@@ -107,7 +107,8 @@ function parseJwtPayload(token: string): Record<string, unknown> | null {
         .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
         .join('')
     )
-    return JSON.parse(jsonPayload)
+    // JSON.parse 返回 any，收窄成本函数声明的 payload 类型
+    return JSON.parse(jsonPayload) as Record<string, unknown>
   } catch {
     return null
   }

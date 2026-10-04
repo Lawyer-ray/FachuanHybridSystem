@@ -104,7 +104,8 @@ export function resolveMediaUrl(url: string | null | undefined, origin?: string)
   if (/^https?:/i.test(url)) return url
   let resolvedOrigin = origin
   if (!resolvedOrigin && typeof window !== 'undefined') {
-    const base = localStorage.getItem('api_base_url') || import.meta.env.VITE_API_BASE_URL || ''
+    // import.meta.env 自定义变量类型是 any（vite/client 的索引签名），as 收窄成字符串
+    const base = localStorage.getItem('api_base_url') || (import.meta.env.VITE_API_BASE_URL as string | undefined) || ''
     resolvedOrigin = base.startsWith('http') ? new URL(base).origin : window.location.origin
   }
   return resolvedOrigin ? `${resolvedOrigin}${url}` : url

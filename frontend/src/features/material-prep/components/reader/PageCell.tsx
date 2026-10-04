@@ -115,10 +115,24 @@ export const PageCell = memo(function PageCell({
       ref={boxRef}
       data-mi={mi}
       data-p={p}
+      // 选页模式下整页可点选（toggle），补键盘可达；取字（画框）/默认阅读态是
+      // pointer 专属交互，不进 tab 序（否则每页 PDF 都成一个 tab 停靠点）
+      role={selModeActive ? 'button' : undefined}
+      tabIndex={selModeActive ? 0 : undefined}
+      aria-pressed={selModeActive ? selected : undefined}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onClick={onClick}
+      onKeyDown={
+        selModeActive
+          ? (ev) => {
+              if (ev.key !== 'Enter' && ev.key !== ' ') return
+              ev.preventDefault()
+              onToggleSel?.(mi, p, false)
+            }
+          : undefined
+      }
       onDragStart={stopProp}
       onContextMenu={(e) => {
         e.preventDefault()
