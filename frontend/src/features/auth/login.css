@@ -178,23 +178,6 @@
   box-shadow: 0 0 0 3px rgba(23, 21, 15, 0.06);
 }
 
-.fc-field__toggle {
-  position: absolute;
-  top: 0;
-  right: 0;
-  height: 100%;
-  padding: 0 4px;
-  border: 0;
-  background: none;
-  cursor: pointer;
-  font-size: 0.75rem;
-  color: var(--ink-3);
-}
-
-.fc-field__toggle:hover {
-  color: var(--ink-2);
-}
-
 .fc-error {
   margin-top: 14px;
   font-size: 0.8125rem;
@@ -438,32 +421,168 @@
   }
 }
 
-/* ---------- 进场：三段淡入上移（尊重降低动效偏好） ---------- */
+/* ---------- 开场 MG：封面拆解（≈3.8s，每会话一次；时间轴与 LoginPage 常量同步） ----------
+   0.1s 线拉出 → 0.55s「法穿」升起 → 1.75s 副标大振幅落定 → 2.45s EST 行
+   → 2.9s 整组朝左上角铭牌缩小飞去（封面「变成」页面边框）→ 3.2s 表单级联登台 */
+.fc-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: var(--paper);
+}
+
+/* 由 settling 相位驱动（JS 定时），与内部 delay 时间轴解耦 */
+.fc-intro--out {
+  animation: fc-intro-out 0.45s ease forwards;
+}
+
+.fc-intro__stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.fc-intro__word {
+  display: flex;
+  gap: 0.12em;
+  font-size: clamp(4.25rem, 13vw, 7.5rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+
+.fc-intro__rule {
+  width: min(58vw, 340px);
+  height: 1px;
+  margin-top: clamp(18px, 3vh, 28px);
+  background: var(--accent);
+}
+
+.fc-intro__meta {
+  margin-top: clamp(22px, 3.5vh, 30px);
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  font-size: 0.8125rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.fc-intro__est {
+  margin-top: 10px;
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+}
+
+/* ---------- 进场：开场播完（--ready）才登台；尊重降低动效偏好 ---------- */
 @media (prefers-reduced-motion: no-preference) {
-  .fc-eyebrow, .fc-title, .fc-sub {
+  .fc-auth--ready .fc-eyebrow,
+  .fc-auth--ready .fc-title,
+  .fc-auth--ready .fc-sub {
     animation: fc-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
-  .fc-tabs, .fc-fields, .fc-social, .fc-qr {
+  .fc-auth--ready .fc-tabs,
+  .fc-auth--ready .fc-fields,
+  .fc-auth--ready .fc-social,
+  .fc-auth--ready .fc-qr {
     animation: fc-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
     animation-delay: 0.08s;
   }
 
   @media (max-width: 759.98px) {
     /* 小屏页头：从头顶落入（品牌压在表单上方，方向语义向下） */
-    .fc-mark {
+    .fc-auth--ready .fc-mark {
       animation: fc-mark-drop 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
   }
 
   @media (min-width: 760px) {
     /* 大屏铭牌：从左边缘滑入（它属于边缘，从边缘来），与卡片内容同时起步 */
-    .fc-mark {
+    .fc-auth--ready .fc-mark {
       animation: fc-mark-corner 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
 
-    .fc-mark__meta {
+    .fc-auth--ready .fc-mark__meta {
       animation: fc-meta-settle 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
+    }
+  }
+
+  /* 开场时间轴（未加 --ready 门：intro 覆盖层自身即时间轴宿主） */
+  .fc-intro__rule {
+    transform: scaleX(0);
+    animation: fc-rule-draw 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+  }
+
+  .fc-intro__char {
+    animation: fc-char-rise 0.95s cubic-bezier(0.16, 1, 0.3, 1) 0.55s both;
+  }
+
+  .fc-intro__char--2 {
+    animation-delay: 0.72s;
+  }
+
+  .fc-intro__meta {
+    animation: fc-meta-settle-big 1s cubic-bezier(0.16, 1, 0.3, 1) 1.75s both;
+  }
+
+  .fc-intro__est {
+    animation: fc-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) 2.45s both;
+  }
+
+  /* 点睛：整组朝左上角铭牌位置缩小飞去；origin 取视口比例点，
+     落点即 .fc-mark 大屏铭牌（小屏卡片页头同向，读感一致） */
+  .fc-intro__stage {
+    transform-origin: 16vw 10vh;
+    animation: fc-stage-exit 0.6s cubic-bezier(0.5, 0, 0.2, 1) 2.9s both;
+  }
+
+  @keyframes fc-intro-out {
+    to {
+      opacity: 0;
+      visibility: hidden;
+    }
+  }
+
+  @keyframes fc-rule-draw {
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  @keyframes fc-char-rise {
+    from {
+      opacity: 0;
+      transform: translateY(56px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes fc-meta-settle-big {
+    from {
+      opacity: 0;
+      letter-spacing: 0.6em;
+    }
+    to {
+      opacity: 1;
+      letter-spacing: 0.22em;
+    }
+  }
+
+  @keyframes fc-stage-exit {
+    40% {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+      transform: scale(0.06);
     }
   }
 

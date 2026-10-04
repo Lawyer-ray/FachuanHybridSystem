@@ -19,7 +19,6 @@ export function PasswordLoginForm({ onLoggedIn }: Props) {
   const login = useAuth((s) => s.login)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [show, setShow] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -65,22 +64,13 @@ export function PasswordLoginForm({ onLoggedIn }: Props) {
         <div className="fc-field__row">
           <input
             id="fc-password"
-            type={show ? 'text' : 'password'}
+            type="password"
             className="fc-input"
             placeholder="请输入密码"
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          <button
-            type="button"
-            tabIndex={-1}
-            onClick={() => setShow((v) => !v)}
-            className="fc-field__toggle"
-            aria-label={show ? '隐藏密码' : '显示密码'}
-          >
-            {show ? '隐藏' : '显示'}
-          </button>
         </div>
       </div>
 
