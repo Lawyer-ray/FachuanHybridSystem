@@ -91,7 +91,11 @@ def preview_story_animation(request: Any, animation_id: UUID) -> HttpResponse:  
     )
     if animation.status != StoryAnimationStatus.COMPLETED:
         return HttpResponse("任务未完成，暂时无法预览。", status=409, content_type="text/plain; charset=utf-8")
-    return HttpResponse(animation.animation_html, content_type="text/html; charset=utf-8")
+    # 安全审计 XSS：animation_html 含 LLM 生成的 SVG 片段（存量数据未经白名单消毒），
+    # CSP sandbox 兜底阻断页面内任意脚本执行，避免在登录会话上下文中触发存储型 XSS
+    response = HttpResponse(animation.animation_html, content_type="text/html; charset=utf-8")
+    response.headers["Content-Security-Policy"] = "sandbox"
+    return response
 
 
 class StageDetailOut(BaseModel):

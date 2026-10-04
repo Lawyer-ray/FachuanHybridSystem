@@ -33,7 +33,8 @@ class DocumentParseProviderAdmin(admin.ModelAdmin):
         "updated_at",
     )
     list_filter = ("enabled", "provider_type")
-    search_fields = ("name", "provider_type", "credentials")
+    # 安全审计：credentials 不进 search_fields——搜索词会进查询串/访问日志，泄露凭证片段
+    search_fields = ("name", "provider_type")
     ordering = ("priority", "name")
     fieldsets = (
         ("基本信息", {"fields": ("name", "provider_type", "enabled", "priority")}),
@@ -54,11 +55,29 @@ class DocumentParseProviderAdmin(admin.ModelAdmin):
             field.widget.attrs["placeholder"] = placeholder
         return field
 
+    def get_changeform_initial_data(self, request: Any) -> dict[str, Any]:
+        # 安全审计：credentials 是 EncryptedTextField，from_db_value 透明解密后会把明文凭证
+        # 渲染进表单 HTML。编辑页不回填（留空=不修改），保存时空值保留库中原值。
+        initial = super().get_changeform_initial_data(request)
+        initial["credentials"] = ""
+        return initial
+
+    def get_form(self, request: Any, obj: Any = None, change: bool = False, **kwargs: Any) -> Any:
+        form = super().get_form(request, obj, **kwargs)
+        if "credentials" in form.base_fields:
+            form.base_fields["credentials"].help_text = "留空表示不修改已保存的凭证"
+        return form
+
     @admin.display(description="凭证数量")
     def credential_count(self, obj: DocumentParseProvider) -> int:
         return len(obj.parsed_credentials())
 
     def save_model(self, request: Any, obj: Any, form: Any, change: bool) -> None:
+        # 安全审计：编辑时 credentials 留空 → 保留库中原值（get_prep_value 会重新加密）
+        if change and not str(form.cleaned_data.get("credentials") or "").strip():
+            old = DocumentParseProvider.objects.filter(pk=obj.pk).values_list("credentials", flat=True).first()
+            if old:
+                obj.credentials = old
         super().save_model(request, obj, form, change)
         ParseProviderService.invalidate_cache()
 

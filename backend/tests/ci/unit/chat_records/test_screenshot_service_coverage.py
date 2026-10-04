@@ -16,8 +16,11 @@ from apps.chat_records.services.core.screenshot_service import ScreenshotService
 from apps.core.exceptions import NotFoundError, ValidationException
 
 
-def _make_file(content_type: str = "image/png", size: int = 100, content: bytes = b"fake") -> MagicMock:
+def _make_file(
+    name: str = "photo.jpg", content_type: str = "image/png", size: int = 100, content: bytes = b"fake"
+) -> MagicMock:
     f = MagicMock()
+    f.name = name
     f.content_type = content_type
     f.size = size
     f.read.return_value = content
@@ -37,33 +40,48 @@ class TestGetScreenshot:
 
 
 class TestValidateUploadFile:
-    def test_non_image_raises(self) -> None:
+    """按扩展名白名单校验（jpg/png/webp）：客户端自报 content_type 可伪造。"""
+
+    def test_non_image_extension_raises(self) -> None:
         svc = ScreenshotService(project_service=MagicMock())
-        f = _make_file(content_type="text/plain")
+        f = _make_file(name="notes.txt", content_type="text/plain")
+        with pytest.raises(ValidationException, match="仅支持"):
+            svc._validate_upload_file(f)
+
+    def test_svg_masquerading_as_image_rejected(self) -> None:
+        """svg 自报 image/svg+xml（带 image/ 前缀）也必须被拒（安全审计）。"""
+        svc = ScreenshotService(project_service=MagicMock())
+        f = _make_file(name="evil.svg", content_type="image/svg+xml")
+        with pytest.raises(ValidationException, match="仅支持"):
+            svc._validate_upload_file(f)
+
+    def test_svg_with_fake_jpeg_content_type_rejected(self) -> None:
+        """扩展名是 svg 但伪造 image/jpeg content_type，仍按扩展名拒绝。"""
+        svc = ScreenshotService(project_service=MagicMock())
+        f = _make_file(name="evil.svg", content_type="image/jpeg")
         with pytest.raises(ValidationException, match="仅支持"):
             svc._validate_upload_file(f)
 
     def test_oversized_raises(self) -> None:
         svc = ScreenshotService(project_service=MagicMock())
-        f = _make_file(content_type="image/png", size=25 * 1024 * 1024)
+        f = _make_file(name="photo.jpg", size=25 * 1024 * 1024)
         with pytest.raises(ValidationException, match="过大"):
             svc._validate_upload_file(f)
 
     def test_valid_file(self) -> None:
         svc = ScreenshotService(project_service=MagicMock())
-        f = _make_file(content_type="image/jpeg", size=100)
+        f = _make_file(name="photo.jpg", content_type="image/jpeg", size=100)
         assert svc._validate_upload_file(f) is None  # Should not raise
 
-    def test_empty_content_type(self) -> None:
+    def test_valid_png_webp(self) -> None:
         svc = ScreenshotService(project_service=MagicMock())
-        f = _make_file(content_type="")
-        with pytest.raises(ValidationException, match="仅支持"):
-            svc._validate_upload_file(f)
+        assert svc._validate_upload_file(_make_file(name="a.png")) is None
+        assert svc._validate_upload_file(_make_file(name="b.webp")) is None
 
-    def test_none_content_type(self) -> None:
+    def test_missing_name_raises(self) -> None:
         svc = ScreenshotService(project_service=MagicMock())
         f = MagicMock()
-        f.content_type = None
+        f.name = ""
         f.size = 100
         with pytest.raises(ValidationException, match="仅支持"):
             svc._validate_upload_file(f)

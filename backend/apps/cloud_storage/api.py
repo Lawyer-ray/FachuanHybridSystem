@@ -48,8 +48,10 @@ async def onedrive_complete_auth(request: HttpRequest, account_id: int) -> JsonR
 
     try:
         manager = OAuthTokenManager(account)
-        access_token = await manager.acomplete_device_code_flow(device_code)
-        return JsonResponse({"status": "authorized", "token_preview": access_token[:20] + "..."})
+        await manager.acomplete_device_code_flow(device_code)
+        # 安全审计：响应不回显 token 前缀（token_preview）——前端/模板均不消费，
+        # 回显明文前缀只会扩大泄露面；授权成功与否由 status 表达。
+        return JsonResponse({"status": "authorized"})
     except Exception:
         logger.exception("onedrive_complete_auth 端点失败 account_id=%s", int(account_id))
         return JsonResponse({"error": "操作失败，请稍后重试"}, status=400)
@@ -92,8 +94,9 @@ async def dropbox_complete_auth(request: HttpRequest, account_id: int) -> JsonRe
         from .dropbox_provider import DropboxOAuthTokenManager
 
         manager = DropboxOAuthTokenManager(account)
-        access_token = await manager.acomplete_device_code_flow(device_code)
-        return JsonResponse({"status": "authorized", "token_preview": access_token[:20] + "..."})
+        await manager.acomplete_device_code_flow(device_code)
+        # 安全审计：同 onedrive_complete_auth，不回显 token 前缀。
+        return JsonResponse({"status": "authorized"})
     except Exception:
         logger.exception("dropbox_complete_auth 端点失败 account_id=%s", int(account_id))
         return JsonResponse({"error": "操作失败，请稍后重试"}, status=400)

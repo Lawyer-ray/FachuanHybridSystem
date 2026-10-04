@@ -57,9 +57,7 @@ class TestResolveBoundUser:
     @pytest.mark.django_db
     def test_resolve_refreshes_platform_profile(self, lawyer: Lawyer) -> None:
         account = SocialAccount.objects.create(user=lawyer, provider="feishu", provider_uid="ou_abc")
-        _resolve_bound_user_sync(
-            _profile(display_name="新昵称", avatar_url="https://example.com/new.jpg")
-        )
+        _resolve_bound_user_sync(_profile(display_name="新昵称", avatar_url="https://example.com/new.jpg"))
         account.refresh_from_db()
         assert account.display_name == "新昵称"
         assert account.avatar_url == "https://example.com/new.jpg"

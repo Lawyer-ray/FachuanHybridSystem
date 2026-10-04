@@ -199,6 +199,11 @@ async def create_contract(  # pragma: no cover
 ) -> Any:
     service = _get_domain_service()
     ctx = await sync_to_async(extract_request_context)(request)
+    # 安全审计：与 /contracts/full 对齐，创建前校验 can_create_contract
+    if not await sync_to_async(_get_access_policy().can_create_contract)(ctx.user):
+        from apps.core.exceptions import PermissionDenied
+
+        raise PermissionDenied(message="无权限创建合同", code="PERMISSION_DENIED")
     data = payload.model_dump()
     lawyer_ids = data.pop("lawyer_ids", [])
 

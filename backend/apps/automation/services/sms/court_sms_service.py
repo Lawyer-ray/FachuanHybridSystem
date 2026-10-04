@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.automation.models import CourtSMS, CourtSMSStatus
@@ -142,16 +143,37 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             self._notification = SMSNotificationService()
         return self._notification
 
-    def get_sms_detail(self, sms_id: int) -> CourtSMS:
-        """获取短信处理详情"""
+    def get_sms_detail(self, sms_id: int, *, user: Any = None, org_access: dict[str, Any] | None = None) -> CourtSMS:
+        """获取短信处理详情
+
+        传入 user 时执行归属校验（安全审计第4轮）：绑定了案件的短信按
+        CaseAccessPolicy 校验案件访问权；未绑案件的公共短信保持全员可见。
+        user 为 None 视为内部可信调用（worker / 管线），不做校验。
+        """
         try:
-            return (
+            sms = (
                 CourtSMS.objects.select_related("case", "scraper_task", "case_log")
                 .prefetch_related("scraper_task__documents", "case_log__attachments")
                 .get(id=sms_id)
             )
         except CourtSMS.DoesNotExist as e:
             raise NotFoundError(f"短信记录不存在: ID={sms_id}") from e
+        if user is not None:
+            self.ensure_sms_case_access(sms, user=user, org_access=org_access)
+        return sms
+
+    def ensure_sms_case_access(self, sms: CourtSMS, *, user: Any, org_access: dict[str, Any] | None = None) -> None:
+        """短信归属校验：绑定了案件的短信按案件 ACL；未绑案件的公共短信放行。"""
+        if sms.case_id is None:
+            return
+        from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+
+        CaseAccessPolicy().ensure_access(
+            case_id=sms.case_id,
+            user=user,
+            org_access=org_access,
+            message="无权限访问该短信关联的案件",
+        )
 
     def list_sms(
         self,
@@ -162,12 +184,18 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         has_case: bool | None = None,
         date_from: Any = None,
         date_to: Any = None,
+        user: Any = None,
+        org_access: dict[str, Any] | None = None,
     ) -> Any:  # pragma: no cover
         """查询短信列表
 
         status_group 是面向前端历史弹窗的状态组视图：
         needs_action = 待人工分配 / 处理失败 / 下载失败（点开即可继续处理的），
         completed = 已完成。与单 status 互斥使用时 group 优先。
+
+        传入 user 时执行归属过滤（安全审计第4轮）：绑定了案件的短信仅保留
+        用户可访问的案件；未绑案件的公共短信保持全员可见。user 为 None 视为
+        内部可信调用，不过滤。
         """
         qs = (
             CourtSMS.objects.all()
@@ -175,6 +203,8 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             .prefetch_related("scraper_task__documents", "case_log__attachments")
             .order_by("-received_at")
         )
+        if user is not None:
+            qs = self._filter_by_case_access(qs, user=user, org_access=org_access)
         group_statuses = STATUS_GROUP_STATUSES.get(status_group or "")
         if group_statuses:
             qs = qs.filter(status__in=group_statuses)
@@ -191,6 +221,19 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         if date_to:
             qs = qs.filter(received_at__lte=date_to)
         return qs
+
+    def _filter_by_case_access(
+        self, qs: Any, *, user: Any, org_access: dict[str, Any] | None
+    ) -> Any:  # pragma: no cover
+        """绑定案件的短信按案件 ACL 过滤；公共短信（未绑案件）保持可见。"""
+        from apps.cases.models import Case
+        from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+
+        policy = CaseAccessPolicy()
+        if policy.is_superuser(user):
+            return qs
+        accessible_case_ids = policy.filter_queryset(Case.objects.all(), user, org_access).values("id")
+        return qs.filter(Q(case__isnull=True) | Q(case_id__in=accessible_case_ids))
 
     def submit_sms(self, content: str, received_at: datetime | None = None) -> CourtSMS:  # pragma: no cover
         """提交短信，创建记录并触发异步处理

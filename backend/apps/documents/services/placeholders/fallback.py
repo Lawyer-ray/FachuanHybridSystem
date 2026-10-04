@@ -5,7 +5,14 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from jinja2.sandbox import SandboxedEnvironment
+
 PLACEHOLDER_FALLBACK_VALUE = "/"
+
+# 安全审计（模板注入 RCE）：docxtpl 默认使用非沙箱 Jinja2，模板文件含外部来源的法院模板，
+# 模板中的 {{ ''.__class__ }} 类表达式可逃逸到任意对象甚至 RCE。
+# 所有 DocxTemplate.render 调用统一传入该沙箱环境，阻断不安全的属性/下标访问。
+SANDBOXED_JINJA_ENV = SandboxedEnvironment()
 
 
 def normalize_placeholder_value(value: Any, *, fallback_value: str = PLACEHOLDER_FALLBACK_VALUE) -> Any:

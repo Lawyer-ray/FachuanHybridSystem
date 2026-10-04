@@ -242,19 +242,30 @@ def _resolve_signal_key(step: dict[str, Any]) -> str:
     return str(raw) or "gate_approved"
 
 
-async def approve_workflow_step(run_id: int, approved: bool, comment: str = "") -> dict[str, Any]:
+async def approve_workflow_step(
+    run_id: int,
+    approved: bool,
+    comment: str = "",
+    *,
+    user: Any | None = None,
+) -> dict[str, Any]:
     """审批诉讼工作流中的待确认步骤
 
     信号名优先取模板 gate 步骤配置的 signal_key，缺省回退通用 gate_approved。
     发送前校验目标 workflow 注册了该信号（WORKFLOW_SIGNAL_HANDLERS），
     未注册的信号会被 Temporal 静默丢弃，必须明确报错而非假成功。
 
+    审批留痕（安全审计）：有人类用户上下文时（API 调用传入 user），将
+    acted_by/acted_at 写入该 gate 步骤的 StepExecution——通过/拒绝均记录。
+    MCP 直连无用户上下文，留痕字段保持为空。
+
     Args:
         run_id: 工作流运行 ID
         approved: 是否通过
         comment: 审批意见（可选）
+        user: 审批用户（API 层传入；仅认证用户会被留痕）
     """
-    from apps.workflow.models import WorkflowRun
+    from apps.workflow.models import StepExecution, WorkflowRun
     from apps.workflow.temporal.workflows import WORKFLOW_SIGNAL_HANDLERS
 
     try:
@@ -292,6 +303,20 @@ async def approve_workflow_step(run_id: int, approved: bool, comment: str = "") 
     await WorkflowRun.objects.filter(pk=run_id, status=WorkflowRun.Status.WAITING_HUMAN).aupdate(
         status=WorkflowRun.Status.RUNNING
     )
+
+    # 审批留痕：gate 步骤在等待信号前已由 record_step 写入 waiting 记录，
+    # 此处仅 aupdate 留痕字段（不 aupdate_or_create，避免覆盖 worker 已回写的
+    # 终态状态，也避免创建缺字段的新记录）；无用户上下文（MCP）时跳过。
+    is_authenticated_user = bool(user and getattr(user, "is_authenticated", False))
+    if is_authenticated_user:
+        from django.utils import timezone
+
+        updated = await StepExecution.objects.filter(
+            workflow_run_id=run_id,
+            step_id=run.current_step_id,
+        ).aupdate(acted_by=user, acted_at=timezone.now())
+        if not updated:
+            logger.warning("审批留痕未命中 StepExecution 记录: run_id=%s, step_id=%s", run_id, run.current_step_id)
 
     return {
         "run_id": run_id,

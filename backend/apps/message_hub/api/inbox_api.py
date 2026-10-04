@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import logging
 from typing import Any
+from urllib.parse import quote
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -305,8 +306,36 @@ def _resolve_download_filename(msg: InboxMessage, part_index: int, fallback: str
     return fallback
 
 
+# 允许 inline 预览的 Content-Type 白名单：邮件自报的 text/html 等可执行类型
+# 若按 inline 返回会在同源执行脚本（存储型 XSS），一律强制改为附件下载
+_INLINE_SAFE_CONTENT_TYPES = frozenset(
+    {
+        "application/pdf",
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+    }
+)
+
+
+def _build_content_disposition(disposition: str, filename: str) -> str:
+    """构造转义后的 Content-Disposition（RFC 5987，参照 download_response_factory）。
+
+    filename 同时给 ``filename="..."``（百分号编码，ASCII 安全）与
+    ``filename*=UTF-8''...`` 两个形态，防止文件名中的引号 / 换行破坏响应头。
+    """
+    quoted = quote(filename)
+    return f"{disposition}; filename=\"{quoted}\"; filename*=UTF-8''{quoted}"
+
+
 def _serve_attachment(msg: InboxMessage, part_index: int, *, inline: bool) -> FileResponse:
-    """通过 fetcher 按需下载并返回附件。"""
+    """通过 fetcher 按需下载并返回附件。
+
+    inline 仅对白名单 Content-Type（PDF / 常见位图图片）生效，其余（含邮件
+    自报的 text/html、image/svg+xml）一律 ``application/octet-stream`` + 附件下载，
+    防止外部邮件以附件形式注入同源可执行脚本。
+    """
     from apps.message_hub.services import get_fetcher
 
     fetcher = get_fetcher(msg.source.source_type)
@@ -317,11 +346,21 @@ def _serve_attachment(msg: InboxMessage, part_index: int, *, inline: bool) -> Fi
     )
     download_filename = _resolve_download_filename(msg, part_index, filename)
     disposition = "inline" if inline else "attachment"
+    if inline and str(content_type or "").split(";")[0].strip().lower() not in _INLINE_SAFE_CONTENT_TYPES:
+        logger.warning(
+            "拒绝危险 Content-Type 的 inline 预览，强制附件下载: message=%s part=%s content_type=%s",
+            msg.pk,
+            part_index,
+            content_type,
+        )
+        content_type = "application/octet-stream"
+        disposition = "attachment"
     response = FileResponse(
         iter([content]),
         content_type=content_type,
-        as_attachment=not inline,
+        as_attachment=disposition == "attachment",
         filename=download_filename,
     )
-    response["Content-Disposition"] = f'{disposition}; filename="{download_filename}"'
+    response["Content-Disposition"] = _build_content_disposition(disposition, download_filename)
+    response["X-Content-Type-Options"] = "nosniff"
     return response

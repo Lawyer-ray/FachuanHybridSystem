@@ -99,11 +99,17 @@ class SensitiveDataFilter(logging.Filter):
     # 需要完全遮蔽的字段名（不区分大小写）
     _SENSITIVE_KEYS = frozenset({"authorization", "token", "password", "secret", "api_key", "apikey"})
 
+    # JWT 三段式形态（header.payload.signature，signature 可为空——未签名 token）
+    _JWT_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*")
+
     # 消息中需要脱敏的正则模式
     _MSG_PATTERNS: ClassVar[list[tuple[re.Pattern[str], str]]] = [
         (re.compile(r"(Authorization:\s*Bearer\s+)\S+", re.IGNORECASE), r"\1***"),
         (re.compile(r"(token\s*=\s*)sk-\S+", re.IGNORECASE), r"\1***"),
         (re.compile(r"sk-[A-Za-z0-9]{20,}", re.IGNORECASE), "***"),
+        # 安全审计：JWT 与 Bearer 凭证形态打码（token 可能以值形态出现在消息里）
+        (_JWT_PATTERN, "***"),
+        (re.compile(r"(Bearer\s+)\S+", re.IGNORECASE), r"\1***"),
     ]
 
     @staticmethod
@@ -131,9 +137,11 @@ class SensitiveDataFilter(logging.Filter):
                 return "***"
             if lower_key in {"account", "email", "username"}:
                 return self._mask_email(value)
-            # 检查值本身是否包含敏感 token
+            # 检查值本身是否包含敏感 token（sk- 密钥 / JWT 三段式）
             if re.search(r"sk-[A-Za-z0-9]{20,}", value, re.IGNORECASE):
-                return re.sub(r"sk-[A-Za-z0-9]{20,}", "***", value, flags=re.IGNORECASE)
+                value = re.sub(r"sk-[A-Za-z0-9]{20,}", "***", value, flags=re.IGNORECASE)
+            if self._JWT_PATTERN.search(value):
+                value = self._JWT_PATTERN.sub("***", value)
         return value
 
     def _scrub_message(self, msg: str) -> str:

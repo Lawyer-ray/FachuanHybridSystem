@@ -31,6 +31,7 @@ from .business_organization import (
     build_lawyer_service,
     build_organization_service,
     build_reminder_service,
+    resolve_request_org_access,
 )
 
 __all__: list[str] = [
@@ -56,4 +57,5 @@ __all__: list[str] = [
     "build_litigation_fee_calculator_service",
     "build_organization_service",
     "build_reminder_service",
+    "resolve_request_org_access",
 ]

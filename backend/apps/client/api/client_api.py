@@ -242,9 +242,10 @@ async def delete_client(request: Any, client_id: int) -> Any:  # pragma: no cove
 async def get_related_items(request: Any, client_id: int) -> Any:  # pragma: no cover
     """获取客户关联的案件和合同"""
     facade = _get_query_facade()
+    user = getattr(request, "auth", None) or extract_request_context(request).user
 
     @sync_to_async
     def _fetch() -> Any:
-        return facade.get_related_items(client_id=client_id)
+        return facade.get_related_items(client_id=client_id, user=user)
 
     return await _fetch()

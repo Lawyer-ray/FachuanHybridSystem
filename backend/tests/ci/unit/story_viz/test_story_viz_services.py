@@ -94,34 +94,41 @@ class TestStoryVizServices:
 # StoryAnimationJobService extended tests
 # ---------------------------------------------------------------------------
 
+
 class TestStoryAnimationJobServiceExtended:
     def _make_service(self):
         from apps.story_viz.services.job_service import StoryAnimationJobService
+
         return StoryAnimationJobService()
 
     def test_build_suggested_questions_empty(self):
         from apps.story_viz.services.job_service import StoryAnimationJobService
+
         assert StoryAnimationJobService._build_suggested_questions(facts={}) == []
 
     def test_build_suggested_questions_with_parties(self):
         from apps.story_viz.services.job_service import StoryAnimationJobService
+
         facts = {"parties": [{"name": "张三", "role": "原告"}], "events": [], "relationships": []}
         questions = StoryAnimationJobService._build_suggested_questions(facts=facts)
         assert len(questions) >= 1
 
     def test_build_suggested_questions_with_judgment(self):
         from apps.story_viz.services.job_service import StoryAnimationJobService
+
         facts = {"parties": [], "events": [], "relationships": [], "judgment_result": "胜诉"}
         questions = StoryAnimationJobService._build_suggested_questions(facts=facts)
         assert any("判决" in q for q in questions)
 
     def test_stage_index(self):
         from apps.story_viz.services.job_service import StoryAnimationJobService
+
         assert StoryAnimationJobService._stage_index("extracting_facts") >= 0
         assert StoryAnimationJobService._stage_index("nonexistent") == -1
 
     def test_summarize_facts_empty(self):
         from apps.story_viz.services.job_service import StoryAnimationJobService
+
         result = StoryAnimationJobService._summarize_facts({})
         assert result["parties"] == []
         assert result["events"] == []
@@ -129,6 +136,7 @@ class TestStoryAnimationJobServiceExtended:
 
     def test_summarize_facts_with_data(self):
         from apps.story_viz.services.job_service import StoryAnimationJobService
+
         facts = {
             "parties": [{"name": "张三", "role": "原告"}],
             "events": [{"sequence": 1, "time_label": "2024", "summary": "起诉"}],
@@ -140,19 +148,20 @@ class TestStoryAnimationJobServiceExtended:
 
     def test_summarize_script_empty(self):
         from apps.story_viz.services.job_service import StoryAnimationJobService
+
         result = StoryAnimationJobService._summarize_script({})
         assert result["timeline_nodes_count"] == 0
 
     def test_summarize_render_empty(self):
         from apps.story_viz.services.job_service import StoryAnimationJobService
+
         result = StoryAnimationJobService._summarize_render({})
         assert result["node_count"] == 0
-
-
 
     def test_build_preview_payload(self):
         from apps.story_viz.models import StoryAnimationStatus
         from apps.story_viz.services.job_service import StoryAnimationJobService
+
         svc = StoryAnimationJobService()
         animation = MagicMock()
         animation.id = "test-id"
@@ -166,6 +175,7 @@ class TestStoryAnimationJobServiceExtended:
 # ---------------------------------------------------------------------------
 # Ownership & XSS hardening (security audit IDOR/XSS)
 # ---------------------------------------------------------------------------
+
 
 class TestGetAnimationOwnership:
     """get_animation 归属校验：非 owner 且非 superuser 只能看到本人创建的任务"""
@@ -210,28 +220,95 @@ class TestGetAnimationOwnership:
         assert svc.get_animation(animation_id=str(animation.id), user=admin).id == animation.id
 
 
-class TestSvgFragmentBlacklist:
-    def test_unsafe_tokens_rejected(self):
-        from apps.story_viz.services.svg_fragment_generator_service import _is_unsafe_fragment
+class TestSvgFragmentWhitelistSanitizer:
+    def test_dangerous_tags_and_attrs_stripped(self):
+        from apps.story_viz.services.svg_fragment_generator_service import sanitize_svg_fragment
 
-        for lowered in (
+        cases = (
+            # script 整体剥除
             "<script>alert(1)</script>",
+            "<g><script>alert(1)</script><circle cx='0' cy='0' r='8' /></g>",
+            # iframe / foreignObject / embed / object
             "<iframe src='x'></iframe>",
-            "<foreignobject>body</foreignobject>",
+            "<foreignObject><body><img src=x onerror=alert(1)></body></foreignObject>",
             "<embed src='x'>",
             "<object data='x'></object>",
-            "<a href='javascript:alert(1)'>x</a>",
-            "<g onload='alert(1)'></g>",
+            # 事件属性剥除（标签保留）
+            "<g onload='alert(1)'><circle cx='0' cy='0' r='8' /></g>",
             "<g onload = 'alert(1)'></g>",
-            "<g onanimationend='alert(1)'></g>",
-        ):
-            assert _is_unsafe_fragment(lowered), lowered
+            "<circle cx='0' cy='0' r='8' onanimationend='alert(1)' />",
+            # data: / javascript: 协议的 URL 型属性剥除
+            "<use href='data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=' />",
+            "<image href='javascript:alert(1)' />",
+            "<a href='javascript:alert(1)'>x</a>",
+            # SMIL 动画标签剥除
+            "<circle cx='0' cy='0' r='8' /><animate attributeName='r' from='8' to='100' />",
+            # style 属性剥除（CSS 注入面）
+            "<g style='background:url(javascript:alert(1))'><circle cx='0' cy='0' r='8' /></g>",
+        )
+        for fragment in cases:
+            cleaned = sanitize_svg_fragment(fragment).lower()
+            assert "script" not in cleaned.replace("text-anchor", ""), fragment
+            assert "iframe" not in cleaned, fragment
+            assert "foreignobject" not in cleaned, fragment
+            assert "embed" not in cleaned, fragment
+            assert "object data" not in cleaned, fragment
+            assert " onload" not in cleaned, fragment
+            assert "onanimationend" not in cleaned, fragment
+            assert "javascript:" not in cleaned, fragment
+            assert "data:" not in cleaned, fragment
+            assert "<animate" not in cleaned, fragment
+            assert "style=" not in cleaned, fragment
 
-    def test_safe_fragment_accepted(self):
-        from apps.story_viz.services.svg_fragment_generator_service import _is_unsafe_fragment
+    def test_safe_geometry_fragments_preserved(self):
+        from apps.story_viz.services.svg_fragment_generator_service import sanitize_svg_fragment
 
-        assert not _is_unsafe_fragment("<circle cx='0' cy='0' r='8' fill='red' />")
-        assert not _is_unsafe_fragment("<path d='m0 0 l10 10' stroke='#38bdf8' />")
+        cleaned = sanitize_svg_fragment(
+            "<g transform='translate(10,20)' fill='rgba(56,189,248,0.35)' class='deco'>"
+            "<path d='m0 0 l10 10' stroke='#38bdf8' stroke-width='2' stroke-linecap='round' />"
+            "<circle cx='0' cy='0' r='8' fill='red' opacity='0.5' />"
+            "<rect x='1' y='2' width='3' height='4' />"
+            "<line x1='0' y1='0' x2='5' y2='5' />"
+            "<polyline points='0,0 1,1 2,0' />"
+            "<polygon points='0,0 1,1 2,0' />"
+            "<ellipse cx='0' cy='0' rx='3' ry='4' />"
+            "<text x='0' y='0' text-anchor='middle' font-size='11'>节点</text>"
+            "<title>提示</title>"
+            "</g>"
+        )
+        for tag in ("g", "path", "circle", "rect", "line", "polyline", "polygon", "ellipse", "text", "title"):
+            assert f"<{tag}" in cleaned, tag
+        assert "translate(10,20)" in cleaned
+        assert "l10 10" in cleaned
+        assert 'stroke-width="2"' in cleaned
+        assert "节点" in cleaned
+
+    def test_fragment_without_allowed_tags_dropped_by_generator(self):
+        """纯恶意内容的片段被清空后应被丢弃，整体回退到兜底片段。"""
+        from types import SimpleNamespace
+
+        from apps.story_viz.services.svg_fragment_generator_service import SvgFragmentGeneratorService
+
+        class _FakeResp:
+            def __init__(self, content: str) -> None:
+                self.content = content
+
+        class _FakeLLMService:
+            def __init__(self, content: str) -> None:
+                self._content = content
+
+            def chat(self, **_: object) -> _FakeResp:
+                return _FakeResp(self._content)
+
+        payload_json = (
+            '{"fragments": [{"name": "bad", "svg": "<script>alert(1)</script>"},'
+            ' {"name": "use", "svg": "<use href=\'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=\' />"}]}'
+        )
+        service = SvgFragmentGeneratorService(llm_service=_FakeLLMService(payload_json))
+        result = service.generate(script=SimpleNamespace(fragment_prompts=["生成一个装饰"]))
+        assert result["fragments"]
+        assert all("<script" not in item["svg"].lower() for item in result["fragments"])
+        assert all("<use" not in item["svg"].lower() for item in result["fragments"])
 
 
 class TestHtmlComposerSafeJson:

@@ -122,10 +122,14 @@ def get_types(request: Any) -> Any:  # pragma: no cover
 
 @router.get("/target-options", response=TargetOptionsOut)
 def get_target_options(request: Any, q: str = "") -> Any:  # pragma: no cover
-    """获取合同/案件/案件日志的关联选项，用于提醒表单的关联选择。"""
+    """获取合同/案件/案件日志的关联选项，用于提醒表单的关联选择。
+
+    安全审计：按查询用户过滤（合同/案件走各自 AccessPolicy，案件日志随案件）。
+    """
     from ..services.target_query import get_target_options
 
-    return get_target_options(keyword=q)
+    ctx = get_request_access_context(request)
+    return get_target_options(keyword=q, ctx=ctx)
 
 
 @router.get("/calendar", response=CalendarMonthOut)
@@ -138,6 +142,9 @@ def get_calendar_month(
 
     返回「日 → 事件」与工作台统计。同一庭审被多次同步的情况已由后端合并，
     统计口径也按合并后计算——前端不要再自行合并或计数，否则两边会不一致。
+
+    安全审计：按查询用户过滤（关联案件/合同走 AccessPolicy，
+    个人提醒创建者本人+管理员可见），与 /list 口径一致。
     """
     from django.utils import timezone
 
@@ -147,8 +154,9 @@ def get_calendar_month(
     view_year = year if year >= 1000 else today.year
     view_month = month if 1 <= month <= 12 else today.month
 
+    ctx = get_request_access_context(request)
     service = CalendarMonthService()
-    view = service.build_month(year=view_year, month=view_month)
+    view = service.build_month(year=view_year, month=view_month, ctx=ctx)
 
     def to_out(item: Any) -> CalendarEventItemOut:
         return CalendarEventItemOut(

@@ -63,10 +63,15 @@ class ClientQueryFacade:
             self.access_policy.ensure_has_perm(user, "client.view_client", "无权限查看客户")
         return self.query_service.get_clients_by_ids(client_ids=client_ids)
 
-    def get_related_items(self, *, client_id: int) -> dict[str, list[dict[str, Any]]]:
-        """获取客户关联的案件和合同。"""
-        from apps.cases.models import CaseParty
-        from apps.contracts.models import ContractParty
+    def get_related_items(self, *, client_id: int, user: User | None = None) -> dict[str, list[dict[str, Any]]]:
+        """获取客户关联的案件和合同（安全审计：按查询用户过滤越权条目）。"""
+        from apps.cases.models import Case, CaseParty
+        from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+        from apps.contracts.models import Contract, ContractParty
+        from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
+
+        if user is not None:
+            self.access_policy.ensure_has_perm(user, "client.view_client", "无权限查看客户")
 
         case_parties = (
             CaseParty.objects.filter(client_id=client_id).select_related("case").order_by("-case__start_date")
@@ -76,6 +81,17 @@ class ClientQueryFacade:
             .select_related("contract")
             .order_by("-contract__specified_date")
         )
+
+        # 只回查询用户有权访问的案件/合同（与 cases/contracts 列表口径一致）
+        if user is not None:
+            visible_case_ids = set(
+                CaseAccessPolicy().filter_queryset(Case.objects.all(), user, None).values_list("id", flat=True)
+            )
+            visible_contract_ids = set(
+                ContractAccessPolicy().filter_queryset(Contract.objects.all(), user, None).values_list("id", flat=True)
+            )
+            case_parties = case_parties.filter(case_id__in=visible_case_ids)
+            contract_parties = contract_parties.filter(contract_id__in=visible_contract_ids)
 
         cases = [
             {

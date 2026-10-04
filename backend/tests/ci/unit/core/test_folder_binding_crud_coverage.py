@@ -535,6 +535,36 @@ class TestExtractZipToBoundFolder:
         with pytest.raises(ValidationException):
             svc.extract_zip_to_bound_folder(owner_id=1, zip_content=zip_content)
 
+    def test_cloud_extract_rejects_zip_bomb(self):
+        """解压炸弹防护：云存储分支同样按声明总量拒绝超限 ZIP。"""
+        import io
+        import struct
+        import zipfile
+
+        from apps.core.filesystem.folder_binding_crud_service import FolderBindingCrudService
+
+        svc = FolderBindingCrudService()
+        mock_binding = MagicMock()
+        mock_binding.resolved_folder_path = "/cloud/root"
+        svc.get_binding = MagicMock(return_value=mock_binding)
+        svc._is_cloud_storage = MagicMock(return_value=True)
+        mock_provider = MagicMock()
+        svc._get_provider_for_binding = MagicMock(return_value=mock_provider)
+        svc._path_validator = MagicMock()
+
+        # central directory 头声明解压后 3GB（实际数据极小）
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
+            zf.writestr("huge.bin", b"tiny")
+        data = buf.getvalue()
+        cd_offset = data.rfind(b"PK\x01\x02")
+        assert cd_offset != -1
+        bomb = data[: cd_offset + 24] + struct.pack("<I", 3 * 1024 * 1024 * 1024) + data[cd_offset + 28 :]
+
+        with pytest.raises(ValidationException):
+            svc.extract_zip_to_bound_folder(owner_id=1, zip_content=bomb)
+        mock_provider.write_file.assert_not_called()
+
 
 class TestUpdateBinding:
     def test_delegates_to_create(self):

@@ -9,6 +9,7 @@ from typing import Any, ClassVar
 from ninja import ModelSchema, Schema
 
 from apps.core.api.schemas import SchemaMixin
+from apps.core.utils.id_card_utils import IdCardUtils
 
 from .models import Client, ClientIdentityDoc
 
@@ -48,6 +49,9 @@ class ClientOut(ModelSchema, SchemaMixin):
 
     client_type_label: str
     identity_docs: list[ClientIdentityDocOut]
+    # 安全审计：证件号出参打码（前 3 后 4），原文仅留在库内与 service 层
+    id_number: str | None = None
+    legal_representative_id_number: str | None = None
 
     class Meta:
         model = Client
@@ -58,10 +62,23 @@ class ClientOut(ModelSchema, SchemaMixin):
             "phone",
             "address",
             "client_type",
-            "id_number",
             "legal_representative",
-            "legal_representative_id_number",
         ]
+
+    @staticmethod
+    def _mask_field(obj: Any, key: str) -> str | None:
+        # dict 分支：response= 出口对 model_dump 结果 re-validation 时 obj 是 dict，
+        # 值已在第一轮 from_orm 打码，mask 幂等，重复打码结果不变
+        value = obj.get(key) if isinstance(obj, dict) else getattr(obj, key, None)
+        return IdCardUtils.mask_id_number(value)
+
+    @staticmethod
+    def resolve_id_number(obj: Any) -> str | None:
+        return ClientOut._mask_field(obj, "id_number")
+
+    @staticmethod
+    def resolve_legal_representative_id_number(obj: Any) -> str | None:
+        return ClientOut._mask_field(obj, "legal_representative_id_number")
 
     @staticmethod
     def resolve_client_type_label(obj: Client) -> str:

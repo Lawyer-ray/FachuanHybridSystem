@@ -34,6 +34,17 @@ class CaseAccessPolicy(OrgAllowedLawyersMixin):
             return extra
         return set(extra)
 
+    def _admin_firm_case_access(self, *, case_id: int, law_firm_id: int) -> bool:
+        """管理员律所收敛（安全审计）：可见 = 本所指派覆盖的案件，或无任何指派的无主案件。
+
+        law_firm_id 为空（平台级管理员未挂律所）时由调用方保持全量可见。
+        """
+        from apps.cases.models import CaseAssignment
+
+        if CaseAssignment.objects.filter(case_id=case_id, lawyer__law_firm_id=law_firm_id).exists():
+            return True
+        return not CaseAssignment.objects.filter(case_id=case_id).exists()
+
     def has_access(
         self,
         case_id: int,
@@ -47,7 +58,11 @@ class CaseAccessPolicy(OrgAllowedLawyersMixin):
         if not user or not getattr(user, "is_authenticated", False):
             return False
         if getattr(user, "is_admin", False):
-            return True
+            # 安全审计：管理员不再跨律所全放行，按律所收敛
+            law_firm_id = getattr(user, "law_firm_id", None)
+            if law_firm_id is None:
+                return True
+            return self._admin_firm_case_access(case_id=case_id, law_firm_id=law_firm_id)
 
         extra_cases = self._get_extra_cases(org_access)
         if case_id in extra_cases:
@@ -98,7 +113,12 @@ class CaseAccessPolicy(OrgAllowedLawyersMixin):
         if not user or not getattr(user, "is_authenticated", False):
             return qs.none()
         if getattr(user, "is_admin", False):
-            return qs
+            # 安全审计：管理员律所收敛——本所指派覆盖的案件 + 无任何指派的无主案件；
+            # 未挂律所的平台级管理员保持全量可见（单律所部署行为不变）
+            law_firm_id = getattr(user, "law_firm_id", None)
+            if law_firm_id is None:
+                return qs
+            return qs.filter(Q(assignments__lawyer__law_firm_id=law_firm_id) | Q(assignments__isnull=True)).distinct()
 
         extra_cases = self._get_extra_cases(org_access)
         allowed_lawyers = self.get_allowed_lawyer_ids(user, org_access)

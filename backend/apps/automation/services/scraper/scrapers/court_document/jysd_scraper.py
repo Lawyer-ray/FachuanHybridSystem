@@ -17,12 +17,26 @@ import logging
 import re
 import time
 from typing import Any
+from urllib.parse import urlparse
 
 from apps.core.services.storage_service import sanitize_upload_filename
 
 from .base_court_scraper import BaseCourtDocumentScraper, as_sync_page, media_download_target
 
 logger = logging.getLogger("apps.automation")
+
+
+def _is_sifayun_url(url: str) -> bool:  # pragma: no cover
+    """CodeQL high（URL 子串校验）：精确校验 host 等于 sifayun.com 或以其为后缀的子域，
+    防止 evil-sifayun.com / sifayun.com.evil.com 这类子串碰撞通过校验。"""
+    if not url:
+        return False
+    try:
+        netloc = urlparse(url).netloc.lower()
+    except ValueError:
+        return False
+    host = netloc.split("@")[-1].split(":")[0].rstrip(".")
+    return host == "sifayun.com" or host.endswith(".sifayun.com")
 
 
 class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
@@ -140,7 +154,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         try:
             for frame in page.frames:
                 frame_url = frame.url or ""
-                if "sifayun.com" in frame_url:
+                if _is_sifayun_url(frame_url):
                     return frame
         except Exception as exc:
             logger.warning("简易送达: 遍历 frames 时出错: %s", exc)

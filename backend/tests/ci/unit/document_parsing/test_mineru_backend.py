@@ -24,9 +24,8 @@ def _mock_response(status_code: int = 200, json_data: dict | None = None, conten
     resp.raise_for_status = MagicMock()
     if status_code >= 400:
         import httpx
-        resp.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "error", request=MagicMock(), response=resp
-        )
+
+        resp.raise_for_status.side_effect = httpx.HTTPStatusError("error", request=MagicMock(), response=resp)
     return resp
 
 
@@ -38,9 +37,8 @@ def _mock_stream_response(status_code: int = 200, content: bytes = b""):
     resp.raise_for_status = MagicMock()
     if status_code >= 400:
         import httpx
-        resp.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "error", request=MagicMock(), response=resp
-        )
+
+        resp.raise_for_status.side_effect = httpx.HTTPStatusError("error", request=MagicMock(), response=resp)
     return resp
 
 
@@ -52,6 +50,7 @@ def _make_backend(api_key: str = "test-key") -> MineruBackend:
 def _make_zip_bytes(files: dict[str, str]) -> bytes:
     """创建包含指定文件的 ZIP bytes。files: {filename: content}"""
     import io
+
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
         for name, content in files.items():
@@ -96,26 +95,35 @@ class TestInit:
         assert backend.api_key == "my-key"  # pragma: allowlist secret
 
     def test_api_key_from_config(self) -> None:
-        with patch(f"{_PATCH_PREFIX}.get_sync_http_client"), patch(
-            "apps.core.services.document_parse_provider_service.ParseProviderService.get_provider",
-            return_value=_mock_provider(["cfg-key-1", "cfg-key-2"]),
+        with (
+            patch(f"{_PATCH_PREFIX}.get_sync_http_client"),
+            patch(
+                "apps.core.services.document_parse_provider_service.ParseProviderService.get_provider",
+                return_value=_mock_provider(["cfg-key-1", "cfg-key-2"]),
+            ),
         ):
             backend = MineruBackend()
         assert backend.api_key == "cfg-key-1"  # pragma: allowlist secret
         assert len(backend._pool.credentials) == 2
 
     def test_no_provider_raises(self) -> None:
-        with patch(f"{_PATCH_PREFIX}.get_sync_http_client"), patch(
-            "apps.core.services.document_parse_provider_service.ParseProviderService.get_provider",
-            return_value=None,
+        with (
+            patch(f"{_PATCH_PREFIX}.get_sync_http_client"),
+            patch(
+                "apps.core.services.document_parse_provider_service.ParseProviderService.get_provider",
+                return_value=None,
+            ),
         ):
             with pytest.raises(ValueError, match="未配置 MinerU 解析平台"):
                 MineruBackend()
 
     def test_provider_no_credentials_raises(self) -> None:
-        with patch(f"{_PATCH_PREFIX}.get_sync_http_client"), patch(
-            "apps.core.services.document_parse_provider_service.ParseProviderService.get_provider",
-            return_value=_mock_provider([]),
+        with (
+            patch(f"{_PATCH_PREFIX}.get_sync_http_client"),
+            patch(
+                "apps.core.services.document_parse_provider_service.ParseProviderService.get_provider",
+                return_value=_mock_provider([]),
+            ),
         ):
             with pytest.raises(ValueError, match="未填写凭证"):
                 MineruBackend()
@@ -150,13 +158,16 @@ class TestUploadFile:
         backend = _make_backend()
         mock_client = MagicMock()
 
-        batch_resp = _mock_response(200, {
-            "code": 0,
-            "data": {
-                "batch_id": "batch-123",
-                "file_urls": ["https://oss.example.com/upload?sig=abc"],
+        batch_resp = _mock_response(
+            200,
+            {
+                "code": 0,
+                "data": {
+                    "batch_id": "batch-123",
+                    "file_urls": ["https://oss.example.com/upload?sig=abc"],
+                },
             },
-        })
+        )
         put_resp = _mock_response(200)
         mock_client.post.return_value = batch_resp
         mock_client.put.return_value = put_resp
@@ -174,10 +185,13 @@ class TestUploadFile:
 
         backend = _make_backend()
         mock_client = MagicMock()
-        mock_client.post.return_value = _mock_response(200, {
-            "code": -10002,
-            "msg": "field missing",
-        })
+        mock_client.post.return_value = _mock_response(
+            200,
+            {
+                "code": -10002,
+                "msg": "field missing",
+            },
+        )
 
         with patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client):
             with pytest.raises(MineruAPIError, match="获取上传 URL 失败"):
@@ -189,10 +203,13 @@ class TestUploadFile:
 
         backend = _make_backend()
         mock_client = MagicMock()
-        mock_client.post.return_value = _mock_response(200, {
-            "code": 0,
-            "data": {"batch_id": "b1", "file_urls": []},
-        })
+        mock_client.post.return_value = _mock_response(
+            200,
+            {
+                "code": 0,
+                "data": {"batch_id": "b1", "file_urls": []},
+            },
+        )
 
         with patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client):
             with pytest.raises(MineruAPIError, match="未获取到上传 URL"):
@@ -205,6 +222,7 @@ class TestUploadFile:
         backend = _make_backend()
         mock_client = MagicMock()
         import httpx
+
         mock_client.post.side_effect = httpx.ConnectError("connection refused")
 
         with patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client):
@@ -219,19 +237,26 @@ class TestPollBatchResult:
     def test_done_immediately(self) -> None:
         backend = _make_backend()
         mock_client = MagicMock()
-        mock_client.get.return_value = _mock_response(200, {
-            "code": 0,
-            "data": {
-                "extract_result": [{
-                    "state": "done",
-                    "full_zip_url": "https://example.com/result.zip",
-                    "file_name": "test.pdf",
-                }],
+        mock_client.get.return_value = _mock_response(
+            200,
+            {
+                "code": 0,
+                "data": {
+                    "extract_result": [
+                        {
+                            "state": "done",
+                            "full_zip_url": "https://example.com/result.zip",
+                            "file_name": "test.pdf",
+                        }
+                    ],
+                },
             },
-        })
+        )
 
-        with patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client), \
-             patch(f"{_PATCH_PREFIX}.time.sleep"):
+        with (
+            patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client),
+            patch(f"{_PATCH_PREFIX}.time.sleep"),
+        ):
             result = backend._poll_batch_result("batch-123")
 
         assert result["state"] == "done"
@@ -240,18 +265,25 @@ class TestPollBatchResult:
     def test_failed_state(self) -> None:
         backend = _make_backend()
         mock_client = MagicMock()
-        mock_client.get.return_value = _mock_response(200, {
-            "code": 0,
-            "data": {
-                "extract_result": [{
-                    "state": "failed",
-                    "err_msg": "corrupted file",
-                }],
+        mock_client.get.return_value = _mock_response(
+            200,
+            {
+                "code": 0,
+                "data": {
+                    "extract_result": [
+                        {
+                            "state": "failed",
+                            "err_msg": "corrupted file",
+                        }
+                    ],
+                },
             },
-        })
+        )
 
-        with patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client), \
-             patch(f"{_PATCH_PREFIX}.time.sleep"):
+        with (
+            patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client),
+            patch(f"{_PATCH_PREFIX}.time.sleep"),
+        ):
             with pytest.raises(MineruAPIError, match="corrupted file"):
                 backend._poll_batch_result("batch-123")
 
@@ -264,24 +296,34 @@ class TestPollBatchResult:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
-                return _mock_response(200, {
+                return _mock_response(
+                    200,
+                    {
+                        "code": 0,
+                        "data": {"extract_result": []},
+                    },
+                )
+            return _mock_response(
+                200,
+                {
                     "code": 0,
-                    "data": {"extract_result": []},
-                })
-            return _mock_response(200, {
-                "code": 0,
-                "data": {
-                    "extract_result": [{
-                        "state": "done",
-                        "full_zip_url": "https://example.com/result.zip",
-                    }],
+                    "data": {
+                        "extract_result": [
+                            {
+                                "state": "done",
+                                "full_zip_url": "https://example.com/result.zip",
+                            }
+                        ],
+                    },
                 },
-            })
+            )
 
         mock_client.get.side_effect = side_effect
 
-        with patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client), \
-             patch(f"{_PATCH_PREFIX}.time.sleep"):
+        with (
+            patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client),
+            patch(f"{_PATCH_PREFIX}.time.sleep"),
+        ):
             result = backend._poll_batch_result("batch-123")
 
         assert result["state"] == "done"
@@ -290,18 +332,24 @@ class TestPollBatchResult:
     def test_api_error_code(self) -> None:
         backend = _make_backend()
         mock_client = MagicMock()
-        mock_client.get.return_value = _mock_response(200, {
-            "code": -10002,
-            "msg": "not found",
-        })
+        mock_client.get.return_value = _mock_response(
+            200,
+            {
+                "code": -10002,
+                "msg": "not found",
+            },
+        )
 
-        with patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client), \
-             patch(f"{_PATCH_PREFIX}.time.sleep"):
+        with (
+            patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client),
+            patch(f"{_PATCH_PREFIX}.time.sleep"),
+        ):
             with pytest.raises(MineruAPIError, match="查询结果失败"):
                 backend._poll_batch_result("batch-123")
 
     def test_http_error_retries(self) -> None:
         import httpx
+
         backend = _make_backend()
         call_count = 0
 
@@ -310,21 +358,28 @@ class TestPollBatchResult:
             call_count += 1
             if call_count == 1:
                 raise httpx.ConnectError("timeout")
-            return _mock_response(200, {
-                "code": 0,
-                "data": {
-                    "extract_result": [{
-                        "state": "done",
-                        "full_zip_url": "https://example.com/result.zip",
-                    }],
+            return _mock_response(
+                200,
+                {
+                    "code": 0,
+                    "data": {
+                        "extract_result": [
+                            {
+                                "state": "done",
+                                "full_zip_url": "https://example.com/result.zip",
+                            }
+                        ],
+                    },
                 },
-            })
+            )
 
         mock_client = MagicMock()
         mock_client.get.side_effect = side_effect
 
-        with patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client), \
-             patch(f"{_PATCH_PREFIX}.time.sleep"):
+        with (
+            patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client),
+            patch(f"{_PATCH_PREFIX}.time.sleep"),
+        ):
             result = backend._poll_batch_result("batch-123")
 
         assert result["state"] == "done"
@@ -335,12 +390,16 @@ class TestPollBatchResult:
         backend.POLL_TIMEOUT = 0  # 立即超时
 
         mock_client = MagicMock()
-        mock_client.get.return_value = _mock_response(200, {
-            "code": 0,
-            "data": {"extract_result": [{"state": "running"}]},
-        })
+        mock_client.get.return_value = _mock_response(
+            200,
+            {
+                "code": 0,
+                "data": {"extract_result": [{"state": "running"}]},
+            },
+        )
 
         import time as time_mod
+
         original_time = time_mod.time
         # 让 elapsed 始终大于 POLL_TIMEOUT
         monkeypatch.setattr(f"{_PATCH_PREFIX}.time.time", lambda: original_time() + 999)
@@ -357,14 +416,18 @@ class TestPollBatchResult:
 class TestParseResultZip:
     def test_with_content_list_json(self) -> None:
         backend = _make_backend()
-        zip_bytes = _make_zip_bytes({
-            "result/test_content_list.json": json.dumps([
-                {"type": "text", "text": "第一段"},
-                {"type": "table", "text": "表格数据"},
-                {"type": "text", "text": "第二段"},
-            ]),
-            "result/output.md": "# 标题\n\n正文",
-        })
+        zip_bytes = _make_zip_bytes(
+            {
+                "result/test_content_list.json": json.dumps(
+                    [
+                        {"type": "text", "text": "第一段"},
+                        {"type": "table", "text": "表格数据"},
+                        {"type": "text", "text": "第二段"},
+                    ]
+                ),
+                "result/output.md": "# 标题\n\n正文",
+            }
+        )
 
         mock_client = MagicMock()
 
@@ -378,9 +441,11 @@ class TestParseResultZip:
 
     def test_with_markdown_only(self) -> None:
         backend = _make_backend()
-        zip_bytes = _make_zip_bytes({
-            "result/output.md": "# 标题\n\n这是正文内容",
-        })
+        zip_bytes = _make_zip_bytes(
+            {
+                "result/output.md": "# 标题\n\n这是正文内容",
+            }
+        )
 
         mock_client = MagicMock()
 
@@ -395,11 +460,13 @@ class TestParseResultZip:
 
     def test_with_images(self) -> None:
         backend = _make_backend()
-        zip_bytes = _make_zip_bytes({
-            "result/output.md": "text",
-            "result/img_0.jpg": b"\xff\xd8\xff\xe0",
-            "result/img_1.png": b"\x89PNG",
-        })
+        zip_bytes = _make_zip_bytes(
+            {
+                "result/output.md": "text",
+                "result/img_0.jpg": b"\xff\xd8\xff\xe0",
+                "result/img_1.png": b"\x89PNG",
+            }
+        )
 
         mock_client = MagicMock()
 
@@ -447,6 +514,42 @@ class TestParseResultZip:
 
         assert result.text == ""
 
+    @staticmethod
+    def _zip_with_fake_declared_size(declared_size: int) -> bytes:
+        """构造 ZIP：central directory 声明的解压后大小为 declared_size（实际数据极小）。"""
+        import io
+        import struct
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
+            zf.writestr("result/huge.bin", b"tiny")
+        data = buf.getvalue()
+        cd_offset = data.rfind(b"PK\x01\x02")
+        assert cd_offset != -1
+        return data[: cd_offset + 24] + struct.pack("<I", declared_size) + data[cd_offset + 28 :]
+
+    def test_zip_bomb_declared_size_rejected(self) -> None:
+        """解压炸弹防护：声明解压 3GB 的 ZIP 被拒绝，不执行 extractall。"""
+        backend = _make_backend()
+        bomb = self._zip_with_fake_declared_size(3 * 1024 * 1024 * 1024)
+        mock_client = MagicMock()
+
+        with _patch_http(mock_client, content=bomb):
+            with pytest.raises(MineruAPIError, match="安全解压上限"):
+                backend._parse_result_zip("https://example.com/result.zip")
+
+    def test_zip_bomb_member_count_rejected(self) -> None:
+        """解压炸弹防护：成员数超过上限的 ZIP 被拒绝。"""
+        from apps.core.filesystem.filesystem_service import ZIP_MAX_MEMBER_COUNT
+
+        backend = _make_backend()
+        zip_bytes = _make_zip_bytes({f"result/m{i}.txt": "x" for i in range(ZIP_MAX_MEMBER_COUNT + 1)})
+        mock_client = MagicMock()
+
+        with _patch_http(mock_client, content=zip_bytes):
+            with pytest.raises(MineruAPIError, match="安全解压上限"):
+                backend._parse_result_zip("https://example.com/result.zip")
+
 
 # ── _extract_text_from_content_list ──────────────────────────────
 
@@ -454,11 +557,15 @@ class TestParseResultZip:
 class TestExtractTextFromContentList:
     def test_normal(self, tmp_path: Path) -> None:
         cl = tmp_path / "content_list.json"
-        cl.write_text(json.dumps([
-            {"type": "text", "text": "段落一"},
-            {"type": "table", "text": "表格"},
-            {"type": "text", "text": "段落二"},
-        ]))
+        cl.write_text(
+            json.dumps(
+                [
+                    {"type": "text", "text": "段落一"},
+                    {"type": "table", "text": "表格"},
+                    {"type": "text", "text": "段落二"},
+                ]
+            )
+        )
 
         backend = _make_backend()
         text = backend._extract_text_from_content_list(cl)
@@ -474,10 +581,14 @@ class TestExtractTextFromContentList:
 
     def test_no_text_blocks(self, tmp_path: Path) -> None:
         cl = tmp_path / "content_list.json"
-        cl.write_text(json.dumps([
-            {"type": "table", "text": "表格内容"},
-            {"type": "image", "text": ""},
-        ]))
+        cl.write_text(
+            json.dumps(
+                [
+                    {"type": "table", "text": "表格内容"},
+                    {"type": "image", "text": ""},
+                ]
+            )
+        )
 
         backend = _make_backend()
         text = backend._extract_text_from_content_list(cl)
@@ -551,34 +662,46 @@ class TestParseDocument:
         pdf.write_bytes(b"%PDF-1.4 fake")
 
         backend = _make_backend()
-        zip_bytes = _make_zip_bytes({
-            "result/test_content_list.json": json.dumps([
-                {"type": "text", "text": "解析成功"},
-            ]),
-            "result/output.md": "# 成功",
-        })
+        zip_bytes = _make_zip_bytes(
+            {
+                "result/test_content_list.json": json.dumps(
+                    [
+                        {"type": "text", "text": "解析成功"},
+                    ]
+                ),
+                "result/output.md": "# 成功",
+            }
+        )
 
         mock_client = MagicMock()
         # batch API
-        mock_client.post.return_value = _mock_response(200, {
-            "code": 0,
-            "data": {
-                "batch_id": "batch-456",
-                "file_urls": ["https://oss.example.com/upload"],
+        mock_client.post.return_value = _mock_response(
+            200,
+            {
+                "code": 0,
+                "data": {
+                    "batch_id": "batch-456",
+                    "file_urls": ["https://oss.example.com/upload"],
+                },
             },
-        })
+        )
         # PUT upload
         mock_client.put.return_value = _mock_response(200)
         # GET: poll → done（结果 ZIP 走 client.stream 流式下载）
-        poll_resp = _mock_response(200, {
-            "code": 0,
-            "data": {
-                "extract_result": [{
-                    "state": "done",
-                    "full_zip_url": "https://example.com/result.zip",
-                }],
+        poll_resp = _mock_response(
+            200,
+            {
+                "code": 0,
+                "data": {
+                    "extract_result": [
+                        {
+                            "state": "done",
+                            "full_zip_url": "https://example.com/result.zip",
+                        }
+                    ],
+                },
             },
-        })
+        )
         mock_client.get.return_value = poll_resp
 
         with _patch_http(mock_client, content=zip_bytes), patch(f"{_PATCH_PREFIX}.time.sleep"):
@@ -594,10 +717,13 @@ class TestParseDocument:
 
         backend = _make_backend()
         mock_client = MagicMock()
-        mock_client.post.return_value = _mock_response(200, {
-            "code": -1,
-            "msg": "api error",
-        })
+        mock_client.post.return_value = _mock_response(
+            200,
+            {
+                "code": -1,
+                "msg": "api error",
+            },
+        )
 
         with patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client):
             with pytest.raises(MineruAPIError, match="api error"):

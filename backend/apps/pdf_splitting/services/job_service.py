@@ -112,9 +112,20 @@ class PdfSplitJobService:
             storage.cleanup()
             raise
 
-    def get_job(self, job_id: uuid.UUID) -> PdfSplitJob:
+    def get_job(self, job_id: uuid.UUID, user: Any = None) -> PdfSplitJob:
+        """获取拆解任务。
+
+        传入 user 时按属主过滤（管理员全量），非本人任务按不存在处理
+        （安全审计第4轮，口径同 doc_converter B-10）。
+        """
+        qs = PdfSplitJob.objects.prefetch_related("segments")
+        if user is not None:
+            from apps.core.security.admin_access import is_admin_user
+
+            if not is_admin_user(user):
+                qs = qs.filter(created_by=user)
         try:
-            return PdfSplitJob.objects.prefetch_related("segments").get(id=job_id)
+            return qs.get(id=job_id)
         except PdfSplitJob.DoesNotExist:
             raise NotFoundError(message="拆解任务不存在", code="PDF_SPLIT_JOB_NOT_FOUND", errors={}) from None
 
@@ -142,8 +153,10 @@ class PdfSplitJobService:
         }
 
     @transaction.atomic
-    def confirm_segments(self, *, job_id: uuid.UUID, items: list[dict[str, Any]]) -> PdfSplitJob:  # pragma: no cover
-        job = self.get_job(job_id)
+    def confirm_segments(
+        self, *, job_id: uuid.UUID, items: list[dict[str, Any]], user: Any = None
+    ) -> PdfSplitJob:  # pragma: no cover
+        job = self.get_job(job_id, user=user)
         if job.status not in {PdfSplitJobStatus.REVIEW_REQUIRED, PdfSplitJobStatus.COMPLETED}:
             raise ValidationException(message="当前状态不允许确认导出", errors={"status": job.status})
 
@@ -184,8 +197,8 @@ class PdfSplitJobService:
         job.refresh_from_db()
         return job
 
-    def request_cancel(self, *, job_id: uuid.UUID) -> PdfSplitJob:  # pragma: no cover
-        job = self.get_job(job_id)
+    def request_cancel(self, *, job_id: uuid.UUID, user: Any = None) -> PdfSplitJob:  # pragma: no cover
+        job = self.get_job(job_id, user=user)
         if job.status in {PdfSplitJobStatus.COMPLETED, PdfSplitJobStatus.FAILED, PdfSplitJobStatus.CANCELLED}:
             return job
 

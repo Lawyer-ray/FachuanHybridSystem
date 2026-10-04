@@ -14,6 +14,20 @@ from apps.pdf_splitting.services.storage import PdfSplitStorage
 router = Router(tags=["PDF 拆解"])
 
 
+def _request_user(request: Any) -> Any:
+    """提取请求用户（JWT 场景 request.user 已由认证器写入，兜底读 request.auth）。"""
+    from apps.core.security.admin_access import get_request_user
+
+    return get_request_user(request)
+
+
+def _require_admin(request: Any) -> None:
+    """提交服务器本地路径（source_path）属于跨租户读取面，收敛为管理员专用。"""
+    from apps.core.security.admin_access import ensure_admin_request
+
+    ensure_admin_request(request, message="无权限提交服务器本地路径", code="PERMISSION_DENIED")
+
+
 class SegmentOut(BaseModel):
     id: int
     order: int
@@ -82,6 +96,10 @@ def create_pdf_split_job(  # pragma: no cover
     split_mode: str = Form("content_analysis"),
     ocr_profile: str = Form("balanced"),
 ) -> PdfSplitJobSubmitOut:
+    # 安全审计第4轮：source_path 直读服务器本地文件系统，仅管理员可提交；
+    # 文件上传（file）仍对登录用户开放。
+    if (source_path or "").strip():
+        _require_admin(request)
     job = PdfSplitJobService().create_job(
         file=file,
         source_path=source_path,
@@ -95,14 +113,14 @@ def create_pdf_split_job(  # pragma: no cover
 
 @router.get("/jobs/{job_id}", response=PdfSplitJobOut)
 def get_pdf_split_job(request: Any, job_id: UUID) -> PdfSplitJobOut:  # pragma: no cover
-    job = PdfSplitJobService().get_job(job_id)
+    job = PdfSplitJobService().get_job(job_id, user=_request_user(request))  # 安全审计第4轮：校验任务属主
     payload = PdfSplitJobService().build_job_payload(job)
     return PdfSplitJobOut(**payload)
 
 
 @router.get("/jobs/{job_id}/pages/{page_no}/preview")
 def get_pdf_split_preview(request: Any, job_id: UUID, page_no: int) -> HttpResponse:  # pragma: no cover
-    job = PdfSplitJobService().get_job(job_id)
+    job = PdfSplitJobService().get_job(job_id, user=_request_user(request))  # 安全审计第4轮：校验任务属主
     preview_path = PdfSplitService().render_preview(job, page_no)
     return FileResponse(preview_path.open("rb"), content_type="image/png", filename=preview_path.name)  # type: ignore[return-value]
 
@@ -111,19 +129,21 @@ def get_pdf_split_preview(request: Any, job_id: UUID, page_no: int) -> HttpRespo
 def confirm_pdf_split_job(
     request: Any, job_id: UUID, payload: ConfirmRequestIn
 ) -> PdfSplitJobSubmitOut:  # pragma: no cover
-    job = PdfSplitJobService().confirm_segments(job_id=job_id, items=[item.model_dump() for item in payload.segments])
+    job = PdfSplitJobService().confirm_segments(
+        job_id=job_id, items=[item.model_dump() for item in payload.segments], user=_request_user(request)
+    )
     return PdfSplitJobSubmitOut(job_id=str(job.id), status=job.status)
 
 
 @router.post("/jobs/{job_id}/cancel", response=PdfSplitJobSubmitOut)
 def cancel_pdf_split_job(request: Any, job_id: UUID) -> PdfSplitJobSubmitOut:  # pragma: no cover
-    job = PdfSplitJobService().request_cancel(job_id=job_id)
+    job = PdfSplitJobService().request_cancel(job_id=job_id, user=_request_user(request))
     return PdfSplitJobSubmitOut(job_id=str(job.id), status=job.status)
 
 
 @router.get("/jobs/{job_id}/download")
 def get_pdf_split_download(request: Any, job_id: UUID) -> HttpResponse:  # pragma: no cover
-    job = PdfSplitJobService().get_job(job_id)
+    job = PdfSplitJobService().get_job(job_id, user=_request_user(request))  # 安全审计第4轮：校验任务属主
     storage = PdfSplitStorage(job.id)
     if not storage.export_zip_path.exists():
         return HttpResponse(status=404)
@@ -133,7 +153,7 @@ def get_pdf_split_download(request: Any, job_id: UUID) -> HttpResponse:  # pragm
 @router.get("/jobs/{job_id}/pdf")
 def get_pdf_split_raw(request: Any, job_id: UUID) -> HttpResponse:  # pragma: no cover
     """获取原始 PDF 二进制流，供 PDF.js 在浏览器中渲染"""
-    job = PdfSplitJobService().get_job(job_id)
+    job = PdfSplitJobService().get_job(job_id, user=_request_user(request))  # 安全审计第4轮：校验任务属主
     storage = PdfSplitStorage(job.id)
     if not storage.source_pdf_path.exists():
         return HttpResponse(status=404)
@@ -155,7 +175,7 @@ def get_pdf_preview_page(  # pragma: no cover
     """返回PDF预览页面（HTML）"""
     from django.shortcuts import render
 
-    job = PdfSplitJobService().get_job(job_id)
+    job = PdfSplitJobService().get_job(job_id, user=_request_user(request))  # 安全审计第4轮：校验任务属主
     storage = PdfSplitStorage(job.id)
     pdf_url = f"/api/v1/pdf-splitting/jobs/{job_id}/pdf"
 

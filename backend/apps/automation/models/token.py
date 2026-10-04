@@ -7,6 +7,8 @@ from typing import Any, ClassVar
 from django.db import models
 from django_lifecycle import BEFORE_CREATE, BEFORE_UPDATE, LifecycleModel, hook
 
+from apps.core.model_fields.encrypted import EncryptedTextField
+
 
 class CourtToken(models.Model):
     """人民法院在线服务网（一张网）/保全系统 Token 存储"""
@@ -18,7 +20,10 @@ class CourtToken(models.Model):
         help_text="如:court_zxfw（人民法院在线服务网/一张网）, court_baoquan（保全系统）",
     )
     account: models.CharField = models.CharField(max_length=128, verbose_name="登录账号")
-    token: models.TextField = models.TextField(
+    # 安全审计第4轮：Token 属于明文落库的高危凭证（JWT 可直接登录一张网/保全系统），
+    # 改为 EncryptedTextField 模型层透明加解密（与 AccountCredential.password 同口径）。
+    # 读写路径均按 site_name+account 查取，无 token 等值/contains 查询依赖。
+    token: EncryptedTextField = EncryptedTextField(
         verbose_name="认证Token", help_text="一张网/保全系统返回的 JWT Token 或其他认证令牌"
     )
     token_type: models.CharField = models.CharField(

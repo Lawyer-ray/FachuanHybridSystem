@@ -56,7 +56,7 @@ def verify_password_claim(refresh: tokens.RefreshToken) -> None:
 
     Raises:
         exceptions.InvalidToken: token 缺少用户标识。
-        exceptions.AuthenticationFailed: 用户不存在、claim 缺失或密码已变更。
+        exceptions.AuthenticationFailed: 用户不存在、账号已停用、claim 缺失或密码已变更。
     """
     user_id = refresh.get(api_settings.USER_ID_CLAIM)
     if user_id is None:
@@ -65,6 +65,10 @@ def verify_password_claim(refresh: tokens.RefreshToken) -> None:
         user = UserModel.objects.get(pk=user_id)
     except UserModel.DoesNotExist:
         raise exceptions.AuthenticationFailed("用户不存在，请重新登录") from None
+    if not getattr(user, "is_active", True):
+        # 安全审计：被停用账号的 refresh token 必须立即失效，
+        # 不能等密码指纹变化（停用不改密码）后才失效
+        raise exceptions.AuthenticationFailed("账号已停用，请联系管理员")
     bound = refresh.get(PWD_VER_CLAIM)
     if bound != password_fingerprint(user):
         # claim 缺失（部署前存量 token）与密码已变更同口径处理

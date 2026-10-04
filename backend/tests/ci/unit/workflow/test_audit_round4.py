@@ -240,3 +240,114 @@ class TestUpdateTemplateSlugUniqueness:
 
         target.refresh_from_db()
         assert target.slug == "keep-me"
+
+
+# ── Item 13: approve 审批留痕（acted_by/acted_at 落库） ────────────────────────
+
+
+def _create_waiting_run_for_audit():
+    """构造等待人工审批的 run + gate 步骤 StepExecution（真实 DB，同步）。"""
+    from apps.cases.models import Case
+    from apps.organization.models import Lawyer
+    from apps.workflow.models import StepExecution
+
+    user = Lawyer.objects.create(username="audit-approver")
+    case = Case.objects.create(name="审批留痕测试案件")
+    template = WorkflowTemplate.objects.create(
+        name="留痕模板",
+        slug="audit-trail-tpl",
+        category="litigation",
+        temporal_workflow_name="DynamicWorkflow",
+        steps_schema=[{"id": "gate_1", "type": "gate"}],
+    )
+    run = WorkflowRun.objects.create(
+        template=template,
+        case=case,
+        temporal_workflow_id="wf-audit-trail",
+        temporal_run_id="tr-audit-trail",
+        status=WorkflowRun.Status.WAITING_HUMAN,
+        current_step_id="gate_1",
+    )
+    step_exec = StepExecution.objects.create(
+        workflow_run=run,
+        step_id="gate_1",
+        step_name="人工审批",
+        step_type="gate",
+        status=StepExecution.Status.WAITING,
+    )
+    return user, run, step_exec
+
+
+def _mock_signal_client_ok() -> MagicMock:
+    mock_handle = MagicMock()
+    mock_handle.signal = AsyncMock()
+    mock_client = MagicMock()
+    mock_client.get_workflow_handle = MagicMock(return_value=mock_handle)
+    return mock_client
+
+
+@pytest.mark.django_db
+def test_approve_records_acted_by_and_acted_at():
+    """审批通过后 gate 步骤的 StepExecution 落库 acted_by/acted_at。
+
+    经 async_to_sync 调用（与 social_auth 测试约定一致）：async 代码内的
+    thread_sensitive sync_to_async 绑回本线程执行，连接/事务与测试数据同源，
+    不会逃逸测试事务。
+    """
+    from asgiref.sync import async_to_sync
+
+    from apps.workflow.mcp.workflow_tools import approve_workflow_step
+    from apps.workflow.models import StepExecution
+
+    user, run, step_exec = _create_waiting_run_for_audit()
+    mock_client = _mock_signal_client_ok()
+
+    with patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+        result = async_to_sync(approve_workflow_step)(run.pk, True, "ok", user=user)
+
+    assert result["action"] == "approved"
+    step_exec.refresh_from_db()
+    assert step_exec.acted_by_id == user.pk
+    assert step_exec.acted_at is not None
+    # 仅写留痕字段，不覆盖等待状态（终态由 worker 的 record_step 回写）
+    assert step_exec.status == StepExecution.Status.WAITING
+
+
+@pytest.mark.django_db
+def test_approve_rejection_also_recorded():
+    """审批拒绝同样是人工动作，同样留痕。"""
+    from asgiref.sync import async_to_sync
+
+    from apps.workflow.mcp.workflow_tools import approve_workflow_step
+
+    user, run, step_exec = _create_waiting_run_for_audit()
+    mock_client = _mock_signal_client_ok()
+
+    with patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+        result = async_to_sync(approve_workflow_step)(run.pk, False, "not ready", user=user)
+
+    assert result["action"] == "rejected"
+    step_exec.refresh_from_db()
+    assert step_exec.acted_by_id == user.pk
+    assert step_exec.acted_at is not None
+
+
+@pytest.mark.django_db
+def test_approve_without_user_keeps_trace_empty():
+    """MCP 直连（无用户上下文）不留痕——字段保持为空。"""
+    from asgiref.sync import async_to_sync
+
+    from apps.workflow.mcp.workflow_tools import approve_workflow_step
+    from apps.workflow.models import StepExecution
+
+    _, run, step_exec = _create_waiting_run_for_audit()
+    mock_client = _mock_signal_client_ok()
+
+    with patch("apps.workflow.mcp.workflow_tools._get_client", return_value=mock_client):
+        result = async_to_sync(approve_workflow_step)(run.pk, True, "ok")
+
+    assert result["action"] == "approved"
+    step_exec.refresh_from_db()
+    assert step_exec.acted_by_id is None
+    assert step_exec.acted_at is None
+    assert step_exec.status == StepExecution.Status.WAITING

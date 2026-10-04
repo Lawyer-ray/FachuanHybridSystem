@@ -20,6 +20,25 @@ from apps.core.exceptions import RateLimitError
 logger = logging.getLogger(__name__)
 
 
+def _resolve_client_ip_header() -> str | None:
+    """读取 settings.DJANGO_CLIENT_IP_HEADER（客户端真实 IP 头，默认 None）。"""
+    try:
+        from django.conf import settings
+
+        value = getattr(settings, "DJANGO_CLIENT_IP_HEADER", None)
+        return str(value).strip() if value else None
+    except (ImportError, AttributeError):
+        return None
+
+
+def _header_to_meta_key(header: str) -> str:
+    """HTTP 头名 → Django META 键：CF-Connecting-IP → HTTP_CF_CONNECTING_IP。"""
+    key = header.strip().replace("-", "_").upper()
+    if key == "REMOTE_ADDR" or key.startswith("HTTP_"):
+        return key
+    return f"HTTP_{key}"
+
+
 class RateLimiter:
     """
     请求限流器
@@ -69,6 +88,18 @@ class RateLimiter:
                 allow_unverified_xff = False
 
         remote_addr_is_trusted = isinstance(remote_addr, str) and remote_addr and remote_addr in trusted_proxies
+
+        # 安全审计（可配置客户端 IP 头，Cloudflare 场景）：CF Tunnel 后 REMOTE_ADDR
+        # 恒为隧道回环地址（全员共享限流桶），而 XFF 左值可伪造。配置了专用客户端
+        # IP 头（如 CF-Connecting-IP，由 Cloudflare 每次请求覆盖写入、客户端不可
+        # 伪造）且直连对端属于受信代理时，直接采用该头。头未配置 / 对端不受信 /
+        # 头为空时行为与原先完全一致。
+        client_ip_header = _resolve_client_ip_header()
+        if client_ip_header and remote_addr_is_trusted:
+            header_value = request.META.get(_header_to_meta_key(client_ip_header))
+            if isinstance(header_value, str) and header_value.strip():
+                return header_value.split(",")[0].strip()
+
         if isinstance(x_forwarded_for, str) and x_forwarded_for and (remote_addr_is_trusted or allow_unverified_xff):
             parts = [p.strip() for p in x_forwarded_for.split(",") if p.strip()]
             if not parts:

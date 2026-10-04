@@ -61,12 +61,27 @@ from django.http import (
 from django.views.decorators.http import require_http_methods
 
 from apps.core.exceptions import PermissionDenied, ValidationException
+from apps.core.http.streaming import _DANGEROUS_CONTENT_TYPES
 from apps.core.security.auth import JWTOrSessionAuth
 from apps.core.services.storage_service import _get_media_root, to_media_abs
 
 logger = logging.getLogger("apps.core.media")
 
 _auth = JWTOrSessionAuth()
+
+# 危险扩展名：命中即强制附件下载（与其 guess 出的 Content-Type 一并兜底，
+# 覆盖 .xsl/.mjs 等本地 MIME 库可能映射不全的类型）
+_DANGEROUS_MEDIA_EXTENSIONS = frozenset({".html", ".htm", ".svg", ".xhtml", ".xml", ".js", ".mjs", ".xsl", ".xslt"})
+
+
+def _is_dangerous_media(abs_path: Path, content_type: str) -> bool:
+    """html/svg/xml/js 等类型经 /media/ 直链 inline 返回会在同源执行脚本。"""
+    return abs_path.suffix.lower() in _DANGEROUS_MEDIA_EXTENSIONS or content_type in _DANGEROUS_CONTENT_TYPES
+
+
+def _attachment_disposition(filename: str) -> str:
+    quoted = quote(filename)
+    return f"attachment; filename=\"{quoted}\"; filename*=UTF-8''{quoted}"
 
 
 def _authenticated(request: HttpRequest) -> bool:
@@ -102,16 +117,27 @@ def serve_protected_media(request: HttpRequest, path: str) -> HttpResponseBase:
     rel_path = abs_path.relative_to(media_root).as_posix()
     content_type = mimetypes.guess_type(abs_path.name)[0] or "application/octet-stream"
 
+    # 安全加固：危险类型（.html/.svg/.xml/.js 等）强制附件下载，防止 /media/ 直链同源 XSS
+    force_download = _is_dangerous_media(abs_path, content_type)
+    if force_download:
+        content_type = "application/octet-stream"
+
     accel_prefix = getattr(settings, "MEDIA_X_ACCEL_PREFIX", "")
     if accel_prefix:
         response = HttpResponse()
         response["X-Accel-Redirect"] = accel_prefix.rstrip("/") + "/" + quote(rel_path)
         response["Content-Type"] = content_type
+        if force_download:
+            # nginx 沿用后端返回的 Content-Type / Content-Disposition 头
+            response["Content-Disposition"] = _attachment_disposition(abs_path.name)
         return response
 
     # 流式回读统一走 storage API：相对路径经 Django storage 的 safe_join 收敛，
     # 不以用户输入直接构造文件系统路径
     try:
-        return FileResponse(default_storage.open(rel_path), content_type=content_type)
+        response = FileResponse(default_storage.open(rel_path), content_type=content_type)
+        if force_download:
+            response["Content-Disposition"] = _attachment_disposition(abs_path.name)
+        return response
     except (FileNotFoundError, SuspiciousFileOperation, ValueError):
         return HttpResponseNotFound()

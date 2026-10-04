@@ -266,7 +266,11 @@ class FolderBindingCrudService(BaseFolderBindingService):
                 import io
                 import zipfile
 
+                from .filesystem_service import ensure_zip_within_limits
+
                 with zipfile.ZipFile(io.BytesIO(zip_content)) as zf:
+                    # 解压炸弹防护：与本地解压同款上限（声明总量 / 成员数）
+                    ensure_zip_within_limits(zf)
                     for member in zf.infolist():
                         # 防止 ZipSlip：验证所有路径组件，拒绝 ..
                         member_parts = [p for p in member.filename.split("/") if p]

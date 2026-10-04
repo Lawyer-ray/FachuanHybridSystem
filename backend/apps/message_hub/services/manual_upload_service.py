@@ -12,6 +12,7 @@ from django.core.files.storage import default_storage
 from django.db import transaction
 from django.utils import timezone
 
+from apps.core.exceptions import ValidationException
 from apps.core.services.storage_service import delete_media_file
 from apps.message_hub.models import InboxMessage, MessageSource, SourceType
 from apps.message_hub.services.attachment_page_service import fill_page_counts
@@ -20,6 +21,50 @@ from apps.message_hub.services.base import MessageFetcher, resolve_media_attachm
 logger = logging.getLogger("apps.message_hub")
 
 MANUAL_SOURCE_DISPLAY_NAME = "前端材料预处理上传"
+
+# 收件箱手动上传白名单：文档 / 图片 / 压缩包（对齐 document_parsing 等上传口的先例）
+MANUAL_UPLOAD_ALLOWED_EXTENSIONS: frozenset[str] = frozenset(
+    {
+        ".pdf",
+        ".doc",
+        ".docx",
+        ".xls",
+        ".xlsx",
+        ".ppt",
+        ".pptx",
+        ".txt",
+        ".md",
+        ".csv",
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".webp",
+        ".bmp",
+        ".tiff",
+        ".heic",
+        ".zip",
+        ".rar",
+        ".7z",
+    }
+)
+# 单文件上限 50MB（与 document_parsing 上传、合同归档上传的先例一致）
+MANUAL_UPLOAD_MAX_SIZE_BYTES = 50 * 1024 * 1024
+
+
+def validate_manual_upload_file(uploaded: Any) -> None:
+    """手动上传附件的类型 / 大小校验（无类型限制时收件箱会沦为任意文件仓库）。"""
+    name = str(getattr(uploaded, "name", "") or "")
+    ext = Path(name).suffix.lower()
+    if ext not in MANUAL_UPLOAD_ALLOWED_EXTENSIONS:
+        raise ValidationException(
+            f"不支持的附件格式: {ext or '(无扩展名)'}",
+            code="INVALID_ATTACHMENT_TYPE",
+            errors={"files": f"允许的格式: {', '.join(sorted(MANUAL_UPLOAD_ALLOWED_EXTENSIONS))}"},
+        )
+    size = int(getattr(uploaded, "size", 0) or 0)
+    if size > MANUAL_UPLOAD_MAX_SIZE_BYTES:
+        raise ValidationException("附件过大", code="ATTACHMENT_TOO_LARGE", errors={"files": "单个附件不能超过 50MB"})
 
 
 class ManualUploadFetcher(MessageFetcher):
@@ -66,6 +111,9 @@ def create_manual_message(files: list[Any], subject: str = "", uploaded_by: Any 
     元数据记录相对 MEDIA_ROOT 的 local_path，与 IMAP 附件同一存储协议。
     uploaded_by 为当前登录律师，记录上传人。
     """
+    # 先整批校验再落盘：中途失败不产生半落盘的孤儿附件
+    for uploaded in files:
+        validate_manual_upload_file(uploaded)
     source = get_or_create_manual_source()
     attachment_metas: list[dict[str, Any]] = []
     ts = timezone.localtime().strftime("%Y%m%d%H%M%S")
@@ -113,6 +161,9 @@ def append_manual_attachments(message: InboxMessage, files: list[Any]) -> InboxM
     新附件沿用与 create_manual_message 相同的落盘协议，part_index 接着现有最大值排，
     不触碰拆分草稿（新素材由前端拉详情后并入 draft_state）。
     """
+    # 先整批校验再落盘：中途失败不产生半落盘的孤儿附件
+    for uploaded in files:
+        validate_manual_upload_file(uploaded)
     with transaction.atomic():
         # 行锁重取消息行：attachments_meta 是 JSONField 读-改-写，并发追加
         # 会互相覆盖且 part_index 重复，锁行串行化后再基于最新 meta 追加。

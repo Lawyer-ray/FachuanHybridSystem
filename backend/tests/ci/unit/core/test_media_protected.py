@@ -204,6 +204,55 @@ class TestXAccelMode:
         assert response["X-Accel-Redirect"] == "/protected_media/test%20dir/a%20b.pdf%3Fq%3D1"
 
 
+# ── 5b. 危险类型强制附件下载（防 /media/ 直链同源 XSS） ────────────────────────
+
+
+class TestDangerousTypeForceDownload:
+    """html/svg/xml/js 等可执行类型经 /media/ 直链返回时必须强制附件下载。"""
+
+    def _save(self, rel: str) -> None:
+        default_storage.save(rel, ContentFile(b"<html><script>alert(1)</script></html>"))
+
+    def test_html_forced_to_attachment(self, media_root: Any, media_user: Any) -> None:
+        self._save("test_media_protected/evil.html")
+        with override_settings(MEDIA_REQUIRE_AUTH=True):
+            response = _get("test_media_protected/evil.html", user=media_user)
+        assert response.status_code == 200
+        assert response["Content-Type"] == "application/octet-stream"
+        assert response["Content-Disposition"].startswith("attachment")
+        assert b"".join(response.streaming_content)
+
+    def test_svg_forced_to_attachment(self, media_root: Any, media_user: Any) -> None:
+        self._save("test_media_protected/evil.svg")
+        with override_settings(MEDIA_REQUIRE_AUTH=True):
+            response = _get("test_media_protected/evil.svg", user=media_user)
+        assert response["Content-Type"] == "application/octet-stream"
+        assert response["Content-Disposition"].startswith("attachment")
+
+    def test_js_forced_to_attachment(self, media_root: Any, media_user: Any) -> None:
+        self._save("test_media_protected/evil.js")
+        with override_settings(MEDIA_REQUIRE_AUTH=True):
+            response = _get("test_media_protected/evil.js", user=media_user)
+        assert response["Content-Type"] == "application/octet-stream"
+        assert response["Content-Disposition"].startswith("attachment")
+
+    def test_safe_type_kept_inline_without_forced_download(self, media_root: Any, media_user: Any) -> None:
+        """普通类型不强制下载：Content-Type 原样、不出现 attachment。"""
+        with override_settings(MEDIA_REQUIRE_AUTH=True):
+            response = _get(SAMPLE_REL, user=media_user)
+        assert response["Content-Type"] == "text/plain"
+        assert not str(response.get("Content-Disposition", "")).startswith("attachment")
+
+    def test_xaccel_mode_also_forces_download_headers(self, media_root: Any, media_user: Any) -> None:
+        """X-Accel 模式下同样下发 octet-stream + attachment 头（nginx 沿用后端头）。"""
+        self._save("test_media_protected/evil.html")
+        with override_settings(MEDIA_REQUIRE_AUTH=True, MEDIA_X_ACCEL_PREFIX="/protected_media/"):
+            response = _get("test_media_protected/evil.html", user=media_user)
+        assert response["Content-Type"] == "application/octet-stream"
+        assert response["Content-Disposition"].startswith("attachment")
+        assert "evil.html" in response["Content-Disposition"]
+
+
 # ── 6. 开启后的路由注册 ──────────────────────────────────────────────────────
 
 

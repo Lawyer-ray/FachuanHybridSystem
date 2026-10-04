@@ -468,9 +468,18 @@ async def generic_http_request(method: str, url: str, headers: str = "", body: s
             return {"status_code": resp.status, "data": data}
 
 
+# ⚠️ 已下线（安全审计 A-01）——勿再注册到 Temporal Worker。
+# AST 黑名单无法穷尽逃逸面（如 print.__self__ 链可拿非受限 exec），
+# 官方自认沙箱可逃逸；API 层已禁 code 类型步骤（template_service.
+# _FORBIDDEN_STEP_TYPES），start_temporal_worker 已将其物理下线。
+# 函数本体保留仅为避免 import 断裂（workflows.py 仍引用 act.generic_code_exec），
+# 存量测试亦直接调用本函数验证既有防护逻辑。
 @activity.defn
 async def generic_code_exec(code: str, context: dict | None = None) -> dict:
     """受限 Python 代码执行 activity
+
+    ⚠️ 已下线勿再注册（见上方注释，安全审计 A-01）：沙箱可逃逸，
+    worker 已不再注册本 activity，新模板亦无法创建 code 步骤。
 
     安全措施：
     1. AST 静态分析 — 执行前检查代码，拒绝危险模式

@@ -5,6 +5,7 @@ from typing import Any, ClassVar
 
 from django import forms
 from django.contrib import admin
+from django.contrib.auth import password_validation
 from django.core.exceptions import ValidationError
 
 from apps.core.admin.mixins import AdminImportExportMixin
@@ -57,9 +58,10 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):  # pragma: no cover
 
     class Meta:  # pragma: no cover
         model = Lawyer
+        # 安全审计：不再回显 password 字段（readonly widget 也会把 PBKDF2 哈希渲染进 HTML），
+        # 密码统一走 new_password 通道（留空=不修改）
         fields = (
             "username",
-            "password",
             "real_name",
             "phone",
             "avatar",
@@ -71,10 +73,6 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):  # pragma: no cover
             "is_staff",
             "is_superuser",
         )
-        widgets: ClassVar[dict[str, Any]] = {
-            # Existing password value remains read-only; do not turn this back into editable plain text.
-            "password": forms.TextInput(attrs={"readonly": True, "style": "color:#999;background:#f5f5f5;"}),
-        }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover
         super().__init__(*args, **kwargs)
@@ -88,6 +86,14 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):  # pragma: no cover
         cleaned: dict[str, Any] = super().clean() or {}
         if not cleaned.get("lawyer_team"):
             raise ValidationError({"lawyer_team": "律师必须至少关联一个律师团队"})
+        # 安全审计（密码策略统一）：管理员建号/改号的后台表单同样走
+        # AUTH_PASSWORD_VALIDATORS，与 LawyerMutationService 口径一致
+        new_password = cleaned.get("new_password")
+        if new_password:
+            try:
+                password_validation.validate_password(new_password, user=self.instance)
+            except ValidationError as exc:
+                raise ValidationError({"new_password": exc.messages}) from None
         return cleaned
 
     def save(self, commit: bool = True) -> Lawyer:  # pragma: no cover
@@ -189,12 +195,31 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin):  # pragma: no cover
     inlines: ClassVar[list[type[admin.TabularInline]]] = [AccountCredentialInline, SocialAccountInline]  # type: ignore[assignment]
     export_model_name = "lawyer"
     actions: ClassVar = ["export_selected_as_json", "export_all_as_json"]  # type: ignore[misc]
+    # 安全审计（提权）：提权字段仅 superuser 可见可改，防止非 superuser staff 勾选自我提权
+    privileged_fields: ClassVar[tuple[str, ...]] = ("is_admin", "is_staff", "is_superuser")
     fieldsets: ClassVar = (
-        ("账号信息", {"fields": ("username", "password", "new_password")}),
+        ("账号信息", {"fields": ("username", "new_password")}),
         ("个人信息", {"fields": ("real_name", "phone", "avatar", "license_no", "id_card", "license_pdf")}),
         ("组织关系", {"fields": ("lawyer_team", "biz_team")}),
         ("权限", {"fields": ("is_active", "is_admin", "is_staff", "is_superuser")}),
     )
+
+    def get_fieldsets(self, request: Any, obj: Any = None) -> Any:  # pragma: no cover
+        fieldsets = super().get_fieldsets(request, obj)
+        if request.user.is_superuser:
+            return fieldsets
+        # 非 superuser：从 fieldsets 中剔除提权字段（get_form 会据此构建表单，字段不进表单）
+        filtered = []
+        for name, opts in fieldsets:
+            fields = tuple(f for f in opts.get("fields", ()) if f not in self.privileged_fields)
+            filtered.append((name, {**opts, "fields": fields}))
+        return tuple(filtered)
+
+    def get_form(self, request: Any, obj: Any = None, change: bool = False, **kwargs: Any) -> Any:  # pragma: no cover
+        if not request.user.is_superuser:
+            exclude = tuple(set(kwargs.pop("exclude", None) or ()) | set(self.privileged_fields))
+            kwargs["exclude"] = exclude
+        return super().get_form(request, obj, **kwargs)
 
     class Media:  # pragma: no cover
         css = {"all": ("admin/css/lawyer_admin.css",)}

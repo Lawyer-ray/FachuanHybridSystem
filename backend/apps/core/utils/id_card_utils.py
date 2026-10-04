@@ -28,6 +28,19 @@ class IdCardInfo:
 class IdCardUtils:
     """身份证号码解析工具类"""
 
+    @staticmethod
+    def mask_id_number(id_number: str | None) -> str | None:
+        """证件号打码：保留前 3 后 4，中间星号（形如 110***********1234）。
+
+        长度不足 8 位的整体 ``****``（信息量过低，全遮蔽更安全）。
+        对已打码值重复调用结果不变（幂等），供 schema 二次序列化复用。
+        """
+        if not id_number:
+            return id_number
+        if len(id_number) < 8:
+            return "****"
+        return f"{id_number[:3]}{'*' * (len(id_number) - 7)}{id_number[-4:]}"
+
     @classmethod
     def parse_id_card_info(cls, id_number: str) -> IdCardInfo:
         """

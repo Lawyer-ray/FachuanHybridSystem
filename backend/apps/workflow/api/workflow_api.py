@@ -97,9 +97,18 @@ async def get_workflow_detail_api(request: Any, run_id: int) -> dict[str, Any]:
 
 @router.post("/runs/{run_id}/approve")
 async def approve_workflow_api(request: Any, run_id: int, payload: ApproveStepIn) -> dict[str, Any]:
-    """审批诉讼工作流步骤"""
+    """审批诉讼工作流步骤
+
+    审批留痕（安全审计）：把审批人写入该 gate 步骤 StepExecution 的
+    acted_by/acted_at（approve_workflow_step 内部落库）。
+    """
     await _require_run_case_access(request, run_id)
-    result = await approve_workflow_step(run_id, payload.approved, payload.comment)
+    result = await approve_workflow_step(
+        run_id,
+        payload.approved,
+        payload.comment,
+        user=get_request_user(request),
+    )
     if "error" in result:
         from ninja.errors import HttpError
 

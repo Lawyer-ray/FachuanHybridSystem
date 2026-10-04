@@ -16,7 +16,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from django.db.models import QuerySet
+from django.db.models import Q, QuerySet
 from django.utils import timezone
 
 from ..models import Reminder
@@ -90,17 +90,59 @@ class CalendarMonthService:
         raws = [to_event_item(r, today=today, now=self._now, tz=self._tz) for r in reminders]
         return merge_events(raws)
 
+    # ── 访问范围过滤 ──────────────────────────────────────────────────────
+
+    def _scope_for_context(self, qs: QuerySet[Reminder], ctx: Any) -> QuerySet[Reminder]:
+        """安全审计：按查询用户过滤日历提醒，口径与 /list、/{reminder_id} 的
+        _ensure_target_access 一致——
+
+        - 关联案件（含经案件日志间接关联）→ CaseAccessPolicy 可见案件
+        - 关联合同 → ContractAccessPolicy 可见合同
+        - 未绑定任何目标的个人提醒 → 创建者本人（metadata.created_by_user_id）
+          或管理员可见
+
+        ctx 为 None（admin 后台等内部调用）时不过滤，保持原有全量口径。
+        """
+        if ctx is None or ctx.perm_open_access:
+            return qs
+        user = ctx.user
+        if not user or not getattr(user, "is_authenticated", False):
+            return qs.none()
+
+        from apps.cases.models import Case
+        from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+        from apps.contracts.models import Contract
+        from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
+
+        case_ids = CaseAccessPolicy().filter_queryset(Case.objects.all(), user, ctx.org_access).values("id")
+        contract_ids = ContractAccessPolicy().filter_queryset(Contract.objects.all(), user, ctx.org_access).values("id")
+
+        visible = Q(case_id__in=case_ids) | Q(case_log__case_id__in=case_ids) | Q(contract_id__in=contract_ids)
+        unbound = Q(contract__isnull=True, case__isnull=True, case_log__isnull=True)
+        is_admin = bool(getattr(user, "is_admin", False) or getattr(user, "is_superuser", False))
+        if is_admin:
+            visible |= unbound
+        else:
+            visible |= unbound & Q(metadata__created_by_user_id=user.id)
+
+        return qs.filter(visible).distinct()
+
     # ── 月视图 ────────────────────────────────────────────────────────────
 
-    def build_month(self, *, year: int, month: int) -> MonthCalendarView:
-        """装配一个月的日历视图 + 全站统计。"""
+    def build_month(self, *, year: int, month: int, ctx: Any = None) -> MonthCalendarView:
+        """装配一个月的日历视图 + 统计。
+
+        ctx（AccessContext，API 层传入）参与访问范围过滤；None 时全量。
+        """
         today = self._now.astimezone(self._tz).date()
 
-        month_events = self.normalize(self.query_month(year=year, month=month), today=today)
+        month_qs = self._scope_for_context(self.query_month(year=year, month=month), ctx)
+        month_events = self.normalize(month_qs, today=today)
         month_events = sorted(month_events, key=lambda e: (e.day, e.time, e.id))
 
         # 统计按更宽的时间窗算，保证「7 日内到期」跨月也准确
-        stats_events = self.normalize(self.query_all_upcoming(), today=today)
+        stats_qs = self._scope_for_context(self.query_all_upcoming(), ctx)
+        stats_events = self.normalize(stats_qs, today=today)
         stats = compute_stats(stats_events, today=today)
 
         return MonthCalendarView(

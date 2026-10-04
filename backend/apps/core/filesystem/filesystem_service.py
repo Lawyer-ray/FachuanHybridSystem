@@ -13,6 +13,37 @@ from .path_validator import FolderPathValidator
 
 logger = logging.getLogger("apps")
 
+# ── 解压炸弹防护 ────────────────────────────────────────────────────────────
+# ZIP 头声明的解压总量 / 成员数上限：超限直接拒绝解压（只读 central directory
+# 元数据，不消费压缩数据本身）
+ZIP_MAX_TOTAL_UNCOMPRESSED_BYTES = 2 * 1024 * 1024 * 1024  # 2GB
+ZIP_MAX_MEMBER_COUNT = 5000
+
+
+def ensure_zip_within_limits(
+    zip_file: zipfile.ZipFile,
+    *,
+    max_total_uncompressed_bytes: int = ZIP_MAX_TOTAL_UNCOMPRESSED_BYTES,
+    max_member_count: int = ZIP_MAX_MEMBER_COUNT,
+) -> None:
+    """解压前按 ZIP 头声明的 file_size / 成员数做解压炸弹防护。
+
+    Raises:
+        ValidationException: 声明总量或成员数超过上限，调用方应拒绝解压。
+    """
+    infos = zip_file.infolist()
+    if len(infos) > max_member_count:
+        raise ValidationException(
+            message=f"ZIP 条目数超限（{len(infos)} > {max_member_count}），拒绝解压",
+            code="ZIP_MEMBER_COUNT_EXCEEDED",
+        )
+    total_uncompressed = sum(info.file_size for info in infos)
+    if total_uncompressed > max_total_uncompressed_bytes:
+        raise ValidationException(
+            message=f"ZIP 声明解压总量超限（{total_uncompressed} > {max_total_uncompressed_bytes} 字节），拒绝解压",
+            code="ZIP_TOTAL_SIZE_EXCEEDED",
+        )
+
 
 class FolderFilesystemService:
     def __init__(self, validator: FolderPathValidator | None = None) -> None:
@@ -76,6 +107,8 @@ class FolderFilesystemService:
 
         try:
             with zipfile.ZipFile(io.BytesIO(zip_content), "r") as zip_file:
+                # 解压炸弹防护：按声明总量 / 成员数拒绝超限 ZIP
+                ensure_zip_within_limits(zip_file)
                 for info in zip_file.infolist():
                     member_name = info.filename
                     relative_path = self.validator.sanitize_zip_member_path(member_name)

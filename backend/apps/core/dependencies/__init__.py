@@ -47,6 +47,7 @@ from .business import (
     build_litigation_fee_calculator_service,
     build_organization_service,
     build_reminder_service,
+    resolve_request_org_access,
 )
 from .core import (
     build_baoquan_token_service,

@@ -36,15 +36,35 @@ def _get_task_executor_service() -> Any:
 
 @router.post("/lookup", response=ArchiveLookupOut)
 async def lookup_contract(request: HttpRequest, payload: ArchiveApplyIn) -> Any:
-    """根据第一个文件路径反查合同，返回 OA 案件编号。"""
-    if not payload.file_paths:
-        from ninja.errors import HttpError
+    """根据第一个文件路径反查合同，返回 OA 案件编号。
 
+    安全审计：返回合同信息前按查询用户做 ContractAccessPolicy 校验；
+    无权与未命中返回同款响应，避免借此探测他所合同。
+    """
+    from ninja.errors import HttpError
+
+    if not payload.file_paths:
         raise HttpError(400, "file_paths 不能为空")
+
+    from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
+    from apps.core.exceptions import PermissionDenied
+    from apps.oa_filing.services.stamp_lookup_service import StampLookupError
+
     service = _get_stamp_lookup_service()
-    return await sync_to_async(service.lookup_by_file_path, thread_sensitive=False)(
-        payload.file_paths[0],
-    )
+
+    def _lookup() -> Any:
+        try:
+            result = service.lookup_by_file_path(payload.file_paths[0])
+        except StampLookupError:
+            raise HttpError(404, "无法根据文件路径找到关联合同") from None
+        ContractAccessPolicy().ensure_access(contract_id=result.contract_id, user=request.user, org_access=None)
+        return result
+
+    try:
+        # thread_sensitive 默认（True）：复用调用线程的事务上下文，测试与事务内可见性一致
+        return await sync_to_async(_lookup)()
+    except PermissionDenied:
+        raise HttpError(404, "无法根据文件路径找到关联合同") from None
 
 
 @router.post("/apply", response=ArchiveSessionOut)

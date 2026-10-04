@@ -429,6 +429,10 @@ ALLOW_FIRST_USER_SUPERUSER = (os.environ.get("ALLOW_FIRST_USER_SUPERUSER", "Fals
     "yes",
 )
 BOOTSTRAP_ADMIN_TOKEN = (os.environ.get("BOOTSTRAP_ADMIN_TOKEN", "") or "").strip()
+# 表单注册入口开关（默认关闭）：/admin/register/ 的表单注册在 False 时直接拒绝
+# （apps/organization/views.py register 视图消费）；auto_register 首用户引导分支
+# （BOOTSTRAP_ADMIN_TOKEN 保护）不受此开关影响。API 侧 /api/v1/organization/register
+# 独立于本开关（注册后需管理员审批激活）。
 ALLOW_ADMIN_REGISTER = (os.environ.get("ALLOW_ADMIN_REGISTER", "False") or "").lower() in ("true", "1", "yes")
 _smoke_pw = os.environ.get("SMOKE_ADMIN_PASSWORD", "").strip()
 if not _smoke_pw and not DEBUG:
@@ -569,6 +573,20 @@ if not DEBUG:
     _trusted_proxies_env = (os.environ.get("DJANGO_TRUSTED_PROXY_IPS", "") or "").strip()
     if _trust_xff and not _trusted_proxies_env:
         raise RuntimeError("生产环境启用 DJANGO_TRUST_X_FORWARDED_FOR 必须配置 DJANGO_TRUSTED_PROXY_IPS")
+
+# 可配置的客户端真实 IP 头（默认 None，行为与原先完全一致）。
+#
+# 适用场景（Cloudflare Tunnel / CDN）：REMOTE_ADDR 恒为隧道/代理地址，所有用户
+# 共享同一个限流桶；而 X-Forwarded-For 的左值可被客户端伪造，不可直接采信。
+# Cloudflare 会在每个请求上覆盖写入 CF-Connecting-IP（客户端无法伪造），此时配置：
+#
+#   DJANGO_CLIENT_IP_HEADER=CF-Connecting-IP        # 或 META 形式 HTTP_CF_CONNECTING_IP
+#
+# 生效前提（防伪造）：直连对端 REMOTE_ADDR 必须属于 DJANGO_TRUSTED_PROXY_IPS
+# 列出的受信代理；否则该头被忽略，回退原有 X-Forwarded-For / REMOTE_ADDR 逻辑。
+# 消费方：apps/core/infrastructure/throttling.py（RateLimiter.get_client_ip 链路最前）。
+_client_ip_header_env = (os.environ.get("DJANGO_CLIENT_IP_HEADER", "") or "").strip()
+DJANGO_CLIENT_IP_HEADER: str | None = _client_ip_header_env or None
 
 # ============================================================
 # 日志和缓存配置

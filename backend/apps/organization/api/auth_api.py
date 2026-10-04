@@ -3,9 +3,12 @@
 提供用户登录、登出和当前用户信息接口
 """
 
+import logging
 from typing import Any, cast
 
 from asgiref.sync import sync_to_async
+from django.contrib.auth import password_validation
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import HttpRequest
 from ninja import Router
 
@@ -26,6 +29,8 @@ from apps.organization.schemas import (
 from apps.organization.services import AuthService
 from apps.organization.services.auth.password_reset_service import PasswordResetService
 
+logger = logging.getLogger("apps.organization.auth")
+
 router = Router()
 
 
@@ -35,6 +40,21 @@ def _get_auth_service() -> AuthService:
 
 
 _auth_service = _get_auth_service()
+
+
+def _password_policy_error(password: str | None) -> str | None:
+    """按 AUTH_PASSWORD_VALIDATORS 校验密码（安全审计：密码策略统一）。
+
+    Returns:
+        校验失败时返回用户可读错误信息；通过时返回 None。
+    """
+    if not password:
+        return "密码不能为空"
+    try:
+        password_validation.validate_password(password)
+    except DjangoValidationError as exc:
+        return "密码不符合安全要求：" + "；".join(exc.messages)
+    return None
 
 
 @router.post("/login", response=LoginOut, auth=None)
@@ -65,12 +85,14 @@ async def register_view(request: HttpRequest, payload: RegisterIn) -> RegisterOu
     # 参数验证
     if not payload.username or len(payload.username) < 3:
         return RegisterOut(success=False, message="用户名至少3个字符")
-    if not payload.password or len(payload.password) < 6:
-        return RegisterOut(success=False, message="密码至少6个字符")
+    password_error = _password_policy_error(payload.password)
+    if password_error:
+        return RegisterOut(success=False, message=password_error)
 
-    # 检查用户名是否已存在
+    # 检查用户名是否已存在（安全审计防枚举：与登录错误同口径，模糊文案
+    # 不向外部确认用户名存在性）
     if await sync_to_async(_auth_service.username_exists)(payload.username):
-        return RegisterOut(success=False, message="用户名已存在")
+        return RegisterOut(success=False, message="注册信息无效或用户名已存在")
 
     try:
 
@@ -92,8 +114,10 @@ async def register_view(request: HttpRequest, payload: RegisterIn) -> RegisterOu
             ).model_dump()
 
         return cast(RegisterOut, await sync_to_async(_do)())
-    except Exception as e:
-        return RegisterOut(success=False, message=str(e))
+    except Exception:
+        # 安全审计：内部异常不回显 str(e)，固定文案 + 完整堆栈进日志
+        logger.exception("注册处理失败 username=%s", payload.username)
+        return RegisterOut(success=False, message="注册失败，请稍后重试或联系管理员")
 
 
 @router.get("/me", response=LawyerOut, auth=JWTOrSessionAuth())
@@ -156,9 +180,10 @@ def confirm_password_reset(
 
     使用 token 重置密码
     """
-    # 密码验证
-    if len(payload.new_password) < 8:
-        return PasswordResetOut(success=False, message="密码长度不能少于 8 位")
+    # 密码验证（安全审计：统一走 AUTH_PASSWORD_VALIDATORS，替代手写 8 位长度校验）
+    password_error = _password_policy_error(payload.new_password)
+    if password_error:
+        return PasswordResetOut(success=False, message=password_error)
 
     if payload.new_password != payload.confirm_password:
         return PasswordResetOut(success=False, message="两次输入的密码不一致")

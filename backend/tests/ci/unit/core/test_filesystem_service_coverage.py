@@ -5,18 +5,42 @@ Covers:
   - ensure_subdirectories
   - _get_unique_path
   - extract_zip_bytes
+  - ensure_zip_within_limits（解压炸弹防护）
 """
+
 from __future__ import annotations
 
 import io
+import struct
 import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.core.filesystem.filesystem_service import FolderFilesystemService
+from apps.core.exceptions import ValidationException
+from apps.core.filesystem.filesystem_service import (
+    ZIP_MAX_MEMBER_COUNT,
+    ZIP_MAX_TOTAL_UNCOMPRESSED_BYTES,
+    FolderFilesystemService,
+    ensure_zip_within_limits,
+)
 from apps.core.filesystem.path_validator import FolderPathValidator
+
+
+def _make_zip_with_fake_declared_size(declared_size: int) -> bytes:
+    """构造 ZIP：central directory 头声明的解压后大小为 declared_size（数据极小）。
+
+    模拟解压炸弹：头声明超大、实际数据极小，无需真实生成 GB 级内容。
+    """
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
+        zf.writestr("huge.bin", b"tiny")
+    data = buf.getvalue()
+    cd_offset = data.rfind(b"PK\x01\x02")
+    assert cd_offset != -1
+    # central directory entry: uncompressed size 位于偏移 +24（4 字节小端）
+    return data[: cd_offset + 24] + struct.pack("<I", declared_size) + data[cd_offset + 28 :]
 
 
 class TestFolderFilesystemServiceInit:
@@ -110,3 +134,56 @@ class TestExtractZipBytes:
         svc = FolderFilesystemService()
         with pytest.raises(Exception):
             svc.extract_zip_bytes(str(tmp_path), b"not a zip")
+
+
+class TestEnsureZipWithinLimits:
+    def _zip_bytes(self, files: dict[str, str]) -> bytes:
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            for name, content in files.items():
+                zf.writestr(name, content)
+        return buf.getvalue()
+
+    def test_normal_zip_passes(self):
+        with zipfile.ZipFile(io.BytesIO(self._zip_bytes({"a.txt": "hello"}))) as zf:
+            assert ensure_zip_within_limits(zf) is None
+
+    def test_declared_total_size_exceeded(self):
+        """头声明总量超 2GB 即拒绝（无需真实数据）。"""
+        bomb = _make_zip_with_fake_declared_size(ZIP_MAX_TOTAL_UNCOMPRESSED_BYTES + 1)
+        with zipfile.ZipFile(io.BytesIO(bomb)) as zf:
+            with pytest.raises(ValidationException, match="解压总量超限"):
+                ensure_zip_within_limits(zf)
+
+    def test_member_count_exceeded(self):
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            for i in range(ZIP_MAX_MEMBER_COUNT + 1):
+                zf.writestr(f"m{i}.txt", "x")
+        with zipfile.ZipFile(io.BytesIO(buf.getvalue())) as zf:
+            with pytest.raises(ValidationException, match="条目数超限"):
+                ensure_zip_within_limits(zf)
+
+    def test_custom_limits_honored(self):
+        with zipfile.ZipFile(io.BytesIO(self._zip_bytes({"a.txt": "hello"}))) as zf:
+            with pytest.raises(ValidationException, match="解压总量超限"):
+                ensure_zip_within_limits(zf, max_total_uncompressed_bytes=2)
+
+
+class TestExtractZipBytesBombGuard:
+    def test_zip_bomb_by_declared_size_rejected(self, tmp_path):
+        svc = FolderFilesystemService()
+        bomb = _make_zip_with_fake_declared_size(3 * 1024 * 1024 * 1024)  # 声明 3GB
+        with pytest.raises(ValidationException, match="解压总量超限"):
+            svc.extract_zip_bytes(str(tmp_path), bomb)
+        assert not (tmp_path / "huge.bin").exists()  # 未解压任何内容
+
+    def test_zip_bomb_by_member_count_rejected(self, tmp_path):
+        svc = FolderFilesystemService()
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            for i in range(ZIP_MAX_MEMBER_COUNT + 1):
+                zf.writestr(f"m{i}.txt", "x")
+        with pytest.raises(ValidationException, match="条目数超限"):
+            svc.extract_zip_bytes(str(tmp_path), buf.getvalue())
+        assert list(tmp_path.iterdir()) == []

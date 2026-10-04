@@ -22,6 +22,19 @@
     let pollTimer = null;
 
     /**
+     * HTML 转义（安全审计：message/pdf_filename/error 来自用户可控的文件名、案件名与异常文本，
+     * 进 innerHTML 前必须整体转义，防止存储型 XSS）
+     */
+    function escapeHtml(text) {
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    /**
      * 初始化合并功能
      */
     function init() {
@@ -160,10 +173,10 @@
             <div class="merge-spinner"></div>
             <div class="merge-title">正在合并 PDF</div>
             <div class="merge-progress-bar">
-                <div class="merge-progress-fill" style="width: ${progress}%"></div>
+                <div class="merge-progress-fill" style="width: ${escapeHtml(progress)}%"></div>
             </div>
-            <div class="merge-message">${message}</div>
-            <div class="merge-detail">${data.current || 0} / ${data.total || 0} 个文件</div>
+            <div class="merge-message">${escapeHtml(message)}</div>
+            <div class="merge-detail">${escapeHtml(data.current || 0)} / ${escapeHtml(data.total || 0)} 个文件</div>
         `;
 
         overlay.style.display = 'flex';
@@ -182,8 +195,8 @@
         content.innerHTML = `
             <div class="merge-success-icon">✓</div>
             <div class="merge-title" style="color: var(--fc-success-text);">合并 PDF 成功</div>
-            <div class="merge-message">共 ${data.total_pages || 0} 页</div>
-            <div class="merge-detail">${data.pdf_filename || ''}</div>
+            <div class="merge-message">共 ${escapeHtml(data.total_pages || 0)} 页</div>
+            <div class="merge-detail">${escapeHtml(data.pdf_filename || '')}</div>
             <button class="merge-close-btn" onclick="window.location.reload()">确定</button>
         `;
 
@@ -206,7 +219,7 @@
         content.innerHTML = `
             <div class="merge-error-icon">✕</div>
             <div class="merge-title" style="color: var(--fc-error-text);">合并失败</div>
-            <div class="merge-message">${error}</div>
+            <div class="merge-message">${escapeHtml(error)}</div>
             <button class="merge-close-btn" onclick="document.getElementById('merge-overlay').style.display='none'">关闭</button>
         `;
     }

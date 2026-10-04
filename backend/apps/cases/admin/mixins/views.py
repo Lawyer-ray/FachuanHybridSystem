@@ -44,14 +44,17 @@ def _has_court_filing_plugin() -> bool:
 def _resolve_confined_temp_path(temp_file_path: str) -> Path | None:
     """把请求传入的临时文件路径约束在 MEDIA_ROOT/case_documents/temp 之下。
 
-    上传接口返回的是绝对路径，因此必须 resolve() 后用 is_relative_to 判断，
-    不能用字符串前缀。路径越界时返回 None，由调用方拒绝。
+    上传接口现在返回相对 MEDIA_ROOT 的路径（安全审计：不暴露服务器绝对路径），
+    相对路径先拼到 MEDIA_ROOT 下再 resolve()；历史调用方传绝对路径的仍兼容。
+    必须用 resolve() 后 is_relative_to 判断，不能用字符串前缀。
+    路径越界时返回 None，由调用方拒绝。
     """
     from django.conf import settings
 
     media_root = Path(settings.MEDIA_ROOT).resolve()
     allowed_dir = media_root / "case_documents" / "temp"
-    file_path = Path(temp_file_path).resolve()
+    raw = Path(temp_file_path)
+    file_path = (media_root / raw).resolve() if not raw.is_absolute() else raw.resolve()
     if not file_path.is_relative_to(allowed_dir):
         return None
     return file_path
@@ -761,16 +764,15 @@ class CaseAdminViewsMixin:  # pragma: no cover
             temp_filename = f"{uuid.uuid4().hex}_{safe_name}"
             rel_path = f"case_documents/temp/{temp_filename}"
 
-            # 保存文件
+            # 保存文件；返回相对 MEDIA_ROOT 的路径（安全审计：不暴露服务器绝对路径）
             saved_name = default_storage.save(rel_path, file)
-            temp_path = Path(settings.MEDIA_ROOT) / saved_name
 
-            logger.info("临时文件上传成功: %s", temp_path)
+            logger.info("临时文件上传成功: %s", saved_name)
 
             return JsonResponse(
                 {
                     "success": True,
-                    "temp_file_path": str(temp_path),
+                    "temp_file_path": saved_name,
                     "temp_file_name": file.name,
                 }
             )

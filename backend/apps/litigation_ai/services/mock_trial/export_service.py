@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path as StdPath
 from typing import Any
 
-from apps.documents.services.placeholders.fallback import build_docx_render_context
+from apps.documents.services.placeholders.fallback import SANDBOXED_JINJA_ENV, build_docx_render_context
 from apps.documents.storage import get_docx_templates_root
 from apps.litigation_ai.placeholders.mock_trial_report import MockTrialReportPlaceholderService
 
@@ -54,8 +54,8 @@ class MockTrialExportService:  # pragma: no cover
 
         doc = DocxTemplate(str(template_path))
 
-        # 渲染模板
-        doc.render(build_docx_render_context(doc=doc, context=placeholder_values))
+        # 渲染模板（沙箱 Jinja2，阻断模板表达式逃逸）
+        doc.render(build_docx_render_context(doc=doc, context=placeholder_values), jinja_env=SANDBOXED_JINJA_ENV)
 
         # 保存到临时文件
         output_dir = StdPath(tempfile.gettempdir()) / "mock_trial_reports"

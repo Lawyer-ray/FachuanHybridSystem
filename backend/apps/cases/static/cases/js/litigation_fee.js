@@ -163,7 +163,12 @@
     function showError(message) {
         const targetDisplay = getOrCreateFeeDisplay(CONFIG.TARGET_AMOUNT_FIELD, '');
         if (targetDisplay) {
-            targetDisplay.innerHTML = `<div style="color: var(--fc-error-text);">${message}</div>`;
+            // 安全审计 XSS：message 可能包含用户输入（如异常文本），用 textContent 避免注入
+            const div = document.createElement('div');
+            div.style.color = 'var(--fc-error-text)';
+            div.textContent = message;
+            targetDisplay.innerHTML = '';
+            targetDisplay.appendChild(div);
         }
     }
 

@@ -98,8 +98,9 @@ def test_full_upload_flow(authenticated_client, law_firm, tmp_path, settings):
 
 
 def _decode_disposition(raw: str) -> str:
-    """解码 HTTP 头中的 RFC2047 编码（含中文文件名会被编码）。"""
+    """解码 Content-Disposition：RFC 2047 + RFC 5987 百分号编码（中文文件名）。"""
     from email.header import decode_header
+    from urllib.parse import unquote
 
     parts: list[str] = []
     for part, charset in decode_header(raw):
@@ -107,7 +108,7 @@ def _decode_disposition(raw: str) -> str:
             parts.append(part.decode(charset or "ascii", errors="replace"))
         else:
             parts.append(part)
-    return "".join(parts)
+    return unquote("".join(parts))
 
 
 @pytest.mark.django_db

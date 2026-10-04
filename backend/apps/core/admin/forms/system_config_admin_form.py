@@ -30,10 +30,10 @@ class SystemConfigAdminForm(forms.ModelForm):  # pragma: no cover
             return
 
         if instance.is_secret and instance.value:
-            try:
-                self.initial["value"] = SecretCodec().try_decrypt(instance.value)
-            except Exception:
-                self.initial["value"] = instance.value
+            # 安全审计：secret 值不再回显明文（原先 try_decrypt 后经 initial 渲染进 HTML），
+            # 改为"留空=不修改"：编辑页留空，clean() 时保留库中密文原值
+            self.initial["value"] = ""
+            self.fields["value"].help_text = "留空表示不修改原值（不回显已保存的敏感内容）"
 
         if instance.key in _MULTI_KEY_CONFIGS:
             self.fields[
@@ -50,7 +50,12 @@ class SystemConfigAdminForm(forms.ModelForm):  # pragma: no cover
         cleaned = super().clean()
         assert cleaned is not None  # super().clean() 返回 cleaned_data，校验阶段不会为 None
         value = str(cleaned.get("value") or "")
-        if not value or not bool(cleaned.get("is_secret")):
+        if not value:
+            # 安全审计：编辑既有 secret 配置时留空 → 保留库中密文原值，避免清空敏感配置
+            if self.instance and self.instance.pk and self.instance.is_secret and self.instance.value:
+                cleaned["value"] = self.instance.value
+            return cleaned
+        if not bool(cleaned.get("is_secret")):
             return cleaned
         try:
             cleaned["value"] = SecretCodec().encrypt(value)

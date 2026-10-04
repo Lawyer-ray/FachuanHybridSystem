@@ -18,7 +18,7 @@ from docxtpl import DocxTemplate
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.exceptions.error_codes import TEMPLATE_RENDER_ERROR
 from apps.core.services.filename_template_service import FilenameTemplateService
-from apps.documents.services.placeholders.fallback import build_docx_render_context
+from apps.documents.services.placeholders.fallback import SANDBOXED_JINJA_ENV, build_docx_render_context
 from apps.evidence.models import EvidenceItem, EvidenceList
 
 if TYPE_CHECKING:
@@ -125,7 +125,7 @@ class EvidenceExportService:
         # Requirements: 6.1
         try:
             doc = DocxTemplate(template_path)
-            doc.render(build_docx_render_context(doc=doc, context=context))
+            doc.render(build_docx_render_context(doc=doc, context=context), jinja_env=SANDBOXED_JINJA_ENV)
 
             # 保存到内存
             buffer = io.BytesIO()

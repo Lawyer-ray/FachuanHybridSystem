@@ -144,10 +144,23 @@ class AdminImportExportMixin:  # pragma: no cover
 
     # ── 导出 actions ──────────────────────────────────────────────
 
+    def _audit_export(self, request: HttpRequest, scope: str, count: int) -> None:
+        """导出审计留痕（安全审计）：全量导出含身份证等敏感数据，必须记录
+        操作人 / 模型 / 范围 / 条数（时间由日志记录自身时间戳承载）。"""
+        model_label = f"{self.model._meta.app_label}.{self.model._meta.model_name}"  # type: ignore[attr-defined]
+        logger.info(
+            "Admin 导出审计: user=%s model=%s scope=%s count=%d",
+            getattr(request.user, "username", None),
+            model_label,
+            scope,
+            count,
+        )
+
     def export_selected_as_json(
         self, request: HttpRequest, queryset: QuerySet[Any]
     ) -> HttpResponse:  # pragma: no cover
         count = queryset.count()
+        self._audit_export(request, scope="selected", count=count)
         filename = f"{self.export_model_name}_selected_{count}_export_{date.today().strftime('%Y%m%d')}.zip"
         return self._build_zip_response(queryset, filename)
 
@@ -155,6 +168,8 @@ class AdminImportExportMixin:  # pragma: no cover
 
     def export_all_as_json(self, request: HttpRequest, queryset: QuerySet[Any]) -> HttpResponse:  # pragma: no cover
         all_qs = self.get_queryset(request)  # type: ignore[attr-defined]
+        count = all_qs.count()
+        self._audit_export(request, scope="all", count=count)
         filename = f"{self.export_model_name}_all_export_{date.today().strftime('%Y%m%d')}.zip"
         return self._build_zip_response(all_qs, filename)
 

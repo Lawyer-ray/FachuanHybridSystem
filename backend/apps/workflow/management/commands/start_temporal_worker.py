@@ -90,6 +90,10 @@ class Command(BaseCommand):
         from temporalio.worker import Worker
         from temporalio.worker._workflow_instance import UnsandboxedWorkflowRunner
 
+        # 安全审计 A-01：generic_code_exec 已从 worker 注册表移除，禁止再注册。
+        # 原因：AST 黑名单无法穷尽沙箱逃逸面（如 __self__ 链可拿到非受限 exec），
+        # 官方自认沙箱可逃逸；API 层 template_service._FORBIDDEN_STEP_TYPES 已禁
+        # code 类型步骤，此处物理下线该 activity，杜绝存量模板触发执行。
         from apps.workflow.temporal.activities import (
             _HAS_COURT_FILING,
             analyze_single_evidence,
@@ -101,7 +105,6 @@ class Command(BaseCommand):
             fetch_template_schema,
             generate_complaint,
             generate_complaint_simple,
-            generic_code_exec,
             generic_delay,
             generic_http_request,
             generic_llm_call,
@@ -139,7 +142,6 @@ class Command(BaseCommand):
             generic_delay,
             generic_llm_call,
             generic_http_request,
-            generic_code_exec,
             execute_mcp_tool,
         ]
 

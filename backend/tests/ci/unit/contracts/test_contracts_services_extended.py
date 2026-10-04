@@ -290,6 +290,8 @@ class TestContractAccessPolicy:
         user = MagicMock()
         user.is_authenticated = True
         user.is_admin = True
+        # 未挂律所的平台级管理员保持全量可见（安全审计：挂律所后按律所收敛）
+        user.law_firm_id = None
         assert policy.has_access(1, user, None) is True
 
     def test_has_access_repo_assignment(self) -> None:
@@ -355,6 +357,8 @@ class TestContractAccessPolicy:
         user = MagicMock()
         user.is_authenticated = True
         user.is_admin = True
+        # 未挂律所的平台级管理员不过滤（安全审计：挂律所后按律所收敛）
+        user.law_firm_id = None
         result = policy.filter_queryset(qs, user, None)
         assert result == qs
 

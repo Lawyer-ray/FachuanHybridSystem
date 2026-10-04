@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any
 
+from asgiref.sync import sync_to_async
 from django.db.models import Q, QuerySet
 
 from apps.contracts.models import Contract, ContractAssignment
@@ -45,6 +46,15 @@ class ContractAccessPolicy(OrgAllowedLawyersMixin):
             self._contract_access_repo = ContractAccessRepo()
         return self._contract_access_repo
 
+    def _admin_firm_contract_access(self, *, contract_id: int, law_firm_id: int) -> bool:
+        """管理员律所收敛（安全审计）：可见 = 本所指派覆盖的合同，或无任何指派的无主合同。
+
+        law_firm_id 为空（平台级管理员未挂律所）时由调用方保持全量可见。
+        """
+        if ContractAssignment.objects.filter(contract_id=contract_id, lawyer__law_firm_id=law_firm_id).exists():
+            return True
+        return not ContractAssignment.objects.filter(contract_id=contract_id).exists()
+
     def has_access(
         self,
         contract_id: int,
@@ -58,7 +68,12 @@ class ContractAccessPolicy(OrgAllowedLawyersMixin):
         if not user or not getattr(user, "is_authenticated", False):
             return False
         if getattr(user, "is_admin", False):
-            return True
+            # 安全审计：管理员不再跨律所全放行，按律所收敛
+            # （未挂律所的平台级管理员保持全量可见）
+            law_firm_id = getattr(user, "law_firm_id", None)
+            if law_firm_id is None:
+                return True
+            return self._admin_firm_contract_access(contract_id=contract_id, law_firm_id=law_firm_id)
 
         user_id = getattr(user, "id", None)
         allowed_lawyers = self.get_allowed_lawyer_ids(user, org_access)
@@ -112,7 +127,13 @@ class ContractAccessPolicy(OrgAllowedLawyersMixin):
         if not user or not getattr(user, "is_authenticated", False):
             return False
         if getattr(user, "is_admin", False):
-            return True
+            # 安全审计：管理员不再跨律所全放行，按律所收敛（与同步版同口径）
+            law_firm_id = getattr(user, "law_firm_id", None)
+            if law_firm_id is None:
+                return True
+            return await sync_to_async(self._admin_firm_contract_access)(
+                contract_id=contract_id, law_firm_id=law_firm_id
+            )
 
         user_id = getattr(user, "id", None)
         allowed_lawyers = self.get_allowed_lawyer_ids(user, org_access)
@@ -190,7 +211,12 @@ class ContractAccessPolicy(OrgAllowedLawyersMixin):
             return qs.none()
 
         if getattr(user, "is_admin", False):
-            return qs
+            # 安全审计：管理员律所收敛——本所指派覆盖的合同 + 无任何指派的无主合同；
+            # 未挂律所的平台级管理员保持全量可见（单律所部署行为不变）
+            law_firm_id = getattr(user, "law_firm_id", None)
+            if law_firm_id is None:
+                return qs
+            return qs.filter(Q(assignments__lawyer__law_firm_id=law_firm_id) | Q(assignments__isnull=True)).distinct()
 
         user_id = getattr(user, "id", None)
         allowed_lawyers = self.get_allowed_lawyer_ids(user, org_access)
