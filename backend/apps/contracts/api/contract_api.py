@@ -24,6 +24,26 @@ from apps.core.dto.request_context import extract_request_context
 logger = logging.getLogger("apps.contracts.api")
 router = Router()
 
+# slim（列表）视图跳过的重关系：代理对这些名字抛 AttributeError，pydantic 落到
+# schema 字段默认值（ContractOut 上两组字段本就带 [] 默认，resolver 对
+# AttributeError 有既有逃逸口）——from_orm 既不触发未预取关系的补查，也不构建
+# 对应嵌套 DTO。此前 slim 只是 from_orm 全量构建后 data.pop()，DB/DTO 成本没省。
+_SLIM_EXCLUDED_FIELDS = frozenset({"finalized_materials", "client_payment_records"})
+
+
+class _SlimContractView:
+    """slim 序列化代理：隐藏重关系字段，其余属性透传给 ContractOut.from_orm。"""
+
+    __slots__ = ("_contract",)
+
+    def __init__(self, contract: Any) -> None:
+        self._contract = contract
+
+    def __getattr__(self, name: str) -> Any:
+        if name in _SLIM_EXCLUDED_FIELDS:
+            raise AttributeError(name)
+        return getattr(self._contract, name)
+
 
 def _serialize_contract(contract: Any, *, slim: bool = False) -> dict:
     """Serialize a Contract model to dict in sync context (avoid lazy FK access in async).
@@ -31,10 +51,8 @@ def _serialize_contract(contract: Any, *, slim: bool = False) -> dict:
     slim=True 时剔除 finalized_materials（归档材料清单，占列表响应约 60% 体积，
     仅归档场景需要）——办案主页等列表消费方应传 slim=true。
     """
-    data = ContractOut.from_orm(contract).model_dump(by_alias=True)
-    if slim:
-        data.pop("finalized_materials", None)
-    return data
+    source: Any = _SlimContractView(contract) if slim else contract
+    return ContractOut.from_orm(source).model_dump(by_alias=True)
 
 
 def _get_contract_service() -> Any:
@@ -94,6 +112,7 @@ async def list_contracts(  # pragma: no cover
             user=ctx.user,
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,
+            slim=slim,
         )
         return {
             "items": [_serialize_contract(c, slim=slim) for c in data["items"]],
