@@ -2,26 +2,14 @@
  * 整页跳转型登录方式（redirect）的按钮面板。
  *
  * 与内嵌二维码相对：拿不到可渲染的二维码，只能整页导航到平台授权页，
- * 授权后由后端 302 回 /social-callback。谷歌网页登录等后续方式走这条路。
+ * 授权后由后端 302 回 /social-callback。绑定页一个面板只放一个 Provider，
+ * 自带操作指引；登录页多 Provider 堆叠走 SocialRedirectGroup。
  */
-import { useState, type ComponentType } from 'react'
+import { useState } from 'react'
 import type { SocialProviderInfo, SocialSession } from '../social-api'
 import { socialAuthApi } from '../social-api'
 import { spacedBrand } from '../social-format'
-import { GitHubIcon } from './GitHubIcon'
-import { GoogleIcon } from './GoogleIcon'
-
-/**
- * 品牌标注册表。
- *
- * 有标的 Provider 走浅底样式：彩色 logo 落在登录页的黄铜底上不可辨（Google 黄
- * 对比度仅约 1.3:1），只能配白底——这也正是 Google 品牌规范要求的用法。
- * 没有标的（飞书）沿用黄铜主按钮，外观与改动前完全一致。新增平台加一行即可。
- */
-const BRAND_MARKS: Record<string, ComponentType<{ size?: number }>> = {
-  google: GoogleIcon,
-  github: GitHubIcon,
-}
+import { BRAND_MARKS } from './brand-marks'
 
 interface Props {
   provider: SocialProviderInfo
