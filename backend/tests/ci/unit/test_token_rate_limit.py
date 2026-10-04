@@ -50,6 +50,14 @@ class TestTokenRateLimitMiddleware:
             mock_cache.incr.return_value = 12  # Over limit
             result = middleware(request)
             assert result.status_code == 429
+            # 429 响应应携带限流错误码与中文提示
+            import json
+
+            data = json.loads(result.content)
+            assert data["code"] == "RATE_LIMITED"
+            assert data["detail"] == "请求过于频繁，请稍后重试"
+            # 触发限流后不应再调用下游视图
+            get_response.assert_not_called()
 
     def test_increment_existing_count(self):
         get_response = MagicMock(return_value="ok")

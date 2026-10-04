@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from django.test import RequestFactory
-from django.http import JsonResponse, Http404
 from django.contrib.auth import get_user_model
+from django.http import Http404, JsonResponse
+from django.test import RequestFactory
 
-from apps.evidence.admin.evidence.mixins.views import (
-    EvidenceListAdminViewsMixin,
-    EvidenceListAdminServiceMixin,
-)
 from apps.documents.models import EvidenceList
+from apps.evidence.admin.evidence.mixins.views import EvidenceListAdminServiceMixin, EvidenceListAdminViewsMixin
 
 User = get_user_model()
 
@@ -119,12 +117,20 @@ class TestDocumentsEvidenceViewsMixinDisplay:
 @pytest.mark.django_db
 class TestDocumentsEvidenceViewsMixinNextListType:
     def test_next_list_type_has_next(self):
+        from apps.evidence.models import ListType
+
         mixin = EvidenceListAdminViewsMixin()
         request = _make_request()
         with patch("apps.evidence.admin.evidence.mixins.views.EvidenceList") as MockEL:
             MockEL.objects.filter.return_value.values_list.return_value = []
             result = mixin.next_list_type_view(request, case_id=1)
             assert result.status_code == 200
+            # 无既有清单时应给出下一个可用类型（choices 的第一项）
+            data = json.loads(result.content)
+            assert data["success"] is True
+            first_type, first_label = ListType.choices[0]
+            assert data["list_type"] == first_type
+            assert data["label"] == first_label
 
 
 @pytest.mark.django_db
@@ -134,6 +140,7 @@ class TestDocumentsEvidenceViewsMixinReorder:
         request = _make_request(method="GET")
         result = mixin.reorder_view(request, pk=1)
         assert result.status_code == 405
+        assert json.loads(result.content) == {"error": "Method not allowed"}
 
     def test_reorder_success(self):
         import json as json_mod
@@ -150,3 +157,5 @@ class TestDocumentsEvidenceViewsMixinReorder:
             mock_svc.return_value.reorder_items = MagicMock()
             result = mixin.reorder_view(request, pk=1)
             assert result.status_code == 200
+            assert json.loads(result.content) == {"success": True}
+            mock_svc.return_value.reorder_items.assert_called_once_with(1, [1, 2])

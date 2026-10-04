@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -383,6 +384,7 @@ class TestDocumentTemplateAdminViews:
         request.method = "GET"
         result = admin.extract_placeholders_view(request)
         assert result.status_code == 405
+        assert json.loads(result.content) == {"error": "仅支持 POST 请求"}
 
     def test_smart_fill_preview_view_not_post(self) -> None:
         admin = self._make_admin()
@@ -390,6 +392,7 @@ class TestDocumentTemplateAdminViews:
         request.method = "GET"
         result = admin.smart_fill_preview_view(request)
         assert result.status_code == 405
+        assert json.loads(result.content) == {"error": "仅支持 POST 请求"}
 
     def test_smart_fill_render_view_not_post(self) -> None:
         admin = self._make_admin()
@@ -397,15 +400,21 @@ class TestDocumentTemplateAdminViews:
         request.method = "GET"
         result = admin.smart_fill_render_view(request)
         assert result.status_code == 405
+        assert json.loads(result.content) == {"error": "仅支持 POST 请求"}
 
     def test_set_docx_root_view_not_post(self) -> None:
         admin = self._make_admin()
         request = MagicMock()
         request.method = "GET"
         with patch("django.urls.reverse", return_value="/admin/test/"):
-            result = admin.set_docx_root_view(request)
-            # should redirect with error message
-            assert result.status_code in (302, 301)
+            # set_docx_root_view 函数内局部 import messages，patch 源模块
+            with patch("django.contrib.messages.error") as mock_messages_error:
+                result = admin.set_docx_root_view(request)
+                # should redirect with error message
+                assert result.status_code in (302, 301)
+                assert result.url == "/admin/test/"
+                mock_messages_error.assert_called_once()
+                assert mock_messages_error.call_args[0][1] == "仅支持 POST 请求"
 
     def test_build_llm_model_choices_with_default(self) -> None:
         with (

@@ -25,6 +25,7 @@ class TestGetCaptchaImage:
             mock_manager.aget = AsyncMock(side_effect=MockTask.DoesNotExist)
             response = await get_captcha_image(request, 999)
             assert response.status_code == 404
+            assert response.content.decode() == "任务不存在"
 
     @pytest.mark.asyncio
     async def test_task_wrong_status(self) -> None:
@@ -38,6 +39,7 @@ class TestGetCaptchaImage:
             MockTask.objects = mock_manager
             response = await get_captcha_image(request, 1)
             assert response.status_code == 400
+            assert response.content.decode() == "当前任务不在等待验证码状态"
 
     @pytest.mark.asyncio
     async def test_no_image_path(self) -> None:
@@ -51,6 +53,7 @@ class TestGetCaptchaImage:
             MockTask.objects = mock_manager
             response = await get_captcha_image(request, 1)
             assert response.status_code == 404
+            assert response.content.decode() == "验证码图片不存在"
 
     @pytest.mark.asyncio
     async def test_image_file_not_found(self) -> None:
@@ -68,6 +71,7 @@ class TestGetCaptchaImage:
             with patch("asyncio.to_thread", side_effect=FileNotFoundError):
                 response = await get_captcha_image(request, 1)
                 assert response.status_code == 404
+                assert response.content.decode() == "验证码图片文件已丢失"
 
     @pytest.mark.asyncio
     async def test_success(self) -> None:
@@ -86,6 +90,8 @@ class TestGetCaptchaImage:
             with patch("asyncio.to_thread", new_callable=AsyncMock, return_value=mock_file):
                 response = await get_captcha_image(request, 1)
                 assert response.status_code == 200
+                # 成功时以 PNG 文件流返回
+                assert response["Content-Type"] == "image/png"
 
 
 class TestSubmitCaptchaAnswer:

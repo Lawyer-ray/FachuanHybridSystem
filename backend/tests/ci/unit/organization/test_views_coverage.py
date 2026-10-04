@@ -23,11 +23,21 @@ def rf() -> RequestFactory:
 class TestRegisterGet:
     def test_get_renders_form(self, rf: RequestFactory) -> None:
         request = rf.get("/register/")
-        with patch("apps.organization.views._auth_service") as mock_svc:
+        with patch("apps.organization.views._auth_service") as mock_svc, patch(
+            "apps.organization.views.render"
+        ) as mock_render:
             mock_svc.is_first_user.return_value = False
             mock_svc.should_show_auto_register.return_value = False
+            mock_render.return_value = MagicMock(status_code=200)
             response = register(request)
             assert response.status_code == 200
+            # GET 渲染登录/注册页并注入注册上下文
+            mock_render.assert_called_once()
+            args, _kwargs = mock_render.call_args
+            assert args[1] == "admin/login.html"
+            assert args[2]["title"] == "用户注册"
+            assert args[2]["show_register"] is True
+            assert args[2]["show_auto_register"] is False
 
 
 class TestRegisterPostAutoRegister:
@@ -181,10 +191,20 @@ class TestRegisterPostForm:
         with (
             patch("apps.organization.views._auth_service") as mock_svc,
             patch("apps.organization.views.LawyerRegistrationForm") as MockForm,
+            patch("apps.organization.views.render") as mock_render,
         ):
             mock_svc.is_first_user.return_value = False
             mock_svc.should_show_auto_register.return_value = False
             form_instance = MockForm.return_value
             form_instance.is_valid.return_value = False
+            mock_render.return_value = MagicMock(status_code=200)
             response = register(request)
+            assert response.status_code == 200
+            # 无效表单应带同一 form 实例回到注册页
+            mock_render.assert_called_once()
+            args, _kwargs = mock_render.call_args
+            assert args[1] == "admin/login.html"
+            assert args[2]["reg_form"] is form_instance
+            # 未尝试注册
+            mock_svc.register.assert_not_called()
             assert response.status_code == 200

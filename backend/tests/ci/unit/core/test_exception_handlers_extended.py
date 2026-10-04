@@ -19,6 +19,7 @@ Covers:
 
 from __future__ import annotations
 
+import json
 from typing import Any
 from unittest.mock import MagicMock, PropertyMock, patch
 
@@ -311,6 +312,10 @@ class TestValidationExceptionHandler:
         exc = ValidationException("bad data", errors={"field": "required"})
         response = api._exception_handlers[type(exc)](req, exc)
         assert response.status_code == 400
+        data = json.loads(response.content)
+        assert data["success"] is False
+        assert data["message"] == "bad data"
+        assert data["errors"] == {"field": "required"}
 
 
 class TestAuthenticationExceptionHandler:
@@ -320,6 +325,9 @@ class TestAuthenticationExceptionHandler:
         exc = AuthenticationError("not authenticated")
         response = api._exception_handlers[type(exc)](req, exc)
         assert response.status_code == 401
+        data = json.loads(response.content)
+        assert data["success"] is False
+        assert data["message"] == "not authenticated"
 
 
 class TestPermissionDeniedExceptionHandler:
@@ -329,6 +337,9 @@ class TestPermissionDeniedExceptionHandler:
         exc = PermissionDenied("forbidden")
         response = api._exception_handlers[type(exc)](req, exc)
         assert response.status_code == 403
+        data = json.loads(response.content)
+        assert data["success"] is False
+        assert data["message"] == "forbidden"
 
 
 class TestNotFoundExceptionHandler:
@@ -338,6 +349,9 @@ class TestNotFoundExceptionHandler:
         exc = NotFoundError("not found")
         response = api._exception_handlers[type(exc)](req, exc)
         assert response.status_code == 404
+        data = json.loads(response.content)
+        assert data["success"] is False
+        assert data["message"] == "not found"
 
 
 class TestConflictExceptionHandler:
@@ -347,6 +361,9 @@ class TestConflictExceptionHandler:
         exc = ConflictError("conflict")
         response = api._exception_handlers[type(exc)](req, exc)
         assert response.status_code == 409
+        data = json.loads(response.content)
+        assert data["success"] is False
+        assert data["message"] == "conflict"
 
 
 class TestRateLimitExceptionHandler:
@@ -364,6 +381,10 @@ class TestRateLimitExceptionHandler:
         exc = RateLimitError("too many")
         response = api._exception_handlers[type(exc)](req, exc)
         assert response.status_code == 429
+        assert "Retry-After" not in response.headers
+        data = json.loads(response.content)
+        assert data["success"] is False
+        assert data["message"] == "too many"
 
 
 class TestBusinessExceptionHandler:
@@ -374,6 +395,9 @@ class TestBusinessExceptionHandler:
         exc.status = 422
         response = api._exception_handlers[type(exc)](req, exc)
         assert response.status_code == 422
+        data = json.loads(response.content)
+        assert data["success"] is False
+        assert data["message"] == "business error"
 
 
 class TestBusinessErrorHandler:
@@ -383,6 +407,9 @@ class TestBusinessErrorHandler:
         exc = BusinessError("biz error", status=451)
         response = api._exception_handlers[type(exc)](req, exc)
         assert response.status_code == 451
+        data = json.loads(response.content)
+        assert data["success"] is False
+        assert data["message"] == "biz error"
 
 
 class TestServiceUnavailableExceptionHandler:
@@ -392,6 +419,9 @@ class TestServiceUnavailableExceptionHandler:
         exc = ServiceUnavailableError("service down")
         response = api._exception_handlers[type(exc)](req, exc)
         assert response.status_code == 503
+        data = json.loads(response.content)
+        assert data["success"] is False
+        assert data["message"] == "service down"
 
 
 class TestRecognitionTimeoutExceptionHandler:
@@ -401,6 +431,9 @@ class TestRecognitionTimeoutExceptionHandler:
         exc = RecognitionTimeoutError("timeout")
         response = api._exception_handlers[type(exc)](req, exc)
         assert response.status_code == 504
+        data = json.loads(response.content)
+        assert data["success"] is False
+        assert data["message"] == "timeout"
 
 
 class TestExternalServiceExceptionHandler:
@@ -410,6 +443,9 @@ class TestExternalServiceExceptionHandler:
         exc = ExternalServiceError("external fail")
         response = api._exception_handlers[type(exc)](req, exc)
         assert response.status_code == 502
+        data = json.loads(response.content)
+        assert data["success"] is False
+        assert data["message"] == "external fail"
 
 
 class TestHttp404Handler:
@@ -419,6 +455,9 @@ class TestHttp404Handler:
         exc = Http404("page not found")
         response = api._exception_handlers[Http404](req, exc)
         assert response.status_code == 404
+        data = json.loads(response.content)
+        assert data["code"] == "NOT_FOUND"
+        assert data["message"] == "资源不存在"
 
 
 class TestObjectDoesNotExistHandler:
@@ -430,6 +469,9 @@ class TestObjectDoesNotExistHandler:
         exc = ObjectDoesNotExist("object not found")
         response = api._exception_handlers[ObjectDoesNotExist](req, exc)
         assert response.status_code == 404
+        data = json.loads(response.content)
+        assert data["code"] == "NOT_FOUND"
+        assert data["message"] == "资源不存在"
 
 
 class TestDjangoPermissionDeniedHandler:
@@ -441,6 +483,9 @@ class TestDjangoPermissionDeniedHandler:
         exc = DjangoPermissionDenied("no access")
         response = api._exception_handlers[DjangoPermissionDenied](req, exc)
         assert response.status_code == 403
+        data = json.loads(response.content)
+        assert data["code"] == "PERMISSION_DENIED"
+        assert data["message"] == "无权限访问"
 
 
 class TestNinjaValidationErrorHandler:
@@ -453,6 +498,9 @@ class TestNinjaValidationErrorHandler:
         # Use the registered handler directly
         response = api._exception_handlers[NinjaValidationError](req, exc)
         assert response.status_code == 422
+        data = json.loads(response.content)
+        assert data["code"] == "VALIDATION_ERROR"
+        assert data["errors"] == [{"msg": "invalid"}]
 
 
 class TestHttpErrorHandler:
@@ -462,6 +510,9 @@ class TestHttpErrorHandler:
         exc = HttpError(403, "forbidden")
         response = api._exception_handlers[HttpError](req, exc)
         assert response.status_code == 403
+        data = json.loads(response.content)
+        assert data["code"] == "HTTP_ERROR"
+        assert data["message"] == "forbidden"
 
     def test_returns_429_rate_limit(self) -> None:
         api = _make_api()
@@ -469,6 +520,9 @@ class TestHttpErrorHandler:
         exc = HttpError(429, "rate limited")
         response = api._exception_handlers[HttpError](req, exc)
         assert response.status_code == 429
+        data = json.loads(response.content)
+        assert data["code"] == "RATE_LIMIT_ERROR"
+        assert data["message"] == "rate limited"
 
 
 class TestFallbackExceptionHandler:
@@ -478,6 +532,9 @@ class TestFallbackExceptionHandler:
         exc = RuntimeError("unexpected")
         response = api._exception_handlers[Exception](req, exc)
         assert response.status_code == 500
+        data = json.loads(response.content)
+        assert data["code"] == "INTERNAL_ERROR"
+        assert data["message"] == "系统错误,请稍后重试"
 
 
 class TestLLMExceptionHandlers:

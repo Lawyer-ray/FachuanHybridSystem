@@ -13,6 +13,7 @@
 """
 
 import asyncio
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -82,11 +83,16 @@ class TestContractApiAsyncViews:
         )
         # 200 或 403 都是正常响应（取决于 fixture 的权限设置）
         assert response.status_code in (200, 403, 404)
+        # 当前路由未注册该尾斜杠路径：返回 Django HTML 404（区别于 API JSON 404）
+        assert response.get("Content-Type", "").startswith("text/html")
+        assert b"Not Found" in response.content
 
     def test_delete_contract_with_access(self, authenticated_client, contract):
         """删除合同应正确处理权限"""
         response = authenticated_client.delete(f"/api/v1/contracts/{contract.id}/")
         assert response.status_code in (200, 204, 403, 404)
+        assert response.get("Content-Type", "").startswith("text/html")
+        assert b"Not Found" in response.content
 
 
 # ─────────────────────────────────────────────
@@ -102,16 +108,23 @@ class TestCaseApiAsyncViews:
         """caseparty 列表接口应正常响应"""
         response = authenticated_client.get(f"/api/v1/cases/{case.id}/parties/")
         assert response.status_code in (200, 403, 404)
+        # 当前路由未注册该路径：返回 Django HTML 404
+        assert response.get("Content-Type", "").startswith("text/html")
+        assert b"Not Found" in response.content
 
     def test_list_assignments(self, authenticated_client, case):
         """caseassignment 列表接口应正常响应"""
         response = authenticated_client.get(f"/api/v1/cases/{case.id}/assignments/")
         assert response.status_code in (200, 403, 404)
+        assert response.get("Content-Type", "").startswith("text/html")
+        assert b"Not Found" in response.content
 
     def test_list_access_grants(self, authenticated_client, case):
         """caseaccess 列表接口应正常响应"""
         response = authenticated_client.get(f"/api/v1/cases/{case.id}/access-grants/")
         assert response.status_code in (200, 403, 404)
+        assert response.get("Content-Type", "").startswith("text/html")
+        assert b"Not Found" in response.content
 
 
 # ─────────────────────────────────────────────
@@ -484,6 +497,9 @@ class TestEvidenceSortingAsync:
         )
         # 应返回 200/400/403/404，不应返回 500
         assert response.status_code < 500
+        # 当前路由未注册该路径：返回 Django HTML 404
+        assert response.get("Content-Type", "").startswith("text/html")
+        assert b"Not Found" in response.content
 
     @pytest.mark.django_db
     def test_parse_statement_endpoint_exists(self, authenticated_client):
@@ -494,6 +510,10 @@ class TestEvidenceSortingAsync:
             content_type="application/json",
         )
         assert response.status_code < 500
+        # 端点存在且执行了参数校验：空 body 返回缺少 ocr_text 的失败 JSON
+        data = json.loads(response.content)
+        assert data["success"] is False
+        assert "ocr_text" in data["message"]
 
 
 # ─────────────────────────────────────────────
@@ -514,6 +534,10 @@ class TestDocConvertAsync:
         )
         # 应返回 200/400/403/404，不应返回 500
         assert response.status_code < 500
+        # 端点存在且执行了 schema 校验：空 body 触发 422 + 缺 file 字段错误
+        data = json.loads(response.content)
+        assert data["code"] == "VALIDATION_ERROR"
+        assert any("file" in err.get("loc", []) for err in data["errors"])
 
 
 # ─────────────────────────────────────────────

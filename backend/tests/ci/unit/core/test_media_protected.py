@@ -104,7 +104,10 @@ class TestDebugBranchUnchanged:
 class TestServeProtectedMedia:
     def test_unauthenticated_403(self, media_root: Any) -> None:
         with override_settings(MEDIA_REQUIRE_AUTH=True):
-            assert _get(SAMPLE_REL).status_code == 403
+            response = _get(SAMPLE_REL)
+        assert response.status_code == 403
+        # 403 响应不携带任何路径/文件信息（不泄露路径有效性）
+        assert response.content == b""
 
     def test_authenticated_200_small_file(self, media_root: Any, media_user: Any) -> None:
         with override_settings(MEDIA_REQUIRE_AUTH=True):
@@ -126,6 +129,8 @@ class TestServeProtectedMedia:
         with override_settings(MEDIA_REQUIRE_AUTH=True):
             response = _get(SAMPLE_REL, query={"token": "not-a-jwt"})
         assert response.status_code == 403
+        # 无效 token 与未认证一样：403 且不泄露路径有效性
+        assert response.content == b""
 
     def test_post_method_405(self, media_root: Any, media_user: Any) -> None:
         request = RequestFactory().post("/media/")
@@ -133,6 +138,9 @@ class TestServeProtectedMedia:
         with override_settings(MEDIA_REQUIRE_AUTH=True):
             response = serve_protected_media(request, SAMPLE_REL)
         assert response.status_code == 405
+        # require_http_methods 应声明允许 GET/HEAD
+        assert "GET" in response["Allow"]
+        assert "HEAD" in response["Allow"]
 
 
 # ── 4. 路径穿越拒绝 ──────────────────────────────────────────────────────────
@@ -141,19 +149,28 @@ class TestServeProtectedMedia:
 class TestPathTraversal:
     def test_dotdot_traversal_404(self, media_root: Any, media_user: Any) -> None:
         with override_settings(MEDIA_REQUIRE_AUTH=True):
-            assert _get("../../etc/passwd", user=media_user).status_code == 404
+            response = _get("../../etc/passwd", user=media_user)
+        assert response.status_code == 404
+        # 穿越拒绝响应不含任何回显（不泄露被拒绝的目标路径）
+        assert response.content == b""
 
     def test_absolute_outside_root_404(self, media_root: Any, media_user: Any) -> None:
         with override_settings(MEDIA_REQUIRE_AUTH=True):
-            assert _get("/etc/passwd", user=media_user).status_code == 404
+            response = _get("/etc/passwd", user=media_user)
+        assert response.status_code == 404
+        assert response.content == b""
 
     def test_missing_file_inside_root_404(self, media_root: Any, media_user: Any) -> None:
         with override_settings(MEDIA_REQUIRE_AUTH=True):
-            assert _get("test_media_protected/missing.txt", user=media_user).status_code == 404
+            response = _get("test_media_protected/missing.txt", user=media_user)
+        assert response.status_code == 404
+        assert response.content == b""
 
     def test_empty_path_404(self, media_root: Any, media_user: Any) -> None:
         with override_settings(MEDIA_REQUIRE_AUTH=True):
-            assert _get("", user=media_user).status_code == 404
+            response = _get("", user=media_user)
+        assert response.status_code == 404
+        assert response.content == b""
 
 
 # ── 5. X-Accel 模式 ─────────────────────────────────────────────────────────

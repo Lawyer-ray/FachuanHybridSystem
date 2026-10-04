@@ -103,6 +103,7 @@ class TestContractAdminViews:
         request.method = "GET"
         result = admin.reorder_materials_view(request, 1)
         assert result.status_code == 405
+        assert json.loads(result.content) == {"error": "Method not allowed"}
 
     def test_reorder_materials_no_permission(self) -> None:
         admin = self._make_admin()
@@ -111,6 +112,7 @@ class TestContractAdminViews:
         request.method = "POST"
         result = admin.reorder_materials_view(request, 1)
         assert result.status_code == 403
+        assert json.loads(result.content) == {"error": "Permission denied"}
 
     def test_reorder_materials_success(self) -> None:
         admin = self._make_admin()
@@ -132,6 +134,8 @@ class TestContractAdminViews:
         request.body = b"invalid json"
         result = admin.reorder_materials_view(request, 1)
         assert result.status_code == 400
+        # 非法 JSON 的错误信息应回显给前端
+        assert "error" in json.loads(result.content)
 
     def test_changelist_view_redirects_to_active(self) -> None:
         admin = self._make_admin()

@@ -186,6 +186,9 @@ class TestApiLayerFullChain:
         """未认证访问被 JWTOrSessionAuth 拦截，返回 401。"""
         response = api_client.get(CONFIG_PREFIX)
         assert response.status_code == 401
+        # 认证失败走 HttpError(401) 统一错误协议
+        body = response.json()
+        assert body["code"] == "HTTP_ERROR"
 
     # ── PUT /system-configs ──────────────────────────────────────────────
 

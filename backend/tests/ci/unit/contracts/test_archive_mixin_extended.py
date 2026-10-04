@@ -56,6 +56,9 @@ class TestContractArchiveMixinSuccessPaths:
                 }
                 result = mixin.generate_archive_docs_view(request, 1)
                 assert result.status_code == 500
+                data = json.loads(result.content)
+                assert data["success"] is False
+                assert data["error"] == "生成失败"
 
     def test_generate_archive_docs_no_binding(self) -> None:
         mixin = self._make_mixin()
@@ -69,6 +72,9 @@ class TestContractArchiveMixinSuccessPaths:
                 mock_contract.folder_binding.folder_path = None
                 result = mixin.generate_archive_docs_view(request, 1)
                 assert result.status_code == 400
+                data = json.loads(result.content)
+                assert data["success"] is False
+                assert "绑定文件夹" in data["error"]
 
     def test_generate_single_archive_doc_success(self) -> None:
         mixin = self._make_mixin()
@@ -210,6 +216,7 @@ class TestContractArchiveMixinSuccessPaths:
         request.body = json.dumps({"material_id": 0, "target_code": ""}).encode()
         result = mixin.move_archive_material_view(request, 1)
         assert result.status_code == 400
+        assert json.loads(result.content)["error"] == "参数不完整"
 
     def test_move_archive_material_not_found(self) -> None:
         mixin = self._make_mixin()
@@ -220,6 +227,7 @@ class TestContractArchiveMixinSuccessPaths:
             mock_model.objects.filter.return_value.first.return_value = None
             result = mixin.move_archive_material_view(request, 1)
             assert result.status_code == 404
+            assert json.loads(result.content)["error"] == "材料不存在"
 
     def test_move_archive_material_success(self) -> None:
         mixin = self._make_mixin()
@@ -242,6 +250,7 @@ class TestContractArchiveMixinSuccessPaths:
         request.FILES = {}
         result = mixin.upload_archive_item_view(request, 1, "code")
         assert result.status_code == 400
+        assert json.loads(result.content)["error"] == "未选择文件"
 
     def test_upload_archive_item_success(self) -> None:
         mixin = self._make_mixin()
@@ -268,6 +277,7 @@ class TestContractArchiveMixinSuccessPaths:
             mock_model.objects.filter.return_value.first.return_value = None
             result = mixin.delete_archive_material_view(request, 1, 999)
             assert result.status_code == 404
+            assert json.loads(result.content)["error"] == "材料不存在"
 
     def test_delete_archive_material_success(self) -> None:
         mixin = self._make_mixin()
@@ -301,6 +311,7 @@ class TestContractArchiveMixinSuccessPaths:
             mock_model.objects.filter.return_value.first.return_value = None
             result = mixin.preview_archive_material_view(request, 1, 999)
             assert result.status_code == 404
+            assert json.loads(result.content)["error"] == "材料不存在"
 
     def test_download_archive_item_success(self) -> None:
         mixin = self._make_mixin()
@@ -316,6 +327,11 @@ class TestContractArchiveMixinSuccessPaths:
                 }
                 result = mixin.download_archive_item_view(request, 1, "code")
                 assert result.status_code == 200
+                # 文件响应：内容、类型与下载头都应来自 service 返回值
+                assert result.content == b"file content"
+                assert result["Content-Type"].startswith("application/pdf")
+                assert "attachment" in result["Content-Disposition"]
+                assert "test.pdf" in result["Content-Disposition"]
 
     def test_download_archive_item_error(self) -> None:
         mixin = self._make_mixin()
@@ -329,3 +345,4 @@ class TestContractArchiveMixinSuccessPaths:
                 }
                 result = mixin.download_archive_item_view(request, 1, "code")
                 assert result.status_code == 404
+                assert json.loads(result.content)["error"] == "文件不存在"

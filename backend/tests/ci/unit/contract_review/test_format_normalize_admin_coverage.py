@@ -105,9 +105,13 @@ class TestFormatNormalizeAdminViews:
 
         admin = self._make_admin()
         request = MagicMock()
-        with patch("apps.contract_review.models.ReviewTask.objects.get", side_effect=RT.DoesNotExist("not found")):
-            result = admin.execute_view(request, "fake-id")
-            assert result.status_code == 302
+        with patch("apps.contract_review.admin.format_normalize_admin.messages") as mock_messages:
+            with patch("apps.contract_review.models.ReviewTask.objects.get", side_effect=RT.DoesNotExist("not found")):
+                result = admin.execute_view(request, "fake-id")
+                assert result.status_code == 302
+                assert result.url == "/admin/contract_review/formatnormalize/"
+                mock_messages.error.assert_called_once()
+                assert mock_messages.error.call_args[0][1] == "任务不存在"
 
     def test_add_annotation_view_task_not_found(self) -> None:
         from apps.contract_review.models import ReviewTask as RT
@@ -119,34 +123,50 @@ class TestFormatNormalizeAdminViews:
         request.user = MagicMock()
         request.user.get_full_name.return_value = "Test User"
         request.user.username = "testuser"
-        with patch("apps.contract_review.models.ReviewTask.objects.get", side_effect=RT.DoesNotExist("not found")):
-            result = admin.add_annotation_view(request, "fake-id")
-            assert result.status_code == 302
+        with patch("apps.contract_review.admin.format_normalize_admin.messages") as mock_messages:
+            with patch("apps.contract_review.models.ReviewTask.objects.get", side_effect=RT.DoesNotExist("not found")):
+                result = admin.add_annotation_view(request, "fake-id")
+                assert result.status_code == 302
+                assert result.url == "/admin/contract_review/formatnormalize/"
+                mock_messages.error.assert_called_once()
+                assert mock_messages.error.call_args[0][1] == "任务不存在"
 
     def test_delete_view_task_not_found(self) -> None:
         from apps.contract_review.models import ReviewTask as RT
 
         admin = self._make_admin()
         request = MagicMock()
-        with patch("apps.contract_review.models.ReviewTask.objects.get", side_effect=RT.DoesNotExist("not found")):
-            result = admin.delete_view(request, "fake-id")
-            assert result.status_code == 302
+        with patch("apps.contract_review.admin.format_normalize_admin.messages") as mock_messages:
+            with patch("apps.contract_review.models.ReviewTask.objects.get", side_effect=RT.DoesNotExist("not found")):
+                result = admin.delete_view(request, "fake-id")
+                assert result.status_code == 302
+                assert result.url == "/admin/contract_review/formatnormalize/"
+                mock_messages.error.assert_called_once()
+                assert mock_messages.error.call_args[0][1] == "任务不存在"
 
     def test_batch_execute_view_no_tasks(self) -> None:
         admin = self._make_admin()
         request = MagicMock()
-        with patch("apps.contract_review.models.ReviewTask.objects.filter") as mock_filter:
-            mock_filter.return_value.exists.return_value = False
-            result = admin.batch_execute_view(request)
-            assert result.status_code == 302
+        with patch("apps.contract_review.admin.format_normalize_admin.messages") as mock_messages:
+            with patch("apps.contract_review.models.ReviewTask.objects.filter") as mock_filter:
+                mock_filter.return_value.exists.return_value = False
+                result = admin.batch_execute_view(request)
+                assert result.status_code == 302
+                assert result.url == "/admin/contract_review/formatnormalize/"
+                mock_messages.info.assert_called_once()
+                assert mock_messages.info.call_args[0][1] == "没有待处理的任务"
 
     def test_batch_delete_view_no_tasks(self) -> None:
         admin = self._make_admin()
         request = MagicMock()
-        with patch("apps.contract_review.models.ReviewTask.objects.filter") as mock_filter:
-            mock_filter.return_value.exists.return_value = False
-            result = admin.batch_delete_view(request)
-            assert result.status_code == 302
+        with patch("apps.contract_review.admin.format_normalize_admin.messages") as mock_messages:
+            with patch("apps.contract_review.models.ReviewTask.objects.filter") as mock_filter:
+                mock_filter.return_value.exists.return_value = False
+                result = admin.batch_delete_view(request)
+                assert result.status_code == 302
+                assert result.url == "/admin/contract_review/formatnormalize/"
+                mock_messages.info.assert_called_once()
+                assert mock_messages.info.call_args[0][1] == "没有任务可删除"
 
     def test_upload_view_not_post(self) -> None:
         admin = self._make_admin()
@@ -160,3 +180,5 @@ class TestFormatNormalizeAdminViews:
             result = admin.upload_view(request)
             # GET returns TemplateResponse
             assert result.status_code == 200
+            assert result.template_name == "admin/contract_review/format_normalize_upload.html"
+            assert result.context_data["title"] == "上传合同文件"

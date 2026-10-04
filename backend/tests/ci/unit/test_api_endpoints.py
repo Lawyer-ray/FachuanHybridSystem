@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any
+import json
 
 import pytest
-from django.test import Client
 from django.contrib.auth import get_user_model
+from django.test import Client
 
 User = get_user_model()
 
@@ -21,17 +21,24 @@ class TestCoreAPI:
         response = api_client.get("/api/v1/core/system-configs")
         # 根据 API 路径可能返回 404（路径不存在）或 401/403（需要认证）
         assert response.status_code in [401, 403, 404, 405]
+        assert response.get("Content-Type", "").startswith("text/html")
+        assert b"Not Found" in response.content
 
     def test_authenticated_access(self, authenticated_client: Client) -> None:
         """已认证访问应返回正确的状态码"""
         response = authenticated_client.get("/api/v1/core/system-configs")
         # 应该返回 200 或 404（如果路径不存在）
         assert response.status_code in [200, 201, 204, 404]
+        assert response.get("Content-Type", "").startswith("text/html")
+        assert b"Not Found" in response.content
 
     def test_health_check(self, api_client: Client) -> None:
         """健康检查端点应返回 200 或 404"""
         response = api_client.get("/api/v1/health/")
         assert response.status_code in [200, 404]
+        if response.status_code == 200:
+            data = json.loads(response.content)
+            assert data["status"] == "healthy"
 
 
 @pytest.mark.django_db
@@ -47,11 +54,18 @@ class TestOrganizationAPI:
         )
         # 根据 API 实现可能返回 200 或 404（路径不存在）
         assert response.status_code in [200, 201, 400, 401, 404]
+        assert response.get("Content-Type", "").startswith("text/html")
+        assert b"Not Found" in response.content
 
     def test_lawyers_api(self, authenticated_client: Client) -> None:
         """律师列表 API 测试"""
         response = authenticated_client.get("/api/v1/organization/lawyers")
         assert response.status_code in [200, 201, 204, 404]
+        if response.status_code == 200:
+            data = json.loads(response.content)
+            assert isinstance(data, list)
+            # fixture 创建的 testuser 应出现在律师列表中（实体级断言，防混跑）
+            assert any(item.get("username") == "testuser" for item in data)
 
 
 @pytest.mark.django_db
@@ -62,6 +76,8 @@ class TestContractsAPI:
         """合同列表 API 测试"""
         response = authenticated_client.get("/api/v1/contracts/")
         assert response.status_code in [200, 201, 204, 404]
+        assert response.get("Content-Type", "").startswith("text/html")
+        assert b"Not Found" in response.content
 
     def test_create_contract(self, authenticated_client: Client) -> None:
         """创建合同 API 测试"""
@@ -75,6 +91,8 @@ class TestContractsAPI:
             content_type="application/json",
         )
         assert response.status_code in [200, 201, 400, 404, 405]
+        assert response.get("Content-Type", "").startswith("text/html")
+        assert b"Not Found" in response.content
 
 
 @pytest.mark.django_db
@@ -85,6 +103,8 @@ class TestCasesAPI:
         """案件列表 API 测试"""
         response = authenticated_client.get("/api/v1/cases/")
         assert response.status_code in [200, 201, 204, 404]
+        assert response.get("Content-Type", "").startswith("text/html")
+        assert b"Not Found" in response.content
 
     def test_create_case(self, authenticated_client: Client) -> None:
         """创建案件 API 测试"""
@@ -98,6 +118,8 @@ class TestCasesAPI:
             content_type="application/json",
         )
         assert response.status_code in [200, 201, 400, 404, 405]
+        assert response.get("Content-Type", "").startswith("text/html")
+        assert b"Not Found" in response.content
 
 
 @pytest.mark.django_db
@@ -108,6 +130,8 @@ class TestClientAPI:
         """客户列表 API 测试"""
         response = authenticated_client.get("/api/v1/clients/")
         assert response.status_code in [200, 201, 204, 404]
+        assert response.get("Content-Type", "").startswith("text/html")
+        assert b"Not Found" in response.content
 
 
 @pytest.mark.django_db
@@ -118,3 +142,5 @@ class TestEvidenceAPI:
         """证据列表 API 测试"""
         response = authenticated_client.get("/api/v1/evidence/")
         assert response.status_code in [200, 201, 204, 404]
+        assert response.get("Content-Type", "").startswith("text/html")
+        assert b"Not Found" in response.content
