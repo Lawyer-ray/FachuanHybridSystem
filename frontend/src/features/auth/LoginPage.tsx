@@ -4,19 +4,23 @@
  * 视觉：白底极简（灰阶 + 单一黄铜点缀），样式自包含于 login.css。
  * 单栏左对齐、发丝线分隔，视觉重心让给账密表单。
  *
- * 开场 MG「奇点 · Super Intelligence」（≈6.2s）：星散墨点汇聚成奇点点火，
- * 「法穿」升起，SUPER INTELLIGENCE 逐字母点亮后收拢坍缩为 SI COPILOT
- * （长名缩写的动效叙事，点出 SI = Super Intelligence），整组飞向左上角
- * 铭牌后表单登台。每个浏览器会话只播一次（sessionStorage），
- * 「减少动态效果」直接跳最终页；想每次都播删掉 INTRO_SESSION_KEY 判断。
+ * 开场 MG「奇点 · Super Intelligence」v3（≈9.7s，国际大片规格）：
+ * 深空粒子场 → 螺旋卷入（弧线加速而非直线）→ 奇点蓄能爆发（暖闪 + 三层
+ * 冲击波 + 抛射粒子 + 巨字残影）→「法穿」带景深模糊炸出 → SUPER
+ * INTELLIGENCE 逐字母点亮后坍缩为 SI COPILOT（长名缩写的动效叙事）
+ * → 整组飞向左上角铭牌，表单登台。
+ *
+ * 播放策略：每次进入登录页都完整播放（用户定调——开场是秀场不是负担）；
+ * 仅系统「减少动态效果」偏好会跳过（无障碍硬要求）。
  *
  * 结构：品牌字标（仅大屏视口左上铭牌；手机隐藏——浏览器标题栏已有）→
- * 眉标/标题 → 方式标签（账密/扫码）→ 表单面板。登录方式由 login-methods
- * 分组派发，新增方式无需改这里。
+ * 眉标/标题 → 方式标签（仅桌面，手机没有「扫自己屏幕」的物理条件）→
+ * 表单面板。登录方式由 login-methods 分组派发，新增方式无需改这里。
  */
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
+import { useMediaQuery } from '../../hooks/use-media'
 import './login.css'
 import { socialAuthApi, SOCIAL_PROVIDERS_KEY } from './social-api'
 import {
@@ -35,32 +39,41 @@ import { SocialRedirectGroup } from './components/SocialRedirectGroup'
 const QR_TAB: LoginMethod = { id: QR_METHOD_ID, kind: 'embedded_qr', label: '扫码登录', provider: null }
 
 /** 开场动画时间轴（与 login.css 里 fc-intro 系列的 delay 保持同步） */
-const INTRO_READY_MS = 5600
-const INTRO_UNMOUNT_MS = 6250
-const INTRO_SESSION_KEY = 'fachuan-login-intro-played'
+const INTRO_READY_MS = 8900
+const INTRO_UNMOUNT_MS = 9700
 
-/** 星散节点：黄金角确定性分布（不用随机数，重渲染/StrictMode 下稳定不闪） */
-const INTRO_DOTS = Array.from({ length: 26 }, (_, i) => {
-  const angle = i * 137.508 * (Math.PI / 180)
-  const radius = 26 + ((i * 53) % 23) // 26–49 vmin
-  return {
-    dx: `${(Math.cos(angle) * radius).toFixed(2)}vmin`,
-    dy: `${(Math.sin(angle) * radius).toFixed(2)}vmin`,
-    d: `${(((i * 37) % 10) / 10) * 0.9}s`, // 0–0.9s 错峰，汇聚成流
-    s: 3 + ((i * 29) % 3), // 3–5px
-    brass: i % 5 === 0, // 每 5 颗一颗黄铜，品牌色若隐若现
-  }
+/** 螺旋卷入的主演粒子：极径/初始角/卷入角均按黄金角确定性推导（重渲染不闪） */
+const INTRO_DOTS = Array.from({ length: 30 }, (_, i) => ({
+  a: `${((i * 137.508) % 360).toFixed(1)}deg`,
+  r: `${(24 + ((i * 53) % 26)).toFixed(1)}vmin`,
+  spin: `${(180 + ((i * 61) % 300)).toFixed(0)}deg`,
+  d: `${(((i * 37) % 12) / 12 * 1.2).toFixed(2)}s`,
+  s: 3 + ((i * 29) % 3),
+  brass: i % 5 === 0,
+}))
+
+/** 深空背景粒子：更小更暗，只做氛围层 */
+const INTRO_BG_DOTS = Array.from({ length: 22 }, (_, i) => ({
+  dx: `${(((i * 73) % 100) - 50).toFixed(1)}vmin`,
+  dy: `${(((i * 41) % 100) - 50).toFixed(1)}vmin`,
+  bd: `${(-((i * 31) % 70) / 10).toFixed(1)}s`,
+}))
+
+/** 奇点爆发的抛射粒子：从中心向外的确定性向量 */
+const INTRO_EJECTA = Array.from({ length: 12 }, (_, i) => {
+  const angle = ((i * 30 + 15) * Math.PI) / 180
+  const dist = 22 + (i % 3) * 9
+  return { ex: `${(Math.cos(angle) * dist).toFixed(1)}vmin`, ey: `${(Math.sin(angle) * dist).toFixed(1)}vmin` }
 })
 
 /** 逐字母点亮的命名短语（空格由布局 gap 提供） */
 const INTRO_PHRASE = ['SUPER', 'INTELLIGENCE']
 
-/** 是否跳过开场：读屏纯函数（副作用写在 effect 里，避免 StrictMode 双调用误标记） */
+/** 是否跳过开场：仅「减少动态效果」系统偏好会跳（无障碍），其余每次进页都播 */
 function introSkipped(): boolean {
   if (typeof window === 'undefined') return true
   try {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return true
-    return sessionStorage.getItem(INTRO_SESSION_KEY) === '1'
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches
   } catch {
     return true
   }
@@ -73,14 +86,11 @@ export function LoginPage() {
   const [activeId, setActiveId] = useState(PASSWORD_METHOD_ID)
   const [activeQrId, setActiveQrId] = useState('')
   const [phase, setPhase] = useState<IntroPhase>(() => (introSkipped() ? 'done' : 'intro'))
+  // 手机没有「用另一台设备扫自己屏幕」的物理条件，扫码标签与面板只在桌面出现
+  const isDesktop = useMediaQuery('(min-width: 760px)')
 
   useEffect(() => {
     if (phase !== 'intro') return
-    try {
-      sessionStorage.setItem(INTRO_SESSION_KEY, '1')
-    } catch {
-      /* 隐私模式下存不进就算了，代价是本会话重复播放 */
-    }
     // settling：封面开始消散、表单级联登台（--ready）；done：卸载覆盖层
     const ready = setTimeout(() => setPhase('settling'), INTRO_READY_MS)
     const unmount = setTimeout(() => setPhase('done'), INTRO_UNMOUNT_MS)
@@ -99,12 +109,14 @@ export function LoginPage() {
   })
   const groups = useMemo(() => buildLoginMethodGroups(providers), [providers])
 
-  // 模式级标签：账密恒在；有扫码型 Provider 才出现「扫码登录」（否则单视图无标签）
+  // 模式级标签：账密恒在；扫码标签仅桌面且有扫码型 Provider 时出现
   const tabs = useMemo<NonEmptyArray<LoginMethod>>(
     () => (groups.qrProviders.length > 0 ? [groups.password, QR_TAB] : [groups.password]),
     [groups],
   )
-  const active = tabs.find((tab) => tab.id === activeId) ?? tabs[0]
+  const showTabs = isDesktop && tabs.length > 1
+  // 手机恒为账密视图（tabs[0] 由 buildLoginMethodGroups 保证是账密）
+  const active = isDesktop ? (tabs.find((tab) => tab.id === activeId) ?? tabs[0]) : tabs[0]
 
   // 「扫码登录」页内当前展示的二维码（单 Provider 时恒为它，无需切换器）
   const activeQr = groups.qrProviders.find((method) => method.id === activeQrId) ?? groups.qrProviders[0]
@@ -113,13 +125,24 @@ export function LoginPage() {
     <div className={`fc-auth${phase !== 'intro' ? ' fc-auth--ready' : ''}`}>
       {phase !== 'done' && (
         <div aria-hidden className={`fc-intro${phase === 'settling' ? ' fc-intro--out' : ''}`}>
-          {/* 星散节点：汇聚奇点的智能碎片 */}
+          {/* 深空背景粒子：氛围层，点火前淡出 */}
+          <div className="fc-intro__bg">
+            {INTRO_BG_DOTS.map((dot, i) => (
+              <span
+                key={i}
+                className="fc-intro__bgdot"
+                style={{ '--dx': dot.dx, '--dy': dot.dy, '--bd': dot.bd } as CSSProperties}
+              />
+            ))}
+          </div>
+
+          {/* 螺旋卷入粒子：transform = rotate(初始角) + translateX(极径)，动画即黑洞吸积 */}
           <div className="fc-intro__dots">
             {INTRO_DOTS.map((dot, i) => (
               <span
                 key={i}
                 className={`fc-intro__dot${dot.brass ? ' fc-intro__dot--brass' : ''}`}
-                style={{ '--dx': dot.dx, '--dy': dot.dy, '--d': dot.d, '--s': `${dot.s}px` } as CSSProperties}
+                style={{ '--a': dot.a, '--r': dot.r, '--spin': dot.spin, '--d': dot.d, '--s': `${dot.s}px` } as CSSProperties}
               />
             ))}
           </div>
@@ -127,8 +150,17 @@ export function LoginPage() {
           <div className="fc-intro__stage">
             <div className="fc-intro__corewrap">
               <span className="fc-intro__core" />
-              <span className="fc-intro__wave" />
+              <span className="fc-intro__wave fc-intro__wave--1" />
+              <span className="fc-intro__wave fc-intro__wave--2" />
+              <span className="fc-intro__wave fc-intro__wave--3" />
             </div>
+
+            {/* 暖色过曝闪：白底上的"爆发一瞬"（纯白闪不可见，用黄铜薄雾） */}
+            <span className="fc-intro__flash" />
+
+            {/* 巨字残影：镜头景深，「法穿」炸出前的一瞬大轮廓 */}
+            <span className="fc-intro__ghost">穿</span>
+
             <div className="fc-intro__word">
               <span className="fc-intro__char">法</span>
               <span className="fc-intro__char fc-intro__char--2">穿</span>
@@ -141,7 +173,7 @@ export function LoginPage() {
                     <span
                       key={ci}
                       className="fc-intro__letter"
-                      style={{ animationDelay: `${3.45 + (wi * 8 + ci) * 0.055}s` }}
+                      style={{ animationDelay: `${6.45 + (wi * 8 + ci) * 0.055}s` }}
                     >
                       {ch}
                     </span>
@@ -151,6 +183,13 @@ export function LoginPage() {
             </span>
             <span className="fc-intro__meta">SI Copilot</span>
             <span className="fc-intro__est">EST. 2026 · 超级智能法律事务协同系统</span>
+          </div>
+
+          {/* 抛射粒子：奇点爆发甩出的火花 */}
+          <div className="fc-intro__ejecta">
+            {INTRO_EJECTA.map((p, i) => (
+              <span key={i} className="fc-intro__spark" style={{ '--ex': p.ex, '--ey': p.ey } as CSSProperties} />
+            ))}
           </div>
         </div>
       )}
@@ -164,9 +203,7 @@ export function LoginPage() {
         <p className="fc-eyebrow">登录 / Sign in</p>
         <h1 className="fc-title">欢迎回来</h1>
 
-        {tabs.length > 1 && (
-          <LoginMethodSwitch methods={tabs} activeId={active.id} onChange={setActiveId} />
-        )}
+        {showTabs && <LoginMethodSwitch methods={tabs} activeId={active.id} onChange={setActiveId} />}
 
         {active.kind === 'password' && (
           <>
