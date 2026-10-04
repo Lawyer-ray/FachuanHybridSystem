@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone as dt_timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from django.db import migrations, models, transaction
 
 # 哨兵时间（UTC 感知，USE_TZ 下与库中返回的 aware datetime 可比较）
-_DATETIME_MIN = datetime.min.replace(tzinfo=dt_timezone.utc)
+_DATETIME_MIN = datetime.min.replace(tzinfo=UTC)
 
 
 def _repoint_inbound_fks(apps: Any, model: Any, dup_id: int, keeper_id: int) -> None:

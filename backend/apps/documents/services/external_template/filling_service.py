@@ -779,6 +779,11 @@ class FillingService:
 
         old_record: FillRecord = FillRecord.objects.get(id=record_id)
 
+        # FillRecord.template 已改 SET_NULL（模板删除后保留审计记录），
+        # 模板已删的历史记录无法重填，显式报错而非静默传 None
+        if old_record.template_id is None:
+            raise ValueError(f"填充记录 {record_id} 的模板已被删除，无法重新填充")
+
         new_record = self.fill_template(
             template_id=old_record.template_id,
             case_id=old_record.case_id,
