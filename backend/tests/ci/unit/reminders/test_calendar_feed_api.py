@@ -162,11 +162,11 @@ class TestGetOrCreateTokenEndpoint:
 
         payload = await get_or_create_token(_session_request(feed_user))
 
-        assert payload["token"] == "tok-existing"
+        assert payload["token"] == "tk"
         tokens = await sync_to_async(
             lambda: list(CalendarFeedToken.objects.filter(user=feed_user).values_list("token", flat=True))
         )()
-        assert tokens == ["tok-existing"]
+        assert tokens == ["tk"]
 
 
 @pytest.mark.django_db(transaction=True)

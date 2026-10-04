@@ -139,7 +139,7 @@ class TestExecuteFiling:
 
     @pytest.mark.asyncio
     async def test_assembles_and_runs_script_with_case(self, _models: dict[str, MagicMock]):
-        adapter = JTNAdapter("acc", "pwd")
+        adapter = JTNAdapter("acc", "p")
         with patch("apps.oa_filing.services.oa_scripts.jtn.filing.JtnFilingScript") as script_cls:
             script = script_cls.return_value
             script.run = AsyncMock()
@@ -171,7 +171,7 @@ class TestExecuteFiling:
 
     @pytest.mark.asyncio
     async def test_without_case_id_uses_contract_defaults(self, _models: dict[str, MagicMock]):
-        adapter = JTNAdapter("acc", "pwd")
+        adapter = JTNAdapter("acc", "p")
         with patch("apps.oa_filing.services.oa_scripts.jtn.filing.JtnFilingScript") as script_cls:
             script = script_cls.return_value
             script.run = AsyncMock()
@@ -203,7 +203,7 @@ class TestExecuteFiling:
             "django_apps",
             SimpleNamespace(get_model=MagicMock(return_value=MagicMock(objects=contract_party_model.objects))),
         )
-        adapter = JTNAdapter("acc", "pwd")
+        adapter = JTNAdapter("acc", "p")
         with pytest.raises(ScriptExecutionError, match="合同没有委托方当事人"):
             await adapter.execute_filing(session=None, credential="cred", contract_id=1, case_id=None)
 
@@ -214,7 +214,7 @@ class TestExecuteFiling:
 class TestStampArchiveDelegation:
     @pytest.mark.asyncio
     async def test_execute_stamp_builds_form_and_runs(self):
-        adapter = JTNAdapter("acc", "pwd")
+        adapter = JTNAdapter("acc", "p")
         session = SimpleNamespace(
             credential=SimpleNamespace(account="acc", password="p"),
             oa_case_number="OA-66",
@@ -232,14 +232,14 @@ class TestStampArchiveDelegation:
 
     @pytest.mark.asyncio
     async def test_execute_stamp_without_credential_raises(self):
-        adapter = JTNAdapter("acc", "pwd")
+        adapter = JTNAdapter("acc", "p")
         session = SimpleNamespace(credential=None, oa_case_number="OA-1", file_path="/x.pdf")
         with pytest.raises(RuntimeError, match="盖章申请缺少 OA 登录凭证"):
             await adapter.execute_stamp(session)
 
     @pytest.mark.asyncio
     async def test_execute_archive_builds_form_and_runs(self):
-        adapter = JTNAdapter("acc", "pwd")
+        adapter = JTNAdapter("acc", "p")
         session = SimpleNamespace(
             credential=SimpleNamespace(account="acc", password="p"),
             oa_case_number="OA-77",
@@ -257,7 +257,7 @@ class TestStampArchiveDelegation:
 
     @pytest.mark.asyncio
     async def test_execute_archive_without_credential_raises(self):
-        adapter = JTNAdapter("acc", "pwd")
+        adapter = JTNAdapter("acc", "p")
         session = SimpleNamespace(credential=None, oa_case_number="OA-1", file_paths=[])
         with pytest.raises(RuntimeError, match="归档申请缺少 OA 登录凭证"):
             await adapter.execute_archive(session)
@@ -271,7 +271,7 @@ class TestWaitOpenBrowsersClosedEdgeCases:
     async def test_wait_failure_and_stale_registry_entry_tolerated(self, monkeypatch: pytest.MonkeyPatch):
         """wait_user_closed 抛错与全局列表缺失项均不上抛，会话仍被回收。"""
         monkeypatch.setattr(jtn_adapter_mod, "_active_browser_sessions", [])
-        adapter = JTNAdapter("acc", "pwd")
+        adapter = JTNAdapter("acc", "p")
         handle = _make_session_handle(connected=True)
         handle.wait_user_closed = AsyncMock(side_effect=RuntimeError("wait failed"))
         adapter._opened_sessions.append(handle)  # 不进全局列表 → remove 触发 ValueError 分支
@@ -314,7 +314,7 @@ class TestOpenPages:
         monkeypatch.setattr(jtn_adapter_mod, "_active_browser_sessions", [stale])
         handle = _make_session_handle(connected=True)
         credential = SimpleNamespace(account="acc", password="p")
-        adapter = JTNAdapter("acc", "pwd")
+        adapter = JTNAdapter("acc", "p")
 
         with patch(script_path) as script_cls:
             script = script_cls.return_value
@@ -334,7 +334,7 @@ class TestOpenPages:
 class TestCaseImportDelegation:
     @pytest.mark.asyncio
     async def test_execute_case_import_delegates_to_service(self):
-        adapter = JTNAdapter("acc", "pwd")
+        adapter = JTNAdapter("acc", "p")
         session = SimpleNamespace(result_data={"case_nos": ["A-1", "A-2"], "matched_case_nos": ["A-1"]})
         with patch("apps.oa_filing.services.case_import_service.CaseImportService") as svc_cls:
             svc_cls.return_value.run_import = MagicMock()
@@ -345,7 +345,7 @@ class TestCaseImportDelegation:
 
     @pytest.mark.asyncio
     async def test_fetch_case_detail_returns_script_result(self):
-        adapter = JTNAdapter("acc", "pwd")
+        adapter = JTNAdapter("acc", "p")
         credential = SimpleNamespace(account="acc", password="p")
         with patch("apps.oa_filing.services.oa_scripts.jtn.case_import.JtnCaseImportScript") as script_cls:
             script_cls.return_value.search_case = AsyncMock(return_value="oa-case-data")
@@ -356,7 +356,7 @@ class TestCaseImportDelegation:
         script_cls.return_value.search_case.assert_awaited_once_with("CASE-9")
 
     def test_search_cases_forwards_options(self):
-        adapter = JTNAdapter("acc", "pwd")
+        adapter = JTNAdapter("acc", "p")
         credential = SimpleNamespace(account="acc", password="p")
         progress = MagicMock()
         with patch("apps.oa_filing.services.oa_scripts.jtn.case_import.JtnCaseImportScript") as script_cls:
@@ -372,7 +372,7 @@ class TestCaseImportDelegation:
         )
 
     def test_build_case_detail_url(self):
-        adapter = JTNAdapter("acc", "pwd")
+        adapter = JTNAdapter("acc", "p")
         url = adapter.build_case_detail_url(SimpleNamespace(keyid="K123"))
         assert url == (
             "https://ims.jtn.com/project/projectView.aspx?keyid=K123&FirstModel=PROJECT&SecondModel=PROJECT002"
@@ -385,7 +385,7 @@ class TestCaseImportDelegation:
 class TestClientImportDelegation:
     @pytest.mark.asyncio
     async def test_execute_client_import_delegates_to_service(self):
-        adapter = JTNAdapter("acc", "pwd")
+        adapter = JTNAdapter("acc", "p")
         session = SimpleNamespace()
         with patch("apps.oa_filing.services.client_import_service.ClientImportService") as svc_cls:
             svc_cls.return_value.run_import = MagicMock()
@@ -395,7 +395,7 @@ class TestClientImportDelegation:
         svc_cls.return_value.run_import.assert_called_once_with(headless=False, limit=5)
 
     def test_iter_customers_builds_script_and_runs(self):
-        adapter = JTNAdapter("acc", "pwd")
+        adapter = JTNAdapter("acc", "p")
         credential = SimpleNamespace(account="acc", password="p")
         session = SimpleNamespace(credential=credential)
         progress = MagicMock()
@@ -427,7 +427,7 @@ class TestAsyncMapLegalPosition:
             monkeypatch.setattr(
                 jtn_adapter_mod, "django_apps", SimpleNamespace(get_model=MagicMock(return_value=case_party_model))
             )
-            adapter = JTNAdapter("acc", "pwd")
+            adapter = JTNAdapter("acc", "p")
             contract_party = SimpleNamespace(client_id=5)
             assert await adapter._async_map_legal_position(contract_party) == expected
             case_party_model.objects.filter.assert_called_once_with(client_id=5)
