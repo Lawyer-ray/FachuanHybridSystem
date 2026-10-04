@@ -1,7 +1,8 @@
 """
-刑事案由占位符服务
+案由占位符服务
 
-从合同绑定的案件中提取案由(罪名).
+「案由」占位符的唯一归属服务:合同流从绑定案件中提取案由(罪名),
+诉讼/强制执行流从案件对象或案件 DTO 提取案由.
 """
 
 import logging
@@ -15,17 +16,20 @@ logger = logging.getLogger(__name__)
 
 @PlaceholderRegistry.register
 class CriminalCauseService(BasePlaceholderService):
-    """刑事案由服务"""
+    """案由服务(「案由」占位符的全局唯一归属服务)"""
 
     name: str = "criminal_cause_service"
-    display_name: str = "刑事案由服务"
-    description: str = "从合同绑定的案件中提取案由(罪名),去除编号后缀"
+    display_name: str = "案由服务"
+    description: str = (
+        "生成「案由」占位符:合同流取绑定案件的案由(罪名),诉讼流取案件/案件DTO的案由。"
+        "键「案由」仅由本服务声明,历史上 litigation 侧的两个同名键服务已作为重复实现移除"
+    )
     category: str = "contract"
     placeholder_keys: ClassVar = ["案由"]
     placeholder_metadata: ClassVar = {
         "案由": {
             "display_name": "案由",
-            "description": "合同绑定案件的案由/罪名,自动去除编号后缀",
+            "description": "案件的案由/罪名(合同流取绑定案件,诉讼流取案件或DTO)",
             "example_value": "危险作业罪",
         }
     }

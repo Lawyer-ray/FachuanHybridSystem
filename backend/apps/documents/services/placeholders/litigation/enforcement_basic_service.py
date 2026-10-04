@@ -79,48 +79,8 @@ class EnforcementCaseNumberService(BasePlaceholderService):
         return ""
 
 
-@PlaceholderRegistry.register
-class EnforcementCourtService(BasePlaceholderService):
-    """强制执行申请书管辖法院服务"""
-
-    name: str = "enforcement_court_service"
-    display_name: str = "诉讼文书-强制执行申请书管辖法院"
-    description: str = "生成强制执行申请书模板中的管辖法院占位符"
-    category: str = "litigation"
-    placeholder_keys: ClassVar = [LitigationPlaceholderKeys.ENFORCEMENT_COURT]
-
-    def __init__(self) -> None:
-        from .case_details_accessor import LitigationCaseDetailsAccessor
-
-        self.case_details_accessor = LitigationCaseDetailsAccessor()
-
-    def generate(self, context_data: dict[str, Any]) -> dict[str, Any]:
-        case_id = context_data.get("case_id") or getattr(context_data.get("case"), "id", None)
-        if not case_id:
-            return {}
-        return {LitigationPlaceholderKeys.ENFORCEMENT_COURT: self.get_court(case_id)}
-
-    def get_court(self, case_id: int) -> str:
-        """
-        获取管辖法院名称
-
-        Args:
-            case_id: 案件 ID
-
-        Returns:
-            str: 管辖法院名称
-        """
-        case_details = self.case_details_accessor.require_case_details(case_id=case_id)
-        supervising_authorities = case_details.get("supervising_authorities", []) or []
-
-        for authority in supervising_authorities:
-            name = authority.get("name", "").strip()
-            if name:
-                logger.info("获取到管辖法院: case_id=%s, name=%s", case_id, name)
-                return name  # type: ignore[no-any-return]
-
-        logger.warning("未找到管辖法院信息: case_id=%s", case_id)
-        return ""
+# 「管辖法院」占位符由 archive.ArchivePlaceholderService 唯一归属
+# (本文件原 EnforcementCourtService 与其声明同键,输出始终被归属裁决丢弃,已删除)。
 
 
 @PlaceholderRegistry.register
@@ -211,29 +171,5 @@ class EnforcementTargetAmountService(BasePlaceholderService):
         return ""
 
 
-@PlaceholderRegistry.register
-class EnforcementCauseOfActionService(BasePlaceholderService):
-    """强制执行申请书案由服务"""
-
-    name: str = "enforcement_cause_of_action_service"
-    display_name: str = "诉讼文书-强制执行申请书案由"
-    description: str = "生成强制执行申请书模板中的案由占位符"
-    category: str = "litigation"
-    placeholder_keys: ClassVar = [LitigationPlaceholderKeys.CAUSE_OF_ACTION]
-
-    def generate(self, context_data: dict[str, Any]) -> dict[str, Any]:
-        cause_of_action = self._resolve_cause_of_action(context_data)
-        return {LitigationPlaceholderKeys.CAUSE_OF_ACTION: cause_of_action}
-
-    def _resolve_cause_of_action(self, context_data: dict[str, Any]) -> str:
-        case_obj = context_data.get("case")
-        case_value = getattr(case_obj, "cause_of_action", None)
-        if case_value:
-            return str(case_value).strip()
-
-        case_dto = context_data.get("case_dto")
-        dto_value = getattr(case_dto, "cause_of_action", None)
-        if dto_value:
-            return str(dto_value).strip()
-
-        return ""
+# 「案由」占位符由 contract.criminal_cause_service.CriminalCauseService 唯一归属
+# (本文件原 EnforcementCauseOfActionService 与其声明同键,输出始终被归属裁决丢弃,已删除)。

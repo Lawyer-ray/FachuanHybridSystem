@@ -89,27 +89,6 @@ class LitigationRespondentNamePlaceholderService(_LitigationPartyNameBase):
     legal_status = LegalStatus.DEFENDANT
 
 
-@PlaceholderRegistry.register
-class LitigationCauseOfActionPlaceholderService(BasePlaceholderService):
-    name: str = "litigation_cause_of_action_placeholder_service"
-    display_name: str = "诉讼文书-案由"
-    description: str = "生成诉讼文书模板中的案由占位符"
-    category: str = "litigation"
-    placeholder_keys: ClassVar = [LitigationPlaceholderKeys.CAUSE_OF_ACTION]
-
-    def generate(self, context_data: dict[str, Any]) -> dict[str, Any]:
-        cause_of_action = self._resolve_cause_of_action(context_data)
-        return {LitigationPlaceholderKeys.CAUSE_OF_ACTION: cause_of_action}
-
-    def _resolve_cause_of_action(self, context_data: dict[str, Any]) -> str:
-        case_obj = context_data.get("case")
-        case_value = getattr(case_obj, "cause_of_action", None)
-        if case_value:
-            return str(case_value).strip()
-
-        case_dto = context_data.get("case_dto")
-        dto_value = getattr(case_dto, "cause_of_action", None)
-        if dto_value:
-            return str(dto_value).strip()
-
-        return ""
+# 「案由」占位符由 contract.criminal_cause_service.CriminalCauseService 唯一归属:
+# 其取值链(case → case_dto → contract.cases)是本文件原诉讼实现的超集,
+# 双方声明同键会在注册期触发冲突 error 日志并被归属裁决丢弃,故此处不再声明。

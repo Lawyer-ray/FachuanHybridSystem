@@ -33,7 +33,6 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
         "案件对方当事人名称",
         "案件对方当事人信息",
         "案件案由",
-        "案件当前阶段",
     ]
     placeholder_metadata: ClassVar = {
         "案件审理机构": {
@@ -96,11 +95,6 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
             "description": "案件案由(去掉中划线及其后内容)",
             "example_value": "买卖合同纠纷",
         },
-        "案件当前阶段": {
-            "display_name": "案件当前阶段",
-            "description": "案件当前阶段(显示值)",
-            "example_value": "一审",
-        },
     }
 
     def generate(self, context_data: dict[str, Any]) -> dict[str, Any]:
@@ -122,7 +116,6 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
             "案件对方当事人名称": self._get_party_names(case, is_our_client=False),
             "案件对方当事人信息": self._get_opposing_party_info(case),
             "案件案由": self._format_cause_of_action(getattr(case, "cause_of_action", None)),
-            "案件当前阶段": self._get_case_stage(case),
         }
 
     def _get_trial_authorities(self, case: Any) -> str:
@@ -421,12 +414,5 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
         parts = re.split(r"\s*[-—–－]\s*", text, maxsplit=1)
         return (parts[0] or "").strip()
 
-    def _get_case_stage(self, case: Any) -> str:
-        if not getattr(case, "current_stage", None):
-            return ""
-        try:
-            return case.get_current_stage_display() or ""
-        except Exception:
-            logger.exception("操作失败")
-
-            return str(getattr(case, "current_stage", "") or "")
+    # 「案件当前阶段」占位符由 archive.ArchivePlaceholderService 唯一归属,
+    # 本服务原 _get_case_stage 实现与之逐行等价,已随键声明一并移除。

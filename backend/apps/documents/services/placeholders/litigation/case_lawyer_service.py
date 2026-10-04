@@ -24,8 +24,9 @@ class CaseLawyerService(BasePlaceholderService):
     display_name: str = "诉讼文书-案件律师信息"
     description: str = "生成案件绑定的律师信息：姓名、执业证号、电话、律所地址"
     category: str = "litigation"
+    # 「案件律师姓名」由 case.case_common_placeholder_service 唯一归属(主办在前排序),
+    # 此处只声明其余律师字段,避免注册期同键冲突。
     placeholder_keys: ClassVar = [
-        LitigationPlaceholderKeys.CASE_LAWYER_NAME,
         LitigationPlaceholderKeys.CASE_LAWYER_ID,
         LitigationPlaceholderKeys.CASE_LAWYER_PHONE,
         LitigationPlaceholderKeys.CASE_LAWYER_ADDRESS,
@@ -35,7 +36,6 @@ class CaseLawyerService(BasePlaceholderService):
         case_id = context_data.get("case_id") or getattr(context_data.get("case"), "id", None)
         if not case_id:
             return {
-                LitigationPlaceholderKeys.CASE_LAWYER_NAME: "",
                 LitigationPlaceholderKeys.CASE_LAWYER_ID: "",
                 LitigationPlaceholderKeys.CASE_LAWYER_PHONE: "",
                 LitigationPlaceholderKeys.CASE_LAWYER_ADDRESS: "",
@@ -48,13 +48,11 @@ class CaseLawyerService(BasePlaceholderService):
         if not assignments.exists():
             logger.warning("未找到案件律师: case_id=%s", case_id)
             return {
-                LitigationPlaceholderKeys.CASE_LAWYER_NAME: "",
                 LitigationPlaceholderKeys.CASE_LAWYER_ID: "",
                 LitigationPlaceholderKeys.CASE_LAWYER_PHONE: "",
                 LitigationPlaceholderKeys.CASE_LAWYER_ADDRESS: "",
             }
 
-        names: list[str] = []
         ids: list[str] = []
         phones: list[str] = []
         seen_addresses: set[str] = set()
@@ -64,10 +62,6 @@ class CaseLawyerService(BasePlaceholderService):
             lawyer = assignment.lawyer
             if not lawyer:
                 continue
-
-            name = (lawyer.real_name or lawyer.username or "").strip()
-            if name and name not in names:
-                names.append(name)
 
             license_no = (lawyer.license_no or "").strip()
             if license_no and license_no not in ids:
@@ -85,7 +79,6 @@ class CaseLawyerService(BasePlaceholderService):
                 addresses.append(address)
 
         return {
-            LitigationPlaceholderKeys.CASE_LAWYER_NAME: "、".join(names),
             LitigationPlaceholderKeys.CASE_LAWYER_ID: "、".join(ids),
             LitigationPlaceholderKeys.CASE_LAWYER_PHONE: "、".join(phones),
             LitigationPlaceholderKeys.CASE_LAWYER_ADDRESS: "、".join(addresses),

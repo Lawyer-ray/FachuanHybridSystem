@@ -8,15 +8,12 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 def _make_service() -> Any:
-    from apps.documents.services.placeholders.case.case_common_service import (
-        CaseCommonPlaceholderService,
-    )
+    from apps.documents.services.placeholders.case.case_common_service import CaseCommonPlaceholderService
     return CaseCommonPlaceholderService()
 
 
@@ -262,29 +259,6 @@ class TestFormatCauseOfAction:
     def test_handles_full_width_dash(self):
         svc = _make_service()
         assert svc._format_cause_of_action("合同纠纷—二审") == "合同纠纷"
-
-
-# ---------------------------------------------------------------------------
-# _get_case_stage
-# ---------------------------------------------------------------------------
-
-class TestGetCaseStage:
-    def test_returns_display_value(self):
-        case = _make_case()
-        case.get_current_stage_display.return_value = "一审"
-        svc = _make_service()
-        assert svc._get_case_stage(case) == "一审"
-
-    def test_returns_empty_when_no_stage(self):
-        case = _make_case(current_stage=None)
-        svc = _make_service()
-        assert svc._get_case_stage(case) == ""
-
-    def test_returns_raw_value_on_exception(self):
-        case = _make_case(current_stage="first_trial")
-        case.get_current_stage_display.side_effect = Exception("error")
-        svc = _make_service()
-        assert svc._get_case_stage(case) == "first_trial"
 
 
 # ---------------------------------------------------------------------------
@@ -650,7 +624,8 @@ class TestFormatClientInfo:
 class TestPlaceholderKeysMetadata:
     def test_keys_count(self):
         svc = _make_service()
-        assert len(svc.placeholder_keys) == 13
+        # 「案件当前阶段」已归 archive_placeholder_service 唯一归属,本服务不再声明
+        assert len(svc.placeholder_keys) == 12
 
     def test_metadata_has_all_keys(self):
         svc = _make_service()
@@ -683,7 +658,6 @@ class TestGenerateFull:
         case.parties.select_related.return_value.all.return_value.order_by.return_value = [p1, p2]
         case.supervising_authorities.all.return_value.order_by.return_value = [auth]
         case.assignments.select_related.return_value.all.return_value.order_by.return_value = [a1]
-        case.get_current_stage_display.return_value = "一审"
         svc = _make_service()
         result = svc.generate({"case": case})
         assert result["案件审理机构"] == "朝阳法院"
@@ -691,5 +665,5 @@ class TestGenerateFull:
         assert result["案件对方当事人名称"] == "李四"
         assert result["案件律师姓名"] == "王律师"
         assert result["案件案由"] == "合同纠纷"
-        assert result["案件当前阶段"] == "一审"
-        assert len(result) == 13
+        assert "案件当前阶段" not in result
+        assert len(result) == 12
