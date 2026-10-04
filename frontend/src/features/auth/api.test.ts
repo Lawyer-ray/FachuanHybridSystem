@@ -46,7 +46,7 @@ function tokenResponse() {
 }
 
 /** ky 桩的失败形状：.json() 拒绝（被测代码 await ky.post(...).json()） */
-function jsonReject(err: unknown) {
+function jsonReject(err: Error) {
   return { json: () => Promise.reject(err) }
 }
 

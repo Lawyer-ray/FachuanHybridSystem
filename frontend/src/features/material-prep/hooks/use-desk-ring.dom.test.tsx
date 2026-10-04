@@ -46,8 +46,7 @@ function stubRects(wrap: HTMLElement, grid: HTMLElement, cards: HTMLElement[]) {
   })
 }
 
-function RingHarness(props: { sel: number; count: number; onRefs?: (r: { grid: HTMLDivElement; wrap: HTMLDivElement; ring: HTMLDivElement }) => void }) {
-  const { sel, count, onRefs } = props
+function RingHarness({ sel, count }: { sel: number; count: number }) {
   const gridRef = useRef<HTMLDivElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const ringRef = useRef<HTMLDivElement>(null)

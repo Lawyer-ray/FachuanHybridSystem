@@ -38,7 +38,7 @@ function fakeCanvas(opts: { ctx: ReturnType<typeof makeCtx> | null } = { ctx: ma
   return {
     width: 0,
     height: 0,
-    getContext: () => opts.ctx,
+    getContext: (_type?: string) => opts.ctx,
     toBlob: (cb: (b: Blob | null) => void) => cb(new Blob(['png-bytes'], { type: 'image/png' })),
   }
 }
@@ -108,15 +108,15 @@ describe('renderPdfPageRegion（裁剪 + 留白）', () => {
     const canvas = await renderPdfPageRegion(pdfStub(), 1, { x: 0.2, y: 0.2, w: 0.5, h: 0.5 }, 900)
 
     const [full, region] = canvases
-    expect(full.width).toBe(900)
+    expect(full!.width).toBe(900)
     // cw=450、ch=600，pad=round(900*0.02)=18：画布 = 裁剪区 + 两侧留白
-    expect(region.width).toBe(450 + 36)
-    expect(region.height).toBe(600 + 36)
-    const ctx = region.getContext('2d') as ReturnType<typeof makeCtx>
+    expect(region!.width).toBe(450 + 36)
+    expect(region!.height).toBe(600 + 36)
+    const ctx = region!.getContext('2d') as ReturnType<typeof makeCtx>
     expect(ctx.fillStyle).toBe('#ffffff')
-    expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, region.width, region.height)
+    expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, region!.width, region!.height)
     // 源起点 = rect 左上角内缩一个 pad：sx=0.2*900-18=162、sy=0.2*1200-18=222
-    expect(ctx.drawImage).toHaveBeenCalledWith(full, 162, 222, region.width, region.height, 0, 0, region.width, region.height)
+    expect(ctx.drawImage).toHaveBeenCalledWith(full, 162, 222, region!.width, region!.height, 0, 0, region!.width, region!.height)
     expect(canvas).toBe(region)
   })
 
@@ -131,11 +131,11 @@ describe('renderPdfPageRegion（裁剪 + 留白）', () => {
 
     const [, region] = canvases
     // cw/ch 触发 32px 下限：画布 = 32 + 两侧 pad
-    expect(region.width).toBe(32 + 36)
-    expect(region.height).toBe(32 + 36)
-    const ctx = region.getContext('2d') as ReturnType<typeof makeCtx>
+    expect(region!.width).toBe(32 + 36)
+    expect(region!.height).toBe(32 + 36)
+    const ctx = region!.getContext('2d') as ReturnType<typeof makeCtx>
     // rect.x=0 → sx = max(0, -18) = 0
-    expect(ctx.drawImage).toHaveBeenCalledWith(canvases[0], 0, 0, region.width, region.height, 0, 0, region.width, region.height)
+    expect(ctx.drawImage).toHaveBeenCalledWith(canvases[0], 0, 0, region!.width, region!.height, 0, 0, region!.width, region!.height)
   })
 })
 

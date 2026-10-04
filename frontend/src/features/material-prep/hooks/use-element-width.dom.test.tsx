@@ -7,7 +7,7 @@
  * jsdom 的 clientWidth 恒 0，用可变 getter 注入受控宽度。
  */
 import { useCallback, useEffect, useState } from 'react'
-import { act, render } from '@testing-library/react'
+import { act, render , waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useElementWidth } from './use-element-width'
@@ -132,8 +132,9 @@ describe('useElementWidth', () => {
     let reported = -1
     render(<LateMountHarness widthRef={widthRef} onWidth={(w) => (reported = w)} />)
     expect(reported).toBe(0)
-    await new Promise((r) => setTimeout(r, 10))
-    expect(reported).toBe(555)
+    // 固定 sleep 在负载下计时不稳（effect+setState 跨微任务/宏任务），
+    // waitFor 轮询消除抖动
+    await waitFor(() => expect(reported).toBe(555))
     expect(ro.instances).toHaveLength(1)
   })
 })
