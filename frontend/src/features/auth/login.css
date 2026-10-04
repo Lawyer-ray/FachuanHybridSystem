@@ -34,7 +34,8 @@
 }
 
 .fc-auth ::selection {
-  background: rgba(168, 132, 44, 0.18);
+  /* 不做品牌色染色：系统默认淡蓝选中态更中性（用户反馈黄底发脏） */
+  background: rgba(23, 21, 15, 0.12);
 }
 
 /* ---------- 单栏骨架：垂直居中，窄屏贴边 ---------- */
@@ -67,7 +68,7 @@
 
 /* 眉标 / 标题 / 副题 */
 .fc-eyebrow {
-  margin-top: 56px;
+  margin-top: 32px;
   font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
   font-size: 0.6875rem;
   letter-spacing: 0.22em;
@@ -87,16 +88,6 @@
   margin-top: 8px;
   font-size: 0.8125rem;
   line-height: 1.7;
-  color: var(--ink-2);
-}
-
-/* 法条 / 免责 */
-.fc-legal {
-  margin-top: 40px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
-  font-size: 0.75rem;
-  line-height: 1.8;
   color: var(--ink-2);
 }
 
@@ -420,7 +411,7 @@
     animation: fc-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
-  .fc-tabs, .fc-fields, .fc-social, .fc-qr, .fc-legal {
+  .fc-tabs, .fc-fields, .fc-social, .fc-qr {
     animation: fc-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
     animation-delay: 0.08s;
   }
