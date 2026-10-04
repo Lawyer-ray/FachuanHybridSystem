@@ -122,7 +122,7 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
       {/* 品牌：产品名（点击回首页） */}
       <Link to="/" className="flex flex-none items-center pr-1.5 no-underline">
         <span className="text-[14px] font-bold whitespace-nowrap tracking-[-0.01em] text-foreground">
-          法穿 <span className="text-[12.5px] font-medium text-muted-foreground">AI Copilot</span>
+          法穿 <span className="text-[12.5px] font-medium text-muted-foreground">SI Copilot</span>
         </span>
       </Link>
 

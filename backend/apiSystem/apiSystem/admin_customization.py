@@ -26,9 +26,9 @@ logger = logging.getLogger(__name__)
 # Admin 站点标题
 # ============================================================
 
-admin.site.site_header = _(getattr(settings, "ADMIN_SITE_HEADER", "法穿AI Copilot"))
-admin.site.site_title = _(getattr(settings, "ADMIN_SITE_TITLE", "法穿AI Copilot"))
-admin.site.index_title = _(getattr(settings, "ADMIN_INDEX_TITLE", "欢迎来到法穿AI Copilot"))
+admin.site.site_header = _(getattr(settings, "ADMIN_SITE_HEADER", "法穿SI Copilot"))
+admin.site.site_title = _(getattr(settings, "ADMIN_SITE_TITLE", "法穿SI Copilot"))
+admin.site.index_title = _(getattr(settings, "ADMIN_INDEX_TITLE", "欢迎来到法穿SI Copilot"))
 
 # 覆盖 admin login 视图，注入注册上下文
 _admin_login_view = AuthLoginView.as_view()

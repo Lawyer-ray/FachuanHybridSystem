@@ -93,7 +93,7 @@ def test_confirm_party(mock_build, authenticated_client):
         data=json.dumps(
             {
                 "represented_party": "party_a",
-                "reviewer_name": "法穿AI",
+                "reviewer_name": "法穿SI",
                 "selected_steps": ["contract_review"],
                 "party_a": "甲方修正",
                 "party_b": "",

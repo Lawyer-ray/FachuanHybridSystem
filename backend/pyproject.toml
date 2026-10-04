@@ -1,7 +1,7 @@
 [project]
 name = "fachuan-backend"
 version = "26.52.11"
-description = "法穿AI Copilot - Backend"
+description = "法穿SI Copilot - Backend"
 requires-python = ">=3.12"
 dependencies = [
     # --- Django 核心 ---

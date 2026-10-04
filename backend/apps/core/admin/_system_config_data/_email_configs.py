@@ -47,12 +47,12 @@ def get_email_configs() -> list[dict[str, Any]]:
             "key": "EMAIL_FROM_NAME",
             "category": "email",
             "description": "发件人显示名称",
-            "value": "法穿AI系统",
+            "value": "法穿SI系统",
         },
         {
             "key": "EMAIL_SUBJECT_PREFIX",
             "category": "email",
             "description": "邮件主题前缀",
-            "value": "[法穿AI]",
+            "value": "[法穿SI]",
         },
     ]

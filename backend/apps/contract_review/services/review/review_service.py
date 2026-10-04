@@ -122,7 +122,7 @@ class ReviewService:  # pragma: no cover
         default_steps = ["typo_check", "format_document", "contract_review", "review_report"]
         steps = selected_steps if selected_steps else default_steps
 
-        reviewer_name = reviewer_name.strip() or "法穿AI"
+        reviewer_name = reviewer_name.strip() or "法穿SI"
 
         # 构建更新字段
         update_fields: dict[str, object] = {

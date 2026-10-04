@@ -16,7 +16,7 @@ from lxml import etree
 
 logger = logging.getLogger(__name__)
 
-AUTHOR = "法穿AI"
+AUTHOR = "法穿SI"
 
 _rev_id_counter = 1
 

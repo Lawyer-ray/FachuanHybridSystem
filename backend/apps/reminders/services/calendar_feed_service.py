@@ -85,7 +85,7 @@ class CalendarFeedService:
     def render_ics_feed(self, reminders: list[Reminder], user_display: str) -> bytes:
         """将 Reminder 列表渲染为 iCalendar (.ics) 字节流。"""
         cal = Calendar()
-        cal.add("prodid", "-//法穿AI Copilot//Calendar Feed//CN")
+        cal.add("prodid", "-//法穿SI Copilot//Calendar Feed//CN")
         cal.add("version", "2.0")
         cal.add("calscale", "GREGOR")
         cal.add("method", "PUBLISH")

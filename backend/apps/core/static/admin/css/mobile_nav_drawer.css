@@ -1,5 +1,5 @@
 /*
- * 法穿 AI — Django Admin 移动端抽屉式侧边栏
+ * 法穿SI — Django Admin 移动端抽屉式侧边栏
  *
  * 背景：
  *   Django 原生 nav_sidebar.css 在 ≤767px 时直接 display:none 隐藏侧边栏，

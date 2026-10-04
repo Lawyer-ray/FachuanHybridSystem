@@ -93,7 +93,7 @@ describe('AppNavbar 渲染与全局检索', () => {
   it('渲染品牌、三个导航入口与检索按钮', () => {
     setupUi()
     expect(screen.getByText('法穿')).toBeTruthy()
-    expect(screen.getByText('AI Copilot')).toBeTruthy()
+    expect(screen.getByText('SI Copilot')).toBeTruthy()
     expect(screen.getByRole('link', { name: '首页' })).toBeTruthy()
     expect(screen.getByRole('link', { name: '材料预处理' })).toBeTruthy()
     expect(screen.getByRole('link', { name: '办案' })).toBeTruthy()

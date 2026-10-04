@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "法穿AI Copilot API",
+    "title": "法穿SI Copilot API",
     "version": "1.0.0",
     "description": "律师事务所案件、合同、客户管理系统"
   },
