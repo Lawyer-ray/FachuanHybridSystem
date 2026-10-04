@@ -2,15 +2,77 @@
 
 存在的意义：登录只放行已绑定的社交身份，所以这里是排查「律师说扫码进不去」
 的第一现场——能反查某个飞书/微信身份对应哪位律师，也能替律师解绑换号。
+
+``SocialAuthProvider`` 是各登录平台的接入配置（凭证/回调/开关），从
+``SystemConfig`` 的 19 行 KV 独立成表后的管理入口。
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from django import forms
 from django.contrib import admin
 
-from .models import SocialAccount
+from .models import SocialAccount, SocialAuthProvider
+from .providers import ProviderRegistry
+
+
+class SocialAuthProviderForm(forms.ModelForm):
+    """平台配置表单：name 必须与代码注册的 Provider 一致，否则登录链路永远找不到它。
+
+    页面不放说明文字——模型 help_text 留作代码文档，表单层统一清空。
+    """
+
+    class Meta:
+        model = SocialAuthProvider
+        fields = "__all__"
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.help_text = ""
+
+    def clean_name(self) -> str:
+        name = str(self.cleaned_data.get("name") or "").strip()
+        if name and not ProviderRegistry.has(name):
+            raise forms.ValidationError(f"未注册的平台标识：{name}。可用的有：{'、'.join(ProviderRegistry.names())}")
+        return name
+
+
+@admin.register(SocialAuthProvider)
+class SocialAuthProviderAdmin(admin.ModelAdmin):  # pragma: no cover
+    form = SocialAuthProviderForm
+
+    list_display = ("name", "display_name", "client_id_brief", "has_secret", "enabled", "priority", "updated_at")
+    list_filter = ("enabled",)
+    # 安全审计 E-17 同款约束：client_secret 不进 search_fields——搜索词会进查询串/访问日志，泄露密钥片段
+    search_fields = ("name", "display_name", "redirect_uri")
+    ordering = ("priority", "name")
+    # 不用 list_editable：列表页只做排查浏览，启停/排序进详情页改，避免误触批量保存
+    readonly_fields = ("created_at", "updated_at")
+
+    fieldsets = (
+        ("基本信息", {"fields": ("name", "display_name", "enabled", "priority")}),
+        ("凭证", {"fields": ("client_id", "client_secret")}),
+        ("回调与授权范围", {"fields": ("redirect_uri", "scope")}),
+        ("时间", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
+    )
+
+    def client_id_brief(self, obj: SocialAuthProvider) -> str:
+        """client_id 截断展示，避免撑爆列表页。"""
+        value = str(obj.client_id or "")
+        if not value:
+            return "—（未配置）"
+        return value if len(value) <= 24 else f"{value[:21]}..."
+
+    client_id_brief.short_description = "Client ID"  # type: ignore[attr-defined]
+
+    def has_secret(self, obj: SocialAuthProvider) -> bool:
+        return bool(obj.client_secret)
+
+    has_secret.short_description = "已配密钥"  # type: ignore[attr-defined]
+    has_secret.boolean = True  # type: ignore[attr-defined]
 
 
 @admin.register(SocialAccount)

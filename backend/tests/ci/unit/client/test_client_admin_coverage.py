@@ -7,15 +7,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
-from django.test import RequestFactory
 from django.http import JsonResponse
+from django.test import RequestFactory
 
-from apps.client.admin.client_admin import (
-    ClientAdmin,
-    ClientAdminForm,
-    ClientIdentityDocInline,
-    PropertyClueInline,
-)
+from apps.client.admin.client_admin import ClientAdmin, ClientAdminForm, ClientIdentityDocInline, PropertyClueInline
 from apps.client.models import Client
 
 User = get_user_model()
@@ -51,7 +46,8 @@ class TestClientAdminAttributes:
         admin = _make_admin()
         assert "name" in admin.search_fields
         assert "phone" in admin.search_fields
-        assert "id_number" in admin.search_fields
+        # 安全审计：身份证号不进 search_fields（搜索词会进查询串/访问日志）
+        assert "id_number" not in admin.search_fields
 
     def test_list_filter(self):
         admin = _make_admin()

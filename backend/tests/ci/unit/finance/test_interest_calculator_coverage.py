@@ -3,6 +3,7 @@
 Covers: _calculate_cross_segments (multiple segments, no overlap), _calculate_with_custom_rate
 with default unit, calculate_with_principal_changes, to_dict with periods.
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -216,6 +217,161 @@ class TestCalculateWithPrincipalChanges:
         with pytest.raises(ValidationException) as exc_info:
             calc.calculate_with_principal_changes(periods)
         assert "本金" in exc_info.value.message
+
+
+class TestPrincipalPeriodOverlappingValidation:
+    """同一笔本金的时间段重叠校验。
+
+    交叉分段按「每段独立计息」求和：不同基数时间窗允许重叠（判决书多基数
+    各自起算的常见写法，各自独立计息即正确总和）；同一笔本金出现在两个
+    重叠窗口才会把这笔钱计两次（含闭区间首尾共享日），必须拒绝。
+    """
+
+    def test_overlapping_same_principal_raises(self):
+        calc = InterestCalculator(rate_service=MagicMock())
+        periods = [
+            PrincipalPeriod(date(2026, 1, 1), date(2026, 1, 31), Decimal("100000")),
+            PrincipalPeriod(date(2026, 1, 20), date(2026, 2, 28), Decimal("100000")),
+        ]
+        with pytest.raises(ValidationException) as exc_info:
+            calc.calculate_with_principal_changes(periods)
+        assert exc_info.value.code == "OVERLAPPING_PERIODS"
+        assert "重叠" in exc_info.value.message
+        assert "第2段" in exc_info.value.message
+
+    def test_shared_boundary_day_same_principal_raises(self):
+        """闭区间计息下前段结束日=后段开始日会双计当天，同样判重叠。"""
+        calc = InterestCalculator(rate_service=MagicMock())
+        periods = [
+            PrincipalPeriod(date(2026, 1, 1), date(2026, 1, 31), Decimal("100000")),
+            PrincipalPeriod(date(2026, 1, 31), date(2026, 2, 28), Decimal("100000")),
+        ]
+        with pytest.raises(ValidationException) as exc_info:
+            calc.calculate_with_principal_changes(periods)
+        assert exc_info.value.code == "OVERLAPPING_PERIODS"
+
+    def test_non_adjacent_same_principal_overlap_raises(self):
+        """同一笔本金的重叠段排序后未必相邻（中间隔着其它基数的段），同样拒绝。"""
+        calc = InterestCalculator(rate_service=MagicMock())
+        periods = [
+            PrincipalPeriod(date(2026, 1, 1), date(2026, 6, 30), Decimal("100000")),
+            PrincipalPeriod(date(2026, 2, 1), date(2026, 3, 31), Decimal("120000")),
+            PrincipalPeriod(date(2026, 3, 1), date(2026, 4, 30), Decimal("100000")),
+        ]
+        with pytest.raises(ValidationException) as exc_info:
+            calc.calculate_with_principal_changes(periods)
+        assert exc_info.value.code == "OVERLAPPING_PERIODS"
+
+    def test_overlapping_different_principals_pass(self):
+        """不同基数各自独立计息，时间窗重叠是合法语义（执行请求多基数场景）。"""
+        calc = InterestCalculator(rate_service=MagicMock())
+        periods = [
+            PrincipalPeriod(date(2026, 1, 1), date(2026, 1, 31), Decimal("100000")),
+            PrincipalPeriod(date(2026, 1, 20), date(2026, 2, 28), Decimal("120000")),
+        ]
+        result = calc.calculate_with_principal_changes(
+            periods, custom_rate_unit="percent", custom_rate_value=Decimal("3.65")
+        )
+        # 重叠段按各自窗口独立计天（31 + 40），重叠日历天对两段各计一次
+        assert result.total_days == 31 + 40
+
+    def test_independent_bases_allows_same_amount_overlap(self):
+        """independent_bases=True：等额也可能是不同笔钱（判决多基数条款），跳过同额重叠检查。"""
+        calc = InterestCalculator(rate_service=MagicMock())
+        periods = [
+            PrincipalPeriod(date(2024, 9, 5), date(2026, 3, 23), Decimal("10000000")),
+            PrincipalPeriod(date(2024, 9, 14), date(2026, 3, 23), Decimal("10000000")),
+        ]
+        result = calc.calculate_with_principal_changes(
+            periods,
+            custom_rate_unit="percent",
+            custom_rate_value=Decimal("6"),
+            independent_bases=True,
+        )
+        assert result.total_interest > 0
+
+    def test_adjacent_legal_periods_pass(self):
+        """合法相邻段（前一天结束、后一天开始）不受影响。"""
+        calc = InterestCalculator(rate_service=MagicMock())
+        periods = [
+            PrincipalPeriod(date(2026, 1, 1), date(2026, 1, 31), Decimal("100000")),
+            PrincipalPeriod(date(2026, 2, 1), date(2026, 2, 28), Decimal("120000")),
+        ]
+        result = calc.calculate_with_principal_changes(
+            periods, custom_rate_unit="percent", custom_rate_value=Decimal("3.65")
+        )
+        assert result.total_days == 31 + 28
+
+    def test_gap_between_periods_pass(self):
+        """段间允许空隙，不算重叠。"""
+        calc = InterestCalculator(rate_service=MagicMock())
+        periods = [
+            PrincipalPeriod(date(2026, 1, 1), date(2026, 1, 10), Decimal("100000")),
+            PrincipalPeriod(date(2026, 2, 1), date(2026, 2, 10), Decimal("120000")),
+        ]
+        result = calc.calculate_with_principal_changes(
+            periods, custom_rate_unit="percent", custom_rate_value=Decimal("3.65")
+        )
+        assert result.total_days == 10 + 10
+
+
+class TestDateInclusionOnPrincipalChanges:
+    """date_inclusion 只作用于整体首尾，不得对每个本金段独立收缩"""
+
+    _KWARGS = {"custom_rate_unit": "percent", "custom_rate_value": Decimal("3.65")}
+
+    def test_two_adjacent_months_neither_shrinks_only_overall_edges(self):
+        """1 月整月 + 2 月整月相邻段 + neither：总天数只比 both 少 2（而非每段各少 2 共 4）。"""
+        calc = InterestCalculator(rate_service=MagicMock())
+        periods = [
+            PrincipalPeriod(date(2026, 1, 1), date(2026, 1, 31), Decimal("100000")),
+            PrincipalPeriod(date(2026, 2, 1), date(2026, 2, 28), Decimal("100000")),
+        ]
+        result_both = calc.calculate_with_principal_changes(periods, date_inclusion="both", **self._KWARGS)
+        result_neither = calc.calculate_with_principal_changes(periods, date_inclusion="neither", **self._KWARGS)
+        assert result_both.total_days == 31 + 28
+        assert result_neither.total_days == 31 + 28 - 2
+
+    def test_neither_keeps_middle_boundary_intact(self):
+        """neither 下只有第一段 start 与最后一段 end 收缩，中间分界天保留。"""
+        calc = InterestCalculator(rate_service=MagicMock())
+        periods = [
+            PrincipalPeriod(date(2026, 1, 1), date(2026, 1, 31), Decimal("100000")),
+            PrincipalPeriod(date(2026, 2, 1), date(2026, 2, 28), Decimal("100000")),
+        ]
+        result = calc.calculate_with_principal_changes(periods, date_inclusion="neither", **self._KWARGS)
+        assert [p.start_date for p in result.periods] == [date(2026, 1, 2), date(2026, 2, 1)]
+        assert [p.end_date for p in result.periods] == [date(2026, 1, 31), date(2026, 2, 27)]
+
+    def test_start_only_and_end_only_shrink_respective_overall_edge(self):
+        """start_only 只收整体结束日，end_only 只收整体开始日。"""
+        calc = InterestCalculator(rate_service=MagicMock())
+        periods = [
+            PrincipalPeriod(date(2026, 1, 1), date(2026, 1, 31), Decimal("100000")),
+            PrincipalPeriod(date(2026, 2, 1), date(2026, 2, 28), Decimal("100000")),
+        ]
+        result_start_only = calc.calculate_with_principal_changes(periods, date_inclusion="start_only", **self._KWARGS)
+        assert result_start_only.total_days == 31 + 28 - 1
+        assert result_start_only.periods[-1].end_date == date(2026, 2, 27)
+
+        result_end_only = calc.calculate_with_principal_changes(periods, date_inclusion="end_only", **self._KWARGS)
+        assert result_end_only.total_days == 31 + 28 - 1
+        assert result_end_only.periods[0].start_date == date(2026, 1, 2)
+
+    def test_fixed_principal_calculate_behavior_unchanged(self):
+        """固定本金 calculate() 单段路径（首尾即整体）四种模式行为保持不变。"""
+        calc = InterestCalculator(rate_service=MagicMock())
+        base = {
+            "start_date": date(2026, 1, 1),
+            "end_date": date(2026, 1, 31),
+            "principal": Decimal("100000"),
+            "custom_rate_unit": "percent",
+            "custom_rate_value": Decimal("3.65"),
+        }
+        assert calc.calculate(date_inclusion="both", **base).total_days == 31
+        assert calc.calculate(date_inclusion="neither", **base).total_days == 29
+        assert calc.calculate(date_inclusion="start_only", **base).total_days == 30
+        assert calc.calculate(date_inclusion="end_only", **base).total_days == 30
 
 
 class TestCreatePrincipalPeriods:

@@ -114,8 +114,12 @@ def launch_chrome(  # pragma: no cover
             logger.info("CDP 端点已就绪 (port=%d)", port)
             return process
         if process.poll() is not None:
+            # 进程已退出：仍需回收临时用户数据目录（kill_chrome 内含清理）
+            kill_chrome(process)
             raise RuntimeError("Chrome 进程意外退出")
 
+    # 超时失败：回收已启动的 Chrome 进程与临时用户数据目录，避免泄漏
+    kill_chrome(process)
     raise RuntimeError(f"Chrome CDP 端点未就绪 (port={port})，请检查 Chrome 是否正常运行")
 
 

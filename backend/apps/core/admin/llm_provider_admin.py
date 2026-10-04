@@ -62,18 +62,12 @@ class LLMProviderAdmin(admin.ModelAdmin):
                     "timeout",
                     "concurrency_per_key",
                 ),
-                "description": (
-                    "<b>API Keys</b>：每行一个 Key，可逐行声明该 Key 可用的模型；"
-                    "留空表示网关免鉴权。不知道哪个 Key 支持哪些模型时，"
-                    "用每行的「获取模型」按钮自动探测。"
-                ),
             },
         ),
         (
             "模型配置",
             {
                 "fields": ("default_model", "extra_models", "embedding_model", "vision_model"),
-                "description": "视觉模型：多模态模型名（如 kimi-2.6），用于文书扫描件视觉转写；留空走本地 OCR。",
             },
         ),
     )
@@ -86,6 +80,28 @@ class LLMProviderAdmin(admin.ModelAdmin):
         if placeholder and isinstance(field.widget, (forms.TextInput, forms.NumberInput, forms.Textarea)):
             field.widget.attrs["placeholder"] = placeholder
         return field
+
+    def get_changeform_initial_data(self, request: HttpRequest) -> dict[str, Any]:
+        # 安全审计：api_keys 是 EncryptedTextField，from_db_value 透明解密后会把明文 Key
+        # 渲染进表单 HTML。编辑页不回填（留空=不修改），保存时空值保留库中原值。
+        initial = super().get_changeform_initial_data(request)
+        initial["api_keys"] = ""
+        return initial
+
+    def get_form(self, request: HttpRequest, obj: Any = None, change: bool = False, **kwargs: Any) -> Any:
+        form = super().get_form(request, obj, **kwargs)
+        if "api_keys" in form.base_fields:
+            form.base_fields["api_keys"].help_text = "留空表示不修改已保存的 Key"
+        return form
+
+    def save_model(self, request: HttpRequest, obj: Any, form: Any, change: bool) -> None:
+        # 安全审计：编辑时 api_keys 留空 → 保留库中原值（get_prep_value 会重新加密）
+        if change and not str(form.cleaned_data.get("api_keys") or "").strip():
+            old = LLMProvider.objects.filter(pk=obj.pk).values_list("api_keys", flat=True).first()
+            if old:
+                obj.api_keys = old
+        super().save_model(request, obj, form, change)
+        LLMProviderService.invalidate_cache()
 
     @admin.display(description="Key 数量")
     def key_count(self, obj: LLMProvider) -> int:
@@ -190,10 +206,6 @@ class LLMProviderAdmin(admin.ModelAdmin):
             return base_url, keys_raw
         saved = cast(LLMProvider, obj)
         return base_url or str(saved.base_url or "").strip(), keys_raw or str(saved.api_keys or "")
-
-    def save_model(self, request: HttpRequest, obj: Any, form: Any, change: bool) -> None:
-        super().save_model(request, obj, form, change)
-        LLMProviderService.invalidate_cache()
 
     def delete_model(self, request: HttpRequest, obj: Any) -> None:
         super().delete_model(request, obj)

@@ -33,6 +33,8 @@ class ProviderConfig:
     client_id: str
     client_secret: str
     is_enabled: bool = True
+    # 登录页按钮顺序（来自 SocialAuthProvider.priority，小的在前）
+    priority: int = 10
     # 前端渲染二维码 / 按钮所需的最小信息，不含任何密钥
     client_config: dict[str, str] = field(default_factory=dict)
     # Provider 私有附加配置（如 redirect_uri、scope）

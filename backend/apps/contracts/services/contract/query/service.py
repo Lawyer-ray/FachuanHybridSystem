@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from django.db.models import Count, F, IntegerField, OuterRef, QuerySet, Subquery, Sum
+from django.db.models import Count, DecimalField, F, IntegerField, OuterRef, QuerySet, Subquery, Sum
 from django.db.models.expressions import RawSQL
 
 from apps.cases.models import Case
-from apps.contracts.models import Contract
+from apps.contracts.models import Contract, ContractPayment
 from apps.core.exceptions import NotFoundError
 from apps.core.security.access_context import AccessContext
 
@@ -25,28 +25,46 @@ class ContractQueryService:
             self._access_policy = ContractAccessPolicy()
         return self._access_policy
 
-    def get_contract_queryset(self) -> QuerySet[Contract, Contract]:
+    def get_contract_queryset(self, *, slim: bool = False) -> QuerySet[Contract, Contract]:
+        # slim=True（列表视图）跳过两组重关系预取：finalized_materials（归档材料，
+        # 占列表响应约 60% 体积）与 client_payment_records 由序列化侧代理一并跳过，
+        # DB 取数与 DTO 构建双省；详情视图保持全量预取。
+        prefetch = [
+            "contract_parties__client",
+            "payments__invoices",
+            "reminders",
+            "assignments__lawyer",
+            "assignments__lawyer__law_firm",
+            "supplementary_agreements__parties__client",
+            # cases 仅供列表 DTO（contract_list_assembler 的 case_dtos）prefetch 展开，
+            # 消除循环内 contract.cases.all() 的 N+1。
+            "cases",
+        ]
+        if not slim:
+            prefetch += ["finalized_materials", "client_payment_records"]
         return (
-            Contract.objects.prefetch_related(
-                "contract_parties__client",
-                "payments__invoices",
-                "reminders",
-                "assignments__lawyer",
-                "assignments__lawyer__law_firm",
-                "supplementary_agreements__parties__client",
-                "finalized_materials",
-                "client_payment_records",
-                # cases 仅供列表 DTO（contract_list_assembler 的 case_dtos）prefetch 展开，
-                # 消除循环内 contract.cases.all() 的 N+1。
-                "cases",
-            )
+            Contract.objects.prefetch_related(*prefetch)
             # 用 DB 层聚合替代 ContractOut.resolve_total_received/invoiced 中的 Python 循环求和。
-            # case_count 用相关子查询而非 Count("cases")：同一 annotate 链上再 join cases 会与
-            # payments 的 Sum 互相放大（笛卡尔积），子查询各算各的互不干扰。
-            # （子查询负责 case_count 计数，上方 prefetch 负责 DTO 展开，两者并存不冲突。）
+            # case_count 与两处金额合计均用相关子查询而非 Sum/Count 注解：同一 annotate 链上
+            # Sum("payments__amount") 之后，非 admin 过滤（access_policy.filter_queryset）还会追加
+            # assignments/cases 的 OR JOIN，payments 行会被复制 N 份导致 SUM 放大；子查询各算各的
+            # 互不干扰，天然免疫 join 扇出。
+            # （子查询负责聚合计数，上方 prefetch 负责 DTO 展开，两者并存不冲突。）
             .annotate(
-                _total_received=Sum("payments__amount"),
-                _total_invoiced=Sum("payments__invoiced_amount"),
+                _total_received=Subquery(
+                    ContractPayment.objects.filter(contract_id=OuterRef("pk"))
+                    .values("contract_id")
+                    .annotate(s=Sum("amount"))
+                    .values("s")[:1],
+                    output_field=DecimalField(max_digits=14, decimal_places=2),
+                ),
+                _total_invoiced=Subquery(
+                    ContractPayment.objects.filter(contract_id=OuterRef("pk"))
+                    .values("contract_id")
+                    .annotate(s=Sum("invoiced_amount"))
+                    .values("s")[:1],
+                    output_field=DecimalField(max_digits=14, decimal_places=2),
+                ),
                 _case_count=Subquery(
                     Case.objects.filter(contract_id=OuterRef("pk"))
                     .values("contract_id")
@@ -116,14 +134,16 @@ class ContractQueryService:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
+        slim: bool = False,
     ) -> dict[str, Any]:
         """分页列表（服务端分页，前端不再全量拉）。
 
         排序沿用办案主页口径「离今天最近」：|end_date - 今天| 升序、无到期沉底。
         facets 计数固定全库口径（与旧客户端筛选行为一致），三条 group by 很便宜。
+        slim=True 时 queryset 不预取归档材料/收款记录（序列化侧同步跳过）。
         """
         qs = (
-            self.get_contract_queryset()
+            self.get_contract_queryset(slim=slim)
             .annotate(_abs_days=RawSQL("ABS(end_date - CURRENT_DATE)", []))
             .order_by(F("_abs_days").asc(nulls_last=True), "-id")
         )

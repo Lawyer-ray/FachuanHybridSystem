@@ -8,8 +8,8 @@ import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from django.db import transaction
-from django.db.models import F
+from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.automation.models import CourtSMS, CourtSMSStatus
@@ -21,6 +21,7 @@ from ._sms_case_binding_mixin import SMSCaseBindingMixin
 from ._sms_document_mixin import SMSDocumentMixin
 from ._sms_download_mixin import SMSDownloadMixin
 from .case_matcher import CaseMatcher
+from .court_sms_delivery_dedup import build_delivery_event_key, build_lookup_keys
 from .sms_parser_service import SMSParserService
 
 if TYPE_CHECKING:
@@ -142,16 +143,37 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             self._notification = SMSNotificationService()
         return self._notification
 
-    def get_sms_detail(self, sms_id: int) -> CourtSMS:
-        """获取短信处理详情"""
+    def get_sms_detail(self, sms_id: int, *, user: Any = None, org_access: dict[str, Any] | None = None) -> CourtSMS:
+        """获取短信处理详情
+
+        传入 user 时执行归属校验（安全审计第4轮）：绑定了案件的短信按
+        CaseAccessPolicy 校验案件访问权；未绑案件的公共短信保持全员可见。
+        user 为 None 视为内部可信调用（worker / 管线），不做校验。
+        """
         try:
-            return (
+            sms = (
                 CourtSMS.objects.select_related("case", "scraper_task", "case_log")
                 .prefetch_related("scraper_task__documents", "case_log__attachments")
                 .get(id=sms_id)
             )
         except CourtSMS.DoesNotExist as e:
             raise NotFoundError(f"短信记录不存在: ID={sms_id}") from e
+        if user is not None:
+            self.ensure_sms_case_access(sms, user=user, org_access=org_access)
+        return sms
+
+    def ensure_sms_case_access(self, sms: CourtSMS, *, user: Any, org_access: dict[str, Any] | None = None) -> None:
+        """短信归属校验：绑定了案件的短信按案件 ACL；未绑案件的公共短信放行。"""
+        if sms.case_id is None:
+            return
+        from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+
+        CaseAccessPolicy().ensure_access(
+            case_id=sms.case_id,
+            user=user,
+            org_access=org_access,
+            message="无权限访问该短信关联的案件",
+        )
 
     def list_sms(
         self,
@@ -162,12 +184,18 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         has_case: bool | None = None,
         date_from: Any = None,
         date_to: Any = None,
+        user: Any = None,
+        org_access: dict[str, Any] | None = None,
     ) -> Any:  # pragma: no cover
         """查询短信列表
 
         status_group 是面向前端历史弹窗的状态组视图：
         needs_action = 待人工分配 / 处理失败 / 下载失败（点开即可继续处理的），
         completed = 已完成。与单 status 互斥使用时 group 优先。
+
+        传入 user 时执行归属过滤（安全审计第4轮）：绑定了案件的短信仅保留
+        用户可访问的案件；未绑案件的公共短信保持全员可见。user 为 None 视为
+        内部可信调用，不过滤。
         """
         qs = (
             CourtSMS.objects.all()
@@ -175,6 +203,8 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             .prefetch_related("scraper_task__documents", "case_log__attachments")
             .order_by("-received_at")
         )
+        if user is not None:
+            qs = self._filter_by_case_access(qs, user=user, org_access=org_access)
         group_statuses = STATUS_GROUP_STATUSES.get(status_group or "")
         if group_statuses:
             qs = qs.filter(status__in=group_statuses)
@@ -192,8 +222,25 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             qs = qs.filter(received_at__lte=date_to)
         return qs
 
+    def _filter_by_case_access(
+        self, qs: Any, *, user: Any, org_access: dict[str, Any] | None
+    ) -> Any:  # pragma: no cover
+        """绑定案件的短信按案件 ACL 过滤；公共短信（未绑案件）保持可见。"""
+        from apps.cases.models import Case
+        from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+
+        policy = CaseAccessPolicy()
+        if policy.is_superuser(user):
+            return qs
+        accessible_case_ids = policy.filter_queryset(Case.objects.all(), user, org_access).values("id")
+        return qs.filter(Q(case__isnull=True) | Q(case_id__in=accessible_case_ids))
+
     def submit_sms(self, content: str, received_at: datetime | None = None) -> CourtSMS:  # pragma: no cover
-        """提交短信，创建记录并触发异步处理"""
+        """提交短信，创建记录并触发异步处理
+
+        幂等保护：同一内容短时间内重复提交（转发器重试/重复点击）直接返回
+        已有记录，不重复触发处理，避免重复下载/CaseLog/群通知等副作用。
+        """
         if not content or not content.strip():
             raise ValidationException(
                 message="短信内容不能为空", code="EMPTY_SMS_CONTENT", errors={"content": "短信内容不能为空"}
@@ -202,12 +249,25 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         if received_at is None:
             received_at = timezone.now()
 
+        normalized_content = content.strip()
+
         try:
+            # 提交前查重：命中窗口内同内容的既有记录则幂等返回
+            duplicate = (
+                CourtSMS.objects.filter(delivery_event_key__in=build_lookup_keys(normalized_content, received_at))
+                .order_by("id")
+                .first()
+            )
+            if duplicate is not None:
+                logger.info("法院短信重复提交，已忽略并返回既有记录: 既有 SMS ID=%s", duplicate.id)
+                return duplicate
+
             sms = CourtSMS.objects.create(
-                content=content.strip(),
+                content=normalized_content,
                 received_at=received_at,
                 status=CourtSMSStatus.PENDING,
                 document_file_paths=[],
+                delivery_event_key=build_delivery_event_key(normalized_content, received_at),
             )
 
             logger.info("创建短信记录成功: ID=%s, 长度=%s", sms.id, len(content))
@@ -222,6 +282,20 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
 
             return sms
 
+        except IntegrityError as e:
+            # 并发重复提交：唯一约束兜底，转成幂等返回已有记录
+            duplicate = (
+                CourtSMS.objects.filter(delivery_event_key=build_delivery_event_key(normalized_content, received_at))
+                .order_by("id")
+                .first()
+            )
+            if duplicate is not None:
+                logger.info("法院短信并发重复提交，已忽略并返回既有记录: 既有 SMS ID=%s", duplicate.id)
+                return duplicate
+            logger.error("提交短信处理失败: %s", e)
+            raise ValidationException(
+                message=f"提交短信处理失败: {e!s}", code=SMS_SUBMIT_FAILED, errors={"error": str(e)}
+            ) from e
         except Exception as e:
             logger.error("提交短信处理失败: %s", e)
             raise ValidationException(
@@ -502,39 +576,29 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         try:
             # 仅在状态不是 MATCHING 时才更新（避免无意义的 save 刷新 updated_at，
             # 导致任务恢复服务的卡住检测失效）
-            # 如果状态已经是 MATCHING，说明是重试进入（worker 崩溃后被 Django-Q 或
-            # 恢复服务重新提交），此时递增 retry_count 以追踪重复失败次数
+            #
+            # 注意：此处不递增 retry_count。正常首过流程（解析后进入匹配、下载完成后
+            # 续跑匹配）也会以 status==MATCHING 进入本方法，若在此 +1 会与
+            # retry_processing 的人工重试 +1 叠加，一次重试即达熔断阈值并误报
+            # 「反复失败」。重试计数只由 retry_processing 递增。
             if sms.status != CourtSMSStatus.MATCHING:
                 sms.status = CourtSMSStatus.MATCHING
                 sms.save()
-            else:
-                # 重试进入：worker 崩溃后重新执行，递增重试计数。
-                # 用数据库原子自增而非内存读改写：Django-Q 重投递与恢复服务并发时
-                # `retry_count += 1` 会互相覆盖导致计数丢失，下方 `>= 3` 的
-                # OCR-OOM 熔断随之失效
-                CourtSMS.objects.filter(pk=sms.pk).update(
-                    retry_count=F("retry_count") + 1,
-                    # update() 不触发 auto_now，需显式刷新 updated_at
-                    updated_at=timezone.now(),
-                )
-                sms.refresh_from_db(fields=["retry_count", "updated_at"])
-                logger.info("短信 %s 重新进入匹配阶段，当前重试次数: %s", sms.id, sms.retry_count)
 
-            # 匹配重试次数保护：如果短信已经多次处于 MATCHING 状态但未能完成
-            # （通常因 OCR 处理导致 worker OOM），超过阈值后标记为待人工处理，
-            # 避免无限循环（OCR → OOM → 重试 → OCR → OOM → ...）
+            # 匹配重试次数保护：人工重试达到阈值后转待人工处理，
+            # 避免无限循环（OCR → OOM → 人工重试 → OCR → OOM → ...）
             matching_retry_limit = 3
             if sms.retry_count >= matching_retry_limit:
                 logger.warning(
-                    "短信 %s 匹配重试次数已达 %s 次（上限 %s），疑似 OCR 内存不足导致 worker 反复崩溃，标记为待人工处理",
+                    "短信 %s 匹配重试次数已达 %s 次（上限 %s），标记为待人工处理",
                     sms.id,
                     sms.retry_count,
                     matching_retry_limit,
                 )
                 sms.status = CourtSMSStatus.PENDING_MANUAL
                 sms.error_message = (
-                    "匹配阶段反复失败（已重试%(count)d次），可能因OCR内存不足导致处理中断，需要人工处理"
-                    % {"count": sms.retry_count}
+                    "案件匹配已重试%(count)d次仍未成功（上限%(limit)d次），可能因OCR内存不足等原因导致处理中断，需要人工处理"
+                    % {"count": sms.retry_count, "limit": matching_retry_limit}
                 )
                 sms.save()
                 return sms

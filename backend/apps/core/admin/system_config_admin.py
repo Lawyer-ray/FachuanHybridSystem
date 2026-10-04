@@ -61,7 +61,6 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
             "cloud_storage": "#1565c0",
             "docspace": "#5c6bc0",
             "general": "#607d8b",
-            "social_auth": "#00b42a",
         }
         color = colors.get(obj.category, "#607d8b")
         return format_html(

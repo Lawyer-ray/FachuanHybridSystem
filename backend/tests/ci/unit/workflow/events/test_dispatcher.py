@@ -2,6 +2,7 @@
 
 Covers: on_court_reply — no runs, signal + status update, empty documents.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -56,6 +57,23 @@ class TestOnCourtReplyNoRuns:
         assert call_kwargs["current_step_id"] == "wait_court"
 
 
+def _run_fixture(workflow_id: str) -> SimpleNamespace:
+    """构造 on_court_reply 用的 run（真实模型有 pk，条件更新按 pk 定位）。"""
+    return SimpleNamespace(
+        pk=11,
+        temporal_workflow_id=workflow_id,
+        status="waiting_event",
+        current_step_id="wait_court",
+    )
+
+
+def _update_qs() -> MagicMock:
+    """条件更新的 queryset mock（filter(...).aupdate(...)）。"""
+    qs = MagicMock()
+    qs.aupdate = AsyncMock(return_value=1)
+    return qs
+
+
 @pytest.mark.asyncio
 class TestOnCourtReplySignal:
     @patch("apps.workflow.events.dispatcher._client", None)
@@ -64,13 +82,10 @@ class TestOnCourtReplySignal:
     async def test_signals_and_updates_status(self, mock_model, mock_client_cls):
         from apps.workflow.events.dispatcher import on_court_reply
 
-        run = SimpleNamespace(
-            temporal_workflow_id="wf-abc",
-            status="waiting_event",
-            current_step_id="wait_court",
-            asave=AsyncMock(),
-        )
-        mock_model.objects.filter.return_value = _AsyncListIter([run])
+        run = _run_fixture("wf-abc")
+        update_qs = _update_qs()
+        # filter 第一次返回等待中的 run 列表，第二次（条件更新）返回 update queryset
+        mock_model.objects.filter.side_effect = [_AsyncListIter([run]), update_qs]
         mock_model.Status.WAITING_EVENT = "waiting_event"
         mock_model.Status.RUNNING = "running"
 
@@ -83,10 +98,12 @@ class TestOnCourtReplySignal:
         await on_court_reply(case_id=1, status="rejected", documents=["doc1.pdf"])
 
         mock_handle.signal.assert_awaited_once_with(
-            "gate_approved", {"step_id": "wait_court", "approved": True, "comment": "rejected", "documents": ["doc1.pdf"]}
+            "gate_approved",
+            {"step_id": "wait_court", "approved": True, "comment": "rejected", "documents": ["doc1.pdf"]},
         )
-        run.asave.assert_awaited_once_with(update_fields=["status"])
-        assert run.status == "running"
+        # 条件更新：仅当仍为 WAITING_EVENT 时置 RUNNING（不覆盖 worker 终态）
+        mock_model.objects.filter.assert_any_call(pk=run.pk, status="waiting_event")
+        update_qs.aupdate.assert_awaited_once_with(status="running")
 
 
 @pytest.mark.asyncio
@@ -97,13 +114,8 @@ class TestOnCourtReplyEmptyDocuments:
     async def test_empty_documents_default(self, mock_model, mock_client_cls):
         from apps.workflow.events.dispatcher import on_court_reply
 
-        run = SimpleNamespace(
-            temporal_workflow_id="wf-def",
-            status="waiting_event",
-            current_step_id="wait_court",
-            asave=AsyncMock(),
-        )
-        mock_model.objects.filter.return_value = _AsyncListIter([run])
+        run = _run_fixture("wf-def")
+        mock_model.objects.filter.side_effect = [_AsyncListIter([run]), _update_qs()]
         mock_model.Status.WAITING_EVENT = "waiting_event"
         mock_model.Status.RUNNING = "running"
 
@@ -125,13 +137,8 @@ class TestOnCourtReplyEmptyDocuments:
     async def test_empty_list_documents(self, mock_model, mock_client_cls):
         from apps.workflow.events.dispatcher import on_court_reply
 
-        run = SimpleNamespace(
-            temporal_workflow_id="wf-ghi",
-            status="waiting_event",
-            current_step_id="wait_court",
-            asave=AsyncMock(),
-        )
-        mock_model.objects.filter.return_value = _AsyncListIter([run])
+        run = _run_fixture("wf-ghi")
+        mock_model.objects.filter.side_effect = [_AsyncListIter([run]), _update_qs()]
         mock_model.Status.WAITING_EVENT = "waiting_event"
         mock_model.Status.RUNNING = "running"
 

@@ -44,8 +44,10 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):  # pragma: no cover
 
     def delete_model(self, request: HttpRequest, obj: Case) -> None:  # pragma: no cover
         try:
-            self._cleanup_before_delete([obj.id])
-            super().delete_model(request, obj)  # type: ignore[misc]
+            # 置空关联与删除同事务：PROTECT 阻断 delete 时整体回滚，不留"关联已置空但案件还在"的半提交
+            with transaction.atomic():
+                self._cleanup_before_delete([obj.id])
+                super().delete_model(request, obj)  # type: ignore[misc]
         except IntegrityError:
             logger.error(
                 "Admin 删除案件失败：存在未清理的外键引用",
@@ -57,8 +59,10 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):  # pragma: no cover
     def delete_queryset(self, request: HttpRequest, queryset: QuerySet[Case, Case]) -> None:  # pragma: no cover
         case_ids = list(queryset.values_list("id", flat=True))
         try:
-            self._cleanup_before_delete(case_ids)
-            super().delete_queryset(request, queryset)  # type: ignore[misc]
+            # 同上：批量删除也把清理与删除包进同一事务，失败整体回滚
+            with transaction.atomic():
+                self._cleanup_before_delete(case_ids)
+                super().delete_queryset(request, queryset)  # type: ignore[misc]
         except IntegrityError:
             logger.error(
                 "Admin 批量删除案件失败：存在未清理的外键引用",

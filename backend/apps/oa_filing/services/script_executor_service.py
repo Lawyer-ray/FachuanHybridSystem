@@ -275,9 +275,17 @@ class ScriptExecutorService:
         from apps.oa_filing.models import ArchiveSession, ArchiveSessionStatus
         from apps.oa_filing.services.stamp_lookup_service import StampLookupService
 
-        lookup = StampLookupService.lookup_by_file_path(file_paths[0])
-        # 安全审计 A-04：校验反查出的合同归属权限
-        _ensure_contract_access(lookup.contract_id, user)
+        # 安全审计：对 file_paths 中每个路径逐一反查校验（含 .. 拒绝与绑定目录收敛），
+        # 修复「只校 file_paths[0]、其余路径原样存 session 后被上传到外部 OA」的任意文件外带
+        lookups = [StampLookupService.lookup_by_file_path(path) for path in file_paths]
+        lookup = lookups[0]
+        if any(item.contract_id != lookup.contract_id for item in lookups):
+            from apps.oa_filing.services.exceptions import ScriptExecutionError
+
+            raise ScriptExecutionError("归档文件分属不同合同，请逐个合同分别提交")
+        # 安全审计 A-04：校验反查出的合同归属权限（全部路径均须通过）
+        for item in lookups:
+            _ensure_contract_access(item.contract_id, user)
         credential = self._find_credential(user, site_name)
 
         session = ArchiveSession.objects.create(

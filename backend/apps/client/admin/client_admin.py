@@ -196,7 +196,8 @@ class ClientAdminForm(forms.ModelForm[Client]):  # pragma: no cover
 class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):  # pragma: no cover
     list_display = ("id", "name", "client_type", "is_our_client", "phone", "legal_representative")
     list_per_page = 50
-    search_fields = ("name", "phone", "id_number")
+    # 安全审计：id_number 不进 search_fields——身份证号会随搜索词进查询串/访问日志
+    search_fields = ("name", "phone")
     list_filter = ("client_type", "is_our_client")
     ordering = ("-pk",)
     form = ClientAdminForm

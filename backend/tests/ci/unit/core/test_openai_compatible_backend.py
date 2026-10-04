@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx2 as httpx
 import pytest
 
-from apps.core.llm.backends.base import BackendConfig, LLMResponse, LLMStreamChunk, LLMUsage
+from apps.core.llm.backends.base import BackendConfig, LLMResponse, LLMStreamChunk, LLMUsage, OpenAIProviderConfig
 from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
 from apps.core.llm.exceptions import LLMAPIError, LLMAuthenticationError, LLMNetworkError, LLMTimeoutError
+from apps.core.llm.key_pool import KeyPool
 
 
 def _config(**overrides):
@@ -488,3 +490,107 @@ class TestAchat:
         with patch.object(b, "_build_async_client", return_value=mock_client):
             with pytest.raises(LLMTimeoutError):
                 await b.achat([{"role": "user", "content": "hi"}])
+
+
+# ── SSE 中断与 Key 冷却（回归：客户端断开不应把健康 Key 打入 30s 冷却） ──────
+
+
+class TestStreamInterruptionKeyPool:
+    """多 Key 池下 stream/astream 中断时的释放语义。"""
+
+    MODEL = "gpt-4"
+
+    def _chunk(self, content="x"):
+        return SimpleNamespace(choices=[SimpleNamespace(delta=SimpleNamespace(content=content))], usage=None)
+
+    def _setup(self):
+        provider = OpenAIProviderConfig(
+            name="pool-provider",
+            base_url="https://api.example.com/v1",
+            api_keys=["sk-pool-1"],
+            default_model=self.MODEL,
+        )
+        backend = OpenAICompatibleBackend(config=_config())
+        pool = KeyPool(keys=["sk-pool-1"])
+        return backend, provider, pool
+
+    def test_sync_stream_closed_by_client_keeps_key_healthy(self):
+        """客户端中途关闭生成器（SSE 断开）应按成功释放，Key 不进冷却。"""
+        b, provider, pool = self._setup()
+
+        def _endless_stream():
+            while True:
+                yield self._chunk()
+
+        with (
+            patch.object(b, "_resolve_provider", return_value=provider),
+            patch.object(b, "_key_pool", return_value=pool),
+            patch.object(b, "_create_sync_stream", side_effect=lambda *a, **k: _endless_stream()),
+        ):
+            gen = b.stream([{"role": "user", "content": "hi"}], model=self.MODEL)
+            next(gen)
+            gen.close()
+
+        assert pool.active_counts == [0]
+        assert not pool.is_cooling(0, self.MODEL)
+
+    def test_sync_stream_error_still_marks_key_failed(self):
+        """真实调用异常仍按失败释放（冷却机制不受中断保护影响）。"""
+        b, provider, pool = self._setup()
+
+        def _raising_stream():
+            raise httpx.ConnectError("boom")
+            yield  # pragma: no cover
+
+        with (
+            patch.object(b, "_resolve_provider", return_value=provider),
+            patch.object(b, "_key_pool", return_value=pool),
+            patch.object(b, "_create_sync_stream", side_effect=lambda *a, **k: _raising_stream()),
+        ):
+            with pytest.raises(LLMNetworkError):
+                list(b.stream([{"role": "user", "content": "hi"}], model=self.MODEL))
+
+        assert pool.is_cooling(0, self.MODEL)
+
+    @pytest.mark.asyncio
+    async def test_astream_closed_by_client_keeps_key_healthy(self):
+        """异步流被客户端 aclose() 时应按成功释放，Key 不进冷却。"""
+        b, provider, pool = self._setup()
+
+        async def _endless_astream():
+            while True:
+                yield self._chunk()
+
+        with (
+            patch.object(b, "_aresolve_provider", new=AsyncMock(return_value=provider)),
+            patch.object(b, "_key_pool", return_value=pool),
+            patch.object(b, "_create_async_stream", new=AsyncMock(side_effect=lambda *a, **k: _endless_astream())),
+        ):
+            agen = b.astream([{"role": "user", "content": "hi"}], model=self.MODEL)
+            await agen.__anext__()
+            await agen.aclose()
+
+        assert pool.active_counts == [0]
+        assert not pool.is_cooling(0, self.MODEL)
+
+    @pytest.mark.asyncio
+    async def test_astream_cancelled_error_keeps_key_healthy(self):
+        """流中途收到 CancelledError（任务取消）应按成功释放并继续向上抛出。"""
+        b, provider, pool = self._setup()
+
+        async def _cancelled_astream():
+            yield self._chunk()
+            raise asyncio.CancelledError()
+
+        with (
+            patch.object(b, "_aresolve_provider", new=AsyncMock(return_value=provider)),
+            patch.object(b, "_key_pool", return_value=pool),
+            patch.object(b, "_create_async_stream", new=AsyncMock(side_effect=lambda *a, **k: _cancelled_astream())),
+        ):
+            agen = b.astream([{"role": "user", "content": "hi"}], model=self.MODEL)
+            with pytest.raises(asyncio.CancelledError):
+                async for _ in agen:
+                    pass
+
+        assert pool.active_counts == [0]
+        assert not pool.is_cooling(0, self.MODEL)

@@ -15,7 +15,6 @@ logger = logging.getLogger("apps.litigation_ai")
 
 
 class DocumentGeneratorService:  # pragma: no cover
-    @transaction.atomic
     def generate_document(
         self, session_id: str, template_id: int | None = None
     ) -> GenerationTaskDTO:  # pragma: no cover
@@ -45,6 +44,9 @@ class DocumentGeneratorService:  # pragma: no cover
             )
 
         task_service = get_generation_task_service()
+        # 任务行先在事务外落库（ATOMIC_REQUESTS=False，创建即提交）：
+        # 生成过程无论成败，任务历史都留有这条记录，失败也能落 FAILED 终态，
+        # 不会因事务回滚让记录消失或永远停在 processing（僵尸任务）
         task = task_service.create_ai_task_internal(
             case_id=session.case_id,
             litigation_session_id=session.id,
@@ -55,20 +57,21 @@ class DocumentGeneratorService:  # pragma: no cover
         )
 
         try:
-            structured = self._get_structured_content(session, last_message.content)
-            case_dto = self._get_case_dto(session.case_id)
-            filename, doc_bytes = self._render(case_dto, session.document_type, structured)
-            relative_path = self._save_document(filename, doc_bytes, session.case_id)
+            with transaction.atomic():
+                structured = self._get_structured_content(session, last_message.content)
+                case_dto = self._get_case_dto(session.case_id)
+                filename, doc_bytes = self._render(case_dto, session.document_type, structured)
+                relative_path = self._save_document(filename, doc_bytes, session.case_id)
 
-            metadata_updates = {
-                "generation_duration_ms": int((timezone.now() - task.created_at).total_seconds() * 1000),
-                "total_tokens": (session.metadata or {}).get("total_tokens", 0),
-            }
-            return task_service.mark_task_completed_internal(
-                task_id=task.id,
-                result_file=relative_path,
-                metadata_updates=metadata_updates,
-            )
+                metadata_updates = {
+                    "generation_duration_ms": int((timezone.now() - task.created_at).total_seconds() * 1000),
+                    "total_tokens": (session.metadata or {}).get("total_tokens", 0),
+                }
+                return task_service.mark_task_completed_internal(
+                    task_id=task.id,
+                    result_file=relative_path,
+                    metadata_updates=metadata_updates,
+                )
         except (TypeError, ValueError) as e:
             task_service.mark_task_failed_internal(task_id=task.id, error_message=str(e))
             raise ValidationException(
@@ -76,6 +79,12 @@ class DocumentGeneratorService:  # pragma: no cover
                 code="DOCUMENT_GENERATION_FAILED",
                 errors={"error": str(e)},
             ) from e
+        except Exception as e:
+            # 兜底收口：NotFoundError（案件不存在）/ OSError（渲染、存储写失败）等
+            # 原实现会逃过 except (TypeError, ValueError)，任务无人打失败终态。
+            # 先落 FAILED 再原样抛出，保留原异常语义（如 CASE_NOT_FOUND → 404）
+            task_service.mark_task_failed_internal(task_id=task.id, error_message=str(e))
+            raise
 
     def get_task_status(self, task_id: int, user: Any | None = None) -> GenerationTaskDTO:  # pragma: no cover
         from apps.core.exceptions import NotFoundError, PermissionDenied

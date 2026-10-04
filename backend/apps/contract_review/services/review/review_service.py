@@ -237,6 +237,9 @@ def process_review(task_id_str: str) -> None:  # pragma: no cover
             _update_step(repository, task, ProcessStep.CONTRACT_REVIEW)
             reviews: list[ReviewResult] = []
             report = ""
+            # 并行子任务失败不能只打日志就吞掉：全失败要标 FAILED，部分失败要留痕
+            failed_kinds: list[str] = []
+            failure_detail: list[str] = []
 
             def _run_review() -> list[ReviewResult]:  # pragma: no cover
                 return reviewer.review_contract(
@@ -268,8 +271,22 @@ def process_review(task_id_str: str) -> None:  # pragma: no cover
                             reviews = future.result()  # type: ignore[assignment]
                         else:
                             report = future.result()
-                    except Exception:
+                    except Exception as e:
+                        failed_kinds.append(kind)
+                        failure_detail.append(f"{kind}: {e}")
                         logger.exception("并行任务 %s 失败", kind)
+
+            # reviews 与 report 全为空说明并行任务毫无产出：抛错走外层 FAILED 分支，
+            # 禁止继续往下产出空文档并虚报 COMPLETED
+            if failed_kinds and not reviews and not report:
+                raise ContractReviewError("合同审查与评估报告并行任务均失败: " + "; ".join(failure_detail))
+
+            # 部分失败：任务仍可完成，但把失败明细写进 error_message 留痕（不覆盖成功产物）
+            if failed_kinds:
+                repository.update(
+                    task.id,
+                    error_message=f"{len(failed_kinds)} 项并行子任务失败: " + "; ".join(failure_detail),
+                )
 
             review_applied = 0
             for rev in reviews:

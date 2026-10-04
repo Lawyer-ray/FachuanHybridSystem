@@ -46,11 +46,18 @@ class FolderTemplateQueryService:
             ) from None
 
     def list_templates(
-        self, *, case_type: str | None = None, case_stage: str | None = None, is_active: bool | None = None
+        self,
+        *,
+        template_type: str | None = None,
+        case_type: str | None = None,
+        case_stage: str | None = None,
+        is_active: bool | None = None,
     ) -> Any:
         from apps.documents.models import FolderTemplateType
 
-        queryset = self.repo.filter(template_type=FolderTemplateType.CASE).order_by("-updated_at").all()  # type: ignore[attr-defined]
+        # 未显式指定类型时维持既有口径：仅返回案件文件夹模板
+        effective_type = template_type or FolderTemplateType.CASE
+        queryset = self.repo.filter(template_type=effective_type).order_by("-updated_at").all()  # type: ignore[attr-defined]
         results: list[FolderTemplate] = []
         for template in queryset:
             if is_active is not None and template.is_active != is_active:

@@ -78,7 +78,7 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
   const hasPreview = Boolean(previewUrl)
   // 分屏态 = 识别完成且有原文可预览；等待/错误/文字模式保持紧凑小窗
   const splitReady = contentReady && hasPreview
-  const fileUrl = hasPreview ? previewUrl : isFileMode && task?.file_url ? task.file_url : ''
+  const fileUrl = hasPreview ? previewUrl : isFileMode && task?.file_url ? resolveMediaUrl(task.file_url) : ''
 
   // 左栏宽度可拖拽（默认 52%，32–70%，localStorage 记忆）
   const [splitPct, startDragSplit, splitBodyRef, draggingSplit] = useSplitDrag()

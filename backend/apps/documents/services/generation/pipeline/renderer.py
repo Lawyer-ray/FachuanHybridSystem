@@ -3,7 +3,7 @@
 from io import BytesIO
 from typing import Any
 
-from apps.documents.services.placeholders.fallback import build_docx_render_context
+from apps.documents.services.placeholders.fallback import SANDBOXED_JINJA_ENV, build_docx_render_context
 
 
 class DocxRenderer:
@@ -14,7 +14,10 @@ class DocxRenderer:
 
         render_context = unwrap_archive_rich_text(context)
         doc = DocxTemplate(template_path)
-        doc.render(build_docx_render_context(doc=doc, context=render_context))
+        doc.render(
+            build_docx_render_context(doc=doc, context=render_context),
+            jinja_env=SANDBOXED_JINJA_ENV,
+        )
         output = BytesIO()
         doc.save(output)
         return output.getvalue()

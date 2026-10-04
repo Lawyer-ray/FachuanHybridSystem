@@ -9,10 +9,12 @@ from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory
 
-from apps.core.admin.system_config_admin import SystemConfigAdmin
-from apps.core.admin.court_admin import CourtAdmin
 from apps.core.admin.cause_of_action_admin import CauseOfActionAdmin
-from apps.core.models import CauseOfAction, Court, SystemConfig
+from apps.core.admin.court_admin import CourtAdmin
+from apps.core.admin.document_parse_provider_admin import DocumentParseProviderAdmin
+from apps.core.admin.llm_provider_admin import LLMProviderAdmin
+from apps.core.admin.system_config_admin import SystemConfigAdmin
+from apps.core.models import CauseOfAction, Court, DocumentParseProvider, LLMProvider, SystemConfig
 
 User = get_user_model()
 
@@ -62,7 +64,11 @@ class TestSystemConfigAdmin:
     def test_masked_value_secret(self) -> None:
         """密钥配置应显示脱敏值"""
         config = SystemConfig.objects.create(
-            key="test_secret", value="super_secret_key_12345", category="general", description="密钥配置", is_secret=True
+            key="test_secret",
+            value="super_secret_key_12345",
+            category="general",
+            description="密钥配置",
+            is_secret=True,
         )
         admin_obj = SystemConfigAdmin(SystemConfig, AdminSite())
         result = admin_obj.masked_value(config)
@@ -71,9 +77,7 @@ class TestSystemConfigAdmin:
 
     def test_masked_value_empty(self) -> None:
         """空值应显示'未设置'"""
-        config = SystemConfig.objects.create(
-            key="empty_key", value="", category="general", description="空配置"
-        )
+        config = SystemConfig.objects.create(key="empty_key", value="", category="general", description="空配置")
         admin_obj = SystemConfigAdmin(SystemConfig, AdminSite())
         result = admin_obj.masked_value(config)
         assert "未设置" in result
@@ -174,9 +178,7 @@ class TestCauseOfActionAdmin:
 
     def test_get_queryset_select_related(self) -> None:
         """get_queryset 应使用 select_related"""
-        parent = CauseOfAction.objects.create(
-            code="01", name="一级案由", case_type="civil", level=1, is_active=True
-        )
+        parent = CauseOfAction.objects.create(code="01", name="一级案由", case_type="civil", level=1, is_active=True)
         child = CauseOfAction.objects.create(
             code="0101", name="二级案由", case_type="civil", level=2, parent=parent, is_active=True
         )
@@ -198,9 +200,7 @@ class TestCauseOfActionAdmin:
 
     def test_case_type_display(self) -> None:
         """case_type_display 应返回带颜色的标签"""
-        coa = CauseOfAction.objects.create(
-            code="01", name="民事案由", case_type="civil", level=1, is_active=True
-        )
+        coa = CauseOfAction.objects.create(code="01", name="民事案由", case_type="civil", level=1, is_active=True)
 
         admin_obj = CauseOfActionAdmin(CauseOfAction, AdminSite())
         result = admin_obj.case_type_display(coa)
@@ -208,9 +208,7 @@ class TestCauseOfActionAdmin:
 
     def test_parent_display_with_parent(self) -> None:
         """parent_display 应显示父级案由名称"""
-        parent = CauseOfAction.objects.create(
-            code="01", name="父级案由", case_type="civil", level=1, is_active=True
-        )
+        parent = CauseOfAction.objects.create(code="01", name="父级案由", case_type="civil", level=1, is_active=True)
         child = CauseOfAction.objects.create(
             code="0101", name="子级案由", case_type="civil", level=2, parent=parent, is_active=True
         )
@@ -221,9 +219,7 @@ class TestCauseOfActionAdmin:
 
     def test_parent_display_without_parent(self) -> None:
         """parent_display 无父级时应显示破折号"""
-        coa = CauseOfAction.objects.create(
-            code="01", name="顶级案由", case_type="civil", level=1, is_active=True
-        )
+        coa = CauseOfAction.objects.create(code="01", name="顶级案由", case_type="civil", level=1, is_active=True)
 
         admin_obj = CauseOfActionAdmin(CauseOfAction, AdminSite())
         result = admin_obj.parent_display(coa)
@@ -231,9 +227,7 @@ class TestCauseOfActionAdmin:
 
     def test_status_display_active(self) -> None:
         """status_display 应显示正常状态"""
-        coa = CauseOfAction.objects.create(
-            code="01", name="正常案由", case_type="civil", level=1, is_active=True
-        )
+        coa = CauseOfAction.objects.create(code="01", name="正常案由", case_type="civil", level=1, is_active=True)
 
         admin_obj = CauseOfActionAdmin(CauseOfAction, AdminSite())
         result = admin_obj.status_display(coa)
@@ -248,3 +242,116 @@ class TestCauseOfActionAdmin:
         admin_obj = CauseOfActionAdmin(CauseOfAction, AdminSite())
         result = admin_obj.status_display(coa)
         assert "已废弃" in result
+
+
+@pytest.mark.django_db
+class TestLLMProviderAdminCredentials:
+    """安全审计：api_keys 明文不回显，留空=不修改"""
+
+    def _make_admin(self) -> LLMProviderAdmin:
+        return LLMProviderAdmin(LLMProvider, AdminSite())
+
+    def test_change_form_initial_blanks_api_keys(self) -> None:
+        """编辑页 initial 不回填明文 Key（EncryptedTextField 透明解密不再进 HTML）"""
+        provider = LLMProvider.objects.create(
+            name="回显测试平台",
+            base_url="http://gw.example/v1",
+            api_keys="sk-secret-echo",  # pragma: allowlist secret
+        )
+        admin_obj = self._make_admin()
+
+        initial = admin_obj.get_changeform_initial_data(_make_request())
+
+        assert initial["api_keys"] == ""
+        # 表单渲染不含明文 Key
+        form_class = admin_obj.get_form(_make_request(), obj=provider)
+        form = form_class(initial=initial, instance=provider)
+        assert "sk-secret-echo" not in form.as_p()
+
+    def test_save_model_blank_keeps_saved_keys(self) -> None:
+        """编辑时 api_keys 留空 → 保留库中原值"""
+        provider = LLMProvider.objects.create(
+            name="留空测试平台",
+            base_url="http://gw.example/v1",
+            api_keys="sk-keep-me",  # pragma: allowlist secret
+        )
+        admin_obj = self._make_admin()
+
+        provider.api_keys = ""
+        form = type("F", (), {"cleaned_data": {"api_keys": ""}})()
+        admin_obj.save_model(_make_request(), provider, form, change=True)
+        provider.refresh_from_db()
+
+        assert provider.api_keys == "sk-keep-me"  # pragma: allowlist secret
+
+    def test_save_model_non_blank_updates_keys(self) -> None:
+        """编辑时 api_keys 非空 → 更新为新值"""
+        provider = LLMProvider.objects.create(
+            name="更新测试平台",
+            base_url="http://gw.example/v1",
+            api_keys="sk-old-key",  # pragma: allowlist secret
+        )
+        admin_obj = self._make_admin()
+
+        provider.api_keys = "sk-new-key"  # pragma: allowlist secret
+        form = type("F", (), {"cleaned_data": {"api_keys": "sk-new-key"}})()  # pragma: allowlist secret
+        admin_obj.save_model(_make_request(), provider, form, change=True)
+        provider.refresh_from_db()
+
+        assert provider.api_keys == "sk-new-key"  # pragma: allowlist secret
+
+
+@pytest.mark.django_db
+class TestDocumentParseProviderAdminCredentials:
+    """安全审计：credentials 明文不回显、不进 search_fields，留空=不修改"""
+
+    def _make_admin(self) -> DocumentParseProviderAdmin:
+        return DocumentParseProviderAdmin(DocumentParseProvider, AdminSite())
+
+    def test_search_fields_exclude_credentials(self) -> None:
+        assert "credentials" not in self._make_admin().search_fields
+
+    def test_change_form_initial_blanks_credentials(self) -> None:
+        provider = DocumentParseProvider.objects.create(
+            name="回显解析平台",
+            provider_type="mineru",
+            credentials="k-echo-secret",  # pragma: allowlist secret
+        )
+        admin_obj = self._make_admin()
+
+        initial = admin_obj.get_changeform_initial_data(_make_request())
+
+        assert initial["credentials"] == ""
+        form_class = admin_obj.get_form(_make_request(), obj=provider)
+        form = form_class(initial=initial, instance=provider)
+        assert "k-echo-secret" not in form.as_p()
+
+    def test_save_model_blank_keeps_saved_credentials(self) -> None:
+        provider = DocumentParseProvider.objects.create(
+            name="留空解析平台",
+            provider_type="mineru",
+            credentials="k-keep-me",  # pragma: allowlist secret
+        )
+        admin_obj = self._make_admin()
+
+        provider.credentials = ""
+        form = type("F", (), {"cleaned_data": {"credentials": ""}})()
+        admin_obj.save_model(_make_request(), provider, form, change=True)
+        provider.refresh_from_db()
+
+        assert provider.credentials == "k-keep-me"
+
+    def test_save_model_non_blank_updates_credentials(self) -> None:
+        provider = DocumentParseProvider.objects.create(
+            name="更新解析平台",
+            provider_type="mineru",
+            credentials="k-old",  # pragma: allowlist secret
+        )
+        admin_obj = self._make_admin()
+
+        provider.credentials = "k-new"  # pragma: allowlist secret
+        form = type("F", (), {"cleaned_data": {"credentials": "k-new"}})()  # pragma: allowlist secret
+        admin_obj.save_model(_make_request(), provider, form, change=True)
+        provider.refresh_from_db()
+
+        assert provider.credentials == "k-new"  # pragma: allowlist secret

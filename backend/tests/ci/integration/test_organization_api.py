@@ -98,14 +98,30 @@ def test_register_duplicate_username(api_client, law_firm):
     assert resp.status_code == 200
     data = resp.json()
     assert data["success"] is False
-    assert "已存在" in data["message"]
+    # 安全审计防枚举：模糊文案，不单独确认用户名存在性
+    assert data["message"] == "注册信息无效或用户名已存在"
 
 
 @pytest.mark.django_db
 def test_register_short_password(api_client):
+    """注册密码统一走 AUTH_PASSWORD_VALIDATORS（安全审计：密码策略统一）。"""
     resp = api_client.post(
         "/api/v1/organization/register",
         data=json.dumps({"username": "shortpwuser", "password": "123"}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is False
+    assert "密码" in data["message"]
+
+
+@pytest.mark.django_db
+def test_register_numeric_password_rejected(api_client):
+    """满足长度但纯数字的密码同样被 NumericPasswordValidator 拒绝。"""
+    resp = api_client.post(
+        "/api/v1/organization/register",
+        data=json.dumps({"username": "numpwuser", "password": "12345678"}),
         content_type="application/json",
     )
     assert resp.status_code == 200

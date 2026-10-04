@@ -211,7 +211,8 @@ function JobRow({ item, onPick }: { item: ConverterJobItem; onPick: () => void }
           {item.failed > 0 ? ` · 失败 ${item.failed}` : ''}
         </span>
         <span className="mt-1 flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
-          <span>{format(new Date(item.createdAt), 'MM-dd HH:mm')}</span>
+          {/* createdAt 缺省为 ''（后端 created_at 兜底），new Date('') 得 Invalid Date 会让 format 抛错（对照 ParseHistoryDialog 同型守卫） */}
+          {item.createdAt && <span>{format(new Date(item.createdAt), 'MM-dd HH:mm')}</span>}
           {item.hasZip && (
             <>
               <span>·</span>

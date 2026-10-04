@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
@@ -269,7 +269,8 @@ def test_get_sms_detail(mock_build, mock_doc_ref, authenticated_client):
     assert data["id"] == 1
     assert data["content"] == "test"
     assert data["status"] == "pending"
-    mock_service.get_sms_detail.assert_called_once_with(1)
+    # 安全审计第4轮：详情端点须带 user/org_access 做归属校验
+    mock_service.get_sms_detail.assert_called_once_with(1, user=ANY, org_access=ANY)
 
 
 @pytest.mark.django_db

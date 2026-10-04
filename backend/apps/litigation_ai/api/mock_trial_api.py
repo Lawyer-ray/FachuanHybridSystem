@@ -24,6 +24,15 @@ logger = logging.getLogger(__name__)
 router = Router(tags=["模拟庭审"], auth=JWTOrSessionAuth())
 
 
+async def _ensure_case_access(request: HttpRequest, case_id: int) -> None:
+    """校验当前用户对案件的访问权（安全审计：会话创建/导出无案件归属校验）。"""
+    from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+    from apps.core.security import get_request_access_context
+
+    ctx = get_request_access_context(request)
+    await sync_to_async(CaseAccessPolicy().ensure_access_ctx)(case_id=case_id, ctx=ctx)
+
+
 def _get_service() -> Any:
     from apps.litigation_ai.services import LitigationConversationService
 
@@ -36,6 +45,8 @@ def _get_service() -> Any:
 )
 @rate_limit_from_settings("TASK", by_user=True)
 async def create_session(request: HttpRequest, payload: CreateMockTrialSessionRequest) -> Any:  # pragma: no cover
+    # 安全审计：先校验案件归属，防止对他人案件创建会话
+    await _ensure_case_access(request, payload.case_id)
     user = getattr(request, "user", None)
     session = await sync_to_async(_get_service().create_session)(
         case_id=payload.case_id,
@@ -138,7 +149,11 @@ async def export_report(request: HttpRequest, session_id: str) -> Any:  # pragma
 
     # 会话归属校验（IDOR）
     user = getattr(request, "user", None)
-    await sync_to_async(_get_service().get_session)(session_id, user=user)
+    session = await sync_to_async(_get_service().get_session)(session_id, user=user)
+
+    # 安全审计：导出前校验案件归属（会话属主校验之外补案件访问校验，
+    # 置于报告生成/案件读取之前，越权请求不触达后续数据）
+    await _ensure_case_access(request, session.case_id)
 
     # 获取报告数据
     report_data = await MockTrialReportService().get_report(session_id)
@@ -174,15 +189,16 @@ async def export_report(request: HttpRequest, session_id: str) -> Any:  # pragma
             case_info=case_info,
         )
 
-        # 读取文件并返回
-        from django.http import FileResponse
+        # 读取文件并返回（复用 documents 的下载响应工厂：quote 编码文件名，
+        # 防止案件名含引号/非 ASCII 时破坏 Content-Disposition 头）
+        from apps.documents.api.download_response_factory import build_download_response
 
-        response = FileResponse(
-            Path(file_path).open("rb"),
+        content = await sync_to_async(Path(file_path).read_bytes, thread_sensitive=False)()
+        return build_download_response(
+            content=content,
+            filename=f"模拟庭审报告_{case_name}.docx",
             content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
-        response["Content-Disposition"] = f'attachment; filename="模拟庭审报告_{case_name}.docx"'
-        return response
     except Exception as e:
         logger.error("导出报告失败: %s", e, exc_info=True)
         return Status(500, {"message": f"导出失败: {e}"})

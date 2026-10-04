@@ -1,5 +1,7 @@
 """Business logic services."""
 
+import logging
+
 from asgiref.sync import sync_to_async
 
 from apps.litigation_ai.models import EvidenceChunk
@@ -7,6 +9,12 @@ from apps.litigation_ai.models import EvidenceChunk
 from .evidence_embedding_service import EvidenceEmbeddingService
 from .evidence_text_extraction_service import EvidenceTextExtractionService
 from .evidence_vector_store_service import EvidenceVectorStoreService
+
+logger = logging.getLogger("apps.litigation_ai")
+
+# 负缓存标记的 extraction_method 值：解析出 0 chunk 的文件也落一行空标记，
+# 让下方的 exists() 命中——否则纯图片/空 PDF 每次检索都会重新跑 pymupdf+OCR
+EMPTY_EXTRACTION_METHOD = "no_text"
 
 
 class EvidenceRAGService:
@@ -21,18 +29,7 @@ class EvidenceRAGService:
             if EvidenceChunk.objects.filter(evidence_item_id=item.id).exists():
                 continue
             chunks = extraction.extract_chunks(item.file_path, max_pages=max_pages_per_item)
-            EvidenceChunk.objects.bulk_create(
-                [
-                    EvidenceChunk(
-                        evidence_item_id=item.id,
-                        page_start=c.get("page_start"),
-                        page_end=c.get("page_end"),
-                        text=c.get("text", ""),
-                        extraction_method=c.get("extraction_method"),
-                    )
-                    for c in chunks
-                ]
-            )
+            self._bulk_ingest(item.id, chunks)
 
     async def aensure_ingested(
         self, evidence_item_ids: list[int], max_pages_per_item: int = 20
@@ -50,18 +47,36 @@ class EvidenceRAGService:
             if await EvidenceChunk.objects.filter(evidence_item_id=item.id).aexists():
                 continue
             chunks = await sync_to_async(extraction.extract_chunks)(item.file_path, max_pages=max_pages_per_item)
-            await EvidenceChunk.objects.abulk_create(
-                [
-                    EvidenceChunk(
-                        evidence_item_id=item.id,
-                        page_start=c.get("page_start"),
-                        page_end=c.get("page_end"),
-                        text=c.get("text", ""),
-                        extraction_method=c.get("extraction_method"),
-                    )
-                    for c in chunks
-                ]
+            await sync_to_async(self._bulk_ingest)(item.id, chunks)
+
+    def _bulk_ingest(self, evidence_item_id: int, chunks: list[dict]) -> None:
+        """按行数差打点入库：并发下靠 (evidence_item, page_start) 唯一约束 + ignore_conflicts 幂等。
+
+        bulk_create(ignore_conflicts=True) 不保证回填主键，创建数以入库前后行数差为准
+        （并发方先落库时本方解析结果整批被跳过，created=0 属预期）。
+        """
+        to_create = [
+            EvidenceChunk(
+                evidence_item_id=evidence_item_id,
+                page_start=c.get("page_start"),
+                page_end=c.get("page_end"),
+                text=c.get("text", ""),
+                extraction_method=c.get("extraction_method"),
             )
+            for c in chunks
+        ]
+        if not chunks:
+            # 空 chunks 负缓存：page_start=None 与真实 chunk（恒 ≥1）不撞唯一约束
+            to_create = [EvidenceChunk(evidence_item_id=evidence_item_id, extraction_method=EMPTY_EXTRACTION_METHOD)]
+        before = EvidenceChunk.objects.filter(evidence_item_id=evidence_item_id).count()
+        EvidenceChunk.objects.bulk_create(to_create, ignore_conflicts=True)
+        created = EvidenceChunk.objects.filter(evidence_item_id=evidence_item_id).count() - before
+        logger.info(
+            "证据 chunk 入库: item=%s 解析=%d 新建=%d（0=并发方已入库或冲突跳过）",
+            evidence_item_id,
+            len(chunks),
+            created,
+        )
 
     def retrieve(self, query: str, evidence_item_ids: list[int], top_k: int = 5) -> list[EvidenceChunk]:
         embedding_service = EvidenceEmbeddingService()
@@ -72,8 +87,11 @@ class EvidenceRAGService:
         # 只物化轻字段（id/text）：embedding 是数十 KB 级 JSONField，原写法整表物化仅为
         # 判空。embedding 列 NOT NULL 且取值只会是 [] 或非空向量（upsert_embeddings 是
         # 唯一写入方），DB 侧 embedding=[] 与 Python not c.embedding 语义等价。
+        # 负缓存标记行（空解析占位）无文本可向量化，排除掉。
         missing_rows = list(
-            EvidenceChunk.objects.filter(evidence_item_id__in=evidence_item_ids, embedding=[]).values_list("id", "text")
+            EvidenceChunk.objects.filter(evidence_item_id__in=evidence_item_ids, embedding=[])
+            .exclude(extraction_method=EMPTY_EXTRACTION_METHOD)
+            .values_list("id", "text")
         )
         if missing_rows:
             missing_ids = [row[0] for row in missing_rows]
@@ -92,11 +110,12 @@ class EvidenceRAGService:
         query_vec = query_emb[0]
 
         # 同步版 retrieve：只物化轻字段（id/text），避免整表物化大 embedding JSONField。
+        # 负缓存标记行（空解析占位）无文本可向量化，排除掉。
         missing_rows = [
             row
-            async for row in EvidenceChunk.objects.filter(
-                evidence_item_id__in=evidence_item_ids, embedding=[]
-            ).values_list("id", "text")
+            async for row in EvidenceChunk.objects.filter(evidence_item_id__in=evidence_item_ids, embedding=[])
+            .exclude(extraction_method=EMPTY_EXTRACTION_METHOD)
+            .values_list("id", "text")
         ]
         if missing_rows:
             missing_ids = [row[0] for row in missing_rows]

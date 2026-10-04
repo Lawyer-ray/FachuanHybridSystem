@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from unittest.mock import MagicMock, PropertyMock
 
-from apps.automation.services.scraper.scrapers.court_document.jysd_scraper import JysdCourtScraper
+from apps.automation.services.scraper.scrapers.court_document.jysd_scraper import JysdCourtScraper, _is_sifayun_url
 
 
 class TestJysdCourtScraper:
@@ -55,7 +55,9 @@ class TestJysdCourtScraper:
 
     def test_get_lawyer_phones_with_empty_strings(self) -> None:
         scraper = self._make_scraper()
-        scraper.task.config = {"jysd_lawyer_phones": ["13612340615", "", "  ", "13800138000"]}  # pragma: allowlist secret
+        scraper.task.config = {
+            "jysd_lawyer_phones": ["13612340615", "", "  ", "13800138000"]
+        }  # pragma: allowlist secret
         phones = scraper._get_lawyer_phones()
         assert len(phones) == 2
 
@@ -150,3 +152,25 @@ class TestJysdCourtScraper:
         type(scraper.page).frames = property(lambda self: (_ for _ in ()).throw(RuntimeError("fail")))
         result = scraper._get_sifayun_iframe()
         assert result is None
+
+    # ─── _is_sifayun_url（CodeQL high：URL 子串校验改 host 精确比对） ───
+
+    def test_is_sifayun_url_accepts_exact_and_subdomain(self) -> None:
+        assert _is_sifayun_url("https://sifayun.com/page")
+        assert _is_sifayun_url("https://sd5.sifayun.com/middlePagePc")
+        assert _is_sifayun_url("https://SD5.SIFAYUN.COM/page")
+        assert _is_sifayun_url("https://sd5.sifayun.com:443/page")
+
+    def test_is_sifayun_url_rejects_substring_collision(self) -> None:
+        assert not _is_sifayun_url("https://evil-sifayun.com/page")
+        assert not _is_sifayun_url("https://sifayun.com.evil.com/page")
+        assert not _is_sifayun_url("https://sifayun.com.evil.com/redirect?to=https://sifayun.com")
+        assert not _is_sifayun_url("https://notsifayun.com/page")
+        assert not _is_sifayun_url("")
+
+    def test_get_sifayun_iframe_rejects_substring_collision(self) -> None:
+        scraper = self._make_scraper()
+        scraper.page = MagicMock()
+        evil = MagicMock(url="https://evil-sifayun.com/page")
+        scraper.page.frames = [evil]
+        assert scraper._get_sifayun_iframe() is None

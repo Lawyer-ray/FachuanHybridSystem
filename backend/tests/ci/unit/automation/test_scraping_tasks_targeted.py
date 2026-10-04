@@ -25,6 +25,7 @@ from apps.automation.tasks.scraping_tasks import (
 class TestExecuteScraperTaskExtra:
     def test_execute_with_kwargs_logs(self):
         with patch("apps.automation.models.ScraperTask") as MockModel:
+            MockModel.DoesNotExist = type("DoesNotExist", (Exception,), {})
             MockModel.objects.get.side_effect = MockModel.DoesNotExist()
             # 带 kwargs 也不应抛异常，且不做后续更新
             result = execute_scraper_task(999, extra="param")
@@ -76,7 +77,9 @@ class TestExecuteScraperTaskExtra:
                             task.retry_count = db_state["retry_count"]
 
                     def fake_update(**kwargs):
-                        db_state["retry_count"] += 1
+                        # 仅重试 CAS（含 retry_count）才计数；任务抢占（status/started_at）不计数
+                        if "retry_count" in kwargs:
+                            db_state["retry_count"] += 1
                         return 1
 
                     task.refresh_from_db.side_effect = fake_refresh

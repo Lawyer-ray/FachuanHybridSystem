@@ -6,15 +6,10 @@ import { cn } from '@/lib/utils'
 import { PdfPageView } from './PdfPageView'
 import { PhotoPageView } from './PhotoPageView'
 import { SkeletonLines } from './SkeletonLines'
+import { resolveDragRect, type PageRect } from './ui'
 
-export interface PageRect {
-  x: number
-  y: number
-  w: number
-  h: number
-}
-
-const MIN_DRAG = 0.018
+// 兼容出口：PageRect 类型已随拖框判定迁至 ui.ts，历史导入路径（Flow / use-ocr）保持可用
+export type { PageRect } from './ui'
 
 export const PageCell = memo(function PageCell({
   messageId,
@@ -76,14 +71,11 @@ export const PageCell = memo(function PageCell({
     const r = boxRef.current?.getBoundingClientRect()
     if (!r) return
     const cur = { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }
-    const a = dragRef.current
-    const rect: PageRect = {
-      x: Math.min(a.x, cur.x),
-      y: Math.min(a.y, cur.y),
-      w: Math.abs(cur.x - a.x),
-      h: Math.abs(cur.y - a.y),
-    }
-    if (rect.w > MIN_DRAG || rect.h > MIN_DRAG) movedRef.current = true
+    // 只有构成有效拖框（位移超过阈值）才记录矩形并显示蓝框；阈值内的手抖
+    // 位移一律归 null——否则 pointerup 时 rect 非 null 又不满足拖框条件，
+    // 两个分支都不进，1px~阈值之间就成了点击死区
+    const rect = resolveDragRect(dragRef.current, cur)
+    if (rect) movedRef.current = true
     rectRef.current = rect
     setDragRect(rect)
   }
@@ -94,9 +86,10 @@ export const PageCell = memo(function PageCell({
     const rect = rectRef.current
     rectRef.current = null
     setDragRect(null)
-    if (rect && (rect.w > MIN_DRAG || rect.h > MIN_DRAG)) {
+    // resolveDragRect 保证 rectRef 非空 ⇔ 位移超过阈值（有效拖框）
+    if (rect) {
       onOcrBox?.(mi, p, rect)
-    } else if (!rect) {
+    } else {
       onPickPage?.(mi, p)
     }
   }

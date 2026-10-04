@@ -51,6 +51,9 @@ export function splitOutPages(d: DraftState, picked: PageKey[]): DraftState {
   const flat = flatRefs(d)
   const idx = flatIndexesOf(flat, picked)
   if (!idx.length) return d
+  // ⌘ 点选的 picked 是「点选顺序」（先点 P5 再点 P4 会倒序传入）——落段前按
+  // 扁平文档序 normalize，否则新段页序颠倒、命名起始页取的是最后点的页
+  const ordered = idx.map((i) => flat[i]!.ref)
   // a / b 的非空由上一行 idx 非空守卫保证
   const a = idx[0]!
   const b = idx[idx.length - 1]!
@@ -70,8 +73,8 @@ export function splitOutPages(d: DraftState, picked: PageKey[]): DraftState {
   parts.push({
     id: nextSegId(),
     t: '',
-    fn: splitBase(sg, d.mats) + '-P' + picked[0]!.p + splitExt(sg),
-    refs: picked,
+    fn: splitBase(sg, d.mats) + '-P' + ordered[0]!.p + splitExt(sg),
+    refs: ordered,
     manual: true,
   })
   if (k1 < sg.refs.length - 1)
@@ -83,13 +86,16 @@ export function splitOutPages(d: DraftState, picked: PageKey[]): DraftState {
 /** 把选中页并成一份新的跨源材料，并从原段移除这些页（空段被清掉）。 */
 export function mergePagesIntoNew(d: DraftState, picked: PageKey[]): DraftState {
   if (!picked.length) return d
+  // 合并段 refs 同样按扁平文档序 normalize（点选顺序不影响成段后的页序）
+  const flat = flatRefs(d)
+  const ordered = flatIndexesOf(flat, picked).map((i) => flat[i]!.ref)
   const taken = new Set(picked.map((r) => `${r.mi}:${r.p}`))
   const segs: Segment[] = []
   for (const sg of d.segs) {
     const refs = sg.refs.filter((r) => !taken.has(`${r.mi}:${r.p}`))
     if (refs.length) segs.push({ ...sg, refs })
   }
-  segs.push({ id: nextSegId(), t: '', fn: '合并材料.pdf', refs: picked, manual: true })
+  segs.push({ id: nextSegId(), t: '', fn: '合并材料.pdf', refs: ordered, manual: true })
   return { ...d, segs }
 }
 

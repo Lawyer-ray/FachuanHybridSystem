@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { canvasToRetainedImg, loadPdfDocument, pdfRenderWidthFor, renderPdfPage } from '@/lib/pdf'
+import { canvasToRetainedImg, loadPdfDocument, pdfRenderWidthFor, releaseRetainedImg, renderPdfPage } from '@/lib/pdf'
 import { fetchAttachmentBytes } from '../../api'
 
 import { SkeletonLines } from './SkeletonLines'
+
+/** 释放 host 内驻留 img 的 blob URL（重渲替换/卸载前调用；未登记的 no-op，幂等） */
+function releaseHostRetainedImg(host: HTMLElement | null): void {
+  const old = host?.querySelector('img')
+  if (old) releaseRetainedImg(old)
+}
 
 export function PdfPageView({ messageId, partIndex, pageNum }: { messageId: number; partIndex: number; pageNum: number }) {
   const hostRef = useRef<HTMLDivElement>(null)
@@ -50,6 +56,8 @@ export function PdfPageView({ messageId, partIndex, pageNum }: { messageId: numb
   useEffect(() => {
     let cancelled = false
     setState('loading')
+    // cleanup 里 ref 可能已指向新节点：捕获本 effect 实例挂载时的 host
+    const hostAtMount = hostRef.current
     async function run() {
       try {
         const bytes = await fetchAttachmentBytes(messageId, partIndex)
@@ -66,13 +74,19 @@ export function PdfPageView({ messageId, partIndex, pageNum }: { messageId: numb
         // 否则固定内禀宽会把窄列撑爆，造成文字被横向压缩变形（"挤压"）
         canvas.style.width = '100%'
         canvas.style.height = 'auto'
+        // 清掉上一轮的驻留 img 前先回收它的 blob URL（ObjectURL 不回收会随重渲线性泄漏）
+        releaseHostRetainedImg(host)
         host.innerHTML = ''
         host.appendChild(canvas)
         setState('ready')
         // canvas 位图（~21MB/页）页面无法回收，92 页大包滚完会 ~1.9GB；
         // 编码成 WebP img 驻留（~250KB/页），浏览器可自动丢弃离屏解码位图
         const img = await canvasToRetainedImg(canvas)
-        if (cancelled || !host.isConnected) return
+        if (cancelled || !host.isConnected) {
+          // 本轮渲染已作废：刚登记的 img 不会挂载，就地回收 blob URL
+          releaseRetainedImg(img)
+          return
+        }
         img.style.width = '100%'
         img.style.height = 'auto'
         host.innerHTML = ''
@@ -84,6 +98,9 @@ export function PdfPageView({ messageId, partIndex, pageNum }: { messageId: numb
     void run()
     return () => {
       cancelled = true
+      // 卸载/重跑时 host 里可能还挂着上一轮的驻留 img（新一轮清空前）——一并回收；
+      // 新一轮成功路径在清 host 前也会 release，幂等不会双重 revoke
+      releaseHostRetainedImg(hostAtMount)
     }
   }, [messageId, partIndex, pageNum, forcedWidth])
 

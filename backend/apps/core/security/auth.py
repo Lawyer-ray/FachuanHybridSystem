@@ -44,8 +44,10 @@ class JWTOrSessionAuth(HttpBearer):
         if auth_header.startswith("Bearer "):
             token = auth_header[7:]
 
-        # 2. 如果 header 中没有 token,尝试从 query parameter 获取（用于 window.open 下载场景）
-        if not token:
+        # 2. 如果 header 中没有 token,仅对安全方法（GET/HEAD）尝试从 query parameter 获取
+        #    （用于 window.open 下载场景，均为 GET）。POST/PUT/DELETE 的 query 参数会随
+        #    URL 进访问日志/中间代理日志，必须改走 Authorization 头（安全审计）
+        if not token and request.method in ("GET", "HEAD"):
             token = request.GET.get("token")
 
         if token:

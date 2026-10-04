@@ -299,7 +299,7 @@ class TestGenericHttpRequest:
             assert result["data"] == "text response"
 
 
-# ── execute_mcp_tool error path ──
+# ── execute_mcp_tool ──
 
 
 class TestExecuteMcpTool:
@@ -307,12 +307,65 @@ class TestExecuteMcpTool:
     async def test_unknown_tool_raises(self):
         import apps.workflow.temporal.activities as act_mod
 
-        # The MCP_TOOLS is a local variable inside execute_mcp_tool,
-        # so we can't patch it directly. Instead, test the error path
-        # by calling with a tool name that won't exist after all imports.
-        # The function checks MCP_TOOLS.get(mcp_tool_name) == None
+        # 工具表已收敛为模块级缓存（_get_mcp_tools），
+        # 错误路径 = 表内查不到该工具名时抛 ValueError
         from apps.workflow.temporal.activities import execute_mcp_tool
 
         fn = execute_mcp_tool.fn if hasattr(execute_mcp_tool, "fn") else execute_mcp_tool
         with pytest.raises(ValueError, match="未知 MCP 工具"):
             await fn("__nonexistent_tool_xyz__", {"case_id": 1})
+
+    def test_registry_cached_across_calls(self):
+        """_get_mcp_tools 必须返回模块级缓存的同一张表（lazy init 真正生效）。"""
+        import apps.workflow.temporal.activities as act_mod
+
+        assert act_mod._get_mcp_tools() is act_mod._get_mcp_tools()
+
+    def test_base_tools_registered(self):
+        """基础工具映射保持不变。"""
+        import apps.workflow.temporal.activities as act_mod
+
+        tools = act_mod._get_mcp_tools()
+        expected = {
+            "get_case",
+            "generate_complaint",
+            "generate_defense",
+            "download_litigation_document",
+            "download_authorization_package",
+            "download_full_preservation_package",
+            "list_bind_candidates",
+            "create_case_log",
+            "execute_guarantee",
+            "submit_court_sms",
+            "search_companies",
+            "get_company_profile",
+            "get_company_risks",
+            "create_research_task",
+            "check_law_references",
+            "create_new_reminder",
+            "auto_namer_process",
+            "process_document",
+            "convert_document",
+            "calculate_litigation_fee",
+            "calculate_interest",
+        }
+        assert expected <= set(tools.keys())
+
+    def test_court_filing_key_follows_plugin_flag(self):
+        """execute_court_filing 仅在 court_automation 插件可用时并入路由表。
+
+        回归：历史版本在表内赋值插件键后又整字典重新绑定，把该键丢掉，
+        导致网上立案步骤永远查不到工具。
+        """
+        import apps.workflow.temporal.activities as act_mod
+
+        original = act_mod._MCP_TOOLS
+        act_mod._MCP_TOOLS = None  # 重置缓存，强制按当前插件状态重建
+        try:
+            tools = act_mod._get_mcp_tools()
+            if act_mod._HAS_COURT_FILING:
+                assert "execute_court_filing" in tools
+            else:
+                assert "execute_court_filing" not in tools
+        finally:
+            act_mod._MCP_TOOLS = original

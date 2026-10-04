@@ -6,11 +6,14 @@
 from __future__ import annotations
 
 import logging
+import os
+from bisect import bisect_right
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, NamedTuple
 
+from django.core.cache import cache
 from django.utils import timezone
 
 from apps.core.exceptions import ValidationException
@@ -19,6 +22,17 @@ if TYPE_CHECKING:
     from apps.finance.models.lpr_rate import LPRRate
 
 logger = logging.getLogger(__name__)
+
+# 全量利率快照的共享缓存：月更数据（每月 20 日前后一条），TTL 1h 足够新鲜；
+# 写路径（seed / 同步任务）负责显式失效。
+_RATES_SNAPSHOT_CACHE_KEY = "finance:lpr:rates_snapshot_v1"
+_RATES_SNAPSHOT_TTL = 3600
+
+
+def _in_pytest() -> bool:
+    """pytest 运行中绕过共享缓存：测试用 .objects.create 直灌数据且不走失效钩子，
+    locmem/Redis 里的旧快照会在用例间串数据（顺序依赖假绿/假红）。"""
+    return bool(os.environ.get("PYTEST_CURRENT_TEST"))
 
 
 class RateSegment(NamedTuple):
@@ -49,6 +63,54 @@ class PrincipalPeriod:
 
 class LPRRateService:
     """LPR利率查询服务."""
+
+    def __init__(self) -> None:
+        # 实例内快照记忆：rate_resolver 在一次计算里按每个重定价日逐点取利率，
+        # 同一 service 实例只应查一次全量（30 年贷款 ≈ 30 个重定价日）。
+        self._snapshot: list[tuple[date, Decimal, Decimal]] | None = None
+
+    @classmethod
+    def invalidate_rates_cache(cls) -> None:
+        """写路径（seed / 同步任务 upsert 后）显式失效共享快照。"""
+        cache.delete(_RATES_SNAPSHOT_CACHE_KEY)
+
+    def get_rates_snapshot(self) -> list[tuple[date, Decimal, Decimal]]:
+        """全量利率快照：按 effective_date 升序的 (effective_date, rate_1y, rate_5y)。
+
+        计算器按重定价日逐点取利率时应使用本方法一次取全量再内存二分，
+        替代每个重定价日一条 get_rate_at 查询。进程内记忆 + Redis 共享（1h），
+        pytest 下直查防串。
+        """
+        if self._snapshot is not None:
+            return self._snapshot
+
+        raw = None if _in_pytest() else cache.get(_RATES_SNAPSHOT_CACHE_KEY)
+        if raw is None:
+            from apps.finance.models.lpr_rate import LPRRate
+
+            raw = list(LPRRate.objects.order_by("effective_date").values_list("effective_date", "rate_1y", "rate_5y"))
+            if not _in_pytest():
+                cache.set(_RATES_SNAPSHOT_CACHE_KEY, raw, timeout=_RATES_SNAPSHOT_TTL)
+        self._snapshot = raw
+        return self._snapshot
+
+    def rate_at_from_snapshot(
+        self, snapshot: list[tuple[date, Decimal, Decimal]], query_date: date
+    ) -> tuple[Decimal, Decimal]:
+        """在快照上二分取 query_date 当期适用的 (rate_1y, rate_5y)。
+
+        Raises:
+            ValidationException: query_date 早于所有利率生效日（与 get_rate_at 同口径）
+        """
+        dates = [row[0] for row in snapshot]
+        idx = bisect_right(dates, query_date) - 1
+        if idx < 0:
+            raise ValidationException(
+                message="缺少 %(date)s 之前的LPR利率数据" % {"date": query_date},
+                code="LPR_RATE_NOT_FOUND",
+            )
+        _, rate_1y, rate_5y = snapshot[idx]
+        return rate_1y, rate_5y
 
     def get_rate_at(self, query_date: date) -> LPRRate:
         """查询指定日期生效的LPR利率.

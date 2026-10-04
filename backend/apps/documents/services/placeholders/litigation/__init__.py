@@ -12,8 +12,6 @@ from .defense_signature_service import DefenseSignatureService
 from .enforcement_applicant_property_clue_service import EnforcementApplicantPropertyClueService
 from .enforcement_basic_service import (
     EnforcementCaseNumberService,
-    EnforcementCauseOfActionService,
-    EnforcementCourtService,
     EnforcementEffectiveDateService,
     EnforcementTargetAmountService,
 )
@@ -43,9 +41,7 @@ __all__ = [
     "EnforcementApplicantBasicFieldsService",
     "EnforcementApplicantPartyService",
     "EnforcementApplicantPropertyClueService",
-    "EnforcementCauseOfActionService",
     "EnforcementCaseNumberService",
-    "EnforcementCourtService",
     "EnforcementEffectiveDateService",
     "EnforcementJudgmentMainTextService",
     "EnforcementRespondentPartyService",

@@ -16,15 +16,25 @@ class ICourtSMSService(Protocol):
 
     def submit_sms(self, content: str, received_at: Any | None = None, sender: str | None = None) -> Any: ...
 
-    def get_sms_detail(self, sms_id: int) -> Any: ...
+    def get_sms_detail(
+        self,
+        sms_id: int,
+        *,
+        user: Any = None,
+        org_access: dict[str, Any] | None = None,
+    ) -> Any: ...
+
+    def ensure_sms_case_access(self, sms: Any, *, user: Any, org_access: dict[str, Any] | None = None) -> None: ...
 
     def list_sms(
         self,
         status: str | None = None,
         sms_type: str | None = None,
         has_case: bool | None = None,
-        date_from: Any | None = None,
-        date_to: Any | None = None,
+        date_from: Any = None,
+        date_to: Any = None,
+        user: Any = None,
+        org_access: dict[str, Any] | None = None,
     ) -> list[Any]: ...
 
     def assign_case(self, sms_id: int, case_id: int) -> Any: ...

@@ -38,7 +38,8 @@ class SystemConfig(models.Model):
         CLOUD_STORAGE = "cloud_storage", "云存储配置"
         DOCSPACE = "docspace", "DocSpace 配置"
         GENERAL = "general", "通用配置"
-        SOCIAL_AUTH = "social_auth", "社交登录配置"
+        # 社交登录配置已独立为 SocialAuthProvider 表（apps/social_auth），
+        # 不再作为本模型的分类
 
     key = models.CharField(
         max_length=100, unique=True, verbose_name="配置键", help_text="配置项的唯一标识符,如 FEISHU_APP_ID"

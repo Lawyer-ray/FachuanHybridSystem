@@ -119,61 +119,57 @@ class TestWriteDeleteInapplicableTableOutOfBounds:
         assert result is False
 
 
+def _make_ff_checkbox_doc(state_tag, initial="0"):
+    """内存构建含旧版 w:ffData/w:checkBox 的最小 docx（写入须落 doc.element 本体）。"""
+    from docx import Document
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    doc = Document()
+    para = doc.add_paragraph("选项：")
+    sdt = OxmlElement("w:sdt")
+    sdt_pr = OxmlElement("w:sdtPr")
+    ff = OxmlElement("w:ffData")
+    cb = OxmlElement("w:checkBox")
+    if state_tag is not None:
+        state = OxmlElement(state_tag)
+        state.set(qn("w:val"), initial)
+        cb.append(state)
+    ff.append(cb)
+    sdt_pr.append(ff)
+    sdt.append(sdt_pr)
+    para._element.append(sdt)
+    return doc
+
+
+def _ff_state_val(doc, state_tag):
+    ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+    found = doc.element.findall(f".//w:ffData/w:checkBox/w:{state_tag}", ns)
+    if not found:
+        return None
+    return found[0].get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
+
+
 class TestWriteCheckboxOldFormat:
     """Test _write_checkbox with old format checkboxes."""
 
     def test_old_format_ff_checkbox(self):
         svc = _make_service()
-        xml = '''<root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-                        xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml">
-            <w:sdt>
-                <w:sdtPr>
-                    <w:ffData>
-                        <w:checkBox>
-                            <w:checked w:val="0"/>
-                        </w:checkBox>
-                    </w:ffData>
-                </w:sdtPr>
-            </w:sdt>
-        </root>'''
-        doc = MagicMock()
-        doc.element.xml = xml
+        doc = _make_ff_checkbox_doc("w:checked", initial="0")
         result = svc._write_checkbox(doc, {"type": "checkbox", "checkbox_index": 0}, "true")
         assert result is True
+        assert _ff_state_val(doc, "checked") == "1"
 
     def test_old_format_ff_default_element(self):
         svc = _make_service()
-        xml = '''<root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-                        xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml">
-            <w:sdt>
-                <w:sdtPr>
-                    <w:ffData>
-                        <w:checkBox>
-                            <w:default w:val="1"/>
-                        </w:checkBox>
-                    </w:ffData>
-                </w:sdtPr>
-            </w:sdt>
-        </root>'''
-        doc = MagicMock()
-        doc.element.xml = xml
+        doc = _make_ff_checkbox_doc("w:default", initial="1")
         result = svc._write_checkbox(doc, {"type": "checkbox", "checkbox_index": 0}, "false")
         assert result is True
+        assert _ff_state_val(doc, "default") == "0"
 
     def test_old_format_no_checked_element(self):
         svc = _make_service()
-        xml = '''<root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-                        xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml">
-            <w:sdt>
-                <w:sdtPr>
-                    <w:ffData>
-                        <w:checkBox/>
-                    </w:ffData>
-                </w:sdtPr>
-            </w:sdt>
-        </root>'''
-        doc = MagicMock()
-        doc.element.xml = xml
+        doc = _make_ff_checkbox_doc(None)
         result = svc._write_checkbox(doc, {"type": "checkbox", "checkbox_index": 0}, "true")
         assert result is True
 
@@ -182,17 +178,17 @@ class TestWriteCheckboxW14NoChecked:
     """Test w14 checkbox with no checked element."""
 
     def test_w14_no_checked_element(self):
+        from docx import Document
+        from docx.oxml import OxmlElement
+
+        doc = Document()
+        para = doc.add_paragraph()
+        sdt = OxmlElement("w:sdt")
+        sdt_pr = OxmlElement("w:sdtPr")
+        sdt_pr.append(OxmlElement("w14:checkbox"))
+        sdt.append(sdt_pr)
+        para._element.append(sdt)
         svc = _make_service()
-        xml = '''<root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-                        xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml">
-            <w:sdt>
-                <w:sdtPr>
-                    <w14:checkbox/>
-                </w:sdtPr>
-            </w:sdt>
-        </root>'''
-        doc = MagicMock()
-        doc.element.xml = xml
         result = svc._write_checkbox(doc, {"type": "checkbox", "checkbox_index": 0}, "true")
         assert result is True
 

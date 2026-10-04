@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import transaction
+from django.utils import timezone
 
 from apps.cases.models import CaseFolderBinding, CaseLog, CaseLogAttachment
 from apps.cases.utils import CASE_LOG_ALLOWED_EXTENSIONS, CASE_LOG_MAX_FILE_SIZE
@@ -117,23 +118,35 @@ class EmailFolderScanService:
                     perm_open_access=perm_open_access,
                 )
 
-                log.source_subfolder = source_key
-                log.save(update_fields=["source_subfolder"])
-
                 date_match = _DATE_PATTERN.match(subdir_name)
                 if date_match:
                     try:
                         year, month, day = int(date_match.group(1)), int(date_match.group(2)), int(date_match.group(3))
-                        log.created_at = datetime(year, month, day, 12, 0, 0)
+                        log.created_at = timezone.make_aware(datetime(year, month, day, 12, 0, 0))
                         log.save(update_fields=["created_at"])
                     except ValueError:
-                        pass
+                        logger.warning("案件 %d 子目录 %s 日期非法，保留默认时间", case_id, source_key)
 
+                uploaded_count = 0
                 for file_path in files:
-                    self._upload_file_as_attachment(log, file_path, provider=provider)
+                    if self._upload_file_as_attachment(log, file_path, provider=provider) is not None:
+                        uploaded_count += 1
 
                 created_logs.append(log)
-                existing_sources.add(source_key)
+                if uploaded_count == len(files):
+                    # 附件全部成功才落 source_subfolder 标记：重跑按 DB 标记跳过，
+                    # 未标记的子目录可重新导入补传（避免附件静默丢失）
+                    log.source_subfolder = source_key
+                    log.save(update_fields=["source_subfolder"])
+                    existing_sources.add(source_key)
+                else:
+                    logger.warning(
+                        "案件 %d 子目录 %s 附件未全部上传（成功 %d/共 %d），不标记已导入以便重跑",
+                        case_id,
+                        source_key,
+                        uploaded_count,
+                        len(files),
+                    )
 
         logger.info(
             "案件 %d 子文件夹导入完成: 新增=%d, 跳过=%d",
@@ -306,6 +319,10 @@ class EmailFolderScanService:
         self, log: CaseLog, file_path: Path | str, provider: Any = None
     ) -> CaseLogAttachment | None:  # pragma: no cover
         """上传文件为日志附件（本地或云存储）."""
+        from django.db import Error as DBError
+
+        from apps.cloud_storage.exceptions import CloudStorageError
+
         try:
             if provider is not None:
                 file_content = provider.read_file(str(file_path))
@@ -320,6 +337,7 @@ class EmailFolderScanService:
             attachment = CaseLogAttachment.objects.create(log=log, file=uploaded_file)
             logger.info("附件上传成功: %s -> 日志 %d", file_name, log.id)
             return attachment
-        except Exception:
-            logger.exception("附件上传失败: %s", file_path)
+        except (OSError, CloudStorageError, DBError) as exc:
+            # 上传失败返回 None 由调用方决定是否标记该子目录已导入；异常收窄避免吞掉程序性错误
+            logger.warning("附件上传失败: %s (log_id=%s): %s", file_path, log.id, exc, exc_info=True)
             return None

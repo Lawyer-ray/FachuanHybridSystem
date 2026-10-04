@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from django.contrib.auth import password_validation
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from ninja.files import UploadedFile
 
@@ -59,6 +61,7 @@ class LawyerMutationService:
             law_firm=law_firm,
             is_admin=data.is_admin,
         )
+        self._validate_password_strength(data.password, lawyer)
         lawyer.set_password(data.password)
         self.upload_service.attach_license_pdf(lawyer, license_pdf)
         self.upload_service.attach_avatar(lawyer, avatar)
@@ -172,10 +175,26 @@ class LawyerMutationService:
             updated.append("law_firm_id")
 
         if data.password:
+            self._validate_password_strength(data.password, lawyer)
             lawyer.set_password(data.password)
             updated.append("password")
 
         return updated
+
+    def _validate_password_strength(self, password: str, user: Lawyer) -> None:
+        """管理员建号/改号统一走 AUTH_PASSWORD_VALIDATORS（安全审计：密码策略统一）。
+
+        Raises:
+            ValidationException: 密码不满足 settings.AUTH_PASSWORD_VALIDATORS。
+        """
+        try:
+            password_validation.validate_password(password, user=user)
+        except DjangoValidationError as exc:
+            raise ValidationException(
+                message="密码不符合安全策略",
+                code="WEAK_PASSWORD",
+                errors={"password": "; ".join(exc.messages)},
+            ) from None
 
     @transaction.atomic
     def delete_lawyer(self, lawyer: Lawyer, user: Lawyer) -> None:

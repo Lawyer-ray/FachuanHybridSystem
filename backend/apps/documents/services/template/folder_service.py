@@ -202,12 +202,17 @@ class FolderTemplateService:
         return False, ""
 
     def list_templates(
-        self, case_type: str | None = None, case_stage: str | None = None, is_active: bool | None = None
+        self,
+        template_type: str | None = None,
+        case_type: str | None = None,
+        case_stage: str | None = None,
+        is_active: bool | None = None,
     ) -> list[FolderTemplate]:
         """
         列出文件夹模板
 
         Args:
+            template_type: 按模板类型过滤（contract/case，缺省为 case）
             case_type: 按案件类型过滤
             case_stage: 按案件阶段过滤
             is_active: 按启用状态过滤
@@ -215,7 +220,12 @@ class FolderTemplateService:
         Returns:
             FolderTemplate 列表
         """
-        return self.usecases.list_templates(case_type=case_type, case_stage=case_stage, is_active=is_active)
+        return self.usecases.list_templates(
+            template_type=template_type,
+            case_type=case_type,
+            case_stage=case_stage,
+            is_active=is_active,
+        )
 
     def delete_template(self, template_id: int) -> bool:
         """

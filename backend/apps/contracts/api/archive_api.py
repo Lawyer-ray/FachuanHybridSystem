@@ -449,9 +449,34 @@ async def preview_archive_material(request: HttpRequest, contract_id: int, mater
     if not material.file_path:
         return HttpResponse(status=404)
 
-    file_path = Path(material.file_path)
-    if not file_path.is_absolute():
-        file_path = Path(django_settings.MEDIA_ROOT) / file_path
+    # 路径收敛（安全审计）：material.file_path 可能是历史脏数据中的任意绝对路径，
+    # 禁止直读。统一经 to_media_abs 收敛到 MEDIA_ROOT 内，再校验位于本合同的
+    # 归档材料目录（contracts/finalized/{contract_id}，所有写入方的唯一落盘根），
+    # 越界一律 404，杜绝绑定目录外任意文件读取。
+    from apps.core.exceptions import ValidationException
+    from apps.core.filesystem.upload_paths import MediaEntity
+    from apps.core.services.storage_service import to_media_abs
+
+    try:
+        file_path = to_media_abs(material.file_path)
+    except ValidationException:
+        logger.warning(
+            "归档材料预览拒绝非法路径: material_id=%s contract_id=%s",
+            material_id,
+            contract_id,
+        )
+        return HttpResponse(status=404)
+
+    contract_finalized_dir = (
+        Path(django_settings.MEDIA_ROOT) / MediaEntity.CONTRACT_FINALIZED / str(contract_id)
+    ).resolve()
+    if not file_path.is_relative_to(contract_finalized_dir):
+        logger.warning(
+            "归档材料预览路径越界（不在合同归档目录内）: material_id=%s contract_id=%s",
+            material_id,
+            contract_id,
+        )
+        return HttpResponse(status=404)
 
     if not file_path.exists():
         return HttpResponse(status=404)

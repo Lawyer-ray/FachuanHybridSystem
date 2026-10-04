@@ -9,10 +9,10 @@ from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory
 
-from apps.organization.admin.lawyer_admin import LawyerAdmin
-from apps.organization.admin.lawfirm_admin import LawFirmAdmin
-from apps.organization.admin.team_admin import TeamAdmin
 from apps.organization.admin.accountcredential_admin import AccountCredentialAdmin
+from apps.organization.admin.lawfirm_admin import LawFirmAdmin
+from apps.organization.admin.lawyer_admin import LawyerAdmin
+from apps.organization.admin.team_admin import TeamAdmin
 from apps.organization.models import AccountCredential, LawFirm, Lawyer, Team
 
 User = get_user_model()
@@ -70,6 +70,118 @@ class TestLawyerAdmin:
 
 
 @pytest.mark.django_db
+class TestLawyerAdminSecurity:
+    """LawyerAdmin 安全审计：密码哈希不回显 + 提权字段仅 superuser 可见可改"""
+
+    def _make_non_superuser_request(self) -> Any:
+        factory = RequestFactory()
+        request = factory.get("/admin/organization/lawyer/")
+        request.user = User(is_superuser=False, is_staff=True, is_admin=True)
+        return request
+
+    def test_password_field_removed_from_form_and_fieldsets(self) -> None:
+        """password 不应出现在表单字段与 fieldsets 中（readonly widget 也会回显 PBKDF2 哈希）"""
+        admin_obj = LawyerAdmin(Lawyer, AdminSite())
+
+        from django.contrib.admin.helpers import flatten_fieldsets
+
+        flattened = flatten_fieldsets(admin_obj.get_fieldsets(_make_request()))
+        assert "password" not in flattened
+        assert "new_password" in flattened
+
+        form_class = admin_obj.get_form(_make_request())
+        assert "password" not in form_class.base_fields
+        assert "new_password" in form_class.base_fields
+
+    def test_edit_form_does_not_echo_password_hash(self) -> None:
+        """编辑既有律师：渲染的表单不包含密码哈希"""
+        firm = LawFirm.objects.create(name="哈希回显测试律所")
+        lawyer = Lawyer.objects.create_user(
+            username="hash_echo_lawyer",
+            real_name="哈希律师",
+            law_firm=firm,
+            password="secret-pass-123",  # pragma: allowlist secret
+        )
+        assert lawyer.password.startswith("pbkdf2_")
+
+        admin_obj = LawyerAdmin(Lawyer, AdminSite())
+        form_class = admin_obj.get_form(_make_request(), obj=lawyer)
+        form = form_class(instance=lawyer)
+        rendered = form.as_p()
+        assert "pbkdf2_" not in rendered
+        # 精确匹配字段名（new_password 的 autocomplete 属性含 "new-password"，不能笼统断言子串）
+        assert 'name="password"' not in rendered
+
+    def test_privileged_fields_hidden_for_non_superuser(self) -> None:
+        """非 superuser：is_admin/is_staff/is_superuser 不出现在 fieldsets 与表单中"""
+        admin_obj = LawyerAdmin(Lawyer, AdminSite())
+        request = self._make_non_superuser_request()
+
+        from django.contrib.admin.helpers import flatten_fieldsets
+
+        flattened = flatten_fieldsets(admin_obj.get_fieldsets(request))
+        for field in ("is_admin", "is_staff", "is_superuser"):
+            assert field not in flattened
+
+        form_class = admin_obj.get_form(request)
+        for field in ("is_admin", "is_staff", "is_superuser"):
+            assert field not in form_class.base_fields
+        # 非提权字段仍可编辑
+        assert "is_active" in form_class.base_fields
+
+    def test_privileged_fields_visible_for_superuser(self) -> None:
+        """superuser：提权字段照常可见"""
+        admin_obj = LawyerAdmin(Lawyer, AdminSite())
+        request = _make_request()
+
+        form_class = admin_obj.get_form(request)
+        for field in ("is_admin", "is_staff", "is_superuser"):
+            assert field in form_class.base_fields
+
+    def test_non_superuser_edit_keeps_privileged_flags_unchanged(self) -> None:
+        """非 superuser 提交编辑：提权字段保持库中原值（不进表单即不会被覆盖）"""
+        firm = LawFirm.objects.create(name="提权测试律所")
+        team = Team.objects.create(name="提权律师团队", team_type="lawyer", law_firm=firm)
+        Lawyer.objects.create_user(
+            username="target_lawyer",
+            real_name="目标律师",
+            law_firm=firm,
+            password="secret-pass-123",  # pragma: allowlist secret
+            is_superuser=False,
+            is_staff=False,
+            is_admin=False,
+        )
+        target = Lawyer.objects.get(username="target_lawyer")
+
+        admin_obj = LawyerAdmin(Lawyer, AdminSite())
+        request = self._make_non_superuser_request()
+        form_class = admin_obj.get_form(request, obj=target)
+
+        post = RequestFactory().post(
+            "/admin/organization/lawyer/",
+            data={
+                "username": "target_lawyer",
+                "real_name": "改名律师",
+                "is_active": "on",
+                "lawyer_team": team.id,
+                "is_superuser": "on",  # 恶意提交：字段已不在表单中，应被忽略
+                "is_admin": "on",
+                "is_staff": "on",
+            },
+        )
+        post.user = request.user
+        form = form_class(post.POST, instance=target)
+        assert form.is_valid(), form.errors
+        saved = form.save()
+        saved.refresh_from_db()
+
+        assert saved.is_superuser is False
+        assert saved.is_admin is False
+        assert saved.is_staff is False
+        assert saved.real_name == "改名律师"
+
+
+@pytest.mark.django_db
 class TestLawFirmAdmin:
     """LawFirmAdmin 测试"""
 
@@ -119,7 +231,10 @@ class TestAccountCredentialAdmin:
         firm = LawFirm.objects.create(name="凭证测试律所")
         lawyer = Lawyer.objects.create_user(username="cred_lawyer", real_name="凭证律师", law_firm=firm)
         AccountCredential.objects.create(
-            lawyer=lawyer, site_name="test_site", account="test_account", password="test_pass"  # allowlist secret
+            lawyer=lawyer,
+            site_name="test_site",
+            account="test_account",
+            password="test_pass",  # allowlist secret
         )
 
         admin_obj = AccountCredentialAdmin(AccountCredential, AdminSite())
@@ -170,7 +285,10 @@ class TestAccountCredentialAdmin:
 
         # 其他站点应返回"不支持"
         cred2 = AccountCredential.objects.create(
-            lawyer=lawyer, site_name="other_site", account="btn_account2", password="test_pass"  # allowlist secret
+            lawyer=lawyer,
+            site_name="other_site",
+            account="btn_account2",
+            password="test_pass",  # allowlist secret
         )
         admin_obj = AccountCredentialAdmin(AccountCredential, AdminSite())
         result2 = admin_obj.auto_login_button(cred2)

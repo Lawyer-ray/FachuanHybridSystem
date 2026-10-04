@@ -28,20 +28,22 @@ def _clear_rate_limit_cache() -> Any:
 
 
 def _seed_feishu_config() -> None:
-    """按生产装配方式 seed 飞书 Provider 配置（真实 feishu provider 类）。"""
+    """按生产装配方式 seed 飞书 Provider 配置（SocialAuthProvider 表 + 共用凭证借用）。"""
     from apps.core.models import SystemConfig
-    from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
+    from apps.social_auth.models import SocialAuthProvider
+    from apps.social_auth.providers import ProviderRegistry
 
-    prefix = PROVIDER_SPECS["feishu"]["prefix"]
+    SocialAuthProvider.objects.create(
+        name="feishu",
+        display_name="飞书",
+        client_id="",  # 留空 → 借用「飞书配置」分类下的共用凭证
+        client_secret="",
+        redirect_uri="http://testserver/social/feishu/callback/",
+        enabled=True,
+        priority=10,
+    )
     SystemConfig.objects.bulk_create(
         [
-            SystemConfig(key=f"{prefix}APP_ID", value="cli_test", category="social_auth"),
-            SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth"),
-            SystemConfig(
-                key=f"{prefix}REDIRECT_URI",
-                value="http://testserver/social/feishu/callback/",
-                category="social_auth",
-            ),
             SystemConfig(key="FEISHU_APP_ID", value="cli_shared", category="feishu"),
             SystemConfig(key="FEISHU_APP_SECRET", value="borrowed-secret-placeholder", category="feishu"),
         ]
@@ -54,7 +56,9 @@ def feishu_enabled() -> Any:
     _seed_feishu_config()
     yield
     from apps.core.models import SystemConfig
+    from apps.social_auth.models import SocialAuthProvider
 
+    SocialAuthProvider.objects.all().delete()
     SystemConfig.objects.filter(category="social_auth").delete()
     SystemConfig.objects.filter(category="feishu").delete()
     from apps.social_auth.providers import ProviderRegistry

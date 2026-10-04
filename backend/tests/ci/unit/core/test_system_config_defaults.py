@@ -36,15 +36,11 @@ class TestDefaultConfigsIntegrity:
         duplicates = sorted({key for key in keys if keys.count(key) > 1})
         assert duplicates == [], f"默认配置存在重复 key：{duplicates}"
 
-    def test_social_auth_keys_carry_prefix(self) -> None:
-        """社交登录的键必须带 SOCIAL_AUTH_ 前缀。
+    def test_no_social_auth_items(self) -> None:
+        """社交登录配置已独立为 SocialAuthProvider 表（admin「社交登录」管理页）。
 
-        该分类要复用「飞书配置」里的 FEISHU_APP_ID / FEISHU_APP_SECRET，而
-        SystemConfig.key 全局唯一 —— 少了前缀就会与 IM 分类撞名。
+        SystemConfig 不再播种 social_auth 分类——若有人加回来，会造成
+        「admin 改了旧页面、登录链路读新表」的双源混乱。
         """
-        missing = [
-            item["key"]
-            for item in get_default_configs()
-            if item["category"] == "social_auth" and not item["key"].startswith("SOCIAL_AUTH_")
-        ]
-        assert missing == [], f"social_auth 配置缺少 SOCIAL_AUTH_ 前缀：{missing}"
+        leaked = [item["key"] for item in get_default_configs() if item["category"] == "social_auth"]
+        assert leaked == [], f"默认配置不应包含 social_auth 分类（已迁至 SocialAuthProvider 表）：{leaked}"

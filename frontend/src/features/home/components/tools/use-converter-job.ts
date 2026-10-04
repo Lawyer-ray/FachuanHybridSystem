@@ -1,8 +1,10 @@
 import { useCallback, useState } from 'react'
 
+import { useQueryClient } from '@tanstack/react-query'
+
 import { usePollSession, type PollLease } from '@/hooks/use-poll-session'
 
-import { createConverterJob, getConverterJob, type ConverterJob } from '../../api'
+import { converterHistoryKeys, createConverterJob, getConverterJob, type ConverterJob } from '../../api'
 
 /** 轮询节奏与上限：2s 一次，5 分钟仍没结束就转「后台继续」 */
 const DOC_CONVERTER_POLL_MS = 2_000
@@ -32,40 +34,52 @@ export interface UseConverterJobResult {
  * 卡片只保留纯 UI 编排（弹窗 / 文件选择 / 复制下载）。
  */
 export function useConverterJob(): UseConverterJobResult {
+  const queryClient = useQueryClient()
   const [phase, setPhase] = useState<ConverterPhase>('idle')
   const [jobId, setJobId] = useState<string | null>(null)
   const [job, setJob] = useState<ConverterJob | null>(null)
   const [error, setError] = useState<string | null>(null)
   const pollSession = usePollSession()
 
+  /** 任务到终态（成功/失败/转后台）后失效转换历史：新任务记录这时才在历史列表可见 */
+  const invalidateHistory = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: converterHistoryKeys.all })
+  }, [queryClient])
+
   /** 轮询 job 到终态；lease 由 submit/resume 签发，失效后旧循环自检退出 */
-  const poll = useCallback(async (id: string, lease: PollLease) => {
-    for (let i = 0; i < DOC_CONVERTER_MAX_POLLS; i++) {
-      if (lease.isStale()) return
-      try {
-        const j = await getConverterJob(id)
+  const poll = useCallback(
+    async (id: string, lease: PollLease) => {
+      for (let i = 0; i < DOC_CONVERTER_MAX_POLLS; i++) {
         if (lease.isStale()) return
-        setJob(j)
-        // 终态判定：显式 completed/failed，或计数收敛（后端中途不再更新 status 也能收尾）
-        const settled = j.total > 0 && j.done + j.failed >= j.total
-        if (j.status === 'completed' || j.status === 'failed' || settled) {
-          setPhase(j.done > 0 ? 'success' : 'error')
-          setError(j.done > 0 ? null : '全部文件转换失败，请确认上传的是 .doc 文件')
+        try {
+          const j = await getConverterJob(id)
+          if (lease.isStale()) return
+          setJob(j)
+          // 终态判定：显式 completed/failed，或计数收敛（后端中途不再更新 status 也能收尾）
+          const settled = j.total > 0 && j.done + j.failed >= j.total
+          if (j.status === 'completed' || j.status === 'failed' || settled) {
+            setPhase(j.done > 0 ? 'success' : 'error')
+            setError(j.done > 0 ? null : '全部文件转换失败，请确认上传的是 .doc 文件')
+            invalidateHistory()
+            return
+          }
+        } catch {
+          if (lease.isStale()) return
+          // 查询进度失败当场判死（任务本身多半还在，可稍后从历史记录回来下载）
+          setPhase('error')
+          setError('查询转换进度失败，可稍后重试')
+          invalidateHistory()
           return
         }
-      } catch {
-        if (lease.isStale()) return
-        // 查询进度失败当场判死（任务本身多半还在，可稍后从历史记录回来下载）
-        setPhase('error')
-        setError('查询转换进度失败，可稍后重试')
-        return
+        await lease.sleep(DOC_CONVERTER_POLL_MS)
       }
-      await lease.sleep(DOC_CONVERTER_POLL_MS)
-    }
-    if (lease.isStale()) return
-    // 5 分钟仍在跑：不判失败，后台会继续；用户可「继续等待」或稍后回来下载
-    setPhase('timeout')
-  }, [])
+      if (lease.isStale()) return
+      // 5 分钟仍在跑：不判失败，后台会继续；用户可「继续等待」或稍后回来下载
+      setPhase('timeout')
+      invalidateHistory()
+    },
+    [invalidateHistory],
+  )
 
   const submit = useCallback(
     async (files: File[]) => {

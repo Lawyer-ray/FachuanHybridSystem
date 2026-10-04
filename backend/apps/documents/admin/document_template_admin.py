@@ -360,7 +360,6 @@ class DocumentTemplateAdmin(TemplateAdminViewsMixin, TemplateAdminDisplayMixin, 
             "模板类型",
             {
                 "fields": ("template_type", "contract_sub_type", "case_sub_type", "archive_sub_type"),
-                "description": "先选择模板类型(合同/案件/归档),再选择对应的子类型",
             },
         ),
         (
@@ -374,14 +373,12 @@ class DocumentTemplateAdmin(TemplateAdminViewsMixin, TemplateAdminDisplayMixin, 
                     "legal_status_match_mode",
                     "applicable_institutions_field",
                 ),
-                "description": "根据模板类型选择相应的适用范围",
             },
         ),
         (
             "文件",
             {
                 "fields": ("current_file_display", "existing_file", "file", "file_path"),
-                "description": "三选一:从模板库选择已有文件(不复制)、上传新文件(复制到用户自定义模板目录)、或手动输入路径",
             },
         ),
         (
@@ -395,7 +392,6 @@ class DocumentTemplateAdmin(TemplateAdminViewsMixin, TemplateAdminDisplayMixin, 
             {
                 "fields": ("placeholders_display", "undefined_placeholders_display"),
                 "classes": ("collapse",),
-                "description": "模板中使用的占位符列表",
             },
         ),
     )

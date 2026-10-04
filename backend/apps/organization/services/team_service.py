@@ -11,6 +11,7 @@ from django.db import transaction
 from django.db.models import QuerySet
 
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
+from apps.core.infrastructure import invalidate_users_access_context
 from apps.organization.dtos import TeamUpsertDTO
 from apps.organization.models import LawFirm, Lawyer, Team, TeamType
 from apps.organization.services.access.organization_access_policy import OrganizationAccessPolicy
@@ -112,6 +113,27 @@ class TeamService:
         if law_firm is None:
             raise NotFoundError(message="律所不存在", code="LAWFIRM_NOT_FOUND")
 
+        # 团队不允许跨律所挂靠：挂靠律所变更会连带改变全体成员的数据可见范围，
+        # 普通管理入口一律拒绝；确有跨所迁移需求时由超级用户操作
+        if law_firm.pk != team.law_firm_id and not (user and user.is_superuser):
+            logger.warning(
+                "用户 %s 尝试将团队 %s 跨律所挂靠被拒绝",
+                user.id if user else None,
+                team_id,
+                extra={
+                    "user_id": user.id if user else None,
+                    "team_id": team_id,
+                    "old_law_firm_id": team.law_firm_id,
+                    "new_law_firm_id": law_firm.pk,
+                    "action": "update_team",
+                },
+            )
+            raise ValidationException(
+                message="团队不能跨律所挂靠",
+                code="TEAM_LAWFIRM_IMMUTABLE",
+                errors={"law_firm_id": "团队挂靠律所不可变更"},
+            )
+
         team.name = data.name
         team.team_type = data.team_type
         team.law_firm = law_firm
@@ -141,7 +163,15 @@ class TeamService:
             )
             raise PermissionDenied(message="无权限删除该团队", code="PERMISSION_DENIED")
 
+        # 删除前先收集团队成员：删除后成员的可见范围变化需要失效其访问缓存
+        affected_user_ids = list(
+            Lawyer.objects.filter(lawyer_teams__id=team.id).values_list("id", flat=True).distinct()
+        )
+
         team.delete()
+
+        if affected_user_ids:
+            invalidate_users_access_context(affected_user_ids, org_access=True, case_grants=False)
 
         logger.info(
             "团队删除成功", extra={"team_id": team_id, "user_id": user.id if user else None, "action": "delete_team"}

@@ -57,6 +57,18 @@ class TestPasswordBinding:
         with pytest.raises(AuthenticationFailed):
             schema.to_response_schema()
 
+    def test_refresh_rejected_for_inactive_user(self, user: Lawyer) -> None:
+        """停用账号（is_active=False，密码未变）的 refresh token 立即失效。"""
+        data = PasswordBoundTokenObtainPairInputSchema.get_token(user)
+        user.is_active = False
+        user.save(update_fields=["is_active"])
+
+        schema = PasswordBoundTokenRefreshInputSchema(refresh=data["refresh"])
+        from ninja_jwt.exceptions import AuthenticationFailed
+
+        with pytest.raises(AuthenticationFailed):
+            schema.to_response_schema()
+
     def test_refresh_rejected_for_legacy_token_without_claim(self, user: Lawyer) -> None:
         """部署前的存量 token（无 pwd_ver claim）刷新被拒，强制重新登录"""
         legacy = RefreshToken.for_user(user)  # type: ignore[misc]

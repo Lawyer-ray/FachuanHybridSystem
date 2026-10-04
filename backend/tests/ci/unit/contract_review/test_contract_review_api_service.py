@@ -979,3 +979,101 @@ class TestProcessReview:
             mock_repo_cls.return_value = mock_repo
             # 已完成的任务直接跳过，不重复处理
             assert process_review(str(uuid.uuid4())) is None
+
+    # ---- 并行失败处理（回归：失败被吞仍 COMPLETED） --------------------------
+
+    @staticmethod
+    def _make_task(task_id):
+        task = MagicMock()
+        task.id = task_id
+        task.status = "confirmed"
+        task.original_file = "contract_review/uploads/x.docx"
+        task.model_name = ""
+        task.represented_party = "party_a"
+        task.party_a = "甲方"
+        task.party_b = "乙方"
+        task.reviewer_name = "测试"
+        task.selected_steps = ["contract_review", "review_report"]
+        return task
+
+    @classmethod
+    def _patch_pipeline(cls, task, *, review_behavior, report_behavior):
+        """补齐 process_review 走到并行分支所需的外部依赖替身（模块属性名 → mock）。
+
+        behavior 传 Exception 实例表示「调用即抛错」，传其他值表示「正常返回该值」。
+        """
+        reviewer_instance = MagicMock()
+        if isinstance(review_behavior, Exception):
+            reviewer_instance.review_contract.side_effect = review_behavior
+        else:
+            reviewer_instance.review_contract.return_value = review_behavior
+        if isinstance(report_behavior, Exception):
+            reviewer_instance.generate_report.side_effect = report_behavior
+        else:
+            reviewer_instance.generate_report.return_value = report_behavior
+
+        title_extractor = MagicMock()
+        title_extractor.extract_title.return_value = "测试合同"
+        title_extractor.generate_output_filename.return_value = "测试合同_out.docx"
+
+        extractor = MagicMock()
+        extractor.extract_with_mapping.return_value = SimpleNamespace(paragraphs=[])
+
+        doc = MagicMock()
+        doc.paragraphs = []
+        return {
+            "ReviewTaskRepository": MagicMock(**{"return_value.get_by_id.return_value": task}),
+            "to_media_abs": MagicMock(return_value=Path("/tmp/x.docx")),
+            "Document": MagicMock(return_value=doc),
+            "ContentExtractor": MagicMock(return_value=extractor),
+            "get_llm_service": MagicMock(),
+            "TitleExtractor": MagicMock(return_value=title_extractor),
+            "ContractReviewer": MagicMock(return_value=reviewer_instance),
+            "default_storage": MagicMock(**{"save.return_value": "contract_review_outputs/测试合同_out.docx"}),
+        }
+
+    def test_process_review_parallel_all_failed_marks_failed(self):
+        """并行 review/report 全失败：任务必须标 FAILED 并写 error_message，不得虚报 COMPLETED。"""
+        from apps.contract_review.models.review_task import TaskStatus
+        from apps.contract_review.services.review.review_service import process_review
+
+        task_id = uuid.uuid4()
+        task = self._make_task(task_id)
+        patches = self._patch_pipeline(
+            task,
+            review_behavior=Exception("review LLM 挂了"),
+            report_behavior=Exception("report LLM 挂了"),
+        )
+        with patch.multiple("apps.contract_review.services.review.review_service", **patches):
+            process_review(str(task_id))
+
+        repo = patches["ReviewTaskRepository"].return_value
+        final_update = repo.update.call_args_list[-1].kwargs
+        assert final_update["status"] == TaskStatus.FAILED
+        assert "并行任务均失败" in final_update["error_message"]
+        assert "review LLM 挂了" in final_update["error_message"]
+        assert "report LLM 挂了" in final_update["error_message"]
+
+    def test_process_review_parallel_partial_failure_completes_with_note(self):
+        """部分失败：任务仍 COMPLETED，但 error_message 必须注明失败子任务。"""
+        from apps.contract_review.models.review_task import TaskStatus
+        from apps.contract_review.services.review.contract_reviewer import ReviewResult
+        from apps.contract_review.services.review.review_service import process_review
+
+        task_id = uuid.uuid4()
+        task = self._make_task(task_id)
+        patches = self._patch_pipeline(
+            task,
+            review_behavior=[ReviewResult(original="旧条款", suggested="新条款", reason="风险", paragraph_index=0)],
+            report_behavior=Exception("report LLM 挂了"),
+        )
+        with patch.multiple("apps.contract_review.services.review.review_service", **patches):
+            process_review(str(task_id))
+
+        repo = patches["ReviewTaskRepository"].return_value
+        all_updates = [c.kwargs for c in repo.update.call_args_list]
+        partial_notes = [u for u in all_updates if "error_message" in u]
+        assert any("1 项并行子任务失败" in u["error_message"] for u in partial_notes)
+        final_update = all_updates[-1]
+        assert final_update["status"] == TaskStatus.COMPLETED
+        assert final_update["output_file"] == "contract_review_outputs/测试合同_out.docx"

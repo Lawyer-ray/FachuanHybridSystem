@@ -409,7 +409,7 @@ async def download_litigation_document(document_id: int) -> dict:
     service = LitigationGenerationService()
 
     def _download() -> dict:
-        filename, doc_bytes = service.generate_complaint_document(document_id)
+        filename, doc_bytes = service.generate_complaint_document(document_id, skip_llm=False)
         return {"filename": filename, "size": len(doc_bytes)}
 
     return await asyncio.to_thread(_download)
@@ -468,9 +468,18 @@ async def generic_http_request(method: str, url: str, headers: str = "", body: s
             return {"status_code": resp.status, "data": data}
 
 
+# ⚠️ 已下线（安全审计 A-01）——勿再注册到 Temporal Worker。
+# AST 黑名单无法穷尽逃逸面（如 print.__self__ 链可拿非受限 exec），
+# 官方自认沙箱可逃逸；API 层已禁 code 类型步骤（template_service.
+# _FORBIDDEN_STEP_TYPES），start_temporal_worker 已将其物理下线。
+# 函数本体保留仅为避免 import 断裂（workflows.py 仍引用 act.generic_code_exec），
+# 存量测试亦直接调用本函数验证既有防护逻辑。
 @activity.defn
 async def generic_code_exec(code: str, context: dict | None = None) -> dict:
     """受限 Python 代码执行 activity
+
+    ⚠️ 已下线勿再注册（见上方注释，安全审计 A-01）：沙箱可逃逸，
+    worker 已不再注册本 activity，新模板亦无法创建 code 步骤。
 
     安全措施：
     1. AST 静态分析 — 执行前检查代码，拒绝危险模式
@@ -666,6 +675,82 @@ async def generic_code_exec(code: str, context: dict | None = None) -> dict:
     )
 
 
+# ── MCP 工具路由表（模块级缓存）───────────────────────────
+# 注意：不能在函数内用局部变量做这张表——局部 dict 每次调用重建，
+# 且历史版本曾在赋值插件键后又整字典重新绑定，把条件注册的
+# execute_court_filing 丢掉（网上立案步骤因此路由不到工具）。
+# 插件键必须在整表构建时并入同一张表。
+
+_MCP_TOOLS: dict[str, Any] | None = None
+
+
+def _get_mcp_tools() -> dict[str, Any]:
+    """构建（仅首次）并返回 MCP 工具路由表。
+
+    惰性构建避免 import 期触发 mcp_server 及各业务模块加载；
+    构建结果缓存在模块级，同进程所有 activity 调用共享。
+    """
+    global _MCP_TOOLS
+    if _MCP_TOOLS is not None:
+        return _MCP_TOOLS
+
+    from mcp_server.tools.automation.auto_namer import auto_namer_process
+    from mcp_server.tools.automation.court_guarantee import execute_guarantee
+    from mcp_server.tools.automation.court_sms import submit_court_sms
+    from mcp_server.tools.automation.document_processor import process_document
+    from mcp_server.tools.cases.cases import get_case
+    from mcp_server.tools.cases.litigation_fee import calculate_litigation_fee
+    from mcp_server.tools.cases.logs import create_case_log
+    from mcp_server.tools.cases.materials import list_bind_candidates
+    from mcp_server.tools.doc_convert.doc_convert import convert_document
+    from mcp_server.tools.documents.authorization import download_authorization_package
+    from mcp_server.tools.documents.litigation import download_litigation_document as mcp_download_litigation
+    from mcp_server.tools.documents.litigation import generate_complaint as mcp_generate_complaint
+    from mcp_server.tools.documents.litigation import generate_defense
+    from mcp_server.tools.documents.preservation import download_full_preservation_package
+    from mcp_server.tools.enterprise_data.enterprise_data import (
+        get_company_profile,
+        get_company_risks,
+        search_companies,
+    )
+    from mcp_server.tools.finance.lpr import calculate_interest
+    from mcp_server.tools.legal_research.legal_research import check_law_references, create_research_task
+    from mcp_server.tools.reminders.reminders import create_new_reminder
+
+    tools: dict[str, Any] = {
+        "get_case": get_case,
+        "generate_complaint": mcp_generate_complaint,
+        "generate_defense": generate_defense,
+        "download_litigation_document": mcp_download_litigation,
+        "download_authorization_package": download_authorization_package,
+        "download_full_preservation_package": download_full_preservation_package,
+        "list_bind_candidates": list_bind_candidates,
+        "create_case_log": create_case_log,
+        "execute_guarantee": execute_guarantee,
+        "submit_court_sms": submit_court_sms,
+        "search_companies": search_companies,
+        "get_company_profile": get_company_profile,
+        "get_company_risks": get_company_risks,
+        "create_research_task": create_research_task,
+        "check_law_references": check_law_references,
+        "create_new_reminder": create_new_reminder,
+        "auto_namer_process": auto_namer_process,
+        "process_document": process_document,
+        "convert_document": convert_document,
+        "calculate_litigation_fee": calculate_litigation_fee,
+        "calculate_interest": calculate_interest,
+    }
+
+    # 插件条件注册：court_automation 插件可用时并入网上立案工具
+    if _HAS_COURT_FILING:
+        from mcp_server.tools.automation.court_filing import execute_court_filing as mcp_execute_court_filing
+
+        tools["execute_court_filing"] = mcp_execute_court_filing
+
+    _MCP_TOOLS = tools
+    return _MCP_TOOLS
+
+
 @activity.defn
 async def execute_mcp_tool(mcp_tool_name: str, kwargs: dict) -> dict:
     """通用 MCP 工具调度器 —— 根据 tool name 动态调用对应 MCP 函数
@@ -674,63 +759,7 @@ async def execute_mcp_tool(mcp_tool_name: str, kwargs: dict) -> dict:
     """
     import asyncio
 
-    # ── MCP 工具路由表 ──
-    MCP_TOOLS: dict[str, Any] = {}  # lazy init
-
-    if not MCP_TOOLS:
-        from mcp_server.tools.automation.auto_namer import auto_namer_process
-        from mcp_server.tools.cases.cases import get_case
-        from mcp_server.tools.cases.litigation_fee import calculate_litigation_fee
-        from mcp_server.tools.cases.logs import create_case_log
-        from mcp_server.tools.cases.materials import list_bind_candidates
-        from mcp_server.tools.doc_convert.doc_convert import convert_document
-        from mcp_server.tools.documents.authorization import download_authorization_package
-        from mcp_server.tools.documents.litigation import download_litigation_document as mcp_download_litigation
-        from mcp_server.tools.documents.litigation import generate_complaint as mcp_generate_complaint
-        from mcp_server.tools.documents.litigation import generate_defense
-        from mcp_server.tools.documents.preservation import download_full_preservation_package
-        from mcp_server.tools.enterprise_data.enterprise_data import (
-            get_company_profile,
-            get_company_risks,
-            search_companies,
-        )
-        from mcp_server.tools.finance.lpr import calculate_interest
-
-        if _HAS_COURT_FILING:
-            from mcp_server.tools.automation.court_filing import execute_court_filing as mcp_execute_court_filing
-
-            MCP_TOOLS["execute_court_filing"] = mcp_execute_court_filing
-        from mcp_server.tools.automation.court_guarantee import execute_guarantee
-        from mcp_server.tools.automation.court_sms import submit_court_sms
-        from mcp_server.tools.automation.document_processor import process_document
-        from mcp_server.tools.legal_research.legal_research import check_law_references, create_research_task
-        from mcp_server.tools.reminders.reminders import create_new_reminder
-
-        MCP_TOOLS = {
-            "get_case": get_case,
-            "generate_complaint": mcp_generate_complaint,
-            "generate_defense": generate_defense,
-            "download_litigation_document": mcp_download_litigation,
-            "download_authorization_package": download_authorization_package,
-            "download_full_preservation_package": download_full_preservation_package,
-            "list_bind_candidates": list_bind_candidates,
-            "create_case_log": create_case_log,
-            "execute_guarantee": execute_guarantee,
-            "submit_court_sms": submit_court_sms,
-            "search_companies": search_companies,
-            "get_company_profile": get_company_profile,
-            "get_company_risks": get_company_risks,
-            "create_research_task": create_research_task,
-            "check_law_references": check_law_references,
-            "create_new_reminder": create_new_reminder,
-            "auto_namer_process": auto_namer_process,
-            "process_document": process_document,
-            "convert_document": convert_document,
-            "calculate_litigation_fee": calculate_litigation_fee,
-            "calculate_interest": calculate_interest,
-        }
-
-    fn = MCP_TOOLS.get(mcp_tool_name)
+    fn = _get_mcp_tools().get(mcp_tool_name)
     if fn is None:
         raise ValueError(f"未知 MCP 工具: {mcp_tool_name}")
 

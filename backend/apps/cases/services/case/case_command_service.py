@@ -124,7 +124,39 @@ class CaseCommandService(PermissionMixin):
                 "user_id": getattr(user, "id", None) if user else None,
             },
         )
-        return Case.objects.create(**data)
+        case = Case.objects.create(**data)
+        self._try_fill_filing_number(case)
+        return case
+
+    def _try_fill_filing_number(self, case: Case) -> None:
+        """REST 建案时若已建档且尚无编号，补生成建档编号。
+
+        与 admin 的 handle_case_filing_change 口径一致（start_date 年份 + case_type）。
+        生成失败只记 error 日志、不阻断建案（编号留空，admin 保存时可自愈）；
+        用独立 atomic（savepoint）包裹，避免序列表缺失等 DB 错误毒化外层建案事务。
+        """
+        if not case.is_filed or case.filing_number:
+            return
+
+        from apps.cases.services.number import CaseFilingNumberService
+
+        try:
+            with transaction.atomic():
+                case.filing_number = CaseFilingNumberService().generate_case_filing_number_internal(
+                    case_id=case.id,
+                    case_type=str(case.case_type or ""),
+                    created_year=case.start_date.year,
+                )
+                case.save(update_fields=["filing_number"])
+        except Exception as e:
+            case.filing_number = None
+            logger.error(
+                "案件 %s 建案时生成建档编号失败（编号留空，可在 admin 保存时自愈）: %s",
+                case.id,
+                e,
+                extra={"case_id": case.id, "action": "create_case_fill_filing_number"},
+                exc_info=True,
+            )
 
     @transaction.atomic
     def create_case_ctx(self, *, data: dict[str, Any], ctx: AccessContext) -> Case:

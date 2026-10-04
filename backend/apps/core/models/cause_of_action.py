@@ -6,6 +6,7 @@
 
 from typing import ClassVar
 
+from django.contrib.postgres.indexes import GinIndex
 from django.db import models
 
 
@@ -97,6 +98,9 @@ class CauseOfAction(models.Model):
             models.Index(fields=["name"], name="core_causeo_name_742c92_idx"),
             models.Index(fields=["is_active"], name="core_causeo_is_acti_fc1798_idx"),
             models.Index(fields=["is_deprecated"], name="core_causeo_is_depr_7ecc77_idx"),
+            # icontains 模糊补全走 trigram（补全框每键一次）
+            GinIndex(fields=["name"], name="core_cause_name_trgm", opclasses=["gin_trgm_ops"]),
+            GinIndex(fields=["code"], name="core_cause_code_trgm", opclasses=["gin_trgm_ops"]),
         ]
 
     def __str__(self) -> str:

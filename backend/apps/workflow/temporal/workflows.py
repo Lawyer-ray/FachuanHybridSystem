@@ -370,6 +370,12 @@ def _build_step_args(step: dict, context: dict, case_id: int, run_id: int) -> li
     return [case_id]
 
 
+def _resolve_on_fail(step: dict) -> str:
+    """解析步骤失败策略：顶层 on_fail 优先（写入端 StepConfigIn/MCP/种子模板），
+    兼容存量模板的 config.on_fail 内嵌表达，缺省 abort。"""
+    return str(step.get("on_fail") or step.get("config", {}).get("on_fail") or "abort")
+
+
 @workflow.defn
 class DynamicWorkflow:
     """通用动态工作流引擎。
@@ -424,7 +430,7 @@ class DynamicWorkflow:
             step_name: str = step.get("name", step_id)
             step_type: str = step.get("type", "activity")
             mcp_tool: str | None = step.get("mcp_tool")
-            on_fail: str = step.get("config", {}).get("on_fail", "abort")
+            on_fail: str = _resolve_on_fail(step)
             timeout_hours: float = step.get("config", {}).get("timeout_hours", 1)
 
             # 处理条件跳过逻辑

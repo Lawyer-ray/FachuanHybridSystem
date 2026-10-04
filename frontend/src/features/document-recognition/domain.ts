@@ -4,6 +4,7 @@ import { parseISO } from 'date-fns'
 
 import { ACCEPT_EXTENSIONS, DEFAULT_CHECK_CONFIDENCE, MAX_FILE_MB } from './constants'
 import type { CaseRecommendation, ContactInfo, DateCandidate, TaskOut } from './types'
+import { withAuthToken } from '@/lib/token'
 
 /** 文字路径（/reminders/parse）产出的候选，与识别候选共用确认 UI */
 export interface ParsedCandidate {
@@ -108,7 +109,10 @@ export function resolveMediaUrl(url: string | null | undefined, origin?: string)
     const base = localStorage.getItem('api_base_url') || (import.meta.env.VITE_API_BASE_URL as string | undefined) || ''
     resolvedOrigin = base.startsWith('http') ? new URL(base).origin : window.location.origin
   }
-  return resolvedOrigin ? `${resolvedOrigin}${url}` : url
+  const abs = resolvedOrigin ? `${resolvedOrigin}${url}` : url
+  // media 鉴权启用后 /media/ 直链需认证；浏览器 <img>/<iframe>/<a> 带不上
+  // Authorization 头，统一拼 ?token=（session 登录态由 cookie 兜底）
+  return withAuthToken(abs)
 }
 
 /** 文字解析候选 → 行（全部可编辑，逐条走 /reminders/create） */

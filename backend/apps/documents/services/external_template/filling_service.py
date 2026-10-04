@@ -17,9 +17,7 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
-from xml.etree import ElementTree as ET
 
-from defusedxml.ElementTree import fromstring as safe_fromstring
 from django.apps import apps
 from django.conf import settings
 from django.db.models import QuerySet
@@ -426,7 +424,8 @@ class FillingService:
         """
         设置复选框勾选状态。
 
-        通过解析文档 XML 找到复选框控件并设置 checked 状态。
+        直接在 python-docx 的 lxml 文档树上查找复选框控件并设置 checked 状态，
+        确保修改落到 doc.element（保存时生效）。
         value 为 "true"/"1" 时勾选，否则取消勾选。
 
         Requirements: 6.2
@@ -435,9 +434,11 @@ class FillingService:
             checkbox_index: int = locator.get("checkbox_index", 0)
             checked: bool = value.lower() in ("true", "1", "yes")
 
-            # 解析文档 XML 查找复选框（defusedxml 防御 XML 实体扩展，docx 不受信任）
-            body_xml: str = doc.element.xml
-            root: ET.Element = safe_fromstring(body_xml)
+            # 直接在 python-docx 的 lxml 树上操作（doc.element 即 lxml element，支持
+            # findall/find/set，命名空间传参方式相同）。不能解析 doc.element.xml 再改副本——
+            # 那样改动落在脱钩的独立树上，永远写不回文档。XXE 防御点在上游打开文件的
+            # python-docx 加载处（docx 是 zip 包，实体扩展在 lxml 解析层已天然受控）。
+            root: Any = doc.element
 
             # Word 复选框命名空间
             ns: dict[str, str] = {
@@ -446,11 +447,11 @@ class FillingService:
             }
 
             # 查找所有 w14:checkbox 元素
-            checkboxes: list[ET.Element] = root.findall(".//w14:checkbox", ns)
+            checkboxes: list[Any] = root.findall(".//w14:checkbox", ns)
 
             if checkbox_index >= len(checkboxes):
                 # 尝试旧版复选框格式 (w:fldChar + w:ffData)
-                ff_checkboxes: list[ET.Element] = root.findall(".//w:ffData/w:checkBox", ns)
+                ff_checkboxes: list[Any] = root.findall(".//w:ffData/w:checkBox", ns)
                 if checkbox_index >= len(ff_checkboxes):
                     logger.warning(
                         "复选框索引越界: index=%d, w14=%d, ff=%d",
@@ -461,8 +462,8 @@ class FillingService:
                     return False
 
                 # 旧版复选框：设置 w:default 或 w:checked
-                cb: ET.Element = ff_checkboxes[checkbox_index]
-                checked_elem: ET.Element | None = cb.find("w:checked", ns)
+                cb: Any = ff_checkboxes[checkbox_index]
+                checked_elem: Any | None = cb.find("w:checked", ns)
                 if checked_elem is None:
                     checked_elem = cb.find("w:default", ns)
 
@@ -474,8 +475,8 @@ class FillingService:
                 return True
 
             # 新版复选框 (w14:checkbox)
-            cb_elem: ET.Element = checkboxes[checkbox_index]
-            checked_state: ET.Element | None = cb_elem.find("w14:checked", ns)
+            cb_elem: Any = checkboxes[checkbox_index]
+            checked_state: Any | None = cb_elem.find("w14:checked", ns)
             if checked_state is not None:
                 checked_state.set(
                     f"{{{ns['w14']}}}val",

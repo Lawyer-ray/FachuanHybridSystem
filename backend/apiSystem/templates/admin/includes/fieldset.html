@@ -1,0 +1,36 @@
+{# 覆盖上游 admin 模板：产品要求后台表单页不渲染字段集 description 与字段 help_text（模型 help_text 保留作代码文档）。升级 Django / nested_admin 后若表单样式异常，先与上游模板比对。 #}
+<fieldset class="module aligned {{ fieldset.classes }}"{% if fieldset.name %} aria-labelledby="{{ prefix }}-{{ id_prefix}}-{{ id_suffix }}-heading"{% endif %}>
+    {% if fieldset.name %}
+        {% if fieldset.is_collapsible %}<details><summary>{% endif %}
+        <h{{ heading_level|default:2 }} id="{{ prefix }}-{{ id_prefix}}-{{ id_suffix }}-heading" class="fieldset-heading">{{ fieldset.name }}</h{{ heading_level|default:2 }}>
+        {% if fieldset.is_collapsible %}</summary>{% endif %}
+    {% endif %}
+    {% for line in fieldset %}
+        <div class="form-row{% if not line.fields|length == 1 %} flex-container form-multiline{% endif %}{% if not line.has_visible_field %} hidden{% endif %}{% for field in line %}{% if field.field.name %} field-{{ field.field.name }}{% endif %}{% endfor %}">
+            {% for field in line %}
+                {% if field.is_fieldset %}<fieldset>{{ field.label_tag }}{% endif %}
+                <div class="flex-container{% if not field.is_readonly and field.errors or line.fields|length == 1 and line.errors %} errors{% endif %}{% if not line.fields|length == 1 %} fieldBox{% if field.field.name %} field-{{ field.field.name }}{% endif %}{% if field.field.is_hidden %} hidden{% endif %}{% endif %}{% if field.is_checkbox %} checkbox-row{% endif %}">
+                    {% if field.is_checkbox %}
+                        <div class="checkbox">
+                        {{ field.field }}
+                        {% if not field.is_fieldset %}{{ field.label_tag }}{% endif %}
+                        </div>
+                    {% else %}
+                        {% if not field.is_fieldset %}{{ field.label_tag }}{% endif %}
+                    {% endif %}
+                    {% if line.fields|length == 1 %}{{ line.errors }}{% endif %}
+                    {% if not line.fields|length == 1 and not field.is_readonly %}{{ field.errors }}{% endif %}
+                        {% if not field.is_checkbox %}
+                        {% if field.is_readonly %}
+                            <div class="readonly">{{ field.contents }}</div>
+                        {% else %}
+                            {{ field.field }}
+                        {% endif %}
+                    {% endif %}
+                </div>
+                {% if field.is_fieldset %}</fieldset>{% endif %}
+            {% endfor %}
+        </div>
+    {% endfor %}
+    {% if fieldset.name and fieldset.is_collapsible %}</details>{% endif %}
+</fieldset>

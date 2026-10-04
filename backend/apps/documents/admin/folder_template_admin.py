@@ -225,7 +225,7 @@ class FolderTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
 
     fieldsets = (
         (None, {"fields": ("name",)}),
-        ("模板类型", {"fields": ("template_type",), "description": "选择此模板用于合同还是案件,必须二选一"}),
+        ("模板类型", {"fields": ("template_type",)}),
         (
             "适用范围",
             {
@@ -236,13 +236,12 @@ class FolderTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
                     "legal_statuses_field",
                     "legal_status_match_mode",
                 ),
-                "description": "根据模板类型选择相应的适用范围:合同模板选择合同类型,案件模板选择案件类型和阶段",
             },
         ),
         ("状态", {"fields": ("is_active",)}),
         (
             "文件夹结构",
-            {"fields": ("structure", "structure_preview"), "description": "使用 JSON 格式定义文件夹层级结构"},
+            {"fields": ("structure", "structure_preview")},
         ),
         ("时间信息", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )

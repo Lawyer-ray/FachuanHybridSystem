@@ -43,6 +43,9 @@ export default defineConfig({
     port: 5090,
     open: true,
     strictPort: false,
+    // Cloudflare Tunnel 外网访问经 app.xlaw.top 进来，Vite 8 默认拒绝非
+    // localhost 的 Host 头（DNS rebinding 防护），显式放行隧道域名。
+    allowedHosts: ["app.xlaw.top"],
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8002',
@@ -69,8 +72,10 @@ export default defineConfig({
   build: {
     target: "es2022",
     reportCompressedSize: false,
-    // 生产 sourcemap：线上报错可对回源码定位（配合 lib/error-logging 的前缀输出）
-    sourcemap: true,
+    // 生产 sourcemap 用 hidden：生成 .map 便于本地按图对回源码排障，
+    // 但产物 JS 不带 //# sourceMappingURL 引用——公网拿不到 map，防止
+    // 前台站点被还原源码（app.xlaw.top 隧道暴露场景）。
+    sourcemap: 'hidden',
     // material-prep 懒加载 chunk 含 pdfjs（~520KB）属预期：只在进入该路由时才下载。
     // 阈值放宽到 600，避免这条已知大 chunk 的告警长期刷屏、掩盖新出现的问题。
     chunkSizeWarningLimit: 600,

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
 from django.conf import settings
 from django.contrib import admin
@@ -18,6 +18,8 @@ from django.template.response import TemplateResponse
 from django.urls import URLPattern, URLResolver, path, reverse
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.exceptions import RateLimitError
+from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.organization.views import AuthLoginView
 
 logger = logging.getLogger(__name__)
@@ -35,10 +37,26 @@ _admin_login_view = AuthLoginView.as_view()
 
 
 def _admin_login(request: HttpRequest, **kwargs: object) -> HttpResponse:
-    return _admin_login_view(request, **kwargs)
+    # 安全审计：admin 登录端点补限流（与 /api/v1/organization/login 同口径 AUTH 配置）。
+    # RateLimitError 是 Ninja 层业务异常，在普通 Django 视图里需转换为 429 响应，
+    # 避免直接冒泡成 500。
+    try:
+        return cast(HttpResponse, _rate_limited_admin_login(request, **kwargs))
+    except RateLimitError as exc:
+        errors = getattr(exc, "errors", None) or {}
+        response = HttpResponse(str(exc.message), status=429)
+        retry_after = errors.get("retry_after")
+        if retry_after:
+            response["Retry-After"] = str(int(retry_after))
+        return response
 
 
-admin.site.login = _admin_login
+@rate_limit_from_settings("AUTH")
+def _rate_limited_admin_login(request: HttpRequest, **kwargs: object) -> HttpResponse:
+    return cast(HttpResponse, _admin_login_view(request, **kwargs))
+
+
+admin.site.login = _admin_login  # type: ignore[method-assign,assignment]
 
 # ============================================================
 # 侧边栏配置常量

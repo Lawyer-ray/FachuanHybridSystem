@@ -27,6 +27,15 @@ logger = logging.getLogger(__name__)
 router = Router(tags=["诉讼文书生成"], auth=JWTOrSessionAuth())
 
 
+async def _ensure_case_access(request: HttpRequest, case_id: int) -> None:
+    """校验当前用户对案件的访问权（安全审计：会话创建无案件归属校验）。"""
+    from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+    from apps.core.security import get_request_access_context
+
+    ctx = get_request_access_context(request)
+    await sync_to_async(CaseAccessPolicy().ensure_access_ctx)(case_id=case_id, ctx=ctx)
+
+
 def _get_conversation_service() -> Any:
     from apps.litigation_ai.services import LitigationConversationService
 
@@ -45,6 +54,8 @@ def _get_document_generator_service() -> Any:
 )
 @rate_limit_from_settings("TASK", by_user=True)
 async def create_session(request: HttpRequest, payload: CreateSessionRequest) -> Any:  # pragma: no cover
+    # 安全审计：先校验案件归属，防止对他人案件创建会话
+    await _ensure_case_access(request, payload.case_id)
     service = _get_conversation_service()
     user = getattr(request, "user", None)
 

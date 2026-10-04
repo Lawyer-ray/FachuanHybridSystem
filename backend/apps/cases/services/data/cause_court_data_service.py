@@ -120,26 +120,41 @@ class CauseCourtDataParser:
 class CauseCourtDbProvider:
     def __init__(self, *, cause_court_query_service: ICauseCourtQueryService) -> None:
         self.cause_court_query_service = cause_court_query_service
+        # 可用性探测的进程内记忆（配合 API 层单例）：True 后不再每次补全都重跑
+        # exists 查询——seed 完成后这个事实基本不变。None/False 不记忆：DB 未
+        # seed 时每次仍是一条很便宜的 exists，seed 后立即切换到 DB 路径。
+        self._active_causes: bool | None = None
+        self._active_courts: bool | None = None
 
     def has_active_causes(self) -> bool:
+        if self._active_causes:
+            return True
         try:
-            return self.cause_court_query_service.has_active_causes_internal()
+            result = self.cause_court_query_service.has_active_causes_internal()
         except Exception as e:
             logger.warning(
                 "数据库案由可用性检查失败,回退到 JSON",
                 extra={"action": "has_active_causes", "error": str(e), "error_type": type(e).__name__},
             )
             return False
+        if result:
+            self._active_causes = True
+        return result
 
     def has_active_courts(self) -> bool:
+        if self._active_courts:
+            return True
         try:
-            return self.cause_court_query_service.has_active_courts_internal()
+            result = self.cause_court_query_service.has_active_courts_internal()
         except Exception as e:
             logger.warning(
                 "数据库法院可用性检查失败,回退到 JSON",
                 extra={"action": "has_active_courts", "error": str(e), "error_type": type(e).__name__},
             )
             return False
+        if result:
+            self._active_courts = True
+        return result
 
     def search_causes(self, query: str, case_type: str | None, limit: int) -> list[dict[str, Any]]:
         return self.cause_court_query_service.search_causes_internal(query, case_type, limit)

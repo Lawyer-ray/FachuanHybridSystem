@@ -22,6 +22,23 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
         self.session_id: str | None = None
         self.user: Any | None = None
         self.session: Any | None = None
+        # 庭审流程服务实例：对抗模式的运行态（AdversarialTrialService）挂在
+        # flow 实例的 _adversarial_services 字典上，同一 WS 连接内必须复用
+        # 同一实例——Channels 的 consumer 在整个连接生命周期复用，断开时实例
+        # 随之回收；不同连接各一实例，无跨连接共享语义
+        self.flow: Any | None = None
+
+    def _get_flow(self) -> Any:
+        """获取（首次创建并缓存）本连接的庭审流程服务实例.
+
+        每条消息重建 flow 会把实例级运行态全部丢掉（对抗模式下用户介入
+        会被静默跳过），因此必须走连接级单例.
+        """
+        if self.flow is None:
+            from apps.litigation_ai.services.mock_trial.mock_trial_flow_service import MockTrialFlowService
+
+            self.flow = MockTrialFlowService()
+        return self.flow
 
     async def connect(self) -> None:  # pragma: no cover
         try:
@@ -43,10 +60,9 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
             await self.accept()
             await self.channel_layer.group_add(f"mock_trial_{self.session_id}", self.channel_name)
 
-            from apps.litigation_ai.services.mock_trial.mock_trial_flow_service import MockTrialFlowService
             from apps.litigation_ai.services.mock_trial.types import MockTrialContext, MockTrialStep
 
-            flow = MockTrialFlowService()
+            flow = self._get_flow()
             ctx = MockTrialContext(
                 session_id=self.session_id,
                 case_id=self.session.case_id,
@@ -110,10 +126,9 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
 
         await self._add_message("user", content)
 
-        from apps.litigation_ai.services.mock_trial.mock_trial_flow_service import MockTrialFlowService
         from apps.litigation_ai.services.mock_trial.types import MockTrialContext, MockTrialStep
 
-        flow = MockTrialFlowService()
+        flow = self._get_flow()
         step = await self._get_current_step(flow)
         assert self.session is not None and self.user is not None
         ctx = MockTrialContext(
@@ -160,10 +175,9 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
 
         await self._add_message("user", f"选择模式：{mode}")
 
-        from apps.litigation_ai.services.mock_trial.mock_trial_flow_service import MockTrialFlowService
         from apps.litigation_ai.services.mock_trial.types import MockTrialContext, MockTrialStep
 
-        flow = MockTrialFlowService()
+        flow = self._get_flow()
         assert self.session is not None and self.user is not None
         ctx = MockTrialContext(
             session_id=self.session_id or "",
@@ -177,10 +191,9 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
         """跳过剩余证据，直接生成质证总结."""
         await self._add_message("user", "跳过剩余证据")
 
-        from apps.litigation_ai.services.mock_trial.mock_trial_flow_service import MockTrialFlowService
         from apps.litigation_ai.services.mock_trial.types import MockTrialContext, MockTrialStep
 
-        flow = MockTrialFlowService()
+        flow = self._get_flow()
         assert self.session is not None and self.user is not None
         ctx = MockTrialContext(
             session_id=self.session_id or "",
@@ -194,10 +207,9 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
         """结束辩论."""
         await self._add_message("user", "结束辩论")
 
-        from apps.litigation_ai.services.mock_trial.mock_trial_flow_service import MockTrialFlowService
         from apps.litigation_ai.services.mock_trial.types import MockTrialContext, MockTrialStep
 
-        flow = MockTrialFlowService()
+        flow = self._get_flow()
         assert self.session is not None and self.user is not None
         ctx = MockTrialContext(
             session_id=self.session_id or "",

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from django.conf import settings
 from django.contrib import messages
+from django.contrib.admin.forms import AdminAuthenticationForm
 from django.contrib.auth import login
 from django.contrib.auth.views import LoginView
 from django.http import HttpRequest, HttpResponse
@@ -17,6 +19,11 @@ class AuthLoginView(LoginView):
     """自定义登录视图，向模板注入注册所需的上下文。"""
 
     template_name = "admin/login.html"
+    # 安全审计：/admin/login/ 必须沿用 admin 口径的认证表单——
+    # AdminAuthenticationForm 会拒绝非 is_staff 用户，避免此表单沦为
+    # 非 staff 账号的密码验证预言机（自定义视图默认用 AuthenticationForm，
+    # 只验密码不验 staff 身份）。
+    authentication_form = AdminAuthenticationForm
 
     def get_context_data(self, **kwargs: object) -> dict:
         ctx = super().get_context_data(**kwargs)
@@ -31,6 +38,17 @@ def register(request: HttpRequest) -> HttpResponse:
     is_first_user = _auth_service.is_first_user()
     show_auto_register = _auth_service.should_show_auto_register()
 
+    if request.method == "POST" and request.POST.get("action") == "auto_register":
+        # BOOTSTRAP 自动注册分支不受 ALLOW_ADMIN_REGISTER 开关影响：
+        # 首用户引导依赖它（生产环境由 BOOTSTRAP_ADMIN_TOKEN 保护，安全审计 C-02）
+        return _handle_auto_register(request)
+
+    # 安全审计：ALLOW_ADMIN_REGISTER（默认 False）接线——关闭时表单注册入口
+    # 直接拒绝，不再渲染/接受注册表单
+    if not getattr(settings, "ALLOW_ADMIN_REGISTER", False):
+        messages.error(request, "注册入口未开放，请联系管理员创建账号")
+        return redirect("admin:login")
+
     if request.method != "POST":
         return render(
             request,
@@ -44,9 +62,6 @@ def register(request: HttpRequest) -> HttpResponse:
                 "show_register": True,
             },
         )
-
-    if request.POST.get("action") == "auto_register":
-        return _handle_auto_register(request)
 
     form = LawyerRegistrationForm(request.POST)
     if form.is_valid():

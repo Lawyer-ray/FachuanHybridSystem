@@ -62,26 +62,30 @@ def test_list_cases(authenticated_client):
 
 @pytest.mark.django_db
 def test_list_cases_filter_status(authenticated_client):
+    # status 过滤打在 Case.status（第四轮口径），不再看 contract.status
     active_contract = Contract.objects.create(name="活跃合同", case_type="civil", status="active")
     archived_contract = Contract.objects.create(name="归档合同", case_type="civil", status="archived")
-    Case.objects.create(name="活跃案件", contract=active_contract)
-    Case.objects.create(name="归档案件", contract=archived_contract)
+    Case.objects.create(name="活跃案件", contract=active_contract, status="active")
+    Case.objects.create(name="归档案件", contract=archived_contract, status="archived")
     resp = authenticated_client.get("/api/v1/cases/cases", {"status": "archived"})
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) >= 1
+    assert all(c["status"] == "archived" for c in data)
 
 
 @pytest.mark.django_db
 def test_list_cases_filter_case_type(authenticated_client):
+    # case_type 过滤打在 Case.case_type（第四轮口径），不再看 contract.case_type
     civil_contract = Contract.objects.create(name="民事合同", case_type="civil")
     criminal_contract = Contract.objects.create(name="刑事合同", case_type="criminal")
-    Case.objects.create(name="民事案件", contract=civil_contract)
-    Case.objects.create(name="刑事案件", contract=criminal_contract)
+    Case.objects.create(name="民事案件", contract=civil_contract, case_type="civil")
+    Case.objects.create(name="刑事案件", contract=criminal_contract, case_type="criminal")
     resp = authenticated_client.get("/api/v1/cases/cases", {"case_type": "criminal"})
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) >= 1
+    assert all(c["case_type"] == "criminal" for c in data)
 
 
 @pytest.mark.django_db
@@ -774,3 +778,7 @@ def test_upload_temp_document_success(authenticated_client):
     data = resp.json()
     assert data["success"] is True
     assert "temp_file_path" in data
+    # 安全审计：返回相对 MEDIA_ROOT 的路径，不暴露服务器绝对路径
+    temp_file_path = data["temp_file_path"]
+    assert not temp_file_path.startswith("/")
+    assert temp_file_path.startswith("case_documents/temp/")

@@ -212,6 +212,10 @@ class ImapFetcher(MessageFetcher):  # pragma: no cover
         date_str = msg.get("Date", "")
         received_at = _parse_date(date_str) or timezone.now()
         body_text, body_html = _extract_body(msg)
+        # 去重键为 (source, message_id)，不含附件内容：
+        # 先判存在、仅新邮件才解析并把附件落盘，避免重复拉取时反复写附件文件
+        if InboxMessage.objects.filter(source=source, message_id=str(uid)).exists():
+            return uid, False
         attachments = _extract_attachments(msg, source.pk, str(uid))
         _, created = InboxMessage.objects.get_or_create(
             source=source,
@@ -250,6 +254,9 @@ class ImapFetcher(MessageFetcher):  # pragma: no cover
         try:
             m.select("INBOX")
             _, msg_data = m.uid("fetch", message_id.encode(), "(RFC822)")  # type: ignore[arg-type]
+            # 对照 _process_single_uid 的守卫风格：先校验响应形态再取原始内容
+            if not msg_data or not msg_data[0]:
+                raise ValueError("无法获取邮件内容")
             raw = msg_data[0][1]
             if not isinstance(raw, bytes):
                 raise ValueError("无法获取邮件内容")

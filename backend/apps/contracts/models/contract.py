@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from django.contrib.postgres.indexes import GinIndex
 from django.db import models
 from django.utils import timezone
 from simple_history.models import HistoricalRecords
@@ -118,6 +119,8 @@ class Contract(models.Model):
             models.Index(fields=["is_filed", "-specified_date"]),
             # 按案件类型、状态和指定日期查询(常用于复杂过滤)
             models.Index(fields=["case_type", "status", "-specified_date"]),
+            # 列表/全局搜索 name__icontains 走 trigram（随数据增长上保险）
+            GinIndex(fields=["name"], name="contract_name_trgm", opclasses=["gin_trgm_ops"]),
         ]
         constraints: ClassVar = [
             # OA 同步的查重键：此前既无索引也无唯一约束，同步循环里每案一次

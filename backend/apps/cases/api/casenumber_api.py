@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any, cast
 
 from asgiref.sync import sync_to_async
-from django.conf import settings
 from django.core.files.storage import default_storage
 from django.http import HttpRequest, JsonResponse
 from ninja import Router
@@ -155,11 +154,12 @@ async def upload_temp_document(request: HttpRequest) -> dict[str, Any]:  # pragm
             return default_storage.save(rel_path, file)
 
         saved_name = await _save()
-        temp_path = Path(settings.MEDIA_ROOT) / saved_name
 
+        # 安全审计：只回相对 MEDIA_ROOT 的路径，不暴露服务器绝对路径；
+        # 后续处理端点（admin 解析 / automation process）均支持相对路径解析
         return {
             "success": True,
-            "temp_file_path": str(temp_path),
+            "temp_file_path": saved_name,
             "temp_file_name": file.name,
         }
 

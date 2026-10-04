@@ -119,3 +119,44 @@ class TestStartTemporalWorkerHandle:
                 max_activities=5,
             )
             mock_run.assert_called_once()
+
+
+class TestWorkerActivityRegistration:
+    """安全审计 A-01：generic_code_exec 沙箱可逃逸，必须从 worker 物理下线。"""
+
+    @pytest.mark.asyncio
+    async def test_run_does_not_register_generic_code_exec(self):
+        """_run 构建的活动注册表不得包含 generic_code_exec，且其余 activity 完整。"""
+        from apps.workflow.management.commands.start_temporal_worker import Command
+        from apps.workflow.temporal.activities import generic_code_exec
+
+        captured: dict = {}
+        mock_worker = MagicMock()
+        mock_worker.run = AsyncMock()
+        mock_worker.shutdown = AsyncMock()
+
+        def fake_worker(client, **kwargs):
+            captured.update(kwargs)
+            return mock_worker
+
+        mock_loop = MagicMock()
+        mock_loop.add_signal_handler = MagicMock()
+
+        cmd = Command()
+        cmd.stdout = StringIO()
+
+        with (
+            patch("temporalio.client.Client") as MockClient,
+            patch("temporalio.worker.Worker", side_effect=fake_worker),
+            patch("asyncio.get_event_loop", return_value=mock_loop),
+        ):
+            MockClient.connect = AsyncMock(return_value=MagicMock())
+            await cmd._run(
+                {"temporal_address": "localhost:7233", "task_queue": "fachuan-workflow", "max_activities": 5}
+            )
+
+        activities = captured["activities"]
+        assert generic_code_exec not in activities
+        # 其余 activity 注册不受影响（18 项原有业务 activity 全部在列且可调用）
+        assert len(activities) == 18
+        assert all(callable(fn) for fn in activities)

@@ -103,11 +103,7 @@ class CourtSMSDocumentRenameService:
     ) -> None:
         """同步重命名后的引用路径（短信/爬虫结果/案件日志附件/CourtDocument）。
 
-        引用同步实现目前位于 CourtSMSAdmin（历史遗留），此处经由 admin 实例复用，
-        待后续将同步逻辑迁入 service 后移除该依赖。
+        引用同步逻辑位于 CourtSMSDocumentReferenceService（Service 层），
+        与 admin 手动重命名、短信自动重命名两条路径共用同一实现。
         """
-        from apps.automation.admin.sms.court_sms_admin import CourtSMSAdmin
-        from apps.automation.models import CourtSMS
-
-        admin_instance = CourtSMSAdmin(CourtSMS, None)  # type: ignore[arg-type]
-        await sync_to_async(admin_instance._sync_document_references)(sms, old_abs, new_abs, court_document_id)
+        await sync_to_async(self._reference_service.sync_document_references)(sms, old_abs, new_abs, court_document_id)

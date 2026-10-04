@@ -12,6 +12,7 @@ import {
   isEmptyDraft,
   isSelectionContiguous,
   pageIndexOf,
+  removeInfoField,
   removePages,
   renameMat,
   resolveMats,
@@ -61,6 +62,8 @@ interface ReaderState {
   /** 不可变更新 draft，并防抖保存到后端 */
   update: (fn: (d: DraftState) => DraftState) => void
   setPickInfo: (i: number) => void
+  /** 删除信息字段（含取字态 pickInfo 下标同步校正） */
+  removeInfo: (di: number) => void
   setZoom: (z: number) => void
   setCols: (n: number) => void
   toggleSelMode: () => void
@@ -240,6 +243,16 @@ export const useReader = create<ReaderState>((set, get) => ({
     set({ pickInfo: i, selPages: [], ocrPending: null })
     if (i >= 0) set({ selMode: false })
   },
+  /** 删除信息字段：取字态（pickInfo≥0）下同步校正下标——删在取字字段之前 →
+   *  infos 前移一位（pickInfo-1）；删的正是取字字段 → 退出取字态。
+   *  与 MetaPanel armDel 记字段名防漂移是同型的下标漂移问题。 */
+  removeInfo: (di) => {
+    const { pickInfo } = get()
+    get().update((d) => removeInfoField(d, di))
+    if (pickInfo < 0) return
+    if (di < pickInfo) set({ pickInfo: pickInfo - 1 })
+    else if (di === pickInfo) set({ pickInfo: -1, selPages: [], ocrPending: null })
+  },
   setZoom: (z) => set({ zoom: z }),
   setCols: (n) => set({ cols: n }),
   toggleSelMode: () => {
@@ -332,7 +345,12 @@ export const useReader = create<ReaderState>((set, get) => ({
     if (!files.length) return
     try {
       const updated = await appendPackFiles(openId, files)
+      // 上传期间可能关 A 开 B（或 close 置空 openId）：续体回来时若已不是
+      // 当时的包就静默丢弃（与 open() 的失配检查一致），否则会把 A 的
+      // detail 覆盖到 B、把 A 的材料追加进 B 的草稿并经防抖保存落盘
+      if (get().openId !== openId) return
       const added = await resolveMats(updated)
+      if (get().openId !== openId) return
       const known = new Set(draft.mats.map((m) => m.partIndex))
       const fresh = added.filter((m) => !known.has(m.partIndex))
       if (!fresh.length) {

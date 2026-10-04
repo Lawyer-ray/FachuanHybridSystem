@@ -41,6 +41,7 @@ async def list_folder_templates(  # pragma: no cover
     """
     service = _get_folder_template_service()
     return await sync_to_async(service.list_templates)(
+        template_type=template_type,
         case_type=case_type,
         is_active=is_active,
     )

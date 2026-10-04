@@ -155,9 +155,13 @@ async def download_litigation_document(request: Any, case_id: int, litigation_ty
     start_time = time.time()
     service = _get_litigation_generation_service()
     if litigation_type == "complaint":
-        filename, doc_bytes = await sync_to_async(service.generate_complaint_document, thread_sensitive=False)(case_id)
+        filename, doc_bytes = await sync_to_async(service.generate_complaint_document, thread_sensitive=False)(
+            case_id, skip_llm=False
+        )
     elif litigation_type == "defense":
-        filename, doc_bytes = await sync_to_async(service.generate_defense_document, thread_sensitive=False)(case_id)
+        filename, doc_bytes = await sync_to_async(service.generate_defense_document, thread_sensitive=False)(
+            case_id, skip_llm=False
+        )
     else:
         raise ValidationException(
             message="不支持的诉讼类型: %(t)s" % {"t": litigation_type}, code="INVALID_LITIGATION_TYPE"

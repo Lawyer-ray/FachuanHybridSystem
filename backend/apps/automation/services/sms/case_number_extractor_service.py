@@ -30,6 +30,12 @@ class CaseNumberExtractorService:
     支持依赖注入，遵循项目架构规范。
     """
 
+    # 口语日期形态（如「12月30号」「2025年12月30号」）会被简化正则误捕获为案号；
+    # 合法案号不含「月」，校验与降级提取阶段都直接丢弃
+    DATE_LIKE_MONTH_MARK = "月"
+    # 简化格式（无年份）案号必含的案件类型特征字（民初/刑初/执/民终/刑终/破/辖/监等）
+    SIMPLE_CASE_TYPE_PATTERN = re.compile(r"[初终执破辖监]")
+
     def __init__(
         self,
         document_processing_service: "IDocumentProcessingService | None" = None,
@@ -302,6 +308,12 @@ class CaseNumberExtractorService:
                 logger.warning("案号过长，跳过: 长度=%s，开头=%s...", len(normalized), normalized[:40])
                 return None
 
+            # 排除「X月Y号」口语日期形态（如 12月30号、2025年12月30号）：
+            # 此类候选能通过 simple_pattern 与数字组校验，但合法案号不含「月」
+            if self.DATE_LIKE_MONTH_MARK in normalized:
+                logger.warning("候选为日期形态（含「月」），跳过: %s -> %s", original, normalized)
+                return None
+
             try:
                 is_valid = (re.match(standard_pattern, normalized) or re.match(simple_pattern, normalized)) and (
                     len(re.findall(r"\d+", normalized)) >= 2
@@ -443,9 +455,15 @@ class CaseNumberExtractorService:
         for i, pattern in enumerate(patterns):
             try:
                 for match in re.finditer(pattern, text):
-                    case_number = match.group(0)
-                    if case_number and case_number.strip():
-                        found.append(case_number.strip())
+                    case_number = match.group(0).strip()
+                    if not case_number:
+                        continue
+                    # 简化格式必须含案件类型特征字（初/终/执/破/辖/监），
+                    # 否则「12月30号」这类口语日期会被当成案号
+                    if i == 1 and not self.SIMPLE_CASE_TYPE_PATTERN.search(case_number):
+                        logger.debug("简化格式候选缺少案件类型特征字，丢弃: %s", case_number)
+                        continue
+                    found.append(case_number)
                 logger.debug("正则模式 %s 匹配到 %s 个结果", i + 1, len(found))
             except re.error as e:
                 logger.warning("正则模式 %s 执行失败: %s", i + 1, e)

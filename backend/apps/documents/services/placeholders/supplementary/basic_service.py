@@ -1,11 +1,10 @@
 """
 补充协议基础信息占位符服务
 
-提供补充协议的基础信息占位符,包括补充协议名称和年份.
+提供补充协议的基础信息占位符,包括补充协议名称和份数.
 """
 
 import logging
-from datetime import date
 from typing import Any, ClassVar
 
 from apps.documents.services.placeholders.base import BasePlaceholderService
@@ -22,7 +21,8 @@ class SupplementaryAgreementBasicService(BasePlaceholderService):
     display_name: str = "补充协议基础信息服务"
     description: str = "生成补充协议中的基础信息占位符"
     category: str = "supplementary_agreement"
-    placeholder_keys: ClassVar = ["补充协议名称", "年份", "补充协议份数"]
+    # 「年份」由 basic.year_service 唯一归属(同为当前系统年份),此处不再声明。
+    placeholder_keys: ClassVar = ["补充协议名称", "补充协议份数"]
 
     def generate(self, context_data: dict[str, Any]) -> dict[str, Any]:
         """
@@ -47,9 +47,6 @@ class SupplementaryAgreementBasicService(BasePlaceholderService):
                 result["补充协议名称"] = ""
         else:
             result["补充协议名称"] = ""
-
-        # {{年份}} - 获取当前年份
-        result["年份"] = self.get_current_year()
 
         # {{补充协议份数}} - 补充协议份数(委托人数量+2)
         if supplementary_agreement:
@@ -80,17 +77,3 @@ class SupplementaryAgreementBasicService(BasePlaceholderService):
         except Exception as e:
             logger.warning("计算补充协议份数失败: %s", e)
             return 2
-
-    def get_current_year(self) -> str:
-        """
-        获取当前年份
-
-        Returns:
-            当前年份的字符串表示
-        """
-        try:
-            current_date = date.today()
-            return str(current_date.year)
-        except Exception as e:
-            logger.warning("获取当前年份失败: %s", e)
-            return ""

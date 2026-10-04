@@ -48,12 +48,20 @@ def _extract_by_path(payload: DocumentProcessIn) -> DocumentProcessOut:
 @router.post("/process", response=DocumentProcessOut)
 @rate_limit_from_settings("UPLOAD")
 def process_document(request: Any, payload: DocumentProcessIn) -> DocumentProcessOut:  # pragma: no cover
-    """文档处理API"""
+    """文档处理API（仅管理员：按路径读取 MEDIA_ROOT 内文件内容属于跨租户读取面）"""
+    # 安全：按路径读取文件内容属于跨租户读取面，收敛为管理员专用
+    from apps.core.security.admin_access import ensure_admin_request
+
+    ensure_admin_request(request)
     return _extract_by_path(payload)
 
 
 @router.post("/process-by-path", response=DocumentProcessOut)
 @rate_limit_from_settings("UPLOAD")
 def process_document_by_path(request: Any, payload: DocumentProcessIn) -> DocumentProcessOut:  # pragma: no cover
-    """通过路径处理文档"""
+    """通过路径处理文档（仅管理员：可读取 MEDIA_ROOT 内任意文件内容）"""
+    # 安全：按路径读取文件内容属于跨租户读取面，收敛为管理员专用
+    from apps.core.security.admin_access import ensure_admin_request
+
+    ensure_admin_request(request)
     return _extract_by_path(payload)

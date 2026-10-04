@@ -341,7 +341,12 @@ window._identityFormMethods = {
                     fileHint.style.cssText = 'color: var(--fc-warning-text); font-size: 12px; margin: 5px 0; padding: 8px; background: var(--fc-warning-bg); border: 1px solid var(--fc-warning-border); border-radius: 4px;';
                     uploadInput.parentNode.appendChild(fileHint);
                 }
-                fileHint.innerHTML = '⚠ 请点击"选择文件"按钮，选择文件: <strong>' + this.uploadedFile.name + '</strong>';
+                // 安全审计 XSS：本地文件名用户可控，文件名用 textContent 填充，避免拼进 innerHTML
+                fileHint.textContent = '';
+                fileHint.append('⚠ 请点击"选择文件"按钮，选择文件: ');
+                const strongEl = document.createElement('strong');
+                strongEl.textContent = this.uploadedFile.name;
+                fileHint.appendChild(strongEl);
             }
         }
 

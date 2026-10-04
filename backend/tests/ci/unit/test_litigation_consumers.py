@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -205,3 +207,113 @@ class TestMockTrialConsumerSendError:
         payload = json.loads(call_args[1]["text_data"])
         assert payload["type"] == "error"
         assert payload["message"] == "test error"
+
+
+class TestMockTrialConsumerGetFlow:
+    """MockTrialConsumer._get_flow 连接级复用测试."""
+
+    def _make_consumer(self):
+        from apps.litigation_ai.consumers.mock_trial_consumer import MockTrialConsumer
+        consumer = MockTrialConsumer.__new__(MockTrialConsumer)
+        consumer.session_id = None
+        consumer.user = None
+        consumer.session = None
+        consumer.flow = None
+        return consumer
+
+    def test_creates_once_and_reuses(self) -> None:
+        """同一连接内多次获取必须命中同一 flow 实例，只构造一次."""
+        consumer = self._make_consumer()
+        with patch(
+            "apps.litigation_ai.services.mock_trial.mock_trial_flow_service.MockTrialFlowService"
+        ) as mock_cls:
+            f1 = consumer._get_flow()
+            f2 = consumer._get_flow()
+            assert f1 is f2
+            mock_cls.assert_called_once()
+
+    def test_new_connection_gets_new_instance(self) -> None:
+        """不同连接（不同 consumer 实例）各自持有独立 flow，无跨连接共享."""
+        c1 = self._make_consumer()
+        c2 = self._make_consumer()
+        with patch(
+            "apps.litigation_ai.services.mock_trial.mock_trial_flow_service.MockTrialFlowService"
+        ) as mock_cls:
+
+            class _FakeFlow:
+                pass
+
+            # MagicMock() 恒返回缓存的 return_value，用 side_effect 保证每次构造新实例
+            mock_cls.side_effect = _FakeFlow
+            f1 = c1._get_flow()
+            f2 = c2._get_flow()
+            assert f1 is not f2
+            assert mock_cls.call_count == 2
+
+
+class TestMockTrialConsumerFlowReuseAcrossMessages:
+    """回归：对抗模式运行态挂在 flow 实例上，连续消息必须走同一实例.
+
+    历史缺陷：receive 里每条消息 new 一个 MockTrialFlowService，
+    新实例的 _adversarial_services 字典恒空，用户介入被静默跳过.
+    """
+
+    @staticmethod
+    def _make_consumer():
+        from apps.litigation_ai.consumers.mock_trial_consumer import MockTrialConsumer
+
+        consumer = MockTrialConsumer.__new__(MockTrialConsumer)
+        consumer.session_id = "sess-1"
+        consumer.user = SimpleNamespace(id=7)
+        consumer.session = SimpleNamespace(case_id=3)
+        consumer.flow = None
+        consumer.send = AsyncMock()
+        consumer._add_message = AsyncMock()
+        return consumer
+
+    @pytest.mark.asyncio
+    async def test_two_user_messages_share_flow_instance(self) -> None:
+        from apps.litigation_ai.services.mock_trial.types import MockTrialStep
+
+        consumer = self._make_consumer()
+        consumer._get_current_step = AsyncMock(return_value=MockTrialStep.SIMULATION)
+
+        seen: list[Any] = []
+
+        class _RecordingFlow:
+            async def handle_simulation(self, ctx, content, send_cb) -> None:
+                seen.append(self)
+
+        with patch(
+            "apps.litigation_ai.services.mock_trial.mock_trial_flow_service.MockTrialFlowService",
+            _RecordingFlow,
+        ):
+            await consumer._handle_user_message({"content": " objection one "})
+            await consumer._handle_user_message({"content": "objection two"})
+
+        assert len(seen) == 2
+        assert seen[0] is seen[1], "两条连续消息必须复用同一 flow 实例"
+
+    @pytest.mark.asyncio
+    async def test_user_message_then_skip_evidence_share_flow_instance(self) -> None:
+        """用户发言与「跳过证据」按钮入口也须命中同一实例（对抗模式介入路径）."""
+        from apps.litigation_ai.services.mock_trial.types import MockTrialStep
+
+        consumer = self._make_consumer()
+        consumer._get_current_step = AsyncMock(return_value=MockTrialStep.SIMULATION)
+
+        seen: list[Any] = []
+
+        class _RecordingFlow:
+            async def handle_simulation(self, ctx, content, send_cb) -> None:
+                seen.append(self)
+
+        with patch(
+            "apps.litigation_ai.services.mock_trial.mock_trial_flow_service.MockTrialFlowService",
+            _RecordingFlow,
+        ):
+            await consumer._handle_user_message({"content": "objection"})
+            await consumer._handle_skip_evidence({})
+
+        assert len(seen) == 2
+        assert seen[0] is seen[1]

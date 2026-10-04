@@ -714,8 +714,14 @@ class TestArchitectureRegression:
         """aget_value 走 repository.aget_active_by_key（本分支新增的 repo 方法）。"""
         from unittest.mock import AsyncMock, MagicMock, patch
 
+        from django.core.cache import cache
+
         from apps.core.repositories.system_config_repository import SystemConfigRepository
         from apps.core.services.system_config_service import SystemConfigService
+
+        # aget_value 与 get_value 共用 LocMem 缓存（含 _MissingSentinel 负缓存），
+        # 混跑时须清掉其他用例残留，否则缓存命中会跳过 repository 调用
+        cache.clear()
 
         repo = MagicMock(spec=SystemConfigRepository)
         cfg = MagicMock()

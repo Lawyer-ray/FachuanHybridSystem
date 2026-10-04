@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from asgiref.sync import sync_to_async
+from django.db import transaction
 
 if TYPE_CHECKING:
     from apps.litigation_ai.models import LitigationSession
@@ -48,33 +49,44 @@ class LitigationSessionRepository:
         session = await self.get_session(session_id)
         return (session.metadata or {}) if session else {}
 
+    def _update_metadata_locked_sync(self, session_id: str, patch: dict[str, Any]) -> Any:
+        """锁内读改写 metadata：select_for_update 行锁串行化并发 RMW。
+
+        无锁版本「先读 metadata → 内存合并 → update 整列」在并发下后写覆盖先写
+        （丢更新）；行锁保证读到的是最新已提交值且写入互斥。
+        """
+        with transaction.atomic():
+            session = self.get_session_for_update_sync(session_id)
+            if not session:
+                return None
+            metadata = session.metadata or {}
+            metadata.update(patch)
+            session.metadata = metadata
+            session.save(update_fields=["metadata"])
+            return session
+
     async def update_metadata(self, session_id: str, patch: dict[str, Any]) -> None:  # pragma: no cover
-        session = await self.get_session(session_id)
-        if not session:
-            return
-        metadata = session.metadata or {}
-        metadata.update(patch)
-        model = self._model()
-        await sync_to_async(
-            model.objects.filter(session_id=session_id).update,
-            thread_sensitive=True,
-        )(metadata=metadata)
+        await sync_to_async(self._update_metadata_locked_sync, thread_sensitive=True)(session_id, patch)
 
     async def update_metadata_or_raise(self, session_id: str, patch: dict[str, Any]) -> None:  # pragma: no cover
-        session = await self.get_session_or_raise(session_id)
-        metadata = session.metadata or {}
-        metadata.update(patch)
-        await sync_to_async(
-            session.__class__.objects.filter(session_id=session_id).update,
-            thread_sensitive=True,
-        )(metadata=metadata)
+        def _run() -> None:
+            locked = self._update_metadata_locked_sync(session_id, patch)
+            if locked is None:
+                # 与 get_session_or_raise 同语义：查无此会话时抛 DoesNotExist
+                raise self._model().DoesNotExist("LitigationSession matching query does not exist.")
+
+        await sync_to_async(_run, thread_sensitive=True)()
 
     async def set_document_type(self, session_id: str, document_type: str) -> None:  # pragma: no cover
-        model = self._model()
-        await sync_to_async(
-            model.objects.filter(session_id=session_id).update,
-            thread_sensitive=True,
-        )(document_type=document_type)
+        def _run() -> None:
+            with transaction.atomic():
+                session = self.get_session_for_update_sync(session_id)
+                if not session:
+                    return
+                session.document_type = document_type
+                session.save(update_fields=["document_type"])
+
+        await sync_to_async(_run, thread_sensitive=True)()
 
     async def set_step(self, session_id: str, step_value: str) -> None:
         session = await self.get_session(session_id)
@@ -92,9 +104,12 @@ class LitigationSessionRepository:
         return metadata.get("current_step")
 
     def set_step_sync(self, session_id: str, step_value: str) -> None:  # pragma: no cover
-        session = self.get_session_sync(session_id)
-        if not session:
-            return
-        metadata = session.metadata or {}
-        metadata["current_step"] = step_value
-        session.__class__.objects.filter(session_id=session_id).update(metadata=metadata)
+        # 与 _update_metadata_locked_sync 同型的锁内 RMW（current_step 是 metadata 的一个键）
+        with transaction.atomic():
+            session = self.get_session_for_update_sync(session_id)
+            if not session:
+                return
+            metadata = session.metadata or {}
+            metadata["current_step"] = step_value
+            session.metadata = metadata
+            session.save(update_fields=["metadata"])

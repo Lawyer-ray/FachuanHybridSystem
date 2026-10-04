@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from django.http import HttpRequest
+from django.test import override_settings
 
 from apps.core.exceptions import RateLimitError
 from apps.core.infrastructure.throttling import (
@@ -50,6 +51,71 @@ class TestRateLimiter:
             result = self.limiter.get_client_ip(request)
         assert result in ("10.0.0.1", "192.168.1.1")
 
+    def test_client_ip_header_default_none_unchanged(self) -> None:
+        """未配置 DJANGO_CLIENT_IP_HEADER 时行为不变（回退 REMOTE_ADDR）。"""
+        request = MagicMock(spec=HttpRequest)
+        request.META = {
+            "REMOTE_ADDR": "127.0.0.1",
+            "HTTP_CF_CONNECTING_IP": "203.0.113.9",
+        }
+        with (
+            override_settings(DJANGO_CLIENT_IP_HEADER=None),
+            patch.dict("os.environ", {"DJANGO_TRUSTED_PROXY_IPS": "127.0.0.1"}),
+        ):
+            assert self.limiter.get_client_ip(request) == "127.0.0.1"
+
+    def test_client_ip_header_used_when_trusted_proxy(self) -> None:
+        """配置了专用头且直连对端是受信代理时，直接采用该头（CF Tunnel 场景）。"""
+        request = MagicMock(spec=HttpRequest)
+        request.META = {
+            "REMOTE_ADDR": "127.0.0.1",
+            "HTTP_CF_CONNECTING_IP": "203.0.113.9",
+        }
+        with (
+            override_settings(DJANGO_CLIENT_IP_HEADER="CF-Connecting-IP"),
+            patch.dict("os.environ", {"DJANGO_TRUSTED_PROXY_IPS": "127.0.0.1"}),
+        ):
+            assert self.limiter.get_client_ip(request) == "203.0.113.9"
+
+    def test_client_ip_header_meta_key_style_supported(self) -> None:
+        """META 键形式（HTTP_CF_CONNECTING_IP）与 HTTP 头名形式等价。"""
+        request = MagicMock(spec=HttpRequest)
+        request.META = {
+            "REMOTE_ADDR": "127.0.0.1",
+            "HTTP_CF_CONNECTING_IP": "198.51.100.7",
+        }
+        with (
+            override_settings(DJANGO_CLIENT_IP_HEADER="HTTP_CF_CONNECTING_IP"),
+            patch.dict("os.environ", {"DJANGO_TRUSTED_PROXY_IPS": "127.0.0.1"}),
+        ):
+            assert self.limiter.get_client_ip(request) == "198.51.100.7"
+
+    def test_client_ip_header_ignored_when_proxy_untrusted(self) -> None:
+        """直连对端不属于受信代理时忽略该头（防伪造，回退 REMOTE_ADDR）。"""
+        request = MagicMock(spec=HttpRequest)
+        request.META = {
+            "REMOTE_ADDR": "203.0.113.50",
+            "HTTP_CF_CONNECTING_IP": "203.0.113.9",
+        }
+        with (
+            override_settings(DJANGO_CLIENT_IP_HEADER="CF-Connecting-IP"),
+            patch.dict("os.environ", {"DJANGO_TRUSTED_PROXY_IPS": "127.0.0.1"}),
+        ):
+            assert self.limiter.get_client_ip(request) == "203.0.113.50"
+
+    def test_client_ip_header_empty_falls_back(self) -> None:
+        """头存在但为空时回退原有链路。"""
+        request = MagicMock(spec=HttpRequest)
+        request.META = {
+            "REMOTE_ADDR": "127.0.0.1",
+            "HTTP_CF_CONNECTING_IP": "  ",
+        }
+        with (
+            override_settings(DJANGO_CLIENT_IP_HEADER="CF-Connecting-IP"),
+            patch.dict("os.environ", {"DJANGO_TRUSTED_PROXY_IPS": "127.0.0.1"}),
+        ):
+            assert self.limiter.get_client_ip(request) == "127.0.0.1"
+
     def test_get_cache_key_default(self) -> None:
         request = MagicMock(spec=HttpRequest)
         request.META = {"REMOTE_ADDR": "1.2.3.4"}
@@ -60,8 +126,10 @@ class TestRateLimiter:
 
     def test_get_cache_key_custom_func(self) -> None:
         request = MagicMock(spec=HttpRequest)
+
         def custom_func(r):
             return "custom_key"
+
         key = self.limiter.get_cache_key(request, key_func=custom_func)
         assert "test:" in key
 
@@ -197,3 +265,63 @@ class TestRateLimitByUser:
         request.path = "/api/test"
         result = my_view(request)
         assert result == {"ok": True}
+
+
+class TestAsyncRateLimit:
+    """异步限流路径：async 端点走 ais_allowed（aadd/aincr），不再阻塞事件循环。"""
+
+    @staticmethod
+    def _make_request() -> MagicMock:
+        request = MagicMock(spec=HttpRequest)
+        request.META = {"REMOTE_ADDR": "1.2.3.4"}
+        request.path = "/api/test"
+        return request
+
+    @patch("apps.core.infrastructure.throttling.cache")
+    def test_async_wrapper_awaits_ais_allowed(self, mock_cache: MagicMock) -> None:
+        from unittest.mock import AsyncMock
+
+        from asgiref.sync import async_to_sync
+
+        mock_cache.aadd = AsyncMock(return_value=True)
+
+        @rate_limit(requests=10, window=60)
+        async def my_async_view(request: HttpRequest) -> dict:
+            return {"ok": True}
+
+        result = async_to_sync(my_async_view)(self._make_request())
+        assert result == {"ok": True}
+        mock_cache.aadd.assert_awaited_once()
+        mock_cache.add.assert_not_called()  # 同步计数路径不应被触碰
+
+    @patch("apps.core.infrastructure.throttling.cache")
+    def test_async_wrapper_blocks_over_limit(self, mock_cache: MagicMock) -> None:
+        from unittest.mock import AsyncMock
+
+        from asgiref.sync import async_to_sync
+
+        mock_cache.aadd = AsyncMock(return_value=False)
+        mock_cache.aincr = AsyncMock(return_value=11)
+
+        @rate_limit(requests=10, window=60)
+        async def my_async_view(request: HttpRequest) -> dict:
+            return {"ok": True}
+
+        with pytest.raises(RateLimitError):
+            async_to_sync(my_async_view)(self._make_request())
+
+    @patch("apps.core.infrastructure.throttling.cache")
+    def test_ais_allowed_incr_recovery_on_value_error(self, mock_cache: MagicMock) -> None:
+        from unittest.mock import AsyncMock
+
+        from asgiref.sync import async_to_sync
+
+        mock_cache.aadd = AsyncMock(return_value=False)
+        mock_cache.aincr = AsyncMock(side_effect=ValueError("expired"))
+        mock_cache.aset = AsyncMock(return_value=True)
+
+        limiter = RateLimiter(requests=5, window=60)
+        allowed, info = async_to_sync(limiter.ais_allowed)(self._make_request())
+        assert allowed is True
+        assert info["remaining"] == 4
+        mock_cache.aset.assert_awaited_once()

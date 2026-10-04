@@ -240,37 +240,44 @@ class WebDAVProvider:  # pragma: no cover
             is_dir = False
             size = 0
             modified = 0.0
+            saw_propstat = False
             for child in response:
                 tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
                 if tag == "href":
                     href = urllib.parse.unquote(child.text or "")
                 elif tag == "propstat":
+                    saw_propstat = True
                     is_dir, size, modified = _parse_webdav_properties(child)
 
-                if href:
-                    # Strip WebDAV root prefix to get path relative to our root_path
-                    if dav_root_prefix and href.startswith(dav_root_prefix):
-                        href = href[len(dav_root_prefix) :]
-                    # Normalize: strip trailing slash, extract name
-                    href_clean = href.rstrip("/")
-                    name = href_clean.split("/")[-1] if href_clean else ""
-                    # Skip the base directory itself
-                    if href_clean == base_href:
-                        continue
-                    # Compute relative path from base
-                    rel_path = href_clean
-                    if base_href and rel_path.startswith(base_href):
-                        rel_path = rel_path[len(base_href) :].lstrip("/")
+            # 每条 response 只在 child 循环结束后构造一次条目：
+            # 之前的写法把 append 放在 child 循环体内，导致同一 response
+            # 先以默认值（幽灵条目）append 一次、再以 propstat 真值 append 一次。
+            if not href or not saw_propstat:
+                # 无 href 无法定位路径；未见 propstat 视为不完整条目，跳过
+                continue
+            # Strip WebDAV root prefix to get path relative to our root_path
+            if dav_root_prefix and href.startswith(dav_root_prefix):
+                href = href[len(dav_root_prefix) :]
+            # Normalize: strip trailing slash, extract name
+            href_clean = href.rstrip("/")
+            name = href_clean.split("/")[-1] if href_clean else ""
+            # Skip the base directory itself
+            if href_clean == base_href:
+                continue
+            # Compute relative path from base
+            rel_path = href_clean
+            if base_href and rel_path.startswith(base_href):
+                rel_path = rel_path[len(base_href) :].lstrip("/")
 
-                    results.append(
-                        CloudFileInfo(
-                            name=name,
-                            path=rel_path,
-                            is_dir=is_dir,
-                            size=size if not is_dir else 0,
-                            modified_at=modified,
-                        )
-                    )
+            results.append(
+                CloudFileInfo(
+                    name=name,
+                    path=rel_path,
+                    is_dir=is_dir,
+                    size=size if not is_dir else 0,
+                    modified_at=modified,
+                )
+            )
 
         results.sort(key=lambda x: x.name.lower())
         return results

@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { ArrowRight, Eye } from 'lucide-react'
 
 import { relDue } from '../domain'
@@ -14,8 +15,11 @@ interface DealRowProps {
 /**
  * 列表行：名称主视觉 + 我方 vs 对方副行 + 金额/到期右对齐。
  * 交互语义：左键 = 详情（开发中）、右键/👁 = 抽屉预览。
+ *
+ * memo：父级 isFetching 翻转 / 翻页 / 筛选时避免整页行全量 reconcile
+ * （props 回调在 WorkbenchPage 已 useCallback 稳定）。
  */
-export function DealRow({ deal, onOpenSheet, onDetailNotReady }: DealRowProps) {
+export const DealRow = memo(function DealRow({ deal, onOpenSheet, onDetailNotReady }: DealRowProps) {
   const today = deal.daysLeft === 0
   return (
     <div
@@ -117,4 +121,4 @@ export function DealRow({ deal, onOpenSheet, onDetailNotReady }: DealRowProps) {
       </div>
     </div>
   )
-}
+})

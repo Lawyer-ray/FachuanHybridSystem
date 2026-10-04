@@ -41,13 +41,7 @@ class OrgAccessMiddleware:
         return cast(HttpResponse, await self.get_response(request))
 
     def _sync_dispatch(self, request: HttpRequest, user: Any) -> HttpResponse:
-        cache_key = CacheKeys.user_org_access(user.id)
-        org_access = cache.get(cache_key)
-
-        if org_access is None:
-            org_access = build_org_access_computation_service().compute(user)
-            cache.set(cache_key, org_access, CacheTimeout.MEDIUM)
-
+        org_access = get_or_compute_org_access(user)
         request.org_access = org_access  # type: ignore[attr-defined]
         request.perm_open_access = bool(getattr(settings, "PERM_OPEN_ACCESS", False))  # type: ignore[attr-defined]
         return cast(HttpResponse, self.get_response(request))
@@ -67,6 +61,25 @@ class OrgAccessMiddleware:
         request.org_access = org_access  # type: ignore[attr-defined]
         request.perm_open_access = bool(getattr(settings, "PERM_OPEN_ACCESS", False))  # type: ignore[attr-defined]
         return cast(HttpResponse, await self.get_response(request))
+
+
+def get_or_compute_org_access(user: Any) -> dict[str, Any] | None:
+    """读取（带缓存）或补算用户的 org_access。
+
+    时序坑：纯 JWT 请求的认证发生在视图期（django-ninja-jwt），OrgAccessMiddleware
+    在中间件期只看得到匿名 user，不会设置 request.org_access。API 层在缺失时用本
+    函数显式补算（缓存 key / 超时与中间件完全一致），确保 JWT 用户按团队/授权的
+    行级过滤不退化为「仅本人」。
+    """
+    if not user or not getattr(user, "is_authenticated", False):
+        return None
+
+    cache_key = CacheKeys.user_org_access(user.id)
+    org_access = cache.get(cache_key)
+    if org_access is None:
+        org_access = build_org_access_computation_service().compute(user)
+        cache.set(cache_key, org_access, CacheTimeout.MEDIUM)
+    return org_access
 
 
 class ApiTrailingSlashMiddleware:

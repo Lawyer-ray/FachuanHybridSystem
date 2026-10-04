@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections.abc import AsyncIterator, Iterator
@@ -295,8 +296,6 @@ class OpenAICompatibleBackend:
         return client
 
     async def _build_async_client(self, api_key: str, base_url: str, timeout_seconds: float) -> openai.AsyncOpenAI:
-        import asyncio
-
         timeout_val = float(timeout_seconds)
         loop_id = id(asyncio.get_running_loop())
         cache_key = (loop_id, api_key, base_url, timeout_val)
@@ -574,6 +573,10 @@ class OpenAICompatibleBackend:
             try:
                 yield from self._iter_stream(stream_obj, used_model)
                 ok = True
+            except (GeneratorExit, asyncio.CancelledError):
+                # 客户端断开（SSE 中断/任务取消）不是 Key 故障，按成功释放，避免健康 Key 进入冷却
+                ok = True
+                raise
             except Exception as error:
                 self._raise_mapped_error(error, request_timeout, provider.base_url)
             finally:
@@ -633,6 +636,10 @@ class OpenAICompatibleBackend:
                 async for chunk in self._aiter_stream(stream_obj, used_model):
                     yield chunk
                 ok = True
+            except (GeneratorExit, asyncio.CancelledError):
+                # 客户端断开（SSE 中断/任务取消）不是 Key 故障，按成功释放，避免健康 Key 进入冷却
+                ok = True
+                raise
             except Exception as error:
                 self._raise_mapped_error(error, request_timeout, provider.base_url)
             finally:

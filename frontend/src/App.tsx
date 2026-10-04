@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react'
 import { hasToken } from '@/lib/token'
 import { ErrorBoundary, PageErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { BindingsPageLazy, LoginPage, SocialCallbackPage } from '@/features/auth'
-import { HomePage } from '@/features/home'
+import { HomePageLazy } from '@/features/home'
 import { WorkbenchPageLazy } from '@/features/workbench'
 
 // 材料预处理整域懒加载：它静态引入 pdfjs-dist（~1MB 级），不拆出去的话
@@ -34,13 +34,15 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         {/* 社交登录回调：飞书/微信授权后由后端 302 到此，用一次性码换 JWT */}
         <Route path="/social-callback" element={<SocialCallbackPage />} />
-        {/* 首页 · 今日工作台 */}
+        {/* 首页 · 今日工作台（home 域含工具坞弹窗全家桶，懒加载拆出首屏包） */}
         <Route
           path="/"
           element={
             <RequireAuth>
               <PageErrorBoundary>
-                <HomePage />
+                <Suspense fallback={<RouteFallback />}>
+                  <HomePageLazy />
+                </Suspense>
               </PageErrorBoundary>
             </RequireAuth>
           }

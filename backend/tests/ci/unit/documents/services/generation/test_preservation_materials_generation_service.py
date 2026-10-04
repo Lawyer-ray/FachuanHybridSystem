@@ -120,7 +120,7 @@ class TestBuildFilename:
     def test_builds_filename(
         self, MockFTS: MagicMock, mock_tz: MagicMock, svc: Any
     ) -> None:
-        mock_tz.now.return_value.strftime.return_value = "20250601"
+        mock_tz.localtime.return_value.strftime.return_value = "20250601"
         MockFTS.render_generated_doc.return_value = "财产保全申请书(测试案件)V1_20250601"
         case = MagicMock()
         case.name = "测试案件"
@@ -142,7 +142,7 @@ class TestBuildFilename:
     def test_empty_case_name_fallback(
         self, MockFTS: MagicMock, mock_tz: MagicMock, svc: Any
     ) -> None:
-        mock_tz.now.return_value.strftime.return_value = "20250601"
+        mock_tz.localtime.return_value.strftime.return_value = "20250601"
         MockFTS.render_generated_doc.return_value = "result"
         case = MagicMock()
         case.name = ""

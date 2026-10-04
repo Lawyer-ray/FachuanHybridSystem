@@ -7,7 +7,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import {
+import { withAuthToken,
   clearTokens,
   getAccessToken,
   getRefreshToken,
@@ -126,5 +126,36 @@ describe('token 存取链路（stub localStorage）', () => {
     const exp = Math.floor(Date.now() / 1000) - 3600
     setTokens({ access: makeJwt({ exp }), refresh: 'r' })
     expect(shouldRefreshToken()).toBe(true)
+  })
+})
+
+describe('withAuthToken（裸链接拼 ?token=）', () => {
+  it('有 token 时拼接且复用已有查询参数的分隔符', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => (k === 'access_token' ? 'tok en+1' : null),
+      setItem: () => {},
+      removeItem: () => {},
+      clear: () => {},
+    })
+    try {
+      expect(withAuthToken('/media/a.pdf')).toBe('/media/a.pdf?token=tok%20en%2B1')
+      expect(withAuthToken('/api/v1/x?y=1')).toBe('/api/v1/x?y=1&token=tok%20en%2B1')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('无 token 原样返回（session 登录态交给 cookie）', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {},
+      clear: () => {},
+    })
+    try {
+      expect(withAuthToken('/media/a.pdf')).toBe('/media/a.pdf')
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

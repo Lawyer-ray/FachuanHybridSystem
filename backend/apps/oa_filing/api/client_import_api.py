@@ -181,11 +181,12 @@ def _enrich_enterprise_data(company_name: str) -> dict[str, Any] | None:
         prefill_result = service.build_prefill(company_id=company_id)
         prefill = prefill_result.get("prefill", {})
 
+        # 安全审计：证件号/电话不入日志明文（只记有无，保留可排查性）
         logger.info(
-            "  -> 获取到企业信息: %s, id_number=%s, phone=%s",
+            "  -> 获取到企业信息: %s, has_id_number=%s, has_phone=%s",
             prefill.get("name"),
-            prefill.get("id_number"),
-            prefill.get("phone"),
+            bool(prefill.get("id_number")),
+            bool(prefill.get("phone")),
         )
 
         return prefill  # type: ignore[no-any-return]

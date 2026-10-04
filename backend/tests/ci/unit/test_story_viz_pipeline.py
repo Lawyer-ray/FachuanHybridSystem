@@ -88,3 +88,24 @@ def test_preview_api_returns_409_when_not_completed(monkeypatch: pytest.MonkeyPa
 
     assert response.status_code == 409
     assert "任务未完成" in response.content.decode("utf-8")
+
+
+def test_preview_api_completed_response_has_csp_sandbox(monkeypatch: pytest.MonkeyPatch) -> None:
+    """安全审计 XSS：preview HTML 必须带 CSP sandbox 头兜底，阻断存量脏数据里的脚本执行。"""
+    fake_animation = SimpleNamespace(
+        status="completed", animation_html="<html><body><script>alert(1)</script></body></html>"
+    )
+
+    class _FakeJobService:
+        def get_animation(self, *, animation_id: object, user: object = None) -> object:
+            return fake_animation
+
+    monkeypatch.setattr(
+        "apps.story_viz.api.animation_api.get_story_animation_job_service",
+        lambda: _FakeJobService(),
+    )
+
+    response = preview_story_animation(request=SimpleNamespace(), animation_id="00000000-0000-0000-0000-000000000000")
+
+    assert response.status_code == 200
+    assert response.headers.get("Content-Security-Policy") == "sandbox"

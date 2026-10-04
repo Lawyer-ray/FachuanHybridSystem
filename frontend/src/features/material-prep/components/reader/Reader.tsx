@@ -94,7 +94,10 @@ export function Reader() {
   // ops 稳定化：让 Flow → PageCell 的 memo 真正命中（st.update / pickPage 都是稳定引用）。
   // 放 early return 之前（不依赖 draft），符合 Rules of Hooks
   const flowOps = useMemo(() => buildFlowOps(st.update, pickPage), [st.update, pickPage])
-  const metaOps = useMemo(() => buildMetaOps(st.update), [st.update])
+  const metaOps = useMemo(() => buildMetaOps(st.update, st.removeInfo), [st.update, st.removeInfo])
+  // 同理：内联箭头会让 Flow 的 cellPropsOf 依赖每次 render 变化，PageCell memo 全失效
+  // ——直接 selector 取 store 里的稳定函数引用（zustand action 引用恒不变）
+  const onToggleSel = useReader((s) => s.toggleSel)
 
   if (!openId || !detail) return null
 
@@ -125,8 +128,6 @@ export function Reader() {
   const allClassified = draft.segs.length > 0 && unclassified === 0
   const pages = draft.mats.reduce((s, m) => s + m.pages, 0)
   const selDetail = selDetailOf(draft, selPages)
-
-  const onToggleSel = (mi: number, p: number, shift: boolean) => st.toggleSel(mi, p, shift)
 
   const changeCols = () => {
     // 窗口不够宽就点不动（列数按钮已禁用）

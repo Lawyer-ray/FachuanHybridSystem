@@ -49,6 +49,13 @@ describe('resolveCallbackError', () => {
     expect(resolveCallbackError('some_internal_traceback_xyz')).toBe(SOCIAL_LOGIN_ERROR_TEXT.exchange_failed)
   })
 
+  it('原型链键（toString 等）不算已知错误码，返回 fallback 文案', () => {
+    // 'toString' in obj 会沿原型链命中，旧实现会透出 undefined 文案
+    expect(resolveCallbackError('toString')).toBe(SOCIAL_LOGIN_ERROR_TEXT.exchange_failed)
+    expect(resolveCallbackError('constructor')).toBe(SOCIAL_LOGIN_ERROR_TEXT.exchange_failed)
+    expect(resolveCallbackError('hasOwnProperty')).toBe(SOCIAL_LOGIN_ERROR_TEXT.exchange_failed)
+  })
+
   it('所有文案都非空', () => {
     for (const [code, text] of Object.entries(SOCIAL_LOGIN_ERROR_TEXT)) {
       expect(text.length, code).toBeGreaterThan(0)

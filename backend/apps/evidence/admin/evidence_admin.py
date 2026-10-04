@@ -67,21 +67,18 @@ class EvidenceListAdmin(  # type: ignore[misc]  # get_form 与 ModelAdmin 的 MR
             "自动计算信息",
             {
                 "fields": ("list_type", "order_range_display", "total_pages", "page_range_display"),
-                "description": "以下信息由系统自动计算,无需手动填写.",
             },
         ),
         (
             "合并PDF",
             {
                 "fields": ("merged_pdf",),
-                "description": "点击列表页的「合并」按钮将证据文件合并为PDF.",
             },
         ),
         (
             "导出设置",
             {
                 "fields": ("export_version", "export_template"),
-                "description": "导出版本号用于文件名控制,请手动修改.选择导出模板后,导出清单时将使用该模板格式.",
                 "classes": ("evidence-export-section",),
             },
         ),

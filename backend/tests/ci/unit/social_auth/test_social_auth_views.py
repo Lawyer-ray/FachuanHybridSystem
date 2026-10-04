@@ -17,6 +17,7 @@ from django.test import RequestFactory
 from apps.social_auth.providers.base import AuthorizationRequest, LoginMode, ProviderConfig
 from apps.social_auth.providers.feishu import FeishuProvider
 from apps.social_auth.providers.github import GitHubProvider
+from apps.social_auth.providers.microsoft import MicrosoftProvider
 from apps.social_auth.providers.wechat import WeChatProvider
 
 
@@ -308,6 +309,116 @@ class TestGitHubProvider:
         assert profile.email == "p@example.com"
 
 
+class TestMicrosoftProvider:
+    def _provider(self) -> MicrosoftProvider:
+        return MicrosoftProvider(
+            ProviderConfig(
+                name="microsoft",
+                display_name="微软",
+                client_id="ms-app-client-id",
+                client_secret="fake-ms-secret-placeholder",  # pragma: allowlist secret
+                extra={
+                    "redirect_uri": "http://localhost:8002/social/microsoft/callback/",
+                    "scope": "openid profile email",
+                },
+            )
+        )
+
+    def _request(self) -> AuthorizationRequest:
+        return AuthorizationRequest(
+            provider="microsoft",
+            state="MSST",
+            redirect_uri="http://localhost:8002/social/microsoft/callback/",
+            created_at=1.0,
+        )
+
+    def test_login_mode_is_redirect(self) -> None:
+        assert self._provider().login_mode == LoginMode.REDIRECT
+
+    def test_endpoints_pin_common_tenant(self) -> None:
+        """授权/令牌端点固定 common 租户（个人号 + 组织号通吃），userinfo 走 Graph。"""
+        endpoints = MicrosoftProvider.ENDPOINTS
+        assert endpoints["authorize"] == "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+        assert endpoints["token"] == "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+        assert endpoints["userinfo"] == "https://graph.microsoft.com/oidc/userinfo"
+
+    def test_authorization_url(self) -> None:
+        url = self._provider().get_authorization_url(self._request())
+        assert url.startswith("https://login.microsoftonline.com/common/oauth2/v2.0/authorize")
+        assert "client_id=ms-app-client-id" in url
+        # OIDC scope：空格必须编码为 %20
+        assert "scope=openid%20profile%20email" in url
+        assert "state=MSST" in url
+        assert "response_mode=query" in url
+        assert "fake-ms-secret-placeholder" not in url
+
+    def test_exchange_code_sends_redirect_uri_and_rejects_error(self) -> None:
+        """Entra 的 token 请求必须带与授权时一致的 redirect_uri；error body 识别为失败。"""
+        with patch("httpx.post") as mock_post:
+            mock_post.return_value = MagicMock(
+                status_code=200,
+                json=lambda: {"access_token": "ms-token", "expires_in": 3599},
+            )
+            result = self._provider().exchange_code("goodcode", self._request())
+            sent = mock_post.call_args.kwargs["data"]
+        assert sent["redirect_uri"] == "http://localhost:8002/social/microsoft/callback/"
+        assert sent["grant_type"] == "authorization_code"
+        assert result.access_token == "ms-token"
+
+        with patch("httpx.post") as mock_post_err:
+            mock_post_err.return_value = MagicMock(
+                status_code=400,
+                json=lambda: {"error": "invalid_grant", "error_description": "code expired"},
+            )
+            with pytest.raises(ValueError, match="code expired"):
+                self._provider().exchange_code("bad", self._request())
+
+    def test_get_profile_uses_sub_as_identity_key(self) -> None:
+        """身份键用 sub（Entra 按应用分配的稳定标识），不用可变的 email。"""
+        with patch("httpx.get") as mock_get:
+            mock_get.return_value = MagicMock(
+                status_code=200,
+                json=lambda: {
+                    "sub": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                    "oid": "ffffffff-1111-2222-3333-444444444444",
+                    "name": "张律师",
+                    "email": "lawyer@example.com",
+                    "picture": "https://graph.microsoft.com/v1.0/me/photo/$value",
+                },
+            )
+            profile = self._provider().get_profile(MagicMock(access_token="ms-token"))
+        assert profile.provider == "microsoft"
+        assert profile.provider_user_id == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+        assert profile.display_name == "张律师"
+        assert profile.email == "lawyer@example.com"
+
+    def test_get_profile_rejects_missing_sub(self) -> None:
+        with patch("httpx.get") as mock_get:
+            mock_get.return_value = MagicMock(status_code=200, json=lambda: {"name": "无 sub"})
+            with pytest.raises(ValueError, match="缺少 sub"):
+                self._provider().get_profile(MagicMock(access_token="tok"))
+
+    @pytest.mark.asyncio
+    async def test_aexchange_and_aget_profile(self) -> None:
+        client = MagicMock()
+        client.post = AsyncMock(
+            side_effect=[
+                MagicMock(status_code=200, json=lambda: {"access_token": "async-ms"}),
+            ]
+        )
+        client.get = AsyncMock(
+            side_effect=[
+                MagicMock(status_code=200, json=lambda: {"sub": "sub-1", "name": "A", "email": "a@x.com"}),
+            ]
+        )
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client_cls.return_value.__aenter__.return_value = client
+            token = await self._provider().aexchange_code("c", self._request())
+            profile = await self._provider().aget_profile(token)
+        assert token.access_token == "async-ms"
+        assert profile.provider_user_id == "sub-1"
+
+
 class TestAuthorizationSession:
     """授权会话构建与 open redirect 防护。"""
 
@@ -468,6 +579,80 @@ class TestCallbackLoginFlow:
         # 用完即弃：state 不能留在 session 里被复用
         assert "oauth" not in request.session
 
+    @pytest.mark.django_db
+    def test_callback_survives_expired_config_cache(self) -> None:
+        """配置缓存过期后回调不得抛 SynchronousOnlyOperation。
+
+        回归（2026-10-04 实测）：TTL 兜底让缓存每 30s 过期，async 回调视图里的
+        ``ProviderRegistry.get_config`` 成为「过期后第一个重建点」——同步 ORM
+        （SocialAuthProvider 查询）落在 async 上下文必炸；用户在授权页停留超过
+        TTL 再回来 100% 触发（此前无 TTL 时缓存永不失效，是潜伏 bug）。
+        修复是 get_config 走 sync_to_async。本用例**不 mock Registry**，走真实
+        缓存重建路径查真实表。视图经 async_to_sync 调用（与既有用例一致）：
+        asgiref 会把视图内 thread_sensitive 的 sync_to_async 绑回本线程执行，
+        连接/事务与测试数据同源——**不要**直接写 async 测试函数再 sync_to_async
+        做数据准备，专用线程的连接会逃逸测试事务（实测把行真提交进复用库）。
+        """
+        from apps.organization.models import LawFirm, Lawyer
+        from apps.social_auth.models import SocialAccount, SocialAuthProvider, TempAuth
+        from apps.social_auth.providers import ProviderRegistry
+        from apps.social_auth.providers.base import SocialProfile, TokenResponse
+        from apps.social_auth.providers.feishu import FeishuProvider
+        from apps.social_auth.views import SocialCallbackView
+
+        # coverage 用例类的 setup_method 会用假类顶掉注册表里的 feishu 且不还原；
+        # 本用例走真实链路，先把真类注册回来（全量顺序执行时少了这步会拿到
+        # uid="1" 的假 profile，绑定查询落空、回调走 unbound 分支）。
+        ProviderRegistry.register("feishu")(FeishuProvider)
+
+        firm = LawFirm.objects.create(name="缓存过期回调测试律所")
+        lawyer = Lawyer.objects.create_user(username="cb_stale_cache", password="x", law_firm=firm)
+        SocialAccount.objects.create(user=lawyer, provider="feishu", provider_uid="ou_stale")
+        # 真实配置行（feishu redirect_uri 必填，否则回调在更早的分支被判 unknown_provider）
+        SocialAuthProvider.objects.update_or_create(
+            name="feishu",
+            defaults={
+                "display_name": "飞书",
+                "client_id": "cli_stale",
+                "client_secret": "sec-stale",  # pragma: allowlist secret
+                "redirect_uri": "http://127.0.0.1:8002/social/feishu/callback/",
+                "scope": "contact:user.base:readonly",
+                "enabled": True,
+            },
+        )
+
+        # 模拟「TTL 已过 / 进程刚启动缓存为空」：清空缓存，回调负责重建
+        ProviderRegistry.clear_configs()
+
+        try:
+            with (
+                patch.object(FeishuProvider, "aexchange_code", AsyncMock(return_value=TokenResponse(access_token="t"))),
+                patch.object(
+                    FeishuProvider,
+                    "aget_profile",
+                    AsyncMock(
+                        return_value=SocialProfile(
+                            provider="feishu",
+                            provider_user_id="ou_stale",
+                            email=None,
+                            display_name="张三",
+                            avatar_url=None,
+                        )
+                    ),
+                ),
+            ):
+                request = self._request("ST-stale")
+                response = async_to_sync(SocialCallbackView().get)(request, provider="feishu")
+
+            assert response.status_code == 302
+            assert "/social-callback?" in response["Location"]
+            assert TempAuth.objects.get(user=lawyer).token is not None
+            # 缓存经真实 DB 重建成功，后续请求直接命中
+            assert ProviderRegistry._configs.get("feishu") is not None
+        finally:
+            # DB 行随事务回滚，但类级缓存不会——必须显式清，否则污染后续用例
+            ProviderRegistry.clear_configs()
+
 
 class TestTokenExchangeApi:
     @pytest.mark.django_db
@@ -525,7 +710,8 @@ class TestCreateSessionApi:
 
         from apps.core.models import SystemConfig
         from apps.social_auth.api.social_auth_api import create_session
-        from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
+        from apps.social_auth.models import SocialAuthProvider
+        from apps.social_auth.providers import ProviderRegistry
         from apps.social_auth.providers.base import LoginMode, SocialProfile, SocialProvider, TokenResponse
 
         ProviderRegistry.register("feishu")(
@@ -543,16 +729,14 @@ class TestCreateSessionApi:
                 },
             )
         )
-        prefix = PROVIDER_SPECS["feishu"]["prefix"]
+        # 平台行不填凭证 → 借用「飞书配置」分类下的共用凭证
+        SocialAuthProvider.objects.create(
+            name="feishu",
+            display_name="飞书",
+            redirect_uri="http://127.0.0.1:8002/social/feishu/callback/",
+        )
         SystemConfig.objects.bulk_create(
             [
-                SystemConfig(key=f"{prefix}APP_ID", value="cli_abc", category="social_auth"),
-                SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth"),
-                SystemConfig(
-                    key=f"{prefix}REDIRECT_URI",
-                    value="http://127.0.0.1:8002/social/feishu/callback/",
-                    category="social_auth",
-                ),
                 SystemConfig(key="FEISHU_APP_ID", value="cli_shared", category="feishu"),
                 SystemConfig(key="FEISHU_APP_SECRET", value="borrowed-secret-placeholder", category="feishu"),
             ]
@@ -568,6 +752,6 @@ class TestCreateSessionApi:
             assert result.state
             assert result.goto
         finally:
-            SystemConfig.objects.filter(category="social_auth").delete()
+            SocialAuthProvider.objects.filter(name="feishu").delete()
             SystemConfig.objects.filter(category="feishu").delete()
             ProviderRegistry.clear_configs()

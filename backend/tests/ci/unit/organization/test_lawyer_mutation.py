@@ -160,3 +160,50 @@ class TestApplyFieldUpdates:
         changed = svc._apply_field_updates(lawyer, data)
         assert "is_admin" in changed
         assert lawyer.is_admin is True
+
+
+# ── 密码策略（安全审计：与 AUTH_PASSWORD_VALIDATORS 统一）────────────────
+
+
+class TestPasswordPolicy:
+    def test_update_weak_numeric_password_rejected(self, db: object) -> None:
+        """纯数字密码（NumericPasswordValidator）在改号时被拒。"""
+        access_policy = _mock_access_policy()
+        svc = LawyerMutationService(access_policy=access_policy, upload_service=MagicMock())
+        lawyer = _make_lawyer()
+        data = LawyerUpdateDTO(password="12345678")
+        with pytest.raises(ValidationException) as exc_info:
+            svc.update_lawyer(lawyer, data, _make_lawyer(id=99))
+        assert exc_info.value.code == "WEAK_PASSWORD"
+        lawyer.set_password.assert_not_called()
+
+    def test_update_short_password_rejected(self, db: object) -> None:
+        """短于 8 位（MinimumLengthValidator）在改号时被拒。"""
+        access_policy = _mock_access_policy()
+        svc = LawyerMutationService(access_policy=access_policy, upload_service=MagicMock())
+        lawyer = _make_lawyer()
+        with pytest.raises(ValidationException):
+            svc.update_lawyer(lawyer, LawyerUpdateDTO(password="abc123"), _make_lawyer(id=99))  # pragma: allowlist secret
+        lawyer.set_password.assert_not_called()
+
+    def test_update_common_password_rejected(self, db: object) -> None:
+        """常见弱口令（CommonPasswordValidator）在改号时被拒。"""
+        access_policy = _mock_access_policy()
+        svc = LawyerMutationService(access_policy=access_policy, upload_service=MagicMock())
+        lawyer = _make_lawyer()
+        with pytest.raises(ValidationException):
+            svc.update_lawyer(lawyer, LawyerUpdateDTO(password="password"), _make_lawyer(id=99))  # pragma: allowlist secret
+        lawyer.set_password.assert_not_called()
+
+    def test_create_weak_password_rejected(self, db: object) -> None:
+        """建号路径同样校验（共享 _validate_password_strength）。"""
+        access_policy = _mock_access_policy()
+        svc = LawyerMutationService(access_policy=access_policy)
+        with pytest.raises(ValidationException):
+            svc._validate_password_strength("123", _make_lawyer())
+
+    def test_strong_password_accepted(self, db: object) -> None:
+        access_policy = _mock_access_policy()
+        svc = LawyerMutationService(access_policy=access_policy)
+        # 强密码不抛异常，且返回 None（无错误信息）
+        assert svc._validate_password_strength("StrongPass123", _make_lawyer()) is None

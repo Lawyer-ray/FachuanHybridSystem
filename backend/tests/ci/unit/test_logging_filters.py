@@ -55,6 +55,27 @@ class TestSensitiveDataFilterScrubValue:
         result = f._scrub_value("info", "token is sk-12345678901234567890abcdef")
         assert "***" in result
 
+    def test_scrub_jwt_in_value(self):
+        """非敏感键的字符串值里出现 JWT 三段式也应打码（安全审计）。"""
+        f = SensitiveDataFilter()
+        jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4"  # pragma: allowlist secret
+        result = f._scrub_value("detail", f"auth failed with token={jwt}")
+        assert jwt not in result
+        assert "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9" not in result
+
+    def test_scrub_jwt_unsigned_in_value(self):
+        """无签名的两段半 JWT（末段为空）同样打码。"""
+        f = SensitiveDataFilter()
+        jwt = "eyJhbGciOiJub25lIn0.eyJzdWIiOiIxMjM."
+        result = f._scrub_value("detail", f"jwt: {jwt}")
+        assert jwt not in result
+
+    def test_scrub_normal_text_unchanged(self):
+        """普通文本（含点号）不应被 JWT 规则误伤。"""
+        f = SensitiveDataFilter()
+        result = f._scrub_value("note", "版本号 1.2.3 已发布")
+        assert result == "版本号 1.2.3 已发布"
+
     def test_scrub_non_string(self):
         f = SensitiveDataFilter()
         assert f._scrub_value("count", 42) == 42
@@ -75,6 +96,28 @@ class TestSensitiveDataFilterScrubMessage:
         f = SensitiveDataFilter()
         result = f._scrub_message("Key: sk-abcdefghijklmnopqrstuv")
         assert "sk-abcdefghijklmnopqrstuv" not in result
+
+    def test_scrub_jwt_in_message(self):
+        """消息中的 JWT 三段式形态必须打码（安全审计：日志脱敏补 JWT 形态）。"""
+        f = SensitiveDataFilter()
+        jwt = "eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoxMjN9.dBjftJeZ4CVPmB92K27uhbUJU1p1r_wW1"  # pragma: allowlist secret
+        result = f._scrub_message(f"refresh failed: {jwt}")
+        assert jwt not in result
+        assert "eyJhbGciOiJIUzI1NiJ9" not in result
+
+    def test_scrub_bearer_word_in_message(self):
+        """非 Authorization 前缀的 Bearer 凭证同样打码（保留 Bearer 字样）。"""
+        f = SensitiveDataFilter()
+        result = f._scrub_message("header=Bearer abc.def.ghi_jkl")
+        assert "abc.def.ghi_jkl" not in result
+        assert "Bearer" in result
+
+    def test_scrub_jwt_idempotent(self):
+        """重复过滤不产生二次改写。"""
+        f = SensitiveDataFilter()
+        once = f._scrub_message("token eyJhbGciOiJub25lIn0.eyJhIjoxfQ.")
+        twice = f._scrub_message(once)
+        assert once == twice
 
 
 class TestSensitiveDataFilterFilter:

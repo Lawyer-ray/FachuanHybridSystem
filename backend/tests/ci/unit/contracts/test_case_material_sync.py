@@ -1,14 +1,65 @@
 """Tests for case_material_sync module."""
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from apps.contracts.services.archive.checklist.case_material_sync import (
     _apply_initial_order_for_synced,
+    _collect_matching_materials,
     _convert_to_pdf_if_needed,
     upload_material_to_archive_item,
 )
+
+
+class TestCollectMatchingMaterials:
+    """同一 archive_item_code 命中多个案件时应聚合全部案件的材料。
+
+    回归：旧实现只收集首个命中案件的材料，其余案件的材料静默消失。
+    """
+
+    def test_aggregates_materials_across_cases(self, db):
+        case1 = SimpleNamespace(id=1, name="案件一")
+        case2 = SimpleNamespace(id=2, name="案件二")
+        cm1 = SimpleNamespace(id=101, type_name="起诉状", category="doc", case_id=1)
+        cm2 = SimpleNamespace(id=102, type_name="起诉状", category="doc", case_id=2)
+
+        with (
+            patch(
+                "apps.contracts.services.archive.checklist.case_material_sync.match_type_name_to_code",
+                return_value="code_a",
+            ) as mock_match,
+            patch("apps.cases.models.CaseMaterial") as mock_cm_model,
+        ):
+            mock_cm_model.objects.filter.return_value.select_related.return_value.only.return_value = [cm1, cm2]
+            result = _collect_matching_materials([case1, case2], {"code_a": ["起诉状"]}, {"code_a": {"code": "code_a"}})
+
+        assert set(result.keys()) == {"code_a"}
+        assert [cm.id for cm in result["code_a"]] == [101, 102]
+        assert mock_match.call_count == 2
+
+    def test_no_cases_returns_empty(self, db):
+        with patch("apps.cases.models.CaseMaterial") as mock_cm_model:
+            result = _collect_matching_materials([], {}, {})
+        assert result == {}
+        mock_cm_model.objects.filter.assert_not_called()
+
+    def test_unmatched_material_excluded(self, db):
+        case1 = SimpleNamespace(id=1, name="案件一")
+        cm1 = SimpleNamespace(id=101, type_name="不相关材料", category="doc", case_id=1)
+
+        with (
+            patch(
+                "apps.contracts.services.archive.checklist.case_material_sync.match_type_name_to_code",
+                return_value=None,
+            ),
+            patch("apps.cases.models.CaseMaterial") as mock_cm_model,
+        ):
+            mock_cm_model.objects.filter.return_value.select_related.return_value.only.return_value = [cm1]
+            result = _collect_matching_materials([case1], {"code_a": ["起诉状"]}, {"code_a": {"code": "code_a"}})
+
+        assert result == {}
 
 
 class TestApplyInitialOrderForSynced:

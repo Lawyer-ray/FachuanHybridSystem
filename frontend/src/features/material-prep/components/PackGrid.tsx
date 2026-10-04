@@ -57,13 +57,15 @@ export function PackGrid({
           >
             <ContextMenu>
               <ContextMenuTrigger className="block">
+                {/* 逐卡回调透传父级 props（引用稳定），index/pack 的闭包下沉到 PackCard 内部，memo 才能命中 */}
                 <PackCard
                   pack={p}
+                  index={i}
                   finished={p.segs > 0 && p.named === p.segs}
                   leaving={leaving[p.id] ?? null}
-                  onOpen={() => onOpen(i)}
-                  onReject={() => onReject(p)}
-                  onAccept={() => onAccept(p)}
+                  onOpen={onOpen}
+                  onReject={onReject}
+                  onAccept={onAccept}
                 />
               </ContextMenuTrigger>
               <ContextMenuContent className="w-44">

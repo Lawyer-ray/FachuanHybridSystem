@@ -165,12 +165,59 @@ class TestJWTOrSessionAuth:
         auth = JWTOrSessionAuth()
         request = MagicMock()
         request.headers = {}
+        request.method = "GET"
         request.GET = {"token": "query_token"}
 
         mock_user = MagicMock()
         with patch.object(auth._jwt_auth, "authenticate", return_value=mock_user):
             result = auth(request)
             assert result is mock_user
+
+    def test_token_from_query_param_head_allowed(self):
+        """HEAD 与 GET 同为安全方法，允许 ?token=（下载/预览场景）。"""
+        from apps.core.security.auth import JWTOrSessionAuth
+
+        auth = JWTOrSessionAuth()
+        request = MagicMock()
+        request.headers = {}
+        request.method = "HEAD"
+        request.GET = {"token": "query_token"}
+
+        mock_user = MagicMock()
+        with patch.object(auth._jwt_auth, "authenticate", return_value=mock_user):
+            result = auth(request)
+            assert result is mock_user
+
+    def test_query_token_rejected_for_post(self):
+        """POST 请求不得通过 ?token= 认证（query 参数会进访问日志，安全审计）。"""
+        from apps.core.security.auth import JWTOrSessionAuth
+
+        auth = JWTOrSessionAuth()
+        request = MagicMock()
+        request.headers = {}
+        request.method = "POST"
+        request.GET = {"token": "query_token"}
+        request.user.is_authenticated = False
+
+        with patch.object(auth._jwt_auth, "authenticate", return_value=None) as mock_auth:
+            result = auth(request)
+            assert result is None
+            # query token 未被送入 JWT 校验
+            mock_auth.assert_not_called()
+
+    def test_query_token_rejected_for_delete(self):
+        from apps.core.security.auth import JWTOrSessionAuth
+
+        auth = JWTOrSessionAuth()
+        request = MagicMock()
+        request.headers = {}
+        request.method = "DELETE"
+        request.GET = {"token": "query_token"}
+        request.user.is_authenticated = False
+
+        with patch.object(auth._jwt_auth, "authenticate", return_value=None) as mock_auth:
+            assert auth(request) is None
+            mock_auth.assert_not_called()
 
     def test_jwt_error_with_debug(self):
         from apps.core.security.auth import JWTOrSessionAuth

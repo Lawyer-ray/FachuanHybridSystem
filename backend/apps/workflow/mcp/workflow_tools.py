@@ -111,6 +111,10 @@ async def list_workflows(
     case_id: int | None = None,
     status: str | None = None,
     limit: int = 20,
+    *,
+    user: Any | None = None,
+    org_access: dict[str, Any] | None = None,
+    perm_open_access: bool = False,
 ) -> dict[str, Any]:
     """查询诉讼工作流列表
 
@@ -118,6 +122,9 @@ async def list_workflows(
         case_id: 按案件 ID 筛选（可选）
         status: 按状态筛选（可选：running/waiting_human/waiting_event/completed/failed）
         limit: 返回条数上限（默认 20，cap 100）
+        user: 当前用户（安全审计 IDOR：有用户上下文时按案件访问权过滤）
+        org_access: 组织级访问上下文（与 user 配套，来自请求上下文）
+        perm_open_access: 是否开放访问（与 user 配套，来自请求上下文）
 
     Returns:
         标准分页信封 {items, total, page, page_size, total_pages}（单页语义，page=1）
@@ -133,6 +140,24 @@ async def list_workflows(
         qs = qs.filter(case_id=case_id)
     if status:
         qs = qs.filter(status=status)
+    if user is not None:
+        # 有用户上下文（REST 列表）时按案件访问权过滤；
+        # MCP 直连链路无用户上下文，维持原有不过滤口径（同 start_workflow）
+        from asgiref.sync import sync_to_async
+
+        from apps.cases.models import Case
+        from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+
+        def _accessible_case_ids() -> Any:
+            return CaseAccessPolicy().filter_queryset(
+                Case.objects.values("id"),
+                user=user,
+                org_access=org_access,
+                perm_open_access=perm_open_access,
+            )
+
+        accessible_case_ids = await sync_to_async(_accessible_case_ids, thread_sensitive=False)()
+        qs = qs.filter(case_id__in=accessible_case_ids)
 
     ordered = qs.order_by("-started_at")
     total = await ordered.acount()
@@ -217,19 +242,30 @@ def _resolve_signal_key(step: dict[str, Any]) -> str:
     return str(raw) or "gate_approved"
 
 
-async def approve_workflow_step(run_id: int, approved: bool, comment: str = "") -> dict[str, Any]:
+async def approve_workflow_step(
+    run_id: int,
+    approved: bool,
+    comment: str = "",
+    *,
+    user: Any | None = None,
+) -> dict[str, Any]:
     """审批诉讼工作流中的待确认步骤
 
     信号名优先取模板 gate 步骤配置的 signal_key，缺省回退通用 gate_approved。
     发送前校验目标 workflow 注册了该信号（WORKFLOW_SIGNAL_HANDLERS），
     未注册的信号会被 Temporal 静默丢弃，必须明确报错而非假成功。
 
+    审批留痕（安全审计）：有人类用户上下文时（API 调用传入 user），将
+    acted_by/acted_at 写入该 gate 步骤的 StepExecution——通过/拒绝均记录。
+    MCP 直连无用户上下文，留痕字段保持为空。
+
     Args:
         run_id: 工作流运行 ID
         approved: 是否通过
         comment: 审批意见（可选）
+        user: 审批用户（API 层传入；仅认证用户会被留痕）
     """
-    from apps.workflow.models import WorkflowRun
+    from apps.workflow.models import StepExecution, WorkflowRun
     from apps.workflow.temporal.workflows import WORKFLOW_SIGNAL_HANDLERS
 
     try:
@@ -262,8 +298,25 @@ async def approve_workflow_step(run_id: int, approved: bool, comment: str = "") 
         logger.warning("Temporal signal 发送失败: run_id=%s, error=%s", run_id, e)
         return {"error": f"Temporal 信号发送失败: {e}"}
 
-    run.status = WorkflowRun.Status.RUNNING
-    await run.asave(update_fields=["status"])
+    # 条件更新：仅当 run 仍处于 WAITING_HUMAN 时置 RUNNING，
+    # 避免 worker 已写入终态（completed/failed）后被本地乐观写覆盖（竞态）
+    await WorkflowRun.objects.filter(pk=run_id, status=WorkflowRun.Status.WAITING_HUMAN).aupdate(
+        status=WorkflowRun.Status.RUNNING
+    )
+
+    # 审批留痕：gate 步骤在等待信号前已由 record_step 写入 waiting 记录，
+    # 此处仅 aupdate 留痕字段（不 aupdate_or_create，避免覆盖 worker 已回写的
+    # 终态状态，也避免创建缺字段的新记录）；无用户上下文（MCP）时跳过。
+    is_authenticated_user = bool(user and getattr(user, "is_authenticated", False))
+    if is_authenticated_user:
+        from django.utils import timezone
+
+        updated = await StepExecution.objects.filter(
+            workflow_run_id=run_id,
+            step_id=run.current_step_id,
+        ).aupdate(acted_by=user, acted_at=timezone.now())
+        if not updated:
+            logger.warning("审批留痕未命中 StepExecution 记录: run_id=%s, step_id=%s", run_id, run.current_step_id)
 
     return {
         "run_id": run_id,

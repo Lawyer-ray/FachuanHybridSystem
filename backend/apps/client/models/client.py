@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from django.contrib.postgres.indexes import GinIndex
 from django.core.exceptions import ValidationError
 from django.db import models
 from simple_history.models import HistoricalRecords
@@ -76,4 +77,6 @@ class Client(models.Model):
             models.Index(fields=["client_type"]),
             models.Index(fields=["phone"]),
             models.Index(fields=["is_our_client"]),
+            # 全局搜索 name__icontains 走 trigram（随数据增长上保险）
+            GinIndex(fields=["name"], name="client_client_name_trgm", opclasses=["gin_trgm_ops"]),
         ]

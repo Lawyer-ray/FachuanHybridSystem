@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from collections.abc import Iterable
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from django.core.files.uploadedfile import UploadedFile
@@ -26,6 +27,9 @@ logger = logging.getLogger("apps.chat_records")
 
 class ScreenshotService:
     MAX_IMAGE_SIZE_BYTES = 20 * 1024 * 1024
+    # 仅允许位图格式：客户端自报 content_type 可伪造（image/svg+xml 也带 image/ 前缀），
+    # 按扩展名白名单拦截，svg 这类可执行脚本的形式一律拒绝
+    ALLOWED_IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp"})
 
     def __init__(self, *, project_service: ProjectService) -> None:
         self._project_service = project_service
@@ -95,9 +99,9 @@ class ScreenshotService:
         return created
 
     def _validate_upload_file(self, file: UploadedFile) -> None:
-        content_type = (getattr(file, "content_type", "") or "").lower()
-        if not content_type.startswith("image/"):
-            raise ValidationException("仅支持上传图片文件")
+        ext = Path(str(getattr(file, "name", "") or "")).suffix.lower()
+        if ext not in self.ALLOWED_IMAGE_EXTENSIONS:
+            raise ValidationException(f"仅支持上传图片文件({', '.join(sorted(self.ALLOWED_IMAGE_EXTENSIONS))})")
         size = int(getattr(file, "size", 0) or 0)
         if size > self.MAX_IMAGE_SIZE_BYTES:
             raise ValidationException("图片过大(单张最大 20MB)")

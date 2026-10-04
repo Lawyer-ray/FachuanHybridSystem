@@ -5,6 +5,7 @@ from typing import Any, ClassVar
 
 from django import forms
 from django.contrib import admin
+from django.contrib.auth import password_validation
 from django.core.exceptions import ValidationError
 
 from apps.core.admin.mixins import AdminImportExportMixin
@@ -16,6 +17,24 @@ from apps.social_auth.models import SocialAccount
 
 def _get_lawyer_import_service() -> LawyerImportService:
     return LawyerImportService()
+
+
+def _invalidate_lawyer_teams_access(lawyer: Lawyer, affected_team_ids: set[int]) -> None:  # pragma: no cover
+    """律师团队/业务团队变更后，刷新受影响用户的组织可见范围缓存。
+
+    对照 LawyerMutationService._set_lawyer_teams 末尾的失效调用：
+    后台表单直接 lawyer_teams.set() 绕过了 mutation 服务，需在此补失效。
+    """
+    from apps.core.infrastructure import invalidate_users_access_context
+
+    affected_user_ids = set(
+        Lawyer.objects.filter(lawyer_teams__id__in=affected_team_ids).values_list("id", flat=True).distinct()
+    )
+    affected_user_ids |= set(
+        Lawyer.objects.filter(biz_teams__id__in=affected_team_ids).values_list("id", flat=True).distinct()
+    )
+    affected_user_ids.add(lawyer.pk)
+    invalidate_users_access_context(list(affected_user_ids), org_access=True, case_grants=False)
 
 
 class LawyerAdminForm(forms.ModelForm[Lawyer]):  # pragma: no cover
@@ -39,9 +58,10 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):  # pragma: no cover
 
     class Meta:  # pragma: no cover
         model = Lawyer
+        # 安全审计：不再回显 password 字段（readonly widget 也会把 PBKDF2 哈希渲染进 HTML），
+        # 密码统一走 new_password 通道（留空=不修改）
         fields = (
             "username",
-            "password",
             "real_name",
             "phone",
             "avatar",
@@ -53,10 +73,6 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):  # pragma: no cover
             "is_staff",
             "is_superuser",
         )
-        widgets: ClassVar[dict[str, Any]] = {
-            # Existing password value remains read-only; do not turn this back into editable plain text.
-            "password": forms.TextInput(attrs={"readonly": True, "style": "color:#999;background:#f5f5f5;"}),
-        }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover
         super().__init__(*args, **kwargs)
@@ -70,6 +86,14 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):  # pragma: no cover
         cleaned: dict[str, Any] = super().clean() or {}
         if not cleaned.get("lawyer_team"):
             raise ValidationError({"lawyer_team": "律师必须至少关联一个律师团队"})
+        # 安全审计（密码策略统一）：管理员建号/改号的后台表单同样走
+        # AUTH_PASSWORD_VALIDATORS，与 LawyerMutationService 口径一致
+        new_password = cleaned.get("new_password")
+        if new_password:
+            try:
+                password_validation.validate_password(new_password, user=self.instance)
+            except ValidationError as exc:
+                raise ValidationError({"new_password": exc.messages}) from None
         return cleaned
 
     def save(self, commit: bool = True) -> Lawyer:  # pragma: no cover
@@ -83,6 +107,9 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):  # pragma: no cover
             user.law_firm = lt.law_firm
         if commit:
             user.save()
+            # 先记旧团队 id，供 save_related 统计受影响用户后失效访问缓存
+            self._old_lawyer_team_ids = set(user.lawyer_teams.values_list("id", flat=True))
+            self._old_biz_team_ids = set(user.biz_teams.values_list("id", flat=True))
             user.lawyer_teams.set([lt] if lt else [])
             user.biz_teams.set([bt] if bt else [])
         # 存起来供 save_related 用（save_m2m 会清空，需要再设一次）
@@ -168,12 +195,31 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin):  # pragma: no cover
     inlines: ClassVar[list[type[admin.TabularInline]]] = [AccountCredentialInline, SocialAccountInline]  # type: ignore[assignment]
     export_model_name = "lawyer"
     actions: ClassVar = ["export_selected_as_json", "export_all_as_json"]  # type: ignore[misc]
+    # 安全审计（提权）：提权字段仅 superuser 可见可改，防止非 superuser staff 勾选自我提权
+    privileged_fields: ClassVar[tuple[str, ...]] = ("is_admin", "is_staff", "is_superuser")
     fieldsets: ClassVar = (
-        ("账号信息", {"fields": ("username", "password", "new_password")}),
+        ("账号信息", {"fields": ("username", "new_password")}),
         ("个人信息", {"fields": ("real_name", "phone", "avatar", "license_no", "id_card", "license_pdf")}),
         ("组织关系", {"fields": ("lawyer_team", "biz_team")}),
         ("权限", {"fields": ("is_active", "is_admin", "is_staff", "is_superuser")}),
     )
+
+    def get_fieldsets(self, request: Any, obj: Any = None) -> Any:  # pragma: no cover
+        fieldsets = super().get_fieldsets(request, obj)
+        if request.user.is_superuser:
+            return fieldsets
+        # 非 superuser：从 fieldsets 中剔除提权字段（get_form 会据此构建表单，字段不进表单）
+        filtered = []
+        for name, opts in fieldsets:
+            fields = tuple(f for f in opts.get("fields", ()) if f not in self.privileged_fields)
+            filtered.append((name, {**opts, "fields": fields}))
+        return tuple(filtered)
+
+    def get_form(self, request: Any, obj: Any = None, change: bool = False, **kwargs: Any) -> Any:  # pragma: no cover
+        if not request.user.is_superuser:
+            exclude = tuple(set(kwargs.pop("exclude", None) or ()) | set(self.privileged_fields))
+            kwargs["exclude"] = exclude
+        return super().get_form(request, obj, **kwargs)
 
     class Media:  # pragma: no cover
         css = {"all": ("admin/css/lawyer_admin.css",)}
@@ -186,6 +232,10 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin):  # pragma: no cover
         bt = getattr(form, "_pending_biz_team", None)
         obj.lawyer_teams.set([lt] if lt else [])
         obj.biz_teams.set([bt] if bt else [])
+        # 团队变更（新旧团队成员 + 本人）需失效组织可见范围缓存
+        old_team_ids = getattr(form, "_old_lawyer_team_ids", set()) | getattr(form, "_old_biz_team_ids", set())
+        new_team_ids = {t.id for t in (lt, bt) if t is not None}
+        _invalidate_lawyer_teams_access(obj, old_team_ids | new_team_ids)
 
     def get_queryset(self, request: Any) -> Any:
         # 列表页要显示 social_bindings 一列，预先取回绑定关系避免 N+1

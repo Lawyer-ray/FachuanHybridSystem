@@ -397,6 +397,8 @@ class FolderGenerationService:
         from .pipeline import DocxRenderer, PipelineContextBuilder
 
         documents: list[Any] = []
+        # 生成失败的文书清单（模板名 + 原因），用于部分失败提示与全失败判定
+        failed_placements: list[str] = []
 
         # 获取合同数据用于构建上下文
         contract_model = self.contract_service.get_contract_model_internal(contract_id)
@@ -413,6 +415,7 @@ class FolderGenerationService:
                         placement.document_template.name,
                         extra={"template_name": placement.document_template.name},
                     )
+                    failed_placements.append(f"{placement.document_template.name}(模板文件不存在)")
                     continue
 
                 # 根据模板类型构建上下文
@@ -455,6 +458,28 @@ class FolderGenerationService:
                     e,
                     extra={"template_name": placement.document_template.name, "error": str(e)},
                 )
+                failed_placements.append(f"{placement.document_template.name}({e})")
+
+        # 全部 placement 失败时不应再产出"空壳"成功 ZIP，直接报错；
+        # 部分失败保留 warning + 失败清单（成功文书照常打包）
+        if failed_placements:
+            failed_summary = "; ".join(failed_placements)
+            if not documents and document_placements:
+                logger.error(
+                    "合同文件夹 - 全部文书生成失败: %s",
+                    failed_summary,
+                    extra={"contract_id": contract_id, "failed": failed_placements},
+                )
+                raise ValidationException(
+                    message=f"全部文书生成失败: {failed_summary}",
+                    code="ALL_DOCUMENT_GENERATION_FAILED",
+                    errors={"failed": failed_placements},
+                )
+            logger.warning(
+                "合同文件夹 - 部分文书生成失败(已跳过): %s",
+                failed_summary,
+                extra={"contract_id": contract_id, "failed": failed_placements},
+            )
 
         # 7. 创建ZIP包
         try:
@@ -521,6 +546,8 @@ class FolderGenerationService:
 
         # 3. 构建案件上下文并渲染文档
         documents: list[tuple[str, bytes, str]] = []
+        # 生成失败的文书模板清单，用于部分失败提示与全失败判定
+        failed_templates: list[str] = []
         context = EnhancedContextBuilder().build_context({"case": case, "case_id": case.id})
         # raw_structure 的根才是案件文件夹真正的根（root_name），用于路径剥离
         root_folder_name = raw_structure.get("name", "")
@@ -537,6 +564,7 @@ class FolderGenerationService:
                     template.name,
                     extra={"template_name": template.name},
                 )
+                failed_templates.append(f"{template.name}(模板文件不存在)")
                 continue
 
             folder_path = binding.folder_node_path or ""
@@ -572,7 +600,7 @@ class FolderGenerationService:
                         # 日期使用今日日期
                         from django.utils import timezone
 
-                        date_str = timezone.now().strftime("%Y%m%d")
+                        date_str = timezone.localtime().strftime("%Y%m%d")
                         filename = (
                             FilenameTemplateService.render_generated_doc(
                                 doc_type="法定代表人身份证明书", case_name=party.client.name, version="1", date=date_str
@@ -684,7 +712,7 @@ class FolderGenerationService:
                 if case.specified_date:
                     date_str = case.specified_date.strftime("%Y%m%d")
                 else:
-                    date_str = timezone.now().strftime("%Y%m%d")
+                    date_str = timezone.localtime().strftime("%Y%m%d")
                 case_name = case.name or "案件"
                 filename = (
                     FilenameTemplateService.render_generated_doc(
@@ -706,6 +734,28 @@ class FolderGenerationService:
                     e,
                     extra={"template_name": template.name, "error": str(e)},
                 )
+                failed_templates.append(f"{template.name}({e})")
+
+        # 全部绑定文书渲染失败时不应产出"空壳"成功 ZIP，直接报错；
+        # 部分失败保留 warning + 失败清单（成功文书与特殊材料照常打包）
+        if failed_templates:
+            failed_summary = "; ".join(failed_templates)
+            if not documents:
+                logger.error(
+                    "案件文件夹 - 全部文书生成失败: %s",
+                    failed_summary,
+                    extra={"case_id": case.id, "failed": failed_templates},
+                )
+                raise ValidationException(
+                    message=f"全部文书生成失败: {failed_summary}",
+                    code="ALL_DOCUMENT_GENERATION_FAILED",
+                    errors={"failed": failed_templates},
+                )
+            logger.warning(
+                "案件文件夹 - 部分文书生成失败(已跳过): %s",
+                failed_summary,
+                extra={"case_id": case.id, "failed": failed_templates},
+            )
 
         # 4. 查找特殊文件夹路径（基于原始结构，返回相对于根的路径）
         special_paths = self._find_special_folder_paths(raw_structure)

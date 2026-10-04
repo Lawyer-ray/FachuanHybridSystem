@@ -71,8 +71,21 @@ async def list_workflows_api(
     status: str | None = None,
     limit: int = 20,
 ) -> dict[str, Any]:
-    """查询诉讼工作流列表（标准信封 items/total/page/page_size/total_pages；limit cap 100）"""
-    return await list_workflows(case_id, status, limit=limit)
+    """查询诉讼工作流列表（标准信封 items/total/page/page_size/total_pages；limit cap 100）
+
+    安全审计 IDOR：按当前用户可见案件过滤（与 run 详情/审批/取消同口径）。
+    """
+    from apps.core.security import get_request_access_context
+
+    ctx = get_request_access_context(request)
+    return await list_workflows(
+        case_id,
+        status,
+        limit=limit,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
 
 
 @router.get("/runs/{run_id}")
@@ -84,9 +97,18 @@ async def get_workflow_detail_api(request: Any, run_id: int) -> dict[str, Any]:
 
 @router.post("/runs/{run_id}/approve")
 async def approve_workflow_api(request: Any, run_id: int, payload: ApproveStepIn) -> dict[str, Any]:
-    """审批诉讼工作流步骤"""
+    """审批诉讼工作流步骤
+
+    审批留痕（安全审计）：把审批人写入该 gate 步骤 StepExecution 的
+    acted_by/acted_at（approve_workflow_step 内部落库）。
+    """
     await _require_run_case_access(request, run_id)
-    result = await approve_workflow_step(run_id, payload.approved, payload.comment)
+    result = await approve_workflow_step(
+        run_id,
+        payload.approved,
+        payload.comment,
+        user=get_request_user(request),
+    )
     if "error" in result:
         from ninja.errors import HttpError
 

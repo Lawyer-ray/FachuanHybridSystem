@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from django.contrib import admin
+from django.db import transaction
 from django.http import FileResponse, HttpRequest, HttpResponseNotAllowed, JsonResponse
 from django.urls import path
 from django.utils.html import escape, escapejs, format_html
@@ -58,7 +59,6 @@ class InboxMessageAdmin(admin.ModelAdmin):  # pragma: no cover
             "附件",
             {
                 "fields": ("attachments_actions",),
-                "description": "可直接调整附件下载名；留空则使用原始文件名。",
             },
         ),
     )
@@ -205,52 +205,59 @@ class InboxMessageAdmin(admin.ModelAdmin):  # pragma: no cover
 
         custom_filename_input = str(request.POST.get("custom_filename", "")).strip()
 
-        msg = InboxMessage.objects.filter(pk=pk).first()
-        if msg is None:
-            return JsonResponse({"ok": False, "message": "消息不存在"}, status=404)
+        with transaction.atomic():
+            # 行锁重取消息行：attachments_meta 是 JSONField 读-改-写，与并发重命名/追加/
+            # 页数回填会互相覆盖，锁行串行化后再基于最新 meta 修改（对照 manual_upload_service 的锁模式）。
+            msg = InboxMessage.objects.select_for_update().filter(pk=pk).first()
+            if msg is None:
+                return JsonResponse({"ok": False, "message": "消息不存在"}, status=404)
 
-        meta_list = msg.attachments_meta if isinstance(msg.attachments_meta, list) else []
-        for att in meta_list:
-            if int(att.get("part_index", -1)) != part_index:
-                continue
-            original_name = str(att.get("original_filename") or att.get("filename") or "").strip()
-            if not original_name:
-                original_name = f"attachment_{part_index}"
+            meta_list = msg.attachments_meta if isinstance(msg.attachments_meta, list) else []
+            for att in meta_list:
+                if int(att.get("part_index", -1)) != part_index:
+                    continue
+                original_name = str(att.get("original_filename") or att.get("filename") or "").strip()
+                if not original_name:
+                    original_name = f"attachment_{part_index}"
 
-            content_type = str(att.get("content_type", ""))
-            custom_filename = self._apply_original_extension(custom_filename_input, original_name, content_type)
-            if len(custom_filename) > 255:
-                return JsonResponse({"ok": False, "message": "新文件名过长（最多255字符）"}, status=400)
+                content_type = str(att.get("content_type", ""))
+                custom_filename = self._apply_original_extension(custom_filename_input, original_name, content_type)
+                if len(custom_filename) > 255:
+                    return JsonResponse({"ok": False, "message": "新文件名过长（最多255字符）"}, status=400)
 
-            att["filename"] = original_name
-            att["original_filename"] = original_name
-            if custom_filename and custom_filename != original_name:
-                att["custom_filename"] = custom_filename
-            else:
-                att.pop("custom_filename", None)
-            msg.attachments_meta = meta_list
-            msg.save(update_fields=["attachments_meta"])
-            logger.info(
-                "收件箱附件重命名: message_pk=%s part_index=%s custom_filename=%s", pk, part_index, custom_filename
-            )
-            return JsonResponse(
-                {
-                    "ok": True,
-                    "message": "保存成功",
-                    "original_filename": original_name,
-                    "custom_filename": custom_filename,
-                    "effective_filename": custom_filename or original_name,
-                }
-            )
+                att["filename"] = original_name
+                att["original_filename"] = original_name
+                if custom_filename and custom_filename != original_name:
+                    att["custom_filename"] = custom_filename
+                else:
+                    att.pop("custom_filename", None)
+                msg.attachments_meta = meta_list
+                msg.save(update_fields=["attachments_meta"])
+                logger.info(
+                    "收件箱附件重命名: message_pk=%s part_index=%s custom_filename=%s", pk, part_index, custom_filename
+                )
+                return JsonResponse(
+                    {
+                        "ok": True,
+                        "message": "保存成功",
+                        "original_filename": original_name,
+                        "custom_filename": custom_filename,
+                        "effective_filename": custom_filename or original_name,
+                    }
+                )
 
         return JsonResponse({"ok": False, "message": "附件不存在"}, status=404)
 
     def _attachment_view(
         self, request: HttpRequest, pk: int, part_index: int, inline: bool = False
     ) -> FileResponse:  # pragma: no cover
+        from django.http import Http404
+
         from apps.message_hub.services import get_fetcher
 
-        msg = InboxMessage.objects.select_related("source__credential").get(pk=pk)
+        msg = InboxMessage.objects.select_related("source__credential").filter(pk=pk).first()
+        if msg is None:
+            raise Http404("消息不存在")
         fetcher = get_fetcher(msg.source.source_type)
         content, filename, content_type = fetcher.download_attachment(msg.source, msg.message_id, part_index)
         download_filename = self._resolve_download_filename(msg, part_index, filename)
@@ -315,6 +322,18 @@ class InboxMessageAdmin(admin.ModelAdmin):  # pragma: no cover
         # 构造短信内容（用于记录来源）
         content = f"[来自收件箱] {msg.subject or '(无主题)'}\n发件人: {msg.sender}\n消息ID: {msg.message_id}"
 
+        # 幂等去重：同一收件箱消息重复点击提交时返回既有短信记录，不重复处理
+        from apps.automation.services.sms.court_sms_delivery_dedup import build_delivery_event_key, build_lookup_keys
+
+        duplicate_sms = (
+            CourtSMS.objects.filter(delivery_event_key__in=build_lookup_keys(content, msg.received_at))
+            .order_by("id")
+            .first()
+        )
+        if duplicate_sms is not None:
+            messages.info(request, f"该消息已提交过短信处理（SMS #{duplicate_sms.id}），已跳过重复提交")
+            return redirect(reverse("admin:automation_courtsms_change", args=[duplicate_sms.id]))
+
         # 从主题提取案号（全角/半角括号）
         case_numbers: list[str] = []
         if msg.subject:
@@ -334,6 +353,7 @@ class InboxMessageAdmin(admin.ModelAdmin):  # pragma: no cover
             status=CourtSMSStatus.MATCHING,
             document_file_paths=attachment_paths,
             case_numbers=case_numbers,
+            delivery_event_key=build_delivery_event_key(content, msg.received_at),
         )
 
         logger.info(

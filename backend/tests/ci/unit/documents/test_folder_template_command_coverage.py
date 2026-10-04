@@ -101,8 +101,8 @@ class TestFolderTemplateCommandServiceUpdateStructure:
 
     @pytest.mark.django_db
     def test_update_not_found(self):
-        from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
         from apps.documents.models import FolderTemplate
+        from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
         mock_repo = MagicMock()
         mock_repo.get_by_id.side_effect = FolderTemplate.DoesNotExist()
         mock_validation = MagicMock()
@@ -173,8 +173,8 @@ class TestFolderTemplateCommandServiceDeleteTemplate:
 
     @pytest.mark.django_db
     def test_delete_not_found(self):
-        from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
         from apps.documents.models import FolderTemplate
+        from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
         mock_repo = MagicMock()
         mock_repo.get_by_id.side_effect = FolderTemplate.DoesNotExist()
         mock_validation = MagicMock()
@@ -284,8 +284,8 @@ class TestFolderTemplateCommandServiceUpdateFromDict:
 
     @pytest.mark.django_db
     def test_update_template_not_found(self):
-        from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
         from apps.documents.models import FolderTemplate
+        from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
         mock_repo = MagicMock()
         mock_repo.get_by_id.side_effect = FolderTemplate.DoesNotExist()
         mock_validation = MagicMock()
@@ -317,8 +317,8 @@ class TestFolderTemplateCommandServiceGetTemplateOr404:
 
     @pytest.mark.django_db
     def test_not_found(self):
-        from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
         from apps.documents.models import FolderTemplate
+        from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
         mock_repo = MagicMock()
         mock_repo.get_by_id.side_effect = FolderTemplate.DoesNotExist()
         mock_validation = MagicMock()
@@ -330,3 +330,95 @@ class TestFolderTemplateCommandServiceGetTemplateOr404:
         )
         with pytest.raises(NotFoundError):
             svc.get_template_or_404(999)
+
+
+class TestUpdateStructureSyncsBindings:
+    """update_structure 后联动重算绑定路径：改名更新路径、删节点停用绑定。"""
+
+    def _make_service(self):
+        from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
+        from apps.documents.services.folder_template.repo import FolderTemplateRepo
+
+        mock_validation = MagicMock()
+        mock_validation.validate_structure.return_value = (True, "")
+        mock_rules = MagicMock()
+        mock_rules.validate_structure_ids.return_value = (True, [])
+        return FolderTemplateCommandService(
+            repo=FolderTemplateRepo(),
+            validation_service=mock_validation,
+            structure_rules=mock_rules,
+        )
+
+    @pytest.mark.django_db
+    def test_rename_node_updates_binding_path(self):
+        from apps.documents.models import DocumentTemplate, DocumentTemplateFolderBinding, FolderTemplate
+
+        template = FolderTemplate.objects.create(
+            name="案件文件夹",
+            template_type="case",
+            structure={"children": [{"id": "folder_a", "name": "1-立案材料", "children": []}]},
+        )
+        doc = DocumentTemplate.objects.create(name="起诉状模板", file_path="templates/complaint.docx")
+        binding = DocumentTemplateFolderBinding.objects.create(
+            document_template=doc,
+            folder_template=template,
+            folder_node_id="folder_a",
+        )
+        assert binding.folder_node_path == "1-立案材料"
+
+        from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
+
+        svc = self._make_service()
+        with patch.object(FolderTemplateCommandService, "_clear_folder_template_cache"):
+            svc.update_structure(
+                template_id=template.id,
+                structure={"children": [{"id": "folder_a", "name": "2-庭审材料", "children": []}]},
+            )
+
+        binding.refresh_from_db()
+        assert binding.folder_node_path == "2-庭审材料"
+        assert binding.is_active is True
+
+    @pytest.mark.django_db
+    def test_removed_node_deactivates_binding(self):
+        from apps.documents.models import DocumentTemplate, DocumentTemplateFolderBinding, FolderTemplate
+
+        template = FolderTemplate.objects.create(
+            name="案件文件夹",
+            template_type="case",
+            structure={
+                "children": [
+                    {"id": "folder_a", "name": "1-立案材料", "children": []},
+                    {"id": "folder_b", "name": "2-庭审材料", "children": []},
+                ]
+            },
+        )
+        doc = DocumentTemplate.objects.create(name="起诉状模板", file_path="templates/complaint.docx")
+        binding_a = DocumentTemplateFolderBinding.objects.create(
+            document_template=doc,
+            folder_template=template,
+            folder_node_id="folder_a",
+        )
+        binding_b = DocumentTemplateFolderBinding.objects.create(
+            document_template=doc,
+            folder_template=template,
+            folder_node_id="folder_b",
+        )
+
+        from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
+
+        svc = self._make_service()
+        # 新结构删除 folder_b 节点
+        with patch.object(FolderTemplateCommandService, "_clear_folder_template_cache"):
+            svc.update_structure(
+                template_id=template.id,
+                structure={"children": [{"id": "folder_a", "name": "1-立案材料", "children": []}]},
+            )
+
+        binding_a.refresh_from_db()
+        binding_b.refresh_from_db()
+        # 存活节点保持启用，被删节点的绑定失活（不物理删除）
+        assert binding_a.is_active is True
+        assert binding_a.folder_node_path == "1-立案材料"
+        assert binding_b.is_active is False
+        assert DocumentTemplateFolderBinding.objects.filter(id=binding_b.id).exists()

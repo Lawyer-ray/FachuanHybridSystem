@@ -99,34 +99,8 @@ class TestEnforcementCaseNumberService:
         assert "《《" not in result
 
 
-class TestEnforcementCourtService:
-    def test_generate_returns_empty_when_no_case_id(self):
-        from apps.documents.services.placeholders.litigation.enforcement_basic_service import EnforcementCourtService
-
-        svc = EnforcementCourtService.__new__(EnforcementCourtService)
-        svc.case_details_accessor = Mock()
-        result = svc.generate({})
-        assert result == {}
-
-    def test_get_court_returns_name(self):
-        from apps.documents.services.placeholders.litigation.enforcement_basic_service import EnforcementCourtService
-
-        svc = EnforcementCourtService.__new__(EnforcementCourtService)
-        svc.case_details_accessor = Mock()
-        svc.case_details_accessor.require_case_details.return_value = {
-            "supervising_authorities": [{"name": "佛山市中级人民法院"}]
-        }
-        result = svc.get_court(1)
-        assert result == "佛山市中级人民法院"
-
-    def test_get_court_returns_empty_when_no_authorities(self):
-        from apps.documents.services.placeholders.litigation.enforcement_basic_service import EnforcementCourtService
-
-        svc = EnforcementCourtService.__new__(EnforcementCourtService)
-        svc.case_details_accessor = Mock()
-        svc.case_details_accessor.require_case_details.return_value = {"supervising_authorities": []}
-        result = svc.get_court(1)
-        assert result == ""
+# 原 EnforcementCourtService(强制执行申请书管辖法院)已删除:其唯一键「管辖法院」与
+# ArchivePlaceholderService 撞键,输出始终被注册表归属裁决丢弃,属纯重复实现。
 
 
 class TestEnforcementEffectiveDateService:
@@ -202,44 +176,10 @@ class TestEnforcementTargetAmountService:
         assert result == ""
 
 
-class TestEnforcementCauseOfActionService:
-    def test_generate_returns_default_when_empty(self):
-        from apps.documents.services.placeholders.litigation.enforcement_basic_service import (
-            EnforcementCauseOfActionService,
-        )
-
-        svc = EnforcementCauseOfActionService()
-        result = svc.generate({})
-        assert result == {"案由": ""}
-
-    def test_resolve_cause_from_case(self):
-        from apps.documents.services.placeholders.litigation.enforcement_basic_service import (
-            EnforcementCauseOfActionService,
-        )
-
-        svc = EnforcementCauseOfActionService()
-        case = SimpleNamespace(cause_of_action="合同纠纷")
-        result = svc._resolve_cause_of_action({"case": case})
-        assert result == "合同纠纷"
-
-    def test_resolve_cause_from_case_dto(self):
-        from apps.documents.services.placeholders.litigation.enforcement_basic_service import (
-            EnforcementCauseOfActionService,
-        )
-
-        svc = EnforcementCauseOfActionService()
-        case_dto = SimpleNamespace(cause_of_action="侵权纠纷")
-        result = svc._resolve_cause_of_action({"case_dto": case_dto})
-        assert result == "侵权纠纷"
-
-    def test_resolve_cause_returns_empty(self):
-        from apps.documents.services.placeholders.litigation.enforcement_basic_service import (
-            EnforcementCauseOfActionService,
-        )
-
-        svc = EnforcementCauseOfActionService()
-        result = svc._resolve_cause_of_action({})
-        assert result == ""
+# 原 EnforcementCauseOfActionService(强制执行申请书案由)已删除:其唯一键「案由」与
+# CriminalCauseService 撞键,输出始终被注册表归属裁决丢弃,属纯重复实现。
+# 案由生成行为由 tests/ci/unit/documents/placeholders/test_registry_and_result.py 的
+# TestCauseOfActionKeySoleOwnership 回归保护。
 
 
 # ============================================================================

@@ -152,13 +152,29 @@ class ClientMutationService:
         client = self.query_service.get_client(client_id=client_id, user=user)
         self._ensure_client_deletable(client)
         file_paths = self.deletion_workflow.collect_client_file_paths(client_id=client.pk)
+        client_id_value = client.pk
         client.delete()
+        self._purge_client_history(client_id_value)
         self.deletion_workflow.cleanup_files_on_commit(file_paths=file_paths)
 
         logger.info(
             "客户删除成功",
             extra={"client_id": client_id, "user_id": getattr(user, "id", None), "action": "delete_client"},
         )
+
+    def _purge_client_history(self, client_id: int) -> None:
+        """删除客户时同步清掉 simple-history 快照（安全审计）。
+
+        historicalclient 表按原值快照保留身份证号，主表硬删后若不清理，
+        敏感字段仍可经历史表读出。历史表以 id 关联原对象主键
+        （history_id 才是历史行自身主键）。
+        """
+        deleted_count, _ = Client.history.model.objects.filter(id=client_id).delete()
+        if deleted_count:
+            logger.info(
+                "客户历史快照已清理",
+                extra={"client_id": client_id, "deleted_history": deleted_count, "action": "delete_client"},
+            )
 
     def _ensure_client_deletable(self, client: Client) -> None:
         """删除客户前检查业务关联：当事人关系已全部 PROTECT，这里给出可操作的引导信息。

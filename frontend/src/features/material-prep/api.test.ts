@@ -76,12 +76,12 @@ beforeEach(() => {
 })
 
 describe('收件箱资源封装', () => {
-  it('listMaterialPacks：固定 manual_upload + has_attachments 查询参数（收件箱里筛出材料包）', async () => {
+  it('listMaterialPacks：固定 manual_upload + has_attachments + limit 查询参数（收件箱里筛出材料包）', async () => {
     const inbox = client('/api/v1/inbox')
     inbox.get.mockReturnValueOnce(respond([]))
     await listMaterialPacks()
     expect(inbox.get).toHaveBeenCalledWith('messages', {
-      searchParams: { source_type: 'manual_upload', has_attachments: 'true' },
+      searchParams: { source_type: 'manual_upload', has_attachments: 'true', limit: '500' },
     })
   })
 

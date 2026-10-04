@@ -13,6 +13,8 @@ from uuid import uuid4
 
 import httpx
 
+from apps.core.exceptions import ValidationException
+from apps.core.filesystem.filesystem_service import ensure_zip_within_limits
 from apps.core.http.httpx_clients import get_sync_http_client
 from apps.core.services.document_parse_provider_service import ParseProviderService
 from apps.document_parsing.exceptions import MineruAPIError, ParsingTimeoutError
@@ -428,6 +430,11 @@ class MineruBackend:
                 self._download_result_zip(zip_url, zip_path)
 
                 with zipfile.ZipFile(zip_path, "r") as zf:
+                    # 解压炸弹防护：按 ZIP 头声明的总量 / 成员数拒绝超限再 extractall
+                    try:
+                        ensure_zip_within_limits(zf)
+                    except ValidationException as exc:
+                        raise MineruAPIError(f"结果 ZIP 超出安全解压上限，已拒绝: {exc.message}") from exc
                     zf.extractall(tmp_dir)
 
                 # 查找关键文件

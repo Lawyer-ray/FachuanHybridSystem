@@ -89,9 +89,10 @@ def media_urlpatterns() -> list[URLPattern]:
     """按 settings 返回媒体路由（逻辑独立成函数便于单测）。
 
     - DEBUG：开发环境维持原状（static 直出 + staticfiles）；
-    - 非 DEBUG 且 MEDIA_REQUIRE_AUTH（默认 False，行为零变化）：/media/ 交给
-      鉴权视图 serve_protected_media 接管（替代原先生产环境无路由/404 的现状）；
-    - 其余：维持现状（不注册媒体路由，由网关/外部静态服务直出）。
+    - 非 DEBUG 且 MEDIA_REQUIRE_AUTH（默认 True——安全默认）：/media/ 交给
+      鉴权视图 serve_protected_media 接管（JWT 头 / ?token= / Session）；
+    - 显式设 MEDIA_REQUIRE_AUTH=false：不注册媒体路由，回到旧行为
+      （由网关/外部静态服务直出，无鉴权）。
 
     注意：Django 6.x 的 ``static()`` 在 ``DEBUG=False`` 时是无操作（返回空列表），
     因此鉴权分支不能用 ``static()``，须按其原语义用 ``re_path`` 直接构造。

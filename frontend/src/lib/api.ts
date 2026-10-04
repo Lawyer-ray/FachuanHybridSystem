@@ -46,8 +46,10 @@ let isRefreshing = false
 let refreshPromise: Promise<string | null> | null = null
 
 /**
- * 跨 tab 刷新协调：后端 refresh token 是「被首个请求消费」的一次性轮换语义，
- * 多 tab 同时 401 时第二个 tab 拿旧 refresh 去刷必然失败、被误登出。
+ * 跨 tab 刷新协调：多请求/多 tab 并发 401 时统一只发一次刷新、其余共享结果，
+ * 避免重复刷新互相覆盖。后端 SIMPLE_JWT 当前**未开 refresh token 轮换**
+ * （旧 refresh 持续有效），所以并发刷本不会互相打失败；租约机制是在防御
+ * 「未来开启轮换」的场景（轮换语义下旧 refresh 会被首次刷新消费作废）。
  * 协议：刷新方先写时间戳租约（auth:refresh-lease），成功后写完成信号
  * （auth:refresh-done，storage 事件只在其他 tab 触发）；其他 tab 发现
  * 新鲜租约就等信号共享新 token，而不是自己也去刷。

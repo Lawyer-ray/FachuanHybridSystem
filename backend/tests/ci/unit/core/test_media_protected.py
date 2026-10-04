@@ -2,7 +2,7 @@
 
 覆盖 ``apps/core/api/media_protected.py`` 与 ``apiSystem/urls.py`` 的媒体路由逻辑：
 
-1. 默认关闭时行为不变：``MEDIA_REQUIRE_AUTH`` 默认 False，urlpatterns 不含鉴权视图，
+1. 默认启用（安全默认）：``MEDIA_REQUIRE_AUTH`` 默认 True，非 DEBUG 下注册鉴权视图；
    ``media_urlpatterns()`` 返回空；
 2. DEBUG 分支保持：仍返回 static 直出路由（不接管）；
 3. 开启后：未认证 403；带合法用户 200（小文件流式返回）；
@@ -61,24 +61,35 @@ def _get(path: str = SAMPLE_REL, user: Any = None, query: dict[str, str] | None 
     return serve_protected_media(request, path)
 
 
-# ── 1. 默认关闭：行为不变 ────────────────────────────────────────────────────
+# ── 1. 默认启用（安全默认）+ 显式关闭回退 ──────────────────────────────────
 
 
-class TestDefaultOff:
-    def test_setting_default_false_when_env_unset(self, monkeypatch: Any) -> None:
+class TestDefaultOn:
+    def test_setting_default_true_when_env_unset(self, monkeypatch: Any) -> None:
         monkeypatch.delenv("MEDIA_REQUIRE_AUTH", raising=False)
-        expected = os.environ.get("MEDIA_REQUIRE_AUTH", "false").lower() in ("1", "true", "yes")
-        assert expected is False
-        assert settings.MEDIA_REQUIRE_AUTH is expected
+        assert settings.MEDIA_REQUIRE_AUTH is True
 
-    def test_no_urlpatterns_when_require_auth_off(self) -> None:
+    def test_setting_explicitly_disabled(self, monkeypatch: Any) -> None:
+        # settings 常量在启动时已求值，这里验证的是 env 覆盖语义：
+        # 显式 false 时该表达式（settings.py 同款写法）求值为 False
+        monkeypatch.setenv("MEDIA_REQUIRE_AUTH", "false")
+        resolved = os.environ.get("MEDIA_REQUIRE_AUTH", "true").lower() in ("1", "true", "yes")
+        assert resolved is False
+
+    def test_urlpatterns_register_protected_view_by_default(self) -> None:
+        with override_settings(DEBUG=False, MEDIA_REQUIRE_AUTH=True):
+            patterns = media_urlpatterns()
+        assert patterns, "非 DEBUG 默认应注册鉴权媒体路由"
+        assert all(getattr(p, "callback", None) is serve_protected_media for p in patterns)
+
+    def test_no_urlpatterns_when_require_auth_explicitly_off(self) -> None:
         with override_settings(DEBUG=False, MEDIA_REQUIRE_AUTH=False):
             assert media_urlpatterns() == []
 
     def test_project_urlpatterns_exclude_protected_view_when_off(self) -> None:
-        """默认关闭时，项目 urlpatterns 不注册 serve_protected_media（现状零变化）。"""
+        """显式关闭时，项目 urlpatterns 不注册 serve_protected_media（旧行为）。"""
         if settings.MEDIA_REQUIRE_AUTH:
-            pytest.skip("MEDIA_REQUIRE_AUTH 环境变量已显式开启，跳过默认关闭断言")
+            pytest.skip("MEDIA_REQUIRE_AUTH 环境变量已显式开启，跳过关闭断言")
         from apiSystem import urls as project_urls
 
         callbacks = [getattr(p, "callback", None) for p in project_urls.urlpatterns]
@@ -191,6 +202,55 @@ class TestXAccelMode:
         with override_settings(MEDIA_REQUIRE_AUTH=True, MEDIA_X_ACCEL_PREFIX="/protected_media"):
             response = _get("test dir/a b.pdf?q=1", user=media_user)
         assert response["X-Accel-Redirect"] == "/protected_media/test%20dir/a%20b.pdf%3Fq%3D1"
+
+
+# ── 5b. 危险类型强制附件下载（防 /media/ 直链同源 XSS） ────────────────────────
+
+
+class TestDangerousTypeForceDownload:
+    """html/svg/xml/js 等可执行类型经 /media/ 直链返回时必须强制附件下载。"""
+
+    def _save(self, rel: str) -> None:
+        default_storage.save(rel, ContentFile(b"<html><script>alert(1)</script></html>"))
+
+    def test_html_forced_to_attachment(self, media_root: Any, media_user: Any) -> None:
+        self._save("test_media_protected/evil.html")
+        with override_settings(MEDIA_REQUIRE_AUTH=True):
+            response = _get("test_media_protected/evil.html", user=media_user)
+        assert response.status_code == 200
+        assert response["Content-Type"] == "application/octet-stream"
+        assert response["Content-Disposition"].startswith("attachment")
+        assert b"".join(response.streaming_content)
+
+    def test_svg_forced_to_attachment(self, media_root: Any, media_user: Any) -> None:
+        self._save("test_media_protected/evil.svg")
+        with override_settings(MEDIA_REQUIRE_AUTH=True):
+            response = _get("test_media_protected/evil.svg", user=media_user)
+        assert response["Content-Type"] == "application/octet-stream"
+        assert response["Content-Disposition"].startswith("attachment")
+
+    def test_js_forced_to_attachment(self, media_root: Any, media_user: Any) -> None:
+        self._save("test_media_protected/evil.js")
+        with override_settings(MEDIA_REQUIRE_AUTH=True):
+            response = _get("test_media_protected/evil.js", user=media_user)
+        assert response["Content-Type"] == "application/octet-stream"
+        assert response["Content-Disposition"].startswith("attachment")
+
+    def test_safe_type_kept_inline_without_forced_download(self, media_root: Any, media_user: Any) -> None:
+        """普通类型不强制下载：Content-Type 原样、不出现 attachment。"""
+        with override_settings(MEDIA_REQUIRE_AUTH=True):
+            response = _get(SAMPLE_REL, user=media_user)
+        assert response["Content-Type"] == "text/plain"
+        assert not str(response.get("Content-Disposition", "")).startswith("attachment")
+
+    def test_xaccel_mode_also_forces_download_headers(self, media_root: Any, media_user: Any) -> None:
+        """X-Accel 模式下同样下发 octet-stream + attachment 头（nginx 沿用后端头）。"""
+        self._save("test_media_protected/evil.html")
+        with override_settings(MEDIA_REQUIRE_AUTH=True, MEDIA_X_ACCEL_PREFIX="/protected_media/"):
+            response = _get("test_media_protected/evil.html", user=media_user)
+        assert response["Content-Type"] == "application/octet-stream"
+        assert response["Content-Disposition"].startswith("attachment")
+        assert "evil.html" in response["Content-Disposition"]
 
 
 # ── 6. 开启后的路由注册 ──────────────────────────────────────────────────────

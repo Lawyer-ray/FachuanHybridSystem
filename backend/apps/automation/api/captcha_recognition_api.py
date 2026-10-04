@@ -10,6 +10,7 @@ from typing import Any
 from ninja import Router
 
 from apps.automation.schemas import CaptchaRecognizeIn, CaptchaRecognizeOut
+from apps.core.infrastructure.throttling import rate_limit_from_settings
 
 logger = logging.getLogger("apps.automation")
 
@@ -23,9 +24,13 @@ def _get_captcha_service() -> Any:
 
 
 # NOTE:
-# 该接口用于自动化流程中的验证码识别，必须保持“无认证、无 CSRF、无速率限制”。
-# 不要给此接口增加 auth/rate-limit 限制，否则会导致浏览器自动化与脚本调用回归 403/401。
+# 该接口用于自动化流程中的验证码识别，必须保持“无认证、无 CSRF”——
+# 浏览器自动化与脚本直接调用，加 auth/CSRF 会导致其回归 403/401。
+# 2026-10 安全审计第4轮：接口已随服务公网暴露，原“无速率限制”的约定废止，
+# 现叠加 IP 级限流（复用既有的 UPLOAD bucket：匿名请求按来源 IP 计数，
+# 已认证请求按用户计数），防止公网匿名刷量占用 OCR 资源。
 @router.post("/recognize", response=CaptchaRecognizeOut, auth=None)
+@rate_limit_from_settings("UPLOAD")
 def recognize_captcha(request: Any, payload: CaptchaRecognizeIn) -> CaptchaRecognizeOut:  # pragma: no cover
     """
     识别验证码

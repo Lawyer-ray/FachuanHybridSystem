@@ -5,8 +5,10 @@ from __future__ import annotations
 import io
 import logging
 from typing import Any
+from urllib.parse import quote
 
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.http import FileResponse, HttpRequest
 from ninja import Form, Query, Router, Schema
 
@@ -49,9 +51,11 @@ def list_messages(  # pragma: no cover
     source_type: str | None = None,
     has_attachments: bool | None = None,
     search: str | None = None,
-    limit: int | None = None,
+    limit: int = 500,
 ) -> Any:
-    """收件箱消息列表（limit 截取前 N 条，收件箱会持续增长，调用方只取首页展示时应传 limit）。"""
+    """收件箱消息列表（limit 截取前 N 条；收件箱持续增长，服务端兜底默认 500，
+    需要更大结果集的消费方显式传 limit——不传即全量的旧行为会让「打开收件箱」
+    随表增长恶化为全站最重请求，每行还要跑 7 个 draft_state resolver）。"""
     qs = _get_base_queryset()
 
     if source_id is not None:
@@ -65,7 +69,7 @@ def list_messages(  # pragma: no cover
 
         qs = qs.filter(Q(subject__icontains=search) | Q(sender__icontains=search) | Q(body_text__icontains=search))
 
-    if limit is not None and limit > 0:
+    if limit > 0:
         qs = qs[:limit]
 
     return qs
@@ -276,27 +280,11 @@ def rename_attachment(  # pragma: no cover
     payload: RenameAttachmentIn,
 ) -> dict[str, Any]:
     """重命名附件。留空 custom_filename 则恢复原始文件名。"""
+    from apps.message_hub.services.attachment_page_service import rename_attachment_in_meta
+
     msg = _get_message_or_404(message_id)
-    meta = list(msg.attachments_meta or [])
-    target = None
-    for att in meta:
-        if int(att.get("part_index", -1)) == part_index:
-            target = att
-            break
-    if target is None:
-        raise NotFoundError(f"附件 part_index={part_index} 不存在")
-
-    original = target.get("original_filename") or target.get("filename") or ""
-    custom = payload.custom_filename.strip()
-
-    if custom and custom != original:
-        target["custom_filename"] = custom
-    else:
-        target.pop("custom_filename", None)
-        custom = ""
-
-    msg.attachments_meta = meta
-    msg.save(update_fields=["attachments_meta"])
+    # 行锁与 meta 读-改-写下沉 service 层（API 层禁 ORM，四层架构棘轮口径）
+    original, custom = rename_attachment_in_meta(msg, part_index=part_index, custom_filename=payload.custom_filename)
 
     effective = custom if custom else original
     return {
@@ -320,8 +308,36 @@ def _resolve_download_filename(msg: InboxMessage, part_index: int, fallback: str
     return fallback
 
 
+# 允许 inline 预览的 Content-Type 白名单：邮件自报的 text/html 等可执行类型
+# 若按 inline 返回会在同源执行脚本（存储型 XSS），一律强制改为附件下载
+_INLINE_SAFE_CONTENT_TYPES = frozenset(
+    {
+        "application/pdf",
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+    }
+)
+
+
+def _build_content_disposition(disposition: str, filename: str) -> str:
+    """构造转义后的 Content-Disposition（RFC 5987，参照 download_response_factory）。
+
+    filename 同时给 ``filename="..."``（百分号编码，ASCII 安全）与
+    ``filename*=UTF-8''...`` 两个形态，防止文件名中的引号 / 换行破坏响应头。
+    """
+    quoted = quote(filename)
+    return f"{disposition}; filename=\"{quoted}\"; filename*=UTF-8''{quoted}"
+
+
 def _serve_attachment(msg: InboxMessage, part_index: int, *, inline: bool) -> FileResponse:
-    """通过 fetcher 按需下载并返回附件。"""
+    """通过 fetcher 按需下载并返回附件。
+
+    inline 仅对白名单 Content-Type（PDF / 常见位图图片）生效，其余（含邮件
+    自报的 text/html、image/svg+xml）一律 ``application/octet-stream`` + 附件下载，
+    防止外部邮件以附件形式注入同源可执行脚本。
+    """
     from apps.message_hub.services import get_fetcher
 
     fetcher = get_fetcher(msg.source.source_type)
@@ -332,11 +348,21 @@ def _serve_attachment(msg: InboxMessage, part_index: int, *, inline: bool) -> Fi
     )
     download_filename = _resolve_download_filename(msg, part_index, filename)
     disposition = "inline" if inline else "attachment"
+    if inline and str(content_type or "").split(";")[0].strip().lower() not in _INLINE_SAFE_CONTENT_TYPES:
+        logger.warning(
+            "拒绝危险 Content-Type 的 inline 预览，强制附件下载: message=%s part=%s content_type=%s",
+            msg.pk,
+            part_index,
+            content_type,
+        )
+        content_type = "application/octet-stream"
+        disposition = "attachment"
     response = FileResponse(
         iter([content]),
         content_type=content_type,
-        as_attachment=not inline,
+        as_attachment=disposition == "attachment",
         filename=download_filename,
     )
-    response["Content-Disposition"] = f'{disposition}; filename="{download_filename}"'
+    response["Content-Disposition"] = _build_content_disposition(disposition, download_filename)
+    response["X-Content-Type-Options"] = "nosniff"
     return response

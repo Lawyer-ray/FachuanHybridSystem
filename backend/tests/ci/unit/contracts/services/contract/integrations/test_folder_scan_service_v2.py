@@ -224,6 +224,40 @@ class TestResolveScanScope:
         with pytest.raises(ValidationException, match="路径非法"):
             svc._normalize_scan_subfolder("a/../b")
 
+    def test_cloud_subfolder_is_dir_precedes_exists(self):
+        """云存储子目录：坚果云 HEAD 对目录返回 403（exists()=False），is_dir()（PROPFIND）为真时不得判死。"""
+        from apps.core.exceptions import ValidationException
+
+        svc = _make_service()
+        provider = MagicMock()
+        provider.is_dir.return_value = True
+        provider.exists.return_value = False
+
+        result = svc._resolve_scan_scope("/root", "sub", storage_provider=provider)
+        assert result["scan_folder"] == "/root/sub"
+        assert result["scan_subfolder"] == "sub"
+
+    def test_cloud_subfolder_both_checks_fail_raises(self):
+        from apps.core.exceptions import ValidationException
+
+        svc = _make_service()
+        provider = MagicMock()
+        provider.is_dir.return_value = False
+        provider.exists.return_value = False
+
+        with pytest.raises(ValidationException, match="扫描子文件夹不可访问"):
+            svc._resolve_scan_scope("/root", "sub", storage_provider=provider)
+
+    def test_cloud_subfolder_exists_fallback(self):
+        """is_dir() 失败但 exists() 为真（兜底命中）时同样放行。"""
+        svc = _make_service()
+        provider = MagicMock()
+        provider.is_dir.return_value = False
+        provider.exists.return_value = True
+
+        result = svc._resolve_scan_scope("/root", "sub", storage_provider=provider)
+        assert result["scan_folder"] == "/root/sub"
+
 
 # ---------------------------------------------------------------------------
 # _extract_scan_subfolder

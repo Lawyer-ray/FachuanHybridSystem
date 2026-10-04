@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 
@@ -12,10 +12,6 @@ from apps.documents.services.generation.result import GenerationResult
 from apps.documents.services.placeholders.base import BasePlaceholderService
 from apps.documents.services.placeholders.context_builder import EnhancedContextBuilder
 from apps.documents.services.placeholders.contract.criminal_cause_service import CriminalCauseService
-from apps.documents.services.placeholders.litigation.basic_placeholder_services import (
-    LitigationCauseOfActionPlaceholderService,
-)
-from apps.documents.services.placeholders.litigation.enforcement_basic_service import EnforcementCauseOfActionService
 from apps.documents.services.placeholders.registry import PlaceholderRegistry
 
 
@@ -232,8 +228,21 @@ class TestPlaceholderRegistryKeyConflict(_RegistryStateGuard):
         assert isinstance(services[0], TwoKeyService)
 
 
-class TestCauseOfActionKeyCollision(_RegistryStateGuard):
-    """「案由」三服务撞键修复:合同流取真实案由,诉讼流保持案件案由。"""
+def _make_service_claiming_key(*, name: str, module: str, value: str) -> type[BasePlaceholderService]:
+    """构造一个声明「案由」键的测试服务,用于验证非归属服务输出被丢弃。"""
+
+    class _Service(BasePlaceholderService):
+        def generate(self, context_data: dict[str, Any]) -> dict[str, Any]:
+            return {"案由": value}
+
+    _Service.name = name
+    _Service.placeholder_keys = ["案由"]
+    _Service.__module__ = module
+    return _Service
+
+
+class TestCauseOfActionKeySoleOwnership(_RegistryStateGuard):
+    """「案由」撞键清偿后:CriminalCauseService 是唯一声明与归属服务,合同/诉讼流取值不回归。"""
 
     def setup_method(self) -> None:
         self.save()
@@ -242,29 +251,20 @@ class TestCauseOfActionKeyCollision(_RegistryStateGuard):
         self.restore()
 
     @staticmethod
-    def _register_cause_services(*, criminal_last: bool) -> None:
-        """按指定顺序注册三个声明「案由」的真实服务。"""
-        services: list[type[Any]] = (
-            [EnforcementCauseOfActionService, LitigationCauseOfActionPlaceholderService, CriminalCauseService]
-            if criminal_last
-            else [CriminalCauseService, EnforcementCauseOfActionService, LitigationCauseOfActionPlaceholderService]
-        )
-        for service_class in services:
-            PlaceholderRegistry.register(service_class)
+    def _register_cause_service() -> None:
+        PlaceholderRegistry.register(CriminalCauseService)
 
-    def test_owner_is_criminal_cause_service_in_both_orders(self) -> None:
-        """两种注册顺序下,「案由」归属均为 CriminalCauseService。"""
-        for criminal_last in (True, False):
-            PlaceholderRegistry().clear()
-            self._register_cause_services(criminal_last=criminal_last)
-            registry = PlaceholderRegistry()
-            owner = registry.get_service_for_placeholder("案由")
-            assert owner is not None and owner.name == "criminal_cause_service"
-            assert registry.get_placeholder_key_owner("案由") == "criminal_cause_service"
+    def test_owner_is_criminal_cause_service(self) -> None:
+        """「案由」的归属服务是 CriminalCauseService(原三服务撞键的确定性裁决赢家)。"""
+        self._register_cause_service()
+        registry = PlaceholderRegistry()
+        owner = registry.get_service_for_placeholder("案由")
+        assert owner is not None and owner.name == "criminal_cause_service"
+        assert registry.get_placeholder_key_owner("案由") == "criminal_cause_service"
 
     def test_contract_flow_gets_real_cause_of_action(self) -> None:
         """合同流(只有 contract、无 case)的「案由」来自 CriminalCauseService,不再是 "/"。"""
-        self._register_cause_services(criminal_last=True)
+        self._register_cause_service()
         case = SimpleNamespace(id=None, cause_of_action="危险作业罪")
         contract = SimpleNamespace(cases=SimpleNamespace(all=lambda: [case]))
 
@@ -274,7 +274,7 @@ class TestCauseOfActionKeyCollision(_RegistryStateGuard):
 
     def test_contract_flow_with_required_placeholder_only_runs_owner(self) -> None:
         """指定 required_placeholders 时,「案由」只由归属服务产出。"""
-        self._register_cause_services(criminal_last=True)
+        self._register_cause_service()
         case = SimpleNamespace(id=None, cause_of_action="危险作业罪")
         contract = SimpleNamespace(cases=SimpleNamespace(all=lambda: [case]))
 
@@ -284,7 +284,7 @@ class TestCauseOfActionKeyCollision(_RegistryStateGuard):
 
     def test_litigation_flow_cause_of_action_comes_from_case(self) -> None:
         """诉讼流(有 case)的「案由」仍等于案件案由(回归保护)。"""
-        self._register_cause_services(criminal_last=True)
+        self._register_cause_service()
         case = SimpleNamespace(id=None, cause_of_action="买卖合同纠纷")
 
         context = EnhancedContextBuilder().build_context({"case": case})
@@ -293,7 +293,7 @@ class TestCauseOfActionKeyCollision(_RegistryStateGuard):
 
     def test_litigation_dto_flow_cause_of_action_comes_from_dto(self) -> None:
         """起诉状/答辩状流(case_dto)的「案由」仍等于 DTO 案由(回归保护)。"""
-        self._register_cause_services(criminal_last=True)
+        self._register_cause_service()
         case_dto = SimpleNamespace(id=None, cause_of_action=" 机动车交通事故责任纠纷 ")
 
         context = EnhancedContextBuilder().build_context({"case_dto": case_dto})
@@ -301,13 +301,39 @@ class TestCauseOfActionKeyCollision(_RegistryStateGuard):
         assert context["案由"] == "机动车交通事故责任纠纷"
 
     def test_non_owner_service_output_dropped(self) -> None:
-        """非归属服务(无案件上下文的诉讼服务)产出的兜底值不会覆盖归属服务。"""
-        self._register_cause_services(criminal_last=True)
+        """非归属服务(未来新增的同键服务)产出的值不会覆盖归属服务。"""
+        self._register_cause_service()
+        other = _make_service_claiming_key(name="other_cause_service", module="tests.zzz_other", value="错误案由")
+        PlaceholderRegistry.register(other)
+
         case = SimpleNamespace(id=None, cause_of_action="走私普通货物罪")
         contract = SimpleNamespace(cases=SimpleNamespace(all=lambda: [case]))
 
-        litigation_service = LitigationCauseOfActionPlaceholderService()
-        assert litigation_service.generate({"contract": contract}) == {"案由": ""}
-
         context = EnhancedContextBuilder().build_context({"contract": contract})
+
         assert context["案由"] == "走私普通货物罪"
+
+
+class TestGlobalRegistryKeyUniqueness(_RegistryStateGuard):
+    """全量自动注册后,任何占位符键只被一个服务声明。
+
+    多个服务声明同一键会在每次进程启动(uvicorn/qcluster)时打出
+    「占位符键注册冲突」error 日志。快照取自本模块导入时的注册表状态,
+    即生产环境包导入自动注册的真实结果。
+    """
+
+    _registered_snapshot: ClassVar[dict[str, type[BasePlaceholderService]]] = dict(PlaceholderRegistry._services)
+
+    def test_no_placeholder_key_declared_by_multiple_services(self) -> None:
+        declarers: dict[str, list[str]] = {}
+        for service_name, service_class in self._registered_snapshot.items():
+            for key in service_class.placeholder_keys:
+                declarers.setdefault(key, []).append(service_name)
+
+        duplicates = {key: names for key, names in declarers.items() if len(names) > 1}
+        assert not duplicates, f"占位符键被多个服务声明,启动期会刷冲突 error 日志: {duplicates}"
+
+    def test_registered_services_present(self) -> None:
+        """快照确实覆盖了全量自动注册(防止空注册表假绿)。"""
+        assert len(self._registered_snapshot) > 0
+        assert "criminal_cause_service" in self._registered_snapshot

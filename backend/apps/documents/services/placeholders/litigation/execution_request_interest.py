@@ -447,6 +447,9 @@ def calculate_interest_with_segments(
             date_inclusion=date_inclusion,
             custom_rate_unit=params.custom_rate_unit,
             custom_rate_value=params.custom_rate_value,
+            # 判决条款的每段都是独立计息基数（不同笔钱，等额亦然——如两笔
+            # 各 1000 万自不同起算日），时间窗重叠是正常语义而非同一笔钱双计
+            independent_bases=True,
         )
     except (TypeError, ValueError) as exc:
         logger.error("分段利息计算失败: %s", exc, exc_info=True)

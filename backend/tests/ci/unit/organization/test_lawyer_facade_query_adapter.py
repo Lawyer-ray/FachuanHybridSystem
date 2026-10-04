@@ -204,12 +204,17 @@ class TestLawyerUploadService:
         lawyer.avatar.save.assert_called_once_with("photo.jpg", file, save=False)
 
     def test_attach_avatar_no_name(self) -> None:
+        """无扩展名的头像文件被安全校验拒绝（安全审计：防 svg 等脚本载体入库）。"""
+        from apps.core.exceptions import ValidationException
+
         svc = LawyerUploadService()
         lawyer = MagicMock()
         file = MagicMock()
         file.name = None
-        svc.attach_avatar(lawyer, file)
-        lawyer.avatar.save.assert_called_once_with("avatar.jpg", file, save=False)
+        with pytest.raises(ValidationException) as exc_info:
+            svc.attach_avatar(lawyer, file)
+        assert exc_info.value.code == "INVALID_IMAGE_TYPE"
+        lawyer.avatar.save.assert_not_called()
 
 
 # ── LawyerServiceAdapter ─────────────────────────────────────────────────

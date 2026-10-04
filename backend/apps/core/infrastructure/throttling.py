@@ -20,6 +20,25 @@ from apps.core.exceptions import RateLimitError
 logger = logging.getLogger(__name__)
 
 
+def _resolve_client_ip_header() -> str | None:
+    """读取 settings.DJANGO_CLIENT_IP_HEADER（客户端真实 IP 头，默认 None）。"""
+    try:
+        from django.conf import settings
+
+        value = getattr(settings, "DJANGO_CLIENT_IP_HEADER", None)
+        return str(value).strip() if value else None
+    except (ImportError, AttributeError):
+        return None
+
+
+def _header_to_meta_key(header: str) -> str:
+    """HTTP 头名 → Django META 键：CF-Connecting-IP → HTTP_CF_CONNECTING_IP。"""
+    key = header.strip().replace("-", "_").upper()
+    if key == "REMOTE_ADDR" or key.startswith("HTTP_"):
+        return key
+    return f"HTTP_{key}"
+
+
 class RateLimiter:
     """
     请求限流器
@@ -69,6 +88,18 @@ class RateLimiter:
                 allow_unverified_xff = False
 
         remote_addr_is_trusted = isinstance(remote_addr, str) and remote_addr and remote_addr in trusted_proxies
+
+        # 安全审计（可配置客户端 IP 头，Cloudflare 场景）：CF Tunnel 后 REMOTE_ADDR
+        # 恒为隧道回环地址（全员共享限流桶），而 XFF 左值可伪造。配置了专用客户端
+        # IP 头（如 CF-Connecting-IP，由 Cloudflare 每次请求覆盖写入、客户端不可
+        # 伪造）且直连对端属于受信代理时，直接采用该头。头未配置 / 对端不受信 /
+        # 头为空时行为与原先完全一致。
+        client_ip_header = _resolve_client_ip_header()
+        if client_ip_header and remote_addr_is_trusted:
+            header_value = request.META.get(_header_to_meta_key(client_ip_header))
+            if isinstance(header_value, str) and header_value.strip():
+                return header_value.split(",")[0].strip()
+
         if isinstance(x_forwarded_for, str) and x_forwarded_for and (remote_addr_is_trusted or allow_unverified_xff):
             parts = [p.strip() for p in x_forwarded_for.split(",") if p.strip()]
             if not parts:
@@ -129,6 +160,41 @@ class RateLimiter:
                 count = int(cache.incr(cache_key))
             except ValueError:
                 cache.set(cache_key, 1, timeout=self.window + 5)
+                count = 1
+
+        remaining = max(0, self.requests - count)
+        info = {
+            "limit": self.requests,
+            "remaining": remaining,
+            "reset": window_end,
+            "window": self.window,
+        }
+
+        if count > self.requests:
+            return False, info
+        return True, info
+
+    async def ais_allowed(
+        self, request: HttpRequest, key_func: Callable[[HttpRequest], str] | None = None
+    ) -> tuple[bool, dict[str, int]]:
+        """is_allowed 的异步版：aadd/aincr 全异步缓存 I/O，不阻塞事件循环。
+
+        计数口径与同步版完全一致（同 key、同窗口、同溢出判定），
+        实现方式对齐 TokenRateLimitMiddleware 的异步分支。
+        """
+        current_time = int(time.time())
+        bucket = current_time // self.window
+        window_end = (bucket + 1) * self.window
+        cache_key = f"{self.get_cache_key(request, key_func)}:{bucket}"
+
+        count: int
+        if await cache.aadd(cache_key, 1, timeout=self.window + 5):
+            count = 1
+        else:
+            try:
+                count = int(await cache.aincr(cache_key))
+            except ValueError:
+                await cache.aset(cache_key, 1, timeout=self.window + 5)
                 count = 1
 
         remaining = max(0, self.requests - count)
@@ -207,7 +273,9 @@ def rate_limit(
             @wraps(func)
             async def async_wrapper(request: HttpRequest, *args: Any, **kwargs: Any) -> Any:
                 _limiter = limiter or RateLimiter(requests=requests, window=window)
-                allowed, info = _limiter.is_allowed(request, key_func)
+                # 异步端点走 ais_allowed：同步 is_allowed 的 cache.add/incr 是阻塞
+                # socket，会在事件循环上放大所有并发流的首字节延迟抖动
+                allowed, info = await _limiter.ais_allowed(request, key_func)
                 if not allowed:
                     wait_seconds = max(0, info["reset"] - int(time.time()))
                     raise RateLimitError(

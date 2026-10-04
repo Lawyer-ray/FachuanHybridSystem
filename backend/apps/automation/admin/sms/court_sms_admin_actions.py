@@ -219,8 +219,11 @@ class CourtSMSAdminActions:  # pragma: no cover
             party_cases = case_service.search_cases_by_party_internal([search_term])[:10]
             found_cases.extend(party_cases)
 
-            number_cases = case_service.search_cases_by_case_number_internal(search_term)[:10]
-            found_cases.extend(number_cases)
+            # 搜索框保持宽松模糊匹配（名称/当事人/案号 icontains）；
+            # search_cases_by_case_number_internal 已收紧为精确等值匹配，
+            # 仅供短信/文书自动绑定链路使用，不再适合人工搜索
+            keyword_cases = case_service.search_cases_internal(search_term)[:10]
+            found_cases.extend(keyword_cases)
 
             seen_ids: set[int] = set()
             unique_cases: list[Any] = []

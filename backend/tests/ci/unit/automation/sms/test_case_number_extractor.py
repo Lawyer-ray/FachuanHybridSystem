@@ -118,6 +118,43 @@ class TestCaseNumberExtractorService:
         # 简式「粤0606民初88888号」是「（2026）粤0606民初88888号」的年份缺失版，应被去重，只保留完整版
         assert result == ["（2026）粤0606民初88888号", "（2024）粤0606执12345号"]
 
+    def test_validate_and_normalize_rejects_date_like_candidates(self) -> None:
+        """「12月30号」等口语日期形态不得被当作案号。"""
+        self.case_number_service.normalize_case_number.side_effect = lambda n: n.replace(" ", "")
+
+        result = self.service.validate_and_normalize(["12月30号", "2025年12月30号", "3月5号"])
+
+        assert result == []
+        assert "12月30号" not in result
+
+    def test_regex_extract_skips_date_and_typeless_simple_candidates(self) -> None:
+        """降级正则：口语日期与无案件类型特征字的简化候选都要被排除。"""
+        text = "开庭时间2025年12月30号，本院地址某路140号，案号（2026）粤0606民初88888号，另有0606执999号"
+
+        raw = self.service._regex_extract_numbers(text)
+
+        assert "（2026）粤0606民初88888号" in raw
+        assert "0606执999号" in raw
+        # 口语日期（12月30号）不得出现在候选里
+        assert "12月30号" not in raw
+        assert all("月" not in c for c in raw)
+
+    def test_extract_fallback_excludes_date_forms(self) -> None:
+        """降级链路整体输出（提取→校验）不含「12月30号」。"""
+        from apps.cases.utils import normalize_case_number as real_normalize
+
+        mock = MagicMock()
+        mock.normalize_case_number.side_effect = lambda n: real_normalize(n.replace(" ", ""))
+
+        service = CaseNumberExtractorService(case_number_service=mock)
+
+        content = "（2026）粤0606民初88888号开庭时间2025年12月30号".replace(" ", "")
+        result = service._extract_fallback(content)
+
+        assert "（2026）粤0606民初88888号" in result
+        assert all("12月30号" not in n for n in result)
+        assert all("月" not in n for n in result)
+
     def test_sync_to_case_empty_case_id(self) -> None:
         """空 case_id 返回 0。"""
         result = self.service.sync_to_case(0, ["（2025）粤0606民初12345号"], 1)

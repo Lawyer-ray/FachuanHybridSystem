@@ -340,12 +340,37 @@ class TestSubmitSms:
         MockTz.now.return_value = datetime(2025, 6, 1)
         sms_obj = _make_sms(sms_id=42)
         MockCourtSMS.objects.create.return_value = sms_obj
+        # 查重链路返回 None（无重复）
+        MockCourtSMS.objects.filter.return_value.order_by.return_value.first.return_value = None
         mock_submit.return_value = "task-uuid-1"
 
         result = svc.submit_sms("Hello court")
         assert result is sms_obj
         MockCourtSMS.objects.create.assert_called_once()
         mock_submit.assert_called_once()
+        # 创建时必须写入幂等键
+        create_kwargs = MockCourtSMS.objects.create.call_args[1]
+        assert create_kwargs["delivery_event_key"]
+
+    @patch(f"{_MOD}.submit_task")
+    @patch(f"{_MOD}.CourtSMS")
+    @patch(f"{_MOD}.timezone")
+    @patch(f"{_MOD}.SMSParserService")
+    @patch(f"{_MOD}.CaseMatcher")
+    def test_submit_duplicate_returns_existing(self, MockMatcher, MockParser, MockTz, MockCourtSMS, mock_submit):
+        """同一内容窗口内重复提交：返回既有记录且不再创建/提交任务。"""
+        from apps.automation.services.sms.court_sms_service import CourtSMSService
+
+        svc = CourtSMSService()
+        MockTz.now.return_value = datetime(2025, 6, 1, 10, 0, 0)
+        existing = _make_sms(sms_id=99)
+        MockCourtSMS.objects.filter.return_value.order_by.return_value.first.return_value = existing
+
+        result = svc.submit_sms("重复短信")
+
+        assert result is existing
+        MockCourtSMS.objects.create.assert_not_called()
+        mock_submit.assert_not_called()
 
     @patch(f"{_MOD}.submit_task")
     @patch(f"{_MOD}.CourtSMS")
@@ -359,6 +384,7 @@ class TestSubmitSms:
         custom_dt = datetime(2025, 3, 15, 10, 0)
         sms_obj = _make_sms()
         MockCourtSMS.objects.create.return_value = sms_obj
+        MockCourtSMS.objects.filter.return_value.order_by.return_value.first.return_value = None
         mock_submit.return_value = "task-uuid"
 
         result = svc.submit_sms("content", received_at=custom_dt)
@@ -374,6 +400,8 @@ class TestSubmitSms:
         from apps.automation.services.sms.court_sms_service import CourtSMSService
 
         svc = CourtSMSService()
+        MockTz.now.return_value = datetime(2025, 6, 1)
+        MockCourtSMS.objects.filter.return_value.order_by.return_value.first.return_value = None
         MockCourtSMS.objects.create.side_effect = Exception("db error")
         with pytest.raises(ValidationException):
             svc.submit_sms("content")
@@ -667,22 +695,67 @@ class TestProcessMatching:
     @patch(f"{_MOD}.SMSParserService")
     @patch(f"{_MOD}.CaseMatcher")
     def test_retry_limit_sets_pending_manual(self, MockMatcher, MockParser, MockCourtSMS):
+        """retry_count 达到阈值（仅由 retry_processing 递增）后熔断转人工。"""
         from apps.automation.services.sms.court_sms_service import CourtSMSService
 
         svc = CourtSMSService()
-        sms_obj = _make_sms(sms_id=5, status="matching", retry_count=2)
+        sms_obj = _make_sms(sms_id=5, status="matching", retry_count=3)
         sms_obj.case = None
 
-        # retry_count 已改为数据库原子自增 + refresh_from_db 回填内存
-        def fake_refresh(fields=None, **kwargs):
-            if fields and "retry_count" in fields:
-                sms_obj.retry_count += 1
+        result = svc._process_matching(sms_obj)
+        assert result is sms_obj
+        assert sms_obj.status == "pending_manual"
+        # 熔断时不应再继续走匹配流程
+        svc.matcher.match.assert_not_called()
 
-        sms_obj.refresh_from_db.side_effect = fake_refresh
+    @patch(f"{_MOD}.CourtSMS")
+    @patch(f"{_MOD}.SMSParserService")
+    @patch(f"{_MOD}.CaseMatcher")
+    def test_first_pass_entry_does_not_increment_retry_count(self, MockMatcher, MockParser, MockCourtSMS):
+        """首过正常流程（status==MATCHING 进入）不得递增 retry_count。
+
+        修复前：入口处无条件 F("retry_count")+1，叠加 retry_processing 的人工
+        重试 +1，一次重试即达熔断阈值并误报「反复失败」。
+        """
+        from apps.automation.services.sms.court_sms_service import CourtSMSService
+
+        svc = CourtSMSService()
+        sms_obj = _make_sms(sms_id=6, status="matching", retry_count=0)
+        sms_obj.case = None
+        svc._should_wait_for_document_download = MagicMock(return_value=False)
+        svc._extract_and_update_sms_from_documents = MagicMock()
+        svc.matcher.match.return_value = None
+
+        svc._process_matching(sms_obj)
+
+        # 首过不计数：数据库原子自增已移除，内存值也不变
+        assert sms_obj.retry_count == 0
+        # 正常走到匹配（未熔断）
+        svc.matcher.match.assert_called_once()
+        assert sms_obj.status == "pending_manual"  # 匹配失败转人工（与计数无关）
+
+    @patch(f"{_MOD}.CourtSMS")
+    @patch(f"{_MOD}.SMSParserService")
+    @patch(f"{_MOD}.CaseMatcher")
+    def test_retry_below_limit_still_processes(self, MockMatcher, MockParser, MockCourtSMS):
+        """retry_count=2（两次人工重试）仍应正常执行匹配而非熔断。"""
+        from apps.automation.services.sms.court_sms_service import CourtSMSService
+
+        svc = CourtSMSService()
+        sms_obj = _make_sms(sms_id=7, status="matching", retry_count=2)
+        sms_obj.case = None
+        svc._should_wait_for_document_download = MagicMock(return_value=False)
+        svc._extract_and_update_sms_from_documents = MagicMock()
+        matched_dto = MagicMock()
+        matched_dto.id = 30
+        svc.matcher.match.return_value = matched_dto
+        svc._create_case_binding = MagicMock(return_value=True)
 
         result = svc._process_matching(sms_obj)
-        assert sms_obj.status == "pending_manual"
-        assert sms_obj.retry_count == 3
+
+        assert sms_obj.retry_count == 2
+        svc.matcher.match.assert_called_once()
+        assert sms_obj.status == "renaming"
 
     @patch(f"{_MOD}.SMSParserService")
     @patch(f"{_MOD}.CaseMatcher")

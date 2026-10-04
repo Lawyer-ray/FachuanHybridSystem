@@ -41,6 +41,33 @@ def _get_court_sms_service() -> Any:
     return build_court_sms_service_ctx()
 
 
+def _sms_access_context(request: Any) -> tuple[Any, Any]:
+    """提取请求的用户与 org_access（JWT 请求缺失 org_access 时显式补算）。"""
+    from apps.core.dependencies.business import resolve_request_org_access
+    from apps.core.security.admin_access import get_request_user
+
+    user = get_request_user(request)
+    org_access = resolve_request_org_access(request, user)
+    return user, org_access
+
+
+def _ensure_sms_readable(request: Any, sms: Any) -> None:
+    """读类端点归属校验（安全审计第4轮）。
+
+    短信绑定了 case 的，按 CaseAccessPolicy 校验案件访问权；
+    未绑 case 的公共短信保持全员可见。
+    """
+    user, org_access = _sms_access_context(request)
+    _get_court_sms_service().ensure_sms_case_access(sms, user=user, org_access=org_access)
+
+
+def _require_admin(request: Any) -> None:
+    """写类端点（assign/retry/delete/abort/rename 等）收敛为管理员专用。"""
+    from apps.core.security.admin_access import ensure_admin_request
+
+    ensure_admin_request(request, message="无权限操作该短信", code="PERMISSION_DENIED")
+
+
 # ============================================================================
 # 短信提交接口
 # ============================================================================
@@ -96,7 +123,13 @@ async def get_sms_detail(request: Any, sms_id: int) -> CourtSMSDetailOut:  # pra
     """
     service = _get_court_sms_service()
 
-    sms = await sync_to_async(service.get_sms_detail)(sms_id)
+    @sync_to_async
+    def _load_sms() -> Any:
+        # org_access 补算涉及 ORM 查询，须在同步上下文执行
+        user, org_access = _sms_access_context(request)
+        return service.get_sms_detail(sms_id, user=user, org_access=org_access)
+
+    sms = await _load_sms()
     # from_model 内的文书引用聚合会对关联做懒加载查询 + 文件系统 I/O，
     # 必须丢进线程执行，否则在 async 视图里抛 SynchronousOnlyOperation
     return await sync_to_async(CourtSMSDetailOut.from_model)(sms)
@@ -122,6 +155,13 @@ async def list_sms(  # pragma: no cover
     service = _get_court_sms_service()
 
     @sync_to_async
+    def _resolve_access() -> tuple[Any, Any]:
+        # org_access 补算涉及 ORM 查询，须在同步上下文执行
+        return _sms_access_context(request)
+
+    user, org_access = await _resolve_access()
+
+    @sync_to_async
     def _list() -> list[CourtSMSListOut]:
         sms_qs = service.list_sms(
             status=status,
@@ -130,6 +170,8 @@ async def list_sms(  # pragma: no cover
             has_case=has_case,
             date_from=date_from,
             date_to=date_to,
+            user=user,
+            org_access=org_access,
         )
         return [CourtSMSListOut.from_model(s) for s in sms_qs]
 
@@ -150,6 +192,8 @@ async def assign_case(
 
     当自动匹配失败时，管理员可以手动指定案件
     """
+    # 安全：写操作收敛为管理员专用
+    _require_admin(request)
     service = _get_court_sms_service()
 
     sms = await sync_to_async(service.assign_case)(sms_id, payload.case_id)
@@ -177,6 +221,8 @@ async def retry_processing(request: Any, sms_id: int) -> CourtSMSSubmitOut:  # p
     如果短信已手动绑定案件，保留关联，仅重新执行下载/重命名/通知流程。
     否则重置全部状态，重新执行完整处理流程（含匹配）。
     """
+    # 安全：写操作收敛为管理员专用
+    _require_admin(request)
     service = _get_court_sms_service()
 
     sms = await sync_to_async(service.retry_processing)(sms_id)
@@ -193,7 +239,9 @@ async def retry_processing(request: Any, sms_id: int) -> CourtSMSSubmitOut:  # p
 
 @router.delete("/court-sms/{sms_id}")
 async def delete_sms(request: Any, sms_id: int) -> dict[str, bool]:  # pragma: no cover
-    """删除单条短信"""
+    """删除单条短信（仅管理员）"""
+    # 安全：写操作收敛为管理员专用
+    _require_admin(request)
     service = _get_court_sms_service()
     await sync_to_async(service.delete_sms)(sms_id)
     return {"success": True}
@@ -201,7 +249,9 @@ async def delete_sms(request: Any, sms_id: int) -> dict[str, bool]:  # pragma: n
 
 @router.post("/court-sms/batch-delete", response=CourtSMSBatchDeleteOut)
 async def batch_delete_sms(request: Any, payload: CourtSMSBatchDeleteIn) -> CourtSMSBatchDeleteOut:  # pragma: no cover
-    """批量删除短信"""
+    """批量删除短信（仅管理员）"""
+    # 安全：写操作收敛为管理员专用
+    _require_admin(request)
     service = _get_court_sms_service()
     deleted = await sync_to_async(service.batch_delete_sms)(payload.ids)
     return CourtSMSBatchDeleteOut(deleted=deleted)
@@ -220,6 +270,8 @@ async def abort_and_delete_sms(request: Any, sms_id: int) -> CourtSMSAbortOut:  
     删除短信记录与归属的下载任务（下载原件随信号清理；已归档到案件日志的
     复制件不受影响）。用于任务卡住/反复失败时由用户主动放弃。
     """
+    # 安全：写操作收敛为管理员专用
+    _require_admin(request)
     from apps.automation.services.sms.court_sms_abort_service import CourtSmsAbortService
 
     summary = await sync_to_async(CourtSmsAbortService().abort_and_delete)(sms_id)
@@ -240,6 +292,9 @@ async def download_document(request: Any, sms_id: int, ref_index: int) -> FileRe
     sms = await sync_to_async(CourtSMSRepository().get_by_id_or_none)(sms_id=sms_id)
     if sms is None:
         raise Http404("短信记录不存在")
+
+    # 安全（第4轮审计）：绑定了案件的短信按案件 ACL 校验后才能下载文书
+    await sync_to_async(_ensure_sms_readable)(request, sms)
 
     references = await sync_to_async(CourtSMSDocumentReferenceService().collect)(sms)
     if ref_index < 0 or ref_index >= len(references):
@@ -276,6 +331,9 @@ async def copy_documents_to_clipboard(  # pragma: no cover
     if sms is None:
         raise Http404("短信记录不存在")
 
+    # 安全（第4轮审计）：读取文书文件同样按案件 ACL 校验
+    await sync_to_async(_ensure_sms_readable)(request, sms)
+
     references = await sync_to_async(CourtSMSDocumentReferenceService().collect)(sms)
     valid_indexes = [i for i in payload.indexes if 0 <= i < len(references)]
     if not valid_indexes:
@@ -297,6 +355,9 @@ async def download_all_documents(request: Any, sms_id: int) -> FileResponse:  # 
     sms = await sync_to_async(CourtSMSRepository().get_by_id_or_none)(sms_id=sms_id)
     if sms is None:
         raise Http404("短信记录不存在")
+
+    # 安全（第4轮审计）：批量下载文书按案件 ACL 校验；公共短信保持全员可见
+    await sync_to_async(_ensure_sms_readable)(request, sms)
 
     references = await sync_to_async(CourtSMSDocumentReferenceService().collect)(sms)
     existing_files: list[Path] = []
@@ -332,7 +393,9 @@ async def download_all_documents(request: Any, sms_id: int) -> FileResponse:  # 
 async def rename_document(  # pragma: no cover
     request: Any, sms_id: int, ref_index: int, payload: CourtSmsDocumentRenameIn
 ) -> CourtSmsDocumentRenameOut:
-    """重命名单个关联文书"""
+    """重命名单个关联文书（仅管理员）"""
+    # 安全：写操作（改动服务器文件系统）收敛为管理员专用
+    _require_admin(request)
     from apps.automation.services.sms.court_sms_document_rename_service import CourtSMSDocumentRenameService
 
     result = await CourtSMSDocumentRenameService().rename_document(

@@ -222,6 +222,7 @@ class InterestCalculator:
         date_inclusion: str = "both",
         custom_rate_unit: str | None = None,
         custom_rate_value: Decimal | None = None,
+        independent_bases: bool = False,
     ) -> InterestCalculationResult:
         """计算变动本金的利息.
 
@@ -235,6 +236,7 @@ class InterestCalculator:
             date_inclusion: 日期计算方式
             custom_rate_unit: 自定义利率单位，percent/permille/permyriad
             custom_rate_value: 自定义利率数值
+            independent_bases: 各段是独立计息基数（见 _validate_principal_periods）
 
         Returns:
             计算结果
@@ -244,13 +246,23 @@ class InterestCalculator:
 
         # 排序并验证
         principal_periods = sorted(principal_periods, key=lambda x: x.start_date)
-        self._validate_principal_periods(principal_periods)
+        self._validate_principal_periods(principal_periods, independent_bases=independent_bases)
 
-        # 根据日期包含模式调整每个本金时间段
-        adjusted_periods = []
-        for pp in principal_periods:
-            calc_start, calc_end = self._apply_date_inclusion(pp.start_date, pp.end_date, date_inclusion)
-            adjusted_periods.append(PrincipalPeriod(calc_start, calc_end, pp.principal))
+        # date_inclusion 只作用于整体计息区间的首尾：对排序后第一段的 start_date、最后一段的
+        # end_date 按 date_inclusion 收缩，中间分界保持原样。否则多段时每个段都 +1/-1，
+        # 中间分界天会被重复削掉（如 neither 时总天数会比 both 少 2×段数，而非少 2）。
+        overall_start, overall_end = self._apply_date_inclusion(
+            principal_periods[0].start_date, principal_periods[-1].end_date, date_inclusion
+        )
+        last_index = len(principal_periods) - 1
+        adjusted_periods = [
+            PrincipalPeriod(
+                overall_start if i == 0 else pp.start_date,
+                overall_end if i == last_index else pp.end_date,
+                pp.principal,
+            )
+            for i, pp in enumerate(principal_periods)
+        ]
 
         # 判断使用自定义利率还是LPR利率
         if custom_rate_unit and custom_rate_value is not None:
@@ -349,18 +361,26 @@ class InterestCalculator:
             end_date=periods[-1].end_date,
         )
 
-    def _validate_principal_periods(self, periods: list[PrincipalPeriod]) -> None:
+    def _validate_principal_periods(self, periods: list[PrincipalPeriod], *, independent_bases: bool = False) -> None:
         """验证本金时间段.
 
         Args:
             periods: 本金时间段列表
+            independent_bases: 调用方声明这些分段是**各自独立的计息基数**
+                （判决书多基数条款：每段是不同的钱，时间窗重叠、金额相等
+                都不代表同一笔钱计两次）。此时跳过同额重叠检查。
 
         Raises:
             ValidationException: 验证失败
         """
-        for i in range(len(periods)):
-            period = periods[i]
-
+        # 同额本金的时间段默认不允许重叠：交叉分段按「每段独立计息」求和，
+        # 同一笔本金出现在两个重叠窗口会把这笔钱计两次（闭区间计息下首尾
+        # 相接的共享日也算双计）。按本金值跟踪已见过的最晚结束日（而非只比
+        # 相邻段）：同一笔钱的重叠段排序后未必相邻。金额相等只是「同一笔钱」
+        # 的保守启发——确知各段是独立基数的调用方（如执行请求的判决条款
+        # 解析）应传 independent_bases=True 跳过本检查。
+        last_end_by_principal: dict[Decimal, tuple[date, int]] = {}
+        for i, period in enumerate(periods):
             # 验证本金大于0
             if period.principal <= 0:
                 raise ValidationException(
@@ -372,6 +392,17 @@ class InterestCalculator:
                 raise ValidationException(
                     message="第%(index)s段开始日期不能晚于结束日期" % {"index": i + 1}, code="INVALID_DATE_RANGE"
                 )
+
+            if not independent_bases:
+                seen = last_end_by_principal.get(period.principal)
+                if seen is not None and period.start_date <= seen[0]:
+                    raise ValidationException(
+                        message="第%(cur)s段与第%(prev)s段同一笔本金时间重叠，请调整本金分段"
+                        % {"cur": i + 1, "prev": seen[1] + 1},
+                        code="OVERLAPPING_PERIODS",
+                    )
+                if seen is None or period.end_date > seen[0]:
+                    last_end_by_principal[period.principal] = (period.end_date, i)
 
         # 注意：时间段之间允许有空隙，不强制连续
         # 例如：第一段10/01-10/31，第二段11/01-11/30 是合法的（即使中间有空隙）

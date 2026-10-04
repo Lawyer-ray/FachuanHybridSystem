@@ -12,6 +12,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from django.db import transaction
+
 from apps.message_hub.models import InboxMessage
 from apps.message_hub.services.base import resolve_media_attachment_path
 
@@ -65,9 +67,55 @@ def fill_page_counts(metas: list[dict[str, Any]]) -> bool:
 
 def ensure_page_counts(message: InboxMessage) -> None:
     """详情读取时回填：给老消息缺页数的 PDF 附件补算并落库（一次写，后续命中缓存直读）。"""
-    metas = list(message.attachments_meta or [])
-    if not fill_page_counts(metas):
-        return
-    message.attachments_meta = metas
-    message.save(update_fields=["attachments_meta"])
-    logger.info("材料包 %s 回填 PDF 页数完成", message.pk)
+    with transaction.atomic():
+        # 行锁重取消息行：attachments_meta 是 JSONField 读-改-写，与并发追加/
+        # 重命名会互相覆盖，锁行串行化后再基于最新 meta 回填（对照 manual_upload_service 的锁模式）。
+        locked = InboxMessage.objects.select_for_update().get(pk=message.pk)
+        metas = list(locked.attachments_meta or [])
+        if not fill_page_counts(metas):
+            return
+        locked.attachments_meta = metas
+        locked.save(update_fields=["attachments_meta"])
+        # 同步回传入对象，调用方无需 refresh 即可读到页数
+        message.attachments_meta = metas
+        logger.info("材料包 %s 回填 PDF 页数完成", locked.pk)
+
+
+def rename_attachment_in_meta(message: InboxMessage, *, part_index: int, custom_filename: str) -> tuple[str, str]:
+    """在行锁内重命名附件的自定义文件名（留空恢复原始名）。
+
+    attachments_meta 是 JSONField 读-改-写，并发重命名/追加/页数回填会互相
+    覆盖，锁行串行化后再基于最新 meta 修改（对照 manual_upload_service 的
+    锁模式）。返回 (original_filename, custom_filename)。
+
+    Raises:
+        NotFoundError: part_index 对应的附件不存在。
+    """
+    from django.db import transaction
+
+    from apps.core.exceptions import NotFoundError
+
+    with transaction.atomic():
+        locked = InboxMessage.objects.select_for_update().get(pk=message.pk)
+        meta = list(locked.attachments_meta or [])
+        target = None
+        for att in meta:
+            if int(att.get("part_index", -1)) == part_index:
+                target = att
+                break
+        if target is None:
+            raise NotFoundError(f"附件 part_index={part_index} 不存在")
+
+        original = target.get("original_filename") or target.get("filename") or ""
+        custom = custom_filename.strip()
+
+        if custom and custom != original:
+            target["custom_filename"] = custom
+        else:
+            target.pop("custom_filename", None)
+            custom = ""
+
+        locked.attachments_meta = meta
+        locked.save(update_fields=["attachments_meta"])
+
+    return original, custom

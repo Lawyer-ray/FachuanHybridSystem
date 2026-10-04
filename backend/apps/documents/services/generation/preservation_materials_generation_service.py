@@ -20,7 +20,7 @@ from apps.core.services.filename_template_service import FilenameTemplateService
 from apps.core.utils.path import Path
 from apps.documents.services.infrastructure.wiring import get_case_service, get_document_service
 from apps.documents.services.placeholders import EnhancedContextBuilder
-from apps.documents.services.placeholders.fallback import build_docx_render_context
+from apps.documents.services.placeholders.fallback import SANDBOXED_JINJA_ENV, build_docx_render_context
 
 logger = logging.getLogger("apps.documents.generation")
 FUNCTION_CODE_PRESERVATION_APPLICATION = "preservation_application"
@@ -150,7 +150,7 @@ class PreservationMaterialsGenerationService:
                 errors={"case_id": str(case_id)},
             )
         missing_clue_respondents = self.property_clue_service.get_respondents_without_clues(case_id)
-        now = timezone.now()
+        now = timezone.localtime()
         case_name = getattr(case, "name", "") or "案件"
         zip_filename = (
             FilenameTemplateService.render_generated_doc(
@@ -304,7 +304,7 @@ class PreservationMaterialsGenerationService:
                 "财产保全材料渲染模板", extra={"template_path": str(template_path), "keys": list(context.keys())}
             )
             doc = DocxTemplate(str(template_path))
-            doc.render(build_docx_render_context(doc=doc, context=context))
+            doc.render(build_docx_render_context(doc=doc, context=context), jinja_env=SANDBOXED_JINJA_ENV)
             buffer = io.BytesIO()
             doc.save(buffer)
             buffer.seek(0)
@@ -330,7 +330,7 @@ class PreservationMaterialsGenerationService:
 
         Requirements: 3.1, 3.2, 3.4
         """
-        date_str = timezone.now().strftime("%Y%m%d")
+        date_str = timezone.localtime().strftime("%Y%m%d")
         case_name = getattr(case, "name", "") or "案件"
         return (
             FilenameTemplateService.render_generated_doc(

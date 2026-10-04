@@ -214,60 +214,39 @@ class TestProviderRegistry:
 
         回归（2026-09-27 实测）：缓存里已有 feishu 时，按名清掉 google 后缓存仍非空，
         列表接口便不再重建，绑定页一直显示「该登录方式暂未开放」，必须重启后端。
-        这里走真实的失效入口 invalidate_provider_configs，而不是直接调 clear_configs。
+        这里通过创建 provider 行触发真实的 post_save 信号失效。
         """
-        from apps.core.models import SystemConfig
-        from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
-        from apps.social_auth.signals import invalidate_provider_configs
+        from apps.social_auth.models import SocialAuthProvider
+        from apps.social_auth.providers import ProviderRegistry
 
         ProviderRegistry.register("feishu")(self._make_provider("feishu"))
         ProviderRegistry.register("google")(self._make_provider("google"))
 
-        feishu_prefix = PROVIDER_SPECS["feishu"]["prefix"]
-        SystemConfig.objects.bulk_create(
-            [
-                SystemConfig(key=f"{feishu_prefix}APP_ID", value="cli_f", category="social_auth", is_active=True),
-                SystemConfig(key=f"{feishu_prefix}APP_SECRET", value="sec-f", category="social_auth", is_active=True),
-                SystemConfig(key=f"{feishu_prefix}ENABLED", value="true", category="social_auth", is_active=True),
-            ]
-        )
+        SocialAuthProvider.objects.create(name="feishu", display_name="飞书", client_id="cli_f", client_secret="sec-f")
         try:
             ProviderRegistry.load_configs()
             assert [item["name"] for item in ProviderRegistry.enabled_list()] == ["feishu"]
 
-            # 运行中补上 Google 凭证（等同在 admin 里填完保存），走真实失效入口
-            google_prefix = PROVIDER_SPECS["google"]["prefix"]
-            SystemConfig.objects.bulk_create(
-                [
-                    SystemConfig(
-                        key=f"{google_prefix}APP_ID",
-                        value="cid.apps.googleusercontent.com",
-                        category="social_auth",
-                        is_active=True,
-                    ),
-                    SystemConfig(
-                        key=f"{google_prefix}APP_SECRET", value="sec-g", category="social_auth", is_active=True
-                    ),
-                    SystemConfig(key=f"{google_prefix}ENABLED", value="true", category="social_auth", is_active=True),
-                ]
+            # 运行中补上 Google 凭证（等同在 admin 里填完保存），post_save 信号整体失效缓存
+            SocialAuthProvider.objects.create(
+                name="google", display_name="Google", client_id="cid.apps.googleusercontent.com", client_secret="sec-g"
             )
-            invalidate_provider_configs("SOCIAL_AUTH_GOOGLE_APP_ID")
 
             assert "google" in [item["name"] for item in ProviderRegistry.enabled_list()]
         finally:
-            SystemConfig.objects.filter(category="social_auth").delete()
+            SocialAuthProvider.objects.all().delete()
             ProviderRegistry.clear_configs()
 
     @pytest.mark.django_db
     def test_stale_cache_picks_up_cross_process_write(self) -> None:
         """跨进程写库收不到信号（manage.py 脚本直写 / 多 worker 部署），TTL 到期后必须自动看到新凭证。
 
-        回归（2026-10-04 实测）：从脚本直写 SystemConfig 后，运行中后端缓存非空
+        回归（2026-10-04 实测）：从脚本直写配置后，运行中后端缓存非空
         不重建，绑定页长期显示「该登录方式暂未开放」，只能重启。本用例不触发
-        信号，完全依赖 TTL 兜底。
+        信号（bulk_create 不发 post_save），完全依赖 TTL 兜底。
         """
-        from apps.core.models import SystemConfig
-        from apps.social_auth.providers import _CONFIG_TTL_SECONDS, PROVIDER_SPECS, ProviderRegistry
+        from apps.social_auth.models import SocialAuthProvider
+        from apps.social_auth.providers import _CONFIG_TTL_SECONDS, ProviderRegistry
 
         def enabled_names() -> list[str]:
             return [item["name"] for item in ProviderRegistry.enabled_list()]
@@ -276,30 +255,17 @@ class TestProviderRegistry:
         ProviderRegistry.register("google")(self._make_provider("google"))
         ProviderRegistry.register("github")(self._make_provider("github"))
 
-        google_prefix = PROVIDER_SPECS["google"]["prefix"]
-        github_prefix = PROVIDER_SPECS["github"]["prefix"]
         try:
-            SystemConfig.objects.bulk_create(
-                [
-                    SystemConfig(key=f"{google_prefix}APP_ID", value="cid-g", category="social_auth", is_active=True),
-                    SystemConfig(
-                        key=f"{google_prefix}APP_SECRET", value="sec-g", category="social_auth", is_active=True
-                    ),
-                    SystemConfig(key=f"{google_prefix}ENABLED", value="true", category="social_auth", is_active=True),
-                ]
+            SocialAuthProvider.objects.create(
+                name="google", display_name="Google", client_id="cid-g", client_secret="sec-g"
             )
             ProviderRegistry.load_configs()
             assert enabled_names() == ["google"]
 
-            # 另一个进程直写 GitHub 凭证：本进程收不到信号，TTL 内仍读旧缓存
-            SystemConfig.objects.bulk_create(
-                [
-                    SystemConfig(key=f"{github_prefix}APP_ID", value="Iv1.gh", category="social_auth", is_active=True),
-                    SystemConfig(
-                        key=f"{github_prefix}APP_SECRET", value="sec-gh", category="social_auth", is_active=True
-                    ),
-                    SystemConfig(key=f"{github_prefix}ENABLED", value="true", category="social_auth", is_active=True),
-                ]
+            # 另一个进程直写 GitHub 凭证：bulk_create 不发 post_save 信号，
+            # 本进程收不到任何通知，TTL 内仍读旧缓存
+            SocialAuthProvider.objects.bulk_create(
+                [SocialAuthProvider(name="github", display_name="GitHub", client_id="Iv1.gh", client_secret="sec-gh")]
             )
             assert "github" not in enabled_names()
 
@@ -307,68 +273,50 @@ class TestProviderRegistry:
             ProviderRegistry._configs_loaded_at -= _CONFIG_TTL_SECONDS + 1
             assert "github" in enabled_names()
         finally:
-            SystemConfig.objects.filter(category="social_auth").delete()
+            SocialAuthProvider.objects.all().delete()
             ProviderRegistry.clear_configs()
 
     @pytest.mark.django_db
     def test_get_config_refreshes_stale_credentials(self) -> None:
         """已缓存的 Provider 在 TTL 过期后也要拿到跨进程改过的新值（get_config 自带 TTL 兜底）。"""
-        from apps.core.models import SystemConfig
-        from apps.social_auth.providers import _CONFIG_TTL_SECONDS, PROVIDER_SPECS, ProviderRegistry
+        from apps.social_auth.models import SocialAuthProvider
+        from apps.social_auth.providers import _CONFIG_TTL_SECONDS, ProviderRegistry
 
         ProviderRegistry.register("google")(self._make_provider("google"))
 
-        google_prefix = PROVIDER_SPECS["google"]["prefix"]
         try:
-            SystemConfig.objects.bulk_create(
-                [
-                    SystemConfig(key=f"{google_prefix}APP_ID", value="cid-old", category="social_auth", is_active=True),
-                    SystemConfig(
-                        key=f"{google_prefix}APP_SECRET", value="sec-g", category="social_auth", is_active=True
-                    ),
-                    SystemConfig(key=f"{google_prefix}ENABLED", value="true", category="social_auth", is_active=True),
-                ]
+            SocialAuthProvider.objects.create(
+                name="google", display_name="Google", client_id="cid-old", client_secret="sec-g"
             )
             ProviderRegistry.load_configs()
             assert ProviderRegistry.get_config("google").client_id == "cid-old"
 
-            # 跨进程换凭证（不触发信号）：TTL 内仍是旧值
-            SystemConfig.objects.filter(key=f"{google_prefix}APP_ID").update(value="cid-new")
+            # 跨进程换凭证（.update() 不触发信号）：TTL 内仍是旧值
+            SocialAuthProvider.objects.filter(name="google").update(client_id="cid-new")
             assert ProviderRegistry.get_config("google").client_id == "cid-old"
 
             ProviderRegistry._configs_loaded_at -= _CONFIG_TTL_SECONDS + 1
             assert ProviderRegistry.get_config("google").client_id == "cid-new"
         finally:
-            SystemConfig.objects.filter(category="social_auth").delete()
+            SocialAuthProvider.objects.all().delete()
             ProviderRegistry.clear_configs()
 
     @pytest.mark.django_db
-    def test_load_configs_reads_system_config(self) -> None:
-        """load_configs 必须从 SystemConfig 读取，而非传入的 settings dict。"""
-        from apps.core.models import SystemConfig
-        from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
+    def test_load_configs_reads_provider_table(self) -> None:
+        """load_configs 必须从 SocialAuthProvider 表读取，而非传入的 settings dict。"""
+        from apps.social_auth.models import SocialAuthProvider
+        from apps.social_auth.providers import ProviderRegistry
 
         ProviderRegistry.register("feishu")(self._make_provider("feishu"))
-        prefix = PROVIDER_SPECS["feishu"]["prefix"]
 
-        rows = [
-            SystemConfig(key=f"{prefix}APP_ID", value="cli_abc", category="social_auth", is_active=True),
-            SystemConfig(
-                key=f"{prefix}APP_SECRET",
-                value="fake-secret-placeholder",
-                category="social_auth",
-                is_active=True,
-                is_secret=True,
-            ),
-            SystemConfig(
-                key=f"{prefix}REDIRECT_URI",
-                value="http://127.0.0.1:8002/social/feishu/callback/",
-                category="social_auth",
-                is_active=True,
-            ),
-            SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth", is_active=True),
-        ]
-        SystemConfig.objects.bulk_create(rows)
+        SocialAuthProvider.objects.create(
+            name="feishu",
+            display_name="飞书",
+            client_id="cli_abc",
+            client_secret="fake-secret-placeholder",  # pragma: allowlist secret
+            redirect_uri="http://127.0.0.1:8002/social/feishu/callback/",
+            scope="contact:user.base:readonly",
+        )
         try:
             # 传入 settings dict 应被忽略
             ProviderRegistry.load_configs({"feishu": {"display_name": "应被忽略"}})
@@ -376,31 +324,79 @@ class TestProviderRegistry:
             assert config.client_id == "cli_abc"
             assert config.display_name == "飞书"
             assert config.extra["redirect_uri"] == "http://127.0.0.1:8002/social/feishu/callback/"
+            assert config.extra["scope"] == "contact:user.base:readonly"
         finally:
-            SystemConfig.objects.filter(category="social_auth").delete()
-            SystemConfig.objects.filter(category="feishu").delete()
+            SocialAuthProvider.objects.all().delete()
+            ProviderRegistry.clear_configs()
+
+    @pytest.mark.django_db
+    def test_secret_stored_encrypted_in_db(self) -> None:
+        """client_secret 落库必须加密：库里是密文，读出来是明文。
+
+        这是独立成表（EncryptedTextField 模型层加密）相对 SystemConfig
+        （表单层加密 + 读取侧手动解密）的核心安全收益——密文当密钥发给
+        Provider 会得到 invalid_client，且现象隐蔽（授权页正常、回调才失败）。
+        """
+        from django.db import connection
+
+        from apps.social_auth.models import SocialAuthProvider
+        from apps.social_auth.providers import ProviderRegistry
+
+        ProviderRegistry.register("google")(self._make_provider("google"))
+        SocialAuthProvider.objects.create(
+            name="google", display_name="Google", client_id="cid", client_secret="plain-secret-value"
+        )
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT client_secret FROM social_auth_socialauthprovider WHERE name = %s", ["google"])
+                raw = str(cursor.fetchone()[0] or "")
+            assert raw.startswith("enc:v1:")
+            assert "plain-secret-value" not in raw
+
+            config = ProviderRegistry._build_config("google")
+            assert config is not None
+            assert config.client_secret == "plain-secret-value"  # pragma: allowlist secret
+        finally:
+            SocialAuthProvider.objects.all().delete()
+            ProviderRegistry.clear_configs()
+
+    @pytest.mark.django_db
+    def test_enabled_list_orders_by_priority(self) -> None:
+        """登录页按钮顺序由 priority 决定，小的在前。"""
+        from apps.social_auth.models import SocialAuthProvider
+        from apps.social_auth.providers import ProviderRegistry
+
+        ProviderRegistry.register("google")(self._make_provider("google"))
+        ProviderRegistry.register("github")(self._make_provider("github"))
+
+        SocialAuthProvider.objects.create(
+            name="github", display_name="GitHub", client_id="gh", client_secret="s", priority=5
+        )
+        SocialAuthProvider.objects.create(
+            name="google", display_name="Google", client_id="gg", client_secret="s", priority=20
+        )
+        try:
+            assert [item["name"] for item in ProviderRegistry.enabled_list()] == ["github", "google"]
+        finally:
+            SocialAuthProvider.objects.all().delete()
             ProviderRegistry.clear_configs()
 
     @pytest.mark.django_db
     def test_borrows_feishu_credentials_from_chat_category(self) -> None:
-        """扫码登录复用 IM 群聊的飞书应用：本分类不填凭证时读取 FEISHU_APP_ID/SECRET。"""
+        """扫码登录复用 IM 群聊的飞书应用：平台行不填凭证时读取 FEISHU_APP_ID/SECRET。"""
         from apps.core.models import SystemConfig
-        from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
+        from apps.social_auth.models import SocialAuthProvider
+        from apps.social_auth.providers import ProviderRegistry
 
         ProviderRegistry.register("feishu")(self._make_provider("feishu"))
-        prefix = PROVIDER_SPECS["feishu"]["prefix"]
 
-        # 只配 enabled + redirect_uri，不填 App ID/Secret
+        SocialAuthProvider.objects.create(
+            name="feishu",
+            display_name="飞书",
+            redirect_uri="http://127.0.0.1:8002/social/feishu/callback/",
+        )
         SystemConfig.objects.bulk_create(
             [
-                SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth", is_active=True),
-                SystemConfig(
-                    key=f"{prefix}REDIRECT_URI",
-                    value="http://127.0.0.1:8002/social/feishu/callback/",
-                    category="social_auth",
-                    is_active=True,
-                ),
-                # 共用分类里的凭证（IM 群聊用）
                 SystemConfig(key="FEISHU_APP_ID", value="cli_shared", category="feishu", is_active=True),
                 SystemConfig(
                     key="FEISHU_APP_SECRET", value="shared-secret-placeholder", category="feishu", is_active=True
@@ -414,25 +410,23 @@ class TestProviderRegistry:
             assert config.client_secret == "shared-secret-placeholder"  # pragma: allowlist secret
             assert config.is_enabled is True
         finally:
-            SystemConfig.objects.filter(category="social_auth").delete()
+            SocialAuthProvider.objects.filter(name="feishu").delete()
             SystemConfig.objects.filter(category="feishu").delete()
 
     @pytest.mark.django_db
     def test_own_credentials_override_borrowed(self) -> None:
-        """本分类填了凭证时优先用自己的，不读共用分类。"""
+        """平台行填了凭证时优先用自己的，不读共用分类。"""
         from apps.core.models import SystemConfig
-        from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
+        from apps.social_auth.models import SocialAuthProvider
+        from apps.social_auth.providers import ProviderRegistry
 
         ProviderRegistry.register("feishu")(self._make_provider("feishu"))
-        prefix = PROVIDER_SPECS["feishu"]["prefix"]
 
+        SocialAuthProvider.objects.create(
+            name="feishu", display_name="飞书", client_id="cli_own", client_secret="own-secret-placeholder"
+        )
         SystemConfig.objects.bulk_create(
             [
-                SystemConfig(key=f"{prefix}APP_ID", value="cli_own", category="social_auth", is_active=True),
-                SystemConfig(
-                    key=f"{prefix}APP_SECRET", value="own-secret-placeholder", category="social_auth", is_active=True
-                ),
-                SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth", is_active=True),
                 SystemConfig(key="FEISHU_APP_ID", value="cli_shared", category="feishu", is_active=True),
                 SystemConfig(
                     key="FEISHU_APP_SECRET", value="shared-secret-placeholder", category="feishu", is_active=True
@@ -445,7 +439,7 @@ class TestProviderRegistry:
             assert config.client_id == "cli_own"
             assert config.client_secret == "own-secret-placeholder"  # pragma: allowlist secret
         finally:
-            SystemConfig.objects.filter(category="social_auth").delete()
+            SocialAuthProvider.objects.filter(name="feishu").delete()
             SystemConfig.objects.filter(category="feishu").delete()
 
     @pytest.mark.django_db
@@ -453,16 +447,16 @@ class TestProviderRegistry:
         """共用分类的 App Secret 若是密文（admin 保存时会加密），需解密后使用。"""
         from apps.core.models import SystemConfig
         from apps.core.security.secret_codec import SecretCodec
-        from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
+        from apps.social_auth.models import SocialAuthProvider
+        from apps.social_auth.providers import ProviderRegistry
 
         ProviderRegistry.register("feishu")(self._make_provider("feishu"))
-        prefix = PROVIDER_SPECS["feishu"]["prefix"]
 
         plaintext = "shared-secret-plain-text"
         encrypted = SecretCodec().encrypt(plaintext)
+        SocialAuthProvider.objects.create(name="feishu", display_name="飞书")
         SystemConfig.objects.bulk_create(
             [
-                SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth", is_active=True),
                 SystemConfig(key="FEISHU_APP_ID", value="cli_shared", category="feishu", is_active=True),
                 SystemConfig(
                     key="FEISHU_APP_SECRET", value=encrypted, category="feishu", is_active=True, is_secret=True
@@ -474,102 +468,74 @@ class TestProviderRegistry:
             assert config is not None
             assert config.client_secret == plaintext
         finally:
-            SystemConfig.objects.filter(category="social_auth").delete()
+            SocialAuthProvider.objects.filter(name="feishu").delete()
             SystemConfig.objects.filter(category="feishu").delete()
 
     @pytest.mark.django_db
     def test_own_secret_is_decrypted(self) -> None:
-        """本分类的 App Secret 由 Admin 表单加密存储，读取侧必须解密。
+        """本表 client_secret 由 EncryptedTextField 模型层加密存储，读取侧天然拿到明文。
 
-        Admin 保存 is_secret 项时走 SecretCodec.encrypt（SystemConfigAdminForm.clean_value），
-        库里落的是密文。若读取侧不解密就会把密文当密钥发给 Provider，得到
-        invalid_client；且现象隐蔽——授权页能正常打开，回调换 token 才失败）。
-        故必须由单测兜住，不能只靠联调发现。
+        历史上（SystemConfig 时代）靠读取侧手动解密兜住「密文当密钥」的坑；
+        独立成表后由字段层保证，本用例持续锁住这个行为。
         """
-        from apps.core.models import SystemConfig
-        from apps.core.security.secret_codec import SecretCodec
-        from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
+        from apps.social_auth.models import SocialAuthProvider
+        from apps.social_auth.providers import ProviderRegistry
 
         ProviderRegistry.register("google")(self._make_provider("google"))
-        prefix = PROVIDER_SPECS["google"]["prefix"]
 
-        plaintext = "GOCSPX-plain-text-secret"
-        encrypted = SecretCodec().encrypt(plaintext)
-        assert encrypted != plaintext
-
-        SystemConfig.objects.bulk_create(
-            [
-                SystemConfig(
-                    key=f"{prefix}APP_ID",
-                    value="cid.apps.googleusercontent.com",
-                    category="social_auth",
-                    is_active=True,
-                ),
-                SystemConfig(
-                    key=f"{prefix}APP_SECRET", value=encrypted, category="social_auth", is_active=True, is_secret=True
-                ),
-                SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth", is_active=True),
-            ]
+        SocialAuthProvider.objects.create(
+            name="google",
+            display_name="Google",
+            client_id="cid.apps.googleusercontent.com",
+            client_secret="GOCSPX-plain-text-secret",  # pragma: allowlist secret
         )
         try:
             config = ProviderRegistry._build_config("google")
             assert config is not None
-            assert config.client_secret == plaintext
-            assert config.client_secret != encrypted
+            assert config.client_secret == "GOCSPX-plain-text-secret"  # pragma: allowlist secret
             assert config.is_enabled is True
         finally:
-            SystemConfig.objects.filter(key__startswith=prefix).delete()
+            SocialAuthProvider.objects.filter(name="google").delete()
 
     @pytest.mark.django_db
     def test_build_config_no_credentials_anywhere_is_disabled(self) -> None:
-        """本分类和共用分类都没有 App ID → 视为未配置完成，不暴露给前端。"""
-        from apps.core.models import SystemConfig
-        from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
+        """本表和共用分类都没有 client_id → 视为未配置完成，不暴露给前端。"""
+        from apps.social_auth.models import SocialAuthProvider
+        from apps.social_auth.providers import ProviderRegistry
 
         ProviderRegistry.register("feishu")(self._make_provider("feishu"))
-        prefix = PROVIDER_SPECS["feishu"]["prefix"]
-        SystemConfig.objects.create(key=f"{prefix}ENABLED", value="true", category="social_auth")
+        SocialAuthProvider.objects.create(name="feishu", display_name="飞书")
         try:
             config = ProviderRegistry._build_config("feishu")
             assert config is not None
             assert config.is_enabled is False
         finally:
-            SystemConfig.objects.filter(key__startswith=prefix).delete()
+            SocialAuthProvider.objects.filter(name="feishu").delete()
 
     @pytest.mark.django_db
     def test_build_config_enabled_false(self) -> None:
         """显式关开关 → 下线该登录方式。"""
-        from apps.core.models import SystemConfig
-        from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
+        from apps.social_auth.models import SocialAuthProvider
+        from apps.social_auth.providers import ProviderRegistry
 
         ProviderRegistry.register("feishu")(self._make_provider("feishu"))
-        prefix = PROVIDER_SPECS["feishu"]["prefix"]
-        SystemConfig.objects.bulk_create(
-            [
-                SystemConfig(key=f"{prefix}APP_ID", value="cli_abc", category="social_auth"),
-                SystemConfig(key=f"{prefix}ENABLED", value="false", category="social_auth"),
-            ]
+        SocialAuthProvider.objects.create(
+            name="feishu", display_name="飞书", client_id="cli_abc", client_secret="s", enabled=False
         )
         try:
             config = ProviderRegistry._build_config("feishu")
             assert config is not None
             assert config.is_enabled is False
         finally:
-            SystemConfig.objects.filter(key__startswith=prefix).delete()
+            SocialAuthProvider.objects.filter(name="feishu").delete()
 
     @pytest.mark.django_db
-    def test_build_config_inactive_rows_ignored(self) -> None:
-        """is_active=False 的配置行不参与构建。"""
-        from apps.core.models import SystemConfig
-        from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
+    def test_build_config_without_row_returns_none(self) -> None:
+        """库里没有该平台的行 → 视为未接入，返回 None。"""
+        from apps.social_auth.providers import ProviderRegistry
 
         ProviderRegistry.register("feishu")(self._make_provider("feishu"))
-        prefix = PROVIDER_SPECS["feishu"]["prefix"]
-        SystemConfig.objects.create(key=f"{prefix}APP_ID", value="cli_abc", category="social_auth", is_active=False)
-        try:
-            assert ProviderRegistry._build_config("feishu") is None
-        finally:
-            SystemConfig.objects.filter(key__startswith=prefix).delete()
+        assert ProviderRegistry._build_config("feishu") is None
 
     def test_load_configs_excludes_disabled_from_list(self) -> None:
         """未配置完成的 Provider 不出现在 enabled_list。"""
@@ -857,6 +823,42 @@ class TestRegisteredProviders:
 
         # 整页跳转授权：前端按 login_mode 派发到 SocialRedirectPanel
         assert GitHubProvider.login_mode == LoginMode.REDIRECT
+
+    def test_microsoft_registered_as_redirect(self) -> None:
+        from apps.social_auth.providers.microsoft import MicrosoftProvider
+
+        assert MicrosoftProvider.login_mode == LoginMode.REDIRECT
+
+    @pytest.mark.django_db
+    def test_microsoft_default_row_created_by_migration(self) -> None:
+        """迁移 0007 为微软插入默认配置行：client_id 留空 → 登录页不显示，admin 可填。"""
+        from django.apps import apps
+
+        from apps.social_auth.migrations._microsoft_helpers import add_microsoft_provider, remove_microsoft_provider
+
+        SocialAuthProvider = apps.get_model("social_auth", "SocialAuthProvider")
+        try:
+            add_microsoft_provider(apps, None)
+            row = SocialAuthProvider.objects.get(name="microsoft")
+            assert row.display_name == "微软"
+            assert row.enabled is True
+            assert row.priority == 35
+            assert (row.client_id or "") == ""
+
+            add_microsoft_provider(apps, None)
+            assert SocialAuthProvider.objects.filter(name="microsoft").count() == 1
+
+            remove_microsoft_provider(apps, None)
+            assert not SocialAuthProvider.objects.filter(name="microsoft").exists()
+        finally:
+            SocialAuthProvider.objects.filter(name="microsoft").delete()
+
+    def test_microsoft_in_provider_specs_without_fallback(self) -> None:
+        from apps.social_auth.providers import PROVIDER_SPECS
+
+        spec = PROVIDER_SPECS["microsoft"]
+        assert spec["display_name"] == "微软"
+        assert "fallback_credentials" not in spec
 
     def test_github_endpoints(self) -> None:
         from apps.social_auth.providers.github import GitHubProvider

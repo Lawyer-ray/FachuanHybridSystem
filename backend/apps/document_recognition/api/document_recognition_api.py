@@ -328,10 +328,19 @@ async def recognize_document(
 
     # 3. 创建任务记录 + 提交异步任务
     # timeout 覆盖 LLM 分析（最坏 ~90s）+ 文本提取 + 绑定通知，防止慢识别被 qcluster 默认超时误杀
+    task_creator = get_request_user(request)
     prebound = None
     if source_court_sms_id:
-        prebound = await sync_to_async(_load_pipeline_prebinding)(source_court_sms_id)
-    task_creator = get_request_user(request)
+
+        @sync_to_async
+        def _load_prebound() -> dict[str, int | None]:
+            # 安全（第4轮）：短信绑定案件时按案件 ACL 校验（与法院短信读端点同口径）
+            from apps.core.dependencies.business import resolve_request_org_access
+
+            org_access = resolve_request_org_access(request, task_creator)
+            return _load_pipeline_prebinding(source_court_sms_id, user=task_creator, org_access=org_access)
+
+        prebound = await _load_prebound()
 
     def _create_and_submit() -> Any:
         task = _get_task_service().create_task(
@@ -372,15 +381,22 @@ def _validate_llm_model(model: str) -> str:  # pragma: no cover
     return model[:100]
 
 
-def _load_pipeline_prebinding(source_court_sms_id: int) -> dict[str, int | None]:  # pragma: no cover
+def _load_pipeline_prebinding(
+    source_court_sms_id: int,
+    *,
+    user: Any = None,
+    org_access: dict[str, Any] | None = None,
+) -> dict[str, int | None]:  # pragma: no cover
     """读取法院短信已完成的绑定（案件+日志），作为识别任务的预绑定。
 
     短信不存在时 NotFoundError 由全局异常处理器转为 404。
+    传入 user 时按案件 ACL 校验（安全审计第4轮：防止借管线模式读取
+    无权案件的短信绑定信息）。
     """
     from apps.core.interfaces import ServiceLocator
 
     court_sms_service = ServiceLocator.get_court_sms_service()
-    sms = court_sms_service.get_sms_detail(source_court_sms_id)
+    sms = court_sms_service.get_sms_detail(source_court_sms_id, user=user, org_access=org_access)
     if not getattr(sms, "case_log_id", None):
         raise ValidationException(
             message="该法院短信尚未完成案件绑定，不能走管线模式",
