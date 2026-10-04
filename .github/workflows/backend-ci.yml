@@ -366,7 +366,10 @@ jobs:
 
   backend-unit-coverage:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 2026-10-05：15→30。安全审计批（+16 测试文件）+ 性能批新增用例后全量
+    # unit+coverage 实测 >15m，在限时墙被取消（表现为 cancelled 而非 fail）；
+    # 与 integration/property smoke 的 30m 对齐。
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: backend
