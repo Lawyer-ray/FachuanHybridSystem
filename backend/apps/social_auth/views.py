@@ -15,6 +15,7 @@ import time
 from dataclasses import dataclass
 from urllib.parse import urlencode
 
+from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
@@ -173,7 +174,11 @@ class SocialCallbackView(View):
 
         try:
             provider_cls = ProviderRegistry.get(provider)
-            config = ProviderRegistry.get_config(provider)
+            # get_config 在缓存过期（含 30s TTL 兜底）时会查 SocialAuthProvider 表——
+            # 同步 ORM 在 async 视图里会抛 SynchronousOnlyOperation（实测：授权页停留
+            # 超过 TTL 后回来必炸）。sync_to_async 是 Django 官方对 async 上下文
+            # 调同步 DB 访问的推荐包装，配置只有个位数行，线程跳转代价可忽略。
+            config = await sync_to_async(ProviderRegistry.get_config)(provider)
         except KeyError:
             return HttpResponseRedirect(_frontend_callback_url("unknown_provider"))
 
