@@ -44,10 +44,16 @@ def _make_client(**kwargs):
 
 
 def _count_queries(func):
-    """Execute func and return (result, query_count)."""
+    """Execute func and return (result, query_count).
+
+    连接配置语句（statement_timeout 中间件的 set_config 等）不计入业务查询预算。
+    """
     with CaptureQueriesContext(connection):
         result = func()
-    return result, len(connection.queries_log)
+    business = [
+        q for q in connection.queries_log if not q["sql"].lstrip().upper().startswith(("SELECT SET_CONFIG", "SET "))
+    ]
+    return result, len(business)
 
 
 # ===================================================================
@@ -60,9 +66,7 @@ def test_list_cases_query_budget(authenticated_client):
     """Listing cases should not generate excessive queries."""
     for i in range(5):
         _make_case(name=f"N+1案件{i}")
-    resp, count = _count_queries(
-        lambda: authenticated_client.get("/api/v1/cases/cases")
-    )
+    resp, count = _count_queries(lambda: authenticated_client.get("/api/v1/cases/cases"))
     assert resp.status_code == 200
     assert count <= 20, f"list_cases used {count} queries (budget: 20)"
 
@@ -72,9 +76,7 @@ def test_list_clients_query_budget(authenticated_client):
     """Listing clients should not generate excessive queries."""
     for i in range(5):
         _make_client(name=f"N+1客户{i}")
-    resp, count = _count_queries(
-        lambda: authenticated_client.get("/api/v1/client/clients")
-    )
+    resp, count = _count_queries(lambda: authenticated_client.get("/api/v1/client/clients"))
     assert resp.status_code == 200
     assert count <= 15, f"list_clients used {count} queries (budget: 15)"
 
@@ -84,9 +86,7 @@ def test_list_contracts_query_budget(authenticated_client):
     """Listing contracts should not generate excessive queries."""
     for i in range(5):
         _make_contract(name=f"N+1合同{i}")
-    resp, count = _count_queries(
-        lambda: authenticated_client.get("/api/v1/contracts/contracts")
-    )
+    resp, count = _count_queries(lambda: authenticated_client.get("/api/v1/contracts/contracts"))
     assert resp.status_code == 200
     assert count <= 25, f"list_contracts used {count} queries (budget: 25)"
 
@@ -102,9 +102,7 @@ def test_list_reminders_query_budget(authenticated_client):
             content=f"提醒{i}",
             due_at=datetime.now() + timedelta(days=i + 1),
         )
-    resp, count = _count_queries(
-        lambda: authenticated_client.get("/api/v1/reminders/list", {"case_id": case.id})
-    )
+    resp, count = _count_queries(lambda: authenticated_client.get("/api/v1/reminders/list", {"case_id": case.id}))
     assert resp.status_code == 200
     assert count <= 15, f"list_reminders used {count} queries (budget: 15)"
 
@@ -113,9 +111,7 @@ def test_list_reminders_query_budget(authenticated_client):
 def test_get_case_detail_query_budget(authenticated_client):
     """Getting a single case detail should use a bounded number of queries."""
     case = _make_case(name="详情测试案件")
-    resp, count = _count_queries(
-        lambda: authenticated_client.get(f"/api/v1/cases/cases/{case.id}")
-    )
+    resp, count = _count_queries(lambda: authenticated_client.get(f"/api/v1/cases/cases/{case.id}"))
     assert resp.status_code == 200
     assert count <= 25, f"get_case_detail used {count} queries (budget: 25)"
 
@@ -126,11 +122,13 @@ def test_create_case_query_budget(authenticated_client, contract):
     resp, count = _count_queries(
         lambda: authenticated_client.post(
             "/api/v1/cases/cases",
-            data=json.dumps({
-                "name": "新建N+1测试案件",
-                "contract_id": contract.id,
-                "case_type": "civil",
-            }),
+            data=json.dumps(
+                {
+                    "name": "新建N+1测试案件",
+                    "contract_id": contract.id,
+                    "case_type": "civil",
+                }
+            ),
             content_type="application/json",
         )
     )
@@ -145,8 +143,6 @@ def test_list_cases_scales_linearly(authenticated_client):
     for i in range(20):
         _make_case(name=f"规模测试{i}")
 
-    _, count_20 = _count_queries(
-        lambda: authenticated_client.get("/api/v1/cases/cases")
-    )
+    _, count_20 = _count_queries(lambda: authenticated_client.get("/api/v1/cases/cases"))
     # Should use roughly same queries as 5 cases (prefetch batch, not per-item)
     assert count_20 <= 25, f"20 cases used {count_20} queries (budget: 25)"

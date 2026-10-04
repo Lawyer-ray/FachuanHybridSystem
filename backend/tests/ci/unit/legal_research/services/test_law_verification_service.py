@@ -15,6 +15,17 @@ import pytest
 from apps.core.exceptions import ExternalServiceError, NotFoundError, PermissionDenied, ValidationException
 from apps.legal_research.services.law_verification_service import LawVerificationService, sanitize_weike_login_url
 
+# CI 无法克隆私有 plugins 子模块：weike_api_private 缺失时这些用例无法
+# patch 其内部符号，整体跳过（仓库既有 allow_module_level skip 模式）
+try:
+    import plugins.weike_api_private  # noqa: F401
+
+    _PLUGINS_AVAILABLE = True
+except ImportError:
+    _PLUGINS_AVAILABLE = False
+
+pytestmark = pytest.mark.skipif(not _PLUGINS_AVAILABLE, reason="plugins.weike_api_private 子模块不可用")
+
 
 def _user(law_firm_id: int | None = 1) -> SimpleNamespace:
     return SimpleNamespace(is_authenticated=True, is_superuser=False, law_firm_id=law_firm_id)

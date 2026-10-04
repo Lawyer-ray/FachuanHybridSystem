@@ -4,6 +4,7 @@
 _normalize_context_data, _get_relevant_services, get_available_placeholders,
 validate_placeholders, build_contract_context 异常分支。
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -254,20 +255,16 @@ class TestValidatePlaceholders:
 class TestBuildContractContext:
     def test_contract_not_found(self) -> None:
         builder = EnhancedContextBuilder(registry=_RegistryStub([]))
-        with patch(
-            "apps.documents.services.infrastructure.wiring.get_contract_service"
-        ) as mock_get:
+        with patch("apps.documents.services.infrastructure.wiring.get_contract_service") as mock_get:
             mock_svc = MagicMock()
-            mock_svc.get_contract_internal.return_value = None
+            mock_svc.get_contract.return_value = None
             mock_get.return_value = mock_svc
             with pytest.raises(ValidationException, match="合同不存在"):
                 builder.build_contract_context(999)
 
     def test_success(self) -> None:
         builder = EnhancedContextBuilder(registry=_RegistryStub([_ServiceA()]))
-        with patch(
-            "apps.documents.services.infrastructure.wiring.get_contract_service"
-        ) as mock_get:
+        with patch("apps.documents.services.infrastructure.wiring.get_contract_service") as mock_get:
             mock_svc = MagicMock()
             mock_svc.get_contract_internal.return_value = {"name": "test"}
             mock_svc.get_contract_model_internal.return_value = MagicMock()
@@ -277,9 +274,7 @@ class TestBuildContractContext:
 
     def test_model_not_found(self) -> None:
         builder = EnhancedContextBuilder(registry=_RegistryStub([]))
-        with patch(
-            "apps.documents.services.infrastructure.wiring.get_contract_service"
-        ) as mock_get:
+        with patch("apps.documents.services.infrastructure.wiring.get_contract_service") as mock_get:
             mock_svc = MagicMock()
             mock_svc.get_contract_internal.return_value = {"name": "test"}
             mock_svc.get_contract_model_internal.return_value = None
