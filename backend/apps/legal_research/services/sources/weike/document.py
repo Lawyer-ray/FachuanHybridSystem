@@ -8,8 +8,8 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
-from apps.legal_research.services.task.event_service import LegalResearchTaskEventService
 from apps.core.exceptions.error_codes import REQUEST_ERROR
+from apps.legal_research.services.task.event_service import LegalResearchTaskEventService
 
 from .types import WeikeCaseDetail, WeikeSearchItem, WeikeSession
 
@@ -20,9 +20,16 @@ logger = logging.getLogger(__name__)
 
 
 def html_to_text(html_content: str) -> str:
-    """将 HTML 内容转换为纯文本。"""
-    text = re.sub(r"<script[\s\S]*?</script>", " ", html_content, flags=re.I)
-    text = re.sub(r"<style[\s\S]*?</style>", " ", text, flags=re.I)
+    """将 HTML 内容转换为纯文本。
+
+    标签过滤正则需覆盖 HTML 规范允许的变体（CodeQL py/bad-tag-filter #3228）：
+
+    - 结束标签 ``>`` 前允许空白 / 属性类内容（``</script >``、``</script foo="bar">``），
+      用 ``</script[^>]*>`` 覆盖；
+    - 标签名后加 ``\\b`` 词边界，避免误匹配 ``<scriptfoo>`` 之类同名前缀标签。
+    """
+    text = re.sub(r"<script\b[\s\S]*?</script[^>]*>", " ", html_content, flags=re.I)
+    text = re.sub(r"<style\b[\s\S]*?</style[^>]*>", " ", text, flags=re.I)
     text = re.sub(r"<br\s*/?>", "\n", text, flags=re.I)
     text = re.sub(r"</p>", "\n", text, flags=re.I)
     text = re.sub(r"<[^>]+>", " ", text)
@@ -85,7 +92,7 @@ def compact_error(exc: Exception, *, max_len: int = 120) -> str:
     message = str(exc).strip() or exc.__class__.__name__
     if len(message) <= max_len:
         return message
-    return f"{message[:max_len - 3]}..."
+    return f"{message[: max_len - 3]}..."
 
 
 def summarize_meta_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
@@ -318,7 +325,9 @@ class WeikeDocumentMixin:
         error_text = "；".join(errors[:4])
         raise RuntimeError(f"获取案例详情失败: {error_text or '未知错误'}")
 
-    def download_pdf(self, *, session: WeikeSession, detail: WeikeCaseDetail) -> tuple[bytes, str] | None:  # pragma: no cover
+    def download_pdf(
+        self, *, session: WeikeSession, detail: WeikeCaseDetail
+    ) -> tuple[bytes, str] | None:  # pragma: no cover
         self._raise_if_session_restricted(session=session, stage="download_pdf")
         # 与前端真实调用保持一致：优先使用 unquoted docId + showType=0 + filename。
         filename = self._build_download_filename(detail)
@@ -442,7 +451,9 @@ class WeikeDocumentMixin:
 
         return None
 
-    def download_doc(self, *, session: WeikeSession, detail: WeikeCaseDetail) -> tuple[bytes, str] | None:  # pragma: no cover
+    def download_doc(
+        self, *, session: WeikeSession, detail: WeikeCaseDetail
+    ) -> tuple[bytes, str] | None:  # pragma: no cover
         """下载 Word 文档（.doc 格式）"""
         self._raise_if_session_restricted(session=session, stage="download_doc")
         filename = self._build_download_filename(detail)
@@ -576,7 +587,9 @@ class WeikeDocumentMixin:
         return compact_error(exc, max_len=max_len)
 
     @classmethod
-    def _is_session_restricted_response(cls, *, status: int, payload: dict[str, Any] | None) -> bool:  # pragma: no cover
+    def _is_session_restricted_response(
+        cls, *, status: int, payload: dict[str, Any] | None
+    ) -> bool:  # pragma: no cover
         return is_session_restricted_response(status=status, payload=payload)
 
     def _mark_session_restricted(  # pragma: no cover

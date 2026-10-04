@@ -9,6 +9,7 @@ from __future__ import annotations
 import time
 from types import SimpleNamespace
 from unittest.mock import MagicMock, PropertyMock, patch
+from urllib.parse import urlparse
 
 import pytest
 
@@ -198,8 +199,12 @@ class TestOneDriveProvider:
 
         provider = OneDriveProvider(access_token="t", root_path="/docs")
         url = provider._item_url("report.pdf")
-        assert "graph.microsoft.com" in url
-        assert "docs/report.pdf" in url
+        # 用 URL 解析比较断言 host 与 path，而非子串包含
+        # （CodeQL py/incomplete-url-substring-sanitization #5742）
+        parsed = urlparse(url)
+        assert parsed.scheme == "https"
+        assert parsed.hostname == "graph.microsoft.com"
+        assert parsed.path == "/v1.0/me/drive/root:/docs/report.pdf"
 
     @patch("apps.cloud_storage.onedrive_provider.httpx.Client")
     def test_exists_true(self, mock_client_cls: MagicMock) -> None:

@@ -620,7 +620,8 @@ class TestWeikeTypes:
 
         session = WeikeSession()
         # Should not raise（所有资源为 None 时直接返回）
-        assert session.close() is None
+        result = session.close()
+        assert result is None
 
     def test_weike_session_close_with_mocks(self):
         from apps.legal_research.services.sources.weike.types import WeikeSession
@@ -645,7 +646,8 @@ class TestWeikeTypes:
         page.close.side_effect = Exception("fail")
         session = WeikeSession(page=page, http_client="no_close_method")
         # Should not raise（单个资源关闭失败不影响其余清理）
-        assert session.close() is None
+        result = session.close()
+        assert result is None
         page.close.assert_called_once_with()
 
     def test_weike_search_item(self):
