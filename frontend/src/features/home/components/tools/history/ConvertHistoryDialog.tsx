@@ -67,7 +67,8 @@ function Row({ item, onDeleted }: { item: ConvertRecordItem; onDeleted: () => vo
           {item.original_name}
         </span>
         <span className="mt-1 flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
-          <span>{format(new Date(item.created_at), 'MM-dd HH:mm')}</span>
+          {/* created_at 生成物为可选（null 兜底不渲染），避免 new Date(undefined) 得 Invalid Date */}
+          {item.created_at && <span>{format(new Date(item.created_at), 'MM-dd HH:mm')}</span>}
           {item.mbid_name && (
             <>
               <span>·</span>

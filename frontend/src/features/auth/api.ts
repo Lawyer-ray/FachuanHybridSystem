@@ -6,13 +6,17 @@ import ky from 'ky'
 import { api, API_BASE_URL } from '@/lib/api'
 import { errMessage } from '@/lib/errors'
 import { setTokens, type TokenPair } from '@/lib/token'
+import type { components } from '@/types/api-schema'
 import type { LoginRequest, User } from './types'
+
+/** POST /token/pair 的响应（生成物）；含 username 冗余字段，存侧只取 access/refresh（TokenPair） */
+type TokenPairResponse = components['schemas']['TokenObtainPairOutputSchema']
 
 export const authApi = {
   async login(data: LoginRequest): Promise<{ success: boolean; user?: User; message?: string }> {
-    let tokenPair: TokenPair
+    let tokenPair: TokenPairResponse
     try {
-      tokenPair = await ky.post(`${API_BASE_URL}/token/pair`, { json: data }).json<TokenPair>()
+      tokenPair = await ky.post(`${API_BASE_URL}/token/pair`, { json: data }).json<TokenPairResponse>()
     } catch (e) {
       // 401 才是「账号密码不对」；500 / 断网 / 超时另给文案，别一概说成密码错
       if (e instanceof HTTPError && e.response.status === 401) {
@@ -20,7 +24,7 @@ export const authApi = {
       }
       return { success: false, message: errMessage(e, '登录失败，请检查网络后重试') }
     }
-    setTokens(tokenPair)
+    setTokens(tokenPair satisfies TokenPair)
     try {
       const user = await api.get('organization/me').json<User>()
       return { success: true, user }

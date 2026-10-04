@@ -8,6 +8,13 @@
  *   · /cases/cases 的 status（"在办"）、current_stage、parties[].legal_status 也是**中文标签**。
  * - /organization/lawyers 内部硬分页 page_size=20，律师多于 20 人时拿不全
  *   （本页仅用它补执业证号/律所，缺失时静默降级，不阻塞主列表）。
+ *
+ * 手写保留说明（openapi 生成物 shape 不符，无法直接引用）：
+ * - 合同列表（GET /contracts/contracts?slim=1）与案件列表（GET /cases/cases?contract_id=）
+ *   生成物均未声明响应 schema（裸响应）；且 slim 投影与生成物 ContractOut 形状不同
+ *   （representation_stages 是中文标签数组而非 dict、金额可为 number 等）。
+ * - /organization/lawyers 的生成物 LawyerOut 缺 license_no / law_firm_detail 字段。
+ *   故下列「后端投影」部分整体按真实返回手写维护；前端域模型部分本就是前端聚合产物。
  */
 
 /* ============ 后端投影：/api/v1/contracts/contracts ============ */

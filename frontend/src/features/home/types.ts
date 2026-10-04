@@ -6,6 +6,8 @@
  * 后端（与 Django admin 日历共用同一 service），两份定义必然漂移，故删除。
  */
 
+import type { components } from '@/types/api-schema'
+
 /** 待处理流入项（来自收件箱 /inbox/messages） */
 export interface InboxItem {
   id: number
@@ -18,8 +20,5 @@ export interface InboxItem {
   hot: boolean
 }
 
-/** 快捷工具：要素式转换的文书模板项 */
-export interface ConvertTemplate {
-  mbid: string
-  name: string
-}
+/** 快捷工具：要素式转换的文书模板项（GET /doc-convert/mbid-list 的行，生成物 MbidItem） */
+export type ConvertTemplate = components['schemas']['MbidItem']

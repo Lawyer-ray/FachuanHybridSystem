@@ -1,18 +1,26 @@
 /** 文书识别 API 客户端（/api/v1/document-recognition，JWT 自动携带）。 */
 
 import { createApiClient, UPLOAD_TIMEOUT_MS } from '@/lib/api'
+import type { components } from '@/types/api-schema'
 
-import type { CaseSearchItem, ConfirmItemIn, ConfirmItemOut, TaskOut } from './types'
+import type { CaseSearchItem, ConfirmItemIn, TaskOut } from './types'
 
 export const documentRecognitionApi = createApiClient({ prefix: '/api/v1/document-recognition' })
 
+/** POST court-document/recognize 的响应（生成物 TaskSubmitResponseSchema；
+ *  对外只暴露消费的 task_id 投影） */
+type TaskSubmitId = Pick<components['schemas']['TaskSubmitResponseSchema'], 'task_id'>
+
+/** POST court-document/task/{id}/dates/confirm 的响应（生成物 DateConfirmResponseSchema） */
+type DateConfirmResponse = components['schemas']['DateConfirmResponseSchema']
+
 /** 上传文书并提交异步识别，立即返回 task_id */
-export async function recognizeFile(file: File): Promise<{ task_id: number }> {
+export async function recognizeFile(file: File): Promise<TaskSubmitId> {
   const body = new FormData()
   body.append('file', file)
   return documentRecognitionApi
     .post('court-document/recognize', { body, timeout: UPLOAD_TIMEOUT_MS })
-    .json<{ task_id: number }>()
+    .json<components['schemas']['TaskSubmitResponseSchema']>()
 }
 
 /** 查询任务状态与结果（含日期候选、绑定推荐） */
@@ -26,13 +34,10 @@ export async function bindTask(taskId: number, caseId: number): Promise<void> {
 }
 
 /** 批量确认/忽略日期候选（确认后才写入重要日期提醒） */
-export async function confirmDates(
-  taskId: number,
-  items: ConfirmItemIn[],
-): Promise<{ success: boolean; results: ConfirmItemOut[] }> {
+export async function confirmDates(taskId: number, items: ConfirmItemIn[]): Promise<DateConfirmResponse> {
   return documentRecognitionApi
     .post(`court-document/task/${taskId}/dates/confirm`, { json: { items } })
-    .json<{ success: boolean; results: ConfirmItemOut[] }>()
+    .json<DateConfirmResponse>()
 }
 
 /** 撤销确认：删除本功能创建的提醒，候选回到待确认 */

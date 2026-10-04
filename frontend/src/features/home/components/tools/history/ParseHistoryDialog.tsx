@@ -138,7 +138,8 @@ export function ParseHistoryDialog({ open, onOpenChange }: { open: boolean; onOp
                         {it.text_preview || (it.status === 'failed' ? it.error_message || '解析失败' : '（无预览）')}
                       </span>
                       <span className="mt-1 flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
-                        <span>{format(new Date(it.created_at), 'MM-dd HH:mm')}</span>
+                        {/* created_at 生成物为可选（null 兜底不渲染），避免 new Date(undefined) 得 Invalid Date */}
+                        {it.created_at && <span>{format(new Date(it.created_at), 'MM-dd HH:mm')}</span>}
                         {it.backend_used && (
                           <>
                             <span>·</span>
@@ -175,7 +176,8 @@ export function ParseHistoryDialog({ open, onOpenChange }: { open: boolean; onOp
                     <span className={cn('rounded-[6px] border px-1.5 py-[1px] text-[10px] font-semibold', badgeOf(detail.status))}>
                       {STATUS_LABEL[detail.status] ?? detail.status}
                     </span>
-                    <span>{format(new Date(detail.created_at), 'MM-dd HH:mm')}</span>
+                    {/* created_at 生成物为可选（null 兜底不渲染） */}
+                    {detail.created_at && <span>{format(new Date(detail.created_at), 'MM-dd HH:mm')}</span>}
                     {detail.backend_used && <span>· {detail.backend_used}</span>}
                   </div>
                 )}

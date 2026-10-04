@@ -1,9 +1,8 @@
-/** 全局检索单条命中（跨类别统一形状） */
-export interface Hit {
+import type { components } from '@/types/api-schema'
+
+/** 全局检索单条命中（跨类别统一形状；id/title/subtitle 直接来自生成物 SearchResultItem） */
+export type Hit = components['schemas']['SearchResultItem'] & {
   category: string
-  id: number
-  title: string
-  subtitle: string
 }
 
 /** 类别 key 联合：CATEGORIES 是封闭字典，用联合类型索引（而非 Record<string, …>），

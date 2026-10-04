@@ -1,4 +1,5 @@
 import { createApiClient } from '@/lib/api'
+import type { components } from '@/types/api-schema'
 
 /**
  * 文档解析 API（对接后端 apps/document_parsing）。
@@ -40,7 +41,10 @@ export const DOC_PARSE_POLL_MS = 2000
 /** 轮询安全上限（轮数）：5 分钟无结果就停，避免异常任务把轮询挂死 */
 export const DOC_PARSE_MAX_POLLS = 150
 
-/** 解析成功的产出（submit 同步路径与 task 轮询成功路径字段一致） */
+/**
+ * 解析成功的产出（submit 同步路径与 task 轮询成功路径字段一致）。
+ * 手写保留：前端归一化形状（ok / method 等），非后端响应原文。
+ */
 export interface ParseOutcome {
   ok: boolean
   markdown: string
@@ -51,7 +55,7 @@ export interface ParseOutcome {
   metadata: Record<string, unknown>
 }
 
-/** parse 提交的即时返回：要么是同步结果，要么是待轮询的 task_id */
+/** parse 提交的即时返回：要么是同步结果，要么是待轮询的 task_id（前端归一化形状） */
 export interface ParseSubmit {
   /** 有 task_id 表示异步云端解析，需轮询 getParseTaskTask */
   taskId: string | null
@@ -60,7 +64,7 @@ export interface ParseSubmit {
   outcome: ParseOutcome | null
 }
 
-/** 轮询到的任务状态 */
+/** 轮询到的任务状态（前端归一化形状：not_found 为前端补充的缺态语义） */
 export interface ParseTaskStatus {
   taskId: string
   status: 'pending' | 'running' | 'success' | 'failure' | 'not_found'
@@ -68,6 +72,10 @@ export interface ParseTaskStatus {
   outcome: ParseOutcome | null
 }
 
+/**
+ * 解析提交的表单形状。手写保留：字段名是前端 camelCase（submit 时拆成后端
+ * upload_view 的 backend / extract_tables / … 表单键），非 wire 形状。
+ */
 export interface ParseDocumentIn {
   backend: ParseBackend
   extractTables: boolean
@@ -75,8 +83,19 @@ export interface ParseDocumentIn {
   returnMarkdown: boolean
 }
 
+/** toOutcome 可接受的来源字段（ParseDocumentResponse 的子集；task 端点的 result dict 也按它断言）。
+ *  用 type 而非 interface：保留隐式索引签名，task 端点的裸 dict 才能 as 到这里 */
+type OutcomeSource = {
+  success?: boolean | null
+  markdown?: string | null
+  text?: string | null
+  parse_method?: string | null
+  error?: string | null
+  metadata?: Record<string, unknown> | null
+}
+
 /** 把后端 result dict（success 时 {success,text,markdown,...}，失败时 {success:false,error}）归一化 */
-function toOutcome(src: Record<string, unknown>): ParseOutcome {
+function toOutcome(src: OutcomeSource): ParseOutcome {
   const ok = src.success !== false
   return {
     ok,
@@ -84,7 +103,7 @@ function toOutcome(src: Record<string, unknown>): ParseOutcome {
     text: typeof src.text === 'string' ? src.text : '',
     method: src.parse_method == null ? null : String(src.parse_method),
     error: ok ? null : src.error == null ? '解析失败' : String(src.error),
-    metadata: src.metadata && typeof src.metadata === 'object' ? (src.metadata as Record<string, unknown>) : {},
+    metadata: src.metadata && typeof src.metadata === 'object' ? src.metadata : {},
   }
 }
 
@@ -99,11 +118,13 @@ export async function parseDocument(file: File, opts: ParseDocumentIn): Promise<
   body.append('extract_tables', String(opts.extractTables))
   body.append('extract_images', String(opts.extractImages))
   body.append('return_markdown', String(opts.returnMarkdown))
-  const res = await documentParsingApi.post('parse', { body, timeout: DOC_PARSE_TIMEOUT_MS }).json<Record<string, unknown>>()
+  const res = await documentParsingApi
+    .post('parse', { body, timeout: DOC_PARSE_TIMEOUT_MS })
+    .json<components['schemas']['ParseDocumentResponse']>()
 
   const taskId = res.task_id === null || res.task_id === undefined ? null : String(res.task_id)
   // 缺状态按后端 DocumentParsingTask 初始态 pending 处理（待轮询），绝不当成 completed
-  const status = res.status === null || res.status === undefined ? 'pending' : String(res.status)
+  const status = res.status || 'pending'
   // 同步路径：success 且无 task_id，markdown/text 直接在顶层
   if (!taskId) {
     if (res.success === false) {
@@ -114,47 +135,35 @@ export async function parseDocument(file: File, opts: ParseDocumentIn): Promise<
   return { taskId, status, outcome: null }
 }
 
-/** 轮询异步解析任务状态 */
+/** 轮询异步解析任务状态（响应为生成物 TaskStatusResponse） */
 export async function getParseTaskTask(taskId: string): Promise<ParseTaskStatus> {
-  const res = await documentParsingApi.get(`task/${encodeURIComponent(taskId)}`).json<Record<string, unknown>>()
-  const status = String(res.status ?? 'not_found')
+  const res = await documentParsingApi
+    .get(`task/${encodeURIComponent(taskId)}`)
+    .json<components['schemas']['TaskStatusResponse']>()
+  const status = res.status || 'not_found'
   const raw = res.result
-  const outcome = raw && typeof raw === 'object' ? toOutcome(raw as Record<string, unknown>) : null
-  return { taskId: String(res.task_id ?? taskId), status: status as ParseTaskStatus['status'], outcome }
+  const outcome = raw && typeof raw === 'object' ? toOutcome(raw as OutcomeSource) : null
+  return { taskId: res.task_id || taskId, status: status as ParseTaskStatus['status'], outcome }
 }
 
 // ---------------------------------------------------------------------------
 // 历史解析记录（DocumentParsingTask 落库记录，云端异步解析才有）
 // ---------------------------------------------------------------------------
 
-/** 历史记录列表项（不含全文，列表速览用） */
-export interface ParseRecordItem {
-  id: number
-  status: string
-  file_name: string
-  file_size: number
-  backend_used: string | null
-  error_message: string | null
-  text_preview: string
-  created_at: string
-  completed_at: string | null
-}
+/** 历史记录列表项（不含全文，列表速览用；生成物 DocumentParsingRecordOut） */
+export type ParseRecordItem = components['schemas']['DocumentParsingRecordOut']
 
-/** 历史记录详情（含全文） */
-export interface ParseRecordDetail extends ParseRecordItem {
-  text: string
-  markdown: string | null
-  metadata: Record<string, unknown>
-}
+/** 历史记录详情（含全文；生成物 DocumentParsingRecordDetailOut） */
+export type ParseRecordDetail = components['schemas']['DocumentParsingRecordDetailOut']
 
-/** 分页列出历史解析记录（最新在前）；status 可筛 pending/processing/completed/failed */
+/** 分页列出历史解析记录（最新在前）；status 可筛 pending/processing/completed/failed（响应为生成物 DocumentParsingRecordListOut） */
 export async function listParseRecords(
   status?: string,
   page = 1,
 ): Promise<{ items: ParseRecordItem[]; count: number; page: number; num_pages: number }> {
   return documentParsingApi
     .get('records', { searchParams: { ...(status ? { status } : {}), page: String(page) } })
-    .json<{ items: ParseRecordItem[]; count: number; page: number; num_pages: number }>()
+    .json<components['schemas']['DocumentParsingRecordListOut']>()
 }
 
 /** 按 id 取解析全文（历史点开查看用） */
