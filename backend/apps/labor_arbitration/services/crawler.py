@@ -3,7 +3,7 @@
 设计要点：
 - 列表：调 ``postmeta/i/{category_id}.json`` 接口，一次返回全部文章（title/url/date/publish_time），
   无需 cookie、无需翻页、无需浏览器，比 Playwright 快数个量级。
-- 详情：``requests`` 抓详情页 HTML，用正则提取扫描件图片 URL（``img/.../post_N.png``），
+- 详情：``httpx`` 抓详情页 HTML，用正则提取扫描件图片 URL（``img/.../post_N.png``），
   **不下载图片**，只保存原图 URL（供后续 OCR 按需拉取）。
 - 增量：已存在 ``detail_url`` 且 success 且有图片则跳过；failed / 无图记录则重试。
 - 容错：列表接口 / 详情页请求均带有限重试；失败标记 failed，由增量 / 重试按钮兜底。
@@ -17,7 +17,7 @@ import time
 from datetime import datetime
 from typing import Any
 
-import requests
+import httpx
 from django.db import IntegrityError
 from django.utils import timezone
 
@@ -48,6 +48,25 @@ _RETRY_TIMES = 3
 _RETRY_SLEEP = 2  # 秒
 
 
+def _response_text(response: httpx.Response) -> str:
+    """requests 兼容的 HTML 解码：响应头无 charset 时用 charset_normalizer 检测。
+
+    requests 的 ``.text`` 在缺省 charset 头时会退到 ``apparent_encoding``
+    （charset_normalizer 内容检测），httpx 则固定按 utf-8 解码；详情页的
+    标题/发布时间解析依赖中文解码，这里保持 requests 语义（实测
+    hrss.foshan.gov.cn 全站显式返回 charset=utf-8，此为缺省场景兜底，
+    charset_normalizer 缺失时回退 httpx 默认 utf-8）。
+    """
+    if response.charset_encoding:
+        return response.text
+    try:
+        from charset_normalizer import from_bytes
+    except ImportError:
+        return response.text
+    best = from_bytes(response.content).best()
+    return str(best) if best else response.text
+
+
 class FoshanLaborAwardCrawler:
     """佛山市人社局仲裁裁决书爬虫（HTTP 版）。"""
 
@@ -61,7 +80,8 @@ class FoshanLaborAwardCrawler:
             "failed": 0,
             "images": 0,
         }
-        self.session = requests.Session()
+        # follow_redirects=True 对齐 requests.Session 默认行为（httpx 默认不跟）
+        self.session = httpx.Client(follow_redirects=True)
         self.session.headers.update(_HEADERS)
 
     # ── 公共入口 ──────────────────────────────────────────────
@@ -87,7 +107,7 @@ class FoshanLaborAwardCrawler:
         return (self.stats["new"] + self.stats["skipped"]) >= self.limit
 
     # ── HTTP 请求（带重试）───────────────────────────────────
-    def _get(self, url: str, *, referer: str | None = None) -> requests.Response:
+    def _get(self, url: str, *, referer: str | None = None) -> httpx.Response:
         headers: dict[str, str] = {}
         if referer:
             headers["Referer"] = referer
@@ -159,7 +179,7 @@ class FoshanLaborAwardCrawler:
 
     def _crawl_detail(self, art: dict[str, Any], existing: ArbitrationDocument | None = None) -> ArbitrationDocument:
         detail_url = art["url"]
-        html = self._get(detail_url, referer=self.source.list_url).text
+        html = _response_text(self._get(detail_url, referer=self.source.list_url))
 
         img_urls = _IMG_URL_RE.findall(html)
         img_urls = list(dict.fromkeys(img_urls))  # 去重保序

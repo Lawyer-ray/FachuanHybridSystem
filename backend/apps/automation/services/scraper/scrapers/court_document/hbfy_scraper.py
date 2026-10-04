@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-import requests
+import httpx
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
@@ -66,7 +66,8 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
         if not msg:
             raise ValueError("湖北免账号链接缺少 msg 参数")
 
-        session = requests.Session()
+        # follow_redirects=True 对齐 requests.Session 默认行为（httpx 默认不跟）
+        session = httpx.Client(follow_redirects=True)
         session.headers.update(
             {
                 "User-Agent": (
@@ -102,7 +103,7 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
         return match.group(1)
 
     def _find_public_sms_info(
-        self, session: requests.Session, msg: str, code: str = "", uuid: str = ""
+        self, session: httpx.Client, msg: str, code: str = "", uuid: str = ""
     ) -> dict[str, Any]:  # pragma: no cover
         payload: dict[str, str] = {"msg": msg}
         if code:
@@ -145,7 +146,7 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
                 return True
         return False
 
-    def _get_public_captcha(self, session: requests.Session) -> tuple[str, bytes] | None:
+    def _get_public_captcha(self, session: httpx.Client) -> tuple[str, bytes] | None:
         resp = session.post(
             self._PUBLIC_CAPTCHA_URL,
             params={"t": str(int(time.time() * 1000))},
@@ -175,7 +176,7 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
             logger.debug("解析公开验证码图片失败（已忽略）", exc_info=True)
             return None
 
-    def _find_public_sms_info_with_captcha(self, session: requests.Session, msg: str) -> dict[str, Any]:
+    def _find_public_sms_info_with_captcha(self, session: httpx.Client, msg: str) -> dict[str, Any]:
         last_sms_info: dict[str, Any] = {}
 
         for _ in range(12):
@@ -204,7 +205,7 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
         raise ValueError("湖北免账号验证码校验后仍未获取到可下载文书")
 
     def _download_public_documents(  # pragma: no cover
-        self, session: requests.Session, sms_info: dict[str, Any], download_dir: Path
+        self, session: httpx.Client, sms_info: dict[str, Any], download_dir: Path
     ) -> list[str]:
         files: list[str] = []
 
