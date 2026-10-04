@@ -332,7 +332,12 @@ export const useReader = create<ReaderState>((set, get) => ({
     if (!files.length) return
     try {
       const updated = await appendPackFiles(openId, files)
+      // 上传期间可能关 A 开 B（或 close 置空 openId）：续体回来时若已不是
+      // 当时的包就静默丢弃（与 open() 的失配检查一致），否则会把 A 的
+      // detail 覆盖到 B、把 A 的材料追加进 B 的草稿并经防抖保存落盘
+      if (get().openId !== openId) return
       const added = await resolveMats(updated)
+      if (get().openId !== openId) return
       const known = new Set(draft.mats.map((m) => m.partIndex))
       const fresh = added.filter((m) => !known.has(m.partIndex))
       if (!fresh.length) {
