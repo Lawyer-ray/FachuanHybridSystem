@@ -126,6 +126,42 @@ Django + DRF 脚本拼凑          →  Django 6 + React 19 + MCP
 
 ---
 
+## 外网访问（Cloudflare Tunnel，可选）
+
+不想买服务器、也没有公网 IP，又想在外网（如手机）访问本机运行的前后端，可以用 Cloudflare Tunnel：本机 `cloudflared` 进程主动向 Cloudflare 边缘建立出站连接，外网流量经固定域名回流，**无需公网 IP、不开路由器端口**；再套一层 Cloudflare Access 做身份门禁，未授权者到不了本机。
+
+以域名 `example.top` 为例，预期效果：`https://app.example.top` → 本机 Vite(5090) → 同源代理 Django(8002)。
+
+1. **前置**：一个域名，DNS 托管到 Cloudflare（免费）；本机安装 `brew install cloudflared`
+2. **授权与建隧道**：`cloudflared tunnel login` → `cloudflared tunnel create fachuan`
+3. **配置 ingress**（`~/.cloudflared/config.yml`）：
+
+   ```yaml
+   tunnel: <隧道UUID>
+   credentials-file: /Users/你/.cloudflared/<隧道UUID>.json
+   ingress:
+     - hostname: app.example.top
+       service: http://localhost:5090
+     - service: http_status:404
+   ```
+
+4. **绑定域名**：`cloudflared tunnel route dns fachuan app.example.top`
+5. **前端放行外网 Host**：`frontend/vite.config.ts` 的 `server` 段加 `allowedHosts: ["app.example.top"]`（Vite 默认拒绝非 localhost 的 Host 头）
+6. **常驻**：写一个 LaunchAgent（macOS）/ systemd service（Linux）跑 `cloudflared tunnel run fachuan`
+7. **门禁（强烈建议）**：Cloudflare 面板 → Zero Trust（免费版 50 席位）→ Access → 创建 Self-hosted 应用绑定 `app.example.top`，策略 Include 你的邮箱（登录方式为邮箱验证码）
+
+**免费额度与限制**：隧道本身无带宽/流量硬限制；Access 免费 50 用户（单人自用绰绰有余）；单请求上传体积上限 100 MB（免费计划）；SAML SSO、设备指纹等高级门禁需付费版。注意：使用 Cloudflare 意味着流量经其边缘中转（TLS 加密），对数据敏感场景请自行评估；也可以随时停用（见下）。
+
+**停用方法**：
+
+```bash
+# 停止常驻进程（macOS）
+launchctl unload ~/Library/LaunchAgents/com.user.cloudflared-fachuan.plist
+# 彻底删除：面板删除 Access 应用与隧道，DNS 删对应 CNAME 即可
+```
+
+---
+
 ## 付费部署服务
 
 不想自己折腾部署？作者提供**一对一代部署服务**：

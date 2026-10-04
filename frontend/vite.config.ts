@@ -43,6 +43,9 @@ export default defineConfig({
     port: 5090,
     open: true,
     strictPort: false,
+    // Cloudflare Tunnel 外网访问经 app.xlaw.top 进来，Vite 8 默认拒绝非
+    // localhost 的 Host 头（DNS rebinding 防护），显式放行隧道域名。
+    allowedHosts: ["app.xlaw.top"],
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8002',
