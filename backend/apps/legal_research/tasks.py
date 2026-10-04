@@ -20,6 +20,8 @@ def execute_legal_research_task(task_id: str) -> dict[str, Any]:  # pragma: no c
     # Playwright 同步API内部会维护事件循环，执行过程中同步 ORM 读写
     # 可能触发 Django 的 async 上下文保护。任务是后台同步执行流程，
     # 这里显式放开该限制（仅执行期间，退出恢复），避免误判失败。
+    # async 化需整体改造 executor 链（LegalResearchExecutor 全链 sync ORM +
+    # Playwright 混排），暂保留作用域化。
     with allow_async_unsafe():
         executor = LegalResearchExecutor()
         # 隔离到独立线程，避免上游异步上下文导致 ORM 抛出
@@ -36,6 +38,7 @@ def execute_legal_research_task(task_id: str) -> dict[str, Any]:  # pragma: no c
 def execute_case_download_task(task_id: int) -> dict[str, Any]:  # pragma: no cover
     """执行案例下载任务"""
     # 同 execute_legal_research_task：Playwright sync + sync ORM，仅执行期间放行。
+    # async 化需整体改造 executor 链，暂保留作用域化。
     with allow_async_unsafe():
         service = CaseDownloadService()
         with ThreadPoolExecutor(max_workers=1, thread_name_prefix="case-download-executor") as pool:

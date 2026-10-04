@@ -188,26 +188,35 @@ class TestRunBatchPoolShutdownOnCancel:
 
         job.refresh_from_db()
         assert job.status == BatchJobStatus.CANCELLED
-        assert _has_cancelling_shutdown(shutdown_calls), f"未观察到 shutdown(wait=False, cancel_futures=True): {shutdown_calls}"
+        assert _has_cancelling_shutdown(shutdown_calls), (
+            f"未观察到 shutdown(wait=False, cancel_futures=True): {shutdown_calls}"
+        )
         llm.chat.assert_not_called()
 
 
 class TestRunBatchEntryTimeoutShutdown:
-    """run_batch_analysis：形式超时防护——超时后立即 shutdown(cancel_futures=True)。"""
+    """形式超时防护——超时后立即 shutdown(cancel_futures=True)，不等待线程自然结束。
+
+    2026-10 桥接收敛后该语义下沉到 apps.core.infrastructure.sync_async_bridge，
+    此处直接对桥的线程路径做回归（batch_runner 入口按 7200s 超时委托该桥）。
+    """
 
     def test_entry_pool_shutdown_on_timeout(self) -> None:
-        from apps.workbench.tasks.batch_runner import run_batch_analysis
+        from apps.core.infrastructure.sync_async_bridge import run_coro_sync
 
         mock_pool = MagicMock()
         mock_future = MagicMock()
         mock_future.result.side_effect = concurrent.futures.TimeoutError
         mock_pool.submit.return_value = mock_future
 
+        async def _never() -> None:
+            await asyncio.sleep(0.05)
+
         with (
-            patch(f"{_MODULE}.asyncio.get_running_loop", return_value=MagicMock()),
-            patch("concurrent.futures.ThreadPoolExecutor", return_value=mock_pool),
+            patch("apps.core.infrastructure.sync_async_bridge._has_running_loop", return_value=True),
+            patch("apps.core.infrastructure.sync_async_bridge.ThreadPoolExecutor", return_value=mock_pool),
             pytest.raises(concurrent.futures.TimeoutError),
         ):
-            run_batch_analysis("00000000-0000-0000-0000-000000000000")
+            run_coro_sync(_never(), timeout=0.01)
 
         mock_pool.shutdown.assert_called_once_with(wait=False, cancel_futures=True)

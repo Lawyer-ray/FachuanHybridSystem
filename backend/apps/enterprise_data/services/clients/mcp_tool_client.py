@@ -30,6 +30,11 @@ _TRANSPORT_UNHEALTHY_TTL_SECONDS = 10 * 60
 
 # Persistent event loop for running async coroutines from sync code.
 # Avoids creating a new event loop per MCP tool call (TCP/HTTP setup cost).
+#
+# 刻意不复用统一桥 apps.core.infrastructure.sync_async_bridge.run_coro_sync：
+# 那是「偶发调用」的一次性 loop 桥；此处是常驻 daemon loop，有独立的生命周期
+# 管理语义（进程级单例 + shutdown_persistent_loop 显式关停 + 按调用超时 future），
+# 目的是跨调用复用 MCP 会话的 TCP/HTTP 连接，换成一次性 loop 反而每次重建连接。
 _persistent_loop: asyncio.AbstractEventLoop | None = None
 _persistent_loop_thread: threading.Thread | None = None
 _persistent_loop_lock = threading.Lock()
