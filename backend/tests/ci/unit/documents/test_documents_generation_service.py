@@ -7,9 +7,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.documents.services.generation.generation_service import (
+    _CONFIG_TYPE_GENERATION_RULE,
     ConfigValidationResult,
     GenerationService,
-    _CONFIG_TYPE_GENERATION_RULE,
 )
 
 
@@ -145,9 +145,13 @@ class TestGenerationServiceUpdateTaskStatus:
     def setup_method(self) -> None:
         self.svc = GenerationService()
 
+    @pytest.mark.django_db
     @patch("apps.documents.services.generation.generation_service.GenerationTask")
     def test_task_not_found(self, MockTask: MagicMock) -> None:
-        MockTask.objects.filter.return_value.first.return_value = None
+        from apps.documents.models import GenerationTask as RealGenerationTask
+
+        MockTask.DoesNotExist = RealGenerationTask.DoesNotExist
+        MockTask.objects.select_for_update.return_value.get.side_effect = RealGenerationTask.DoesNotExist
         with pytest.raises(Exception) as exc_info:
             self.svc.update_task_status(1, "completed")
         assert "不存在" in str(exc_info.value)

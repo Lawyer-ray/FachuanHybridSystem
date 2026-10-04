@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from django.db import transaction
 from django.utils import timezone
 
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -133,48 +134,55 @@ class GenerationService:
         return True, ""
 
     def update_task_status(self, task_id: int, status: str, error_message: str | None = None) -> Any:
-        task = GenerationTask.objects.filter(id=task_id).first()
-        if not task:
-            raise NotFoundError("生成任务不存在")
-
         valid_statuses = {s for s, _ in GenerationStatus.choices}
         if status not in valid_statuses:
             raise ValidationException("无效的任务状态")
 
-        task.status = status
-        if status in (GenerationStatus.COMPLETED, GenerationStatus.FAILED):
-            task.completed_at = timezone.now()
-        else:
-            task.completed_at = None
+        with transaction.atomic():
+            task = self._get_locked_task(task_id)
 
-        if status == GenerationStatus.FAILED and error_message:
-            task.error_message = error_message
-            task.save(update_fields=["status", "completed_at", "error_message"])
-            self.add_error_log(task.id, error_message=error_message, error_type="error")
-            return GenerationTask.objects.get(id=task.id)
+            task.status = status
+            if status in (GenerationStatus.COMPLETED, GenerationStatus.FAILED):
+                task.completed_at = timezone.now()
+            else:
+                task.completed_at = None
 
-        task.save(update_fields=["status", "completed_at"])
-        return task
+            if status == GenerationStatus.FAILED and error_message:
+                task.error_message = error_message
+                task.save(update_fields=["status", "completed_at", "error_message"])
+                self._append_error_log(task, error_message=error_message, error_type="error")
+            else:
+                task.save(update_fields=["status", "completed_at"])
+            return task
 
     def add_generated_file(self, task_id: int, file_path: str, file_name: str) -> Any:
-        task = GenerationTask.objects.filter(id=task_id).first()
-        if not task:
-            raise NotFoundError("生成任务不存在")
-        files = task.generated_files
-        files.append({"path": file_path, "name": file_name, "created_at": timezone.now().isoformat()})
-        task.generated_files = files
-        task.save(update_fields=["metadata"])
-        return task
+        with transaction.atomic():
+            task = self._get_locked_task(task_id)
+            files = task.generated_files
+            files.append({"path": file_path, "name": file_name, "created_at": timezone.now().isoformat()})
+            task.generated_files = files
+            task.save(update_fields=["metadata"])
+            return task
 
     def add_error_log(self, task_id: int, error_message: str, error_type: str = "error") -> Any:
-        task = GenerationTask.objects.filter(id=task_id).first()
-        if not task:
-            raise NotFoundError("生成任务不存在")
+        with transaction.atomic():
+            task = self._get_locked_task(task_id)
+            self._append_error_log(task, error_message=error_message, error_type=error_type)
+            return task
+
+    def _get_locked_task(self, task_id: int) -> GenerationTask:
+        """行锁获取任务（metadata JSONField 读-改-写前必须持锁，防并发覆写）。"""
+        try:
+            return GenerationTask.objects.select_for_update().get(id=task_id)
+        except GenerationTask.DoesNotExist:
+            raise NotFoundError("生成任务不存在") from None
+
+    def _append_error_log(self, task: GenerationTask, *, error_message: str, error_type: str = "error") -> None:
+        """向已持有（且已持锁）的任务实例追加错误日志，避免重取同一任务。"""
         logs = task.error_logs
         logs.append({"message": error_message, "type": error_type, "created_at": timezone.now().isoformat()})
         task.error_logs = logs
         task.save(update_fields=["metadata"])
-        return task
 
     def list_tasks(self, status: str | None = None) -> list[GenerationTask]:  # pragma: no cover
         qs = GenerationTask.objects.all()

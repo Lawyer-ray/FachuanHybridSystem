@@ -27,6 +27,9 @@ def _make_service(**overrides):
 
 
 class TestReplaceMaterialFile:
+    # replace_material_file 的 DB 写入现在包在 transaction.atomic 内，需要真实测试库
+    pytestmark = pytest.mark.django_db
+
     def test_material_not_found(self):
         svc = _make_service()
         with patch("apps.cases.services.material.case_material_service.CaseMaterial") as MockCM:
@@ -107,6 +110,9 @@ class TestReplaceMaterialFile:
 
 
 class TestDeleteMaterial:
+    # delete_material 的 DB 删除现在包在 transaction.atomic 内，需要真实测试库
+    pytestmark = pytest.mark.django_db
+
     def test_material_not_found(self):
         svc = _make_service()
         with patch("apps.cases.services.material.case_material_service.CaseMaterial") as MockCM:

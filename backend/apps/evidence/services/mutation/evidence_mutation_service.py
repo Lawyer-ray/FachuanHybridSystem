@@ -46,7 +46,8 @@ class EvidenceMutationService:
         # 自动设置顺序
         order = LIST_TYPE_ORDER.get(ListType(list_type), 1) if list_type else 1
         if not list_type:
-            # 如果没有 list_type,使用最大 order + 1
+            # 锁同案已有清单行再取 Max，避免并发创建清单时 Max+1 顺序重复
+            list(EvidenceList.objects.select_for_update().filter(case_id=case.id))
             max_order = EvidenceList.objects.filter(case_id=case.id).aggregate(max_order=Max("order"))["max_order"]
             order = (max_order or 0) + 1
 
@@ -147,6 +148,8 @@ class EvidenceMutationService:
                 errors={"purpose": "证明内容不能为空"},
             )
 
+        # 锁父清单行再取 Max，避免并发创建明细时 Max+1 顺序重复
+        EvidenceList.objects.select_for_update().get(pk=evidence_list.pk)
         max_order = evidence_list.items.aggregate(max_order=Max("order"))["max_order"]
         order = (max_order or 0) + 1
 
