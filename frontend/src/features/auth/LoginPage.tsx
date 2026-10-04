@@ -90,14 +90,18 @@ export function LoginPage() {
   const isDesktop = useMediaQuery('(min-width: 760px)')
 
   useEffect(() => {
-    if (phase !== 'intro') return
-    // settling：封面开始消散、表单级联登台（--ready）；done：卸载覆盖层
-    const ready = setTimeout(() => setPhase('settling'), INTRO_READY_MS)
-    const unmount = setTimeout(() => setPhase('done'), INTRO_UNMOUNT_MS)
-    return () => {
-      clearTimeout(ready)
-      clearTimeout(unmount)
+    // 相位链：intro→settling（表单登台+覆盖层淡出）→done（卸载覆盖层）。
+    // 每个相位只设自己的下一个定时器——曾把两个定时器都设在 intro 相位，
+    // phase 变化触发 cleanup 时卸载定时器被误清，覆盖层永远停在「淡出未卸载」。
+    if (phase === 'intro') {
+      const ready = setTimeout(() => setPhase('settling'), INTRO_READY_MS)
+      return () => clearTimeout(ready)
     }
+    if (phase === 'settling') {
+      const unmount = setTimeout(() => setPhase('done'), INTRO_UNMOUNT_MS - INTRO_READY_MS)
+      return () => clearTimeout(unmount)
+    }
+    return undefined
   }, [phase])
 
   // 已启用的登录方式由后端下发；走 react-query 带缓存（此前手写 effect，
