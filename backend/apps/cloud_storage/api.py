@@ -28,7 +28,7 @@ def onedrive_start_auth(request: HttpRequest, account_id: int) -> JsonResponse: 
         result = OAuthTokenManager.start_device_code_flow(account)
         return JsonResponse(result)
     except Exception:
-        logger.exception("onedrive_start_auth 端点失败 account_id=%s", account_id)
+        logger.exception("onedrive_start_auth 端点失败 account_id=%s", int(account_id))
         return JsonResponse({"error": "操作失败，请稍后重试"}, status=400)
 
 
@@ -51,7 +51,7 @@ async def onedrive_complete_auth(request: HttpRequest, account_id: int) -> JsonR
         access_token = await manager.acomplete_device_code_flow(device_code)
         return JsonResponse({"status": "authorized", "token_preview": access_token[:20] + "..."})
     except Exception:
-        logger.exception("onedrive_complete_auth 端点失败 account_id=%s", account_id)
+        logger.exception("onedrive_complete_auth 端点失败 account_id=%s", int(account_id))
         return JsonResponse({"error": "操作失败，请稍后重试"}, status=400)
 
 
@@ -70,7 +70,7 @@ def dropbox_start_auth(request: HttpRequest, account_id: int) -> JsonResponse:  
         result = DropboxOAuthTokenManager.start_device_code_flow(account)
         return JsonResponse(result)
     except Exception:
-        logger.exception("dropbox_start_auth 端点失败 account_id=%s", account_id)
+        logger.exception("dropbox_start_auth 端点失败 account_id=%s", int(account_id))
         return JsonResponse({"error": "操作失败，请稍后重试"}, status=400)
 
 
@@ -95,5 +95,5 @@ async def dropbox_complete_auth(request: HttpRequest, account_id: int) -> JsonRe
         access_token = await manager.acomplete_device_code_flow(device_code)
         return JsonResponse({"status": "authorized", "token_preview": access_token[:20] + "..."})
     except Exception:
-        logger.exception("dropbox_complete_auth 端点失败 account_id=%s", account_id)
+        logger.exception("dropbox_complete_auth 端点失败 account_id=%s", int(account_id))
         return JsonResponse({"error": "操作失败，请稍后重试"}, status=400)

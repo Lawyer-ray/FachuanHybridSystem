@@ -157,15 +157,40 @@ class TestAPIInterceptResponseSchema:
         assert result.code == 200
 
     def test_validate_data_structure(self) -> None:
+        import pytest as _pytest
+
         from apps.automation.schemas.court_document import APIInterceptResponseSchema
+
+        # validator 要求每项含 9 个拦截平台字段（#511 存量用例传 {"key": "value"}
+        # 必然触发校验失败，此处改为合规数据 + 缺字段负例两段断言）
+        full_item = {
+            "c_sdbh": "SD001",
+            "c_stbh": "TB001",
+            "wjlj": "/media/x.pdf",
+            "c_wsbh": "WS001",
+            "c_wsmc": "测试文书",
+            "c_fybh": "FY001",
+            "c_fymc": "测试法院",
+            "c_wjgs": "2",
+            "dt_cjsj": "2026-10-04",
+        }
         result = APIInterceptResponseSchema(
             code=200,
             msg="ok",
-            data=[{"key": "value"}],
+            data=[full_item],
             success=True,
             totalRows=1,
         )
         assert len(result.data) == 1
+
+        with _pytest.raises(ValueError, match="缺少必需字段"):
+            APIInterceptResponseSchema(
+                code=200,
+                msg="ok",
+                data=[{"key": "value"}],
+                success=True,
+                totalRows=1,
+            )
 
 
 # ── Chat service _estimate_tokens ────────────────────────────────────────

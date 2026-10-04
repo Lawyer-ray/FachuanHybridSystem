@@ -30,13 +30,15 @@ async-unsafe 检查。统一入口 :func:`run_sync_isolated`。
   ``apps/legal_research/services/executor_components/task_lifecycle.py``。
 """
 
+# ruff: noqa: UP047
+
 from __future__ import annotations
 
 import asyncio
 import logging
 from collections.abc import Callable, Coroutine
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any
+from typing import Any, TypeVar
 
 from django.db import close_old_connections
 
@@ -47,8 +49,13 @@ logger = logging.getLogger(__name__)
 _DEFAULT_THREAD_NAME_PREFIX = "coro-bridge"
 _DEFAULT_SYNC_THREAD_NAME_PREFIX = "sync-bridge"
 
+# 泛型用旧式 TypeVar 而非 PEP 695(def f[T])：CodeQL 目前不识别 PEP 695，
+# 嵌套函数返回外层泛型 T 会被误判为「局部变量未初始化」而挂 PR check；
+# 行为完全一致，故对本文件豁免 ruff UP047（新语法迁移建议）。
+T = TypeVar("T")
 
-def run_coro_sync[T](
+
+def run_coro_sync(
     coro: Coroutine[Any, Any, T],
     *,
     timeout: float | None = None,
@@ -99,7 +106,7 @@ def _has_running_loop() -> bool:
     return True
 
 
-def run_sync_isolated[T](
+def run_sync_isolated(
     fn: Callable[..., T],
     /,
     *args: Any,
@@ -154,7 +161,7 @@ def run_sync_isolated[T](
     return _run_work_in_oneshot_thread(_work, timeout=timeout, thread_name_prefix=thread_name_prefix)
 
 
-def _run_work_in_oneshot_thread[T](
+def _run_work_in_oneshot_thread(
     work: Callable[[], T],
     *,
     timeout: float | None,
@@ -170,7 +177,7 @@ def _run_work_in_oneshot_thread[T](
         pool.shutdown(wait=False, cancel_futures=True)
 
 
-def _run_in_oneshot_thread[T](
+def _run_in_oneshot_thread(
     coro: Coroutine[Any, Any, T],
     *,
     timeout: float | None,
@@ -190,7 +197,7 @@ def _run_in_oneshot_thread[T](
         pool.shutdown(wait=False, cancel_futures=True)
 
 
-def _run_coro_and_close_connections[T](coro: Coroutine[Any, Any, T]) -> T:
+def _run_coro_and_close_connections(coro: Coroutine[Any, Any, T]) -> T:
     try:
         return asyncio.run(coro)
     finally:

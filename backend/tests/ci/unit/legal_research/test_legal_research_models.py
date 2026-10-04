@@ -17,8 +17,6 @@ from apps.legal_research.models.result import LegalResearchResult
 from apps.legal_research.models.task import LegalResearchSearchMode, LegalResearchTask, LegalResearchTaskStatus
 from apps.legal_research.models.task_event import LegalResearchTaskEvent
 from apps.organization.models.credential import AccountCredential
-from apps.organization.models.law_firm import LawFirm
-from apps.organization.models.lawyer import Lawyer
 from apps.testing.factories import LawyerFactory
 
 

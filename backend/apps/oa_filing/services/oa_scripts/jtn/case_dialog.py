@@ -19,9 +19,6 @@ from typing import Any, Awaitable, Callable
 
 logger = logging.getLogger("apps.oa_filing.case_dialog")
 
-# OA 在未勾选案件时点「选择」弹出的警告文案（layui HTML 层，非原生 dialog）
-_CASE_ALERT_TEXT = "请选择对应的案件信息"
-
 # 勾选目标案件的 radio：已勾选则跳过点击；点击未生效时强制置位并派发
 # change 事件（仅 DOM click 可能不触发 OA 的选中状态同步）
 _SELECT_RADIO_FN = """(expected) => {
