@@ -62,18 +62,12 @@ class LLMProviderAdmin(admin.ModelAdmin):
                     "timeout",
                     "concurrency_per_key",
                 ),
-                "description": (
-                    "<b>API Keys</b>：每行一个 Key，可逐行声明该 Key 可用的模型；"
-                    "留空表示网关免鉴权。不知道哪个 Key 支持哪些模型时，"
-                    "用每行的「获取模型」按钮自动探测。"
-                ),
             },
         ),
         (
             "模型配置",
             {
                 "fields": ("default_model", "extra_models", "embedding_model", "vision_model"),
-                "description": "视觉模型：多模态模型名（如 kimi-2.6），用于文书扫描件视觉转写；留空走本地 OCR。",
             },
         ),
     )

@@ -209,7 +209,6 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             "通知状态",
             {
                 "fields": ("notification_sent", "notification_sent_at", "notification_file_sent", "notification_error"),
-                "description": "绑定成功后的飞书群通知状态",
             },
         ),
         ("错误信息", {"fields": ("error_message",), "classes": ("collapse",)}),

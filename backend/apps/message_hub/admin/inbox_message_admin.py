@@ -59,7 +59,6 @@ class InboxMessageAdmin(admin.ModelAdmin):  # pragma: no cover
             "附件",
             {
                 "fields": ("attachments_actions",),
-                "description": "可直接调整附件下载名；留空则使用原始文件名。",
             },
         ),
     )

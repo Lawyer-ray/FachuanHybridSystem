@@ -26,13 +26,6 @@ class ReminderAdminForm(forms.ModelForm[Reminder]):  # pragma: no cover
     class Meta:  # pragma: no cover
         model = Reminder
         fields: str = "__all__"
-        help_texts: dict[str, object] = {
-            "metadata": (
-                '用于存放"结构化扩展信息"的 JSON(不参与业务必填).可留空或填 {}.'
-                "常见键:source(来源,如 court_sms / manual)、file_name(来源文件名)、"
-                'external_id(外部ID)、note(备注).示例:{"source":"court_sms","file_name":"传票.pdf"}'
-            ),
-        }
         widgets: dict[str, forms.Widget] = {
             "metadata": forms.Textarea(attrs={"rows": 4}),
         }

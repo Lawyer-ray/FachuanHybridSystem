@@ -41,7 +41,6 @@ class EvidenceItemAdmin(admin.ModelAdmin):  # pragma: no cover
             "三性说明",
             {
                 "fields": ("three_properties",),
-                "description": '格式: {"authenticity": {"opinion": "认可", "reason": "..."}, "legality": {...}, "relevance": {...}}',
                 "classes": ("collapse",),
             },
         ),
@@ -49,7 +48,6 @@ class EvidenceItemAdmin(admin.ModelAdmin):  # pragma: no cover
             "质证意见",
             {
                 "fields": ("cross_examination",),
-                "description": "对方证据的质证意见，格式同三性说明",
                 "classes": ("collapse",),
             },
         ),

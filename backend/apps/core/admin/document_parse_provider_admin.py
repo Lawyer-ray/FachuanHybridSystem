@@ -41,10 +41,6 @@ class DocumentParseProviderAdmin(admin.ModelAdmin):
             "凭证配置",
             {
                 "fields": ("credentials", "concurrency_per_key"),
-                "description": (
-                    "TextinParse：每行一个凭证对，格式 <code>app_id|secret_code</code>（管道符分隔），"
-                    "多行即可实现多凭证并发；MinerU：每行一个 API Key。"
-                ),
             },
         ),
     )
