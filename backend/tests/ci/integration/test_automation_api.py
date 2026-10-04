@@ -300,6 +300,13 @@ def test_batch_delete_sms(mock_build, authenticated_client):
     )
     # Due to route ordering, this may return 405 (matched by DELETE/{sms_id} first)
     assert resp.status_code in (200, 405)
+    if resp.status_code == 200:
+        # 路由命中时必须透传批量删除数量并以 ids 调用服务
+        assert resp.json()["deleted"] == 2
+        mock_service.batch_delete_sms.assert_called_once_with([1, 2])
+    else:
+        # 405 分支是路由吞并（ninja 默认纯文本响应）
+        assert b"Method not allowed" in resp.content
 
 
 # ===================================================================

@@ -99,7 +99,14 @@ class TestNotFoundErrors:
         resp = authenticated_client.get("/api/v1/reminders/999999")
         assert resp.status_code in (404, 200)
         if resp.status_code == 404:
-            _assert_error_body(resp)
+            # 404 分支必须是结构化 NOT_FOUND 信封且文案锚定被查询的 ID
+            data = resp.json()
+            assert data["code"] == "NOT_FOUND"
+            assert "999999" in data["message"]
+        else:
+            # 200 分支不允许返回看似正常的提醒数据
+            data = resp.json()
+            assert data.get("success") is False or "error" in data or "detail" in data
 
     @pytest.mark.django_db
     def test_delete_nonexistent_case(self, authenticated_client):
@@ -180,6 +187,13 @@ class TestValidationErrors:
         )
         # Should accept past dates (user might want to record historical reminders)
         assert resp.status_code in (200, 400)
+        if resp.status_code == 200:
+            # 接受历史日期时必须真实落库且响应携带 id
+            data = resp.json()
+            assert data["id"]
+            assert Reminder.objects.filter(id=data["id"], content="过去日期提醒").exists()
+        else:
+            _assert_error_body(resp)
 
     @pytest.mark.django_db
     def test_create_client_invalid_phone(self, authenticated_client):
@@ -196,6 +210,13 @@ class TestValidationErrors:
         )
         # Should either validate phone or accept as-is
         assert resp.status_code in (200, 400, 422)
+        if resp.status_code == 200:
+            # 接受时按原样存储电话（accept-as-is 契约）并真实落库
+            data = resp.json()
+            assert data["id"]
+            assert Client.objects.filter(id=data["id"], phone="not-a-phone").exists()
+        else:
+            _assert_error_body(resp)
 
     @pytest.mark.django_db
     def test_invalid_json_payload(self, authenticated_client):
@@ -245,10 +266,21 @@ class TestAuthentication:
 
     @pytest.mark.django_db
     def test_unauthenticated_list_reminders(self, api_client):
+        # 造锚点数据：若鉴权失效退化为 200 全量列表，锚点提醒内容必须不出现在响应里
+        Reminder.objects.create(
+            case=_make_case(),
+            reminder_type="hearing",
+            content="未授权泄露锚点提醒",
+            due_at=datetime.now() + timedelta(days=1),
+        )
         resp = api_client.get("/api/v1/reminders/list")
         assert resp.status_code in (401, 403, 302)
-        if resp.status_code != 302:
+        if resp.status_code == 302:
+            # 302 分支必须是带目标的登录重定向
+            assert resp["Location"]
+        else:
             _assert_error_body(resp)
+        assert "未授权泄露锚点提醒" not in resp.content.decode("utf-8", errors="ignore")
 
     @pytest.mark.django_db
     def test_unauthenticated_list_contracts(self, api_client):
@@ -614,6 +646,17 @@ class TestEdgeCases:
         )
         # Should either accept or reject gracefully
         assert resp.status_code in (200, 400, 422)
+        if resp.status_code == 200:
+            # 接受时必须真实落库（字段层校验放行）
+            data = resp.json()
+            assert data["id"]
+            assert Client.objects.filter(id=data["id"]).exists()
+        else:
+            # 拒绝分支：结构化错误体 + name 字段级校验信息 + 不落脏数据
+            data = resp.json()
+            assert data["code"] == "VALIDATION_ERROR"
+            assert data.get("errors", {}).get("name")
+            assert not Client.objects.filter(name=long_name).exists()
 
     @pytest.mark.django_db
     def test_case_list_pagination(self, authenticated_client):
