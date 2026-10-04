@@ -313,7 +313,7 @@ class DocumentTemplateFolderBinding(LifecycleModel):
         ]
         indexes: ClassVar = [
             models.Index(fields=["folder_template", "folder_node_id"]),
-            models.Index(fields=["document_template"]),
+            # document_template 为 FK（且为唯一约束前缀），自带索引，勿重复声明
             models.Index(fields=["is_active"]),
         ]
 

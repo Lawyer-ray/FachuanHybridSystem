@@ -78,13 +78,13 @@ export function ReaderToolbar({
 
       <span className="h-4 w-px bg-border" />
 
-      <button type="button" onClick={onZoomOut} title="缩小画布" className={cn(PBTN, 'w-[30px] justify-center px-0')}>
+      <button type="button" onClick={onZoomOut} title="缩小画布" aria-label="缩小画布" className={cn(PBTN, 'w-[30px] justify-center px-0')}>
         <Minus className="h-3.5 w-3.5" />
       </button>
       <button type="button" onClick={onZoomReset} title="点击回到 100%" className={cn(PBTN, 'min-w-[52px] justify-center px-[8px] tabular-nums')}>
         {zoomVal}%
       </button>
-      <button type="button" onClick={onZoomIn} title="放大画布" className={cn(PBTN, 'w-[30px] justify-center px-0')}>
+      <button type="button" onClick={onZoomIn} title="放大画布" aria-label="放大画布" className={cn(PBTN, 'w-[30px] justify-center px-0')}>
         <Plus className="h-3.5 w-3.5" />
       </button>
 

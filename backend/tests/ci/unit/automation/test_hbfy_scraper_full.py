@@ -806,7 +806,7 @@ class TestRunPublicModeHttpFirst:
             patch.object(scraper, "_public_need_captcha", return_value=False),
             patch.object(scraper, "_public_has_downloadable_docs", return_value=True),
             patch.object(scraper, "_download_public_documents", return_value=["/tmp/doc.pdf"]),
-            patch("requests.Session"),
+            patch("httpx.Client"),
         ):
             result = scraper._run_public_mode_http_first()
             assert result["downloaded_count"] == 1
@@ -832,7 +832,7 @@ class TestRunPublicModeHttpFirst:
                     "message": "ok",
                 },
             ),
-            patch("requests.Session"),
+            patch("httpx.Client"),
         ):
             result = scraper._run_public_mode_http_first()
             assert result["mode"] == "public_playwright"
@@ -859,7 +859,7 @@ class TestRunPublicModeHttpFirst:
                 return_value={"docList": [{"downloadPath": "/f.pdf", "docName": "doc"}]},
             ),
             patch.object(scraper, "_download_public_documents", return_value=["/tmp/doc.pdf"]),
-            patch("requests.Session"),
+            patch("httpx.Client"),
         ):
             result = scraper._run_public_mode_http_first()
             assert result["downloaded_count"] == 1
@@ -878,7 +878,7 @@ class TestRunAccountModeHttpFirst:
             patch.object(scraper, "_login_account_session"),
             patch.object(scraper, "_fetch_record_entries", return_value=[{"id": "D1", "title": "文书"}]),
             patch.object(scraper, "_download_record_document", return_value="/tmp/doc.pdf"),
-            patch("requests.Session"),
+            patch("httpx.Client"),
         ):
             result = scraper._run_account_mode(source_domain="dzsd.hbfy.gov.cn")
             assert result["downloaded_count"] == 1
@@ -890,7 +890,7 @@ class TestRunAccountModeHttpFirst:
             patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")),
             patch.object(scraper, "_login_account_session"),
             patch.object(scraper, "_fetch_record_entries", return_value=[]),
-            patch("requests.Session"),
+            patch("httpx.Client"),
         ):
             with pytest.raises(ValueError, match="未发现可查阅文书"):
                 scraper._run_account_mode(source_domain="dzsd.hbfy.gov.cn")
@@ -904,7 +904,7 @@ class TestRunAccountModeHttpFirst:
             patch.object(scraper, "_login_account_session"),
             patch.object(scraper, "_fetch_record_entries", return_value=entries),
             patch.object(scraper, "_download_record_document", return_value="/tmp/doc.pdf"),
-            patch("requests.Session"),
+            patch("httpx.Client"),
         ):
             result = scraper._run_account_mode(source_domain="dzsd.hbfy.gov.cn")
             assert result["document_count"] == 1
@@ -916,7 +916,7 @@ class TestRunAccountModeHttpFirst:
             patch.object(scraper, "_login_account_session"),
             patch.object(scraper, "_fetch_record_entries", return_value=[{"id": "D1", "title": "文书"}]),
             patch.object(scraper, "_download_record_document", return_value=None),
-            patch("requests.Session"),
+            patch("httpx.Client"),
         ):
             with pytest.raises(ValueError, match="未下载成功"):
                 scraper._run_account_mode(source_domain="dzsd.hbfy.gov.cn")
@@ -930,7 +930,7 @@ class TestRunAccountModeHttpFirst:
                 scraper, "_fetch_record_entries", return_value=[{"id": "D1", "title": "A"}, {"id": "D2", "title": "B"}]
             ),
             patch.object(scraper, "_download_record_document", side_effect=["/tmp/a.pdf", Exception("fail")]),
-            patch("requests.Session"),
+            patch("httpx.Client"),
         ):
             result = scraper._run_account_mode(source_domain="dzsd.hbfy.gov.cn")
             assert result["downloaded_count"] == 1

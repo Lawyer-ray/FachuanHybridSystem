@@ -51,6 +51,7 @@ export function DateCandidateList({ rows, interactive, busy, onToggle, onPatch, 
                   onClick={() => onToggle(r.key)}
                   disabled={busy}
                   title={r.checked ? '取消写入' : '勾选写入'}
+                  aria-label={r.checked ? '取消写入' : '勾选写入'}
                   className={cn(
                     'flex h-[16px] w-[16px] flex-none items-center justify-center rounded-[4px] border-[1.5px] transition-all duration-150 active:scale-90',
                     r.checked

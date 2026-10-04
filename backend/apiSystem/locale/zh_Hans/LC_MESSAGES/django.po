@@ -111,10 +111,10 @@ msgid "Cancel"
 msgstr "取消"
 
 msgid "Django administration"
-msgstr "法穿AI Copilot"
+msgstr "法穿SI Copilot"
 
 msgid "Django site admin"
-msgstr "法穿AI Copilot"
+msgstr "法穿SI Copilot"
 
 msgid "View site"
 msgstr "查看站点"

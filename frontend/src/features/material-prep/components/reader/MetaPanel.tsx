@@ -20,7 +20,9 @@ export function MetaPanel({
   ops: MetaOps
 }) {
   const [showLib, setShowLib] = useState(false)
-  const [armDel, setArmDel] = useState<number>(-1)
+  // armed 记**字段名**而非下标：先 arm 一行、再删掉前面的空值行会让下标整体前移，
+  // 按下标比较会让「确认删除」落到别的字段上（误删有内容字段）。f.k 在字段库去重下唯一。
+  const [armDel, setArmDel] = useState<string | null>(null)
   const unavailable = new Set(draft.infos.map((f) => f.k))
   const libRest = FIELD_LIB.filter((f) => !unavailable.has(f.k))
 
@@ -45,20 +47,21 @@ export function MetaPanel({
             <button
               type="button"
               title="删除这个字段"
+              aria-label="删除这个字段"
               onClick={() => {
-                if (armDel === di) {
+                if (armDel === f.k) {
                   ops.removeInfo(di)
-                  setArmDel(-1)
+                  setArmDel(null)
                 } else if (f.v) {
-                  setArmDel(di)
+                  setArmDel(f.k)
                 } else {
                   ops.removeInfo(di)
                 }
               }}
-              onBlur={() => setArmDel(-1)}
+              onBlur={() => setArmDel(null)}
               className={cn(
                 'grid h-5 w-5 place-items-center rounded text-zinc-300 hover:text-destructive',
-                armDel === di && 'bg-destructive/10 text-destructive',
+                armDel === f.k && 'bg-destructive/10 text-destructive',
               )}
             >
               <Trash2 className="h-3.5 w-3.5" />

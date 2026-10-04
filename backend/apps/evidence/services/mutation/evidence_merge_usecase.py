@@ -105,6 +105,9 @@ class EvidenceMergeUseCase:
                 merge_status=MergeStatus.COMPLETED,
                 merge_finished_at=timezone.now(),
                 merge_progress=100,
+                # total 与 current 同源同刻写入：合并期间明细被删会让进度回调里的
+                # merge_total 变小，完成态若只写 current 会违反 current ≤ total 约束
+                merge_total=total_files,
                 merge_current=total_files,
                 merge_message="合并完成",
                 updated_at=timezone.now(),

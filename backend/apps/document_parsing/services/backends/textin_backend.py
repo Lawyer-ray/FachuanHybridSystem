@@ -10,14 +10,17 @@ SDK 内部使用 httpx，与仓库风格一致。
     → 转换为 ParsedDocument
 """
 
+import json
 import logging
+import tempfile
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import httpx
 import xparse_client as xc
 
+from apps.core.http.httpx_clients import get_sync_http_client
 from apps.core.models import DocumentParseProvider
 from apps.core.services.document_parse_provider_service import ParseProviderService
 from apps.document_parsing.exceptions import (
@@ -385,6 +388,35 @@ class TextinBackend:
             )
             time.sleep(self.POLL_INTERVAL)
 
+    def _download_result_json(self, result_url: str) -> dict[str, Any]:
+        """流式下载结果 JSON 到临时文件后解析（8192 块写盘，不整包入内存）。
+
+        Raises:
+            httpx.HTTPError: 下载失败（重试耗尽）
+            ValueError: JSON 解析失败
+        """
+        client = get_sync_http_client()
+        for attempt in range(1, self.RESULT_DOWNLOAD_ATTEMPTS + 1):
+            try:
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    result_path = Path(tmp_dir) / "result.json"
+                    with client.stream("GET", result_url, timeout=self.RESULT_DOWNLOAD_TIMEOUT) as response:
+                        response.raise_for_status()
+                        with open(result_path, "wb") as f:
+                            for chunk in response.iter_bytes(8192):
+                                f.write(chunk)
+                    with open(result_path, encoding="utf-8") as f:
+                        payload = json.load(f)
+                    if not isinstance(payload, dict):
+                        raise ValueError(f"结果不是 JSON 对象: {type(payload).__name__}")
+                    return cast("dict[str, Any]", payload)
+            except httpx.HTTPError:
+                if attempt == self.RESULT_DOWNLOAD_ATTEMPTS:
+                    raise
+                logger.warning("TextinParse 结果下载失败，准备重试 (%d/%d)", attempt, self.RESULT_DOWNLOAD_ATTEMPTS)
+                time.sleep(attempt)
+        raise TextinAPIError("TextinParse 结果下载失败：没有收到响应")
+
     def _parse_result(
         self,
         job_result: xc.JobStatusResponse,
@@ -396,7 +428,7 @@ class TextinBackend:
 
         Args:
             job_result: 终态任务响应（含 result_url）
-            return_markdown: 是否包含 Markdown
+            return_markdown: 是否返回 Markdown
             extract_images: 是否包含图片数据
 
         Returns:
@@ -408,25 +440,7 @@ class TextinBackend:
             )
 
         try:
-            # 下载结果 JSON（ParseResponse 结构）
-            response = None
-            for attempt in range(1, self.RESULT_DOWNLOAD_ATTEMPTS + 1):
-                try:
-                    response = httpx.get(
-                        job_result.result_url,
-                        timeout=self.RESULT_DOWNLOAD_TIMEOUT,
-                    )
-                    response.raise_for_status()
-                    break
-                except httpx.HTTPError:
-                    if attempt == self.RESULT_DOWNLOAD_ATTEMPTS:
-                        raise
-                    logger.warning("TextinParse 结果下载失败，准备重试 (%d/%d)", attempt, self.RESULT_DOWNLOAD_ATTEMPTS)
-                    time.sleep(attempt)
-            if response is None:
-                raise TextinAPIError("TextinParse 结果下载失败：没有收到响应")
-            result_data = response.json()
-
+            result_data = self._download_result_json(job_result.result_url)
         except httpx.HTTPError as e:
             raise TextinAPIError(f"下载结果文件失败: {e}") from e
         except ValueError as e:

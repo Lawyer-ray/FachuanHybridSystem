@@ -171,6 +171,7 @@ class ClientMutationService:
             "案件": client.case_parties.count(),
             "补充协议": client.supplementary_agreements.count(),
             "企查报告任务": client.gsxt_report_tasks.count(),
+            "财产线索": client.property_clues.count(),
         }
         blocking = {label: count for label, count in related_counts.items() if count > 0}
         if blocking:

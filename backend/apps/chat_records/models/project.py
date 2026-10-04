@@ -25,7 +25,7 @@ class ChatRecordProject(models.Model):
         verbose_name_plural = "梳理聊天记录"
         indexes: ClassVar = [
             models.Index(fields=["-created_at"]),
-            models.Index(fields=["created_by"]),
+            # created_by 为 FK 自带索引，勿重复声明
         ]
 
     def __str__(self) -> str:

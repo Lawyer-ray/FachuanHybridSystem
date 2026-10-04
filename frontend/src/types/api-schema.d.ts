@@ -401,7 +401,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1organization/login": {
+    "/api/v1/organization/login": {
         parameters: {
             query?: never;
             header?: never;
@@ -418,7 +418,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1organization/logout": {
+    "/api/v1/organization/logout": {
         parameters: {
             query?: never;
             header?: never;
@@ -435,7 +435,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1organization/register": {
+    "/api/v1/organization/register": {
         parameters: {
             query?: never;
             header?: never;
@@ -457,7 +457,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1organization/me": {
+    "/api/v1/organization/me": {
         parameters: {
             query?: never;
             header?: never;
@@ -474,7 +474,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1organization/password-reset/request": {
+    "/api/v1/organization/password-reset/request": {
         parameters: {
             query?: never;
             header?: never;
@@ -496,7 +496,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1organization/password-reset/verify": {
+    "/api/v1/organization/password-reset/verify": {
         parameters: {
             query?: never;
             header?: never;
@@ -518,7 +518,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1organization/password-reset/confirm": {
+    "/api/v1/organization/password-reset/confirm": {
         parameters: {
             query?: never;
             header?: never;
@@ -540,7 +540,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1organization/lawyers": {
+    "/api/v1/organization/lawyers": {
         parameters: {
             query?: never;
             header?: never;
@@ -558,7 +558,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1organization/lawyers/{lawyer_id}": {
+    "/api/v1/organization/lawyers/{lawyer_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -577,7 +577,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1organization/credentials": {
+    "/api/v1/organization/credentials": {
         parameters: {
             query?: never;
             header?: never;
@@ -595,7 +595,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1organization/credentials/{cred_id}": {
+    "/api/v1/organization/credentials/{cred_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -614,7 +614,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1organization/lawfirms": {
+    "/api/v1/organization/lawfirms": {
         parameters: {
             query?: never;
             header?: never;
@@ -632,7 +632,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1organization/lawfirms/{law_firm_id}": {
+    "/api/v1/organization/lawfirms/{law_firm_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -651,7 +651,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1organization/teams": {
+    "/api/v1/organization/teams": {
         parameters: {
             query?: never;
             header?: never;
@@ -669,7 +669,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1organization/teams/{team_id}": {
+    "/api/v1/organization/teams/{team_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -688,7 +688,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/clients": {
+    "/api/v1/client/clients": {
         parameters: {
             query?: never;
             header?: never;
@@ -712,7 +712,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/parties/search": {
+    "/api/v1/client/parties/search": {
         parameters: {
             query?: never;
             header?: never;
@@ -734,7 +734,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/clients/parse-text": {
+    "/api/v1/client/clients/parse-text": {
         parameters: {
             query?: never;
             header?: never;
@@ -754,7 +754,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/parse-text": {
+    "/api/v1/client/parse-text": {
         parameters: {
             query?: never;
             header?: never;
@@ -774,7 +774,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/clients/validate-id-card": {
+    "/api/v1/client/clients/validate-id-card": {
         parameters: {
             query?: never;
             header?: never;
@@ -794,7 +794,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/clients/check-oa-credential": {
+    "/api/v1/client/clients/check-oa-credential": {
         parameters: {
             query?: never;
             header?: never;
@@ -814,7 +814,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/clients/{client_id}": {
+    "/api/v1/client/clients/{client_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -842,7 +842,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/clients-with-docs": {
+    "/api/v1/client/clients-with-docs": {
         parameters: {
             query?: never;
             header?: never;
@@ -862,7 +862,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/clients/{client_id}/related-items": {
+    "/api/v1/client/clients/{client_id}/related-items": {
         parameters: {
             query?: never;
             header?: never;
@@ -882,7 +882,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/clients/enterprise/search": {
+    "/api/v1/client/clients/enterprise/search": {
         parameters: {
             query?: never;
             header?: never;
@@ -899,7 +899,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/clients/enterprise/prefill": {
+    "/api/v1/client/clients/enterprise/prefill": {
         parameters: {
             query?: never;
             header?: never;
@@ -916,7 +916,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/identity-doc/recognize": {
+    "/api/v1/client/identity-doc/recognize": {
         parameters: {
             query?: never;
             header?: never;
@@ -936,7 +936,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/clients/{client_id}/identity-docs": {
+    "/api/v1/client/clients/{client_id}/identity-docs": {
         parameters: {
             query?: never;
             header?: never;
@@ -956,7 +956,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/identity-docs/merge-id-card": {
+    "/api/v1/client/identity-docs/merge-id-card": {
         parameters: {
             query?: never;
             header?: never;
@@ -976,7 +976,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/identity-docs/merge-id-card-direct": {
+    "/api/v1/client/identity-docs/merge-id-card-direct": {
         parameters: {
             query?: never;
             header?: never;
@@ -996,7 +996,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/identity-docs/merge-id-card-manual": {
+    "/api/v1/client/identity-docs/merge-id-card-manual": {
         parameters: {
             query?: never;
             header?: never;
@@ -1016,7 +1016,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/identity-docs/bind-merged": {
+    "/api/v1/client/identity-docs/bind-merged": {
         parameters: {
             query?: never;
             header?: never;
@@ -1036,7 +1036,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/identity-docs/{doc_id}": {
+    "/api/v1/client/identity-docs/{doc_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1074,7 +1074,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/identity-doc/recognize/submit": {
+    "/api/v1/client/identity-doc/recognize/submit": {
         parameters: {
             query?: never;
             header?: never;
@@ -1097,7 +1097,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/identity-doc/task/{task_id}": {
+    "/api/v1/client/identity-doc/task/{task_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1120,7 +1120,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/clients/{client_id}/property-clues": {
+    "/api/v1/client/clients/{client_id}/property-clues": {
         parameters: {
             query?: never;
             header?: never;
@@ -1158,7 +1158,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/property-clues/content-template": {
+    "/api/v1/client/property-clues/content-template": {
         parameters: {
             query?: never;
             header?: never;
@@ -1185,7 +1185,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/property-clues/{clue_id}": {
+    "/api/v1/client/property-clues/{clue_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1234,7 +1234,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/property-clues/{clue_id}/attachments": {
+    "/api/v1/client/property-clues/{clue_id}/attachments": {
         parameters: {
             query?: never;
             header?: never;
@@ -1254,7 +1254,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1client/property-clue-attachments/{attachment_id}": {
+    "/api/v1/client/property-clue-attachments/{attachment_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1281,7 +1281,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/cases/search": {
+    "/api/v1/cases/cases/search": {
         parameters: {
             query?: never;
             header?: never;
@@ -1301,7 +1301,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/cases": {
+    "/api/v1/cases/cases": {
         parameters: {
             query?: never;
             header?: never;
@@ -1330,7 +1330,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/cases/{case_id}": {
+    "/api/v1/cases/cases/{case_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1358,7 +1358,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/cases/full": {
+    "/api/v1/cases/cases/full": {
         parameters: {
             query?: never;
             header?: never;
@@ -1378,7 +1378,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/parties": {
+    "/api/v1/cases/parties": {
         parameters: {
             query?: never;
             header?: never;
@@ -1396,7 +1396,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/parties/{party_id}": {
+    "/api/v1/cases/parties/{party_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1415,7 +1415,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/assignments": {
+    "/api/v1/cases/assignments": {
         parameters: {
             query?: never;
             header?: never;
@@ -1433,7 +1433,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/assignments/{assignment_id}": {
+    "/api/v1/cases/assignments/{assignment_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1452,7 +1452,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/logs": {
+    "/api/v1/cases/logs": {
         parameters: {
             query?: never;
             header?: never;
@@ -1476,7 +1476,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/logs/{log_id}": {
+    "/api/v1/cases/logs/{log_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1504,7 +1504,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/logs/{log_id}/attachments": {
+    "/api/v1/cases/logs/{log_id}/attachments": {
         parameters: {
             query?: never;
             header?: never;
@@ -1524,7 +1524,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/grants": {
+    "/api/v1/cases/grants": {
         parameters: {
             query?: never;
             header?: never;
@@ -1542,7 +1542,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/grants/{grant_id}": {
+    "/api/v1/cases/grants/{grant_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1561,7 +1561,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/case-numbers": {
+    "/api/v1/cases/case-numbers": {
         parameters: {
             query?: never;
             header?: never;
@@ -1585,7 +1585,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/case-numbers/{number_id}": {
+    "/api/v1/cases/case-numbers/{number_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1613,7 +1613,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/upload-temp-document": {
+    "/api/v1/cases/upload-temp-document": {
         parameters: {
             query?: never;
             header?: never;
@@ -1633,7 +1633,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/causes-data": {
+    "/api/v1/cases/causes-data": {
         parameters: {
             query?: never;
             header?: never;
@@ -1657,7 +1657,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/causes-tree": {
+    "/api/v1/cases/causes-tree": {
         parameters: {
             query?: never;
             header?: never;
@@ -1679,7 +1679,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/cause/{cause_id}": {
+    "/api/v1/cases/cause/{cause_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1701,7 +1701,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/courts-data": {
+    "/api/v1/cases/courts-data": {
         parameters: {
             query?: never;
             header?: never;
@@ -1724,7 +1724,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/calculate-fee": {
+    "/api/v1/cases/calculate-fee": {
         parameters: {
             query?: never;
             header?: never;
@@ -1750,7 +1750,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/{case_id}/generate-folder": {
+    "/api/v1/cases/{case_id}/generate-folder": {
         parameters: {
             query?: never;
             header?: never;
@@ -1772,7 +1772,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/{case_id}/folder-binding": {
+    "/api/v1/cases/{case_id}/folder-binding": {
         parameters: {
             query?: never;
             header?: never;
@@ -1804,7 +1804,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/{case_id}/contract-folder-path": {
+    "/api/v1/cases/{case_id}/contract-folder-path": {
         parameters: {
             query?: never;
             header?: never;
@@ -1824,7 +1824,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/folder-browse": {
+    "/api/v1/cases/folder-browse": {
         parameters: {
             query?: never;
             header?: never;
@@ -1841,7 +1841,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/cloud-storage-accounts": {
+    "/api/v1/cases/cloud-storage-accounts": {
         parameters: {
             query?: never;
             header?: never;
@@ -1861,7 +1861,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/{case_id}/materials/bind-candidates": {
+    "/api/v1/cases/{case_id}/materials/bind-candidates": {
         parameters: {
             query?: never;
             header?: never;
@@ -1878,7 +1878,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/{case_id}/materials/bind": {
+    "/api/v1/cases/{case_id}/materials/bind": {
         parameters: {
             query?: never;
             header?: never;
@@ -1895,7 +1895,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/{case_id}/materials/group-order": {
+    "/api/v1/cases/{case_id}/materials/group-order": {
         parameters: {
             query?: never;
             header?: never;
@@ -1912,7 +1912,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/{case_id}/materials/upload": {
+    "/api/v1/cases/{case_id}/materials/upload": {
         parameters: {
             query?: never;
             header?: never;
@@ -1929,7 +1929,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/{case_id}/materials/{material_id}/replace": {
+    "/api/v1/cases/{case_id}/materials/{material_id}/replace": {
         parameters: {
             query?: never;
             header?: never;
@@ -1949,7 +1949,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/{case_id}/materials/group-rename": {
+    "/api/v1/cases/{case_id}/materials/group-rename": {
         parameters: {
             query?: never;
             header?: never;
@@ -1969,7 +1969,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/{case_id}/materials/attachments": {
+    "/api/v1/cases/{case_id}/materials/attachments": {
         parameters: {
             query?: never;
             header?: never;
@@ -1989,7 +1989,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/{case_id}/materials/{material_id}": {
+    "/api/v1/cases/{case_id}/materials/{material_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2009,7 +2009,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/{case_id}/materials": {
+    "/api/v1/cases/{case_id}/materials": {
         parameters: {
             query?: never;
             header?: never;
@@ -2029,7 +2029,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/{case_id}/folder-scan": {
+    "/api/v1/cases/{case_id}/folder-scan": {
         parameters: {
             query?: never;
             header?: never;
@@ -2046,7 +2046,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/{case_id}/folder-scan/subfolders": {
+    "/api/v1/cases/{case_id}/folder-scan/subfolders": {
         parameters: {
             query?: never;
             header?: never;
@@ -2063,7 +2063,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/{case_id}/folder-scan/{session_id}": {
+    "/api/v1/cases/{case_id}/folder-scan/{session_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2080,7 +2080,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/{case_id}/folder-scan/{session_id}/stage": {
+    "/api/v1/cases/{case_id}/folder-scan/{session_id}/stage": {
         parameters: {
             query?: never;
             header?: never;
@@ -2097,7 +2097,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/{case_id}/template-bindings": {
+    "/api/v1/cases/{case_id}/template-bindings": {
         parameters: {
             query?: never;
             header?: never;
@@ -2125,7 +2125,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/{case_id}/template-bindings/{binding_id}": {
+    "/api/v1/cases/{case_id}/template-bindings/{binding_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2147,7 +2147,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/{case_id}/available-templates": {
+    "/api/v1/cases/{case_id}/available-templates": {
         parameters: {
             query?: never;
             header?: never;
@@ -2169,7 +2169,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/{case_id}/generate-template": {
+    "/api/v1/cases/{case_id}/generate-template": {
         parameters: {
             query?: never;
             header?: never;
@@ -2199,7 +2199,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1cases/{case_id}/unified-generate": {
+    "/api/v1/cases/{case_id}/unified-generate": {
         parameters: {
             query?: never;
             header?: never;
@@ -2232,7 +2232,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contacts/contacts": {
+    "/api/v1/contacts/contacts": {
         parameters: {
             query?: never;
             header?: never;
@@ -2250,7 +2250,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contacts/contacts/search": {
+    "/api/v1/contacts/contacts/search": {
         parameters: {
             query?: never;
             header?: never;
@@ -2267,7 +2267,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contacts/contacts/{contact_id}": {
+    "/api/v1/contacts/contacts/{contact_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2286,7 +2286,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/contracts": {
+    "/api/v1/contracts/contracts": {
         parameters: {
             query?: never;
             header?: never;
@@ -2315,7 +2315,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/contracts/full": {
+    "/api/v1/contracts/contracts/full": {
         parameters: {
             query?: never;
             header?: never;
@@ -2332,7 +2332,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/contracts/{contract_id}": {
+    "/api/v1/contracts/contracts/{contract_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2356,7 +2356,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/contracts/{contract_id}/lawyers": {
+    "/api/v1/contracts/contracts/{contract_id}/lawyers": {
         parameters: {
             query?: never;
             header?: never;
@@ -2373,7 +2373,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/contracts/{contract_id}/all-parties": {
+    "/api/v1/contracts/contracts/{contract_id}/all-parties": {
         parameters: {
             query?: never;
             header?: never;
@@ -2390,7 +2390,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/contracts/{contract_id}/parties": {
+    "/api/v1/contracts/contracts/{contract_id}/parties": {
         parameters: {
             query?: never;
             header?: never;
@@ -2410,7 +2410,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/contracts/{contract_id}/parties/{client_id}": {
+    "/api/v1/contracts/contracts/{contract_id}/parties/{client_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2430,7 +2430,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/finance/payments": {
+    "/api/v1/contracts/finance/payments": {
         parameters: {
             query?: never;
             header?: never;
@@ -2454,7 +2454,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/finance/payments/{payment_id}": {
+    "/api/v1/contracts/finance/payments/{payment_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2478,7 +2478,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/finance/stats": {
+    "/api/v1/contracts/finance/stats": {
         parameters: {
             query?: never;
             header?: never;
@@ -2504,7 +2504,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/supplementary-agreements": {
+    "/api/v1/contracts/supplementary-agreements": {
         parameters: {
             query?: never;
             header?: never;
@@ -2521,7 +2521,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/supplementary-agreements/{agreement_id}": {
+    "/api/v1/contracts/supplementary-agreements/{agreement_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2540,7 +2540,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/contracts/{contract_id}/supplementary-agreements": {
+    "/api/v1/contracts/contracts/{contract_id}/supplementary-agreements": {
         parameters: {
             query?: never;
             header?: never;
@@ -2557,7 +2557,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/{contract_id}/folder-binding": {
+    "/api/v1/contracts/{contract_id}/folder-binding": {
         parameters: {
             query?: never;
             header?: never;
@@ -2613,7 +2613,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/folder-browse": {
+    "/api/v1/contracts/folder-browse": {
         parameters: {
             query?: never;
             header?: never;
@@ -2630,7 +2630,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/cloud-storage-accounts": {
+    "/api/v1/contracts/cloud-storage-accounts": {
         parameters: {
             query?: never;
             header?: never;
@@ -2650,7 +2650,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/{contract_id}/folder-scan": {
+    "/api/v1/contracts/{contract_id}/folder-scan": {
         parameters: {
             query?: never;
             header?: never;
@@ -2667,7 +2667,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/{contract_id}/folder-scan/subfolders": {
+    "/api/v1/contracts/{contract_id}/folder-scan/subfolders": {
         parameters: {
             query?: never;
             header?: never;
@@ -2684,7 +2684,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/{contract_id}/folder-scan/latest": {
+    "/api/v1/contracts/{contract_id}/folder-scan/latest": {
         parameters: {
             query?: never;
             header?: never;
@@ -2704,7 +2704,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/{contract_id}/folder-scan/{session_id}": {
+    "/api/v1/contracts/{contract_id}/folder-scan/{session_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2721,7 +2721,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/{contract_id}/folder-scan/{session_id}/confirm": {
+    "/api/v1/contracts/{contract_id}/folder-scan/{session_id}/confirm": {
         parameters: {
             query?: never;
             header?: never;
@@ -2738,7 +2738,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/archive/learn-rules": {
+    "/api/v1/contracts/archive/learn-rules": {
         parameters: {
             query?: never;
             header?: never;
@@ -2758,7 +2758,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/{contract_id}/archive/download-item/{archive_item_code}": {
+    "/api/v1/contracts/{contract_id}/archive/download-item/{archive_item_code}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2778,7 +2778,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/{contract_id}/archive/checklist": {
+    "/api/v1/contracts/{contract_id}/archive/checklist": {
         parameters: {
             query?: never;
             header?: never;
@@ -2798,7 +2798,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/{contract_id}/archive/generate-folder": {
+    "/api/v1/contracts/{contract_id}/archive/generate-folder": {
         parameters: {
             query?: never;
             header?: never;
@@ -2818,7 +2818,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/{contract_id}/archive/toggle-compact": {
+    "/api/v1/contracts/{contract_id}/archive/toggle-compact": {
         parameters: {
             query?: never;
             header?: never;
@@ -2838,7 +2838,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/{contract_id}/archive/sync-case-materials": {
+    "/api/v1/contracts/{contract_id}/archive/sync-case-materials": {
         parameters: {
             query?: never;
             header?: never;
@@ -2858,7 +2858,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/{contract_id}/archive/reset-and-resync": {
+    "/api/v1/contracts/{contract_id}/archive/reset-and-resync": {
         parameters: {
             query?: never;
             header?: never;
@@ -2878,7 +2878,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/{contract_id}/archive/scale-to-a4": {
+    "/api/v1/contracts/{contract_id}/archive/scale-to-a4": {
         parameters: {
             query?: never;
             header?: never;
@@ -2898,7 +2898,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/{contract_id}/archive/confirm": {
+    "/api/v1/contracts/{contract_id}/archive/confirm": {
         parameters: {
             query?: never;
             header?: never;
@@ -2918,7 +2918,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/{contract_id}/archive/upload": {
+    "/api/v1/contracts/{contract_id}/archive/upload": {
         parameters: {
             query?: never;
             header?: never;
@@ -2938,7 +2938,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/{contract_id}/archive/materials/{material_id}": {
+    "/api/v1/contracts/{contract_id}/archive/materials/{material_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2958,7 +2958,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/{contract_id}/archive/reorder": {
+    "/api/v1/contracts/{contract_id}/archive/reorder": {
         parameters: {
             query?: never;
             header?: never;
@@ -2978,7 +2978,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/{contract_id}/archive/materials/{material_id}/move": {
+    "/api/v1/contracts/{contract_id}/archive/materials/{material_id}/move": {
         parameters: {
             query?: never;
             header?: never;
@@ -2998,7 +2998,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/{contract_id}/archive/materials/{material_id}/preview": {
+    "/api/v1/contracts/{contract_id}/archive/materials/{material_id}/preview": {
         parameters: {
             query?: never;
             header?: never;
@@ -3018,7 +3018,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1contracts/{contract_id}/archive/clear-all": {
+    "/api/v1/contracts/{contract_id}/archive/clear-all": {
         parameters: {
             query?: never;
             header?: never;
@@ -3038,7 +3038,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/document-processor/process": {
+    "/api/v1/automation/document-processor/process": {
         parameters: {
             query?: never;
             header?: never;
@@ -3058,7 +3058,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/document-processor/process-by-path": {
+    "/api/v1/automation/document-processor/process-by-path": {
         parameters: {
             query?: never;
             header?: never;
@@ -3078,7 +3078,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/auto-namer/process": {
+    "/api/v1/automation/auto-namer/process": {
         parameters: {
             query?: never;
             header?: never;
@@ -3098,7 +3098,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/auto-namer/process-by-path": {
+    "/api/v1/automation/auto-namer/process-by-path": {
         parameters: {
             query?: never;
             header?: never;
@@ -3118,7 +3118,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/captcha/recognize": {
+    "/api/v1/automation/captcha/recognize": {
         parameters: {
             query?: never;
             header?: never;
@@ -3178,7 +3178,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/captcha/manual/{task_id}/image": {
+    "/api/v1/automation/captcha/manual/{task_id}/image": {
         parameters: {
             query?: never;
             header?: never;
@@ -3200,7 +3200,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/captcha/manual/{task_id}/answer": {
+    "/api/v1/automation/captcha/manual/{task_id}/answer": {
         parameters: {
             query?: never;
             header?: never;
@@ -3223,7 +3223,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/preservation-quotes": {
+    "/api/v1/automation/preservation-quotes": {
         parameters: {
             query?: never;
             header?: never;
@@ -3277,7 +3277,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/preservation-quotes/{quote_id}": {
+    "/api/v1/automation/preservation-quotes/{quote_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -3308,7 +3308,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/preservation-quotes/{quote_id}/execute": {
+    "/api/v1/automation/preservation-quotes/{quote_id}/execute": {
         parameters: {
             query?: never;
             header?: never;
@@ -3350,7 +3350,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/preservation-quotes/{quote_id}/retry": {
+    "/api/v1/automation/preservation-quotes/{quote_id}/retry": {
         parameters: {
             query?: never;
             header?: never;
@@ -3391,7 +3391,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/court-sms": {
+    "/api/v1/automation/court-sms": {
         parameters: {
             query?: never;
             header?: never;
@@ -3420,7 +3420,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/court-sms/form": {
+    "/api/v1/automation/court-sms/form": {
         parameters: {
             query?: never;
             header?: never;
@@ -3442,7 +3442,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/court-sms/{sms_id}": {
+    "/api/v1/automation/court-sms/{sms_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -3468,7 +3468,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/court-sms/{sms_id}/assign-case": {
+    "/api/v1/automation/court-sms/{sms_id}/assign-case": {
         parameters: {
             query?: never;
             header?: never;
@@ -3490,7 +3490,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/court-sms/{sms_id}/retry": {
+    "/api/v1/automation/court-sms/{sms_id}/retry": {
         parameters: {
             query?: never;
             header?: never;
@@ -3513,7 +3513,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/court-sms/batch-delete": {
+    "/api/v1/automation/court-sms/batch-delete": {
         parameters: {
             query?: never;
             header?: never;
@@ -3533,7 +3533,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/court-sms/{sms_id}/abort-and-delete": {
+    "/api/v1/automation/court-sms/{sms_id}/abort-and-delete": {
         parameters: {
             query?: never;
             header?: never;
@@ -3557,7 +3557,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/court-sms/{sms_id}/documents/{ref_index}/download": {
+    "/api/v1/automation/court-sms/{sms_id}/documents/{ref_index}/download": {
         parameters: {
             query?: never;
             header?: never;
@@ -3577,7 +3577,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/court-sms/{sms_id}/documents/copy-to-clipboard": {
+    "/api/v1/automation/court-sms/{sms_id}/documents/copy-to-clipboard": {
         parameters: {
             query?: never;
             header?: never;
@@ -3601,7 +3601,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/court-sms/{sms_id}/documents/download-all": {
+    "/api/v1/automation/court-sms/{sms_id}/documents/download-all": {
         parameters: {
             query?: never;
             header?: never;
@@ -3621,7 +3621,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/court-sms/{sms_id}/documents/{ref_index}/rename": {
+    "/api/v1/automation/court-sms/{sms_id}/documents/{ref_index}/rename": {
         parameters: {
             query?: never;
             header?: never;
@@ -3641,7 +3641,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/file/upload": {
+    "/api/v1/automation/file/upload": {
         parameters: {
             query?: never;
             header?: never;
@@ -3661,7 +3661,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/config": {
+    "/api/v1/automation/config": {
         parameters: {
             query?: never;
             header?: never;
@@ -3681,7 +3681,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/status": {
+    "/api/v1/automation/status": {
         parameters: {
             query?: never;
             header?: never;
@@ -3701,7 +3701,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/performance/metrics": {
+    "/api/v1/automation/performance/metrics": {
         parameters: {
             query?: never;
             header?: never;
@@ -3721,7 +3721,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/performance/statistics": {
+    "/api/v1/automation/performance/statistics": {
         parameters: {
             query?: never;
             header?: never;
@@ -3741,7 +3741,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/performance/health": {
+    "/api/v1/automation/performance/health": {
         parameters: {
             query?: never;
             header?: never;
@@ -3761,7 +3761,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/performance/resource-usage": {
+    "/api/v1/automation/performance/resource-usage": {
         parameters: {
             query?: never;
             header?: never;
@@ -3781,7 +3781,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/performance/optimize-concurrency": {
+    "/api/v1/automation/performance/optimize-concurrency": {
         parameters: {
             query?: never;
             header?: never;
@@ -3801,7 +3801,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/performance/cache-stats": {
+    "/api/v1/automation/performance/cache-stats": {
         parameters: {
             query?: never;
             header?: never;
@@ -3821,7 +3821,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/performance/cache/warm-up": {
+    "/api/v1/automation/performance/cache/warm-up": {
         parameters: {
             query?: never;
             header?: never;
@@ -3841,7 +3841,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/performance/cache/clear": {
+    "/api/v1/automation/performance/cache/clear": {
         parameters: {
             query?: never;
             header?: never;
@@ -3861,7 +3861,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/performance/metrics/reset": {
+    "/api/v1/automation/performance/metrics/reset": {
         parameters: {
             query?: never;
             header?: never;
@@ -3881,7 +3881,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1automation/performance/resources/cleanup": {
+    "/api/v1/automation/performance/resources/cleanup": {
         parameters: {
             query?: never;
             header?: never;
@@ -4750,7 +4750,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1story-viz/animations/{animation_id}": {
+    "/api/v1/story-viz/animations/{animation_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -4767,7 +4767,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1story-viz/animations/{animation_id}/retry": {
+    "/api/v1/story-viz/animations/{animation_id}/retry": {
         parameters: {
             query?: never;
             header?: never;
@@ -4784,7 +4784,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1story-viz/animations/{animation_id}/cancel": {
+    "/api/v1/story-viz/animations/{animation_id}/cancel": {
         parameters: {
             query?: never;
             header?: never;
@@ -4801,7 +4801,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1story-viz/animations/{animation_id}/preview": {
+    "/api/v1/story-viz/animations/{animation_id}/preview": {
         parameters: {
             query?: never;
             header?: never;
@@ -4818,7 +4818,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1story-viz/animations/{animation_id}/detail": {
+    "/api/v1/story-viz/animations/{animation_id}/detail": {
         parameters: {
             query?: never;
             header?: never;
@@ -4835,7 +4835,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1story-viz/animations/{animation_id}/ask": {
+    "/api/v1/story-viz/animations/{animation_id}/ask": {
         parameters: {
             query?: never;
             header?: never;
@@ -4852,7 +4852,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1story-viz/animations/models": {
+    "/api/v1/story-viz/animations/models": {
         parameters: {
             query?: never;
             header?: never;
@@ -5005,7 +5005,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1reminders/parse": {
+    "/api/v1/reminders/parse": {
         parameters: {
             query?: never;
             header?: never;
@@ -5025,7 +5025,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1reminders/list": {
+    "/api/v1/reminders/list": {
         parameters: {
             query?: never;
             header?: never;
@@ -5042,7 +5042,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1reminders/create": {
+    "/api/v1/reminders/create": {
         parameters: {
             query?: never;
             header?: never;
@@ -5059,7 +5059,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1reminders/types": {
+    "/api/v1/reminders/types": {
         parameters: {
             query?: never;
             header?: never;
@@ -5076,7 +5076,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1reminders/target-options": {
+    "/api/v1/reminders/target-options": {
         parameters: {
             query?: never;
             header?: never;
@@ -5096,7 +5096,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1reminders/calendar": {
+    "/api/v1/reminders/calendar": {
         parameters: {
             query?: never;
             header?: never;
@@ -5119,7 +5119,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1reminders/complete": {
+    "/api/v1/reminders/complete": {
         parameters: {
             query?: never;
             header?: never;
@@ -5142,7 +5142,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1reminders/{reminder_id}": {
+    "/api/v1/reminders/{reminder_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -5161,7 +5161,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1reminders/ics/feed": {
+    "/api/v1/reminders/ics/feed": {
         parameters: {
             query?: never;
             header?: never;
@@ -5186,7 +5186,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1reminders/ics/feed/token": {
+    "/api/v1/reminders/ics/feed/token": {
         parameters: {
             query?: never;
             header?: never;
@@ -5206,7 +5206,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1reminders/ics/feed/token/regenerate": {
+    "/api/v1/reminders/ics/feed/token/regenerate": {
         parameters: {
             query?: never;
             header?: never;
@@ -5226,7 +5226,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1inbox/messages": {
+    "/api/v1/inbox/messages": {
         parameters: {
             query?: never;
             header?: never;
@@ -5246,7 +5246,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1inbox/messages/upload": {
+    "/api/v1/inbox/messages/upload": {
         parameters: {
             query?: never;
             header?: never;
@@ -5266,7 +5266,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1inbox/messages/{message_id}/draft": {
+    "/api/v1/inbox/messages/{message_id}/draft": {
         parameters: {
             query?: never;
             header?: never;
@@ -5286,7 +5286,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1inbox/messages/{message_id}": {
+    "/api/v1/inbox/messages/{message_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -5314,7 +5314,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1inbox/messages/{message_id}/attachments/{part_index}/download": {
+    "/api/v1/inbox/messages/{message_id}/attachments/{part_index}/download": {
         parameters: {
             query?: never;
             header?: never;
@@ -5334,7 +5334,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1inbox/messages/{message_id}/attachments/{part_index}/preview": {
+    "/api/v1/inbox/messages/{message_id}/attachments/{part_index}/preview": {
         parameters: {
             query?: never;
             header?: never;
@@ -5354,7 +5354,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1inbox/messages/{message_id}/attachments": {
+    "/api/v1/inbox/messages/{message_id}/attachments": {
         parameters: {
             query?: never;
             header?: never;
@@ -5374,7 +5374,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1inbox/ocr": {
+    "/api/v1/inbox/ocr": {
         parameters: {
             query?: never;
             header?: never;
@@ -5394,7 +5394,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1inbox/messages/{message_id}/attachments/{part_index}/rename": {
+    "/api/v1/inbox/messages/{message_id}/attachments/{part_index}/rename": {
         parameters: {
             query?: never;
             header?: never;
@@ -5414,7 +5414,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1inbox/sources": {
+    "/api/v1/inbox/sources": {
         parameters: {
             query?: never;
             header?: never;
@@ -5432,7 +5432,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1inbox/sources/{source_id}": {
+    "/api/v1/inbox/sources/{source_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -5451,7 +5451,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1inbox/sources/{source_id}/sync": {
+    "/api/v1/inbox/sources/{source_id}/sync": {
         parameters: {
             query?: never;
             header?: never;
@@ -5468,7 +5468,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1inbox/sources/sync-all": {
+    "/api/v1/inbox/sources/sync-all": {
         parameters: {
             query?: never;
             header?: never;
@@ -9163,7 +9163,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1social/providers": {
+    "/api/v1/social/providers": {
         parameters: {
             query?: never;
             header?: never;
@@ -9183,7 +9183,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1social/{provider}/session": {
+    "/api/v1/social/{provider}/session": {
         parameters: {
             query?: never;
             header?: never;
@@ -9210,7 +9210,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1social/token-exchange": {
+    "/api/v1/social/token-exchange": {
         parameters: {
             query?: never;
             header?: never;
@@ -9233,7 +9233,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1social/bindings": {
+    "/api/v1/social/bindings": {
         parameters: {
             query?: never;
             header?: never;
@@ -9253,7 +9253,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1social/{provider}/bind-session": {
+    "/api/v1/social/{provider}/bind-session": {
         parameters: {
             query?: never;
             header?: never;
@@ -9277,7 +9277,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1social/{provider}/bind": {
+    "/api/v1/social/{provider}/bind": {
         parameters: {
             query?: never;
             header?: never;
@@ -9297,7 +9297,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1social/provider-catalog": {
+    "/api/v1/social/provider-catalog": {
         parameters: {
             query?: never;
             header?: never;

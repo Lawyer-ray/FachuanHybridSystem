@@ -169,15 +169,39 @@ class CaseMaterialService:
             raise ValidationException(message=_("包含无效的材料类型"), errors={"type_ids": missing})
 
         with transaction.atomic():
-            for idx, type_id in enumerate(ordered_type_ids):
-                CaseMaterialGroupOrder.objects.update_or_create(
+            # 先查既有行再批量写，替代逐条 update_or_create（N 次 SELECT + N 次 UPSERT）
+            existing_rows = {
+                row.type_id: row
+                for row in CaseMaterialGroupOrder.objects.filter(
                     case_id=case_id,
                     category=category,
                     side=side,
                     supervising_authority_id=supervising_authority_id,
-                    type_id=type_id,
-                    defaults={"sort_index": idx},
+                    type_id__in=list(ordered_type_ids),
                 )
+            }
+            to_create: list[CaseMaterialGroupOrder] = []
+            to_update: list[CaseMaterialGroupOrder] = []
+            for idx, type_id in enumerate(ordered_type_ids):
+                row = existing_rows.get(type_id)
+                if row is None:
+                    to_create.append(
+                        CaseMaterialGroupOrder(
+                            case_id=case_id,
+                            category=category,
+                            side=side,
+                            supervising_authority_id=supervising_authority_id,
+                            type_id=type_id,
+                            sort_index=idx,
+                        )
+                    )
+                elif row.sort_index != idx:
+                    row.sort_index = idx
+                    to_update.append(row)
+            if to_create:
+                CaseMaterialGroupOrder.objects.bulk_create(to_create)
+            if to_update:
+                CaseMaterialGroupOrder.objects.bulk_update(to_update, ["sort_index"])
 
     def _resolve_type(
         self,
@@ -339,20 +363,17 @@ class CaseMaterialService:
         old_attachment = material.source_attachment
         old_attachment_id_val = material.source_attachment_id
 
-        # 切换到新附件
-        material.source_attachment = new_attachment
-        material.save(update_fields=["source_attachment"])
+        with transaction.atomic():
+            # 切换到新附件并删除旧附件行；旧附件物理文件由 post_delete 信号
+            # （apps/cases/signals.py，内部 transaction.on_commit）在事务提交后清理，
+            # 避免事务回滚后数据库行仍在、物理文件已被删。
+            material.source_attachment = new_attachment
+            material.save(update_fields=["source_attachment"])
 
-        # 删除旧附件（含物理文件）
-        if old_attachment:
-            old_attachment_file = getattr(old_attachment, "file", None)
-            if old_attachment_file:
-                try:
-                    old_attachment_file.delete(save=False)
-                except Exception:
-                    logger.warning("删除旧附件物理文件失败: attachment_id=%s", old_attachment_id_val)
-            old_attachment.delete()
-            logger.info("旧附件已删除: attachment_id=%s", old_attachment_id_val)
+            # 删除旧附件
+            if old_attachment:
+                old_attachment.delete()
+                logger.info("旧附件已删除: attachment_id=%s", old_attachment_id_val)
 
         logger.info(
             "材料文件已替换: material_id=%s, old_attachment_id=%s, new_attachment_id=%s",
@@ -479,20 +500,16 @@ class CaseMaterialService:
         attachment_id_val = material.source_attachment_id
         attachment = material.source_attachment
 
-        # 先删除材料记录（解除 OneToOne 关系）
-        material.delete()
+        with transaction.atomic():
+            # 先删除材料记录（解除 OneToOne 关系）；附件物理文件由 post_delete 信号
+            # （apps/cases/signals.py，内部 transaction.on_commit）在事务提交后清理
+            material.delete()
 
-        # 再删除附件（含物理文件），source_attachment on_delete=CASCADE 会级联，
-        # 但我们已经先删了 material，所以需要手动删附件
-        if attachment:
-            attachment_file = getattr(attachment, "file", None)
-            if attachment_file:
-                try:
-                    attachment_file.delete(save=False)
-                except Exception:
-                    logger.warning("删除附件物理文件失败: attachment_id=%s", attachment_id_val)
-            attachment.delete()
-            logger.info("附件已删除: attachment_id=%s", attachment_id_val)
+            # 再删除附件，source_attachment on_delete=CASCADE 会级联，
+            # 但我们已经先删了 material，所以需要手动删附件
+            if attachment:
+                attachment.delete()
+                logger.info("附件已删除: attachment_id=%s", attachment_id_val)
 
         logger.info(
             "材料已删除: material_id=%s, case_id=%s, attachment_id=%s", material_id_val, case_id, attachment_id_val
@@ -534,9 +551,8 @@ class CaseMaterialService:
             CaseMaterial.objects.filter(pk__in=material_ids).delete()
             if attachment_ids:
                 CaseLogAttachment.objects.filter(pk__in=attachment_ids).delete()
-
-        # 清理该分类下的分组排序记录
-        CaseMaterialGroupOrder.objects.filter(case_id=case_id, category=category).delete()
+            # 清理该分类下的分组排序记录（与材料删除同事务）
+            CaseMaterialGroupOrder.objects.filter(case_id=case_id, category=category).delete()
 
         logger.info("批量删除材料完成: case_id=%s, category=%s, deleted_count=%s", case_id, category, deleted_count)
         return {"category": category, "deleted_count": deleted_count}

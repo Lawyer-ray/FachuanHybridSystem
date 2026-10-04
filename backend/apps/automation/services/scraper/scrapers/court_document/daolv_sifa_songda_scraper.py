@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urljoin, urlparse
 
-import requests
+import httpx
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
@@ -30,6 +30,25 @@ from django.core.files.storage import default_storage
 from .base_court_scraper import BaseCourtDocumentScraper
 
 logger = logging.getLogger("apps.automation")
+
+
+def _response_text(response: httpx.Response) -> str:
+    """requests 兼容的 HTML 解码：响应头无 charset 时用 charset_normalizer 检测。
+
+    requests 的 ``.text`` 在缺省 charset 头时退到 ``apparent_encoding``
+    （charset_normalizer 内容检测），httpx 固定按 utf-8 解码；列表页
+    ``<td title="...">`` 的中文标题解析依赖解码正确性，这里保持 requests
+    语义（实测道律平台响应头均带 charset=utf-8，此为缺省场景兜底，
+    charset_normalizer 缺失时回退 httpx 默认 utf-8）。
+    """
+    if response.charset_encoding:
+        return response.text
+    try:
+        from charset_normalizer import from_bytes
+    except ImportError:
+        return response.text
+    best = from_bytes(response.content).best()
+    return str(best) if best else response.text
 
 
 class DaolvSifaSongdaScraper(BaseCourtDocumentScraper):  # pragma: no cover
@@ -87,7 +106,9 @@ class DaolvSifaSongdaScraper(BaseCourtDocumentScraper):  # pragma: no cover
         task_config = self.task.config if isinstance(self.task.config, dict) else {}
         account, login_secret = self._resolve_account_credentials(task_config)
 
-        session = requests.Session()
+        # 登录链依赖会话 cookie（JSESSIONID），且平台存在多跳 302；
+        # follow_redirects=True 对齐 requests.Session 默认行为（httpx 默认不跟）
+        session = httpx.Client(follow_redirects=True)
         session.headers.update(
             {
                 "User-Agent": (
@@ -199,7 +220,7 @@ class DaolvSifaSongdaScraper(BaseCourtDocumentScraper):  # pragma: no cover
     # ── 登录 ─────────────────────────────────────────────────────
 
     def _login_account_session(
-        self, session: requests.Session, account: str, login_secret: str
+        self, session: httpx.Client, account: str, login_secret: str
     ) -> None:  # pragma: no cover
         label = self._PLATFORM_LABEL
         landing = session.get(self._LOGIN_PAGE_URL, timeout=20)
@@ -253,9 +274,7 @@ class DaolvSifaSongdaScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     # ── 文书列表 ─────────────────────────────────────────────────
 
-    def _fetch_record_entries(
-        self, session: requests.Session, list_url: str
-    ) -> list[dict[str, str]]:  # pragma: no cover
+    def _fetch_record_entries(self, session: httpx.Client, list_url: str) -> list[dict[str, str]]:  # pragma: no cover
         resp = session.get(list_url, headers={"Referer": self._MAIN_URL}, timeout=20)
         if resp.status_code >= 500:
             time.sleep(1)
@@ -264,7 +283,7 @@ class DaolvSifaSongdaScraper(BaseCourtDocumentScraper):  # pragma: no cover
         if resp.status_code != 200:
             return []
 
-        text = resp.text
+        text = _response_text(resp)
         pattern = re.compile(
             r"<td\s+title=\"(?P<title>[^\"]*)\">.*?"
             r"onclick=\"toViewInput\('(?P<id>[^']+)'\);return false;\"",
@@ -285,14 +304,14 @@ class DaolvSifaSongdaScraper(BaseCourtDocumentScraper):  # pragma: no cover
     # ── 文书下载 ─────────────────────────────────────────────────
 
     def _download_record_document(
-        self, session: requests.Session, doc_id: str, title: str, download_dir: Path
+        self, session: httpx.Client, doc_id: str, title: str, download_dir: Path
     ) -> str | None:  # pragma: no cover
         input_url = f"{self._MAIN_URL.rsplit('/', 1)[0]}/TdeliPubRecord/tdelipubrecord!input.action?id={doc_id}"
         resp = session.get(input_url, headers={"Referer": self._MAIN_URL}, timeout=20)
         if resp.status_code != 200:
             return None
 
-        html_text = resp.text
+        html_text = _response_text(resp)
         candidates = self._extract_download_candidates(html_text)
         if not candidates:
             return None
@@ -331,7 +350,7 @@ class DaolvSifaSongdaScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     # ── 工具方法 ─────────────────────────────────────────────────
 
-    def _guess_filename(self, response: requests.Response, url: str, title: str) -> str:
+    def _guess_filename(self, response: httpx.Response, url: str, title: str) -> str:
         disposition = response.headers.get("Content-Disposition", "")
         filename_match = re.search(r"filename\*=UTF-8''([^;]+)", disposition, flags=re.IGNORECASE)
         if filename_match:

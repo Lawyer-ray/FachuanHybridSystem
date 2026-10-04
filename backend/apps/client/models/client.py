@@ -15,21 +15,26 @@ if TYPE_CHECKING:
     from .property_clue import PropertyClue
 
 
+class ClientType(models.TextChoices):
+    NATURAL = "natural", "自然人"
+    LEGAL = "legal", "法人"
+    NON_LEGAL_ORG = "non_legal_org", "非法人组织"
+
+
 class Client(models.Model):
     id: int
-    NATURAL = "natural"
-    LEGAL = "legal"
-    NON_LEGAL_ORG = "non_legal_org"
-    CLIENT_TYPE_CHOICES: ClassVar[list[tuple[str, str]]] = [
-        (NATURAL, "自然人"),
-        (LEGAL, "法人"),
-        (NON_LEGAL_ORG, "非法人组织"),
-    ]
+    # 枚举化前的历史常量别名（数据库值不变），消费方仍可 Client.NATURAL 引用
+    NATURAL = ClientType.NATURAL
+    LEGAL = ClientType.LEGAL
+    NON_LEGAL_ORG = ClientType.NON_LEGAL_ORG
+    CLIENT_TYPE_CHOICES: ClassVar[list[tuple[str, Any]]] = ClientType.choices
 
     name = models.CharField(max_length=255, verbose_name="名称")
     phone = models.CharField(max_length=20, blank=True, default="", verbose_name="联系电话")
     address = models.CharField(max_length=255, blank=True, default="", verbose_name="住所地")
-    client_type = models.CharField(max_length=16, choices=CLIENT_TYPE_CHOICES, default=LEGAL, verbose_name="主体类型")
+    client_type = models.CharField(
+        max_length=16, choices=ClientType.choices, default=ClientType.LEGAL, verbose_name="主体类型"
+    )
     id_number = models.CharField(
         max_length=64, blank=True, null=True, unique=True, verbose_name="身份证号码或统一社会信用代码"
     )

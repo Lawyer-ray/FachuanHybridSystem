@@ -103,9 +103,10 @@ class CaseMaterialBindingWorkflow:
                     material.parties.clear()
                 saved.append(material)
 
-        # 根据绑定顺序自动创建/更新分组排序，保留用户文件夹顺序
-        if saved:
-            self._ensure_group_orders(case_id, saved)
+            # 根据绑定顺序自动创建/更新分组排序，保留用户文件夹顺序。
+            # 放在同一事务内，避免材料写入与分组排序部分提交。
+            if saved:
+                self._ensure_group_orders(case_id, saved)
 
         return saved
 

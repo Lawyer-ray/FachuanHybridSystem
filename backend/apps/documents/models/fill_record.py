@@ -107,8 +107,11 @@ class FillRecord(models.Model):
         verbose_name="关联案件",
     )
     template = models.ForeignKey(
+        # SET_NULL：模板删除后保留填充记录（审计历史），不再级联删除
         ExternalTemplate,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         verbose_name="关联模板",
     )
     party = models.ForeignKey(

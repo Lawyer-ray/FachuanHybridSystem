@@ -67,7 +67,7 @@ class CourtDocument(models.Model):
         ordering: ClassVar = ["-created_at"]
         indexes: ClassVar = [
             models.Index(fields=["scraper_task", "download_status"]),
-            models.Index(fields=["case"]),
+            # case 为 FK 自带索引，勿重复声明
             models.Index(fields=["c_wsbh"]),
             models.Index(fields=["c_fymc"]),
             models.Index(fields=["download_status"]),

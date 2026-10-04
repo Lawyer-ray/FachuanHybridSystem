@@ -17,11 +17,23 @@ from apps.core.exceptions import ValidationException
 from apps.core.filesystem.upload_paths import MediaEntity
 from apps.core.security.secret_codec import SecretCodec
 from apps.core.services.storage_service import to_media_abs
-from apps.legal_research.models import CaseDownloadFormat, CaseDownloadResult, CaseDownloadStatus, CaseDownloadTask
+from apps.legal_research.models import (
+    CaseDownloadFormat,
+    CaseDownloadResult,
+    CaseDownloadResultStatus,
+    CaseDownloadStatus,
+    CaseDownloadTask,
+)
+from apps.legal_research.services.executor_components.task_lifecycle import ExecutorTaskLifecycleMixin
 from apps.legal_research.services.sources import get_case_source_client
 from apps.legal_research.services.sources.weike import WeikeCaseClient, WeikeSession
 
 logger = logging.getLogger(__name__)
+
+# 逐案循环与同步 Playwright 交错：open_session 之后本线程挂着运行中循环，直连
+# sync ORM 会抛 SynchronousOnlyOperation，ORM 写统一经 _run_orm_safely 摆渡
+# （无循环时原样内联执行，行为不变）。
+_orm = ExecutorTaskLifecycleMixin._run_orm_safely
 
 
 def _safe_case_number(case_number: str) -> str:
@@ -111,7 +123,7 @@ class CaseDownloadService:  # pragma: no cover
                 # 每 5 次循环或首尾更新一次进度消息（减少 DB 写入频率）
                 if i == 1 or i == len(case_numbers) or i % 5 == 0:
                     task.message = f"正在下载 {i}/{len(case_numbers)}: {case_number}"
-                    task.save(update_fields=["message", "updated_at"])
+                    _orm(lambda: task.save(update_fields=["message", "updated_at"]))
 
                 try:
                     result_data = cls._download_single_case(
@@ -146,16 +158,18 @@ class CaseDownloadService:  # pragma: no cover
                 task.message = f"部分成功 {success_count}/{len(case_numbers)}"
 
             task.finished_at = timezone.now()
-            task.save(
-                update_fields=[
-                    "status",
-                    "message",
-                    "error",
-                    "success_count",
-                    "failed_count",
-                    "finished_at",
-                    "updated_at",
-                ]
+            _orm(
+                lambda: task.save(
+                    update_fields=[
+                        "status",
+                        "message",
+                        "error",
+                        "success_count",
+                        "failed_count",
+                        "finished_at",
+                        "updated_at",
+                    ]
+                )
             )
 
             return {
@@ -170,7 +184,7 @@ class CaseDownloadService:  # pragma: no cover
             task.status = CaseDownloadStatus.FAILED
             task.error = str(exc)
             task.finished_at = timezone.now()
-            task.save(update_fields=["status", "error", "finished_at", "updated_at"])
+            _orm(lambda: task.save(update_fields=["status", "error", "finished_at", "updated_at"]))
             return {"status": "failed", "error": str(exc)}
 
         finally:
@@ -197,12 +211,14 @@ class CaseDownloadService:  # pragma: no cover
         )
 
         if not items:
-            CaseDownloadResult.objects.create(
-                task=task,
-                case_number=case_number,
-                status="failed",
-                error_message="未找到案例",
-                file_format=file_format,
+            _orm(
+                lambda: CaseDownloadResult.objects.create(
+                    task=task,
+                    case_number=case_number,
+                    status=CaseDownloadResultStatus.FAILED,
+                    error_message="未找到案例",
+                    file_format=file_format,
+                )
             )
             return {"success": False, "error": "未找到案例"}
 
@@ -219,15 +235,17 @@ class CaseDownloadService:  # pragma: no cover
             return {"success": False, "error": f"不支持的格式: {file_format}"}
 
         if not result:
-            CaseDownloadResult.objects.create(
-                task=task,
-                case_number=case_number,
-                title=detail.title,
-                court=detail.court_text,
-                judgment_date=detail.judgment_date,
-                status="failed",
-                error_message="下载失败",
-                file_format=file_format,
+            _orm(
+                lambda: CaseDownloadResult.objects.create(
+                    task=task,
+                    case_number=case_number,
+                    title=detail.title,
+                    court=detail.court_text,
+                    judgment_date=detail.judgment_date,
+                    status=CaseDownloadResultStatus.FAILED,
+                    error_message="下载失败",
+                    file_format=file_format,
+                )
             )
             return {"success": False, "error": "下载失败"}
 
@@ -240,16 +258,18 @@ class CaseDownloadService:  # pragma: no cover
         saved_name = default_storage.save(rel_path, ContentFile(file_bytes))
 
         # 5. 保存结果
-        CaseDownloadResult.objects.create(
-            task=task,
-            case_number=case_number,
-            title=detail.title,
-            court=detail.court_text,
-            judgment_date=detail.judgment_date,
-            file_path=saved_name,
-            file_size=len(file_bytes),
-            file_format=file_format,
-            status="success",
+        _orm(
+            lambda: CaseDownloadResult.objects.create(
+                task=task,
+                case_number=case_number,
+                title=detail.title,
+                court=detail.court_text,
+                judgment_date=detail.judgment_date,
+                file_path=saved_name,
+                file_size=len(file_bytes),
+                file_format=file_format,
+                status=CaseDownloadResultStatus.SUCCESS,
+            )
         )
 
         return {"success": True, "file_path": saved_name}
@@ -270,7 +290,7 @@ class CaseDownloadService:  # pragma: no cover
         if not tasks:
             return None, "任务不存在"
 
-        results = CaseDownloadResult.objects.filter(task_id__in=task_ids, status="success")
+        results = CaseDownloadResult.objects.filter(task_id__in=task_ids, status=CaseDownloadResultStatus.SUCCESS)
         if not results.exists():
             return None, "没有可下载的文件"
 

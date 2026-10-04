@@ -64,6 +64,7 @@ export function Rail({
               <button
                 type="button"
                 title="改源文件名字"
+                aria-label="改源文件名字"
                 onClick={() => onRenameMat(mi)}
                 className="grid h-5 w-5 flex-none place-items-center rounded text-zinc-300 opacity-0 transition group-hover:opacity-100 hover:bg-card hover:text-foreground"
               >

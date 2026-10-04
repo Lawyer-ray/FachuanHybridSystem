@@ -69,7 +69,7 @@ class SystemConfig(models.Model):
         ordering: ClassVar = ["category", "key"]
         indexes: ClassVar = [
             models.Index(fields=["category"], name="core_system_categor_aa7ba2_idx"),
-            models.Index(fields=["key"], name="core_system_key_07f5b4_idx"),
+            # key 为 unique 字段自带唯一索引，勿重复声明
         ]
 
     def __str__(self) -> str:

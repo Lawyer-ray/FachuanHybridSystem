@@ -226,13 +226,29 @@ class EvidenceList(models.Model):
         indexes: ClassVar = [
             models.Index(fields=["case", "order"]),
             models.Index(fields=["case", "list_type"]),
-            models.Index(fields=["created_by"]),
+            # created_by 为 FK 自带索引，勿重复声明
         ]
         # 同一案件不能有重复的清单类型
-        constraints: ClassVar = [models.UniqueConstraint(fields=["case", "list_type"], name="unique_case_list_type")]
+        # 合并进度约束：progress 为百分比（MergeProgressReporter 按 int(current*100/total) 计算并写 100 表示完成）
+        constraints: ClassVar = [
+            models.UniqueConstraint(fields=["case", "list_type"], name="unique_case_list_type"),
+            models.CheckConstraint(
+                condition=models.Q(merge_progress__gte=0) & models.Q(merge_progress__lte=100),
+                name="chk_evidencelist_merge_progress_range",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(merge_current__gte=0), name="chk_evidencelist_merge_current_nonneg"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(merge_current__lte=models.F("merge_total")),
+                name="chk_evidencelist_merge_current_le_total",
+            ),
+            models.CheckConstraint(condition=models.Q(merge_total__gte=0), name="chk_evidencelist_merge_total_nonneg"),
+        ]
 
     def __str__(self) -> str:
-        return f"{self.case.name} - {self.title}"
+        # 用 case_id 拼接，避免 admin/日志列表逐行触发 FK 查询（N+1）
+        return f"案件#{self.case_id} - {self.title}"
 
     @property
     def start_order(self) -> int:

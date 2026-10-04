@@ -303,6 +303,14 @@ class TestContractMutationService:
         with pytest.raises(NotFoundError):
             mutation_service.delete_contract(99999)
 
+    def test_delete_contract_blocked_by_cases(self, mutation_service, mock_case_service):
+        """合同下存在案件时禁止删除（Case.contract FK 为 PROTECT 的服务层阻断）。"""
+        c = ContractFactory()
+        mock_case_service.count_cases_by_contract.return_value = 3
+        with pytest.raises(ValidationException, match="3 个案件"):
+            mutation_service.delete_contract(c.pk)
+        assert Contract.objects.filter(pk=c.pk).exists()
+
     def test_update_contract_lawyers(self, mutation_service, mock_lawyer_assignment_service):
         c = ContractFactory()
         mutation_service.update_contract_lawyers(c.pk, [1, 2])

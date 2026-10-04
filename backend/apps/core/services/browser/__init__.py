@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any
 
 from .anti_detection import AntiDetection, anti_detection
 from .chrome_process import is_cdp_ready, kill_chrome, launch_chrome
+from .manual_session import BrowserSessionHandle, close_browser_session, create_browser_async_manual
 from .profiles import BrowserProfile, get_profile, register_profile
 from .service import BrowserService, get_browser_service
 
@@ -183,6 +184,10 @@ __all__ = [
     # 核心 API
     "create_browser",
     "create_browser_async",
+    # 手动生命周期（半自动长驻浏览器）
+    "create_browser_async_manual",
+    "close_browser_session",
+    "BrowserSessionHandle",
     # 配置
     "BrowserProfile",
     "get_profile",

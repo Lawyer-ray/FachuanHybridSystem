@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { CheckCircle2, Copy, FileDown, FileType2, Loader2, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -6,8 +6,6 @@ import {
   converterDownloadUrl,
   converterItemDownloadUrl,
   copyConverterItemsToClipboard,
-  createConverterJob,
-  getConverterJob,
   triggerDownload,
   type ConverterJob,
 } from '../../api'
@@ -17,12 +15,7 @@ import { FilePicker, Spinner, ToolShell } from './shared'
 import { FlowNotice, TaskFlowDialog } from './dialog/TaskFlowDialog'
 import { HistoryButton } from './history/HistoryParts'
 import { ConverterHistoryDialog } from './history/ConverterHistoryDialog'
-
-/** 轮询节奏与上限：2s 一次，5 分钟仍没结束就转「后台继续」 */
-const DOC_CONVERTER_POLL_MS = 2_000
-const DOC_CONVERTER_MAX_POLLS = 150
-
-type Phase = 'idle' | 'running' | 'success' | 'error' | 'timeout'
+import { useConverterJob } from './use-converter-job'
 
 /** 行内小按钮：描边风格，与法院短信成功弹窗一致 */
 const ROW_BTN =
@@ -55,75 +48,16 @@ function JobProgressBar({ job }: { job: ConverterJob }) {
 /** DOC 转 DOCX：提交后弹窗展示文件级进度；完成后列出产物，逐件复制/下载 + ZIP */
 export function DocConverterCard() {
   const [files, setFiles] = useState<File[]>([])
-  const [phase, setPhase] = useState<Phase>('idle')
-  const [jobId, setJobId] = useState<string | null>(null)
-  const [job, setJob] = useState<ConverterJob | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [copyBusy, setCopyBusy] = useState(false)
-  const timer = useRef(0)
-  // 卸载后取消：轮询在飞时若组件卸载，就不该再排下一轮
-  const cancelled = useRef(false)
-  const polls = useRef(0)
+  // 提交/轮询/终态编排都在 use-converter-job（会话号守卫防重提交竞态）
+  const { phase, jobId, job, error, submit, resume } = useConverterJob()
 
-  useEffect(() => {
-    cancelled.current = false
-    return () => {
-      cancelled.current = true
-      window.clearTimeout(timer.current)
-    }
-  }, [])
-
-  const stop = () => window.clearTimeout(timer.current)
-
-  const poll = (id: string) => {
-    const tick = async () => {
-      if (cancelled.current) return
-      try {
-        const j = await getConverterJob(id)
-        if (cancelled.current) return
-        setJob(j)
-        const settled = j.total > 0 && j.done + j.failed >= j.total
-        if (j.status === 'completed' || j.status === 'failed' || settled) {
-          stop()
-          setPhase(j.done > 0 ? 'success' : 'error')
-          setError(j.done > 0 ? null : '全部文件转换失败，请确认上传的是 .doc 文件')
-        } else if (polls.current >= DOC_CONVERTER_MAX_POLLS) {
-          stop()
-          setPhase('timeout')
-        } else {
-          polls.current += 1
-          timer.current = window.setTimeout(() => { void tick() }, DOC_CONVERTER_POLL_MS)
-        }
-      } catch {
-        if (cancelled.current) return
-        stop()
-        setPhase('error')
-        setError('查询转换进度失败，可稍后重试')
-      }
-    }
-    polls.current = 0
-    void tick()
-  }
-
-  const submit = async () => {
-    if (files.length === 0) {
-      return
-    }
-    setPhase('running')
-    setJob(null)
-    setError(null)
+  const start = () => {
+    if (files.length === 0) return
     setDialogOpen(true)
-    try {
-      const id = await createConverterJob(files)
-      if (cancelled.current) return
-      setJobId(id)
-      poll(id)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '提交转换任务失败')
-      setPhase('error')
-    }
+    void submit(files)
   }
 
   const okItems = (job?.items ?? []).filter((it) => it.ok)
@@ -178,7 +112,7 @@ export function DocConverterCard() {
         />
 
         <div className="mt-auto flex items-center gap-2">
-          <button type="button" className={BTN_PRIMARY} onClick={() => { void submit() }} disabled={phase === 'running'}>
+          <button type="button" className={BTN_PRIMARY} onClick={start} disabled={phase === 'running'}>
             {phase === 'running' && <Spinner />}
             开始转换
           </button>
@@ -211,10 +145,7 @@ export function DocConverterCard() {
               </button>
             )}
             {phase === 'timeout' && jobId && (
-              <button type="button" className={BTN} onClick={() => {
-                setPhase('running')
-                poll(jobId)
-              }}>
+              <button type="button" className={BTN} onClick={resume}>
                 继续等待
               </button>
             )}
@@ -251,11 +182,11 @@ export function DocConverterCard() {
                   title="复制文件，可直接粘贴到对话框发送"
                   onClick={() => void copyItems([it])}
                 >
-                  {copyBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Copy className="h-3 w-3" />}
+                  {copyBusy ? <Loader2 className="h-3 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
                   复制
                 </button>
                 <button type="button" className={ROW_BTN} onClick={() => triggerDownload(converterItemDownloadUrl(jobId!, it.id))}>
-                  <FileDown className="h-3 w-3" />
+                  <FileDown className="h-3.5 w-3.5" />
                   下载
                 </button>
               </div>

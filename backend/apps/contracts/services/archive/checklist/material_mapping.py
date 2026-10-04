@@ -63,14 +63,12 @@ def map_case_authorization_materials(
     try:
         from apps.cases.models import CaseMaterial
 
-        for case in contract.cases.all():
-            if CaseMaterial.objects.filter(case=case, type_name__contains="授权").exists():
-                logger.info(
-                    "案件 %s 存在授权委托材料，可提取到归档",
-                    case.id,
-                    extra={"contract_id": contract.id},
-                )
-                break
+        # 单次 EXISTS 子查询替代逐案 .exists()，消除 N+1（同 find_case_material_match_codes 的 case__in 先例）
+        if CaseMaterial.objects.filter(case__contract=contract, type_name__contains="授权").exists():
+            logger.info(
+                "关联合同案件存在授权委托材料，可提取到归档",
+                extra={"contract_id": contract.id},
+            )
     except Exception as e:
         logger.warning("检查案件授权委托材料失败: %s", e)
 

@@ -1,5 +1,5 @@
 import { Copy, Loader2, MessageSquare, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { toast } from 'sonner'
 
@@ -73,17 +73,30 @@ export function CourtSmsFlowDialog({
   const [abortArmed, setAbortArmed] = useState(false)
   const [abortBusy, setAbortBusy] = useState(false)
 
+  // 两段确认的自动解除定时器：事件处理器里挂的 setTimeout 组件卸载不会自动取消，
+  // 不清理就是泄漏（卸载后还回调 setState），存 ref 在关闭/动作完成/卸载时清掉
+  const disarmTimer = useRef(0)
+
   // 弹窗关闭即解除「确认停止」的武装态，下次打开从头确认
   useEffect(() => {
-    if (!open) setAbortArmed(false)
+    if (!open) {
+      window.clearTimeout(disarmTimer.current)
+      setAbortArmed(false)
+    }
   }, [open])
+
+  // 卸载兜底清理（定时器 id 是 number，卸载时它可能还挂着）
+  useEffect(() => () => window.clearTimeout(disarmTimer.current), [])
 
   const onAbortClick = async () => {
     if (!abortArmed) {
       setAbortArmed(true)
-      window.setTimeout(() => setAbortArmed(false), 4000)
+      window.clearTimeout(disarmTimer.current)
+      disarmTimer.current = window.setTimeout(() => setAbortArmed(false), 4000)
       return
     }
+    // 进入第二段确认：武装定时器不再需要
+    window.clearTimeout(disarmTimer.current)
     setAbortBusy(true)
     try {
       await flow.abortAndRemove()

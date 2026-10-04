@@ -65,6 +65,11 @@ def _decode_image_data(data: str) -> bytes:
     return base64.b64decode(data)
 
 
+def _read_and_encode(file_obj: UploadedFile) -> str:
+    """同步读取上传文件并 Base64 编码；async 视图经 asyncio.to_thread 调用。"""
+    return base64.b64encode(file_obj.read()).decode("utf-8")
+
+
 def _get_pdf_service() -> Any:
     from apps.image_rotation.services.pdf_extraction_service import PDFExtractionService
 
@@ -196,7 +201,10 @@ async def extract_text(request: HttpRequest) -> dict[str, Any]:  # pragma: no co
         async with _IMAGE_SEM:
             try:
                 image_bytes = _decode_image_data(img.get("data", ""))
-                text_result = await sync_to_async(ocr.extract_text)(image_bytes)
+                # thread_sensitive=False：外层 Semaphore(8)+gather 的并发才有意义；
+                # 默认值会把所有调用串到单一共享线程（PaddleOCR 路径内部
+                # time.sleep 轮询最长 120s，会造成进程级队头阻塞）。
+                text_result = await sync_to_async(ocr.extract_text, thread_sensitive=False)(image_bytes)
                 return {
                     "filename": img.get("filename", ""),
                     "ocr_text": text_result.text,
@@ -295,7 +303,7 @@ async def _handle_multipart_export_pdf_async(request: HttpRequest) -> dict[str, 
                 _validate_image_file(file_obj)
                 filename = request.POST.get(f"filename_{idx}", file_obj.name)
 
-                image_data = base64.b64encode(file_obj.read()).decode("utf-8")
+                image_data = await asyncio.to_thread(_read_and_encode, file_obj)
                 rotation = int(request.POST.get(f"rotation_{idx}", "0") or "0")
                 pages.append(
                     {
@@ -354,7 +362,7 @@ def _handle_multipart_export(request: HttpRequest) -> dict[str, Any]:
                 filename = request.POST.get(f"filename_{idx}", file_obj.name)
                 format_type = request.POST.get(f"format_{idx}", "jpeg")
 
-                image_data = base64.b64encode(file_obj.read()).decode("utf-8")
+                image_data = _read_and_encode(file_obj)
                 rotation = int(request.POST.get(f"rotation_{idx}", "0") or "0")
                 images.append(
                     {

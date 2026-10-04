@@ -6,12 +6,7 @@ CaseDownloadTask, CaseDownloadResult 的 __str__、choices。
 
 import pytest
 
-from apps.testing.factories import LawyerFactory
 from apps.automation.models.token import CourtToken
-from apps.organization.models.credential import AccountCredential
-from apps.organization.models.law_firm import LawFirm
-from apps.organization.models.lawyer import Lawyer
-
 from apps.legal_research.models.case_download import (
     CaseDownloadFormat,
     CaseDownloadResult,
@@ -21,6 +16,10 @@ from apps.legal_research.models.case_download import (
 from apps.legal_research.models.result import LegalResearchResult
 from apps.legal_research.models.task import LegalResearchSearchMode, LegalResearchTask, LegalResearchTaskStatus
 from apps.legal_research.models.task_event import LegalResearchTaskEvent
+from apps.organization.models.credential import AccountCredential
+from apps.organization.models.law_firm import LawFirm
+from apps.organization.models.lawyer import Lawyer
+from apps.testing.factories import LawyerFactory
 
 
 def _make_credential():
@@ -236,4 +235,4 @@ class TestCaseDownloadResult:
             title="某某案",
             file_path="/tmp/doc.pdf",
         )
-        assert str(result) == ""
+        assert str(result) == f"CaseDownloadRecord #{result.id} (2025)京01民初123号"

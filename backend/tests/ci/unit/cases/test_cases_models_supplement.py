@@ -52,7 +52,8 @@ class TestCaseNumber:
         assert cn.get_full_number() == "(2025)京01民初123号"
 
     def test_year_days_choices(self):
-        assert CaseNumber.YEAR_DAYS_CHOICES == ((360, "360天"), (365, "365天"), (0, "按实际天数"))
+        # 枚举化后 choices 为 list（数据库值不变）
+        assert CaseNumber.YEAR_DAYS_CHOICES == [(360, "360天"), (365, "365天"), (0, "按实际天数")]
 
     def test_date_inclusion_choices(self):
         choices_dict = dict(CaseNumber.DATE_INCLUSION_CHOICES)
@@ -140,7 +141,8 @@ class TestCaseMaterialType:
             law_firm=firm,
         )
         result = str(mt)
-        assert "测试律所" in result
+        # __str__ 用 law_firm_id 拼（避免 admin N+1），不再触发 FK 查询取名称
+        assert f"律所#{firm.id}" in result
         assert "当事人材料" in result
         assert "身份证复印件" in result
 
@@ -210,7 +212,8 @@ class TestCaseFolderBinding:
             folder_path="/cases/test/2026",
         )
         result = str(binding)
-        assert "测试案件" in result
+        # __str__ 用 case_id 拼（避免 admin N+1），不再触发 FK 查询取名称
+        assert f"案件#{case.id}" in result
         assert "/cases/test/2026" in result
 
     def test_folder_path_display_short(self):

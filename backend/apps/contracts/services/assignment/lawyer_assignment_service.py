@@ -115,16 +115,19 @@ class LawyerAssignmentService:
         # 删除现有指派
         ContractAssignment.objects.filter(contract_id=contract_id).delete()
 
-        # 创建新指派
-        assignments = []
-        for index, lawyer_id in enumerate(lawyer_ids):
-            assignment = ContractAssignment.objects.create(
-                contract=contract,
-                lawyer_id=lawyer_id,
-                is_primary=(index == 0),
-                order=index,  # 第一个为主办
-            )
-            assignments.append(assignment)
+        # 创建新指派（单条 SQL 批量插入；PostgreSQL 下 bulk_create 会回填主键，
+        # 返回的实例带 pk，消费方可直接使用）
+        assignments = ContractAssignment.objects.bulk_create(
+            [
+                ContractAssignment(
+                    contract=contract,
+                    lawyer_id=lawyer_id,
+                    is_primary=(index == 0),
+                    order=index,  # 第一个为主办
+                )
+                for index, lawyer_id in enumerate(lawyer_ids)
+            ]
+        )
 
         logger.info(
             "合同律师指派成功",

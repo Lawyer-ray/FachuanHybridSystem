@@ -28,7 +28,9 @@ interface DealSheetProps {
  */
 export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
   /* 案件明细按需加载：抽屉打开才请求该合同的案件（列表期不拉全量） */
-  const { cases, isLoading: casesLoading } = useContractCases(open ? (deal?.id ?? null) : null)
+  const { cases, isLoading: casesLoading, error: casesError, refetch: refetchCases } = useContractCases(
+    open ? (deal?.id ?? null) : null,
+  )
   if (!deal) return null
 
   /* 右键空白遮罩 = 左键点空白同效：不弹原生菜单，收起抽屉（播退出动画） */
@@ -102,7 +104,8 @@ export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
               <SectionTitle>当事人 · {sorted.length}</SectionTitle>
               <div className="px-6">
                 {sorted.map((p, i) => (
-                  <div key={i} className={'border-b border-border-light py-[7px] last:border-b-0 ' + (i === firstOther && hasSplit ? 'mt-3.5' : '')}>
+                  // 域模型无 id，用「姓名+角色」组合做 key：优于下标（排序后下标即身份会掩盖重排）
+                  <div key={`${p.name}|${p.role}`} className={'border-b border-border-light py-[7px] last:border-b-0 ' + (i === firstOther && hasSplit ? 'mt-3.5' : '')}>
                     <div className="flex items-start gap-2">
                       <div className="min-w-0 flex-1">
                         <span className={'text-[13px] font-semibold tracking-[-0.005em] ' + (p.ours ? '' : 'font-[600]')}>
@@ -133,11 +136,11 @@ export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
             <>
               <SectionTitle>主办律师</SectionTitle>
               <div className="px-6">
-                {deal.team.map((t, i) => {
+                {deal.team.map((t) => {
                   const tel = t.phone || (t.primary ? deal.primaryPhone : '')
                   const firm = t.firm || (t.primary ? deal.lawFirm : '')
                   return (
-                    <div key={i} className="border-b border-border-light py-[9px] last:border-b-0">
+                    <div key={`${t.name}|${t.license || t.phone}`} className="border-b border-border-light py-[9px] last:border-b-0">
                       <div className="flex items-baseline gap-[9px]">
                         <b className="text-[13px] font-[620]">{t.name}</b>
                         {t.primary && (
@@ -184,8 +187,8 @@ export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
             <>
               <SectionTitle>收款记录</SectionTitle>
               <div className="px-6">
-                {payRows.map((p, i) => (
-                  <div key={i} className="flex items-baseline gap-2.5 border-b border-border-light py-1.5 text-xs last:border-b-0">
+                {payRows.map((p) => (
+                  <div key={`${p.when}|${p.money}|${p.note}`} className="flex items-baseline gap-2.5 border-b border-border-light py-1.5 text-xs last:border-b-0">
                     <span className="tabular-nums">{p.when}</span>
                     <span className="font-[560] tabular-nums">{p.money}</span>
                     <span className="ml-auto flex-none text-[11px] text-muted-foreground">{p.note}</span>
@@ -199,8 +202,8 @@ export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
             <>
               <SectionTitle>提醒事项 · {deal.work.length}</SectionTitle>
               <div className="px-6">
-                {deal.work.map((w, i) => (
-                  <div key={i} className="flex items-baseline gap-2.5 border-b border-border-light py-1.5 text-xs last:border-b-0">
+                {deal.work.map((w) => (
+                  <div key={`${w.t}|${w.dueFull}`} className="flex items-baseline gap-2.5 border-b border-border-light py-1.5 text-xs last:border-b-0">
                     <span>{w.t}</span>
                     <span className="ml-auto flex-none text-[11px] text-muted-foreground tabular-nums">
                       {w.type ? w.type + ' · ' : ''}
@@ -229,11 +232,19 @@ export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
             </>
           )}
 
-          {(casesLoading || stages.length > 0) && (
+          {(casesError || casesLoading || stages.length > 0) && (
             <>
               <SectionTitle>案件 · {casesLoading ? '…' : (deal.caseCount || cases.length)}</SectionTitle>
               <div className="px-6">
-                {casesLoading ? (
+                {casesError ? (
+                  /* 失败要明说：空案件节会被律师读成「这份合同没有案件」 */
+                  <div className="py-2 text-xs text-destructive">
+                    {casesError} ·{' '}
+                    <button type="button" className="cursor-pointer underline underline-offset-3" onClick={() => refetchCases()}>
+                      重试
+                    </button>
+                  </div>
+                ) : casesLoading ? (
                   <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
                     <Loader2 className="size-3.5 animate-spin" />
                     正在加载案件…

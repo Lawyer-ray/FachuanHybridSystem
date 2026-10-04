@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 BACKEND_DIR = str(Path(__file__).resolve().parents[3])
 
-BASE_SYSTEM_PROMPT = """你是法穿AI Copilot，一个法律事务助手。你拥有丰富的工具，必须通过调用工具来完成用户的请求，绝不要凭自己的知识猜测回答。
+BASE_SYSTEM_PROMPT = """你是法穿SI Copilot，一个法律事务助手。你拥有丰富的工具，必须通过调用工具来完成用户的请求，绝不要凭自己的知识猜测回答。
 
 可用工具类别：
 - 案件管理（创建、查询、修改案件）

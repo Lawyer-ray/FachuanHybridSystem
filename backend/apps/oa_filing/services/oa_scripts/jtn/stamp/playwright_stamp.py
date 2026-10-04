@@ -9,9 +9,16 @@ from typing import Any
 
 from playwright.async_api import Page
 
-from apps.core.services.browser import BrowserProfile, create_browser_async
+from apps.core.services.browser import (
+    BrowserProfile,
+    BrowserSessionHandle,
+    close_browser_session,
+    create_browser_async,
+    create_browser_async_manual,
+)
 
 from ..auth.service import JtnAuthService
+from ..case_dialog import confirm_case_selection, select_case_radio_in_frame
 from .constants import (
     _POPUP_IFRAME_KEYWORD,
     DEFAULT_STAMP_COPIES,
@@ -149,30 +156,13 @@ class PlaywrightStampMixin:  # pragma: no cover
 
         await popup_frame.evaluate(IFRAME_SEARCH_FN)
 
-        # 4. 轮询等待搜索结果中出现目标案件编号，校验后选择匹配行
+        # 4. 轮询等待搜索结果中出现目标案件编号并勾选（勾选校验与强制置位见
+        #    case_dialog.select_case_radio_in_frame——查询异步重渲染会清选中态）
         import time as _time
 
         deadline = _time.monotonic() + 30
         while True:
-            matched = await popup_frame.evaluate(
-                """(expected) => {{
-                const radios = document.querySelectorAll('input[type="radio"]');
-                for (const radio of radios) {{
-                    const row = radio.closest('tr');
-                    if (!row) continue;
-                    const tds = row.querySelectorAll('td');
-                    if (tds.length < 2) continue;
-                    const caseNo = tds[1].textContent.trim();
-                    if (caseNo === expected) {{
-                        radio.click();
-                        return true;
-                    }}
-                }}
-                return false;
-            }}""",
-                case_no,
-            )
-            if matched:
+            if await select_case_radio_in_frame(popup_frame, case_no):
                 break
             if _time.monotonic() > deadline:
                 raise RuntimeError(f"搜索结果中未找到案件: {case_no}")
@@ -181,16 +171,10 @@ class PlaywrightStampMixin:  # pragma: no cover
         await asyncio.sleep(SHORT_WAIT)
         logger.info("已选择案件: %s", case_no)
 
-        # 5. 点击 layui 层的"选择"按钮
-        await page.evaluate("""() => {
-            const layers = document.querySelectorAll(".layui-layer");
-            for (const layer of layers) {
-                for (const a of layer.querySelectorAll("a")) {
-                    if (a.innerText.trim() === "选择") { a.click(); return; }
-                }
-            }
-        }""")
-        await asyncio.sleep(POPUP_WAIT)
+        # 5. 点「选择」回填并验证弹窗真正关闭。行未勾上时 OA 弹「请选择对应的
+        #    案件信息」且弹窗保持打开，静默失败会让后续 file_type 被遮罩挡住
+        #    （2026-10-04 所函盖章实测踩坑）。
+        await confirm_case_selection(page, case_no, self._find_popup_frame, wait_after_click=POPUP_WAIT)
         logger.info("案件已回填到主页面")
 
     async def _find_popup_frame(self: Any, page: Page) -> Any:  # pragma: no cover
@@ -332,20 +316,16 @@ class PlaywrightStampMixin:  # pragma: no cover
     # 打开页面并填写（不上传、不保存）
     # ------------------------------------------------------------------
 
-    async def _open_page(self: Any, oa_case_number: str) -> tuple[Any, Any]:
-        """打开盖章页面，登录→搜索案件→填表，返回 (playwright, browser)。"""
-        from playwright.async_api import async_playwright
-
-        playwright = await async_playwright().start()
-        browser = await playwright.chromium.launch(headless=False)
-        context = await browser.new_context()
-        page = await context.new_page()
+    async def _open_page(self: Any, oa_case_number: str) -> BrowserSessionHandle:
+        """打开盖章页面，登录→搜索案件→填表，返回浏览器会话句柄（长生命周期）。"""
+        session = await create_browser_async_manual("jtn")
+        page = session.page
         # 浏览器关闭后的回收由 adapter.wait_open_browsers_closed 负责（调度器压住
         # 事件循环直到用户关掉浏览器）；脚本执行中途的异常路径在下方 except 里
-        # 显式 browser.close() + playwright.stop()。
+        # 通过工厂的 close_browser_session 显式回收。
 
         try:
-            await self._login_to_stamp(page, context)
+            await self._login_to_stamp(page, session.context)
             await self._navigate_to_stamp_page(page)
 
             if oa_case_number:
@@ -369,9 +349,8 @@ class PlaywrightStampMixin:  # pragma: no cover
                 logger.info("盖章份数: %d", DEFAULT_STAMP_COPIES)
 
             logger.info("盖章表单已填写完成")
-            return playwright, browser
+            return session
 
         except Exception:
-            await browser.close()
-            await playwright.stop()
+            await close_browser_session(session)
             raise

@@ -10,7 +10,6 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Choice enums
 # ---------------------------------------------------------------------------
@@ -129,12 +128,12 @@ class TestEvidenceListOrderRangeDisplay:
 
 class TestEvidenceListStr:
     def test_str(self):
+        # __str__ 用 case_id 拼（避免 admin N+1），不再访问 FK 对象；
+        # __new__ 构造的实例没有 _state，直接写 __dict__ 绕开 FK 描述符
         el = _make_evidence_list()
-        mock_case = MagicMock()
-        mock_case.name = "张三案"
-        type(el).case = mock_case  # type: ignore[assignment]
+        el.__dict__["case_id"] = 7
         el.title = "证据清单一"
-        assert str(el) == "张三案 - 证据清单一"
+        assert str(el) == "案件#7 - 证据清单一"
 
 
 # ---------------------------------------------------------------------------

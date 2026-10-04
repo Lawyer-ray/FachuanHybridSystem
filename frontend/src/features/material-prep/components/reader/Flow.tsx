@@ -156,6 +156,7 @@ export function Flow({
                         <button
                           type="button"
                           title="在此页前切开"
+                          aria-label="在此页前切开"
                           onClick={() => onOp.splitSeg(si, ri - 1)}
                           className="absolute -left-2.5 top-6 z-10 grid h-5 w-5 place-items-center rounded-full border border-dashed border-zinc-300 bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity hover:border-amber-400 hover:text-amber-700 group-hover:opacity-100"
                         >

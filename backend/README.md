@@ -3,7 +3,7 @@
 > ⚠️ 本文件由助手重建(2026-10-02):原 README.md 意外被覆盖且未被 git 跟踪,内容无法恢复。
 > 以下为基于仓库事实的最小索引;若你记得原文有其他内容,请补充或从备份恢复后删除本段。
 
-Django 6.1 + Django Ninja + Django-Q2 的法律服务后端(法穿 AI Copilot)。
+Django 6.1 + Django Ninja + Django-Q2 的法律服务后端(法穿SI Copilot)。
 
 ## 快速开始
 

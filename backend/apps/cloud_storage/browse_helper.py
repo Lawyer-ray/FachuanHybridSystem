@@ -128,7 +128,9 @@ async def abrowse_cloud_folder(
         if hasattr(provider, "alist_directory"):
             children = await provider.alist_directory(browse_path)
         else:
-            children = await sync_to_async(provider.list_directory)(browse_path)
+            # thread_sensitive=False：同步 provider 内部的限速 time.sleep 不应
+            # 占用 sync_to_async 的共享线程（默认 thread_sensitive=True 会串行化）。
+            children = await sync_to_async(provider.list_directory, thread_sensitive=False)(browse_path)
     except CloudStorageRateLimitError as e:
         logger.warning("cloud_browse_rate_limited", extra={"path": browse_path, "account_id": storage_account_id})
         return _error_result(str(e), browse_path, storage_type)

@@ -71,7 +71,10 @@ class HttpFilingMixin:  # pragma: no cover
             raise RuntimeError("HTTP 立案缺少委托方")
 
         async with httpx.AsyncClient(
-            headers=_HTTP_HEADERS, follow_redirects=True, timeout=_DEFAULT_HTTP_TIMEOUT
+            headers=_HTTP_HEADERS,
+            follow_redirects=True,
+            timeout=_DEFAULT_HTTP_TIMEOUT,
+            trust_env=False,
         ) as client:
             await self._http_login(client)
             form_state = await self._load_filing_form_state(client)

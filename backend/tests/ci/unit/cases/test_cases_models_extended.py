@@ -465,7 +465,8 @@ class TestCaseMaterialTypeModel:
             law_firm=firm,
         )
         result = str(mtype)
-        assert "测试律所" in result
+        # __str__ 用 law_firm_id 拼（避免 admin N+1），不再触发 FK 查询取名称
+        assert f"律所#{firm.id}" in result
         assert "非当事人材料" in result
 
 

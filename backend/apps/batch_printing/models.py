@@ -59,9 +59,7 @@ class PrintPresetSnapshot(models.Model):
         constraints: ClassVar[list[models.BaseConstraint]] = [
             models.UniqueConstraint(fields=["printer_name", "preset_name"], name="batch_printing_preset_unique"),
         ]
-        indexes: ClassVar[list[models.Index]] = [
-            models.Index(fields=["printer_name", "preset_name"]),
-        ]
+        # (printer_name, preset_name) 已由唯一约束覆盖，无需重复索引
 
     def __str__(self) -> str:
         return f"{self.printer_name} / {self.preset_name}"

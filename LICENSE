@@ -1,93 +1,209 @@
-Elastic License 2.0
+# PolyForm Noncommercial License 1.0.0
 
-URL: https://www.elastic.co/licensing/elastic-license
+<https://polyformproject.org/licenses/noncommercial/1.0.0>
 
 ## Acceptance
 
-By using the software, you agree to all of the terms and conditions below.
+In order to get any license under these terms, you must agree
+to them as both strict obligations and conditions to all
+your licenses.
 
 ## Copyright License
 
-The licensor grants you a non-exclusive, royalty-free, worldwide,
-non-sublicensable, non-transferable license to use, copy, distribute, make
-available, and prepare derivative works of the software, in each case subject to
-the limitations and conditions below.
+The licensor grants you a copyright license for the
+software to do everything you might do with the software
+that would otherwise infringe the licensor's copyright
+in it for any permitted purpose.  However, you may
+only distribute the software according to [Distribution
+License](#distribution-license) and make changes or new works
+based on the software according to [Changes and New Works
+License](#changes-and-new-works-license).
 
-## Limitations
+## Distribution License
 
-You may not provide the software to third parties as a hosted or managed
-service, where the service provides users with access to any substantial set of
-the features or functionality of the software.
-
-You may not move, change, disable, or circumvent the license key functionality
-in the software, and you may not remove or obscure any functionality in the
-software that is protected by the license key.
-
-You may not alter, remove, or obscure any licensing, copyright, or other notices
-of the licensor in the software. Any use of the licensor's trademarks is subject
-to applicable law.
-
-## Patents
-
-The licensor grants you a license, under any patent claims the licensor can
-license, or becomes able to license, to make, have made, use, sell, offer for
-sale, import and have imported the software, in each case subject to the
-limitations and conditions in this license. This license does not cover any
-patent claims that you cause to be infringed by modifications or additions to
-the software. If you or your company make any written claim that the software
-infringes or contributes to infringement of any patent, your patent license for
-the software granted under these terms ends immediately. If your company makes
-such a claim, your patent license ends immediately for work on behalf of your
-company.
+The licensor grants you an additional copyright license
+to distribute copies of the software.  Your license
+to distribute covers distributing the software with
+changes and new works permitted by [Changes and New Works
+License](#changes-and-new-works-license).
 
 ## Notices
 
-You must ensure that anyone who gets a copy of any part of the software from you
-also gets a copy of these terms.
+You must ensure that anyone who gets a copy of any part of
+the software from you also gets a copy of these terms or the
+URL for them above, as well as copies of any plain-text lines
+beginning with `Required Notice:` that the licensor provided
+with the software.  For example:
 
-If you modify the software, you must include in any modified copies of the
-software prominent notices stating that you have modified the software.
+> Required Notice: Copyright Yoyodyne, Inc. (http://example.com)
+
+## Changes and New Works License
+
+The licensor grants you an additional copyright license to
+make changes and new works based on the software for any
+permitted purpose.
+
+## Patent License
+
+The licensor grants you a patent license for the software that
+covers patent claims the licensor can license, or becomes able
+to license, that you would infringe by using the software.
+
+## Noncommercial Purposes
+
+Any noncommercial purpose is a permitted purpose.
+
+## Personal Uses
+
+Personal use for research, experiment, and testing for
+the benefit of public knowledge, personal study, private
+entertainment, hobby projects, amateur pursuits, or religious
+observance, without any anticipated commercial application,
+is use for a permitted purpose.
+
+## Noncommercial Organizations
+
+Use by any charitable organization, educational institution,
+public research organization, public safety or health
+organization, environmental protection organization,
+or government institution is use for a permitted purpose
+regardless of the source of funding or obligations resulting
+from the funding.
+
+## Fair Use
+
+You may have "fair use" rights for the software under the
+law. These terms do not limit them.
 
 ## No Other Rights
 
-These terms do not imply any licenses other than those expressly granted in
-these terms.
+These terms do not allow you to sublicense or transfer any of
+your licenses to anyone else, or prevent the licensor from
+granting licenses to anyone else.  These terms do not imply
+any other licenses.
 
-## Termination
+## Patent Defense
 
-If you use the software in violation of these terms, such use is not licensed,
-and your licenses will automatically terminate. If the licensor provides you
-with a notice of your violation, and you cease all violation of this license no
-later than 30 days after you receive that notice, your licenses will be
-reinstated retroactively. However, if you violate these terms after such
-reinstatement, any additional violation of these terms will cause your licenses
-to terminate automatically and permanently.
+If you make any written claim that the software infringes or
+contributes to infringement of any patent, your patent license
+for the software granted under these terms ends immediately. If
+your company makes such a claim, your patent license ends
+immediately for work on behalf of your company.
+
+## Violations
+
+The first time you are notified in writing that you have
+violated any of these terms, or done anything with the software
+not covered by your licenses, your licenses can nonetheless
+continue if you come into full compliance with these terms,
+and take practical steps to correct past violations, within
+32 days of receiving notice.  Otherwise, all your licenses
+end immediately.
 
 ## No Liability
 
-*As far as the law allows, the software comes as is, without any warranty or
-condition, and the licensor will not be liable to you for any damages arising
-out of these terms or the use or nature of the software, under any kind of
-legal claim.*
+***As far as the law allows, the software comes as is, without
+any warranty or condition, and the licensor will not be liable
+to you for any damages arising out of these terms or the use
+or nature of the software, under any kind of legal claim.***
 
 ## Definitions
 
-The **licensor** is the entity offering these terms, and the **software** is the
-software the licensor makes available under these terms, including any portion
-of it.
+The **licensor** is the individual or entity offering these
+terms, and the **software** is the software the licensor makes
+available under these terms.
 
-**you** refers to the individual or entity agreeing to these terms.
+**You** refers to the individual or entity agreeing to these
+terms.
 
-**your company** is any legal entity, sole proprietorship, or other kind of
-organization that you work for, plus all organizations that have control over,
-are under the control of, or are under common control with that
-organization. **control** means ownership of substantially all the assets of an
-entity, or the power to direct its management and policies by vote, contract, or
-otherwise. Control can be direct or indirect.
+**Your company** is any legal entity, sole proprietorship,
+or other kind of organization that you work for, plus all
+organizations that have control over, are under the control of,
+or are under common control with that organization.  **Control**
+means ownership of substantially all the assets of an entity,
+or the power to direct its management and policies by vote,
+contract, or otherwise.  Control can be direct or indirect.
 
-**your licenses** are all the licenses granted to you for the software under
-these terms.
+**Your licenses** are all the licenses granted to you for the
+software under these terms.
 
-**use** means anything you do with the software requiring one of your licenses.
+**Use** means anything you do with the software requiring one
+of your licenses.
 
-**trademark** means trademarks, service marks, and similar rights.
+---
+
+# PolyForm Noncommercial License 1.0.0（中文参考译本）
+
+> 以下为上方英文原文的中文翻译，**仅供理解参考，不构成法律意见**。中英文如有任何不一致，一律以上方英文原文为准。
+>
+> 原文：<https://polyformproject.org/licenses/noncommercial/1.0.0>
+
+## 接受（Acceptance）
+
+为依据本条款取得任何许可，你必须同意本条款，将其既作为你必须严格履行的义务，也作为你的全部许可赖以生效的条件。
+
+## 版权许可（Copyright License）
+
+许可方授予你一项针对本软件的版权许可：出于任何被允许的目的，你可以对本软件实施若无法定许可本会侵犯许可方版权的任何行为。但是，你只有在符合「分发许可」条款的前提下才能分发本软件，只有在符合「修改与新作品许可」条款的前提下才能基于本软件作出修改或创作新作品。
+
+## 分发许可（Distribution License）
+
+许可方另授予你一项版权许可，允许你分发本软件的副本。该分发许可覆盖分发经「修改与新作品许可」允许而带有修改或新作品的本软件。
+
+## 通知（Notices）
+
+你必须确保任何从你处获得本软件任何部分副本的人，同样获得本条款的副本或上方给出的条款 URL，以及许可方随软件提供的、以 `Required Notice:` 开头的纯文本行的副本。例如：
+
+> Required Notice: Copyright Yoyodyne, Inc. (http://example.com)
+
+## 修改与新作品许可（Changes and New Works License）
+
+许可方另授予你一项版权许可：出于任何被允许的目的，你可以基于本软件作出修改或创作新作品。
+
+## 专利许可（Patent License）
+
+许可方就本软件授予你一项专利许可，其覆盖许可方现在有权许可、或日后有权许可，且你在使用本软件时会侵犯的专利权利要求。
+
+## 非商业目的（Noncommercial Purposes）
+
+任何非商业目的均为被允许的目的。
+
+## 个人用途（Personal Uses）
+
+为增进公共知识而进行的研究、实验与测试，个人学习，私人娱乐，业余爱好项目，业余追求，或宗教活动，且无任何预期商业应用的，均属于为被允许的目的而使用。
+
+## 非商业组织（Noncommercial Organizations）
+
+慈善组织、教育机构、公共研究机构、公共安全或卫生机构、环境保护组织或政府机构对本软件的使用，无论其资金来源如何、或因资金而承担何种义务，均属于为被允许的目的而使用。
+
+## 合理使用（Fair Use）
+
+依据法律，你可能对本软件享有「合理使用」权利。本条款不限制这些权利。
+
+## 无其他权利（No Other Rights）
+
+本条款不允许你将你的任何许可再许可或转让给任何其他人，也不阻止许可方向任何其他人授予许可。本条款不暗示授予任何其他许可。
+
+## 专利防御（Patent Defense）
+
+如果你作出任何书面主张，声称本软件侵犯任何专利或助成对任何专利的侵犯，你依据本条款获得的本软件专利许可立即终止。如果你的公司作出此类主张，你为公司工作范围内的专利许可立即终止。
+
+## 违约（Violations）
+
+首次收到书面通知，指出你违反了本条款的任何内容、或对本软件实施了你的许可所不涵盖的行为时，如果你在收到通知后 32 天内完全遵守本条款，并采取切实步骤纠正既往违约行为，你的许可仍可继续。否则，你的全部许可立即终止。
+
+## 免责声明（No Liability）
+
+***在法律允许的范围内，本软件按「现状」提供，不附带任何保证或条件；对于因本条款、或本软件的使用或性质而引起的任何损害，无论基于何种法律请求，许可方均不对你承担责任。***
+
+## 定义（Definitions）
+
+**许可方**（licensor）是提出本条款的个人或实体；**软件**（software）是许可方依据本条款提供的软件。
+
+**你**（You）指同意本条款的个人或实体。
+
+**你的公司**（your company）指你为之工作的任何法人实体、独资企业或其他类型的组织，连同所有控制该组织、受该组织控制、或与该组织受共同控制的组织。**控制**（Control）指拥有一实体几乎全部资产的所有权，或通过投票、合同或其他方式指导该实体管理与政策的权力。控制可以是直接的，也可以是间接的。
+
+**你的许可**（your licenses）指你依据本条款就本软件获得的全部许可。
+
+**使用**（Use）指你对本软件实施的、需要动用你上述任一许可的任何行为。

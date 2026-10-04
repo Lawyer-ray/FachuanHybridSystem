@@ -12,6 +12,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="reviewtask",
             name="reviewer_name",
-            field=models.CharField(blank=True, default="法穿AI", max_length=128, verbose_name="修订人名称"),
+            field=models.CharField(blank=True, default="法穿SI", max_length=128, verbose_name="修订人名称"),
         ),
     ]

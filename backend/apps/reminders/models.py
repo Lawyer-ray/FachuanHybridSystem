@@ -87,11 +87,9 @@ class Reminder(models.Model):
             )
         ]
         indexes: ClassVar = [
+            # contract/case/case_log 为 FK 自带索引，勿重复声明
             models.Index(fields=["due_at"]),
             models.Index(fields=["reminder_type"]),
-            models.Index(fields=["contract"]),
-            models.Index(fields=["case"]),
-            models.Index(fields=["case_log"]),
         ]
 
     def clean(self) -> None:

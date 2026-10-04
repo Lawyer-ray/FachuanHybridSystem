@@ -6,6 +6,7 @@ import hashlib
 import json
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from typing import Any
 
@@ -60,6 +61,19 @@ class EnterpriseDataService:
 
     def list_providers(self, *, include_tools: bool = False) -> dict[str, list[dict[str, Any]]]:
         descriptors = self._registry.list_providers()
+
+        # 工具解析（MCP list_tools，单个 provider 最长 60s）并发执行，
+        # 避免 N 个启用 provider 串行拖满 N×60s；单个失败不拖垮整体
+        # （_resolve_provider_tools 内部兜底返回空 tools + 失败说明）。
+        enabled_names = [d.name for d in descriptors if d.enabled] if include_tools else []
+        tools_by_name: dict[str, tuple[list[str], str]] = {}
+        if enabled_names:
+            max_workers = min(8, len(enabled_names))
+            with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="ent-tools") as executor:
+                futures = {executor.submit(self._resolve_provider_tools, name): name for name in enabled_names}
+                for future, name in futures.items():
+                    tools_by_name[name] = future.result()
+
         items: list[dict[str, Any]] = []
         for descriptor in descriptors:
             item = {
@@ -72,7 +86,7 @@ class EnterpriseDataService:
                 "note": descriptor.note,
             }
             if include_tools and descriptor.enabled:
-                item["tools"], item["note"] = self._resolve_provider_tools(descriptor.name)
+                item["tools"], item["note"] = tools_by_name.get(descriptor.name, ([], ""))
             items.append(item)
         return {"items": items}
 

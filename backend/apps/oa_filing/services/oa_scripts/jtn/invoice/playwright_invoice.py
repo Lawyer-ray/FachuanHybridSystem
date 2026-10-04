@@ -8,6 +8,8 @@ from typing import Any
 
 from playwright.async_api import Page
 
+from apps.core.services.browser import BrowserSessionHandle, close_browser_session, create_browser_async_manual
+
 from ..auth.service import JtnAuthService
 
 logger = logging.getLogger("apps.oa_filing.jtn_invoice")
@@ -18,7 +20,6 @@ _INVOICE_URL = (
 )
 _CASE_NO_INPUT = "#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_no"
 _SEARCH_BTN_XP = '//*[@id="wrap"]/div[1]/div[2]/div/div[4]/div[2]/table/tbody/tr[5]/td[3]/div/a'
-_FIRST_APPLY_LINK_XP = '//*[@id="wrap"]/div[1]/div[2]/div/div[5]/table/tbody/tr[2]/td[9]/a'
 
 _SHORT_WAIT = 0.5
 _MEDIUM_WAIT = 2
@@ -31,17 +32,13 @@ class PlaywrightInvoiceMixin:
     _password: str
     _auth: JtnAuthService
 
-    async def _open_page(self: Any, oa_case_number: str) -> tuple[Any, Any]:
-        """打开发票页面，输入案件编号→搜索→点击申请对外开票，返回 (playwright, browser)。"""
-        from playwright.async_api import async_playwright
-
-        playwright = await async_playwright().start()
-        browser = await playwright.chromium.launch(headless=False)
-        context = await browser.new_context()
-        page = await context.new_page()
+    async def _open_page(self: Any, oa_case_number: str) -> BrowserSessionHandle:
+        """打开发票页面，输入案件编号→搜索→点击申请对外开票，返回浏览器会话句柄（长生命周期）。"""
+        session = await create_browser_async_manual("jtn")
+        page, context = session.page, session.context
         # 浏览器关闭后的回收由 adapter.wait_open_browsers_closed 负责（调度器压住
         # 事件循环直到用户关掉浏览器）；脚本执行中途的异常路径在下方 except 里
-        # 显式 browser.close() + playwright.stop()。
+        # 通过工厂的 close_browser_session 显式回收。
 
         try:
             # ── 登录 ──
@@ -105,30 +102,35 @@ class PlaywrightInvoiceMixin:
                 await asyncio.sleep(3)
 
                 # ── 点击申请对外开票 ──
-                logger.info("点击申请对外开票")
-                try:
-                    apply_link = page.locator(f"xpath={_FIRST_APPLY_LINK_XP}")
-                    await apply_link.first.click(timeout=10_000)
-                    await asyncio.sleep(_MEDIUM_WAIT)
-                    logger.info("已跳转到开票页面: %s", page.url)
-                except Exception:
-                    logger.warning("XPath 未找到，尝试 JS 点击")
-                    result = await page.evaluate("""() => {
-                        const links = document.querySelectorAll('#wrap table a');
-                        for (const a of links) {
-                            if (a.textContent.includes('申请') || a.textContent.includes('开票')) {
-                                a.click(); return 'clicked: ' + a.textContent.trim();
-                            }
-                        }
-                        return 'not found';
-                    }""")
-                    logger.info("JS 点击结果: %s", result)
-                    await asyncio.sleep(_MEDIUM_WAIT)
+                # 必须命中目标案件所在行：查找静默失败时点首行会打开别的案件的
+                # 申请页（业务错误比报错更糟），因此行级定位；未命中不兜底点击，
+                # 浏览器保持打开交人工操作。
+                row_xpath = f'//tr[contains(., "{oa_case_number}")]'
+                row = page.locator(f"xpath={row_xpath}")
+                row_found = False
+                for _ in range(10):
+                    if await row.count() > 0:
+                        row_found = True
+                        break
+                    await asyncio.sleep(1)
+
+                if not row_found:
+                    logger.warning(
+                        "查找结果中未出现案件 %s，不点「申请对外开票」，请人工在已打开页面操作",
+                        oa_case_number,
+                    )
+                else:
+                    apply_link = page.locator(f'xpath={row_xpath}//a[contains(., "申请") or contains(., "开票")]')
+                    if await apply_link.count() == 0:
+                        logger.warning("案件 %s 行内未找到申请入口，请人工在已打开页面操作", oa_case_number)
+                    else:
+                        await apply_link.first.click(timeout=10_000)
+                        await asyncio.sleep(_MEDIUM_WAIT)
+                        logger.info("已跳转到开票页面: %s", page.url)
 
             logger.info("开票页面已打开")
-            return playwright, browser
+            return session
 
         except Exception:
-            await browser.close()
-            await playwright.stop()
+            await close_browser_session(session)
             raise

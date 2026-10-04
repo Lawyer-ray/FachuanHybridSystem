@@ -1,5 +1,7 @@
 """Module for team."""
 
+from typing import ClassVar
+
 from django.db import models
 
 from .law_firm import LawFirm
@@ -22,6 +24,10 @@ class Team(models.Model):
     class Meta:
         verbose_name = "团队"
         verbose_name_plural = "团队"
+        constraints: ClassVar = [
+            # 同一律所下同类型团队名称唯一
+            models.UniqueConstraint(fields=["law_firm", "team_type", "name"], name="uniq_team_firm_type_name"),
+        ]
 
     def __str__(self) -> str:
-        return f"{self.law_firm.name}-{self.get_team_type_display()}-{self.name}"
+        return f"{self.law_firm_id}-{self.get_team_type_display()}-{self.name}"

@@ -13,10 +13,12 @@ import {
   type ConverterJobItem,
 } from '../../../api'
 import { cn } from '@/lib/utils'
+import { errMessage } from '@/lib/errors'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { BTN, BTN_PRIMARY } from '../../../ui'
 import { FlowNotice } from '../dialog/TaskFlowDialog'
 import { badgeOf } from './badges'
+import { HistoryError } from './HistoryError'
 import { HistoryHeader, HistoryPager } from './HistoryParts'
 
 const STATUS_LABEL: Record<string, string> = {
@@ -40,7 +42,7 @@ export function ConverterHistoryDialog({ open, onOpenChange }: { open: boolean; 
   // 非 null 时弹窗处于任务详情视图
   const [pickedId, setPickedId] = useState<string | null>(null)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: converterHistoryKeys.page(page),
     queryFn: () => listConverterJobs(page),
     enabled: open,
@@ -49,7 +51,13 @@ export function ConverterHistoryDialog({ open, onOpenChange }: { open: boolean; 
     placeholderData: keepPreviousData,
   })
 
-  const { data: job, isLoading: jobLoading } = useQuery({
+  const {
+    data: job,
+    isLoading: jobLoading,
+    isError: jobIsError,
+    error: jobError,
+    refetch: refetchJob,
+  } = useQuery({
     queryKey: converterHistoryKeys.job(pickedId),
     queryFn: () => getConverterJob(pickedId!),
     enabled: pickedId !== null && open,
@@ -82,7 +90,9 @@ export function ConverterHistoryDialog({ open, onOpenChange }: { open: boolean; 
             <HistoryHeader title="DOC 转 DOCX 历史" count={count} />
 
             <div className="min-h-0 flex-1 overflow-y-auto">
-              {isLoading ? (
+              {isError ? (
+                <HistoryError error={errMessage(error, '历史任务加载失败')} onRetry={() => void refetch()} />
+              ) : isLoading ? (
                 <div className="px-4 py-8 text-center text-[12px] text-muted-foreground">正在加载…</div>
               ) : items.length === 0 ? (
                 <div className="px-4 py-8 text-center text-[12px] text-muted-foreground">还没有转换任务</div>
@@ -122,7 +132,9 @@ export function ConverterHistoryDialog({ open, onOpenChange }: { open: boolean; 
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-              {jobLoading || !job ? (
+              {jobIsError ? (
+                <HistoryError error={errMessage(jobError, '任务详情加载失败')} onRetry={() => void refetchJob()} />
+              ) : jobLoading || !job ? (
                 <div className="py-8 text-center text-[12px] text-muted-foreground">正在载入记录…</div>
               ) : job.done > 0 ? (
                 <div className="flex flex-col gap-2">

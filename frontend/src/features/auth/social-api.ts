@@ -11,79 +11,67 @@
  * - DELETE /api/v1/social/{provider}/bind              解绑（需登录）
  *
  * 同源约定：授权会话的 state 存在 Django session cookie 里，而 SameSite=Lax 的
- * cookie 不会随跨域 XHR 发送。因此这里一律用**以 / 开头的同源路径**，让请求经
- * Vite 代理（见 vite.config.ts）与后端同源；若直连后端 origin，回调时 Django
- * 读不到 state 会判 invalid_session。
+ * cookie 不会随跨域 XHR 发送。因此这里一律用同源路径，让请求经 Vite 代理
+ * （见 vite.config.ts）与后端同源；若直连后端 origin，回调时 Django 读不到
+ * state 会判 invalid_session。
  *
- * 前导斜杠不能省：ky 按「当前文档目录」解析相对路径，`api/v1/...` 在
- * `/login`（单段）下恰好落到 `/api/v1/...`，但在 `/settings/bindings` 下会变成
- * `/settings/api/v1/...`，被 SPA fallback 返回 index.html，报 JSON 解析失败。
+ * 两个客户端的路径写法不同：
+ * - socialClient 无 prefix，必须用以 / 开头的绝对路径——ky 按「当前文档目录」
+ *   解析相对路径，`api/v1/...` 在 `/settings/bindings` 下会变成
+ *   `/settings/api/v1/...`，被 SPA fallback 返回 index.html，报 JSON 解析失败。
+ * - authedSocialClient 来自 createApiClient（prefix=/api/v1），传相对段
+ *   `social/...`，ky 在 join 边界归一化拼出 /api/v1/social/...。
  */
 import ky, { type KyInstance } from 'ky'
-import { getAccessToken, setTokens } from '@/lib/token'
+import { createApiClient } from '@/lib/api'
+import { setTokens } from '@/lib/token'
+import type { components, operations } from '@/types/api-schema'
 
-/** 未登录即可用的客户端：不带 JWT，但要带 cookie（state 在 session 里）。 */
+/** 未登录即可用的客户端：不带 JWT，但要带 cookie（state 在 session 里）。
+ *  豁免统一出口 createApiClient 的原因：登录前的匿名请求没有可刷新的 token，
+ *  createApiClient 的 401 处理会走「刷新失败 → 跳转 /login」，把登录页用户
+ *  甩进重定向环；这里失败只需原地抛错，由调用方降级（如 listProviders 静默）。 */
 const socialClient: KyInstance = ky.create({
   credentials: 'same-origin',
   retry: 0,
 })
 
-/** 已登录才可用的客户端：同上，额外带 JWT。 */
-const authedSocialClient: KyInstance = ky.create({
-  credentials: 'same-origin',
-  retry: 0,
-  hooks: {
-    beforeRequest: [
-      ({ request }) => {
-        const token = getAccessToken()
-        if (token) request.headers.set('Authorization', `Bearer ${token}`)
-      },
-    ],
-  },
-})
+/** 已登录才可用的客户端：复用 lib/api 统一出口（JWT 注入、401 单飞刷新重试）。
+ *  透传 credentials: 'same-origin'——绑定授权的 state 存 Django session cookie，
+ *  必须随同源请求携带；retry: 0——授权会话是后端 session 单槽写入（见下文
+ *  shareInflightSession），ky 自动重试会覆盖在途 state，必须关掉。 */
+const authedSocialClient = createApiClient({ credentials: 'same-origin', retry: 0 })
 
-export interface SocialProviderInfo {
-  name: string
-  display_name: string
-  /** redirect：跳转到授权页；embedded_qr：前端渲染二维码 */
+/** 已启用的社交登录方式（GET /social/providers 的行，生成物 ProviderOut）。
+ *  client_config 是渲染所需公开信息（app_id / authorize_url / 二维码尺寸等，
+ *  生成物按 dict 收成字符串索引签名），不含密钥；provider-catalog 里为 null
+ *  表示该平台尚未配置启用。 */
+export type SocialProviderInfo = Omit<components['schemas']['ProviderOut'], 'login_mode'> & {
+  /** 覆写收窄：生成物按后端 str 字段声明为裸 string；前端只实现两种渲染
+   *  形态，收窄成字面量联合让分派漏分支在编译期暴露（未知值由 login-methods
+   *  的 toKind 运行时兜底为 redirect，不会漏处理）。 */
   login_mode: 'redirect' | 'embedded_qr'
-  /** 渲染所需公开信息（app_id / authorize_url / 二维码尺寸），不含密钥。
-   *  provider-catalog 里为 null 表示该平台尚未配置启用。 */
-  client_config: {
-    app_id?: string
-    authorize_url?: string
-    scope?: string
-    width?: string
-    height?: string
-    [k: string]: string | undefined
-  } | null
 }
 
-export interface SocialSession {
-  /** 拼上 tmp_code 后即可完成跳转的授权页地址 */
-  goto: string
-  state: string
-  expires_in: number
-  /** 后端在「该方式不可用」时返回 200 + success:false，需在封装内转成异常 */
-  success?: boolean
-  message?: string
+/** providers 列表信封：行类型用收窄后的 SocialProviderInfo（login_mode 两值联合）。
+ *  生成物行是裸 string，后端实际只产出这两种值；信封本体仍投影生成物，
+ *  后端增删字段时 tsc 能跟着报警。 */
+type SocialProvidersEnvelope = Omit<components['schemas']['ProvidersListOut'], 'providers'> & {
+  providers: SocialProviderInfo[]
 }
 
-export interface SocialTokenExchangeResponse {
-  success: boolean
-  access: string
-  refresh: string
-  user_id?: number
-  username?: string
-  message?: string
-}
+/** 授权会话（POST /social/{provider}/session 的响应）。
+ *  生成物组件名 SessionOut 与 OA 归档等域共用同名单例，为钉死 social 契约
+ *  按 operation 投影。success / message 生成物为必有（Schema 带默认值），与
+ *  旧手写版的可选不同，以生成物为准——消费方均已做空串兜底。 */
+export type SocialSession = operations['apps_social_auth_api_social_auth_api_create_session']['responses'][200]['content']['application/json']
 
-export interface BoundAccount {
-  provider: string
-  display_name: string
-  avatar_url: string
-  bound_at: string
-}
+/** 用 TempAuth 码换 JWT 的响应（POST /social/token-exchange，生成物 TokenExchangeOut）。
+ *  username / message 生成物为必有（Schema @default ''），以生成物为准。 */
+export type SocialTokenExchangeResponse = components['schemas']['TokenExchangeOut']
+
+/** 当前用户已绑定的社交账号（GET /social/bindings 的行，生成物 BoundAccountOut） */
+export type BoundAccount = components['schemas']['BoundAccountOut']
 
 /** 生成授权 URL 的通用封装：业务失败是 200 + success:false，必须在这里 throw。 */
 async function requestSession(client: KyInstance, path: string): Promise<SocialSession> {
@@ -122,7 +110,7 @@ export const SOCIAL_PROVIDERS_KEY = ['social-providers'] as const
 export const socialAuthApi = {
   async listProviders(): Promise<SocialProviderInfo[]> {
     try {
-      const data = await socialClient.get('/api/v1/social/providers').json<{ providers: SocialProviderInfo[] }>()
+      const data = await socialClient.get('/api/v1/social/providers').json<SocialProvidersEnvelope>()
       return data.providers ?? []
     } catch {
       // 拉不到登录方式不应阻塞账密登录，静默降级
@@ -158,17 +146,17 @@ export const socialAuthApi = {
 }
 
 export const socialBindingsApi = {
-  /** 当前用户已绑定的社交账号。 */
+  /** 当前用户已绑定的社交账号（响应为生成物 BoundAccountsOut）。 */
   async list(): Promise<BoundAccount[]> {
-    const data = await authedSocialClient.get('/api/v1/social/bindings').json<{ accounts: BoundAccount[] }>()
+    const data = await authedSocialClient.get('social/bindings').json<components['schemas']['BoundAccountsOut']>()
     return data.accounts ?? []
   },
 
   /** 全部已知 Provider：client_config 为 null 表示平台未启用，前端显示灰态。 */
   async catalog(): Promise<SocialProviderInfo[]> {
     const data = await authedSocialClient
-      .get('/api/v1/social/provider-catalog')
-      .json<{ providers: SocialProviderInfo[] }>()
+      .get('social/provider-catalog')
+      .json<SocialProvidersEnvelope>()
     return data.providers ?? []
   },
 
@@ -182,13 +170,13 @@ export const socialBindingsApi = {
     return shareInflightSession(`bind:${provider}:${redirect}`, () =>
       requestSession(
         authedSocialClient,
-        `/api/v1/social/${provider}/bind-session?redirect=${encodeURIComponent(redirect)}`,
+        `social/${provider}/bind-session?redirect=${encodeURIComponent(redirect)}`,
       ),
     )
   },
 
-  /** 解绑。未绑定该平台时后端返回 success:false。 */
-  async unbind(provider: string): Promise<{ success: boolean; message?: string }> {
-    return authedSocialClient.delete(`/api/v1/social/${provider}/bind`).json()
+  /** 解绑。未绑定该平台时后端返回 success:false（响应为生成物 UnbindOut）。 */
+  async unbind(provider: string): Promise<components['schemas']['UnbindOut']> {
+    return authedSocialClient.delete(`social/${provider}/bind`).json<components['schemas']['UnbindOut']>()
   },
 }

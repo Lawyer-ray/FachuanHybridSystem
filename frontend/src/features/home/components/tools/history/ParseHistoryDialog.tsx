@@ -5,11 +5,13 @@ import { format } from 'date-fns'
 
 import { getParseRecord, listParseRecords, parseHistoryKeys } from '../../../api'
 import { cn } from '@/lib/utils'
+import { errMessage } from '@/lib/errors'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { BTN, BTN_PRIMARY } from '../../../ui'
 import { FlowNotice } from '../dialog/TaskFlowDialog'
 import { copyOutcome, downloadOutcome } from '../doc-parse-outcome'
 import { badgeOf } from './badges'
+import { HistoryError } from './HistoryError'
 import { HistoryHeader, HistoryPager } from './HistoryParts'
 
 const STATUS_LABEL: Record<string, string> = {
@@ -35,7 +37,7 @@ export function ParseHistoryDialog({ open, onOpenChange }: { open: boolean; onOp
   // 非 null 时弹窗处于详情视图
   const [detailId, setDetailId] = useState<number | null>(null)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: parseHistoryKeys.page(group, page),
     queryFn: () => listParseRecords(group || undefined, page),
     enabled: open,
@@ -44,7 +46,13 @@ export function ParseHistoryDialog({ open, onOpenChange }: { open: boolean; onOp
     placeholderData: keepPreviousData,
   })
 
-  const { data: detail, isLoading: detailLoading } = useQuery({
+  const {
+    data: detail,
+    isLoading: detailLoading,
+    isError: detailIsError,
+    error: detailError,
+    refetch: refetchDetail,
+  } = useQuery({
     queryKey: parseHistoryKeys.record(detailId),
     queryFn: () => getParseRecord(detailId!),
     enabled: detailId !== null && open,
@@ -110,7 +118,9 @@ export function ParseHistoryDialog({ open, onOpenChange }: { open: boolean; onOp
             </HistoryHeader>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
-              {isLoading ? (
+              {isError ? (
+                <HistoryError error={errMessage(error, '历史记录加载失败')} onRetry={() => void refetch()} />
+              ) : isLoading ? (
                 <div className="px-4 py-8 text-center text-[12px] text-muted-foreground">正在加载…</div>
               ) : items.length === 0 ? (
                 <div className="px-4 py-8 text-center text-[12px] text-muted-foreground">这个筛选下没有记录</div>
@@ -185,7 +195,9 @@ export function ParseHistoryDialog({ open, onOpenChange }: { open: boolean; onOp
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-              {detailLoading || !detail ? (
+              {detailIsError ? (
+                <HistoryError error={errMessage(detailError, '记录详情加载失败')} onRetry={() => void refetchDetail()} />
+              ) : detailLoading || !detail ? (
                 <div className="py-8 text-center text-[12px] text-muted-foreground">正在载入记录…</div>
               ) : ok && outcome ? (
                 <pre className="min-h-0 overflow-auto rounded-[10px] border border-border bg-background px-3 py-2.5 text-[11.5px] leading-[1.7] whitespace-pre-wrap break-all">

@@ -9,11 +9,14 @@ from __future__ import annotations
 
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
 import httpx
 
+from apps.core.http.httpx_clients import get_sync_http_client
 from apps.core.llm.backends.base import OpenAIProviderConfig
 
 logger = logging.getLogger("apps.core.services.llm_provider")
@@ -89,6 +92,10 @@ class LLMProviderService:
     _CACHE_TTL_SECONDS: ClassVar[float] = 300.0
     _MODELS_TIMEOUT_SECONDS: ClassVar[float] = 15.0
     _CHAT_PROBE_TIMEOUT_SECONDS: ClassVar[float] = 10.0
+    # 对话能力探测的并发与总预算：上百个模型逐个串行探测（10s 超时）会拖到
+    # 十几分钟，改并发探测并设置总时间墙。
+    _PROBE_CONCURRENCY: ClassVar[int] = 8
+    _PROBE_TOTAL_BUDGET_SECONDS: ClassVar[float] = 120.0
     _cache: ClassVar[tuple[list[OpenAIProviderConfig], float] | None] = None
 
     @classmethod
@@ -220,7 +227,7 @@ class LLMProviderService:
         """请求一次 ``/models`` 并解析结果；失败原因只保留状态码或异常类型。"""
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         try:
-            response = httpx.get(url, headers=headers, timeout=timeout)
+            response = get_sync_http_client().get(url, headers=headers, timeout=timeout)
             response.raise_for_status()
             payload = response.json()
         except httpx.HTTPStatusError as exc:
@@ -238,10 +245,11 @@ class LLMProviderService:
         targets: list[str | None],
         models: list[str],
     ) -> list[str]:
-        """逐个模型探测 ``/chat/completions`` 能力，返回确认可用的模型（保序）。
+        """并发探测各模型的 ``/chat/completions`` 能力，返回确认可用的模型（保序）。
 
-        无法判定（网络异常 / 超时 / 5xx）的模型按「支持」处理，避免探测抖动把可用
-        模型漏掉；只有明确的 4xx 才判定为不支持。
+        无法判定（网络异常 / 超时 / 5xx / 超出总时间预算被跳过）的模型按「支持」
+        处理，避免探测抖动把可用模型漏掉；只有明确的 4xx 才判定为不支持。
+        超出总预算后不再等待剩余探测，记 warning 并跳过（按「支持」保留）。
         """
         owner: dict[str, str | None] = {}
         for item, api_key in zip(per_key, targets, strict=False):
@@ -250,12 +258,41 @@ class LLMProviderService:
             for model_id in item.models:
                 owner.setdefault(model_id, api_key)
 
+        if not models:
+            return []
+
         probe_timeout = min(float(cls._MODELS_TIMEOUT_SECONDS), cls._CHAT_PROBE_TIMEOUT_SECONDS)
-        return [
-            model_id
-            for model_id in models
-            if cls._probe_chat_once(base_url, model_id, owner.get(model_id), probe_timeout) is not False
-        ]
+        verdicts: dict[str, bool | None] = {}
+        skipped: list[str] = []
+        deadline = time.monotonic() + cls._PROBE_TOTAL_BUDGET_SECONDS
+        executor = ThreadPoolExecutor(max_workers=cls._PROBE_CONCURRENCY, thread_name_prefix="llm-probe")
+        try:
+            futures = {
+                executor.submit(cls._probe_chat_once, base_url, model_id, owner.get(model_id), probe_timeout): model_id
+                for model_id in models
+            }
+            for future, model_id in futures.items():
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    skipped.append(model_id)
+                    continue
+                try:
+                    verdicts[model_id] = future.result(timeout=remaining)
+                except FuturesTimeoutError:
+                    skipped.append(model_id)
+        finally:
+            # 不等待仍在跑的探测：超预算的任务任其自然结束（httpx 有单请求超时，
+            # future.cancel() 对运行中任务无效，不假装取消）。
+            executor.shutdown(wait=False, cancel_futures=True)
+
+        if skipped:
+            logger.warning(
+                "[LLMProviderService] 对话能力探测超出总预算（%.0fs），跳过 %d 个模型（按支持保留）: %s",
+                cls._PROBE_TOTAL_BUDGET_SECONDS,
+                len(skipped),
+                ", ".join(skipped[:10]),
+            )
+        return [model_id for model_id in models if verdicts.get(model_id) is not False]
 
     @classmethod
     def _probe_chat_once(cls, base_url: str, model: str, api_key: str | None, timeout: float) -> bool | None:
@@ -267,7 +304,9 @@ class LLMProviderService:
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         payload = {"model": model, "messages": [{"role": "user", "content": "hi"}], "max_tokens": 1}
         try:
-            response = httpx.post(f"{base_url}/chat/completions", headers=headers, json=payload, timeout=timeout)
+            response = get_sync_http_client().post(
+                f"{base_url}/chat/completions", headers=headers, json=payload, timeout=timeout
+            )
         except Exception:
             logger.debug("[LLMProviderService] 对话能力探测未完成", extra={"model": model}, exc_info=True)
             return None

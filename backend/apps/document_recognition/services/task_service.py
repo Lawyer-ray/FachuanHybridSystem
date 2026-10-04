@@ -68,10 +68,12 @@ class DocumentRecognitionTaskService:
             source_court_sms_id=source_court_sms_id,
             case_id=case_id,
             case_log_id=case_log_id,
-            llm_model=llm_model,
+            # llm_model 等字符串字段已收紧为 NOT NULL + default=""，None 走空串
+            llm_model=llm_model or "",
             created_by=created_by,
             binding_success=True if case_log_id else None,
-            binding_message="案件已由来源管线（法院短信）绑定" if case_log_id else None,
+            # binding_message 等字符串字段已收紧为 NOT NULL + default=""，勿再传 None
+            binding_message="案件已由来源管线（法院短信）绑定" if case_log_id else "",
         )
         logger.info(
             "创建文书识别任务",

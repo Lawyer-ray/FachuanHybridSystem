@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -27,8 +27,10 @@ if TYPE_CHECKING:
 class Case(models.Model):
     id: int
     contract = models.ForeignKey(
+        # PROTECT：删除合同不得静默级联抹掉案件及其日志、附件、证据、提醒（业务数据），
+        # 须先处理案件后再删合同（delete_contract 服务层同样阻断）
         "contracts.Contract",
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name="cases",
@@ -113,6 +115,13 @@ class Case(models.Model):
     def __str__(self) -> str:
         return f"{self.name}"
 
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        # filing_number 是唯一字段：空值必须存 NULL 而不是 ''（PG 多 NULL 共存，
+        # '' 会与存量空串互撞唯一约束）。同 Client.id_number 的既有范式
+        if self.filing_number == "":
+            self.filing_number = None
+        super().save(*args, **kwargs)
+
     def clean(self) -> None:
         """
         基础数据验证
@@ -139,18 +148,27 @@ class CaseFilingNumberSequence(models.Model):
         # year 已 unique=True，自带唯一索引
 
 
+class ExecutionYearDays(models.IntegerChoices):
+    """利息计算年基准天数（数据库值不变，仅枚举化）"""
+
+    DAYS_360 = 360, "360天"
+    DAYS_365 = 365, "365天"
+    ACTUAL = 0, "按实际天数"
+
+
+class ExecutionDateInclusion(models.TextChoices):
+    """利息计算起止日期计入方式（数据库值不变，仅枚举化）"""
+
+    BOTH = "both", "起止日都计入"
+    START_ONLY = "start_only", "仅计入起始日"
+    END_ONLY = "end_only", "仅计入截止日"
+    NEITHER = "neither", "起止日都不计入"
+
+
 class CaseNumber(models.Model):
-    YEAR_DAYS_CHOICES: ClassVar = (
-        (360, _("360天")),
-        (365, _("365天")),
-        (0, _("按实际天数")),
-    )
-    DATE_INCLUSION_CHOICES: ClassVar = (
-        ("both", _("起止日都计入")),
-        ("start_only", _("仅计入起始日")),
-        ("end_only", _("仅计入截止日")),
-        ("neither", _("起止日都不计入")),
-    )
+    # 枚举化前的历史常量别名（数据库值不变），消费方仍可 CaseNumber.YEAR_DAYS_CHOICES 引用
+    YEAR_DAYS_CHOICES: ClassVar = ExecutionYearDays.choices
+    DATE_INCLUSION_CHOICES: ClassVar = ExecutionDateInclusion.choices
 
     id: int
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="case_numbers", verbose_name=_("案件"))
@@ -195,17 +213,17 @@ class CaseNumber(models.Model):
         help_text=_("启用后按文书条款中的抵扣顺序处理已付款"),
     )
     execution_year_days = models.PositiveSmallIntegerField(
-        choices=YEAR_DAYS_CHOICES,
-        default=360,
-        verbose_name=_("年基准天数"),
-        help_text=_("利息计算参数：360 / 365 / 按实际天数"),
+        choices=ExecutionYearDays.choices,
+        default=ExecutionYearDays.DAYS_360,
+        verbose_name="年基准天数",
+        help_text="利息计算参数：360 / 365 / 按实际天数",
     )
     execution_date_inclusion = models.CharField(
         max_length=16,
-        choices=DATE_INCLUSION_CHOICES,
-        default="both",
-        verbose_name=_("日期包含方式"),
-        help_text=_("利息计算参数：起止日期是否计入"),
+        choices=ExecutionDateInclusion.choices,
+        default=ExecutionDateInclusion.BOTH,
+        verbose_name="日期包含方式",
+        help_text="利息计算参数：起止日期是否计入",
     )
     execution_manual_text = models.TextField(
         blank=True,

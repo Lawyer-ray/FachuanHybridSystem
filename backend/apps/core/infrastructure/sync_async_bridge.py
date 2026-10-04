@@ -13,6 +13,12 @@ d) 线程内裸 ``asyncio.run``（oa_filing script_executor / 多处散点）。
 本模块收敛 a/d 两类「偶发调用」：统一入口 :func:`run_coro_sync`，语义为
 一次性事件循环 + 超时 + Django 连接清理。
 
+另收敛第 5 种写法（sync 长任务隔离）：``allow_async_unsafe() +
+ThreadPoolExecutor(max_workers=1) + future.result(timeout)``——同步
+Playwright 混 sync ORM 的长任务入口（contract_oa_sync / legal_research
+tasks / capability service）用它在独立线程跑 sync 函数并作用域化放行
+async-unsafe 检查。统一入口 :func:`run_sync_isolated`。
+
 刻意不收编的两类：
 
 - b 类（MCP 常驻 loop）：常驻 loop 有显式生命周期管理（进程级单例、
@@ -28,15 +34,18 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Coroutine
+from collections.abc import Callable, Coroutine
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from django.db import close_old_connections
 
+from apps.core.infrastructure.async_context import allow_async_unsafe as _allow_async_unsafe
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_THREAD_NAME_PREFIX = "coro-bridge"
+_DEFAULT_SYNC_THREAD_NAME_PREFIX = "sync-bridge"
 
 
 def run_coro_sync[T](
@@ -88,6 +97,77 @@ def _has_running_loop() -> bool:
     except RuntimeError:
         return False
     return True
+
+
+def run_sync_isolated[T](
+    fn: Callable[..., T],
+    /,
+    *args: Any,
+    timeout: float | None = None,
+    thread_name_prefix: str = _DEFAULT_SYNC_THREAD_NAME_PREFIX,
+    allow_async_unsafe: bool = False,
+    **kwargs: Any,
+) -> T:
+    """在一次性单线程中隔离运行 sync 可调用对象（sync 长任务入口的统一桥）。
+
+    收敛历史写法 ``allow_async_unsafe() + ThreadPoolExecutor(max_workers=1)
+    + future.result(timeout)``：同步 Playwright 混 sync ORM 的长任务
+    （如 contract_oa_sync）依赖该组合，语义保持：
+
+    - 单线程隔离：一次性 ``ThreadPoolExecutor(max_workers=1)``，与 Django
+      默认连接池（每线程一连接）匹配，避免连接耗尽；
+    - 作用域化 async-unsafe 放行（``allow_async_unsafe=True`` 时）：环境
+      变量在提交线程设置即可覆盖工作线程的整个执行窗口（含 ``future.result``
+      等待期），退出时恢复——同 ``apps.core.infrastructure.async_context``；
+    - 超时：``future.result(timeout)`` 到期抛 ``TimeoutError``，随后
+      ``shutdown(wait=False, cancel_futures=True)`` 丢弃线程不等待其自然
+      结束（``with`` 池的 wait=True 会把超时变成形式超时，教训同
+      ``_run_in_oneshot_thread`` 注释）；
+    - 异常冒泡：工作线程内异常经 future 原样透传给调用方。
+
+    工作线程收尾时 ``close_old_connections()`` 清理其线程局部连接（含
+    超时丢弃后线程自然结束的路径）。
+
+    Args:
+        fn: 待运行的 sync 可调用对象。
+        timeout: 秒；None 表示不设超时。到期抛 ``TimeoutError``。
+        thread_name_prefix: 一次性线程名称前缀，便于排查。
+        allow_async_unsafe: 是否作用域化放行 Django sync ORM 的 async 上下文
+            保护。遗留的同步 Playwright + ORM 混跑任务传 True（Playwright
+            sync API 会在执行线程挂"运行中循环"，sync ORM 因此被误判）；
+            新代码保持 False 并直接 aget/aupdate/sync_to_async。
+
+    Raises:
+        TimeoutError: 超时到期（future.result）。
+        BaseException: fn 内异常原样透传。
+    """
+
+    def _work() -> T:
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            close_old_connections()
+
+    if allow_async_unsafe:
+        with _allow_async_unsafe():
+            return _run_work_in_oneshot_thread(_work, timeout=timeout, thread_name_prefix=thread_name_prefix)
+    return _run_work_in_oneshot_thread(_work, timeout=timeout, thread_name_prefix=thread_name_prefix)
+
+
+def _run_work_in_oneshot_thread[T](
+    work: Callable[[], T],
+    *,
+    timeout: float | None,
+    thread_name_prefix: str,
+) -> T:
+    # 与 _run_in_oneshot_thread 相同的池生命周期纪律：不用 with（wait=True 的
+    # 形式超时问题），超时/异常后丢弃线程，仅保证池被释放。
+    pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix=thread_name_prefix)
+    try:
+        future = pool.submit(work)
+        return future.result(timeout=timeout)
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
 
 
 def _run_in_oneshot_thread[T](

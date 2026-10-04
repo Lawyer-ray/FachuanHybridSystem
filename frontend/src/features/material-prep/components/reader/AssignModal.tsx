@@ -3,6 +3,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Loader2, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { searchCases } from '../../api'
 import type { AssignInfo, CaseRow, InfoField } from '../../types'
 import { cn } from '@/lib/utils'
@@ -46,8 +47,10 @@ export function AssignModal({
   })
   const setField = (k: string, v: string) => setFields((prev) => ({ ...prev, [k]: v }))
 
-  // 案件检索：queryKey 随输入变化，上一请求由 signal 自动中止（无响应竞态）
-  const kw = q.trim()
+  // 案件检索：queryKey 用防抖值（输入停 250ms 才请求，不再每键一发），
+  // 上一请求由 signal 自动中止（无响应竞态）；raw 值只管「清空即清列表」
+  const rawKw = q.trim()
+  const kw = useDebouncedValue(rawKw, 250)
   const { data: searched = [], isFetching: loading, error } = useQuery({
     queryKey: ['mp-case-search', kw],
     queryFn: ({ signal }) => searchCases(kw, signal),
@@ -56,7 +59,7 @@ export function AssignModal({
     placeholderData: keepPreviousData,
   })
   // 空关键词不显示旧候选（对齐旧实现「清空输入即清列表」）
-  const cases = kw ? searched : []
+  const cases = rawKw ? searched : []
 
   useEffect(() => {
     if (error) toast.error('案件搜索失败，请检查后端')

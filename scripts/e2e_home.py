@@ -139,7 +139,7 @@ def main() -> int:
         check("路由停留在首页（未跳登录页）", "/login" not in page.url, page.url)
 
         # 2. 顶部导航与问候语
-        check("渲染品牌导航", page.locator("header").get_by_text("法穿 AI Copilot").count() >= 0)
+        check("渲染品牌导航", page.locator("header").get_by_text("法穿SI Copilot").count() >= 0)
         h1 = page.locator("h1")
         check("渲染问候标题", h1.count() >= 1 and "月" in (h1.first.inner_text() or ""))
 

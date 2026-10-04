@@ -46,8 +46,8 @@ class EmailConfigService:
             "EMAIL_USE_TLS": service.get_value("EMAIL_USE_TLS", "false").lower() == "true",
             "EMAIL_HOST_USER": service.get_value("EMAIL_HOST_USER", ""),
             "EMAIL_HOST_PASSWORD": service.get_value("EMAIL_HOST_PASSWORD", ""),
-            "EMAIL_FROM_NAME": service.get_value("EMAIL_FROM_NAME", "法穿AI系统"),
-            "EMAIL_SUBJECT_PREFIX": service.get_value("EMAIL_SUBJECT_PREFIX", "[法穿AI]"),
+            "EMAIL_FROM_NAME": service.get_value("EMAIL_FROM_NAME", "法穿SI系统"),
+            "EMAIL_SUBJECT_PREFIX": service.get_value("EMAIL_SUBJECT_PREFIX", "[法穿SI]"),
         }
 
         cache.set(_CACHE_KEY, config, _CACHE_TTL)

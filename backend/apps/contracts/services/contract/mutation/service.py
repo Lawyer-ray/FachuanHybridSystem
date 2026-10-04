@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, cast
 from django.db import transaction
 
 from apps.contracts.models import Contract, ContractAssignment, ContractParty, ContractStatus
-from apps.core.exceptions import NotFoundError
+from apps.core.exceptions import NotFoundError, ValidationException
 
 logger = logging.getLogger("apps.contracts")
 
@@ -126,16 +126,19 @@ class ContractMutationService:
         except Contract.DoesNotExist:
             raise NotFoundError("合同 %(id)s 不存在" % {"id": contract_id}) from None
 
-        # 不再解绑案件：Case.contract FK 已设为 CASCADE，删除合同时会级联删除案件及其日志、附件
+        # Case.contract FK 为 PROTECT：合同下存在案件时禁止删除，
+        # 避免静默级联抹掉案件及其日志、附件、证据、提醒等业务数据
         case_count = self.case_service.count_cases_by_contract(contract_id=contract.pk)
+        if case_count > 0:
+            raise ValidationException(f"合同下存在 {case_count} 个案件，请先处理案件后再删除")
+
         contract.delete()
 
         logger.info(
-            "合同删除成功（已级联删除关联案件及附件）",
+            "合同删除成功",
             extra={
                 "contract_id": contract_id,
                 "action": "delete_contract",
-                "cascaded_case_count": case_count,
             },
         )
 

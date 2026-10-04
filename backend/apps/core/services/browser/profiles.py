@@ -137,6 +137,15 @@ _PROFILES: dict[str, BrowserProfile] = {
         name="express",
         cdp_url="http://localhost:9222",
     ),
+    # 金诚同达 OA 半自动页面（open_page：浏览器留给用户操作，必须有头）。
+    # 与 jtn/stamp、jtn/archive 全自动链路的 _HEADED_PROFILE 语义一致。
+    "jtn": BrowserProfile(
+        name="jtn",
+        headless=False,
+        anti_detection=True,
+        timeout=60_000,
+        navigation_timeout=60_000,
+    ),
 }
 
 

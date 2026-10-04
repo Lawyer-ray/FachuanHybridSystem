@@ -239,6 +239,7 @@ class JtnClientImportScript:  # pragma: no cover
             follow_redirects=True,
             timeout=_DEFAULT_HTTP_TIMEOUT,
             cookies=shared_cookies,
+            trust_env=False,
         ) as client:
             form_state = await self._load_client_list_form_state(client)
             max_pages = self._resolve_total_pages(form_state.total_count, form_state.page_size)
@@ -453,6 +454,7 @@ class JtnClientImportScript:  # pragma: no cover
             follow_redirects=True,
             timeout=_DEFAULT_HTTP_TIMEOUT,
             cookies=shared_cookies,
+            trust_env=False,
         ) as client:
             for idx, item in indexed_chunk:
                 try:
@@ -625,7 +627,9 @@ class JtnClientImportScript:  # pragma: no cover
         """通过 httpx 接口登录，将 cookie 注入 Playwright context。"""
         logger.info("接口登录: %s", _LOGIN_URL)
 
-        async with httpx.AsyncClient(headers=_HTTP_HEADERS, follow_redirects=True, timeout=15) as client:
+        async with httpx.AsyncClient(
+            headers=_HTTP_HEADERS, follow_redirects=True, timeout=1, trust_env=False
+        ) as client:
             r = await client.get(_LOGIN_URL)
             csrf_match = re.search(r'name=["\']CSRFToken["\'] value=["\']([^"\']+)["\']', r.text)
             csrf = csrf_match.group(1) if csrf_match else ""

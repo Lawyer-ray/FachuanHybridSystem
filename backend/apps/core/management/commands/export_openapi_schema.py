@@ -47,7 +47,10 @@ class Command(BaseCommand):
         # （BASE_DIR 为 settings 模块自定义属性，django-stubs 不识别，同 apps/documents/storage.py 口径）
         target = out_option if isinstance(out_option, Path) else Path(str(settings.BASE_DIR)).parent / "openapi.json"  # type: ignore[misc]
 
-        schema = api_v1.get_openapi_schema(path_prefix="/api/v1")
+        # 尾斜杠不可省：BoundRouter.prefix 不带前导斜杠，schema 拼接为
+        # "/" + path_prefix + f"{prefix}/{path}"，缺尾斜杠会把 router 路径
+        # 拼成 /api/v1social/...（实时 schema 因 reverse() 自带尾斜杠而不受影响）
+        schema = api_v1.get_openapi_schema(path_prefix="/api/v1/")
 
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(

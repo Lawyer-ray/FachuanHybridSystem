@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { LogOut, Menu, Plus, Search, User } from 'lucide-react'
 
-import { useAuth } from '@/features/auth'
+import { useAuth, type User as AuthUser } from '@/features/auth'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import {
@@ -56,17 +56,23 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
   // 拿不到真实用户名。navbar 又得显示用户名，所以这里补拉一次
   // /organization/me（登录时也拉过，属幂等只读）。走 react-query 带缓存，
   // 只在没有用户名时启用，避免每次挂载都请求。
-  useQuery({
+  const meQuery = useQuery({
     queryKey: ORG_ME_KEY,
-    queryFn: async () => {
-      const u = await api.get('organization/me').json<{ id: number; username: string }>()
-      if (u?.username) setUser?.({ id: u.id, username: u.username })
-      return u
-    },
+    // queryFn 只做纯取数（类型复用 auth 域的 User 投影），store 回写放到
+    // 下面的 useEffect——queryFn 内写外部 store 会在 react-query 缓存重放 /
+    // 严格模式双执行时产生隐藏副作用
+    queryFn: () => api.get('organization/me').json<AuthUser>(),
     enabled: !user?.username,
     staleTime: 5 * 60_000,
     retry: false,
   })
+
+  // 拉到用户名后回写一次 store：让用户菜单 / 依赖 useAuth 的其它组件同步显示。
+  // enabled 仍由 user.username 翻转控制，回写后 query 转禁用、data 保留，effect 不再触发。
+  useEffect(() => {
+    const me = meQuery.data
+    if (me?.username) setUser({ id: me.id, username: me.username })
+  }, [meQuery.data, setUser])
 
   const notify = (msg: string) => onNotify?.(msg)
 
@@ -116,7 +122,7 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
       {/* 品牌：产品名（点击回首页） */}
       <Link to="/" className="flex flex-none items-center pr-1.5 no-underline">
         <span className="text-[14px] font-bold whitespace-nowrap tracking-[-0.01em] text-foreground">
-          法穿 <span className="text-[12.5px] font-medium text-muted-foreground">AI Copilot</span>
+          法穿 <span className="text-[12.5px] font-medium text-muted-foreground">SI Copilot</span>
         </span>
       </Link>
 

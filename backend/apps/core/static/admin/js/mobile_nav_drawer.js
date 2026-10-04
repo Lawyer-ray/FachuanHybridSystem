@@ -1,5 +1,5 @@
 /*
- * 法穿 AI — Django Admin 移动端抽屉侧边栏开关
+ * 法穿SI — Django Admin 移动端抽屉侧边栏开关
  *
  * 仅在 ≤767px 与 DOM 元素齐备时生效：
  *   - 点击 header 汉堡按钮（#fc-mobile-nav-toggle）开合抽屉

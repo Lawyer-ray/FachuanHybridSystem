@@ -26,7 +26,7 @@ export function LoginBrandPanel() {
       <div className="fc-brand__head-block">
         <header className="fc-brand__head">
           <span className="fc-mark">法穿</span>
-          <span className="fc-mark__meta">AI Copilot</span>
+          <span className="fc-mark__meta">SI Copilot</span>
           <span className="fc-brand__est">EST. 2026</span>
         </header>
 
@@ -79,7 +79,7 @@ export function LoginBrandPanel() {
         </ol>
 
         <footer className="fc-brand__foot">
-          <span>© 2026 法穿 AI</span>
+          <span>© 2026 法穿SI</span>
           <span>PolyForm Noncommercial</span>
         </footer>
       </div>

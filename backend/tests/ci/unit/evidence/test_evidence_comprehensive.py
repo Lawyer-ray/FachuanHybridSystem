@@ -16,7 +16,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ==================== Enums ====================
 
 
@@ -90,7 +89,8 @@ class TestEvidenceListModels:
             list_type="list_1",
             title="证据清单一",
         )
-        assert str(elist) == f"{case.name} - 证据清单一"
+        # __str__ 用 case_id 拼（避免 admin N+1），不再触发 FK 查询取名称
+        assert str(elist) == f"案件#{case.id} - 证据清单一"
 
     def test_evidence_list_start_order_cached(self, db, case):
         from apps.evidence.models.evidence import EvidenceList
@@ -302,7 +302,7 @@ class TestEvidenceApiEndpoints:
     @patch("apps.evidence.services.core.access_policy.ensure_evidence_list_access")
     @patch("apps.evidence.api.evidence_api._get_evidence_service")
     def test_reorder_items(self, mock_get_svc, _mock_access):
-        from apps.evidence.api.evidence_api import reorder_evidence_items, ReorderItemsRequest
+        from apps.evidence.api.evidence_api import ReorderItemsRequest, reorder_evidence_items
 
         mock_svc = MagicMock()
         mock_get_svc.return_value = mock_svc
@@ -316,7 +316,7 @@ class TestEvidenceApiEndpoints:
     @patch("apps.evidence.api.evidence_api._get_ai_service")
     @pytest.mark.asyncio
     async def test_ai_suggest_purpose(self, mock_get_svc):
-        from apps.evidence.api.evidence_api import ai_suggest_purpose, AIPurposeRequest
+        from apps.evidence.api.evidence_api import AIPurposeRequest, ai_suggest_purpose
 
         mock_svc = MagicMock()
         mock_svc.suggest_purpose.return_value = ["建议1", "建议2"]
@@ -330,7 +330,7 @@ class TestEvidenceApiEndpoints:
     @patch("apps.evidence.api.evidence_api._get_ai_service")
     @pytest.mark.asyncio
     async def test_ai_generate_cross_examination(self, mock_get_svc):
-        from apps.evidence.api.evidence_api import ai_generate_cross_examination, AICrossExamRequest
+        from apps.evidence.api.evidence_api import AICrossExamRequest, ai_generate_cross_examination
 
         mock_svc = MagicMock()
         mock_svc.generate_cross_examination.return_value = {"opinion": "对真实性无异议"}

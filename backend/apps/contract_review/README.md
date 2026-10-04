@@ -5,7 +5,7 @@
 ## 功能概述
 
 - 上传仅支持 .docx；提取段落（带索引映射）+ 正则识别四方当事人 + 标题提取，生成标准输出文件名 `{标题}[修订版]V1_{日期}_{短id}.docx`
-- `confirm-party` 允许手动修正当事人名称、选择处理步骤（typo_check / contract_review / review_report / format_document）与修订人名（默认「法穿AI」）
+- `confirm-party` 允许手动修正当事人名称、选择处理步骤（typo_check / contract_review / review_report / format_document）与修订人名（默认「法穿SI」）
 - 异步流水线：启用修订模式 → TypoChecker 分批（20 段/批、≤4 线程并行）LLM 查错别字 → ContractReviewer（内置企业合同风险管控审核框架 prompt）审查 + 评估报告（两步并行）→ 字体/行距/缩进标准化 → 页码域标准化 → LLM 标题层级识别 + 编号重排
 - 修订以 **Word 原生 Track Changes** 落盘（lxml 写 `w:ins`/`w:del`），用户可在 Word 中逐条接受/拒绝；应用修订不信任 LLM 段落索引，按原文遍历匹配
 - LLM JSON 解析有截断修复（`_try_fix_truncated_json`）

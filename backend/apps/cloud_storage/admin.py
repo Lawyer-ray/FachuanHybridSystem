@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
-import time as _time
 from typing import Any
 
 from django.contrib import admin, messages
@@ -49,13 +49,14 @@ def _clear_dropbox_pending(account_id: int) -> None:  # pragma: no cover
 
 
 def _poll_device_code(account_id: int, device_code: str, interval: int, max_attempts: int) -> None:  # pragma: no cover
-    """Background thread: poll Microsoft token endpoint until user authorizes or timeout."""
-    import httpx
+    """Background thread: poll Microsoft token endpoint until user authorizes or timeout.
 
-    from apps.core.security.secret_codec import SecretCodec
-
+    轮询实现收敛到 ``OAuthTokenManager.acomplete_device_code_flow``（唯一实现）；
+    本函数只负责加载账号、用 asyncio.run 驱动 async 版本（admin 视图是同步
+    WSGI 语境，线程内新建事件循环可接受），并在结束后清理 pending 状态。
+    """
     from .models import CloudStorageAccount
-    from .onedrive_provider import TOKEN_URL_TEMPLATE
+    from .onedrive_provider import OAuthTokenManager
 
     try:
         account = CloudStorageAccount.objects.get(id=account_id)
@@ -63,68 +64,25 @@ def _poll_device_code(account_id: int, device_code: str, interval: int, max_atte
         _clear_onedrive_pending(account_id)
         return
 
-    tenant_id = getattr(account, "onedrive_tenant_id", None) or "consumers"
-    client_id = getattr(account, "onedrive_client_id", "")
-    token_url = TOKEN_URL_TEMPLATE.format(tenant_id=tenant_id)
-
-    for _ in range(max_attempts):
-        _time.sleep(interval)
-        try:
-            resp = httpx.post(
-                token_url,
-                data={
-                    "client_id": client_id,
-                    "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-                    "device_code": device_code,
-                },
-                timeout=30,
-            )
-            data = resp.json()
-
-            if "access_token" in data:
-                from datetime import UTC, datetime, timedelta
-
-                codec = SecretCodec()
-                account.onedrive_access_token = codec.encrypt(data["access_token"])
-                account.onedrive_refresh_token = codec.encrypt(data.get("refresh_token", ""))
-                account.onedrive_token_expires_at = datetime.now(UTC) + timedelta(seconds=data.get("expires_in", 3600))
-                account.onedrive_pending_device_code = ""
-                account.onedrive_pending_expires_at = None
-                account.save(
-                    update_fields=[
-                        "onedrive_access_token",
-                        "onedrive_refresh_token",
-                        "onedrive_token_expires_at",
-                        "onedrive_pending_device_code",
-                        "onedrive_pending_expires_at",
-                        "updated_at",
-                    ]
-                )
-                _pending_auth.pop(account_id, None)
-                return
-
-            error = data.get("error", "")
-            if error in ("authorization_declined", "expired_token"):
-                _clear_onedrive_pending(account_id)
-                return
-            if error == "slow_down":
-                interval += 5
-
-        except Exception:
-            logger.debug("OneDrive 设备码轮询单次失败（已忽略，继续轮询）: account_id=%s", account_id, exc_info=True)
-
-    _clear_onedrive_pending(account_id)
+    manager = OAuthTokenManager(account)
+    try:
+        asyncio.run(manager.acomplete_device_code_flow(device_code, interval=interval, max_attempts=max_attempts))
+    except Exception:
+        logger.debug("OneDrive 设备码轮询结束（未完成授权）: account_id=%s", account_id, exc_info=True)
+    finally:
+        # 成功时 provider 已写入 token，这里顺带清掉 pending 标记；
+        # 失败/超时同样清掉，避免页面停留在「授权进行中」。
+        _clear_onedrive_pending(account_id)
 
 
 def _poll_dropbox_device_code(
     account_id: int, device_code: str, interval: int, max_attempts: int
 ) -> None:  # pragma: no cover
-    """Background thread: poll Dropbox token endpoint until user authorizes or timeout."""
-    import httpx
+    """Background thread: poll Dropbox token endpoint until user authorizes or timeout.
 
-    from apps.core.security.secret_codec import SecretCodec
-
-    from .dropbox_provider import TOKEN_URL
+    轮询实现收敛到 ``DropboxOAuthTokenManager.acomplete_device_code_flow``（唯一实现）。
+    """
+    from .dropbox_provider import DropboxOAuthTokenManager
     from .models import CloudStorageAccount
 
     try:
@@ -133,57 +91,13 @@ def _poll_dropbox_device_code(
         _clear_dropbox_pending(account_id)
         return
 
-    app_key = account.dropbox_app_key
-    app_secret = account.get_decrypted_dropbox_app_secret()
-
-    for _ in range(max_attempts):
-        _time.sleep(interval)
-        try:
-            resp = httpx.post(
-                TOKEN_URL,
-                data={
-                    "client_id": app_key,
-                    "client_secret": app_secret,
-                    "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-                    "device_code": device_code,
-                },
-                timeout=30,
-            )
-            data = resp.json()
-
-            if "access_token" in data:
-                from datetime import UTC, datetime, timedelta
-
-                codec = SecretCodec()
-                account.dropbox_access_token = codec.encrypt(data["access_token"])
-                account.dropbox_refresh_token = codec.encrypt(data.get("refresh_token", ""))
-                account.dropbox_token_expires_at = datetime.now(UTC) + timedelta(seconds=data.get("expires_in", 14400))
-                account.dropbox_pending_device_code = ""
-                account.dropbox_pending_expires_at = None
-                account.save(
-                    update_fields=[
-                        "dropbox_access_token",
-                        "dropbox_refresh_token",
-                        "dropbox_token_expires_at",
-                        "dropbox_pending_device_code",
-                        "dropbox_pending_expires_at",
-                        "updated_at",
-                    ]
-                )
-                _pending_auth.pop(account_id, None)
-                return
-
-            error = data.get("error", "")
-            if error in ("access_denied", "expired_token"):
-                _clear_dropbox_pending(account_id)
-                return
-            if error == "slow_down":
-                interval += 5
-
-        except Exception:
-            logger.debug("Dropbox 设备码轮询单次失败（已忽略，继续轮询）: account_id=%s", account_id, exc_info=True)
-
-    _clear_dropbox_pending(account_id)
+    manager = DropboxOAuthTokenManager(account)
+    try:
+        asyncio.run(manager.acomplete_device_code_flow(device_code, interval=interval, max_attempts=max_attempts))
+    except Exception:
+        logger.debug("Dropbox 设备码轮询结束（未完成授权）: account_id=%s", account_id, exc_info=True)
+    finally:
+        _clear_dropbox_pending(account_id)
 
 
 @admin.register(CloudStorageAccount)

@@ -14,6 +14,11 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_TIMEOUT_SECONDS = 30
 
+# 模块级共享线程池：原先每次调用新建 ThreadPoolExecutor(max_workers=1)，
+# 超时后 future.cancel() 对运行中任务无效，线程以泄漏式堆积告终。共享池 +
+# 超时后不等待（任务自然结束），把在野线程数钉死在池上限。
+_SHARED_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="chat-provider")
+
 
 class ChatProviderFacade:
     def __init__(self, *, factory: Any | None = None, timeout: float = _DEFAULT_TIMEOUT_SECONDS) -> None:
@@ -25,7 +30,7 @@ class ChatProviderFacade:
         self.timeout = timeout
 
     def _call_with_timeout(self, fn: Any, *args: Any, timeout: float | None = None, **kwargs: Any) -> Any:
-        """在独立线程中执行 provider 调用，强制超时保护。
+        """在共享线程池中执行 provider 调用，强制超时保护。
 
         Args:
             fn: 要执行的 callable
@@ -37,17 +42,23 @@ class ChatProviderFacade:
 
         Raises:
             TimeoutError: 超过指定时间未返回
+
+        Note:
+            超时只作用于「等待结果」：提交的任务无法真正取消，会在线程池中
+            自然结束（provider 内部有自己的请求超时），此处记 error 便于追查。
         """
         effective_timeout = timeout if timeout is not None else self.timeout
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(fn, *args, **kwargs)
-            try:
-                return future.result(timeout=effective_timeout)
-            except concurrent.futures.TimeoutError:
-                future.cancel()
-                raise TimeoutError(
-                    f"外部服务调用超时（{effective_timeout}秒）: {getattr(fn, '__name__', str(fn))}"
-                ) from None
+        future = _SHARED_EXECUTOR.submit(fn, *args, **kwargs)
+        try:
+            return future.result(timeout=effective_timeout)
+        except concurrent.futures.TimeoutError:
+            logger.error(
+                "chat_provider_call_timeout: 任务超时，将在后台线程自然结束（无法取消）",
+                extra={"fn": getattr(fn, "__name__", str(fn)), "timeout": effective_timeout},
+            )
+            raise TimeoutError(
+                f"外部服务调用超时（{effective_timeout}秒）: {getattr(fn, '__name__', str(fn))}"
+            ) from None
 
     async def _call_with_timeout_async(self, fn: Any, *args: Any, timeout: float | None = None, **kwargs: Any) -> Any:
         """异步版本：使用 asyncio.wait_for() 替代 ThreadPoolExecutor。

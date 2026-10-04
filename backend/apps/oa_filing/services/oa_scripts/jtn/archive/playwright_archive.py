@@ -10,9 +10,16 @@ from typing import Any
 from playwright.async_api import Page
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
-from apps.core.services.browser import BrowserProfile, create_browser_async
+from apps.core.services.browser import (
+    BrowserProfile,
+    BrowserSessionHandle,
+    close_browser_session,
+    create_browser_async,
+    create_browser_async_manual,
+)
 
 from ..auth.service import JtnAuthService
+from ..case_dialog import confirm_case_selection, select_case_radio_in_frame
 from .archive_models import ArchiveFormData
 from .constants import (
     _POPUP_IFRAME_KEYWORD,
@@ -153,46 +160,18 @@ class PlaywrightArchiveMixin:  # pragma: no cover
         await asyncio.sleep(SHORT_WAIT)
         logger.info("已选择案件: %s", case_no)
 
-        # 5. 点击 layui 层的"选择"按钮
-        await page.evaluate("""() => {
-            const layers = document.querySelectorAll(".layui-layer");
-            for (const layer of layers) {
-                for (const a of layer.querySelectorAll("a")) {
-                    if (a.innerText.trim() === "选择") { a.click(); return; }
-                }
-            }
-        }""")
-        await asyncio.sleep(POPUP_WAIT)
+        # 5. 点「选择」回填并验证弹窗真正关闭。行未勾上时 OA 弹「请选择对应的
+        #    案件信息」且弹窗保持打开，静默失败会让后续表单控件被遮罩挡住。
+        await confirm_case_selection(page, case_no, self._find_popup_frame, wait_after_click=POPUP_WAIT)
         logger.info("案件已回填到主页面")
 
     async def _select_case_in_current_list(self: Any, popup_frame: Any, case_no: str) -> bool:
         """若目标案件已出现在弹窗当前列表中，选中其 radio 并返回 True，否则返回 False。
 
-        列表来源不区分（初始加载或查询结果），仅按案件编号匹配。选中后校验
-        checked 状态，未生效则强制设置并派发 change 事件，避免出现"找到了案件
-        却选不中"的情况。
+        逻辑在 jtn.case_dialog.select_case_radio_in_frame（盖章/归档共用）：
+        勾选后校验 checked，未生效则强制设置并派发 change 事件。
         """
-        selected = await popup_frame.evaluate(
-            """(expected) => {
-                const radios = document.querySelectorAll('input[type="radio"]');
-                for (const radio of radios) {
-                    const row = radio.closest('tr');
-                    if (!row) continue;
-                    const tds = row.querySelectorAll('td');
-                    if (tds.length < 2) continue;
-                    const caseNo = tds[1].textContent.trim();
-                    if (caseNo === expected) {
-                        if (!radio.checked) radio.click();
-                        if (!radio.checked) radio.checked = true;
-                        radio.dispatchEvent(new Event('change', { bubbles: true }));
-                        return true;
-                    }
-                }
-                return false;
-            }""",
-            case_no,
-        )
-        return bool(selected)
+        return await select_case_radio_in_frame(popup_frame, case_no)
 
     async def _find_popup_frame(self: Any, page: Page) -> Any:  # pragma: no cover
         """查找案件搜索弹窗的 iframe。"""
@@ -288,20 +267,16 @@ class PlaywrightArchiveMixin:  # pragma: no cover
         oa_case_number: str,
         description: str = "详见卷宗",
         file_paths: list[str] | None = None,
-    ) -> tuple[Any, Any]:
-        """打开归档页面，填写案件编号和小结，若提供 file_paths 则在最后一步将对应文件上传到"案件业务卷宗"，返回 (playwright, browser) 保持浏览器打开。"""
-        from playwright.async_api import async_playwright
-
-        playwright = await async_playwright().start()
-        browser = await playwright.chromium.launch(headless=False)
-        context = await browser.new_context()
-        page = await context.new_page()
+    ) -> BrowserSessionHandle:
+        """打开归档页面，填写案件编号和小结，若提供 file_paths 则在最后一步将对应文件上传到"案件业务卷宗"，返回浏览器会话句柄（长生命周期）。"""
+        session = await create_browser_async_manual("jtn")
+        page = session.page
         # 浏览器关闭后的回收由 adapter.wait_open_browsers_closed 负责（调度器压住
         # 事件循环直到用户关掉浏览器）；脚本执行中途的异常路径在下方 except 里
-        # 显式 browser.close() + playwright.stop()。
+        # 通过工厂的 close_browser_session 显式回收。
 
         try:
-            await self._login(page, context)
+            await self._login(page, session.context)
             await self._navigate(page)
 
             if oa_case_number:
@@ -314,9 +289,8 @@ class PlaywrightArchiveMixin:  # pragma: no cover
                 await self._upload_files(page, file_paths)
 
             logger.info("归档页面已打开并填写完成")
-            return playwright, browser
+            return session
 
         except Exception:
-            await browser.close()
-            await playwright.stop()
+            await close_browser_session(session)
             raise

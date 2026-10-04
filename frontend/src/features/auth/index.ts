@@ -17,6 +17,10 @@ export { LoginPage } from './LoginPage'
 export { SocialCallbackPage } from './SocialCallbackPage'
 export { useAuth } from './store'
 
+/** 登录用户类型（/organization/me 响应的消费投影）：AppNavbar 补拉用户信息时
+ *  复用，避免在组件里手写内联形状后与本域 store 的 User 漂移。 */
+export type { User } from './types'
+
 /** 账号绑定设置页（懒加载组件，消费方需包 Suspense） */
 export const BindingsPageLazy = lazy(() =>
   import('./BindingsPage').then((m) => ({ default: m.BindingsPage })),

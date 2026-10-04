@@ -6,11 +6,14 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import threading
+import time
 from unittest.mock import patch
 
 import pytest
 
-from apps.core.infrastructure.sync_async_bridge import run_coro_sync
+from apps.core.infrastructure.sync_async_bridge import run_coro_sync, run_sync_isolated
 
 
 def _run_in_loop(coro):
@@ -147,3 +150,108 @@ class TestRunCoroSyncNestedLoop:
 
         with pytest.raises(KeyError, match="from-thread"):
             _run_in_loop(_outer())
+
+
+class TestRunSyncIsolated:
+    """run_sync_isolated：sync 长任务隔离桥（单线程 + 超时 + 作用域化放行）。"""
+
+    def test_returns_fn_result_with_args_kwargs(self):
+        def _fn(a: int, *, b: int) -> int:
+            return a + b
+
+        assert run_sync_isolated(_fn, 1, b=2) == 3
+
+    def test_exception_propagates_as_is(self):
+        def _fn() -> None:
+            raise KeyError("from-worker")
+
+        with pytest.raises(KeyError, match="from-worker"):
+            run_sync_isolated(_fn)
+
+    def test_runs_in_separate_single_thread(self):
+        seen: dict[str, object] = {}
+        main_thread = threading.current_thread()
+
+        def _fn() -> None:
+            seen["thread"] = threading.current_thread()
+
+        run_sync_isolated(_fn)
+        assert seen["thread"] is not main_thread
+
+    def test_timeout_raises_timeout_error_without_waiting(self):
+        started = threading.Event()
+
+        def _fn() -> None:
+            started.set()
+            time.sleep(0.3)  # 短时长：超时后被丢弃的线程不阻塞测试进程退出
+
+        with pytest.raises(TimeoutError):
+            run_sync_isolated(_fn, timeout=0.05)
+        assert started.is_set()
+
+    def test_timeout_pool_not_waited_on_shutdown(self):
+        """超时后丢弃线程：shutdown(wait=False, cancel_futures=True)，避免形式超时。"""
+        with patch("apps.core.infrastructure.sync_async_bridge.ThreadPoolExecutor") as MockPool:
+            mock_pool = MockPool.return_value
+            mock_future = mock_pool.submit.return_value
+            mock_future.result.side_effect = TimeoutError
+            with pytest.raises(TimeoutError):
+                run_sync_isolated(lambda: None, timeout=0.01)
+            mock_pool.shutdown.assert_called_once_with(wait=False, cancel_futures=True)
+
+    def test_allow_async_unsafe_scoped_and_restored(self):
+        seen: dict[str, object] = {}
+
+        def _fn() -> None:
+            seen["value"] = os.environ.get("DJANGO_ALLOW_ASYNC_UNSAFE")
+
+        old = os.environ.get("DJANGO_ALLOW_ASYNC_UNSAFE")
+        os.environ.pop("DJANGO_ALLOW_ASYNC_UNSAFE", None)
+        try:
+            run_sync_isolated(_fn, allow_async_unsafe=True)
+            assert seen["value"] == "true"
+            assert "DJANGO_ALLOW_ASYNC_UNSAFE" not in os.environ
+        finally:
+            if old is not None:
+                os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = old
+
+    def test_allow_async_unsafe_off_by_default(self):
+        seen: dict[str, object] = {}
+
+        def _fn() -> None:
+            seen["value"] = os.environ.get("DJANGO_ALLOW_ASYNC_UNSAFE")
+
+        old = os.environ.get("DJANGO_ALLOW_ASYNC_UNSAFE")
+        os.environ.pop("DJANGO_ALLOW_ASYNC_UNSAFE", None)
+        try:
+            run_sync_isolated(_fn)
+            assert seen["value"] is None
+        finally:
+            if old is not None:
+                os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = old
+
+    def test_allow_async_unsafe_restored_on_timeout(self):
+        def _fn() -> None:
+            time.sleep(0.3)
+
+        old = os.environ.get("DJANGO_ALLOW_ASYNC_UNSAFE")
+        os.environ.pop("DJANGO_ALLOW_ASYNC_UNSAFE", None)
+        try:
+            with pytest.raises(TimeoutError):
+                run_sync_isolated(_fn, timeout=0.05, allow_async_unsafe=True)
+            assert "DJANGO_ALLOW_ASYNC_UNSAFE" not in os.environ
+        finally:
+            if old is not None:
+                os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = old
+
+    def test_worker_thread_closes_old_connections(self):
+        """工作线程收尾时清理线程局部连接（含 fn 抛异常路径）。"""
+        threads: list[int] = []
+
+        def _fake_close() -> None:
+            threads.append(threading.get_ident())
+
+        with patch("apps.core.infrastructure.sync_async_bridge.close_old_connections", side_effect=_fake_close):
+            run_sync_isolated(lambda: "ok")
+        assert len(threads) == 1
+        assert threads[0] != threading.get_ident()

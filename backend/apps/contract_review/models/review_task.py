@@ -33,8 +33,11 @@ class RepresentedParty(models.TextChoices):
 class ReviewTask(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
+        # SET_NULL：删除律师账号不销毁审查任务历史，保留审计记录
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="review_tasks",
         verbose_name="用户",
     )
@@ -67,7 +70,7 @@ class ReviewTask(models.Model):
     error_message = models.TextField(blank=True, verbose_name="错误信息")
     review_report = models.TextField(blank=True, verbose_name="评估报告")
     model_name = models.CharField(max_length=128, blank=True, verbose_name="LLM 模型名称")
-    reviewer_name = models.CharField(max_length=128, blank=True, default="法穿AI", verbose_name="修订人名称")
+    reviewer_name = models.CharField(max_length=128, blank=True, default="法穿SI", verbose_name="修订人名称")
     selected_steps = models.JSONField(
         default=list,
         blank=True,

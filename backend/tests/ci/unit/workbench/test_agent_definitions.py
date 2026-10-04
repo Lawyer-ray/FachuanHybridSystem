@@ -213,7 +213,7 @@ class TestModuleConstants:
         from apps.workbench.agents.definitions import BASE_SYSTEM_PROMPT
 
         assert len(BASE_SYSTEM_PROMPT) > 0
-        assert "法穿AI" in BASE_SYSTEM_PROMPT
+        assert "法穿SI" in BASE_SYSTEM_PROMPT
 
     def test_triage_prompt_exists(self):
         from apps.workbench.agents.definitions import TRIAGE_PROMPT

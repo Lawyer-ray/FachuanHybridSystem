@@ -1,7 +1,7 @@
 {% extends "admin/base.html" %}
 {% load static %}
 
-{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:"法穿AI Copilot" }}{% endblock %}
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:"法穿SI Copilot" }}{% endblock %}
 
 {% block extrahead %}
 {{ block.super }}
@@ -315,7 +315,7 @@ document.addEventListener('DOMContentLoaded', function() {
         </svg>
     </button>
     <h1 id="site-name" style="margin:0;">
-        <a href="{% url 'admin:index' %}">{{ site_header|default:"法穿AI Copilot" }}</a>
+        <a href="{% url 'admin:index' %}">{{ site_header|default:"法穿SI Copilot" }}</a>
     </h1>
 </div>
 {% endblock %}

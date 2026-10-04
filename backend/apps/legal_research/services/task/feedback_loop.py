@@ -4,9 +4,11 @@ import logging
 from dataclasses import dataclass
 from typing import Protocol
 
+from django.db import transaction
 from django.utils import timezone
 
 from apps.core.interfaces import ServiceLocator
+from apps.core.models.system_config import SystemConfig
 from apps.legal_research.models import LegalResearchResult, LegalResearchTask
 from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 
@@ -114,6 +116,23 @@ class LegalResearchFeedbackLoopService:
     KEY_COUNTER_NEGATIVE = "LEGAL_RESEARCH_FEEDBACK_NEGATIVE_COUNT"
     KEY_COUNTER_MISSED = "LEGAL_RESEARCH_FEEDBACK_MISSED_COUNT"
 
+    # apply_feedback 涉及的全部配置键：进入读-改-写前统一锁行，串行化并发反馈
+    _LOCKED_CONFIG_KEYS: tuple[str, ...] = (
+        KEY_ONLINE_ENABLED,
+        KEY_MIN_SIMILARITY_DELTA.key,
+        KEY_FEEDBACK_MARGIN.key,
+        KEY_FEEDBACK_FLOOR.key,
+        KEY_WEIGHT_KEYWORD.key,
+        KEY_WEIGHT_SUMMARY.key,
+        KEY_WEIGHT_BM25.key,
+        KEY_WEIGHT_VECTOR.key,
+        KEY_WEIGHT_PASSAGE.key,
+        KEY_WEIGHT_METADATA.key,
+        KEY_COUNTER_POSITIVE,
+        KEY_COUNTER_NEGATIVE,
+        KEY_COUNTER_MISSED,
+    )
+
     def __init__(self, *, config_service: _WritableConfigService | None = None) -> None:
         self._config = config_service or ServiceLocator.get_system_config_service()
         self._defaults = LegalResearchTuningConfig()
@@ -148,41 +167,47 @@ class LegalResearchFeedbackLoopService:
         task.save(update_fields=["message", "updated_at"])
 
     def apply_feedback(self, *, feedback_type: str) -> None:
-        if not self._get_bool(self.KEY_ONLINE_ENABLED, default=True):
-            return
+        with transaction.atomic():
+            # 先锁住本服务涉及的 SystemConfig 行再读-改-写：
+            # 计数器/权重/阈值均为 get_value → set_value 的非原子更新，
+            # 并发反馈会互相覆盖；select_for_update 串行化同一批配置键的写入。
+            list(SystemConfig.objects.select_for_update().filter(key__in=self._LOCKED_CONFIG_KEYS))
 
-        if feedback_type == LegalResearchFeedbackType.HIT_FALSE:
-            self._increment_counter(self.KEY_COUNTER_NEGATIVE)
-            self._adjust_thresholds(min_similarity_delta=+0.015, margin_delta=-0.01, floor_delta=+0.005)
-            self._adjust_weights(
-                keyword_delta=-0.012,
-                summary_delta=+0.003,
-                bm25_delta=-0.003,
-                vector_delta=+0.007,
-                passage_delta=+0.01,
-                metadata_delta=-0.005,
-            )
-            return
+            if not self._get_bool(self.KEY_ONLINE_ENABLED, default=True):
+                return
 
-        if feedback_type == LegalResearchFeedbackType.MISSED_CASE:
-            self._increment_counter(self.KEY_COUNTER_MISSED)
-            self._adjust_thresholds(min_similarity_delta=-0.015, margin_delta=+0.01, floor_delta=-0.005)
-            self._adjust_weights(
-                keyword_delta=+0.004,
-                summary_delta=+0.008,
-                bm25_delta=+0.01,
-                vector_delta=-0.004,
-                passage_delta=-0.008,
-                metadata_delta=0.0,
-            )
-            return
+            if feedback_type == LegalResearchFeedbackType.HIT_FALSE:
+                self._increment_counter(self.KEY_COUNTER_NEGATIVE)
+                self._adjust_thresholds(min_similarity_delta=+0.015, margin_delta=-0.01, floor_delta=+0.005)
+                self._adjust_weights(
+                    keyword_delta=-0.012,
+                    summary_delta=+0.003,
+                    bm25_delta=-0.003,
+                    vector_delta=+0.007,
+                    passage_delta=+0.01,
+                    metadata_delta=-0.005,
+                )
+                return
 
-        if feedback_type == LegalResearchFeedbackType.HIT_TRUE:
-            self._increment_counter(self.KEY_COUNTER_POSITIVE)
-            self._relax_towards_defaults()
-            return
+            if feedback_type == LegalResearchFeedbackType.MISSED_CASE:
+                self._increment_counter(self.KEY_COUNTER_MISSED)
+                self._adjust_thresholds(min_similarity_delta=-0.015, margin_delta=+0.01, floor_delta=-0.005)
+                self._adjust_weights(
+                    keyword_delta=+0.004,
+                    summary_delta=+0.008,
+                    bm25_delta=+0.01,
+                    vector_delta=-0.004,
+                    passage_delta=-0.008,
+                    metadata_delta=0.0,
+                )
+                return
 
-        logger.warning("未知反馈类型，忽略在线微调", extra={"feedback_type": feedback_type})
+            if feedback_type == LegalResearchFeedbackType.HIT_TRUE:
+                self._increment_counter(self.KEY_COUNTER_POSITIVE)
+                self._relax_towards_defaults()
+                return
+
+            logger.warning("未知反馈类型，忽略在线微调", extra={"feedback_type": feedback_type})
 
     def _relax_towards_defaults(self) -> None:
         self._decay_to_target(self.KEY_MIN_SIMILARITY_DELTA, target=0.0, rate=0.10)

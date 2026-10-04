@@ -132,6 +132,15 @@ class Contract(models.Model):
     def __str__(self) -> str:
         return str(self.name)
 
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        # filing_number / law_firm_oa_case_number 是唯一字段：空值必须存 NULL 而不是 ''
+        # （PG 多 NULL 共存，'' 会与存量空串互撞唯一约束）。同 Client.id_number 的既有范式
+        if self.filing_number == "":
+            self.filing_number = None
+        if self.law_firm_oa_case_number == "":
+            self.law_firm_oa_case_number = None
+        super().save(*args, **kwargs)
+
     def clean(self) -> None:
         from apps.contracts.validators import normalize_representation_stages
         from apps.core.exceptions import ValidationException

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { KIND_ROW, WEEKDAYS } from '../constants'
@@ -8,13 +8,8 @@ import { buildMonthGrid, formatCN, parseKey } from '../domain'
 import { briefLine, cellMetaLines } from '../api-meta'
 import { EventDetailDialog } from './EventDetailDialog'
 import { BTN, BTN_ICON, PANEL } from '../ui'
+import { useMediaQuery } from '@/hooks/use-media'
 import { cn } from '@/lib/utils'
-
-/** 每天最多显示几行事件（超出折叠成「+N 更多」），按窗口宽度自适应 */
-function maxRowsPerDay(): number {
-  const w = window.innerWidth
-  return w >= 2400 ? 5 : w >= 1600 ? 4 : 3
-}
 
 export interface CalendarView {
   year: number
@@ -57,23 +52,14 @@ export function CalendarPanel({
   onOpenAdd,
 }: Props) {
   const [selected, setSelected] = useState(today)
-  const [maxRows, setMaxRows] = useState(maxRowsPerDay)
+  // 每格最多行数（超出折叠成「+N 更多」）按视口断点自适应：≥2400 → 5、≥1600 → 4、否则 3。
+  // matchMedia 只在跨断点时通知，替代原先「每次 resize 重算 + 120ms 防抖」——
+  // 断点内拖动窗口不再触发任何重渲染，防抖也随之不再需要。
+  const ultraWide = useMediaQuery('(min-width: 2400px)')
+  const wide = useMediaQuery('(min-width: 1600px)')
+  const maxRows = ultraWide ? 5 : wide ? 4 : 3
   // 详情弹窗：点日历格里的事件打开
   const [detail, setDetail] = useState<CalendarEvent | null>(null)
-
-  // 窗口尺寸变化时重新计算每格行数（与原型一致，带防抖）
-  useEffect(() => {
-    let timer = 0
-    const onResize = () => {
-      window.clearTimeout(timer)
-      timer = window.setTimeout(() => setMaxRows(maxRowsPerDay()), 120)
-    }
-    window.addEventListener('resize', onResize)
-    return () => {
-      window.clearTimeout(timer)
-      window.removeEventListener('resize', onResize)
-    }
-  }, [])
 
   const cells = buildMonthGrid(view.year, view.month)
 

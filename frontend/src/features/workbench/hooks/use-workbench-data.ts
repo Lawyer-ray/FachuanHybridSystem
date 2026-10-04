@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { useToday } from '@/hooks/use-today'
 import { errMessage } from '@/lib/errors'
 import { listContractsPage, listLawyers } from '../api'
 import { buildDeals } from '../domain'
@@ -12,16 +14,6 @@ export const workbenchKeys = {
   contractPage: (f: WorkbenchFilter, q: string, page: number) =>
     ['workbench', 'contracts-page', f.status, f.cat, f.fee, q, page] as const,
   contractCases: (contractId: number) => ['workbench', 'contract-cases', contractId] as const,
-}
-
-/** 搜索防抖：输入停 300ms 才进 queryKey，避免逐键打后端 */
-function useDebounced<T>(value: T, delay: number): T {
-  const [v, setV] = useState(value)
-  useEffect(() => {
-    const t = setTimeout(() => setV(value), delay)
-    return () => clearTimeout(t)
-  }, [value, delay])
-  return v
 }
 
 export interface WorkbenchData {
@@ -47,7 +39,8 @@ export interface WorkbenchData {
  * 案件明细不随列表加载——抽屉打开时按合同 ID 按需拉（useContractCases）。
  */
 export function useWorkbenchData(filter: WorkbenchFilter, page: number): WorkbenchData {
-  const dq = useDebounced(filter.q.trim(), 300)
+  // 搜索防抖：输入停 300ms 才进 queryKey，避免逐键打后端
+  const dq = useDebouncedValue(filter.q.trim(), 300)
   const pageQuery = useQuery({
     queryKey: workbenchKeys.contractPage(filter, dq, page),
     queryFn: () =>
@@ -57,11 +50,9 @@ export function useWorkbenchData(filter: WorkbenchFilter, page: number): Workben
   })
   const lawyers = useQuery({ queryKey: workbenchKeys.lawyers, queryFn: listLawyers, staleTime: 60_000 })
 
-  const today = useMemo(() => {
-    const d = new Date()
-    d.setHours(0, 0, 0, 0)
-    return d
-  }, [])
+  // useToday 跨零点/后台切回重算：整夜不关的办案页不会把「今日到期」
+  // 口径冻结在昨天（旧 useMemo([]) 挂载即定格的缺陷）
+  const today = useToday()
 
   const deals = useMemo(
     () =>

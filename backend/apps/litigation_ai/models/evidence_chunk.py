@@ -1,7 +1,7 @@
 """Module for evidence chunk."""
 
 from datetime import datetime
-from typing import Any, ClassVar
+from typing import Any
 
 from django.db import models
 
@@ -25,6 +25,4 @@ class EvidenceChunk(models.Model):
         app_label = "litigation_ai"
         verbose_name = "证据片段"
         verbose_name_plural = "证据片段"
-        indexes: ClassVar = [
-            models.Index(fields=["evidence_item"]),
-        ]
+        # evidence_item 为 FK 自带索引，勿重复声明

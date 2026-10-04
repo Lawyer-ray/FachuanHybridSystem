@@ -130,6 +130,10 @@
 
 另需在 `backend/.env` 配 `FRONTEND_BASE_URL`（默认 `http://localhost:5090`），用于拼回调跳转地址与 CORS/CSRF 白名单。
 
+> **配置生效时机**：Admin 保存即时生效（同进程信号失效缓存）；但**脚本直写 SystemConfig**
+> （如 `manage.py shell` / 初始化脚本）或**多 worker 部署下其它 worker 改配置**收不到信号，
+> 由 30 秒 TTL 兜底自动重建（`providers/__init__.py` 的 `_CONFIG_TTL_SECONDS`），无需重启后端。
+
 > `SOCIAL_AUTH_*` 前缀不能省：`SystemConfig.key` 全局唯一，不能与 IM 群聊分类下的 `FEISHU_APP_ID` 重名。
 
 ---

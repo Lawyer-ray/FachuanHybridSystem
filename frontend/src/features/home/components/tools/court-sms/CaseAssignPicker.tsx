@@ -3,6 +3,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Check, Loader2, Search } from 'lucide-react'
 
 import { searchCasesForBinding, type CaseSearchItem } from '@/features/document-recognition'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { cn } from '@/lib/utils'
 
 /**
@@ -21,11 +22,14 @@ export function CaseAssignPicker({
   const [kw, setKw] = useState('')
   const [picked, setPicked] = useState<CaseSearchItem | null>(null)
 
-  // 空关键词 = 后端返回在办案件列表，正好作为初始候选（挂载即查）
+  // 空关键词 = 后端返回在办案件列表，正好作为初始候选（挂载即查）。
+  // 防抖值首帧等于初值：空关键词的初始加载仍然直发；之后的输入停 250ms 才检索，
+  // 不再每键一发。上一请求由 query 的 signal 自动中止，无响应竞态。
   const kwTrim = kw.trim()
+  const dkTrim = useDebouncedValue(kwTrim, 250)
   const { data: results = [], isFetching: searching } = useQuery({
-    queryKey: ['court-sms-case-search', kwTrim],
-    queryFn: ({ signal }) => searchCasesForBinding(kwTrim, { limit: 10, signal }),
+    queryKey: ['court-sms-case-search', dkTrim],
+    queryFn: ({ signal }) => searchCasesForBinding(dkTrim, { limit: 10, signal }),
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   })

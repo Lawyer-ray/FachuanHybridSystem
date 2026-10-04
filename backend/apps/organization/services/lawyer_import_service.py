@@ -108,9 +108,9 @@ class LawyerImportService:
                 continue
             t_firm_name = None if isinstance(t, str) else t.get("law_firm")
             t_firm = LawFirm.objects.get_or_create(name=t_firm_name)[0] if t_firm_name else existing.law_firm
-            team, _ = Team.objects.get_or_create(
-                name=t_name, team_type=TeamType.LAWYER, defaults={"law_firm": cast(LawFirm, t_firm)}
-            )
+            # 查找键必须含 law_firm：Team 有 (law_firm, team_type, name) 唯一约束，
+            # 缺失会跨律所误命中或创建出违反约束的重复团队
+            team, _ = Team.objects.get_or_create(name=t_name, team_type=TeamType.LAWYER, law_firm=cast(LawFirm, t_firm))
             existing.lawyer_teams.add(team)
 
     def _merge_biz_teams(self, *, existing: Lawyer, item: dict[str, Any]) -> None:
@@ -123,7 +123,7 @@ class LawyerImportService:
             team, _ = Team.objects.get_or_create(
                 name=t_name,
                 team_type=TeamType.BIZ,
-                defaults={"law_firm": cast(LawFirm, existing.law_firm)},
+                law_firm=cast(LawFirm, existing.law_firm),
             )
             existing.biz_teams.add(team)
 
@@ -152,10 +152,11 @@ class LawyerImportService:
             t_name = t if isinstance(t, str) else t.get("name", "")
             t_firm_name = None if isinstance(t, str) else t.get("law_firm")
             t_firm = LawFirm.objects.get_or_create(name=t_firm_name)[0] if t_firm_name else law_firm
+            # 查找键必须含 law_firm，理由同 _merge_lawyer_teams
             team, _ = Team.objects.get_or_create(
                 name=t_name,
                 team_type=TeamType.LAWYER,
-                defaults={"law_firm": cast(LawFirm, t_firm)},
+                law_firm=cast(LawFirm, t_firm),
             )
             lawyer_team_objs.append(team)
         lawyer.lawyer_teams.set(lawyer_team_objs)
@@ -170,7 +171,7 @@ class LawyerImportService:
             team, _ = Team.objects.get_or_create(
                 name=t_name,
                 team_type=TeamType.BIZ,
-                defaults={"law_firm": cast(LawFirm, law_firm)},
+                law_firm=cast(LawFirm, law_firm),
             )
             biz_team_objs.append(team)
         lawyer.biz_teams.set(biz_team_objs)

@@ -1,4 +1,4 @@
-"""MCP Server 主入口 - 法穿AI Copilot"""
+"""MCP Server 主入口 - 法穿SI Copilot"""
 
 from __future__ import annotations
 
@@ -408,7 +408,7 @@ try:
 except ImportError:
     _HAS_QUOTE = False
 
-mcp = MCPServer("法穿AI Copilot")
+mcp = MCPServer("法穿SI Copilot")
 
 # 案件
 mcp.tool()(list_cases)

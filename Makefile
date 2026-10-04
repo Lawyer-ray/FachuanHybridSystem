@@ -1,4 +1,4 @@
-# 法穿AI Copilot - 根目录 Makefile
+# 法穿SI Copilot - 根目录 Makefile
 # ============================================================
 # 本地 CI 入口，调用 scripts/ci-local.sh
 # ============================================================
@@ -43,7 +43,7 @@ install-hooks: ## 安装 git pre-push hook（推送前自动运行本地 CI）
 	@echo "  跳过: git push --no-verify"
 
 help: ## 显示帮助信息
-	@echo "$(GREEN)法穿AI Copilot - 本地 CI$(NC)"
+	@echo "$(GREEN)法穿SI Copilot - 本地 CI$(NC)"
 	@echo ""
 	@echo "可用命令:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'

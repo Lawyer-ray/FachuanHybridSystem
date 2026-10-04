@@ -72,6 +72,9 @@ class TestNormalizeKeywordQuery:
 
 
 class TestFeedbackLoopService:
+    # apply_feedback 内部对 SystemConfig 行 select_for_update，需要真实测试库
+    pytestmark = pytest.mark.django_db
+
     def _make_service(self) -> tuple:
         from apps.legal_research.services.task.feedback_loop import LegalResearchFeedbackLoopService
 

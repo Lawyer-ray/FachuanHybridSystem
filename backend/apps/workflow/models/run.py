@@ -55,4 +55,5 @@ class WorkflowRun(models.Model):
         verbose_name_plural = verbose_name
 
     def __str__(self) -> str:
-        return f"{self.template.name} - {self.case.name} ({self.get_status_display()})"
+        # 用 *_id 拼接，避免 admin/日志列表逐行触发 FK 查询（N+1）
+        return f"模板#{self.template_id} - 案件#{self.case_id} ({self.get_status_display()})"

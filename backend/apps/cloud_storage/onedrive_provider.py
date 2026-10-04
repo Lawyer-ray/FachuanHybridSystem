@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
+from asgiref.sync import sync_to_async
 
 from .protocols import CloudFileInfo
 
@@ -100,6 +101,10 @@ class OAuthTokenManager:  # pragma: no cover
             update_fields=["onedrive_access_token", "onedrive_refresh_token", "onedrive_token_expires_at", "updated_at"]
         )
 
+    async def _asave_token(self, token_data: _TokenData) -> None:  # pragma: no cover
+        """异步保存 token（ORM 写入经 sync_to_async，避免在事件循环内触发 SynchronousOnlyOperation）。"""
+        await sync_to_async(self._save_token)(token_data)
+
     @staticmethod
     def start_device_code_flow(account: Any) -> dict[str, Any]:  # pragma: no cover
         """Initiate device code flow. Returns dict with user_code, verification_uri, device_code."""
@@ -125,51 +130,6 @@ class OAuthTokenManager:  # pragma: no cover
             "expires_in": data.get("expires_in", 900),
             "interval": data.get("interval", 5),
         }
-
-    def complete_device_code_flow(self, device_code: str) -> str:  # pragma: no cover
-        """Poll token endpoint until user completes authorization. Returns access_token."""
-        import time as _time
-
-        tenant_id = self._tenant_id()
-        client_id = self._client_id()
-        max_attempts = 60  # ~5 minutes with 5s interval
-
-        for _ in range(max_attempts):
-            _time.sleep(5)
-            resp = httpx.post(
-                TOKEN_URL_TEMPLATE.format(tenant_id=tenant_id),
-                data={
-                    "client_id": client_id,
-                    "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-                    "device_code": device_code,
-                },
-                timeout=30,
-            )
-            data = resp.json()
-
-            if "access_token" in data:
-                token_data = _TokenData(
-                    access_token=data["access_token"],
-                    refresh_token=data.get("refresh_token", ""),
-                    expires_at=datetime.now(UTC) + timedelta(seconds=data.get("expires_in", 3600)),
-                )
-                self._save_token(token_data)
-                return token_data.access_token
-
-            error = data.get("error", "")
-            if error == "authorization_pending":
-                continue
-            if error == "authorization_declined":
-                raise RuntimeError("用户拒绝了授权请求")
-            if error == "expired_token":
-                raise RuntimeError("设备码已过期，请重新发起授权")
-            if error == "slow_down":
-                _time.sleep(5)
-                continue
-
-            raise RuntimeError(f"授权失败: {error} - {data.get('error_description', '')}")
-
-        raise RuntimeError("授权超时，请重试")
 
     async def aget_valid_token(self) -> str:
         """Return a valid access_token, refreshing if necessary (async)."""
@@ -211,7 +171,7 @@ class OAuthTokenManager:  # pragma: no cover
             refresh_token=data.get("refresh_token", refresh_token),
             expires_at=datetime.now(UTC) + timedelta(seconds=data.get("expires_in", 3600)),
         )
-        self._save_token(token_data)
+        await self._asave_token(token_data)
         return token_data.access_token
 
     @staticmethod
@@ -241,25 +201,39 @@ class OAuthTokenManager:  # pragma: no cover
             "interval": data.get("interval", 5),
         }
 
-    async def acomplete_device_code_flow(self, device_code: str) -> str:
-        """Poll token endpoint until user completes authorization (async). Returns access_token."""
+    async def acomplete_device_code_flow(
+        self,
+        device_code: str,
+        *,
+        interval: int = 5,
+        max_attempts: int = 60,
+    ) -> str:  # pragma: no cover
+        """Poll token endpoint until user completes authorization (async). Returns access_token.
+
+        设备码轮询的**唯一实现**（API 端点与 Admin 后台线程都走这里）。
+        单次网络抖动 / 响应解析失败不中断轮询（记 debug 后继续）；明确的业务
+        错误（拒绝 / 过期 / 未知错误）立即抛出，文案与历史版本保持一致。
+        """
         tenant_id = self._tenant_id()
         client_id = self._client_id()
-        max_attempts = 60  # ~5 minutes with 5s interval
 
         async with httpx.AsyncClient() as client:
             for _ in range(max_attempts):
-                await asyncio.sleep(5)
-                resp = await client.post(
-                    TOKEN_URL_TEMPLATE.format(tenant_id=tenant_id),
-                    data={
-                        "client_id": client_id,
-                        "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-                        "device_code": device_code,
-                    },
-                    timeout=30,
-                )
-                data = resp.json()
+                await asyncio.sleep(interval)
+                try:
+                    resp = await client.post(
+                        TOKEN_URL_TEMPLATE.format(tenant_id=tenant_id),
+                        data={
+                            "client_id": client_id,
+                            "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                            "device_code": device_code,
+                        },
+                        timeout=30,
+                    )
+                    data = resp.json()
+                except Exception:
+                    logger.debug("OneDrive 设备码轮询单次失败（已忽略，继续轮询）", exc_info=True)
+                    continue
 
                 if "access_token" in data:
                     token_data = _TokenData(
@@ -267,7 +241,7 @@ class OAuthTokenManager:  # pragma: no cover
                         refresh_token=data.get("refresh_token", ""),
                         expires_at=datetime.now(UTC) + timedelta(seconds=data.get("expires_in", 3600)),
                     )
-                    self._save_token(token_data)
+                    await self._asave_token(token_data)
                     return token_data.access_token
 
                 error = data.get("error", "")
@@ -278,7 +252,7 @@ class OAuthTokenManager:  # pragma: no cover
                 if error == "expired_token":
                     raise RuntimeError("设备码已过期，请重新发起授权")
                 if error == "slow_down":
-                    await asyncio.sleep(5)
+                    await asyncio.sleep(interval)
                     continue
 
                 raise RuntimeError(f"授权失败: {error} - {data.get('error_description', '')}")

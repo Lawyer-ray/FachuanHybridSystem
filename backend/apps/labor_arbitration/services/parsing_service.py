@@ -7,9 +7,9 @@ import os
 import tempfile
 from typing import Any
 
-import requests
 from django.utils import timezone
 
+from apps.core.http.httpx_clients import get_sync_http_client
 from apps.document_parsing.services import get_document_parser
 from apps.labor_arbitration.models import ArbitrationDocument, ParseStatus
 from apps.labor_arbitration.services.doxify_service import clean_markdown, clean_text
@@ -28,7 +28,7 @@ def _fetch_image_to_temp(source_url: str) -> str:
     """把原图 URL 下载到临时文件，返回本地路径（供 OCR 使用）。"""
     fd, path = tempfile.mkstemp(suffix=".png")
     os.close(fd)
-    resp = requests.get(source_url, timeout=60, headers=_HEADERS)
+    resp = get_sync_http_client().get(source_url, timeout=60, headers=_HEADERS)
     resp.raise_for_status()
     with open(path, "wb") as fh:
         fh.write(resp.content)

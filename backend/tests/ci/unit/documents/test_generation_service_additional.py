@@ -14,6 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.documents.models import GenerationTask as RealGenerationTask
 from apps.documents.services.generation.generation_service import GenerationService
 
 
@@ -98,15 +99,18 @@ class TestDeleteGenerationConfig:
 
 
 class TestUpdateTaskStatusFull:
+    pytestmark = pytest.mark.django_db
+
     @patch("apps.documents.services.generation.generation_service.timezone")
     @patch("apps.documents.services.generation.generation_service.GenerationTask")
     def test_completed_sets_time(self, MockTask: MagicMock, mock_tz: MagicMock, svc: GenerationService) -> None:
         task = MagicMock()
-        MockTask.objects.filter.return_value.first.return_value = task
+        MockTask.objects.select_for_update.return_value.get.return_value = task
         mock_time = MagicMock()
         mock_time.isoformat.return_value = "2025-01-01T00:00:00"
         mock_tz.now.return_value = mock_time
         result = svc.update_task_status(1, "completed")
+        assert result is task
         assert task.status == "completed"
         assert task.completed_at is mock_time
         task.save.assert_called()
@@ -116,34 +120,39 @@ class TestUpdateTaskStatusFull:
     def test_failed_with_message(self, MockTask: MagicMock, mock_tz: MagicMock, svc: GenerationService) -> None:
         task = MagicMock()
         task.id = 10
-        MockTask.objects.filter.return_value.first.return_value = task
-        MockTask.objects.get.return_value = task
+        task.error_logs = []
+        MockTask.objects.select_for_update.return_value.get.return_value = task
         mock_time = MagicMock()
         mock_time.isoformat.return_value = "2025-01-01T00:00:00"
         mock_tz.now.return_value = mock_time
         result = svc.update_task_status(10, "failed", error_message="err msg")
+        assert result is task
         assert task.status == "failed"
         assert task.error_message == "err msg"
+        assert len(task.error_logs) == 1
+        assert task.error_logs[0]["message"] == "err msg"
 
     @patch("apps.documents.services.generation.generation_service.timezone")
     @patch("apps.documents.services.generation.generation_service.GenerationTask")
     def test_pending_clears_time(self, MockTask: MagicMock, mock_tz: MagicMock, svc: GenerationService) -> None:
         task = MagicMock()
-        MockTask.objects.filter.return_value.first.return_value = task
+        MockTask.objects.select_for_update.return_value.get.return_value = task
         result = svc.update_task_status(1, "pending")
+        assert result is task
         assert task.completed_at is None
         task.save.assert_called()
 
     @patch("apps.documents.services.generation.generation_service.GenerationTask")
     def test_task_not_found(self, MockTask: MagicMock, svc: GenerationService) -> None:
-        MockTask.objects.filter.return_value.first.return_value = None
+        MockTask.DoesNotExist = RealGenerationTask.DoesNotExist
+        MockTask.objects.select_for_update.return_value.get.side_effect = RealGenerationTask.DoesNotExist
         with pytest.raises(NotFoundError):
             svc.update_task_status(999, "completed")
 
     @patch("apps.documents.services.generation.generation_service.GenerationTask")
     def test_invalid_status(self, MockTask: MagicMock, svc: GenerationService) -> None:
         task = MagicMock()
-        MockTask.objects.filter.return_value.first.return_value = task
+        MockTask.objects.select_for_update.return_value.get.return_value = task
         with patch("apps.documents.models.GenerationStatus") as MockStatus:
             MockStatus.choices = [("pending", "P")]
             with pytest.raises(ValidationException, match="无效"):
@@ -154,21 +163,25 @@ class TestUpdateTaskStatusFull:
 
 
 class TestAddGeneratedFile:
+    pytestmark = pytest.mark.django_db
+
     @patch("apps.documents.services.generation.generation_service.timezone")
     @patch("apps.documents.services.generation.generation_service.GenerationTask")
     def test_appends_file(self, MockTask: MagicMock, mock_tz: MagicMock, svc: GenerationService) -> None:
         task = MagicMock()
         task.generated_files = []
-        MockTask.objects.filter.return_value.first.return_value = task
+        MockTask.objects.select_for_update.return_value.get.return_value = task
         mock_tz.now.return_value = MagicMock(isoformat=MagicMock(return_value="2025-01-01"))
         result = svc.add_generated_file(1, "/path/file.docx", "file.docx")
+        assert result is task
         assert len(task.generated_files) == 1
         assert task.generated_files[0]["path"] == "/path/file.docx"
         task.save.assert_called()
 
     @patch("apps.documents.services.generation.generation_service.GenerationTask")
     def test_task_not_found(self, MockTask: MagicMock, svc: GenerationService) -> None:
-        MockTask.objects.filter.return_value.first.return_value = None
+        MockTask.DoesNotExist = RealGenerationTask.DoesNotExist
+        MockTask.objects.select_for_update.return_value.get.side_effect = RealGenerationTask.DoesNotExist
         with pytest.raises(NotFoundError):
             svc.add_generated_file(999, "/path", "name")
 
@@ -177,12 +190,14 @@ class TestAddGeneratedFile:
 
 
 class TestAddErrorLog:
+    pytestmark = pytest.mark.django_db
+
     @patch("apps.documents.services.generation.generation_service.timezone")
     @patch("apps.documents.services.generation.generation_service.GenerationTask")
     def test_appends_log(self, MockTask: MagicMock, mock_tz: MagicMock, svc: GenerationService) -> None:
         task = MagicMock()
         task.error_logs = []
-        MockTask.objects.filter.return_value.first.return_value = task
+        MockTask.objects.select_for_update.return_value.get.return_value = task
         mock_tz.now.return_value = MagicMock(isoformat=MagicMock(return_value="2025-01-01"))
         svc.add_error_log(1, "error occurred")
         assert len(task.error_logs) == 1
@@ -191,6 +206,7 @@ class TestAddErrorLog:
 
     @patch("apps.documents.services.generation.generation_service.GenerationTask")
     def test_task_not_found(self, MockTask: MagicMock, svc: GenerationService) -> None:
-        MockTask.objects.filter.return_value.first.return_value = None
+        MockTask.DoesNotExist = RealGenerationTask.DoesNotExist
+        MockTask.objects.select_for_update.return_value.get.side_effect = RealGenerationTask.DoesNotExist
         with pytest.raises(NotFoundError):
             svc.add_error_log(999, "msg")

@@ -180,6 +180,38 @@
   margin-top: 2rem;
 }
 
+/* ---------- 登录页：账密表单下方的社交按钮组 ---------- */
+/* 与 .fc-redirect 的区别：多 Provider 共享一条分割线与错误位，按钮只留图标+文案 */
+.fc-social {
+  margin-top: 2rem;
+}
+
+.fc-social__divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0 0 1.5rem;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  color: var(--bone-faint);
+}
+
+/* 两侧细线：与 .fc-tabs 底线同一规则色，保持编辑风的「一根线」语言 */
+.fc-social__divider::before,
+.fc-social__divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--rule-soft);
+}
+
+.fc-social__buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
 .fc-form__legal {
   margin-top: 2.25rem;
   padding-top: 1.25rem;

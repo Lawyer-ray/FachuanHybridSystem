@@ -61,7 +61,7 @@ class CaseMaterialQueryService:
                     "type_id": material.type_id,
                     "type_name": material.type_name,
                     "side": material.side,
-                    "party_ids": list(material.parties.values_list("id", flat=True)),
+                    "party_ids": [p.id for p in material.parties.all()],
                     "supervising_authority_id": material.supervising_authority_id,
                 }
             results.append(

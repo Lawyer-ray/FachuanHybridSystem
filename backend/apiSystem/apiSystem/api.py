@@ -132,7 +132,7 @@ _OPENAPI_TAGS: list[dict[str, str]] = [
 from django.conf import settings as django_settings
 
 api_v1 = NinjaAPI(
-    title="法穿AI Copilot API",
+    title="法穿SI Copilot API",
     version=API_VERSION,
     description="律师事务所案件、合同、客户管理系统",
     urls_namespace="api_v1",

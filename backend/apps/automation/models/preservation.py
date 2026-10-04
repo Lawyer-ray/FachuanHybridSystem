@@ -188,7 +188,7 @@ class CasePreservationQuoteBinding(models.Model):
         ]
         indexes: ClassVar = [
             models.Index(fields=["case", "-created_at"]),
-            models.Index(fields=["preservation_quote"]),
+            # preservation_quote 为 FK 自带索引，勿重复声明
             models.Index(fields=["preserve_amount_snapshot"]),
         ]
 

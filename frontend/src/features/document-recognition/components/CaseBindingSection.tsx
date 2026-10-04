@@ -7,6 +7,7 @@ import { bindTask, searchCasesForBinding } from '../api'
 import { pickAutoRecommendation } from '../domain'
 import type { TaskOut } from '../types'
 import { errMessage } from '@/lib/errors'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -34,12 +35,14 @@ export function CaseBindingSection({ task, onBound }: Props) {
   const isBound = Boolean(task.binding?.success && caseName)
   const reco = useMemo(() => task.recommendations ?? [], [task.recommendations])
 
-  // 搜索：至少 2 字符才查（与旧防抖版一致）；上一请求由 signal 自动中止，无响应竞态
+  // 搜索：queryKey 用防抖值（输入停 250ms 才请求，不再每键一发），至少 2 字符才查
+  // （与旧防抖版一致）；上一请求由 signal 自动中止，无响应竞态
   const kwTrim = kw.trim()
+  const dkTrim = useDebouncedValue(kwTrim, 250)
   const { data: searched = [], isFetching: searching } = useQuery({
-    queryKey: ['doc-recognition-case-search', kwTrim],
-    queryFn: ({ signal }) => searchCasesForBinding(kwTrim, { signal }),
-    enabled: !isBound && kwTrim.length >= 2,
+    queryKey: ['doc-recognition-case-search', dkTrim],
+    queryFn: ({ signal }) => searchCasesForBinding(dkTrim, { signal }),
+    enabled: !isBound && dkTrim.length >= 2,
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   })

@@ -21,6 +21,13 @@ class CaseDownloadFormat(models.TextChoices):
     DOC = "doc", "Word"
 
 
+class CaseDownloadResultStatus(models.TextChoices):
+    """单条下载结果状态"""
+
+    SUCCESS = "success", "成功"
+    FAILED = "failed", "失败"
+
+
 class CaseDownloadTask(models.Model):
     """案例下载任务"""
 
@@ -102,7 +109,12 @@ class CaseDownloadResult(models.Model):
         verbose_name="文件格式",
     )
 
-    status = models.CharField(max_length=16, default="success", verbose_name="状态")
+    status = models.CharField(
+        max_length=16,
+        choices=CaseDownloadResultStatus.choices,
+        default=CaseDownloadResultStatus.SUCCESS,
+        verbose_name="状态",
+    )
     error_message = models.TextField(blank=True, verbose_name="错误信息")
 
     downloaded_at = models.DateTimeField(auto_now_add=True, verbose_name="下载时间")
@@ -115,4 +127,4 @@ class CaseDownloadResult(models.Model):
         ]
 
     def __str__(self) -> str:
-        return ""
+        return f"CaseDownloadRecord #{self.id} {self.case_number}"

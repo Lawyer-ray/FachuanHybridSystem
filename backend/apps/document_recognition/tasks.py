@@ -51,7 +51,8 @@ def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:  #
         task.llm_backend = recognition.llm_backend
         task.llm_latency_ms = recognition.llm_latency_ms
         task.degraded = recognition.degraded
-        task.raw_text = recognition.raw_text[:10000] if recognition.raw_text else None
+        # raw_text 已收紧为 NOT NULL default=""，空文本用空串表示（None 会炸库写入）
+        task.raw_text = recognition.raw_text[:10000] if recognition.raw_text else ""
         task.party_names = result.party_names
         task.renamed_file_path = result.file_path
 

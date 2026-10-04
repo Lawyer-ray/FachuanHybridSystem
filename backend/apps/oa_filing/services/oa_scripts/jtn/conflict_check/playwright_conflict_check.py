@@ -12,6 +12,8 @@ from typing import Any
 
 from playwright.async_api import Page
 
+from apps.core.services.browser import BrowserSessionHandle, close_browser_session, create_browser_async_manual
+
 from ..auth.service import JtnAuthService
 from .constants import CONFLICT_CHECK_URL, KEYWORD_SELECTOR, MEDIUM_WAIT, SEARCH_BTN_SELECTOR, SEARCH_WAIT, SHORT_WAIT
 
@@ -25,17 +27,13 @@ class PlaywrightConflictCheckMixin:
     _password: str
     _auth: JtnAuthService
 
-    async def _open_page(self: Any, keyword: str) -> tuple[Any, Any]:
-        """打开利冲检查页面，填入当事人名称并搜索，返回 (playwright, browser) 保持浏览器打开。"""
-        from playwright.async_api import async_playwright
-
-        playwright = await async_playwright().start()
-        browser = await playwright.chromium.launch(headless=False)
-        context = await browser.new_context()
-        page = await context.new_page()
+    async def _open_page(self: Any, keyword: str) -> BrowserSessionHandle:
+        """打开利冲检查页面，填入当事人名称并搜索，返回浏览器会话句柄（长生命周期）。"""
+        session = await create_browser_async_manual("jtn")
+        page, context = session.page, session.context
         # 浏览器关闭后的回收由 adapter.wait_open_browsers_closed 负责（调度器压住
         # 事件循环直到用户关掉浏览器）；脚本执行中途的异常路径在下方 except 里
-        # 显式 browser.close() + playwright.stop()。
+        # 通过工厂的 close_browser_session 显式回收。
 
         try:
             # ── 登录（优先复用缓存 cookies，失效则 SSO 扫码） ──
@@ -48,11 +46,10 @@ class PlaywrightConflictCheckMixin:
             await self._search_by_name(page, keyword)
 
             logger.info("利冲检查页面已打开: %s", page.url)
-            return playwright, browser
+            return session
 
         except Exception:
-            await browser.close()
-            await playwright.stop()
+            await close_browser_session(session)
             raise
 
     async def _login(self: Any, page: Page, context: Any) -> None:  # pragma: no cover

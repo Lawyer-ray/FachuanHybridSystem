@@ -1,6 +1,9 @@
 """TextinBackend 测试（核心 — mock xparse-client SDK + httpx）"""
 
+import json
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -56,19 +59,31 @@ def _make_job_response(
     )
 
 
-def _mock_httpx_response(
-    status_code: int = 200,
-    json_data: dict | None = None,
-) -> MagicMock:
+def _make_stream_response(payload: bytes = b"", status_code: int = 200) -> MagicMock:
+    """构造 httpx 流式响应替身（iter_bytes 分块产出 payload）。"""
     resp = MagicMock()
     resp.status_code = status_code
-    resp.json.return_value = json_data or {}
+    resp.iter_bytes.return_value = [payload]
     resp.raise_for_status = MagicMock()
     if status_code >= 400:
         import httpx
 
         resp.raise_for_status.side_effect = httpx.HTTPStatusError("error", request=MagicMock(), response=resp)
     return resp
+
+
+@contextmanager
+def _patch_result_json(payload: Any, *, status_code: int = 200):
+    """patch httpx 工厂客户端：``_download_result_json`` 流式拿到给定 JSON/字节。
+
+    ``payload`` 为 dict 时序列化为 JSON 字节；为 bytes 时原样产出（用于
+    非法 JSON 用例）。
+    """
+    raw = json.dumps(payload, ensure_ascii=False).encode("utf-8") if isinstance(payload, dict) else payload
+    client = MagicMock()
+    client.stream.return_value.__enter__.return_value = _make_stream_response(raw, status_code=status_code)
+    with patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=client):
+        yield client
 
 
 # ── __init__ ─────────────────────────────────────────────────────
@@ -331,7 +346,7 @@ class TestParseResult:
             "success_count": 1,
         }
 
-        with patch(f"{_PATCH_PREFIX}.httpx.get", return_value=_mock_httpx_response(200, result_data)):
+        with _patch_result_json(result_data):
             result = backend._parse_result(job_result, return_markdown=True)
 
         assert isinstance(result, ParsedDocument)
@@ -354,7 +369,7 @@ class TestParseResult:
             "metadata": {},
         }
 
-        with patch(f"{_PATCH_PREFIX}.httpx.get", return_value=_mock_httpx_response(200, result_data)):
+        with _patch_result_json(result_data):
             result = backend._parse_result(job_result, return_markdown=True)
 
         # 独立数字行（页码）被删除
@@ -370,7 +385,7 @@ class TestParseResult:
             "metadata": {},
         }
 
-        with patch(f"{_PATCH_PREFIX}.httpx.get", return_value=_mock_httpx_response(200, result_data)):
+        with _patch_result_json(result_data):
             result = backend._parse_result(job_result, return_markdown=True)
 
         assert "<!--" not in (result.markdown or "")
@@ -387,7 +402,7 @@ class TestParseResult:
             "metadata": {},
         }
 
-        with patch(f"{_PATCH_PREFIX}.httpx.get", return_value=_mock_httpx_response(200, result_data)):
+        with _patch_result_json(result_data):
             result = backend._parse_result(job_result, return_markdown=True)
 
         # 页眉文本行被清理
@@ -407,7 +422,12 @@ class TestParseResult:
         backend, _ = _make_backend()
         job_result = _make_job_response()
 
-        with patch(f"{_PATCH_PREFIX}.httpx.get", side_effect=httpx.ConnectError("refused")):
+        client = MagicMock()
+        client.stream.side_effect = httpx.ConnectError("refused")
+        with (
+            patch(f"{_PATCH_PREFIX}.time.sleep"),
+            patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=client),
+        ):
             with pytest.raises(TextinAPIError, match="下载结果文件失败"):
                 backend._parse_result(job_result)
 
@@ -415,11 +435,7 @@ class TestParseResult:
         backend, _ = _make_backend()
         job_result = _make_job_response()
 
-        resp = MagicMock()
-        resp.raise_for_status = MagicMock()
-        resp.json.side_effect = ValueError("not json")
-
-        with patch(f"{_PATCH_PREFIX}.httpx.get", return_value=resp):
+        with _patch_result_json(b"not a json payload!!!"):
             with pytest.raises(TextinAPIError, match="解析结果 JSON 失败"):
                 backend._parse_result(job_result)
 
@@ -432,7 +448,7 @@ class TestParseResult:
             "metadata": {},
         }
 
-        with patch(f"{_PATCH_PREFIX}.httpx.get", return_value=_mock_httpx_response(200, result_data)):
+        with _patch_result_json(result_data):
             result = backend._parse_result(job_result, return_markdown=False)
 
         assert result.markdown is None
@@ -447,7 +463,7 @@ class TestParseResult:
             "metadata": {},
         }
 
-        with patch(f"{_PATCH_PREFIX}.httpx.get", return_value=_mock_httpx_response(200, result_data)):
+        with _patch_result_json(result_data):
             result = backend._parse_result(job_result)
 
         # 无 elements 时 fallback 到 markdown 作为纯文本
@@ -465,7 +481,7 @@ class TestParseResult:
             "metadata": {},
         }
 
-        with patch(f"{_PATCH_PREFIX}.httpx.get", return_value=_mock_httpx_response(200, result_data)):
+        with _patch_result_json(result_data):
             result = backend._parse_result(job_result, extract_images=True)
 
         assert result.metadata["has_images"] is True
@@ -481,7 +497,7 @@ class TestParseResult:
             "metadata": {},
         }
 
-        with patch(f"{_PATCH_PREFIX}.httpx.get", return_value=_mock_httpx_response(200, result_data)):
+        with _patch_result_json(result_data):
             result = backend._parse_result(job_result, extract_images=False)
 
         assert result.metadata["has_images"] is False
@@ -556,9 +572,13 @@ class TestParseDocument:
             "success_count": 1,
         }
 
+        stream_client = MagicMock()
+        stream_client.stream.return_value.__enter__.return_value = _make_stream_response(
+            json.dumps(result_data, ensure_ascii=False).encode("utf-8")
+        )
         with (
             patch(f"{_PATCH_PREFIX}.time.sleep"),
-            patch(f"{_PATCH_PREFIX}.httpx.get", return_value=_mock_httpx_response(200, result_data)),
+            patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=stream_client),
         ):
             result = backend.parse_document(str(pdf), return_markdown=True)
 

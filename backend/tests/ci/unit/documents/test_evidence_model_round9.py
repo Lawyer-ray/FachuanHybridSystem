@@ -14,7 +14,6 @@ import pytest
 from apps.evidence.models import EvidenceItem, EvidenceList, ListType, MergeStatus
 from apps.testing.factories import CaseFactory
 
-
 # ══════════════════════════════════════════════════════════════════════════════
 # MergeStatus / ListType — complete value coverage
 # ══════════════════════════════════════════════════════════════════════════════
@@ -86,7 +85,8 @@ class TestEvidenceListStr:
         el = EvidenceList.objects.create(
             case=case, title="证据清单一", list_type=ListType.LIST_1
         )
-        assert str(el) == "张三诉李四合同纠纷 - 证据清单一"
+        # __str__ 用 case_id 拼（避免 admin N+1），不再触发 FK 查询取名称
+        assert str(el) == f"案件#{case.id} - 证据清单一"
 
     def test_str_empty_title(self):
         case = CaseFactory(name="空标题案")
@@ -94,7 +94,7 @@ class TestEvidenceListStr:
             case=case, title="", list_type=ListType.LIST_1
         )
         result = str(el)
-        assert "空标题案" in result
+        assert f"案件#{case.id}" in result
         assert " - " in result
 
     def test_str_long_title(self):
