@@ -43,11 +43,19 @@ class CourtSMSSubmitIn(BaseModel):
         return v.strip()
 
 
+class CourtSMSSubmitDataOut(BaseModel):
+    """提交/重试成功后返回的短信记录信息（CourtSMSSubmitOut.data）"""
+
+    id: int = Field(..., description="短信记录 ID")
+    status: str = Field("", description="处理状态（pending 等）")
+    created_at: datetime | None = Field(None, description="记录创建时间")
+
+
 class CourtSMSSubmitOut(BaseModel):
     """提交法院短信响应"""
 
     success: bool = Field(..., description="是否成功")
-    data: dict[str, Any] = Field(..., description="短信记录信息")
+    data: CourtSMSSubmitDataOut = Field(..., description="短信记录信息")
 
     class Config:
         json_schema_extra: ClassVar = {

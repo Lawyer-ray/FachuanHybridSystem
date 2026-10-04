@@ -10,7 +10,6 @@ import type {
   InboxMessageDetail,
   OcrResult,
   PackStatus,
-  PdfSplitSegmentSuggestion,
 } from './types'
 
 /**
@@ -23,21 +22,13 @@ export const inboxApi = createApiClient({ prefix: '/api/v1/inbox' })
 export const clientApi = createApiClient({ prefix: '/api/v1/client' })
 const pdfSplitApi = createApiClient({ prefix: '/api/v1/pdf-splitting' })
 
-/**
- * GET /pdf-splitting/jobs/{job_id} 的响应。
- * 手写保留：生成物给该端点挂的是 doc-converter 的 JobOut（无 job_id / segments 字段），
- * shape 不符，按真实返回维护。
- */
-interface PdfSplitJobPayload {
-  job_id: string
-  status: string
-  progress: number
-  segments: PdfSplitSegmentSuggestion[]
-  error_message: string
-}
+/** GET /pdf-splitting/jobs/{job_id} 的响应（生成物 PdfSplitJobOut）。
+ *  后端已修复 OpenAPI 组件名冲突（此前该端点误挂 doc-converter 的 JobOut，
+ *  缺 job_id / segments 字段），schema 与实际响应一致，直接取生成物。 */
+type PdfSplitJobPayload = components['schemas']['PdfSplitJobOut']
 
-/** POST /pdf-splitting/jobs 的响应（生成物 JobSubmitOut） */
-type PdfSplitJobSubmit = components['schemas']['JobSubmitOut']
+/** POST /pdf-splitting/jobs 的响应（生成物 PdfSplitJobSubmitOut） */
+type PdfSplitJobSubmit = components['schemas']['PdfSplitJobSubmitOut']
 
 export async function createPdfSplitJob(file: File): Promise<string> {
   const body = new FormData()

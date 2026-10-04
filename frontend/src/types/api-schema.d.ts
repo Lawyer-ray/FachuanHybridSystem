@@ -9896,22 +9896,38 @@ export interface components {
         };
         /** LawyerOut */
         LawyerOut: {
-            /** Id */
-            id: number;
-            /** Username */
+            /** License Pdf Url */
+            license_pdf_url?: string | null;
+            /** Avatar Url */
+            avatar_url?: string | null;
+            law_firm_detail?: components["schemas"]["LawFirmOut"] | null;
+            /** ID */
+            id?: number | null;
+            /**
+             * 用户名
+             * @description 必填；长度为150个字符或以下；只能包含字母、数字、特殊字符“@”、“.”、“-”和“_”。
+             */
             username: string;
-            /** Real Name */
-            real_name?: string | null;
-            /** Phone */
+            /**
+             * 真实姓名
+             * @default
+             */
+            real_name: string | null;
+            /** 手机号码 */
             phone?: string | null;
-            /** Is Admin */
-            is_admin?: boolean | null;
-            /** Is Active */
-            is_active?: boolean | null;
-            /** Law Firm */
-            law_firm?: number | null;
-            /** Law Firm Name */
-            law_firm_name?: string | null;
+            /** 执业证号 */
+            license_no?: string | null;
+            /**
+             * 是否律所管理员
+             * @default false
+             */
+            is_admin: boolean;
+            /**
+             * 有效
+             * @description 指明用户是否被认为是活跃的。以反选代替删除帐号。
+             * @default true
+             */
+            is_active: boolean;
         };
         /** LoginOut */
         LoginOut: {
@@ -12000,6 +12016,33 @@ export interface components {
             n: number;
         };
         /**
+         * ContractLawyerOut
+         * @description 合同场景下的律师精简投影（如 ContractOut.primary_lawyer）。
+         *
+         *     命名必须带 Contract 前缀：OpenAPI 组件按类名注册，与
+         *     apps.organization.schemas.LawyerOut 同名会互相覆盖（后注册者胜出），
+         *     曾经导致快照里的 LawyerOut 丢失 license_no / law_firm_detail，
+         *     /organization/lawyers 端点在生成物中挂错 schema。
+         */
+        ContractLawyerOut: {
+            /** Id */
+            id: number;
+            /** Username */
+            username: string;
+            /** Real Name */
+            real_name?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Is Admin */
+            is_admin?: boolean | null;
+            /** Is Active */
+            is_active?: boolean | null;
+            /** Law Firm */
+            law_firm?: number | null;
+            /** Law Firm Name */
+            law_firm_name?: string | null;
+        };
+        /**
          * ContractListPageOut
          * @description 合同分页列表输出 Schema（GET /contracts/contracts 实际返回形状）。
          *
@@ -12055,7 +12098,7 @@ export interface components {
             unpaid_amount: number | null;
             /** Assignments */
             assignments: components["schemas"]["ContractAssignmentOut"][];
-            primary_lawyer: components["schemas"]["LawyerOut"] | null;
+            primary_lawyer: components["schemas"]["ContractLawyerOut"] | null;
             /** Matched Document Template */
             matched_document_template?: string | null;
             /** Matched Folder Templates */
@@ -13547,6 +13590,28 @@ export interface components {
             data?: components["schemas"]["PreservationQuoteSchema"] | null;
         };
         /**
+         * CourtSMSSubmitDataOut
+         * @description 提交/重试成功后返回的短信记录信息（CourtSMSSubmitOut.data）
+         */
+        CourtSMSSubmitDataOut: {
+            /**
+             * Id
+             * @description 短信记录 ID
+             */
+            id: number;
+            /**
+             * Status
+             * @description 处理状态（pending 等）
+             * @default
+             */
+            status: string;
+            /**
+             * Created At
+             * @description 记录创建时间
+             */
+            created_at?: string | null;
+        };
+        /**
          * CourtSMSSubmitOut
          * @description 提交法院短信响应
          * @example {
@@ -13564,13 +13629,8 @@ export interface components {
              * @description 是否成功
              */
             success: boolean;
-            /**
-             * Data
-             * @description 短信记录信息
-             */
-            data: {
-                [key: string]: unknown;
-            };
+            /** @description 短信记录信息 */
+            data: components["schemas"]["CourtSMSSubmitDataOut"];
         };
         /**
          * CourtSMSSubmitIn
@@ -14444,43 +14504,67 @@ export interface components {
              */
             key_time?: string | null;
         };
-        /** JobSubmitOut */
-        JobSubmitOut: {
+        /**
+         * PdfSplitJobSubmitOut
+         * @description 任务提交响应（同上，避免与 doc_converter.JobSubmitOut 同名互踩）
+         */
+        PdfSplitJobSubmitOut: {
+            /**
+             * Job Id
+             * @description 任务ID
+             */
+            job_id: string;
+            /**
+             * Status
+             * @description 状态
+             */
+            status: string;
+        };
+        /**
+         * PdfSplitJobOut
+         * @description 任务详情响应。
+         *
+         *     命名必须带 PdfSplit 前缀：OpenAPI 组件按类名注册，与 doc_converter.JobOut
+         *     同名会互相覆盖（后注册者胜出），导致该端点在快照里挂上错误 schema。
+         */
+        PdfSplitJobOut: {
             /** Job Id */
             job_id: string;
             /** Status */
             status: string;
-            /** Total Files */
-            total_files: number;
-        };
-        /** JobOut */
-        JobOut: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Status */
-            status: string;
-            /** Total Files */
-            total_files: number;
-            /** Converted Files */
-            converted_files: number;
-            /** Failed Files */
-            failed_files: number;
+            /** Split Mode */
+            split_mode: string;
+            /** Ocr Profile */
+            ocr_profile: string;
             /** Progress */
             progress: number;
-            /** Error Message */
-            error_message: string;
+            /** Total Pages */
+            total_pages: number;
+            /** Processed Pages */
+            processed_pages: number;
+            /** Current Page */
+            current_page: number;
+            /** Summary */
+            summary: {
+                [key: string]: unknown;
+            };
+            /** Segments */
+            segments: components["schemas"]["SegmentOut"][];
             /**
              * Download Url
              * @default
              */
             download_url: string;
-            /** Created At */
-            created_at?: string | null;
-            /** Finished At */
-            finished_at?: string | null;
+            /**
+             * Pdf Url
+             * @default
+             */
+            pdf_url: string;
+            /**
+             * Error Message
+             * @default
+             */
+            error_message: string;
         };
         /** SegmentOut */
         SegmentOut: {
@@ -19032,6 +19116,15 @@ export interface components {
             /** Prompt */
             prompt: string;
         };
+        /** JobSubmitOut */
+        JobSubmitOut: {
+            /** Job Id */
+            job_id: string;
+            /** Status */
+            status: string;
+            /** Total Files */
+            total_files: number;
+        };
         /**
          * JobListOut
          * @description 历史任务分页列表（GET /doc-converter/jobs 实际返回形状）
@@ -19045,6 +19138,35 @@ export interface components {
             page: number;
             /** Num Pages */
             num_pages: number;
+        };
+        /** JobOut */
+        JobOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Status */
+            status: string;
+            /** Total Files */
+            total_files: number;
+            /** Converted Files */
+            converted_files: number;
+            /** Failed Files */
+            failed_files: number;
+            /** Progress */
+            progress: number;
+            /** Error Message */
+            error_message: string;
+            /**
+             * Download Url
+             * @default
+             */
+            download_url: string;
+            /** Created At */
+            created_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
         };
         /** ItemOut */
         ItemOut: {
@@ -25741,7 +25863,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["JobSubmitOut"];
+                    "application/json": components["schemas"]["PdfSplitJobSubmitOut"];
                 };
             };
         };
@@ -25763,7 +25885,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["JobOut"];
+                    "application/json": components["schemas"]["PdfSplitJobOut"];
                 };
             };
         };
@@ -25810,7 +25932,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["JobSubmitOut"];
+                    "application/json": components["schemas"]["PdfSplitJobSubmitOut"];
                 };
             };
         };
@@ -25832,7 +25954,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["JobSubmitOut"];
+                    "application/json": components["schemas"]["PdfSplitJobSubmitOut"];
                 };
             };
         };

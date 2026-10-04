@@ -13,7 +13,15 @@ from ninja import Schema
 from apps.core.api.schemas import SchemaMixin
 
 
-class LawyerOut(Schema):
+class ContractLawyerOut(Schema):
+    """合同场景下的律师精简投影（如 ContractOut.primary_lawyer）。
+
+    命名必须带 Contract 前缀：OpenAPI 组件按类名注册，与
+    apps.organization.schemas.LawyerOut 同名会互相覆盖（后注册者胜出），
+    曾经导致快照里的 LawyerOut 丢失 license_no / law_firm_detail，
+    /organization/lawyers 端点在生成物中挂错 schema。
+    """
+
     id: int
     username: str
     real_name: str | None = None
@@ -24,7 +32,7 @@ class LawyerOut(Schema):
     law_firm_name: str | None = None
 
     @classmethod
-    def from_model(cls, obj: Any) -> LawyerOut:
+    def from_model(cls, obj: Any) -> ContractLawyerOut:
         law_firm = getattr(obj, "law_firm", None)
         return cls(
             id=obj.id,
@@ -38,7 +46,7 @@ class LawyerOut(Schema):
         )
 
     @classmethod
-    def from_dto(cls, dto: Any) -> LawyerOut:
+    def from_dto(cls, dto: Any) -> ContractLawyerOut:
         return cls(
             id=dto.id,
             username=getattr(dto, "username", ""),

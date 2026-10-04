@@ -28,7 +28,13 @@ class SegmentOut(BaseModel):
     source_method: str
 
 
-class JobOut(BaseModel):
+class PdfSplitJobOut(BaseModel):
+    """任务详情响应。
+
+    命名必须带 PdfSplit 前缀：OpenAPI 组件按类名注册，与 doc_converter.JobOut
+    同名会互相覆盖（后注册者胜出），导致该端点在快照里挂上错误 schema。
+    """
+
     job_id: str
     status: str
     split_mode: str
@@ -44,7 +50,9 @@ class JobOut(BaseModel):
     error_message: str = ""
 
 
-class JobSubmitOut(BaseModel):
+class PdfSplitJobSubmitOut(BaseModel):
+    """任务提交响应（同上，避免与 doc_converter.JobSubmitOut 同名互踩）"""
+
     job_id: str = Field(..., description="任务ID")
     status: str = Field(..., description="状态")
 
@@ -65,7 +73,7 @@ class ConfirmRequestIn(BaseModel):
     segments: list[ConfirmSegmentIn]
 
 
-@router.post("/jobs", response=JobSubmitOut)
+@router.post("/jobs", response=PdfSplitJobSubmitOut)
 def create_pdf_split_job(  # pragma: no cover
     request: Any,
     file: UploadedFile | None = File(None),
@@ -73,7 +81,7 @@ def create_pdf_split_job(  # pragma: no cover
     template_key: str = Form("filing_materials_v1"),
     split_mode: str = Form("content_analysis"),
     ocr_profile: str = Form("balanced"),
-) -> JobSubmitOut:
+) -> PdfSplitJobSubmitOut:
     job = PdfSplitJobService().create_job(
         file=file,
         source_path=source_path,
@@ -82,14 +90,14 @@ def create_pdf_split_job(  # pragma: no cover
         ocr_profile=ocr_profile,
         created_by=getattr(request, "user", None),
     )
-    return JobSubmitOut(job_id=str(job.id), status=job.status)
+    return PdfSplitJobSubmitOut(job_id=str(job.id), status=job.status)
 
 
-@router.get("/jobs/{job_id}", response=JobOut)
-def get_pdf_split_job(request: Any, job_id: UUID) -> JobOut:  # pragma: no cover
+@router.get("/jobs/{job_id}", response=PdfSplitJobOut)
+def get_pdf_split_job(request: Any, job_id: UUID) -> PdfSplitJobOut:  # pragma: no cover
     job = PdfSplitJobService().get_job(job_id)
     payload = PdfSplitJobService().build_job_payload(job)
-    return JobOut(**payload)
+    return PdfSplitJobOut(**payload)
 
 
 @router.get("/jobs/{job_id}/pages/{page_no}/preview")
@@ -99,16 +107,18 @@ def get_pdf_split_preview(request: Any, job_id: UUID, page_no: int) -> HttpRespo
     return FileResponse(preview_path.open("rb"), content_type="image/png", filename=preview_path.name)  # type: ignore[return-value]
 
 
-@router.post("/jobs/{job_id}/confirm", response=JobSubmitOut)
-def confirm_pdf_split_job(request: Any, job_id: UUID, payload: ConfirmRequestIn) -> JobSubmitOut:  # pragma: no cover
+@router.post("/jobs/{job_id}/confirm", response=PdfSplitJobSubmitOut)
+def confirm_pdf_split_job(
+    request: Any, job_id: UUID, payload: ConfirmRequestIn
+) -> PdfSplitJobSubmitOut:  # pragma: no cover
     job = PdfSplitJobService().confirm_segments(job_id=job_id, items=[item.model_dump() for item in payload.segments])
-    return JobSubmitOut(job_id=str(job.id), status=job.status)
+    return PdfSplitJobSubmitOut(job_id=str(job.id), status=job.status)
 
 
-@router.post("/jobs/{job_id}/cancel", response=JobSubmitOut)
-def cancel_pdf_split_job(request: Any, job_id: UUID) -> JobSubmitOut:  # pragma: no cover
+@router.post("/jobs/{job_id}/cancel", response=PdfSplitJobSubmitOut)
+def cancel_pdf_split_job(request: Any, job_id: UUID) -> PdfSplitJobSubmitOut:  # pragma: no cover
     job = PdfSplitJobService().request_cancel(job_id=job_id)
-    return JobSubmitOut(job_id=str(job.id), status=job.status)
+    return PdfSplitJobSubmitOut(job_id=str(job.id), status=job.status)
 
 
 @router.get("/jobs/{job_id}/download")

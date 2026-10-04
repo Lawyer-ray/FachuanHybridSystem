@@ -22,6 +22,7 @@ from .court_sms import (
     CourtSmsDocumentRenameIn,
     CourtSmsDocumentRenameOut,
     CourtSMSListOut,
+    CourtSMSSubmitDataOut,
     CourtSMSSubmitIn,
     CourtSMSSubmitOut,
     SMSParseResult,
@@ -77,6 +78,7 @@ _schema_all = [
     "ResourceUsageOut",
     # Court SMS
     "SMSParseResult",
+    "CourtSMSSubmitDataOut",
     "CourtSMSSubmitIn",
     "CourtSMSSubmitOut",
     "CourtSMSDetailOut",

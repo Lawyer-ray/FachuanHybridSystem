@@ -9,8 +9,9 @@
  *   · 合同的 fee_mode、representation_stages 返回的是**中文标签**（"固定收费"/"一审"），非代码值；
  *   · /cases/cases 的 status（"在办"）、current_stage、parties[].legal_status 也是**中文标签**。
  * - /organization/lawyers 内部硬分页 page_size=20，律师多于 20 人时拿不全
- *   （本页仅用它补执业证号/律所，缺失时静默降级，不阻塞主列表）；
- *   且生成物 LawyerOut 缺 license_no / law_firm_detail 字段， LawyerListItem 仍手写维护。
+ *   （本页仅用它补执业证号/律所，缺失时静默降级，不阻塞主列表）。
+ *   生成物 LawyerOut（organization 全量形状）已含 license_no / law_firm_detail，
+ *   LawyerListItem 取其消费投影。
  */
 
 import type { components } from '@/types/api-schema'
@@ -26,7 +27,7 @@ export type ContractPayment = Schemas['ContractPaymentOut']
 export type ClientPaymentRecord = Schemas['ClientPaymentRecordOut']
 export type SupplementaryAgreement = Schemas['SupplementaryAgreementOut']
 export type ContractAssignment = Schemas['ContractAssignmentOut']
-export type PrimaryLawyer = Schemas['LawyerOut']
+export type PrimaryLawyer = Schemas['ContractLawyerOut']
 
 /**
  * 合同行（slim 投影）。生成物 ContractOut 的三处运行时差异在此覆写：
@@ -56,15 +57,17 @@ export type CaseListItem = Omit<Schemas['CaseOut'], 'id'> & { id: number }
 
 /* ============ 后端投影：/api/v1/organization/lawyers ============ */
 
-/** 手写保留：生成物 LawyerOut 缺 license_no / law_firm_detail 字段，按真实返回维护 */
-export interface LawyerListItem {
-  id: number
-  username: string
-  real_name: string | null
-  phone: string | null
-  license_no: string | null
-  law_firm_detail: { id: number; name: string } | null
-}
+/** 律师行（生成物 LawyerOut 的消费投影）。后端已修复 OpenAPI 组件名冲突
+ *  （此前 contracts.LawyerOut 与 organization.LawyerOut 同名互踩，生成物缺
+ *  license_no / law_firm_detail）；仅取本页消费字段，id 按 ModelSchema
+ *  口径覆写为必有（列表行运行时必有）。 */
+export type LawyerListItem = Omit<
+  Pick<
+    Schemas['LawyerOut'],
+    'id' | 'username' | 'real_name' | 'phone' | 'license_no' | 'law_firm_detail'
+  >,
+  'id'
+> & { id: number }
 
 /* ============ 前端域模型（buildDeals 合并产物） ============ */
 
