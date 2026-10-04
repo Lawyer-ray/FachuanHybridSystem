@@ -1,5 +1,8 @@
 import { createApiClient, UPLOAD_TIMEOUT_MS } from '@/lib/api'
 import type { components } from '@/types/api-schema'
+// isEmptyDraft 直连 ./draft/state 而非 barrel：经 barrel 会因 resolve → ../api 的
+// 既有依赖形成 api ↔ draft 环（见 draft/index.ts 头注释）
+import { isEmptyDraft } from './draft/state'
 import { MANUAL_SOURCE_TYPE } from './constants'
 import type {
   AssignInfo,
@@ -109,8 +112,14 @@ export async function appendPackFiles(id: number, files: File[]): Promise<InboxM
     .json<InboxMessageDetail>()
 }
 
-/** 保存拆分草稿 */
-export async function saveDraft(id: number, draft: DraftState): Promise<void> {
+/** 只打标（未拆分）时的最小回写载荷：后端把 draft_state 当不透明 JSON 存储，
+ *  从未拆分过的包写 {status[, assign]} 即可，阅读器打开时会按材料重建完整草稿。
+ *  用精确联合而非 Partial<DraftState> / unknown——只为这一条合法的窄载荷开口，
+ *  其余调用方仍必须交完整 DraftState。 */
+export type PackStatusPatch = Pick<DraftState, 'status' | 'assign'>
+
+/** 保存拆分草稿（整份 DraftState，或 setPackStatusRemote 的最小打标载荷） */
+export async function saveDraft(id: number, draft: DraftState | PackStatusPatch): Promise<void> {
   await inboxApi.put(`messages/${id}/draft`, { json: { draft } }).json()
 }
 
@@ -121,14 +130,13 @@ export async function setPackStatusRemote(
   assign?: AssignInfo,
 ): Promise<void> {
   const detail = await getPackDetail(id)
-  // draft_state 在未拆分过的包上是 {}（见 InboxMessageDetail 注释）；把它当整份草稿
-  // 原样回写，后端按不透明 JSON 存储，语义与此前一致
-  const draft = detail.draft_state as DraftState
-  await saveDraft(id, {
-    ...draft,
-    status,
-    ...(assign ? { assign } : {}),
-  })
+  // draft_state 在未拆分过的包上是空占位 {}（判别见 draft/state.ts），守卫式
+  // 窄化而非 as 抹掉联合：空占位无内容可保留，只写 status / assign（与历史
+  // 行为一致）；有效草稿整份带上，不丢 mats/segs/infos。
+  const draft: DraftState | PackStatusPatch = isEmptyDraft(detail.draft_state)
+    ? { status }
+    : { ...detail.draft_state, status }
+  await saveDraft(id, assign ? { ...draft, assign } : draft)
 }
 
 /** 框选取字：把页面图片交给 RapidOCR，返回归一化文字块 */

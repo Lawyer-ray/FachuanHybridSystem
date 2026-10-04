@@ -95,7 +95,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   listMock.mockResolvedValue([boundFeishu])
   catalogMock.mockResolvedValue([feishu, github, dingtalk])
-  unbindMock.mockResolvedValue({ success: true })
+  // UnbindOut（生成物投影）的 message 为必有字段（Schema @default ''），夹具按契约补齐
+  unbindMock.mockResolvedValue({ success: true, message: '' })
 })
 
 afterEach(() => {

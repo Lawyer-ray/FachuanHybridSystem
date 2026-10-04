@@ -72,6 +72,14 @@ export interface ParseTaskStatus {
   outcome: ParseOutcome | null
 }
 
+/** 任务状态白名单：后端 tasking 实际产出的四态 + 前端补充的 not_found 缺态。
+ *  生成物 TaskStatusResponse.status 是裸 string，白名单校验后收窄，不做 as 直转。 */
+const TASK_STATUSES = ['pending', 'running', 'success', 'failure', 'not_found'] as const
+
+function isTaskStatus(v: string): v is (typeof TASK_STATUSES)[number] {
+  return (TASK_STATUSES as readonly string[]).includes(v)
+}
+
 /**
  * 解析提交的表单形状。手写保留：字段名是前端 camelCase（submit 时拆成后端
  * upload_view 的 backend / extract_tables / … 表单键），非 wire 形状。
@@ -140,10 +148,14 @@ export async function getParseTaskTask(taskId: string): Promise<ParseTaskStatus>
   const res = await documentParsingApi
     .get(`task/${encodeURIComponent(taskId)}`)
     .json<components['schemas']['TaskStatusResponse']>()
-  const status = res.status || 'not_found'
-  const raw = res.result
-  const outcome = raw && typeof raw === 'object' ? toOutcome(raw) : null
-  return { taskId: res.task_id || taskId, status: status as ParseTaskStatus['status'], outcome }
+  // 缺状态按 not_found（前端补充的缺态语义，调用方按宽限逻辑处理）
+  const raw = res.status || 'not_found'
+  // 白名单外的未知值兜底为 pending（任务存活）：轮询侧只认 success/failure 为
+  // 终态，兜底不会造成永远轮询——DOC_PARSE_MAX_POLLS 封顶后按超时收尾
+  const status = isTaskStatus(raw) ? raw : 'pending'
+  const rawResult = res.result
+  const outcome = rawResult && typeof rawResult === 'object' ? toOutcome(rawResult) : null
+  return { taskId: res.task_id || taskId, status, outcome }
 }
 
 // ---------------------------------------------------------------------------

@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
+
+import { usePollSession, type PollLease } from '@/hooks/use-poll-session'
 
 import {
   getParseTaskTask,
@@ -48,42 +50,31 @@ export interface UseDocParseResult extends DocParseState {
 /**
  * 文档解析流程编排：提交 →（同步直接出结果 | 异步轮询到终态）。
  *
- * 轮询用 setTimeout 串行而非 setInterval，避免上一轮请求还没回就打下一轮；
- * 组件卸载 / 重新提交时通过 cancelled ref 提前退出，避免离开页面还在打接口
- * （同 DocConverterCard 的做法）。
+ * 轮询用 setTimeout 串行而非 interval，避免上一轮请求还没回就打下一轮；
+ * 重入与卸载经 usePollSession 的会话号守卫处理——旧实现里 cancelled ref
+ * 只在卸载置位，换文件重提交时正在 await 的旧循环停不下来，会把旧任务的
+ * 终态写进 state 覆盖新提交（详见 use-poll-session.ts 头注释）。
  */
 export function useDocParse(): UseDocParseResult {
   const [phase, setPhase] = useState<ParsePhase>('idle')
   const [outcome, setOutcome] = useState<ParseOutcome | null>(null)
-  const timer = useRef(0)
-  const cancelled = useRef(false)
-
-  useEffect(() => {
-    cancelled.current = false
-    return () => {
-      cancelled.current = true
-      window.clearTimeout(timer.current)
-    }
-  }, [])
+  const pollSession = usePollSession()
 
   const reset = useCallback(() => {
-    window.clearTimeout(timer.current)
+    // 只失效会话：正在跑的轮询会自检退出，不再打接口、不再写 state
+    pollSession.invalidate()
     setOutcome(null)
     setPhase('idle')
-  }, [])
+  }, [pollSession])
 
-  const sleep = (ms: number) =>
-    new Promise<void>((resolve) => {
-      timer.current = window.setTimeout(resolve, ms)
-    })
-
-  const pollTask = useCallback(async (taskId: string) => {
+  /** 轮询云端任务到终态；lease 由 submit 签发，重提交/卸载后旧循环即刻自检退出 */
+  const pollTask = useCallback(async (taskId: string, lease: PollLease) => {
     let notFoundStreak = 0
     for (let i = 0; i < DOC_PARSE_MAX_POLLS; i++) {
-      if (cancelled.current) return
+      if (lease.isStale()) return
       try {
         const s = await getParseTaskTask(taskId)
-        if (cancelled.current) return
+        if (lease.isStale()) return
         if (s.status === 'success' || s.status === 'failure') {
           setOutcome(s.outcome)
           setPhase('done')
@@ -109,11 +100,12 @@ export function useDocParse(): UseDocParseResult {
           notFoundStreak = 0
         }
       } catch {
-        if (cancelled.current) return
+        if (lease.isStale()) return
         // 单轮查询失败不当场判死——云端任务还在跑，后端可能只是被瞬时打断，继续下一轮
       }
-      await sleep(DOC_PARSE_POLL_MS)
+      await lease.sleep(DOC_PARSE_POLL_MS)
     }
+    if (lease.isStale()) return
     setOutcome({
       ok: false,
       markdown: '',
@@ -127,21 +119,24 @@ export function useDocParse(): UseDocParseResult {
 
   const submit = useCallback(
     async (file: File, opts: ParseDocumentIn) => {
-      window.clearTimeout(timer.current)
+      // 先开新会话再清 state：旧任务「正在 await 网络」的轮询循环从此失效，
+      // 不会再把旧终态写回来覆盖本次提交
+      const lease = pollSession.begin()
       setOutcome(null)
       setPhase('submitting')
       try {
         const { taskId, outcome: sync } = await parseDocument(file, opts)
-        if (cancelled.current) return
+        // 上传期间可能重提交/卸载：过期会话的后续 state 一律不写
+        if (lease.isStale()) return
         if (taskId) {
           setPhase('polling')
-          await pollTask(taskId)
+          await pollTask(taskId, lease)
           return
         }
         setOutcome(sync)
         setPhase('done')
       } catch {
-        if (cancelled.current) return
+        if (lease.isStale()) return
         setOutcome({
           ok: false,
           markdown: '',
@@ -153,7 +148,7 @@ export function useDocParse(): UseDocParseResult {
         setPhase('done')
       }
     },
-    [pollTask],
+    [pollSession, pollTask],
   )
 
   return { phase, outcome, hint: PHASE_HINT[phase], submit, reset }

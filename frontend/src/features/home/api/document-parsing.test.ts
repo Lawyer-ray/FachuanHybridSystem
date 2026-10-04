@@ -148,6 +148,13 @@ describe('getParseTaskTask 轮询状态映射', () => {
     expect(s.status).toBe('not_found')
   })
 
+  it('白名单外的未知状态兜底为 pending（任务存活，继续轮询到上限后超时收尾）', async () => {
+    getMock.mockReturnValueOnce(respond({ task_id: 'T', status: 'queued' }))
+    const s = await getParseTaskTask('T')
+    expect(s.status).toBe('pending')
+    expect(s.outcome).toBeNull()
+  })
+
   it('taskId 带特殊字符会 encodeURIComponent（后端路径安全）', async () => {
     getMock.mockReturnValueOnce(respond({ task_id: 'a/b c', status: 'running' }))
     await getParseTaskTask('a/b c')

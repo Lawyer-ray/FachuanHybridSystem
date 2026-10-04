@@ -53,6 +53,14 @@ export const REMINDER_TYPES_KEY = ['reminder-types'] as const
 /** 关联对象类型（提醒可绑定 合同 / 案件 / 案件日志 三选一） */
 export type TargetType = 'contract' | 'case' | 'case_log'
 
+/** TargetType 白名单：target-options 响应里 target_type 生成物是裸 string，
+ *  收窄前先过白名单，未知值不进类型系统 */
+const TARGET_TYPES = ['contract', 'case', 'case_log'] as const
+
+function isTargetType(v: string): v is TargetType {
+  return (TARGET_TYPES as readonly string[]).includes(v)
+}
+
 /**
  * 关联对象候选项（GET /reminders/target-options）。
  *
@@ -92,8 +100,9 @@ export async function searchTargetOptions(q: string, signal?: AbortSignal): Prom
     .get('target-options', { searchParams: { q }, signal })
     .json<components['schemas']['TargetOptionsOut']>()
   return (res.items ?? []).map((raw) => {
-    // 生成物把 target_type 声明为裸 string；后端实际只会返回三值，收窄给 TargetOption
-    const targetType = raw.target_type as TargetType
+    // 生成物把 target_type 声明为裸 string；白名单校验后收窄，非法值兜底为
+    // 'contract'（关联对象仅影响新增弹窗的预填，兜底不丢整条候选）
+    const targetType = isTargetType(raw.target_type) ? raw.target_type : 'contract'
     const { title, hint } = splitTargetName(targetType, raw.name ?? '')
     return {
       id: raw.id,

@@ -64,7 +64,8 @@ export function SocialCallbackPage() {
         }
         setUser({
           id: res.user_id ?? 0,
-          username: res.username ?? '',
+          // TokenExchangeOut 的 username 为必有（Schema @default ''），无需再兜底
+          username: res.username,
         })
         void navigate(redirect, { replace: true })
       } catch (err) {

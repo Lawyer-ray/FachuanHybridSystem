@@ -29,17 +29,23 @@ export function PdfPageView({ messageId, partIndex, pageNum }: { messageId: numb
     return () => ro.disconnect()
   }, [])
 
-  // DPR 变化（窗口跨屏拖动）不改变 CSS 宽、不触发 ResizeObserver，单独监听
+  // DPR 变化（窗口跨屏拖动）不改变 CSS 宽、不触发 ResizeObserver，单独监听。
+  // MQL 字符串带具体 DPR 值（如 2dppx），触发一次后浏览器 DPR 已变、不再匹配
+  // 该查询——旧实现把它定格在挂载值，换屏一次后监听就永久失效。这里把当前
+  // DPR 放进 state：变化后重建 MQL，保证每次换屏都能按新 DPR 触发重渲。
+  const [dpr, setDpr] = useState(() => (typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1))
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia === 'undefined') return
-    const mq = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`)
+    const mq = window.matchMedia(`(resolution: ${dpr}dppx)`)
     const onChange = () => {
+      // 先记下新 DPR 让本 effect 重挂（新 DPR 的 MQL），再按新宽度强制重渲
+      setDpr(window.devicePixelRatio || 1)
       const host = hostRef.current
       setForcedWidth(pdfRenderWidthFor(host?.clientWidth ?? 900))
     }
     mq.addEventListener('change', onChange)
     return () => mq.removeEventListener('change', onChange)
-  }, [])
+  }, [dpr])
 
   useEffect(() => {
     let cancelled = false

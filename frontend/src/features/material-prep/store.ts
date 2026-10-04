@@ -9,6 +9,7 @@ import {
   buildInitialDraft,
   ensureSegIds,
   flatRefs,
+  isEmptyDraft,
   isSelectionContiguous,
   pageIndexOf,
   removePages,
@@ -158,10 +159,11 @@ export const useReader = create<ReaderState>((set, get) => ({
         toast.error('附件解析失败，已按空材料打开 —— 可尝试重新打开该包')
       }
       const ds = detail.draft_state
-      // 未拆过的包 draft_state 是 {}（无 segs 键），只有存过草稿才有有效分段
-      const hasStored = !!ds && 'segs' in ds && ds.segs.length > 0
+      // 未拆过的包 draft_state 是空占位（见 draft/state.ts 的 isEmptyDraft）；
+      // 已存草稿但段被删空的仍按「未拆」重建初始草稿，避免打开一个空阅读器
+      const hasStored = !isEmptyDraft(ds) && ds.segs.length > 0
       // 存量草稿的段可能没有 id（id 是后加的字段），读取时兜底补齐
-      const draft = hasStored ? ensureSegIds(ds as DraftState) : buildInitialDraft(detail, mats)
+      const draft = hasStored ? ensureSegIds(ds) : buildInitialDraft(detail, mats)
       set({ detail, draft, status: 'ready' })
     } catch (e) {
       if (get().openId !== id) return

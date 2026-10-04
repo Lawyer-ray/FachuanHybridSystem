@@ -7,6 +7,7 @@ import { createReminder, listReminderTypes, searchTargetOptions, REMINDER_TYPES_
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { formatCN, parseKey } from '../domain'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { errMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 
@@ -59,13 +60,15 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
     staleTime: 10 * 60_000,
   })
 
-  // 关键字联想：输入即查（上一请求由 signal 自动中止，无响应竞态）；
+  // 关键字联想：queryKey 用防抖值（输入停 250ms 才请求，不再每键一发）；
+  // 上一请求由 signal 自动中止，无响应竞态。
   // 选中 picked 后隐藏候选列表，展示 picked 行
   const kwTrim = kw.trim()
+  const dkTrim = useDebouncedValue(kwTrim, 250)
   const { data: searched = [], isFetching: searching } = useQuery({
-    queryKey: ['reminder-target-options', kwTrim],
-    queryFn: ({ signal }) => searchTargetOptions(kwTrim, signal),
-    enabled: day != null && !!kwTrim && !picked,
+    queryKey: ['reminder-target-options', dkTrim],
+    queryFn: ({ signal }) => searchTargetOptions(dkTrim, signal),
+    enabled: day != null && !!dkTrim && !picked,
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   })

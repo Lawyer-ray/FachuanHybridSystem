@@ -71,6 +71,11 @@ export function SocialQrPanel({ provider, createSession, containerId = 'feishu-q
   const gotoRef = useRef<string>('')
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [error, setError] = useState('')
+  // 依赖收敛为原始值：providers query 每次 refetch 生成新数组/新对象，
+  // boot 若依赖 provider 对象身份，refetch 一次二维码就闪换重画（session 作废重来）
+  const providerName = provider.name
+  const qrWidth = provider.client_config?.width
+  const qrHeight = provider.client_config?.height
 
   const fail = useCallback((message: string) => {
     setState('error')
@@ -90,7 +95,7 @@ export function SocialQrPanel({ provider, createSession, containerId = 'feishu-q
 
     let session: SocialSession
     try {
-      session = await (createSession ?? socialAuthApi.createSession)(provider.name)
+      session = await (createSession ?? socialAuthApi.createSession)(providerName)
     } catch (err) {
       if (!gone()) fail(err instanceof Error ? err.message : '登录方式暂不可用，请稍后再试或联系管理员')
       return
@@ -117,11 +122,11 @@ export function SocialQrPanel({ provider, createSession, containerId = 'feishu-q
     qrInstanceRef.current = qrLogin({
       id: container.id,
       goto: session.goto,
-      width: provider.client_config?.width ?? '260',
-      height: provider.client_config?.height ?? '260',
+      width: qrWidth ?? '260',
+      height: qrHeight ?? '260',
     })
     if (!gone()) setState('ready')
-  }, [provider, fail, createSession])
+  }, [providerName, qrWidth, qrHeight, fail, createSession])
 
   useEffect(() => {
     void boot()

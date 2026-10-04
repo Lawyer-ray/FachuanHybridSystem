@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { FileDown, Trash2 } from 'lucide-react'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
@@ -13,8 +13,10 @@ import {
   type ConvertRecordItem,
 } from '../../../api'
 import { cn } from '@/lib/utils'
+import { errMessage } from '@/lib/errors'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { badgeOf } from './badges'
+import { HistoryError } from './HistoryError'
 import { HistoryHeader, HistoryPager } from './HistoryParts'
 
 const STATUS_LABEL: Record<string, string> = { success: '成功', failed: '失败' }
@@ -32,11 +34,15 @@ const ROW_BTN =
 function Row({ item, onDeleted }: { item: ConvertRecordItem; onDeleted: () => void }) {
   const [armed, setArmed] = useState(false)
   const [busy, setBusy] = useState(false)
+  // armed 复位定时器存 ref：行删除 / 翻页 / 关弹窗卸载时清掉，不对已卸载组件 setState
+  const armTimer = useRef<number>(0)
+
+  useEffect(() => () => window.clearTimeout(armTimer.current), [])
 
   const remove = async () => {
     if (!armed) {
       setArmed(true)
-      window.setTimeout(() => setArmed(false), 3500)
+      armTimer.current = window.setTimeout(() => setArmed(false), 3500)
       return
     }
     setBusy(true)
@@ -49,6 +55,8 @@ function Row({ item, onDeleted }: { item: ConvertRecordItem; onDeleted: () => vo
     } finally {
       setBusy(false)
       setArmed(false)
+      // 删除已执行，pending 的复位定时器不再需要
+      window.clearTimeout(armTimer.current)
     }
   }
 
@@ -114,7 +122,7 @@ export function ConvertHistoryDialog({ open, onOpenChange }: { open: boolean; on
   const [page, setPage] = useState(1)
   const queryClient = useQueryClient()
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: convertHistoryKeys.page(group, page),
     queryFn: () => listConvertRecords(group || undefined, page),
     enabled: open,
@@ -154,7 +162,9 @@ export function ConvertHistoryDialog({ open, onOpenChange }: { open: boolean; on
         </HistoryHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {isLoading ? (
+          {isError ? (
+            <HistoryError error={errMessage(error, '历史记录加载失败')} onRetry={() => void refetch()} />
+          ) : isLoading ? (
             <div className="px-4 py-8 text-center text-[12px] text-muted-foreground">正在加载…</div>
           ) : items.length === 0 ? (
             <div className="px-4 py-8 text-center text-[12px] text-muted-foreground">

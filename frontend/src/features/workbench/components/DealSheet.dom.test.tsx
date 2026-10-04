@@ -88,7 +88,7 @@ function setupUi(deal: WorkbenchDeal | null, open: boolean) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  casesMock.mockReturnValue({ cases: [], isLoading: false })
+  casesMock.mockReturnValue({ cases: [], isLoading: false, error: null, refetch: vi.fn() })
 })
 
 afterEach(() => {
@@ -186,6 +186,8 @@ describe('DealSheet 案件按需加载节', () => {
     casesMock.mockReturnValue({
       cases: [makeDealCase(1, '一审', false), makeDealCase(2, '一审', false), makeDealCase(3, '二审', true)],
       isLoading: false,
+      error: null,
+      refetch: vi.fn(),
     })
     setupUi(makeDeal(), true)
     // 阶段节点是 <b>；合同要素「代理阶段」行同文本（span），用 selector 区分
@@ -200,9 +202,18 @@ describe('DealSheet 案件按需加载节', () => {
   })
 
   it('案件明细加载中：展示加载文案与计数省略', () => {
-    casesMock.mockReturnValue({ cases: [], isLoading: true })
+    casesMock.mockReturnValue({ cases: [], isLoading: true, error: null, refetch: vi.fn() })
     setupUi(makeDeal(), true)
     expect(screen.getByText('正在加载案件…')).toBeTruthy()
     expect(screen.getByText(/案件 · …/)).toBeTruthy()
+  })
+
+  it('案件明细加载失败：错误行 + 重试入口，不静默成空案件节', () => {
+    casesMock.mockReturnValue({ cases: [], isLoading: false, error: '案件加载失败', refetch: vi.fn() })
+    setupUi(makeDeal(), true)
+    expect(screen.getByText(/案件加载失败/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: '重试' })).toBeTruthy()
+    // 失败时不得停留在加载态（空态即整节不渲染，无需另行断言）
+    expect(screen.queryByText('正在加载案件…')).toBeNull()
   })
 })

@@ -241,3 +241,65 @@ describe('useRecognize 404 宽限与容错', () => {
     expect(result.current.phase).toBe('ready')
   })
 })
+
+describe('useRecognize 重提交竞态回归', () => {
+  it('重提交：旧任务在飞的轮询响应迟到，也不得把旧终态写进 state 覆盖新提交', async () => {
+    // 第一次提交拿任务 5，第二次拿任务 6
+    recognizeMock.mockResolvedValueOnce({ task_id: 5 }).mockResolvedValueOnce({ task_id: 6 })
+    const oldTask = makeTask({ task_id: 5, status: 'success' })
+    let resolveOld!: (v: TaskOut) => void
+    getTaskMock.mockImplementation((id: number) => {
+      if (id === 5) {
+        // 旧任务的首轮查询悬住：模拟「正在 await 网络」的旧轮询循环
+        return new Promise<TaskOut>((resolve) => {
+          resolveOld = resolve
+        })
+      }
+      return Promise.resolve(makeTask({ task_id: 6, status: 'failed', error_message: '新任务失败了' }))
+    })
+
+    const { result } = setup()
+    await startSubmit(result)
+    expect(result.current.phase).toBe('polling')
+    expect(getTask).toHaveBeenCalledWith(5)
+
+    // 旧查询还在飞时再提交：旧会话即刻失效
+    await startSubmit(result, new File(['y'], 'summons2.pdf'))
+    expect(result.current.phase).toBe('error')
+    expect(result.current.error).toBe('新任务失败了')
+
+    // 旧任务的 success 终态此刻才返回——旧循环醒来必须自检退出，不写任何 state
+    await act(async () => {
+      resolveOld(oldTask)
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(result.current.phase).toBe('error')
+    expect(result.current.error).toBe('新任务失败了')
+    expect(result.current.task).toBeNull()
+
+    // 旧循环彻底死透：继续走表也不会再查任务 5
+    const callsWith5 = getTaskMock.mock.calls.filter(([id]) => id === 5).length
+    await tick(TICK * 3)
+    expect(getTaskMock.mock.calls.filter(([id]) => id === 5).length).toBe(callsWith5)
+  })
+
+  it('重提交后旧循环停止轮询旧任务 id：计时器推进只服务新任务', async () => {
+    recognizeMock.mockResolvedValueOnce({ task_id: 5 }).mockResolvedValueOnce({ task_id: 6 })
+    // 两个任务都永远 processing（旧循环若未被会话失效，会一直打任务 5 的查询）
+    getTaskMock.mockImplementation((id: number) =>
+      Promise.resolve(makeTask({ task_id: id, status: 'processing' })),
+    )
+
+    const { result } = setup()
+    await startSubmit(result)
+    await tick(TICK * 2)
+    expect(getTask).toHaveBeenCalledWith(5)
+
+    await startSubmit(result, new File(['y'], 'summons2.pdf'))
+    const callsWith5 = getTaskMock.mock.calls.filter(([id]) => id === 5).length
+    await tick(TICK * 5)
+    expect(getTask).toHaveBeenCalledWith(6)
+    expect(getTaskMock.mock.calls.filter(([id]) => id === 5).length).toBe(callsWith5)
+    expect(result.current.phase).toBe('polling')
+  })
+})

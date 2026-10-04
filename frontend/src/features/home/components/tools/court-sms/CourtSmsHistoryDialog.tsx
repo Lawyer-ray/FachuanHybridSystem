@@ -5,7 +5,9 @@ import { format } from 'date-fns'
 
 import { courtSmsHistoryKeys, listCourtSms, type CourtSmsGroup, type CourtSmsListItem } from '../../../api'
 import { cn } from '@/lib/utils'
+import { errMessage } from '@/lib/errors'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { HistoryError } from '../history/HistoryError'
 import { SMS_STATUS_LABEL } from './stages'
 
 /** 状态 → 徽章配色（需处理类显眼，进行中蓝，完成绿） */
@@ -81,7 +83,7 @@ export function CourtSmsHistoryDialog({
   const [group, setGroup] = useState<CourtSmsGroup>('needs_action')
   const [page, setPage] = useState(1)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: courtSmsHistoryKeys.page(group, page),
     queryFn: () => listCourtSms(group, page),
     enabled: open,
@@ -127,7 +129,9 @@ export function CourtSmsHistoryDialog({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {isLoading ? (
+          {isError ? (
+            <HistoryError error={errMessage(error, '历史短信加载失败')} onRetry={() => void refetch()} />
+          ) : isLoading ? (
             <div className="px-4 py-8 text-center text-[12px] text-muted-foreground">正在加载…</div>
           ) : items.length === 0 ? (
             <div className="px-4 py-8 text-center text-[12px] text-muted-foreground">这个筛选下没有记录</div>

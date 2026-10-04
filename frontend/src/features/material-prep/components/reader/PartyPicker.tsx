@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { LoaderCircle, User, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { searchClients } from '../../api'
 
 const SEP = '、'
@@ -32,11 +33,14 @@ export function PartyPicker({
   const tags = useMemo(() => value.split(SEP).map((s) => s.trim()).filter(Boolean), [value])
   const tagSet = useMemo(() => new Set(tags), [tags])
 
+  // queryKey 用防抖值（输入停 250ms 才请求，不再每键一发）；
+  // raw 值管下拉开关（打字即展开），防抖值管真正打后端
   const kwTrim = q.trim()
+  const kw = useDebouncedValue(kwTrim, 250)
   const { data: searched = [], isFetching: loading } = useQuery({
-    queryKey: ['mp-party-search', kwTrim, isOurClient],
-    queryFn: ({ signal }) => searchClients(kwTrim, isOurClient, signal),
-    enabled: !!kwTrim,
+    queryKey: ['mp-party-search', kw, isOurClient],
+    queryFn: ({ signal }) => searchClients(kw, isOurClient, signal),
+    enabled: !!kw,
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   })

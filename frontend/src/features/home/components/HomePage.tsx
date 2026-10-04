@@ -11,7 +11,10 @@ import { CalendarPanel, type CalendarView } from './CalendarPanel'
 import { ToolDock } from './ToolDock'
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { PageFade } from '@/components/shared/PageFade'
-import { InboxCard, QuickAdd, TodayCard } from './SideCards'
+import { useToday } from '@/hooks/use-today'
+import { errMessage } from '@/lib/errors'
+import { InboxCard, QuickAdd } from './SideCards'
+import { TodayCard } from './TodayCard'
 import { AddReminderDialog } from './AddReminderDialog'
 import { DaySheet } from './DaySheet'
 import type { InboxItem } from '../types'
@@ -41,7 +44,9 @@ function defaultTimeFor(day: string, today: string): string {
  */
 export function HomePage() {
   const queryClient = useQueryClient()
-  const today = useMemo(() => todayKey(), [])
+  // useToday 跨零点自动重算：整夜不关的工作台不会把「今天」冻结在昨天
+  const todayDate = useToday()
+  const today = useMemo(() => todayKey(todayDate), [todayDate])
   const [sheetDay, setSheetDay] = useState<string | null>(null)
   // 新增安排弹窗（day=null 关闭）；由日历空白格与手机抽屉「＋新增」共同打开
   const [adding, setAdding] = useState<{ day: string; time: string } | null>(null)
@@ -74,6 +79,8 @@ export function HomePage() {
 
   const viewEventsByDay = useMemo(() => viewQuery.data?.days ?? {}, [viewQuery.data])
   const todayEventsByDay = useMemo(() => todayQuery.data?.days ?? {}, [todayQuery.data])
+  // 统计失败时这里仍是 0 兜底，但不再被当成真数据展示：问候行与今日卡
+  // 在 todayQuery.isError 时改渲染错误占位（stats 只剩 CalendarPanel 头部在消费）
   const stats = useMemo(
     () => todayQuery.data?.stats ?? { today: 0, today_done: 0, deadline_in_7days: 0, month_court: 0 },
     [todayQuery.data],
@@ -169,9 +176,25 @@ export function HomePage() {
                 </span>
               </h1>
               <div className="mt-[3px] text-[12.5px] text-secondary-foreground">
-                今天 <b className="font-semibold text-status-red">{stats.today}</b> 件事 ·{' '}
-                <b className="font-semibold text-status-red">{stats.deadline_in_7days}</b> 件紧要事项 7 日内到期 · 本月还有{' '}
-                <b className="font-semibold">{stats.month_court}</b> 个庭期
+                {todayQuery.isError ? (
+                  /* 统计拉不到就不给全 0 假象：一行小标 + 重试出口（详见今日卡错误行） */
+                  <span className="text-destructive">
+                    今日统计加载失败
+                    <button
+                      type="button"
+                      className="ml-1.5 cursor-pointer underline underline-offset-3"
+                      onClick={() => void todayQuery.refetch()}
+                    >
+                      重试
+                    </button>
+                  </span>
+                ) : (
+                  <>
+                    今天 <b className="font-semibold text-status-red">{stats.today}</b> 件事 ·{' '}
+                    <b className="font-semibold text-status-red">{stats.deadline_in_7days}</b> 件紧要事项 7 日内到期 ·
+                    本月还有 <b className="font-semibold">{stats.month_court}</b> 个庭期
+                  </>
+                )}
               </div>
             </div>
             <QuickAdd onAdded={invalidateCalendar} />
@@ -180,19 +203,33 @@ export function HomePage() {
           <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
             {/* 左：日历 + 工具 */}
             <div className="min-w-0">
-              <CalendarPanel
-                today={today}
-                view={view}
-                onShiftMonth={shiftMonth}
-                onGoToday={goToday}
-                eventsByDay={viewEventsByDay}
-                stats={stats}
-                loading={viewQuery.isLoading}
-                onSelectDay={handleSelectDay}
-                onOpenEvent={handleOpenEvent}
-                onOpenAdd={openAddDialog}
-                onToggleComplete={handleToggleComplete}
-              />
+              {viewQuery.isError ? (
+                /* 视图月拉取失败：整块日历换错误条（占位旧数据/空格子都会被误读成「没安排」） */
+                <div className="rounded-[14px] border border-destructive/30 bg-destructive/5 px-5 py-[90px] text-center text-sm text-destructive">
+                  {errMessage(viewQuery.error, '日历加载失败')}
+                  <button
+                    type="button"
+                    className="ml-3 cursor-pointer underline underline-offset-3"
+                    onClick={() => void viewQuery.refetch()}
+                  >
+                    重试
+                  </button>
+                </div>
+              ) : (
+                <CalendarPanel
+                  today={today}
+                  view={view}
+                  onShiftMonth={shiftMonth}
+                  onGoToday={goToday}
+                  eventsByDay={viewEventsByDay}
+                  stats={stats}
+                  loading={viewQuery.isLoading}
+                  onSelectDay={handleSelectDay}
+                  onOpenEvent={handleOpenEvent}
+                  onOpenAdd={openAddDialog}
+                  onToggleComplete={handleToggleComplete}
+                />
+              )}
               <ToolDock />
             </div>
 
@@ -201,6 +238,8 @@ export function HomePage() {
               <TodayCard
                 events={todayEvents}
                 loading={todayQuery.isLoading}
+                error={todayQuery.isError ? errMessage(todayQuery.error, '今日安排加载失败') : null}
+                onRetry={() => void todayQuery.refetch()}
                 onOpenEvent={handleOpenEvent}
                 onToggleComplete={handleToggleComplete}
               />

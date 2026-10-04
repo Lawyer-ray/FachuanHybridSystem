@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
+import { errMessage } from '@/lib/errors'
 import { listCasesByContract } from '../api'
 import { buildDealCases } from '../domain'
 import type { DealCase } from '../types'
@@ -13,6 +14,9 @@ import { workbenchKeys } from './use-workbench-data'
 export function useContractCases(contractId: number | null): {
   cases: DealCase[]
   isLoading: boolean
+  /** 案件拉取失败的可读文案（null = 未失败）；抽屉据此渲染错误行而非空案件节 */
+  error: string | null
+  refetch: () => void
 } {
   const query = useQuery({
     queryKey: workbenchKeys.contractCases(contractId ?? 0),
@@ -31,5 +35,12 @@ export function useContractCases(contractId: number | null): {
     () => (query.data ? buildDealCases(query.data, today) : []),
     [query.data, today],
   )
-  return { cases, isLoading: contractId != null && query.isPending }
+  return {
+    cases,
+    isLoading: contractId != null && query.isPending,
+    error: query.error ? errMessage(query.error, '案件加载失败') : null,
+    refetch: () => {
+      void query.refetch()
+    },
+  }
 }
