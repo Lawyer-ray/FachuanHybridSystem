@@ -69,7 +69,9 @@ export async function searchClients(
 export async function listMaterialPacks(): Promise<InboxMessage[]> {
   return inboxApi
     .get('messages', {
-      searchParams: { source_type: MANUAL_SOURCE_TYPE, has_attachments: 'true' },
+      // limit 显式对齐服务端兜底默认（500）：收件箱持续增长，桌面仓库列表
+      // 在超过该量级前需要真正的分页/筛选，而不是无限拉全量
+      searchParams: { source_type: MANUAL_SOURCE_TYPE, has_attachments: 'true', limit: '500' },
     })
     .json<InboxMessage[]>()
 }
