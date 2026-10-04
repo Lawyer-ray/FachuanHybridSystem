@@ -486,6 +486,14 @@ class DocxFormatNormalizer:  # pragma: no cover
         for num in ref_nums:
             doc_elm.append(etree.fromstring(etree.tostring(num)))
 
+        # 回写 blob：若 numbering part 是裸 Part（_create_numbering_part 旧路径/兜底），
+        # 保存时序列化的是 _blob 而非元素树，不回写则复制的定义不会落盘
+        # （对照 _create_default_numbering 末尾的同类回写）
+        if hasattr(self, "_numbering_part"):
+            self._numbering_part._blob = etree.tostring(
+                doc_elm, xml_declaration=True, encoding="UTF-8", standalone=True
+            )
+
         logger.debug("编号定义已复制: %d abstractNum, %d num", len(ref_abstracts), len(ref_nums))
 
     def _create_numbering_part(self) -> Any:  # pragma: no cover
@@ -493,16 +501,17 @@ class DocxFormatNormalizer:  # pragma: no cover
         assert self.doc is not None
         from docx.opc.constants import RELATIONSHIP_TYPE as RT
         from docx.opc.packuri import PackURI
-        from docx.opc.part import Part
+        from docx.opc.part import XmlPart
         from lxml import etree
 
         nsmap = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
         numbering_elm = etree.Element(qn("w:numbering"), nsmap=nsmap)
-        numbering_xml = etree.tostring(numbering_elm, xml_declaration=True, encoding="UTF-8", standalone=True)
 
+        # 用 XmlPart 持有活元素树：保存时 blob 属性会自动序列化 _element，
+        # 避免裸 Part 固化初始 _blob、后续对元素树的修改全部丢失的问题
         part_name = PackURI("/word/numbering.xml")
         content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"
-        numbering_part = Part(part_name, content_type, numbering_xml, self.doc.part.package)
+        numbering_part = XmlPart(part_name, content_type, numbering_elm, self.doc.part.package)
         self.doc.part.relate_to(numbering_part, RT.NUMBERING)
         self._numbering_part = numbering_part
 

@@ -38,9 +38,10 @@ class AuthService:
         user = authenticate(request, username=username, password=password)
         if not user:
             raise AuthenticationError(message="用户名或密码错误", code="INVALID_CREDENTIALS")
-        login(request, user)
+        # 先验型再建会话：避免给非 Lawyer 用户建出半截会话后才报错
         if not isinstance(user, Lawyer):
             raise AuthenticationError(message="用户类型错误", code="INVALID_USER_TYPE")
+        login(request, user)
         return user
 
     def logout(self, request: HttpRequest) -> None:

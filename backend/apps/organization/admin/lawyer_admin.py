@@ -18,6 +18,24 @@ def _get_lawyer_import_service() -> LawyerImportService:
     return LawyerImportService()
 
 
+def _invalidate_lawyer_teams_access(lawyer: Lawyer, affected_team_ids: set[int]) -> None:  # pragma: no cover
+    """律师团队/业务团队变更后，刷新受影响用户的组织可见范围缓存。
+
+    对照 LawyerMutationService._set_lawyer_teams 末尾的失效调用：
+    后台表单直接 lawyer_teams.set() 绕过了 mutation 服务，需在此补失效。
+    """
+    from apps.core.infrastructure import invalidate_users_access_context
+
+    affected_user_ids = set(
+        Lawyer.objects.filter(lawyer_teams__id__in=affected_team_ids).values_list("id", flat=True).distinct()
+    )
+    affected_user_ids |= set(
+        Lawyer.objects.filter(biz_teams__id__in=affected_team_ids).values_list("id", flat=True).distinct()
+    )
+    affected_user_ids.add(lawyer.pk)
+    invalidate_users_access_context(list(affected_user_ids), org_access=True, case_grants=False)
+
+
 class LawyerAdminForm(forms.ModelForm[Lawyer]):  # pragma: no cover
     new_password = forms.CharField(
         required=False,
@@ -83,6 +101,9 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):  # pragma: no cover
             user.law_firm = lt.law_firm
         if commit:
             user.save()
+            # 先记旧团队 id，供 save_related 统计受影响用户后失效访问缓存
+            self._old_lawyer_team_ids = set(user.lawyer_teams.values_list("id", flat=True))
+            self._old_biz_team_ids = set(user.biz_teams.values_list("id", flat=True))
             user.lawyer_teams.set([lt] if lt else [])
             user.biz_teams.set([bt] if bt else [])
         # 存起来供 save_related 用（save_m2m 会清空，需要再设一次）
@@ -186,6 +207,10 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin):  # pragma: no cover
         bt = getattr(form, "_pending_biz_team", None)
         obj.lawyer_teams.set([lt] if lt else [])
         obj.biz_teams.set([bt] if bt else [])
+        # 团队变更（新旧团队成员 + 本人）需失效组织可见范围缓存
+        old_team_ids = getattr(form, "_old_lawyer_team_ids", set()) | getattr(form, "_old_biz_team_ids", set())
+        new_team_ids = {t.id for t in (lt, bt) if t is not None}
+        _invalidate_lawyer_teams_access(obj, old_team_ids | new_team_ids)
 
     def get_queryset(self, request: Any) -> Any:
         # 列表页要显示 social_bindings 一列，预先取回绑定关系避免 N+1

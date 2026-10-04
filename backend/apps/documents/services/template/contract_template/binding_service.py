@@ -1,6 +1,9 @@
 """Business logic services."""
 
+import logging
 from typing import Any
+
+from django.db.models import Q
 
 from apps.documents.models import (
     DocumentTemplate,
@@ -9,6 +12,8 @@ from apps.documents.models import (
     FolderTemplate,
     FolderTemplateType,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class DocumentTemplateBindingService:
@@ -117,13 +122,30 @@ class DocumentTemplateBindingService:
         if not matching_folder_template:
             return None
 
-        binding = DocumentTemplateFolderBinding.objects.filter(
-            folder_template=matching_folder_template,
-            folder_node_id=subdir_key,
-            is_active=True,
-        ).first()
+        # subdir_key 是调用方的语义键（如 case_documents），并非结构树的真实节点 id（形如 folder_xxx），
+        # 仅按 folder_node_id=subdir_key 恒查不到；放宽为「节点 id 等于 subdir_key，
+        # 或绑定路径本身/以 /subdir_key 结尾（管理员用语义键命名节点时命中）」。
+        # 查不到时返回 None，由调用方走 DEFAULT_SUBDIRS 默认子目录回退。
+        binding = (
+            DocumentTemplateFolderBinding.objects.filter(
+                folder_template=matching_folder_template,
+                is_active=True,
+            )
+            .filter(
+                Q(folder_node_id=subdir_key)
+                | Q(folder_node_path=subdir_key)
+                | Q(folder_node_path__endswith=f"/{subdir_key}")
+            )
+            .first()
+        )
         if binding and binding.folder_node_path:
             return binding.folder_node_path
+        logger.debug(
+            "案件子目录未命中文书模板绑定，回退默认子目录: case_type=%s, subdir_key=%s, folder_template_id=%s",
+            case_type,
+            subdir_key,
+            matching_folder_template.id,
+        )
         return None
 
     def get_contract_subdir_path_internal(self, case_type: str, contract_sub_type: str) -> str | None:

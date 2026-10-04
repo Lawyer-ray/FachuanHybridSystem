@@ -288,3 +288,85 @@ class TestDocxFormatNormalizer:
         n._normalize_default()
         # Check margins were set
         assert section.top_margin is not None
+
+
+class TestReferenceNumberingCopy:
+    """参考模式：无 numbering part 的 docx 复制参考文档编号定义后必须落盘。
+
+    回归：旧实现用裸 Part 创建 numbering part（blob 固化为初始空树），
+    参考模式复制完 abstractNum/num 后不回写 _blob，保存重开后 numbering.xml 为空。
+    """
+
+    def _strip_numbering_part(self, path) -> None:
+        """从已保存的 docx 包中剥离 numbering part（part + ContentType + 关系）。"""
+        import re
+        import zipfile
+
+        stripped = path.with_name(path.stem + "_stripped" + path.suffix)
+        with zipfile.ZipFile(path) as zin, zipfile.ZipFile(stripped, "w", zipfile.ZIP_DEFLATED) as zout:
+            for item in zin.namelist():
+                if item == "word/numbering.xml":
+                    continue
+                data = zin.read(item)
+                if item == "[Content_Types].xml":
+                    data = re.sub(rb'<Override PartName="/word/numbering\.xml"[^>]*/>', b"", data)
+                elif item == "word/_rels/document.xml.rels":
+                    data = re.sub(rb'<Relationship [^>]*relationships/numbering"[^>]*/>', b"", data)
+                zout.writestr(item, data)
+        stripped.replace(path)
+
+    def _inject_reference_definition(self, ref_doc, abstract_num_id: str, num_id: str) -> None:
+        """在参考文档自带的 numbering part 中注入特征定义（特征 id 用于断言）。"""
+        from docx.oxml import OxmlElement
+        from docx.oxml.ns import qn
+
+        elm = ref_doc.part.numbering_part._element
+
+        abstract = OxmlElement("w:abstractNum")
+        abstract.set(qn("w:abstractNumId"), abstract_num_id)
+        lvl = OxmlElement("w:lvl")
+        lvl.set(qn("w:ilvl"), "0")
+        numFmt = OxmlElement("w:numFmt")
+        numFmt.set(qn("w:val"), "chineseCounting")
+        lvl.append(numFmt)
+        abstract.append(lvl)
+        elm.append(abstract)
+
+        num = OxmlElement("w:num")
+        num.set(qn("w:numId"), num_id)
+        ref = OxmlElement("w:abstractNumId")
+        ref.set(qn("w:val"), abstract_num_id)
+        num.append(ref)
+        elm.append(num)
+
+    def test_numbering_definitions_persisted_after_save(self, tmp_path):
+        import zipfile
+
+        from docx import Document
+
+        from apps.contract_review.services.format_normalizer.docx_format_normalizer import DocxFormatNormalizer
+
+        # 目标文档：保存后剥离 numbering part，确保走 _create_numbering_part 分支
+        input_path = tmp_path / "target.docx"
+        doc = Document()
+        doc.add_paragraph("第一条 总则")
+        doc.save(str(input_path))
+        self._strip_numbering_part(input_path)
+
+        # 参考文档：自带 numbering part，注入特征定义
+        ref_path = tmp_path / "ref.docx"
+        ref = Document()
+        ref.add_paragraph("一、参考条款")
+        self._inject_reference_definition(ref, abstract_num_id="77", num_id="99")
+        ref.save(str(ref_path))
+
+        output_path = tmp_path / "out.docx"
+        normalizer = DocxFormatNormalizer(input_path=input_path, output_path=output_path, reference_path=ref_path)
+        normalizer.normalize(use_llm=False)
+
+        with zipfile.ZipFile(output_path) as zf:
+            assert "word/numbering.xml" in zf.namelist()
+            xml_text = zf.read("word/numbering.xml").decode("utf-8")
+
+        assert 'w:abstractNumId="77"' in xml_text
+        assert 'w:numId="99"' in xml_text

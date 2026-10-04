@@ -537,7 +537,7 @@ class AuthorizationMaterialGenerationService:
             ) from e
 
     def _build_authority_letter_filename(self, *, case_name: str) -> str:
-        date_str = timezone.now().strftime("%Y%m%d")
+        date_str = timezone.localtime().strftime("%Y%m%d")
         safe_case_name = case_name or "案件"
         return (
             FilenameTemplateService.render_generated_doc(
@@ -547,7 +547,7 @@ class AuthorizationMaterialGenerationService:
         )
 
     def _build_legal_rep_certificate_filename(self, *, company_name: str) -> str:
-        date_str = timezone.now().strftime("%Y%m%d")
+        date_str = timezone.localtime().strftime("%Y%m%d")
         safe_company_name = company_name or "公司"
         return (
             FilenameTemplateService.render_generated_doc(
@@ -559,7 +559,7 @@ class AuthorizationMaterialGenerationService:
     def _build_power_of_attorney_filename(
         self, *, case: Any, selected_clients: list[Any], combined: bool = False
     ) -> str:
-        date_str = timezone.now().strftime("%Y%m%d")
+        date_str = timezone.localtime().strftime("%Y%m%d")
         case_name = getattr(case, "name", "") or "案件"
 
         if combined:

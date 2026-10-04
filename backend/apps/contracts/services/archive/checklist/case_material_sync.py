@@ -190,17 +190,16 @@ def get_case_material_match_map(
 
 def _collect_matching_materials(
     cases: Any, keyword_map: dict[str, list[str]], case_source_items: dict[str, Any]
-) -> tuple[dict[str, list[Any]], dict[str, int]]:
-    """收集所有案件中匹配的材料，返回 (code_to_materials, case_id_for_code)。"""
+) -> dict[str, list[Any]]:
+    """收集所有案件中匹配的材料，聚合全部命中案件的材料（与预览 get_case_material_match_map 口径一致）。"""
     from apps.cases.models import CaseMaterial
 
     code_to_case_materials: dict[str, list[Any]] = {}
-    case_id_for_code: dict[str, int] = {}
 
     cases_list = list(cases)
     case_ids = [c.id for c in cases_list]
     if not case_ids:
-        return code_to_case_materials, case_id_for_code
+        return code_to_case_materials
 
     # 一次查询批量取回全部案件的材料，再按案件分组，消除逐案查询
     materials_by_case: dict[int, list[Any]] = {}
@@ -218,13 +217,9 @@ def _collect_matching_materials(
             matched_code = match_type_name_to_code(cm.type_name, keyword_map)
             if not matched_code or matched_code not in case_source_items:
                 continue
-            if matched_code not in code_to_case_materials:
-                code_to_case_materials[matched_code] = []
-                case_id_for_code[matched_code] = case.id
-            if case_id_for_code[matched_code] == case.id:
-                code_to_case_materials[matched_code].append(cm)
+            code_to_case_materials.setdefault(matched_code, []).append(cm)
 
-    return code_to_case_materials, case_id_for_code
+    return code_to_case_materials
 
 
 def sync_case_materials_to_archive(
@@ -253,13 +248,9 @@ def sync_case_materials_to_archive(
         cases_qs = cases_qs.filter(id__in=case_ids)
     cases = list(cases_qs.only("id", "name"))
 
-    code_to_case_materials: dict[str, list[Any]] = {}
     case_name_map: dict[int, str] = {c.id: c.name for c in cases}
-    case_id_for_code: dict[str, int] = {}
 
-    from apps.cases.models import CaseMaterial
-
-    code_to_case_materials, case_id_for_code = _collect_matching_materials(cases, keyword_map, case_source_items)
+    code_to_case_materials = _collect_matching_materials(cases, keyword_map, case_source_items)
 
     synced: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
@@ -275,9 +266,10 @@ def sync_case_materials_to_archive(
             skipped.append({"archive_item_code": code, "reason": "案件无匹配材料"})
             continue
 
-        source_case_id = case_id_for_code.get(code)
-        source_case_name = case_name_map.get(source_case_id, "") if source_case_id else ""
         for cm in cms:
+            # 材料可能聚合自多个案件，归属按每条材料自身的案件报告
+            source_case_id = cm.case_id
+            source_case_name = case_name_map.get(source_case_id, "")
             try:
                 material = _copy_case_material_to_finalized(
                     contract=contract,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -13,6 +14,8 @@ from apps.documents.models import FolderTemplate
 from .repo import FolderTemplateRepo
 from .structure_rules import FolderTemplateStructureRules
 from .validation_service import FolderTemplateValidationService
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -92,8 +95,39 @@ class FolderTemplateCommandService:
 
         template.structure = structure
         template.save(update_fields=["structure", "updated_at"])
+        self._sync_bindings_after_structure_change(template)
         self._clear_folder_template_cache()
         return template
+
+    def _sync_bindings_after_structure_change(self, template: FolderTemplate) -> None:
+        """结构变更后联动重算该模板所有启用绑定的 folder_node_path。
+
+        - 节点改名/移动：按新结构重算路径（save 时触发模型 hook on_save_compute_folder_node_path）；
+        - 节点已不存在于新结构：对应绑定置 is_active=False（不物理删除），并记录 warning。
+        """
+        from apps.documents.services.template.contract_template.binding_service import DocumentTemplateBindingService
+
+        bindings = list(template.document_bindings.filter(is_active=True))
+        if not bindings:
+            return
+
+        children = (template.structure or {}).get("children", [])
+        binding_service = DocumentTemplateBindingService()
+        for binding in bindings:
+            path_parts: list[str] = []
+            found = binding_service._find_node_path(children, binding.folder_node_id, path_parts)
+            if not found:
+                binding.is_active = False
+                logger.warning(
+                    "文件夹结构更新后节点不存在，绑定已停用: template_id=%s, node_id=%s, binding_id=%s",
+                    template.id,
+                    binding.folder_node_id,
+                    binding.id,
+                )
+                binding.save(update_fields=["folder_node_path", "is_active", "updated_at"])
+            elif "/".join(path_parts) != binding.folder_node_path:
+                # 路径有变化（改名/移动），保存触发模型 hook 重算 folder_node_path
+                binding.save(update_fields=["folder_node_path", "updated_at"])
 
     def _clear_folder_template_cache(self) -> None:
         """清除文件夹模板缓存"""

@@ -7,6 +7,7 @@ import logging
 from typing import Any
 
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.http import FileResponse, HttpRequest
 from ninja import Form, Query, Router, Schema
 
@@ -276,27 +277,11 @@ def rename_attachment(  # pragma: no cover
     payload: RenameAttachmentIn,
 ) -> dict[str, Any]:
     """重命名附件。留空 custom_filename 则恢复原始文件名。"""
+    from apps.message_hub.services.attachment_page_service import rename_attachment_in_meta
+
     msg = _get_message_or_404(message_id)
-    meta = list(msg.attachments_meta or [])
-    target = None
-    for att in meta:
-        if int(att.get("part_index", -1)) == part_index:
-            target = att
-            break
-    if target is None:
-        raise NotFoundError(f"附件 part_index={part_index} 不存在")
-
-    original = target.get("original_filename") or target.get("filename") or ""
-    custom = payload.custom_filename.strip()
-
-    if custom and custom != original:
-        target["custom_filename"] = custom
-    else:
-        target.pop("custom_filename", None)
-        custom = ""
-
-    msg.attachments_meta = meta
-    msg.save(update_fields=["attachments_meta"])
+    # 行锁与 meta 读-改-写下沉 service 层（API 层禁 ORM，四层架构棘轮口径）
+    original, custom = rename_attachment_in_meta(msg, part_index=part_index, custom_filename=payload.custom_filename)
 
     effective = custom if custom else original
     return {

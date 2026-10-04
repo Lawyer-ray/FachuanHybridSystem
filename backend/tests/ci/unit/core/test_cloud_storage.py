@@ -168,6 +168,107 @@ class TestWebDAVProvider:
         assert JianguoyunProvider is WebDAVProvider
 
 
+class TestWebDAVParsePropfindResponse:
+    """测试 PROPFIND multistatus XML 解析。
+
+    回归：旧实现把 append 放在 response 的 child 循环体内，
+    导致同一条 response 先以默认值（幽灵条目）append、再以 propstat 真值 append，条目数翻倍。
+    """
+
+    #: 标准 multistatus：1 个目录 + 1 个文件（均非 base 目录本身）
+    MULTISTATUS_XML = """<?xml version="1.0" encoding="utf-8"?>
+<D:multistatus xmlns:D="DAV:">
+  <D:response>
+    <D:href>/dav/合同/子目录/</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:resourcetype><D:collection/></D:resourcetype>
+        <D:getlastmodified>Mon, 01 Sep 2026 00:00:00 GMT</D:getlastmodified>
+      </D:prop>
+    </D:propstat>
+  </D:response>
+  <D:response>
+    <D:href>/dav/合同/起诉状.docx</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:resourcetype/>
+        <D:getcontentlength>2048</D:getcontentlength>
+        <D:getlastmodified>Tue, 02 Sep 2026 00:00:00 GMT</D:getlastmodified>
+      </D:prop>
+    </D:propstat>
+  </D:response>
+</D:multistatus>
+"""
+
+    def _make_provider(self):
+        from apps.cloud_storage.webdav_provider import WebDAVProvider
+
+        return WebDAVProvider(
+            username="u",
+            app_password="p",
+            root_path="合同",
+            webdav_url="https://dav.jianguoyun.com/dav/",
+        )
+
+    def test_two_entries_produce_exactly_two_rows(self) -> None:
+        provider = self._make_provider()
+        results = provider._parse_propfind_response(self.MULTISTATUS_XML, "")
+        assert len(results) == 2
+
+    def test_directory_flag_and_file_size(self) -> None:
+        provider = self._make_provider()
+        results = provider._parse_propfind_response(self.MULTISTATUS_XML, "")
+        by_name = {r.name: r for r in results}
+
+        dir_info = by_name["子目录"]
+        assert dir_info.is_dir is True
+        assert dir_info.size == 0
+        assert dir_info.path == "子目录"
+
+        file_info = by_name["起诉状.docx"]
+        assert file_info.is_dir is False
+        assert file_info.size == 2048
+        assert file_info.path == "起诉状.docx"
+
+    def test_base_directory_entry_skipped(self) -> None:
+        xml = """<?xml version="1.0" encoding="utf-8"?>
+<D:multistatus xmlns:D="DAV:">
+  <D:response>
+    <D:href>/dav/合同/</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:resourcetype><D:collection/></D:resourcetype>
+      </D:prop>
+    </D:propstat>
+  </D:response>
+  <D:response>
+    <D:href>/dav/合同/起诉状.docx</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:resourcetype/>
+        <D:getcontentlength>10</D:getcontentlength>
+      </D:prop>
+    </D:propstat>
+  </D:response>
+</D:multistatus>
+"""
+        provider = self._make_provider()
+        results = provider._parse_propfind_response(xml, "")
+        assert [r.name for r in results] == ["起诉状.docx"]
+
+    def test_entry_without_propstat_skipped(self) -> None:
+        xml = """<?xml version="1.0" encoding="utf-8"?>
+<D:multistatus xmlns:D="DAV:">
+  <D:response>
+    <D:href>/dav/合同/不完整条目.docx</D:href>
+  </D:response>
+</D:multistatus>
+"""
+        provider = self._make_provider()
+        results = provider._parse_propfind_response(xml, "")
+        assert results == []
+
+
 # ============================================================
 # OneDriveProvider
 # ============================================================

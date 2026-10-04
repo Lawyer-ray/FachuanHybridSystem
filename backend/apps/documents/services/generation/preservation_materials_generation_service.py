@@ -150,7 +150,7 @@ class PreservationMaterialsGenerationService:
                 errors={"case_id": str(case_id)},
             )
         missing_clue_respondents = self.property_clue_service.get_respondents_without_clues(case_id)
-        now = timezone.now()
+        now = timezone.localtime()
         case_name = getattr(case, "name", "") or "案件"
         zip_filename = (
             FilenameTemplateService.render_generated_doc(
@@ -330,7 +330,7 @@ class PreservationMaterialsGenerationService:
 
         Requirements: 3.1, 3.2, 3.4
         """
-        date_str = timezone.now().strftime("%Y%m%d")
+        date_str = timezone.localtime().strftime("%Y%m%d")
         case_name = getattr(case, "name", "") or "案件"
         return (
             FilenameTemplateService.render_generated_doc(
