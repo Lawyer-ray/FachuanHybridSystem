@@ -19,11 +19,19 @@ from .providers import ProviderRegistry
 
 
 class SocialAuthProviderForm(forms.ModelForm):
-    """平台配置表单：name 必须与代码注册的 Provider 一致，否则登录链路永远找不到它。"""
+    """平台配置表单：name 必须与代码注册的 Provider 一致，否则登录链路永远找不到它。
+
+    页面不放说明文字——模型 help_text 留作代码文档，表单层统一清空。
+    """
 
     class Meta:
         model = SocialAuthProvider
         fields = "__all__"
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.help_text = ""
 
     def clean_name(self) -> str:
         name = str(self.cleaned_data.get("name") or "").strip()
@@ -45,33 +53,9 @@ class SocialAuthProviderAdmin(admin.ModelAdmin):  # pragma: no cover
     readonly_fields = ("created_at", "updated_at")
 
     fieldsets = (
-        (
-            "基本信息",
-            {
-                "fields": ("name", "display_name", "enabled", "priority"),
-                "description": "平台标识须与代码注册的 Provider 名一致（feishu / wechat / github / google）。",
-            },
-        ),
-        (
-            "凭证",
-            {
-                "fields": ("client_id", "client_secret"),
-                "description": (
-                    "App Secret 加密存储。飞书可全部留空——自动借用「系统配置 → 飞书配置」的"
-                    "应用凭证（扫码登录与案件群聊共用同一应用）。"
-                ),
-            },
-        ),
-        (
-            "回调与授权范围",
-            {
-                "fields": ("redirect_uri", "scope"),
-                "description": (
-                    "回调地址是后端可达地址（含协议 + Host + 路径），必须与平台后台登记的完全一致，"
-                    "换域名后须同步修改。授权范围留空用平台默认。"
-                ),
-            },
-        ),
+        ("基本信息", {"fields": ("name", "display_name", "enabled", "priority")}),
+        ("凭证", {"fields": ("client_id", "client_secret")}),
+        ("回调与授权范围", {"fields": ("redirect_uri", "scope")}),
         ("时间", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
 
