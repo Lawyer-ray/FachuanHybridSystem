@@ -1,0 +1,312 @@
+/* ---------- 登录页表单栏：外壳 / 登录方式标签页 / 字段与输入 / 错误提示 / 按钮 ---------- */
+
+/* ---------- 表单栏 ---------- */
+.fc-form {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1.5rem;
+  background: var(--ink-2);
+}
+
+@media (min-width: 1024px) {
+  .fc-form {
+    padding: 3.5rem;
+  }
+
+  /* 接缝：1px 的线，黄铜↔青玉缓慢上下流动 */
+  .fc-form::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 1px;
+    opacity: 0.45;
+    background-image: linear-gradient(
+      180deg,
+      transparent 0%,
+      var(--brass) 20%,
+      var(--jade) 50%,
+      var(--brass) 80%,
+      transparent 100%
+    );
+    background-size: 100% 240%;
+    animation: fc-seam 16s ease-in-out infinite;
+  }
+}
+
+@keyframes fc-seam {
+  0%,
+  100% {
+    background-position: 0 0;
+  }
+  50% {
+    background-position: 0 100%;
+  }
+}
+
+.fc-form__inner {
+  width: 100%;
+  max-width: 22.5rem;
+}
+
+/* 窄屏没有品牌栏，用一行精简标识顶上 */
+.fc-form__mobile-mark {
+  display: flex;
+  align-items: baseline;
+  gap: 0.625rem;
+  margin-bottom: 2.25rem;
+}
+
+@media (min-width: 1024px) {
+  .fc-form__mobile-mark {
+    display: none;
+  }
+}
+
+.fc-form__title {
+  margin-top: 1rem;
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.fc-form__sub {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  color: var(--bone-dim);
+}
+
+/* ---------- 登录方式：下划线标签页 ---------- */
+.fc-tabs {
+  display: flex;
+  gap: 1.75rem;
+  margin-top: 2.25rem;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.fc-tab {
+  position: relative;
+  padding: 0 0 0.75rem;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  color: var(--bone-faint);
+  transition: color 0.25s ease;
+}
+
+.fc-tab:hover {
+  color: var(--bone-dim);
+}
+
+.fc-tab--on {
+  color: var(--bone);
+}
+
+.fc-tab--on::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 1px;
+  background: var(--brass);
+  transform-origin: left;
+  animation: fc-underline 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes fc-underline {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* ---------- 字段：只有一条底线，聚焦时变黄铜 ---------- */
+.fc-fields {
+  margin-top: 2rem;
+}
+
+.fc-field + .fc-field {
+  margin-top: 1.75rem;
+}
+
+.fc-field__label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--bone-faint);
+}
+
+.fc-field__row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--rule);
+  transition: border-color 0.3s ease;
+}
+
+.fc-field__row:focus-within {
+  border-bottom-color: var(--brass);
+}
+
+.fc-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.75rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--bone);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  outline: none;
+}
+
+.fc-input::placeholder {
+  color: var(--bone-faint);
+}
+
+/* 浏览器自动填充会在下划线输入框里糊出一块实色方块，用内阴影盖掉；
+   超长过渡是配合 Chrome 的 autofill 背景动画，避免它把内阴影覆盖回去。 */
+.fc-input:-webkit-autofill,
+.fc-input:-webkit-autofill:hover,
+.fc-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--bone);
+  -webkit-box-shadow: 0 0 0 1000px var(--ink-2) inset;
+  caret-color: var(--bone);
+  transition: background-color 9999s ease-out;
+}
+
+.fc-field__toggle {
+  flex: none;
+  padding: 0.25rem 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.14em;
+  color: var(--bone-faint);
+  transition: color 0.2s ease;
+}
+
+.fc-field__toggle:hover {
+  color: var(--brass);
+}
+
+/* 以下三个类同时用于「账号绑定」弹窗（浅色底），所以不能依赖 --bone 之类的
+   深色令牌：文字与描边一律相对 currentColor 取色，明暗两种底都能自适应。 */
+.fc-error {
+  margin-top: 1.25rem;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--alert, #e0796f);
+}
+
+.fc-hint {
+  text-align: center;
+  font-size: 0.6875rem;
+  line-height: 1.6;
+  color: color-mix(in oklab, currentColor 58%, transparent);
+}
+
+.fc-hint--error {
+  color: var(--alert, #e0796f);
+}
+
+/* ---------- 按钮：直角 + 黄铜，悬停掠过一道高光 ---------- */
+.fc-btn {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  padding: 1rem 1.25rem;
+  border: 0;
+  border-radius: 2px;
+  background: var(--brass, #d4b06a);
+  color: #141210;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease,
+    transform 0.18s ease;
+}
+
+.fc-btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 38%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.4), transparent);
+  transform: translateX(-160%) skewX(-18deg);
+  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fc-btn:hover:not(:disabled) {
+  background: var(--brass-hi, #eeddae);
+}
+
+.fc-btn:hover:not(:disabled)::after {
+  transform: translateX(320%) skewX(-18deg);
+}
+
+.fc-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.fc-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* 表单里的主按钮与上方字段拉开距离；二维码 / 跳转面板自带 gap，不重复加 */
+.fc-fields .fc-btn {
+  margin-top: 2rem;
+}
+
+/* 次级动作：只留一圈细边（同样明暗自适应） */
+.fc-btn--ghost {
+  border: 1px solid color-mix(in oklab, currentColor 24%, transparent);
+  background: transparent;
+  color: inherit;
+}
+
+.fc-btn--ghost::after {
+  display: none;
+}
+
+.fc-btn--ghost:hover:not(:disabled) {
+  border-color: var(--brass, #d4b06a);
+  background: transparent;
+  color: var(--brass, #d4b06a);
+}
+
+/* 带品牌标的按钮（Google 等）：彩色 logo 必须落在浅底上才看得见
+   （Google 黄 #FBBC05 在黄铜底上对比度约 1.3:1，等于隐形）。
+   直角、内距与主按钮保持一致，只换底色与字色，避免表单里出现两种按钮形状。 */
+.fc-btn--brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  background: #ffffff;
+  color: #1f1f1f;
+}
+
+.fc-btn--brand:hover:not(:disabled) {
+  background: #f1f0ec;
+}

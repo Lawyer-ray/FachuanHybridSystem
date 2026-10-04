@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { useReader } from '../../store'
-import { countUnclassified, markAllSegsDone, matLabel, resetSegments } from '../../draft'
+import { countUnclassified, matLabel } from '../../draft'
 import { useMediaQuery } from '../../hooks/use-media'
 import { ReaderTopBar } from './ReaderTopBar'
 import { ReaderToolbar } from './ReaderToolbar'
@@ -20,8 +20,7 @@ import { useReaderKeys } from './use-reader-keys'
 import { useReaderWidths } from './use-reader-widths'
 import { buildFlowOps, buildMetaOps, selDetailOf } from './reader-ops'
 import { ReaderDialogs } from './ReaderDialogs'
-import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from './ui'
-import type { PageKey } from '../../types'
+import { useReaderActions } from './use-reader-actions'
 import { cn } from '@/lib/utils'
 
 /** 阅读器：阅读器顶层编排。状态、loading/error 分支、三栏布局组合，
@@ -42,19 +41,28 @@ export function Reader() {
   const assignOpen = useReader((s) => s.assignOpen)
   const setAssignOpen = useReader((s) => s.setAssignOpen)
   const error = useReader((s) => s.error)
-  const [focusedSeg, setFocusedSeg] = useState(0)
   // 待重命名的源文件（左栏重命名入口打开），null = 关闭
   const [renameMat, setRenameMat] = useState<{ mi: number; initial: string } | null>(null)
   const [renaming, setRenaming] = useState(false)
   const [railOpen, setRailOpen] = useState(false)
   const [metaOpen, setMetaOpen] = useState(false)
-  // 待确认删除的页（破坏性操作必须先经 AlertDialog 二次确认）
-  const [deleteTarget, setDeleteTarget] = useState<PageKey[] | null>(null)
   const addInputRef = useRef<HTMLInputElement>(null)
   const narrow = useMediaQuery('(max-width:1100px)')
   const [flowWrapRef, flowWrapW] = useElementWidth<HTMLDivElement>()
   const { pickPage, onOcrBox, ocrOk } = useReaderOcr()
   const autoSplit = useAutoSplit()
+  const {
+    focusedSeg,
+    focusSeg,
+    deleteTarget,
+    setDeleteTarget,
+    zoomIn,
+    zoomOut,
+    onComplete,
+    onResetSegments,
+    onReject,
+    confirmDelete,
+  } = useReaderActions(draft)
 
   const st = useReader.getState()
 
@@ -69,7 +77,6 @@ export function Reader() {
   })
 
   useEffect(() => {
-    setFocusedSeg(0)
     setRailOpen(false)
     setMetaOpen(false)
     setRenameMat(null)
@@ -119,13 +126,6 @@ export function Reader() {
   const pages = draft.mats.reduce((s, m) => s + m.pages, 0)
   const selDetail = selDetailOf(draft, selPages)
 
-  const focusSeg = (si: number) => {
-    setFocusedSeg(si)
-    requestAnimationFrame(() => {
-      document.getElementById(`seg-${si}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    })
-  }
-
   const onToggleSel = (mi: number, p: number, shift: boolean) => st.toggleSel(mi, p, shift)
 
   const changeCols = () => {
@@ -141,44 +141,11 @@ export function Reader() {
     }
   }
 
-  const zoomIn = () => st.setZoom(Math.min(ZOOM_MAX, +(zoom + ZOOM_STEP).toFixed(2)))
-  const zoomOut = () => st.setZoom(Math.max(ZOOM_MIN, +(zoom - ZOOM_STEP).toFixed(2)))
   const zoomVal = Math.round(zoom * 100)
 
   const ocrFrom = ocrPending ? `${matLabel(draft.mats, ocrPending.mi)} P${ocrPending.p}` : ''
   // 取字目标字段：HintBar 提示与 OCR 确认面板共用同一表达式，只算一遍
   const pickField = pickInfo >= 0 && draft.infos[pickInfo] ? draft.infos[pickInfo].k : ''
-
-  const onComplete = () => {
-    if (!allClassified) {
-      const first = draft.segs.findIndex((s) => !s.t)
-      if (first >= 0) focusSeg(first)
-      toast.info('还有未归类的段，先点段头的类型胶囊选一下')
-      return
-    }
-    st.update((d) => markAllSegsDone(d))
-    toast.success(`拆分与归类完成 —— 共 ${draft.segs.length} 份材料`)
-  }
-
-  const onResetSegments = () => {
-    st.update((d) => resetSegments(d))
-    focusSeg(0)
-    toast('已恢复初始分段 —— 每个源文件各一份')
-  }
-
-  const onReject = () => {
-    st.setStatus('filed')
-    toast('已归档留痕，未建案')
-    st.close()
-  }
-
-  const confirmDelete = () => {
-    if (deleteTarget?.length) {
-      st.deleteSelected(deleteTarget)
-      toast(`已删除 ${deleteTarget.length} 页 —— 从材料拆分中移除`)
-    }
-    setDeleteTarget(null)
-  }
 
   return (
     <FixedReader closing={closing}>

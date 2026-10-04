@@ -211,6 +211,65 @@ export function lawyerCopyText(t: DealTeamMember, d: WorkbenchDeal): string {
   return lines.join('\n')
 }
 
+/* ============ 合同抽屉（DealSheet）展示数据 ============ */
+
+/** 抽屉头部时间线：指定 / 签订 / 到期（到期带相对表述） */
+export function dealTimeline(d: WorkbenchDeal): string[] {
+  const timeline: string[] = []
+  if (d.specified) timeline.push('指定 ' + d.specified)
+  if (d.from) timeline.push('签订 ' + d.from)
+  if (d.to) timeline.push('到期 ' + d.to + (relDue(d.daysLeft) ? '（' + relDue(d.daysLeft) + '）' : ''))
+  return timeline
+}
+
+/** 合同要素键值行（空值过滤后展示） */
+export function dealFacts(d: WorkbenchDeal): Array<[string, string]> {
+  return (
+    [
+      ['收费方式', d.fee],
+      ['风险比例', d.riskRate != null ? d.riskRate + '%' : ''],
+      ['指定日期', d.specified],
+      ['签订日期', d.from],
+      ['到期日期', d.to ? d.to + (relDue(d.daysLeft) ? '（' + relDue(d.daysLeft) + '）' : '') : ''],
+      ['代理阶段', d.stages.join(' · ')],
+      ['归档状态', d.isFiled ? '已归档' : d.statusLabel],
+      ['建档编号', d.filingNo],
+      ['OA 编号', d.no],
+    ] as Array<[string, string]>
+  ).filter(([, v]) => !!v)
+}
+
+/** 收款记录行：合同收款 + 客户付款记录（各自保持时间顺序） */
+export function dealPayRows(d: WorkbenchDeal): Array<{ when: string; money: string; note: string }> {
+  return [
+    ...d.payments.map((p) => ({
+      when: p.received_at || '',
+      money: fmtMoney(p.amount) ?? '¥0',
+      note: (p.invoice_status_label || '') + (p.note ? ' · ' + p.note : ''),
+    })),
+    ...d.payRecords.map((p) => ({
+      when: (p.created_at || '').slice(0, 10),
+      money: fmtMoney(p.amount) ?? '¥0',
+      note: '客户付款记录' + (p.note ? ' · ' + p.note : ''),
+    })),
+  ]
+}
+
+/** 案件按阶段聚合（保持案件 id 升序的阶段顺序）：同阶段计数 ×N + 是否有在办 */
+export function aggregateStages(cases: DealCase[]): Array<{ stage: string; n: number; live: boolean }> {
+  const stages: Array<{ stage: string; n: number; live: boolean }> = []
+  for (const c of [...cases].sort((a, b) => a.id - b.id)) {
+    const last = stages[stages.length - 1]
+    if (last && last.stage === c.proc) {
+      last.n++
+      last.live = last.live || !c.done
+    } else {
+      stages.push({ stage: c.proc, n: 1, live: !c.done })
+    }
+  }
+  return stages
+}
+
 /* ============ 复制动作（clipboard 优先，execCommand 兜底） ============ */
 
 export async function copyTextToClipboard(text: string): Promise<void> {

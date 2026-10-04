@@ -1,14 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef } from 'react'
 import { ExternalLink, FileText, Loader2, TriangleAlert } from 'lucide-react'
-import { toast } from 'sonner'
 
-import { confirmDates, revokeDate } from '../api'
-import { resolveMediaUrl, rowsFromTask, selectedPendingRows, selectedTextRows, type CandidateRow } from '../domain'
+import { resolveMediaUrl, patchRowWithOverride, selectedPendingRows, selectedTextRows, type CandidateRow } from '../domain'
 import { useRecognize } from '../hooks/use-recognize'
+import { useCandidateRows } from '../hooks/use-candidate-rows'
+import { useConfirmActions } from '../hooks/use-confirm-actions'
 import { useDialogWidthDrag, useSplitDrag } from '../hooks/use-split-drag'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { errMessage } from '@/lib/errors'
 import { safeHttpUrl } from '@/lib/url'
 import { cn } from '@/lib/utils'
 
@@ -17,6 +16,7 @@ import { DateCandidateList } from './DateCandidateList'
 import { DocumentPreview } from './DocumentPreview'
 import { RecognitionProgress } from './RecognitionProgress'
 import { RecognitionSummary } from './RecognitionSummary'
+import { StepCard } from './StepCard'
 
 interface Props {
   open: boolean
@@ -41,7 +41,6 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
   const isFileMode = file !== null
   const { phase, hint, error, task, submit, refresh, reset } = useRecognize()
   const submittedFile = useRef<File | null>(null)
-  const [busy, setBusy] = useState(false)
 
   // 文件模式：open 时提交一次（同一文件不重复提交）
   useEffect(() => {
@@ -57,22 +56,16 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
     }
   }, [open, reset])
 
-  // 候选行：base 由任务候选签名驱动（绑定刷新不冲掉本地编辑，仅状态变化时重建）
-  const candidateSignature = useMemo(
-    () => (task?.date_candidates ?? []).map((c) => `${c.id}:${c.status}`).join('|'),
-    [task],
-  )
-  const baseRows = useMemo(
-    () => (isFileMode && task ? rowsFromTask(task) : (textRows ?? [])),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [candidateSignature, textRows, isFileMode],
-  )
-  const [overrides, setOverrides] = useState<Record<string, Partial<CandidateRow>>>({})
-  useEffect(() => setOverrides({}), [candidateSignature, textRows])
-  const rows = useMemo(
-    () => baseRows.map((r) => (overrides[r.key] ? { ...r, ...overrides[r.key] } : r)),
-    [baseRows, overrides],
-  )
+  const { rows, setOverrides } = useCandidateRows(isFileMode, task, textRows)
+  const { busy, doConfirm, doSkip, doRevoke } = useConfirmActions({
+    isFileMode,
+    task,
+    rows,
+    onSaved,
+    onClose,
+    onConfirmText,
+    refresh,
+  })
 
   const writableCount = isFileMode ? selectedPendingRows(rows).length : selectedTextRows(rows).length
   const recognition = task?.recognition
@@ -80,73 +73,6 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
   const showError = isFileMode && phase === 'error'
   // 文字模式无识别阶段，直接进确认；文件模式等识别 ready
   const contentReady = !isFileMode || phase === 'ready'
-
-  const doConfirm = async () => {
-    if (busy) return
-    if (writableCount === 0) {
-      toast.info('请先勾选要写入的日期')
-      return
-    }
-    setBusy(true)
-    try {
-      if (isFileMode && task) {
-        const items = selectedPendingRows(rows).map((r) => ({
-          candidate_id: r.candidateId as number,
-          action: 'confirm' as const,
-          // datetime-local 原文（naive 本地）上送，服务端补时区——不能 toISOString
-          due_at: r.dueLocal,
-          reminder_type: r.reminderType,
-        }))
-        const res = await confirmDates(task.task_id, items)
-        const errors = res.results.filter((x) => x.status === 'error')
-        if (errors.length) {
-          toast.warning(`${errors.length} 条未写入：${errors[0]?.message ?? '未知原因'}`)
-        } else {
-          const reused = res.results.filter((x) => x.message.includes('复用')).length
-          toast.success(`已写入 ${res.results.length} 条提醒${reused ? `（${reused} 条复用了既有提醒）` : ''}`)
-        }
-        await refresh()
-        onSaved()
-      } else if (onConfirmText) {
-        const created = await onConfirmText(selectedTextRows(rows))
-        toast.success(`已加入日历 ${created} 条`)
-        onClose()
-        onSaved()
-      }
-    } catch (e) {
-      toast.error(errMessage(e, '写入失败，请稍后重试'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const doSkip = async (row: CandidateRow) => {
-    if (!task || busy || row.candidateId == null) return
-    setBusy(true)
-    try {
-      await confirmDates(task.task_id, [{ candidate_id: row.candidateId, action: 'skip' }])
-      await refresh()
-    } catch (e) {
-      toast.error(errMessage(e, '操作失败，请稍后重试'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const doRevoke = async (row: CandidateRow) => {
-    if (!task || busy || row.candidateId == null) return
-    setBusy(true)
-    try {
-      await revokeDate(task.task_id, row.candidateId)
-      toast.success('已撤销并删除该条提醒')
-      await refresh()
-      onSaved()
-    } catch (e) {
-      toast.error(errMessage(e, '撤销失败，请稍后重试'))
-    } finally {
-      setBusy(false)
-    }
-  }
 
   const previewUrl = isFileMode && task?.file_url ? resolveMediaUrl(task.file_url) : ''
   const hasPreview = Boolean(previewUrl)
@@ -346,48 +272,5 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
         )}
       </DialogContent>
     </Dialog>
-  )
-}
-
-function patchRowWithOverride(
-  prev: Record<string, Partial<CandidateRow>>,
-  key: string,
-  patch: Partial<CandidateRow>,
-): Record<string, Partial<CandidateRow>> {
-  return { ...prev, [key]: { ...(prev[key] ?? {}), ...patch } }
-}
-
-/** 确认清单的分区卡片：步骤徽章（可选）+ 标题 + 右侧 trailing + 内容。 */
-function StepCard({
-  step,
-  title,
-  trailing,
-  muted = false,
-  children,
-}: {
-  step?: number
-  title: string
-  trailing?: ReactNode
-  muted?: boolean
-  children: ReactNode
-}) {
-  return (
-    <section className="animate-in fade-in slide-in-from-bottom-1 flex flex-col gap-2.5 rounded-[12px] border border-border bg-card px-3.5 py-3 duration-300">
-      <div className="flex items-center gap-2">
-        {step != null && (
-          <span
-            className={cn(
-              'flex h-[18px] w-[18px] flex-none items-center justify-center rounded-full text-[10px] font-semibold',
-              muted ? 'border border-border bg-secondary text-muted-foreground' : 'bg-foreground text-background',
-            )}
-          >
-            {step}
-          </span>
-        )}
-        <span className={cn('text-[13px] font-semibold', muted && 'text-muted-foreground')}>{title}</span>
-        {trailing && <span className="ml-auto">{trailing}</span>}
-      </div>
-      {children}
-    </section>
   )
 }

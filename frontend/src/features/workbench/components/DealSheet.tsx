@@ -1,4 +1,4 @@
-import { Copy, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import {
@@ -9,83 +9,17 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { safeHttpUrl } from '@/lib/url'
-import { copyTextToClipboard, fmtMoney, lawyerCopyText, partyCopyText, relDue } from '../domain'
+import { aggregateStages, dealFacts, dealPayRows, dealTimeline, lawyerCopyText, partyCopyText } from '../domain'
 import { useContractCases } from '../hooks/use-contract-cases'
 import type { WorkbenchDeal } from '../types'
+
+import { CopyButton, MetaRow, MoneyCell, SectionTitle, StageNode } from './DealSheetParts'
 
 interface DealSheetProps {
   deal: WorkbenchDeal | null
   /** 开关与 deal 分离：关闭时父组件保留最后一份 deal，让退出动画播完再由 Radix 卸载 */
   open: boolean
   onOpenChange: (open: boolean) => void
-}
-
-/** 行内复制按钮：点击复制并 toast */
-function CopyButton({ title, getText }: { title: string; getText: () => string }) {
-  return (
-    <button
-      type="button"
-      title={title}
-      className="mt-0.5 flex size-6 flex-none items-center justify-center rounded-[7px] text-muted-foreground/50 opacity-60 transition-all hover:bg-foreground hover:text-background hover:opacity-100"
-      onClick={(e) => {
-        e.stopPropagation()
-        const text = getText()
-        void copyTextToClipboard(text).then(() => {
-          toast.success('已复制：' + (text.split('\n')[0]?.replace(/（.*?）/, '').trim() ?? ''))
-        })
-      }}
-    >
-      <Copy className="size-3" />
-    </button>
-  )
-}
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="px-6 pt-4 pb-2 text-[11px] font-[650] tracking-[0.09em] text-muted-foreground uppercase">
-      {children}
-    </div>
-  )
-}
-
-function MetaRow({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-border-light py-[5px] text-xs last:border-b-0">
-      <span className="flex-none text-[11px] text-muted-foreground">{k}</span>
-      <span className="min-w-0 text-right font-[560] break-all tabular-nums">{v}</span>
-    </div>
-  )
-}
-
-function MoneyCell({ label, value, hot }: { label: string; value: string; hot?: boolean }) {
-  return (
-    <div className="min-w-0 rounded-[11px] bg-secondary px-[11px] pt-2 pb-[7px]">
-      <div className="text-[10.5px] whitespace-nowrap text-muted-foreground">{label}</div>
-      <div className={'mt-px text-[15px] font-bold tracking-[-0.01em] truncate tabular-nums ' + (hot ? 'text-status-red' : '')}>
-        {value}
-      </div>
-    </div>
-  )
-}
-
-/** 程序节点：实心点=已结、空心粗环=在办，同阶段聚合 ×N */
-function StageNode({ stage, n, live, first }: { stage: string; n: number; live: boolean; first: boolean }) {
-  return (
-    <div className="flex flex-none items-center gap-[7px]">
-      {!first && <span className={'mx-[7px] h-0.5 w-6 flex-none rounded-sm ' + (live ? 'bg-border' : 'bg-foreground')} />}
-      <span
-        className={
-          'size-[11px] flex-none rounded-full border-2 ' +
-          (live ? 'border-foreground bg-card shadow-[0_0_0_3px_rgba(24,24,27,0.09)]' : 'border-foreground bg-foreground')
-        }
-      />
-      <b className="text-xs font-[620]">{stage}</b>
-      {n > 1 && <span className="-ml-1 text-[10px] font-semibold text-muted-foreground/70 tabular-nums">×{n}</span>}
-      <span className={'text-[10.5px] ' + (live ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
-        {live ? '在办' : '已结'}
-      </span>
-    </div>
-  )
 }
 
 /**
@@ -108,49 +42,14 @@ export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
   const firstOther = sorted.findIndex((p) => !p.ours)
   const hasSplit = firstOther > 0
 
-  const timeline: string[] = []
-  if (deal.specified) timeline.push('指定 ' + deal.specified)
-  if (deal.from) timeline.push('签订 ' + deal.from)
-  if (deal.to) timeline.push('到期 ' + deal.to + (relDue(deal.daysLeft) ? '（' + relDue(deal.daysLeft) + '）' : ''))
-
-  const facts = ([
-    ['收费方式', deal.fee],
-    ['风险比例', deal.riskRate != null ? deal.riskRate + '%' : ''],
-    ['指定日期', deal.specified],
-    ['签订日期', deal.from],
-    ['到期日期', deal.to ? deal.to + (relDue(deal.daysLeft) ? '（' + relDue(deal.daysLeft) + '）' : '') : ''],
-    ['代理阶段', deal.stages.join(' · ')],
-    ['归档状态', deal.isFiled ? '已归档' : deal.statusLabel],
-    ['建档编号', deal.filingNo],
-    ['OA 编号', deal.no],
-  ] as Array<[string, string]>).filter(([, v]) => !!v)
+  const timeline = dealTimeline(deal)
+  const facts = dealFacts(deal)
+  const payRows = dealPayRows(deal)
 
   const hasMoney = deal.amount || deal.totalReceived || deal.totalInvoiced || deal.unpaid
-  const payRows = [
-    ...deal.payments.map((p) => ({
-      when: p.received_at || '',
-      money: fmtMoney(p.amount) ?? '¥0',
-      note: (p.invoice_status_label || '') + (p.note ? ' · ' + p.note : ''),
-    })),
-    ...deal.payRecords.map((p) => ({
-      when: (p.created_at || '').slice(0, 10),
-      money: fmtMoney(p.amount) ?? '¥0',
-      note: '客户付款记录' + (p.note ? ' · ' + p.note : ''),
-    })),
-  ]
 
-  /* 案件按阶段聚合（保持案件 id 升序的阶段顺序），数据来自按需加载 */
-  const seqCases = [...cases].sort((a, b) => a.id - b.id)
-  const stages: Array<{ stage: string; n: number; live: boolean }> = []
-  for (const c of seqCases) {
-    const last = stages[stages.length - 1]
-    if (last && last.stage === c.proc) {
-      last.n++
-      last.live = last.live || !c.done
-    } else {
-      stages.push({ stage: c.proc, n: 1, live: !c.done })
-    }
-  }
+  /* 案件按阶段聚合，数据来自按需加载 */
+  const stages = aggregateStages(cases)
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

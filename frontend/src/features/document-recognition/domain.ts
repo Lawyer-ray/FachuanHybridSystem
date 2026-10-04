@@ -133,6 +133,15 @@ export function patchRow(rows: CandidateRow[], key: string, patch: Partial<Candi
   return rows.map((r) => (r.key === key ? { ...r, ...patch } : r))
 }
 
+/** 不可变合并一条行内编辑到 overrides 表（key 已存在时叠加，不覆盖其他行） */
+export function patchRowWithOverride(
+  prev: Record<string, Partial<CandidateRow>>,
+  key: string,
+  patch: Partial<CandidateRow>,
+): Record<string, Partial<CandidateRow>> {
+  return { ...prev, [key]: { ...(prev[key] ?? {}), ...patch } }
+}
+
 /** 待写入的行：勾选且状态为 pending（可编辑） */
 export function selectedPendingRows(rows: CandidateRow[]): CandidateRow[] {
   return rows.filter((r) => r.status === 'pending' && r.checked && r.candidateId !== null)
