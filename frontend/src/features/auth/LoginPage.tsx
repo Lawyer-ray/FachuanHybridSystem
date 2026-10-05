@@ -10,8 +10,9 @@
  * INTELLIGENCE 逐字母点亮后坍缩为 SI COPILOT（长名缩写的动效叙事）
  * → 整组飞向左上角铭牌，表单登台。
  *
- * 播放策略：每次进入登录页都完整播放（用户定调——开场是秀场不是负担）；
- * 仅系统「减少动态效果」偏好会跳过（无障碍硬要求）。
+ * 播放策略：本机播放过一次即记住（localStorage），之后再进登录页直接
+ * 跳过；清除浏览器缓存后标记消失、恢复播放。系统「减少动态效果」偏好
+ * 仍然无条件跳过（无障碍硬要求，与记忆标记相互独立）。
  *
  * 结构：品牌字标（仅大屏视口左上铭牌；手机隐藏——浏览器标题栏已有）→
  * 眉标/标题 → 方式标签（仅桌面，手机没有「扫自己屏幕」的物理条件）→
@@ -35,6 +36,7 @@ import { PasswordLoginForm } from './components/PasswordLoginForm'
 import { PasskeyLoginButton } from './components/PasskeyLoginButton'
 import { SocialQrPanel } from './components/SocialQrPanel'
 import { SocialRedirectGroup } from './components/SocialRedirectGroup'
+import { hasPlayedIntro, markIntroPlayed } from './intro-cache'
 
 /** 「扫码登录」标签页：面板内再按 Provider 次级切换（当前只有飞书） */
 const QR_TAB: LoginMethod = { id: QR_METHOD_ID, kind: 'embedded_qr', label: '扫码登录', provider: null }
@@ -70,9 +72,10 @@ const INTRO_EJECTA = Array.from({ length: 12 }, (_, i) => {
 /** 逐字母点亮的命名短语（空格由布局 gap 提供） */
 const INTRO_PHRASE = ['SUPER', 'INTELLIGENCE']
 
-/** 是否跳过开场：仅「减少动态效果」系统偏好会跳（无障碍），其余每次进页都播 */
+/** 是否跳过开场：已播放过（localStorage 记忆）或「减少动态效果」偏好，任一命中即跳 */
 function introSkipped(): boolean {
   if (typeof window === 'undefined') return true
+  if (hasPlayedIntro()) return true
   try {
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches
   } catch {
@@ -95,6 +98,8 @@ export function LoginPage() {
     // 每个相位只设自己的下一个定时器——曾把两个定时器都设在 intro 相位，
     // phase 变化触发 cleanup 时卸载定时器被误清，覆盖层永远停在「淡出未卸载」。
     if (phase === 'intro') {
+      // 开播即落记忆标记：即便中途离开页面，下次也不再重复近 8 秒的等待
+      markIntroPlayed()
       const ready = setTimeout(() => setPhase('settling'), INTRO_READY_MS)
       return () => clearTimeout(ready)
     }

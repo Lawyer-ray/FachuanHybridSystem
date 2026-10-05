@@ -50,3 +50,6 @@ export const FEISHU_QR_SDK_URL =
 /** 账号绑定页的 query key */
 export const BINDINGS_KEY = ['social-bindings'] as const
 export const CATALOG_KEY = ['social-provider-catalog'] as const
+
+/** 开场动画「已播放过」的 localStorage 记忆键（清缓存即恢复播放） */
+export const INTRO_PLAYED_KEY = 'fc.auth.intro-played.v1'
