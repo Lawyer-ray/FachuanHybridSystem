@@ -59,13 +59,45 @@ Desktop/Documents/Downloads（EPERM，且无头进程不弹授权框）——clo
 ```bash
 bash deploy/install.sh        # 首次安装 / 更新服务（改了 prod.env、nginx.conf、plist 后）
 make publish                  # 发布前端改动（构建即生效，无需重启）
-make prod-restart             # 发布后端改动后重启 gunicorn
+make prod-restart             # 发布后端改动后重启 gunicorn + qcluster
+make prod-stop                # 停止整个公网栈（见「服务启停」）
+make prod-start               # 启动整个公网栈
 make prod-logs                # 跟随公网栈日志（gunicorn + nginx + qcluster）
 launchctl list | grep fachuan # 看三个服务状态（PID 存在即活）
 ```
 
 日志位置：`~/Library/Logs/fachuan-{gunicorn,qcluster,nginx,nginx-error,nginx-access}.log`；
 Django 侧请求日志与开发栈共用 `backend/logs/api.log`（两栈混流，按时间戳区分）。
+
+## 服务启停（整套栈）
+
+```bash
+make prod-stop    # 停止三服务（nginx + gunicorn + qcluster）→ app.xlaw.top 变 502
+make prod-start   # 启动三服务（plist 已安装；从未装过先 bash deploy/install.sh）
+```
+
+等价的手动命令（make 目标就是它们的循环）：
+
+```bash
+# 停止（bootout = 从 launchd 注销，KeepAlive 随之失效）
+for svc in nginx gunicorn qcluster; do launchctl bootout gui/$(id -u)/com.user.fachuan-$svc; done
+# 启动
+for svc in nginx gunicorn qcluster; do launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.user.fachuan-$svc.plist; done
+```
+
+要点：
+
+- **不要用 kill/pkill 停服务**——KeepAlive 会在数秒内把进程重新拉活；必须
+  `bootout`（注销注册）才是真停。
+- 单个服务同理，以 nginx 为例：`launchctl bootout gui/$(id -u)/com.user.fachuan-nginx`
+  停、`launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.user.fachuan-nginx.plist`
+  启、`launchctl kickstart -k gui/$(id -u)/com.user.fachuan-nginx` 只重启。
+- plist 留在 `~/Library/LaunchAgents/`，**重启 Mac / 重新登录后会自动拉起**整个栈；
+  想彻底禁用自启：`launchctl disable gui/$(id -u)/com.user.fachuan-nginx`（或把对应
+  plist 移出 LaunchAgents），恢复用 `launchctl enable` + `prod-start`。
+- 停公网栈期间若需外网继续可用：按「切换/回退隧道入口」把 cloudflared ingress
+  切回 5090（需 vite dev 在跑），或干脆连同 cloudflared 一起停
+  （`launchctl bootout gui/$(id -u)/com.user.cloudflared-fachuan`）。
 
 ## 媒体鉴权
 
