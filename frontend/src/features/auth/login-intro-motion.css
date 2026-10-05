@@ -1,0 +1,301 @@
+/* ============================================================
+   登录页家族 · 动效层：开场时间轴 / keyframes / 登台动画
+
+   全部包在 prefers-reduced-motion: no-preference 里（无障碍硬要求）。
+   时间轴注释与 LoginPage 的 INTRO_READY_MS=7100 / INTRO_UNMOUNT_MS=7900
+   保持同步；改任何一个 delay 都要两头看。
+   ============================================================ */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* ---------- 进场：开场播完（--ready）才登台 ---------- */
+  .fc-auth--ready .fc-eyebrow,
+  .fc-auth--ready .fc-title,
+  .fc-auth--ready .fc-sub {
+    animation: fc-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .fc-auth--ready .fc-tabs,
+  .fc-auth--ready .fc-fields,
+  .fc-auth--ready .fc-social,
+  .fc-auth--ready .fc-qr {
+    animation: fc-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: 0.08s;
+  }
+
+  @media (min-width: 760px) {
+    /* 大屏铭牌：从左边缘滑入（它属于边缘，从边缘来），与卡片内容同时起步 */
+    .fc-auth--ready .fc-mark {
+      animation: fc-mark-corner 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .fc-auth--ready .fc-mark__meta {
+      animation: fc-meta-settle 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
+    }
+  }
+
+  /* ---- 开场时间轴（宿主是 intro 覆盖层自身，不加 --ready 门） ----
+     0–1.4s 深空呼吸/螺旋粒子外扩 → 1.4–3.1s 错峰螺旋卷入（黑洞吸积）
+     → 2.7s 奇点蓄能 → 3.45s 爆发（暖闪+三层冲击波+抛射火花+巨字残影）
+     → 3.6s「法穿」景深炸出 → 4.8s SUPER INTELLIGENCE 逐字母点亮（延迟在 JSX 内联）
+     → 6.0s 短语坍缩 → 6.15s SI COPILOT 落定 → 6.5s EST → 6.85s 飞向铭牌 */
+  .fc-intro__bgdot {
+    animation:
+      fc-bgpulse 6s ease-in-out var(--bd, 0s) infinite alternate,
+      fc-bgfade 0.6s ease 2.9s forwards;
+  }
+
+  .fc-intro__dot {
+    /* 呼吸外扩 → 加速卷入 → 被奇点吸收；rotate+translateX 组合出弧线轨迹 */
+    animation: fc-dot-spiral 2.3s cubic-bezier(0.45, 0.05, 0.75, 0.55) both;
+    animation-delay: var(--d, 0s);
+  }
+
+  .fc-intro__core {
+    animation:
+      fc-core-charge 0.55s ease-in 2.7s both,
+      fc-core-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 3.48s both;
+  }
+
+  .fc-intro__wave--1 { animation: fc-wave 0.85s cubic-bezier(0.16, 1, 0.3, 1) 3.4s both; --ws: 3.2; }
+  .fc-intro__wave--2 { animation: fc-wave 0.9s cubic-bezier(0.16, 1, 0.3, 1) 3.52s both; --ws: 4.6; }
+  .fc-intro__wave--3 { animation: fc-wave 0.95s cubic-bezier(0.16, 1, 0.3, 1) 3.64s both; --ws: 6.2; }
+
+  .fc-intro__flash {
+    animation: fc-flash 0.3s ease-out 3.45s both;
+  }
+
+  .fc-intro__ghost {
+    animation: fc-ghost 1.15s ease-out 3.55s both;
+  }
+
+  .fc-intro__char {
+    animation: fc-char-blast 1s cubic-bezier(0.16, 1, 0.3, 1) 3.6s both;
+  }
+
+  .fc-intro__char--2 {
+    animation-delay: 3.74s;
+  }
+
+  .fc-intro__spark {
+    animation: fc-spark 0.75s cubic-bezier(0.16, 1, 0.3, 1) 3.45s both;
+  }
+
+  .fc-intro__rule {
+    transform: scaleX(0);
+    animation: fc-rule-draw 0.6s cubic-bezier(0.16, 1, 0.3, 1) 4.5s both;
+  }
+
+  .fc-intro__letter {
+    animation: fc-letter-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .fc-intro__phrase {
+    animation: fc-phrase-collapse 0.35s cubic-bezier(0.5, 0, 0.2, 1) 6s both;
+  }
+
+  .fc-intro__meta {
+    animation: fc-meta-settle-big 0.95s cubic-bezier(0.16, 1, 0.3, 1) 6.15s both;
+  }
+
+  .fc-intro__est {
+    animation: fc-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) 6.5s both;
+  }
+
+  /* 点睛：整组朝左上角铭牌位置缩小飞去；origin 取视口比例点 */
+  .fc-intro__stage {
+    transform-origin: 16vw 10vh;
+    animation: fc-stage-exit 0.65s cubic-bezier(0.5, 0, 0.2, 1) 6.85s both;
+  }
+
+  @keyframes fc-intro-out {
+    to {
+      opacity: 0;
+      visibility: hidden;
+    }
+  }
+
+  @keyframes fc-bgpulse {
+    from { opacity: 0.12; }
+    to { opacity: 0.3; }
+  }
+
+  @keyframes fc-bgfade {
+    to { opacity: 0; }
+  }
+
+  /* 每帧都带 translate(-50%,-50%) 前缀：抵消点自身尺寸的居中偏移 */
+  @keyframes fc-dot-spiral {
+    0% {
+      opacity: 0;
+      transform: translate(-50%, -50%) rotate(var(--a)) translateX(var(--r)) scale(0.3);
+    }
+    10% {
+      opacity: 0.95;
+    }
+    35% {
+      transform: translate(-50%, -50%) rotate(calc(var(--a) + 14deg)) translateX(calc(var(--r) * 1.12)) scale(0.9);
+    }
+    85% {
+      opacity: 0.95;
+      transform: translate(-50%, -50%) rotate(calc(var(--a) + var(--spin))) translateX(calc(var(--r) * 0.06)) scale(0.5);
+    }
+    100% {
+      opacity: 0;
+      transform: translate(-50%, -50%) rotate(calc(var(--a) + var(--spin))) translateX(0) scale(0);
+    }
+  }
+
+  @keyframes fc-core-charge {
+    0% { opacity: 0; transform: scale(0.4); }
+    30% { opacity: 1; }
+    55% { transform: scale(1.15); }
+    100% { transform: scale(0.55); }
+  }
+
+  @keyframes fc-core-pop {
+    0% { opacity: 1; transform: scale(0.55); }
+    45% { opacity: 1; transform: scale(2.1); }
+    100% { opacity: 0; transform: scale(0.5); }
+  }
+
+  @keyframes fc-wave {
+    0% {
+      opacity: 0.85;
+      transform: scale(0.15);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(var(--ws, 3));
+    }
+  }
+
+  @keyframes fc-flash {
+    0% { opacity: 0; }
+    35% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  @keyframes fc-ghost {
+    0% {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(1.35);
+    }
+    25% {
+      opacity: 0.07;
+    }
+    100% {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(1.06);
+    }
+  }
+
+  @keyframes fc-char-blast {
+    from {
+      opacity: 0;
+      transform: scale(1.6);
+      filter: blur(14px);
+    }
+    60% {
+      opacity: 1;
+      filter: blur(0);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+      filter: blur(0);
+    }
+  }
+
+  @keyframes fc-spark {
+    0% {
+      opacity: 0.95;
+      transform: translate(-50%, -50%) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translate(-50%, -50%) translate(var(--ex), var(--ey)) scale(0.15);
+    }
+  }
+
+  @keyframes fc-rule-draw {
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  @keyframes fc-letter-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* 长名坍缩为缩写：收窄 + 淡出，与 meta 的落定构成一收一放 */
+  @keyframes fc-phrase-collapse {
+    40% {
+      opacity: 0.9;
+    }
+    to {
+      opacity: 0;
+      transform: scaleX(0.14);
+    }
+  }
+
+  @keyframes fc-meta-settle-big {
+    from {
+      opacity: 0;
+      letter-spacing: 0.5em;
+    }
+    to {
+      opacity: 1;
+      letter-spacing: 0.22em;
+    }
+  }
+
+  @keyframes fc-stage-exit {
+    40% {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+      transform: scale(0.06);
+    }
+  }
+
+  @keyframes fc-rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fc-mark-corner {
+    from {
+      opacity: 0;
+      transform: translateX(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes fc-meta-settle {
+    from {
+      opacity: 0;
+      letter-spacing: 0.34em;
+    }
+    to {
+      opacity: 1;
+      letter-spacing: 0.18em;
+    }
+  }
+}

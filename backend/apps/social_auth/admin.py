@@ -14,7 +14,7 @@ from typing import Any
 from django import forms
 from django.contrib import admin
 
-from .models import SocialAccount, SocialAuthProvider
+from .models import PasskeyCredential, SocialAccount, SocialAuthProvider
 from .providers import ProviderRegistry
 
 
@@ -96,4 +96,32 @@ class SocialAccountAdmin(admin.ModelAdmin):  # pragma: no cover
 
     def has_add_permission(self, request: Any) -> bool:
         # 绑定关系只能由本人扫码产生；后台手工新增会造出指向错误律师的记录
+        return False
+
+
+@admin.register(PasskeyCredential)
+class PasskeyCredentialAdmin(admin.ModelAdmin):  # pragma: no cover
+    """通行密钥排查入口：看谁注册了哪把密钥、何时用过；删除 = 吊销该设备。"""
+
+    list_display = ("id", "name", "rp_id", "user", "backed_up", "last_used_at", "created_at")
+    list_filter = ("rp_id", "backed_up")
+    search_fields = ("name", "user__username", "user__real_name", "user__phone")
+    list_select_related = ("user",)
+    ordering = ("-created_at",)
+    date_hierarchy = "created_at"
+    # 公钥不是秘密（本来就要给服务器验签用），但也无展示价值，全部只读
+    readonly_fields = (
+        "user",
+        "name",
+        "credential_id",
+        "public_key",
+        "sign_count",
+        "rp_id",
+        "backed_up",
+        "created_at",
+        "last_used_at",
+    )
+
+    def has_add_permission(self, request: Any) -> bool:
+        # 凭据只能由本人设备经 WebAuthn ceremony 产生，后台手工新增必然是坏数据
         return False

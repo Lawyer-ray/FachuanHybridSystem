@@ -19,10 +19,13 @@
 | `providers/__init__.py` | `ProviderRegistry` 注册表，import 时注册内置 Provider |
 | `models/social_account.py` | `SocialAccount`：一条记录 = 一个「律师 ↔ 某平台身份」绑定 |
 | `models/temp_auth.py` | `TempAuth`：一次性授权码，5 分钟过期，用完即删 |
-| `services/social_auth_service.py` | 绑定/解绑/解析用户；登录只放行已绑定身份 |
+| `models/passkey_credential.py` | `PasskeyCredential`：一条通行密钥（WebAuthn 公钥凭据），只存公钥侧 |
+| `services/passkey_service.py` | 通行密钥注册/登录 ceremony：Origin 白名单→rp_id、挑战会话、验签、铸 token |
+| `services/token_exchange_service.py` | TempAuth 换 JWT、绑定列表 |
 | `views.py` | `SocialLoginView` / `SocialCallbackView`（后端 302 回调，非 API） |
-| `api/social_auth_api.py` | 前端调用的 7 个 API 端点（出入参 Schema 在 `api/social_auth_schemas.py`） |
-| `admin.py` | `SocialAccountAdmin`（只读 + 可删，禁止手工新增） |
+| `api/social_auth_api.py` | 社交登录前端 API（出入参 Schema 在 `api/social_auth_schemas.py`） |
+| `api/passkey_api.py` | 通行密钥前端 API（挂载于 `/api/v1/social/passkey/*`，Schema 在 `api/passkey_schemas.py`） |
+| `admin.py` | `SocialAccountAdmin` / `PasskeyCredentialAdmin`（只读 + 可删，禁止手工新增） |
 | `signals.py` | SystemConfig 变更 → 失效 Provider 配置缓存 |
 
 依赖方向：`core` 不得反向 import `social_auth`（结构门禁 `test_core_no_business_deps` 会拦）。
@@ -106,6 +109,28 @@
 后端 302 回调（不在 API 内）：`/social/{provider}/login/`、`/social/{provider}/callback/`（注册于 `apiSystem/apiSystem/urls.py`，本 app 内无 urls.py）。
 
 前端路由：`/login`（登录）、`/social-callback`（回调落地）、`/settings/bindings`（账号绑定）。
+
+### 通行密钥端点（/api/v1/social/passkey/*）
+
+与社交登录并列的第三类免密登录。不依赖任何第三方平台（无 Provider 行、无回调跳转），挑战存 Django session（key `webauthn_register` / `webauthn_login`，与 OAuth 的 `oauth` 单槽隔离）。
+
+| 方法 | 路径 | 鉴权 | 用途 |
+|---|---|---|---|
+| POST | `/passkey/login/options` | 无（AUTH 限流） | 下发登录挑战（可发现凭据，allowCredentials 为空） |
+| POST | `/passkey/login/verify` | 无（AUTH 限流） | 校验断言 → 铸 JWT（响应结构与 `/token-exchange` 完全一致） |
+| POST | `/passkey/register/options` | 需登录（AUTH 限流） | 下发注册挑战（excludeCredentials = 本用户已有凭据） |
+| POST | `/passkey/register/verify` | 需登录（AUTH 限流） | 校验注册响应并落库 |
+| GET | `/passkey/credentials` | 需登录 | 当前用户已注册的通行密钥列表 |
+| PATCH | `/passkey/credentials/{id}` | 需登录 | 重命名（只限本人凭据） |
+| DELETE | `/passkey/credentials/{id}` | 需登录 | 删除 = 吊销该设备 |
+
+设计要点（详见 `services/passkey_service.py` 模块 docstring）：
+
+- **Origin → rp_id 白名单**：页面 Origin 必须精确命中 `CORS_ALLOWED_ORIGINS ∪ CSRF_TRUSTED_ORIGINS ∪ FRONTEND_BASE_URL`；DEBUG 下回环地址（localhost/127.0.0.1/::1）任意端口直通（vite `strictPort: false` 端口会漂移）。远程 `https://app.xlaw.top` 要用通行密钥，需把该 origin 加进 env 的 CORS/CSRF 白名单。
+- **凭据按 rp_id 隔离**：localhost 注册的密钥在 app.xlaw.top 用不了（WebAuthn 机制），各域各自注册一次；`rp_id` 落库用于排查。
+- **安全闸**：挑战读即删 + 300s TTL + 绑定用户（注册）；`sign_count` 严格递增，回退判克隆即拒绝；登录响应不区分「用户不存在 / 校验失败」，无枚举面；user handle 用 `str(user.id)`（数字 id 本就对外暴露，不值得为此加表）。
+- **token 同口径**：`RefreshToken.for_user + bind_password_claim`，改密后 refresh 失效，与社交登录完全一致。
+- **同步实现**：session 懒加载是同步 ORM，同步 Ninja op（线程池）回避了 async 上下文碰 session 的整类坑；ceremony 是低频人机交互，无线程压力。
 
 ---
 

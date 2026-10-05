@@ -372,3 +372,6 @@ frontend_2026/
 .zcode/
 # ZCode 忽略规则文件（工具自动同步生成，不入库）
 .zcodeignore
+
+# 公网栈部署配置（本机专属：绝对路径/域名，不入库；文件保留在本地供 launchd 使用）
+/deploy/
