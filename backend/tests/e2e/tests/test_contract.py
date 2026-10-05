@@ -4,9 +4,10 @@ Django Admin E2E 测试 — 合同管理 (Contract)
 覆盖 Contract 模型的增删改查 Admin 页面及批量文件夹绑定页面。
 """
 
+import re
+
 import pytest
 from playwright.sync_api import Page, expect
-
 
 # ------------------------------------------------------------------
 # 列表页
@@ -23,9 +24,7 @@ def test_contract_list_page(admin_page: Page, base_url: str) -> None:
 
 
 @pytest.mark.crud
-def test_contract_search(
-    admin_page: Page, base_url: str, e2e_contract
-) -> None:
+def test_contract_search(admin_page: Page, base_url: str, e2e_contract) -> None:
     """在列表页使用搜索框搜索合同名称。"""
     admin_page.goto(f"{base_url}/admin/contracts/contract/")
     admin_page.wait_for_load_state("domcontentloaded")
@@ -82,9 +81,7 @@ def test_contract_create(admin_page: Page, base_url: str) -> None:
 
 
 @pytest.mark.crud
-def test_contract_change_page(
-    admin_page: Page, base_url: str, e2e_contract
-) -> None:
+def test_contract_change_page(admin_page: Page, base_url: str, e2e_contract) -> None:
     """访问已有合同的编辑页，验证名称字段正确回显。"""
     url = f"{base_url}/admin/contracts/contract/{e2e_contract.pk}/change/"
     admin_page.goto(url)
@@ -112,3 +109,26 @@ def test_batch_folder_binding_page(admin_page: Page, base_url: str) -> None:
     # 页面不应出现 Django 错误页
     error_note = admin_page.locator("#traceback")
     expect(error_note).not_to_be_visible()
+
+
+# ------------------------------------------------------------------
+# 删除（补缺：合同侧无删除流程用例；独立合同无 PROTECT 关联，可删）
+# ------------------------------------------------------------------
+
+
+@pytest.mark.crud
+def test_contract_delete_flow(admin_page: Page, base_url: str, e2e_contract) -> None:
+    """通过 admin 删除确认页删除独立合同，并断言列表与库中均不存在。"""
+    admin_page.goto(f"{base_url}/admin/contracts/contract/{e2e_contract.id}/delete/")
+    admin_page.wait_for_load_state("domcontentloaded")
+    expect(admin_page.locator("#content form")).to_be_visible()
+    expect(admin_page.locator("body")).to_contain_text(e2e_contract.name)
+    admin_page.locator("#content form input[type='submit']").first.click()
+    admin_page.wait_for_load_state("domcontentloaded")
+    # 删除后回 changelist（可能带筛选参数），按前缀断言
+    expect(admin_page).to_have_url(re.compile(r"/admin/contracts/contract/"))
+    expect(admin_page.locator(".messagelist .success")).to_be_visible()
+
+    from apps.contracts.models import Contract
+
+    assert not Contract.objects.filter(pk=e2e_contract.id).exists()
