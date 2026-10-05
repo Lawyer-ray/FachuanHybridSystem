@@ -149,8 +149,10 @@ class TestChallengeLifecycle:
 
         stored = request.session.pop(_LOGIN_KEY)
         assert stored["rp_id"] == "localhost"
-        # 读即删：再取就没了（重放直接失败）
-        assert request.session.pop(_LOGIN_KEY, None) is None
+        # 读即删：再取就没了（重放直接失败）。pop 提到 assert 外：
+        # assert 有副作用会被 python -O 静默跳过，CodeQL py/side-effect-in-assert
+        replay = request.session.pop(_LOGIN_KEY, None)
+        assert replay is None
 
     def test_expired_challenge_rejected(self) -> None:
         from apps.social_auth.services.passkey_service import _pop_challenge
@@ -181,8 +183,9 @@ class TestVerifyRegistration:
         assert row.rp_id == "localhost"
         assert row.backed_up is True
         assert row.sign_count == 1
-        # 挑战已消费
-        assert request.session.pop(_REGISTER_KEY, None) is None
+        # 挑战已消费（pop 提到 assert 外，同 py/side-effect-in-assert）
+        leftover = request.session.pop(_REGISTER_KEY, None)
+        assert leftover is None
 
     def test_cross_user_challenge_rejected(self, user: Lawyer) -> None:
         other = Lawyer.objects.create(username="pk-other")
