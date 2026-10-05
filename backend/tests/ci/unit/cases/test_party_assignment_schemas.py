@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -39,25 +40,35 @@ class TestCasePartyOutResolveClientDetail:
         assert result is client
 
     def test_model_with_client_fk(self) -> None:
-        class _StubOut:
-            @classmethod
-            def from_model(cls, obj: object) -> str:
-                return "converted"
+        """FK 模型走真实 ClientLiteOut.from_model 全链（零 mock，免疫任何类状态污染）。
 
-        client = MagicMock(spec=["_meta"])
-        client._meta = object()
-        party = MagicMock()
-        party.client_detail = None
-        party.client = client
+        此前用类级/名字绑定补丁，全量套件下单进程顺序下补丁会静默失效
+        （真实 from_model 执行报 Mock 无 id）——直测真实转换更强也更稳。
+        """
+        client = SimpleNamespace(
+            _meta=object(),  # _meta 标记引导 resolver 走 from_model 分支
+            id=7,
+            name="测试客户",
+            is_our_client=True,
+            phone="13800000000",
+            address="某市某区",
+            client_type="legal",
+            id_number=None,
+            legal_representative="李代表",
+            legal_representative_id_number=None,
+            identity_docs=None,
+        )
+        client_type_display_map = {"legal": "法人"}
+        client.get_client_type_display = lambda: client_type_display_map.get(client.client_type, "")
+        party = SimpleNamespace(client_detail=None, client=client)
 
-        # 补丁调用点模块的名字绑定而非共享类属性：全量运行时有前序用例
-        # 污染 ClientLiteOut 类状态，类级补丁会静默失效（本地单跑不复现）；
-        # 名字同时被 isinstance 使用，桩必须是真类
-        with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("apps.cases.schemas.party_schemas.ClientOut", _StubOut)
-            result = CasePartyOut.resolve_client_detail(party)
+        result = CasePartyOut.resolve_client_detail(party)
 
-        assert result == "converted"
+        assert result.id == 7
+        assert result.name == "测试客户"
+        assert result.is_our_client is True
+        assert result.client_type_label == "法人"
+        assert result.identity_docs == []
 
     def test_none_client_returned_as_is(self) -> None:
         party = MagicMock()
@@ -115,22 +126,16 @@ class TestCaseAssignmentOutResolveLawyerDetail:
         assert result is detail
 
     def test_model_with_lawyer_fk(self) -> None:
-        class _StubDTO:
-            @classmethod
-            def from_model(cls, obj: object) -> str:
-                return "from-model"
+        """FK 模型走真实 LawyerOutFromDTO.from_model 全链（零 mock）。"""
+        lawyer = SimpleNamespace(_meta=object(), id=3, username="lawyer_3", real_name="王律师", phone="13900000000")
+        assignment = SimpleNamespace(lawyer=lawyer, lawyer_detail=None)
 
-        lawyer = MagicMock(spec=["_meta", "id", "username", "real_name", "phone"])
-        lawyer._meta = object()
-        assignment = MagicMock()
-        assignment.lawyer = lawyer
+        result = CaseAssignmentOut.resolve_lawyer_detail(assignment)
 
-        # 同 client 侧：补丁调用点模块名字绑定（真类桩），免疫共享类状态污染
-        with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("apps.cases.schemas.assignment_schemas.LawyerOutFromDTO", _StubDTO)
-            result = CaseAssignmentOut.resolve_lawyer_detail(assignment)
-
-        assert result == "from-model"
+        assert result.id == 3
+        assert result.username == "lawyer_3"
+        assert result.real_name == "王律师"
+        assert result.phone == "13900000000"
 
     def test_attr_dict_detail_converted(self) -> None:
         obj = MagicMock()
