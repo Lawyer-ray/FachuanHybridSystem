@@ -54,13 +54,13 @@ prod-restart: ## 重启公网后端 gunicorn + qcluster（发布后端代码后�
 	@launchctl kickstart -k gui/$(shell id -u)/com.user.fachuan-qcluster
 	@echo "$(GREEN)✓ gunicorn + qcluster 已重启$(NC)"
 
-prod-stop: ## 停止公网栈三服务（停后 app.xlaw.top 返回 502；重启 Mac 会自启）
+stop: ## 停止公网栈三服务（停后 app.xlaw.top 返回 502；重启 Mac 会自启）
 	@for svc in nginx gunicorn qcluster; do \
 		launchctl bootout gui/$(shell id -u)/com.user.fachuan-$$svc 2>/dev/null && echo "✓ 已停止 $$svc" || echo "- $$svc 本就不在运行"; \
 	done
 	@echo "$(YELLOW)公网栈已停止。注意：直接 kill 进程会被 KeepAlive 立即拉活，停止必须用本命令（bootout 注销）$(NC)"
 
-prod-start: ## 启动公网栈三服务（plist 未安装时先跑 bash deploy/install.sh）
+start: ## 启动公网栈三服务（plist 未安装时先跑 bash deploy/install.sh）
 	@for svc in nginx gunicorn qcluster; do \
 		launchctl bootstrap gui/$(shell id -u) $(HOME)/Library/LaunchAgents/com.user.fachuan-$$svc.plist 2>/dev/null && echo "✓ 已启动 $$svc" || echo "- $$svc 启动失败或已在运行，检查: launchctl list | grep fachuan"; \
 	done
@@ -84,4 +84,4 @@ help: ## 显示帮助信息
 	@echo "安装 hook:   make install-hooks"
 	@echo "启动服务:    make frontend / make backend / make q"
 
-.PHONY: help ci ci-full ci-backend ci-frontend ci-backend-full install-hooks frontend backend q publish prod-restart prod-stop prod-start prod-logs
+.PHONY: help ci ci-full ci-backend ci-frontend ci-backend-full install-hooks frontend backend q publish prod-restart stop start prod-logs
