@@ -42,6 +42,21 @@ install-hooks: ## 安装 git pre-push hook（推送前自动运行本地 CI）
 	@echo "  推送时将自动运行 'make ci'，失败则阻止推送。"
 	@echo "  跳过: git push --no-verify"
 
+# ============================================================
+# 公网栈（nginx + gunicorn，app.xlaw.top；详见 deploy/README.md）
+# ============================================================
+
+publish: ## 发布公网栈（前端构建 + collectstatic，构建即生效）
+	@bash deploy/publish.sh
+
+prod-restart: ## 重启公网后端 gunicorn + qcluster（发布后端代码后执行）
+	@launchctl kickstart -k gui/$(shell id -u)/com.user.fachuan-gunicorn
+	@launchctl kickstart -k gui/$(shell id -u)/com.user.fachuan-qcluster
+	@echo "$(GREEN)✓ gunicorn + qcluster 已重启$(NC)"
+
+prod-logs: ## 跟随公网栈日志（gunicorn + nginx + qcluster）
+	@tail -f $(HOME)/Library/Logs/fachuan-gunicorn.log $(HOME)/Library/Logs/fachuan-nginx-error.log $(HOME)/Library/Logs/fachuan-qcluster.log
+
 help: ## 显示帮助信息
 	@echo "$(GREEN)法穿SI Copilot - 本地 CI$(NC)"
 	@echo ""
@@ -57,4 +72,4 @@ help: ## 显示帮助信息
 	@echo "安装 hook:   make install-hooks"
 	@echo "启动服务:    make frontend / make backend / make q"
 
-.PHONY: help ci ci-full ci-backend ci-frontend ci-backend-full install-hooks frontend backend q
+.PHONY: help ci ci-full ci-backend ci-frontend ci-backend-full install-hooks frontend backend q publish prod-restart prod-logs
