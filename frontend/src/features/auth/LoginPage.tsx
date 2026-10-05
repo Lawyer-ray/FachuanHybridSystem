@@ -32,6 +32,7 @@ import {
 } from './login-methods'
 import { LoginMethodSwitch } from './components/LoginMethodSwitch'
 import { PasswordLoginForm } from './components/PasswordLoginForm'
+import { PasskeyLoginButton } from './components/PasskeyLoginButton'
 import { SocialQrPanel } from './components/SocialQrPanel'
 import { SocialRedirectGroup } from './components/SocialRedirectGroup'
 
@@ -212,6 +213,8 @@ export function LoginPage() {
         {active.kind === 'password' && (
           <>
             <PasswordLoginForm onLoggedIn={() => { void navigate('/', { replace: true }) }} />
+            {/* 通行密钥：本系统最顺手的登录方式，浏览器/设备不支持时整块不渲染 */}
+            <PasskeyLoginButton />
             {groups.redirectProviders.length > 0 && (
               <SocialRedirectGroup providers={groups.redirectProviders.map((method) => method.provider)} />
             )}

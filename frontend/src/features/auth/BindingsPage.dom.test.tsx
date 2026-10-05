@@ -107,16 +107,16 @@ describe('BindingsPage 加载与错误态', () => {
   it('加载中：展示加载文案，不出列表行', () => {
     listMock.mockReturnValue(new Promise(() => {}))
     setupUi()
-    expect(screen.getByText('正在加载…')).toBeTruthy()
+    expect(screen.getAllByText('正在加载…').length).toBeGreaterThan(0)
     expect(screen.queryByText('飞书')).toBeNull()
   })
 
   it('接口失败：显式报错并给重新加载；点击后重新请求', async () => {
     listMock.mockRejectedValueOnce(new Error('500')).mockResolvedValue([boundFeishu])
     setupUi()
-    expect(await screen.findByText('加载绑定信息失败，请检查网络后重试')).toBeTruthy()
+    expect((await screen.findAllByText('加载绑定信息失败，请检查网络后重试')).length).toBeGreaterThan(0)
     const calls = listMock.mock.calls.length
-    fireEvent.click(screen.getByRole('button', { name: '重新加载' }))
+    fireEvent.click(screen.getAllByRole('button', { name: '重新加载' })[0]!)
     await waitFor(() => expect(listMock.mock.calls.length).toBeGreaterThan(calls))
   })
 

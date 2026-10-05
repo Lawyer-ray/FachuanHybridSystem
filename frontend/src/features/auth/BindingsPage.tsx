@@ -26,6 +26,7 @@ import {
 import { socialBindingsApi, type BoundAccount, type SocialProviderInfo } from './social-api'
 import { BINDINGS_KEY, CATALOG_KEY } from './constants'
 import { BindProviderDialog } from './components/BindProviderDialog'
+import { PasskeySection } from './components/PasskeySection'
 
 interface Row {
   provider: SocialProviderInfo
@@ -179,6 +180,8 @@ export function BindingsPage() {
           <p className="mt-3 text-[11.5px] leading-[1.7] text-muted-foreground">
             换绑同一平台的其他账号：先解绑当前账号，再绑定新的。解绑期间该平台无法登录，可继续用账号密码登录。
           </p>
+
+          <PasskeySection />
         </main>
       </PageFade>
 
