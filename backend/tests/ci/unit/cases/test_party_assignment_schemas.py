@@ -39,7 +39,10 @@ class TestCasePartyOutResolveClientDetail:
         assert result is client
 
     def test_model_with_client_fk(self) -> None:
-        from apps.core.api.schemas_shared import ClientLiteOut
+        class _StubOut:
+            @classmethod
+            def from_model(cls, obj: object) -> str:
+                return "converted"
 
         client = MagicMock(spec=["_meta"])
         client._meta = object()
@@ -47,8 +50,11 @@ class TestCasePartyOutResolveClientDetail:
         party.client_detail = None
         party.client = client
 
+        # 补丁调用点模块的名字绑定而非共享类属性：全量运行时有前序用例
+        # 污染 ClientLiteOut 类状态，类级补丁会静默失效（本地单跑不复现）；
+        # 名字同时被 isinstance 使用，桩必须是真类
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr(ClientLiteOut, "from_model", classmethod(lambda cls, obj: "converted"))
+            mp.setattr("apps.cases.schemas.party_schemas.ClientOut", _StubOut)
             result = CasePartyOut.resolve_client_detail(party)
 
         assert result == "converted"
@@ -109,15 +115,19 @@ class TestCaseAssignmentOutResolveLawyerDetail:
         assert result is detail
 
     def test_model_with_lawyer_fk(self) -> None:
-        from apps.cases.schemas.lawyer_schemas import LawyerOutFromDTO
+        class _StubDTO:
+            @classmethod
+            def from_model(cls, obj: object) -> str:
+                return "from-model"
 
         lawyer = MagicMock(spec=["_meta", "id", "username", "real_name", "phone"])
         lawyer._meta = object()
         assignment = MagicMock()
         assignment.lawyer = lawyer
 
+        # 同 client 侧：补丁调用点模块名字绑定（真类桩），免疫共享类状态污染
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr(LawyerOutFromDTO, "from_model", classmethod(lambda cls, obj: "from-model"))
+            mp.setattr("apps.cases.schemas.assignment_schemas.LawyerOutFromDTO", _StubDTO)
             result = CaseAssignmentOut.resolve_lawyer_detail(assignment)
 
         assert result == "from-model"
