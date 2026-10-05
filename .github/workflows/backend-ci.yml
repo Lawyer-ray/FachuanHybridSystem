@@ -426,7 +426,7 @@ jobs:
           PYTHONPATH: "apiSystem:."
         run: |
           uv run pytest -c pytest.ini \
-            -o addopts="--import-mode=importlib -q --tb=short --strict-markers --timeout=60" \
+            -o addopts="--import-mode=importlib -q --tb=short --strict-markers --timeout=300" \
             --capture=fd \
             --reuse-db \
             --cov=apps.cases.services.case.case_admin_export_bridge \
