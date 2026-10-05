@@ -39,7 +39,9 @@ class CaseAdminForm(forms.ModelForm[Case]):  # pragma: no cover
 
         try:
             _, cur2 = normalize_stages(ctype, rep, cur, strict=False)
-            cleaned["current_stage"] = cur2
+            # normalize_stages 把空阶段规范为 None，而模型列 NOT NULL（默认 ""）：
+            # 直接回写会让 admin 编辑提交 500（NotNullViolation）。空阶段落回 ""。
+            cleaned["current_stage"] = cur2 if cur2 is not None else ""
         except ValueError as e:
             code = str(e)
             if code == "invalid_cur":

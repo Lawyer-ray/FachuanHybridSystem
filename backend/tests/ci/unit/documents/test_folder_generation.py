@@ -2,14 +2,11 @@
 
 import zipfile
 from datetime import date
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
-from apps.documents.services.generation.folder_generation_service import (
-    DocumentPlacement,
-    FolderGenerationService,
-)
+from apps.documents.services.generation.folder_generation_service import DocumentPlacement, FolderGenerationService
 
 
 class TestDocumentPlacement:

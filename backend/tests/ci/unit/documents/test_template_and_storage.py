@@ -6,9 +6,9 @@ import re
 import tempfile
 from pathlib import Path
 
+from apps.batch_printing.services.storage import BatchPrintStorage
 from apps.documents.services.document_template.placeholder_extractor import PLACEHOLDER_PATTERN
 from apps.documents.services.infrastructure.pdf_utils import _read_source_bytes
-from apps.batch_printing.services.storage import BatchPrintStorage
 
 
 class TestPlaceholderPattern:

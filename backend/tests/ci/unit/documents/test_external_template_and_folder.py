@@ -1,18 +1,19 @@
 """文档指纹服务和文件夹模板结构规则测试。"""
 
 from __future__ import annotations
-import pytest
 
 import hashlib
 import re
 
+import pytest
+
 from apps.documents.services.external_template.fingerprint_service import (
-    _WORD_NS,
     _STYLE_ATTR_PATTERNS,
     _STYLE_ELEMENT_TAGS,
+    _WORD_NS,
 )
-from apps.documents.services.folder_template.structure_rules import FolderTemplateStructureRules
 from apps.documents.services.folder_template.id_service import FolderTemplateIdService
+from apps.documents.services.folder_template.structure_rules import FolderTemplateStructureRules
 
 
 class TestFingerprintServiceConstants:

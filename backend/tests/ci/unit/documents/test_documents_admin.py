@@ -6,15 +6,9 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
-from apps.evidence.admin.evidence.mixins.views import (
-    EvidenceListAdminServiceMixin,
-    EvidenceListAdminViewsMixin,
-)
+from apps.documents.admin.placeholder_admin import PlaceholderAdmin, PlaceholderUsageFilter
 from apps.evidence.admin.evidence.mixins.save import EvidenceListAdminSaveMixin
-from apps.documents.admin.placeholder_admin import (
-    PlaceholderAdmin,
-    PlaceholderUsageFilter,
-)
+from apps.evidence.admin.evidence.mixins.views import EvidenceListAdminServiceMixin, EvidenceListAdminViewsMixin
 
 
 class TestEvidenceListAdminViewsMixinDisplayMethods:

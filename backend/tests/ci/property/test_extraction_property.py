@@ -6,19 +6,19 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from hypothesis import given, settings, assume
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
+from apps.documents.services.placeholders.fallback import (
+    ensure_required_placeholders,
+    normalize_placeholder_value,
+    resolve_render_variable,
+)
 from apps.documents.services.placeholders.litigation.execution_request_clause_extractor import (
     extract_joint_liability_text,
     extract_numbered_clauses,
     extract_supplementary_liability_text,
     has_double_interest_clause,
-)
-from apps.documents.services.placeholders.fallback import (
-    ensure_required_placeholders,
-    normalize_placeholder_value,
-    resolve_render_variable,
 )
 from apps.documents.services.placeholders.litigation.execution_request_llm_fallback import (
     _has_fee_prepaid_context,
@@ -26,11 +26,7 @@ from apps.documents.services.placeholders.litigation.execution_request_llm_fallb
     _parse_iso_date,
     should_try_llm_fallback,
 )
-from apps.documents.services.placeholders.litigation.execution_request_models import (
-    ParsedAmounts,
-    ParsedInterestParams,
-)
-
+from apps.documents.services.placeholders.litigation.execution_request_models import ParsedAmounts, ParsedInterestParams
 
 # ---------------------------------------------------------------------------
 # Strategies
@@ -226,10 +222,15 @@ def test_normalize_placeholder_non_str_passthrough(value: Any) -> None:
     assert result == value
 
 
+# 生成器直接命中「None 或纯空白」分支：裸 st.text() 几乎不产生空白串，
+# assume 过滤率 ~99% 会触发 filter_too_much 健康检查（本地连续可复现）
+_whitespace_or_none = st.none() | st.text(alphabet=" \t\n\r\u3000", max_size=10)
+
+
 @settings(max_examples=200, deadline=None)
-@given(st.text(max_size=200), st.text(min_size=1, max_size=20))
+@given(_whitespace_or_none, st.text(min_size=1, max_size=20))
 def test_normalize_placeholder_custom_fallback(value: str | None, fallback: str) -> None:
-    assume(value is None or value.strip() == "")
+    assert value is None or value.strip() == ""  # 生成器保证的前置条件
     result = normalize_placeholder_value(value, fallback_value=fallback)
     assert result == fallback
 
@@ -431,10 +432,16 @@ def test_should_try_llm_fallback_deterministic(text: str) -> None:
     amounts = _make_parsed_amounts()
     params = _make_parsed_interest_params()
     r1 = should_try_llm_fallback(
-        text=text, amounts=amounts, params=params, principal_fallback_to_target=False,
+        text=text,
+        amounts=amounts,
+        params=params,
+        principal_fallback_to_target=False,
     )
     r2 = should_try_llm_fallback(
-        text=text, amounts=amounts, params=params, principal_fallback_to_target=False,
+        text=text,
+        amounts=amounts,
+        params=params,
+        principal_fallback_to_target=False,
     )
     assert r1 == r2
 

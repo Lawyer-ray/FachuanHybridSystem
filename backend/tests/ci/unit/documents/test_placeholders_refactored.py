@@ -6,11 +6,11 @@ import pytest
 
 from apps.documents.services.placeholders.fallback import (
     PLACEHOLDER_FALLBACK_VALUE,
+    ensure_required_placeholders,
+    get_service_placeholder_keys,
     normalize_placeholder_value,
     normalize_service_result,
-    ensure_required_placeholders,
     resolve_render_variable,
-    get_service_placeholder_keys,
 )
 
 

@@ -4,9 +4,10 @@ Django Admin E2E 测试 — 案件管理 (Case)
 覆盖 Case 模型的增删改查、详情页、材料页、诉讼费计算器等 Admin 页面。
 """
 
+import re
+
 import pytest
 from playwright.sync_api import Page, expect
-
 
 # ------------------------------------------------------------------
 # 列表页
@@ -23,9 +24,7 @@ def test_case_list_page(admin_page: Page, base_url: str) -> None:
 
 
 @pytest.mark.crud
-def test_case_search(
-    admin_page: Page, base_url: str, e2e_case
-) -> None:
+def test_case_search(admin_page: Page, base_url: str, e2e_case) -> None:
     """在列表页使用搜索框搜索案件名称。"""
     admin_page.goto(f"{base_url}/admin/cases/case/")
     admin_page.wait_for_load_state("domcontentloaded")
@@ -60,9 +59,7 @@ def test_case_add_page(admin_page: Page, base_url: str) -> None:
 
 
 @pytest.mark.crud
-def test_case_create(
-    admin_page: Page, base_url: str, e2e_contract
-) -> None:
+def test_case_create(admin_page: Page, base_url: str, e2e_contract) -> None:
     """创建一个案件并提交。"""
     admin_page.goto(f"{base_url}/admin/cases/case/add/")
     admin_page.wait_for_load_state("domcontentloaded")
@@ -97,9 +94,7 @@ def test_case_create(
 
 
 @pytest.mark.crud
-def test_case_change_page(
-    admin_page: Page, base_url: str, e2e_case
-) -> None:
+def test_case_change_page(admin_page: Page, base_url: str, e2e_case) -> None:
     """访问已有案件的编辑页，验证名称字段正确回显。"""
     url = f"{base_url}/admin/cases/case/{e2e_case.pk}/change/"
     admin_page.goto(url)
@@ -117,9 +112,7 @@ def test_case_change_page(
 
 
 @pytest.mark.crud
-def test_case_detail_page(
-    admin_page: Page, base_url: str, e2e_case
-) -> None:
+def test_case_detail_page(admin_page: Page, base_url: str, e2e_case) -> None:
     """访问案件详情页，验证页面正常加载。"""
     url = f"{base_url}/admin/cases/case/{e2e_case.pk}/detail/"
     admin_page.goto(url)
@@ -140,9 +133,7 @@ def test_case_detail_page(
 
 
 @pytest.mark.crud
-def test_case_materials_page(
-    admin_page: Page, base_url: str, e2e_case
-) -> None:
+def test_case_materials_page(admin_page: Page, base_url: str, e2e_case) -> None:
     """访问案件材料页，验证页面正常加载。"""
     url = f"{base_url}/admin/cases/case/{e2e_case.pk}/materials/"
     admin_page.goto(url)
@@ -171,3 +162,50 @@ def test_litigation_fee_calculator(admin_page: Page, base_url: str) -> None:
     # 页面不应出现 Django 错误页
     error_note = admin_page.locator("#traceback")
     expect(error_note).not_to_be_visible()
+
+
+# ------------------------------------------------------------------
+# 编辑提交 + 删除（补缺：现有用例只到「编辑页回显」，无提交生效与删除全流程）
+# ------------------------------------------------------------------
+
+
+@pytest.mark.crud
+def test_case_edit_submit_and_delete(admin_page: Page, base_url: str, e2e_case) -> None:
+    """编辑已有案件名称并保存生效，随后走 admin 删除确认页完成删除。"""
+    renamed = "E2E改名后案件"
+    # --- 编辑提交：改名后列表可见新名字 ---
+    admin_page.goto(f"{base_url}/admin/cases/case/{e2e_case.id}/change/")
+    admin_page.wait_for_load_state("domcontentloaded")
+    name_input = admin_page.locator("input#id_name")
+    expect(name_input).to_have_value(e2e_case.name)
+    name_input.fill(renamed)
+    admin_page.click("input[name='_save']")
+    admin_page.wait_for_load_state("domcontentloaded")
+    # CaseAdmin 保存后跳自定义 detail 页（非默认 changelist），按前缀断言
+    expect(admin_page).to_have_url(re.compile(r"/admin/cases/case/"))
+    expect(admin_page.locator(".messagelist .success")).to_be_visible()
+
+    admin_page.goto(f"{base_url}/admin/cases/case/")
+    searchbar = admin_page.locator("#searchbar")
+    searchbar.fill(renamed)
+    admin_page.locator("#changelist-search input[type='submit']").click()
+    admin_page.wait_for_load_state("domcontentloaded")
+    result_list = admin_page.locator("#result_list")
+    expect(result_list).to_contain_text(renamed)
+
+    # --- 删除：change 页 deletelink → 确认页 → 确认提交 ---
+    admin_page.goto(f"{base_url}/admin/cases/case/{e2e_case.id}/delete/")
+    admin_page.wait_for_load_state("domcontentloaded")
+    # 确认页应展示对象摘要，且表单为 POST 确认框
+    expect(admin_page.locator("#content form")).to_be_visible()
+    expect(admin_page.locator("body")).to_contain_text(renamed)
+    admin_page.locator("#content form input[type='submit']").first.click()
+    admin_page.wait_for_load_state("domcontentloaded")
+    # 删除后回 changelist（可能带筛选参数），按前缀断言
+    expect(admin_page).to_have_url(re.compile(r"/admin/cases/case/"))
+    expect(admin_page.locator(".messagelist .success")).to_be_visible()
+
+    # ORM 复核：确实删掉（而非仅 UI 提示）
+    from apps.cases.models import Case
+
+    assert not Case.objects.filter(pk=e2e_case.id).exists()

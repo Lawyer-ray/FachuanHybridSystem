@@ -211,8 +211,8 @@ class TestDocumentTemplateServiceGetTemplateById:
         assert svc.get_template_by_id(1) is mock_template
 
     def test_not_found(self):
-        from apps.documents.services.template.template_service import DocumentTemplateService
         from apps.documents.models import DocumentTemplate
+        from apps.documents.services.template.template_service import DocumentTemplateService
         mock_repo = MagicMock()
         mock_repo.get_by_id.side_effect = DocumentTemplate.DoesNotExist()
         svc = DocumentTemplateService(repo=mock_repo)
@@ -233,8 +233,8 @@ class TestDocumentTemplateServiceDeleteTemplate:
         mock_template.save.assert_called_once()
 
     def test_delete_not_found(self):
-        from apps.documents.services.template.template_service import DocumentTemplateService
         from apps.documents.models import DocumentTemplate
+        from apps.documents.services.template.template_service import DocumentTemplateService
         mock_repo = MagicMock()
         mock_repo.get_by_id.side_effect = DocumentTemplate.DoesNotExist()
         svc = DocumentTemplateService(repo=mock_repo)
@@ -266,8 +266,8 @@ class TestDocumentTemplateServiceUpdateFromDict:
         assert result is mock_template
 
     def test_update_from_dict_not_found(self):
-        from apps.documents.services.template.template_service import DocumentTemplateService
         from apps.documents.models import DocumentTemplate
+        from apps.documents.services.template.template_service import DocumentTemplateService
         mock_repo = MagicMock()
         mock_repo.get_by_id.side_effect = DocumentTemplate.DoesNotExist()
         svc = DocumentTemplateService(repo=mock_repo)
