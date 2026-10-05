@@ -1,0 +1,138 @@
+/* ============================================================
+   登录页家族 · 面板层：跳转面板 / 社交按钮组 / 二维码面板
+
+   fc-redirect 与 fc-qr 在绑定弹窗（BindProviderDialog）内复用；
+   fc-social 仅登录页账密下方使用。
+   ============================================================ */
+
+/* ---------- 跳转面板（绑定页弹窗内复用） ---------- */
+.fc-redirect {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ---------- 登录页：账密下方的社交按钮组 ---------- */
+.fc-social {
+  margin-top: 28px;
+}
+
+.fc-social__divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 14px;
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  color: var(--ink-3);
+}
+
+.fc-social__divider::before,
+.fc-social__divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+/* 等宽一行：minmax 96px 让三列在 352px 栏内成立；再多自动换行 */
+.fc-social__buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 10px;
+}
+
+/* ---------- 二维码面板 ---------- */
+.fc-qr {
+  --fc-qr-w: 240px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.fc-qr__frame {
+  position: relative;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+
+.fc-qr__plate {
+  width: var(--fc-qr-w);
+  height: var(--fc-qr-w);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--paper-soft);
+  color: var(--ink-3);
+  font-size: 0.75rem;
+  overflow: hidden;
+}
+
+/* 黄铜四角：本页唯一的品牌色面 */
+.fc-qr__corner {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-color: var(--accent);
+  border-style: solid;
+  border-width: 0;
+}
+
+.fc-qr__corner--tl { top: -1px; left: -1px; border-top-width: 2px; border-left-width: 2px; border-top-left-radius: 10px; }
+.fc-qr__corner--tr { top: -1px; right: -1px; border-top-width: 2px; border-right-width: 2px; border-top-right-radius: 10px; }
+.fc-qr__corner--bl { bottom: -1px; left: -1px; border-bottom-width: 2px; border-left-width: 2px; border-bottom-left-radius: 10px; }
+.fc-qr__corner--br { bottom: -1px; right: -1px; border-bottom-width: 2px; border-right-width: 2px; border-bottom-right-radius: 10px; }
+
+.fc-qr__band {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: var(--fc-qr-w);
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.fc-qr__band-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34a853;
+}
+
+.fc-qr__band-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fc-qr__guide {
+  text-align: center;
+}
+
+.fc-qr__guide p {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.fc-qr__guide strong {
+  color: var(--accent);
+}
+
+.fc-qr__guide-sub {
+  margin-top: 4px !important;
+  font-size: 0.75rem !important;
+  font-weight: 400 !important;
+  color: var(--ink-3) !important;
+}

@@ -1,0 +1,127 @@
+/* ============================================================
+   登录页家族 · 基础层：画布 / 色板 / 骨架 / 字标 / 响应式断点
+
+   fc-auth 白底色板只在这里定义；form / panels / intro 各层按此顺序
+   在 login.css 入口内联（构建期 @import 合并，级联顺序见入口）。
+   ============================================================ */
+
+.fc-auth {
+  /* 白底色板：暖灰阶 + 深黄铜点缀。
+     对比度刻意收紧：ink-2 ≈ 7:1（正文/标签），ink-3 ≈ 3.5:1（仅装饰性微标），
+     灰阶一旦过浅，白底上中文会直接「发虚」。 */
+  --paper: #ffffff;
+  --paper-soft: #faf9f6;
+  --ink: #17150f;
+  --ink-2: #57523f;
+  --ink-3: #857f6f;
+  --line: #e5e2da;
+  --line-strong: #cdc9bd;
+  --accent: #9a7824;
+
+  color-scheme: light;
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  background: var(--paper);
+  color: var(--ink);
+  font-family:
+    -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  /* 不设 -webkit-font-smoothing: antialiased——macOS 上它会关闭亚像素渲染，
+     中文笔画整体变细发虚（比应用其余部分明显更淡）；保持默认渲染与全站一致 */
+}
+
+.fc-auth ::selection {
+  /* 不做品牌色染色：系统默认淡蓝选中态更中性（用户反馈黄底发脏） */
+  background: rgba(23, 21, 15, 0.12);
+}
+
+/* ---------- 单栏骨架：垂直居中，窄屏贴边 ---------- */
+.fc-card {
+  width: min(400px, 100%);
+  margin: auto;
+  padding: 48px 24px;
+}
+
+/* 品牌字标：一个节点两种形态（媒体查询换位，读屏不重复）
+   - 大屏：视口左上角「页面铭牌」——品牌属边框层，卡片专注任务层
+   - 小屏：回到卡片流内当页头（手机无边角空间，品牌直接压在表单上方） */
+.fc-mark {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.fc-mark strong {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.fc-mark__meta {
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* 眉标 / 标题 / 副题 */
+.fc-eyebrow {
+  margin-top: 32px;
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.fc-title {
+  margin-top: 10px;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+/* ---------- 断点：字标 ---------- */
+/* 小屏（<760px）：整个隐藏卡片内字标——浏览器标题栏已有「法穿SI Copilot」，
+   卡片里再放一份既占首屏又重复 */
+@media (max-width: 759.98px) {
+  .fc-mark {
+    display: none;
+  }
+
+  .fc-eyebrow {
+    margin-top: 8px;
+  }
+}
+
+/* 大屏（≥760px）：视口左上角铭牌（fixed 脱离卡片流），从左边缘滑入；
+   副标字距从 0.34em 收拢到 0.18em——编辑风的「落定」，一帧不多 */
+@media (min-width: 760px) {
+  .fc-mark {
+    position: fixed;
+    top: 40px;
+    left: 48px;
+    z-index: 1;
+  }
+
+  .fc-mark strong {
+    font-size: 1.125rem;
+  }
+
+  .fc-eyebrow {
+    margin-top: 8px;
+  }
+}
+
+/* ---------- 窄屏 ---------- */
+@media (max-width: 480px) {
+  .fc-card {
+    padding: 36px 20px;
+  }
+
+  .fc-eyebrow {
+    margin-top: 40px;
+  }
+}

@@ -1,0 +1,171 @@
+/* ============================================================
+   登录页家族 · 表单层：方式标签页 / 发丝线字段 / 按钮家族 / 提示
+
+   fc-btn 三变体（默认近黑实底 / --brand 白底发丝线 / --ghost 无底）
+   同时被登录页与绑定弹窗（BindProviderDialog）消费。
+   ============================================================ */
+
+/* ---------- 登录方式：下划线标签页 ---------- */
+.fc-tabs {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 28px;
+  border-bottom: 1px solid var(--line);
+}
+
+.fc-tab {
+  position: relative;
+  padding: 0 0 10px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.875rem;
+  color: var(--ink-2);
+  transition: color 0.2s ease;
+}
+
+.fc-tab:hover {
+  color: var(--ink);
+}
+
+.fc-tab--on {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.fc-tab--on::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: var(--accent);
+}
+
+/* ---------- 字段：发丝线输入框 ---------- */
+.fc-fields {
+  margin-top: 24px;
+}
+
+.fc-field + .fc-field {
+  margin-top: 16px;
+}
+
+.fc-field__label {
+  display: block;
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.fc-field__row {
+  position: relative;
+  margin-top: 6px;
+}
+
+.fc-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 0.9375rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fc-input::placeholder {
+  color: var(--ink-3);
+}
+
+.fc-input:focus {
+  outline: none;
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px rgba(23, 21, 15, 0.06);
+}
+
+.fc-error {
+  margin-top: 14px;
+  font-size: 0.8125rem;
+  color: #b3261e;
+}
+
+.fc-fields .fc-btn {
+  margin-top: 20px;
+}
+
+/* ---------- 按钮：主按钮近黑实底；品牌按钮白底发丝线 ---------- */
+.fc-btn {
+  width: 100%;
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--ink);
+  border-radius: 8px;
+  background: var(--ink);
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.fc-btn:hover:not(:disabled) {
+  background: #000;
+}
+
+.fc-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.fc-btn--brand {
+  background: var(--paper);
+  border-color: var(--line-strong);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.fc-btn--brand:hover:not(:disabled) {
+  background: var(--paper-soft);
+  border-color: var(--line-strong);
+}
+
+.fc-btn--ghost {
+  background: none;
+  border-color: var(--line-strong);
+  color: var(--ink-2);
+  font-weight: 400;
+}
+
+.fc-btn--ghost:hover:not(:disabled) {
+  background: var(--paper-soft);
+  color: var(--ink);
+}
+
+.fc-auth .fc-btn--compact {
+  height: 40px;
+  padding: 0 10px;
+  font-size: 0.8125rem;
+}
+
+/* ---------- 提示 ---------- */
+.fc-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+
+.fc-hint--error {
+  color: #b3261e;
+}

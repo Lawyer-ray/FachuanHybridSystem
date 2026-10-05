@@ -1,7 +1,8 @@
 /**
  * 登录页。
  *
- * 视觉：白底极简（灰阶 + 单一黄铜点缀），样式自包含于 login.css。
+ * 视觉：白底极简（灰阶 + 单一黄铜点缀），样式分层于 login.css 入口
+ * 编排的 login-base/form/panels/intro(-motion) 家族文件。
  * 单栏左对齐、发丝线分隔，视觉重心让给账密表单。
  *
  * 开场 MG「奇点 · Super Intelligence」v3.1（≈7.9s，国际大片规格）：

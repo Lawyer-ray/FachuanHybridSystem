@@ -1,0 +1,179 @@
+/* ============================================================
+   登录页家族 · 开场 MG 覆盖层：静态结构
+
+   「奇点 · Super Intelligence」v3.1（≈7.9s，每次进页播放）的舞台与元素
+   基础样式；动画时间轴（delay/时长/keyframes）在 login-intro-motion.css，
+   时间轴须与 LoginPage 的 INTRO_READY_MS / INTRO_UNMOUNT_MS 常量同步。
+   ============================================================ */
+
+.fc-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: var(--paper);
+}
+
+/* 由 settling 相位驱动（JS 定时），与内部 delay 时间轴解耦 */
+.fc-intro--out {
+  animation: fc-intro-out 0.45s ease forwards;
+}
+
+/* 深空背景粒子：小而暗的氛围层，点火前淡出 */
+.fc-intro__bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fc-intro__bgdot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  opacity: 0.22;
+}
+
+/* 螺旋卷入粒子：transform = rotate(初始角)+translateX(极径)，动画即吸积 */
+.fc-intro__dots {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fc-intro__dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--s, 4px);
+  height: var(--s, 4px);
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+
+.fc-intro__dot--brass {
+  background: var(--accent);
+}
+
+.fc-intro__stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 奇点：core 先蓄能后爆发，wave 三层冲击波错峰扩散 */
+.fc-intro__corewrap {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.fc-intro__core {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.fc-intro__wave {
+  position: absolute;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  opacity: 0;
+}
+
+.fc-intro__wave--1 { width: 120px; height: 120px; }
+.fc-intro__wave--2 { width: 170px; height: 170px; }
+.fc-intro__wave--3 { width: 230px; height: 230px; }
+
+/* 暖色过曝闪：白底上的「爆发一瞬」（纯白闪不可见，用黄铜薄雾） */
+.fc-intro__flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at 50% 46%, rgba(154, 120, 36, 0.2) 0%, rgba(154, 120, 36, 0.06) 42%, transparent 72%);
+}
+
+/* 巨字残影：镜头景深——「法穿」炸出前一瞬的大轮廓 */
+.fc-intro__ghost {
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  font-size: 34vmin;
+  font-weight: 800;
+  color: var(--ink);
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* 抛射粒子：奇点爆发甩出的火花 */
+.fc-intro__ejecta {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fc-intro__spark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.fc-intro__word {
+  display: flex;
+  gap: 0.12em;
+  font-size: clamp(4.25rem, 13vw, 7.5rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+
+.fc-intro__rule {
+  width: min(58vw, 340px);
+  height: 1px;
+  margin-top: clamp(18px, 3vh, 28px);
+  background: var(--accent);
+}
+
+.fc-intro__phrase {
+  display: flex;
+  gap: 1.25em;
+  margin-top: clamp(22px, 3.5vh, 30px);
+}
+
+.fc-intro__phrase-word {
+  display: flex;
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  font-size: 0.9375rem;
+  color: var(--ink-2);
+}
+
+.fc-intro__meta {
+  margin-top: clamp(22px, 3.5vh, 30px);
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  font-size: 0.9375rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.fc-intro__est {
+  margin-top: 10px;
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+}

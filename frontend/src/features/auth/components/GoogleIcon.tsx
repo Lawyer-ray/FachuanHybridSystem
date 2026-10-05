@@ -5,7 +5,7 @@
  * `googleusercontent.com` 一类域名本身就可能不通（能否打开授权页取决于网络环境），
  * 登录页不该再依赖一个可能加载失败的外链。
  *
- * 四色必须落在**浅色底**上：白色/浅灰按钮底（见 login.css 的 `.fc-btn--brand`）。
+ * 四色必须落在**浅色底**上：白色/浅灰按钮底（见 login-form.css 的 `.fc-btn--brand`）。
  */
 export function GoogleIcon({ size = 18 }: { size?: number }) {
   return (

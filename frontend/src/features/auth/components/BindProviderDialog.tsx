@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { socialBindingsApi, type SocialProviderInfo } from '../social-api'
-/* 弹窗内嵌 SocialQrPanel / SocialRedirectPanel，其 fc-* 样式在 login.css（登录页家族共用） */
+/* 弹窗内嵌 SocialQrPanel / SocialRedirectPanel，其 fc-* 样式在 login.css 家族（表单/面板两层，登录页共用） */
 import '../login.css'
 import { SocialQrPanel } from './SocialQrPanel'
 import { SocialRedirectPanel } from './SocialRedirectPanel'
