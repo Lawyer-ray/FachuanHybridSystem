@@ -382,6 +382,9 @@ class ScriptExecutorService:
 
         contract = Contract.objects.filter(pk=contract_id).first()
         oa_case_number = contract.law_firm_oa_case_number if contract else ""
+        # 律所ID（OA 案件 GUID）非空时直达归档申请页（keyid 定位案件，跳过
+        # 弹窗查案件，填充逻辑不变）；空则按案号查案件（备用方案）
+        project_id = str(contract.law_firm_oa_guid or "") if contract else ""
 
         final_file = (
             ArchiveGenerationService().resolve_latest_final_archive_file(contract) if contract is not None else None
@@ -396,7 +399,9 @@ class ScriptExecutorService:
         else:
             logger.info("未找到 5-Final案卷材料，打开 OA 跳过自动上传", extra={"contract_id": contract_id})
 
-        self._spawn_open_page_thread("open_oa_page", site_name, credential, oa_case_number, description, file_paths)
+        self._spawn_open_page_thread(
+            "open_oa_page", site_name, credential, oa_case_number, description, file_paths, project_id
+        )
 
     # ------------------------------------------------------------------
     # 申请开票

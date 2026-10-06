@@ -29,6 +29,7 @@ from .constants import (
     IFRAME_SEARCH_FN,
     MEDIUM_WAIT,
     POPUP_WAIT,
+    PROJCLOSE_APP_URL_TEMPLATE,
     SAVE_BTN_ID,
     SHORT_WAIT,
 )
@@ -91,10 +92,15 @@ class PlaywrightArchiveMixin:  # pragma: no cover
         cookies = await self._auth.perform_sso_login(page, context)
         await JtnAuthService.inject_to_context(context, cookies)
 
-    async def _navigate(self: Any, page: Page) -> None:  # pragma: no cover
-        """导航到结案归档管理 - 结案申请页面。"""
-        logger.info("导航到归档页面: %s", ARCHIVE_PAGE_URL)
-        await page.goto(ARCHIVE_PAGE_URL, wait_until="domcontentloaded", timeout=60_000)
+    async def _navigate(self: Any, page: Page, project_id: str | None = None) -> None:  # pragma: no cover
+        """导航到结案归档页面。
+
+        project_id（律所ID/GUID）非空时直达归档申请页（keyid 定位案件，
+        跳过弹窗查案件）；否则进结案归档管理列表页（由调用方再走弹窗搜案）。
+        """
+        target_url = PROJCLOSE_APP_URL_TEMPLATE.format(project_id=project_id) if project_id else ARCHIVE_PAGE_URL
+        logger.info("导航到归档页面: %s", target_url)
+        await page.goto(target_url, wait_until="domcontentloaded", timeout=60_000)
         await asyncio.sleep(MEDIUM_WAIT)
 
         if "login" in page.url.lower():
@@ -267,8 +273,14 @@ class PlaywrightArchiveMixin:  # pragma: no cover
         oa_case_number: str,
         description: str = "详见卷宗",
         file_paths: list[str] | None = None,
+        project_id: str | None = None,
     ) -> BrowserSessionHandle:
-        """打开归档页面，填写案件编号和小结，若提供 file_paths 则在最后一步将对应文件上传到"案件业务卷宗"，返回浏览器会话句柄（长生命周期）。"""
+        """打开归档页面，填写案件编号和小结，若提供 file_paths 则在最后一步将对应文件上传到"案件业务卷宗"，返回浏览器会话句柄（长生命周期）。
+
+        project_id（律所ID/GUID）非空时直达带 keyid 的归档申请页（案件已定位，
+        跳过弹窗查案件，后续小结/附件填充逻辑不变）；否则按 oa_case_number
+        弹窗搜索选择案件（备用方案）。
+        """
         session = await create_browser_async_manual("jtn")
         page = session.page
         # 浏览器关闭后的回收由 adapter.wait_open_browsers_closed 负责（调度器压住
@@ -277,10 +289,12 @@ class PlaywrightArchiveMixin:  # pragma: no cover
 
         try:
             await self._login(page, session.context)
-            await self._navigate(page)
+            await self._navigate(page, project_id=project_id)
 
-            if oa_case_number:
+            if not project_id and oa_case_number:
                 await self._search_and_select_case(page, oa_case_number)
+            elif not project_id and not oa_case_number:
+                logger.info("未提供案件编号与律所ID，仅打开归档页面")
 
             await self._fill_description(page, description)
             await self._click_delete_button(page)

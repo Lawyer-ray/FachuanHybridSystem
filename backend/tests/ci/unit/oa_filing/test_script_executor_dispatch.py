@@ -478,7 +478,7 @@ class TestOpenOaPage:
 
     def test_no_final_archive_file_omits_upload(self, monkeypatch: pytest.MonkeyPatch):
         spawn = _patch_open_common(monkeypatch, "cred")
-        contract = SimpleNamespace(law_firm_oa_case_number="OA-3")
+        contract = SimpleNamespace(law_firm_oa_case_number="OA-3", law_firm_oa_guid=None)
         with (
             patch("apps.contracts.models.Contract") as contract_model,
             patch("apps.contracts.services.archive.generation.service.ArchiveGenerationService") as gen_svc,
@@ -489,11 +489,41 @@ class TestOpenOaPage:
             ScriptExecutorService().open_oa_page(9, MagicMock(), description="详见卷宗")
 
         gen_svc.return_value.resolve_latest_final_archive_file.assert_called_once_with(contract)
-        spawn.assert_called_once_with("open_oa_page", "金诚同达OA", "cred", "OA-3", "详见卷宗", [])
+        spawn.assert_called_once_with("open_oa_page", "金诚同达OA", "cred", "OA-3", "详见卷宗", [], "")
+
+    def test_with_guid_passes_project_id(self, monkeypatch: pytest.MonkeyPatch):
+        """有律所ID：透传 project_id（直达带 keyid 的归档申请页）。"""
+        spawn = _patch_open_common(monkeypatch, "cred")
+        contract = SimpleNamespace(law_firm_oa_case_number="OA-5", law_firm_oa_guid="guid-xyz")
+        with (
+            patch("apps.contracts.models.Contract") as contract_model,
+            patch("apps.contracts.services.archive.generation.service.ArchiveGenerationService") as gen_svc,
+        ):
+            contract_model.objects.filter.return_value.first.return_value = contract
+            gen_svc.return_value.resolve_latest_final_archive_file.return_value = None
+
+            ScriptExecutorService().open_oa_page(10, MagicMock())
+
+        spawn.assert_called_once_with("open_oa_page", "金诚同达OA", "cred", "OA-5", "详见卷宗", [], "guid-xyz")
+
+    def test_without_guid_project_id_is_none(self, monkeypatch: pytest.MonkeyPatch):
+        """无律所ID：project_id=None（走弹窗查案件备用方案）。"""
+        spawn = _patch_open_common(monkeypatch, "cred")
+        contract = SimpleNamespace(law_firm_oa_case_number="OA-6", law_firm_oa_guid=None)
+        with (
+            patch("apps.contracts.models.Contract") as contract_model,
+            patch("apps.contracts.services.archive.generation.service.ArchiveGenerationService") as gen_svc,
+        ):
+            contract_model.objects.filter.return_value.first.return_value = contract
+            gen_svc.return_value.resolve_latest_final_archive_file.return_value = None
+
+            ScriptExecutorService().open_oa_page(11, MagicMock())
+
+        spawn.assert_called_once_with("open_oa_page", "金诚同达OA", "cred", "OA-6", "详见卷宗", [], "")
 
     def test_final_archive_file_attached(self, monkeypatch: pytest.MonkeyPatch):
         spawn = _patch_open_common(monkeypatch, "cred")
-        contract = SimpleNamespace(law_firm_oa_case_number="OA-4")
+        contract = SimpleNamespace(law_firm_oa_case_number="OA-4", law_firm_oa_guid=None)
         with (
             patch("apps.contracts.models.Contract") as contract_model,
             patch("apps.contracts.services.archive.generation.service.ArchiveGenerationService") as gen_svc,
@@ -503,7 +533,9 @@ class TestOpenOaPage:
 
             ScriptExecutorService().open_oa_page(9, MagicMock())
 
-        spawn.assert_called_once_with("open_oa_page", "金诚同达OA", "cred", "OA-4", "详见卷宗", ["/media/5-Final.zip"])
+        spawn.assert_called_once_with(
+            "open_oa_page", "金诚同达OA", "cred", "OA-4", "详见卷宗", ["/media/5-Final.zip"], ""
+        )
 
     def test_missing_contract_uses_empty_number(self, monkeypatch: pytest.MonkeyPatch):
         spawn = _patch_open_common(monkeypatch, "cred")
@@ -512,7 +544,7 @@ class TestOpenOaPage:
 
             ScriptExecutorService().open_oa_page(9, MagicMock())
 
-        spawn.assert_called_once_with("open_oa_page", "金诚同达OA", "cred", "", "详见卷宗", [])
+        spawn.assert_called_once_with("open_oa_page", "金诚同达OA", "cred", "", "详见卷宗", [], "")
 
 
 class TestOpenInvoicePage:
