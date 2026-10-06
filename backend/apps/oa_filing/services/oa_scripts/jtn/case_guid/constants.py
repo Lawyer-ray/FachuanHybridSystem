@@ -1,7 +1,7 @@
 """金诚同达 OA 案号查 GUID（案件管理页搜索）常量。
 
 依据《案号查GUID方法文档.md》方法一：案件管理列表页 WebForms postback，
-纯 HTTP 可完整复刻，无需浏览器。
+纯 HTTP 可完整复刻，无需浏览器。HTTP 会话公共常量在 jtn/auth/constants.py。
 """
 
 from __future__ import annotations
@@ -21,10 +21,3 @@ _VIEWSTATE_GENERATOR_FIELD = "__VIEWSTATEGENERATOR"
 
 # 结果行操作链接携带 keyid=<GUID>（iwl_project.project_id）
 _KEYID_REGEX = re.compile(r"keyid=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})", re.IGNORECASE)
-
-# 会话过期特征（与利冲检索同款）：~441 字节 location.replace 占位页 / 302 → member/login.aspx
-_LOGIN_URL_MARKER = "member/login.aspx"
-_LOCATION_REPLACE_MARKER = "location.replace"
-_SESSION_PLACEHOLDER_MAX_LEN = 2048
-
-_DEFAULT_HTTP_TIMEOUT = 20

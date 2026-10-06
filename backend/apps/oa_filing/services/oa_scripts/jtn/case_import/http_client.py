@@ -4,27 +4,25 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import re
 from typing import Any
 from urllib.parse import urljoin
 
 import httpx
 from lxml import html as lxml_html
 
+from ..auth.constants import _DEFAULT_HTTP_TIMEOUT, _HTTP_HEADERS, _LOGIN_URL
+from ..http_session import build_client, http_login_cookies
 from . import html_parser
 from .models import CaseListFormState, CaseSearchItem, OACaseData, OAListCaseCandidate
 
 logger = logging.getLogger("apps.oa_filing.jtn_case_import")
 
 # ============================================================
-# 常量：URL
+# 常量：URL（登录/请求头/超时统一从 auth.constants 出口）
 # ============================================================
-_LOGIN_URL = "https://ims.jtn.com/member/login.aspx"
 _CASE_LIST_URL = "https://ims.jtn.com/project/index.aspx?FirstModel=PROJECT&SecondModel=PROJECT002"
 _BASE_URL = "https://ims.jtn.com/project"
 _DETAIL_URL_TEMPLATE = "{base}/projectView.aspx?keyid={keyid}&FirstModel=PROJECT&SecondModel=PROJECT002"
-_HTTP_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-_DEFAULT_HTTP_TIMEOUT = 20
 _NAME_SEARCH_HTTP_ATTEMPTS = 2
 _SEARCH_CASE_NO_FIELD = "ctl00$ctl00$mainContentPlaceHolder$projmainPlaceHolder$project_no"
 _SEARCH_CASE_NAME_FIELD = "ctl00$ctl00$mainContentPlaceHolder$projmainPlaceHolder$project_name"
@@ -42,6 +40,7 @@ class JtnHttpClientMixin:
     # --- 由 facade 或其他 mixin 提供 ---
     _account: str
     _password: str
+    _auth: Any
     _http_cookies_cache: dict[str, str] | None
     _name_search_http_client: httpx.AsyncClient | None
     _name_search_form_state: CaseListFormState | None
@@ -106,13 +105,7 @@ class JtnHttpClientMixin:
         """HTTP 并发 worker：复用同一登录 cookie 顺序查询一个分片。"""
         results: list[tuple[int, str, OACaseData | None]] = []
 
-        async with httpx.AsyncClient(
-            headers=_HTTP_HEADERS,
-            follow_redirects=True,
-            timeout=_DEFAULT_HTTP_TIMEOUT,
-            cookies=shared_cookies,
-            trust_env=False,
-        ) as client:
+        async with build_client(cookies=shared_cookies) as client:
             form_state = await self._load_case_list_form_state(client)
 
             for index, case_no in indexed_chunk:
@@ -142,31 +135,12 @@ class JtnHttpClientMixin:
         if self._http_cookies_cache:
             return dict(self._http_cookies_cache)
 
-        cookies = await self._http_login_and_get_cookies()
+        # 保持「每批全新登录」语义，不读磁盘缓存：磁盘缓存若失效会令整批
+        # HTTP 链路全挂（逐案报缺 aspnetForm → 整批回落 Playwright），
+        # 比省 2 个登录请求更伤；批内复用靠上方内存缓存。
+        cookies = await http_login_cookies(self._auth)
         self._http_cookies_cache = dict(cookies)
         return dict(cookies)
-
-    async def _http_login_and_get_cookies(self: Any) -> dict[str, str]:  # pragma: no cover
-        """执行一次 HTTP 登录并返回可复用 cookie。"""
-        logger.info("HTTP 登录 OA: %s", _LOGIN_URL)
-
-        async with httpx.AsyncClient(
-            headers=_HTTP_HEADERS, follow_redirects=True, timeout=15, trust_env=False
-        ) as client:
-            login_resp = await client.get(_LOGIN_URL)
-            csrf_token = html_parser.extract_hidden_input(login_resp.text, "CSRFToken")
-
-            login_result = await client.post(
-                _LOGIN_URL,
-                data={"CSRFToken": csrf_token, "userid": self._account, "password": self._password},
-            )
-            if self._is_login_failed_response(login_result):
-                raise RuntimeError(f"OA 登录失败，账号或密码错误: {self._account}")
-
-            cookies = dict(client.cookies.items())
-
-        logger.info("HTTP 登录成功，获取 cookie=%d", len(cookies))
-        return cookies
 
     # ------------------------------------------------------------------
     # 列表页表单解析
@@ -285,14 +259,7 @@ class JtnHttpClientMixin:
         return client, form_state
 
     def _build_name_search_http_client(self: Any, *, cookies: dict[str, str]) -> httpx.AsyncClient:  # pragma: no cover
-        return httpx.AsyncClient(
-            headers={**_HTTP_HEADERS, "Connection": "close"},
-            follow_redirects=True,
-            timeout=_DEFAULT_HTTP_TIMEOUT,
-            cookies=cookies,
-            limits=httpx.Limits(max_connections=1, max_keepalive_connections=0),
-            trust_env=False,
-        )
+        return build_client(cookies=cookies, connection_close=True)
 
     async def _reset_name_search_http_session(self: Any) -> None:
         if self._name_search_http_client is not None:
@@ -405,21 +372,3 @@ class JtnHttpClientMixin:
 
         logger.warning("未找到指定案件名称查询字段: %s", _SEARCH_CASE_NAME_FIELD)
         return None
-
-    # ------------------------------------------------------------------
-    # 登录响应判断
-    # ------------------------------------------------------------------
-    def _is_login_failed_response(self: Any, response: httpx.Response) -> bool:
-        """根据登录响应判断是否仍停留在登录失败状态。"""
-        url_lower = str(response.url).lower()
-        body_lower = response.text.lower()
-        head = body_lower[:2500]
-
-        stayed_on_login_page = "member/login.aspx" in url_lower
-        has_userid_input = 'name="userid"' in head or "name='userid'" in head
-        has_password_input = 'name="password"' in head or "name='password'" in head
-        has_login_form = has_userid_input and has_password_input
-        has_login_error_text = any(
-            token in body_lower for token in ("账号或密码错误", "用户名或密码错误", "invalid password", "login failed")
-        )
-        return bool((stayed_on_login_page and has_login_form) or has_login_error_text)

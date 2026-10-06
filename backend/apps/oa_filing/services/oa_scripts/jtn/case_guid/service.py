@@ -8,7 +8,7 @@
 
 无浏览器、无 Playwright 兜底（区别于 case_import 的 HTTP+Playwright 双链路）。
 覆盖范围仅当前 OA 账号可见的案件；0 命中是合法结果（案件不存在或账号不可见）。
-会话来源：JtnAuthService.http_login() 纯 HTTP 登录（client_import 同款，无需扫码）。
+会话策略走 jtn/http_session 共享层：磁盘缓存 cookies 优先，失效回退 http_login。
 """
 
 from __future__ import annotations
@@ -17,19 +17,15 @@ import logging
 import re
 from typing import Any
 
-import httpx
 from lxml import html as lxml_html
 
 from ..auth.service import JtnAuthService
+from ..http_session import build_client, cached_cookies, http_login_cookies, is_oa_login_page
 from .constants import (
     _CASE_LIST_URL,
     _CURRENT_PAGE_FIELD,
-    _DEFAULT_HTTP_TIMEOUT,
     _KEYID_REGEX,
-    _LOCATION_REPLACE_MARKER,
-    _LOGIN_URL_MARKER,
     _SEARCH_CASE_NO_FIELD,
-    _SESSION_PLACEHOLDER_MAX_LEN,
     _VIEWSTATE_FIELD,
     _VIEWSTATE_GENERATOR_FIELD,
 )
@@ -48,13 +44,6 @@ def extract_viewstate_fields(html_text: str) -> dict[str, str]:
         if match:
             fields[name] = match.group(1)
     return fields
-
-
-def is_oa_login_page(url: Any, html_text: str) -> bool:
-    """判断响应是否为会话失效特征（登录页或 location.replace 占位页）。"""
-    if _LOGIN_URL_MARKER in str(url).lower():
-        return True
-    return len(html_text) < _SESSION_PLACEHOLDER_MAX_LEN and _LOCATION_REPLACE_MARKER in html_text
 
 
 def extract_case_guids(html_text: str, case_no: str) -> list[str]:
@@ -93,14 +82,14 @@ class JtnCaseGuidScript:
     async def lookup_case_guids(self, case_no: str) -> list[str]:
         """按案号查询 OA 案件 GUID 列表（只读；仅当前账号可见的案件）。
 
-        会话策略：缓存 cookies 优先（SSO 扫码登录的产物，部分账号不支持账密
-        HTTP 登录）；失效则尝试 http_login() 纯 HTTP 登录后重试。
+        会话策略（共享层同款）：缓存 cookies 优先（SSO 扫码登录的产物，部分
+        账号不支持账密 HTTP 登录）；失效则尝试 http_login 账密登录后重试。
         """
         keyword = str(case_no or "").strip()
         if not keyword:
             return []
 
-        cached = self._cookies_from_cache()
+        cached = cached_cookies(self._auth)
         if cached is not None:
             try:
                 return await self._lookup_with_cookies(cookies=cached, case_no=keyword)
@@ -109,27 +98,14 @@ class JtnCaseGuidScript:
         return await self._lookup_after_login(keyword)
 
     async def _lookup_after_login(self, keyword: str) -> list[str]:
-        """用 http_login() 新会话执行查询；中途失效再整体重试一次。"""
-        try:
-            cookies = await self._auth.http_login()
-        except Exception as exc:
-            raise RuntimeError(
-                "OA 会话无效，且该账号无法通过账密 HTTP 登录（可能仅支持扫码登录）；"
-                "请先在 OA 立案/盖章等功能中完成一次登录刷新会话后重试"
-            ) from exc
+        """用 http_login 新会话执行查询；中途失效再整体重试一次。"""
+        cookies = await http_login_cookies(self._auth)
 
         try:
             return await self._lookup_with_cookies(cookies=cookies, case_no=keyword)
         except _SessionExpiredError:
             logger.info("OA 会话中途失效，重新登录后重试案号查 GUID: %s", keyword)
             return await self._lookup_with_cookies(cookies=await self._auth.http_login(), case_no=keyword)
-
-    def _cookies_from_cache(self) -> dict[str, str] | None:
-        """读取磁盘缓存 cookies（playwright 格式）并转为 name→value 扁平 dict。"""
-        cached = self._auth.load_cookies()
-        if not cached:
-            return None
-        return {str(c["name"]): str(c["value"]) for c in cached}
 
     async def _lookup_with_cookies(self, *, cookies: dict[str, str], case_no: str) -> list[str]:
         """单次完整流程：GET 取 VIEWSTATE → POST 搜索 → 提取 GUID。"""
@@ -158,15 +134,9 @@ class JtnCaseGuidScript:
             logger.info("案号查 GUID 完成: case_no=%s hits=%d", case_no, len(guids))
             return guids
 
-    def _build_client(self, *, cookies: dict[str, str]) -> httpx.AsyncClient:
-        """构建 httpx 客户端（trust_env=False 防代理环境变量劫持，测试可替换 transport）。"""
-        return httpx.AsyncClient(
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
-            follow_redirects=True,
-            timeout=_DEFAULT_HTTP_TIMEOUT,
-            cookies=cookies,
-            trust_env=False,
-        )
+    def _build_client(self, *, cookies: dict[str, str]) -> Any:
+        """构建 httpx 客户端（实例级接缝，测试可替换 transport）。"""
+        return build_client(cookies=cookies)
 
 
 class _SessionExpiredError(RuntimeError):

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from .service import JtnCaseGuidScript, extract_case_guids, extract_viewstate_fields, is_oa_login_page
+from ..http_session import is_oa_login_page
+from .service import JtnCaseGuidScript, extract_case_guids, extract_viewstate_fields
 
 __all__ = [
     "JtnCaseGuidScript",

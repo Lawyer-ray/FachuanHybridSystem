@@ -21,17 +21,21 @@ from playwright.async_api import BrowserContext, Page
 from apps.core.services.browser import create_browser_async
 
 from ..auth.service import JtnAuthService
+from ..http_session import (
+    build_client,
+    cached_cookies_raw,
+    http_login_cookies,
+    resolve_session_cookies,
+    to_context_cookie_list,
+)
 
 logger = logging.getLogger("apps.oa_filing.jtn_client_import")
 
 # ============================================================
-# 常量：URL
+# 常量：URL（登录/请求头/超时统一从 auth.constants 出口）
 # ============================================================
-_LOGIN_URL = "https://ims.jtn.com/member/login.aspx"
 _CLIENT_LIST_URL = "https://ims.jtn.com/customer/index.aspx?Category=A&FirstModel=PROJECT&SecondModel=PROJECT001"
 _BASE_URL = "https://ims.jtn.com/customer"
-_HTTP_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-_DEFAULT_HTTP_TIMEOUT = 20
 _LIST_CURRENT_PAGE_FIELD = "currentPage"
 
 # 等待时间（秒）
@@ -86,7 +90,7 @@ class JtnClientImportScript:  # pragma: no cover
         self._emit_progress("discovery_started", message="正在登录OA并进入客户列表")
 
         try:
-            shared_cookies = await self._auth.http_login()
+            shared_cookies = await resolve_session_cookies(self._auth)
             all_items = await self._discover_clients_via_http(shared_cookies=shared_cookies, limit=limit)
 
             logger.info("HTTP 共收集到 %d 个客户", len(all_items))
@@ -234,13 +238,7 @@ class JtnClientImportScript:  # pragma: no cover
         all_items: list[CustomerListItem] = []
         seen_key_ids: set[str] = set()
 
-        async with httpx.AsyncClient(
-            headers=_HTTP_HEADERS,
-            follow_redirects=True,
-            timeout=_DEFAULT_HTTP_TIMEOUT,
-            cookies=shared_cookies,
-            trust_env=False,
-        ) as client:
+        async with build_client(cookies=shared_cookies) as client:
             form_state = await self._load_client_list_form_state(client)
             max_pages = self._resolve_total_pages(form_state.total_count, form_state.page_size)
             page_index = 1
@@ -449,13 +447,7 @@ class JtnClientImportScript:  # pragma: no cover
         shared_cookies: dict[str, str],
     ) -> list[tuple[int, OACustomerData | None]]:
         results: list[tuple[int, OACustomerData | None]] = []
-        async with httpx.AsyncClient(
-            headers=_HTTP_HEADERS,
-            follow_redirects=True,
-            timeout=_DEFAULT_HTTP_TIMEOUT,
-            cookies=shared_cookies,
-            trust_env=False,
-        ) as client:
+        async with build_client(cookies=shared_cookies) as client:
             for idx, item in indexed_chunk:
                 try:
                     data = await self._fetch_customer_detail_via_http(client=client, item=item)
@@ -624,38 +616,18 @@ class JtnClientImportScript:  # pragma: no cover
     # ------------------------------------------------------------------
 
     async def _login(self) -> None:  # pragma: no cover
-        """通过 httpx 接口登录，将 cookie 注入 Playwright context。"""
-        logger.info("接口登录: %s", _LOGIN_URL)
-
-        async with httpx.AsyncClient(
-            headers=_HTTP_HEADERS, follow_redirects=True, timeout=1, trust_env=False
-        ) as client:
-            r = await client.get(_LOGIN_URL)
-            csrf_match = re.search(r'name=["\']CSRFToken["\'] value=["\']([^"\']+)["\']', r.text)
-            csrf = csrf_match.group(1) if csrf_match else ""
-
-            r2 = await client.post(
-                _LOGIN_URL,
-                data={"CSRFToken": csrf, "userid": self._account, "password": self._password},
-            )
-
-            if "login" in str(r2.url).lower() or "logout" in r2.text.lower()[:200]:
-                raise RuntimeError(f"OA 登录失败，账号或密码错误: {self._account}")
-
+        """缓存 cookies 优先（保留 domain/path），失效则 HTTP 账密登录，注入 Playwright context。"""
+        cached = cached_cookies_raw(self._auth)
+        if cached:
             assert self._context is not None
-            for cookie in client.cookies.jar:
-                await self._context.add_cookies(
-                    [
-                        {
-                            "name": cookie.name,
-                            "value": cookie.value or "",
-                            "domain": cookie.domain or "ims.jtn.com",
-                            "path": cookie.path or "/",
-                        }
-                    ]
-                )
+            await JtnAuthService.inject_to_context(self._context, cached)
+            logger.info("使用缓存 cookies 注入 Playwright context（%d 个）", len(cached))
+            return
 
-        logger.info("接口登录成功，cookie 已注入，当前重定向URL: %s", r2.url)
+        cookies = await http_login_cookies(self._auth)
+        assert self._context is not None
+        await JtnAuthService.inject_to_context(self._context, to_context_cookie_list(cookies))
+        logger.info("HTTP 登录成功，cookie 已注入 Playwright context（%d 个）", len(cookies))
 
     async def _navigate_to_client_list(self) -> None:  # pragma: no cover
         """导航到客户列表页。"""

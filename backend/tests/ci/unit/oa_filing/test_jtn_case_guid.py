@@ -18,8 +18,8 @@ from apps.oa_filing.services.oa_scripts.jtn.case_guid.service import (
     JtnCaseGuidScript,
     extract_case_guids,
     extract_viewstate_fields,
-    is_oa_login_page,
 )
+from apps.oa_filing.services.oa_scripts.jtn.http_session import is_oa_login_page
 
 _GUID_A = "b0219b56-3968-48a8-8e12-3ca86bf160ce"
 _GUID_B = "0f2b7a11-1111-2222-3333-444455556666"

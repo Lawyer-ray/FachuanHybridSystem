@@ -359,7 +359,7 @@ class TestHttpLogin:
 
     @pytest.mark.asyncio
     async def test_http_login_failure_raises(self):
-        """登录失败应抛出 RuntimeError。"""
+        """登录失败应抛出 RuntimeError（强口径：停在登录页且带账密表单）。"""
         auth = JtnAuthService("bad_user", "bad_pass")
 
         mock_login_resp = MagicMock()
@@ -367,6 +367,7 @@ class TestHttpLogin:
 
         mock_result = MagicMock()
         mock_result.url = "https://ims.jtn.com/member/login.aspx"  # 仍在登录页
+        mock_result.text = '<input name="userid"><input name="password">登录页'
         mock_result.cookies = MagicMock()
         mock_result.cookies.items.return_value = []
 
@@ -514,11 +515,12 @@ class TestClientImportIntegration:
         assert inspect.isasyncgenfunction(JtnClientImportScript.run)
 
     def test_client_import_constants_consistent(self):
-        """client_import 应使用共享常量。"""
+        """client_import 不再本地定义登录 URL（统一从 auth.constants 出口）。"""
+        import apps.oa_filing.services.oa_scripts.jtn.client_import.service as ci_mod
         from apps.oa_filing.services.oa_scripts.jtn.auth.constants import _LOGIN_URL as AUTH_URL
-        from apps.oa_filing.services.oa_scripts.jtn.client_import.service import _LOGIN_URL as CI_URL
 
-        assert CI_URL == AUTH_URL
+        local_url = getattr(ci_mod, "_LOGIN_URL", None)
+        assert local_url is None or local_url == AUTH_URL
 
     def test_client_import_pure_methods_unchanged(self):
         """纯逻辑方法不应受影响。"""
