@@ -50,17 +50,20 @@ class TestLookupOaGuidView:
         request.user = _make_superuser()
         resp = self._view().lookup_oa_guid_view(request, 1)
         assert resp.status_code == 405
+        assert json.loads(resp.content) == {"ok": False, "error": "Method not allowed"}
 
     def test_permission_denied_for_staff_without_change_perm(self):
         request = _post_request(_make_staff_no_perm(), 1, {"case_no": _CASE_NO})
         resp = self._view().lookup_oa_guid_view(request, 1)
         assert resp.status_code == 403
+        assert json.loads(resp.content) == {"ok": False, "error": "Permission denied"}
 
     def test_missing_case_no_rejected(self):
         contract = Contract.objects.create(name="利冲合同", case_type="civil")
         request = _post_request(_make_superuser(), contract.pk, {"case_no": "  "})
         resp = self._view().lookup_oa_guid_view(request, contract.pk)
         assert resp.status_code == 400
+        assert json.loads(resp.content) == {"ok": False, "error": "请先填写律所OA案件编号"}
 
     def test_invalid_json_rejected(self):
         request = RequestFactory().post(
@@ -71,6 +74,7 @@ class TestLookupOaGuidView:
         request.user = _make_superuser()
         resp = self._view().lookup_oa_guid_view(request, 1)
         assert resp.status_code == 400
+        assert json.loads(resp.content) == {"ok": False, "error": "请求体不是合法 JSON"}
 
     def test_success_returns_guids(self):
         contract = Contract.objects.create(name="利冲合同2", case_type="civil")
