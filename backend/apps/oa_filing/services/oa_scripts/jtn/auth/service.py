@@ -210,9 +210,11 @@ class JtnAuthService:  # pragma: no cover
 
         GET 登录页 → 提取 CSRFToken → POST 账号密码 → 返回 cookies。
         适用于 case_import / client_import 等不需要浏览器扫码的场景。
-        失败判定为强口径：停在登录页且带账密表单，或正文含登录失败文案。
+        失败判定为强口径：停在登录页且带账密表单、正文含登录失败文案，
+        或被弹到 SSO 门户/网关（access.jtn.com / corplink）——后者说明会话
+        未被网关放行，账密 POST 根本没到 OA 应用层，不能算登录成功。
         """
-        from ..http_session import has_login_error_text, has_login_form, is_login_url
+        from ..http_session import has_login_error_text, has_login_form, is_login_url, is_sso_gateway_url
 
         logger.info("HTTP 登录 OA: %s", _LOGIN_URL)
 
@@ -228,6 +230,11 @@ class JtnAuthService:  # pragma: no cover
                 data={"CSRFToken": csrf, "userid": self._account, "password": self._password},
             )
 
+            if is_sso_gateway_url(login_result.url):
+                raise RuntimeError(
+                    "OA 登录被 SSO 网关拦截（access.jtn.com），HTTP 账密登录不可用；"
+                    "请先在浏览器完成一次 OA 登录刷新会话后重试"
+                )
             stayed_on_login_with_form = is_login_url(login_result.url) and has_login_form(login_result.text)
             if stayed_on_login_with_form or has_login_error_text(login_result.text):
                 raise RuntimeError(f"OA 登录失败，账号或密码错误: {self._account}")
