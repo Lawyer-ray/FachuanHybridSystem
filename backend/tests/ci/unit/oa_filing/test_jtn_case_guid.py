@@ -186,13 +186,14 @@ class _SelfHealServer:
         url = str(request.url)
 
         if "corplink/agw" in url:
+            # 模拟回调下发新网关 token（host-only，与旧 .ims.jtn.com 域串不同 → jar 共存）
             if self.gateway_dead:
                 return httpx.Response(200, text="<html>gateway stuck</html>")
             return httpx.Response(
                 302,
                 headers=[
-                    ("Set-Cookie", "corplink_at=t; Domain=.jtn.com; Path=/"),
-                    ("Set-Cookie", "corplink_it=t2; Domain=.jtn.com; Path=/"),
+                    ("Set-Cookie", "corplink_at=fresh; Path=/"),
+                    ("Set-Cookie", "corplink_it=fresh2; Path=/"),
                     ("Location", _CASE_LIST_URL),
                 ],
             )
@@ -216,7 +217,10 @@ class _SelfHealServer:
         if request.method == "GET":
             if has_app_session:
                 return httpx.Response(200, text=_list_page_html())
-            if "corplink_at" in cookie:
+            if "corplink_at=stale" in cookie:
+                # 旧网关 token 在 cookie 串里压过新值 → 网关拒绝，弹回调
+                return httpx.Response(302, headers=[("Location", _GATEWAY_CALLBACK_URL)])
+            if "corplink_at=" in cookie:
                 return httpx.Response(302, headers=[("Location", _APP_LOGIN_URL)])
             return httpx.Response(302, headers=[("Location", _GATEWAY_CALLBACK_URL)])
 
@@ -269,6 +273,22 @@ class TestLookupCaseGuids:
         server = _SelfHealServer()
         script, _ = _make_script(server.handler, cached_cookies=None)
         assert await script.lookup_case_guids(_CASE_NO) == [_GUID_A]
+
+    @pytest.mark.asyncio
+    async def test_stale_gateway_cookie_does_not_block_self_heal(self):
+        """缓存里残留已失效的网关 token：自愈前必须清掉，否则与新下发值共存死循环。
+
+        复现 2026-10-06 admin 进程「每轮新 code 弹回调」问题。
+        """
+        server = _SelfHealServer()
+        cached = [
+            {"name": "ASP.NET_SessionId", "value": "stale", "domain": "ims.jtn.com", "path": "/"},
+            {"name": "corplink_at", "value": "stale", "domain": ".ims.jtn.com", "path": "/"},
+            {"name": "corplink_it", "value": "stale", "domain": ".ims.jtn.com", "path": "/"},
+        ]
+        script, _ = _make_script(server.handler, cached_cookies=cached)
+        assert await script.lookup_case_guids(_CASE_NO) == [_GUID_A]
+        assert server.search_posts == 1
 
     @pytest.mark.asyncio
     async def test_multi_hit(self):

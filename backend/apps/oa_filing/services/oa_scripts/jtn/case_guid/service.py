@@ -151,7 +151,13 @@ class JtnCaseGuidScript:
           下一轮：回调响应会 Set-Cookie 下发网关会话，下一轮即被放行到
           应用层登录页；
         - 其他无 VIEWSTATE 形态 → 抛错（不能确定会话状态，宁可报错）。
+
+        前置清理：缓存里可能带着已被网关侧失效的 corplink_at/it（域名串
+        与回调新下发的不同，httpx jar 同名共存），请求时旧值在前会被网关
+        永远拒绝（实测 2026-10-06：每轮新 code 弹回调死循环）——先清掉，
+        让网关授权链以干净状态重发。
         """
+        _strip_stale_gateway_cookies(client)
         logged_in = False
         for round_index in range(_MAX_SESSION_ROUNDS):
             if round_index:
@@ -210,3 +216,19 @@ class JtnCaseGuidScript:
 
 class _SessionExpiredError(RuntimeError):
     """OA 会话失效（登录页/占位页），触发整体重试一次。"""
+
+
+# 网关资源访问 token：回调每轮重发，旧值残留（域名串与新版不同）会在 jar 里
+# 同名共存并压过新值，导致网关死循环——自愈前必须清掉（授权服务的 session
+# cookie 不在清理之列，它有效时授权链才能直接发 code）。
+_GATEWAY_TOKEN_COOKIE_NAMES = frozenset({"corplink_at", "corplink_it"})
+
+
+def _strip_stale_gateway_cookies(client: httpx.AsyncClient) -> None:
+    """从 client cookie jar 清除残留的网关 token cookies（存在才清）。"""
+    jar = client.cookies.jar
+    for cookie in [c for c in jar if c.name in _GATEWAY_TOKEN_COOKIE_NAMES]:
+        try:
+            jar.clear(cookie.domain, cookie.path, cookie.name)
+        except KeyError:  # pragma: no cover - jar 迭代后已被清除的竞态
+            continue
