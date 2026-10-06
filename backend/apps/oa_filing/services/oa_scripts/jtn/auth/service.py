@@ -9,8 +9,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import time
 from typing import Any
+
+import httpx
 
 from .constants import _HTTP_HEADERS, _LOGIN_URL, cookie_path
 
@@ -207,12 +210,9 @@ class JtnAuthService:  # pragma: no cover
 
         GET 登录页 → 提取 CSRFToken → POST 账号密码 → 返回 cookies。
         适用于 case_import / client_import 等不需要浏览器扫码的场景。
+        失败判定为强口径：停在登录页且带账密表单，或正文含登录失败文案。
         """
-        import re
-
-        import httpx
-
-        from .constants import _HTTP_HEADERS
+        from ..http_session import has_login_error_text, has_login_form, is_login_url
 
         logger.info("HTTP 登录 OA: %s", _LOGIN_URL)
 
@@ -228,13 +228,12 @@ class JtnAuthService:  # pragma: no cover
                 data={"CSRFToken": csrf, "userid": self._account, "password": self._password},
             )
 
-            url_lower = str(login_result.url).lower()
-            if "login" in url_lower:
+            stayed_on_login_with_form = is_login_url(login_result.url) and has_login_form(login_result.text)
+            if stayed_on_login_with_form or has_login_error_text(login_result.text):
                 raise RuntimeError(f"OA 登录失败，账号或密码错误: {self._account}")
 
-            cookies = (
-                dict(login_result.cookies.items()) if hasattr(login_result, "cookies") else dict(client.cookies.items())
-            )
+            # 会话 cookie 以客户端累积 jar 为准（会话往往由 GET 登录页的 Set-Cookie 下发）
+            cookies = dict(client.cookies.items())
 
         logger.info("HTTP 登录成功，获取 cookie=%d", len(cookies))
         return cookies

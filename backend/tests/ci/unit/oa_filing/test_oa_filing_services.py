@@ -619,32 +619,4 @@ class TestHttpFilingMixin:
 # ---------------------------------------------------------------------------
 # http_client mixin pure functions
 # ---------------------------------------------------------------------------
-
-
-class TestHttpClientMixin:
-    def test_is_login_failed_stayed_on_login(self):
-        from apps.oa_filing.services.oa_scripts.jtn.case_import.http_client import JtnHttpClientMixin
-
-        mixin = JtnHttpClientMixin()
-        response = MagicMock()
-        type(response).url = PropertyMock(return_value="https://ims.jtn.com/member/login.aspx")
-        response.text = '<input name="userid" /><input name="password" />'
-        assert mixin._is_login_failed_response(response) is True
-
-    def test_is_login_failed_error_text(self):
-        from apps.oa_filing.services.oa_scripts.jtn.case_import.http_client import JtnHttpClientMixin
-
-        mixin = JtnHttpClientMixin()
-        response = MagicMock()
-        type(response).url = PropertyMock(return_value="https://ims.jtn.com/somepage")
-        response.text = "账号或密码错误"
-        assert mixin._is_login_failed_response(response) is True
-
-    def test_is_login_failed_success(self):
-        from apps.oa_filing.services.oa_scripts.jtn.case_import.http_client import JtnHttpClientMixin
-
-        mixin = JtnHttpClientMixin()
-        response = MagicMock()
-        type(response).url = PropertyMock(return_value="https://ims.jtn.com/dashboard")
-        response.text = "<html>Welcome</html>"
-        assert mixin._is_login_failed_response(response) is False
+# 登录失败判定已收敛至 jtn/http_session（见 test_jtn_http_session.py），此处不再保留。

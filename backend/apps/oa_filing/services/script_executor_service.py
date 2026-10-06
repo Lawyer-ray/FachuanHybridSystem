@@ -456,3 +456,23 @@ class ScriptExecutorService:
             raise RuntimeError(f"未找到匹配凭证: 站点名称={site_name}")
 
         self._spawn_open_page_thread("open_conflict_check_page", site_name, credential, keyword)
+
+    # ------------------------------------------------------------------
+    # 案号查 GUID（纯 HTTP 只读）
+    # ------------------------------------------------------------------
+
+    def lookup_oa_case_guid(self, case_no: str, user: Any, site_name: str = "金诚同达OA") -> list[str]:
+        """按案号查询 OA 案件 GUID（案件管理页搜索，纯 HTTP；仅当前账号可见的案件）。"""
+        credential = self._find_credential(user, site_name)
+        if credential is None:
+            raise RuntimeError(f"未找到匹配凭证: 站点名称={site_name}")
+
+        adapter = create_adapter(site_name, str(credential.account), str(credential.password))
+        try:
+            return run_coro_sync(
+                adapter.lookup_case_guid(str(case_no).strip(), credential),
+                timeout=60,
+                thread_name_prefix="oa-guid-lookup",
+            )
+        except Exception as exc:
+            raise RuntimeError(_friendly_error_message(exc)) from exc

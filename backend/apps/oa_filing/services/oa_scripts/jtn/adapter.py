@@ -26,6 +26,7 @@ def _cleanup_stale_sessions() -> None:
 
 from apps.oa_filing.services.base_firm_adapter import (
     ArchiveAdapter,
+    CaseGuidLookupAdapter,
     CaseImportAdapter,
     ClientImportAdapter,
     ConflictCheckAdapter,
@@ -43,6 +44,7 @@ class JTNAdapter(
     ArchiveAdapter,
     ConflictCheckAdapter,
     CaseImportAdapter,
+    CaseGuidLookupAdapter,
     ClientImportAdapter,
 ):
     """金诚同达 OA 适配器。"""
@@ -367,6 +369,17 @@ class JTNAdapter(
     def build_case_detail_url(self, oa_data: Any) -> str:
         """构建 OA 案件详情页 URL。"""
         return f"https://ims.jtn.com/project/projectView.aspx?keyid={oa_data.keyid}&FirstModel=PROJECT&SecondModel=PROJECT002"
+
+    # ==================================================================
+    # CaseGuidLookupAdapter
+    # ==================================================================
+
+    async def lookup_case_guid(self, case_no: str, credential: Any) -> list[str]:
+        """按案号查询案件 GUID（案件管理页搜索，纯 HTTP 只读）。"""
+        from apps.oa_filing.services.oa_scripts.jtn.case_guid import JtnCaseGuidScript
+
+        script = JtnCaseGuidScript(account=str(credential.account), password=str(credential.password))
+        return await script.lookup_case_guids(case_no)
 
     # ==================================================================
     # ClientImportAdapter

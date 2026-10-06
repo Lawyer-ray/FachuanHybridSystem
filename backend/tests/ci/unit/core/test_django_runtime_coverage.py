@@ -11,6 +11,7 @@ from cryptography.fernet import Fernet
 from apps.core.config.django_runtime import (
     DjangoSecurityConfig,
     _env_bool,
+    _q_cluster_name,
     _resolve_secret_key,
     _split_csv,
     resolve_cache_redis_url,
@@ -166,6 +167,42 @@ class TestResolveQCluster:
         os.environ.pop("REDIS_URL", None)
         result = resolve_q_cluster()
         assert "orm" in result
+
+
+class TestQClusterName:
+    """集群名按 SECRET_KEY 指纹派生，实现队列按密钥纪元隔离（防 BadSignature 丢任务）。"""
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_no_secret_key_falls_back_to_default(self) -> None:
+        os.environ.pop("DJANGO_Q_CLUSTER_NAME", None)
+        assert _q_cluster_name("") == "default"
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_name_derived_from_secret_key(self) -> None:
+        os.environ.pop("DJANGO_Q_CLUSTER_NAME", None)
+        name = _q_cluster_name("some-secret")
+        assert name.startswith("default-")
+        assert len(name) == len("default-") + 8
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_name_stable_for_same_key(self) -> None:
+        os.environ.pop("DJANGO_Q_CLUSTER_NAME", None)
+        assert _q_cluster_name("k1") == _q_cluster_name("k1")
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_different_keys_isolate_queues(self) -> None:
+        os.environ.pop("DJANGO_Q_CLUSTER_NAME", None)
+        assert _q_cluster_name("key-era-a") != _q_cluster_name("key-era-b")
+
+    @patch.dict(os.environ, {"DJANGO_Q_CLUSTER_NAME": "explicit-stack"})
+    def test_env_override_wins(self) -> None:
+        assert _q_cluster_name("some-secret") == "explicit-stack"
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_resolve_q_cluster_wires_secret_key(self) -> None:
+        os.environ.pop("DJANGO_Q_CLUSTER_NAME", None)
+        result = resolve_q_cluster(secret_key="some-secret")
+        assert result["name"] == _q_cluster_name("some-secret")
 
 
 class TestResolvePermOpenAccess:

@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -21,6 +20,8 @@ def _make_mixin() -> JtnHttpClientMixin:
     mixin = JtnHttpClientMixin()
     mixin._account = "acc"
     mixin._password = "p"
+    mixin._auth = MagicMock()
+    mixin._auth.http_login = AsyncMock(return_value={"ASP.NET_SessionId": "s1"})
     mixin._http_cookies_cache = None
     mixin._name_search_http_client = None
     mixin._name_search_form_state = None
@@ -30,38 +31,6 @@ def _make_mixin() -> JtnHttpClientMixin:
 
 def _candidate(case_no: str, case_name: str, keyid: str) -> OAListCaseCandidate:
     return OAListCaseCandidate(case_no=case_no, case_name=case_name, keyid=keyid, detail_url="")
-
-
-# ──────────── 登录响应判定 ────────────
-
-
-class TestIsLoginFailedResponse:
-    def test_stayed_on_login_with_form(self):
-        resp = SimpleNamespace(
-            url="https://ims.jtn.com/member/login.aspx?x=1",
-            text="<input name=\"userid\"><input name='password'>",
-        )
-        assert JtnHttpClientMixin()._is_login_failed_response(resp) is True
-
-    def test_error_text_anywhere(self):
-        resp = SimpleNamespace(url="https://ims.jtn.com/other", text="账号或密码错误，请重试")
-        assert JtnHttpClientMixin()._is_login_failed_response(resp) is True
-
-    def test_login_url_without_form_is_not_failure(self):
-        resp = SimpleNamespace(url="https://ims.jtn.com/member/login.aspx?ok=1", text="正常跳转页")
-        assert JtnHttpClientMixin()._is_login_failed_response(resp) is False
-
-    def test_normal_response_is_not_failure(self):
-        resp = SimpleNamespace(url="https://ims.jtn.com/project/index.aspx", text="案件列表")
-        assert JtnHttpClientMixin()._is_login_failed_response(resp) is False
-
-    def test_login_form_detected_in_first_2500_chars_only(self):
-        long_padding = "x" * 3000
-        resp = SimpleNamespace(
-            url="https://ims.jtn.com/member/login.aspx",
-            text=long_padding + '<input name="userid"><input name="password">',
-        )
-        assert JtnHttpClientMixin()._is_login_failed_response(resp) is False
 
 
 # ──────────── 查询字段解析 ────────────

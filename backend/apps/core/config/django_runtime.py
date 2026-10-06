@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import sys
 from collections.abc import Sequence
@@ -242,15 +243,36 @@ def resolve_channel_layers() -> dict[str, object]:
     return {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 
 
-def resolve_q_cluster() -> dict[str, object]:
+def _q_cluster_name(secret_key: str) -> str:
+    """按 SECRET_KEY 指纹派生集群名，实现队列按密钥纪元隔离。
+
+    Django-Q 用 SECRET_KEY 签名任务，Redis broker 的队列 key 却只含集群名
+    （django_q:{name}:q）。key 轮换后，旧进程（--reload/watchfiles 重启时
+    被孤儿化的 qcluster 残树）仍会 BLPOP 同一队列，把新 key 签的任务以
+    BadSignature 静默丢弃。队列 key 带上 key 指纹后，不同密钥纪元的进程
+    天然读写不同队列，跨纪元互偷任务在结构上不再可能。
+    """
+    env_name = os.environ.get("DJANGO_Q_CLUSTER_NAME", "").strip()
+    if env_name:
+        return env_name
+    if not secret_key:
+        return "default"
+    digest = hashlib.sha256(secret_key.encode()).hexdigest()[:8]
+    return f"default-{digest}"
+
+
+def resolve_q_cluster(secret_key: str = "") -> dict[str, object]:
     """
     解析 Django-Q 集群配置。
 
     当 REDIS_URL 存在时使用 Redis broker（性能优于 ORM broker），
     否则回退到 ORM broker（仅适合开发/单进程）。
+
+    集群名默认由 SECRET_KEY 指纹派生（见 _q_cluster_name），可用
+    DJANGO_Q_CLUSTER_NAME 显式覆盖。
     """
     base: dict[str, object] = {
-        "name": "default",
+        "name": _q_cluster_name(secret_key),
         "workers": int(os.environ.get("DJANGO_Q_WORKERS", "8") or "8"),
         "timeout": int(os.environ.get("DJANGO_Q_TIMEOUT", "600") or "600"),
         "retry": int(os.environ.get("DJANGO_Q_RETRY", "1200") or "1200"),

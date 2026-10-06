@@ -174,6 +174,116 @@ window.CONTRACTS_I18N = Object.assign(window.CONTRACTS_I18N || {}, {
 </script>
 
 <script>
+// 律所OA「查询ID」按钮：按律所OA案件编号查 GUID 并填入律所ID（纯接口，无浏览器）
+(function() {
+    var caseNoField = document.getElementById('id_law_firm_oa_case_number');
+    var guidField = document.getElementById('id_law_firm_oa_guid');
+    if (!caseNoField || !guidField) return;
+    {% if original %}
+    var lookupUrl = '{% url "admin:contracts_contract_lookup_oa_guid" original.pk %}';
+    {% else %}
+    var lookupUrl = '';
+    {% endif %}
+
+    var lookupBtn = document.createElement('button');
+    lookupBtn.type = 'button';
+    lookupBtn.textContent = '查询ID';
+    lookupBtn.title = '按律所OA案件编号在律所OA中查询案件GUID（仅能查询当前OA账号可见的案件）';
+    lookupBtn.style.cssText = 'margin-left:8px;padding:4px 12px;font-size:13px;cursor:pointer;border:1px solid var(--fc-border-input);border-radius:4px;background:var(--fc-bg-muted-light);color:var(--fc-text-secondary);vertical-align:middle;';
+    caseNoField.parentNode.appendChild(lookupBtn);
+
+    var resultBox = document.createElement('div');
+    resultBox.style.cssText = 'margin-top:6px;font-size:12px;line-height:1.8;';
+    guidField.parentNode.appendChild(resultBox);
+
+    function setBusy(busy) {
+        lookupBtn.disabled = busy;
+        lookupBtn.textContent = busy ? '查询中…' : '🔍 查询ID';
+    }
+
+    function renderError(message) {
+        resultBox.innerHTML = '';
+        var el = document.createElement('span');
+        el.style.color = 'var(--fc-danger, #ba2121)';
+        el.textContent = message;
+        resultBox.appendChild(el);
+    }
+
+    function fillGuid(guid) {
+        guidField.value = guid;
+        guidField.dispatchEvent(new Event('change', {bubbles: true}));
+    }
+
+    function renderResults(guids) {
+        resultBox.innerHTML = '';
+        if (!guids.length) {
+            var empty = document.createElement('span');
+            empty.style.color = 'var(--fc-text-muted, #666)';
+            empty.textContent = '未找到对应案件（注意：仅能查询当前 OA 账号可见的案件）';
+            resultBox.appendChild(empty);
+            return;
+        }
+        if (guids.length === 1) {
+            fillGuid(guids[0]);
+            var ok = document.createElement('span');
+            ok.style.color = 'var(--fc-success, #2e7d32)';
+            ok.textContent = '✓ 已查得律所ID：' + guids[0];
+            resultBox.appendChild(ok);
+            return;
+        }
+        var hint = document.createElement('div');
+        hint.textContent = '命中 ' + guids.length + ' 个案件，请点击填入对应的律所ID：';
+        resultBox.appendChild(hint);
+        guids.forEach(function(guid) {
+            var chip = document.createElement('button');
+            chip.type = 'button';
+            chip.textContent = guid;
+            chip.style.cssText = 'margin:2px 6px 2px 0;padding:2px 8px;font-size:12px;cursor:pointer;border:1px solid var(--fc-border-input);border-radius:4px;background:var(--fc-bg-muted-light);color:var(--fc-text-secondary);';
+            chip.addEventListener('click', function() {
+                fillGuid(guid);
+                renderResults([guid]);
+            });
+            resultBox.appendChild(chip);
+        });
+    }
+
+    lookupBtn.addEventListener('click', function() {
+        if (!lookupUrl) { renderError('请先保存合同后再查询'); return; }
+        var caseNo = caseNoField.value.trim();
+        if (!caseNo) { renderError('请先填写律所OA案件编号'); return; }
+
+        var form = document.querySelector('#content-main form');
+        var csrfInput = form ? form.querySelector('input[name="csrfmiddlewaretoken"]') : null;
+        if (!csrfInput) { renderError('未找到 CSRF 令牌，请刷新页面重试'); return; }
+
+        setBusy(true);
+        resultBox.textContent = '正在查询律所OA…';
+        fetch(lookupUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfInput.value
+            },
+            body: JSON.stringify({case_no: caseNo})
+        })
+        .then(function(resp) { return resp.json().then(function(data) { return {status: resp.status, data: data}; }); })
+        .then(function(payload) {
+            setBusy(false);
+            if (payload.data && payload.data.ok) {
+                renderResults(payload.data.guids || []);
+            } else {
+                renderError((payload.data && payload.data.error) || ('查询失败（HTTP ' + payload.status + '）'));
+            }
+        })
+        .catch(function() {
+            setBusy(false);
+            renderError('查询请求失败，请检查网络后重试');
+        });
+    });
+})();
+</script>
+
+<script>
 (function() {
     var submitRow = document.querySelector('.submit-row');
     if (!submitRow) return;

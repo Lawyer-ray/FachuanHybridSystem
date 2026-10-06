@@ -75,9 +75,9 @@ async def test_http_login_disables_env_proxy(monkeypatch: pytest.MonkeyPatch) ->
                 text="ok",
             )
 
-    monkeypatch.setattr(jtn_http_client.httpx, "AsyncClient", _FakeClient)
+    monkeypatch.setattr("apps.oa_filing.services.oa_scripts.jtn.auth.service.httpx.AsyncClient", _FakeClient)
 
-    cookies = await script._http_login_and_get_cookies()
+    cookies = await script._auth.http_login()
 
     assert captured["trust_env"] is False
     assert cookies == {"ASP.NET_SessionId": "cookie-1"}
@@ -111,23 +111,27 @@ async def test_name_search_http_session_disables_env_proxy(monkeypatch: pytest.M
     assert captured["trust_env"] is False
 
 
-def test_is_login_failed_response_detects_login_form_page() -> None:
-    script = JtnCaseImportScript(account="example", password="example", headless=True)
+def test_login_page_with_form_matches_shared_detection() -> None:
+    """登录失败判定已收敛至 http_session：登录页 + 账密表单即失败。"""
+    from apps.oa_filing.services.oa_scripts.jtn.http_session import has_login_form, is_login_url
+
     response = httpx.Response(
         200,
         request=httpx.Request("POST", "https://ims.jtn.com/member/login.aspx"),
         text='<form><input name="userid" /><input name="password" /></form>',
     )
 
-    assert script._is_login_failed_response(response) is True
+    assert is_login_url(response.url) and has_login_form(response.text) is True
 
 
-def test_is_login_failed_response_accepts_logout_success_page() -> None:
-    script = JtnCaseImportScript(account="example", password="example", headless=True)
+def test_logout_success_page_not_matched_by_shared_detection() -> None:
+    """登出链接的正常页面不是登录失败。"""
+    from apps.oa_filing.services.oa_scripts.jtn.http_session import has_login_form, is_login_url
+
     response = httpx.Response(
         200,
         request=httpx.Request("POST", "https://ims.jtn.com/project/index.aspx"),
         text='<a href="/member/logout.aspx">logout</a>',
     )
 
-    assert script._is_login_failed_response(response) is False
+    assert (is_login_url(response.url) or has_login_form(response.text)) is False
