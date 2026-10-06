@@ -552,7 +552,9 @@ DOCSPACE_ENABLED = (os.environ.get("DOCSPACE_ENABLED", "False") or "").lower() i
 # Django Q 配置
 # ============================================================
 
-Q_CLUSTER = resolve_q_cluster()
+# 集群名按 SECRET_KEY 指纹派生：key 轮换后新旧进程不再共抢同一 Redis 队列，
+# 旧 key 签名的任务不会被新集群以 BadSignature 静默丢弃（反之亦然）。
+Q_CLUSTER = resolve_q_cluster(secret_key=SECRET_KEY)
 
 # ============================================================
 # 基础配置（保留少量必要配置）
