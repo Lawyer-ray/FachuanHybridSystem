@@ -197,7 +197,31 @@
 </div>
 
 <script>
+// 律所ID直开：合同已绑定律所ID（OA 案件 GUID）时，直接在用户浏览器新标签页打开
+// OA 申请开票页（用户本机浏览器自带网关会话）；未设置律所ID时回退服务端
+// Playwright 备用链路（查案号 → 搜索案件 → 打开开票页）。
+var LAW_FIRM_GUID = '{{ contract.law_firm_oa_guid|default_if_none:""|escapejs }}';
+var OA_INVOICE_DIRECT_URL = 'https://ims.jtn.com/invoice/FapiaoRequestReg.aspx?ProjectID='
+    + encodeURIComponent(LAW_FIRM_GUID)
+    + '&FirstModel=FINANCE&SecondModel=FINANCE002&ThirdModel=FINANCE002-04';
+
+function _showToast(text, success) {
+    var toast = document.createElement('div');
+    toast.textContent = text;
+    toast.style.cssText = 'position:fixed;top:20px;right:24px;padding:12px 24px;border-radius:8px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;'
+        + (success ? 'background:var(--fc-success-bg);color:var(--fc-success-text);' : 'background:var(--fc-warning-bg);color:var(--fc-warning-text);');
+    document.body.appendChild(toast);
+    setTimeout(function() { toast.remove(); }, 3000);
+}
+
 function openInvoicePage(contractId) {
+    if (LAW_FIRM_GUID) {
+        window.open(OA_INVOICE_DIRECT_URL, '_blank');
+        _showToast('✓ 已在新标签页打开 OA 申请开票页', true);
+        return;
+    }
+
+    // 备用方案：无律所ID → 服务端 Playwright 半自动（先查案号再定位案件）
     var btn = document.getElementById('btn-open-invoice');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ 打开中...'; }
     var csrf = (window.FachuanCSRF && window.FachuanCSRF.getToken && window.FachuanCSRF.getToken()) || '';
@@ -209,11 +233,7 @@ function openInvoicePage(contractId) {
     .then(function(r) { return r.json(); })
     .then(function(data) {
         if (data.success) {
-            var toast = document.createElement('div');
-            toast.textContent = '✓ 浏览器已打开，请查看';
-            toast.style.cssText = 'position:fixed;top:20px;right:24px;padding:12px 24px;border-radius:8px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;background:var(--fc-success-bg);color:var(--fc-success-text);';
-            document.body.appendChild(toast);
-            setTimeout(function() { toast.remove(); }, 3000);
+            _showToast('✓ 浏览器已打开，请查看', true);
         } else {
             alert('打开失败: ' + (data.detail || data.message || '未知错误'));
         }
