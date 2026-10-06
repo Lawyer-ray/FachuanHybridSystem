@@ -25,6 +25,7 @@ _GUID_A = "b0219b56-3968-48a8-8e12-3ca86bf160ce"
 _GUID_B = "0f2b7a11-1111-2222-3333-444455556666"
 
 _CASE_NO = "2026TEST0001"
+_CASE_LIST_URL = "https://ims.jtn.com/project/index.aspx?FirstModel=PROJECT&SecondModel=PROJECT002"
 
 
 def _list_page_html() -> str:
@@ -138,145 +139,189 @@ class TestExtractCaseGuids:
         assert extract_case_guids(_list_page_html(), _CASE_NO) == []
 
 
-# ──────────── 查询编排 ────────────
+# ──────────── 查询编排（会话自愈链，模拟真实网关/登录页重定向） ────────────
+
+
+_GATEWAY_CALLBACK_URL = "https://ims.jtn.com/corplink/agw/callback?code=diag-1"
+_APP_LOGIN_URL = "https://ims.jtn.com/member/login.aspx?rurl=https%3a%2f%2fims.jtn.com%2fproject"
+
+
+def _app_login_page_html() -> str:
+    """OA 应用层登录页（含 CSRFToken 与账密表单）。"""
+    return (
+        "<html><body><form>"
+        '<input type="hidden" name="CSRFToken" value="csrf-1" />'
+        '<input name="userid"><input name="password">'
+        "</form></body></html>"
+    )
+
+
+class _SelfHealServer:
+    """模拟 ims.jtn.com 前置网关 + OA 应用层的会话语义。
+
+    - 无网关 cookie（corplink_at）访问业务页 → 302 网关回调；
+      回调端点 Set-Cookie 下发 corplink_at/it 后 302 回业务页；
+    - 有网关 cookie 无应用层会话（ASP.NET_SessionId=ok123）→ 302 应用层登录页；
+    - 登录页 POST 账密：成功则 Set-Cookie 应用层会话并 302 回业务页，
+      失败（login_error）则停留登录页并渲染错误文案；
+    - 带 VIEWSTATE 的搜索 POST → 结果页。
+    """
+
+    def __init__(
+        self,
+        *,
+        app_session: str = "ok123",
+        login_error: bool = False,
+        gateway_dead: bool = False,
+        result_guids: tuple[str, ...] = (_GUID_A,),
+    ) -> None:
+        self.app_session = app_session
+        self.login_error = login_error
+        self.gateway_dead = gateway_dead
+        self.result_guids = result_guids
+        self.search_posts = 0
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        cookie = request.headers.get("cookie", "")
+        url = str(request.url)
+
+        if "corplink/agw" in url:
+            if self.gateway_dead:
+                return httpx.Response(200, text="<html>gateway stuck</html>")
+            return httpx.Response(
+                302,
+                headers=[
+                    ("Set-Cookie", "corplink_at=t; Domain=.jtn.com; Path=/"),
+                    ("Set-Cookie", "corplink_it=t2; Domain=.jtn.com; Path=/"),
+                    ("Location", _CASE_LIST_URL),
+                ],
+            )
+        if "access.jtn.com" in url:
+            return httpx.Response(200, text="<html>SSO SPA portal</html>")
+        if "member/login.aspx" in url:
+            if request.method == "POST":
+                if self.login_error:
+                    return httpx.Response(200, text='<input name="userid"><input name="password">账号或密码错误')
+                return httpx.Response(
+                    302,
+                    headers=[
+                        ("Set-Cookie", f"ASP.NET_SessionId={self.app_session}; Path=/"),
+                        ("Location", _CASE_LIST_URL),
+                    ],
+                )
+            return httpx.Response(200, text=_app_login_page_html())
+
+        # 业务页（列表页 / 搜索）
+        has_app_session = f"ASP.NET_SessionId={self.app_session}" in cookie
+        if request.method == "GET":
+            if has_app_session:
+                return httpx.Response(200, text=_list_page_html())
+            if "corplink_at" in cookie:
+                return httpx.Response(302, headers=[("Location", _APP_LOGIN_URL)])
+            return httpx.Response(302, headers=[("Location", _GATEWAY_CALLBACK_URL)])
+
+        # 搜索 POST
+        self.search_posts += 1
+        if has_app_session:
+            return httpx.Response(200, text=_result_page_html(*self.result_guids))
+        return httpx.Response(302, headers=[("Location", _APP_LOGIN_URL)])
 
 
 class TestLookupCaseGuids:
     @pytest.mark.asyncio
     async def test_empty_keyword_skips_network(self):
-        called = {"n": 0}
+        server = _SelfHealServer()
+        calls = {"n": 0}
 
         def handler(request: httpx.Request) -> httpx.Response:
-            called["n"] += 1
-            return httpx.Response(200, text=_list_page_html())
+            calls["n"] += 1
+            return server.handler(request)
 
-        script, http_login = _make_script(handler)
+        script, _ = _make_script(handler)
         assert await script.lookup_case_guids("   ") == []
-        assert called["n"] == 0
+        assert calls["n"] == 0
+
+    @pytest.mark.asyncio
+    async def test_fresh_cached_session_direct_hit(self):
+        """缓存会话新鲜：GET 直达列表页，无需自愈与 http_login。"""
+        server = _SelfHealServer()
+        cached = [{"name": "ASP.NET_SessionId", "value": "ok123", "domain": "ims.jtn.com", "path": "/"}]
+        script, http_login = _make_script(server.handler, cached_cookies=cached)
+        assert await script.lookup_case_guids(_CASE_NO) == [_GUID_A]
+        assert server.search_posts == 1
         http_login.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_single_hit(self):
-        def handler(request: httpx.Request) -> httpx.Response:
-            if request.method == "GET":
-                return httpx.Response(200, text=_list_page_html())
-            body = request.content.decode()
-            assert f"__VIEWSTATE=VS-{_CASE_NO}" in body or f"VS-{_CASE_NO}" in body
-            assert _CASE_NO in body
-            return httpx.Response(200, text=_result_page_html(_GUID_A))
+    async def test_stale_cache_self_heals_via_gateway_then_form_login(self):
+        """缓存失效：网关回调 Set-Cookie 自愈 → 应用层账密登录 → 搜索成功。
 
-        script, http_login = _make_script(handler)
+        复现 2026-10-06 线上问题的修复路径（旧实现在此场景误报缺 __VIEWSTATE）。
+        """
+        server = _SelfHealServer()
+        cached = [{"name": "ASP.NET_SessionId", "value": "stale", "domain": "ims.jtn.com", "path": "/"}]
+        script, _ = _make_script(server.handler, cached_cookies=cached)
         assert await script.lookup_case_guids(_CASE_NO) == [_GUID_A]
-        http_login.assert_awaited_once()
+        assert server.search_posts == 1
+
+    @pytest.mark.asyncio
+    async def test_no_cache_also_self_heals(self):
+        """无缓存冷启动：同样走网关自愈 + 表单登录。"""
+        server = _SelfHealServer()
+        script, _ = _make_script(server.handler, cached_cookies=None)
+        assert await script.lookup_case_guids(_CASE_NO) == [_GUID_A]
+
+    @pytest.mark.asyncio
+    async def test_multi_hit(self):
+        server = _SelfHealServer(result_guids=(_GUID_B, _GUID_A, _GUID_B))
+        script, _ = _make_script(server.handler)
+        assert await script.lookup_case_guids(_CASE_NO) == [_GUID_B, _GUID_A]
 
     @pytest.mark.asyncio
     async def test_no_hit_returns_empty_list(self):
-        def handler(request: httpx.Request) -> httpx.Response:
-            if request.method == "GET":
-                return httpx.Response(200, text=_list_page_html())
-            return httpx.Response(200, text=_result_page_html(_GUID_A, case_no="2099ZZZ0001"))
-
-        script, _ = _make_script(handler)
+        server = _SelfHealServer(result_guids=())
+        script, _ = _make_script(server.handler)
         assert await script.lookup_case_guids(_CASE_NO) == []
 
     @pytest.mark.asyncio
-    async def test_expired_session_on_get_retries_with_fresh_login(self):
-        calls = {"n": 0}
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            calls["n"] += 1
-            if calls["n"] == 1:
-                return httpx.Response(200, text=_login_page_html())
-            if request.method == "GET":
-                return httpx.Response(200, text=_list_page_html())
-            return httpx.Response(200, text=_result_page_html(_GUID_A))
-
-        script, http_login = _make_script(handler)
-        assert await script.lookup_case_guids(_CASE_NO) == [_GUID_A]
-        assert http_login.await_count == 2
-
-    @pytest.mark.asyncio
-    async def test_expired_session_on_post_retries(self):
-        calls = {"n": 0}
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            calls["n"] += 1
-            if calls["n"] <= 2:
-                if calls["n"] == 2:
-                    return httpx.Response(200, text=_login_page_html())
-                return httpx.Response(200, text=_list_page_html())
-            if request.method == "GET":
-                return httpx.Response(200, text=_list_page_html())
-            return httpx.Response(200, text=_result_page_html(_GUID_B))
-
-        script, _ = _make_script(handler)
-        assert await script.lookup_case_guids(_CASE_NO) == [_GUID_B]
-
-    @pytest.mark.asyncio
-    async def test_always_expired_raises_runtime_error(self):
-        def handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(200, text=_login_page_html())
-
-        script, _ = _make_script(handler)
-        with pytest.raises(RuntimeError):
+    async def test_login_failure_raises_account_error(self):
+        server = _SelfHealServer(login_error=True)
+        script, _ = _make_script(server.handler)
+        with pytest.raises(RuntimeError, match="账号或密码错误"):
             await script.lookup_case_guids(_CASE_NO)
 
     @pytest.mark.asyncio
-    async def test_missing_viewstate_raises(self):
+    async def test_gateway_dead_loop_raises(self):
+        """网关死拦（回调不下发会话）→ 明确报「会话无法建立」。"""
+        server = _SelfHealServer(gateway_dead=True)
+        script, _ = _make_script(server.handler)
+        with pytest.raises(RuntimeError, match="会话无法建立"):
+            await script.lookup_case_guids(_CASE_NO)
+
+    @pytest.mark.asyncio
+    async def test_session_expired_mid_search_retries_once(self):
+        """搜索时会话突然失效：整体重试一次后成功。"""
+        server = _SelfHealServer()
+        original = server.handler
+        state = {"expired_once": False}
+
         def handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(200, text="<html><body><form id='aspnetForm'></form></body></html>")
+            if request.method == "POST" and "member/login.aspx" not in str(request.url):
+                if not state["expired_once"]:
+                    state["expired_once"] = True
+                    return httpx.Response(302, headers=[("Location", _APP_LOGIN_URL)])
+            return original(request)
 
         script, _ = _make_script(handler)
-        with pytest.raises(RuntimeError, match="__VIEWSTATE"):
-            await script.lookup_case_guids(_CASE_NO)
-
-    @pytest.mark.asyncio
-    async def test_login_failure_propagates(self):
-        failing_login = AsyncMock(side_effect=RuntimeError("OA 登录失败，账号或密码错误: acc"))
-        script, http_login = _make_script(lambda request: httpx.Response(200, text="unused"), http_login=failing_login)
-        with pytest.raises(RuntimeError, match="扫码登录"):
-            await script.lookup_case_guids(_CASE_NO)
-        assert http_login.await_count == 1
-
-    @pytest.mark.asyncio
-    async def test_cached_cookies_used_without_login(self):
-        def handler(request: httpx.Request) -> httpx.Response:
-            if request.method == "GET":
-                return httpx.Response(200, text=_list_page_html())
-            return httpx.Response(200, text=_result_page_html(_GUID_A))
-
-        cached = [{"name": "ASP.NET_SessionId", "value": "cached", "domain": "ims.jtn.com", "path": "/"}]
-        script, http_login = _make_script(handler, cached_cookies=cached)
         assert await script.lookup_case_guids(_CASE_NO) == [_GUID_A]
-        http_login.assert_not_awaited()
+        assert state["expired_once"] is True  # 首次搜索触发过会话失效
+        assert server.search_posts == 1  # 重试后的成功搜索
 
     @pytest.mark.asyncio
-    async def test_expired_cache_falls_back_to_http_login(self):
-        fresh_calls = {"n": 0}
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            if "cached" in request.headers.get("cookie", ""):
-                return httpx.Response(200, text=_login_page_html())
-            fresh_calls["n"] += 1
-            if fresh_calls["n"] == 1:
-                return httpx.Response(200, text=_list_page_html())
-            return httpx.Response(200, text=_result_page_html(_GUID_A))
-
-        cached = [{"name": "ASP.NET_SessionId", "value": "cached", "domain": "ims.jtn.com", "path": "/"}]
-        script, http_login = _make_script(handler, cached_cookies=cached)
-        assert await script.lookup_case_guids(_CASE_NO) == [_GUID_A]
-        http_login.assert_awaited_once()
-
-    @pytest.mark.asyncio
-    async def test_cache_invalid_and_login_fails_friendly_error(self):
-        failing_login = AsyncMock(side_effect=RuntimeError("OA 登录失败，账号或密码错误: acc"))
-        cached = [{"name": "ASP.NET_SessionId", "value": "cached", "domain": "ims.jtn.com", "path": "/"}]
-        script, _ = _make_script(
-            lambda request: httpx.Response(200, text=_login_page_html()),
-            http_login=failing_login,
-            cached_cookies=cached,
-        )
-        with pytest.raises(RuntimeError, match="扫码登录"):
+    async def test_plain_page_without_viewstate_raises(self):
+        """无任何登录/网关特征但拿不到 VIEWSTATE → 会话无法建立。"""
+        server = _SelfHealServer()
+        script, _ = _make_script(lambda request: httpx.Response(200, text="<html><body>异常页</body></html>"))
+        with pytest.raises(RuntimeError, match="会话无法建立"):
             await script.lookup_case_guids(_CASE_NO)
 
 

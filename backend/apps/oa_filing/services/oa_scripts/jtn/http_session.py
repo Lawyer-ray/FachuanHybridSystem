@@ -22,14 +22,17 @@ from .auth.constants import _DEFAULT_HTTP_TIMEOUT, _HTTP_HEADERS, _LOGIN_URL
 logger = logging.getLogger("apps.oa_filing.jtn_http_session")
 
 # ── 会话失效特征 ──────────────────────────────────────────────
-# ① 302 / 停留在 member/login.aspx（登录页）
+# ① 302 / 停留在 member/login.aspx（OA 应用层登录页）
 # ② ~441 字节 location.replace 占位页（网关踢回登录）
 # ③ 同页渲染的登录失败文案（账密错误）
+# ④ 飞连/SSO 网关特征：access.jtn.com/login（SSO 门户 SPA）、corplink/agw（网关回调）
 _LOGIN_URL_MARKER = "member/login.aspx"
 _LOCATION_REPLACE_MARKER = "location.replace"
 _SESSION_PLACEHOLDER_MAX_LEN = 2048
 _LOGIN_FORM_HEAD_LEN = 2500
 _LOGIN_ERROR_TEXT_TOKENS = ("账号或密码错误", "用户名或密码错误", "invalid password", "login failed")
+_SSO_PORTAL_MARKER = "access.jtn.com/login"
+_GATEWAY_CALLBACK_MARKER = "corplink/agw"
 
 # cookies 注入 Playwright context 时缺失 domain 的兜底（ims.jtn.com 同源会话）
 _DEFAULT_COOKIE_DOMAIN = "ims.jtn.com"
@@ -39,8 +42,14 @@ _DEFAULT_COOKIE_DOMAIN = "ims.jtn.com"
 
 
 def is_login_url(url: Any) -> bool:
-    """URL 指向 OA 登录页。"""
+    """URL 指向 OA 应用层登录页。"""
     return _LOGIN_URL_MARKER in str(url).lower()
+
+
+def is_sso_gateway_url(url: Any) -> bool:
+    """URL 指向 SSO 门户 / 飞连网关（会话被网关拦截，尚未到达 OA 应用层）。"""
+    url_lower = str(url).lower()
+    return _SSO_PORTAL_MARKER in url_lower or _GATEWAY_CALLBACK_MARKER in url_lower
 
 
 def is_session_placeholder(html_text: str) -> bool:
@@ -66,8 +75,13 @@ def has_login_error_text(html_text: str) -> bool:
 
 
 def is_oa_login_page(url: Any, html_text: str) -> bool:
-    """响应是否为登录页 / 会话占位页（用于页面访问时的会话有效性判定）。"""
-    return is_login_url(url) or is_session_placeholder(html_text) or has_login_error_text(html_text)
+    """响应是否为登录页 / 网关拦截页 / 会话占位页（用于页面访问时的会话有效性判定）。"""
+    return (
+        is_login_url(url)
+        or is_sso_gateway_url(url)
+        or is_session_placeholder(html_text)
+        or has_login_error_text(html_text)
+    )
 
 
 # ── 会话获取 ─────────────────────────────────────────────────
