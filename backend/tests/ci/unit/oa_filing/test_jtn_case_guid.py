@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
+from urllib.parse import urlparse
 
 import httpx
 import pytest
@@ -183,9 +184,10 @@ class _SelfHealServer:
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         cookie = request.headers.get("cookie", "")
-        url = str(request.url)
+        parsed = urlparse(str(request.url))
+        host, path = parsed.netloc, parsed.path
 
-        if "corplink/agw" in url:
+        if "corplink/agw" in path:
             # 模拟回调下发新网关 token（host-only，与旧 .ims.jtn.com 域串不同 → jar 共存）
             if self.gateway_dead:
                 return httpx.Response(200, text="<html>gateway stuck</html>")
@@ -197,9 +199,9 @@ class _SelfHealServer:
                     ("Location", _CASE_LIST_URL),
                 ],
             )
-        if "access.jtn.com" in url:
+        if host == "access.jtn.com":
             return httpx.Response(200, text="<html>SSO SPA portal</html>")
-        if "member/login.aspx" in url:
+        if "member/login.aspx" in path:
             if request.method == "POST":
                 if self.login_error:
                     return httpx.Response(200, text='<input name="userid"><input name="password">账号或密码错误')
@@ -339,7 +341,6 @@ class TestLookupCaseGuids:
     @pytest.mark.asyncio
     async def test_plain_page_without_viewstate_raises(self):
         """无任何登录/网关特征但拿不到 VIEWSTATE → 会话无法建立。"""
-        server = _SelfHealServer()
         script, _ = _make_script(lambda request: httpx.Response(200, text="<html><body>异常页</body></html>"))
         with pytest.raises(RuntimeError, match="会话无法建立"):
             await script.lookup_case_guids(_CASE_NO)
