@@ -343,3 +343,46 @@ class TestLookupOaCaseGuidExecutor:
         ):
             with pytest.raises(RuntimeError, match="VPN"):
                 mod.ScriptExecutorService().lookup_oa_case_guid(case_no=_CASE_NO, user=self._make_user())
+
+    @pytest.mark.django_db
+    def test_query_uses_requesting_users_own_credential(self):
+        """谁登录就用谁的 JTN 账号发起查询：两位律师各配各的凭证，请求者 A 不得用到 B 的。"""
+        import asyncio
+
+        from apps.oa_filing.services import script_executor_service as mod
+        from apps.organization.models import AccountCredential, Lawyer
+
+        lawyer_a = Lawyer.objects.create_user(username="guid_user_a", real_name="甲律师")
+        lawyer_b = Lawyer.objects.create_user(username="guid_user_b", real_name="乙律师")
+        AccountCredential.objects.create(
+            lawyer=lawyer_a,
+            site_name="金诚同达OA",
+            account="acct_a",
+            password="pa-not-secret",  # pragma: allowlist secret
+        )
+        AccountCredential.objects.create(
+            lawyer=lawyer_b,
+            site_name="金诚同达OA",
+            account="acct_b",
+            password="pb-not-secret",  # pragma: allowlist secret
+        )
+
+        captured: dict[str, Any] = {}
+
+        class _FakeAdapter:
+            async def lookup_case_guid(self, case_no: str, credential: Any) -> list[str]:
+                captured["credential_account"] = str(credential.account)
+                return []
+
+        def fake_create_adapter(site_name: str, account: str, password: str) -> _FakeAdapter:
+            captured["adapter_account"] = account
+            return _FakeAdapter()
+
+        with (
+            patch.object(mod, "create_adapter", side_effect=fake_create_adapter),
+            patch.object(mod, "run_coro_sync", side_effect=lambda coro, **kw: asyncio.run(coro)),
+        ):
+            mod.ScriptExecutorService().lookup_oa_case_guid(case_no=_CASE_NO, user=lawyer_a)
+
+        assert captured["adapter_account"] == "acct_a"
+        assert captured["credential_account"] == "acct_a"
