@@ -378,11 +378,25 @@ class JTNAdapter(
     # ==================================================================
 
     async def lookup_case_guid(self, case_no: str, credential: Any) -> list[str]:
-        """按案号查询案件 GUID（案件管理页搜索，纯 HTTP 只读）。"""
+        """按案号查询案件 GUID（案件选择对话框 GET 搜索，纯 HTTP 只读）。"""
         from apps.oa_filing.services.oa_scripts.jtn.case_guid import JtnCaseGuidScript
 
         script = JtnCaseGuidScript(account=str(credential.account), password=str(credential.password))
         return await script.lookup_case_guids(case_no)
+
+    async def lookup_case_guid_by_name(self, case_name: str, credential: Any) -> list[str]:
+        """按案名查询案件 GUID（同一对话框入口，project_name）。"""
+        from apps.oa_filing.services.oa_scripts.jtn.case_guid import JtnCaseGuidScript
+
+        script = JtnCaseGuidScript(account=str(credential.account), password=str(credential.password))
+        return await script.lookup_case_guids_by_name(case_name)
+
+    async def lookup_case_guid_by_customer_name(self, customer_name: str, credential: Any) -> list[str]:
+        """按客户名称查询案件 GUID（同一对话框入口，project_customer_name）。"""
+        from apps.oa_filing.services.oa_scripts.jtn.case_guid import JtnCaseGuidScript
+
+        script = JtnCaseGuidScript(account=str(credential.account), password=str(credential.password))
+        return await script.lookup_case_guids_by_customer_name(customer_name)
 
     # ==================================================================
     # ClientImportAdapter

@@ -467,7 +467,7 @@ class ScriptExecutorService:
     # ------------------------------------------------------------------
 
     def lookup_oa_case_guid(self, case_no: str, user: Any, site_name: str = "金诚同达OA") -> list[str]:
-        """按案号查询 OA 案件 GUID（案件管理页搜索，纯 HTTP；仅当前账号可见的案件）。"""
+        """按案号查询 OA 案件 GUID（案件选择对话框搜索，纯 HTTP；仅当前账号可见的案件）。"""
         credential = self._find_credential(user, site_name)
         if credential is None:
             raise RuntimeError(f"未找到匹配凭证: 站点名称={site_name}")
@@ -476,6 +476,40 @@ class ScriptExecutorService:
         try:
             return run_coro_sync(
                 adapter.lookup_case_guid(str(case_no).strip(), credential),
+                timeout=60,
+                thread_name_prefix="oa-guid-lookup",
+            )
+        except Exception as exc:
+            raise RuntimeError(_friendly_error_message(exc)) from exc
+
+    def lookup_oa_case_guid_by_name(self, case_name: str, user: Any, site_name: str = "金诚同达OA") -> list[str]:
+        """按案名查询 OA 案件 GUID（同一对话框入口 project_name，纯 HTTP 只读）。"""
+        credential = self._find_credential(user, site_name)
+        if credential is None:
+            raise RuntimeError(f"未找到匹配凭证: 站点名称={site_name}")
+
+        adapter = create_adapter(site_name, str(credential.account), str(credential.password))
+        try:
+            return run_coro_sync(
+                adapter.lookup_case_guid_by_name(str(case_name).strip(), credential),
+                timeout=60,
+                thread_name_prefix="oa-guid-lookup",
+            )
+        except Exception as exc:
+            raise RuntimeError(_friendly_error_message(exc)) from exc
+
+    def lookup_oa_case_guid_by_customer_name(
+        self, customer_name: str, user: Any, site_name: str = "金诚同达OA"
+    ) -> list[str]:
+        """按客户名称查询 OA 案件 GUID（同一对话框入口 project_customer_name，纯 HTTP 只读）。"""
+        credential = self._find_credential(user, site_name)
+        if credential is None:
+            raise RuntimeError(f"未找到匹配凭证: 站点名称={site_name}")
+
+        adapter = create_adapter(site_name, str(credential.account), str(credential.password))
+        try:
+            return run_coro_sync(
+                adapter.lookup_case_guid_by_customer_name(str(customer_name).strip(), credential),
                 timeout=60,
                 thread_name_prefix="oa-guid-lookup",
             )

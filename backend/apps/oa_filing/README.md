@@ -7,7 +7,8 @@
 - **OA 立案**：把合同/案件数据映射为 OA 表单（category/stage/kindtype/rec_type 等），HTTP 主链路提交，失败自动回退 Playwright 全流程
 - **盖章申请与归档提交**：由本地文件路径反查合同（StampLookupService → 文件夹绑定 → Contract → OA 案号），异步执行 Playwright 脚本
 - **半自动模式**：open-oa / open-invoice / open-stamp / 利冲预检——脚本只负责登录 + 搜索 + 预填，浏览器保持打开留给律师手工操作
-- **案号查 GUID**：按律所OA案件编号在 OA 案件管理页检索（WebForms postback 纯 HTTP 三步，只读），返回案件 GUID（keyid），供合同编辑页「查询ID」按钮自动填充律所ID；会话走磁盘缓存 cookies 优先（兼容仅扫码账号），失效回退 HTTP 账密登录
+- **案号查 GUID**：按律所OA案件编号在 OA 全站共享的案件选择对话框检索（`searchdlg/searchProject.aspx` GET 查询参数直搜，单次 GET 无 VIEWSTATE，只读），另支持按案名（project_name）/客户名（project_customer_name）查 GUID；返回案件 GUID（keyid），供合同编辑页「查询ID」按钮自动填充律所ID；会话走磁盘缓存 cookies 优先（兼容仅扫码账号），失效回退 HTTP 账密登录
+- **归档弹窗搜案的 HTTP 预解析**：归档 Playwright 链路（半自动 open-oa 与全自动提交）在无律所ID 时先用案号查 GUID 预解析，唯一命中即直达 keyid 归档申请页（跳过弹窗搜案）；查询失败/非唯一命中回退原弹窗链路，行为只增不改
 - **案件导入**：上传 Excel → Django-Q 预览匹配 → 确认后从 OA 批量抓取（HTTP 并发 + Playwright 兜底）并创建/更新 Contract/Case/Client/ContractParty
 - **客户导入**：分页抓取 OA 当事人列表写入 Client，支持 limit/headless 与进度回写
 - **双调度**：立案/盖章/归档/open-* 走进程内 `ThreadPoolExecutor(max_workers=2)`；两个导入走 Django-Q（timeout 可经环境变量调整）
@@ -31,7 +32,7 @@ oa_filing/
 │       ├── http_session.py     # 纯 HTTP 会话基建：常量出口/失效判定/缓存优先登录/客户端工厂
 │       ├── auth/               # SSO 扫码 / HTTP POST 登录、Cookie 持久化与注入
 │       ├── filing/ stamp/ archive/ invoice/ conflict_check/
-│       ├── case_guid/          # 案号查 GUID（案件管理页搜索，纯 HTTP 只读）
+│       ├── case_guid/          # 案号/案名/客户名查 GUID（案件选择对话框 GET 搜索，纯 HTTP 只读）
 │       ├── case_import/        # HTTP 优先 + Playwright 兜底 + 名称检索 + SSO 处理
 │       └── client_import/
 ├── tasks.py                    # 5 个 Django-Q 任务入口
