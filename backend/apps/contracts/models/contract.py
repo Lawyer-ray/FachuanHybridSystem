@@ -80,6 +80,13 @@ class Contract(models.Model):
         null=True,
         verbose_name="律所OA案件编号",
     )
+    law_firm_oa_guid: models.CharField = models.CharField(
+        max_length=64,
+        blank=True,
+        null=True,
+        verbose_name="律所ID",
+        help_text="律所 OA 案件 GUID（keyid），可通过「查询ID」按钮按案号自动获取",
+    )
     representation_stages: Any = models.JSONField(default=list, blank=True, verbose_name="代理阶段")
     compact_archive: models.BooleanField = models.BooleanField(
         default=False,

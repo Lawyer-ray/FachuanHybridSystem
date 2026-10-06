@@ -191,7 +191,7 @@ class ContractAdmin(
         (
             "律所OA信息",
             {
-                "fields": ("law_firm_oa_url", "law_firm_oa_case_number"),
+                "fields": ("law_firm_oa_url", "law_firm_oa_case_number", "law_firm_oa_guid"),
                 "classes": ("collapse",),
             },
         ),
@@ -320,6 +320,11 @@ class ContractAdmin(
                 name="contracts_contract_reorder_materials",
             ),
             urlpath(
+                "<int:contract_id>/lookup-oa-guid/",
+                self.admin_site.admin_view(self.lookup_oa_guid_view),
+                name="contracts_contract_lookup_oa_guid",
+            ),
+            urlpath(
                 "oa-sync/",
                 self.admin_site.admin_view(self.oa_sync_view),
                 name="contracts_contract_oa_sync",
@@ -360,6 +365,31 @@ class ContractAdmin(
             return JsonResponse({"ok": True})
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=400)
+
+    def lookup_oa_guid_view(self, request: HttpRequest, contract_id: int) -> JsonResponse:  # pragma: no cover
+        """按律所OA案件编号查询 OA 案件 GUID（方法一：案件管理页搜索，纯 HTTP 只读）。"""
+        if request.method != "POST":
+            return JsonResponse({"ok": False, "error": "Method not allowed"}, status=405)
+        if not self.has_change_permission(request):
+            return JsonResponse({"ok": False, "error": "Permission denied"}, status=403)
+
+        try:
+            data = json.loads(request.body or "{}")
+        except json.JSONDecodeError:
+            return JsonResponse({"ok": False, "error": "请求体不是合法 JSON"}, status=400)
+
+        case_no = str(data.get("case_no") or "").strip()
+        if not case_no:
+            return JsonResponse({"ok": False, "error": "请先填写律所OA案件编号"}, status=400)
+
+        from apps.oa_filing.services.script_executor_service import ScriptExecutorService
+
+        try:
+            guids = ScriptExecutorService().lookup_oa_case_guid(case_no=case_no, user=request.user)
+        except RuntimeError as e:
+            return JsonResponse({"ok": False, "error": str(e)})
+
+        return JsonResponse({"ok": True, "guids": guids})
 
     def batch_folder_binding_view(self, request: HttpRequest) -> TemplateResponse:  # pragma: no cover
         if not self.has_view_permission(request):

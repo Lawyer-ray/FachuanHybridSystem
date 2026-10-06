@@ -129,6 +129,15 @@ class CaseImportAdapter(Protocol):
 
 
 @runtime_checkable
+class CaseGuidLookupAdapter(Protocol):
+    """案号 → OA 案件 GUID 查询适配器协议（纯 HTTP 只读）。"""
+
+    async def lookup_case_guid(self, case_no: str, credential: Any) -> list[str]:
+        """按案号查询案件 GUID（keyid），返回命中列表（仅当前账号可见的案件）。"""
+        ...
+
+
+@runtime_checkable
 class ClientImportAdapter(Protocol):
     """客户导入适配器协议。"""
 
