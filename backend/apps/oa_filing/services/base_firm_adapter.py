@@ -49,10 +49,13 @@ class ArchiveAdapter(Protocol):
         oa_case_number: str,
         description: str,
         file_paths: list[str] | None = None,
+        project_id: str | None = None,
     ) -> None:
         """打开 OA 归档页面，填写案件编号和小结，保持浏览器打开。
 
         file_paths 非空时，选完案件后将对应文件上传到"案件业务卷宗"。
+        project_id（律所ID/GUID）非空时直达带 keyid 的归档申请页（跳过查
+        案件，填充逻辑不变）；None 时按 oa_case_number 查案件（备用方案）。
         """
         ...
 
@@ -130,10 +133,18 @@ class CaseImportAdapter(Protocol):
 
 @runtime_checkable
 class CaseGuidLookupAdapter(Protocol):
-    """案号 → OA 案件 GUID 查询适配器协议（纯 HTTP 只读）。"""
+    """案号/案名/客户名 → OA 案件 GUID 查询适配器协议（纯 HTTP 只读）。"""
 
     async def lookup_case_guid(self, case_no: str, credential: Any) -> list[str]:
         """按案号查询案件 GUID（keyid），返回命中列表（仅当前账号可见的案件）。"""
+        ...
+
+    async def lookup_case_guid_by_name(self, case_name: str, credential: Any) -> list[str]:
+        """按案名查询案件 GUID，返回命中列表（仅当前账号可见的案件）。"""
+        ...
+
+    async def lookup_case_guid_by_customer_name(self, customer_name: str, credential: Any) -> list[str]:
+        """按客户名称查询案件 GUID，返回命中列表（仅当前账号可见的案件）。"""
         ...
 
 

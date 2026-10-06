@@ -1,10 +1,10 @@
-"""金诚同达 OA 案号查 GUID —— 方法一：案件管理页搜索，纯 HTTP。
+"""金诚同达 OA 案号查 GUID —— 案件选择对话框 GET 搜索，纯 HTTP。
 
-依据《案号查GUID方法文档.md》（授权 JCWD-GZ-2026-033 5.8 读取复制条款，只读）：
-
-① GET  案件管理列表页，提取 __VIEWSTATE / __VIEWSTATEGENERATOR（每次现取，勿缓存）
-② POST 同 URL：project_no=<案号> + currentPage=1（子串包含匹配）
-③ 从结果 HTML 提取行内 projectView 链接的 keyid=<GUID>
+依据《案号查GUID方法文档.md》1.4 更简变体（授权 JCWD-GZ-2026-033 5.8 读取
+复制条款，只读）：全站共享的案件选择对话框 searchProject.aspx 接受 GET 查询
+参数直接搜索（project_no=案号 / project_name=案名 / project_customer_name=
+客户名，子串包含匹配），单次 GET 完成，无需 VIEWSTATE/EVENTVALIDATION，
+结果以 radio（value=GUID）呈现。传完整案号通常唯一命中。
 
 无浏览器、无 Playwright 兜底（区别于 case_import 的 HTTP+Playwright 双链路）。
 覆盖范围仅当前 OA 账号可见的案件；0 命中是合法结果（案件不存在或账号不可见）。
@@ -15,7 +15,7 @@ corplink/agw/callback（该回调响应会 Set-Cookie 下发新网关会话
 corplink_at/it），网关放行后再弹到 OA 应用层 member/login.aspx——
 在同一 httpx client 内吃下回调 Set-Cookie 后执行账密 POST 登录即可
 建立完整会话。因此不能像旧实现那样「新建 client 单独登录」（会被
-弹到 access.jtn.com SSO 门户而假成功/误报缺 VIEWSTATE）。
+弹到 access.jtn.com SSO 门户而假成功/误报）。
 """
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ import asyncio
 import logging
 import re
 from typing import Any
+from urllib.parse import urlencode
 
 import httpx
 from lxml import html as lxml_html
@@ -38,12 +39,15 @@ from ..http_session import (
     is_sso_gateway_url,
 )
 from .constants import (
-    _CASE_LIST_URL,
-    _CURRENT_PAGE_FIELD,
-    _KEYID_REGEX,
-    _SEARCH_CASE_NO_FIELD,
-    _VIEWSTATE_FIELD,
-    _VIEWSTATE_GENERATOR_FIELD,
+    _DIALOG_CATEGORY,
+    _DIALOG_FORM_MARKER,
+    _DIALOG_REFERER,
+    _DIALOG_URL,
+    _GUID_VALUE_REGEX,
+    _PARAM_CASE_NAME,
+    _PARAM_CASE_NO,
+    _PARAM_CUSTOMER_NAME,
+    _RADIO_GUID_REGEX,
 )
 
 logger = logging.getLogger("apps.oa_filing.jtn_case_guid")
@@ -53,46 +57,34 @@ _MAX_SESSION_ROUNDS = 4
 _SESSION_ROUND_GAP_SECONDS = 0.3
 
 
-def extract_viewstate_fields(html_text: str) -> dict[str, str]:
-    """从列表页 HTML 提取 ASP.NET 回传所需的隐藏字段。
-
-    VIEWSTATE 缺失说明拿到的是登录页/网关占位页，调用方应视为会话无效。
-    """
-    fields: dict[str, str] = {}
-    for name in (_VIEWSTATE_FIELD, _VIEWSTATE_GENERATOR_FIELD):
-        match = re.search(rf'id="{name}"[^>]*value="([^"]*)"', html_text)
-        if match:
-            fields[name] = match.group(1)
-    return fields
+def dialog_search_url(*, param_name: str, keyword: str) -> str:
+    """构造对话框搜索 URL（category 固定文档实测值，查询参数 urlencode）。"""
+    query = urlencode({"category": _DIALOG_CATEGORY, param_name: keyword})
+    return f"{_DIALOG_URL}?{query}"
 
 
-def extract_case_guids(html_text: str, case_no: str) -> list[str]:
-    """从搜索结果 HTML 提取命中案件的 GUID（按出现顺序去重）。
+def extract_dialog_guids(html_text: str) -> list[str]:
+    """从对话框结果 HTML 提取案件 GUID（radio value，按出现顺序去重、小写）。
 
-    主路径按行解析：结果行文本包含案号且行内有 projectView.aspx?keyid= 链接；
-    仅当 lxml 解析失败时回退文档同款整页正则。行解析成功但 0 命中视为真 0 命中
-    （服务端已按案号过滤，不再整页捞回，避免误提页面其他区域的 keyid）。
-    传完整案号通常唯一命中，部分案号可得多候选。
+    主路径按 lxml 解析 radio input 的 value；仅当 lxml 解析失败时回退文档
+    同款整页正则。0 条 radio 视为真 0 命中（服务端已按条件过滤）。
     """
     guid_index: dict[str, None] = {}
     try:
         root = lxml_html.fromstring(html_text)
     except Exception:
-        logger.debug("lxml 解析搜索结果失败，回退整页正则: %s", case_no, exc_info=True)
-        return list(dict.fromkeys(guid.lower() for guid in _KEYID_REGEX.findall(html_text)))
+        logger.debug("lxml 解析对话框结果失败，回退整页正则", exc_info=True)
+        return [guid.lower() for guid in dict.fromkeys(_RADIO_GUID_REGEX.findall(html_text))]
 
-    for row in root.xpath("//tr"):
-        if case_no not in "".join(row.itertext()):
-            continue
-        for link in row.xpath('.//a[contains(@href, "projectView.aspx") and contains(@href, "keyid=")]'):
-            href = str(link.get("href") or "")
-            for guid in _KEYID_REGEX.findall(href):
-                guid_index.setdefault(guid.lower(), None)
+    for radio in root.xpath('//input[@type="radio"]'):
+        value = str(radio.get("value") or "")
+        if _GUID_VALUE_REGEX.fullmatch(value):
+            guid_index.setdefault(value.lower(), None)
     return list(guid_index)
 
 
 class JtnCaseGuidScript:
-    """金诚同达 OA 案号查 GUID 门面（纯 HTTP，方法一）。"""
+    """金诚同达 OA 案号查 GUID 门面（纯 HTTP，对话框 GET 搜索）。"""
 
     def __init__(self, account: str, password: str) -> None:
         self._account = account
@@ -100,57 +92,59 @@ class JtnCaseGuidScript:
         self._auth = JtnAuthService(account, password)
 
     async def lookup_case_guids(self, case_no: str) -> list[str]:
-        """按案号查询 OA 案件 GUID 列表（只读；仅当前账号可见的案件）。
+        """按案号查询 OA 案件 GUID 列表（project_no）。"""
+        return await self._lookup_with_retry(param_name=_PARAM_CASE_NO, keyword=case_no)
+
+    async def lookup_case_guids_by_name(self, case_name: str) -> list[str]:
+        """按案名查询 OA 案件 GUID 列表（project_name）。"""
+        return await self._lookup_with_retry(param_name=_PARAM_CASE_NAME, keyword=case_name)
+
+    async def lookup_case_guids_by_customer_name(self, customer_name: str) -> list[str]:
+        """按客户名称查询 OA 案件 GUID 列表（project_customer_name）。"""
+        return await self._lookup_with_retry(param_name=_PARAM_CUSTOMER_NAME, keyword=customer_name)
+
+    async def _lookup_with_retry(self, *, param_name: str, keyword: str) -> list[str]:
+        """按字段查询 GUID（只读；仅当前账号可见的案件）。
 
         会话：缓存 cookies 打底 + 单 client 顺序自愈（网关回调 Set-Cookie
         → 应用层账密登录，见模块 docstring）。会话中途失效整体重试一次。
         """
-        keyword = str(case_no or "").strip()
-        if not keyword:
+        value = str(keyword or "").strip()
+        if not value:
             return []
 
         try:
-            return await self._lookup_via_session(cookies=cached_cookies(self._auth), case_no=keyword)
+            return await self._lookup_via_session(
+                cookies=cached_cookies(self._auth), param_name=param_name, keyword=value
+            )
         except _SessionExpiredError:
-            logger.info("OA 会话中途失效，重建会话后重试案号查 GUID: %s", keyword)
-            return await self._lookup_via_session(cookies=cached_cookies(self._auth), case_no=keyword)
+            logger.info("OA 会话中途失效，重建会话后重试查 GUID: field=%s keyword=%s", param_name, value)
+            return await self._lookup_via_session(
+                cookies=cached_cookies(self._auth), param_name=param_name, keyword=value
+            )
 
-    async def _lookup_via_session(self, *, cookies: dict[str, str] | None, case_no: str) -> list[str]:
-        """单次完整流程：建立会话 → 取 VIEWSTATE → POST 搜索 → 提取 GUID。"""
+    async def _lookup_via_session(self, *, cookies: dict[str, str] | None, param_name: str, keyword: str) -> list[str]:
+        """单次完整流程：建立会话（GET 对话框搜索 URL）→ 提取 radio GUID。"""
         async with self._build_client(cookies=cookies) as client:
-            list_resp = await self._ensure_list_session(client)
-
-            viewstate = extract_viewstate_fields(list_resp.text)
-            if _VIEWSTATE_FIELD not in viewstate:
-                raise RuntimeError("OA 案件列表页缺少 __VIEWSTATE，无法执行案号查询（请确认已登录 OA）")
-
-            payload = {
-                _VIEWSTATE_FIELD: viewstate[_VIEWSTATE_FIELD],
-                _VIEWSTATE_GENERATOR_FIELD: viewstate.get(_VIEWSTATE_GENERATOR_FIELD, ""),
-                _CURRENT_PAGE_FIELD: "1",
-                _SEARCH_CASE_NO_FIELD: case_no,
-            }
-            search_resp = await client.post(_CASE_LIST_URL, data=payload)
-            search_resp.raise_for_status()
-            if is_oa_login_page(search_resp.url, search_resp.text):
-                raise _SessionExpiredError("OA 会话无效（搜索结果跳转登录）")
-
-            guids = extract_case_guids(search_resp.text, case_no)
-            logger.info("案号查 GUID 完成: case_no=%s hits=%d", case_no, len(guids))
+            resp = await self._ensure_dialog_session(client, param_name=param_name, keyword=keyword)
+            guids = extract_dialog_guids(resp.text)
+            logger.info("案号查 GUID 完成: field=%s keyword=%s hits=%d", param_name, keyword, len(guids))
             return guids
 
-    async def _ensure_list_session(self, client: httpx.AsyncClient) -> httpx.Response:
-        """在单 client 内顺序自愈，直到拿到带 VIEWSTATE 的列表页。
+    async def _ensure_dialog_session(
+        self, client: httpx.AsyncClient, *, param_name: str, keyword: str
+    ) -> httpx.Response:
+        """在单 client 内顺序自愈，直到拿到对话框搜索结果页。
 
-        轮次行为（每轮一个 GET）：
-        - 响应即列表页（有 VIEWSTATE）→ 返回；
-        - 落在 OA 应用层登录页（member/login.aspx，rurl 指向列表页）→
+        轮次行为（每轮一个 GET，搜索参数全程携带——自愈完成后落点即结果页）：
+        - 响应即对话框页（含搜索表单且非登录/网关/占位页）→ 返回；
+        - 落在 OA 应用层登录页（member/login.aspx，rurl 指向对话框）→
           提取 CSRFToken POST 账密登录（每轮至多一次），登录成功响应通常
-          直接就是 302 回跳后的列表页；
+          直接就是 302 回跳后的对话框结果页；
         - 落在 SSO 门户 / 网关回调（access.jtn.com、corplink/agw）→ 继续
           下一轮：回调响应会 Set-Cookie 下发网关会话，下一轮即被放行到
           应用层登录页；
-        - 其他无 VIEWSTATE 形态 → 抛错（不能确定会话状态，宁可报错）。
+        - 其他异常形态 → 抛错（不能确定会话状态，宁可报错）。
 
         前置清理：缓存里可能带着已被网关侧失效的 corplink_at/it（域名串
         与回调新下发的不同，httpx jar 同名共存），请求时旧值在前会被网关
@@ -159,14 +153,15 @@ class JtnCaseGuidScript:
         """
         _strip_stale_gateway_cookies(client)
         logged_in = False
+        url = dialog_search_url(param_name=param_name, keyword=keyword)
         for round_index in range(_MAX_SESSION_ROUNDS):
             if round_index:
                 # 网关回调/登录跳转之间留出间隙，降低连续授权被网关侧限流的概率
                 await asyncio.sleep(_SESSION_ROUND_GAP_SECONDS)
-            resp = await client.get(_CASE_LIST_URL)
+            resp = await client.get(url, headers={"Referer": _DIALOG_REFERER})
             resp.raise_for_status()
 
-            if _VIEWSTATE_FIELD in extract_viewstate_fields(resp.text):
+            if _DIALOG_FORM_MARKER in resp.text and not is_oa_login_page(resp.url, resp.text):
                 return resp
 
             if is_sso_gateway_url(resp.url):
@@ -178,7 +173,7 @@ class JtnCaseGuidScript:
                     raise RuntimeError(f"OA 登录失败，账号或密码错误: {self._account}")
                 logged_in = True
                 resp = await self._login_via_form(client, resp)
-                if _VIEWSTATE_FIELD in extract_viewstate_fields(resp.text):
+                if _DIALOG_FORM_MARKER in resp.text and not is_oa_login_page(resp.url, resp.text):
                     return resp
                 continue
 

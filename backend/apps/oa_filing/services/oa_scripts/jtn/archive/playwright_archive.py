@@ -29,6 +29,7 @@ from .constants import (
     IFRAME_SEARCH_FN,
     MEDIUM_WAIT,
     POPUP_WAIT,
+    PROJCLOSE_APP_URL_TEMPLATE,
     SAVE_BTN_ID,
     SHORT_WAIT,
 )
@@ -57,11 +58,13 @@ class PlaywrightArchiveMixin:  # pragma: no cover
             # 1. 登录
             await self._login(page, context)
 
-            # 2. 导航到归档页面
-            await self._navigate(page)
+            # 2. 导航到归档页面（案号先经纯 HTTP 预解析 GUID，唯一命中即直达申请页）
+            project_id = await self._resolve_project_id(form_data.oa_case_number)
+            await self._navigate(page, project_id=project_id)
 
-            # 3. 搜索并选择案件
-            await self._search_and_select_case(page, form_data.oa_case_number)
+            # 3. 搜索并选择案件（预解析失败/不唯一时回退弹窗搜案）
+            if not project_id:
+                await self._search_and_select_case(page, form_data.oa_case_number)
 
             # 4. 填写案件小结
             await self._fill_description(page, form_data.description)
@@ -91,10 +94,15 @@ class PlaywrightArchiveMixin:  # pragma: no cover
         cookies = await self._auth.perform_sso_login(page, context)
         await JtnAuthService.inject_to_context(context, cookies)
 
-    async def _navigate(self: Any, page: Page) -> None:  # pragma: no cover
-        """导航到结案归档管理 - 结案申请页面。"""
-        logger.info("导航到归档页面: %s", ARCHIVE_PAGE_URL)
-        await page.goto(ARCHIVE_PAGE_URL, wait_until="domcontentloaded", timeout=60_000)
+    async def _navigate(self: Any, page: Page, project_id: str | None = None) -> None:  # pragma: no cover
+        """导航到结案归档页面。
+
+        project_id（律所ID/GUID）非空时直达归档申请页（keyid 定位案件，
+        跳过弹窗查案件）；否则进结案归档管理列表页（由调用方再走弹窗搜案）。
+        """
+        target_url = PROJCLOSE_APP_URL_TEMPLATE.format(project_id=project_id) if project_id else ARCHIVE_PAGE_URL
+        logger.info("导航到归档页面: %s", target_url)
+        await page.goto(target_url, wait_until="domcontentloaded", timeout=60_000)
         await asyncio.sleep(MEDIUM_WAIT)
 
         if "login" in page.url.lower():
@@ -178,6 +186,28 @@ class PlaywrightArchiveMixin:  # pragma: no cover
         for frame in page.frames:
             if _POPUP_IFRAME_KEYWORD in frame.url:
                 return frame
+        return None
+
+    async def _resolve_project_id(self: Any, case_no: str) -> str | None:
+        """纯 HTTP 预解析案号 → GUID（对话框 GET 搜索），仅唯一命中才采用。
+
+        任何不明确/失败情形都回退弹窗搜案（返回 None），保证行为只增不改：
+        - 查询异常（缓存会话失效且仅扫码账号等）→ 弹窗链路里有 SSO 扫码兜底；
+        - 0 命中或多命中 → 弹窗按行精确匹配案号，多候选时仍能选对。
+        """
+        if not case_no:
+            return None
+        from ..case_guid import JtnCaseGuidScript
+
+        try:
+            guids = await JtnCaseGuidScript(account=self._account, password=self._password).lookup_case_guids(case_no)
+        except Exception:
+            logger.warning("案号查 GUID 预解析失败，回退弹窗搜案: %s", case_no, exc_info=True)
+            return None
+        if len(guids) == 1:
+            logger.info("案号预解析出唯一 GUID，直达归档申请页（跳过弹窗）: %s", case_no)
+            return guids[0]
+        logger.info("案号预解析命中 %d 条（非唯一），回退弹窗搜案: %s", len(guids), case_no)
         return None
 
     async def _fill_description(self: Any, page: Page, description: str) -> None:  # pragma: no cover
@@ -267,8 +297,14 @@ class PlaywrightArchiveMixin:  # pragma: no cover
         oa_case_number: str,
         description: str = "详见卷宗",
         file_paths: list[str] | None = None,
+        project_id: str | None = None,
     ) -> BrowserSessionHandle:
-        """打开归档页面，填写案件编号和小结，若提供 file_paths 则在最后一步将对应文件上传到"案件业务卷宗"，返回浏览器会话句柄（长生命周期）。"""
+        """打开归档页面，填写案件编号和小结，若提供 file_paths 则在最后一步将对应文件上传到"案件业务卷宗"，返回浏览器会话句柄（长生命周期）。
+
+        project_id（律所ID/GUID）非空时直达带 keyid 的归档申请页（案件已定位，
+        跳过弹窗查案件，后续小结/附件填充逻辑不变）；否则按 oa_case_number
+        弹窗搜索选择案件（备用方案）。
+        """
         session = await create_browser_async_manual("jtn")
         page = session.page
         # 浏览器关闭后的回收由 adapter.wait_open_browsers_closed 负责（调度器压住
@@ -277,10 +313,17 @@ class PlaywrightArchiveMixin:  # pragma: no cover
 
         try:
             await self._login(page, session.context)
-            await self._navigate(page)
 
-            if oa_case_number:
+            if not project_id and oa_case_number:
+                # 纯 HTTP 预解析案号 → GUID，唯一命中即与显式传入 project_id 同路直达
+                project_id = await self._resolve_project_id(oa_case_number)
+
+            await self._navigate(page, project_id=project_id)
+
+            if not project_id and oa_case_number:
                 await self._search_and_select_case(page, oa_case_number)
+            elif not project_id and not oa_case_number:
+                logger.info("未提供案件编号与律所ID，仅打开归档页面")
 
             await self._fill_description(page, description)
             await self._click_delete_button(page)

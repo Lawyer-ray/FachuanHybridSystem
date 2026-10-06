@@ -286,19 +286,21 @@ class TestWaitOpenBrowsersClosedEdgeCases:
 
 class TestOpenPages:
     @pytest.mark.parametrize(
-        ("method_name", "script_path", "open_args"),
+        ("method_name", "script_path", "open_args", "open_kwargs"),
         [
             (
                 "open_oa_page",
                 "apps.oa_filing.services.oa_scripts.jtn.archive.JtnArchiveScript",
                 ("OA-1", "小结", ["/f.pdf"]),
+                {"project_id": None},
             ),
-            ("open_invoice_page", "apps.oa_filing.services.oa_scripts.jtn.invoice.JtnInvoiceScript", ("OA-2",)),
-            ("open_stamp_page", "apps.oa_filing.services.oa_scripts.jtn.stamp.JtnStampScript", ("OA-3",)),
+            ("open_invoice_page", "apps.oa_filing.services.oa_scripts.jtn.invoice.JtnInvoiceScript", ("OA-2",), {}),
+            ("open_stamp_page", "apps.oa_filing.services.oa_scripts.jtn.stamp.JtnStampScript", ("OA-3",), {}),
             (
                 "open_conflict_check_page",
                 "apps.oa_filing.services.oa_scripts.jtn.conflict_check.JtnConflictCheckScript",
                 ("当事人甲",),
+                {},
             ),
         ],
     )
@@ -308,6 +310,7 @@ class TestOpenPages:
         monkeypatch: pytest.MonkeyPatch,
         method_name: str,
         script_path: str,
+        open_kwargs: dict,
         open_args: tuple[str, ...],
     ) -> None:
         stale = _make_session_handle(connected=False)
@@ -322,7 +325,7 @@ class TestOpenPages:
             await getattr(adapter, method_name)(credential, *open_args)
 
         script_cls.assert_called_once_with(account="acc", password="p")
-        script.open_page.assert_awaited_once_with(*open_args)
+        script.open_page.assert_awaited_once_with(*open_args, **open_kwargs)
         assert handle in adapter._opened_sessions
         assert handle in jtn_adapter_mod._active_browser_sessions
         assert stale not in jtn_adapter_mod._active_browser_sessions  # 断连会话被清理

@@ -10,7 +10,7 @@
 - 补充协议体系（SupplementaryAgreement / SupplementaryAgreementParty）
 - 文件夹：绑定（ContractFolderBinding）、批量根目录预设（ContractTypeFolderRootPreset）、自动捕获（ContractFolderScanSession）
 - **归档材料全流程**：FinalizedMaterial + 检查清单、精简视图 compact_archive、A4 缩放、确认归档、reset-and-resync、从案件材料同步、归档学习规则（ArchiveClassificationRule + learn-rules）、占位符覆盖、监管卡提取
-- OA 集成：ContractOASyncSession、law_firm_oa_url / oa_case_number / law_firm_oa_guid（律所ID，OA 案件 GUID）字段、OA 同步 Admin 模板（依赖 oa_filing）；合同编辑页「查询ID」按钮——按律所OA案件编号调 oa_filing 案号查 GUID（纯 HTTP 只读）自动填充律所ID（admin 路由 `/{id}/lookup-oa-guid/`，唯一命中自动填入、多命中点选）
+- OA 集成：ContractOASyncSession、law_firm_oa_url / oa_case_number / law_firm_oa_guid（律所ID，OA 案件 GUID）字段、OA 同步 Admin 模板（依赖 oa_filing）；合同编辑页「查询ID」按钮——按律所OA案件编号调 oa_filing 案号查 GUID（纯 HTTP 只读）自动填充律所ID（admin 路由 `/{id}/lookup-oa-guid/`，唯一命中自动填入、多命中点选）；详情页「申请开票」「打开OA」有律所ID 时浏览器/Playwright 直达 OA 开票申请页与归档申请页（keyid 直达，跳过查案件，无律所ID 回退原链路）
 - 客户回款记录（ClientPaymentRecord + 回款图片）、合同导入（contract_import_service、JTN OA 导入模板）
 
 ## 目录结构

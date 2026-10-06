@@ -5,6 +5,12 @@ from __future__ import annotations
 # 结案归档管理 - 结案申请页面
 ARCHIVE_PAGE_URL = "https://ims.jtn.com/projclose/projcloseapp.aspx?&FML=PROJECT&SML=PROJECT008&TML=PROJECT008-01"
 
+# 律所ID（keyid）直达归档申请页：跳过弹窗查案件，案件随 keyid 直接定位，
+# 页面表单与弹窗选择案件后完全一致（小结/附件填充逻辑不变）
+PROJCLOSE_APP_URL_TEMPLATE = (
+    "https://ims.jtn.com/projclose/projcloseapp.aspx?&FirstModel=PROJECT&SecondModel=PROJECT008&keyid={project_id}"
+)
+
 # 案件小结 textarea ID（readonly，需 JS 去除 readonly）
 DESCRIPTION_SELECTOR = "#proje_report1"
 

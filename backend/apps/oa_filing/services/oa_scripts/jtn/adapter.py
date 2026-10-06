@@ -238,15 +238,18 @@ class JTNAdapter(
         oa_case_number: str,
         description: str,
         file_paths: list[str] | None = None,
+        project_id: str | None = None,
     ) -> None:
         """打开 OA 归档页面，填写案件编号和小结，保持浏览器打开。
 
         file_paths 非空时，选完案件后将对应文件上传到"案件业务卷宗"。
+        project_id（律所ID/GUID）非空时直达带 keyid 的归档申请页（跳过查
+        案件，填充逻辑不变）；None 时按 oa_case_number 查案件（备用方案）。
         """
         from apps.oa_filing.services.oa_scripts.jtn.archive import JtnArchiveScript
 
         script = JtnArchiveScript(account=str(credential.account), password=str(credential.password))
-        session = await script.open_page(oa_case_number, description, file_paths or [])
+        session = await script.open_page(oa_case_number, description, file_paths or [], project_id=project_id)
         _cleanup_stale_sessions()
         self._opened_sessions.append(session)
         _active_browser_sessions.append(session)
@@ -375,11 +378,25 @@ class JTNAdapter(
     # ==================================================================
 
     async def lookup_case_guid(self, case_no: str, credential: Any) -> list[str]:
-        """按案号查询案件 GUID（案件管理页搜索，纯 HTTP 只读）。"""
+        """按案号查询案件 GUID（案件选择对话框 GET 搜索，纯 HTTP 只读）。"""
         from apps.oa_filing.services.oa_scripts.jtn.case_guid import JtnCaseGuidScript
 
         script = JtnCaseGuidScript(account=str(credential.account), password=str(credential.password))
         return await script.lookup_case_guids(case_no)
+
+    async def lookup_case_guid_by_name(self, case_name: str, credential: Any) -> list[str]:
+        """按案名查询案件 GUID（同一对话框入口，project_name）。"""
+        from apps.oa_filing.services.oa_scripts.jtn.case_guid import JtnCaseGuidScript
+
+        script = JtnCaseGuidScript(account=str(credential.account), password=str(credential.password))
+        return await script.lookup_case_guids_by_name(case_name)
+
+    async def lookup_case_guid_by_customer_name(self, customer_name: str, credential: Any) -> list[str]:
+        """按客户名称查询案件 GUID（同一对话框入口，project_customer_name）。"""
+        from apps.oa_filing.services.oa_scripts.jtn.case_guid import JtnCaseGuidScript
+
+        script = JtnCaseGuidScript(account=str(credential.account), password=str(credential.password))
+        return await script.lookup_case_guids_by_customer_name(customer_name)
 
     # ==================================================================
     # ClientImportAdapter
