@@ -43,7 +43,7 @@ oa_filing/
 - **Protocol 隔离 + 注册表分发**：新增律所只需 `oa_scripts/<firm>/adapter.py` 实现 Protocol 并在 `_ADAPTERS` 注册一行，调度器零改动
 - **jtn/ 以外禁止 import jtn 模块**；adapter 只做薄委托，Playwright 逻辑在各功能子包的 mixin/service 中
 - **HTTP 优先 / Playwright 兜底**分层（立案、案件导入、客户导入均如此），失败分类为「换链路重试」而非简单报错
-- **jtn/http_session 纯 HTTP 会话基建**：headers/timeout/登录 URL 统一从 auth/constants 出口；会话失效判定小件（登录 URL / location.replace 占位页 / 账密表单 / 错误文案）；缓存 cookies 优先的会话解析（兼容仅扫码账号，如 huangsong）+ `http_login_cookies` 友好错误包装；`build_client` 客户端工厂（trust_env=False 内聚）。各纯 HTTP 链路（立案/案件导入/客户导入/案号查 GUID）共用，登录失败判定为强口径（停在登录页且带账密表单，或错误文案）
+- **jtn/http_session 纯 HTTP 会话基建**：headers/timeout/登录 URL 统一从 auth/constants 出口；会话失效判定小件（登录 URL / location.replace 占位页 / 账密表单 / 错误文案）；缓存 cookies 优先的会话解析（兼容仅支持扫码登录的账号）+ `http_login_cookies` 友好错误包装；`build_client` 客户端工厂（trust_env=False 内聚）。各纯 HTTP 链路（立案/案件导入/客户导入/案号查 GUID）共用，登录失败判定为强口径（停在登录页且带账密表单，或错误文案）
 - **浏览器生命周期**：半自动模式返回 `(playwright, browser)`，adapter 存入 `_active_browser_sessions` 防 GC；`_cleanup_stale_sessions` 清理断连会话
 - 导入服务先 `connections.close_all()` 再进 Playwright 事件循环，规避 Django 同步 ORM 限制
 
