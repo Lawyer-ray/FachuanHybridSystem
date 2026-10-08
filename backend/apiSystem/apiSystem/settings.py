@@ -429,6 +429,11 @@ ALLOW_FIRST_USER_SUPERUSER = (os.environ.get("ALLOW_FIRST_USER_SUPERUSER", "Fals
     "yes",
 )
 BOOTSTRAP_ADMIN_TOKEN = (os.environ.get("BOOTSTRAP_ADMIN_TOKEN", "") or "").strip()
+# auto_register 首用户引导口令（安全审计 2026Q4）：原为源码内硬编码 "1234qwer"，
+# 任何人可在 DEBUG 实例上免令牌调用 /admin/register/ 的 auto_register 分支抢占
+# 超管。现改为环境变量注入，无默认值——未配置时 auto_register_superadmin 直接
+# 拒绝（fail-closed），源码不再保留任何可用口令。
+AUTO_REGISTER_BOOTSTRAP_PASSWORD = (os.environ.get("AUTO_REGISTER_BOOTSTRAP_PASSWORD", "") or "").strip()
 # 表单注册入口开关（默认关闭）：/admin/register/ 的表单注册在 False 时直接拒绝
 # （apps/organization/views.py register 视图消费）；auto_register 首用户引导分支
 # （BOOTSTRAP_ADMIN_TOKEN 保护）不受此开关影响。API 侧 /api/v1/organization/register
@@ -443,6 +448,12 @@ SMOKE_ADMIN_PASSWORD = _smoke_pw or "smoke_admin_password"  # DEBUG 模式下使
 
 if (not DEBUG) and ALLOW_FIRST_USER_SUPERUSER and (not BOOTSTRAP_ADMIN_TOKEN):
     raise RuntimeError("ALLOW_FIRST_USER_SUPERUSER=true 时必须配置 BOOTSTRAP_ADMIN_TOKEN")
+
+# auto_register 口令闸门（安全审计 2026Q4）：开启首用户引导时必须显式注入口令，
+# 否则 auto_register_superadmin 会因口令为空而拒绝——此处提前 fail-fast，
+# 把「配置漏项」暴露在启动阶段而非首次引导时。
+if ALLOW_FIRST_USER_SUPERUSER and (not AUTO_REGISTER_BOOTSTRAP_PASSWORD):
+    raise RuntimeError("ALLOW_FIRST_USER_SUPERUSER=true 时必须配置 AUTO_REGISTER_BOOTSTRAP_PASSWORD")
 
 # ============================================================
 # 社交登录

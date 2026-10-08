@@ -103,15 +103,60 @@ class TestAuthServiceDeep:
                 svc.auto_register_superadmin()
 
     @pytest.mark.django_db
+    def test_auto_register_requires_allow_first_user_superuser(self) -> None:
+        """安全审计 2026Q4：未开 ALLOW_FIRST_USER_SUPERUSER 时必须拒绝。
+
+        原实现只检查「系统无任何用户」，口令还硬编码在源码中，DEBUG 实例上
+        任何人可零凭证抢占超管。
+        """
+        from apps.organization.services.auth.auth_service import AuthService
+
+        svc = AuthService()
+        with (
+            patch("apps.organization.services.auth.auth_service.Lawyer") as MockLawyer,
+            patch("apps.organization.services.auth.auth_service.settings") as mock_settings,
+        ):
+            MockLawyer.objects.exists.return_value = False
+            mock_settings.ALLOW_FIRST_USER_SUPERUSER = False
+            mock_settings.AUTO_REGISTER_BOOTSTRAP_PASSWORD = "some-" + "password"  # pragma: allowlist secret
+            with pytest.raises(PermissionDenied, match="ALLOW_FIRST_USER_SUPERUSER"):
+                svc.auto_register_superadmin()
+            MockLawyer.objects.create_user.assert_not_called()
+
+    @pytest.mark.django_db
+    def test_auto_register_requires_configured_password(self) -> None:
+        """安全审计 2026Q4：口令必须由环境变量注入，源码不再保留可用口令。"""
+        from apps.organization.services.auth.auth_service import AuthService
+
+        svc = AuthService()
+        with (
+            patch("apps.organization.services.auth.auth_service.Lawyer") as MockLawyer,
+            patch("apps.organization.services.auth.auth_service.settings") as mock_settings,
+        ):
+            MockLawyer.objects.exists.return_value = False
+            mock_settings.ALLOW_FIRST_USER_SUPERUSER = True
+            mock_settings.AUTO_REGISTER_BOOTSTRAP_PASSWORD = ""
+            with pytest.raises(PermissionDenied, match="AUTO_REGISTER_BOOTSTRAP_PASSWORD"):
+                svc.auto_register_superadmin()
+            MockLawyer.objects.create_user.assert_not_called()
+
+    @pytest.mark.django_db
     def test_auto_register_success(self) -> None:
         from apps.organization.services.auth.auth_service import AuthService
 
         svc = AuthService()
-        with patch("apps.organization.services.auth.auth_service.Lawyer") as MockLawyer:
+        with (
+            patch("apps.organization.services.auth.auth_service.Lawyer") as MockLawyer,
+            patch("apps.organization.services.auth.auth_service.settings") as mock_settings,
+        ):
             MockLawyer.objects.exists.return_value = False
-            MockLawyer.objects.create_user.return_value = MagicMock()
+            mock_settings.ALLOW_FIRST_USER_SUPERUSER = True
+            injected = "injected-" + "password"  # pragma: allowlist secret
+            mock_settings.AUTO_REGISTER_BOOTSTRAP_PASSWORD = injected
             result = svc.auto_register_superadmin()
             assert result.user is not None
+            # 口令必须来自 settings，而非源码常量
+            assert MockLawyer.objects.create_user.call_args.kwargs["password"] == injected
 
 
 # ── PasswordResetService ─────────────────────────────────────────────────

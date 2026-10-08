@@ -15,6 +15,7 @@ from typing import Any
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
+from temporalio.exceptions import ApplicationError
 
 with workflow.unsafe.imports_passed_through():
     from apps.workflow.temporal import activities as act
@@ -641,29 +642,16 @@ class DynamicWorkflow:
             return result  # type: ignore[no-any-return]
 
         # ── code: 代码执行 ──
+        # 安全审计 A-01（纵深防御）：generic_code_exec 的 AST 黑名单沙箱可逃逸，
+        # activity 已从 worker 注册表物理下线（见 start_temporal_worker）。
+        # 此处同样拒绝 code 步骤：即使某个写入入口漏了步骤类型校验（历史上 MCP
+        # 的 create_workflow_template 正是如此），存量/新增模板也无法触发执行。
         if step_type == "code":
-            args = _build_step_args(step, context, case_id, run_id)
-            await workflow.execute_activity(
-                act.update_run_status,
-                args=(run_id, "running", step_id),
-                start_to_close_timeout=QUICK_TIMEOUT,
+            raise ApplicationError(
+                f"步骤类型 code 已被禁用（安全审计 A-01）: step={step_id}",
+                type="StepTypeForbidden",
+                non_retryable=True,
             )
-            await workflow.execute_activity(
-                act.record_step,
-                args=(run_id, step_id, step_name, "code", "running"),
-                start_to_close_timeout=QUICK_TIMEOUT,
-            )
-            result = await workflow.execute_activity(
-                act.generic_code_exec,
-                args=tuple(args),
-                start_to_close_timeout=timedelta(seconds=30),
-            )
-            await workflow.execute_activity(
-                act.record_step,
-                args=(run_id, step_id, step_name, "code", "success", result),
-                start_to_close_timeout=QUICK_TIMEOUT,
-            )
-            return result  # type: ignore[no-any-return]
 
         # ── activity: 业务步骤 ──
         # 优先走 MCP 工具，其次走 internal activity

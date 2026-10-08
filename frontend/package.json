@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:sourcemap": "tsc -b && vite build --sourcemap hidden --outDir dist-sourcemaps --emptyOutDir",
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",

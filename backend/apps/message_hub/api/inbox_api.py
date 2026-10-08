@@ -15,6 +15,7 @@ from ninja import Form, Query, Router, Schema
 from apps.core.exceptions import NotFoundError
 from apps.message_hub.models import InboxMessage
 from apps.message_hub.schemas import InboxMessageDetailOut, InboxMessageOut, MessageAckOut, MessageRenameOut
+from apps.message_hub.services.inbox_access import can_view_message
 
 logger = logging.getLogger("apps.message_hub")
 router = Router()
@@ -24,17 +25,21 @@ router = Router()
 # ---------------------------------------------------------------------------
 
 
-def _get_base_queryset() -> Any:
-    from apps.message_hub.services.inbox_query import get_base_queryset
+def _get_base_queryset(request: HttpRequest) -> Any:
+    """按当前用户收敛的收件箱消息 QuerySet（安全审计 IDOR：见 inbox_access）。"""
+    from apps.message_hub.services.inbox_access import visible_messages_qs
 
-    return get_base_queryset()
+    return visible_messages_qs(request.user)
 
 
-def _get_message_or_404(pk: int) -> InboxMessage:
+def _get_message_or_404(request: HttpRequest, pk: int) -> InboxMessage:
+    """按 ID 取消息并校验归属；不存在或无权访问均返回 404（不泄露存在性）。"""
     from apps.message_hub.services.inbox_query import get_message_or_none
 
     msg = get_message_or_none(pk)
     if msg is None:
+        raise NotFoundError(f"消息 {pk} 不存在")
+    if not can_view_message(request.user, msg):
         raise NotFoundError(f"消息 {pk} 不存在")
     return msg
 
@@ -56,7 +61,7 @@ def list_messages(  # pragma: no cover
     """收件箱消息列表（limit 截取前 N 条；收件箱持续增长，服务端兜底默认 500，
     需要更大结果集的消费方显式传 limit——不传即全量的旧行为会让「打开收件箱」
     随表增长恶化为全站最重请求，每行还要跑 7 个 draft_state resolver）。"""
-    qs = _get_base_queryset()
+    qs = _get_base_queryset(request)
 
     if source_id is not None:
         qs = qs.filter(source_id=source_id)
@@ -106,7 +111,7 @@ def update_draft(request: HttpRequest, message_id: int, payload: DraftIn) -> dic
     """保存某条收件箱消息的拆分草稿。"""
     from apps.message_hub.services.manual_upload_service import save_draft
 
-    msg = _get_message_or_404(message_id)
+    msg = _get_message_or_404(request, message_id)
     save_draft(msg.pk, payload.draft)
     return {"ok": True, "message_id": msg.pk}
 
@@ -116,7 +121,7 @@ def rename_message(request: HttpRequest, message_id: int, payload: RenameMessage
     """重命名材料包标题（收件箱消息 subject）。"""
     from apps.message_hub.services.manual_upload_service import rename_manual_message
 
-    msg = _get_message_or_404(message_id)
+    msg = _get_message_or_404(request, message_id)
     updated = rename_manual_message(msg, payload.subject)
     return {"ok": True, "message_id": updated.pk, "subject": updated.subject}
 
@@ -124,7 +129,7 @@ def rename_message(request: HttpRequest, message_id: int, payload: RenameMessage
 @router.get("/messages/{message_id}", response=InboxMessageDetailOut)
 def get_message(request: HttpRequest, message_id: int) -> Any:  # pragma: no cover
     """收件箱消息详情。老消息缺 PDF 页数时顺手回填（前端秒开材料包依赖 page_count）。"""
-    msg = _get_message_or_404(message_id)
+    msg = _get_message_or_404(request, message_id)
     from apps.message_hub.services.attachment_page_service import ensure_page_counts
 
     ensure_page_counts(msg)
@@ -136,7 +141,7 @@ def delete_message(request: HttpRequest, message_id: int) -> dict[str, Any]:  # 
     """删除收件箱消息（材料包）：先清理附件物理文件，再删 DB 记录（破坏性，前端需二次确认）。"""
     from apps.message_hub.services.manual_upload_service import delete_manual_message
 
-    msg = _get_message_or_404(message_id)
+    msg = _get_message_or_404(request, message_id)
     delete_manual_message(msg)
     return {"ok": True, "message_id": message_id}
 
@@ -148,7 +153,7 @@ def download_attachment(  # pragma: no cover
     part_index: int,
 ) -> FileResponse:
     """下载附件。"""
-    msg = _get_message_or_404(message_id)
+    msg = _get_message_or_404(request, message_id)
     return _serve_attachment(msg, part_index, inline=False)
 
 
@@ -159,7 +164,7 @@ def preview_attachment(  # pragma: no cover
     part_index: int,
 ) -> FileResponse:
     """预览附件（inline）。"""
-    msg = _get_message_or_404(message_id)
+    msg = _get_message_or_404(request, message_id)
     return _serve_attachment(msg, part_index, inline=True)
 
 
@@ -175,9 +180,9 @@ def append_attachments(  # pragma: no cover
     files = request.FILES.getlist("files")
     if not files:
         raise ValidationError("没有收到文件")
-    msg = _get_message_or_404(message_id)
+    msg = _get_message_or_404(request, message_id)
     append_manual_attachments(msg, files)
-    return 201, _get_message_or_404(msg.pk)
+    return 201, _get_message_or_404(request, msg.pk)
 
 
 class OcrBlockOut(Schema):
@@ -282,7 +287,7 @@ def rename_attachment(  # pragma: no cover
     """重命名附件。留空 custom_filename 则恢复原始文件名。"""
     from apps.message_hub.services.attachment_page_service import rename_attachment_in_meta
 
-    msg = _get_message_or_404(message_id)
+    msg = _get_message_or_404(request, message_id)
     # 行锁与 meta 读-改-写下沉 service 层（API 层禁 ORM，四层架构棘轮口径）
     original, custom = rename_attachment_in_meta(msg, part_index=part_index, custom_filename=payload.custom_filename)
 

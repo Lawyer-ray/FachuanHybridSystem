@@ -412,12 +412,34 @@ async def get_step_registry_flat() -> list[dict[str, Any]]:
     return get_flat_step_list()
 
 
+def _validate_steps_or_error(user: Any | None, steps: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """步骤类型白名单校验（安全审计 A-01 旁路修复）。
+
+    MCP 是与 HTTP API 并列的模板写入入口，历史上完全未做步骤类型校验，
+    code 步骤可经此落库并由 workflows.py 调度 generic_code_exec（可逃逸
+    沙箱）。此处复用 API 层同一校验，缺省 fail-closed（user 为空按非
+    superuser 处理）。
+
+    Returns:
+        校验通过返回 None；不通过返回 MCP 约定的 {"error": ...} 字典。
+    """
+    from apps.core.exceptions import ValidationException
+    from apps.workflow.services.template_service import WorkflowTemplateService
+
+    try:
+        WorkflowTemplateService().validate_steps_for_user(user, steps)
+    except ValidationException as e:
+        return {"error": f"步骤校验失败: {e.message}"}
+    return None
+
+
 async def create_workflow_template(
     name: str,
     steps: list[dict[str, Any]],
     slug: str = "",
     category: str = "litigation",
     description: str = "",
+    user: Any | None = None,
 ) -> dict[str, Any]:
     """创建 DynamicWorkflow 工作流模板
 
@@ -431,6 +453,7 @@ async def create_workflow_template(
         slug: URL 标识（留空自动生成）
         category: 分类 (litigation/preservation/enforcement)
         description: 模板描述
+        user: 当前用户（安全审计 A-01 旁路修复：步骤类型白名单校验用）
 
     Returns:
         创建的模板信息，包含 id、name、slug、steps_count
@@ -438,6 +461,15 @@ async def create_workflow_template(
     from django.utils.text import slugify as dj_slugify
 
     from apps.workflow.models import WorkflowTemplate
+    from apps.workflow.services.template_service import WorkflowTemplateService
+
+    # 安全审计 A-01（旁路修复）：MCP 是与 HTTP API 并列的模板写入入口，历史上
+    # 完全未做步骤类型校验，导致 code 步骤可经此落库并由 workflows.py 调度
+    # generic_code_exec（可逃逸沙箱）。此处复用 API 层同一校验，缺省 fail-closed
+    # （user 为空时按非 superuser 处理）。
+    error = _validate_steps_or_error(user, steps)
+    if error is not None:
+        return error
 
     if not slug:
         slug = dj_slugify(name, allow_unicode=True)
@@ -494,6 +526,7 @@ async def update_workflow_template(
     description: str | None = None,
     category: str | None = None,
     is_active: bool | None = None,
+    user: Any | None = None,
 ) -> dict[str, Any]:
     """更新已有的工作流模板
 
@@ -504,8 +537,16 @@ async def update_workflow_template(
         description: 新描述（可选）
         category: 新分类（可选）
         is_active: 是否启用（可选）
+        user: 当前用户（安全审计 A-01 旁路修复：步骤类型白名单校验用）
     """
     from apps.workflow.models import WorkflowTemplate
+
+    # 安全审计 A-01（旁路修复）：与 create_workflow_template 同一校验，
+    # 防止经 update 写入 code 步骤。
+    if steps is not None:
+        error = _validate_steps_or_error(user, steps)
+        if error is not None:
+            return error
 
     try:
         template = await WorkflowTemplate.objects.aget(pk=template_id)
