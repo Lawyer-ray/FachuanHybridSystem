@@ -272,9 +272,24 @@ class OpenAICompatibleBackend:
     @staticmethod
     def _ssl_verify() -> bool:
         # SSL 验证可通过环境变量 LLM_SSL_VERIFY=false 关闭（仅用于特殊 CDN/代理环境）
+        #
+        # 安全审计（2026Q4 M-3）：LLM 请求头携带 Authorization: Bearer <API Key>，
+        # 关闭校验等于允许 MITM 截获 Key 与案件 prompt。原实现在任何环境都尊重
+        # 该开关；现改为非 DEBUG 环境忽略它（与 PERM_OPEN_ACCESS 生产禁止同款
+        # fail-closed 口径），DEBUG 下仍可关闭以便本地抓包排障。
         import os
 
-        return os.environ.get("LLM_SSL_VERIFY", "true").lower() not in ("false", "0", "no")
+        from django.conf import settings
+
+        if os.environ.get("LLM_SSL_VERIFY", "true").lower() in ("false", "0", "no"):
+            if not getattr(settings, "DEBUG", False):
+                logger.warning(
+                    "llm_ssl_verify_disabled_ignored_in_production",
+                    extra={"hint": "非 DEBUG 环境忽略 LLM_SSL_VERIFY=false，TLS 校验保持开启"},
+                )
+                return True
+            return False
+        return True
 
     def _build_sync_client(self, api_key: str, base_url: str, timeout_seconds: float) -> openai.OpenAI:
         timeout_val = float(timeout_seconds)

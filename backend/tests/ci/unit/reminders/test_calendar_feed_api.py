@@ -131,7 +131,9 @@ class TestCalendarFeedEndpoint:
 
         assert response.status_code == 200
         assert response["Content-Type"].startswith("text/calendar")
-        assert response["Cache-Control"] == "public, max-age=14400"
+        # 安全审计 2026Q4 M-4：ICS 是个人日程数据，必须 private（原为 public，
+        # 允许共享缓存/代理保存该用户日程）
+        assert response["Cache-Control"] == "private, max-age=14400"
         assert "Last-Modified" in response
         body = response.content.decode("utf-8")
         assert body.startswith("BEGIN:VCALENDAR")

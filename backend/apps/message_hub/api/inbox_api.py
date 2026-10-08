@@ -60,7 +60,13 @@ def list_messages(  # pragma: no cover
 ) -> Any:
     """收件箱消息列表（limit 截取前 N 条；收件箱持续增长，服务端兜底默认 500，
     需要更大结果集的消费方显式传 limit——不传即全量的旧行为会让「打开收件箱」
-    随表增长恶化为全站最重请求，每行还要跑 7 个 draft_state resolver）。"""
+    随表增长恶化为全站最重请求，每行还要跑 7 个 draft_state resolver）。
+
+    安全审计（2026Q4 M-6）：``limit<=0`` 时原先不做切片 → 全表序列化
+    （含 N+1 的 draft_state resolver），用户上传大量材料包后可自我放大为 DoS。
+    此处把 limit 收敛到 [1, 1000]。
+    """
+    limit = max(1, min(limit, 1000))
     qs = _get_base_queryset(request)
 
     if source_id is not None:

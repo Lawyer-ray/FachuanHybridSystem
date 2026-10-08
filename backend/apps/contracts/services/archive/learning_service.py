@@ -1,7 +1,8 @@
-"""归档分类学习服务 - 从已归档材料中学习分类规则，并导出为代码文件共享给其他用户。"""
+"""归档分类学习服务 - 从已归档材料中学习分类规则，并导出为 JSON 数据文件共享给其他用户。"""
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from pathlib import Path
@@ -11,6 +12,7 @@ from django.db.models import F
 
 from apps.contracts.models import ArchiveClassificationRule, FinalizedMaterial
 from apps.contracts.services.archive.category_mapping import get_archive_category
+from apps.contracts.services.contract.integrations._learned_rules_json_path import LEARNED_RULES_JSON_PATH
 from apps.contracts.services.contract.integrations.archive_classifier import (
     classify_archive_material,
     invalidate_db_rules_cache,
@@ -19,8 +21,13 @@ from apps.contracts.services.contract.integrations.archive_classifier import (
 
 logger = logging.getLogger(__name__)
 
-# 学习规则代码文件路径（与 archive_classifier.py 同目录）
-_LEARNED_RULES_PATH = Path(__file__).parent.parent / "contract" / "integrations" / "_learned_rules.py"
+# 学习规则数据文件路径（与 archive_classifier.py 同目录）。
+# 安全审计（2026Q4）：原为 _learned_rules.py，由 f-string 拼接 DB 内容生成
+# Python 源码再 importlib.reload 执行——filename_keyword 未经转义即可逃逸
+# 字符串字面量（管理员触发导出即 RCE），且 .py 被 git 跟踪使 payload 可随
+# commit 分发；含引号关键词还会产出畸形源码，SyntaxError 穿透 except 导致
+# 全站 DoS。现改为 JSON，数据不再被解释执行。
+_LEARNED_RULES_PATH = LEARNED_RULES_JSON_PATH
 
 
 def _learn_keywords_for_material(
@@ -230,12 +237,12 @@ class ArchiveLearningService:
         }
 
     def export_rules_to_code(self) -> dict[str, Any]:  # pragma: no cover
-        """将 DB 中的学习规则导出为 _learned_rules.py 代码文件。
+        """将 DB 中的学习规则导出为 _learned_rules.json 数据文件。
 
-        导出格式与 _FILENAME_KEYWORD_TO_ARCHIVE_CODE 字典格式一致，
+        导出格式为 JSON：``{archive_category: {archive_item_code: [keyword, ...]}}``，
         commit + push 后其他用户 pull 即可享用学习成果。
 
-        导出时会合并代码文件中的已有规则，避免丢失之前导出的规则。
+        导出时会合并数据文件中的已有规则，避免丢失之前导出的规则。
 
         Returns:
             {"path": 文件路径, "rule_count": 规则数, "category_count": 分类数}
@@ -257,13 +264,14 @@ class ArchiveLearningService:
                 grouped[cat][code] = []
             grouped[cat][code].append(kw)
 
-        # 合并代码文件中已有的规则（避免丢失之前导出的规则）
+        # 合并数据文件中已有的规则（避免丢失之前导出的规则）
         try:
-            from apps.contracts.services.contract.integrations._learned_rules import (
-                LEARNED_FILENAME_KEYWORD_TO_ARCHIVE_CODE as code_rules,
+            from apps.contracts.services.contract.integrations.archive_classifier import (
+                _load_learned_rules_from_json,
             )
 
-            for cat, code_map in code_rules.items():
+            existing_rules = _load_learned_rules_from_json()
+            for cat, code_map in existing_rules.items():
                 if cat not in grouped:
                     grouped[cat] = {}
                 for code, keywords in code_map.items():
@@ -278,13 +286,16 @@ class ArchiveLearningService:
         except ImportError:
             pass
 
-        # 生成代码
-        code_content = self._generate_code_file(grouped)
+        # 生成 JSON（json.dumps 会自动转义引号/换行/Unicode，数据不会被
+        # 解释为代码，从根上消除原 f-string 拼接 Python 源码的注入面）
+        json_content = self._generate_json_file(grouped)
 
-        # 写入文件
-        _LEARNED_RULES_PATH.write_text(code_content, encoding="utf-8")
+        # 写入文件（原子替换：先写临时文件再 rename，避免半截文件被读到）
+        tmp_path = _LEARNED_RULES_PATH.with_suffix(".json.tmp")
+        tmp_path.write_text(json_content, encoding="utf-8")
+        tmp_path.replace(_LEARNED_RULES_PATH)
 
-        # 重新加载代码规则到内存（使当前进程立即生效）
+        # 重新加载规则到内存（使当前进程立即生效）
         reload_learned_code_rules()
 
         rule_count = sum(len(kws) for kws_dict in grouped.values() for kws in kws_dict.values())
@@ -305,41 +316,16 @@ class ArchiveLearningService:
             "category_count": category_count,
         }
 
-    def _generate_code_file(self, grouped: dict[str, dict[str, list[str]]]) -> str:
-        """生成 _learned_rules.py 代码文件内容。"""
-        lines = [
-            '"""自动生成的归档分类学习规则。',
-            "",
-            '此文件由"学习分类规则"功能自动生成，请勿手动编辑。',
-            "如需调整规则，请在 Admin 后台修改 ArchiveClassificationRule 后重新导出。",
-            "",
-            "学习规则格式与 archive_classifier.py 中 _FILENAME_KEYWORD_TO_ARCHIVE_CODE 一致，",
-            "分类时优先使用学习规则，硬编码规则作为兜底。",
-            '"""',
-            "from __future__ import annotations",
-            "",
-        ]
+    def _generate_json_file(self, grouped: dict[str, dict[str, list[str]]]) -> str:
+        """生成 _learned_rules.json 文件内容。
 
-        if not grouped:
-            lines.append("# 从已归档材料中学习到的文件名关键词 → archive_item_code 映射")
-            lines.append("LEARNED_FILENAME_KEYWORD_TO_ARCHIVE_CODE: dict[str, dict[str, list[str]]] = {}")
-            lines.append("")
-            return "\n".join(lines)
-
-        lines.append("# 从已归档材料中学习到的文件名关键词 → archive_item_code 映射")
-        lines.append("LEARNED_FILENAME_KEYWORD_TO_ARCHIVE_CODE: dict[str, dict[str, list[str]]] = {")
-
-        for cat in sorted(grouped.keys()):
-            lines.append(f'    "{cat}": {{')
-            for code in sorted(grouped[cat].keys()):
-                keywords = grouped[cat][code]
-                kw_str = ", ".join(f'"{kw}"' for kw in keywords)
-                lines.append(f'        "{code}": [{kw_str}],')
-            lines.append("    },")
-
-        lines.append("}")
-        lines.append("")
-        return "\n".join(lines)
+        安全审计（2026Q4）：原为 ``_generate_code_file``，用 f-string 把
+        keyword 直接拼进 Python 源码字符串字面量，``filename_keyword`` 中的
+        引号/反斜杠可逃逸并注入任意表达式，写入后立即被
+        ``importlib.reload`` 执行。改用 ``json.dumps`` 后 keyword 永远是
+        字符串值，任何字符都被转义，不存在代码注入可能。
+        """
+        return json.dumps(grouped, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
 
 
 # ============================================================

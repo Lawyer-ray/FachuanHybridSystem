@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -167,13 +169,13 @@ class TestArchiveLearningService:
         svc = ArchiveLearningService()
         assert svc is not None
 
-    def test_generate_code_file_empty(self) -> None:
+    def test_generate_json_file_empty(self) -> None:
+        """安全审计 2026Q4：空规则生成合法 JSON（原为 Python 源码）。"""
         svc = ArchiveLearningService()
-        result = svc._generate_code_file({})
-        assert "LEARNED_FILENAME_KEYWORD_TO_ARCHIVE_CODE" in result
-        assert "{}" in result
+        result = svc._generate_json_file({})
+        assert json.loads(result) == {}
 
-    def test_generate_code_file_with_data(self) -> None:
+    def test_generate_json_file_with_data(self) -> None:
         svc = ArchiveLearningService()
         grouped = {
             "litigation": {
@@ -181,36 +183,55 @@ class TestArchiveLearningService:
                 "lt_2": ["证据"],
             }
         }
-        result = svc._generate_code_file(grouped)
-        assert '"litigation"' in result
-        assert '"lt_1"' in result
-        assert '"起诉状"' in result
-        assert '"答辩状"' in result
-        assert '"证据"' in result
+        result = svc._generate_json_file(grouped)
+        assert json.loads(result) == grouped
 
-    def test_generate_code_file_multiple_categories(self) -> None:
+    def test_generate_json_file_multiple_categories(self) -> None:
         svc = ArchiveLearningService()
         grouped = {
             "litigation": {"lt_1": ["起诉状"]},
             "non_litigation": {"nl_1": ["律师函"]},
         }
-        result = svc._generate_code_file(grouped)
-        assert '"litigation"' in result
-        assert '"non_litigation"' in result
+        result = svc._generate_json_file(grouped)
+        assert set(json.loads(result)) == {"litigation", "non_litigation"}
 
-    def test_generate_code_file_has_docstring(self) -> None:
+    def test_generate_json_file_is_not_python_source(self) -> None:
+        """安全审计 2026Q4：产物必须是纯数据，不能是可执行 Python 源码。"""
         svc = ArchiveLearningService()
-        result = svc._generate_code_file({})
-        assert "自动生成" in result
-        assert "请勿手动编辑" in result
+        result = svc._generate_json_file({"litigation": {"lt_1": ["起诉状"]}})
+        assert "LEARNED_FILENAME_KEYWORD_TO_ARCHIVE_CODE" not in result
+        assert "import" not in result
+        assert "def " not in result
 
-    def test_generate_code_file_sorted_keys(self) -> None:
+    def test_generate_json_file_escapes_quote_injection(self) -> None:
+        """安全审计 2026Q4：含引号的关键词必须被转义，不能逃逸成代码。
+
+        原实现用 f'"{kw}"' 拼接 Python 源码，kw 中的引号可闭合字符串字面量
+        并注入任意表达式；改用 json.dumps 后 keyword 永远是字符串值。
+        """
+        svc = ArchiveLearningService()
+        malicious = 'x"] if __import__("os").system("id") else ["'
+        grouped = {"litigation": {"lt_1": [malicious]}}
+        result = svc._generate_json_file(grouped)
+        # 关键断言：JSON 解析回来必须得到原字符串——说明引号被正确转义成
+        # 「数据」而非闭合了某个字符串字面量。原实现的产物在 ast.literal_eval
+        # 下会直接触发注入表达式（__import__("os").system 被执行）。
+        assert json.loads(result)["litigation"]["lt_1"] == [malicious]
+        # 用 ast.literal_eval 求值（不执行代码，仅解析字面量）：
+        # JSON 是 Python 字面量的子集，能安全求值且结果就是纯数据。
+        import ast
+
+        parsed = ast.literal_eval(result)
+        assert parsed["litigation"]["lt_1"] == [malicious]
+        assert isinstance(parsed["litigation"]["lt_1"][0], str)
+
+    def test_generate_json_file_sorted_keys(self) -> None:
         svc = ArchiveLearningService()
         grouped = {
             "z_category": {"z_code": ["word_a"]},
             "a_category": {"a_code": ["word_b"]},
         }
-        result = svc._generate_code_file(grouped)
+        result = svc._generate_json_file(grouped)
         # a_category should come before z_category
         a_pos = result.index('"a_category"')
         z_pos = result.index('"z_category"')

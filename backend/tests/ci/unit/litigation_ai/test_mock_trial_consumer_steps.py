@@ -331,12 +331,28 @@ class TestDbBackedHelpers:
         consumer = _make_consumer()
         found = SimpleNamespace(pk=1)
         with patch("apps.litigation_ai.models.LitigationSession") as mock_model:
-            mock_model.objects.filter.return_value.first.return_value = found
+            mock_model.objects.filter.return_value.filter.return_value.first.return_value = found
             result = await consumer._get_session("mt-sess")
 
         assert result is found
         # 必须限定 session_type="mock_trial"，防止串到文书生成会话
         assert mock_model.objects.filter.call_args.kwargs == {"session_id": "mt-sess", "session_type": "mock_trial"}
+        # 安全审计 2026Q4（IDOR）：还必须按 user_id 收敛，非管理员只能连自己的会话
+        assert mock_model.objects.filter.return_value.filter.call_args.kwargs == {"user_id": 9}
+
+    @pytest.mark.asyncio
+    async def test_get_session_skips_user_filter_for_admin(self) -> None:
+        """安全审计 2026Q4：superuser/admin 不做 user_id 收敛（可查看全部会话）。"""
+        consumer = _make_consumer()
+        consumer.user = SimpleNamespace(id=9, is_superuser=True)
+        found = SimpleNamespace(pk=1)
+        with patch("apps.litigation_ai.models.LitigationSession") as mock_model:
+            mock_model.objects.filter.return_value.first.return_value = found
+            result = await consumer._get_session("mt-sess")
+
+        assert result is found
+        # 管理员：只有一次 filter（不带 user_id）
+        assert mock_model.objects.filter.return_value.filter.call_count == 0
 
     @pytest.mark.asyncio
     async def test_add_message_uses_conversation_service(self) -> None:
