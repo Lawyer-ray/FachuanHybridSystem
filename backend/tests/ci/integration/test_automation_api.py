@@ -13,6 +13,7 @@ try:
 except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from django.utils import timezone
 
 from apps.automation.models.base import TestCourt
@@ -159,13 +160,15 @@ def test_auto_namer_process(mock_build, authenticated_client):
 
 
 # ===================================================================
-# Captcha recognition (no auth)
+# Captcha recognition（服务间共享密钥，安全审计 M-5）
 # ===================================================================
 
 
 @pytest.mark.django_db
+@override_settings(CAPTCHA_RECOGNIZE_SECRET="round4-test-value")  # pragma: allowlist secret
 @patch("apps.core.dependencies.build_captcha_service")
-def test_captcha_recognize(mock_build, api_client):
+def test_captcha_recognize_with_valid_secret(mock_build, api_client):
+    """带正确共享密钥 → 正常识别。"""
     mock_result = MagicMock()
     mock_result.success = True
     mock_result.text = "AB12"
@@ -179,11 +182,64 @@ def test_captcha_recognize(mock_build, api_client):
         "/api/v1/automation/captcha/recognize",
         data=json.dumps({"image_base64": "iVBORw0KGgo="}),
         content_type="application/json",
+        headers={"X-Captcha-Secret": "round4-test-value"},  # pragma: allowlist secret
     )
     assert resp.status_code == 200
     data = resp.json()
     assert data["success"] is True
     assert data["text"] == "AB12"
+
+
+@pytest.mark.django_db
+@override_settings(CAPTCHA_RECOGNIZE_SECRET="round4-test-value")  # pragma: allowlist secret
+@patch("apps.core.dependencies.build_captcha_service")
+def test_captcha_recognize_anonymous_is_rejected(mock_build, api_client):
+    """M-5 红线：匿名请求（无密钥）必须被拒，且不得触达 OCR 服务。"""
+    mock_service = MagicMock()
+    mock_build.return_value = mock_service
+
+    resp = api_client.post(
+        "/api/v1/automation/captcha/recognize",
+        data=json.dumps({"image_base64": "iVBORw0KGgo="}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 403
+    # 未通过授权就不该构造/调用 OCR 服务（不白费算力）
+    mock_build.assert_not_called()
+
+
+@pytest.mark.django_db
+@override_settings(CAPTCHA_RECOGNIZE_SECRET="round4-test-value")  # pragma: allowlist secret
+@patch("apps.core.dependencies.build_captcha_service")
+def test_captcha_recognize_wrong_secret_is_rejected(mock_build, api_client):
+    """密钥错误同样拒绝。"""
+    mock_build.return_value = MagicMock()
+
+    resp = api_client.post(
+        "/api/v1/automation/captcha/recognize",
+        data=json.dumps({"image_base64": "iVBORw0KGgo="}),
+        content_type="application/json",
+        headers={"X-Captcha-Secret": "wrong-secret"},  # pragma: allowlist secret
+    )
+    assert resp.status_code == 403
+    mock_build.assert_not_called()
+
+
+@pytest.mark.django_db
+@override_settings(CAPTCHA_RECOGNIZE_SECRET="")
+@patch("apps.core.dependencies.build_captcha_service")
+def test_captcha_recognize_disabled_when_secret_unset(mock_build, api_client):
+    """fail-closed：未配置密钥时端点整体不可用（生产忘配 = 功能不可用，不是匿名可刷）。"""
+    mock_build.return_value = MagicMock()
+
+    resp = api_client.post(
+        "/api/v1/automation/captcha/recognize",
+        data=json.dumps({"image_base64": "iVBORw0KGgo="}),
+        content_type="application/json",
+        headers={"X-Captcha-Secret": "anything"},  # pragma: allowlist secret
+    )
+    assert resp.status_code == 403
+    mock_build.assert_not_called()
 
 
 # ===================================================================

@@ -537,6 +537,17 @@ DOWNLOAD_TICKET_TTL_SECONDS = int(os.environ.get("DOWNLOAD_TICKET_TTL_SECONDS", 
 # 不因缓存挂了拒绝合法下载。
 DOWNLOAD_TICKET_SINGLE_USE = os.environ.get("DOWNLOAD_TICKET_SINGLE_USE", "true").lower() in ("1", "true", "yes")
 
+# 验证码识别服务间共享密钥（安全审计 M-5）。
+#
+# /api/v1/automation/captcha/recognize 原为 auth=None 的匿名端点，可被公网当
+# 免费 OCR 刷。仓库内没有任何调用方走 HTTP 打它（浏览器自动化与插件全部进程内
+# 直连 service），故改为要求 X-Captcha-Secret 头匹配此密钥。
+#
+# **未配置时端点整体不可用（fail-closed）**：生产忘配的表现是「功能不可用」，
+# 而不是「匿名可刷」。确需对外开放（如外部脚本接入）时显式配置一个强随机值，
+# 并同步给调用方。
+CAPTCHA_RECOGNIZE_SECRET = (os.environ.get("CAPTCHA_RECOGNIZE_SECRET", "") or "").strip()
+
 # ============================================================
 # 请求体大小限制
 # ============================================================
