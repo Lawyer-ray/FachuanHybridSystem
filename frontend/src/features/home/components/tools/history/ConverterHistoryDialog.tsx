@@ -147,7 +147,7 @@ export function ConverterHistoryDialog({ open, onOpenChange }: { open: boolean; 
                       <span className="min-w-0 flex-1 truncate text-[12px] font-medium" title={it.name}>
                         {it.name}
                       </span>
-                      <button type="button" className={ROW_BTN} onClick={() => triggerDownload(converterItemDownloadUrl(jobId!, it.id))}>
+                      <button type="button" className={ROW_BTN} onClick={() => void triggerDownload(() => converterItemDownloadUrl(jobId!, it.id))}>
                         <FileDown className="h-3 w-3" />
                         下载
                       </button>
@@ -174,7 +174,7 @@ export function ConverterHistoryDialog({ open, onOpenChange }: { open: boolean; 
 
             <div className="flex flex-none items-center justify-end gap-2 border-t border-border px-4 py-2.5">
               {job && job.done > 0 && jobId && (
-                <button type="button" className={BTN_PRIMARY} onClick={() => triggerDownload(converterDownloadUrl(jobId))}>
+                <button type="button" className={BTN_PRIMARY} onClick={() => void triggerDownload(() => converterDownloadUrl(jobId))}>
                   <FileDown className="h-3.5 w-3.5" />
                   打包下载 ZIP
                 </button>

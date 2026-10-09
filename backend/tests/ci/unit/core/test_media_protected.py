@@ -24,6 +24,7 @@ from django.test import RequestFactory, override_settings
 
 from apiSystem.urls import media_urlpatterns
 from apps.core.api.media_protected import serve_protected_media
+from apps.core.security.download_tickets import issue_download_ticket
 from apps.organization.models import LawFirm, Lawyer
 
 SAMPLE_REL = "test_media_protected/sample.txt"
@@ -126,21 +127,29 @@ class TestServeProtectedMedia:
         assert response.status_code == 200
         assert b"".join(response.streaming_content) == SAMPLE_CONTENT
 
-    def test_session_user_via_query_token_200(self, media_root: Any, media_user: Any) -> None:
-        """``?token=`` 查询参数携带 JWT（window.open 下载场景）应认证通过。"""
+    def test_download_ticket_200(self, media_root: Any, media_user: Any) -> None:
+        """``?ticket=`` 短时票据应认证通过（M-2 后 JWT 退出 query 的替代路径）。"""
+        ticket = issue_download_ticket(media_user.id, resource=f"media:{SAMPLE_REL}")
+        with override_settings(MEDIA_REQUIRE_AUTH=True):
+            response = _get(SAMPLE_REL, query={"ticket": ticket})
+        assert response.status_code == 200
+        assert b"".join(response.streaming_content) == SAMPLE_CONTENT
+
+    def test_jwt_in_query_is_rejected_403(self, media_root: Any, media_user: Any) -> None:
+        """M-2 红线：``?token=<JWT>`` 必须不再被接受——否则完整 JWT 会进 access log。"""
         from ninja_jwt.tokens import AccessToken
 
         token = str(AccessToken.for_user(media_user))  # type: ignore[misc]
         with override_settings(MEDIA_REQUIRE_AUTH=True):
             response = _get(SAMPLE_REL, query={"token": token})
-        assert response.status_code == 200
-        assert b"".join(response.streaming_content) == SAMPLE_CONTENT
-
-    def test_invalid_query_token_403(self, media_root: Any) -> None:
-        with override_settings(MEDIA_REQUIRE_AUTH=True):
-            response = _get(SAMPLE_REL, query={"token": "not-a-jwt"})
         assert response.status_code == 403
-        # 无效 token 与未认证一样：403 且不泄露路径有效性
+        assert response.content == b""
+
+    def test_invalid_query_ticket_403(self, media_root: Any) -> None:
+        with override_settings(MEDIA_REQUIRE_AUTH=True):
+            response = _get(SAMPLE_REL, query={"ticket": "not-a-ticket"})
+        assert response.status_code == 403
+        # 无效票据与未认证一样：403 且不泄露路径有效性
         assert response.content == b""
 
     def test_post_method_405(self, media_root: Any, media_user: Any) -> None:

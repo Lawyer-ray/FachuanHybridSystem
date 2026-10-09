@@ -150,7 +150,7 @@ export function DocConverterCard() {
               </button>
             )}
             {phase === 'success' && jobId && (
-              <button type="button" className={BTN_PRIMARY} onClick={() => triggerDownload(converterDownloadUrl(jobId))}>
+              <button type="button" className={BTN_PRIMARY} onClick={() => void triggerDownload(() => converterDownloadUrl(jobId))}>
                 <FileDown className="h-3.5 w-3.5" />
                 打包下载（ZIP）
               </button>
@@ -185,7 +185,7 @@ export function DocConverterCard() {
                   {copyBusy ? <Loader2 className="h-3 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
                   复制
                 </button>
-                <button type="button" className={ROW_BTN} onClick={() => triggerDownload(converterItemDownloadUrl(jobId!, it.id))}>
+                <button type="button" className={ROW_BTN} onClick={() => void triggerDownload(() => converterItemDownloadUrl(jobId!, it.id))}>
                   <FileDown className="h-3.5 w-3.5" />
                   下载
                 </button>

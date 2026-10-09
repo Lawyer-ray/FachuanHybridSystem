@@ -97,9 +97,11 @@ export function formatContacts(contacts: ContactInfo[]): string {
     .join('；')
 }
 
-/** 后端 media 相对链接（/media/...）→ 可渲染的绝对 URL。
+/** 后端 media 相对链接（/media/...）→ 可渲染的绝对 URL（**不含**鉴权票据）。
  *  绝对地址原样返回；相对地址按 API base 的 origin 解析（dev 走 Vite 同源代理，
- *  生产同源部署；localStorage api_base_url 为绝对地址的宿主环境也能正确拼）。 */
+ *  生产同源部署；localStorage api_base_url 为绝对地址的宿主环境也能正确拼）。
+ *
+ *  需要鉴权时配合 `resolveMediaUrlWithAuth`（异步换下载票据）使用。 */
 export function resolveMediaUrl(url: string | null | undefined, origin?: string): string {
   if (!url) return ''
   if (/^https?:/i.test(url)) return url
@@ -109,9 +111,14 @@ export function resolveMediaUrl(url: string | null | undefined, origin?: string)
     const base = localStorage.getItem('api_base_url') || (import.meta.env.VITE_API_BASE_URL as string | undefined) || ''
     resolvedOrigin = base.startsWith('http') ? new URL(base).origin : window.location.origin
   }
-  const abs = resolvedOrigin ? `${resolvedOrigin}${url}` : url
-  // media 鉴权启用后 /media/ 直链需认证；浏览器 <img>/<iframe>/<a> 带不上
-  // Authorization 头，统一拼 ?token=（session 登录态由 cookie 兜底）
+  return resolvedOrigin ? `${resolvedOrigin}${url}` : url
+}
+
+/** resolveMediaUrl + 下载票据（安全审计 M-2：JWT 不再进 URL）。
+ *  <img>/<iframe>/<a> 带不上 Authorization 头，改用 60 秒一次性票据 ?ticket=。 */
+export async function resolveMediaUrlWithAuth(url: string | null | undefined, origin?: string): Promise<string> {
+  const abs = resolveMediaUrl(url, origin)
+  if (!abs) return ''
   return withAuthToken(abs)
 }
 

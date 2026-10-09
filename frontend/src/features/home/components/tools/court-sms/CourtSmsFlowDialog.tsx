@@ -210,7 +210,7 @@ export function CourtSmsFlowDialog({
             </button>
           )}
           {tone === 'success' && docs.length > 1 && flow.smsId !== null && (
-            <button type="button" className={BTN_PRIMARY} onClick={() => triggerDownload(courtSmsDownloadAllUrl(flow.smsId!))}>
+            <button type="button" className={BTN_PRIMARY} onClick={() => void triggerDownload(() => courtSmsDownloadAllUrl(flow.smsId!))}>
               打包下载 {docs.length} 件
             </button>
           )}

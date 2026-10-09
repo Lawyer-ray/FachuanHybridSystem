@@ -138,14 +138,14 @@ export function shouldRefreshToken(): boolean {
 /**
  * 带鉴权的链接地址助手（<a href> / <img src> / iframe 等带不上请求头的场景）。
  *
- * 后端 JWTOrSessionAuth 专门为下载/预览场景支持 `?token=` 查询参数
- * （apps/core/security/auth.py）；media 鉴权启用后 /media/ 直链也走同一
- * 认证（apps/core/api/media_protected.py），因此所有指向后端的裸链接都
- * 应经本函数拼 token。token 缺失（session 登录态）时原样返回，交给 cookie。
+ * **安全审计 M-2**：后端已不再接受 `?token=<JWT>`——完整 JWT 会落入 nginx
+ * access log / 浏览器历史 / Referer 头，拿到即等于拿到身份。改为换取
+ * **60 秒一次性下载票据**拼 `?ticket=`（实现见 lib/download-ticket.ts，
+ * 单独成模块以避免 token → api → token 的循环依赖）。
+ *
+ * 因此本函数是**异步**的：需要一次带头请求去换票据，调用点必须先 await。
  */
-export function withAuthToken(path: string): string {
-  // node 单测环境无 localStorage（与 lib/api 的 getApiBaseUrl 同款防御）
-  const token = typeof localStorage === 'undefined' ? null : getAccessToken()
-  if (!token) return path
-  return `${path}${path.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`
+export async function withAuthToken(path: string): Promise<string> {
+  const { withDownloadTicket } = await import('./download-ticket')
+  return withDownloadTicket(path)
 }

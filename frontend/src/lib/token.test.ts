@@ -7,7 +7,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { withAuthToken,
+import {
   clearTokens,
   getAccessToken,
   getRefreshToken,
@@ -15,6 +15,7 @@ import { withAuthToken,
   isTokenExpired,
   setTokens,
   shouldRefreshToken,
+  withAuthToken,
 } from './token'
 
 function b64url(input: unknown): string {
@@ -129,33 +130,26 @@ describe('token 存取链路（stub localStorage）', () => {
   })
 })
 
-describe('withAuthToken（裸链接拼 ?token=）', () => {
-  it('有 token 时拼接且复用已有查询参数的分隔符', () => {
-    vi.stubGlobal('localStorage', {
-      getItem: (k: string) => (k === 'access_token' ? 'tok en+1' : null),
-      setItem: () => {},
-      removeItem: () => {},
-      clear: () => {},
-    })
+describe('withAuthToken（换下载票据，安全审计 M-2）', () => {
+  it('换取票据并拼 ?ticket=（JWT 不再进 URL）', async () => {
+    // mock 只打 download-ticket 模块，不走真实网络
+    const mod = await import('./download-ticket')
+    const spy = vi.spyOn(mod, 'withDownloadTicket').mockResolvedValue('/media/a.pdf?ticket=TK')
     try {
-      expect(withAuthToken('/media/a.pdf')).toBe('/media/a.pdf?token=tok%20en%2B1')
-      expect(withAuthToken('/api/v1/x?y=1')).toBe('/api/v1/x?y=1&token=tok%20en%2B1')
+      await expect(withAuthToken('/media/a.pdf')).resolves.toBe('/media/a.pdf?ticket=TK')
+      expect(spy).toHaveBeenCalledWith('/media/a.pdf')
     } finally {
-      vi.unstubAllGlobals()
+      spy.mockRestore()
     }
   })
 
-  it('无 token 原样返回（session 登录态交给 cookie）', () => {
-    vi.stubGlobal('localStorage', {
-      getItem: () => null,
-      setItem: () => {},
-      removeItem: () => {},
-      clear: () => {},
-    })
+  it('换票失败时原样返回路径（交给后端按 403 处理）', async () => {
+    const mod = await import('./download-ticket')
+    const spy = vi.spyOn(mod, 'withDownloadTicket').mockResolvedValue('/api/v1/x')
     try {
-      expect(withAuthToken('/media/a.pdf')).toBe('/media/a.pdf')
+      await expect(withAuthToken('/api/v1/x')).resolves.toBe('/api/v1/x')
     } finally {
-      vi.unstubAllGlobals()
+      spy.mockRestore()
     }
   })
 })

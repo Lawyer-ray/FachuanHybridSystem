@@ -527,6 +527,16 @@ MEDIA_REQUIRE_AUTH = os.environ.get("MEDIA_REQUIRE_AUTH", "true").lower() in ("1
 # 返回 X-Accel-Redirect 头由 nginx 发文件（Django 不读文件）；为空时 Django FileResponse 流式返回。
 MEDIA_X_ACCEL_PREFIX = (os.environ.get("MEDIA_X_ACCEL_PREFIX", "") or "").strip()
 
+# 短时下载票据（安全审计 M-2）。JWT 不再经 ?token= 查询参数传递——完整 JWT
+# 会落入 nginx access log / 浏览器历史 / Referer。改为：需要放进 URL 的
+# <img>/<iframe>/<a download> 场景用 60 秒一次性票据（见
+# apps/core/security/download_tickets.py），票据泄露也换不来身份。
+# TTL 只影响「从签发到浏览器发起请求」的窗口，60s 足够慢网一次跳转。
+DOWNLOAD_TICKET_TTL_SECONDS = int(os.environ.get("DOWNLOAD_TICKET_TTL_SECONDS", "60"))
+# 单次使用：兑现后即失效，重放被拒。缓存后端故障时退化为「仅签名 + 过期」，
+# 不因缓存挂了拒绝合法下载。
+DOWNLOAD_TICKET_SINGLE_USE = os.environ.get("DOWNLOAD_TICKET_SINGLE_USE", "true").lower() in ("1", "true", "yes")
+
 # ============================================================
 # 请求体大小限制
 # ============================================================
