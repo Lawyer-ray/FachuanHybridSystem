@@ -28,6 +28,9 @@ def recognize_expiry_date_task(doc_id: int) -> dict[str, Any]:  # pragma: no cov
 
     doc_service = ClientIdentityDocService()
     doc = doc_service.get_identity_doc(doc_id)
+    # file_path 可为 NULL（待上传占位行），无文件时无到期日期可识别
+    if not doc.file_path:
+        return {"status": "skipped", "doc_id": doc_id, "expiry_date": None, "reason": "file_not_uploaded"}
     abs_path = to_media_abs(doc.file_path)
     content = abs_path.read_bytes()
     service = IdentityExtractionService()

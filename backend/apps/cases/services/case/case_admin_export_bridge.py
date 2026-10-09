@@ -42,7 +42,8 @@ def collect_case_file_paths_for_export(
     """Collect case-side file paths for admin export."""
     for party in case.parties.all():
         for identity_doc in party.client.identity_docs.all():
-            add_path(identity_doc.file_path)
+            if identity_doc.file_path:
+                add_path(identity_doc.file_path)
         for clue in party.client.property_clues.all():
             for attachment in clue.attachments.all():
                 add_path(attachment.file_path)

@@ -53,7 +53,8 @@ def collect_contract_file_paths_for_case_export(
 
     for party in contract.contract_parties.all():
         for identity_doc in party.client.identity_docs.all():
-            add_path(identity_doc.file_path)
+            if identity_doc.file_path:
+                add_path(identity_doc.file_path)
         for clue in party.client.property_clues.all():
             for attachment in clue.attachments.all():
                 add_path(attachment.file_path)
