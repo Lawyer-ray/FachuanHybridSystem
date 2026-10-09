@@ -511,6 +511,10 @@ CORS_ALLOW_HEADERS = [
     "user-agent",
     "x-csrftoken",
     "x-requested-with",
+    # 验证码识别服务间共享密钥（M-5）：外部脚本跨域调用
+    # /api/v1/automation/captcha/recognize 时携带的自定义头，需在预检中放行。
+    # 头值不匹配时端点仍会 403，放行本身无安全影响。
+    "x-captcha-secret",
 ]
 
 MEDIA_URL = "/media/"
