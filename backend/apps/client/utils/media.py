@@ -27,14 +27,14 @@ def _get_media_root() -> tuple[Path, str, str]:
 
 
 @lru_cache(maxsize=1024)
-def resolve_media_url(file_path: str) -> str | None:
+def resolve_media_url(file_path: str | None) -> str | None:
     """将文件路径转换为媒体 URL。
 
     支持绝对路径（在 MEDIA_ROOT 下）和相对路径两种输入。
     结果会被缓存，相同输入不会重复计算。
 
     Args:
-        file_path: 文件路径字符串。
+        file_path: 文件路径字符串，None/空串（待上传占位）直接返回 None。
 
     Returns:
         媒体 URL 字符串，或 None（空路径/异常时）。

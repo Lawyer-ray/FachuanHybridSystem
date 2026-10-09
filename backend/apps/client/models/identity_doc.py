@@ -70,13 +70,22 @@ class ClientIdentityDoc(models.Model):
 
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="identity_docs", verbose_name="当事人")
     doc_type = models.CharField(max_length=32, choices=IdentityDocType.choices, verbose_name="证件类型")
-    file_path = models.CharField(max_length=512, verbose_name="文件路径")
+    file_path = models.CharField(max_length=512, blank=True, null=True, verbose_name="文件路径")
     expiry_date = models.DateField(null=True, blank=True, verbose_name="到期日期")
     uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="上传时间")
 
     def __str__(self) -> str:
         # Admin inline 的首列会直接渲染 __str__，这里保持空字符串避免泄露冗余文案。
         return ""
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        # file_path 进 (client, file_path) 唯一约束：待上传占位必须存 NULL 而不是 ''。
+        # admin inline 一次保存多个新证件行时各行先以空值 INSERT、文件随后回填，
+        # 存 '' 会第二行就互撞唯一约束（2026-10-09 实爆）；PG 多 NULL 共存。
+        # 同 Client.id_number 的既有范式。
+        if self.file_path == "":
+            self.file_path = None
+        super().save(*args, **kwargs)
 
     @cached_property
     def media_url(self) -> str | None:
@@ -101,8 +110,8 @@ class ClientIdentityDoc(models.Model):
             models.Index(fields=["client", "doc_type"], name="idx_iddoc_clt_doctype"),
         ]
         constraints: ClassVar = [
-            # 导入路径 get_or_create(client, file_path) 的查重键；存量 NULL 行
-            # （模型/DB 漂移老数据）在 PG 下互不冲突
+            # 导入路径 get_or_create(client, file_path) 的查重键；NULL = 待上传占位行，
+            # PG 下互不冲突，回填真实路径后即受约束保护
             models.UniqueConstraint(fields=["client", "file_path"], name="uniq_clientidentitydoc_client_file_path"),
             # 上传服务 get_or_create(client, doc_type)：一人一证件类型
             models.UniqueConstraint(fields=["client", "doc_type"], name="uniq_clientidentitydoc_client_doctype"),
