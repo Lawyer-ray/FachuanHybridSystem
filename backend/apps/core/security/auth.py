@@ -43,12 +43,17 @@ class JWTOrSessionAuth(HttpBearer):
 
         ``is_active`` 必须与 JWT 路径同口径（ninja_jwt 的 ``get_user`` 拒
         inactive），否则停用账号会经由票据重新获得访问权。
-        """
-        from apps.organization.models import Lawyer
 
+        用 ``get_user_model()`` 而非 import ``Lawyer``：core 禁止新增对业务
+        app 的 import（见 ``tests/ci/structure/test_core_no_business_deps``），
+        且本项目 AUTH_USER_MODEL 就是 Lawyer。
+        """
+        from django.contrib.auth import get_user_model
+
+        user_model = get_user_model()
         try:
-            user = Lawyer.objects.get(id=user_id)
-        except Lawyer.DoesNotExist:
+            user = user_model.objects.get(id=user_id)
+        except user_model.DoesNotExist:
             return None
         return user if getattr(user, "is_active", False) else None
 

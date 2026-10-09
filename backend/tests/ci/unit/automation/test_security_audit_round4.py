@@ -394,7 +394,8 @@ class TestCaptchaSecretAuth:
     @pytest.mark.django_db
     @override_settings(CAPTCHA_RECOGNIZE_SECRET="round4-test-value")  # pragma: allowlist secret
     def test_correct_secret_passes(self) -> None:
-        _authorize_service_call(self._req("round4-test-value"))
+        """正确密钥必须静默放行（不抛异常即通过，此处显式固化该契约）。"""
+        assert _authorize_service_call(self._req("round4-test-value")) is None
 
     @pytest.mark.django_db
     @override_settings(CAPTCHA_RECOGNIZE_SECRET="")

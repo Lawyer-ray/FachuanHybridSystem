@@ -104,10 +104,15 @@ class TestBatchPrintingWriteScoping:
     def test_non_admin_cannot_sync_presets(self) -> None:
         """同步预置会读写全所打印机配置，同属全局写操作。"""
         _make_lawyer("bp_plain4")
+        preset = _make_preset("epsonprinter")
 
         resp = _login("bp_plain4").post("/api/v1/batch-printing/presets/sync", data={})
 
         assert resp.status_code == 403
+        assert resp.json()["code"] == "BATCH_PRINT_ADMIN_REQUIRED"
+        # 权限门外拦截：预置不该被改动
+        assert PrintPresetSnapshot.objects.filter(id=preset.id).exists()
+        assert PrintPresetSnapshot.objects.filter(id=preset.id).first().printer_name == "epsonprinter"
 
     def test_is_staff_alone_is_not_admin(self) -> None:
         """is_staff 仅是 Django admin 准入标志，不算系统管理员。
@@ -144,6 +149,11 @@ class TestBatchPrintingWriteScoping:
 
         # 同步依赖本机 plutil/LibreOffice 探测，此处只断言「路由可达且过了权限门」
         assert resp.status_code != 405
+        assert resp.status_code != 403
+        # 返回的是预设同步结果（探测到/落库条数），不是权限错误体
+        body = resp.json()
+        assert isinstance(body.get("discovered"), int)
+        assert isinstance(body.get("upserted"), int)
 
     def test_admin_can_create_rule(self) -> None:
         """管理员不受影响——正向路径必须仍然通。"""

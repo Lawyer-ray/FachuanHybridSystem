@@ -48,8 +48,10 @@ def test_contract_add_page(admin_page: Page, base_url: str) -> None:
     """访问合同新增页，验证表单正常加载。"""
     admin_page.goto(f"{base_url}/admin/contracts/contract/add/")
     admin_page.wait_for_load_state("domcontentloaded")
-    change_form = admin_page.locator("#change-form")
-    expect(change_form).to_be_visible()
+    # Django 6 的 admin 不再渲染 <form id="change-form">（只剩 body class），
+    # 断言表单本体 + 保存按钮，语义等价
+    expect(admin_page.locator("form").first).to_be_visible()
+    expect(admin_page.locator("input[name='_save'], button[name='_save']").first).to_be_visible()
     # 验证核心字段存在
     name_input = admin_page.locator("input#id_name")
     expect(name_input).to_be_visible()
@@ -69,8 +71,8 @@ def test_contract_create(admin_page: Page, base_url: str) -> None:
     admin_page.click("input[name='_save']")
     admin_page.wait_for_load_state("domcontentloaded")
 
-    # 成功保存后应跳转回 changelist
-    expect(admin_page).to_have_url(f"{base_url}/admin/contracts/contract/")
+    # 成功保存后应跳转回 changelist（合同 admin 保存后带默认筛选 status__exact=active）
+    expect(admin_page).to_have_url(re.compile(r"/admin/contracts/contract/\?"))
     success_msg = admin_page.locator(".messagelist .success")
     expect(success_msg).to_be_visible()
 
@@ -87,8 +89,10 @@ def test_contract_change_page(admin_page: Page, base_url: str, e2e_contract) -> 
     admin_page.goto(url)
     admin_page.wait_for_load_state("domcontentloaded")
 
-    change_form = admin_page.locator("#change-form")
-    expect(change_form).to_be_visible()
+    # Django 6 的 admin 不再渲染 <form id="change-form">（只剩 body class），
+    # 断言表单本体 + 保存按钮，语义等价
+    expect(admin_page.locator("form").first).to_be_visible()
+    expect(admin_page.locator("input[name='_save'], button[name='_save']").first).to_be_visible()
     name_input = admin_page.locator("input#id_name")
     expect(name_input).to_have_value(e2e_contract.name)
 

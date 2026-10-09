@@ -16,11 +16,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from apps.reminders.services.reminder_access import (
-    can_write_reminder,
-    ensure_can_write_reminder,
-    is_admin_user,
-)
+from apps.reminders.services.reminder_access import can_write_reminder, ensure_can_write_reminder, is_admin_user
 
 
 def _reminder(*, is_global: bool = True, created_by_id: int | None = None) -> SimpleNamespace:
@@ -98,5 +94,6 @@ class TestEnsureCanWrite:
         assert exc_info.value.code == "REMINDER_NOT_OWNER"
 
     def test_owner_passes(self) -> None:
+        """创建人本人可写（不抛异常即通过，显式固化该契约）。"""
         reminder = _reminder(created_by_id=7)
-        ensure_can_write_reminder(_user(7), reminder)
+        assert ensure_can_write_reminder(_user(7), reminder) is None

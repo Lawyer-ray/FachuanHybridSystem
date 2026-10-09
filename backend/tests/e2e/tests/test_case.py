@@ -48,13 +48,19 @@ def test_case_add_page(admin_page: Page, base_url: str) -> None:
     """访问案件新增页，验证表单正常加载。"""
     admin_page.goto(f"{base_url}/admin/cases/case/add/")
     admin_page.wait_for_load_state("domcontentloaded")
-    change_form = admin_page.locator("#change-form")
-    expect(change_form).to_be_visible()
+    # Django 6 的 admin 不再渲染 <form id="change-form">（只剩 body class），
+    # 断言表单本体 + 保存按钮，语义等价
+    expect(admin_page.locator("form").first).to_be_visible()
+    expect(admin_page.locator("input[name='_save'], button[name='_save']").first).to_be_visible()
     # 验证核心字段存在
     name_input = admin_page.locator("input#id_name")
     expect(name_input).to_be_visible()
-    # contract 使用 Django admin autocomplete 验证 widget 存在
-    contract_widget = admin_page.locator("#select2-id_contract-container")
+    # contract 是 autocomplete_fields：select2 把 <select id="id_contract"> 变成
+    # hidden，另渲染 span.select2-container。可点的目标是 .select2-selection
+    # （#select2-id_contract-container 是 placeholder 槽，空值时 height=0 不可见）
+    contract_widget = admin_page.locator(
+        "#select2-id_contract-container ~ .select2-selection__arrow, .field-contract .select2-selection"
+    ).first
     expect(contract_widget).to_be_visible()
 
 
@@ -67,23 +73,22 @@ def test_case_create(admin_page: Page, base_url: str, e2e_contract) -> None:
     # 填写案件名称
     admin_page.fill("input#id_name", "E2E新案件")
 
-    # contract 是 Django admin autocomplete 字段
-    # 需要先输入文本触发搜索，再从下拉列表中选择匹配项
-    contract_widget = admin_page.locator("#select2-id_contract-container")
-    contract_widget.click()
-    # 在弹出的搜索框中输入合同名称前几个字符
-    search_input = admin_page.locator(".select2-search__field").last
+    # contract 走 select2（admin autocomplete）：点开 → 输入关键词 → 选第一项。
+    # 搜索框由 select2 动态插入，需等它出现再 fill
+    admin_page.locator(".field-contract .select2-selection").first.click()
+    search_input = admin_page.locator(".select2-search__field, input.select2-search__field").first
+    expect(search_input).to_be_visible(timeout=10000)
     search_input.fill(e2e_contract.name[:8])
-    admin_page.wait_for_timeout(500)
-    # 选择下拉结果中的第一个匹配项
-    admin_page.locator(".select2-results__option--highlighted").first.click()
+    result = admin_page.locator(".select2-results__option").first
+    expect(result).to_be_visible(timeout=10000)
+    result.click()
 
     # 提交
     admin_page.click("input[name='_save']")
     admin_page.wait_for_load_state("domcontentloaded")
 
-    # 成功保存后应跳转回 changelist
-    expect(admin_page).to_have_url(f"{base_url}/admin/cases/case/")
+    # 成功保存后应跳转回 changelist（保存后带默认筛选 status__exact=active）
+    expect(admin_page).to_have_url(re.compile(r"/admin/cases/case/\?"))
     success_msg = admin_page.locator(".messagelist .success")
     expect(success_msg).to_be_visible()
 
@@ -100,8 +105,10 @@ def test_case_change_page(admin_page: Page, base_url: str, e2e_case) -> None:
     admin_page.goto(url)
     admin_page.wait_for_load_state("domcontentloaded")
 
-    change_form = admin_page.locator("#change-form")
-    expect(change_form).to_be_visible()
+    # Django 6 的 admin 不再渲染 <form id="change-form">（只剩 body class），
+    # 断言表单本体 + 保存按钮，语义等价
+    expect(admin_page.locator("form").first).to_be_visible()
+    expect(admin_page.locator("input[name='_save'], button[name='_save']").first).to_be_visible()
     name_input = admin_page.locator("input#id_name")
     expect(name_input).to_have_value(e2e_case.name)
 
