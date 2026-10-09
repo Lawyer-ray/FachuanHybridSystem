@@ -125,10 +125,22 @@ def test_list_messages_limit(authenticated_client, law_firm):
     # limit 取的是倒序后的前 N 条，与全量结果头部一致
     assert data == full_data[:2]
 
-    # 非法 limit 不影响全量返回
+    # 安全审计 M-6：limit<=0 原先跳过切片 → 全表序列化（每行还带 7 个
+    # draft_state resolver 的 N+1），用户上传大量材料包后可自我放大为 DoS。
+    # 现收敛到 [1, 1000]，limit=0 视为 1。
     resp_zero = authenticated_client.get("/api/v1/inbox/messages", {"limit": 0})
     assert resp_zero.status_code == 200
-    assert len(resp_zero.json()) == len(full_data)
+    assert len(resp_zero.json()) == 1
+
+    # 负数同理收敛，不返回全量
+    resp_negative = authenticated_client.get("/api/v1/inbox/messages", {"limit": -5})
+    assert resp_negative.status_code == 200
+    assert len(resp_negative.json()) == 1
+
+    # 上限 1000：超过也按 1000 截断（此处数据量不足，只断言不报错且不超过全量）
+    resp_huge = authenticated_client.get("/api/v1/inbox/messages", {"limit": 99999})
+    assert resp_huge.status_code == 200
+    assert len(resp_huge.json()) <= 1000
 
 
 @pytest.mark.django_db
