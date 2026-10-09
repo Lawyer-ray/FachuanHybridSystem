@@ -123,7 +123,10 @@ class CalendarMonthService:
         if is_admin:
             visible |= unbound
         else:
-            visible |= unbound & Q(metadata__created_by_user_id=user.id)
+            # 全局提醒按创建人收敛。优先读 created_by FK（M-1 新增）；
+            # metadata.created_by_user_id 是部分内部路径的历史写法，作为
+            # 数据迁移回填前的兜底一并匹配，回填完成后即可移除。
+            visible |= unbound & (Q(created_by_id=user.id) | Q(metadata__created_by_user_id=user.id))
 
         return qs.filter(visible).distinct()
 

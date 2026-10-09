@@ -134,6 +134,7 @@ class ReminderService:
         content: str,
         due_at: datetime,
         metadata: dict[str, Any] | None = None,
+        created_by: Any | None = None,
     ) -> Reminder:  # pragma: no cover
         contract_id = normalize_target_id(contract_id, field_name="contract_id")
         case_id = normalize_target_id(case_id, field_name="case_id")
@@ -162,6 +163,7 @@ class ReminderService:
             content=content,
             due_at=due_at,
             metadata=metadata,
+            created_by=created_by,
         )
 
     @transaction.atomic

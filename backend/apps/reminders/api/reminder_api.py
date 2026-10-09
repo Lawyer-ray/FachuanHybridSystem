@@ -63,6 +63,20 @@ def _ensure_target_access(
         CaseAccessPolicy().ensure_case_log_access_ctx(case_log_id=case_log_id, ctx=ctx)
 
 
+def _ensure_reminder_writable(ctx: AccessContext, reminder: Any) -> None:
+    """提醒写权限（安全审计 M-1）。
+
+    全局提醒（三个关联字段全空）是团队共享的：任何人可读，但改/删收敛到
+    创建人与管理员。历史上此类提醒不走 _ensure_target_access（无关联对象
+    可校验），任何登录用户都能改删全所任何人的全局提醒。
+
+    关联了对象的提醒仍由 _ensure_target_access 决定，本函数直接放行。
+    """
+    from ..services.reminder_access import ensure_can_write_reminder
+
+    ensure_can_write_reminder(ctx.user, reminder)
+
+
 @router.post("/parse", response=list[ParsedReminderOut])
 def parse_reminders(request: Any, payload: ParseReminderIn) -> list[ParsedReminderOut]:  # pragma: no cover
     """从文本中解析提醒事项。"""
@@ -111,6 +125,7 @@ def create_reminder(request: Any, payload: ReminderIn) -> Any:  # pragma: no cov
         content=payload.content,
         due_at=payload.due_at,
         metadata=payload.metadata,
+        created_by=ctx.user,
     )
 
 
@@ -206,6 +221,7 @@ def complete_reminders(request: Any, payload: ReminderCompleteIn) -> Any:  # pra
             case_id=existing.case_id,
             case_log_id=existing.case_log_id,
         )
+        _ensure_reminder_writable(ctx, existing)
     updated = service.set_completed(payload.reminder_ids, completed=payload.is_completed, user=ctx.user)
     return ReminderCompleteOut(updated=updated)
 
@@ -233,6 +249,7 @@ def update_reminder(request: Any, reminder_id: int, payload: ReminderUpdate) -> 
         case_id=existing.case_id,
         case_log_id=existing.case_log_id,
     )
+    _ensure_reminder_writable(ctx, existing)
     data = schema_to_update_dict(payload)
     return _get_reminder_service().update_reminder(reminder_id, data)
 
@@ -247,5 +264,6 @@ def delete_reminder(request: Any, reminder_id: int) -> HttpResponse:  # pragma: 
         case_id=existing.case_id,
         case_log_id=existing.case_log_id,
     )
+    _ensure_reminder_writable(ctx, existing)
     _get_reminder_service().delete_reminder(reminder_id)
     return HttpResponse(status=204)

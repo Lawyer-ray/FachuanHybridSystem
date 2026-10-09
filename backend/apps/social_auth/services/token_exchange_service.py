@@ -12,6 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from asgiref.sync import sync_to_async
+
 from apps.social_auth.models import SocialAccount, TempAuth
 
 if TYPE_CHECKING:
@@ -68,7 +70,15 @@ async def exchange_temp_code_for_jwt(code: UUID | str) -> TokenExchangeResult:
     from apps.core.security.jwt_password_binding import bind_password_claim
 
     # 安全审计 C-14/E-07：扫码登录签发的 token 同样绑定密码指纹，改密后失效
-    refresh = bind_password_claim(RefreshToken.for_user(user), user)  # type: ignore[misc,arg-type]
+    #
+    # 注意 sync_to_async：安装 ninja_jwt.token_blacklist 后
+    # RefreshToken.for_user() 会写 OutstandingToken（黑名单基建，安全审计
+    # M-8），在 async 上下文里直接调用会抛 SynchronousOnlyOperation。
+    # 铸造 token 是纯本地计算 + 一行插入，放线程里跑没有并发语义问题。
+    def _mint() -> RefreshToken:
+        return bind_password_claim(RefreshToken.for_user(user), user)  # type: ignore[misc,arg-type]
+
+    refresh = await sync_to_async(_mint)()
 
     await temp.adelete()
 

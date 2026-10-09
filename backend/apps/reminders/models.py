@@ -70,6 +70,20 @@ class Reminder(models.Model):
         verbose_name=_("确认人"),
         help_text=_("在日历上勾选完成的人；取消完成后清空。"),
     )
+    # 安全审计（2026Q4 M-1）：全局提醒（三个关联字段全空）是团队共享的——任何人
+    # 可读，但改/删收敛到创建人与管理员。历史上「创建人」只存在于
+    # metadata["created_by_user_id"]（部分内部路径写入），既无约束也可能缺失，
+    # 无法作为权限判定依据。此处补一个真正的 FK 列承载属主，存量数据的
+    # created_by_user_id 由数据迁移回填。
+    created_by: Any = models.ForeignKey(
+        "organization.Lawyer",
+        on_delete=models.SET_NULL,
+        related_name="created_reminders",
+        null=True,
+        blank=True,
+        verbose_name=_("创建人"),
+        help_text=_("全局提醒的属主；仅创建人与管理员可修改/删除。"),
+    )
     created_at: Any = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
     updated_at: Any = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
@@ -108,6 +122,11 @@ class Reminder(models.Model):
         else:
             target = "unbound"
         return f"{target}-{self.reminder_type}-{self.due_at}"
+
+    @property
+    def is_global(self) -> bool:
+        """全局提醒（团队共享）：未关联任何合同/案件/案件日志。"""
+        return self.contract_id is None and self.case_id is None and self.case_log_id is None
 
 
 class CalendarFeedToken(models.Model):

@@ -312,6 +312,8 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):  # pragma: no cover
             "reminder_type": reminder_type,
             "due_at": due_at,
             "metadata": {},
+            # 安全审计 M-1：记录创建人，全局提醒的写权限据此收敛
+            "created_by": request.user if request.user.is_authenticated else None,
         }
         if target_type == "contract":
             create_kwargs["contract_id"] = target_id

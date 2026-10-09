@@ -77,6 +77,9 @@ INSTALLED_APPS = [
     "simple_history",
     "corsheaders",
     "ninja_jwt",
+    # 安全审计 M-8：refresh token 轮换 + 黑名单（ROTATE_REFRESH_TOKENS /
+    # BLACKLIST_AFTER_ROTATION 依赖本 app 的 OutstandingToken/BlacklistedToken）
+    "ninja_jwt.token_blacklist",
     "channels",  # WebSocket 支持
     # === Django Admin 侧边栏顺序（按以下顺序显示）===
     "apps.client",  # 1. Client CRM（当事人管理）
@@ -368,6 +371,16 @@ from datetime import timedelta
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=2),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
+    # 安全审计 M-8（refresh token 30 天不轮换、无黑名单）：原配置下 refresh
+    # token 一旦泄露（localStorage XSS、日志、Referer）有 30 天窗口，且每次
+    # 刷新不轮换——被盗后攻击者可长期静默续期，无任何检测手段。
+    #
+    # 启用轮换 + 轮换后拉黑：每次 /token/refresh 都签发新 refresh，旧 refresh
+    # 立即进入黑名单（OutstandingToken/BlacklistedToken 两张表），二次使用即
+    # 报「Token is blacklisted」。被盗场景下，合法用户与被盗方的首次刷新会
+    # 互相把对方的 token 打失效——至少把「无限续期」收敛成「一次性」。
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
     # 安全审计 C-14/E-07（改密后旧 token 仍有效）：签发时在 token 注入密码哈希
     # 指纹 claim，刷新时校验一致性——密码一改旧 refresh token 全部失效，零迁移实现
     "TOKEN_OBTAIN_PAIR_INPUT_SCHEMA": "apps.core.security.jwt_password_binding.PasswordBoundTokenObtainPairInputSchema",

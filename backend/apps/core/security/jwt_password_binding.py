@@ -87,7 +87,21 @@ class PasswordBoundTokenObtainPairInputSchema(TokenObtainPairInputSchema):
 
 
 class _PasswordBoundTokenRefreshOutputSchema(TokenRefreshOutputSchema):
-    """刷新输出：在标准刷新流程前校验密码绑定。"""
+    """刷新输出：在标准刷新流程前校验密码绑定。
+
+    轮换（ROTATE_REFRESH_TOKENS + BLACKLIST_AFTER_ROTATION，安全审计 M-8）
+    开启时，上游 ``TokenRefreshOutputSchema.validate_schema`` 会：
+
+    1. ``refresh.blacklist()`` —— 把当前 refresh 写进 OutstandingToken +
+       BlacklistedToken（之后再用同一把 refresh 会被 ``verify()`` 的
+       ``check_blacklist()`` 拒绝，即「Token is blacklisted」）；
+    2. ``refresh.set_jti() / set_exp() / set_iat()`` —— 换成新身份的 payload；
+    3. 返回 ``data["refresh"] = str(refresh)``。
+
+    本类复刻该流程并在其前插入密码指纹校验。已实测确认第 2 步只重置
+    jti/exp/iat、**不清空其他 claim**，因此 pwd_ver 会被新 refresh 自动继承，
+    改密后旧 token 失效的语义在轮换后依然成立——这里无需重新绑定。
+    """
 
     @model_validator(mode="before")
     @token_error
@@ -100,6 +114,9 @@ class _PasswordBoundTokenRefreshOutputSchema(TokenRefreshOutputSchema):
                 raise exceptions.ValidationError({"refresh": "refresh token is required"})
 
             refresh = tokens.RefreshToken(values["refresh"])
+            # 密码指纹 + 账号状态校验。黑名单校验由 RefreshToken.__init__ →
+            # verify() → check_blacklist() 完成（ninja_jwt 5.x，需
+            # token_blacklist app 已安装）。
             verify_password_claim(refresh)
 
             data: dict[str, Any] = {"access": str(refresh.access_token)}

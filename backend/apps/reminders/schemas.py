@@ -99,6 +99,9 @@ class ReminderOut(SchemaMixin, Schema):
     completed_at: str | None = None
     created_at: str
     updated_at: str
+    # 安全审计 M-1：全局提醒是团队共享（人人可读），但改/删收敛到创建人与
+    # 管理员。前端据此置灰编辑/删除按钮——否则用户点了才收到 403。
+    created_by: int | None = None
 
     @staticmethod
     def resolve_contract(obj: Reminder) -> int | None:
@@ -111,6 +114,10 @@ class ReminderOut(SchemaMixin, Schema):
     @staticmethod
     def resolve_case_log(obj: Reminder) -> int | None:
         return obj.case_log_id
+
+    @staticmethod
+    def resolve_created_by(obj: Reminder) -> int | None:
+        return obj.created_by_id
 
     @staticmethod
     def resolve_reminder_type_label(obj: Reminder) -> str:
