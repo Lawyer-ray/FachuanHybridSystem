@@ -18,7 +18,10 @@ from apps.organization.models import Lawyer
 from apps.organization.services.setup.first_user_setup_service import FirstUserSetupService
 
 AUTO_REGISTER_BOOTSTRAP_USERNAME = "法穿"
-AUTO_REGISTER_BOOTSTRAP_PASSWORD = "1234qwer"  # pragma: allowlist secret
+# 安全审计（2026Q4）：此处原为硬编码口令 "1234qwer"，任何人可在 DEBUG 实例上
+# 免令牌调用 auto_register 抢占超管（口令同时写在公开仓库源码中）。现改为从
+# settings.AUTO_REGISTER_BOOTSTRAP_PASSWORD（环境变量注入）读取；未配置时
+# auto_register_superadmin 直接拒绝，不再回退到源码内的可用口令。
 
 
 @dataclass
@@ -98,15 +101,38 @@ class AuthService:
 
     @transaction.atomic
     def auto_register_superadmin(self) -> RegisterResult:
+        """首用户引导：自动创建超级管理员。
+
+        安全审计（2026Q4）：原实现只检查「系统无任何用户」，既不受
+        ALLOW_FIRST_USER_SUPERUSER 约束，口令又硬编码在源码中，导致 DEBUG
+        实例上任何人可零凭证接管超管。现按 register() 同口径补齐两道闸门：
+
+        1. ALLOW_FIRST_USER_SUPERUSER 必须显式开启（默认 False，fail-closed）；
+        2. 口令必须由 settings.AUTO_REGISTER_BOOTSTRAP_PASSWORD 注入，
+           源码不再保留任何可用口令。
+        """
         if not self.should_show_auto_register():
             raise PermissionDenied(
                 message="自动注册仅在系统初始化时可用",
                 code="AUTO_REGISTER_UNAVAILABLE",
             )
 
+        if not bool(getattr(settings, "ALLOW_FIRST_USER_SUPERUSER", False)):
+            raise PermissionDenied(
+                message="自动注册未开放（ALLOW_FIRST_USER_SUPERUSER 未启用）",
+                code="AUTO_REGISTER_DISABLED",
+            )
+
+        bootstrap_password = str(getattr(settings, "AUTO_REGISTER_BOOTSTRAP_PASSWORD", "") or "").strip()
+        if not bootstrap_password:
+            raise PermissionDenied(
+                message="自动注册需要配置 AUTO_REGISTER_BOOTSTRAP_PASSWORD",
+                code="AUTO_REGISTER_PASSWORD_MISSING",
+            )
+
         user = Lawyer.objects.create_user(
             username=AUTO_REGISTER_BOOTSTRAP_USERNAME,
-            password=AUTO_REGISTER_BOOTSTRAP_PASSWORD,
+            password=bootstrap_password,
             email=None,
             real_name=AUTO_REGISTER_BOOTSTRAP_USERNAME,
             is_superuser=True,

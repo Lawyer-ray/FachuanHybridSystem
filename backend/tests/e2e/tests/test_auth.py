@@ -21,6 +21,7 @@ E2E_PASSWORD = "E2Etest@2026"
 # 1. 登录页加载
 # ------------------------------------------------------------------
 
+
 @pytest.mark.smoke
 def test_login_page_loads(page: Page, base_url: str) -> None:
     """访问 /admin/login/，验证登录表单元素可见。"""
@@ -35,6 +36,7 @@ def test_login_page_loads(page: Page, base_url: str) -> None:
 # ------------------------------------------------------------------
 # 2. 登录成功
 # ------------------------------------------------------------------
+
 
 @pytest.mark.smoke
 def test_login_success(page: Page, base_url: str, e2e_user) -> None:
@@ -54,6 +56,7 @@ def test_login_success(page: Page, base_url: str, e2e_user) -> None:
 # 3. 错误密码
 # ------------------------------------------------------------------
 
+
 def test_login_invalid_password(page: Page, base_url: str, e2e_user) -> None:
     """使用错误密码登录，验证错误提示出现。"""
     page.goto(f"{base_url}/admin/login/")
@@ -63,23 +66,28 @@ def test_login_invalid_password(page: Page, base_url: str, e2e_user) -> None:
     page.locator("button[type='submit']").first.click(force=True)
     # 等待页面响应
     page.wait_for_load_state("domcontentloaded")
-    # Django admin 登录失败会显示 errornote 或 errorlist
-    error = page.locator(".errornote, .errorlist")
+    # 本项目用自定义登录模板（apiSystem/templates/admin/login.html），
+    # 错误提示渲染为 .error-banner 而非 Django 原生的 .errornote / .errorlist，
+    # 且表单仍是未提交状态（不会因密码错误跳转）。
+    error = page.locator(".error-banner, .errornote, .errorlist")
     expect(error.first).to_be_visible(timeout=10000)
+    # 自定义 banner 里应给出明确的错误文案，而不是空白提示
+    expect(error.first).to_contain_text("用户名或密码错误")
+    # 密码错误必须留在登录页，不得放行进入 admin
+    expect(page.locator("#id_username").first).to_be_visible()
 
 
 # ------------------------------------------------------------------
 # 4. 登出
 # ------------------------------------------------------------------
 
+
 def test_logout(page: Page, admin_page: Page, base_url: str) -> None:
     """登录后访问登出页面，验证跳转回登录页。"""
     # admin_page 已登录（由 conftest fixture）
     admin_page.goto(f"{base_url}/admin/logout/")
     # Django admin 登出页有确认表单，点击确认按钮
-    confirm_btn = admin_page.locator(
-        "input[type='submit'], button[type='submit']"
-    )
+    confirm_btn = admin_page.locator("input[type='submit'], button[type='submit']")
     if confirm_btn.count() > 0:
         confirm_btn.first.click()
         admin_page.wait_for_load_state("domcontentloaded")
@@ -92,6 +100,7 @@ def test_logout(page: Page, admin_page: Page, base_url: str) -> None:
 # ------------------------------------------------------------------
 # 5. 未认证重定向到登录页
 # ------------------------------------------------------------------
+
 
 @pytest.mark.smoke
 def test_unauthenticated_redirect_to_login(page: Page, base_url: str) -> None:
@@ -107,10 +116,9 @@ def test_unauthenticated_redirect_to_login(page: Page, base_url: str) -> None:
 # 6. 登录后 /admin/ 重定向到日历页
 # ------------------------------------------------------------------
 
+
 @pytest.mark.smoke
-def test_admin_index_redirects_to_calendar(
-    admin_page: Page, base_url: str
-) -> None:
+def test_admin_index_redirects_to_calendar(admin_page: Page, base_url: str) -> None:
     """已登录用户访问 /admin/，验证重定向到提醒日历页面。"""
     admin_page.goto(f"{base_url}/admin/")
     # 等待重定向完成

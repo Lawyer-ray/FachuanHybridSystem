@@ -24,8 +24,27 @@ from apps.batch_printing.services.wiring import (
     get_preset_service,
     get_rule_service,
 )
+from apps.core.security.admin_access import ensure_admin_request
 
 router = Router(tags=["批量打印"])
+
+
+def _ensure_admin(request: HttpRequest, *, action: str) -> None:
+    """打印规则/预置的写权限收敛（安全审计 L-4）。
+
+    这些资源是**全局**的：一条规则决定全所所有文档落到哪台打印机、用哪套
+    预置，写操作没有归属概念。历史上这四个端点只挂了 ``JWTOrSessionAuth()``，
+    任何登录用户都能改全局规则——既是横向越权，也让 ``lp`` 选项白名单
+    （见 ``execution`` 服务）之外的值有了注入面。
+
+    统一走 ``ensure_admin_request``：``is_admin`` / ``is_superuser`` 才算
+    管理员，``is_staff`` 不算（与 reminders / message_hub / archive 同口径）。
+    """
+    ensure_admin_request(
+        request,
+        message=f"仅管理员可以{action}",
+        code="BATCH_PRINT_ADMIN_REQUIRED",
+    )
 
 
 @router.get("/capabilities", response=CapabilityOut)
@@ -45,17 +64,22 @@ async def list_presets(  # pragma: no cover
     return [PrintPresetSnapshotOut(**service.build_preset_payload(preset=item)) for item in presets]
 
 
+# 存量路由缺陷（安全审计 L-4 顺带修复）：``/presets/{preset_id}`` 注册在
+# ``/presets/sync`` 之前，而 ninja 按注册顺序匹配 path，导致 ``sync`` 被
+# ``{preset_id}`` 吞掉——任何方法请求 /presets/sync 都返回 405，
+# 前端的「同步预置」按钮从来是坏的。此处把 sync 提前，动态段退到静态段之后。
+@router.post("/presets/sync", response=PresetSyncOut)
+async def sync_presets(request: HttpRequest) -> PresetSyncOut:  # pragma: no cover
+    _ensure_admin(request, action="同步打印预置")
+    payload = await sync_to_async(get_preset_discovery_service().sync_presets)()
+    return PresetSyncOut(**payload)
+
+
 @router.get("/presets/{preset_id}", response=PrintPresetSnapshotOut)
 async def get_preset(request: HttpRequest, preset_id: int) -> PrintPresetSnapshotOut:  # pragma: no cover
     service = get_preset_service()
     preset = await sync_to_async(service.get_preset)(preset_id=preset_id)
     return PrintPresetSnapshotOut(**service.build_preset_payload(preset=preset))
-
-
-@router.post("/presets/sync", response=PresetSyncOut)
-async def sync_presets(request: HttpRequest) -> PresetSyncOut:  # pragma: no cover
-    payload = await sync_to_async(get_preset_discovery_service().sync_presets)()
-    return PresetSyncOut(**payload)
 
 
 @router.get("/rules", response=list[PrintKeywordRuleOut])
@@ -78,6 +102,7 @@ async def list_rules(  # pragma: no cover
 
 @router.post("/rules", response=PrintKeywordRuleOut)
 async def create_rule(request: HttpRequest, payload: PrintKeywordRuleIn) -> PrintKeywordRuleOut:  # pragma: no cover
+    _ensure_admin(request, action="创建打印规则")
     service = get_rule_service()
     rule = await sync_to_async(service.create_rule)(payload=payload.model_dump())
     return PrintKeywordRuleOut(**service.build_rule_payload(rule=rule))
@@ -94,6 +119,7 @@ async def get_rule(request: HttpRequest, rule_id: int) -> PrintKeywordRuleOut:  
 async def update_rule(
     request: HttpRequest, rule_id: int, payload: PrintKeywordRuleUpdateIn
 ) -> PrintKeywordRuleOut:  # pragma: no cover
+    _ensure_admin(request, action="修改打印规则")
     service = get_rule_service()
     rule = await sync_to_async(service.update_rule)(rule_id=rule_id, payload=payload.model_dump(exclude_unset=True))
     return PrintKeywordRuleOut(**service.build_rule_payload(rule=rule))
@@ -101,6 +127,7 @@ async def update_rule(
 
 @router.delete("/rules/{rule_id}")
 async def delete_rule(request: HttpRequest, rule_id: int) -> dict[str, bool]:  # pragma: no cover
+    _ensure_admin(request, action="删除打印规则")
     await sync_to_async(get_rule_service().delete_rule)(rule_id=rule_id)
     return {"success": True}
 

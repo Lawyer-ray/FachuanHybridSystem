@@ -296,6 +296,11 @@ def _register_app_routers() -> None:
 
     api_v1.add_router("/dashboard", dashboard_router, auth=JWTOrSessionAuth(), tags=["仪表盘"])
 
+    # 短时下载票据签发（安全审计 M-2：JWT 退出 ?token= 后的替代凭证）
+    from apps.core.api.download_ticket_api import router as download_ticket_router
+
+    api_v1.add_router("", download_ticket_router, auth=JWTOrSessionAuth())
+
     from apps.workbench.api import router as workbench_router
 
     api_v1.add_router("/workbench", workbench_router, auth=JWTOrSessionAuth(), tags=["工作台"])

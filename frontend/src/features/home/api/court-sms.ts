@@ -29,13 +29,13 @@ export type CourtSmsDetail = Omit<
   documents: { id: number | null; name: string; source: string; download_url: string | null }[]
 }
 
-/** 单件文书下载地址（带 token，供 <a download> 直链使用；文件名后端已重命名） */
-export function courtSmsDocDownloadUrl(smsId: number, refIndex: number): string {
+/** 单件文书下载地址（带下载票据，供 <a download> 直链使用；文件名后端已重命名） */
+export async function courtSmsDocDownloadUrl(smsId: number, refIndex: number): Promise<string> {
   return withAuthToken(`${API_BASE_URL}/automation/court-sms/${smsId}/documents/${refIndex}/download`)
 }
 
 /** 全部文书打包 ZIP 下载地址 */
-export function courtSmsDownloadAllUrl(smsId: number): string {
+export async function courtSmsDownloadAllUrl(smsId: number): Promise<string> {
   return withAuthToken(`${API_BASE_URL}/automation/court-sms/${smsId}/documents/download-all`)
 }
 

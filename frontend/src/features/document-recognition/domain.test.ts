@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   fileRejectReason,
@@ -7,6 +7,7 @@ import {
   patchRow,
   pickAutoRecommendation,
   resolveMediaUrl,
+  resolveMediaUrlWithAuth,
   rowsFromParsed,
   rowsFromTask,
   selectedPendingRows,
@@ -219,19 +220,25 @@ describe('resolveMediaUrl（media 链接解析）', () => {
     expect(resolveMediaUrl('')).toBe('')
   })
 
-  it('media 鉴权：有 access token 时拼 ?token=（img/iframe 裸链接场景）', () => {
-    vi.stubGlobal('localStorage', {
-      getItem: (k: string) => (k === 'access_token' ? 'jwt-abc' : null),
-      setItem: () => {},
-      removeItem: () => {},
-      clear: () => {},
-    })
+  it('media 鉴权：resolveMediaUrl 只拼绝对地址，票据由 resolveMediaUrlWithAuth 追加（M-2）', async () => {
+    // resolveMediaUrl 不再碰 token——JWT 不能进 URL（access log / Referer）。
+    // 票据换取是异步的，走 resolveMediaUrlWithAuth + withDownloadTicket。
+    const dt = await import('@/lib/download-ticket')
+    const spy = vi.spyOn(dt, 'withDownloadTicket').mockResolvedValue('http://127.0.0.1:8002/media/a.pdf?ticket=TK')
     try {
-      expect(resolveMediaUrl('/media/a.pdf', 'http://127.0.0.1:8002')).toBe(
-        'http://127.0.0.1:8002/media/a.pdf?token=jwt-abc',
+      expect(resolveMediaUrl('/media/a.pdf', 'http://127.0.0.1:8002')).toBe('http://127.0.0.1:8002/media/a.pdf')
+      await expect(resolveMediaUrlWithAuth('/media/a.pdf', 'http://127.0.0.1:8002')).resolves.toBe(
+        'http://127.0.0.1:8002/media/a.pdf?ticket=TK',
       )
+      expect(spy).toHaveBeenCalledWith('http://127.0.0.1:8002/media/a.pdf')
     } finally {
-      vi.unstubAllGlobals()
+      spy.mockRestore()
     }
+  })
+
+  it('resolveMediaUrlWithAuth：空值/绝对地址不白跑一次换票', async () => {
+    await expect(resolveMediaUrlWithAuth(null)).resolves.toBe('')
+    // 绝对地址（第三方 OSS 等）也直接返回，不消耗票据
+    await expect(resolveMediaUrlWithAuth('https://x.cn/a.pdf')).resolves.toBe('https://x.cn/a.pdf')
   })
 })

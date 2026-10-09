@@ -34,9 +34,15 @@ export const API_BASE_URL = getApiBaseUrl()
 
 /**
  * Token 刷新响应
+ *
+ * refresh 可选：后端 SIMPLE_JWT 已启用 ROTATE_REFRESH_TOKENS +
+ * BLACKLIST_AFTER_ROTATION（安全审计 M-8），每次刷新都会返回**新的**
+ * refresh token，同时旧的立即进黑名单。若沿用旧 refresh，下一次刷新必然
+ * 拿到「Token is blacklisted」而静默掉线。
  */
 interface TokenRefreshResponse {
   access: string
+  refresh?: string
 }
 
 /**
@@ -47,9 +53,10 @@ let refreshPromise: Promise<string | null> | null = null
 
 /**
  * 跨 tab 刷新协调：多请求/多 tab 并发 401 时统一只发一次刷新、其余共享结果，
- * 避免重复刷新互相覆盖。后端 SIMPLE_JWT 当前**未开 refresh token 轮换**
- * （旧 refresh 持续有效），所以并发刷本不会互相打失败；租约机制是在防御
- * 「未来开启轮换」的场景（轮换语义下旧 refresh 会被首次刷新消费作废）。
+ * 避免重复刷新互相覆盖。后端已启用 refresh token 轮换（ROTATE_REFRESH_TOKENS
+ * + BLACKLIST_AFTER_ROTATION，安全审计 M-8）——旧 refresh 会被首次刷新消费
+ * 并拉黑，所以「只刷一次、其余 tab 共享结果」不是优化而是**必需**：两个 tab
+ * 同时用同一个旧 refresh 刷新，后到的那次会直接拿到「Token is blacklisted」。
  * 协议：刷新方先写时间戳租约（auth:refresh-lease），成功后写完成信号
  * （auth:refresh-done，storage 事件只在其他 tab 触发）；其他 tab 发现
  * 新鲜租约就等信号共享新 token，而不是自己也去刷。
@@ -104,9 +111,11 @@ async function refreshWithLease(): Promise<string> {
       })
       .json<TokenRefreshResponse>()
 
+    // 轮换语义（M-8）：后端返回的新 refresh 必须落库，否则下一次刷新拿的是
+    // 已被拉黑的旧 token。后端未返回（未开轮换的部署）时沿用旧的，保持兼容。
     setTokens({
       access: response.access,
-      refresh: refreshToken,
+      refresh: response.refresh ?? refreshToken,
     })
     // 广播给等待中的 tab（storage 事件只在写入方以外的页面触发）
     localStorage.setItem(REFRESH_DONE_KEY, String(Date.now()))

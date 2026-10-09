@@ -18,10 +18,10 @@ from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
-from django.test import RequestFactory
+from django.test import RequestFactory, override_settings
 from django.utils import timezone
 
-from apps.automation.api.captcha_recognition_api import recognize_captcha
+from apps.automation.api.captcha_recognition_api import _authorize_service_call, recognize_captcha
 from apps.automation.api.court_sms_api import (
     abort_and_delete_sms,
     assign_case,
@@ -225,9 +225,7 @@ class TestCourtSmsWriteAdminOnly:
         mock_sms.id = 1
         mock_sms.status = "renaming"
         mock_sms.case = None
-        with patch(
-            "apps.core.dependencies.automation_sms_entry.build_court_sms_service_ctx"
-        ) as mock_build:
+        with patch("apps.core.dependencies.automation_sms_entry.build_court_sms_service_ctx") as mock_build:
             mock_build.return_value.assign_case.return_value = mock_sms
             asyncio.run(assign_case(request, 1, CourtSMSAssignCaseIn(case_id=1)))
         mock_build.return_value.assign_case.assert_called_once()
@@ -245,21 +243,24 @@ class TestCaptchaRateLimit:
         # 限流 key 是 ip:<客户端IP>（rate_limit_by_user，不含 path），混跑隔离必须用独立 IP
         request = _request(None, path=f"/api/v1/automation/captcha/recognize/{uuid4().hex}")
         request.META["REMOTE_ADDR"] = f"10.77.{secrets.randbelow(254) + 1}.{secrets.randbelow(254) + 1}"
+        # M-5 之后端点要求服务间共享密钥，本用例测的是限流，先过授权门
+        request.META["HTTP_X_CAPTCHA_SECRET"] = "round4-test-value"  # pragma: allowlist secret
 
-        with patch("apps.core.dependencies.build_captcha_service") as mock_build:
-            mock_service = MagicMock()
-            mock_service.recognize_from_base64.return_value = MagicMock(
-                success=True, text="AB12", processing_time=0.01, error=None
-            )
-            mock_build.return_value = mock_service
+        with override_settings(CAPTCHA_RECOGNIZE_SECRET="round4-test-value"):  # pragma: allowlist secret
+            with patch("apps.core.dependencies.build_captcha_service") as mock_build:
+                mock_service = MagicMock()
+                mock_service.recognize_from_base64.return_value = MagicMock(
+                    success=True, text="AB12", processing_time=0.01, error=None
+                )
+                mock_build.return_value = mock_service
 
-            for _ in range(limit):
-                out = recognize_captcha(request, CaptchaRecognizeIn(image_base64="iVBORw0KGgo="))
-                assert out.success is True
+                for _ in range(limit):
+                    out = recognize_captcha(request, CaptchaRecognizeIn(image_base64="iVBORw0KGgo="))
+                    assert out.success is True
 
-            # 第 limit+1 次触发限流（RateLimitError → 全局处理器转 429）
-            with pytest.raises(RateLimitError):
-                recognize_captcha(request, CaptchaRecognizeIn(image_base64="iVBORw0KGgo="))
+                # 第 limit+1 次触发限流（RateLimitError → 全局处理器转 429）
+                with pytest.raises(RateLimitError):
+                    recognize_captcha(request, CaptchaRecognizeIn(image_base64="iVBORw0KGgo="))
 
 
 # ============================================================================
@@ -359,3 +360,54 @@ class TestCourtTokenEncryption:
         from apps.core.security.scrub import mask_secret
 
         assert mask_secret("abcdefghij")  # 非空返回值即可，脱敏细节由 scrub 自身测试覆盖
+
+
+# ============================================================================
+# 4b. captcha /recognize：服务间共享密钥（M-5）
+# ============================================================================
+
+
+class TestCaptchaSecretAuth:
+    """匿名 OCR 滥用防护：端点要求 X-Captcha-Secret 匹配 CAPTCHA_RECOGNIZE_SECRET。"""
+
+    def _req(self, secret: str | None = None) -> Any:
+        request = _request(None, path="/api/v1/automation/captcha/recognize")
+        request.META["REMOTE_ADDR"] = f"10.88.{secrets.randbelow(254) + 1}.{secrets.randbelow(254) + 1}"
+        if secret is not None:
+            request.META["HTTP_X_CAPTCHA_SECRET"] = secret
+        return request
+
+    @pytest.mark.django_db
+    @override_settings(CAPTCHA_RECOGNIZE_SECRET="round4-test-value")  # pragma: allowlist secret
+    def test_missing_secret_403(self) -> None:
+        with pytest.raises(PermissionDenied) as exc:
+            _authorize_service_call(self._req())
+        assert exc.value.code == "CAPTCHA_SECRET_INVALID"
+
+    @pytest.mark.django_db
+    @override_settings(CAPTCHA_RECOGNIZE_SECRET="round4-test-value")  # pragma: allowlist secret
+    def test_wrong_secret_403(self) -> None:
+        with pytest.raises(PermissionDenied) as exc:
+            _authorize_service_call(self._req("nope"))
+        assert exc.value.code == "CAPTCHA_SECRET_INVALID"
+
+    @pytest.mark.django_db
+    @override_settings(CAPTCHA_RECOGNIZE_SECRET="round4-test-value")  # pragma: allowlist secret
+    def test_correct_secret_passes(self) -> None:
+        """正确密钥必须静默放行（不抛异常即通过，此处显式固化该契约）。"""
+        assert _authorize_service_call(self._req("round4-test-value")) is None
+
+    @pytest.mark.django_db
+    @override_settings(CAPTCHA_RECOGNIZE_SECRET="")
+    def test_unconfigured_secret_fails_closed(self) -> None:
+        """fail-closed：未配置密钥时连正确样式的请求也拒（端点整体不可用）。"""
+        with pytest.raises(PermissionDenied) as exc:
+            _authorize_service_call(self._req("round4-test-value"))
+        assert exc.value.code == "CAPTCHA_SERVICE_DISABLED"
+
+    @pytest.mark.django_db
+    @override_settings(CAPTCHA_RECOGNIZE_SECRET="round4-test-value")  # pragma: allowlist secret
+    def test_blank_header_403(self) -> None:
+        """空字符串头不等于密钥。"""
+        with pytest.raises(PermissionDenied):
+            _authorize_service_call(self._req(""))

@@ -103,6 +103,31 @@ def pytest_configure(config: Any) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _block_real_async_task(monkeypatch: Any) -> Any:
+    """测试环境禁止真实入队 Django-Q 任务，防止污染开发栈的 Redis broker。
+
+    背景：submit_task → TaskSubmissionService.submit → django_q async_task
+    最终把任务写进 settings.Q_CLUSTER 指向的 Redis broker；测试进程与开发栈
+    （uvicorn:8002 / qcluster）共用同一个 Redis，测试创建的任务会被真实
+    qcluster 捞走执行：2026-10-09 任务 #1 被测试三次重执行（FILE_NOT_FOUND），
+    服务端日志出现 16 字节假 PDF 与 unittest.mock 堆栈。
+
+    替换为 no-op（返回假 ID）：提交方在调用时才 import async_task，
+    monkeypatch 能生效；无测试依赖真实入队（均为 mock service 层）。
+    需要验证任务执行逻辑的测试应直接调用任务函数本身。
+    """
+    import uuid
+
+    from django_q import tasks as django_q_tasks
+
+    def _fake_async_task(*args: Any, **kwargs: Any) -> str:
+        return uuid.uuid4().hex
+
+    monkeypatch.setattr(django_q_tasks, "async_task", _fake_async_task)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _sync_first_user_setup_deferred_init(monkeypatch: Any) -> Any:
     """测试环境将 FirstUserSetupService 的 deferred 初始化从后台线程改为同步执行。
 

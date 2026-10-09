@@ -1,10 +1,19 @@
 import { toast } from 'sonner'
 
-import { copyCourtSmsDocsToClipboard, courtSmsDocDownloadUrl } from '../../../api'
+import { getAccessToken } from '@/lib/token'
 
-/** 取单件文书二进制（Safari 等支持浏览器剪贴板写文件时的降级数据源） */
+import { API_BASE_URL, copyCourtSmsDocsToClipboard } from '../../../api'
+
+/** 取单件文书二进制（Safari 等支持浏览器剪贴板写文件时的降级数据源）
+ *
+ * 直接 fetch + Authorization 头，不用下载票据——fetch 本来就能带头，
+ * 没必要消耗一张一次性票据（安全审计 M-2）。 */
 export async function fetchDocBlob(smsId: number, refIndex: number): Promise<Blob> {
-  const res = await fetch(courtSmsDocDownloadUrl(smsId, refIndex))
+  // 裸路径 + Authorization 头：不经 withAuthToken（那是给带不上头的 <a>/<img> 用的），
+  // 避免白白消耗一张一次性票据
+  const url = `${API_BASE_URL}/automation/court-sms/${smsId}/documents/${refIndex}/download`
+  const token = getAccessToken()
+  const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined })
   if (!res.ok) throw new Error(`下载失败 HTTP ${res.status}`)
   return res.blob()
 }

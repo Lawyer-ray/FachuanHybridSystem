@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { ExternalLink, FileText, Loader2, TriangleAlert } from 'lucide-react'
 
-import { resolveMediaUrl, patchRowWithOverride, selectedPendingRows, selectedTextRows, type CandidateRow } from '../domain'
+import { patchRowWithOverride, selectedPendingRows, selectedTextRows, type CandidateRow } from '../domain'
+import { useMediaUrlWithAuth } from '../hooks/use-media-url-with-auth'
 import { useRecognize } from '../hooks/use-recognize'
 import { useCandidateRows } from '../hooks/use-candidate-rows'
 import { useConfirmActions } from '../hooks/use-confirm-actions'
@@ -74,11 +75,14 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
   // 文字模式无识别阶段，直接进确认；文件模式等识别 ready
   const contentReady = !isFileMode || phase === 'ready'
 
-  const previewUrl = isFileMode && task?.file_url ? resolveMediaUrl(task.file_url) : ''
+  // 预览 URL 带下载票据（安全审计 M-2）：<img>/<iframe> 带不上 Authorization 头，
+  // 且 JWT 不再允许走 ?token=（会进 access log / Referer）。票据换取是异步的，
+  // 由 hook 按 file_url 变化重新取。
+  const previewUrl = useMediaUrlWithAuth(isFileMode ? task?.file_url : null)
   const hasPreview = Boolean(previewUrl)
   // 分屏态 = 识别完成且有原文可预览；等待/错误/文字模式保持紧凑小窗
   const splitReady = contentReady && hasPreview
-  const fileUrl = hasPreview ? previewUrl : isFileMode && task?.file_url ? resolveMediaUrl(task.file_url) : ''
+  const fileUrl = previewUrl
 
   // 左栏宽度可拖拽（默认 52%，32–70%，localStorage 记忆）
   const [splitPct, startDragSplit, splitBodyRef, draggingSplit] = useSplitDrag()

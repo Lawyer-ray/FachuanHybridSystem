@@ -1,7 +1,7 @@
 /**
  * home/api/court-sms 单测（node 环境）。
  *
- * mock 打 ./tools（automationApi）与 ./download（withAuthToken / API_BASE_URL），
+ * mock 打 ./tools（automationApi）与 ./download（withAuthToken / API_BASE_URL——票据换取为异步），
  * 断言聚焦：列表筛选参数、人工分配 / 终止任务的业务失败兜底、
  * 剪贴板复制的响应归一化与下载直链拼装。
  */
@@ -17,7 +17,8 @@ const automationApi = vi.hoisted(() => ({
 vi.mock('./tools', () => ({ automationApi }))
 vi.mock('./download', () => ({
   API_BASE_URL: '/api/v1',
-  withAuthToken: (url: string) => `${url}?token=fake`,
+  // 安全审计 M-2：票据换取是异步的，这里返回拼好 ?ticket= 的 Promise
+  withAuthToken: (url: string) => Promise.resolve(`${url}?ticket=fake`),
 }))
 
 import {
@@ -41,10 +42,14 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-describe('下载直链（带 token）', () => {
-  it('单件 / 打包下载地址按 smsId + refIndex 拼装', () => {
-    expect(courtSmsDocDownloadUrl(3, 2)).toBe('/api/v1/automation/court-sms/3/documents/2/download?token=fake')
-    expect(courtSmsDownloadAllUrl(3)).toBe('/api/v1/automation/court-sms/3/documents/download-all?token=fake')
+describe('下载直链（带下载票据，安全审计 M-2）', () => {
+  it('单件 / 打包下载地址按 smsId + refIndex 拼装', async () => {
+    await expect(courtSmsDocDownloadUrl(3, 2)).resolves.toBe(
+      '/api/v1/automation/court-sms/3/documents/2/download?ticket=fake',
+    )
+    await expect(courtSmsDownloadAllUrl(3)).resolves.toBe(
+      '/api/v1/automation/court-sms/3/documents/download-all?ticket=fake',
+    )
   })
 })
 

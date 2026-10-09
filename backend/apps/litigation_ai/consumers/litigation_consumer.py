@@ -310,9 +310,28 @@ class LitigationConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def _get_session(self, session_id: str) -> Any:
+        """按 session_id 取会话，并校验归属（安全审计 IDOR）。
+
+        历史实现只按 session_id 查询，不校验 user_id——任意已认证用户连接
+        ``ws/.../sessions/<他人 session_id>/`` 即可读取 case_info（案件名、
+        案由、诉讼标的额、全部当事人姓名及诉讼地位），并在他人的会话上驱动
+        文书生成。WebSocket 不受 rate_limit 约束，还可高速枚举。
+
+        这里与 REST 路径 ``session_lifecycle_service.get_session`` 同口径：
+        非 superuser/is_admin 只能访问自己的会话；查不到或无权限都返回
+        None（由 connect 统一 4004 关闭，不泄露会话是否存在）。
+
+        fail-closed：user 缺失时不做"放开"处理，而是按 user_id=None 过滤
+        （必然查不到），避免未来有人调整 connect() 的匿名拒绝顺序后这里
+        变成越权通道。
+        """
         from apps.litigation_ai.models import LitigationSession
 
-        return LitigationSession.objects.filter(session_id=session_id).first()
+        qs = LitigationSession.objects.filter(session_id=session_id)
+        user = getattr(self, "user", None)
+        if user is None or not (getattr(user, "is_superuser", False) or getattr(user, "is_admin", False)):
+            qs = qs.filter(user_id=getattr(user, "id", None))
+        return qs.first()
 
     @database_sync_to_async
     def _add_message(self, role: str, content: str, metadata: dict[str, Any] | None = None) -> Any:

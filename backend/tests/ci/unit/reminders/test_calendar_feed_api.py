@@ -131,7 +131,9 @@ class TestCalendarFeedEndpoint:
 
         assert response.status_code == 200
         assert response["Content-Type"].startswith("text/calendar")
-        assert response["Cache-Control"] == "public, max-age=14400"
+        # 安全审计 2026Q4 M-4：ICS 是个人日程数据，必须 private（原为 public，
+        # 允许共享缓存/代理保存该用户日程）
+        assert response["Cache-Control"] == "private, max-age=14400"
         assert "Last-Modified" in response
         body = response.content.decode("utf-8")
         assert body.startswith("BEGIN:VCALENDAR")
@@ -195,3 +197,113 @@ class TestRegenerateTokenEndpoint:
         assert payload["token"]
         count = await sync_to_async(lambda: CalendarFeedToken.objects.filter(user=feed_user).count())()
         assert count == 1
+
+
+# ===================================================================
+# ICS 订阅令牌闲置轮换（安全审计 M-4 后半）
+# ===================================================================
+
+
+class TestFeedTokenIdleRotation:
+    """令牌原先一次生成永久有效，泄露后无感知、无止损手段。
+
+    改为「闲置超期自动轮换」：轮换而非拒绝，用户的日历订阅不会突然失效。
+    """
+
+    @pytest.mark.django_db(transaction=True)
+    def test_fresh_token_is_not_rotated(self, feed_user: Any) -> None:
+        from apps.reminders.services.calendar_feed_service import CalendarFeedService
+
+        feed_token = CalendarFeedToken.objects.create(user=feed_user, token="fresh-token-value")
+        service = CalendarFeedService()
+
+        service._touch_or_rotate(feed_token)
+        feed_token.refresh_from_db()
+
+        assert feed_token.token == "fresh-token-value"
+        assert feed_token.last_used_at is not None
+
+    @pytest.mark.django_db(transaction=True)
+    def test_idle_token_is_rotated_and_last_used_recorded(self, feed_user: Any) -> None:
+        """闲置超期：令牌换发 + 记录拉取时间，且本次请求仍能拿到数据。"""
+        from apps.reminders.services.calendar_feed_service import CalendarFeedService
+
+        old_token = "idle-token-value"
+        feed_token = CalendarFeedToken.objects.create(user=feed_user, token=old_token)
+        # created_at 是 auto_now_add，create() 里传会被忽略；用 update 事后改写
+        CalendarFeedToken.objects.filter(id=feed_token.id).update(
+            created_at=timezone.now() - datetime.timedelta(days=400)
+        )
+        feed_token.refresh_from_db()
+        service = CalendarFeedService()
+
+        service._touch_or_rotate(feed_token)
+        feed_token.refresh_from_db()
+
+        assert feed_token.token != old_token
+        assert feed_token.last_used_at is not None
+        # 旧令牌即时失效
+        assert not CalendarFeedToken.objects.filter(token=old_token).exists()
+
+    @pytest.mark.django_db(transaction=True)
+    def test_fetch_feed_data_rotates_and_still_serves(self, feed_user: Any, feed_reminder: Any) -> None:
+        """端到端：用闲置令牌拉 Feed，数据照常返回，令牌已被换发。"""
+        from apps.reminders.services.calendar_feed_service import CalendarFeedService
+
+        old_token = "idle-fetch-token"
+        feed_token = CalendarFeedToken.objects.create(user=feed_user, token=old_token)
+        CalendarFeedToken.objects.filter(id=feed_token.id).update(
+            created_at=timezone.now() - datetime.timedelta(days=400)
+        )
+        service = CalendarFeedService()
+
+        result = service.fetch_feed_data(old_token)
+
+        assert result is not None
+        user, reminders = result
+        assert user.id == feed_user.id
+        assert len(reminders) >= 1
+        # 旧令牌已失效，再次拉取必须失败
+        assert service.fetch_feed_data(old_token) is None
+
+    @pytest.mark.django_db(transaction=True)
+    def test_active_token_survives_repeated_fetches(self, feed_user: Any, feed_reminder: Any) -> None:
+        """活跃订阅（日历 App 定期拉取）不得被轮换打断。"""
+        from apps.reminders.services.calendar_feed_service import CalendarFeedService
+
+        feed_token = CalendarFeedToken.objects.create(user=feed_user, token="active-token-value")
+        service = CalendarFeedService()
+
+        for _ in range(3):
+            service._touch_or_rotate(feed_token)
+            feed_token.refresh_from_db()
+
+        assert feed_token.token == "active-token-value"
+
+    @pytest.mark.django_db(transaction=True)
+    def test_regenerate_clears_last_used(self, feed_user: Any) -> None:
+        """用户主动换发后，last_used_at 清空，避免继承旧时间戳立刻又被判闲置。"""
+        from apps.reminders.services.calendar_feed_service import CalendarFeedService
+
+        feed_token = CalendarFeedToken.objects.create(
+            user=feed_user,
+            token="old-active-token",
+            last_used_at=timezone.now(),
+        )
+        service = CalendarFeedService()
+
+        renewed = service.regenerate_token(feed_user)
+
+        assert renewed.token != "old-active-token"
+        assert renewed.last_used_at is None
+
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.asyncio
+    async def test_token_endpoint_exposes_last_used_at(self, feed_user: Any) -> None:
+        feed_token = await sync_to_async(CalendarFeedToken.objects.create)(user=feed_user, token="expose-token")
+        seen = timezone.now()
+        await sync_to_async(lambda: CalendarFeedToken.objects.filter(id=feed_token.id).update(last_used_at=seen))()
+
+        result = await get_or_create_token(_session_request(feed_user))
+
+        assert result["last_used_at"] is not None

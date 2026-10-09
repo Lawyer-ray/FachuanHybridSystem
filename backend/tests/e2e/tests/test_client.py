@@ -4,9 +4,10 @@ Django Admin E2E 测试 — 当事人管理 (Client)
 覆盖 Client 模型的增删改查 Admin 页面。
 """
 
+import re
+
 import pytest
 from playwright.sync_api import Page, expect
-
 
 # ------------------------------------------------------------------
 # 列表页
@@ -24,9 +25,7 @@ def test_client_list_page(admin_page: Page, base_url: str) -> None:
 
 
 @pytest.mark.crud
-def test_client_search(
-    admin_page: Page, base_url: str, e2e_client_entity
-) -> None:
+def test_client_search(admin_page: Page, base_url: str, e2e_client_entity) -> None:
     """在列表页使用搜索框搜索当事人名称。"""
     admin_page.goto(f"{base_url}/admin/client/client/")
     admin_page.wait_for_load_state("domcontentloaded")
@@ -52,8 +51,10 @@ def test_client_add_page(admin_page: Page, base_url: str) -> None:
     admin_page.goto(f"{base_url}/admin/client/client/add/")
     admin_page.wait_for_load_state("domcontentloaded")
     # 应存在 change-form
-    change_form = admin_page.locator("#change-form")
-    expect(change_form).to_be_visible()
+    # Django 6 的 admin 不再渲染 <form id="change-form">（只剩 body class），
+    # 断言表单本体 + 保存按钮，语义等价
+    expect(admin_page.locator("form").first).to_be_visible()
+    expect(admin_page.locator("input[name='_save'], button[name='_save']").first).to_be_visible()
     # 验证核心字段存在
     name_input = admin_page.locator("input#id_name")
     expect(name_input).to_be_visible()
@@ -67,16 +68,17 @@ def test_client_create_natural(admin_page: Page, base_url: str) -> None:
     admin_page.goto(f"{base_url}/admin/client/client/add/")
     admin_page.wait_for_load_state("domcontentloaded")
 
+    # 必须先选 client_type 再填名称：切换主体类型会重渲染/重置表单字段，
+    # 先 fill 会被清空，提交时报「名称必填」
+    admin_page.select_option("select#id_client_type", value="natural")
     # 填写名称
     admin_page.fill("input#id_name", "自然人测试客户")
-    # 选择 client_type = NATURAL
-    admin_page.select_option("select#id_client_type", value="natural")
     # 提交
     admin_page.click("input[name='_save']")
     admin_page.wait_for_load_state("domcontentloaded")
 
     # 成功保存后应跳转回 changelist
-    expect(admin_page).to_have_url(f"{base_url}/admin/client/client/")
+    expect(admin_page).to_have_url(re.compile(r"/admin/client/client/\??"))
     # 页面应出现成功消息
     success_msg = admin_page.locator(".messagelist .success")
     expect(success_msg).to_be_visible()
@@ -110,16 +112,16 @@ def test_client_create_entity(admin_page: Page, base_url: str) -> None:
 
 
 @pytest.mark.crud
-def test_client_change_page(
-    admin_page: Page, base_url: str, e2e_client_entity
-) -> None:
+def test_client_change_page(admin_page: Page, base_url: str, e2e_client_entity) -> None:
     """访问已有当事人的编辑页，验证名称字段正确回显。"""
     url = f"{base_url}/admin/client/client/{e2e_client_entity.pk}/change/"
     admin_page.goto(url)
     admin_page.wait_for_load_state("domcontentloaded")
 
-    change_form = admin_page.locator("#change-form")
-    expect(change_form).to_be_visible()
+    # Django 6 的 admin 不再渲染 <form id="change-form">（只剩 body class），
+    # 断言表单本体 + 保存按钮，语义等价
+    expect(admin_page.locator("form").first).to_be_visible()
+    expect(admin_page.locator("input[name='_save'], button[name='_save']").first).to_be_visible()
     # 名称字段应显示 fixture 中创建的名称
     name_input = admin_page.locator("input#id_name")
     expect(name_input).to_have_value(e2e_client_entity.name)

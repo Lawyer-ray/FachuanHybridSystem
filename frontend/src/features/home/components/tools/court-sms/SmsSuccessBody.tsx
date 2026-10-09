@@ -84,7 +84,7 @@ export function SmsSuccessBody({ detail }: { detail: CourtSmsDetail }) {
                 {copyingIdx === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <Copy className="h-3 w-3" />}
                 复制
               </button>
-              <button type="button" className={ROW_BTN} onClick={() => triggerDownload(courtSmsDocDownloadUrl(detail.id, i))}>
+              <button type="button" className={ROW_BTN} onClick={() => void triggerDownload(() => courtSmsDocDownloadUrl(detail.id, i))}>
                 <Download className="h-3 w-3" />
                 下载
               </button>

@@ -41,7 +41,7 @@ export {
   copyCourtSmsDocsToClipboard,
 } from './court-sms'
 export type { CourtSmsDetail, CourtSmsListItem, CourtSmsGroup } from './court-sms'
-export { withAuthToken, triggerDownload } from './download'
+export { withAuthToken, triggerDownload, API_BASE_URL } from './download'
 
 export {
   documentParsingApi,

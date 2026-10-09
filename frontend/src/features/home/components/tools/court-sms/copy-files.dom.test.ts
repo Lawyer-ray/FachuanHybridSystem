@@ -8,10 +8,9 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { toastMock, backendCopyMock, docUrlMock, fetchMock, writeMock, writeTextMock } = vi.hoisted(() => ({
+const { toastMock, backendCopyMock, fetchMock, writeMock, writeTextMock } = vi.hoisted(() => ({
   toastMock: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), info: vi.fn() }),
   backendCopyMock: vi.fn(),
-  docUrlMock: vi.fn(),
   fetchMock: vi.fn(),
   writeMock: vi.fn(),
   writeTextMock: vi.fn(),
@@ -22,7 +21,6 @@ vi.mock('sonner', () => ({ toast: toastMock }))
 vi.mock('../../../api', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   copyCourtSmsDocsToClipboard: backendCopyMock,
-  courtSmsDocDownloadUrl: docUrlMock,
 }))
 
 import { copyAllDocFiles, copyBlobsToClipboard, copyDocFile, copyTextToClipboard, fetchDocBlob } from './copy-files'
@@ -47,7 +45,6 @@ const blob = (tag: string) => new Blob([tag], { type: 'application/pdf' })
 beforeEach(() => {
   vi.clearAllMocks()
   FakeClipboardItem.unsupported = []
-  docUrlMock.mockImplementation((smsId: number, i: number) => `/doc/${smsId}/${i}`)
 })
 
 afterEach(() => {
@@ -59,8 +56,11 @@ describe('fetchDocBlob', () => {
     vi.stubGlobal('fetch', fetchMock)
     fetchMock.mockResolvedValueOnce({ ok: true, blob: async () => blob('a') })
     await expect(fetchDocBlob(3, 0)).resolves.toBeInstanceOf(Blob)
-    expect(docUrlMock).toHaveBeenCalledWith(3, 0)
-    expect(fetchMock).toHaveBeenCalledWith('/doc/3/0')
+    // 安全审计 M-2：fetch 能带 Authorization 头，故用裸路径而非下载票据
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/automation/court-sms/3/documents/0/download',
+      expect.anything(),
+    )
 
     fetchMock.mockResolvedValueOnce({ ok: false, status: 500, blob: async () => blob('x') })
     await expect(fetchDocBlob(3, 1)).rejects.toThrow('下载失败 HTTP 500')

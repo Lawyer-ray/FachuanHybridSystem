@@ -271,9 +271,19 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def _get_session(self, session_id: str) -> Any:
+        """按 session_id 取模拟庭审会话，并校验归属（安全审计 IDOR）。
+
+        与 litigation_consumer._get_session 同口径：非 superuser/is_admin
+        只能访问自己的会话，否则任意已认证用户可连上他人会话读取案情并在
+        他人会话上驱动 LLM 生成。user 缺失时同样 fail-closed（按 None 过滤）。
+        """
         from apps.litigation_ai.models import LitigationSession
 
-        return LitigationSession.objects.filter(session_id=session_id, session_type="mock_trial").first()
+        qs = LitigationSession.objects.filter(session_id=session_id, session_type="mock_trial")
+        user = getattr(self, "user", None)
+        if user is None or not (getattr(user, "is_superuser", False) or getattr(user, "is_admin", False)):
+            qs = qs.filter(user_id=getattr(user, "id", None))
+        return qs.first()
 
     @database_sync_to_async
     def _add_message(self, role: str, content: str, metadata: dict[str, Any] | None = None) -> Any:

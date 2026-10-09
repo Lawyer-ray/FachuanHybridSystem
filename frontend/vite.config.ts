@@ -72,10 +72,16 @@ export default defineConfig({
   build: {
     target: "es2022",
     reportCompressedSize: false,
-    // 生产 sourcemap 用 hidden：生成 .map 便于本地按图对回源码排障，
-    // 但产物 JS 不带 //# sourceMappingURL 引用——公网拿不到 map，防止
-    // 前台站点被还原源码（app.xlaw.top 隧道暴露场景）。
-    sourcemap: 'hidden',
+    // 安全审计（2026Q4）：原为 sourcemap: 'hidden'，注释假设「产物 JS 不带
+    // //# sourceMappingURL 引用，公网就拿不到 map」。该假设不成立——.map 仍
+    // 随 dist/ 一起发布，攻击者按 assets/<js文件名>.map 拼 URL 即可下载，
+    // 且 map 内含 sourcesContent（完整 TypeScript 源码）。实测生产入口
+    // 对该 URL 返回 200。
+    //
+    // 现改为 sourcemap: false：本地排障需要时用 `pnpm build:sourcemap`
+    // 单独产出到 dist-sourcemaps/（不随 dist 发布）。既保留排障能力，
+    // 又不让源码进可访问目录。
+    sourcemap: false,
     // material-prep 懒加载 chunk 含 pdfjs（~520KB）属预期：只在进入该路由时才下载。
     // 阈值放宽到 600，避免这条已知大 chunk 的告警长期刷屏、掩盖新出现的问题。
     chunkSizeWarningLimit: 600,

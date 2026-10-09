@@ -32,7 +32,8 @@ vi.mock('@/lib/api', () => ({
 
 vi.mock('./download', () => ({
   API_BASE_URL: '/api/v1',
-  withAuthToken: (url: string) => `${url}?token=fake`,
+  // 安全审计 M-2：票据换取是异步的
+  withAuthToken: (url: string) => Promise.resolve(`${url}?ticket=fake`),
 }))
 
 import {
@@ -194,10 +195,12 @@ describe('DOC 转 DOCX 任务', () => {
     expect(res.count).toBe(2)
   })
 
-  it('下载直链：拼 API_BASE_URL 并带 token；剪贴板复制走 POST copy-to-clipboard', () => {
-    expect(converterDownloadUrl('job-9')).toBe('/api/v1/doc-converter/jobs/job-9/download?token=fake')
-    expect(converterItemDownloadUrl('job-9', '7')).toBe('/api/v1/doc-converter/jobs/job-9/items/7/download?token=fake')
-    expect(convertRecordDownloadUrl(15)).toBe('/api/v1/doc-convert/records/15/download?token=fake')
+  it('下载直链：拼 API_BASE_URL 并带 token；剪贴板复制走 POST copy-to-clipboard', async () => {
+    await expect(converterDownloadUrl('job-9')).resolves.toBe('/api/v1/doc-converter/jobs/job-9/download?ticket=fake')
+    await expect(converterItemDownloadUrl('job-9', '7')).resolves.toBe(
+      '/api/v1/doc-converter/jobs/job-9/items/7/download?ticket=fake',
+    )
+    await expect(convertRecordDownloadUrl(15)).resolves.toBe('/api/v1/doc-convert/records/15/download?ticket=fake')
   })
 
   it('copyConverterItemsToClipboard：POST item_ids，响应直通', async () => {

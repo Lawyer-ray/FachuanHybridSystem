@@ -150,14 +150,14 @@ export async function getConverterJob(jobId: string): Promise<ConverterJob> {
   }
 }
 
-/** 转换完成后的 ZIP 下载地址（带 token 供 <a> 直链下载）。
+/** 转换完成后的 ZIP 下载地址（带下载票据供 <a> 直链下载）。
  *  必须拼 API_BASE_URL：宿主注入绝对地址时（VITE_API_BASE_URL），裸 /api/v1 会打到宿主页面域上 404。 */
-export function converterDownloadUrl(jobId: string): string {
+export async function converterDownloadUrl(jobId: string): Promise<string> {
   return withAuthToken(`${API_BASE_URL}/doc-converter/jobs/${jobId}/download`)
 }
 
-/** 单件转换产物下载地址（带 token） */
-export function converterItemDownloadUrl(jobId: string, itemId: string): string {
+/** 单件转换产物下载地址（带下载票据） */
+export async function converterItemDownloadUrl(jobId: string, itemId: string): Promise<string> {
   return withAuthToken(`${API_BASE_URL}/doc-converter/jobs/${jobId}/items/${itemId}/download`)
 }
 
@@ -216,8 +216,8 @@ export async function listConvertRecords(
     .json<components['schemas']['DocConvertRecordListOut']>()
 }
 
-/** 要素式历史产物下载地址（带 token；同上必须拼 API_BASE_URL） */
-export function convertRecordDownloadUrl(recordId: number): string {
+/** 要素式历史产物下载地址（带下载票据；同上必须拼 API_BASE_URL） */
+export async function convertRecordDownloadUrl(recordId: number): Promise<string> {
   return withAuthToken(`${API_BASE_URL}/doc-convert/records/${recordId}/download`)
 }
 

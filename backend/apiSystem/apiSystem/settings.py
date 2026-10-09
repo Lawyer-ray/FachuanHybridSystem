@@ -77,6 +77,9 @@ INSTALLED_APPS = [
     "simple_history",
     "corsheaders",
     "ninja_jwt",
+    # 安全审计 M-8：refresh token 轮换 + 黑名单（ROTATE_REFRESH_TOKENS /
+    # BLACKLIST_AFTER_ROTATION 依赖本 app 的 OutstandingToken/BlacklistedToken）
+    "ninja_jwt.token_blacklist",
     "channels",  # WebSocket 支持
     # === Django Admin 侧边栏顺序（按以下顺序显示）===
     "apps.client",  # 1. Client CRM（当事人管理）
@@ -368,6 +371,16 @@ from datetime import timedelta
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=2),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
+    # 安全审计 M-8（refresh token 30 天不轮换、无黑名单）：原配置下 refresh
+    # token 一旦泄露（localStorage XSS、日志、Referer）有 30 天窗口，且每次
+    # 刷新不轮换——被盗后攻击者可长期静默续期，无任何检测手段。
+    #
+    # 启用轮换 + 轮换后拉黑：每次 /token/refresh 都签发新 refresh，旧 refresh
+    # 立即进入黑名单（OutstandingToken/BlacklistedToken 两张表），二次使用即
+    # 报「Token is blacklisted」。被盗场景下，合法用户与被盗方的首次刷新会
+    # 互相把对方的 token 打失效——至少把「无限续期」收敛成「一次性」。
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
     # 安全审计 C-14/E-07（改密后旧 token 仍有效）：签发时在 token 注入密码哈希
     # 指纹 claim，刷新时校验一致性——密码一改旧 refresh token 全部失效，零迁移实现
     "TOKEN_OBTAIN_PAIR_INPUT_SCHEMA": "apps.core.security.jwt_password_binding.PasswordBoundTokenObtainPairInputSchema",
@@ -429,6 +442,11 @@ ALLOW_FIRST_USER_SUPERUSER = (os.environ.get("ALLOW_FIRST_USER_SUPERUSER", "Fals
     "yes",
 )
 BOOTSTRAP_ADMIN_TOKEN = (os.environ.get("BOOTSTRAP_ADMIN_TOKEN", "") or "").strip()
+# auto_register 首用户引导口令（安全审计 2026Q4）：原为源码内硬编码 "1234qwer"，
+# 任何人可在 DEBUG 实例上免令牌调用 /admin/register/ 的 auto_register 分支抢占
+# 超管。现改为环境变量注入，无默认值——未配置时 auto_register_superadmin 直接
+# 拒绝（fail-closed），源码不再保留任何可用口令。
+AUTO_REGISTER_BOOTSTRAP_PASSWORD = (os.environ.get("AUTO_REGISTER_BOOTSTRAP_PASSWORD", "") or "").strip()
 # 表单注册入口开关（默认关闭）：/admin/register/ 的表单注册在 False 时直接拒绝
 # （apps/organization/views.py register 视图消费）；auto_register 首用户引导分支
 # （BOOTSTRAP_ADMIN_TOKEN 保护）不受此开关影响。API 侧 /api/v1/organization/register
@@ -443,6 +461,12 @@ SMOKE_ADMIN_PASSWORD = _smoke_pw or "smoke_admin_password"  # DEBUG 模式下使
 
 if (not DEBUG) and ALLOW_FIRST_USER_SUPERUSER and (not BOOTSTRAP_ADMIN_TOKEN):
     raise RuntimeError("ALLOW_FIRST_USER_SUPERUSER=true 时必须配置 BOOTSTRAP_ADMIN_TOKEN")
+
+# auto_register 口令闸门（安全审计 2026Q4）：开启首用户引导时必须显式注入口令，
+# 否则 auto_register_superadmin 会因口令为空而拒绝——此处提前 fail-fast，
+# 把「配置漏项」暴露在启动阶段而非首次引导时。
+if ALLOW_FIRST_USER_SUPERUSER and (not AUTO_REGISTER_BOOTSTRAP_PASSWORD):
+    raise RuntimeError("ALLOW_FIRST_USER_SUPERUSER=true 时必须配置 AUTO_REGISTER_BOOTSTRAP_PASSWORD")
 
 # ============================================================
 # 社交登录
@@ -487,6 +511,10 @@ CORS_ALLOW_HEADERS = [
     "user-agent",
     "x-csrftoken",
     "x-requested-with",
+    # 验证码识别服务间共享密钥（M-5）：外部脚本跨域调用
+    # /api/v1/automation/captcha/recognize 时携带的自定义头，需在预检中放行。
+    # 头值不匹配时端点仍会 403，放行本身无安全影响。
+    "x-captcha-secret",
 ]
 
 MEDIA_URL = "/media/"
@@ -502,6 +530,27 @@ MEDIA_REQUIRE_AUTH = os.environ.get("MEDIA_REQUIRE_AUTH", "true").lower() in ("1
 # 可选：nginx internal location 前缀（如 /protected_media/）。非空时视图只做鉴权，
 # 返回 X-Accel-Redirect 头由 nginx 发文件（Django 不读文件）；为空时 Django FileResponse 流式返回。
 MEDIA_X_ACCEL_PREFIX = (os.environ.get("MEDIA_X_ACCEL_PREFIX", "") or "").strip()
+
+# 短时下载票据（安全审计 M-2）。JWT 不再经 ?token= 查询参数传递——完整 JWT
+# 会落入 nginx access log / 浏览器历史 / Referer。改为：需要放进 URL 的
+# <img>/<iframe>/<a download> 场景用 60 秒一次性票据（见
+# apps/core/security/download_tickets.py），票据泄露也换不来身份。
+# TTL 只影响「从签发到浏览器发起请求」的窗口，60s 足够慢网一次跳转。
+DOWNLOAD_TICKET_TTL_SECONDS = int(os.environ.get("DOWNLOAD_TICKET_TTL_SECONDS", "60"))
+# 单次使用：兑现后即失效，重放被拒。缓存后端故障时退化为「仅签名 + 过期」，
+# 不因缓存挂了拒绝合法下载。
+DOWNLOAD_TICKET_SINGLE_USE = os.environ.get("DOWNLOAD_TICKET_SINGLE_USE", "true").lower() in ("1", "true", "yes")
+
+# 验证码识别服务间共享密钥（安全审计 M-5）。
+#
+# /api/v1/automation/captcha/recognize 原为 auth=None 的匿名端点，可被公网当
+# 免费 OCR 刷。仓库内没有任何调用方走 HTTP 打它（浏览器自动化与插件全部进程内
+# 直连 service），故改为要求 X-Captcha-Secret 头匹配此密钥。
+#
+# **未配置时端点整体不可用（fail-closed）**：生产忘配的表现是「功能不可用」，
+# 而不是「匿名可刷」。确需对外开放（如外部脚本接入）时显式配置一个强随机值，
+# 并同步给调用方。
+CAPTCHA_RECOGNIZE_SECRET = (os.environ.get("CAPTCHA_RECOGNIZE_SECRET", "") or "").strip()
 
 # ============================================================
 # 请求体大小限制

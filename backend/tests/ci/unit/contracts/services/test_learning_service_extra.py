@@ -17,16 +17,22 @@ class TestArchiveLearningServiceInit:
         assert svc is not None
 
 
-class TestArchiveLearningServiceGenerateCodeFile:
-    """_generate_code_file tests."""
+class TestArchiveLearningServiceGenerateJsonFile:
+    """_generate_json_file tests（安全审计 2026Q4：原为 _generate_code_file）。
+
+    原实现把 DB 规则 f-string 拼接成 Python 源码再 importlib.reload 执行，
+    filename_keyword 未转义即可逃逸字符串字面量（管理员触发导出即 RCE）。
+    现改为 json.dumps，数据永不被解释执行。
+    """
 
     def test_empty_grouped(self) -> None:
+        import json
+
         from apps.contracts.services.archive.learning_service import ArchiveLearningService
 
         svc = ArchiveLearningService()
-        result = svc._generate_code_file({})
-        assert "LEARNED_FILENAME_KEYWORD_TO_ARCHIVE_CODE" in result
-        assert "= {}" in result
+        result = svc._generate_json_file({})
+        assert json.loads(result) == {}
 
     def test_with_rules(self) -> None:
         from apps.contracts.services.archive.learning_service import ArchiveLearningService
@@ -38,13 +44,33 @@ class TestArchiveLearningServiceGenerateCodeFile:
                 "lt_2": ["判决书"],
             }
         }
-        result = svc._generate_code_file(grouped)
+        result = svc._generate_json_file(grouped)
         assert "litigation" in result
         assert "lt_1" in result
         assert "起诉状" in result
         assert "答辩状" in result
         assert "判决书" in result
         assert "lt_2" in result
+
+    def test_output_is_pure_data_not_python(self) -> None:
+        """产物不含任何 Python 语法结构，无法被 import 执行。"""
+        from apps.contracts.services.archive.learning_service import ArchiveLearningService
+
+        svc = ArchiveLearningService()
+        result = svc._generate_json_file({"litigation": {"lt_1": ["起诉状"]}})
+        assert "LEARNED_FILENAME_KEYWORD_TO_ARCHIVE_CODE" not in result
+        assert "import " not in result
+
+    def test_quote_injection_is_escaped(self) -> None:
+        """含引号的关键词被转义为数据，不构成代码注入。"""
+        import json
+
+        from apps.contracts.services.archive.learning_service import ArchiveLearningService
+
+        svc = ArchiveLearningService()
+        malicious = 'x"] if __import__("os").system("id") else ["'
+        result = svc._generate_json_file({"litigation": {"lt_1": [malicious]}})
+        assert json.loads(result)["litigation"]["lt_1"] == [malicious]
 
 
 class TestArchiveLearningServiceLearnFromArchivedMaterials:
@@ -54,9 +80,7 @@ class TestArchiveLearningServiceLearnFromArchivedMaterials:
         from apps.contracts.services.archive.learning_service import ArchiveLearningService
 
         svc = ArchiveLearningService()
-        with patch(
-            "apps.contracts.services.archive.learning_service.FinalizedMaterial"
-        ) as mock_fm:
+        with patch("apps.contracts.services.archive.learning_service.FinalizedMaterial") as mock_fm:
             mock_fm.objects.filter.return_value.select_related.return_value = []
             result = svc.learn_from_archived_materials()
             assert result["learned"] == 0
@@ -77,9 +101,7 @@ class TestArchiveLearningServiceLearnFromArchivedMaterials:
         material.file_path = "/path/起诉状.pdf"
 
         with (
-            patch(
-                "apps.contracts.services.archive.learning_service.FinalizedMaterial"
-            ) as mock_fm,
+            patch("apps.contracts.services.archive.learning_service.FinalizedMaterial") as mock_fm,
             patch(
                 "apps.contracts.services.archive.learning_service.get_archive_category",
                 return_value="litigation",
@@ -105,9 +127,7 @@ class TestArchiveLearningServiceLearnFromArchivedMaterials:
         material.file_path = "/path/起诉状.pdf"
 
         with (
-            patch(
-                "apps.contracts.services.archive.learning_service.FinalizedMaterial"
-            ) as mock_fm,
+            patch("apps.contracts.services.archive.learning_service.FinalizedMaterial") as mock_fm,
             patch(
                 "apps.contracts.services.archive.learning_service.get_archive_category",
                 return_value="litigation",
@@ -116,12 +136,8 @@ class TestArchiveLearningServiceLearnFromArchivedMaterials:
                 "apps.contracts.services.archive.learning_service.classify_archive_material",
                 return_value={"archive_item_code": "lt_wrong"},
             ),
-            patch(
-                "apps.contracts.services.archive.learning_service.ArchiveClassificationRule"
-            ) as mock_rule,
-            patch(
-                "apps.contracts.services.archive.learning_service.invalidate_db_rules_cache"
-            ),
+            patch("apps.contracts.services.archive.learning_service.ArchiveClassificationRule") as mock_rule,
+            patch("apps.contracts.services.archive.learning_service.invalidate_db_rules_cache"),
         ):
             mock_fm.objects.filter.return_value.select_related.return_value = [material]
             mock_rule.objects.get_or_create.return_value = (MagicMock(), True)
@@ -151,9 +167,7 @@ class TestArchiveLearningServiceLearnFromArchivedMaterials:
         materials = [mat1, mat2]
 
         with (
-            patch(
-                "apps.contracts.services.archive.learning_service.FinalizedMaterial"
-            ) as mock_fm,
+            patch("apps.contracts.services.archive.learning_service.FinalizedMaterial") as mock_fm,
             patch(
                 "apps.contracts.services.archive.learning_service.get_archive_category",
                 return_value="litigation",
@@ -162,12 +176,8 @@ class TestArchiveLearningServiceLearnFromArchivedMaterials:
                 "apps.contracts.services.archive.learning_service.classify_archive_material",
                 return_value={"archive_item_code": "lt_wrong"},
             ),
-            patch(
-                "apps.contracts.services.archive.learning_service.ArchiveClassificationRule"
-            ) as mock_rule,
-            patch(
-                "apps.contracts.services.archive.learning_service.invalidate_db_rules_cache"
-            ),
+            patch("apps.contracts.services.archive.learning_service.ArchiveClassificationRule") as mock_rule,
+            patch("apps.contracts.services.archive.learning_service.invalidate_db_rules_cache"),
         ):
             mock_fm.objects.filter.return_value.select_related.return_value = materials
             mock_rule.objects.get_or_create.return_value = (MagicMock(), True)
@@ -189,9 +199,7 @@ class TestArchiveLearningServiceLearnFromArchivedMaterials:
         material.category = "case_material"
 
         with (
-            patch(
-                "apps.contracts.services.archive.learning_service.FinalizedMaterial"
-            ) as mock_fm,
+            patch("apps.contracts.services.archive.learning_service.FinalizedMaterial") as mock_fm,
             patch(
                 "apps.contracts.services.archive.learning_service.get_archive_category",
                 return_value="litigation",

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import zipfile
-from io import BytesIO
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +11,7 @@ from asgiref.sync import sync_to_async
 from django.http import HttpRequest, HttpResponse
 from ninja import Router
 
+from apps.core.exceptions import ValidationException
 from apps.documents.api.download_response_factory import build_download_response
 
 logger = logging.getLogger("apps.cases.api")
@@ -96,13 +95,20 @@ async def generate_case_folder(request: HttpRequest, case_id: int) -> Any:  # pr
         if not parent_exists:
             return {"success": False, "message": f"合同绑定文件夹不存在: {contract_folder_path}"}
         try:
-
+            # 安全审计（2026Q4 M-7）：原实现裸用 zipfile.extractall，绕过全仓统一的
+            # ZIP 防护（解压炸弹 + Zip Slip）。ZIP 内文件名源自 root_name，其中
+            # case.name 是用户可控输入，可间接影响成员路径。改走
+            # FolderFilesystemService().extract_zip_bytes（sanitize_zip_member_path +
+            # ensure_within_base + ensure_zip_within_limits），与合同归档链路同口径。
             def _extract() -> None:
-                with zipfile.ZipFile(BytesIO(zip_bytes), "r") as zf:
-                    zf.extractall(str(parent))
+                from apps.core.filesystem.filesystem_service import FolderFilesystemService
+
+                FolderFilesystemService().extract_zip_bytes(str(parent), zip_bytes)
 
             await asyncio.to_thread(_extract)
-        except (OSError, zipfile.BadZipFile) as e:
+        except (OSError, ValidationException) as e:
+            # extract_zip_bytes 把 ZIP 级错误统一包装成 ValidationException，
+            # 这里一并捕获后转成前端可读的失败信息（与原先 except BadZipFile 同效果）。
             logger.error("ZIP 解压失败: %s", e, extra={"case_id": case_id})
             return {"success": False, "message": f"ZIP 解压失败: {e}"}
         logger.info("案件文件夹已解压到合同文件夹", extra={"case_id": case_id, "path": str(parent)})

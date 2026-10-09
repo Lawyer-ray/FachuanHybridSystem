@@ -1,7 +1,8 @@
 import { ExternalLink, MapPin, TriangleAlert, UserRound } from 'lucide-react'
 
 import { DOC_TYPE_LABELS, EXTRACTION_METHOD_LABELS } from '../constants'
-import { formatContacts, resolveMediaUrl } from '../domain'
+import { formatContacts } from '../domain'
+import { useMediaUrlWithAuth } from '../hooks/use-media-url-with-auth'
 import type { RecognitionInfo, TaskOut } from '../types'
 import { safeHttpUrl } from '@/lib/url'
 import { cn } from '@/lib/utils'
@@ -19,7 +20,8 @@ const DOC_TYPE_STYLES: Record<string, string> = {
 /** 识别结果摘要卡：类型/案号/置信度/引擎 + 联系人/地址 + 文书预览。 */
 export function RecognitionSummary({ task, recognition }: Props) {
   const contactsText = formatContacts(task.contacts ?? [])
-  const fileUrl = resolveMediaUrl(task.file_url)
+  // 带下载票据的预览 URL（安全审计 M-2，见 use-media-url-with-auth）
+  const fileUrl = useMediaUrlWithAuth(task.file_url)
   const methodLabel = recognition.extraction_method
     ? EXTRACTION_METHOD_LABELS[recognition.extraction_method] ?? recognition.extraction_method
     : null

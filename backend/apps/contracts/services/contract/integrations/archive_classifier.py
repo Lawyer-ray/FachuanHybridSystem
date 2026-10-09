@@ -17,33 +17,68 @@ from apps.contracts.services.archive.constants import ARCHIVE_CHECKLIST
 logger = logging.getLogger(__name__)
 
 # ============================================================
-# 学习规则加载（代码文件中的规则，模块级缓存）
+# 学习规则加载（JSON 数据文件，模块级缓存）
 # ============================================================
+# 安全审计（2026Q4）：原实现把 DB 规则用 f-string 拼接成 Python 源码写入
+# _learned_rules.py，再 importlib.reload 执行。filename_keyword 未经转义即可
+# 逃逸字符串字面量，形成"数据 → 可执行代码"的注入（管理员触发导出即 RCE），
+# 且该文件被 git 跟踪，payload 可随 commit 分发并在下次导入时自动执行；
+# 含引号的关键词还会生成畸形源码，SyntaxError 穿透 except 导致全站 DoS。
+# 现改为 JSON 数据文件 + json.loads：数据永远是数据，不会被解释执行。
 _LEARNED_CODE_RULES: dict[str, dict[str, list[str]]] = {}
-try:
-    from ._learned_rules import LEARNED_FILENAME_KEYWORD_TO_ARCHIVE_CODE
 
-    _LEARNED_CODE_RULES = LEARNED_FILENAME_KEYWORD_TO_ARCHIVE_CODE
-except ImportError:
-    pass
+
+def _load_learned_rules_from_json() -> dict[str, dict[str, list[str]]]:
+    """从 _learned_rules.json 读取学习规则；文件缺失或内容非法时返回 {}。"""
+    import json
+
+    from ._learned_rules_json_path import LEARNED_RULES_JSON_PATH
+
+    try:
+        raw = LEARNED_RULES_JSON_PATH.read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    try:
+        data = json.loads(raw)
+    except (ValueError, TypeError):
+        # 非法 JSON 只降级为空规则，绝不让异常穿透到调用方（原实现的
+        # SyntaxError 穿透曾导致全站 DoS）。
+        logger.warning("learned_rules_json_invalid", extra={"path": str(LEARNED_RULES_JSON_PATH)})
+        return {}
+    if not isinstance(data, dict):
+        logger.warning("learned_rules_json_not_object", extra={"path": str(LEARNED_RULES_JSON_PATH)})
+        return {}
+    return _normalize_learned_rules(data)
+
+
+def _normalize_learned_rules(data: Any) -> dict[str, dict[str, list[str]]]:
+    """把不可信的 JSON 结构收敛成 dict[str, dict[str, list[str]]]。
+
+    JSON 里可能出现任意层级/类型（手工编辑、旧版本文件），此处逐层校验，
+    跳过不合法的片段而不是抛异常。
+    """
+    normalized: dict[str, dict[str, list[str]]] = {}
+    if not isinstance(data, dict):
+        return normalized
+    for cat, code_map in data.items():
+        if not isinstance(cat, str) or not isinstance(code_map, dict):
+            continue
+        target = normalized.setdefault(cat, {})
+        for code, keywords in code_map.items():
+            if not isinstance(code, str) or not isinstance(keywords, list):
+                continue
+            target[code] = [kw for kw in keywords if isinstance(kw, str)]
+    return normalized
 
 
 def reload_learned_code_rules() -> None:
-    """重新加载代码文件中的学习规则（导出后调用）。"""
+    """重新加载学习规则（导出后调用，使当前进程立即生效）。"""
     global _LEARNED_CODE_RULES
-    try:
-        import importlib
-
-        from . import _learned_rules as _rules_module
-
-        importlib.reload(_rules_module)
-        _LEARNED_CODE_RULES = _rules_module.LEARNED_FILENAME_KEYWORD_TO_ARCHIVE_CODE
-        logger.info(
-            "learned_code_rules_reloaded",
-            extra={"rule_count": sum(len(kws) for d in _LEARNED_CODE_RULES.values() for kws in d.values())},
-        )
-    except (ImportError, OSError):
-        _LEARNED_CODE_RULES = {}
+    _LEARNED_CODE_RULES = _load_learned_rules_from_json()
+    logger.info(
+        "learned_code_rules_reloaded",
+        extra={"rule_count": sum(len(kws) for d in _LEARNED_CODE_RULES.values() for kws in d.values())},
+    )
 
 
 # ============================================================

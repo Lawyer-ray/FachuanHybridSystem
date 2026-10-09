@@ -269,7 +269,8 @@ class TestRenameUploadedFile:
         doc = ClientIdentityDocFactory(file_path="")
         ClientIdentityDocService().rename_uploaded_file(doc)
         doc.refresh_from_db()
-        assert doc.file_path == ""
+        # 空值经 save 钩子归一为 NULL（占位行语义），rename 对空路径仍是 no-op
+        assert doc.file_path is None
 
 
 @pytest.mark.django_db

@@ -80,8 +80,12 @@ async def calendar_feed(request: Any, token: str = "") -> HttpResponse:
     ics_bytes = service.render_ics_feed(reminders, str(user))
 
     response = HttpResponse(ics_bytes, content_type="text/calendar; charset=utf-8")
-    # 告诉日历 App 每 4 小时重新拉取
-    response["Cache-Control"] = "public, max-age=14400"
+    # 告诉日历 App 每 4 小时重新拉取。
+    # 安全审计（2026Q4 M-4）：原为 "public"，允许共享缓存（公司代理、CDN）
+    # 保存该用户的全部日程 4 小时——ICS 内容是个人数据（开庭时间、案件安排），
+    # 且该端点用 ?token= 认证，public 会把一个人的日程暴露给同缓存域的其他
+    # 请求。改 private：只允许浏览器本地缓存。
+    response["Cache-Control"] = "private, max-age=14400"
     response["Last-Modified"] = now.strftime("%a, %d %b %Y %H:%M:%S GMT")
     return response
 
@@ -111,6 +115,7 @@ async def get_or_create_token(request: Any) -> dict[str, str]:
         "token": feed_token.token,
         "feed_url": feed_url,
         "created_at": feed_token.created_at.isoformat(),
+        "last_used_at": feed_token.last_used_at.isoformat() if feed_token.last_used_at else None,
     }
 
 
@@ -131,4 +136,5 @@ async def regenerate_token(request: Any) -> dict[str, str]:
         "token": feed_token.token,
         "feed_url": feed_url,
         "created_at": feed_token.created_at.isoformat(),
+        "last_used_at": feed_token.last_used_at.isoformat() if feed_token.last_used_at else None,
     }

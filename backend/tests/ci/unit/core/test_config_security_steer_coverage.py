@@ -159,34 +159,60 @@ class TestJWTOrSessionAuth:
             result = auth(request)
             assert result is None
 
-    def test_token_from_query_param(self):
+    def test_ticket_from_query_param_get(self):
+        """GET 带 ?ticket=<票据> 应认证通过（M-2：替代原先的 JWT query）。"""
         from apps.core.security.auth import JWTOrSessionAuth
 
         auth = JWTOrSessionAuth()
         request = MagicMock()
         request.headers = {}
         request.method = "GET"
-        request.GET = {"token": "query_token"}
+        request.GET = {"ticket": "tk"}
+        request.user.is_authenticated = False
 
-        mock_user = MagicMock()
-        with patch.object(auth._jwt_auth, "authenticate", return_value=mock_user):
-            result = auth(request)
-            assert result is mock_user
+        mock_user = MagicMock(id=1, is_active=True)
+        with patch("apps.core.security.auth.JWTOrSessionAuth._load_user", return_value=mock_user):
+            with patch(
+                "apps.core.security.download_tickets.consume_download_ticket", return_value=1
+            ):
+                result = auth(request)
+                assert result is mock_user
 
-    def test_token_from_query_param_head_allowed(self):
-        """HEAD 与 GET 同为安全方法，允许 ?token=（下载/预览场景）。"""
+    def test_ticket_from_query_param_head_allowed(self):
+        """HEAD 与 GET 同为安全方法，允许 ?ticket=（下载/预览场景）。"""
         from apps.core.security.auth import JWTOrSessionAuth
 
         auth = JWTOrSessionAuth()
         request = MagicMock()
         request.headers = {}
         request.method = "HEAD"
-        request.GET = {"token": "query_token"}
+        request.GET = {"ticket": "tk"}
+        request.user.is_authenticated = False
 
-        mock_user = MagicMock()
-        with patch.object(auth._jwt_auth, "authenticate", return_value=mock_user):
+        mock_user = MagicMock(id=1, is_active=True)
+        with patch("apps.core.security.auth.JWTOrSessionAuth._load_user", return_value=mock_user):
+            with patch(
+                "apps.core.security.download_tickets.consume_download_ticket", return_value=1
+            ):
+                result = auth(request)
+                assert result is mock_user
+
+    def test_jwt_query_param_no_longer_accepted(self):
+        """M-2 红线：?token=<JWT> 不再被接受（JWT 会进 access log / Referer）。"""
+        from apps.core.security.auth import JWTOrSessionAuth
+
+        auth = JWTOrSessionAuth()
+        request = MagicMock()
+        request.headers = {}
+        request.method = "GET"
+        request.GET = {"token": "a.full.jwt"}
+        request.user.is_authenticated = False
+
+        with patch.object(auth._jwt_auth, "authenticate", return_value=None) as mock_auth:
             result = auth(request)
-            assert result is mock_user
+            assert result is None
+            # JWT 未被送入校验——query 里的 token 已彻底不被读取
+            mock_auth.assert_not_called()
 
     def test_query_token_rejected_for_post(self):
         """POST 请求不得通过 ?token= 认证（query 参数会进访问日志，安全审计）。"""

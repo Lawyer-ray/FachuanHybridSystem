@@ -3,8 +3,9 @@
 背景：生产环境 ``/media/`` 若由网关/静态服务器直出则无鉴权，证件扫描件、
 快递 PDF 等敏感文件可被 URL 枚举读取。本视图提供「可启用的鉴权媒体服务」：
 
-1. 认证：复用 ``JWTOrSessionAuth``（JWT Bearer 头 / ``?token=`` 查询参数 /
-   Django Admin Session，见 ``apps/core/security/auth.py``），认证失败返回 403；
+1. 认证：复用 ``JWTOrSessionAuth``（JWT Bearer 头 / 短时下载票据
+   ``?ticket=`` / Django Admin Session，见 ``apps/core/security/auth.py`` 与
+   ``apps/core/security/download_tickets.py``），认证失败返回 403；
 2. 路径安全：统一走 ``apps.core.services.storage_service.to_media_abs``，
    resolve 后必须收敛在 ``MEDIA_ROOT`` 内，路径穿越（``../``、绝对路径越界）拒绝；
 3. 发送方式（二选一，由 settings 决定）：
@@ -12,6 +13,10 @@
      返回 ``X-Accel-Redirect`` 响应头，文件由 nginx internal location 发送，
      Django 全程不读文件（性能最佳，适合生产）；
    - 为空：Django ``FileResponse`` 流式返回（通用回退，适合无 nginx 场景）。
+
+> **安全审计 M-2（2026Q4）**：query 参数只接受 60 秒一次性下载票据，
+> 不再接受 JWT——完整 JWT 会落入 nginx access log / 浏览器历史 / Referer。
+> 前端经 ``POST /api/v1/download-ticket`` 换取票据后拼 ``?ticket=``。
 
 启用步骤（运维侧）：
 

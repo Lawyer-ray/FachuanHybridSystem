@@ -92,7 +92,7 @@ function Row({ item, onDeleted }: { item: ConvertRecordItem; onDeleted: () => vo
       </span>
       <span className="mt-[2px] flex flex-none items-center gap-1.5">
         {item.has_file && (
-          <button type="button" className={ROW_BTN} onClick={() => triggerDownload(convertRecordDownloadUrl(item.id))}>
+          <button type="button" className={ROW_BTN} onClick={() => void triggerDownload(() => convertRecordDownloadUrl(item.id))}>
             <FileDown className="h-3 w-3" />
             下载
           </button>

@@ -43,9 +43,9 @@ function hooksOf(index = 0) {
   return cfg.hooks
 }
 
-/** /token/refresh 成功桩：返回新 access */
-function refreshSucceeds(access = 'new-acc') {
-  const p = Promise.resolve({ access })
+/** /token/refresh 成功桩：返回新 access（可选带轮换后的新 refresh） */
+function refreshSucceeds(access = 'new-acc', refresh?: string) {
+  const p = Promise.resolve(refresh === undefined ? { access } : { access, refresh })
   kyMocks.post.mockImplementation(() => Object.assign(p, { json: () => p }) as never)
 }
 
@@ -113,11 +113,27 @@ describe('beforeRequest：Bearer 注入', () => {
 
     expect(kyMocks.post).toHaveBeenCalledTimes(1)
     expect(kyMocks.post).toHaveBeenCalledWith('/api/v1/token/refresh', { json: { refresh: 'ref-1' } })
+    // 后端未返回新 refresh（未开轮换）时沿用旧的
     expect(tokenMocks.setTokens).toHaveBeenCalledWith({ access: 'new-acc', refresh: 'ref-1' })
     expect(request.headers.get('Authorization')).toBe('Bearer new-acc')
     // 租约协议：刷新完成信号写入、租约键 finally 撤销
     expect(localStorage.getItem(REFRESH_DONE_KEY)).toBeTruthy()
     expect(localStorage.getItem(REFRESH_LEASE_KEY)).toBeNull()
+  })
+
+  it('轮换响应：落库后端返回的新 refresh，不再沿用已拉黑的旧 refresh（M-8）', async () => {
+    tokenMocks.getAccessToken.mockReturnValueOnce('old')
+    tokenMocks.getRefreshToken.mockReturnValue('ref-old')
+    tokenMocks.shouldRefreshToken.mockReturnValue(true)
+    refreshSucceeds('new-acc', 'ref-new')
+    createApiClient()
+
+    const request = new Request('http://localhost/api/v1/cases')
+    await hooksOf().beforeRequest[0]!({ request })
+
+    // 关键断言：必须存新 refresh。若沿用 'ref-old'，下次刷新会被后端以
+    // 「Token is blacklisted」拒绝，用户静默掉线。
+    expect(tokenMocks.setTokens).toHaveBeenCalledWith({ access: 'new-acc', refresh: 'ref-new' })
   })
 
   it('刷新失败：清空令牌、beforeRequest 静默无头（401 处理器负责跳登录）', async () => {

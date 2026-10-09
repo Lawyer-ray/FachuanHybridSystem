@@ -83,19 +83,23 @@ class MessageSourceUpdateIn(Schema):
 
 @router.get("/sources", response=list[MessageSourceOut])
 def list_sources(request: Any) -> list[MessageSource]:  # pragma: no cover
-    from apps.message_hub.services.inbox_query import list_sources as _list_sources
+    """消息来源列表（安全审计 IDOR：仅本人凭证的来源 + superuser/admin 全部）。"""
+    from apps.message_hub.services.inbox_access import visible_sources_qs
 
-    return _list_sources()
+    return list(visible_sources_qs(_request_user(request)))
 
 
 @router.get("/sources/{source_id}", response=MessageSourceOut)
 def get_source(request: Any, source_id: int) -> MessageSource:  # pragma: no cover
+    from django.http import Http404
+
+    from apps.message_hub.services.inbox_access import can_view_source
     from apps.message_hub.services.inbox_query import get_source_or_none
 
     source = get_source_or_none(source_id)
     if source is None:
-        from django.http import Http404
-
+        raise Http404("消息来源不存在")
+    if not can_view_source(_request_user(request), source):
         raise Http404("消息来源不存在")
     return source
 
@@ -200,10 +204,11 @@ def sync_source(request: Any, source_id: int) -> dict[str, Any]:  # pragma: no c
 
 
 @router.post("/sources/sync-all")
-def sync_all_sources(request: Any) -> dict[str, Any]:  # pragma: no cover
-    from apps.message_hub.services.inbox_query import get_enabled_sources
+def sync_all_sources(request: Any) -> dict[str, Any]:
+    """同步全部来源（安全审计 IDOR：只提交当前用户可见来源的同步任务）。"""
+    from apps.message_hub.services.inbox_access import visible_sources_qs
 
-    sources = get_enabled_sources()
+    sources = list(visible_sources_qs(_request_user(request)).filter(is_enabled=True))
     for source in sources:
         submit_task("apps.message_hub.tasks.sync_source_by_id", source.pk)
-    return {"success": True, "message": f"已提交 {sources.count()} 个同步任务"}
+    return {"success": True, "message": f"已提交 {len(sources)} 个同步任务"}

@@ -679,6 +679,7 @@ def confirm_candidates(task_id: int, items: list[dict[str, Any]], user: Any | No
                 row=locked_rows.get(item["candidate_id"]),
                 reminder_service=reminder_service,
                 user_id=user_id,
+                user=user,
                 now=now,
             )
         )
@@ -694,6 +695,7 @@ def _confirm_single_item(
     row: Any | None,
     reminder_service: Any,
     user_id: int | None,
+    user: Any | None = None,
     now: datetime,
 ) -> dict[str, Any]:
     from apps.document_recognition.models import DateCandidateStatus
@@ -776,6 +778,9 @@ def _confirm_single_item(
                 "source_id": f"task:{task.id}:candidate:{row.id}",
                 "task_id": task.id,
             },
+            # 安全审计 M-1：记录创建人（该提醒关联案件日志，写权限由案件 ACL
+            # 决定；created_by 仅为可追溯性补全，不改变权限口径）
+            created_by=user,
         )
         # 确认过的重要日期默认列入案件「重要时间」视图（服务层无该参数，落实例后补写）
         reminder.include_in_important_time = True

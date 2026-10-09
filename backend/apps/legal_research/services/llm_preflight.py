@@ -45,9 +45,11 @@ def _check_openai_compatible(base_url: str, api_key: str) -> None:  # pragma: no
     try:
         import ssl
 
+        # 安全审计（2026Q4 M-3）：原实现无条件 check_hostname=False +
+        # CERT_NONE，而本请求携带 Authorization: Bearer <API Key>——等于每次
+        # 连通性预检都把 Key 明文发给任何能拦截连接的对端（律所访客 Wi-Fi、
+        # 被劫持的 CDN/代理）。连通性检查本就该验证证书，改回默认上下文。
         ssl_context = ssl.create_default_context()
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
         transport = httpx.HTTPTransport(verify=ssl_context)
         with httpx.Client(transport=transport, timeout=12.0) as client:
             response = client.get(

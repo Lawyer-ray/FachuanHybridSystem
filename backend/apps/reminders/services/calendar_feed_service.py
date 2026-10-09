@@ -23,6 +23,16 @@ logger = logging.getLogger(__name__)
 # 订阅 Feed 的最大前瞻窗口（与既有 API 行为一致：未来一年）
 FEED_LOOKAHEAD_DAYS = 365
 
+# 安全审计 M-4 后半：ICS 订阅令牌原先一次生成永久有效，泄露后无感知、无止损
+# 手段。改为「闲置超期即轮换」：日历 App 通常每几小时拉一次，180 天没拉过的
+# 链接基本可以断定已弃用（用户换了日历 App / 删了订阅），此时换发新令牌等于
+# 把可能已泄露的旧链接作废。
+#
+# 注意轮换**不是拒绝**：日历 App 手里是旧 URL，直接 403 会让用户的订阅静默
+# 失效且难以排查。轮换后本次请求仍用新令牌放行，用户下次在后台「重新获取
+# 订阅链接」即可拿到新值。
+FEED_TOKEN_IDLE_ROTATE_DAYS = 180
+
 
 class CalendarFeedService:
     """日历订阅 Feed 的数据访问与令牌管理。"""
@@ -36,6 +46,10 @@ class CalendarFeedService:
             feed_token = CalendarFeedToken.objects.select_related("user").get(token=token)
         except CalendarFeedToken.DoesNotExist:
             return None
+
+        # 安全审计 M-4 后半：记录拉取时间，闲置超期则自动轮换（旧令牌作废）。
+        # 用 update_fields 只写必要列，避免并发拉取时互相覆盖整行。
+        self._touch_or_rotate(feed_token)
 
         user = feed_token.user
 
@@ -69,6 +83,29 @@ class CalendarFeedService:
         """获取当前用户的订阅令牌，不存在则自动创建。"""
         return CalendarFeedToken.get_or_create_for_user(user)
 
+    def _touch_or_rotate(self, feed_token: CalendarFeedToken) -> None:
+        """刷新拉取时间；闲置超期的令牌同时换发新值（安全审计 M-4 后半）。
+
+        判定口径取「最后拉取时间」，没有拉取记录时退回「创建时间」——
+        否则从没用过的令牌永远判为闲置，每次拉取都白换一次。
+
+        轮换后本次请求仍继续用新令牌返回数据（见 fetch_feed_data 的调用顺序），
+        用户侧不会感知到中断；旧令牌即时失效，泄露窗口被限制在一次拉取内。
+        """
+        now = timezone.now()
+        last_seen = feed_token.last_used_at or feed_token.created_at
+        idle = now - last_seen >= timedelta(days=FEED_TOKEN_IDLE_ROTATE_DAYS)
+
+        if idle:
+            old_prefix = feed_token.token[:8]
+            feed_token.token = secrets.token_urlsafe(48)
+            logger.info(
+                "calendar_feed_token_rotated_idle",
+                extra={"user_id": feed_token.user_id, "old_prefix": old_prefix},
+            )
+        feed_token.last_used_at = now
+        feed_token.save(update_fields=["token", "last_used_at", "updated_at"])
+
     def regenerate_token(self, user: Any) -> CalendarFeedToken:
         """重新生成用户的订阅令牌（旧令牌立即失效）。"""
         new_token = secrets.token_urlsafe(48)
@@ -79,7 +116,10 @@ class CalendarFeedService:
         )
         if not created:
             obj.token = new_token
-            obj.save(update_fields=["token", "updated_at"])
+            # 新令牌尚未被任何日历 App 拉取过，清空 last_used_at 让「闲置轮换」
+            # 从此刻重新起算（否则会继承旧令牌的时间戳，可能立刻又被判闲置）
+            obj.last_used_at = None
+            obj.save(update_fields=["token", "last_used_at", "updated_at"])
         return obj
 
     def render_ics_feed(self, reminders: list[Reminder], user_display: str) -> bytes:
