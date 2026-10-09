@@ -141,6 +141,10 @@ class CalendarFeedToken(models.Model):
     token: Any = models.CharField(max_length=64, unique=True, verbose_name="订阅令牌")
     created_at: Any = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at: Any = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    # 安全审计 M-4 后半：原令牌一次生成永久有效，泄露后无感知、无手段止损。
+    # last_used_at 用于「长期未用即视为已弃用」的轮换判定，也让用户在后台能看到
+    # 这个链接最后一次被拉取是什么时候。
+    last_used_at: Any = models.DateTimeField(null=True, blank=True, verbose_name="最后拉取时间")
 
     class Meta:
         verbose_name = "日历订阅令牌"

@@ -115,6 +115,7 @@ async def get_or_create_token(request: Any) -> dict[str, str]:
         "token": feed_token.token,
         "feed_url": feed_url,
         "created_at": feed_token.created_at.isoformat(),
+        "last_used_at": feed_token.last_used_at.isoformat() if feed_token.last_used_at else None,
     }
 
 
@@ -135,4 +136,5 @@ async def regenerate_token(request: Any) -> dict[str, str]:
         "token": feed_token.token,
         "feed_url": feed_url,
         "created_at": feed_token.created_at.isoformat(),
+        "last_used_at": feed_token.last_used_at.isoformat() if feed_token.last_used_at else None,
     }

@@ -672,6 +672,7 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):  # pragma: no cover
                 "token": feed_token.token,
                 "feed_url": feed_url,
                 "created_at": feed_token.created_at.isoformat(),
+                "last_used_at": feed_token.last_used_at.isoformat() if feed_token.last_used_at else None,
             }
         )
 
