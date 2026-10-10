@@ -28,6 +28,14 @@ def _request_user(request: Any) -> Any:
     return user
 
 
+def _failure_error_message(exc: Exception) -> str:
+    """历史记录用的失败原因：用户可读 message + 技术细节（errors.detail/step）。"""
+    message = str(exc)
+    errors = getattr(exc, "errors", None) or {}
+    context = "；".join(str(errors[k]) for k in ("step", "detail") if errors.get(k))
+    return f"{message}（{context}）" if context else message
+
+
 from apps.doc_convert.services.znszj_loader import get_znszj_client
 
 logger = logging.getLogger(__name__)
@@ -168,7 +176,9 @@ async def convert_document(  # pragma: no cover
                 mbid=_mbid,
             )
         except Exception as exc:
-            records.record_failure(original_name=filename, mbid=_mbid, error_message=str(exc), created_by=_user)
+            records.record_failure(
+                original_name=filename, mbid=_mbid, error_message=_failure_error_message(exc), created_by=_user
+            )
             raise
 
         records.record_success(original_name=filename, mbid=_mbid, content=result_bytes, created_by=_user)

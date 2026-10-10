@@ -77,11 +77,17 @@ class ZnszjUnavailableError(BusinessException):
 
     status: int = 502
 
-    def __init__(self, *, detail: str | None = None) -> None:
+    def __init__(self, *, detail: str | None = None, step: str | None = None) -> None:
+        """step：失败发生的环节（如"认证·换取令牌"），用于日志与历史记录定位。"""
+        errors: dict[str, str] = {}
+        if step:
+            errors["step"] = step
+        if detail:
+            errors["detail"] = detail
         super().__init__(
-            message="要素式转换服务暂时不可用",
+            message="要素式转换服务暂时不可用，请稍后重试",
             code=ERROR_ZNSZJ_UNAVAILABLE,
-            errors={"detail": detail} if detail else {},
+            errors=errors,
         )
 
 
@@ -90,9 +96,15 @@ class ZnszjInvalidResponseError(BusinessException):
 
     status: int = 502
 
-    def __init__(self, *, detail: str | None = None) -> None:
+    def __init__(self, *, detail: str | None = None, step: str | None = None) -> None:
+        """step：失败发生的环节，用于日志与历史记录定位。"""
+        errors: dict[str, str] = {}
+        if step:
+            errors["step"] = step
+        if detail:
+            errors["detail"] = detail
         super().__init__(
             message="要素式转换服务返回异常",
             code=ERROR_ZNSZJ_INVALID_RESPONSE,
-            errors={"detail": detail} if detail else {},
+            errors=errors,
         )
