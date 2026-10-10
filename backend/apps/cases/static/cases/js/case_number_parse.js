@@ -412,30 +412,35 @@
                 llmWrap.appendChild(llmSelect);
 
                 // 异步获取可用模型列表
-                fetchLLMModels(function(models) {
-                    llmSelect.innerHTML = '';
-                    var noneOption = document.createElement('option');
-                    noneOption.value = '';
-                    noneOption.textContent = '不使用 LLM';
-                    llmSelect.appendChild(noneOption);
-                    if (models.length === 0) {
-                        llmSelect.disabled = true;
-                        noneOption.textContent = '（暂无可用 LLM 模型）';
-                        noneOption.selected = true;
-                        return;
-                    }
-                    for (var i = 0; i < models.length; i++) {
-                        var m = models[i];
-                        var opt = document.createElement('option');
-                        opt.value = m.id;
-                        opt.textContent = m.name || m.id;
-                        llmSelect.appendChild(opt);
-                    }
-                    // 默认选中第一个可用模型
-                    if (llmSelect.options.length > 1) {
-                        llmSelect.selectedIndex = 1;
-                    }
-                });
+                // 注意：fetchLLMModels 回调是异步的，必须用 IIFE 把当前行的 llmSelect
+                // 绑定到闭包里；否则 for 循环里的 var llmSelect 会被后续行覆盖，
+                // 导致第一行的下拉框永远停在「加载中...」。
+                (function(select) {
+                    fetchLLMModels(function(models) {
+                        select.innerHTML = '';
+                        var noneOption = document.createElement('option');
+                        noneOption.value = '';
+                        noneOption.textContent = '不使用 LLM';
+                        select.appendChild(noneOption);
+                        if (models.length === 0) {
+                            select.disabled = true;
+                            noneOption.textContent = '（暂无可用 LLM 模型）';
+                            noneOption.selected = true;
+                            return;
+                        }
+                        for (var i = 0; i < models.length; i++) {
+                            var m = models[i];
+                            var opt = document.createElement('option');
+                            opt.value = m.id;
+                            opt.textContent = m.name || m.id;
+                            select.appendChild(opt);
+                        }
+                        // 默认选中第一个可用模型
+                        if (select.options.length > 1) {
+                            select.selectedIndex = 1;
+                        }
+                    });
+                })(llmSelect);
             }
             if (actionBar && llmWrap.parentNode !== actionBar) {
                 actionBar.appendChild(llmWrap);

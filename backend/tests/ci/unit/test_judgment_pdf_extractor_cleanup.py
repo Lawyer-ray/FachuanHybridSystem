@@ -62,3 +62,34 @@ def test_extract_main_text_keeps_second_instance_affirmation() -> None:
     assert "本判决为终审判决" not in content
     assert "案件受理费" not in content
     assert "审判长" not in content
+
+
+def test_extract_main_text_keeps_numbered_fee_clause_in_mediation() -> None:
+    """调解书把诉讼费写进编号条款（二、案件受理费…）时，不应在此截断，
+    否则会丢失其后关键的强制执行触发条款（三、若…有权申请强制执行）。"""
+    extractor = JudgmentPdfExtractor()
+    text = (
+        "（2026）粤0606民初16997号\n"
+        "民事调解书\n"
+        "经本院主持调解，双方当事人自愿达成如下协议：\n"
+        "一、双方一致确认被告天津市某经营部、袁某尚欠原告广东某公司货款201797元；\n"
+        "二、案件受理费减半收取计2196元，财产保全费1550.68元，合计3746.68元，"
+        "由被告天津市某经营部、袁某负担并于2027年6月28日前向原告广东某公司支付完毕；\n"
+        "三、若被告天津市某经营部、袁某有任何一期未按时足额支付，"
+        "则原告广东某公司有权以尚欠货款、利息、财产保全费、案件受理费为总额"
+        "一次性向法院申请强制执行。\n"
+        "上述协议，不违反法律规定，本院予以确认。\n"
+        "本调解书生效后，负有履行义务的当事人须依法按期履行全部义务。\n"
+        "审判长 张三\n"
+        "书记员 李四\n"
+    )
+
+    content = extractor._extract_main_text(text)
+
+    assert content is not None
+    assert "一、双方一致确认" in content
+    assert "二、案件受理费" in content
+    assert "三、若被告" in content
+    assert "一次性向法院申请强制执行" in content
+    assert "本调解书生效后" not in content
+    assert "审判长" not in content
