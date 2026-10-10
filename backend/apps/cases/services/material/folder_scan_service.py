@@ -134,6 +134,15 @@ class CaseFolderScanService:
     )
     _FORCE_OUR_PARTY_REASON = "命中目录规则：立案材料/提交给法院的资料目录默认归类为我方当事人材料"
 
+    # 证据材料文件夹关键词：路径命中这些关键词即视为证据材料目录
+    _EVIDENCE_FOLDER_KEYWORDS = (
+        "主要证据材料",
+        "证据材料",
+        "证据目录",
+    )
+    # 证据材料目录下仅保留文件名含以下关键词的材料（其余散件一律不取）
+    _EVIDENCE_FILENAME_KEYWORDS = ("证据明细",)
+
     _ACTIVE_STATUSES = {
         CaseFolderScanStatus.PENDING,
         CaseFolderScanStatus.RUNNING,
@@ -559,6 +568,7 @@ class CaseFolderScanService:
                 scan_subfolder=scan_scope["scan_subfolder"],
                 storage_provider=storage_provider,
             )
+            result = self._filter_evidence_folder_candidates(result)
             result["scan_scope"] = scan_scope
             result["scan_options"] = {"enable_recognition": enable_recognition}
 
@@ -619,6 +629,44 @@ class CaseFolderScanService:
                 candidate["reason"] = self._FORCE_OUR_PARTY_REASON
             normalized.append(candidate)
         return normalized
+
+    def _filter_evidence_folder_candidates(self, result: dict[str, Any]) -> dict[str, Any]:
+        """证据材料目录下仅保留「证据明细」材料，其余材料一律不取。
+
+        规则：候选文件的 source_path 命中证据材料目录关键词（主要证据材料/证据材料/证据目录）时，
+        仅保留文件名含「证据明细」的候选；不含的候选直接丢弃。
+        非证据目录下的候选不受影响。
+        """
+        candidates = result.get("candidates") or []
+        if not candidates:
+            return result
+
+        kept = [candidate for candidate in candidates if not self._should_skip_evidence_candidate(candidate)]
+        if len(kept) == len(candidates):
+            return result
+
+        result["candidates"] = kept
+        kept_count = len(kept)
+        result["summary"] = {**(result.get("summary") or {}), "classified_files": kept_count}
+        logger.info(
+            "case_folder_scan_evidence_filtered",
+            extra={"before": len(candidates), "after": kept_count},
+        )
+        return result
+
+    def _should_skip_evidence_candidate(self, candidate: dict[str, Any] | None) -> bool:
+        source_path = str((candidate or {}).get("source_path") or "").strip()
+        if not source_path:
+            return False
+        if not any(keyword in source_path for keyword in self._EVIDENCE_FOLDER_KEYWORDS):
+            return False
+
+        filename = str((candidate or {}).get("filename") or "").strip()
+        if not filename:
+            from pathlib import PurePosixPath
+
+            filename = PurePosixPath(source_path.replace("\\", "/")).name
+        return not any(keyword in filename for keyword in self._EVIDENCE_FILENAME_KEYWORDS)
 
     def _should_force_our_party_for_filing_materials(self, payload: dict[str, Any] | None) -> bool:
         scope = (payload or {}).get("scan_scope") or {}

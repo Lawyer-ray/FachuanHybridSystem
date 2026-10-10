@@ -622,3 +622,77 @@ class TestTryRepairBindingPath:
             _try_repair_binding_path(binding)
             # 案件未关联合同，早退
             mock_build.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# 证据材料目录过滤（仅保留「证据明细」）
+# ---------------------------------------------------------------------------
+
+
+def _candidate(source_path: str, filename: str = "") -> dict[str, Any]:
+    return {
+        "source_path": source_path,
+        "filename": filename or PurePosixPath(source_path).name,
+        "suggested_category": "party",
+    }
+
+
+class TestEvidenceFolderFilter:
+    def test_keeps_only_evidence_detail_in_evidence_folder(self):
+        svc = _make_service()
+        result = {
+            "candidates": [
+                _candidate("/root/1-立案材料/5-证据材料/证据明细（示例案件）V2.pdf"),
+                _candidate("/root/1-立案材料/5-证据材料/证据材料/1-产品购销合同.pdf"),
+                _candidate("/root/1-立案材料/5-证据材料/证据材料/5-微信聊天记录.pdf"),
+            ],
+            "summary": {"total_files": 3, "deduped_files": 3, "classified_files": 3},
+        }
+        out = svc._filter_evidence_folder_candidates(result)
+        names = [c["filename"] for c in out["candidates"]]
+        assert names == ["证据明细（示例案件）V2.pdf"]
+        assert out["summary"]["classified_files"] == 1
+
+    def test_evidence_directory_keeps_only_detail(self):
+        svc = _make_service()
+        result = {
+            "candidates": [
+                _candidate("/root/1-立案材料/4-证据目录/起诉证据清单.pdf"),
+                _candidate("/root/1-立案材料/4-证据目录/证据明细.pdf"),
+            ],
+            "summary": {},
+        }
+        out = svc._filter_evidence_folder_candidates(result)
+        assert [c["filename"] for c in out["candidates"]] == ["证据明细.pdf"]
+
+    def test_non_evidence_folder_untouched(self):
+        svc = _make_service()
+        candidates = [
+            _candidate("/root/1-立案材料/1-起诉状和反诉答辩状/1-起诉状.pdf"),
+            _candidate("/root/1-立案材料/3-委托材料/所函.pdf"),
+        ]
+        result = {"candidates": candidates, "summary": {"classified_files": 2}}
+        out = svc._filter_evidence_folder_candidates(result)
+        assert out is result
+        assert len(out["candidates"]) == 2
+
+    def test_returns_unchanged_when_no_candidates(self):
+        svc = _make_service()
+        result = {"candidates": [], "summary": {}}
+        assert svc._filter_evidence_folder_candidates(result) is result
+
+    def test_should_skip_uses_filename_field(self):
+        svc = _make_service()
+        assert (
+            svc._should_skip_evidence_candidate({"source_path": "/root/证据材料/x.pdf", "filename": "证据明细.pdf"})
+            is False
+        )
+        assert (
+            svc._should_skip_evidence_candidate({"source_path": "/root/证据材料/x.pdf", "filename": "合同.pdf"}) is True
+        )
+
+    def test_should_skip_falls_back_to_path_basename(self):
+        svc = _make_service()
+        assert svc._should_skip_evidence_candidate({"source_path": "/root/证据材料/证据明细.pdf"}) is False
+        assert svc._should_skip_evidence_candidate({"source_path": "/root/普通目录/任意.pdf"}) is False
+        assert svc._should_skip_evidence_candidate(None) is False
