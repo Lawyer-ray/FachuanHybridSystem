@@ -54,7 +54,7 @@ class JudgmentPdfExtractor:
         "本调解书生效后",
         "本裁定生效后",
         "本判决为终审判决",  # 二审终审判决截止（亦覆盖"驳回上诉，维持原判"文书）
-        "案件受理费",  # 诉讼费负担不属于执行依据主文
+        "案件受理费",  # 诉讼费负担不属于执行依据主文（仅当为独立段落时；编号条款中不截断）
         "审判长",
         "审判员",
         "书记员",
@@ -76,6 +76,17 @@ class JudgmentPdfExtractor:
 
     # 页码与页脚噪声（避免混入"执行依据主文"）
     _PAGE_NUMBER_CHARS = r"0-9零一二三四五六七八九十百千万〇○O"
+
+    # 仅在"独立段落"时才能作为截止词的截止关键词。
+    # 调解书常把诉讼费写进编号条款（如"二、案件受理费…"），其后还可能有
+    # 关键的强制执行触发条款（如"三、若…未按时足额支付，则…有权申请强制执行"）。
+    # 若在此处截断会丢失执行依据，因此仅当其前置不是编号标记时才生效。
+    _PARAGRAPH_ONLY_END_KEYWORDS = frozenset({"案件受理费"})
+
+    # 中文条款编号前缀（一、二、…十二、 / （一） / 1. / 1、）
+    _CLAUSE_NUMBER_PREFIX_RE = re.compile(
+        r"(?:[（(]\s*[0-9０-９一二三四五六七八九十百]+\s*[）)]|[0-9０-９]{1,3}\s*[.、]|[一二三四五六七八九十百]{1,3}\s*、)\s*$"
+    )
     PAGE_NOISE_PATTERNS = (
         re.compile(
             rf"第\s*[{_PAGE_NUMBER_CHARS}]{{1,6}}\s*页[／/|｜丨~～\-\s]*共\s*[{_PAGE_NUMBER_CHARS}]{{1,6}}\s*页",
@@ -362,11 +373,17 @@ class JudgmentPdfExtractor:
 
                 for end_keyword in self.END_KEYWORDS:
                     normalized_end = re.sub(r"\s+", "", end_keyword)
-                    if normalized_end in normalized_remaining:
-                        end_norm_idx = normalized_remaining.index(normalized_end)
-                        if earliest_end_pos is None or end_norm_idx < earliest_end_pos:
-                            earliest_end_pos = end_norm_idx
-                            earliest_end_keyword = end_keyword
+                    if normalized_end not in normalized_remaining:
+                        continue
+                    end_norm_idx = normalized_remaining.index(normalized_end)
+                    if end_keyword in self._PARAGRAPH_ONLY_END_KEYWORDS and self._is_inside_numbered_clause(
+                        normalized_remaining, end_norm_idx
+                    ):
+                        # 编号条款中的诉讼费语句不作为截止点，继续向后找真正的截止词
+                        continue
+                    if earliest_end_pos is None or end_norm_idx < earliest_end_pos:
+                        earliest_end_pos = end_norm_idx
+                        earliest_end_keyword = end_keyword
 
                 if earliest_end_pos is not None:
                     # 映射截止位置回原文
@@ -379,6 +396,15 @@ class JudgmentPdfExtractor:
                 return cleaned
 
         return None
+
+    def _is_inside_numbered_clause(self, normalized_text: str, keyword_index: int) -> bool:
+        """判断关键词是否位于编号条款句首（如 "二、案件受理费…"）。
+
+        若紧邻关键词之前的字符构成条款编号前缀（一、/（一）/1. 等），
+        则说明该关键词属于编号条款的一部分，不应作为截止点。
+        """
+        prefix = normalized_text[:keyword_index]
+        return bool(self._CLAUSE_NUMBER_PREFIX_RE.search(prefix))
 
     def _map_normalized_to_original(self, original: str, normalized_index: int) -> int:
         """

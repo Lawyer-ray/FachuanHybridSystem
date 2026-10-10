@@ -296,3 +296,51 @@ class TestCaseAdminViewsMixinGroupTemplates:
         sub_type_choices = [("A", "类型A"), ("B", "类型B")]
         result = CaseAdminService().group_templates_by_sub_type(templates, sub_type_choices)
         assert isinstance(result, list)
+
+
+@pytest.mark.django_db
+class TestLLMModelsView:
+    """llm_models_view：即使 ModelListService 报告 is_fallback（远端基线不可用），
+    也必须返回合并后的本地模型列表，不能因 is_fallback 清空。"""
+
+    def test_returns_merged_models_even_when_fallback(self):
+        import json
+
+        from apps.core.llm.model_list_service import ModelListResult
+
+        mixin = CaseAdminViewsMixin()
+        request = _make_request()
+        fake_result = ModelListResult(
+            models=[
+                {"id": "kimi-2.6", "name": "kimi-2.6", "context_window": 262144},
+                {"id": "glm53", "name": "glm53", "context_window": 0},
+            ],
+            is_fallback=True,
+            error_message="使用默认模型列表（AI 平台模型将在合并阶段补齐）",
+        )
+        with patch(
+            "apps.core.llm.model_list_service.ModelListService.get_result",
+            return_value=fake_result,
+        ):
+            response = mixin.llm_models_view(request)
+
+        payload = json.loads(response.content)
+        assert payload["success"] is True
+        assert payload["is_fallback"] is True
+        assert [m["id"] for m in payload["models"]] == ["kimi-2.6", "glm53"]
+
+    def test_returns_empty_list_when_truly_no_models(self):
+        import json
+
+        from apps.core.llm.model_list_service import ModelListResult
+
+        mixin = CaseAdminViewsMixin()
+        request = _make_request()
+        with patch(
+            "apps.core.llm.model_list_service.ModelListService.get_result",
+            return_value=ModelListResult(models=[], is_fallback=True, error_message="无模型"),
+        ):
+            response = mixin.llm_models_view(request)
+
+        payload = json.loads(response.content)
+        assert payload["models"] == []

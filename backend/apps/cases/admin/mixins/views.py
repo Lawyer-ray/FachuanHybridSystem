@@ -658,7 +658,8 @@ class CaseAdminViewsMixin:  # pragma: no cover
     def llm_models_view(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
         """返回当前可用的 LLM 模型列表（供执行事项解析下拉框使用）。
 
-        复用 ModelListService，仅返回真实可用的模型；后端不可用时返回空列表。
+        复用 ModelListService：返回其合并 SystemConfig / LLMProvider 后的模型列表；
+        is_fallback 仅表示远端 API 基线不可用，此时仍会返回本地配置的模型。
         """
         from django.http import JsonResponse
 
@@ -666,7 +667,10 @@ class CaseAdminViewsMixin:  # pragma: no cover
 
         try:
             result = ModelListService().get_result()
-            models = [] if result.is_fallback else result.models
+            # result.models 已包含 SystemConfig / LLMProvider 合并后的模型；
+            # is_fallback 仅表示远端 API 基线不可用，不代表模型列表不可用，
+            # 因此这里不能因 is_fallback 而清空列表（否则下拉框永远为空）。
+            models = result.models
             return JsonResponse(
                 {
                     "success": True,
