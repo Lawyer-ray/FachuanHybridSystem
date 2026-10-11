@@ -10,6 +10,8 @@ from django.http import HttpRequest
 from ninja import Router
 
 from apps.contracts.schemas import (
+    ContractFolderScanAIClassifyIn,
+    ContractFolderScanAIClassifyOut,
     ContractFolderScanConfirmIn,
     ContractFolderScanConfirmOut,
     ContractFolderScanStartIn,
@@ -17,6 +19,7 @@ from apps.contracts.schemas import (
     ContractFolderScanStatusOut,
     ContractFolderScanSubfolderListOut,
 )
+from apps.contracts.services.contract.integrations.ai_classify_service import ContractScanAIClassifyService
 from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.core.security import get_request_access_context
@@ -86,6 +89,7 @@ async def get_latest_contract_scan(request: HttpRequest, contract_id: int) -> di
             "archive_category": "",
             "archive_item_options": [],
             "work_log_suggestions": [],
+            "ai_classify_result": {},
         }
     return await sync_to_async(service.build_status_payload)(session=session)
 
@@ -99,6 +103,33 @@ async def get_contract_scan_status(
     service = _get_service()
     session = await sync_to_async(service.get_session)(contract_id=contract_id, session_id=session_id)
     return await sync_to_async(service.build_status_payload)(session=session)
+
+
+@router.post("/{contract_id}/folder-scan/{session_id}/ai-classify", response=ContractFolderScanAIClassifyOut)
+@rate_limit_from_settings("TASK", by_user=True)
+async def start_contract_scan_ai_classify(  # pragma: no cover
+    request: HttpRequest,
+    contract_id: int,
+    session_id: UUID,
+    payload: ContractFolderScanAIClassifyIn,
+) -> dict[str, str]:
+    """对已完成扫描会话的候选发起 LLM 归档分类（异步任务，轮询状态接口获取结果）。"""
+    await sync_to_async(_require_contract_access)(request, contract_id)
+    ctx = await sync_to_async(get_request_access_context)(request)
+
+    service = ContractScanAIClassifyService()
+    session = await sync_to_async(service.start_ai_classify)(
+        contract_id=contract_id,
+        session_id=session_id,
+        model_id=str(payload.model_id or ""),
+        scope=str(payload.scope or "unmatched"),
+        started_by=ctx.user,
+    )
+    return {
+        "session_id": str(session.id),
+        "status": str(session.status),
+        "task_id": str(session.task_id or ""),
+    }
 
 
 @router.post("/{contract_id}/folder-scan/{session_id}/confirm", response=ContractFolderScanConfirmOut)
