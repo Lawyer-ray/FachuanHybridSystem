@@ -22,3 +22,9 @@ class OAConfigOut(Schema):
     id: str
     oa_system_name: str
     has_credential: bool
+
+
+class FilingAttachmentOut(Schema):
+    material_id: int
+    filename: str
+    already_exists: bool

@@ -60,6 +60,19 @@ class JTNAdapter(
         # 不误等其他线程/请求打开的浏览器。
         self._opened_sessions: list[BrowserSessionHandle] = []
 
+    @staticmethod
+    async def _resolve_filing_attachments(contract_id: int) -> list[str]:
+        """解析立案合同附件（材料优先 → 绑定文件夹），失败不阻断立案。"""
+        from asgiref.sync import sync_to_async
+
+        from apps.oa_filing.services.filing_attachment_service import resolve_filing_attachments
+
+        try:
+            return await sync_to_async(resolve_filing_attachments, thread_sensitive=False)(contract_id)
+        except Exception:
+            logger.exception("立案附件解析失败（按无附件继续）: contract=%s", contract_id)
+            return []
+
     # ==================================================================
     # FilingAdapter
     # ==================================================================
@@ -175,6 +188,7 @@ class JTNAdapter(
 
         # ── 合同信息 ──
         stamp_count = len(principal_parties) + 2
+        attachment_paths = await self._resolve_filing_attachments(contract_id)
         contract_info = ContractInfo(
             rec_type=self._map_fee_mode(contract),
             currency="RMB",
@@ -184,6 +198,7 @@ class JTNAdapter(
             end_date=str(contract.end_date) if contract.end_date else "",
             amount=str(int(contract.fixed_amount)) if contract.fixed_amount else "",
             stamp_count=stamp_count,
+            attachment_paths=attachment_paths,
         )
 
         script = JtnFilingScript(account=self._account, password=self._password)

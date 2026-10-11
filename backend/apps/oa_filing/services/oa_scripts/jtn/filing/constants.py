@@ -11,6 +11,20 @@ from ..auth.constants import _DEFAULT_HTTP_TIMEOUT, _HTTP_HEADERS, _LOGIN_URL
 _FILING_URL = "https://ims.jtn.com/projflw/ProjectAppRegNew.aspx?t=1&&FirstModel=PROJECT&SecondModel=PROJECT003"
 _PROJECT_HANDLER_BASE = "https://ims.jtn.com/Handle/ProjectAppHandler.ashx"
 
+# 合同附件上传端点（legalup webuploader，与立案页「上传附件」按钮同源）：
+# 查询参数名以 attachment.js 的 serializeParam(_upType) 为准（action/path/size/suffix，
+# 实测 2026-10-11：传 uptype/dir 会返回 state=Faild）；multipart 字段名 upfile，
+# 响应 {"state":"SUCCESS","url":"...","original":"..."}，成功后以
+# filenamecontract_{guid} / fileurlcontract_{guid} 隐藏域随表单提交
+_LEGALUP_UPLOAD_URL = "https://ims.jtn.com/js/legalup/code/LegalUp.ashx"
+_LEGALUP_UPLOAD_PARAMS = {
+    "encode": "utf-8",
+    "action": "uploadfile",
+    "path": "projectfiles",
+    "size": "50",
+    "suffix": "",
+}
+
 # ============================================================
 # XPath
 # ============================================================

@@ -379,6 +379,73 @@ class PlaywrightFilingMixin:  # pragma: no cover
 
         logger.info("合同信息填写完成")
 
+        if info.attachment_paths:
+            await self._upload_contract_files(page, info.attachment_paths)
+
+    # ------------------------------------------------------------------
+    # 合同附件上传（legalup webuploader 弹窗，与盖章上传同族）
+    # ------------------------------------------------------------------
+
+    async def _upload_contract_files(self: Any, page: Page, file_paths: list[str]) -> None:  # pragma: no cover
+        """通过「上传附件」弹窗上传合同附件（委托合同信息 Tab 必填项）。
+
+        页面 JS（upFile_contract → legalup.file）会在确认后自动把
+        filenamecontract_/fileurlcontract_ 隐藏域写入表单，无需手工注入。
+        """
+        logger.info("上传合同附件: %d 个", len(file_paths))
+
+        upload_btn = page.locator('button[data-type="upFile_contract"]')
+        if await upload_btn.count() == 0:
+            raise RuntimeError("未找到合同附件「上传附件」按钮（upFile_contract）")
+        await upload_btn.first.click()
+        await asyncio.sleep(_MEDIUM_WAIT)
+
+        upload_frame = next(
+            (frame for frame in page.frames if "legalup" in frame.url.lower() and "attachment" in frame.url.lower()),
+            None,
+        )
+        if upload_frame is None:
+            upload_frame = next((frame for frame in page.frames if "layui-layer-iframe" in (frame.name or "")), None)
+        if upload_frame is None:
+            raise RuntimeError("未找到合同附件上传弹窗 iframe")
+
+        file_input = upload_frame.locator('input[type="file"]')
+        if await file_input.count() == 0:
+            raise RuntimeError("上传弹窗内未找到文件选择控件")
+        # webuploader 支持多选：一次性设置全部附件
+        await file_input.first.set_input_files(file_paths)
+        await asyncio.sleep(_MEDIUM_WAIT)
+
+        # 开始上传（webuploader 的 .uploadBtn 可能带 disabled，先移除再点，与盖章上传同款兜底）
+        await upload_frame.evaluate(
+            "() => {"
+            "  const btn = document.querySelector('.uploadBtn');"
+            "  if (btn) {"
+            "    btn.classList.remove('disabled', 'state-pedding');"
+            "    btn.click();"
+            "  }"
+            "}"
+        )
+        await asyncio.sleep(_MEDIUM_WAIT * 3)
+
+        # 点击弹层「确定」触发页面回调 addfile_contract，渲染附件行与隐藏域
+        await page.evaluate(
+            "() => {"
+            "  const layers = document.querySelectorAll('.layui-layer');"
+            "  for (const layer of layers) {"
+            "    for (const a of layer.querySelectorAll('a, button, span')) {"
+            "      if (a.innerText && a.innerText.trim() === '确定') { a.click(); return; }"
+            "    }"
+            "  }"
+            "}"
+        )
+        await asyncio.sleep(_MEDIUM_WAIT)
+
+        rows = await page.locator("tr.temprow_contract").count()
+        if rows < len(file_paths):
+            raise RuntimeError(f"合同附件上传后表格行数不足: 期望 {len(file_paths)} 实际 {rows}")
+        logger.info("合同附件上传完成: %d 行", rows)
+
     # ------------------------------------------------------------------
     # 存草稿 / 切换标签
     # ------------------------------------------------------------------

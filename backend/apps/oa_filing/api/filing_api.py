@@ -5,9 +5,10 @@ from typing import Any
 
 from asgiref.sync import sync_to_async
 from django.http import HttpRequest
-from ninja import Router
+from ninja import File, Router, UploadedFile
 
-from apps.oa_filing.schemas.filing_schemas import ExecuteFilingIn, OAConfigOut, SessionOut
+from apps.core.infrastructure.throttling import rate_limit_from_settings
+from apps.oa_filing.schemas.filing_schemas import ExecuteFilingIn, FilingAttachmentOut, OAConfigOut, SessionOut
 from apps.oa_filing.services.oa_firm_registry import SUPPORTED_SITES
 
 logger = logging.getLogger("apps.oa_filing.api")
@@ -51,6 +52,36 @@ async def execute_filing(request: HttpRequest, payload: ExecuteFilingIn) -> Any:
         payload.case_id,
         request.user,
     )
+
+
+@router.post("/attachment", response=FilingAttachmentOut)
+@rate_limit_from_settings("TASK", by_user=True)
+async def stage_filing_attachment(
+    request: HttpRequest, contract_id: int, file: UploadedFile = File(...)
+) -> Any:  # pragma: no cover
+    """立案前拖拽暂存合同文件：落为合同正本材料（幂等去重）。"""
+    from apps.core.exceptions import NotFoundError
+    from apps.core.security import get_request_access_context
+
+    def _stage() -> Any:
+        from apps.contracts.services.contract import wiring
+
+        ctx = get_request_access_context(request)
+        wiring.get_contract_query_facade().get_contract_ctx(contract_id=contract_id, ctx=ctx)
+
+        from apps.oa_filing.services.filing_attachment_service import stage_filing_attachment
+
+        return stage_filing_attachment(contract_id, file)
+
+    try:
+        return await sync_to_async(_stage, thread_sensitive=False)()
+    except NotFoundError:
+        raise
+    except Exception:
+        logger.exception("立案附件暂存失败: contract_id=%s", contract_id)
+        from apps.core.exceptions import ValidationException
+
+        raise ValidationException(message="合同文件保存失败，请重试") from None
 
 
 @router.get("/session/{session_id}", response=SessionOut)

@@ -6,13 +6,21 @@ import json
 import logging
 import re
 import uuid
+from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
 
 import httpx
 from lxml import html as lxml_html
 
-from .constants import _DEFAULT_HTTP_TIMEOUT, _FILING_URL, _HTTP_HEADERS, _PROJECT_HANDLER_BASE
+from .constants import (
+    _DEFAULT_HTTP_TIMEOUT,
+    _FILING_URL,
+    _HTTP_HEADERS,
+    _LEGALUP_UPLOAD_PARAMS,
+    _LEGALUP_UPLOAD_URL,
+    _PROJECT_HANDLER_BASE,
+)
 from .filing_models import CaseInfo, ClientInfo, ConflictPartyInfo, ContractInfo, FilingFormState, ResolvedCustomer
 
 logger = logging.getLogger("apps.oa_filing.jtn")
@@ -29,6 +37,39 @@ def project_field_name(field: str) -> str:
 def handler_url(method: str) -> str:
     """构建 OA Handler 接口 URL。"""
     return f"{_PROJECT_HANDLER_BASE}/{method}"
+
+
+def legalup_upload_url() -> str:
+    """构建合同附件上传 URL（legalup webuploader 端点）。"""
+    params = "&".join(f"{key}={value}" for key, value in _LEGALUP_UPLOAD_PARAMS.items())
+    return f"{_LEGALUP_UPLOAD_URL}?{params}"
+
+
+def parse_legalup_response(response_text: str, *, filename: str) -> dict[str, str]:
+    """解析 LegalUp.ashx 上传响应，返回 {"original": ..., "url": ...}。
+
+    失败（非 JSON / state != SUCCESS / 缺 url）抛 RuntimeError。
+    """
+    try:
+        data = json.loads(response_text.strip().lstrip("﻿"))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"合同附件上传响应非 JSON: {response_text[:120]}") from exc
+    if not isinstance(data, dict) or str(data.get("state")) != "SUCCESS" or not str(data.get("url") or ""):
+        state = data.get("state") if isinstance(data, dict) else "非对象"
+        raise RuntimeError(f"合同附件上传失败（{filename}）: state={state}")
+    original = str(data.get("original") or "").strip() or filename
+    return {"original": original, "url": str(data.get("url")).strip()}
+
+
+def apply_attachment_payload(payload: dict[str, str], uploads: list[dict[str, str]]) -> None:
+    """把上传结果以 filenamecontract_/fileurlcontract_ 隐藏域对注入表单 payload。
+
+    guid 为客户端随机串（页面 JS 同款语义），服务端只按字段前缀收集。
+    """
+    for upload in uploads:
+        gid = uuid.uuid4().hex
+        payload[f"filenamecontract_{gid}"] = upload["original"]
+        payload[f"fileurlcontract_{gid}"] = upload["url"]
 
 
 def parse_json_object(response_text: str) -> dict[str, Any]:
@@ -89,6 +130,11 @@ class HttpFilingMixin:  # pragma: no cover
                 self._apply_conflict_payload(payload=payload, parties=conflict_parties)
             if contract_info is not None:
                 self._apply_contract_payload(payload=payload, contract_info=contract_info)
+                if contract_info.attachment_paths:
+                    uploads = await self._upload_contract_files_http(
+                        client=client, attachment_paths=contract_info.attachment_paths
+                    )
+                    self._apply_attachment_payload(payload=payload, uploads=uploads)
 
             await self._submit_filing_form_http(client=client, action_url=form_state.action_url, payload=payload)
 
@@ -322,6 +368,38 @@ class HttpFilingMixin:  # pragma: no cover
             payload[self._project_field_name("end_date")] = contract_info.end_date
         if contract_info.amount:
             payload[self._project_field_name("amount")] = contract_info.amount
+
+    async def _upload_contract_files_http(
+        self: Any,
+        *,
+        client: httpx.AsyncClient,
+        attachment_paths: list[str],
+    ) -> list[dict[str, str]]:  # pragma: no cover
+        """逐个上传合同附件到 LegalUp.ashx，返回 [{"original", "url"}, ...]。
+
+        任一文件失败即抛错——整体回退 Playwright 链路（既有 HTTP→Playwright
+        兜底语义），避免出现"表单已提交但附件缺失"的半成品草稿。
+        """
+        uploads: list[dict[str, str]] = []
+        for path_str in attachment_paths:
+            file_path = Path(path_str)
+            if not file_path.is_file():
+                raise RuntimeError(f"合同附件不存在: {path_str}")
+            logger.info("HTTP 上传合同附件: %s", file_path.name)
+            with file_path.open("rb") as fh:
+                response = await client.post(
+                    legalup_upload_url(),
+                    files={"upfile": (file_path.name, fh, "application/octet-stream")},
+                )
+            response.raise_for_status()
+            upload = parse_legalup_response(response.text, filename=file_path.name)
+            uploads.append(upload)
+            logger.info("合同附件上传成功: %s -> %s", upload["original"], upload["url"])
+        return uploads
+
+    @staticmethod
+    def _apply_attachment_payload(payload: dict[str, str], uploads: list[dict[str, str]]) -> None:
+        apply_attachment_payload(payload, uploads)
 
     # ------------------------------------------------------------------
     # 提交
