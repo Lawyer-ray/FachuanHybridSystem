@@ -9,14 +9,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.client.services.importer.mapper import (
-    ClientJsonImportMapper,
-    ClientImportCommand,
-    ClientIdentityDocCommand,
-)
+from apps.client.services.importer.mapper import ClientIdentityDocCommand, ClientImportCommand, ClientJsonImportMapper
 from apps.core.services.material_classification_service import MaterialClassificationService
 from apps.workbench.services.dashboard_service import DashboardService
-
 
 # ---------------------------------------------------------------------------
 # ClientJsonImportMapper
@@ -318,12 +313,12 @@ class TestDashboardService:
         with patch.object(svc, "_client_count", return_value=10), \
              patch.object(svc, "_contract_count", return_value=5), \
              patch.object(svc, "_case_type_stats", return_value=([{"type": "CIVIL", "label": "民事", "count": 3}], 3)), \
-             patch.object(svc, "_case_trend", return_value=[]), \
-             patch.object(svc, "_case_status_distribution", return_value={"ACTIVE": 3}), \
+             patch("apps.workbench.services.dashboard_service._case_trend", return_value=[]), \
+             patch("apps.workbench.services.dashboard_service._case_status_distribution", return_value={"ACTIVE": 3}), \
              patch.object(svc, "_fee_stats", return_value=(Decimal("1000"), [])), \
-             patch.object(svc, "_contract_trend", return_value=[]), \
+             patch("apps.workbench.services.dashboard_service._contract_trend", return_value=[]), \
              patch.object(svc, "_reminder_counts", return_value={"overdue_count": 0, "today_count": 0}), \
-             patch.object(svc, "_upcoming_reminders", return_value=[]):
+             patch("apps.workbench.services.dashboard_service._upcoming_reminders", return_value=[]):
             result = svc.get_stats()
             assert result["client_count"] == 10
             assert result["contract_count"] == 5

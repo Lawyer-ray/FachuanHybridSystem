@@ -157,7 +157,7 @@ class OCRHandler:
             return {item.page_no: item for item in result_list}
 
         results: dict[int, OCRPageResult] = {}
-        chunks = self._chunk_pages(page_numbers=page_numbers, chunk_count=runtime_profile.workers)
+        chunks = _chunk_pages(page_numbers=page_numbers, chunk_count=runtime_profile.workers)
         with ThreadPoolExecutor(max_workers=runtime_profile.workers) as executor:
             future_map = {
                 executor.submit(
@@ -211,7 +211,7 @@ class OCRHandler:
         return digest.hexdigest()
 
     def read_ocr_cache(self, *, pdf_hash: str, profile_key: str, page_no: int) -> OCRPageResult | None:
-        rel_path = self._ocr_cache_rel_path(pdf_hash=pdf_hash, profile_key=profile_key, page_no=page_no)
+        rel_path = _ocr_cache_rel_path(pdf_hash=pdf_hash, profile_key=profile_key, page_no=page_no)
         if not default_storage.exists(rel_path):
             return None
         try:
@@ -231,7 +231,7 @@ class OCRHandler:
             return None
 
     def write_ocr_cache(self, *, pdf_hash: str, profile_key: str, result: OCRPageResult) -> None:  # pragma: no cover
-        rel_path = self._ocr_cache_rel_path(pdf_hash=pdf_hash, profile_key=profile_key, page_no=result.page_no)
+        rel_path = _ocr_cache_rel_path(pdf_hash=pdf_hash, profile_key=profile_key, page_no=result.page_no)
         payload = {
             "text": result.text,
             "ocr_failed": result.ocr_failed,
@@ -240,16 +240,18 @@ class OCRHandler:
         }
         default_storage.save(rel_path, ContentFile(json.dumps(payload, ensure_ascii=False).encode("utf-8")))
 
-    @staticmethod
-    def _ocr_cache_rel_path(*, pdf_hash: str, profile_key: str, page_no: int) -> str:
-        return f"pdf_splitting/ocr_cache/{pdf_hash}/{profile_key}/page_{page_no:04d}.json"
 
-    @staticmethod
-    def _chunk_pages(*, page_numbers: list[int], chunk_count: int) -> list[list[int]]:
-        if not page_numbers:
-            return []
-        chunk_count = max(1, min(chunk_count, len(page_numbers)))
-        buckets: list[list[int]] = [[] for _ in range(chunk_count)]
-        for index, page_no in enumerate(page_numbers):
-            buckets[index % chunk_count].append(page_no)
-        return [bucket for bucket in buckets if bucket]
+# ↓↓ 由 OCRHandler 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _ocr_cache_rel_path(*, pdf_hash: str, profile_key: str, page_no: int) -> str:
+    return f"pdf_splitting/ocr_cache/{pdf_hash}/{profile_key}/page_{page_no:04d}.json"
+
+
+# ↓↓ 由 OCRHandler 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _chunk_pages(*, page_numbers: list[int], chunk_count: int) -> list[list[int]]:
+    if not page_numbers:
+        return []
+    chunk_count = max(1, min(chunk_count, len(page_numbers)))
+    buckets: list[list[int]] = [[] for _ in range(chunk_count)]
+    for index, page_no in enumerate(page_numbers):
+        buckets[index % chunk_count].append(page_no)
+    return [bucket for bucket in buckets if bucket]

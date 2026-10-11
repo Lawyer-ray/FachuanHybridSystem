@@ -47,52 +47,6 @@ class ExecutorTaskLifecycleMixin:
         cls._run_orm_safely(lambda: task.save(update_fields=fields))
 
     @staticmethod
-    def _acquire_task(task_id: str) -> tuple[LegalResearchTask | None, dict[str, Any] | None]:
-        def _operation() -> tuple[int, LegalResearchTask | None]:
-            now = timezone.now()
-            updated = LegalResearchTask.objects.filter(
-                id=task_id,
-                status__in=[LegalResearchTaskStatus.PENDING, LegalResearchTaskStatus.QUEUED],
-            ).update(
-                status=LegalResearchTaskStatus.RUNNING,
-                progress=0,
-                error="",
-                message="任务已启动",
-                started_at=now,
-                finished_at=None,
-                updated_at=now,
-            )
-            task = (
-                LegalResearchTask.objects.select_related("created_by", "credential", "credential__lawyer")
-                .filter(id=task_id)
-                .first()
-            )
-            return int(updated or 0), task
-
-        updated, task = ExecutorTaskLifecycleMixin._run_orm_safely(_operation)
-        if task is None:
-            logger.error("案例检索任务不存在", extra={"task_id": task_id})
-            return None, {"task_id": task_id, "status": "failed", "error": "任务不存在"}
-
-        if updated == 1:
-            return task, None
-
-        if task.status in (
-            LegalResearchTaskStatus.COMPLETED,
-            LegalResearchTaskStatus.FAILED,
-            LegalResearchTaskStatus.CANCELLED,
-        ):
-            return None, {"task_id": str(task.id), "status": task.status}
-
-        if task.status == LegalResearchTaskStatus.RUNNING:
-            return None, {"task_id": str(task.id), "status": task.status, "message": "任务已在执行中"}
-
-        if task.status == LegalResearchTaskStatus.QUEUED:
-            return None, {"task_id": str(task.id), "status": task.status, "message": "任务仍在排队中"}
-
-        return None, {"task_id": str(task.id), "status": task.status, "message": "任务状态已变更，跳过本次执行"}
-
-    @staticmethod
     def _mark_completed(task: LegalResearchTask, *, message: str) -> None:
         task.status = LegalResearchTaskStatus.COMPLETED
         task.progress = 100
@@ -153,3 +107,50 @@ class ExecutorTaskLifecycleMixin:
             task,
             update_fields=["scanned_count", "matched_count", "progress", "message", "updated_at", "llm_model"],
         )
+
+
+# ↓↓ 由 ExecutorTaskLifecycleMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _acquire_task(task_id: str) -> tuple[LegalResearchTask | None, dict[str, Any] | None]:
+    def _operation() -> tuple[int, LegalResearchTask | None]:
+        now = timezone.now()
+        updated = LegalResearchTask.objects.filter(
+            id=task_id,
+            status__in=[LegalResearchTaskStatus.PENDING, LegalResearchTaskStatus.QUEUED],
+        ).update(
+            status=LegalResearchTaskStatus.RUNNING,
+            progress=0,
+            error="",
+            message="任务已启动",
+            started_at=now,
+            finished_at=None,
+            updated_at=now,
+        )
+        task = (
+            LegalResearchTask.objects.select_related("created_by", "credential", "credential__lawyer")
+            .filter(id=task_id)
+            .first()
+        )
+        return int(updated or 0), task
+
+    updated, task = ExecutorTaskLifecycleMixin._run_orm_safely(_operation)
+    if task is None:
+        logger.error("案例检索任务不存在", extra={"task_id": task_id})
+        return None, {"task_id": task_id, "status": "failed", "error": "任务不存在"}
+
+    if updated == 1:
+        return task, None
+
+    if task.status in (
+        LegalResearchTaskStatus.COMPLETED,
+        LegalResearchTaskStatus.FAILED,
+        LegalResearchTaskStatus.CANCELLED,
+    ):
+        return None, {"task_id": str(task.id), "status": task.status}
+
+    if task.status == LegalResearchTaskStatus.RUNNING:
+        return None, {"task_id": str(task.id), "status": task.status, "message": "任务已在执行中"}
+
+    if task.status == LegalResearchTaskStatus.QUEUED:
+        return None, {"task_id": str(task.id), "status": task.status, "message": "任务仍在排队中"}
+
+    return None, {"task_id": str(task.id), "status": task.status, "message": "任务状态已变更，跳过本次执行"}

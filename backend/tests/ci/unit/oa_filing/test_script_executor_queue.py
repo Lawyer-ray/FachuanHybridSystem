@@ -77,9 +77,7 @@ class TestSubmitSessionJob:
         fake_credential = MagicMock()
         with (
             patch.object(mod, "_ensure_contract_access"),
-            patch.object(
-                mod.ScriptExecutorService, "_find_credential", staticmethod(lambda user, site: fake_credential)
-            ),
+            patch.object(mod, "_find_credential", lambda user, site: fake_credential),
             patch.object(mod, "_submit_session_job") as submit_job,
             patch("apps.oa_filing.models.FilingSession") as session_model,
         ):

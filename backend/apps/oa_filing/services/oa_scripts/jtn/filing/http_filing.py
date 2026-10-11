@@ -134,7 +134,7 @@ class HttpFilingMixin:  # pragma: no cover
                     uploads = await self._upload_contract_files_http(
                         client=client, attachment_paths=contract_info.attachment_paths
                     )
-                    self._apply_attachment_payload(payload=payload, uploads=uploads)
+                    _apply_attachment_payload(payload=payload, uploads=uploads)
 
             await self._submit_filing_form_http(client=client, action_url=form_state.action_url, payload=payload)
 
@@ -397,10 +397,6 @@ class HttpFilingMixin:  # pragma: no cover
             logger.info("合同附件上传成功: %s -> %s", upload["original"], upload["url"])
         return uploads
 
-    @staticmethod
-    def _apply_attachment_payload(payload: dict[str, str], uploads: list[dict[str, str]]) -> None:
-        apply_attachment_payload(payload, uploads)
-
     # ------------------------------------------------------------------
     # 提交
     # ------------------------------------------------------------------
@@ -459,3 +455,8 @@ class HttpFilingMixin:  # pragma: no cover
     @staticmethod
     def _normalize_text(value: Any) -> str:
         return normalize_text(value)
+
+
+# ↓↓ 由 HttpFilingMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _apply_attachment_payload(payload: dict[str, str], uploads: list[dict[str, str]]) -> None:
+    apply_attachment_payload(payload, uploads)

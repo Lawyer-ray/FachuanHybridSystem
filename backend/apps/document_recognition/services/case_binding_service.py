@@ -91,16 +91,6 @@ class CaseBindingService:
             )
             return None
 
-    @staticmethod
-    def _media_relative(file_path: str) -> str:
-        """绝对路径 → media 相对路径（不在 media 下时原样返回）。"""
-        try:
-            from django.conf import settings
-
-            return str(Path(file_path).resolve().relative_to(Path(settings.MEDIA_ROOT).resolve()))
-        except (ValueError, ImportError):
-            return file_path
-
     @transaction.atomic
     def create_case_log(
         self,
@@ -153,7 +143,7 @@ class CaseBindingService:
         if file_path:
             file_name = Path(file_path).name
             success = self.case_service.add_case_log_attachment_internal(
-                case_log_id=case_log_id, file_path=self._media_relative(file_path), file_name=file_name
+                case_log_id=case_log_id, file_path=_media_relative(file_path), file_name=file_name
             )
 
             if not success:
@@ -519,3 +509,14 @@ class CaseBindingService:
                     save_error,
                     extra={"action": "_trigger_notification", "task_id": task.id},
                 )
+
+
+# ↓↓ 由 CaseBindingService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _media_relative(file_path: str) -> str:
+    """绝对路径 → media 相对路径（不在 media 下时原样返回）。"""
+    try:
+        from django.conf import settings
+
+        return str(Path(file_path).resolve().relative_to(Path(settings.MEDIA_ROOT).resolve()))
+    except (ValueError, ImportError):
+        return file_path

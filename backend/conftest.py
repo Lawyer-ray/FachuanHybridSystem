@@ -141,12 +141,12 @@ def _sync_first_user_setup_deferred_init(monkeypatch: Any) -> Any:
     （典型表现：test_async_conversation_service 全量跑必挂、单跑通过）。
     改为同步执行后时序确定，初始化数据对测试自身可见。
     """
-    from apps.organization.services.setup.first_user_setup_service import FirstUserSetupService
+    from apps.organization.services.setup.first_user_setup_service import FirstUserSetupService, _deferred_worker
 
     monkeypatch.setattr(
         FirstUserSetupService,
         "_run_deferred_init",
-        lambda self: self._deferred_worker(),
+        lambda self: _deferred_worker(),
     )
     yield
 

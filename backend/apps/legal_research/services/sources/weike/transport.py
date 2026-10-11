@@ -114,7 +114,7 @@ class WeikeTransportMixin:  # pragma: no cover
                 self._sleep_for_retry(attempt=attempt, base_seconds=backoff_seconds)
                 continue
 
-            status = self._response_status(response)
+            status = _response_status(response)
             if status in statuses and attempt < attempts:
                 logger.warning(
                     "wk请求返回可重试状态码，准备重试",
@@ -146,16 +146,6 @@ class WeikeTransportMixin:  # pragma: no cover
         jitter = random.uniform(0.0, delay * 0.25)
         time.sleep(delay + jitter)
 
-    @staticmethod
-    def _response_status(response: Any) -> int:  # pragma: no cover
-        status_code = getattr(response, "status_code", None)
-        if status_code is not None:
-            return int(status_code)
-        status = getattr(response, "status", None)
-        if status is not None:
-            return int(status)
-        return 0
-
     @classmethod
     def _response_json(cls, response: Any) -> dict[str, Any]:  # pragma: no cover
         try:
@@ -163,50 +153,15 @@ class WeikeTransportMixin:  # pragma: no cover
         except (TypeError, ValueError):
             data = None
 
-        normalized = cls._coerce_json_dict(data)
+        normalized = _coerce_json_dict(data)
         if normalized is not None:
             return normalized
 
-        body = cls._response_body(response)
+        body = _response_body(response)
         if not body:
             return {}
-        decoded = cls._decode_response_body(body)
+        decoded = _decode_response_body(body)
         return cls._parse_json_from_text(decoded)
-
-    @staticmethod
-    def _response_headers(response: Any) -> dict[str, str]:
-        headers = getattr(response, "headers", None)
-        if headers is None:
-            return {}
-        return dict(headers)
-
-    @staticmethod
-    def _coerce_json_dict(value: Any) -> dict[str, Any] | None:
-        if isinstance(value, dict):
-            return value
-        if not isinstance(value, str):
-            return None
-        text = value.strip()
-        if not text:
-            return None
-        try:
-            parsed = json.loads(text)
-        except json.JSONDecodeError:
-            return None
-        if isinstance(parsed, dict):
-            return parsed
-        return None
-
-    @staticmethod
-    def _decode_response_body(body: bytes) -> str:
-        if not body:
-            return ""
-        for encoding in ("utf-8-sig", "utf-8", "gb18030"):
-            try:
-                return body.decode(encoding)
-            except UnicodeDecodeError:
-                continue
-        return body.decode("latin-1", errors="ignore")
 
     @classmethod
     def _parse_json_from_text(cls, text: str) -> dict[str, Any]:
@@ -214,7 +169,7 @@ class WeikeTransportMixin:  # pragma: no cover
         if not candidate:
             return {}
 
-        direct = cls._coerce_json_dict(candidate)
+        direct = _coerce_json_dict(candidate)
         if direct is not None:
             return direct
 
@@ -224,31 +179,81 @@ class WeikeTransportMixin:  # pragma: no cover
             return {}
 
         clipped = candidate[start : end + 1]
-        repaired = cls._coerce_json_dict(clipped)
+        repaired = _coerce_json_dict(clipped)
         if repaired is not None:
             return repaired
         return {}
 
-    @staticmethod
-    def _response_body(response: Any) -> bytes:
-        content = getattr(response, "content", None)
-        if isinstance(content, (bytes, bytearray)):
-            return bytes(content)
-        body_fn = getattr(response, "body", None)
-        if callable(body_fn):
-            body = body_fn()
-            if isinstance(body, (bytes, bytearray)):
-                return bytes(body)
-            if isinstance(body, str):
-                return body.encode("utf-8")
-            return b""
-        text = getattr(response, "text", None)
-        if isinstance(text, str):
-            return text.encode("utf-8")
-        text_fn = getattr(response, "text", None)
-        if callable(text_fn):
-            try:
-                return str(text_fn()).encode("utf-8")
-            except Exception:
-                return b""
+
+# ↓↓ 由 WeikeTransportMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _response_status(response: Any) -> int:  # pragma: no cover
+    status_code = getattr(response, "status_code", None)
+    if status_code is not None:
+        return int(status_code)
+    status = getattr(response, "status", None)
+    if status is not None:
+        return int(status)
+    return 0
+
+
+# ↓↓ 由 WeikeTransportMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _response_headers(response: Any) -> dict[str, str]:
+    headers = getattr(response, "headers", None)
+    if headers is None:
+        return {}
+    return dict(headers)
+
+
+# ↓↓ 由 WeikeTransportMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _coerce_json_dict(value: Any) -> dict[str, Any] | None:
+    if isinstance(value, dict):
+        return value
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    if isinstance(parsed, dict):
+        return parsed
+    return None
+
+
+# ↓↓ 由 WeikeTransportMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _decode_response_body(body: bytes) -> str:
+    if not body:
+        return ""
+    for encoding in ("utf-8-sig", "utf-8", "gb18030"):
+        try:
+            return body.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return body.decode("latin-1", errors="ignore")
+
+
+# ↓↓ 由 WeikeTransportMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _response_body(response: Any) -> bytes:
+    content = getattr(response, "content", None)
+    if isinstance(content, (bytes, bytearray)):
+        return bytes(content)
+    body_fn = getattr(response, "body", None)
+    if callable(body_fn):
+        body = body_fn()
+        if isinstance(body, (bytes, bytearray)):
+            return bytes(body)
+        if isinstance(body, str):
+            return body.encode("utf-8")
         return b""
+    text = getattr(response, "text", None)
+    if isinstance(text, str):
+        return text.encode("utf-8")
+    text_fn = getattr(response, "text", None)
+    if callable(text_fn):
+        try:
+            return str(text_fn()).encode("utf-8")
+        except Exception:
+            return b""
+    return b""

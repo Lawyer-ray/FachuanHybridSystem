@@ -383,7 +383,7 @@ class BatchAnalysisService(PermissionMixin):
         total = qs.count()
         items = list(qs[offset : offset + page_size])
         return {
-            "items": [self._job_to_dict(j) for j in items],
+            "items": [_job_to_dict(j) for j in items],
             "count": total,
         }
 
@@ -400,9 +400,10 @@ class BatchAnalysisService(PermissionMixin):
             | Q(job_id=job_id, status__in=(BatchJobStatus.COMPLETED, BatchJobStatus.FAILED)),
         )
 
-    @staticmethod
-    def _job_to_dict(job: BatchJob) -> dict[str, Any]:
-        """将 BatchJob 转换为字典"""
-        from ..schemas import BatchJobOut
 
-        return BatchJobOut.model_validate(job).model_dump()
+# ↓↓ 由 BatchAnalysisService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _job_to_dict(job: BatchJob) -> dict[str, Any]:
+    """将 BatchJob 转换为字典"""
+    from ..schemas import BatchJobOut
+
+    return BatchJobOut.model_validate(job).model_dump()

@@ -83,7 +83,7 @@ class SolutionGenerator:
         existing: dict[str, str] = {}
 
         for i, section_type in enumerate(SECTION_ORDER):
-            section = self._get_or_create_section(task, section_type, order=i)
+            section = _get_or_create_section(task, section_type, order=i)
             if section.status == SectionStatus.COMPLETED:
                 existing[section_type] = section.content
                 continue
@@ -154,19 +154,6 @@ class SolutionGenerator:
         section.save(update_fields=["status", "updated_at"])
 
     @staticmethod
-    def _get_or_create_section(task: SolutionTask, section_type: str, order: int) -> SolutionSection:
-        section, _ = SolutionSection.objects.get_or_create(
-            task=task,
-            section_type=section_type,
-            defaults={
-                "order": order,
-                "title": SECTION_TITLES.get(section_type, section_type),  # type: ignore[call-overload]
-                "status": SectionStatus.PENDING,
-            },
-        )
-        return section
-
-    @staticmethod
     def _load_research_results(task: SolutionTask) -> str:
         if task.research_task_id is None:
             return ""
@@ -194,3 +181,17 @@ class SolutionGenerator:
         if exclude:
             qs = qs.exclude(section_type=exclude)
         return {s.section_type: s.content for s in qs}
+
+
+# ↓↓ 由 SolutionGenerator 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _get_or_create_section(task: SolutionTask, section_type: str, order: int) -> SolutionSection:
+    section, _ = SolutionSection.objects.get_or_create(
+        task=task,
+        section_type=section_type,
+        defaults={
+            "order": order,
+            "title": SECTION_TITLES.get(section_type, section_type),  # type: ignore[call-overload]
+            "status": SectionStatus.PENDING,
+        },
+    )
+    return section

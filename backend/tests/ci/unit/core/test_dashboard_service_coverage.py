@@ -39,12 +39,12 @@ class TestDashboardServiceGetStats:
             patch.object(DashboardService, "_client_count", return_value=patches["_client_count"]),
             patch.object(DashboardService, "_contract_count", return_value=patches["_contract_count"]),
             patch.object(DashboardService, "_case_type_stats", return_value=patches["_case_type_stats"]),
-            patch.object(DashboardService, "_case_trend", return_value=patches["_case_trend"]),
-            patch.object(DashboardService, "_case_status_distribution", return_value=patches["_case_status_distribution"]),
+            patch("apps.workbench.services.dashboard_service._case_trend", return_value=patches["_case_trend"]),
+            patch("apps.workbench.services.dashboard_service._case_status_distribution", return_value=patches["_case_status_distribution"]),
             patch.object(DashboardService, "_fee_stats", return_value=patches["_fee_stats"]),
-            patch.object(DashboardService, "_contract_trend", return_value=patches["_contract_trend"]),
+            patch("apps.workbench.services.dashboard_service._contract_trend", return_value=patches["_contract_trend"]),
             patch.object(DashboardService, "_reminder_counts", return_value=patches["_reminder_counts"]),
-            patch.object(DashboardService, "_upcoming_reminders", return_value=patches["_upcoming_reminders"]),
+            patch("apps.workbench.services.dashboard_service._upcoming_reminders", return_value=patches["_upcoming_reminders"]),
         ):
             result = svc.get_stats()
 
@@ -67,12 +67,12 @@ class TestDashboardServiceGetStats:
             patch.object(DashboardService, "_client_count", return_value=patches["_client_count"]),
             patch.object(DashboardService, "_contract_count", return_value=patches["_contract_count"]),
             patch.object(DashboardService, "_case_type_stats", return_value=patches["_case_type_stats"]),
-            patch.object(DashboardService, "_case_trend", return_value=patches["_case_trend"]),
-            patch.object(DashboardService, "_case_status_distribution", return_value=patches["_case_status_distribution"]),
+            patch("apps.workbench.services.dashboard_service._case_trend", return_value=patches["_case_trend"]),
+            patch("apps.workbench.services.dashboard_service._case_status_distribution", return_value=patches["_case_status_distribution"]),
             patch.object(DashboardService, "_fee_stats", return_value=patches["_fee_stats"]),
-            patch.object(DashboardService, "_contract_trend", return_value=patches["_contract_trend"]),
+            patch("apps.workbench.services.dashboard_service._contract_trend", return_value=patches["_contract_trend"]),
             patch.object(DashboardService, "_reminder_counts", return_value=patches["_reminder_counts"]),
-            patch.object(DashboardService, "_upcoming_reminders", return_value=patches["_upcoming_reminders"]),
+            patch("apps.workbench.services.dashboard_service._upcoming_reminders", return_value=patches["_upcoming_reminders"]),
         ):
             result = svc.get_stats()
 
@@ -89,12 +89,12 @@ class TestDashboardServiceGetStats:
             patch.object(DashboardService, "_client_count", return_value=patches["_client_count"]),
             patch.object(DashboardService, "_contract_count", return_value=patches["_contract_count"]),
             patch.object(DashboardService, "_case_type_stats", return_value=patches["_case_type_stats"]),
-            patch.object(DashboardService, "_case_trend", return_value=patches["_case_trend"]),
-            patch.object(DashboardService, "_case_status_distribution", return_value=patches["_case_status_distribution"]),
+            patch("apps.workbench.services.dashboard_service._case_trend", return_value=patches["_case_trend"]),
+            patch("apps.workbench.services.dashboard_service._case_status_distribution", return_value=patches["_case_status_distribution"]),
             patch.object(DashboardService, "_fee_stats", return_value=patches["_fee_stats"]),
-            patch.object(DashboardService, "_contract_trend", return_value=patches["_contract_trend"]),
+            patch("apps.workbench.services.dashboard_service._contract_trend", return_value=patches["_contract_trend"]),
             patch.object(DashboardService, "_reminder_counts", return_value=patches["_reminder_counts"]),
-            patch.object(DashboardService, "_upcoming_reminders", return_value=patches["_upcoming_reminders"]),
+            patch("apps.workbench.services.dashboard_service._upcoming_reminders", return_value=patches["_upcoming_reminders"]),
         ):
             result = svc.get_stats()
 
@@ -111,12 +111,12 @@ class TestDashboardServiceGetStats:
             patch.object(DashboardService, "_client_count", return_value=patches["_client_count"]),
             patch.object(DashboardService, "_contract_count", return_value=patches["_contract_count"]),
             patch.object(DashboardService, "_case_type_stats", return_value=patches["_case_type_stats"]),
-            patch.object(DashboardService, "_case_trend", return_value=patches["_case_trend"]),
-            patch.object(DashboardService, "_case_status_distribution", return_value=patches["_case_status_distribution"]),
+            patch("apps.workbench.services.dashboard_service._case_trend", return_value=patches["_case_trend"]),
+            patch("apps.workbench.services.dashboard_service._case_status_distribution", return_value=patches["_case_status_distribution"]),
             patch.object(DashboardService, "_fee_stats", return_value=patches["_fee_stats"]),
-            patch.object(DashboardService, "_contract_trend", return_value=patches["_contract_trend"]),
+            patch("apps.workbench.services.dashboard_service._contract_trend", return_value=patches["_contract_trend"]),
             patch.object(DashboardService, "_reminder_counts", return_value=patches["_reminder_counts"]),
-            patch.object(DashboardService, "_upcoming_reminders", return_value=patches["_upcoming_reminders"]),
+            patch("apps.workbench.services.dashboard_service._upcoming_reminders", return_value=patches["_upcoming_reminders"]),
         ):
             result = svc.get_stats()
 

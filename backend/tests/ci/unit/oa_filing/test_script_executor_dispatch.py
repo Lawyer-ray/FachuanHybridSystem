@@ -20,7 +20,7 @@ import pytest
 
 from apps.oa_filing.services import script_executor_service as mod
 from apps.oa_filing.services.exceptions import ScriptExecutionError
-from apps.oa_filing.services.script_executor_service import ScriptExecutorService
+from apps.oa_filing.services.script_executor_service import ScriptExecutorService, _find_credential
 
 # ──────────── 工具 ────────────
 
@@ -165,7 +165,7 @@ class TestFindCredential:
         monkeypatch.setattr(mod, "django_apps", SimpleNamespace(get_model=MagicMock(return_value=model)))
         user = MagicMock()
 
-        result = svc._find_credential(user, "金诚同达OA")
+        result = _find_credential(user, "金诚同达OA")
 
         assert result == "credential-row"
         model.objects.filter.assert_called_once_with(lawyer=user, site_name="金诚同达OA")
@@ -177,7 +177,7 @@ class TestFindCredential:
         model.objects.filter.return_value.first.return_value = None
         monkeypatch.setattr(mod, "django_apps", SimpleNamespace(get_model=MagicMock(return_value=model)))
 
-        assert svc._find_credential(MagicMock(), "其他OA") is None
+        assert _find_credential(MagicMock(), "其他OA") is None
 
 
 # ──────────── 立案 ────────────
@@ -188,7 +188,7 @@ class TestExecuteFiling:
         svc = ScriptExecutorService()
         monkeypatch.setattr(mod, "_ensure_contract_access", MagicMock())
         monkeypatch.setattr(mod, "_ensure_case_access", MagicMock())
-        monkeypatch.setattr(mod.ScriptExecutorService, "_find_credential", staticmethod(lambda user, site: None))
+        monkeypatch.setattr(mod, "_find_credential", lambda user, site: None)
         with pytest.raises(ScriptExecutionError, match="未找到匹配凭证"):
             svc.execute("金诚同达OA", contract_id=1, case_id=None, user=MagicMock())
 
@@ -198,7 +198,7 @@ class TestExecuteFiling:
         ensure_case = MagicMock()
         monkeypatch.setattr(mod, "_ensure_contract_access", ensure_contract)
         monkeypatch.setattr(mod, "_ensure_case_access", ensure_case)
-        monkeypatch.setattr(mod.ScriptExecutorService, "_find_credential", staticmethod(lambda user, site: None))
+        monkeypatch.setattr(mod, "_find_credential", lambda user, site: None)
         user = MagicMock()
         with pytest.raises(ScriptExecutionError):
             svc.execute("金诚同达OA", contract_id=1, case_id=8, user=user)
@@ -249,7 +249,7 @@ class TestDispatchFiling:
 class TestExecuteStamp:
     def _run(self, monkeypatch: pytest.MonkeyPatch, lookup: Any, credential: Any) -> dict[str, Any]:
         monkeypatch.setattr(mod, "_ensure_contract_access", MagicMock())
-        monkeypatch.setattr(mod.ScriptExecutorService, "_find_credential", staticmethod(lambda user, site: credential))
+        monkeypatch.setattr(mod, "_find_credential", lambda user, site: credential)
         submit = MagicMock()
         monkeypatch.setattr(mod, "_submit_session_job", submit)
         user = MagicMock()
@@ -328,7 +328,7 @@ class TestDispatchStamp:
 class TestExecuteArchive:
     def _patch_common(self, monkeypatch: pytest.MonkeyPatch, lookups: list[Any]):
         monkeypatch.setattr(mod, "_ensure_contract_access", MagicMock())
-        monkeypatch.setattr(mod.ScriptExecutorService, "_find_credential", staticmethod(lambda user, site: "cred"))
+        monkeypatch.setattr(mod, "_find_credential", lambda user, site: "cred")
         submit = MagicMock()
         monkeypatch.setattr(mod, "_submit_session_job", submit)
         lookup_svc = MagicMock()
@@ -464,7 +464,7 @@ class TestSpawnOpenPageThread:
 def _patch_open_common(monkeypatch: pytest.MonkeyPatch, credential: Any) -> MagicMock:
     monkeypatch.setattr(mod, "_ensure_contract_access", MagicMock())
     monkeypatch.setattr(mod, "_ensure_case_access", MagicMock())
-    monkeypatch.setattr(mod.ScriptExecutorService, "_find_credential", staticmethod(lambda user, site: credential))
+    monkeypatch.setattr(mod, "_find_credential", lambda user, site: credential)
     spawn = MagicMock()
     monkeypatch.setattr(mod.ScriptExecutorService, "_spawn_open_page_thread", spawn)
     return spawn

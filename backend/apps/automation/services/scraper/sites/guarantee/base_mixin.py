@@ -53,7 +53,7 @@ class GuaranteeBaseMixin:  # pragma: no cover
             )
             if ready:
                 return True
-            self._random_wait(
+            _random_wait(
                 self.DEFAULT_POLL_MS / 1000,
                 (self.DEFAULT_POLL_MS + 800) / 1000,
             )
@@ -95,7 +95,7 @@ class GuaranteeBaseMixin:  # pragma: no cover
             )
             if ready:
                 return True
-            self._random_wait(
+            _random_wait(
                 self.DEFAULT_POLL_MS / 1000,
                 (self.DEFAULT_POLL_MS + 800) / 1000,
             )
@@ -137,7 +137,7 @@ class GuaranteeBaseMixin:  # pragma: no cover
             )
             if ready:
                 return True
-            self._random_wait(
+            _random_wait(
                 self.DEFAULT_POLL_MS / 1000,
                 (self.DEFAULT_POLL_MS + 800) / 1000,
             )
@@ -187,7 +187,7 @@ class GuaranteeBaseMixin:  # pragma: no cover
             )
             if ready:
                 return True
-            self._random_wait(
+            _random_wait(
                 self.DEFAULT_POLL_MS / 1000,
                 (self.DEFAULT_POLL_MS + 800) / 1000,
             )
@@ -230,7 +230,7 @@ class GuaranteeBaseMixin:  # pragma: no cover
             )
             if not uploading:
                 return True
-            self._random_wait(0.9, 1.4)
+            _random_wait(0.9, 1.4)
 
         return False
 
@@ -280,8 +280,9 @@ class GuaranteeBaseMixin:  # pragma: no cover
     def _close_popovers(self) -> None:
         for _ in range(2):
             self.page.keyboard.press("Escape")
-            self._random_wait(0.1, 0.2)
+            _random_wait(0.1, 0.2)
 
-    @staticmethod
-    def _random_wait(min_sec: float = 0.5, max_sec: float = 1.3) -> None:
-        time.sleep(random.uniform(min_sec, max_sec))
+
+# ↓↓ 由 GuaranteeBaseMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _random_wait(min_sec: float = 0.5, max_sec: float = 1.3) -> None:
+    time.sleep(random.uniform(min_sec, max_sec))

@@ -26,7 +26,7 @@ from apps.pdf_splitting.models import (
 from apps.pdf_splitting.services.storage import PdfSplitStorage
 from apps.pdf_splitting.services.template_registry import get_default_filename, get_template_definition
 
-from .export_utils import ExportUtils
+from .export_utils import ExportUtils, export_segment_pdf
 from .ocr_handler import OCRHandler
 from .segment_detector import SegmentDetector
 from .split_models import PageDescriptor, SegmentDraft
@@ -284,7 +284,7 @@ class PdfSplitService:
                     display_name = f"{display_name}.pdf"
                 display_name = self._export_utils.deduplicate_filename(display_name, seen_names)
 
-                pdf_bytes = self._export_utils.export_segment_pdf(source_doc, segment.page_start, segment.page_end)
+                pdf_bytes = export_segment_pdf(source_doc, segment.page_start, segment.page_end)
                 pdf_files.append((pdf_bytes, display_name))
 
                 progress = int(index * 100 / total)

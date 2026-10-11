@@ -82,24 +82,13 @@ class RateResolver:
         self.basis_points = basis_points
         self.repricing_day = repricing_day
         self.start_date = start_date
-        self.rate_events = self._validate_events(rate_events)
+        self.rate_events = _validate_events(rate_events)
         self.penalty_mode = penalty_mode
         self.penalty_multiplier = penalty_multiplier
         self.penalty_rate = penalty_rate
         self.cap_penalty_annual = cap_penalty_annual
         self.step_up_rate = step_up_rate
         self.step_up_trigger_days = step_up_trigger_days
-
-    @staticmethod
-    def _validate_events(rate_events: list[dict] | None) -> list[dict]:
-        """校验分段利率事件合法性，非法项抛出避免静默错误."""
-        for ev in rate_events or []:
-            if not ev.get("date") or ev.get("annual_rate") is None:
-                raise ValidationException(
-                    message="分段利率事件需同时提供 date 与 annual_rate",
-                    code="INVALID_RATE_EVENT",
-                )
-        return sorted((rate_events or []), key=lambda e: date.fromisoformat(str(e.get("date"))))
 
     def _base_contract_rate(self, on: date) -> Decimal:
         """无分段事件时的基座合同年利率（固定或 LPR+基点）.
@@ -163,3 +152,15 @@ class RateResolver:
         if self.cap_penalty_annual is not None and r > self.cap_penalty_annual:
             r = self.cap_penalty_annual
         return r
+
+
+# ↓↓ 由 RateResolver 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _validate_events(rate_events: list[dict] | None) -> list[dict]:
+    """校验分段利率事件合法性，非法项抛出避免静默错误."""
+    for ev in rate_events or []:
+        if not ev.get("date") or ev.get("annual_rate") is None:
+            raise ValidationException(
+                message="分段利率事件需同时提供 date 与 annual_rate",
+                code="INVALID_RATE_EVENT",
+            )
+    return sorted((rate_events or []), key=lambda e: date.fromisoformat(str(e.get("date"))))

@@ -414,7 +414,7 @@ class TestLookupOaCaseGuidExecutor:
         from apps.oa_filing.services import script_executor_service as mod
 
         with (
-            patch.object(mod.ScriptExecutorService, "_find_credential", return_value=credential),
+            patch.object(mod, "_find_credential", return_value=credential),
             patch.object(mod, "create_adapter", return_value=adapter) as mock_create,
             patch.object(mod, "run_coro_sync", side_effect=lambda coro, **kw: asyncio.run(coro)),
         ):
@@ -426,7 +426,7 @@ class TestLookupOaCaseGuidExecutor:
         from apps.oa_filing.services import script_executor_service as mod
 
         service = mod.ScriptExecutorService()
-        with patch.object(mod.ScriptExecutorService, "_find_credential", return_value=None):
+        with patch.object(mod, "_find_credential", return_value=None):
             with pytest.raises(RuntimeError, match="未找到匹配凭证"):
                 service.lookup_oa_case_guid(case_no=_CASE_NO, user=self._make_user())
 

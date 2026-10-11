@@ -7,7 +7,7 @@ from typing import Any
 
 from playwright.sync_api import Page
 
-from .base_mixin import GuaranteeBaseMixin
+from .base_mixin import GuaranteeBaseMixin, _random_wait
 from .data_mixin import GuaranteeDataMixin
 from .dialog_mixin import GuaranteeDialogMixin
 from .form_filling_mixin import GuaranteeFormFillingMixin
@@ -52,7 +52,7 @@ class CourtZxfwGuaranteeService(  # pragma: no cover
 
     def apply_guarantee(self, case_data: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover
         self.page.goto(self.GUARANTEE_URL, timeout=60000, wait_until="domcontentloaded")
-        self._random_wait(4, 6)
+        _random_wait(4, 6)
         raw_paths = case_data.get("material_paths") or []
         self._material_items: list[dict[str, str]] = []
         for item in raw_paths:
@@ -95,7 +95,7 @@ class CourtZxfwGuaranteeService(  # pragma: no cover
         }
 
         apply_btn = self._submit_apply_and_wait_g_two()
-        self._random_wait(0.8, 1.2)
+        _random_wait(0.8, 1.2)
 
         g_two_result: dict[str, Any] | None = None
         if "gTwo" in self.page.url:
@@ -138,29 +138,29 @@ class CourtZxfwGuaranteeService(  # pragma: no cover
                 errors = self._get_visible_form_errors()
                 if any("身份证明材料" in err for err in errors):
                     self._retry_identity_material_upload_in_g_three()
-                    self._random_wait(1.4, 2.0)
+                    _random_wait(1.4, 2.0)
                 if any("请上传证据材料" in err or "证据" in err for err in errors):
                     self._retry_evidence_material_upload_in_g_three()
-                    self._random_wait(1.4, 2.0)
+                    _random_wait(1.4, 2.0)
 
             self._click_first_enabled_button(["下一步", "保存并下一步", "暂存"])
-            self._random_wait(1.2, 1.8)
+            _random_wait(1.2, 1.8)
 
     def _submit_apply_and_wait_g_two(self, retries: int = 4) -> str | None:
         last_clicked: str | None = None
         for _ in range(retries):
             last_clicked = self._click_first_enabled_button(["申请担保", "下一步", "保存并下一步"])
             if not last_clicked:
-                self._random_wait(0.6, 0.9)
+                _random_wait(0.6, 0.9)
                 continue
 
             for _ in range(10):
                 if "gTwo" in self.page.url:
                     return last_clicked
-                self._random_wait(0.25, 0.45)
+                _random_wait(0.25, 0.45)
 
             self._click_first_enabled_button(["确定", "知道了", "我知道了", "继续"])
             self._close_popovers()
-            self._random_wait(0.5, 0.8)
+            _random_wait(0.5, 0.8)
 
         return last_clicked

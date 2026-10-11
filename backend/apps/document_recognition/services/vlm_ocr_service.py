@@ -84,7 +84,7 @@ class VLMTranscriptionService:
             file_path,
             len(pages),
             len(text),
-            extra={"action": "vlm_transcribe_pdf", "vision_model": self._vision_model()},
+            extra={"action": "vlm_transcribe_pdf", "vision_model": _vision_model()},
         )
         return text
 
@@ -98,18 +98,12 @@ class VLMTranscriptionService:
             "VLM 视觉转写完成: file=%s, chars=%d",
             file_path,
             len(text),
-            extra={"action": "vlm_transcribe_image", "vision_model": self._vision_model()},
+            extra={"action": "vlm_transcribe_image", "vision_model": _vision_model()},
         )
         return text
 
-    @staticmethod
-    def _vision_model() -> str:
-        from apps.core.llm.config import LLMConfig
-
-        return LLMConfig.get_vision_model()
-
     def _transcribe_image_bytes(self, image_bytes: bytes, mime: str, page_num: int) -> str:
-        vision_model = self._vision_model()
+        vision_model = _vision_model()
         if not vision_model:
             raise RuntimeError("视觉模型未配置（AI 平台 vision_model 为空）")
 
@@ -134,3 +128,10 @@ class VLMTranscriptionService:
         content = _clean_transcription(str(getattr(response, "content", "") or ""))
         logger.debug("VLM 转写第 %d 页: %d 字", page_num, len(content))
         return content
+
+
+# ↓↓ 由 VLMTranscriptionService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _vision_model() -> str:
+    from apps.core.llm.config import LLMConfig
+
+    return LLMConfig.get_vision_model()

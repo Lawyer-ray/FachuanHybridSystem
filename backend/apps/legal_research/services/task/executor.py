@@ -17,6 +17,7 @@ from apps.legal_research.services.executor_components import (
     ExecutorTaskLifecycleMixin,
 )
 from apps.legal_research.services.executor_components.policy_mixin import AdaptiveThresholdPolicy, DualReviewPolicy
+from apps.legal_research.services.executor_components.task_lifecycle import _acquire_task
 from apps.legal_research.services.similarity.service import CaseSimilarityService
 from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 from apps.legal_research.services.sources import get_case_source_client
@@ -40,7 +41,7 @@ class LegalResearchExecutor(  # pragma: no cover
     ExecutorIntentMixin,
 ):
     def run(self, *, task_id: str) -> dict[str, Any]:  # pragma: no cover
-        task, early_result = self._acquire_task(task_id=task_id)
+        task, early_result = _acquire_task(task_id=task_id)
         if early_result is not None:
             return early_result
         if task is None:

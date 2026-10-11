@@ -11,20 +11,6 @@ class ExportUtils:
     """PDF 片段导出与文件名去重工具。"""
 
     @staticmethod
-    def render_page_bytes(page: fitz.Page, *, dpi: int) -> bytes:
-        pix = page.get_pixmap(matrix=fitz.Matrix(dpi / 72, dpi / 72))
-        return pix.tobytes("png")  # type: ignore[no-any-return]
-
-    @staticmethod
-    def export_segment_pdf(source_doc: fitz.Document, page_start: int, page_end: int) -> bytes:
-        segment_doc = fitz.open()
-        try:
-            segment_doc.insert_pdf(source_doc, from_page=page_start - 1, to_page=page_end - 1)
-            return segment_doc.tobytes()  # type: ignore[no-any-return]
-        finally:
-            segment_doc.close()
-
-    @staticmethod
     def deduplicate_filename(display_name: str, seen_names: set[str]) -> str:
         path = Path(display_name)
         stem = path.stem or "片段"
@@ -36,3 +22,19 @@ class ExportUtils:
             counter += 1
         seen_names.add(candidate)
         return candidate
+
+
+# ↓↓ 由 ExportUtils 下沉的模块级纯函数（四层架构静态方法棘轮）
+def render_page_bytes(page: fitz.Page, *, dpi: int) -> bytes:
+    pix = page.get_pixmap(matrix=fitz.Matrix(dpi / 72, dpi / 72))
+    return pix.tobytes("png")  # type: ignore[no-any-return]
+
+
+# ↓↓ 由 ExportUtils 下沉的模块级纯函数（四层架构静态方法棘轮）
+def export_segment_pdf(source_doc: fitz.Document, page_start: int, page_end: int) -> bytes:
+    segment_doc = fitz.open()
+    try:
+        segment_doc.insert_pdf(source_doc, from_page=page_start - 1, to_page=page_end - 1)
+        return segment_doc.tobytes()  # type: ignore[no-any-return]
+    finally:
+        segment_doc.close()

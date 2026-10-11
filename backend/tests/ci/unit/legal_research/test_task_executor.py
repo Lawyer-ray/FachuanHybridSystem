@@ -17,7 +17,7 @@ class TestLegalResearchExecutorRun:
     @patch("apps.legal_research.services.task.executor.get_case_source_client")
     def test_run_task_not_found(self, mock_get_client, mock_similarity, mock_tuning):
         executor = LegalResearchExecutor()
-        with patch.object(executor, "_acquire_task", return_value=(None, None)):
+        with patch("apps.legal_research.services.task.executor._acquire_task", return_value=(None, None)):
             result = executor.run(task_id="nonexistent")
         assert result["status"] == "failed"
         assert "不存在" in result.get("error", "")
@@ -28,7 +28,7 @@ class TestLegalResearchExecutorRun:
     def test_run_early_result(self, mock_get_client, mock_similarity, mock_tuning):
         executor = LegalResearchExecutor()
         early = {"task_id": "t1", "status": "completed"}
-        with patch.object(executor, "_acquire_task", return_value=(None, early)):
+        with patch("apps.legal_research.services.task.executor._acquire_task", return_value=(None, early)):
             result = executor.run(task_id="t1")
         assert result["status"] == "completed"
 
@@ -74,7 +74,7 @@ class TestLegalResearchExecutorRun:
         mock_get_client.return_value = mock_client
 
         executor = LegalResearchExecutor()
-        with patch.object(executor, "_acquire_task", return_value=(mock_task, None)):
+        with patch("apps.legal_research.services.task.executor._acquire_task", return_value=(mock_task, None)):
             with patch.object(executor, "_is_cancel_requested", return_value=False):
                 with patch.object(executor, "_mark_failed"):
                     result = executor.run(task_id="task-1")

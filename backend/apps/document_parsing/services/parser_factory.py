@@ -51,8 +51,8 @@ class ParserFactory:
         if class_path is None:
             raise ValueError(f"未知的后端类型: {backend}")
 
-        backend_cls = ParserFactory._load_backend_class(class_path)
-        return ParserFactory._instantiate(backend_cls, **kwargs)
+        backend_cls = _load_backend_class(class_path)
+        return _instantiate(backend_cls, **kwargs)
 
     @staticmethod
     def _resolve_auto_backend() -> str:
@@ -70,17 +70,19 @@ class ParserFactory:
         logger.info("auto 选择解析平台: %s (%s)", providers[0].name, best)
         return best
 
-    @staticmethod
-    def _load_backend_class(class_path: str) -> type:
-        """从完整路径加载后端类（延迟 import）"""
-        module_path, class_name = class_path.rsplit(".", 1)
-        import importlib
 
-        module = importlib.import_module(module_path)
-        backend_cls: type = getattr(module, class_name)
-        return backend_cls
+# ↓↓ 由 ParserFactory 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _load_backend_class(class_path: str) -> type:
+    """从完整路径加载后端类（延迟 import）"""
+    module_path, class_name = class_path.rsplit(".", 1)
+    import importlib
 
-    @staticmethod
-    def _instantiate(backend_cls: type, **kwargs: Any) -> IDocumentParserProtocol:
-        """实例化后端，透传所有 kwargs（timeout、显式凭证、provider 等）。"""
-        return backend_cls(**kwargs)  # type: ignore[no-any-return]
+    module = importlib.import_module(module_path)
+    backend_cls: type = getattr(module, class_name)
+    return backend_cls
+
+
+# ↓↓ 由 ParserFactory 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _instantiate(backend_cls: type, **kwargs: Any) -> IDocumentParserProtocol:
+    """实例化后端，透传所有 kwargs（timeout、显式凭证、provider 等）。"""
+    return backend_cls(**kwargs)  # type: ignore[no-any-return]

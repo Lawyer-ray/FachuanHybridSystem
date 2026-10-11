@@ -137,31 +137,16 @@ class WeikeAuthMixin:  # pragma: no cover
             raise RuntimeError("wk登录失败：账号或密码错误")
 
     def _login_via_law_modal(self, *, page: Page, username: str, password: str) -> None:  # pragma: no cover
-        if not self._has_visible_locator(page, self.LAW_LOGIN_BUTTON_SELECTOR):
+        if not _has_visible_locator(page, self.LAW_LOGIN_BUTTON_SELECTOR):
             return
 
         page.locator(self.LAW_LOGIN_BUTTON_SELECTOR).first.click(timeout=10000)
         page.wait_for_selector(self.LAW_LOGIN_MODAL_USERNAME_SELECTOR, timeout=20000)
         page.fill(self.LAW_LOGIN_MODAL_USERNAME_SELECTOR, username)
         page.fill(self.LAW_LOGIN_MODAL_PASSWORD_SELECTOR, password)
-        self._check_law_login_agreement(page)
+        _check_law_login_agreement(page)
         page.locator(self.LAW_LOGIN_MODAL_SUBMIT_SELECTOR).first.click(timeout=10000, force=True)
         page.wait_for_timeout(3500)
-
-    @staticmethod
-    def _check_law_login_agreement(page: Page) -> None:  # pragma: no cover
-        page.evaluate(
-            """
-            (() => {
-              const cb = document.querySelector('input.wk-field-choice');
-              if (!cb) return false;
-              cb.checked = true;
-              cb.dispatchEvent(new Event('input', {bubbles: true}));
-              cb.dispatchEvent(new Event('change', {bubbles: true}));
-              return cb.checked;
-            })();
-            """
-        )
 
     def _contains_invalid_credential_hint(self, page: Page) -> bool:  # pragma: no cover
         body_text = page.locator("body").inner_text(timeout=30000)
@@ -180,19 +165,36 @@ class WeikeAuthMixin:  # pragma: no cover
         if self.LAW_LOGIN_REQUIRED_TEXT in body_text:
             return False
 
-        if self._has_visible_locator(page, self.LAW_LOGIN_MODAL_USERNAME_SELECTOR):
+        if _has_visible_locator(page, self.LAW_LOGIN_MODAL_USERNAME_SELECTOR):
             return False
 
-        if self._has_visible_locator(page, self.LAW_LOGIN_BUTTON_SELECTOR):
+        if _has_visible_locator(page, self.LAW_LOGIN_BUTTON_SELECTOR):
             return False
 
         return True
 
-    @staticmethod
-    def _has_visible_locator(page: Page, selector: str) -> bool:  # pragma: no cover
-        locator = page.locator(selector)
-        count = locator.count()
-        for i in range(min(count, 5)):
-            if locator.nth(i).is_visible():
-                return True
-        return False
+
+# ↓↓ 由 WeikeAuthMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _check_law_login_agreement(page: Page) -> None:  # pragma: no cover
+    page.evaluate(
+        """
+        (() => {
+          const cb = document.querySelector('input.wk-field-choice');
+          if (!cb) return false;
+          cb.checked = true;
+          cb.dispatchEvent(new Event('input', {bubbles: true}));
+          cb.dispatchEvent(new Event('change', {bubbles: true}));
+          return cb.checked;
+        })();
+        """
+    )
+
+
+# ↓↓ 由 WeikeAuthMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _has_visible_locator(page: Page, selector: str) -> bool:  # pragma: no cover
+    locator = page.locator(selector)
+    count = locator.count()
+    for i in range(min(count, 5)):
+        if locator.nth(i).is_visible():
+            return True
+    return False

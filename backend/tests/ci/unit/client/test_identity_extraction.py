@@ -14,6 +14,9 @@ from apps.client.services.identity_extraction.extraction_service import (
     _MAX_LLM_OCR_CHARS,
     _MAX_LLM_OCR_LINES,
     IdentityExtractionService,
+    _normalize_ocr_text,
+    _validate_credit_code,
+    _validate_id_number,
 )
 
 
@@ -518,20 +521,20 @@ class TestNormalizeOcrText:
         self.svc = IdentityExtractionService()
 
     def test_fullwidth_digits(self):
-        assert self.svc._normalize_ocr_text("号码１２３４５") == "号码12345"
+        assert _normalize_ocr_text("号码１２３４５") == "号码12345"
 
     def test_fullwidth_punctuation(self):
-        assert self.svc._normalize_ocr_text("姓名：张三，男；") == "姓名:张三,男;"
+        assert _normalize_ocr_text("姓名：张三，男；") == "姓名:张三,男;"
 
     def test_inline_spaces_removed(self):
-        assert self.svc._normalize_ocr_text("公民身份号码 4401 0619") == "公民身份号码44010619"
+        assert _normalize_ocr_text("公民身份号码 4401 0619") == "公民身份号码44010619"
 
     def test_fullwidth_space_removed(self):
-        assert self.svc._normalize_ocr_text("姓名：张　三") == "姓名:张三"
+        assert _normalize_ocr_text("姓名：张　三") == "姓名:张三"
 
     def test_newlines_preserved(self):
         text = "住址广东省\n公民身份号码"
-        assert "\n" in self.svc._normalize_ocr_text(text)
+        assert "\n" in _normalize_ocr_text(text)
 
 
 class TestValidateIdNumber:
@@ -542,23 +545,23 @@ class TestValidateIdNumber:
 
     def test_valid_number(self):
         # 110101199001011237 为校验位合法号码
-        assert self.svc._validate_id_number("110101199001011237") is True
+        assert _validate_id_number("110101199001011237") is True
 
     def test_invalid_checksum(self):
-        assert self.svc._validate_id_number("110101199001011234") is False
+        assert _validate_id_number("110101199001011234") is False
 
     def test_x_check_code(self):
         # 校验位为 X 的合法号码
-        assert self.svc._validate_id_number("11010119900101123X") in (True, False)  # 只要不抛异常
+        assert _validate_id_number("11010119900101123X") in (True, False)  # 只要不抛异常
 
     def test_none(self):
-        assert self.svc._validate_id_number(None) is False
+        assert _validate_id_number(None) is False
 
     def test_wrong_length(self):
-        assert self.svc._validate_id_number("1234") is False
+        assert _validate_id_number("1234") is False
 
     def test_non_digit_prefix(self):
-        assert self.svc._validate_id_number("11010119900AB11234"[:18]) is False
+        assert _validate_id_number("11010119900AB11234"[:18]) is False
 
 
 class TestValidateCreditCode:
@@ -568,20 +571,20 @@ class TestValidateCreditCode:
         self.svc = IdentityExtractionService()
 
     def test_valid_code(self):
-        assert self.svc._validate_credit_code("91110108MA12345672") is True
+        assert _validate_credit_code("91110108MA12345672") is True
 
     def test_invalid_checksum(self):
-        assert self.svc._validate_credit_code("91110108MA12345678") is False
+        assert _validate_credit_code("91110108MA12345678") is False
 
     def test_forbidden_chars(self):
         # 含 GB 32100 未使用的字母（I/O/S/V/Z）
-        assert self.svc._validate_credit_code("91110108MA1234IOSS") is False
+        assert _validate_credit_code("91110108MA1234IOSS") is False
 
     def test_none(self):
-        assert self.svc._validate_credit_code(None) is False
+        assert _validate_credit_code(None) is False
 
     def test_wrong_length(self):
-        assert self.svc._validate_credit_code("123") is False
+        assert _validate_credit_code("123") is False
 
 
 class TestSelectBestIdNumber:

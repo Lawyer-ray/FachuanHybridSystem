@@ -56,7 +56,7 @@ class HeadingNumbering:  # pragma: no cover
                 num_pr.getparent().remove(num_pr)
 
         # 拆分区域并分配 numId
-        numbering_elem = self._get_or_add_numbering_part(doc).element
+        numbering_elem = _get_or_add_numbering_part(doc).element
         sections: list[list[tuple[int, int]]] = [[]]
         for idx, lvl in headings:
             if lvl == -1:
@@ -68,8 +68,8 @@ class HeadingNumbering:  # pragma: no cover
         for section in sections:
             if not section:
                 continue
-            num_id = self._create_num_ref(numbering_elem, abstract_id)
-            self._apply_num_to_paragraphs(doc, section, num_id)
+            num_id = _create_num_ref(numbering_elem, abstract_id)
+            _apply_num_to_paragraphs(doc, section, num_id)
             applied += len(section)
 
         logger.info("已为 %d 个标题段落应用编号（%d 个编号区域）", applied, len([s for s in sections if s]))
@@ -237,7 +237,7 @@ class HeadingNumbering:  # pragma: no cover
 
     def _create_abstract_num(self, doc: DocumentType) -> int:  # pragma: no cover
         """创建 abstractNum 定义，返回 abstractNumId"""
-        numbering_part = self._get_or_add_numbering_part(doc)
+        numbering_part = _get_or_add_numbering_part(doc)
         numbering_elem = numbering_part.element
 
         existing_ids = {int(a.get(qn("w:abstractNumId"), 0)) for a in numbering_elem.findall(qn("w:abstractNum"))}
@@ -286,82 +286,85 @@ class HeadingNumbering:  # pragma: no cover
 
         return abstract_id
 
-    @staticmethod
-    def _get_or_add_numbering_part(doc: DocumentType) -> NumberingPart:  # pragma: no cover
-        """Return the numbering part, creating it for DOCX files that omit it.
 
-        python-docx 1.2.0 tries to create this part through NumberingPart.new(),
-        but that method raises NotImplementedError. Uploaded contracts can omit
-        word/numbering.xml entirely, so create the minimal OOXML part directly.
-        """
-        try:
-            return doc.part.numbering_part
-        except NotImplementedError:
-            logger.info("DOCX has no numbering part; creating a minimal numbering.xml part")
+# ↓↓ 由 HeadingNumbering 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _get_or_add_numbering_part(doc: DocumentType) -> NumberingPart:  # pragma: no cover
+    """Return the numbering part, creating it for DOCX files that omit it.
 
-        package = doc.part.package
-        partnames = {part.partname for part in package.iter_parts()}
-        partname = PackURI("/word/numbering.xml")
-        if partname in partnames:
-            partname = package.next_partname("/word/numbering%d.xml")
+    python-docx 1.2.0 tries to create this part through NumberingPart.new(),
+    but that method raises NotImplementedError. Uploaded contracts can omit
+    word/numbering.xml entirely, so create the minimal OOXML part directly.
+    """
+    try:
+        return doc.part.numbering_part
+    except NotImplementedError:
+        logger.info("DOCX has no numbering part; creating a minimal numbering.xml part")
 
-        numbering_xml = '<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"/>'
-        numbering_part = NumberingPart(partname, CT.WML_NUMBERING, parse_xml(numbering_xml), package)
-        doc.part.relate_to(numbering_part, RT.NUMBERING)
-        return numbering_part
+    package = doc.part.package
+    partnames = {part.partname for part in package.iter_parts()}
+    partname = PackURI("/word/numbering.xml")
+    if partname in partnames:
+        partname = package.next_partname("/word/numbering%d.xml")
 
-    @staticmethod
-    def _create_num_ref(numbering_elem: object, abstract_id: int) -> int:  # pragma: no cover
-        """创建 num 引用指向 abstractNum，返回 numId（每次调用生成独立编号序列）"""
-        existing_num_ids = {
-            int(n.get(qn("w:numId"), 0))
-            for n in numbering_elem.findall(qn("w:num"))  # type: ignore[attr-defined]
-        }
-        num_id = max(existing_num_ids, default=0) + 1
+    numbering_xml = '<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"/>'
+    numbering_part = NumberingPart(partname, CT.WML_NUMBERING, parse_xml(numbering_xml), package)
+    doc.part.relate_to(numbering_part, RT.NUMBERING)
+    return numbering_part
 
-        num_elem = OxmlElement("w:num")
-        num_elem.set(qn("w:numId"), str(num_id))
-        abstract_ref = OxmlElement("w:abstractNumId")
-        abstract_ref.set(qn("w:val"), str(abstract_id))
-        num_elem.append(abstract_ref)
-        numbering_elem.append(num_elem)  # type: ignore[attr-defined]
 
-        return num_id
+# ↓↓ 由 HeadingNumbering 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _create_num_ref(numbering_elem: object, abstract_id: int) -> int:  # pragma: no cover
+    """创建 num 引用指向 abstractNum，返回 numId（每次调用生成独立编号序列）"""
+    existing_num_ids = {
+        int(n.get(qn("w:numId"), 0))
+        for n in numbering_elem.findall(qn("w:num"))  # type: ignore[attr-defined]
+    }
+    num_id = max(existing_num_ids, default=0) + 1
 
-    @staticmethod
-    def _apply_num_to_paragraphs(
-        doc: DocumentType, headings: list[tuple[int, int]], num_id: int
-    ) -> None:  # pragma: no cover
-        """将编号样式应用到标题段落"""
-        for para_idx, level in headings:
-            para = doc.paragraphs[para_idx]
-            p_pr = para._element.find(qn("w:pPr"))
-            if p_pr is None:
-                p_pr = OxmlElement("w:pPr")
-                para._element.insert(0, p_pr)
+    num_elem = OxmlElement("w:num")
+    num_elem.set(qn("w:numId"), str(num_id))
+    abstract_ref = OxmlElement("w:abstractNumId")
+    abstract_ref.set(qn("w:val"), str(abstract_id))
+    num_elem.append(abstract_ref)
+    numbering_elem.append(num_elem)  # type: ignore[attr-defined]
 
-            old_num_pr = p_pr.find(qn("w:numPr"))
-            if old_num_pr is not None:
-                p_pr.remove(old_num_pr)
+    return num_id
 
-            # 清除段落自身的缩进，让编号定义的缩进生效
-            old_ind = p_pr.find(qn("w:ind"))
-            if old_ind is not None:
-                p_pr.remove(old_ind)
 
-            # 显式设置 ind=0 覆盖样式继承的缩进
-            ind = OxmlElement("w:ind")
-            ind.set(qn("w:left"), "0")
-            ind.set(qn("w:firstLine"), "0")
-            p_pr.append(ind)
+# ↓↓ 由 HeadingNumbering 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _apply_num_to_paragraphs(
+    doc: DocumentType, headings: list[tuple[int, int]], num_id: int
+) -> None:  # pragma: no cover
+    """将编号样式应用到标题段落"""
+    for para_idx, level in headings:
+        para = doc.paragraphs[para_idx]
+        p_pr = para._element.find(qn("w:pPr"))
+        if p_pr is None:
+            p_pr = OxmlElement("w:pPr")
+            para._element.insert(0, p_pr)
 
-            num_pr = OxmlElement("w:numPr")
-            ilvl = OxmlElement("w:ilvl")
-            ilvl.set(qn("w:val"), str(level))
-            num_pr.append(ilvl)
+        old_num_pr = p_pr.find(qn("w:numPr"))
+        if old_num_pr is not None:
+            p_pr.remove(old_num_pr)
 
-            num_id_elem = OxmlElement("w:numId")
-            num_id_elem.set(qn("w:val"), str(num_id))
-            num_pr.append(num_id_elem)
+        # 清除段落自身的缩进，让编号定义的缩进生效
+        old_ind = p_pr.find(qn("w:ind"))
+        if old_ind is not None:
+            p_pr.remove(old_ind)
 
-            p_pr.append(num_pr)
+        # 显式设置 ind=0 覆盖样式继承的缩进
+        ind = OxmlElement("w:ind")
+        ind.set(qn("w:left"), "0")
+        ind.set(qn("w:firstLine"), "0")
+        p_pr.append(ind)
+
+        num_pr = OxmlElement("w:numPr")
+        ilvl = OxmlElement("w:ilvl")
+        ilvl.set(qn("w:val"), str(level))
+        num_pr.append(ilvl)
+
+        num_id_elem = OxmlElement("w:numId")
+        num_id_elem.set(qn("w:val"), str(num_id))
+        num_pr.append(num_id_elem)
+
+        p_pr.append(num_pr)

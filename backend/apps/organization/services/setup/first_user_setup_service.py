@@ -83,68 +83,72 @@ class FirstUserSetupService:
 
     def _run_deferred_init(self) -> None:
         """启动后台线程执行非关键初始化任务。"""
-        thread = threading.Thread(target=self._deferred_worker, daemon=True, name="first-user-setup")
+        thread = threading.Thread(target=_deferred_worker, daemon=True, name="first-user-setup")
         thread.start()
 
-    @staticmethod
-    def _deferred_worker() -> None:
-        """后台线程：创建文书模板目录和默认模板（文件夹+文书+绑定+代理事项规则）。"""
-        try:
-            FirstUserSetupService._init_document_directories()
-        except Exception:
-            logger.exception("文书模板目录创建失败")
 
-        try:
-            FirstUserSetupService._init_document_templates()
-        except Exception:
-            logger.exception("默认模板初始化失败")
+# ↓↓ 由 FirstUserSetupService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _deferred_worker() -> None:
+    """后台线程：创建文书模板目录和默认模板（文件夹+文书+绑定+代理事项规则）。"""
+    try:
+        _init_document_directories()
+    except Exception:
+        logger.exception("文书模板目录创建失败")
 
-        try:
-            FirstUserSetupService._init_proxy_matter_rules()
-        except Exception:
-            logger.exception("代理事项规则初始化失败")
+    try:
+        _init_document_templates()
+    except Exception:
+        logger.exception("默认模板初始化失败")
 
-    @staticmethod
-    def _init_document_directories() -> None:
-        """创建文书模板存储目录（对应 init_document_system）。"""
-        from apps.core.utils.path import Path
+    try:
+        _init_proxy_matter_rules()
+    except Exception:
+        logger.exception("代理事项规则初始化失败")
 
-        media_root = Path(settings.MEDIA_ROOT)
-        directories = [
-            media_root / "document_templates",
-            media_root / "document_templates" / "versions",
-            media_root / "generated_documents",
-        ]
-        for directory in directories:
-            if not directory.exists():
-                directory.mkdir(parents=True, exist_ok=True)
-                logger.info("已创建目录: %s", directory)
 
-    @staticmethod
-    def _init_document_templates() -> None:
-        """初始化默认文件夹模板 + 文书模板 + 绑定关系。"""
-        from apps.documents.services.document_template.init_service import DocumentTemplateInitService
+# ↓↓ 由 FirstUserSetupService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _init_document_directories() -> None:
+    """创建文书模板存储目录（对应 init_document_system）。"""
+    from apps.core.utils.path import Path
 
-        service = DocumentTemplateInitService()
-        result = service.initialize_default_templates()
-        if result.get("success"):
-            logger.info(
-                "默认模板初始化完成：文件夹 %d(+%d跳过)，文书 %d(+%d跳过)，绑定 %d(+%d跳过)",
-                result.get("folder_created", 0),
-                result.get("folder_skipped", 0),
-                result.get("doc_created", 0),
-                result.get("doc_skipped", 0),
-                result.get("binding_created", 0),
-                result.get("binding_skipped", 0),
-            )
-        else:
-            logger.warning("默认模板初始化失败: %s", result.get("error", result))
+    media_root = Path(settings.MEDIA_ROOT)
+    directories = [
+        media_root / "document_templates",
+        media_root / "document_templates" / "versions",
+        media_root / "generated_documents",
+    ]
+    for directory in directories:
+        if not directory.exists():
+            directory.mkdir(parents=True, exist_ok=True)
+            logger.info("已创建目录: %s", directory)
 
-    @staticmethod
-    def _init_proxy_matter_rules() -> None:
-        """初始化代理事项规则默认数据。"""
-        from apps.documents.services.proxy_matter_rule_init_service import ProxyMatterRuleInitService
 
-        service = ProxyMatterRuleInitService()
-        result = service.initialize_defaults()
-        logger.info("代理事项规则初始化完成：创建 %d，更新 %d", result.get("created", 0), result.get("updated", 0))
+# ↓↓ 由 FirstUserSetupService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _init_document_templates() -> None:
+    """初始化默认文件夹模板 + 文书模板 + 绑定关系。"""
+    from apps.documents.services.document_template.init_service import DocumentTemplateInitService
+
+    service = DocumentTemplateInitService()
+    result = service.initialize_default_templates()
+    if result.get("success"):
+        logger.info(
+            "默认模板初始化完成：文件夹 %d(+%d跳过)，文书 %d(+%d跳过)，绑定 %d(+%d跳过)",
+            result.get("folder_created", 0),
+            result.get("folder_skipped", 0),
+            result.get("doc_created", 0),
+            result.get("doc_skipped", 0),
+            result.get("binding_created", 0),
+            result.get("binding_skipped", 0),
+        )
+    else:
+        logger.warning("默认模板初始化失败: %s", result.get("error", result))
+
+
+# ↓↓ 由 FirstUserSetupService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _init_proxy_matter_rules() -> None:
+    """初始化代理事项规则默认数据。"""
+    from apps.documents.services.proxy_matter_rule_init_service import ProxyMatterRuleInitService
+
+    service = ProxyMatterRuleInitService()
+    result = service.initialize_defaults()
+    logger.info("代理事项规则初始化完成：创建 %d，更新 %d", result.get("created", 0), result.get("updated", 0))

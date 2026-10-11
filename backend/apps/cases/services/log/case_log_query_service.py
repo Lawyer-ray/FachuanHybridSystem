@@ -76,26 +76,8 @@ class CaseLogQueryService:
         if limit is not None:
             qs = qs[offset : offset + limit]
         objs = list(qs)
-        self.warm_reminder_cache(objs)
+        warm_reminder_cache(objs)
         return objs
-
-    @staticmethod
-    def warm_reminder_cache(objs: list[CaseLog]) -> None:
-        """把批量提醒结果写入对象的 _cached_exported_reminders（幂等，零额外查询时跳过）。"""
-        if not objs:
-            return
-        from apps.core.interfaces import ServiceLocator
-
-        try:
-            reminder_service = ServiceLocator.get_reminder_service()
-            rows_by_log = reminder_service.export_case_log_reminders_batch_internal(
-                case_log_ids=[obj.id for obj in objs if obj.id]
-            )
-        except Exception:
-            logger.exception("批量预热日志提醒失败", extra={"count": len(objs)})
-            return
-        for obj in objs:
-            obj._cached_exported_reminders = rows_by_log.get(obj.id, [])
 
     def get_log(
         self,
@@ -125,3 +107,22 @@ class CaseLogQueryService:
             return CaseLog.objects.select_related("actor", "case").prefetch_related("attachments").get(id=log_id)
         except CaseLog.DoesNotExist:
             raise NotFoundError("日志 %(log_id)s 不存在" % {"log_id": log_id}) from None
+
+
+# ↓↓ 由 CaseLogQueryService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def warm_reminder_cache(objs: list[CaseLog]) -> None:
+    """把批量提醒结果写入对象的 _cached_exported_reminders（幂等，零额外查询时跳过）。"""
+    if not objs:
+        return
+    from apps.core.interfaces import ServiceLocator
+
+    try:
+        reminder_service = ServiceLocator.get_reminder_service()
+        rows_by_log = reminder_service.export_case_log_reminders_batch_internal(
+            case_log_ids=[obj.id for obj in objs if obj.id]
+        )
+    except Exception:
+        logger.exception("批量预热日志提醒失败", extra={"count": len(objs)})
+        return
+    for obj in objs:
+        obj._cached_exported_reminders = rows_by_log.get(obj.id, [])

@@ -61,7 +61,7 @@ class ClientEnterprisePrefillService:
             "phone": profile["phone"],
         }
 
-        existing_client = self._find_existing_client_by_credit_code(prefill["id_number"])
+        existing_client = _find_existing_client_by_credit_code(prefill["id_number"])
         return {
             "provider": provider_name,
             "prefill": prefill,
@@ -170,12 +170,13 @@ class ClientEnterprisePrefillService:
                 return text
         return ""
 
-    @staticmethod
-    def _find_existing_client_by_credit_code(credit_code: str) -> dict[str, Any] | None:
-        normalized_credit_code = str(credit_code or "").strip()
-        if not normalized_credit_code:
-            return None
-        existing = Client.objects.filter(id_number=normalized_credit_code).only("id", "name").first()
-        if existing is None:
-            return None
-        return {"id": existing.id, "name": existing.name}
+
+# ↓↓ 由 ClientEnterprisePrefillService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _find_existing_client_by_credit_code(credit_code: str) -> dict[str, Any] | None:
+    normalized_credit_code = str(credit_code or "").strip()
+    if not normalized_credit_code:
+        return None
+    existing = Client.objects.filter(id_number=normalized_credit_code).only("id", "name").first()
+    if existing is None:
+        return None
+    return {"id": existing.id, "name": existing.name}

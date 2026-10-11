@@ -11,6 +11,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.pdf_splitting.services.split.ocr_handler import _chunk_pages
+
 # =========================================================================
 # evidence_sorting exporter
 # =========================================================================
@@ -241,20 +243,20 @@ class TestOCRHandlerChunkPages:
     def test_empty(self):
         from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
         handler = OCRHandler()
-        result = handler._chunk_pages(page_numbers=[], chunk_count=3)
+        result = _chunk_pages(page_numbers=[], chunk_count=3)
         assert result == []
 
     def test_single_chunk(self):
         from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
         handler = OCRHandler()
-        result = handler._chunk_pages(page_numbers=[1, 2, 3], chunk_count=1)
+        result = _chunk_pages(page_numbers=[1, 2, 3], chunk_count=1)
         assert len(result) == 1
         assert result[0] == [1, 2, 3]
 
     def test_multiple_chunks(self):
         from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
         handler = OCRHandler()
-        result = handler._chunk_pages(page_numbers=[1, 2, 3, 4, 5], chunk_count=2)
+        result = _chunk_pages(page_numbers=[1, 2, 3, 4, 5], chunk_count=2)
         assert len(result) == 2
         total = sum(len(c) for c in result)
         assert total == 5
@@ -262,7 +264,7 @@ class TestOCRHandlerChunkPages:
     def test_more_chunks_than_pages(self):
         from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
         handler = OCRHandler()
-        result = handler._chunk_pages(page_numbers=[1, 2], chunk_count=10)
+        result = _chunk_pages(page_numbers=[1, 2], chunk_count=10)
         assert len(result) == 2
 
 

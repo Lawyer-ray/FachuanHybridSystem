@@ -5,11 +5,9 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-
-from apps.legal_research.services.task.executor import LegalResearchExecutor
 from apps.legal_research.services.similarity.service import SimilarityResult
 from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
-
+from apps.legal_research.services.task.executor import LegalResearchExecutor
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -127,7 +125,7 @@ class TestExecutorRunTaskNotFound:
     def test_task_not_found(self, mock_load: MagicMock) -> None:
         mock_load.return_value = _make_tuning()
         executor = LegalResearchExecutor()
-        with patch.object(executor, "_acquire_task", return_value=(None, None)):
+        with patch("apps.legal_research.services.task.executor._acquire_task", return_value=(None, None)):
             result = executor.run(task_id="nonexistent-id")
         assert result["status"] == "failed"
         assert "任务不存在" in result["error"]
@@ -141,7 +139,7 @@ class TestExecutorRunEarlyResult:
         mock_load.return_value = _make_tuning()
         early = {"task_id": "t-1", "status": "completed", "matched_count": 3}
         executor = LegalResearchExecutor()
-        with patch.object(executor, "_acquire_task", return_value=(MagicMock(), early)):
+        with patch("apps.legal_research.services.task.executor._acquire_task", return_value=(MagicMock(), early)):
             result = executor.run(task_id="t-1")
         assert result is early
 
@@ -167,7 +165,7 @@ class TestExecutorRunSuccessSingleItem:
 
         executor = LegalResearchExecutor()
         p: dict[str, Any] = {}
-        p["_acquire_task"] = patch.object(executor, "_acquire_task", return_value=(task, None))
+        p["_acquire_task"] = patch("apps.legal_research.services.task.executor._acquire_task", return_value=(task, None))
         p.update(_single_search_patches(executor, keyword="买卖合同 违约"))
         p["_update_progress"] = patch.object(executor, "_update_progress")
         p["_fetch_candidate_batch_with_retry"] = patch.object(executor, "_fetch_candidate_batch_with_retry", return_value=[item])
@@ -213,7 +211,7 @@ class TestExecutorRunFetchFailure:
         task = _make_task()
         executor = LegalResearchExecutor()
         p: dict[str, Any] = {}
-        p["_acquire_task"] = patch.object(executor, "_acquire_task", return_value=(task, None))
+        p["_acquire_task"] = patch("apps.legal_research.services.task.executor._acquire_task", return_value=(task, None))
         p["_mark_failed"] = patch.object(executor, "_mark_failed")
         p["_build_query_trace_payload"] = patch.object(executor, "_build_query_trace_payload", return_value={})
         result = _run_with_patches(executor, p, task, str(task.id))
@@ -237,7 +235,7 @@ class TestExecutorRunSessionClosed:
         source_client.open_session.return_value = session
         executor = LegalResearchExecutor()
         p: dict[str, Any] = {}
-        p["_acquire_task"] = patch.object(executor, "_acquire_task", return_value=(task, None))
+        p["_acquire_task"] = patch("apps.legal_research.services.task.executor._acquire_task", return_value=(task, None))
         p["_build_search_keywords"] = patch.object(executor, "_build_search_keywords", side_effect=RuntimeError("boom"))
         p["_mark_failed"] = patch.object(executor, "_mark_failed")
         p["_build_query_trace_payload"] = patch.object(executor, "_build_query_trace_payload", return_value={})
@@ -269,7 +267,7 @@ class TestExecutorRunCancelled:
             return call_count >= 1
 
         p: dict[str, Any] = {}
-        p["_acquire_task"] = patch.object(executor, "_acquire_task", return_value=(task, None))
+        p["_acquire_task"] = patch("apps.legal_research.services.task.executor._acquire_task", return_value=(task, None))
         p["_is_cancel_requested"] = patch.object(executor, "_is_cancel_requested", side_effect=cancel_side_effect)
         p["_build_search_keywords"] = patch.object(executor, "_build_search_keywords", return_value=["违约"])
         p["_build_scoring_keyword"] = patch.object(executor, "_build_scoring_keyword", return_value="违约")
@@ -303,7 +301,7 @@ class TestExecutorRunNoCandidates:
 
         executor = LegalResearchExecutor()
         p: dict[str, Any] = {}
-        p["_acquire_task"] = patch.object(executor, "_acquire_task", return_value=(task, None))
+        p["_acquire_task"] = patch("apps.legal_research.services.task.executor._acquire_task", return_value=(task, None))
         p.update(_no_fetch_patches(executor))
         result = _run_with_patches(executor, p, task, str(task.id))
         assert result["status"] == "running"
@@ -328,7 +326,7 @@ class TestExecutorRunSearchUrlIntercept:
 
         executor = LegalResearchExecutor()
         p: dict[str, Any] = {}
-        p["_acquire_task"] = patch.object(executor, "_acquire_task", return_value=(task, None))
+        p["_acquire_task"] = patch("apps.legal_research.services.task.executor._acquire_task", return_value=(task, None))
         p.update(_no_fetch_patches(executor, keyword="test"))
         _run_with_patches(executor, p, task, str(task.id))
         source_client.search_cases_from_url.assert_called_once()
@@ -352,7 +350,7 @@ class TestExecutorRunSearchUrlFailure:
 
         executor = LegalResearchExecutor()
         p: dict[str, Any] = {}
-        p["_acquire_task"] = patch.object(executor, "_acquire_task", return_value=(task, None))
+        p["_acquire_task"] = patch("apps.legal_research.services.task.executor._acquire_task", return_value=(task, None))
         p.update(_no_fetch_patches(executor, keyword="test"))
         result = _run_with_patches(executor, p, task, str(task.id))
         assert "status" in result
@@ -376,7 +374,7 @@ class TestExecutorRunSimilarityTypeError:
 
         executor = LegalResearchExecutor()
         p: dict[str, Any] = {}
-        p["_acquire_task"] = patch.object(executor, "_acquire_task", return_value=(task, None))
+        p["_acquire_task"] = patch("apps.legal_research.services.task.executor._acquire_task", return_value=(task, None))
         p.update(_no_fetch_patches(executor))
         result = _run_with_patches(executor, p, task, str(task.id))
         assert mock_sim_cls.call_count == 2
@@ -404,7 +402,7 @@ class TestExecutorRunTargetReached:
 
         executor = LegalResearchExecutor()
         p: dict[str, Any] = {}
-        p["_acquire_task"] = patch.object(executor, "_acquire_task", return_value=(task, None))
+        p["_acquire_task"] = patch("apps.legal_research.services.task.executor._acquire_task", return_value=(task, None))
         p.update(_single_search_patches(executor, keyword="test"))
         p["_update_progress"] = patch.object(executor, "_update_progress")
         p["_fetch_candidate_batch_with_retry"] = patch.object(executor, "_fetch_candidate_batch_with_retry", return_value=[item])

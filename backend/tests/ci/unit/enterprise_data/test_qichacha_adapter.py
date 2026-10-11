@@ -8,9 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from apps.enterprise_data.services.providers.adapters.qichacha_adapter import (
-    QichachaResponseAdapter,
-)
+from apps.enterprise_data.services.providers.adapters.qichacha_adapter import QichachaResponseAdapter, pick_str
 
 
 class TestPickStr:
@@ -19,31 +17,31 @@ class TestPickStr:
 
     def test_picks_first_match(self):
         obj = {"a": "value_a", "b": "value_b"}
-        assert self.adapter.pick_str(obj, ("a", "b")) == "value_a"
+        assert pick_str(obj, ("a", "b")) == "value_a"
 
     def test_picks_second_match(self):
         obj = {"a": None, "b": "value_b"}
-        assert self.adapter.pick_str(obj, ("a", "b")) == "value_b"
+        assert pick_str(obj, ("a", "b")) == "value_b"
 
     def test_strips_whitespace(self):
         obj = {"a": "  hello  "}
-        assert self.adapter.pick_str(obj, ("a",)) == "hello"
+        assert pick_str(obj, ("a",)) == "hello"
 
     def test_skips_empty_string(self):
         obj = {"a": "", "b": "real"}
-        assert self.adapter.pick_str(obj, ("a", "b")) == "real"
+        assert pick_str(obj, ("a", "b")) == "real"
 
     def test_converts_int_to_string(self):
         obj = {"a": 123}
-        assert self.adapter.pick_str(obj, ("a",)) == "123"
+        assert pick_str(obj, ("a",)) == "123"
 
     def test_returns_empty_when_no_match(self):
         obj = {"x": None}
-        assert self.adapter.pick_str(obj, ("a", "b")) == ""
+        assert pick_str(obj, ("a", "b")) == ""
 
     def test_returns_empty_for_empty_keys(self):
         obj = {"a": "val"}
-        assert self.adapter.pick_str(obj, ()) == ""
+        assert pick_str(obj, ()) == ""
 
 
 class TestNormalizeCompanySummary:

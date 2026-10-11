@@ -70,7 +70,7 @@ class TestListBatchJobs:
         with patch("apps.workbench.services.batch_service.BatchJob") as MockJob:
             MockJob.objects.filter.return_value.order_by.return_value.count.return_value = 1
             MockJob.objects.filter.return_value.order_by.return_value.__getitem__ = MagicMock(return_value=mock_jobs)
-            with patch.object(BatchAnalysisService, "_job_to_dict", return_value={"id": "test"}):
+            with patch("apps.workbench.services.batch_service._job_to_dict", return_value={"id": "test"}):
                 result = svc.list_batch_jobs(1, page=1, page_size=10)
                 assert "items" in result
                 assert "count" in result

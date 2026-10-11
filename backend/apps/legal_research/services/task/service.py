@@ -162,7 +162,7 @@ class LegalResearchTaskService:  # pragma: no cover
                 timeout=3600,
             )
         except Exception as exc:
-            self._mark_submit_failed(task=task, error_message=str(exc), queue_failure_message=queue_failure_message)
+            _mark_submit_failed(task=task, error_message=str(exc), queue_failure_message=queue_failure_message)
             if raise_on_submit_error:
                 raise
             return False
@@ -240,15 +240,16 @@ class LegalResearchTaskService:  # pragma: no cover
         task.finished_at = timezone.now()
         task.save(update_fields=["status", "message", "error", "finished_at", "updated_at"])
 
-    @staticmethod
-    def _mark_submit_failed(  # pragma: no cover
-        *,
-        task: LegalResearchTask,
-        error_message: str,
-        queue_failure_message: str,
-    ) -> None:
-        task.status = LegalResearchTaskStatus.FAILED
-        task.message = queue_failure_message[:255] or "任务提交失败"
-        task.error = error_message
-        task.finished_at = timezone.now()
-        task.save(update_fields=["status", "message", "error", "finished_at", "updated_at"])
+
+# ↓↓ 由 LegalResearchTaskService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _mark_submit_failed(  # pragma: no cover
+    *,
+    task: LegalResearchTask,
+    error_message: str,
+    queue_failure_message: str,
+) -> None:
+    task.status = LegalResearchTaskStatus.FAILED
+    task.message = queue_failure_message[:255] or "任务提交失败"
+    task.error = error_message
+    task.finished_at = timezone.now()
+    task.save(update_fields=["status", "message", "error", "finished_at", "updated_at"])

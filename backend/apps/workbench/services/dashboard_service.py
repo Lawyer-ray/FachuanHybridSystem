@@ -30,10 +30,10 @@ class DashboardService:
         case_type_dist, active_case_count = self._case_type_stats()
 
         # 1 query: Case 趋势（按月）
-        case_trend = self._case_trend(trend_start)
+        case_trend = _case_trend(trend_start)
 
         # 1 query: Case 状态分布（全部状态）
-        case_status_dist = self._case_status_distribution()
+        case_status_dist = _case_status_distribution()
 
         # 1 query: ContractPayment 费用（本月 + 近 12 月趋势）
         monthly_fee, fee_trend = self._fee_stats(month_start, today, trend_start)
@@ -42,7 +42,7 @@ class DashboardService:
         reminder_counts = self._reminder_counts(now)
 
         # 1 query: Reminder 到期列表（需要实际对象数据，无法合并）
-        upcoming_reminders = self._upcoming_reminders(now)
+        upcoming_reminders = _upcoming_reminders(now)
 
         return {
             # 总量
@@ -52,7 +52,7 @@ class DashboardService:
             "monthly_fee": monthly_fee,
             # 趋势
             "case_trend": case_trend,
-            "contract_trend": self._contract_trend(trend_start),
+            "contract_trend": _contract_trend(trend_start),
             "fee_trend": fee_trend,
             # 分布
             "case_type_distribution": case_type_dist,
@@ -103,36 +103,9 @@ class DashboardService:
 
     # ── Case 趋势（近 12 个月）────────────────────────────────────────────────
 
-    @staticmethod
-    def _case_trend(start: date) -> list[dict[str, Any]]:
-        qs = (
-            Case.objects.filter(start_date__gte=start)
-            .annotate(month=TruncMonth("start_date"))
-            .values("month")
-            .annotate(count=Count("id"))
-            .order_by("month")
-        )
-        return [{"month": r["month"].strftime("%Y-%m"), "count": r["count"]} for r in qs]
-
     # ── Case 状态分布 ─────────────────────────────────────────────────────────
 
-    @staticmethod
-    def _case_status_distribution() -> dict[str, int]:
-        qs = Case.objects.values("status").annotate(count=Count("id"))
-        return {r["status"]: r["count"] for r in qs}
-
     # ── Contract 趋势（近 12 个月）────────────────────────────────────────────
-
-    @staticmethod
-    def _contract_trend(start: date) -> list[dict[str, Any]]:
-        qs = (
-            Contract.objects.filter(specified_date__gte=start)
-            .annotate(month=TruncMonth("specified_date"))
-            .values("month")
-            .annotate(count=Count("id"))
-            .order_by("month")
-        )
-        return [{"month": r["month"].strftime("%Y-%m"), "count": r["count"]} for r in qs]
 
     # ── ContractPayment: 本月费用 + 费用趋势（合并为 1 条查询）────────────────
 
@@ -171,22 +144,53 @@ class DashboardService:
 
     # ── Reminder 到期列表（需要实际对象数据）─────────────────────────────────
 
-    @staticmethod
-    def _upcoming_reminders(now: datetime) -> list[dict[str, Any]]:
-        from apps.reminders.models import ReminderType
 
-        type_label_map = {k: str(v) for k, v in ReminderType.choices}
-        week_later = now + timedelta(days=7)
-        qs = Reminder.objects.filter(due_at__lte=week_later).order_by("due_at")[:20]
-        result = []
-        for r in qs:
-            result.append(
-                {
-                    "id": r.id,
-                    "title": r.content,
-                    "due_at": r.due_at.isoformat(),
-                    "type_label": type_label_map.get(r.reminder_type, ""),
-                    "is_overdue": r.due_at < now,
-                }
-            )
-        return result
+# ↓↓ 由 DashboardService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _case_trend(start: date) -> list[dict[str, Any]]:
+    qs = (
+        Case.objects.filter(start_date__gte=start)
+        .annotate(month=TruncMonth("start_date"))
+        .values("month")
+        .annotate(count=Count("id"))
+        .order_by("month")
+    )
+    return [{"month": r["month"].strftime("%Y-%m"), "count": r["count"]} for r in qs]
+
+
+# ↓↓ 由 DashboardService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _case_status_distribution() -> dict[str, int]:
+    qs = Case.objects.values("status").annotate(count=Count("id"))
+    return {r["status"]: r["count"] for r in qs}
+
+
+# ↓↓ 由 DashboardService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _contract_trend(start: date) -> list[dict[str, Any]]:
+    qs = (
+        Contract.objects.filter(specified_date__gte=start)
+        .annotate(month=TruncMonth("specified_date"))
+        .values("month")
+        .annotate(count=Count("id"))
+        .order_by("month")
+    )
+    return [{"month": r["month"].strftime("%Y-%m"), "count": r["count"]} for r in qs]
+
+
+# ↓↓ 由 DashboardService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _upcoming_reminders(now: datetime) -> list[dict[str, Any]]:
+    from apps.reminders.models import ReminderType
+
+    type_label_map = {k: str(v) for k, v in ReminderType.choices}
+    week_later = now + timedelta(days=7)
+    qs = Reminder.objects.filter(due_at__lte=week_later).order_by("due_at")[:20]
+    result = []
+    for r in qs:
+        result.append(
+            {
+                "id": r.id,
+                "title": r.content,
+                "due_at": r.due_at.isoformat(),
+                "type_label": type_label_map.get(r.reminder_type, ""),
+                "is_overdue": r.due_at < now,
+            }
+        )
+    return result
