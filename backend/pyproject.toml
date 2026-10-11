@@ -5,7 +5,7 @@ description = "法穿SI Copilot - Backend"
 requires-python = ">=3.12"
 dependencies = [
     # --- Django 核心 ---
-    "django==6.1.1",
+    "django==6.1.2",
     "django-cors-headers==4.9.0",
     "django-nested-admin==4.1.6",
     "django-ninja==1.7.1",
