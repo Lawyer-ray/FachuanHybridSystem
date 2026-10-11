@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 _MODULE = "apps.oa_filing.services.filing_attachment_service"
-_HTTP_MODULE = "apps.oa_filing.services.oa_scripts.jtn.filing.http_filing"
 
 
 # ── LegalUp 上传响应解析 ───────────────────────────────────────────
