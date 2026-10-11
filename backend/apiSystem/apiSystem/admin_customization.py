@@ -129,6 +129,7 @@ _HIDDEN_APP_LABELS = {
     "workflow",
     "labor_arbitration",  # 已收纳到「其他工具」
     "social_auth",  # 已收纳到「其他工具」
+    "token_blacklist",  # 已收纳到「其他工具」（ninja_jwt.token_blacklist）
 }
 
 # "其他工具"聚合页应用列表
@@ -173,6 +174,7 @@ _OTHER_TOOLS_APPS = [
     {"app_label": "workflow", "name": _("工作流引擎"), "url": "/admin/workflow/"},
     {"app_label": "labor_arbitration", "name": _("劳动仲裁文书"), "url": "/admin/labor_arbitration/"},
     {"app_label": "social_auth", "name": _("社交登录"), "url": "/admin/social_auth/socialaccount/"},
+    {"app_label": "token_blacklist", "name": _("Token 黑名单"), "url": "/admin/token_blacklist/"},
     {"app_label": "message_hub", "name": _("信息中转站"), "url": "/admin/message_hub/"},
 ]
 
