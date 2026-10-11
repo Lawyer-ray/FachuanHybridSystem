@@ -430,6 +430,9 @@ class TestAsyncMapLegalPosition:
             (SimpleNamespace(legal_status="plaintiff"), "01"),
             (SimpleNamespace(legal_status="defendant"), "02"),
             (SimpleNamespace(legal_status="third"), "09"),
+            # 仲裁地位映射到通用原告/被告位（372 真实形态回归）
+            (SimpleNamespace(legal_status="applicant"), "01"),
+            (SimpleNamespace(legal_status="respondent"), "02"),
             (SimpleNamespace(legal_status=None), "02"),
             (None, "02"),
         ]
@@ -441,5 +444,7 @@ class TestAsyncMapLegalPosition:
             )
             adapter = JTNAdapter("acc", "p")
             contract_party = SimpleNamespace(client_id=5)
-            assert await adapter._async_map_legal_position(contract_party) == expected
-            case_party_model.objects.filter.assert_called_once_with(client_id=5)
+            case = SimpleNamespace(id=9)
+            assert await adapter._async_map_legal_position(contract_party, case) == expected
+            # 必须按本案过滤（修复前不带 case 条件，会误拿该客户在其他案件的地位）
+            case_party_model.objects.filter.assert_called_once_with(case=case, client_id=5)

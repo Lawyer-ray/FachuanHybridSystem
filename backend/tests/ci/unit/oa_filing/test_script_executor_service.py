@@ -197,6 +197,106 @@ class TestMapKindtype:
         assert kind == "" and kind_sed == ""
 
 
+# ──────────── _map_case_stage：劳动仲裁 ────────────
+
+
+class TestMapCaseStageLaborArbitration:
+    def test_labor_arbitration_maps_to_0304(self, adapter):
+        # 372 真实形态：劳动仲裁此前不在映射表，被默认成 0301 一审
+        case = MagicMock(case_type="civil", current_stage="labor_arbitration")
+        assert adapter._map_case_stage(case) == "0304"
+
+
+# ──────────── _map_which_side_value：按阶段映射 ────────────
+
+
+class TestMapWhichSideValue:
+    def test_labor_arbitration_respondent(self, adapter):
+        # 372 真实形态：被申请人在仲裁阶段 → 06，不再默认 01 原告
+        assert adapter._map_which_side_value("respondent", "0304") == "06"
+
+    def test_enforcement_defendant(self, adapter):
+        assert adapter._map_which_side_value("defendant", "0314") == "06"
+
+    def test_enforcement_plaintiff_cross_to_applicant(self, adapter):
+        assert adapter._map_which_side_value("plaintiff", "0314") == "05"
+
+    def test_first_trial_respondent_cross_to_defendant(self, adapter):
+        assert adapter._map_which_side_value("respondent", "0301") == "02"
+
+    def test_second_trial_appellant(self, adapter):
+        assert adapter._map_which_side_value("appellant", "0305") == "03"
+
+    def test_appellant_at_special_stage_cross_to_applicant(self, adapter):
+        assert adapter._map_which_side_value("appellant", "0304") == "05"
+
+    def test_orig_defendant_second_trial(self, adapter):
+        assert adapter._map_which_side_value("orig_defendant", "0305") == "22"
+
+    def test_third(self, adapter):
+        assert adapter._map_which_side_value("third", "0301") == "09"
+
+    def test_unknown_status_falls_back(self, adapter):
+        assert adapter._map_which_side_value("whatever", "0301") == "01"
+        assert adapter._map_which_side_value("", "0304") == "05"  # 05 排序最前
+
+    def test_unknown_stage_defaults_01(self, adapter):
+        assert adapter._map_which_side_value("defendant", "") == "01"
+
+
+# ──────────── _resolve_kindtype_sed：子类匹配 ────────────
+
+
+class TestResolveKindtypeSed:
+    @pytest.mark.asyncio
+    async def test_matches_by_name_core(self, adapter, monkeypatch):
+        options = [
+            {"id": "KindType03_0601", "sc_name": "劳动争议"},
+            {"id": "KindType03_0602", "sc_name": "人事争议"},
+        ]
+
+        async def fake_fetch(kindtype: str):
+            return options
+
+        monkeypatch.setattr(adapter, "_fetch_kindtype_sed_options", fake_fetch)
+        sed = await adapter._resolve_kindtype_sed(kindtype="KindType03_06", cause_text="劳动争议")
+        assert sed == "KindType03_0601"
+
+    @pytest.mark.asyncio
+    async def test_single_option_adopted_directly(self, adapter, monkeypatch):
+        async def fake_fetch(kindtype: str):
+            return [{"id": "KindType02_0101", "sc_name": "常年法律顾问"}]
+
+        monkeypatch.setattr(adapter, "_fetch_kindtype_sed_options", fake_fetch)
+        sed = await adapter._resolve_kindtype_sed(kindtype="KindType02_01", cause_text="随便什么")
+        assert sed == "KindType02_0101"
+
+    @pytest.mark.asyncio
+    async def test_unmatched_multi_option_returns_empty(self, adapter, monkeypatch):
+        async def fake_fetch(kindtype: str):
+            return [
+                {"id": "KindType03_0401", "sc_name": "合同纠纷"},
+                {"id": "KindType03_0402", "sc_name": "不当得利纠纷"},
+                {"id": "KindType03_0403", "sc_name": "无因管理纠纷"},
+            ]
+
+        monkeypatch.setattr(adapter, "_fetch_kindtype_sed_options", fake_fetch)
+        sed = await adapter._resolve_kindtype_sed(kindtype="KindType03_04", cause_text="申请宣告失踪案")
+        assert sed == ""
+
+    @pytest.mark.asyncio
+    async def test_empty_kindtype_returns_empty(self, adapter):
+        assert await adapter._resolve_kindtype_sed(kindtype="", cause_text="合同") == ""
+
+    @pytest.mark.asyncio
+    async def test_fetch_failure_returns_empty(self, adapter, monkeypatch):
+        async def fake_fetch(kindtype: str):
+            return []
+
+        monkeypatch.setattr(adapter, "_fetch_kindtype_sed_options", fake_fetch)
+        assert await adapter._resolve_kindtype_sed(kindtype="KindType03_04", cause_text="合同纠纷") == ""
+
+
 # ──────────── _map_case_contact ────────────
 
 

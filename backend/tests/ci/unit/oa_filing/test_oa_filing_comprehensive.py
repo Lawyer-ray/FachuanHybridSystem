@@ -195,7 +195,7 @@ class TestJTNAdapter:
 
             contract_party = MagicMock()
             contract_party.client_id = 1
-            assert await svc._async_map_legal_position(contract_party) == "01"
+            assert await svc._async_map_legal_position(contract_party, MagicMock()) == "01"
 
     @pytest.mark.asyncio
     async def test_map_legal_position_default(self) -> None:
@@ -207,7 +207,7 @@ class TestJTNAdapter:
 
             contract_party = MagicMock()
             contract_party.client_id = 1
-            assert await svc._async_map_legal_position(contract_party) == "02"
+            assert await svc._async_map_legal_position(contract_party, MagicMock()) == "02"
 
 
 # ── import_session_service ─────────────────────────────────────────────────

@@ -25,6 +25,11 @@ _LEGALUP_UPLOAD_PARAMS = {
     "suffix": "",
 }
 
+# 业务种类/子类级联选项端点（legalpro.getKind → ProCategoryGetList）：
+# level=1&pid=<category> 取业务种类（id 形如 KindType03_04），
+# level=2&pid=<kindtype> 取业务子类（id 形如 KindType03_0401）
+_PRO_CATEGORY_LIST_URL = "https://ims.jtn.com/Handle/ProjectAppHandler.ashx/ProCategoryGetList"
+
 # ============================================================
 # XPath
 # ============================================================
