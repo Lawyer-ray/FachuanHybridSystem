@@ -37,6 +37,104 @@ from apps.oa_filing.services.exceptions import ScriptExecutionError
 
 logger = logging.getLogger("apps.oa_filing.jtn_adapter")
 
+# 民事（category=03）案由关键词 → 业务种类 KindType03_xx。
+# 选项清单取自 OA 立案草稿页服务端渲染的 kindtype 下拉（2026-10-11 实测，
+# 共 10 类：01人格权 02婚姻家庭继承 03物权 04合同无因管理不当得利 05知产竞争
+# 06劳动人事 07海事海商 08公司证券保险票据 09侵权责任 10特殊程序）。
+# 顺序即优先级：具体类别在前，"合同/协议"等泛化词殿后；刻意不用裸"公司"等
+# 常见于当事人名称的关键词（案由缺失时用案件/合同名称兜底匹配，防误判）。
+_CIVIL_KINDTYPE_RULES: tuple[tuple[str, str], ...] = (
+    ("劳动", "KindType03_06"),
+    ("人事争议", "KindType03_06"),
+    ("工伤", "KindType03_06"),
+    ("社会保险", "KindType03_06"),
+    ("竞业限制", "KindType03_06"),
+    ("知识产权", "KindType03_05"),
+    ("专利", "KindType03_05"),
+    ("商标", "KindType03_05"),
+    ("著作权", "KindType03_05"),
+    ("版权", "KindType03_05"),
+    ("商业秘密", "KindType03_05"),
+    ("不正当竞争", "KindType03_05"),
+    ("垄断", "KindType03_05"),
+    ("股权", "KindType03_08"),
+    ("股东", "KindType03_08"),
+    ("公司决议", "KindType03_08"),
+    ("公司盈余", "KindType03_08"),
+    ("损害公司利益", "KindType03_08"),
+    ("证券", "KindType03_08"),
+    ("票据", "KindType03_08"),
+    ("保险", "KindType03_08"),
+    ("合伙", "KindType03_08"),
+    ("清算", "KindType03_08"),
+    ("破产", "KindType03_08"),
+    ("婚姻", "KindType03_02"),
+    ("离婚", "KindType03_02"),
+    ("继承", "KindType03_02"),
+    ("抚养", "KindType03_02"),
+    ("赡养", "KindType03_02"),
+    ("扶养", "KindType03_02"),
+    ("收养", "KindType03_02"),
+    ("分家析产", "KindType03_02"),
+    ("物权", "KindType03_03"),
+    ("所有权", "KindType03_03"),
+    ("相邻", "KindType03_03"),
+    ("共有", "KindType03_03"),
+    ("返还原物", "KindType03_03"),
+    ("排除妨害", "KindType03_03"),
+    ("建筑物区分", "KindType03_03"),
+    ("抵押权", "KindType03_03"),
+    ("质权", "KindType03_03"),
+    ("留置权", "KindType03_03"),
+    ("地役权", "KindType03_03"),
+    ("宅基地", "KindType03_03"),
+    ("土地承包", "KindType03_03"),
+    ("海事", "KindType03_07"),
+    ("海商", "KindType03_07"),
+    ("船舶", "KindType03_07"),
+    ("港口", "KindType03_07"),
+    ("侵权", "KindType03_09"),
+    ("交通事故", "KindType03_09"),
+    ("机动车", "KindType03_09"),
+    ("产品责任", "KindType03_09"),
+    ("损害赔偿", "KindType03_09"),
+    ("生命权", "KindType03_09"),
+    ("健康权", "KindType03_09"),
+    ("身体权", "KindType03_09"),
+    ("医疗损害", "KindType03_09"),
+    ("医疗事故", "KindType03_09"),
+    ("环境污染", "KindType03_09"),
+    ("生态破坏", "KindType03_09"),
+    ("饲养动物", "KindType03_09"),
+    ("高空抛物", "KindType03_09"),
+    ("物件损害", "KindType03_09"),
+    ("安全保障义务", "KindType03_09"),
+    ("人格权", "KindType03_01"),
+    ("名誉权", "KindType03_01"),
+    ("肖像权", "KindType03_01"),
+    ("姓名权", "KindType03_01"),
+    ("荣誉权", "KindType03_01"),
+    ("隐私", "KindType03_01"),
+    ("个人信息", "KindType03_01"),
+    ("合同", "KindType03_04"),
+    ("协议", "KindType03_04"),
+    ("无因管理", "KindType03_04"),
+    ("不当得利", "KindType03_04"),
+    ("债权", "KindType03_04"),
+    ("债务", "KindType03_04"),
+    ("借款", "KindType03_04"),
+    ("买卖", "KindType03_04"),
+    ("租赁", "KindType03_04"),
+    ("建设工程", "KindType03_04"),
+    ("装修", "KindType03_04"),
+    ("赠与", "KindType03_04"),
+    ("保管", "KindType03_04"),
+    ("运输", "KindType03_04"),
+    ("委托", "KindType03_04"),
+    ("服务", "KindType03_04"),
+    ("保证", "KindType03_04"),
+)
+
 
 class JTNAdapter(
     FilingAdapter,
@@ -143,13 +241,17 @@ class JTNAdapter(
             stage = self._map_case_stage(case)
             which_side = await self._async_map_which_side(case, contract_id)
             start_date = str(case.start_date) if case.start_date else ""
+            # 民事案由用于业务种类映射；案由缺失时用案件名称兜底
+            cause_text = str(getattr(case, "cause_of_action", "") or "") or str(getattr(case, "name", "") or "")
         else:
             category = {"advisor": "01", "special": "02"}.get(contract.case_type or "", "01")
             stage = ""
             which_side = "01"
             start_date = str(contract.start_date) if contract.start_date else ""
+            cause_text = str(contract.name or "")
 
-        kindtype, kindtype_sed = self._map_kindtype(category, principal_parties)
+        kindtype, kindtype_sed = self._map_kindtype(category, principal_parties, cause_text=cause_text)
+        contact_name, contact_phone = self._map_case_contact(clients)
 
         case_info = CaseInfo(
             manager_id="",
@@ -163,8 +265,8 @@ class JTNAdapter(
             case_name=contract.name,
             case_desc=contract.name,
             start_date=start_date,
-            contact_name="/",
-            contact_phone="/",
+            contact_name=contact_name,
+            contact_phone=contact_phone,
         )
 
         # ── 对方当事人（利冲） ──
@@ -546,8 +648,17 @@ class JTNAdapter(
         }
         return mapping.get(contract.fee_mode, "01")
 
-    def _map_kindtype(self, category: str, principal_parties: list[Any]) -> tuple[str, str]:
-        """业务种类一级/二级。"""
+    def _map_kindtype(self, category: str, principal_parties: list[Any], cause_text: str = "") -> tuple[str, str]:
+        """业务种类一级/二级。
+
+        民事（03）按案由关键词映射 KindType03_xx（业务子类选项由 OA 级联加载、
+        无法离线枚举，留空由用户在 OA 提交时手选）；非诉（01/02）按委托方类型。
+        """
+        if category == "03":
+            for keyword, code in _CIVIL_KINDTYPE_RULES:
+                if keyword in cause_text:
+                    return code, ""
+            return "", ""
         if category not in ("01", "02"):
             return "", ""
         has_natural = any(
@@ -556,3 +667,15 @@ class JTNAdapter(
         if category == "01":
             return ("KindType01_05", "") if has_natural else ("KindType01_01", "KindType01_0103")
         return ("KindType02_05", "") if has_natural else ("KindType02_01", "")
+
+    @staticmethod
+    def _map_case_contact(clients: list[Any]) -> tuple[str, str]:
+        """客户本案联系人：企业用法定代表人、自然人用本人，缺失回退 "/"。"""
+        if not clients:
+            return "/", "/"
+        first = clients[0]
+        if str(first.client_type) == "natural":
+            contact_name = str(first.name or "")
+        else:
+            contact_name = str(first.legal_representative or first.name or "")
+        return (contact_name or "/", str(first.phone or "") or "/")

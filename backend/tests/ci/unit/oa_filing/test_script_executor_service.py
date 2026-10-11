@@ -172,6 +172,56 @@ class TestMapKindtype:
         assert kind == "KindType02_01"
         assert kind_sed == ""
 
+    def test_civil_with_contract_cause(self, adapter):
+        # 373 真实形态：案由「买卖合同纠纷」→ 合同类
+        kind, kind_sed = adapter._map_kindtype("03", [], cause_text="买卖合同纠纷")
+        assert kind == "KindType03_04"
+        assert kind_sed == ""
+
+    def test_civil_specific_beats_generic(self, adapter):
+        # 股权类须赢过泛化的"合同"（股权转让合同纠纷 → 公司类）
+        kind, _ = adapter._map_kindtype("03", [], cause_text="股权转让合同纠纷")
+        assert kind == "KindType03_08"
+        # 劳动须赢过"合同"（劳动合同纠纷 → 劳动类）
+        kind, _ = adapter._map_kindtype("03", [], cause_text="劳动合同纠纷")
+        assert kind == "KindType03_06"
+
+    def test_civil_other_causes(self, adapter):
+        assert adapter._map_kindtype("03", [], cause_text="离婚后财产纠纷")[0] == "KindType03_02"
+        assert adapter._map_kindtype("03", [], cause_text="机动车交通事故责任纠纷")[0] == "KindType03_09"
+        assert adapter._map_kindtype("03", [], cause_text="侵害商标权纠纷")[0] == "KindType03_05"
+        assert adapter._map_kindtype("03", [], cause_text="所有权确认纠纷")[0] == "KindType03_03"
+
+    def test_civil_unmatched_cause_returns_empty(self, adapter):
+        kind, kind_sed = adapter._map_kindtype("03", [], cause_text="申请宣告失踪案")
+        assert kind == "" and kind_sed == ""
+
+
+# ──────────── _map_case_contact ────────────
+
+
+class TestMapCaseContact:
+    def _client(self, **kwargs):
+        info = MagicMock()
+        for key, value in kwargs.items():
+            setattr(info, key, value)
+        return info
+
+    def test_enterprise_uses_legal_representative(self, adapter):
+        client = self._client(client_type="legal", name="某公司", legal_representative="张三", phone="010-123")
+        assert adapter._map_case_contact([client]) == ("张三", "010-123")
+
+    def test_natural_uses_self(self, adapter):
+        client = self._client(client_type="natural", name="李四", legal_representative="", phone="13800000000")
+        assert adapter._map_case_contact([client]) == ("李四", "13800000000")
+
+    def test_enterprise_without_legal_rep_falls_back_to_name(self, adapter):
+        client = self._client(client_type="legal", name="某公司", legal_representative="", phone="")
+        assert adapter._map_case_contact([client]) == ("某公司", "/")
+
+    def test_empty_clients_returns_slash(self, adapter):
+        assert adapter._map_case_contact([]) == ("/", "/")
+
     def test_special_natural_person(self, adapter):
         party = MagicMock()
         party.client = MagicMock(client_type="natural")

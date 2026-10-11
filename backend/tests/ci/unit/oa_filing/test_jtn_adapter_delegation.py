@@ -98,7 +98,13 @@ class TestExecuteFiling:
 
         case_model = MagicMock()
         case_model.objects.aget = AsyncMock(
-            return_value=SimpleNamespace(case_type="civil", current_stage="first_trial", start_date=date(2026, 3, 1))
+            return_value=SimpleNamespace(
+                case_type="civil",
+                current_stage="first_trial",
+                start_date=date(2026, 3, 1),
+                cause_of_action="买卖合同纠纷",
+                name="客户甲执行对方乙买卖合同纠纷一案",
+            )
         )
         contract_model = MagicMock()
         contract_model.objects.aget = AsyncMock(
@@ -158,7 +164,10 @@ class TestExecuteFiling:
         assert case_info.manager_name == "李主办"
         assert case_info.case_name == "法律服务合同"
         assert case_info.start_date == "2026-03-01"
-        assert case_info.contact_name == "/"
+        # 联系人来自委托方（企业 → 法定代表人）；业务种类按案由映射（合同类）
+        assert case_info.contact_name == "张三"
+        assert case_info.contact_phone == "021-63330000"
+        assert case_info.kindtype == "KindType03_04"
         conflict_parties = kwargs["conflict_parties"]
         assert conflict_parties[0].name == "对方乙"
         assert conflict_parties[0].legal_position == "02"
