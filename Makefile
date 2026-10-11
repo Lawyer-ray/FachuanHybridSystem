@@ -50,6 +50,7 @@ publish: ## 发布公网栈（前端构建 + collectstatic，构建即生效）
 	@bash deploy/publish.sh
 
 prod-restart: ## 重启公网后端 gunicorn + qcluster（发布后端代码后执行）
+	@bash scripts/ensure_postgres.sh
 	@launchctl kickstart -k gui/$(shell id -u)/com.user.fachuan-gunicorn
 	@launchctl kickstart -k gui/$(shell id -u)/com.user.fachuan-qcluster
 	@echo "$(GREEN)✓ gunicorn + qcluster 已重启$(NC)"
@@ -61,6 +62,7 @@ stop: ## 停止公网栈三服务（停后 app.xlaw.top 返回 502；重启 Mac 
 	@echo "$(YELLOW)公网栈已停止。注意：直接 kill 进程会被 KeepAlive 立即拉活，停止必须用本命令（bootout 注销）$(NC)"
 
 start: ## 启动公网栈三服务（plist 未安装时先跑 bash deploy/install.sh）
+	@bash scripts/ensure_postgres.sh
 	@for svc in nginx gunicorn qcluster; do \
 		launchctl bootstrap gui/$(shell id -u) $(HOME)/Library/LaunchAgents/com.user.fachuan-$$svc.plist 2>/dev/null && echo "✓ 已启动 $$svc" || echo "- $$svc 启动失败或已在运行，检查: launchctl list | grep fachuan"; \
 	done
