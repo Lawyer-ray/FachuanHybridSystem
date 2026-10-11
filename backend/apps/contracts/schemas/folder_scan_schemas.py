@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from ninja import Schema
 
 
@@ -50,6 +52,7 @@ class ContractFolderScanCandidateOut(Schema):
     is_docx: bool = False
     skip_reason: str = ""
     already_imported: bool = False
+    classified_by: str = ""
 
 
 class ArchiveItemOptionOut(Schema):
@@ -73,6 +76,18 @@ class ContractFolderScanStatusOut(Schema):
     archive_category: str = ""
     archive_item_options: list[ArchiveItemOptionOut] = []
     work_log_suggestions: list[WorkLogSuggestionOut] = []
+    ai_classify_result: dict[str, Any] = {}
+
+
+class ContractFolderScanAIClassifyIn(Schema):
+    model_id: str = ""
+    scope: str = "unmatched"
+
+
+class ContractFolderScanAIClassifyOut(Schema):
+    session_id: str
+    status: str
+    task_id: str = ""
 
 
 class ContractFolderScanConfirmItemIn(Schema):
@@ -104,6 +119,8 @@ __all__ = [
     "ArchiveItemOptionOut",
     "WorkLogSuggestionOut",
     "ContractFolderScanStatusOut",
+    "ContractFolderScanAIClassifyIn",
+    "ContractFolderScanAIClassifyOut",
     "ContractFolderScanConfirmItemIn",
     "ContractFolderScanConfirmIn",
     "ContractFolderScanConfirmOut",

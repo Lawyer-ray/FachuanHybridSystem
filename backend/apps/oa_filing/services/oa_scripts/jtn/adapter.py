@@ -37,6 +37,206 @@ from apps.oa_filing.services.exceptions import ScriptExecutionError
 
 logger = logging.getLogger("apps.oa_filing.jtn_adapter")
 
+# OA「代理何方」选项随案件阶段变化（WhichSideGetList 逐阶段实测枚举，2026-10-11）：
+# 一审族（0301/0306/0311/0312/0313）= 01原告/02被告/09第三人；
+# 二审再审族（0302/0303/0305/0307）= 03上诉人/04被上诉人/21原审原告/22原审被告/23原审第三人；
+# 仲裁执行申诉族（0304/0308/0309/0314）= 05申请人/06被申请人；
+# 0310 申请再审=再审族+申请人族混合；0315 全量；06/07 仲裁/涉外=05/06/09。
+_WHICH_SIDE_OPTIONS_BY_STAGE: dict[str, frozenset[str]] = {
+    "0301": frozenset({"01", "02", "09"}),
+    "0302": frozenset({"03", "04", "21", "22", "23"}),
+    "0303": frozenset({"03", "04", "21", "22", "23"}),
+    "0304": frozenset({"05", "06"}),
+    "0305": frozenset({"03", "04", "21", "22", "23"}),
+    "0306": frozenset({"01", "02", "09"}),
+    "0307": frozenset({"03", "04", "21", "22", "23"}),
+    "0308": frozenset({"05", "06"}),
+    "0309": frozenset({"05", "06"}),
+    "0310": frozenset({"05", "06", "21", "22", "23"}),
+    "0311": frozenset({"01", "02", "09"}),
+    "0312": frozenset({"01", "02", "09"}),
+    "0313": frozenset({"01", "02", "09"}),
+    "0314": frozenset({"05", "06"}),
+    "0315": frozenset({"01", "02", "03", "04", "05", "06", "09", "21", "22", "23"}),
+    "06": frozenset({"05", "06", "09"}),
+    "07": frozenset({"05", "06", "09"}),
+}
+
+# 诉讼地位 → (诉讼族值, 特别程序族值)：两族互为同义（原告↔申请人、被告↔被申请人），
+# 先取本族、无效时取另一族，保证「劳动仲裁被申请人不会被填成一审原告」这类错位
+_WHICH_SIDE_BY_STATUS: dict[str, tuple[str, str]] = {
+    "plaintiff": ("01", "05"),
+    "defendant": ("02", "06"),
+    "third": ("09", "09"),
+    "applicant": ("01", "05"),
+    "respondent": ("02", "06"),
+    "appellant": ("03", "05"),
+    "appellee": ("04", "06"),
+    "orig_plaintiff": ("21", "05"),
+    "orig_defendant": ("22", "06"),
+    "orig_third": ("23", "09"),
+}
+
+# 利冲表「法律地位」取值（通用原告/被告/第三人标签，与阶段无关的保守映射）
+_CONFLICT_RELATION_BY_STATUS: dict[str, str] = {
+    "plaintiff": "01",
+    "defendant": "02",
+    "third": "09",
+    "applicant": "01",
+    "respondent": "02",
+    "appellant": "03",
+    "appellee": "04",
+    "orig_plaintiff": "21",
+    "orig_defendant": "22",
+    "orig_third": "23",
+}
+
+
+# ── 模块级函数（Service 层禁止静态方法装饰器，棘轮 test_four_layer_architecture 把关） ──
+
+
+async def resolve_filing_attachments_safe(contract_id: int) -> list[str]:
+    """解析立案合同附件（材料优先 → 绑定文件夹），失败不阻断立案。"""
+    from asgiref.sync import sync_to_async
+
+    from apps.oa_filing.services.filing_attachment_service import resolve_filing_attachments
+
+    try:
+        return await sync_to_async(resolve_filing_attachments, thread_sensitive=False)(contract_id)
+    except Exception:
+        logger.exception("立案附件解析失败（按无附件继续）: contract=%s", contract_id)
+        return []
+
+
+def map_which_side_value(legal_status: str, stage: str) -> str:
+    """诉讼地位 + 案件阶段 → OA 代理何方值。
+
+    OA 的选项随阶段变化（执行/仲裁是 05申请人/06被申请人，不是 01/02），
+    顺序：本族值 → 同义族值 → 该阶段含 01 用 01 → 最小可用值。
+    """
+    options = _WHICH_SIDE_OPTIONS_BY_STAGE.get(stage, frozenset())
+    litigation, special = _WHICH_SIDE_BY_STATUS.get(str(legal_status or ""), ("", ""))
+    if options:
+        if litigation in options:
+            return litigation
+        if special in options:
+            return special
+        if "01" in options:
+            return "01"
+        return sorted(options)[0]
+    return "01"
+
+
+def map_case_contact(clients: list[Any]) -> tuple[str, str]:
+    """客户本案联系人：企业用法定代表人、自然人用本人，缺失回退 "/"。"""
+    if not clients:
+        return "/", "/"
+    first = clients[0]
+    if str(first.client_type) == "natural":
+        contact_name = str(first.name or "")
+    else:
+        contact_name = str(first.legal_representative or first.name or "")
+    return (contact_name or "/", str(first.phone or "") or "/")
+
+
+# 民事（category=03）案由关键词 → 业务种类 KindType03_xx。
+# 选项清单取自 OA 立案草稿页服务端渲染的 kindtype 下拉（2026-10-11 实测，
+# 共 10 类：01人格权 02婚姻家庭继承 03物权 04合同无因管理不当得利 05知产竞争
+# 06劳动人事 07海事海商 08公司证券保险票据 09侵权责任 10特殊程序）。
+# 顺序即优先级：具体类别在前，"合同/协议"等泛化词殿后；刻意不用裸"公司"等
+# 常见于当事人名称的关键词（案由缺失时用案件/合同名称兜底匹配，防误判）。
+_CIVIL_KINDTYPE_RULES: tuple[tuple[str, str], ...] = (
+    ("劳动", "KindType03_06"),
+    ("人事争议", "KindType03_06"),
+    ("工伤", "KindType03_06"),
+    ("社会保险", "KindType03_06"),
+    ("竞业限制", "KindType03_06"),
+    ("知识产权", "KindType03_05"),
+    ("专利", "KindType03_05"),
+    ("商标", "KindType03_05"),
+    ("著作权", "KindType03_05"),
+    ("版权", "KindType03_05"),
+    ("商业秘密", "KindType03_05"),
+    ("不正当竞争", "KindType03_05"),
+    ("垄断", "KindType03_05"),
+    ("股权", "KindType03_08"),
+    ("股东", "KindType03_08"),
+    ("公司决议", "KindType03_08"),
+    ("公司盈余", "KindType03_08"),
+    ("损害公司利益", "KindType03_08"),
+    ("证券", "KindType03_08"),
+    ("票据", "KindType03_08"),
+    ("保险", "KindType03_08"),
+    ("合伙", "KindType03_08"),
+    ("清算", "KindType03_08"),
+    ("破产", "KindType03_08"),
+    ("婚姻", "KindType03_02"),
+    ("离婚", "KindType03_02"),
+    ("继承", "KindType03_02"),
+    ("抚养", "KindType03_02"),
+    ("赡养", "KindType03_02"),
+    ("扶养", "KindType03_02"),
+    ("收养", "KindType03_02"),
+    ("分家析产", "KindType03_02"),
+    ("物权", "KindType03_03"),
+    ("所有权", "KindType03_03"),
+    ("相邻", "KindType03_03"),
+    ("共有", "KindType03_03"),
+    ("返还原物", "KindType03_03"),
+    ("排除妨害", "KindType03_03"),
+    ("建筑物区分", "KindType03_03"),
+    ("抵押权", "KindType03_03"),
+    ("质权", "KindType03_03"),
+    ("留置权", "KindType03_03"),
+    ("地役权", "KindType03_03"),
+    ("宅基地", "KindType03_03"),
+    ("土地承包", "KindType03_03"),
+    ("海事", "KindType03_07"),
+    ("海商", "KindType03_07"),
+    ("船舶", "KindType03_07"),
+    ("港口", "KindType03_07"),
+    ("侵权", "KindType03_09"),
+    ("交通事故", "KindType03_09"),
+    ("机动车", "KindType03_09"),
+    ("产品责任", "KindType03_09"),
+    ("损害赔偿", "KindType03_09"),
+    ("生命权", "KindType03_09"),
+    ("健康权", "KindType03_09"),
+    ("身体权", "KindType03_09"),
+    ("医疗损害", "KindType03_09"),
+    ("医疗事故", "KindType03_09"),
+    ("环境污染", "KindType03_09"),
+    ("生态破坏", "KindType03_09"),
+    ("饲养动物", "KindType03_09"),
+    ("高空抛物", "KindType03_09"),
+    ("物件损害", "KindType03_09"),
+    ("安全保障义务", "KindType03_09"),
+    ("人格权", "KindType03_01"),
+    ("名誉权", "KindType03_01"),
+    ("肖像权", "KindType03_01"),
+    ("姓名权", "KindType03_01"),
+    ("荣誉权", "KindType03_01"),
+    ("隐私", "KindType03_01"),
+    ("个人信息", "KindType03_01"),
+    ("合同", "KindType03_04"),
+    ("协议", "KindType03_04"),
+    ("无因管理", "KindType03_04"),
+    ("不当得利", "KindType03_04"),
+    ("债权", "KindType03_04"),
+    ("债务", "KindType03_04"),
+    ("借款", "KindType03_04"),
+    ("买卖", "KindType03_04"),
+    ("租赁", "KindType03_04"),
+    ("建设工程", "KindType03_04"),
+    ("装修", "KindType03_04"),
+    ("赠与", "KindType03_04"),
+    ("保管", "KindType03_04"),
+    ("运输", "KindType03_04"),
+    ("委托", "KindType03_04"),
+    ("服务", "KindType03_04"),
+    ("保证", "KindType03_04"),
+)
+
 
 class JTNAdapter(
     FilingAdapter,
@@ -124,19 +324,26 @@ class JTNAdapter(
         # ── 案件信息 ──
         contract = await contract_model.objects.aget(pk=contract_id)
 
+        case: Any = None
         if case_id is not None:
             case = await case_model.objects.aget(pk=case_id)
             category = self._map_case_category(case)
             stage = self._map_case_stage(case)
             which_side = await self._async_map_which_side(case, contract_id)
             start_date = str(case.start_date) if case.start_date else ""
+            # 民事案由用于业务种类映射；案由缺失时用案件名称兜底
+            cause_text = str(getattr(case, "cause_of_action", "") or "") or str(getattr(case, "name", "") or "")
         else:
             category = {"advisor": "01", "special": "02"}.get(contract.case_type or "", "01")
             stage = ""
             which_side = "01"
             start_date = str(contract.start_date) if contract.start_date else ""
+            cause_text = str(contract.name or "")
 
-        kindtype, kindtype_sed = self._map_kindtype(category, principal_parties)
+        kindtype, kindtype_sed = self._map_kindtype(category, principal_parties, cause_text=cause_text)
+        if kindtype and not kindtype_sed:
+            kindtype_sed = await self._resolve_kindtype_sed(kindtype=kindtype, cause_text=cause_text)
+        contact_name, contact_phone = map_case_contact(clients)
 
         case_info = CaseInfo(
             manager_id="",
@@ -150,8 +357,8 @@ class JTNAdapter(
             case_name=contract.name,
             case_desc=contract.name,
             start_date=start_date,
-            contact_name="/",
-            contact_phone="/",
+            contact_name=contact_name,
+            contact_phone=contact_phone,
         )
 
         # ── 对方当事人（利冲） ──
@@ -167,7 +374,7 @@ class JTNAdapter(
             conflict_parties.append(
                 ConflictPartyInfo(
                     name=c.name,
-                    legal_position=await self._async_map_legal_position(party),
+                    legal_position=await self._async_map_legal_position(party, case),
                     customer_type="11" if c.client_type == "natural" else "01",
                     id_number=c.id_number,
                 )
@@ -175,6 +382,7 @@ class JTNAdapter(
 
         # ── 合同信息 ──
         stamp_count = len(principal_parties) + 2
+        attachment_paths = await resolve_filing_attachments_safe(contract_id)
         contract_info = ContractInfo(
             rec_type=self._map_fee_mode(contract),
             currency="RMB",
@@ -184,6 +392,7 @@ class JTNAdapter(
             end_date=str(contract.end_date) if contract.end_date else "",
             amount=str(int(contract.fixed_amount)) if contract.fixed_amount else "",
             stamp_count=stamp_count,
+            attachment_paths=attachment_paths,
         )
 
         script = JtnFilingScript(account=self._account, password=self._password)
@@ -453,6 +662,7 @@ class JTNAdapter(
         civil: dict[str | None, str] = {
             "first_trial": "0301",
             "second_trial": "0305",
+            "labor_arbitration": "0304",
             "enforcement": "0314",
             "apply_retrial": "0310",
             "retrial_first": "0313",
@@ -501,7 +711,7 @@ class JTNAdapter(
         return criminal.get(stage, "0503")
 
     async def _async_map_which_side(self, case: Any, contract_id: int) -> str:
-        """从我方当事人诉讼地位推断代理何方。"""
+        """从我方当事人诉讼地位推断代理何方（按阶段映射，见 _WHICH_SIDE_* 注释）。"""
         case_party_model = django_apps.get_model("cases", "CaseParty")
         contract_party_model = django_apps.get_model("contracts", "ContractParty")
         our_client_ids = {
@@ -511,15 +721,14 @@ class JTNAdapter(
             .aiterator()
         }
         party = await case_party_model.objects.filter(case=case, client_id__in=our_client_ids).afirst()
-        mapping = {"plaintiff": "01", "defendant": "02", "third": "09"}
-        return mapping.get(getattr(party, "legal_status", None) or "", "01")
+        return map_which_side_value(getattr(party, "legal_status", None) or "", self._map_case_stage(case))
 
-    async def _async_map_legal_position(self, contract_party: Any) -> str:
-        """对方当事人诉讼地位 → OA 法律地位值。"""
+    async def _async_map_legal_position(self, contract_party: Any, case: Any) -> str:
+        """对方当事人诉讼地位 → OA 法律地位值（限本案当事人的诉讼地位，保守映射）。"""
         case_party_model = django_apps.get_model("cases", "CaseParty")
-        case_party = await case_party_model.objects.filter(client_id=contract_party.client_id).afirst()
-        mapping = {"plaintiff": "01", "defendant": "02", "third": "09"}
-        return mapping.get(getattr(case_party, "legal_status", None) or "", "02")
+        case_party = await case_party_model.objects.filter(case=case, client_id=contract_party.client_id).afirst()
+        status = getattr(case_party, "legal_status", None) or ""
+        return _CONFLICT_RELATION_BY_STATUS.get(status, "02")
 
     def _map_fee_mode(self, contract: Any) -> str:
         """收费模式 → OA rec_type。"""
@@ -531,8 +740,87 @@ class JTNAdapter(
         }
         return mapping.get(contract.fee_mode, "01")
 
-    def _map_kindtype(self, category: str, principal_parties: list[Any]) -> tuple[str, str]:
-        """业务种类一级/二级。"""
+    async def _resolve_kindtype_sed(self, *, kindtype: str, cause_text: str) -> str:
+        """运行时拉取业务子类选项并按案由匹配（ProCategoryGetList level=2）。
+
+        子类清单无法离线枚举（随 OA 数据变动），运行时按 kindtype 拉取后用
+        子类名称（去「纠纷/争议」后缀的核心词）匹配案由文本，长名优先；
+        唯一选项直接采用，多选项未命中返回空串由用户在 OA 手选。
+        失败不阻断立案。
+        """
+        if not kindtype:
+            return ""
+        import re as _re
+
+        data = await self._fetch_kindtype_sed_options(kindtype)
+        if not data:
+            return ""
+        if len(data) == 1:
+            return str(data[0].get("id") or "")
+
+        def _core(name: str) -> str:
+            return _re.sub(r"(纠纷|争议|案件案由)$", "", name) or name
+
+        for item in sorted(data, key=lambda d: len(str(d.get("sc_name") or "")), reverse=True):
+            name = str(item.get("sc_name") or "")
+            if name and (name in cause_text or _core(name) in cause_text):
+                return str(item.get("id") or "")
+        return ""
+
+    async def _fetch_kindtype_sed_options(self, kindtype: str) -> list[dict[str, Any]]:
+        """拉取业务子类选项；网关回调轮次自愈（单 client 内吃 Set-Cookie 重试）。"""
+        from apps.oa_filing.services.oa_scripts.jtn.filing.constants import _PRO_CATEGORY_LIST_URL
+        from apps.oa_filing.services.oa_scripts.jtn.http_session import (
+            build_client,
+            cached_cookies,
+            http_login_cookies,
+            is_login_url,
+            is_sso_gateway_url,
+        )
+
+        cookies = cached_cookies(self._auth)
+        if cookies is None:
+            try:
+                cookies = await http_login_cookies(self._auth)
+            except Exception:
+                return []
+        try:
+            async with build_client(cookies=cookies, timeout=15) as client:
+                # 缓存里可能残留已被网关侧失效的 corplink_at/it（同名共存压过新值
+                # 致回调死循环，case_guid 前置清理先例），先清再请求
+                jar = client.cookies.jar
+                for cookie in [c for c in jar if c.name in ("corplink_at", "corplink_it")]:
+                    jar.clear(cookie.domain, cookie.path, cookie.name)
+                for _round in range(3):
+                    try:
+                        response = await client.post(_PRO_CATEGORY_LIST_URL, data={"level": "2", "pid": kindtype})
+                    except Exception:
+                        return []
+                    if is_sso_gateway_url(response.url) or is_login_url(response.url):
+                        await asyncio.sleep(1)
+                        continue
+                    try:
+                        payload = response.json()
+                    except ValueError:
+                        continue
+                    if isinstance(payload, dict) and isinstance(payload.get("data"), list):
+                        return [item for item in payload["data"] if isinstance(item, dict)]
+                    return []
+        except Exception:
+            logger.warning("业务子类选项拉取失败（留空由用户手选）: kindtype=%s", kindtype, exc_info=True)
+        return []
+
+    def _map_kindtype(self, category: str, principal_parties: list[Any], cause_text: str = "") -> tuple[str, str]:
+        """业务种类一级/二级。
+
+        民事（03）按案由关键词映射 KindType03_xx，二级子类由
+        _resolve_kindtype_sed 运行时拉取匹配；非诉（01/02）按委托方类型。
+        """
+        if category == "03":
+            for keyword, code in _CIVIL_KINDTYPE_RULES:
+                if keyword in cause_text:
+                    return code, ""
+            return "", ""
         if category not in ("01", "02"):
             return "", ""
         has_natural = any(

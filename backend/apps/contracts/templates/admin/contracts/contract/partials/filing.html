@@ -16,6 +16,31 @@
                     <p class="empty-state">{% translate "暂无可用的OA系统配置" %}</p>
                 </div>
                 <div x-show="!loading && configs.length > 0">
+                    <div class="filing-dropzone"
+                         :class="{ 'is-dragover': isDragOver }"
+                         @dragover.prevent="isDragOver = true"
+                         @dragleave.prevent="isDragOver = false"
+                         @drop.prevent="handleAttachmentDrop($event)">
+                        <template x-if="!attachmentResult && !attachmentUploading">
+                            <div class="filing-dropzone-inner" @click="$refs.attachmentInput.click()" style="cursor: pointer;">
+                                <span class="filing-dropzone-title">📎 拖拽合同文件到此处，或点击选择</span>
+                                <span class="filing-dropzone-hint">文件将保存为「合同正本」材料，立案时自动上传至 OA</span>
+                            </div>
+                        </template>
+                        <template x-if="attachmentUploading">
+                            <div class="filing-dropzone-inner"><span class="spinner"></span> 正在保存…</div>
+                        </template>
+                        <template x-if="attachmentResult && !attachmentUploading">
+                            <div class="filing-dropzone-inner">
+                                <span class="filing-dropzone-done">✓ <span x-text="attachmentResult.filename"></span><span
+                                        x-show="attachmentResult.already_exists" style="color: var(--fc-text-muted);">（与已有材料相同）</span></span>
+                                <span class="filing-dropzone-hint">开始立案时将上传此文件</span>
+                            </div>
+                        </template>
+                        <input type="file" x-ref="attachmentInput" style="display: none;"
+                               accept=".pdf,.doc,.docx" @change="handleAttachmentSelect($event)" />
+                    </div>
+                    <p class="filing-attachment-note">未拖拽时，系统将自动使用最新的「合同正本」材料；无材料时从绑定文件夹中查找合同文件（pdf 优先）。</p>
                     <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
                         <label style="font-size: 13px; color: var(--fc-text-secondary); white-space: nowrap;">{% translate "OA系统" %}</label>
                         <select x-model="selectedConfigId"
@@ -61,9 +86,57 @@
             executing: false,
             selectedConfigId: '',
             lastResult: null,
+            isDragOver: false,
+            attachmentUploading: false,
+            attachmentResult: null,
 
             async init() {
                 await this.loadConfigs();
+            },
+
+            handleAttachmentDrop(event) {
+                this.isDragOver = false;
+                const files = event.dataTransfer && event.dataTransfer.files;
+                if (!files || !files.length) return;
+                this.uploadAttachment(files[0]);
+            },
+
+            handleAttachmentSelect(event) {
+                const files = event.target.files;
+                if (!files || !files.length) return;
+                this.uploadAttachment(files[0]);
+                event.target.value = '';
+            },
+
+            async uploadAttachment(file) {
+                if (this.attachmentUploading) return;
+                const name = file.name || '';
+                if (!/\.(pdf|docx?|doc)$/i.test(name)) {
+                    this.attachmentResult = null;
+                    alert('仅支持 pdf / doc / docx 文件');
+                    return;
+                }
+                this.attachmentUploading = true;
+                this.attachmentResult = null;
+                try {
+                    const form = new FormData();
+                    form.append('file', file);
+                    const resp = await fetch('/api/v1/oa-filing/attachment?contract_id=' + this.contractId, {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '' },
+                        body: form,
+                    });
+                    const data = await resp.json();
+                    if (!resp.ok) {
+                        throw new Error(data.message || data.detail || '保存失败');
+                    }
+                    this.attachmentResult = data;
+                } catch (e) {
+                    console.error('uploadAttachment error:', e);
+                    alert('合同文件保存失败：' + (e.message || '未知错误'));
+                } finally {
+                    this.attachmentUploading = false;
+                }
             },
 
             async loadConfigs() {
@@ -143,4 +216,32 @@
         };
     }
     </script>
+
+    <style>
+    .filing-dropzone {
+        border: 1.5px dashed var(--fc-border-input, #c4c4c4);
+        border-radius: 8px;
+        padding: 14px 16px;
+        margin-bottom: 8px;
+        transition: border-color .15s ease, background-color .15s ease;
+    }
+    .filing-dropzone.is-dragover {
+        border-color: var(--fc-primary, #1677ff);
+        background: var(--fc-primary-subtle, #e8f3ff);
+    }
+    .filing-dropzone-inner {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 13px;
+    }
+    .filing-dropzone-title { color: var(--fc-text-secondary); }
+    .filing-dropzone-hint { font-size: 12px; color: var(--fc-text-muted); }
+    .filing-dropzone-done { color: var(--fc-success-text, #389e0d); }
+    .filing-attachment-note {
+        font-size: 12px;
+        color: var(--fc-text-muted);
+        margin: 0 0 12px;
+    }
+    </style>
 </div>

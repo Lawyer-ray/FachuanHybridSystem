@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 def _gender_from_id_number(id_number: str) -> str:
@@ -84,6 +84,8 @@ class ContractInfo:
     end_date: str = ""
     amount: str = ""
     stamp_count: int = 3  # 预盖章份数，默认 3（1人+2）
+    # 合同附件本地路径（委托合同信息 Tab 必填项），空列表表示不上传
+    attachment_paths: list[str] = field(default_factory=list)
 
 
 @dataclass

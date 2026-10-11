@@ -45,8 +45,52 @@
         archiveItemOptions: [],
         workLogSuggestions: [],
 
+        // AI 分类相关
+        aiModels: [],
+        aiModelId: '',
+        isLoadingAIModels: false,
+        aiClassifyResult: {},
+
         get selectedCount() {
           return (this.scanCandidates || []).filter((item) => item.selected).length;
+        },
+
+        get visibleCandidates() {
+          return (this.scanCandidates || []).filter((item) => !item.skip_reason);
+        },
+
+        get unmatchedCount() {
+          return this.visibleCandidates.filter(
+            (item) => item.category === 'case_material' && !item.archive_item_code
+          ).length;
+        },
+
+        get showAIClassify() {
+          return (
+            !this.isScanning &&
+            Boolean(this.scanSessionId) &&
+            this.scanStatus === 'completed' &&
+            this.visibleCandidates.length > 0
+          );
+        },
+
+        get isAIClassifying() {
+          return this.isScanning && this.scanStatus === 'classifying';
+        },
+
+        get aiClassifyLabel() {
+          const count = this.unmatchedCount;
+          return count > 0 ? 'AI 分类未匹配项（' + count + '）' : 'AI 分类未匹配项';
+        },
+
+        get aiClassifySummaryText() {
+          const result = this.aiClassifyResult || {};
+          if (!result || !result.targets) return '';
+          const parts = ['成功 ' + (result.classified || 0)];
+          if (result.invalid) parts.push('无法判定 ' + result.invalid);
+          if (result.llm_failed) parts.push('调用失败 ' + result.llm_failed);
+          const model = result.model ? '（模型：' + result.model + '）' : '';
+          return 'AI 分类完成：' + parts.join(' / ') + model;
         },
 
         get scanStatusText() {
@@ -83,6 +127,7 @@
           this.isOpen = true;
           this.scanError = '';
           this.loadSubfolders(false);
+          this.loadAIModels();
           if (this.scanSessionId) {
             this.fetchStatus(true);
           } else {
@@ -113,6 +158,7 @@
                   content: item.content || '',
                 }))
               : [];
+            this.aiClassifyResult = (data && data.ai_classify_result) || {};
             this.isScanning = ['pending', 'running', 'classifying'].includes(this.scanStatus);
             if (this.isScanning) {
               this.fetchStatus(true);
@@ -203,6 +249,57 @@
           return payload;
         },
 
+        async loadAIModels() {
+          if (this.aiModels.length || this.isLoadingAIModels) return;
+          this.isLoadingAIModels = true;
+          try {
+            const resp = await fetch('/api/v1/llm/models', {
+              headers: { 'X-CSRFToken': getCsrfToken() },
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (resp.ok && Array.isArray(data.models)) {
+              this.aiModels = data.models;
+            }
+          } catch (_e) {
+            // 静默忽略：仅影响模型下拉，默认模型仍可用
+          } finally {
+            this.isLoadingAIModels = false;
+          }
+        },
+
+        async startAIClassify() {
+          if (!this.scanSessionId || this.isScanning) return;
+          this.scanError = '';
+          this.isScanning = true;
+          this.scanStatus = 'classifying';
+          this.clearPoll();
+          try {
+            const resp = await fetch(
+              `/api/v1/contracts/${this.contractId}/folder-scan/${this.scanSessionId}/ai-classify`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-CSRFToken': getCsrfToken(),
+                },
+                body: JSON.stringify({
+                  model_id: this.aiModelId || '',
+                  scope: 'unmatched',
+                }),
+              }
+            );
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) {
+              throw new Error(data.message || data.detail || this.texts.aiClassifyFailed || 'AI 分类发起失败');
+            }
+            this.fetchStatus(true);
+          } catch (err) {
+            this.isScanning = false;
+            this.scanStatus = 'failed';
+            this.scanError = (err && err.message) || (this.texts.aiClassifyFailed || 'AI 分类发起失败');
+          }
+        },
+
         async startScan(rescan) {
           if (this.isScanning) return;
           this.scanError = '';
@@ -218,6 +315,7 @@
           this.archiveCategory = '';
           this.archiveItemOptions = [];
           this.workLogSuggestions = [];
+          this.aiClassifyResult = {};
           this.clearPoll();
 
           fetch(`/api/v1/contracts/${this.contractId}/folder-scan`, {
@@ -281,6 +379,7 @@
                     content: item.content || '',
                   }))
                 : [];
+              this.aiClassifyResult = (data && data.ai_classify_result) || {};
 
               this.isScanning = ['pending', 'running', 'classifying'].includes(this.scanStatus);
               if (keepPolling && this.isScanning) {
@@ -322,6 +421,7 @@
               is_docx: candidate.is_docx || false,
               skip_reason: candidate.skip_reason || '',
               already_imported: candidate.already_imported || false,
+              classified_by: candidate.classified_by || '',
             };
           });
         },

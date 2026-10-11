@@ -198,6 +198,7 @@ class ContractFolderScanService:
             "archive_category": payload.get("archive_category") or "",
             "archive_item_options": payload.get("archive_item_options") or [],
             "work_log_suggestions": payload.get("work_log_suggestions") or [],
+            "ai_classify_result": payload.get("ai_classify_result") or {},
         }
 
     @transaction.atomic

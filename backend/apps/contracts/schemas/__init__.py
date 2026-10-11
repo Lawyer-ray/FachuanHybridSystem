@@ -30,6 +30,8 @@ from .folder_binding_schemas import (
 )
 from .folder_scan_schemas import (
     ArchiveItemOptionOut,
+    ContractFolderScanAIClassifyIn,
+    ContractFolderScanAIClassifyOut,
     ContractFolderScanCandidateOut,
     ContractFolderScanConfirmIn,
     ContractFolderScanConfirmItemIn,
@@ -108,6 +110,8 @@ __all__ = [
     "ContractFolderScanSummaryOut",
     "ContractFolderScanCandidateOut",
     "ContractFolderScanStatusOut",
+    "ContractFolderScanAIClassifyIn",
+    "ContractFolderScanAIClassifyOut",
     "ContractFolderScanConfirmItemIn",
     "ContractFolderScanConfirmIn",
     "ContractFolderScanConfirmOut",
