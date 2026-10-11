@@ -131,8 +131,10 @@ class TestUpdateReminder:
 class TestDeleteReminder:
     def test_success(self, service: ReminderService) -> None:
         reminder = SimpleNamespace(id=1, delete=MagicMock(return_value=(1, {})))
-        with patch.object(service, "get_reminder", return_value=reminder), \
-             patch("django.db.transaction.atomic", MagicMock()):
+        with (
+            patch.object(service, "get_reminder", return_value=reminder),
+            patch("django.db.transaction.atomic", MagicMock()),
+        ):
             service.delete_reminder(1)
             reminder.delete.assert_called_once()
 

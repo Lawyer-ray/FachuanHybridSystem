@@ -14,6 +14,13 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
+from apps.enterprise_data.services.workbench.service import (
+    _mask_payload,
+    _resolve_replay_record,
+    _sample_cache_key,
+    _truncate_data,
+)
+
 
 class TestMcpWorkbenchServiceEnsureSuperuser:
     def _make_svc(self, enforce=True):
@@ -68,14 +75,14 @@ class TestTruncateData:
         from apps.enterprise_data.services.workbench.service import McpWorkbenchService
 
         data = {"key": "value"}
-        result = McpWorkbenchService._truncate_data(data)
+        result = _truncate_data(data)
         assert result == data
 
     def test_large_data_truncated(self):
         from apps.enterprise_data.services.workbench.service import McpWorkbenchService
 
         data = {"key": "x" * 15000}
-        result = McpWorkbenchService._truncate_data(data)
+        result = _truncate_data(data)
         assert result["_truncated"] is True
         assert "preview" in result
         assert "original_length" in result
@@ -83,7 +90,7 @@ class TestTruncateData:
     def test_non_serializable(self):
         from apps.enterprise_data.services.workbench.service import McpWorkbenchService
 
-        result = McpWorkbenchService._truncate_data(object())
+        result = _truncate_data(object())
         assert result is not None
 
 
@@ -91,7 +98,7 @@ class TestSampleCacheKey:
     def test_format(self):
         from apps.enterprise_data.services.workbench.service import McpWorkbenchService
 
-        key = McpWorkbenchService._sample_cache_key(provider="p", tool_name="t")
+        key = _sample_cache_key(provider="p", tool_name="t")
         assert key == "mcp_workbench:sample:p:t"
 
 
@@ -173,7 +180,7 @@ class TestMaskPayload:
 
         with patch("apps.enterprise_data.services.workbench.service.scrub_for_storage") as mock_scrub:
             mock_scrub.return_value = "masked"
-            result = McpWorkbenchService._mask_payload({"key": "value"})
+            result = _mask_payload({"key": "value"})
             mock_scrub.assert_called_once_with({"key": "value"})
             assert result == "masked"
 
@@ -182,8 +189,8 @@ class TestResolveReplayRecord:
     def test_no_id(self):
         from apps.enterprise_data.services.workbench.service import McpWorkbenchService
 
-        assert McpWorkbenchService._resolve_replay_record(replay_of_id=None) is None
-        assert McpWorkbenchService._resolve_replay_record(replay_of_id=0) is None
+        assert _resolve_replay_record(replay_of_id=None) is None
+        assert _resolve_replay_record(replay_of_id=0) is None
 
     def test_valid_id(self):
         from apps.enterprise_data.services.workbench.service import McpWorkbenchService
@@ -191,7 +198,7 @@ class TestResolveReplayRecord:
         record = SimpleNamespace(id=1)
         with patch("apps.enterprise_data.services.workbench.service.McpWorkbenchExecution") as MockExec:
             MockExec.objects.get.return_value = record
-            result = McpWorkbenchService._resolve_replay_record(replay_of_id=1)
+            result = _resolve_replay_record(replay_of_id=1)
             assert result is record
 
     def test_not_found(self):
@@ -200,7 +207,7 @@ class TestResolveReplayRecord:
         with patch("apps.enterprise_data.services.workbench.service.McpWorkbenchExecution") as MockExec:
             MockExec.DoesNotExist = Exception
             MockExec.objects.get.side_effect = MockExec.DoesNotExist
-            result = McpWorkbenchService._resolve_replay_record(replay_of_id=999)
+            result = _resolve_replay_record(replay_of_id=999)
             assert result is None
 
     def test_invalid_type(self):
@@ -209,7 +216,7 @@ class TestResolveReplayRecord:
         with patch("apps.enterprise_data.services.workbench.service.McpWorkbenchExecution") as MockExec:
             MockExec.DoesNotExist = Exception
             MockExec.objects.get.side_effect = TypeError("bad")
-            result = McpWorkbenchService._resolve_replay_record(replay_of_id="abc")
+            result = _resolve_replay_record(replay_of_id="abc")
             assert result is None
 
 

@@ -10,6 +10,7 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -29,6 +30,7 @@ from apps.core.exceptions import BusinessException, ValidationException
 # token_acquisition_history_admin_service.py
 # ============================================================
 
+
 class TestTokenAcquisitionHistoryAdminService:
     """Tests for TokenAcquisitionHistoryAdminService."""
 
@@ -36,6 +38,7 @@ class TestTokenAcquisitionHistoryAdminService:
         from plugins.court_automation.token_admin.token_acquisition_history_admin_service import (
             TokenAcquisitionHistoryAdminService,
         )
+
         return TokenAcquisitionHistoryAdminService()
 
     @pytest.mark.django_db
@@ -65,11 +68,13 @@ class TestTokenAcquisitionHistoryAdminService:
 # court_document_admin_service.py
 # ============================================================
 
+
 class TestCourtDocumentAdminService:
     """Tests for CourtDocumentAdminService."""
 
     def _make_service(self):
         from apps.automation.services.admin.court_document_admin_service import CourtDocumentAdminService
+
         return CourtDocumentAdminService()
 
     @pytest.mark.django_db
@@ -95,11 +100,13 @@ class TestCourtDocumentAdminService:
 # preservation_quote_admin_service.py
 # ============================================================
 
+
 class TestPreservationQuoteAdminService:
     """Tests for PreservationQuoteAdminService."""
 
     def _make_service(self):
         from plugins.court_automation.preservation_quote.admin_service import PreservationQuoteAdminService
+
         return PreservationQuoteAdminService()
 
     @pytest.mark.django_db

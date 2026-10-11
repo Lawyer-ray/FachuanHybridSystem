@@ -38,9 +38,7 @@ class TestLawyerModel:
     def test_str_representation(self) -> None:
         """__str__ 应返回律师姓名"""
         firm = LawFirm.objects.create(name="律师测试律所")
-        lawyer = Lawyer.objects.create_user(
-            username="test_lawyer", real_name="测试律师", law_firm=firm
-        )
+        lawyer = Lawyer.objects.create_user(username="test_lawyer", real_name="测试律师", law_firm=firm)
         assert str(lawyer) == "测试律师"
 
     def test_create_lawyer(self) -> None:
@@ -67,9 +65,7 @@ class TestLawyerModel:
     def test_lawyer_with_teams(self) -> None:
         """律师关联团队"""
         firm = LawFirm.objects.create(name="团队律师律所")
-        lawyer = Lawyer.objects.create_user(
-            username="team_lawyer", real_name="团队律师", law_firm=firm
-        )
+        lawyer = Lawyer.objects.create_user(username="team_lawyer", real_name="团队律师", law_firm=firm)
         team = Team.objects.create(name="律师团队", team_type=TeamType.LAWYER, law_firm=firm)
         lawyer.lawyer_teams.add(team)
         assert lawyer.lawyer_teams.count() == 1
@@ -113,7 +109,10 @@ class TestAccountCredentialModel:
         firm = LawFirm.objects.create(name="凭证测试律所")
         lawyer = Lawyer.objects.create_user(username="cred_lawyer", real_name="凭证律师", law_firm=firm)
         cred = AccountCredential.objects.create(
-            lawyer=lawyer, site_name="test_site", account="test_account", password="test_pass"  # allowlist secret
+            lawyer=lawyer,
+            site_name="test_site",
+            account="test_account",
+            password="test_pass",  # allowlist secret
         )
         assert cred.site_name == "test_site"
         assert cred.account == "test_account"
@@ -137,6 +136,9 @@ class TestAccountCredentialModel:
         firm = LawFirm.objects.create(name="零次律所")
         lawyer = Lawyer.objects.create_user(username="zero_lawyer", real_name="零次律师", law_firm=firm)
         cred = AccountCredential.objects.create(
-            lawyer=lawyer, site_name="zero_site", account="zero_account", password="test_pass"  # allowlist secret
+            lawyer=lawyer,
+            site_name="zero_site",
+            account="zero_account",
+            password="test_pass",  # allowlist secret
         )
         assert cred.success_rate == 0.0

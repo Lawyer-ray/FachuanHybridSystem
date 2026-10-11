@@ -14,22 +14,16 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
 
-from apps.automation.exceptions import (
-    AutoTokenAcquisitionError,
-    LoginFailedError,
-    TokenAcquisitionTimeoutError,
-)
-from apps.automation.usecases.token.auto_login_usecase import (
-    AutoLoginUsecase,
-    RetryConfig,
-)
-from apps.core.exceptions import NetworkError
+from apps.automation.exceptions import AutoTokenAcquisitionError, LoginFailedError, TokenAcquisitionTimeoutError
+from apps.automation.usecases.token.auto_login_usecase import AutoLoginUsecase, RetryConfig
 from apps.core.dto.auth import LoginAttemptResult
 from apps.core.dto.organization import AccountCredentialDTO
+from apps.core.exceptions import NetworkError
 
 _LOGGER_PATCH = "apps.automation.utils.logging.AutomationLogger"
 
@@ -86,10 +80,20 @@ def _make_usecase(
 
 class TestSingleLoginAttemptNetworkKeywords:
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("keyword", [
-        "network", "connection", "timeout", "dns", "socket",
-        "连接", "网络", "超时", "无法访问",
-    ])
+    @pytest.mark.parametrize(
+        "keyword",
+        [
+            "network",
+            "connection",
+            "timeout",
+            "dns",
+            "socket",
+            "连接",
+            "网络",
+            "超时",
+            "无法访问",
+        ],
+    )
     async def test_detects_network_keyword(self, keyword):
         uc = _make_usecase(sync_login_attempt=None)
         uc._sync_login_attempt = MagicMock(side_effect=Exception(f"error {keyword} occurred"))
@@ -241,11 +245,14 @@ class TestCaptchaRetriesLogging:
                 raise ValueError("captcha error")
             return "tok"
 
-        cfg = RetryConfig(max_captcha_retries=3, captcha_retry_delay=0.0, network_retry_delay_base=0.0, max_network_retries=1)
+        cfg = RetryConfig(
+            max_captcha_retries=3, captcha_retry_delay=0.0, network_retry_delay_base=0.0, max_network_retries=1
+        )
 
         def fake_time():
             fake_time.val += 0.1
             return fake_time.val
+
         fake_time.val = 0.0
 
         uc = AutoLoginUsecase(

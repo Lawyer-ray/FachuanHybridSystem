@@ -11,9 +11,9 @@ import pytest
 
 
 class TestHbfyExtractPublicMsgCode:
-
     def _make_scraper(self):
         from apps.automation.services.scraper.scrapers.court_document.hbfy_scraper import HbfyCourtScraper
+
         scraper = HbfyCourtScraper.__new__(HbfyCourtScraper)
         scraper.task = SimpleNamespace(url="", config={})
         return scraper
@@ -29,9 +29,9 @@ class TestHbfyExtractPublicMsgCode:
 
 
 class TestHbfyPublicNeedCaptcha:
-
     def _make_scraper(self):
         from apps.automation.services.scraper.scrapers.court_document.hbfy_scraper import HbfyCourtScraper
+
         return HbfyCourtScraper.__new__(HbfyCourtScraper)
 
     def test_needs_captcha(self):
@@ -48,9 +48,9 @@ class TestHbfyPublicNeedCaptcha:
 
 
 class TestHbfyPublicDocList:
-
     def _make_scraper(self):
         from apps.automation.services.scraper.scrapers.court_document.hbfy_scraper import HbfyCourtScraper
+
         return HbfyCourtScraper.__new__(HbfyCourtScraper)
 
     def test_dict_wrapped_in_list(self):
@@ -70,9 +70,9 @@ class TestHbfyPublicDocList:
 
 
 class TestHbfyPublicHasDownloadableDocs:
-
     def _make_scraper(self):
         from apps.automation.services.scraper.scrapers.court_document.hbfy_scraper import HbfyCourtScraper
+
         return HbfyCourtScraper.__new__(HbfyCourtScraper)
 
     def test_has_download_path(self):
@@ -87,9 +87,9 @@ class TestHbfyPublicHasDownloadableDocs:
 
 
 class TestHbfyExtractAccountCredentials:
-
     def _make_scraper(self):
         from apps.automation.services.scraper.scrapers.court_document.hbfy_scraper import HbfyCourtScraper
+
         return HbfyCourtScraper.__new__(HbfyCourtScraper)
 
     def test_extracts_account_and_password(self):
@@ -107,9 +107,9 @@ class TestHbfyExtractAccountCredentials:
 
 
 class TestHbfySafeFilename:
-
     def _make_scraper(self):
         from apps.automation.services.scraper.scrapers.court_document.hbfy_scraper import HbfyCourtScraper
+
         return HbfyCourtScraper.__new__(HbfyCourtScraper)
 
     def test_removes_special_chars(self):
@@ -125,9 +125,9 @@ class TestHbfySafeFilename:
 
 
 class TestHbfyEncodeUserCode:
-
     def _make_scraper(self):
         from apps.automation.services.scraper.scrapers.court_document.hbfy_scraper import HbfyCourtScraper
+
         return HbfyCourtScraper.__new__(HbfyCourtScraper)
 
     def test_base64_no_padding(self):
@@ -139,9 +139,9 @@ class TestHbfyEncodeUserCode:
 
 
 class TestHbfyExtractDownloadCandidates:
-
     def _make_scraper(self):
         from apps.automation.services.scraper.scrapers.court_document.hbfy_scraper import HbfyCourtScraper
+
         return HbfyCourtScraper.__new__(HbfyCourtScraper)
 
     def test_extracts_download_link(self):
@@ -158,9 +158,9 @@ class TestHbfyExtractDownloadCandidates:
 
 
 class TestHbfyGuessFilename:
-
     def _make_scraper(self):
         from apps.automation.services.scraper.scrapers.court_document.hbfy_scraper import HbfyCourtScraper
+
         scraper = HbfyCourtScraper.__new__(HbfyCourtScraper)
         return scraper
 
@@ -187,9 +187,9 @@ class TestHbfyGuessFilename:
 
 
 class TestHbfyRun:
-
     def test_raises_for_unknown_url(self):
         from apps.automation.services.scraper.scrapers.court_document.hbfy_scraper import HbfyCourtScraper
+
         scraper = HbfyCourtScraper.__new__(HbfyCourtScraper)
         scraper.task = SimpleNamespace(url="http://example.com/unknown")
         with pytest.raises(ValueError, match="不支持"):

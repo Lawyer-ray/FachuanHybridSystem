@@ -3,6 +3,7 @@
 Covers: generate, _get_opposing_parties, _strip_whitespace, format_opposing_party_clause
 (natural person, legal entity, mixed, empty, exception paths).
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -17,6 +18,7 @@ class TestSupplementaryAgreementOpposingServiceGenerate:
         from apps.documents.services.placeholders.supplementary.opposing_service import (
             SupplementaryAgreementOpposingService,
         )
+
         return SupplementaryAgreementOpposingService()
 
     def test_generate_no_agreement(self):
@@ -44,6 +46,7 @@ class TestGetOpposingParties:
         from apps.documents.services.placeholders.supplementary.opposing_service import (
             SupplementaryAgreementOpposingService,
         )
+
         return SupplementaryAgreementOpposingService()
 
     def test_basic(self):
@@ -75,6 +78,7 @@ class TestStripWhitespace:
         from apps.documents.services.placeholders.supplementary.opposing_service import (
             SupplementaryAgreementOpposingService,
         )
+
         return SupplementaryAgreementOpposingService()
 
     def test_normal_text(self):
@@ -108,6 +112,7 @@ class TestFormatOpposingPartyClause:
         from apps.documents.services.placeholders.supplementary.opposing_service import (
             SupplementaryAgreementOpposingService,
         )
+
         return SupplementaryAgreementOpposingService()
 
     def test_empty_list(self):

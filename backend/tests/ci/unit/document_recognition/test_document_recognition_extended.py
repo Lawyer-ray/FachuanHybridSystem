@@ -30,31 +30,19 @@ class TestDocumentClassifier:
         assert confidence == 0.0
 
     def test_parse_classification_response_summons(self):
-        response = {
-            "message": {
-                "content": '{"type": "summons", "confidence": 0.9, "reason": "包含开庭时间"}'
-            }
-        }
+        response = {"message": {"content": '{"type": "summons", "confidence": 0.9, "reason": "包含开庭时间"}'}}
         doc_type, confidence = self.classifier._parse_classification_response(response)
         assert doc_type == DocumentType.SUMMONS
         assert confidence == 0.9
 
     def test_parse_classification_response_execution(self):
-        response = {
-            "message": {
-                "content": '{"type": "execution", "confidence": 0.85, "reason": "执行裁定"}'
-            }
-        }
+        response = {"message": {"content": '{"type": "execution", "confidence": 0.85, "reason": "执行裁定"}'}}
         doc_type, confidence = self.classifier._parse_classification_response(response)
         assert doc_type == DocumentType.EXECUTION_RULING
         assert confidence == 0.85
 
     def test_parse_classification_response_other(self):
-        response = {
-            "message": {
-                "content": '{"type": "other", "confidence": 0.7, "reason": "无法确定"}'
-            }
-        }
+        response = {"message": {"content": '{"type": "other", "confidence": 0.7, "reason": "无法确定"}'}}
         doc_type, confidence = self.classifier._parse_classification_response(response)
         assert doc_type == DocumentType.OTHER
         assert confidence == 0.7
@@ -71,11 +59,7 @@ class TestDocumentClassifier:
         assert doc_type == DocumentType.OTHER
 
     def test_parse_classification_response_confidence_clamped(self):
-        response = {
-            "message": {
-                "content": '{"type": "summons", "confidence": 1.5}'
-            }
-        }
+        response = {"message": {"content": '{"type": "summons", "confidence": 1.5}'}}
         doc_type, confidence = self.classifier._parse_classification_response(response)
         assert confidence <= 1.0
 
@@ -92,9 +76,7 @@ class TestDocumentClassifier:
         assert result == {"type": "summons"}
 
     def test_extract_json_from_response_with_text(self):
-        result = self.classifier._extract_json_from_response(
-            'Here is the result: {"type": "summons"} done'
-        )
+        result = self.classifier._extract_json_from_response('Here is the result: {"type": "summons"} done')
         assert result == {"type": "summons"}
 
     def test_extract_json_from_response_invalid(self):

@@ -1,4 +1,5 @@
 """Coverage tests for litigation_ai, oa_filing, story_viz, pdf_splitting, chat_records, document_recognition, workbench."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -7,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # --- litigation_ai mock_trial ---
+
 
 class TestMockTrialFlowService:
     def test_init(self):
@@ -54,8 +56,18 @@ class TestMockTrialFlowService:
 
         svc = MockTrialFlowService()
         report = {
-            "dispute_focuses": [{"description": "焦点1", "focus_type": "事实", "plaintiff_position": "原告立场", "defendant_position": "被告立场", "burden_of_proof": "原告"}],
-            "evidence_strength_comparison": [{"focus": "焦点1", "plaintiff_strength": "强", "defendant_strength": "弱", "analysis": "分析"}],
+            "dispute_focuses": [
+                {
+                    "description": "焦点1",
+                    "focus_type": "事实",
+                    "plaintiff_position": "原告立场",
+                    "defendant_position": "被告立场",
+                    "burden_of_proof": "原告",
+                }
+            ],
+            "evidence_strength_comparison": [
+                {"focus": "焦点1", "plaintiff_strength": "强", "defendant_strength": "弱", "analysis": "分析"}
+            ],
             "judge_questions": ["问题1"],
             "risk_assessment": "低风险",
             "overall_win_probability": "70%",
@@ -85,6 +97,7 @@ class TestMockTrialFlowService:
 
 # --- adversarial_service ---
 
+
 class TestAdversarialService:
     def test_import(self):
         from apps.litigation_ai.services.mock_trial.adversarial_service import AdversarialTrialService
@@ -93,6 +106,7 @@ class TestAdversarialService:
 
 
 # --- litigation consumers ---
+
 
 class TestLitigationConsumers:
     def test_litigation_consumer_import(self):
@@ -108,6 +122,7 @@ class TestLitigationConsumers:
 
 # --- conversation_flow_service ---
 
+
 class TestConversationFlowService:
     def test_import(self):
         from apps.litigation_ai.services.session.conversation_flow_service import ConversationFlowService
@@ -117,6 +132,7 @@ class TestConversationFlowService:
 
 # --- agent factory ---
 
+
 class TestAgentFactory:
     def test_import(self):
         from apps.litigation_ai.agent.factory import LitigationAgentFactory
@@ -125,6 +141,7 @@ class TestAgentFactory:
 
 
 # --- oa_filing ---
+
 
 class TestOAFiling:
     def test_case_import_service_import(self):
@@ -199,6 +216,7 @@ class TestOAFiling:
 
 # --- story_viz ---
 
+
 class TestStoryViz:
     def test_job_service_import(self):
         from apps.story_viz.services.job_service import StoryAnimationJobService
@@ -207,6 +225,7 @@ class TestStoryViz:
 
 
 # --- pdf_splitting ---
+
 
 class TestPdfSplitting:
     def test_job_service_import(self):
@@ -217,6 +236,7 @@ class TestPdfSplitting:
 
 # --- chat_records ---
 
+
 class TestChatRecords:
     def test_video_frame_extract_service_import(self):
         from apps.chat_records.services.extraction.video_frame_extract_service import VideoFrameExtractService
@@ -226,6 +246,7 @@ class TestChatRecords:
 
 # --- document_recognition ---
 
+
 class TestDocumentRecognition:
     def test_datetime_extraction_mixin_import(self):
         from apps.document_recognition.services._datetime_extraction_mixin import DatetimeExtractionMixin
@@ -234,6 +255,7 @@ class TestDocumentRecognition:
 
 
 # --- workbench ---
+
 
 class TestWorkbench:
     def test_batch_runner_import(self):

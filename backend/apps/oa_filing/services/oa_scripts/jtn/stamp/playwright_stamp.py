@@ -16,6 +16,7 @@ from apps.core.services.browser import (
     create_browser_async,
     create_browser_async_manual,
 )
+from apps.oa_filing.services.oa_scripts.jtn.auth.service import inject_to_context
 
 from ..auth.service import JtnAuthService
 from ..case_dialog import confirm_case_selection, select_case_radio_in_frame
@@ -94,7 +95,7 @@ class PlaywrightStampMixin:  # pragma: no cover
         cached = self._auth.load_cookies()
         if cached:
             logger.info("使用缓存 cookies 登录盖章页面")
-            await JtnAuthService.inject_to_context(context, cached)
+            await inject_to_context(context, cached)
             # 验证 cookies 有效性
             await page.goto(STAMP_PAGE_URL, wait_until="domcontentloaded", timeout=60_000)
             await asyncio.sleep(MEDIUM_WAIT)
@@ -105,7 +106,7 @@ class PlaywrightStampMixin:  # pragma: no cover
 
         # 在当前页面执行 SSO 扫码登录（复用现有浏览器窗口）
         cookies = await self._auth.perform_sso_login(page, context)
-        await JtnAuthService.inject_to_context(context, cookies)
+        await inject_to_context(context, cookies)
 
     # ------------------------------------------------------------------
     # 导航

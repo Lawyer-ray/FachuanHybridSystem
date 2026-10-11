@@ -83,13 +83,16 @@ class TestChatRecordsModules:
 
         assert export_task_service is not None
 
+
 # ---------------------------------------------------------------------------
 # VideoFrameExtractService extended tests
 # ---------------------------------------------------------------------------
 
+
 class TestVideoFrameExtractServiceExtended:
     def _make_service(self):
         from apps.chat_records.services.extraction.video_frame_extract_service import VideoFrameExtractService
+
         return VideoFrameExtractService()
 
     def test_is_path_under_dir_true(self):
@@ -138,12 +141,14 @@ class TestVideoFrameExtractServiceExtended:
 
     def test_ensure_output_pattern_safe_empty_raises(self):
         from apps.core.exceptions import ValidationException
+
         svc = self._make_service()
         with pytest.raises(ValidationException):
             svc._ensure_output_pattern_safe("")
 
     def test_ensure_output_pattern_safe_relative_raises(self):
         from apps.core.exceptions import ValidationException
+
         svc = self._make_service()
         with pytest.raises(ValidationException):
             svc._ensure_output_pattern_safe("relative/path/output.jpg")

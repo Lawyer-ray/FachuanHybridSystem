@@ -7,12 +7,12 @@ Targets remaining uncovered branches:
 - extract_party_names: extractor has no extract method
 - _sanitize_link: mixed trailing punctuation
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
 
 from apps.automation.services.sms.sms_parser_service import SMSParserService
-
 
 # ---------------------------------------------------------------------------
 # parse — extracts case_numbers and party_names
@@ -64,10 +64,7 @@ class TestExtractDownloadLinksRound4:
         assert len(links) >= 1
 
     def test_multiple_different_links(self):
-        content = (
-            "请查收 https://sd.gdcourts.gov.cn/v3/dzsd/ABC123 "
-            "以及 https://sfsdw.court.gov.cn/sfsdw//r/DEF456"
-        )
+        content = "请查收 https://sd.gdcourts.gov.cn/v3/dzsd/ABC123 以及 https://sfsdw.court.gov.cn/sfsdw//r/DEF456"
         links = self.service.extract_download_links(content)
         assert len(links) >= 2
 

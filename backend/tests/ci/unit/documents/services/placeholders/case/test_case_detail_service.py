@@ -4,6 +4,7 @@ Covers: generate, _format_without_cases, _format_with_cases,
 _format_single_case_detail, _format_case_number, _extract_opposing_parties_from_case,
 _extract_cause_of_action, _extract_supervising_authority, _format_target_amount.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -16,6 +17,7 @@ import pytest
 class TestCaseDetailService:
     def _make_service(self):
         from apps.documents.services.placeholders.contract.case_detail_service import CaseDetailService
+
         return CaseDetailService()
 
     def test_generate_empty_contract(self):
@@ -54,6 +56,7 @@ class TestCaseDetailService:
 class TestFormatWithoutCases:
     def _make_service(self):
         from apps.documents.services.placeholders.contract.case_detail_service import CaseDetailService
+
         return CaseDetailService()
 
     def test_basic(self):
@@ -86,6 +89,7 @@ class TestFormatWithoutCases:
 class TestFormatWithCases:
     def _make_service(self):
         from apps.documents.services.placeholders.contract.case_detail_service import CaseDetailService
+
         return CaseDetailService()
 
     def test_empty_cases(self):
@@ -108,6 +112,7 @@ class TestFormatWithCases:
 class TestFormatCaseNumber:
     def _make_service(self):
         from apps.documents.services.placeholders.contract.case_detail_service import CaseDetailService
+
         return CaseDetailService()
 
     def test_one(self):
@@ -126,22 +131,19 @@ class TestFormatCaseNumber:
 class TestExtractOpposingParties:
     def _make_service(self):
         from apps.documents.services.placeholders.contract.case_detail_service import CaseDetailService
+
         return CaseDetailService()
 
     def test_our_client_excluded(self):
         svc = self._make_service()
-        party = SimpleNamespace(
-            client=SimpleNamespace(is_our_client=True, name="张三")
-        )
+        party = SimpleNamespace(client=SimpleNamespace(is_our_client=True, name="张三"))
         case = MagicMock()
         case.parties.all.return_value = [party]
         assert svc._extract_opposing_parties_from_case(case) == []
 
     def test_opposing_client_included(self):
         svc = self._make_service()
-        party = SimpleNamespace(
-            client=SimpleNamespace(is_our_client=False, name="李四")
-        )
+        party = SimpleNamespace(client=SimpleNamespace(is_our_client=False, name="李四"))
         case = MagicMock()
         case.parties.all.return_value = [party]
         assert "李四" in svc._extract_opposing_parties_from_case(case)
@@ -157,6 +159,7 @@ class TestExtractOpposingParties:
 class TestExtractCauseOfAction:
     def _make_service(self):
         from apps.documents.services.placeholders.contract.case_detail_service import CaseDetailService
+
         return CaseDetailService()
 
     def test_with_dash(self):
@@ -179,11 +182,13 @@ class TestExtractCauseOfAction:
 class TestExtractSupervisingAuthority:
     def _make_service(self):
         from apps.documents.services.placeholders.contract.case_detail_service import CaseDetailService
+
         return CaseDetailService()
 
     def test_trial_authority(self):
         svc = self._make_service()
         from apps.core.models.enums import AuthorityType
+
         auth = SimpleNamespace(authority_type=AuthorityType.TRIAL, name="北京仲裁委")
         case = MagicMock()
         case.supervising_authorities.all.return_value = [auth]
@@ -192,6 +197,7 @@ class TestExtractSupervisingAuthority:
     def test_no_trial_authority(self):
         svc = self._make_service()
         from apps.core.models.enums import AuthorityType
+
         auth = SimpleNamespace(authority_type=AuthorityType.INVESTIGATION, name="公安局")
         case = MagicMock()
         case.supervising_authorities.all.return_value = [auth]
@@ -200,6 +206,7 @@ class TestExtractSupervisingAuthority:
     def test_empty_name(self):
         svc = self._make_service()
         from apps.core.models.enums import AuthorityType
+
         auth = SimpleNamespace(authority_type=AuthorityType.TRIAL, name="")
         case = MagicMock()
         case.supervising_authorities.all.return_value = [auth]
@@ -215,6 +222,7 @@ class TestExtractSupervisingAuthority:
 class TestFormatTargetAmount:
     def _make_service(self):
         from apps.documents.services.placeholders.contract.case_detail_service import CaseDetailService
+
         return CaseDetailService()
 
     def test_with_amount(self):
@@ -237,6 +245,7 @@ class TestFormatTargetAmount:
 class TestFormatSingleCaseDetail:
     def _make_service(self):
         from apps.documents.services.placeholders.contract.case_detail_service import CaseDetailService
+
         return CaseDetailService()
 
     def test_basic(self):

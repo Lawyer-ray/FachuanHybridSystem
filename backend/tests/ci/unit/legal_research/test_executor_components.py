@@ -6,9 +6,23 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.legal_research.services.executor_components.intent_mixin import ExecutorIntentMixin
+from apps.legal_research.services.executor_components.intent_mixin import (
+    ExecutorIntentMixin,
+    _contains_any_hint,
+    _dedupe_tokens,
+    _is_location_or_court_token,
+    _looks_like_relation_term,
+    _parse_int_with_bounds,
+    _parse_rule_items,
+    _split_intent_clauses,
+)
 from apps.legal_research.services.executor_components.query_mixin import ExecutorQueryMixin
-from apps.legal_research.services.executor_components.scoring_mixin import ExecutorScoringMixin
+from apps.legal_research.services.executor_components.scoring_mixin import (
+    ExecutorScoringMixin,
+    _keyword_overlap,
+    _normalize_score,
+    _should_rerank,
+)
 
 
 # Combined class for tests that need methods from multiple mixins
@@ -54,9 +68,7 @@ class TestQueryMixinBuildKeywords:
         assert isinstance(result, str)
 
     def test_build_feedback_search_keyword(self):
-        result = _FullExecutor._build_feedback_search_keyword(
-            "买卖合同", "纠纷案", ["价差损失", "违约金"]
-        )
+        result = _FullExecutor._build_feedback_search_keyword("买卖合同", "纠纷案", ["价差损失", "违约金"])
         assert isinstance(result, str)
         assert len(result) > 0
 
@@ -125,9 +137,7 @@ class TestQueryMixinLLMVariants:
         assert result == []
 
     def test_generate_llm_query_variants_short_context(self):
-        result = _FullExecutor._generate_llm_query_variants(
-            keyword="ab", case_summary="cd", model=None, max_variants=2
-        )
+        result = _FullExecutor._generate_llm_query_variants(keyword="ab", case_summary="cd", model=None, max_variants=2)
         assert result == []
 
 
@@ -216,17 +226,20 @@ class TestQueryMixinMergeAndPrefilter:
         assert len(result) <= 2
 
     def test_title_prefilter_empty_hint(self):
-        assert _FullExecutor._title_prefilter(
-            keyword="test", case_summary="test", title_hint="", min_overlap=0.15
-        ) is True
+        assert (
+            _FullExecutor._title_prefilter(keyword="test", case_summary="test", title_hint="", min_overlap=0.15) is True
+        )
 
     def test_title_prefilter_good_overlap(self):
-        assert _FullExecutor._title_prefilter(
-            keyword="买卖合同纠纷",
-            case_summary="赔偿损失",
-            title_hint="买卖合同纠纷一案",
-            min_overlap=0.1,
-        ) is True
+        assert (
+            _FullExecutor._title_prefilter(
+                keyword="买卖合同纠纷",
+                case_summary="赔偿损失",
+                title_hint="买卖合同纠纷一案",
+                min_overlap=0.1,
+            )
+            is True
+        )
 
     def test_title_prefilter_low_overlap(self):
         result = _FullExecutor._title_prefilter(
@@ -245,21 +258,21 @@ class TestScoringMixinNormalization:
     """Score normalization and keyword overlap."""
 
     def test_normalize_score_clamps_high(self):
-        assert ExecutorScoringMixin._normalize_score(1.5) == 1.0
+        assert _normalize_score(1.5) == 1.0
 
     def test_normalize_score_clamps_low(self):
-        assert ExecutorScoringMixin._normalize_score(-0.5) == 0.0
+        assert _normalize_score(-0.5) == 0.0
 
     def test_normalize_score_invalid(self):
-        assert ExecutorScoringMixin._normalize_score(None) == 0.0
-        assert ExecutorScoringMixin._normalize_score("abc") == 0.0
+        assert _normalize_score(None) == 0.0
+        assert _normalize_score("abc") == 0.0
 
     def test_keyword_overlap_basic(self):
         detail = MagicMock()
         detail.title = "买卖合同纠纷判决书"
         detail.case_digest = "原告起诉被告要求赔偿"
         detail.content_text = "本案系买卖合同纠纷"
-        score = ExecutorScoringMixin._keyword_overlap(keyword="买卖合同 纠纷", detail=detail)
+        score = _keyword_overlap(keyword="买卖合同 纠纷", detail=detail)
         assert score > 0
 
     def test_keyword_overlap_no_match(self):
@@ -267,7 +280,7 @@ class TestScoringMixinNormalization:
         detail.title = "无关标题"
         detail.case_digest = "无关内容"
         detail.content_text = ""
-        score = ExecutorScoringMixin._keyword_overlap(keyword="xyz 买卖", detail=detail)
+        score = _keyword_overlap(keyword="xyz 买卖", detail=detail)
         assert isinstance(score, float)
 
 
@@ -279,24 +292,16 @@ class TestScoringMixinThresholds:
         assert 0 < threshold <= ExecutorScoringMixin.COARSE_RECALL_THRESHOLD_CEIL
 
     def test_should_rerank_below_minimum(self):
-        assert ExecutorScoringMixin._should_rerank(
-            coarse_score=0.15, threshold=0.3, rerank_used=0, rerank_budget=10
-        ) is False
+        assert _should_rerank(coarse_score=0.15, threshold=0.3, rerank_used=0, rerank_budget=10) is False
 
     def test_should_rerank_above_threshold(self):
-        assert ExecutorScoringMixin._should_rerank(
-            coarse_score=0.5, threshold=0.3, rerank_used=0, rerank_budget=10
-        ) is True
+        assert _should_rerank(coarse_score=0.5, threshold=0.3, rerank_used=0, rerank_budget=10) is True
 
     def test_should_rerank_within_budget(self):
-        assert ExecutorScoringMixin._should_rerank(
-            coarse_score=0.25, threshold=0.3, rerank_used=0, rerank_budget=10
-        ) is True
+        assert _should_rerank(coarse_score=0.25, threshold=0.3, rerank_used=0, rerank_budget=10) is True
 
     def test_should_rerank_over_budget(self):
-        assert ExecutorScoringMixin._should_rerank(
-            coarse_score=0.25, threshold=0.3, rerank_used=10, rerank_budget=10
-        ) is False
+        assert _should_rerank(coarse_score=0.25, threshold=0.3, rerank_used=10, rerank_budget=10) is False
 
 
 class TestScoringMixinDualReview:
@@ -439,16 +444,16 @@ class TestIntentMixinHelpers:
         assert ExecutorIntentMixin._normalize_relation_term("买卖合同纠纷") == "买卖合同纠纷"
 
     def test_looks_like_relation_term(self):
-        assert ExecutorIntentMixin._looks_like_relation_term("买卖合同纠纷") is True
-        assert ExecutorIntentMixin._looks_like_relation_term("劳动争议") is True
-        assert ExecutorIntentMixin._looks_like_relation_term("赔偿") is False
+        assert _looks_like_relation_term("买卖合同纠纷") is True
+        assert _looks_like_relation_term("劳动争议") is True
+        assert _looks_like_relation_term("赔偿") is False
 
     def test_contains_any_hint(self):
-        assert ExecutorIntentMixin._contains_any_hint("被告违约", ("违约", "逾期")) is True
-        assert ExecutorIntentMixin._contains_any_hint("正常文本", ("违约",)) is False
+        assert _contains_any_hint("被告违约", ("违约", "逾期")) is True
+        assert _contains_any_hint("正常文本", ("违约",)) is False
 
     def test_split_intent_clauses(self):
-        clauses = ExecutorIntentMixin._split_intent_clauses("原告起诉，被告违约。要求赔偿损失")
+        clauses = _split_intent_clauses("原告起诉，被告违约。要求赔偿损失")
         assert isinstance(clauses, list)
         assert len(clauses) > 0
 
@@ -460,16 +465,16 @@ class TestIntentMixinHelpers:
         assert len(result) <= 16
 
     def test_is_location_or_court_token(self):
-        assert ExecutorIntentMixin._is_location_or_court_token("朝阳区法院") is True
-        assert ExecutorIntentMixin._is_location_or_court_token("北京市") is True
-        assert ExecutorIntentMixin._is_location_or_court_token("买卖合同") is False
+        assert _is_location_or_court_token("朝阳区法院") is True
+        assert _is_location_or_court_token("北京市") is True
+        assert _is_location_or_court_token("买卖合同") is False
 
     def test_dedupe_tokens(self):
-        result = ExecutorIntentMixin._dedupe_tokens(["a", "b", "a", "c"], max_tokens=10)
+        result = _dedupe_tokens(["a", "b", "a", "c"], max_tokens=10)
         assert result == ["a", "b", "c"]
 
     def test_dedupe_tokens_max(self):
-        result = ExecutorIntentMixin._dedupe_tokens(["a", "b", "c"], max_tokens=2)
+        result = _dedupe_tokens(["a", "b", "c"], max_tokens=2)
         assert len(result) == 2
 
 
@@ -477,21 +482,21 @@ class TestIntentMixinRuleOverrides:
     """Rule override loading and parsing."""
 
     def test_parse_rule_items_basic(self):
-        result = ExecutorIntentMixin._parse_rule_items("a|b|c", max_items=10, max_len=20)
+        result = _parse_rule_items("a|b|c", max_items=10, max_len=20)
         assert result == ["a", "b", "c"]
 
     def test_parse_rule_items_empty(self):
-        assert ExecutorIntentMixin._parse_rule_items("", max_items=10, max_len=20) == []
+        assert _parse_rule_items("", max_items=10, max_len=20) == []
 
     def test_parse_rule_items_dedup(self):
-        result = ExecutorIntentMixin._parse_rule_items("a|a|b", max_items=10, max_len=20)
+        result = _parse_rule_items("a|a|b", max_items=10, max_len=20)
         assert result == ["a", "b"]
 
     def test_parse_int_with_bounds(self):
-        assert ExecutorIntentMixin._parse_int_with_bounds("5", default=2, min_value=1, max_value=10) == 5
-        assert ExecutorIntentMixin._parse_int_with_bounds("", default=2, min_value=1, max_value=10) == 2
-        assert ExecutorIntentMixin._parse_int_with_bounds("0", default=2, min_value=1, max_value=10) == 1
-        assert ExecutorIntentMixin._parse_int_with_bounds("100", default=2, min_value=1, max_value=10) == 10
+        assert _parse_int_with_bounds("5", default=2, min_value=1, max_value=10) == 5
+        assert _parse_int_with_bounds("", default=2, min_value=1, max_value=10) == 2
+        assert _parse_int_with_bounds("0", default=2, min_value=1, max_value=10) == 1
+        assert _parse_int_with_bounds("100", default=2, min_value=1, max_value=10) == 10
 
     def test_merge_hint_overrides(self):
         result = ExecutorIntentMixin._merge_hint_overrides(("违约", "逾期"), ["拖欠", "违约"])

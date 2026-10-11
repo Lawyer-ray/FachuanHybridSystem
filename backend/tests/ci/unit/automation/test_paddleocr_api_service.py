@@ -14,6 +14,7 @@ class TestLooksLikeJsonNoise:
 
     def _engine(self):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
         return PaddleOCRApiEngine(model="pp_ocrv5")
 
     def test_short_text_not_noise(self):
@@ -44,6 +45,7 @@ class TestEngineProperties:
     @patch("apps.automation.services.ocr.paddleocr_api_service.SystemConfigService")
     def test_model_from_config(self, mock_cls):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
         mock_svc = MagicMock()
         mock_svc.get_value.return_value = "paddleocr_vl"
         mock_cls.return_value = mock_svc
@@ -53,6 +55,7 @@ class TestEngineProperties:
     @patch("apps.automation.services.ocr.paddleocr_api_service.SystemConfigService")
     def test_model_default_pp_ocrv5(self, mock_cls):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
         mock_svc = MagicMock()
         mock_svc.get_value.return_value = None
         mock_cls.return_value = mock_svc
@@ -62,8 +65,11 @@ class TestEngineProperties:
     @patch("apps.automation.services.ocr.paddleocr_api_service.SystemConfigService")
     def test_api_url_ocr_endpoint(self, mock_cls):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
         mock_svc = MagicMock()
-        mock_svc.get_value.side_effect = lambda k, d="": "http://ocr-api.test" if k == "PADDLEOCR_OCR_API_URL" else "pp_ocrv5"
+        mock_svc.get_value.side_effect = lambda k, d="": (
+            "http://ocr-api.test" if k == "PADDLEOCR_OCR_API_URL" else "pp_ocrv5"
+        )
         mock_cls.return_value = mock_svc
         engine = PaddleOCRApiEngine()
         assert engine.api_url == "http://ocr-api.test"
@@ -71,10 +77,13 @@ class TestEngineProperties:
     @patch("apps.automation.services.ocr.paddleocr_api_service.SystemConfigService")
     def test_api_url_vl_endpoint(self, mock_cls):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
         mock_svc = MagicMock()
         mock_svc.get_value.side_effect = lambda k, d="": (
-            "paddleocr_vl" if k == "PADDLEOCR_API_MODEL"
-            else "http://vl-api.test" if k == "PADDLEOCR_VL_API_URL"
+            "paddleocr_vl"
+            if k == "PADDLEOCR_API_MODEL"
+            else "http://vl-api.test"
+            if k == "PADDLEOCR_VL_API_URL"
             else ""
         )
         mock_cls.return_value = mock_svc
@@ -84,10 +93,13 @@ class TestEngineProperties:
     @patch("apps.automation.services.ocr.paddleocr_api_service.SystemConfigService")
     def test_api_url_vl15_endpoint(self, mock_cls):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
         mock_svc = MagicMock()
         mock_svc.get_value.side_effect = lambda k, d="": (
-            "paddleocr_vl_1_5" if k == "PADDLEOCR_API_MODEL"
-            else "http://vl15.test" if k == "PADDLEOCR_VL15_API_URL"
+            "paddleocr_vl_1_5"
+            if k == "PADDLEOCR_API_MODEL"
+            else "http://vl15.test"
+            if k == "PADDLEOCR_VL15_API_URL"
             else ""
         )
         mock_cls.return_value = mock_svc
@@ -97,6 +109,7 @@ class TestEngineProperties:
     @patch("apps.automation.services.ocr.paddleocr_api_service.SystemConfigService")
     def test_api_token(self, mock_cls):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
         mock_svc = MagicMock()
         mock_svc.get_value.side_effect = lambda k, d="": "my-token" if k == "PADDLEOCR_API_TOKEN" else ""
         mock_cls.return_value = mock_svc
@@ -106,6 +119,7 @@ class TestEngineProperties:
     @patch("apps.automation.services.ocr.paddleocr_api_service.SystemConfigService")
     def test_is_configured_true(self, mock_cls):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
         mock_svc = MagicMock()
         mock_svc.get_value.side_effect = lambda k, d="": (
             "http://api" if "URL" in k else "token" if "TOKEN" in k else "pp_ocrv5"
@@ -117,6 +131,7 @@ class TestEngineProperties:
     @patch("apps.automation.services.ocr.paddleocr_api_service.SystemConfigService")
     def test_is_configured_false_no_url(self, mock_cls):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
         mock_svc = MagicMock()
         mock_svc.get_value.side_effect = lambda k, d="": "token" if "TOKEN" in k else ""
         mock_cls.return_value = mock_svc
@@ -126,6 +141,7 @@ class TestEngineProperties:
     @patch("apps.automation.services.ocr.paddleocr_api_service.SystemConfigService")
     def test_is_configured_false_no_token(self, mock_cls):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
         mock_svc = MagicMock()
         mock_svc.get_value.side_effect = lambda k, d="": "http://api" if "URL" in k else ""
         mock_cls.return_value = mock_svc
@@ -138,6 +154,7 @@ class TestCollectTextFragments:
 
     def _engine(self):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
         return PaddleOCRApiEngine(model="pp_ocrv5")
 
     def test_none_returns_empty(self):
@@ -185,6 +202,7 @@ class TestCollectRecTexts:
 
     def _engine(self):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
         return PaddleOCRApiEngine(model="pp_ocrv5")
 
     def test_none_returns_empty(self):
@@ -236,6 +254,7 @@ class TestParseJsonlResponse:
 
     def _engine(self):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
         return PaddleOCRApiEngine(model="pp_ocrv5")
 
     def test_rec_texts_extraction(self):
@@ -295,6 +314,7 @@ class TestParseOcrResponse:
 
     def _engine(self):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
         return PaddleOCRApiEngine(model="pp_ocrv5")
 
     def test_with_rec_texts(self):
@@ -322,6 +342,7 @@ class TestParseLayoutResponse:
 
     def _engine(self):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
         return PaddleOCRApiEngine(model="paddleocr_vl")
 
     def test_markdown_extraction(self):
@@ -341,6 +362,7 @@ class TestParseResponse:
 
     def _engine(self):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
         return PaddleOCRApiEngine(model="pp_ocrv5")
 
     def test_ocr_model(self):
@@ -367,6 +389,7 @@ class TestRecognizeBytesNotConfigured:
     @patch("apps.automation.services.ocr.paddleocr_api_service.SystemConfigService")
     def test_raises_when_not_configured(self, mock_cls):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
         mock_svc = MagicMock()
         mock_svc.get_value.return_value = ""
         mock_cls.return_value = mock_svc
@@ -381,6 +404,7 @@ class TestExtractTextDelegates:
     @patch("apps.automation.services.ocr.paddleocr_api_service.SystemConfigService")
     def test_extract_text_delegates(self, mock_cls):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
         mock_cls.return_value = MagicMock()
         engine = PaddleOCRApiEngine(model="pp_ocrv5")
         with patch.object(engine, "recognize_bytes", return_value="result") as mock_rec:
@@ -391,6 +415,7 @@ class TestExtractTextDelegates:
     @patch("apps.automation.services.ocr.paddleocr_api_service.SystemConfigService")
     def test_extract_text_from_pdf_delegates(self, mock_cls):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
         mock_cls.return_value = MagicMock()
         engine = PaddleOCRApiEngine(model="pp_ocrv5")
         with patch.object(engine, "recognize_bytes", return_value="result") as mock_rec:
@@ -405,6 +430,7 @@ class TestModelInit:
     @patch("apps.automation.services.ocr.paddleocr_api_service.SystemConfigService")
     def test_explicit_model(self, mock_cls):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
         mock_cls.return_value = MagicMock()
         engine = PaddleOCRApiEngine(model="paddleocr_vl_1_5")
         assert engine._model == "paddleocr_vl_1_5"
@@ -413,6 +439,7 @@ class TestModelInit:
     @patch("apps.automation.services.ocr.paddleocr_api_service.SystemConfigService")
     def test_none_model_reads_from_config(self, mock_cls):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
         mock_svc = MagicMock()
         mock_svc.get_value.return_value = "pp_structure_v3"
         mock_cls.return_value = mock_svc

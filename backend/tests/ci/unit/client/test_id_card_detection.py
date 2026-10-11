@@ -5,15 +5,10 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-from apps.client.services.id_card_merge.detection import (
-    _compute_edges,
-    _find_best_contour,
-    detect_id_card_corners,
-)
+from apps.client.services.id_card_merge.detection import _compute_edges, _find_best_contour, detect_id_card_corners
 
 
 class TestComputeEdges:
-
     def test_returns_uint8_array(self):
         img = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
         result = _compute_edges(img)
@@ -33,7 +28,6 @@ class TestComputeEdges:
 
 
 class TestDetectIdCardCorners:
-
     def test_none_image_returns_none(self):
         logger = MagicMock()
         result = detect_id_card_corners(None, id_card_aspect_ratio=1.585, logger=logger)
@@ -75,7 +69,6 @@ class TestDetectIdCardCorners:
 
 
 class TestFindBestContour:
-
     def test_returns_none_for_small_contours(self):
         contours = [np.array([[[0, 0]], [[1, 0]], [[1, 1]], [[0, 1]]], dtype=np.int32)]
         result = _find_best_contour(contours, image_area=100000, id_card_aspect_ratio=1.585)

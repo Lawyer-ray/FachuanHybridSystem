@@ -1,4 +1,5 @@
 """Coverage tests for legal_research benchmark command and related services."""
+
 from __future__ import annotations
 
 import json
@@ -9,8 +10,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # --- benchmark_legal_research_retrieval ---
+
 
 class TestBenchmarkCommandHelpers:
     """Test static/classmethods of benchmark command."""
@@ -147,9 +148,7 @@ class TestBenchmarkCommandHelpers:
     def test_build_query_type_metrics_empty(self):
         from apps.legal_research.management.commands.benchmark_legal_research_retrieval import Command
 
-        assert Command._build_query_type_metrics(
-            query_type_stats={}, total_tp=0, total_cases=0, labeled_cases=0
-        ) == []
+        assert Command._build_query_type_metrics(query_type_stats={}, total_tp=0, total_cases=0, labeled_cases=0) == []
 
     def test_query_type_metric_value(self):
         from apps.legal_research.management.commands.benchmark_legal_research_retrieval import Command
@@ -240,6 +239,7 @@ class TestBenchmarkCommandHelpers:
 
 # --- query_mixin ---
 
+
 class TestQueryMixin:
     def test_import(self):
         from apps.legal_research.services.executor_components.query_mixin import ExecutorQueryMixin
@@ -248,6 +248,7 @@ class TestQueryMixin:
 
 
 # --- similarity service ---
+
 
 class TestSimilarityService:
     def test_import(self):
@@ -258,6 +259,7 @@ class TestSimilarityService:
 
 # --- scoring_mixin ---
 
+
 class TestScoringMixin:
     def test_import(self):
         from apps.legal_research.services.executor_components.scoring_mixin import ExecutorScoringMixin
@@ -266,6 +268,7 @@ class TestScoringMixin:
 
 
 # --- intent_mixin ---
+
 
 class TestIntentMixin:
     def test_import(self):
@@ -276,6 +279,7 @@ class TestIntentMixin:
 
 # --- weike document ---
 
+
 class TestWeikeDocument:
     def test_import(self):
         from apps.legal_research.services.sources.weike.document import WeikeDocumentMixin
@@ -284,6 +288,7 @@ class TestWeikeDocument:
 
 
 # --- weike search ---
+
 
 class TestWeikeSearch:
     def test_import(self):
@@ -294,6 +299,7 @@ class TestWeikeSearch:
 
 # --- task executor ---
 
+
 class TestTaskExecutor:
     def test_import(self):
         from apps.legal_research.services.task.executor import LegalResearchExecutor
@@ -302,6 +308,7 @@ class TestTaskExecutor:
 
 
 # --- case download service ---
+
 
 class TestCaseDownloadService:
     def test_import(self):
@@ -312,6 +319,7 @@ class TestCaseDownloadService:
 
 # --- case_download_admin ---
 
+
 class TestCaseDownloadAdmin:
     def test_import(self):
         from apps.legal_research.admin.case_download_admin import CaseDownloadTaskAdmin
@@ -320,6 +328,7 @@ class TestCaseDownloadAdmin:
 
 
 # --- legal_solution task_admin ---
+
 
 class TestLegalSolutionTaskAdmin:
     def test_import(self):

@@ -9,6 +9,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.automation.services.sms.court_sms_recommendation_service import (
+    _build_query,
+    _collect_year_court_prefixes,
+    extract_court_name_from_text,
+)
+
 # ============================================================
 # SMSParserService 测试
 # ============================================================
@@ -172,13 +178,13 @@ class TestCaseNumberExtractorService:
         svc._case_number_service.normalize_case_number.side_effect = lambda x: x
         response = '{"case_numbers": ["（2025）粤0604民初123号"]}'
         # Mock validate_and_normalize to avoid full logic
-        with patch.object(svc, 'validate_and_normalize', return_value=["（2025）粤0604民初123号"]):
+        with patch.object(svc, "validate_and_normalize", return_value=["（2025）粤0604民初123号"]):
             result = svc._parse_llm_response(response)
             assert "（2025）粤0604民初123号" in result
 
     def test_parse_llm_response_invalid_json(self) -> None:
         svc = self._make_service()
-        with patch.object(svc, '_extract_fallback', return_value=[]):
+        with patch.object(svc, "_extract_fallback", return_value=[]):
             result = svc._parse_llm_response("not json")
             assert result == []
 
@@ -242,7 +248,7 @@ class TestSMSNotificationService:
         sms.case = MagicMock()
         sms.case.id = 1
         sms.id = 1
-        with patch.object(svc, '_get_available_platforms', return_value=[]):
+        with patch.object(svc, "_get_available_platforms", return_value=[]):
             result = svc.send_case_chat_notification(sms)
             assert result.any_success is False
 
@@ -265,7 +271,7 @@ class TestSMSNotificationService:
         send_result.success = True
         mock_chat_service.send_document_notification.return_value = send_result
 
-        with patch.object(svc, '_get_available_platforms', return_value=[ChatPlatform.FEISHU]):
+        with patch.object(svc, "_get_available_platforms", return_value=[ChatPlatform.FEISHU]):
             result = svc.send_case_chat_notification(sms, ["/path/doc.pdf"])
             assert result.any_success is True
 
@@ -282,7 +288,7 @@ class TestSMSNotificationService:
 
         mock_chat_service.get_or_create_chat.side_effect = Exception("creation failed")
 
-        with patch.object(svc, '_get_available_platforms', return_value=[ChatPlatform.FEISHU]):
+        with patch.object(svc, "_get_available_platforms", return_value=[ChatPlatform.FEISHU]):
             result = svc.send_case_chat_notification(sms)
             assert result.any_success is False
 
@@ -298,9 +304,7 @@ class TestCourtSMSRecommendationService:
     def test_collect_year_court_prefixes(self) -> None:
         from apps.automation.services.sms.court_sms_recommendation_service import CourtSMSRecommendationService
 
-        prefixes = CourtSMSRecommendationService._collect_year_court_prefixes(
-            ["（2025）粤0605民初123号"]
-        )
+        prefixes = _collect_year_court_prefixes(["（2025）粤0605民初123号"])
         assert len(prefixes) == 1
         assert "2025" in prefixes[0]
         assert "粤0605" in prefixes[0]
@@ -308,12 +312,12 @@ class TestCourtSMSRecommendationService:
     def test_collect_year_court_prefixes_empty(self) -> None:
         from apps.automation.services.sms.court_sms_recommendation_service import CourtSMSRecommendationService
 
-        assert CourtSMSRecommendationService._collect_year_court_prefixes([]) == []
+        assert _collect_year_court_prefixes([]) == []
 
     def test_build_query_with_numbers(self) -> None:
         from apps.automation.services.sms.court_sms_recommendation_service import CourtSMSRecommendationService
 
-        q = CourtSMSRecommendationService._build_query(
+        q = _build_query(
             normalized_numbers=["（2025）粤0605民初123号"],
             year_court_prefixes=[],
             court_name=None,
@@ -324,37 +328,35 @@ class TestCourtSMSRecommendationService:
     def test_build_query_empty(self) -> None:
         from apps.automation.services.sms.court_sms_recommendation_service import CourtSMSRecommendationService
 
-        q = CourtSMSRecommendationService._build_query([], [], None, [])
+        q = _build_query([], [], None, [])
         assert q is None
 
     def test_build_query_with_court_name(self) -> None:
         from apps.automation.services.sms.court_sms_recommendation_service import CourtSMSRecommendationService
 
-        q = CourtSMSRecommendationService._build_query(
-            [], [], "佛山市禅城区人民法院", []
-        )
+        q = _build_query([], [], "佛山市禅城区人民法院", [])
         assert q is not None
 
     def test_build_query_with_parties(self) -> None:
         from apps.automation.services.sms.court_sms_recommendation_service import CourtSMSRecommendationService
 
-        q = CourtSMSRecommendationService._build_query([], [], None, ["张三"])
+        q = _build_query([], [], None, ["张三"])
         assert q is not None
 
     def test_build_query_short_party_name_skipped(self) -> None:
         from apps.automation.services.sms.court_sms_recommendation_service import CourtSMSRecommendationService
 
-        q = CourtSMSRecommendationService._build_query([], [], None, ["张"])  # too short
+        q = _build_query([], [], None, ["张"])  # too short
         assert q is None
 
     def test_extract_court_name_from_content(self) -> None:
         from apps.automation.services.sms.court_sms_recommendation_service import CourtSMSRecommendationService
 
         # 原实例方法 _extract_court_name_from_content 已删除，等价迁移到静态方法
-        name = CourtSMSRecommendationService.extract_court_name_from_text("佛山市禅城区人民法院通知你")
+        name = extract_court_name_from_text("佛山市禅城区人民法院通知你")
         assert name == "佛山市禅城区人民法院"
 
     def test_extract_court_name_from_content_none(self) -> None:
         from apps.automation.services.sms.court_sms_recommendation_service import CourtSMSRecommendationService
 
-        assert CourtSMSRecommendationService.extract_court_name_from_text("没有法院名") is None
+        assert extract_court_name_from_text("没有法院名") is None

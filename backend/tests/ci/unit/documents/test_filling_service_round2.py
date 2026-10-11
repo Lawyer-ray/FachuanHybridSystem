@@ -72,9 +72,7 @@ class TestWriteDeleteInapplicableTableOutOfBounds:
     def test_table_index_out_of_bounds(self):
         svc = _make_service()
         doc = _mock_doc(tables=[])
-        result = svc._write_delete_inapplicable(
-            doc, {"type": "table_cell", "table_index": 5, "row": 0, "col": 0}, "A"
-        )
+        result = svc._write_delete_inapplicable(doc, {"type": "table_cell", "table_index": 5, "row": 0, "col": 0}, "A")
         assert result is False
 
     def test_row_col_out_of_bounds(self):
@@ -82,9 +80,7 @@ class TestWriteDeleteInapplicableTableOutOfBounds:
         table = MagicMock()
         table.rows = []
         doc = _mock_doc(tables=[table])
-        result = svc._write_delete_inapplicable(
-            doc, {"type": "table_cell", "table_index": 0, "row": 5, "col": 0}, "A"
-        )
+        result = svc._write_delete_inapplicable(doc, {"type": "table_cell", "table_index": 0, "row": 5, "col": 0}, "A")
         assert result is False
 
     def test_table_cell_no_paragraphs(self):
@@ -96,26 +92,20 @@ class TestWriteDeleteInapplicableTableOutOfBounds:
         table.columns = [MagicMock()]
         table.cell.return_value = cell
         doc = _mock_doc(tables=[table])
-        result = svc._write_delete_inapplicable(
-            doc, {"type": "table_cell", "table_index": 0, "row": 0, "col": 0}, "A"
-        )
+        result = svc._write_delete_inapplicable(doc, {"type": "table_cell", "table_index": 0, "row": 0, "col": 0}, "A")
         # paragraph is None, returns False
         assert result is False
 
     def test_delete_inapplicable_locator_out_of_bounds(self):
         svc = _make_service()
         doc = _mock_doc(paragraphs=[])
-        result = svc._write_delete_inapplicable(
-            doc, {"type": "delete_inapplicable", "paragraph_index": 5}, "A"
-        )
+        result = svc._write_delete_inapplicable(doc, {"type": "delete_inapplicable", "paragraph_index": 5}, "A")
         assert result is False
 
     def test_unknown_locator_type(self):
         svc = _make_service()
         doc = _mock_doc()
-        result = svc._write_delete_inapplicable(
-            doc, {"type": "something_else"}, "A"
-        )
+        result = svc._write_delete_inapplicable(doc, {"type": "something_else"}, "A")
         assert result is False
 
 
@@ -211,15 +201,21 @@ class TestFillTemplateCheckboxPath:
     def test_checkbox_fill_success(self):
         svc = _make_service()
         from apps.documents.services.external_template.filling_service import FillPreviewItem
+
         mapping = MagicMock()
         mapping.semantic_label = "chk"
         mapping.fill_type = "checkbox"
         mapping.position_locator = {"type": "checkbox", "checkbox_index": 0}
         mapping.position_description = "checkbox 0"
 
-        with patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm, \
-             patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl, \
-             patch("django.db.transaction.atomic", side_effect=lambda: MagicMock(__enter__=lambda s: None, __exit__=lambda *a: None)):
+        with (
+            patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm,
+            patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl,
+            patch(
+                "django.db.transaction.atomic",
+                side_effect=lambda: MagicMock(__enter__=lambda s: None, __exit__=lambda *a: None),
+            ),
+        ):
             mock_fm.objects.filter.return_value.order_by.return_value = [mapping]
             mock_tpl_obj = MagicMock()
             mock_tpl_obj.name = "tpl"
@@ -231,10 +227,12 @@ class TestFillTemplateCheckboxPath:
                 doc.tables = []
                 mock_doc_cls.return_value = doc
 
-                with patch.object(svc, "_get_placeholder_values", return_value={"chk": "true"}), \
-                     patch.object(svc, "_write_checkbox", return_value=True) as mock_wc, \
-                     patch.object(svc, "_generate_output_filename", return_value="out.docx"), \
-                     patch("apps.documents.models.fill_record.FillRecord") as mock_fr:
+                with (
+                    patch.object(svc, "_get_placeholder_values", return_value={"chk": "true"}),
+                    patch.object(svc, "_write_checkbox", return_value=True) as mock_wc,
+                    patch.object(svc, "_generate_output_filename", return_value="out.docx"),
+                    patch("apps.documents.models.fill_record.FillRecord") as mock_fr,
+                ):
                     mock_fr.objects.create.return_value = MagicMock(id=1)
                     svc.fill_template(template_id=1, case_id=1)
                     mock_wc.assert_called_once()
@@ -251,9 +249,14 @@ class TestFillTemplateDeleteInapplicablePath:
         mapping.position_locator = {"type": "paragraph", "paragraph_index": 0}
         mapping.position_description = "para 0"
 
-        with patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm, \
-             patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl, \
-             patch("django.db.transaction.atomic", side_effect=lambda: MagicMock(__enter__=lambda s: None, __exit__=lambda *a: None)):
+        with (
+            patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm,
+            patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl,
+            patch(
+                "django.db.transaction.atomic",
+                side_effect=lambda: MagicMock(__enter__=lambda s: None, __exit__=lambda *a: None),
+            ),
+        ):
             mock_fm.objects.filter.return_value.order_by.return_value = [mapping]
             mock_tpl_obj = MagicMock()
             mock_tpl_obj.name = "tpl"
@@ -265,10 +268,12 @@ class TestFillTemplateDeleteInapplicablePath:
                 doc.tables = []
                 mock_doc_cls.return_value = doc
 
-                with patch.object(svc, "_get_placeholder_values", return_value={"dia": "A"}), \
-                     patch.object(svc, "_write_delete_inapplicable", return_value=True) as mock_wdi, \
-                     patch.object(svc, "_generate_output_filename", return_value="out.docx"), \
-                     patch("apps.documents.models.fill_record.FillRecord") as mock_fr:
+                with (
+                    patch.object(svc, "_get_placeholder_values", return_value={"dia": "A"}),
+                    patch.object(svc, "_write_delete_inapplicable", return_value=True) as mock_wdi,
+                    patch.object(svc, "_generate_output_filename", return_value="out.docx"),
+                    patch("apps.documents.models.fill_record.FillRecord") as mock_fr,
+                ):
                     mock_fr.objects.create.return_value = MagicMock(id=1)
                     svc.fill_template(template_id=1, case_id=1)
                     mock_wdi.assert_called_once()
@@ -285,19 +290,26 @@ class TestFillTemplateFalseResult:
         mapping.position_locator = {"type": "paragraph", "paragraph_index": 0}
         mapping.position_description = "para 0"
 
-        with patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm, \
-             patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl, \
-             patch("django.db.transaction.atomic", side_effect=lambda: MagicMock(__enter__=lambda s: None, __exit__=lambda *a: None)):
+        with (
+            patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm,
+            patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl,
+            patch(
+                "django.db.transaction.atomic",
+                side_effect=lambda: MagicMock(__enter__=lambda s: None, __exit__=lambda *a: None),
+            ),
+        ):
             mock_fm.objects.filter.return_value.order_by.return_value = [mapping]
             mock_tpl.objects.get.return_value = MagicMock(name="tpl")
 
             with patch("docx.Document") as mock_doc_cls:
                 mock_doc_cls.return_value = MagicMock(paragraphs=[], tables=[])
 
-                with patch.object(svc, "_get_placeholder_values", return_value={"x": "val"}), \
-                     patch.object(svc, "_write_text", return_value=False), \
-                     patch.object(svc, "_generate_output_filename", return_value="out.docx"), \
-                     patch("apps.documents.models.fill_record.FillRecord") as mock_fr:
+                with (
+                    patch.object(svc, "_get_placeholder_values", return_value={"x": "val"}),
+                    patch.object(svc, "_write_text", return_value=False),
+                    patch.object(svc, "_generate_output_filename", return_value="out.docx"),
+                    patch("apps.documents.models.fill_record.FillRecord") as mock_fr,
+                ):
                     mock_fr.objects.create.return_value = MagicMock(id=1)
                     svc.fill_template(template_id=1, case_id=1)
 
@@ -354,8 +366,10 @@ class TestCheckFileAvailabilityUpdated:
         record.file_path = "doc.docx"
         record.file_available = True
 
-        with patch("apps.documents.models.fill_record.FillRecord") as mock_fr, \
-             patch("apps.documents.services.external_template.filling_service.Path") as MockPath:
+        with (
+            patch("apps.documents.models.fill_record.FillRecord") as mock_fr,
+            patch("apps.documents.services.external_template.filling_service.Path") as MockPath,
+        ):
             mock_fr.objects.get.return_value = record
             MockPath.return_value.__truediv__ = MagicMock(return_value=MagicMock(exists=MagicMock(return_value=False)))
             result = svc.check_file_availability(1)

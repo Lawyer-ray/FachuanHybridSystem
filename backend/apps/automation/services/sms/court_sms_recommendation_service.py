@@ -67,10 +67,10 @@ class CourtSMSRecommendationService:
         ``get_recommendations`` 完全一致。
         """
         normalized_numbers = [TextUtils.normalize_case_number(n) for n in case_numbers if n.strip()]
-        year_court_prefixes = self._collect_year_court_prefixes(normalized_numbers)
+        year_court_prefixes = _collect_year_court_prefixes(normalized_numbers)
         cleaned_party_names = [p.strip() for p in party_names if p.strip()]
 
-        q = self._build_query(normalized_numbers, year_court_prefixes, court_name, cleaned_party_names)
+        q = _build_query(normalized_numbers, year_court_prefixes, court_name, cleaned_party_names)
         if not q:
             return []
 
@@ -95,12 +95,6 @@ class CourtSMSRecommendationService:
 
     # -- 法院名称提取 --
 
-    @staticmethod
-    def extract_court_name_from_text(text: str) -> str | None:
-        """从任意文本中用正则提取法院名称（供文书识别等外部入口复用）。"""
-        match = _COURT_NAME_PATTERN.search(text or "")
-        return match.group(0) if match else None
-
     def _extract_court_name(self, sms: CourtSMS) -> str | None:
         """从短信关联数据中提取法院名称（三级回退）"""
         # 优先级 1：CourtDocument.c_fymc（最准确）
@@ -109,7 +103,7 @@ class CourtSMSRecommendationService:
             return court_name
 
         # 优先级 2：短信内容正则提取
-        return self.extract_court_name_from_text(sms.content or "")
+        return extract_court_name_from_text(sms.content or "")
 
     def _extract_court_name_from_document(self, sms: CourtSMS) -> str | None:
         """从关联的 CourtDocument 中提取法院名称"""
@@ -130,48 +124,7 @@ class CourtSMSRecommendationService:
 
     # -- 案号前缀提取 --
 
-    @staticmethod
-    def _collect_year_court_prefixes(normalized_numbers: list[str]) -> list[str]:
-        """从规范化的案号中提取年份+法院代码前缀"""
-        prefixes: list[str] = []
-        for number in normalized_numbers:
-            match = _YEAR_COURT_PREFIX_PATTERN.search(number)
-            if match:
-                prefix = f"({match.group(1)}){match.group(2)}"
-                if prefix not in prefixes:
-                    prefixes.append(prefix)
-        return prefixes
-
     # -- 查询构建 --
-
-    @staticmethod
-    def _build_query(
-        normalized_numbers: list[str],
-        year_court_prefixes: list[str],
-        court_name: str | None,
-        party_names: list[str],
-    ) -> Q | None:
-        """构建多维度 OR 查询"""
-        q = Q()
-
-        # 查询 1：案号精确匹配
-        if normalized_numbers:
-            q |= Q(case_numbers__number__in=normalized_numbers)
-
-        # 查询 2：案号前缀模糊匹配（同法院同年度）
-        for prefix in year_court_prefixes:
-            q |= Q(case_numbers__number__icontains=prefix)
-
-        # 查询 3：法院名称匹配
-        if court_name:
-            q |= Q(supervising_authorities__name__icontains=court_name)
-
-        # 查询 4：当事人名称匹配（宽松单向匹配）
-        for name in party_names:
-            if len(name) >= 2:
-                q |= Q(parties__client__name__icontains=name)
-
-        return q if q else None
 
     # -- 评分排序 --
 
@@ -256,3 +209,53 @@ class CourtSMSRecommendationService:
             court_names=[sa.name for sa in case.supervising_authorities.all() if sa.name],
             status=case.status,
         )
+
+
+# ↓↓ 由 CourtSMSRecommendationService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def extract_court_name_from_text(text: str) -> str | None:
+    """从任意文本中用正则提取法院名称（供文书识别等外部入口复用）。"""
+    match = _COURT_NAME_PATTERN.search(text or "")
+    return match.group(0) if match else None
+
+
+# ↓↓ 由 CourtSMSRecommendationService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _collect_year_court_prefixes(normalized_numbers: list[str]) -> list[str]:
+    """从规范化的案号中提取年份+法院代码前缀"""
+    prefixes: list[str] = []
+    for number in normalized_numbers:
+        match = _YEAR_COURT_PREFIX_PATTERN.search(number)
+        if match:
+            prefix = f"({match.group(1)}){match.group(2)}"
+            if prefix not in prefixes:
+                prefixes.append(prefix)
+    return prefixes
+
+
+# ↓↓ 由 CourtSMSRecommendationService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _build_query(
+    normalized_numbers: list[str],
+    year_court_prefixes: list[str],
+    court_name: str | None,
+    party_names: list[str],
+) -> Q | None:
+    """构建多维度 OR 查询"""
+    q = Q()
+
+    # 查询 1：案号精确匹配
+    if normalized_numbers:
+        q |= Q(case_numbers__number__in=normalized_numbers)
+
+    # 查询 2：案号前缀模糊匹配（同法院同年度）
+    for prefix in year_court_prefixes:
+        q |= Q(case_numbers__number__icontains=prefix)
+
+    # 查询 3：法院名称匹配
+    if court_name:
+        q |= Q(supervising_authorities__name__icontains=court_name)
+
+    # 查询 4：当事人名称匹配（宽松单向匹配）
+    for name in party_names:
+        if len(name) >= 2:
+            q |= Q(parties__client__name__icontains=name)
+
+    return q if q else None

@@ -159,15 +159,20 @@ class TestExtractPdfWithVlm:
 
     def test_unavailable_returns_failure(self) -> None:
         svc = TextExtractionService()
-        with patch(self._VLM) as vlm_cls:
-            vlm_cls.is_available.return_value = False
+        with (
+            patch(self._VLM) as vlm_cls,
+            patch("apps.document_recognition.services.text_extraction_service.is_available", return_value=False),
+        ):
             result = svc._extract_pdf_with_vlm("/tmp/a.pdf")
         assert result == TextExtractionResult("", "vlm", False)
         vlm_cls.assert_not_called()
 
     def test_success_applies_text_limit(self) -> None:
         svc = TextExtractionService(text_limit=5)
-        with patch(self._VLM) as vlm_cls:
+        with (
+            patch(self._VLM) as vlm_cls,
+            patch("apps.document_recognition.services.text_extraction_service.is_available", return_value=True),
+        ):
             vlm_cls.is_available.return_value = True
             vlm_cls.return_value.transcribe_pdf.return_value = "0123456789"
             result = svc._extract_pdf_with_vlm("/tmp/a.pdf", max_pages=2)
@@ -177,7 +182,10 @@ class TestExtractPdfWithVlm:
 
     def test_blank_transcription_returns_failure(self) -> None:
         svc = TextExtractionService()
-        with patch(self._VLM) as vlm_cls:
+        with (
+            patch(self._VLM) as vlm_cls,
+            patch("apps.document_recognition.services.text_extraction_service.is_available", return_value=True),
+        ):
             vlm_cls.is_available.return_value = True
             vlm_cls.return_value.transcribe_pdf.return_value = "   "
             result = svc._extract_pdf_with_vlm("/tmp/a.pdf")
@@ -185,7 +193,10 @@ class TestExtractPdfWithVlm:
 
     def test_transcribe_exception_returns_failure(self) -> None:
         svc = TextExtractionService()
-        with patch(self._VLM) as vlm_cls:
+        with (
+            patch(self._VLM) as vlm_cls,
+            patch("apps.document_recognition.services.text_extraction_service.is_available", return_value=True),
+        ):
             vlm_cls.is_available.return_value = True
             vlm_cls.return_value.transcribe_pdf.side_effect = RuntimeError("vision down")
             result = svc._extract_pdf_with_vlm("/tmp/a.pdf")
@@ -217,7 +228,10 @@ class TestExtractFromImage:
 
     def test_vlm_success(self) -> None:
         svc = TextExtractionService()
-        with patch(self._VLM) as vlm_cls:
+        with (
+            patch(self._VLM) as vlm_cls,
+            patch("apps.document_recognition.services.text_extraction_service.is_available", return_value=True),
+        ):
             vlm_cls.is_available.return_value = True
             vlm_cls.return_value.transcribe_image.return_value = "图 片 文 本"
             result = svc._extract_from_image("/tmp/a.png")
@@ -225,7 +239,10 @@ class TestExtractFromImage:
 
     def test_vlm_blank_falls_back_to_local_ocr(self) -> None:
         svc = TextExtractionService()
-        with patch(self._VLM) as vlm_cls:
+        with (
+            patch(self._VLM) as vlm_cls,
+            patch("apps.document_recognition.services.text_extraction_service.is_available", return_value=True),
+        ):
             vlm_cls.is_available.return_value = True
             vlm_cls.return_value.transcribe_image.return_value = " "
             with patch.object(svc, "_recognize_local", return_value="本地文本"):
@@ -234,7 +251,10 @@ class TestExtractFromImage:
 
     def test_vlm_unavailable_uses_local_ocr(self) -> None:
         svc = TextExtractionService()
-        with patch(self._VLM) as vlm_cls:
+        with (
+            patch(self._VLM) as vlm_cls,
+            patch("apps.document_recognition.services.text_extraction_service.is_available", return_value=True),
+        ):
             vlm_cls.is_available.return_value = False
             with patch.object(svc, "_recognize_local", return_value="OCR 文本") as m_local:
                 result = svc._extract_from_image("/tmp/a.jpg")
@@ -244,7 +264,10 @@ class TestExtractFromImage:
 
     def test_local_ocr_empty_returns_failure(self) -> None:
         svc = TextExtractionService()
-        with patch(self._VLM) as vlm_cls:
+        with (
+            patch(self._VLM) as vlm_cls,
+            patch("apps.document_recognition.services.text_extraction_service.is_available", return_value=True),
+        ):
             vlm_cls.is_available.return_value = False
             with patch.object(svc, "_recognize_local", return_value=""):
                 result = svc._extract_from_image("/tmp/a.jpg")
@@ -252,7 +275,10 @@ class TestExtractFromImage:
 
     def test_local_ocr_exception_returns_failure(self) -> None:
         svc = TextExtractionService()
-        with patch(self._VLM) as vlm_cls:
+        with (
+            patch(self._VLM) as vlm_cls,
+            patch("apps.document_recognition.services.text_extraction_service.is_available", return_value=True),
+        ):
             vlm_cls.is_available.return_value = False
             with patch.object(svc, "_recognize_local", side_effect=RuntimeError("ocr crash")):
                 result = svc._extract_from_image("/tmp/a.jpg")

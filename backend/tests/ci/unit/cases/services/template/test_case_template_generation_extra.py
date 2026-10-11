@@ -3,6 +3,7 @@
 Covers: _build_filename with all template types, _safe_name, _is_legal_rep_cert_template,
 _is_power_of_attorney_template, _get_template_path, _get_our_client, _get_our_legal_client.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -15,6 +16,7 @@ from apps.core.exceptions import NotFoundError, ValidationException
 
 def _make_service():
     from apps.cases.services.template.case_template_generation_service import CaseTemplateGenerationService
+
     return CaseTemplateGenerationService()
 
 
@@ -247,7 +249,7 @@ class TestGetOurClientNotFound:
 class TestGetOurLegalClient:
     def test_natural_person_raises(self):
         svc = _make_service()
-        with patch.object(svc, '_get_our_client') as mock_get_our:
+        with patch.object(svc, "_get_our_client") as mock_get_our:
             mock_client = MagicMock()
             mock_get_our.return_value = mock_client
             with patch("apps.cases.services.template.case_template_generation_service.get_client_service") as mock_get:

@@ -1,4 +1,5 @@
 """Tests for AccountSelectionStrategy covering blacklist, sorting, and validation."""
+
 from __future__ import annotations
 
 import asyncio
@@ -10,6 +11,7 @@ from django.utils import timezone
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -154,19 +156,17 @@ class TestSelectAccount:
             asyncio.run(strategy.select_account(""))
 
     def test_no_accounts_returns_none(self, strategy):
-        with patch(
-            "plugins.court_automation.token.account_selection_strategy.cache_manager"
-        ) as mock_cache, \
-             patch.object(strategy, "_get_available_accounts", return_value=[]):
+        with (
+            patch("plugins.court_automation.token.account_selection_strategy.cache_manager") as mock_cache,
+            patch.object(strategy, "_get_available_accounts", return_value=[]),
+        ):
             mock_cache.get_cached_blacklist.return_value = None
             mock_cache.get_cached_credentials.return_value = None
             result = asyncio.run(strategy.select_account("test_site"))
         assert result is None
 
     def test_cached_blacklist_loaded(self, strategy):
-        with patch(
-            "plugins.court_automation.token.account_selection_strategy.cache_manager"
-        ) as mock_cache:
+        with patch("plugins.court_automation.token.account_selection_strategy.cache_manager") as mock_cache:
             mock_cache.get_cached_blacklist.return_value = ["blocked_user"]
             mock_cache.get_cached_credentials.return_value = []
             result = asyncio.run(strategy.select_account("test_site"))
@@ -174,9 +174,7 @@ class TestSelectAccount:
 
     def test_cached_credentials_used(self, strategy):
         acc = _make_dto(account="cached_user")
-        with patch(
-            "plugins.court_automation.token.account_selection_strategy.cache_manager"
-        ) as mock_cache:
+        with patch("plugins.court_automation.token.account_selection_strategy.cache_manager") as mock_cache:
             mock_cache.get_cached_blacklist.return_value = None
             mock_cache.get_cached_credentials.return_value = [acc]
             result = asyncio.run(strategy.select_account("test_site"))
@@ -186,9 +184,7 @@ class TestSelectAccount:
     def test_excludes_blacklisted_from_cache(self, strategy):
         acc1 = _make_dto(account="good_user")
         acc2 = _make_dto(account="bad_user", login_success_count=10)
-        with patch(
-            "plugins.court_automation.token.account_selection_strategy.cache_manager"
-        ) as mock_cache:
+        with patch("plugins.court_automation.token.account_selection_strategy.cache_manager") as mock_cache:
             mock_cache.get_cached_blacklist.return_value = ["bad_user"]
             mock_cache.get_cached_credentials.return_value = [acc1, acc2]
             result = asyncio.run(strategy.select_account("test_site", exclude_accounts=[]))

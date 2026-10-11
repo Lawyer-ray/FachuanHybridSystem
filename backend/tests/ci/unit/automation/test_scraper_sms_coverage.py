@@ -10,16 +10,18 @@ except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
 
-
 class TestSMSCaseBindingMixin:
     def test_filter_valid_case_numbers(self):
         from apps.automation.services.sms._sms_case_binding_mixin import SMSCaseBindingMixin
 
         class Concrete(SMSCaseBindingMixin):
             @property
-            def case_service(self): return MagicMock()
+            def case_service(self):
+                return MagicMock()
+
             @property
-            def lawyer_service(self): return MagicMock()
+            def lawyer_service(self):
+                return MagicMock()
 
         obj = Concrete()
         numbers = ["(2024)浙01民初123号", "2024年1月15号", "普通案号"]
@@ -32,9 +34,12 @@ class TestSMSCaseBindingMixin:
 
         class Concrete(SMSCaseBindingMixin):
             @property
-            def case_service(self): return MagicMock()
+            def case_service(self):
+                return MagicMock()
+
             @property
-            def lawyer_service(self): return MagicMock()
+            def lawyer_service(self):
+                return MagicMock()
 
         obj = Concrete()
         sms = MagicMock()
@@ -90,10 +95,10 @@ class TestDialogUIHelpers:
         from apps.automation.services.scraper.sites.guarantee.dialog_ui_helpers import GuaranteeDialogUIHelpersMixin
 
         # Just test class exists and has expected methods
-        assert hasattr(GuaranteeDialogUIHelpersMixin, '_choose_party_type_in_dialog')
-        assert hasattr(GuaranteeDialogUIHelpersMixin, '_click_add_button')
-        assert hasattr(GuaranteeDialogUIHelpersMixin, '_wait_for_g_two_ready')
-        assert hasattr(GuaranteeDialogUIHelpersMixin, '_clear_g_two_existing_data')
+        assert hasattr(GuaranteeDialogUIHelpersMixin, "_choose_party_type_in_dialog")
+        assert hasattr(GuaranteeDialogUIHelpersMixin, "_click_add_button")
+        assert hasattr(GuaranteeDialogUIHelpersMixin, "_wait_for_g_two_ready")
+        assert hasattr(GuaranteeDialogUIHelpersMixin, "_clear_g_two_existing_data")
 
 
 class TestGsxtEmailService:
@@ -140,4 +145,5 @@ class TestGsxtReverseLogin:
 
         set_captcha_solver(MockSolver())
         from apps.automation.services.gsxt.gsxt_reverse_login import _solver
+
         assert isinstance(_solver, MockSolver)

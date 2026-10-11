@@ -1,4 +1,5 @@
 """Tests for core.exceptions: chat exceptions and error_catalog."""
+
 from __future__ import annotations
 
 from apps.core.exceptions.chat import (

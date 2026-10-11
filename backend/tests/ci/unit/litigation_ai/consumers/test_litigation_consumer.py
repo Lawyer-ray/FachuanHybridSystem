@@ -73,9 +73,7 @@ class TestLitigationConsumerSendError:
 
         with patch("apps.litigation_ai.consumers.litigation_consumer.settings") as mock_settings:
             mock_settings.DEBUG = False
-            with patch(
-                "apps.core.exceptions.error_presentation.ExceptionPresenter"
-            ) as MockPresenter:
+            with patch("apps.core.exceptions.error_presentation.ExceptionPresenter") as MockPresenter:
                 presenter = MagicMock()
                 envelope = MagicMock()
                 envelope.code = "INTERNAL_ERROR"
@@ -111,7 +109,7 @@ class TestLitigationConsumerReceive:
         consumer = LitigationConsumer.__new__(LitigationConsumer)
         consumer.__init__()
         consumer.send = AsyncMock()
-        await consumer.receive(text_data='[1, 2, 3]')
+        await consumer.receive(text_data="[1, 2, 3]")
         consumer.send.assert_called_once()
 
     @pytest.mark.asyncio

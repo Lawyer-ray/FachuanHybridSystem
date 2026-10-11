@@ -16,6 +16,8 @@ from uuid import uuid4
 
 import pytest
 
+from apps.workbench.services.session_service import increment_storage
+
 
 class TestGetJobProgress:
     def test_get_job_progress_basic(self) -> None:
@@ -124,7 +126,7 @@ class TestWorkbenchSessionServiceStorage:
 
         # delta=0 should be a no-op，不触发数据库更新
         with patch("apps.workbench.models.WorkbenchSession") as MockSession:
-            WorkbenchSessionService.increment_storage(1, 0)
+            increment_storage(1, 0)
             MockSession.objects.filter.update.assert_not_called()
 
     def test_get_active_items(self) -> None:

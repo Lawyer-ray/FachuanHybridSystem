@@ -1,4 +1,5 @@
 """组织认证服务单元测试。"""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -16,6 +17,7 @@ def auth_service() -> AuthService:
 
 
 # ── is_first_user ──────────────────────────────────────────────────────────
+
 
 @patch("apps.organization.services.auth.auth_service.Lawyer")
 def test_is_first_user_true(mock_lawyer: MagicMock) -> None:
@@ -35,6 +37,7 @@ def test_is_first_user_false(mock_lawyer: MagicMock) -> None:
 
 # ── username_exists ────────────────────────────────────────────────────────
 
+
 @patch("apps.organization.services.auth.auth_service.Lawyer")
 def test_username_exists_true(mock_lawyer: MagicMock) -> None:
     """用户名存在返回 True。"""
@@ -53,6 +56,7 @@ def test_username_exists_false(mock_lawyer: MagicMock) -> None:
 
 # ── should_show_auto_register ──────────────────────────────────────────────
 
+
 @patch("apps.organization.services.auth.auth_service.Lawyer")
 def test_should_show_auto_register(mock_lawyer: MagicMock) -> None:
     """自动注册仅在无用户时显示。"""
@@ -63,6 +67,7 @@ def test_should_show_auto_register(mock_lawyer: MagicMock) -> None:
 
 # ── login ──────────────────────────────────────────────────────────────────
 
+
 @patch("apps.organization.services.auth.auth_service.login")
 @patch("apps.organization.services.auth.auth_service.authenticate")
 def test_login_success(mock_authenticate: MagicMock, mock_login: MagicMock) -> None:
@@ -71,6 +76,7 @@ def test_login_success(mock_authenticate: MagicMock, mock_login: MagicMock) -> N
     mock_user.__class__ = type("Lawyer", (), {})
     # Make isinstance check work
     from apps.organization.models import Lawyer
+
     mock_user = MagicMock(spec=Lawyer)
     mock_authenticate.return_value = mock_user
     svc = AuthService()
@@ -90,6 +96,7 @@ def test_login_invalid_credentials(mock_authenticate: MagicMock) -> None:
 
 # ── auto_register_superadmin ───────────────────────────────────────────────
 
+
 @patch("apps.organization.services.auth.auth_service.Lawyer")
 @pytest.mark.django_db
 def test_auto_register_superadmin_not_first_user(mock_lawyer: MagicMock) -> None:
@@ -101,6 +108,7 @@ def test_auto_register_superadmin_not_first_user(mock_lawyer: MagicMock) -> None
 
 
 # ── register ───────────────────────────────────────────────────────────────
+
 
 @patch("apps.organization.services.auth.auth_service.settings")
 @patch("apps.organization.services.auth.auth_service.Lawyer")

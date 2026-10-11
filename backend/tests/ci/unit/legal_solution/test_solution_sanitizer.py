@@ -58,7 +58,7 @@ class TestSanitizeReportHtmlKeepsLegitContent:
     def test_table_preserved(self):
         from apps.legal_solution.services.solution_generator import sanitize_report_html
 
-        html = '<table><thead><tr><th>项目</th></tr></thead><tbody><tr><td>诉讼费</td></tr></tbody></table>'
+        html = "<table><thead><tr><th>项目</th></tr></thead><tbody><tr><td>诉讼费</td></tr></tbody></table>"
         result = sanitize_report_html(html)
         for tag in ("<table>", "<thead>", "<tbody>", "<tr>", "<th>项目</th>", "<td>诉讼费</td>"):
             assert tag in result
@@ -66,7 +66,9 @@ class TestSanitizeReportHtmlKeepsLegitContent:
     def test_table_text_align_preserved(self):
         from apps.legal_solution.services.solution_generator import sanitize_report_html
 
-        result = sanitize_report_html('<table><tr><th style="text-align: left;">项目</th><td style="text-align: right;">金额</td></tr></table>')
+        result = sanitize_report_html(
+            '<table><tr><th style="text-align: left;">项目</th><td style="text-align: right;">金额</td></tr></table>'
+        )
         assert "text-align: left" in result
         assert "text-align: right" in result
 
@@ -101,9 +103,17 @@ class TestSanitizeReportHtmlKeepsLegitContent:
             "<pre><code>代码块</code></pre>"
         )
         result = sanitize_report_html(html)
-        for tag in ("<h2>", "<strong>加粗</strong>", "<em>斜体</em>", "<del>删除</del>", "<code>条文</code>",
-                    "<blockquote>引用</blockquote>", "<ul><li>无序</li></ul>", "<ol><li>有序</li></ol>",
-                    "<pre><code>代码块</code></pre>"):
+        for tag in (
+            "<h2>",
+            "<strong>加粗</strong>",
+            "<em>斜体</em>",
+            "<del>删除</del>",
+            "<code>条文</code>",
+            "<blockquote>引用</blockquote>",
+            "<ul><li>无序</li></ul>",
+            "<ol><li>有序</li></ol>",
+            "<pre><code>代码块</code></pre>",
+        ):
             assert tag in result
 
 

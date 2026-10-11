@@ -13,7 +13,14 @@ import pytest
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.story_viz.models import StoryAnimation, StoryAnimationStage, StoryAnimationStatus, StoryVizType
-from apps.story_viz.services.job_service import StoryAnimationJobService
+from apps.story_viz.services.job_service import (
+    StoryAnimationJobService,
+    _build_suggested_questions,
+    _stage_index,
+    _summarize_facts,
+    _summarize_render,
+    _summarize_script,
+)
 
 
 @pytest.fixture()
@@ -221,21 +228,21 @@ class TestBuildStages:
 
 class TestSummarizeHelpers:
     def test_stage_index_known_and_unknown(self) -> None:
-        assert StoryAnimationJobService._stage_index("extracting_facts") == 0
-        assert StoryAnimationJobService._stage_index("composing_html") == 4
-        assert StoryAnimationJobService._stage_index("nope") == -1
+        assert _stage_index("extracting_facts") == 0
+        assert _stage_index("composing_html") == 4
+        assert _stage_index("nope") == -1
 
     def test_summarize_facts_non_list_members(self) -> None:
-        result = StoryAnimationJobService._summarize_facts({"parties": "x", "events": 3, "relationships": None})
+        result = _summarize_facts({"parties": "x", "events": 3, "relationships": None})
         assert result == {"parties": [], "events": [], "relationships": []}
 
     def test_summarize_facts_truncates_to_max_items(self) -> None:
         parties = [{"name": f"p{i}", "role": "r"} for i in range(30)]
-        result = StoryAnimationJobService._summarize_facts({"parties": parties})
+        result = _summarize_facts({"parties": parties})
         assert len(result["parties"]) == 20
 
     def test_summarize_script_non_list_counts_zero(self) -> None:
-        result = StoryAnimationJobService._summarize_script(
+        result = _summarize_script(
             {"timeline_nodes": "x", "relationship_nodes": None, "edges": 5, "highlights": None, "annotations": "y"}
         )
         assert result["timeline_nodes_count"] == 0
@@ -246,13 +253,13 @@ class TestSummarizeHelpers:
         assert result["annotations"] == ["y"]
 
     def test_summarize_render_non_list(self) -> None:
-        assert StoryAnimationJobService._summarize_render({"nodes": "a", "edges": None}) == {
+        assert _summarize_render({"nodes": "a", "edges": None}) == {
             "node_count": 0,
             "edge_count": 0,
         }
 
     def test_suggested_questions_amounts_break_loop(self) -> None:
-        questions = StoryAnimationJobService._build_suggested_questions(
+        questions = _build_suggested_questions(
             facts={
                 "parties": [{"name": "a"}],
                 "events": [{"amounts": ["1"]}, {"amounts": ["2"]}, {"amounts": ["3"]}],
@@ -263,7 +270,7 @@ class TestSummarizeHelpers:
 
     def test_suggested_questions_non_list_events(self) -> None:
         # 非列表真值 events：问题条目仍按 truthy 追加，但金额扫描被跳过
-        questions = StoryAnimationJobService._build_suggested_questions(facts={"events": "junk"})
+        questions = _build_suggested_questions(facts={"events": "junk"})
         assert questions == ["案件经过了哪些关键事件？"]
 
 

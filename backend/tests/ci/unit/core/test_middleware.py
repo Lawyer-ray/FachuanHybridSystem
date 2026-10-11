@@ -2,13 +2,13 @@
 
 覆盖: security.py (SecurityHeadersMiddleware, PermissionsPolicyMiddleware, ServiceLocatorScopeMiddleware)
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
-
 
 # ============================================================
 # SecurityHeadersMiddleware
@@ -163,9 +163,7 @@ class TestPermissionsPolicyMiddleware:
 
         from apps.core.middleware.security import PermissionsPolicyMiddleware
 
-        mock_settings = SimpleNamespace(
-            PERMISSIONS_POLICY={"geolocation": [], "camera": "*"}
-        )
+        mock_settings = SimpleNamespace(PERMISSIONS_POLICY={"geolocation": [], "camera": "*"})
 
         def get_response(request):  # type: ignore[no-untyped-def]
             return HttpResponse("ok")
@@ -231,9 +229,7 @@ class TestPermissionsPolicyMiddleware:
 
         from apps.core.middleware.security import PermissionsPolicyMiddleware
 
-        mock_settings = SimpleNamespace(
-            PERMISSIONS_POLICY={"geolocation": "self"}
-        )
+        mock_settings = SimpleNamespace(PERMISSIONS_POLICY={"geolocation": "self"})
 
         def get_response(request):  # type: ignore[no-untyped-def]
             return HttpResponse("ok")

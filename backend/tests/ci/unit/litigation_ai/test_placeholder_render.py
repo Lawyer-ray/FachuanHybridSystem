@@ -1,4 +1,5 @@
 """占位符渲染服务单元测试。"""
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -14,6 +15,7 @@ def svc() -> PlaceholderRenderService:
 
 
 # ── render ─────────────────────────────────────────────────────────────────
+
 
 @patch("apps.litigation_ai.services.generation.placeholder_render_service.resolve_render_variable")
 def test_render_single_brace_syntax(mock_resolve) -> None:
@@ -64,6 +66,7 @@ def test_render_no_placeholders(svc: PlaceholderRenderService) -> None:
 
 
 # ── RenderStats ────────────────────────────────────────────────────────────
+
 
 def test_render_stats_hit_rate_all_hit() -> None:
     """全部命中 hit_rate = 1.0。"""

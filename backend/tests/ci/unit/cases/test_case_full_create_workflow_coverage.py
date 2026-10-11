@@ -76,7 +76,13 @@ class TestCaseFullCreateWorkflowRun:
         mock_repo.bulk_create_case_parties.return_value = [SimpleNamespace(id=1)]
         mock_repo.bulk_create_case_assignments.return_value = [SimpleNamespace(id=1)]
         wf = CaseFullCreateWorkflow(case_service=case_service, repo=mock_repo)
-        data = {"case": {"name": "test"}, "parties": [{"client_id": 1}], "assignments": [{"lawyer_id": 1}], "logs": [], "supervising_authorities": []}
+        data = {
+            "case": {"name": "test"},
+            "parties": [{"client_id": 1}],
+            "assignments": [{"lawyer_id": 1}],
+            "logs": [],
+            "supervising_authorities": [],
+        }
         result = wf.run(data=data)
         assert result["case"] is mock_case
         mock_repo.bulk_create_case_logs.assert_not_called()
@@ -91,7 +97,13 @@ class TestCaseFullCreateWorkflowRun:
         mock_repo.bulk_create_case_logs.return_value = [SimpleNamespace(id=1)]
         mock_repo.bulk_create_supervising_authorities.return_value = []
         wf = CaseFullCreateWorkflow(case_service=case_service, repo=mock_repo)
-        data = {"case": {}, "parties": [], "assignments": [], "logs": [{"content": "created"}], "supervising_authorities": []}
+        data = {
+            "case": {},
+            "parties": [],
+            "assignments": [],
+            "logs": [{"content": "created"}],
+            "supervising_authorities": [],
+        }
         result = wf.run(data=data, actor_id=10)
         mock_repo.bulk_create_case_logs.assert_called_once()
 
@@ -104,7 +116,13 @@ class TestCaseFullCreateWorkflowRun:
         mock_repo.bulk_create_case_assignments.return_value = []
         mock_repo.bulk_create_supervising_authorities.return_value = [SimpleNamespace(id=1)]
         wf = CaseFullCreateWorkflow(case_service=case_service, repo=mock_repo)
-        data = {"case": {}, "parties": [], "assignments": [], "logs": [], "supervising_authorities": [{"name": "court"}]}
+        data = {
+            "case": {},
+            "parties": [],
+            "assignments": [],
+            "logs": [],
+            "supervising_authorities": [{"name": "court"}],
+        }
         result = wf.run(data=data)
         mock_repo.bulk_create_supervising_authorities.assert_called_once()
 

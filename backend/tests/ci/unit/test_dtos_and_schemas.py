@@ -49,6 +49,7 @@ class TestCourtTokenDTO:
 class TestCourtSMSSchemas:
     def test_sms_parse_result(self):
         from apps.automation.schemas.court_sms import SMSParseResult
+
         result = SMSParseResult(
             sms_type="document",
             download_links=["http://example.com"],
@@ -61,34 +62,43 @@ class TestCourtSMSSchemas:
 
     def test_court_sms_submit_in_validation(self):
         from apps.automation.schemas.court_sms import CourtSMSSubmitIn
+
         # Valid
         sms = CourtSMSSubmitIn(content="  hello  ")
         assert sms.content == "hello"
 
     def test_court_sms_submit_in_empty_content(self):
-        from apps.automation.schemas.court_sms import CourtSMSSubmitIn
         from pydantic import ValidationError
+
+        from apps.automation.schemas.court_sms import CourtSMSSubmitIn
+
         with pytest.raises(ValidationError):
             CourtSMSSubmitIn(content="")
 
     def test_court_sms_submit_in_whitespace_content(self):
-        from apps.automation.schemas.court_sms import CourtSMSSubmitIn
         from pydantic import ValidationError
+
+        from apps.automation.schemas.court_sms import CourtSMSSubmitIn
+
         with pytest.raises(ValidationError):
             CourtSMSSubmitIn(content="   ")
 
     def test_batch_delete_in(self):
         from apps.automation.schemas.court_sms import CourtSMSBatchDeleteIn
+
         batch = CourtSMSBatchDeleteIn(ids=[1, 2, 3])
         assert len(batch.ids) == 3
 
     def test_batch_delete_in_empty(self):
-        from apps.automation.schemas.court_sms import CourtSMSBatchDeleteIn
         from pydantic import ValidationError
+
+        from apps.automation.schemas.court_sms import CourtSMSBatchDeleteIn
+
         with pytest.raises(ValidationError):
             CourtSMSBatchDeleteIn(ids=[])
 
     def test_assign_case_in(self):
         from apps.automation.schemas.court_sms import CourtSMSAssignCaseIn
+
         assign = CourtSMSAssignCaseIn(case_id=42)
         assert assign.case_id == 42

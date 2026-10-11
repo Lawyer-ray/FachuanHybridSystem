@@ -17,7 +17,6 @@ from apps.reminders.services.reminder_parser_service import (
 )
 from apps.reminders.services.validators import normalize_content, normalize_reminder_type
 
-
 # ---- _parse_date ----
 
 
@@ -76,11 +75,7 @@ def test_normalize_reminder_type_valid_values(value: str) -> None:
 
 
 @settings(max_examples=200, deadline=None)
-@given(
-    st.text(max_size=64).filter(
-        lambda s: s.strip() not in ReminderType.values
-    )
-)
+@given(st.text(max_size=64).filter(lambda s: s.strip() not in ReminderType.values))
 def test_normalize_reminder_type_invalid_raises(text: str) -> None:
     """Invalid reminder types should raise ValidationException."""
     import pytest

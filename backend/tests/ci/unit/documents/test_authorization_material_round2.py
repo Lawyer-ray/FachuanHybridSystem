@@ -12,6 +12,7 @@ def _make_service(**overrides):
     from apps.documents.services.generation.authorization_material_generation_service import (
         AuthorizationMaterialGenerationService,
     )
+
     defaults = {
         "case_service": MagicMock(),
         "client_service": MagicMock(),
@@ -48,6 +49,7 @@ class TestGetClientExceptionHandling:
         case.parties.select_related.return_value.all.side_effect = Exception("db err")
         svc = _make_service()
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException, match="我方当事人不存在或不合法"):
             svc._get_our_client(case, 10)
 
@@ -56,6 +58,7 @@ class TestGetClientExceptionHandling:
         case.parties.select_related.return_value.all.side_effect = Exception("db err")
         svc = _make_service()
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException, match="我方当事人法人不存在或不合法"):
             svc._get_our_legal_client(case, 10)
 
@@ -65,6 +68,7 @@ class TestGetClientExceptionHandling:
         case.parties.select_related.return_value.all.return_value = [party]
         svc = _make_service()
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException):
             svc._get_our_client(case, client_id=10)
 
@@ -73,6 +77,7 @@ class TestRenderTemplate:
     def test_template_path_not_exists(self):
         svc = _make_service()
         from apps.core.exceptions import ValidationException
+
         path = MagicMock()
         path.exists.return_value = False
         with pytest.raises(ValidationException, match="模板文件不存在"):
@@ -90,6 +95,7 @@ class TestRenderTemplate:
     def test_render_exception(self):
         svc = _make_service()
         from apps.core.exceptions import ValidationException
+
         path = MagicMock()
         path.exists.return_value = True
         with patch("apps.documents.services.generation.pipeline.DocxRenderer") as mock_renderer:
@@ -101,11 +107,12 @@ class TestRenderTemplate:
 class TestBuildFilenames:
     def test_build_authority_letter_empty_case_name(self):
         svc = _make_service()
-        with patch(
-            "apps.documents.services.generation.authorization_material_generation_service.FilenameTemplateService"
-        ) as mock_fts, patch(
-            "apps.documents.services.generation.authorization_material_generation_service.timezone"
-        ) as mock_tz:
+        with (
+            patch(
+                "apps.documents.services.generation.authorization_material_generation_service.FilenameTemplateService"
+            ) as mock_fts,
+            patch("apps.documents.services.generation.authorization_material_generation_service.timezone") as mock_tz,
+        ):
             mock_tz.now.return_value.strftime.return_value = "20260607"
             mock_fts.render_generated_doc.return_value = "doc"
             result = svc._build_authority_letter_filename(case_name="")
@@ -116,11 +123,12 @@ class TestBuildFilenames:
 
     def test_build_legal_rep_empty_company_name(self):
         svc = _make_service()
-        with patch(
-            "apps.documents.services.generation.authorization_material_generation_service.FilenameTemplateService"
-        ) as mock_fts, patch(
-            "apps.documents.services.generation.authorization_material_generation_service.timezone"
-        ) as mock_tz:
+        with (
+            patch(
+                "apps.documents.services.generation.authorization_material_generation_service.FilenameTemplateService"
+            ) as mock_fts,
+            patch("apps.documents.services.generation.authorization_material_generation_service.timezone") as mock_tz,
+        ):
             mock_tz.now.return_value.strftime.return_value = "20260607"
             mock_fts.render_generated_doc.return_value = "doc"
             result = svc._build_legal_rep_certificate_filename(company_name="")
@@ -131,11 +139,12 @@ class TestBuildFilenames:
     def test_build_poa_filename_combined(self):
         svc = _make_service()
         case = _make_case(name="案件")
-        with patch(
-            "apps.documents.services.generation.authorization_material_generation_service.FilenameTemplateService"
-        ) as mock_fts, patch(
-            "apps.documents.services.generation.authorization_material_generation_service.timezone"
-        ) as mock_tz:
+        with (
+            patch(
+                "apps.documents.services.generation.authorization_material_generation_service.FilenameTemplateService"
+            ) as mock_fts,
+            patch("apps.documents.services.generation.authorization_material_generation_service.timezone") as mock_tz,
+        ):
             mock_tz.now.return_value.strftime.return_value = "20260607"
             mock_fts.render_generated_doc.return_value = "poa"
             result = svc._build_power_of_attorney_filename(case=case, selected_clients=[], combined=True)
@@ -147,34 +156,35 @@ class TestBuildFilenames:
         case.parties.select_related.return_value.all.return_value = [_make_party(is_our=True)]
         client = MagicMock()
         client.name = "张三"
-        with patch(
-            "apps.documents.services.generation.authorization_material_generation_service.FilenameTemplateService"
-        ) as mock_fts, patch(
-            "apps.documents.services.generation.authorization_material_generation_service.timezone"
-        ) as mock_tz:
+        with (
+            patch(
+                "apps.documents.services.generation.authorization_material_generation_service.FilenameTemplateService"
+            ) as mock_fts,
+            patch("apps.documents.services.generation.authorization_material_generation_service.timezone") as mock_tz,
+        ):
             mock_tz.now.return_value.strftime.return_value = "20260607"
             mock_fts.render_generated_doc.return_value = "poa"
-            result = svc._build_power_of_attorney_filename(
-                case=case, selected_clients=[client], combined=False
-            )
+            result = svc._build_power_of_attorney_filename(case=case, selected_clients=[client], combined=False)
         assert result.endswith(".docx")
 
     def test_build_poa_filename_multiple_parties(self):
         svc = _make_service()
         case = _make_case()
-        case.parties.select_related.return_value.all.return_value = [_make_party(is_our=True), _make_party(client_id=20, is_our=True)]
+        case.parties.select_related.return_value.all.return_value = [
+            _make_party(is_our=True),
+            _make_party(client_id=20, is_our=True),
+        ]
         client = MagicMock()
         client.name = "张三"
-        with patch(
-            "apps.documents.services.generation.authorization_material_generation_service.FilenameTemplateService"
-        ) as mock_fts, patch(
-            "apps.documents.services.generation.authorization_material_generation_service.timezone"
-        ) as mock_tz:
+        with (
+            patch(
+                "apps.documents.services.generation.authorization_material_generation_service.FilenameTemplateService"
+            ) as mock_fts,
+            patch("apps.documents.services.generation.authorization_material_generation_service.timezone") as mock_tz,
+        ):
             mock_tz.now.return_value.strftime.return_value = "20260607"
             mock_fts.render_generated_doc.return_value = "poa"
-            result = svc._build_power_of_attorney_filename(
-                case=case, selected_clients=[client], combined=False
-            )
+            result = svc._build_power_of_attorney_filename(case=case, selected_clients=[client], combined=False)
         assert result.endswith(".docx")
         # Should include client name in parentheses
         call_args = mock_fts.render_generated_doc.call_args
@@ -184,16 +194,15 @@ class TestBuildFilenames:
         svc = _make_service()
         case = _make_case()
         case.parties.select_related.return_value.all.return_value = []
-        with patch(
-            "apps.documents.services.generation.authorization_material_generation_service.FilenameTemplateService"
-        ) as mock_fts, patch(
-            "apps.documents.services.generation.authorization_material_generation_service.timezone"
-        ) as mock_tz:
+        with (
+            patch(
+                "apps.documents.services.generation.authorization_material_generation_service.FilenameTemplateService"
+            ) as mock_fts,
+            patch("apps.documents.services.generation.authorization_material_generation_service.timezone") as mock_tz,
+        ):
             mock_tz.now.return_value.strftime.return_value = "20260607"
             mock_fts.render_generated_doc.return_value = "poa"
-            result = svc._build_power_of_attorney_filename(
-                case=case, selected_clients=[], combined=False
-            )
+            result = svc._build_power_of_attorney_filename(case=case, selected_clients=[], combined=False)
         assert result.endswith(".docx")
 
 
@@ -243,9 +252,7 @@ class TestGetTemplatePathFromCaseBindings:
             "apps.documents.services.generation.authorization_material_generation_service.DocumentTemplate"
         ) as mock_tmpl:
             mock_tmpl.objects.filter.return_value = [template]
-            with patch(
-                "apps.documents.services.generation.authorization_material_generation_service.Path"
-            ) as MockPath:
+            with patch("apps.documents.services.generation.authorization_material_generation_service.Path") as MockPath:
                 result = svc._get_template_path_from_case_bindings(1, "所函")
         assert result is not None
 
@@ -264,9 +271,7 @@ class TestGetTemplatePathFromCaseBindings:
             "apps.documents.services.generation.authorization_material_generation_service.DocumentTemplate"
         ) as mock_tmpl:
             mock_tmpl.objects.filter.return_value = [template]
-            with patch(
-                "apps.documents.services.generation.authorization_material_generation_service.Path"
-            ) as MockPath:
+            with patch("apps.documents.services.generation.authorization_material_generation_service.Path") as MockPath:
                 result = svc._get_template_path_from_case_bindings(1, "所函")
         assert result is not None
 
@@ -285,9 +290,7 @@ class TestGetTemplatePathFromCaseBindings:
             "apps.documents.services.generation.authorization_material_generation_service.DocumentTemplate"
         ) as mock_tmpl:
             mock_tmpl.objects.filter.return_value = [template]
-            with patch(
-                "apps.documents.services.generation.authorization_material_generation_service.Path"
-            ) as MockPath:
+            with patch("apps.documents.services.generation.authorization_material_generation_service.Path") as MockPath:
                 result = svc._get_template_path_from_case_bindings(1, "所函")
         assert result is not None
 

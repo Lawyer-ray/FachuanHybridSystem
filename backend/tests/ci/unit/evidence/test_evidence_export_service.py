@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from io import BytesIO
-from unittest.mock import MagicMock, patch, PropertyMock
 from pathlib import Path
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -23,16 +23,22 @@ def svc():
 def evidence_list_with_items(db):
     """Create an EvidenceList with items for testing."""
     case = CaseFactory(name="测试案件V1")
-    el = EvidenceList.objects.create(
-        case=case, title="证据清单一", list_type=ListType.LIST_1
-    )
+    el = EvidenceList.objects.create(case=case, title="证据清单一", list_type=ListType.LIST_1)
     item1 = EvidenceItem.objects.create(
-        evidence_list=el, order=1, name="合同原件",
-        purpose="证明合同关系", page_start=1, page_end=3,
+        evidence_list=el,
+        order=1,
+        name="合同原件",
+        purpose="证明合同关系",
+        page_start=1,
+        page_end=3,
     )
     item2 = EvidenceItem.objects.create(
-        evidence_list=el, order=2, name="转账凭证",
-        purpose="证明付款", page_start=4, page_end=5,
+        evidence_list=el,
+        order=2,
+        name="转账凭证",
+        purpose="证明付款",
+        page_start=4,
+        page_end=5,
     )
     return el, [item1, item2]
 
@@ -92,9 +98,7 @@ class TestGenerateFilename:
     @pytest.mark.django_db
     def test_supplementary_list_type(self, svc, db):
         case = CaseFactory(name="补充案件")
-        el = EvidenceList.objects.create(
-            case=case, title="补充证据清单一", list_type=ListType.LIST_3
-        )
+        el = EvidenceList.objects.create(case=case, title="补充证据清单一", list_type=ListType.LIST_3)
         filename = svc._generate_filename(el, "证据明细", 1)
         assert "证据明细" in filename
 
@@ -171,9 +175,9 @@ class TestExportEvidenceListWithTemplate:
         el, _ = evidence_list_with_items
         # _get_template imports from apps.evidence.models which has a broken import path
         # We test the NotFoundError path by mocking the internal call
-        with patch.object(svc, "_get_template", side_effect=NotFoundError(
-            message="模板不存在", code="TEMPLATE_NOT_FOUND", errors={}
-        )):
+        with patch.object(
+            svc, "_get_template", side_effect=NotFoundError(message="模板不存在", code="TEMPLATE_NOT_FOUND", errors={})
+        ):
             with pytest.raises(NotFoundError, match="模板不存在"):
                 svc.export_evidence_list_with_template(el.id, template_id=99999)
 
@@ -182,14 +186,19 @@ class TestCreateEvidenceTable:
     @pytest.mark.django_db
     def test_creates_table_in_doc(self, svc, db):
         from docx import Document
+
         from apps.testing.factories import CaseFactory
 
         doc = Document()
         case = CaseFactory(name="表格案件")
         el = EvidenceList.objects.create(case=case, title="清单", list_type=ListType.LIST_1)
         item = EvidenceItem.objects.create(
-            evidence_list=el, order=1, name="证据A", purpose="证明A",
-            page_start=1, page_end=2,
+            evidence_list=el,
+            order=1,
+            name="证据A",
+            purpose="证明A",
+            page_start=1,
+            page_end=2,
         )
         svc._create_evidence_table(doc, [item], global_order_start=1)
         assert len(doc.tables) == 1
@@ -202,14 +211,19 @@ class TestAddEvidenceDetailSection:
     @pytest.mark.django_db
     def test_adds_heading_and_paragraphs(self, svc, db):
         from docx import Document
+
         from apps.testing.factories import CaseFactory
 
         doc = Document()
         case = CaseFactory(name="明细章节案件")
         el = EvidenceList.objects.create(case=case, title="清单", list_type=ListType.LIST_1)
         item = EvidenceItem.objects.create(
-            evidence_list=el, order=2, name="转账记录",
-            purpose="证明付款", page_start=1, page_end=5,
+            evidence_list=el,
+            order=2,
+            name="转账记录",
+            purpose="证明付款",
+            page_start=1,
+            page_end=5,
         )
         initial_paragraphs = len(doc.paragraphs)
         svc._add_evidence_detail_section(doc, item, global_order=2)

@@ -8,7 +8,7 @@ from apps.document_parsing.protocols.document_parser_protocol import (
     ParsedDocument,
     TextExtractionResult,
 )
-from apps.document_parsing.services.parser_factory import ParserFactory
+from apps.document_parsing.services.parser_factory import ParserFactory, create_parser
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class DocumentParserService:
     def _get_parser(self) -> IDocumentParserProtocol:
         """获取解析器实例（延迟加载）"""
         if self._parser is None:
-            self._parser = ParserFactory.create_parser(
+            self._parser = create_parser(
                 self._backend_name,
                 **self._kwargs,
             )

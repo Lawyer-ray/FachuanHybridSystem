@@ -66,7 +66,9 @@ class TestLPRRateService:
         mock_rate2.rate_5y = Decimal("4.15")
 
         with patch("apps.finance.models.lpr_rate.LPRRate") as mock_model:
-            mock_model.objects.filter.return_value.order_by.return_value.__iter__ = lambda self: iter([mock_rate1, mock_rate2])
+            mock_model.objects.filter.return_value.order_by.return_value.__iter__ = lambda self: iter(
+                [mock_rate1, mock_rate2]
+            )
             mock_model.objects.filter.return_value.order_by.return_value.__bool__ = lambda self: True
             mock_model.objects.filter.return_value.order_by.return_value.__len__ = lambda self: 2
             result = self.service.get_rate_segments(date(2024, 1, 1), date(2024, 12, 31))

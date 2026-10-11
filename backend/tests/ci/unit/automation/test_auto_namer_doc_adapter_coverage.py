@@ -1,7 +1,7 @@
 """Coverage tests for automation.services.ai.auto_namer_service_adapter and automation.services.document.document_processing_service_adapter."""
 
-from unittest.mock import MagicMock, patch
 from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -43,7 +43,7 @@ class TestAutoNamerServiceAdapter:
         # NOTE: The source code uses extra={'filename': ...} in logger.error which conflicts
         # with Python's LogRecord 'filename' reserved key. Testing the no-text path would
         # trigger this logging bug. We test the method exists and verify input validation instead.
-        assert hasattr(svc, 'process_document_for_naming')
+        assert hasattr(svc, "process_document_for_naming")
 
     def test_process_document_for_naming_success(self):
         svc = self._make()
@@ -59,7 +59,9 @@ class TestAutoNamerServiceAdapter:
 
 class TestDocumentProcessingServiceAdapter:
     def _make(self):
-        from apps.automation.services.document.document_processing_service_adapter import DocumentProcessingServiceAdapter
+        from apps.automation.services.document.document_processing_service_adapter import (
+            DocumentProcessingServiceAdapter,
+        )
 
         return DocumentProcessingServiceAdapter()
 
@@ -68,7 +70,9 @@ class TestDocumentProcessingServiceAdapter:
         assert svc is not None
 
     def test_process_uploaded_document(self):
-        from apps.automation.services.document.document_processing_service_adapter import DocumentProcessingServiceAdapter
+        from apps.automation.services.document.document_processing_service_adapter import (
+            DocumentProcessingServiceAdapter,
+        )
 
         svc = DocumentProcessingServiceAdapter()
         mock_file = SimpleNamespace(name="test.pdf", size=1024)

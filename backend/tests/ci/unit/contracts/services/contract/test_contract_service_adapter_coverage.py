@@ -5,9 +5,10 @@ get_contract_assigned_lawyer_id, get_contract_lawyers, get_party_roles_by_contra
 get_fee_mode_display_internal, get_supplementary_agreement_model_internal,
 get_contract_model_internal, ensure_contract_access_ctx.
 """
+
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -16,6 +17,7 @@ from apps.core.exceptions import NotFoundError
 
 def _make_adapter(**deps):
     from apps.contracts.services.contract.contract_service_adapter import ContractServiceAdapter
+
     return ContractServiceAdapter(
         contract_service=deps.get("contract_service", MagicMock()),
         dto_assembler=deps.get("dto_assembler", MagicMock()),
@@ -26,12 +28,14 @@ def _make_adapter(**deps):
 class TestContractServiceAdapterInit:
     def test_no_contract_service_no_case_service_raises(self):
         from apps.contracts.services.contract.contract_service_adapter import ContractServiceAdapter
+
         with pytest.raises(RuntimeError, match="需要显式注入"):
             ContractServiceAdapter(contract_service=None, case_service=None)
 
     def test_with_case_service_creates_contract_service(self):
-        from apps.contracts.services.contract.contract_service_adapter import ContractServiceAdapter
         from apps.contracts.services.contract.contract_service import ContractService
+        from apps.contracts.services.contract.contract_service_adapter import ContractServiceAdapter
+
         with patch("apps.contracts.services.contract.contract_service_adapter.ContractService") as MockCS:
             MockCS.return_value = MagicMock()
             adapter = ContractServiceAdapter(contract_service=None, case_service=MagicMock())
@@ -186,6 +190,7 @@ class TestGetFeeModeDisplayInternal:
         adapter = _make_adapter()
         with patch("apps.contracts.services.contract.contract_service_adapter.ContractService") as MockCS:
             from apps.contracts.models.contract import FeeMode
+
             with patch("apps.contracts.services.contract.contract_service_adapter.FeeMode", create=True) as MockFM:
                 MockFM.choices = [("fixed", "固定"), ("hourly", "计时")]
                 result = adapter.get_fee_mode_display_internal("fixed")
@@ -208,6 +213,7 @@ class TestGetContractModelInternal:
         with patch("apps.contracts.services.contract.contract_service_adapter.Contract") as MockContract:
             MockContract.objects.prefetch_related.return_value.get.return_value = mock_contract
             import warnings
+
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", DeprecationWarning)
                 result = adapter.get_contract_model_internal(1)
@@ -216,9 +222,10 @@ class TestGetContractModelInternal:
     def test_not_found(self):
         adapter = _make_adapter()
         with patch("apps.contracts.services.contract.contract_service_adapter.Contract") as MockContract:
-            MockContract.DoesNotExist = type('DoesNotExist', (Exception,), {})
+            MockContract.DoesNotExist = type("DoesNotExist", (Exception,), {})
             MockContract.objects.prefetch_related.return_value.get.side_effect = MockContract.DoesNotExist()
             import warnings
+
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", DeprecationWarning)
                 result = adapter.get_contract_model_internal(999)
@@ -230,6 +237,4 @@ class TestEnsureContractAccessCtx:
         adapter = _make_adapter()
         ctx = MagicMock()
         adapter.ensure_contract_access_ctx(1, ctx)
-        adapter.contract_service.access_policy.ensure_access_ctx.assert_called_once_with(
-            contract_id=1, ctx=ctx
-        )
+        adapter.contract_service.access_policy.ensure_access_ctx.assert_called_once_with(contract_id=1, ctx=ctx)

@@ -19,7 +19,7 @@ from apps.evidence_sorting.services.classifier import (
     ClassifierService,
     ClassifyResult,
 )
-from apps.evidence_sorting.services.exporter import ExporterService
+from apps.evidence_sorting.services.exporter import ExporterService, _build_filename, _get_ext, _write_image
 from apps.evidence_sorting.services.reconciler import (
     FOLDER_CONFIRMED,
     FOLDER_DELIVERY_MISMATCH,
@@ -34,6 +34,8 @@ from apps.evidence_sorting.services.reconciler import (
     ReconcileResult,
     ReconcilerService,
     StatementInfo,
+    _normalize_date,
+    _to_float,
 )
 
 # ---------------------------------------------------------------------------
@@ -230,36 +232,36 @@ class TestReconcilerParseLlmResponse:
 
 class TestReconcilerNormalizeDate:
     def test_valid(self) -> None:
-        assert ReconcilerService._normalize_date("20231005") == "20231005"
+        assert _normalize_date("20231005") == "20231005"
 
     def test_with_dashes(self) -> None:
-        assert ReconcilerService._normalize_date("2023-10-05") == "20231005"
+        assert _normalize_date("2023-10-05") == "20231005"
 
     def test_short(self) -> None:
-        assert ReconcilerService._normalize_date("2023105") is None
+        assert _normalize_date("2023105") is None
 
     def test_none(self) -> None:
-        assert ReconcilerService._normalize_date(None) is None
+        assert _normalize_date(None) is None
 
     def test_empty(self) -> None:
-        assert ReconcilerService._normalize_date("") is None
+        assert _normalize_date("") is None
 
 
 class TestReconcilerToFloat:
     def test_none(self) -> None:
-        assert ReconcilerService._to_float(None) is None
+        assert _to_float(None) is None
 
     def test_int(self) -> None:
-        assert ReconcilerService._to_float(100) == 100.0
+        assert _to_float(100) == 100.0
 
     def test_str_with_comma(self) -> None:
-        assert ReconcilerService._to_float("123,456") == 123456.0
+        assert _to_float("123,456") == 123456.0
 
     def test_invalid(self) -> None:
-        assert ReconcilerService._to_float("abc") is None
+        assert _to_float("abc") is None
 
     def test_decimal_str(self) -> None:
-        assert ReconcilerService._to_float("3.14") == 3.14
+        assert _to_float("3.14") == 3.14
 
 
 class TestReconcilerExtractMonthKey:
@@ -392,13 +394,13 @@ class TestReconcilerBuildFolderName:
 
 class TestExporterGetExt:
     def test_with_extension(self) -> None:
-        assert ExporterService._get_ext("file.pdf") == ".pdf"
+        assert _get_ext("file.pdf") == ".pdf"
 
     def test_no_extension(self) -> None:
-        assert ExporterService._get_ext("noext") == ".jpg"
+        assert _get_ext("noext") == ".jpg"
 
     def test_multiple_dots(self) -> None:
-        assert ExporterService._get_ext("file.name.pdf") == ".pdf"
+        assert _get_ext("file.name.pdf") == ".pdf"
 
 
 class TestExporterBuildDeliveryFilename:
@@ -452,7 +454,7 @@ class TestExporterBuildDeliveryFilename:
 
 class TestExporterBuildFilename:
     def test_format(self) -> None:
-        name = ExporterService._build_filename()
+        name = _build_filename()
         assert name.startswith("evidence_sorting_")
         assert name.endswith(".zip")
 
@@ -464,7 +466,7 @@ class TestExporterWriteImage:
         buf = BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
             b64 = base64.b64encode(b"fake image").decode()
-            ExporterService._write_image(zf, "test.jpg", b64)
+            _write_image(zf, "test.jpg", b64)
 
         buf.seek(0)
         with zipfile.ZipFile(buf, "r") as zf:
@@ -476,7 +478,7 @@ class TestExporterWriteImage:
         buf = BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
             b64 = base64.b64encode(b"test data").decode()
-            ExporterService._write_image(zf, "test.jpg", f"data:image/png;base64,{b64}")
+            _write_image(zf, "test.jpg", f"data:image/png;base64,{b64}")
 
         buf.seek(0)
         with zipfile.ZipFile(buf, "r") as zf:
@@ -485,7 +487,7 @@ class TestExporterWriteImage:
     def test_invalid_base64_does_not_crash(self) -> None:
         buf = BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
-            assert ExporterService._write_image(zf, "bad.jpg", "not-valid-base64!") is None
+            assert _write_image(zf, "bad.jpg", "not-valid-base64!") is None
         # 非法 base64 图片不应写入 zip
         with zipfile.ZipFile(buf) as zf:
             assert zf.namelist() == []

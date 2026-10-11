@@ -53,12 +53,16 @@ class SupplementaryAgreementAdminPartyCountTest(TestCase):
         # sa_2: 2 个当事人
         for i in range(2):
             SupplementaryAgreementParty.objects.create(
-                supplementary_agreement=cls.sa_2, client=clients[i], role="OPPOSING",
+                supplementary_agreement=cls.sa_2,
+                client=clients[i],
+                role="OPPOSING",
             )
         # sa_5: 5 个当事人
         for i in range(5):
             SupplementaryAgreementParty.objects.create(
-                supplementary_agreement=cls.sa_5, client=clients[i + 2], role="BENEFICIARY",
+                supplementary_agreement=cls.sa_5,
+                client=clients[i + 2],
+                role="BENEFICIARY",
             )
 
     def _make_request(self):
@@ -133,6 +137,7 @@ class CaseLogAdminReminderBatchTest(TestCase):
         case_log_ids = [obj.pk for obj in self.case_logs]
 
         from apps.core.infrastructure.service_locator import ServiceLocator
+
         svc = ServiceLocator.get_reminder_service()
 
         with self.assertNumQueries(1):
@@ -145,10 +150,9 @@ class CaseLogAdminReminderBatchTest(TestCase):
     def test_cache_hit_prevents_extra_queries(self) -> None:
         """预填充缓存后访问 reminder_type/reminder_time 不应触发额外查询。"""
         from apps.core.infrastructure.service_locator import ServiceLocator
+
         svc = ServiceLocator.get_reminder_service()
-        batch = svc.export_case_log_reminders_batch_internal(
-            case_log_ids=[log.pk for log in self.case_logs]
-        )
+        batch = svc.export_case_log_reminders_batch_internal(case_log_ids=[log.pk for log in self.case_logs])
 
         # 预填充缓存
         for obj in self.case_logs:
@@ -168,10 +172,9 @@ class CaseLogAdminReminderBatchTest(TestCase):
     def test_reminder_values_correct_after_batch(self) -> None:
         """批量预填充后 reminder_type/reminder_time 值应正确。"""
         from apps.core.infrastructure.service_locator import ServiceLocator
+
         svc = ServiceLocator.get_reminder_service()
-        batch = svc.export_case_log_reminders_batch_internal(
-            case_log_ids=[self.case_logs[0].pk, self.case_logs[7].pk]
-        )
+        batch = svc.export_case_log_reminders_batch_internal(case_log_ids=[self.case_logs[0].pk, self.case_logs[7].pk])
 
         # 有提醒的日志
         log_with = self.case_logs[0]
@@ -200,6 +203,7 @@ class CaseLogAdminReminderBatchTest(TestCase):
         )
 
         from apps.core.infrastructure.service_locator import ServiceLocator
+
         svc = ServiceLocator.get_reminder_service()
         batch = svc.export_case_log_reminders_batch_internal(case_log_ids=[log.pk])
         reminders = batch.get(log.pk, [])
@@ -221,18 +225,34 @@ class EvidenceListAdminChainBatchTest(TestCase):
         cls.case = Case.objects.create(name="测试案件P2", contract=cls.contract)
 
         cls.el1 = EvidenceList.objects.create(
-            case=cls.case, list_type=ListType.LIST_1, order=1, title="清单1", total_pages=10,
+            case=cls.case,
+            list_type=ListType.LIST_1,
+            order=1,
+            title="清单1",
+            total_pages=10,
         )
         cls.el2 = EvidenceList.objects.create(
-            case=cls.case, list_type=ListType.LIST_2, order=2, title="清单2", total_pages=20,
+            case=cls.case,
+            list_type=ListType.LIST_2,
+            order=2,
+            title="清单2",
+            total_pages=20,
             previous_list=cls.el1,
         )
         cls.el3 = EvidenceList.objects.create(
-            case=cls.case, list_type=ListType.LIST_3, order=3, title="清单3", total_pages=5,
+            case=cls.case,
+            list_type=ListType.LIST_3,
+            order=3,
+            title="清单3",
+            total_pages=5,
             previous_list=cls.el2,
         )
         cls.el4 = EvidenceList.objects.create(
-            case=cls.case, list_type=ListType.LIST_4, order=4, title="清单4", total_pages=15,
+            case=cls.case,
+            list_type=ListType.LIST_4,
+            order=4,
+            title="清单4",
+            total_pages=15,
             previous_list=cls.el3,
         )
 
@@ -273,6 +293,7 @@ class EvidenceListAdminChainBatchTest(TestCase):
     def test_expected_chain_values(self) -> None:
         """验证链式计算的具体期望值。"""
         from apps.evidence.services.core.evidence_service import EvidenceService
+
         svc = EvidenceService()
         for el in [self.el1, self.el2, self.el3, self.el4]:
             el.refresh_from_db()
@@ -324,6 +345,7 @@ class ContractModelStrNoQueryTest(TestCase):
     def test_contract_payment_str_no_fk_query(self) -> None:
         """ContractPayment.__str__ 不应触发 contract FK 查询。"""
         from apps.contracts.models import ContractPayment
+
         payment = ContractPayment.objects.create(contract=self.contract, amount=Decimal("10000.00"))
         # 构造裸实例（无 ORM 缓存）
         payment = ContractPayment(pk=payment.pk, contract_id=self.contract.pk, amount=Decimal("10000.00"))
@@ -337,6 +359,7 @@ class ContractModelStrNoQueryTest(TestCase):
     def test_client_payment_record_str_no_fk_query(self) -> None:
         """ClientPaymentRecord.__str__ 不应触发 contract FK 查询。"""
         from apps.contracts.models import ClientPaymentRecord
+
         record = ClientPaymentRecord.objects.create(contract=self.contract, amount=Decimal("5000.00"))
         record = ClientPaymentRecord(pk=record.pk, contract_id=self.contract.pk, amount=Decimal("5000.00"))
 

@@ -2,6 +2,7 @@
 
 Covers: Command.handle — creating and updating templates.
 """
+
 from __future__ import annotations
 
 from io import StringIO

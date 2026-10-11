@@ -8,6 +8,7 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -19,9 +20,11 @@ pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not i
 # token_service.py - TokenService._get_cache_key
 # ============================================================
 
+
 class TestTokenServiceCacheKey:
     def test_get_cache_key(self):
         from apps.automation.services.scraper.core.token_service import TokenService
+
         svc = TokenService.__new__(TokenService)
         with patch("apps.core.infrastructure.cache.CacheKeys.court_token") as mock_ck:
             mock_ck.return_value = "court_token:court_zxfw:user1"
@@ -34,9 +37,11 @@ class TestTokenServiceCacheKey:
 # TokenServiceAdapter
 # ============================================================
 
+
 class TestTokenServiceAdapter:
     def test_service_property_lazy_load(self):
         from apps.automation.services.scraper.core.token_service import TokenService, TokenServiceAdapter
+
         adapter = TokenServiceAdapter.__new__(TokenServiceAdapter)
         adapter._service = None
         with patch("plugins.court_automation.login.token_service.TokenService") as MockTS:
@@ -47,6 +52,7 @@ class TestTokenServiceAdapter:
 
     def test_service_property_already_set(self):
         from apps.automation.services.scraper.core.token_service import TokenService, TokenServiceAdapter
+
         adapter = TokenServiceAdapter.__new__(TokenServiceAdapter)
         mock_svc = MagicMock()
         adapter._service = mock_svc
@@ -57,9 +63,11 @@ class TestTokenServiceAdapter:
 # auto_login_usecase.py - RetryConfig
 # ============================================================
 
+
 class TestRetryConfig:
     def test_default_values(self):
         from apps.automation.usecases.token.auto_login_usecase import RetryConfig
+
         cfg = RetryConfig()
         assert cfg.max_network_retries == 3
         assert cfg.max_captcha_retries == 3
@@ -69,6 +77,7 @@ class TestRetryConfig:
 
     def test_custom_values(self):
         from apps.automation.usecases.token.auto_login_usecase import RetryConfig
+
         cfg = RetryConfig(max_network_retries=5, login_timeout=120.0)
         assert cfg.max_network_retries == 5
         assert cfg.login_timeout == 120.0
@@ -77,6 +86,7 @@ class TestRetryConfig:
 class TestAutoLoginUsecase:
     def _make_usecase(self):
         from apps.automation.usecases.token.auto_login_usecase import AutoLoginUsecase, RetryConfig
+
         return AutoLoginUsecase(
             retry_config=RetryConfig(max_network_retries=1, max_captcha_retries=1, login_timeout=5.0),
             browser_context_factory=MagicMock(),

@@ -10,12 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.core.exceptions import BusinessException, ValidationException
-from apps.evidence.services.infrastructure.pdf_merge_service import (
-    PDFMergeService,
-    PDFMergeValidator,
-    PDFMergeWorkflow,
-)
-
+from apps.evidence.services.infrastructure.pdf_merge_service import PDFMergeService, PDFMergeValidator, PDFMergeWorkflow
 
 # ── PDFMergeValidator.get_items ────────────────────────────────────────
 
@@ -39,8 +34,10 @@ class TestGenerateMergedFilename:
         evidence_list.case.name = "Test"
         evidence_list.title = "证据清单一"
         evidence_list.export_version = 1
-        with patch("apps.evidence.services.infrastructure.pdf_merge_service.FilenameTemplateService") as MockFTS, \
-             patch("apps.evidence.services.infrastructure.pdf_merge_service.timezone") as mock_tz:
+        with (
+            patch("apps.evidence.services.infrastructure.pdf_merge_service.FilenameTemplateService") as MockFTS,
+            patch("apps.evidence.services.infrastructure.pdf_merge_service.timezone") as mock_tz,
+        ):
             mock_tz.now.return_value.strftime.return_value = "20260101"
             MockFTS.render_generated_doc.return_value = "evidence_Test_V1_20260101"
             result = workflow._generate_merged_filename(evidence_list)
@@ -52,8 +49,10 @@ class TestGenerateMergedFilename:
         evidence_list.case.name = "Test"
         evidence_list.title = "补充证据清单二"
         evidence_list.export_version = 2
-        with patch("apps.evidence.services.infrastructure.pdf_merge_service.FilenameTemplateService") as MockFTS, \
-             patch("apps.evidence.services.infrastructure.pdf_merge_service.timezone") as mock_tz:
+        with (
+            patch("apps.evidence.services.infrastructure.pdf_merge_service.FilenameTemplateService") as MockFTS,
+            patch("apps.evidence.services.infrastructure.pdf_merge_service.timezone") as mock_tz,
+        ):
             mock_tz.now.return_value.strftime.return_value = "20260101"
             MockFTS.render_generated_doc.return_value = "result"
             result = workflow._generate_merged_filename(evidence_list)

@@ -849,38 +849,6 @@ class IdentityExtractionService:
             return None
         return f"{y:04d}-{m:02d}-{d:02d}"
 
-    @staticmethod
-    def _parse_llm_json(content: str) -> dict[str, Any]:
-        """从 LLM 输出中提取 JSON 对象，支持多种格式。"""
-        # 1. 尝试从 ```json ... ``` 代码块中提取
-        if "```json" in content:
-            json_start = content.find("```json") + 7
-            json_end = content.find("```", json_start)
-            if json_end > json_start:
-                result: dict[str, Any] = json.loads(content[json_start:json_end].strip())
-                return result
-        # 2. 尝试从 ``` ... ``` 代码块中提取
-        if "```" in content:
-            json_start = content.find("```") + 3
-            json_end = content.find("```", json_start)
-            if json_end > json_start:
-                result2: dict[str, Any] = json.loads(content[json_start:json_end].strip())
-                return result2
-        # 3. 尝试直接解析整个内容
-        try:
-            result3: dict[str, Any] = json.loads(content.strip())
-            return result3
-        except json.JSONDecodeError:
-            pass
-        # 4. 尝试从文本中提取第一个 JSON 对象
-        import re
-
-        match = re.search(r"\{[^{}]*\}", content, re.DOTALL)
-        if match:
-            result4: dict[str, Any] = json.loads(match.group())
-            return result4
-        raise ValueError("无法从 LLM 输出中提取 JSON")
-
     def _llm_extract(self, raw_text: str, doc_type: str, model: str) -> dict[str, Any]:  # pragma: no cover
         """
         使用 LLM 从文字中提取结构化信息
@@ -927,7 +895,7 @@ class IdentityExtractionService:
 
             # 解析 JSON
             try:
-                extracted_data = self._parse_llm_json(content)
+                extracted_data = _parse_llm_json(content)
                 logger.info("LLM 提取成功,字段数量: %s", len(extracted_data))
                 return dict(extracted_data)
 
@@ -1025,3 +993,36 @@ def _validate_credit_code(code: str | None) -> bool:
     values = [_CREDIT_CODE_CHARS.index(ch) for ch in code[:17]]
     checksum = sum(v * w for v, w in zip(values, _CREDIT_CODE_WEIGHTS)) % 31
     return _CREDIT_CODE_CHARS[(31 - checksum) % 31] == code[17]
+
+
+# ↓↓ 由 IdentityExtractionService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _parse_llm_json(content: str) -> dict[str, Any]:
+    """从 LLM 输出中提取 JSON 对象，支持多种格式。"""
+    # 1. 尝试从 ```json ... ``` 代码块中提取
+    if "```json" in content:
+        json_start = content.find("```json") + 7
+        json_end = content.find("```", json_start)
+        if json_end > json_start:
+            result: dict[str, Any] = json.loads(content[json_start:json_end].strip())
+            return result
+    # 2. 尝试从 ``` ... ``` 代码块中提取
+    if "```" in content:
+        json_start = content.find("```") + 3
+        json_end = content.find("```", json_start)
+        if json_end > json_start:
+            result2: dict[str, Any] = json.loads(content[json_start:json_end].strip())
+            return result2
+    # 3. 尝试直接解析整个内容
+    try:
+        result3: dict[str, Any] = json.loads(content.strip())
+        return result3
+    except json.JSONDecodeError:
+        pass
+    # 4. 尝试从文本中提取第一个 JSON 对象
+    import re
+
+    match = re.search(r"\{[^{}]*\}", content, re.DOTALL)
+    if match:
+        result4: dict[str, Any] = json.loads(match.group())
+        return result4
+    raise ValueError("无法从 LLM 输出中提取 JSON")

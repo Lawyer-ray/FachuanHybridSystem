@@ -6,11 +6,13 @@ from unittest.mock import patch
 # reset_running_tasks
 # ============================================================
 
+
 class TestResetRunningTasks:
     def test_returns_zero_when_no_running(self):
         with patch("apps.automation.models.ScraperTask") as MockTask:
             with patch("apps.automation.models.ScraperTaskStatus") as MockStatus:
                 from apps.automation.tasks.scraping_tasks import reset_running_tasks
+
                 MockTask.objects.filter.return_value.count.return_value = 0
                 result = reset_running_tasks()
                 assert result == 0
@@ -19,6 +21,7 @@ class TestResetRunningTasks:
         with patch("apps.automation.models.ScraperTask") as MockTask:
             with patch("apps.automation.models.ScraperTaskStatus") as MockStatus:
                 from apps.automation.tasks.scraping_tasks import reset_running_tasks
+
                 MockTask.objects.filter.return_value.count.return_value = 3
                 MockTask.objects.filter.return_value.update.return_value = 3
                 result = reset_running_tasks()

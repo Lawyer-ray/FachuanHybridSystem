@@ -15,6 +15,7 @@ from apps.client.services.identity_extraction.extraction_service import (
     _MAX_LLM_OCR_LINES,
     IdentityExtractionService,
     _normalize_ocr_text,
+    _parse_llm_json,
     _validate_credit_code,
     _validate_id_number,
 )
@@ -312,23 +313,23 @@ class TestFormatDateParts:
 class TestParseLlmJson:
     def test_json_block(self):
         content = '```json\n{"key": "value"}\n```'
-        assert IdentityExtractionService._parse_llm_json(content) == {"key": "value"}
+        assert _parse_llm_json(content) == {"key": "value"}
 
     def test_generic_block(self):
         content = '```\n{"key": "value"}\n```'
-        assert IdentityExtractionService._parse_llm_json(content) == {"key": "value"}
+        assert _parse_llm_json(content) == {"key": "value"}
 
     def test_raw_json(self):
         content = '{"key": "value"}'
-        assert IdentityExtractionService._parse_llm_json(content) == {"key": "value"}
+        assert _parse_llm_json(content) == {"key": "value"}
 
     def test_json_in_text(self):
         content = 'Here is the result: {"key": "value"} done.'
-        assert IdentityExtractionService._parse_llm_json(content) == {"key": "value"}
+        assert _parse_llm_json(content) == {"key": "value"}
 
     def test_no_json_raises(self):
         with pytest.raises(ValueError, match="无法从 LLM 输出中提取 JSON"):
-            IdentityExtractionService._parse_llm_json("no json here")
+            _parse_llm_json("no json here")
 
 
 class TestExtractByRules:
@@ -401,13 +402,19 @@ class TestExtractValidation:
 class TestSafeExtract:
     def test_success(self):
         svc = IdentityExtractionService()
-        with patch.object(svc, "extract", MagicMock(return_value=ExtractionResult(
-            doc_type="id_card",
-            raw_text="text",
-            extracted_data={"name": "张三"},
-            confidence=0.95,
-            extraction_method="ocr_regex",
-        ))):
+        with patch.object(
+            svc,
+            "extract",
+            MagicMock(
+                return_value=ExtractionResult(
+                    doc_type="id_card",
+                    raw_text="text",
+                    extracted_data={"name": "张三"},
+                    confidence=0.95,
+                    extraction_method="ocr_regex",
+                )
+            ),
+        ):
             result = svc.safe_extract(b"image", "id_card")
         assert result["success"] is True
         assert result["doc_type"] == "id_card"

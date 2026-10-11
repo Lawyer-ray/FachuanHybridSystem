@@ -13,6 +13,7 @@ Covers:
 - match_by_party_names: no matches
 - _find_all_matching_cases: bidirectional matching
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -31,8 +32,9 @@ class _HelpersMixin:
         return sms
 
     @staticmethod
-    def _make_case(case_id=1, name="TestCase", status=CaseStatus.ACTIVE,
-                   case_type="civil", current_stage="first_trial"):
+    def _make_case(
+        case_id=1, name="TestCase", status=CaseStatus.ACTIVE, case_type="civil", current_stage="first_trial"
+    ):
         case = MagicMock()
         case.id = case_id
         case.name = name
@@ -50,7 +52,9 @@ class TestMatchExceptionWrapping(_HelpersMixin):
         from apps.automation.services.sms.case_matcher import CaseMatcher
         from apps.core.exceptions import ValidationException
 
-        matcher = CaseMatcher(case_service=MagicMock(), document_parser_service=MagicMock(), party_matching_service=MagicMock())
+        matcher = CaseMatcher(
+            case_service=MagicMock(), document_parser_service=MagicMock(), party_matching_service=MagicMock()
+        )
         # Patch internal methods to raise
         matcher._match_by_case_number_exact = MagicMock(side_effect=Exception("boom"))
         matcher._extract_party_names = MagicMock(return_value=[])
@@ -173,9 +177,7 @@ class TestNarrowDownFeatures(_HelpersMixin):
         matcher = CaseMatcher()
         c1 = self._make_case(case_id=1, case_type="criminal")
         c2 = self._make_case(case_id=2, case_type="civil")
-        result = matcher._narrow_down_by_case_number_features(
-            [c1, c2], ["（2025）粤0605刑初123号"]
-        )
+        result = matcher._narrow_down_by_case_number_features([c1, c2], ["（2025）粤0605刑初123号"])
         assert result == c1
 
     def test_type_filter_no_match_returns_all(self):
@@ -183,9 +185,7 @@ class TestNarrowDownFeatures(_HelpersMixin):
 
         matcher = CaseMatcher()
         c1 = self._make_case(case_id=1, case_type="civil", current_stage="enforcement")
-        result = matcher._narrow_down_by_case_number_features(
-            [c1], ["（2025）粤0605刑初123号"]
-        )
+        result = matcher._narrow_down_by_case_number_features([c1], ["（2025）粤0605刑初123号"])
         # Type filter returns no match, stage filter also returns no match (enforcement vs first_trial),
         # falls back to original list, len == 1 -> returns the single case
         assert result == c1
@@ -195,9 +195,7 @@ class TestNarrowDownFeatures(_HelpersMixin):
 
         matcher = CaseMatcher()
         c1 = self._make_case(case_id=1, current_stage="enforcement")
-        result = matcher._narrow_down_by_case_number_features(
-            [c1], ["（2025）粤0605执123号"]
-        )
+        result = matcher._narrow_down_by_case_number_features([c1], ["（2025）粤0605执123号"])
         assert result == c1
 
 
@@ -226,26 +224,32 @@ class TestSelectLatestCase(_HelpersMixin):
 class TestDetectCaseType(_HelpersMixin):
     def test_criminal(self):
         from apps.automation.services.sms.case_matcher import CaseMatcher
+
         assert CaseMatcher()._detect_case_type_from_number("（2025）粤0605刑初123号") == CaseType.CRIMINAL
 
     def test_administrative(self):
         from apps.automation.services.sms.case_matcher import CaseMatcher
+
         assert CaseMatcher()._detect_case_type_from_number("（2025）粤0605行初123号") == CaseType.ADMINISTRATIVE
 
     def test_civil(self):
         from apps.automation.services.sms.case_matcher import CaseMatcher
+
         assert CaseMatcher()._detect_case_type_from_number("（2025）粤0605民初123号") == CaseType.CIVIL
 
     def test_bankruptcy_returns_none(self):
         from apps.automation.services.sms.case_matcher import CaseMatcher
+
         assert CaseMatcher()._detect_case_type_from_number("（2025）粤0605破123号") is None
 
     def test_empty_returns_none(self):
         from apps.automation.services.sms.case_matcher import CaseMatcher
+
         assert CaseMatcher()._detect_case_type_from_number("") is None
 
     def test_no_match_returns_none(self):
         from apps.automation.services.sms.case_matcher import CaseMatcher
+
         assert CaseMatcher()._detect_case_type_from_number("（2025）粤01执123号") is None
 
 
@@ -255,26 +259,32 @@ class TestDetectCaseType(_HelpersMixin):
 class TestDetectCaseStage(_HelpersMixin):
     def test_enforcement(self):
         from apps.automation.services.sms.case_matcher import CaseMatcher
+
         assert CaseMatcher()._detect_case_stage_from_number("（2025）粤0605执123号") == CaseStage.ENFORCEMENT
 
     def test_second_trial(self):
         from apps.automation.services.sms.case_matcher import CaseMatcher
+
         assert CaseMatcher()._detect_case_stage_from_number("（2025）粤0605民终123号") == CaseStage.SECOND_TRIAL
 
     def test_first_trial(self):
         from apps.automation.services.sms.case_matcher import CaseMatcher
+
         assert CaseMatcher()._detect_case_stage_from_number("（2025）粤0605民初123号") == CaseStage.FIRST_TRIAL
 
     def test_zhibao_returns_none(self):
         from apps.automation.services.sms.case_matcher import CaseMatcher
+
         assert CaseMatcher()._detect_case_stage_from_number("（2025）粤0605执保123号") is None
 
     def test_empty_returns_none(self):
         from apps.automation.services.sms.case_matcher import CaseMatcher
+
         assert CaseMatcher()._detect_case_stage_from_number("") is None
 
     def test_no_match_returns_none(self):
         from apps.automation.services.sms.case_matcher import CaseMatcher
+
         assert CaseMatcher()._detect_case_stage_from_number("（2025）粤0605破123号") is None
 
 
@@ -331,14 +341,17 @@ class TestFindAllMatchingCases(_HelpersMixin):
 class TestIsBankruptcyCaseNumber:
     def test_empty(self):
         from apps.automation.services.sms.case_matcher import CaseMatcher
+
         assert CaseMatcher()._is_bankruptcy_case_number("") is False
 
     def test_bankruptcy(self):
         from apps.automation.services.sms.case_matcher import CaseMatcher
+
         assert CaseMatcher()._is_bankruptcy_case_number("（2025）破1号") is True
 
     def test_not_bankruptcy(self):
         from apps.automation.services.sms.case_matcher import CaseMatcher
+
         assert CaseMatcher()._is_bankruptcy_case_number("（2025）民初1号") is False
 
 

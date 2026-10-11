@@ -97,30 +97,36 @@ def _get_tools_module():
 # We detect availability at import time and filter them out of parameterised
 # tests that use ``getattr`` on the live module.
 
-COURT_FILING_TOOLS = frozenset({
-    "execute_court_filing",
-    "get_court_filing_case_info",
-    "get_court_filing_session",
-})
+COURT_FILING_TOOLS = frozenset(
+    {
+        "execute_court_filing",
+        "get_court_filing_case_info",
+        "get_court_filing_session",
+    }
+)
 
-GUARANTEE_TOOLS = frozenset({
-    "bind_guarantee_quote",
-    "delete_guarantee_binding",
-    "delete_guarantee_quote",
-    "ensure_guarantee_quote",
-    "execute_guarantee",
-    "get_guarantee_case_info",
-    "get_guarantee_session",
-    "retry_guarantee_quote",
-})
+GUARANTEE_TOOLS = frozenset(
+    {
+        "bind_guarantee_quote",
+        "delete_guarantee_binding",
+        "delete_guarantee_quote",
+        "ensure_guarantee_quote",
+        "execute_guarantee",
+        "get_guarantee_case_info",
+        "get_guarantee_session",
+        "retry_guarantee_quote",
+    }
+)
 
-PRESERVATION_QUOTE_TOOLS = frozenset({
-    "create_preservation_quote",
-    "execute_preservation_quote",
-    "get_preservation_quote",
-    "list_preservation_quotes",
-    "retry_preservation_quote",
-})
+PRESERVATION_QUOTE_TOOLS = frozenset(
+    {
+        "create_preservation_quote",
+        "execute_preservation_quote",
+        "get_preservation_quote",
+        "list_preservation_quotes",
+        "retry_preservation_quote",
+    }
+)
 
 ALL_PLUGIN_TOOLS = COURT_FILING_TOOLS | GUARANTEE_TOOLS | PRESERVATION_QUOTE_TOOLS
 
@@ -194,10 +200,7 @@ class TestCallableAndMetadata:
     def test_has_docstring(self, name: str):
         fn = getattr(self.tools, name)
         doc = getattr(fn, "__doc__", None)
-        assert doc and doc.strip(), (
-            f"{name} is missing a docstring. "
-            "MCP uses the docstring as the tool description."
-        )
+        assert doc and doc.strip(), f"{name} is missing a docstring. MCP uses the docstring as the tool description."
 
     @pytest.mark.parametrize("name", _available_tools(), ids=lambda n: n)
     def test_has_type_annotations(self, name: str):
@@ -238,28 +241,20 @@ class TestServerRegistration:
         """Every name in __all__ should appear in server.py's import block."""
         expected_imported = set(_ALL_TOOLS) - self.KNOWN_UNREGISTERED
         missing = expected_imported - _SERVER_IMPORTS
-        assert not missing, (
-            f"These __all__ names are NOT imported in server.py: {sorted(missing)}"
-        )
+        assert not missing, f"These __all__ names are NOT imported in server.py: {sorted(missing)}"
 
     def test_all_functions_registered_via_mcp_tool(self):
         """Every name in __all__ should have a corresponding mcp.tool()() call
         in server.py (excluding known unregistered functions)."""
         expected_registered = set(_ALL_TOOLS) - self.KNOWN_UNREGISTERED
         not_registered = expected_registered - _REGISTERED
-        assert not not_registered, (
-            f"These __all__ names are NOT registered in server.py: "
-            f"{sorted(not_registered)}"
-        )
+        assert not not_registered, f"These __all__ names are NOT registered in server.py: {sorted(not_registered)}"
 
     def test_no_orphan_registrations(self):
         """Every mcp.tool()() call in server.py should reference an imported
         function (guards against typos)."""
         orphan = _REGISTERED - set(_ALL_TOOLS)
-        assert not orphan, (
-            f"These functions are registered in server.py but NOT in __all__: "
-            f"{sorted(orphan)}"
-        )
+        assert not orphan, f"These functions are registered in server.py but NOT in __all__: {sorted(orphan)}"
 
     def test_registration_count_matches(self):
         """The number of mcp.tool()() calls should match the number of

@@ -14,11 +14,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.contracts.services.archive.generation.pdf_utils import (
-    A4_H,
-    A4_W,
-    TOLERANCE,
-)
+from apps.contracts.services.archive.generation.pdf_utils import A4_H, A4_W, TOLERANCE
 
 
 class TestConstants:
@@ -47,4 +43,5 @@ class TestAddPageNumbers:
     def test_function_callable(self) -> None:
         """Verify add_page_numbers function exists and is callable."""
         from apps.contracts.services.archive.generation.pdf_utils import add_page_numbers
+
         assert callable(add_page_numbers)

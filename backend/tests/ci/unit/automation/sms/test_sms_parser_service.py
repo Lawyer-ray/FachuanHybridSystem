@@ -21,7 +21,9 @@ class TestDownloadLinkExtraction:
 
     def test_extract_zxfw_link(self) -> None:
         """提取人民法院在线服务网链接。"""
-        content = "请点击链接查看文书 https://court.example.com/zxfw/#/pagesAjkj/app/wssd/index?qdbh=123&sdbh=456&sdsin=abc"
+        content = (
+            "请点击链接查看文书 https://court.example.com/zxfw/#/pagesAjkj/app/wssd/index?qdbh=123&sdbh=456&sdsin=abc"
+        )
         links = self.service.extract_download_links(content)
         assert len(links) == 1
         assert "zxfw" in links[0]
@@ -82,10 +84,7 @@ class TestDownloadLinkExtraction:
 
     def test_deduplicate_links(self) -> None:
         """去重重复链接。"""
-        content = (
-            "https://gdems.court.gov.cn/v3/dzsd/abc123 "
-            "https://gdems.court.gov.cn/v3/dzsd/abc123"
-        )
+        content = "https://gdems.court.gov.cn/v3/dzsd/abc123 https://gdems.court.gov.cn/v3/dzsd/abc123"
         links = self.service.extract_download_links(content)
         assert len(links) == 1
 

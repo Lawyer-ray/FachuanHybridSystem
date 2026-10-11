@@ -6,6 +6,7 @@ end_page, page_range_display, order_range_display), EvidenceItem properties.
 Note: EvidenceList/EvidenceItem have conflicting app_label registrations,
 so we test via MagicMock instances replicating the property logic.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -47,8 +48,12 @@ class TestListTypeChoices:
 class TestListTypeOrder:
     def test_order_dict(self):
         order = {
-            "list_1": 1, "list_2": 2, "list_3": 3,
-            "list_4": 4, "list_5": 5, "list_6": 6,
+            "list_1": 1,
+            "list_2": 2,
+            "list_3": 3,
+            "list_4": 4,
+            "list_5": 5,
+            "list_6": 6,
         }
         assert order["list_1"] == 1
         assert order["list_6"] == 6
@@ -57,15 +62,23 @@ class TestListTypeOrder:
 class TestListTypePrevious:
     def test_first_has_no_previous(self):
         previous = {
-            "list_1": None, "list_2": "list_1", "list_3": "list_2",
-            "list_4": "list_3", "list_5": "list_4", "list_6": "list_5",
+            "list_1": None,
+            "list_2": "list_1",
+            "list_3": "list_2",
+            "list_4": "list_3",
+            "list_5": "list_4",
+            "list_6": "list_5",
         }
         assert previous["list_1"] is None
 
     def test_chain(self):
         previous = {
-            "list_1": None, "list_2": "list_1", "list_3": "list_2",
-            "list_4": "list_3", "list_5": "list_4", "list_6": "list_5",
+            "list_1": None,
+            "list_2": "list_1",
+            "list_3": "list_2",
+            "list_4": "list_3",
+            "list_5": "list_4",
+            "list_6": "list_5",
         }
         assert previous["list_2"] == "list_1"
         assert previous["list_3"] == "list_2"
@@ -79,6 +92,7 @@ class TestListTypePrevious:
 # EvidenceList model has a conflicting app_label registration with
 # apps.evidence.models.evidence.EvidenceList. The factory function
 # logic is simple delegation tested via code path analysis.
+
 
 class TestEvidenceListPropertyLogic:
     """Test the logic that EvidenceList.end_page, page_range_display, order_range_display use."""
@@ -110,36 +124,45 @@ class TestEvidenceListPropertyLogic:
     def test_order_range_zero_items(self):
         item_count = 0
         start_order = 1
-        display = "-" if item_count == 0 else (
-            str(start_order) if item_count == 1 else f"{start_order}-{start_order + item_count - 1}"
+        display = (
+            "-"
+            if item_count == 0
+            else (str(start_order) if item_count == 1 else f"{start_order}-{start_order + item_count - 1}")
         )
         assert display == "-"
 
     def test_order_range_single_item(self):
         item_count = 1
         start_order = 3
-        display = "-" if item_count == 0 else (
-            str(start_order) if item_count == 1 else f"{start_order}-{start_order + item_count - 1}"
+        display = (
+            "-"
+            if item_count == 0
+            else (str(start_order) if item_count == 1 else f"{start_order}-{start_order + item_count - 1}")
         )
         assert display == "3"
 
     def test_order_range_multiple_items(self):
         item_count = 5
         start_order = 1
-        display = "-" if item_count == 0 else (
-            str(start_order) if item_count == 1 else f"{start_order}-{start_order + item_count - 1}"
+        display = (
+            "-"
+            if item_count == 0
+            else (str(start_order) if item_count == 1 else f"{start_order}-{start_order + item_count - 1}")
         )
         assert display == "1-5"
 
 
 # ── EvidenceItem property logic ────────────────────────────────────────
 
+
 class TestEvidenceItemPropertyLogic:
     def test_page_range_none(self):
         page_start = None
         page_end = None
-        display = "-" if page_start is None or page_end is None else (
-            str(page_start) if page_start == page_end else f"{page_start}-{page_end}"
+        display = (
+            "-"
+            if page_start is None or page_end is None
+            else (str(page_start) if page_start == page_end else f"{page_start}-{page_end}")
         )
         assert display == "-"
 
@@ -155,36 +178,60 @@ class TestEvidenceItemPropertyLogic:
 
     def test_file_size_zero(self):
         file_size = 0
-        result = "-" if file_size == 0 else (
-            f"{file_size} B" if file_size < 1024 else (
-                f"{file_size / 1024:.1f} KB" if file_size < 1024 * 1024 else f"{file_size / (1024 * 1024):.1f} MB"
+        result = (
+            "-"
+            if file_size == 0
+            else (
+                f"{file_size} B"
+                if file_size < 1024
+                else (
+                    f"{file_size / 1024:.1f} KB" if file_size < 1024 * 1024 else f"{file_size / (1024 * 1024):.1f} MB"
+                )
             )
         )
         assert result == "-"
 
     def test_file_size_bytes(self):
         file_size = 500
-        result = "-" if file_size == 0 else (
-            f"{file_size} B" if file_size < 1024 else (
-                f"{file_size / 1024:.1f} KB" if file_size < 1024 * 1024 else f"{file_size / (1024 * 1024):.1f} MB"
+        result = (
+            "-"
+            if file_size == 0
+            else (
+                f"{file_size} B"
+                if file_size < 1024
+                else (
+                    f"{file_size / 1024:.1f} KB" if file_size < 1024 * 1024 else f"{file_size / (1024 * 1024):.1f} MB"
+                )
             )
         )
         assert result == "500 B"
 
     def test_file_size_kb(self):
         file_size = 2048
-        result = "-" if file_size == 0 else (
-            f"{file_size} B" if file_size < 1024 else (
-                f"{file_size / 1024:.1f} KB" if file_size < 1024 * 1024 else f"{file_size / (1024 * 1024):.1f} MB"
+        result = (
+            "-"
+            if file_size == 0
+            else (
+                f"{file_size} B"
+                if file_size < 1024
+                else (
+                    f"{file_size / 1024:.1f} KB" if file_size < 1024 * 1024 else f"{file_size / (1024 * 1024):.1f} MB"
+                )
             )
         )
         assert result == "2.0 KB"
 
     def test_file_size_mb(self):
         file_size = 2 * 1024 * 1024
-        result = "-" if file_size == 0 else (
-            f"{file_size} B" if file_size < 1024 else (
-                f"{file_size / 1024:.1f} KB" if file_size < 1024 * 1024 else f"{file_size / (1024 * 1024):.1f} MB"
+        result = (
+            "-"
+            if file_size == 0
+            else (
+                f"{file_size} B"
+                if file_size < 1024
+                else (
+                    f"{file_size / 1024:.1f} KB" if file_size < 1024 * 1024 else f"{file_size / (1024 * 1024):.1f} MB"
+                )
             )
         )
         assert result == "2.0 MB"

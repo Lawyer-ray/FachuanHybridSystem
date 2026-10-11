@@ -1,4 +1,5 @@
 """Coverage tests for contract_review format normalizer."""
+
 from __future__ import annotations
 
 from pathlib import Path

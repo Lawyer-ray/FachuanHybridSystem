@@ -3,6 +3,7 @@
 Covers 39 missing: replace_material_file, delete_material, _validate_party_ids,
 _resolve_type (via mock), _sorted_groups, _material_item_payload.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -55,8 +56,10 @@ class TestReplaceMaterialFile:
         material = MagicMock()
         material.source_attachment_id = 1
 
-        with patch("apps.cases.services.material.case_material_service.CaseMaterial") as MockCM, \
-             patch("apps.cases.services.material.case_material_service.CaseLogAttachment") as MockCLA:
+        with (
+            patch("apps.cases.services.material.case_material_service.CaseMaterial") as MockCM,
+            patch("apps.cases.services.material.case_material_service.CaseLogAttachment") as MockCLA,
+        ):
             MockCM.objects.select_related.return_value.get.return_value = material
             MockCLA.DoesNotExist = Exception
             MockCLA.objects.select_related.return_value.get.side_effect = MockCLA.DoesNotExist
@@ -74,8 +77,10 @@ class TestReplaceMaterialFile:
         existing_material = MagicMock()
         existing_material.id = 99
 
-        with patch("apps.cases.services.material.case_material_service.CaseMaterial") as MockCM, \
-             patch("apps.cases.services.material.case_material_service.CaseLogAttachment") as MockCLA:
+        with (
+            patch("apps.cases.services.material.case_material_service.CaseMaterial") as MockCM,
+            patch("apps.cases.services.material.case_material_service.CaseLogAttachment") as MockCLA,
+        ):
             MockCM.objects.select_related.return_value.get.return_value = material
             MockCLA.objects.select_related.return_value.get.return_value = new_att
             MockCM.objects.filter.return_value.first.return_value = existing_material
@@ -93,8 +98,10 @@ class TestReplaceMaterialFile:
         new_att = MagicMock()
         new_att.id = 2
 
-        with patch("apps.cases.services.material.case_material_service.CaseMaterial") as MockCM, \
-             patch("apps.cases.services.material.case_material_service.CaseLogAttachment") as MockCLA:
+        with (
+            patch("apps.cases.services.material.case_material_service.CaseMaterial") as MockCM,
+            patch("apps.cases.services.material.case_material_service.CaseLogAttachment") as MockCLA,
+        ):
             MockCM.objects.select_related.return_value.get.return_value = material
             MockCLA.objects.select_related.return_value.get.return_value = new_att
             MockCM.objects.filter.return_value.first.return_value = None

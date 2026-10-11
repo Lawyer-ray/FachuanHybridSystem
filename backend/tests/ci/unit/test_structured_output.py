@@ -54,7 +54,7 @@ class TestExtractJsonText:
         assert parsed["key"] == "value"
 
     def test_valid_json_array(self):
-        result = extract_json_text('[1, 2, 3]')
+        result = extract_json_text("[1, 2, 3]")
         assert result is not None
         assert json.loads(result) == [1, 2, 3]
 

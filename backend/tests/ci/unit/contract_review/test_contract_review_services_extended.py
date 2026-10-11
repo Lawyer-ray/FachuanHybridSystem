@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-import pytest
-from unittest.mock import patch, MagicMock
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 class TestDocxFormatNormalizerInit:
     def test_default_output_path(self, tmp_path):
         from apps.contract_review.services.format_normalizer.docx_format_normalizer import DocxFormatNormalizer
+
         input_path = tmp_path / "test.docx"
         input_path.touch()
         normalizer = DocxFormatNormalizer(input_path)
@@ -17,6 +19,7 @@ class TestDocxFormatNormalizerInit:
 
     def test_custom_output_path(self, tmp_path):
         from apps.contract_review.services.format_normalizer.docx_format_normalizer import DocxFormatNormalizer
+
         input_path = tmp_path / "input.docx"
         input_path.touch()
         output_path = tmp_path / "output.docx"
@@ -25,6 +28,7 @@ class TestDocxFormatNormalizerInit:
 
     def test_reference_path_set(self, tmp_path):
         from apps.contract_review.services.format_normalizer.docx_format_normalizer import DocxFormatNormalizer
+
         ref_path = tmp_path / "ref.docx"
         ref_path.touch()
         normalizer = DocxFormatNormalizer(tmp_path / "in.docx", reference_path=ref_path)
@@ -34,6 +38,7 @@ class TestDocxFormatNormalizerInit:
 class TestDocxFormatNormalizerFallbackClassify:
     def _make_normalizer(self, tmp_path):
         from apps.contract_review.services.format_normalizer.docx_format_normalizer import DocxFormatNormalizer
+
         p = tmp_path / "test.docx"
         p.touch()
         return DocxFormatNormalizer(p)
@@ -77,6 +82,7 @@ class TestDocxFormatNormalizerFallbackClassify:
 class TestDocxFormatNormalizerFallbackStrip:
     def _make_normalizer(self, tmp_path):
         from apps.contract_review.services.format_normalizer.docx_format_normalizer import DocxFormatNormalizer
+
         p = tmp_path / "test.docx"
         p.touch()
         return DocxFormatNormalizer(p)
@@ -121,6 +127,7 @@ class TestDocxFormatNormalizerFallbackStrip:
 class TestDocxFormatNormalizerClearFormat:
     def _make_normalizer(self, tmp_path):
         from apps.contract_review.services.format_normalizer.docx_format_normalizer import DocxFormatNormalizer
+
         p = tmp_path / "test.docx"
         p.touch()
         return DocxFormatNormalizer(p)
@@ -128,6 +135,7 @@ class TestDocxFormatNormalizerClearFormat:
     def test_clears_old_format_elements(self, tmp_path):
         from docx.oxml import OxmlElement
         from docx.oxml.ns import qn
+
         normalizer = self._make_normalizer(tmp_path)
         pPr = OxmlElement("w:pPr")
         for tag in ("w:spacing", "w:ind", "w:jc", "w:numPr"):
@@ -140,6 +148,7 @@ class TestDocxFormatNormalizerClearFormat:
 class TestDocxFormatNormalizerGetLevel:
     def _make_normalizer(self, tmp_path):
         from apps.contract_review.services.format_normalizer.docx_format_normalizer import DocxFormatNormalizer
+
         p = tmp_path / "test.docx"
         p.touch()
         return DocxFormatNormalizer(p)
@@ -162,6 +171,7 @@ class TestDocxFormatNormalizerGetLevel:
 class TestDocxFormatNormalizerExtractRunFormat:
     def _make_normalizer(self, tmp_path):
         from apps.contract_review.services.format_normalizer.docx_format_normalizer import DocxFormatNormalizer
+
         p = tmp_path / "test.docx"
         p.touch()
         return DocxFormatNormalizer(p)

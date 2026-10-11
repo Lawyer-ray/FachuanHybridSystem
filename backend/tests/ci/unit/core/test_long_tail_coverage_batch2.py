@@ -12,6 +12,8 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
+from apps.evidence_sorting.services.exporter import _build_filename, _ensure_output_dir, _get_ext, _write_image
+
 # ---------------------------------------------------------------------------
 # tests for apps.core.llm.fallback_policy (30 missing)
 # ---------------------------------------------------------------------------
@@ -531,13 +533,13 @@ class TestExporterService:
     def test_get_ext_with_dot(self):
         from apps.evidence_sorting.services.exporter import ExporterService
 
-        assert ExporterService._get_ext("file.jpg") == ".jpg"
-        assert ExporterService._get_ext("file.tar.gz") == ".gz"
+        assert _get_ext("file.jpg") == ".jpg"
+        assert _get_ext("file.tar.gz") == ".gz"
 
     def test_get_ext_no_dot(self):
         from apps.evidence_sorting.services.exporter import ExporterService
 
-        assert ExporterService._get_ext("noext") == ".jpg"
+        assert _get_ext("noext") == ".jpg"
 
     def test_write_image_normal(self):
         import base64
@@ -546,7 +548,7 @@ class TestExporterService:
 
         zf = MagicMock()
         data = base64.b64encode(b"image_data").decode()
-        ExporterService._write_image(zf, "test.jpg", data)
+        _write_image(zf, "test.jpg", data)
         zf.writestr.assert_called_once_with("test.jpg", b"image_data")
 
     def test_write_image_with_data_url_prefix(self):
@@ -556,20 +558,20 @@ class TestExporterService:
 
         zf = MagicMock()
         data = "data:image/jpeg;base64," + base64.b64encode(b"image_data").decode()
-        ExporterService._write_image(zf, "test.jpg", data)
+        _write_image(zf, "test.jpg", data)
         zf.writestr.assert_called_once_with("test.jpg", b"image_data")
 
     def test_write_image_decode_error(self):
         from apps.evidence_sorting.services.exporter import ExporterService
 
         zf = MagicMock()
-        ExporterService._write_image(zf, "test.jpg", "not_base64!!!")
+        _write_image(zf, "test.jpg", "not_base64!!!")
         zf.writestr.assert_not_called()
 
     def test_build_filename(self):
         from apps.evidence_sorting.services.exporter import ExporterService
 
-        name = ExporterService._build_filename()
+        name = _build_filename()
         assert name.startswith("evidence_sorting_")
         assert name.endswith(".zip")
 
@@ -653,12 +655,12 @@ class TestExporterService:
         with patch("django.conf.settings") as mock_settings:
             mock_settings.MEDIA_ROOT = None
             with pytest.raises(RuntimeError, match="MEDIA_ROOT"):
-                ExporterService._ensure_output_dir()
+                _ensure_output_dir()
 
     def test_ensure_output_dir_success(self, tmp_path):
         from apps.evidence_sorting.services.exporter import ExporterService
 
         with patch("django.conf.settings") as mock_settings:
             mock_settings.MEDIA_ROOT = str(tmp_path)
-            result = ExporterService._ensure_output_dir()
+            result = _ensure_output_dir()
             assert result.exists()

@@ -1,4 +1,5 @@
 """流程状态机单元测试。"""
+
 from __future__ import annotations
 
 import pytest
@@ -13,6 +14,7 @@ def fsm() -> FlowStateMachine:
 
 
 # ── parse_step ─────────────────────────────────────────────────────────────
+
 
 def test_parse_step_none(fsm: FlowStateMachine) -> None:
     """None 返回 INIT。"""
@@ -43,6 +45,7 @@ def test_parse_step_all_valid_values(fsm: FlowStateMachine) -> None:
 
 
 # ── choose_primary_document_type ───────────────────────────────────────────
+
 
 def test_choose_primary_none_list(fsm: FlowStateMachine) -> None:
     """空列表返回 None。"""
@@ -75,6 +78,7 @@ def test_choose_primary_fallback_first(fsm: FlowStateMachine) -> None:
 
 
 # ── need_doc_plan ──────────────────────────────────────────────────────────
+
 
 def test_need_doc_plan_true(fsm: FlowStateMachine) -> None:
     """complaint + counterclaim_defense 需要文书计划。"""

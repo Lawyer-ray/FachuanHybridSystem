@@ -4,6 +4,7 @@
 create_once_schedule, create_interval_schedule, create_monthly_schedule,
 delete_schedules 带 func 参数等。
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -12,7 +13,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.core.tasking.query import ScheduleQueryService, TaskQueryService
-
 
 # ── TaskQueryService ──────────────────────────────────────────────
 

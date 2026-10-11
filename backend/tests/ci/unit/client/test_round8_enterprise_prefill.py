@@ -6,9 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.client.services.client_enterprise_prefill_service import ClientEnterprisePrefillService
+from apps.client.services.client_enterprise_prefill_service import ClientEnterprisePrefillService, _pick_str
 from apps.core.exceptions import ValidationException
-
 
 # ---------------------------------------------------------------------------
 # _pick_str
@@ -18,30 +17,30 @@ from apps.core.exceptions import ValidationException
 class TestPickStr:
     def test_first_match(self):
         obj = {"name": "Test Co", "company_name": "Other"}
-        assert ClientEnterprisePrefillService._pick_str(obj, ("name", "company_name")) == "Test Co"
+        assert _pick_str(obj, ("name", "company_name")) == "Test Co"
 
     def test_second_match(self):
         obj = {"company_name": "Test Co"}
-        assert ClientEnterprisePrefillService._pick_str(obj, ("name", "company_name")) == "Test Co"
+        assert _pick_str(obj, ("name", "company_name")) == "Test Co"
 
     def test_empty_value_skipped(self):
         obj = {"name": "", "company_name": "Test Co"}
-        assert ClientEnterprisePrefillService._pick_str(obj, ("name", "company_name")) == "Test Co"
+        assert _pick_str(obj, ("name", "company_name")) == "Test Co"
 
     def test_none_value_skipped(self):
         obj = {"name": None, "company_name": "Test Co"}
-        assert ClientEnterprisePrefillService._pick_str(obj, ("name", "company_name")) == "Test Co"
+        assert _pick_str(obj, ("name", "company_name")) == "Test Co"
 
     def test_no_match(self):
         obj = {"key": "val"}
-        assert ClientEnterprisePrefillService._pick_str(obj, ("name",)) == ""
+        assert _pick_str(obj, ("name",)) == ""
 
     def test_not_dict(self):
-        assert ClientEnterprisePrefillService._pick_str("string", ("name",)) == ""
+        assert _pick_str("string", ("name",)) == ""
 
     def test_whitespace_stripped(self):
         obj = {"name": "  Test Co  "}
-        assert ClientEnterprisePrefillService._pick_str(obj, ("name",)) == "Test Co"
+        assert _pick_str(obj, ("name",)) == "Test Co"
 
 
 # ---------------------------------------------------------------------------

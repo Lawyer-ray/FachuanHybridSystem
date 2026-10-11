@@ -17,6 +17,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.workbench.services.session_service import increment_storage
+
 # ==================== Models ====================
 
 
@@ -220,7 +222,7 @@ class TestWorkbenchSessionService:
         service = self._make_service()
         session = service.create_session(title="存储测试")
         WorkbenchSessionService = type(service)
-        WorkbenchSessionService.increment_storage(session.id, 1024)
+        increment_storage(session.id, 1024)
         session.refresh_from_db()
         assert session.storage_bytes == 1024
 
@@ -228,7 +230,7 @@ class TestWorkbenchSessionService:
         service = self._make_service()
         session = service.create_session(title="零增量")
         # 零增量为 no-op：storage_bytes 保持不变
-        service.increment_storage(session.id, 0)
+        increment_storage(session.id, 0)
         session.refresh_from_db()
         assert session.storage_bytes == 0
 

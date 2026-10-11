@@ -4,6 +4,7 @@ Covers: validate_file — all validation branches (size, extension, MIME, mismat
 Originally tested FileUploadService.validate_file(), now tests the merged
 storage_service.validate_file() function.
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -35,7 +36,9 @@ class TestValidateFile:
         assert validate_file(f) is None
 
     def test_valid_docx(self):
-        f = self._make_file(name="report.docx", content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        f = self._make_file(
+            name="report.docx", content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
         assert validate_file(f) is None
 
     def test_valid_doc(self):

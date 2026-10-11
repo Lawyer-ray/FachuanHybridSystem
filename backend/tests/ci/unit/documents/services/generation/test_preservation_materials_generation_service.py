@@ -111,15 +111,9 @@ class TestGetMissingCluesReport:
 
 
 class TestBuildFilename:
-    @patch(
-        "apps.documents.services.generation.preservation_materials_generation_service.timezone"
-    )
-    @patch(
-        "apps.documents.services.generation.preservation_materials_generation_service.FilenameTemplateService"
-    )
-    def test_builds_filename(
-        self, MockFTS: MagicMock, mock_tz: MagicMock, svc: Any
-    ) -> None:
+    @patch("apps.documents.services.generation.preservation_materials_generation_service.timezone")
+    @patch("apps.documents.services.generation.preservation_materials_generation_service.FilenameTemplateService")
+    def test_builds_filename(self, MockFTS: MagicMock, mock_tz: MagicMock, svc: Any) -> None:
         mock_tz.localtime.return_value.strftime.return_value = "20250601"
         MockFTS.render_generated_doc.return_value = "财产保全申请书(测试案件)V1_20250601"
         case = MagicMock()
@@ -133,15 +127,9 @@ class TestBuildFilename:
             date="20250601",
         )
 
-    @patch(
-        "apps.documents.services.generation.preservation_materials_generation_service.timezone"
-    )
-    @patch(
-        "apps.documents.services.generation.preservation_materials_generation_service.FilenameTemplateService"
-    )
-    def test_empty_case_name_fallback(
-        self, MockFTS: MagicMock, mock_tz: MagicMock, svc: Any
-    ) -> None:
+    @patch("apps.documents.services.generation.preservation_materials_generation_service.timezone")
+    @patch("apps.documents.services.generation.preservation_materials_generation_service.FilenameTemplateService")
+    def test_empty_case_name_fallback(self, MockFTS: MagicMock, mock_tz: MagicMock, svc: Any) -> None:
         mock_tz.localtime.return_value.strftime.return_value = "20250601"
         MockFTS.render_generated_doc.return_value = "result"
         case = MagicMock()
@@ -201,40 +189,24 @@ class TestHasTemplate:
 
 
 class TestGeneratePreservationApplication:
-    @patch(
-        "apps.documents.services.generation.preservation_materials_generation_service.get_case_service"
-    )
-    @patch(
-        "apps.documents.services.generation.preservation_materials_generation_service.get_document_service"
-    )
-    def test_raises_when_no_template(
-        self, mock_doc: MagicMock, mock_case: MagicMock, svc: Any
-    ) -> None:
+    @patch("apps.documents.services.generation.preservation_materials_generation_service.get_case_service")
+    @patch("apps.documents.services.generation.preservation_materials_generation_service.get_document_service")
+    def test_raises_when_no_template(self, mock_doc: MagicMock, mock_case: MagicMock, svc: Any) -> None:
         case = MagicMock()
         mock_case.return_value.get_case_model_internal.return_value = case
         mock_case.return_value.get_case_template_bindings_by_name_internal.return_value = []
-        with patch(
-            "apps.documents.models.DocumentTemplate"
-        ) as MockDT:
+        with patch("apps.documents.models.DocumentTemplate") as MockDT:
             MockDT.objects.filter.return_value.first.return_value = None
             with pytest.raises(NotFoundError, match="未找到财产保全申请书模板"):
                 svc.generate_preservation_application(1)
 
-    @patch(
-        "apps.documents.services.generation.preservation_materials_generation_service.get_case_service"
-    )
-    @patch(
-        "apps.documents.services.generation.preservation_materials_generation_service.get_document_service"
-    )
-    def test_raises_when_no_template_delay(
-        self, mock_doc: MagicMock, mock_case: MagicMock, svc: Any
-    ) -> None:
+    @patch("apps.documents.services.generation.preservation_materials_generation_service.get_case_service")
+    @patch("apps.documents.services.generation.preservation_materials_generation_service.get_document_service")
+    def test_raises_when_no_template_delay(self, mock_doc: MagicMock, mock_case: MagicMock, svc: Any) -> None:
         case = MagicMock()
         mock_case.return_value.get_case_model_internal.return_value = case
         mock_case.return_value.get_case_template_bindings_by_name_internal.return_value = []
-        with patch(
-            "apps.documents.models.DocumentTemplate"
-        ) as MockDT:
+        with patch("apps.documents.models.DocumentTemplate") as MockDT:
             MockDT.objects.filter.return_value.first.return_value = None
             with pytest.raises(NotFoundError, match="未找到暂缓送达申请书模板"):
                 svc.generate_delay_delivery_application(1)
@@ -244,15 +216,9 @@ class TestGeneratePreservationApplication:
 
 
 class TestGetTemplatePathByFunctionCode:
-    @patch(
-        "apps.documents.services.generation.preservation_materials_generation_service.get_case_service"
-    )
-    @patch(
-        "apps.documents.services.generation.preservation_materials_generation_service.get_document_service"
-    )
-    def test_finds_from_binding(
-        self, mock_doc: MagicMock, mock_case: MagicMock, svc: Any
-    ) -> None:
+    @patch("apps.documents.services.generation.preservation_materials_generation_service.get_case_service")
+    @patch("apps.documents.services.generation.preservation_materials_generation_service.get_document_service")
+    def test_finds_from_binding(self, mock_doc: MagicMock, mock_case: MagicMock, svc: Any) -> None:
         binding = MagicMock()
         binding.template_id = 10
         mock_case.return_value.get_case_template_bindings_by_name_internal.return_value = [binding]
@@ -263,15 +229,9 @@ class TestGetTemplatePathByFunctionCode:
         assert result is not None
         assert str(result) == "/path/to/template.docx"
 
-    @patch(
-        "apps.documents.services.generation.preservation_materials_generation_service.get_case_service"
-    )
-    @patch(
-        "apps.documents.services.generation.preservation_materials_generation_service.get_document_service"
-    )
-    def test_binding_no_file_path(
-        self, mock_doc: MagicMock, mock_case: MagicMock, svc: Any
-    ) -> None:
+    @patch("apps.documents.services.generation.preservation_materials_generation_service.get_case_service")
+    @patch("apps.documents.services.generation.preservation_materials_generation_service.get_document_service")
+    def test_binding_no_file_path(self, mock_doc: MagicMock, mock_case: MagicMock, svc: Any) -> None:
         binding = MagicMock()
         binding.template_id = 10
         mock_case.return_value.get_case_template_bindings_by_name_internal.return_value = [binding]
@@ -279,23 +239,15 @@ class TestGetTemplatePathByFunctionCode:
         dto.file_path = None
         mock_doc.return_value.get_template_by_id_internal.return_value = dto
         # Should fall through to DocumentTemplate.objects query
-        with patch(
-            "apps.documents.models.DocumentTemplate"
-        ) as MockDT:
+        with patch("apps.documents.models.DocumentTemplate") as MockDT:
             MockDT.objects.filter.return_value.first.return_value = None
             result = svc._get_template_path_by_function_code(1, "preservation_application")
             assert result is None
 
-    @patch(
-        "apps.documents.services.generation.preservation_materials_generation_service.get_case_service"
-    )
-    def test_finds_from_global_template(
-        self, mock_case: MagicMock, svc: Any
-    ) -> None:
+    @patch("apps.documents.services.generation.preservation_materials_generation_service.get_case_service")
+    def test_finds_from_global_template(self, mock_case: MagicMock, svc: Any) -> None:
         mock_case.return_value.get_case_template_bindings_by_name_internal.return_value = []
-        with patch(
-            "apps.documents.models.DocumentTemplate"
-        ) as MockDT:
+        with patch("apps.documents.models.DocumentTemplate") as MockDT:
             template = MagicMock()
             template.get_file_location.return_value = "/global/template.docx"
             MockDT.objects.filter.return_value.first.return_value = template
@@ -303,16 +255,10 @@ class TestGetTemplatePathByFunctionCode:
             assert result is not None
             assert str(result) == "/global/template.docx"
 
-    @patch(
-        "apps.documents.services.generation.preservation_materials_generation_service.get_case_service"
-    )
-    def test_global_template_no_location(
-        self, mock_case: MagicMock, svc: Any
-    ) -> None:
+    @patch("apps.documents.services.generation.preservation_materials_generation_service.get_case_service")
+    def test_global_template_no_location(self, mock_case: MagicMock, svc: Any) -> None:
         mock_case.return_value.get_case_template_bindings_by_name_internal.return_value = []
-        with patch(
-            "apps.documents.models.DocumentTemplate"
-        ) as MockDT:
+        with patch("apps.documents.models.DocumentTemplate") as MockDT:
             template = MagicMock()
             template.get_file_location.return_value = None
             MockDT.objects.filter.return_value.first.return_value = template
@@ -324,9 +270,7 @@ class TestGetTemplatePathByFunctionCode:
 
 
 class TestBuildContext:
-    @patch(
-        "apps.documents.services.generation.preservation_materials_generation_service.EnhancedContextBuilder"
-    )
+    @patch("apps.documents.services.generation.preservation_materials_generation_service.EnhancedContextBuilder")
     def test_builds_context(self, MockBuilder: MagicMock, svc: Any) -> None:
         mock_builder = MagicMock()
         mock_builder.build_context.return_value = {"key": "val"}
@@ -341,9 +285,7 @@ class TestBuildContext:
 
 
 class TestGetRespondents:
-    @patch(
-        "apps.documents.services.generation.preservation_materials_generation_service.get_case_service"
-    )
+    @patch("apps.documents.services.generation.preservation_materials_generation_service.get_case_service")
     def test_returns_respondents(self, mock_get: MagicMock, svc: Any) -> None:
         respondents = [MagicMock(), MagicMock()]
         mock_get.return_value.get_case_parties_internal.return_value = respondents

@@ -46,9 +46,7 @@ class TestClientAdmin:
 
     def test_client_type_legal(self) -> None:
         """法人客户类型"""
-        client = Client.objects.create(
-            name="法人客户", client_type="legal", legal_representative="法定代表人"
-        )
+        client = Client.objects.create(name="法人客户", client_type="legal", legal_representative="法定代表人")
         assert client.client_type == "legal"
 
 
@@ -65,7 +63,7 @@ class TestClientIdentityDocAdmin:
     def test_list_select_related(self) -> None:
         """list_select_related 存在"""
         admin_obj = ClientIdentityDocAdmin(ClientIdentityDoc, AdminSite())
-        assert hasattr(admin_obj, 'list_select_related')
+        assert hasattr(admin_obj, "list_select_related")
 
     def test_get_queryset_no_n_plus_1(self) -> None:
         """get_queryset 应使用 select_related 避免 N+1"""
@@ -95,4 +93,4 @@ class TestPropertyClueAdmin:
     def test_list_select_related(self) -> None:
         """list_select_related 存在"""
         admin_obj = PropertyClueAdmin(PropertyClue, AdminSite())
-        assert hasattr(admin_obj, 'list_select_related')
+        assert hasattr(admin_obj, "list_select_related")

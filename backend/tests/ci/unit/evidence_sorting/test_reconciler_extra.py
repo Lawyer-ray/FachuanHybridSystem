@@ -7,21 +7,23 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from apps.evidence_sorting.services.reconciler import (
+    FOLDER_CONFIRMED,
+    FOLDER_DELIVERY_MISMATCH,
+    FOLDER_DELIVERY_NOT_ENOUGH,
+    FOLDER_MISSING_DELIVERY,
+    FOLDER_NEED_SUPPLEMENT,
+    FOLDER_UNSIGNED,
+    STATUS_MATCHED,
+    STATUS_MISSING,
+    STATUS_UNMATCHED,
     DeliveryNote,
     LineItem,
     MonthGroup,
     ReconcileResult,
     ReconcilerService,
     StatementInfo,
-    STATUS_MATCHED,
-    STATUS_UNMATCHED,
-    STATUS_MISSING,
-    FOLDER_CONFIRMED,
-    FOLDER_UNSIGNED,
-    FOLDER_MISSING_DELIVERY,
-    FOLDER_DELIVERY_NOT_ENOUGH,
-    FOLDER_DELIVERY_MISMATCH,
-    FOLDER_NEED_SUPPLEMENT,
+    _normalize_date,
+    _to_float,
 )
 
 
@@ -31,6 +33,7 @@ def svc() -> ReconcilerService:
 
 
 # ── _parse_llm_response ──────────────────────────────────────────────────────
+
 
 def test_parse_llm_response_valid_json(svc: ReconcilerService) -> None:
     json_text = '{"month": "2022-08", "total_amount": 100000, "signed": true, "line_items": [{"date": "20220801", "amount": 50000, "description": "desc1"}]}'
@@ -77,53 +80,56 @@ def test_parse_llm_response_null_line_items(svc: ReconcilerService) -> None:
 
 # ── _normalize_date ──────────────────────────────────────────────────────────
 
+
 def test_normalize_date_valid():
-    assert ReconcilerService._normalize_date("2022-08-01") == "20220801"
+    assert _normalize_date("2022-08-01") == "20220801"
 
 
 def test_normalize_date_already_clean():
-    assert ReconcilerService._normalize_date("20220801") == "20220801"
+    assert _normalize_date("20220801") == "20220801"
 
 
 def test_normalize_date_invalid():
-    assert ReconcilerService._normalize_date("2022") is None
+    assert _normalize_date("2022") is None
 
 
 def test_normalize_date_none():
-    assert ReconcilerService._normalize_date(None) is None
+    assert _normalize_date(None) is None
 
 
 def test_normalize_date_empty():
-    assert ReconcilerService._normalize_date("") is None
+    assert _normalize_date("") is None
 
 
 def test_normalize_date_with_slashes():
-    assert ReconcilerService._normalize_date("2022/08/01") == "20220801"
+    assert _normalize_date("2022/08/01") == "20220801"
 
 
 # ── _to_float ─────────────────────────────────────────────────────────────────
 
+
 def test_to_float_valid():
-    assert ReconcilerService._to_float(123.45) == 123.45
+    assert _to_float(123.45) == 123.45
 
 
 def test_to_float_string():
-    assert ReconcilerService._to_float("12345") == 12345.0
+    assert _to_float("12345") == 12345.0
 
 
 def test_to_float_with_comma():
-    assert ReconcilerService._to_float("12,345") == 12345.0
+    assert _to_float("12,345") == 12345.0
 
 
 def test_to_float_none():
-    assert ReconcilerService._to_float(None) is None
+    assert _to_float(None) is None
 
 
 def test_to_float_invalid():
-    assert ReconcilerService._to_float("abc") is None
+    assert _to_float("abc") is None
 
 
 # ── _extract_month_key ───────────────────────────────────────────────────────
+
 
 def test_extract_month_key_standard(svc: ReconcilerService) -> None:
     st = StatementInfo(month="2022-08")
@@ -147,6 +153,7 @@ def test_extract_month_key_single_digit(svc: ReconcilerService) -> None:
 
 # ── _month_key_to_yyyymm ─────────────────────────────────────────────────────
 
+
 def test_month_key_to_yyyymm_valid(svc: ReconcilerService) -> None:
     assert svc._month_key_to_yyyymm("2022年08月") == "202208"
 
@@ -162,6 +169,7 @@ def test_month_key_to_yyyymm_invalid(svc: ReconcilerService) -> None:
 
 
 # ── _match_delivery ───────────────────────────────────────────────────────────
+
 
 def test_match_delivery_date_and_amount(svc: ReconcilerService) -> None:
     li = LineItem(date="20220801", amount=50000.0)
@@ -219,6 +227,7 @@ def test_match_delivery_no_line_item_date_has_delivery_date(svc: ReconcilerServi
 
 # ── _build_folder_name ────────────────────────────────────────────────────────
 
+
 def test_build_folder_name_no_issues(svc: ReconcilerService) -> None:
     st = StatementInfo(signed=True)
     group = MonthGroup(month="2022年08月", folder_name="", deliveries=[])
@@ -259,6 +268,7 @@ def test_build_folder_name_delivery_not_enough(svc: ReconcilerService) -> None:
 
 
 # ── reconcile_async (integration) ─────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_reconcile_empty_inputs(svc: ReconcilerService) -> None:

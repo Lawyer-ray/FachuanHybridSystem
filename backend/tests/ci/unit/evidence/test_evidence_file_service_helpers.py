@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from apps.evidence.services.core.evidence_file_service import EvidenceFileService
+from apps.evidence.services.core.evidence_file_service import EvidenceFileService, _compute_hash, _schedule_ocr
 
 
 class TestGetPageCount:
@@ -40,7 +40,7 @@ class TestComputeHash:
         f = SimpleUploadedFile("a.pdf", payload)
         expected = hashlib.sha256(payload).hexdigest()
 
-        assert EvidenceFileService._compute_hash(f) == expected
+        assert _compute_hash(f) == expected
         # 计算后文件指针复位
         assert f.tell() == 0
 
@@ -49,28 +49,28 @@ class TestComputeHash:
         f = io.BytesIO(payload)
         expected = hashlib.sha256(payload).hexdigest()
 
-        assert EvidenceFileService._compute_hash(f) == expected
+        assert _compute_hash(f) == expected
         assert f.tell() == 0
 
 
 class TestScheduleOcr:
     def test_submits_task(self) -> None:
         with patch("apps.core.tasking.submit_task") as mock_submit:
-            EvidenceFileService._schedule_ocr(123)
+            _schedule_ocr(123)
         mock_submit.assert_called_once_with("apps.evidence.tasks.ocr_evidence_item_task", 123)
 
     def test_type_error_swallowed(self) -> None:
         with patch("apps.core.tasking.submit_task", side_effect=TypeError("bad arg")):
-            assert EvidenceFileService._schedule_ocr(1) is None  # 吞并不上抛
+            assert _schedule_ocr(1) is None  # 吞并不上抛
 
     def test_value_error_swallowed(self) -> None:
         with patch("apps.core.tasking.submit_task", side_effect=ValueError("bad value")):
-            assert EvidenceFileService._schedule_ocr(2) is None  # 吞并不上抛
+            assert _schedule_ocr(2) is None  # 吞并不上抛
 
     def test_unexpected_error_propagates(self) -> None:
         with patch("apps.core.tasking.submit_task", side_effect=RuntimeError("queue down")):
             with pytest.raises(RuntimeError):
-                EvidenceFileService._schedule_ocr(3)
+                _schedule_ocr(3)
 
 
 @pytest.mark.django_db

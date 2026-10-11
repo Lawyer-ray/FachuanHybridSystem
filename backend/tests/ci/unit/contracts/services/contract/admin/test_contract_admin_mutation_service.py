@@ -10,8 +10,6 @@ from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.models.enums import CaseType
 
 
-
-
 class TestContractAdminMutationServiceInit:
     """Test constructor and properties."""
 
@@ -135,9 +133,7 @@ class TestContractAdminMutationServiceDuplicateContract:
         from apps.contracts.services.contract.admin.contract_admin_mutation_service import ContractAdminMutationService
 
         svc = ContractAdminMutationService()
-        with patch(
-            "apps.contracts.services.contract.admin.contract_admin_mutation_service.Contract"
-        ) as mock_cls:
+        with patch("apps.contracts.services.contract.admin.contract_admin_mutation_service.Contract") as mock_cls:
             mock_cls.DoesNotExist = type("DoesNotExist", (Exception,), {})
             mock_cls.objects.get.side_effect = mock_cls.DoesNotExist()
             with pytest.raises(NotFoundError, match="合同不存在"):
@@ -165,16 +161,12 @@ class TestContractAdminMutationServiceDuplicateContract:
         svc._clone_workflow = mock_cw
 
         with (
-            patch(
-                "apps.contracts.services.contract.admin.contract_admin_mutation_service.Contract"
-            ) as mock_cls,
+            patch("apps.contracts.services.contract.admin.contract_admin_mutation_service.Contract") as mock_cls,
         ):
             mock_cls.objects.get.return_value = original
             mock_cls.objects.create.return_value = new_contract
             result = svc.duplicate_contract(1)
-            mock_cw.clone_related_data.assert_called_once_with(
-                source_contract=original, target_contract=new_contract
-            )
+            mock_cw.clone_related_data.assert_called_once_with(source_contract=original, target_contract=new_contract)
 
 
 @pytest.mark.django_db
@@ -185,9 +177,7 @@ class TestContractAdminMutationServiceCreateCaseFromContract:
         from apps.contracts.services.contract.admin.contract_admin_mutation_service import ContractAdminMutationService
 
         svc = ContractAdminMutationService()
-        with patch(
-            "apps.contracts.services.contract.admin.contract_admin_mutation_service.Contract"
-        ) as mock_cls:
+        with patch("apps.contracts.services.contract.admin.contract_admin_mutation_service.Contract") as mock_cls:
             mock_cls.DoesNotExist = type("DoesNotExist", (Exception,), {})
             mock_cls.objects.get.side_effect = mock_cls.DoesNotExist()
             with pytest.raises(NotFoundError, match="合同不存在"):
@@ -201,9 +191,7 @@ class TestContractAdminMutationServiceCreateCaseFromContract:
         contract.case_type = CaseType.ADVISOR  # not in CASE_ALLOWED_TYPES
         contract.get_case_type_display.return_value = "常法顾问"
 
-        with patch(
-            "apps.contracts.services.contract.admin.contract_admin_mutation_service.Contract"
-        ) as mock_cls:
+        with patch("apps.contracts.services.contract.admin.contract_admin_mutation_service.Contract") as mock_cls:
             mock_cls.objects.get.return_value = contract
             with pytest.raises(ValidationException, match="不支持创建案件"):
                 svc.create_case_from_contract(contract_id=1)
@@ -223,9 +211,7 @@ class TestContractAdminMutationServiceCreateCaseFromContract:
         svc._case_creation_workflow = mock_cw
         mock_cw.create_case_from_contract.return_value = expected_dto
 
-        with patch(
-            "apps.contracts.services.contract.admin.contract_admin_mutation_service.Contract"
-        ) as mock_cls:
+        with patch("apps.contracts.services.contract.admin.contract_admin_mutation_service.Contract") as mock_cls:
             mock_cls.objects.get.return_value = contract
             result = svc.create_case_from_contract(contract_id=1)
             assert result is expected_dto
@@ -235,8 +221,9 @@ class TestContractAdminMutationServiceGenerateAdvisorContractName:
     """generate_advisor_contract_name tests."""
 
     def test_correct_format(self) -> None:
-        from apps.contracts.services.contract.admin.contract_admin_mutation_service import ContractAdminMutationService
         from datetime import date
+
+        from apps.contracts.services.contract.admin.contract_admin_mutation_service import ContractAdminMutationService
 
         svc = ContractAdminMutationService()
         result = svc.generate_advisor_contract_name(
@@ -249,8 +236,9 @@ class TestContractAdminMutationServiceGenerateAdvisorContractName:
         assert "2026年12月31日" in result
 
     def test_single_principal(self) -> None:
-        from apps.contracts.services.contract.admin.contract_admin_mutation_service import ContractAdminMutationService
         from datetime import date
+
+        from apps.contracts.services.contract.admin.contract_admin_mutation_service import ContractAdminMutationService
 
         svc = ContractAdminMutationService()
         result = svc.generate_advisor_contract_name(
@@ -269,9 +257,7 @@ class TestContractAdminMutationServiceHandleContractFilingChange:
         from apps.contracts.services.contract.admin.contract_admin_mutation_service import ContractAdminMutationService
 
         svc = ContractAdminMutationService()
-        with patch(
-            "apps.contracts.services.contract.admin.contract_admin_mutation_service.Contract"
-        ) as mock_cls:
+        with patch("apps.contracts.services.contract.admin.contract_admin_mutation_service.Contract") as mock_cls:
             mock_cls.DoesNotExist = type("DoesNotExist", (Exception,), {})
             mock_cls.objects.get.side_effect = mock_cls.DoesNotExist()
             with pytest.raises(NotFoundError, match="合同不存在"):
@@ -282,9 +268,7 @@ class TestContractAdminMutationServiceHandleContractFilingChange:
 
         svc = ContractAdminMutationService()
         contract = MagicMock()
-        with patch(
-            "apps.contracts.services.contract.admin.contract_admin_mutation_service.Contract"
-        ) as mock_cls:
+        with patch("apps.contracts.services.contract.admin.contract_admin_mutation_service.Contract") as mock_cls:
             mock_cls.objects.get.return_value = contract
             result = svc.handle_contract_filing_change(1, False)
             assert result is None
@@ -295,9 +279,7 @@ class TestContractAdminMutationServiceHandleContractFilingChange:
         svc = ContractAdminMutationService()
         contract = MagicMock()
         contract.filing_number = "FN-001"
-        with patch(
-            "apps.contracts.services.contract.admin.contract_admin_mutation_service.Contract"
-        ) as mock_cls:
+        with patch("apps.contracts.services.contract.admin.contract_admin_mutation_service.Contract") as mock_cls:
             mock_cls.objects.get.return_value = contract
             result = svc.handle_contract_filing_change(1, True)
             assert result == "FN-001"
@@ -312,9 +294,7 @@ class TestContractAdminMutationServiceHandleContractFilingChange:
         svc._filing_number_workflow = mock_fnw
         mock_fnw.ensure_filing_number.return_value = "FN-NEW"
 
-        with patch(
-            "apps.contracts.services.contract.admin.contract_admin_mutation_service.Contract"
-        ) as mock_cls:
+        with patch("apps.contracts.services.contract.admin.contract_admin_mutation_service.Contract") as mock_cls:
             mock_cls.objects.get.return_value = contract
             result = svc.handle_contract_filing_change(1, True)
             assert result == "FN-NEW"

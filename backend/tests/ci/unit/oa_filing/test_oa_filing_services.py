@@ -6,6 +6,15 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
+from apps.legal_research.services.capability.service import _normalize_text
+from apps.oa_filing.services.case_import_service import _parse_date
+from apps.oa_filing.services.oa_scripts.jtn.filing.http_filing import (
+    _normalize_text,
+    handler_url,
+    parse_json_object,
+    project_field_name,
+)
+
 # ---------------------------------------------------------------------------
 # html_parser pure functions
 # ---------------------------------------------------------------------------
@@ -251,8 +260,8 @@ class TestClientImportNormalizeText:
     def test_normalize(self):
         from apps.oa_filing.services.oa_scripts.jtn.client_import.service import JtnClientImportScript
 
-        assert JtnClientImportScript._normalize_text("  hello  ") == "hello"
-        assert JtnClientImportScript._normalize_text(None) == ""
+        assert _normalize_text("  hello  ") == "hello"
+        assert _normalize_text(None) == ""
 
 
 class TestClientImportToInt:
@@ -493,28 +502,28 @@ class TestCaseImportServiceParseDate:
     def test_iso(self):
         from apps.oa_filing.services.case_import_service import CaseImportService
 
-        r = CaseImportService._parse_date("2024-01-15")
+        r = _parse_date("2024-01-15")
         assert r is not None and r.year == 2024
 
     def test_slash(self):
         from apps.oa_filing.services.case_import_service import CaseImportService
 
-        assert CaseImportService._parse_date("2024/01/15") is not None
+        assert _parse_date("2024/01/15") is not None
 
     def test_chinese(self):
         from apps.oa_filing.services.case_import_service import CaseImportService
 
-        assert CaseImportService._parse_date("2024年01月15日") is not None
+        assert _parse_date("2024年01月15日") is not None
 
     def test_empty(self):
         from apps.oa_filing.services.case_import_service import CaseImportService
 
-        assert CaseImportService._parse_date("") is None
+        assert _parse_date("") is None
 
     def test_invalid(self):
         from apps.oa_filing.services.case_import_service import CaseImportService
 
-        assert CaseImportService._parse_date("not-a-date") is None
+        assert _parse_date("not-a-date") is None
 
 
 class TestCaseImportServiceCheckConflicts:
@@ -561,21 +570,21 @@ class TestHttpFilingMixin:
 
         return HttpFilingMixin()
 
-    def test_project_field_name(self):
-        assert "project_manager_id" in self._make_mixin()._project_field_name("manager_id")
+    def testproject_field_name(self):
+        assert "project_manager_id" in project_field_name("manager_id")
 
-    def test_handler_url(self):
-        assert "CustSeachGetList" in self._make_mixin()._handler_url("CustSeachGetList")
+    def testhandler_url(self):
+        assert "CustSeachGetList" in handler_url("CustSeachGetList")
 
     def test_parse_json_object_valid(self):
-        assert self._make_mixin()._parse_json_object('{"key": "value"}') == {"key": "value"}
+        assert parse_json_object('{"key": "value"}') == {"key": "value"}
 
     def test_parse_json_object_invalid(self):
         with pytest.raises(RuntimeError):
-            self._make_mixin()._parse_json_object("[1, 2]")
+            parse_json_object("[1, 2]")
 
     def test_normalize_text(self):
-        assert self._make_mixin()._normalize_text("  hello  ") == "hello"
+        assert _normalize_text("  hello  ") == "hello"
 
     def test_assert_success_marker(self):
         assert self._make_mixin()._assert_http_submit_success("案件保存未提交成功") is None

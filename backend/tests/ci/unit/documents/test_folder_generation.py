@@ -129,11 +129,17 @@ class TestFindContractFolderPath:
         template = MagicMock()
         template.structure = {
             "children": [
-                {"name": "顾问案件", "children": [
-                    {"name": "1-律师资料", "children": [
-                        {"name": "1-合同", "children": []},
-                    ]},
-                ]},
+                {
+                    "name": "顾问案件",
+                    "children": [
+                        {
+                            "name": "1-律师资料",
+                            "children": [
+                                {"name": "1-合同", "children": []},
+                            ],
+                        },
+                    ],
+                },
             ]
         }
         result = self.service._find_contract_folder_path(template)
@@ -162,11 +168,7 @@ class TestFindFolderByName:
         assert result == ["1-合同"]
 
     def test_find_nested(self):
-        children = [
-            {"name": "资料", "children": [
-                {"name": "1-合同", "children": []}
-            ]}
-        ]
+        children = [{"name": "资料", "children": [{"name": "1-合同", "children": []}]}]
         result = self.service._find_folder_by_name(children, "合同", [])
         assert result == ["资料", "1-合同"]
 
@@ -209,9 +211,12 @@ class TestFindSpecialFolderPaths:
         structure = {
             "name": "root",
             "children": [
-                {"name": "子目录", "children": [
-                    {"name": "身份证明", "children": []},
-                ]},
+                {
+                    "name": "子目录",
+                    "children": [
+                        {"name": "身份证明", "children": []},
+                    ],
+                },
             ],
         }
         result = self.service._find_special_folder_paths(structure)
@@ -232,9 +237,12 @@ class TestCreateFoldersInZip:
                 "name": "root",
                 "children": [
                     {"name": "sub1", "children": []},
-                    {"name": "sub2", "children": [
-                        {"name": "sub2a", "children": []},
-                    ]},
+                    {
+                        "name": "sub2",
+                        "children": [
+                            {"name": "sub2a", "children": []},
+                        ],
+                    },
                 ],
             }
             self.service._create_folders_in_zip(zf, structure, "")
@@ -302,9 +310,7 @@ class TestExtractToBoundFolder:
 class TestGenerateFolderWithDocumentsResult:
     def test_calls_main_method(self):
         service = FolderGenerationService(contract_service=MagicMock())
-        service.generate_folder_with_documents = MagicMock(
-            return_value=(b"zip", "test.zip", None)
-        )
+        service.generate_folder_with_documents = MagicMock(return_value=(b"zip", "test.zip", None))
         service._last_extract_path = "/extracted"
 
         zip_content, filename, extract_path, error = service.generate_folder_with_documents_result(1)

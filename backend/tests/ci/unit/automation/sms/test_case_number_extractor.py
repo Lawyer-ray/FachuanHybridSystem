@@ -32,9 +32,7 @@ class TestCaseNumberExtractorService:
 
     def test_extract_from_content_with_provider(self) -> None:
         """使用 extraction_provider 提取案号。"""
-        self.extraction_provider.extract.return_value = json.dumps(
-            {"case_numbers": ["（2025）粤0606民初12345号"]}
-        )
+        self.extraction_provider.extract.return_value = json.dumps({"case_numbers": ["（2025）粤0606民初12345号"]})
         self.case_number_service.normalize_case_number.return_value = "（2025）粤0606民初12345号"
 
         result = self.service.extract_from_content("文书内容包含案号")
@@ -80,9 +78,7 @@ class TestCaseNumberExtractorService:
         """去重案号。"""
         self.case_number_service.normalize_case_number.return_value = "（2025）粤0606民初12345号"
 
-        result = self.service.validate_and_normalize(
-            ["（2025）粤0606民初12345号", "（2025）粤0606民初12345号"]
-        )
+        result = self.service.validate_and_normalize(["（2025）粤0606民初12345号", "（2025）粤0606民初12345号"])
         # 应该只有一个
         assert len(result) == 1
 
@@ -96,7 +92,11 @@ class TestCaseNumberExtractorService:
     def test_validate_and_normalize_rejects_overlong_text(self) -> None:
         """超长文本（正则贪婪匹配的文书段落）被拒绝，避免误吞整段。"""
         # 实际事故案例：PDF 正文被当作案号提取（含换行、多数字、尾部带"号"）
-        long_payload = "（2026）粤0606民初88888号\n某市某公司和某特钢公司：" + "（单位）起诉至本院。" * 20 + "\n本院地址：某市某区某路140号"
+        long_payload = (
+            "（2026）粤0606民初88888号\n某市某公司和某特钢公司："
+            + "（单位）起诉至本院。" * 20
+            + "\n本院地址：某市某区某路140号"
+        )
 
         result = self.service.validate_and_normalize([long_payload])
         assert result == []
@@ -232,9 +232,7 @@ class TestCaseNumberExtractorService:
         self.document_processing_service.extract_document_content_by_path_internal.return_value = {
             "text": "案号：（2025）粤0606民初12345号"
         }
-        self.extraction_provider.extract.return_value = json.dumps(
-            {"case_numbers": ["（2025）粤0606民初12345号"]}
-        )
+        self.extraction_provider.extract.return_value = json.dumps({"case_numbers": ["（2025）粤0606民初12345号"]})
         self.case_number_service.normalize_case_number.return_value = "（2025）粤0606民初12345号"
 
         result = self.service.extract_from_document("/path/to/doc.pdf")

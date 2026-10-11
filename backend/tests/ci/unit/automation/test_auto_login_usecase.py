@@ -14,22 +14,16 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
 
-from apps.automation.exceptions import (
-    AutoTokenAcquisitionError,
-    LoginFailedError,
-    TokenAcquisitionTimeoutError,
-)
-from apps.automation.usecases.token.auto_login_usecase import (
-    AutoLoginUsecase,
-    RetryConfig,
-)
-from apps.core.exceptions import NetworkError
+from apps.automation.exceptions import AutoTokenAcquisitionError, LoginFailedError, TokenAcquisitionTimeoutError
+from apps.automation.usecases.token.auto_login_usecase import AutoLoginUsecase, RetryConfig
 from apps.core.dto.auth import LoginAttemptResult
 from apps.core.dto.organization import AccountCredentialDTO
+from apps.core.exceptions import NetworkError
 
 _LOGGER_PATCH = "apps.automation.utils.logging.AutomationLogger"
 
@@ -208,7 +202,9 @@ async def test_execute_re_raises_known_errors(exc_cls):
 
 def test_get_login_attempts_returns_copy():
     uc = _make_usecase()
-    original = LoginAttemptResult(success=True, token="t", account="a", error_message=None, attempt_duration=0.1, retry_count=1)
+    original = LoginAttemptResult(
+        success=True, token="t", account="a", error_message=None, attempt_duration=0.1, retry_count=1
+    )
     uc._login_attempts.append(original)
     attempts = uc.get_login_attempts()
     assert attempts is not uc._login_attempts
@@ -257,11 +253,14 @@ async def test_login_with_retries_network_exhaustion():
     async def fail_with_network(cred, network_attempt):
         raise NetworkError("down")
 
-    cfg = RetryConfig(max_network_retries=2, max_captcha_retries=1, captcha_retry_delay=0.0, network_retry_delay_base=0.0)
+    cfg = RetryConfig(
+        max_network_retries=2, max_captcha_retries=1, captcha_retry_delay=0.0, network_retry_delay_base=0.0
+    )
 
     def fake_time():
         fake_time.val += 0.1
         return fake_time.val
+
     fake_time.val = 0.0
 
     uc = AutoLoginUsecase(
@@ -292,11 +291,14 @@ async def test_login_with_retries_unexpected_breaks():
         call_count += 1
         raise ValueError("unexpected")
 
-    cfg = RetryConfig(max_network_retries=3, max_captcha_retries=1, captcha_retry_delay=0.0, network_retry_delay_base=0.0)
+    cfg = RetryConfig(
+        max_network_retries=3, max_captcha_retries=1, captcha_retry_delay=0.0, network_retry_delay_base=0.0
+    )
 
     def fake_time():
         fake_time.val += 0.1
         return fake_time.val
+
     fake_time.val = 0.0
 
     uc = AutoLoginUsecase(
@@ -324,11 +326,14 @@ async def test_login_with_retries_login_failed_reraised():
     async def fail_login(cred, network_attempt):
         raise LoginFailedError("bad creds")
 
-    cfg = RetryConfig(max_network_retries=3, max_captcha_retries=1, captcha_retry_delay=0.0, network_retry_delay_base=0.0)
+    cfg = RetryConfig(
+        max_network_retries=3, max_captcha_retries=1, captcha_retry_delay=0.0, network_retry_delay_base=0.0
+    )
 
     def fake_time():
         fake_time.val += 0.1
         return fake_time.val
+
     fake_time.val = 0.0
 
     uc = AutoLoginUsecase(
@@ -361,7 +366,9 @@ async def test_login_with_retries_success_on_retry():
             raise NetworkError("temp failure")
         return "tok"
 
-    cfg = RetryConfig(max_network_retries=3, max_captcha_retries=1, captcha_retry_delay=0.0, network_retry_delay_base=0.0)
+    cfg = RetryConfig(
+        max_network_retries=3, max_captcha_retries=1, captcha_retry_delay=0.0, network_retry_delay_base=0.0
+    )
 
     uc = AutoLoginUsecase(
         retry_config=cfg,
@@ -402,11 +409,14 @@ async def test_captcha_retries_network_error_no_retry():
     async def fail_net(cred):
         raise NetworkError("net down")
 
-    cfg = RetryConfig(max_captcha_retries=3, captcha_retry_delay=0.0, network_retry_delay_base=0.0, max_network_retries=1)
+    cfg = RetryConfig(
+        max_captcha_retries=3, captcha_retry_delay=0.0, network_retry_delay_base=0.0, max_network_retries=1
+    )
 
     def fake_time():
         fake_time.val += 0.1
         return fake_time.val
+
     fake_time.val = 0.0
 
     uc = AutoLoginUsecase(
@@ -439,11 +449,14 @@ async def test_captcha_retries_exhaustion():
         call_count += 1
         raise ValueError("captcha wrong")
 
-    cfg = RetryConfig(max_captcha_retries=2, captcha_retry_delay=0.0, network_retry_delay_base=0.0, max_network_retries=1)
+    cfg = RetryConfig(
+        max_captcha_retries=2, captcha_retry_delay=0.0, network_retry_delay_base=0.0, max_network_retries=1
+    )
 
     def fake_time():
         fake_time.val += 0.1
         return fake_time.val
+
     fake_time.val = 0.0
 
     uc = AutoLoginUsecase(
@@ -478,7 +491,9 @@ async def test_captcha_retries_success_on_second():
             raise ValueError("captcha wrong")
         return "tok2"
 
-    cfg = RetryConfig(max_captcha_retries=3, captcha_retry_delay=0.0, network_retry_delay_base=0.0, max_network_retries=1)
+    cfg = RetryConfig(
+        max_captcha_retries=3, captcha_retry_delay=0.0, network_retry_delay_base=0.0, max_network_retries=1
+    )
 
     uc = AutoLoginUsecase(
         retry_config=cfg,

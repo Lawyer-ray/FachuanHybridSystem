@@ -47,15 +47,11 @@ class TestFindMaxDocVersion:
 
     def test_fullwidth_parens(self):
         names = [f"补充协议一（王小三案件）V1_{_TODAY}.docx"]
-        assert (
-            find_max_doc_version(names=names, doc_type="补充协议一", case_name="王小三案件", date_str=_TODAY) == 1
-        )
+        assert find_max_doc_version(names=names, doc_type="补充协议一", case_name="王小三案件", date_str=_TODAY) == 1
 
     def test_halfwidth_parens(self):
         names = [f"补充协议一(王小三案件)V1_{_TODAY}.docx"]
-        assert (
-            find_max_doc_version(names=names, doc_type="补充协议一", case_name="王小三案件", date_str=_TODAY) == 1
-        )
+        assert find_max_doc_version(names=names, doc_type="补充协议一", case_name="王小三案件", date_str=_TODAY) == 1
 
     def test_returns_max_version(self):
         names = [
@@ -63,28 +59,20 @@ class TestFindMaxDocVersion:
             f"补充协议一（王小三案件）V3_{_TODAY}.docx",
             f"补充协议一（王小三案件）V2_{_TODAY}.docx",
         ]
-        assert (
-            find_max_doc_version(names=names, doc_type="补充协议一", case_name="王小三案件", date_str=_TODAY) == 3
-        )
+        assert find_max_doc_version(names=names, doc_type="补充协议一", case_name="王小三案件", date_str=_TODAY) == 3
 
     def test_no_match_returns_zero(self):
         names = [f"其他协议（别的案件）V5_{_TODAY}.docx", "readme.txt"]
-        assert (
-            find_max_doc_version(names=names, doc_type="补充协议一", case_name="王小三案件", date_str=_TODAY) == 0
-        )
+        assert find_max_doc_version(names=names, doc_type="补充协议一", case_name="王小三案件", date_str=_TODAY) == 0
 
     def test_different_date_not_counted(self):
         names = ["补充协议一（王小三案件）V9_19990101.docx"]
-        assert (
-            find_max_doc_version(names=names, doc_type="补充协议一", case_name="王小三案件", date_str=_TODAY) == 0
-        )
+        assert find_max_doc_version(names=names, doc_type="补充协议一", case_name="王小三案件", date_str=_TODAY) == 0
 
     def test_mixed_parens_within_one_name(self):
         """模板渲染或手工改名可能产出半开全闭等混合形态，也应兼容。"""
         names = [f"补充协议一(王小三案件）V2_{_TODAY}.docx"]
-        assert (
-            find_max_doc_version(names=names, doc_type="补充协议一", case_name="王小三案件", date_str=_TODAY) == 2
-        )
+        assert find_max_doc_version(names=names, doc_type="补充协议一", case_name="王小三案件", date_str=_TODAY) == 2
 
 
 class TestSupplementaryAgreementNextVersion:

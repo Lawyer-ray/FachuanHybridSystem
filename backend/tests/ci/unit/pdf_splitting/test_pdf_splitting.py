@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from apps.pdf_splitting.services.split.segment_detector import SegmentDetector
 from apps.pdf_splitting.services.split.split_models import (
+    OCRPageResult,
+    OCRRuntimeProfile,
     PageDescriptor,
     SegmentDraft,
-    OCRRuntimeProfile,
-    OCRPageResult,
     _levenshtein_distance,
 )
 from apps.pdf_splitting.services.template_registry import (
@@ -15,7 +16,6 @@ from apps.pdf_splitting.services.template_registry import (
     get_segment_label,
     get_template_definition,
 )
-from apps.pdf_splitting.services.split.segment_detector import SegmentDetector
 
 
 class TestLevenshteinDistance:
@@ -160,8 +160,16 @@ class TestSegmentDetector:
     def test_fill_unrecognized_gaps_no_gaps(self) -> None:
         """无间隙时原样返回。"""
         segments = [
-            SegmentDraft(order=1, page_start=1, page_end=5, segment_type="complaint",
-                         filename="test.pdf", confidence=0.8, source_method="rule", review_flag="normal"),
+            SegmentDraft(
+                order=1,
+                page_start=1,
+                page_end=5,
+                segment_type="complaint",
+                filename="test.pdf",
+                confidence=0.8,
+                source_method="rule",
+                review_flag="normal",
+            ),
         ]
         result = self.detector.fill_unrecognized_gaps(segments=segments, total_pages=5)
         assert len(result) == 1
@@ -169,8 +177,16 @@ class TestSegmentDetector:
     def test_fill_unrecognized_gaps_with_gaps(self) -> None:
         """有间隙时填充未识别区间。"""
         segments = [
-            SegmentDraft(order=1, page_start=3, page_end=5, segment_type="complaint",
-                         filename="test.pdf", confidence=0.8, source_method="rule", review_flag="normal"),
+            SegmentDraft(
+                order=1,
+                page_start=3,
+                page_end=5,
+                segment_type="complaint",
+                filename="test.pdf",
+                confidence=0.8,
+                source_method="rule",
+                review_flag="normal",
+            ),
         ]
         result = self.detector.fill_unrecognized_gaps(segments=segments, total_pages=10)
         assert len(result) == 3  # gap + segment + gap
@@ -192,10 +208,26 @@ class TestSegmentDetector:
     def test_merge_adjacent_pack_segments(self) -> None:
         """合并相邻的同类型段落。"""
         segments = [
-            SegmentDraft(order=1, page_start=1, page_end=3, segment_type="party_identity",
-                         filename="test1.pdf", confidence=0.8, source_method="rule", review_flag="normal"),
-            SegmentDraft(order=2, page_start=4, page_end=6, segment_type="party_identity",
-                         filename="test2.pdf", confidence=0.7, source_method="rule", review_flag="normal"),
+            SegmentDraft(
+                order=1,
+                page_start=1,
+                page_end=3,
+                segment_type="party_identity",
+                filename="test1.pdf",
+                confidence=0.8,
+                source_method="rule",
+                review_flag="normal",
+            ),
+            SegmentDraft(
+                order=2,
+                page_start=4,
+                page_end=6,
+                segment_type="party_identity",
+                filename="test2.pdf",
+                confidence=0.7,
+                source_method="rule",
+                review_flag="normal",
+            ),
         ]
         result = self.detector._merge_adjacent_pack_segments(segments)
         assert len(result) == 1
@@ -205,10 +237,26 @@ class TestSegmentDetector:
     def test_merge_adjacent_different_types(self) -> None:
         """不同类型不合并。"""
         segments = [
-            SegmentDraft(order=1, page_start=1, page_end=3, segment_type="complaint",
-                         filename="test1.pdf", confidence=0.8, source_method="rule", review_flag="normal"),
-            SegmentDraft(order=2, page_start=4, page_end=6, segment_type="evidence_list",
-                         filename="test2.pdf", confidence=0.7, source_method="rule", review_flag="normal"),
+            SegmentDraft(
+                order=1,
+                page_start=1,
+                page_end=3,
+                segment_type="complaint",
+                filename="test1.pdf",
+                confidence=0.8,
+                source_method="rule",
+                review_flag="normal",
+            ),
+            SegmentDraft(
+                order=2,
+                page_start=4,
+                page_end=6,
+                segment_type="evidence_list",
+                filename="test2.pdf",
+                confidence=0.7,
+                source_method="rule",
+                review_flag="normal",
+            ),
         ]
         result = self.detector._merge_adjacent_pack_segments(segments)
         assert len(result) == 2
@@ -216,10 +264,26 @@ class TestSegmentDetector:
     def test_merge_adjacent_non_adjacent(self) -> None:
         """不相邻不合并。"""
         segments = [
-            SegmentDraft(order=1, page_start=1, page_end=3, segment_type="party_identity",
-                         filename="test1.pdf", confidence=0.8, source_method="rule", review_flag="normal"),
-            SegmentDraft(order=2, page_start=5, page_end=7, segment_type="party_identity",
-                         filename="test2.pdf", confidence=0.7, source_method="rule", review_flag="normal"),
+            SegmentDraft(
+                order=1,
+                page_start=1,
+                page_end=3,
+                segment_type="party_identity",
+                filename="test1.pdf",
+                confidence=0.8,
+                source_method="rule",
+                review_flag="normal",
+            ),
+            SegmentDraft(
+                order=2,
+                page_start=5,
+                page_end=7,
+                segment_type="party_identity",
+                filename="test2.pdf",
+                confidence=0.7,
+                source_method="rule",
+                review_flag="normal",
+            ),
         ]
         result = self.detector._merge_adjacent_pack_segments(segments)
         assert len(result) == 2

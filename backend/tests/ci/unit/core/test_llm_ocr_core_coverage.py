@@ -1,4 +1,5 @@
 """Coverage tests for core LLM backends, OCR service, and related modules."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -9,8 +10,8 @@ import pytest
 # --- ollama backend ---
 
 
-
 # --- openai_compatible backend ---
+
 
 class TestOpenAICompatibleBackend:
     def test_init(self):
@@ -48,6 +49,7 @@ class TestOpenAICompatibleBackend:
 
 # --- OCR service ---
 
+
 class TestOCRService:
     def test_init(self):
         from apps.automation.services.ocr.ocr_service import OCRService
@@ -64,6 +66,7 @@ class TestOCRService:
 
 
 # --- PaddleOCR API service ---
+
 
 class TestPaddleOCRApiService:
     def test_paddleocr_api_result(self):
@@ -103,6 +106,7 @@ class TestPaddleOCRApiService:
 
 # --- storage_service ---
 
+
 class TestStorageService:
     def test_import(self):
         from apps.core.services.storage_service import FileValidator
@@ -111,6 +115,7 @@ class TestStorageService:
 
 
 # --- material_classification_service ---
+
 
 class TestMaterialClassificationService:
     def test_import(self):
@@ -121,6 +126,7 @@ class TestMaterialClassificationService:
 
 # --- cause_court_initialization_service ---
 
+
 class TestCauseCourtInitializationService:
     def test_import(self):
         from apps.core.services.cause_court_initialization_service import CauseCourtInitializationService
@@ -129,6 +135,7 @@ class TestCauseCourtInitializationService:
 
 
 # --- bound_folder_scan_service ---
+
 
 class TestBoundFolderScanService:
     def test_import(self):
@@ -139,6 +146,7 @@ class TestBoundFolderScanService:
 
 # --- court_api_client ---
 
+
 class TestCourtApiClient:
     def test_import(self):
         from apps.core.services.court_api_client import CourtApiClient
@@ -147,6 +155,7 @@ class TestCourtApiClient:
 
 
 # --- gdrive_provider ---
+
 
 class TestGDriveProvider:
     def test_import(self):
@@ -157,6 +166,7 @@ class TestGDriveProvider:
 
 # --- dropbox_provider ---
 
+
 class TestDropboxProvider:
     def test_import(self):
         from apps.cloud_storage.dropbox_provider import DropboxProvider
@@ -165,6 +175,7 @@ class TestDropboxProvider:
 
 
 # --- cloud_storage admin ---
+
 
 class TestCloudStorageAdmin:
     def test_import(self):
@@ -175,6 +186,7 @@ class TestCloudStorageAdmin:
 
 # --- folder_binding_base ---
 
+
 class TestFolderBindingBase:
     def test_import(self):
         from apps.core.filesystem.folder_binding_base import BaseFolderBindingService
@@ -183,6 +195,7 @@ class TestFolderBindingBase:
 
 
 # --- core admin models ---
+
 
 class TestTianyanchaResponseAdapter:
     def test_import(self):

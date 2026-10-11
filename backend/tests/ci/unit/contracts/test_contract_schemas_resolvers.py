@@ -1,4 +1,5 @@
 """Tests for contracts.schemas.contract_schemas and related resolvers."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -8,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
+from apps.contracts.models import FeeMode
 from apps.contracts.schemas.contract_schemas import (
     ClientPaymentRecordOut,
     ContractAssignmentOut,
@@ -15,7 +17,6 @@ from apps.contracts.schemas.contract_schemas import (
     FinalizedMaterialOut,
     UpdateLawyersIn,
 )
-from apps.contracts.models import FeeMode
 
 
 class TestFinalizedMaterialOut:
@@ -190,30 +191,35 @@ class TestContractOutResolvers:
         obj = MagicMock()
         obj.get_case_type_display.return_value = "民事"
         from apps.contracts.schemas.contract_schemas import ContractOut
+
         assert ContractOut.resolve_case_type_label(obj) == "民事"
 
     def test_resolve_case_type_label_error(self) -> None:
         obj = MagicMock()
         obj.get_case_type_display.side_effect = AttributeError("err")
         from apps.contracts.schemas.contract_schemas import ContractOut
+
         assert ContractOut.resolve_case_type_label(obj) is None
 
     def test_resolve_status_label(self) -> None:
         obj = MagicMock()
         obj.get_status_display.return_value = "进行中"
         from apps.contracts.schemas.contract_schemas import ContractOut
+
         assert ContractOut.resolve_status_label(obj) == "进行中"
 
     def test_resolve_status_label_error(self) -> None:
         obj = MagicMock()
         obj.get_status_display.side_effect = ValueError("err")
         from apps.contracts.schemas.contract_schemas import ContractOut
+
         assert ContractOut.resolve_status_label(obj) is None
 
     def test_resolve_payments_success(self) -> None:
         obj = MagicMock()
         obj.payments.all.return_value = [MagicMock(), MagicMock()]
         from apps.contracts.schemas.contract_schemas import ContractOut
+
         result = ContractOut.resolve_payments(obj)
         assert len(result) == 2
 
@@ -221,6 +227,7 @@ class TestContractOutResolvers:
         obj = MagicMock()
         obj.payments.all.side_effect = Exception("db error")
         from apps.contracts.schemas.contract_schemas import ContractOut
+
         result = ContractOut.resolve_payments(obj)
         assert result == []
 
@@ -228,6 +235,7 @@ class TestContractOutResolvers:
         obj = MagicMock()
         obj.representation_stages = ["first_instance", "second_instance"]
         from apps.contracts.schemas.contract_schemas import ContractOut
+
         result = ContractOut.resolve_representation_stages(obj)
         assert len(result) == 2
         assert all(isinstance(r, str) for r in result)
@@ -236,6 +244,7 @@ class TestContractOutResolvers:
         obj = MagicMock()
         obj.representation_stages = None
         from apps.contracts.schemas.contract_schemas import ContractOut
+
         result = ContractOut.resolve_representation_stages(obj)
         assert result == []
 
@@ -243,5 +252,6 @@ class TestContractOutResolvers:
         obj = MagicMock()
         obj.contract_parties.all.return_value = [MagicMock()]
         from apps.contracts.schemas.contract_schemas import ContractOut
+
         result = ContractOut.resolve_contract_parties(obj)
         assert len(result) == 1

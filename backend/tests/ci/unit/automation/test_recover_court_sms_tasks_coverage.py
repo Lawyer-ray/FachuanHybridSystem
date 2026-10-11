@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 from django.utils import timezone
@@ -15,6 +15,7 @@ class TestRecoverSingleSms:
 
     def _cmd(self):
         from apps.automation.management.commands.recover_court_sms_tasks import Command
+
         return Command()
 
     def _mock_sms(self, status, retry_count=0):
@@ -117,6 +118,7 @@ class TestRecoverSingleDownloading:
 
     def _cmd(self):
         from apps.automation.management.commands.recover_court_sms_tasks import Command
+
         return Command()
 
     def test_no_scraper_task(self):
@@ -139,8 +141,10 @@ class TestRecoverSingleDownloading:
         sms.scraper_task = MagicMock()
         sms.scraper_task.status = "success"
         sms.save = MagicMock()
-        with patch("apps.automation.models.CourtSMSStatus") as mock_status, \
-             patch("apps.automation.models.ScraperTaskStatus") as scraper_status:
+        with (
+            patch("apps.automation.models.CourtSMSStatus") as mock_status,
+            patch("apps.automation.models.ScraperTaskStatus") as scraper_status,
+        ):
             mock_status.MATCHING = "matching"
             scraper_status.SUCCESS = "success"
             result = cmd._recover_single_downloading(sms, submit_fn)
@@ -156,8 +160,10 @@ class TestRecoverSingleDownloading:
         sms.scraper_task.status = "failed"
         sms.retry_count = 1
         sms.save = MagicMock()
-        with patch("apps.automation.models.CourtSMSStatus") as mock_status, \
-             patch("apps.automation.models.ScraperTaskStatus") as scraper_status:
+        with (
+            patch("apps.automation.models.CourtSMSStatus") as mock_status,
+            patch("apps.automation.models.ScraperTaskStatus") as scraper_status,
+        ):
             mock_status.DOWNLOAD_FAILED = "download_failed"
             scraper_status.FAILED = "failed"
             result = cmd._recover_single_downloading(sms, submit_fn)
@@ -173,8 +179,10 @@ class TestRecoverSingleDownloading:
         sms.scraper_task.status = "failed"
         sms.retry_count = 3
         sms.save = MagicMock()
-        with patch("apps.automation.models.CourtSMSStatus") as mock_status, \
-             patch("apps.automation.models.ScraperTaskStatus") as scraper_status:
+        with (
+            patch("apps.automation.models.CourtSMSStatus") as mock_status,
+            patch("apps.automation.models.ScraperTaskStatus") as scraper_status,
+        ):
             mock_status.DOWNLOAD_FAILED = "download_failed"
             scraper_status.FAILED = "failed"
             result = cmd._recover_single_downloading(sms, submit_fn)
@@ -200,6 +208,7 @@ class TestResetStuckTasks:
 
     def _cmd(self):
         from apps.automation.management.commands.recover_court_sms_tasks import Command
+
         return Command()
 
     def test_resets_stuck_tasks(self):
@@ -209,9 +218,11 @@ class TestResetStuckTasks:
         sms.status = "parsing"
         sms.save = MagicMock()
 
-        with patch("apps.automation.models.CourtSMS") as mock_model, \
-             patch("apps.automation.models.CourtSMSStatus") as mock_status, \
-             patch("django.utils.timezone.now", return_value=timezone.now()):
+        with (
+            patch("apps.automation.models.CourtSMS") as mock_model,
+            patch("apps.automation.models.CourtSMSStatus") as mock_status,
+            patch("django.utils.timezone.now", return_value=timezone.now()),
+        ):
             mock_status.PARSING = "parsing"
             mock_status.DOWNLOADING = "downloading"
             mock_status.MATCHING = "matching"
@@ -230,8 +241,10 @@ class TestResetStuckTasks:
         sms.status = "parsing"
         sms.save = MagicMock(side_effect=Exception("db error"))
 
-        with patch("apps.automation.models.CourtSMS") as mock_model, \
-             patch("apps.automation.models.CourtSMSStatus") as mock_status:
+        with (
+            patch("apps.automation.models.CourtSMS") as mock_model,
+            patch("apps.automation.models.CourtSMSStatus") as mock_status,
+        ):
             mock_status.PARSING = "parsing"
             mock_status.DOWNLOADING = "downloading"
             mock_status.MATCHING = "matching"
@@ -249,6 +262,7 @@ class TestRecoverIncompleteTasks:
 
     def _cmd(self):
         from apps.automation.management.commands.recover_court_sms_tasks import Command
+
         return Command()
 
     def test_recovers_tasks(self):
@@ -256,10 +270,12 @@ class TestRecoverIncompleteTasks:
         sms = MagicMock()
         sms.id = 10
 
-        with patch("apps.automation.models.CourtSMS") as mock_model, \
-             patch("apps.automation.models.CourtSMSStatus") as mock_status, \
-             patch("apps.core.tasking.submit_task") as mock_submit, \
-             patch.object(cmd, "_recover_single_sms", return_value=True):
+        with (
+            patch("apps.automation.models.CourtSMS") as mock_model,
+            patch("apps.automation.models.CourtSMSStatus") as mock_status,
+            patch("apps.core.tasking.submit_task") as mock_submit,
+            patch.object(cmd, "_recover_single_sms", return_value=True),
+        ):
             mock_model.objects.filter.return_value.order_by.return_value = [sms]
             result = cmd._recover_incomplete_tasks(timezone.now() - timedelta(hours=24))
         assert result >= 0
@@ -269,10 +285,12 @@ class TestRecoverIncompleteTasks:
         sms = MagicMock()
         sms.id = 10
 
-        with patch("apps.automation.models.CourtSMS") as mock_model, \
-             patch("apps.automation.models.CourtSMSStatus") as mock_status, \
-             patch("apps.core.tasking.submit_task"), \
-             patch.object(cmd, "_recover_single_sms", side_effect=Exception("boom")):
+        with (
+            patch("apps.automation.models.CourtSMS") as mock_model,
+            patch("apps.automation.models.CourtSMSStatus") as mock_status,
+            patch("apps.core.tasking.submit_task"),
+            patch.object(cmd, "_recover_single_sms", side_effect=Exception("boom")),
+        ):
             mock_model.objects.filter.return_value.order_by.return_value = [sms]
             result = cmd._recover_incomplete_tasks(timezone.now() - timedelta(hours=24), verbose=False)
         assert result == 0
@@ -283,6 +301,7 @@ class TestShowCurrentStatus:
 
     def _cmd(self):
         from apps.automation.management.commands.recover_court_sms_tasks import Command
+
         return Command()
 
     def test_displays_status(self):
@@ -290,8 +309,10 @@ class TestShowCurrentStatus:
         cmd.stdout = MagicMock()
         mock_enum = [MagicMock(value="pending", label="待处理"), MagicMock(value="done", label="完成")]
 
-        with patch("apps.automation.models.CourtSMS") as mock_model, \
-             patch("apps.automation.models.CourtSMSStatus", mock_enum):
+        with (
+            patch("apps.automation.models.CourtSMS") as mock_model,
+            patch("apps.automation.models.CourtSMSStatus", mock_enum),
+        ):
             mock_model.objects.filter.return_value.count.return_value = 5
             cmd._show_current_status(timezone.now() - timedelta(hours=24))
         assert cmd.stdout.write.called
@@ -302,6 +323,7 @@ class TestShowRecoveryPlan:
 
     def _cmd(self):
         from apps.automation.management.commands.recover_court_sms_tasks import Command
+
         return Command()
 
     def test_shows_incomplete_tasks(self):
@@ -313,8 +335,10 @@ class TestShowRecoveryPlan:
         sms.created_at = timezone.now()
         sms.content = "test content"
 
-        with patch("apps.automation.models.CourtSMS") as mock_model, \
-             patch("apps.automation.models.CourtSMSStatus") as mock_status:
+        with (
+            patch("apps.automation.models.CourtSMS") as mock_model,
+            patch("apps.automation.models.CourtSMSStatus") as mock_status,
+        ):
             mock_status.PENDING = "pending"
             mock_status.PARSING = "parsing"
             mock_status.DOWNLOADING = "downloading"

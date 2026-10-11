@@ -45,6 +45,7 @@ class TestComputeFileHashFromBytes:
 
 def hashlib_sha256(data: bytes) -> str:
     import hashlib
+
     return hashlib.sha256(data).hexdigest()
 
 
@@ -76,6 +77,7 @@ class TestCollectDocxFilesCloud:
         from unittest.mock import MagicMock
 
         from apps.contracts.services.contract.integrations._candidate_post_processor import CandidatePostProcessor
+
         return CandidatePostProcessor(scan_service=MagicMock())
 
     def test_returns_empty_for_litigation(self):
@@ -122,9 +124,12 @@ class TestConvertDocxToTempPdfFromBytes:
 
     def _get_service(self):
         from apps.contracts.services.contract.integrations._import_pipeline import ImportPipeline
+
         return ImportPipeline()
 
-    @patch("apps.contracts.services.contract.integrations._import_pipeline.ImportPipeline._convert_docx_to_temp_pdf_from_bytes")
+    @patch(
+        "apps.contracts.services.contract.integrations._import_pipeline.ImportPipeline._convert_docx_to_temp_pdf_from_bytes"
+    )
     def test_returns_none_on_conversion_failure(self, mock_convert):
         mock_convert.return_value = None
         service = self._get_service()
@@ -139,6 +144,7 @@ class TestConfirmImportProviderThreading:
         import inspect
 
         from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
+
         sig = inspect.signature(ContractFolderScanService.confirm_import)
         assert "storage_provider" in sig.parameters
 
@@ -146,6 +152,7 @@ class TestConfirmImportProviderThreading:
         import inspect
 
         from apps.contracts.services.contract.integrations._candidate_post_processor import CandidatePostProcessor
+
         sig = inspect.signature(CandidatePostProcessor._mark_already_imported)
         assert "storage_provider" in sig.parameters
 
@@ -153,6 +160,7 @@ class TestConfirmImportProviderThreading:
         import inspect
 
         from apps.contracts.services.contract.integrations._candidate_post_processor import CandidatePostProcessor
+
         sig = inspect.signature(CandidatePostProcessor._collect_docx_files)
         assert "storage_provider" in sig.parameters
 
@@ -162,6 +170,7 @@ class TestCollectWorkLogSuggestionsCloud:
 
     def test_returns_empty_on_provider_error(self):
         from apps.contracts.services.contract.integrations.archive_classifier import _collect_work_log_suggestions_cloud
+
         provider = MagicMock()
         provider.list_directory.side_effect = ConnectionError("timeout")
         result = _collect_work_log_suggestions_cloud("/", "litigation", provider)
@@ -169,6 +178,7 @@ class TestCollectWorkLogSuggestionsCloud:
 
     def test_collects_date_prefixed_dirs(self):
         from apps.contracts.services.contract.integrations.archive_classifier import _collect_work_log_suggestions_cloud
+
         provider = _make_mock_provider(
             dirs=[
                 _make_cloud_file("2026.01.15-立案", "/2026.01.15-立案", is_dir=True),

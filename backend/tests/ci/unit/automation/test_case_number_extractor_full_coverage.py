@@ -19,6 +19,7 @@ class TestCaseNumberExtractorService:
 
     def _make_service(self, **kwargs):
         from apps.automation.services.sms.case_number_extractor_service import CaseNumberExtractorService
+
         return CaseNumberExtractorService(**kwargs)
 
 
@@ -30,6 +31,7 @@ class TestCaseNumberExtractorService:
 class TestExtractFromDocument:
     def _svc(self, **kw):
         from apps.automation.services.sms.case_number_extractor_service import CaseNumberExtractorService
+
         return CaseNumberExtractorService(**kw)
 
     def test_empty_path(self):
@@ -97,6 +99,7 @@ class TestExtractFromDocument:
 
     def test_llm_error(self):
         from apps.core.llm.exceptions import LLMError
+
         doc_svc = MagicMock()
         doc_svc.extract_document_content_by_path_internal.side_effect = LLMError("fail")
         svc = self._svc(document_processing_service=doc_svc)
@@ -111,6 +114,7 @@ class TestExtractFromDocument:
 class TestExtractFromContent:
     def _svc(self, **kw):
         from apps.automation.services.sms.case_number_extractor_service import CaseNumberExtractorService
+
         return CaseNumberExtractorService(**kw)
 
     def test_empty_content(self):
@@ -152,6 +156,7 @@ class TestExtractFromContent:
 
     def test_llm_error(self):
         from apps.core.llm.exceptions import LLMError
+
         llm = MagicMock()
         llm.chat.side_effect = LLMError("fail")
         svc = self._svc(llm_service=llm)
@@ -174,6 +179,7 @@ class TestExtractFromContent:
 class TestBuildExtractPrompt:
     def test_contains_content(self):
         from apps.automation.services.sms.case_number_extractor_service import CaseNumberExtractorService
+
         svc = CaseNumberExtractorService()
         prompt = svc._build_extract_prompt("文书内容")
         assert "文书内容" in prompt
@@ -181,6 +187,7 @@ class TestBuildExtractPrompt:
 
     def test_json_format_instructions(self):
         from apps.automation.services.sms.case_number_extractor_service import CaseNumberExtractorService
+
         svc = CaseNumberExtractorService()
         prompt = svc._build_extract_prompt("内容")
         assert "case_numbers" in prompt
@@ -194,6 +201,7 @@ class TestBuildExtractPrompt:
 class TestParseOllamaResponse:
     def _svc(self):
         from apps.automation.services.sms.case_number_extractor_service import CaseNumberExtractorService
+
         return CaseNumberExtractorService()
 
     def test_valid_json(self):
@@ -241,6 +249,7 @@ class TestParseOllamaResponse:
 class TestValidateAndNormalize:
     def _svc(self):
         from apps.automation.services.sms.case_number_extractor_service import CaseNumberExtractorService
+
         return CaseNumberExtractorService()
 
     def test_empty(self):
@@ -283,6 +292,7 @@ class TestValidateAndNormalize:
 class TestNormalizeSingle:
     def _svc(self):
         from apps.automation.services.sms.case_number_extractor_service import CaseNumberExtractorService
+
         return CaseNumberExtractorService()
 
     def test_valid_standard_format(self):
@@ -348,6 +358,7 @@ class TestNormalizeSingle:
 class TestSyncToCase:
     def _svc(self, **kw):
         from apps.automation.services.sms.case_number_extractor_service import CaseNumberExtractorService
+
         return CaseNumberExtractorService(**kw)
 
     def test_empty_case_id(self):
@@ -391,6 +402,7 @@ class TestSyncToCase:
 class TestGetExistingNumbers:
     def _svc(self):
         from apps.automation.services.sms.case_number_extractor_service import CaseNumberExtractorService
+
         return CaseNumberExtractorService()
 
     def test_success(self):
@@ -428,6 +440,7 @@ class TestGetExistingNumbers:
 class TestWriteNewNumbers:
     def _svc(self):
         from apps.automation.services.sms.case_number_extractor_service import CaseNumberExtractorService
+
         return CaseNumberExtractorService()
 
     def test_writes_new(self):
@@ -470,6 +483,7 @@ class TestWriteNewNumbers:
 class TestExtractFallback:
     def _svc(self):
         from apps.automation.services.sms.case_number_extractor_service import CaseNumberExtractorService
+
         return CaseNumberExtractorService()
 
     def test_empty(self):
@@ -509,6 +523,7 @@ class TestExtractFallback:
 class TestRegexExtractNumbers:
     def _svc(self):
         from apps.automation.services.sms.case_number_extractor_service import CaseNumberExtractorService
+
         return CaseNumberExtractorService()
 
     def test_standard_format(self):
@@ -535,6 +550,7 @@ class TestRegexExtractNumbers:
 class TestDeduplicate:
     def _svc(self):
         from apps.automation.services.sms.case_number_extractor_service import CaseNumberExtractorService
+
         return CaseNumberExtractorService()
 
     def test_empty(self):
@@ -573,13 +589,17 @@ class TestDeduplicate:
 class TestLazyProperties:
     def test_document_processing_service_lazy(self):
         from apps.automation.services.sms.case_number_extractor_service import CaseNumberExtractorService
+
         svc = CaseNumberExtractorService()
         svc._document_processing_service = None
-        with patch("apps.core.dependencies.automation_sms_wiring.build_sms_document_processing_service", return_value="dps"):
+        with patch(
+            "apps.core.dependencies.automation_sms_wiring.build_sms_document_processing_service", return_value="dps"
+        ):
             assert svc.document_processing_service == "dps"
 
     def test_case_service_lazy(self):
         from apps.automation.services.sms.case_number_extractor_service import CaseNumberExtractorService
+
         svc = CaseNumberExtractorService()
         svc._case_service = None
         with patch("apps.core.dependencies.automation_sms_wiring.build_sms_case_service", return_value="cs"):
@@ -587,6 +607,7 @@ class TestLazyProperties:
 
     def test_case_number_service_lazy(self):
         from apps.automation.services.sms.case_number_extractor_service import CaseNumberExtractorService
+
         svc = CaseNumberExtractorService()
         svc._case_number_service = None
         with patch("apps.core.dependencies.automation_sms_wiring.build_sms_case_number_service", return_value="cns"):
@@ -594,6 +615,7 @@ class TestLazyProperties:
 
     def test_llm_service_lazy(self):
         from apps.automation.services.sms.case_number_extractor_service import CaseNumberExtractorService
+
         svc = CaseNumberExtractorService()
         svc._llm_service = None
         with patch("apps.core.interfaces.ServiceLocator.get_llm_service", return_value="llm"):

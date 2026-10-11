@@ -177,9 +177,11 @@ class TestSegmentTemplateRule:
 # SegmentDetector extended tests
 # ---------------------------------------------------------------------------
 
+
 class TestSegmentDetectorExtended:
     def _make_detector(self):
         from apps.pdf_splitting.services.split.segment_detector import SegmentDetector
+
         return SegmentDetector()
 
     def test_normalize_text(self):
@@ -215,13 +217,18 @@ class TestSegmentDetectorExtended:
     def test_fill_unrecognized_gaps(self):
         from apps.pdf_splitting.models import PdfSplitReviewFlag, PdfSplitSegmentType
         from apps.pdf_splitting.services.split.split_models import SegmentDraft
+
         detector = self._make_detector()
         segments = [
             SegmentDraft(
-                order=1, page_start=3, page_end=5,
+                order=1,
+                page_start=3,
+                page_end=5,
                 segment_type=PdfSplitSegmentType.COMPLAINT,
-                filename="test.pdf", confidence=0.8,
-                source_method="rule", review_flag=PdfSplitReviewFlag.NORMAL,
+                filename="test.pdf",
+                confidence=0.8,
+                source_method="rule",
+                review_flag=PdfSplitReviewFlag.NORMAL,
             )
         ]
         filled = detector.fill_unrecognized_gaps(segments=segments, total_pages=10)
@@ -234,12 +241,29 @@ class TestSegmentDetectorExtended:
     def test_merge_adjacent_pack_segments(self):
         from apps.pdf_splitting.models import PdfSplitReviewFlag, PdfSplitSegmentType
         from apps.pdf_splitting.services.split.split_models import SegmentDraft
+
         detector = self._make_detector()
         segments = [
-            SegmentDraft(order=1, page_start=1, page_end=2, segment_type=PdfSplitSegmentType.PARTY_IDENTITY,
-                         filename="a.pdf", confidence=0.8, source_method="rule", review_flag=PdfSplitReviewFlag.NORMAL),
-            SegmentDraft(order=2, page_start=3, page_end=4, segment_type=PdfSplitSegmentType.PARTY_IDENTITY,
-                         filename="b.pdf", confidence=0.9, source_method="rule", review_flag=PdfSplitReviewFlag.NORMAL),
+            SegmentDraft(
+                order=1,
+                page_start=1,
+                page_end=2,
+                segment_type=PdfSplitSegmentType.PARTY_IDENTITY,
+                filename="a.pdf",
+                confidence=0.8,
+                source_method="rule",
+                review_flag=PdfSplitReviewFlag.NORMAL,
+            ),
+            SegmentDraft(
+                order=2,
+                page_start=3,
+                page_end=4,
+                segment_type=PdfSplitSegmentType.PARTY_IDENTITY,
+                filename="b.pdf",
+                confidence=0.9,
+                source_method="rule",
+                review_flag=PdfSplitReviewFlag.NORMAL,
+            ),
         ]
         merged = detector._merge_adjacent_pack_segments(segments)
         assert len(merged) == 1
@@ -249,12 +273,29 @@ class TestSegmentDetectorExtended:
     def test_merge_different_types_no_merge(self):
         from apps.pdf_splitting.models import PdfSplitReviewFlag, PdfSplitSegmentType
         from apps.pdf_splitting.services.split.split_models import SegmentDraft
+
         detector = self._make_detector()
         segments = [
-            SegmentDraft(order=1, page_start=1, page_end=2, segment_type=PdfSplitSegmentType.PARTY_IDENTITY,
-                         filename="a.pdf", confidence=0.8, source_method="rule", review_flag=PdfSplitReviewFlag.NORMAL),
-            SegmentDraft(order=2, page_start=3, page_end=4, segment_type=PdfSplitSegmentType.COMPLAINT,
-                         filename="b.pdf", confidence=0.9, source_method="rule", review_flag=PdfSplitReviewFlag.NORMAL),
+            SegmentDraft(
+                order=1,
+                page_start=1,
+                page_end=2,
+                segment_type=PdfSplitSegmentType.PARTY_IDENTITY,
+                filename="a.pdf",
+                confidence=0.8,
+                source_method="rule",
+                review_flag=PdfSplitReviewFlag.NORMAL,
+            ),
+            SegmentDraft(
+                order=2,
+                page_start=3,
+                page_end=4,
+                segment_type=PdfSplitSegmentType.COMPLAINT,
+                filename="b.pdf",
+                confidence=0.9,
+                source_method="rule",
+                review_flag=PdfSplitReviewFlag.NORMAL,
+            ),
         ]
         merged = detector._merge_adjacent_pack_segments(segments)
         assert len(merged) == 2
@@ -263,6 +304,7 @@ class TestSegmentDetectorExtended:
 class TestPdfSplitJobServiceNormalize:
     def _make_service(self):
         from apps.pdf_splitting.services.job_service import PdfSplitJobService
+
         return PdfSplitJobService()
 
     def test_normalize_split_mode_valid(self):

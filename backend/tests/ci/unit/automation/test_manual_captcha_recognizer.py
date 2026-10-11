@@ -9,10 +9,11 @@ import pytest
 
 try:
     from apps.automation.services.scraper.core.captcha_recognizer import (
+        FileBasedCaptchaRecognizer,
         ManualCaptchaRecognizer,
         get_captcha_recognizer,
-        FileBasedCaptchaRecognizer,
     )
+
     _HAS_CAPTCHA = ManualCaptchaRecognizer is not None
 except ImportError:
     _HAS_CAPTCHA = False
@@ -24,12 +25,15 @@ pytestmark = pytest.mark.skipif(not _HAS_CAPTCHA, reason="captcha_recognizer plu
 # ManualCaptchaRecognizer
 # ======================================================================
 
+
 class TestManualCaptchaRecognizer:
     def _make_recognizer(self, task=None, timeout=5, poll_interval=0.1):
         from apps.automation.services.scraper.core.captcha_recognizer import ManualCaptchaRecognizer
 
         if task is None:
-            task = SimpleNamespace(id=42, status="running", captcha_image_path=None, captcha_answer=None, error_message=None)
+            task = SimpleNamespace(
+                id=42, status="running", captcha_image_path=None, captcha_answer=None, error_message=None
+            )
             task.save = MagicMock()
             task.refresh_from_db = MagicMock()
 
@@ -47,15 +51,19 @@ class TestManualCaptchaRecognizer:
         assert r.recognize(None) is None
 
     def test_recognize_saves_image_and_sets_status(self):
-        task = SimpleNamespace(id=99, status="running", captcha_image_path=None, captcha_answer=None, error_message=None)
+        task = SimpleNamespace(
+            id=99, status="running", captcha_image_path=None, captcha_answer=None, error_message=None
+        )
         task.save = MagicMock()
         task.refresh_from_db = MagicMock(side_effect=self._simulate_answer(task, "AB12", after_calls=1))
 
         r = self._make_recognizer(task=task, timeout=5, poll_interval=0.01)
 
-        with patch("plugins.court_automation.login.captcha_recognizer.Path") as MockPath, \
-             patch("plugins.court_automation.login.captcha_recognizer.time") as mock_time, \
-             patch("django.core.files.storage.default_storage") as mock_storage:
+        with (
+            patch("plugins.court_automation.login.captcha_recognizer.Path") as MockPath,
+            patch("plugins.court_automation.login.captcha_recognizer.time") as mock_time,
+            patch("django.core.files.storage.default_storage") as mock_storage,
+        ):
             mock_time.time.return_value = 1000.0
             mock_time.sleep = MagicMock()
 
@@ -74,20 +82,26 @@ class TestManualCaptchaRecognizer:
 
     def test_recognize_timeout_returns_none(self):
         """超时后应返回 None"""
-        task = SimpleNamespace(id=77, status="running", captcha_image_path=None, captcha_answer=None, error_message=None)
+        task = SimpleNamespace(
+            id=77, status="running", captcha_image_path=None, captcha_answer=None, error_message=None
+        )
         task.save = MagicMock()
         # refresh_from_db 永远不设置 answer → 超时
         task.refresh_from_db = MagicMock()
 
         r = self._make_recognizer(task=task, timeout=1, poll_interval=0.1)
 
-        with patch("plugins.court_automation.login.captcha_recognizer.Path") as MockPath, \
-             patch("django.core.files.storage.default_storage") as mock_storage:
+        with (
+            patch("plugins.court_automation.login.captcha_recognizer.Path") as MockPath,
+            patch("django.core.files.storage.default_storage") as mock_storage,
+        ):
             mock_file = MagicMock()
-            MockPath.return_value.__truediv__ = MagicMock(return_value=MagicMock(
-                mkdir=MagicMock(),
-                __truediv__=MagicMock(return_value=mock_file),
-            ))
+            MockPath.return_value.__truediv__ = MagicMock(
+                return_value=MagicMock(
+                    mkdir=MagicMock(),
+                    __truediv__=MagicMock(return_value=mock_file),
+                )
+            )
             mock_storage.save.return_value = "automation/captcha_pending/77_test.png"
 
             with patch("django.conf.settings.MEDIA_ROOT", "/media"):
@@ -104,12 +118,16 @@ class TestManualCaptchaRecognizer:
 
         r = self._make_recognizer(task=task, timeout=5, poll_interval=0.01)
 
-        with patch("plugins.court_automation.login.captcha_recognizer.Path") as MockPath, \
-             patch("django.core.files.storage.default_storage") as mock_storage:
-            MockPath.return_value.__truediv__ = MagicMock(return_value=MagicMock(
-                mkdir=MagicMock(),
-                __truediv__=MagicMock(return_value=MagicMock(write_bytes=MagicMock())),
-            ))
+        with (
+            patch("plugins.court_automation.login.captcha_recognizer.Path") as MockPath,
+            patch("django.core.files.storage.default_storage") as mock_storage,
+        ):
+            MockPath.return_value.__truediv__ = MagicMock(
+                return_value=MagicMock(
+                    mkdir=MagicMock(),
+                    __truediv__=MagicMock(return_value=MagicMock(write_bytes=MagicMock())),
+                )
+            )
             mock_storage.save.return_value = "automation/captcha_pending/1_test.png"
             with patch("django.conf.settings.MEDIA_ROOT", "/media"):
                 result = r.recognize(b"img")
@@ -133,6 +151,7 @@ class TestManualCaptchaRecognizer:
 # get_captcha_recognizer
 # ======================================================================
 
+
 class TestGetCaptchaRecognizer:
     def test_plugin_installed_returns_ddddocr(self):
         """captcha_ocr 插件已安装时，应返回 DdddocrRecognizer"""
@@ -150,8 +169,8 @@ class TestGetCaptchaRecognizer:
     def test_with_task_returns_manual(self):
         """有 task 参数且插件未安装时，应返回 ManualCaptchaRecognizer"""
         from apps.automation.services.scraper.core.captcha_recognizer import (
-            get_captcha_recognizer,
             ManualCaptchaRecognizer,
+            get_captcha_recognizer,
         )
 
         task = SimpleNamespace(id=1)
@@ -165,7 +184,10 @@ class TestGetCaptchaRecognizer:
 
     def test_no_plugin_no_task_raises(self):
         """插件未安装且无 task 时，应返回 FileBasedCaptchaRecognizer"""
-        from apps.automation.services.scraper.core.captcha_recognizer import get_captcha_recognizer, FileBasedCaptchaRecognizer
+        from apps.automation.services.scraper.core.captcha_recognizer import (
+            FileBasedCaptchaRecognizer,
+            get_captcha_recognizer,
+        )
 
         mock_plugins = MagicMock()
         mock_plugins.has_captcha_ocr_plugin.return_value = False

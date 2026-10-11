@@ -108,8 +108,8 @@ class BoundFolderScanService:
                 errors={"folder_path": str(root)},
             )
 
-        self._notify(progress_callback, "scanning", 5, None)
-        all_pdf_files = self._collect_pdf_files(root)
+        _notify(progress_callback, "scanning", 5, None)
+        all_pdf_files = _collect_pdf_files(root)
         deduped = self._deduplicate_files(all_pdf_files)
 
         if self._max_candidates > 0 and len(deduped) > self._max_candidates:
@@ -123,12 +123,12 @@ class BoundFolderScanService:
         total = len(deduped)
         for idx, item in enumerate(deduped, start=1):
             current_file = item["path"].name
-            progress = self._calc_progress(idx=idx, total=total)
+            progress = _calc_progress(idx=idx, total=total)
 
             extraction_method = "none"
             text_excerpt = ""
             if enable_recognition and not is_contract_domain:
-                self._notify(progress_callback, "extracting", progress, current_file)
+                _notify(progress_callback, "extracting", progress, current_file)
                 try:
                     extraction = self._text_extraction_service.extract_text(item["path"].as_posix())
                     extraction_method = extraction.extraction_method if extraction.success else "none"
@@ -136,10 +136,10 @@ class BoundFolderScanService:
                 except Exception:
                     logger.exception("scan_extract_failed", extra={"path": item["path"].as_posix()})
 
-            self._notify(progress_callback, "classifying", progress, current_file)
+            _notify(progress_callback, "classifying", progress, current_file)
 
             # 从文件路径中提取相对于扫描根目录的父文件夹名，作为类型提示
-            parent_folder_hint = self._extract_parent_folder_hint(
+            parent_folder_hint = _extract_parent_folder_hint(
                 file_path=item["path"],
                 scan_root=root,
             )
@@ -158,7 +158,7 @@ class BoundFolderScanService:
             )
             candidates.append(candidate)
 
-        self._notify(progress_callback, "completed", 100, None)
+        _notify(progress_callback, "completed", 100, None)
 
         return {
             "summary": {
@@ -239,50 +239,12 @@ class BoundFolderScanService:
 
         raise ValidationException(message="不支持的扫描领域", code="UNSUPPORTED_SCAN_DOMAIN", errors={"domain": domain})
 
-    @staticmethod
-    def _extract_parent_folder_hint(file_path: Path, scan_root: Path) -> str:
-        """从文件路径中提取相对于扫描根目录的直接父文件夹名，作为类型提示。
-
-        例如扫描根目录为 "2-立案材料"，文件位于 "2-立案材料/执行申请书/xxx.pdf"，
-        则返回 "执行申请书"；若文件直接在根目录下，则返回 ""。
-        """
-        try:
-            relative = file_path.parent.relative_to(scan_root)
-        except ValueError:
-            return ""
-        # 如果文件直接在扫描根目录下（relative 是 "."），无父文件夹提示
-        if str(relative) == ".":
-            return ""
-        # 取最靠近文件的父目录名（relative 可能是 "执行申请书" 或 "子目录A/子目录B"）
-        # 对于多级，取第一级（用户命名的分组目录）
-        first_part = Path(relative).parts[0] if Path(relative).parts else ""
-        # 去掉编号前缀：2-立案材料 → 立案材料
-        return re.sub(r"^[\d]+[\s.\-_]*[\)）]?\s*", "", first_part).strip() or first_part
-
-    @staticmethod
-    def _notify(callback: ProgressCallback | None, status: str, progress: int, current_file: str | None) -> None:
-        if callback is None:
-            return
-        callback(status, progress, current_file)
-
-    @staticmethod
-    def _calc_progress(*, idx: int, total: int) -> int:
-        if total <= 0:
-            return 100
-        return min(99, max(10, int((idx / total) * 90) + 9))
-
-    @staticmethod
-    def _collect_pdf_files(root: Path) -> list[Path]:
-        files = [p for p in root.rglob("*") if p.is_file() and p.suffix.lower() == ".pdf"]
-        files.sort(key=lambda x: x.as_posix())
-        return files
-
     def _deduplicate_files(self, files: list[Path]) -> list[dict[str, Any]]:
         grouped: dict[str, list[dict[str, Any]]] = {}
         for file_path in files:
             stem = file_path.stem
             version = self._parse_version(stem)
-            group_key = self._normalize_group_key(version.base_name)
+            group_key = _normalize_group_key(version.base_name)
             grouped.setdefault(group_key, []).append(
                 {
                     "path": file_path,
@@ -307,32 +269,21 @@ class BoundFolderScanService:
         match_v = self._PATTERN_V.match(candidate)
         if match_v:
             num = int(match_v.group("num"))
-            base_name = self._clean_base_name(match_v.group("base"))
+            base_name = _clean_base_name(match_v.group("base"))
             return _VersionInfo(base_name=base_name, version_token=f"V{num}", version_rank=100 + num)
 
         match_bracket = self._PATTERN_BRACKET.match(candidate)
         if match_bracket:
             num = int(match_bracket.group("num"))
-            base_name = self._clean_base_name(match_bracket.group("base"))
+            base_name = _clean_base_name(match_bracket.group("base"))
             return _VersionInfo(base_name=base_name, version_token=f"({num})", version_rank=100 + num)
 
         match_copy = self._PATTERN_COPY.match(candidate)
         if match_copy:
-            base_name = self._clean_base_name(match_copy.group("base"))
+            base_name = _clean_base_name(match_copy.group("base"))
             return _VersionInfo(base_name=base_name, version_token=str(match_copy.group("label")), version_rank=0)
 
-        return _VersionInfo(base_name=self._clean_base_name(candidate), version_token="", version_rank=1)
-
-    @staticmethod
-    def _clean_base_name(base_name: str) -> str:
-        value = (base_name or "").strip()
-        value = re.sub(r"[\s._-]+", " ", value)
-        return value.strip() or (base_name or "").strip()
-
-    @staticmethod
-    def _normalize_group_key(base_name: str) -> str:
-        normalized = re.sub(r"[\s._-]+", " ", (base_name or "").strip().lower())
-        return normalized or "_"
+        return _VersionInfo(base_name=_clean_base_name(candidate), version_token="", version_rank=1)
 
     # ── Cloud storage scan ─────────────────────────────────────
 
@@ -352,7 +303,7 @@ class BoundFolderScanService:
 
         scanner = CloudFolderScanner(provider=storage_provider, root_path=folder_path)
 
-        self._notify(progress_callback, "scanning", 5, None)
+        _notify(progress_callback, "scanning", 5, None)
         all_scanned = scanner.collect_pdf_files()
 
         deduped = self._deduplicate_scanned_files(all_scanned)
@@ -367,21 +318,21 @@ class BoundFolderScanService:
         for idx, item in enumerate(deduped, start=1):
             scanned = item["scanned"]
             current_file = scanned.name
-            progress = self._calc_progress(idx=idx, total=total)
+            progress = _calc_progress(idx=idx, total=total)
 
             extraction_method = "none"
             text_excerpt = ""
             if enable_recognition and not is_contract_domain:
-                self._notify(progress_callback, "extracting", progress, current_file)
+                _notify(progress_callback, "extracting", progress, current_file)
                 try:
                     file_bytes = scanner.read_file_bytes(scanned)
                     extraction_method, text_excerpt = self._extract_text_from_bytes(file_bytes)
                 except Exception:
                     logger.exception("scan_extract_failed_cloud", extra={"path": scanned.as_posix})
 
-            self._notify(progress_callback, "classifying", progress, current_file)
+            _notify(progress_callback, "classifying", progress, current_file)
 
-            parent_folder_hint = self._extract_parent_folder_hint_cloud(scanned, folder_path)
+            parent_folder_hint = _extract_parent_folder_hint_cloud(scanned, folder_path)
 
             candidate = self._build_candidate_cloud(
                 scanned=scanned,
@@ -397,7 +348,7 @@ class BoundFolderScanService:
             )
             candidates.append(candidate)
 
-        self._notify(progress_callback, "completed", 100, None)
+        _notify(progress_callback, "completed", 100, None)
 
         return {
             "summary": {
@@ -414,7 +365,7 @@ class BoundFolderScanService:
         for scanned in files:
             stem = scanned.stem
             version = self._parse_version(stem)
-            group_key = self._normalize_group_key(version.base_name)
+            group_key = _normalize_group_key(version.base_name)
             grouped.setdefault(group_key, []).append(
                 {
                     "scanned": scanned,
@@ -448,22 +399,6 @@ class BoundFolderScanService:
             return method, text
         finally:
             os.unlink(tmp_path)
-
-    @staticmethod
-    def _extract_parent_folder_hint_cloud(scanned: Any, scan_root: str) -> str:
-        """Extract parent folder hint from cloud file path."""
-        from pathlib import PurePosixPath
-
-        try:
-            file_path = PurePosixPath(scanned.as_posix)
-            root_path = PurePosixPath(scan_root)
-            relative = file_path.parent.relative_to(root_path)
-        except (ValueError, IndexError):
-            return ""
-        if str(relative) == ".":
-            return ""
-        first_part = relative.parts[0] if relative.parts else ""
-        return re.sub(r"^[\d]+[\s.\-_]*[\)）]?\s*", "", first_part).strip() or first_part
 
     def _build_candidate_cloud(
         self,
@@ -535,3 +470,75 @@ class BoundFolderScanService:
             return candidate
 
         raise ValidationException(message="不支持的扫描领域", code="UNSUPPORTED_SCAN_DOMAIN", errors={"domain": domain})
+
+
+# ↓↓ 由 BoundFolderScanService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _extract_parent_folder_hint(file_path: Path, scan_root: Path) -> str:
+    """从文件路径中提取相对于扫描根目录的直接父文件夹名，作为类型提示。
+
+    例如扫描根目录为 "2-立案材料"，文件位于 "2-立案材料/执行申请书/xxx.pdf"，
+    则返回 "执行申请书"；若文件直接在根目录下，则返回 ""。
+    """
+    try:
+        relative = file_path.parent.relative_to(scan_root)
+    except ValueError:
+        return ""
+    # 如果文件直接在扫描根目录下（relative 是 "."），无父文件夹提示
+    if str(relative) == ".":
+        return ""
+    # 取最靠近文件的父目录名（relative 可能是 "执行申请书" 或 "子目录A/子目录B"）
+    # 对于多级，取第一级（用户命名的分组目录）
+    first_part = Path(relative).parts[0] if Path(relative).parts else ""
+    # 去掉编号前缀：2-立案材料 → 立案材料
+    return re.sub(r"^[\d]+[\s.\-_]*[\)）]?\s*", "", first_part).strip() or first_part
+
+
+# ↓↓ 由 BoundFolderScanService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _notify(callback: ProgressCallback | None, status: str, progress: int, current_file: str | None) -> None:
+    if callback is None:
+        return
+    callback(status, progress, current_file)
+
+
+# ↓↓ 由 BoundFolderScanService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _calc_progress(*, idx: int, total: int) -> int:
+    if total <= 0:
+        return 100
+    return min(99, max(10, int((idx / total) * 90) + 9))
+
+
+# ↓↓ 由 BoundFolderScanService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _collect_pdf_files(root: Path) -> list[Path]:
+    files = [p for p in root.rglob("*") if p.is_file() and p.suffix.lower() == ".pdf"]
+    files.sort(key=lambda x: x.as_posix())
+    return files
+
+
+# ↓↓ 由 BoundFolderScanService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _clean_base_name(base_name: str) -> str:
+    value = (base_name or "").strip()
+    value = re.sub(r"[\s._-]+", " ", value)
+    return value.strip() or (base_name or "").strip()
+
+
+# ↓↓ 由 BoundFolderScanService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _normalize_group_key(base_name: str) -> str:
+    normalized = re.sub(r"[\s._-]+", " ", (base_name or "").strip().lower())
+    return normalized or "_"
+
+
+# ↓↓ 由 BoundFolderScanService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _extract_parent_folder_hint_cloud(scanned: Any, scan_root: str) -> str:
+    """Extract parent folder hint from cloud file path."""
+    from pathlib import PurePosixPath
+
+    try:
+        file_path = PurePosixPath(scanned.as_posix)
+        root_path = PurePosixPath(scan_root)
+        relative = file_path.parent.relative_to(root_path)
+    except (ValueError, IndexError):
+        return ""
+    if str(relative) == ".":
+        return ""
+    first_part = relative.parts[0] if relative.parts else ""
+    return re.sub(r"^[\d]+[\s.\-_]*[\)）]?\s*", "", first_part).strip() or first_part

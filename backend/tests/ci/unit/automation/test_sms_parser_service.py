@@ -261,5 +261,3 @@ class TestSMSParserServiceParse:
         result = self.service.parse(content)
         assert result.verification_code == "5678"
         assert len(result.download_links) >= 1
-
-

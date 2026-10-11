@@ -5,19 +5,21 @@ from __future__ import annotations
 import pytest
 
 from apps.evidence_sorting.services.reconciler import (
-    STATUS_MATCHED,
-    STATUS_UNMATCHED,
-    DeliveryNote,
     FOLDER_CONFIRMED,
     FOLDER_DELIVERY_MISMATCH,
     FOLDER_DELIVERY_NOT_ENOUGH,
     FOLDER_MISSING_DELIVERY,
     FOLDER_UNSIGNED,
+    STATUS_MATCHED,
+    STATUS_UNMATCHED,
+    DeliveryNote,
     LineItem,
     MonthGroup,
     ReconcileResult,
     ReconcilerService,
     StatementInfo,
+    _normalize_date,
+    _to_float,
 )
 
 
@@ -31,25 +33,25 @@ def service():
 # ---------------------------------------------------------------------------
 class TestNormalizeDate:
     def test_valid_8_digit(self, service):
-        assert service._normalize_date("20220815") == "20220815"
+        assert _normalize_date("20220815") == "20220815"
 
     def test_with_dashes(self, service):
-        assert service._normalize_date("2022-08-15") == "20220815"
+        assert _normalize_date("2022-08-15") == "20220815"
 
     def test_with_slashes(self, service):
-        assert service._normalize_date("2022/08/15") == "20220815"
+        assert _normalize_date("2022/08/15") == "20220815"
 
     def test_invalid_length(self, service):
-        assert service._normalize_date("202208") is None
+        assert _normalize_date("202208") is None
 
     def test_none(self, service):
-        assert service._normalize_date(None) is None
+        assert _normalize_date(None) is None
 
     def test_empty(self, service):
-        assert service._normalize_date("") is None
+        assert _normalize_date("") is None
 
     def test_non_digit(self, service):
-        assert service._normalize_date("abcdefgh") is None
+        assert _normalize_date("abcdefgh") is None
 
 
 # ---------------------------------------------------------------------------
@@ -57,19 +59,19 @@ class TestNormalizeDate:
 # ---------------------------------------------------------------------------
 class TestToFloat:
     def test_integer(self, service):
-        assert service._to_float(42) == 42.0
+        assert _to_float(42) == 42.0
 
     def test_string(self, service):
-        assert service._to_float("100.50") == 100.5
+        assert _to_float("100.50") == 100.5
 
     def test_comma_separated(self, service):
-        assert service._to_float("1,000.50") == 1000.5
+        assert _to_float("1,000.50") == 1000.5
 
     def test_none(self, service):
-        assert service._to_float(None) is None
+        assert _to_float(None) is None
 
     def test_invalid(self, service):
-        assert service._to_float("abc") is None
+        assert _to_float("abc") is None
 
 
 # ---------------------------------------------------------------------------
@@ -204,9 +206,13 @@ class TestMatchDelivery:
 # ---------------------------------------------------------------------------
 class TestBuildFolderName:
     def test_confirmed_with_deliveries(self, service):
-        group = MonthGroup(month="2022年08月", folder_name="", deliveries=[
-            DeliveryNote(match_status=STATUS_MATCHED),
-        ])
+        group = MonthGroup(
+            month="2022年08月",
+            folder_name="",
+            deliveries=[
+                DeliveryNote(match_status=STATUS_MATCHED),
+            ],
+        )
         result = service._build_folder_name("2022年08月", StatementInfo(signed=True), group, [])
         assert "已确认" in result
         assert "对账单与出库单" in result
@@ -217,9 +223,13 @@ class TestBuildFolderName:
         assert "未签名" in result
 
     def test_delivery_mismatch(self, service):
-        group = MonthGroup(month="2022年08月", folder_name="", deliveries=[
-            DeliveryNote(match_status=STATUS_UNMATCHED),
-        ])
+        group = MonthGroup(
+            month="2022年08月",
+            folder_name="",
+            deliveries=[
+                DeliveryNote(match_status=STATUS_UNMATCHED),
+            ],
+        )
         result = service._build_folder_name("2022年08月", StatementInfo(signed=True), group, [FOLDER_DELIVERY_MISMATCH])
         assert "无法确认" in result
 

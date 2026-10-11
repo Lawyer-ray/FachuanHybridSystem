@@ -26,7 +26,7 @@ from apps.pdf_splitting.models import (
 from apps.pdf_splitting.services.storage import PdfSplitStorage
 from apps.pdf_splitting.services.template_registry import get_default_filename, get_template_definition
 
-from .export_utils import ExportUtils, export_segment_pdf
+from .export_utils import ExportUtils, deduplicate_filename, export_segment_pdf
 from .ocr_handler import OCRHandler
 from .segment_detector import SegmentDetector
 from .split_models import PageDescriptor, SegmentDraft
@@ -282,7 +282,7 @@ class PdfSplitService:
                 display_name = sanitize_upload_filename(segment.filename or get_default_filename(segment.segment_type))
                 if not display_name.lower().endswith(".pdf"):
                     display_name = f"{display_name}.pdf"
-                display_name = self._export_utils.deduplicate_filename(display_name, seen_names)
+                display_name = deduplicate_filename(display_name, seen_names)
 
                 pdf_bytes = export_segment_pdf(source_doc, segment.page_start, segment.page_end)
                 pdf_files.append((pdf_bytes, display_name))
@@ -326,7 +326,7 @@ class PdfSplitService:
     ) -> PageDescriptor:
         normalized_text = self._segment_detector.normalize_text(text)
         head_text = self._segment_detector.normalize_text(text[:240])
-        layout_title = self._extract_layout_title(layout)
+        layout_title = _extract_layout_title(layout)
         top_candidates = self._segment_detector.score_page(
             head_text=head_text, normalized_text=normalized_text, template_key=template_key
         )
@@ -341,38 +341,6 @@ class PdfSplitService:
             layout=layout,
             layout_title=layout_title,
         )
-
-    @staticmethod
-    def _extract_layout_title(layout: dict[str, Any] | None) -> str:
-        """取解析器标记为标题的短文本块，用于开放集材料命名和边界提示。"""
-        if not layout:
-            return ""
-        blocks = layout.get("blocks")
-        if not isinstance(blocks, list):
-            return ""
-
-        title_types = {"title", "text_level_title", "heading", "标题"}
-        candidates: list[tuple[float, int, str]] = []
-        for block in blocks:
-            if not isinstance(block, dict):
-                continue
-            block_type = str(block.get("type") or "").strip().lower()
-            is_title = block_type in title_types or block.get("text_level") not in (None, "", 0, "0")
-            text = " ".join(str(block.get("text") or "").split()).strip(" #\t\r\n")
-            if not is_title or not text or len(text) > 48:
-                continue
-            bbox = block.get("bbox")
-            y = 0.0
-            if isinstance(bbox, (list, tuple)) and len(bbox) >= 4:
-                try:
-                    y = float(bbox[1])
-                except (TypeError, ValueError):
-                    y = 0.0
-            candidates.append((y, -len(text), text))
-        if not candidates:
-            return ""
-        candidates.sort()
-        return candidates[0][2]
 
     def _build_page_split_drafts(self, *, total_pages: int, source_name: str) -> list[SegmentDraft]:
         base_name = sanitize_upload_filename(Path(source_name or "document").stem) or "document"
@@ -516,3 +484,36 @@ class PdfSplitService:
 
     def _should_check_cancel(self, marker: int) -> bool:
         return marker % self.CANCEL_CHECK_EVERY == 0
+
+
+# ↓↓ 由 PdfSplitService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _extract_layout_title(layout: dict[str, Any] | None) -> str:
+    """取解析器标记为标题的短文本块，用于开放集材料命名和边界提示。"""
+    if not layout:
+        return ""
+    blocks = layout.get("blocks")
+    if not isinstance(blocks, list):
+        return ""
+
+    title_types = {"title", "text_level_title", "heading", "标题"}
+    candidates: list[tuple[float, int, str]] = []
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        block_type = str(block.get("type") or "").strip().lower()
+        is_title = block_type in title_types or block.get("text_level") not in (None, "", 0, "0")
+        text = " ".join(str(block.get("text") or "").split()).strip(" #\t\r\n")
+        if not is_title or not text or len(text) > 48:
+            continue
+        bbox = block.get("bbox")
+        y = 0.0
+        if isinstance(bbox, (list, tuple)) and len(bbox) >= 4:
+            try:
+                y = float(bbox[1])
+            except (TypeError, ValueError):
+                y = 0.0
+        candidates.append((y, -len(text), text))
+    if not candidates:
+        return ""
+    candidates.sort()
+    return candidates[0][2]

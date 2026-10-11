@@ -7,6 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.client.services.identity_extraction.extraction_service import _parse_llm_json
+
 # --- image_rotation auto_rename_service ---
 
 
@@ -225,20 +227,20 @@ class TestIdentityExtractionService:
     def test_parse_llm_json_code_block(self):
         from apps.client.services.identity_extraction.extraction_service import IdentityExtractionService
 
-        result = IdentityExtractionService._parse_llm_json('```json\n{"key": "value"}\n```')
+        result = _parse_llm_json('```json\n{"key": "value"}\n```')
         assert result["key"] == "value"
 
     def test_parse_llm_json_direct(self):
         from apps.client.services.identity_extraction.extraction_service import IdentityExtractionService
 
-        result = IdentityExtractionService._parse_llm_json('{"name": "test"}')
+        result = _parse_llm_json('{"name": "test"}')
         assert result["name"] == "test"
 
     def test_parse_llm_json_failure(self):
         from apps.client.services.identity_extraction.extraction_service import IdentityExtractionService
 
         with pytest.raises(ValueError):
-            IdentityExtractionService._parse_llm_json("no json here")
+            _parse_llm_json("no json here")
 
     def test_extract_expiry_date(self):
         from apps.client.services.identity_extraction.extraction_service import IdentityExtractionService

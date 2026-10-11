@@ -9,6 +9,7 @@ import pytest
 
 def _make_service(**kwargs):
     from apps.documents.services.template.folder_template.admin_service import FolderTemplateAdminService
+
     svc = FolderTemplateAdminService(folder_template_service=kwargs.get("folder_template_service", MagicMock()))
     return svc
 
@@ -17,7 +18,9 @@ class TestValidateAndFixTemplateForm:
     def test_structure_fix_applied(self):
         svc = _make_service()
         svc.folder_template_service.validate_and_fix_structure_ids.return_value = (
-            True, {"fixed": True}, ["修复了重复ID"]
+            True,
+            {"fixed": True},
+            ["修复了重复ID"],
         )
         result = svc.validate_and_fix_template_form({"structure": {"key": "val"}, "id": 1})
         assert result["is_valid"] is True
@@ -27,9 +30,7 @@ class TestValidateAndFixTemplateForm:
 
     def test_structure_no_fix_needed(self):
         svc = _make_service()
-        svc.folder_template_service.validate_and_fix_structure_ids.return_value = (
-            False, {"key": "val"}, []
-        )
+        svc.folder_template_service.validate_and_fix_structure_ids.return_value = (False, {"key": "val"}, [])
         result = svc.validate_and_fix_template_form({"structure": {"key": "val"}})
         assert result["is_valid"] is True
         assert result["is_fixed"] is False
@@ -266,6 +267,7 @@ class TestGetStructureJson:
         svc = _make_service()
         from apps.core.exceptions import NotFoundError
         from apps.documents.models import FolderTemplate
+
         with patch.object(FolderTemplate, "objects") as mock_objects:
             mock_objects.get.side_effect = FolderTemplate.DoesNotExist
             with pytest.raises(NotFoundError):
@@ -285,6 +287,7 @@ class TestGetFolderTemplateByPk:
         svc = _make_service()
         from apps.core.exceptions import NotFoundError
         from apps.documents.models import FolderTemplate
+
         with patch.object(FolderTemplate, "objects") as mock_objects:
             mock_objects.get.side_effect = FolderTemplate.DoesNotExist
             with pytest.raises(NotFoundError):

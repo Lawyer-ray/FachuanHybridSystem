@@ -14,6 +14,8 @@ from apps.core.filesystem.upload_paths import MediaEntity
 from apps.core.services.storage_service import sanitize_upload_filename
 from apps.express_query.models import ExpressQueryTask, ExpressQueryTaskStatus
 from apps.express_query.services import ExpressBrowserQueryService, TrackingExtractionService
+from apps.express_query.services.browser_query.service import disconnect_playwright
+from apps.express_query.services.tracking_extraction_service import truncate_pdf_to_first_page
 
 logger = logging.getLogger("apps.express_query")
 
@@ -43,7 +45,7 @@ def execute_express_query_task(task_id: int) -> None:  # pragma: no cover
 
         # PDF 只用第一页做 OCR，截断多页 PDF 节省空间
         if task.waybill_image and (task.waybill_image.name or "").endswith(".pdf"):
-            TrackingExtractionService.truncate_pdf_to_first_page(Path(task.waybill_image.path))
+            truncate_pdf_to_first_page(Path(task.waybill_image.path))
 
         if not extraction.tracking_number:
             raise ValueError("OCR 未识别到有效运单号")
@@ -130,7 +132,7 @@ def _execute_browser_query(task: ExpressQueryTask) -> None:
                 result = await coro
                 return result
             finally:
-                await ExpressBrowserQueryService.disconnect_playwright()
+                await disconnect_playwright()
 
         # Django-Q2 worker 没有运行中的事件循环，直接用 asyncio.run()
         final_url = asyncio.run(_run_and_cleanup())

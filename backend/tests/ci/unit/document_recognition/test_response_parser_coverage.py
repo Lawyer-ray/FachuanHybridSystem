@@ -6,6 +6,7 @@ Covers:
   - _parse_summons_response
   - _parse_execution_response
 """
+
 from __future__ import annotations
 
 import json
@@ -120,9 +121,7 @@ class TestParseSummonsResponse:
 
     def test_valid_response(self):
         response = {
-            "message": {
-                "content": json.dumps({"case_number": "(2024)粤01民初1号", "court_time": "2024-06-15 09:00"})
-            }
+            "message": {"content": json.dumps({"case_number": "(2024)粤01民初1号", "court_time": "2024-06-15 09:00"})}
         }
         result = self.parser._parse_summons_response(response)
         assert result["case_number"] == "(2024)粤01民初1号"
@@ -153,9 +152,7 @@ class TestParseExecutionResponse:
 
     def test_valid_response(self):
         response = {
-            "message": {
-                "content": json.dumps({"case_number": "(2024)执123号", "preservation_deadline": "2024-12-31"})
-            }
+            "message": {"content": json.dumps({"case_number": "(2024)执123号", "preservation_deadline": "2024-12-31"})}
         }
         result = self.parser._parse_execution_response(response)
         assert result["case_number"] == "(2024)执123号"

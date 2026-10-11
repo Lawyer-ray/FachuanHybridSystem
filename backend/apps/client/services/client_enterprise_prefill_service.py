@@ -26,7 +26,7 @@ class ClientEnterprisePrefillService:
             provider=provider,
             include_raw=False,
         )
-        provider_name = self._pick_str(result.get("meta"), ("provider",)) or str(provider or "").strip()
+        provider_name = _pick_str(result.get("meta"), ("provider",)) or str(provider or "").strip()
         items = self._normalize_company_candidates(result.get("data"))[:normalized_limit]
         return {
             "keyword": normalized_keyword,
@@ -45,7 +45,7 @@ class ClientEnterprisePrefillService:
             provider=provider,
             include_raw=False,
         )
-        provider_name = self._pick_str(result.get("meta"), ("provider",)) or str(provider or "").strip()
+        provider_name = _pick_str(result.get("meta"), ("provider",)) or str(provider or "").strip()
         profile = self._normalize_company_profile(result.get("data"), fallback_company_id=normalized_company_id)
         profile["phone"] = self._resolve_profile_phone(
             company_id=normalized_company_id,
@@ -85,17 +85,15 @@ class ClientEnterprisePrefillService:
             if not isinstance(item, dict):
                 continue
             normalized = {
-                "company_id": self._pick_str(item, ("company_id", "companyId", "id", "cid", "tycId")),
-                "company_name": self._pick_str(item, ("company_name", "companyName", "name", "company")),
-                "legal_person": self._pick_str(item, ("legal_person", "legalPersonName", "legalRepresentative")),
-                "status": self._pick_str(item, ("status", "regStatus", "operatingStatus")),
-                "establish_date": self._pick_str(
-                    item, ("establish_date", "estiblishTime", "establishDate", "foundedDate")
-                ),
-                "registered_capital": self._pick_str(
+                "company_id": _pick_str(item, ("company_id", "companyId", "id", "cid", "tycId")),
+                "company_name": _pick_str(item, ("company_name", "companyName", "name", "company")),
+                "legal_person": _pick_str(item, ("legal_person", "legalPersonName", "legalRepresentative")),
+                "status": _pick_str(item, ("status", "regStatus", "operatingStatus")),
+                "establish_date": _pick_str(item, ("establish_date", "estiblishTime", "establishDate", "foundedDate")),
+                "registered_capital": _pick_str(
                     item, ("registered_capital", "regCapital", "registeredCapital", "capital")
                 ),
-                "phone": self._pick_str(item, ("phone", "phoneNumber", "contactPhone", "tel", "联系电话")),
+                "phone": _pick_str(item, ("phone", "phoneNumber", "contactPhone", "tel", "联系电话")),
             }
             if not normalized["company_id"] and not normalized["company_name"]:
                 continue
@@ -105,22 +103,19 @@ class ClientEnterprisePrefillService:
     def _normalize_company_profile(self, payload: Any, *, fallback_company_id: str) -> dict[str, str]:
         item = payload if isinstance(payload, dict) else {}
         profile = {
-            "company_id": self._pick_str(item, ("company_id", "companyId", "id", "cid", "tycId"))
-            or fallback_company_id,
-            "company_name": self._pick_str(item, ("company_name", "companyName", "name", "company")),
-            "unified_social_credit_code": self._pick_str(
+            "company_id": _pick_str(item, ("company_id", "companyId", "id", "cid", "tycId")) or fallback_company_id,
+            "company_name": _pick_str(item, ("company_name", "companyName", "name", "company")),
+            "unified_social_credit_code": _pick_str(
                 item,
                 ("unified_social_credit_code", "creditCode", "unifiedSocialCreditCode", "socialCreditCode"),
             ),
-            "legal_person": self._pick_str(item, ("legal_person", "legalPersonName", "legalRepresentative")),
-            "status": self._pick_str(item, ("status", "regStatus", "operatingStatus")),
-            "establish_date": self._pick_str(item, ("establish_date", "estiblishTime", "establishDate", "foundedDate")),
-            "registered_capital": self._pick_str(
-                item, ("registered_capital", "regCapital", "registeredCapital", "capital")
-            ),
-            "address": self._pick_str(item, ("address", "regLocation", "registeredAddress")),
-            "business_scope": self._pick_str(item, ("business_scope", "businessScope", "scope")),
-            "phone": self._pick_str(item, ("phone", "phoneNumber", "contactPhone", "tel", "联系电话")),
+            "legal_person": _pick_str(item, ("legal_person", "legalPersonName", "legalRepresentative")),
+            "status": _pick_str(item, ("status", "regStatus", "operatingStatus")),
+            "establish_date": _pick_str(item, ("establish_date", "estiblishTime", "establishDate", "foundedDate")),
+            "registered_capital": _pick_str(item, ("registered_capital", "regCapital", "registeredCapital", "capital")),
+            "address": _pick_str(item, ("address", "regLocation", "registeredAddress")),
+            "business_scope": _pick_str(item, ("business_scope", "businessScope", "scope")),
+            "phone": _pick_str(item, ("phone", "phoneNumber", "contactPhone", "tel", "联系电话")),
         }
         return profile
 
@@ -157,19 +152,6 @@ class ClientEnterprisePrefillService:
 
         return ""
 
-    @staticmethod
-    def _pick_str(obj: Any, keys: tuple[str, ...]) -> str:
-        if not isinstance(obj, dict):
-            return ""
-        for key in keys:
-            value = obj.get(key)
-            if value is None:
-                continue
-            text = str(value).strip()
-            if text:
-                return text
-        return ""
-
 
 # ↓↓ 由 ClientEnterprisePrefillService 下沉的模块级纯函数（四层架构静态方法棘轮）
 def _find_existing_client_by_credit_code(credit_code: str) -> dict[str, Any] | None:
@@ -180,3 +162,17 @@ def _find_existing_client_by_credit_code(credit_code: str) -> dict[str, Any] | N
     if existing is None:
         return None
     return {"id": existing.id, "name": existing.name}
+
+
+# ↓↓ 由 ClientEnterprisePrefillService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _pick_str(obj: Any, keys: tuple[str, ...]) -> str:
+    if not isinstance(obj, dict):
+        return ""
+    for key in keys:
+        value = obj.get(key)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return ""

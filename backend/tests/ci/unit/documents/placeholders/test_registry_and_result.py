@@ -74,6 +74,7 @@ class TestPlaceholderRegistry:
 
     def test_register_service(self) -> None:
         """注册占位符服务。"""
+
         class TestService(BasePlaceholderService):
             name = "test_reg"
             display_name = "测试注册"
@@ -93,6 +94,7 @@ class TestPlaceholderRegistry:
 
     def test_register_service_without_name(self) -> None:
         """无名称的服务应抛出异常。"""
+
         class NoNameService(BasePlaceholderService):
             name = ""
             placeholder_keys = []
@@ -105,6 +107,7 @@ class TestPlaceholderRegistry:
 
     def test_register_duplicate_raises(self) -> None:
         """重复注册应抛出异常。"""
+
         class DupService(BasePlaceholderService):
             name = "dup_test"
             placeholder_keys = []
@@ -215,6 +218,7 @@ class TestPlaceholderRegistryKeyConflict(_RegistryStateGuard):
 
     def test_relevant_services_deduplicated_by_type(self) -> None:
         """required_placeholders 命中同一服务多个键时,按服务类型去重(注册表每次返回新实例)。"""
+
         class TwoKeyService(BasePlaceholderService):
             name = "two_key_service"
             placeholder_keys = ["k1", "k2"]

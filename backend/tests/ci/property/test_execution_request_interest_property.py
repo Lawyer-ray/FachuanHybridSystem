@@ -6,7 +6,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import MagicMock
 
-from hypothesis import given, settings, assume
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from apps.documents.services.placeholders.litigation.execution_request_interest import (
@@ -24,19 +24,24 @@ from apps.documents.services.placeholders.litigation.execution_request_models im
     ParsedInterestParams,
 )
 
-
 # ---------------------------------------------------------------------------
 # Strategies
 # ---------------------------------------------------------------------------
 
 positive_decimal = st.decimals(
-    min_value=Decimal("0.01"), max_value=Decimal("10000000"),
-    allow_nan=False, allow_infinity=False, places=2,
+    min_value=Decimal("0.01"),
+    max_value=Decimal("10000000"),
+    allow_nan=False,
+    allow_infinity=False,
+    places=2,
 )
 
 non_negative_decimal = st.decimals(
-    min_value=Decimal("0"), max_value=Decimal("10000000"),
-    allow_nan=False, allow_infinity=False, places=2,
+    min_value=Decimal("0"),
+    max_value=Decimal("10000000"),
+    allow_nan=False,
+    allow_infinity=False,
+    places=2,
 )
 
 
@@ -90,7 +95,13 @@ def test_parse_interest_params_rate_type_valid(text: str) -> None:
 @settings(max_examples=200, deadline=None)
 @given(st.text(max_size=1000))
 def test_parse_interest_params_base_mode_valid(text: str) -> None:
-    valid_modes = {"fixed_amount", "fixed_amount_remaining", "remaining_principal", "remaining_total", "fallback_target"}
+    valid_modes = {
+        "fixed_amount",
+        "fixed_amount_remaining",
+        "remaining_principal",
+        "remaining_total",
+        "fallback_target",
+    }
     result = parse_interest_params(text)
     assert result.base_mode in valid_modes
 
@@ -125,7 +136,13 @@ def test_detect_overdue_item_label_deterministic(text: str) -> None:
 # parse_interest_base_rule
 # ---------------------------------------------------------------------------
 
-VALID_BASE_MODES = {"fixed_amount", "fixed_amount_remaining", "remaining_principal", "remaining_total", "fallback_target"}
+VALID_BASE_MODES = {
+    "fixed_amount",
+    "fixed_amount_remaining",
+    "remaining_principal",
+    "remaining_total",
+    "fallback_target",
+}
 
 
 @settings(max_examples=200, deadline=None)
@@ -155,7 +172,15 @@ def test_parse_interest_base_rule_non_fixed_has_no_amount(text: str) -> None:
 # parse_deduction_order
 # ---------------------------------------------------------------------------
 
-VALID_DEDUCTION_KEYS = {"litigation_fee", "preservation_fee", "announcement_fee", "attorney_fee", "guarantee_fee", "interest", "principal"}
+VALID_DEDUCTION_KEYS = {
+    "litigation_fee",
+    "preservation_fee",
+    "announcement_fee",
+    "attorney_fee",
+    "guarantee_fee",
+    "interest",
+    "principal",
+}
 
 
 @given(st.just(""))
@@ -193,7 +218,9 @@ def test_apply_paid_amount_zero_paid_no_change(paid: Decimal) -> None:
     deduction_order = ["interest", "principal"]
 
     result_amounts, principal_paid, applied = apply_paid_amount(
-        amounts=amounts, paid_amount=Decimal("0"), deduction_order=deduction_order,
+        amounts=amounts,
+        paid_amount=Decimal("0"),
+        deduction_order=deduction_order,
     )
     assert principal_paid == Decimal("0")
     assert result_amounts.principal == original_principal
@@ -205,7 +232,9 @@ def test_apply_paid_amount_zero_paid_no_change(paid: Decimal) -> None:
 def test_apply_paid_amount_components_non_negative(paid: Decimal, order: list[str]) -> None:
     amounts = _make_amounts(principal=Decimal("5000"), confirmed_interest=Decimal("1000"))
     result_amounts, principal_paid, applied = apply_paid_amount(
-        amounts=amounts, paid_amount=paid, deduction_order=order,
+        amounts=amounts,
+        paid_amount=paid,
+        deduction_order=order,
     )
     assert result_amounts.principal is None or result_amounts.principal >= Decimal("0")
     assert result_amounts.confirmed_interest >= Decimal("0")
@@ -221,12 +250,12 @@ def test_apply_paid_amount_components_non_negative(paid: Decimal, order: list[st
 def test_apply_paid_amount_deduction_leq_paid(paid: Decimal, order: list[str]) -> None:
     amounts = _make_amounts(principal=Decimal("5000"), confirmed_interest=Decimal("1000"))
     result_amounts, principal_paid, applied = apply_paid_amount(
-        amounts=amounts, paid_amount=paid, deduction_order=order,
+        amounts=amounts,
+        paid_amount=paid,
+        deduction_order=order,
     )
     total_deducted = sum((item["amount"] for item in applied), Decimal("0"))
-    assert total_deducted <= max(paid, Decimal("0")), (
-        f"Total deducted {total_deducted} > paid {paid}"
-    )
+    assert total_deducted <= max(paid, Decimal("0")), f"Total deducted {total_deducted} > paid {paid}"
 
 
 # ---------------------------------------------------------------------------
@@ -311,7 +340,12 @@ def test_calculate_interest_cutoff_before_start_returns_zero(principal: Decimal,
 
 
 @settings(max_examples=200, deadline=None)
-@given(positive_decimal, st.decimals(min_value=Decimal("0.01"), max_value=Decimal("1000000"), allow_nan=False, allow_infinity=False, places=2))
+@given(
+    positive_decimal,
+    st.decimals(
+        min_value=Decimal("0.01"), max_value=Decimal("1000000"), allow_nan=False, allow_infinity=False, places=2
+    ),
+)
 def test_calculate_interest_capped_when_cap_set(principal: Decimal, cap: Decimal) -> None:
     """When interest_cap is set, returned interest should not exceed it."""
     calculator = MagicMock()
@@ -381,7 +415,10 @@ def test_resolve_interest_base_returns_non_negative(
     case.target_amount = None
 
     result = resolve_interest_base(
-        case=case, amounts=amounts, params=params, principal_paid=principal_paid,
+        case=case,
+        amounts=amounts,
+        params=params,
+        principal_paid=principal_paid,
     )
     assert result >= Decimal("0"), f"resolve_interest_base returned {result} < 0"
 
@@ -399,7 +436,10 @@ def test_resolve_interest_base_fixed_mode(
     case.target_amount = None
 
     result = resolve_interest_base(
-        case=case, amounts=amounts, params=params, principal_paid=principal_paid,
+        case=case,
+        amounts=amounts,
+        params=params,
+        principal_paid=principal_paid,
     )
     assert result >= Decimal("0")
 
@@ -416,7 +456,10 @@ def test_resolve_interest_base_remaining_total(
     case.target_amount = None
 
     result = resolve_interest_base(
-        case=case, amounts=amounts, params=params, principal_paid=Decimal("0"),
+        case=case,
+        amounts=amounts,
+        params=params,
+        principal_paid=Decimal("0"),
     )
     assert result >= Decimal("0")
 
@@ -434,6 +477,9 @@ def test_resolve_interest_base_fallback_with_target(
     case.target_amount = target_amount
 
     result = resolve_interest_base(
-        case=case, amounts=amounts, params=params, principal_paid=Decimal("0"),
+        case=case,
+        amounts=amounts,
+        params=params,
+        principal_paid=Decimal("0"),
     )
     assert result >= Decimal("0")

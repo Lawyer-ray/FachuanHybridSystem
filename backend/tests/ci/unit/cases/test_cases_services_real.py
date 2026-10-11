@@ -1,4 +1,5 @@
 """cases 模块真实执行测试 - 覆盖 utils, validators, case_service 逻辑等。"""
+
 from __future__ import annotations
 
 import pytest
@@ -10,7 +11,6 @@ from apps.cases.utils import (
     normalize_case_number,
     validate_case_log_attachment,
 )
-
 
 # ============================================================
 # cases/utils.py - get_file_extension_lower

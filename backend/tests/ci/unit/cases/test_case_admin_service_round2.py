@@ -11,7 +11,7 @@ with institutions.
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -198,7 +198,9 @@ class TestGetMatchedFolderTemplatesList:
     def test_success(self, svc: CaseAdminService):
         with patch("apps.cases.services.case.case_admin_service.import_module") as mock_import:
             mock_module = MagicMock()
-            mock_module.TemplateMatchingService.return_value.find_matching_case_folder_templates_list.return_value = [{"name": "tpl"}]
+            mock_module.TemplateMatchingService.return_value.find_matching_case_folder_templates_list.return_value = [
+                {"name": "tpl"}
+            ]
             mock_import.return_value = mock_module
             result = svc.get_matched_folder_templates_list("litigation", ["plaintiff"])
             assert len(result) == 1

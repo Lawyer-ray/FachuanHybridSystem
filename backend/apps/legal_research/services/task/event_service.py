@@ -60,7 +60,7 @@ class LegalResearchTaskEventService:
         response_summary: object = None,
         event_metadata: object = None,
     ) -> None:
-        normalized_task_id = cls._normalize_task_id(task_id)
+        normalized_task_id = _normalize_task_id(task_id)
         if normalized_task_id is None:
             return
 
@@ -72,7 +72,7 @@ class LegalResearchTaskEventService:
                 interface_name=str(interface_name or "").strip()[:64] or "unknown",
                 method=str(method or "").strip().upper()[:12],
                 url=cls._sanitize_url(url),
-                status_code=cls._normalize_status_code(status_code),
+                status_code=_normalize_status_code(status_code),
                 duration_ms=max(0, int(duration_ms or 0)),
                 success=bool(success),
                 error_code=str(error_code or "").strip()[:64],
@@ -114,17 +114,6 @@ class LegalResearchTaskEventService:
             return _EVENT_ORM_FALLBACK_EXECUTOR.submit(_wrapped).result()
         return operation()
 
-    @staticmethod
-    def _normalize_task_id(task_id: object) -> int | None:
-        raw = str(task_id or "").strip()
-        if not raw:
-            return None
-        try:
-            value = int(raw)
-        except (TypeError, ValueError):
-            return None
-        return value if value > 0 else None
-
     @classmethod
     def _normalize_stage(cls, stage: str) -> str:
         normalized = str(stage or "").strip().lower()
@@ -136,18 +125,6 @@ class LegalResearchTaskEventService:
         normalized = str(source or "").strip().lower()
         allowed = {choice for choice, _ in LegalResearchTaskEvent.Source.choices}
         return normalized if normalized in allowed else LegalResearchTaskEvent.Source.SYSTEM
-
-    @staticmethod
-    def _normalize_status_code(value: object) -> int | None:
-        if value is None:
-            return None
-        try:
-            parsed = int(value)  # type: ignore[call-overload]
-        except (TypeError, ValueError):
-            return None
-        if parsed < 100 or parsed > 999:
-            return None
-        return parsed  # type: ignore[no-any-return]
 
     @classmethod
     def _sanitize_url(cls, url: str) -> str:
@@ -222,3 +199,28 @@ class LegalResearchTaskEventService:
         if not normalized:
             return False
         return any(token in normalized for token in cls.SENSITIVE_KEYWORDS)
+
+
+# ↓↓ 由 LegalResearchTaskEventService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _normalize_task_id(task_id: object) -> int | None:
+    raw = str(task_id or "").strip()
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
+
+
+# ↓↓ 由 LegalResearchTaskEventService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _normalize_status_code(value: object) -> int | None:
+    if value is None:
+        return None
+    try:
+        parsed = int(value)  # type: ignore[call-overload]
+    except (TypeError, ValueError):
+        return None
+    if parsed < 100 or parsed > 999:
+        return None
+    return parsed  # type: ignore[no-any-return]

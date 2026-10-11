@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.document_recognition.services import date_candidate_service as dcs
-from apps.document_recognition.services._datetime_extraction_mixin import DatetimeExtractionMixin
+from apps.document_recognition.services._datetime_extraction_mixin import DatetimeExtractionMixin, _guess_reminder_type
 from apps.document_recognition.services.data_classes import DocumentType
 from apps.document_recognition.services.date_candidate_service import (
     MAX_CANDIDATES,
@@ -487,11 +487,11 @@ class TestGuessReminderType:
         ],
     )
     def test_context_keyword_mapping(self, context, expected):
-        assert DatetimeExtractionMixin._guess_reminder_type(context) == expected
+        assert _guess_reminder_type(context) == expected
 
     def test_no_keyword_returns_none(self):
-        assert DatetimeExtractionMixin._guess_reminder_type("无关文本") is None
-        assert DatetimeExtractionMixin._guess_reminder_type("") is None
+        assert _guess_reminder_type("无关文本") is None
+        assert _guess_reminder_type("") is None
 
 
 # ---------------------------------------------------------------------------

@@ -146,8 +146,13 @@ class TestSemanticVector:
         svc = CaseSimilarityService()
         svc._semantic_vector_enabled = False
         result = svc._should_enable_semantic_vector_recheck(
-            query_text="test", keyword_overlap=0.3, summary_overlap=0.2,
-            bm25_score=0.1, lexical_vector_score=0.1, passage_score=0.1, metadata_score=0.1,
+            query_text="test",
+            keyword_overlap=0.3,
+            summary_overlap=0.2,
+            bm25_score=0.1,
+            lexical_vector_score=0.1,
+            passage_score=0.1,
+            metadata_score=0.1,
         )
         assert result is False
 

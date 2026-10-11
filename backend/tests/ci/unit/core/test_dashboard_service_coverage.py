@@ -8,7 +8,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.workbench.services.dashboard_service import DashboardService
+from apps.workbench.services.dashboard_service import (
+    DashboardService,
+    _case_type_stats,
+    _client_count,
+    _contract_count,
+    _fee_stats,
+    _reminder_counts,
+)
 
 
 class TestDashboardServiceGetStats:
@@ -36,23 +43,41 @@ class TestDashboardServiceGetStats:
         patches = self._patch_helpers()
 
         with (
-            patch.object(DashboardService, "_client_count", return_value=patches["_client_count"]),
-            patch.object(DashboardService, "_contract_count", return_value=patches["_contract_count"]),
-            patch.object(DashboardService, "_case_type_stats", return_value=patches["_case_type_stats"]),
+            patch("apps.workbench.services.dashboard_service._client_count", return_value=patches["_client_count"]),
+            patch("apps.workbench.services.dashboard_service._contract_count", return_value=patches["_contract_count"]),
+            patch(
+                "apps.workbench.services.dashboard_service._case_type_stats", return_value=patches["_case_type_stats"]
+            ),
             patch("apps.workbench.services.dashboard_service._case_trend", return_value=patches["_case_trend"]),
-            patch("apps.workbench.services.dashboard_service._case_status_distribution", return_value=patches["_case_status_distribution"]),
-            patch.object(DashboardService, "_fee_stats", return_value=patches["_fee_stats"]),
+            patch(
+                "apps.workbench.services.dashboard_service._case_status_distribution",
+                return_value=patches["_case_status_distribution"],
+            ),
+            patch("apps.workbench.services.dashboard_service._fee_stats", return_value=patches["_fee_stats"]),
             patch("apps.workbench.services.dashboard_service._contract_trend", return_value=patches["_contract_trend"]),
-            patch.object(DashboardService, "_reminder_counts", return_value=patches["_reminder_counts"]),
-            patch("apps.workbench.services.dashboard_service._upcoming_reminders", return_value=patches["_upcoming_reminders"]),
+            patch(
+                "apps.workbench.services.dashboard_service._reminder_counts", return_value=patches["_reminder_counts"]
+            ),
+            patch(
+                "apps.workbench.services.dashboard_service._upcoming_reminders",
+                return_value=patches["_upcoming_reminders"],
+            ),
         ):
             result = svc.get_stats()
 
         expected_keys = {
-            "client_count", "contract_count", "case_count", "monthly_fee",
-            "case_trend", "contract_trend", "fee_trend",
-            "case_type_distribution", "case_status_distribution",
-            "upcoming_reminders", "overdue_count", "today_count",
+            "client_count",
+            "contract_count",
+            "case_count",
+            "monthly_fee",
+            "case_trend",
+            "contract_trend",
+            "fee_trend",
+            "case_type_distribution",
+            "case_status_distribution",
+            "upcoming_reminders",
+            "overdue_count",
+            "today_count",
         }
         assert set(result.keys()) == expected_keys
 
@@ -64,15 +89,25 @@ class TestDashboardServiceGetStats:
         )
 
         with (
-            patch.object(DashboardService, "_client_count", return_value=patches["_client_count"]),
-            patch.object(DashboardService, "_contract_count", return_value=patches["_contract_count"]),
-            patch.object(DashboardService, "_case_type_stats", return_value=patches["_case_type_stats"]),
+            patch("apps.workbench.services.dashboard_service._client_count", return_value=patches["_client_count"]),
+            patch("apps.workbench.services.dashboard_service._contract_count", return_value=patches["_contract_count"]),
+            patch(
+                "apps.workbench.services.dashboard_service._case_type_stats", return_value=patches["_case_type_stats"]
+            ),
             patch("apps.workbench.services.dashboard_service._case_trend", return_value=patches["_case_trend"]),
-            patch("apps.workbench.services.dashboard_service._case_status_distribution", return_value=patches["_case_status_distribution"]),
-            patch.object(DashboardService, "_fee_stats", return_value=patches["_fee_stats"]),
+            patch(
+                "apps.workbench.services.dashboard_service._case_status_distribution",
+                return_value=patches["_case_status_distribution"],
+            ),
+            patch("apps.workbench.services.dashboard_service._fee_stats", return_value=patches["_fee_stats"]),
             patch("apps.workbench.services.dashboard_service._contract_trend", return_value=patches["_contract_trend"]),
-            patch.object(DashboardService, "_reminder_counts", return_value=patches["_reminder_counts"]),
-            patch("apps.workbench.services.dashboard_service._upcoming_reminders", return_value=patches["_upcoming_reminders"]),
+            patch(
+                "apps.workbench.services.dashboard_service._reminder_counts", return_value=patches["_reminder_counts"]
+            ),
+            patch(
+                "apps.workbench.services.dashboard_service._upcoming_reminders",
+                return_value=patches["_upcoming_reminders"],
+            ),
         ):
             result = svc.get_stats()
 
@@ -82,19 +117,32 @@ class TestDashboardServiceGetStats:
         """case_count 应从 _case_type_stats 返回的 total 中提取。"""
         svc = DashboardService()
         patches = self._patch_helpers(
-            _case_type_stats=([{"type": "CIVIL", "label": "民事", "count": 3}, {"type": "CRIMINAL", "label": "刑事", "count": 2}], 5),
+            _case_type_stats=(
+                [{"type": "CIVIL", "label": "民事", "count": 3}, {"type": "CRIMINAL", "label": "刑事", "count": 2}],
+                5,
+            ),
         )
 
         with (
-            patch.object(DashboardService, "_client_count", return_value=patches["_client_count"]),
-            patch.object(DashboardService, "_contract_count", return_value=patches["_contract_count"]),
-            patch.object(DashboardService, "_case_type_stats", return_value=patches["_case_type_stats"]),
+            patch("apps.workbench.services.dashboard_service._client_count", return_value=patches["_client_count"]),
+            patch("apps.workbench.services.dashboard_service._contract_count", return_value=patches["_contract_count"]),
+            patch(
+                "apps.workbench.services.dashboard_service._case_type_stats", return_value=patches["_case_type_stats"]
+            ),
             patch("apps.workbench.services.dashboard_service._case_trend", return_value=patches["_case_trend"]),
-            patch("apps.workbench.services.dashboard_service._case_status_distribution", return_value=patches["_case_status_distribution"]),
-            patch.object(DashboardService, "_fee_stats", return_value=patches["_fee_stats"]),
+            patch(
+                "apps.workbench.services.dashboard_service._case_status_distribution",
+                return_value=patches["_case_status_distribution"],
+            ),
+            patch("apps.workbench.services.dashboard_service._fee_stats", return_value=patches["_fee_stats"]),
             patch("apps.workbench.services.dashboard_service._contract_trend", return_value=patches["_contract_trend"]),
-            patch.object(DashboardService, "_reminder_counts", return_value=patches["_reminder_counts"]),
-            patch("apps.workbench.services.dashboard_service._upcoming_reminders", return_value=patches["_upcoming_reminders"]),
+            patch(
+                "apps.workbench.services.dashboard_service._reminder_counts", return_value=patches["_reminder_counts"]
+            ),
+            patch(
+                "apps.workbench.services.dashboard_service._upcoming_reminders",
+                return_value=patches["_upcoming_reminders"],
+            ),
         ):
             result = svc.get_stats()
 
@@ -108,15 +156,25 @@ class TestDashboardServiceGetStats:
         )
 
         with (
-            patch.object(DashboardService, "_client_count", return_value=patches["_client_count"]),
-            patch.object(DashboardService, "_contract_count", return_value=patches["_contract_count"]),
-            patch.object(DashboardService, "_case_type_stats", return_value=patches["_case_type_stats"]),
+            patch("apps.workbench.services.dashboard_service._client_count", return_value=patches["_client_count"]),
+            patch("apps.workbench.services.dashboard_service._contract_count", return_value=patches["_contract_count"]),
+            patch(
+                "apps.workbench.services.dashboard_service._case_type_stats", return_value=patches["_case_type_stats"]
+            ),
             patch("apps.workbench.services.dashboard_service._case_trend", return_value=patches["_case_trend"]),
-            patch("apps.workbench.services.dashboard_service._case_status_distribution", return_value=patches["_case_status_distribution"]),
-            patch.object(DashboardService, "_fee_stats", return_value=patches["_fee_stats"]),
+            patch(
+                "apps.workbench.services.dashboard_service._case_status_distribution",
+                return_value=patches["_case_status_distribution"],
+            ),
+            patch("apps.workbench.services.dashboard_service._fee_stats", return_value=patches["_fee_stats"]),
             patch("apps.workbench.services.dashboard_service._contract_trend", return_value=patches["_contract_trend"]),
-            patch.object(DashboardService, "_reminder_counts", return_value=patches["_reminder_counts"]),
-            patch("apps.workbench.services.dashboard_service._upcoming_reminders", return_value=patches["_upcoming_reminders"]),
+            patch(
+                "apps.workbench.services.dashboard_service._reminder_counts", return_value=patches["_reminder_counts"]
+            ),
+            patch(
+                "apps.workbench.services.dashboard_service._upcoming_reminders",
+                return_value=patches["_upcoming_reminders"],
+            ),
         ):
             result = svc.get_stats()
 
@@ -131,7 +189,7 @@ class TestClientCount:
         mock_model = MagicMock()
         mock_model.objects.count.return_value = 42
         with patch("apps.client.models.Client", mock_model):
-            assert DashboardService._client_count() == 42
+            assert _client_count() == 42
 
 
 class TestContractCount:
@@ -141,7 +199,7 @@ class TestContractCount:
         mock_model = MagicMock()
         mock_model.objects.count.return_value = 10
         with patch("apps.workbench.services.dashboard_service.Contract", mock_model):
-            assert DashboardService._contract_count() == 10
+            assert _contract_count() == 10
 
 
 class TestCaseTypeStats:
@@ -161,7 +219,7 @@ class TestCaseTypeStats:
         mock_model = MagicMock()
         mock_model.objects.filter.return_value.values.return_value.annotate.return_value = mock_qs
         with patch("apps.workbench.services.dashboard_service.Case", mock_model):
-            dist, total = DashboardService._case_type_stats()
+            dist, total = _case_type_stats()
         assert total == 8
         assert len(dist) == 2
 
@@ -172,7 +230,7 @@ class TestCaseTypeStats:
         mock_model = MagicMock()
         mock_model.objects.filter.return_value.values.return_value.annotate.return_value = mock_qs
         with patch("apps.workbench.services.dashboard_service.Case", mock_model):
-            dist, total = DashboardService._case_type_stats()
+            dist, total = _case_type_stats()
         assert total == 0
         assert dist == []
 
@@ -200,9 +258,7 @@ class TestFeeStats:
         trend_qs.filter.return_value = monthly_agg
 
         with patch("apps.workbench.services.dashboard_service.ContractPayment", mock_model):
-            monthly_fee, fee_trend = DashboardService._fee_stats(
-                date(2026, 6, 1), date(2026, 6, 19), date(2025, 6, 19)
-            )
+            monthly_fee, fee_trend = _fee_stats(date(2026, 6, 1), date(2026, 6, 19), date(2025, 6, 19))
         assert monthly_fee == Decimal("5000")
         assert len(fee_trend) == 2
 
@@ -219,9 +275,7 @@ class TestFeeStats:
         trend_qs.filter.return_value = monthly_agg
 
         with patch("apps.workbench.services.dashboard_service.ContractPayment", mock_model):
-            monthly_fee, fee_trend = DashboardService._fee_stats(
-                date(2026, 6, 1), date(2026, 6, 19), date(2025, 6, 19)
-            )
+            monthly_fee, fee_trend = _fee_stats(date(2026, 6, 1), date(2026, 6, 19), date(2025, 6, 19))
         assert monthly_fee == Decimal("0")
         assert fee_trend == []
 
@@ -235,7 +289,7 @@ class TestReminderCounts:
         mock_model.objects.filter.return_value.aggregate.return_value = mock_result
         now = datetime(2026, 6, 8, 12, 0, 0)
         with patch("apps.workbench.services.dashboard_service.Reminder", mock_model):
-            result = DashboardService._reminder_counts(now)
+            result = _reminder_counts(now)
         assert result == {"overdue_count": 3, "today_count": 2}
         mock_model.objects.filter.assert_called_once()
         mock_model.objects.filter.return_value.aggregate.assert_called_once()
@@ -246,5 +300,5 @@ class TestReminderCounts:
         mock_model.objects.filter.return_value.aggregate.return_value = mock_result
         now = datetime(2026, 6, 8, 12, 0, 0)
         with patch("apps.workbench.services.dashboard_service.Reminder", mock_model):
-            result = DashboardService._reminder_counts(now)
+            result = _reminder_counts(now)
         assert result == {"overdue_count": 0, "today_count": 0}

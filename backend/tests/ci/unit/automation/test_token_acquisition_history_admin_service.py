@@ -62,9 +62,7 @@ class TestCleanupOldRecords:
 
     def test_old_records_deleted(self, svc, _history_factory):
         old = _history_factory()
-        TokenAcquisitionHistory.objects.filter(pk=old.pk).update(
-            created_at=timezone.now() - timedelta(days=60)
-        )
+        TokenAcquisitionHistory.objects.filter(pk=old.pk).update(created_at=timezone.now() - timedelta(days=60))
         result = svc.cleanup_old_records(days=30)
         assert result == 1
         assert TokenAcquisitionHistory.objects.count() == 0
@@ -72,9 +70,7 @@ class TestCleanupOldRecords:
     def test_keeps_recent_records(self, svc, _history_factory):
         _history_factory()  # fresh
         old = _history_factory(account="old_acc")
-        TokenAcquisitionHistory.objects.filter(pk=old.pk).update(
-            created_at=timezone.now() - timedelta(days=60)
-        )
+        TokenAcquisitionHistory.objects.filter(pk=old.pk).update(created_at=timezone.now() - timedelta(days=60))
         result = svc.cleanup_old_records(days=30)
         assert result == 1
         assert TokenAcquisitionHistory.objects.count() == 1

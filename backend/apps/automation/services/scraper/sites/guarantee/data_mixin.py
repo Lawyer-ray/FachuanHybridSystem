@@ -104,10 +104,11 @@ class GuaranteeDataMixin:
             "gender": "男性",
         }
 
-    @staticmethod
-    def parse_case_number(number: str) -> tuple[str, str, str, str]:
-        cleaned = str(number or "").replace("（", "(").replace("）", ")").replace("号", "").strip()
-        match = re.search(r"\((\d{4})\)([^\d\s]+\d+)\s*([^\d\s]+)\s*(\d+)", cleaned)
-        if not match:
-            return "", "", "", ""
-        return match.group(1), match.group(2), match.group(3), match.group(4)
+
+# ↓↓ 由 GuaranteeDataMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def parse_case_number(number: str) -> tuple[str, str, str, str]:
+    cleaned = str(number or "").replace("（", "(").replace("）", ")").replace("号", "").strip()
+    match = re.search(r"\((\d{4})\)([^\d\s]+\d+)\s*([^\d\s]+)\s*(\d+)", cleaned)
+    if not match:
+        return "", "", "", ""
+    return match.group(1), match.group(2), match.group(3), match.group(4)

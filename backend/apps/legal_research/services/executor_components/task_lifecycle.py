@@ -46,50 +46,6 @@ class ExecutorTaskLifecycleMixin:
         fields = list(update_fields)
         cls._run_orm_safely(lambda: task.save(update_fields=fields))
 
-    @staticmethod
-    def _mark_completed(task: LegalResearchTask, *, message: str) -> None:
-        task.status = LegalResearchTaskStatus.COMPLETED
-        task.progress = 100
-        task.message = message
-        task.finished_at = timezone.now()
-        ExecutorTaskLifecycleMixin._save_task_safely(
-            task,
-            update_fields=["status", "progress", "message", "finished_at", "updated_at"],
-        )
-
-    @staticmethod
-    def _mark_failed(task: LegalResearchTask, error_message: str) -> None:
-        task.status = LegalResearchTaskStatus.FAILED
-        task.message = "任务执行失败"
-        task.error = error_message
-        task.finished_at = timezone.now()
-        ExecutorTaskLifecycleMixin._save_task_safely(
-            task,
-            update_fields=["status", "message", "error", "finished_at", "updated_at"],
-        )
-
-    @staticmethod
-    def _is_cancel_requested(task_id: str | int) -> bool:
-        status = ExecutorTaskLifecycleMixin._run_orm_safely(
-            lambda: LegalResearchTask.objects.filter(id=task_id).values_list("status", flat=True).first()
-        )
-        return status == LegalResearchTaskStatus.CANCELLED
-
-    @staticmethod
-    def _mark_cancelled(*, task: LegalResearchTask, scanned: int, matched: int, skipped: int = 0) -> None:
-        task.status = LegalResearchTaskStatus.CANCELLED
-        task.scanned_count = scanned
-        task.matched_count = matched
-        skip_suffix = f"，跳过 {skipped}" if skipped else ""
-        task.message = (
-            f"任务已取消，停止于扫描 {scanned}/{task.max_candidates}，命中 {matched}/{task.target_count}{skip_suffix}"
-        )
-        task.finished_at = timezone.now()
-        ExecutorTaskLifecycleMixin._save_task_safely(
-            task,
-            update_fields=["status", "scanned_count", "matched_count", "message", "finished_at", "updated_at"],
-        )
-
     @classmethod
     def _update_progress(cls, *, task: LegalResearchTask, scanned: int, matched: int, skipped: int = 0) -> None:
         total = max(task.max_candidates, 1)
@@ -154,3 +110,51 @@ def _acquire_task(task_id: str) -> tuple[LegalResearchTask | None, dict[str, Any
         return None, {"task_id": str(task.id), "status": task.status, "message": "任务仍在排队中"}
 
     return None, {"task_id": str(task.id), "status": task.status, "message": "任务状态已变更，跳过本次执行"}
+
+
+# ↓↓ 由 ExecutorTaskLifecycleMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _mark_completed(task: LegalResearchTask, *, message: str) -> None:
+    task.status = LegalResearchTaskStatus.COMPLETED
+    task.progress = 100
+    task.message = message
+    task.finished_at = timezone.now()
+    ExecutorTaskLifecycleMixin._save_task_safely(
+        task,
+        update_fields=["status", "progress", "message", "finished_at", "updated_at"],
+    )
+
+
+# ↓↓ 由 ExecutorTaskLifecycleMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _mark_failed(task: LegalResearchTask, error_message: str) -> None:
+    task.status = LegalResearchTaskStatus.FAILED
+    task.message = "任务执行失败"
+    task.error = error_message
+    task.finished_at = timezone.now()
+    ExecutorTaskLifecycleMixin._save_task_safely(
+        task,
+        update_fields=["status", "message", "error", "finished_at", "updated_at"],
+    )
+
+
+# ↓↓ 由 ExecutorTaskLifecycleMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _is_cancel_requested(task_id: str | int) -> bool:
+    status = ExecutorTaskLifecycleMixin._run_orm_safely(
+        lambda: LegalResearchTask.objects.filter(id=task_id).values_list("status", flat=True).first()
+    )
+    return status == LegalResearchTaskStatus.CANCELLED
+
+
+# ↓↓ 由 ExecutorTaskLifecycleMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _mark_cancelled(*, task: LegalResearchTask, scanned: int, matched: int, skipped: int = 0) -> None:
+    task.status = LegalResearchTaskStatus.CANCELLED
+    task.scanned_count = scanned
+    task.matched_count = matched
+    skip_suffix = f"，跳过 {skipped}" if skipped else ""
+    task.message = (
+        f"任务已取消，停止于扫描 {scanned}/{task.max_candidates}，命中 {matched}/{task.target_count}{skip_suffix}"
+    )
+    task.finished_at = timezone.now()
+    ExecutorTaskLifecycleMixin._save_task_safely(
+        task,
+        update_fields=["status", "scanned_count", "matched_count", "message", "finished_at", "updated_at"],
+    )

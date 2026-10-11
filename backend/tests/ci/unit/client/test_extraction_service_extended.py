@@ -56,7 +56,9 @@ class TestExtractRuleBasedSuccess:
 
     @patch.object(IdentityExtractionService, "_ocr_extract", return_value="姓名：张三\n公民身份号码 110101199001011234")
     @patch.object(IdentityExtractionService, "_resolve_doc_type", return_value="id_card")
-    @patch.object(IdentityExtractionService, "_extract_by_rules", return_value={"id_number": "110101199001011234", "name": "张三"})
+    @patch.object(
+        IdentityExtractionService, "_extract_by_rules", return_value={"id_number": "110101199001011234", "name": "张三"}
+    )
     def test_rule_hit_key_field_returns_ocr_regex(self, mock_rules, mock_resolve, mock_ocr):
         svc = _make_service()
         result = svc.extract(b"image", "id_card")
@@ -121,7 +123,11 @@ class TestExtractExceptionHandling:
         with pytest.raises(LLMExtractionError):
             svc.extract(b"image", "id_card")
 
-    @patch.object(IdentityExtractionService, "_ocr_extract", side_effect=ServiceUnavailableError(message="svc down", service_name="OCR"))
+    @patch.object(
+        IdentityExtractionService,
+        "_ocr_extract",
+        side_effect=ServiceUnavailableError(message="svc down", service_name="OCR"),
+    )
     def test_service_unavailable_propagated(self, mock_ocr):
         svc = _make_service()
         with pytest.raises(ServiceUnavailableError):
@@ -209,12 +215,34 @@ class TestOCRExtract:
 class TestResolveDocType:
     """_resolve_doc_type auto-detection logic."""
 
-    @patch("apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING", {"id_card": "...", "business_license": "...", "passport": "...", "hk_macao_permit": "...", "household_register": "...", "residence_permit": "...", "legal_rep_id_card": "..."})
+    @patch(
+        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        {
+            "id_card": "...",
+            "business_license": "...",
+            "passport": "...",
+            "hk_macao_permit": "...",
+            "household_register": "...",
+            "residence_permit": "...",
+            "legal_rep_id_card": "...",
+        },
+    )
     def test_explicit_type_returned(self):
         svc = _make_service()
         assert svc._resolve_doc_type("id_card", "random") == "id_card"
 
-    @patch("apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING", {"id_card": "...", "business_license": "...", "passport": "...", "hk_macao_permit": "...", "household_register": "...", "residence_permit": "...", "legal_rep_id_card": "..."})
+    @patch(
+        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        {
+            "id_card": "...",
+            "business_license": "...",
+            "passport": "...",
+            "hk_macao_permit": "...",
+            "household_register": "...",
+            "residence_permit": "...",
+            "legal_rep_id_card": "...",
+        },
+    )
     def test_unsupported_type_falls_through_to_auto(self):
         svc = _make_service()
         # "unknown_type" not in PROMPT_MAPPING, falls through to auto-detect
@@ -222,47 +250,116 @@ class TestResolveDocType:
         # should detect as id_card based on tokens
         assert result is not None
 
-    @patch("apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING", {"id_card": "...", "business_license": "..."})
+    @patch(
+        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        {"id_card": "...", "business_license": "..."},
+    )
     def test_auto_detect_business_by_credit_code(self):
         svc = _make_service()
         text = "91440101MA5D12345X 企业名称 测试有限公司"
         assert svc._resolve_doc_type("auto", text) == "business_license"
 
-    @patch("apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING", {"id_card": "...", "business_license": "...", "passport": "...", "hk_macao_permit": "...", "household_register": "...", "residence_permit": "...", "legal_rep_id_card": "..."})
+    @patch(
+        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        {
+            "id_card": "...",
+            "business_license": "...",
+            "passport": "...",
+            "hk_macao_permit": "...",
+            "household_register": "...",
+            "residence_permit": "...",
+            "legal_rep_id_card": "...",
+        },
+    )
     def test_auto_detect_business_by_keyword_count(self):
         svc = _make_service()
         text = "营业执照 统一社会信用代码 企业名称 法定代表人 注册资本"
         assert svc._resolve_doc_type("auto", text) == "business_license"
 
-    @patch("apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING", {"id_card": "...", "business_license": "...", "passport": "...", "hk_macao_permit": "...", "household_register": "...", "residence_permit": "...", "legal_rep_id_card": "..."})
+    @patch(
+        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        {
+            "id_card": "...",
+            "business_license": "...",
+            "passport": "...",
+            "hk_macao_permit": "...",
+            "household_register": "...",
+            "residence_permit": "...",
+            "legal_rep_id_card": "...",
+        },
+    )
     def test_auto_detect_passport(self):
         svc = _make_service()
         text = "护照 passport 姓名 nationality"
         result = svc._resolve_doc_type("auto", text)
         assert result == "passport"
 
-    @patch("apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING", {"id_card": "...", "business_license": "...", "passport": "...", "hk_macao_permit": "...", "household_register": "...", "residence_permit": "...", "legal_rep_id_card": "..."})
+    @patch(
+        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        {
+            "id_card": "...",
+            "business_license": "...",
+            "passport": "...",
+            "hk_macao_permit": "...",
+            "household_register": "...",
+            "residence_permit": "...",
+            "legal_rep_id_card": "...",
+        },
+    )
     def test_auto_detect_hk_macao(self):
         svc = _make_service()
         text = "港澳通行证 往来港澳 张三"
         result = svc._resolve_doc_type("auto", text)
         assert result == "hk_macao_permit"
 
-    @patch("apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING", {"id_card": "...", "business_license": "...", "passport": "...", "hk_macao_permit": "...", "household_register": "...", "residence_permit": "...", "legal_rep_id_card": "..."})
+    @patch(
+        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        {
+            "id_card": "...",
+            "business_license": "...",
+            "passport": "...",
+            "hk_macao_permit": "...",
+            "household_register": "...",
+            "residence_permit": "...",
+            "legal_rep_id_card": "...",
+        },
+    )
     def test_auto_detect_household_register(self):
         svc = _make_service()
         text = "户口本 常住人口登记 户主 张三"
         result = svc._resolve_doc_type("auto", text)
         assert result == "household_register"
 
-    @patch("apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING", {"id_card": "...", "business_license": "...", "passport": "...", "hk_macao_permit": "...", "household_register": "...", "residence_permit": "...", "legal_rep_id_card": "..."})
+    @patch(
+        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        {
+            "id_card": "...",
+            "business_license": "...",
+            "passport": "...",
+            "hk_macao_permit": "...",
+            "household_register": "...",
+            "residence_permit": "...",
+            "legal_rep_id_card": "...",
+        },
+    )
     def test_auto_detect_residence_permit(self):
         svc = _make_service()
         text = "居住证 residence permit 张三"
         result = svc._resolve_doc_type("auto", text)
         assert result == "residence_permit"
 
-    @patch("apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING", {"id_card": "...", "business_license": "...", "passport": "...", "hk_macao_permit": "...", "household_register": "...", "residence_permit": "...", "legal_rep_id_card": "..."})
+    @patch(
+        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        {
+            "id_card": "...",
+            "business_license": "...",
+            "passport": "...",
+            "hk_macao_permit": "...",
+            "household_register": "...",
+            "residence_permit": "...",
+            "legal_rep_id_card": "...",
+        },
+    )
     def test_auto_detect_legal_rep_id_card(self):
         svc = _make_service()
         # "法定代表人" + 18-digit ID number with trailing 'X' so it won't be
@@ -279,14 +376,20 @@ class TestResolveDocType:
         # This is expected behavior -- business_license takes priority
         assert result in ("legal_rep_id_card", "business_license")
 
-    @patch("apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING", {"id_card": "...", "business_license": "..."})
+    @patch(
+        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        {"id_card": "...", "business_license": "..."},
+    )
     def test_auto_detect_fallback_to_id_card(self):
         svc = _make_service()
         text = "随机文字没有特征"
         result = svc._resolve_doc_type("auto", text)
         assert result == "id_card"
 
-    @patch("apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING", {"id_card": "...", "business_license": "..."})
+    @patch(
+        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        {"id_card": "...", "business_license": "..."},
+    )
     def test_source_name_used_for_detection(self):
         svc = _make_service()
         text = "random text"
@@ -418,7 +521,11 @@ class TestSafeExtract:
     @patch.object(IdentityExtractionService, "extract")
     def test_success(self, mock_extract):
         mock_extract.return_value = ExtractionResult(
-            doc_type="id_card", raw_text="text", extracted_data={"name": "张三"}, confidence=0.95, extraction_method="ocr_regex"
+            doc_type="id_card",
+            raw_text="text",
+            extracted_data={"name": "张三"},
+            confidence=0.95,
+            extraction_method="ocr_regex",
         )
         svc = _make_service()
         result = svc.safe_extract(b"img", "id_card")

@@ -77,9 +77,11 @@ class TestServiceLocator:
 
     def test_service_locator_exists(self) -> None:
         from apps.core.infrastructure.service_locator import ServiceLocator
+
         assert ServiceLocator is not None
 
     def test_service_locator_inherits_base(self) -> None:
         from apps.core.infrastructure.service_locator import ServiceLocator
         from apps.core.infrastructure.service_locator_base import BaseServiceLocator
+
         assert issubclass(ServiceLocator, BaseServiceLocator)

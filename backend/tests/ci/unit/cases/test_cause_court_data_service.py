@@ -11,27 +11,34 @@ import pytest
 from apps.cases.services.data.cause_court_data_service import (
     CauseCourtDataCache,
     CauseCourtDataParser,
+    CauseCourtDataService,
     CauseCourtDbProvider,
     CauseCourtJsonProvider,
-    CauseCourtDataService,
 )
 from apps.core.exceptions import ValidationException
 
-
 # ── CauseCourtDataParser ──────────────────────────────────────────────────────
 
-class TestCauseCourtDataParser:
 
+class TestCauseCourtDataParser:
     def setup_method(self):
         self.parser = CauseCourtDataParser()
 
     def test_flatten_tree_basic(self):
-        data = {"id": 1, "name": "Root", "children": [
-            {"id": 2, "name": "Child A"},
-            {"id": 3, "name": "Child B", "children": [
-                {"id": 4, "name": "Grandchild"},
-            ]},
-        ]}
+        data = {
+            "id": 1,
+            "name": "Root",
+            "children": [
+                {"id": 2, "name": "Child A"},
+                {
+                    "id": 3,
+                    "name": "Child B",
+                    "children": [
+                        {"id": 4, "name": "Grandchild"},
+                    ],
+                },
+            ],
+        }
         result = self.parser.flatten_tree(data)
         names = [item["name"] for item in result]
         assert "Root" in names
@@ -103,8 +110,8 @@ class TestCauseCourtDataParser:
 
 # ── CauseCourtDataCache ───────────────────────────────────────────────────────
 
-class TestCauseCourtDataCache:
 
+class TestCauseCourtDataCache:
     def test_load_json_file_not_found(self, tmp_path):
         cache = CauseCourtDataCache(tmp_path)
         with pytest.raises(ValidationException) as exc_info:
@@ -130,8 +137,8 @@ class TestCauseCourtDataCache:
 
 # ── CauseCourtDbProvider ──────────────────────────────────────────────────────
 
-class TestCauseCourtDbProvider:
 
+class TestCauseCourtDbProvider:
     def test_has_active_causes_true(self):
         mock_svc = MagicMock()
         mock_svc.has_active_causes_internal.return_value = True
@@ -180,8 +187,8 @@ class TestCauseCourtDbProvider:
 
 # ── CauseCourtJsonProvider ────────────────────────────────────────────────────
 
-class TestCauseCourtJsonProvider:
 
+class TestCauseCourtJsonProvider:
     def setup_method(self):
         self.mock_cache = MagicMock()
         self.parser = CauseCourtDataParser()
@@ -269,8 +276,8 @@ class TestCauseCourtJsonProvider:
 
 # ── CauseCourtDataService ─────────────────────────────────────────────────────
 
-class TestCauseCourtDataService:
 
+class TestCauseCourtDataService:
     def setup_method(self):
         self.mock_db = MagicMock()
         self.mock_json = MagicMock()

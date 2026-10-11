@@ -9,6 +9,7 @@ import pytest
 
 try:
     from plugins import has_message_hub_plugin
+
     _HAS_MH = has_message_hub_plugin()
 except ImportError:
     _HAS_MH = False
@@ -18,10 +19,12 @@ pytestmark = pytest.mark.skipif(not _HAS_MH, reason="message_hub plugin not inst
 from django.utils import timezone
 
 from apps.message_hub.models import InboxMessage, MessageSource, SourceType
+
 if _HAS_MH:
     from plugins.message_hub.services.court.court_fetcher import CourtInboxFetcher
 
 from apps.organization.models import AccountCredential, Lawyer
+
 
 @pytest.mark.django_db
 class TestCourtFetcherDedup:

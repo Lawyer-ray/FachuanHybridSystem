@@ -46,44 +46,6 @@ class ExecutorResultPersistenceMixin:
             )
         )
 
-    @staticmethod
-    def _extract_similarity_metadata(*, similarity: Any) -> dict[str, Any]:
-        metadata = getattr(similarity, "metadata", None)
-        if not isinstance(metadata, dict) or not metadata:
-            return {}
-        normalized: dict[str, Any] = {}
-        for key, value in metadata.items():
-            field = str(key or "").strip()
-            if not field:
-                continue
-            normalized[field] = value
-        if not normalized:
-            return {}
-        return {"similarity_structured": normalized}
-
-    @staticmethod
-    def _build_content_excerpt(content_text: str) -> str:
-        text = str(content_text or "").strip()
-        if not text:
-            return ""
-        normalized = text.replace("\r\n", "\n").replace("\r", "\n")
-        normalized = re.sub(r"[ \t]+", " ", normalized)
-        normalized = re.sub(r"\n{3,}", "\n\n", normalized).strip()
-        return normalized[: ExecutorResultPersistenceMixin.CONTENT_EXCERPT_MAX_CHARS]
-
-    @staticmethod
-    def _sanitize_pdf_filename(filename: str, *, fallback: str) -> str:
-        name = (filename or "").replace("\\", "/").split("/")[-1].strip()
-        if not name.lower().endswith(".pdf"):
-            name = f"{name}.pdf"
-
-        stem = sanitize_filename(name[:-4], allow_chinese=False)
-        if not stem:
-            stem = sanitize_filename(fallback or "case", allow_chinese=False) or "case"
-
-        # 上传路径里已包含 task_id/result_id，文件名需要显著收敛以避免超长。
-        return f"{stem[:120]}.pdf"
-
 
 # ↓↓ 由 ExecutorResultPersistenceMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
 @transaction.atomic
@@ -110,7 +72,7 @@ def _save_result_tx(
         metadata["coarse_reason"] = str(coarse_reason)[:240]
     if extra_metadata:
         metadata.update(extra_metadata)
-    content_excerpt = ExecutorResultPersistenceMixin._build_content_excerpt(detail.content_text)
+    content_excerpt = _build_content_excerpt(detail.content_text)
     if content_excerpt:
         metadata["content_excerpt"] = content_excerpt
 
@@ -132,7 +94,7 @@ def _save_result_tx(
     )
 
     if not result.pdf_file:
-        safe_filename = ExecutorResultPersistenceMixin._sanitize_pdf_filename(filename, fallback=detail.doc_id_unquoted)
+        safe_filename = _sanitize_pdf_filename(filename, fallback=detail.doc_id_unquoted)
         result.pdf_file.save(safe_filename, ContentFile(pdf_bytes), save=False)
 
     result.rank = rank
@@ -149,3 +111,44 @@ def _save_result_tx(
     result.metadata = existing_metadata
     result.updated_at = timezone.now()
     result.save()
+
+
+# ↓↓ 由 ExecutorResultPersistenceMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _extract_similarity_metadata(*, similarity: Any) -> dict[str, Any]:
+    metadata = getattr(similarity, "metadata", None)
+    if not isinstance(metadata, dict) or not metadata:
+        return {}
+    normalized: dict[str, Any] = {}
+    for key, value in metadata.items():
+        field = str(key or "").strip()
+        if not field:
+            continue
+        normalized[field] = value
+    if not normalized:
+        return {}
+    return {"similarity_structured": normalized}
+
+
+# ↓↓ 由 ExecutorResultPersistenceMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _build_content_excerpt(content_text: str) -> str:
+    text = str(content_text or "").strip()
+    if not text:
+        return ""
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    normalized = re.sub(r"[ \t]+", " ", normalized)
+    normalized = re.sub(r"\n{3,}", "\n\n", normalized).strip()
+    return normalized[: ExecutorResultPersistenceMixin.CONTENT_EXCERPT_MAX_CHARS]
+
+
+# ↓↓ 由 ExecutorResultPersistenceMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _sanitize_pdf_filename(filename: str, *, fallback: str) -> str:
+    name = (filename or "").replace("\\", "/").split("/")[-1].strip()
+    if not name.lower().endswith(".pdf"):
+        name = f"{name}.pdf"
+
+    stem = sanitize_filename(name[:-4], allow_chinese=False)
+    if not stem:
+        stem = sanitize_filename(fallback or "case", allow_chinese=False) or "case"
+
+    # 上传路径里已包含 task_id/result_id，文件名需要显著收敛以避免超长。
+    return f"{stem[:120]}.pdf"

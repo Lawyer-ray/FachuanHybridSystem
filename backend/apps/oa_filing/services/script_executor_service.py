@@ -14,6 +14,7 @@ from typing import Any
 from django.apps import apps as django_apps
 
 from apps.core.infrastructure.sync_async_bridge import run_coro_sync
+from apps.oa_filing.services.stamp_lookup_service import lookup_by_file_path
 
 from .oa_firm_registry import create_adapter
 
@@ -91,15 +92,10 @@ class ScriptExecutorService:
     # Session 查询（公共）
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _can_view_all_sessions(user: Any) -> bool:
-        """admin 豁免：管理员可查看全部会话。"""
-        return bool(getattr(user, "is_superuser", False) or getattr(user, "is_admin", False))
-
     def _get_session_with_owner_check(self, session_model: Any, session_id: int, user: Any) -> Any:
         """按属主过滤查询会话，属主不匹配与会话不存在同样抛 DoesNotExist（安全审计 A-04）。"""
         qs = session_model.objects.filter(pk=session_id)
-        if user is not None and not self._can_view_all_sessions(user):
+        if user is not None and not _can_view_all_sessions(user):
             qs = qs.filter(user_id=getattr(user, "id", None))
         return qs.get()
 
@@ -213,7 +209,7 @@ class ScriptExecutorService:
         from apps.oa_filing.models import StampSession, StampSessionStatus
         from apps.oa_filing.services.stamp_lookup_service import StampLookupService
 
-        lookup = StampLookupService.lookup_by_file_path(file_path)
+        lookup = lookup_by_file_path(file_path)
         # 安全审计 A-04：校验反查出的合同归属权限
         _ensure_contract_access(lookup.contract_id, user)
         credential = _find_credential(user, site_name)
@@ -271,7 +267,7 @@ class ScriptExecutorService:
 
         # 安全审计：对 file_paths 中每个路径逐一反查校验（含 .. 拒绝与绑定目录收敛），
         # 修复「只校 file_paths[0]、其余路径原样存 session 后被上传到外部 OA」的任意文件外带
-        lookups = [StampLookupService.lookup_by_file_path(path) for path in file_paths]
+        lookups = [lookup_by_file_path(path) for path in file_paths]
         lookup = lookups[0]
         if any(item.contract_id != lookup.contract_id for item in lookups):
             from apps.oa_filing.services.exceptions import ScriptExecutionError
@@ -516,3 +512,9 @@ def _find_credential(user: Any, site_name: str) -> Any:
     """查找用户在指定站点的登录凭证。"""
     credential_model = django_apps.get_model("organization", "AccountCredential")
     return credential_model.objects.filter(lawyer=user, site_name=site_name).first()
+
+
+# ↓↓ 由 ScriptExecutorService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _can_view_all_sessions(user: Any) -> bool:
+    """admin 豁免：管理员可查看全部会话。"""
+    return bool(getattr(user, "is_superuser", False) or getattr(user, "is_admin", False))

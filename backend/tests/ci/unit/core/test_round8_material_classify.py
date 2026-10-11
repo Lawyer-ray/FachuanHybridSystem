@@ -7,7 +7,14 @@ from unittest.mock import patch
 
 import pytest
 
-from apps.core.services.material_classification_service import MaterialClassificationService
+from apps.core.services.material_classification_service import (
+    MaterialClassificationService,
+    _extract_json,
+    _extract_party_ids_by_side,
+    _extract_primary_supervising_authority_id,
+    _extract_subfolder_hint,
+    _normalize_for_match,
+)
 
 
 @pytest.fixture()
@@ -22,19 +29,19 @@ def svc() -> MaterialClassificationService:
 
 class TestNormalizeForMatch:
     def test_basic(self, svc: MaterialClassificationService):
-        assert svc._normalize_for_match("  Hello World  ") == "helloworld"
+        assert _normalize_for_match("  Hello World  ") == "helloworld"
 
     def test_empty(self, svc: MaterialClassificationService):
-        assert svc._normalize_for_match("") == ""
+        assert _normalize_for_match("") == ""
 
     def test_none(self, svc: MaterialClassificationService):
-        assert svc._normalize_for_match("") == ""
+        assert _normalize_for_match("") == ""
 
     def test_backslash_to_slash(self, svc: MaterialClassificationService):
-        assert svc._normalize_for_match("a\\b\\c") == "a/b/c"
+        assert _normalize_for_match("a\\b\\c") == "a/b/c"
 
     def test_whitespace_collapsed(self, svc: MaterialClassificationService):
-        assert svc._normalize_for_match("a b  c\td") == "abcd"
+        assert _normalize_for_match("a b  c\td") == "abcd"
 
 
 # ---------------------------------------------------------------------------
@@ -69,19 +76,19 @@ class TestToConfidence:
 
 class TestExtractSubfolderHint:
     def test_numbered_prefix(self, svc: MaterialClassificationService):
-        assert svc._extract_subfolder_hint("2-立案材料") == "立案材料"
+        assert _extract_subfolder_hint("2-立案材料") == "立案材料"
 
     def test_underscore_prefix(self, svc: MaterialClassificationService):
-        assert svc._extract_subfolder_hint("3_执行依据") == "执行依据"
+        assert _extract_subfolder_hint("3_执行依据") == "执行依据"
 
     def test_no_prefix(self, svc: MaterialClassificationService):
-        assert svc._extract_subfolder_hint("立案材料") == "立案材料"
+        assert _extract_subfolder_hint("立案材料") == "立案材料"
 
     def test_empty(self, svc: MaterialClassificationService):
-        assert svc._extract_subfolder_hint("") == ""
+        assert _extract_subfolder_hint("") == ""
 
     def test_multi_level(self, svc: MaterialClassificationService):
-        assert svc._extract_subfolder_hint("parent/2-子目录") == "子目录"
+        assert _extract_subfolder_hint("parent/2-子目录") == "子目录"
 
 
 # ---------------------------------------------------------------------------
@@ -318,27 +325,27 @@ class TestBuildCaseSuggestion:
 
 class TestExtractPartyIdsBySide:
     def test_normal(self, svc: MaterialClassificationService):
-        result = svc._extract_party_ids_by_side(side="our", context={"our_party_ids": [1, 2]})
+        result = _extract_party_ids_by_side(side="our", context={"our_party_ids": [1, 2]})
         assert result == [1, 2]
 
     def test_non_list(self, svc: MaterialClassificationService):
-        result = svc._extract_party_ids_by_side(side="our", context={"our_party_ids": "bad"})
+        result = _extract_party_ids_by_side(side="our", context={"our_party_ids": "bad"})
         assert result == []
 
     def test_with_invalid_items(self, svc: MaterialClassificationService):
-        result = svc._extract_party_ids_by_side(side="our", context={"our_party_ids": [1, "bad", 2]})
+        result = _extract_party_ids_by_side(side="our", context={"our_party_ids": [1, "bad", 2]})
         assert result == [1, 2]
 
     def test_with_duplicates(self, svc: MaterialClassificationService):
-        result = svc._extract_party_ids_by_side(side="our", context={"our_party_ids": [1, 1, 2]})
+        result = _extract_party_ids_by_side(side="our", context={"our_party_ids": [1, 1, 2]})
         assert result == [1, 2]
 
     def test_with_zero(self, svc: MaterialClassificationService):
-        result = svc._extract_party_ids_by_side(side="our", context={"our_party_ids": [0, -1]})
+        result = _extract_party_ids_by_side(side="our", context={"our_party_ids": [0, -1]})
         assert result == []
 
     def test_empty(self, svc: MaterialClassificationService):
-        result = svc._extract_party_ids_by_side(side="our", context={})
+        result = _extract_party_ids_by_side(side="our", context={})
         assert result == []
 
 
@@ -349,19 +356,19 @@ class TestExtractPartyIdsBySide:
 
 class TestExtractPrimarySupervisingAuthorityId:
     def test_normal(self, svc: MaterialClassificationService):
-        result = svc._extract_primary_supervising_authority_id({"primary_supervising_authority_id": 5})
+        result = _extract_primary_supervising_authority_id({"primary_supervising_authority_id": 5})
         assert result == 5
 
     def test_none(self, svc: MaterialClassificationService):
-        result = svc._extract_primary_supervising_authority_id({})
+        result = _extract_primary_supervising_authority_id({})
         assert result is None
 
     def test_zero(self, svc: MaterialClassificationService):
-        result = svc._extract_primary_supervising_authority_id({"primary_supervising_authority_id": 0})
+        result = _extract_primary_supervising_authority_id({"primary_supervising_authority_id": 0})
         assert result is None
 
     def test_invalid_string(self, svc: MaterialClassificationService):
-        result = svc._extract_primary_supervising_authority_id({"primary_supervising_authority_id": "abc"})
+        result = _extract_primary_supervising_authority_id({"primary_supervising_authority_id": "abc"})
         assert result is None
 
 
@@ -397,25 +404,25 @@ class TestInferCaseSide:
 
 class TestExtractJson:
     def test_valid_json(self, svc: MaterialClassificationService):
-        result = svc._extract_json('{"key": "value"}')
+        result = _extract_json('{"key": "value"}')
         assert result == {"key": "value"}
 
     def test_json_in_text(self, svc: MaterialClassificationService):
-        result = svc._extract_json('Some text {"key": "value"} more text')
+        result = _extract_json('Some text {"key": "value"} more text')
         assert result == {"key": "value"}
 
     def test_fenced_json(self, svc: MaterialClassificationService):
-        result = svc._extract_json('```json\n{"key": "value"}\n```')
+        result = _extract_json('```json\n{"key": "value"}\n```')
         assert result == {"key": "value"}
 
     def test_empty(self, svc: MaterialClassificationService):
-        assert svc._extract_json("") is None
+        assert _extract_json("") is None
 
     def test_no_json(self, svc: MaterialClassificationService):
-        assert svc._extract_json("just plain text") is None
+        assert _extract_json("just plain text") is None
 
     def test_invalid_json_in_fence(self, svc: MaterialClassificationService):
-        result = svc._extract_json("```\nnot json\n```")
+        result = _extract_json("```\nnot json\n```")
         assert result is None
 
 

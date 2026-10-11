@@ -40,9 +40,7 @@ class TestConstants:
 class TestResolveFilePath:
     """测试文件路径解析（统一走 to_media_abs，兼容相对/绝对路径）"""
 
-    def test_relative_path_resolves_under_media_root(
-        self, extractor: SupervisionCardExtractor, tmp_path: Path
-    ) -> None:
+    def test_relative_path_resolves_under_media_root(self, extractor: SupervisionCardExtractor, tmp_path: Path) -> None:
         """相对路径应在 MEDIA_ROOT 下解析到真实文件"""
         media = tmp_path / "media"
         target = media / "contracts" / "a.pdf"
@@ -53,9 +51,7 @@ class TestResolveFilePath:
             result = extractor._resolve_file_path("contracts/a.pdf")
         assert result == target.resolve()
 
-    def test_absolute_path_under_media_root(
-        self, extractor: SupervisionCardExtractor, tmp_path: Path
-    ) -> None:
+    def test_absolute_path_under_media_root(self, extractor: SupervisionCardExtractor, tmp_path: Path) -> None:
         """MEDIA_ROOT 内的绝对路径应直接解析"""
         media = tmp_path / "media"
         target = media / "abs" / "b.pdf"
@@ -66,17 +62,13 @@ class TestResolveFilePath:
             result = extractor._resolve_file_path(str(target))
         assert result == target.resolve()
 
-    def test_missing_file_returns_none(
-        self, extractor: SupervisionCardExtractor, tmp_path: Path
-    ) -> None:
+    def test_missing_file_returns_none(self, extractor: SupervisionCardExtractor, tmp_path: Path) -> None:
         media = tmp_path / "media"
         media.mkdir()
         with patch("django.conf.settings.MEDIA_ROOT", str(media)):
             assert extractor._resolve_file_path("contracts/missing.pdf") is None
 
-    def test_path_outside_media_root_returns_none(
-        self, extractor: SupervisionCardExtractor, tmp_path: Path
-    ) -> None:
+    def test_path_outside_media_root_returns_none(self, extractor: SupervisionCardExtractor, tmp_path: Path) -> None:
         """MEDIA_ROOT 外的绝对路径不解析，返回 None"""
         outside = tmp_path / "outside.pdf"
         outside.write_bytes(b"x")
@@ -90,12 +82,8 @@ class TestResolveFilePath:
 class TestDetectAndExtract:
     """测试 detect_and_extract 方法"""
 
-    def test_no_materials_returns_not_found(
-        self, extractor: SupervisionCardExtractor
-    ) -> None:
-        with patch(
-            "apps.contracts.services.archive.supervision_card_extractor.FinalizedMaterial"
-        ) as mock_fm:
+    def test_no_materials_returns_not_found(self, extractor: SupervisionCardExtractor) -> None:
+        with patch("apps.contracts.services.archive.supervision_card_extractor.FinalizedMaterial") as mock_fm:
             mock_fm.objects.filter.return_value.order_by.return_value = []
             contract = MagicMock()
             result = extractor.detect_and_extract(contract)

@@ -119,9 +119,7 @@ class TestContractMutationFacadeAccessPolicyProperty:
         from apps.contracts.services.contract.mutation.facade import ContractMutationFacade
 
         facade = ContractMutationFacade()
-        with patch(
-            "apps.contracts.services.contract.domain.ContractAccessPolicy"
-        ) as mock_ap:
+        with patch("apps.contracts.services.contract.domain.ContractAccessPolicy") as mock_ap:
             mock_ap.return_value = MagicMock()
             result = facade.access_policy
             mock_ap.assert_called_once()
@@ -134,9 +132,7 @@ class TestContractMutationFacadeAdminMutationServiceProperty:
         from apps.contracts.services.contract.mutation.facade import ContractMutationFacade
 
         facade = ContractMutationFacade()
-        with patch(
-            "apps.contracts.services.contract.admin.ContractAdminMutationService"
-        ) as mock_ams:
+        with patch("apps.contracts.services.contract.admin.ContractAdminMutationService") as mock_ams:
             mock_ams.return_value = MagicMock()
             result = facade.admin_mutation_service
             mock_ams.assert_called_once()

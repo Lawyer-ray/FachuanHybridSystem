@@ -24,6 +24,14 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
+from apps.contract_review.services.review.contract_reviewer import (
+    _build_report_prompt,
+    _build_revision_prompt,
+    _parse_revision_response,
+)
+from apps.contract_review.services.review.party_identifier import _find_party
+from apps.contract_review.services.review.typo_checker import _build_prompt
+
 # ==================== Exceptions ====================
 
 
@@ -484,13 +492,13 @@ class TestPartyIdentifier:
     def test_find_party_method(self):
         from apps.contract_review.services.review.party_identifier import _PARTY_PATTERNS, PartyIdentifier
 
-        result = PartyIdentifier._find_party("甲方：测试公司", _PARTY_PATTERNS["party_a"])
+        result = _find_party("甲方：测试公司", _PARTY_PATTERNS["party_a"])
         assert result == "测试公司"
 
     def test_find_party_no_match(self):
         from apps.contract_review.services.review.party_identifier import _PARTY_PATTERNS, PartyIdentifier
 
-        result = PartyIdentifier._find_party("无匹配文字", _PARTY_PATTERNS["party_a"])
+        result = _find_party("无匹配文字", _PARTY_PATTERNS["party_a"])
         assert result == ""
 
 
@@ -555,38 +563,38 @@ class TestContractReviewer:
         from apps.contract_review.services.review.contract_reviewer import ContractReviewer
 
         text = '```json\n[{"original": "a", "suggested": "b", "reason": "r", "paragraph_index": 0}]\n```'
-        results = ContractReviewer._parse_revision_response(text)
+        results = _parse_revision_response(text)
         assert len(results) == 1
 
     def test_parse_revision_response_invalid_json(self):
         from apps.contract_review.services.review.contract_reviewer import ContractReviewer
 
-        results = ContractReviewer._parse_revision_response("not json at all")
+        results = _parse_revision_response("not json at all")
         assert results == []
 
     def test_parse_revision_response_not_list(self):
         from apps.contract_review.services.review.contract_reviewer import ContractReviewer
 
-        results = ContractReviewer._parse_revision_response('{"key": "value"}')
+        results = _parse_revision_response('{"key": "value"}')
         assert results == []
 
     def test_parse_revision_response_missing_fields(self):
         from apps.contract_review.services.review.contract_reviewer import ContractReviewer
 
-        results = ContractReviewer._parse_revision_response('[{"original": "a"}]')
+        results = _parse_revision_response('[{"original": "a"}]')
         assert results == []
 
     def test_build_revision_prompt(self):
         from apps.contract_review.services.review.contract_reviewer import ContractReviewer
 
-        prompt = ContractReviewer._build_revision_prompt("text", "party_a", "A公司", "B公司")
+        prompt = _build_revision_prompt("text", "party_a", "A公司", "B公司")
         assert "甲方" in prompt
         assert "A公司" in prompt
 
     def test_build_report_prompt(self):
         from apps.contract_review.services.review.contract_reviewer import ContractReviewer
 
-        prompt = ContractReviewer._build_report_prompt("text", "party_b", "A公司", "B公司")
+        prompt = _build_report_prompt("text", "party_b", "A公司", "B公司")
         assert "乙方" in prompt
 
 
@@ -649,7 +657,7 @@ class TestTypoChecker:
     def test_build_prompt(self):
         from apps.contract_review.services.review.typo_checker import TypoChecker
 
-        prompt = TypoChecker._build_prompt("测试文本")
+        prompt = _build_prompt("测试文本")
         assert "错别字" in prompt
         assert "测试文本" in prompt
 
@@ -1014,7 +1022,6 @@ class TestProcessReview:
 
         title_extractor = MagicMock()
         title_extractor.extract_title.return_value = "测试合同"
-        title_extractor.generate_output_filename.return_value = "测试合同_out.docx"
 
         extractor = MagicMock()
         extractor.extract_with_mapping.return_value = SimpleNamespace(paragraphs=[])
@@ -1028,6 +1035,7 @@ class TestProcessReview:
             "ContentExtractor": MagicMock(return_value=extractor),
             "get_llm_service": MagicMock(),
             "TitleExtractor": MagicMock(return_value=title_extractor),
+            "generate_output_filename": MagicMock(return_value="测试合同_out.docx"),
             "ContractReviewer": MagicMock(return_value=reviewer_instance),
             "default_storage": MagicMock(**{"save.return_value": "contract_review_outputs/测试合同_out.docx"}),
         }

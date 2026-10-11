@@ -35,12 +35,14 @@ def _make_zip(members: list[tuple[str, bytes]]) -> zipfile.ZipFile:
 def test_extract_files_saves_through_default_storage(mixin: AdminImportExportMixin) -> None:
     zf = _make_zip([("files/client_docs/a.pdf", b"pdf-bytes")])
 
-    with patch(
-        "apps.core.services.storage_service._get_media_root",
-        return_value=str(Path("/fake/media").resolve()),
-    ), patch("django.core.files.storage.default_storage.save") as mock_save, patch(
-        "django.core.files.storage.default_storage.exists", return_value=False
-    ) as mock_exists:
+    with (
+        patch(
+            "apps.core.services.storage_service._get_media_root",
+            return_value=str(Path("/fake/media").resolve()),
+        ),
+        patch("django.core.files.storage.default_storage.save") as mock_save,
+        patch("django.core.files.storage.default_storage.exists", return_value=False) as mock_exists,
+    ):
         mixin._extract_files(zf)
 
     mock_exists.assert_called_once_with("client_docs/a.pdf")
@@ -53,11 +55,13 @@ def test_extract_files_saves_through_default_storage(mixin: AdminImportExportMix
 def test_extract_files_skips_existing_storage_key(mixin: AdminImportExportMixin) -> None:
     zf = _make_zip([("files/client_docs/a.pdf", b"pdf-bytes")])
 
-    with patch(
-        "apps.core.services.storage_service._get_media_root",
-        return_value=str(Path("/fake/media").resolve()),
-    ), patch("django.core.files.storage.default_storage.save") as mock_save, patch(
-        "django.core.files.storage.default_storage.exists", return_value=True
+    with (
+        patch(
+            "apps.core.services.storage_service._get_media_root",
+            return_value=str(Path("/fake/media").resolve()),
+        ),
+        patch("django.core.files.storage.default_storage.save") as mock_save,
+        patch("django.core.files.storage.default_storage.exists", return_value=True),
     ):
         mixin._extract_files(zf)
 
@@ -67,10 +71,13 @@ def test_extract_files_skips_existing_storage_key(mixin: AdminImportExportMixin)
 def test_extract_files_rejects_zip_slip(mixin: AdminImportExportMixin) -> None:
     zf = _make_zip([("files/../../etc/passwd", b"evil")])
 
-    with patch(
-        "apps.core.services.storage_service._get_media_root",
-        return_value=str(Path("/fake/media").resolve()),
-    ), patch("django.core.files.storage.default_storage.save") as mock_save:
+    with (
+        patch(
+            "apps.core.services.storage_service._get_media_root",
+            return_value=str(Path("/fake/media").resolve()),
+        ),
+        patch("django.core.files.storage.default_storage.save") as mock_save,
+    ):
         mixin._extract_files(zf)
 
     mock_save.assert_not_called()

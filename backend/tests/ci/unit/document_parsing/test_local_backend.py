@@ -88,6 +88,7 @@ class TestParsePdf:
         mock_doc.__getitem__ = MagicMock(return_value=mock_page)
 
         import sys
+
         mock_fitz = MagicMock()
         mock_fitz.open.return_value = mock_doc
         sys.modules["pymupdf"] = mock_fitz
@@ -111,6 +112,7 @@ class TestParsePdf:
         # Remove pymupdf from sys.modules and make it fail to import
         saved = sys.modules.pop("pymupdf", None)
         import builtins
+
         original_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):

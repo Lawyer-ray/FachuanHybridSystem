@@ -84,9 +84,7 @@ class TestSyncPromptTemplates:
     @patch("apps.core.services.prompt_template_service.transaction")
     @patch("apps.core.models.PromptTemplate")
     @patch("apps.core.llm.prompts.PromptManager")
-    def test_sync_multiple_templates(
-        self, mock_manager: MagicMock, mock_model: MagicMock, mock_txn: MagicMock
-    ) -> None:
+    def test_sync_multiple_templates(self, mock_manager: MagicMock, mock_model: MagicMock, mock_txn: MagicMock) -> None:
         """多个模板时应分别处理。"""
         mock_manager._templates = {
             "greeting": _make_template("greeting"),

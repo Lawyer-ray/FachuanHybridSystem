@@ -12,6 +12,15 @@ from unittest.mock import MagicMock, PropertyMock, patch
 import pytest
 
 from apps.core.api.schemas import SchemaMixin
+from apps.core.services.bound_folder_scan_service import (
+    _calc_progress,
+    _clean_base_name,
+    _collect_pdf_files,
+    _extract_parent_folder_hint,
+    _extract_parent_folder_hint_cloud,
+    _normalize_group_key,
+    _notify,
+)
 
 # ---------------------------------------------------------------------------
 # tests for apps.core.services.bound_folder_scan_service (30 missing)
@@ -70,62 +79,62 @@ class TestBoundFolderScanService:
     def test_clean_base_name_normal(self):
         from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 
-        assert BoundFolderScanService._clean_base_name("  hello  world  ") == "hello world"
+        assert _clean_base_name("  hello  world  ") == "hello world"
 
     def test_clean_base_name_separators(self):
         from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 
-        assert BoundFolderScanService._clean_base_name("a._-b") == "a b"
+        assert _clean_base_name("a._-b") == "a b"
 
     def test_clean_base_name_empty_fallback(self):
         from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 
-        assert BoundFolderScanService._clean_base_name("   ") == ""
+        assert _clean_base_name("   ") == ""
 
     def test_normalize_group_key_normal(self):
         from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 
-        assert BoundFolderScanService._normalize_group_key("Hello World") == "hello world"
+        assert _normalize_group_key("Hello World") == "hello world"
 
     def test_normalize_group_key_empty(self):
         from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 
-        assert BoundFolderScanService._normalize_group_key("") == "_"
+        assert _normalize_group_key("") == "_"
 
     def test_calc_progress_normal(self):
         from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 
-        assert BoundFolderScanService._calc_progress(idx=1, total=10) == 18
-        assert BoundFolderScanService._calc_progress(idx=5, total=10) == 54
+        assert _calc_progress(idx=1, total=10) == 18
+        assert _calc_progress(idx=5, total=10) == 54
 
     def test_calc_progress_zero_total(self):
         from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 
-        assert BoundFolderScanService._calc_progress(idx=0, total=0) == 100
+        assert _calc_progress(idx=0, total=0) == 100
 
     def test_calc_progress_clamped(self):
         from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 
         # idx=0, total=100 => (0/100)*90+9 = 9, but min is 10
-        assert BoundFolderScanService._calc_progress(idx=0, total=100) == 10
+        assert _calc_progress(idx=0, total=100) == 10
 
     def test_notify_with_callback(self):
         from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 
         cb = MagicMock()
-        BoundFolderScanService._notify(cb, "status", 50, "file.pdf")
+        _notify(cb, "status", 50, "file.pdf")
         cb.assert_called_once_with("status", 50, "file.pdf")
 
     def test_notify_without_callback(self):
         from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 
-        assert BoundFolderScanService._notify(None, "status", 50, "file.pdf") is None  # no-op
+        assert _notify(None, "status", 50, "file.pdf") is None  # no-op
 
     def test_extract_parent_folder_hint_direct(self, tmp_path):
         from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 
         file_path = tmp_path / "file.pdf"
-        result = BoundFolderScanService._extract_parent_folder_hint(file_path, tmp_path)
+        result = _extract_parent_folder_hint(file_path, tmp_path)
         assert result == ""
 
     def test_extract_parent_folder_hint_subfolder(self, tmp_path):
@@ -134,14 +143,14 @@ class TestBoundFolderScanService:
         sub = tmp_path / "2-立案材料"
         sub.mkdir()
         file_path = sub / "test.pdf"
-        result = BoundFolderScanService._extract_parent_folder_hint(file_path, tmp_path)
+        result = _extract_parent_folder_hint(file_path, tmp_path)
         assert result == "立案材料"
 
     def test_extract_parent_folder_hint_value_error(self, tmp_path):
         from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 
         file_path = Path("/other/path/file.pdf")
-        result = BoundFolderScanService._extract_parent_folder_hint(file_path, tmp_path)
+        result = _extract_parent_folder_hint(file_path, tmp_path)
         assert result == ""
 
     def test_collect_pdf_files(self, tmp_path):
@@ -154,7 +163,7 @@ class TestBoundFolderScanService:
         sub.mkdir()
         (sub / "d.pdf").touch()
 
-        files = BoundFolderScanService._collect_pdf_files(tmp_path)
+        files = _collect_pdf_files(tmp_path)
         assert len(files) == 3
         assert all(f.suffix == ".pdf" for f in files)
 
@@ -283,7 +292,7 @@ class TestBoundFolderScanService:
         scanned = MagicMock()
         scanned.as_posix = "/root/subfolder/file.pdf"
 
-        result = BoundFolderScanService._extract_parent_folder_hint_cloud(scanned, "/root")
+        result = _extract_parent_folder_hint_cloud(scanned, "/root")
         assert result == "subfolder"
 
     def test_extract_parent_folder_hint_cloud_direct(self):
@@ -292,7 +301,7 @@ class TestBoundFolderScanService:
         scanned = MagicMock()
         scanned.as_posix = "/root/file.pdf"
 
-        result = BoundFolderScanService._extract_parent_folder_hint_cloud(scanned, "/root")
+        result = _extract_parent_folder_hint_cloud(scanned, "/root")
         assert result == ""
 
     def test_extract_parent_folder_hint_cloud_value_error(self):
@@ -301,7 +310,7 @@ class TestBoundFolderScanService:
         scanned = MagicMock()
         scanned.as_posix = "/other/file.pdf"
 
-        result = BoundFolderScanService._extract_parent_folder_hint_cloud(scanned, "/root")
+        result = _extract_parent_folder_hint_cloud(scanned, "/root")
         assert result == ""
 
 

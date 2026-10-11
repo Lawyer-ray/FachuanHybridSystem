@@ -45,9 +45,7 @@ class TestRetrieveMissingEmbeddingEquivalence:
         assert len(new_missing) == 2
         assert {text for _, text in new_missing} == {"显式空向量", "默认空向量"}
         # 已有向量的 chunk 不在 missing 集合中
-        present_ids = {
-            c.id for c in EvidenceChunk.objects.filter(evidence_item_id__in=item_ids) if c.embedding
-        }
+        present_ids = {c.id for c in EvidenceChunk.objects.filter(evidence_item_id__in=item_ids) if c.embedding}
         assert not present_ids & {row_id for row_id, _ in new_missing}
 
     def test_retrieve_upserts_only_missing_chunks(self, db: Any, case: Any) -> None:

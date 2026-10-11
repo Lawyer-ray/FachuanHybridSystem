@@ -14,7 +14,7 @@ import pytest
 from django.utils import timezone
 
 from apps.reminders.models import Reminder
-from apps.reminders.services.calendar_export_service import CalendarExportService
+from apps.reminders.services.calendar_export_service import CalendarExportService, _reminder_to_vevent
 from apps.testing.factories import CaseFactory, CaseLogFactory, ContractFactory
 
 
@@ -149,7 +149,7 @@ class TestExportRemindersRealLoop:
         from types import SimpleNamespace
 
         svc = CalendarExportService()
-        assert svc._reminder_to_vevent(SimpleNamespace(due_at=None)) is None  # type: ignore[arg-type]
+        assert _reminder_to_vevent(SimpleNamespace(due_at=None)) is None  # type: ignore[arg-type]
 
         data = svc.export_reminders(year=now.year, month=now.month)
         assert b"VCALENDAR" in data
@@ -181,7 +181,7 @@ class TestReminderToVeventEdgeBranches:
         import datetime as dt
 
         naive_end = (timezone.localtime() + timedelta(hours=3)).replace(tzinfo=None)
-        vevent = CalendarExportService()._reminder_to_vevent(
+        vevent = _reminder_to_vevent(
             self._base(metadata={"end_at": naive_end.isoformat()})  # type: ignore[arg-type]
         )
         assert vevent is not None
@@ -191,7 +191,7 @@ class TestReminderToVeventEdgeBranches:
     def test_case_log_id_appends_description(self) -> None:
         case = CaseFactory()
         case_log = CaseLogFactory(case=case)
-        vevent = CalendarExportService()._reminder_to_vevent(
+        vevent = _reminder_to_vevent(
             self._base(case_log_id=case_log.id, case_log=case_log)  # type: ignore[arg-type]
         )
         assert vevent is not None
@@ -200,7 +200,7 @@ class TestReminderToVeventEdgeBranches:
 
     def test_location_missing_value_not_emitted(self) -> None:
         """icalendar 缺值哨兵 "missing value" 不得写进 LOCATION（防脏数据）。"""
-        vevent = CalendarExportService()._reminder_to_vevent(
+        vevent = _reminder_to_vevent(
             self._base(metadata={"courtroom": "missing value"})  # type: ignore[arg-type]
         )
         assert vevent is not None
@@ -213,7 +213,7 @@ class TestReminderToVeventEdgeBranches:
         可用换行符注入新组件。icalendar Event.add 对 vText 做转义，这里锁定该行为。
         """
         payload = "恶意\nBEGIN:VEVENT\nSUMMARY:被注入事件"
-        vevent = CalendarExportService()._reminder_to_vevent(self._base(content=payload))  # type: ignore[arg-type]
+        vevent = _reminder_to_vevent(self._base(content=payload))  # type: ignore[arg-type]
         assert vevent is not None
         raw = vevent.to_ical().decode("utf-8")
         # 反斜杠转义后的换行不得再产生新的 BEGIN:VEVENT 行
@@ -222,7 +222,7 @@ class TestReminderToVeventEdgeBranches:
         assert "恶意" in summary
 
     def test_unknown_type_falls_back_to_raw_label(self) -> None:
-        vevent = CalendarExportService()._reminder_to_vevent(
+        vevent = _reminder_to_vevent(
             self._base(reminder_type="custom_type")  # type: ignore[arg-type]
         )
         assert vevent is not None

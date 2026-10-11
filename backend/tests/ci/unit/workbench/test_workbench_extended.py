@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.workbench.services.chat_service import _convert_to_model_messages, _estimate_tokens
+from apps.workbench.services.session_service import _invalidate_session_cache
 
 
 class TestEstimateTokens:
@@ -127,7 +128,7 @@ class TestWorkbenchSessionService:
 
         with patch("apps.workbench.services.session_service.cache") as mock_cache:
             # 无用户直接早退，不清缓存
-            WorkbenchSessionService._invalidate_session_cache(None)
+            _invalidate_session_cache(None)
             mock_cache.delete_many.assert_not_called()
 
     def test_invalidate_session_cache_anonymous(self):
@@ -138,7 +139,7 @@ class TestWorkbenchSessionService:
         user = MagicMock()
         user.is_authenticated = False
         with patch("apps.workbench.services.session_service.cache") as mock_cache:
-            WorkbenchSessionService._invalidate_session_cache(user)
+            _invalidate_session_cache(user)
             mock_cache.delete_many.assert_not_called()
 
 

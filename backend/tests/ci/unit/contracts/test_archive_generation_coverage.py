@@ -11,6 +11,7 @@ import pytest
 
 # ── pdf_utils: add_page_numbers ───────────────────────────────────
 
+
 class TestAddPageNumbers:
     def test_adds_numbers_to_pages(self):
         import pymupdf as fitz
@@ -39,6 +40,7 @@ class TestAddPageNumbers:
 
 
 # ── pdf_utils: merge_materials_to_single_pdf ──────────────────────
+
 
 class TestMergeMaterialsToSinglePdf:
     def test_empty_materials(self):
@@ -95,6 +97,7 @@ class TestMergeMaterialsToSinglePdf:
 
 # ── pdf_utils: scale_pages_to_a4 ──────────────────────────────────
 
+
 class TestScalePagesToA4:
     @patch("apps.contracts.services.archive.generation.pdf_utils.FinalizedMaterial")
     def test_no_pdf_materials(self, mock_fm):
@@ -129,6 +132,7 @@ class TestScalePagesToA4:
 
 # ── download_handler: _find_checklist_item ────────────────────────
 
+
 class TestFindChecklistItem:
     def test_item_found(self):
         from apps.contracts.services.archive.generation.download_handler import _find_checklist_item
@@ -136,8 +140,10 @@ class TestFindChecklistItem:
         contract = MagicMock()
         contract.case_type = "litigation"
 
-        with patch("apps.contracts.services.archive.generation.download_handler.get_archive_category") as mock_cat, \
-             patch("apps.contracts.services.archive.generation.download_handler.ARCHIVE_CHECKLIST") as mock_checklist:
+        with (
+            patch("apps.contracts.services.archive.generation.download_handler.get_archive_category") as mock_cat,
+            patch("apps.contracts.services.archive.generation.download_handler.ARCHIVE_CHECKLIST") as mock_checklist,
+        ):
             mock_cat.return_value = "litigation"
             mock_checklist.get.return_value = [
                 {"code": "lt_1", "name": "委托合同", "template": "engagement_letter"},
@@ -153,8 +159,10 @@ class TestFindChecklistItem:
         contract = MagicMock()
         contract.case_type = "litigation"
 
-        with patch("apps.contracts.services.archive.generation.download_handler.get_archive_category") as mock_cat, \
-             patch("apps.contracts.services.archive.generation.download_handler.ARCHIVE_CHECKLIST") as mock_checklist:
+        with (
+            patch("apps.contracts.services.archive.generation.download_handler.get_archive_category") as mock_cat,
+            patch("apps.contracts.services.archive.generation.download_handler.ARCHIVE_CHECKLIST") as mock_checklist,
+        ):
             mock_cat.return_value = "litigation"
             mock_checklist.get.return_value = [{"code": "lt_1", "name": "test"}]
             result = _find_checklist_item(contract, "nonexistent")
@@ -163,6 +171,7 @@ class TestFindChecklistItem:
 
 # ── download_handler: _is_item_by_name ────────────────────────────
 
+
 class TestIsItemByName:
     def test_keyword_found(self):
         from apps.contracts.services.archive.generation.download_handler import _is_item_by_name
@@ -170,8 +179,10 @@ class TestIsItemByName:
         contract = MagicMock()
         contract.case_type = "litigation"
 
-        with patch("apps.contracts.services.archive.generation.download_handler.get_archive_category") as mock_cat, \
-             patch("apps.contracts.services.archive.generation.download_handler.ARCHIVE_CHECKLIST") as mock_checklist:
+        with (
+            patch("apps.contracts.services.archive.generation.download_handler.get_archive_category") as mock_cat,
+            patch("apps.contracts.services.archive.generation.download_handler.ARCHIVE_CHECKLIST") as mock_checklist,
+        ):
             mock_cat.return_value = "litigation"
             mock_checklist.get.return_value = [{"code": "lt_3", "name": "委托合同（收费确认单）"}]
             assert _is_item_by_name(contract, "lt_3", "收费") is True
@@ -182,14 +193,17 @@ class TestIsItemByName:
         contract = MagicMock()
         contract.case_type = "litigation"
 
-        with patch("apps.contracts.services.archive.generation.download_handler.get_archive_category") as mock_cat, \
-             patch("apps.contracts.services.archive.generation.download_handler.ARCHIVE_CHECKLIST") as mock_checklist:
+        with (
+            patch("apps.contracts.services.archive.generation.download_handler.get_archive_category") as mock_cat,
+            patch("apps.contracts.services.archive.generation.download_handler.ARCHIVE_CHECKLIST") as mock_checklist,
+        ):
             mock_cat.return_value = "litigation"
             mock_checklist.get.return_value = [{"code": "lt_3", "name": "委托合同"}]
             assert _is_item_by_name(contract, "lt_3", "收费") is False
 
 
 # ── download_handler: _read_material_file ─────────────────────────
+
 
 class TestReadMaterialFile:
     def _media(self, tmp_path: Path) -> Path:
@@ -310,6 +324,7 @@ class TestReadMaterialFile:
 
 # ── download_handler: _apply_subitem_sort ─────────────────────────
 
+
 class TestApplySubitemSort:
     def test_no_keywords(self):
         from apps.contracts.services.archive.generation.download_handler import _apply_subitem_sort
@@ -324,7 +339,10 @@ class TestApplySubitemSort:
     def test_single_material(self):
         from apps.contracts.services.archive.generation.download_handler import _apply_subitem_sort
 
-        with patch("apps.contracts.services.archive.generation.download_handler.ARCHIVE_SUBITEM_ORDER_RULES", {"lt_3": ["授权", "收费"]}):
+        with patch(
+            "apps.contracts.services.archive.generation.download_handler.ARCHIVE_SUBITEM_ORDER_RULES",
+            {"lt_3": ["授权", "收费"]},
+        ):
             m1 = MagicMock()
             m1.order = 0
             m1.original_filename = "授权委托书.pdf"
@@ -334,7 +352,10 @@ class TestApplySubitemSort:
     def test_all_ordered(self):
         from apps.contracts.services.archive.generation.download_handler import _apply_subitem_sort
 
-        with patch("apps.contracts.services.archive.generation.download_handler.ARCHIVE_SUBITEM_ORDER_RULES", {"lt_3": ["授权", "收费"]}):
+        with patch(
+            "apps.contracts.services.archive.generation.download_handler.ARCHIVE_SUBITEM_ORDER_RULES",
+            {"lt_3": ["授权", "收费"]},
+        ):
             m1 = MagicMock()
             m1.order = 1
             m1.original_filename = "file1.pdf"
@@ -347,7 +368,10 @@ class TestApplySubitemSort:
     def test_sorts_unordered_by_keyword(self):
         from apps.contracts.services.archive.generation.download_handler import _apply_subitem_sort
 
-        with patch("apps.contracts.services.archive.generation.download_handler.ARCHIVE_SUBITEM_ORDER_RULES", {"lt_3": ["授权", "收费"]}):
+        with patch(
+            "apps.contracts.services.archive.generation.download_handler.ARCHIVE_SUBITEM_ORDER_RULES",
+            {"lt_3": ["授权", "收费"]},
+        ):
             m1 = MagicMock()
             m1.order = 1
             m1.original_filename = "ordered.pdf"
@@ -365,6 +389,7 @@ class TestApplySubitemSort:
 
 
 # ── download_handler: download_archive_item ───────────────────────
+
 
 class TestDownloadArchiveItem:
     @patch("apps.contracts.services.archive.generation.download_handler._find_checklist_item")
@@ -395,6 +420,7 @@ class TestDownloadArchiveItem:
 
 # ── download_handler: _download_template_item ─────────────────────
 
+
 class TestDownloadTemplateItem:
     def test_generation_error(self):
         from apps.contracts.services.archive.generation.download_handler import _download_template_item
@@ -402,7 +428,9 @@ class TestDownloadTemplateItem:
         contract = MagicMock()
         item = {"code": "lt_1", "name": "test", "template": "engagement_letter"}
 
-        with patch("apps.contracts.services.archive.generation.download_handler.generate_single_archive_document") as mock_gen:
+        with patch(
+            "apps.contracts.services.archive.generation.download_handler.generate_single_archive_document"
+        ) as mock_gen:
             mock_gen.return_value = {"error": "生成失败"}
             result = _download_template_item(contract, "lt_1", item)
             assert "error" in result
@@ -413,7 +441,9 @@ class TestDownloadTemplateItem:
         contract = MagicMock()
         item = {"code": "lt_1", "name": "test", "template": "engagement_letter"}
 
-        with patch("apps.contracts.services.archive.generation.download_handler.generate_single_archive_document") as mock_gen:
+        with patch(
+            "apps.contracts.services.archive.generation.download_handler.generate_single_archive_document"
+        ) as mock_gen:
             mock_gen.return_value = {"content": b"docx-data", "filename": "test.docx"}
             result = _download_template_item(contract, "lt_1", item)
             assert result["content"] == b"docx-data"
@@ -425,13 +455,16 @@ class TestDownloadTemplateItem:
         contract = MagicMock()
         item = {"code": "lt_1", "name": "test", "template": "engagement_letter"}
 
-        with patch("apps.contracts.services.archive.generation.download_handler.generate_single_archive_document") as mock_gen:
+        with patch(
+            "apps.contracts.services.archive.generation.download_handler.generate_single_archive_document"
+        ) as mock_gen:
             mock_gen.return_value = {"content": None, "filename": ""}
             result = _download_template_item(contract, "lt_1", item)
             assert "error" in result
 
 
 # ── download_handler: _download_uploaded_item ─────────────────────
+
 
 class TestDownloadUploadedItem:
     @patch("apps.contracts.services.archive.generation.download_handler.FinalizedMaterial")
@@ -448,6 +481,7 @@ class TestDownloadUploadedItem:
 
 
 # ── folder_builder constants ──────────────────────────────────────
+
 
 class TestFolderBuilderConstants:
     def test_archive_catalog_codes(self):

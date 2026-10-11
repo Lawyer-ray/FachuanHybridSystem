@@ -266,9 +266,7 @@ class TestQueryTypeMetricValue:
 class TestLoadCases:
     def test_list_format(self) -> None:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump([
-                {"keyword": "test", "case_summary": "summary"}
-            ], f)
+            json.dump([{"keyword": "test", "case_summary": "summary"}], f)
             f.flush()
             cases = Command._load_cases(path=Path(f.name))
         assert len(cases) == 1
@@ -337,18 +335,23 @@ class TestEvaluateCase:
 
 class TestBuildQueryTypeMetrics:
     def test_empty(self) -> None:
-        result = Command._build_query_type_metrics(
-            query_type_stats={}, total_tp=0, total_cases=0, labeled_cases=0
-        )
+        result = Command._build_query_type_metrics(query_type_stats={}, total_tp=0, total_cases=0, labeled_cases=0)
         assert result == []
 
     def test_with_stats(self) -> None:
         stats = {
-            "primary": {"total_cases": 5, "labeled_cases": 3, "errors": 0, "tp": 2, "fp": 1, "fn": 1, "judged_count": 3, "unjudged_count": 0},
+            "primary": {
+                "total_cases": 5,
+                "labeled_cases": 3,
+                "errors": 0,
+                "tp": 2,
+                "fp": 1,
+                "fn": 1,
+                "judged_count": 3,
+                "unjudged_count": 0,
+            },
         }
-        result = Command._build_query_type_metrics(
-            query_type_stats=stats, total_tp=2, total_cases=5, labeled_cases=3
-        )
+        result = Command._build_query_type_metrics(query_type_stats=stats, total_tp=2, total_cases=5, labeled_cases=3)
         assert len(result) == 1
         assert result[0]["query_type"] == "primary"
         assert result[0]["contribution_rate"] == 1.0  # 2/2

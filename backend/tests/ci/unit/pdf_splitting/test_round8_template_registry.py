@@ -5,15 +5,14 @@ from __future__ import annotations
 import pytest
 
 from apps.pdf_splitting.models import PdfSplitSegmentType
+from apps.pdf_splitting.services.split.segment_detector import SegmentDetector
 from apps.pdf_splitting.services.template_registry import (
     SegmentTemplateRule,
     TemplateDefinition,
-    get_template_definition,
-    get_segment_label,
     get_default_filename,
+    get_segment_label,
+    get_template_definition,
 )
-from apps.pdf_splitting.services.split.segment_detector import SegmentDetector
-
 
 # ---------------------------------------------------------------------------
 # template_registry
@@ -74,21 +73,57 @@ class TestSegmentDetectorMergeAdjacentPackSegments:
 
     def test_non_adjacent(self):
         sd = SegmentDetector()
-        from apps.pdf_splitting.services.split.split_models import SegmentDraft
         from apps.pdf_splitting.models import PdfSplitSegmentType
+        from apps.pdf_splitting.services.split.split_models import SegmentDraft
 
-        d1 = SegmentDraft(order=0, page_start=1, page_end=2, segment_type=PdfSplitSegmentType.PARTY_IDENTITY, filename="a.pdf", confidence=0.9, source_method="pdf", review_flag="auto")
-        d2 = SegmentDraft(order=1, page_start=5, page_end=6, segment_type=PdfSplitSegmentType.PARTY_IDENTITY, filename="b.pdf", confidence=0.9, source_method="pdf", review_flag="auto")
+        d1 = SegmentDraft(
+            order=0,
+            page_start=1,
+            page_end=2,
+            segment_type=PdfSplitSegmentType.PARTY_IDENTITY,
+            filename="a.pdf",
+            confidence=0.9,
+            source_method="pdf",
+            review_flag="auto",
+        )
+        d2 = SegmentDraft(
+            order=1,
+            page_start=5,
+            page_end=6,
+            segment_type=PdfSplitSegmentType.PARTY_IDENTITY,
+            filename="b.pdf",
+            confidence=0.9,
+            source_method="pdf",
+            review_flag="auto",
+        )
         result = sd._merge_adjacent_pack_segments([d1, d2])
         assert len(result) == 2
 
     def test_adjacent_same_type(self):
         sd = SegmentDetector()
-        from apps.pdf_splitting.services.split.split_models import SegmentDraft
         from apps.pdf_splitting.models import PdfSplitSegmentType
+        from apps.pdf_splitting.services.split.split_models import SegmentDraft
 
-        d1 = SegmentDraft(order=0, page_start=1, page_end=2, segment_type=PdfSplitSegmentType.PARTY_IDENTITY, filename="a.pdf", confidence=0.9, source_method="pdf", review_flag="auto")
-        d2 = SegmentDraft(order=1, page_start=3, page_end=5, segment_type=PdfSplitSegmentType.PARTY_IDENTITY, filename="b.pdf", confidence=0.9, source_method="pdf", review_flag="auto")
+        d1 = SegmentDraft(
+            order=0,
+            page_start=1,
+            page_end=2,
+            segment_type=PdfSplitSegmentType.PARTY_IDENTITY,
+            filename="a.pdf",
+            confidence=0.9,
+            source_method="pdf",
+            review_flag="auto",
+        )
+        d2 = SegmentDraft(
+            order=1,
+            page_start=3,
+            page_end=5,
+            segment_type=PdfSplitSegmentType.PARTY_IDENTITY,
+            filename="b.pdf",
+            confidence=0.9,
+            source_method="pdf",
+            review_flag="auto",
+        )
         result = sd._merge_adjacent_pack_segments([d1, d2])
         assert len(result) == 1
         assert result[0].page_start == 1

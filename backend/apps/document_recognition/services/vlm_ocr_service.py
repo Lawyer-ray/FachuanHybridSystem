@@ -50,13 +50,6 @@ class VLMTranscriptionService:
         # 不读系统配置，避免构造期触发 DB 访问（无 django_db 标记的单测会被阻断）
         self._llm_service = llm_service
 
-    @staticmethod
-    def is_available() -> bool:
-        """视觉档开关：AI 平台配置了 vision_model 即启用。"""
-        from apps.core.llm.config import LLMConfig
-
-        return bool(LLMConfig.get_vision_model())
-
     def _get_llm_service(self) -> Any:
         if self._llm_service is None:
             from apps.core.interfaces import ServiceLocator
@@ -135,3 +128,11 @@ def _vision_model() -> str:
     from apps.core.llm.config import LLMConfig
 
     return LLMConfig.get_vision_model()
+
+
+# ↓↓ 由 VLMTranscriptionService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def is_available() -> bool:
+    """视觉档开关：AI 平台配置了 vision_model 即启用。"""
+    from apps.core.llm.config import LLMConfig
+
+    return bool(LLMConfig.get_vision_model())

@@ -21,6 +21,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.legal_research.services.sources.weike.document import _record_detail_event
 from apps.legal_research.services.sources.weike.types import WeikeCaseDetail, WeikeSearchItem, WeikeSession
 
 # ---------------------------------------------------------------------------
@@ -150,7 +151,7 @@ class TestRecordDetailEvent:
         session = _make_session(task_id="t-123")
         from apps.legal_research.services.sources.weike.document import WeikeDocumentMixin
 
-        WeikeDocumentMixin._record_detail_event(
+        _record_detail_event(
             session=session,
             interface_name="document_meta",
             method="GET",
@@ -172,7 +173,7 @@ class TestRecordDetailEvent:
         session = _make_session(task_id="t-456")
         from apps.legal_research.services.sources.weike.document import WeikeDocumentMixin
 
-        WeikeDocumentMixin._record_detail_event(
+        _record_detail_event(
             session=session,
             interface_name="dom_detail",
             method="GET",

@@ -24,6 +24,7 @@ from apps.image_rotation.api.image_rotation_api import (
     _get_rename_service,
     _get_rotation_service,
 )
+from apps.image_rotation.services.job_service import list_jobs
 
 # ── Constants ────────────────────────────────────────────────────
 
@@ -619,7 +620,7 @@ class TestListJobs:
             qs.count.return_value = 150
             qs.__getitem__.return_value = []
 
-            result = job_service.ImageRotationJobService.list_jobs(page=1, page_size=999)
+            result = job_service.list_jobs(page=1, page_size=999)
 
         assert result["page_size"] == 100
         assert result["total"] == 150

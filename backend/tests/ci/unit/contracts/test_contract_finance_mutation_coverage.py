@@ -2,6 +2,7 @@
 
 Covers: get_finance_summary, _normalize_json_payload, add_payments, mutation_service property.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -15,9 +16,7 @@ from apps.core.exceptions import NotFoundError, ValidationException
 
 class TestContractFinanceMutationGetFinanceSummary:
     def test_contract_not_found(self):
-        from apps.contracts.services.payment.contract_finance_mutation_service import (
-            ContractFinanceMutationService,
-        )
+        from apps.contracts.services.payment.contract_finance_mutation_service import ContractFinanceMutationService
 
         svc = ContractFinanceMutationService(
             get_contract_internal=MagicMock(),
@@ -30,9 +29,7 @@ class TestContractFinanceMutationGetFinanceSummary:
                 svc.get_finance_summary(contract_id=1)
 
     def test_contract_with_no_payments(self):
-        from apps.contracts.services.payment.contract_finance_mutation_service import (
-            ContractFinanceMutationService,
-        )
+        from apps.contracts.services.payment.contract_finance_mutation_service import ContractFinanceMutationService
 
         svc = ContractFinanceMutationService(
             get_contract_internal=MagicMock(),
@@ -59,9 +56,7 @@ class TestContractFinanceMutationGetFinanceSummary:
                 assert result["payment_count"] == 0
 
     def test_contract_no_fixed_amount(self):
-        from apps.contracts.services.payment.contract_finance_mutation_service import (
-            ContractFinanceMutationService,
-        )
+        from apps.contracts.services.payment.contract_finance_mutation_service import ContractFinanceMutationService
 
         svc = ContractFinanceMutationService(
             get_contract_internal=MagicMock(),
@@ -90,9 +85,7 @@ class TestContractFinanceMutationGetFinanceSummary:
 
 class TestContractFinanceMutationMutationServiceProperty:
     def test_raises_when_not_injected(self):
-        from apps.contracts.services.payment.contract_finance_mutation_service import (
-            ContractFinanceMutationService,
-        )
+        from apps.contracts.services.payment.contract_finance_mutation_service import ContractFinanceMutationService
 
         svc = ContractFinanceMutationService(
             get_contract_internal=MagicMock(),
@@ -103,9 +96,7 @@ class TestContractFinanceMutationMutationServiceProperty:
             _ = svc.mutation_service
 
     def test_returns_injected_service(self):
-        from apps.contracts.services.payment.contract_finance_mutation_service import (
-            ContractFinanceMutationService,
-        )
+        from apps.contracts.services.payment.contract_finance_mutation_service import ContractFinanceMutationService
 
         mock_mutation = MagicMock()
         svc = ContractFinanceMutationService(
@@ -119,9 +110,7 @@ class TestContractFinanceMutationMutationServiceProperty:
 
 class TestContractFinanceMutationNormalizeJson:
     def test_normalize_valid_dict(self):
-        from apps.contracts.services.payment.contract_finance_mutation_service import (
-            ContractFinanceMutationService,
-        )
+        from apps.contracts.services.payment.contract_finance_mutation_service import ContractFinanceMutationService
 
         svc = ContractFinanceMutationService(
             get_contract_internal=MagicMock(),
@@ -132,9 +121,7 @@ class TestContractFinanceMutationNormalizeJson:
         assert result == {"a": "b", "c": 123}
 
     def test_normalize_with_decimal(self):
-        from apps.contracts.services.payment.contract_finance_mutation_service import (
-            ContractFinanceMutationService,
-        )
+        from apps.contracts.services.payment.contract_finance_mutation_service import ContractFinanceMutationService
 
         svc = ContractFinanceMutationService(
             get_contract_internal=MagicMock(),
@@ -145,9 +132,7 @@ class TestContractFinanceMutationNormalizeJson:
         assert result["amount"] == "100.50"
 
     def test_normalize_with_non_serializable(self):
-        from apps.contracts.services.payment.contract_finance_mutation_service import (
-            ContractFinanceMutationService,
-        )
+        from apps.contracts.services.payment.contract_finance_mutation_service import ContractFinanceMutationService
 
         svc = ContractFinanceMutationService(
             get_contract_internal=MagicMock(),
@@ -163,9 +148,7 @@ class TestContractFinanceMutationNormalizeJson:
 
 class TestContractFinanceMutationAddPayments:
     def test_add_payments_creates(self):
-        from apps.contracts.services.payment.contract_finance_mutation_service import (
-            ContractFinanceMutationService,
-        )
+        from apps.contracts.services.payment.contract_finance_mutation_service import ContractFinanceMutationService
 
         mock_payment_svc = MagicMock()
         mock_payment = SimpleNamespace(id=1)
@@ -189,9 +172,7 @@ class TestContractFinanceMutationAddPayments:
             mock_add.assert_called_once()
 
     def test_add_payments_empty_list(self):
-        from apps.contracts.services.payment.contract_finance_mutation_service import (
-            ContractFinanceMutationService,
-        )
+        from apps.contracts.services.payment.contract_finance_mutation_service import ContractFinanceMutationService
 
         mock_payment_svc = MagicMock()
         svc = ContractFinanceMutationService(
@@ -207,9 +188,7 @@ class TestContractFinanceMutationAddPayments:
 
     def test_add_payments_payment_service_called(self):
         """Test that the payment service create_payment is called with correct params."""
-        from apps.contracts.services.payment.contract_finance_mutation_service import (
-            ContractFinanceMutationService,
-        )
+        from apps.contracts.services.payment.contract_finance_mutation_service import ContractFinanceMutationService
 
         mock_payment_svc = MagicMock()
         mock_payment = SimpleNamespace(id=2)
@@ -246,15 +225,17 @@ class TestContractFinanceMutationAddPayments:
             assert call_kwargs["invoiced_amount"] == Decimal("3000")
             assert call_kwargs["invoice_status"] == "invoiced"
         else:
-            result = raw_fn(svc, contract_id=1, payments_data=[
-                {"amount": "5000", "invoiced_amount": "3000", "invoice_status": "invoiced"},
-            ])
+            result = raw_fn(
+                svc,
+                contract_id=1,
+                payments_data=[
+                    {"amount": "5000", "invoiced_amount": "3000", "invoice_status": "invoiced"},
+                ],
+            )
             assert len(result) == 1
 
     def test_add_payments_no_received_at(self):
-        from apps.contracts.services.payment.contract_finance_mutation_service import (
-            ContractFinanceMutationService,
-        )
+        from apps.contracts.services.payment.contract_finance_mutation_service import ContractFinanceMutationService
 
         mock_payment_svc = MagicMock()
         mock_payment_svc.create_payment.return_value = SimpleNamespace(id=3)

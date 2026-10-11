@@ -1,4 +1,5 @@
 """OA 立案异常与常量单元测试。"""
+
 from __future__ import annotations
 
 import pytest

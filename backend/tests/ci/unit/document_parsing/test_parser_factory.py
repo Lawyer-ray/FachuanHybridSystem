@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from apps.document_parsing.services.parser_factory import ParserFactory
+from apps.document_parsing.services.parser_factory import ParserFactory, _resolve_auto_backend, create_parser
 
 
 def _fake_provider(
@@ -20,28 +20,28 @@ def _fake_provider(
 
 class TestCreateParser:
     def test_mineru_backend(self) -> None:
-        parser = ParserFactory.create_parser("mineru", api_key="test-key")  # pragma: allowlist secret
+        parser = create_parser("mineru", api_key="test-key")  # pragma: allowlist secret
         assert type(parser).__name__ == "MineruBackend"
 
     def test_mineru_with_timeout(self) -> None:
-        parser = ParserFactory.create_parser("mineru", api_key="test-key", timeout=60)  # pragma: allowlist secret
+        parser = create_parser("mineru", api_key="test-key", timeout=60)  # pragma: allowlist secret
         assert parser.timeout == 60
 
     def test_textin_backend(self) -> None:
-        parser = ParserFactory.create_parser("textin", app_id="a", secret_code="s")  # pragma: allowlist secret
+        parser = create_parser("textin", app_id="a", secret_code="s")  # pragma: allowlist secret
         assert type(parser).__name__ == "TextinBackend"
 
     def test_textin_with_timeout(self) -> None:
-        parser = ParserFactory.create_parser("textin", app_id="a", secret_code="s", timeout=60)  # pragma: allowlist secret
+        parser = create_parser("textin", app_id="a", secret_code="s", timeout=60)  # pragma: allowlist secret
         assert parser.timeout == 60
 
     def test_local_backend(self) -> None:
-        parser = ParserFactory.create_parser("local")
+        parser = create_parser("local")
         assert type(parser).__name__ == "LocalBackend"
 
     def test_unknown_backend_raises_value_error(self) -> None:
         with pytest.raises(ValueError, match="未知的后端类型"):
-            ParserFactory.create_parser("foobar")
+            create_parser("foobar")
 
 
 class TestAutoBackend:
@@ -52,7 +52,7 @@ class TestAutoBackend:
             "apps.document_parsing.services.parser_factory.ParseProviderService.get_providers",
             return_value=[],
         ):
-            parser = ParserFactory.create_parser("auto")
+            parser = create_parser("auto")
         assert type(parser).__name__ == "LocalBackend"
 
     def test_picks_highest_priority_provider(self) -> None:
@@ -64,7 +64,7 @@ class TestAutoBackend:
             "apps.document_parsing.services.parser_factory.ParseProviderService.get_providers",
             return_value=providers,
         ):
-            assert ParserFactory._resolve_auto_backend() == "textin"
+            assert _resolve_auto_backend() == "textin"
 
     def test_picks_mineru_when_only_mineru_enabled(self) -> None:
         providers = [_fake_provider(name="MinerU", provider_type="mineru", priority=10, pk=1)]
@@ -72,7 +72,7 @@ class TestAutoBackend:
             "apps.document_parsing.services.parser_factory.ParseProviderService.get_providers",
             return_value=providers,
         ):
-            assert ParserFactory._resolve_auto_backend() == "mineru"
+            assert _resolve_auto_backend() == "mineru"
 
     def test_auto_resolve_backend_mineru_priority(self) -> None:
         providers = [
@@ -83,4 +83,4 @@ class TestAutoBackend:
             "apps.document_parsing.services.parser_factory.ParseProviderService.get_providers",
             return_value=providers,
         ):
-            assert ParserFactory._resolve_auto_backend() == "textin"
+            assert _resolve_auto_backend() == "textin"

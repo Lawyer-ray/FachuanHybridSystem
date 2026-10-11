@@ -96,7 +96,9 @@ class TestCaseServiceAdapterQueryMethods:
     def test_search_cases_by_party(self, adapter: CaseServiceAdapter) -> None:
         adapter._internal_query = MagicMock()
         adapter.search_cases_by_party_internal(["A"], status="active")
-        adapter._internal_query.search_cases_by_party_internal.assert_called_once_with(party_names=["A"], status="active")
+        adapter._internal_query.search_cases_by_party_internal.assert_called_once_with(
+            party_names=["A"], status="active"
+        )
 
     def test_search_cases_by_case_number(self, adapter: CaseServiceAdapter) -> None:
         adapter._internal_query = MagicMock()
@@ -106,7 +108,9 @@ class TestCaseServiceAdapterQueryMethods:
     def test_list_cases_internal(self, adapter: CaseServiceAdapter) -> None:
         adapter._internal_query = MagicMock()
         adapter.list_cases_internal(status="active", limit=10)
-        adapter._internal_query.list_cases_internal.assert_called_once_with(status="active", limit=10, order_by="-start_date")
+        adapter._internal_query.list_cases_internal.assert_called_once_with(
+            status="active", limit=10, order_by="-start_date"
+        )
 
     def test_search_cases_internal(self, adapter: CaseServiceAdapter) -> None:
         adapter._internal_query = MagicMock()
@@ -142,7 +146,9 @@ class TestCaseServiceAdapterDetailMethods:
     def test_get_case_parties_by_legal_status(self, adapter: CaseServiceAdapter) -> None:
         adapter._party_query = MagicMock()
         adapter.get_case_parties_by_legal_status_internal(1, "plaintiff")
-        adapter._party_query.get_case_parties_by_legal_status_internal.assert_called_once_with(case_id=1, legal_status="plaintiff")
+        adapter._party_query.get_case_parties_by_legal_status_internal.assert_called_once_with(
+            case_id=1, legal_status="plaintiff"
+        )
 
     def test_get_case_parties_internal(self, adapter: CaseServiceAdapter) -> None:
         adapter._party_query = MagicMock()
@@ -157,7 +163,9 @@ class TestCaseServiceAdapterDetailMethods:
     def test_get_case_template_bindings_by_name_internal(self, adapter: CaseServiceAdapter) -> None:
         adapter._template_binding_query = MagicMock()
         adapter.get_case_template_bindings_by_name_internal(1, "template_name")
-        adapter._template_binding_query.get_case_template_bindings_by_name_internal.assert_called_once_with(case_id=1, template_name="template_name")
+        adapter._template_binding_query.get_case_template_bindings_by_name_internal.assert_called_once_with(
+            case_id=1, template_name="template_name"
+        )
 
 
 class TestCaseServiceAdapterMutations:
@@ -194,17 +202,23 @@ class TestCaseServiceAdapterMutations:
     def test_add_case_log_attachment_internal(self, adapter: CaseServiceAdapter) -> None:
         adapter._log_internal = MagicMock()
         adapter.add_case_log_attachment_internal(1, "/path", "name.pdf")
-        adapter._log_internal.add_case_log_attachment_internal.assert_called_once_with(case_log_id=1, file_path="/path", file_name="name.pdf")
+        adapter._log_internal.add_case_log_attachment_internal.assert_called_once_with(
+            case_log_id=1, file_path="/path", file_name="name.pdf"
+        )
 
     def test_add_case_number_internal(self, adapter: CaseServiceAdapter) -> None:
         adapter._number_internal = MagicMock()
         adapter.add_case_number_internal(1, "2024-CA-123", user_id=10)
-        adapter._number_internal.add_case_number_internal.assert_called_once_with(case_id=1, case_number="2024-CA-123", user_id=10)
+        adapter._number_internal.add_case_number_internal.assert_called_once_with(
+            case_id=1, case_number="2024-CA-123", user_id=10
+        )
 
     def test_update_case_log_reminder_internal(self, adapter: CaseServiceAdapter) -> None:
         adapter._log_internal = MagicMock()
         adapter.update_case_log_reminder_internal(1, "2024-01-01", "reminder")
-        adapter._log_internal.update_case_log_reminder_internal.assert_called_once_with(case_log_id=1, reminder_time="2024-01-01", reminder_type="reminder")
+        adapter._log_internal.update_case_log_reminder_internal.assert_called_once_with(
+            case_log_id=1, reminder_time="2024-01-01", reminder_type="reminder"
+        )
 
     def test_create_case_party(self, adapter: CaseServiceAdapter) -> None:
         with patch("apps.cases.services.party.case_party_mutation_service.CasePartyMutationService") as mock_svc:

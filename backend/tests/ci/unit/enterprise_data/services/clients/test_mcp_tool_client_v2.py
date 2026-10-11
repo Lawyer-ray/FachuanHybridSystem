@@ -9,7 +9,15 @@ import httpx2 as httpx
 import pytest
 
 from apps.core.exceptions import AuthenticationError, ExternalServiceError, ValidationException
-from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
+from apps.enterprise_data.services.clients.mcp_tool_client import (
+    McpToolClient,
+    _collect_related_exceptions,
+    _contains_auth_token,
+    _flatten_error_payload_text,
+    _is_auth_like_http_error,
+    _serialize_content_item,
+    _try_parse_json,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -323,13 +331,13 @@ class TestExtractPayload:
 
 class TestTryParseJson:
     def test_valid_json(self) -> None:
-        assert McpToolClient._try_parse_json('{"a": 1}') == {"a": 1}
+        assert _try_parse_json('{"a": 1}') == {"a": 1}
 
     def test_invalid_json(self) -> None:
-        assert McpToolClient._try_parse_json("not json") is None
+        assert _try_parse_json("not json") is None
 
     def test_none_input(self) -> None:
-        assert McpToolClient._try_parse_json(None) is None  # type: ignore[arg-type]
+        assert _try_parse_json(None) is None  # type: ignore[arg-type]
 
 
 # ===========================================================================
@@ -341,11 +349,11 @@ class TestSerializeContentItem:
     def test_model_dump(self) -> None:
         item = MagicMock()
         item.model_dump.return_value = {"type": "text", "text": "hi"}
-        assert McpToolClient._serialize_content_item(item) == {"type": "text", "text": "hi"}
+        assert _serialize_content_item(item) == {"type": "text", "text": "hi"}
 
     def test_plain_object(self) -> None:
         item = "plain-string"
-        assert McpToolClient._serialize_content_item(item) == {"value": "plain-string"}
+        assert _serialize_content_item(item) == {"value": "plain-string"}
 
 
 # ===========================================================================
@@ -358,7 +366,7 @@ class TestIsAuthLikeHttpError:
         resp = MagicMock(spec=httpx.Response)
         resp.status_code = 401
         exc = httpx.HTTPStatusError("401", request=MagicMock(), response=resp)
-        assert McpToolClient._is_auth_like_http_error(exc) is True
+        assert _is_auth_like_http_error(exc) is True
 
     def test_403(self) -> None:
         resp = MagicMock(spec=httpx.Response)
@@ -366,7 +374,7 @@ class TestIsAuthLikeHttpError:
         resp.text = ""
         resp.json.return_value = {}
         exc = httpx.HTTPStatusError("403", request=MagicMock(), response=resp)
-        assert McpToolClient._is_auth_like_http_error(exc) is True
+        assert _is_auth_like_http_error(exc) is True
 
     def test_400_with_auth_token_in_text(self) -> None:
         resp = MagicMock(spec=httpx.Response)
@@ -374,7 +382,7 @@ class TestIsAuthLikeHttpError:
         resp.text = '{"error": "invalid api key"}'
         resp.json.return_value = {"error": "invalid api key"}
         exc = httpx.HTTPStatusError("400", request=MagicMock(), response=resp)
-        assert McpToolClient._is_auth_like_http_error(exc) is True
+        assert _is_auth_like_http_error(exc) is True
 
     def test_400_no_auth_signal(self) -> None:
         resp = MagicMock(spec=httpx.Response)
@@ -382,7 +390,7 @@ class TestIsAuthLikeHttpError:
         resp.text = '{"error": "bad request"}'
         resp.json.return_value = {"error": "bad request"}
         exc = httpx.HTTPStatusError("400", request=MagicMock(), response=resp)
-        assert McpToolClient._is_auth_like_http_error(exc) is False
+        assert _is_auth_like_http_error(exc) is False
 
 
 # ===========================================================================
@@ -392,14 +400,14 @@ class TestIsAuthLikeHttpError:
 
 class TestContainsAuthToken:
     def test_known_tokens(self) -> None:
-        assert McpToolClient._contains_auth_token("authentication error") is True
-        assert McpToolClient._contains_auth_token("unauthorized access") is True
-        assert McpToolClient._contains_auth_token("invalid api key") is True
-        assert McpToolClient._contains_auth_token("token expired") is True
+        assert _contains_auth_token("authentication error") is True
+        assert _contains_auth_token("unauthorized access") is True
+        assert _contains_auth_token("invalid api key") is True
+        assert _contains_auth_token("token expired") is True
 
     def test_no_match(self) -> None:
-        assert McpToolClient._contains_auth_token("connection timeout") is False
-        assert McpToolClient._contains_auth_token("") is False
+        assert _contains_auth_token("connection timeout") is False
+        assert _contains_auth_token("") is False
 
 
 # ===========================================================================
@@ -410,18 +418,18 @@ class TestContainsAuthToken:
 class TestFlattenErrorPayloadText:
     def test_nested_dict(self) -> None:
         payload = {"error": {"message": "Auth Error", "code": 401}}
-        text = McpToolClient._flatten_error_payload_text(payload)
+        text = _flatten_error_payload_text(payload)
         assert "auth error" in text
         assert "401" in text
 
     def test_list(self) -> None:
         payload = [{"msg": "a"}, {"msg": "b"}]
-        text = McpToolClient._flatten_error_payload_text(payload)
+        text = _flatten_error_payload_text(payload)
         assert "a" in text
         assert "b" in text
 
     def test_none_value(self) -> None:
-        assert McpToolClient._flatten_error_payload_text(None) == ""
+        assert _flatten_error_payload_text(None) == ""
 
 
 # ===========================================================================
@@ -432,14 +440,14 @@ class TestFlattenErrorPayloadText:
 class TestCollectRelatedExceptions:
     def test_simple_exception(self) -> None:
         exc = ValueError("v")
-        collected = McpToolClient._collect_related_exceptions(exc)
+        collected = _collect_related_exceptions(exc)
         assert exc in collected
 
     def test_cause_chain(self) -> None:
         inner = ValueError("inner")
         outer = RuntimeError("outer")
         outer.__cause__ = inner
-        collected = McpToolClient._collect_related_exceptions(outer)
+        collected = _collect_related_exceptions(outer)
         assert inner in collected
         assert outer in collected
 
@@ -447,21 +455,21 @@ class TestCollectRelatedExceptions:
         ctx_exc = TypeError("ctx")
         main_exc = RuntimeError("main")
         main_exc.__context__ = ctx_exc
-        collected = McpToolClient._collect_related_exceptions(main_exc)
+        collected = _collect_related_exceptions(main_exc)
         assert ctx_exc in collected
 
     def test_exception_group(self) -> None:
         e1 = ValueError("a")
         e2 = TypeError("b")
         group = ExceptionGroup("grp", [e1, e2])
-        collected = McpToolClient._collect_related_exceptions(group)
+        collected = _collect_related_exceptions(group)
         assert e1 in collected
         assert e2 in collected
 
     def test_no_duplicates(self) -> None:
         exc = RuntimeError("dup")
         exc.__cause__ = exc  # circular
-        collected = McpToolClient._collect_related_exceptions(exc)
+        collected = _collect_related_exceptions(exc)
         assert collected.count(exc) == 1
 
 

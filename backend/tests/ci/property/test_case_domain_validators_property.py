@@ -2,15 +2,10 @@
 
 from __future__ import annotations
 
-from hypothesis import given, settings, assume
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from apps.cases.domain.validators import (
-    APPLICABLE_TYPES,
-    _allowed_stages,
-    is_applicable,
-    normalize_stages,
-)
+from apps.cases.domain.validators import APPLICABLE_TYPES, _allowed_stages, is_applicable, normalize_stages
 
 # All valid CaseType values (including non-applicable ones)
 ALL_CASE_TYPES = {"civil", "criminal", "administrative", "labor", "intl", "special", "advisor"}
@@ -27,6 +22,7 @@ _invalid_stage_strat = st.text(min_size=1, max_size=50).filter(lambda s: s not i
 # ---------------------------------------------------------------------------
 # is_applicable
 # ---------------------------------------------------------------------------
+
 
 @settings(max_examples=200, deadline=None)
 @given(case_type=_case_type_strat)
@@ -62,13 +58,15 @@ def test_is_applicable_unknown_types_false(case_type: str) -> None:
 # normalize_stages
 # ---------------------------------------------------------------------------
 
+
 @settings(max_examples=200, deadline=None)
 @given(
     stages=st.lists(_stage_strat, min_size=0, max_size=5),
     current=st.one_of(st.none(), _stage_strat),
 )
 def test_normalize_stages_valid_input_returns_subset_of_allowed(
-    stages: list[str], current: str | None,
+    stages: list[str],
+    current: str | None,
 ) -> None:
     """When input stages are all valid, output contains only allowed values."""
     # Ensure current is in stages if provided
@@ -102,7 +100,8 @@ def test_normalize_stages_idempotent(stages: list[str], current: str | None) -> 
     current=st.one_of(st.none(), st.just("")),
 )
 def test_normalize_stages_non_applicable_type_returns_empty(
-    stages: list[str] | None, current: str | None,
+    stages: list[str] | None,
+    current: str | None,
 ) -> None:
     """Non-applicable case types always return ([], None)."""
     rep, cur = normalize_stages("advisor", stages, current)

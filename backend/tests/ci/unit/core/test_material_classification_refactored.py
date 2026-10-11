@@ -4,36 +4,43 @@ from __future__ import annotations
 
 import pytest
 
-from apps.core.services.material_classification_service import MaterialClassificationService
+from apps.core.services.material_classification_service import (
+    MaterialClassificationService,
+    _extract_json,
+    _extract_party_ids_by_side,
+    _extract_primary_supervising_authority_id,
+    _extract_subfolder_hint,
+    _normalize_for_match,
+)
 
 
 class TestNormalizeForMatch:
     """Tests for _normalize_for_match static method."""
 
     def test_empty_string(self):
-        assert MaterialClassificationService._normalize_for_match("") == ""
+        assert _normalize_for_match("") == ""
 
     def test_none(self):
-        assert MaterialClassificationService._normalize_for_match(None) == ""
+        assert _normalize_for_match(None) == ""
 
     def test_whitespace_only(self):
-        assert MaterialClassificationService._normalize_for_match("   ") == ""
+        assert _normalize_for_match("   ") == ""
 
     def test_lowercase(self):
-        assert MaterialClassificationService._normalize_for_match("ABC") == "abc"
+        assert _normalize_for_match("ABC") == "abc"
 
     def test_backslash_normalized(self):
-        assert MaterialClassificationService._normalize_for_match("a\\b") == "a/b"
+        assert _normalize_for_match("a\\b") == "a/b"
 
     def test_spaces_removed(self):
-        assert MaterialClassificationService._normalize_for_match("a b c") == "abc"
+        assert _normalize_for_match("a b c") == "abc"
 
     def test_chinese_text(self):
-        result = MaterialClassificationService._normalize_for_match("合同纠纷")
+        result = _normalize_for_match("合同纠纷")
         assert result == "合同纠纷"
 
     def test_mixed_text(self):
-        result = MaterialClassificationService._normalize_for_match("合同 纠纷")
+        result = _normalize_for_match("合同 纠纷")
         assert result == "合同纠纷"
 
 
@@ -41,29 +48,29 @@ class TestExtractSubfolderHint:
     """Tests for _extract_subfolder_hint static method."""
 
     def test_empty_string(self):
-        assert MaterialClassificationService._extract_subfolder_hint("") == ""
+        assert _extract_subfolder_hint("") == ""
 
     def test_none(self):
-        assert MaterialClassificationService._extract_subfolder_hint(None) == ""
+        assert _extract_subfolder_hint(None) == ""
 
     def test_simple_name(self):
-        assert MaterialClassificationService._extract_subfolder_hint("立案材料") == "立案材料"
+        assert _extract_subfolder_hint("立案材料") == "立案材料"
 
     def test_number_prefix_removed(self):
-        assert MaterialClassificationService._extract_subfolder_hint("2-立案材料") == "立案材料"
+        assert _extract_subfolder_hint("2-立案材料") == "立案材料"
 
     def test_underscore_prefix_removed(self):
-        assert MaterialClassificationService._extract_subfolder_hint("3_执行依据") == "执行依据"
+        assert _extract_subfolder_hint("3_执行依据") == "执行依据"
 
     def test_dot_prefix_removed(self):
-        assert MaterialClassificationService._extract_subfolder_hint("1.证据材料") == "证据材料"
+        assert _extract_subfolder_hint("1.证据材料") == "证据材料"
 
     def test_multi_level_path(self):
-        result = MaterialClassificationService._extract_subfolder_hint("子目录A/子目录B")
+        result = _extract_subfolder_hint("子目录A/子目录B")
         assert result == "子目录B"
 
     def test_only_number(self):
-        result = MaterialClassificationService._extract_subfolder_hint("1")
+        result = _extract_subfolder_hint("1")
         assert result == "1"
 
 
@@ -71,34 +78,34 @@ class TestExtractJson:
     """Tests for _extract_json static method."""
 
     def test_empty_string(self):
-        assert MaterialClassificationService._extract_json("") is None
+        assert _extract_json("") is None
 
     def test_none(self):
-        assert MaterialClassificationService._extract_json(None) is None
+        assert _extract_json(None) is None
 
     def test_valid_json(self):
-        result = MaterialClassificationService._extract_json('{"key": "value"}')
+        result = _extract_json('{"key": "value"}')
         assert result == {"key": "value"}
 
     def test_json_with_surrounding_text(self):
-        result = MaterialClassificationService._extract_json('Some text {"key": "value"} more text')
+        result = _extract_json('Some text {"key": "value"} more text')
         assert result == {"key": "value"}
 
     def test_fenced_json(self):
         content = '```json\n{"key": "value"}\n```'
-        result = MaterialClassificationService._extract_json(content)
+        result = _extract_json(content)
         assert result == {"key": "value"}
 
     def test_fenced_without_json_tag(self):
         content = '```\n{"key": "value"}\n```'
-        result = MaterialClassificationService._extract_json(content)
+        result = _extract_json(content)
         assert result == {"key": "value"}
 
     def test_invalid_json(self):
-        assert MaterialClassificationService._extract_json("not json") is None
+        assert _extract_json("not json") is None
 
     def test_non_dict_json(self):
-        assert MaterialClassificationService._extract_json("[1, 2, 3]") is None
+        assert _extract_json("[1, 2, 3]") is None
 
 
 class TestToConfidence:
@@ -139,31 +146,31 @@ class TestExtractPartyIdsBySide:
     """Tests for _extract_party_ids_by_side static method."""
 
     def test_empty_context(self):
-        assert MaterialClassificationService._extract_party_ids_by_side(side="our", context={}) == []
+        assert _extract_party_ids_by_side(side="our", context={}) == []
 
     def test_our_side(self):
         context = {"our_party_ids": [1, 2, 3]}
-        result = MaterialClassificationService._extract_party_ids_by_side(side="our", context=context)
+        result = _extract_party_ids_by_side(side="our", context=context)
         assert result == [1, 2, 3]
 
     def test_opponent_side(self):
         context = {"opponent_party_ids": [4, 5]}
-        result = MaterialClassificationService._extract_party_ids_by_side(side="opponent", context=context)
+        result = _extract_party_ids_by_side(side="opponent", context=context)
         assert result == [4, 5]
 
     def test_invalid_ids_filtered(self):
         context = {"our_party_ids": [1, "abc", -1, 0, 2]}
-        result = MaterialClassificationService._extract_party_ids_by_side(side="our", context=context)
+        result = _extract_party_ids_by_side(side="our", context=context)
         assert result == [1, 2]
 
     def test_duplicates_removed(self):
         context = {"our_party_ids": [1, 2, 1, 2]}
-        result = MaterialClassificationService._extract_party_ids_by_side(side="our", context=context)
+        result = _extract_party_ids_by_side(side="our", context=context)
         assert result == [1, 2]
 
     def test_non_list_returns_empty(self):
         context = {"our_party_ids": "not a list"}
-        assert MaterialClassificationService._extract_party_ids_by_side(side="our", context=context) == []
+        assert _extract_party_ids_by_side(side="our", context=context) == []
 
 
 class TestExtractPrimarySupervisingAuthorityId:
@@ -171,22 +178,22 @@ class TestExtractPrimarySupervisingAuthorityId:
 
     def test_valid_id(self):
         context = {"primary_supervising_authority_id": 42}
-        assert MaterialClassificationService._extract_primary_supervising_authority_id(context) == 42
+        assert _extract_primary_supervising_authority_id(context) == 42
 
     def test_none(self):
-        assert MaterialClassificationService._extract_primary_supervising_authority_id({}) is None
+        assert _extract_primary_supervising_authority_id({}) is None
 
     def test_invalid_value(self):
         context = {"primary_supervising_authority_id": "abc"}
-        assert MaterialClassificationService._extract_primary_supervising_authority_id(context) is None
+        assert _extract_primary_supervising_authority_id(context) is None
 
     def test_negative_value(self):
         context = {"primary_supervising_authority_id": -1}
-        assert MaterialClassificationService._extract_primary_supervising_authority_id(context) is None
+        assert _extract_primary_supervising_authority_id(context) is None
 
     def test_zero(self):
         context = {"primary_supervising_authority_id": 0}
-        assert MaterialClassificationService._extract_primary_supervising_authority_id(context) is None
+        assert _extract_primary_supervising_authority_id(context) is None
 
 
 class TestParseWorkLogFromFolderName:

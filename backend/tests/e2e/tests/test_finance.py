@@ -12,10 +12,10 @@ Django Admin E2E 测试 — 金融工具
 import pytest
 from playwright.sync_api import Page, expect
 
-
 # ------------------------------------------------------------------
 # 1. LPR 利率列表
 # ------------------------------------------------------------------
+
 
 @pytest.mark.smoke
 def test_lpr_rate_list(admin_page: Page, base_url: str) -> None:
@@ -30,6 +30,7 @@ def test_lpr_rate_list(admin_page: Page, base_url: str) -> None:
 # 2. LPR 计算器页面
 # ------------------------------------------------------------------
 
+
 @pytest.mark.smoke
 def test_lpr_calculator_page(admin_page: Page, base_url: str) -> None:
     """访问 LPR 计算器页面，验证页面正常加载。"""
@@ -42,6 +43,7 @@ def test_lpr_calculator_page(admin_page: Page, base_url: str) -> None:
 # ------------------------------------------------------------------
 # 3. LPR 计算器表单
 # ------------------------------------------------------------------
+
 
 def test_lpr_calculator_has_form(admin_page: Page, base_url: str) -> None:
     """验证 LPR 计算器页面包含输入字段（本金、日期范围等）。"""

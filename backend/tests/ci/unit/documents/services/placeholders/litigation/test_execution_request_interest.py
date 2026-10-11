@@ -677,7 +677,9 @@ class TestCalculateInterestWithSegments:
         calc_result = MagicMock()
         calc_result.total_interest = Decimal("0")
         calculator.calculate_with_principal_changes.return_value = calc_result
-        segments = [InterestSegment(base_amount=Decimal("100000"), start_date=date(2021, 1, 1), end_date=date(2020, 1, 1))]
+        segments = [
+            InterestSegment(base_amount=Decimal("100000"), start_date=date(2021, 1, 1), end_date=date(2020, 1, 1))
+        ]
         params = ParsedInterestParams(multiplier=Decimal("1"))
         result = calculate_interest_with_segments(
             calculator=calculator,

@@ -4,6 +4,7 @@ Covers: EvidenceList and EvidenceItem model properties, MergeStatus, ListType,
 end_page, page_range_display, order_range_display, item page_range_display,
 file_size_display branches, factory functions.
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, PropertyMock, patch
@@ -14,9 +15,11 @@ import pytest
 # Choice enums
 # ---------------------------------------------------------------------------
 
+
 class TestMergeStatusChoices:
     def test_choices(self):
         from apps.evidence.models.evidence import MergeStatus
+
         assert MergeStatus.PENDING == "pending"
         assert MergeStatus.PROCESSING == "processing"
         assert MergeStatus.COMPLETED == "completed"
@@ -27,6 +30,7 @@ class TestMergeStatusChoices:
 class TestListTypeChoices:
     def test_choices(self):
         from apps.evidence.models.evidence import ListType
+
         assert ListType.LIST_1 == "list_1"
         assert ListType.LIST_6 == "list_6"
         assert len(ListType.choices) == 6
@@ -35,6 +39,7 @@ class TestListTypeChoices:
 class TestListTypeOrderAndPrevious:
     def test_order_dict_complete(self):
         from apps.evidence.models.evidence import LIST_TYPE_ORDER, ListType
+
         for lt in ListType:
             assert lt in LIST_TYPE_ORDER
         assert LIST_TYPE_ORDER[ListType.LIST_1] == 1
@@ -42,6 +47,7 @@ class TestListTypeOrderAndPrevious:
 
     def test_previous_dict_chain(self):
         from apps.evidence.models.evidence import LIST_TYPE_PREVIOUS, ListType
+
         assert LIST_TYPE_PREVIOUS[ListType.LIST_1] is None
         assert LIST_TYPE_PREVIOUS[ListType.LIST_2] == ListType.LIST_1
         assert LIST_TYPE_PREVIOUS[ListType.LIST_6] == ListType.LIST_5
@@ -55,6 +61,7 @@ class TestListTypeOrderAndPrevious:
 def _make_evidence_list():
     """Build an EvidenceList instance without DB."""
     from apps.evidence.models.evidence import EvidenceList
+
     obj = EvidenceList.__new__(EvidenceList)
     obj.total_pages = 0
     obj.item_count = None
@@ -64,13 +71,13 @@ def _make_evidence_list():
 class TestEvidenceListEndPage:
     def test_zero_pages(self):
         el = _make_evidence_list()
-        with patch.object(type(el), 'start_page', new_callable=PropertyMock, return_value=1):
+        with patch.object(type(el), "start_page", new_callable=PropertyMock, return_value=1):
             assert el.end_page == 1
 
     def test_positive_pages(self):
         el = _make_evidence_list()
         el.total_pages = 5
-        with patch.object(type(el), 'start_page', new_callable=PropertyMock, return_value=3):
+        with patch.object(type(el), "start_page", new_callable=PropertyMock, return_value=3):
             assert el.end_page == 7
 
 
@@ -83,7 +90,7 @@ class TestEvidenceListPageRangeDisplay:
     def test_positive_pages(self):
         el = _make_evidence_list()
         el.total_pages = 3
-        with patch.object(type(el), 'start_page', new_callable=PropertyMock, return_value=2):
+        with patch.object(type(el), "start_page", new_callable=PropertyMock, return_value=2):
             assert el.page_range_display == "2-4"
 
 
@@ -91,29 +98,29 @@ class TestEvidenceListOrderRangeDisplay:
     def test_zero_items_with_item_count(self):
         el = _make_evidence_list()
         el.item_count = 0
-        with patch.object(type(el), 'start_order', new_callable=PropertyMock, return_value=1):
+        with patch.object(type(el), "start_order", new_callable=PropertyMock, return_value=1):
             assert el.order_range_display == "-"
 
     def test_no_item_count_attr_uses_items_count(self):
         el = _make_evidence_list()
-        if hasattr(el, 'item_count'):
+        if hasattr(el, "item_count"):
             del el.item_count
         mock_items = MagicMock()
         mock_items.count.return_value = 3
         type(el).items = mock_items  # type: ignore[assignment]
-        with patch.object(type(el), 'start_order', new_callable=PropertyMock, return_value=2):
+        with patch.object(type(el), "start_order", new_callable=PropertyMock, return_value=2):
             assert el.order_range_display == "2-4"
 
     def test_single_item(self):
         el = _make_evidence_list()
         el.item_count = 1
-        with patch.object(type(el), 'start_order', new_callable=PropertyMock, return_value=5):
+        with patch.object(type(el), "start_order", new_callable=PropertyMock, return_value=5):
             assert el.order_range_display == "5"
 
     def test_multiple_items(self):
         el = _make_evidence_list()
         el.item_count = 3
-        with patch.object(type(el), 'start_order', new_callable=PropertyMock, return_value=2):
+        with patch.object(type(el), "start_order", new_callable=PropertyMock, return_value=2):
             assert el.order_range_display == "2-4"
 
     def test_item_count_is_none_fallback(self):
@@ -122,7 +129,7 @@ class TestEvidenceListOrderRangeDisplay:
         mock_items = MagicMock()
         mock_items.count.return_value = 2
         type(el).items = mock_items  # type: ignore[assignment]
-        with patch.object(type(el), 'start_order', new_callable=PropertyMock, return_value=1):
+        with patch.object(type(el), "start_order", new_callable=PropertyMock, return_value=1):
             assert el.order_range_display == "1-2"
 
 
@@ -143,6 +150,7 @@ class TestEvidenceListStr:
 
 def _make_evidence_item():
     from apps.evidence.models.evidence import EvidenceItem
+
     obj = EvidenceItem.__new__(EvidenceItem)
     return obj
 
@@ -232,13 +240,15 @@ class TestEvidenceItemStr:
 class TestGetEvidenceService:
     def test_returns_service_instance(self):
         from apps.evidence.models.evidence import _get_evidence_service
+
         svc = _get_evidence_service()
         assert svc is not None
-        assert hasattr(svc, 'calculate_start_order')
+        assert hasattr(svc, "calculate_start_order")
 
 
 class TestGetEvidenceStorage:
     def test_returns_storage(self):
         from apps.evidence.models.evidence import _get_evidence_storage
+
         storage = _get_evidence_storage()
         assert storage is not None

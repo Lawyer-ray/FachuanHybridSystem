@@ -49,7 +49,7 @@ class TestParseJsonObject:
 
     def test_not_dict_raises(self) -> None:
         with pytest.raises(RuntimeError, match="格式异常"):
-            parse_json_object('[1, 2, 3]')
+            parse_json_object("[1, 2, 3]")
 
     def test_invalid_json_raises(self) -> None:
         with pytest.raises(json.JSONDecodeError):

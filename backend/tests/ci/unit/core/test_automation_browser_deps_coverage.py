@@ -36,13 +36,9 @@ class TestCreateCourtZxfwService:
             "apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService",
             mock_cls,
         ):
-            result = create_court_zxfw_service(
-                page=mock_page, context=mock_context, site_name="custom_site"
-            )
+            result = create_court_zxfw_service(page=mock_page, context=mock_context, site_name="custom_site")
 
-        mock_cls.assert_called_once_with(
-            page=mock_page, context=mock_context, site_name="custom_site"
-        )
+        mock_cls.assert_called_once_with(page=mock_page, context=mock_context, site_name="custom_site")
         assert result is mock_instance
 
     def test_default_site_name(self) -> None:
@@ -59,9 +55,7 @@ class TestCreateCourtZxfwService:
         ):
             create_court_zxfw_service(page=mock_page, context=mock_context)
 
-        mock_cls.assert_called_once_with(
-            page=mock_page, context=mock_context, site_name="court_zxfw"
-        )
+        mock_cls.assert_called_once_with(page=mock_page, context=mock_context, site_name="court_zxfw")
 
     def test_returns_service_instance(self) -> None:
         """返回值应为 CourtZxfwService 实例。"""

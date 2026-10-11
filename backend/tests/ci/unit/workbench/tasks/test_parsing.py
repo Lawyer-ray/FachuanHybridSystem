@@ -1,4 +1,5 @@
 """Tests for workbench.tasks.parsing - chunk_text, build_case_info, merge_chunk_results."""
+
 from __future__ import annotations
 
 import json
@@ -6,12 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.workbench.tasks.parsing import (
-    build_case_info,
-    chunk_text,
-    merge_chunk_results,
-    parse_llm_result,
-)
+from apps.workbench.tasks.parsing import build_case_info, chunk_text, merge_chunk_results, parse_llm_result
 
 
 class TestChunkText:
@@ -99,14 +95,14 @@ class TestParseLlmResult:
     def test_json_parse_fallback_to_regex(self, mock_parse) -> None:
         mock_parse.side_effect = Exception("parse error")
 
-        text = '''这里是分析正文内容。
+        text = """这里是分析正文内容。
 
 【案例元数据汇总】
 案号：(2024)京0101民初123号
 案由：买卖合同纠纷
 审理法院：北京市东城区人民法院
 与研究问题相关：是
-'''
+"""
         result = parse_llm_result(text, "test.pdf")
         assert result["parse_method"] == "regex"
         assert "123" in result["case_number"]
@@ -125,12 +121,12 @@ class TestParseLlmResult:
     def test_regex_conclusion_match(self, mock_parse) -> None:
         mock_parse.side_effect = Exception("parse error")
 
-        text = '''## 针对研究问题的结论
+        text = """## 针对研究问题的结论
 本案原告胜诉。
 
 【案例元数据汇总】
 案号：(2024)京0101民初123号
-'''
+"""
         result = parse_llm_result(text, "test.pdf")
         assert result["parse_method"] == "regex"
         assert "原告胜诉" in result["conclusion"]

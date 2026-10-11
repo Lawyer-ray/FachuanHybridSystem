@@ -6,14 +6,13 @@ import json
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
+from apps.core.api.schemas import DisplayLabelMixin, FileFieldMixin, SchemaMixin, TimestampMixin
 from apps.document_recognition.services._response_parser_mixin import ResponseParserMixin
-from apps.core.api.schemas import TimestampMixin, DisplayLabelMixin, FileFieldMixin, SchemaMixin
-from apps.enterprise_data.services.provider_registry import EnterpriseProviderRegistry
-
+from apps.enterprise_data.services.provider_registry import EnterpriseProviderRegistry, _split_secret_values
 
 # ---------------------------------------------------------------------------
 # ResponseParserMixin
@@ -30,7 +29,9 @@ class TestResponseParserMixin:
         self.parser = ConcreteParser()
 
     def test_parse_summons_response_valid(self):
-        response = {"message": {"content": json.dumps({"case_number": "(2024)粤0605号", "court_time": "2024-12-01 09:00"})}}
+        response = {
+            "message": {"content": json.dumps({"case_number": "(2024)粤0605号", "court_time": "2024-12-01 09:00"})}
+        }
         result = self.parser._parse_summons_response(response)
         assert result["case_number"] == "(2024)粤0605号"
         assert result["court_time"] == datetime(2024, 12, 1, 9, 0)
@@ -51,7 +52,9 @@ class TestResponseParserMixin:
         assert result["case_number"] is None
 
     def test_parse_execution_response_valid(self):
-        response = {"message": {"content": json.dumps({"case_number": "(2024)粤0605号", "preservation_deadline": "2024-12-31"})}}
+        response = {
+            "message": {"content": json.dumps({"case_number": "(2024)粤0605号", "preservation_deadline": "2024-12-31"})}
+        }
         result = self.parser._parse_execution_response(response)
         assert result["case_number"] == "(2024)粤0605号"
         assert result["preservation_deadline"] == datetime(2024, 12, 31)
@@ -88,7 +91,7 @@ class TestResponseParserMixin:
         assert result is None
 
     def test_extract_json_from_response_malformed_json(self):
-        content = '```json\n{broken\n```'
+        content = "```json\n{broken\n```"
         result = self.parser._extract_json_from_response(content)
         assert result is None
 
@@ -260,19 +263,19 @@ class TestEnterpriseProviderRegistry:
         assert registry.get_alert_avg_latency_ms_threshold() == 3000
 
     def test_split_secret_values_empty(self):
-        assert EnterpriseProviderRegistry._split_secret_values("") == ()
-        assert EnterpriseProviderRegistry._split_secret_values(None) == ()  # type: ignore[arg-type]
+        assert _split_secret_values("") == ()
+        assert _split_secret_values(None) == ()  # type: ignore[arg-type]
 
     def test_split_secret_values_single(self):
-        result = EnterpriseProviderRegistry._split_secret_values("key123")
+        result = _split_secret_values("key123")
         assert result == ("key123",)
 
     def test_split_secret_values_multi(self):
-        result = EnterpriseProviderRegistry._split_secret_values("key1,key2\nkey3")
+        result = _split_secret_values("key1,key2\nkey3")
         assert result == ("key1", "key2", "key3")
 
     def test_split_secret_values_dedup(self):
-        result = EnterpriseProviderRegistry._split_secret_values("key1,key1,key2")
+        result = _split_secret_values("key1,key1,key2")
         assert result == ("key1", "key2")
 
     def test_read_sensitive_str_error(self):

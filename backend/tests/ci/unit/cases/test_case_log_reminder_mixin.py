@@ -6,6 +6,7 @@ default values that were never provided by the caller.
 
 Fix: Snapshot model_fields_set before assignments and restore after.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timezone

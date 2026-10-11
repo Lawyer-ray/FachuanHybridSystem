@@ -247,31 +247,23 @@ class TestExtractManualReviewClauses:
 class TestExtractOriginalSegmentedInterestExpression:
     def test_match_segmented(self) -> None:
         text = "逾期利息（以100万元为基数自2020年1月1日起，以50万元为本金自2021年1月1日起，计算至付清之日止）"
-        result = extract_original_segmented_interest_expression(
-            main_text=text, overdue_label="逾期利息"
-        )
+        result = extract_original_segmented_interest_expression(main_text=text, overdue_label="逾期利息")
         assert "为基数" in result
         assert "为本金" in result
 
     def test_no_label(self) -> None:
         text = "以100万元为基数"
-        result = extract_original_segmented_interest_expression(
-            main_text=text, overdue_label=""
-        )
+        result = extract_original_segmented_interest_expression(main_text=text, overdue_label="")
         assert result == ""
 
     def test_insufficient_base_count(self) -> None:
         text = "利息（以100万元为基数计算至付清之日）"
-        result = extract_original_segmented_interest_expression(
-            main_text=text, overdue_label="利息"
-        )
+        result = extract_original_segmented_interest_expression(main_text=text, overdue_label="利息")
         assert result == ""
 
     def test_no_keyword(self) -> None:
         text = "利息（以100万元为基数，以50万元为本金）"
-        result = extract_original_segmented_interest_expression(
-            main_text=text, overdue_label="利息"
-        )
+        result = extract_original_segmented_interest_expression(main_text=text, overdue_label="利息")
         assert result == ""
 
 
@@ -300,11 +292,7 @@ class TestParseInterestSegments:
         assert parse_interest_segments("") == []
 
     def test_shared_end_date(self) -> None:
-        text = (
-            "以100万元为基数，自2020年1月1日起；"
-            "以50万元为本金，自2022年1月1日起；"
-            "均计算至2023年12月31日止"
-        )
+        text = "以100万元为基数，自2020年1月1日起；以50万元为本金，自2022年1月1日起；均计算至2023年12月31日止"
         result = parse_interest_segments(text)
         assert len(result) >= 2
 

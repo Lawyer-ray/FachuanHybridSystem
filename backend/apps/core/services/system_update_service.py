@@ -43,7 +43,7 @@ class SystemUpdateService:  # pragma: no cover
         self._task_submission_service = task_submission_service
         self._subprocess_runner = subprocess_runner or SubprocessRunner(allowed_programs={"git", "uv"})
         self._repo_root = repo_root or self._detect_repo_root()
-        self._backend_root = self._resolve_backend_root(self._repo_root)
+        self._backend_root = _resolve_backend_root(self._repo_root)
         self._default_branch = default_branch
         self._lock_timeout_seconds = lock_timeout_seconds
         self._task_timeout_seconds = task_timeout_seconds
@@ -77,7 +77,7 @@ class SystemUpdateService:  # pragma: no cover
             status="queued",
             message="更新任务已提交，等待队列执行。",
             triggered_by=triggered_by,
-            started_at=self._now_iso(),
+            started_at=_now_iso(),
             steps=[],
             options=options,
         )
@@ -102,7 +102,7 @@ class SystemUpdateService:  # pragma: no cover
                 message=f"提交更新任务失败：{exc}",
                 triggered_by=triggered_by,
                 started_at=base_state["started_at"],
-                finished_at=self._now_iso(),
+                finished_at=_now_iso(),
                 steps=base_state["steps"],
                 options=options,
             )
@@ -146,7 +146,7 @@ class SystemUpdateService:  # pragma: no cover
                 status="failed",
                 message="检测到并发更新任务，当前任务已终止。",
                 triggered_by=triggered_by,
-                finished_at=self._now_iso(),
+                finished_at=_now_iso(),
                 steps=[],
                 options={"enable_post_update_setup": bool(enable_post_update_setup)},
             )
@@ -156,7 +156,7 @@ class SystemUpdateService:  # pragma: no cover
         cache.set(_SYSTEM_UPDATE_LOCK_CACHE_KEY, run_id, timeout=self._lock_timeout_seconds)
 
         current = self.get_state()
-        started_at = str(current.get("started_at") or self._now_iso())
+        started_at = str(current.get("started_at") or _now_iso())
         q_task_id = str(current.get("q_task_id") or "")
         options_obj = current.get("options")
         cached_enable_post_update_setup = False
@@ -204,7 +204,7 @@ class SystemUpdateService:  # pragma: no cover
                 triggered_by=triggered_by,
                 q_task_id=q_task_id,
                 started_at=started_at,
-                finished_at=self._now_iso(),
+                finished_at=_now_iso(),
                 steps=steps,
                 options={"enable_post_update_setup": effective_enable_post_update_setup},
             )
@@ -228,7 +228,7 @@ class SystemUpdateService:  # pragma: no cover
                 triggered_by=triggered_by,
                 q_task_id=q_task_id,
                 started_at=started_at,
-                finished_at=self._now_iso(),
+                finished_at=_now_iso(),
                 steps=steps,
                 error={
                     "code": exc.code,
@@ -317,7 +317,7 @@ class SystemUpdateService:  # pragma: no cover
             {
                 "name": name,
                 "status": "success",
-                "at": self._now_iso(),
+                "at": _now_iso(),
                 "returncode": int(output.returncode),
                 "stdout": output.stdout,
                 "stderr": output.stderr,
@@ -325,7 +325,7 @@ class SystemUpdateService:  # pragma: no cover
         )
 
     def _save_state(self, state: dict[str, Any]) -> None:  # pragma: no cover
-        state["updated_at"] = self._now_iso()
+        state["updated_at"] = _now_iso()
         cache.set(_SYSTEM_UPDATE_STATE_CACHE_KEY, state, timeout=7 * 24 * 60 * 60)
 
     def _release_lock(self, run_id: str) -> None:  # pragma: no cover
@@ -358,7 +358,7 @@ class SystemUpdateService:  # pragma: no cover
             "steps": steps,
             "error": error or {},
             "options": options or {"enable_post_update_setup": False},
-            "updated_at": self._now_iso(),
+            "updated_at": _now_iso(),
             "repo_root": str(self._repo_root),
         }
 
@@ -368,17 +368,6 @@ class SystemUpdateService:  # pragma: no cover
             if (parent / ".git").exists():
                 return parent
         return current.parents[4]
-
-    @staticmethod
-    def _resolve_backend_root(repo_root: Path) -> Path:  # pragma: no cover
-        backend_root = repo_root / "backend"
-        if backend_root.exists():
-            return backend_root
-        return repo_root
-
-    @staticmethod
-    def _now_iso() -> str:  # pragma: no cover
-        return datetime.now(tz=UTC).isoformat()
 
 
 def run_system_update_task(  # pragma: no cover
@@ -396,3 +385,16 @@ def run_system_update_task(  # pragma: no cover
         triggered_by=triggered_by,
         enable_post_update_setup=enable_post_update_setup,
     )
+
+
+# ↓↓ 由 SystemUpdateService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _resolve_backend_root(repo_root: Path) -> Path:  # pragma: no cover
+    backend_root = repo_root / "backend"
+    if backend_root.exists():
+        return backend_root
+    return repo_root
+
+
+# ↓↓ 由 SystemUpdateService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _now_iso() -> str:  # pragma: no cover
+    return datetime.now(tz=UTC).isoformat()

@@ -243,9 +243,6 @@ class TestBuildChatStream:
             )
 
         # 应有 error 事件
-        payloads = [
-            json.loads(raw.decode().removeprefix("data: ").removesuffix("\n\n"))
-            for raw in results
-        ]
+        payloads = [json.loads(raw.decode().removeprefix("data: ").removesuffix("\n\n")) for raw in results]
         error_events = [p for p in payloads if p.get("type") == "error"]
         assert len(error_events) == 1

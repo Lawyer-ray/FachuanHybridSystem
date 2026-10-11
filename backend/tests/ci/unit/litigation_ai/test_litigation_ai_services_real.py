@@ -1,9 +1,10 @@
 """litigation_ai 模块真实执行测试 - 覆盖 placeholders/spec, flow/types, agent/schemas, chains/schemas 等。"""
+
 from __future__ import annotations
 
-import pytest
 from datetime import datetime
 
+import pytest
 
 # ============================================================
 # litigation_ai/placeholders/spec.py
@@ -71,8 +72,16 @@ class TestFlowTypes:
     def test_conversation_step_all_steps(self) -> None:
         from apps.litigation_ai.services.flow.types import ConversationStep
 
-        expected_steps = {"init", "document_type", "doc_plan", "litigation_goal",
-                          "evidence_selection", "generating", "refining", "completed"}
+        expected_steps = {
+            "init",
+            "document_type",
+            "doc_plan",
+            "litigation_goal",
+            "evidence_selection",
+            "generating",
+            "refining",
+            "completed",
+        }
         actual_steps = {step.value for step in ConversationStep}
         assert actual_steps == expected_steps
 
@@ -244,8 +253,8 @@ class TestChainSchemas:
 @pytest.mark.django_db
 class TestLitigationSessionModels:
     def test_session_creation(self) -> None:
-        from apps.litigation_ai.models.session import LitigationSession
         from apps.cases.models import Case
+        from apps.litigation_ai.models.session import LitigationSession
 
         case = Case.objects.create(name="Session Test Case")
         session = LitigationSession.objects.create(

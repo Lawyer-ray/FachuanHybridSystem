@@ -48,7 +48,7 @@ class WorkbenchSessionService(PermissionMixin):
             title=title,
             llm_model=llm_model,
         )
-        self._invalidate_session_cache(user)
+        _invalidate_session_cache(user)
         return session
 
     def list_sessions(
@@ -156,7 +156,7 @@ class WorkbenchSessionService(PermissionMixin):
         if status is not None:
             session.status = status
         session.save()
-        self._invalidate_session_cache(user)
+        _invalidate_session_cache(user)
         return session
 
     def delete_session(
@@ -170,7 +170,7 @@ class WorkbenchSessionService(PermissionMixin):
         """删除会话"""
         session = self.get_user_session(user, session_id)
         session.delete()
-        self._invalidate_session_cache(user)
+        _invalidate_session_cache(user)
 
     def get_user_session(self, user: Any, session_id: int) -> WorkbenchSession:
         """获取用户的会话，不存在或无权限时抛 NotFoundError"""
@@ -179,30 +179,33 @@ class WorkbenchSessionService(PermissionMixin):
         except WorkbenchSession.DoesNotExist:
             raise NotFoundError("会话不存在") from None
 
-    @staticmethod
-    def _invalidate_session_cache(user: Any) -> None:
-        """Invalidate all cached session list pages for a user."""
-        if not user or not getattr(user, "is_authenticated", False):
-            return
-        keys = [f"workbench:sessions:user={user.id}:page={p}" for p in range(1, 6)]
-        cache.delete_many(keys)
 
-    @staticmethod
-    def increment_storage(session_id: int, delta: int) -> None:
-        """Atomically update session storage_bytes."""
-        if delta:
-            from ..models import WorkbenchSession
+# ↓↓ 由 WorkbenchSessionService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _invalidate_session_cache(user: Any) -> None:
+    """Invalidate all cached session list pages for a user."""
+    if not user or not getattr(user, "is_authenticated", False):
+        return
+    keys = [f"workbench:sessions:user={user.id}:page={p}" for p in range(1, 6)]
+    cache.delete_many(keys)
 
-            WorkbenchSession.objects.filter(id=session_id).update(
-                storage_bytes=F("storage_bytes") + delta,
-            )
 
-    @staticmethod
-    async def aincrement_storage(session_id: int, delta: int) -> None:
-        """Async version for use in async contexts."""
-        if delta:
-            from ..models import WorkbenchSession
+# ↓↓ 由 WorkbenchSessionService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def increment_storage(session_id: int, delta: int) -> None:
+    """Atomically update session storage_bytes."""
+    if delta:
+        from ..models import WorkbenchSession
 
-            await WorkbenchSession.objects.filter(id=session_id).aupdate(
-                storage_bytes=F("storage_bytes") + delta,
-            )
+        WorkbenchSession.objects.filter(id=session_id).update(
+            storage_bytes=F("storage_bytes") + delta,
+        )
+
+
+# ↓↓ 由 WorkbenchSessionService 下沉的模块级纯函数（四层架构静态方法棘轮）
+async def aincrement_storage(session_id: int, delta: int) -> None:
+    """Async version for use in async contexts."""
+    if delta:
+        from ..models import WorkbenchSession
+
+        await WorkbenchSession.objects.filter(id=session_id).aupdate(
+            storage_bytes=F("storage_bytes") + delta,
+        )

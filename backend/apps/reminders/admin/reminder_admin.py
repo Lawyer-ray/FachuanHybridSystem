@@ -19,6 +19,8 @@ from django.utils.html import format_html, format_html_join
 from django.utils.http import url_has_allowed_host_and_scheme
 from simple_history.admin import SimpleHistoryAdmin
 
+from apps.reminders.services.calendar_providers.mac_provider import get_auth_status
+
 from ..models import Reminder, ReminderType
 
 
@@ -450,7 +452,7 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):  # pragma: no cover
             try:
                 from apps.reminders.services.calendar_providers.mac_provider import MacCalendarProvider
 
-                auth_code = MacCalendarProvider.get_auth_status()
+                auth_code = get_auth_status()
                 calendar_auth_code = auth_code
                 if auth_code == 0:
                     calendar_auth_status = "not_determined"

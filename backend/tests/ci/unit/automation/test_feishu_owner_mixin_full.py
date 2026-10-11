@@ -93,9 +93,6 @@ class TestFeishuOwnerMixin:
         with pytest.raises(ChatProviderException):
             mixin.get_chat_info("chat123")
 
-
-
-
     # ─── _classify_feishu_error ───
 
     def test_classify_permission_error(self) -> None:

@@ -45,9 +45,7 @@ def make_reminder(
     # 这里给个同名替身。
     case_obj = SimpleNamespace(name=case_name) if case_name else None
     if case_obj is not None:
-        case_obj.case_numbers = SimpleNamespace(
-            all=lambda: [SimpleNamespace(number=case_ref)] if case_ref else []
-        )
+        case_obj.case_numbers = SimpleNamespace(all=lambda: [SimpleNamespace(number=case_ref)] if case_ref else [])
     return SimpleNamespace(
         id=reminder_id,
         # 带偏移量的保持原样；naive 的按 TZ 解释（与 Django make_aware 语义一致）

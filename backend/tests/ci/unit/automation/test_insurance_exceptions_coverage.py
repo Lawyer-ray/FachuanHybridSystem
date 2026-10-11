@@ -122,15 +122,26 @@ class TestInheritance:
 
     def test_all_inherit_from_preservation_quote_error(self) -> None:
         for cls in (
-            TokenError, APIError, NetworkError, ValidationError,
-            CompanyListEmptyError, QuoteExecutionError, RetryLimitExceededError,
+            TokenError,
+            APIError,
+            NetworkError,
+            ValidationError,
+            CompanyListEmptyError,
+            QuoteExecutionError,
+            RetryLimitExceededError,
         ):
             assert issubclass(cls, PreservationQuoteError)
 
     def test_all_inherit_from_business_error(self) -> None:
         from apps.core.exceptions import BusinessError
+
         for cls in (
-            TokenError, APIError, NetworkError, ValidationError,
-            CompanyListEmptyError, QuoteExecutionError, RetryLimitExceededError,
+            TokenError,
+            APIError,
+            NetworkError,
+            ValidationError,
+            CompanyListEmptyError,
+            QuoteExecutionError,
+            RetryLimitExceededError,
         ):
             assert issubclass(cls, BusinessError)

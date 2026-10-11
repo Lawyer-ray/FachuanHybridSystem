@@ -3,6 +3,7 @@
 Covers 39 missing: recognize_document, recognize_document_from_text,
 _build_binding, _extract_doc_info, lazy-load properties.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -132,7 +133,11 @@ class TestBuildBinding:
         svc = _make_service()
 
         binding, renamed = svc._build_binding(
-            DocumentType.SUMMONS, None, "/tmp/test.pdf", "text", None,
+            DocumentType.SUMMONS,
+            None,
+            "/tmp/test.pdf",
+            "text",
+            None,
         )
         assert renamed == "/tmp/test.pdf"
         assert not binding.success
@@ -150,7 +155,11 @@ class TestBuildBinding:
         svc._rename_document = MagicMock(return_value="/tmp/new.pdf")  # type: ignore[method-assign]
 
         binding, renamed = svc._build_binding(
-            DocumentType.OTHER, "（2024）京01民初123号", "/tmp/test.pdf", "text", None,
+            DocumentType.OTHER,
+            "（2024）京01民初123号",
+            "/tmp/test.pdf",
+            "text",
+            None,
         )
         assert binding.success
 
@@ -161,7 +170,11 @@ class TestBuildBinding:
         svc.matching_service.auto_match.return_value = None
 
         binding, renamed = svc._build_binding(
-            DocumentType.EXECUTION_RULING, "（2024）京01执123号", "/tmp/test.pdf", "text", None,
+            DocumentType.EXECUTION_RULING,
+            "（2024）京01执123号",
+            "/tmp/test.pdf",
+            "text",
+            None,
         )
         assert not binding.success
         assert binding.error_code == "PENDING_MANUAL_BINDING"
@@ -178,7 +191,11 @@ class TestBuildBinding:
         svc._rename_document = MagicMock(return_value="/tmp/test.pdf")  # type: ignore[method-assign]
 
         binding, renamed = svc._build_binding(
-            DocumentType.SUMMONS, "（2024）京01民初123号", "/tmp/test.pdf", "text", None,
+            DocumentType.SUMMONS,
+            "（2024）京01民初123号",
+            "/tmp/test.pdf",
+            "text",
+            None,
         )
         assert binding.success
         assert renamed == "/tmp/test.pdf"
@@ -243,9 +260,7 @@ class TestRecognizeDocument:
 
     def test_validation_exception_reraised(self):
         svc = _make_service()
-        svc.text_extraction.extract_text.side_effect = ValidationException(
-            message="bad", code="BAD"
-        )
+        svc.text_extraction.extract_text.side_effect = ValidationException(message="bad", code="BAD")
 
         with pytest.raises(ValidationException):
             svc.recognize_document("/tmp/test.pdf")
@@ -306,9 +321,7 @@ class TestRecognizeDocumentFromText:
 
     def test_validation_exception_reraised(self):
         svc = _make_service()
-        svc.classifier.classify.side_effect = ValidationException(
-            message="bad", code="BAD"
-        )
+        svc.classifier.classify.side_effect = ValidationException(message="bad", code="BAD")
 
         with pytest.raises(ValidationException):
             svc.recognize_document_from_text("text")

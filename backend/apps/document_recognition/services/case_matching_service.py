@@ -13,6 +13,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from apps.automation.services.sms.court_sms_recommendation_service import extract_court_name_from_text
+
 logger = logging.getLogger("apps.document_recognition")
 
 
@@ -81,7 +83,7 @@ class DocumentCaseMatchingService:
         from apps.automation.services.sms.court_sms_recommendation_service import CourtSMSRecommendationService
 
         case_numbers = [case_number] if case_number and case_number.strip() else []
-        court_name = CourtSMSRecommendationService.extract_court_name_from_text(raw_text or "")
+        court_name = extract_court_name_from_text(raw_text or "")
         results = CourtSMSRecommendationService().get_recommendations_for_signals(
             case_numbers=case_numbers,
             party_names=list(party_names or []),

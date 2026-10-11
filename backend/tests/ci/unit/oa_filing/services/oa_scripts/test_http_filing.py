@@ -8,55 +8,61 @@ from unittest.mock import MagicMock
 import pytest
 
 from apps.oa_filing.services.oa_scripts.jtn.filing.filing_models import FilingFormState, ResolvedCustomer
-from apps.oa_filing.services.oa_scripts.jtn.filing.http_filing import HttpFilingMixin
+from apps.oa_filing.services.oa_scripts.jtn.filing.http_filing import (
+    HttpFilingMixin,
+    _handler_url,
+    _normalize_text,
+    _parse_json_object,
+    _project_field_name,
+)
 
 
 class TestHttpFilingMixinProjectFieldName:
     def test_basic(self):
-        result = HttpFilingMixin._project_field_name("manager_id")
+        result = _project_field_name("manager_id")
         assert "project_manager_id" in result
         assert result.startswith("ctl00$")
 
     def test_category(self):
-        result = HttpFilingMixin._project_field_name("category_id")
+        result = _project_field_name("category_id")
         assert "project_category_id" in result
 
 
 class TestHttpFilingMixinHandlerUrl:
     def test_handler_url(self):
-        result = HttpFilingMixin._handler_url("CustSeachGetList")
+        result = _handler_url("CustSeachGetList")
         assert "CustSeachGetList" in result
         assert result.endswith("CustSeachGetList")
 
 
 class TestHttpFilingMixinParseJsonObject:
     def test_valid_dict(self):
-        result = HttpFilingMixin._parse_json_object('{"key": "value"}')
+        result = _parse_json_object('{"key": "value"}')
         assert result == {"key": "value"}
 
     def test_bom_stripped(self):
-        result = HttpFilingMixin._parse_json_object('﻿{"key": "value"}')
+        result = _parse_json_object('﻿{"key": "value"}')
         assert result == {"key": "value"}
 
     def test_non_dict_raises(self):
         with pytest.raises(RuntimeError, match="OA 接口返回格式异常"):
-            HttpFilingMixin._parse_json_object("[1, 2, 3]")
+            _parse_json_object("[1, 2, 3]")
 
     def test_whitespace_stripped(self):
-        result = HttpFilingMixin._parse_json_object('  {"a": 1}  ')
+        result = _parse_json_object('  {"a": 1}  ')
         assert result == {"a": 1}
 
 
 class TestHttpFilingMixinNormalizeText:
     def test_none_returns_empty(self):
-        assert HttpFilingMixin._normalize_text(None) == ""
+        assert _normalize_text(None) == ""
 
     def test_nbsp_normalized(self):
-        result = HttpFilingMixin._normalize_text("a b")
+        result = _normalize_text("a b")
         assert " " not in result
 
     def test_fullwidth_space_normalized(self):
-        result = HttpFilingMixin._normalize_text("a　b")
+        result = _normalize_text("a　b")
         assert "　" not in result
 
 

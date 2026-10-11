@@ -1,4 +1,5 @@
 """Coverage tests for automation court_filing_helpers and court_guarantee_helpers."""
+
 from __future__ import annotations
 
 import re
@@ -13,8 +14,8 @@ except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
 
-
 # --- court_filing_helpers ---
+
 
 class TestCourtFilingHelpers:
     def test_normalize_filing_type_valid(self):
@@ -125,6 +126,7 @@ class TestCourtFilingHelpers:
 
 
 # --- court_guarantee_helpers ---
+
 
 class TestCourtGuaranteeHelpers:
     def test_normalize_insurance_company_valid(self):

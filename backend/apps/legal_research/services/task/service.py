@@ -182,7 +182,7 @@ class LegalResearchTaskService:  # pragma: no cover
         if task is None:
             raise NotFoundError("任务不存在")
 
-        self._check_permission(task=task, user=user)
+        _check_permission(task=task, user=user)
         sync_failed_queue_state(task=task, failed_message="任务执行失败（队列状态自动回填）")
         return task
 
@@ -196,22 +196,6 @@ class LegalResearchTaskService:  # pragma: no cover
         if result is None:
             raise NotFoundError("检索结果不存在")
         return result
-
-    @staticmethod
-    def _check_permission(*, task: LegalResearchTask, user: Any | None) -> None:  # pragma: no cover
-        if user is None:
-            raise PermissionDenied(message="请先登录", code="PERMISSION_DENIED")
-
-        if user.is_superuser:
-            return
-
-        if task.created_by_id == user.id:
-            return
-
-        if task.credential.lawyer.law_firm_id == user.law_firm_id:
-            return
-
-        raise PermissionDenied(message="无权限访问该任务", code="PERMISSION_DENIED")
 
     def ensure_task_ready_for_download(
         self, *, task_id: int, user: Any | None
@@ -253,3 +237,20 @@ def _mark_submit_failed(  # pragma: no cover
     task.error = error_message
     task.finished_at = timezone.now()
     task.save(update_fields=["status", "message", "error", "finished_at", "updated_at"])
+
+
+# ↓↓ 由 LegalResearchTaskService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _check_permission(*, task: LegalResearchTask, user: Any | None) -> None:  # pragma: no cover
+    if user is None:
+        raise PermissionDenied(message="请先登录", code="PERMISSION_DENIED")
+
+    if user.is_superuser:
+        return
+
+    if task.created_by_id == user.id:
+        return
+
+    if task.credential.lawyer.law_firm_id == user.law_firm_id:
+        return
+
+    raise PermissionDenied(message="无权限访问该任务", code="PERMISSION_DENIED")

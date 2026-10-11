@@ -19,6 +19,7 @@ class TestDocumentAttachmentService:
 
     def _svc(self, **kw):
         from apps.automation.services.sms.document_attachment_service import DocumentAttachmentService
+
         return DocumentAttachmentService(**kw)
 
 
@@ -30,6 +31,7 @@ class TestDocumentAttachmentService:
 class TestGetPathsForRenaming:
     def _svc(self, **kw):
         from apps.automation.services.sms.document_attachment_service import DocumentAttachmentService
+
         return DocumentAttachmentService(**kw)
 
     def test_no_scraper_task(self):
@@ -73,6 +75,7 @@ class TestGetPathsForRenaming:
 class TestPathsFromSmsReference:
     def _svc(self):
         from apps.automation.services.sms.document_attachment_service import DocumentAttachmentService
+
         return DocumentAttachmentService()
 
     def test_valid_paths(self):
@@ -114,6 +117,7 @@ class TestPathsFromSmsReference:
 class TestPathsFromCourtDocuments:
     def _svc(self):
         from apps.automation.services.sms.document_attachment_service import DocumentAttachmentService
+
         return DocumentAttachmentService()
 
     def test_no_scraper_task(self):
@@ -187,6 +191,7 @@ class TestPathsFromCourtDocuments:
 class TestPathsFromTaskResult:
     def _svc(self):
         from apps.automation.services.sms.document_attachment_service import DocumentAttachmentService
+
         return DocumentAttachmentService()
 
     def test_no_scraper_task(self):
@@ -238,6 +243,7 @@ class TestPathsFromTaskResult:
 class TestGetPathsForNotification:
     def _svc(self, **kw):
         from apps.automation.services.sms.document_attachment_service import DocumentAttachmentService
+
         return DocumentAttachmentService(**kw)
 
     def test_uses_sms_reference(self):
@@ -279,6 +285,7 @@ class TestGetPathsForNotification:
 class TestCollectUniquePaths:
     def _svc(self):
         from apps.automation.services.sms.document_attachment_service import DocumentAttachmentService
+
         return DocumentAttachmentService()
 
     def test_unique_paths(self):
@@ -330,6 +337,7 @@ class TestCollectUniquePaths:
 class TestRenameDocuments:
     def _svc(self, **kw):
         from apps.automation.services.sms.document_attachment_service import DocumentAttachmentService
+
         return DocumentAttachmentService(**kw)
 
     def test_empty_paths(self):
@@ -394,6 +402,7 @@ class TestRenameDocuments:
 class TestFixFilenameFormat:
     def _svc(self, **kw):
         from apps.automation.services.sms.document_attachment_service import DocumentAttachmentService
+
         return DocumentAttachmentService(**kw)
 
     def test_renders_title(self):
@@ -401,7 +410,10 @@ class TestFixFilenameFormat:
         sms.case.name = "张三诉李四"
         sms.received_at.date.return_value.strftime.return_value = "20250101"
         svc = self._svc()
-        with patch("apps.core.services.filename_template_service.FilenameTemplateService.render_court_doc", return_value="判决书（张三诉李四）_20250101收"):
+        with patch(
+            "apps.core.services.filename_template_service.FilenameTemplateService.render_court_doc",
+            return_value="判决书（张三诉李四）_20250101收",
+        ):
             result = svc.fix_filename_format("判决书.pdf", sms)
         assert result.endswith(".pdf")
 
@@ -410,7 +422,10 @@ class TestFixFilenameFormat:
         sms.case.name = "测试"
         sms.received_at.date.return_value.strftime.return_value = "20250101"
         svc = self._svc()
-        with patch("apps.core.services.filename_template_service.FilenameTemplateService.render_court_doc", return_value="result"):
+        with patch(
+            "apps.core.services.filename_template_service.FilenameTemplateService.render_court_doc",
+            return_value="result",
+        ):
             result = svc.fix_filename_format("受理案件通知书.pdf", sms)
         assert result.endswith(".pdf")
 
@@ -419,7 +434,10 @@ class TestFixFilenameFormat:
         sms.case.name = "测试"
         sms.received_at.date.return_value.strftime.return_value = "20250101"
         svc = self._svc()
-        with patch("apps.core.services.filename_template_service.FilenameTemplateService.render_court_doc", return_value="result"):
+        with patch(
+            "apps.core.services.filename_template_service.FilenameTemplateService.render_court_doc",
+            return_value="result",
+        ):
             result = svc.fix_filename_format("random_doc.pdf", sms)
         assert result.endswith(".pdf")
 
@@ -429,7 +447,10 @@ class TestFixFilenameFormat:
         sms.received_at.date.return_value.strftime.return_value = "20250101"
         sms.received_at.strftime.return_value = "20250101"
         svc = self._svc()
-        with patch("apps.core.services.filename_template_service.FilenameTemplateService.render_court_doc", return_value="fallback"):
+        with patch(
+            "apps.core.services.filename_template_service.FilenameTemplateService.render_court_doc",
+            return_value="fallback",
+        ):
             # Trigger the except block by making sanitization raise
             with patch.object(svc, "_sanitize_filename_part", side_effect=[RuntimeError("boom"), "title"]):
                 result = svc.fix_filename_format("doc.pdf", sms)
@@ -440,7 +461,10 @@ class TestFixFilenameFormat:
         sms.case.name = "张" * 50
         sms.received_at.date.return_value.strftime.return_value = "20250101"
         svc = self._svc()
-        with patch("apps.core.services.filename_template_service.FilenameTemplateService.render_court_doc", return_value="result"):
+        with patch(
+            "apps.core.services.filename_template_service.FilenameTemplateService.render_court_doc",
+            return_value="result",
+        ):
             result = svc.fix_filename_format("判决书.pdf", sms)
         assert result.endswith(".pdf")
 
@@ -449,7 +473,10 @@ class TestFixFilenameFormat:
         sms.case.name = "测试"
         sms.received_at.date.return_value.strftime.return_value = "20250101"
         svc = self._svc()
-        with patch("apps.core.services.filename_template_service.FilenameTemplateService.render_court_doc", return_value="result"):
+        with patch(
+            "apps.core.services.filename_template_service.FilenameTemplateService.render_court_doc",
+            return_value="result",
+        ):
             result = svc.fix_filename_format("nodoctitle", sms)
         assert result.endswith(".pdf")
 
@@ -458,7 +485,10 @@ class TestFixFilenameFormat:
         sms.case.name = "测试"
         sms.received_at.date.return_value.strftime.return_value = "20250101"
         svc = self._svc()
-        with patch("apps.core.services.filename_template_service.FilenameTemplateService.render_court_doc", return_value="result"):
+        with patch(
+            "apps.core.services.filename_template_service.FilenameTemplateService.render_court_doc",
+            return_value="result",
+        ):
             with patch.object(svc, "_sanitize_filename_part", return_value=""):
                 result = svc.fix_filename_format(".pdf", sms)
         assert "司法文书" in result or result.endswith(".pdf")
@@ -468,7 +498,10 @@ class TestFixFilenameFormat:
         sms.case = None
         sms.received_at.date.return_value.strftime.return_value = "20250101"
         svc = self._svc()
-        with patch("apps.core.services.filename_template_service.FilenameTemplateService.render_court_doc", return_value="result"):
+        with patch(
+            "apps.core.services.filename_template_service.FilenameTemplateService.render_court_doc",
+            return_value="result",
+        ):
             result = svc.fix_filename_format("判决书.pdf", sms)
         assert result.endswith(".pdf")
 
@@ -481,6 +514,7 @@ class TestFixFilenameFormat:
 class TestSanitizeFilenamePart:
     def _svc(self):
         from apps.automation.services.sms.document_attachment_service import DocumentAttachmentService
+
         return DocumentAttachmentService()
 
     def test_removes_illegal_chars(self):
@@ -531,6 +565,7 @@ class TestSanitizeFilenamePart:
 class TestFindRenamedFile:
     def _svc(self):
         from apps.automation.services.sms.document_attachment_service import DocumentAttachmentService
+
         return DocumentAttachmentService()
 
     def test_empty_path(self):
@@ -588,6 +623,7 @@ class TestFindRenamedFile:
 class TestLazyProperties:
     def test_case_service_lazy(self):
         from apps.automation.services.sms.document_attachment_service import DocumentAttachmentService
+
         svc = DocumentAttachmentService()
         svc._case_service = None
         with patch("apps.core.dependencies.automation_sms_wiring.build_sms_case_service", return_value="cs"):
@@ -595,6 +631,7 @@ class TestLazyProperties:
 
     def test_renamer_lazy(self):
         from apps.automation.services.sms.document_attachment_service import DocumentAttachmentService
+
         svc = DocumentAttachmentService()
         svc._renamer = None
         with patch("apps.automation.services.sms.document_renamer.DocumentRenamer", return_value="renamer"):

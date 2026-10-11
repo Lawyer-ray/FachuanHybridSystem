@@ -1,10 +1,10 @@
 """Tests for litigation_ai chains: user_choice_parse, document_type_parse, goal_schemas, mock_trial agents."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ── goal_schemas ───────────────────────────────────────────────────────────
 
@@ -216,13 +216,7 @@ class TestDocumentTypeParseChain:
 
 class TestMockTrialAgents:
     def test_role_constants(self) -> None:
-        from apps.litigation_ai.services.mock_trial.agents import (
-            CLERK,
-            DEFENDANT,
-            JUDGE,
-            PLAINTIFF,
-            ROLE_LABELS,
-        )
+        from apps.litigation_ai.services.mock_trial.agents import CLERK, DEFENDANT, JUDGE, PLAINTIFF, ROLE_LABELS
 
         assert PLAINTIFF == "plaintiff"
         assert DEFENDANT == "defendant"
@@ -246,8 +240,8 @@ class TestMockTrialAgents:
     def test_system_prompts_not_empty(self) -> None:
         from apps.litigation_ai.services.mock_trial.agents import (
             DEFENDANT_SYSTEM,
-            JUDGE_SYSTEM,
             JUDGE_SUMMARY_SYSTEM,
+            JUDGE_SYSTEM,
             PLAINTIFF_SYSTEM,
         )
 

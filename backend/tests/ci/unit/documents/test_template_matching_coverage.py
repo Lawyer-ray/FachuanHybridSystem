@@ -9,6 +9,7 @@ import pytest
 
 # ── TemplateMatchingService ────────────────────────────────────────
 
+
 class TestTemplateMatchingServiceCache:
     @patch("apps.documents.services.template.template_matching_service.cache")
     def test_get_document_templates_cache_version(self, mock_cache):
@@ -105,44 +106,54 @@ class TestMissingSentinel:
 
 # ── EnhancedOpposingPartyService ──────────────────────────────────
 
+
 class TestEnhancedOpposingPartyService:
     def test_import(self):
         """Verify the module is importable."""
         from apps.documents.services.placeholders.contract import enhanced_opposing_party_service
+
         assert enhanced_opposing_party_service is not None
 
 
 # ── DefensePartyService ───────────────────────────────────────────
 
+
 class TestDefensePartyService:
     def test_import(self):
         """Verify the module is importable."""
         from apps.documents.services.placeholders.litigation import defense_party_service
+
         assert defense_party_service is not None
 
 
 # ── ContractGenerationService ─────────────────────────────────────
 
+
 class TestContractGenerationService:
     def test_import(self):
         """Verify the module is importable."""
         from apps.documents.services.generation import contract_generation_service
+
         assert contract_generation_service is not None
 
 
 # ── SupplementaryAgreementGenerationService ───────────────────────
 
+
 class TestSupplementaryAgreementGenerationService:
     def test_import(self):
         """Verify the module is importable."""
         from apps.documents.services.generation import supplementary_agreement_generation_service
+
         assert supplementary_agreement_generation_service is not None
 
 
 # ── PreservationMaterialsGenerationService ────────────────────────
 
+
 class TestPreservationMaterialsGenerationService:
     def test_import(self):
         """Verify the module is importable."""
         from apps.documents.services.generation import preservation_materials_generation_service
+
         assert preservation_materials_generation_service is not None

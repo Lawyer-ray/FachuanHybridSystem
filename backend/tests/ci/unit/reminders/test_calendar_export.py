@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.utils import timezone
 
-from apps.reminders.services.calendar_export_service import CalendarExportService
+from apps.reminders.services.calendar_export_service import CalendarExportService, _reminder_to_vevent
 
 
 class TestCalendarExportServiceQueryReminders:
@@ -35,7 +35,7 @@ class TestCalendarExportServiceReminderToVevent:
 
     def test_returns_none_when_no_due_at(self) -> None:
         reminder = SimpleNamespace(due_at=None)
-        result = CalendarExportService._reminder_to_vevent(reminder)  # type: ignore[arg-type]
+        result = _reminder_to_vevent(reminder)  # type: ignore[arg-type]
         assert result is None
 
     def test_creates_vevent_with_basic_fields(self) -> None:
@@ -56,7 +56,7 @@ class TestCalendarExportServiceReminderToVevent:
         with patch("apps.reminders.services.calendar_export_service.Reminder") as mock_rem:
             mock_rem._meta = MagicMock()
             mock_rem._meta.get_field = MagicMock(return_value=MagicMock(choices=[("hearing", "开庭")]))
-            vevent = CalendarExportService._reminder_to_vevent(reminder)  # type: ignore[arg-type]
+            vevent = _reminder_to_vevent(reminder)  # type: ignore[arg-type]
         assert vevent is not None
         uid = str(vevent.get("uid"))
         assert "reminder-1" in uid
@@ -81,7 +81,7 @@ class TestCalendarExportServiceReminderToVevent:
         with patch("apps.reminders.services.calendar_export_service.Reminder") as mock_rem:
             mock_rem._meta = MagicMock()
             mock_rem._meta.get_field = MagicMock(return_value=MagicMock(choices=[("mediation", "调解")]))
-            vevent = CalendarExportService._reminder_to_vevent(reminder)  # type: ignore[arg-type]
+            vevent = _reminder_to_vevent(reminder)  # type: ignore[arg-type]
         assert vevent is not None
         location = str(vevent.get("location", ""))
         assert "第三法庭" in location
@@ -106,7 +106,7 @@ class TestCalendarExportServiceReminderToVevent:
         with patch("apps.reminders.services.calendar_export_service.Reminder") as mock_rem:
             mock_rem._meta = MagicMock()
             mock_rem._meta.get_field = MagicMock(return_value=MagicMock(choices=[("deadline", "期限")]))
-            vevent = CalendarExportService._reminder_to_vevent(reminder)  # type: ignore[arg-type]
+            vevent = _reminder_to_vevent(reminder)  # type: ignore[arg-type]
         assert vevent is not None
         desc = str(vevent.get("description", ""))
         assert "租赁合同" in desc
@@ -132,7 +132,7 @@ class TestCalendarExportServiceReminderToVevent:
         with patch("apps.reminders.services.calendar_export_service.Reminder") as mock_rem:
             mock_rem._meta = MagicMock()
             mock_rem._meta.get_field = MagicMock(return_value=MagicMock(choices=[("meeting", "会议")]))
-            vevent = CalendarExportService._reminder_to_vevent(reminder)  # type: ignore[arg-type]
+            vevent = _reminder_to_vevent(reminder)  # type: ignore[arg-type]
         assert vevent is not None
         dtend = vevent.get("dtend")
         assert dtend is not None
@@ -170,7 +170,7 @@ class TestCalendarExportServiceExportReminders:
             "case_log_id": None,
             "case_log": None,
         }
-        done = CalendarExportService._reminder_to_vevent(SimpleNamespace(**base, is_completed=True))  # type: ignore[arg-type]
-        pending = CalendarExportService._reminder_to_vevent(SimpleNamespace(**base, is_completed=False))  # type: ignore[arg-type]
+        done = _reminder_to_vevent(SimpleNamespace(**base, is_completed=True))  # type: ignore[arg-type]
+        pending = _reminder_to_vevent(SimpleNamespace(**base, is_completed=False))  # type: ignore[arg-type]
         assert str(done.get("status")) == "COMPLETED"
         assert str(pending.get("status")) == "CONFIRMED"

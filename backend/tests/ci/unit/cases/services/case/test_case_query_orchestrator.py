@@ -13,7 +13,6 @@ from apps.cases.services.case.case_query_orchestrator import (
     CaseQueryOrchestrator,
 )
 
-
 # ──────────── CaseNumberQueryOrchestrator ────────────
 
 
@@ -190,9 +189,7 @@ class TestCaseQueryOrchestrator:
         mock_search.search_cases.return_value = []
         mock_assembler = MagicMock()
         mock_assembler.to_dtos.return_value = []
-        orch = CaseQueryOrchestrator(
-            case_search_repo=mock_search, assembler=mock_assembler
-        )
+        orch = CaseQueryOrchestrator(case_search_repo=mock_search, assembler=mock_assembler)
         result = orch.search_cases("张三", status="active")
         assert result == []
         mock_search.search_cases.assert_called_once_with(query="张三", status="active", limit=30)
@@ -202,9 +199,7 @@ class TestCaseQueryOrchestrator:
         mock_party_orch.search_cases_by_party.return_value = []
         mock_assembler = MagicMock()
         mock_assembler.to_dtos.return_value = []
-        orch = CaseQueryOrchestrator(
-            case_party_orchestrator=mock_party_orch, assembler=mock_assembler
-        )
+        orch = CaseQueryOrchestrator(case_party_orchestrator=mock_party_orch, assembler=mock_assembler)
         result = orch.search_cases_by_party(["原告"])
         assert result == []
 
@@ -243,8 +238,6 @@ class TestCaseQueryOrchestrator:
         mock_number_orch.search_cases_by_case_number.return_value = []
         mock_assembler = MagicMock()
         mock_assembler.to_dtos.return_value = []
-        orch = CaseQueryOrchestrator(
-            case_number_orchestrator=mock_number_orch, assembler=mock_assembler
-        )
+        orch = CaseQueryOrchestrator(case_number_orchestrator=mock_number_orch, assembler=mock_assembler)
         result = orch.search_cases_by_case_number("2024-123")
         assert result == []

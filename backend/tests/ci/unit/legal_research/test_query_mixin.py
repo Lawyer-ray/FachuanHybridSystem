@@ -92,18 +92,14 @@ class TestExecutorQueryMixin:
         assert result is True
 
     def test_title_prefilter_no_tokens(self):
-        class _MinimalQueryMixin(ExecutorQueryMixin):
-            @staticmethod
-            def _split_tokens(text: str) -> list[str]:
-                return []
-
-        # 查询无有效 token 时直接放行
-        assert (
-            _MinimalQueryMixin._title_prefilter(
-                keyword="关键词", case_summary="摘要", title_hint="某判决书", min_overlap=0.5
+        # 查询无有效 token 时直接放行（_split_tokens 为模块级直调，patch 之）
+        with patch("apps.legal_research.services.executor_components.query_mixin._split_tokens", return_value=[]):
+            assert (
+                ExecutorQueryMixin._title_prefilter(
+                    keyword="关键词", case_summary="摘要", title_hint="某判决书", min_overlap=0.5
+                )
+                is True
             )
-            is True
-        )
 
     # ── _build_element_based_queries ──
 

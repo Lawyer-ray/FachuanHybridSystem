@@ -13,12 +13,13 @@ except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
 
-
 # ── _resolve_court_name ───────────────────────────────────────────
+
 
 class TestResolveCourtName:
     def _import_func(self):
         from plugins.court_automation.filing.helpers import _resolve_court_name
+
         return _resolve_court_name
 
     def test_already_has_renmfy(self):
@@ -35,9 +36,11 @@ class TestResolveCourtName:
 
 # ── _normalize_filing_engine ──────────────────────────────────────
 
+
 class TestNormalizeFilingEngine:
     def _import_func(self):
         from plugins.court_automation.filing.helpers import _normalize_filing_engine
+
         return _normalize_filing_engine
 
     def test_valid_engine(self):
@@ -70,9 +73,11 @@ class TestNormalizeFilingEngine:
 
 # ── _normalize_filing_type ────────────────────────────────────────
 
+
 class TestNormalizeFilingType:
     def _import_func(self):
         from plugins.court_automation.filing.helpers import _normalize_filing_type
+
         return _normalize_filing_type
 
     def test_valid_type(self):
@@ -106,9 +111,11 @@ class TestNormalizeFilingType:
 
 # ── _resolve_original_case_number ─────────────────────────────────
 
+
 class TestResolveOriginalCaseNumber:
     def _import_func(self):
         from plugins.court_automation.filing.helpers import _resolve_original_case_number
+
         return _resolve_original_case_number
 
     def test_no_case_numbers(self):
@@ -121,7 +128,9 @@ class TestResolveOriginalCaseNumber:
     def test_active_number(self):
         func = self._import_func()
         case = MagicMock()
-        case.case_numbers.filter.return_value.order_by.return_value.values_list.return_value.first.return_value = "(2024)粤01民初123号"
+        case.case_numbers.filter.return_value.order_by.return_value.values_list.return_value.first.return_value = (
+            "(2024)粤01民初123号"
+        )
         result = func(case)
         assert result == "(2024)粤01民初123号"
 
@@ -144,9 +153,11 @@ class TestResolveOriginalCaseNumber:
 
 # ── _infer_filing_type ────────────────────────────────────────────
 
+
 class TestInferFilingType:
     def _import_func(self):
         from plugins.court_automation.filing.helpers import _infer_filing_type
+
         return _infer_filing_type
 
     @pytest.mark.django_db
@@ -185,9 +196,11 @@ class TestInferFilingType:
 
 # ── _build_party_payloads ─────────────────────────────────────────
 
+
 class TestBuildPartyPayloads:
     def _import_func(self):
         from plugins.court_automation.filing.helpers import _build_party_payloads
+
         return _build_party_payloads
 
     def test_basic_plaintiff(self):
@@ -244,15 +257,19 @@ class TestBuildPartyPayloads:
 
 # ── _SESSION_UPDATE_EXECUTOR ──────────────────────────────────────
 
+
 class TestExecutor:
     def test_executor_exists(self):
         from plugins.court_automation.filing.helpers import _SESSION_UPDATE_EXECUTOR
+
         assert _SESSION_UPDATE_EXECUTOR is not None
 
 
 # ── _get_organization_service ─────────────────────────────────────
 
+
 class TestGetOrganizationService:
     def test_is_callable(self):
         from plugins.court_automation.filing.helpers import _get_organization_service
+
         assert callable(_get_organization_service)

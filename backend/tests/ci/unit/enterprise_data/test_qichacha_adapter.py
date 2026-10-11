@@ -4,6 +4,7 @@ Covers: pick_str, normalize_company_summary, normalize_company_profile,
 normalize_risk_item, normalize_shareholder_item, normalize_personnel_item,
 normalize_person_profile, normalize_bidding_item.
 """
+
 from __future__ import annotations
 
 import pytest

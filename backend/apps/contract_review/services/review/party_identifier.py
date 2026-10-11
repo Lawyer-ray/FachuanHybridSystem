@@ -60,7 +60,7 @@ class PartyIdentifier:  # pragma: no cover
         for key, patterns in _PARTY_PATTERNS.items():
             if key in result:
                 continue
-            name = self._find_party(text, patterns)
+            name = _find_party(text, patterns)
             if name:
                 logger.info("识别%s: %s", PARTY_LABELS[key], name)
                 result[key] = name
@@ -68,12 +68,13 @@ class PartyIdentifier:  # pragma: no cover
                 logger.debug("未识别到%s", PARTY_LABELS[key])
         return result
 
-    @staticmethod
-    def _find_party(text: str, patterns: list[re.Pattern[str]]) -> str:  # pragma: no cover
-        for pattern in patterns:
-            match = pattern.search(text)
-            if match:
-                name = match.group(1).strip().rstrip("，。,.")
-                if name:
-                    return name
-        return ""
+
+# ↓↓ 由 PartyIdentifier 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _find_party(text: str, patterns: list[re.Pattern[str]]) -> str:  # pragma: no cover
+    for pattern in patterns:
+        match = pattern.search(text)
+        if match:
+            name = match.group(1).strip().rstrip("，。,.")
+            if name:
+                return name
+    return ""

@@ -30,18 +30,6 @@ def _next_rev_id() -> str:
 class DocxRevisionTool:
     """通过 lxml 操作 OOXML 实现 Track Changes（修订模式）"""
 
-    @staticmethod
-    def enable_track_changes(doc: DocumentType) -> None:
-        """在文档 settings 中启用修订模式"""
-        # 确保 settings part 存在
-        settings_part = doc.settings.element
-        # 移除已有的 trackChanges
-        for existing in settings_part.findall(qn("w:trackChanges")):
-            settings_part.remove(existing)
-        # 添加 trackChanges 标记
-        tc = OxmlElement("w:trackChanges")
-        settings_part.append(tc)
-
     def apply_revision(
         self,
         paragraph: Paragraph,
@@ -219,3 +207,16 @@ def _make_run(text: str, source_run: etree._Element, tag: str = "w:t") -> etree.
     t.text = text
     r.append(t)
     return r
+
+
+# ↓↓ 由 DocxRevisionTool 下沉的模块级纯函数（四层架构静态方法棘轮）
+def enable_track_changes(doc: DocumentType) -> None:
+    """在文档 settings 中启用修订模式"""
+    # 确保 settings part 存在
+    settings_part = doc.settings.element
+    # 移除已有的 trackChanges
+    for existing in settings_part.findall(qn("w:trackChanges")):
+        settings_part.remove(existing)
+    # 添加 trackChanges 标记
+    tc = OxmlElement("w:trackChanges")
+    settings_part.append(tc)

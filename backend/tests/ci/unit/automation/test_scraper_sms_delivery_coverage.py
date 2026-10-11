@@ -1,4 +1,5 @@
 """Coverage tests for automation scrapers, SMS, insurance, GSXT, and admin services."""
+
 from __future__ import annotations
 
 import re
@@ -15,6 +16,7 @@ except ImportError:
 
 
 # --- hbfy_scraper ---
+
 
 class TestHbfyScraper:
     def test_extract_public_msg_code(self):
@@ -125,6 +127,7 @@ class TestHbfyScraper:
 
 # --- base_court_scraper ---
 
+
 class TestBaseCourtScraper:
     def test_import(self):
         from apps.automation.services.scraper.scrapers.court_document.base_court_scraper import BaseCourtDocumentScraper
@@ -133,6 +136,7 @@ class TestBaseCourtScraper:
 
 
 # --- sfdw_scraper ---
+
 
 class TestSfdwScraper:
     def test_import(self):
@@ -143,6 +147,7 @@ class TestSfdwScraper:
 
 # --- jysd_scraper ---
 
+
 class TestJysdScraper:
     def test_import(self):
         from apps.automation.services.scraper.scrapers.court_document.jysd_scraper import JysdCourtScraper
@@ -152,6 +157,7 @@ class TestJysdScraper:
 
 # --- court_zxfw ---
 
+
 class TestCourtZxfw:
     def test_import(self):
         from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
@@ -160,6 +166,7 @@ class TestCourtZxfw:
 
 
 # --- court_zxfw_filing ---
+
 
 class TestCourtZxfwFiling:
     def test_filing_steps_import(self):
@@ -185,6 +192,7 @@ class TestCourtZxfwFiling:
 
 # --- guarantee upload_mixin ---
 
+
 class TestGuaranteeUploadMixin:
     def test_import(self):
         from apps.automation.services.scraper.sites.guarantee.upload_mixin import GuaranteeUploadMixin
@@ -194,6 +202,7 @@ class TestGuaranteeUploadMixin:
 
 # --- guarantee form_filling_mixin ---
 
+
 class TestGuaranteeFormFillingMixin:
     def test_import(self):
         from apps.automation.services.scraper.sites.guarantee.form_filling_mixin import GuaranteeFormFillingMixin
@@ -202,6 +211,7 @@ class TestGuaranteeFormFillingMixin:
 
 
 # --- SMS services ---
+
 
 class TestSMSServices:
     def test_court_sms_service_import(self):
@@ -227,6 +237,7 @@ class TestSMSServices:
 
 # --- insurance ---
 
+
 class TestInsurance:
     def test_court_insurance_client_import(self):
         from plugins.court_automation.preservation_quote.court_insurance_client import CourtInsuranceClient
@@ -240,6 +251,7 @@ class TestInsurance:
 
 
 # --- GSXT ---
+
 
 class TestGSXT:
     def test_gsxt_login_service_import(self):
@@ -255,6 +267,7 @@ class TestGSXT:
 
 # --- admin services ---
 
+
 class TestAdminServices:
     def test_preservation_quote_admin_service_import(self):
         from plugins.court_automation.preservation_quote.admin_service import PreservationQuoteAdminService
@@ -268,6 +281,7 @@ class TestAdminServices:
 
 
 # --- SMS admin ---
+
 
 class TestSMSAdmin:
     def test_court_sms_admin_actions_import(self):
@@ -288,6 +302,7 @@ class TestSMSAdmin:
 
 # --- management commands ---
 
+
 class TestManagementCommands:
     def test_smoke_check_import(self):
         from apps.automation.management.commands.smoke_check import Command
@@ -302,6 +317,7 @@ class TestManagementCommands:
 
 # --- scraping_tasks ---
 
+
 class TestScrapingTasks:
     def test_import(self):
         from apps.automation.tasks.scraping_tasks import execute_scraper_task
@@ -310,6 +326,7 @@ class TestScrapingTasks:
 
 
 # --- court_guarantee_api ---
+
 
 class TestCourtGuaranteeApi:
     def test_import(self):

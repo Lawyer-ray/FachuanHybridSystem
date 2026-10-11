@@ -160,15 +160,15 @@ class ReconcilerService:
         for item in data.get("line_items") or []:
             items.append(
                 LineItem(
-                    date=self._normalize_date(item.get("date")),
-                    amount=self._to_float(item.get("amount")),
+                    date=_normalize_date(item.get("date")),
+                    amount=_to_float(item.get("amount")),
                     description=item.get("description", ""),
                 )
             )
 
         return StatementInfo(
             month=data.get("month", ""),
-            total_amount=self._to_float(data.get("total_amount")),
+            total_amount=_to_float(data.get("total_amount")),
             signed=bool(data.get("signed", False)),
             line_items=items,
         )
@@ -419,21 +419,23 @@ class ReconcilerService:
 
         return f"{month_key}{doc_type}（{status}）"
 
-    @staticmethod
-    def _normalize_date(val: Any) -> str | None:
-        if not val:
-            return None
-        s = str(val)
-        digits = re.sub(r"\D", "", s)
-        if len(digits) == 8:
-            return digits
-        return None
 
-    @staticmethod
-    def _to_float(val: Any) -> float | None:
-        if val is None:
-            return None
-        try:
-            return float(str(val).replace(",", ""))
-        except (ValueError, TypeError):
-            return None
+# ↓↓ 由 ReconcilerService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _normalize_date(val: Any) -> str | None:
+    if not val:
+        return None
+    s = str(val)
+    digits = re.sub(r"\D", "", s)
+    if len(digits) == 8:
+        return digits
+    return None
+
+
+# ↓↓ 由 ReconcilerService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _to_float(val: Any) -> float | None:
+    if val is None:
+        return None
+    try:
+        return float(str(val).replace(",", ""))
+    except (ValueError, TypeError):
+        return None

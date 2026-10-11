@@ -154,9 +154,7 @@ class TestSmartFillService:
     @patch.object(SmartFillService, "render")
     @patch.object(SmartFillService, "preview")
     def test_fill_success(self, mock_preview: MagicMock, mock_render: MagicMock) -> None:
-        mock_preview.return_value = SmartFillResult(
-            placeholders=[PlaceholderResult(key="k", value="v", source="llm")]
-        )
+        mock_preview.return_value = SmartFillResult(placeholders=[PlaceholderResult(key="k", value="v", source="llm")])
         mock_render.return_value = b"docx bytes"
         result = self.service.fill("/path/to/template.docx", "input")
         assert result.rendered_bytes == b"docx bytes"
@@ -164,9 +162,7 @@ class TestSmartFillService:
     @patch.object(SmartFillService, "render")
     @patch.object(SmartFillService, "preview")
     def test_fill_render_error(self, mock_preview: MagicMock, mock_render: MagicMock) -> None:
-        mock_preview.return_value = SmartFillResult(
-            placeholders=[PlaceholderResult(key="k", value="v", source="llm")]
-        )
+        mock_preview.return_value = SmartFillResult(placeholders=[PlaceholderResult(key="k", value="v", source="llm")])
         mock_render.side_effect = Exception("render failed")
         result = self.service.fill("/path/to/template.docx", "input")
         assert "渲染失败" in (result.error or "")

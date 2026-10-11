@@ -2,6 +2,7 @@
 
 Covers: ApprovalManager resolve/wait_for_approval, process_tool_call_with_approval.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -9,11 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from apps.workbench.agents.approval import (
-    HIGH_RISK_TOOLS,
-    ApprovalManager,
-    process_tool_call_with_approval,
-)
+from apps.workbench.agents.approval import HIGH_RISK_TOOLS, ApprovalManager, process_tool_call_with_approval
 
 
 class TestApprovalManager:
@@ -97,8 +94,11 @@ class TestProcessToolCallWithApproval:
         event_queue = asyncio.Queue()
         call_tool = AsyncMock(return_value={"result": "ok"})
         result = await process_tool_call_with_approval(
-            ctx=None, call_tool=call_tool, name="search_case",
-            tool_args={"q": "test"}, event_queue=event_queue,
+            ctx=None,
+            call_tool=call_tool,
+            name="search_case",
+            tool_args={"q": "test"},
+            event_queue=event_queue,
         )
         call_tool.assert_called_once_with("search_case", {"q": "test"})
         assert result == {"result": "ok"}
@@ -119,8 +119,11 @@ class TestProcessToolCallWithApproval:
 
         task = asyncio.create_task(approve())
         result = await process_tool_call_with_approval(
-            ctx=None, call_tool=call_tool, name="delete_case",
-            tool_args={"id": 1}, event_queue=event_queue,
+            ctx=None,
+            call_tool=call_tool,
+            name="delete_case",
+            tool_args={"id": 1},
+            event_queue=event_queue,
         )
         await task
         call_tool.assert_called_once_with("delete_case", {"id": 1})
@@ -140,8 +143,11 @@ class TestProcessToolCallWithApproval:
 
         task = asyncio.create_task(reject())
         result = await process_tool_call_with_approval(
-            ctx=None, call_tool=call_tool, name="delete_case",
-            tool_args={"id": 1}, event_queue=event_queue,
+            ctx=None,
+            call_tool=call_tool,
+            name="delete_case",
+            tool_args={"id": 1},
+            event_queue=event_queue,
         )
         await task
         call_tool.assert_not_called()

@@ -54,6 +54,7 @@ class TestReadIntEnv:
 
     def test_valid_int(self):
         import os
+
         os.environ["TEST_READ_INT_ENV_VALID"] = "10"
         try:
             assert _read_int_env("TEST_READ_INT_ENV_VALID", 0) == 10
@@ -62,6 +63,7 @@ class TestReadIntEnv:
 
     def test_negative_returns_default(self):
         import os
+
         os.environ["TEST_READ_INT_ENV_NEG"] = "-5"
         try:
             assert _read_int_env("TEST_READ_INT_ENV_NEG", 10) == 10
@@ -70,6 +72,7 @@ class TestReadIntEnv:
 
     def test_invalid_returns_default(self):
         import os
+
         os.environ["TEST_READ_INT_ENV_BAD"] = "abc"
         try:
             assert _read_int_env("TEST_READ_INT_ENV_BAD", 7) == 7
@@ -356,9 +359,12 @@ class TestListOpponentCaseParties:
 class TestBuildPartyPayloadFromCaseParty:
     def test_natural_party(self):
         client = SimpleNamespace(
-            client_type="natural", name="张三",
-            id_number="110101199003071234", phone="13800138000",
-            address="北京市", legal_representative="",
+            client_type="natural",
+            name="张三",
+            id_number="110101199003071234",
+            phone="13800138000",
+            address="北京市",
+            legal_representative="",
             legal_representative_id_number="",
         )
         party = SimpleNamespace(id=1, client=client)
@@ -368,9 +374,12 @@ class TestBuildPartyPayloadFromCaseParty:
 
     def test_legal_party(self):
         client = SimpleNamespace(
-            client_type="legal", name="某公司",
-            id_number="91440101MA59TEST", phone="020-12345678",
-            address="广州市", legal_representative="李四",
+            client_type="legal",
+            name="某公司",
+            id_number="91440101MA59TEST",
+            phone="020-12345678",
+            address="广州市",
+            legal_representative="李四",
             legal_representative_id_number="440101199001011234",
         )
         party = SimpleNamespace(id=2, client=client)
@@ -384,9 +393,12 @@ class TestBuildPartyPayloadFromCaseParty:
 
     def test_empty_id_number_raises_error(self):
         client = SimpleNamespace(
-            client_type="natural", name="王五",
-            id_number="", phone="13800000000",
-            address="测试地址", legal_representative="",
+            client_type="natural",
+            name="王五",
+            id_number="",
+            phone="13800000000",
+            address="测试地址",
+            legal_representative="",
             legal_representative_id_number="",
         )
         party = SimpleNamespace(id=3, client=client)
@@ -400,10 +412,14 @@ class TestBuildPartyPayloadFromCaseParty:
 class TestListPartyPayloads:
     def _make_party(self, legal_status, is_our_client=True, name="Test"):
         client = SimpleNamespace(
-            client_type="natural", name=name,
-            id_number="110101199003071234", phone="13800138000",
-            address="地址", is_our_client=is_our_client,
-            legal_representative="", legal_representative_id_number="",
+            client_type="natural",
+            name=name,
+            id_number="110101199003071234",
+            phone="13800138000",
+            address="地址",
+            is_our_client=is_our_client,
+            legal_representative="",
+            legal_representative_id_number="",
         )
         return SimpleNamespace(id=1, legal_status=legal_status, client=client)
 
@@ -443,10 +459,14 @@ class TestListPartyPayloads:
 class TestPickPartyPayload:
     def test_returns_first(self):
         client = SimpleNamespace(
-            client_type="natural", name="张三",
-            id_number="110101199003071234", phone="13800138000",
-            address="地址", is_our_client=True,
-            legal_representative="", legal_representative_id_number="",
+            client_type="natural",
+            name="张三",
+            id_number="110101199003071234",
+            phone="13800138000",
+            address="地址",
+            is_our_client=True,
+            legal_representative="",
+            legal_representative_id_number="",
         )
         party = SimpleNamespace(id=1, legal_status="plaintiff", client=client)
         result = _pick_party_payload(
@@ -535,9 +555,12 @@ class TestResolveInsuranceCompanyDefaults:
 class TestGuaranteeSessionStatusPayload:
     def test_pending(self):
         from apps.automation.models import ScraperTaskStatus
+
         task = SimpleNamespace(
-            id=1, status=ScraperTaskStatus.PENDING,
-            result=None, error_message=None,
+            id=1,
+            status=ScraperTaskStatus.PENDING,
+            result=None,
+            error_message=None,
         )
         payload = _build_session_status_payload(task=task)
         assert payload["status"] == "in_progress"
@@ -545,18 +568,24 @@ class TestGuaranteeSessionStatusPayload:
 
     def test_success(self):
         from apps.automation.models import ScraperTaskStatus
+
         task = SimpleNamespace(
-            id=2, status=ScraperTaskStatus.SUCCESS,
-            result={"message": "完成"}, error_message=None,
+            id=2,
+            status=ScraperTaskStatus.SUCCESS,
+            result={"message": "完成"},
+            error_message=None,
         )
         payload = _build_session_status_payload(task=task)
         assert payload["status"] == "completed"
 
     def test_failed_no_message(self):
         from apps.automation.models import ScraperTaskStatus
+
         task = SimpleNamespace(
-            id=3, status=ScraperTaskStatus.FAILED,
-            result=None, error_message="",
+            id=3,
+            status=ScraperTaskStatus.FAILED,
+            result=None,
+            error_message="",
         )
         payload = _build_session_status_payload(task=task)
         assert payload["status"] == "failed"
@@ -564,18 +593,24 @@ class TestGuaranteeSessionStatusPayload:
 
     def test_failed_with_result_message(self):
         from apps.automation.models import ScraperTaskStatus
+
         task = SimpleNamespace(
-            id=4, status=ScraperTaskStatus.FAILED,
-            result={"message": "具体错误"}, error_message="",
+            id=4,
+            status=ScraperTaskStatus.FAILED,
+            result={"message": "具体错误"},
+            error_message="",
         )
         payload = _build_session_status_payload(task=task)
         assert "具体错误" in payload["message"]
 
     def test_timing_included(self):
         from apps.automation.models import ScraperTaskStatus
+
         task = SimpleNamespace(
-            id=5, status=ScraperTaskStatus.RUNNING,
-            result={"timing": {"start": 1.0}}, error_message=None,
+            id=5,
+            status=ScraperTaskStatus.RUNNING,
+            result={"timing": {"start": 1.0}},
+            error_message=None,
         )
         payload = _build_session_status_payload(task=task)
         assert "timing" in payload

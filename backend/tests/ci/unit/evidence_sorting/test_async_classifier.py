@@ -14,7 +14,7 @@ from apps.evidence_sorting.services.classifier import ClassifierService
 def _make_image(text_content: str) -> dict:
     """Create a fake base64 image dict."""
     return {
-        "filename": f"img_{text_content[:8].replace(' ','_')}.jpg",
+        "filename": f"img_{text_content[:8].replace(' ', '_')}.jpg",
         "data": base64.b64encode(text_content.encode()).decode(),
     }
 
@@ -40,7 +40,7 @@ class TestClassifyImagesAsync:
         mock_ocr = MagicMock()
         mock_ocr.detect_orientation_with_text = fake_detect
 
-        with patch.object(svc, '_get_ocr_service', return_value=mock_ocr):
+        with patch.object(svc, "_get_ocr_service", return_value=mock_ocr):
             result = await svc.classify_images_async(images)
 
         assert len(result.images) == 5
@@ -60,7 +60,7 @@ class TestClassifyImagesAsync:
         mock_ocr = MagicMock()
         mock_ocr.detect_orientation_with_text = fake_detect
 
-        with patch.object(svc, '_get_ocr_service', return_value=mock_ocr):
+        with patch.object(svc, "_get_ocr_service", return_value=mock_ocr):
             result = await svc.classify_images_async(images)
 
         assert len(result.images) == 2

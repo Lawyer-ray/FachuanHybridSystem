@@ -24,7 +24,9 @@ class TestTokenLoggingMixin:
     @patch("apps.automation.utils._logging_token_mixin.logger")
     def test_log_captcha_recognition_success(self, mock_logger):
         TokenLoggingMixin.log_captcha_recognition_success(
-            processing_time=1.5, result_length=4, image_size=2048,
+            processing_time=1.5,
+            result_length=4,
+            image_size=2048,
         )
         extra = mock_logger.info.call_args[1]["extra"]
         assert extra["success"] is True
@@ -33,7 +35,8 @@ class TestTokenLoggingMixin:
     @patch("apps.automation.utils._logging_token_mixin.logger")
     def test_log_captcha_recognition_success_no_size(self, mock_logger):
         TokenLoggingMixin.log_captcha_recognition_success(
-            processing_time=0.5, result_length=4,
+            processing_time=0.5,
+            result_length=4,
         )
         extra = mock_logger.info.call_args[1]["extra"]
         assert "image_size" not in extra
@@ -41,7 +44,9 @@ class TestTokenLoggingMixin:
     @patch("apps.automation.utils._logging_token_mixin.logger")
     def test_log_captcha_recognition_failed(self, mock_logger):
         TokenLoggingMixin.log_captcha_recognition_failed(
-            processing_time=2.0, error_message="ocr error", image_size=512,
+            processing_time=2.0,
+            error_message="ocr error",
+            image_size=512,
         )
         mock_logger.error.assert_called_once()
         extra = mock_logger.error.call_args[1]["extra"]
@@ -51,7 +56,8 @@ class TestTokenLoggingMixin:
     @patch("apps.automation.utils._logging_token_mixin.logger")
     def test_log_captcha_recognition_failed_no_size(self, mock_logger):
         TokenLoggingMixin.log_captcha_recognition_failed(
-            processing_time=1.0, error_message="err",
+            processing_time=1.0,
+            error_message="err",
         )
         extra = mock_logger.error.call_args[1]["extra"]
         assert "image_size" not in extra
@@ -59,7 +65,9 @@ class TestTokenLoggingMixin:
     @patch("apps.automation.utils._logging_token_mixin.logger")
     def test_log_token_acquisition_start(self, mock_logger):
         TokenLoggingMixin.log_token_acquisition_start(
-            acquisition_id="acq1", site_name="court", account="user1",
+            acquisition_id="acq1",
+            site_name="court",
+            account="user1",
         )
         extra = mock_logger.info.call_args[1]["extra"]
         assert extra["acquisition_id"] == "acq1"
@@ -69,7 +77,8 @@ class TestTokenLoggingMixin:
     @patch("apps.automation.utils._logging_token_mixin.logger")
     def test_log_token_acquisition_start_no_account(self, mock_logger):
         TokenLoggingMixin.log_token_acquisition_start(
-            acquisition_id="acq1", site_name="court",
+            acquisition_id="acq1",
+            site_name="court",
         )
         extra = mock_logger.info.call_args[1]["extra"]
         assert "account" not in extra
@@ -77,7 +86,10 @@ class TestTokenLoggingMixin:
     @patch("apps.automation.utils._logging_token_mixin.logger")
     def test_log_token_acquisition_success(self, mock_logger):
         TokenLoggingMixin.log_token_acquisition_success(
-            acquisition_id="acq1", site_name="court", account="user1", total_duration=5.0,
+            acquisition_id="acq1",
+            site_name="court",
+            account="user1",
+            total_duration=5.0,
         )
         extra = mock_logger.info.call_args[1]["extra"]
         assert extra["success"] is True
@@ -86,7 +98,9 @@ class TestTokenLoggingMixin:
     @patch("apps.automation.utils._logging_token_mixin.logger")
     def test_log_auto_login_start(self, mock_logger):
         TokenLoggingMixin.log_auto_login_start(
-            acquisition_id="acq1", site_name="court", account="user1",
+            acquisition_id="acq1",
+            site_name="court",
+            account="user1",
         )
         extra = mock_logger.info.call_args[1]["extra"]
         assert extra["action"] == "auto_login_start"
@@ -94,7 +108,10 @@ class TestTokenLoggingMixin:
     @patch("apps.automation.utils._logging_token_mixin.logger")
     def test_log_auto_login_success(self, mock_logger):
         TokenLoggingMixin.log_auto_login_success(
-            acquisition_id="acq1", site_name="court", account="user1", login_duration=3.5,
+            acquisition_id="acq1",
+            site_name="court",
+            account="user1",
+            login_duration=3.5,
         )
         extra = mock_logger.info.call_args[1]["extra"]
         assert extra["login_duration"] == 3.5

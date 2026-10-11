@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from hypothesis import given, settings, assume
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from apps.cases.utils import (
@@ -12,7 +12,6 @@ from apps.cases.utils import (
     normalize_case_number,
     validate_case_log_attachment,
 )
-
 
 # ---------------------------------------------------------------------------
 # normalize_case_number
@@ -57,6 +56,7 @@ def test_normalize_case_number_empty_and_none() -> None:
 # _basename
 # ---------------------------------------------------------------------------
 
+
 @settings(max_examples=200, deadline=None)
 @given(path=st.text(min_size=1, max_size=300))
 def test_basename_never_contains_slash(path: str) -> None:
@@ -74,6 +74,7 @@ def test_basename_empty_and_none() -> None:
 # ---------------------------------------------------------------------------
 # get_file_extension_lower
 # ---------------------------------------------------------------------------
+
 
 @settings(max_examples=200, deadline=None)
 @given(filename=st.text(min_size=1, max_size=200))
@@ -109,6 +110,7 @@ def test_get_file_extension_idempotent(filename: str) -> None:
 # ---------------------------------------------------------------------------
 # validate_case_log_attachment
 # ---------------------------------------------------------------------------
+
 
 @settings(max_examples=200, deadline=None)
 @given(
@@ -149,9 +151,7 @@ from apps.core.models.enums import SimpleCaseType
 
 def _make_service():
     """Create a minimal mock of CaseFilingNumberService with bound method."""
-    from apps.cases.services.number.case_filing_number_service import (
-        CaseFilingNumberService,
-    )
+    from apps.cases.services.number.case_filing_number_service import CaseFilingNumberService
 
     svc = CaseFilingNumberService.__new__(CaseFilingNumberService)
     return svc
@@ -178,9 +178,7 @@ def test_format_simple_known_values(case_type: str) -> None:
 
 
 @settings(max_examples=200, deadline=None)
-@given(case_type=st.text(min_size=1, max_size=50).filter(
-    lambda s: s not in {v.value for v in SimpleCaseType}
-))
+@given(case_type=st.text(min_size=1, max_size=50).filter(lambda s: s not in {v.value for v in SimpleCaseType}))
 def test_format_simple_unknown_returns_input(case_type: str) -> None:
     """Unknown case_type values are returned as-is."""
     svc = _make_service()

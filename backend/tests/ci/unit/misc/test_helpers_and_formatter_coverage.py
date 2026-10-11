@@ -14,22 +14,27 @@ import pytest
 class TestSafeInt:
     def test_valid_int(self):
         from apps.chat_records.services.extraction.extract_helpers import safe_int
+
         assert safe_int(42, 0) == 42
 
     def test_string_int(self):
         from apps.chat_records.services.extraction.extract_helpers import safe_int
+
         assert safe_int("100", 0) == 100
 
     def test_none(self):
         from apps.chat_records.services.extraction.extract_helpers import safe_int
+
         assert safe_int(None, 10) == 10
 
     def test_invalid(self):
         from apps.chat_records.services.extraction.extract_helpers import safe_int
+
         assert safe_int("abc", 5) == 5
 
     def test_float_string(self):
         from apps.chat_records.services.extraction.extract_helpers import safe_int
+
         # int("3.14") raises ValueError, so returns default
         assert safe_int("3.14", 0) == 0
 
@@ -37,58 +42,71 @@ class TestSafeInt:
 class TestSafeFloat:
     def test_valid_float(self):
         from apps.chat_records.services.extraction.extract_helpers import safe_float
+
         assert safe_float(3.14, 0.0) == 3.14
 
     def test_string_float(self):
         from apps.chat_records.services.extraction.extract_helpers import safe_float
+
         assert safe_float("2.5", 0.0) == 2.5
 
     def test_none(self):
         from apps.chat_records.services.extraction.extract_helpers import safe_float
+
         assert safe_float(None, 1.0) == 1.0
 
     def test_invalid(self):
         from apps.chat_records.services.extraction.extract_helpers import safe_float
+
         assert safe_float("abc", 0.5) == 0.5
 
     def test_clamp_low(self):
         from apps.chat_records.services.extraction.extract_helpers import safe_float
+
         assert safe_float(0.01, 1.0, lo=0.1) == 0.1
 
     def test_clamp_high(self):
         from apps.chat_records.services.extraction.extract_helpers import safe_float
+
         assert safe_float(2.0, 1.0, hi=1.5) == 1.5
 
     def test_clamp_both(self):
         from apps.chat_records.services.extraction.extract_helpers import safe_float
+
         assert safe_float(5.0, 1.0, lo=0.0, hi=1.0) == 1.0
 
     def test_no_clamp(self):
         from apps.chat_records.services.extraction.extract_helpers import safe_float
+
         assert safe_float(0.5, 1.0, lo=0.0, hi=1.0) == 0.5
 
 
 class TestShingles:
     def test_basic(self):
         from apps.chat_records.services.extraction.extract_helpers import shingles
+
         result = shingles("abcde", n=3)
         assert result == {"abc", "bcd", "cde"}
 
     def test_empty(self):
         from apps.chat_records.services.extraction.extract_helpers import shingles
+
         assert shingles("") == set()
 
     def test_none(self):
         from apps.chat_records.services.extraction.extract_helpers import shingles
+
         assert shingles(None) == set()  # type: ignore[arg-type]
 
     def test_shorter_than_n(self):
         from apps.chat_records.services.extraction.extract_helpers import shingles
+
         result = shingles("ab", n=3)
         assert result == {"ab"}
 
     def test_exact_length(self):
         from apps.chat_records.services.extraction.extract_helpers import shingles
+
         result = shingles("abc", n=3)
         assert result == {"abc"}
 
@@ -96,29 +114,35 @@ class TestShingles:
 class TestJaccardSets:
     def test_identical(self):
         from apps.chat_records.services.extraction.extract_helpers import jaccard_sets
+
         assert jaccard_sets({"a", "b"}, {"a", "b"}) == 1.0
 
     def test_disjoint(self):
         from apps.chat_records.services.extraction.extract_helpers import jaccard_sets
+
         assert jaccard_sets({"a"}, {"b"}) == 0.0
 
     def test_partial(self):
         from apps.chat_records.services.extraction.extract_helpers import jaccard_sets
+
         result = jaccard_sets({"a", "b"}, {"b", "c"})
         assert result == pytest.approx(1 / 3)
 
     def test_empty_sets(self):
         from apps.chat_records.services.extraction.extract_helpers import jaccard_sets
+
         assert jaccard_sets(set(), set()) == 0.0
 
     def test_one_empty(self):
         from apps.chat_records.services.extraction.extract_helpers import jaccard_sets
+
         assert jaccard_sets({"a"}, set()) == 0.0
 
 
 class TestExtractParams:
     def test_defaults(self):
         from apps.chat_records.services.extraction.extract_helpers import ExtractParams
+
         params = ExtractParams()
         assert params.interval_seconds == 1.0
         assert params.strategy == "interval"
@@ -126,6 +150,7 @@ class TestExtractParams:
 
     def test_from_recording(self):
         from apps.chat_records.services.extraction.extract_helpers import ExtractParams
+
         recording = SimpleNamespace(
             extract_strategy="keyframe",
             extract_dedup_threshold="10",
@@ -140,6 +165,7 @@ class TestExtractParams:
 
     def test_from_recording_defaults(self):
         from apps.chat_records.services.extraction.extract_helpers import ExtractParams
+
         recording = SimpleNamespace()
         params = ExtractParams.from_recording(recording, 0)
         assert params.interval_seconds == 1.0  # fallback
@@ -148,6 +174,7 @@ class TestExtractParams:
 
     def test_from_recording_ocr_strategy(self):
         from apps.chat_records.services.extraction.extract_helpers import ExtractParams
+
         recording = SimpleNamespace(
             extract_strategy="ocr",
             extract_dedup_threshold=None,
@@ -161,6 +188,7 @@ class TestExtractParams:
 class TestDedupState:
     def test_defaults(self):
         from apps.chat_records.services.extraction.extract_helpers import DedupState
+
         state = DedupState()
         assert state.existing_sha256 == set()
         assert state.seen_sha256 == set()
@@ -174,6 +202,7 @@ class TestDedupState:
 class TestPartyFormatter:
     def _get_formatter(self):
         from apps.documents.services.placeholders.litigation.party_formatter import PartyFormatter
+
         return PartyFormatter()
 
     def test_is_natural_person_true(self):
@@ -230,16 +259,19 @@ class TestPartyFormatter:
 class TestFormatPathForDisplay:
     def test_short_path(self):
         from apps.core.filesystem.folder_binding_base import BaseFolderBindingService
+
         svc = BaseFolderBindingService.__new__(BaseFolderBindingService)
         assert svc.format_path_for_display("/short") == "/short"
 
     def test_empty_path(self):
         from apps.core.filesystem.folder_binding_base import BaseFolderBindingService
+
         svc = BaseFolderBindingService.__new__(BaseFolderBindingService)
         assert svc.format_path_for_display("") == ""
 
     def test_long_path(self):
         from apps.core.filesystem.folder_binding_base import BaseFolderBindingService
+
         svc = BaseFolderBindingService.__new__(BaseFolderBindingService)
         long_path = "/a" * 100
         result = svc.format_path_for_display(long_path, max_length=50)
@@ -248,6 +280,7 @@ class TestFormatPathForDisplay:
 
     def test_exact_max_length(self):
         from apps.core.filesystem.folder_binding_base import BaseFolderBindingService
+
         svc = BaseFolderBindingService.__new__(BaseFolderBindingService)
         path = "a" * 50
         assert svc.format_path_for_display(path, max_length=50) == path
@@ -256,24 +289,28 @@ class TestFormatPathForDisplay:
 class TestIsCloudStorage:
     def test_local(self):
         from apps.core.filesystem.folder_binding_base import BaseFolderBindingService
+
         svc = BaseFolderBindingService.__new__(BaseFolderBindingService)
         binding = SimpleNamespace(storage_type="local", storage_account=None)
         assert svc._is_cloud_storage(binding) is False
 
     def test_cloud_with_account(self):
         from apps.core.filesystem.folder_binding_base import BaseFolderBindingService
+
         svc = BaseFolderBindingService.__new__(BaseFolderBindingService)
         binding = SimpleNamespace(storage_type="s3", storage_account="bucket1")
         assert svc._is_cloud_storage(binding) is True
 
     def test_cloud_no_account(self):
         from apps.core.filesystem.folder_binding_base import BaseFolderBindingService
+
         svc = BaseFolderBindingService.__new__(BaseFolderBindingService)
         binding = SimpleNamespace(storage_type="s3", storage_account=None)
         assert svc._is_cloud_storage(binding) is False
 
     def test_no_storage_type_attr(self):
         from apps.core.filesystem.folder_binding_base import BaseFolderBindingService
+
         svc = BaseFolderBindingService.__new__(BaseFolderBindingService)
         binding = SimpleNamespace()
         assert svc._is_cloud_storage(binding) is False
@@ -282,6 +319,7 @@ class TestIsCloudStorage:
 class TestIsBrowsablePath:
     def test_normal_path(self):
         from apps.core.filesystem.folder_binding_base import BaseFolderBindingService
+
         svc = BaseFolderBindingService.__new__(BaseFolderBindingService)
         svc._path_validator = MagicMock()
         svc._path_validator.is_network_path.return_value = False
@@ -291,6 +329,7 @@ class TestIsBrowsablePath:
 
     def test_network_path(self):
         from apps.core.filesystem.folder_binding_base import BaseFolderBindingService
+
         svc = BaseFolderBindingService.__new__(BaseFolderBindingService)
         svc._path_validator = MagicMock()
         svc._path_validator.is_network_path.return_value = True

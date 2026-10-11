@@ -39,8 +39,14 @@ class TestGenerateArchiveDocuments:
         contract.cases.select_related.return_value.prefetch_related.return_value.first.return_value = case
 
         checklist = [
-            {"code": "c1", "name": "案卷封面", "template": "case_cover", "required": True,
-             "auto_detect": None, "source": "template"},
+            {
+                "code": "c1",
+                "name": "案卷封面",
+                "template": "case_cover",
+                "required": True,
+                "auto_detect": None,
+                "source": "template",
+            },
         ]
 
         with (
@@ -91,8 +97,14 @@ class TestGenerateSingleArchiveDocument:
         contract = MagicMock()
         contract.case_type = "civil"
         checklist = [
-            {"code": "c1", "name": "正本", "template": None, "required": True,
-             "auto_detect": None, "source": "contract"},
+            {
+                "code": "c1",
+                "name": "正本",
+                "template": None,
+                "required": True,
+                "auto_detect": None,
+                "source": "contract",
+            },
         ]
 
         with (
@@ -122,9 +134,7 @@ class TestApplyOverrides:
         override_obj = MagicMock()
         override_obj.overrides = {"key1": "new_value", "key2": "extra"}
 
-        with patch(
-            "apps.contracts.models.archive_override.ArchivePlaceholderOverride"
-        ) as mock_cls:
+        with patch("apps.contracts.models.archive_override.ArchivePlaceholderOverride") as mock_cls:
             mock_cls.objects.filter.return_value.first.return_value = override_obj
             _apply_overrides(context, contract, "test_subtype")
             assert context["key1"] == "new_value"
@@ -139,9 +149,7 @@ class TestApplyOverrides:
         override_obj = MagicMock()
         override_obj.overrides = {"key1": None, "key2": ""}
 
-        with patch(
-            "apps.contracts.models.archive_override.ArchivePlaceholderOverride"
-        ) as mock_cls:
+        with patch("apps.contracts.models.archive_override.ArchivePlaceholderOverride") as mock_cls:
             mock_cls.objects.filter.return_value.first.return_value = override_obj
             _apply_overrides(context, contract, "test_subtype")
             assert context["key1"] == "original"
@@ -152,9 +160,7 @@ class TestApplyOverrides:
         context = {"key1": "original"}
         contract = MagicMock()
 
-        with patch(
-            "apps.contracts.models.archive_override.ArchivePlaceholderOverride"
-        ) as mock_cls:
+        with patch("apps.contracts.models.archive_override.ArchivePlaceholderOverride") as mock_cls:
             mock_cls.objects.filter.return_value.first.return_value = None
             _apply_overrides(context, contract, "test_subtype")
             assert context["key1"] == "original"
@@ -170,9 +176,7 @@ class TestGenerateFilename:
         contract.name = "测试合同"
         item = {"name": "案卷封面"}
 
-        with patch(
-            "apps.contracts.services.archive.generation.document_generator.FilenameTemplateService"
-        ) as mock_svc:
+        with patch("apps.contracts.services.archive.generation.document_generator.FilenameTemplateService") as mock_svc:
             mock_svc.render_generated_doc.return_value = "测试合同_案卷封面_V1_20260614"
             result = _generate_filename(contract, item)
             assert result.endswith(".docx")
@@ -184,9 +188,7 @@ class TestGenerateFilename:
         contract = MagicMock()
         contract.name = ""
         item = {"name": "封面"}
-        with patch(
-            "apps.contracts.services.archive.generation.document_generator.FilenameTemplateService"
-        ) as mock_svc:
+        with patch("apps.contracts.services.archive.generation.document_generator.FilenameTemplateService") as mock_svc:
             mock_svc.render_generated_doc.return_value = "result"
             _generate_filename(contract, item)
             call_kwargs = mock_svc.render_generated_doc.call_args
@@ -199,9 +201,7 @@ class TestPreviewArchiveTemplate:
     def test_contract_not_found(self) -> None:
         from apps.contracts.services.archive.generation.document_generator import preview_archive_template
 
-        with patch(
-            "apps.contracts.services.archive.generation.document_generator.Contract"
-        ) as mock_cls:
+        with patch("apps.contracts.services.archive.generation.document_generator.Contract") as mock_cls:
             mock_cls.objects.filter.return_value.first.return_value = None
             result = preview_archive_template(1, "case_cover")
             assert result["success"] is False
@@ -212,9 +212,7 @@ class TestPreviewArchiveTemplate:
 
         contract = MagicMock()
         with (
-            patch(
-                "apps.contracts.services.archive.generation.document_generator.Contract"
-            ) as mock_cls,
+            patch("apps.contracts.services.archive.generation.document_generator.Contract") as mock_cls,
             patch(
                 "apps.contracts.services.archive.generation.document_generator.get_template_path",
                 return_value=None,

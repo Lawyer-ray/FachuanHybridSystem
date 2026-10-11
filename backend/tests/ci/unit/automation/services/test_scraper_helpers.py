@@ -7,16 +7,19 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
+from apps.automation.services.scraper.scrapers.court_document.jysd_scraper import _mask_phone
 
 # ============================================================
 # main.py - CourtDocumentScraper URL resolution
 # ============================================================
+
 
 class TestCourtDocumentScraperResolve:
     """Tests for URL-based scraper class resolution."""
 
     def _make_scraper(self):
         from apps.automation.services.scraper.scrapers.court_document.main import CourtDocumentScraper
+
         task = MagicMock()
         task.url = "https://example.com"
         task.case_id = None
@@ -53,6 +56,7 @@ class TestCourtDocumentScraperResolve:
         scraper.task.url = "https://zxfw.court.gov.cn/yzw/yzw-zxfw-sdfw/pagesajkj/app/wssd/index"
         result = scraper._resolve_scraper_class(scraper.task.url)
         from apps.automation.services.scraper.scrapers.court_document.zxfw_scraper import ZxfwCourtScraper
+
         assert result is ZxfwCourtScraper
 
     @patch("apps.automation.services.scraper.scrapers.court_document.main._is_playwright_available", return_value=False)
@@ -73,11 +77,13 @@ class TestCourtDocumentScraperResolve:
 # sfdw_scraper.py - _safe_filename, config parsing
 # ============================================================
 
+
 class TestSfdwScraperHelpers:
     """Tests for SfdwCourtScraper helper methods."""
 
     def _make_scraper(self):
         from apps.automation.services.scraper.scrapers.court_document.sfdw_scraper import SfdwCourtScraper
+
         task = MagicMock()
         task.config = {}
         task.url = "https://sfpt.cdfy12368.gov.cn/test"
@@ -90,16 +96,18 @@ class TestSfdwScraperHelpers:
 
     def test_safe_filename_removes_illegal_chars(self):
         from apps.automation.services.scraper.scrapers.court_document.sfdw_scraper import SfdwCourtScraper
-        result = SfdwCourtScraper._safe_filename('test:file/name*.pdf')
-        assert ':' not in result
-        assert '/' not in result
-        assert '*' not in result
-        assert result.endswith('.pdf')
+
+        result = SfdwCourtScraper._safe_filename("test:file/name*.pdf")
+        assert ":" not in result
+        assert "/" not in result
+        assert "*" not in result
+        assert result.endswith(".pdf")
 
     def test_safe_filename_non_pdf_extension(self):
         from apps.automation.services.scraper.scrapers.court_document.sfdw_scraper import SfdwCourtScraper
-        result = SfdwCourtScraper._safe_filename('test.doc')
-        assert result == 'test.doc'
+
+        result = SfdwCourtScraper._safe_filename("test.doc")
+        assert result == "test.doc"
 
     def test_get_verification_code_from_config(self):
         scraper = self._make_scraper()
@@ -141,22 +149,27 @@ class TestSfdwScraperHelpers:
 # jysd_scraper.py - _mask_phone, _safe_filename
 # ============================================================
 
+
 class TestJysdScraperHelpers:
     def test_mask_phone_normal(self):
         from apps.automation.services.scraper.scrapers.court_document.jysd_scraper import JysdCourtScraper
-        assert JysdCourtScraper._mask_phone("00000000000") == "000****0000"
+
+        assert _mask_phone("00000000000") == "000****0000"
 
     def test_mask_phone_short(self):
         from apps.automation.services.scraper.scrapers.court_document.jysd_scraper import JysdCourtScraper
-        assert JysdCourtScraper._mask_phone("123") == "***"
+
+        assert _mask_phone("123") == "***"
 
     def test_safe_filename(self):
         from apps.automation.services.scraper.scrapers.court_document.jysd_scraper import JysdCourtScraper
+
         result = JysdCourtScraper._safe_filename("test/file.pdf")
         assert "/" not in result
 
     def test_safe_filename_chinese_chars(self):
         from apps.automation.services.scraper.scrapers.court_document.jysd_scraper import JysdCourtScraper
+
         result = JysdCourtScraper._safe_filename("民事判决书.pdf")
         assert result == "民事判决书.pdf"
 
@@ -165,9 +178,11 @@ class TestJysdScraperHelpers:
 # gdems_scraper.py - _build_no_document_result
 # ============================================================
 
+
 class TestGdemsScraperHelpers:
     def _make_scraper(self):
         from apps.automation.services.scraper.scrapers.court_document.gdems_scraper import GdemsCourtScraper
+
         task = MagicMock()
         task.url = "https://sd.gdems.com/test"
         task.id = 1
@@ -193,35 +208,32 @@ class TestGdemsScraperHelpers:
 # _zxfw_intercept_mixin.py - _process_api_data_and_download
 # ============================================================
 
+
 class TestZxfwInterceptMixin:
     def test_process_api_data_none_raises(self):
-        from apps.automation.services.scraper.scrapers.court_document._zxfw_intercept_mixin import (
-            ZxfwInterceptMixin,
-        )
+        from apps.automation.services.scraper.scrapers.court_document._zxfw_intercept_mixin import ZxfwInterceptMixin
+
         mixin = ZxfwInterceptMixin()
         with pytest.raises(ValueError, match="API 拦截超时"):
             mixin._process_api_data_and_download(None, Path("/tmp"))
 
     def test_process_api_data_non_dict_raises(self):
-        from apps.automation.services.scraper.scrapers.court_document._zxfw_intercept_mixin import (
-            ZxfwInterceptMixin,
-        )
+        from apps.automation.services.scraper.scrapers.court_document._zxfw_intercept_mixin import ZxfwInterceptMixin
+
         mixin = ZxfwInterceptMixin()
         with pytest.raises(ValueError, match="API 响应格式错误"):
             mixin._process_api_data_and_download("not a dict", Path("/tmp"))
 
     def test_process_api_data_missing_data_raises(self):
-        from apps.automation.services.scraper.scrapers.court_document._zxfw_intercept_mixin import (
-            ZxfwInterceptMixin,
-        )
+        from apps.automation.services.scraper.scrapers.court_document._zxfw_intercept_mixin import ZxfwInterceptMixin
+
         mixin = ZxfwInterceptMixin()
         with pytest.raises(ValueError, match="缺少 data 字段"):
             mixin._process_api_data_and_download({"other": "val"}, Path("/tmp"))
 
     def test_process_api_data_empty_data_raises(self):
-        from apps.automation.services.scraper.scrapers.court_document._zxfw_intercept_mixin import (
-            ZxfwInterceptMixin,
-        )
+        from apps.automation.services.scraper.scrapers.court_document._zxfw_intercept_mixin import ZxfwInterceptMixin
+
         mixin = ZxfwInterceptMixin()
         with pytest.raises(ValueError, match="没有文书数据"):
             mixin._process_api_data_and_download({"data": []}, Path("/tmp"))

@@ -316,7 +316,10 @@ class TestFinalizeCacheHitRates:
     def test_calculates_rates(self) -> None:
         data = {
             "redis": {
-                "total": 100, "hits": 80, "misses": 20, "hit_rate": 0.0,
+                "total": 100,
+                "hits": 80,
+                "misses": 20,
+                "hit_rate": 0.0,
                 "by_name": {
                     "token": {"total": 60, "hits": 50, "misses": 10, "hit_rate": 0.0},
                     "config": {"total": 40, "hits": 30, "misses": 10, "hit_rate": 0.0},

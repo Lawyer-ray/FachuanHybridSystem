@@ -8,6 +8,7 @@ import pytest
 
 try:
     from plugins import has_message_hub_plugin
+
     _HAS_MH = has_message_hub_plugin()
 except ImportError:
     _HAS_MH = False
@@ -30,18 +31,23 @@ from apps.organization.models import AccountCredential, LawFirm, Lawyer
 
 User = get_user_model()
 
+
 def _make_request(path: str = "/admin/") -> Any:
     factory = RequestFactory()
     request = factory.get(path)
     request.user = User(is_superuser=True, is_staff=True)
     return request
 
+
 def _create_message_source() -> tuple[AccountCredential, MessageSource]:
     """创建消息来源测试数据"""
     firm = LawFirm.objects.create(name="消息测试律所")
     lawyer = Lawyer.objects.create_user(username="msg_lawyer", real_name="消息律师", law_firm=firm)
     cred = AccountCredential.objects.create(
-        lawyer=lawyer, site_name="imap_site", account="msg_account", password="test_pass"  # pragma: allowlist secret
+        lawyer=lawyer,
+        site_name="imap_site",
+        account="msg_account",
+        password="test_pass",  # pragma: allowlist secret
     )
     source = MessageSource.objects.create(
         credential=cred,
@@ -52,6 +58,7 @@ def _create_message_source() -> tuple[AccountCredential, MessageSource]:
         sync_since=timezone.now(),
     )
     return cred, source
+
 
 @pytest.mark.django_db
 class TestInboxMessageAdmin:
@@ -95,6 +102,7 @@ class TestInboxMessageAdmin:
         results = list(qs)
         assert len(results) == 1
         assert results[0].source.display_name == "测试邮箱"
+
 
 @pytest.mark.django_db
 class TestMessageSourceAdmin:

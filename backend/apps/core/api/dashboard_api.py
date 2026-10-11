@@ -68,7 +68,12 @@ async def get_dashboard_stats(request: HttpRequest) -> dict[str, Any]:  # pragma
         DashboardService,
         _case_status_distribution,
         _case_trend,
+        _case_type_stats,
+        _client_count,
+        _contract_count,
         _contract_trend,
+        _fee_stats,
+        _reminder_counts,
         _upcoming_reminders,
     )
 
@@ -95,18 +100,18 @@ async def get_dashboard_stats(request: HttpRequest) -> dict[str, Any]:  # pragma
         contract_count,
         contract_trend,
     ) = await asyncio.gather(
-        _guarded(stf(service._case_type_stats)()),
+        _guarded(stf(_case_type_stats)()),
         _guarded(stf(_case_trend)(timezone.localdate() - timedelta(days=365))),
         _guarded(stf(_case_status_distribution)()),
         _guarded(
-            stf(service._fee_stats)(
+            stf(_fee_stats)(
                 timezone.localdate().replace(day=1), timezone.localdate(), timezone.localdate() - timedelta(days=365)
             )
         ),
-        _guarded(stf(service._reminder_counts)(timezone.now())),
+        _guarded(stf(_reminder_counts)(timezone.now())),
         _guarded(stf(_upcoming_reminders)(timezone.now())),
-        _guarded(stf(service._client_count)()),
-        _guarded(stf(service._contract_count)()),
+        _guarded(stf(_client_count)()),
+        _guarded(stf(_contract_count)()),
         _guarded(stf(_contract_trend)(timezone.localdate() - timedelta(days=365))),
     )
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from unittest.mock import patch
 
-from hypothesis import given, settings, assume
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from apps.cases.services.template.unified.filename import FilenameInputs, FilenamePolicy
@@ -14,7 +14,6 @@ from apps.documents.services.generation.pipeline.naming import (
     contract_docx_filename,
     supplementary_agreement_docx_filename,
 )
-
 
 # ---------------------------------------------------------------------------
 # FilenamePolicy.safe_name
@@ -158,7 +157,8 @@ def test_supplementary_agreement_docx_ends_with_docx(agreement_name: str, contra
         return_value="{doc_type}（{case_name}）V{version}_{date}",
     ):
         result = supplementary_agreement_docx_filename(
-            agreement_name=agreement_name, contract_name=contract_name,
+            agreement_name=agreement_name,
+            contract_name=contract_name,
         )
     assert result.endswith(".docx"), f"expected .docx, got {result!r}"
 
@@ -174,7 +174,8 @@ def test_supplementary_agreement_default_name_used(contract_name: str) -> None:
         return_value="{doc_type}（{case_name}）V{version}_{date}",
     ):
         result = supplementary_agreement_docx_filename(
-            agreement_name="", contract_name=contract_name,
+            agreement_name="",
+            contract_name=contract_name,
         )
     assert "补充协议" in result
 
@@ -191,9 +192,11 @@ def test_supplementary_agreement_deterministic(agreement_name: str, contract_nam
         return_value="{doc_type}（{case_name}）V{version}_{date}",
     ):
         r1 = supplementary_agreement_docx_filename(
-            agreement_name=agreement_name, contract_name=contract_name,
+            agreement_name=agreement_name,
+            contract_name=contract_name,
         )
         r2 = supplementary_agreement_docx_filename(
-            agreement_name=agreement_name, contract_name=contract_name,
+            agreement_name=agreement_name,
+            contract_name=contract_name,
         )
     assert r1 == r2

@@ -18,6 +18,7 @@ from apps.finance.services.calculator.interest_calculator import (
     CalculationPeriod,
     InterestCalculationResult,
     InterestCalculator,
+    create_principal_periods,
 )
 from apps.finance.services.lpr.rate_service import PrincipalPeriod
 
@@ -379,7 +380,7 @@ class TestCreatePrincipalPeriods:
         changes = [
             {"start_date": date(2026, 1, 1), "end_date": date(2026, 1, 31)},
         ]
-        periods = InterestCalculator.create_principal_periods(changes, default_principal=Decimal("50000"))
+        periods = create_principal_periods(changes, default_principal=Decimal("50000"))
         assert periods[0].principal == Decimal("50000")
 
     def test_sorted_by_start_date(self):
@@ -387,6 +388,6 @@ class TestCreatePrincipalPeriods:
             {"start_date": date(2026, 6, 1), "end_date": date(2026, 6, 30), "principal": "20000"},
             {"start_date": date(2026, 1, 1), "end_date": date(2026, 1, 31), "principal": "10000"},
         ]
-        periods = InterestCalculator.create_principal_periods(changes)
+        periods = create_principal_periods(changes)
         assert periods[0].start_date == date(2026, 1, 1)
         assert periods[1].start_date == date(2026, 6, 1)

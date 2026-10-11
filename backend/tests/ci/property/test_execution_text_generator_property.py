@@ -2,22 +2,17 @@
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 
-from hypothesis import given, settings, assume
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from apps.documents.services.placeholders.litigation.execution_request_models import (
-    InterestSegment,
-    ParsedAmounts,
-)
+from apps.documents.services.placeholders.litigation.execution_request_models import InterestSegment, ParsedAmounts
 from apps.documents.services.placeholders.litigation.execution_request_text_generator import (
     build_fee_desc,
     build_interest_segment_desc,
 )
-
-from datetime import date
-
 
 # ---------------------------------------------------------------------------
 # build_fee_desc
@@ -53,7 +48,9 @@ def test_build_fee_desc_all_zero_returns_empty(
 
 @settings(max_examples=200, deadline=None)
 @given(
-    litigation=st.decimals(min_value=Decimal("0.01"), max_value=Decimal("999999.99"), allow_nan=False, allow_infinity=False),
+    litigation=st.decimals(
+        min_value=Decimal("0.01"), max_value=Decimal("999999.99"), allow_nan=False, allow_infinity=False
+    ),
 )
 def test_build_fee_desc_nonzero_litigation_contains_yuan(litigation: Decimal) -> None:
     """Non-zero litigation_fee produces output containing '元'."""
@@ -65,7 +62,9 @@ def test_build_fee_desc_nonzero_litigation_contains_yuan(litigation: Decimal) ->
 
 @settings(max_examples=200, deadline=None)
 @given(
-    preservation=st.decimals(min_value=Decimal("0.01"), max_value=Decimal("999999.99"), allow_nan=False, allow_infinity=False),
+    preservation=st.decimals(
+        min_value=Decimal("0.01"), max_value=Decimal("999999.99"), allow_nan=False, allow_infinity=False
+    ),
 )
 def test_build_fee_desc_nonzero_preservation_contains_yuan(preservation: Decimal) -> None:
     """Non-zero preservation_fee produces output containing '保全费'."""
@@ -77,7 +76,9 @@ def test_build_fee_desc_nonzero_preservation_contains_yuan(preservation: Decimal
 
 @settings(max_examples=200, deadline=None)
 @given(
-    attorney=st.decimals(min_value=Decimal("0.01"), max_value=Decimal("999999.99"), allow_nan=False, allow_infinity=False),
+    attorney=st.decimals(
+        min_value=Decimal("0.01"), max_value=Decimal("999999.99"), allow_nan=False, allow_infinity=False
+    ),
 )
 def test_build_fee_desc_nonzero_attorney_contains_yuan(attorney: Decimal) -> None:
     """Non-zero attorney_fee produces output containing '律师代理费'."""
@@ -108,7 +109,10 @@ def test_build_interest_segment_desc_empty(segments: list) -> None:
     day=st.integers(min_value=1, max_value=28),
 )
 def test_build_interest_segment_desc_single_segment_contains_yuan(
-    base: Decimal, year: int, month: int, day: int,
+    base: Decimal,
+    year: int,
+    month: int,
+    day: int,
 ) -> None:
     """A single segment produces output containing '元' and date text."""
     segment = InterestSegment(

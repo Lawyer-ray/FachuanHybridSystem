@@ -30,7 +30,16 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.core.exceptions import ValidationException
-from apps.core.services.bound_folder_scan_service import BoundFolderScanService, _VersionInfo
+from apps.core.services.bound_folder_scan_service import (
+    BoundFolderScanService,
+    _calc_progress,
+    _clean_base_name,
+    _collect_pdf_files,
+    _extract_parent_folder_hint,
+    _normalize_group_key,
+    _notify,
+    _VersionInfo,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -64,18 +73,18 @@ class TestInit:
 
 class TestCalcProgress:
     def test_zero_total(self) -> None:
-        assert BoundFolderScanService._calc_progress(idx=1, total=0) == 100
+        assert _calc_progress(idx=1, total=0) == 100
 
     def test_first_item(self) -> None:
-        result = BoundFolderScanService._calc_progress(idx=1, total=10)
+        result = _calc_progress(idx=1, total=10)
         assert 10 <= result <= 99
 
     def test_last_item(self) -> None:
-        result = BoundFolderScanService._calc_progress(idx=10, total=10)
+        result = _calc_progress(idx=10, total=10)
         assert result <= 99
 
     def test_single_item(self) -> None:
-        result = BoundFolderScanService._calc_progress(idx=1, total=1)
+        result = _calc_progress(idx=1, total=1)
         assert result <= 99
 
 
@@ -86,7 +95,7 @@ class TestCollectPdfFiles:
         (tmp_path / "sub").mkdir()
         (tmp_path / "sub" / "c.pdf").touch()
 
-        result = BoundFolderScanService._collect_pdf_files(tmp_path)
+        result = _collect_pdf_files(tmp_path)
         names = [p.name for p in result]
         assert "a.pdf" in names
         assert "c.pdf" in names
@@ -96,7 +105,7 @@ class TestCollectPdfFiles:
         (tmp_path / "z.pdf").touch()
         (tmp_path / "a.pdf").touch()
 
-        result = BoundFolderScanService._collect_pdf_files(tmp_path)
+        result = _collect_pdf_files(tmp_path)
         assert result[0].name == "a.pdf"
         assert result[1].name == "z.pdf"
 
@@ -141,24 +150,24 @@ class TestParseVersion:
 
 class TestCleanBaseName:
     def test_normal(self) -> None:
-        assert BoundFolderScanService._clean_base_name("hello  world") == "hello world"
+        assert _clean_base_name("hello  world") == "hello world"
 
     def test_dots_and_underscores(self) -> None:
-        assert BoundFolderScanService._clean_base_name("a.__b") == "a b"
+        assert _clean_base_name("a.__b") == "a b"
 
     def test_empty(self) -> None:
-        assert BoundFolderScanService._clean_base_name("") == ""
+        assert _clean_base_name("") == ""
 
     def test_whitespace_only(self) -> None:
-        assert BoundFolderScanService._clean_base_name("   ") == ""
+        assert _clean_base_name("   ") == ""
 
 
 class TestNormalizeGroupKey:
     def test_lowercase(self) -> None:
-        assert BoundFolderScanService._normalize_group_key("Hello World") == "hello world"
+        assert _normalize_group_key("Hello World") == "hello world"
 
     def test_empty(self) -> None:
-        assert BoundFolderScanService._normalize_group_key("") == "_"
+        assert _normalize_group_key("") == "_"
 
 
 class TestDeduplicateFiles:
@@ -203,7 +212,7 @@ class TestExtractParentFolderHint:
     def test_direct_file(self, tmp_path: Path) -> None:
         f = tmp_path / "test.pdf"
         f.touch()
-        result = BoundFolderScanService._extract_parent_folder_hint(f, tmp_path)
+        result = _extract_parent_folder_hint(f, tmp_path)
         assert result == ""
 
     def test_nested_file(self, tmp_path: Path) -> None:
@@ -211,7 +220,7 @@ class TestExtractParentFolderHint:
         sub.mkdir()
         f = sub / "test.pdf"
         f.touch()
-        result = BoundFolderScanService._extract_parent_folder_hint(f, tmp_path)
+        result = _extract_parent_folder_hint(f, tmp_path)
         assert "执行申请书" in result
 
     def test_multi_level(self, tmp_path: Path) -> None:
@@ -219,25 +228,25 @@ class TestExtractParentFolderHint:
         sub.mkdir(parents=True)
         f = sub / "test.pdf"
         f.touch()
-        result = BoundFolderScanService._extract_parent_folder_hint(f, tmp_path)
+        result = _extract_parent_folder_hint(f, tmp_path)
         assert result == "parent"
 
     def test_outside_root(self, tmp_path: Path) -> None:
         other = Path(tempfile.mkdtemp())
         f = other / "test.pdf"
         f.touch()
-        result = BoundFolderScanService._extract_parent_folder_hint(f, tmp_path)
+        result = _extract_parent_folder_hint(f, tmp_path)
         assert result == ""
 
 
 class TestNotify:
     def test_with_callback(self) -> None:
         cb = MagicMock()
-        BoundFolderScanService._notify(cb, "scanning", 50, "test.pdf")
+        _notify(cb, "scanning", 50, "test.pdf")
         cb.assert_called_once_with("scanning", 50, "test.pdf")
 
     def test_without_callback(self) -> None:
-        assert BoundFolderScanService._notify(None, "scanning", 50, "test.pdf") is None
+        assert _notify(None, "scanning", 50, "test.pdf") is None
 
 
 class TestBuildCandidate:

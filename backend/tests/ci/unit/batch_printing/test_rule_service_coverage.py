@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.core.exceptions import NotFoundError, ValidationException
 from apps.batch_printing.services.execution.rule_service import RuleService
+from apps.core.exceptions import NotFoundError, ValidationException
 
 
 @pytest.fixture
@@ -72,10 +72,16 @@ class TestBuildRulePayload:
 
     def test_empty_notes(self, service: RuleService) -> None:
         rule = SimpleNamespace(
-            id=1, keyword="k", priority=1, enabled=True,
-            printer_name="p", preset_snapshot_id=1,
+            id=1,
+            keyword="k",
+            priority=1,
+            enabled=True,
+            printer_name="p",
+            preset_snapshot_id=1,
             preset_snapshot=SimpleNamespace(preset_name="P", printer_name="p"),
-            notes=None, created_at=None, updated_at=None,
+            notes=None,
+            created_at=None,
+            updated_at=None,
         )
         result = service.build_rule_payload(rule=rule)
         assert result["notes"] == ""
@@ -199,11 +205,15 @@ class TestNormalizePayload:
 
     def test_negative_priority_raises(self, service: RuleService) -> None:
         with pytest.raises(ValidationException):
-            service._normalize_payload(payload={"keyword": "test", "priority": -1, "preset_snapshot_id": 1}, partial=False)
+            service._normalize_payload(
+                payload={"keyword": "test", "priority": -1, "preset_snapshot_id": 1}, partial=False
+            )
 
     def test_missing_preset_raises(self, service: RuleService) -> None:
         with pytest.raises(ValidationException):
-            service._normalize_payload(payload={"keyword": "test", "priority": 1, "preset_snapshot_id": None}, partial=False)
+            service._normalize_payload(
+                payload={"keyword": "test", "priority": 1, "preset_snapshot_id": None}, partial=False
+            )
 
     def test_partial_keyword_only(self, service: RuleService) -> None:
         with patch("apps.batch_printing.services.execution.rule_service.PrintPresetSnapshot") as MockPreset:

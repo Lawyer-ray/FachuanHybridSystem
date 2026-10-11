@@ -1,4 +1,5 @@
 """Tests for document_recognition services: data_classes and case_binding."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -8,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.core.exceptions import NotFoundError
+from apps.document_recognition.services.case_binding_service import CaseBindingService
 from apps.document_recognition.services.data_classes import (
     BindingResult,
     DocumentType,
@@ -15,8 +17,6 @@ from apps.document_recognition.services.data_classes import (
     RecognitionResponse,
     RecognitionResult,
 )
-from apps.document_recognition.services.case_binding_service import CaseBindingService
-
 
 # ---------------------------------------------------------------------------
 # DocumentType

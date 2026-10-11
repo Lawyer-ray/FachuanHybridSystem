@@ -19,6 +19,7 @@ class TestContractFolderScanServiceHelpers:
 
     def _make_processor(self):
         from apps.contracts.services.contract.integrations._candidate_post_processor import CandidatePostProcessor
+
         return CandidatePostProcessor(scan_service=MagicMock())
 
     # ── _normalize_scan_subfolder ──
@@ -46,24 +47,28 @@ class TestContractFolderScanServiceHelpers:
     def test_normalize_absolute_raises(self):
         svc = self._make_service()
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException):
             svc._normalize_scan_subfolder("/absolute")
 
     def test_normalize_tilde_raises(self):
         svc = self._make_service()
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException):
             svc._normalize_scan_subfolder("~/path")
 
     def test_normalize_windows_path_raises(self):
         svc = self._make_service()
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException):
             svc._normalize_scan_subfolder("C:/path")
 
     def test_normalize_dotdot_raises(self):
         svc = self._make_service()
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException):
             svc._normalize_scan_subfolder("../escape")
 
@@ -95,11 +100,13 @@ class TestContractFolderScanServiceHelpers:
     def test_is_within_root_true(self):
         svc = self._make_service()
         from pathlib import Path
+
         assert svc._is_within_root(Path("/a/b"), Path("/a/b/c")) is True
 
     def test_is_within_root_false(self):
         svc = self._make_service()
         from pathlib import Path
+
         assert svc._is_within_root(Path("/a/b"), Path("/c/d")) is False
 
     # ── _relative_path_str ──
@@ -107,6 +114,7 @@ class TestContractFolderScanServiceHelpers:
     def test_relative_path_str(self):
         svc = self._make_processor()
         from pathlib import Path
+
         result = svc._relative_path_str(
             source_path="/a/b/c/file.pdf",
             scan_root=Path("/a/b"),
@@ -116,6 +124,7 @@ class TestContractFolderScanServiceHelpers:
     def test_relative_path_str_root_file(self):
         svc = self._make_processor()
         from pathlib import Path
+
         result = svc._relative_path_str(
             source_path="/a/b/file.pdf",
             scan_root=Path("/a/b"),
@@ -174,12 +183,14 @@ class TestCaseFolderScanServiceHelpers:
     def test_normalize_absolute_raises(self):
         svc = self._make_service()
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException):
             svc._normalize_scan_subfolder("/absolute")
 
     def test_normalize_dotdot_raises(self):
         svc = self._make_service()
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException):
             svc._normalize_scan_subfolder("../escape")
 
@@ -298,6 +309,7 @@ class TestCaseFolderScanServiceHelpers:
 
     def test_build_materials_url(self):
         from uuid import uuid4
+
         url = _build_materials_url(case_id=1, session_id=uuid4())
         assert "scan_session" in url
         assert "open_scan" in url

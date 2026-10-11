@@ -354,15 +354,11 @@ class TestCourtToken:
 
     def test_unique_together(self):
         now = timezone.now() + timedelta(hours=1)
-        CourtToken.objects.create(
-            site_name="s1", account="a1", token="t1", expires_at=now
-        )
+        CourtToken.objects.create(site_name="s1", account="a1", token="t1", expires_at=now)
         from django.db import IntegrityError
 
         with pytest.raises(IntegrityError):
-            CourtToken.objects.create(
-                site_name="s1", account="a1", token="t2", expires_at=now
-            )
+            CourtToken.objects.create(site_name="s1", account="a1", token="t2", expires_at=now)
 
 
 # ============================================================

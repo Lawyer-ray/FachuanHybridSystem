@@ -6,7 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.enterprise_data.services.metrics_service import EnterpriseDataMetricsService
+from apps.enterprise_data.services.enterprise_data_service import _build_cache_key, _build_query_payload
+from apps.enterprise_data.services.metrics_service import EnterpriseDataMetricsService, _bucket_key
 from apps.enterprise_data.services.types import (
     DEFAULT_ALERT_AVG_LATENCY_MS_THRESHOLD,
     DEFAULT_ALERT_FALLBACK_RATE_THRESHOLD,
@@ -133,7 +134,7 @@ class TestEnterpriseDataMetricsService:
         assert bucket["total"] == 0
 
     def test_bucket_key(self):
-        key = EnterpriseDataMetricsService._bucket_key(provider="qichacha", capability="search")
+        key = _bucket_key(provider="qichacha", capability="search")
         assert "qichacha" in key
         assert "search" in key
 
@@ -160,7 +161,7 @@ class TestEnterpriseDataService:
     def test_build_cache_key(self):
         from apps.enterprise_data.services.enterprise_data_service import EnterpriseDataService
 
-        key = EnterpriseDataService._build_cache_key(
+        key = _build_cache_key(
             provider="test",
             capability="search",
             query={"keyword": "test"},
@@ -171,12 +172,8 @@ class TestEnterpriseDataService:
     def test_build_cache_key_deterministic(self):
         from apps.enterprise_data.services.enterprise_data_service import EnterpriseDataService
 
-        key1 = EnterpriseDataService._build_cache_key(
-            provider="test", capability="search", query={"keyword": "abc"}
-        )
-        key2 = EnterpriseDataService._build_cache_key(
-            provider="test", capability="search", query={"keyword": "abc"}
-        )
+        key1 = _build_cache_key(provider="test", capability="search", query={"keyword": "abc"})
+        key2 = _build_cache_key(provider="test", capability="search", query={"keyword": "abc"})
         assert key1 == key2
 
     def test_build_query_payload(self):
@@ -184,7 +181,7 @@ class TestEnterpriseDataService:
         from apps.enterprise_data.services.types import ProviderResponse
 
         response = ProviderResponse(data={"name": "test"}, tool="search_company", raw=None, meta={"duration_ms": 100})
-        payload = EnterpriseDataService._build_query_payload(
+        payload = _build_query_payload(
             provider="qichacha",
             transport="http",
             capability="search",
@@ -201,7 +198,7 @@ class TestEnterpriseDataService:
         from apps.enterprise_data.services.types import ProviderResponse
 
         response = ProviderResponse(data={"name": "test"}, tool="search_company", raw={"raw_data": True}, meta={})
-        payload = EnterpriseDataService._build_query_payload(
+        payload = _build_query_payload(
             provider="qichacha",
             transport="http",
             capability="search",

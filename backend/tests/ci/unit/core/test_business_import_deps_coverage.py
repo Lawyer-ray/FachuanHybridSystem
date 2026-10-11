@@ -12,9 +12,7 @@ class TestBuildCaseAndContractImportServicesForAdmin:
 
     def test_returns_tuple_of_two_services(self) -> None:
         """返回 (CaseImportService, ContractImportService) 元组。"""
-        from apps.core.dependencies.business_import import (
-            build_case_and_contract_import_services_for_admin,
-        )
+        from apps.core.dependencies.business_import import build_case_and_contract_import_services_for_admin
 
         mock_case_cls = MagicMock()
         mock_case_instance = MagicMock()
@@ -42,9 +40,7 @@ class TestBuildCaseAndContractImportServicesForAdmin:
 
     def test_case_service_binds_contract_import(self) -> None:
         """CaseImportService 应调用 bind_contract_import 绑定 ContractImportService。"""
-        from apps.core.dependencies.business_import import (
-            build_case_and_contract_import_services_for_admin,
-        )
+        from apps.core.dependencies.business_import import build_case_and_contract_import_services_for_admin
 
         mock_case_cls = MagicMock()
         mock_case_instance = MagicMock()
@@ -69,9 +65,7 @@ class TestBuildCaseAndContractImportServicesForAdmin:
 
     def test_contract_service_receives_case_import_fn(self) -> None:
         """ContractImportService 初始化时应接收 case_svc.import_one 作为 case_import_fn。"""
-        from apps.core.dependencies.business_import import (
-            build_case_and_contract_import_services_for_admin,
-        )
+        from apps.core.dependencies.business_import import build_case_and_contract_import_services_for_admin
 
         mock_case_cls = MagicMock()
         mock_case_instance = MagicMock()
@@ -94,4 +88,6 @@ class TestBuildCaseAndContractImportServicesForAdmin:
 
         # ContractImportService 应收到 case_import_fn 参数
         call_kwargs = mock_contract_cls.call_args
-        assert "case_import_fn" in call_kwargs.kwargs or "case_import_fn" in (call_kwargs[1] if len(call_kwargs) > 1 else {})
+        assert "case_import_fn" in call_kwargs.kwargs or "case_import_fn" in (
+            call_kwargs[1] if len(call_kwargs) > 1 else {}
+        )

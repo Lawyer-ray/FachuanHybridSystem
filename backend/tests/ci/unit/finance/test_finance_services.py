@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from apps.core.exceptions import ValidationException
+from apps.finance.services.calculator.interest_calculator import create_principal_periods
 
 
 class TestCalculationPeriod:
@@ -206,6 +207,6 @@ class TestCreatePrincipalPeriods:
             {"start_date": date(2026, 1, 1), "end_date": date(2026, 1, 31), "principal": "10000"},
             {"start_date": date(2026, 2, 1), "end_date": date(2026, 2, 28), "principal": "20000"},
         ]
-        periods = InterestCalculator.create_principal_periods(changes)
+        periods = create_principal_periods(changes)
         assert len(periods) == 2
         assert periods[0].start_date == date(2026, 1, 1)

@@ -27,7 +27,7 @@ class DashboardService:
         trend_start = today - timedelta(days=365)
 
         # 1 query: Case 活跃数 + 案件类型分布（同表、同 filter）
-        case_type_dist, active_case_count = self._case_type_stats()
+        case_type_dist, active_case_count = _case_type_stats()
 
         # 1 query: Case 趋势（按月）
         case_trend = _case_trend(trend_start)
@@ -36,18 +36,18 @@ class DashboardService:
         case_status_dist = _case_status_distribution()
 
         # 1 query: ContractPayment 费用（本月 + 近 12 月趋势）
-        monthly_fee, fee_trend = self._fee_stats(month_start, today, trend_start)
+        monthly_fee, fee_trend = _fee_stats(month_start, today, trend_start)
 
         # 1 query: Reminder 计数（overdue + today）
-        reminder_counts = self._reminder_counts(now)
+        reminder_counts = _reminder_counts(now)
 
         # 1 query: Reminder 到期列表（需要实际对象数据，无法合并）
         upcoming_reminders = _upcoming_reminders(now)
 
         return {
             # 总量
-            "client_count": self._client_count(),
-            "contract_count": self._contract_count(),
+            "client_count": _client_count(),
+            "contract_count": _contract_count(),
             "case_count": active_case_count,
             "monthly_fee": monthly_fee,
             # 趋势
@@ -65,41 +65,7 @@ class DashboardService:
 
     # ── 总量（独立小查询，无法合并）────────────────────────────────────────────
 
-    @staticmethod
-    def _client_count() -> int:
-        from apps.client.models import Client
-
-        return Client.objects.count()
-
-    @staticmethod
-    def _contract_count() -> int:
-        return Contract.objects.count()
-
     # ── Case: 活跃数 + 类型分布（合并为 1 条查询）─────────────────────────────
-
-    @staticmethod
-    def _case_type_stats() -> tuple[list[dict[str, Any]], int]:
-        """一次查询同时返回活跃案件类型分布和活跃案件总数。"""
-        label_map = {k: str(v) for k, v in SimpleCaseType.choices}
-        qs = (
-            Case.objects.filter(status=CaseStatus.ACTIVE)
-            .values("case_type")
-            .annotate(count=Count("id"))
-            .order_by("-count")
-        )
-        distribution = []
-        total = 0
-        for r in qs:
-            count = r["count"]
-            total += count
-            distribution.append(
-                {
-                    "type": r["case_type"] or "unknown",
-                    "label": label_map.get(r["case_type"] or "", "未分类"),
-                    "count": count,
-                }
-            )
-        return distribution, total
 
     # ── Case 趋势（近 12 个月）────────────────────────────────────────────────
 
@@ -109,38 +75,7 @@ class DashboardService:
 
     # ── ContractPayment: 本月费用 + 费用趋势（合并为 1 条查询）────────────────
 
-    @staticmethod
-    def _fee_stats(month_start: date, today: date, trend_start: date) -> tuple[Decimal, list[dict[str, Any]]]:
-        """一次查询从 trend_start 到 today 的所有支付记录，
-        同时计算本月费用和近 12 月趋势。"""
-        qs = ContractPayment.objects.filter(received_at__gte=trend_start, received_at__lte=today)
-        # 本月费用
-        monthly_result = qs.filter(
-            received_at__gte=month_start,
-        ).aggregate(total=Sum("amount"))
-        monthly_fee: Decimal = monthly_result["total"] or Decimal("0")
-
-        # 近 12 月趋势
-        trend_qs = (
-            qs.annotate(month=TruncMonth("received_at"))
-            .values("month")
-            .annotate(amount=Sum("amount"))
-            .order_by("month")
-        )
-        fee_trend = [{"month": r["month"].strftime("%Y-%m"), "amount": str(r["amount"] or 0)} for r in trend_qs]
-        return monthly_fee, fee_trend
-
     # ── Reminder: overdue + today 计数（合并为 1 条查询）──────────────────────
-
-    @staticmethod
-    def _reminder_counts(now: datetime) -> dict[str, int]:
-        """一次条件聚合查询同时获取 overdue 和 today 的提醒数量。"""
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        today_end = today_start + timedelta(days=1)
-        return Reminder.objects.filter(Q(due_at__lt=now) | Q(due_at__gte=today_start, due_at__lt=today_end)).aggregate(
-            overdue_count=Count("id", filter=Q(due_at__lt=now)),
-            today_count=Count("id", filter=Q(due_at__gte=today_start, due_at__lt=today_end)),
-        )
 
     # ── Reminder 到期列表（需要实际对象数据）─────────────────────────────────
 
@@ -194,3 +129,67 @@ def _upcoming_reminders(now: datetime) -> list[dict[str, Any]]:
             }
         )
     return result
+
+
+# ↓↓ 由 DashboardService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _client_count() -> int:
+    from apps.client.models import Client
+
+    return Client.objects.count()
+
+
+# ↓↓ 由 DashboardService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _contract_count() -> int:
+    return Contract.objects.count()
+
+
+# ↓↓ 由 DashboardService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _case_type_stats() -> tuple[list[dict[str, Any]], int]:
+    """一次查询同时返回活跃案件类型分布和活跃案件总数。"""
+    label_map = {k: str(v) for k, v in SimpleCaseType.choices}
+    qs = (
+        Case.objects.filter(status=CaseStatus.ACTIVE).values("case_type").annotate(count=Count("id")).order_by("-count")
+    )
+    distribution = []
+    total = 0
+    for r in qs:
+        count = r["count"]
+        total += count
+        distribution.append(
+            {
+                "type": r["case_type"] or "unknown",
+                "label": label_map.get(r["case_type"] or "", "未分类"),
+                "count": count,
+            }
+        )
+    return distribution, total
+
+
+# ↓↓ 由 DashboardService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _fee_stats(month_start: date, today: date, trend_start: date) -> tuple[Decimal, list[dict[str, Any]]]:
+    """一次查询从 trend_start 到 today 的所有支付记录，
+    同时计算本月费用和近 12 月趋势。"""
+    qs = ContractPayment.objects.filter(received_at__gte=trend_start, received_at__lte=today)
+    # 本月费用
+    monthly_result = qs.filter(
+        received_at__gte=month_start,
+    ).aggregate(total=Sum("amount"))
+    monthly_fee: Decimal = monthly_result["total"] or Decimal("0")
+
+    # 近 12 月趋势
+    trend_qs = (
+        qs.annotate(month=TruncMonth("received_at")).values("month").annotate(amount=Sum("amount")).order_by("month")
+    )
+    fee_trend = [{"month": r["month"].strftime("%Y-%m"), "amount": str(r["amount"] or 0)} for r in trend_qs]
+    return monthly_fee, fee_trend
+
+
+# ↓↓ 由 DashboardService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _reminder_counts(now: datetime) -> dict[str, int]:
+    """一次条件聚合查询同时获取 overdue 和 today 的提醒数量。"""
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
+    return Reminder.objects.filter(Q(due_at__lt=now) | Q(due_at__gte=today_start, due_at__lt=today_end)).aggregate(
+        overdue_count=Count("id", filter=Q(due_at__lt=now)),
+        today_count=Count("id", filter=Q(due_at__gte=today_start, due_at__lt=today_end)),
+    )

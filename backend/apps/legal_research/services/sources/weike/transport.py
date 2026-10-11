@@ -111,7 +111,7 @@ class WeikeTransportMixin:  # pragma: no cover
                         "error": str(exc),
                     },
                 )
-                self._sleep_for_retry(attempt=attempt, base_seconds=backoff_seconds)
+                _sleep_for_retry(attempt=attempt, base_seconds=backoff_seconds)
                 continue
 
             status = _response_status(response)
@@ -126,7 +126,7 @@ class WeikeTransportMixin:  # pragma: no cover
                         "max_attempts": attempts,
                     },
                 )
-                self._sleep_for_retry(attempt=attempt, base_seconds=backoff_seconds)
+                _sleep_for_retry(attempt=attempt, base_seconds=backoff_seconds)
                 continue
 
             return response
@@ -136,15 +136,6 @@ class WeikeTransportMixin:  # pragma: no cover
         if last_exception is not None:
             raise last_exception
         raise RuntimeError("wk请求重试失败")
-
-    @staticmethod
-    def _sleep_for_retry(*, attempt: int, base_seconds: float) -> None:  # pragma: no cover
-        if base_seconds <= 0:
-            return
-        delay = float(base_seconds) * (2 ** max(0, int(attempt) - 1))
-        delay = min(delay, max(float(base_seconds), 6.0))
-        jitter = random.uniform(0.0, delay * 0.25)
-        time.sleep(delay + jitter)
 
     @classmethod
     def _response_json(cls, response: Any) -> dict[str, Any]:  # pragma: no cover
@@ -257,3 +248,13 @@ def _response_body(response: Any) -> bytes:
         except Exception:
             return b""
     return b""
+
+
+# ↓↓ 由 WeikeTransportMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _sleep_for_retry(*, attempt: int, base_seconds: float) -> None:  # pragma: no cover
+    if base_seconds <= 0:
+        return
+    delay = float(base_seconds) * (2 ** max(0, int(attempt) - 1))
+    delay = min(delay, max(float(base_seconds), 6.0))
+    jitter = random.uniform(0.0, delay * 0.25)
+    time.sleep(delay + jitter)

@@ -55,8 +55,10 @@ class TestModelListService:
         svc = ModelListService(cache_ttl=60)
         cached_models = [{"id": "m1", "name": "m1", "context_window": 100}]
         cached_status = {"is_fallback": False, "error_message": ""}
-        with patch("apps.core.llm.model_list_service.cache") as mock_cache, \
-             patch.object(ModelListService, "_merge_system_config_models", return_value=cached_models):
+        with (
+            patch("apps.core.llm.model_list_service.cache") as mock_cache,
+            patch.object(ModelListService, "_merge_system_config_models", return_value=cached_models),
+        ):
             mock_cache.get.side_effect = lambda k: cached_models if k == "llm_model_list" else cached_status
             result = svc.get_result()
             assert result.models[0]["id"] == "m1"

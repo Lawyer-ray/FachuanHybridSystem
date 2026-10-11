@@ -1,6 +1,6 @@
 """Coverage tests for litigation_ai.agent.middleware."""
 
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -28,7 +28,10 @@ class TestLitigationMemoryMiddleware:
         result = mw.before_agent(state)
         assert len(result["messages"]) == 2
 
-    @patch("apps.litigation_ai.agent.middleware.LitigationMemoryMiddleware.conversation_service", new_callable=lambda: property(lambda self: MagicMock()))
+    @patch(
+        "apps.litigation_ai.agent.middleware.LitigationMemoryMiddleware.conversation_service",
+        new_callable=lambda: property(lambda self: MagicMock()),
+    )
     def test_before_agent_empty_history(self, mock_cs):
         mw = self._make()
         mw.conversation_service.get_messages.return_value = []
@@ -36,7 +39,10 @@ class TestLitigationMemoryMiddleware:
         result = mw.before_agent(state)
         assert result["messages"] == []
 
-    @patch("apps.litigation_ai.agent.middleware.LitigationMemoryMiddleware.conversation_service", new_callable=lambda: property(lambda self: MagicMock()))
+    @patch(
+        "apps.litigation_ai.agent.middleware.LitigationMemoryMiddleware.conversation_service",
+        new_callable=lambda: property(lambda self: MagicMock()),
+    )
     def test_before_agent_error(self, mock_cs):
         mw = self._make()
         mw.conversation_service.get_messages.side_effect = Exception("db error")
@@ -44,14 +50,20 @@ class TestLitigationMemoryMiddleware:
         result = mw.before_agent(state)
         assert result is state
 
-    @patch("apps.litigation_ai.agent.middleware.LitigationMemoryMiddleware.conversation_service", new_callable=lambda: property(lambda self: MagicMock()))
+    @patch(
+        "apps.litigation_ai.agent.middleware.LitigationMemoryMiddleware.conversation_service",
+        new_callable=lambda: property(lambda self: MagicMock()),
+    )
     def test_after_agent_save(self, mock_cs):
         mw = self._make()
         state = {"messages": [{"role": "assistant", "content": "response"}]}
         result = mw.after_agent(state)
         assert result is state
 
-    @patch("apps.litigation_ai.agent.middleware.LitigationMemoryMiddleware.conversation_service", new_callable=lambda: property(lambda self: MagicMock()))
+    @patch(
+        "apps.litigation_ai.agent.middleware.LitigationMemoryMiddleware.conversation_service",
+        new_callable=lambda: property(lambda self: MagicMock()),
+    )
     def test_after_agent_empty(self, mock_cs):
         mw = self._make()
         state = {"messages": []}

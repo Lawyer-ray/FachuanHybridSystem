@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 class TestClassifierClassifyByKeywords:
     def _make_service(self):
         from apps.evidence_sorting.services.classifier import ClassifierService
+
         return ClassifierService()
 
     def test_statement_detected(self):
@@ -39,6 +41,7 @@ class TestClassifierClassifyByKeywords:
 class TestClassifierExtractDate:
     def _make_service(self):
         from apps.evidence_sorting.services.classifier import ClassifierService
+
         return ClassifierService()
 
     def test_chinese_date(self):
@@ -61,6 +64,7 @@ class TestClassifierExtractDate:
 class TestClassifierExtractAmount:
     def _make_service(self):
         from apps.evidence_sorting.services.classifier import ClassifierService
+
         return ClassifierService()
 
     def test_yuan_symbol(self):
@@ -87,6 +91,7 @@ class TestClassifierExtractAmount:
 class TestClassifierDetectSigned:
     def _make_service(self):
         from apps.evidence_sorting.services.classifier import ClassifierService
+
         return ClassifierService()
 
     def test_signed(self):
@@ -101,6 +106,7 @@ class TestClassifierDetectSigned:
 class TestClassifierClassifyImages:
     def _make_service(self):
         from apps.evidence_sorting.services.classifier import ClassifierService
+
         return ClassifierService()
 
     def test_classify_single_image(self):
@@ -113,6 +119,7 @@ class TestClassifierClassifyImages:
         }
         svc._ocr_service = mock_ocr
         import base64
+
         data = base64.b64encode(b"fake_image").decode()
         result = svc.classify_images([{"filename": "test.jpg", "data": data}])
         assert len(result.images) == 1

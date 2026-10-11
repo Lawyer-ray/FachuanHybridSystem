@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from hypothesis import given, settings, assume
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from apps.evidence_sorting.services.classifier import (
@@ -15,7 +15,7 @@ from apps.evidence_sorting.services.classifier import (
     TYPE_STATEMENT,
     ClassifierService,
 )
-from apps.evidence_sorting.services.reconciler import ReconcilerService, StatementInfo
+from apps.evidence_sorting.services.reconciler import ReconcilerService, StatementInfo, _normalize_date, _to_float
 
 KNOWN_TYPES = {TYPE_STATEMENT, TYPE_DELIVERY, TYPE_RECEIPT, TYPE_OTHER}
 
@@ -174,7 +174,7 @@ def test_month_key_to_yyyymm_none_for_invalid(key: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# ReconcilerService._normalize_date
+# _normalize_date
 # ---------------------------------------------------------------------------
 
 
@@ -187,7 +187,7 @@ def test_month_key_to_yyyymm_none_for_invalid(key: str) -> None:
 def test_normalize_date_valid_8_digits(year: int, month: int, day: int) -> None:
     """A date string with exactly 8 digits produces those 8 digits."""
     val = f"{year:04d}-{month:02d}-{day:02d}"
-    result = ReconcilerService._normalize_date(val)
+    result = _normalize_date(val)
     assert result is not None
     assert len(result) == 8
     assert result == f"{year:04d}{month:02d}{day:02d}"
@@ -197,18 +197,18 @@ def test_normalize_date_valid_8_digits(year: int, month: int, day: int) -> None:
 @given(val=st.none())
 def test_normalize_date_none(val: None) -> None:
     """None input returns None."""
-    assert ReconcilerService._normalize_date(val) is None
+    assert _normalize_date(val) is None
 
 
 @settings(max_examples=200, deadline=None)
 @given(val=st.just(""))
 def test_normalize_date_empty(val: str) -> None:
     """Empty string returns None."""
-    assert ReconcilerService._normalize_date(val) is None
+    assert _normalize_date(val) is None
 
 
 # ---------------------------------------------------------------------------
-# ReconcilerService._to_float
+# _to_float
 # ---------------------------------------------------------------------------
 
 
@@ -216,7 +216,7 @@ def test_normalize_date_empty(val: str) -> None:
 @given(val=st.none())
 def test_to_float_none(val: None) -> None:
     """None input returns None."""
-    assert ReconcilerService._to_float(val) is None
+    assert _to_float(val) is None
 
 
 @settings(max_examples=200, deadline=None)
@@ -227,7 +227,7 @@ def test_to_float_none(val: None) -> None:
 def test_to_float_with_commas(int_part: int, dec_part: int) -> None:
     """Comma-separated numeric strings are parsed correctly."""
     raw = f"{int_part:,}.{dec_part:02d}"
-    result = ReconcilerService._to_float(raw)
+    result = _to_float(raw)
     assert result is not None
     expected = float(f"{int_part}.{dec_part:02d}")
     assert abs(result - expected) < 1e-6
@@ -237,16 +237,23 @@ def test_to_float_with_commas(int_part: int, dec_part: int) -> None:
 @given(n=st.integers(min_value=0, max_value=999999999))
 def test_to_float_plain_integer(n: int) -> None:
     """Plain integer string parses correctly."""
-    result = ReconcilerService._to_float(str(n))
+    result = _to_float(str(n))
     assert result is not None
     assert result == float(n)
 
 
 @settings(max_examples=200, deadline=None)
-@given(text=st.text(min_size=1, max_size=20).filter(lambda s: not any(c.isdigit() for c in s) and s.lower() not in ("inf", "nan", "-inf", "+inf", "infinity", "-infinity", "+infinity")))
+@given(
+    text=st.text(min_size=1, max_size=20).filter(
+        lambda s: (
+            not any(c.isdigit() for c in s)
+            and s.lower() not in ("inf", "nan", "-inf", "+inf", "infinity", "-infinity", "+infinity")
+        )
+    )
+)
 def test_to_float_non_numeric_returns_none(text: str) -> None:
     """Non-numeric strings return None."""
-    result = ReconcilerService._to_float(text)
+    result = _to_float(text)
     assert result is None
 
 
@@ -255,7 +262,6 @@ def test_to_float_non_numeric_returns_none(text: str) -> None:
 # ---------------------------------------------------------------------------
 
 from apps.evidence_sorting.services.reconciler import DeliveryNote, LineItem
-
 
 svc = ReconcilerService()
 

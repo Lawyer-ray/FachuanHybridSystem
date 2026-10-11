@@ -75,8 +75,8 @@ class TestLegalResearchExecutorRun:
 
         executor = LegalResearchExecutor()
         with patch("apps.legal_research.services.task.executor._acquire_task", return_value=(mock_task, None)):
-            with patch.object(executor, "_is_cancel_requested", return_value=False):
-                with patch.object(executor, "_mark_failed"):
+            with patch("apps.legal_research.services.task.executor._is_cancel_requested", return_value=False):
+                with patch("apps.legal_research.services.task.executor._mark_failed"):
                     result = executor.run(task_id="task-1")
         assert result["status"] == "failed"
 
@@ -86,7 +86,9 @@ class TestExecutorHelperMethods:
 
     def test_init_query_metric(self):
         executor = LegalResearchExecutor()
-        metric = executor._init_query_metric()
+        from apps.legal_research.services.executor_components.feedback_mixin import _init_query_metric
+
+        metric = _init_query_metric()
         assert isinstance(metric, dict)
         assert "candidates" in metric
         assert "scanned" in metric

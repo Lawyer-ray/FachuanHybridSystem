@@ -4,7 +4,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.core.services.material_classification_service import MaterialClassificationService
+from apps.core.services.material_classification_service import (
+    MaterialClassificationService,
+    _extract_json,
+    _extract_party_ids_by_side,
+    _extract_primary_supervising_authority_id,
+    _extract_subfolder_hint,
+    _normalize_for_match,
+)
 
 
 class TestMaterialClassificationService:
@@ -24,9 +31,7 @@ class TestMaterialClassificationService:
 
     def test_classify_contract_in_invoice_folder_invoice(self):
         svc = self._make_service()
-        result = svc.classify_contract_material(
-            filename="发票.pdf", text_excerpt="", source_path="/合同发票/发票.pdf"
-        )
+        result = svc.classify_contract_material(filename="发票.pdf", text_excerpt="", source_path="/合同发票/发票.pdf")
         assert result["category"] == "invoice"
 
     def test_classify_contract_in_invoice_folder_supervision(self):
@@ -82,18 +87,14 @@ class TestMaterialClassificationService:
 
     def test_classify_case_filing_folder(self):
         svc = self._make_service()
-        result = svc._classify_case_by_filename_and_path(
-            filename="", source_path="/立案材料/", context={}
-        )
+        result = svc._classify_case_by_filename_and_path(filename="", source_path="/立案材料/", context={})
         assert result is not None
         assert result["category"] == "party"
         assert result["side"] == "our"
 
     def test_classify_case_execution_application(self):
         svc = self._make_service()
-        result = svc._classify_case_by_filename_and_path(
-            filename="执行申请书.pdf", source_path="/docs/", context={}
-        )
+        result = svc._classify_case_by_filename_and_path(filename="执行申请书.pdf", source_path="/docs/", context={})
         assert result is not None
         assert result["category"] == "party"
         assert result["side"] == "our"
@@ -101,42 +102,32 @@ class TestMaterialClassificationService:
 
     def test_classify_case_id_card(self):
         svc = self._make_service()
-        result = svc._classify_case_by_filename_and_path(
-            filename="身份证.pdf", source_path="/docs/", context={}
-        )
+        result = svc._classify_case_by_filename_and_path(filename="身份证.pdf", source_path="/docs/", context={})
         assert result is not None
         assert result["category"] == "party"
 
     def test_classify_case_restriction(self):
         svc = self._make_service()
-        result = svc._classify_case_by_filename_and_path(
-            filename="限制高消费令.pdf", source_path="/docs/", context={}
-        )
+        result = svc._classify_case_by_filename_and_path(filename="限制高消费令.pdf", source_path="/docs/", context={})
         assert result is not None
         assert result["category"] == "non_party"
 
     def test_classify_case_judgment(self):
         svc = self._make_service()
-        result = svc._classify_case_by_filename_and_path(
-            filename="判决书.pdf", source_path="/docs/", context={}
-        )
+        result = svc._classify_case_by_filename_and_path(filename="判决书.pdf", source_path="/docs/", context={})
         assert result is not None
         assert result["category"] == "non_party"
         assert result["type_name_hint"] == "执行依据及生效证明"
 
     def test_classify_case_evidence(self):
         svc = self._make_service()
-        result = svc._classify_case_by_filename_and_path(
-            filename="证据清单.pdf", source_path="/docs/", context={}
-        )
+        result = svc._classify_case_by_filename_and_path(filename="证据清单.pdf", source_path="/docs/", context={})
         assert result is not None
         assert result["category"] == "party"
 
     def test_classify_case_no_match(self):
         svc = self._make_service()
-        result = svc._classify_case_by_filename_and_path(
-            filename="random.pdf", source_path="/docs/", context={}
-        )
+        result = svc._classify_case_by_filename_and_path(filename="random.pdf", source_path="/docs/", context={})
         assert result is None
 
     # ── _infer_case_side ──
@@ -167,64 +158,64 @@ class TestMaterialClassificationService:
 
     def test_extract_party_ids_our(self):
         context = {"our_party_ids": [1, 2, 3]}
-        result = MaterialClassificationService._extract_party_ids_by_side(side="our", context=context)
+        result = _extract_party_ids_by_side(side="our", context=context)
         assert result == [1, 2, 3]
 
     def test_extract_party_ids_invalid(self):
         context = {"our_party_ids": [1, -1, 0, "abc", 2]}
-        result = MaterialClassificationService._extract_party_ids_by_side(side="our", context=context)
+        result = _extract_party_ids_by_side(side="our", context=context)
         assert result == [1, 2]
 
     def test_extract_party_ids_empty(self):
-        result = MaterialClassificationService._extract_party_ids_by_side(side="our", context={})
+        result = _extract_party_ids_by_side(side="our", context={})
         assert result == []
 
     # ── _extract_primary_supervising_authority_id ──
 
     def test_extract_primary_auth_id_valid(self):
         context = {"primary_supervising_authority_id": 5}
-        result = MaterialClassificationService._extract_primary_supervising_authority_id(context)
+        result = _extract_primary_supervising_authority_id(context)
         assert result == 5
 
     def test_extract_primary_auth_id_none(self):
-        result = MaterialClassificationService._extract_primary_supervising_authority_id({})
+        result = _extract_primary_supervising_authority_id({})
         assert result is None
 
     def test_extract_primary_auth_id_invalid(self):
         context = {"primary_supervising_authority_id": "abc"}
-        result = MaterialClassificationService._extract_primary_supervising_authority_id(context)
+        result = _extract_primary_supervising_authority_id(context)
         assert result is None
 
     # ── _extract_subfolder_hint ──
 
     def test_extract_subfolder_hint_with_number(self):
-        assert MaterialClassificationService._extract_subfolder_hint("2-立案材料") == "立案材料"
+        assert _extract_subfolder_hint("2-立案材料") == "立案材料"
 
     def test_extract_subfolder_hint_with_underscore(self):
-        assert MaterialClassificationService._extract_subfolder_hint("3_执行依据") == "执行依据"
+        assert _extract_subfolder_hint("3_执行依据") == "执行依据"
 
     def test_extract_subfolder_hint_no_number(self):
-        assert MaterialClassificationService._extract_subfolder_hint("证据材料") == "证据材料"
+        assert _extract_subfolder_hint("证据材料") == "证据材料"
 
     def test_extract_subfolder_hint_empty(self):
-        assert MaterialClassificationService._extract_subfolder_hint("") == ""
+        assert _extract_subfolder_hint("") == ""
 
     def test_extract_subfolder_hint_multilevel(self):
-        assert MaterialClassificationService._extract_subfolder_hint("a/b/2-立案材料") == "立案材料"
+        assert _extract_subfolder_hint("a/b/2-立案材料") == "立案材料"
 
     # ── _normalize_for_match ──
 
     def test_normalize_for_match_lowercase(self):
-        assert MaterialClassificationService._normalize_for_match("ABC") == "abc"
+        assert _normalize_for_match("ABC") == "abc"
 
     def test_normalize_for_match_no_spaces(self):
-        assert MaterialClassificationService._normalize_for_match("a b c") == "abc"
+        assert _normalize_for_match("a b c") == "abc"
 
     def test_normalize_for_match_backslash(self):
-        assert MaterialClassificationService._normalize_for_match("a\\b") == "a/b"
+        assert _normalize_for_match("a\\b") == "a/b"
 
     def test_normalize_for_match_empty(self):
-        assert MaterialClassificationService._normalize_for_match("") == ""
+        assert _normalize_for_match("") == ""
 
     # ── _to_confidence ──
 
@@ -252,26 +243,26 @@ class TestMaterialClassificationService:
 
     def test_extract_json_direct(self):
         svc = self._make_service()
-        result = svc._extract_json('{"a": 1}')
+        result = _extract_json('{"a": 1}')
         assert result == {"a": 1}
 
     def test_extract_json_in_text(self):
         svc = self._make_service()
-        result = svc._extract_json('result: {"a": 1}')
+        result = _extract_json('result: {"a": 1}')
         assert result == {"a": 1}
 
     def test_extract_json_fenced(self):
         svc = self._make_service()
-        result = svc._extract_json('```json\n{"a": 1}\n```')
+        result = _extract_json('```json\n{"a": 1}\n```')
         assert result == {"a": 1}
 
     def test_extract_json_empty(self):
         svc = self._make_service()
-        assert svc._extract_json("") is None
+        assert _extract_json("") is None
 
     def test_extract_json_list_not_dict(self):
         svc = self._make_service()
-        result = svc._extract_json('[1, 2, 3]')
+        result = _extract_json("[1, 2, 3]")
         assert result is None
 
     # ── parse_work_log_from_folder_name ──
@@ -305,8 +296,7 @@ class TestMaterialClassificationService:
         svc = self._make_service()
         context = {"our_party_ids": [1, 2]}
         result = svc._build_case_suggestion(
-            category="party", side="our", type_name_hint="test",
-            confidence=0.9, reason="test", context=context
+            category="party", side="our", type_name_hint="test", confidence=0.9, reason="test", context=context
         )
         assert result["category"] == "party"
         assert result["side"] == "our"
@@ -316,15 +306,13 @@ class TestMaterialClassificationService:
         svc = self._make_service()
         context = {"primary_supervising_authority_id": 3}
         result = svc._build_case_suggestion(
-            category="non_party", side="unknown", type_name_hint="test",
-            confidence=0.9, reason="test", context=context
+            category="non_party", side="unknown", type_name_hint="test", confidence=0.9, reason="test", context=context
         )
         assert result["suggested_supervising_authority_id"] == 3
 
     def test_build_case_suggestion_unknown_category_normalizes_side(self):
         svc = self._make_service()
         result = svc._build_case_suggestion(
-            category="unknown", side="our", type_name_hint="test",
-            confidence=0.5, reason="test", context={}
+            category="unknown", side="our", type_name_hint="test", confidence=0.5, reason="test", context={}
         )
         assert result["side"] == "unknown"

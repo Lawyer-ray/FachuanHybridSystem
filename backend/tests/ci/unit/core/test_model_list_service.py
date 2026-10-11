@@ -1,4 +1,5 @@
 """Tests for apps.core.llm.model_list_service."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch

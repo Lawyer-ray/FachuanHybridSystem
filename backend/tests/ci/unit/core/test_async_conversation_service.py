@@ -31,8 +31,11 @@ class TestConversationRepositoryAsync:
 
         repo = ConversationHistoryRepository()
         await repo.acreate(
-            session_id="to_delete_async", user_id="u1",
-            role="user", content="msg", metadata={},
+            session_id="to_delete_async",
+            user_id="u1",
+            role="user",
+            content="msg",
+            metadata={},
         )
         count, _ = await repo.adelete_by_session_id("to_delete_async")
         assert count == 1

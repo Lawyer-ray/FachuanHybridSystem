@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.oa_filing.services.case_import_service import CaseImportService, CasePreviewResult
+from apps.oa_filing.services.case_import_service import CaseImportService, CasePreviewResult, _parse_date
 from apps.oa_filing.services.client_import_service import ClientImportService, ImportResult
 from apps.oa_filing.services.oa_scripts.jtn.adapter import JTNAdapter
 
@@ -197,23 +197,23 @@ class TestCaseImportServiceMappings:
     def test_parse_date_iso(self):
         from datetime import date
 
-        assert self.service._parse_date("2024-01-15") == date(2024, 1, 15)
+        assert _parse_date("2024-01-15") == date(2024, 1, 15)
 
     def test_parse_date_slash(self):
         from datetime import date
 
-        assert self.service._parse_date("2024/01/15") == date(2024, 1, 15)
+        assert _parse_date("2024/01/15") == date(2024, 1, 15)
 
     def test_parse_date_chinese(self):
         from datetime import date
 
-        assert self.service._parse_date("2024年01月15日") == date(2024, 1, 15)
+        assert _parse_date("2024年01月15日") == date(2024, 1, 15)
 
     def test_parse_date_empty(self):
-        assert self.service._parse_date("") is None
+        assert _parse_date("") is None
 
     def test_parse_date_invalid(self):
-        assert self.service._parse_date("not a date") is None
+        assert _parse_date("not a date") is None
 
     def test_check_conflicts(self):
         conflict = MagicMock()

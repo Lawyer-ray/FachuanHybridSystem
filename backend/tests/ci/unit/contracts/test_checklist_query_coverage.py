@@ -13,7 +13,6 @@ import pytest
 
 from apps.contracts.models.finalized_material import MaterialCategory
 
-
 # ============================================================
 # find_code_by_source
 # ============================================================
@@ -26,8 +25,22 @@ class TestFindCodeBySource:
         from apps.contracts.services.archive.checklist.checklist_query import find_code_by_source
 
         checklist = [
-            {"code": "lt_5", "name": "授权委托书", "source": "contract", "template": None, "required": True, "auto_detect": None},
-            {"code": "lt_6", "name": "合同正本", "source": "contract", "template": None, "required": True, "auto_detect": None},
+            {
+                "code": "lt_5",
+                "name": "授权委托书",
+                "source": "contract",
+                "template": None,
+                "required": True,
+                "auto_detect": None,
+            },
+            {
+                "code": "lt_6",
+                "name": "合同正本",
+                "source": "contract",
+                "template": None,
+                "required": True,
+                "auto_detect": None,
+            },
         ]
         with patch(
             "apps.contracts.services.archive.checklist.checklist_query.ARCHIVE_CHECKLIST",
@@ -40,7 +53,14 @@ class TestFindCodeBySource:
         from apps.contracts.services.archive.checklist.checklist_query import find_code_by_source
 
         checklist = [
-            {"code": "lt_1", "name": "封面", "source": "template", "template": "case_cover", "required": True, "auto_detect": None},
+            {
+                "code": "lt_1",
+                "name": "封面",
+                "source": "template",
+                "template": "case_cover",
+                "required": True,
+                "auto_detect": None,
+            },
         ]
         with patch(
             "apps.contracts.services.archive.checklist.checklist_query.ARCHIVE_CHECKLIST",
@@ -72,8 +92,22 @@ class TestFindCodeByName:
         from apps.contracts.services.archive.checklist.checklist_query import find_code_by_name
 
         checklist = [
-            {"code": "lt_7", "name": "收费凭证", "source": "contract", "template": None, "required": False, "auto_detect": None},
-            {"code": "lt_8", "name": "其他材料", "source": "case", "template": None, "required": False, "auto_detect": None},
+            {
+                "code": "lt_7",
+                "name": "收费凭证",
+                "source": "contract",
+                "template": None,
+                "required": False,
+                "auto_detect": None,
+            },
+            {
+                "code": "lt_8",
+                "name": "其他材料",
+                "source": "case",
+                "template": None,
+                "required": False,
+                "auto_detect": None,
+            },
         ]
         with patch(
             "apps.contracts.services.archive.checklist.checklist_query.ARCHIVE_CHECKLIST",
@@ -86,7 +120,14 @@ class TestFindCodeByName:
         from apps.contracts.services.archive.checklist.checklist_query import find_code_by_name
 
         checklist = [
-            {"code": "lt_7", "name": "收费凭证及发票", "source": "contract", "template": None, "required": False, "auto_detect": None},
+            {
+                "code": "lt_7",
+                "name": "收费凭证及发票",
+                "source": "contract",
+                "template": None,
+                "required": False,
+                "auto_detect": None,
+            },
         ]
         with patch(
             "apps.contracts.services.archive.checklist.checklist_query.ARCHIVE_CHECKLIST",
@@ -99,7 +140,14 @@ class TestFindCodeByName:
         from apps.contracts.services.archive.checklist.checklist_query import find_code_by_name
 
         checklist = [
-            {"code": "lt_7", "name": "收费凭证", "source": "contract", "template": None, "required": False, "auto_detect": None},
+            {
+                "code": "lt_7",
+                "name": "收费凭证",
+                "source": "contract",
+                "template": None,
+                "required": False,
+                "auto_detect": None,
+            },
         ]
         with patch(
             "apps.contracts.services.archive.checklist.checklist_query.ARCHIVE_CHECKLIST",
@@ -121,9 +169,30 @@ class TestGetTemplateItems:
         from apps.contracts.services.archive.checklist.checklist_query import get_template_items
 
         checklist = [
-            {"code": "lt_1", "name": "封面", "source": "template", "template": "case_cover", "required": True, "auto_detect": None},
-            {"code": "lt_5", "name": "合同", "source": "contract", "template": None, "required": True, "auto_detect": None},
-            {"code": "lt_2", "name": "登记表", "source": "template", "template": "register", "required": True, "auto_detect": None},
+            {
+                "code": "lt_1",
+                "name": "封面",
+                "source": "template",
+                "template": "case_cover",
+                "required": True,
+                "auto_detect": None,
+            },
+            {
+                "code": "lt_5",
+                "name": "合同",
+                "source": "contract",
+                "template": None,
+                "required": True,
+                "auto_detect": None,
+            },
+            {
+                "code": "lt_2",
+                "name": "登记表",
+                "source": "template",
+                "template": "register",
+                "required": True,
+                "auto_detect": None,
+            },
         ]
         with patch(
             "apps.contracts.services.archive.checklist.checklist_query.ARCHIVE_CHECKLIST",
@@ -156,8 +225,22 @@ class TestGetAutoDetectItems:
         from apps.contracts.services.archive.checklist.checklist_query import get_auto_detect_items
 
         checklist = [
-            {"code": "lt_10", "name": "监督卡", "source": "upload", "template": None, "required": False, "auto_detect": "supervision_card"},
-            {"code": "lt_1", "name": "封面", "source": "template", "template": "case_cover", "required": True, "auto_detect": None},
+            {
+                "code": "lt_10",
+                "name": "监督卡",
+                "source": "upload",
+                "template": None,
+                "required": False,
+                "auto_detect": "supervision_card",
+            },
+            {
+                "code": "lt_1",
+                "name": "封面",
+                "source": "template",
+                "template": "case_cover",
+                "required": True,
+                "auto_detect": None,
+            },
         ]
         with patch(
             "apps.contracts.services.archive.checklist.checklist_query.ARCHIVE_CHECKLIST",

@@ -106,6 +106,7 @@ class TestBatchPrintStorage:
     def test_ensure_dirs(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             import django.conf
+
             old = django.conf.settings.MEDIA_ROOT
             django.conf.settings.MEDIA_ROOT = tmpdir
             try:
@@ -120,6 +121,7 @@ class TestBatchPrintStorage:
     def test_cleanup(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             import django.conf
+
             old = django.conf.settings.MEDIA_ROOT
             django.conf.settings.MEDIA_ROOT = tmpdir
             try:

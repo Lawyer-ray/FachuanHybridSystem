@@ -3,6 +3,7 @@
 覆盖: resolve 所有分支 (phone/username/创建), _unique_username,
 缓存命中路径。
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch

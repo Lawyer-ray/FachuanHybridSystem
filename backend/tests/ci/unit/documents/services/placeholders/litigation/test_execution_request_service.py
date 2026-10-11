@@ -27,8 +27,10 @@ from apps.documents.services.placeholders.litigation.execution_request_models im
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_service() -> Any:
     from apps.documents.services.placeholders.litigation.execution_request_service import ExecutionRequestService
+
     return ExecutionRequestService()
 
 
@@ -148,24 +150,20 @@ class TestGenerate:
         svc = _make_service()
         case = _make_case(id=1)
         cn = _make_case_number(document_content="判决被告支付100万元")
-        with patch(
-            "apps.documents.services.placeholders.litigation.execution_request_service.Case"
-        ) as mock_case_model, \
-             patch.object(svc, "_select_primary_case_number", return_value=cn), \
-             patch.object(svc, "_build_execution_request") as mock_build:
+        with (
+            patch("apps.documents.services.placeholders.litigation.execution_request_service.Case") as mock_case_model,
+            patch.object(svc, "_select_primary_case_number", return_value=cn),
+            patch.object(svc, "_build_execution_request") as mock_build,
+        ):
             mock_case_model.objects.filter.return_value.first.return_value = case
-            mock_build.return_value = ExecutionComputation(
-                preview_text="result", warnings=[], structured_params={}
-            )
+            mock_build.return_value = ExecutionComputation(preview_text="result", warnings=[], structured_params={})
             result = svc.generate({"case": case})
         val = result.get("申请执行事项", result.get("enforcement_execution_request", ""))
         assert "result" in val
 
     def test_case_not_found(self) -> None:
         svc = _make_service()
-        with patch(
-            "apps.documents.services.placeholders.litigation.execution_request_service.Case"
-        ) as mock_case_model:
+        with patch("apps.documents.services.placeholders.litigation.execution_request_service.Case") as mock_case_model:
             mock_case_model.objects.filter.return_value.first.return_value = None
             result = svc.generate({"case_id": 999})
         val = result.get("申请执行事项", result.get("enforcement_execution_request", ""))
@@ -174,10 +172,10 @@ class TestGenerate:
     def test_no_case_number(self) -> None:
         svc = _make_service()
         case = _make_case()
-        with patch(
-            "apps.documents.services.placeholders.litigation.execution_request_service.Case"
-        ) as mock_case_model, \
-             patch.object(svc, "_select_primary_case_number", return_value=None):
+        with (
+            patch("apps.documents.services.placeholders.litigation.execution_request_service.Case") as mock_case_model,
+            patch.object(svc, "_select_primary_case_number", return_value=None),
+        ):
             mock_case_model.objects.filter.return_value.first.return_value = case
             result = svc.generate({"case_id": 1})
         val = result.get("申请执行事项", result.get("enforcement_execution_request", ""))
@@ -187,10 +185,10 @@ class TestGenerate:
         svc = _make_service()
         case = _make_case()
         cn = _make_case_number(execution_manual_text="手动输入的申请执行事项")
-        with patch(
-            "apps.documents.services.placeholders.litigation.execution_request_service.Case"
-        ) as mock_case_model, \
-             patch.object(svc, "_select_primary_case_number", return_value=cn):
+        with (
+            patch("apps.documents.services.placeholders.litigation.execution_request_service.Case") as mock_case_model,
+            patch.object(svc, "_select_primary_case_number", return_value=cn),
+        ):
             mock_case_model.objects.filter.return_value.first.return_value = case
             result = svc.generate({"case_id": 1})
         val = result.get("申请执行事项", result.get("enforcement_execution_request", ""))
@@ -216,7 +214,8 @@ class TestBuildExecutionRequest:
         case = _make_case(target_amount=None)
         cn = _make_case_number(document_content="被告支付货款")
         result = svc._build_execution_request(
-            case=case, case_number=cn,
+            case=case,
+            case_number=cn,
             cutoff_date=date(2026, 1, 1),
             enable_llm_fallback=False,
         )
@@ -227,7 +226,8 @@ class TestBuildExecutionRequest:
         case = _make_case(target_amount=Decimal("100000"))
         cn = _make_case_number(document_content="被告支付货款")
         result = svc._build_execution_request(
-            case=case, case_number=cn,
+            case=case,
+            case_number=cn,
             cutoff_date=date(2026, 1, 1),
             enable_llm_fallback=False,
         )
@@ -237,11 +237,10 @@ class TestBuildExecutionRequest:
     def test_normal_with_principal(self) -> None:
         svc = _make_service()
         case = _make_case()
-        cn = _make_case_number(
-            document_content="被告偿还原告借款本金100万元，利息10万元。"
-        )
+        cn = _make_case_number(document_content="被告偿还原告借款本金100万元，利息10万元。")
         result = svc._build_execution_request(
-            case=case, case_number=cn,
+            case=case,
+            case_number=cn,
             cutoff_date=date(2026, 1, 1),
             enable_llm_fallback=False,
         )
@@ -251,11 +250,10 @@ class TestBuildExecutionRequest:
     def test_with_paid_amount(self) -> None:
         svc = _make_service()
         case = _make_case()
-        cn = _make_case_number(
-            document_content="被告偿还原告借款本金100万元，利息10万元。"
-        )
+        cn = _make_case_number(document_content="被告偿还原告借款本金100万元，利息10万元。")
         result = svc._build_execution_request(
-            case=case, case_number=cn,
+            case=case,
+            case_number=cn,
             cutoff_date=date(2026, 1, 1),
             paid_amount=Decimal("50000"),
             enable_llm_fallback=False,
@@ -265,24 +263,19 @@ class TestBuildExecutionRequest:
     def test_preview_for_case_number(self) -> None:
         svc = _make_service()
         case = _make_case()
-        cn = _make_case_number(
-            document_content="被告偿还原告借款本金100万元。"
-        )
+        cn = _make_case_number(document_content="被告偿还原告借款本金100万元。")
         with patch.object(svc, "_build_execution_request") as mock_build:
-            mock_build.return_value = ExecutionComputation(
-                preview_text="text", warnings=[], structured_params={}
-            )
+            mock_build.return_value = ExecutionComputation(preview_text="text", warnings=[], structured_params={})
             result = svc.preview_for_case_number(case=case, case_number=cn)
         assert result["preview_text"] == "text"
 
     def test_fee_only_items(self) -> None:
         svc = _make_service()
         case = _make_case(target_amount=None)
-        cn = _make_case_number(
-            document_content="受理费10000元由被告负担，支付给原告。"
-        )
+        cn = _make_case_number(document_content="受理费10000元由被告负担，支付给原告。")
         result = svc._build_execution_request(
-            case=case, case_number=cn,
+            case=case,
+            case_number=cn,
             cutoff_date=date(2026, 1, 1),
             enable_llm_fallback=False,
         )
@@ -292,11 +285,10 @@ class TestBuildExecutionRequest:
     def test_excluded_fees_warning(self) -> None:
         svc = _make_service()
         case = _make_case()
-        cn = _make_case_number(
-            document_content="被告偿还原告借款本金100万元。受理费10000元向本院缴纳。"
-        )
+        cn = _make_case_number(document_content="被告偿还原告借款本金100万元。受理费10000元向本院缴纳。")
         result = svc._build_execution_request(
-            case=case, case_number=cn,
+            case=case,
+            case_number=cn,
             cutoff_date=date(2026, 1, 1),
             enable_llm_fallback=False,
         )
@@ -305,11 +297,10 @@ class TestBuildExecutionRequest:
     def test_structured_params_fields(self) -> None:
         svc = _make_service()
         case = _make_case()
-        cn = _make_case_number(
-            document_content="被告偿还原告借款本金100万元，利息10万元。"
-        )
+        cn = _make_case_number(document_content="被告偿还原告借款本金100万元，利息10万元。")
         result = svc._build_execution_request(
-            case=case, case_number=cn,
+            case=case,
+            case_number=cn,
             cutoff_date=date(2026, 1, 1),
             enable_llm_fallback=False,
         )

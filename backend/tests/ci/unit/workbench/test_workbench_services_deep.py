@@ -20,8 +20,13 @@ from apps.organization.models import LawFirm, Lawyer
 from apps.workbench.models import BatchJob, BatchJobItem, BatchJobStatus, WorkbenchMessage, WorkbenchSession
 from apps.workbench.schemas import BatchJobOut
 from apps.workbench.services.batch_service import BatchAnalysisService, _is_excel
-from apps.workbench.services.message_service import WorkbenchMessageService
-from apps.workbench.services.session_service import WorkbenchSessionService, _calc_message_bytes
+from apps.workbench.services.message_service import WorkbenchMessageService, _message_to_dict
+from apps.workbench.services.session_service import (
+    WorkbenchSessionService,
+    _calc_message_bytes,
+    _invalidate_session_cache,
+    increment_storage,
+)
 
 
 @pytest.fixture
@@ -147,20 +152,20 @@ class TestWorkbenchSessionService:
 
     def test_increment_storage(self, wb_user: Any) -> None:
         session = self.svc.create_session(title="Stor", user=wb_user)
-        WorkbenchSessionService.increment_storage(session.id, 100)
+        increment_storage(session.id, 100)
         session.refresh_from_db()
         assert session.storage_bytes >= 100
 
     def test_increment_storage_zero_delta(self, wb_user: Any) -> None:
         session = self.svc.create_session(title="NoStor", user=wb_user)
         original = session.storage_bytes
-        WorkbenchSessionService.increment_storage(session.id, 0)
+        increment_storage(session.id, 0)
         session.refresh_from_db()
         assert session.storage_bytes == original
 
     def test_invalidate_cache_no_user(self) -> None:
         with patch("apps.workbench.services.session_service.cache") as mock_cache:
-            WorkbenchSessionService._invalidate_session_cache(None)
+            _invalidate_session_cache(None)
             # 无用户直接早退，不清缓存
             mock_cache.delete_many.assert_not_called()
 
@@ -168,7 +173,7 @@ class TestWorkbenchSessionService:
         user = MagicMock()
         user.is_authenticated = False
         with patch("apps.workbench.services.session_service.cache") as mock_cache:
-            WorkbenchSessionService._invalidate_session_cache(user)
+            _invalidate_session_cache(user)
             mock_cache.delete_many.assert_not_called()
 
     def test_get_other_user_session_raises(self, wb_user: Any, wb_other_user: Any) -> None:
@@ -262,7 +267,7 @@ class TestWorkbenchMessageService:
     def test_message_to_dict(self, wb_user: Any) -> None:
         session = WorkbenchSession.objects.create(title="dt", user=wb_user)
         msg = WorkbenchMessage.objects.create(session_id=session.id, role="user", content="test")
-        result = WorkbenchMessageService._message_to_dict(msg)
+        result = _message_to_dict(msg)
         assert isinstance(result, dict)
         assert "content" in result
 

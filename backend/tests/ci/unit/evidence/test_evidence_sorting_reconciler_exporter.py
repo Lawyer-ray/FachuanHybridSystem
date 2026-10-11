@@ -7,19 +7,22 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.evidence_sorting.services.exporter import _build_filename, _get_ext, _write_image
 from apps.evidence_sorting.services.reconciler import (
+    FOLDER_CONFIRMED,
+    FOLDER_UNSIGNED,
+    STATEMENT_PARSE_PROMPT,
+    STATUS_MATCHED,
+    STATUS_MISSING,
+    STATUS_UNMATCHED,
     DeliveryNote,
     LineItem,
     MonthGroup,
     ReconcileResult,
     ReconcilerService,
     StatementInfo,
-    STATUS_MATCHED,
-    STATUS_UNMATCHED,
-    STATUS_MISSING,
-    FOLDER_CONFIRMED,
-    FOLDER_UNSIGNED,
-    STATEMENT_PARSE_PROMPT,
+    _normalize_date,
+    _to_float,
 )
 
 
@@ -79,39 +82,39 @@ class TestReconcileResult:
 
 class TestReconcilerServiceNormalizeDate:
     def test_valid_8_digit_date(self) -> None:
-        assert ReconcilerService._normalize_date("20260601") == "20260601"
+        assert _normalize_date("20260601") == "20260601"
 
     def test_date_with_separators(self) -> None:
-        assert ReconcilerService._normalize_date("2026-06-01") == "20260601"
+        assert _normalize_date("2026-06-01") == "20260601"
 
     def test_none_returns_none(self) -> None:
-        assert ReconcilerService._normalize_date(None) is None
+        assert _normalize_date(None) is None
 
     def test_empty_string_returns_none(self) -> None:
-        assert ReconcilerService._normalize_date("") is None
+        assert _normalize_date("") is None
 
     def test_non_8_digits_returns_none(self) -> None:
-        assert ReconcilerService._normalize_date("202606") is None
+        assert _normalize_date("202606") is None
 
     def test_numeric_input(self) -> None:
-        assert ReconcilerService._normalize_date(20260601) == "20260601"
+        assert _normalize_date(20260601) == "20260601"
 
 
 class TestReconcilerServiceToFloat:
     def test_none_returns_none(self) -> None:
-        assert ReconcilerService._to_float(None) is None
+        assert _to_float(None) is None
 
     def test_float_value(self) -> None:
-        assert ReconcilerService._to_float(100.5) == 100.5
+        assert _to_float(100.5) == 100.5
 
     def test_string_number(self) -> None:
-        assert ReconcilerService._to_float("123.45") == 123.45
+        assert _to_float("123.45") == 123.45
 
     def test_string_with_commas(self) -> None:
-        assert ReconcilerService._to_float("1,234.56") == 1234.56
+        assert _to_float("1,234.56") == 1234.56
 
     def test_invalid_string_returns_none(self) -> None:
-        assert ReconcilerService._to_float("abc") is None
+        assert _to_float("abc") is None
 
 
 class TestReconcilerServiceExtractMonthKey:
@@ -219,25 +222,30 @@ class TestReconcilerServiceBuildFolderName:
 class TestExporterServiceHelpers:
     def test_get_ext_with_extension(self) -> None:
         from apps.evidence_sorting.services.exporter import ExporterService
-        assert ExporterService._get_ext("test.jpg") == ".jpg"
+
+        assert _get_ext("test.jpg") == ".jpg"
 
     def test_get_ext_no_extension(self) -> None:
         from apps.evidence_sorting.services.exporter import ExporterService
-        assert ExporterService._get_ext("noext") == ".jpg"
+
+        assert _get_ext("noext") == ".jpg"
 
     def test_get_ext_multiple_dots(self) -> None:
         from apps.evidence_sorting.services.exporter import ExporterService
-        assert ExporterService._get_ext("file.backup.pdf") == ".pdf"
+
+        assert _get_ext("file.backup.pdf") == ".pdf"
 
     def test_write_image_normal_data(self) -> None:
         import base64
         import io
         import zipfile
+
         from apps.evidence_sorting.services.exporter import ExporterService
+
         data = base64.b64encode(b"fake image data").decode()
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
-            ExporterService._write_image(zf, "test/img.jpg", data)
+            _write_image(zf, "test/img.jpg", data)
         buf.seek(0)
         with zipfile.ZipFile(buf, "r") as zf:
             assert "test/img.jpg" in zf.namelist()
@@ -246,12 +254,14 @@ class TestExporterServiceHelpers:
         import base64
         import io
         import zipfile
+
         from apps.evidence_sorting.services.exporter import ExporterService
+
         raw = base64.b64encode(b"image bytes").decode()
         data = f"data:image/jpeg;base64,{raw}"
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
-            ExporterService._write_image(zf, "test.jpg", data)
+            _write_image(zf, "test.jpg", data)
         buf.seek(0)
         with zipfile.ZipFile(buf, "r") as zf:
             content = zf.read("test.jpg")
@@ -259,7 +269,8 @@ class TestExporterServiceHelpers:
 
     def test_build_filename_format(self) -> None:
         from apps.evidence_sorting.services.exporter import ExporterService
-        fn = ExporterService._build_filename()
+
+        fn = _build_filename()
         assert fn.startswith("evidence_sorting_")
         assert fn.endswith(".zip")
 
@@ -267,6 +278,7 @@ class TestExporterServiceHelpers:
 class TestExporterBuildDeliveryFilename:
     def test_basic_filename(self) -> None:
         from apps.evidence_sorting.services.exporter import ExporterService
+
         dn = DeliveryNote(date="20260601", amount="100", filename="test.jpg", ocr_text="出库单明细")
         counter: dict[str, int] = {}
         svc = ExporterService()
@@ -277,6 +289,7 @@ class TestExporterBuildDeliveryFilename:
 
     def test_same_date_counter(self) -> None:
         from apps.evidence_sorting.services.exporter import ExporterService
+
         dn1 = DeliveryNote(date="20260601", amount="100", filename="a.jpg", ocr_text="出库单")
         dn2 = DeliveryNote(date="20260601", amount="200", filename="b.jpg", ocr_text="出库单")
         counter: dict[str, int] = {}
@@ -287,6 +300,7 @@ class TestExporterBuildDeliveryFilename:
 
     def test_no_date(self) -> None:
         from apps.evidence_sorting.services.exporter import ExporterService
+
         dn = DeliveryNote(amount="100", filename="test.jpg", ocr_text="出库单")
         counter: dict[str, int] = {}
         svc = ExporterService()

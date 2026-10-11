@@ -1,4 +1,5 @@
 """Targeted tests for pdf_splitting module to push coverage to 80%+."""
+
 from __future__ import annotations
 
 import json
@@ -8,6 +9,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from django.test import override_settings
+
+from apps.pdf_splitting.services.split.export_utils import deduplicate_filename
 
 # ---------------------------------------------------------------------------
 # services/storage.py (90% coverage)
@@ -138,7 +141,7 @@ class TestExportUtils:
         from apps.pdf_splitting.services.split.export_utils import ExportUtils
 
         seen: set[str] = set()
-        result = ExportUtils.deduplicate_filename("test.pdf", seen)
+        result = deduplicate_filename("test.pdf", seen)
         assert result == "test.pdf"
         assert "test.pdf" in seen
 
@@ -146,21 +149,21 @@ class TestExportUtils:
         from apps.pdf_splitting.services.split.export_utils import ExportUtils
 
         seen: set[str] = {"test.pdf"}
-        result = ExportUtils.deduplicate_filename("test.pdf", seen)
+        result = deduplicate_filename("test.pdf", seen)
         assert result == "test_2.pdf"
 
     def test_deduplicate_filename_multiple_duplicates(self):
         from apps.pdf_splitting.services.split.export_utils import ExportUtils
 
         seen: set[str] = {"test.pdf", "test_2.pdf"}
-        result = ExportUtils.deduplicate_filename("test.pdf", seen)
+        result = deduplicate_filename("test.pdf", seen)
         assert result == "test_3.pdf"
 
     def test_deduplicate_filename_no_extension(self):
         from apps.pdf_splitting.services.split.export_utils import ExportUtils
 
         seen: set[str] = set()
-        result = ExportUtils.deduplicate_filename("片段", seen)
+        result = deduplicate_filename("片段", seen)
         assert result == "片段.pdf"
 
 

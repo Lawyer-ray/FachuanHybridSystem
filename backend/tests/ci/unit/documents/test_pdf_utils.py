@@ -1,4 +1,5 @@
 """Tests for documents.services.infrastructure.pdf_utils."""
+
 from __future__ import annotations
 
 import io
@@ -94,6 +95,8 @@ class TestReadFromPathAttr:
 class TestGetPdfPageCount:
     def test_returns_int(self) -> None:
         # Just verify the function signature works
-        result = get_pdf_page_count.__wrapped__(b"data", default=1) if hasattr(get_pdf_page_count, '__wrapped__') else None
+        result = (
+            get_pdf_page_count.__wrapped__(b"data", default=1) if hasattr(get_pdf_page_count, "__wrapped__") else None
+        )
         # The function requires real PDF data, so just test the wrapper
         assert callable(get_pdf_page_count)

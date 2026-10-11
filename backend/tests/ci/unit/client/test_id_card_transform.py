@@ -10,7 +10,6 @@ from apps.client.services.id_card_merge.transform import perspective_transform
 
 
 class TestPerspectiveTransform:
-
     def test_basic_transform(self):
         logger = MagicMock()
         img = np.ones((300, 200, 3), dtype=np.uint8) * 128

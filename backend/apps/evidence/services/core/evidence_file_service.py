@@ -56,11 +56,11 @@ class EvidenceFileService:
         item.file_name = file_name
         item.file_size = file_size
         item.page_count = self._get_page_count(ext=ext, file=file)
-        item.file_hash = self._compute_hash(file)
+        item.file_hash = _compute_hash(file)
         item.save()
 
         # 异步 OCR 提取
-        self._schedule_ocr(item.pk)
+        _schedule_ocr(item.pk)
 
         return item
 
@@ -86,22 +86,24 @@ class EvidenceFileService:
             return get_pdf_page_count(file, default=1)
         return 1
 
-    @staticmethod
-    def _compute_hash(file: Any) -> str:
-        import hashlib
 
-        h = hashlib.sha256()
-        file.seek(0)
-        for chunk in file.chunks() if hasattr(file, "chunks") else iter(lambda: file.read(8192), b""):
-            h.update(chunk)
-        file.seek(0)
-        return h.hexdigest()
+# ↓↓ 由 EvidenceFileService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _compute_hash(file: Any) -> str:
+    import hashlib
 
-    @staticmethod
-    def _schedule_ocr(item_id: int) -> None:
-        try:
-            from apps.core.tasking import submit_task
+    h = hashlib.sha256()
+    file.seek(0)
+    for chunk in file.chunks() if hasattr(file, "chunks") else iter(lambda: file.read(8192), b""):
+        h.update(chunk)
+    file.seek(0)
+    return h.hexdigest()
 
-            submit_task("apps.evidence.tasks.ocr_evidence_item_task", item_id)
-        except (TypeError, ValueError):
-            logger.warning("提交证据 OCR 任务失败（已忽略，证据将不执行 OCR）: item_id=%s", item_id, exc_info=True)
+
+# ↓↓ 由 EvidenceFileService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _schedule_ocr(item_id: int) -> None:
+    try:
+        from apps.core.tasking import submit_task
+
+        submit_task("apps.evidence.tasks.ocr_evidence_item_task", item_id)
+    except (TypeError, ValueError):
+        logger.warning("提交证据 OCR 任务失败（已忽略，证据将不执行 OCR）: item_id=%s", item_id, exc_info=True)

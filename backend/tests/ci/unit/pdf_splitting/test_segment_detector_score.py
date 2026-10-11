@@ -227,6 +227,7 @@ class TestFindComplaintEnd:
 
     def _get_complaint_rule(self):
         from apps.pdf_splitting.services.template_registry import get_template_definition
+
         template = get_template_definition("filing_materials_v1")
         return template.rules[0]
 
@@ -237,10 +238,26 @@ class TestMergeAdjacentPackEdgeCases:
 
     def test_merge_with_normal_flag(self) -> None:
         segments = [
-            SegmentDraft(order=1, page_start=1, page_end=2, segment_type="party_identity",
-                         filename="a.pdf", confidence=0.9, source_method="rule", review_flag="normal"),
-            SegmentDraft(order=2, page_start=3, page_end=4, segment_type="party_identity",
-                         filename="b.pdf", confidence=0.8, source_method="rule", review_flag="normal"),
+            SegmentDraft(
+                order=1,
+                page_start=1,
+                page_end=2,
+                segment_type="party_identity",
+                filename="a.pdf",
+                confidence=0.9,
+                source_method="rule",
+                review_flag="normal",
+            ),
+            SegmentDraft(
+                order=2,
+                page_start=3,
+                page_end=4,
+                segment_type="party_identity",
+                filename="b.pdf",
+                confidence=0.8,
+                source_method="rule",
+                review_flag="normal",
+            ),
         ]
         result = self.detector._merge_adjacent_pack_segments(segments)
         assert len(result) == 1
@@ -248,12 +265,36 @@ class TestMergeAdjacentPackEdgeCases:
 
     def test_three_adjacent_merge(self) -> None:
         segments = [
-            SegmentDraft(order=1, page_start=1, page_end=1, segment_type="party_identity",
-                         filename="a.pdf", confidence=0.7, source_method="rule", review_flag="normal"),
-            SegmentDraft(order=2, page_start=2, page_end=2, segment_type="party_identity",
-                         filename="b.pdf", confidence=0.8, source_method="rule", review_flag="normal"),
-            SegmentDraft(order=3, page_start=3, page_end=3, segment_type="party_identity",
-                         filename="c.pdf", confidence=0.9, source_method="rule", review_flag="normal"),
+            SegmentDraft(
+                order=1,
+                page_start=1,
+                page_end=1,
+                segment_type="party_identity",
+                filename="a.pdf",
+                confidence=0.7,
+                source_method="rule",
+                review_flag="normal",
+            ),
+            SegmentDraft(
+                order=2,
+                page_start=2,
+                page_end=2,
+                segment_type="party_identity",
+                filename="b.pdf",
+                confidence=0.8,
+                source_method="rule",
+                review_flag="normal",
+            ),
+            SegmentDraft(
+                order=3,
+                page_start=3,
+                page_end=3,
+                segment_type="party_identity",
+                filename="c.pdf",
+                confidence=0.9,
+                source_method="rule",
+                review_flag="normal",
+            ),
         ]
         result = self.detector._merge_adjacent_pack_segments(segments)
         assert len(result) == 1

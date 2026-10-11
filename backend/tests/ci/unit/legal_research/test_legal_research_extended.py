@@ -36,11 +36,16 @@ from apps.legal_research.services.similarity.scorers import (
     metadata_hint_score,
     normalize_score,
     summary_overlap_score,
-    tokenize,
     token_overlap_score,
+    tokenize,
 )
-from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
-
+from apps.legal_research.services.similarity.tuning_config import (
+    LegalResearchTuningConfig,
+    _get_bool,
+    _get_float,
+    _get_int,
+    _get_text,
+)
 
 # ── keywords.py ──────────────────────────────────────────────────────────────
 
@@ -543,7 +548,7 @@ class TestLegalResearchTuningConfig:
             def get_value(self, key, default=""):
                 return "5"
 
-        result = LegalResearchTuningConfig._get_int(MockConfig(), "key", 3, 1, 10)
+        result = _get_int(MockConfig(), "key", 3, 1, 10)
         assert result == 5
 
     def test_get_int_invalid(self):
@@ -551,7 +556,7 @@ class TestLegalResearchTuningConfig:
             def get_value(self, key, default=""):
                 return "abc"
 
-        result = LegalResearchTuningConfig._get_int(MockConfig(), "key", 3, 1, 10)
+        result = _get_int(MockConfig(), "key", 3, 1, 10)
         assert result == 3
 
     def test_get_float_helpers(self):
@@ -559,7 +564,7 @@ class TestLegalResearchTuningConfig:
             def get_value(self, key, default=""):
                 return "0.5"
 
-        result = LegalResearchTuningConfig._get_float(MockConfig(), "key", 0.3, 0.0, 1.0)
+        result = _get_float(MockConfig(), "key", 0.3, 0.0, 1.0)
         assert result == 0.5
 
     def test_get_bool_true(self):
@@ -567,21 +572,21 @@ class TestLegalResearchTuningConfig:
             def get_value(self, key, default=""):
                 return "true"
 
-        assert LegalResearchTuningConfig._get_bool(MockConfig(), "key", False) is True
+        assert _get_bool(MockConfig(), "key", False) is True
 
     def test_get_bool_false(self):
         class MockConfig:
             def get_value(self, key, default=""):
                 return "false"
 
-        assert LegalResearchTuningConfig._get_bool(MockConfig(), "key", True) is False
+        assert _get_bool(MockConfig(), "key", True) is False
 
     def test_get_text(self):
         class MockConfig:
             def get_value(self, key, default=""):
                 return "value"
 
-        result = LegalResearchTuningConfig._get_text(MockConfig(), "key", "default", max_len=10)
+        result = _get_text(MockConfig(), "key", "default", max_len=10)
         assert result == "value"
 
     def test_get_text_empty(self):
@@ -589,5 +594,5 @@ class TestLegalResearchTuningConfig:
             def get_value(self, key, default=""):
                 return ""
 
-        result = LegalResearchTuningConfig._get_text(MockConfig(), "key", "default", max_len=10)
+        result = _get_text(MockConfig(), "key", "default", max_len=10)
         assert result == "default"

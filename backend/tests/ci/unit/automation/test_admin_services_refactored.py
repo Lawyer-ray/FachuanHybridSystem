@@ -19,6 +19,7 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -26,10 +27,10 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not installed")
 
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # Pure helper: compute_percentage
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestComputePercentage:
     """Test percentage computation (used across multiple admin services)."""
@@ -66,6 +67,7 @@ class TestComputePercentage:
 # ═══════════════════════════════════════════════════════════════════════════
 # Pure helper: build_status_stats
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestBuildStatusStats:
     """Test the status statistics building pattern used in admin services."""
@@ -110,6 +112,7 @@ class TestBuildStatusStats:
 # ═══════════════════════════════════════════════════════════════════════════
 # Pure helper: validate_batch_quote_config
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestValidateBatchQuoteConfig:
     """Test batch quote config validation (extracted from batch_create_quotes)."""
@@ -166,6 +169,7 @@ class TestValidateBatchQuoteConfig:
 # ═══════════════════════════════════════════════════════════════════════════
 # Pure helper: format_csv_row
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestFormatCSVRow:
     """Test CSV row formatting (extracted from export_to_csv)."""
@@ -249,6 +253,7 @@ class TestFormatCSVRow:
 # Pure helper: build_amount_ranges
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestBuildAmountRanges:
     """Test amount range bucketing (extracted from get_quote_statistics)."""
 
@@ -294,6 +299,7 @@ class TestBuildAmountRanges:
 # Pure helper: build_download_progress
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestBuildDownloadProgress:
     """Test download progress computation (from get_download_progress)."""
 
@@ -319,6 +325,7 @@ class TestBuildDownloadProgress:
 # Pure helper: build_comparison_statistics
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestBuildComparisonStatistics:
     """Test comparison statistics computation (from run_single_quote/get_quote_comparison)."""
 
@@ -334,9 +341,7 @@ class TestBuildComparisonStatistics:
             "avg_premium": sum(premiums) / len(premiums),
             "price_range": max(premiums) - min(premiums),
             "savings_amount": max(premiums) - min(premiums),
-            "savings_percentage": (
-                ((max(premiums) - min(premiums)) / max(premiums) * 100) if max(premiums) > 0 else 0
-            ),
+            "savings_percentage": (((max(premiums) - min(premiums)) / max(premiums) * 100) if max(premiums) > 0 else 0),
         }
 
     def test_basic_stats(self) -> None:
@@ -371,6 +376,7 @@ class TestBuildComparisonStatistics:
 # ═══════════════════════════════════════════════════════════════════════════
 # Pure helper: pagination parameter validation
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestValidatePaginationParams:
     """Test pagination parameter validation (from list_quotes)."""
@@ -421,6 +427,7 @@ class TestValidatePaginationParams:
 # ═══════════════════════════════════════════════════════════════════════════
 # Pure helper: retry status validation
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestRetryStatusValidation:
     """Test the retry-allowed status check from retry_quote."""

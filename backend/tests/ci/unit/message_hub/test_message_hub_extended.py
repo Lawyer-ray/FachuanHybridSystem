@@ -8,12 +8,12 @@ import pytest
 
 try:
     from plugins import has_message_hub_plugin
+
     _HAS_MH = has_message_hub_plugin()
 except ImportError:
     _HAS_MH = False
 
 pytestmark = pytest.mark.skipif(not _HAS_MH, reason="message_hub plugin not installed")
-
 
 
 class TestInboxQuery:
@@ -26,6 +26,7 @@ class TestInboxQuery:
             get_source_or_none,
             list_sources,
         )
+
         assert callable(get_base_queryset)
         assert callable(get_message_or_none)
         assert callable(list_sources)

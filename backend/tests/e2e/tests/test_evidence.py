@@ -12,17 +12,15 @@ Django Admin E2E 测试 — 证据管理
 import pytest
 from playwright.sync_api import Page, expect
 
-
 # ------------------------------------------------------------------
 # 1. 证据列表
 # ------------------------------------------------------------------
 
+
 @pytest.mark.smoke
 def test_evidence_list_page(admin_page: Page, base_url: str) -> None:
     """访问证据列表页，验证页面正常加载。"""
-    response = admin_page.goto(
-        f"{base_url}/admin/evidence/evidencelistproxy/"
-    )
+    response = admin_page.goto(f"{base_url}/admin/evidence/evidencelistproxy/")
     assert response is not None
     assert response.status < 500
     admin_page.wait_for_load_state("domcontentloaded")
@@ -32,11 +30,10 @@ def test_evidence_list_page(admin_page: Page, base_url: str) -> None:
 # 2. 证据项列表
 # ------------------------------------------------------------------
 
+
 def test_evidence_item_list(admin_page: Page, base_url: str) -> None:
     """访问证据项列表页，验证页面正常加载。"""
-    response = admin_page.goto(
-        f"{base_url}/admin/evidence/evidenceitemproxy/"
-    )
+    response = admin_page.goto(f"{base_url}/admin/evidence/evidenceitemproxy/")
     assert response is not None
     assert response.status < 500
     admin_page.wait_for_load_state("domcontentloaded")
@@ -46,11 +43,10 @@ def test_evidence_item_list(admin_page: Page, base_url: str) -> None:
 # 3. 证据分组列表
 # ------------------------------------------------------------------
 
+
 def test_evidence_group_list(admin_page: Page, base_url: str) -> None:
     """访问证据分组列表页，验证页面正常加载。"""
-    response = admin_page.goto(
-        f"{base_url}/admin/evidence/evidencegroup/"
-    )
+    response = admin_page.goto(f"{base_url}/admin/evidence/evidencegroup/")
     assert response is not None
     assert response.status < 500
     admin_page.wait_for_load_state("domcontentloaded")

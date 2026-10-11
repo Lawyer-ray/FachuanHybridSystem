@@ -101,9 +101,7 @@ class TestFetchModelsViewGuards:
         assert response.json()["error"] == "请先填写 API 地址"
 
     @pytest.mark.django_db
-    def test_malformed_json_body_is_tolerated(
-        self, client: Any, provider: LLMProvider, admin_user: Any
-    ) -> None:
+    def test_malformed_json_body_is_tolerated(self, client: Any, provider: LLMProvider, admin_user: Any) -> None:
         """非法 JSON 视为空 payload，缺 base_url 时返回 400 而非 500。"""
         provider.base_url = ""
         provider.save(update_fields=["base_url"])

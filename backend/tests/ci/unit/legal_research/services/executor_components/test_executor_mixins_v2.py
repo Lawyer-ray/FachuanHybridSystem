@@ -8,6 +8,30 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.legal_research.services.executor_components.cache_mixin import (
+    _deserialize_case_detail_payload,
+    _extract_item_doc_id,
+    _serialize_case_detail,
+)
+from apps.legal_research.services.executor_components.policy_mixin import (
+    _build_adaptive_threshold_policy,
+    _build_adaptive_threshold_suffix,
+    _build_dual_review_policy,
+    _maybe_decay_min_similarity_threshold,
+    _resolve_effective_min_similarity,
+)
+from apps.legal_research.services.executor_components.result_persistence import (
+    _build_content_excerpt,
+    _extract_similarity_metadata,
+    _sanitize_pdf_filename,
+)
+from apps.legal_research.services.executor_components.task_lifecycle import (
+    _is_cancel_requested,
+    _mark_cancelled,
+    _mark_completed,
+    _mark_failed,
+)
+
 # ── cache_mixin ────────────────────────────────────────────────────────────
 
 
@@ -74,19 +98,19 @@ class TestCacheMixin:
         from apps.legal_research.services.executor_components.cache_mixin import ExecutorCacheMixin
 
         item = self._make_item("test_doc")
-        assert ExecutorCacheMixin._extract_item_doc_id(item) == "test_doc"
+        assert _extract_item_doc_id(item) == "test_doc"
 
     def test_extract_item_doc_id_fallback_to_raw(self) -> None:
         from apps.legal_research.services.executor_components.cache_mixin import ExecutorCacheMixin
 
         item = SimpleNamespace(doc_id_unquoted="", doc_id_raw="raw_id")
-        assert ExecutorCacheMixin._extract_item_doc_id(item) == "raw_id"
+        assert _extract_item_doc_id(item) == "raw_id"
 
     def test_serialize_case_detail(self) -> None:
         from apps.legal_research.services.executor_components.cache_mixin import ExecutorCacheMixin
 
         detail = self._make_detail()
-        payload = ExecutorCacheMixin._serialize_case_detail(detail)
+        payload = _serialize_case_detail(detail)
         assert payload["title"] == "Test Title"
         assert payload["doc_id_unquoted"] == "doc1"
         assert payload["raw_meta"] == {"key": "value"}
@@ -107,14 +131,14 @@ class TestCacheMixin:
             case_digest="",
             content_text="",
         )
-        payload = ExecutorCacheMixin._serialize_case_detail(detail)
+        payload = _serialize_case_detail(detail)
         assert "raw_meta" not in payload
 
     def test_deserialize_case_detail_payload(self) -> None:
         from apps.legal_research.services.executor_components.cache_mixin import ExecutorCacheMixin
 
         payload = {"doc_id_raw": "r1", "doc_id_unquoted": "u1", "title": "Test", "raw_meta": {"k": "v"}}
-        detail = ExecutorCacheMixin._deserialize_case_detail_payload(payload)
+        detail = _deserialize_case_detail_payload(payload)
         assert detail is not None
         assert detail.title == "Test"
         assert detail.doc_id_unquoted == "u1"
@@ -122,7 +146,7 @@ class TestCacheMixin:
     def test_deserialize_no_doc_id(self) -> None:
         from apps.legal_research.services.executor_components.cache_mixin import ExecutorCacheMixin
 
-        assert ExecutorCacheMixin._deserialize_case_detail_payload({"title": "x"}) is None
+        assert _deserialize_case_detail_payload({"title": "x"}) is None
 
 
 # ── result_persistence ─────────────────────────────────────────────────────
@@ -132,14 +156,14 @@ class TestResultPersistence:
     def test_build_content_excerpt_empty(self) -> None:
         from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
-        assert ExecutorResultPersistenceMixin._build_content_excerpt("") == ""
-        assert ExecutorResultPersistenceMixin._build_content_excerpt(None) == ""  # type: ignore[arg-type]
+        assert _build_content_excerpt("") == ""
+        assert _build_content_excerpt(None) == ""  # type: ignore[arg-type]
 
     def test_build_content_excerpt_normalizes(self) -> None:
         from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
         text = "line1\r\nline2\rline3\n\n\n\nline4"
-        result = ExecutorResultPersistenceMixin._build_content_excerpt(text)
+        result = _build_content_excerpt(text)
         assert "\r" not in result
         assert "\n\n\n" not in result
 
@@ -147,30 +171,30 @@ class TestResultPersistence:
         from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
         text = "x" * 20000
-        result = ExecutorResultPersistenceMixin._build_content_excerpt(text)
+        result = _build_content_excerpt(text)
         assert len(result) == ExecutorResultPersistenceMixin.CONTENT_EXCERPT_MAX_CHARS
 
     def test_sanitize_pdf_filename_basic(self) -> None:
         from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
-        assert ExecutorResultPersistenceMixin._sanitize_pdf_filename("test.pdf", fallback="fb") == "test.pdf"
+        assert _sanitize_pdf_filename("test.pdf", fallback="fb") == "test.pdf"
 
     def test_sanitize_pdf_filename_adds_extension(self) -> None:
         from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
-        result = ExecutorResultPersistenceMixin._sanitize_pdf_filename("test", fallback="fb")
+        result = _sanitize_pdf_filename("test", fallback="fb")
         assert result.endswith(".pdf")
 
     def test_sanitize_pdf_filename_strips_path(self) -> None:
         from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
-        result = ExecutorResultPersistenceMixin._sanitize_pdf_filename("/path/to/file.pdf", fallback="fb")
+        result = _sanitize_pdf_filename("/path/to/file.pdf", fallback="fb")
         assert result == "file.pdf"
 
     def test_sanitize_pdf_filename_sanitizes_special_chars(self) -> None:
         from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
-        result = ExecutorResultPersistenceMixin._sanitize_pdf_filename("file name@#.pdf", fallback="fb")
+        result = _sanitize_pdf_filename("file name@#.pdf", fallback="fb")
         assert "@" not in result
         assert "#" not in result
         assert result.endswith(".pdf")
@@ -178,7 +202,7 @@ class TestResultPersistence:
     def test_sanitize_pdf_filename_empty_uses_fallback(self) -> None:
         from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
-        result = ExecutorResultPersistenceMixin._sanitize_pdf_filename("", fallback="fallback_id")
+        result = _sanitize_pdf_filename("", fallback="fallback_id")
         assert "fallback" in result.lower()
 
     def test_extract_similarity_metadata_dict(self) -> None:
@@ -186,7 +210,7 @@ class TestResultPersistence:
 
         sim = MagicMock()
         sim.metadata = {"keyword_score": 0.8, "vector_score": 0.7}
-        result = ExecutorResultPersistenceMixin._extract_similarity_metadata(similarity=sim)
+        result = _extract_similarity_metadata(similarity=sim)
         assert "similarity_structured" in result
         assert result["similarity_structured"]["keyword_score"] == 0.8
 
@@ -195,7 +219,7 @@ class TestResultPersistence:
 
         sim = MagicMock()
         sim.metadata = {}
-        result = ExecutorResultPersistenceMixin._extract_similarity_metadata(similarity=sim)
+        result = _extract_similarity_metadata(similarity=sim)
         assert result == {}
 
     def test_extract_similarity_metadata_none(self) -> None:
@@ -203,7 +227,7 @@ class TestResultPersistence:
 
         sim = MagicMock()
         sim.metadata = None
-        result = ExecutorResultPersistenceMixin._extract_similarity_metadata(similarity=sim)
+        result = _extract_similarity_metadata(similarity=sim)
         assert result == {}
 
 
@@ -216,7 +240,7 @@ class TestPolicyMixin:
         from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 
         tuning = LegalResearchTuningConfig(online_tuning_enabled=False)
-        result = ExecutorPolicyMixin._resolve_effective_min_similarity(requested_min_similarity=0.7, tuning=tuning)
+        result = _resolve_effective_min_similarity(requested_min_similarity=0.7, tuning=tuning)
         assert result == 0.7
 
     def test_resolve_effective_min_similarity_with_delta(self) -> None:
@@ -224,7 +248,7 @@ class TestPolicyMixin:
         from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 
         tuning = LegalResearchTuningConfig(online_tuning_enabled=True, online_min_similarity_delta=0.05)
-        result = ExecutorPolicyMixin._resolve_effective_min_similarity(requested_min_similarity=0.7, tuning=tuning)
+        result = _resolve_effective_min_similarity(requested_min_similarity=0.7, tuning=tuning)
         assert result == pytest.approx(0.75)
 
     def test_resolve_effective_min_similarity_clamped(self) -> None:
@@ -232,7 +256,7 @@ class TestPolicyMixin:
         from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 
         tuning = LegalResearchTuningConfig(online_tuning_enabled=True, online_min_similarity_delta=1.0)
-        result = ExecutorPolicyMixin._resolve_effective_min_similarity(requested_min_similarity=0.9, tuning=tuning)
+        result = _resolve_effective_min_similarity(requested_min_similarity=0.9, tuning=tuning)
         assert result == pytest.approx(0.99)
 
     def test_build_dual_review_policy_defaults(self) -> None:
@@ -240,7 +264,7 @@ class TestPolicyMixin:
         from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 
         tuning = LegalResearchTuningConfig()
-        policy = ExecutorPolicyMixin._build_dual_review_policy(tuning=tuning)
+        policy = _build_dual_review_policy(tuning=tuning)
         # Default has dual_review_model="Qwen/Qwen2.5-14B-Instruct" so enabled=True
         assert policy.enabled is True
         assert policy.review_model == "Qwen/Qwen2.5-14B-Instruct"
@@ -250,7 +274,7 @@ class TestPolicyMixin:
         from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 
         tuning = LegalResearchTuningConfig(dual_review_enabled=True, dual_review_model="gpt-4")
-        policy = ExecutorPolicyMixin._build_dual_review_policy(tuning=tuning)
+        policy = _build_dual_review_policy(tuning=tuning)
         assert policy.enabled is True
         assert policy.review_model == "gpt-4"
 
@@ -259,7 +283,7 @@ class TestPolicyMixin:
         from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 
         tuning = LegalResearchTuningConfig(adaptive_threshold_enabled=False)
-        policy = ExecutorPolicyMixin._build_adaptive_threshold_policy(baseline_min_similarity=0.7, tuning=tuning)
+        policy = _build_adaptive_threshold_policy(baseline_min_similarity=0.7, tuning=tuning)
         assert policy.enabled is False
 
     def test_build_adaptive_threshold_policy_enabled(self) -> None:
@@ -267,7 +291,7 @@ class TestPolicyMixin:
         from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 
         tuning = LegalResearchTuningConfig(adaptive_threshold_enabled=True, adaptive_threshold_floor=0.5)
-        policy = ExecutorPolicyMixin._build_adaptive_threshold_policy(baseline_min_similarity=0.7, tuning=tuning)
+        policy = _build_adaptive_threshold_policy(baseline_min_similarity=0.7, tuning=tuning)
         assert policy.enabled is True
         assert policy.floor < 0.7
 
@@ -278,7 +302,7 @@ class TestPolicyMixin:
         )
 
         policy = AdaptiveThresholdPolicy(enabled=False, floor=0.5, step=0.01, scan_interval=100)
-        result = ExecutorPolicyMixin._maybe_decay_min_similarity_threshold(
+        result = _maybe_decay_min_similarity_threshold(
             current_threshold=0.7,
             scanned=100,
             matched=10,
@@ -295,7 +319,7 @@ class TestPolicyMixin:
         )
 
         policy = AdaptiveThresholdPolicy(enabled=True, floor=0.6, step=0.01, scan_interval=10)
-        result = ExecutorPolicyMixin._maybe_decay_min_similarity_threshold(
+        result = _maybe_decay_min_similarity_threshold(
             current_threshold=0.6,  # at floor
             scanned=100,
             matched=10,
@@ -312,7 +336,7 @@ class TestPolicyMixin:
         )
 
         policy = AdaptiveThresholdPolicy(enabled=True, floor=0.5, step=0.01, scan_interval=10)
-        result = ExecutorPolicyMixin._maybe_decay_min_similarity_threshold(
+        result = _maybe_decay_min_similarity_threshold(
             current_threshold=0.7,
             scanned=100,
             matched=10,
@@ -329,7 +353,7 @@ class TestPolicyMixin:
         )
 
         policy = AdaptiveThresholdPolicy(enabled=True, floor=0.5, step=0.01, scan_interval=100)
-        result = ExecutorPolicyMixin._maybe_decay_min_similarity_threshold(
+        result = _maybe_decay_min_similarity_threshold(
             current_threshold=0.7,
             scanned=50,
             matched=5,
@@ -346,7 +370,7 @@ class TestPolicyMixin:
         )
 
         policy = AdaptiveThresholdPolicy(enabled=True, floor=0.5, step=0.05, scan_interval=10)
-        result = ExecutorPolicyMixin._maybe_decay_min_similarity_threshold(
+        result = _maybe_decay_min_similarity_threshold(
             current_threshold=0.7,
             scanned=100,
             matched=5,
@@ -360,12 +384,12 @@ class TestPolicyMixin:
     def test_build_adaptive_threshold_suffix_no_change(self) -> None:
         from apps.legal_research.services.executor_components.policy_mixin import ExecutorPolicyMixin
 
-        assert ExecutorPolicyMixin._build_adaptive_threshold_suffix(baseline=0.7, lowered_to=0.7) == ""
+        assert _build_adaptive_threshold_suffix(baseline=0.7, lowered_to=0.7) == ""
 
     def test_build_adaptive_threshold_suffix_with_change(self) -> None:
         from apps.legal_research.services.executor_components.policy_mixin import ExecutorPolicyMixin
 
-        result = ExecutorPolicyMixin._build_adaptive_threshold_suffix(baseline=0.7, lowered_to=0.65)
+        result = _build_adaptive_threshold_suffix(baseline=0.7, lowered_to=0.65)
         assert "0.70" in result
         assert "0.65" in result
 
@@ -405,7 +429,7 @@ class TestTaskLifecycle:
 
         task = MagicMock()
         with patch.object(ExecutorTaskLifecycleMixin, "_save_task_safely"):
-            ExecutorTaskLifecycleMixin._mark_completed(task, message="完成")
+            _mark_completed(task, message="完成")
         assert task.status == "completed"
         assert task.progress == 100
 
@@ -414,7 +438,7 @@ class TestTaskLifecycle:
 
         task = MagicMock()
         with patch.object(ExecutorTaskLifecycleMixin, "_save_task_safely"):
-            ExecutorTaskLifecycleMixin._mark_failed(task, "错误信息")
+            _mark_failed(task, "错误信息")
         assert task.status == "failed"
         assert task.error == "错误信息"
 
@@ -425,7 +449,7 @@ class TestTaskLifecycle:
         task.max_candidates = 100
         task.target_count = 10
         with patch.object(ExecutorTaskLifecycleMixin, "_save_task_safely"):
-            ExecutorTaskLifecycleMixin._mark_cancelled(task=task, scanned=50, matched=3, skipped=5)
+            _mark_cancelled(task=task, scanned=50, matched=3, skipped=5)
         assert task.status == "cancelled"
         assert "跳过 5" in task.message
 
@@ -436,10 +460,10 @@ class TestTaskLifecycle:
         with patch.object(
             ExecutorTaskLifecycleMixin, "_run_orm_safely", return_value=LegalResearchTaskStatus.CANCELLED
         ):
-            assert ExecutorTaskLifecycleMixin._is_cancel_requested("1") is True
+            assert _is_cancel_requested("1") is True
 
         with patch.object(ExecutorTaskLifecycleMixin, "_run_orm_safely", return_value=LegalResearchTaskStatus.RUNNING):
-            assert ExecutorTaskLifecycleMixin._is_cancel_requested("1") is False
+            assert _is_cancel_requested("1") is False
 
 
 # ── source_gateway ─────────────────────────────────────────────────────────

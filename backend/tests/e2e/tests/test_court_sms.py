@@ -12,17 +12,15 @@ Django Admin E2E 测试 — 法院短信
 import pytest
 from playwright.sync_api import Page, expect
 
-
 # ------------------------------------------------------------------
 # 1. 法院短信列表页
 # ------------------------------------------------------------------
 
+
 @pytest.mark.smoke
 def test_courtsms_list_page(admin_page: Page, base_url: str) -> None:
     """访问法院短信列表页，验证页面正常加载。"""
-    response = admin_page.goto(
-        f"{base_url}/admin/automation/courtsms/"
-    )
+    response = admin_page.goto(f"{base_url}/admin/automation/courtsms/")
     assert response is not None
     assert response.status < 500
     admin_page.wait_for_load_state("domcontentloaded")
@@ -35,11 +33,10 @@ def test_courtsms_list_page(admin_page: Page, base_url: str) -> None:
 # 2. 新增法院短信页面
 # ------------------------------------------------------------------
 
+
 def test_courtsms_add_page(admin_page: Page, base_url: str) -> None:
     """访问新增法院短信页面，验证表单加载（应包含 content/sender 等字段）。"""
-    response = admin_page.goto(
-        f"{base_url}/admin/automation/courtsms/add/"
-    )
+    response = admin_page.goto(f"{base_url}/admin/automation/courtsms/add/")
     assert response is not None
     assert response.status < 500
     admin_page.wait_for_load_state("domcontentloaded")
@@ -55,6 +52,7 @@ def test_courtsms_add_page(admin_page: Page, base_url: str) -> None:
 # 3. 列表页操作按钮/筛选器
 # ------------------------------------------------------------------
 
+
 def test_courtsms_list_has_actions(admin_page: Page, base_url: str) -> None:
     """验证法院短信列表页包含操作按钮或筛选器。"""
     admin_page.goto(f"{base_url}/admin/automation/courtsms/")
@@ -63,6 +61,4 @@ def test_courtsms_list_has_actions(admin_page: Page, base_url: str) -> None:
     # 或筛选器面板（#changelist-filter）
     has_actions = admin_page.locator("#changelist-form select[name='action']").count() > 0
     has_filters = admin_page.locator("#changelist-filter").count() > 0
-    assert has_actions or has_filters, (
-        "CourtSMS changelist should have action buttons or filter sidebar"
-    )
+    assert has_actions or has_filters, "CourtSMS changelist should have action buttons or filter sidebar"

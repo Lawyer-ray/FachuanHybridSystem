@@ -163,6 +163,7 @@ class TestFeishuChatProvider:
         mock_post.side_effect = httpx.HTTPError("network")
 
         from apps.core.exceptions import NetworkError
+
         with pytest.raises((NetworkError, OwnerSettingException)):
             p.create_chat("测试群")
 

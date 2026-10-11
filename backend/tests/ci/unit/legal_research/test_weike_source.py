@@ -8,8 +8,25 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.legal_research.services.sources.weike.document import WeikeDocumentMixin
-from apps.legal_research.services.sources.weike.search import WeikeSearchMixin
+from apps.legal_research.services.sources.weike.document import (
+    WeikeDocumentMixin,
+    _build_dom_digest,
+    _build_download_filename,
+    _compact_error,
+    _detail_doc_id_candidates,
+    _extract_dom_field,
+    _html_to_text,
+    _normalize_dom_text,
+    _summarize_html_payload,
+    _summarize_meta_payload,
+)
+from apps.legal_research.services.sources.weike.search import (
+    WeikeSearchMixin,
+    _compact_error_message,
+    _parse_detail_url,
+    _reset_search_api_health,
+    _search_api_degraded_wait_seconds,
+)
 from apps.legal_research.services.sources.weike.types import WeikeCaseDetail, WeikeSearchItem, WeikeSession
 
 
@@ -62,22 +79,22 @@ class TestWeikeDocumentMixinStatic:
 
     def test_detail_doc_id_candidates(self):
         item = _make_search_item(doc_id_raw="RAW1", doc_id_unquoted="UNQ1")
-        result = WeikeDocumentMixin._detail_doc_id_candidates(item)
+        result = _detail_doc_id_candidates(item)
         assert "RAW1" in result
         assert "UNQ1" in result
 
     def test_detail_doc_id_candidates_dedup(self):
         item = _make_search_item(doc_id_raw="SAME", doc_id_unquoted="SAME")
-        result = WeikeDocumentMixin._detail_doc_id_candidates(item)
+        result = _detail_doc_id_candidates(item)
         assert result == ["SAME"]
 
     def test_compact_error_short(self):
         exc = RuntimeError("short error")
-        assert WeikeDocumentMixin._compact_error(exc) == "short error"
+        assert _compact_error(exc) == "short error"
 
     def test_compact_error_long(self):
         exc = RuntimeError("x" * 200)
-        result = WeikeDocumentMixin._compact_error(exc, max_len=50)
+        result = _compact_error(exc, max_len=50)
         assert len(result) <= 50
 
     def test_is_session_restricted_response(self):
@@ -87,47 +104,47 @@ class TestWeikeDocumentMixinStatic:
 
     def test_build_download_filename(self):
         detail = _make_detail(title="买卖合同纠纷判决书")
-        filename = WeikeDocumentMixin._build_download_filename(detail)
+        filename = _build_download_filename(detail)
         assert "买卖合同纠纷判决书" in filename
         assert filename.endswith(".pdf")
 
     def test_build_download_filename_empty_title(self):
         detail = _make_detail(title="")
-        filename = WeikeDocumentMixin._build_download_filename(detail)
+        filename = _build_download_filename(detail)
         assert filename.endswith(".pdf")
 
     def test_html_to_text(self):
         # Note: source regex [\\t\\r ]+ treats \r and \t as literal chars, so r/t get removed
         html = "<p>Hello 买卖合同</p>"
-        text = WeikeDocumentMixin._html_to_text(html)
+        text = _html_to_text(html)
         assert "<p>" not in text
         assert "Hello" in text
         assert "买卖合同" in text
 
     def test_summarize_meta_payload(self):
         payload = {"currentDoc": {"title": "T", "additionalFields": {"courtText": "C"}}}
-        result = WeikeDocumentMixin._summarize_meta_payload(payload)
+        result = _summarize_meta_payload(payload)
         assert result["title"] == "T"
         assert result["court_text"] == "C"
 
     def test_summarize_html_payload(self):
-        result = WeikeDocumentMixin._summarize_html_payload({"content": "<p>text</p>"})
+        result = _summarize_html_payload({"content": "<p>text</p>"})
         assert result["has_content"] is True
         assert result["content_length"] > 0
 
     def test_normalize_dom_text(self):
         text = "  hello  \xa0  world  \n\n\n\nextra"
-        result = WeikeDocumentMixin._normalize_dom_text(text)
+        result = _normalize_dom_text(text)
         assert "\xa0" not in result
         assert "\n\n\n" not in result
 
     def test_extract_dom_field(self):
         text = "审理法院：北京市朝阳区人民法院"
-        result = WeikeDocumentMixin._extract_dom_field(text=text, patterns=(r"(?:审理法院|法院)[:：]\s*([^\n]+)",))
+        result = _extract_dom_field(text=text, patterns=(r"(?:审理法院|法院)[:：]\s*([^\n]+)",))
         assert "北京市朝阳区人民法院" in result
 
     def test_extract_dom_field_no_match(self):
-        result = WeikeDocumentMixin._extract_dom_field(text="no match", patterns=(r"xxx:(.+)",))
+        result = _extract_dom_field(text="no match", patterns=(r"xxx:(.+)",))
         assert result == ""
 
     def test_extract_dom_title(self):
@@ -137,11 +154,11 @@ class TestWeikeDocumentMixinStatic:
         assert len(result) > 0
 
     def test_build_dom_digest_short(self):
-        assert WeikeDocumentMixin._build_dom_digest("short text") == "short text"
+        assert _build_dom_digest("short text") == "short text"
 
     def test_build_dom_digest_long(self):
         text = "x" * 300
-        result = WeikeDocumentMixin._build_dom_digest(text)
+        result = _build_dom_digest(text)
         assert len(result) <= 223  # 220 + "..."
 
     def test_resolve_session_restrict_cooldown_seconds(self):
@@ -174,23 +191,23 @@ class TestWeikeSearchMixinStatic:
 
     def test_parse_detail_url(self):
         url = "https://law.wkinfo.com.cn/judgment-documents/detail/DOC123?searchId=S001&module=law.case"
-        result = WeikeSearchMixin._parse_detail_url(url)
+        result = _parse_detail_url(url)
         assert result is not None
         assert result.doc_id_raw == "DOC123"
         assert result.search_id == "S001"
         assert result.module == "law.case"
 
     def test_parse_detail_url_no_match(self):
-        result = WeikeSearchMixin._parse_detail_url("https://example.com/page")
+        result = _parse_detail_url("https://example.com/page")
         assert result is None
 
     def test_compact_error_message(self):
         exc = RuntimeError("test error")
-        assert WeikeSearchMixin._compact_error_message(exc) == "test error"
+        assert _compact_error_message(exc) == "test error"
 
     def test_compact_error_message_long(self):
         exc = RuntimeError("x" * 300)
-        result = WeikeSearchMixin._compact_error_message(exc, max_len=100)
+        result = _compact_error_message(exc, max_len=100)
         assert len(result) <= 100
 
     def test_is_search_api_degraded_not_degraded(self):
@@ -211,14 +228,14 @@ class TestWeikeSearchMixinStatic:
             search_api_error_streak=3,
             search_api_degraded_until_epoch=time.time() + 60,
         )
-        WeikeSearchMixin._reset_search_api_health(session=session)
+        _reset_search_api_health(session=session)
         assert session.search_api_empty_streak == 0
         assert session.search_api_error_streak == 0
         assert session.search_api_degraded_until_epoch == 0.0
 
     def test_search_api_degraded_wait_seconds(self):
         session = _make_session(search_api_degraded_until_epoch=time.time() + 30)
-        wait = WeikeSearchMixin._search_api_degraded_wait_seconds(session=session)
+        wait = _search_api_degraded_wait_seconds(session=session)
         assert 25 <= wait <= 30
 
     def test_resolve_search_api_degrade_streak_threshold(self):

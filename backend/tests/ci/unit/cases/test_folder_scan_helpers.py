@@ -1,4 +1,5 @@
 """Tests for folder scan service helpers: normalization, scope resolution, classification context."""
+
 from __future__ import annotations
 
 import os
@@ -19,6 +20,7 @@ class TestContractFolderScanNormalize:
     @pytest.fixture
     def svc(self):
         from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
+
         return ContractFolderScanService.__new__(ContractFolderScanService)
 
     def test_empty_string(self, svc):
@@ -63,6 +65,7 @@ class TestContractFolderScanIsWithinRoot:
     @pytest.fixture
     def svc(self):
         from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
+
         return ContractFolderScanService.__new__(ContractFolderScanService)
 
     def test_within_root(self, svc):
@@ -85,6 +88,7 @@ class TestContractFolderScanExtractScanSubfolder:
     @pytest.fixture
     def svc(self):
         from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
+
         return ContractFolderScanService.__new__(ContractFolderScanService)
 
     def test_empty_payload(self, svc):
@@ -100,6 +104,7 @@ class TestContractFolderScanBuildStatusPayload:
     @pytest.fixture
     def svc(self):
         from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
+
         return ContractFolderScanService.__new__(ContractFolderScanService)
 
     def test_build_status_payload(self, svc):
@@ -128,6 +133,7 @@ class TestContractFolderScanRelativePathStr:
     @pytest.fixture
     def svc(self):
         from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
+
         return ContractFolderScanService(scan_service=MagicMock())
 
     def test_relative_path(self, svc):
@@ -155,6 +161,7 @@ class TestContractFolderScanRelativePathStr:
 class TestContractNormalizeDocxName:
     def test_normalize_docx_name(self):
         from apps.contracts.services.contract.integrations.folder_scan_service import _normalize_docx_name
+
         assert _normalize_docx_name("  修订 版.docx") == "修订版.docx"
         assert _normalize_docx_name("") == ""
 
@@ -166,6 +173,7 @@ class TestCaseFolderScanNormalize:
     @pytest.fixture
     def svc(self):
         from apps.cases.services.material.folder_scan_service import CaseFolderScanService
+
         return CaseFolderScanService.__new__(CaseFolderScanService)
 
     def test_empty(self, svc):
@@ -187,6 +195,7 @@ class TestCaseFolderScanForceOurParty:
     @pytest.fixture
     def svc(self):
         from apps.cases.services.material.folder_scan_service import CaseFolderScanService
+
         return CaseFolderScanService.__new__(CaseFolderScanService)
 
     def test_contains_force_keyword(self, svc):
@@ -206,6 +215,7 @@ class TestCaseFolderScanExtractEnableRecognition:
     @pytest.fixture
     def svc(self):
         from apps.cases.services.material.folder_scan_service import CaseFolderScanService
+
         return CaseFolderScanService.__new__(CaseFolderScanService)
 
     def test_default_true(self, svc):
@@ -225,6 +235,7 @@ class TestCaseFolderScanBuildStatusPayload:
     @pytest.fixture
     def svc(self):
         from apps.cases.services.material.folder_scan_service import CaseFolderScanService
+
         return CaseFolderScanService.__new__(CaseFolderScanService)
 
     def test_build_status_payload(self, svc):
@@ -280,6 +291,7 @@ class TestCaseFolderScanBuildClassificationContext:
     @pytest.fixture
     def svc(self):
         from apps.cases.services.material.folder_scan_service import CaseFolderScanService
+
         return CaseFolderScanService.__new__(CaseFolderScanService)
 
     def test_build_context_with_parties(self, svc):
@@ -319,6 +331,7 @@ class TestCaseFolderScanShouldForceOurPartyForCandidate:
     @pytest.fixture
     def svc(self):
         from apps.cases.services.material.folder_scan_service import CaseFolderScanService
+
         return CaseFolderScanService.__new__(CaseFolderScanService)
 
     def test_candidate_in_filing_folder(self, svc):
@@ -338,6 +351,7 @@ class TestCaseFolderScanNormalizeCandidates:
     @pytest.fixture
     def svc(self):
         from apps.cases.services.material.folder_scan_service import CaseFolderScanService
+
         return CaseFolderScanService.__new__(CaseFolderScanService)
 
     def test_empty_candidates(self, svc):

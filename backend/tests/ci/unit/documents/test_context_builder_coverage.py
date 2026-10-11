@@ -4,6 +4,7 @@ Covers: ContextBuilder init, properties, build_contract_context with enhanced/di
 _build_contract_context_directly with principals/beneficiaries/opposing/lawyers,
 format helpers.
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -16,6 +17,7 @@ import pytest
 class TestContextBuilderInit:
     def test_default_init(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder()
         assert cb.date_format == "%Y年%m月%d日"
         assert cb._use_enhanced is False
@@ -23,6 +25,7 @@ class TestContextBuilderInit:
 
     def test_custom_date_format(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder(date_format="%Y/%m/%d")
         assert cb.date_format == "%Y/%m/%d"
 
@@ -30,6 +33,7 @@ class TestContextBuilderInit:
 class TestContextBuilderContractService:
     def test_lazy_load(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder()
         mock_svc = MagicMock()
         with patch("apps.documents.services.generation.context_builder.get_contract_service", create=True) as mock_get:
@@ -43,6 +47,7 @@ class TestContextBuilderContractService:
 class TestContextBuilderEnhancedBuilder:
     def test_lazy_load(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder()
         with patch("apps.documents.services.placeholders.context_builder.EnhancedContextBuilder") as MockECB:
             MockECB.return_value = MagicMock()
@@ -54,6 +59,7 @@ class TestContextBuilderEnhancedBuilder:
 class TestContextBuilderBuildContractContext:
     def test_enhanced_mode_success(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder(use_enhanced=True)
         mock_enhanced = MagicMock()
         mock_enhanced.build_contract_context.return_value = {"key": "val"}
@@ -63,6 +69,7 @@ class TestContextBuilderBuildContractContext:
 
     def test_enhanced_mode_returns_none_fallback(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder(use_enhanced=True)
         mock_enhanced = MagicMock()
         mock_enhanced.build_contract_context.return_value = None
@@ -75,6 +82,7 @@ class TestContextBuilderBuildContractContext:
 
     def test_enhanced_mode_exception_fallback(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder(use_enhanced=True)
         mock_enhanced = MagicMock()
         mock_enhanced.build_contract_context.side_effect = RuntimeError("fail")
@@ -87,6 +95,7 @@ class TestContextBuilderBuildContractContext:
 
     def test_non_enhanced_calls_direct(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder(use_enhanced=False)
         mock_svc = MagicMock()
         mock_svc.get_contract_with_details_internal.return_value = None
@@ -98,6 +107,7 @@ class TestContextBuilderBuildContractContext:
 class TestContextBuilderBuildDirectly:
     def test_contract_not_found(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder()
         mock_svc = MagicMock()
         mock_svc.get_contract_with_details_internal.return_value = None
@@ -106,6 +116,7 @@ class TestContextBuilderBuildDirectly:
 
     def test_with_principals(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder()
         mock_svc = MagicMock()
         mock_svc.get_contract_with_details_internal.return_value = {
@@ -128,6 +139,7 @@ class TestContextBuilderBuildDirectly:
 
     def test_no_principals(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder()
         mock_svc = MagicMock()
         mock_svc.get_contract_with_details_internal.return_value = {
@@ -142,6 +154,7 @@ class TestContextBuilderBuildDirectly:
 
     def test_with_beneficiaries(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder()
         mock_svc = MagicMock()
         mock_svc.get_contract_with_details_internal.return_value = {
@@ -157,6 +170,7 @@ class TestContextBuilderBuildDirectly:
 
     def test_no_beneficiaries(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder()
         mock_svc = MagicMock()
         mock_svc.get_contract_with_details_internal.return_value = {
@@ -170,6 +184,7 @@ class TestContextBuilderBuildDirectly:
 
     def test_with_opposing(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder()
         mock_svc = MagicMock()
         mock_svc.get_contract_with_details_internal.return_value = {
@@ -187,6 +202,7 @@ class TestContextBuilderBuildDirectly:
 
     def test_no_opposing(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder()
         mock_svc = MagicMock()
         mock_svc.get_contract_with_details_internal.return_value = {
@@ -200,6 +216,7 @@ class TestContextBuilderBuildDirectly:
 
     def test_with_primary_assignment(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder()
         mock_svc = MagicMock()
         mock_svc.get_contract_with_details_internal.return_value = {
@@ -215,6 +232,7 @@ class TestContextBuilderBuildDirectly:
 
     def test_no_primary_but_has_assignment(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder()
         mock_svc = MagicMock()
         mock_svc.get_contract_with_details_internal.return_value = {
@@ -230,6 +248,7 @@ class TestContextBuilderBuildDirectly:
 
     def test_no_assignments(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder()
         mock_svc = MagicMock()
         mock_svc.get_contract_with_details_internal.return_value = {
@@ -243,6 +262,7 @@ class TestContextBuilderBuildDirectly:
 
     def test_flat_party_structure(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder()
         mock_svc = MagicMock()
         mock_svc.get_contract_with_details_internal.return_value = {
@@ -258,6 +278,7 @@ class TestContextBuilderBuildDirectly:
 
     def test_flat_lawyer_structure(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder()
         mock_svc = MagicMock()
         mock_svc.get_contract_with_details_internal.return_value = {
@@ -277,30 +298,36 @@ class TestContextBuilderBuildDirectly:
 class TestContextBuilderFormatHelpers:
     def test_format_date_none(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder()
         assert cb._format_date(None) == ""
 
     def test_format_date_valid(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder()
         assert cb._format_date(date(2024, 1, 15)) == "2024年01月15日"
 
     def test_format_currency_none(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder()
         assert cb._format_currency(None) == ""
 
     def test_format_currency_valid(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder()
         assert cb._format_currency(Decimal("1234.56")) == "1,234.56"
 
     def test_format_percentage_none(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder()
         assert cb._format_percentage(None) == ""
 
     def test_format_percentage_valid(self):
         from apps.documents.services.generation.context_builder import ContextBuilder
+
         cb = ContextBuilder()
         assert cb._format_percentage(Decimal("10.00")) == "10.00%"

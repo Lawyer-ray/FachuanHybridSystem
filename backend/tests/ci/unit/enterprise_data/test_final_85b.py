@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from apps.core.exceptions import NotFoundError, ValidationException
-
+from apps.enterprise_data.services.providers.qichacha_mcp import _extract_phone_from_contact
 
 # ============================================================================
 # enterprise_data/services/providers/qichacha_mcp.py
@@ -82,37 +82,37 @@ class TestQichachaMcpProvider:
         from apps.enterprise_data.services.providers.qichacha_mcp import QichachaMcpProvider
 
         payload = {"联系方式信息": {"电话": [{"电话号码": "13800138000"}]}}
-        result = QichachaMcpProvider._extract_phone_from_contact(payload)
+        result = _extract_phone_from_contact(payload)
         assert result == "13800138000"
 
     def test_extract_phone_from_contact_empty(self):
         from apps.enterprise_data.services.providers.qichacha_mcp import QichachaMcpProvider
 
-        result = QichachaMcpProvider._extract_phone_from_contact({})
+        result = _extract_phone_from_contact({})
         assert result == ""
 
     def test_extract_phone_from_contact_non_dict(self):
         from apps.enterprise_data.services.providers.qichacha_mcp import QichachaMcpProvider
 
-        result = QichachaMcpProvider._extract_phone_from_contact("not a dict")
+        result = _extract_phone_from_contact("not a dict")
         assert result == ""
 
     def test_extract_phone_from_contact_no_contact_info(self):
         from apps.enterprise_data.services.providers.qichacha_mcp import QichachaMcpProvider
 
-        result = QichachaMcpProvider._extract_phone_from_contact({"other": "data"})
+        result = _extract_phone_from_contact({"other": "data"})
         assert result == ""
 
     def test_extract_phone_from_contact_empty_phone_list(self):
         from apps.enterprise_data.services.providers.qichacha_mcp import QichachaMcpProvider
 
-        result = QichachaMcpProvider._extract_phone_from_contact({"联系方式信息": {"电话": []}})
+        result = _extract_phone_from_contact({"联系方式信息": {"电话": []}})
         assert result == ""
 
     def test_extract_phone_from_contact_no_phone_number(self):
         from apps.enterprise_data.services.providers.qichacha_mcp import QichachaMcpProvider
 
-        result = QichachaMcpProvider._extract_phone_from_contact({"联系方式信息": {"电话": [{"其他": "data"}]}})
+        result = _extract_phone_from_contact({"联系方式信息": {"电话": [{"其他": "data"}]}})
         assert result == ""
 
 
@@ -248,9 +248,7 @@ class TestLegalSolutionGenerator:
 
 class TestAccountCredentialAdminService:
     def test_module_imports(self):
-        from apps.organization.services.credential.account_credential_admin_service import (
-            AccountCredentialAdminService,
-        )
+        from apps.organization.services.credential.account_credential_admin_service import AccountCredentialAdminService
 
         assert AccountCredentialAdminService is not None
 

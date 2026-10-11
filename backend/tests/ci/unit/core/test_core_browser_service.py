@@ -128,8 +128,10 @@ class TestGetProfile:
         assert p.name == "default"
 
     def test_env_override(self) -> None:
-        with patch.dict(os.environ, {"BROWSER_CUSTOM_HEADLESS": "false"}), \
-             patch("apps.core.services.browser.profiles._apply_headless_override", lambda p: p):
+        with (
+            patch.dict(os.environ, {"BROWSER_CUSTOM_HEADLESS": "false"}),
+            patch("apps.core.services.browser.profiles._apply_headless_override", lambda p: p),
+        ):
             p = get_profile("custom")
             assert p.headless is False
 
@@ -208,8 +210,10 @@ class TestManualSession:
         context.new_page = AsyncMock(return_value=page)
 
         profile = BrowserProfile(name="manual_test", headless=True, anti_detection=True)
-        with patch("apps.core.services.browser.launcher.ensure_browser_binary", return_value="/bin/chrome"), \
-             patch("cloakbrowser.launch_async", new=AsyncMock(return_value=browser)) as launch_mock:
+        with (
+            patch("apps.core.services.browser.launcher.ensure_browser_binary", return_value="/bin/chrome"),
+            patch("cloakbrowser.launch_async", new=AsyncMock(return_value=browser)) as launch_mock,
+        ):
             handle = await create_browser_async_manual(profile)
 
         assert isinstance(handle, BrowserSessionHandle)
@@ -355,8 +359,10 @@ class TestEnsureBrowserBinary:
 
         from apps.core.services.browser.launcher import CloakBrowserInstallError, ensure_browser_binary
 
-        with patch("cloakbrowser.ensure_binary", side_effect=httpx.ConnectTimeout("timed out")), \
-             patch("cloakbrowser.config.get_binary_path", return_value=Path("/.cloakbrowser/chromium/chrome.exe")):
+        with (
+            patch("cloakbrowser.ensure_binary", side_effect=httpx.ConnectTimeout("timed out")),
+            patch("cloakbrowser.config.get_binary_path", return_value=Path("/.cloakbrowser/chromium/chrome.exe")),
+        ):
             with pytest.raises(CloakBrowserInstallError) as ei:
                 ensure_browser_binary()
         msg = str(ei.value)
@@ -368,8 +374,10 @@ class TestEnsureBrowserBinary:
     def test_binary_path_non_existent_gives_hint(self) -> None:
         from apps.core.services.browser.launcher import CloakBrowserInstallError, ensure_browser_binary
 
-        with patch("cloakbrowser.ensure_binary", side_effect=FileNotFoundError("no")), \
-             patch("cloakbrowser.config.get_local_binary_override", return_value="C:/nope/chrome.exe"):
+        with (
+            patch("cloakbrowser.ensure_binary", side_effect=FileNotFoundError("no")),
+            patch("cloakbrowser.config.get_local_binary_override", return_value="C:/nope/chrome.exe"),
+        ):
             with pytest.raises(CloakBrowserInstallError) as ei:
                 ensure_browser_binary()
         assert "CLOAKBROWSER_BINARY_PATH" in str(ei.value)

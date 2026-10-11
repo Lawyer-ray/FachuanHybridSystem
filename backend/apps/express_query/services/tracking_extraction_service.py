@@ -65,56 +65,6 @@ class TrackingExtractionService:
             image_bytes = cast(bytes, pixmap.tobytes("png"))
             return image_bytes
 
-    @staticmethod
-    def truncate_pdf_to_first_page(pdf_path: Path) -> bool:
-        """
-        将多页 PDF 截断为仅保留第一页，节省存储空间。
-        如果 PDF 只有一页则不操作。返回 True 表示已截断。
-        """
-        import pymupdf as fitz
-
-        if pdf_path.suffix.lower() != ".pdf":
-            return False
-
-        try:
-            doc = fitz.open(str(pdf_path))
-            try:
-                if doc.page_count <= 1:
-                    return False
-
-                first_page = doc.load_page(0)
-                new_doc = fitz.open()
-                new_doc.insert_pdf(doc, from_page=0, to_page=0)
-                page_count: int = doc.page_count
-
-                temp_path = pdf_path.with_suffix(".tmp.pdf")
-                new_doc.save(str(temp_path), garbage=4, deflate=True)
-                new_doc.close()
-                doc.close()
-
-                temp_path.replace(pdf_path)
-                logger.info(
-                    "PDF 已截断为第 1 页（原 %d 页）: %s",
-                    page_count,
-                    pdf_path.name,
-                )
-                return True
-            finally:
-                # 确保无论成功失败都关闭文档
-                try:
-                    new_doc.close()
-                except Exception:
-                    logger.debug("关闭 PDF 文档失败（已忽略）", exc_info=True)
-                    pass
-                try:
-                    doc.close()
-                except (TypeError, ValueError):
-                    logger.debug("关闭原 PDF 文档失败（已忽略）", exc_info=True)
-                    pass
-        except Exception as exc:
-            logger.warning("PDF 截断失败（不影响后续流程）: %s", exc)
-            return False
-
     def _pick_tracking_number(self, text: str) -> dict[str, str] | None:
         if not text:
             return None
@@ -165,3 +115,54 @@ class TrackingExtractionService:
             "carrier": str(selected["carrier"]),
             "tracking_number": str(selected["tracking_number"]),
         }
+
+
+# ↓↓ 由 TrackingExtractionService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def truncate_pdf_to_first_page(pdf_path: Path) -> bool:
+    """
+    将多页 PDF 截断为仅保留第一页，节省存储空间。
+    如果 PDF 只有一页则不操作。返回 True 表示已截断。
+    """
+    import pymupdf as fitz
+
+    if pdf_path.suffix.lower() != ".pdf":
+        return False
+
+    try:
+        doc = fitz.open(str(pdf_path))
+        try:
+            if doc.page_count <= 1:
+                return False
+
+            first_page = doc.load_page(0)
+            new_doc = fitz.open()
+            new_doc.insert_pdf(doc, from_page=0, to_page=0)
+            page_count: int = doc.page_count
+
+            temp_path = pdf_path.with_suffix(".tmp.pdf")
+            new_doc.save(str(temp_path), garbage=4, deflate=True)
+            new_doc.close()
+            doc.close()
+
+            temp_path.replace(pdf_path)
+            logger.info(
+                "PDF 已截断为第 1 页（原 %d 页）: %s",
+                page_count,
+                pdf_path.name,
+            )
+            return True
+        finally:
+            # 确保无论成功失败都关闭文档
+            try:
+                new_doc.close()
+            except Exception:
+                logger.debug("关闭 PDF 文档失败（已忽略）", exc_info=True)
+                pass
+            try:
+                doc.close()
+            except (TypeError, ValueError):
+                logger.debug("关闭原 PDF 文档失败（已忽略）", exc_info=True)
+                pass
+    except Exception as exc:
+        logger.warning("PDF 截断失败（不影响后续流程）: %s", exc)
+        return False

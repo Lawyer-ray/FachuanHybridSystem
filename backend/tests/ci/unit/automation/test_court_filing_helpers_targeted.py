@@ -254,8 +254,10 @@ class TestBuildSessionStatusPayloadExtra:
         from apps.automation.models import ScraperTaskStatus
 
         task = SimpleNamespace(
-            id=10, status=ScraperTaskStatus.RUNNING,
-            result=None, error_message=None,
+            id=10,
+            status=ScraperTaskStatus.RUNNING,
+            result=None,
+            error_message=None,
         )
         payload = _build_session_status_payload(task=task)
         assert payload["message"] == "立案任务执行中..."
@@ -264,8 +266,10 @@ class TestBuildSessionStatusPayloadExtra:
         from apps.automation.models import ScraperTaskStatus
 
         task = SimpleNamespace(
-            id=11, status=ScraperTaskStatus.SUCCESS,
-            result=None, error_message=None,
+            id=11,
+            status=ScraperTaskStatus.SUCCESS,
+            result=None,
+            error_message=None,
         )
         payload = _build_session_status_payload(task=task)
         assert "完成" in payload["message"]
@@ -274,7 +278,8 @@ class TestBuildSessionStatusPayloadExtra:
         from apps.automation.models import ScraperTaskStatus
 
         task = SimpleNamespace(
-            id=12, status=ScraperTaskStatus.FAILED,
+            id=12,
+            status=ScraperTaskStatus.FAILED,
             result={"timing": {"start": 1.0}},
             error_message="error",
         )
@@ -285,7 +290,8 @@ class TestBuildSessionStatusPayloadExtra:
         from apps.automation.models import ScraperTaskStatus
 
         task = SimpleNamespace(
-            id=13, status=ScraperTaskStatus.RUNNING,
+            id=13,
+            status=ScraperTaskStatus.RUNNING,
             result={"message": "ok", "timing": {"start": 2.0}},
             error_message=None,
         )
@@ -296,7 +302,8 @@ class TestBuildSessionStatusPayloadExtra:
         from apps.automation.models import ScraperTaskStatus
 
         task = SimpleNamespace(
-            id=14, status=ScraperTaskStatus.SUCCESS,
+            id=14,
+            status=ScraperTaskStatus.SUCCESS,
             result={"message": "done", "timing": {"start": 3.0}},
             error_message=None,
         )
@@ -307,8 +314,10 @@ class TestBuildSessionStatusPayloadExtra:
         from apps.automation.models import ScraperTaskStatus
 
         task = SimpleNamespace(
-            id=15, status=ScraperTaskStatus.FAILED,
-            result={}, error_message="",
+            id=15,
+            status=ScraperTaskStatus.FAILED,
+            result={},
+            error_message="",
         )
         payload = _build_session_status_payload(task=task)
         assert "立案失败" in payload["message"]
@@ -417,10 +426,13 @@ class TestBuildExecutionRequestText:
         mock_module.ExecutionRequestService = MagicMock(return_value=mock_svc_instance)
         mock_litigation = MagicMock()
         mock_litigation.LitigationPlaceholderKeys.ENFORCEMENT_EXECUTION_REQUEST = "key1"
-        with patch.dict("sys.modules", {
-            "apps.documents.services.placeholders.litigation.execution_request_service": mock_module,
-            "apps.litigation_ai.placeholders.spec": mock_litigation,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "apps.documents.services.placeholders.litigation.execution_request_service": mock_module,
+                "apps.litigation_ai.placeholders.spec": mock_litigation,
+            },
+        ):
             case = SimpleNamespace(id=1)
             result = _build_execution_request_text(case=case)
             assert "(2023)粤01民初1号" in result
@@ -433,10 +445,13 @@ class TestBuildExecutionRequestText:
         mock_module = MagicMock()
         mock_module.ExecutionRequestService = MagicMock(return_value=mock_svc_instance)
         mock_litigation = MagicMock()
-        with patch.dict("sys.modules", {
-            "apps.documents.services.placeholders.litigation.execution_request_service": mock_module,
-            "apps.litigation_ai.placeholders.spec": mock_litigation,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "apps.documents.services.placeholders.litigation.execution_request_service": mock_module,
+                "apps.litigation_ai.placeholders.spec": mock_litigation,
+            },
+        ):
             case = SimpleNamespace(id=1)
             result = _build_execution_request_text(case=case)
             assert "相关" in result

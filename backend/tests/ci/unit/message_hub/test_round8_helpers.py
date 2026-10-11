@@ -12,6 +12,7 @@ import pytest
 
 try:
     from plugins import has_message_hub_plugin
+
     _HAS_MH = has_message_hub_plugin()
 except ImportError:
     _HAS_MH = False
@@ -45,6 +46,7 @@ if _HAS_MH:
 # IMAP Helpers
 # ---------------------------------------------------------------------------
 
+
 class TestDecodeHeaderValue:
     def test_none(self):
         assert _decode_header_value(None) == ""
@@ -60,6 +62,7 @@ class TestDecodeHeaderValue:
         msg["Subject"] = "Test Subject"
         result = _decode_header_value(msg.get("Subject"))
         assert result == "Test Subject"
+
 
 class TestExtractBody:
     def test_non_multipart_text(self):
@@ -101,6 +104,7 @@ class TestExtractBody:
         assert text == ""
         assert html == ""
 
+
 class TestParseDate:
     def test_valid_date(self):
         result = _parse_date("Mon, 15 Jan 2024 10:00:00 +0800")
@@ -109,6 +113,7 @@ class TestParseDate:
     def test_invalid_date(self):
         result = _parse_date("not a date")
         assert result is None
+
 
 class TestParseFilterLines:
     def test_multiline(self):
@@ -122,6 +127,7 @@ class TestParseFilterLines:
     def test_blank(self):
         result = _parse_filter_lines("")
         assert result == []
+
 
 class TestSenderAllowed:
     def test_no_filters(self):
@@ -154,6 +160,7 @@ class TestSenderAllowed:
         source.sender_blacklist = "spam.com"
         assert _sender_allowed("user@good.com", source) is True
 
+
 class TestLooksLikeValidHost:
     def test_valid(self):
         assert _looks_like_valid_host("imap.gmail.com") is True
@@ -176,6 +183,7 @@ class TestLooksLikeValidHost:
     def test_with_space(self):
         assert _looks_like_valid_host("imap gmail") is False
 
+
 class TestExtractImapHost:
     def test_with_scheme(self):
         assert _extract_imap_host("imap://mail.example.com") == "mail.example.com"
@@ -188,6 +196,7 @@ class TestExtractImapHost:
 
     def test_plain_hostname(self):
         assert _extract_imap_host("imap.gmail.com") == "imap.gmail.com"
+
 
 class TestBuildImapHostCandidates:
     def test_basic(self):
@@ -206,9 +215,11 @@ class TestBuildImapHostCandidates:
         candidates = _build_imap_host_candidates("imap.example.com", "")
         assert any("mail." in c for c in candidates)
 
+
 # ---------------------------------------------------------------------------
 # Court Schedule Fetcher Helpers
 # ---------------------------------------------------------------------------
+
 
 class TestCourtScheduleHelpers:
     def test_parse_datetime_valid(self):

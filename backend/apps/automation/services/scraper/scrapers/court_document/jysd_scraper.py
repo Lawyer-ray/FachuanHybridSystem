@@ -74,7 +74,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                 "简易送达: 尝试第 %d/%d 个手机号 %s",
                 idx + 1,
                 len(phones_to_try),
-                self._mask_phone(phone),
+                _mask_phone(phone),
             )
 
             # 每次尝试前刷新页面（除第一次），确保状态干净
@@ -85,7 +85,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             # 获取 iframe
             iframe = self._get_sifayun_iframe()
             if iframe is None:
-                logger.warning("简易送达: iframe 未加载，跳过手机号 %s", self._mask_phone(phone))
+                logger.warning("简易送达: iframe 未加载，跳过手机号 %s", _mask_phone(phone))
                 continue
 
             # 检查是否已经登录（可能是之前的 session）
@@ -97,10 +97,10 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             # 输入手机号并登录
             login_success = self._try_login_with_phone(iframe, phone)
             if login_success:
-                logger.info("简易送达: 手机号 %s 登录成功", self._mask_phone(phone))
+                logger.info("简易送达: 手机号 %s 登录成功", _mask_phone(phone))
                 break
 
-            logger.info("简易送达: 手机号 %s 登录失败，尝试下一个", self._mask_phone(phone))
+            logger.info("简易送达: 手机号 %s 登录失败，尝试下一个", _mask_phone(phone))
 
         if not login_success:
             self._save_page_state("jysd_all_phones_failed")
@@ -136,13 +136,6 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         if isinstance(phones, list):
             return [str(p).strip() for p in phones if str(p).strip()]
         return []
-
-    @staticmethod
-    def _mask_phone(phone: str) -> str:  # pragma: no cover
-        """手机号脱敏：136****0615"""
-        if len(phone) >= 7:
-            return phone[:3] + "****" + phone[-4:]
-        return "***"
 
     # ==================== iframe 管理 ====================
 
@@ -431,3 +424,11 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         """清理文件名中的非法字符"""
         cleaned = re.sub(r'[\\/:*?"<>|\n\r\t]+', "_", name).strip()
         return cleaned or f"jysd_{int(time.time())}.pdf"
+
+
+# ↓↓ 由 JysdCourtScraper 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _mask_phone(phone: str) -> str:  # pragma: no cover
+    """手机号脱敏：136****0615"""
+    if len(phone) >= 7:
+        return phone[:3] + "****" + phone[-4:]
+    return "***"

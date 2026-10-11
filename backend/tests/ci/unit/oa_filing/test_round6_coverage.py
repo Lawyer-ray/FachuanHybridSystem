@@ -13,6 +13,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.reminders.services.reminder_service_adapter import _enrich_export_row
+
 # ---------------------------------------------------------------------------
 # script_executor_service.py — mapping methods
 # ---------------------------------------------------------------------------
@@ -589,21 +591,21 @@ class TestReminderServiceAdapter:
 
         code = ReminderType.values[0]
         row = {"reminder_type": code}
-        result = ReminderServiceAdapter._enrich_export_row(row)
+        result = _enrich_export_row(row)
         assert "reminder_type_label" in result
 
     def test_enrich_export_row_invalid_type(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
 
         row = {"reminder_type": "bad_type"}
-        result = ReminderServiceAdapter._enrich_export_row(row)
+        result = _enrich_export_row(row)
         assert result["reminder_type_label"] == "bad_type"
 
     def test_enrich_export_row_empty_type(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
 
         row = {"reminder_type": ""}
-        result = ReminderServiceAdapter._enrich_export_row(row)
+        result = _enrich_export_row(row)
         assert result["reminder_type_label"] == ""
 
     def test_document_type_to_reminder_type_mapping(self):

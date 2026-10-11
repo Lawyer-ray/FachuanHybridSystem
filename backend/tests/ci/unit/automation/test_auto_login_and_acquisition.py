@@ -3,21 +3,19 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
 
 if _HAS_LOGIN:
-    from plugins.court_automation.token.auto_login_service import (
-        AutoLoginService,
-        RetryConfig,
-    )
+    from plugins.court_automation.token.auto_login_service import AutoLoginService, RetryConfig
 else:
     AutoLoginService = None  # type: ignore[assignment,misc]
     RetryConfig = None  # type: ignore[assignment,misc]
@@ -96,6 +94,7 @@ class TestAutoTokenAcquisitionService:
 
     def test_init_defaults(self) -> None:
         from plugins.court_automation.token.auto_token_acquisition_service import AutoTokenAcquisitionService
+
         svc = AutoTokenAcquisitionService()
         assert svc._acquisition_count == 0
         assert svc._success_count == 0
@@ -103,6 +102,7 @@ class TestAutoTokenAcquisitionService:
 
     def test_init_with_deps(self) -> None:
         from plugins.court_automation.token.auto_token_acquisition_service import AutoTokenAcquisitionService
+
         mock_strategy = MagicMock()
         mock_login = MagicMock()
         mock_token = MagicMock()

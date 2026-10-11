@@ -1,4 +1,5 @@
 """Extended tests for core.telemetry.metrics - covering record, snapshot, prometheus."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -17,8 +18,8 @@ from apps.core.telemetry.metrics import (
     _load_histogram,
     _merge_histograms,
     _minute_id,
-    _status_class,
     _stable_hash,
+    _status_class,
     normalize_path_group,
     record_cache_access,
     record_cache_result,
@@ -200,16 +201,12 @@ class TestRecordCacheAccess:
     @patch("apps.core.telemetry.metrics.record_cache_result")
     def test_hit(self, mock_record) -> None:
         record_cache_access(cache_kind="redis", name="config", hit=True)
-        mock_record.assert_called_once_with(
-            cache_kind="redis", name="config", result="hit", window_minutes=10
-        )
+        mock_record.assert_called_once_with(cache_kind="redis", name="config", result="hit", window_minutes=10)
 
     @patch("apps.core.telemetry.metrics.record_cache_result")
     def test_miss(self, mock_record) -> None:
         record_cache_access(cache_kind="redis", name="config", hit=False)
-        mock_record.assert_called_once_with(
-            cache_kind="redis", name="config", result="miss", window_minutes=10
-        )
+        mock_record.assert_called_once_with(cache_kind="redis", name="config", result="miss", window_minutes=10)
 
 
 class TestAddToIndex:
@@ -224,6 +221,7 @@ class TestAddToIndex:
     @patch("apps.core.telemetry.metrics.cache")
     def test_existing_entry(self, mock_cache) -> None:
         import json
+
         mock_cache.get.return_value = json.dumps(["value1"])
         mock_cache.set.return_value = None
 
@@ -236,6 +234,7 @@ class TestAddToIndex:
     @patch("apps.core.telemetry.metrics.cache")
     def test_duplicate_entry(self, mock_cache) -> None:
         import json
+
         mock_cache.get.return_value = json.dumps(["value1"])
         mock_cache.set.return_value = None
 
@@ -247,10 +246,16 @@ class TestAddToIndex:
 class TestFinalizeCacheHitRates:
     def test_calculates_rates(self) -> None:
         data = {
-            "redis": {"total": 100, "hits": 80, "misses": 20, "hit_rate": 0.0, "by_name": {
-                "config": {"total": 50, "hits": 40, "misses": 10, "hit_rate": 0.0},
-                "user": {"total": 50, "hits": 40, "misses": 10, "hit_rate": 0.0},
-            }}
+            "redis": {
+                "total": 100,
+                "hits": 80,
+                "misses": 20,
+                "hit_rate": 0.0,
+                "by_name": {
+                    "config": {"total": 50, "hits": 40, "misses": 10, "hit_rate": 0.0},
+                    "user": {"total": 50, "hits": 40, "misses": 10, "hit_rate": 0.0},
+                },
+            }
         }
         _finalize_cache_hit_rates(data)
         assert data["redis"]["hit_rate"] == 0.8
@@ -259,9 +264,7 @@ class TestFinalizeCacheHitRates:
         assert len(names) == 2
 
     def test_zero_total(self) -> None:
-        data = {
-            "redis": {"total": 0, "hits": 0, "misses": 0, "hit_rate": 0.0, "by_name": {}}
-        }
+        data = {"redis": {"total": 0, "hits": 0, "misses": 0, "hit_rate": 0.0, "by_name": {}}}
         _finalize_cache_hit_rates(data)
         assert data["redis"]["hit_rate"] == 0.0
 

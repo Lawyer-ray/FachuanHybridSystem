@@ -10,19 +10,6 @@ import pymupdf as fitz
 class ExportUtils:
     """PDF 片段导出与文件名去重工具。"""
 
-    @staticmethod
-    def deduplicate_filename(display_name: str, seen_names: set[str]) -> str:
-        path = Path(display_name)
-        stem = path.stem or "片段"
-        suffix = path.suffix or ".pdf"
-        candidate = f"{stem}{suffix}"
-        counter = 2
-        while candidate in seen_names:
-            candidate = f"{stem}_{counter}{suffix}"
-            counter += 1
-        seen_names.add(candidate)
-        return candidate
-
 
 # ↓↓ 由 ExportUtils 下沉的模块级纯函数（四层架构静态方法棘轮）
 def render_page_bytes(page: fitz.Page, *, dpi: int) -> bytes:
@@ -38,3 +25,17 @@ def export_segment_pdf(source_doc: fitz.Document, page_start: int, page_end: int
         return segment_doc.tobytes()  # type: ignore[no-any-return]
     finally:
         segment_doc.close()
+
+
+# ↓↓ 由 ExportUtils 下沉的模块级纯函数（四层架构静态方法棘轮）
+def deduplicate_filename(display_name: str, seen_names: set[str]) -> str:
+    path = Path(display_name)
+    stem = path.stem or "片段"
+    suffix = path.suffix or ".pdf"
+    candidate = f"{stem}{suffix}"
+    counter = 2
+    while candidate in seen_names:
+        candidate = f"{stem}_{counter}{suffix}"
+        counter += 1
+    seen_names.add(candidate)
+    return candidate

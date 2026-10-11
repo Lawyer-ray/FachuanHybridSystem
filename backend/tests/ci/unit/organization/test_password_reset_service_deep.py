@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from django.contrib.auth.hashers import make_password
@@ -87,7 +87,10 @@ class TestResetPasswordEdgeCases:
 
 class TestRequestPasswordResetRateLimiting:
     @patch("apps.organization.services.auth.password_reset_service.cache")
-    @patch("apps.organization.services.auth.password_reset_service.EmailService.send_password_reset_email", return_value=True)
+    @patch(
+        "apps.organization.services.auth.password_reset_service.EmailService.send_password_reset_email",
+        return_value=True,
+    )
     def test_rate_limit_returns_false(self, mock_email, mock_cache, db):
         # Use a unique email and clear rate limit cache
         user = Lawyer.objects.create_user(
@@ -105,6 +108,7 @@ class TestRequestPasswordResetRateLimiting:
 
         # Simulate rate limit: cache.get returns a recent timestamp
         from django.utils import timezone
+
         mock_cache.get.return_value = timezone.now()
 
         # Second immediate request should be rate limited
@@ -112,13 +116,19 @@ class TestRequestPasswordResetRateLimiting:
         assert success2 is False
         assert "稍后" in msg
 
-    @patch("apps.organization.services.auth.password_reset_service.EmailService.send_password_reset_email", return_value=True)
+    @patch(
+        "apps.organization.services.auth.password_reset_service.EmailService.send_password_reset_email",
+        return_value=True,
+    )
     def test_nonexistent_email_always_succeeds(self, mock_email, db):
         success, msg = PasswordResetService.request_password_reset("noone@example.com")
         assert success is True
         assert "已发送" in msg
 
-    @patch("apps.organization.services.auth.password_reset_service.EmailService.send_password_reset_email", return_value=False)
+    @patch(
+        "apps.organization.services.auth.password_reset_service.EmailService.send_password_reset_email",
+        return_value=False,
+    )
     def test_email_send_failure(self, mock_email, user):
         success, msg = PasswordResetService.request_password_reset("reset@example.com")
         assert success is False

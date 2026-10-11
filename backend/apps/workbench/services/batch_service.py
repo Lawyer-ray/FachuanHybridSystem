@@ -17,6 +17,7 @@ from django.utils import timezone
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.security.permissions import AccessContext, PermissionMixin
+from apps.workbench.services.session_service import increment_storage
 
 from ..models import BatchJob, BatchJobItem, BatchJobStatus
 
@@ -364,7 +365,7 @@ class BatchAnalysisService(PermissionMixin):
             total_bytes += _calc_message_bytes(content=content, metadata=metadata)
 
         WorkbenchMessage.objects.bulk_create(messages, batch_size=100)
-        WorkbenchSessionService.increment_storage(job.session_id, total_bytes)
+        increment_storage(job.session_id, total_bytes)
         return len(messages)
 
     def list_batch_jobs(

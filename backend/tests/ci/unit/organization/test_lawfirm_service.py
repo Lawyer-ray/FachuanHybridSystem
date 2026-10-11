@@ -7,18 +7,19 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.core.exceptions import (
-    AuthenticationError,
-    ConflictError,
-    NotFoundError,
-    PermissionDenied,
-)
+from apps.core.exceptions import AuthenticationError, ConflictError, NotFoundError, PermissionDenied
 from apps.organization.dtos import LawFirmCreateDTO, LawFirmUpdateDTO
 from apps.organization.services.lawfirm_service import LawFirmService, LawFirmServiceAdapter
 
 
 def _user(**kwargs: object) -> SimpleNamespace:
-    defaults: dict[str, object] = {"id": 1, "is_authenticated": True, "is_superuser": False, "is_admin": False, "law_firm_id": 1}
+    defaults: dict[str, object] = {
+        "id": 1,
+        "is_authenticated": True,
+        "is_superuser": False,
+        "is_admin": False,
+        "law_firm_id": 1,
+    }
     defaults.update(kwargs)
     return SimpleNamespace(**defaults)
 

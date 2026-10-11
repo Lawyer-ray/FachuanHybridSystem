@@ -1,17 +1,15 @@
 """Tests for express_query: tracking extraction and models."""
+
 from __future__ import annotations
 
 import pytest
 
-from apps.express_query.models import (
-    ExpressCarrierType,
-    ExpressQueryTaskStatus,
-)
+from apps.express_query.models import ExpressCarrierType, ExpressQueryTaskStatus
 from apps.express_query.services.tracking_extraction_service import (
     TrackingExtractionResult,
     TrackingExtractionService,
+    truncate_pdf_to_first_page,
 )
-
 
 # ---------------------------------------------------------------------------
 # Models choices
@@ -111,6 +109,7 @@ class TestPickTrackingNumber:
 
 
 class TestTruncatePdfToFirstPage:
-    def test_static_method_exists(self) -> None:
-        assert hasattr(TrackingExtractionService, 'truncate_pdf_to_first_page')
-        assert callable(TrackingExtractionService.truncate_pdf_to_first_page)
+    def test_module_function_exists(self) -> None:
+        from apps.express_query.services.tracking_extraction_service import truncate_pdf_to_first_page
+
+        assert callable(truncate_pdf_to_first_page)

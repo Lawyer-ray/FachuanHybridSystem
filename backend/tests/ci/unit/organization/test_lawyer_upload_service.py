@@ -19,8 +19,10 @@ _PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 def lawyer(db: Any) -> Lawyer:
     firm = LawFirm.objects.create(name="头像上传测试律所")
     return Lawyer.objects.create_user(
-        username="avatar_lawyer", password="testpass123", law_firm=firm  # pragma: allowlist secret
-    )  # pragma: allowlist secret
+        username="avatar_lawyer",
+        password="testpass123",  # pragma: allowlist secret
+        law_firm=firm,
+    )
 
 
 @pytest.mark.django_db

@@ -1,4 +1,5 @@
 """Coverage tests for frame_processing_service."""
+
 from __future__ import annotations
 
 import re
@@ -6,8 +7,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from apps.chat_records.services.extraction.frame_processing_service import FrameProcessingService
 from apps.chat_records.services.extraction.extract_helpers import DedupState, ExtractParams
+from apps.chat_records.services.extraction.frame_processing_service import FrameProcessingService
 
 
 class TestIsDhashDuplicate:
@@ -170,8 +171,7 @@ class TestUpdateDedupState:
         svc = FrameProcessingService()
         state = DedupState()
         svc.update_dedup_state(
-            state, "digest1", "dhash1", b"thumb", "ocr text",
-            MagicMock(), 0.1, MagicMock(), b"content"
+            state, "digest1", "dhash1", b"thumb", "ocr text", MagicMock(), 0.1, MagicMock(), b"content"
         )
         assert state.created_count == 1
         assert "digest1" in state.seen_sha256
@@ -180,10 +180,7 @@ class TestUpdateDedupState:
     def test_update_without_ocr(self):
         svc = FrameProcessingService()
         state = DedupState()
-        svc.update_dedup_state(
-            state, "digest1", "dhash1", b"", "ocr text",
-            None, 0.1, MagicMock(), b"content"
-        )
+        svc.update_dedup_state(state, "digest1", "dhash1", b"", "ocr text", None, 0.1, MagicMock(), b"content")
         assert state.created_count == 1
         assert len(state.kept_ocr_texts) == 0
 
@@ -192,10 +189,7 @@ class TestUpdateDedupState:
         state = DedupState()
         mock_sel = MagicMock()
         mock_sel.calc_thumb_bytes.return_value = b"thumb_data"
-        svc.update_dedup_state(
-            state, "digest1", "dhash1", b"", "",
-            None, 0.1, mock_sel, b"content"
-        )
+        svc.update_dedup_state(state, "digest1", "dhash1", b"", "", None, 0.1, mock_sel, b"content")
         assert len(state.kept_thumbs) == 1
 
 
@@ -205,8 +199,7 @@ class TestIsFrameDuplicate:
         state = DedupState()
         state.existing_sha256.add("abc123")
         is_dup, thumb = svc.is_frame_duplicate(
-            b"content", "abc123", "dhash", state,
-            ExtractParams(), MagicMock(), 5, 0.1
+            b"content", "abc123", "dhash", state, ExtractParams(), MagicMock(), 5, 0.1
         )
         assert is_dup is True
 
@@ -215,8 +208,7 @@ class TestIsFrameDuplicate:
         state = DedupState()
         state.seen_sha256.add("abc123")
         is_dup, thumb = svc.is_frame_duplicate(
-            b"content", "abc123", "dhash", state,
-            ExtractParams(), MagicMock(), 5, 0.1
+            b"content", "abc123", "dhash", state, ExtractParams(), MagicMock(), 5, 0.1
         )
         assert is_dup is True
 
@@ -227,10 +219,7 @@ class TestIsFrameDuplicate:
         mock_sel = MagicMock()
         mock_sel.hamming_distance_hex.return_value = 2
         params = ExtractParams(dedup_threshold=5)
-        is_dup, thumb = svc.is_frame_duplicate(
-            b"content", "new_digest", "new_dhash", state,
-            params, mock_sel, 5, 0.0
-        )
+        is_dup, thumb = svc.is_frame_duplicate(b"content", "new_digest", "new_dhash", state, params, mock_sel, 5, 0.0)
         assert is_dup is True
 
     def test_pixel_duplicate(self):
@@ -241,20 +230,14 @@ class TestIsFrameDuplicate:
         mock_sel.calc_thumb_bytes.return_value = b"new_thumb"
         mock_sel.mean_abs_diff.return_value = 0.01
         params = ExtractParams(dedup_threshold=0)
-        is_dup, thumb = svc.is_frame_duplicate(
-            b"content", "new_digest", "dhash", state,
-            params, mock_sel, 5, 0.1
-        )
+        is_dup, thumb = svc.is_frame_duplicate(b"content", "new_digest", "dhash", state, params, mock_sel, 5, 0.1)
         assert is_dup is True
 
     def test_not_duplicate(self):
         svc = FrameProcessingService()
         state = DedupState()
         params = ExtractParams(dedup_threshold=0)
-        is_dup, thumb = svc.is_frame_duplicate(
-            b"content", "new_digest", "dhash", state,
-            params, MagicMock(), 5, 0.0
-        )
+        is_dup, thumb = svc.is_frame_duplicate(b"content", "new_digest", "dhash", state, params, MagicMock(), 5, 0.0)
         assert is_dup is False
 
 
@@ -298,6 +281,7 @@ class TestProcessOcrForFrame:
 
     def test_empty_ocr_created_count_positive(self):
         import time
+
         svc = FrameProcessingService()
         state = DedupState()
         state.created_count = 5
@@ -308,9 +292,13 @@ class TestProcessOcrForFrame:
         mock_ocr = MagicMock()
 
         ocr_text, score, skip = svc.process_ocr_for_frame(
-            b"content", mock_ocr, mock_sel, state, params,
+            b"content",
+            mock_ocr,
+            mock_sel,
+            state,
+            params,
             time.monotonic() + 9999.0,  # far future deadline
-            MagicMock()
+            MagicMock(),
         )
         # When crop is empty, ocr_text stays empty, created_count > 0 -> skip
         assert ocr_text == ""

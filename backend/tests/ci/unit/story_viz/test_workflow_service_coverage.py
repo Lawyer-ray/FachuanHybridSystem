@@ -2,6 +2,7 @@
 
 覆盖: run 方法的正常流程 + 异常流程 + 取消流程 + _mark_cancelled。
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace

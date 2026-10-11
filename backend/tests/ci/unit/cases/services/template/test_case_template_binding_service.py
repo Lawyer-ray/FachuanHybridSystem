@@ -12,9 +12,7 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
-from apps.cases.services.template.case_template_binding_service import (
-    CaseTemplateBindingService,
-)
+from apps.cases.services.template.case_template_binding_service import CaseTemplateBindingService
 
 
 def _make_svc(
@@ -28,9 +26,7 @@ def _make_svc(
     mp = match_policy or MagicMock()
     asm = assembler or MagicMock()
     r = repo or MagicMock()
-    svc = CaseTemplateBindingService(
-        document_service=ds, match_policy=mp, assembler=asm, repo=r
-    )
+    svc = CaseTemplateBindingService(document_service=ds, match_policy=mp, assembler=asm, repo=r)
     return svc, ds, mp, asm, r
 
 
@@ -252,7 +248,9 @@ class TestGetUnifiedTemplates:
         r.get_case.return_value = case
         r.get_our_legal_statuses.return_value = ["plaintiff"]
 
-        binding = SimpleNamespace(template_id=1, binding_source="manual_bound", get_binding_source_display=lambda: "手动绑定")
+        binding = SimpleNamespace(
+            template_id=1, binding_source="manual_bound", get_binding_source_display=lambda: "手动绑定"
+        )
         r.get_bindings_by_case_id.return_value = [binding]
 
         tpl = SimpleNamespace(id=1, name="T", function_code="fc", description="D")
@@ -274,7 +272,9 @@ class TestGetUnifiedTemplates:
         r.get_case.return_value = case
         r.get_our_legal_statuses.return_value = []
 
-        binding = SimpleNamespace(template_id=1, binding_source="manual_bound", get_binding_source_display=lambda: "手动绑定")
+        binding = SimpleNamespace(
+            template_id=1, binding_source="manual_bound", get_binding_source_display=lambda: "手动绑定"
+        )
         r.get_bindings_by_case_id.return_value = [binding]
         ds.get_templates_by_ids_internal.return_value = []  # template not found
         mp.filter.return_value = []

@@ -24,7 +24,12 @@ class TestDocumentProcessing:
     def test_apply_pdf_limits_defaults(self) -> None:
         from apps.automation.services.document.document_processing import _apply_pdf_limits
 
-        config = {"DEFAULT_TEXT_LIMIT": 1500, "DEFAULT_PREVIEW_PAGE": 1, "MAX_TEXT_LIMIT": 10000, "MAX_PREVIEW_PAGES": 5}
+        config = {
+            "DEFAULT_TEXT_LIMIT": 1500,
+            "DEFAULT_PREVIEW_PAGE": 1,
+            "MAX_TEXT_LIMIT": 10000,
+            "MAX_PREVIEW_PAGES": 5,
+        }
         lim, page = _apply_pdf_limits(None, None, config)
         assert lim == 1500
         assert page == 1
@@ -32,7 +37,12 @@ class TestDocumentProcessing:
     def test_apply_pdf_limits_custom(self) -> None:
         from apps.automation.services.document.document_processing import _apply_pdf_limits
 
-        config = {"DEFAULT_TEXT_LIMIT": 1500, "DEFAULT_PREVIEW_PAGE": 1, "MAX_TEXT_LIMIT": 10000, "MAX_PREVIEW_PAGES": 5}
+        config = {
+            "DEFAULT_TEXT_LIMIT": 1500,
+            "DEFAULT_PREVIEW_PAGE": 1,
+            "MAX_TEXT_LIMIT": 10000,
+            "MAX_PREVIEW_PAGES": 5,
+        }
         lim, page = _apply_pdf_limits(5000, 3, config)
         assert lim == 5000
         assert page == 3
@@ -40,7 +50,12 @@ class TestDocumentProcessing:
     def test_apply_pdf_limits_clamped(self) -> None:
         from apps.automation.services.document.document_processing import _apply_pdf_limits
 
-        config = {"DEFAULT_TEXT_LIMIT": 1500, "DEFAULT_PREVIEW_PAGE": 1, "MAX_TEXT_LIMIT": 10000, "MAX_PREVIEW_PAGES": 5}
+        config = {
+            "DEFAULT_TEXT_LIMIT": 1500,
+            "DEFAULT_PREVIEW_PAGE": 1,
+            "MAX_TEXT_LIMIT": 10000,
+            "MAX_PREVIEW_PAGES": 5,
+        }
         lim, page = _apply_pdf_limits(20000, 10, config)
         assert lim == 10000
         assert page == 5
@@ -67,6 +82,7 @@ class TestDocumentProcessing:
         # Create a minimal docx
         try:
             from docx import Document
+
             doc = Document()
             doc.add_paragraph("测试内容第一段")
             doc.add_paragraph("测试内容第二段")
@@ -82,6 +98,7 @@ class TestDocumentProcessing:
 
         try:
             from docx import Document
+
             doc = Document()
             doc.add_paragraph("A" * 100)
             doc.add_paragraph("B" * 100)
@@ -97,6 +114,7 @@ class TestDocumentProcessing:
 
         try:
             import pymupdf as fitz
+
             pdf_path = tmp_path / "test.pdf"
             doc = fitz.open()
             page = doc.new_page()
@@ -108,9 +126,11 @@ class TestDocumentProcessing:
         except ImportError:
             pytest.skip("PyMuPDF not installed")
 
+
 # ============================================================
 # DocumentRenamer rename/filename 测试
 # ============================================================
+
 
 @pytest.mark.django_db
 class TestDocumentRenamerFilename:
@@ -144,9 +164,11 @@ class TestDocumentRenamerFilename:
         with pytest.raises(ValidationException):
             renamer.rename(str(tmp_path / "nonexistent.pdf"), "案件名", __import__("datetime").date(2025, 1, 1))
 
+
 # ============================================================
 # Extended coverage tests
 # ============================================================
+
 
 class TestSaveUploadedDocument:
     def test_save_file(self, tmp_path) -> None:
@@ -157,6 +179,7 @@ class TestSaveUploadedDocument:
         upload = SimpleUploadedFile(name="test_upload.pdf", content=b"%PDF-1.4chunk2", content_type="application/pdf")
 
         from django.test import override_settings
+
         with override_settings(MEDIA_ROOT=str(tmp_path)):
             result = save_uploaded_document(upload)
 
@@ -173,6 +196,7 @@ class TestSaveUploadedDocument:
         upload2 = SimpleUploadedFile(name="same.pdf", content=b"%PDF-1.4data2", content_type="application/pdf")
 
         from django.test import override_settings
+
         with override_settings(MEDIA_ROOT=str(tmp_path)):
             r1 = save_uploaded_document(upload1)
             r2 = save_uploaded_document(upload2)
@@ -180,6 +204,7 @@ class TestSaveUploadedDocument:
         assert r1.name != r2.name
         r1.unlink(missing_ok=True)
         r2.unlink(missing_ok=True)
+
 
 class TestRenderPdfPageToImage:
     def test_basic_render(self, tmp_path) -> None:
@@ -238,6 +263,7 @@ class TestRenderPdfPageToImage:
 
         assert url  # clamped to last page
 
+
 class TestExtractDocumentContentExtended:
     def test_pdf_content(self, tmp_path) -> None:
         import pymupdf as fitz
@@ -285,6 +311,7 @@ class TestExtractDocumentContentExtended:
 
         assert result.kind == "image"
         assert "图片OCR文字" in result.text
+
 
 class TestOcrPdfPage:
     def test_ocr_with_valid_pdf(self, tmp_path) -> None:
@@ -336,6 +363,7 @@ class TestOcrPdfPage:
 
         result = _ocr_pdf_page("/nonexistent/file.pdf", 1, 500)
         assert result is None
+
 
 class TestProcessPdfExtended:
     def test_text_pdf_returns_text(self, tmp_path) -> None:

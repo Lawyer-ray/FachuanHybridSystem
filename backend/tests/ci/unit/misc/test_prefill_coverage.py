@@ -6,6 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.client.services.client_enterprise_prefill_service import _pick_str
+
 
 # ===========================================================================
 # ClientEnterprisePrefillService tests
@@ -13,6 +15,7 @@ import pytest
 class TestClientEnterprisePrefillService:
     def _get_service(self):
         from apps.client.services.client_enterprise_prefill_service import ClientEnterprisePrefillService
+
         svc = ClientEnterprisePrefillService.__new__(ClientEnterprisePrefillService)
         svc._enterprise_data_service = MagicMock()
         return svc
@@ -20,40 +23,38 @@ class TestClientEnterprisePrefillService:
     # _pick_str
     def test_pick_str_first_match(self):
         from apps.client.services.client_enterprise_prefill_service import ClientEnterprisePrefillService
-        result = ClientEnterprisePrefillService._pick_str(
-            {"a": "val_a", "b": "val_b"}, ("a", "b")
-        )
+
+        result = _pick_str({"a": "val_a", "b": "val_b"}, ("a", "b"))
         assert result == "val_a"
 
     def test_pick_str_second_key(self):
         from apps.client.services.client_enterprise_prefill_service import ClientEnterprisePrefillService
-        result = ClientEnterprisePrefillService._pick_str(
-            {"b": "val_b"}, ("a", "b")
-        )
+
+        result = _pick_str({"b": "val_b"}, ("a", "b"))
         assert result == "val_b"
 
     def test_pick_str_none_value(self):
         from apps.client.services.client_enterprise_prefill_service import ClientEnterprisePrefillService
-        result = ClientEnterprisePrefillService._pick_str(
-            {"a": None, "b": "val_b"}, ("a", "b")
-        )
+
+        result = _pick_str({"a": None, "b": "val_b"}, ("a", "b"))
         assert result == "val_b"
 
     def test_pick_str_empty_value(self):
         from apps.client.services.client_enterprise_prefill_service import ClientEnterprisePrefillService
-        result = ClientEnterprisePrefillService._pick_str(
-            {"a": "", "b": "val_b"}, ("a", "b")
-        )
+
+        result = _pick_str({"a": "", "b": "val_b"}, ("a", "b"))
         assert result == "val_b"
 
     def test_pick_str_not_dict(self):
         from apps.client.services.client_enterprise_prefill_service import ClientEnterprisePrefillService
-        result = ClientEnterprisePrefillService._pick_str("not a dict", ("a",))
+
+        result = _pick_str("not a dict", ("a",))
         assert result == ""
 
     def test_pick_str_no_match(self):
         from apps.client.services.client_enterprise_prefill_service import ClientEnterprisePrefillService
-        result = ClientEnterprisePrefillService._pick_str({"c": "val"}, ("a", "b"))
+
+        result = _pick_str({"c": "val"}, ("a", "b"))
         assert result == ""
 
     # _normalize_company_candidates
@@ -101,11 +102,19 @@ class TestClientEnterprisePrefillService:
 
     def test_normalize_alternate_keys(self):
         svc = self._get_service()
-        payload = {"items": [
-            {"companyId": "C001", "companyName": "公司A", "legalPersonName": "张三",
-             "regStatus": "在营", "estiblishTime": "2020-01-01", "regCapital": "100万",
-             "contactPhone": "13800138000"},
-        ]}
+        payload = {
+            "items": [
+                {
+                    "companyId": "C001",
+                    "companyName": "公司A",
+                    "legalPersonName": "张三",
+                    "regStatus": "在营",
+                    "estiblishTime": "2020-01-01",
+                    "regCapital": "100万",
+                    "contactPhone": "13800138000",
+                },
+            ]
+        }
         result = svc._normalize_company_candidates(payload)
         assert len(result) == 1
         assert result[0]["company_id"] == "C001"
@@ -176,6 +185,7 @@ class TestClientEnterprisePrefillService:
     def test_search_empty_keyword(self):
         svc = self._get_service()
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException):
             svc.search_companies(keyword="")
 
@@ -190,5 +200,6 @@ class TestClientEnterprisePrefillService:
     def test_build_prefill_empty_company_id(self):
         svc = self._get_service()
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException):
             svc.build_prefill(company_id="")

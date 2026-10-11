@@ -25,7 +25,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.core.services.material_classification_service import MaterialClassificationService
+from apps.core.services.material_classification_service import (
+    MaterialClassificationService,
+    _extract_json,
+    _extract_party_ids_by_side,
+    _extract_primary_supervising_authority_id,
+    _extract_subfolder_hint,
+    _normalize_for_match,
+)
 
 
 @pytest.fixture
@@ -239,7 +246,11 @@ class TestClassifyCaseMaterial:
         assert "AI 输出解析失败" in result["reason"]
 
     def test_ai_enabled_valid_response(self, svc) -> None:
-        with patch.object(svc, "_complete", return_value='{"category":"party","side":"our","type_name_hint":"证据","confidence":0.9,"reason":"test"}'):
+        with patch.object(
+            svc,
+            "_complete",
+            return_value='{"category":"party","side":"our","type_name_hint":"证据","confidence":0.9,"reason":"test"}',
+        ):
             result = svc.classify_case_material(
                 filename="random.pdf",
                 text_excerpt="",
@@ -249,7 +260,9 @@ class TestClassifyCaseMaterial:
         assert result["side"] == "our"
 
     def test_ai_enabled_invalid_category(self, svc) -> None:
-        with patch.object(svc, "_complete", return_value='{"category":"invalid","side":"our","confidence":0.9,"reason":"test"}'):
+        with patch.object(
+            svc, "_complete", return_value='{"category":"invalid","side":"our","confidence":0.9,"reason":"test"}'
+        ):
             result = svc.classify_case_material(
                 filename="random.pdf",
                 text_excerpt="",
@@ -258,7 +271,9 @@ class TestClassifyCaseMaterial:
         assert result["category"] == "unknown"
 
     def test_ai_enabled_non_party_side_unknown(self, svc) -> None:
-        with patch.object(svc, "_complete", return_value='{"category":"non_party","side":"our","confidence":0.9,"reason":"test"}'):
+        with patch.object(
+            svc, "_complete", return_value='{"category":"non_party","side":"our","confidence":0.9,"reason":"test"}'
+        ):
             result = svc.classify_case_material(
                 filename="random.pdf",
                 text_excerpt="",
@@ -408,39 +423,27 @@ class TestInferCaseSide:
 
 class TestExtractPartyIdsBySide:
     def test_valid_ids(self) -> None:
-        result = MaterialClassificationService._extract_party_ids_by_side(
-            side="our", context={"our_party_ids": [1, 2, 3]}
-        )
+        result = _extract_party_ids_by_side(side="our", context={"our_party_ids": [1, 2, 3]})
         assert result == [1, 2, 3]
 
     def test_deduplicates(self) -> None:
-        result = MaterialClassificationService._extract_party_ids_by_side(
-            side="our", context={"our_party_ids": [1, 1, 2]}
-        )
+        result = _extract_party_ids_by_side(side="our", context={"our_party_ids": [1, 1, 2]})
         assert result == [1, 2]
 
     def test_filters_non_positive(self) -> None:
-        result = MaterialClassificationService._extract_party_ids_by_side(
-            side="our", context={"our_party_ids": [0, -1, 5]}
-        )
+        result = _extract_party_ids_by_side(side="our", context={"our_party_ids": [0, -1, 5]})
         assert result == [5]
 
     def test_invalid_items(self) -> None:
-        result = MaterialClassificationService._extract_party_ids_by_side(
-            side="our", context={"our_party_ids": ["abc", None, 1]}
-        )
+        result = _extract_party_ids_by_side(side="our", context={"our_party_ids": ["abc", None, 1]})
         assert result == [1]
 
     def test_non_list_returns_empty(self) -> None:
-        result = MaterialClassificationService._extract_party_ids_by_side(
-            side="our", context={"our_party_ids": "not a list"}
-        )
+        result = _extract_party_ids_by_side(side="our", context={"our_party_ids": "not a list"})
         assert result == []
 
     def test_missing_key(self) -> None:
-        result = MaterialClassificationService._extract_party_ids_by_side(
-            side="our", context={}
-        )
+        result = _extract_party_ids_by_side(side="our", context={})
         assert result == []
 
 
@@ -451,25 +454,19 @@ class TestExtractPartyIdsBySide:
 
 class TestExtractPrimarySupervisingAuthorityId:
     def test_valid(self) -> None:
-        result = MaterialClassificationService._extract_primary_supervising_authority_id(
-            {"primary_supervising_authority_id": 42}
-        )
+        result = _extract_primary_supervising_authority_id({"primary_supervising_authority_id": 42})
         assert result == 42
 
     def test_negative(self) -> None:
-        result = MaterialClassificationService._extract_primary_supervising_authority_id(
-            {"primary_supervising_authority_id": -1}
-        )
+        result = _extract_primary_supervising_authority_id({"primary_supervising_authority_id": -1})
         assert result is None
 
     def test_none(self) -> None:
-        result = MaterialClassificationService._extract_primary_supervising_authority_id({})
+        result = _extract_primary_supervising_authority_id({})
         assert result is None
 
     def test_invalid(self) -> None:
-        result = MaterialClassificationService._extract_primary_supervising_authority_id(
-            {"primary_supervising_authority_id": "abc"}
-        )
+        result = _extract_primary_supervising_authority_id({"primary_supervising_authority_id": "abc"})
         assert result is None
 
 
@@ -480,26 +477,26 @@ class TestExtractPrimarySupervisingAuthorityId:
 
 class TestExtractSubfolderHint:
     def test_numbered_prefix(self) -> None:
-        assert MaterialClassificationService._extract_subfolder_hint("2-立案材料") == "立案材料"
+        assert _extract_subfolder_hint("2-立案材料") == "立案材料"
 
     def test_underscore_prefix(self) -> None:
-        assert MaterialClassificationService._extract_subfolder_hint("3_执行依据") == "执行依据"
+        assert _extract_subfolder_hint("3_执行依据") == "执行依据"
 
     def test_dot_prefix(self) -> None:
-        assert MaterialClassificationService._extract_subfolder_hint("1.委托材料") == "委托材料"
+        assert _extract_subfolder_hint("1.委托材料") == "委托材料"
 
     def test_no_prefix(self) -> None:
-        assert MaterialClassificationService._extract_subfolder_hint("证据材料") == "证据材料"
+        assert _extract_subfolder_hint("证据材料") == "证据材料"
 
     def test_empty(self) -> None:
-        assert MaterialClassificationService._extract_subfolder_hint("") == ""
-        assert MaterialClassificationService._extract_subfolder_hint(None) == ""
+        assert _extract_subfolder_hint("") == ""
+        assert _extract_subfolder_hint(None) == ""
 
     def test_nested_path(self) -> None:
-        assert MaterialClassificationService._extract_subfolder_hint("parent/2-子目录") == "子目录"
+        assert _extract_subfolder_hint("parent/2-子目录") == "子目录"
 
     def test_only_number_returns_original(self) -> None:
-        result = MaterialClassificationService._extract_subfolder_hint("123")
+        result = _extract_subfolder_hint("123")
         # After stripping number prefix, empty -> returns last_segment
         assert result == "123" or result == ""
 
@@ -511,21 +508,21 @@ class TestExtractSubfolderHint:
 
 class TestNormalizeForMatch:
     def test_empty(self) -> None:
-        assert MaterialClassificationService._normalize_for_match("") == ""
+        assert _normalize_for_match("") == ""
 
     def test_none(self) -> None:
-        assert MaterialClassificationService._normalize_for_match(None) == ""
+        assert _normalize_for_match(None) == ""
 
     def test_whitespace(self) -> None:
-        assert MaterialClassificationService._normalize_for_match("hello  world") == "helloworld"
+        assert _normalize_for_match("hello  world") == "helloworld"
 
     def test_backslash(self) -> None:
-        result = MaterialClassificationService._normalize_for_match("path\\to\\file")
+        result = _normalize_for_match("path\\to\\file")
         assert "\\" not in result
         assert "/" in result
 
     def test_lowercase(self) -> None:
-        assert MaterialClassificationService._normalize_for_match("HELLO") == "hello"
+        assert _normalize_for_match("HELLO") == "hello"
 
 
 # ===========================================================================
@@ -535,31 +532,31 @@ class TestNormalizeForMatch:
 
 class TestExtractJson:
     def test_valid_json(self) -> None:
-        result = MaterialClassificationService._extract_json('{"key": "value"}')
+        result = _extract_json('{"key": "value"}')
         assert result == {"key": "value"}
 
     def test_json_in_text(self) -> None:
-        result = MaterialClassificationService._extract_json('Here is the result: {"key": "value"} done.')
+        result = _extract_json('Here is the result: {"key": "value"} done.')
         assert result == {"key": "value"}
 
     def test_fenced_code_block(self) -> None:
-        result = MaterialClassificationService._extract_json('```json\n{"key": "value"}\n```')
+        result = _extract_json('```json\n{"key": "value"}\n```')
         assert result == {"key": "value"}
 
     def test_fenced_without_json_label(self) -> None:
-        result = MaterialClassificationService._extract_json('```\n{"key": "value"}\n```')
+        result = _extract_json('```\n{"key": "value"}\n```')
         assert result == {"key": "value"}
 
     def test_empty(self) -> None:
-        assert MaterialClassificationService._extract_json("") is None
-        assert MaterialClassificationService._extract_json(None) is None
+        assert _extract_json("") is None
+        assert _extract_json(None) is None
 
     def test_invalid_json(self) -> None:
-        assert MaterialClassificationService._extract_json("not json at all") is None
+        assert _extract_json("not json at all") is None
 
     def test_json_array(self) -> None:
         # extract_json only returns dicts
-        assert MaterialClassificationService._extract_json("[1, 2, 3]") is None
+        assert _extract_json("[1, 2, 3]") is None
 
 
 # ===========================================================================

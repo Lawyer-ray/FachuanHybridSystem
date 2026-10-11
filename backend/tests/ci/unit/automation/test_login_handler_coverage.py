@@ -1,12 +1,13 @@
 """Coverage tests for automation.services.token._login_handler."""
 
-from unittest.mock import MagicMock, AsyncMock, patch
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import asyncio
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False

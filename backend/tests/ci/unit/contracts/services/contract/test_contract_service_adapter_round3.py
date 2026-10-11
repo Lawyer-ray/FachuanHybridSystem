@@ -10,6 +10,7 @@ Covers:
 - get_contract_lawyers: empty list
 - get_fee_mode_display_internal: exception path
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -21,6 +22,7 @@ from apps.core.exceptions import NotFoundError
 
 def _make_adapter(**deps):
     from apps.contracts.services.contract.contract_service_adapter import ContractServiceAdapter
+
     return ContractServiceAdapter(
         contract_service=deps.get("contract_service", MagicMock()),
         dto_assembler=deps.get("dto_assembler", MagicMock()),

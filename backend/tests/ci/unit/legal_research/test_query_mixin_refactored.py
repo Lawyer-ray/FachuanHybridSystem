@@ -71,18 +71,22 @@ class TestBuildElementBasedQueries:
         assert result == []
 
     def test_cause_and_disputes(self) -> None:
-        result = build_element_based_queries({
-            "cause_of_action": "买卖合同纠纷",
-            "dispute_focus": ["逾期交货"],
-        })
+        result = build_element_based_queries(
+            {
+                "cause_of_action": "买卖合同纠纷",
+                "dispute_focus": ["逾期交货"],
+            }
+        )
         assert len(result) >= 1
         assert any("买卖合同纠纷" in q for q in result)
 
     def test_relation_and_damages(self) -> None:
-        result = build_element_based_queries({
-            "legal_relation": "买卖合同",
-            "damage_type": ["价差损失"],
-        })
+        result = build_element_based_queries(
+            {
+                "legal_relation": "买卖合同",
+                "damage_type": ["价差损失"],
+            }
+        )
         assert len(result) >= 1
 
 
@@ -108,10 +112,12 @@ class TestBuildFieldQueriesFromElements:
         assert result[0]["field"] == "causeOfAction"
 
     def test_all_op_and(self) -> None:
-        result = build_field_queries_from_elements({
-            "cause_of_action": "纠纷",
-            "dispute_focus": ["焦点"],
-        })
+        result = build_field_queries_from_elements(
+            {
+                "cause_of_action": "纠纷",
+                "dispute_focus": ["焦点"],
+            }
+        )
         for q in result:
             assert q["op"] == "AND"
 

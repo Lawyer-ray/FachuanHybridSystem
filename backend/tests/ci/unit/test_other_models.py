@@ -6,9 +6,9 @@ from typing import Any
 
 import pytest
 
-from apps.batch_printing.models import BatchPrintJob, BatchPrintItem, BatchPrintJobStatus
-from apps.pdf_splitting.models import PdfSplitJob, PdfSplitJobStatus
+from apps.batch_printing.models import BatchPrintItem, BatchPrintJob, BatchPrintJobStatus
 from apps.finance.models.lpr_rate import LPRRate
+from apps.pdf_splitting.models import PdfSplitJob, PdfSplitJobStatus
 from apps.story_viz.models import StoryAnimation, StoryAnimationStatus
 
 
@@ -51,6 +51,7 @@ class TestPdfSplitJobModel:
         assert PdfSplitJobStatus.PROCESSING == "processing"
         assert PdfSplitJobStatus.COMPLETED == "completed"
         assert PdfSplitJobStatus.FAILED == "failed"
+
 
 @pytest.mark.django_db
 class TestLPRRateModel:

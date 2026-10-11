@@ -1,4 +1,5 @@
 """Targeted tests for contacts module to push coverage to 80%+."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace

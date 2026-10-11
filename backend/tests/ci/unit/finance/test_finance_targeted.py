@@ -1,4 +1,5 @@
 """Targeted tests for finance module to push coverage to 80%+."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -7,7 +8,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # schemas/lpr_schemas.py (0% coverage)
@@ -19,10 +19,14 @@ class TestLPRSchemas:
         from apps.finance.schemas.lpr_schemas import LPRRateSchema
 
         schema = LPRRateSchema(
-            id=1, effective_date=date(2024, 1, 1),
-            rate_1y=Decimal("3.45"), rate_5y=Decimal("3.95"),
-            source="PBOC", is_auto_synced=True,
-            created_at="2024-01-01", updated_at="2024-01-01",
+            id=1,
+            effective_date=date(2024, 1, 1),
+            rate_1y=Decimal("3.45"),
+            rate_5y=Decimal("3.95"),
+            source="PBOC",
+            is_auto_synced=True,
+            created_at="2024-01-01",
+            updated_at="2024-01-01",
         )
         assert schema.id == 1
 
@@ -30,10 +34,14 @@ class TestLPRSchemas:
         from apps.finance.schemas.lpr_schemas import LPRRateListResponse, LPRRateSchema
 
         rate = LPRRateSchema(
-            id=1, effective_date=date(2024, 1, 1),
-            rate_1y=Decimal("3.45"), rate_5y=Decimal("3.95"),
-            source="", is_auto_synced=False,
-            created_at="2024-01-01", updated_at="2024-01-01",
+            id=1,
+            effective_date=date(2024, 1, 1),
+            rate_1y=Decimal("3.45"),
+            rate_5y=Decimal("3.95"),
+            source="",
+            is_auto_synced=False,
+            created_at="2024-01-01",
+            updated_at="2024-01-01",
         )
         resp = LPRRateListResponse(items=[rate], total=1)
         assert len(resp.items) == 1
@@ -55,7 +63,9 @@ class TestLPRSchemas:
 
         resp = LPRSyncStatusResponse(
             latest_rate_date=date(2024, 6, 20),
-            total_records=50, auto_synced_records=48, manual_records=2,
+            total_records=50,
+            auto_synced_records=48,
+            manual_records=2,
         )
         assert resp.total_records == 50
 
@@ -63,7 +73,8 @@ class TestLPRSchemas:
         from apps.finance.schemas.lpr_schemas import PrincipalChangeSchema
 
         schema = PrincipalChangeSchema(
-            start_date=date(2024, 1, 1), end_date=date(2024, 6, 30),
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 6, 30),
             principal=Decimal("100000"),
         )
         assert schema.principal == Decimal("100000")
@@ -72,8 +83,11 @@ class TestLPRSchemas:
         from apps.finance.schemas.lpr_schemas import InterestCalculateRequest
 
         req = InterestCalculateRequest(
-            start_date=date(2024, 1, 1), end_date=date(2024, 12, 31),
-            principal=Decimal("50000"), rate_mode="lpr", rate_type="1y",
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+            principal=Decimal("50000"),
+            rate_mode="lpr",
+            rate_type="1y",
         )
         assert req.rate_mode == "lpr"
         assert req.multiplier == Decimal("1")
@@ -83,7 +97,8 @@ class TestLPRSchemas:
         from apps.finance.schemas.lpr_schemas import InterestCalculateRequest
 
         req = InterestCalculateRequest(
-            rate_mode="custom", custom_rate_unit="permille",
+            rate_mode="custom",
+            custom_rate_unit="permille",
             custom_rate_value=Decimal("5"),
         )
         assert req.custom_rate_unit == "permille"
@@ -91,10 +106,13 @@ class TestLPRSchemas:
     def test_interest_calculate_request_with_changes(self):
         from apps.finance.schemas.lpr_schemas import InterestCalculateRequest, PrincipalChangeSchema
 
-        changes = [PrincipalChangeSchema(
-            start_date=date(2024, 1, 1), end_date=date(2024, 6, 30),
-            principal=Decimal("100000"),
-        )]
+        changes = [
+            PrincipalChangeSchema(
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 6, 30),
+                principal=Decimal("100000"),
+            )
+        ]
         req = InterestCalculateRequest(principal_changes=changes)
         assert len(req.principal_changes) == 1
 
@@ -102,9 +120,13 @@ class TestLPRSchemas:
         from apps.finance.schemas.lpr_schemas import CalculationPeriodSchema
 
         schema = CalculationPeriodSchema(
-            start_date=date(2024, 1, 1), end_date=date(2024, 6, 30),
-            principal=Decimal("100000"), rate=Decimal("3.45"),
-            rate_unit="percent", days=181, year_days=365,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 6, 30),
+            principal=Decimal("100000"),
+            rate=Decimal("3.45"),
+            rate_unit="percent",
+            days=181,
+            year_days=365,
             interest=Decimal("1710.41"),
         )
         assert schema.days == 181
@@ -113,8 +135,10 @@ class TestLPRSchemas:
         from apps.finance.schemas.lpr_schemas import InterestCalculateResponse
 
         resp = InterestCalculateResponse(
-            success=True, total_interest=Decimal("5000"),
-            total_principal=Decimal("100000"), total_days=365,
+            success=True,
+            total_interest=Decimal("5000"),
+            total_principal=Decimal("100000"),
+            total_days=365,
         )
         assert resp.success is True
         assert resp.code is None
@@ -131,8 +155,10 @@ class TestLPRRateService:
         from apps.finance.services.lpr.rate_service import RateSegment
 
         seg = RateSegment(
-            start=date(2024, 1, 1), end=date(2024, 6, 30),
-            rate_1y=Decimal("3.45"), rate_5y=Decimal("3.95"),
+            start=date(2024, 1, 1),
+            end=date(2024, 6, 30),
+            rate_1y=Decimal("3.45"),
+            rate_5y=Decimal("3.95"),
         )
         assert seg.start == date(2024, 1, 1)
 
@@ -140,7 +166,8 @@ class TestLPRRateService:
         from apps.finance.services.lpr.rate_service import PrincipalPeriod
 
         period = PrincipalPeriod(
-            start_date=date(2024, 1, 1), end_date=date(2024, 6, 30),
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 6, 30),
             principal=Decimal("100000"),
         )
         assert period.principal == Decimal("100000")
@@ -205,7 +232,8 @@ class TestLPRRateService:
         from apps.finance.services.lpr.rate_service import LPRRateService
 
         mock_rate = SimpleNamespace(
-            rate_1y=Decimal("3.45"), rate_5y=Decimal("3.95"),
+            rate_1y=Decimal("3.45"),
+            rate_5y=Decimal("3.95"),
             effective_date=date(2024, 6, 20),
         )
         mock_model.objects.first.return_value = mock_rate

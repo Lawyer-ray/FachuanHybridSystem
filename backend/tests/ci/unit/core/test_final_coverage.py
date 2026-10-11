@@ -281,9 +281,7 @@ class TestSaveUploadedFile:
         validator = Mock()
         validator.validate_uploaded_file.return_value = f
 
-        rel_path, safe_name = save_uploaded_file(
-            f, "uploads", file_validator=validator, use_uuid_name=True
-        )
+        rel_path, safe_name = save_uploaded_file(f, "uploads", file_validator=validator, use_uuid_name=True)
         assert rel_path.startswith("uploads/")
         assert safe_name == "test.pdf"
 
@@ -302,9 +300,7 @@ class TestSaveUploadedFile:
         validator = Mock()
         validator.validate_uploaded_file.return_value = f
 
-        rel_path, safe_name = save_uploaded_file(
-            f, "docs", file_validator=validator, use_uuid_name=False
-        )
+        rel_path, safe_name = save_uploaded_file(f, "docs", file_validator=validator, use_uuid_name=False)
         assert "report" in safe_name
 
     @patch("apps.core.services.storage_service._get_media_root", return_value=None)

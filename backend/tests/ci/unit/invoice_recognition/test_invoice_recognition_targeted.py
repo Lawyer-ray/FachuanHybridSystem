@@ -1,4 +1,5 @@
 """Targeted tests for invoice_recognition module to push coverage to 80%+."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch

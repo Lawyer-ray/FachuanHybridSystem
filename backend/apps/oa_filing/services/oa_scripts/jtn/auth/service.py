@@ -31,10 +31,10 @@ class JtnAuthService:  # pragma: no cover
         cookies = await auth.ensure_cookies()
 
         # 注入到 httpx
-        auth.inject_to_httpx(client, cookies)
+        inject_to_httpx(client, cookies)
 
         # 注入到 Playwright
-        await auth.inject_to_context(context, cookies)
+        await inject_to_context(context, cookies)
     """
 
     def __init__(self, account: str, password: str) -> None:
@@ -203,27 +203,6 @@ class JtnAuthService:  # pragma: no cover
     # Cookie 注入
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def inject_to_httpx(client: Any, cookies: list[dict[str, Any]]) -> None:
-        """将 cookies 注入 httpx.Client / httpx.AsyncClient。"""
-        for c in cookies:
-            client.cookies.set(c["name"], c["value"], domain=c["domain"])
-
-    @staticmethod
-    async def inject_to_context(context: Any, cookies: list[dict[str, Any]]) -> None:
-        """将 cookies 注入 Playwright BrowserContext。"""
-        for c in cookies:
-            await context.add_cookies(
-                [
-                    {
-                        "name": c["name"],
-                        "value": c["value"],
-                        "domain": c["domain"],
-                        "path": c.get("path", "/"),
-                    }
-                ]
-            )
-
 
 # ↓↓ 由 JtnAuthService 下沉的模块级纯函数（四层架构静态方法棘轮）
 async def _click_qr_icon(page: Any) -> None:
@@ -270,3 +249,26 @@ async def _click_qr_icon(page: Any) -> None:
             continue
 
     raise RuntimeError("未找到 SSO 扫码图标")
+
+
+# ↓↓ 由 JtnAuthService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def inject_to_httpx(client: Any, cookies: list[dict[str, Any]]) -> None:
+    """将 cookies 注入 httpx.Client / httpx.AsyncClient。"""
+    for c in cookies:
+        client.cookies.set(c["name"], c["value"], domain=c["domain"])
+
+
+# ↓↓ 由 JtnAuthService 下沉的模块级纯函数（四层架构静态方法棘轮）
+async def inject_to_context(context: Any, cookies: list[dict[str, Any]]) -> None:
+    """将 cookies 注入 Playwright BrowserContext。"""
+    for c in cookies:
+        await context.add_cookies(
+            [
+                {
+                    "name": c["name"],
+                    "value": c["value"],
+                    "domain": c["domain"],
+                    "path": c.get("path", "/"),
+                }
+            ]
+        )

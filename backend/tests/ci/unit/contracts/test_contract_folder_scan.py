@@ -30,16 +30,19 @@ class TestNormalizeScanSubfolder:
 
     def test_absolute_raises(self):
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException):
             self.service._normalize_scan_subfolder("/absolute")
 
     def test_tilde_raises(self):
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException):
             self.service._normalize_scan_subfolder("~/path")
 
     def test_dotdot_raises(self):
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException):
             self.service._normalize_scan_subfolder("../escape")
 
@@ -124,12 +127,14 @@ class TestResolveScanScope:
 
     def test_local_root_only(self):
         import tempfile
+
         with tempfile.TemporaryDirectory() as tmpdir:
             result = self.service._resolve_scan_scope(tmpdir, "")
             assert result["scan_subfolder"] == ""
 
     def test_local_subfolder(self):
         import tempfile
+
         with tempfile.TemporaryDirectory() as tmpdir:
             (Path(tmpdir) / "sub").mkdir()
             result = self.service._resolve_scan_scope(tmpdir, "sub")
@@ -139,6 +144,7 @@ class TestResolveScanScope:
         import tempfile
 
         from apps.core.exceptions import ValidationException
+
         with tempfile.TemporaryDirectory() as tmpdir:
             with pytest.raises(ValidationException, match="路径非法"):
                 self.service._resolve_scan_scope(tmpdir, "../escape")
@@ -147,6 +153,7 @@ class TestResolveScanScope:
         import tempfile
 
         from apps.core.exceptions import ValidationException
+
         with tempfile.TemporaryDirectory() as tmpdir:
             with pytest.raises(ValidationException):
                 self.service._resolve_scan_scope(tmpdir, "nonexistent")
@@ -155,10 +162,12 @@ class TestResolveScanScope:
 class TestRelativePathStr:
     def setup_method(self):
         from apps.contracts.services.contract.integrations._candidate_post_processor import CandidatePostProcessor
+
         self.service = CandidatePostProcessor(scan_service=MagicMock())
 
     def test_relative_path(self):
         import tempfile
+
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir).resolve()
             (root / "sub").mkdir()
@@ -171,6 +180,7 @@ class TestRelativePathStr:
 
     def test_file_in_root(self):
         import tempfile
+
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir).resolve()
             (root / "file.txt").touch()
@@ -199,6 +209,7 @@ class TestEnsureContractExists:
     @patch("apps.contracts.services.contract.integrations.folder_scan_service.Contract")
     def test_raises_for_missing(self, mock_contract):
         from apps.core.exceptions import NotFoundError
+
         mock_contract.objects.filter.return_value.exists.return_value = False
         service = ContractFolderScanService(scan_service=MagicMock())
         with pytest.raises(NotFoundError):
@@ -223,6 +234,7 @@ class TestMakeProviderForBindingCloud:
 class TestPostProcessCandidates:
     def setup_method(self):
         from apps.contracts.services.contract.integrations._candidate_post_processor import CandidatePostProcessor
+
         self.service = CandidatePostProcessor(scan_service=MagicMock())
 
     def test_insurance_files_deselected(self):

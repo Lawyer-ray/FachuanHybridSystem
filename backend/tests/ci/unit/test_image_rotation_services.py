@@ -6,14 +6,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ============================================================
 # auto_rename_service.py - ExtractionResult
 # ============================================================
 
+
 class TestExtractionResult:
     def test_default_values(self):
         from apps.image_rotation.services.auto_rename_service import ExtractionResult
+
         r = ExtractionResult()
         assert r.date is None
         assert r.amount is None
@@ -22,6 +23,7 @@ class TestExtractionResult:
 
     def test_with_values(self):
         from apps.image_rotation.services.auto_rename_service import ExtractionResult
+
         r = ExtractionResult(date="20250630", amount="65500元", raw_date="2025年6月30日", raw_amount="65,500元")
         assert r.date == "20250630"
 
@@ -30,9 +32,11 @@ class TestExtractionResult:
 # auto_rename_service.py - RenameSuggestion
 # ============================================================
 
+
 class TestRenameSuggestion:
     def test_success_suggestion(self):
         from apps.image_rotation.services.auto_rename_service import RenameSuggestion
+
         r = RenameSuggestion(
             original_filename="scan.jpg",
             suggested_filename="20250630_65500元.jpg",
@@ -45,6 +49,7 @@ class TestRenameSuggestion:
 
     def test_failure_suggestion(self):
         from apps.image_rotation.services.auto_rename_service import RenameSuggestion
+
         r = RenameSuggestion(
             original_filename="scan.jpg",
             suggested_filename="scan.jpg",
@@ -58,9 +63,11 @@ class TestRenameSuggestion:
 # auto_rename_service.py - _normalize_date
 # ============================================================
 
+
 class TestNormalizeDate:
     def _make_service(self):
         from apps.image_rotation.services.auto_rename_service import AutoRenameService
+
         svc = AutoRenameService.__new__(AutoRenameService)
         svc._ocr_channel = None
         return svc
@@ -102,9 +109,11 @@ class TestNormalizeDate:
 # auto_rename_service.py - _extract_json_block
 # ============================================================
 
+
 class TestExtractJsonBlock:
     def _make_service(self):
         from apps.image_rotation.services.auto_rename_service import AutoRenameService
+
         return AutoRenameService.__new__(AutoRenameService)
 
     def test_json_code_block(self):
@@ -135,32 +144,38 @@ class TestExtractJsonBlock:
 # auto_rename_service.py - generate_filename
 # ============================================================
 
+
 class TestGenerateFilename:
     def _make_service(self):
         from apps.image_rotation.services.auto_rename_service import AutoRenameService
+
         return AutoRenameService.__new__(AutoRenameService)
 
     def test_date_and_amount(self):
         svc = self._make_service()
         from apps.image_rotation.services.auto_rename_service import ExtractionResult
+
         result = svc.generate_filename("scan.jpg", ExtractionResult(date="20250630", amount="65500元"))
         assert result == "20250630_65500元.jpg"
 
     def test_date_only(self):
         svc = self._make_service()
         from apps.image_rotation.services.auto_rename_service import ExtractionResult
+
         result = svc.generate_filename("scan.jpg", ExtractionResult(date="20250630"))
         assert result == "20250630.jpg"
 
     def test_amount_only(self):
         svc = self._make_service()
         from apps.image_rotation.services.auto_rename_service import ExtractionResult
+
         result = svc.generate_filename("scan.jpg", ExtractionResult(amount="65500元"))
         assert result == "65500元.jpg"
 
     def test_neither_returns_original(self):
         svc = self._make_service()
         from apps.image_rotation.services.auto_rename_service import ExtractionResult
+
         result = svc.generate_filename("scan.jpg", ExtractionResult())
         assert result == "scan.jpg"
 
@@ -169,9 +184,11 @@ class TestGenerateFilename:
 # auto_rename_service.py - _get_file_extension
 # ============================================================
 
+
 class TestGetFileExtension:
     def _make_service(self):
         from apps.image_rotation.services.auto_rename_service import AutoRenameService
+
         return AutoRenameService.__new__(AutoRenameService)
 
     def test_with_extension(self):
@@ -191,9 +208,11 @@ class TestGetFileExtension:
 # auto_rename_service.py - _fallback_regex_extraction
 # ============================================================
 
+
 class TestFallbackRegexExtraction:
     def _make_service(self):
         from apps.image_rotation.services.auto_rename_service import AutoRenameService
+
         return AutoRenameService.__new__(AutoRenameService)
 
     def test_extract_date_and_amount(self):
@@ -215,9 +234,11 @@ class TestFallbackRegexExtraction:
 # pdf_extraction_service.py - _validate_page_count
 # ============================================================
 
+
 class TestValidatePageCount:
     def _make_service(self):
         from apps.image_rotation.services.pdf_extraction_service import PDFExtractionService
+
         svc = PDFExtractionService.__new__(PDFExtractionService)
         svc._orientation_service = None
         return svc
@@ -244,9 +265,11 @@ class TestValidatePageCount:
 # facade.py - _get_unique_filename
 # ============================================================
 
+
 class TestGetUniqueFilename:
     def _make_service(self):
         from apps.image_rotation.services.facade import ImageRotationService
+
         return ImageRotationService()
 
     def test_unique_name_unchanged(self):
@@ -278,9 +301,11 @@ class TestGetUniqueFilename:
 # facade.py - _process_page_for_pdf rotation validation
 # ============================================================
 
+
 class TestProcessPageForPdf:
     def _make_service(self):
         from apps.image_rotation.services.facade import ImageRotationService
+
         svc = ImageRotationService.__new__(ImageRotationService)
         svc.SUPPORTED_FORMATS = {"jpeg", "jpg", "png"}
         svc.MAX_FILE_SIZE = 20 * 1024 * 1024

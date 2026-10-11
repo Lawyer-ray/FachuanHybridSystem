@@ -79,7 +79,7 @@ class SolutionGenerator:
 
     def generate(self, task: SolutionTask) -> None:
         """分段生成所有 section，单段失败不中断整体。"""
-        research_results = self._load_research_results(task)
+        research_results = _load_research_results(task)
         existing: dict[str, str] = {}
 
         for i, section_type in enumerate(SECTION_ORDER):
@@ -99,8 +99,8 @@ class SolutionGenerator:
     def regenerate_section(self, section: SolutionSection, feedback: str) -> None:
         """用户要求调整某段。"""
         task = section.task
-        research_results = self._load_research_results(task)
-        existing = self._get_existing_sections(task, exclude=section.section_type)
+        research_results = _load_research_results(task)
+        existing = _get_existing_sections(task, exclude=section.section_type)
         section.user_feedback = feedback
         section.version += 1
         self._generate_section(task, section, research_results, existing, feedback=feedback)
@@ -153,35 +153,6 @@ class SolutionGenerator:
         section.status = SectionStatus.FAILED
         section.save(update_fields=["status", "updated_at"])
 
-    @staticmethod
-    def _load_research_results(task: SolutionTask) -> str:
-        if task.research_task_id is None:
-            return ""
-        results = list(
-            task.research_task.results.filter()  # type: ignore[union-attr]
-            .order_by("rank")
-            .values(
-                "rank", "title", "document_number", "court_text", "judgment_date", "case_digest", "similarity_score"
-            )
-        )
-        if not results:
-            return "未检索到类案。"
-        lines: list[str] = []
-        for r in results:
-            lines.append(
-                f"【案例{r['rank']}】{r['title']}\n"
-                f"案号：{r['document_number']} | 法院：{r['court_text']} | 日期：{r['judgment_date']} | 相似度：{r['similarity_score']:.0%}\n"
-                f"摘要：{r['case_digest'][:300]}"
-            )
-        return "\n\n".join(lines)
-
-    @staticmethod
-    def _get_existing_sections(task: SolutionTask, exclude: str = "") -> dict[str, str]:
-        qs = task.sections.filter(status=SectionStatus.COMPLETED).order_by("order")
-        if exclude:
-            qs = qs.exclude(section_type=exclude)
-        return {s.section_type: s.content for s in qs}
-
 
 # ↓↓ 由 SolutionGenerator 下沉的模块级纯函数（四层架构静态方法棘轮）
 def _get_or_create_section(task: SolutionTask, section_type: str, order: int) -> SolutionSection:
@@ -195,3 +166,32 @@ def _get_or_create_section(task: SolutionTask, section_type: str, order: int) ->
         },
     )
     return section
+
+
+# ↓↓ 由 SolutionGenerator 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _load_research_results(task: SolutionTask) -> str:
+    if task.research_task_id is None:
+        return ""
+    results = list(
+        task.research_task.results.filter()  # type: ignore[union-attr]
+        .order_by("rank")
+        .values("rank", "title", "document_number", "court_text", "judgment_date", "case_digest", "similarity_score")
+    )
+    if not results:
+        return "未检索到类案。"
+    lines: list[str] = []
+    for r in results:
+        lines.append(
+            f"【案例{r['rank']}】{r['title']}\n"
+            f"案号：{r['document_number']} | 法院：{r['court_text']} | 日期：{r['judgment_date']} | 相似度：{r['similarity_score']:.0%}\n"
+            f"摘要：{r['case_digest'][:300]}"
+        )
+    return "\n\n".join(lines)
+
+
+# ↓↓ 由 SolutionGenerator 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _get_existing_sections(task: SolutionTask, exclude: str = "") -> dict[str, str]:
+    qs = task.sections.filter(status=SectionStatus.COMPLETED).order_by("order")
+    if exclude:
+        qs = qs.exclude(section_type=exclude)
+    return {s.section_type: s.content for s in qs}

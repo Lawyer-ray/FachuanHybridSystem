@@ -16,6 +16,7 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 
 from apps.automation.services.ocr.ocr_service import OCRService  # 保留直接构造：需要运行时 use_v5 参数控制精度/速度
+from apps.document_parsing.services.parser_factory import _resolve_auto_backend
 from apps.pdf_splitting.models import PdfSplitOcrProfile
 
 from .split_models import OCRPageResult, OCRRuntimeProfile
@@ -75,7 +76,7 @@ class OCRHandler:
         """按文档解析平台优先级选择已启用的云端识别后端。"""
         from apps.document_parsing.services.parser_factory import ParserFactory
 
-        backend = ParserFactory._resolve_auto_backend()
+        backend = _resolve_auto_backend()
         return backend if backend in {"mineru", "textin"} else None
 
     def parse_cloud_pages(self, *, pdf_path: Path, backend: str) -> dict[int, OCRPageResult]:

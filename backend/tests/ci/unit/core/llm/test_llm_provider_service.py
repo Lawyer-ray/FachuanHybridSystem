@@ -263,9 +263,7 @@ class TestFetchRemoteModels:
         assert result.per_key[0].error == "HTTP 403"
 
     def test_accepts_plain_string_data(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        _patch_client(
-            monkeypatch, _FakeHttpClient(get=lambda *a, **kw: _FakeResponse({"data": ["m1", "m1", "m2"]}))
-        )
+        _patch_client(monkeypatch, _FakeHttpClient(get=lambda *a, **kw: _FakeResponse({"data": ["m1", "m1", "m2"]})))
 
         result = LLMProviderService.fetch_remote_models("http://gw/v1", ["k1"], probe_chat=False)
 

@@ -36,7 +36,7 @@ class HeadingNumbering:  # pragma: no cover
             return
 
         # 补充 LLM 漏识别的编号段落（原始有 numPr 且以编号前缀开头）
-        headings = self._supplement_missed_headings(doc, headings)
+        headings = _supplement_missed_headings(doc, headings)
 
         abstract_id = self._create_abstract_num(doc)
 
@@ -45,7 +45,7 @@ class HeadingNumbering:  # pragma: no cover
         ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
         # 仅对 LLM 识别的标题段落去掉手动编号前缀
-        self._strip_manual_numbers(doc, [(idx, lvl) for idx, lvl in headings if lvl >= 0])
+        _strip_manual_numbers(doc, [(idx, lvl) for idx, lvl in headings if lvl >= 0])
 
         # 清除非标题段落的残留 numPr（numId=0 的无效编号引用）
         for i, p in enumerate(doc.paragraphs):
@@ -123,50 +123,6 @@ class HeadingNumbering:  # pragma: no cover
         return []
 
     @staticmethod
-    def _supplement_missed_headings(
-        doc: DocumentType, headings: list[tuple[int, int]]
-    ) -> list[tuple[int, int]]:  # pragma: no cover
-        """补充 LLM 漏识别的编号段落：原始有 numPr 的段落（有真实编号或有编号前缀文本）"""
-        heading_indices = {idx for idx, _ in headings}
-        ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-        prefix_re = re.compile(r"^(?:\d+[、．.]\s*|[（(]\d+[)）]\s*|\d+\)\s*)")
-
-        added = []
-        for i, p in enumerate(doc.paragraphs):
-            if i in heading_indices:
-                continue
-            num_pr = p._element.find(f"{{{ns}}}pPr/{{{ns}}}numPr")
-            if num_pr is None:
-                continue
-            num_id_elem = num_pr.find(qn("w:numId"))
-            ilvl_elem = num_pr.find(qn("w:ilvl"))
-            num_id = int(num_id_elem.get(qn("w:val"), "0")) if num_id_elem is not None else 0
-            orig_ilvl = int(ilvl_elem.get(qn("w:val"), "0")) if ilvl_elem is not None else 0
-
-            if num_id > 0:
-                # 有真实自动编号，保留原始层级（限制在0-2）
-                level = min(orig_ilvl, 2)
-            elif prefix_re.match(p.text.strip()):
-                # numId=0 但有编号前缀文本，推断层级
-                parent_level = -1
-                for idx, lvl in sorted(headings, key=lambda x: x[0]):
-                    if idx < i and lvl >= 0:
-                        parent_level = lvl
-                level = min(parent_level + 1, 2)
-            else:
-                continue
-
-            added.append((i, level))
-            heading_indices.add(i)
-
-        if added:
-            logger.info("补充识别 %d 个编号段落", len(added))
-            result = headings + added
-            result.sort(key=lambda x: x[0])
-            return result
-        return headings
-
-    @staticmethod
     def _parse_llm_response(text: str, para_count: int) -> list[tuple[int, int]]:  # pragma: no cover
         text = text.strip()
         if "```" in text:
@@ -190,50 +146,6 @@ class HeadingNumbering:  # pragma: no cover
             if isinstance(idx, int) and isinstance(lvl, int) and 0 <= idx < para_count and -1 <= lvl <= 2:
                 results.append((idx, lvl))
         return results
-
-    @staticmethod
-    def _strip_manual_numbers(doc: DocumentType, headings: list[tuple[int, int]]) -> None:  # pragma: no cover
-        """去掉标题段落开头的手动编号前缀"""
-        # 长模式优先，避免短模式误匹配
-        pattern = re.compile(
-            r"^("
-            r"第[一二三四五六七八九十百\d]+[条章节][、．.\s]*"
-            r"|[一二三四五六七八九十百]+[、．.]\s*"
-            r"|（[一二三四五六七八九十百\d]+）\s*"
-            r"|\([一二三四五六七八九十百\d]+\)\s*"
-            r"|[①②③④⑤⑥⑦⑧⑨⑩]\s*"
-            r"|\d+\.\d+[、．.\s]*"
-            r"|\d+[、．.]\s*"
-            r")"
-        )
-        for para_idx, _ in headings:
-            para = doc.paragraphs[para_idx]
-            if not para.runs:
-                continue
-            full_text = para.text
-            m = pattern.match(full_text)
-            if not m:
-                continue
-            prefix_len = len(m.group())
-            # 从 runs 中移除前缀字符
-            remaining = prefix_len
-            for run in para.runs:
-                if remaining <= 0:
-                    break
-                run_len = len(run.text)
-                if run_len <= remaining:
-                    run.text = ""
-                    remaining -= run_len
-                else:
-                    run.text = run.text[remaining:].lstrip()
-                    remaining = 0
-            # 删除空 runs 并清理第一个非空 run 的前导空格
-            for run in list(para.runs):
-                if not run.text:
-                    run._element.getparent().remove(run._element)
-                else:
-                    run.text = run.text.lstrip()
-                    break
 
     def _create_abstract_num(self, doc: DocumentType) -> int:  # pragma: no cover
         """创建 abstractNum 定义，返回 abstractNumId"""
@@ -368,3 +280,93 @@ def _apply_num_to_paragraphs(
         num_pr.append(num_id_elem)
 
         p_pr.append(num_pr)
+
+
+# ↓↓ 由 HeadingNumbering 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _supplement_missed_headings(
+    doc: DocumentType, headings: list[tuple[int, int]]
+) -> list[tuple[int, int]]:  # pragma: no cover
+    """补充 LLM 漏识别的编号段落：原始有 numPr 的段落（有真实编号或有编号前缀文本）"""
+    heading_indices = {idx for idx, _ in headings}
+    ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    prefix_re = re.compile(r"^(?:\d+[、．.]\s*|[（(]\d+[)）]\s*|\d+\)\s*)")
+
+    added = []
+    for i, p in enumerate(doc.paragraphs):
+        if i in heading_indices:
+            continue
+        num_pr = p._element.find(f"{{{ns}}}pPr/{{{ns}}}numPr")
+        if num_pr is None:
+            continue
+        num_id_elem = num_pr.find(qn("w:numId"))
+        ilvl_elem = num_pr.find(qn("w:ilvl"))
+        num_id = int(num_id_elem.get(qn("w:val"), "0")) if num_id_elem is not None else 0
+        orig_ilvl = int(ilvl_elem.get(qn("w:val"), "0")) if ilvl_elem is not None else 0
+
+        if num_id > 0:
+            # 有真实自动编号，保留原始层级（限制在0-2）
+            level = min(orig_ilvl, 2)
+        elif prefix_re.match(p.text.strip()):
+            # numId=0 但有编号前缀文本，推断层级
+            parent_level = -1
+            for idx, lvl in sorted(headings, key=lambda x: x[0]):
+                if idx < i and lvl >= 0:
+                    parent_level = lvl
+            level = min(parent_level + 1, 2)
+        else:
+            continue
+
+        added.append((i, level))
+        heading_indices.add(i)
+
+    if added:
+        logger.info("补充识别 %d 个编号段落", len(added))
+        result = headings + added
+        result.sort(key=lambda x: x[0])
+        return result
+    return headings
+
+
+# ↓↓ 由 HeadingNumbering 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _strip_manual_numbers(doc: DocumentType, headings: list[tuple[int, int]]) -> None:  # pragma: no cover
+    """去掉标题段落开头的手动编号前缀"""
+    # 长模式优先，避免短模式误匹配
+    pattern = re.compile(
+        r"^("
+        r"第[一二三四五六七八九十百\d]+[条章节][、．.\s]*"
+        r"|[一二三四五六七八九十百]+[、．.]\s*"
+        r"|（[一二三四五六七八九十百\d]+）\s*"
+        r"|\([一二三四五六七八九十百\d]+\)\s*"
+        r"|[①②③④⑤⑥⑦⑧⑨⑩]\s*"
+        r"|\d+\.\d+[、．.\s]*"
+        r"|\d+[、．.]\s*"
+        r")"
+    )
+    for para_idx, _ in headings:
+        para = doc.paragraphs[para_idx]
+        if not para.runs:
+            continue
+        full_text = para.text
+        m = pattern.match(full_text)
+        if not m:
+            continue
+        prefix_len = len(m.group())
+        # 从 runs 中移除前缀字符
+        remaining = prefix_len
+        for run in para.runs:
+            if remaining <= 0:
+                break
+            run_len = len(run.text)
+            if run_len <= remaining:
+                run.text = ""
+                remaining -= run_len
+            else:
+                run.text = run.text[remaining:].lstrip()
+                remaining = 0
+        # 删除空 runs 并清理第一个非空 run 的前导空格
+        for run in list(para.runs):
+            if not run.text:
+                run._element.getparent().remove(run._element)
+            else:
+                run.text = run.text.lstrip()
+                break

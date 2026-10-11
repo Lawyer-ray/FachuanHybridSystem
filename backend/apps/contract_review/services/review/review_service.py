@@ -14,6 +14,8 @@ from docx.document import Document as DocumentType
 
 from apps.contract_review.models.review_task import ProcessStep, ReviewTask, TaskStatus
 from apps.contract_review.repositories.review_task_repository import ReviewTaskRepository
+from apps.contract_review.services.extraction.title_extractor import generate_output_filename
+from apps.contract_review.services.formatting.docx_revision_tool import enable_track_changes
 from apps.core.exceptions import ValidationException
 from apps.core.filesystem.upload_paths import MediaEntity
 from apps.core.llm.service import LLMService, get_llm_service
@@ -198,7 +200,7 @@ def process_review(task_id_str: str) -> None:  # pragma: no cover
         revision_tool = DocxRevisionTool()
 
         # 启用修订模式（Track Changes）
-        revision_tool.enable_track_changes(doc)
+        enable_track_changes(doc)
 
         steps = getattr(task, "selected_steps", None) or [
             "typo_check",
@@ -343,7 +345,7 @@ def process_review(task_id_str: str) -> None:  # pragma: no cover
             HeadingNumbering(llm).apply_numbering(doc, model_name=task.model_name)
 
         # 保存输出文件（经 default_storage 落盘，落库存相对路径）
-        output_name = title_extractor.generate_output_filename(
+        output_name = generate_output_filename(
             task.contract_title,
             task_id=str(task.id),
         )

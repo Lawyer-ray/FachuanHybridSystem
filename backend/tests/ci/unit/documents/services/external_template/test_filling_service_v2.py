@@ -37,6 +37,7 @@ from apps.documents.services.placeholders.fallback import PLACEHOLDER_FALLBACK_V
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_service(**kwargs: Any) -> FillingService:
     defaults = {"placeholder_registry": MagicMock()}
     defaults.update(kwargs)
@@ -124,9 +125,7 @@ class TestGeneratePreview:
         with patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm:
             mock_fm.objects.filter.return_value.order_by.return_value = [mapping]
             with patch.object(svc, "_get_placeholder_values", return_value={}):
-                result = svc.generate_preview(
-                    template_id=1, case_id=1, custom_values={"extra": "custom_val"}
-                )
+                result = svc.generate_preview(template_id=1, case_id=1, custom_values={"extra": "custom_val"})
 
         assert result[0].fill_value == "custom_val"
         assert result[0].value_source == "manual"
@@ -482,9 +481,7 @@ class TestWriteDeleteInapplicable:
         para.runs = [run]
         doc = _mock_doc(paragraphs=[para])
 
-        result = svc._write_delete_inapplicable(
-            doc, {"type": "paragraph", "paragraph_index": 0}, "A"
-        )
+        result = svc._write_delete_inapplicable(doc, {"type": "paragraph", "paragraph_index": 0}, "A")
         assert result is True
         assert run.text == "A"
 
@@ -502,9 +499,7 @@ class TestWriteDeleteInapplicable:
         table.cell.return_value = cell
         doc = _mock_doc(tables=[table])
 
-        result = svc._write_delete_inapplicable(
-            doc, {"type": "table_cell", "table_index": 0, "row": 0, "col": 0}, "X"
-        )
+        result = svc._write_delete_inapplicable(doc, {"type": "table_cell", "table_index": 0, "row": 0, "col": 0}, "X")
         assert result is True
 
     def test_delete_inapplicable_locator_type(self) -> None:
@@ -515,9 +510,7 @@ class TestWriteDeleteInapplicable:
         para.runs = [run]
         doc = _mock_doc(paragraphs=[para])
 
-        result = svc._write_delete_inapplicable(
-            doc, {"type": "delete_inapplicable", "paragraph_index": 0}, "A"
-        )
+        result = svc._write_delete_inapplicable(doc, {"type": "delete_inapplicable", "paragraph_index": 0}, "A")
         assert result is True
 
     def test_no_runs_paragraph(self) -> None:
@@ -526,27 +519,21 @@ class TestWriteDeleteInapplicable:
         para.runs = []
         doc = _mock_doc(paragraphs=[para])
 
-        result = svc._write_delete_inapplicable(
-            doc, {"type": "paragraph", "paragraph_index": 0}, "A"
-        )
+        result = svc._write_delete_inapplicable(doc, {"type": "paragraph", "paragraph_index": 0}, "A")
         assert result is True
         para.add_run.assert_called_once_with("A")
 
     def test_out_of_bounds(self) -> None:
         svc = _make_service()
         doc = _mock_doc(paragraphs=[])
-        result = svc._write_delete_inapplicable(
-            doc, {"type": "paragraph", "paragraph_index": 5}, "A"
-        )
+        result = svc._write_delete_inapplicable(doc, {"type": "paragraph", "paragraph_index": 5}, "A")
         assert result is False
 
     def test_exception(self) -> None:
         svc = _make_service()
         doc = MagicMock()
         doc.paragraphs.__len__ = MagicMock(side_effect=Exception("err"))
-        result = svc._write_delete_inapplicable(
-            doc, {"type": "paragraph", "paragraph_index": 0}, "A"
-        )
+        result = svc._write_delete_inapplicable(doc, {"type": "paragraph", "paragraph_index": 0}, "A")
         assert result is False
 
 
@@ -578,7 +565,10 @@ class TestFillTemplate:
     @patch("apps.documents.models.fill_record.FillRecord")
     @patch("apps.documents.models.external_template.ExternalTemplateFieldMapping")
     @patch("apps.documents.models.external_template.ExternalTemplate")
-    @patch("django.db.transaction.atomic", side_effect=lambda: MagicMock(__enter__=lambda s: None, __exit__=lambda *a: None))
+    @patch(
+        "django.db.transaction.atomic",
+        side_effect=lambda: MagicMock(__enter__=lambda s: None, __exit__=lambda *a: None),
+    )
     def test_text_mapping_success(
         self, mock_atomic: MagicMock, mock_tpl_cls: MagicMock, mock_fm_cls: MagicMock, mock_fr_cls: MagicMock
     ) -> None:
@@ -600,9 +590,11 @@ class TestFillTemplate:
             doc.tables = []
             mock_doc_cls.return_value = doc
 
-            with patch.object(svc, "_get_placeholder_values", return_value={"name": "张三"}), \
-                 patch.object(svc, "_generate_output_filename", return_value="output.docx"), \
-                 patch.object(svc, "_write_text", return_value=True) as mock_write:
+            with (
+                patch.object(svc, "_get_placeholder_values", return_value={"name": "张三"}),
+                patch.object(svc, "_generate_output_filename", return_value="output.docx"),
+                patch.object(svc, "_write_text", return_value=True) as mock_write,
+            ):
                 record = svc.fill_template(template_id=1, case_id=1)
 
         mock_write.assert_called_once()
@@ -611,9 +603,14 @@ class TestFillTemplate:
         svc = _make_service()
         mapping = _make_mapping(fill_type="unknown_type")
 
-        with patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm, \
-             patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl, \
-             patch("django.db.transaction.atomic", side_effect=lambda: MagicMock(__enter__=lambda s: None, __exit__=lambda *a: None)):
+        with (
+            patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm,
+            patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl,
+            patch(
+                "django.db.transaction.atomic",
+                side_effect=lambda: MagicMock(__enter__=lambda s: None, __exit__=lambda *a: None),
+            ),
+        ):
             mock_fm.objects.filter.return_value.order_by.return_value = [mapping]
             mock_tpl.objects.get.return_value = MagicMock(name="t")
 
@@ -631,9 +628,14 @@ class TestFillTemplate:
         mapping = _make_mapping(semantic_label="x", fill_type="text")
         record_mock = MagicMock(id=1)
 
-        with patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm, \
-             patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl, \
-             patch("django.db.transaction.atomic", side_effect=lambda: MagicMock(__enter__=lambda s: None, __exit__=lambda *a: None)):
+        with (
+            patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm,
+            patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl,
+            patch(
+                "django.db.transaction.atomic",
+                side_effect=lambda: MagicMock(__enter__=lambda s: None, __exit__=lambda *a: None),
+            ),
+        ):
             mock_fm.objects.filter.return_value.order_by.return_value = [mapping]
             mock_tpl.objects.get.return_value = MagicMock(name="t")
 
@@ -668,10 +670,12 @@ class TestBatchFill:
         record.file_path = "doc.docx"
         record.original_output_name = "out.docx"
 
-        with patch("apps.documents.models.fill_record.BatchFillTask") as mock_batch, \
-             patch.object(svc, "fill_template", return_value=record), \
-             patch.object(svc, "_pack_to_zip", return_value="zip_path"), \
-             patch("apps.documents.services.external_template.filling_service.timezone") as mock_tz:
+        with (
+            patch("apps.documents.models.fill_record.BatchFillTask") as mock_batch,
+            patch.object(svc, "fill_template", return_value=record),
+            patch.object(svc, "_pack_to_zip", return_value="zip_path"),
+            patch("apps.documents.services.external_template.filling_service.timezone") as mock_tz,
+        ):
             mock_tz.now.return_value = "now"
             mock_batch.objects.create.return_value = MagicMock(id=1, templates=MagicMock())
             result = svc.batch_fill(case_id=1, template_ids=[1])
@@ -681,9 +685,11 @@ class TestBatchFill:
     def test_failure_recorded(self) -> None:
         svc = _make_service()
 
-        with patch("apps.documents.models.fill_record.BatchFillTask") as mock_batch, \
-             patch.object(svc, "fill_template", side_effect=Exception("fail")), \
-             patch("apps.documents.services.external_template.filling_service.timezone") as mock_tz:
+        with (
+            patch("apps.documents.models.fill_record.BatchFillTask") as mock_batch,
+            patch.object(svc, "fill_template", side_effect=Exception("fail")),
+            patch("apps.documents.services.external_template.filling_service.timezone") as mock_tz,
+        ):
             mock_tz.now.return_value = "now"
             mock_batch.objects.create.return_value = MagicMock(id=1, templates=MagicMock())
             result = svc.batch_fill(case_id=1, template_ids=[1])
@@ -693,9 +699,11 @@ class TestBatchFill:
     def test_no_records_no_zip(self) -> None:
         svc = _make_service()
 
-        with patch("apps.documents.models.fill_record.BatchFillTask") as mock_batch, \
-             patch.object(svc, "fill_template", side_effect=Exception("fail")), \
-             patch("apps.documents.services.external_template.filling_service.timezone") as mock_tz:
+        with (
+            patch("apps.documents.models.fill_record.BatchFillTask") as mock_batch,
+            patch.object(svc, "fill_template", side_effect=Exception("fail")),
+            patch("apps.documents.services.external_template.filling_service.timezone") as mock_tz,
+        ):
             mock_tz.now.return_value = "now"
             mock_batch.objects.create.return_value = MagicMock(id=1, templates=MagicMock())
             result = svc.batch_fill(case_id=1, template_ids=[1], party_ids=[1])
@@ -721,8 +729,7 @@ class TestPackToZip:
         record.file_path = "doc.docx"
         record.original_output_name = "out.docx"
 
-        with patch("pathlib.Path.exists", return_value=True), \
-             patch("zipfile.ZipFile"):
+        with patch("pathlib.Path.exists", return_value=True), patch("zipfile.ZipFile"):
             result = svc._pack_to_zip([record])
 
         assert "batch_10.zip" in result
@@ -736,8 +743,7 @@ class TestPackToZip:
         record.original_output_name = "out.docx"
         record.id = 42
 
-        with patch("pathlib.Path.exists", return_value=False), \
-             patch("zipfile.ZipFile"):
+        with patch("pathlib.Path.exists", return_value=False), patch("zipfile.ZipFile"):
             result = svc._pack_to_zip([record])
 
         assert "batch_10.zip" in result
@@ -775,14 +781,19 @@ class TestReFill:
 
         new_record = MagicMock(id=2)
 
-        with patch("apps.documents.models.fill_record.FillRecord") as mock_fr, \
-             patch.object(svc, "fill_template", return_value=new_record) as mock_fill:
+        with (
+            patch("apps.documents.models.fill_record.FillRecord") as mock_fr,
+            patch.object(svc, "fill_template", return_value=new_record) as mock_fill,
+        ):
             mock_fr.objects.get.return_value = old_record
             result = svc.re_fill(record_id=1)
 
             mock_fill.assert_called_once_with(
-                template_id=1, case_id=1, party_id=10,
-                custom_values={"key": "val"}, filled_by=None,
+                template_id=1,
+                case_id=1,
+                party_id=10,
+                custom_values={"key": "val"},
+                filled_by=None,
             )
             assert result is new_record
 
@@ -799,8 +810,10 @@ class TestCheckFileAvailability:
         record.file_path = "doc.docx"
         record.file_available = False
 
-        with patch("apps.documents.models.fill_record.FillRecord") as mock_fr, \
-             patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch("apps.documents.models.fill_record.FillRecord") as mock_fr,
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             mock_fr.objects.get.return_value = record
             result = svc.check_file_availability(1)
 
@@ -814,8 +827,10 @@ class TestCheckFileAvailability:
         record.file_path = "doc.docx"
         record.file_available = True
 
-        with patch("apps.documents.models.fill_record.FillRecord") as mock_fr, \
-             patch("pathlib.Path.exists", return_value=False):
+        with (
+            patch("apps.documents.models.fill_record.FillRecord") as mock_fr,
+            patch("pathlib.Path.exists", return_value=False),
+        ):
             mock_fr.objects.get.return_value = record
             result = svc.check_file_availability(1)
 
@@ -829,8 +844,10 @@ class TestCheckFileAvailability:
         record.file_path = "doc.docx"
         record.file_available = True
 
-        with patch("apps.documents.models.fill_record.FillRecord") as mock_fr, \
-             patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch("apps.documents.models.fill_record.FillRecord") as mock_fr,
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             mock_fr.objects.get.return_value = record
             result = svc.check_file_availability(1)
 

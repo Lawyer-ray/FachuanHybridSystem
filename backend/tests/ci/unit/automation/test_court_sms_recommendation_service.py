@@ -15,6 +15,9 @@ import pytest
 from apps.automation.services.sms.court_sms_recommendation_service import (
     CourtSMSRecommendationService,
     RecommendationResult,
+    _build_query,
+    _collect_year_court_prefixes,
+    extract_court_name_from_text,
 )
 
 # ---------------------------------------------------------------------------
@@ -100,16 +103,16 @@ class TestExtractCourtNameFromContent:
     行为等价迁移到静态方法 extract_court_name_from_text（供文书识别等入口复用）。"""
 
     def test_matches_court_name(self):
-        assert CourtSMSRecommendationService.extract_court_name_from_text("天河区人民法院") == "天河区人民法院"
+        assert extract_court_name_from_text("天河区人民法院") == "天河区人民法院"
 
     def test_no_match(self):
-        assert CourtSMSRecommendationService.extract_court_name_from_text("普通短信") is None
+        assert extract_court_name_from_text("普通短信") is None
 
     def test_multiple_matches_returns_first(self):
         # The regex [一-龥]{2,15}人民法院 is greedy, so "天河区人民法院与海珠区人民法院"
         # matches "天河区人民法院与海珠区人民法院" as one big match.
         # Use strings with only one court name to test first match behavior.
-        result = CourtSMSRecommendationService.extract_court_name_from_text("天河区人民法院文书")
+        result = extract_court_name_from_text("天河区人民法院文书")
         assert result == "天河区人民法院"
 
 
@@ -120,23 +123,19 @@ class TestExtractCourtNameFromContent:
 
 class TestCollectYearCourtPrefixes:
     def test_extracts_prefix(self):
-        result = CourtSMSRecommendationService._collect_year_court_prefixes(
-            ["(2025)粤0605民初100号"]
-        )
+        result = _collect_year_court_prefixes(["(2025)粤0605民初100号"])
         assert "(2025)粤0605" in result
 
     def test_deduplicates(self):
-        result = CourtSMSRecommendationService._collect_year_court_prefixes(
-            ["(2025)粤01民初1号", "(2025)粤01民初2号"]
-        )
+        result = _collect_year_court_prefixes(["(2025)粤01民初1号", "(2025)粤01民初2号"])
         assert len(result) == 1
 
     def test_no_match(self):
-        result = CourtSMSRecommendationService._collect_year_court_prefixes(["ABC123"])
+        result = _collect_year_court_prefixes(["ABC123"])
         assert result == []
 
     def test_empty_list(self):
-        assert CourtSMSRecommendationService._collect_year_court_prefixes([]) == []
+        assert _collect_year_court_prefixes([]) == []
 
 
 # ---------------------------------------------------------------------------
@@ -147,27 +146,27 @@ class TestCollectYearCourtPrefixes:
 class TestBuildQuery:
     def test_all_none_returns_none(self):
         from django.db.models import Q
-        result = CourtSMSRecommendationService._build_query([], [], None, [])
+
+        result = _build_query([], [], None, [])
         assert result is None
 
     def test_with_case_numbers(self):
         from django.db.models import Q
-        result = CourtSMSRecommendationService._build_query(
-            ["(2025)粤01民初100号"], [], None, []
-        )
+
+        result = _build_query(["(2025)粤01民初100号"], [], None, [])
         assert result is not None
 
     def test_with_court_name(self):
-        result = CourtSMSRecommendationService._build_query([], [], "天河法院", [])
+        result = _build_query([], [], "天河法院", [])
         assert result is not None
 
     def test_with_party_names_short_excluded(self):
         """Party names shorter than 2 chars are excluded."""
-        result = CourtSMSRecommendationService._build_query([], [], None, ["张"])
+        result = _build_query([], [], None, ["张"])
         assert result is None
 
     def test_with_valid_party_names(self):
-        result = CourtSMSRecommendationService._build_query([], [], None, ["张三"])
+        result = _build_query([], [], None, ["张三"])
         assert result is not None
 
 
@@ -183,14 +182,14 @@ class TestScoreCase:
         case.start_date = start_date
 
         cn_mocks = []
-        for num in (case_numbers or []):
+        for num in case_numbers or []:
             cn = MagicMock()
             cn.number = num
             cn_mocks.append(cn)
         case.case_numbers.all.return_value = cn_mocks
 
         party_mocks = []
-        for name in (parties or []):
+        for name in parties or []:
             p = MagicMock()
             p.client = MagicMock()
             p.client.name = name
@@ -198,7 +197,7 @@ class TestScoreCase:
         case.parties.all.return_value = party_mocks
 
         sa_mocks = []
-        for name in (authorities or []):
+        for name in authorities or []:
             sa = MagicMock()
             sa.name = name
             sa_mocks.append(sa)
@@ -210,18 +209,14 @@ class TestScoreCase:
         svc = _svc()
         # Use full-width parens since normalize_case_number converts them
         case = self._make_case(case_numbers=["（2025）粤01民初100号"])
-        score, reasons = svc._score_case(
-            case, ["（2025）粤01民初100号"], [], None, []
-        )
+        score, reasons = svc._score_case(case, ["（2025）粤01民初100号"], [], None, [])
         assert score >= 100
         assert any("案号完全匹配" in r for r in reasons)
 
     def test_prefix_match(self):
         svc = _svc()
         case = self._make_case(case_numbers=["（2025）粤01民初200号"])
-        score, reasons = svc._score_case(
-            case, [], ["（2025）粤01"], None, []
-        )
+        score, reasons = svc._score_case(case, [], ["（2025）粤01"], None, [])
         assert score >= 50
         assert any("案号前缀匹配" in r for r in reasons)
 

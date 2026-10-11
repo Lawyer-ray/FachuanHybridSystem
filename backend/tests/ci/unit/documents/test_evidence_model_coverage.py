@@ -8,6 +8,7 @@ import pytest
 
 # ── MergeStatus / ListType ────────────────────────────────────────
 
+
 class TestMergeStatus:
     def test_choices_values(self):
         # MergeStatus is a simple TextChoices — test the module-level constants

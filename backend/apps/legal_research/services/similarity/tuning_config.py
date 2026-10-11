@@ -95,15 +95,13 @@ class LegalResearchTuningConfig:
         if config_service is None:
             return cls()
         return cls(
-            semantic_vector_always_on=cls._get_bool(
+            semantic_vector_always_on=_get_bool(
                 config_service, "LEGAL_RESEARCH_SEMANTIC_VECTOR_ALWAYS_ON", cls.semantic_vector_always_on
             ),
-            reranker_enabled=cls._get_bool(config_service, "LEGAL_RESEARCH_RERANKER_ENABLED", cls.reranker_enabled),
-            reranker_model=cls._get_text(
-                config_service, "LEGAL_RESEARCH_RERANKER_MODEL", cls.reranker_model, max_len=128
-            ),
-            reranker_top_k=cls._get_int(config_service, "LEGAL_RESEARCH_RERANKER_TOP_K", cls.reranker_top_k, 1, 50),
-            reranker_score_weight=cls._get_float(
+            reranker_enabled=_get_bool(config_service, "LEGAL_RESEARCH_RERANKER_ENABLED", cls.reranker_enabled),
+            reranker_model=_get_text(config_service, "LEGAL_RESEARCH_RERANKER_MODEL", cls.reranker_model, max_len=128),
+            reranker_top_k=_get_int(config_service, "LEGAL_RESEARCH_RERANKER_TOP_K", cls.reranker_top_k, 1, 50),
+            reranker_score_weight=_get_float(
                 config_service, "LEGAL_RESEARCH_RERANKER_SCORE_WEIGHT", cls.reranker_score_weight, 0.0, 1.0
             ),
         )
@@ -125,38 +123,40 @@ class LegalResearchTuningConfig:
             return tuple(v / total for v in defaults)  # type: ignore[return-value]
         return tuple(v / total for v in raw)  # type: ignore[return-value]
 
-    @staticmethod
-    def _get_int(config_service: _ConfigGetter, key: str, default: int, min_value: int, max_value: int) -> int:
-        raw = str(config_service.get_value(key, str(default)) or "").strip()
-        try:
-            value = int(raw)
-        except (TypeError, ValueError):
-            return default
-        return max(min_value, min(max_value, value))
 
-    @staticmethod
-    def _get_float(
-        config_service: _ConfigGetter, key: str, default: float, min_value: float, max_value: float
-    ) -> float:
-        raw = str(config_service.get_value(key, str(default)) or "").strip()
-        try:
-            value = float(raw)
-        except (TypeError, ValueError):
-            return default
-        return max(min_value, min(max_value, value))
-
-    @staticmethod
-    def _get_bool(config_service: _ConfigGetter, key: str, default: bool) -> bool:
-        raw = str(config_service.get_value(key, "True" if default else "False") or "").strip().lower()
-        if raw in {"1", "true", "yes", "on", "y"}:
-            return True
-        if raw in {"0", "false", "no", "off", "n"}:
-            return False
+# ↓↓ 由 LegalResearchTuningConfig 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _get_int(config_service: _ConfigGetter, key: str, default: int, min_value: int, max_value: int) -> int:
+    raw = str(config_service.get_value(key, str(default)) or "").strip()
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
         return default
+    return max(min_value, min(max_value, value))
 
-    @staticmethod
-    def _get_text(config_service: _ConfigGetter, key: str, default: str, *, max_len: int) -> str:
-        value = str(config_service.get_value(key, default) or "").strip()
-        if not value:
-            return default
-        return value[:max_len]
+
+# ↓↓ 由 LegalResearchTuningConfig 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _get_float(config_service: _ConfigGetter, key: str, default: float, min_value: float, max_value: float) -> float:
+    raw = str(config_service.get_value(key, str(default)) or "").strip()
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return default
+    return max(min_value, min(max_value, value))
+
+
+# ↓↓ 由 LegalResearchTuningConfig 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _get_bool(config_service: _ConfigGetter, key: str, default: bool) -> bool:
+    raw = str(config_service.get_value(key, "True" if default else "False") or "").strip().lower()
+    if raw in {"1", "true", "yes", "on", "y"}:
+        return True
+    if raw in {"0", "false", "no", "off", "n"}:
+        return False
+    return default
+
+
+# ↓↓ 由 LegalResearchTuningConfig 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _get_text(config_service: _ConfigGetter, key: str, default: str, *, max_len: int) -> str:
+    value = str(config_service.get_value(key, default) or "").strip()
+    if not value:
+        return default
+    return value[:max_len]

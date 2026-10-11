@@ -1,4 +1,5 @@
 """Coverage tests for core.llm.prompts.base, core.api.pagination, core.http.streaming, core.infrastructure.asgi_lifespan."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -9,6 +10,7 @@ import pytest
 class TestPromptManager:
     def test_register_and_get(self):
         from apps.core.llm.prompts.base import CodePromptTemplate, PromptManager
+
         PromptManager.clear()
         t = CodePromptTemplate(name="test_greet", template="Hello {name}", description="greet", variables=["name"])
         PromptManager.register(t)
@@ -17,8 +19,11 @@ class TestPromptManager:
 
     def test_render(self):
         from apps.core.llm.prompts.base import CodePromptTemplate, PromptManager
+
         PromptManager.clear()
-        t = CodePromptTemplate(name="test_render2", template="Hi {user} at {place}", description="", variables=["user", "place"])
+        t = CodePromptTemplate(
+            name="test_render2", template="Hi {user} at {place}", description="", variables=["user", "place"]
+        )
         PromptManager.register(t)
         result = PromptManager.render("test_render2", user="Alice", place="Beijing")
         assert result == "Hi Alice at Beijing"
@@ -26,6 +31,7 @@ class TestPromptManager:
     def test_render_missing_vars(self):
         from apps.core.exceptions import ValidationException
         from apps.core.llm.prompts.base import CodePromptTemplate, PromptManager
+
         PromptManager.clear()
         t = CodePromptTemplate(name="test_miss", template="{a} {b}", description="", variables=["a", "b"])
         PromptManager.register(t)
@@ -35,11 +41,13 @@ class TestPromptManager:
     def test_get_not_found(self):
         from apps.core.exceptions import NotFoundError
         from apps.core.llm.prompts.base import PromptManager
+
         with pytest.raises(NotFoundError):
             PromptManager.get("nonexistent_prompt_xyz")
 
     def test_list_templates(self):
         from apps.core.llm.prompts.base import CodePromptTemplate, PromptManager
+
         PromptManager.clear()
         PromptManager.register(CodePromptTemplate(name="t1", template="a", description=""))
         PromptManager.register(CodePromptTemplate(name="t2", template="b", description=""))
@@ -48,6 +56,7 @@ class TestPromptManager:
 
     def test_clear(self):
         from apps.core.llm.prompts.base import CodePromptTemplate, PromptManager
+
         PromptManager.clear()
         PromptManager.register(CodePromptTemplate(name="t_clear", template="x", description=""))
         assert len(PromptManager.list_templates()) >= 1
@@ -58,6 +67,7 @@ class TestPromptManager:
 class TestPaginateQueryset:
     def test_basic_pagination(self):
         from apps.core.api.pagination import paginate_queryset
+
         qs = MagicMock()
         qs.count.return_value = 100
         qs.__getitem__ = lambda self, key: list(range(key.start or 0, key.stop or 20))
@@ -69,6 +79,7 @@ class TestPaginateQueryset:
 
     def test_page_less_than_1(self):
         from apps.core.api.pagination import paginate_queryset
+
         qs = MagicMock()
         qs.count.return_value = 10
         qs.__getitem__ = lambda self, key: []
@@ -77,6 +88,7 @@ class TestPaginateQueryset:
 
     def test_page_size_capped(self):
         from apps.core.api.pagination import paginate_queryset
+
         qs = MagicMock()
         qs.count.return_value = 10
         qs.__getitem__ = lambda self, key: []
@@ -88,18 +100,22 @@ class TestLifespanApp:
     @pytest.mark.asyncio
     async def test_startup_complete(self):
         from apps.core.infrastructure.asgi_lifespan import LifespanApp
+
         startup_fn = AsyncMock()
         app = LifespanApp(on_startup=startup_fn)
         messages = [{"type": "lifespan.startup"}, {"type": "lifespan.shutdown"}]
         idx = 0
         sent = []
+
         async def receive():
             nonlocal idx
             msg = messages[idx]
             idx += 1
             return msg
+
         async def send(msg):
             sent.append(msg)
+
         await app({}, receive, send)
         startup_fn.assert_awaited_once()
         assert sent[0]["type"] == "lifespan.startup.complete"
@@ -108,18 +124,23 @@ class TestLifespanApp:
     @pytest.mark.asyncio
     async def test_startup_failure(self):
         from apps.core.infrastructure.asgi_lifespan import LifespanApp
+
         async def failing_startup():
             raise RuntimeError("boom")
+
         app = LifespanApp(on_startup=failing_startup)
         sent = []
         msg_idx = 0
         msgs = [{"type": "lifespan.startup"}]
+
         async def receive():
             nonlocal msg_idx
             m = msgs[msg_idx]
             msg_idx += 1
             return m
+
         async def send(msg):
             sent.append(msg)
+
         await app({}, receive, send)
         assert sent[0]["type"] == "lifespan.startup.failed"

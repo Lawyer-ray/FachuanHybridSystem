@@ -1,10 +1,11 @@
 """Coverage tests for workbench/tasks/summary.py and parsing.py."""
+
 from __future__ import annotations
 
 import csv
 import io
 import zipfile
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID
 
 import pytest
@@ -65,7 +66,17 @@ class TestMergeChunkResults:
         from apps.workbench.tasks.parsing import merge_chunk_results
 
         with patch("apps.workbench.tasks.parsing.parse_llm_result") as mock_parse:
-            parsed = {"analysis": "分析内容", "case_number": "test", "cause": "", "court": "", "judge": "", "clerk": "", "is_relevant": True, "conclusion": "结论", "parse_method": "json"}
+            parsed = {
+                "analysis": "分析内容",
+                "case_number": "test",
+                "cause": "",
+                "court": "",
+                "judge": "",
+                "clerk": "",
+                "is_relevant": True,
+                "conclusion": "结论",
+                "parse_method": "json",
+            }
             mock_parse.return_value = parsed
             result = merge_chunk_results(["result1", "result2"], "test.pdf")
             assert "分析内容" in result
@@ -92,9 +103,15 @@ class TestGenerateSummary:
 
         with patch("apps.workbench.tasks.summary.parse_llm_result") as mock_parse:
             mock_parse.return_value = {
-                "case_number": "test", "cause": "合同", "court": "法院",
-                "judge": "法官", "clerk": "书记员", "is_relevant": True,
-                "conclusion": "结论", "analysis": "分析", "parse_method": "json",
+                "case_number": "test",
+                "cause": "合同",
+                "court": "法院",
+                "judge": "法官",
+                "clerk": "书记员",
+                "is_relevant": True,
+                "conclusion": "结论",
+                "analysis": "分析",
+                "parse_method": "json",
             }
             with patch("apps.workbench.tasks.summary.sync_to_async") as mock_sta:
                 mock_sta.return_value = AsyncMock()
@@ -115,9 +132,15 @@ class TestGenerateSummary:
 
         with patch("apps.workbench.tasks.summary.parse_llm_result") as mock_parse:
             mock_parse.return_value = {
-                "case_number": "未注明", "cause": "未注明", "court": "未注明",
-                "judge": "未注明", "clerk": "未注明", "is_relevant": True,
-                "conclusion": "未注明", "analysis": "", "parse_method": "regex",
+                "case_number": "未注明",
+                "cause": "未注明",
+                "court": "未注明",
+                "judge": "未注明",
+                "clerk": "未注明",
+                "is_relevant": True,
+                "conclusion": "未注明",
+                "analysis": "",
+                "parse_method": "regex",
             }
             with patch("apps.workbench.tasks.summary.sync_to_async") as mock_sta:
                 mock_sta.return_value = AsyncMock()
@@ -151,9 +174,15 @@ class TestBuildDetailZipSync:
 
             with patch("apps.workbench.tasks.summary.parse_llm_result") as mock_parse:
                 mock_parse.return_value = {
-                    "case_number": "test", "cause": "合同", "court": "法院",
-                    "judge": "法官", "clerk": "书记员", "is_relevant": True,
-                    "conclusion": "结论", "analysis": "分析内容", "parse_method": "json",
+                    "case_number": "test",
+                    "cause": "合同",
+                    "court": "法院",
+                    "judge": "法官",
+                    "clerk": "书记员",
+                    "is_relevant": True,
+                    "conclusion": "结论",
+                    "analysis": "分析内容",
+                    "parse_method": "json",
                 }
 
                 with patch("apps.workbench.tasks.summary.BatchJob") as mock_job_model:
@@ -200,9 +229,15 @@ class TestBuildDetailZipSync:
 
             with patch("apps.workbench.tasks.summary.parse_llm_result") as mock_parse:
                 mock_parse.return_value = {
-                    "case_number": "test", "cause": "", "court": "",
-                    "judge": "", "clerk": "", "is_relevant": True,
-                    "conclusion": "", "analysis": "", "parse_method": "json",
+                    "case_number": "test",
+                    "cause": "",
+                    "court": "",
+                    "judge": "",
+                    "clerk": "",
+                    "is_relevant": True,
+                    "conclusion": "",
+                    "analysis": "",
+                    "parse_method": "json",
                 }
 
                 with patch("apps.workbench.tasks.summary.BatchJob") as mock_job_model:
@@ -226,9 +261,15 @@ class TestBuildDetailZipSync:
 
             with patch("apps.workbench.tasks.summary.parse_llm_result") as mock_parse:
                 mock_parse.return_value = {
-                    "case_number": "test", "cause": "", "court": "",
-                    "judge": "", "clerk": "", "is_relevant": True,
-                    "conclusion": "", "analysis": "", "parse_method": "json",
+                    "case_number": "test",
+                    "cause": "",
+                    "court": "",
+                    "judge": "",
+                    "clerk": "",
+                    "is_relevant": True,
+                    "conclusion": "",
+                    "analysis": "",
+                    "parse_method": "json",
                 }
 
                 with patch("apps.workbench.tasks.summary.BatchJob") as mock_job_model:

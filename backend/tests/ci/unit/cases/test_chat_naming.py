@@ -1,4 +1,5 @@
 """群聊名称构建与重建策略测试。"""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -10,11 +11,10 @@ from apps.cases.services.chat.naming import ChatNameBuilder
 from apps.cases.services.chat.recreate_policy import ChatRecreatePolicy
 from apps.core.exceptions import ValidationException
 
-
 # ── ChatNameBuilder ────────────────────────────────────────────────────────
 
-class TestChatNameBuilder:
 
+class TestChatNameBuilder:
     def _make_builder(self, chat_name: str = "【一审】测试案件") -> ChatNameBuilder:
         mock_config = MagicMock()
         mock_config.render_chat_name.return_value = chat_name
@@ -23,8 +23,7 @@ class TestChatNameBuilder:
     def test_build_returns_chat_name(self) -> None:
         """正常构建群聊名称。"""
         builder = self._make_builder("【一审】张三诉李四")
-        case = SimpleNamespace(name="张三诉李四", id=1, current_stage="first_instance",
-                               case_type="civil")
+        case = SimpleNamespace(name="张三诉李四", id=1, current_stage="first_instance", case_type="civil")
         case.get_current_stage_display = lambda: "一审"
         case.get_case_type_display = lambda: "民事"
         result = builder.build(case=case)
@@ -80,8 +79,8 @@ class TestChatNameBuilder:
 
 # ── ChatRecreatePolicy ─────────────────────────────────────────────────────
 
-class TestChatRecreatePolicy:
 
+class TestChatRecreatePolicy:
     def _make_result(self, error_code: str = "", message: str = "") -> SimpleNamespace:
         return SimpleNamespace(error_code=error_code, message=message)
 

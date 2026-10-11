@@ -1,4 +1,5 @@
 """当事人权限策略单元测试。"""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -23,6 +24,7 @@ def _user(**kwargs) -> SimpleNamespace:
 
 # ── can_create_client ──────────────────────────────────────────────────────
 
+
 @patch.object(ClientAccessPolicy, "has_perm", return_value=True)
 def test_can_create_client_true(mock_perm, policy: ClientAccessPolicy) -> None:
     """有权限时返回 True。"""
@@ -43,6 +45,7 @@ def test_can_create_client_none_user(mock_perm, policy: ClientAccessPolicy) -> N
 
 # ── can_update_client ──────────────────────────────────────────────────────
 
+
 @patch.object(ClientAccessPolicy, "has_perm", return_value=True)
 def test_can_update_client_true(mock_perm, policy: ClientAccessPolicy) -> None:
     """有权限时返回 True。"""
@@ -57,6 +60,7 @@ def test_can_update_client_false(mock_perm, policy: ClientAccessPolicy) -> None:
 
 # ── can_delete_client ──────────────────────────────────────────────────────
 
+
 @patch.object(ClientAccessPolicy, "has_perm", return_value=True)
 def test_can_delete_client_true(mock_perm, policy: ClientAccessPolicy) -> None:
     """有权限时返回 True。"""
@@ -70,6 +74,7 @@ def test_can_delete_client_false(mock_perm, policy: ClientAccessPolicy) -> None:
 
 
 # ── ensure methods ─────────────────────────────────────────────────────────
+
 
 @patch.object(ClientAccessPolicy, "has_perm", return_value=True)
 def test_ensure_can_create_client_passes(mock_perm, policy: ClientAccessPolicy) -> None:

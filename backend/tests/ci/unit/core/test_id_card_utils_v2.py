@@ -1,4 +1,5 @@
 """Tests for IdCardUtils covering parsing, validation, and edge cases."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -7,7 +8,6 @@ from unittest.mock import patch
 import pytest
 
 from apps.core.utils.id_card_utils import IdCardInfo, IdCardUtils
-
 
 # ── parse_id_card_info ──
 

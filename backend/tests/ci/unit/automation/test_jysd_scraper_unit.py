@@ -5,7 +5,11 @@ from __future__ import annotations
 import re
 from unittest.mock import MagicMock, PropertyMock
 
-from apps.automation.services.scraper.scrapers.court_document.jysd_scraper import JysdCourtScraper, _is_sifayun_url
+from apps.automation.services.scraper.scrapers.court_document.jysd_scraper import (
+    JysdCourtScraper,
+    _is_sifayun_url,
+    _mask_phone,
+)
 
 
 class TestJysdCourtScraper:
@@ -20,13 +24,13 @@ class TestJysdCourtScraper:
     # ─── _mask_phone ───
 
     def test_mask_phone_normal(self) -> None:
-        assert JysdCourtScraper._mask_phone("13612340615") == "136****0615"
+        assert _mask_phone("13612340615") == "136****0615"
 
     def test_mask_phone_short(self) -> None:
-        assert JysdCourtScraper._mask_phone("123") == "***"
+        assert _mask_phone("123") == "***"
 
     def test_mask_phone_7_chars(self) -> None:
-        assert JysdCourtScraper._mask_phone("1234567") == "123****4567"
+        assert _mask_phone("1234567") == "123****4567"
 
     # ─── _get_lawyer_phones ───
 

@@ -87,9 +87,7 @@ class TestObtainToken:
 
     def test_obtain_token_success_first_try(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
-        http.post.return_value = _make_response(
-            200, json_data={"access": "new-access", "refresh": "new-refresh"}
-        )
+        http.post.return_value = _make_response(200, json_data={"access": "new-access", "refresh": "new-refresh"})
         c._access_token = ""
         c._obtain_token()
 
@@ -101,9 +99,7 @@ class TestObtainToken:
             json={"username": "testuser", "password": "testpass"},
         )
 
-    def test_obtain_token_retries_on_500_then_succeeds(
-        self, fc: tuple[FachuanClient, mock.MagicMock]
-    ):
+    def test_obtain_token_retries_on_500_then_succeeds(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         fail_resp = _make_response(500, text="oops")
         ok_resp = _make_response(200, json_data={"access": "a", "refresh": "r"})
@@ -120,9 +116,7 @@ class TestObtainToken:
         assert http.post.call_count == 2
         sleep_mock.assert_called_once_with(1.0)  # first backoff
 
-    def test_obtain_token_retries_on_connect_error(
-        self, fc: tuple[FachuanClient, mock.MagicMock]
-    ):
+    def test_obtain_token_retries_on_connect_error(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         ok_resp = _make_response(200, json_data={"access": "a2", "refresh": "r2"})
         http.post.side_effect = [
@@ -138,9 +132,7 @@ class TestObtainToken:
         assert http.post.call_count == 2
         sleep_mock.assert_called_once_with(1.0)
 
-    def test_obtain_token_exhausts_retries_raises(
-        self, fc: tuple[FachuanClient, mock.MagicMock]
-    ):
+    def test_obtain_token_exhausts_retries_raises(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         http.post.side_effect = httpx.ConnectError("down")
         c._access_token = ""
@@ -151,14 +143,10 @@ class TestObtainToken:
 
         assert http.post.call_count == 3  # _MAX_OBTAIN_RETRIES
 
-    def test_obtain_token_4xx_raises_immediately(
-        self, fc: tuple[FachuanClient, mock.MagicMock]
-    ):
+    def test_obtain_token_4xx_raises_immediately(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         fail_resp = _make_response(401, text="unauthorized")
-        http.post.side_effect = httpx.HTTPStatusError(
-            "401", request=fail_resp.request, response=fail_resp
-        )
+        http.post.side_effect = httpx.HTTPStatusError("401", request=fail_resp.request, response=fail_resp)
         c._access_token = ""
 
         with pytest.raises(httpx.HTTPStatusError) as exc_info:
@@ -167,17 +155,13 @@ class TestObtainToken:
         assert exc_info.value.response.status_code == 401
         assert http.post.call_count == 1  # no retry for 4xx
 
-    def test_obtain_token_uses_correct_backoff_sequence(
-        self, fc: tuple[FachuanClient, mock.MagicMock]
-    ):
+    def test_obtain_token_uses_correct_backoff_sequence(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         http.post.side_effect = httpx.ConnectError("down")
         c._access_token = ""
 
         sleep_calls: list[float] = []
-        with mock.patch.object(
-            client_mod.time, "sleep", side_effect=lambda t: sleep_calls.append(t)
-        ):
+        with mock.patch.object(client_mod.time, "sleep", side_effect=lambda t: sleep_calls.append(t)):
             with pytest.raises(httpx.ConnectError):
                 c._obtain_token()
 
@@ -196,26 +180,18 @@ class TestRefreshToken:
     def test_refresh_success(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         c._refresh_token = "old-refresh"
-        http.post.return_value = _make_response(
-            200, json_data={"access": "refreshed-access"}
-        )
+        http.post.return_value = _make_response(200, json_data={"access": "refreshed-access"})
 
         c._refresh()
 
         assert c._access_token == "refreshed-access"
-        http.post.assert_called_once_with(
-            "/token/refresh", json={"refresh": "old-refresh"}
-        )
+        http.post.assert_called_once_with("/token/refresh", json={"refresh": "old-refresh"})
 
-    def test_refresh_failure_falls_back_to_obtain(
-        self, fc: tuple[FachuanClient, mock.MagicMock]
-    ):
+    def test_refresh_failure_falls_back_to_obtain(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         # First call (refresh) fails; second call (obtain) succeeds.
         fail_resp = _make_response(401)
-        obtain_resp = _make_response(
-            200, json_data={"access": "fresh", "refresh": "fresh-r"}
-        )
+        obtain_resp = _make_response(200, json_data={"access": "fresh", "refresh": "fresh-r"})
         http.post.side_effect = [
             httpx.HTTPStatusError("401", request=fail_resp.request, response=fail_resp),
             obtain_resp,
@@ -240,18 +216,14 @@ class TestEnsureToken:
     def test_obtains_when_no_access_token(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         c._access_token = ""
-        http.post.return_value = _make_response(
-            200, json_data={"access": "a", "refresh": "r"}
-        )
+        http.post.return_value = _make_response(200, json_data={"access": "a", "refresh": "r"})
         c._ensure_token()
         assert c._access_token == "a"
 
     def test_refreshes_when_expired(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         c._expires_at = time.time() - 100
-        http.post.return_value = _make_response(
-            200, json_data={"access": "renewed"}
-        )
+        http.post.return_value = _make_response(200, json_data={"access": "renewed"})
         c._ensure_token()
         assert c._access_token == "renewed"
 
@@ -322,17 +294,13 @@ class TestHTTPMethods:
 class TestHandleError:
     """Tests for _handle static method and error paths in HTTP methods."""
 
-    def test_400_raises_runtime_error_with_json_detail(
-        self, fc: tuple[FachuanClient, mock.MagicMock]
-    ):
+    def test_400_raises_runtime_error_with_json_detail(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         http.get.return_value = _make_response(400, json_data={"detail": "bad input"})
         with pytest.raises(RuntimeError, match=r"HTTP 400.*bad input"):
             c.get("/items")
 
-    def test_500_raises_runtime_error_with_text_fallback(
-        self, fc: tuple[FachuanClient, mock.MagicMock]
-    ):
+    def test_500_raises_runtime_error_with_text_fallback(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         # Build a response where .json() will raise to test the fallback path
         resp = _make_response(500, text="Internal Server Error", content=b"Internal Server Error")
@@ -359,9 +327,7 @@ class TestHandleError:
 class TestDownloadError:
     """Download method error paths."""
 
-    def test_download_non_success_raises_runtime_error(
-        self, fc: tuple[FachuanClient, mock.MagicMock]
-    ):
+    def test_download_non_success_raises_runtime_error(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         resp = _make_response(404, json_data={"detail": "not found"})
         http.get.return_value = resp
@@ -377,9 +343,7 @@ class TestDownloadError:
 class TestUpload:
     """Tests for the upload method."""
 
-    def test_upload_sends_multipart_with_files_and_data(
-        self, fc: tuple[FachuanClient, mock.MagicMock]
-    ):
+    def test_upload_sends_multipart_with_files_and_data(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         http.post.return_value = _make_response(200, json_data={"uploaded": True})
         files = {"file": ("test.txt", b"hello", "text/plain")}
@@ -394,9 +358,7 @@ class TestUpload:
         assert call_args[1]["data"] == data
         assert "Authorization" in call_args[1]["headers"]
 
-    def test_upload_without_data_defaults_to_empty_dict(
-        self, fc: tuple[FachuanClient, mock.MagicMock]
-    ):
+    def test_upload_without_data_defaults_to_empty_dict(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         http.post.return_value = _make_response(200, json_data={"ok": True})
         files = {"file": ("a.pdf", b"%PDF-1.4", "application/pdf")}
@@ -429,9 +391,7 @@ class TestDownload:
             request=httpx.Request("GET", REAL_BASE),
         )
 
-    def test_download_returns_content_and_defaults(
-        self, fc: tuple[FachuanClient, mock.MagicMock]
-    ):
+    def test_download_returns_content_and_defaults(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         body = b"\x89PNG\r\n"
         http.get.return_value = self._make_download_response(body)
@@ -442,9 +402,7 @@ class TestDownload:
         assert fname == "download"  # fallback when no Content-Disposition
         assert ctype == "application/octet-stream"  # fallback
 
-    def test_download_parses_filename_star_utf8(
-        self, fc: tuple[FachuanClient, mock.MagicMock]
-    ):
+    def test_download_parses_filename_star_utf8(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         from urllib.parse import quote
 
@@ -459,9 +417,7 @@ class TestDownload:
         assert fname == "测试文件.pdf"
         assert ctype == "application/pdf"
 
-    def test_download_parses_filename_quoted(
-        self, fc: tuple[FachuanClient, mock.MagicMock]
-    ):
+    def test_download_parses_filename_quoted(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         http.get.return_value = self._make_download_response(
             b"data",
@@ -472,9 +428,7 @@ class TestDownload:
 
         assert fname == "report.xlsx"
 
-    def test_download_parses_filename_unquoted(
-        self, fc: tuple[FachuanClient, mock.MagicMock]
-    ):
+    def test_download_parses_filename_unquoted(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         http.get.return_value = self._make_download_response(
             b"data",
@@ -485,25 +439,19 @@ class TestDownload:
 
         assert fname == "report.xlsx"
 
-    def test_download_prefers_filename_star_over_filename(
-        self, fc: tuple[FachuanClient, mock.MagicMock]
-    ):
+    def test_download_prefers_filename_star_over_filename(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         from urllib.parse import quote
 
         encoded = quote("中文.xlsx")
-        disposition = f'attachment; filename="fallback.xlsx"; filename*=UTF-8\'\'{encoded}'
-        http.get.return_value = self._make_download_response(
-            b"data", headers={"content-disposition": disposition}
-        )
+        disposition = f"attachment; filename=\"fallback.xlsx\"; filename*=UTF-8''{encoded}"
+        http.get.return_value = self._make_download_response(b"data", headers={"content-disposition": disposition})
 
         _, fname, _ = c.download("/files/x")
 
         assert fname == "中文.xlsx"
 
-    def test_download_raises_on_error_status(
-        self, fc: tuple[FachuanClient, mock.MagicMock]
-    ):
+    def test_download_raises_on_error_status(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         http.get.return_value = httpx.Response(
             status_code=500,

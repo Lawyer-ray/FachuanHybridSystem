@@ -28,9 +28,7 @@ class TestCheckGsxtReportEmailPollLimit:
     @patch("apps.core.tasking.ScheduleQueryService")
     @patch("apps.automation.services.gsxt.gsxt_email_service._fetch_report_attachment")
     @patch("apps.automation.models.gsxt_report.GsxtReportTask")
-    def test_poll_timeout_marks_failed_and_stops_rescheduling(
-        self, MockTask, MockFetch, MockSched, MockApps
-    ) -> None:
+    def test_poll_timeout_marks_failed_and_stops_rescheduling(self, MockTask, MockFetch, MockSched, MockApps) -> None:
         """超过轮询上限：标 FAILED、写明原因、不再续期 schedule。"""
         task = _make_task(created_at=timezone.now() - REPORT_EMAIL_POLL_TIMEOUT - timedelta(seconds=1))
         MockTask.objects.select_related.return_value.get.return_value = task

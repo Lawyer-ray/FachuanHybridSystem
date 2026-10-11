@@ -69,14 +69,16 @@ def no_sleep(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
     return sleep
 
 
-def _make_script(page_url: str = _INVOICE_PAGE_URL, cached_cookies: Any = None) -> tuple[Any, MagicMock]:
+def _make_script(monkeypatch, page_url: str = _INVOICE_PAGE_URL, cached_cookies: Any = None) -> tuple[Any, MagicMock]:
     auth = MagicMock()
     auth.load_cookies = MagicMock(return_value=cached_cookies)
-    auth.inject_to_context = AsyncMock()
     auth.perform_sso_login = AsyncMock(return_value=[{"name": "fresh"}])
     script = PlaywrightInvoiceMixin()
     script._account = "acc"
     script._password = "p"
+    inject_mock = AsyncMock()
+    script._inject_mock = inject_mock
+    monkeypatch.setattr(pi_mod, "inject_to_context", inject_mock)
     script._auth = auth
     return script, auth
 
@@ -86,14 +88,14 @@ class TestOpenPageLoginBranches:
     async def test_cached_cookies_valid_skips_sso(self, no_sleep, monkeypatch):
         factory = _PageFactory(_INVOICE_PAGE_URL)
         closes = factory.apply_to(monkeypatch)
-        script, auth = _make_script(cached_cookies=[{"name": "sid"}])
+        script, auth = _make_script(monkeypatch, cached_cookies=[{"name": "sid"}])
 
         session = await script._open_page("OA-2026-001")
 
         assert session.page is factory.page
         assert session.context is factory.context
         auth.load_cookies.assert_called_once()
-        auth.inject_to_context.assert_awaited_once_with(factory.context, [{"name": "sid"}])
+        script._inject_mock.assert_awaited_once_with(factory.context, [{"name": "sid"}])
         auth.perform_sso_login.assert_not_awaited()
         closes["close"].assert_not_awaited()
         # 登录预检 + 正式导航各一次
@@ -105,12 +107,12 @@ class TestOpenPageLoginBranches:
     async def test_no_cached_cookies_performs_sso(self, no_sleep, monkeypatch):
         factory = _PageFactory(_INVOICE_PAGE_URL)
         factory.apply_to(monkeypatch)
-        script, auth = _make_script(cached_cookies=None)
+        script, auth = _make_script(monkeypatch, cached_cookies=None)
 
         result_session = await script._open_page("OA-2026-001")
 
         auth.perform_sso_login.assert_awaited_once_with(factory.page, factory.context)
-        auth.inject_to_context.assert_awaited_once_with(factory.context, [{"name": "fresh"}])
+        script._inject_mock.assert_awaited_once_with(factory.context, [{"name": "fresh"}])
         assert result_session.page is factory.page
         factory.page.evaluate.assert_awaited()
 
@@ -119,12 +121,12 @@ class TestOpenPageLoginBranches:
         # 页面 URL 一直停在登录页：缓存失效 → SSO；导航后仍在登录页 → wait_for_url
         factory = _PageFactory(_LOGIN_PAGE_URL)
         factory.apply_to(monkeypatch)
-        script, auth = _make_script(cached_cookies=[{"name": "expired"}])
+        script, auth = _make_script(monkeypatch, cached_cookies=[{"name": "expired"}])
 
         await script._open_page("")
 
         auth.perform_sso_login.assert_awaited_once_with(factory.page, factory.context)
-        inject_calls = auth.inject_to_context.await_args_list
+        inject_calls = script._inject_mock.await_args_list
         # 失效缓存先注入一次，SSO 后再注入新 cookies
         assert inject_calls[0].args == (factory.context, [{"name": "expired"}])
         assert inject_calls[1].args == (factory.context, [{"name": "fresh"}])
@@ -139,7 +141,7 @@ class TestOpenPageCaseNumberInput:
     async def test_input_search_and_apply_click_sequence(self, no_sleep, monkeypatch):
         factory = _PageFactory(_INVOICE_PAGE_URL)
         factory.apply_to(monkeypatch)
-        script, _ = _make_script(cached_cookies=[{"name": "sid"}])
+        script, _ = _make_script(monkeypatch, cached_cookies=[{"name": "sid"}])
 
         await script._open_page("OA-2026-001")
 
@@ -172,7 +174,7 @@ class TestOpenPageCaseNumberInput:
         apply_selector = row_selector + '//a[contains(., "申请") or contains(., "开票")]'
         factory = _PageFactory(_INVOICE_PAGE_URL, counts={search_selector: 0, row_selector: 1, apply_selector: 1})
         factory.apply_to(monkeypatch)
-        script, _ = _make_script(cached_cookies=[{"name": "sid"}])
+        script, _ = _make_script(monkeypatch, cached_cookies=[{"name": "sid"}])
 
         session = await script._open_page("OA-X")
 
@@ -188,7 +190,7 @@ class TestOpenPageCaseNumberInput:
         apply_selector = row_selector + '//a[contains(., "申请") or contains(., "开票")]'
         factory = _PageFactory(_INVOICE_PAGE_URL, counts={row_selector: 0, apply_selector: 0})
         factory.apply_to(monkeypatch)
-        script, _ = _make_script(cached_cookies=[{"name": "sid"}])
+        script, _ = _make_script(monkeypatch, cached_cookies=[{"name": "sid"}])
 
         session = await script._open_page("OA-MISSING")
 
@@ -203,7 +205,7 @@ class TestOpenPageCaseNumberInput:
         apply_selector = row_selector + '//a[contains(., "申请") or contains(., "开票")]'
         factory = _PageFactory(_INVOICE_PAGE_URL, counts={row_selector: 1, apply_selector: 0})
         factory.apply_to(monkeypatch)
-        script, _ = _make_script(cached_cookies=[{"name": "sid"}])
+        script, _ = _make_script(monkeypatch, cached_cookies=[{"name": "sid"}])
 
         session = await script._open_page("OA-9")
 
@@ -217,7 +219,7 @@ class TestOpenPageErrorPath:
         factory = _PageFactory(_INVOICE_PAGE_URL)
         closes = factory.apply_to(monkeypatch)
         factory.page.goto = AsyncMock(side_effect=RuntimeError("goto failed"))
-        script, _ = _make_script(cached_cookies=[{"name": "sid"}])
+        script, _ = _make_script(monkeypatch, cached_cookies=[{"name": "sid"}])
 
         with pytest.raises(RuntimeError, match="goto failed"):
             await script._open_page("OA-1")

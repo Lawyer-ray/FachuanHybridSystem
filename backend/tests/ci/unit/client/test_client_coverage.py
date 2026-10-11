@@ -7,6 +7,7 @@ Covers:
 - apps/client/services/query/client_batch_query_service.py
 - apps/client/services/query/client_list_query_service.py
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -15,7 +16,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.core.exceptions import NotFoundError
-
 
 # ── client_dto_assembler.py ─────────────────────────────────────────────────
 
@@ -140,8 +140,22 @@ class TestClientRelatedDtoAssembler:
 
         assembler = ClientRelatedDtoAssembler()
         docs = [
-            SimpleNamespace(pk=1, client_id=1, doc_type="id_card", get_doc_type_display=lambda: "身份证", media_url="/a", expiry_date=None),
-            SimpleNamespace(pk=2, client_id=1, doc_type="passport", get_doc_type_display=lambda: "护照", media_url="/b", expiry_date="2030-01-01"),
+            SimpleNamespace(
+                pk=1,
+                client_id=1,
+                doc_type="id_card",
+                get_doc_type_display=lambda: "身份证",
+                media_url="/a",
+                expiry_date=None,
+            ),
+            SimpleNamespace(
+                pk=2,
+                client_id=1,
+                doc_type="passport",
+                get_doc_type_display=lambda: "护照",
+                media_url="/b",
+                expiry_date="2030-01-01",
+            ),
         ]
         dtos = assembler.identity_docs_to_dtos(docs)
         assert len(dtos) == 2
@@ -304,9 +318,7 @@ class TestClientListQueryService:
         svc = ClientListQueryService(query_builder=mock_builder)
         result = svc.list_clients(client_type="natural", is_our_client=True, search="test")
         assert result == "qs"
-        mock_builder.build_queryset.assert_called_once_with(
-            client_type="natural", is_our_client=True, search="test"
-        )
+        mock_builder.build_queryset.assert_called_once_with(client_type="natural", is_our_client=True, search="test")
 
     def test_list_clients_no_filters(self) -> None:
         from apps.client.services.query.client_list_query_service import ClientListQueryService
@@ -316,6 +328,4 @@ class TestClientListQueryService:
         svc = ClientListQueryService(query_builder=mock_builder)
         result = svc.list_clients()
         assert result == "qs"
-        mock_builder.build_queryset.assert_called_once_with(
-            client_type=None, is_our_client=None, search=None
-        )
+        mock_builder.build_queryset.assert_called_once_with(client_type=None, is_our_client=None, search=None)

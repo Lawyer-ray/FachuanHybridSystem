@@ -42,7 +42,9 @@ class TestParseStatementAsync:
         svc = ReconcilerService()
         mock_llm = MagicMock()
         mock_response = MagicMock()
-        mock_response.content = '```json\n{"month": "2023-01", "total_amount": 100, "signed": false, "line_items": []}\n```'
+        mock_response.content = (
+            '```json\n{"month": "2023-01", "total_amount": 100, "signed": false, "line_items": []}\n```'
+        )
         mock_llm.achat = AsyncMock(return_value=mock_response)
 
         with patch("apps.core.llm.get_llm_service", return_value=mock_llm):
@@ -63,6 +65,7 @@ class TestReconcileAsync:
         async def fake_parse(text, backend=None, model=None):
             parse_order.append(text)
             from apps.evidence_sorting.services.reconciler import StatementInfo
+
             return StatementInfo(month="2022-08", total_amount=100, signed=True)
 
         svc.parse_statement_async = fake_parse  # type: ignore[assignment]

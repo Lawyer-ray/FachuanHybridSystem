@@ -30,7 +30,6 @@ from apps.client.services.text_parser import (
     parse_multiple_clients_text,
 )
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # _normalize_text
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -524,9 +523,7 @@ class TestParseClientText:
 
     def test_company_with_address(self):
         result = parse_client_text(
-            "名称：北京测试科技有限公司\n"
-            "统一社会信用代码：91110000MA01ABCD12\n"
-            "地址：北京市海淀区中关村大街1号"
+            "名称：北京测试科技有限公司\n统一社会信用代码：91110000MA01ABCD12\n地址：北京市海淀区中关村大街1号"
         )
         assert "有限公司" in result["name"]
         assert result["client_type"] == "legal"

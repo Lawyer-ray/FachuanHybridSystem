@@ -8,26 +8,29 @@ from unittest.mock import MagicMock
 import pytest
 
 from apps.evidence_sorting.services.classifier import (
-    ClassifierService,
-    ClassifiedImage,
-    ClassifyResult,
-    TYPE_STATEMENT,
-    TYPE_DELIVERY,
-    TYPE_RECEIPT,
-    TYPE_OTHER,
     _KEYWORDS,
+    TYPE_DELIVERY,
+    TYPE_OTHER,
+    TYPE_RECEIPT,
+    TYPE_STATEMENT,
+    ClassifiedImage,
+    ClassifierService,
+    ClassifyResult,
 )
+from apps.evidence_sorting.services.exporter import _build_filename, _get_ext, _write_image
 from apps.evidence_sorting.services.reconciler import (
-    LineItem,
-    StatementInfo,
+    FOLDER_CONFIRMED,
+    STATUS_MATCHED,
+    STATUS_MISSING,
+    STATUS_UNMATCHED,
     DeliveryNote,
+    LineItem,
     MonthGroup,
     ReconcileResult,
     ReconcilerService,
-    STATUS_MATCHED,
-    STATUS_UNMATCHED,
-    STATUS_MISSING,
-    FOLDER_CONFIRMED,
+    StatementInfo,
+    _normalize_date,
+    _to_float,
 )
 
 
@@ -150,28 +153,28 @@ class TestReconcilerService:
         assert info.month == ""
 
     def test_normalize_date_valid(self):
-        assert self.service._normalize_date("20240115") == "20240115"
+        assert _normalize_date("20240115") == "20240115"
 
     def test_normalize_date_with_separators(self):
-        assert self.service._normalize_date("2024-01-15") == "20240115"
+        assert _normalize_date("2024-01-15") == "20240115"
 
     def test_normalize_date_none(self):
-        assert self.service._normalize_date(None) is None
+        assert _normalize_date(None) is None
 
     def test_normalize_date_invalid_length(self):
-        assert self.service._normalize_date("202401") is None
+        assert _normalize_date("202401") is None
 
     def test_to_float_valid(self):
-        assert self.service._to_float("1234.56") == 1234.56
+        assert _to_float("1234.56") == 1234.56
 
     def test_to_float_with_commas(self):
-        assert self.service._to_float("1,234.56") == 1234.56
+        assert _to_float("1,234.56") == 1234.56
 
     def test_to_float_none(self):
-        assert self.service._to_float(None) is None
+        assert _to_float(None) is None
 
     def test_to_float_invalid(self):
-        assert self.service._to_float("abc") is None
+        assert _to_float("abc") is None
 
     def test_extract_month_key_standard(self):
         info = StatementInfo(month="2024-01")
@@ -243,14 +246,14 @@ class TestExporterService:
     def test_get_ext(self):
         from apps.evidence_sorting.services.exporter import ExporterService
 
-        assert ExporterService._get_ext("test.jpg") == ".jpg"
-        assert ExporterService._get_ext("test.pdf") == ".pdf"
-        assert ExporterService._get_ext("noext") == ".jpg"
+        assert _get_ext("test.jpg") == ".jpg"
+        assert _get_ext("test.pdf") == ".pdf"
+        assert _get_ext("noext") == ".jpg"
 
     def test_build_filename(self):
         from apps.evidence_sorting.services.exporter import ExporterService
 
-        filename = ExporterService._build_filename()
+        filename = _build_filename()
         assert filename.startswith("evidence_sorting_")
         assert filename.endswith(".zip")
 
@@ -262,7 +265,7 @@ class TestExporterService:
 
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
-            ExporterService._write_image(zf, "test.jpg", base64.b64encode(b"fake image").decode())
+            _write_image(zf, "test.jpg", base64.b64encode(b"fake image").decode())
         buf.seek(0)
         with zipfile.ZipFile(buf, "r") as zf:
             assert "test.jpg" in zf.namelist()
@@ -276,7 +279,7 @@ class TestExporterService:
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
             data = "data:image/jpeg;base64," + base64.b64encode(b"fake image").decode()
-            ExporterService._write_image(zf, "test.jpg", data)
+            _write_image(zf, "test.jpg", data)
         buf.seek(0)
         with zipfile.ZipFile(buf, "r") as zf:
             assert "test.jpg" in zf.namelist()

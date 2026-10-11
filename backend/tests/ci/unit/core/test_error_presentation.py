@@ -1,4 +1,5 @@
 """Tests for apps.core.exceptions.error_presentation."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -18,7 +19,6 @@ from apps.core.exceptions import (
 )
 from apps.core.exceptions.base import BusinessException
 from apps.core.exceptions.error_presentation import ErrorEnvelope, ExceptionPresenter
-
 
 # ============================================================
 # ErrorEnvelope
@@ -115,29 +115,21 @@ class TestExceptionPresenterBusinessExceptions:
 
     def test_ws_channel_status_still_returned_for_business_exc(self) -> None:
         # Business exceptions still map to HTTP status even on ws channel
-        envelope, status = self.presenter.present(
-            ExternalServiceError("bad"), channel="ws"
-        )
+        envelope, status = self.presenter.present(ExternalServiceError("bad"), channel="ws")
         assert status == 502
 
     def test_generic_exception_ws_no_status(self) -> None:
-        envelope, status = self.presenter.present(
-            ValueError("oops"), channel="ws", debug=False
-        )
+        envelope, status = self.presenter.present(ValueError("oops"), channel="ws", debug=False)
         assert status is None
 
     def test_generic_exception_debug(self) -> None:
-        envelope, status = self.presenter.present(
-            ValueError("oops"), channel="http", debug=True
-        )
+        envelope, status = self.presenter.present(ValueError("oops"), channel="http", debug=True)
         assert envelope.code == "INTERNAL_ERROR"
         assert envelope.message == "oops"
         assert status == 500
 
     def test_generic_exception_no_debug(self) -> None:
-        envelope, status = self.presenter.present(
-            ValueError("oops"), channel="http", debug=False
-        )
+        envelope, status = self.presenter.present(ValueError("oops"), channel="http", debug=False)
         assert envelope.message == "系统错误,请稍后重试"
 
 

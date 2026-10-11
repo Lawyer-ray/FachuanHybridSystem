@@ -76,17 +76,13 @@ class TestCaseMatcher:
         assert self.matcher._select_latest_case([]) is None
 
     def test_extract_features_from_numbers(self) -> None:
-        case_type, case_stage, is_bankruptcy = self.matcher._extract_features_from_numbers(
-            ["（2025）粤0604民初1号"]
-        )
+        case_type, case_stage, is_bankruptcy = self.matcher._extract_features_from_numbers(["（2025）粤0604民初1号"])
         assert case_type == "civil"
         assert case_stage == "first_trial"
         assert is_bankruptcy is False
 
     def test_extract_features_bankruptcy(self) -> None:
-        case_type, case_stage, is_bankruptcy = self.matcher._extract_features_from_numbers(
-            ["（2025）粤0604破1号"]
-        )
+        case_type, case_stage, is_bankruptcy = self.matcher._extract_features_from_numbers(["（2025）粤0604破1号"])
         assert is_bankruptcy is True
 
     def test_apply_type_filter(self) -> None:
@@ -148,7 +144,7 @@ class TestDocumentRenamer:
             self.renamer = DocumentRenamer()
 
     def test_normalize_title_candidate(self) -> None:
-        result = self.renamer._normalize_title_candidate("  \"判决书\"  ")
+        result = self.renamer._normalize_title_candidate('  "判决书"  ')
         assert result == "判决书"
 
     def test_normalize_title_candidate_removes_court_prefix(self) -> None:
@@ -189,7 +185,7 @@ class TestDocumentRenamer:
         assert result is None
 
     def test_sanitize_filename_part(self) -> None:
-        result = self.renamer._sanitize_filename_part("test<>:\"/\\|?*file")
+        result = self.renamer._sanitize_filename_part('test<>:"/\\|?*file')
         assert "<" not in result
         assert ">" not in result
         assert ":" not in result
