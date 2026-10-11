@@ -126,9 +126,7 @@ class TestPublishArchiveProducts:
         (tmp_path / "5-Final案卷材料（TestContract）_20261002.pdf").write_bytes(b"b")
 
         contract = _make_contract()
-        with patch(
-            "apps.contracts.services.folder.folder_binding_service.FolderBindingService"
-        ) as mock_svc_cls:
+        with patch("apps.contracts.services.folder.folder_binding_service.FolderBindingService") as mock_svc_cls:
             mock_svc = mock_svc_cls.return_value
             mock_svc.save_file_to_bound_folder.return_value = "/bound/归档文件夹/1.docx"
 
@@ -148,9 +146,7 @@ class TestPublishArchiveProducts:
         (tmp_path / "4-案卷材料.pdf").write_bytes(b"x")
 
         contract = _make_contract()
-        with patch(
-            "apps.contracts.services.folder.folder_binding_service.FolderBindingService"
-        ) as mock_svc_cls:
+        with patch("apps.contracts.services.folder.folder_binding_service.FolderBindingService") as mock_svc_cls:
             mock_svc = mock_svc_cls.return_value
             mock_svc.save_file_to_bound_folder.side_effect = RuntimeError("disk full")
 
@@ -165,9 +161,7 @@ class TestPublishArchiveProducts:
         (tmp_path / "4-案卷材料.pdf").write_bytes(b"x")
 
         contract = _make_contract()
-        with patch(
-            "apps.contracts.services.folder.folder_binding_service.FolderBindingService"
-        ) as mock_svc_cls:
+        with patch("apps.contracts.services.folder.folder_binding_service.FolderBindingService") as mock_svc_cls:
             mock_svc = mock_svc_cls.return_value
             mock_svc.save_file_to_bound_folder.return_value = None
 

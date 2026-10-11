@@ -271,7 +271,7 @@ class EnterpriseDataService:
     ) -> dict[str, Any]:  # pragma: no cover
         selected_provider = self._registry.get_provider(provider)
         selected_provider_name = selected_provider.name
-        cache_key = self._build_cache_key(provider=selected_provider_name, capability=capability, query=query)
+        cache_key = _build_cache_key(provider=selected_provider_name, capability=capability, query=query)
 
         cached = cache.get(cache_key)
         if isinstance(cached, dict):
@@ -296,7 +296,7 @@ class EnterpriseDataService:
                 fallback_used=False,
             )
             raise
-        payload = self._build_query_payload(
+        payload = _build_query_payload(
             provider=selected_provider_name,
             transport=selected_provider.transport,
             capability=capability,
@@ -325,32 +325,6 @@ class EnterpriseDataService:
             payload["raw"] = None
         return payload
 
-    @staticmethod
-    def _build_query_payload(
-        *,
-        provider: str,
-        transport: str,
-        capability: str,
-        query: dict[str, Any],
-        response: ProviderResponse,
-        include_raw: bool,
-    ) -> dict[str, Any]:
-        meta = {
-            "provider": provider,
-            "transport": transport,
-            "tool": response.tool,
-            "capability": capability,
-            "cached": False,
-        }
-        if response.meta:
-            meta.update(response.meta)
-        return {
-            "query": query,
-            "data": response.data,
-            "meta": meta,
-            "raw": response.raw if include_raw else None,
-        }
-
     def _resolve_provider_tools(self, provider_name: str) -> tuple[list[str], str]:
         try:
             provider = self._registry.get_provider(provider_name)
@@ -365,17 +339,6 @@ class EnterpriseDataService:
                 },
             )
             return [], f"工具探测失败: {detail}"
-
-    @staticmethod
-    def _build_cache_key(*, provider: str, capability: str, query: dict[str, Any]) -> str:
-        normalized = json.dumps(
-            {"provider": provider, "capability": capability, "query": query},
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-        )
-        digest = hashlib.md5(normalized.encode("utf-8"), usedforsecurity=False).hexdigest()
-        return f"enterprise_data:{digest}"
 
     def _read_registry_int(self, method_name: str, default: int) -> int:
         getter = getattr(self._registry, method_name, None)
@@ -396,3 +359,42 @@ class EnterpriseDataService:
         except (TypeError, ValueError):
             return default
         return value
+
+
+# ↓↓ 由 EnterpriseDataService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _build_query_payload(
+    *,
+    provider: str,
+    transport: str,
+    capability: str,
+    query: dict[str, Any],
+    response: ProviderResponse,
+    include_raw: bool,
+) -> dict[str, Any]:
+    meta = {
+        "provider": provider,
+        "transport": transport,
+        "tool": response.tool,
+        "capability": capability,
+        "cached": False,
+    }
+    if response.meta:
+        meta.update(response.meta)
+    return {
+        "query": query,
+        "data": response.data,
+        "meta": meta,
+        "raw": response.raw if include_raw else None,
+    }
+
+
+# ↓↓ 由 EnterpriseDataService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _build_cache_key(*, provider: str, capability: str, query: dict[str, Any]) -> str:
+    normalized = json.dumps(
+        {"provider": provider, "capability": capability, "query": query},
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    digest = hashlib.md5(normalized.encode("utf-8"), usedforsecurity=False).hexdigest()
+    return f"enterprise_data:{digest}"

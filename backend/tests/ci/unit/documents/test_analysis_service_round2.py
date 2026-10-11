@@ -39,12 +39,13 @@ class TestExtractTables:
         ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
         # Create XML tr/tc elements
         import xml.etree.ElementTree as ET
-        tbl_xml = '''<w:tbl xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+
+        tbl_xml = """<w:tbl xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
             <w:tr>
                 <w:tc><w:t>Cell1</w:t></w:tc>
                 <w:tc><w:t>Cell2</w:t></w:tc>
             </w:tr>
-        </w:tbl>'''
+        </w:tbl>"""
         table._tbl = ET.fromstring(tbl_xml)
         table.rows = [MagicMock()]
         table.rows[0].cells = [MagicMock(), MagicMock()]
@@ -59,8 +60,9 @@ class TestExtractTables:
     def test_merged_cells(self):
         svc = _make_service()
         import xml.etree.ElementTree as ET
+
         table = MagicMock()
-        tbl_xml = '''<w:tbl xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+        tbl_xml = """<w:tbl xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
             <w:tr>
                 <w:tc>
                     <w:tcPr><w:gridSpan w:val="2"/></w:tcPr>
@@ -68,7 +70,7 @@ class TestExtractTables:
                 </w:tc>
                 <w:tc><w:t>Normal</w:t></w:tc>
             </w:tr>
-        </w:tbl>'''
+        </w:tbl>"""
         table._tbl = ET.fromstring(tbl_xml)
         table.rows = [MagicMock()]
         table.rows[0].cells = [MagicMock(), MagicMock()]
@@ -83,15 +85,16 @@ class TestExtractTables:
     def test_vertical_merge_continue_skipped(self):
         svc = _make_service()
         import xml.etree.ElementTree as ET
+
         table = MagicMock()
-        tbl_xml = '''<w:tbl xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+        tbl_xml = """<w:tbl xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
             <w:tr>
                 <w:tc>
                     <w:tcPr><w:vMerge w:val="continue"/></w:tcPr>
                     <w:t>Continued</w:t>
                 </w:tc>
             </w:tr>
-        </w:tbl>'''
+        </w:tbl>"""
         table._tbl = ET.fromstring(tbl_xml)
         table.rows = [MagicMock()]
         table.rows[0].cells = []
@@ -103,12 +106,13 @@ class TestExtractTables:
     def test_delete_inapplicable_in_table_cell(self):
         svc = _make_service()
         import xml.etree.ElementTree as ET
+
         table = MagicMock()
-        tbl_xml = '''<w:tbl xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+        tbl_xml = """<w:tbl xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
             <w:tr>
                 <w:tc><w:t>自然人/法人</w:t></w:tc>
             </w:tr>
-        </w:tbl>'''
+        </w:tbl>"""
         table._tbl = ET.fromstring(tbl_xml)
         table.rows = [MagicMock()]
         table.rows[0].cells = [MagicMock()]
@@ -132,7 +136,7 @@ class TestExtractCheckboxesExtended:
     def test_w_checkbox_format(self):
         """Test w:checkbox (not w14:checkbox) format."""
         svc = _make_service()
-        xml = '''<root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+        xml = """<root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
             <w:sdt>
                 <w:sdtPr>
                     <w:checkbox>
@@ -143,7 +147,7 @@ class TestExtractCheckboxesExtended:
                     <w:r><w:t>Opt1</w:t></w:r>
                 </w:sdtContent>
             </w:sdt>
-        </root>'''
+        </root>"""
         doc = MagicMock()
         doc.element.xml = xml
         result = svc._extract_checkboxes(doc)
@@ -152,7 +156,7 @@ class TestExtractCheckboxesExtended:
 
     def test_no_sdt_content(self):
         svc = _make_service()
-        xml = '''<root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+        xml = """<root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
                         xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml">
             <w:sdt>
                 <w:sdtPr>
@@ -161,7 +165,7 @@ class TestExtractCheckboxesExtended:
                     </w14:checkbox>
                 </w:sdtPr>
             </w:sdt>
-        </root>'''
+        </root>"""
         doc = MagicMock()
         doc.element.xml = xml
         result = svc._extract_checkboxes(doc)
@@ -170,11 +174,11 @@ class TestExtractCheckboxesExtended:
 
     def test_sdt_without_sdt_pr(self):
         svc = _make_service()
-        xml = '''<root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+        xml = """<root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
             <w:sdt>
                 <w:sdtContent><w:r><w:t>x</w:t></w:r></w:sdtContent>
             </w:sdt>
-        </root>'''
+        </root>"""
         doc = MagicMock()
         doc.element.xml = xml
         result = svc._extract_checkboxes(doc)
@@ -182,13 +186,13 @@ class TestExtractCheckboxesExtended:
 
     def test_sdt_not_checkbox(self):
         svc = _make_service()
-        xml = '''<root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+        xml = """<root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
             <w:sdt>
                 <w:sdtPr>
                     <w:date/>
                 </w:sdtPr>
             </w:sdt>
-        </root>'''
+        </root>"""
         doc = MagicMock()
         doc.element.xml = xml
         result = svc._extract_checkboxes(doc)
@@ -234,7 +238,7 @@ class TestParseLlmResponseExtended:
 
     def test_item_without_optional_fields(self):
         svc = _make_service()
-        result = svc._parse_llm_response('[{}]')
+        result = svc._parse_llm_response("[{}]")
         assert len(result) == 1
         assert result[0]["semantic_label"] == ""
         assert result[0]["fill_type"] == "text"
@@ -251,7 +255,13 @@ class TestCreateFieldMappingsExtended:
     def test_delete_inapplicable_type(self):
         svc = _make_service()
         template = MagicMock()
-        mappings = [{"position_locator": {"type": "delete_inapplicable"}, "semantic_label": "dia", "fill_type": "delete_inapplicable"}]
+        mappings = [
+            {
+                "position_locator": {"type": "delete_inapplicable"},
+                "semantic_label": "dia",
+                "fill_type": "delete_inapplicable",
+            }
+        ]
 
         with patch("apps.documents.models.external_template.ExternalTemplateFieldMapping") as mock_fm:
             mock_fm.objects.create.return_value = MagicMock()
@@ -283,12 +293,16 @@ class TestAnalyzeTemplateFingerprintMatchExcludesSelf:
         with patch("apps.documents.models.external_template.ExternalTemplate") as mock_tpl:
             mock_tpl.objects.get.return_value = template_obj
 
-            with patch.object(svc, "extract_structure", return_value={}), \
-                 patch.object(svc._fingerprint_service, "compute_fingerprint", return_value="fp"), \
-                 patch.object(svc._fingerprint_service, "find_matching_template", return_value=template_obj) as mock_find, \
-                 patch.object(svc, "_build_llm_prompt", return_value="prompt") as mock_prompt, \
-                 patch.object(svc._llm_service, "complete", return_value=MagicMock(content='[]')) as mock_complete, \
-                 patch.object(svc, "_create_field_mappings", return_value=[]):
+            with (
+                patch.object(svc, "extract_structure", return_value={}),
+                patch.object(svc._fingerprint_service, "compute_fingerprint", return_value="fp"),
+                patch.object(
+                    svc._fingerprint_service, "find_matching_template", return_value=template_obj
+                ) as mock_find,
+                patch.object(svc, "_build_llm_prompt", return_value="prompt") as mock_prompt,
+                patch.object(svc._llm_service, "complete", return_value=MagicMock(content="[]")) as mock_complete,
+                patch.object(svc, "_create_field_mappings", return_value=[]),
+            ):
                 result = svc.analyze_template(1)
 
         # self-match was excluded, should go through LLM path

@@ -21,12 +21,12 @@ logger = logging.getLogger("apps.express_query")
 
 class ExpressBrowserQueryService:  # pragma: no cover
     @staticmethod
-    async def close_browser() -> None:  # pragma: no cover
-        await close_browser()
-
-    @staticmethod
     async def disconnect_playwright() -> None:  # pragma: no cover
         await disconnect_playwright()
+
+    @staticmethod
+    async def close_browser() -> None:  # pragma: no cover
+        await close_browser()
 
     async def query_and_save_pdf(
         self, carrier_type: str, tracking_number: str, output_pdf: Path

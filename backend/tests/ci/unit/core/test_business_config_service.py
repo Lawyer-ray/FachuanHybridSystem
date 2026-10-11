@@ -3,6 +3,7 @@
 Covers: BusinessConfigService all methods, BusinessConfig singleton, stage/status queries,
 label lookups, validity checks, compatible statuses, cache invalidation.
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -101,11 +102,13 @@ class TestBusinessConfigReal:
         def _noop_decorator(*args, **kwargs):
             def wrapper(fn):
                 return fn
+
             return wrapper if args and callable(args[0]) else wrapper
 
         with _patch("apps.core.config.business_config.cached", _noop_decorator):
             # Reset singleton to pick up patched decorator
             from apps.core.config.business_config import BusinessConfig
+
             BusinessConfig._instance = None
             yield
             BusinessConfig._instance = None
@@ -209,8 +212,7 @@ class TestBusinessConfigReal:
         assert bc.is_stage_valid_for_case_type("first_trial", None) is True
 
     def test_is_stage_valid_no_applicable_types(self):
-        from apps.core.config.business_config import BusinessConfig
-        from apps.core.config.business_config import StageConfig, CASE_STAGES
+        from apps.core.config.business_config import CASE_STAGES, BusinessConfig, StageConfig
 
         bc = BusinessConfig()
         # Find a stage with no applicable_case_types (should return True for any case_type)
@@ -240,7 +242,7 @@ class TestBusinessConfigReal:
         assert bc.is_legal_status_valid_for_case_type("plaintiff", None) is True
 
     def test_is_legal_status_valid_no_applicable_types(self):
-        from apps.core.config.business_config import BusinessConfig, LEGAL_STATUSES
+        from apps.core.config.business_config import LEGAL_STATUSES, BusinessConfig
 
         bc = BusinessConfig()
         for s in LEGAL_STATUSES:

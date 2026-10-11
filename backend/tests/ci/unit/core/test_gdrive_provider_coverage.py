@@ -2,6 +2,7 @@
 
 Covers _PathResolver.resolve and _escape_gql, _parse_gdrive_time.
 """
+
 from __future__ import annotations
 
 import time
@@ -68,7 +69,9 @@ class TestPathResolver:
         resolver = _PathResolver(mock_service, root_folder_id="root")
         # After first segment resolves, cache it for second
         resolver._cache["/seg1"] = "seg1_id"
-        mock_service.files.return_value.list.return_value.execute.return_value = {"files": [{"id": "seg2_id", "name": "seg2"}]}
+        mock_service.files.return_value.list.return_value.execute.return_value = {
+            "files": [{"id": "seg2_id", "name": "seg2"}]
+        }
         result = resolver.resolve("/seg1/seg2")
         assert result == "seg2_id"
 

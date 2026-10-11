@@ -14,10 +14,11 @@ from unittest.mock import MagicMock, PropertyMock
 import pytest
 
 from apps.automation.services.sms.court_sms_recommendation_service import (
-    CourtSMSRecommendationService,
-    RecommendationResult,
     _COURT_NAME_PATTERN,
     _YEAR_COURT_PREFIX_PATTERN,
+    CourtSMSRecommendationService,
+    RecommendationResult,
+    _build_query,
 )
 
 
@@ -64,9 +65,7 @@ class TestScoreAndRankDedup:
         case2.parties.all.return_value = []
         case2.supervising_authorities.all.return_value = []
 
-        results = svc._score_and_rank(
-            [case1, case2], [], [], None, []
-        )
+        results = svc._score_and_rank([case1, case2], [], [], None, [])
         assert len(results) == 1
 
     def test_top_10_limit(self):
@@ -109,9 +108,7 @@ class TestScoreAndRankDedup:
         c2.parties.all.return_value = []
         c2.supervising_authorities.all.return_value = []
 
-        results = svc._score_and_rank(
-            [c1, c2], ["（2025）粤01民初100号"], [], None, []
-        )
+        results = svc._score_and_rank([c1, c2], ["（2025）粤01民初100号"], [], None, [])
         assert results[0].case_name == "High"
         assert results[0].score >= 100
 
@@ -128,14 +125,14 @@ class TestScoreCaseCombined:
         case.start_date = start_date
 
         cn_mocks = []
-        for num in (case_numbers or []):
+        for num in case_numbers or []:
             cn = MagicMock()
             cn.number = num
             cn_mocks.append(cn)
         case.case_numbers.all.return_value = cn_mocks
 
         party_mocks = []
-        for name in (parties or []):
+        for name in parties or []:
             p = MagicMock()
             p.client = MagicMock()
             p.client.name = name
@@ -143,7 +140,7 @@ class TestScoreCaseCombined:
         case.parties.all.return_value = party_mocks
 
         sa_mocks = []
-        for name in (authorities or []):
+        for name in authorities or []:
             sa = MagicMock()
             sa.name = name
             sa_mocks.append(sa)
@@ -159,9 +156,7 @@ class TestScoreCaseCombined:
             authorities=["广州市天河区人民法院"],
             start_date=date.today(),
         )
-        score, reasons = svc._score_case(
-            case, ["（2025）粤01民初100号"], [], "天河区人民法院", ["张三"]
-        )
+        score, reasons = svc._score_case(case, ["（2025）粤01民初100号"], [], "天河区人民法院", ["张三"])
         assert score >= 100 + 40 + 20 + 1  # exact + court + party + recency
         assert "案号完全匹配" in reasons
         assert "法院名称匹配" in reasons
@@ -202,15 +197,11 @@ class TestScoreCaseCombined:
 
 class TestBuildQueryPrefixes:
     def test_with_year_court_prefixes(self):
-        result = CourtSMSRecommendationService._build_query(
-            [], ["(2025)粤01"], None, []
-        )
+        result = _build_query([], ["(2025)粤01"], None, [])
         assert result is not None
 
     def test_all_dimensions(self):
-        result = CourtSMSRecommendationService._build_query(
-            ["CN001"], ["(2025)粤01"], "天河法院", ["张三"]
-        )
+        result = _build_query(["CN001"], ["(2025)粤01"], "天河法院", ["张三"])
         assert result is not None
 
 

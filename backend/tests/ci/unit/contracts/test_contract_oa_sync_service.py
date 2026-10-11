@@ -162,8 +162,10 @@ class TestContractOASyncServiceHelpers:
         svc = self._make_service()
         session = MagicMock()
         session.status = "running"
-        from django.utils import timezone
         from datetime import timedelta
+
+        from django.utils import timezone
+
         session.updated_at = timezone.now() - timedelta(minutes=10)
         assert svc._is_stale_active_session(session) is True
 
@@ -172,6 +174,7 @@ class TestContractOASyncServiceHelpers:
         session = MagicMock()
         session.status = "running"
         from django.utils import timezone
+
         session.updated_at = timezone.now()
         assert svc._is_stale_active_session(session) is False
 
@@ -194,18 +197,14 @@ class TestContractOASyncServiceHelpers:
         svc = self._make_service()
         candidate = MagicMock()
         candidate.case_name = "张某诉李某合同纠纷"
-        result = svc._filter_candidates_by_contract_name(
-            contract_name="张某诉李某合同纠纷", candidates=[candidate]
-        )
+        result = svc._filter_candidates_by_contract_name(contract_name="张某诉李某合同纠纷", candidates=[candidate])
         assert len(result) == 1
 
     def test_filter_candidates_no_match(self):
         svc = self._make_service()
         candidate = MagicMock()
         candidate.case_name = "完全不同的案件"
-        result = svc._filter_candidates_by_contract_name(
-            contract_name="张某诉李某合同纠纷", candidates=[candidate]
-        )
+        result = svc._filter_candidates_by_contract_name(contract_name="张某诉李某合同纠纷", candidates=[candidate])
         assert len(result) == 0
 
     def test_filter_candidates_empty(self):

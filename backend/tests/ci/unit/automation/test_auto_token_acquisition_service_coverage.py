@@ -10,6 +10,7 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -244,6 +245,7 @@ class TestResolveCredentialAndToken:
             mock_handler.return_value = mock_login
 
             from apps.core.exceptions import ValidationException
+
             with pytest.raises(ValidationException, match="无效的凭证ID"):
                 await svc._resolve_credential_and_token("site", 999, "aid")
 
@@ -264,6 +266,7 @@ class TestResolveCredentialAndToken:
         strategy.select_account.return_value = None
 
         from apps.core.exceptions import NoAvailableAccountError
+
         with pytest.raises(NoAvailableAccountError):
             await svc._resolve_credential_and_token("site", None, "aid")
 

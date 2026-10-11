@@ -16,8 +16,13 @@ class TestPassageAdditional:
         from apps.legal_research.services.similarity.passage import select_relevant_passages
 
         result = select_relevant_passages(
-            keyword="test", case_summary="", title="",
-            case_digest="", content_text="", max_passages=5, passage_max_chars=200,
+            keyword="test",
+            case_summary="",
+            title="",
+            case_digest="",
+            content_text="",
+            max_passages=5,
+            passage_max_chars=200,
         )
         assert result == []
 

@@ -69,7 +69,7 @@ class CalendarSyncService:
                 skipped += 1
                 continue
 
-            kwargs = self._to_reminder_kwargs(event_data)
+            kwargs = _to_reminder_kwargs(event_data)
             reminder = Reminder(**kwargs)
             try:
                 reminder.full_clean()
@@ -127,50 +127,51 @@ class CalendarSyncService:
 
         return preview
 
-    @staticmethod
-    def _to_reminder_kwargs(event_data: dict) -> dict:
-        """Convert a preview event dict to Reminder creation kwargs."""
-        title = event_data.get("title", "")[:255]
-        start_str = event_data.get("start_dt", "")
 
-        due_at: datetime | None = None
-        if start_str:
-            try:
-                naive = datetime.fromisoformat(start_str)
-                due_at = timezone.make_aware(naive, timezone.get_current_timezone())
-            except (ValueError, TypeError):
-                pass
+# ↓↓ 由 CalendarSyncService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _to_reminder_kwargs(event_data: dict) -> dict:
+    """Convert a preview event dict to Reminder creation kwargs."""
+    title = event_data.get("title", "")[:255]
+    start_str = event_data.get("start_dt", "")
 
-        if due_at is None:
-            due_at = timezone.now()
+    due_at: datetime | None = None
+    if start_str:
+        try:
+            naive = datetime.fromisoformat(start_str)
+            due_at = timezone.make_aware(naive, timezone.get_current_timezone())
+        except (ValueError, TypeError):
+            pass
 
-        metadata: dict = {
-            "source": "local_calendar_sync",
-        }
+    if due_at is None:
+        due_at = timezone.now()
 
-        external_id = event_data.get("uid", "")
-        if external_id:
-            metadata["external_id"] = external_id
+    metadata: dict = {
+        "source": "local_calendar_sync",
+    }
 
-        calendar_name = event_data.get("calendar_name", "")
-        if calendar_name and calendar_name != "missing value":
-            metadata["calendar_name"] = calendar_name
+    external_id = event_data.get("uid", "")
+    if external_id:
+        metadata["external_id"] = external_id
 
-        location = event_data.get("location", "")
-        if location and location != "missing value":
-            metadata["location"] = location
+    calendar_name = event_data.get("calendar_name", "")
+    if calendar_name and calendar_name != "missing value":
+        metadata["calendar_name"] = calendar_name
 
-        description = event_data.get("description", "")
-        if description and description != "missing value":
-            metadata["note"] = description
+    location = event_data.get("location", "")
+    if location and location != "missing value":
+        metadata["location"] = location
 
-        organizer = event_data.get("organizer", "")
-        if organizer and organizer != "missing value":
-            metadata["organizer"] = organizer
+    description = event_data.get("description", "")
+    if description and description != "missing value":
+        metadata["note"] = description
 
-        return {
-            "content": title,
-            "reminder_type": ReminderType.OTHER,
-            "due_at": due_at,
-            "metadata": metadata,
-        }
+    organizer = event_data.get("organizer", "")
+    if organizer and organizer != "missing value":
+        metadata["organizer"] = organizer
+
+    return {
+        "content": title,
+        "reminder_type": ReminderType.OTHER,
+        "due_at": due_at,
+        "metadata": metadata,
+    }

@@ -6,17 +6,17 @@ from typing import Any
 
 import pytest
 
-from apps.evidence.models import (
-    EvidenceList,
-    EvidenceItem,
-    EvidenceGroup,
-    ListType,
-    EvidenceType,
-    EvidenceDirection,
-    OriginalStatus,
-)
 from apps.cases.models import Case
 from apps.contracts.models import Contract
+from apps.evidence.models import (
+    EvidenceDirection,
+    EvidenceGroup,
+    EvidenceItem,
+    EvidenceList,
+    EvidenceType,
+    ListType,
+    OriginalStatus,
+)
 
 
 def _create_case() -> Case:
@@ -31,9 +31,7 @@ class TestEvidenceListModel:
     def test_create_evidence_list(self) -> None:
         """创建证据清单"""
         case = _create_case()
-        elist = EvidenceList.objects.create(
-            case=case, title="证据清单1", list_type="previous", order=1
-        )
+        elist = EvidenceList.objects.create(case=case, title="证据清单1", list_type="previous", order=1)
         assert elist.title == "证据清单1"
         assert elist.list_type == "previous"
 
@@ -41,9 +39,7 @@ class TestEvidenceListModel:
         """证据清单类型值"""
         # ListType 是字符串枚举，测试实际可用的值
         case = _create_case()
-        elist = EvidenceList.objects.create(
-            case=case, title="类型测试清单", list_type="previous", order=1
-        )
+        elist = EvidenceList.objects.create(case=case, title="类型测试清单", list_type="previous", order=1)
         assert elist.list_type == "previous"
 
 
@@ -54,9 +50,7 @@ class TestEvidenceItemModel:
     def test_create_evidence_item(self) -> None:
         """创建证据明细"""
         case = _create_case()
-        elist = EvidenceList.objects.create(
-            case=case, title="明细测试清单", list_type="previous", order=1
-        )
+        elist = EvidenceList.objects.create(case=case, title="明细测试清单", list_type="previous", order=1)
         item = EvidenceItem.objects.create(
             evidence_list=elist,
             order=1,
@@ -88,9 +82,7 @@ class TestEvidenceItemModel:
     def test_page_range_display(self) -> None:
         """页码范围显示"""
         case = _create_case()
-        elist = EvidenceList.objects.create(
-            case=case, title="页码测试清单", list_type="previous", order=1
-        )
+        elist = EvidenceList.objects.create(case=case, title="页码测试清单", list_type="previous", order=1)
         item = EvidenceItem.objects.create(
             evidence_list=elist,
             order=1,
@@ -111,18 +103,14 @@ class TestEvidenceGroupModel:
     def test_create_group(self) -> None:
         """创建证据分组"""
         case = _create_case()
-        group = EvidenceGroup.objects.create(
-            case=case, name="合同关系证据", sort_order=1
-        )
+        group = EvidenceGroup.objects.create(case=case, name="合同关系证据", sort_order=1)
         assert group.name == "合同关系证据"
         assert group.sort_order == 1
 
     def test_group_with_items(self) -> None:
         """分组关联证据"""
         case = _create_case()
-        elist = EvidenceList.objects.create(
-            case=case, title="分组测试清单", list_type="previous", order=1
-        )
+        elist = EvidenceList.objects.create(case=case, title="分组测试清单", list_type="previous", order=1)
         item1 = EvidenceItem.objects.create(evidence_list=elist, order=1, name="分组证据1")
         item2 = EvidenceItem.objects.create(evidence_list=elist, order=2, name="分组证据2")
         group = EvidenceGroup.objects.create(case=case, name="分组1", sort_order=1)

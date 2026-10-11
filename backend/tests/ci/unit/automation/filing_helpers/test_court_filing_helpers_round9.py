@@ -8,6 +8,7 @@ Focuses on branches that round5/round8 haven't covered:
 - _build_material_slot_signals edge cases
 - _score_slot_deduplicated edge cases (empty secondary + weak, combined scoring)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -24,7 +25,6 @@ except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
 
-
 # ══════════════════════════════════════════════════════════════════════════════
 # _run_filing — inner helpers via _record_progress and _service_progress_reporter
 # ══════════════════════════════════════════════════════════════════════════════
@@ -38,9 +38,7 @@ class TestRunFilingInnerHelpers:
     @patch("plugins.court_automation.filing.playwright_filing.CourtZxfwFilingService")
     @patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService")
     @patch("apps.core.services.browser.create_browser")
-    def test_filing_success_with_fallback(
-        self, mock_browser, MockLogin, MockFiling, mock_update
-    ):
+    def test_filing_success_with_fallback(self, mock_browser, MockLogin, MockFiling, mock_update):
         """Exercise _record_progress with fallback_used and http_failure_reason."""
         from plugins.court_automation.filing.helpers import _run_filing
 
@@ -74,9 +72,7 @@ class TestRunFilingInnerHelpers:
     @patch("plugins.court_automation.filing.playwright_filing.CourtZxfwFilingService")
     @patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService")
     @patch("apps.core.services.browser.create_browser")
-    def test_filing_success_with_http_failure_fallback_message(
-        self, mock_browser, MockLogin, MockFiling, mock_update
-    ):
+    def test_filing_success_with_http_failure_fallback_message(self, mock_browser, MockLogin, MockFiling, mock_update):
         """When fallback_used and http_failure_reason, success message is modified."""
         from plugins.court_automation.filing.helpers import _run_filing
 
@@ -113,9 +109,7 @@ class TestRunFilingInnerHelpers:
     @patch("plugins.court_automation.filing.playwright_filing.CourtZxfwFilingService")
     @patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService")
     @patch("apps.core.services.browser.create_browser")
-    def test_filing_failure_with_fallback_used(
-        self, mock_browser, MockLogin, MockFiling, mock_update
-    ):
+    def test_filing_failure_with_fallback_used(self, mock_browser, MockLogin, MockFiling, mock_update):
         """When filing fails after fallback, playwright_end timing is set."""
         from plugins.court_automation.filing.helpers import _run_filing
 
@@ -158,9 +152,7 @@ class TestRunFilingProgressReporter:
     @patch("plugins.court_automation.filing.playwright_filing.CourtZxfwFilingService")
     @patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService")
     @patch("apps.core.services.browser.create_browser")
-    def test_http_start_and_end_timing(
-        self, mock_browser, MockLogin, MockFiling, mock_update
-    ):
+    def test_http_start_and_end_timing(self, mock_browser, MockLogin, MockFiling, mock_update):
         """Progress reporter records http_start and http_end timing in final payload."""
         from plugins.court_automation.filing.helpers import _run_filing
 
@@ -252,9 +244,7 @@ class TestMatchSlotExtraBranches:
         # When only exclude hits via slot rules and no positive score,
         # the joined_signal check will find both apply and exclude → no slot 0
         material = SimpleNamespace(type_name="限制高消费通知书", type=None, source_attachment=None)
-        result = _match_slot(
-            material=material, file_path=Path("/tmp/test.pdf"), filing_type=_FILING_TYPE_EXECUTION
-        )
+        result = _match_slot(material=material, file_path=Path("/tmp/test.pdf"), filing_type=_FILING_TYPE_EXECUTION)
         # "限制高消费" is in _EXECUTION_HINT_STATUSES-related exclude rules
         # The function should not return "0" because "限制高消费" is in excludes
         # But it may still return "0" if the slot rules give positive score first.
@@ -266,9 +256,7 @@ class TestMatchSlotExtraBranches:
         from plugins.court_automation.filing.helpers import _FILING_TYPE_CIVIL, _match_slot
 
         material = SimpleNamespace(type_name="保函", type=None, source_attachment=None)
-        result = _match_slot(
-            material=material, file_path=Path("/tmp/保函.pdf"), filing_type=_FILING_TYPE_CIVIL
-        )
+        result = _match_slot(material=material, file_path=Path("/tmp/保函.pdf"), filing_type=_FILING_TYPE_CIVIL)
         # "保函" matches guarantee fallback → slot "5"
         assert result == "5"
 
@@ -281,9 +269,7 @@ class TestMatchSlotExtraBranches:
         )
 
         material = SimpleNamespace(type_name="其他材料", type=None, source_attachment=None)
-        result = _match_slot(
-            material=material, file_path=Path("/tmp/other.pdf"), filing_type=_FILING_TYPE_EXECUTION
-        )
+        result = _match_slot(material=material, file_path=Path("/tmp/other.pdf"), filing_type=_FILING_TYPE_EXECUTION)
         assert result == _DEFAULT_SLOT_BY_FILING_TYPE[_FILING_TYPE_EXECUTION]
 
     def test_unknown_filing_type_falls_back_to_civil_rules(self):
@@ -291,9 +277,7 @@ class TestMatchSlotExtraBranches:
         from plugins.court_automation.filing.helpers import _DEFAULT_SLOT_BY_FILING_TYPE, _match_slot
 
         material = SimpleNamespace(type_name="民事起诉状", type=None, source_attachment=None)
-        result = _match_slot(
-            material=material, file_path=Path("/tmp/complaint.pdf"), filing_type="unknown_type"
-        )
+        result = _match_slot(material=material, file_path=Path("/tmp/complaint.pdf"), filing_type="unknown_type")
         # "民事起诉状" should match slot "0" rules from civil
         assert result == "0"
 
@@ -368,9 +352,7 @@ class TestBuildMaterialSlotSignalsExtra:
         from plugins.court_automation.filing.helpers import _build_material_slot_signals
 
         material = SimpleNamespace(type_name="", type=None, source_attachment=None)
-        primary, secondary = _build_material_slot_signals(
-            material=material, file_path=Path("/tmp/test.pdf")
-        )
+        primary, secondary = _build_material_slot_signals(material=material, file_path=Path("/tmp/test.pdf"))
         # Empty type_name should not add to primary
         assert len(primary) == 0
         # But secondary should have file signals
@@ -380,9 +362,7 @@ class TestBuildMaterialSlotSignalsExtra:
         from plugins.court_automation.filing.helpers import _build_material_slot_signals
 
         material = SimpleNamespace(type_name=None, type=None, source_attachment=None)
-        primary, secondary = _build_material_slot_signals(
-            material=material, file_path=Path("/tmp/test.pdf")
-        )
+        primary, secondary = _build_material_slot_signals(material=material, file_path=Path("/tmp/test.pdf"))
         # None type_name should not add to primary
         assert len(primary) == 0
 
@@ -393,9 +373,7 @@ class TestBuildMaterialSlotSignalsExtra:
         attachment.file = None
         attachment.log = None
         material = SimpleNamespace(type_name="合同", type=None, source_attachment=attachment)
-        primary, secondary = _build_material_slot_signals(
-            material=material, file_path=Path("/tmp/contract.pdf")
-        )
+        primary, secondary = _build_material_slot_signals(material=material, file_path=Path("/tmp/contract.pdf"))
         assert len(primary) >= 1
         # No attachment file name added since file is None
         # secondary should have at least file path signals
@@ -408,9 +386,7 @@ class TestBuildMaterialSlotSignalsExtra:
         attachment.file.name = "test.pdf"
         attachment.log = None
         material = SimpleNamespace(type_name="合同", type=None, source_attachment=attachment)
-        primary, secondary = _build_material_slot_signals(
-            material=material, file_path=Path("/tmp/contract.pdf")
-        )
+        primary, secondary = _build_material_slot_signals(material=material, file_path=Path("/tmp/contract.pdf"))
         assert len(secondary) >= 4
 
     def test_duplicate_signals_deduped(self):
@@ -418,9 +394,7 @@ class TestBuildMaterialSlotSignalsExtra:
 
         material = SimpleNamespace(type_name="合同", type=None, source_attachment=None)
         # file_path.name and file_path.stem are both "合同" for Path("合同.pdf")
-        primary, secondary = _build_material_slot_signals(
-            material=material, file_path=Path("/tmp/合同.pdf")
-        )
+        primary, secondary = _build_material_slot_signals(material=material, file_path=Path("/tmp/合同.pdf"))
         # Secondary should deduplicate
         assert len(secondary) == len(set(secondary))
 

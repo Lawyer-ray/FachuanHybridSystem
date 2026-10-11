@@ -66,12 +66,6 @@ class PlaywrightHelpersMixin:  # pragma: no cover
             value,
         )
 
-    @staticmethod
-    def _js_str(value: str) -> str:  # pragma: no cover
-        """将 Python 字符串转为安全的 JS 字符串字面量。"""
-        escaped: str = value.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
-        return f"'{escaped}'"
-
     # ------------------------------------------------------------------
     # CreateCustomer iframe 操作
     # ------------------------------------------------------------------
@@ -439,7 +433,7 @@ class PlaywrightHelpersMixin:  # pragma: no cover
             const $ = iframe.contentWindow.jQuery;
             const doc = iframe.contentDocument;
             if (!$('#customer_PersonBirth', doc).val()) {{
-                const id = {self._js_str(id_number)};
+                const id = {_js_str(id_number)};
                 if (id.length === 18) {{
                     const y = id.substring(6, 10);
                     const m = id.substring(10, 12);
@@ -456,3 +450,10 @@ class PlaywrightHelpersMixin:  # pragma: no cover
             "customer_PersonAddress",
             client.address or "/",
         )
+
+
+# ↓↓ 由 PlaywrightHelpersMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _js_str(value: str) -> str:  # pragma: no cover
+    """将 Python 字符串转为安全的 JS 字符串字面量。"""
+    escaped: str = value.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
+    return f"'{escaped}'"

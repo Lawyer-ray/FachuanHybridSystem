@@ -53,9 +53,7 @@ class TestImportFromJson:
 
     def test_update_existing_fills_only_empty_fields(self):
         firm = _firm()
-        Lawyer.objects.create_user(
-            username="lawyer_b", password="x", real_name="李四", license_no="OLD", law_firm=firm
-        )
+        Lawyer.objects.create_user(username="lawyer_b", password="x", real_name="李四", license_no="OLD", law_firm=firm)
         result = LawyerImportService().import_from_json(
             [{"username": "lawyer_b", "real_name": "李四新", "license_no": "NEW", "phone": "13900000000"}],
             actor="admin",
@@ -117,9 +115,7 @@ class TestMergeCredentials:
     def test_existing_site_skipped_new_site_created(self):
         firm = _firm()
         lawyer = Lawyer.objects.create_user(username="lawyer_e", password="x", law_firm=firm)
-        AccountCredential.objects.create(
-            lawyer=lawyer, site_name="court_zxfw", url="", account="old@x", password=""
-        )
+        AccountCredential.objects.create(lawyer=lawyer, site_name="court_zxfw", url="", account="old@x", password="")
         LawyerImportService().import_from_json(
             [
                 {

@@ -4,6 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.reminders.services.calendar_providers.ics_provider import _get_str
+
 
 class TestIcsFileProvider:
     def test_fetch_events_invalid_content(self):
@@ -40,7 +42,7 @@ class TestIcsFileProvider:
         mock_val = MagicMock()
         mock_val.__str__ = MagicMock(return_value="test")
         mock_comp.get.return_value = mock_val
-        result = provider._get_str(mock_comp, "SUMMARY")
+        result = _get_str(mock_comp, "SUMMARY")
         assert result == "test"
 
 

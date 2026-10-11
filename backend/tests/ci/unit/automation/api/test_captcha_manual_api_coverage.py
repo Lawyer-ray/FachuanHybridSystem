@@ -2,6 +2,7 @@
 
 Covers: get_captcha_image and submit_captcha_answer endpoints - all branches.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -16,6 +17,7 @@ class TestGetCaptchaImage:
     async def test_task_not_found(self) -> None:
         from apps.automation.api.captcha_manual_api import get_captcha_image
         from apps.automation.models import ScraperTaskStatus
+
         request = MagicMock()
         mock_manager = MagicMock()
         mock_manager.aget = AsyncMock(side_effect=type("DoesNotExist", (Exception,), {}))
@@ -31,6 +33,7 @@ class TestGetCaptchaImage:
     async def test_task_wrong_status(self) -> None:
         from apps.automation.api.captcha_manual_api import get_captcha_image
         from apps.automation.models import ScraperTaskStatus
+
         request = MagicMock()
         task = SimpleNamespace(status=ScraperTaskStatus.RUNNING)
         mock_manager = MagicMock()
@@ -45,6 +48,7 @@ class TestGetCaptchaImage:
     async def test_no_image_path(self) -> None:
         from apps.automation.api.captcha_manual_api import get_captcha_image
         from apps.automation.models import ScraperTaskStatus
+
         request = MagicMock()
         task = SimpleNamespace(status=ScraperTaskStatus.WAITING_FOR_CAPTCHA, captcha_image_path=None)
         mock_manager = MagicMock()
@@ -59,6 +63,7 @@ class TestGetCaptchaImage:
     async def test_image_file_not_found(self) -> None:
         from apps.automation.api.captcha_manual_api import get_captcha_image
         from apps.automation.models import ScraperTaskStatus
+
         request = MagicMock()
         task = SimpleNamespace(
             status=ScraperTaskStatus.WAITING_FOR_CAPTCHA,
@@ -77,6 +82,7 @@ class TestGetCaptchaImage:
     async def test_success(self) -> None:
         from apps.automation.api.captcha_manual_api import get_captcha_image
         from apps.automation.models import ScraperTaskStatus
+
         request = MagicMock()
         task = SimpleNamespace(
             status=ScraperTaskStatus.WAITING_FOR_CAPTCHA,
@@ -98,6 +104,7 @@ class TestSubmitCaptchaAnswer:
     @pytest.mark.asyncio
     async def test_task_not_found(self) -> None:
         from apps.automation.api.captcha_manual_api import CaptchaAnswerIn, submit_captcha_answer
+
         request = MagicMock()
         mock_manager = MagicMock()
         with patch("apps.automation.models.ScraperTask") as MockTask:
@@ -112,6 +119,7 @@ class TestSubmitCaptchaAnswer:
     async def test_wrong_status(self) -> None:
         from apps.automation.api.captcha_manual_api import CaptchaAnswerIn, submit_captcha_answer
         from apps.automation.models import ScraperTaskStatus
+
         request = MagicMock()
         task = SimpleNamespace(status=ScraperTaskStatus.RUNNING)
         mock_manager = MagicMock()
@@ -126,6 +134,7 @@ class TestSubmitCaptchaAnswer:
     async def test_empty_answer(self) -> None:
         from apps.automation.api.captcha_manual_api import CaptchaAnswerIn, submit_captcha_answer
         from apps.automation.models import ScraperTaskStatus
+
         request = MagicMock()
         task = SimpleNamespace(status=ScraperTaskStatus.WAITING_FOR_CAPTCHA)
         mock_manager = MagicMock()
@@ -140,6 +149,7 @@ class TestSubmitCaptchaAnswer:
     async def test_success(self) -> None:
         from apps.automation.api.captcha_manual_api import CaptchaAnswerIn, submit_captcha_answer
         from apps.automation.models import ScraperTaskStatus
+
         request = MagicMock()
         task = MagicMock()
         task.status = ScraperTaskStatus.WAITING_FOR_CAPTCHA

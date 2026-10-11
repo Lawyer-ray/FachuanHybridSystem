@@ -1,4 +1,5 @@
 """相似度评分函数单元测试。"""
+
 from __future__ import annotations
 
 import pytest
@@ -20,8 +21,8 @@ from apps.legal_research.services.similarity.scorers import (
     tokenize,
 )
 
-
 # ── tokenize ───────────────────────────────────────────────────────────────
+
 
 def test_tokenize_basic() -> None:
     """基本中文分词。"""
@@ -50,6 +51,7 @@ def test_tokenize_english() -> None:
 
 # ── dedupe_tokens ──────────────────────────────────────────────────────────
 
+
 def test_dedupe_removes_duplicates() -> None:
     """去重。"""
     result = dedupe_tokens(["a", "b", "a", "c"], max_tokens=10)
@@ -75,6 +77,7 @@ def test_dedupe_empty() -> None:
 
 # ── char_ngrams ────────────────────────────────────────────────────────────
 
+
 def test_char_ngrams_basic() -> None:
     """基本字符 n-gram 生成。"""
     counter = char_ngrams("买卖合同")
@@ -93,6 +96,7 @@ def test_char_ngrams_empty() -> None:
 
 
 # ── bm25_proxy_score ───────────────────────────────────────────────────────
+
 
 def test_bm25_basic_match() -> None:
     """基本匹配得分 > 0。"""
@@ -124,6 +128,7 @@ def test_bm25_clamp_range() -> None:
 
 # ── lexical_vector_similarity_score ────────────────────────────────────────
 
+
 def test_lexical_sim_identical() -> None:
     """相同文本相似度 = 1。"""
     score = lexical_vector_similarity_score("买卖合同纠纷", "买卖合同纠纷")
@@ -144,6 +149,7 @@ def test_lexical_sim_empty() -> None:
 
 # ── token_overlap_score ────────────────────────────────────────────────────
 
+
 def test_token_overlap_all_present() -> None:
     """所有 token 都出现。"""
     score = token_overlap_score("买卖 合同", "本案系买卖合同纠纷")
@@ -163,6 +169,7 @@ def test_token_overlap_empty_query() -> None:
 
 # ── metadata_hint_score ────────────────────────────────────────────────────
 
+
 def test_metadata_hint_no_relevant_terms() -> None:
     """无相关术语返回 0。"""
     score = metadata_hint_score(keyword="unrelated", title="title", case_digest="digest", content_text="content")
@@ -171,13 +178,12 @@ def test_metadata_hint_no_relevant_terms() -> None:
 
 def test_metadata_hint_with_relevant_terms() -> None:
     """有相关术语返回 > 0。"""
-    score = metadata_hint_score(
-        keyword="买卖合同", title="买卖合同纠纷", case_digest="原告违约", content_text="本案"
-    )
+    score = metadata_hint_score(keyword="买卖合同", title="买卖合同纠纷", case_digest="原告违约", content_text="本案")
     assert score > 0.0
 
 
 # ── keyword_overlap_score ──────────────────────────────────────────────────
+
 
 def test_keyword_overlap_all_present() -> None:
     """所有关键词都出现。"""
@@ -191,6 +197,7 @@ def test_keyword_overlap_empty_keyword() -> None:
 
 
 # ── summary_overlap_score ──────────────────────────────────────────────────
+
 
 def test_summary_overlap_basic() -> None:
     """基本摘要匹配。"""
@@ -206,6 +213,7 @@ def test_summary_overlap_empty_summary() -> None:
 
 
 # ── coerce_score ───────────────────────────────────────────────────────────
+
 
 def test_coerce_score_percentage() -> None:
     """百分比字符串。"""
@@ -244,6 +252,7 @@ def test_coerce_score_non_numeric() -> None:
 
 # ── normalize_score ────────────────────────────────────────────────────────
 
+
 def test_normalize_score_normal() -> None:
     """正常范围不变化。"""
     assert normalize_score(0.5) == 0.5
@@ -266,6 +275,7 @@ def test_normalize_score_gt_100() -> None:
 
 # ── extract_score_from_text ────────────────────────────────────────────────
 
+
 def test_extract_score_json_format() -> None:
     """JSON 格式提取。"""
     score = extract_score_from_text('"score": 0.85')
@@ -284,6 +294,7 @@ def test_extract_score_empty() -> None:
 
 
 # ── focus_content_after_fact_marker ────────────────────────────────────────
+
 
 def test_focus_after_marker_found() -> None:
     """找到"本院查明"后截取。"""
@@ -313,6 +324,7 @@ def test_focus_empty_text() -> None:
 
 
 # ── build_candidate_excerpt ────────────────────────────────────────────────
+
 
 def test_excerpt_short_text() -> None:
     """短文本原样返回。"""

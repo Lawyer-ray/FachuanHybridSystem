@@ -38,13 +38,13 @@ async def lookup_contract(request: HttpRequest, payload: StampApplyIn) -> Any:
 
     from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
     from apps.core.exceptions import PermissionDenied
-    from apps.oa_filing.services.stamp_lookup_service import StampLookupError
+    from apps.oa_filing.services.stamp_lookup_service import StampLookupError, lookup_by_file_path
 
     service = _get_stamp_lookup_service()
 
     def _lookup() -> Any:
         try:
-            result = service.lookup_by_file_path(payload.file_path)
+            result = lookup_by_file_path(payload.file_path)
         except StampLookupError:
             raise HttpError(404, "无法根据文件路径找到关联合同") from None
         ContractAccessPolicy().ensure_access(contract_id=result.contract_id, user=request.user, org_access=None)

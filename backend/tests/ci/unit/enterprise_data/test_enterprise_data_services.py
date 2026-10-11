@@ -9,6 +9,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.enterprise_data.services.clients.mcp_tool_client import (
+    _collect_related_exceptions,
+    _contains_auth_token,
+    _flatten_error_payload_text,
+    _is_auth_like_http_error,
+    _try_parse_json,
+)
+from apps.enterprise_data.services.metrics_service import _bucket_key
+from apps.enterprise_data.services.provider_registry import _split_secret_values
+
 # ============================================================
 # ProviderConfig / ProviderDescriptor / ProviderResponse 测试
 # ============================================================
@@ -59,6 +69,7 @@ class TestEnterpriseDataTypes:
             DEFAULT_PROVIDER_NAME,
             DEFAULT_TIMEOUT_SECONDS,
         )
+
         assert DEFAULT_PROVIDER_NAME == "tianyancha"
         assert DEFAULT_TIMEOUT_SECONDS == 30
         assert DEFAULT_CACHE_TTL_SECONDS == 300
@@ -157,7 +168,7 @@ class TestEnterpriseDataMetricsService:
     def test_bucket_key_format(self) -> None:
         from apps.enterprise_data.services.metrics_service import EnterpriseDataMetricsService
 
-        key = EnterpriseDataMetricsService._bucket_key(provider="tianyancha", capability="search")
+        key = _bucket_key(provider="tianyancha", capability="search")
         assert "tianyancha" in key
         assert "search" in key
 
@@ -170,7 +181,17 @@ class TestEnterpriseDataMetricsService:
 
     def test_snapshot_from_bucket_empty(self) -> None:
         svc = self._make_service()
-        snapshot = svc._snapshot_from_bucket({"total": 0, "success": 0, "failure": 0, "fallback": 0, "duration_sum_ms": 0, "window_start": 0, "window_end": 0})
+        snapshot = svc._snapshot_from_bucket(
+            {
+                "total": 0,
+                "success": 0,
+                "failure": 0,
+                "fallback": 0,
+                "duration_sum_ms": 0,
+                "window_start": 0,
+                "window_end": 0,
+            }
+        )
         assert snapshot["total"] == 0
         assert snapshot["success_rate"] == 1.0
         assert snapshot["fallback_rate"] == 0.0
@@ -178,7 +199,15 @@ class TestEnterpriseDataMetricsService:
     def test_snapshot_from_bucket_with_data(self) -> None:
         svc = self._make_service()
         snapshot = svc._snapshot_from_bucket(
-            {"total": 10, "success": 8, "failure": 2, "fallback": 1, "duration_sum_ms": 5000, "window_start": 0, "window_end": 100}
+            {
+                "total": 10,
+                "success": 8,
+                "failure": 2,
+                "fallback": 1,
+                "duration_sum_ms": 5000,
+                "window_start": 0,
+                "window_end": 100,
+            }
         )
         assert snapshot["total"] == 10
         assert snapshot["success_rate"] == 0.8
@@ -247,30 +276,30 @@ class TestEnterpriseProviderRegistry:
     def test_split_secret_values_empty(self) -> None:
         from apps.enterprise_data.services.provider_registry import EnterpriseProviderRegistry
 
-        assert EnterpriseProviderRegistry._split_secret_values("") == ()
+        assert _split_secret_values("") == ()
 
     def test_split_secret_values_single(self) -> None:
         from apps.enterprise_data.services.provider_registry import EnterpriseProviderRegistry
 
-        result = EnterpriseProviderRegistry._split_secret_values("key1")
+        result = _split_secret_values("key1")
         assert result == ("key1",)
 
     def test_split_secret_values_multiple(self) -> None:
         from apps.enterprise_data.services.provider_registry import EnterpriseProviderRegistry
 
-        result = EnterpriseProviderRegistry._split_secret_values("key1\nkey2\nkey3")
+        result = _split_secret_values("key1\nkey2\nkey3")
         assert len(result) == 3
 
     def test_split_secret_values_dedup(self) -> None:
         from apps.enterprise_data.services.provider_registry import EnterpriseProviderRegistry
 
-        result = EnterpriseProviderRegistry._split_secret_values("key1\nkey1\nkey2")
+        result = _split_secret_values("key1\nkey1\nkey2")
         assert len(result) == 2
 
     def test_split_secret_values_comma_separated(self) -> None:
         from apps.enterprise_data.services.provider_registry import EnterpriseProviderRegistry
 
-        result = EnterpriseProviderRegistry._split_secret_values("key1,key2")
+        result = _split_secret_values("key1,key2")
         assert len(result) == 2
 
     def test_get_provider_unsupported_raises(self) -> None:
@@ -337,38 +366,50 @@ class TestEnterpriseProviderRegistry:
 # McpToolClient 补充测试
 # ============================================================
 
+
 class TestMcpToolClientExtended:
     def test_headers_streamable_http_lowercase_bearer(self):
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
+
         client = McpToolClient(
-            provider_name="test", transport="streamable_http",
-            base_url="https://api.example.com", sse_url="", api_key="mykey"
+            provider_name="test",
+            transport="streamable_http",
+            base_url="https://api.example.com",
+            sse_url="",
+            api_key="mykey",
         )
         headers = client._headers(transport="streamable_http", api_key="mykey")
         assert headers["Authorization"] == "bearer mykey"
 
     def test_headers_sse_capital_bearer(self):
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
-        client = McpToolClient(
-            provider_name="test", transport="sse", base_url="", sse_url="", api_key="mykey"
-        )
+
+        client = McpToolClient(provider_name="test", transport="sse", base_url="", sse_url="", api_key="mykey")
         headers = client._headers(transport="sse", api_key="mykey")
         assert headers["Authorization"] == "Bearer mykey"
 
     def test_transport_attempts_primary_only(self):
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
+
         client = McpToolClient(
-            provider_name="test", transport="streamable_http",
-            base_url="https://api.example.com", sse_url="", api_key="k"
+            provider_name="test",
+            transport="streamable_http",
+            base_url="https://api.example.com",
+            sse_url="",
+            api_key="k",
         )
         attempts = client._transport_attempts()
         assert attempts == ["streamable_http"]
 
     def test_transport_attempts_with_sse_fallback(self):
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
+
         client = McpToolClient(
-            provider_name="test", transport="streamable_http",
-            base_url="https://api.example.com", sse_url="https://api.example.com/sse", api_key="k"
+            provider_name="test",
+            transport="streamable_http",
+            base_url="https://api.example.com",
+            sse_url="https://api.example.com/sse",
+            api_key="k",
         )
         attempts = client._transport_attempts()
         assert "streamable_http" in attempts
@@ -378,6 +419,7 @@ class TestMcpToolClientExtended:
         import httpx2 as httpx
 
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
+
         client = McpToolClient(provider_name="t", transport="sse", base_url="", sse_url="", api_key="k")
         assert client._should_retry(httpx.TimeoutException("t")) is True
 
@@ -385,6 +427,7 @@ class TestMcpToolClientExtended:
         import httpx2 as httpx
 
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
+
         client = McpToolClient(provider_name="t", transport="sse", base_url="", sse_url="", api_key="k")
         assert client._should_retry(httpx.ConnectError("c")) is True
 
@@ -392,6 +435,7 @@ class TestMcpToolClientExtended:
         import httpx2 as httpx
 
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
+
         client = McpToolClient(provider_name="t", transport="sse", base_url="", sse_url="", api_key="k")
         resp = MagicMock()
         resp.status_code = 500
@@ -402,6 +446,7 @@ class TestMcpToolClientExtended:
         import httpx2 as httpx
 
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
+
         client = McpToolClient(provider_name="t", transport="sse", base_url="", sse_url="", api_key="k")
         resp = MagicMock()
         resp.status_code = 429
@@ -411,11 +456,13 @@ class TestMcpToolClientExtended:
     def test_should_switch_api_key_auth_error(self):
         from apps.core.exceptions import AuthenticationError
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
+
         client = McpToolClient(provider_name="t", transport="sse", base_url="", sse_url="", api_key="k")
         assert client._should_switch_api_key(AuthenticationError("auth")) is True
 
     def test_extract_payload_structured(self):
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
+
         client = McpToolClient(provider_name="t", transport="sse", base_url="", sse_url="", api_key="k")
         result = MagicMock()
         result.structured_content = {"a": 1}
@@ -424,6 +471,7 @@ class TestMcpToolClientExtended:
 
     def test_extract_payload_single_text_json(self):
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
+
         client = McpToolClient(provider_name="t", transport="sse", base_url="", sse_url="", api_key="k")
         result = MagicMock()
         result.structured_content = None
@@ -435,49 +483,56 @@ class TestMcpToolClientExtended:
 
     def test_try_parse_json_valid(self):
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
-        assert McpToolClient._try_parse_json('{"a": 1}') == {"a": 1}
+
+        assert _try_parse_json('{"a": 1}') == {"a": 1}
 
     def test_try_parse_json_invalid(self):
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
-        assert McpToolClient._try_parse_json("not json") is None
+
+        assert _try_parse_json("not json") is None
 
     def test_contains_auth_token(self):
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
-        assert McpToolClient._contains_auth_token("unauthorized") is True
-        assert McpToolClient._contains_auth_token("timeout") is False
+
+        assert _contains_auth_token("unauthorized") is True
+        assert _contains_auth_token("timeout") is False
 
     def test_flatten_error_payload(self):
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
-        result = McpToolClient._flatten_error_payload_text({"error": "unauthorized", "code": 401})
+
+        result = _flatten_error_payload_text({"error": "unauthorized", "code": 401})
         assert "unauthorized" in result
 
     def test_collect_related_exceptions(self):
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
+
         exc = ValueError("test")
-        collected = McpToolClient._collect_related_exceptions(exc)
+        collected = _collect_related_exceptions(exc)
         assert collected[0] is exc
 
     def test_is_auth_like_http_error_401(self):
         import httpx2 as httpx
 
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
+
         resp = MagicMock()
         resp.status_code = 401
         resp.text = ""
         resp.json.side_effect = Exception()
         exc = httpx.HTTPStatusError("u", request=MagicMock(), response=resp)
-        assert McpToolClient._is_auth_like_http_error(exc) is True
+        assert _is_auth_like_http_error(exc) is True
 
     def test_is_auth_like_http_error_500(self):
         import httpx2 as httpx
 
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
+
         resp = MagicMock()
         resp.status_code = 500
         resp.text = "err"
         resp.json.side_effect = Exception()
         exc = httpx.HTTPStatusError("s", request=MagicMock(), response=resp)
-        assert McpToolClient._is_auth_like_http_error(exc) is False
+        assert _is_auth_like_http_error(exc) is False
 
 
 # ============================================================

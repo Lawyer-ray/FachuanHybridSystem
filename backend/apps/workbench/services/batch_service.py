@@ -17,6 +17,7 @@ from django.utils import timezone
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.security.permissions import AccessContext, PermissionMixin
+from apps.workbench.services.session_service import increment_storage
 
 from ..models import BatchJob, BatchJobItem, BatchJobStatus
 
@@ -364,7 +365,7 @@ class BatchAnalysisService(PermissionMixin):
             total_bytes += _calc_message_bytes(content=content, metadata=metadata)
 
         WorkbenchMessage.objects.bulk_create(messages, batch_size=100)
-        WorkbenchSessionService.increment_storage(job.session_id, total_bytes)
+        increment_storage(job.session_id, total_bytes)
         return len(messages)
 
     def list_batch_jobs(
@@ -383,7 +384,7 @@ class BatchAnalysisService(PermissionMixin):
         total = qs.count()
         items = list(qs[offset : offset + page_size])
         return {
-            "items": [self._job_to_dict(j) for j in items],
+            "items": [_job_to_dict(j) for j in items],
             "count": total,
         }
 
@@ -400,9 +401,10 @@ class BatchAnalysisService(PermissionMixin):
             | Q(job_id=job_id, status__in=(BatchJobStatus.COMPLETED, BatchJobStatus.FAILED)),
         )
 
-    @staticmethod
-    def _job_to_dict(job: BatchJob) -> dict[str, Any]:
-        """将 BatchJob 转换为字典"""
-        from ..schemas import BatchJobOut
 
-        return BatchJobOut.model_validate(job).model_dump()
+# ↓↓ 由 BatchAnalysisService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _job_to_dict(job: BatchJob) -> dict[str, Any]:
+    """将 BatchJob 转换为字典"""
+    from ..schemas import BatchJobOut
+
+    return BatchJobOut.model_validate(job).model_dump()

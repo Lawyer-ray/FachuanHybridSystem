@@ -32,17 +32,6 @@ class QichachaResponseAdapter:
     _MARKDOWN_TABLE_ROW_RE = re.compile(r"^\|\s*(?P<key>[^|]+?)\s*\|\s*(?P<value>.*?)\s*\|\s*$")
     _MARKDOWN_HEADER_RE = re.compile(r"^#{1,3}\s+(?P<name>.+?)\s*$")
 
-    @staticmethod
-    def pick_str(obj: dict[str, Any], keys: tuple[str, ...]) -> str:
-        for key in keys:
-            value = obj.get(key)
-            if value is None:
-                continue
-            text = str(value).strip()
-            if text:
-                return text
-        return ""
-
     def extract_items(self, payload: Any) -> list[dict[str, Any]]:  # pragma: no cover
         if isinstance(payload, list):
             return [item for item in payload if isinstance(item, dict)]
@@ -92,28 +81,24 @@ class QichachaResponseAdapter:
 
     def normalize_company_summary(self, item: dict[str, Any]) -> dict[str, str]:
         return {
-            "company_id": self.pick_str(
-                item, ("company_id", "companyId", "id", "creditCode", "keyNo", "统一社会信用代码")
-            ),
-            "company_name": self.pick_str(item, ("company_name", "companyName", "name", "entName", "企业名称")),
-            "legal_person": self.pick_str(
+            "company_id": pick_str(item, ("company_id", "companyId", "id", "creditCode", "keyNo", "统一社会信用代码")),
+            "company_name": pick_str(item, ("company_name", "companyName", "name", "entName", "企业名称")),
+            "legal_person": pick_str(
                 item, ("legalPersonName", "legal_person", "legalRepresentative", "operName", "法定代表人")
             ),
-            "status": self.pick_str(item, ("regStatus", "status", "openStatus", "operatingStatus", "经营状态")),
-            "establish_date": self.pick_str(
+            "status": pick_str(item, ("regStatus", "status", "openStatus", "operatingStatus", "经营状态")),
+            "establish_date": pick_str(
                 item, ("startDate", "estiblishTime", "establishDate", "foundedDate", "成立日期")
             ),
-            "registered_capital": self.pick_str(item, ("regCapital", "registeredCapital", "regCapCur", "注册资本")),
-            "phone": self.pick_str(item, ("phone", "phoneNumber", "contactPhone", "tel", "联系电话")),
+            "registered_capital": pick_str(item, ("regCapital", "registeredCapital", "regCapCur", "注册资本")),
+            "phone": pick_str(item, ("phone", "phoneNumber", "contactPhone", "tel", "联系电话")),
         }
 
     def normalize_company_profile(self, item: dict[str, Any]) -> dict[str, str]:
         return {
-            "company_id": self.pick_str(
-                item, ("company_id", "companyId", "id", "creditCode", "keyNo", "统一社会信用代码")
-            ),
-            "company_name": self.pick_str(item, ("company_name", "companyName", "name", "entName", "企业名称")),
-            "unified_social_credit_code": self.pick_str(
+            "company_id": pick_str(item, ("company_id", "companyId", "id", "creditCode", "keyNo", "统一社会信用代码")),
+            "company_name": pick_str(item, ("company_name", "companyName", "name", "entName", "企业名称")),
+            "unified_social_credit_code": pick_str(
                 item,
                 (
                     "creditCode",
@@ -123,64 +108,76 @@ class QichachaResponseAdapter:
                     "统一社会信用代码",
                 ),
             ),
-            "legal_person": self.pick_str(
+            "legal_person": pick_str(
                 item, ("legalPersonName", "legal_person", "legalRepresentative", "operName", "法定代表人")
             ),
-            "status": self.pick_str(item, ("regStatus", "status", "openStatus", "operatingStatus", "经营状态")),
-            "establish_date": self.pick_str(
+            "status": pick_str(item, ("regStatus", "status", "openStatus", "operatingStatus", "经营状态")),
+            "establish_date": pick_str(
                 item, ("startDate", "estiblishTime", "establishDate", "foundedDate", "成立日期")
             ),
-            "registered_capital": self.pick_str(item, ("regCapital", "registeredCapital", "regCapCur", "注册资本")),
-            "address": self.pick_str(item, ("regLocation", "address", "registeredAddress", "domicile", "注册地址")),
-            "business_scope": self.pick_str(item, ("businessScope", "scope", "operatingScope", "经营范围")),
-            "phone": self.pick_str(item, ("phone", "phoneNumber", "contactPhone", "tel", "联系电话")),
+            "registered_capital": pick_str(item, ("regCapital", "registeredCapital", "regCapCur", "注册资本")),
+            "address": pick_str(item, ("regLocation", "address", "registeredAddress", "domicile", "注册地址")),
+            "business_scope": pick_str(item, ("businessScope", "scope", "operatingScope", "经营范围")),
+            "phone": pick_str(item, ("phone", "phoneNumber", "contactPhone", "tel", "联系电话")),
         }
 
     def normalize_risk_item(self, item: dict[str, Any], *, fallback_risk_type: str) -> dict[str, str]:
         return {
-            "risk_type": self.pick_str(item, ("riskType", "type", "category")) or fallback_risk_type,
-            "title": self.pick_str(item, ("title", "riskTitle", "event", "name", "caseTitle")),
-            "level": self.pick_str(item, ("level", "riskLevel", "degree")),
-            "amount": self.pick_str(item, ("amount", "amountStr", "money", "标的金额")),
-            "publish_date": self.pick_str(item, ("date", "publishDate", "eventTime", "filingDate", "judgeDate")),
-            "source": self.pick_str(item, ("source", "court", "channel", "judgeCourt")),
+            "risk_type": pick_str(item, ("riskType", "type", "category")) or fallback_risk_type,
+            "title": pick_str(item, ("title", "riskTitle", "event", "name", "caseTitle")),
+            "level": pick_str(item, ("level", "riskLevel", "degree")),
+            "amount": pick_str(item, ("amount", "amountStr", "money", "标的金额")),
+            "publish_date": pick_str(item, ("date", "publishDate", "eventTime", "filingDate", "judgeDate")),
+            "source": pick_str(item, ("source", "court", "channel", "judgeCourt")),
         }
 
     def normalize_shareholder_item(self, item: dict[str, Any]) -> dict[str, str]:
         return {
-            "name": self.pick_str(item, ("name", "shareholderName", "holderName", "stockholderName")),
-            "amount": self.pick_str(item, ("subConAm", "capital", "amount", "contribution", "subscribedAmount")),
-            "ratio": self.pick_str(item, ("holdRatio", "ratio", "sharePercent", "stockPercent")),
-            "contribution_date": self.pick_str(item, ("conDate", "date", "subscribeDate")),
-            "source": self.pick_str(item, ("source", "type", "stockholderType")),
+            "name": pick_str(item, ("name", "shareholderName", "holderName", "stockholderName")),
+            "amount": pick_str(item, ("subConAm", "capital", "amount", "contribution", "subscribedAmount")),
+            "ratio": pick_str(item, ("holdRatio", "ratio", "sharePercent", "stockPercent")),
+            "contribution_date": pick_str(item, ("conDate", "date", "subscribeDate")),
+            "source": pick_str(item, ("source", "type", "stockholderType")),
         }
 
     def normalize_personnel_item(self, item: dict[str, Any]) -> dict[str, str]:
         return {
-            "hcgid": self.pick_str(item, ("hcgid", "id", "personCompanyId", "keyNo")),
-            "name": self.pick_str(item, ("name", "personName", "staffName")),
-            "position": self.pick_str(item, ("position", "jobTitle", "post", "staffTitle")),
-            "education": self.pick_str(item, ("education", "academicDegree")),
-            "source": self.pick_str(item, ("source", "type")),
+            "hcgid": pick_str(item, ("hcgid", "id", "personCompanyId", "keyNo")),
+            "name": pick_str(item, ("name", "personName", "staffName")),
+            "position": pick_str(item, ("position", "jobTitle", "post", "staffTitle")),
+            "education": pick_str(item, ("education", "academicDegree")),
+            "source": pick_str(item, ("source", "type")),
         }
 
     def normalize_person_profile(self, item: dict[str, Any]) -> dict[str, str]:
         return {
-            "hcgid": self.pick_str(item, ("hcgid", "id", "personCompanyId", "keyNo")),
-            "name": self.pick_str(item, ("name", "personName", "staffName")),
-            "position": self.pick_str(item, ("position", "jobTitle", "post", "staffTitle")),
-            "intro": self.pick_str(item, ("intro", "introduction", "profile")),
-            "resume": self.pick_str(item, ("resume", "experience", "workExperience")),
+            "hcgid": pick_str(item, ("hcgid", "id", "personCompanyId", "keyNo")),
+            "name": pick_str(item, ("name", "personName", "staffName")),
+            "position": pick_str(item, ("position", "jobTitle", "post", "staffTitle")),
+            "intro": pick_str(item, ("intro", "introduction", "profile")),
+            "resume": pick_str(item, ("resume", "experience", "workExperience")),
         }
 
     def normalize_bidding_item(self, item: dict[str, Any]) -> dict[str, str]:
         return {
-            "title": self.pick_str(item, ("title", "announceTitle", "name", "bidTitle")),
-            "project_name": self.pick_str(item, ("projectName", "project", "bidName", "projectCode")),
-            "role": self.pick_str(item, ("role", "identity", "bidRole")),
-            "amount": self.pick_str(item, ("amount", "amountStr", "money", "bidAmount")),
-            "date": self.pick_str(item, ("date", "publishDate", "bidDate", "winningDate", "noticeDate")),
-            "region": self.pick_str(item, ("region", "province", "city", "area", "district")),
-            "source": self.pick_str(item, ("source", "type", "noticeType")),
-            "link": self.pick_str(item, ("url", "link", "detailUrl", "noticeUrl")),
+            "title": pick_str(item, ("title", "announceTitle", "name", "bidTitle")),
+            "project_name": pick_str(item, ("projectName", "project", "bidName", "projectCode")),
+            "role": pick_str(item, ("role", "identity", "bidRole")),
+            "amount": pick_str(item, ("amount", "amountStr", "money", "bidAmount")),
+            "date": pick_str(item, ("date", "publishDate", "bidDate", "winningDate", "noticeDate")),
+            "region": pick_str(item, ("region", "province", "city", "area", "district")),
+            "source": pick_str(item, ("source", "type", "noticeType")),
+            "link": pick_str(item, ("url", "link", "detailUrl", "noticeUrl")),
         }
+
+
+# ↓↓ 由 QichachaResponseAdapter 下沉的模块级纯函数（四层架构静态方法棘轮）
+def pick_str(obj: dict[str, Any], keys: tuple[str, ...]) -> str:
+    for key in keys:
+        value = obj.get(key)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return ""

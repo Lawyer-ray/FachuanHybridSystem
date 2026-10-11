@@ -15,7 +15,7 @@ from apps.core.interfaces import ICaseService
 from .case_log_attachment_service import CaseLogAttachmentService
 from .case_log_mutation_service import CaseLogMutationService
 from .case_log_query_repo import CaseLogQueryRepo
-from .case_log_query_service import CaseLogQueryService
+from .case_log_query_service import CaseLogQueryService, warm_reminder_cache
 from .case_log_version_service import CaseLogVersionService
 from .wiring import get_case_service
 
@@ -157,7 +157,7 @@ class CaseLogService:
     def get_log_for_serialization(self, log_id: int) -> CaseLog:
         """按序列化需要的关联重取单条日志并预热提醒缓存（供 async API）。"""
         obj = cast(CaseLog, self.query_service.get_log_internal(log_id=log_id))
-        self.query_service.warm_reminder_cache([obj])
+        warm_reminder_cache([obj])
         return obj
 
     def create_log(

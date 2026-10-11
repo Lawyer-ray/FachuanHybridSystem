@@ -16,6 +16,7 @@ from apps.core.models.enums import LegalStatus
 class TestDefensePartyService:
     def _get_service(self):
         from apps.documents.services.placeholders.litigation.defense_party_service import DefensePartyService
+
         svc = DefensePartyService.__new__(DefensePartyService)
         svc.formatter = MagicMock()
         svc.case_details_accessor = MagicMock()
@@ -206,6 +207,7 @@ class TestSupplementaryAgreementPrincipalService:
         from apps.documents.services.placeholders.supplementary.principal_service import (
             SupplementaryAgreementPrincipalService,
         )
+
         return SupplementaryAgreementPrincipalService.__new__(SupplementaryAgreementPrincipalService)
 
     def _make_client(self, name="委托人A", client_type="natural", **kwargs):
@@ -304,10 +306,12 @@ class TestSupplementaryAgreementPrincipalService:
         mock_agreement.parties.all.return_value = []
         mock_contract = MagicMock()
         mock_contract.contract_parties.all.return_value = []
-        result = svc.generate({
-            "contract": mock_contract,
-            "supplementary_agreement": mock_agreement,
-        })
+        result = svc.generate(
+            {
+                "contract": mock_contract,
+                "supplementary_agreement": mock_agreement,
+            }
+        )
         assert "补充协议委托人信息" in result
         assert "补充协议委托人数量" in result
 
@@ -320,6 +324,7 @@ class TestEnhancedOpposingPartyService:
         from apps.documents.services.placeholders.contract.enhanced_opposing_party_service import (
             EnhancedOpposingPartyService,
         )
+
         return EnhancedOpposingPartyService.__new__(EnhancedOpposingPartyService)
 
     # _extract_cause_of_action

@@ -6,6 +6,7 @@
 - bind_document_to_case 改为按 case_id 直接绑定（严格匹配移到 matching_service）；
 - format_log_content 用 date_count 替代 key_time。
 """
+
 from __future__ import annotations
 
 from datetime import datetime

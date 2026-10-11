@@ -161,7 +161,7 @@ class SegmentDetector:
             if page.top_candidates:
                 top = page.top_candidates[0]
                 current_type = str(top["segment_type"])
-                current_title = self._normalize_title(page.layout_title)
+                current_title = _normalize_title(page.layout_title)
                 repeated_continuation = (
                     current_type == previous_page_type
                     and page.page_no > 1
@@ -179,11 +179,11 @@ class SegmentDetector:
                 previous_page_type = current_type
                 previous_page_title = current_title
                 if page.layout_title:
-                    previous_layout_title = self._normalize_title(page.layout_title)
+                    previous_layout_title = _normalize_title(page.layout_title)
                 continue
             previous_page_type = ""
             previous_page_title = ""
-            title = self._normalize_title(page.layout_title)
+            title = _normalize_title(page.layout_title)
             if not title:
                 continue
             if title == previous_layout_title:
@@ -250,7 +250,7 @@ class SegmentDetector:
                     page_start=start["page_no"],
                     page_end=max(start["page_no"], end_page),
                     segment_type=start["segment_type"],
-                    filename=self._suggest_filename(start),
+                    filename=_suggest_filename(start),
                     confidence=round(confidence, 3),
                     source_method=source_method,
                     review_flag=review_flag,
@@ -259,17 +259,6 @@ class SegmentDetector:
 
         merged_segments = self._merge_adjacent_pack_segments(segments)
         return self.fill_unrecognized_gaps(segments=merged_segments, total_pages=len(pages))
-
-    @staticmethod
-    def _normalize_title(value: str) -> str:
-        return "".join(char for char in (value or "").casefold() if char.isalnum() or "\u4e00" <= char <= "\u9fff")
-
-    @staticmethod
-    def _suggest_filename(candidate: dict[str, Any]) -> str:
-        title = sanitize_upload_filename(str(candidate.get("layout_title") or "").strip())
-        if title:
-            return f"{title}.pdf"
-        return f"{get_default_filename(candidate['segment_type'])}.pdf"
 
     # ------------------------------------------------------------------
     # 内部辅助
@@ -439,3 +428,16 @@ class SegmentDetector:
             item.order = len(merged) + 1
             merged.append(item)
         return merged
+
+
+# ↓↓ 由 SegmentDetector 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _normalize_title(value: str) -> str:
+    return "".join(char for char in (value or "").casefold() if char.isalnum() or "\u4e00" <= char <= "\u9fff")
+
+
+# ↓↓ 由 SegmentDetector 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _suggest_filename(candidate: dict[str, Any]) -> str:
+    title = sanitize_upload_filename(str(candidate.get("layout_title") or "").strip())
+    if title:
+        return f"{title}.pdf"
+    return f"{get_default_filename(candidate['segment_type'])}.pdf"

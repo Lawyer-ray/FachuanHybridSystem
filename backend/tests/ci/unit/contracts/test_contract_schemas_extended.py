@@ -36,89 +36,68 @@ from apps.contracts.schemas.contract_schemas import (
 class TestContractInValidation:
     def test_empty_lawyer_ids_raises(self):
         with pytest.raises(ValidationError, match="至少需要指派一个律师"):
-            ContractIn(
-                name="Test", case_type="civil", lawyer_ids=[], fee_mode=FeeMode.FIXED, fixed_amount=1000
-            )
+            ContractIn(name="Test", case_type="civil", lawyer_ids=[], fee_mode=FeeMode.FIXED, fixed_amount=1000)
 
     def test_fixed_fee_valid(self):
-        schema = ContractIn(
-            name="Test", case_type="civil", lawyer_ids=[1], fee_mode=FeeMode.FIXED, fixed_amount=5000
-        )
+        schema = ContractIn(name="Test", case_type="civil", lawyer_ids=[1], fee_mode=FeeMode.FIXED, fixed_amount=5000)
         assert schema.lawyer_ids == [1]
 
     def test_fixed_fee_zero_amount_raises(self):
         with pytest.raises(ValidationError, match="固定收费需填写金额"):
-            ContractIn(
-                name="Test", case_type="civil", lawyer_ids=[1], fee_mode=FeeMode.FIXED, fixed_amount=0
-            )
+            ContractIn(name="Test", case_type="civil", lawyer_ids=[1], fee_mode=FeeMode.FIXED, fixed_amount=0)
 
     def test_fixed_fee_negative_amount_raises(self):
         with pytest.raises(ValidationError, match="固定收费需填写金额"):
-            ContractIn(
-                name="Test", case_type="civil", lawyer_ids=[1], fee_mode=FeeMode.FIXED, fixed_amount=-100
-            )
+            ContractIn(name="Test", case_type="civil", lawyer_ids=[1], fee_mode=FeeMode.FIXED, fixed_amount=-100)
 
     def test_fixed_fee_none_amount_raises(self):
         with pytest.raises(ValidationError, match="固定收费需填写金额"):
-            ContractIn(
-                name="Test", case_type="civil", lawyer_ids=[1], fee_mode=FeeMode.FIXED, fixed_amount=None
-            )
+            ContractIn(name="Test", case_type="civil", lawyer_ids=[1], fee_mode=FeeMode.FIXED, fixed_amount=None)
 
     def test_semi_risk_valid(self):
         schema = ContractIn(
-            name="Test", case_type="civil", lawyer_ids=[1],
-            fee_mode=FeeMode.SEMI_RISK, fixed_amount=5000, risk_rate=10
+            name="Test", case_type="civil", lawyer_ids=[1], fee_mode=FeeMode.SEMI_RISK, fixed_amount=5000, risk_rate=10
         )
         assert schema.fee_mode == FeeMode.SEMI_RISK
 
     def test_semi_risk_no_amount_raises(self):
         with pytest.raises(ValidationError, match="半风险需填写前期金额"):
             ContractIn(
-                name="Test", case_type="civil", lawyer_ids=[1],
-                fee_mode=FeeMode.SEMI_RISK, fixed_amount=0, risk_rate=10
+                name="Test", case_type="civil", lawyer_ids=[1], fee_mode=FeeMode.SEMI_RISK, fixed_amount=0, risk_rate=10
             )
 
     def test_semi_risk_no_rate_raises(self):
         with pytest.raises(ValidationError, match="半风险需填写风险比例"):
             ContractIn(
-                name="Test", case_type="civil", lawyer_ids=[1],
-                fee_mode=FeeMode.SEMI_RISK, fixed_amount=5000, risk_rate=0
+                name="Test",
+                case_type="civil",
+                lawyer_ids=[1],
+                fee_mode=FeeMode.SEMI_RISK,
+                fixed_amount=5000,
+                risk_rate=0,
             )
 
     def test_full_risk_valid(self):
-        schema = ContractIn(
-            name="Test", case_type="civil", lawyer_ids=[1],
-            fee_mode=FeeMode.FULL_RISK, risk_rate=30
-        )
+        schema = ContractIn(name="Test", case_type="civil", lawyer_ids=[1], fee_mode=FeeMode.FULL_RISK, risk_rate=30)
         assert schema.fee_mode == FeeMode.FULL_RISK
 
     def test_full_risk_no_rate_raises(self):
         with pytest.raises(ValidationError, match="全风险需填写风险比例"):
-            ContractIn(
-                name="Test", case_type="civil", lawyer_ids=[1],
-                fee_mode=FeeMode.FULL_RISK, risk_rate=0
-            )
+            ContractIn(name="Test", case_type="civil", lawyer_ids=[1], fee_mode=FeeMode.FULL_RISK, risk_rate=0)
 
     def test_custom_valid(self):
         schema = ContractIn(
-            name="Test", case_type="civil", lawyer_ids=[1],
-            fee_mode=FeeMode.CUSTOM, custom_terms="自定义条款内容"
+            name="Test", case_type="civil", lawyer_ids=[1], fee_mode=FeeMode.CUSTOM, custom_terms="自定义条款内容"
         )
         assert schema.fee_mode == FeeMode.CUSTOM
 
     def test_custom_empty_terms_raises(self):
         with pytest.raises(ValidationError, match="自定义收费需填写条款文本"):
-            ContractIn(
-                name="Test", case_type="civil", lawyer_ids=[1],
-                fee_mode=FeeMode.CUSTOM, custom_terms=""
-            )
+            ContractIn(name="Test", case_type="civil", lawyer_ids=[1], fee_mode=FeeMode.CUSTOM, custom_terms="")
 
     def test_custom_whitespace_terms_raises(self):
         with pytest.raises(ValidationError, match="自定义收费需填写条款文本"):
-            ContractIn(
-                name="Test", case_type="civil", lawyer_ids=[1],
-                fee_mode=FeeMode.CUSTOM, custom_terms="   "
-            )
+            ContractIn(name="Test", case_type="civil", lawyer_ids=[1], fee_mode=FeeMode.CUSTOM, custom_terms="   ")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -284,19 +263,34 @@ class TestContractOutResolvers:
         obj = MagicMock()
         # 构造两条提醒：一条 case_log_id=None（应保留），一条 case_log_id=1（应过滤）
         r1 = SimpleNamespace(
-            id=10, contract_id=42, case_id=None, case_log_id=None,
-            reminder_type="hearing", content="开庭", due_at=datetime(2026, 7, 1, 9, 0, tzinfo=UTC),
+            id=10,
+            contract_id=42,
+            case_id=None,
+            case_log_id=None,
+            reminder_type="hearing",
+            content="开庭",
+            due_at=datetime(2026, 7, 1, 9, 0, tzinfo=UTC),
             metadata={"key": "val"},
         )
         r2 = SimpleNamespace(
-            id=11, contract_id=42, case_id=5, case_log_id=1,
-            reminder_type="deadline", content="举证", due_at=datetime(2026, 7, 2, tzinfo=UTC),
+            id=11,
+            contract_id=42,
+            case_id=5,
+            case_log_id=1,
+            reminder_type="deadline",
+            content="举证",
+            due_at=datetime(2026, 7, 2, tzinfo=UTC),
             metadata=None,
         )
         # due_at=None 的提醒，验证排序不会崩溃
         r3 = SimpleNamespace(
-            id=12, contract_id=42, case_id=None, case_log_id=None,
-            reminder_type="hearing", content="无期限", due_at=None,
+            id=12,
+            contract_id=42,
+            case_id=None,
+            case_log_id=None,
+            reminder_type="hearing",
+            content="无期限",
+            due_at=None,
             metadata=None,
         )
         obj.reminders.all.return_value = [r1, r2, r3]
@@ -309,8 +303,17 @@ class TestContractOutResolvers:
         assert result[0]["id"] == 10  # due_at=2026-07-01 排第一
         assert result[1]["id"] == 12  # due_at=None 排最后
         # 验证所有字段存在
-        for key in ("id", "contract_id", "case_id", "case_log_id", "reminder_type",
-                     "content", "due_at", "metadata", "reminder_type_label"):
+        for key in (
+            "id",
+            "contract_id",
+            "case_id",
+            "case_log_id",
+            "reminder_type",
+            "content",
+            "due_at",
+            "metadata",
+            "reminder_type_label",
+        ):
             assert key in result[0]
         # 验证 reminder_type_label 正确解析
         assert result[1]["reminder_type_label"] == "hearing" or isinstance(result[1]["reminder_type_label"], str)
@@ -319,8 +322,14 @@ class TestContractOutResolvers:
         """reminder_type 为 None 时 label 应返回空字符串，非 None。"""
         obj = MagicMock()
         r = SimpleNamespace(
-            id=99, contract_id=42, case_id=None, case_log_id=None,
-            reminder_type=None, content="test", due_at=None, metadata=None,
+            id=99,
+            contract_id=42,
+            case_id=None,
+            case_log_id=None,
+            reminder_type=None,
+            content="test",
+            due_at=None,
+            metadata=None,
         )
         obj.reminders.all.return_value = [r]
         result = ContractOut.resolve_reminders(obj)

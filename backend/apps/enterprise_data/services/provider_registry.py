@@ -178,27 +178,28 @@ class EnterpriseProviderRegistry:
             return ""
 
     def _read_sensitive_values(self, key: str, *, env_keys: tuple[str, ...]) -> tuple[str, ...]:
-        stored_values = self._split_secret_values(self._read_sensitive_str(key))
+        stored_values = _split_secret_values(self._read_sensitive_str(key))
         if stored_values:
             return stored_values
 
         for env_key in env_keys:
             env_value = (os.environ.get(env_key, "") or "").strip()
-            parsed_values = self._split_secret_values(env_value)
+            parsed_values = _split_secret_values(env_value)
             if parsed_values:
                 return parsed_values
         return ()
 
-    @staticmethod
-    def _split_secret_values(raw_value: str) -> tuple[str, ...]:
-        if not raw_value:
-            return ()
-        values: list[str] = []
-        seen: set[str] = set()
-        for item in _MULTI_VALUE_SPLIT_PATTERN.split(raw_value):
-            normalized = str(item or "").strip()
-            if not normalized or normalized in seen:
-                continue
-            values.append(normalized)
-            seen.add(normalized)
-        return tuple(values)
+
+# ↓↓ 由 EnterpriseProviderRegistry 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _split_secret_values(raw_value: str) -> tuple[str, ...]:
+    if not raw_value:
+        return ()
+    values: list[str] = []
+    seen: set[str] = set()
+    for item in _MULTI_VALUE_SPLIT_PATTERN.split(raw_value):
+        normalized = str(item or "").strip()
+        if not normalized or normalized in seen:
+            continue
+        values.append(normalized)
+        seen.add(normalized)
+    return tuple(values)

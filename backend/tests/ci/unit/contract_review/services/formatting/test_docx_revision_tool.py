@@ -12,6 +12,7 @@ from apps.contract_review.services.formatting.docx_revision_tool import (
     _create_ins,
     _make_run,
     _next_rev_id,
+    enable_track_changes,
 )
 
 
@@ -70,7 +71,7 @@ class TestDocxRevisionTool:
         settings_elem = MagicMock()
         doc.settings.element = settings_elem
         settings_elem.findall.return_value = []
-        DocxRevisionTool.enable_track_changes(doc)
+        enable_track_changes(doc)
         settings_elem.append.assert_called_once()
 
     def test_apply_revision_not_found(self):

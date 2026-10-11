@@ -7,7 +7,6 @@ from typing import TypedDict
 
 from apps.core.interfaces import ServiceLocator
 
-
 # ── 模块级纯函数 ────────────────────────────────────────────
 
 
@@ -249,10 +248,10 @@ class ExecutorIntentMixin:
     def _extract_intent_slots(cls, text: str) -> tuple[list[str], list[str], list[str], list[str]]:
         slots = cls._extract_intent_slots_with_confidence(text)
         return (
-            cls._dedupe_tokens([*slots["relation_high"], *slots["relation_low"]], max_tokens=8),
-            cls._dedupe_tokens([*slots["breach_high"], *slots["breach_low"]], max_tokens=8),
-            cls._dedupe_tokens([*slots["damage_high"], *slots["damage_low"]], max_tokens=8),
-            cls._dedupe_tokens([*slots["remedy_high"], *slots["remedy_low"]], max_tokens=8),
+            _dedupe_tokens([*slots["relation_high"], *slots["relation_low"]], max_tokens=8),
+            _dedupe_tokens([*slots["breach_high"], *slots["breach_low"]], max_tokens=8),
+            _dedupe_tokens([*slots["damage_high"], *slots["damage_low"]], max_tokens=8),
+            _dedupe_tokens([*slots["remedy_high"], *slots["remedy_low"]], max_tokens=8),
         )
 
     @classmethod
@@ -316,7 +315,7 @@ class ExecutorIntentMixin:
             cls._extract_relation_terms_dynamic(normalized, extra_regexes=rule_overrides["relation_regex_extra"])
         )
         relation_high.extend([cls._normalize_relation_term(term) for term in rule_overrides["relation_term_extra"]])
-        relation_low = [token for token in semantic_tokens if cls._looks_like_relation_term(token)]
+        relation_low = [token for token in semantic_tokens if _looks_like_relation_term(token)]
 
         breach_hints = cls._merge_hint_overrides(cls.INTENT_BREACH_HINTS, rule_overrides["breach_hint_extra"])
         damage_hints = cls._merge_hint_overrides(cls.INTENT_DAMAGE_HINTS, rule_overrides["damage_hint_extra"])
@@ -329,7 +328,7 @@ class ExecutorIntentMixin:
         breach_high.extend(dyn_breach_high)
         breach_low = [
             *dyn_breach_low,
-            *[token for token in semantic_tokens if cls._contains_any_hint(token, breach_hints)],
+            *[token for token in semantic_tokens if _contains_any_hint(token, breach_hints)],
         ]
 
         damage_high = cls._collect_intent_terms(normalized, damage_mapping)
@@ -339,7 +338,7 @@ class ExecutorIntentMixin:
         damage_high.extend(dyn_damage_high)
         damage_low = [
             *dyn_damage_low,
-            *[token for token in semantic_tokens if cls._contains_any_hint(token, damage_hints)],
+            *[token for token in semantic_tokens if _contains_any_hint(token, damage_hints)],
         ]
 
         remedy_high = cls._collect_intent_terms(normalized, remedy_mapping)
@@ -349,16 +348,16 @@ class ExecutorIntentMixin:
         remedy_high.extend(dyn_remedy_high)
         remedy_low = [
             *dyn_remedy_low,
-            *[token for token in semantic_tokens if cls._contains_any_hint(token, remedy_hints)],
+            *[token for token in semantic_tokens if _contains_any_hint(token, remedy_hints)],
         ]
 
-        relation_high_deduped = cls._dedupe_tokens(
+        relation_high_deduped = _dedupe_tokens(
             [cls._normalize_relation_term(term) for term in relation_high if term],
             max_tokens=8,
         )
         return {
             "relation_high": relation_high_deduped,
-            "relation_low": cls._dedupe_tokens(
+            "relation_low": _dedupe_tokens(
                 [
                     cls._normalize_relation_term(term)
                     for term in relation_low
@@ -366,16 +365,16 @@ class ExecutorIntentMixin:
                 ],
                 max_tokens=8,
             ),
-            "breach_high": cls._dedupe_tokens(breach_high, max_tokens=8),
-            "breach_low": cls._dedupe_tokens(
+            "breach_high": _dedupe_tokens(breach_high, max_tokens=8),
+            "breach_low": _dedupe_tokens(
                 [term for term in breach_low if term and term not in breach_high], max_tokens=8
             ),
-            "damage_high": cls._dedupe_tokens(damage_high, max_tokens=8),
-            "damage_low": cls._dedupe_tokens(
+            "damage_high": _dedupe_tokens(damage_high, max_tokens=8),
+            "damage_low": _dedupe_tokens(
                 [term for term in damage_low if term and term not in damage_high], max_tokens=8
             ),
-            "remedy_high": cls._dedupe_tokens(remedy_high, max_tokens=8),
-            "remedy_low": cls._dedupe_tokens(
+            "remedy_high": _dedupe_tokens(remedy_high, max_tokens=8),
+            "remedy_low": _dedupe_tokens(
                 [term for term in remedy_low if term and term not in remedy_high], max_tokens=8
             ),
             "low_conf_limit": rule_overrides["low_conf_limit"],
@@ -417,7 +416,7 @@ class ExecutorIntentMixin:
                 continue
             terms.append(cls._normalize_relation_term(matched))
 
-        return cls._dedupe_tokens([term for term in terms if term], max_tokens=8)
+        return _dedupe_tokens([term for term in terms if term], max_tokens=8)
 
     @classmethod
     def _extract_slot_terms_by_hints_with_confidence(
@@ -430,7 +429,7 @@ class ExecutorIntentMixin:
             return [], []
         high_terms: list[str] = []
         low_terms: list[str] = []
-        for clause in cls._split_intent_clauses(text):
+        for clause in _split_intent_clauses(text):
             hint_hits = [hint for hint in hints if hint in clause]
             if not hint_hits:
                 continue
@@ -443,11 +442,7 @@ class ExecutorIntentMixin:
                 high_terms.append(compact)
             else:
                 low_terms.append(compact)
-        return cls._dedupe_tokens(high_terms, max_tokens=8), cls._dedupe_tokens(low_terms, max_tokens=8)
-
-    @staticmethod
-    def _split_intent_clauses(text: str) -> list[str]:
-        return split_intent_clauses(text)
+        return _dedupe_tokens(high_terms, max_tokens=8), _dedupe_tokens(low_terms, max_tokens=8)
 
     @classmethod
     def _compact_clause_by_hints(cls, clause: str, *, hints: tuple[str, ...], max_chars: int) -> str:
@@ -456,14 +451,6 @@ class ExecutorIntentMixin:
     @classmethod
     def _normalize_relation_term(cls, term: str) -> str:
         return normalize_relation_term(term)
-
-    @staticmethod
-    def _looks_like_relation_term(term: str) -> bool:
-        return looks_like_relation_term(term)
-
-    @staticmethod
-    def _contains_any_hint(text: str, hints: tuple[str, ...]) -> bool:
-        return contains_any_hint(text, hints)
 
     # ── 规则覆盖加载 ──────────────────────────────────────────
 
@@ -482,32 +469,32 @@ class ExecutorIntentMixin:
             }
 
         return {
-            "relation_regex_extra": cls._parse_rule_items(
+            "relation_regex_extra": _parse_rule_items(
                 str(config_service.get_value(cls.INTENT_RULE_RELATION_REGEX_EXTRA_KEY, "") or ""),
                 max_items=16,
                 max_len=120,
             ),
-            "relation_term_extra": cls._parse_rule_items(
+            "relation_term_extra": _parse_rule_items(
                 str(config_service.get_value(cls.INTENT_RULE_RELATION_TERM_EXTRA_KEY, "") or ""),
                 max_items=16,
                 max_len=40,
             ),
-            "breach_hint_extra": cls._parse_rule_items(
+            "breach_hint_extra": _parse_rule_items(
                 str(config_service.get_value(cls.INTENT_RULE_BREACH_HINT_EXTRA_KEY, "") or ""),
                 max_items=24,
                 max_len=20,
             ),
-            "damage_hint_extra": cls._parse_rule_items(
+            "damage_hint_extra": _parse_rule_items(
                 str(config_service.get_value(cls.INTENT_RULE_DAMAGE_HINT_EXTRA_KEY, "") or ""),
                 max_items=24,
                 max_len=20,
             ),
-            "remedy_hint_extra": cls._parse_rule_items(
+            "remedy_hint_extra": _parse_rule_items(
                 str(config_service.get_value(cls.INTENT_RULE_REMEDY_HINT_EXTRA_KEY, "") or ""),
                 max_items=24,
                 max_len=20,
             ),
-            "low_conf_limit": cls._parse_int_with_bounds(
+            "low_conf_limit": _parse_int_with_bounds(
                 str(config_service.get_value(cls.INTENT_LOW_CONF_MAX_TERMS_KEY, "2") or ""),
                 default=2,
                 min_value=1,
@@ -515,28 +502,12 @@ class ExecutorIntentMixin:
             ),
         }
 
-    @staticmethod
-    def _parse_rule_items(raw: str, *, max_items: int, max_len: int) -> list[str]:
-        return parse_rule_items(raw, max_items=max_items, max_len=max_len)
-
-    @staticmethod
-    def _parse_int_with_bounds(raw: str, *, default: int, min_value: int, max_value: int) -> int:
-        return parse_int_with_bounds(raw, default=default, min_value=min_value, max_value=max_value)
-
     @classmethod
     def _merge_hint_overrides(cls, defaults: tuple[str, ...], extras: list[str]) -> tuple[str, ...]:
         merged = dedupe_tokens([*defaults, *extras], max_tokens=64)
         return tuple(merged)
 
     # ── 通用工具方法 ──────────────────────────────────────────
-
-    @staticmethod
-    def _split_tokens(text: str) -> list[str]:
-        return split_tokens(text)
-
-    @staticmethod
-    def _is_location_or_court_token(token: str) -> bool:
-        return is_location_or_court_token(token)
 
     @classmethod
     def _extract_summary_terms(cls, case_summary: str) -> list[str]:
@@ -605,8 +576,44 @@ class ExecutorIntentMixin:
                 continue
             terms.append(token)
 
-        return cls._dedupe_tokens(terms, max_tokens=12)
+        return _dedupe_tokens(terms, max_tokens=12)
 
-    @staticmethod
-    def _dedupe_tokens(tokens: list[str], *, max_tokens: int) -> list[str]:
-        return dedupe_tokens(tokens, max_tokens=max_tokens)
+
+# ↓↓ 由 ExecutorIntentMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _split_intent_clauses(text: str) -> list[str]:
+    return split_intent_clauses(text)
+
+
+# ↓↓ 由 ExecutorIntentMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _looks_like_relation_term(term: str) -> bool:
+    return looks_like_relation_term(term)
+
+
+# ↓↓ 由 ExecutorIntentMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _contains_any_hint(text: str, hints: tuple[str, ...]) -> bool:
+    return contains_any_hint(text, hints)
+
+
+# ↓↓ 由 ExecutorIntentMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _parse_rule_items(raw: str, *, max_items: int, max_len: int) -> list[str]:
+    return parse_rule_items(raw, max_items=max_items, max_len=max_len)
+
+
+# ↓↓ 由 ExecutorIntentMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _parse_int_with_bounds(raw: str, *, default: int, min_value: int, max_value: int) -> int:
+    return parse_int_with_bounds(raw, default=default, min_value=min_value, max_value=max_value)
+
+
+# ↓↓ 由 ExecutorIntentMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _split_tokens(text: str) -> list[str]:
+    return split_tokens(text)
+
+
+# ↓↓ 由 ExecutorIntentMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _is_location_or_court_token(token: str) -> bool:
+    return is_location_or_court_token(token)
+
+
+# ↓↓ 由 ExecutorIntentMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _dedupe_tokens(tokens: list[str], *, max_tokens: int) -> list[str]:
+    return dedupe_tokens(tokens, max_tokens=max_tokens)

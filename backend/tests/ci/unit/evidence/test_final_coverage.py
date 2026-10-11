@@ -9,9 +9,8 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from apps.evidence.services.export.evidence_export_service import EvidenceExportService
 from apps.core.exceptions import NotFoundError, ValidationException
-
+from apps.evidence.services.export.evidence_export_service import EvidenceExportService
 
 # ============================================================================
 # EvidenceExportService init tests
@@ -38,6 +37,7 @@ class TestGetEvidenceList:
     @pytest.mark.django_db
     def test_get_evidence_list_not_found(self):
         from apps.evidence.models import EvidenceList
+
         svc = EvidenceExportService()
         # Use a non-existent ID; the real model's DoesNotExist will be raised and caught
         with pytest.raises(NotFoundError):
@@ -116,6 +116,7 @@ class TestGenerateFilename:
 class TestAddEvidenceDetailSection:
     def test_adds_detail(self):
         from docx import Document
+
         svc = EvidenceExportService()
         doc = Document()
         item = MagicMock()
@@ -139,6 +140,7 @@ class TestAddEvidenceDetailSection:
 
     def test_minimal_item(self):
         from docx import Document
+
         svc = EvidenceExportService()
         doc = Document()
         item = MagicMock()

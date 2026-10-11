@@ -4,6 +4,7 @@ Covers: CodePlaceholderCatalogService — get_definition, list_keys, _is_placeho
 _looks_like_template_placeholder, _ContextDictKeyVisitor, _extract_definitions_from_spec,
 _spec_metadata, _extract_string_assignment, _scan_placeholder_spec_files.
 """
+
 from __future__ import annotations
 
 import ast
@@ -68,7 +69,7 @@ class TestExtractStringAssignment:
     def test_non_string_value(self):
         from apps.documents.services.code_placeholders.catalog_service import _extract_string_assignment
 
-        code = 'KEY = 42'
+        code = "KEY = 42"
         tree = ast.parse(code)
         result = _extract_string_assignment(tree.body[0])
         assert result is None
@@ -76,7 +77,7 @@ class TestExtractStringAssignment:
     def test_non_assign(self):
         from apps.documents.services.code_placeholders.catalog_service import _extract_string_assignment
 
-        code = 'pass'
+        code = "pass"
         tree = ast.parse(code)
         result = _extract_string_assignment(tree.body[0])
         assert result is None
@@ -158,14 +159,18 @@ class TestCatalogServiceGetDefinition:
 
         reg = CodePlaceholderRegistry()
         reg.clear()
-        reg.register([
-            CodePlaceholderDefinition(key="findme", source="test", category="c", display_name="Find Me"),
-        ])
+        reg.register(
+            [
+                CodePlaceholderDefinition(key="findme", source="test", category="c", display_name="Find Me"),
+            ]
+        )
         svc = CodePlaceholderCatalogService()
-        with patch.object(svc, "_from_registry", return_value=[]), \
-             patch.object(svc, "_from_spec_files_scan", return_value=[]), \
-             patch.object(svc, "_from_evidence_list", return_value=[]), \
-             patch.object(svc, "_from_generation_ast_scan", return_value=[]):
+        with (
+            patch.object(svc, "_from_registry", return_value=[]),
+            patch.object(svc, "_from_spec_files_scan", return_value=[]),
+            patch.object(svc, "_from_evidence_list", return_value=[]),
+            patch.object(svc, "_from_generation_ast_scan", return_value=[]),
+        ):
             result = svc.get_definition("findme")
             assert result is not None
             assert result.display_name == "Find Me"
@@ -176,10 +181,12 @@ class TestCatalogServiceGetDefinition:
         reg = CodePlaceholderRegistry()
         reg.clear()
         svc = CodePlaceholderCatalogService()
-        with patch.object(svc, "_from_registry", return_value=[]), \
-             patch.object(svc, "_from_spec_files_scan", return_value=[]), \
-             patch.object(svc, "_from_evidence_list", return_value=[]), \
-             patch.object(svc, "_from_generation_ast_scan", return_value=[]):
+        with (
+            patch.object(svc, "_from_registry", return_value=[]),
+            patch.object(svc, "_from_spec_files_scan", return_value=[]),
+            patch.object(svc, "_from_evidence_list", return_value=[]),
+            patch.object(svc, "_from_generation_ast_scan", return_value=[]),
+        ):
             result = svc.get_definition("nonexistent")
             assert result is None
 
@@ -188,15 +195,19 @@ class TestCatalogServiceGetDefinition:
 
         reg = CodePlaceholderRegistry()
         reg.clear()
-        reg.register([
-            CodePlaceholderDefinition(key="a", source="s", category="c"),
-            CodePlaceholderDefinition(key="b", source="s", category="c"),
-        ])
+        reg.register(
+            [
+                CodePlaceholderDefinition(key="a", source="s", category="c"),
+                CodePlaceholderDefinition(key="b", source="s", category="c"),
+            ]
+        )
         svc = CodePlaceholderCatalogService()
-        with patch.object(svc, "_from_registry", return_value=[]), \
-             patch.object(svc, "_from_spec_files_scan", return_value=[]), \
-             patch.object(svc, "_from_evidence_list", return_value=[]), \
-             patch.object(svc, "_from_generation_ast_scan", return_value=[]):
+        with (
+            patch.object(svc, "_from_registry", return_value=[]),
+            patch.object(svc, "_from_spec_files_scan", return_value=[]),
+            patch.object(svc, "_from_evidence_list", return_value=[]),
+            patch.object(svc, "_from_generation_ast_scan", return_value=[]),
+        ):
             keys = svc.list_keys()
             assert "a" in keys
             assert "b" in keys
@@ -206,11 +217,11 @@ class TestExtractDefinitionsFromSpec:
     def test_extracts_from_spec(self):
         from apps.documents.services.code_placeholders.catalog_service import _extract_definitions_from_spec
 
-        content = textwrap.dedent('''\
+        content = textwrap.dedent("""\
             class CasePlaceholderKeys:
                 plaintiff_name = "原告姓名"
                 defendant_name = "被告姓名"
-        ''')
+        """)
         tree = ast.parse(content)
         with patch("builtins.open", MagicMock()):
             with patch.object(Path, "read_text", return_value=content):
@@ -223,10 +234,10 @@ class TestExtractDefinitionsFromSpec:
     def test_skips_non_placeholder_keys_classes(self):
         from apps.documents.services.code_placeholders.catalog_service import _extract_definitions_from_spec
 
-        content = textwrap.dedent('''\
+        content = textwrap.dedent("""\
             class SomeOtherClass:
                 value = "test"
-        ''')
+        """)
         with patch.object(Path, "read_text", return_value=content):
             defs = _extract_definitions_from_spec(Path("/fake/spec.py"))
             assert len(defs) == 0

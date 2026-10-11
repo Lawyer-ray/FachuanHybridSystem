@@ -8,6 +8,14 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
+from apps.enterprise_data.services.workbench.service import (
+    _invalidate_describe_cache,
+    _mask_payload,
+    _resolve_replay_record,
+    _sample_cache_key,
+    _truncate_data,
+)
+
 
 class TestMcpWorkbenchServiceInit:
     def test_default_init(self):
@@ -176,14 +184,14 @@ class TestTruncateData:
         from apps.enterprise_data.services.workbench.service import McpWorkbenchService
 
         data = {"key": "value"}
-        result = McpWorkbenchService._truncate_data(data)
+        result = _truncate_data(data)
         assert result == data
 
     def test_large_data_truncated(self):
         from apps.enterprise_data.services.workbench.service import McpWorkbenchService
 
         data = {"key": "x" * 20000}
-        result = McpWorkbenchService._truncate_data(data)
+        result = _truncate_data(data)
         assert isinstance(result, dict)
         assert result.get("_truncated") is True
         assert "preview" in result
@@ -196,7 +204,7 @@ class TestTruncateData:
         class BadObj:
             pass
 
-        result = McpWorkbenchService._truncate_data(BadObj())
+        result = _truncate_data(BadObj())
         # default=str in json.dumps handles it
         assert result is not None
 
@@ -205,7 +213,7 @@ class TestSampleCacheKey:
     def test_format(self):
         from apps.enterprise_data.services.workbench.service import McpWorkbenchService
 
-        key = McpWorkbenchService._sample_cache_key(provider="qichacha", tool_name="search")
+        key = _sample_cache_key(provider="qichacha", tool_name="search")
         assert key == "mcp_workbench:sample:qichacha:search"
 
 
@@ -214,7 +222,7 @@ class TestInvalidateDescribeCache:
     def test_deletes_cache(self, mock_cache):
         from apps.enterprise_data.services.workbench.service import McpWorkbenchService
 
-        McpWorkbenchService._invalidate_describe_cache("qichacha")
+        _invalidate_describe_cache("qichacha")
         mock_cache.delete.assert_called_once_with("mcp_workbench:describe_tools_full:qichacha")
 
 
@@ -265,7 +273,7 @@ class TestMaskPayload:
 
         with patch("apps.enterprise_data.services.workbench.service.scrub_for_storage") as mock_scrub:
             mock_scrub.return_value = {"masked": True}
-            result = McpWorkbenchService._mask_payload({"secret": "data"})
+            result = _mask_payload({"secret": "data"})
             mock_scrub.assert_called_once_with({"secret": "data"})
 
 
@@ -273,13 +281,13 @@ class TestResolveReplayRecord:
     def test_none_returns_none(self):
         from apps.enterprise_data.services.workbench.service import McpWorkbenchService
 
-        result = McpWorkbenchService._resolve_replay_record(replay_of_id=None)
+        result = _resolve_replay_record(replay_of_id=None)
         assert result is None
 
     def test_zero_returns_none(self):
         from apps.enterprise_data.services.workbench.service import McpWorkbenchService
 
-        result = McpWorkbenchService._resolve_replay_record(replay_of_id=0)
+        result = _resolve_replay_record(replay_of_id=0)
         assert result is None
 
 

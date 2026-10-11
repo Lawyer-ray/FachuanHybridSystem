@@ -15,12 +15,12 @@ except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
 
-
 class TestMatchSlotExecutionFallback:
     """Cover execution-specific fallback in _match_slot."""
 
     def _fn(self):
         from plugins.court_automation.filing.helpers import _match_slot
+
         return _match_slot
 
     def test_execution_apply_hits_returns_slot_0(self):
@@ -32,7 +32,9 @@ class TestMatchSlotExecutionFallback:
         material.type = None
         material.source_attachment = None
 
-        result = self._fn()(material=material, file_path=Path("/test/执行申请书.pdf"), filing_type=_FILING_TYPE_EXECUTION)
+        result = self._fn()(
+            material=material, file_path=Path("/test/执行申请书.pdf"), filing_type=_FILING_TYPE_EXECUTION
+        )
         assert result == "0"
 
     def test_execution_excluded_keywords_still_match_slot_rules(self):
@@ -76,6 +78,7 @@ class TestBuildMaterialSlotSignals:
 
     def _fn(self):
         from plugins.court_automation.filing.helpers import _build_material_slot_signals
+
         return _build_material_slot_signals
 
     def test_with_material_type_name(self):
@@ -126,6 +129,7 @@ class TestScoreSlotDeduplicated:
 
     def _fn(self):
         from plugins.court_automation.filing.helpers import _score_slot_deduplicated
+
         return _score_slot_deduplicated
 
     def test_no_signals_returns_zero(self):
@@ -144,6 +148,7 @@ class TestInferFilingTypeMaterialKeywords:
 
     def _fn(self):
         from plugins.court_automation.filing.helpers import _infer_filing_type
+
         return _infer_filing_type
 
     def test_material_has_execution_keyword(self):
@@ -167,14 +172,18 @@ class TestBuildExecutionRequestTextBranches:
 
     def _fn(self):
         from plugins.court_automation.filing.helpers import _build_execution_request_text
+
         return _build_execution_request_text
 
     def test_generated_text_with_bell_char(self):
         case = MagicMock()
         case.id = 1
 
-        with patch("apps.documents.services.placeholders.litigation.execution_request_service.ExecutionRequestService") as mock_svc:
+        with patch(
+            "apps.documents.services.placeholders.litigation.execution_request_service.ExecutionRequestService"
+        ) as mock_svc:
             from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
+
             mock_instance = MagicMock()
             mock_instance.generate.return_value = {
                 LitigationPlaceholderKeys.ENFORCEMENT_EXECUTION_REQUEST: "line1\aline2\r\nline3\rline4"
@@ -191,7 +200,10 @@ class TestBuildExecutionRequestTextBranches:
         case.case_numbers.filter.return_value.order_by.return_value.values_list.return_value.first.return_value = None
         case.case_numbers.order_by.return_value.values_list.return_value.first.return_value = None
 
-        with patch("apps.documents.services.placeholders.litigation.execution_request_service.ExecutionRequestService", side_effect=TypeError("bad type")):
+        with patch(
+            "apps.documents.services.placeholders.litigation.execution_request_service.ExecutionRequestService",
+            side_effect=TypeError("bad type"),
+        ):
             result = self._fn()(case=case)
         assert "一、" in result
 
@@ -199,9 +211,13 @@ class TestBuildExecutionRequestTextBranches:
         case = MagicMock()
         case.id = 1
         case.case_numbers = MagicMock()
-        case.case_numbers.filter.return_value.order_by.return_value.values_list.return_value.first.return_value = "(2025)粤01民初1号"
+        case.case_numbers.filter.return_value.order_by.return_value.values_list.return_value.first.return_value = (
+            "(2025)粤01民初1号"
+        )
 
-        with patch("apps.documents.services.placeholders.litigation.execution_request_service.ExecutionRequestService") as mock_svc:
+        with patch(
+            "apps.documents.services.placeholders.litigation.execution_request_service.ExecutionRequestService"
+        ) as mock_svc:
             mock_instance = MagicMock()
             mock_instance.generate.return_value = {}
             mock_svc.return_value = mock_instance
@@ -214,6 +230,7 @@ class TestBuildAgentPayloadsEdgeCases:
 
     def _fn(self):
         from plugins.court_automation.filing.helpers import _build_agent_payloads
+
         return _build_agent_payloads
 
     def test_lawyer_with_no_name_skipped(self):
@@ -292,14 +309,17 @@ class TestBuildMaterialsMapNoMaterials:
 
     def _fn(self):
         from plugins.court_automation.filing.helpers import _build_materials_map
+
         return _build_materials_map
 
     def test_no_party_materials_fallback(self):
         case = MagicMock()
 
-        with patch("apps.cases.models.CaseMaterial") as mock_cm, \
-             patch("apps.cases.models.CaseMaterialCategory") as mock_cat, \
-             patch("apps.cases.models.CaseMaterialSide") as mock_side:
+        with (
+            patch("apps.cases.models.CaseMaterial") as mock_cm,
+            patch("apps.cases.models.CaseMaterialCategory") as mock_cat,
+            patch("apps.cases.models.CaseMaterialSide") as mock_side,
+        ):
             # First query (party materials) returns empty - chain: filter -> filter -> select_related -> order_by
             party_ordered = MagicMock()
             party_ordered.exists.return_value = False
@@ -333,8 +353,10 @@ class TestBuildMaterialsMapNoMaterials:
 
             mock_cm.objects.filter.side_effect = [party_filter1, all_filter]
 
-            with patch("plugins.court_automation.filing.helpers._match_slot", return_value="5"), \
-                 patch("pathlib.Path.exists", return_value=True):
+            with (
+                patch("plugins.court_automation.filing.helpers._match_slot", return_value="5"),
+                patch("pathlib.Path.exists", return_value=True),
+            ):
                 result = self._fn()(case=case, filing_type="civil")
             assert isinstance(result, dict)
 
@@ -357,9 +379,11 @@ class TestBuildMaterialsMapNoMaterials:
     def test_material_without_source_attachment_skipped(self):
         case = MagicMock()
 
-        with patch("apps.cases.models.CaseMaterial") as mock_cm, \
-             patch("apps.cases.models.CaseMaterialCategory") as mock_cat, \
-             patch("apps.cases.models.CaseMaterialSide") as mock_side:
+        with (
+            patch("apps.cases.models.CaseMaterial") as mock_cm,
+            patch("apps.cases.models.CaseMaterialCategory") as mock_cat,
+            patch("apps.cases.models.CaseMaterialSide") as mock_side,
+        ):
             material = MagicMock()
             material.source_attachment_id = None
 
@@ -372,9 +396,11 @@ class TestBuildMaterialsMapNoMaterials:
     def test_material_file_not_pdf_skipped(self):
         case = MagicMock()
 
-        with patch("apps.cases.models.CaseMaterial") as mock_cm, \
-             patch("apps.cases.models.CaseMaterialCategory") as mock_cat, \
-             patch("apps.cases.models.CaseMaterialSide") as mock_side:
+        with (
+            patch("apps.cases.models.CaseMaterial") as mock_cm,
+            patch("apps.cases.models.CaseMaterialCategory") as mock_cat,
+            patch("apps.cases.models.CaseMaterialSide") as mock_side,
+        ):
             material = MagicMock()
             material.source_attachment_id = 1
             attachment = MagicMock()
@@ -392,9 +418,11 @@ class TestBuildMaterialsMapNoMaterials:
     def test_material_file_path_exception_skipped(self):
         case = MagicMock()
 
-        with patch("apps.cases.models.CaseMaterial") as mock_cm, \
-             patch("apps.cases.models.CaseMaterialCategory") as mock_cat, \
-             patch("apps.cases.models.CaseMaterialSide") as mock_side:
+        with (
+            patch("apps.cases.models.CaseMaterial") as mock_cm,
+            patch("apps.cases.models.CaseMaterialCategory") as mock_cat,
+            patch("apps.cases.models.CaseMaterialSide") as mock_side,
+        ):
             material = MagicMock()
             material.source_attachment_id = 1
             attachment = MagicMock()
@@ -414,9 +442,11 @@ class TestBuildMaterialsMapNoMaterials:
     def test_dedup_prevents_duplicate(self):
         case = MagicMock()
 
-        with patch("apps.cases.models.CaseMaterial") as mock_cm, \
-             patch("apps.cases.models.CaseMaterialCategory") as mock_cat, \
-             patch("apps.cases.models.CaseMaterialSide") as mock_side:
+        with (
+            patch("apps.cases.models.CaseMaterial") as mock_cm,
+            patch("apps.cases.models.CaseMaterialCategory") as mock_cat,
+            patch("apps.cases.models.CaseMaterialSide") as mock_side,
+        ):
             # Two materials pointing to same file
             materials = []
             for _ in range(2):
@@ -431,8 +461,10 @@ class TestBuildMaterialsMapNoMaterials:
             qs = self._build_qs_chain(materials)
             mock_cm.objects.filter.return_value = qs
 
-            with patch("plugins.court_automation.filing.helpers._match_slot", return_value="5"), \
-                 patch("pathlib.Path.exists", return_value=True):
+            with (
+                patch("plugins.court_automation.filing.helpers._match_slot", return_value="5"),
+                patch("pathlib.Path.exists", return_value=True),
+            ):
                 result = self._fn()(case=case, filing_type="civil")
             # Should only have 1 entry despite 2 materials
             assert len(result.get("5", [])) == 1
@@ -443,6 +475,7 @@ class TestScoreSlotForSignalEdgeCases:
 
     def _fn(self):
         from plugins.court_automation.filing.helpers import _score_slot_for_signal
+
         return _score_slot_for_signal
 
     def test_exclude_keywords_reduce_score(self):

@@ -46,7 +46,7 @@ class CalendarExportService:
         cal.add("x-wr-timezone", "Asia/Shanghai")
 
         for reminder in reminders:
-            vevent = self._reminder_to_vevent(reminder)
+            vevent = _reminder_to_vevent(reminder)
             if vevent is not None:
                 cal.add_component(vevent)
 
@@ -92,61 +92,62 @@ class CalendarExportService:
 
         return list(queryset.order_by("due_at", "id"))
 
-    @staticmethod
-    def _reminder_to_vevent(reminder: Reminder) -> Event | None:
-        """Convert a Reminder to an iCal VEVENT component."""
-        if not reminder.due_at:
-            return None
 
-        vevent = Event()
-        vevent.add("uid", f"reminder-{reminder.id}@fachuan-system")
-        vevent.add("summary", reminder.content)
+# ↓↓ 由 CalendarExportService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _reminder_to_vevent(reminder: Reminder) -> Event | None:
+    """Convert a Reminder to an iCal VEVENT component."""
+    if not reminder.due_at:
+        return None
 
-        # DTSTART
-        due_local = timezone.localtime(reminder.due_at)
-        vevent.add("dtstart", due_local)
+    vevent = Event()
+    vevent.add("uid", f"reminder-{reminder.id}@fachuan-system")
+    vevent.add("summary", reminder.content)
 
-        # DTEND = DTSTART + 1 hour (default duration)
-        metadata = reminder.metadata if isinstance(reminder.metadata, dict) else {}
-        end_at = metadata.get("end_at")
-        if end_at:
-            try:
-                end_dt = datetime.fromisoformat(str(end_at))
-                if end_dt.tzinfo is None:
-                    end_dt = timezone.make_aware(end_dt, timezone.get_current_timezone())
-                vevent.add("dtend", timezone.localtime(end_dt))
-            except (ValueError, TypeError):
-                vevent.add("dtend", due_local + timedelta(hours=1))
-        else:
+    # DTSTART
+    due_local = timezone.localtime(reminder.due_at)
+    vevent.add("dtstart", due_local)
+
+    # DTEND = DTSTART + 1 hour (default duration)
+    metadata = reminder.metadata if isinstance(reminder.metadata, dict) else {}
+    end_at = metadata.get("end_at")
+    if end_at:
+        try:
+            end_dt = datetime.fromisoformat(str(end_at))
+            if end_dt.tzinfo is None:
+                end_dt = timezone.make_aware(end_dt, timezone.get_current_timezone())
+            vevent.add("dtend", timezone.localtime(end_dt))
+        except (ValueError, TypeError):
             vevent.add("dtend", due_local + timedelta(hours=1))
+    else:
+        vevent.add("dtend", due_local + timedelta(hours=1))
 
-        # CATEGORIES
-        type_label = dict(ReminderType.choices).get(reminder.reminder_type, reminder.reminder_type)
-        vevent.add("categories", str(type_label))
+    # CATEGORIES
+    type_label = dict(ReminderType.choices).get(reminder.reminder_type, reminder.reminder_type)
+    vevent.add("categories", str(type_label))
 
-        # LOCATION
-        location = metadata.get("courtroom", "") or metadata.get("location", "")
-        if location and location != "missing value":
-            vevent.add("location", str(location))
+    # LOCATION
+    location = metadata.get("courtroom", "") or metadata.get("location", "")
+    if location and location != "missing value":
+        vevent.add("location", str(location))
 
-        # DESCRIPTION
-        desc_parts: list[str] = []
-        if reminder.contract_id is not None and reminder.contract:
-            desc_parts.append(f"合同: {reminder.contract.name}")
-        if reminder.case_id is not None and reminder.case:
-            desc_parts.append(f"案件: {reminder.case.name}")
-        if reminder.case_log_id is not None and reminder.case_log:
-            desc_parts.append(f"案件日志: #{reminder.case_log_id}")
-        note = metadata.get("note", "")
-        if note:
-            desc_parts.append(f"备注: {note}")
-        if desc_parts:
-            vevent.add("description", "\n".join(desc_parts))
+    # DESCRIPTION
+    desc_parts: list[str] = []
+    if reminder.contract_id is not None and reminder.contract:
+        desc_parts.append(f"合同: {reminder.contract.name}")
+    if reminder.case_id is not None and reminder.case:
+        desc_parts.append(f"案件: {reminder.case.name}")
+    if reminder.case_log_id is not None and reminder.case_log:
+        desc_parts.append(f"案件日志: #{reminder.case_log_id}")
+    note = metadata.get("note", "")
+    if note:
+        desc_parts.append(f"备注: {note}")
+    if desc_parts:
+        vevent.add("description", "\n".join(desc_parts))
 
-        # STATUS（已完成的用 iCal 标准的 COMPLETED；getattr 兜底单测替身）
-        vevent.add("status", "COMPLETED" if getattr(reminder, "is_completed", False) else "CONFIRMED")
+    # STATUS（已完成的用 iCal 标准的 COMPLETED；getattr 兜底单测替身）
+    vevent.add("status", "COMPLETED" if getattr(reminder, "is_completed", False) else "CONFIRMED")
 
-        # DTSTAMP
-        vevent.add("dtstamp", timezone.now())
+    # DTSTAMP
+    vevent.add("dtstamp", timezone.now())
 
-        return vevent
+    return vevent

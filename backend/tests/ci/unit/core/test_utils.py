@@ -2,6 +2,7 @@
 
 覆盖: validators.py, id_card_utils.py
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -12,7 +13,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from apps.core.exceptions import ValidationException
-
 
 # ============================================================
 # validators.py - Validators
@@ -261,7 +261,9 @@ class TestValidatorsUploadedFile:
     def test_valid_file(self) -> None:
         from apps.core.utils.validators import Validators
 
-        f = SimpleNamespace(name="doc.pdf", size=1024, read=MagicMock(return_value=b"\x25\x50\x44\x46"), seek=MagicMock())
+        f = SimpleNamespace(
+            name="doc.pdf", size=1024, read=MagicMock(return_value=b"\x25\x50\x44\x46"), seek=MagicMock()
+        )
         result = Validators.validate_uploaded_file(f, allowed_extensions=[".pdf"])
         assert result is f
 
@@ -281,7 +283,9 @@ class TestValidatorsUploadedFile:
     def test_file_too_large(self) -> None:
         from apps.core.utils.validators import Validators
 
-        f = SimpleNamespace(name="big.pdf", size=20 * 1024 * 1024, read=MagicMock(return_value=b"\x25\x50\x44\x46"), seek=MagicMock())
+        f = SimpleNamespace(
+            name="big.pdf", size=20 * 1024 * 1024, read=MagicMock(return_value=b"\x25\x50\x44\x46"), seek=MagicMock()
+        )
         with pytest.raises(ValidationException):
             Validators.validate_uploaded_file(f, max_size_mb=10)
 

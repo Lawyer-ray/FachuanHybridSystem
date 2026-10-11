@@ -1,4 +1,5 @@
 """Targeted tests for evidence module to push coverage to 80%+."""
+
 from __future__ import annotations
 
 import re
@@ -6,7 +7,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # models/evidence_storage.py (34% coverage)

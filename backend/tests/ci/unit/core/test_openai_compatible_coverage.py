@@ -11,6 +11,7 @@ Covers:
   - embed_texts (empty, with mock)
   - chat / stream basic (with mocks)
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -163,6 +164,7 @@ class TestRaiseMappedError:
     def test_authentication_error(self):
         backend = OpenAICompatibleBackend()
         import openai
+
         exc = openai.AuthenticationError(
             message="bad key",
             response=MagicMock(status_code=401, headers={}),
@@ -174,6 +176,7 @@ class TestRaiseMappedError:
     def test_timeout_error(self):
         backend = OpenAICompatibleBackend()
         import openai
+
         exc = openai.APITimeoutError(request=MagicMock())
         with pytest.raises(LLMTimeoutError):
             backend._raise_mapped_error(exc, 30.0, "http://api.test")
@@ -181,6 +184,7 @@ class TestRaiseMappedError:
     def test_connection_error(self):
         backend = OpenAICompatibleBackend()
         import openai
+
         exc = openai.APIConnectionError(request=MagicMock())
         with pytest.raises(LLMNetworkError):
             backend._raise_mapped_error(exc, 30.0, "http://api.test")
@@ -188,6 +192,7 @@ class TestRaiseMappedError:
     def test_api_error(self):
         backend = OpenAICompatibleBackend()
         import openai
+
         exc = openai.APIStatusError(
             message="bad request",
             response=MagicMock(status_code=400, headers={}),
@@ -210,7 +215,15 @@ class TestProperties:
         assert backend._api_key is None
 
     def test_init_with_config(self):
-        config = BackendConfig(name="test", enabled=True, priority=1, api_key="test-key", base_url="http://test", default_model="m1", timeout=60)  # pragma: allowlist secret
+        config = BackendConfig(
+            name="test",
+            enabled=True,
+            priority=1,
+            api_key="test-key",  # pragma: allowlist secret
+            base_url="http://test",
+            default_model="m1",
+            timeout=60,
+        )
         backend = OpenAICompatibleBackend(config=config)
         assert backend.api_key == "test-key"  # pragma: allowlist secret
         assert backend.base_url == "http://test"
@@ -218,7 +231,9 @@ class TestProperties:
         assert backend.timeout == 60
 
     def test_api_key_from_config(self):
-        config = BackendConfig(name="test", enabled=True, priority=1, api_key="config-key", default_model="m")  # pragma: allowlist secret
+        config = BackendConfig(
+            name="test", enabled=True, priority=1, api_key="config-key", default_model="m"  # pragma: allowlist secret
+        )
         backend = OpenAICompatibleBackend(config=config)
         assert backend.api_key == "config-key"  # pragma: allowlist secret
 
@@ -259,11 +274,11 @@ class TestEmbedTexts:
     @patch("apps.core.llm.backends.openai_compatible.LLMConfig")
     def test_with_mock(self, mock_llm_config):
         mock_llm_config.get_openai_compatible_embedding_model.return_value = "m"
-        config = BackendConfig(name="test", enabled=True, priority=1, api_key="k", base_url="http://t", default_model="m", timeout=30)
-        backend = OpenAICompatibleBackend(config=config)
-        mock_response = SimpleNamespace(
-            data=[SimpleNamespace(embedding=[0.1, 0.2])]
+        config = BackendConfig(
+            name="test", enabled=True, priority=1, api_key="k", base_url="http://t", default_model="m", timeout=30
         )
+        backend = OpenAICompatibleBackend(config=config)
+        mock_response = SimpleNamespace(data=[SimpleNamespace(embedding=[0.1, 0.2])])
         with patch.object(backend, "_build_sync_client") as mock_build:
             mock_client = MagicMock()
             mock_client.embeddings.create.return_value = mock_response
@@ -275,13 +290,18 @@ class TestEmbedTexts:
     @patch("apps.core.llm.backends.openai_compatible.LLMConfig")
     def test_error_propagates(self, mock_llm_config):
         mock_llm_config.get_openai_compatible_embedding_model.return_value = "m"
-        config = BackendConfig(name="test", enabled=True, priority=1, api_key="k", base_url="http://t", default_model="m", timeout=30)
+        config = BackendConfig(
+            name="test", enabled=True, priority=1, api_key="k", base_url="http://t", default_model="m", timeout=30
+        )
         backend = OpenAICompatibleBackend(config=config)
         import openai
+
         with patch.object(backend, "_build_sync_client") as mock_build:
             mock_client = MagicMock()
             mock_client.embeddings.create.side_effect = openai.AuthenticationError(
-                message="bad", response=MagicMock(status_code=401, headers={}), body=None,
+                message="bad",
+                response=MagicMock(status_code=401, headers={}),
+                body=None,
             )
             mock_build.return_value = mock_client
             with pytest.raises(LLMAuthenticationError):

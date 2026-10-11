@@ -26,6 +26,7 @@ from plugins.court_automation.preservation_quote.execution_mixin import QuoteExe
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_mixin() -> QuoteExecutionMixin:
     """Create QuoteExecutionMixin bypassing abstract properties."""
     mixin = QuoteExecutionMixin.__new__(QuoteExecutionMixin)
@@ -61,6 +62,7 @@ def _make_failed_result(company: InsuranceCompany | None = None) -> PremiumResul
 # ═══════════════════════════════════════════════════════════════════════════
 # clean_decimal (extracted from _save_premium_results)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestCleanDecimal:
     """Test the clean_decimal extraction logic from _save_premium_results."""
@@ -110,6 +112,7 @@ class TestCleanDecimal:
 # result categorization (success/failed counting)
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestResultCategorization:
     """Test the success/failed counting logic from _save_premium_results."""
 
@@ -152,6 +155,7 @@ class TestResultCategorization:
 # ═══════════════════════════════════════════════════════════════════════════
 # rate_data extraction logic
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestRateDataExtraction:
     """Test the rate_data extraction logic from _save_premium_results."""
@@ -234,6 +238,7 @@ class TestRateDataExtraction:
 # ═══════════════════════════════════════════════════════════════════════════
 # determine_quote_status (from execute_quote)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestDetermineQuoteStatus:
     """Test the quote status determination logic from execute_quote."""

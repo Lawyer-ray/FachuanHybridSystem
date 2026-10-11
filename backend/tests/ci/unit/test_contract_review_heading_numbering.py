@@ -36,7 +36,7 @@ def _remove_numbering_part(source: str, target: str) -> None:
             zout.writestr(item, data)
 
 
-def _load_heading_numbering_class():
+def _load_heading_numbering_module():
     """Load the module without importing the Django-heavy services package."""
     module_path = (
         Path(__file__).resolve().parents[3]
@@ -69,7 +69,7 @@ def _load_heading_numbering_class():
         assert spec and spec.loader
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        return module.HeadingNumbering
+        return module
     finally:
         for name, module in original_modules.items():
             if module is None:
@@ -94,11 +94,12 @@ def test_get_or_add_numbering_part_creates_missing_part(tmp_path) -> None:
     with pytest.raises(NotImplementedError):
         _ = broken_doc.part.numbering_part
 
-    service = _load_heading_numbering_class()()
-    numbering_part = service._get_or_add_numbering_part(broken_doc)
+    module = _load_heading_numbering_module()
+    service = module.HeadingNumbering()
+    numbering_part = module._get_or_add_numbering_part(broken_doc)
     abstract_id = service._create_abstract_num(broken_doc)
-    num_id = service._create_num_ref(numbering_part.element, abstract_id)
-    service._apply_num_to_paragraphs(broken_doc, [(0, 0), (1, 1)], num_id)
+    num_id = module._create_num_ref(numbering_part.element, abstract_id)
+    module._apply_num_to_paragraphs(broken_doc, [(0, 0), (1, 1)], num_id)
     broken_doc.save(output_path)
 
     with zipfile.ZipFile(output_path, "r") as zf:

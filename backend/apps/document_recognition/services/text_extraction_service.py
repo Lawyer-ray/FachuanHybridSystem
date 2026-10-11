@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from apps.core.exceptions import ValidationException
+from apps.document_recognition.services.vlm_ocr_service import is_available
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +186,7 @@ class TextExtractionService:
         """
         from apps.document_recognition.services.vlm_ocr_service import VLMTranscriptionService
 
-        if not VLMTranscriptionService.is_available():
+        if not is_available():
             return TextExtractionResult(text="", extraction_method="vlm", success=False)
 
         try:
@@ -324,7 +325,7 @@ class TextExtractionService:
         from apps.document_recognition.services.vlm_ocr_service import VLMTranscriptionService
 
         # 1. VLM 视觉转写
-        if VLMTranscriptionService.is_available():
+        if is_available():
             try:
                 text = VLMTranscriptionService().transcribe_image(file_path)
                 if text and text.strip():

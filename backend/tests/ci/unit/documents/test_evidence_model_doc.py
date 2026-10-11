@@ -8,6 +8,7 @@ Covers:
   - _get_evidence_service(), _get_evidence_storage() factory functions
   - The __getattr__ delegation path from apps.documents.models
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch

@@ -26,12 +26,6 @@ class CourtDocumentRecognitionServiceAdapter:
     构造成本为零：全部协作者均为惰性加载）。
     """
 
-    @staticmethod
-    def _build_service() -> Any:
-        from .recognition_service import CourtDocumentRecognitionService
-
-        return CourtDocumentRecognitionService()
-
     def recognize_document(
         self,
         file_path: str,
@@ -56,7 +50,7 @@ class CourtDocumentRecognitionServiceAdapter:
         """
         return cast(
             RecognitionResponse,
-            self._build_service().recognize_document(
+            _build_service().recognize_document(
                 file_path,
                 user,
                 prebound_case_id=prebound_case_id,
@@ -76,4 +70,11 @@ class CourtDocumentRecognitionServiceAdapter:
         Returns:
             RecognitionResult 对象
         """
-        return cast(RecognitionResult, self._build_service().recognize_document_from_text(text, llm_model=llm_model))
+        return cast(RecognitionResult, _build_service().recognize_document_from_text(text, llm_model=llm_model))
+
+
+# ↓↓ 由 CourtDocumentRecognitionServiceAdapter 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _build_service() -> Any:
+    from .recognition_service import CourtDocumentRecognitionService
+
+    return CourtDocumentRecognitionService()

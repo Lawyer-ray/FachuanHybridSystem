@@ -11,8 +11,8 @@ import pytest
 from apps.core.exceptions import ValidationException
 from apps.core.utils.validators import Validators
 
-
 # ---------- validate_phone ----------
+
 
 class TestValidatePhone:
     def test_none_returns_none(self):
@@ -39,6 +39,7 @@ class TestValidatePhone:
 
 # ---------- validate_email ----------
 
+
 class TestValidateEmail:
     def test_none_returns_none(self):
         assert Validators.validate_email(None) is None
@@ -56,6 +57,7 @@ class TestValidateEmail:
 
 
 # ---------- validate_id_card ----------
+
 
 class TestValidateIdCard:
     def test_none_returns_none(self):
@@ -91,6 +93,7 @@ class TestValidateIdCard:
 
 # ---------- validate_social_credit_code ----------
 
+
 class TestValidateSocialCreditCode:
     def test_none_returns_none(self):
         assert Validators.validate_social_credit_code(None) is None
@@ -106,6 +109,7 @@ class TestValidateSocialCreditCode:
 
 
 # ---------- validate_required ----------
+
 
 class TestValidateRequired:
     def test_none_raises(self):
@@ -124,6 +128,7 @@ class TestValidateRequired:
 
 
 # ---------- validate_length ----------
+
 
 class TestValidateLength:
     def test_none_returns_none(self):
@@ -146,6 +151,7 @@ class TestValidateLength:
 
 # ---------- validate_range ----------
 
+
 class TestValidateRange:
     def test_none_returns_none(self):
         assert Validators.validate_range(None, "f") is None
@@ -163,6 +169,7 @@ class TestValidateRange:
 
 
 # ---------- validate_decimal ----------
+
 
 class TestValidateDecimal:
     def test_none_returns_none(self):
@@ -187,12 +194,14 @@ class TestValidateDecimal:
 
 # ---------- validate_date ----------
 
+
 class TestValidateDate:
     def test_none_returns_none(self):
         assert Validators.validate_date(None, "f") is None
 
     def test_string_date(self):
         from datetime import date
+
         result = Validators.validate_date("2024-01-15", "f")
         assert result == date(2024, 1, 15)
 
@@ -202,6 +211,7 @@ class TestValidateDate:
 
     def test_datetime_converted_to_date(self):
         from datetime import date, datetime
+
         result = Validators.validate_date(datetime(2024, 1, 15, 12, 0), "f")
         assert result == date(2024, 1, 15)
 
@@ -211,16 +221,19 @@ class TestValidateDate:
 
     def test_before_min_date(self):
         from datetime import date
+
         with pytest.raises(ValidationException, match="日期过早"):
             Validators.validate_date("2020-01-01", "f", min_date=date(2021, 1, 1))
 
     def test_after_max_date(self):
         from datetime import date
+
         with pytest.raises(ValidationException, match="日期过晚"):
             Validators.validate_date("2030-01-01", "f", max_date=date(2025, 1, 1))
 
 
 # ---------- validate_in_choices ----------
+
 
 class TestValidateInChoices:
     def test_none_allowed(self):
@@ -239,6 +252,7 @@ class TestValidateInChoices:
 
 
 # ---------- validate_uploaded_file ----------
+
 
 class TestValidateUploadedFile:
     def _make_file(self, name="test.pdf", size=1024, content=b"\x00" * 8):

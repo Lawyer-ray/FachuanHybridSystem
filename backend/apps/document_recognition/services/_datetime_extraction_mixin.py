@@ -155,18 +155,10 @@ class DatetimeExtractionMixin:
                         "datetime": dt,
                         "context_text": context_text[:255],
                         "context_score": self._calculate_context_score(text, match.start()),
-                        "reminder_type": self._guess_reminder_type(context_text),
+                        "reminder_type": _guess_reminder_type(context_text),
                     }
                 )
         return candidates
-
-    @staticmethod
-    def _guess_reminder_type(context_text: str) -> str | None:
-        """按 DATETIME_TYPE_KEYWORDS 从上下文推断提醒类型（无命中返回 None）。"""
-        for reminder_type, keywords in DATETIME_TYPE_KEYWORDS.items():
-            if any(keyword in context_text for keyword in keywords):
-                return reminder_type
-        return None
 
     def _score_days_diff(self, days_diff: int, score: int, reasons: list[str]) -> tuple[int, list[str]]:
         """评估天数差对分数的影响"""
@@ -328,3 +320,12 @@ class DatetimeExtractionMixin:
         return self._select_best_from_conflict(
             best_regex_dt, best_regex_combined, ollama_datetime, ollama_validity_score, valid_regex_results
         )
+
+
+# ↓↓ 由 DatetimeExtractionMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _guess_reminder_type(context_text: str) -> str | None:
+    """按 DATETIME_TYPE_KEYWORDS 从上下文推断提醒类型（无命中返回 None）。"""
+    for reminder_type, keywords in DATETIME_TYPE_KEYWORDS.items():
+        if any(keyword in context_text for keyword in keywords):
+            return reminder_type
+    return None

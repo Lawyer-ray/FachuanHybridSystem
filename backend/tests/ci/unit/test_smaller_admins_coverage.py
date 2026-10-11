@@ -10,6 +10,7 @@ import pytest
 
 try:
     from plugins import has_message_hub_plugin
+
     _HAS_MH = has_message_hub_plugin()
 except ImportError:
     _HAS_MH = False
@@ -36,6 +37,7 @@ def _make_request(method="GET", path="/admin/"):
 # ==============================================================================
 # workbench
 # ==============================================================================
+
 
 @pytest.mark.django_db
 class TestWorkbenchAdmin:
@@ -97,6 +99,7 @@ class TestWorkbenchAdmin:
 # oa_filing
 # ==============================================================================
 
+
 @pytest.mark.django_db
 class TestOaFilingAdmin:
     def test_filing_session_admin_attributes(self):
@@ -113,6 +116,7 @@ class TestOaFilingAdmin:
 # ==============================================================================
 # message_hub
 # ==============================================================================
+
 
 @pytest.mark.django_db
 class TestMessageHubAdmin:
@@ -134,6 +138,7 @@ class TestMessageHubAdmin:
 # ==============================================================================
 # contracts
 # ==============================================================================
+
 
 @pytest.mark.django_db
 class TestContractsAdmin:
@@ -171,6 +176,7 @@ class TestContractsAdmin:
 # enterprise_data
 # ==============================================================================
 
+
 @pytest.mark.django_db
 class TestEnterpriseDataAdmin:
     def test_mcp_workbench_admin_list_display(self):
@@ -184,6 +190,7 @@ class TestEnterpriseDataAdmin:
 # ==============================================================================
 # pdf_splitting
 # ==============================================================================
+
 
 @pytest.mark.django_db
 class TestPdfSplittingAdmin:
@@ -205,6 +212,7 @@ class TestPdfSplittingAdmin:
 # ==============================================================================
 # chat_records
 # ==============================================================================
+
 
 @pytest.mark.django_db
 class TestChatRecordsAdmin:
@@ -242,6 +250,7 @@ class TestChatRecordsAdmin:
 # express_query
 # ==============================================================================
 
+
 @pytest.mark.django_db
 class TestExpressQueryAdmin:
     def test_tool_admin(self):
@@ -263,6 +272,7 @@ class TestExpressQueryAdmin:
 # finance
 # ==============================================================================
 
+
 @pytest.mark.django_db
 class TestFinanceAdmin:
     def test_lpr_rate_admin(self):
@@ -276,6 +286,7 @@ class TestFinanceAdmin:
 # ==============================================================================
 # image_rotation
 # ==============================================================================
+
 
 @pytest.mark.django_db
 class TestImageRotationAdmin:
@@ -291,6 +302,7 @@ class TestImageRotationAdmin:
 # invoice_recognition
 # ==============================================================================
 
+
 @pytest.mark.django_db
 class TestInvoiceRecognitionAdmin:
     def test_invoice_recognition_task_admin(self):
@@ -304,6 +316,7 @@ class TestInvoiceRecognitionAdmin:
 # ==============================================================================
 # doc_converter
 # ==============================================================================
+
 
 @pytest.mark.django_db
 class TestDocConverterAdmin:
@@ -325,6 +338,7 @@ class TestDocConverterAdmin:
 # ==============================================================================
 # organization
 # ==============================================================================
+
 
 @pytest.mark.django_db
 class TestOrganizationAdmin:

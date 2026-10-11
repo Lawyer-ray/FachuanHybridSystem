@@ -7,7 +7,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from apps.contract_review.services.extraction.heading_numbering import HeadingNumbering
+from apps.contract_review.services.extraction.heading_numbering import (
+    HeadingNumbering,
+    _strip_manual_numbers,
+    _supplement_missed_headings,
+)
 
 
 class TestHeadingNumberingInit:
@@ -91,7 +95,7 @@ class TestHeadingNumberingStripManualNumbers:
         para.runs = [MagicMock(text="一、产品名称")]
         doc.paragraphs = [para]
         # 手动编号前缀应从 run 中剥离
-        assert HeadingNumbering._strip_manual_numbers(doc, [(0, 0)]) is None
+        assert _strip_manual_numbers(doc, [(0, 0)]) is None
         assert para.runs[0].text == "产品名称"
 
     def test_strip_decimal_numbering(self):
@@ -100,7 +104,7 @@ class TestHeadingNumberingStripManualNumbers:
         para.text = "1. 付款条款"
         para.runs = [MagicMock(text="1. 付款条款")]
         doc.paragraphs = [para]
-        assert HeadingNumbering._strip_manual_numbers(doc, [(0, 0)]) is None
+        assert _strip_manual_numbers(doc, [(0, 0)]) is None
         assert para.runs[0].text == "付款条款"
 
 
@@ -108,7 +112,7 @@ class TestHeadingNumberingSupplementMissedHeadings:
     def test_empty_headings(self):
         doc = MagicMock()
         doc.paragraphs = []
-        result = HeadingNumbering._supplement_missed_headings(doc, [])
+        result = _supplement_missed_headings(doc, [])
         assert result == []
 
 

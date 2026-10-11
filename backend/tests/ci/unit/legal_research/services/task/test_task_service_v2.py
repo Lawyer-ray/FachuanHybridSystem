@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
+from apps.legal_research.services.task.service import _check_permission
 
 
 def _make_credential(*, site_name: str = "wkxx", url: str = "", lawyer=None, lawyer_firm_id: int = 1):
@@ -113,7 +114,7 @@ class TestCheckPermission:
 
         task = MagicMock()
         with pytest.raises(PermissionDenied):
-            LegalResearchTaskService._check_permission(task=task, user=None)
+            _check_permission(task=task, user=None)
 
     def test_superuser_allowed(self) -> None:
         from apps.legal_research.services.task.service import LegalResearchTaskService
@@ -122,7 +123,7 @@ class TestCheckPermission:
         task.created_by_id = 99
         task.credential.lawyer.law_firm_id = 99
         user = _make_user(is_superuser=True)
-        assert LegalResearchTaskService._check_permission(task=task, user=user) is None
+        assert _check_permission(task=task, user=user) is None
 
     def test_creator_allowed(self) -> None:
         from apps.legal_research.services.task.service import LegalResearchTaskService
@@ -131,7 +132,7 @@ class TestCheckPermission:
         task.created_by_id = 10
         task.credential.lawyer.law_firm_id = 99
         user = _make_user(user_id=10, firm_id=1)
-        assert LegalResearchTaskService._check_permission(task=task, user=user) is None
+        assert _check_permission(task=task, user=user) is None
 
     def test_same_firm_allowed(self) -> None:
         from apps.legal_research.services.task.service import LegalResearchTaskService
@@ -140,7 +141,7 @@ class TestCheckPermission:
         task.created_by_id = 99
         task.credential.lawyer.law_firm_id = 5
         user = _make_user(user_id=10, firm_id=5)
-        assert LegalResearchTaskService._check_permission(task=task, user=user) is None
+        assert _check_permission(task=task, user=user) is None
 
     def test_different_firm_denied(self) -> None:
         from apps.legal_research.services.task.service import LegalResearchTaskService
@@ -150,7 +151,7 @@ class TestCheckPermission:
         task.credential.lawyer.law_firm_id = 5
         user = _make_user(user_id=10, firm_id=1)
         with pytest.raises(PermissionDenied):
-            LegalResearchTaskService._check_permission(task=task, user=user)
+            _check_permission(task=task, user=user)
 
 
 # ── create_task ────────────────────────────────────────────────────────────

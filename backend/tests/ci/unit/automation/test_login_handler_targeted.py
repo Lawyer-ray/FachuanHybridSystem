@@ -11,6 +11,7 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -21,11 +22,7 @@ from apps.core.exceptions import (
     TokenAcquisitionTimeoutError,
     ValidationException,
 )
-from apps.core.interfaces import (
-    AccountCredentialDTO,
-    LoginAttemptResult,
-    TokenAcquisitionResult,
-)
+from apps.core.interfaces import AccountCredentialDTO, LoginAttemptResult, TokenAcquisitionResult
 
 pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not installed")
 
@@ -77,8 +74,11 @@ class TestHandleLoginTimeout:
         credential = MagicMock()
         credential.account = "user1"
         recovered = TokenAcquisitionResult(
-            success=True, token="recovered", acquisition_method="timeout_recovered",
-            total_duration=5.0, login_attempts=[],
+            success=True,
+            token="recovered",
+            acquisition_method="timeout_recovered",
+            total_duration=5.0,
+            login_attempts=[],
         )
         handler.try_recover_token_after_timeout = AsyncMock(return_value=recovered)
         result = await handler.handle_login_timeout(
@@ -101,7 +101,11 @@ class TestHandleLoginFailed:
         credential = MagicMock()
         credential.account = "user1"
         exc = LoginFailedError("login failed")
-        exc.attempts = [LoginAttemptResult(success=False, token=None, account="user1", error_message="fail", attempt_duration=5.0, retry_count=1)]
+        exc.attempts = [
+            LoginAttemptResult(
+                success=False, token=None, account="user1", error_message="fail", attempt_duration=5.0, retry_count=1
+            )
+        ]
         result = await handler.handle_login_failed(
             acquisition_id="acq1",
             site_name="court",
@@ -146,7 +150,9 @@ class TestAcquireTokenByLogin:
 
         with patch("plugins.court_automation.token._login_handler.cache_manager") as mock_cache:
             result = await handler.acquire_token_by_login(
-                acquisition_id="acq1", site_name="court", credential_id=None,
+                acquisition_id="acq1",
+                site_name="court",
+                credential_id=None,
             )
             assert result.success is True
             assert result.token == "token_abc"
@@ -162,7 +168,9 @@ class TestAcquireTokenByLogin:
         handler.try_recover_token_after_timeout = AsyncMock(return_value=None)
 
         result = await handler.acquire_token_by_login(
-            acquisition_id="acq1", site_name="court", credential_id=None,
+            acquisition_id="acq1",
+            site_name="court",
+            credential_id=None,
         )
         # The flow: TimeoutError -> handle_login_timeout -> try_recover returns None
         # -> handle_login_timeout raises TokenAcquisitionTimeoutError
@@ -175,12 +183,12 @@ class TestAcquireTokenByLogin:
         credential = MagicMock()
         credential.account = "user1"
         handler.select_credential = AsyncMock(return_value=credential)
-        handler._auto_login_service.login_and_get_token = AsyncMock(
-            side_effect=LoginFailedError("wrong password")
-        )
+        handler._auto_login_service.login_and_get_token = AsyncMock(side_effect=LoginFailedError("wrong password"))
 
         result = await handler.acquire_token_by_login(
-            acquisition_id="acq1", site_name="court", credential_id=None,
+            acquisition_id="acq1",
+            site_name="court",
+            credential_id=None,
         )
         assert result.success is False
 
@@ -190,7 +198,9 @@ class TestAcquireTokenByLogin:
         handler.select_credential = AsyncMock(side_effect=NoAvailableAccountError("no accounts"))
 
         result = await handler.acquire_token_by_login(
-            acquisition_id="acq1", site_name="court", credential_id=None,
+            acquisition_id="acq1",
+            site_name="court",
+            credential_id=None,
         )
         assert result.success is False
         assert "no accounts" in result.error_details["message"]
@@ -204,13 +214,18 @@ class TestAcquireTokenByLogin:
         exc = TokenAcquisitionTimeoutError(message="timeout")
         handler._auto_login_service.login_and_get_token = AsyncMock(side_effect=exc)
         recovered = TokenAcquisitionResult(
-            success=True, token="recovered_tok", acquisition_method="timeout_recovered",
-            total_duration=10.0, login_attempts=[],
+            success=True,
+            token="recovered_tok",
+            acquisition_method="timeout_recovered",
+            total_duration=10.0,
+            login_attempts=[],
         )
         handler.try_recover_token_after_timeout = AsyncMock(return_value=recovered)
 
         result = await handler.acquire_token_by_login(
-            acquisition_id="acq1", site_name="court", credential_id=None,
+            acquisition_id="acq1",
+            site_name="court",
+            credential_id=None,
         )
         assert result.success is True
         assert result.token == "recovered_tok"
@@ -226,7 +241,9 @@ class TestAcquireTokenByLogin:
         handler.try_recover_token_after_timeout = AsyncMock(return_value=None)
 
         result = await handler.acquire_token_by_login(
-            acquisition_id="acq1", site_name="court", credential_id=None,
+            acquisition_id="acq1",
+            site_name="court",
+            credential_id=None,
         )
         assert result.success is False
         assert result.acquisition_method == "auto_login_timeout"

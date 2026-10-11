@@ -22,7 +22,9 @@ class TestDefaultConfigsIntegrity:
         assert max_length is not None
 
         too_long = [
-            (item["key"], len(item["description"])) for item in get_default_configs() if len(item["description"]) > max_length
+            (item["key"], len(item["description"]))
+            for item in get_default_configs()
+            if len(item["description"]) > max_length
         ]
         assert too_long == [], f"description 超过 varchar({max_length})，初始化时会 DataError：{too_long}"
 

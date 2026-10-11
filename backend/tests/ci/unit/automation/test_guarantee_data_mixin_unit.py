@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from apps.automation.services.scraper.sites.guarantee.data_mixin import GuaranteeDataMixin
+from apps.automation.services.scraper.sites.guarantee.data_mixin import GuaranteeDataMixin, parse_case_number
 
 
 class _Svc(GuaranteeDataMixin):
@@ -129,14 +129,14 @@ class TestBuildAgentDialogDefaults:
 
 class TestParseCaseNumber:
     def test_full_width_parentheses(self) -> None:
-        assert GuaranteeDataMixin.parse_case_number("（2024）粤0604民初100号") == ("2024", "粤0604", "民初", "100")
+        assert parse_case_number("（2024）粤0604民初100号") == ("2024", "粤0604", "民初", "100")
 
     def test_half_width_parentheses_and_hao_removed(self) -> None:
-        assert GuaranteeDataMixin.parse_case_number("(2023)粤0604财保12号") == ("2023", "粤0604", "财保", "12")
+        assert parse_case_number("(2023)粤0604财保12号") == ("2023", "粤0604", "财保", "12")
 
     def test_spaces_between_segments_tolerated(self) -> None:
-        assert GuaranteeDataMixin.parse_case_number("（2024）粤0604 民初 100 号") == ("2024", "粤0604", "民初", "100")
+        assert parse_case_number("（2024）粤0604 民初 100 号") == ("2024", "粤0604", "民初", "100")
 
     def test_no_match_returns_empty_tuple(self) -> None:
-        assert GuaranteeDataMixin.parse_case_number("没有案号的文本") == ("", "", "", "")
-        assert GuaranteeDataMixin.parse_case_number("") == ("", "", "", "")
+        assert parse_case_number("没有案号的文本") == ("", "", "", "")
+        assert parse_case_number("") == ("", "", "", "")

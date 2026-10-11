@@ -21,7 +21,12 @@ from apps.labor_arbitration.models import (
     CrawlStatus,
     DocumentCrawlStatus,
 )
-from apps.labor_arbitration.services.crawler import _IMG_URL_RE, FoshanLaborAwardCrawler, _response_text
+from apps.labor_arbitration.services.crawler import (
+    _IMG_URL_RE,
+    FoshanLaborAwardCrawler,
+    _parse_case_number,
+    _response_text,
+)
 
 DETAIL_HTML = (
     "<html><body>"
@@ -117,18 +122,18 @@ class TestResponseText:
 
 class TestParseCaseNumber:
     def test_full_width_brackets(self) -> None:
-        assert FoshanLaborAwardCrawler._parse_case_number("佛劳人仲案字〔2024〕1号") == "佛劳人仲案字〔2024〕1号"
+        assert _parse_case_number("佛劳人仲案字〔2024〕1号") == "佛劳人仲案字〔2024〕1号"
 
     def test_half_width_and_suffix(self) -> None:
-        assert FoshanLaborAwardCrawler._parse_case_number("顺劳人仲案字[2023]12号裁决书") == "顺劳人仲案字[2023]12号"
+        assert _parse_case_number("顺劳人仲案字[2023]12号裁决书") == "顺劳人仲案字[2023]12号"
 
     def test_no_match_returns_empty(self) -> None:
-        assert FoshanLaborAwardCrawler._parse_case_number("普通标题无案号") == ""
-        assert FoshanLaborAwardCrawler._parse_case_number("") == ""
+        assert _parse_case_number("普通标题无案号") == ""
+        assert _parse_case_number("") == ""
 
     def test_multi_numbers_takes_first(self) -> None:
         title = "佛劳人仲案字〔2024〕1号、佛劳人仲案字〔2024〕2号裁决书"
-        assert FoshanLaborAwardCrawler._parse_case_number(title) == "佛劳人仲案字〔2024〕1号"
+        assert _parse_case_number(title) == "佛劳人仲案字〔2024〕1号"
 
 
 class TestParsePublish:

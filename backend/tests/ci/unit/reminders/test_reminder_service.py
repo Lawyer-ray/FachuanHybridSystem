@@ -1,4 +1,5 @@
 """Tests for ReminderService covering CRUD, validation, and normalization."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta

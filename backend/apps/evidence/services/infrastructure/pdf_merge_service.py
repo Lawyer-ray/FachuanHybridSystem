@@ -44,7 +44,7 @@ class EvidencePDFMergeWorkflow(PDFMergeWorkflowBase):
                 Path(temp_file).unlink(missing_ok=True)
 
     def convert_to_pdf(self, file_path: str) -> str:  # pragma: no cover
-        ext = self._get_ext(file_path)
+        ext = _get_ext(file_path)
         self.validator.assert_supported_format(ext, file_path)
         utils = _get_pdf_merge_utils_module()
         if ext in PDFMergeValidator.IMAGE_FORMATS:
@@ -74,12 +74,6 @@ class EvidencePDFMergeWorkflow(PDFMergeWorkflowBase):
             + ".pdf"
         )
 
-    @staticmethod
-    def _get_ext(file_path: str) -> str:
-        from pathlib import Path
-
-        return Path(file_path).suffix.lower()
-
 
 class PDFMergeService(PDFMergeServiceBase):
     """evidence 模块的 PDF 合并服务门面。"""
@@ -90,3 +84,10 @@ class PDFMergeService(PDFMergeServiceBase):
 
 # 向后兼容：原类名
 PDFMergeWorkflow = EvidencePDFMergeWorkflow
+
+
+# ↓↓ 由 EvidencePDFMergeWorkflow 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _get_ext(file_path: str) -> str:
+    from pathlib import Path
+
+    return Path(file_path).suffix.lower()

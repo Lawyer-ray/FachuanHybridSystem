@@ -31,10 +31,10 @@ class JtnAuthService:  # pragma: no cover
         cookies = await auth.ensure_cookies()
 
         # 注入到 httpx
-        auth.inject_to_httpx(client, cookies)
+        inject_to_httpx(client, cookies)
 
         # 注入到 Playwright
-        await auth.inject_to_context(context, cookies)
+        await inject_to_context(context, cookies)
     """
 
     def __init__(self, account: str, password: str) -> None:
@@ -90,7 +90,7 @@ class JtnAuthService:  # pragma: no cover
 
         # 2. 尝试点击扫码图标（失败不阻塞，用户可手动点击）
         try:
-            await self._click_qr_icon(page)
+            await _click_qr_icon(page)
             await asyncio.sleep(2)
         except RuntimeError:
             logger.warning("未自动找到扫码图标，请在浏览器中手动点击扫码")
@@ -143,52 +143,6 @@ class JtnAuthService:  # pragma: no cover
             }
             for c in raw_cookies
         ]
-
-    @staticmethod
-    async def _click_qr_icon(page: Any) -> None:
-        """点击 SSO 页面右上角的扫码图标。
-
-        按优先级尝试多种选择器策略，坐标匹配仅作最后兜底。
-        """
-        selectors = [
-            'img[src*="scan"]',
-            'img[src*="qr"]',
-            'img[src*="ewm"]',  # 二维码的拼音
-            'img[src*="code"]',
-            'img[class*="scan"]',
-            'img[class*="qr"]',
-            'a[class*="scan"] img',
-            'a[class*="qr"] img',
-            "#scanIcon",
-            "#qrIcon",
-            ".scan-icon img",
-            ".qr-code-icon",
-        ]
-        for sel in selectors:
-            try:
-                el = await page.query_selector(sel)
-                if el and await el.is_visible():
-                    await el.click()
-                    logger.info("SSO 登录: 通过选择器 '%s' 找到扫码图标", sel)
-                    return
-            except Exception:
-                logger.debug("点击扫码图标失败（已忽略）", exc_info=True)
-                continue
-
-        # 策略 2: 宽松坐标匹配（页面右侧区域的小图标）
-        all_els = await page.query_selector_all("img, svg, i[class*='icon'], span[class*='icon']")
-        for el in all_els:
-            try:
-                box = await el.bounding_box()
-                if box and box["x"] > 600 and box["y"] < 350 and box["width"] < 80 and box["height"] < 80:
-                    await el.click()
-                    logger.info("SSO 登录: 通过坐标匹配找到扫码图标 (x=%.0f, y=%.0f)", box["x"], box["y"])
-                    return
-            except Exception:
-                logger.debug("按坐标点击扫码图标失败（已忽略）", exc_info=True)
-                continue
-
-        raise RuntimeError("未找到 SSO 扫码图标")
 
     # ------------------------------------------------------------------
     # 统一入口
@@ -249,23 +203,72 @@ class JtnAuthService:  # pragma: no cover
     # Cookie 注入
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def inject_to_httpx(client: Any, cookies: list[dict[str, Any]]) -> None:
-        """将 cookies 注入 httpx.Client / httpx.AsyncClient。"""
-        for c in cookies:
-            client.cookies.set(c["name"], c["value"], domain=c["domain"])
 
-    @staticmethod
-    async def inject_to_context(context: Any, cookies: list[dict[str, Any]]) -> None:
-        """将 cookies 注入 Playwright BrowserContext。"""
-        for c in cookies:
-            await context.add_cookies(
-                [
-                    {
-                        "name": c["name"],
-                        "value": c["value"],
-                        "domain": c["domain"],
-                        "path": c.get("path", "/"),
-                    }
-                ]
-            )
+# ↓↓ 由 JtnAuthService 下沉的模块级纯函数（四层架构静态方法棘轮）
+async def _click_qr_icon(page: Any) -> None:
+    """点击 SSO 页面右上角的扫码图标。
+
+    按优先级尝试多种选择器策略，坐标匹配仅作最后兜底。
+    """
+    selectors = [
+        'img[src*="scan"]',
+        'img[src*="qr"]',
+        'img[src*="ewm"]',  # 二维码的拼音
+        'img[src*="code"]',
+        'img[class*="scan"]',
+        'img[class*="qr"]',
+        'a[class*="scan"] img',
+        'a[class*="qr"] img',
+        "#scanIcon",
+        "#qrIcon",
+        ".scan-icon img",
+        ".qr-code-icon",
+    ]
+    for sel in selectors:
+        try:
+            el = await page.query_selector(sel)
+            if el and await el.is_visible():
+                await el.click()
+                logger.info("SSO 登录: 通过选择器 '%s' 找到扫码图标", sel)
+                return
+        except Exception:
+            logger.debug("点击扫码图标失败（已忽略）", exc_info=True)
+            continue
+
+    # 策略 2: 宽松坐标匹配（页面右侧区域的小图标）
+    all_els = await page.query_selector_all("img, svg, i[class*='icon'], span[class*='icon']")
+    for el in all_els:
+        try:
+            box = await el.bounding_box()
+            if box and box["x"] > 600 and box["y"] < 350 and box["width"] < 80 and box["height"] < 80:
+                await el.click()
+                logger.info("SSO 登录: 通过坐标匹配找到扫码图标 (x=%.0f, y=%.0f)", box["x"], box["y"])
+                return
+        except Exception:
+            logger.debug("按坐标点击扫码图标失败（已忽略）", exc_info=True)
+            continue
+
+    raise RuntimeError("未找到 SSO 扫码图标")
+
+
+# ↓↓ 由 JtnAuthService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def inject_to_httpx(client: Any, cookies: list[dict[str, Any]]) -> None:
+    """将 cookies 注入 httpx.Client / httpx.AsyncClient。"""
+    for c in cookies:
+        client.cookies.set(c["name"], c["value"], domain=c["domain"])
+
+
+# ↓↓ 由 JtnAuthService 下沉的模块级纯函数（四层架构静态方法棘轮）
+async def inject_to_context(context: Any, cookies: list[dict[str, Any]]) -> None:
+    """将 cookies 注入 Playwright BrowserContext。"""
+    for c in cookies:
+        await context.add_cookies(
+            [
+                {
+                    "name": c["name"],
+                    "value": c["value"],
+                    "domain": c["domain"],
+                    "path": c.get("path", "/"),
+                }
+            ]
+        )

@@ -15,6 +15,7 @@ class TestBuildEvidenceText:
         """Test that build_evidence_text is callable."""
         mock_build.return_value = ""
         from apps.litigation_ai.services.evidence.evidence_digest_service import EvidenceDigestService
+
         svc = EvidenceDigestService()
         mock_build.return_value = "[证据#1] 1. test(证明：test，页码：-)"
         result = svc.build_evidence_text(evidence_list_ids=[1], evidence_item_ids=[2])
@@ -23,6 +24,7 @@ class TestBuildEvidenceText:
     def test_build_evidence_text_returns_string(self):
         """Test that build_evidence_text returns a string."""
         from apps.litigation_ai.services.evidence.evidence_digest_service import EvidenceDigestService
+
         # We cannot fully test without wiring, so just test the type
         svc = EvidenceDigestService()
         # The method calls wiring which may fail, so we test via mock
@@ -166,6 +168,7 @@ class TestSimpleTextSearch:
 
     def test_empty_query_returns_empty(self):
         from apps.litigation_ai.services.evidence.evidence_digest_service import EvidenceDigestService
+
         svc = EvidenceDigestService()
         result = svc._simple_text_search("", evidence_item_ids=[1])
         assert result == []

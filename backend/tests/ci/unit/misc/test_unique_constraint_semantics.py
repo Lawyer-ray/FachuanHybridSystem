@@ -66,9 +66,7 @@ class TestUniqueConstraintsEnforced:
         assert obj.token == "t"
 
     def test_court_document_wsbh_sdbh_unique(self):
-        task = ScraperTask.objects.create(
-            task_type=ScraperTaskType.COURT_DOCUMENT, url="https://example.com/t"
-        )
+        task = ScraperTask.objects.create(task_type=ScraperTaskType.COURT_DOCUMENT, url="https://example.com/t")
         _make_court_document(task)
         with pytest.raises(IntegrityError), transaction.atomic():
             _make_court_document(task)

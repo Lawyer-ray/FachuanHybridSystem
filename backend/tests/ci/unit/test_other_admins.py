@@ -11,56 +11,56 @@ from django.test import RequestFactory
 
 # 导入各 app 的 admin
 from apps.chat_records.admin.chat_record_admin import (
-    ChatRecordProjectAdmin,
-    ChatRecordScreenshotAdmin,
     ChatRecordExportTaskAdmin,
+    ChatRecordProjectAdmin,
     ChatRecordRecordingAdmin,
+    ChatRecordScreenshotAdmin,
 )
+
 try:
     from apps.doc_convert.admin.doc_convert_tool_admin import DocConvertToolAdmin
 except ImportError:
     DocConvertToolAdmin = None  # type: ignore[assignment,misc]
+# 导入模型
+from apps.chat_records.models import ChatRecordExportTask, ChatRecordProject, ChatRecordRecording, ChatRecordScreenshot
+from apps.contract_review.admin.format_normalize_admin import FormatNormalizeAdmin
+from apps.contract_review.admin.review_task_admin import ReviewTaskAdmin
+from apps.contract_review.models import FormatNormalize, ReviewTask
+from apps.doc_convert.models import DocConvertTool
 from apps.doc_converter.admin.doc_converter_admin import DocConverterJobAdmin, DocConverterToolAdmin
+from apps.doc_converter.models import DocConverterJob, DocConverterTool
 from apps.document_recognition.admin.document_recognition_admin import (
-    DocumentRecognitionToolAdmin,
     DocumentRecognitionTaskAdmin,
+    DocumentRecognitionToolAdmin,
 )
+from apps.document_recognition.models import DocumentRecognitionTask, DocumentRecognitionTool
 from apps.documents.admin.document_template_admin import DocumentTemplateAdmin
 from apps.documents.admin.external_template_admin import ExternalTemplateAdmin
 from apps.documents.admin.folder_binding_admin import DocumentTemplateFolderBindingAdmin
 from apps.documents.admin.folder_template_admin import FolderTemplateAdmin
 from apps.documents.admin.proxy_matter_rule_admin import ProxyMatterRuleAdmin
-from apps.enterprise_data.admin.mcp_workbench_admin import McpWorkbenchAdmin
-from apps.evidence_sorting.admin.evidence_sorting_admin import EvidenceSortingAdmin
-from apps.express_query.admin.express_query_task_admin import ExpressQueryToolAdmin, ExpressQueryTaskAdmin
-from apps.image_rotation.admin.image_rotation_admin import ImageRotationAdmin
-from apps.invoice_recognition.admin.invoice_recognition_admin import InvoiceRecognitionTaskAdmin
-from apps.legal_research.admin.task_admin import LegalResearchTaskAdmin
-from apps.legal_research.admin.result_admin import LegalResearchResultAdmin
-from apps.legal_solution.admin.task_admin import SolutionTaskAdmin
-from apps.contract_review.admin.format_normalize_admin import FormatNormalizeAdmin
-from apps.contract_review.admin.review_task_admin import ReviewTaskAdmin
-
-# 导入模型
-from apps.chat_records.models import ChatRecordProject, ChatRecordScreenshot, ChatRecordExportTask, ChatRecordRecording
-from apps.doc_convert.models import DocConvertTool
-from apps.doc_converter.models import DocConverterJob, DocConverterTool
-from apps.document_recognition.models import DocumentRecognitionTool, DocumentRecognitionTask
 from apps.documents.models import (
     DocumentTemplate,
-    ExternalTemplate,
     DocumentTemplateFolderBinding,
+    ExternalTemplate,
     FolderTemplate,
     ProxyMatterRule,
 )
+from apps.enterprise_data.admin.mcp_workbench_admin import McpWorkbenchAdmin
 from apps.enterprise_data.models import McpWorkbench
+from apps.evidence_sorting.admin.evidence_sorting_admin import EvidenceSortingAdmin
 from apps.evidence_sorting.models import EvidenceSorting
-from apps.express_query.models import ExpressQueryTool, ExpressQueryTask
+from apps.express_query.admin.express_query_task_admin import ExpressQueryTaskAdmin, ExpressQueryToolAdmin
+from apps.express_query.models import ExpressQueryTask, ExpressQueryTool
+from apps.image_rotation.admin.image_rotation_admin import ImageRotationAdmin
 from apps.image_rotation.models import ImageRotationTool
+from apps.invoice_recognition.admin.invoice_recognition_admin import InvoiceRecognitionTaskAdmin
 from apps.invoice_recognition.models import InvoiceRecognitionTask
+from apps.legal_research.admin.result_admin import LegalResearchResultAdmin
+from apps.legal_research.admin.task_admin import LegalResearchTaskAdmin
 from apps.legal_research.models import LegalResearchResult, LegalResearchTask
+from apps.legal_solution.admin.task_admin import SolutionTaskAdmin
 from apps.legal_solution.models import SolutionTask
-from apps.contract_review.models import FormatNormalize, ReviewTask
 
 User = get_user_model()
 
@@ -243,6 +243,7 @@ class TestLegalSolutionAdmin:
         """SolutionTaskAdmin list_display"""
         admin_obj = SolutionTaskAdmin(SolutionTask, AdminSite())
         assert "id" in admin_obj.list_display
+
 
 @pytest.mark.django_db
 class TestContractReviewAdmins:

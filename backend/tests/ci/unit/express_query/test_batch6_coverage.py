@@ -7,12 +7,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.express_query.services.tracking_extraction_service import truncate_pdf_to_first_page
+
 
 class TestTrackingExtractionService:
     def _make_service(self):
-        from apps.express_query.services.tracking_extraction_service import (
-            TrackingExtractionService,
-        )
+        from apps.express_query.services.tracking_extraction_service import TrackingExtractionService
 
         mock_ocr = MagicMock()
         return TrackingExtractionService(ocr_service=mock_ocr)
@@ -58,23 +58,15 @@ class TestTrackingExtractionService:
         assert result["carrier"] == "sf"
 
     def test_tracking_extraction_result_dataclass(self):
-        from apps.express_query.services.tracking_extraction_service import (
-            TrackingExtractionResult,
-        )
+        from apps.express_query.services.tracking_extraction_service import TrackingExtractionResult
 
-        result = TrackingExtractionResult(
-            carrier_type="sf", tracking_number="SF1234567890123", ocr_text="text"
-        )
+        result = TrackingExtractionResult(carrier_type="sf", tracking_number="SF1234567890123", ocr_text="text")
         assert result.carrier_type == "sf"
         assert result.tracking_number == "SF1234567890123"
 
     def test_truncate_pdf_non_pdf(self):
-        from apps.express_query.services.tracking_extraction_service import (
-            TrackingExtractionService,
-        )
+        from apps.express_query.services.tracking_extraction_service import TrackingExtractionService
 
         with patch("pathlib.Path.suffix", ".docx"):
-            result = TrackingExtractionService.truncate_pdf_to_first_page(
-                MagicMock(suffix=".docx")
-            )
+            result = truncate_pdf_to_first_page(MagicMock(suffix=".docx"))
             assert result is False

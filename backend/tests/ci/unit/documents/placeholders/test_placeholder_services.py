@@ -158,9 +158,7 @@ class TestBuildDocxRenderContext:
         assert "known" not in context
 
     def test_custom_fallback_value(self) -> None:
-        context = build_docx_render_context(
-            doc=_DocStub(), context={"known": "ok"}, fallback_value="N/A"
-        )
+        context = build_docx_render_context(doc=_DocStub(), context={"known": "ok"}, fallback_value="N/A")
         assert context["missing_key"] == "N/A"
 
 

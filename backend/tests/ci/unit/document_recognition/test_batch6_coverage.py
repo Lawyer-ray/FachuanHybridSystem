@@ -8,6 +8,7 @@ import pytest
 class TestCaseNumberMixin:
     def _make_mixin(self):
         from apps.document_recognition.services._case_number_mixin import CaseNumberMixin
+
         return CaseNumberMixin()
 
     def test_extract_case_number_chinese_bracket(self):

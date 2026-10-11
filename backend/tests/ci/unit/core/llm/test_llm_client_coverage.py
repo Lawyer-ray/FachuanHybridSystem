@@ -13,8 +13,13 @@ from apps.core.llm.client import LLMClient
 
 def _make_response(content: str = "ok") -> LLMResponse:
     return LLMResponse(
-        content=content, model="m", prompt_tokens=1,
-        completion_tokens=1, total_tokens=2, duration_ms=1.0, backend="test",
+        content=content,
+        model="m",
+        prompt_tokens=1,
+        completion_tokens=1,
+        total_tokens=2,
+        duration_ms=1.0,
+        backend="test",
     )
 
 
@@ -64,7 +69,7 @@ class TestLLMClientComplete:
         client = LLMClient(default_backend="t")
         mock_policy = MagicMock()
         captured = {}
-        mock_policy.execute.side_effect = lambda operation=None, **kw: (captured.update(kw) or _make_response())
+        mock_policy.execute.side_effect = lambda operation=None, **kw: captured.update(kw) or _make_response()
         client.complete(fallback_policy=mock_policy, prompt="x", temperature=0.1, max_tokens=100)
         assert "backend" in captured
 
@@ -97,9 +102,11 @@ class TestLLMClientChat:
         client = LLMClient(default_backend="t")
         mock_policy = MagicMock()
         captured = {}
+
         def fake_execute(operation=None, **kw):
             captured["op"] = operation
             return _make_response()
+
         mock_policy.execute.side_effect = fake_execute
         client.chat(fallback_policy=mock_policy, messages=[{"role": "user", "content": "test"}])
         mock_b = MagicMock()
@@ -131,9 +138,11 @@ class TestLLMClientAchat:
     async def test_achat_operation_calls_backend(self):
         client = LLMClient(default_backend="ab")
         captured = {}
+
         async def fake_exec(operation=None, **kw):
             captured["op"] = operation
             return _make_response()
+
         mock_policy = AsyncMock()
         mock_policy.execute_async.side_effect = fake_exec
         await client.achat(fallback_policy=mock_policy, messages=[{"role": "user", "content": "x"}])
@@ -168,9 +177,11 @@ class TestLLMClientEmbedTexts:
     def test_embed_texts_operation_calls_backend(self):
         client = LLMClient(default_backend="def")
         captured = {}
+
         def fake_execute(operation=None, **kw):
             captured["op"] = operation
             return [[0.5]]
+
         mock_policy = MagicMock()
         mock_policy.execute.side_effect = fake_execute
         client.embed_texts(fallback_policy=mock_policy, texts=["test"])

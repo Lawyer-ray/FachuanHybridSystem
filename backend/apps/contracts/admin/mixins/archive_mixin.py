@@ -14,6 +14,7 @@ from django.http import HttpRequest, HttpResponse
 
 from apps.contracts.admin.access import ensure_admin_contract_access
 from apps.contracts.models.finalized_material import FinalizedMaterial
+from apps.documents.services.placeholders.archive import _generate_random_work_log_content, _get_lawyer_work_log_content
 
 if TYPE_CHECKING:
     from django.db.models import Model
@@ -696,16 +697,14 @@ class ContractArchiveMixin:  # pragma: no cover
             has_real_log = False
             content = ""
             for case in contract.cases.all():
-                content = ArchivePlaceholderService._get_lawyer_work_log_content(case)
+                content = _get_lawyer_work_log_content(case)
                 if content:
                     has_real_log = True
                     break
 
             # Fallback：随机生成
             if not content:
-                content = ArchivePlaceholderService._generate_random_work_log_content(
-                    contract.start_date, contract.end_date
-                )
+                content = _generate_random_work_log_content(contract.start_date, contract.end_date)
 
             if not content:
                 return JsonResponse({"success": False, "error": "无法生成内容"}, status=500)

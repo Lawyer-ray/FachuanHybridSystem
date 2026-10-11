@@ -1,30 +1,35 @@
 """Coverage tests for enterprise_data tianyancha_response_adapter."""
+
 from __future__ import annotations
 
 import pytest
 
-from apps.enterprise_data.services.providers.adapters.tianyancha_response_adapter import TianyanchaResponseAdapter
+from apps.enterprise_data.services.providers.adapters.tianyancha_response_adapter import (
+    TianyanchaResponseAdapter,
+    _clean_markdown_value,
+    pick_str,
+)
 
 
 class TestPickStr:
     def test_first_match(self):
-        result = TianyanchaResponseAdapter.pick_str({"a": "hello", "b": "world"}, ("a", "b"))
+        result = pick_str({"a": "hello", "b": "world"}, ("a", "b"))
         assert result == "hello"
 
     def test_second_match(self):
-        result = TianyanchaResponseAdapter.pick_str({"b": "world"}, ("a", "b"))
+        result = pick_str({"b": "world"}, ("a", "b"))
         assert result == "world"
 
     def test_none_skipped(self):
-        result = TianyanchaResponseAdapter.pick_str({"a": None, "b": "ok"}, ("a", "b"))
+        result = pick_str({"a": None, "b": "ok"}, ("a", "b"))
         assert result == "ok"
 
     def test_empty_string_skipped(self):
-        result = TianyanchaResponseAdapter.pick_str({"a": "  ", "b": "ok"}, ("a", "b"))
+        result = pick_str({"a": "  ", "b": "ok"}, ("a", "b"))
         assert result == "ok"
 
     def test_no_match(self):
-        result = TianyanchaResponseAdapter.pick_str({}, ("a", "b"))
+        result = pick_str({}, ("a", "b"))
         assert result == ""
 
 
@@ -143,24 +148,13 @@ class TestParseSearchCompaniesMarkdown:
 
     def test_multiple_companies(self):
         adapter = TianyanchaResponseAdapter()
-        md = (
-            "企业搜索结果\n\n"
-            "## 1. 公司A\n"
-            "| **企业ID** | 111 |\n"
-            "## 2. 公司B\n"
-            "| **企业ID** | 222 |\n"
-        )
+        md = "企业搜索结果\n\n## 1. 公司A\n| **企业ID** | 111 |\n## 2. 公司B\n| **企业ID** | 222 |\n"
         result = adapter.parse_search_companies_markdown(md)
         assert len(result) == 2
 
     def test_empty_value_skipped(self):
         adapter = TianyanchaResponseAdapter()
-        md = (
-            "企业搜索结果\n\n"
-            "## 1. 公司A\n"
-            "| **企业ID** | |\n"
-            "| **法定代表人** | 张三 |\n"
-        )
+        md = "企业搜索结果\n\n## 1. 公司A\n| **企业ID** | |\n| **法定代表人** | 张三 |\n"
         result = adapter.parse_search_companies_markdown(md)
         assert len(result) == 1
         assert result[0]["company_id"] == ""
@@ -211,23 +205,23 @@ class TestParseCompanyProfileMarkdown:
 
 class TestCleanMarkdownValue:
     def test_bold_removal(self):
-        result = TianyanchaResponseAdapter._clean_markdown_value("**hello**")
+        result = _clean_markdown_value("**hello**")
         assert result == "hello"
 
     def test_backtick_removal(self):
-        result = TianyanchaResponseAdapter._clean_markdown_value("`code`")
+        result = _clean_markdown_value("`code`")
         assert result == "code"
 
     def test_whitespace_normalization(self):
-        result = TianyanchaResponseAdapter._clean_markdown_value("  hello   world  ")
+        result = _clean_markdown_value("  hello   world  ")
         assert result == "hello world"
 
     def test_tab_replacement(self):
-        result = TianyanchaResponseAdapter._clean_markdown_value("hello\tworld")
+        result = _clean_markdown_value("hello\tworld")
         assert result == "hello world"
 
     def test_empty(self):
-        result = TianyanchaResponseAdapter._clean_markdown_value(None)
+        result = _clean_markdown_value(None)
         assert result == ""
 
 

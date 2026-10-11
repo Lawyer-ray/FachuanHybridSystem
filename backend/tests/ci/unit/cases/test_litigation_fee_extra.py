@@ -2,28 +2,28 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, PropertyMock, patch
 from decimal import Decimal
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
 from apps.cases.services.data.litigation_fee_calculator_service import (
-    LitigationFeeCalculatorService,
-    DiscountType,
-    PROPERTY_CASE_FEE_TIERS,
-    PRESERVATION_FEE_TIERS,
-    EXECUTION_FEE_TIERS,
-    PERSONALITY_RIGHTS_DAMAGE_TIERS,
-    PERSONALITY_RIGHTS_FEE_MIN,
-    PERSONALITY_RIGHTS_FEE_MAX,
-    IP_CASE_FEE_MIN,
-    IP_CASE_FEE_MAX,
-    IP_CASE_FEE_DEFAULT,
-    DIVORCE_CASE_FEE_MIN,
-    DIVORCE_CASE_FEE_MAX,
-    DIVORCE_PROPERTY_THRESHOLD,
     BANKRUPTCY_FEE_MAX,
+    DIVORCE_CASE_FEE_MAX,
+    DIVORCE_CASE_FEE_MIN,
+    DIVORCE_PROPERTY_THRESHOLD,
+    EXECUTION_FEE_TIERS,
+    IP_CASE_FEE_DEFAULT,
+    IP_CASE_FEE_MAX,
+    IP_CASE_FEE_MIN,
+    PERSONALITY_RIGHTS_DAMAGE_TIERS,
+    PERSONALITY_RIGHTS_FEE_MAX,
+    PERSONALITY_RIGHTS_FEE_MIN,
     PRESERVATION_FEE_MAX,
+    PRESERVATION_FEE_TIERS,
+    PROPERTY_CASE_FEE_TIERS,
+    DiscountType,
+    LitigationFeeCalculatorService,
 )
 from apps.core.exceptions import ValidationException
 
@@ -42,10 +42,12 @@ def svc_with_mock_cause_rule() -> tuple[LitigationFeeCalculatorService, MagicMoc
 
 # ── cause_rule_service property ───────────────────────────────────────────────
 
+
 def test_cause_rule_service_lazy_load(svc: LitigationFeeCalculatorService) -> None:
     """cause_rule_service should lazy-load on first access."""
     # CauseRuleService is imported locally inside the property, so patch the module
     import apps.cases.services.data.cause_rule_service as crs_module
+
     with patch.object(crs_module, "CauseRuleService") as MockCRS:
         mock_instance = MagicMock()
         MockCRS.return_value = mock_instance
@@ -56,6 +58,7 @@ def test_cause_rule_service_lazy_load(svc: LitigationFeeCalculatorService) -> No
 
 
 # ── calculate_property_case edge cases ────────────────────────────────────────
+
 
 def test_property_fee_negative_clamped(svc: LitigationFeeCalculatorService) -> None:
     result = svc.calculate_property_case_fee(Decimal("-500"))
@@ -89,6 +92,7 @@ def test_property_fee_1000w_to_2000w(svc: LitigationFeeCalculatorService) -> Non
 
 # ── calculate_preservation_fee edge ───────────────────────────────────────────
 
+
 def test_preservation_fee_zero(svc: LitigationFeeCalculatorService) -> None:
     result = svc.calculate_preservation_fee(Decimal("0"))
     assert result == Decimal("30")
@@ -105,6 +109,7 @@ def test_preservation_fee_second_tier(svc: LitigationFeeCalculatorService) -> No
 
 
 # ── calculate_execution_fee high tiers ────────────────────────────────────────
+
 
 def test_execution_fee_50w_to_500w(svc: LitigationFeeCalculatorService) -> None:
     result = svc.calculate_execution_fee(Decimal("1000000"))
@@ -123,12 +128,14 @@ def test_execution_fee_above_1000w(svc: LitigationFeeCalculatorService) -> None:
 
 # ── calculate_ip_case_fee negative ────────────────────────────────────────────
 
+
 def test_ip_case_fee_negative(svc: LitigationFeeCalculatorService) -> None:
     result = svc.calculate_ip_case_fee(Decimal("-100"))
     assert result == IP_CASE_FEE_DEFAULT
 
 
 # ── calculate_personality_rights_fee_with_range ───────────────────────────────
+
 
 def test_personality_rights_range_zero(svc: LitigationFeeCalculatorService) -> None:
     result = svc.calculate_personality_rights_fee_with_range(Decimal("0"))
@@ -160,6 +167,7 @@ def test_personality_rights_range_display_text_high(svc: LitigationFeeCalculator
 
 # ── calculate_ip_fee_with_range ───────────────────────────────────────────────
 
+
 def test_ip_fee_range_zero(svc: LitigationFeeCalculatorService) -> None:
     result = svc.calculate_ip_fee_with_range(Decimal("0"))
     assert result["fee"] is None
@@ -177,9 +185,14 @@ def test_ip_fee_range_display_text_with_amount(svc: LitigationFeeCalculatorServi
 
 # ── apply_discount ────────────────────────────────────────────────────────────
 
+
 def test_apply_discount_all_valid_types(svc: LitigationFeeCalculatorService) -> None:
-    for dt in [DiscountType.MEDIATION, DiscountType.WITHDRAWAL,
-               DiscountType.SIMPLE_PROCEDURE, DiscountType.COUNTERCLAIM]:
+    for dt in [
+        DiscountType.MEDIATION,
+        DiscountType.WITHDRAWAL,
+        DiscountType.SIMPLE_PROCEDURE,
+        DiscountType.COUNTERCLAIM,
+    ]:
         assert svc.apply_discount(Decimal("1000"), dt) == Decimal("500")
 
 
@@ -188,6 +201,7 @@ def test_apply_discount_empty_string(svc: LitigationFeeCalculatorService) -> Non
 
 
 # ── _build_default_result ─────────────────────────────────────────────────────
+
 
 def test_build_default_result(svc: LitigationFeeCalculatorService) -> None:
     result = svc._build_default_result()
@@ -199,6 +213,7 @@ def test_build_default_result(svc: LitigationFeeCalculatorService) -> None:
 
 
 # ── _append_preservation_fee ──────────────────────────────────────────────────
+
 
 def test_append_preservation_fee_with_amount(svc: LitigationFeeCalculatorService) -> None:
     result = svc._build_default_result()
@@ -221,6 +236,7 @@ def test_append_preservation_fee_zero(svc: LitigationFeeCalculatorService) -> No
 
 
 # ── _apply_fee_rule ───────────────────────────────────────────────────────────
+
 
 def test_apply_fee_rule(svc: LitigationFeeCalculatorService) -> None:
     result = svc._build_default_result()
@@ -247,11 +263,16 @@ def test_apply_fee_rule_defaults(svc: LitigationFeeCalculatorService) -> None:
 
 # ── _handle_special_type ──────────────────────────────────────────────────────
 
+
 def test_handle_special_type_personality_rights(svc: LitigationFeeCalculatorService) -> None:
     result = svc._build_default_result()
     fee_rule = {"fee_display_text": "test"}
     handled = svc._handle_special_type(
-        "personality_rights", result, fee_rule, Decimal("200000"), None,
+        "personality_rights",
+        result,
+        fee_rule,
+        Decimal("200000"),
+        None,
     )
     assert handled is True
     assert result["fee_range_min"] is not None
@@ -261,7 +282,11 @@ def test_handle_special_type_ip(svc: LitigationFeeCalculatorService) -> None:
     result = svc._build_default_result()
     fee_rule = {"fee_display_text": "test"}
     handled = svc._handle_special_type(
-        "ip", result, fee_rule, Decimal("100000"), None,
+        "ip",
+        result,
+        fee_rule,
+        Decimal("100000"),
+        None,
     )
     assert handled is True
     assert result["ip_fee"] is not None
@@ -271,7 +296,11 @@ def test_handle_special_type_payment_order(svc: LitigationFeeCalculatorService) 
     result = svc._build_default_result()
     fee_rule = {"fee_display_text": "test"}
     handled = svc._handle_special_type(
-        "payment_order", result, fee_rule, Decimal("100000"), None,
+        "payment_order",
+        result,
+        fee_rule,
+        Decimal("100000"),
+        None,
     )
     assert handled is True
     assert result["payment_order_fee"] is not None
@@ -281,7 +310,11 @@ def test_handle_special_type_unknown(svc: LitigationFeeCalculatorService) -> Non
     result = svc._build_default_result()
     fee_rule = {}
     handled = svc._handle_special_type(
-        "unknown_special_type", result, fee_rule, None, None,
+        "unknown_special_type",
+        result,
+        fee_rule,
+        None,
+        None,
     )
     assert handled is False
 
@@ -290,13 +323,18 @@ def test_handle_special_type_with_preservation(svc: LitigationFeeCalculatorServi
     result = svc._build_default_result()
     fee_rule = {"fee_display_text": "test"}
     handled = svc._handle_special_type(
-        "personality_rights", result, fee_rule, Decimal("200000"), Decimal("100000"),
+        "personality_rights",
+        result,
+        fee_rule,
+        Decimal("200000"),
+        Decimal("100000"),
     )
     assert handled is True
     assert result["preservation_fee"] is not None
 
 
 # ── _handle_payment_order_special ─────────────────────────────────────────────
+
 
 def test_handle_payment_order_special_no_amount(svc: LitigationFeeCalculatorService) -> None:
     result = svc._build_default_result()
@@ -321,13 +359,17 @@ def test_handle_payment_order_special_with_amount(svc: LitigationFeeCalculatorSe
 
 # ── _handle_personality_rights_special ────────────────────────────────────────
 
+
 def test_handle_personality_rights_special_with_fee(svc: LitigationFeeCalculatorService) -> None:
     # _calculate_tiered_fee is a pure function, test it directly
-    result = svc._calculate_tiered_fee(Decimal("200000"), [
-        (50000, Decimal("0"), Decimal("0")),
-        (100000, Decimal("0.01"), Decimal("0")),
-        (None, Decimal("0.005"), Decimal("500")),
-    ])
+    result = svc._calculate_tiered_fee(
+        Decimal("200000"),
+        [
+            (50000, Decimal("0"), Decimal("0")),
+            (100000, Decimal("0.01"), Decimal("0")),
+            (None, Decimal("0.005"), Decimal("500")),
+        ],
+    )
     assert result > 0
 
 
@@ -339,6 +381,7 @@ def test_handle_personality_rights_special_no_amount(svc: LitigationFeeCalculato
 
 
 # ── _handle_ip_special ────────────────────────────────────────────────────────
+
 
 def test_handle_ip_special_with_amount(svc: LitigationFeeCalculatorService) -> None:
     result = svc._build_default_result()
@@ -356,6 +399,7 @@ def test_handle_ip_special_no_amount(svc: LitigationFeeCalculatorService) -> Non
 
 
 # ── _handle_amount_based_case ─────────────────────────────────────────────────
+
 
 def test_handle_amount_based_execution(svc: LitigationFeeCalculatorService) -> None:
     result = svc._build_default_result()
@@ -409,6 +453,7 @@ def test_handle_amount_based_unknown(svc: LitigationFeeCalculatorService) -> Non
 
 # ── calculate_all_fees with cause_of_action_id ────────────────────────────────
 
+
 def test_calculate_all_fees_with_cause_rule(svc_with_mock_cause_rule: tuple) -> None:
     svc, mock_crs = svc_with_mock_cause_rule
     mock_crs.get_fee_rule.return_value = {
@@ -436,6 +481,7 @@ def test_calculate_all_fees_cause_rule_no_match(svc_with_mock_cause_rule: tuple)
 
 
 # ── calculate_all_fees fixed fee types ────────────────────────────────────────
+
 
 def test_calculate_all_fees_public_notice(svc: LitigationFeeCalculatorService) -> None:
     result = svc.calculate_all_fees(case_type="public_notice")
@@ -479,6 +525,7 @@ def test_calculate_all_fees_labor_with_preservation(svc: LitigationFeeCalculator
 
 # ── calculate_all_fees payment_order via case_type ────────────────────────────
 
+
 def test_calculate_all_fees_payment_order_by_type(svc: LitigationFeeCalculatorService) -> None:
     result = svc.calculate_all_fees(
         target_amount=Decimal("200000"),
@@ -489,6 +536,7 @@ def test_calculate_all_fees_payment_order_by_type(svc: LitigationFeeCalculatorSe
 
 
 # ── _calc_divorce details ─────────────────────────────────────────────────────
+
 
 def test_calc_divorce_details_above_threshold(svc: LitigationFeeCalculatorService) -> None:
     result = svc._build_default_result()
@@ -504,6 +552,7 @@ def test_calc_divorce_details_below_threshold(svc: LitigationFeeCalculatorServic
 
 # ── _calc_ip_with_amount ──────────────────────────────────────────────────────
 
+
 def test_calc_ip_with_amount(svc: LitigationFeeCalculatorService) -> None:
     result = svc._build_default_result()
     svc._calc_ip_with_amount(result, Decimal("100000"))
@@ -512,6 +561,7 @@ def test_calc_ip_with_amount(svc: LitigationFeeCalculatorService) -> None:
 
 
 # ── _calc_personality_rights_by_type ──────────────────────────────────────────
+
 
 def test_calc_personality_rights_by_type(svc: LitigationFeeCalculatorService) -> None:
     result = svc._build_default_result()

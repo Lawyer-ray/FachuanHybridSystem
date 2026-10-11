@@ -83,7 +83,9 @@ class TestResolveSecretKey:
         # In dev mode with no env var, uses dev_secret_key
         assert isinstance(result, str)
 
-    @patch.dict(os.environ, {"DJANGO_SECRET_KEY": "a-very-long-secret-key-that-is-at-least-50-characters-long!!"})  # pragma: allowlist secret
+    @patch.dict(
+        os.environ, {"DJANGO_SECRET_KEY": "a-very-long-secret-key-that-is-at-least-50-characters-long!!"}  # pragma: allowlist secret
+    )
     def test_production_valid_key(self) -> None:
         result = _resolve_secret_key(True, "dev-secret")
         assert "long-secret" in result
@@ -234,7 +236,9 @@ class TestResolveCorsAndCsrf:
         assert result["CORS_ALLOW_ALL_ORIGINS"] is False
         assert "http://localhost:3000" in result["CORS_ALLOWED_ORIGINS"]
 
-    @patch.dict(os.environ, {"CORS_ALLOWED_ORIGINS": "https://example.com", "CSRF_TRUSTED_ORIGINS": "https://example.com"})
+    @patch.dict(
+        os.environ, {"CORS_ALLOWED_ORIGINS": "https://example.com", "CSRF_TRUSTED_ORIGINS": "https://example.com"}
+    )
     def test_production_mode(self) -> None:
         result = resolve_cors_and_csrf(debug=False, allow_lan=False, safe_cors_origins=[])
         assert "https://example.com" in result["CORS_ALLOWED_ORIGINS"]
@@ -259,7 +263,9 @@ class TestResolveSecurityConfig:
     @patch.dict(os.environ, {"DJANGO_ALLOW_LAN": "False"})
     def test_dev_mode_uses_default_allowed_hosts(self) -> None:
         result = resolve_security_config(
-            dev_secret_key=_TEST_DEV_SECRET_KEY, default_allowed_hosts_dev=["*"], default_allowed_hosts_prod=["prod.example"]
+            dev_secret_key=_TEST_DEV_SECRET_KEY,
+            default_allowed_hosts_dev=["*"],
+            default_allowed_hosts_prod=["prod.example"],
         )
         assert result.debug is True
         assert result.allowed_hosts == ["*"]
@@ -267,7 +273,9 @@ class TestResolveSecurityConfig:
     @patch.dict(os.environ, {"DJANGO_ALLOW_LAN": "False"})
     def test_prod_mode_uses_default_prod_hosts(self) -> None:
         result = resolve_security_config(
-            dev_secret_key=_TEST_DEV_SECRET_KEY, default_allowed_hosts_dev=["*"], default_allowed_hosts_prod=["prod.example"]
+            dev_secret_key=_TEST_DEV_SECRET_KEY,
+            default_allowed_hosts_dev=["*"],
+            default_allowed_hosts_prod=["prod.example"],
         )
         assert result.debug is True
 
@@ -282,7 +290,9 @@ class TestResolveSecurityConfig:
     )
     def test_production_defaults_and_debug_off(self) -> None:
         result = resolve_security_config(
-            dev_secret_key=_TEST_DEV_SECRET_KEY, default_allowed_hosts_dev=["*"], default_allowed_hosts_prod=["localhost", "127.0.0.1"]
+            dev_secret_key=_TEST_DEV_SECRET_KEY,
+            default_allowed_hosts_dev=["*"],
+            default_allowed_hosts_prod=["localhost", "127.0.0.1"],
         )
         assert result.is_production is True
         assert result.debug is False
@@ -291,7 +301,9 @@ class TestResolveSecurityConfig:
     @patch.dict(os.environ, {"DJANGO_ALLOWED_HOSTS": "api.example.com,admin.example.com", "DJANGO_ALLOW_LAN": "False"})
     def test_env_allowed_hosts_overrides_defaults(self) -> None:
         result = resolve_security_config(
-            dev_secret_key=_TEST_DEV_SECRET_KEY, default_allowed_hosts_dev=["*"], default_allowed_hosts_prod=["localhost"]
+            dev_secret_key=_TEST_DEV_SECRET_KEY,
+            default_allowed_hosts_dev=["*"],
+            default_allowed_hosts_prod=["localhost"],
         )
         assert result.allowed_hosts == ["api.example.com", "admin.example.com"]
 
@@ -301,7 +313,9 @@ class TestResolveSecurityConfig:
     )
     def test_allow_lan_adds_lan_hosts_and_tailnet(self) -> None:
         result = resolve_security_config(
-            dev_secret_key=_TEST_DEV_SECRET_KEY, default_allowed_hosts_dev=["*"], default_allowed_hosts_prod=["localhost"]
+            dev_secret_key=_TEST_DEV_SECRET_KEY,
+            default_allowed_hosts_dev=["*"],
+            default_allowed_hosts_prod=["localhost"],
         )
         assert "*" not in result.allowed_hosts
         # LAN 主机 + Tailnet 后缀条目精确匹配（CodeQL: 避免子串断言）
@@ -311,14 +325,18 @@ class TestResolveSecurityConfig:
     def test_allow_lan_without_lan_hosts_raises(self) -> None:
         with pytest.raises(RuntimeError, match="DJANGO_LAN_ALLOWED_HOSTS"):
             resolve_security_config(
-                dev_secret_key=_TEST_DEV_SECRET_KEY, default_allowed_hosts_dev=["*"], default_allowed_hosts_prod=["localhost"]
+                dev_secret_key=_TEST_DEV_SECRET_KEY,
+                default_allowed_hosts_dev=["*"],
+                default_allowed_hosts_prod=["localhost"],
             )
 
     @patch.dict(os.environ, {"DJANGO_DEBUG": "False", "DJANGO_ALLOW_LAN": "True"})
     def test_allow_lan_in_production_raises(self) -> None:
         with pytest.raises(RuntimeError, match="生产环境"):
             resolve_security_config(
-                dev_secret_key=_TEST_DEV_SECRET_KEY, default_allowed_hosts_dev=["*"], default_allowed_hosts_prod=["localhost"]
+                dev_secret_key=_TEST_DEV_SECRET_KEY,
+                default_allowed_hosts_dev=["*"],
+                default_allowed_hosts_prod=["localhost"],
             )
 
 

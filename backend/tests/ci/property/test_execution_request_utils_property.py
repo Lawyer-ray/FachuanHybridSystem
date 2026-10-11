@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
-from hypothesis import given, settings, assume
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from apps.documents.services.placeholders.litigation.execution_request_utils import (
@@ -21,7 +21,6 @@ from apps.documents.services.placeholders.litigation.execution_request_utils imp
     safe_decimal,
     to_docx_hard_breaks,
 )
-
 
 # ---------------------------------------------------------------------------
 # parse_decimal
@@ -119,7 +118,7 @@ def test_format_amount_none_returns_zero(v: None) -> None:
 
 
 @settings(max_examples=200, deadline=None)
-@given(st.integers(min_value=-10**12, max_value=10**12))
+@given(st.integers(min_value=-(10**12), max_value=10**12))
 def test_format_amount_integer_no_decimal(i: int) -> None:
     d = Decimal(i)
     result = format_amount(d)
@@ -128,7 +127,11 @@ def test_format_amount_integer_no_decimal(i: int) -> None:
 
 
 @settings(max_examples=200, deadline=None)
-@given(st.decimals(min_value=Decimal("-1000000"), max_value=Decimal("1000000"), allow_nan=False, allow_infinity=False, places=2))
+@given(
+    st.decimals(
+        min_value=Decimal("-1000000"), max_value=Decimal("1000000"), allow_nan=False, allow_infinity=False, places=2
+    )
+)
 def test_format_amount_has_two_decimals_for_fractional(d: Decimal) -> None:
     quantized = d.quantize(Decimal("0.01"))
     if quantized != quantized.to_integral_value():
@@ -181,7 +184,9 @@ def test_parse_amount_value_none_returns_none(v: None) -> None:
 
 
 @settings(max_examples=200, deadline=None)
-@given(st.decimals(min_value=Decimal("0"), max_value=Decimal("1000000"), allow_nan=False, allow_infinity=False, places=2))
+@given(
+    st.decimals(min_value=Decimal("0"), max_value=Decimal("1000000"), allow_nan=False, allow_infinity=False, places=2)
+)
 def test_parse_amount_value_without_unit(d: Decimal) -> None:
     s = str(d)
     result = parse_amount_value(s)
@@ -190,7 +195,9 @@ def test_parse_amount_value_without_unit(d: Decimal) -> None:
 
 
 @settings(max_examples=200, deadline=None)
-@given(st.decimals(min_value=Decimal("0"), max_value=Decimal("1000000"), allow_nan=False, allow_infinity=False, places=2))
+@given(
+    st.decimals(min_value=Decimal("0"), max_value=Decimal("1000000"), allow_nan=False, allow_infinity=False, places=2)
+)
 def test_parse_amount_value_with_wan_unit(d: Decimal) -> None:
     s = str(d)
     result = parse_amount_value(s, unit_marker="万")
@@ -221,7 +228,20 @@ def test_parse_multiplier_value_numeric_string(d: Decimal) -> None:
 @settings(max_examples=200, deadline=None)
 @given(st.sampled_from(["零", "一", "二", "两", "三", "四", "五", "六", "七", "八", "九", "十"]))
 def test_parse_multiplier_value_chinese_single(char: str) -> None:
-    expected = {"零": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10}
+    expected = {
+        "零": 0,
+        "一": 1,
+        "二": 2,
+        "两": 2,
+        "三": 3,
+        "四": 4,
+        "五": 5,
+        "六": 6,
+        "七": 7,
+        "八": 8,
+        "九": 9,
+        "十": 10,
+    }
     result = parse_multiplier_value(char)
     assert result is not None
     assert result == Decimal(str(expected[char]))
@@ -291,7 +311,11 @@ def test_normalize_text_idempotent(text: str) -> None:
 
 
 @settings(max_examples=200, deadline=None)
-@given(st.sampled_from(["０", "１", "２", "３", "４", "５", "６", "７", "８", "９", "．", "，", "％", "：", "（", "）", "　"]))
+@given(
+    st.sampled_from(
+        ["０", "１", "２", "３", "４", "５", "６", "７", "８", "９", "．", "，", "％", "：", "（", "）", "　"]
+    )
+)
 def test_normalize_text_fullwidth_to_halfwidth(char: str) -> None:
     result = normalize_text(char)
     # Each fullwidth char should have a halfwidth counterpart in result

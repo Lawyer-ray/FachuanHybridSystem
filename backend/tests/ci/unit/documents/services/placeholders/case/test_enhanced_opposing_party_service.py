@@ -5,6 +5,7 @@ _format_without_cases, _format_with_cases, _get_contract_party_ids,
 _format_single_case, _extract_opposing_parties_from_case,
 _extract_cause_of_action, _format_case_count.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -19,6 +20,7 @@ class TestEnhancedOpposingPartyServiceGenerate:
         from apps.documents.services.placeholders.contract.enhanced_opposing_party_service import (
             EnhancedOpposingPartyService,
         )
+
         return EnhancedOpposingPartyService()
 
     def test_generate_empty_contract(self):
@@ -56,6 +58,7 @@ class TestFormatWithoutCases:
         from apps.documents.services.placeholders.contract.enhanced_opposing_party_service import (
             EnhancedOpposingPartyService,
         )
+
         return EnhancedOpposingPartyService()
 
     def test_no_parties(self):
@@ -99,6 +102,7 @@ class TestFormatWithCases:
         from apps.documents.services.placeholders.contract.enhanced_opposing_party_service import (
             EnhancedOpposingPartyService,
         )
+
         return EnhancedOpposingPartyService()
 
     def test_empty_cases(self):
@@ -127,6 +131,7 @@ class TestGetContractPartyIds:
         from apps.documents.services.placeholders.contract.enhanced_opposing_party_service import (
             EnhancedOpposingPartyService,
         )
+
         return EnhancedOpposingPartyService()
 
     def test_basic(self):
@@ -153,6 +158,7 @@ class TestExtractOpposingPartiesFromCase:
         from apps.documents.services.placeholders.contract.enhanced_opposing_party_service import (
             EnhancedOpposingPartyService,
         )
+
         return EnhancedOpposingPartyService()
 
     def test_with_opposing_in_set(self):
@@ -160,9 +166,7 @@ class TestExtractOpposingPartiesFromCase:
         party = SimpleNamespace(client_id=1, client=SimpleNamespace(name="王五", is_our_client=False))
         case = MagicMock()
         case.parties.all.return_value = [party]
-        result = svc._extract_opposing_parties_from_case(
-            case, opposing_client_ids={1}, our_client_ids=set()
-        )
+        result = svc._extract_opposing_parties_from_case(case, opposing_client_ids={1}, our_client_ids=set())
         assert "王五" in result
 
     def test_our_client_excluded(self):
@@ -170,9 +174,7 @@ class TestExtractOpposingPartiesFromCase:
         party = SimpleNamespace(client_id=2, client=SimpleNamespace(name="赵六", is_our_client=True))
         case = MagicMock()
         case.parties.all.return_value = [party]
-        result = svc._extract_opposing_parties_from_case(
-            case, opposing_client_ids=set(), our_client_ids={2}
-        )
+        result = svc._extract_opposing_parties_from_case(case, opposing_client_ids=set(), our_client_ids={2})
         assert result == []
 
     def test_no_client(self):
@@ -180,9 +182,7 @@ class TestExtractOpposingPartiesFromCase:
         party = SimpleNamespace(client_id=1, client=None)
         case = MagicMock()
         case.parties.all.return_value = [party]
-        result = svc._extract_opposing_parties_from_case(
-            case, opposing_client_ids=set(), our_client_ids=set()
-        )
+        result = svc._extract_opposing_parties_from_case(case, opposing_client_ids=set(), our_client_ids=set())
         assert result == []
 
     def test_exception_propagates(self):
@@ -190,9 +190,7 @@ class TestExtractOpposingPartiesFromCase:
         case = MagicMock()
         case.parties.all.side_effect = Exception("db fail")
         with pytest.raises(Exception):
-            svc._extract_opposing_parties_from_case(
-                case, opposing_client_ids=set(), our_client_ids=set()
-            )
+            svc._extract_opposing_parties_from_case(case, opposing_client_ids=set(), our_client_ids=set())
 
 
 class TestExtractCauseOfAction:
@@ -200,6 +198,7 @@ class TestExtractCauseOfAction:
         from apps.documents.services.placeholders.contract.enhanced_opposing_party_service import (
             EnhancedOpposingPartyService,
         )
+
         return EnhancedOpposingPartyService()
 
     def test_with_dash(self):
@@ -229,6 +228,7 @@ class TestFormatCaseCount:
         from apps.documents.services.placeholders.contract.enhanced_opposing_party_service import (
             EnhancedOpposingPartyService,
         )
+
         return EnhancedOpposingPartyService()
 
     def test_two(self):
@@ -249,6 +249,7 @@ class TestFormatSingleCase:
         from apps.documents.services.placeholders.contract.enhanced_opposing_party_service import (
             EnhancedOpposingPartyService,
         )
+
         return EnhancedOpposingPartyService()
 
     def test_both_names_and_cause(self):

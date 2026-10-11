@@ -41,9 +41,7 @@ class TestWhitelistInService:
     def test_create_validates_steps(self):
         svc = get_workflow_template_service()
         with pytest.raises(ValidationException):
-            svc.create_template(
-                TemplateCreateIn(name="x", category="litigation", steps=[_step(type="code")])
-            )
+            svc.create_template(TemplateCreateIn(name="x", category="litigation", steps=[_step(type="code")]))
 
     def test_update_validates_steps(self):
         svc = get_workflow_template_service()
@@ -51,9 +49,7 @@ class TestWhitelistInService:
             MockModel.DoesNotExist = type("DoesNotExist", (Exception,), {})
             MockModel.objects.get.return_value = MagicMock(id=1, name="t")
             with pytest.raises(ValidationException):
-                svc.update_template(
-                    1, TemplateUpdateIn(steps=[_step(type="http")]), user=MagicMock(is_superuser=False)
-                )
+                svc.update_template(1, TemplateUpdateIn(steps=[_step(type="http")]), user=MagicMock(is_superuser=False))
 
 
 class TestDuplicateRecheck:

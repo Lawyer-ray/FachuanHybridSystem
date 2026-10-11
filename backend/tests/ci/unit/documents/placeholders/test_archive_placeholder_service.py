@@ -12,6 +12,29 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.documents.services.placeholders.archive import (
+    _calculate_material_page_count,
+    _format_chinese_date,
+    _get_archive_materials_list,
+    _get_case_number,
+    _get_case_stage,
+    _get_case_summary_content,
+    _get_contract_name,
+    _get_contract_type,
+    _get_court_name,
+    _get_file_page_count,
+    _get_inner_catalog_items,
+    _get_lawyer_work_log_content,
+    _get_lead_lawyer_name,
+    _get_lead_lawyer_name_from_contract,
+    _get_oa_case_number,
+    _get_opposing_party_names,
+    _get_opposing_party_names_from_case,
+    _get_our_party_names,
+    _get_trial_result,
+    _get_work_log_from_scan_session,
+)
+
 
 # ---------------------------------------------------------------------------
 # _ArchiveMaterialsRichText
@@ -102,19 +125,19 @@ class TestFormatChineseDate:
     def test_standard_date(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        result = ArchivePlaceholderService._format_chinese_date(date(2026, 4, 9))
+        result = _format_chinese_date(date(2026, 4, 9))
         assert result == "2026年04月09日"
 
     def test_jan_first(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        result = ArchivePlaceholderService._format_chinese_date(date(2025, 1, 1))
+        result = _format_chinese_date(date(2025, 1, 1))
         assert result == "2025年01月01日"
 
     def test_dec_31(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        result = ArchivePlaceholderService._format_chinese_date(date(2024, 12, 31))
+        result = _format_chinese_date(date(2024, 12, 31))
         assert result == "2024年12月31日"
 
 
@@ -127,27 +150,27 @@ class TestGetContractName:
 
         contract = MagicMock()
         contract.name = "Test Contract"
-        assert ArchivePlaceholderService._get_contract_name(contract) == "Test Contract"
+        assert _get_contract_name(contract) == "Test Contract"
 
     def test_with_none_name(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
         contract = MagicMock()
         contract.name = None
-        assert ArchivePlaceholderService._get_contract_name(contract) == ""
+        assert _get_contract_name(contract) == ""
 
     def test_with_empty_name(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
         contract = MagicMock()
         contract.name = ""
-        assert ArchivePlaceholderService._get_contract_name(contract) == ""
+        assert _get_contract_name(contract) == ""
 
     def test_no_name_attr(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
         contract = MagicMock(spec=[])
-        assert ArchivePlaceholderService._get_contract_name(contract) == ""
+        assert _get_contract_name(contract) == ""
 
 
 # ---------------------------------------------------------------------------
@@ -159,7 +182,7 @@ class TestGetContractType:
 
         contract = MagicMock()
         contract.get_case_type_display.return_value = "民商事"
-        assert ArchivePlaceholderService._get_contract_type(contract) == "民商事"
+        assert _get_contract_type(contract) == "民商事"
 
     def test_display_name_returns_none(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
@@ -167,7 +190,7 @@ class TestGetContractType:
         contract = MagicMock()
         contract.get_case_type_display.return_value = None
         contract.case_type = ""
-        assert ArchivePlaceholderService._get_contract_type(contract) == ""
+        assert _get_contract_type(contract) == ""
 
     def test_display_name_raises_exception(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
@@ -175,7 +198,7 @@ class TestGetContractType:
         contract = MagicMock()
         contract.get_case_type_display.side_effect = AttributeError("no such method")
         contract.case_type = "CRIMINAL"
-        assert ArchivePlaceholderService._get_contract_type(contract) == "CRIMINAL"
+        assert _get_contract_type(contract) == "CRIMINAL"
 
     def test_display_name_raises_exception_case_type_none(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
@@ -183,7 +206,7 @@ class TestGetContractType:
         contract = MagicMock()
         contract.get_case_type_display.side_effect = AttributeError("no such method")
         contract.case_type = None
-        assert ArchivePlaceholderService._get_contract_type(contract) == ""
+        assert _get_contract_type(contract) == ""
 
 
 # ---------------------------------------------------------------------------
@@ -203,7 +226,7 @@ class TestGetOurPartyNames:
         contract = MagicMock()
         contract.contract_parties.select_related.return_value.all.return_value = [party1, party2, party3]
 
-        result = ArchivePlaceholderService._get_our_party_names(contract)
+        result = _get_our_party_names(contract)
         assert "Client A" in result
         assert "Client B" in result
         assert "Opposing" not in result
@@ -216,7 +239,7 @@ class TestGetOurPartyNames:
         contract = MagicMock()
         contract.contract_parties.select_related.return_value.all.return_value = [party1]
 
-        result = ArchivePlaceholderService._get_our_party_names(contract)
+        result = _get_our_party_names(contract)
         assert result == ""
 
     def test_exception_fetching_parties(self) -> None:
@@ -225,7 +248,7 @@ class TestGetOurPartyNames:
         contract = MagicMock()
         contract.id = 42
         contract.contract_parties.select_related.side_effect = Exception("db error")
-        result = ArchivePlaceholderService._get_our_party_names(contract)
+        result = _get_our_party_names(contract)
         assert result == ""
 
     def test_deduplication(self) -> None:
@@ -239,7 +262,7 @@ class TestGetOurPartyNames:
         contract = MagicMock()
         contract.contract_parties.select_related.return_value.all.return_value = [party1, party2]
 
-        result = ArchivePlaceholderService._get_our_party_names(contract)
+        result = _get_our_party_names(contract)
         assert result == "Same"
 
     def test_party_with_no_client(self) -> None:
@@ -251,7 +274,7 @@ class TestGetOurPartyNames:
         contract = MagicMock()
         contract.contract_parties.select_related.return_value.all.return_value = [party]
 
-        result = ArchivePlaceholderService._get_our_party_names(contract)
+        result = _get_our_party_names(contract)
         assert result == ""
 
     def test_empty_name_filtered(self) -> None:
@@ -263,7 +286,7 @@ class TestGetOurPartyNames:
         contract = MagicMock()
         contract.contract_parties.select_related.return_value.all.return_value = [party]
 
-        result = ArchivePlaceholderService._get_our_party_names(contract)
+        result = _get_our_party_names(contract)
         assert result == ""
 
 
@@ -282,7 +305,7 @@ class TestGetOpposingPartyNames:
         contract = MagicMock()
         contract.contract_parties.select_related.return_value.all.return_value = [party1, party2]
 
-        result = ArchivePlaceholderService._get_opposing_party_names(contract)
+        result = _get_opposing_party_names(contract)
         assert "Opposing A" in result
         assert "Principal" not in result
 
@@ -292,7 +315,7 @@ class TestGetOpposingPartyNames:
         contract = MagicMock()
         contract.contract_parties.select_related.return_value.all.return_value = []
 
-        result = ArchivePlaceholderService._get_opposing_party_names(contract)
+        result = _get_opposing_party_names(contract)
         assert result == ""
 
     def test_exception_fetching_parties(self) -> None:
@@ -302,7 +325,7 @@ class TestGetOpposingPartyNames:
         contract.id = 10
         contract.contract_parties.select_related.side_effect = RuntimeError("timeout")
 
-        result = ArchivePlaceholderService._get_opposing_party_names(contract)
+        result = _get_opposing_party_names(contract)
         assert result == ""
 
     def test_deduplication(self) -> None:
@@ -316,7 +339,7 @@ class TestGetOpposingPartyNames:
         contract = MagicMock()
         contract.contract_parties.select_related.return_value.all.return_value = [party1, party2]
 
-        result = ArchivePlaceholderService._get_opposing_party_names(contract)
+        result = _get_opposing_party_names(contract)
         assert result == "Dup"
 
     def test_opposing_with_no_client(self) -> None:
@@ -328,7 +351,7 @@ class TestGetOpposingPartyNames:
         contract = MagicMock()
         contract.contract_parties.select_related.return_value.all.return_value = [party]
 
-        result = ArchivePlaceholderService._get_opposing_party_names(contract)
+        result = _get_opposing_party_names(contract)
         assert result == ""
 
 
@@ -341,20 +364,20 @@ class TestGetOaCaseNumber:
 
         contract = MagicMock()
         contract.law_firm_oa_case_number = "2026GZM0001"
-        assert ArchivePlaceholderService._get_oa_case_number(contract) == "2026GZM0001"
+        assert _get_oa_case_number(contract) == "2026GZM0001"
 
     def test_with_none(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
         contract = MagicMock()
         contract.law_firm_oa_case_number = None
-        assert ArchivePlaceholderService._get_oa_case_number(contract) == ""
+        assert _get_oa_case_number(contract) == ""
 
     def test_no_attr(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
         contract = MagicMock(spec=[])
-        assert ArchivePlaceholderService._get_oa_case_number(contract) == ""
+        assert _get_oa_case_number(contract) == ""
 
 
 # ---------------------------------------------------------------------------
@@ -374,7 +397,7 @@ class TestGetLeadLawyerNameFromContract:
         chain = contract.assignments.select_related.return_value
         chain.filter.return_value.first.return_value = assignment
 
-        result = ArchivePlaceholderService._get_lead_lawyer_name_from_contract(contract)
+        result = _get_lead_lawyer_name_from_contract(contract)
         assert result == "张律师"
 
     def test_no_primary_fallback_to_first(self) -> None:
@@ -391,7 +414,7 @@ class TestGetLeadLawyerNameFromContract:
         chain.filter.return_value.first.return_value = None  # no primary
         chain.first.return_value = assignment  # fallback first
 
-        result = ArchivePlaceholderService._get_lead_lawyer_name_from_contract(contract)
+        result = _get_lead_lawyer_name_from_contract(contract)
         assert result == "李律师"
 
     def test_no_assignments_at_all(self) -> None:
@@ -403,7 +426,7 @@ class TestGetLeadLawyerNameFromContract:
         chain.filter.return_value.first.return_value = None
         chain.first.return_value = None
 
-        result = ArchivePlaceholderService._get_lead_lawyer_name_from_contract(contract)
+        result = _get_lead_lawyer_name_from_contract(contract)
         assert result == ""
 
     def test_filter_raises_exception(self) -> None:
@@ -415,7 +438,7 @@ class TestGetLeadLawyerNameFromContract:
         chain.filter.side_effect = Exception("db error")
         chain.first.return_value = None
 
-        result = ArchivePlaceholderService._get_lead_lawyer_name_from_contract(contract)
+        result = _get_lead_lawyer_name_from_contract(contract)
         assert result == ""
 
     def test_fallback_also_raises(self) -> None:
@@ -427,7 +450,7 @@ class TestGetLeadLawyerNameFromContract:
         chain.filter.side_effect = Exception("db error")
         chain.first.side_effect = Exception("db error")
 
-        result = ArchivePlaceholderService._get_lead_lawyer_name_from_contract(contract)
+        result = _get_lead_lawyer_name_from_contract(contract)
         assert result == ""
 
     def test_assignment_with_no_lawyer(self) -> None:
@@ -441,7 +464,7 @@ class TestGetLeadLawyerNameFromContract:
         chain = contract.assignments.select_related.return_value
         chain.filter.return_value.first.return_value = assignment
 
-        result = ArchivePlaceholderService._get_lead_lawyer_name_from_contract(contract)
+        result = _get_lead_lawyer_name_from_contract(contract)
         assert result == ""
 
     def test_lawyer_with_no_real_name_uses_username(self) -> None:
@@ -458,7 +481,7 @@ class TestGetLeadLawyerNameFromContract:
         chain = contract.assignments.select_related.return_value
         chain.filter.return_value.first.return_value = assignment
 
-        result = ArchivePlaceholderService._get_lead_lawyer_name_from_contract(contract)
+        result = _get_lead_lawyer_name_from_contract(contract)
         assert result == "zhang"
 
 
@@ -479,7 +502,7 @@ class TestGetLeadLawyerName:
         chain = case.assignments.select_related.return_value
         chain.filter.return_value.first.return_value = assignment
 
-        result = ArchivePlaceholderService._get_lead_lawyer_name(case)
+        result = _get_lead_lawyer_name(case)
         assert result == "王律师"
 
     def test_no_primary_fallback_role_lead(self) -> None:
@@ -506,7 +529,7 @@ class TestGetLeadLawyerName:
 
         select_related_obj.filter.side_effect = mock_filter
 
-        result = ArchivePlaceholderService._get_lead_lawyer_name(case)
+        result = _get_lead_lawyer_name(case)
         assert result == "赵律师"
 
     def test_no_primary_no_role_lead_fallback_first(self) -> None:
@@ -530,7 +553,7 @@ class TestGetLeadLawyerName:
         case.assignments.select_related.return_value.filter.side_effect = mock_filter
         case.assignments.select_related.return_value.first.return_value = assignment
 
-        result = ArchivePlaceholderService._get_lead_lawyer_name(case)
+        result = _get_lead_lawyer_name(case)
         assert result == "孙律师"
 
     def test_no_assignments_at_all(self) -> None:
@@ -547,7 +570,7 @@ class TestGetLeadLawyerName:
         case.assignments.select_related.return_value.filter.side_effect = mock_filter
         case.assignments.select_related.return_value.first.return_value = None
 
-        result = ArchivePlaceholderService._get_lead_lawyer_name(case)
+        result = _get_lead_lawyer_name(case)
         assert result == ""
 
     def test_filter_raises_all_fallbacks_fail(self) -> None:
@@ -559,7 +582,7 @@ class TestGetLeadLawyerName:
         chain.filter.side_effect = Exception("db error")
         chain.first.side_effect = Exception("db error")
 
-        result = ArchivePlaceholderService._get_lead_lawyer_name(case)
+        result = _get_lead_lawyer_name(case)
         assert result == ""
 
     def test_assignment_with_no_lawyer(self) -> None:
@@ -578,7 +601,7 @@ class TestGetLeadLawyerName:
 
         case.assignments.select_related.return_value.filter.side_effect = mock_filter
 
-        result = ArchivePlaceholderService._get_lead_lawyer_name(case)
+        result = _get_lead_lawyer_name(case)
         assert result == ""
 
     def test_lawyer_with_no_real_name_uses_username(self) -> None:
@@ -600,7 +623,7 @@ class TestGetLeadLawyerName:
 
         case.assignments.select_related.return_value.filter.side_effect = mock_filter
 
-        result = ArchivePlaceholderService._get_lead_lawyer_name(case)
+        result = _get_lead_lawyer_name(case)
         assert result == "wang"
 
 
@@ -617,7 +640,7 @@ class TestGetCaseNumber:
         case.id = 1
         case.case_numbers.filter.return_value = [cn1, cn2]
 
-        result = ArchivePlaceholderService._get_case_number(case)
+        result = _get_case_number(case)
         assert "粤0101民初001号" in result
         assert "，" in result
 
@@ -630,7 +653,7 @@ class TestGetCaseNumber:
         case.case_numbers.filter.return_value = []
         case.case_numbers.all.return_value = [cn1]
 
-        result = ArchivePlaceholderService._get_case_number(case)
+        result = _get_case_number(case)
         assert "粤0202民初003号" in result
 
     def test_empty_case_numbers(self) -> None:
@@ -641,7 +664,7 @@ class TestGetCaseNumber:
         case.case_numbers.filter.return_value = []
         case.case_numbers.all.return_value = []
 
-        result = ArchivePlaceholderService._get_case_number(case)
+        result = _get_case_number(case)
         assert result == ""
 
     def test_exception(self) -> None:
@@ -651,7 +674,7 @@ class TestGetCaseNumber:
         case.id = 4
         case.case_numbers.filter.side_effect = Exception("db error")
 
-        result = ArchivePlaceholderService._get_case_number(case)
+        result = _get_case_number(case)
         assert result == ""
 
     def test_case_number_with_none_number(self) -> None:
@@ -663,7 +686,7 @@ class TestGetCaseNumber:
         case.id = 5
         case.case_numbers.filter.return_value = [cn]
 
-        result = ArchivePlaceholderService._get_case_number(case)
+        result = _get_case_number(case)
         assert result == ""
 
 
@@ -680,7 +703,7 @@ class TestGetCourtName:
         case.id = 1
         case.supervising_authorities.filter.return_value = [auth]
 
-        result = ArchivePlaceholderService._get_court_name(case)
+        result = _get_court_name(case)
         assert result == "某某区人民法院"
 
     def test_multiple_authorities_dedup(self) -> None:
@@ -697,7 +720,7 @@ class TestGetCourtName:
         case.id = 2
         case.supervising_authorities.filter.return_value = [auth1, auth2, auth3]
 
-        result = ArchivePlaceholderService._get_court_name(case)
+        result = _get_court_name(case)
         assert result == "法院A、法院B"
 
     def test_no_authorities(self) -> None:
@@ -707,7 +730,7 @@ class TestGetCourtName:
         case.id = 3
         case.supervising_authorities.filter.return_value = []
 
-        result = ArchivePlaceholderService._get_court_name(case)
+        result = _get_court_name(case)
         assert result == ""
 
     def test_empty_name_filtered(self) -> None:
@@ -719,7 +742,7 @@ class TestGetCourtName:
         case.id = 4
         case.supervising_authorities.filter.return_value = [auth]
 
-        result = ArchivePlaceholderService._get_court_name(case)
+        result = _get_court_name(case)
         assert result == ""
 
     def test_exception(self) -> None:
@@ -729,7 +752,7 @@ class TestGetCourtName:
         case.id = 5
         case.supervising_authorities.filter.side_effect = Exception("db error")
 
-        result = ArchivePlaceholderService._get_court_name(case)
+        result = _get_court_name(case)
         assert result == ""
 
 
@@ -743,7 +766,7 @@ class TestGetCaseStage:
         case = MagicMock()
         case.current_stage = "first_trial"
         case.get_current_stage_display.return_value = "一审"
-        result = ArchivePlaceholderService._get_case_stage(case)
+        result = _get_case_stage(case)
         assert result == "一审"
 
     def test_no_stage(self) -> None:
@@ -751,7 +774,7 @@ class TestGetCaseStage:
 
         case = MagicMock()
         case.current_stage = None
-        result = ArchivePlaceholderService._get_case_stage(case)
+        result = _get_case_stage(case)
         assert result == ""
 
     def test_display_raises(self) -> None:
@@ -760,7 +783,7 @@ class TestGetCaseStage:
         case = MagicMock()
         case.current_stage = "first_trial"
         case.get_current_stage_display.side_effect = Exception("no display")
-        result = ArchivePlaceholderService._get_case_stage(case)
+        result = _get_case_stage(case)
         assert result == "first_trial"
 
     def test_display_returns_none(self) -> None:
@@ -769,7 +792,7 @@ class TestGetCaseStage:
         case = MagicMock()
         case.current_stage = "first_trial"
         case.get_current_stage_display.return_value = None
-        result = ArchivePlaceholderService._get_case_stage(case)
+        result = _get_case_stage(case)
         assert result == ""
 
 
@@ -786,7 +809,7 @@ class TestGetTrialResult:
         case.id = 1
         case.case_numbers.filter.return_value = [cn1, cn2]
 
-        result = ArchivePlaceholderService._get_trial_result(case)
+        result = _get_trial_result(case)
         assert "判决主文一" in result
         assert "判决主文二" in result
 
@@ -799,7 +822,7 @@ class TestGetTrialResult:
         case.case_numbers.filter.return_value = []
         case.case_numbers.all.return_value = [cn]
 
-        result = ArchivePlaceholderService._get_trial_result(case)
+        result = _get_trial_result(case)
         assert "全部案号内容" in result
 
     def test_empty_results(self) -> None:
@@ -810,7 +833,7 @@ class TestGetTrialResult:
         case.case_numbers.filter.return_value = []
         case.case_numbers.all.return_value = []
 
-        result = ArchivePlaceholderService._get_trial_result(case)
+        result = _get_trial_result(case)
         assert result == ""
 
     def test_exception(self) -> None:
@@ -820,7 +843,7 @@ class TestGetTrialResult:
         case.id = 4
         case.case_numbers.filter.side_effect = Exception("db error")
 
-        result = ArchivePlaceholderService._get_trial_result(case)
+        result = _get_trial_result(case)
         assert result == ""
 
     def test_empty_content_filtered(self) -> None:
@@ -833,7 +856,7 @@ class TestGetTrialResult:
         case.id = 5
         case.case_numbers.filter.return_value = [cn1, cn2, cn3]
 
-        result = ArchivePlaceholderService._get_trial_result(case)
+        result = _get_trial_result(case)
         assert result == "有内容"
 
     def test_none_content_treated_as_empty(self) -> None:
@@ -845,7 +868,7 @@ class TestGetTrialResult:
         case.id = 6
         case.case_numbers.filter.return_value = [cn]
 
-        result = ArchivePlaceholderService._get_trial_result(case)
+        result = _get_trial_result(case)
         assert result == ""
 
 
@@ -856,7 +879,7 @@ class TestGetCaseSummaryContent:
     def test_with_trial_result(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        result = ArchivePlaceholderService._get_case_summary_content(
+        result = _get_case_summary_content(
             case=None,
             contract=None,
             already_generated={"案件审理结果": "判决内容"},
@@ -866,7 +889,7 @@ class TestGetCaseSummaryContent:
     def test_trial_result_is_slash(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        result = ArchivePlaceholderService._get_case_summary_content(
+        result = _get_case_summary_content(
             case=None,
             contract=None,
             already_generated={"案件审理结果": "/"},
@@ -877,7 +900,7 @@ class TestGetCaseSummaryContent:
     def test_no_trial_result_with_contract_name(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        result = ArchivePlaceholderService._get_case_summary_content(
+        result = _get_case_summary_content(
             case=None,
             contract=None,
             already_generated={
@@ -892,7 +915,7 @@ class TestGetCaseSummaryContent:
     def test_no_trial_result_contract_name_slash(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        result = ArchivePlaceholderService._get_case_summary_content(
+        result = _get_case_summary_content(
             case=None,
             contract=None,
             already_generated={
@@ -906,7 +929,7 @@ class TestGetCaseSummaryContent:
     def test_no_trial_result_party_names_slash(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        result = ArchivePlaceholderService._get_case_summary_content(
+        result = _get_case_summary_content(
             case=None,
             contract=None,
             already_generated={
@@ -921,7 +944,7 @@ class TestGetCaseSummaryContent:
     def test_no_trial_result_no_contract_name(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        result = ArchivePlaceholderService._get_case_summary_content(
+        result = _get_case_summary_content(
             case=None,
             contract=None,
             already_generated={},
@@ -931,7 +954,7 @@ class TestGetCaseSummaryContent:
     def test_trial_result_whitespace_only(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        result = ArchivePlaceholderService._get_case_summary_content(
+        result = _get_case_summary_content(
             case=None,
             contract=None,
             already_generated={"案件审理结果": "   "},
@@ -941,7 +964,7 @@ class TestGetCaseSummaryContent:
     def test_trial_result_no_party_names(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        result = ArchivePlaceholderService._get_case_summary_content(
+        result = _get_case_summary_content(
             case=None,
             contract=None,
             already_generated={
@@ -1024,7 +1047,7 @@ class TestGetLawyerWorkLogContent:
         case.id = 1
         case.logs.select_related.return_value.order_by.return_value = [log1, log2]
 
-        result = ArchivePlaceholderService._get_lawyer_work_log_content(case)
+        result = _get_lawyer_work_log_content(case)
         assert "2026年3月10日，签订委托合同" in result
         assert "2026年4月15日，一审开庭" in result
 
@@ -1047,7 +1070,7 @@ class TestGetLawyerWorkLogContent:
         case.id = 2
         case.logs.select_related.return_value.order_by.return_value = [log1, log2]
 
-        result = ArchivePlaceholderService._get_lawyer_work_log_content(case)
+        result = _get_lawyer_work_log_content(case)
         assert "文书送达" not in result
         assert "开庭" in result
 
@@ -1062,7 +1085,7 @@ class TestGetLawyerWorkLogContent:
         case.id = 3
         case.logs.select_related.return_value.order_by.return_value = [log1]
 
-        result = ArchivePlaceholderService._get_lawyer_work_log_content(case)
+        result = _get_lawyer_work_log_content(case)
         assert result == ""
 
     def test_no_created_at(self) -> None:
@@ -1077,7 +1100,7 @@ class TestGetLawyerWorkLogContent:
         case.id = 4
         case.logs.select_related.return_value.order_by.return_value = [log]
 
-        result = ArchivePlaceholderService._get_lawyer_work_log_content(case)
+        result = _get_lawyer_work_log_content(case)
         assert "未知日期" in result
 
     def test_exception_fetching_logs(self) -> None:
@@ -1087,7 +1110,7 @@ class TestGetLawyerWorkLogContent:
         case.id = 5
         case.logs.select_related.side_effect = Exception("db error")
 
-        result = ArchivePlaceholderService._get_lawyer_work_log_content(case)
+        result = _get_lawyer_work_log_content(case)
         assert result == ""
 
     def test_all_auto_generated_returns_empty(self) -> None:
@@ -1100,7 +1123,7 @@ class TestGetLawyerWorkLogContent:
         case.id = 6
         case.logs.select_related.return_value.order_by.return_value = [log1]
 
-        result = ArchivePlaceholderService._get_lawyer_work_log_content(case)
+        result = _get_lawyer_work_log_content(case)
         assert result == ""
 
 
@@ -1123,7 +1146,7 @@ class TestGetOpposingPartyNamesFromCase:
         case.id = 1
         case.parties.select_related.return_value.all.return_value = [p1, p2]
 
-        result = ArchivePlaceholderService._get_opposing_party_names_from_case(case)
+        result = _get_opposing_party_names_from_case(case)
         assert "对方A" in result
         assert "我方B" not in result
 
@@ -1134,7 +1157,7 @@ class TestGetOpposingPartyNamesFromCase:
         case.id = 2
         case.parties.select_related.return_value.all.return_value = []
 
-        result = ArchivePlaceholderService._get_opposing_party_names_from_case(case)
+        result = _get_opposing_party_names_from_case(case)
         assert result == ""
 
     def test_exception(self) -> None:
@@ -1144,7 +1167,7 @@ class TestGetOpposingPartyNamesFromCase:
         case.id = 3
         case.parties.select_related.side_effect = TypeError("bad query")
 
-        result = ArchivePlaceholderService._get_opposing_party_names_from_case(case)
+        result = _get_opposing_party_names_from_case(case)
         assert result == ""
 
     def test_no_client(self) -> None:
@@ -1157,7 +1180,7 @@ class TestGetOpposingPartyNamesFromCase:
         case.id = 4
         case.parties.select_related.return_value.all.return_value = [p]
 
-        result = ArchivePlaceholderService._get_opposing_party_names_from_case(case)
+        result = _get_opposing_party_names_from_case(case)
         assert result == ""
 
     def test_dedup(self) -> None:
@@ -1174,7 +1197,7 @@ class TestGetOpposingPartyNamesFromCase:
         case.id = 5
         case.parties.select_related.return_value.all.return_value = [p1, p2]
 
-        result = ArchivePlaceholderService._get_opposing_party_names_from_case(case)
+        result = _get_opposing_party_names_from_case(case)
         assert result == "对方"
 
 
@@ -1186,9 +1209,7 @@ class TestGetArchiveMaterialsList:
         """Test directly by patching the ArchiveChecklistService import inside the method."""
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        with patch(
-            "apps.contracts.services.archive.ArchiveChecklistService"
-        ) as MockService:
+        with patch("apps.contracts.services.archive.ArchiveChecklistService") as MockService:
             instance = MockService.return_value
             instance.get_checklist_with_status.return_value = {
                 "items": [
@@ -1205,7 +1226,7 @@ class TestGetArchiveMaterialsList:
             # Call the real method by importing and calling it directly
             import apps.documents.services.placeholders.archive as archive_mod
 
-            result = archive_mod.ArchivePlaceholderService._get_archive_materials_list(contract)
+            result = archive_mod._get_archive_materials_list(contract)
             assert "1.委托代理合同" in str(result)
             assert "2.风险告知书" in str(result)
             assert "案卷封面" not in str(result)
@@ -1214,29 +1235,31 @@ class TestGetArchiveMaterialsList:
     def test_empty_items(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        with patch(
-            "apps.contracts.services.archive.ArchiveChecklistService"
-        ) as MockService:
+        with patch("apps.contracts.services.archive.ArchiveChecklistService") as MockService:
             instance = MockService.return_value
             instance.get_checklist_with_status.return_value = {"items": []}
 
             contract = MagicMock()
             contract.id = 2
 
-            result = ArchivePlaceholderService._get_archive_materials_list(contract)
+            result = _get_archive_materials_list(contract)
             assert result == ""
 
     def test_skip_templates(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        with patch(
-            "apps.contracts.services.archive.ArchiveChecklistService"
-        ) as MockService:
+        with patch("apps.contracts.services.archive.ArchiveChecklistService") as MockService:
             instance = MockService.return_value
             instance.get_checklist_with_status.return_value = {
                 "items": [
                     {"code": "x_1", "template": "case_cover", "name": "封面", "completed": True, "material_ids": []},
-                    {"code": "x_2", "template": "closing_archive_register", "name": "登记", "completed": True, "material_ids": []},
+                    {
+                        "code": "x_2",
+                        "template": "closing_archive_register",
+                        "name": "登记",
+                        "completed": True,
+                        "material_ids": [],
+                    },
                     {"code": "x_3", "template": "inner_catalog", "name": "目录", "completed": True, "material_ids": []},
                     {"code": "x_4", "template": "other", "name": "材料A", "completed": True, "material_ids": []},
                 ]
@@ -1245,7 +1268,7 @@ class TestGetArchiveMaterialsList:
             contract = MagicMock()
             contract.id = 3
 
-            result = ArchivePlaceholderService._get_archive_materials_list(contract)
+            result = _get_archive_materials_list(contract)
             assert "1.材料A" in str(result)
 
 
@@ -1256,10 +1279,9 @@ class TestGetInnerCatalogItems:
     def test_basic_catalog(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        with patch(
-            "apps.contracts.services.archive.ArchiveChecklistService"
-        ) as MockService, patch.object(
-            ArchivePlaceholderService, "_calculate_material_page_count", return_value=3
+        with (
+            patch("apps.contracts.services.archive.ArchiveChecklistService") as MockService,
+            patch("apps.documents.services.placeholders.archive._calculate_material_page_count", return_value=3),
         ):
             instance = MockService.return_value
             instance.get_checklist_with_status.return_value = {
@@ -1272,7 +1294,7 @@ class TestGetInnerCatalogItems:
             contract = MagicMock()
             contract.id = 1
 
-            result = ArchivePlaceholderService._get_inner_catalog_items(contract)
+            result = _get_inner_catalog_items(contract)
             assert len(result) == 2
             assert result[0]["序号"] == 1
             assert result[0]["材料名称"] == "合同"
@@ -1283,25 +1305,22 @@ class TestGetInnerCatalogItems:
     def test_empty_items(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        with patch(
-            "apps.contracts.services.archive.ArchiveChecklistService"
-        ) as MockService:
+        with patch("apps.contracts.services.archive.ArchiveChecklistService") as MockService:
             instance = MockService.return_value
             instance.get_checklist_with_status.return_value = {"items": []}
 
             contract = MagicMock()
             contract.id = 2
 
-            result = ArchivePlaceholderService._get_inner_catalog_items(contract)
+            result = _get_inner_catalog_items(contract)
             assert result == []
 
     def test_skip_items(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        with patch(
-            "apps.contracts.services.archive.ArchiveChecklistService"
-        ) as MockService, patch.object(
-            ArchivePlaceholderService, "_calculate_material_page_count", return_value=1
+        with (
+            patch("apps.contracts.services.archive.ArchiveChecklistService") as MockService,
+            patch("apps.documents.services.placeholders.archive._calculate_material_page_count", return_value=1),
         ):
             instance = MockService.return_value
             instance.get_checklist_with_status.return_value = {
@@ -1315,17 +1334,16 @@ class TestGetInnerCatalogItems:
             contract = MagicMock()
             contract.id = 3
 
-            result = ArchivePlaceholderService._get_inner_catalog_items(contract)
+            result = _get_inner_catalog_items(contract)
             assert len(result) == 1
             assert result[0]["材料名称"] == "材料A"
 
     def test_zero_page_count(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        with patch(
-            "apps.contracts.services.archive.ArchiveChecklistService"
-        ) as MockService, patch.object(
-            ArchivePlaceholderService, "_calculate_material_page_count", return_value=0
+        with (
+            patch("apps.contracts.services.archive.ArchiveChecklistService") as MockService,
+            patch("apps.documents.services.placeholders.archive._calculate_material_page_count", return_value=0),
         ):
             instance = MockService.return_value
             instance.get_checklist_with_status.return_value = {
@@ -1337,16 +1355,15 @@ class TestGetInnerCatalogItems:
             contract = MagicMock()
             contract.id = 4
 
-            result = ArchivePlaceholderService._get_inner_catalog_items(contract)
+            result = _get_inner_catalog_items(contract)
             assert result[0]["页码"] == "-"
 
     def test_single_page(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        with patch(
-            "apps.contracts.services.archive.ArchiveChecklistService"
-        ) as MockService, patch.object(
-            ArchivePlaceholderService, "_calculate_material_page_count", return_value=1
+        with (
+            patch("apps.contracts.services.archive.ArchiveChecklistService") as MockService,
+            patch("apps.documents.services.placeholders.archive._calculate_material_page_count", return_value=1),
         ):
             instance = MockService.return_value
             instance.get_checklist_with_status.return_value = {
@@ -1358,7 +1375,7 @@ class TestGetInnerCatalogItems:
             contract = MagicMock()
             contract.id = 5
 
-            result = ArchivePlaceholderService._get_inner_catalog_items(contract)
+            result = _get_inner_catalog_items(contract)
             assert result[0]["页码"] == "1"
 
 
@@ -1372,15 +1389,14 @@ class TestCalculateMaterialPageCount:
         mat = MagicMock()
         mat.file_path = "/tmp/test.pdf"
 
-        with patch(
-            "apps.contracts.models.finalized_material.FinalizedMaterial.objects"
-        ) as mock_objects, patch.object(
-            ArchivePlaceholderService, "_get_file_page_count", return_value=5
+        with (
+            patch("apps.contracts.models.finalized_material.FinalizedMaterial.objects") as mock_objects,
+            patch("apps.documents.services.placeholders.archive._get_file_page_count", return_value=5),
         ):
             mock_objects.filter.return_value = [mat]
 
             contract = MagicMock()
-            result = ArchivePlaceholderService._calculate_material_page_count(contract, "code_1", [1, 2])
+            result = _calculate_material_page_count(contract, "code_1", [1, 2])
             assert result == 5
 
     def test_without_material_ids_uses_code(self) -> None:
@@ -1389,27 +1405,24 @@ class TestCalculateMaterialPageCount:
         mat = MagicMock()
         mat.file_path = "/tmp/test.pdf"
 
-        with patch(
-            "apps.contracts.models.finalized_material.FinalizedMaterial.objects"
-        ) as mock_objects, patch.object(
-            ArchivePlaceholderService, "_get_file_page_count", return_value=3
+        with (
+            patch("apps.contracts.models.finalized_material.FinalizedMaterial.objects") as mock_objects,
+            patch("apps.documents.services.placeholders.archive._get_file_page_count", return_value=3),
         ):
             mock_objects.filter.return_value = [mat]
 
             contract = MagicMock()
-            result = ArchivePlaceholderService._calculate_material_page_count(contract, "archive_code", [])
+            result = _calculate_material_page_count(contract, "archive_code", [])
             assert result == 3
 
     def test_no_materials(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        with patch(
-            "apps.contracts.models.finalized_material.FinalizedMaterial.objects"
-        ) as mock_objects:
+        with patch("apps.contracts.models.finalized_material.FinalizedMaterial.objects") as mock_objects:
             mock_objects.filter.return_value = []
 
             contract = MagicMock()
-            result = ArchivePlaceholderService._calculate_material_page_count(contract, "code", [])
+            result = _calculate_material_page_count(contract, "code", [])
             assert result == 0
 
     def test_page_count_zero_defaults_to_1(self) -> None:
@@ -1417,15 +1430,14 @@ class TestCalculateMaterialPageCount:
 
         mat = MagicMock()
 
-        with patch(
-            "apps.contracts.models.finalized_material.FinalizedMaterial.objects"
-        ) as mock_objects, patch.object(
-            ArchivePlaceholderService, "_get_file_page_count", return_value=0
+        with (
+            patch("apps.contracts.models.finalized_material.FinalizedMaterial.objects") as mock_objects,
+            patch("apps.documents.services.placeholders.archive._get_file_page_count", return_value=0),
         ):
             mock_objects.filter.return_value = [mat]
 
             contract = MagicMock()
-            result = ArchivePlaceholderService._calculate_material_page_count(contract, "code", [])
+            result = _calculate_material_page_count(contract, "code", [])
             assert result == 1  # default 1 page when count is 0
 
 
@@ -1440,15 +1452,16 @@ class TestGetFilePageCount:
         material.file_path = "/tmp/test.pdf"
         material.original_filename = "test.pdf"
 
-        with patch("pathlib.Path.exists", return_value=True), patch(
-            "pathlib.Path.is_absolute", return_value=True
-        ), patch(
-            "apps.documents.services.infrastructure.pdf_utils.get_pdf_page_count",
-            return_value=10,
-        ), patch(
-            "builtins.open"
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_absolute", return_value=True),
+            patch(
+                "apps.documents.services.infrastructure.pdf_utils.get_pdf_page_count",
+                return_value=10,
+            ),
+            patch("builtins.open"),
         ):
-            result = ArchivePlaceholderService._get_file_page_count(material)
+            result = _get_file_page_count(material)
             assert result == 10
 
     def test_docx_file(self) -> None:
@@ -1457,10 +1470,8 @@ class TestGetFilePageCount:
         material = MagicMock()
         material.file_path = "/tmp/test.docx"
 
-        with patch("pathlib.Path.exists", return_value=True), patch(
-            "pathlib.Path.is_absolute", return_value=True
-        ):
-            result = ArchivePlaceholderService._get_file_page_count(material)
+        with patch("pathlib.Path.exists", return_value=True), patch("pathlib.Path.is_absolute", return_value=True):
+            result = _get_file_page_count(material)
             assert result == 1
 
     def test_other_file_type(self) -> None:
@@ -1469,10 +1480,8 @@ class TestGetFilePageCount:
         material = MagicMock()
         material.file_path = "/tmp/test.txt"
 
-        with patch("pathlib.Path.exists", return_value=True), patch(
-            "pathlib.Path.is_absolute", return_value=True
-        ):
-            result = ArchivePlaceholderService._get_file_page_count(material)
+        with patch("pathlib.Path.exists", return_value=True), patch("pathlib.Path.is_absolute", return_value=True):
+            result = _get_file_page_count(material)
             assert result == 1
 
     def test_file_not_found(self) -> None:
@@ -1481,10 +1490,8 @@ class TestGetFilePageCount:
         material = MagicMock()
         material.file_path = "/tmp/nonexistent.pdf"
 
-        with patch("pathlib.Path.exists", return_value=False), patch(
-            "pathlib.Path.is_absolute", return_value=True
-        ):
-            result = ArchivePlaceholderService._get_file_page_count(material)
+        with patch("pathlib.Path.exists", return_value=False), patch("pathlib.Path.is_absolute", return_value=True):
+            result = _get_file_page_count(material)
             assert result == 0
 
     def test_relative_path_resolved(self) -> None:
@@ -1493,15 +1500,16 @@ class TestGetFilePageCount:
         material = MagicMock()
         material.file_path = "relative/path.pdf"
 
-        with patch("pathlib.Path.exists", return_value=True), patch(
-            "pathlib.Path.is_absolute", return_value=False
-        ), patch(
-            "apps.documents.services.infrastructure.pdf_utils.get_pdf_page_count",
-            return_value=5,
-        ), patch(
-            "builtins.open"
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_absolute", return_value=False),
+            patch(
+                "apps.documents.services.infrastructure.pdf_utils.get_pdf_page_count",
+                return_value=5,
+            ),
+            patch("builtins.open"),
         ):
-            result = ArchivePlaceholderService._get_file_page_count(material)
+            result = _get_file_page_count(material)
             assert result == 5
 
     def test_pdf_exception(self) -> None:
@@ -1511,13 +1519,15 @@ class TestGetFilePageCount:
         material.file_path = "/tmp/test.pdf"
         material.original_filename = "test.pdf"
 
-        with patch("pathlib.Path.exists", return_value=True), patch(
-            "pathlib.Path.is_absolute", return_value=True
-        ), patch(
-            "apps.documents.services.infrastructure.pdf_utils.get_pdf_page_count",
-            side_effect=Exception("corrupt pdf"),
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_absolute", return_value=True),
+            patch(
+                "apps.documents.services.infrastructure.pdf_utils.get_pdf_page_count",
+                side_effect=Exception("corrupt pdf"),
+            ),
         ):
-            result = ArchivePlaceholderService._get_file_page_count(material)
+            result = _get_file_page_count(material)
             assert result == 0
 
 
@@ -1536,30 +1546,26 @@ class TestGetWorkLogFromScanSession:
             ]
         }
 
-        with patch(
-            "apps.contracts.models.ContractFolderScanSession.objects"
-        ) as mock_objects:
+        with patch("apps.contracts.models.ContractFolderScanSession.objects") as mock_objects:
             mock_objects.filter.return_value.order_by.return_value.first.return_value = session
 
             contract = MagicMock()
             contract.id = 1
 
-            result = ArchivePlaceholderService._get_work_log_from_scan_session(contract)
+            result = _get_work_log_from_scan_session(contract)
             assert "2024年9月11日，签订合同" in result
             assert "2024年10月5日，开庭审理" in result
 
     def test_no_session(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        with patch(
-            "apps.contracts.models.ContractFolderScanSession.objects"
-        ) as mock_objects:
+        with patch("apps.contracts.models.ContractFolderScanSession.objects") as mock_objects:
             mock_objects.filter.return_value.order_by.return_value.first.return_value = None
 
             contract = MagicMock()
             contract.id = 2
 
-            result = ArchivePlaceholderService._get_work_log_from_scan_session(contract)
+            result = _get_work_log_from_scan_session(contract)
             assert result == ""
 
     def test_no_suggestions(self) -> None:
@@ -1568,15 +1574,13 @@ class TestGetWorkLogFromScanSession:
         session = MagicMock()
         session.result_payload = {"confirmed_work_log_suggestions": []}
 
-        with patch(
-            "apps.contracts.models.ContractFolderScanSession.objects"
-        ) as mock_objects:
+        with patch("apps.contracts.models.ContractFolderScanSession.objects") as mock_objects:
             mock_objects.filter.return_value.order_by.return_value.first.return_value = session
 
             contract = MagicMock()
             contract.id = 3
 
-            result = ArchivePlaceholderService._get_work_log_from_scan_session(contract)
+            result = _get_work_log_from_scan_session(contract)
             assert result == ""
 
     def test_empty_content_skipped(self) -> None:
@@ -1590,15 +1594,13 @@ class TestGetWorkLogFromScanSession:
             ]
         }
 
-        with patch(
-            "apps.contracts.models.ContractFolderScanSession.objects"
-        ) as mock_objects:
+        with patch("apps.contracts.models.ContractFolderScanSession.objects") as mock_objects:
             mock_objects.filter.return_value.order_by.return_value.first.return_value = session
 
             contract = MagicMock()
             contract.id = 4
 
-            result = ArchivePlaceholderService._get_work_log_from_scan_session(contract)
+            result = _get_work_log_from_scan_session(contract)
             assert "开庭" in result
             # Only one line, no break
             assert "2024年10月5日，开庭" in result
@@ -1613,15 +1615,13 @@ class TestGetWorkLogFromScanSession:
             ]
         }
 
-        with patch(
-            "apps.contracts.models.ContractFolderScanSession.objects"
-        ) as mock_objects:
+        with patch("apps.contracts.models.ContractFolderScanSession.objects") as mock_objects:
             mock_objects.filter.return_value.order_by.return_value.first.return_value = session
 
             contract = MagicMock()
             contract.id = 5
 
-            result = ArchivePlaceholderService._get_work_log_from_scan_session(contract)
+            result = _get_work_log_from_scan_session(contract)
             assert result == "开庭"
 
     def test_no_contract_id(self) -> None:
@@ -1629,7 +1629,7 @@ class TestGetWorkLogFromScanSession:
 
         contract = MagicMock(spec=[])  # no id attr
 
-        result = ArchivePlaceholderService._get_work_log_from_scan_session(contract)
+        result = _get_work_log_from_scan_session(contract)
         assert result == ""
 
     def test_exception(self) -> None:
@@ -1638,12 +1638,10 @@ class TestGetWorkLogFromScanSession:
         contract = MagicMock()
         contract.id = 6
 
-        with patch(
-            "apps.contracts.models.ContractFolderScanSession.objects"
-        ) as mock_objects:
+        with patch("apps.contracts.models.ContractFolderScanSession.objects") as mock_objects:
             mock_objects.filter.side_effect = Exception("import error")
 
-            result = ArchivePlaceholderService._get_work_log_from_scan_session(contract)
+            result = _get_work_log_from_scan_session(contract)
             assert result == ""
 
     def test_null_payload(self) -> None:
@@ -1652,15 +1650,13 @@ class TestGetWorkLogFromScanSession:
         session = MagicMock()
         session.result_payload = None
 
-        with patch(
-            "apps.contracts.models.ContractFolderScanSession.objects"
-        ) as mock_objects:
+        with patch("apps.contracts.models.ContractFolderScanSession.objects") as mock_objects:
             mock_objects.filter.return_value.order_by.return_value.first.return_value = session
 
             contract = MagicMock()
             contract.id = 7
 
-            result = ArchivePlaceholderService._get_work_log_from_scan_session(contract)
+            result = _get_work_log_from_scan_session(contract)
             assert result == ""
 
     def test_all_empty_content(self) -> None:
@@ -1675,15 +1671,13 @@ class TestGetWorkLogFromScanSession:
             ]
         }
 
-        with patch(
-            "apps.contracts.models.ContractFolderScanSession.objects"
-        ) as mock_objects:
+        with patch("apps.contracts.models.ContractFolderScanSession.objects") as mock_objects:
             mock_objects.filter.return_value.order_by.return_value.first.return_value = session
 
             contract = MagicMock()
             contract.id = 8
 
-            result = ArchivePlaceholderService._get_work_log_from_scan_session(contract)
+            result = _get_work_log_from_scan_session(contract)
             assert result == ""
 
 
@@ -1718,10 +1712,9 @@ class TestGenerate:
         contract.law_firm_oa_case_number = "OA001"
         contract.contract_parties.select_related.return_value.all.return_value = []
 
-        with patch(
-            "apps.contracts.services.archive.ArchiveChecklistService"
-        ) as MockService, patch.object(
-            ArchivePlaceholderService, "_calculate_material_page_count", return_value=1
+        with (
+            patch("apps.contracts.services.archive.ArchiveChecklistService") as MockService,
+            patch("apps.documents.services.placeholders.archive._calculate_material_page_count", return_value=1),
         ):
             MockService.return_value.get_checklist_with_status.return_value = {"items": []}
 
@@ -1748,11 +1741,10 @@ class TestGenerate:
         chain.filter.return_value.first.return_value = None
         chain.first.return_value = None
 
-        with patch(
-            "apps.contracts.services.archive.ArchiveChecklistService"
-        ) as MockService, patch(
-            "apps.contracts.models.ContractFolderScanSession.objects"
-        ) as mock_scan:
+        with (
+            patch("apps.contracts.services.archive.ArchiveChecklistService") as MockService,
+            patch("apps.contracts.models.ContractFolderScanSession.objects") as mock_scan,
+        ):
             MockService.return_value.get_checklist_with_status.return_value = {"items": []}
             mock_scan.filter.return_value.order_by.return_value.first.return_value = None
 
@@ -1821,9 +1813,7 @@ class TestGenerate:
         contract.law_firm_oa_case_number = ""
         contract.contract_parties.select_related.return_value.all.return_value = []
 
-        with patch(
-            "apps.contracts.services.archive.ArchiveChecklistService"
-        ) as MockService:
+        with patch("apps.contracts.services.archive.ArchiveChecklistService") as MockService:
             MockService.return_value.get_checklist_with_status.return_value = {"items": []}
 
             result = service.generate({"case": case, "contract": contract})

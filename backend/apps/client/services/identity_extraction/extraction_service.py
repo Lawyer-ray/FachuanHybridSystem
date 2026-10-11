@@ -491,35 +491,6 @@ class IdentityExtractionService:
     _NARRATIVE_ADDRESS_START_RE = re.compile(r"(?:住|居住于|住所地|住址|约定送达地址|送达地址)[:：]?")
     _ADDRESS_BOUNDARY_RE = re.compile(r"公民身份|身份证号|联系电话|电话|手机|联系方式|出生|民族|有效期|邮编")
 
-    @staticmethod
-    def _normalize_ocr_text(text: str) -> str:
-        """OCR 文本归一化：全角转半角、去除中文间空格，保留换行作为字段边界信号。"""
-        normalized = text.translate(_FULLWIDTH_TRANSLATION)
-        # 去除行内空白（OCR 常在中英文间插入空格），保留换行
-        lines = (re.sub(r"[ \t　]+", "", line) for line in normalized.splitlines())
-        return "\n".join(lines)
-
-    @staticmethod
-    def _validate_id_number(id_number: str | None) -> bool:
-        """身份证号校验位验证（ISO 7064 MOD 11-2）。"""
-        if not id_number or len(id_number) != 18:
-            return False
-        if not id_number[:17].isdigit():
-            return False
-        checksum = sum(int(c) * w for c, w in zip(id_number[:17], _ID_CARD_WEIGHTS))
-        return _ID_CARD_CHECK_CODES[checksum % 11] == id_number[17].upper()
-
-    @staticmethod
-    def _validate_credit_code(code: str | None) -> bool:
-        """统一社会信用代码校验（GB 32100）。"""
-        if not code or len(code) != 18:
-            return False
-        if any(ch not in _CREDIT_CODE_CHARS for ch in code):
-            return False
-        values = [_CREDIT_CODE_CHARS.index(ch) for ch in code[:17]]
-        checksum = sum(v * w for v, w in zip(values, _CREDIT_CODE_WEIGHTS)) % 31
-        return _CREDIT_CODE_CHARS[(31 - checksum) % 31] == code[17]
-
     def _extract_id_number_candidates(self, text: str) -> list[str]:
         """提取全部 18 位身份证号候选（按出现顺序），供校验位评分选优。"""
         return [m.group(1).upper() for m in re.finditer(r"(?<!\d)(\d{17}[\dXx])(?!\d)", text)]
@@ -530,7 +501,7 @@ class IdentityExtractionService:
         if not candidates:
             return None, False
         for candidate in candidates:
-            if self._validate_id_number(candidate):
+            if _validate_id_number(candidate):
                 return candidate, True
         return candidates[0], False
 
@@ -593,7 +564,7 @@ class IdentityExtractionService:
         if extracted.get("id_number"):
             id_conf = (
                 self._FIELD_CONF_ID_VERIFIED
-                if self._validate_id_number(extracted.get("id_number"))
+                if _validate_id_number(extracted.get("id_number"))
                 else self._FIELD_CONF_UNVERIFIED_ID
             )
         else:
@@ -610,7 +581,7 @@ class IdentityExtractionService:
         if extracted.get("credit_code"):
             credit_conf = (
                 self._FIELD_CONF_ID_VERIFIED
-                if self._validate_credit_code(extracted.get("credit_code"))
+                if _validate_credit_code(extracted.get("credit_code"))
                 else self._FIELD_CONF_UNVERIFIED_ID
             )
         else:
@@ -633,7 +604,7 @@ class IdentityExtractionService:
 
     def _compute_field_confidence(self, extracted: dict[str, Any], narrative_used: bool) -> dict[str, float]:
         """按字段计算置信度；身份证号以校验位验证结果为准。"""
-        id_verified = bool(extracted.get("id_number")) and self._validate_id_number(extracted.get("id_number"))
+        id_verified = bool(extracted.get("id_number")) and _validate_id_number(extracted.get("id_number"))
         if extracted.get("id_number"):
             id_conf = 0.98 if id_verified else self._FIELD_CONF_UNVERIFIED_ID
         else:
@@ -652,7 +623,7 @@ class IdentityExtractionService:
         if doc_type not in {"id_card", "legal_rep_id_card"}:
             return None
 
-        text = self._prepare_text_for_llm(self._normalize_ocr_text(raw_text))
+        text = self._prepare_text_for_llm(_normalize_ocr_text(raw_text))
         lines = [line.strip() for line in text.split("\n") if line.strip()]
         merged = "\n".join(lines)
 
@@ -691,7 +662,7 @@ class IdentityExtractionService:
 
     def _extract_business_license(self, raw_text: str) -> dict[str, Any] | None:
         """营业执照正则提取：企业名称、统一社会信用代码、法定代表人、地址、电话。"""
-        text = self._prepare_text_for_llm(self._normalize_ocr_text(raw_text))
+        text = self._prepare_text_for_llm(_normalize_ocr_text(raw_text))
         lines = [line.strip() for line in text.split("\n") if line.strip()]
 
         # 统一社会信用代码（18位字母数字），多候选时优先选校验通过者
@@ -700,7 +671,7 @@ class IdentityExtractionService:
             candidate = code_match.group(1)
             if not any(ch.isalpha() for ch in candidate):
                 continue  # 纯数字串大概率是日期/号码，不是信用代码
-            if self._validate_credit_code(candidate):
+            if _validate_credit_code(candidate):
                 credit_code = candidate
                 break
             if credit_code is None:
@@ -878,38 +849,6 @@ class IdentityExtractionService:
             return None
         return f"{y:04d}-{m:02d}-{d:02d}"
 
-    @staticmethod
-    def _parse_llm_json(content: str) -> dict[str, Any]:
-        """从 LLM 输出中提取 JSON 对象，支持多种格式。"""
-        # 1. 尝试从 ```json ... ``` 代码块中提取
-        if "```json" in content:
-            json_start = content.find("```json") + 7
-            json_end = content.find("```", json_start)
-            if json_end > json_start:
-                result: dict[str, Any] = json.loads(content[json_start:json_end].strip())
-                return result
-        # 2. 尝试从 ``` ... ``` 代码块中提取
-        if "```" in content:
-            json_start = content.find("```") + 3
-            json_end = content.find("```", json_start)
-            if json_end > json_start:
-                result2: dict[str, Any] = json.loads(content[json_start:json_end].strip())
-                return result2
-        # 3. 尝试直接解析整个内容
-        try:
-            result3: dict[str, Any] = json.loads(content.strip())
-            return result3
-        except json.JSONDecodeError:
-            pass
-        # 4. 尝试从文本中提取第一个 JSON 对象
-        import re
-
-        match = re.search(r"\{[^{}]*\}", content, re.DOTALL)
-        if match:
-            result4: dict[str, Any] = json.loads(match.group())
-            return result4
-        raise ValueError("无法从 LLM 输出中提取 JSON")
-
     def _llm_extract(self, raw_text: str, doc_type: str, model: str) -> dict[str, Any]:  # pragma: no cover
         """
         使用 LLM 从文字中提取结构化信息
@@ -956,7 +895,7 @@ class IdentityExtractionService:
 
             # 解析 JSON
             try:
-                extracted_data = self._parse_llm_json(content)
+                extracted_data = _parse_llm_json(content)
                 logger.info("LLM 提取成功,字段数量: %s", len(extracted_data))
                 return dict(extracted_data)
 
@@ -1022,3 +961,68 @@ class IdentityExtractionService:
             logger.exception("证件识别未知错误: %s", e)
             result["error"] = str(_("识别过程中发生未知错误，请稍后重试"))
         return result
+
+
+# ↓↓ 由 IdentityExtractionService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _normalize_ocr_text(text: str) -> str:
+    """OCR 文本归一化：全角转半角、去除中文间空格，保留换行作为字段边界信号。"""
+    normalized = text.translate(_FULLWIDTH_TRANSLATION)
+    # 去除行内空白（OCR 常在中英文间插入空格），保留换行
+    lines = (re.sub(r"[ \t　]+", "", line) for line in normalized.splitlines())
+    return "\n".join(lines)
+
+
+# ↓↓ 由 IdentityExtractionService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _validate_id_number(id_number: str | None) -> bool:
+    """身份证号校验位验证（ISO 7064 MOD 11-2）。"""
+    if not id_number or len(id_number) != 18:
+        return False
+    if not id_number[:17].isdigit():
+        return False
+    checksum = sum(int(c) * w for c, w in zip(id_number[:17], _ID_CARD_WEIGHTS))
+    return _ID_CARD_CHECK_CODES[checksum % 11] == id_number[17].upper()
+
+
+# ↓↓ 由 IdentityExtractionService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _validate_credit_code(code: str | None) -> bool:
+    """统一社会信用代码校验（GB 32100）。"""
+    if not code or len(code) != 18:
+        return False
+    if any(ch not in _CREDIT_CODE_CHARS for ch in code):
+        return False
+    values = [_CREDIT_CODE_CHARS.index(ch) for ch in code[:17]]
+    checksum = sum(v * w for v, w in zip(values, _CREDIT_CODE_WEIGHTS)) % 31
+    return _CREDIT_CODE_CHARS[(31 - checksum) % 31] == code[17]
+
+
+# ↓↓ 由 IdentityExtractionService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _parse_llm_json(content: str) -> dict[str, Any]:
+    """从 LLM 输出中提取 JSON 对象，支持多种格式。"""
+    # 1. 尝试从 ```json ... ``` 代码块中提取
+    if "```json" in content:
+        json_start = content.find("```json") + 7
+        json_end = content.find("```", json_start)
+        if json_end > json_start:
+            result: dict[str, Any] = json.loads(content[json_start:json_end].strip())
+            return result
+    # 2. 尝试从 ``` ... ``` 代码块中提取
+    if "```" in content:
+        json_start = content.find("```") + 3
+        json_end = content.find("```", json_start)
+        if json_end > json_start:
+            result2: dict[str, Any] = json.loads(content[json_start:json_end].strip())
+            return result2
+    # 3. 尝试直接解析整个内容
+    try:
+        result3: dict[str, Any] = json.loads(content.strip())
+        return result3
+    except json.JSONDecodeError:
+        pass
+    # 4. 尝试从文本中提取第一个 JSON 对象
+    import re
+
+    match = re.search(r"\{[^{}]*\}", content, re.DOTALL)
+    if match:
+        result4: dict[str, Any] = json.loads(match.group())
+        return result4
+    raise ValueError("无法从 LLM 输出中提取 JSON")

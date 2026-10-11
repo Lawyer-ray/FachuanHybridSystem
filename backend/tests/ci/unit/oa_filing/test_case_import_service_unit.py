@@ -8,45 +8,53 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.core.models.enums import CaseType
+from apps.oa_filing.services.case_import_service import _parse_date
 
 
 class TestCaseImportServiceParseDate:
-
-    @pytest.mark.parametrize("date_str,expected_year", [
-        ("2024/01/15", 2024),
-        ("2024-01-15", 2024),
-        ("2024年01月15日", 2024),
-        ("01/15/2024", 2024),
-    ])
+    @pytest.mark.parametrize(
+        "date_str,expected_year",
+        [
+            ("2024/01/15", 2024),
+            ("2024-01-15", 2024),
+            ("2024年01月15日", 2024),
+            ("01/15/2024", 2024),
+        ],
+    )
     def test_parse_date_formats(self, date_str, expected_year):
         from apps.oa_filing.services.case_import_service import CaseImportService
-        result = CaseImportService._parse_date(date_str)
+
+        result = _parse_date(date_str)
         assert result is not None
         assert result.year == expected_year
 
     def test_empty_returns_none(self):
         from apps.oa_filing.services.case_import_service import CaseImportService
-        assert CaseImportService._parse_date("") is None
+
+        assert _parse_date("") is None
 
     def test_none_returns_none(self):
         from apps.oa_filing.services.case_import_service import CaseImportService
-        assert CaseImportService._parse_date(None) is None
+
+        assert _parse_date(None) is None
 
     def test_invalid_returns_none(self):
         from apps.oa_filing.services.case_import_service import CaseImportService
-        assert CaseImportService._parse_date("not a date") is None
+
+        assert _parse_date("not a date") is None
 
     def test_date_with_time_strips_time(self):
         from apps.oa_filing.services.case_import_service import CaseImportService
-        result = CaseImportService._parse_date("2024/01/15 10:30:00")
+
+        result = _parse_date("2024/01/15 10:30:00")
         assert result is not None
         assert result.year == 2024
 
 
 class TestCaseImportServiceMapOaCaseType:
-
     def _make_service(self):
         from apps.oa_filing.services.case_import_service import CaseImportService
+
         session = MagicMock()
         return CaseImportService(session)
 
@@ -95,9 +103,9 @@ class TestCaseImportServiceMapOaCaseType:
 
 
 class TestCaseImportServiceMapOaCaseTypeCombo:
-
     def _make_service(self):
         from apps.oa_filing.services.case_import_service import CaseImportService
+
         session = MagicMock()
         return CaseImportService(session)
 
@@ -123,31 +131,34 @@ class TestCaseImportServiceMapOaCaseTypeCombo:
 
 
 class TestCaseImportServiceShouldCreateCase:
-
     def _make_service(self):
         from apps.oa_filing.services.case_import_service import CaseImportService
+
         session = MagicMock()
         return CaseImportService(session)
 
-    @pytest.mark.parametrize("case_type,expected", [
-        (CaseType.CIVIL, True),
-        (CaseType.CRIMINAL, True),
-        (CaseType.ADMINISTRATIVE, True),
-        (CaseType.LABOR, True),
-        (CaseType.INTL, True),
-        (CaseType.ADVISOR, False),
-        (CaseType.SPECIAL, False),
-        (None, False),
-    ])
+    @pytest.mark.parametrize(
+        "case_type,expected",
+        [
+            (CaseType.CIVIL, True),
+            (CaseType.CRIMINAL, True),
+            (CaseType.ADMINISTRATIVE, True),
+            (CaseType.LABOR, True),
+            (CaseType.INTL, True),
+            (CaseType.ADVISOR, False),
+            (CaseType.SPECIAL, False),
+            (None, False),
+        ],
+    )
     def test_should_create_case(self, case_type, expected):
         svc = self._make_service()
         assert svc._should_create_case_for_contract_type(case_type) == expected
 
 
 class TestCaseImportServiceResolveSearchWorkers:
-
     def _make_service(self):
         from apps.oa_filing.services.case_import_service import CaseImportService
+
         session = MagicMock()
         return CaseImportService(session)
 
@@ -171,9 +182,9 @@ class TestCaseImportServiceResolveSearchWorkers:
 
 
 class TestCaseImportResult:
-
     def test_creation(self):
         from apps.oa_filing.services.case_import_service import CaseImportResult
+
         result = CaseImportResult(
             case_no="CASE001",
             status="created",
@@ -185,9 +196,9 @@ class TestCaseImportResult:
 
 
 class TestCasePreviewResult:
-
     def test_creation(self):
         from apps.oa_filing.services.case_import_service import CasePreviewResult
+
         result = CasePreviewResult(
             case_no="CASE001",
             status="matched",

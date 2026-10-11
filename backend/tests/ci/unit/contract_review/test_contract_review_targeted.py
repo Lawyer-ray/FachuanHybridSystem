@@ -1,4 +1,5 @@
 """Targeted tests for contract_review module to push coverage to 80%+."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -6,6 +7,8 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+from apps.contract_review.services.extraction.title_extractor import parse_title_from_filename
 
 # ---------------------------------------------------------------------------
 # format_normalizer/paragraph_classifier.py (0% coverage)
@@ -166,13 +169,13 @@ class TestTitleExtractor:
     def test_parse_title_from_filename(self):
         from apps.contract_review.services.extraction.title_extractor import TitleExtractor
 
-        result = TitleExtractor.parse_title_from_filename("某某合同.docx")
+        result = parse_title_from_filename("某某合同.docx")
         assert isinstance(result, str)
 
     def test_parse_title_from_filename_no_ext(self):
         from apps.contract_review.services.extraction.title_extractor import TitleExtractor
 
-        result = TitleExtractor.parse_title_from_filename("contract")
+        result = parse_title_from_filename("contract")
         assert isinstance(result, str)
 
 

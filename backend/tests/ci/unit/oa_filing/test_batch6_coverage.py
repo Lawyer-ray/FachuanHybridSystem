@@ -109,9 +109,7 @@ class TestJTNAdapterMapping:
 
     def test_map_case_stage_admin_review(self):
         svc = self._make_service()
-        case = SimpleNamespace(
-            case_type="administrative", current_stage="administrative_review"
-        )
+        case = SimpleNamespace(case_type="administrative", current_stage="administrative_review")
         assert svc._map_case_stage(case) == "0401"
 
     def test_map_case_stage_criminal_first_trial(self):

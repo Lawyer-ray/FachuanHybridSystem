@@ -1,11 +1,11 @@
 """Targeted tests for litigation_ai module to push coverage to 80%+."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # agent/prompts.py (26% coverage)

@@ -7,6 +7,7 @@ from typing import Any
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.security.permissions import AccessContext, PermissionMixin
+from apps.workbench.services.session_service import increment_storage
 
 from ..models import WorkbenchMessage, WorkbenchSession
 from .session_service import WorkbenchSessionService, _calc_message_bytes
@@ -49,7 +50,7 @@ class WorkbenchMessageService(PermissionMixin):
             items = list(qs.order_by("-created_at")[: page_size + 1])
             items.reverse()
             return {
-                "items": [self._message_to_dict(item) for item in items[:page_size]],
+                "items": [_message_to_dict(item) for item in items[:page_size]],
                 "count": total,
                 "has_more": len(items) > page_size,
             }
@@ -61,7 +62,7 @@ class WorkbenchMessageService(PermissionMixin):
         items = list(qs[offset : offset + page_size])
 
         return {
-            "items": [self._message_to_dict(item) for item in items],
+            "items": [_message_to_dict(item) for item in items],
             "count": total,
         }
 
@@ -125,11 +126,12 @@ class WorkbenchMessageService(PermissionMixin):
         msg.save(update_fields=["metadata"])
         # 更新 storage_bytes（仅 metadata 变化）
         delta = _calc_message_bytes(metadata=meta) - _calc_message_bytes(metadata=old_meta)
-        WorkbenchSessionService.increment_storage(msg.session_id, delta)
+        increment_storage(msg.session_id, delta)
 
-    @staticmethod
-    def _message_to_dict(msg: WorkbenchMessage) -> dict[str, Any]:
-        """将消息转换为字典"""
-        from ..schemas import MessageOut
 
-        return MessageOut.model_validate(msg).model_dump()
+# ↓↓ 由 WorkbenchMessageService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _message_to_dict(msg: WorkbenchMessage) -> dict[str, Any]:
+    """将消息转换为字典"""
+    from ..schemas import MessageOut
+
+    return MessageOut.model_validate(msg).model_dump()

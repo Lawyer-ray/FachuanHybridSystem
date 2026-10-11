@@ -10,7 +10,10 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from apps.automation.services.sms.court_sms_recommendation_service import CourtSMSRecommendationService
+from apps.automation.services.sms.court_sms_recommendation_service import (
+    CourtSMSRecommendationService,
+    extract_court_name_from_text,
+)
 from apps.document_recognition.services.case_matching_service import DocumentCaseMatchingService
 
 _QUERY_NUMBER = "(2024)京01民初123号"  # normalize 后 → （2024）京01民初123号
@@ -99,9 +102,7 @@ class TestGetRecommendations:
         case_model = MagicMock()
         case_model.objects.filter.return_value.distinct.return_value.prefetch_related.return_value = queryset
 
-        with patch(
-            "apps.automation.services.sms.court_sms_recommendation_service.Case", case_model
-        ):
+        with patch("apps.automation.services.sms.court_sms_recommendation_service.Case", case_model):
             return CourtSMSRecommendationService().get_recommendations_for_signals(**signals)
 
     def test_signals_with_no_match_domain_returns_empty(self):
@@ -164,9 +165,7 @@ class TestGetRecommendations:
         sms.party_names = []
         sms.content = "【佛山市顺德区人民法院】您的案件已排期"
 
-        with patch(
-            "apps.automation.services.sms.court_sms_recommendation_service.Case", case_model
-        ):
+        with patch("apps.automation.services.sms.court_sms_recommendation_service.Case", case_model):
             results = CourtSMSRecommendationService().get_recommendations(sms)
 
         assert len(results) == 1
@@ -176,8 +175,8 @@ class TestGetRecommendations:
 class TestExtractCourtNameFromText:
     def test_extracts_court_name(self):
         text = "佛山市顺德区人民法院出具的传票，案号（2024）粤0604民初1号"
-        assert CourtSMSRecommendationService.extract_court_name_from_text(text) == "佛山市顺德区人民法院"
+        assert extract_court_name_from_text(text) == "佛山市顺德区人民法院"
 
     def test_no_court_returns_none(self):
-        assert CourtSMSRecommendationService.extract_court_name_from_text("普通文书无法院") is None
-        assert CourtSMSRecommendationService.extract_court_name_from_text("") is None
+        assert extract_court_name_from_text("普通文书无法院") is None
+        assert extract_court_name_from_text("") is None

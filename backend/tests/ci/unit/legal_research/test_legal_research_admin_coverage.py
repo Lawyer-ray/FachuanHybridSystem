@@ -361,7 +361,10 @@ class TestLegalResearchTaskAdminFormConfig:
             field.widget = SimpleNamespace(attrs={})
             form.base_fields[fname] = field
         LegalResearchTaskAdmin._configure_scan_threshold_fields(form=form)
-        assert "候选" in form.base_fields["max_candidates"].help_text or "扫描" in form.base_fields["max_candidates"].help_text
+        assert (
+            "候选" in form.base_fields["max_candidates"].help_text
+            or "扫描" in form.base_fields["max_candidates"].help_text
+        )
 
     def test_configure_concurrency_field(self):
         from types import SimpleNamespace

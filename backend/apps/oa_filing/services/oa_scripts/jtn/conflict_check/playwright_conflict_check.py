@@ -13,6 +13,7 @@ from typing import Any
 from playwright.async_api import Page
 
 from apps.core.services.browser import BrowserSessionHandle, close_browser_session, create_browser_async_manual
+from apps.oa_filing.services.oa_scripts.jtn.auth.service import inject_to_context
 
 from ..auth.service import JtnAuthService
 from .constants import CONFLICT_CHECK_URL, KEYWORD_SELECTOR, MEDIUM_WAIT, SEARCH_BTN_SELECTOR, SEARCH_WAIT, SHORT_WAIT
@@ -57,7 +58,7 @@ class PlaywrightConflictCheckMixin:
         cached = self._auth.load_cookies()
         if cached:
             logger.info("使用缓存 cookies 登录利冲检查页面")
-            await JtnAuthService.inject_to_context(context, cached)
+            await inject_to_context(context, cached)
             await page.goto(CONFLICT_CHECK_URL, wait_until="domcontentloaded", timeout=60_000)
             await asyncio.sleep(MEDIUM_WAIT)
             if "login" not in page.url.lower():
@@ -66,7 +67,7 @@ class PlaywrightConflictCheckMixin:
             logger.warning("缓存 cookies 已失效，执行 SSO 扫码登录")
 
         cookies = await self._auth.perform_sso_login(page, context)
-        await JtnAuthService.inject_to_context(context, cookies)
+        await inject_to_context(context, cookies)
 
     async def _navigate(self: Any, page: Page) -> None:  # pragma: no cover
         """导航到利冲信息预检页面。"""

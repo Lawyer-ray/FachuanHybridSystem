@@ -4,17 +4,16 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from hypothesis import given, settings, assume
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
+from apps.documents.services.placeholders.litigation.execution_request_models import ParsedAmounts
 from apps.documents.services.placeholders.litigation.execution_request_parser import (
     extract_party_burden_amount,
     parse_confirmed_amounts,
     parse_fee_items,
     should_include_fee,
 )
-from apps.documents.services.placeholders.litigation.execution_request_models import ParsedAmounts
-
 
 # ---------------------------------------------------------------------------
 # parse_confirmed_amounts
@@ -121,7 +120,10 @@ def test_should_include_fee_deterministic(sentence: str, key: str) -> None:
 
 
 @settings(max_examples=200, deadline=None)
-@given(st.text(max_size=500), st.sampled_from(["attorney_fee", "guarantee_fee", "litigation_fee", "preservation_fee", "announcement_fee"]))
+@given(
+    st.text(max_size=500),
+    st.sampled_from(["attorney_fee", "guarantee_fee", "litigation_fee", "preservation_fee", "announcement_fee"]),
+)
 def test_should_include_fee_returns_tuple(sentence: str, key: str) -> None:
     result = should_include_fee(sentence=sentence, key=key)
     assert isinstance(result, tuple)

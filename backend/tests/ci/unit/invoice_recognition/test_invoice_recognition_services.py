@@ -41,13 +41,16 @@ class TestInvoiceRecognitionModules:
 
         assert wiring is not None
 
+
 # ---------------------------------------------------------------------------
 # InvoiceParser extended tests
 # ---------------------------------------------------------------------------
 
+
 class TestInvoiceParserExtended:
     def _make_parser(self):
         from apps.invoice_recognition.services.invoice_parser import InvoiceParser
+
         return InvoiceParser()
 
     def test_detect_category_vat_special(self):
@@ -120,9 +123,11 @@ class TestInvoiceParserExtended:
         assert result.invoice_number == ""
 
     def test_format_to_text(self):
-        from apps.invoice_recognition.services.invoice_parser import ParsedInvoice
         from datetime import date
         from decimal import Decimal
+
+        from apps.invoice_recognition.services.invoice_parser import ParsedInvoice
+
         parser = self._make_parser()
         parsed = ParsedInvoice(
             invoice_code="1234567890",

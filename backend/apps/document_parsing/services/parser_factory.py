@@ -26,61 +26,65 @@ class ParserFactory:
         "local": "apps.document_parsing.services.backends.local_backend.LocalBackend",
     }
 
-    @staticmethod
-    def create_parser(
-        backend: str = "auto",
-        **kwargs: Any,
-    ) -> IDocumentParserProtocol:
-        """创建解析器
 
-        Args:
-            backend: 后端类型
-                - "mineru": MinerU API（云端）
-                - "textin": TextinParse API（云端，xparse-client SDK）
-                - "local": 本地 PyMuPDF + OCR
-                - "auto": 根据「解析平台」管理页按优先级自动选择
-            **kwargs: 传递给后端的参数（如 timeout、provider）
+# ↓↓ 由 ParserFactory 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _load_backend_class(class_path: str) -> type:
+    """从完整路径加载后端类（延迟 import）"""
+    module_path, class_name = class_path.rsplit(".", 1)
+    import importlib
 
-        Returns:
-            IDocumentParserProtocol 解析器实例
-        """
-        if backend in (None, "", "auto"):
-            backend = ParserFactory._resolve_auto_backend()
+    module = importlib.import_module(module_path)
+    backend_cls: type = getattr(module, class_name)
+    return backend_cls
 
-        class_path = ParserFactory._BACKEND_REGISTRY.get(backend)
-        if class_path is None:
-            raise ValueError(f"未知的后端类型: {backend}")
 
-        backend_cls = ParserFactory._load_backend_class(class_path)
-        return ParserFactory._instantiate(backend_cls, **kwargs)
+# ↓↓ 由 ParserFactory 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _instantiate(backend_cls: type, **kwargs: Any) -> IDocumentParserProtocol:
+    """实例化后端，透传所有 kwargs（timeout、显式凭证、provider 等）。"""
+    return backend_cls(**kwargs)  # type: ignore[no-any-return]
 
-    @staticmethod
-    def _resolve_auto_backend() -> str:
-        """auto 模式：选择优先级最高的启用解析平台；未配置任何平台时回退 local。
 
-        DocumentParseProvider.provider_type 与 _BACKEND_REGISTRY 的键一致
-        （textin / mineru），无需额外映射。
-        """
-        providers = ParseProviderService.get_providers()
-        if not providers:
-            logger.info("未配置任何解析平台，auto 回退到 local")
-            return "local"
-        providers = sorted(providers, key=lambda p: (p.priority, p.pk))
-        best = str(providers[0].provider_type)
-        logger.info("auto 选择解析平台: %s (%s)", providers[0].name, best)
-        return best
+# ↓↓ 由 ParserFactory 下沉的模块级纯函数（四层架构静态方法棘轮）
+def create_parser(
+    backend: str = "auto",
+    **kwargs: Any,
+) -> IDocumentParserProtocol:
+    """创建解析器
 
-    @staticmethod
-    def _load_backend_class(class_path: str) -> type:
-        """从完整路径加载后端类（延迟 import）"""
-        module_path, class_name = class_path.rsplit(".", 1)
-        import importlib
+    Args:
+        backend: 后端类型
+            - "mineru": MinerU API（云端）
+            - "textin": TextinParse API（云端，xparse-client SDK）
+            - "local": 本地 PyMuPDF + OCR
+            - "auto": 根据「解析平台」管理页按优先级自动选择
+        **kwargs: 传递给后端的参数（如 timeout、provider）
 
-        module = importlib.import_module(module_path)
-        backend_cls: type = getattr(module, class_name)
-        return backend_cls
+    Returns:
+        IDocumentParserProtocol 解析器实例
+    """
+    if backend in (None, "", "auto"):
+        backend = _resolve_auto_backend()
 
-    @staticmethod
-    def _instantiate(backend_cls: type, **kwargs: Any) -> IDocumentParserProtocol:
-        """实例化后端，透传所有 kwargs（timeout、显式凭证、provider 等）。"""
-        return backend_cls(**kwargs)  # type: ignore[no-any-return]
+    class_path = ParserFactory._BACKEND_REGISTRY.get(backend)
+    if class_path is None:
+        raise ValueError(f"未知的后端类型: {backend}")
+
+    backend_cls = _load_backend_class(class_path)
+    return _instantiate(backend_cls, **kwargs)
+
+
+# ↓↓ 由 ParserFactory 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _resolve_auto_backend() -> str:
+    """auto 模式：选择优先级最高的启用解析平台；未配置任何平台时回退 local。
+
+    DocumentParseProvider.provider_type 与 _BACKEND_REGISTRY 的键一致
+    （textin / mineru），无需额外映射。
+    """
+    providers = ParseProviderService.get_providers()
+    if not providers:
+        logger.info("未配置任何解析平台，auto 回退到 local")
+        return "local"
+    providers = sorted(providers, key=lambda p: (p.priority, p.pk))
+    best = str(providers[0].provider_type)
+    logger.info("auto 选择解析平台: %s (%s)", providers[0].name, best)
+    return best

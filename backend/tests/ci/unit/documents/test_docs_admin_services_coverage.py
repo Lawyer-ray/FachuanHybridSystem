@@ -1,4 +1,5 @@
 """Coverage tests for documents admin, services, and related modules."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -8,6 +9,7 @@ import pytest
 
 try:
     from plugins import has_message_hub_plugin
+
     _HAS_MH = has_message_hub_plugin()
 except ImportError:
     _HAS_MH = False
@@ -15,8 +17,8 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not _HAS_MH, reason="message_hub plugin not installed")
 
 
-
 # --- document_template_admin ---
+
 
 class TestDocumentTemplateAdmin:
     def test_get_template_service(self):
@@ -52,6 +54,7 @@ class TestDocumentTemplateAdmin:
 
 
 # --- documents services ---
+
 
 class TestDocumentsServices:
     def test_filling_service_import(self):
@@ -96,6 +99,7 @@ class TestDocumentsServices:
 
 # --- documents admin ---
 
+
 class TestDocumentsAdmin:
     def test_evidence_views_import(self):
         from apps.evidence.admin.evidence.mixins.views import EvidenceListAdminViewsMixin
@@ -110,6 +114,7 @@ class TestDocumentsAdmin:
 
 # --- placeholders ---
 
+
 class TestPlaceholders:
     def test_archive_init(self):
         from apps.documents.services.placeholders.archive import __init__ as archive_init
@@ -118,6 +123,7 @@ class TestPlaceholders:
 
 
 # --- reminder_admin ---
+
 
 class TestReminderAdmin:
     def test_reminder_admin_form_clean_metadata_none(self):
@@ -155,6 +161,7 @@ class TestReminderAdmin:
 
 # --- reminders calendar_providers ---
 
+
 class TestCalendarProviders:
     def test_mac_provider_import(self):
         from apps.reminders.services.calendar_providers.mac_provider import MacCalendarProvider
@@ -163,6 +170,7 @@ class TestCalendarProviders:
 
 
 # --- contracts ---
+
 
 class TestContracts:
     def test_folder_scan_service_import(self):
@@ -230,6 +238,7 @@ class TestContracts:
 
 # --- enterprise_data ---
 
+
 class TestEnterpriseData:
     def test_mcp_tool_client_import(self):
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
@@ -243,6 +252,7 @@ class TestEnterpriseData:
 
 
 # --- evidence ---
+
 
 class TestEvidence:
     def test_reconciler_import(self):
@@ -263,6 +273,7 @@ class TestEvidence:
 
 # --- express_query ---
 
+
 class TestExpressQuery:
     def test_ems_auth_handler_import(self):
         from apps.express_query.services.browser_query.ems_auth_handler import EMS_LOGIN_AGREE_CHECKBOX_XPATH
@@ -276,6 +287,7 @@ class TestExpressQuery:
 
 
 # --- message_hub ---
+
 
 class TestMessageHub:
     def test_imap_fetcher_import(self):

@@ -27,34 +27,22 @@ from apps.testing.factories import CaseFactory, ClientFactory, ContractFactory, 
 class TestUniqueConstraintGuards:
     def test_duplicate_payment_rejected(self):
         contract = ContractFactory()
-        ContractPayment.objects.create(
-            contract=contract, amount=Decimal("100"), received_at=date(2026, 1, 1)
-        )
+        ContractPayment.objects.create(contract=contract, amount=Decimal("100"), received_at=date(2026, 1, 1))
         with pytest.raises(IntegrityError):
             with transaction.atomic():
-                ContractPayment.objects.create(
-                    contract=contract, amount=Decimal("100"), received_at=date(2026, 1, 1)
-                )
+                ContractPayment.objects.create(contract=contract, amount=Decimal("100"), received_at=date(2026, 1, 1))
 
     def test_distinct_payments_still_allowed(self):
         """同合同同日不同金额、或同金额不同日，是合法业务数据。"""
         contract = ContractFactory()
-        ContractPayment.objects.create(
-            contract=contract, amount=Decimal("100"), received_at=date(2026, 1, 1)
-        )
-        ContractPayment.objects.create(
-            contract=contract, amount=Decimal("200"), received_at=date(2026, 1, 1)
-        )
-        ContractPayment.objects.create(
-            contract=contract, amount=Decimal("100"), received_at=date(2026, 2, 1)
-        )
+        ContractPayment.objects.create(contract=contract, amount=Decimal("100"), received_at=date(2026, 1, 1))
+        ContractPayment.objects.create(contract=contract, amount=Decimal("200"), received_at=date(2026, 1, 1))
+        ContractPayment.objects.create(contract=contract, amount=Decimal("100"), received_at=date(2026, 2, 1))
         assert ContractPayment.objects.filter(contract=contract).count() == 3
 
     def test_duplicate_invoice_file_rejected(self):
         contract = ContractFactory()
-        payment = ContractPayment.objects.create(
-            contract=contract, amount=Decimal("1"), received_at=date(2026, 1, 1)
-        )
+        payment = ContractPayment.objects.create(contract=contract, amount=Decimal("1"), received_at=date(2026, 1, 1))
         Invoice.objects.create(payment=payment, file_path="invoices/a.pdf")
         with pytest.raises(IntegrityError):
             with transaction.atomic():

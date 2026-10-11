@@ -577,7 +577,7 @@ class CaseImportService:
                 # 更新现有合同
                 if case_info:
                     if case_info.acceptance_date:
-                        existing_contract.start_date = self._parse_date(case_info.acceptance_date)
+                        existing_contract.start_date = _parse_date(case_info.acceptance_date)
                     if case_info.responsible_lawyer:
                         # 更新主办律师
                         self._assign_lawyer(existing_contract, case_info.responsible_lawyer, is_primary=True)
@@ -593,7 +593,7 @@ class CaseImportService:
                     law_firm_oa_case_number=oa_data.case_no,
                     law_firm_oa_url=oa_detail_url,
                     name=case_name or f"OA案件 {oa_data.case_no}",
-                    start_date=self._parse_date(case_info.acceptance_date)
+                    start_date=_parse_date(case_info.acceptance_date)
                     if case_info and case_info.acceptance_date
                     else None,
                 )
@@ -699,6 +699,7 @@ class CaseImportService:
             logger.warning("创建/更新客户异常 %s: %s", customer_data.name, exc)
             return None
 
-    @staticmethod
-    def _parse_date(date_str: str) -> Any:
-        return parse_date(date_str)
+
+# ↓↓ 由 CaseImportService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _parse_date(date_str: str) -> Any:
+    return parse_date(date_str)

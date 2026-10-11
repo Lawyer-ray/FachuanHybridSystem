@@ -1,4 +1,5 @@
 """Documents services coverage boost - catalog service, smart fill, evidence admin mixins."""
+
 from __future__ import annotations
 
 import ast
@@ -242,9 +243,7 @@ class TestSmartFillService:
         mock_def = SimpleNamespace(
             key="案件名称", display_name="案件名称", description="案件的名称", example_value="张三诉李四"
         )
-        with patch.object(
-            svc._catalog_service, "list_definitions", return_value=[mock_def]
-        ):
+        with patch.object(svc._catalog_service, "list_definitions", return_value=[mock_def]):
             result = svc._build_catalog(["案件名称"])
             assert "案件名称" in result
 
@@ -327,9 +326,7 @@ class TestCodePlaceholderRegistry:
     def test_definition_dataclass(self):
         from apps.documents.services.code_placeholders.registry import CodePlaceholderDefinition
 
-        d = CodePlaceholderDefinition(
-            key="test", source="src", category="cat", display_name="显示", description="描述"
-        )
+        d = CodePlaceholderDefinition(key="test", source="src", category="cat", display_name="显示", description="描述")
         assert d.key == "test"
         assert d.source == "src"
 

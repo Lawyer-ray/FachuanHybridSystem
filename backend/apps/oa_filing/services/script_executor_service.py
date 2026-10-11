@@ -14,6 +14,7 @@ from typing import Any
 from django.apps import apps as django_apps
 
 from apps.core.infrastructure.sync_async_bridge import run_coro_sync
+from apps.oa_filing.services.stamp_lookup_service import lookup_by_file_path
 
 from .oa_firm_registry import create_adapter
 
@@ -91,15 +92,10 @@ class ScriptExecutorService:
     # Session 查询（公共）
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _can_view_all_sessions(user: Any) -> bool:
-        """admin 豁免：管理员可查看全部会话。"""
-        return bool(getattr(user, "is_superuser", False) or getattr(user, "is_admin", False))
-
     def _get_session_with_owner_check(self, session_model: Any, session_id: int, user: Any) -> Any:
         """按属主过滤查询会话，属主不匹配与会话不存在同样抛 DoesNotExist（安全审计 A-04）。"""
         qs = session_model.objects.filter(pk=session_id)
-        if user is not None and not self._can_view_all_sessions(user):
+        if user is not None and not _can_view_all_sessions(user):
             qs = qs.filter(user_id=getattr(user, "id", None))
         return qs.get()
 
@@ -127,12 +123,6 @@ class ScriptExecutorService:
     # 凭证查找（公共）
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _find_credential(user: Any, site_name: str) -> Any:
-        """查找用户在指定站点的登录凭证。"""
-        credential_model = django_apps.get_model("organization", "AccountCredential")
-        return credential_model.objects.filter(lawyer=user, site_name=site_name).first()
-
     # ------------------------------------------------------------------
     # 立案
     # ------------------------------------------------------------------
@@ -152,7 +142,7 @@ class ScriptExecutorService:
         if case_id is not None:
             _ensure_case_access(case_id, user)
 
-        credential = self._find_credential(user, site_name)
+        credential = _find_credential(user, site_name)
         if credential is None:
             raise ScriptExecutionError(f"未找到匹配凭证: 站点名称={site_name}")
 
@@ -219,10 +209,10 @@ class ScriptExecutorService:
         from apps.oa_filing.models import StampSession, StampSessionStatus
         from apps.oa_filing.services.stamp_lookup_service import StampLookupService
 
-        lookup = StampLookupService.lookup_by_file_path(file_path)
+        lookup = lookup_by_file_path(file_path)
         # 安全审计 A-04：校验反查出的合同归属权限
         _ensure_contract_access(lookup.contract_id, user)
-        credential = self._find_credential(user, site_name)
+        credential = _find_credential(user, site_name)
 
         session = StampSession.objects.create(
             contract_id=lookup.contract_id,
@@ -277,7 +267,7 @@ class ScriptExecutorService:
 
         # 安全审计：对 file_paths 中每个路径逐一反查校验（含 .. 拒绝与绑定目录收敛），
         # 修复「只校 file_paths[0]、其余路径原样存 session 后被上传到外部 OA」的任意文件外带
-        lookups = [StampLookupService.lookup_by_file_path(path) for path in file_paths]
+        lookups = [lookup_by_file_path(path) for path in file_paths]
         lookup = lookups[0]
         if any(item.contract_id != lookup.contract_id for item in lookups):
             from apps.oa_filing.services.exceptions import ScriptExecutionError
@@ -286,7 +276,7 @@ class ScriptExecutorService:
         # 安全审计 A-04：校验反查出的合同归属权限（全部路径均须通过）
         for item in lookups:
             _ensure_contract_access(item.contract_id, user)
-        credential = self._find_credential(user, site_name)
+        credential = _find_credential(user, site_name)
 
         session = ArchiveSession.objects.create(
             contract_id=lookup.contract_id,
@@ -376,7 +366,7 @@ class ScriptExecutorService:
         # 安全审计 A-04：校验用户对合同的归属权限
         _ensure_contract_access(contract_id, user)
 
-        credential = self._find_credential(user, site_name)
+        credential = _find_credential(user, site_name)
         if credential is None:
             raise RuntimeError(f"未找到匹配凭证: 站点名称={site_name}")
 
@@ -414,7 +404,7 @@ class ScriptExecutorService:
         # 安全审计 A-04：校验用户对合同的归属权限
         _ensure_contract_access(contract_id, user)
 
-        credential = self._find_credential(user, site_name)
+        credential = _find_credential(user, site_name)
         if credential is None:
             raise RuntimeError(f"未找到匹配凭证: 站点名称={site_name}")
 
@@ -434,7 +424,7 @@ class ScriptExecutorService:
         # 安全审计 A-04：校验用户对案件的归属权限
         _ensure_case_access(case_id, user)
 
-        credential = self._find_credential(user, site_name)
+        credential = _find_credential(user, site_name)
         if credential is None:
             raise RuntimeError(f"未找到匹配凭证: 站点名称={site_name}")
 
@@ -456,7 +446,7 @@ class ScriptExecutorService:
         site_name: str = "金诚同达OA",
     ) -> None:
         """打开 OA 利益冲突信息预检页面，填入当事人名称并搜索，保持浏览器打开。"""
-        credential = self._find_credential(user, site_name)
+        credential = _find_credential(user, site_name)
         if credential is None:
             raise RuntimeError(f"未找到匹配凭证: 站点名称={site_name}")
 
@@ -468,7 +458,7 @@ class ScriptExecutorService:
 
     def lookup_oa_case_guid(self, case_no: str, user: Any, site_name: str = "金诚同达OA") -> list[str]:
         """按案号查询 OA 案件 GUID（案件选择对话框搜索，纯 HTTP；仅当前账号可见的案件）。"""
-        credential = self._find_credential(user, site_name)
+        credential = _find_credential(user, site_name)
         if credential is None:
             raise RuntimeError(f"未找到匹配凭证: 站点名称={site_name}")
 
@@ -484,7 +474,7 @@ class ScriptExecutorService:
 
     def lookup_oa_case_guid_by_name(self, case_name: str, user: Any, site_name: str = "金诚同达OA") -> list[str]:
         """按案名查询 OA 案件 GUID（同一对话框入口 project_name，纯 HTTP 只读）。"""
-        credential = self._find_credential(user, site_name)
+        credential = _find_credential(user, site_name)
         if credential is None:
             raise RuntimeError(f"未找到匹配凭证: 站点名称={site_name}")
 
@@ -502,7 +492,7 @@ class ScriptExecutorService:
         self, customer_name: str, user: Any, site_name: str = "金诚同达OA"
     ) -> list[str]:
         """按客户名称查询 OA 案件 GUID（同一对话框入口 project_customer_name，纯 HTTP 只读）。"""
-        credential = self._find_credential(user, site_name)
+        credential = _find_credential(user, site_name)
         if credential is None:
             raise RuntimeError(f"未找到匹配凭证: 站点名称={site_name}")
 
@@ -515,3 +505,16 @@ class ScriptExecutorService:
             )
         except Exception as exc:
             raise RuntimeError(_friendly_error_message(exc)) from exc
+
+
+# ↓↓ 由 ScriptExecutorService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _find_credential(user: Any, site_name: str) -> Any:
+    """查找用户在指定站点的登录凭证。"""
+    credential_model = django_apps.get_model("organization", "AccountCredential")
+    return credential_model.objects.filter(lawyer=user, site_name=site_name).first()
+
+
+# ↓↓ 由 ScriptExecutorService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _can_view_all_sessions(user: Any) -> bool:
+    """admin 豁免：管理员可查看全部会话。"""
+    return bool(getattr(user, "is_superuser", False) or getattr(user, "is_admin", False))

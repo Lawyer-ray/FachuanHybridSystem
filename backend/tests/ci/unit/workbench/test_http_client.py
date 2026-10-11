@@ -54,7 +54,9 @@ def recording() -> tuple[LoopScopedTransport, list[_RecordingTransport]]:
 
 
 class TestLoopScopedTransport:
-    def test_reuses_one_pool_within_a_loop(self, recording: tuple[LoopScopedTransport, list[_RecordingTransport]]) -> None:
+    def test_reuses_one_pool_within_a_loop(
+        self, recording: tuple[LoopScopedTransport, list[_RecordingTransport]]
+    ) -> None:
         transport, created = recording
 
         async def _twice() -> None:

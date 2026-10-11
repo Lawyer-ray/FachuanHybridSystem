@@ -12,6 +12,8 @@ from unittest.mock import MagicMock, PropertyMock, patch
 import pytest
 from PIL import Image
 
+from apps.image_rotation.services.job_service import get_job
+
 
 def _make_test_image(width: int = 100, height: int = 100, color: str = "white", fmt: str = "PNG") -> bytes:
     img = Image.new("RGB", (width, height), color)
@@ -644,7 +646,7 @@ class TestImageRotationJobService:
 
         with patch.object(ImageRotationJob.objects, "get", side_effect=ImageRotationJob.DoesNotExist()):
             with pytest.raises(NotFoundError):
-                ImageRotationJobService.get_job(uuid.uuid4())
+                get_job(uuid.uuid4())
 
 
 # =========================================================================

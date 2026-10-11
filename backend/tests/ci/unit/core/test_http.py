@@ -2,12 +2,12 @@
 
 覆盖: httpx_clients.py, range.py
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ============================================================
 # range.py - parse_range_header

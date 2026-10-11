@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-import numpy as np
 from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
 
 from apps.client.services.id_card_merge.image_io import read_uploaded_image
 
 
 class TestReadUploadedImage:
-
     def test_reads_valid_image(self):
         logger = MagicMock()
         import cv2

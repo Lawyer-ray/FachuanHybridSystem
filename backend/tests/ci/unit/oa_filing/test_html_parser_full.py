@@ -36,7 +36,6 @@ from apps.oa_filing.services.oa_scripts.jtn.case_import.models import (
 
 
 class TestNormalizeText:
-
     def test_none_returns_empty(self):
         assert normalize_text(None) == ""
 
@@ -60,7 +59,6 @@ class TestNormalizeText:
 
 
 class TestNormalizeLabel:
-
     def test_strips_colon(self):
         assert normalize_label("案件名称：") == "案件名称"
 
@@ -78,7 +76,6 @@ class TestNormalizeLabel:
 
 
 class TestExtractRowCellsText:
-
     def test_extracts_td_text(self):
         root = lxml_html.fromstring("<table><tr><td>A</td><td>B</td></tr></table>")
         row = root.xpath("//tr")[0]
@@ -90,7 +87,7 @@ class TestExtractRowCellsText:
         assert extract_row_cells_text(row) == []
 
     def test_td_with_nested_elements(self):
-        root = lxml_html.fromstring('<table><tr><td><span>Hello</span> World</td></tr></table>')
+        root = lxml_html.fromstring("<table><tr><td><span>Hello</span> World</td></tr></table>")
         row = root.xpath("//tr")[0]
         assert extract_row_cells_text(row) == ["Hello World"]
 
@@ -99,7 +96,6 @@ class TestExtractRowCellsText:
 
 
 class TestIterLabelValuePairs:
-
     def test_normal_pairs(self):
         cells = ["案件名称", "某某诉某某案", "案件编号", "2024ABC001"]
         pairs = iter_label_value_pairs(cells)
@@ -124,7 +120,6 @@ class TestIterLabelValuePairs:
 
 
 class TestExtractHiddenInput:
-
     def test_double_quotes(self):
         html = '<input name="token" value="abc123" type="hidden">'
         assert extract_hidden_input(html, "token") == "abc123"
@@ -149,7 +144,6 @@ class TestExtractHiddenInput:
 
 
 class TestExtractCaseNoFromText:
-
     def test_pattern_1_year_prefix(self):
         result = extract_case_no_from_text("2024ABC001")
         assert result == "2024ABC001"
@@ -183,7 +177,6 @@ class TestExtractCaseNoFromText:
 
 
 class TestExtractKeyidFromHref:
-
     def test_normal_keyid(self):
         href = "projectView.aspx?keyid=ABC123&FirstModel=PROJECT"
         assert extract_keyid_from_href(href) == "ABC123"
@@ -207,7 +200,6 @@ class TestExtractKeyidFromHref:
 
 
 class TestScoreCaseNameCell:
-
     def test_empty_returns_negative_100(self):
         assert score_case_name_cell("", case_no="") == -100
 
@@ -248,7 +240,6 @@ class TestScoreCaseNameCell:
 
 
 class TestCleanCaseNameText:
-
     def test_removes_case_no(self):
         result = clean_case_name_text("ABC001某某诉某某", case_no="ABC001")
         assert "ABC001" not in result
@@ -279,11 +270,8 @@ class TestCleanCaseNameText:
 
 
 class TestExtractCaseNameFromRow:
-
     def test_extracts_best_cell(self):
-        root = lxml_html.fromstring(
-            '<table><tr><td>12345</td><td>某某诉某某纠纷案</td><td>查看</td></tr></table>'
-        )
+        root = lxml_html.fromstring("<table><tr><td>12345</td><td>某某诉某某纠纷案</td><td>查看</td></tr></table>")
         row = root.xpath("//tr")[0]
         result = extract_case_name_from_row(row, case_no="12345", row_text="12345 某某诉某某纠纷案 查看")
         assert "某某" in result or "纠纷" in result
@@ -299,7 +287,6 @@ class TestExtractCaseNameFromRow:
 
 
 class TestExtractCaseCandidates:
-
     def test_extracts_candidates(self):
         html = """
         <table>
@@ -355,7 +342,6 @@ class TestExtractCaseCandidates:
 
 
 class TestExtractCaseKeyid:
-
     def test_finds_keyid_in_matching_row(self):
         html = """
         <table>
@@ -388,7 +374,6 @@ class TestExtractCaseKeyid:
 
 
 class TestExtractCustomers:
-
     def test_extracts_natural_person(self):
         html = """
         <div id="tab_con_1">
@@ -453,7 +438,6 @@ class TestExtractCustomers:
 
 
 class TestExtractCaseInfo:
-
     def test_extracts_all_fields(self):
         html = """
         <div id="tab_con_2">
@@ -496,7 +480,6 @@ class TestExtractCaseInfo:
 
 
 class TestExtractConflicts:
-
     def test_extracts_conflicts(self):
         html = """
         <div id="tab_con_3">
@@ -540,7 +523,6 @@ class TestExtractConflicts:
 
 
 class TestParseCaseDetailHtml:
-
     def test_parses_full_detail(self):
         html = """
         <div id="tab_con_1">

@@ -124,8 +124,13 @@ class TestSensitiveDataFilterFilter:
     def test_filter_scrubs_record(self):
         f = SensitiveDataFilter()
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="Auth: Bearer sk-12345678901234567890abcdef", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="Auth: Bearer sk-12345678901234567890abcdef",
+            args=(),
+            exc_info=None,
         )
         result = f.filter(record)
         assert result is True
@@ -136,8 +141,13 @@ class TestJsonFormatter:
     def test_format_basic(self):
         fmt = JsonFormatter()
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="test.py", lineno=1,
-            msg="hello %s", args=("world",), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="hello %s",
+            args=("world",),
+            exc_info=None,
         )
         record.module = "test"
         record.funcName = "test_func"
@@ -157,10 +167,16 @@ class TestJsonFormatter:
             raise ValueError("boom")
         except ValueError:
             import sys
+
             exc_info = sys.exc_info()
         record = logging.LogRecord(
-            name="test", level=logging.ERROR, pathname="test.py", lineno=1,
-            msg="error occurred", args=(), exc_info=exc_info,
+            name="test",
+            level=logging.ERROR,
+            pathname="test.py",
+            lineno=1,
+            msg="error occurred",
+            args=(),
+            exc_info=exc_info,
         )
         record.module = "test"
         record.funcName = "f"
@@ -177,8 +193,13 @@ class TestJsonFormatter:
     def test_format_with_extra_fields(self):
         fmt = JsonFormatter()
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="test.py", lineno=1,
-            msg="msg", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="msg",
+            args=(),
+            exc_info=None,
         )
         record.module = "test"
         record.funcName = "f"
@@ -195,6 +216,7 @@ class TestJsonFormatter:
 class TestIsDockerEnvironment:
     def test_not_docker_by_default(self):
         from apps.core.infrastructure.logging import _is_docker_environment
+
         with pytest.MonkeyPatch.context() as m:
             m.delenv("DOCKER_CONTAINER", raising=False)
             m.delenv("DB_HOST", raising=False)

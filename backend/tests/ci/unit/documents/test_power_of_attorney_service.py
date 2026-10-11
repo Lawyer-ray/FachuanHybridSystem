@@ -85,7 +85,9 @@ def _make_case(lawyers: list[MagicMock] | None = None, **kwargs: Any) -> MagicMo
     return case
 
 
-def _make_lawyer(name: str = "Lawyer A", phone: str = "13800138000", firm_name: str = "Test Firm") -> MagicMock:  # pragma: allowlist secret
+def _make_lawyer(
+    name: str = "Lawyer A", phone: str = "13800138000", firm_name: str = "Test Firm"
+) -> MagicMock:  # pragma: allowlist secret
     lawyer = MagicMock()
     lawyer.real_name = name
     lawyer.username = "lawyer_a"
@@ -121,8 +123,10 @@ class TestGenerate:
         case = _make_case(lawyers=[_make_lawyer()])
         context_data = {"case": case, "selected_clients": [_make_client()]}
 
-        with patch.object(svc, "_get_specified_date_text", return_value="2026年01月01日"), \
-             patch.object(svc, "_format_proxy_matters", return_value="代为提起诉讼"):
+        with (
+            patch.object(svc, "_get_specified_date_text", return_value="2026年01月01日"),
+            patch.object(svc, "_format_proxy_matters", return_value="代为提起诉讼"),
+        ):
             result = svc.generate(context_data)
 
         assert "授权委托书_委托人信息" in result
@@ -135,8 +139,10 @@ class TestGenerate:
         case = _make_case(lawyers=[_make_lawyer()])
         context_data = {"case": case, "client": _make_client()}
 
-        with patch.object(svc, "_get_specified_date_text", return_value="2026年01月01日"), \
-             patch.object(svc, "_format_proxy_matters", return_value=""):
+        with (
+            patch.object(svc, "_get_specified_date_text", return_value="2026年01月01日"),
+            patch.object(svc, "_format_proxy_matters", return_value=""),
+        ):
             result = svc.generate(context_data)
 
         assert result["授权委托书_委托人信息"] != ""
@@ -193,7 +199,9 @@ class TestFormatPrincipals:
 
     def test_natural_person(self) -> None:
         svc = _make_service()
-        client = _make_client(client_type="natural", name="Zhang San", id_number="110101199001011234")  # pragma: allowlist secret
+        client = _make_client(
+            client_type="natural", name="Zhang San", id_number="110101199001011234"
+        )  # pragma: allowlist secret
         result = svc._format_principals([client])
         assert "委托人姓名：Zhang San" in result
         assert "身份证号码：110101199001011234" in result  # pragma: allowlist secret
@@ -296,8 +304,10 @@ class TestFormatProxyMatters:
     def test_no_matching_rules(self) -> None:
         svc = _make_service()
         case = _make_case()
-        with patch.object(svc, "_get_party_legal_statuses", return_value=set()), \
-             patch.object(svc, "_query_candidate_rules", return_value=[]):
+        with (
+            patch.object(svc, "_get_party_legal_statuses", return_value=set()),
+            patch.object(svc, "_query_candidate_rules", return_value=[]),
+        ):
             result = svc._format_proxy_matters({}, case=case, selected_clients=[_make_client()])
         assert result == ""
 
@@ -305,8 +315,10 @@ class TestFormatProxyMatters:
         svc = _make_service()
         case = _make_case()
         rule = _make_rule(items_text="代为提起诉讼、参与庭审", legal_statuses=None)
-        with patch.object(svc, "_get_party_legal_statuses", return_value={"plaintiff"}), \
-             patch.object(svc, "_query_candidate_rules", return_value=[rule]):
+        with (
+            patch.object(svc, "_get_party_legal_statuses", return_value={"plaintiff"}),
+            patch.object(svc, "_query_candidate_rules", return_value=[rule]),
+        ):
             result = svc._format_proxy_matters({}, case=case, selected_clients=[_make_client()])
         assert "代为提起诉讼" in result
 

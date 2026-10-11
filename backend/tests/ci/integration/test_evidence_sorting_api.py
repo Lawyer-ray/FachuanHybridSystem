@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ===================================================================
 # Classify
 # ===================================================================
@@ -133,12 +132,14 @@ def test_reconcile(mock_svc_cls, authenticated_client):
 
     resp = authenticated_client.post(
         "/api/v1/evidence-sorting/reconcile",
-        data=json.dumps({
-            "statements": [{"filename": "stmt.pdf", "ocr_text": "text"}],
-            "deliveries": [],
-            "receipts": [],
-            "others": [],
-        }),
+        data=json.dumps(
+            {
+                "statements": [{"filename": "stmt.pdf", "ocr_text": "text"}],
+                "deliveries": [],
+                "receipts": [],
+                "others": [],
+            }
+        ),
         content_type="application/json",
     )
     assert resp.status_code == 200
@@ -167,12 +168,14 @@ def test_export_zip(mock_reconciler_cls, mock_exporter_cls, authenticated_client
 
     resp = authenticated_client.post(
         "/api/v1/evidence-sorting/export",
-        data=json.dumps({
-            "statements": [],
-            "deliveries": [],
-            "receipts": [],
-            "others": [],
-        }),
+        data=json.dumps(
+            {
+                "statements": [],
+                "deliveries": [],
+                "receipts": [],
+                "others": [],
+            }
+        ),
         content_type="application/json",
     )
     assert resp.status_code == 200

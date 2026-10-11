@@ -18,7 +18,7 @@ from apps.legal_research.services.law_verification_service import LawVerificatio
 # CI 无法克隆私有 plugins 子模块：weike_api_private 缺失时这些用例无法
 # patch 其内部符号，整体跳过（仓库既有 allow_module_level skip 模式）
 try:
-    import plugins.weike_api_private  # noqa: F401
+    import plugins.weike_api_private
 
     _PLUGINS_AVAILABLE = True
 except ImportError:

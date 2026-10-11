@@ -23,7 +23,6 @@ def _mock_uploaded_file(name="test.jpg", content_type="image/jpeg"):
 
 
 class TestConstants:
-
     def test_aspect_ratio(self):
         svc = _make_service()
         assert abs(svc.ID_CARD_ASPECT_RATIO - 85.6 / 54.0) < 0.001
@@ -44,7 +43,6 @@ class TestConstants:
 
 
 class TestLoadAndValidateImages:
-
     def test_format_error_returns_dict(self):
         svc = _make_service()
         front = _mock_uploaded_file(name="test.bmp", content_type="image/bmp")
@@ -99,7 +97,6 @@ class TestLoadAndValidateImages:
 
 
 class TestMergeIdCard:
-
     def test_validation_error_propagates(self):
         svc = _make_service()
         error = {"success": False, "error": "INVALID_IMAGE_FORMAT"}
@@ -119,7 +116,6 @@ class TestMergeIdCard:
 
 
 class TestMergeIdCardWithDetection:
-
     def test_validation_error(self):
         svc = _make_service()
         error = {"success": False, "error": "FORMAT"}
@@ -147,20 +143,15 @@ class TestMergeIdCardWithDetection:
             with patch.object(svc, "_detect_id_card", return_value=corners):
                 with patch.object(svc, "_perspective_transform", return_value=front):
                     with patch.object(svc, "_generate_pdf", return_value="merged/test.pdf"):
-                        result = svc.merge_id_card_with_detection(
-                            _mock_uploaded_file(), _mock_uploaded_file()
-                        )
+                        result = svc.merge_id_card_with_detection(_mock_uploaded_file(), _mock_uploaded_file())
                         assert result["success"] is True
 
 
 class TestMergeIdCardManual:
-
     def test_invalid_corners(self):
         svc = _make_service()
         with patch.object(svc, "_validate_corners", return_value="角点无效"):
-            result = svc.merge_id_card_manual(
-                "/media/test.jpg", "/media/test.jpg", [[0, 0]], [[0, 0]]
-            )
+            result = svc.merge_id_card_manual("/media/test.jpg", "/media/test.jpg", [[0, 0]], [[0, 0]])
             assert result["success"] is False
             assert "INVALID_CORNERS" in result["error"]
 
@@ -170,7 +161,8 @@ class TestMergeIdCardManual:
             with patch.object(svc, "_resolve_image_path", return_value=(Path("/nonexistent"), "nonexistent")):
                 with patch.object(type(Path("/nonexistent")), "exists", return_value=False):
                     result = svc.merge_id_card_manual(
-                        "/media/test.jpg", "/media/test.jpg",
+                        "/media/test.jpg",
+                        "/media/test.jpg",
                         [[0, 0], [100, 0], [100, 63], [0, 63]],
                         [[0, 0], [100, 0], [100, 63], [0, 63]],
                     )
@@ -178,7 +170,6 @@ class TestMergeIdCardManual:
 
 
 class TestResolveImagePath:
-
     def test_strips_leading_slash(self):
         svc = _make_service()
         full, rel = svc._resolve_image_path("/uploads/test.jpg")
@@ -198,7 +189,6 @@ class TestResolveImagePath:
 
 
 class TestSuccessResult:
-
     def test_format(self):
         svc = _make_service()
         result = svc._success_result("id_card_merged/test.pdf")

@@ -95,7 +95,7 @@ class FeeTermsService(BasePlaceholderService):
             amount_cn = self._number_to_chinese(amount)
             t_wan = round(t / 10000)
             case_lines.append(
-                f"    案件{self._to_chinese_ordinal(i + 1)}"
+                f"    案件{_to_chinese_ordinal(i + 1)}"
                 f"（{client_name}诉{opponent}），"
                 f"争议金额约{t_wan}万元，"
                 f"对应律师费为人民币{amount:.2f}元（大写：人民币{amount_cn}）；"
@@ -107,11 +107,6 @@ class FeeTermsService(BasePlaceholderService):
         count_cn = {1: "一", 2: "两", 3: "三"}.get(len(cases), str(len(cases)))
         lines_text = "\n".join(case_lines)
         return f"上述费用系甲方委托乙方代理以下{count_cn}案的全部律师代理费，按争议金额比例分摊如下：\n{lines_text}"
-
-    @staticmethod
-    def _to_chinese_ordinal(n: int) -> str:
-        mapping = {1: "一", 2: "二", 3: "三", 4: "四", 5: "五", 6: "六", 7: "七", 8: "八", 9: "九", 10: "十"}
-        return mapping.get(n, str(n))
 
     def _generate_fixed_fee_terms(self, contract: Any) -> str:
         """生成固定收费条款"""
@@ -178,3 +173,9 @@ class FeeTermsService(BasePlaceholderService):
         except Exception as e:
             logger.warning("数字转换失败: %s", e, extra={"amount": amount})
             return "零"
+
+
+# ↓↓ 由 FeeTermsService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _to_chinese_ordinal(n: int) -> str:
+    mapping = {1: "一", 2: "二", 3: "三", 4: "四", 5: "五", 6: "六", 7: "七", 8: "八", 9: "九", 10: "十"}
+    return mapping.get(n, str(n))

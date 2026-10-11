@@ -11,6 +11,7 @@ class TestDjangoQTaskQueue:
     def test_enqueue_callable(self) -> None:
         """测试 callable 路径转换。"""
         queue = DjangoQTaskQueue()
+
         # 测试 callable 转换为字符串路径
         def my_func() -> None:
             pass

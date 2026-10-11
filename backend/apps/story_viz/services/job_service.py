@@ -136,12 +136,12 @@ class StoryAnimationJobService:
         render = animation.render_payload if isinstance(animation.render_payload, dict) else {}
 
         base["stages"] = stages
-        base["facts_summary"] = self._summarize_facts(facts)
-        base["script_summary"] = self._summarize_script(script)
-        base["render_summary"] = self._summarize_render(render)
+        base["facts_summary"] = _summarize_facts(facts)
+        base["script_summary"] = _summarize_script(script)
+        base["render_summary"] = _summarize_render(render)
         base["has_html"] = bool(animation.animation_html)
         base["animation_html"] = ""
-        base["suggested_questions"] = self._build_suggested_questions(facts=facts)
+        base["suggested_questions"] = _build_suggested_questions(facts=facts)
         return base
 
     def build_preview_payload(self, *, animation: StoryAnimation) -> dict[str, object]:
@@ -162,14 +162,14 @@ class StoryAnimationJobService:
             elif status in {StoryAnimationStatus.FAILED, StoryAnimationStatus.CANCELLED}:
                 if stage_key == current:
                     s = "failed" if status == StoryAnimationStatus.FAILED else "cancelled"
-                elif self._stage_index(stage_key) < self._stage_index(current):
+                elif _stage_index(stage_key) < _stage_index(current):
                     s = "done"
                 else:
                     s = "pending"
             elif status == StoryAnimationStatus.PROCESSING:
                 if stage_key == current:
                     s = "active"
-                elif self._stage_index(stage_key) < self._stage_index(current):
+                elif _stage_index(stage_key) < _stage_index(current):
                     s = "done"
                 else:
                     s = "pending"
@@ -186,88 +186,6 @@ class StoryAnimationJobService:
             stage_list.append({"name": stage_key, "label": stage_label, "status": s, "summary": summary})
 
         return stage_list
-
-    @staticmethod
-    def _stage_index(stage_key: str) -> int:
-        for i, (key, _) in enumerate(_PIPELINE_STAGES):
-            if key == stage_key:
-                return i
-        return -1
-
-    @staticmethod
-    def _summarize_facts(facts: dict[str, object]) -> dict[str, object]:
-        parties = facts.get("parties", [])
-        events = facts.get("events", [])
-        relationships = facts.get("relationships", [])
-        return {
-            "parties": [
-                {"name": p.get("name", ""), "role": p.get("role", "")}
-                for p in (parties[:_MAX_ITEMS] if isinstance(parties, list) else [])
-            ],
-            "events": [
-                {
-                    "sequence": e.get("sequence", 0),
-                    "time_label": e.get("time_label", ""),
-                    "summary": e.get("summary", ""),
-                }
-                for e in (events[:_MAX_ITEMS] if isinstance(events, list) else [])
-            ],
-            "relationships": [
-                {
-                    "source": r.get("source", ""),
-                    "target": r.get("target", ""),
-                    "relation_type": r.get("relation_type", ""),
-                }
-                for r in (relationships[:_MAX_ITEMS] if isinstance(relationships, list) else [])
-            ],
-        }
-
-    @staticmethod
-    def _summarize_script(script: dict[str, object]) -> dict[str, object]:
-        timeline_nodes = script.get("timeline_nodes", [])
-        relationship_nodes = script.get("relationship_nodes", [])
-        edges = script.get("edges", [])
-        return {
-            "highlights": list(script.get("highlights", []) or [])[:_MAX_ITEMS],  # type: ignore[call-overload]
-            "annotations": list(script.get("annotations", []) or [])[:_MAX_ITEMS],  # type: ignore[call-overload]
-            "timeline_nodes_count": len(timeline_nodes) if isinstance(timeline_nodes, list) else 0,
-            "relationship_nodes_count": len(relationship_nodes) if isinstance(relationship_nodes, list) else 0,
-            "edges_count": len(edges) if isinstance(edges, list) else 0,
-        }
-
-    @staticmethod
-    def _summarize_render(render: dict[str, object]) -> dict[str, object]:
-        nodes = render.get("nodes", [])
-        edges = render.get("edges", [])
-        return {
-            "node_count": len(nodes) if isinstance(nodes, list) else 0,
-            "edge_count": len(edges) if isinstance(edges, list) else 0,
-        }
-
-    @staticmethod
-    def _build_suggested_questions(*, facts: dict[str, object]) -> list[str]:
-        questions: list[str] = []
-        parties = facts.get("parties", [])
-        events = facts.get("events", [])
-        relationships = facts.get("relationships", [])
-        judgment = facts.get("judgment_result", "")
-
-        if parties:
-            questions.append("当事人有哪些？各自角色是什么？")
-        if events:
-            questions.append("案件经过了哪些关键事件？")
-        if judgment:
-            questions.append("法院最终判决结果是什么？")
-        if relationships:
-            questions.append("当事人之间是什么关系？")
-
-        for e in events if isinstance(events, list) else []:
-            amounts = e.get("amounts", []) if isinstance(e, dict) else []
-            if amounts:
-                questions.append("涉及金额是多少？")
-                break
-
-        return questions[:5]
 
     @transaction.atomic
     def request_cancel(
@@ -372,3 +290,90 @@ class StoryAnimationJobService:
             max_tokens=2000,
         )
         return str(resp.content)
+
+
+# ↓↓ 由 StoryAnimationJobService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _stage_index(stage_key: str) -> int:
+    for i, (key, _) in enumerate(_PIPELINE_STAGES):
+        if key == stage_key:
+            return i
+    return -1
+
+
+# ↓↓ 由 StoryAnimationJobService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _summarize_facts(facts: dict[str, object]) -> dict[str, object]:
+    parties = facts.get("parties", [])
+    events = facts.get("events", [])
+    relationships = facts.get("relationships", [])
+    return {
+        "parties": [
+            {"name": p.get("name", ""), "role": p.get("role", "")}
+            for p in (parties[:_MAX_ITEMS] if isinstance(parties, list) else [])
+        ],
+        "events": [
+            {
+                "sequence": e.get("sequence", 0),
+                "time_label": e.get("time_label", ""),
+                "summary": e.get("summary", ""),
+            }
+            for e in (events[:_MAX_ITEMS] if isinstance(events, list) else [])
+        ],
+        "relationships": [
+            {
+                "source": r.get("source", ""),
+                "target": r.get("target", ""),
+                "relation_type": r.get("relation_type", ""),
+            }
+            for r in (relationships[:_MAX_ITEMS] if isinstance(relationships, list) else [])
+        ],
+    }
+
+
+# ↓↓ 由 StoryAnimationJobService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _summarize_script(script: dict[str, object]) -> dict[str, object]:
+    timeline_nodes = script.get("timeline_nodes", [])
+    relationship_nodes = script.get("relationship_nodes", [])
+    edges = script.get("edges", [])
+    return {
+        "highlights": list(script.get("highlights", []) or [])[:_MAX_ITEMS],  # type: ignore[call-overload]
+        "annotations": list(script.get("annotations", []) or [])[:_MAX_ITEMS],  # type: ignore[call-overload]
+        "timeline_nodes_count": len(timeline_nodes) if isinstance(timeline_nodes, list) else 0,
+        "relationship_nodes_count": len(relationship_nodes) if isinstance(relationship_nodes, list) else 0,
+        "edges_count": len(edges) if isinstance(edges, list) else 0,
+    }
+
+
+# ↓↓ 由 StoryAnimationJobService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _summarize_render(render: dict[str, object]) -> dict[str, object]:
+    nodes = render.get("nodes", [])
+    edges = render.get("edges", [])
+    return {
+        "node_count": len(nodes) if isinstance(nodes, list) else 0,
+        "edge_count": len(edges) if isinstance(edges, list) else 0,
+    }
+
+
+# ↓↓ 由 StoryAnimationJobService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _build_suggested_questions(*, facts: dict[str, object]) -> list[str]:
+    questions: list[str] = []
+    parties = facts.get("parties", [])
+    events = facts.get("events", [])
+    relationships = facts.get("relationships", [])
+    judgment = facts.get("judgment_result", "")
+
+    if parties:
+        questions.append("当事人有哪些？各自角色是什么？")
+    if events:
+        questions.append("案件经过了哪些关键事件？")
+    if judgment:
+        questions.append("法院最终判决结果是什么？")
+    if relationships:
+        questions.append("当事人之间是什么关系？")
+
+    for e in events if isinstance(events, list) else []:
+        amounts = e.get("amounts", []) if isinstance(e, dict) else []
+        if amounts:
+            questions.append("涉及金额是多少？")
+            break
+
+    return questions[:5]

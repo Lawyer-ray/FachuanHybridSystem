@@ -45,6 +45,7 @@ _AJAX_WAIT = 2.0
 
 
 from apps.oa_filing.services.oa_data_models import OACustomerData
+from apps.oa_filing.services.oa_scripts.jtn.auth.service import inject_to_context
 
 
 @dataclass
@@ -620,13 +621,13 @@ class JtnClientImportScript:  # pragma: no cover
         cached = cached_cookies_raw(self._auth)
         if cached:
             assert self._context is not None
-            await JtnAuthService.inject_to_context(self._context, cached)
+            await inject_to_context(self._context, cached)
             logger.info("使用缓存 cookies 注入 Playwright context（%d 个）", len(cached))
             return
 
         cookies = await http_login_cookies(self._auth)
         assert self._context is not None
-        await JtnAuthService.inject_to_context(self._context, to_context_cookie_list(cookies))
+        await inject_to_context(self._context, to_context_cookie_list(cookies))
         logger.info("HTTP 登录成功，cookie 已注入 Playwright context（%d 个）", len(cookies))
 
     async def _navigate_to_client_list(self) -> None:  # pragma: no cover

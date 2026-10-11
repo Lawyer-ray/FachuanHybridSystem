@@ -1,6 +1,7 @@
 """
 Tests for documents/utils/formatters.py - uncovered branches and edge cases.
 """
+
 from __future__ import annotations
 
 import logging

@@ -7,12 +7,12 @@ Targets remaining uncovered branches:
 - MonitorServiceAdapter: all internal methods delegation
 - MonitorService.get_task_statistics: service without objects (get_tasks_since path)
 """
+
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, call, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # MonitorService.check_stuck_tasks — service locator path
@@ -132,8 +132,12 @@ class TestGetTaskStatisticsServicePath:
         task_svc = MagicMock(spec=["get_tasks_since"])
         qs = MagicMock()
         qs.aggregate.return_value = {
-            "total": 5, "pending": 1, "running": 0,
-            "waiting_for_captcha": 0, "success": 3, "failed": 1,
+            "total": 5,
+            "pending": 1,
+            "running": 0,
+            "waiting_for_captcha": 0,
+            "success": 3,
+            "failed": 1,
         }
         qs.values.return_value.values_list.return_value = []
         task_svc.get_tasks_since.return_value = qs
@@ -151,10 +155,7 @@ class TestGetTaskStatisticsServicePath:
 
 class TestMonitorServiceAdapterInternal:
     def test_send_alert_internal_with_default_level(self):
-        from apps.automation.services.scraper.core.monitor_service import (
-            MonitorService,
-            MonitorServiceAdapter,
-        )
+        from apps.automation.services.scraper.core.monitor_service import MonitorService, MonitorServiceAdapter
 
         inner = MagicMock(spec=MonitorService)
         adapter = MonitorServiceAdapter(service=inner)
@@ -162,10 +163,7 @@ class TestMonitorServiceAdapterInternal:
         inner.send_alert.assert_called_with("t", "m", "warning")
 
     def test_get_task_statistics_internal_default(self):
-        from apps.automation.services.scraper.core.monitor_service import (
-            MonitorService,
-            MonitorServiceAdapter,
-        )
+        from apps.automation.services.scraper.core.monitor_service import MonitorService, MonitorServiceAdapter
 
         inner = MagicMock(spec=MonitorService)
         inner.get_task_statistics.return_value = {"total": 0}
@@ -174,10 +172,7 @@ class TestMonitorServiceAdapterInternal:
         inner.get_task_statistics.assert_called_with(24)
 
     def test_check_stuck_tasks_internal_default(self):
-        from apps.automation.services.scraper.core.monitor_service import (
-            MonitorService,
-            MonitorServiceAdapter,
-        )
+        from apps.automation.services.scraper.core.monitor_service import MonitorService, MonitorServiceAdapter
 
         inner = MagicMock(spec=MonitorService)
         inner.check_stuck_tasks.return_value = []
@@ -186,10 +181,7 @@ class TestMonitorServiceAdapterInternal:
         inner.check_stuck_tasks.assert_called_with(30)
 
     def test_check_high_failure_rate_internal_default(self):
-        from apps.automation.services.scraper.core.monitor_service import (
-            MonitorService,
-            MonitorServiceAdapter,
-        )
+        from apps.automation.services.scraper.core.monitor_service import MonitorService, MonitorServiceAdapter
 
         inner = MagicMock(spec=MonitorService)
         inner.check_high_failure_rate.return_value = {}

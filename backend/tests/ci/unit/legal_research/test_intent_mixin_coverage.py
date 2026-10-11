@@ -9,8 +9,11 @@ import pytest
 
 from apps.legal_research.services.executor_components.intent_mixin import (
     ExecutorIntentMixin,
+    _dedupe_tokens,
     _IntentRuleOverrides,
     _IntentSlots,
+    _is_location_or_court_token,
+    _split_tokens,
     collect_intent_terms,
     compact_clause_by_hints,
     contains_any_hint,
@@ -24,8 +27,8 @@ from apps.legal_research.services.executor_components.intent_mixin import (
     split_tokens,
 )
 
-
 # ── split_intent_clauses ──────────────────────────────────────────────────────
+
 
 def test_split_intent_clauses_basic():
     result = split_intent_clauses("甲方向乙方借款，约定三个月后还款。")
@@ -59,6 +62,7 @@ def test_split_intent_clauses_multiple_delimiters():
 
 
 # ── compact_clause_by_hints ───────────────────────────────────────────────────
+
 
 def test_compact_clause_empty():
     assert compact_clause_by_hints("", hints=("违约",), max_chars=16) == ""
@@ -101,6 +105,7 @@ def test_compact_clause_truncates():
 
 # ── normalize_relation_term ───────────────────────────────────────────────────
 
+
 def test_normalize_relation_term_empty():
     assert normalize_relation_term("") == ""
     assert normalize_relation_term(None) == ""  # type: ignore[arg-type]
@@ -138,6 +143,7 @@ def test_normalize_relation_term_generic():
 
 # ── looks_like_relation_term ──────────────────────────────────────────────────
 
+
 def test_looks_like_relation_empty():
     assert looks_like_relation_term("") is False
     assert looks_like_relation_term(None) is False  # type: ignore[arg-type]
@@ -165,6 +171,7 @@ def test_looks_like_relation_no_match():
 
 # ── contains_any_hint ─────────────────────────────────────────────────────────
 
+
 def test_contains_any_hint_empty():
     assert contains_any_hint("", ("违约",)) is False
     assert contains_any_hint(None, ("违约",)) is False  # type: ignore[arg-type]
@@ -179,6 +186,7 @@ def test_contains_any_hint_no_match():
 
 
 # ── dedupe_tokens ─────────────────────────────────────────────────────────────
+
 
 def test_dedupe_tokens_empty():
     assert dedupe_tokens([], max_tokens=8) == []
@@ -211,6 +219,7 @@ def test_dedupe_tokens_filters_empty():
 
 # ── split_tokens ──────────────────────────────────────────────────────────────
 
+
 def test_split_tokens_basic():
     result = split_tokens("违约 逾期 拖欠")
     assert result == ["违约", "逾期", "拖欠"]
@@ -235,6 +244,7 @@ def test_split_tokens_empty():
 
 # ── is_location_or_court_token ────────────────────────────────────────────────
 
+
 def test_is_location_empty():
     assert is_location_or_court_token("") is False
     assert is_location_or_court_token(None) is False  # type: ignore[arg-type]
@@ -256,6 +266,7 @@ def test_is_location_not_location():
 
 
 # ── parse_rule_items ──────────────────────────────────────────────────────────
+
 
 def test_parse_rule_items_empty():
     assert parse_rule_items("", max_items=10, max_len=20) == []
@@ -294,6 +305,7 @@ def test_parse_rule_items_pipe_separated():
 
 # ── parse_int_with_bounds ─────────────────────────────────────────────────────
 
+
 def test_parse_int_with_bounds_basic():
     assert parse_int_with_bounds("5", default=2, min_value=1, max_value=10) == 5
 
@@ -317,6 +329,7 @@ def test_parse_int_with_bounds_whitespace():
 
 
 # ── collect_intent_terms ──────────────────────────────────────────────────────
+
 
 def test_collect_intent_terms_basic():
     mapping = (
@@ -344,6 +357,7 @@ def test_collect_intent_terms_multiple_matches():
 
 
 # ── ExecutorIntentMixin._extract_intent_slots ─────────────────────────────────
+
 
 def _mock_overrides():
     """Return empty overrides to avoid DB access."""
@@ -401,10 +415,7 @@ def test_extract_intent_slots_with_remedy():
 
 @patch.object(ExecutorIntentMixin, "_load_intent_rule_overrides", classmethod(lambda cls: _mock_overrides()))
 def test_extract_intent_slots_full_case():
-    text = (
-        "原告与被告签订买卖合同，被告违约未交货，"
-        "造成原告价差损失5万元，请求被告赔偿损失"
-    )
+    text = "原告与被告签订买卖合同，被告违约未交货，造成原告价差损失5万元，请求被告赔偿损失"
     relation, breach, damage, remedy = ExecutorIntentMixin._extract_intent_slots(text)
     assert len(relation) > 0
     assert len(breach) > 0
@@ -413,6 +424,7 @@ def test_extract_intent_slots_full_case():
 
 
 # ── ExecutorIntentMixin._extract_intent_slots_with_confidence ─────────────────
+
 
 @patch.object(ExecutorIntentMixin, "_load_intent_rule_overrides", classmethod(lambda cls: _mock_overrides()))
 def test_extract_intent_slots_with_confidence_empty():
@@ -436,6 +448,7 @@ def test_extract_intent_slots_with_confidence_multi_hint():
 
 
 # ── ExecutorIntentMixin._extract_relation_terms_dynamic ───────────────────────
+
 
 def test_extract_relation_terms_dynamic_empty():
     assert ExecutorIntentMixin._extract_relation_terms_dynamic("") == []
@@ -475,6 +488,7 @@ def test_extract_relation_terms_dynamic_contract_keyword():
 
 # ── ExecutorIntentMixin._extract_slot_terms_by_hints_with_confidence ──────────
 
+
 def test_extract_slot_terms_empty_hints():
     high, low = ExecutorIntentMixin._extract_slot_terms_by_hints_with_confidence("text", hints=())
     assert high == []
@@ -490,9 +504,7 @@ def test_extract_slot_terms_no_match():
 
 
 def test_extract_slot_terms_single_hint_short_clause():
-    high, low = ExecutorIntentMixin._extract_slot_terms_by_hints_with_confidence(
-        "被告违约", hints=("违约", "逾期")
-    )
+    high, low = ExecutorIntentMixin._extract_slot_terms_by_hints_with_confidence("被告违约", hints=("违约", "逾期"))
     # Single hint, short clause -> low
     assert len(low) > 0 or len(high) > 0
 
@@ -506,6 +518,7 @@ def test_extract_slot_terms_multi_hint():
 
 
 # ── ExecutorIntentMixin._load_intent_rule_overrides ───────────────────────────
+
 
 @patch("apps.legal_research.services.executor_components.intent_mixin.ServiceLocator")
 def test_load_intent_rule_overrides_service_unavailable(mock_locator):
@@ -539,6 +552,7 @@ def test_load_intent_rule_overrides_with_config(mock_locator):
 
 # ── ExecutorIntentMixin._merge_hint_overrides ─────────────────────────────────
 
+
 def test_merge_hint_overrides_no_extras():
     defaults = ("违约", "逾期")
     result = ExecutorIntentMixin._merge_hint_overrides(defaults, [])
@@ -560,21 +574,24 @@ def test_merge_hint_overrides_deduplicates():
     assert result.count("违约") == 1
 
 
-# ── ExecutorIntentMixin._split_tokens ─────────────────────────────────────────
+# ── _split_tokens ─────────────────────────────────────────
+
 
 def test_mixin_split_tokens():
-    result = ExecutorIntentMixin._split_tokens("违约 逾期 拖欠")
+    result = _split_tokens("违约 逾期 拖欠")
     assert result == ["违约", "逾期", "拖欠"]
 
 
-# ── ExecutorIntentMixin._is_location_or_court_token ───────────────────────────
+# ── _is_location_or_court_token ───────────────────────────
+
 
 def test_mixin_is_location():
-    assert ExecutorIntentMixin._is_location_or_court_token("法院") is True
-    assert ExecutorIntentMixin._is_location_or_court_token("违约") is False
+    assert _is_location_or_court_token("法院") is True
+    assert _is_location_or_court_token("违约") is False
 
 
 # ── ExecutorIntentMixin._extract_summary_terms ────────────────────────────────
+
 
 def test_extract_summary_terms_empty():
     assert ExecutorIntentMixin._extract_summary_terms("") == []
@@ -614,14 +631,16 @@ def test_extract_summary_terms_includes_phrases():
     assert "不当得利纠纷" in terms
 
 
-# ── ExecutorIntentMixin._dedupe_tokens ────────────────────────────────────────
+# ── _dedupe_tokens ────────────────────────────────────────
+
 
 def test_mixin_dedupe_tokens():
-    result = ExecutorIntentMixin._dedupe_tokens(["违约", "违约"], max_tokens=8)
+    result = _dedupe_tokens(["违约", "违约"], max_tokens=8)
     assert result == ["违约"]
 
 
 # ── Integration: full-text intent extraction ──────────────────────────────────
+
 
 @patch.object(ExecutorIntentMixin, "_load_intent_rule_overrides", classmethod(lambda cls: _mock_overrides()))
 def test_full_intent_borrowing_dispute():

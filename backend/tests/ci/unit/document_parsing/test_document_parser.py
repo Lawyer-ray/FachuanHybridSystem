@@ -2,14 +2,9 @@
 
 from unittest.mock import MagicMock, patch
 
-from apps.document_parsing.protocols.document_parser_protocol import (
-    ParsedDocument,
-    TextExtractionResult,
-)
-from apps.document_parsing.services.document_parser import (
-    DocumentParserService,
-    get_document_parser,
-)
+from apps.document_parsing.protocols.document_parser_protocol import ParsedDocument, TextExtractionResult
+from apps.document_parsing.services.document_parser import DocumentParserService, get_document_parser
+from apps.document_parsing.services.parser_factory import create_parser
 
 
 def _mock_parser() -> MagicMock:
@@ -33,7 +28,7 @@ class TestDocumentParserService:
         """parser 只在首次调用时创建"""
         mock_parser = _mock_parser()
         with patch(
-            "apps.document_parsing.services.document_parser.ParserFactory.create_parser",
+            "apps.document_parsing.services.document_parser.create_parser",
             return_value=mock_parser,
         ) as mock_factory:
             svc = DocumentParserService(backend="local")
@@ -49,7 +44,7 @@ class TestDocumentParserService:
     def test_parse_document_delegates(self) -> None:
         mock_parser = _mock_parser()
         with patch(
-            "apps.document_parsing.services.document_parser.ParserFactory.create_parser",
+            "apps.document_parsing.services.document_parser.create_parser",
             return_value=mock_parser,
         ):
             svc = DocumentParserService()
@@ -72,7 +67,7 @@ class TestDocumentParserService:
     def test_extract_text_delegates(self) -> None:
         mock_parser = _mock_parser()
         with patch(
-            "apps.document_parsing.services.document_parser.ParserFactory.create_parser",
+            "apps.document_parsing.services.document_parser.create_parser",
             return_value=mock_parser,
         ):
             svc = DocumentParserService()
@@ -86,7 +81,7 @@ class TestDocumentParserService:
     def test_get_supported_formats_delegates(self) -> None:
         mock_parser = _mock_parser()
         with patch(
-            "apps.document_parsing.services.document_parser.ParserFactory.create_parser",
+            "apps.document_parsing.services.document_parser.create_parser",
             return_value=mock_parser,
         ):
             svc = DocumentParserService()
@@ -96,7 +91,7 @@ class TestDocumentParserService:
     def test_kwargs_passed_to_factory(self) -> None:
         mock_parser = _mock_parser()
         with patch(
-            "apps.document_parsing.services.document_parser.ParserFactory.create_parser",
+            "apps.document_parsing.services.document_parser.create_parser",
             return_value=mock_parser,
         ) as mock_factory:
             svc = DocumentParserService(backend="mineru", timeout=60)

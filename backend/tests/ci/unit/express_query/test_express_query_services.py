@@ -9,7 +9,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.express_query.services.tracking_extraction_service import TrackingExtractionService
+from apps.express_query.services.tracking_extraction_service import (
+    TrackingExtractionService,
+    truncate_pdf_to_first_page,
+)
 
 
 class TestTrackingExtractionService:
@@ -81,7 +84,7 @@ class TestTrackingExtractionService:
         svc = self._make_service()
         test_file = tmp_path / "test.txt"
         test_file.write_text("content")
-        assert svc.truncate_pdf_to_first_page(test_file) is False
+        assert truncate_pdf_to_first_page(test_file) is False
 
     def test_extract_with_mock_ocr(self) -> None:
         mock_ocr = MagicMock()
@@ -111,6 +114,7 @@ class TestTrackingExtractionService:
 
         result = svc.extract(test_path)
         assert result.tracking_number == ""
+
 
 # ---------------------------------------------------------------------------
 # EMS auth handler extended tests

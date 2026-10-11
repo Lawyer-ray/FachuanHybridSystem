@@ -201,10 +201,12 @@ def test_export_pdf(mock_get_svc, authenticated_client):
 
     resp = authenticated_client.post(
         "/api/v1/image-rotation/export-pdf",
-        data=json.dumps({
-            "pages": [{"filename": "page1.jpg", "data": base64.b64encode(b"fake").decode(), "rotation": 0}],
-            "paper_size": "a4",
-        }),
+        data=json.dumps(
+            {
+                "pages": [{"filename": "page1.jpg", "data": base64.b64encode(b"fake").decode(), "rotation": 0}],
+                "paper_size": "a4",
+            }
+        ),
         content_type="application/json",
     )
     assert resp.status_code == 200
@@ -243,10 +245,12 @@ def test_export_images(mock_get_svc, authenticated_client):
 
     resp = authenticated_client.post(
         "/api/v1/image-rotation/export",
-        data=json.dumps({
-            "images": [{"filename": "img.jpg", "data": base64.b64encode(b"fake").decode(), "format": "jpeg"}],
-            "paper_size": "original",
-        }),
+        data=json.dumps(
+            {
+                "images": [{"filename": "img.jpg", "data": base64.b64encode(b"fake").decode(), "format": "jpeg"}],
+                "paper_size": "original",
+            }
+        ),
         content_type="application/json",
     )
     assert resp.status_code == 200

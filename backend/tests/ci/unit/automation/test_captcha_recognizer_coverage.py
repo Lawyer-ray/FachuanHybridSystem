@@ -8,6 +8,7 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -25,10 +26,13 @@ class TestGetCaptchaRecognizer:
     """Cover get_captcha_recognizer branches."""
 
     def test_plugin_available_returns_ddddocr(self):
-        with patch.dict("sys.modules", {
-            "plugins": MagicMock(has_captcha_ocr_plugin=lambda: True),
-            "plugins.captcha_ocr": MagicMock(DdddocrRecognizer=MagicMock(return_value="recognizer")),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "plugins": MagicMock(has_captcha_ocr_plugin=lambda: True),
+                "plugins.captcha_ocr": MagicMock(DdddocrRecognizer=MagicMock(return_value="recognizer")),
+            },
+        ):
             result = get_captcha_recognizer()
             assert result == "recognizer"
 
@@ -39,9 +43,12 @@ class TestGetCaptchaRecognizer:
             assert isinstance(result, ManualCaptchaRecognizer)
 
     def test_plugin_not_available_with_task_returns_manual(self):
-        with patch.dict("sys.modules", {
-            "plugins": MagicMock(has_captcha_ocr_plugin=lambda: False),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "plugins": MagicMock(has_captcha_ocr_plugin=lambda: False),
+            },
+        ):
             task = MagicMock()
             result = get_captcha_recognizer(task=task)
             assert isinstance(result, ManualCaptchaRecognizer)
@@ -49,14 +56,19 @@ class TestGetCaptchaRecognizer:
     def test_no_plugin_no_task_raises(self):
         with patch.dict("sys.modules", {"plugins": None}):
             from apps.automation.services.scraper.core.captcha_recognizer import FileBasedCaptchaRecognizer
+
             result = get_captcha_recognizer()
             assert isinstance(result, FileBasedCaptchaRecognizer)
 
     def test_no_task_raises_when_plugin_unavailable(self):
-        with patch.dict("sys.modules", {
-            "plugins": MagicMock(has_captcha_ocr_plugin=lambda: False),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "plugins": MagicMock(has_captcha_ocr_plugin=lambda: False),
+            },
+        ):
             from apps.automation.services.scraper.core.captcha_recognizer import FileBasedCaptchaRecognizer
+
             result = get_captcha_recognizer(task=None)
             assert isinstance(result, FileBasedCaptchaRecognizer)
 
@@ -74,6 +86,7 @@ class TestManualCaptchaRecognizerRecognizeSuccess:
 
         # Simulate: first poll returns None, second returns answer
         call_count = 0
+
         def refresh_side_effect(*args, **kwargs):
             nonlocal call_count
             call_count += 1
@@ -125,8 +138,10 @@ class TestManualCaptchaRecognizerTimeoutWithStatusUpdate:
 
         r = ManualCaptchaRecognizer(task=task, timeout=0, poll_interval=0.01)
 
-        with patch("plugins.court_automation.login.captcha_recognizer.Path") as mock_path_cls, \
-             patch("django.conf.settings") as mock_settings:
+        with (
+            patch("plugins.court_automation.login.captcha_recognizer.Path") as mock_path_cls,
+            patch("django.conf.settings") as mock_settings,
+        ):
             mock_settings.MEDIA_ROOT = "/tmp/media"
             mock_dir = MagicMock()
             mock_path_instance = MagicMock()
@@ -152,6 +167,7 @@ class TestManualCaptchaRecognizerUnlinkError:
 
         # First refresh returns None, second returns answer
         refresh_count = 0
+
         def refresh_side_effect(*args, **kwargs):
             nonlocal refresh_count
             refresh_count += 1

@@ -12,6 +12,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.reminders.services.reminder_service_adapter import _enrich_export_row
+
 
 class TestReminderServiceAdapterExport:
     """Tests for ReminderServiceAdapter export and batch methods."""
@@ -20,12 +22,14 @@ class TestReminderServiceAdapterExport:
         with patch("apps.reminders.services.reminder_service_adapter.Reminder") as MockReminder:
             MockReminder.objects.filter.return_value.order_by.return_value.values.return_value = []
             from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
             adapter = ReminderServiceAdapter()
             result = adapter.export_case_log_reminders_internal(case_log_id=99999)
             assert result == []
 
     def test_export_case_log_reminders_batch_empty(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         adapter = ReminderServiceAdapter()
         result = adapter.export_case_log_reminders_batch_internal(case_log_ids=[])
         assert result == {}
@@ -34,6 +38,7 @@ class TestReminderServiceAdapterExport:
         with patch("apps.reminders.services.reminder_service_adapter.Reminder") as MockReminder:
             MockReminder.objects.filter.return_value.order_by.return_value.values.return_value = []
             from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
             adapter = ReminderServiceAdapter()
             result = adapter.export_case_log_reminders_batch_internal(case_log_ids=[1, 1, 2, 2])
             assert 1 in result
@@ -43,20 +48,25 @@ class TestReminderServiceAdapterExport:
         with patch("apps.reminders.services.reminder_service_adapter.Reminder") as MockReminder:
             MockReminder.objects.filter.return_value.order_by.return_value.values.return_value.first.return_value = None
             from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
             adapter = ReminderServiceAdapter()
             result = adapter.get_latest_case_log_reminder_internal(case_log_id=99999)
             assert result is None
 
     def test_get_existing_reminder_times_internal(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         adapter = ReminderServiceAdapter()
         # Mock the parent class method directly
-        with patch("apps.reminders.services.reminder_service.ReminderService.get_existing_due_times", return_value=set()):
+        with patch(
+            "apps.reminders.services.reminder_service.ReminderService.get_existing_due_times", return_value=set()
+        ):
             result = adapter.get_existing_reminder_times_internal(99999, "hearing")
             assert isinstance(result, set)
 
     def test_create_reminder_internal_invalid_type(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         adapter = ReminderServiceAdapter()
         result = adapter.create_reminder_internal(
             case_log_id=1,
@@ -67,6 +77,7 @@ class TestReminderServiceAdapterExport:
 
     def test_create_reminder_internal_no_time(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         adapter = ReminderServiceAdapter()
         result = adapter.create_reminder_internal(
             case_log_id=1,
@@ -77,6 +88,7 @@ class TestReminderServiceAdapterExport:
 
     def test_create_reminder_internal_exception(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         adapter = ReminderServiceAdapter()
         with patch.object(adapter, "create_reminder", side_effect=RuntimeError("db")):
             result = adapter.create_reminder_internal(
@@ -88,6 +100,7 @@ class TestReminderServiceAdapterExport:
 
     def test_create_reminder_internal_success(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         adapter = ReminderServiceAdapter()
         mock_reminder = MagicMock()
         mock_reminder.pk = 10
@@ -98,7 +111,9 @@ class TestReminderServiceAdapterExport:
         mock_reminder.case_id = None
         mock_reminder.created_at = datetime(2024, 1, 1)
 
-        with patch("apps.reminders.services.reminder_service.ReminderService.create_reminder", return_value=mock_reminder):
+        with patch(
+            "apps.reminders.services.reminder_service.ReminderService.create_reminder", return_value=mock_reminder
+        ):
             result = adapter.create_reminder_internal(
                 case_log_id=1,
                 reminder_type="hearing",
@@ -110,6 +125,7 @@ class TestReminderServiceAdapterExport:
 
     def test_upsert_case_log_reminder_internal_create(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         adapter = ReminderServiceAdapter()
 
         with patch.object(adapter, "_get_preferred_case_log_reminder", return_value=None):
@@ -126,6 +142,7 @@ class TestReminderServiceAdapterExport:
 
     def test_upsert_case_log_reminder_internal_update(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         adapter = ReminderServiceAdapter()
         existing = MagicMock()
         existing.metadata = {"source": "test"}
@@ -141,7 +158,9 @@ class TestReminderServiceAdapterExport:
         updated.created_at = datetime(2024, 1, 1)
 
         with patch.object(adapter, "_get_preferred_case_log_reminder", return_value=existing):
-            with patch("apps.reminders.services.reminder_service.ReminderService.update_reminder", return_value=updated):
+            with patch(
+                "apps.reminders.services.reminder_service.ReminderService.update_reminder", return_value=updated
+            ):
                 result = adapter.upsert_case_log_reminder_internal(
                     case_log_id=1,
                     reminder_type="hearing",
@@ -153,6 +172,7 @@ class TestReminderServiceAdapterExport:
 
     def test_clear_case_log_reminder_internal_found(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         adapter = ReminderServiceAdapter()
         existing = SimpleNamespace(id=5)
 
@@ -164,6 +184,7 @@ class TestReminderServiceAdapterExport:
 
     def test_clear_case_log_reminder_internal_not_found(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         adapter = ReminderServiceAdapter()
         with patch.object(adapter, "_get_preferred_case_log_reminder", return_value=None):
             result = adapter.clear_case_log_reminder_internal(case_log_id=1)
@@ -173,6 +194,7 @@ class TestReminderServiceAdapterExport:
         with patch("apps.reminders.services.reminder_service_adapter.Reminder") as MockReminder:
             MockReminder.objects.filter.return_value.order_by.return_value = []
             from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
             adapter = ReminderServiceAdapter()
             result = adapter._get_preferred_case_log_reminder(case_log_id=1)
             assert result is None
@@ -183,10 +205,9 @@ class TestReminderServiceAdapterExport:
         with patch("apps.reminders.services.reminder_service_adapter.Reminder") as MockReminder:
             MockReminder.objects.filter.return_value.order_by.return_value = [r1, r2]
             from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
             adapter = ReminderServiceAdapter()
-            result = adapter._get_preferred_case_log_reminder(
-                case_log_id=1, metadata_source="case_log_api"
-            )
+            result = adapter._get_preferred_case_log_reminder(case_log_id=1, metadata_source="case_log_api")
             assert result == r2
 
     def test_get_preferred_with_source_no_match(self):
@@ -194,10 +215,9 @@ class TestReminderServiceAdapterExport:
         with patch("apps.reminders.services.reminder_service_adapter.Reminder") as MockReminder:
             MockReminder.objects.filter.return_value.order_by.return_value = [r1]
             from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
             adapter = ReminderServiceAdapter()
-            result = adapter._get_preferred_case_log_reminder(
-                case_log_id=1, metadata_source="case_log_api"
-            )
+            result = adapter._get_preferred_case_log_reminder(case_log_id=1, metadata_source="case_log_api")
             assert result is None
 
     def test_get_preferred_no_source_returns_first(self):
@@ -205,6 +225,7 @@ class TestReminderServiceAdapterExport:
         with patch("apps.reminders.services.reminder_service_adapter.Reminder") as MockReminder:
             MockReminder.objects.filter.return_value.order_by.return_value = [r1]
             from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
             adapter = ReminderServiceAdapter()
             result = adapter._get_preferred_case_log_reminder(case_log_id=1)
             assert result == r1
@@ -214,22 +235,23 @@ class TestReminderServiceAdapterExport:
         with patch("apps.reminders.services.reminder_service_adapter.Reminder") as MockReminder:
             MockReminder.objects.filter.return_value.order_by.return_value = [r1]
             from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
             adapter = ReminderServiceAdapter()
-            result = adapter._get_preferred_case_log_reminder(
-                case_log_id=1, metadata_source="test"
-            )
+            result = adapter._get_preferred_case_log_reminder(case_log_id=1, metadata_source="test")
             assert result is None
 
     def test_export_contract_reminders_internal(self):
         with patch("apps.reminders.services.reminder_service_adapter.Reminder") as MockReminder:
             MockReminder.objects.filter.return_value.order_by.return_value.values.return_value = []
             from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
             adapter = ReminderServiceAdapter()
             result = adapter.export_contract_reminders_internal(contract_id=1)
             assert result == []
 
     def test_create_case_log_reminder_internal_with_metadata(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         adapter = ReminderServiceAdapter()
         mock_reminder = MagicMock()
         mock_reminder.pk = 30
@@ -240,7 +262,9 @@ class TestReminderServiceAdapterExport:
         mock_reminder.case_id = None
         mock_reminder.created_at = datetime(2024, 1, 1)
 
-        with patch("apps.reminders.services.reminder_service.ReminderService.create_reminder", return_value=mock_reminder):
+        with patch(
+            "apps.reminders.services.reminder_service.ReminderService.create_reminder", return_value=mock_reminder
+        ):
             result = adapter.create_case_log_reminder_internal(
                 case_log_id=1,
                 reminder_type="hearing",
@@ -252,6 +276,7 @@ class TestReminderServiceAdapterExport:
 
     def test_to_reminder_dto(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         adapter = ReminderServiceAdapter()
         reminder = MagicMock()
         reminder.pk = 1
@@ -268,12 +293,14 @@ class TestReminderServiceAdapterExport:
 
     def test_get_reminder_type_by_code_internal_invalid(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         adapter = ReminderServiceAdapter()
         assert adapter.get_reminder_type_by_code_internal("nonexistent") is None
 
     def test_get_reminder_type_by_code_internal_valid(self):
         from apps.reminders.models import ReminderType
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         adapter = ReminderServiceAdapter()
         code = ReminderType.values[0]
         result = adapter.get_reminder_type_by_code_internal(code)
@@ -283,11 +310,13 @@ class TestReminderServiceAdapterExport:
 
     def test_get_reminder_type_for_document_internal_unknown(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         adapter = ReminderServiceAdapter()
         assert adapter.get_reminder_type_for_document_internal("unknown_doc_type") is None
 
     def test_get_reminder_type_for_document_internal_summons(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         adapter = ReminderServiceAdapter()
         result = adapter.get_reminder_type_for_document_internal("court_summons")
         assert result is not None
@@ -295,6 +324,7 @@ class TestReminderServiceAdapterExport:
 
     def test_get_reminder_type_for_document_internal_execution(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         adapter = ReminderServiceAdapter()
         result = adapter.get_reminder_type_for_document_internal("ruling")
         assert result is not None
@@ -302,6 +332,7 @@ class TestReminderServiceAdapterExport:
 
     def test_get_reminder_type_for_document_internal_asset(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         adapter = ReminderServiceAdapter()
         result = adapter.get_reminder_type_for_document_internal("asset_preservation")
         assert result is not None
@@ -310,25 +341,29 @@ class TestReminderServiceAdapterExport:
     def test_enrich_export_row_valid_type(self):
         from apps.reminders.models import ReminderType
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         code = ReminderType.values[0]
         row = {"reminder_type": code}
-        result = ReminderServiceAdapter._enrich_export_row(row)
+        result = _enrich_export_row(row)
         assert "reminder_type_label" in result
 
     def test_enrich_export_row_invalid_type(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         row = {"reminder_type": "bad_type"}
-        result = ReminderServiceAdapter._enrich_export_row(row)
+        result = _enrich_export_row(row)
         assert result["reminder_type_label"] == "bad_type"
 
     def test_enrich_export_row_empty_type(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         row = {"reminder_type": ""}
-        result = ReminderServiceAdapter._enrich_export_row(row)
+        result = _enrich_export_row(row)
         assert result["reminder_type_label"] == ""
 
     def test_document_type_to_reminder_type_mapping(self):
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         m = ReminderServiceAdapter.DOCUMENT_TYPE_TO_REMINDER_TYPE
         assert m["court_summons"] == "hearing"
         assert m["hearing_summons"] == "hearing"
@@ -341,6 +376,7 @@ class TestReminderServiceAdapterExport:
     def test_reminder_type_code_to_id_mapping(self):
         from apps.reminders.models import ReminderType
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         m = ReminderServiceAdapter._REMINDER_TYPE_CODE_TO_ID
         for idx, code in enumerate(ReminderType.values):
             assert m[code] == idx + 1
@@ -348,6 +384,7 @@ class TestReminderServiceAdapterExport:
     def test_upsert_case_log_reminder_internal_existing_metadata_none(self):
         """Test upsert when existing reminder has non-dict metadata."""
         from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+
         adapter = ReminderServiceAdapter()
         existing = SimpleNamespace(id=5, metadata="not_a_dict")
 
@@ -361,7 +398,9 @@ class TestReminderServiceAdapterExport:
         updated.created_at = datetime(2024, 1, 1)
 
         with patch.object(adapter, "_get_preferred_case_log_reminder", return_value=existing):
-            with patch("apps.reminders.services.reminder_service.ReminderService.update_reminder", return_value=updated):
+            with patch(
+                "apps.reminders.services.reminder_service.ReminderService.update_reminder", return_value=updated
+            ):
                 result = adapter.upsert_case_log_reminder_internal(
                     case_log_id=1,
                     reminder_type="hearing",

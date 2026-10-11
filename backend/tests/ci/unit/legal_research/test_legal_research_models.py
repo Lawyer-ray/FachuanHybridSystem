@@ -112,15 +112,11 @@ class TestLegalResearchResult:
             keyword="测试",
             case_summary="案情",
         )
-        LegalResearchResult.objects.create(
-            task=task, rank=1, source_doc_id="dup_doc"
-        )
+        LegalResearchResult.objects.create(task=task, rank=1, source_doc_id="dup_doc")
         from django.db import IntegrityError
 
         with pytest.raises(IntegrityError):
-            LegalResearchResult.objects.create(
-                task=task, rank=2, source_doc_id="dup_doc"
-            )
+            LegalResearchResult.objects.create(task=task, rank=2, source_doc_id="dup_doc")
 
 
 # ============================================================

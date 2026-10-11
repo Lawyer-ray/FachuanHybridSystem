@@ -371,11 +371,7 @@ class TestParseSummonsResponse:
         self.mixin._normalize_case_number = lambda x: x
 
     def test_valid_response(self):
-        response = {
-            "message": {
-                "content": '{"case_number": "(2024)粤01民初1号", "court_time": "2024-06-15 09:30"}'
-            }
-        }
+        response = {"message": {"content": '{"case_number": "(2024)粤01民初1号", "court_time": "2024-06-15 09:30"}'}}
         result = self.mixin._parse_summons_response(response)
         assert result["case_number"] == "(2024)粤01民初1号"
         assert result["court_time"] == datetime(2024, 6, 15, 9, 30)
@@ -386,11 +382,7 @@ class TestParseSummonsResponse:
         assert result["court_time"] is None
 
     def test_null_values(self):
-        response = {
-            "message": {
-                "content": '{"case_number": null, "court_time": null}'
-            }
-        }
+        response = {"message": {"content": '{"case_number": null, "court_time": null}'}}
         result = self.mixin._parse_summons_response(response)
         assert result["case_number"] is None
         assert result["court_time"] is None
@@ -410,11 +402,7 @@ class TestParseExecutionResponse:
         self.mixin._normalize_case_number = lambda x: x
 
     def test_valid_response(self):
-        response = {
-            "message": {
-                "content": '{"case_number": "(2024)粤01执1号", "preservation_deadline": "2024-12-31"}'
-            }
-        }
+        response = {"message": {"content": '{"case_number": "(2024)粤01执1号", "preservation_deadline": "2024-12-31"}'}}
         result = self.mixin._parse_execution_response(response)
         assert result["case_number"] == "(2024)粤01执1号"
         assert result["preservation_deadline"] == datetime(2024, 12, 31)
@@ -512,9 +500,7 @@ class TestCourtDocumentRecognitionService:
         from apps.document_recognition.services.recognition_service import CourtDocumentRecognitionService
 
         svc = CourtDocumentRecognitionService()
-        binding, path = svc._build_binding(
-            DocumentType.OTHER, None, "/tmp/test.pdf", "text", None
-        )
+        binding, path = svc._build_binding(DocumentType.OTHER, None, "/tmp/test.pdf", "text", None)
         assert binding.success is False
         assert binding.error_code == "CASE_NUMBER_NOT_FOUND"
 
@@ -523,9 +509,7 @@ class TestCourtDocumentRecognitionService:
         from apps.document_recognition.services.recognition_service import CourtDocumentRecognitionService
 
         svc = CourtDocumentRecognitionService()
-        binding, path = svc._build_binding(
-            DocumentType.EXECUTION_RULING, None, "/tmp/test.pdf", "text", None
-        )
+        binding, path = svc._build_binding(DocumentType.EXECUTION_RULING, None, "/tmp/test.pdf", "text", None)
         assert binding.success is False
         assert binding.error_code == "CASE_NUMBER_NOT_FOUND"
 
@@ -533,9 +517,7 @@ class TestCourtDocumentRecognitionService:
         from apps.document_recognition.services.recognition_service import CourtDocumentRecognitionService
 
         svc = CourtDocumentRecognitionService()
-        binding, path = svc._build_binding(
-            DocumentType.SUMMONS, None, "/tmp/test.pdf", "text", None
-        )
+        binding, path = svc._build_binding(DocumentType.SUMMONS, None, "/tmp/test.pdf", "text", None)
         assert binding.success is False
         assert binding.error_code == "CASE_NUMBER_NOT_FOUND"
 

@@ -21,17 +21,6 @@ class TianyanchaResponseAdapter:
     _MARKDOWN_PROFILE_HEADER_RE = re.compile(r"^#\s+🏢\s+(?P<name>.+?)\s*$")
     _MARKDOWN_TABLE_SEPARATOR_RE = re.compile(r"^[-:]+$")
 
-    @staticmethod
-    def pick_str(obj: dict[str, Any], keys: tuple[str, ...]) -> str:
-        for key in keys:
-            value = obj.get(key)
-            if value is None:
-                continue
-            text = str(value).strip()
-            if text:
-                return text
-        return ""
-
     def _split_table_cells(self, line: str) -> list[str]:
         stripped = str(line or "").strip()
         if not (stripped.startswith("|") and stripped.endswith("|")):
@@ -93,7 +82,7 @@ class TianyanchaResponseAdapter:
         for key in keys:
             for header, value in record.items():
                 if header == key or key in header or header in key:
-                    cleaned = self._clean_markdown_value(value)
+                    cleaned = _clean_markdown_value(value)
                     if cleaned:
                         return cleaned
         return ""
@@ -151,7 +140,7 @@ class TianyanchaResponseAdapter:
                     results.append(current)
                 current = {
                     "company_id": "",
-                    "company_name": self._clean_markdown_value(header_match.group("name")),
+                    "company_name": _clean_markdown_value(header_match.group("name")),
                     "legal_person": "",
                     "status": "",
                     "establish_date": "",
@@ -166,8 +155,8 @@ class TianyanchaResponseAdapter:
             row_match = self._MARKDOWN_TABLE_ROW_RE.match(line)
             if not row_match:
                 continue
-            key = self._clean_markdown_value(row_match.group("key"))
-            value = self._clean_markdown_value(row_match.group("value"))
+            key = _clean_markdown_value(row_match.group("key"))
+            value = _clean_markdown_value(row_match.group("value"))
             if not value:
                 continue
 
@@ -213,14 +202,14 @@ class TianyanchaResponseAdapter:
 
             header_match = self._MARKDOWN_PROFILE_HEADER_RE.match(line)
             if header_match and not profile["company_name"]:
-                profile["company_name"] = self._clean_markdown_value(header_match.group("name"))
+                profile["company_name"] = _clean_markdown_value(header_match.group("name"))
                 continue
 
             row_match = self._MARKDOWN_TABLE_ROW_RE.match(line)
             if not row_match:
                 continue
-            key = self._clean_markdown_value(row_match.group("key"))
-            value = self._clean_markdown_value(row_match.group("value"))
+            key = _clean_markdown_value(row_match.group("key"))
+            value = _clean_markdown_value(row_match.group("value"))
             if not value:
                 continue
 
@@ -248,8 +237,8 @@ class TianyanchaResponseAdapter:
             for row in table[1:]:
                 if len(row) < 2:
                     continue
-                field_key = self._clean_markdown_value(row[0])
-                field_value = self._clean_markdown_value(row[1])
+                field_key = _clean_markdown_value(row[0])
+                field_value = _clean_markdown_value(row[1])
                 if not field_value:
                     continue
                 self._apply_profile_field(profile, field_key, field_value)
@@ -260,7 +249,7 @@ class TianyanchaResponseAdapter:
             re.DOTALL,
         )
         if scope_match:
-            scope = self._clean_markdown_value(scope_match.group("scope"))
+            scope = _clean_markdown_value(scope_match.group("scope"))
             profile["business_scope"] = scope
 
         has_meaningful_fields = any(
@@ -300,89 +289,102 @@ class TianyanchaResponseAdapter:
                     return value.strip()
         return ""
 
-    @staticmethod
-    def _clean_markdown_value(value: Any) -> str:
-        text = str(value or "").strip()
-        if not text:
-            return ""
-        text = text.replace("**", "").replace("`", "")
-        text = text.replace("\t", " ").replace("\r", " ").strip()
-        text = re.sub(r"\s+", " ", text)
-        return text
-
     def normalize_company_summary(self, item: dict[str, Any]) -> dict[str, str]:
         return {
-            "company_id": self.pick_str(item, ("company_id", "companyId", "id", "cid", "tycId")),
-            "company_name": self.pick_str(item, ("company_name", "companyName", "name", "company")),
-            "legal_person": self.pick_str(item, ("legalPersonName", "legal_person", "legalRepresentative")),
-            "status": self.pick_str(item, ("regStatus", "status", "operatingStatus")),
-            "establish_date": self.pick_str(item, ("estiblishTime", "establishDate", "foundedDate")),
-            "registered_capital": self.pick_str(item, ("regCapital", "registeredCapital", "capital")),
-            "phone": self.pick_str(item, ("phone", "phoneNumber", "contactPhone", "tel", "联系电话")),
+            "company_id": pick_str(item, ("company_id", "companyId", "id", "cid", "tycId")),
+            "company_name": pick_str(item, ("company_name", "companyName", "name", "company")),
+            "legal_person": pick_str(item, ("legalPersonName", "legal_person", "legalRepresentative")),
+            "status": pick_str(item, ("regStatus", "status", "operatingStatus")),
+            "establish_date": pick_str(item, ("estiblishTime", "establishDate", "foundedDate")),
+            "registered_capital": pick_str(item, ("regCapital", "registeredCapital", "capital")),
+            "phone": pick_str(item, ("phone", "phoneNumber", "contactPhone", "tel", "联系电话")),
         }
 
     def normalize_company_profile(self, item: dict[str, Any]) -> dict[str, str]:
         return {
-            "company_id": self.pick_str(item, ("company_id", "companyId", "id", "cid", "tycId")),
-            "company_name": self.pick_str(item, ("company_name", "companyName", "name", "company")),
-            "unified_social_credit_code": self.pick_str(
+            "company_id": pick_str(item, ("company_id", "companyId", "id", "cid", "tycId")),
+            "company_name": pick_str(item, ("company_name", "companyName", "name", "company")),
+            "unified_social_credit_code": pick_str(
                 item,
                 ("creditCode", "unifiedSocialCreditCode", "socialCreditCode", "unified_social_credit_code"),
             ),
-            "legal_person": self.pick_str(item, ("legalPersonName", "legal_person", "legalRepresentative")),
-            "status": self.pick_str(item, ("regStatus", "status", "operatingStatus")),
-            "establish_date": self.pick_str(item, ("estiblishTime", "establishDate", "foundedDate")),
-            "registered_capital": self.pick_str(item, ("regCapital", "registeredCapital", "capital")),
-            "address": self.pick_str(item, ("regLocation", "address", "registeredAddress")),
-            "business_scope": self.pick_str(item, ("businessScope", "scope")),
-            "phone": self.pick_str(item, ("phone", "phoneNumber", "contactPhone", "tel", "联系电话")),
+            "legal_person": pick_str(item, ("legalPersonName", "legal_person", "legalRepresentative")),
+            "status": pick_str(item, ("regStatus", "status", "operatingStatus")),
+            "establish_date": pick_str(item, ("estiblishTime", "establishDate", "foundedDate")),
+            "registered_capital": pick_str(item, ("regCapital", "registeredCapital", "capital")),
+            "address": pick_str(item, ("regLocation", "address", "registeredAddress")),
+            "business_scope": pick_str(item, ("businessScope", "scope")),
+            "phone": pick_str(item, ("phone", "phoneNumber", "contactPhone", "tel", "联系电话")),
         }
 
     def normalize_risk_item(self, item: dict[str, Any], *, fallback_risk_type: str) -> dict[str, str]:
         return {
-            "risk_type": self.pick_str(item, ("riskType", "type")) or fallback_risk_type,
-            "title": self.pick_str(item, ("title", "riskTitle", "event", "name")),
-            "level": self.pick_str(item, ("level", "riskLevel", "degree")),
-            "amount": self.pick_str(item, ("amount", "amountStr", "money")),
-            "publish_date": self.pick_str(item, ("date", "publishDate", "eventTime", "filingDate")),
-            "source": self.pick_str(item, ("source", "court", "channel")),
+            "risk_type": pick_str(item, ("riskType", "type")) or fallback_risk_type,
+            "title": pick_str(item, ("title", "riskTitle", "event", "name")),
+            "level": pick_str(item, ("level", "riskLevel", "degree")),
+            "amount": pick_str(item, ("amount", "amountStr", "money")),
+            "publish_date": pick_str(item, ("date", "publishDate", "eventTime", "filingDate")),
+            "source": pick_str(item, ("source", "court", "channel")),
         }
 
     def normalize_shareholder_item(self, item: dict[str, Any]) -> dict[str, str]:
         return {
-            "name": self.pick_str(item, ("name", "shareholderName", "holderName")),
-            "amount": self.pick_str(item, ("subConAm", "capital", "amount", "contribution")),
-            "ratio": self.pick_str(item, ("holdRatio", "ratio", "sharePercent")),
-            "contribution_date": self.pick_str(item, ("conDate", "date", "subscribeDate")),
-            "source": self.pick_str(item, ("source", "type")),
+            "name": pick_str(item, ("name", "shareholderName", "holderName")),
+            "amount": pick_str(item, ("subConAm", "capital", "amount", "contribution")),
+            "ratio": pick_str(item, ("holdRatio", "ratio", "sharePercent")),
+            "contribution_date": pick_str(item, ("conDate", "date", "subscribeDate")),
+            "source": pick_str(item, ("source", "type")),
         }
 
     def normalize_personnel_item(self, item: dict[str, Any]) -> dict[str, str]:
         return {
-            "hcgid": self.pick_str(item, ("hcgid", "id", "personCompanyId")),
-            "name": self.pick_str(item, ("name", "personName")),
-            "position": self.pick_str(item, ("position", "jobTitle", "post")),
-            "education": self.pick_str(item, ("education", "academicDegree")),
-            "source": self.pick_str(item, ("source", "type")),
+            "hcgid": pick_str(item, ("hcgid", "id", "personCompanyId")),
+            "name": pick_str(item, ("name", "personName")),
+            "position": pick_str(item, ("position", "jobTitle", "post")),
+            "education": pick_str(item, ("education", "academicDegree")),
+            "source": pick_str(item, ("source", "type")),
         }
 
     def normalize_person_profile(self, item: dict[str, Any]) -> dict[str, str]:
         return {
-            "hcgid": self.pick_str(item, ("hcgid", "id", "personCompanyId")),
-            "name": self.pick_str(item, ("name", "personName")),
-            "position": self.pick_str(item, ("position", "jobTitle", "post")),
-            "intro": self.pick_str(item, ("intro", "introduction", "profile")),
-            "resume": self.pick_str(item, ("resume", "experience", "workExperience")),
+            "hcgid": pick_str(item, ("hcgid", "id", "personCompanyId")),
+            "name": pick_str(item, ("name", "personName")),
+            "position": pick_str(item, ("position", "jobTitle", "post")),
+            "intro": pick_str(item, ("intro", "introduction", "profile")),
+            "resume": pick_str(item, ("resume", "experience", "workExperience")),
         }
 
     def normalize_bidding_item(self, item: dict[str, Any]) -> dict[str, str]:
         return {
-            "title": self.pick_str(item, ("title", "announceTitle", "name")),
-            "project_name": self.pick_str(item, ("projectName", "project", "bidName")),
-            "role": self.pick_str(item, ("role", "identity", "bidRole")),
-            "amount": self.pick_str(item, ("amount", "amountStr", "money")),
-            "date": self.pick_str(item, ("date", "publishDate", "bidDate", "winningDate")),
-            "region": self.pick_str(item, ("region", "province", "city", "area")),
-            "source": self.pick_str(item, ("source", "type", "noticeType")),
-            "link": self.pick_str(item, ("url", "link", "detailUrl")),
+            "title": pick_str(item, ("title", "announceTitle", "name")),
+            "project_name": pick_str(item, ("projectName", "project", "bidName")),
+            "role": pick_str(item, ("role", "identity", "bidRole")),
+            "amount": pick_str(item, ("amount", "amountStr", "money")),
+            "date": pick_str(item, ("date", "publishDate", "bidDate", "winningDate")),
+            "region": pick_str(item, ("region", "province", "city", "area")),
+            "source": pick_str(item, ("source", "type", "noticeType")),
+            "link": pick_str(item, ("url", "link", "detailUrl")),
         }
+
+
+# ↓↓ 由 TianyanchaResponseAdapter 下沉的模块级纯函数（四层架构静态方法棘轮）
+def pick_str(obj: dict[str, Any], keys: tuple[str, ...]) -> str:
+    for key in keys:
+        value = obj.get(key)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return ""
+
+
+# ↓↓ 由 TianyanchaResponseAdapter 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _clean_markdown_value(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    text = text.replace("**", "").replace("`", "")
+    text = text.replace("\t", " ").replace("\r", " ").strip()
+    text = re.sub(r"\s+", " ", text)
+    return text

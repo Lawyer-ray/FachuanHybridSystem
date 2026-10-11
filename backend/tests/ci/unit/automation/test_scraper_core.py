@@ -12,6 +12,7 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -98,6 +99,7 @@ class TestScreenshotUtils:
         """截图目录不存在返回空列表。"""
         with tempfile.TemporaryDirectory() as tmpdir:
             import django.conf
+
             old_media_root = django.conf.settings.MEDIA_ROOT
             django.conf.settings.MEDIA_ROOT = tmpdir
             try:
@@ -111,6 +113,7 @@ class TestScreenshotUtils:
         """空截图目录返回空列表。"""
         with tempfile.TemporaryDirectory() as tmpdir:
             import django.conf
+
             old_media_root = django.conf.settings.MEDIA_ROOT
             django.conf.settings.MEDIA_ROOT = tmpdir
             try:
@@ -126,6 +129,7 @@ class TestScreenshotUtils:
         """收集截图文件。"""
         with tempfile.TemporaryDirectory() as tmpdir:
             import django.conf
+
             old_media_root = django.conf.settings.MEDIA_ROOT
             old_media_url = django.conf.settings.MEDIA_URL
             django.conf.settings.MEDIA_ROOT = tmpdir
@@ -148,6 +152,7 @@ class TestScreenshotUtils:
         """限制截图数量。"""
         with tempfile.TemporaryDirectory() as tmpdir:
             import django.conf
+
             old_media_root = django.conf.settings.MEDIA_ROOT
             old_media_url = django.conf.settings.MEDIA_URL
             django.conf.settings.MEDIA_ROOT = tmpdir

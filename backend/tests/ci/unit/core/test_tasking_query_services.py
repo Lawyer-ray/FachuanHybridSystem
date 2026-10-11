@@ -1,13 +1,13 @@
 """Tests for core tasking query services: TaskQueryService, ScheduleQueryService, task_queue_query."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.core.tasking.query import ScheduleQueryService, TaskQueryService
 from apps.core.tasking import task_queue_query
-
+from apps.core.tasking.query import ScheduleQueryService, TaskQueryService
 
 # ── TaskQueryService ──
 

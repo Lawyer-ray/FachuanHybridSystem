@@ -191,7 +191,7 @@ class FoshanLaborAwardCrawler:
 
         if existing is not None:
             existing.title = title
-            existing.case_number = self._parse_case_number(title)
+            existing.case_number = _parse_case_number(title)
             existing.publish_date = publish_date or existing.publish_date
             existing.publish_datetime = publish_datetime or existing.publish_datetime
             existing.crawl_status = "success"
@@ -212,7 +212,7 @@ class FoshanLaborAwardCrawler:
             doc = ArbitrationDocument.objects.create(
                 source=self.source,
                 title=title,
-                case_number=self._parse_case_number(title),
+                case_number=_parse_case_number(title),
                 detail_url=detail_url,
                 publish_date=publish_date,
                 publish_datetime=publish_datetime,
@@ -266,7 +266,8 @@ class FoshanLaborAwardCrawler:
                 pass
         return None
 
-    @staticmethod
-    def _parse_case_number(title: str) -> str:
-        m = _CASE_NO_RE.search(title or "")
-        return m.group(1) if m else ""
+
+# ↓↓ 由 FoshanLaborAwardCrawler 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _parse_case_number(title: str) -> str:
+    m = _CASE_NO_RE.search(title or "")
+    return m.group(1) if m else ""

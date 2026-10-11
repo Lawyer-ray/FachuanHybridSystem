@@ -207,6 +207,7 @@ class TestDocumentRenamer:
         import pytest
 
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException):
             r.extract_document_title("/nonexistent/file.pdf")
 
@@ -239,6 +240,7 @@ class TestDocumentRenamer:
         r = self._make_renamer()
         mock_extract.side_effect = RuntimeError("extract failed")
         import pytest
+
         with patch("pathlib.Path.exists", return_value=True):
             with pytest.raises(RuntimeError):
                 r.extract_document_title("/tmp/doc.pdf")
@@ -250,6 +252,7 @@ class TestDocumentRenamer:
         import pytest
 
         from apps.core.exceptions import ValidationException
+
         with pytest.raises(ValidationException):
             r.rename("/nonexistent/file.pdf", "case", date(2025, 6, 1))
 
@@ -269,8 +272,7 @@ class TestDocumentRenamer:
         mock_fts.render_court_doc.return_value = "fallback_name"
         mock_fts.get_unique_filepath.return_value = (Path("/tmp/fallback.pdf"), Path("/tmp/fallback.pdf"))
 
-        with patch.object(r, "rename", side_effect=RuntimeError("rename failed")), \
-             patch("pathlib.Path.rename"):
+        with patch.object(r, "rename", side_effect=RuntimeError("rename failed")), patch("pathlib.Path.rename"):
             result = r.rename_with_fallback("/tmp/doc.pdf", "case", date(2025, 6, 1), original_name="original.pdf")
             assert "/tmp" in result
 
@@ -282,8 +284,7 @@ class TestDocumentRenamer:
         mock_fts.render_court_doc.return_value = "fallback"
         mock_fts.get_unique_filepath.return_value = (Path("/tmp/f.pdf"), Path("/tmp/f.pdf"))
 
-        with patch.object(r, "rename", side_effect=RuntimeError("fail")), \
-             patch("pathlib.Path.rename"):
+        with patch.object(r, "rename", side_effect=RuntimeError("fail")), patch("pathlib.Path.rename"):
             result = r.rename_with_fallback("/tmp/doc.pdf", "case", date(2025, 6, 1))
             assert "/tmp" in result
 

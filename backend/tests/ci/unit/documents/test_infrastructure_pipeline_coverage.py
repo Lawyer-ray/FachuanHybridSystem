@@ -1,6 +1,7 @@
 """
 Tests for documents/services/infrastructure/ - pdf_utils, pipeline/packager, pipeline/preview, pipeline/renderer.
 """
+
 from __future__ import annotations
 
 import io
@@ -163,9 +164,7 @@ class TestZipPackager:
         packager = ZipPackager()
         structure = {
             "name": "root",
-            "children": [
-                {"name": "a", "children": [{"name": "b", "children": []}]}
-            ],
+            "children": [{"name": "a", "children": [{"name": "b", "children": []}]}],
         }
         documents = [("", b"data", "readme.txt")]
         result = packager.create(structure, documents)

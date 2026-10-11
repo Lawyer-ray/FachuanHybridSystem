@@ -179,7 +179,7 @@ class ContractReviewer:  # pragma: no cover
     ) -> list[ReviewResult]:
         """将合同全文和代表方信息发送给 LLM，返回修改建议"""
         text = "\n".join(f"[段落{i}] {p}" for i, p in enumerate(paragraphs))
-        prompt = self._build_revision_prompt(text, represented_party, party_a, party_b)
+        prompt = _build_revision_prompt(text, represented_party, party_a, party_b)
         try:
             resp = self._llm.complete(
                 prompt=prompt,
@@ -188,7 +188,7 @@ class ContractReviewer:  # pragma: no cover
                 max_tokens=32768,
                 fallback=True,
             )
-            return self._parse_revision_response(resp.content)
+            return _parse_revision_response(resp.content)
         except Exception:
             logger.exception("合同审查 LLM 调用失败")
             return []
@@ -203,7 +203,7 @@ class ContractReviewer:  # pragma: no cover
     ) -> str:
         """生成合同评估报告（Markdown 格式）"""
         text = "\n".join(f"[段落{i}] {p}" for i, p in enumerate(paragraphs))
-        prompt = self._build_report_prompt(text, represented_party, party_a, party_b)
+        prompt = _build_report_prompt(text, represented_party, party_a, party_b)
         try:
             resp = self._llm.complete(
                 prompt=prompt,
@@ -216,86 +216,6 @@ class ContractReviewer:  # pragma: no cover
         except Exception:
             logger.exception("评估报告生成失败")
             return ""
-
-    @staticmethod
-    def _build_revision_prompt(
-        text: str, represented_party: str, party_a: str, party_b: str
-    ) -> str:  # pragma: no cover
-        party_label = _PARTY_LABELS.get(represented_party, "甲方")
-        party_name = party_a if represented_party == "party_a" else party_b
-        return (
-            f"请作为一名具有多年经验的合同法律顾问，代表{party_label}（{party_name}）的利益，"
-            "对以下合同进行全面审查，找出需要修改的条款，输出精确的修改建议。\n"
-            f"甲方：{party_a}，乙方：{party_b}\n\n"
-            f"{_REVIEW_FRAMEWORK}\n"
-            "## 输出要求\n"
-            "- 不要修改错别字或语法问题（已有专门检查）\n"
-            "- original 必须是合同中的**原文片段**（精确逐字匹配，不要省略或改动任何字符）\n"
-            "- original 尽量短，只包含需要修改的关键句子或短语\n"
-            "- suggested 是修改后的完整替换文本\n"
-            "- reason 简要说明修改理由和风险等级（高/中/低）\n"
-            "每个段落前标注了段落编号 [段落N]。\n"
-            "仅返回 JSON 数组，格式：\n"
-            '[{"original": "原文片段", "suggested": "修改后文本", '
-            '"reason": "【高/中/低】修改理由", "paragraph_index": 段落编号}]\n'
-            "如果没有需要修改的条款，返回空数组 []。\n"
-            "不要返回任何其他内容。\n\n"
-            f"{text}"
-        )
-
-    @staticmethod
-    def _build_report_prompt(text: str, represented_party: str, party_a: str, party_b: str) -> str:  # pragma: no cover
-        party_label = _PARTY_LABELS.get(represented_party, "甲方")
-        party_name = party_a if represented_party == "party_a" else party_b
-        return (
-            f"请作为一名具有多年经验的合同法律顾问，代表{party_label}（{party_name}）的利益，"
-            "对以下合同进行全面、细致的审查，严格按照企业合同风险管控标准识别所有潜在问题与风险。"
-            "请遵循以下详细审核框架，不要遗漏任何一个审查点：\n"
-            f"甲方：{party_a}，乙方：{party_b}\n\n"
-            f"{_REVIEW_FRAMEWORK}\n"
-            "请逐条分析此合同中存在的每一个问题，对每个问题说明：\n"
-            "1. 问题的具体位置和内容\n"
-            "2. 为什么这构成风险或问题\n"
-            "3. 风险等级（高/中/低）\n"
-            "4. 修改建议\n\n"
-            "最后，请提供一个总体评估，指出最严重的三个问题和最需要优先修改的内容。\n\n"
-            "合同全文如下：\n\n"
-            f"{text}"
-        )
-
-    @staticmethod
-    def _parse_revision_response(response_text: str) -> list[ReviewResult]:  # pragma: no cover
-        text = response_text.strip()
-        if "```" in text:
-            start = text.find("[")
-            end = text.rfind("]") + 1
-            if start >= 0 and end > start:
-                text = text[start:end]
-
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError:
-            # 尝试修复被截断的 JSON：找到最后一个完整的 },] 截断
-            data = _try_fix_truncated_json(text)
-            if data is None:
-                logger.warning("合同审查 JSON 解析失败: %s", text[:200])
-                return []
-
-        if not isinstance(data, list):
-            return []
-
-        results: list[ReviewResult] = []
-        for item in data:
-            if isinstance(item, dict) and "original" in item and "suggested" in item:
-                results.append(
-                    ReviewResult(
-                        original=str(item["original"]),
-                        suggested=str(item["suggested"]),
-                        reason=str(item.get("reason", "")),
-                        paragraph_index=_parse_int(item.get("paragraph_index", 0)),
-                    )
-                )
-        return results
 
 
 def _parse_int(val: object) -> int:  # pragma: no cover
@@ -322,3 +242,84 @@ def _try_fix_truncated_json(text: str) -> list[dict[str, object]] | None:  # pra
     except json.JSONDecodeError:
         pass
     return None
+
+
+# ↓↓ 由 ContractReviewer 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _build_revision_prompt(text: str, represented_party: str, party_a: str, party_b: str) -> str:  # pragma: no cover
+    party_label = _PARTY_LABELS.get(represented_party, "甲方")
+    party_name = party_a if represented_party == "party_a" else party_b
+    return (
+        f"请作为一名具有多年经验的合同法律顾问，代表{party_label}（{party_name}）的利益，"
+        "对以下合同进行全面审查，找出需要修改的条款，输出精确的修改建议。\n"
+        f"甲方：{party_a}，乙方：{party_b}\n\n"
+        f"{_REVIEW_FRAMEWORK}\n"
+        "## 输出要求\n"
+        "- 不要修改错别字或语法问题（已有专门检查）\n"
+        "- original 必须是合同中的**原文片段**（精确逐字匹配，不要省略或改动任何字符）\n"
+        "- original 尽量短，只包含需要修改的关键句子或短语\n"
+        "- suggested 是修改后的完整替换文本\n"
+        "- reason 简要说明修改理由和风险等级（高/中/低）\n"
+        "每个段落前标注了段落编号 [段落N]。\n"
+        "仅返回 JSON 数组，格式：\n"
+        '[{"original": "原文片段", "suggested": "修改后文本", '
+        '"reason": "【高/中/低】修改理由", "paragraph_index": 段落编号}]\n'
+        "如果没有需要修改的条款，返回空数组 []。\n"
+        "不要返回任何其他内容。\n\n"
+        f"{text}"
+    )
+
+
+# ↓↓ 由 ContractReviewer 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _build_report_prompt(text: str, represented_party: str, party_a: str, party_b: str) -> str:  # pragma: no cover
+    party_label = _PARTY_LABELS.get(represented_party, "甲方")
+    party_name = party_a if represented_party == "party_a" else party_b
+    return (
+        f"请作为一名具有多年经验的合同法律顾问，代表{party_label}（{party_name}）的利益，"
+        "对以下合同进行全面、细致的审查，严格按照企业合同风险管控标准识别所有潜在问题与风险。"
+        "请遵循以下详细审核框架，不要遗漏任何一个审查点：\n"
+        f"甲方：{party_a}，乙方：{party_b}\n\n"
+        f"{_REVIEW_FRAMEWORK}\n"
+        "请逐条分析此合同中存在的每一个问题，对每个问题说明：\n"
+        "1. 问题的具体位置和内容\n"
+        "2. 为什么这构成风险或问题\n"
+        "3. 风险等级（高/中/低）\n"
+        "4. 修改建议\n\n"
+        "最后，请提供一个总体评估，指出最严重的三个问题和最需要优先修改的内容。\n\n"
+        "合同全文如下：\n\n"
+        f"{text}"
+    )
+
+
+# ↓↓ 由 ContractReviewer 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _parse_revision_response(response_text: str) -> list[ReviewResult]:  # pragma: no cover
+    text = response_text.strip()
+    if "```" in text:
+        start = text.find("[")
+        end = text.rfind("]") + 1
+        if start >= 0 and end > start:
+            text = text[start:end]
+
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        # 尝试修复被截断的 JSON：找到最后一个完整的 },] 截断
+        data = _try_fix_truncated_json(text)
+        if data is None:
+            logger.warning("合同审查 JSON 解析失败: %s", text[:200])
+            return []
+
+    if not isinstance(data, list):
+        return []
+
+    results: list[ReviewResult] = []
+    for item in data:
+        if isinstance(item, dict) and "original" in item and "suggested" in item:
+            results.append(
+                ReviewResult(
+                    original=str(item["original"]),
+                    suggested=str(item["suggested"]),
+                    reason=str(item.get("reason", "")),
+                    paragraph_index=_parse_int(item.get("paragraph_index", 0)),
+                )
+            )
+    return results

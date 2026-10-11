@@ -32,16 +32,18 @@ class TitleExtractor:
         logger.warning("未能提取合同标题")
         return ""
 
-    @staticmethod
-    def generate_output_filename(title: str, version: int = 1, task_id: str = "") -> str:
-        """生成格式：{title}[修订版]V{version}_{date}_{short_id}.docx"""
-        safe_title = re.sub(r'[\\/:*?"<>|]', "_", title) if title else "合同"
-        today = timezone.localdate().strftime("%Y%m%d")
-        suffix = f"_{task_id[:8]}" if task_id else ""
-        return f"{safe_title}[修订版]V{version}_{today}{suffix}.docx"
 
-    @staticmethod
-    def parse_title_from_filename(filename: str) -> str:
-        """从标准文件名中解析合同标题"""
-        match = re.match(r"^(.+?)\[修订版]", filename)
-        return match.group(1) if match else ""
+# ↓↓ 由 TitleExtractor 下沉的模块级纯函数（四层架构静态方法棘轮）
+def generate_output_filename(title: str, version: int = 1, task_id: str = "") -> str:
+    """生成格式：{title}[修订版]V{version}_{date}_{short_id}.docx"""
+    safe_title = re.sub(r'[\\/:*?"<>|]', "_", title) if title else "合同"
+    today = timezone.localdate().strftime("%Y%m%d")
+    suffix = f"_{task_id[:8]}" if task_id else ""
+    return f"{safe_title}[修订版]V{version}_{today}{suffix}.docx"
+
+
+# ↓↓ 由 TitleExtractor 下沉的模块级纯函数（四层架构静态方法棘轮）
+def parse_title_from_filename(filename: str) -> str:
+    """从标准文件名中解析合同标题"""
+    match = re.match(r"^(.+?)\[修订版]", filename)
+    return match.group(1) if match else ""

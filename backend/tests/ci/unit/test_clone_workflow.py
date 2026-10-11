@@ -60,9 +60,7 @@ def test_clone_related_data_full_flow() -> None:
     with (
         patch("apps.contracts.services.contract.admin.clone_workflow.ContractParty") as MockParty,
         patch("apps.contracts.services.contract.admin.clone_workflow.ContractAssignment") as MockAssignment,
-        patch(
-            "apps.contracts.services.contract.admin.clone_workflow.SupplementaryAgreement"
-        ) as MockAgreement,
+        patch("apps.contracts.services.contract.admin.clone_workflow.SupplementaryAgreement") as MockAgreement,
         patch(
             "apps.contracts.services.contract.admin.clone_workflow.SupplementaryAgreementParty"
         ) as MockAgreementParty,
@@ -88,9 +86,7 @@ def test_clone_related_data_no_agreements_skips_agreement_bulk_create() -> None:
     with (
         patch("apps.contracts.services.contract.admin.clone_workflow.ContractParty"),
         patch("apps.contracts.services.contract.admin.clone_workflow.ContractAssignment"),
-        patch(
-            "apps.contracts.services.contract.admin.clone_workflow.SupplementaryAgreement"
-        ) as MockAgreement,
+        patch("apps.contracts.services.contract.admin.clone_workflow.SupplementaryAgreement") as MockAgreement,
         patch(
             "apps.contracts.services.contract.admin.clone_workflow.SupplementaryAgreementParty"
         ) as MockAgreementParty,

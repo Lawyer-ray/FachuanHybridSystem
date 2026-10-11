@@ -4,6 +4,7 @@ Covers:
 - apps/cases/domain/validators.py  (is_applicable, normalize_stages)
 - apps/cases/dependencies.py       (create_message_content, get_chat_provider_factory)
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -12,7 +13,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.cases.domain.validators import APPLICABLE_TYPES, is_applicable, normalize_stages
-
 
 # ── is_applicable ───────────────────────────────────────────────────────────
 
@@ -175,6 +175,7 @@ class TestReExportCompatibility:
             OwnerConfigException,
             OwnerNotFoundException,
         )
+
         assert ChatCreationException is not None
         assert ConfigurationException is not None
         assert OwnerConfigException is not None

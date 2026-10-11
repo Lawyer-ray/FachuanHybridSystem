@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -63,7 +63,6 @@ def _make_task(
 
 
 class TestClassConstants:
-
     def test_hbfy_account_pattern(self):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
@@ -92,7 +91,6 @@ class TestClassConstants:
 
 
 class TestNormalizePhoneTail6:
-
     def test_long_number(self):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
@@ -130,7 +128,6 @@ class TestNormalizePhoneTail6:
 
 
 class TestHostEqualsOrSubdomain:
-
     def test_exact_match(self):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
@@ -153,7 +150,6 @@ class TestHostEqualsOrSubdomain:
 
 
 class TestIsSfdwUrl:
-
     def test_sfdw_domain(self):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
@@ -181,7 +177,6 @@ class TestIsSfdwUrl:
 
 
 class TestIsJysdUrl:
-
     def test_jysd_domain(self):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
@@ -209,7 +204,6 @@ class TestIsJysdUrl:
 
 
 class TestIsHbfyAccountUrl:
-
     def test_hbfy_domain(self):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
@@ -232,7 +226,6 @@ class TestIsHbfyAccountUrl:
 
 
 class TestIsZxfwUrl:
-
     def test_zxfw_domain(self):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
@@ -250,7 +243,6 @@ class TestIsZxfwUrl:
 
 
 class TestGetRequiredPlatformName:
-
     def test_zxfw_returns_none(self):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
@@ -292,7 +284,6 @@ class TestGetRequiredPlatformName:
 
 
 class TestIsPlaywrightAvailable:
-
     def test_returns_bool(self):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
@@ -306,7 +297,6 @@ class TestIsPlaywrightAvailable:
 
 
 class TestExtractHbfyCredentials:
-
     def test_both_found(self):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
@@ -331,7 +321,6 @@ class TestExtractHbfyCredentials:
 
 
 class TestExtractSfdwVerificationCode:
-
     def test_found(self):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
@@ -351,7 +340,6 @@ class TestExtractSfdwVerificationCode:
 
 
 class TestCollectLawyerPhones:
-
     def test_empty_when_no_case(self):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
@@ -370,9 +358,7 @@ class TestCollectLawyerPhones:
         lawyer.phone = "00000000000"
         assignment = MagicMock()
         assignment.lawyer = lawyer
-        MockAssignment.objects.select_related.return_value.filter.return_value.order_by.return_value = [
-            assignment
-        ]
+        MockAssignment.objects.select_related.return_value.filter.return_value.order_by.return_value = [assignment]
         MockServiceLocator.get_lawyer_service.return_value.get_admin_lawyer.return_value = None
         sms = _make_sms(case=MagicMock())
         phones = mixin._collect_lawyer_phones(sms)
@@ -385,7 +371,6 @@ class TestCollectLawyerPhones:
 
 
 class TestCollectLawyerPhoneTail6Candidates:
-
     def test_deduplicates(self):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
@@ -412,7 +397,6 @@ class TestCollectLawyerPhoneTail6Candidates:
 
 
 class TestCreateDownloadTask:
-
     @patch(f"{_MOD}.ScraperTask")
     @patch(f"{_MOD}.submit_task")
     def test_no_download_links(self, mock_submit, MockScraperTask):
@@ -525,7 +509,6 @@ class TestCreateDownloadTask:
 
 
 class TestShouldWaitForDocumentDownload:
-
     def test_no_party_names_no_links_no_task(self):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
@@ -590,7 +573,6 @@ class TestShouldWaitForDocumentDownload:
 
 
 class TestRefreshScraperTask:
-
     @patch(f"{_MOD}.ScraperTask")
     def test_returns_none_when_no_task(self, MockScraperTask):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
@@ -627,7 +609,6 @@ class TestRefreshScraperTask:
 
 
 class TestCheckDocumentsWaitStatus:
-
     def test_no_documents_pending_task_waits(self):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
@@ -688,7 +669,6 @@ class TestCheckDocumentsWaitStatus:
 
 
 class TestHandleScraperTaskStatusChange:
-
     @patch(f"{_MOD}.CourtSMS")
     @patch(f"{_MOD}.submit_task")
     def test_success_triggers_matching(self, mock_submit, MockCourtSMS):
@@ -745,7 +725,6 @@ class TestHandleScraperTaskStatusChange:
 
 
 class TestHandleSmsDownloadFailed:
-
     @patch(f"{_MOD}.submit_task")
     def test_matching_status_continues(self, mock_submit):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
@@ -788,7 +767,6 @@ class TestHandleSmsDownloadFailed:
 
 
 class TestProcessDownloadingOrMatching:
-
     @patch(f"{_MOD}.SMSDownloadMixin._create_download_task")
     def test_with_download_link_creates_task(self, mock_create):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin

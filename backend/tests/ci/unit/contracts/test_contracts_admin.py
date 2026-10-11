@@ -69,9 +69,7 @@ class TestContractPaymentAdmin:
     def test_get_queryset_select_related(self) -> None:
         """get_queryset 应使用 select_related 避免 N+1"""
         contract = Contract.objects.create(name="付款测试合同", case_type="civil")
-        ContractPayment.objects.create(
-            contract=contract, amount=Decimal("10000.00"), received_at="2024-01-01"
-        )
+        ContractPayment.objects.create(contract=contract, amount=Decimal("10000.00"), received_at="2024-01-01")
 
         admin_obj = ContractPaymentAdmin(ContractPayment, AdminSite())
         qs = admin_obj.get_queryset(_make_request())
@@ -98,12 +96,8 @@ class TestSupplementaryAgreementAdmin:
         sa = SupplementaryAgreement.objects.create(contract=contract, name="补充协议1")
         client1 = Client.objects.create(name="当事人1", client_type="natural")
         client2 = Client.objects.create(name="当事人2", client_type="natural")
-        SupplementaryAgreementParty.objects.create(
-            supplementary_agreement=sa, client=client1, role="PRINCIPAL"
-        )
-        SupplementaryAgreementParty.objects.create(
-            supplementary_agreement=sa, client=client2, role="OPPOSING"
-        )
+        SupplementaryAgreementParty.objects.create(supplementary_agreement=sa, client=client1, role="PRINCIPAL")
+        SupplementaryAgreementParty.objects.create(supplementary_agreement=sa, client=client2, role="OPPOSING")
 
         admin_obj = SupplementaryAgreementAdmin(SupplementaryAgreement, AdminSite())
         qs = admin_obj.get_queryset(_make_request())
@@ -116,9 +110,7 @@ class TestSupplementaryAgreementAdmin:
         contract = Contract.objects.create(name="显示测试合同", case_type="civil")
         sa = SupplementaryAgreement.objects.create(contract=contract, name="补充协议")
         client1 = Client.objects.create(name="显示当事人1", client_type="natural")
-        SupplementaryAgreementParty.objects.create(
-            supplementary_agreement=sa, client=client1, role="PRINCIPAL"
-        )
+        SupplementaryAgreementParty.objects.create(supplementary_agreement=sa, client=client1, role="PRINCIPAL")
 
         admin_obj = SupplementaryAgreementAdmin(SupplementaryAgreement, AdminSite())
         qs = admin_obj.get_queryset(_make_request())

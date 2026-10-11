@@ -1,4 +1,5 @@
 """Tests for apps.core.config.providers.yaml — YamlProvider."""
+
 from __future__ import annotations
 
 import tempfile

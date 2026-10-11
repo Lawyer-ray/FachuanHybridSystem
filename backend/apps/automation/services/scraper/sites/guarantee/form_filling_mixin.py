@@ -19,7 +19,7 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
         if not target_name:
             return False
 
-        keyword = self._extract_court_keyword(target_name)
+        keyword = _extract_court_keyword(target_name)
         short_name = target_name.replace("人民法院", "").strip()
         court_input = self.page.locator("input[placeholder*='法院']").first
         if court_input.count() == 0:
@@ -628,13 +628,14 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
         selected_text = str(selected or "").strip()
         return selected_text or None
 
-    @staticmethod
-    def _extract_court_keyword(court_name: str) -> str:
-        name = str(court_name or "").replace("人民法院", "").strip()
-        for sep in ("区", "县"):
-            if sep in name:
-                idx = name.index(sep)
-                return name[max(0, idx - 2) : idx + 1]
-        if len(name) >= 4:
-            return name[-4:]
-        return name or "广东"
+
+# ↓↓ 由 GuaranteeFormFillingMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _extract_court_keyword(court_name: str) -> str:
+    name = str(court_name or "").replace("人民法院", "").strip()
+    for sep in ("区", "县"):
+        if sep in name:
+            idx = name.index(sep)
+            return name[max(0, idx - 2) : idx + 1]
+    if len(name) >= 4:
+        return name[-4:]
+    return name or "广东"

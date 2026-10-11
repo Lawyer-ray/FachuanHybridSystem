@@ -4,11 +4,12 @@ Covers: __init__, _resolve_access, _require_case_access, _resolve_owner_id,
 _resolve_default_platform, create_chat_for_case, get_or_create_chat,
 send_document_notification, unbind_chat, bind_existing_chat.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -16,11 +17,13 @@ import pytest
 class TestCaseChatServiceInit:
     def test_default_init(self):
         from apps.cases.services.chat.case_chat_service import CaseChatService
+
         svc = CaseChatService()
         assert svc._send_notification_usecase is None
 
     def test_custom_deps(self):
         from apps.cases.services.chat.case_chat_service import CaseChatService
+
         repo = MagicMock()
         name_builder = MagicMock()
         provider_facade = MagicMock()
@@ -40,6 +43,7 @@ class TestCaseChatServiceInit:
 
     def test_access_policy_lazy(self):
         from apps.cases.services.chat.case_chat_service import CaseChatService
+
         svc = CaseChatService()
         with patch("apps.cases.services.chat.case_chat_service.CaseAccessPolicy") as MockPolicy:
             policy = svc.access_policy
@@ -51,6 +55,7 @@ class TestCaseChatServiceInit:
 class TestResolveAccess:
     def _make_svc(self):
         from apps.cases.services.chat.case_chat_service import CaseChatService
+
         return CaseChatService(access_policy=MagicMock())
 
     def test_with_context(self):
@@ -68,6 +73,7 @@ class TestResolveAccess:
 class TestRequireCaseAccess:
     def _make_svc(self):
         from apps.cases.services.chat.case_chat_service import CaseChatService
+
         return CaseChatService(access_policy=MagicMock())
 
     def test_calls_ensure_access(self):
@@ -80,11 +86,13 @@ class TestRequireCaseAccess:
 class TestResolveDefaultPlatform:
     def _make_svc(self):
         from apps.cases.services.chat.case_chat_service import CaseChatService
+
         return CaseChatService()
 
     def test_returns_first_available(self):
         svc = self._make_svc()
         from apps.core.models.enums import ChatPlatform
+
         with patch("apps.automation.services.chat.factory.ChatProviderFactory") as MockFactory:
             MockFactory.get_available_platforms.return_value = [ChatPlatform.DINGTALK]
             result = svc._resolve_default_platform()
@@ -93,6 +101,7 @@ class TestResolveDefaultPlatform:
     def test_returns_feishu_when_empty(self):
         svc = self._make_svc()
         from apps.core.models.enums import ChatPlatform
+
         with patch("apps.automation.services.chat.factory.ChatProviderFactory") as MockFactory:
             MockFactory.get_available_platforms.return_value = []
             result = svc._resolve_default_platform()
@@ -101,6 +110,7 @@ class TestResolveDefaultPlatform:
     def test_returns_feishu_on_exception(self):
         svc = self._make_svc()
         from apps.core.models.enums import ChatPlatform
+
         with patch("apps.automation.services.chat.factory.ChatProviderFactory") as MockFactory:
             MockFactory.get_available_platforms.side_effect = Exception("import fail")
             result = svc._resolve_default_platform()
@@ -110,6 +120,7 @@ class TestResolveDefaultPlatform:
 class TestCreateChatForCase:
     def _make_svc(self):
         from apps.cases.services.chat.case_chat_service import CaseChatService
+
         return CaseChatService(
             repo=MagicMock(),
             name_builder=MagicMock(),
@@ -120,6 +131,7 @@ class TestCreateChatForCase:
     def test_success(self):
         svc = self._make_svc()
         from apps.core.models.enums import ChatPlatform
+
         svc.repo.get_case.return_value = SimpleNamespace(id=1)
         svc.name_builder.build.return_value = "chat_name"
         create_result = SimpleNamespace(
@@ -134,11 +146,16 @@ class TestCreateChatForCase:
     def test_creation_failure(self):
         svc = self._make_svc()
         from apps.core.models.enums import ChatPlatform
+
         svc.repo.get_case.return_value = SimpleNamespace(id=1)
         svc.name_builder.build.return_value = "chat_name"
         create_result = SimpleNamespace(
-            success=False, chat_id=None, chat_name=None, message="fail",
-            error_code="ERR", raw_response=None,
+            success=False,
+            chat_id=None,
+            chat_name=None,
+            message="fail",
+            error_code="ERR",
+            raw_response=None,
         )
         svc.provider_facade.get_provider_for_creation.return_value = MagicMock()
         svc.provider_facade.create_chat.return_value = create_result
@@ -149,6 +166,7 @@ class TestCreateChatForCase:
 class TestGetOrCreateChat:
     def _make_svc(self):
         from apps.cases.services.chat.case_chat_service import CaseChatService
+
         return CaseChatService(
             repo=MagicMock(),
             name_builder=MagicMock(),
@@ -159,6 +177,7 @@ class TestGetOrCreateChat:
     def test_existing_chat_returned(self):
         svc = self._make_svc()
         from apps.core.models.enums import ChatPlatform
+
         existing = SimpleNamespace(chat_id="oc_existing", name="existing_chat")
         svc.repo.get_case.return_value = SimpleNamespace(id=1)
         svc.repo.get_active_chat.return_value = existing
@@ -168,12 +187,17 @@ class TestGetOrCreateChat:
     def test_no_existing_creates(self):
         svc = self._make_svc()
         from apps.core.models.enums import ChatPlatform
+
         svc.repo.get_case.return_value = SimpleNamespace(id=1)
         svc.repo.get_active_chat.return_value = None
         svc.name_builder.build.return_value = "name"
         create_result = SimpleNamespace(
-            success=True, chat_id="oc_new", chat_name="name",
-            message=None, error_code=None, raw_response=None,
+            success=True,
+            chat_id="oc_new",
+            chat_name="name",
+            message=None,
+            error_code=None,
+            raw_response=None,
         )
         svc.provider_facade.get_provider_for_creation.return_value = MagicMock()
         svc.provider_facade.create_chat.return_value = create_result
@@ -185,6 +209,7 @@ class TestGetOrCreateChat:
 class TestSendDocumentNotification:
     def _make_svc(self):
         from apps.cases.services.chat.case_chat_service import CaseChatService
+
         return CaseChatService(
             repo=MagicMock(),
             name_builder=MagicMock(),
@@ -206,12 +231,14 @@ class TestSendDocumentNotification:
 class TestUnbindChat:
     def test_success(self):
         from apps.cases.services.chat.case_chat_service import CaseChatService
+
         svc = CaseChatService(repo=MagicMock())
         svc.repo.unbind_chat.return_value = True
         assert svc.unbind_chat(chat_id=1) is True
 
     def test_system_error(self):
         from apps.cases.services.chat.case_chat_service import CaseChatService
+
         svc = CaseChatService(repo=MagicMock())
         svc.repo.unbind_chat.side_effect = Exception("fail")
         with pytest.raises(Exception):
@@ -221,6 +248,7 @@ class TestUnbindChat:
 class TestBindExistingChat:
     def _make_svc(self):
         from apps.cases.services.chat.case_chat_service import CaseChatService
+
         return CaseChatService(
             repo=MagicMock(),
             name_builder=MagicMock(),
@@ -231,49 +259,44 @@ class TestBindExistingChat:
     def test_empty_chat_id_raises(self):
         svc = self._make_svc()
         from apps.core.models.enums import ChatPlatform
+
         with pytest.raises(Exception, match="群聊ID不能为空"):
-            svc.bind_existing_chat(
-                case_id=1, platform=ChatPlatform.FEISHU, chat_id=""
-            )
+            svc.bind_existing_chat(case_id=1, platform=ChatPlatform.FEISHU, chat_id="")
 
     def test_whitespace_chat_id_raises(self):
         svc = self._make_svc()
         from apps.core.models.enums import ChatPlatform
+
         with pytest.raises(Exception, match="群聊ID不能为空"):
-            svc.bind_existing_chat(
-                case_id=1, platform=ChatPlatform.FEISHU, chat_id="   "
-            )
+            svc.bind_existing_chat(case_id=1, platform=ChatPlatform.FEISHU, chat_id="   ")
 
     def test_success(self):
         svc = self._make_svc()
         from apps.core.models.enums import ChatPlatform
+
         svc.repo.get_case.return_value = SimpleNamespace(id=1)
         svc.provider_facade.try_get_chat_name.return_value = "chat_name"
         svc.repo.create_binding.return_value = SimpleNamespace(name="chat_name")
-        result = svc.bind_existing_chat(
-            case_id=1, platform=ChatPlatform.FEISHU, chat_id="oc_123", chat_name="my_chat"
-        )
+        result = svc.bind_existing_chat(case_id=1, platform=ChatPlatform.FEISHU, chat_id="oc_123", chat_name="my_chat")
         assert result.name == "chat_name"
 
     def test_no_name_fetched_from_provider(self):
         svc = self._make_svc()
         from apps.core.models.enums import ChatPlatform
+
         svc.repo.get_case.return_value = SimpleNamespace(id=1)
         svc.provider_facade.try_get_chat_name.return_value = "fetched_name"
         svc.repo.create_binding.return_value = SimpleNamespace(name="fetched_name")
-        result = svc.bind_existing_chat(
-            case_id=1, platform=ChatPlatform.FEISHU, chat_id="oc_123"
-        )
+        result = svc.bind_existing_chat(case_id=1, platform=ChatPlatform.FEISHU, chat_id="oc_123")
         assert result.name == "fetched_name"
 
     def test_provider_no_name_uses_builder(self):
         svc = self._make_svc()
         from apps.core.models.enums import ChatPlatform
+
         svc.repo.get_case.return_value = SimpleNamespace(id=1)
         svc.provider_facade.try_get_chat_name.return_value = None
         svc.name_builder.build.return_value = "built_name"
         svc.repo.create_binding.return_value = SimpleNamespace(name="built_name")
-        result = svc.bind_existing_chat(
-            case_id=1, platform=ChatPlatform.FEISHU, chat_id="oc_123"
-        )
+        result = svc.bind_existing_chat(case_id=1, platform=ChatPlatform.FEISHU, chat_id="oc_123")
         assert result.name == "built_name"

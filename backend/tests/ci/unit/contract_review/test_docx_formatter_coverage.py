@@ -6,7 +6,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.contract_review.services.formatting.docx_formatter import _FONT_SIZE, _HEADING_STYLES, DocxFormatter
+from apps.contract_review.services.formatting.docx_formatter import (
+    _FONT_SIZE,
+    _HEADING_STYLES,
+    DocxFormatter,
+    _clean_style_indent_chars,
+    _find_title_element,
+    _set_font,
+    _set_paragraph_spacing,
+)
 
 
 @pytest.fixture
@@ -43,7 +51,7 @@ class TestFindTitleElement:
         para_normal.text = "Body text"
         doc = MagicMock()
         doc.paragraphs = [para_heading, para_normal]
-        result = DocxFormatter._find_title_element(doc)
+        result = _find_title_element(doc)
         assert result == "elem1"
 
     def test_finds_first_non_empty_para(self) -> None:
@@ -53,13 +61,13 @@ class TestFindTitleElement:
         para._element = "elem_title"
         doc = MagicMock()
         doc.paragraphs = [para]
-        result = DocxFormatter._find_title_element(doc)
+        result = _find_title_element(doc)
         assert result == "elem_title"
 
     def test_no_paragraphs(self) -> None:
         doc = MagicMock()
         doc.paragraphs = []
-        result = DocxFormatter._find_title_element(doc)
+        result = _find_title_element(doc)
         assert result is None
 
     def test_empty_style_and_text(self) -> None:
@@ -68,7 +76,7 @@ class TestFindTitleElement:
         para.text = ""
         doc = MagicMock()
         doc.paragraphs = [para]
-        result = DocxFormatter._find_title_element(doc)
+        result = _find_title_element(doc)
         assert result is None
 
 
@@ -83,7 +91,7 @@ class TestSetParagraphSpacing:
         para._element = MagicMock()
         para._element.find.return_value = MagicMock()
 
-        DocxFormatter._set_paragraph_spacing(para, is_title=True)
+        _set_paragraph_spacing(para, is_title=True)
 
         assert fmt.first_line_indent.pt == 0
         assert fmt.space_before.pt == 0
@@ -95,7 +103,7 @@ class TestSetParagraphSpacing:
         para._element = MagicMock()
         para._element.find.return_value = MagicMock()
 
-        DocxFormatter._set_paragraph_spacing(para, is_title=False)
+        _set_paragraph_spacing(para, is_title=False)
 
         assert fmt.first_line_indent.pt == 24
 
@@ -118,7 +126,7 @@ class TestSetFont:
             run._element.find.return_value = mock_rpr
             mock_rpr.find.return_value = mock_rfonts
 
-            DocxFormatter._set_font(para, "黑体", Pt(18))
+            _set_font(para, "黑体", Pt(18))
 
             assert run.font.name == "黑体"
             assert run.font.size == Pt(18)
@@ -140,7 +148,7 @@ class TestSetFont:
             r_elem.find.return_value = mock_rpr
             mock_rpr.find.return_value = mock_rfonts
 
-            DocxFormatter._set_font(para, "宋体", Pt(12))
+            _set_font(para, "宋体", Pt(12))
             assert run.font.name == "宋体"
 
 
@@ -167,7 +175,7 @@ class TestCleanStyleIndentChars:
         doc = MagicMock()
         doc.styles = [style]
 
-        DocxFormatter._clean_style_indent_chars(doc)
+        _clean_style_indent_chars(doc)
         # Verify only the 2 present keys were deleted
         assert ind.attrib == {}
 
@@ -176,7 +184,7 @@ class TestCleanStyleIndentChars:
         style.element.find.return_value = None
         doc = MagicMock()
         doc.styles = [style]
-        assert DocxFormatter._clean_style_indent_chars(doc) is None
+        assert _clean_style_indent_chars(doc) is None
         style.element.find.assert_called_once()
 
     def test_no_ind_skipped(self) -> None:
@@ -186,7 +194,7 @@ class TestCleanStyleIndentChars:
         style.element.find.return_value = s_pPr
         doc = MagicMock()
         doc.styles = [style]
-        assert DocxFormatter._clean_style_indent_chars(doc) is None
+        assert _clean_style_indent_chars(doc) is None
         s_pPr.find.assert_called_once()
 
 

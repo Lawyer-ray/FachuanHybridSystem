@@ -172,9 +172,7 @@ class TestJWTOrSessionAuth:
 
         mock_user = MagicMock(id=1, is_active=True)
         with patch("apps.core.security.auth.JWTOrSessionAuth._load_user", return_value=mock_user):
-            with patch(
-                "apps.core.security.download_tickets.consume_download_ticket", return_value=1
-            ):
+            with patch("apps.core.security.download_tickets.consume_download_ticket", return_value=1):
                 result = auth(request)
                 assert result is mock_user
 
@@ -191,9 +189,7 @@ class TestJWTOrSessionAuth:
 
         mock_user = MagicMock(id=1, is_active=True)
         with patch("apps.core.security.auth.JWTOrSessionAuth._load_user", return_value=mock_user):
-            with patch(
-                "apps.core.security.download_tickets.consume_download_ticket", return_value=1
-            ):
+            with patch("apps.core.security.download_tickets.consume_download_ticket", return_value=1):
                 result = auth(request)
                 assert result is mock_user
 

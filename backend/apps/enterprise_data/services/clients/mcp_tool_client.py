@@ -211,7 +211,7 @@ class McpToolClient:
             "raw": {
                 "is_error": bool(result.is_error),
                 "structured_content": result.structured_content,
-                "content": [self._serialize_content_item(item) for item in result.content],
+                "content": [_serialize_content_item(item) for item in result.content],
             },
         }
 
@@ -554,12 +554,6 @@ class McpToolClient:
         base_digest = hashlib.md5(self._base_url.encode("utf-8"), usedforsecurity=False).hexdigest()
         return f"enterprise_data:transport_unhealthy:{self._provider_name}:{transport}:{base_digest}"
 
-    @staticmethod
-    def _serialize_content_item(item: Any) -> dict[str, Any]:
-        if hasattr(item, "model_dump"):
-            return cast(dict[str, Any], item.model_dump(by_alias=True, mode="json", exclude_none=True))
-        return {"value": str(item)}
-
     def _extract_payload(self, result: types.CallToolResult) -> Any:
         if result.structured_content is not None:
             return result.structured_content
@@ -572,7 +566,7 @@ class McpToolClient:
             text = str(getattr(item, "text", "") or "").strip()
             if not text:
                 continue
-            parsed = self._try_parse_json(text)
+            parsed = _try_parse_json(text)
             if parsed is not None:
                 parsed_json.append(parsed)
             else:
@@ -586,14 +580,7 @@ class McpToolClient:
             return plain_text[0]
         if plain_text:
             return plain_text
-        return [self._serialize_content_item(item) for item in result.content]
-
-    @staticmethod
-    def _try_parse_json(text: str) -> Any | None:
-        try:
-            return json.loads(text)
-        except (TypeError, ValueError):
-            return None
+        return [_serialize_content_item(item) for item in result.content]
 
     def _acquire_rate_limit(self, *, action: str) -> None:  # pragma: no cover
         now = int(time.time())
@@ -628,7 +615,7 @@ class McpToolClient:
         )
 
     def _should_retry(self, exc: Exception) -> bool:  # pragma: no cover
-        for item in self._collect_related_exceptions(exc):
+        for item in _collect_related_exceptions(exc):
             if isinstance(item, (ValidationException, AuthenticationError)):
                 return False
             if isinstance(item, httpx2.TimeoutException):
@@ -643,7 +630,7 @@ class McpToolClient:
         return False
 
     def _should_switch_api_key(self, exc: Exception) -> bool:  # pragma: no cover
-        for item in self._collect_related_exceptions(exc):
+        for item in _collect_related_exceptions(exc):
             if isinstance(item, AuthenticationError):
                 return True
             if isinstance(item, ExternalServiceError):
@@ -652,14 +639,14 @@ class McpToolClient:
                     return True
             if isinstance(item, httpx2.HTTPStatusError):
                 status_code = int(getattr(item.response, "status_code", 0) or 0)
-                if status_code == 429 or self._is_auth_like_http_error(item):
+                if status_code == 429 or _is_auth_like_http_error(item):
                     return True
         return False
 
     def _mark_api_key_failure(self, *, api_key: str, exc: Exception) -> None:  # pragma: no cover
         if not api_key:
             return
-        for item in self._collect_related_exceptions(exc):
+        for item in _collect_related_exceptions(exc):
             if isinstance(item, AuthenticationError):
                 self._api_key_pool.mark_auth_failed(api_key)
                 return
@@ -670,7 +657,7 @@ class McpToolClient:
                     return
             if isinstance(item, httpx2.HTTPStatusError):
                 status_code = int(getattr(item.response, "status_code", 0) or 0)
-                if self._is_auth_like_http_error(item):
+                if _is_auth_like_http_error(item):
                     self._api_key_pool.mark_auth_failed(api_key)
                     return
                 if status_code == 429:
@@ -683,7 +670,7 @@ class McpToolClient:
         return True
 
     def _raise_transport_error(self, *, action: str, exc: Exception) -> None:  # pragma: no cover
-        collected = self._collect_related_exceptions(exc)
+        collected = _collect_related_exceptions(exc)
         for item in collected:
             if isinstance(item, (ValidationException, AuthenticationError, ExternalServiceError)):
                 raise item
@@ -692,7 +679,7 @@ class McpToolClient:
             if not isinstance(item, httpx2.HTTPStatusError):
                 continue
             status_code = int(getattr(item.response, "status_code", 0) or 0)
-            if self._is_auth_like_http_error(item):
+            if _is_auth_like_http_error(item):
                 raise AuthenticationError(
                     message=f"{self._provider_name} 鉴权失败，请检查 API Key",
                     code="MCP_AUTH_ERROR",
@@ -732,100 +719,119 @@ class McpToolClient:
             errors={"provider": self._provider_name, "action": action, "error_type": type(exc).__name__},
         ) from exc
 
-    @staticmethod
-    def _is_auth_like_http_error(error: httpx2.HTTPStatusError) -> bool:
-        status_code = int(getattr(error.response, "status_code", 0) or 0)
-        if status_code in (401, 403):
-            return True
 
-        response = getattr(error, "response", None)
-        if response is None:
-            return False
+# ↓↓ 由 McpToolClient 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _serialize_content_item(item: Any) -> dict[str, Any]:
+    if hasattr(item, "model_dump"):
+        return cast(dict[str, Any], item.model_dump(by_alias=True, mode="json", exclude_none=True))
+    return {"value": str(item)}
 
+
+# ↓↓ 由 McpToolClient 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _try_parse_json(text: str) -> Any | None:
+    try:
+        return json.loads(text)
+    except (TypeError, ValueError):
+        return None
+
+
+# ↓↓ 由 McpToolClient 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _is_auth_like_http_error(error: httpx2.HTTPStatusError) -> bool:
+    status_code = int(getattr(error.response, "status_code", 0) or 0)
+    if status_code in (401, 403):
+        return True
+
+    response = getattr(error, "response", None)
+    if response is None:
+        return False
+
+    lowered_text = ""
+    try:
+        lowered_text = str(response.text or "").lower()
+    except Exception:
         lowered_text = ""
-        try:
-            lowered_text = str(response.text or "").lower()
-        except Exception:
-            lowered_text = ""
-        if McpToolClient._contains_auth_token(lowered_text):
-            return True
+    if _contains_auth_token(lowered_text):
+        return True
 
-        try:
-            body = response.json()
-        except Exception:
-            return False
+    try:
+        body = response.json()
+    except Exception:
+        return False
 
-        flattened_hint = McpToolClient._flatten_error_payload_text(body)
-        if not flattened_hint:
-            return False
-        return McpToolClient._contains_auth_token(flattened_hint)
+    flattened_hint = _flatten_error_payload_text(body)
+    if not flattened_hint:
+        return False
+    return _contains_auth_token(flattened_hint)
 
-    @staticmethod
-    def _contains_auth_token(text: str) -> bool:
-        normalized = str(text or "").lower()
-        auth_tokens = (
-            "auth_error",
-            "authentication",
-            "authentication_error",
-            "unauthorized",
-            "invalid api key",
-            "apikey",
-            "api key",
-            "token",
-            "signature",
-        )
-        return any(token in normalized for token in auth_tokens)
 
-    @staticmethod
-    def _flatten_error_payload_text(payload: Any) -> str:
-        fragments: list[str] = []
+# ↓↓ 由 McpToolClient 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _contains_auth_token(text: str) -> bool:
+    normalized = str(text or "").lower()
+    auth_tokens = (
+        "auth_error",
+        "authentication",
+        "authentication_error",
+        "unauthorized",
+        "invalid api key",
+        "apikey",
+        "api key",
+        "token",
+        "signature",
+    )
+    return any(token in normalized for token in auth_tokens)
 
-        def _walk(value: Any) -> None:
-            if value is None:
-                return
-            if isinstance(value, (str, int, float, bool)):
-                text = str(value).strip().lower()
-                if text:
-                    fragments.append(text)
-                return
-            if isinstance(value, dict):
-                for key, nested in value.items():
-                    key_text = str(key).strip().lower()
-                    if key_text:
-                        fragments.append(key_text)
-                    _walk(nested)
-                return
-            if isinstance(value, list):
-                for nested in value:
-                    _walk(nested)
-                return
 
-        _walk(payload)
-        return " ".join(fragments)
+# ↓↓ 由 McpToolClient 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _flatten_error_payload_text(payload: Any) -> str:
+    fragments: list[str] = []
 
-    @staticmethod
-    def _collect_related_exceptions(exc: BaseException) -> list[BaseException]:
-        queue: list[BaseException] = [exc]
-        seen: set[int] = set()
-        collected: list[BaseException] = []
+    def _walk(value: Any) -> None:
+        if value is None:
+            return
+        if isinstance(value, (str, int, float, bool)):
+            text = str(value).strip().lower()
+            if text:
+                fragments.append(text)
+            return
+        if isinstance(value, dict):
+            for key, nested in value.items():
+                key_text = str(key).strip().lower()
+                if key_text:
+                    fragments.append(key_text)
+                _walk(nested)
+            return
+        if isinstance(value, list):
+            for nested in value:
+                _walk(nested)
+            return
 
-        while queue:
-            current = queue.pop(0)
-            marker = id(current)
-            if marker in seen:
-                continue
-            seen.add(marker)
-            collected.append(current)
+    _walk(payload)
+    return " ".join(fragments)
 
-            if isinstance(current, BaseExceptionGroup):
-                queue.extend(current.exceptions)
 
-            cause = getattr(current, "__cause__", None)
-            if isinstance(cause, BaseException):
-                queue.append(cause)
+# ↓↓ 由 McpToolClient 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _collect_related_exceptions(exc: BaseException) -> list[BaseException]:
+    queue: list[BaseException] = [exc]
+    seen: set[int] = set()
+    collected: list[BaseException] = []
 
-            context = getattr(current, "__context__", None)
-            if isinstance(context, BaseException):
-                queue.append(context)
+    while queue:
+        current = queue.pop(0)
+        marker = id(current)
+        if marker in seen:
+            continue
+        seen.add(marker)
+        collected.append(current)
 
-        return collected
+        if isinstance(current, BaseExceptionGroup):
+            queue.extend(current.exceptions)
+
+        cause = getattr(current, "__cause__", None)
+        if isinstance(cause, BaseException):
+            queue.append(cause)
+
+        context = getattr(current, "__context__", None)
+        if isinstance(context, BaseException):
+            queue.append(context)
+
+    return collected

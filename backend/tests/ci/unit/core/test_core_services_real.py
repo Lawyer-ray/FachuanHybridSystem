@@ -11,6 +11,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.core.services.material_classification_service import (
+    _extract_json,
+    _extract_party_ids_by_side,
+    _extract_primary_supervising_authority_id,
+    _extract_subfolder_hint,
+    _normalize_for_match,
+)
+
 # ============================================================
 # core/security/scrub.py
 # ============================================================
@@ -463,18 +471,18 @@ class TestMaterialClassification:
         from apps.core.services.material_classification_service import MaterialClassificationService
 
         svc = MaterialClassificationService()
-        assert svc._extract_subfolder_hint("2-立案材料") == "立案材料"
-        assert svc._extract_subfolder_hint("3_执行依据") == "执行依据"
-        assert svc._extract_subfolder_hint("") == ""
-        assert svc._extract_subfolder_hint("1") == "1"
+        assert _extract_subfolder_hint("2-立案材料") == "立案材料"
+        assert _extract_subfolder_hint("3_执行依据") == "执行依据"
+        assert _extract_subfolder_hint("") == ""
+        assert _extract_subfolder_hint("1") == "1"
 
     def test_normalize_for_match(self) -> None:
         from apps.core.services.material_classification_service import MaterialClassificationService
 
         svc = MaterialClassificationService()
-        assert svc._normalize_for_match("  Hello World  ") == "helloworld"
-        assert svc._normalize_for_match(None) == ""  # type: ignore[arg-type]
-        assert svc._normalize_for_match("path\\to\\file") == "path/to/file"
+        assert _normalize_for_match("  Hello World  ") == "helloworld"
+        assert _normalize_for_match(None) == ""  # type: ignore[arg-type]
+        assert _normalize_for_match("path\\to\\file") == "path/to/file"
 
     def test_to_confidence(self) -> None:
         from apps.core.services.material_classification_service import MaterialClassificationService
@@ -490,29 +498,29 @@ class TestMaterialClassification:
         from apps.core.services.material_classification_service import MaterialClassificationService
 
         svc = MaterialClassificationService()
-        result = svc._extract_json('{"category": "party", "side": "our"}')
+        result = _extract_json('{"category": "party", "side": "our"}')
         assert result == {"category": "party", "side": "our"}
 
     def test_extract_json_fenced(self) -> None:
         from apps.core.services.material_classification_service import MaterialClassificationService
 
         svc = MaterialClassificationService()
-        result = svc._extract_json('```json\n{"a": 1}\n```')
+        result = _extract_json('```json\n{"a": 1}\n```')
         assert result == {"a": 1}
 
     def test_extract_json_invalid(self) -> None:
         from apps.core.services.material_classification_service import MaterialClassificationService
 
         svc = MaterialClassificationService()
-        assert svc._extract_json("not json") is None
-        assert svc._extract_json("") is None
+        assert _extract_json("not json") is None
+        assert _extract_json("") is None
 
     def test_extract_party_ids_by_side(self) -> None:
         from apps.core.services.material_classification_service import MaterialClassificationService
 
         svc = MaterialClassificationService()
         ctx = {"our_party_ids": [1, 2, 3]}
-        result = svc._extract_party_ids_by_side(side="our", context=ctx)
+        result = _extract_party_ids_by_side(side="our", context=ctx)
         assert result == [1, 2, 3]
 
     def test_extract_party_ids_invalid(self) -> None:
@@ -520,16 +528,16 @@ class TestMaterialClassification:
 
         svc = MaterialClassificationService()
         ctx = {"our_party_ids": ["bad", -1, 0, 5]}
-        result = svc._extract_party_ids_by_side(side="our", context=ctx)
+        result = _extract_party_ids_by_side(side="our", context=ctx)
         assert result == [5]
 
     def test_extract_primary_supervising_authority_id(self) -> None:
         from apps.core.services.material_classification_service import MaterialClassificationService
 
         svc = MaterialClassificationService()
-        assert svc._extract_primary_supervising_authority_id({"primary_supervising_authority_id": 42}) == 42
-        assert svc._extract_primary_supervising_authority_id({}) is None
-        assert svc._extract_primary_supervising_authority_id({"primary_supervising_authority_id": -1}) is None
+        assert _extract_primary_supervising_authority_id({"primary_supervising_authority_id": 42}) == 42
+        assert _extract_primary_supervising_authority_id({}) is None
+        assert _extract_primary_supervising_authority_id({"primary_supervising_authority_id": -1}) is None
 
     def test_parse_work_log_from_folder_name(self) -> None:
         from apps.core.services.material_classification_service import MaterialClassificationService

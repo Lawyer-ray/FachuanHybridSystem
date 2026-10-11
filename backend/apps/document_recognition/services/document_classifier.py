@@ -109,11 +109,6 @@ class DocumentClassifier:
             self._llm_service = ServiceLocator.get_llm_service()
         return self._llm_service
 
-    @staticmethod
-    def schema_instructions() -> str:
-        """结构化输出说明（供旧提示词消费方参考）。"""
-        return json_schema_instructions(CourtDocumentAnalysis)
-
     def classify(self, text: str) -> tuple[DocumentType, float]:
         """
         分类文书类型
@@ -283,3 +278,9 @@ class DocumentClassifier:
         }
 
         return type_mapping.get(type_str.lower(), DocumentType.OTHER)
+
+
+# ↓↓ 由 DocumentClassifier 下沉的模块级纯函数（四层架构静态方法棘轮）
+def schema_instructions() -> str:
+    """结构化输出说明（供旧提示词消费方参考）。"""
+    return json_schema_instructions(CourtDocumentAnalysis)

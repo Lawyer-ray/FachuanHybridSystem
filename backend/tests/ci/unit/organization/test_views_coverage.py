@@ -26,9 +26,10 @@ class TestRegisterGet:
     @override_settings(ALLOW_ADMIN_REGISTER=True)
     def test_get_renders_form(self, rf: RequestFactory) -> None:
         request = rf.get("/register/")
-        with patch("apps.organization.views._auth_service") as mock_svc, patch(
-            "apps.organization.views.render"
-        ) as mock_render:
+        with (
+            patch("apps.organization.views._auth_service") as mock_svc,
+            patch("apps.organization.views.render") as mock_render,
+        ):
             mock_svc.is_first_user.return_value = False
             mock_svc.should_show_auto_register.return_value = False
             mock_render.return_value = MagicMock(status_code=200)
@@ -274,7 +275,11 @@ class TestAdminLoginFormAndRateLimit:
 
         resp = client.post(
             "/admin/login/",
-            {"username": "plainuser", "password": "goodpass123", "this_is_the_login_form": "1"},  # pragma: allowlist secret
+            {
+                "username": "plainuser",
+                "password": "goodpass123",  # pragma: allowlist secret
+                "this_is_the_login_form": "1",
+            },
         )
         assert resp.status_code == 200  # 表单校验失败，重新渲染而非登录跳转
         # 表单须带错误信息，且未建立认证会话（防密码预言机）
@@ -290,7 +295,11 @@ class TestAdminLoginFormAndRateLimit:
 
         resp = client.post(
             "/admin/login/",
-            {"username": "staffuser", "password": "goodpass123", "this_is_the_login_form": "1"},  # pragma: allowlist secret
+            {
+                "username": "staffuser",
+                "password": "goodpass123",  # pragma: allowlist secret
+                "this_is_the_login_form": "1",
+            },
         )
         assert resp.status_code == 302
         # 登录成功须建立会话并跳往 admin 首页

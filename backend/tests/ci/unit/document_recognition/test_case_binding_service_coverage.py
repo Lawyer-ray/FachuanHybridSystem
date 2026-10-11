@@ -1,4 +1,5 @@
 """Coverage tests for document_recognition/services/case_binding_service.py."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -253,18 +254,14 @@ class TestBindDocumentToCase:
 class TestFormatLogContent:
     def test_summons_with_date_count(self):
         svc = CaseBindingService()
-        result = svc.format_log_content(
-            DocumentType.SUMMONS, "（2024）京01民初123号", "text", date_count=2
-        )
+        result = svc.format_log_content(DocumentType.SUMMONS, "（2024）京01民初123号", "text", date_count=2)
         assert "传票" in result
         assert "案号" in result
         assert "识别到 2 个关键日期（待人工确认后写入重要日期提醒）" in result
 
     def test_execution_ruling_with_date_count(self):
         svc = CaseBindingService()
-        result = svc.format_log_content(
-            DocumentType.EXECUTION_RULING, None, "text", date_count=1
-        )
+        result = svc.format_log_content(DocumentType.EXECUTION_RULING, None, "text", date_count=1)
         assert "执行裁定书" in result
         assert "识别到 1 个关键日期（待人工确认后写入重要日期提醒）" in result
         assert "案号" not in result
@@ -306,9 +303,14 @@ class TestTriggerNotification:
         mock_notif_svc.send_notification.return_value = mock_result
 
         # Patch the local import inside _trigger_notification
-        with patch.dict("sys.modules", {"apps.document_recognition.services.notification_service": MagicMock(
-            DocumentRecognitionNotificationService=MagicMock(return_value=mock_notif_svc)
-        )}):
+        with patch.dict(
+            "sys.modules",
+            {
+                "apps.document_recognition.services.notification_service": MagicMock(
+                    DocumentRecognitionNotificationService=MagicMock(return_value=mock_notif_svc)
+                )
+            },
+        ):
             svc._trigger_notification(mock_task, 1, "Test Case", DocumentType.SUMMONS)
 
         assert mock_task.notification_sent is True
@@ -332,9 +334,14 @@ class TestTriggerNotification:
         mock_result.error_code = "SEND_ERROR"
         mock_notif_svc.send_notification.return_value = mock_result
 
-        with patch.dict("sys.modules", {"apps.document_recognition.services.notification_service": MagicMock(
-            DocumentRecognitionNotificationService=MagicMock(return_value=mock_notif_svc)
-        )}):
+        with patch.dict(
+            "sys.modules",
+            {
+                "apps.document_recognition.services.notification_service": MagicMock(
+                    DocumentRecognitionNotificationService=MagicMock(return_value=mock_notif_svc)
+                )
+            },
+        ):
             svc._trigger_notification(mock_task, 1, "Test Case", DocumentType.SUMMONS)
 
         assert mock_task.notification_sent is False

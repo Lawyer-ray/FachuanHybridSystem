@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, Mock, patch, PropertyMock
+from unittest.mock import MagicMock, Mock, PropertyMock, patch
 
 import pytest
 
-from apps.core.exceptions import NotFoundError, ValidationException, BusinessException
-
+from apps.core.exceptions import BusinessException, NotFoundError, ValidationException
 
 # ============================================================================
 # case_chat_service.py — CaseChatService
@@ -48,7 +47,9 @@ class TestCaseChatServiceResolveOwnerAndPlatform:
         svc = CaseChatService()
         mock_factory = Mock()
         mock_factory.get_available_platforms.return_value = [ChatPlatform.FEISHU]
-        with patch.dict("sys.modules", {"apps.automation.services.chat.factory": Mock(ChatProviderFactory=mock_factory)}):
+        with patch.dict(
+            "sys.modules", {"apps.automation.services.chat.factory": Mock(ChatProviderFactory=mock_factory)}
+        ):
             result = svc._resolve_default_platform()
             assert result == ChatPlatform.FEISHU
 
@@ -131,13 +132,14 @@ class TestCaseChatServiceCreateChatForCase:
         svc.provider_facade.create_chat.return_value = mock_result
 
         from apps.core.exceptions import ChatCreationException
+
         with pytest.raises(ChatCreationException):
             svc.create_chat_for_case(case_id=1, platform=ChatPlatform.FEISHU)
 
     def test_wraps_unexpected_error(self):
         from apps.cases.services.chat.case_chat_service import CaseChatService
-        from apps.core.models.enums import ChatPlatform
         from apps.core.exceptions import ChatCreationException
+        from apps.core.models.enums import ChatPlatform
 
         svc = CaseChatService()
         mock_case = Mock()
@@ -196,6 +198,7 @@ class TestCaseChatServiceBindExistingChat:
 
         svc = CaseChatService()
         from apps.core.models.enums import ChatPlatform
+
         with pytest.raises(ValidationException, match="群聊ID不能为空"):
             svc.bind_existing_chat(case_id=1, platform=ChatPlatform.FEISHU, chat_id="")
 
@@ -204,6 +207,7 @@ class TestCaseChatServiceBindExistingChat:
 
         svc = CaseChatService()
         from apps.core.models.enums import ChatPlatform
+
         with pytest.raises(ValidationException, match="群聊ID不能为空"):
             svc.bind_existing_chat(case_id=1, platform=ChatPlatform.FEISHU, chat_id="   ")
 
@@ -241,9 +245,7 @@ class TestCaseChatServiceAdapterSendMessage:
         from apps.cases.services.chat.case_chat_service_adapter import CaseChatServiceAdapter
 
         mock_service = Mock()
-        mock_service.send_document_notification.side_effect = NotFoundError(
-            message="not found", code="NF", errors={}
-        )
+        mock_service.send_document_notification.side_effect = NotFoundError(message="not found", code="NF", errors={})
         adapter = CaseChatServiceAdapter(service=mock_service)
         with pytest.raises(NotFoundError):
             adapter.send_message_to_case_chat(case_id=1, message="hello")
@@ -336,9 +338,7 @@ class TestCaseChatServiceAdapterSendDocumentNotification:
         from apps.cases.services.chat.case_chat_service_adapter import CaseChatServiceAdapter
 
         mock_service = Mock()
-        mock_service.send_document_notification.side_effect = NotFoundError(
-            message="not found", code="NF", errors={}
-        )
+        mock_service.send_document_notification.side_effect = NotFoundError(message="not found", code="NF", errors={})
         adapter = CaseChatServiceAdapter(service=mock_service)
         with pytest.raises(NotFoundError):
             adapter.send_document_notification(case_id=1, sms_content="test")

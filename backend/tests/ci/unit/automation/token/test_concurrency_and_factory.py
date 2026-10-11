@@ -6,19 +6,17 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
 
 if _HAS_LOGIN:
-    from plugins.court_automation.token.concurrency_optimizer import (
-        ConcurrencyConfig,
-        ResourceUsage,
-    )
     from plugins.court_automation.token.browser_context_factory import (
         DefaultAntiDetectionOptionsProvider,
         PlaywrightBrowserContextFactory,
     )
+    from plugins.court_automation.token.concurrency_optimizer import ConcurrencyConfig, ResourceUsage
 else:
     ConcurrencyConfig = None  # type: ignore[assignment,misc]
     ResourceUsage = None  # type: ignore[assignment,misc]

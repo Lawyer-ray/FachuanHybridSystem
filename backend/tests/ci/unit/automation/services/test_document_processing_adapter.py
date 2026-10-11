@@ -3,6 +3,7 @@
 Covers: extract_text_from_pdf, extract_text_from_docx, extract_text_from_image,
 process_uploaded_document, extract_document_content_by_path, and internal variants.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -17,6 +18,7 @@ class TestDocumentProcessingServiceAdapterInit:
         from apps.automation.services.document.document_processing_service_adapter import (
             DocumentProcessingServiceAdapter,
         )
+
         svc = DocumentProcessingServiceAdapter()
         assert svc is not None
 
@@ -26,6 +28,7 @@ class TestExtractTextFromPdf:
         from apps.automation.services.document.document_processing_service_adapter import (
             DocumentProcessingServiceAdapter,
         )
+
         return DocumentProcessingServiceAdapter()
 
     def test_success(self):
@@ -51,6 +54,7 @@ class TestExtractTextFromDocx:
         from apps.automation.services.document.document_processing_service_adapter import (
             DocumentProcessingServiceAdapter,
         )
+
         return DocumentProcessingServiceAdapter()
 
     def test_success(self):
@@ -73,25 +77,32 @@ class TestExtractTextFromImage:
         from apps.automation.services.document.document_processing_service_adapter import (
             DocumentProcessingServiceAdapter,
         )
+
         return DocumentProcessingServiceAdapter()
 
     def test_success_no_limit(self):
         svc = self._make_svc()
-        with patch("apps.automation.services.document.document_processing.extract_text_from_image_with_rapidocr") as mock_proc:
+        with patch(
+            "apps.automation.services.document.document_processing.extract_text_from_image_with_rapidocr"
+        ) as mock_proc:
             mock_proc.return_value = "OCR text"
             result = svc.extract_text_from_image("/path/to/img.png")
             assert result == "OCR text"
 
     def test_success_with_limit(self):
         svc = self._make_svc()
-        with patch("apps.automation.services.document.document_processing.extract_text_from_image_with_rapidocr") as mock_proc:
+        with patch(
+            "apps.automation.services.document.document_processing.extract_text_from_image_with_rapidocr"
+        ) as mock_proc:
             mock_proc.return_value = "A" * 200
             result = svc.extract_text_from_image("/path/to/img.png", limit=50)
             assert len(result) == 50
 
     def test_exception(self):
         svc = self._make_svc()
-        with patch("apps.automation.services.document.document_processing.extract_text_from_image_with_rapidocr") as mock_proc:
+        with patch(
+            "apps.automation.services.document.document_processing.extract_text_from_image_with_rapidocr"
+        ) as mock_proc:
             mock_proc.side_effect = Exception("OCR error")
             with pytest.raises(Exception, match="图片OCR处理失败"):
                 svc.extract_text_from_image("/path/to/img.png")
@@ -102,6 +113,7 @@ class TestProcessUploadedDocument:
         from apps.automation.services.document.document_processing_service_adapter import (
             DocumentProcessingServiceAdapter,
         )
+
         return DocumentProcessingServiceAdapter()
 
     def test_success(self):
@@ -128,6 +140,7 @@ class TestExtractDocumentContentByPath:
         from apps.automation.services.document.document_processing_service_adapter import (
             DocumentProcessingServiceAdapter,
         )
+
         return DocumentProcessingServiceAdapter()
 
     def test_success(self):
@@ -153,6 +166,7 @@ class TestInternalVariants:
         from apps.automation.services.document.document_processing_service_adapter import (
             DocumentProcessingServiceAdapter,
         )
+
         return DocumentProcessingServiceAdapter()
 
     def test_extract_text_from_pdf_internal(self):

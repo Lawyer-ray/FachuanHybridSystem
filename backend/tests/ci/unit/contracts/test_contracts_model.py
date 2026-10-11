@@ -9,18 +9,18 @@ from typing import Any
 import pytest
 from django.utils import timezone
 
+from apps.client.models import Client
 from apps.contracts.models import (
+    ArchiveClassificationRule,
+    ClientPaymentRecord,
     Contract,
+    ContractParty,
     ContractPayment,
+    InvoiceStatus,
+    PartyRole,
     SupplementaryAgreement,
     SupplementaryAgreementParty,
-    ClientPaymentRecord,
-    ArchiveClassificationRule,
-    ContractParty,
-    PartyRole,
-    InvoiceStatus,
 )
-from apps.client.models import Client
 
 
 @pytest.mark.django_db
@@ -124,9 +124,7 @@ class TestClientPaymentRecordModel:
     def test_str_representation(self) -> None:
         """__str__ 应返回回款信息"""
         contract = Contract.objects.create(name="回款测试合同", case_type="civil")
-        record = ClientPaymentRecord.objects.create(
-            contract=contract, amount=Decimal("30000.00")
-        )
+        record = ClientPaymentRecord.objects.create(contract=contract, amount=Decimal("30000.00"))
         assert "30000" in str(record)
 
     def test_create_record_with_case(self) -> None:
@@ -135,9 +133,7 @@ class TestClientPaymentRecordModel:
 
         contract = Contract.objects.create(name="案件回款合同", case_type="civil")
         case = Case.objects.create(name="回款测试案件", contract=contract)
-        record = ClientPaymentRecord.objects.create(
-            contract=contract, case=case, amount=Decimal("20000.00")
-        )
+        record = ClientPaymentRecord.objects.create(contract=contract, case=case, amount=Decimal("20000.00"))
         assert record.case.name == "回款测试案件"
 
 
@@ -176,8 +172,6 @@ class TestContractPartyModel:
         """创建合同当事人"""
         contract = Contract.objects.create(name="合同当事人测试", case_type="civil")
         client = Client.objects.create(name="合同当事人", client_type="natural", is_our_client=True)
-        party = ContractParty.objects.create(
-            contract=contract, client=client, role=PartyRole.PRINCIPAL
-        )
+        party = ContractParty.objects.create(contract=contract, client=client, role=PartyRole.PRINCIPAL)
         assert party.role == PartyRole.PRINCIPAL
         assert party.contract == contract

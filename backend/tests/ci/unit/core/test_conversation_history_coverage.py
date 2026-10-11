@@ -25,9 +25,7 @@ class TestConversationHistoryService:
         mock_record.litigation_session_id = None
         mock_record.step = ""
         repo.create.return_value = mock_record
-        result = svc.create_message_internal(
-            session_id="s1", user_id="u1", role="user", content="hello", metadata={}
-        )
+        result = svc.create_message_internal(session_id="s1", user_id="u1", role="user", content="hello", metadata={})
         assert result.id == 1
 
     def test_list_messages_empty(self):

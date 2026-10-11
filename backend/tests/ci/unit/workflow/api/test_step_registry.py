@@ -2,13 +2,14 @@
 
 Covers: get_step_registry, get_flat_step_list, find_step — all branches.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from apps.workflow.api.step_registry import (
-    STEP_CATEGORIES,
     _HAS_COURT_FILING,
+    STEP_CATEGORIES,
     find_step,
     get_flat_step_list,
     get_step_registry,

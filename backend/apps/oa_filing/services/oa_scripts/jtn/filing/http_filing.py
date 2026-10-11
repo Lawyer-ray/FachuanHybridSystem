@@ -13,6 +13,8 @@ from urllib.parse import urljoin
 import httpx
 from lxml import html as lxml_html
 
+from apps.oa_filing.services.oa_scripts.jtn.auth.service import inject_to_httpx
+
 from .constants import (
     _DEFAULT_HTTP_TIMEOUT,
     _FILING_URL,
@@ -89,6 +91,10 @@ def normalize_text(value: Any) -> str:
     return text.strip()
 
 
+# 兼容旧引用：类静态薄包装已移除，语义同 normalize_text
+_normalize_text = normalize_text
+
+
 class HttpFilingMixin:  # pragma: no cover
     """HTTP 立案主链路 mixin。"""
 
@@ -134,7 +140,7 @@ class HttpFilingMixin:  # pragma: no cover
                     uploads = await self._upload_contract_files_http(
                         client=client, attachment_paths=contract_info.attachment_paths
                     )
-                    self._apply_attachment_payload(payload=payload, uploads=uploads)
+                    _apply_attachment_payload(payload=payload, uploads=uploads)
 
             await self._submit_filing_form_http(client=client, action_url=form_state.action_url, payload=payload)
 
@@ -147,7 +153,7 @@ class HttpFilingMixin:  # pragma: no cover
         # 优先尝试缓存 cookies
         cached = self._auth.load_cookies()
         if cached is not None:
-            self._auth.inject_to_httpx(client, cached)
+            inject_to_httpx(client, cached)
             # 验证 cookies 是否有效
             probe = await client.get(_FILING_URL)
             if "login" not in str(probe.url).lower() and "aspnetForm" in probe.text:
@@ -163,7 +169,7 @@ class HttpFilingMixin:  # pragma: no cover
         new_cookies = self._auth.load_cookies()
         if new_cookies is None:
             raise RuntimeError("SSO 登录后未获取到 cookies")
-        self._auth.inject_to_httpx(client, new_cookies)
+        inject_to_httpx(client, new_cookies)
         logger.info("HTTP 登录成功（SSO 扫码完成）")
 
     # ------------------------------------------------------------------
@@ -213,7 +219,7 @@ class HttpFilingMixin:  # pragma: no cover
             name = str(textarea_node.get("name") or "").strip()
             if not name:
                 continue
-            payload[name] = self._normalize_text("".join(textarea_node.itertext()))
+            payload[name] = normalize_text("".join(textarea_node.itertext()))
 
         return FilingFormState(action_url=action_url, payload=payload, html_text=html_text)
 
@@ -237,7 +243,7 @@ class HttpFilingMixin:  # pragma: no cover
     ) -> ResolvedCustomer | None:
         customer_type = "B" if client_info.client_type == "natural" else "A"
         response = await client.post(
-            self._handler_url("CustSeachGetList"),
+            _handler_url("CustSeachGetList"),
             data={
                 "customerType": customer_type,
                 "cusName": client_info.name,
@@ -245,20 +251,20 @@ class HttpFilingMixin:  # pragma: no cover
             },
         )
         response.raise_for_status()
-        payload = self._parse_json_object(response.text)
+        payload = _parse_json_object(response.text)
         rows = payload.get("data") if isinstance(payload, dict) else []
         if not isinstance(rows, list) or not rows:
             return None
 
-        exact_name = self._normalize_text(client_info.name)
-        candidates = [row for row in rows if self._normalize_text(str(row.get("customer_name") or "")) == exact_name]
+        exact_name = normalize_text(client_info.name)
+        candidates = [row for row in rows if normalize_text(str(row.get("customer_name") or "")) == exact_name]
         if not candidates:
             candidates = rows
 
         if client_info.client_type == "natural" and client_info.id_number:
-            exact_id = self._normalize_text(client_info.id_number).upper()
+            exact_id = normalize_text(client_info.id_number).upper()
             for row in candidates:
-                card = self._normalize_text(str(row.get("customer_personcard") or "")).upper()
+                card = normalize_text(str(row.get("customer_personcard") or "")).upper()
                 if card and card == exact_id:
                     return ResolvedCustomer(
                         customer_id=str(row.get("customer_id") or "").strip(),
@@ -295,7 +301,7 @@ class HttpFilingMixin:  # pragma: no cover
         case_info: CaseInfo,
         form_state: FilingFormState,
     ) -> None:
-        manager_field = self._project_field_name("manager_id")
+        manager_field = _project_field_name("manager_id")
         if case_info.manager_id:
             payload[manager_field] = case_info.manager_id
         elif case_info.manager_name:
@@ -306,35 +312,35 @@ class HttpFilingMixin:  # pragma: no cover
             if manager_value:
                 payload[manager_field] = manager_value
 
-        payload[self._project_field_name("category_id")] = case_info.category
+        payload[_project_field_name("category_id")] = case_info.category
         if case_info.stage:
-            payload[self._project_field_name("stage_id")] = case_info.stage
-            payload[self._project_field_name("which_side")] = case_info.which_side
+            payload[_project_field_name("stage_id")] = case_info.stage
+            payload[_project_field_name("which_side")] = case_info.which_side
 
         if case_info.kindtype:
-            payload[self._project_field_name("kindtype_id")] = case_info.kindtype
+            payload[_project_field_name("kindtype_id")] = case_info.kindtype
         if case_info.kindtype_sed:
-            payload[self._project_field_name("kindtypeSed_id")] = case_info.kindtype_sed
-        payload[self._project_field_name("kindtypeThr_id")] = case_info.kindtype_thr or ""
+            payload[_project_field_name("kindtypeSed_id")] = case_info.kindtype_sed
+        payload[_project_field_name("kindtypeThr_id")] = case_info.kindtype_thr or ""
 
-        payload[self._project_field_name("resource_id")] = case_info.resource
-        payload[self._project_field_name("language_id")] = case_info.language
-        payload[self._project_field_name("is_foreign")] = case_info.is_foreign
-        payload[self._project_field_name("is_help")] = case_info.is_help
-        payload[self._project_field_name("is_publicgood")] = case_info.is_publicgood
-        payload[self._project_field_name("is_factory")] = case_info.is_factory
-        payload[self._project_field_name("is_secret")] = case_info.is_secret
-        payload[self._project_field_name("is_emergency")] = "1"
-        payload[self._project_field_name("urgentmemo")] = "着急将合同盖章拿给客户付款"
-        payload[self._project_field_name("isunion")] = case_info.isunion
-        payload[self._project_field_name("isforeigncoop")] = case_info.isforeigncoop
+        payload[_project_field_name("resource_id")] = case_info.resource
+        payload[_project_field_name("language_id")] = case_info.language
+        payload[_project_field_name("is_foreign")] = case_info.is_foreign
+        payload[_project_field_name("is_help")] = case_info.is_help
+        payload[_project_field_name("is_publicgood")] = case_info.is_publicgood
+        payload[_project_field_name("is_factory")] = case_info.is_factory
+        payload[_project_field_name("is_secret")] = case_info.is_secret
+        payload[_project_field_name("is_emergency")] = "1"
+        payload[_project_field_name("urgentmemo")] = "着急将合同盖章拿给客户付款"
+        payload[_project_field_name("isunion")] = case_info.isunion
+        payload[_project_field_name("isforeigncoop")] = case_info.isforeigncoop
 
-        payload[self._project_field_name("name")] = case_info.case_name
-        payload[self._project_field_name("desc")] = case_info.case_desc
+        payload[_project_field_name("name")] = case_info.case_name
+        payload[_project_field_name("desc")] = case_info.case_desc
 
         from django.utils import timezone as _timezone
 
-        payload[self._project_field_name("date")] = case_info.start_date or _timezone.localdate().isoformat()
+        payload[_project_field_name("date")] = case_info.start_date or _timezone.localdate().isoformat()
 
         for field_name in list(payload.keys()):
             if "pro_pl_name" in field_name:
@@ -356,18 +362,18 @@ class HttpFilingMixin:  # pragma: no cover
             payload[f"pro_pci_phone_{gid}"] = party.contact_phone or ""
 
     def _apply_contract_payload(self: Any, *, payload: dict[str, str], contract_info: ContractInfo) -> None:
-        payload[self._project_field_name("rec_type")] = contract_info.rec_type
-        payload[self._project_field_name("currency")] = contract_info.currency
-        payload[self._project_field_name("contract_type")] = contract_info.contract_type
-        payload[self._project_field_name("IsFree")] = contract_info.is_free
-        payload[self._project_field_name("stamp_count")] = str(contract_info.stamp_count)
+        payload[_project_field_name("rec_type")] = contract_info.rec_type
+        payload[_project_field_name("currency")] = contract_info.currency
+        payload[_project_field_name("contract_type")] = contract_info.contract_type
+        payload[_project_field_name("IsFree")] = contract_info.is_free
+        payload[_project_field_name("stamp_count")] = str(contract_info.stamp_count)
 
         if contract_info.start_date:
-            payload[self._project_field_name("start_date")] = contract_info.start_date
+            payload[_project_field_name("start_date")] = contract_info.start_date
         if contract_info.end_date:
-            payload[self._project_field_name("end_date")] = contract_info.end_date
+            payload[_project_field_name("end_date")] = contract_info.end_date
         if contract_info.amount:
-            payload[self._project_field_name("amount")] = contract_info.amount
+            payload[_project_field_name("amount")] = contract_info.amount
 
     async def _upload_contract_files_http(
         self: Any,
@@ -397,10 +403,6 @@ class HttpFilingMixin:  # pragma: no cover
             logger.info("合同附件上传成功: %s -> %s", upload["original"], upload["url"])
         return uploads
 
-    @staticmethod
-    def _apply_attachment_payload(payload: dict[str, str], uploads: list[dict[str, str]]) -> None:
-        apply_attachment_payload(payload, uploads)
-
     # ------------------------------------------------------------------
     # 提交
     # ------------------------------------------------------------------
@@ -428,13 +430,13 @@ class HttpFilingMixin:  # pragma: no cover
 
     def _resolve_manager_id_from_form(self: Any, *, html_text: str, manager_name: str) -> str | None:
         root = lxml_html.fromstring(html_text)
-        manager_field = self._project_field_name("manager_id")
+        manager_field = _project_field_name("manager_id")
         options = root.xpath(f'//select[@name="{manager_field}"]/option')
-        target_name = self._normalize_text(manager_name)
+        target_name = normalize_text(manager_name)
         if not target_name:
             return None
         for option in options:
-            text = self._normalize_text("".join(option.itertext()))
+            text = normalize_text("".join(option.itertext()))
             if text == target_name:
                 value = option.get("value")
                 return str(value).strip() if value else None
@@ -444,18 +446,22 @@ class HttpFilingMixin:  # pragma: no cover
     # 工具方法（也由其他 mixin 使用）
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _project_field_name(field: str) -> str:
-        return project_field_name(field)
 
-    @staticmethod
-    def _handler_url(method: str) -> str:
-        return handler_url(method)
+# ↓↓ 由 HttpFilingMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _apply_attachment_payload(payload: dict[str, str], uploads: list[dict[str, str]]) -> None:
+    apply_attachment_payload(payload, uploads)
 
-    @staticmethod
-    def _parse_json_object(response_text: str) -> dict[str, Any]:
-        return parse_json_object(response_text)
 
-    @staticmethod
-    def _normalize_text(value: Any) -> str:
-        return normalize_text(value)
+# ↓↓ 由 HttpFilingMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _project_field_name(field: str) -> str:
+    return project_field_name(field)
+
+
+# ↓↓ 由 HttpFilingMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _handler_url(method: str) -> str:
+    return handler_url(method)
+
+
+# ↓↓ 由 HttpFilingMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _parse_json_object(response_text: str) -> dict[str, Any]:
+    return parse_json_object(response_text)

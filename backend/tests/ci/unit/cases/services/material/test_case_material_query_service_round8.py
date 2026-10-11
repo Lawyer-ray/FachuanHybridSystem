@@ -4,10 +4,11 @@ Covers 53 missing: list_bind_candidates, get_case_materials_view,
 get_used_type_ids, get_material_types_by_category, _material_item_payload,
 _sorted_groups, _build_group_order_map.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -285,8 +286,10 @@ class TestCaseMaterialsView:
         group_order_qs = MagicMock()
         group_order_qs.__iter__ = MagicMock(return_value=iter([]))
 
-        with patch("apps.cases.services.material.case_material_query_service.CaseMaterial") as MockCM, \
-             patch("apps.cases.services.material.case_material_query_service.CaseMaterialGroupOrder") as MockGQ:
+        with (
+            patch("apps.cases.services.material.case_material_query_service.CaseMaterial") as MockCM,
+            patch("apps.cases.services.material.case_material_query_service.CaseMaterialGroupOrder") as MockGQ,
+        ):
             svc._case_service.get_case.return_value = case
             MockCM.objects.filter.return_value.select_related.return_value.prefetch_related.return_value.order_by.return_value = qs_mock
             MockGQ.objects.filter.return_value.select_related.return_value.order_by.return_value = group_order_qs
@@ -320,8 +323,10 @@ class TestCaseMaterialsView:
         group_order_qs = MagicMock()
         group_order_qs.__iter__ = MagicMock(return_value=iter([]))
 
-        with patch("apps.cases.services.material.case_material_query_service.CaseMaterial") as MockCM, \
-             patch("apps.cases.services.material.case_material_query_service.CaseMaterialGroupOrder") as MockGQ:
+        with (
+            patch("apps.cases.services.material.case_material_query_service.CaseMaterial") as MockCM,
+            patch("apps.cases.services.material.case_material_query_service.CaseMaterialGroupOrder") as MockGQ,
+        ):
             svc._case_service.get_case.return_value = case
             MockCM.objects.filter.return_value.select_related.return_value.prefetch_related.return_value.order_by.return_value = qs_mock
             MockGQ.objects.filter.return_value.select_related.return_value.order_by.return_value = group_order_qs
@@ -359,8 +364,10 @@ class TestCaseMaterialsView:
         group_order_qs = MagicMock()
         group_order_qs.__iter__ = MagicMock(return_value=iter([]))
 
-        with patch("apps.cases.services.material.case_material_query_service.CaseMaterial") as MockCM, \
-             patch("apps.cases.services.material.case_material_query_service.CaseMaterialGroupOrder") as MockGQ:
+        with (
+            patch("apps.cases.services.material.case_material_query_service.CaseMaterial") as MockCM,
+            patch("apps.cases.services.material.case_material_query_service.CaseMaterialGroupOrder") as MockGQ,
+        ):
             svc._case_service.get_case.return_value = case
             MockCM.objects.filter.return_value.select_related.return_value.prefetch_related.return_value.order_by.return_value = qs_mock
             MockGQ.objects.filter.return_value.select_related.return_value.order_by.return_value = group_order_qs
@@ -394,8 +401,10 @@ class TestCaseMaterialsView:
         group_order_qs = MagicMock()
         group_order_qs.__iter__ = MagicMock(return_value=iter([]))
 
-        with patch("apps.cases.services.material.case_material_query_service.CaseMaterial") as MockCM, \
-             patch("apps.cases.services.material.case_material_query_service.CaseMaterialGroupOrder") as MockGQ:
+        with (
+            patch("apps.cases.services.material.case_material_query_service.CaseMaterial") as MockCM,
+            patch("apps.cases.services.material.case_material_query_service.CaseMaterialGroupOrder") as MockGQ,
+        ):
             svc._case_service.get_case.return_value = case
             MockCM.objects.filter.return_value.select_related.return_value.prefetch_related.return_value.order_by.return_value = qs_mock
             MockGQ.objects.filter.return_value.select_related.return_value.order_by.return_value = group_order_qs
@@ -425,8 +434,10 @@ class TestCaseMaterialsView:
         group_order_qs = MagicMock()
         group_order_qs.__iter__ = MagicMock(return_value=iter([]))
 
-        with patch("apps.cases.services.material.case_material_query_service.CaseMaterial") as MockCM, \
-             patch("apps.cases.services.material.case_material_query_service.CaseMaterialGroupOrder") as MockGQ:
+        with (
+            patch("apps.cases.services.material.case_material_query_service.CaseMaterial") as MockCM,
+            patch("apps.cases.services.material.case_material_query_service.CaseMaterialGroupOrder") as MockGQ,
+        ):
             svc._case_service.get_case.return_value = case
             MockCM.objects.filter.return_value.select_related.return_value.prefetch_related.return_value.order_by.return_value = qs_mock
             MockGQ.objects.filter.return_value.select_related.return_value.order_by.return_value = group_order_qs
@@ -452,8 +463,10 @@ class TestCaseMaterialsView:
         group_order_qs = MagicMock()
         group_order_qs.__iter__ = MagicMock(return_value=iter([]))
 
-        with patch("apps.cases.services.material.case_material_query_service.CaseMaterial") as MockCM, \
-             patch("apps.cases.services.material.case_material_query_service.CaseMaterialGroupOrder") as MockGQ:
+        with (
+            patch("apps.cases.services.material.case_material_query_service.CaseMaterial") as MockCM,
+            patch("apps.cases.services.material.case_material_query_service.CaseMaterialGroupOrder") as MockGQ,
+        ):
             svc._case_service.get_case.return_value = case
             MockCM.objects.filter.return_value.select_related.return_value.prefetch_related.return_value.order_by.return_value = qs_mock
             MockGQ.objects.filter.return_value.select_related.return_value.order_by.return_value = group_order_qs

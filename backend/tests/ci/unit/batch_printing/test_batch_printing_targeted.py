@@ -1,11 +1,11 @@
 """Targeted tests for batch_printing module to push coverage to 80%+."""
+
 from __future__ import annotations
 
-from uuid import uuid4
 from unittest.mock import MagicMock, patch
+from uuid import uuid4
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # services/storage.py (66% coverage)
@@ -108,37 +108,60 @@ class TestBatchPrintingSchemas:
         from apps.batch_printing.schemas import BatchPrintItemOut
 
         schema = BatchPrintItemOut(
-            id=1, order=0, filename="test.pdf",
-            source_relpath="/tmp/test.pdf", prepared_relpath="/tmp/prepared.pdf",
-            file_type="pdf", status="completed", matched_keyword="",
-            target_printer_name="", target_preset_name="", cups_job_id="",
+            id=1,
+            order=0,
+            filename="test.pdf",
+            source_relpath="/tmp/test.pdf",
+            prepared_relpath="/tmp/prepared.pdf",
+            file_type="pdf",
+            status="completed",
+            matched_keyword="",
+            target_printer_name="",
+            target_preset_name="",
+            cups_job_id="",
             error_message="",
         )
         assert schema.id == 1
 
     def test_batch_print_job_summary_out(self):
-        from apps.batch_printing.schemas import BatchPrintJobSummaryOut
         from datetime import datetime
 
+        from apps.batch_printing.schemas import BatchPrintJobSummaryOut
+
         schema = BatchPrintJobSummaryOut(
-            job_id="abc", status="completed",
-            total_count=10, processed_count=10, success_count=8,
-            failed_count=2, progress=100, cancel_requested=False,
-            task_id="task-1", created_by_name="test",
-            error_message="", created_at=datetime.now(),
+            job_id="abc",
+            status="completed",
+            total_count=10,
+            processed_count=10,
+            success_count=8,
+            failed_count=2,
+            progress=100,
+            cancel_requested=False,
+            task_id="task-1",
+            created_by_name="test",
+            error_message="",
+            created_at=datetime.now(),
         )
         assert schema.total_count == 10
 
     def test_batch_print_job_out(self):
-        from apps.batch_printing.schemas import BatchPrintJobOut
         from datetime import datetime
 
+        from apps.batch_printing.schemas import BatchPrintJobOut
+
         schema = BatchPrintJobOut(
-            job_id="abc", status="completed",
-            total_count=5, processed_count=5, success_count=5,
-            failed_count=0, progress=100, cancel_requested=False,
-            task_id="task-1", created_by_name="test",
-            error_message="", created_at=datetime.now(),
+            job_id="abc",
+            status="completed",
+            total_count=5,
+            processed_count=5,
+            success_count=5,
+            failed_count=0,
+            progress=100,
+            cancel_requested=False,
+            task_id="task-1",
+            created_by_name="test",
+            error_message="",
+            created_at=datetime.now(),
         )
         assert schema.total_count == 5
         assert schema.items == []

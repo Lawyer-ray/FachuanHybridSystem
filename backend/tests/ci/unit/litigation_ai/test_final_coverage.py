@@ -7,13 +7,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from apps.litigation_ai.services.mock_trial.types import (
-    AdversarialConfig,
-    MockTrialContext,
-    MockTrialStep,
-    TrialLevel,
-)
-
+from apps.litigation_ai.services.mock_trial.types import AdversarialConfig, MockTrialContext, MockTrialStep, TrialLevel
 
 # ============================================================================
 # MockTrialStep tests
@@ -156,27 +150,21 @@ class TestAdversarialConfig:
 class TestAgentsConstants:
     def test_role_labels_exist(self):
         from apps.litigation_ai.services.mock_trial.agents import ROLE_LABELS
+
         assert isinstance(ROLE_LABELS, dict)
         assert len(ROLE_LABELS) > 0
 
     def test_agent_names_defined(self):
-        from apps.litigation_ai.services.mock_trial.agents import (
-            JUDGE,
-            PLAINTIFF,
-            DEFENDANT,
-            CLERK,
-        )
+        from apps.litigation_ai.services.mock_trial.agents import CLERK, DEFENDANT, JUDGE, PLAINTIFF
+
         assert JUDGE
         assert PLAINTIFF
         assert DEFENDANT
         assert CLERK
 
     def test_system_prompts_defined(self):
-        from apps.litigation_ai.services.mock_trial.agents import (
-            JUDGE_SYSTEM,
-            PLAINTIFF_SYSTEM,
-            DEFENDANT_SYSTEM,
-        )
+        from apps.litigation_ai.services.mock_trial.agents import DEFENDANT_SYSTEM, JUDGE_SYSTEM, PLAINTIFF_SYSTEM
+
         assert isinstance(JUDGE_SYSTEM, str)
         assert isinstance(PLAINTIFF_SYSTEM, str)
         assert isinstance(DEFENDANT_SYSTEM, str)

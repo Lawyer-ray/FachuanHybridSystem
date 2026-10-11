@@ -10,10 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.contracts.services.archive.checklist.material_mapping import (
-    match_type_name_to_code,
-)
-
+from apps.contracts.services.archive.checklist.material_mapping import match_type_name_to_code
 
 # ============================================================
 # match_type_name_to_code
@@ -74,9 +71,7 @@ class TestMapContractMaterials:
 
     @patch("apps.contracts.services.archive.checklist.checklist_query.find_code_by_source")
     @patch("apps.contracts.services.archive.checklist.checklist_query.find_code_by_name")
-    def test_contract_original_mapped(
-        self, mock_find_name: MagicMock, mock_find_source: MagicMock
-    ) -> None:
+    def test_contract_original_mapped(self, mock_find_name: MagicMock, mock_find_source: MagicMock) -> None:
         from apps.contracts.models.finalized_material import MaterialCategory
         from apps.contracts.services.archive.checklist.material_mapping import map_contract_materials
 
@@ -94,9 +89,7 @@ class TestMapContractMaterials:
 
     @patch("apps.contracts.services.archive.checklist.checklist_query.find_code_by_source")
     @patch("apps.contracts.services.archive.checklist.checklist_query.find_code_by_name")
-    def test_invoice_mapped(
-        self, mock_find_name: MagicMock, mock_find_source: MagicMock
-    ) -> None:
+    def test_invoice_mapped(self, mock_find_name: MagicMock, mock_find_source: MagicMock) -> None:
         from apps.contracts.models.finalized_material import MaterialCategory
         from apps.contracts.services.archive.checklist.material_mapping import map_contract_materials
 
@@ -114,9 +107,7 @@ class TestMapContractMaterials:
 
     @patch("apps.contracts.services.archive.checklist.checklist_query.find_code_by_source")
     @patch("apps.contracts.services.archive.checklist.checklist_query.find_code_by_name")
-    def test_material_with_existing_code_skipped(
-        self, mock_find_name: MagicMock, mock_find_source: MagicMock
-    ) -> None:
+    def test_material_with_existing_code_skipped(self, mock_find_name: MagicMock, mock_find_source: MagicMock) -> None:
         from apps.contracts.models.finalized_material import MaterialCategory
         from apps.contracts.services.archive.checklist.material_mapping import map_contract_materials
 
@@ -145,9 +136,7 @@ class TestMapSupervisionCardMaterials:
         from apps.contracts.models.finalized_material import MaterialCategory
         from apps.contracts.services.archive.checklist.material_mapping import map_supervision_card_materials
 
-        mock_checklist.get.return_value = [
-            {"code": "lt_10", "auto_detect": "supervision_card", "name": "监督卡"}
-        ]
+        mock_checklist.get.return_value = [{"code": "lt_10", "auto_detect": "supervision_card", "name": "监督卡"}]
 
         material = MagicMock()
         material.id = 5
@@ -163,9 +152,7 @@ class TestMapSupervisionCardMaterials:
         from apps.contracts.models.finalized_material import MaterialCategory
         from apps.contracts.services.archive.checklist.material_mapping import map_supervision_card_materials
 
-        mock_checklist.get.return_value = [
-            {"code": "lt_1", "auto_detect": None, "name": "封面"}
-        ]
+        mock_checklist.get.return_value = [{"code": "lt_1", "auto_detect": None, "name": "封面"}]
 
         material = MagicMock()
         material.id = 5

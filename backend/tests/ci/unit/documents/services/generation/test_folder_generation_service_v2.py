@@ -37,6 +37,7 @@ from apps.documents.services.generation.folder_generation_service import Documen
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_service(**kwargs: Any) -> FolderGenerationService:
     defaults = {"contract_service": MagicMock(), "folder_binding_service": MagicMock()}
     defaults.update(kwargs)
@@ -134,9 +135,7 @@ class TestFindMatchingFolderTemplate:
     def test_delegates_to_matcher(self) -> None:
         svc = _make_service()
         tpl = MagicMock()
-        with patch(
-            "apps.documents.services.generation.pipeline.TemplateMatcher"
-        ) as mock_matcher_cls:
+        with patch("apps.documents.services.generation.pipeline.TemplateMatcher") as mock_matcher_cls:
             mock_matcher_cls.return_value.match_folder_template.return_value = tpl
             result = svc.find_matching_folder_template("civil")
         assert result is tpl
@@ -158,9 +157,7 @@ class TestGetDocumentPlacements:
         binding.folder_node_path = "path/to/folder"
         binding.folder_node_id = 1
 
-        with patch(
-            "apps.documents.models.DocumentTemplateFolderBinding"
-        ) as mock_binding_cls:
+        with patch("apps.documents.models.DocumentTemplateFolderBinding") as mock_binding_cls:
             mock_binding_cls.objects.filter.return_value.select_related.return_value = [binding]
             with patch.object(svc, "_generate_document_filename", return_value="output.docx"):
                 result = svc.get_document_placements(contract, tpl)
@@ -182,9 +179,7 @@ class TestGetDocumentPlacements:
         binding.document_template = tpl
         binding.folder_node_path = "path"
 
-        with patch(
-            "apps.documents.models.DocumentTemplateFolderBinding"
-        ) as mock_binding_cls:
+        with patch("apps.documents.models.DocumentTemplateFolderBinding") as mock_binding_cls:
             mock_binding_cls.objects.filter.return_value.select_related.return_value = [binding]
             result = svc.get_document_placements(contract, MagicMock())
 
@@ -203,9 +198,7 @@ class TestGetDocumentPlacements:
         binding.document_template = tpl
         binding.folder_node_path = "path"
 
-        with patch(
-            "apps.documents.models.DocumentTemplateFolderBinding"
-        ) as mock_binding_cls:
+        with patch("apps.documents.models.DocumentTemplateFolderBinding") as mock_binding_cls:
             mock_binding_cls.objects.filter.return_value.select_related.return_value = [binding]
             result = svc.get_document_placements(contract, MagicMock())
 
@@ -224,9 +217,7 @@ class TestGetDocumentPlacements:
         binding.document_template = tpl
         binding.folder_node_path = ""
 
-        with patch(
-            "apps.documents.models.DocumentTemplateFolderBinding"
-        ) as mock_binding_cls:
+        with patch("apps.documents.models.DocumentTemplateFolderBinding") as mock_binding_cls:
             mock_binding_cls.objects.filter.return_value.select_related.return_value = [binding]
             with patch.object(svc, "_generate_document_filename", return_value="doc.docx"):
                 result = svc.get_document_placements(contract, MagicMock())
@@ -237,9 +228,7 @@ class TestGetDocumentPlacements:
 class TestFindContractFolderPath:
     def test_found(self) -> None:
         svc = _make_service()
-        tpl = _make_folder_template({
-            "children": [{"name": "1-律师资料", "children": [{"name": "1-合同"}]}]
-        })
+        tpl = _make_folder_template({"children": [{"name": "1-律师资料", "children": [{"name": "1-合同"}]}]})
         result = svc._find_contract_folder_path(tpl)
         assert result == "1-律师资料/1-合同"
 
@@ -251,9 +240,7 @@ class TestFindContractFolderPath:
 
     def test_excludes_supplementary(self) -> None:
         svc = _make_service()
-        tpl = _make_folder_template({
-            "children": [{"name": "合同补充协议"}]
-        })
+        tpl = _make_folder_template({"children": [{"name": "合同补充协议"}]})
         result = svc._find_contract_folder_path(tpl)
         assert result == ""
 
@@ -284,9 +271,7 @@ class TestCreateZipPackage:
         structure = {"name": "root", "children": []}
         docs = [("root", b"content1", "file1.txt"), ("root/sub", b"content2", "file2.txt")]
 
-        with patch(
-            "apps.documents.services.generation.pipeline.ZipPackager"
-        ) as mock_packager_cls:
+        with patch("apps.documents.services.generation.pipeline.ZipPackager") as mock_packager_cls:
             mock_packager_cls.return_value.create.return_value = b"zip_content"
             result = svc.create_zip_package(structure, docs)
         assert result == b"zip_content"
@@ -314,10 +299,12 @@ class TestGenerateFolderWithDocuments:
         svc._contract_service.get_contract_model_internal.return_value = MagicMock()
 
         tpl = _make_folder_template()
-        with patch.object(svc, "find_matching_folder_template", return_value=tpl), \
-             patch.object(svc, "get_document_placements", return_value=[]), \
-             patch.object(svc, "create_zip_package", return_value=b"zip"), \
-             patch.object(svc, "_extract_to_bound_folder_if_exists", return_value=None):
+        with (
+            patch.object(svc, "find_matching_folder_template", return_value=tpl),
+            patch.object(svc, "get_document_placements", return_value=[]),
+            patch.object(svc, "create_zip_package", return_value=b"zip"),
+            patch.object(svc, "_extract_to_bound_folder_if_exists", return_value=None),
+        ):
             content, filename, error = svc.generate_folder_with_documents(1)
 
         assert content == b"zip"
@@ -331,9 +318,11 @@ class TestGenerateFolderWithDocuments:
         svc._contract_service.get_contract_model_internal.return_value = MagicMock()
 
         tpl = _make_folder_template()
-        with patch.object(svc, "find_matching_folder_template", return_value=tpl), \
-             patch.object(svc, "get_document_placements", return_value=[]), \
-             patch.object(svc, "create_zip_package", side_effect=Exception("zip fail")):
+        with (
+            patch.object(svc, "find_matching_folder_template", return_value=tpl),
+            patch.object(svc, "get_document_placements", return_value=[]),
+            patch.object(svc, "create_zip_package", side_effect=Exception("zip fail")),
+        ):
             with pytest.raises(ValidationException):
                 svc.generate_folder_with_documents(1)
 
@@ -369,29 +358,20 @@ class TestExtractToBoundFolderIfExists:
 class TestFindSpecialFolderPaths:
     def test_identity_path(self) -> None:
         svc = _make_service()
-        structure = {
-            "name": "root",
-            "children": [{"name": "身份证明", "children": []}]
-        }
+        structure = {"name": "root", "children": [{"name": "身份证明", "children": []}]}
         result = svc._find_special_folder_paths(structure)
         assert len(result["身份证明"]) == 1
         assert "身份证明" in result["身份证明"][0]
 
     def test_attorney_path(self) -> None:
         svc = _make_service()
-        structure = {
-            "name": "root",
-            "children": [{"name": "委托材料", "children": []}]
-        }
+        structure = {"name": "root", "children": [{"name": "委托材料", "children": []}]}
         result = svc._find_special_folder_paths(structure)
         assert len(result["委托材料"]) == 1
 
     def test_execution_path(self) -> None:
         svc = _make_service()
-        structure = {
-            "name": "root",
-            "children": [{"name": "执行依据及生效证明", "children": []}]
-        }
+        structure = {"name": "root", "children": [{"name": "执行依据及生效证明", "children": []}]}
         result = svc._find_special_folder_paths(structure)
         assert len(result["执行依据及生效证明"]) == 1
 
@@ -402,12 +382,7 @@ class TestFindSpecialFolderPaths:
 
     def test_nested(self) -> None:
         svc = _make_service()
-        structure = {
-            "name": "root",
-            "children": [
-                {"name": "A", "children": [{"name": "身份证明", "children": []}]}
-            ]
-        }
+        structure = {"name": "root", "children": [{"name": "A", "children": [{"name": "身份证明", "children": []}]}]}
         result = svc._find_special_folder_paths(structure)
         assert len(result["身份证明"]) == 1
         assert "A/身份证明" in result["身份证明"][0]
@@ -416,10 +391,7 @@ class TestFindSpecialFolderPaths:
 class TestCreateFoldersInZip:
     def test_basic(self) -> None:
         svc = _make_service()
-        structure = {
-            "name": "root",
-            "children": [{"name": "child", "children": []}]
-        }
+        structure = {"name": "root", "children": [{"name": "child", "children": []}]}
         with patch("zipfile.ZipFile") as mock_zip:
             svc._create_folders_in_zip(mock_zip, structure, "")
         # root/, root/child/

@@ -159,8 +159,10 @@ class TestGeneratePdfFilename:
             title="证据清单一",
             export_version=1,
         )
-        with patch("apps.evidence.services.admin.evidence_admin_service.FilenameTemplateService") as MockFTS, \
-             patch("apps.evidence.services.admin.evidence_admin_service.timezone") as mock_tz:
+        with (
+            patch("apps.evidence.services.admin.evidence_admin_service.FilenameTemplateService") as MockFTS,
+            patch("apps.evidence.services.admin.evidence_admin_service.timezone") as mock_tz,
+        ):
             mock_tz.now.return_value.strftime.return_value = "20260101"
             MockFTS.render_generated_doc.return_value = "evidence_detail"
             result = admin_svc.generate_pdf_filename(evidence_list)
@@ -173,8 +175,10 @@ class TestGeneratePdfFilename:
             title="补充证据清单二",
             export_version=2,
         )
-        with patch("apps.evidence.services.admin.evidence_admin_service.FilenameTemplateService") as MockFTS, \
-             patch("apps.evidence.services.admin.evidence_admin_service.timezone") as mock_tz:
+        with (
+            patch("apps.evidence.services.admin.evidence_admin_service.FilenameTemplateService") as MockFTS,
+            patch("apps.evidence.services.admin.evidence_admin_service.timezone") as mock_tz,
+        ):
             mock_tz.now.return_value.strftime.return_value = "20260101"
             MockFTS.render_generated_doc.return_value = "result"
             admin_svc.generate_pdf_filename(evidence_list)

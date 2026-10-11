@@ -36,6 +36,7 @@ from plugins.court_automation.preservation_quote.insurance_http_mixin import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_insurance_client() -> CourtInsuranceClient:
     """Create a CourtInsuranceClient bypassing __init__ (no httpx setup)."""
     client = CourtInsuranceClient.__new__(CourtInsuranceClient)
@@ -62,6 +63,7 @@ def _make_http_mixin(url: str = "https://example.com/premium") -> _StubHttpMixin
 # ═══════════════════════════════════════════════════════════════════════════
 # parse_insurance_companies (via class method, delegates to pure function)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestParseInsuranceCompanies:
     """Test _parse_insurance_companies pure data extraction."""
@@ -144,6 +146,7 @@ class TestParseInsuranceCompanies:
 # _parse_premium_from_response (via class method)
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestParsePremiumFromResponse:
     """Test _parse_premium_from_response pure data extraction."""
 
@@ -196,6 +199,7 @@ class TestParsePremiumFromResponse:
 # ═══════════════════════════════════════════════════════════════════════════
 # _build_premium_request (via class method with concrete subclass)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestBuildPremiumRequest:
     """Test _build_premium_request pure request construction."""
@@ -254,6 +258,7 @@ class TestBuildPremiumRequest:
 # _make_failed_result (via class method)
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestMakeFailedResult:
     """Test _make_failed_result constructs PremiumResult correctly."""
 
@@ -267,7 +272,9 @@ class TestMakeFailedResult:
     def test_failed_result_contains_error_info(self) -> None:
         mixin = _make_http_mixin()
         company = InsuranceCompany(c_id="1", c_code="PICC", c_name="人保")
-        result = mixin._make_failed_result(company, "HTTP 500", RuntimeError("server error"), {"url": "https://example.com"})
+        result = mixin._make_failed_result(
+            company, "HTTP 500", RuntimeError("server error"), {"url": "https://example.com"}
+        )
         assert "HTTP 500" in result.error_message
         assert "RuntimeError" in result.error_message
 
@@ -299,6 +306,7 @@ class TestMakeFailedResult:
 # Module-level pure function: parse_insurance_companies
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestParseInsuranceCompaniesPureFunction:
     """Test parse_insurance_companies as a module-level pure function."""
 
@@ -329,6 +337,7 @@ class TestParseInsuranceCompaniesPureFunction:
 # Module-level pure function: parse_premium_from_response
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestParsePremiumPureFunction:
     """Test parse_premium_from_response as a module-level pure function."""
 
@@ -352,6 +361,7 @@ class TestParsePremiumPureFunction:
 # Module-level pure function: build_premium_request
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestBuildPremiumRequestPureFunction:
     """Test build_premium_request as a module-level pure function."""
 
@@ -368,13 +378,16 @@ class TestBuildPremiumRequestPureFunction:
         assert body["preserveAmount"] == "10050"
 
     def test_request_info_url(self) -> None:
-        _, _, _, info = build_premium_request("https://api.test/premium", "tok", Decimal("10000"), "PICC", "corp1", 60.0)
+        _, _, _, info = build_premium_request(
+            "https://api.test/premium", "tok", Decimal("10000"), "PICC", "corp1", 60.0
+        )
         assert info["url"] == "https://api.test/premium"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Module-level pure function: make_failed_result
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestMakeFailedResultPureFunction:
     """Test make_failed_result as a module-level pure function."""

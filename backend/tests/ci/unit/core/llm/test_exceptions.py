@@ -1,4 +1,5 @@
 """Tests for core.llm.exceptions."""
+
 from __future__ import annotations
 
 import pytest

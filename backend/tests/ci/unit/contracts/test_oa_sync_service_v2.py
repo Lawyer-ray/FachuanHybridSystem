@@ -24,16 +24,13 @@ Covers:
 from __future__ import annotations
 
 import re
-from datetime import timedelta, UTC
+from datetime import UTC, timedelta
 from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.contracts.services.contract.integrations.contract_oa_sync_service import (
-    ContractOASyncService,
-)
-
+from apps.contracts.services.contract.integrations.contract_oa_sync_service import ContractOASyncService
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -171,6 +168,7 @@ class TestIsStaleActiveSession:
         session = MagicMock()
         session.status = "running"
         from datetime import datetime, timedelta, timezone
+
         session.updated_at = datetime.now(UTC) - timedelta(minutes=10)
         with patch("apps.contracts.services.contract.integrations.contract_oa_sync_service.timezone") as mock_tz:
             mock_tz.now.return_value = datetime.now(UTC)
@@ -309,7 +307,9 @@ class TestSaveManualContractOaFields:
             mock_model.objects.filter.return_value = [mock_contract]
             with patch.object(svc, "list_missing_oa_contracts", return_value=[]):
                 result = svc.save_manual_contract_oa_fields(
-                    updates=[{"id": 1, "law_firm_oa_case_number": "001", "law_firm_oa_url": "https://oa.example.com/case/1"}]
+                    updates=[
+                        {"id": 1, "law_firm_oa_case_number": "001", "law_firm_oa_url": "https://oa.example.com/case/1"}
+                    ]
                 )
         assert result["updated_count"] == 1
         assert result["error_count"] == 0
@@ -318,9 +318,7 @@ class TestSaveManualContractOaFields:
     def test_invalid_url(self) -> None:
         svc = _make_service()
         with patch.object(svc, "list_missing_oa_contracts", return_value=[]):
-            result = svc.save_manual_contract_oa_fields(
-                updates=[{"id": 1, "law_firm_oa_url": "not a url"}]
-            )
+            result = svc.save_manual_contract_oa_fields(updates=[{"id": 1, "law_firm_oa_url": "not a url"}])
         assert result["updated_count"] == 0
         assert result["error_count"] == 1
         assert "格式无效" in result["errors"][0]["message"]
@@ -331,9 +329,7 @@ class TestSaveManualContractOaFields:
         with patch("apps.contracts.services.contract.integrations.contract_oa_sync_service.Contract") as mock_model:
             mock_model.objects.filter.return_value = []  # no contracts found
             with patch.object(svc, "list_missing_oa_contracts", return_value=[]):
-                result = svc.save_manual_contract_oa_fields(
-                    updates=[{"id": 999, "law_firm_oa_case_number": "001"}]
-                )
+                result = svc.save_manual_contract_oa_fields(updates=[{"id": 999, "law_firm_oa_case_number": "001"}])
         assert result["updated_count"] == 0
         assert result["error_count"] == 1
         assert "不存在" in result["errors"][0]["message"]
@@ -341,9 +337,7 @@ class TestSaveManualContractOaFields:
     def test_invalid_id(self) -> None:
         svc = _make_service()
         with patch.object(svc, "list_missing_oa_contracts", return_value=[]):
-            result = svc.save_manual_contract_oa_fields(
-                updates=[{"id": "abc"}]
-            )
+            result = svc.save_manual_contract_oa_fields(updates=[{"id": "abc"}])
         assert result["error_count"] == 1
         assert "无效" in result["errors"][0]["message"]
 
@@ -351,7 +345,9 @@ class TestSaveManualContractOaFields:
 class TestGetSession:
     def test_found(self) -> None:
         svc = _make_service()
-        with patch("apps.contracts.services.contract.integrations.contract_oa_sync_service.ContractOASyncSession") as mock_model:
+        with patch(
+            "apps.contracts.services.contract.integrations.contract_oa_sync_service.ContractOASyncSession"
+        ) as mock_model:
             mock_session = MagicMock()
             mock_model.objects.filter.return_value.first.return_value = mock_session
             result = svc.get_session(session_id=1)
@@ -359,7 +355,9 @@ class TestGetSession:
 
     def test_not_found(self) -> None:
         svc = _make_service()
-        with patch("apps.contracts.services.contract.integrations.contract_oa_sync_service.ContractOASyncSession") as mock_model:
+        with patch(
+            "apps.contracts.services.contract.integrations.contract_oa_sync_service.ContractOASyncSession"
+        ) as mock_model:
             mock_model.objects.filter.return_value.first.return_value = None
             result = svc.get_session(session_id=999)
         assert result is None

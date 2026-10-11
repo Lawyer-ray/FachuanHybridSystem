@@ -87,11 +87,13 @@ class TestPDFMergeService:
 class TestEvidenceExportServiceInit:
     def test_default_placeholder_service(self) -> None:
         from apps.evidence.services.export.evidence_export_service import EvidenceExportService
+
         svc = EvidenceExportService()
         assert svc._placeholder_service is None
 
     def test_injected_placeholder_service(self) -> None:
         from apps.evidence.services.export.evidence_export_service import EvidenceExportService
+
         mock_ps = MagicMock()
         svc = EvidenceExportService(placeholder_service=mock_ps)
         assert svc._placeholder_service is mock_ps
@@ -101,12 +103,15 @@ class TestEvidenceExportServiceInit:
 class TestPdfMergeUtilsModule:
     def test_add_page_numbers_function_exists(self) -> None:
         from apps.documents.services.infrastructure.pdf_merge_utils import add_page_numbers
+
         assert callable(add_page_numbers)
 
     def test_convert_image_to_pdf_function_exists(self) -> None:
         from apps.documents.services.infrastructure.pdf_merge_utils import convert_image_to_pdf
+
         assert callable(convert_image_to_pdf)
 
     def test_convert_docx_to_pdf_function_exists(self) -> None:
         from apps.documents.services.infrastructure.pdf_merge_utils import convert_docx_to_pdf
+
         assert callable(convert_docx_to_pdf)

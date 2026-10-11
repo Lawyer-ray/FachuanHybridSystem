@@ -11,13 +11,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from apps.legal_research.services.capability.service import _normalize_text
 from apps.oa_filing.services.oa_scripts.jtn.auth.constants import (
     _DEFAULT_HTTP_TIMEOUT,
     _HTTP_HEADERS,
     _LOGIN_URL,
     cookie_path,
 )
-from apps.oa_filing.services.oa_scripts.jtn.auth.service import JtnAuthService
+from apps.oa_filing.services.oa_scripts.jtn.auth.service import JtnAuthService, inject_to_context, inject_to_httpx
 
 # ──────────── 常量一致性 ────────────
 
@@ -155,7 +156,7 @@ class TestCookieInjection:
             {"name": "token", "value": "xyz", "domain": "ims.jtn.com", "path": "/"},
         ]
 
-        JtnAuthService.inject_to_httpx(mock_client, cookies)
+        inject_to_httpx(mock_client, cookies)
 
         assert mock_client.cookies.set.call_count == 2
         mock_client.cookies.set.assert_any_call("sid", "abc", domain=".jtn.com")
@@ -164,7 +165,7 @@ class TestCookieInjection:
     def test_inject_to_httpx_empty(self):
         """空 cookies 列表不调用 set。"""
         mock_client = MagicMock()
-        JtnAuthService.inject_to_httpx(mock_client, [])
+        inject_to_httpx(mock_client, [])
         mock_client.cookies.set.assert_not_called()
 
     @pytest.mark.asyncio
@@ -175,7 +176,7 @@ class TestCookieInjection:
             {"name": "sid", "value": "abc", "domain": ".jtn.com", "path": "/"},
         ]
 
-        await JtnAuthService.inject_to_context(mock_context, cookies)
+        await inject_to_context(mock_context, cookies)
 
         mock_context.add_cookies.assert_called_once_with(
             [{"name": "sid", "value": "abc", "domain": ".jtn.com", "path": "/"}]
@@ -187,7 +188,7 @@ class TestCookieInjection:
         mock_context = AsyncMock()
         cookies = [{"name": "sid", "value": "abc", "domain": ".jtn.com"}]
 
-        await JtnAuthService.inject_to_context(mock_context, cookies)
+        await inject_to_context(mock_context, cookies)
 
         call_args = mock_context.add_cookies.call_args[0][0]
         assert call_args[0]["path"] == "/"
@@ -283,7 +284,7 @@ class TestFilingIntegration:
         cookies = [{"name": "sid", "value": "v", "domain": ".jtn.com"}]
         with (
             patch.object(JtnAuthService, "load_cookies", return_value=cookies),
-            patch.object(JtnAuthService, "inject_to_httpx") as mock_inject,
+            patch("apps.oa_filing.services.oa_scripts.jtn.filing.http_filing.inject_to_httpx") as mock_inject,
         ):
             await mixin._http_login(mock_client)
             mock_inject.assert_called_once_with(mock_client, cookies)
@@ -316,7 +317,7 @@ class TestFilingIntegration:
         with (
             patch.object(JtnAuthService, "load_cookies", side_effect=mock_load),
             patch.object(JtnAuthService, "sso_login", return_value=new_cookies) as mock_sso,
-            patch.object(JtnAuthService, "inject_to_httpx") as mock_inject,
+            patch("apps.oa_filing.services.oa_scripts.jtn.filing.http_filing.inject_to_httpx") as mock_inject,
         ):
             await mixin._http_login(mock_client)
             mock_sso.assert_called_once()
@@ -527,7 +528,7 @@ class TestClientImportIntegration:
         from apps.oa_filing.services.oa_scripts.jtn.client_import.service import JtnClientImportScript
 
         script = JtnClientImportScript("a", "p")
-        assert script._normalize_text("  hello  ") == "hello"
+        assert _normalize_text("  hello  ") == "hello"
         assert script._to_int("42") == 42
         assert script._to_int(None) == 0
         assert script._to_int("abc") == 0

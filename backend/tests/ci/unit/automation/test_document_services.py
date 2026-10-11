@@ -11,8 +11,8 @@ from docx import Document as DocxDocument
 from apps.automation.services.document.document_processing import (
     DocumentExtraction,
     _apply_pdf_limits,
-    extract_docx_text,
     extract_document_content,
+    extract_docx_text,
     get_doc_config,
 )
 
@@ -43,25 +43,45 @@ class TestApplyPdfLimits:
     """测试 PDF 限制参数应用。"""
 
     def test_with_explicit_values(self) -> None:
-        config = {"DEFAULT_TEXT_LIMIT": 1500, "DEFAULT_PREVIEW_PAGE": 1, "MAX_TEXT_LIMIT": 10000, "MAX_PREVIEW_PAGES": 5}
+        config = {
+            "DEFAULT_TEXT_LIMIT": 1500,
+            "DEFAULT_PREVIEW_PAGE": 1,
+            "MAX_TEXT_LIMIT": 10000,
+            "MAX_PREVIEW_PAGES": 5,
+        }
         lim, page = _apply_pdf_limits(500, 2, config)
         assert lim == 500
         assert page == 2
 
     def test_with_none_values_uses_defaults(self) -> None:
-        config = {"DEFAULT_TEXT_LIMIT": 1500, "DEFAULT_PREVIEW_PAGE": 1, "MAX_TEXT_LIMIT": 10000, "MAX_PREVIEW_PAGES": 5}
+        config = {
+            "DEFAULT_TEXT_LIMIT": 1500,
+            "DEFAULT_PREVIEW_PAGE": 1,
+            "MAX_TEXT_LIMIT": 10000,
+            "MAX_PREVIEW_PAGES": 5,
+        }
         lim, page = _apply_pdf_limits(None, None, config)
         assert lim == 1500
         assert page == 1
 
     def test_clamps_to_max(self) -> None:
-        config = {"DEFAULT_TEXT_LIMIT": 1500, "DEFAULT_PREVIEW_PAGE": 1, "MAX_TEXT_LIMIT": 10000, "MAX_PREVIEW_PAGES": 5}
+        config = {
+            "DEFAULT_TEXT_LIMIT": 1500,
+            "DEFAULT_PREVIEW_PAGE": 1,
+            "MAX_TEXT_LIMIT": 10000,
+            "MAX_PREVIEW_PAGES": 5,
+        }
         lim, page = _apply_pdf_limits(20000, 10, config)
         assert lim == 10000
         assert page == 5
 
     def test_mixed_values(self) -> None:
-        config = {"DEFAULT_TEXT_LIMIT": 1500, "DEFAULT_PREVIEW_PAGE": 1, "MAX_TEXT_LIMIT": 10000, "MAX_PREVIEW_PAGES": 5}
+        config = {
+            "DEFAULT_TEXT_LIMIT": 1500,
+            "DEFAULT_PREVIEW_PAGE": 1,
+            "MAX_TEXT_LIMIT": 10000,
+            "MAX_PREVIEW_PAGES": 5,
+        }
         lim, page = _apply_pdf_limits(3000, None, config)
         assert lim == 3000
         assert page == 1

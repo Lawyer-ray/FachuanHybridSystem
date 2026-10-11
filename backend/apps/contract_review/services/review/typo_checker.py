@@ -60,7 +60,7 @@ class TypoChecker:  # pragma: no cover
         return all_results
 
     def _check_single_batch(self, text: str, model_name: str) -> list[TypoResult]:  # pragma: no cover
-        prompt = self._build_prompt(text)
+        prompt = _build_prompt(text)
         resp = self._llm.complete(
             prompt=prompt,
             model=model_name or None,
@@ -68,18 +68,6 @@ class TypoChecker:  # pragma: no cover
             fallback=True,
         )
         return self._parse_llm_response(resp.content)
-
-    @staticmethod
-    def _build_prompt(text: str) -> str:  # pragma: no cover
-        return (
-            "你是一个专业的中文合同校对员。请检查以下合同文本中的错别字。\n"
-            "每个段落前标注了段落编号 [段落N]。\n"
-            "仅返回 JSON 数组，格式：\n"
-            '[{"original": "错误文本", "corrected": "正确文本", "paragraph_index": 段落编号}]\n'
-            "如果没有错别字，返回空数组 []。\n"
-            "不要返回任何其他内容。\n\n"
-            f"{text}"
-        )
 
     @staticmethod
     def _parse_llm_response(response_text: str) -> list[TypoResult]:  # pragma: no cover
@@ -123,3 +111,16 @@ def _parse_int(val: object) -> int:  # pragma: no cover
 
     m = re.search(r"\d+", s)
     return int(m.group()) if m else 0
+
+
+# ↓↓ 由 TypoChecker 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _build_prompt(text: str) -> str:  # pragma: no cover
+    return (
+        "你是一个专业的中文合同校对员。请检查以下合同文本中的错别字。\n"
+        "每个段落前标注了段落编号 [段落N]。\n"
+        "仅返回 JSON 数组，格式：\n"
+        '[{"original": "错误文本", "corrected": "正确文本", "paragraph_index": 段落编号}]\n'
+        "如果没有错别字，返回空数组 []。\n"
+        "不要返回任何其他内容。\n\n"
+        f"{text}"
+    )

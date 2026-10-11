@@ -496,7 +496,7 @@ class TextinBackend:
         for page in pages:
             if not isinstance(page, dict):
                 continue
-            page_no = self._positive_page_number(page.get("page_number"))
+            page_no = _positive_page_number(page.get("page_number"))
             if page_no is None:
                 continue
             page_map[page_no] = {
@@ -512,11 +512,11 @@ class TextinBackend:
         for element in elements:
             if not isinstance(element, dict):
                 continue
-            page_no = self._positive_page_number(element.get("page_number"))
+            page_no = _positive_page_number(element.get("page_number"))
             if page_no is None:
                 element_metadata = element.get("metadata")
                 if isinstance(element_metadata, dict):
-                    page_no = self._positive_page_number(element_metadata.get("page_number"))
+                    page_no = _positive_page_number(element_metadata.get("page_number"))
             if page_no is None:
                 page_no = element_page_map.get(str(element.get("element_id") or ""))
             if page_no is None:
@@ -542,14 +542,6 @@ class TextinBackend:
             page_map.setdefault(page_no, {"page_no": page_no, "width": None, "height": None, "blocks": [], "text": ""})
 
         return {"page_count": total_pages or len(page_map), "pages": [page_map[key] for key in sorted(page_map)]}
-
-    @staticmethod
-    def _positive_page_number(value: Any) -> int | None:
-        try:
-            page_no = int(value)
-        except (TypeError, ValueError):
-            return None
-        return page_no if page_no > 0 else None
 
     @classmethod
     def _get_element_text(cls, element: dict[str, Any]) -> str:
@@ -660,3 +652,12 @@ class TextinBackend:
             return TextinAPIError(f"TextinParse SDK 配置错误: {message}")
 
         return TextinAPIError(f"TextinParse 解析失败: {message}")
+
+
+# ↓↓ 由 TextinBackend 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _positive_page_number(value: Any) -> int | None:
+    try:
+        page_no = int(value)
+    except (TypeError, ValueError):
+        return None
+    return page_no if page_no > 0 else None

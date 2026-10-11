@@ -2,6 +2,7 @@
 
 Covers: DocumentTemplateService create/update/validate/extract/delete/get_all methods.
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, PropertyMock, patch
@@ -14,6 +15,7 @@ from apps.core.exceptions import NotFoundError
 class TestDocumentTemplateServiceInit:
     def test_default_init(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         svc = DocumentTemplateService()
         assert svc._repo is None
         assert svc._validator is None
@@ -21,6 +23,7 @@ class TestDocumentTemplateServiceInit:
 
     def test_injected_init(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         mock_repo = MagicMock()
         mock_val = MagicMock()
         mock_wf = MagicMock()
@@ -33,6 +36,7 @@ class TestDocumentTemplateServiceInit:
 class TestDocumentTemplateServiceRepo:
     def test_repo_lazy_load(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         svc = DocumentTemplateService()
         with patch("apps.documents.services.template.template_service.DocumentTemplateRepo") as MockRepo:
             MockRepo.return_value = MagicMock()
@@ -42,6 +46,7 @@ class TestDocumentTemplateServiceRepo:
 
     def test_validator_lazy_load(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         svc = DocumentTemplateService()
         with patch("apps.documents.services.template.template_service.DocumentTemplateValidationService") as MockVal:
             MockVal.return_value = MagicMock()
@@ -51,6 +56,7 @@ class TestDocumentTemplateServiceRepo:
 
     def test_workflow_lazy_load(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         svc = DocumentTemplateService()
         with patch("apps.documents.services.template.template_service.DocumentTemplateWorkflow") as MockWf:
             MockWf.return_value = MagicMock()
@@ -62,6 +68,7 @@ class TestDocumentTemplateServiceRepo:
 class TestDocumentTemplateServiceCreateTemplate:
     def test_create_template(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         mock_workflow = MagicMock()
         mock_template = MagicMock()
         mock_workflow.create_template.return_value = mock_template
@@ -74,6 +81,7 @@ class TestDocumentTemplateServiceCreateTemplate:
 class TestDocumentTemplateServiceUpdateTemplate:
     def test_update_success(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         mock_repo = MagicMock()
         mock_workflow = MagicMock()
         mock_template = MagicMock()
@@ -85,10 +93,12 @@ class TestDocumentTemplateServiceUpdateTemplate:
 
     def test_update_not_found(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         mock_repo = MagicMock()
-        mock_repo.get_by_id.side_effect = MagicMock(side_effect=type('DoesNotExist', (Exception,), {})())
+        mock_repo.get_by_id.side_effect = MagicMock(side_effect=type("DoesNotExist", (Exception,), {})())
         # Need actual DoesNotExist
         from apps.documents.models import DocumentTemplate
+
         mock_repo.get_by_id.side_effect = DocumentTemplate.DoesNotExist()
         svc = DocumentTemplateService(repo=mock_repo)
         with pytest.raises(NotFoundError) as exc_info:
@@ -99,12 +109,14 @@ class TestDocumentTemplateServiceUpdateTemplate:
 class TestDocumentTemplateServiceValidateFilePath:
     def test_empty_path(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         svc = DocumentTemplateService()
         assert svc.validate_file_path("") is False
         assert svc.validate_file_path(None) is False
 
     def test_valid_path(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         mock_validator = MagicMock()
         mock_validator.validate_file_path.return_value = True
         svc = DocumentTemplateService(validator=mock_validator)
@@ -114,6 +126,7 @@ class TestDocumentTemplateServiceValidateFilePath:
 class TestDocumentTemplateServiceGetFullFilePath:
     def test_file_exists(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         svc = DocumentTemplateService()
         mock_template = MagicMock()
         mock_template.get_file_location.return_value = "/some/path.docx"
@@ -126,6 +139,7 @@ class TestDocumentTemplateServiceGetFullFilePath:
 
     def test_file_not_exists(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         svc = DocumentTemplateService()
         mock_template = MagicMock()
         mock_template.get_file_location.return_value = "/missing/path.docx"
@@ -138,6 +152,7 @@ class TestDocumentTemplateServiceGetFullFilePath:
 
     def test_exception(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         svc = DocumentTemplateService()
         mock_template = MagicMock()
         mock_template.get_file_location.side_effect = RuntimeError("io error")
@@ -150,33 +165,41 @@ class TestDocumentTemplateServiceGetFullFilePath:
 class TestDocumentTemplateServiceExtractPlaceholders:
     def test_file_not_found(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         svc = DocumentTemplateService()
         mock_template = MagicMock()
         mock_template.name = "test"
         mock_template.pk = 1
-        with patch.object(svc, 'get_full_file_path', return_value=None):
+        with patch.object(svc, "get_full_file_path", return_value=None):
             assert svc.extract_placeholders(mock_template) == []
 
     def test_extraction_success(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         svc = DocumentTemplateService()
         mock_template = MagicMock()
         mock_template.name = "test"
         mock_template.pk = 1
-        with patch.object(svc, 'get_full_file_path', return_value="/path/to/doc.docx"):
-            with patch("apps.documents.services.template.template_service.extract_placeholders_from_file") as mock_extract:
+        with patch.object(svc, "get_full_file_path", return_value="/path/to/doc.docx"):
+            with patch(
+                "apps.documents.services.template.template_service.extract_placeholders_from_file"
+            ) as mock_extract:
                 mock_extract.return_value = ["name", "date"]
                 result = svc.extract_placeholders(mock_template)
                 assert result == ["name", "date"]
 
     def test_extraction_error(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         svc = DocumentTemplateService()
         mock_template = MagicMock()
         mock_template.name = "test"
         mock_template.pk = 1
-        with patch.object(svc, 'get_full_file_path', return_value="/path/to/doc.docx"):
-            with patch("apps.documents.services.template.template_service.extract_placeholders_from_file", side_effect=RuntimeError("parse error")):
+        with patch.object(svc, "get_full_file_path", return_value="/path/to/doc.docx"):
+            with patch(
+                "apps.documents.services.template.template_service.extract_placeholders_from_file",
+                side_effect=RuntimeError("parse error"),
+            ):
                 with pytest.raises(RuntimeError):
                     svc.extract_placeholders(mock_template)
 
@@ -184,16 +207,18 @@ class TestDocumentTemplateServiceExtractPlaceholders:
 class TestDocumentTemplateServiceGetUndefinedPlaceholders:
     def test_no_template_placeholders(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         svc = DocumentTemplateService()
         mock_template = MagicMock()
-        with patch.object(svc, 'extract_placeholders', return_value=[]):
+        with patch.object(svc, "extract_placeholders", return_value=[]):
             assert svc.get_undefined_placeholders(mock_template) == []
 
     def test_with_undefined(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         svc = DocumentTemplateService()
         mock_template = MagicMock()
-        with patch.object(svc, 'extract_placeholders', return_value=["key_a", "key_b"]):
+        with patch.object(svc, "extract_placeholders", return_value=["key_a", "key_b"]):
             with patch("apps.documents.services.template.template_service.Placeholder") as MockPlaceholder:
                 MockPlaceholder.objects.filter.return_value.values_list.return_value = ["key_a"]
                 result = svc.get_undefined_placeholders(mock_template)
@@ -204,6 +229,7 @@ class TestDocumentTemplateServiceGetUndefinedPlaceholders:
 class TestDocumentTemplateServiceGetTemplateById:
     def test_found(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         mock_repo = MagicMock()
         mock_template = MagicMock()
         mock_repo.get_by_id.return_value = mock_template
@@ -213,6 +239,7 @@ class TestDocumentTemplateServiceGetTemplateById:
     def test_not_found(self):
         from apps.documents.models import DocumentTemplate
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         mock_repo = MagicMock()
         mock_repo.get_by_id.side_effect = DocumentTemplate.DoesNotExist()
         svc = DocumentTemplateService(repo=mock_repo)
@@ -223,6 +250,7 @@ class TestDocumentTemplateServiceGetTemplateById:
 class TestDocumentTemplateServiceDeleteTemplate:
     def test_delete_success(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         mock_repo = MagicMock()
         mock_template = MagicMock()
         mock_template.is_active = True
@@ -235,6 +263,7 @@ class TestDocumentTemplateServiceDeleteTemplate:
     def test_delete_not_found(self):
         from apps.documents.models import DocumentTemplate
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         mock_repo = MagicMock()
         mock_repo.get_by_id.side_effect = DocumentTemplate.DoesNotExist()
         svc = DocumentTemplateService(repo=mock_repo)
@@ -245,6 +274,7 @@ class TestDocumentTemplateServiceDeleteTemplate:
 class TestDocumentTemplateServiceCreateFromDict:
     def test_create_from_dict(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         mock_workflow = MagicMock()
         mock_template = MagicMock()
         mock_workflow.create_from_dict.return_value = mock_template
@@ -256,6 +286,7 @@ class TestDocumentTemplateServiceCreateFromDict:
 class TestDocumentTemplateServiceUpdateFromDict:
     def test_update_from_dict_success(self):
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         mock_repo = MagicMock()
         mock_workflow = MagicMock()
         mock_template = MagicMock()
@@ -268,6 +299,7 @@ class TestDocumentTemplateServiceUpdateFromDict:
     def test_update_from_dict_not_found(self):
         from apps.documents.models import DocumentTemplate
         from apps.documents.services.template.template_service import DocumentTemplateService
+
         mock_repo = MagicMock()
         mock_repo.get_by_id.side_effect = DocumentTemplate.DoesNotExist()
         svc = DocumentTemplateService(repo=mock_repo)

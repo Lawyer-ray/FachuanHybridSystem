@@ -3,6 +3,7 @@
 Covers: _to_media_url branches, from_model for CourtSMSDetailOut and CourtSMSListOut,
 field_validators, and Config metadata.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -16,16 +17,19 @@ import pytest
 class TestCourtSMSSubmitIn:
     def test_validate_content_strips_whitespace(self) -> None:
         from apps.automation.schemas.court_sms import CourtSMSSubmitIn
+
         result = CourtSMSSubmitIn(content="  hello  ")
         assert result.content == "hello"
 
     def test_validate_content_empty_raises(self) -> None:
         from apps.automation.schemas.court_sms import CourtSMSSubmitIn
+
         with pytest.raises(Exception):
             CourtSMSSubmitIn(content="")
 
     def test_validate_content_whitespace_only_raises(self) -> None:
         from apps.automation.schemas.court_sms import CourtSMSSubmitIn
+
         with pytest.raises(Exception):
             CourtSMSSubmitIn(content="   ")
 
@@ -33,12 +37,14 @@ class TestCourtSMSSubmitIn:
 class TestCourtSMSDetailOutToMediaUrl:
     def test_empty_path(self) -> None:
         from apps.automation.schemas.court_sms import CourtSMSDetailOut
+
         assert CourtSMSDetailOut._to_media_url("") is None
         assert CourtSMSDetailOut._to_media_url(None) is None  # type: ignore[arg-type]
 
     @patch("apps.automation.schemas.court_sms.settings")
     def test_absolute_path_inside_media(self, mock_settings: MagicMock) -> None:
         from apps.automation.schemas.court_sms import CourtSMSDetailOut
+
         mock_settings.MEDIA_ROOT = "/tmp/media"
         mock_settings.MEDIA_URL = "/media/"
         result = CourtSMSDetailOut._to_media_url("/tmp/media/docs/file.pdf")
@@ -48,6 +54,7 @@ class TestCourtSMSDetailOutToMediaUrl:
     @patch("apps.automation.schemas.court_sms.settings")
     def test_relative_path(self, mock_settings: MagicMock) -> None:
         from apps.automation.schemas.court_sms import CourtSMSDetailOut
+
         mock_settings.MEDIA_ROOT = "/tmp/media"
         mock_settings.MEDIA_URL = "/media/"
         result = CourtSMSDetailOut._to_media_url("docs/file.pdf")
@@ -56,6 +63,7 @@ class TestCourtSMSDetailOutToMediaUrl:
     @patch("apps.automation.schemas.court_sms.settings")
     def test_path_outside_media_returns_none(self, mock_settings: MagicMock) -> None:
         from apps.automation.schemas.court_sms import CourtSMSDetailOut
+
         mock_settings.MEDIA_ROOT = "/tmp/media"
         mock_settings.MEDIA_URL = "/media/"
         result = CourtSMSDetailOut._to_media_url("/other/path/file.pdf")
@@ -65,6 +73,7 @@ class TestCourtSMSDetailOutToMediaUrl:
 class TestCourtSMSDetailOutFromModel:
     def test_from_model_basic(self) -> None:
         from apps.automation.schemas.court_sms import CourtSMSDetailOut
+
         obj = SimpleNamespace(
             id=1,
             content="test content",
@@ -92,6 +101,7 @@ class TestCourtSMSDetailOutFromModel:
 
     def test_from_model_with_case(self) -> None:
         from apps.automation.schemas.court_sms import CourtSMSDetailOut
+
         obj = SimpleNamespace(
             id=2,
             content="test",
@@ -121,6 +131,7 @@ class TestCourtSMSDetailOutFromModel:
 class TestCourtSMSListOutFromModel:
     def test_short_content(self) -> None:
         from apps.automation.schemas.court_sms import CourtSMSListOut
+
         obj = SimpleNamespace(
             id=1,
             content="short",
@@ -139,6 +150,7 @@ class TestCourtSMSListOutFromModel:
 
     def test_long_content_truncated(self) -> None:
         from apps.automation.schemas.court_sms import CourtSMSListOut
+
         obj = SimpleNamespace(
             id=1,
             content="x" * 150,
@@ -158,6 +170,7 @@ class TestCourtSMSListOutFromModel:
 
     def test_feishu_sent_from_notification_results(self) -> None:
         from apps.automation.schemas.court_sms import CourtSMSListOut
+
         obj = SimpleNamespace(
             id=1,
             content="test",

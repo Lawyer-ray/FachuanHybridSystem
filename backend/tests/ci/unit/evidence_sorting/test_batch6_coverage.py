@@ -7,6 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.evidence_sorting.services.reconciler import _normalize_date, _to_float
+
 
 class TestClassifierService:
     def _make_service(self):
@@ -130,18 +132,18 @@ class TestReconcilerService:
 
     def test_normalize_date(self):
         svc = self._make_service()
-        assert svc._normalize_date("2023-08-15") == "20230815"
-        assert svc._normalize_date("20230815") == "20230815"
-        assert svc._normalize_date(None) is None
-        assert svc._normalize_date("") is None
-        assert svc._normalize_date("invalid") is None
+        assert _normalize_date("2023-08-15") == "20230815"
+        assert _normalize_date("20230815") == "20230815"
+        assert _normalize_date(None) is None
+        assert _normalize_date("") is None
+        assert _normalize_date("invalid") is None
 
     def test_to_float(self):
         svc = self._make_service()
-        assert svc._to_float(1234.56) == 1234.56
-        assert svc._to_float("1,234.56") == 1234.56
-        assert svc._to_float(None) is None
-        assert svc._to_float("abc") is None
+        assert _to_float(1234.56) == 1234.56
+        assert _to_float("1,234.56") == 1234.56
+        assert _to_float(None) is None
+        assert _to_float("abc") is None
 
     def test_extract_month_key(self):
         from apps.evidence_sorting.services.reconciler import StatementInfo
@@ -170,10 +172,7 @@ class TestReconcilerService:
         assert svc._month_key_to_yyyymm("invalid") is None
 
     def test_match_delivery_date_and_amount(self):
-        from apps.evidence_sorting.services.reconciler import (
-            DeliveryNote,
-            LineItem,
-        )
+        from apps.evidence_sorting.services.reconciler import DeliveryNote, LineItem
 
         svc = self._make_service()
         li = LineItem(date="20230815", amount=5000.0)
@@ -181,10 +180,7 @@ class TestReconcilerService:
         assert svc._match_delivery(li, dn) is True
 
     def test_match_delivery_mismatched_date(self):
-        from apps.evidence_sorting.services.reconciler import (
-            DeliveryNote,
-            LineItem,
-        )
+        from apps.evidence_sorting.services.reconciler import DeliveryNote, LineItem
 
         svc = self._make_service()
         li = LineItem(date="20230815", amount=5000.0)
@@ -192,10 +188,7 @@ class TestReconcilerService:
         assert svc._match_delivery(li, dn) is False
 
     def test_match_delivery_no_dates(self):
-        from apps.evidence_sorting.services.reconciler import (
-            DeliveryNote,
-            LineItem,
-        )
+        from apps.evidence_sorting.services.reconciler import DeliveryNote, LineItem
 
         svc = self._make_service()
         li = LineItem(amount=5000.0)
@@ -203,10 +196,7 @@ class TestReconcilerService:
         assert svc._match_delivery(li, dn) is False
 
     def test_build_folder_name_confirmed(self):
-        from apps.evidence_sorting.services.reconciler import (
-            MonthGroup,
-            StatementInfo,
-        )
+        from apps.evidence_sorting.services.reconciler import MonthGroup, StatementInfo
 
         svc = self._make_service()
         st = StatementInfo(signed=True)
@@ -215,11 +205,7 @@ class TestReconcilerService:
         assert "已确认" in result
 
     def test_build_folder_name_unsigned(self):
-        from apps.evidence_sorting.services.reconciler import (
-            FOLDER_UNSIGNED,
-            MonthGroup,
-            StatementInfo,
-        )
+        from apps.evidence_sorting.services.reconciler import FOLDER_UNSIGNED, MonthGroup, StatementInfo
 
         svc = self._make_service()
         st = StatementInfo(signed=False)

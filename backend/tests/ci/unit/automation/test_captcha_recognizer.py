@@ -6,6 +6,7 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -23,7 +24,6 @@ pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not i
 
 
 class TestManualCaptchaRecognizerInit:
-
     def test_default_values(self):
         task = MagicMock()
         r = ManualCaptchaRecognizer(task=task)
@@ -42,7 +42,6 @@ class TestManualCaptchaRecognizerInit:
 
 
 class TestManualCaptchaRecognizerRecognize:
-
     def test_empty_bytes_returns_none(self):
         task = MagicMock()
         r = ManualCaptchaRecognizer(task=task)
@@ -72,7 +71,6 @@ class TestManualCaptchaRecognizerRecognize:
 
 
 class TestRecognizeFromElement:
-
     def test_element_screenshot_success(self):
         task = MagicMock()
         r = ManualCaptchaRecognizer(task=task)
@@ -122,7 +120,6 @@ class TestRecognizeFromElement:
 
 
 class TestGetCaptchaRecognizer:
-
     def test_plugin_available(self):
         mock_plugin = MagicMock(return_value=True)
 
@@ -152,6 +149,7 @@ class TestGetCaptchaRecognizer:
             with patch.dict("sys.modules", {"plugins.captcha_ocr": None}):
                 result = get_captcha_recognizer(task=None)
                 from apps.automation.services.scraper.core.captcha_recognizer import FileBasedCaptchaRecognizer
+
                 assert isinstance(result, FileBasedCaptchaRecognizer)
 
 
@@ -159,7 +157,6 @@ class TestGetCaptchaRecognizer:
 
 
 class TestCaptchaRecognizerABC:
-
     def test_cannot_instantiate(self):
         with pytest.raises(TypeError):
             CaptchaRecognizer()  # type: ignore[abstract]

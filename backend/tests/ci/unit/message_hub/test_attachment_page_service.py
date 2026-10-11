@@ -58,7 +58,6 @@ def _make_message(tmp_path: Path, pdf_path: Path | None) -> InboxMessage:
 
 
 class TestCountPdfPages:
-
     def test_counts_real_pdf(self, tmp_path: Path) -> None:
         pdf = _make_pdf(tmp_path / "a.pdf", pages=5)
         assert count_pdf_pages(pdf) == 5
@@ -73,12 +72,17 @@ class TestCountPdfPages:
 
 
 class TestFillPageCounts:
-
     def test_fills_pdf_only_and_skips_existing(self, tmp_path: Path) -> None:
         pdf = _make_pdf(tmp_path / "a.pdf", pages=3)
         metas = [
             {"filename": "a.pdf", "content_type": "application/pdf", "part_index": 0, "local_path": str(pdf)},
-            {"filename": "b.pdf", "content_type": "application/pdf", "part_index": 1, "local_path": str(pdf), "page_count": 7},
+            {
+                "filename": "b.pdf",
+                "content_type": "application/pdf",
+                "part_index": 1,
+                "local_path": str(pdf),
+                "page_count": 7,
+            },
             {"filename": "c.jpg", "content_type": "image/jpeg", "part_index": 2, "local_path": str(pdf)},
             {"filename": "d.pdf", "content_type": "application/pdf", "part_index": 3, "local_path": ""},
         ]
@@ -100,7 +104,6 @@ class TestFillPageCounts:
 
 
 class TestEnsurePageCounts:
-
     def test_backfills_and_persists(self, tmp_path: Path) -> None:
         pdf = _make_pdf(tmp_path / "scan.pdf", pages=4)
         msg = _make_message(tmp_path, pdf)
@@ -130,7 +133,6 @@ class TestEnsurePageCounts:
 
 
 class TestUploadPathIntegration:
-
     def test_create_manual_message_has_page_count(self, tmp_path: Path) -> None:
         pdf_bytes = _make_pdf(tmp_path / "up.pdf", pages=6).read_bytes()
         up = SimpleUploadedFile("up.pdf", pdf_bytes, content_type="application/pdf")

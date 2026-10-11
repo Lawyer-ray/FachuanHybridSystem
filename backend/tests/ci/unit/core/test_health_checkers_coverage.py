@@ -1,14 +1,15 @@
 """Coverage tests for core.infrastructure.health._checkers."""
+
 from __future__ import annotations
 
 import os
-from unittest.mock import MagicMock, patch, PropertyMock
 from types import SimpleNamespace
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
-
 # ── check_database ────────────────────────────────────────────────────────────
+
 
 class TestCheckDatabase:
     @patch("apps.core.infrastructure.health._checkers.connection")
@@ -189,6 +190,7 @@ class TestCheckDatabase:
 
 # ── check_cache ──────────────────────────────────────────────────────────────
 
+
 class TestCheckCache:
     @patch("apps.core.infrastructure.health._checkers.cache")
     @patch("apps.core.infrastructure.health._checkers.settings")
@@ -196,7 +198,9 @@ class TestCheckCache:
         from apps.core.infrastructure.health._checkers import check_cache
         from apps.core.infrastructure.health._models import HealthStatus
 
-        mock_settings.CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "test"}}
+        mock_settings.CACHES = {
+            "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "test"}
+        }
         mock_cache.get.return_value = "ok"
 
         result = check_cache()
@@ -232,6 +236,7 @@ class TestCheckCache:
 
 # ── check_disk_space ──────────────────────────────────────────────────────────
 
+
 class TestCheckDiskSpace:
     @patch("apps.core.infrastructure.health._checkers.connection")
     @patch("apps.core.infrastructure.health._checkers.settings")
@@ -240,9 +245,7 @@ class TestCheckDiskSpace:
         from apps.core.infrastructure.health._checkers import check_disk_space
         from apps.core.infrastructure.health._models import HealthStatus
 
-        stat_result = SimpleNamespace(
-            f_blocks=1000, f_frsize=4096, f_bavail=500, f_files=10000, f_ffree=5000
-        )
+        stat_result = SimpleNamespace(f_blocks=1000, f_frsize=4096, f_bavail=500, f_files=10000, f_ffree=5000)
         mock_statvfs.return_value = stat_result
         mock_settings.MEDIA_ROOT = "/tmp"
         mock_settings.STATIC_ROOT = "/tmp/static"
@@ -266,9 +269,7 @@ class TestCheckDiskSpace:
         from apps.core.infrastructure.health._checkers import check_disk_space
         from apps.core.infrastructure.health._models import HealthStatus
 
-        stat_result = SimpleNamespace(
-            f_blocks=1000, f_frsize=4096, f_bavail=150, f_files=10000, f_ffree=1000
-        )
+        stat_result = SimpleNamespace(f_blocks=1000, f_frsize=4096, f_bavail=150, f_files=10000, f_ffree=1000)
         mock_statvfs.return_value = stat_result
         mock_settings.MEDIA_ROOT = "/tmp"
 
@@ -281,9 +282,7 @@ class TestCheckDiskSpace:
         from apps.core.infrastructure.health._checkers import check_disk_space
         from apps.core.infrastructure.health._models import HealthStatus
 
-        stat_result = SimpleNamespace(
-            f_blocks=1000, f_frsize=4096, f_bavail=50, f_files=10000, f_ffree=100
-        )
+        stat_result = SimpleNamespace(f_blocks=1000, f_frsize=4096, f_bavail=50, f_files=10000, f_ffree=100)
         mock_statvfs.return_value = stat_result
         mock_settings.MEDIA_ROOT = "/tmp"
 
@@ -310,9 +309,7 @@ class TestCheckDiskSpace:
         from apps.core.infrastructure.health._checkers import check_disk_space
         from apps.core.infrastructure.health._models import HealthStatus
 
-        stat_result = SimpleNamespace(
-            f_blocks=1000, f_frsize=4096, f_bavail=500, f_files=10000, f_ffree=5000
-        )
+        stat_result = SimpleNamespace(f_blocks=1000, f_frsize=4096, f_bavail=500, f_files=10000, f_ffree=5000)
         mock_statvfs.return_value = stat_result
         mock_settings.MEDIA_ROOT = "/tmp"
         mock_settings.STATIC_ROOT = "/tmp/static"
@@ -344,9 +341,7 @@ class TestCheckDiskSpace:
         from apps.core.infrastructure.health._checkers import check_disk_space
         from apps.core.infrastructure.health._models import HealthStatus
 
-        stat_result = SimpleNamespace(
-            f_blocks=0, f_frsize=4096, f_bavail=0, f_files=0, f_ffree=0
-        )
+        stat_result = SimpleNamespace(f_blocks=0, f_frsize=4096, f_bavail=0, f_files=0, f_ffree=0)
         mock_statvfs.return_value = stat_result
         mock_settings.MEDIA_ROOT = "/tmp"
 
@@ -356,6 +351,7 @@ class TestCheckDiskSpace:
 
 
 # ── check_dependencies ────────────────────────────────────────────────────────
+
 
 class TestCheckDependencies:
     @patch("apps.core.infrastructure.health._checkers.os")

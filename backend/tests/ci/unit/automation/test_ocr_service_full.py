@@ -57,7 +57,10 @@ class TestOCRService:
     def test_paddleocr_engine_lazy_load(self) -> None:
         svc = self._make_service("paddleocr_api")
         mock_engine_cls = MagicMock()
-        with patch("apps.automation.services.ocr.ocr_service.OCRService.paddleocr_engine", new_callable=lambda: property(lambda self: mock_engine_cls())):
+        with patch(
+            "apps.automation.services.ocr.ocr_service.OCRService.paddleocr_engine",
+            new_callable=lambda: property(lambda self: mock_engine_cls()),
+        ):
             pass
         # Test lazy loading
         svc._paddleocr_engine = MagicMock()

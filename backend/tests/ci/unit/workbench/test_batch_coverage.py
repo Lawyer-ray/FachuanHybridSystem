@@ -16,6 +16,8 @@ from uuid import uuid4
 
 import pytest
 
+from apps.workbench.services.session_service import increment_storage
+
 
 class TestGetJobProgress:
     def test_get_job_progress_basic(self) -> None:
@@ -70,7 +72,7 @@ class TestListBatchJobs:
         with patch("apps.workbench.services.batch_service.BatchJob") as MockJob:
             MockJob.objects.filter.return_value.order_by.return_value.count.return_value = 1
             MockJob.objects.filter.return_value.order_by.return_value.__getitem__ = MagicMock(return_value=mock_jobs)
-            with patch.object(BatchAnalysisService, "_job_to_dict", return_value={"id": "test"}):
+            with patch("apps.workbench.services.batch_service._job_to_dict", return_value={"id": "test"}):
                 result = svc.list_batch_jobs(1, page=1, page_size=10)
                 assert "items" in result
                 assert "count" in result
@@ -124,7 +126,7 @@ class TestWorkbenchSessionServiceStorage:
 
         # delta=0 should be a no-op，不触发数据库更新
         with patch("apps.workbench.models.WorkbenchSession") as MockSession:
-            WorkbenchSessionService.increment_storage(1, 0)
+            increment_storage(1, 0)
             MockSession.objects.filter.update.assert_not_called()
 
     def test_get_active_items(self) -> None:

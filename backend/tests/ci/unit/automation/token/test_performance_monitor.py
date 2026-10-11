@@ -6,15 +6,13 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
 
 if _HAS_LOGIN:
-    from plugins.court_automation.token.performance_monitor import (
-        PerformanceMetrics,
-        AlertThresholds,
-    )
+    from plugins.court_automation.token.performance_monitor import AlertThresholds, PerformanceMetrics
 else:
     PerformanceMetrics = None  # type: ignore[assignment,misc]
     AlertThresholds = None  # type: ignore[assignment,misc]

@@ -49,18 +49,14 @@ class TestCauseOfActionModel:
 
     def test_create_cause(self) -> None:
         """创建案由"""
-        cause = CauseOfAction.objects.create(
-            code="01", name="一级案由", case_type="civil", level=1, is_active=True
-        )
+        cause = CauseOfAction.objects.create(code="01", name="一级案由", case_type="civil", level=1, is_active=True)
         assert cause.code == "01"
         assert cause.name == "一级案由"
         assert cause.case_type == "civil"
 
     def test_cause_hierarchy(self) -> None:
         """案由层级关系"""
-        parent = CauseOfAction.objects.create(
-            code="01", name="一级案由", case_type="civil", level=1, is_active=True
-        )
+        parent = CauseOfAction.objects.create(code="01", name="一级案由", case_type="civil", level=1, is_active=True)
         child = CauseOfAction.objects.create(
             code="0101", name="二级案由", case_type="civil", level=2, parent=parent, is_active=True
         )
@@ -91,9 +87,7 @@ class TestCauseOfActionModel:
 
     def test_cause_type_choices(self) -> None:
         """案由类型选项"""
-        civil = CauseOfAction.objects.create(
-            code="C01", name="民事案由", case_type="civil", level=1, is_active=True
-        )
+        civil = CauseOfAction.objects.create(code="C01", name="民事案由", case_type="civil", level=1, is_active=True)
         criminal = CauseOfAction.objects.create(
             code="X01", name="刑事案由", case_type="criminal", level=1, is_active=True
         )

@@ -3,6 +3,7 @@
 覆盖: _build_preview, _to_reminder_kwargs, get_available_providers,
 preview_from_ics, preview_from_url, preview_from_local。
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -11,8 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.reminders.services.calendar_sync_service import CalendarSyncService
-
+from apps.reminders.services.calendar_sync_service import CalendarSyncService, _to_reminder_kwargs
 
 # ── _to_reminder_kwargs ───────────────────────────────────────────
 
@@ -28,7 +28,7 @@ class TestToReminderKwargs:
             "description": "Discuss project",
             "organizer": "Alice",
         }
-        result = CalendarSyncService._to_reminder_kwargs(event)
+        result = _to_reminder_kwargs(event)
         assert result["content"] == "Meeting"
         assert result["due_at"] is not None
         assert result["metadata"]["external_id"] == "uid-123"
@@ -38,7 +38,7 @@ class TestToReminderKwargs:
         assert result["metadata"]["organizer"] == "Alice"
 
     def test_empty_event_uses_now(self) -> None:
-        result = CalendarSyncService._to_reminder_kwargs({})
+        result = _to_reminder_kwargs({})
         assert result["content"] == ""
         assert result["due_at"] is not None
 
@@ -50,7 +50,7 @@ class TestToReminderKwargs:
             "organizer": "missing value",
             "calendar_name": "missing value",
         }
-        result = CalendarSyncService._to_reminder_kwargs(event)
+        result = _to_reminder_kwargs(event)
         assert "location" not in result["metadata"]
         assert "note" not in result["metadata"]
         assert "organizer" not in result["metadata"]
@@ -58,17 +58,17 @@ class TestToReminderKwargs:
 
     def test_invalid_date_uses_now(self) -> None:
         event = {"title": "Test", "start_dt": "not-a-date"}
-        result = CalendarSyncService._to_reminder_kwargs(event)
+        result = _to_reminder_kwargs(event)
         assert result["due_at"] is not None
 
     def test_long_title_truncated(self) -> None:
         event = {"title": "x" * 300}
-        result = CalendarSyncService._to_reminder_kwargs(event)
+        result = _to_reminder_kwargs(event)
         assert len(result["content"]) == 255
 
     def test_no_uid_no_external_id(self) -> None:
         event = {"title": "Test"}
-        result = CalendarSyncService._to_reminder_kwargs(event)
+        result = _to_reminder_kwargs(event)
         assert "external_id" not in result["metadata"]
 
 
@@ -96,8 +96,10 @@ class TestBuildPreview:
             calendar_name="Work",
             is_all_day=False,
         )
-        with patch("apps.reminders.services.calendar_sync_service.Reminder") as MockReminder, \
-             patch("apps.reminders.services.calendar_sync_service.timezone") as mock_tz:
+        with (
+            patch("apps.reminders.services.calendar_sync_service.Reminder") as MockReminder,
+            patch("apps.reminders.services.calendar_sync_service.timezone") as mock_tz,
+        ):
             MockReminder.objects.filter.return_value.values_list.return_value = []
             mock_tz.localtime.return_value.strftime.return_value = "2025-06-15 10:00"
             result = svc._build_preview([event])
@@ -169,7 +171,9 @@ class TestBuildPreview:
 class TestGetAvailableProviders:
     def test_returns_list(self) -> None:
         svc = CalendarSyncService()
-        with patch("apps.reminders.services.calendar_sync_service.get_available_providers", return_value=[{"name": "ics"}]):
+        with patch(
+            "apps.reminders.services.calendar_sync_service.get_available_providers", return_value=[{"name": "ics"}]
+        ):
             result = svc.get_available_providers()
             assert len(result) == 1
 
@@ -183,8 +187,10 @@ class TestPreviewFromIcs:
         mock_provider = MagicMock()
         mock_provider.fetch_events.return_value = []
 
-        with patch("apps.reminders.services.calendar_sync_service.get_provider", return_value=mock_provider), \
-             patch("apps.reminders.services.calendar_sync_service.Reminder") as MockReminder:
+        with (
+            patch("apps.reminders.services.calendar_sync_service.get_provider", return_value=mock_provider),
+            patch("apps.reminders.services.calendar_sync_service.Reminder") as MockReminder,
+        ):
             MockReminder.objects.filter.return_value.values_list.return_value = []
             result = svc.preview_from_ics(b"ics content")
             mock_provider.fetch_events.assert_called_once_with(ics_content=b"ics content")
@@ -200,8 +206,10 @@ class TestPreviewFromLocal:
         mock_provider = MagicMock()
         mock_provider.DEFAULT_EXCLUDED_CALENDARS = ["System"]
 
-        with patch("apps.reminders.services.calendar_sync_service.get_provider", return_value=mock_provider), \
-             patch("apps.reminders.services.calendar_sync_service.Reminder") as MockReminder:
+        with (
+            patch("apps.reminders.services.calendar_sync_service.get_provider", return_value=mock_provider),
+            patch("apps.reminders.services.calendar_sync_service.Reminder") as MockReminder,
+        ):
             MockReminder.objects.filter.return_value.values_list.return_value = []
             svc.preview_from_local("mac", excluded_calendars=["System"])
             call_kwargs = mock_provider.fetch_events.call_args[1]
@@ -212,8 +220,10 @@ class TestPreviewFromLocal:
         mock_provider = MagicMock()
         mock_provider.DEFAULT_EXCLUDED_CALENDARS = ["System"]
 
-        with patch("apps.reminders.services.calendar_sync_service.get_provider", return_value=mock_provider), \
-             patch("apps.reminders.services.calendar_sync_service.Reminder") as MockReminder:
+        with (
+            patch("apps.reminders.services.calendar_sync_service.get_provider", return_value=mock_provider),
+            patch("apps.reminders.services.calendar_sync_service.Reminder") as MockReminder,
+        ):
             MockReminder.objects.filter.return_value.values_list.return_value = []
             svc.preview_from_local("mac", included_calendars=["Personal"])
             call_kwargs = mock_provider.fetch_events.call_args[1]
@@ -223,8 +233,10 @@ class TestPreviewFromLocal:
         svc = CalendarSyncService()
         mock_provider = MagicMock()
 
-        with patch("apps.reminders.services.calendar_sync_service.get_provider", return_value=mock_provider), \
-             patch("apps.reminders.services.calendar_sync_service.Reminder") as MockReminder:
+        with (
+            patch("apps.reminders.services.calendar_sync_service.get_provider", return_value=mock_provider),
+            patch("apps.reminders.services.calendar_sync_service.Reminder") as MockReminder,
+        ):
             MockReminder.objects.filter.return_value.values_list.return_value = []
             svc.preview_from_local("mac")
             mock_provider.fetch_events.assert_called_once()

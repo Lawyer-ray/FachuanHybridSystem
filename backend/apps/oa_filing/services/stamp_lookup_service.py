@@ -33,82 +33,79 @@ class StampLookupError(Exception):
 class StampLookupService:  # pragma: no cover
     """文件路径 → 合同反查。"""
 
-    @staticmethod
-    def lookup_by_file_path(file_path: str) -> StampLookupResult:
-        """根据文件路径反查合同，返回 OA 案件编号等信息。
 
-        查询策略：
-        1. 取文件所在目录
-        2. 生成该目录的所有父路径（最多 6 级）
-        3. 用 IN 查询 CaseFolderBinding（优先，更具体）
-        4. 回退到 ContractFolderBinding
-        5. 均未找到则抛出 StampLookupError
+# ↓↓ 由 StampLookupService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def lookup_by_file_path(file_path: str) -> StampLookupResult:
+    """根据文件路径反查合同，返回 OA 案件编号等信息。
 
-        安全审计 B-18：拒绝含 ``..`` 的输入，且命中绑定后强制
-        ``resolve()`` 收敛在绑定目录内——防止 pathlib 不归一化 ``..``
-        导致 set_input_files 上传任意文件外带。
-        """
-        from apps.cases.models.material import CaseFolderBinding
-        from apps.contracts.models.folder_binding import ContractFolderBinding
+    查询策略：
+    1. 取文件所在目录
+    2. 生成该目录的所有父路径（最多 6 级）
+    3. 用 IN 查询 CaseFolderBinding（优先，更具体）
+    4. 回退到 ContractFolderBinding
+    5. 均未找到则抛出 StampLookupError
 
-        raw = str(file_path or "").strip()
-        if not raw:
-            raise StampLookupError("文件路径为空")
-        if ".." in Path(raw).parts:
-            raise StampLookupError("文件路径不允许包含 ..")
+    安全审计 B-18：拒绝含 ``..`` 的输入，且命中绑定后强制
+    ``resolve()`` 收敛在绑定目录内——防止 pathlib 不归一化 ``..``
+    导致 set_input_files 上传任意文件外带。
+    """
+    from apps.cases.models.material import CaseFolderBinding
+    from apps.contracts.models.folder_binding import ContractFolderBinding
 
-        file_dir = str(Path(raw).parent)
-        parents = [str(p) for p in Path(file_dir).parents[:_MAX_PARENT_DEPTH]]
-        parents.append(file_dir)
+    raw = str(file_path or "").strip()
+    if not raw:
+        raise StampLookupError("文件路径为空")
+    if ".." in Path(raw).parts:
+        raise StampLookupError("文件路径不允许包含 ..")
 
-        def _resolved_under(candidate_dir: str, path: str) -> bool:
-            try:
-                resolved = Path(path).resolve()
-                base = Path(candidate_dir).resolve()
-            except OSError:
-                return False
-            return resolved == base or base in resolved.parents
+    file_dir = str(Path(raw).parent)
+    parents = [str(p) for p in Path(file_dir).parents[:_MAX_PARENT_DEPTH]]
+    parents.append(file_dir)
 
-        # 1. CaseFolderBinding（case 级别，更具体）
-        case_binding = (
-            CaseFolderBinding.objects.filter(folder_path__in=parents).select_related("case__contract").first()
-        )
-        if case_binding and case_binding.case and case_binding.case.contract:
-            if not _resolved_under(case_binding.folder_path, raw):
-                raise StampLookupError("文件路径越出绑定目录范围")
-            contract = case_binding.case.contract
-            if contract.law_firm_oa_case_number:
-                logger.info(
-                    "CaseFolderBinding 命中: contract=%d, oa_no=%s",
-                    contract.id,
-                    contract.law_firm_oa_case_number,
-                )
-                return StampLookupResult(
-                    contract_id=contract.id,
-                    oa_case_number=contract.law_firm_oa_case_number,
-                    contract_name=contract.name or "",
-                    file_path=file_path,
-                )
+    def _resolved_under(candidate_dir: str, path: str) -> bool:
+        try:
+            resolved = Path(path).resolve()
+            base = Path(candidate_dir).resolve()
+        except OSError:
+            return False
+        return resolved == base or base in resolved.parents
 
-        # 2. ContractFolderBinding（contract 级别）
-        contract_binding = (
-            ContractFolderBinding.objects.filter(folder_path__in=parents).select_related("contract").first()
-        )
-        if contract_binding and contract_binding.contract:
-            if not _resolved_under(contract_binding.folder_path, raw):
-                raise StampLookupError("文件路径越出绑定目录范围")
-            contract = contract_binding.contract
-            if contract.law_firm_oa_case_number:
-                logger.info(
-                    "ContractFolderBinding 命中: contract=%d, oa_no=%s",
-                    contract.id,
-                    contract.law_firm_oa_case_number,
-                )
-                return StampLookupResult(
-                    contract_id=contract.id,
-                    oa_case_number=contract.law_firm_oa_case_number,
-                    contract_name=contract.name or "",
-                    file_path=file_path,
-                )
+    # 1. CaseFolderBinding（case 级别，更具体）
+    case_binding = CaseFolderBinding.objects.filter(folder_path__in=parents).select_related("case__contract").first()
+    if case_binding and case_binding.case and case_binding.case.contract:
+        if not _resolved_under(case_binding.folder_path, raw):
+            raise StampLookupError("文件路径越出绑定目录范围")
+        contract = case_binding.case.contract
+        if contract.law_firm_oa_case_number:
+            logger.info(
+                "CaseFolderBinding 命中: contract=%d, oa_no=%s",
+                contract.id,
+                contract.law_firm_oa_case_number,
+            )
+            return StampLookupResult(
+                contract_id=contract.id,
+                oa_case_number=contract.law_firm_oa_case_number,
+                contract_name=contract.name or "",
+                file_path=file_path,
+            )
 
-        raise StampLookupError(f"无法根据文件路径找到关联合同: {file_path}")
+    # 2. ContractFolderBinding（contract 级别）
+    contract_binding = ContractFolderBinding.objects.filter(folder_path__in=parents).select_related("contract").first()
+    if contract_binding and contract_binding.contract:
+        if not _resolved_under(contract_binding.folder_path, raw):
+            raise StampLookupError("文件路径越出绑定目录范围")
+        contract = contract_binding.contract
+        if contract.law_firm_oa_case_number:
+            logger.info(
+                "ContractFolderBinding 命中: contract=%d, oa_no=%s",
+                contract.id,
+                contract.law_firm_oa_case_number,
+            )
+            return StampLookupResult(
+                contract_id=contract.id,
+                oa_case_number=contract.law_firm_oa_case_number,
+                contract_name=contract.name or "",
+                file_path=file_path,
+            )
+
+    raise StampLookupError(f"无法根据文件路径找到关联合同: {file_path}")

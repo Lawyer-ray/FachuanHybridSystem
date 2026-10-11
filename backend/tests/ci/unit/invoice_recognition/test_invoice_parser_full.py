@@ -1,4 +1,5 @@
 """Tests for invoice_recognition services: invoice_parser."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -7,7 +8,6 @@ from decimal import Decimal
 import pytest
 
 from apps.invoice_recognition.services.invoice_parser import InvoiceParser, ParsedInvoice
-
 
 # ---------------------------------------------------------------------------
 # InvoiceParser

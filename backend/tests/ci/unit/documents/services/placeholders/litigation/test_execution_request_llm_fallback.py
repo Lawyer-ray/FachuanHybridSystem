@@ -37,68 +37,88 @@ class TestShouldTryLlmFallback:
     def test_principal_fallback_to_target(self) -> None:
         amounts = ParsedAmounts()
         params = ParsedInterestParams()
-        assert should_try_llm_fallback(
-            text="test", amounts=amounts, params=params, principal_fallback_to_target=True
-        ) is True
+        assert (
+            should_try_llm_fallback(text="test", amounts=amounts, params=params, principal_fallback_to_target=True)
+            is True
+        )
 
     def test_wan_unit_mismatch(self) -> None:
         amounts = ParsedAmounts(principal=Decimal("100"))
         params = ParsedInterestParams()
-        assert should_try_llm_fallback(
-            text="被告支付52万元", amounts=amounts, params=params, principal_fallback_to_target=False
-        ) is True
+        assert (
+            should_try_llm_fallback(
+                text="被告支付52万元", amounts=amounts, params=params, principal_fallback_to_target=False
+            )
+            is True
+        )
 
     def test_wan_unit_matched(self) -> None:
         amounts = ParsedAmounts(principal=Decimal("520000"))
         params = ParsedInterestParams()
-        assert should_try_llm_fallback(
-            text="被告支付52万元", amounts=amounts, params=params, principal_fallback_to_target=False
-        ) is False
+        assert (
+            should_try_llm_fallback(
+                text="被告支付52万元", amounts=amounts, params=params, principal_fallback_to_target=False
+            )
+            is False
+        )
 
     def test_fee_prepaid_context(self) -> None:
         amounts = ParsedAmounts(litigation_fee=Decimal("0"))
         params = ParsedInterestParams()
-        assert should_try_llm_fallback(
-            text="受理费5000元由被告负担，原告已预交",
-            amounts=amounts,
-            params=params,
-            principal_fallback_to_target=False,
-        ) is True
+        assert (
+            should_try_llm_fallback(
+                text="受理费5000元由被告负担，原告已预交",
+                amounts=amounts,
+                params=params,
+                principal_fallback_to_target=False,
+            )
+            is True
+        )
 
     def test_preservation_fee_prepaid(self) -> None:
         amounts = ParsedAmounts(preservation_fee=Decimal("0"))
         params = ParsedInterestParams()
-        assert should_try_llm_fallback(
-            text="保全费3000元由被告负担，原告已缴纳",
-            amounts=amounts,
-            params=params,
-            principal_fallback_to_target=False,
-        ) is True
+        assert (
+            should_try_llm_fallback(
+                text="保全费3000元由被告负担，原告已缴纳",
+                amounts=amounts,
+                params=params,
+                principal_fallback_to_target=False,
+            )
+            is True
+        )
 
     def test_start_date_no_rate(self) -> None:
         amounts = ParsedAmounts()
         params = ParsedInterestParams(start_date=date(2020, 1, 1))
-        assert should_try_llm_fallback(
-            text="test", amounts=amounts, params=params, principal_fallback_to_target=False
-        ) is True
+        assert (
+            should_try_llm_fallback(text="test", amounts=amounts, params=params, principal_fallback_to_target=False)
+            is True
+        )
 
     def test_no_trigger(self) -> None:
         amounts = ParsedAmounts(principal=Decimal("100000"), litigation_fee=Decimal("5000"))
         params = ParsedInterestParams(multiplier=Decimal("1"))
-        assert should_try_llm_fallback(
-            text="被告支付10万元", amounts=amounts, params=params, principal_fallback_to_target=False
-        ) is False
+        assert (
+            should_try_llm_fallback(
+                text="被告支付10万元", amounts=amounts, params=params, principal_fallback_to_target=False
+            )
+            is False
+        )
 
     def test_principal_none_triggers_fallback(self) -> None:
         """本金完全未解析出来时（principal is None），应触发 LLM 兜底。"""
         amounts = ParsedAmounts()  # principal 默认为 None
         params = ParsedInterestParams()
-        assert should_try_llm_fallback(
-            text="被告支付代偿款4376597.3元",
-            amounts=amounts,
-            params=params,
-            principal_fallback_to_target=False,
-        ) is True
+        assert (
+            should_try_llm_fallback(
+                text="被告支付代偿款4376597.3元",
+                amounts=amounts,
+                params=params,
+                principal_fallback_to_target=False,
+            )
+            is True
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -240,9 +260,7 @@ class TestMergeLlmFallback:
             "principal_amount": Decimal("50000"),
             "principal_label": "货款本金",
         }
-        merge_llm_fallback(
-            amounts=amounts, params=params, llm_data=llm_data, principal_fallback_to_target=False
-        )
+        merge_llm_fallback(amounts=amounts, params=params, llm_data=llm_data, principal_fallback_to_target=False)
         assert amounts.principal_label == "货款本金"
 
     def test_principal_label_other(self) -> None:
@@ -252,9 +270,7 @@ class TestMergeLlmFallback:
             "principal_amount": Decimal("50000"),
             "principal_label": "借款本金",
         }
-        merge_llm_fallback(
-            amounts=amounts, params=params, llm_data=llm_data, principal_fallback_to_target=False
-        )
+        merge_llm_fallback(amounts=amounts, params=params, llm_data=llm_data, principal_fallback_to_target=False)
         assert amounts.principal_label == "借款本金"
 
     def test_merge_preservation_fee(self) -> None:

@@ -30,6 +30,7 @@ _invalid_stage_strat = st.text(min_size=1, max_size=50).filter(lambda s: s not i
 # normalize_representation_stages
 # ---------------------------------------------------------------------------
 
+
 @settings(max_examples=200, deadline=None)
 @given(
     case_type=_applicable_type_strat,
@@ -71,7 +72,8 @@ def test_normalize_non_applicable_returns_empty(case_type: str, stages: list[str
     stages=st.lists(_stage_strat, min_size=1, max_size=3),
 )
 def test_normalize_non_applicable_strict_with_stages_raises(
-    case_type: str, stages: list[str],
+    case_type: str,
+    stages: list[str],
 ) -> None:
     """Non-applicable type + strict=True + non-empty stages raises ValidationException."""
     try:

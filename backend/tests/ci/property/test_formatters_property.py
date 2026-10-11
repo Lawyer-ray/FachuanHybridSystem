@@ -5,11 +5,10 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-from hypothesis import given, settings, assume
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from apps.documents.utils.formatters import format_currency, format_date, format_percentage
-
 
 # ---------------------------------------------------------------------------
 # format_date
@@ -79,7 +78,9 @@ def test_format_currency_none_returns_empty(amount: None) -> None:
 
 
 @settings(max_examples=200, deadline=None)
-@given(amount=st.decimals(min_value=Decimal("0"), max_value=Decimal("999999999.99"), allow_nan=False, allow_infinity=False))
+@given(
+    amount=st.decimals(min_value=Decimal("0"), max_value=Decimal("999999999.99"), allow_nan=False, allow_infinity=False)
+)
 def test_format_currency_has_two_decimal_places(amount: Decimal) -> None:
     """Output always has exactly 2 decimal places."""
     result = format_currency(amount)
@@ -89,7 +90,9 @@ def test_format_currency_has_two_decimal_places(amount: Decimal) -> None:
 
 
 @settings(max_examples=200, deadline=None)
-@given(amount=st.decimals(min_value=Decimal("0"), max_value=Decimal("999999999.99"), allow_nan=False, allow_infinity=False))
+@given(
+    amount=st.decimals(min_value=Decimal("0"), max_value=Decimal("999999999.99"), allow_nan=False, allow_infinity=False)
+)
 def test_format_currency_with_symbol_starts_with_yen(amount: Decimal) -> None:
     """When include_symbol=True, output starts with yen sign."""
     result = format_currency(amount, include_symbol=True)
@@ -97,7 +100,9 @@ def test_format_currency_with_symbol_starts_with_yen(amount: Decimal) -> None:
 
 
 @settings(max_examples=200, deadline=None)
-@given(amount=st.decimals(min_value=Decimal("0"), max_value=Decimal("999999999.99"), allow_nan=False, allow_infinity=False))
+@given(
+    amount=st.decimals(min_value=Decimal("0"), max_value=Decimal("999999999.99"), allow_nan=False, allow_infinity=False)
+)
 def test_format_currency_without_symbol_no_yen(amount: Decimal) -> None:
     """When include_symbol=False, output does not start with yen sign."""
     result = format_currency(amount, include_symbol=False)

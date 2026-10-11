@@ -43,7 +43,10 @@ API_MODEL_OBJECTS_RATCHET = 0
 # 2026-09-29 抬至 264（实跑计数，非估算）：main 侧 PR #499（document_recognition
 # 视觉管线+确定性提取层：vlm_ocr/document_classifier/case_binding/_case_number_mixin
 # 等）与 automation/cases 若干纯工具函数带来净增 5，本分支零新增。
-SERVICE_STATIC_METHOD_RATCHET = 264
+# 2026-10-11 两轮下沉：264 → 197（零跨文件引用批），197 → 12（全量纯函数批，186 个）。
+# 剩余 12 个为跨类同名（调用方导入易撞名）、与既有 import 同名的薄包装、
+# 依赖类常量的真 classmethod 等个案，转换需逐个人工评估（改名或合并去重）。
+SERVICE_STATIC_METHOD_RATCHET = 12
 
 
 def _scan_api_model_objects() -> list[tuple[str, int, str]]:

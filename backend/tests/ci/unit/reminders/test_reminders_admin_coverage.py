@@ -796,7 +796,7 @@ class TestReminderAdminFormExtended:
 
     def test_clean_metadata_json_array(self):
         form = ReminderAdminForm()
-        form.cleaned_data = {"metadata": '[1, 2, 3]'}
+        form.cleaned_data = {"metadata": "[1, 2, 3]"}
         with pytest.raises(Exception):
             form.clean_metadata()
 

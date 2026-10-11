@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.client.services.identity_extraction.extraction_service import IdentityExtractionService
+from apps.client.services.identity_extraction.extraction_service import IdentityExtractionService, _parse_llm_json
 
 
 class TestIdentityExtractionServiceTextProcessing:
@@ -60,7 +60,7 @@ class TestIdentityExtractionServiceTextProcessing:
 
     def test_looks_like_json_noise_high_ratio(self):
         svc = self._make_service()
-        line = '{"key":"' + 'x' * 20 + '"}'
+        line = '{"key":"' + "x" * 20 + '"}'
         assert svc._looks_like_json_noise(line) is True
 
     def test_looks_like_json_noise_normal_text(self):
@@ -144,7 +144,9 @@ class TestIdentityExtractionServiceTextProcessing:
     def test_extract_id_number_valid(self):
         svc = self._make_service()
         text = "公民身份号码 440106199001011234"  # allowlist secret
-        assert svc._extract_id_number(text) == "440106199901011234" or svc._extract_id_number(text) == "440106199001011234"  # allowlist secret
+        assert (
+            svc._extract_id_number(text) == "440106199901011234" or svc._extract_id_number(text) == "440106199001011234"
+        )  # allowlist secret
 
     def test_extract_id_number_with_x(self):
         svc = self._make_service()
@@ -283,47 +285,56 @@ class TestIdentityExtractionServiceTextProcessing:
     def test_parse_llm_json_code_block(self):
         svc = self._make_service()
         content = '```json\n{"name": "张三"}\n```'
-        result = svc._parse_llm_json(content)
+        result = _parse_llm_json(content)
         assert result["name"] == "张三"
 
     def test_parse_llm_json_plain_code_block(self):
         svc = self._make_service()
         content = '```\n{"name": "张三"}\n```'
-        result = svc._parse_llm_json(content)
+        result = _parse_llm_json(content)
         assert result["name"] == "张三"
 
     def test_parse_llm_json_direct(self):
         svc = self._make_service()
         content = '{"name": "张三"}'
-        result = svc._parse_llm_json(content)
+        result = _parse_llm_json(content)
         assert result["name"] == "张三"
 
     def test_parse_llm_json_embedded(self):
         svc = self._make_service()
         content = 'Some text before\n{"name": "张三"}\nSome text after'
-        result = svc._parse_llm_json(content)
+        result = _parse_llm_json(content)
         assert result["name"] == "张三"
 
     def test_parse_llm_json_no_json_raises(self):
         svc = self._make_service()
         with pytest.raises(ValueError):
-            svc._parse_llm_json("no json here at all")
+            _parse_llm_json("no json here at all")
 
     # ── _resolve_doc_type ──
 
-    @patch("apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING", {"id_card": "...", "business_license": "..."})
+    @patch(
+        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        {"id_card": "...", "business_license": "..."},
+    )
     def test_resolve_doc_type_explicit(self):
         svc = self._make_service()
         assert svc._resolve_doc_type("id_card", "some text") == "id_card"
 
-    @patch("apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING", {"id_card": "...", "business_license": "..."})
+    @patch(
+        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        {"id_card": "...", "business_license": "..."},
+    )
     def test_resolve_doc_type_auto_business_license(self):
         svc = self._make_service()
         text = "统一社会信用代码 91440101MA5D12345X 企业名称 广州测试有限公司"
         result = svc._resolve_doc_type("auto", text)
         assert result == "business_license"
 
-    @patch("apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING", {"id_card": "...", "business_license": "..."})
+    @patch(
+        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        {"id_card": "...", "business_license": "..."},
+    )
     def test_resolve_doc_type_auto_id_card(self):
         svc = self._make_service()
         text = "公民身份号码 姓名 性别 民族 住址"

@@ -7,10 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.cases.services.case_import_service import (
-    _CASE_FIELDS,
-    _parse_log_reminders_for_create,
-)
+from apps.cases.services.case_import_service import _CASE_FIELDS, _parse_log_reminders_for_create
 
 
 class TestParseLogRemindersForCreate:
@@ -18,7 +15,14 @@ class TestParseLogRemindersForCreate:
         assert _parse_log_reminders_for_create([]) == []
 
     def test_valid_reminder(self) -> None:
-        reminders = [{"reminder_type": "DEADLINE", "content": "开庭", "due_at": "2026-06-15T10:00:00", "metadata": {"key": "val"}}]
+        reminders = [
+            {
+                "reminder_type": "DEADLINE",
+                "content": "开庭",
+                "due_at": "2026-06-15T10:00:00",
+                "metadata": {"key": "val"},
+            }
+        ]
         result = _parse_log_reminders_for_create(reminders)  # type: ignore[arg-type]
         assert len(result) == 1
         assert result[0]["reminder_type"] == "DEADLINE"
@@ -62,6 +66,7 @@ class TestCaseFields:
 class TestCaseImportService:
     def _make_service(self):
         from apps.cases.services.case_import_service import CaseImportService
+
         return CaseImportService(contract_import=MagicMock(), client_resolve=MagicMock(), lawyer_resolve=MagicMock())
 
     def test_init(self) -> None:
@@ -83,10 +88,12 @@ class TestCaseImportService:
 class TestEmailFolderScanServiceResolveSubfolder:
     def _make_service(self):
         from apps.cases.services.log.email_folder_scan_service import EmailFolderScanService
+
         return EmailFolderScanService(mutation_service=MagicMock(), query_service=MagicMock())
 
     def test_empty_subfolder_raises(self) -> None:
         from pathlib import Path
+
         svc = self._make_service()
         with pytest.raises(Exception) as exc_info:
             svc._resolve_subfolder(Path("/root"), "")
@@ -94,6 +101,7 @@ class TestEmailFolderScanServiceResolveSubfolder:
 
     def test_absolute_path_raises(self) -> None:
         from pathlib import Path
+
         svc = self._make_service()
         with pytest.raises(Exception) as exc_info:
             svc._resolve_subfolder(Path("/root"), "/etc/passwd")
@@ -101,6 +109,7 @@ class TestEmailFolderScanServiceResolveSubfolder:
 
     def test_tilde_path_raises(self) -> None:
         from pathlib import Path
+
         svc = self._make_service()
         with pytest.raises(Exception) as exc_info:
             svc._resolve_subfolder(Path("/root"), "~/secret")
@@ -108,6 +117,7 @@ class TestEmailFolderScanServiceResolveSubfolder:
 
     def test_dotdot_path_raises(self) -> None:
         from pathlib import Path
+
         svc = self._make_service()
         with pytest.raises(Exception) as exc_info:
             svc._resolve_subfolder(Path("/root"), "../escape")
@@ -115,6 +125,7 @@ class TestEmailFolderScanServiceResolveSubfolder:
 
     def test_hidden_dir_raises(self) -> None:
         from pathlib import Path
+
         svc = self._make_service()
         with pytest.raises(Exception) as exc_info:
             svc._resolve_subfolder(Path("/root"), ".hidden")
@@ -130,6 +141,7 @@ class TestEmailFolderScanServiceResolveSubfolder:
 class TestEmailFolderScanServiceBuildLogContent:
     def _make_service(self):
         from apps.cases.services.log.email_folder_scan_service import EmailFolderScanService
+
         return EmailFolderScanService(mutation_service=MagicMock(), query_service=MagicMock())
 
     def test_date_prefix_stripped(self) -> None:
@@ -148,6 +160,7 @@ class TestEmailFolderScanServiceBuildLogContent:
 class TestEmailFolderScanServiceGetBoundCaseRoot:
     def _make_service(self):
         from apps.cases.services.log.email_folder_scan_service import EmailFolderScanService
+
         return EmailFolderScanService(mutation_service=MagicMock(), query_service=MagicMock())
 
     @patch("apps.cases.services.log.email_folder_scan_service.CaseFolderBinding")

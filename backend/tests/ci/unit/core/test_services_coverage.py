@@ -7,6 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.core.services.system_update_service import _now_iso, _resolve_backend_root
+
 # ── system_update_service ───────────────────────────────────────
 
 
@@ -18,10 +20,7 @@ class TestSystemUpdateService:
         svc._repo_root = Path("/tmp/test_repo")
         svc._now_iso = lambda: "2024-01-01T00:00:00"
 
-        state = svc._build_state(
-            run_id="abc", status="running", message="msg",
-            triggered_by="user", steps=[]
-        )
+        state = svc._build_state(run_id="abc", status="running", message="msg", triggered_by="user", steps=[])
         assert state["run_id"] == "abc"
         assert state["status"] == "running"
         assert state["message"] == "msg"
@@ -34,8 +33,12 @@ class TestSystemUpdateService:
         svc._now_iso = lambda: "2024-01-01T00:00:00"
 
         state = svc._build_state(
-            run_id="abc", status="success", message="done",
-            triggered_by="user", steps=[], options={"enable_post_update_setup": True}
+            run_id="abc",
+            status="success",
+            message="done",
+            triggered_by="user",
+            steps=[],
+            options={"enable_post_update_setup": True},
         )
         assert state["options"]["enable_post_update_setup"] is True
 
@@ -64,26 +67,28 @@ class TestSystemUpdateService:
     def test_now_iso_format(self) -> None:
         from apps.core.services.system_update_service import SystemUpdateService
 
-        result = SystemUpdateService._now_iso()
+        result = _now_iso()
         assert "T" in result
 
     def test_resolve_backend_root_with_backend(self) -> None:
         import tempfile
 
         from apps.core.services.system_update_service import SystemUpdateService
+
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
             (repo / "backend").mkdir()
-            result = SystemUpdateService._resolve_backend_root(repo)
+            result = _resolve_backend_root(repo)
             assert result == repo / "backend"
 
     def test_resolve_backend_root_without_backend(self) -> None:
         import tempfile
 
         from apps.core.services.system_update_service import SystemUpdateService
+
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
-            result = SystemUpdateService._resolve_backend_root(repo)
+            result = _resolve_backend_root(repo)
             assert result == repo
 
     @patch("apps.core.services.system_update_service.cache")

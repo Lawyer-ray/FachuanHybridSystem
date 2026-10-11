@@ -1,4 +1,5 @@
 """Tests for various automation utility services: task_queue, browser_context_factory, sms helpers."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,6 +9,7 @@ import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -82,8 +84,8 @@ class TestBrowserContextFactory:
         assert result == "context_from_browser"
 
     def test_playwright_factory_exception_raises_network_error(self):
-        from plugins.court_automation.token.browser_context_factory import PlaywrightBrowserContextFactory
         from apps.core.exceptions import NetworkError
+        from plugins.court_automation.token.browser_context_factory import PlaywrightBrowserContextFactory
 
         mock_browser_service = MagicMock()
         mock_browser_service.create_context.side_effect = Exception("browser error")

@@ -38,21 +38,21 @@ class IcsFileProvider:
         from icalendar.cal import Component
 
         vevent: Component = component  # type: ignore[assignment]
-        summary = self._get_str(vevent, "SUMMARY")
+        summary = _get_str(vevent, "SUMMARY")
         if not summary:
             return None
 
-        uid = self._get_str(vevent, "UID") or ""
+        uid = _get_str(vevent, "UID") or ""
 
         start_val = vevent.get("DTSTART")
         end_val = vevent.get("DTEND")
 
-        start_dt, is_all_day = self._parse_dt(start_val)
-        end_dt, _ = self._parse_dt(end_val)
+        start_dt, is_all_day = _parse_dt(start_val)
+        end_dt, _ = _parse_dt(end_val)
 
-        location = self._get_str(vevent, "LOCATION") or ""
-        description = self._get_str(vevent, "DESCRIPTION") or ""
-        organizer = self._parse_organizer(vevent.get("ORGANIZER"))
+        location = _get_str(vevent, "LOCATION") or ""
+        description = _get_str(vevent, "DESCRIPTION") or ""
+        organizer = _parse_organizer(vevent.get("ORGANIZER"))
 
         return CalendarEvent(
             uid=uid,
@@ -65,50 +65,53 @@ class IcsFileProvider:
             is_all_day=is_all_day,
         )
 
-    @staticmethod
-    def _get_str(vevent: object, key: str) -> str:
-        """Safely get a string property from a vevent component."""
-        from icalendar.cal import Component
 
-        comp: Component = vevent  # type: ignore[assignment]
-        val = comp.get(key)
-        if val is None:
-            return ""
-        if isinstance(val, list):
-            return str(val[0]) if val else ""
-        return str(val)
+# ↓↓ 由 IcsFileProvider 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _get_str(vevent: object, key: str) -> str:
+    """Safely get a string property from a vevent component."""
+    from icalendar.cal import Component
 
-    @staticmethod
-    def _parse_dt(dt_val: object) -> tuple[datetime | None, bool]:
-        """Parse a DTSTART/DTEND value into (datetime, is_all_day)."""
-        if dt_val is None:
-            return None, False
+    comp: Component = vevent  # type: ignore[assignment]
+    val = comp.get(key)
+    if val is None:
+        return ""
+    if isinstance(val, list):
+        return str(val[0]) if val else ""
+    return str(val)
 
-        # icalendar returns vDDDTypes
-        actual = dt_val.dt if hasattr(dt_val, "dt") else dt_val
 
-        if isinstance(actual, datetime):
-            if actual.tzinfo is None:
-                actual = actual.replace(tzinfo=UTC)
-            return actual, False
-
-        if isinstance(actual, date):
-            # All-day event — store as midnight UTC
-            dt = datetime(actual.year, actual.month, actual.day, tzinfo=UTC)
-            return dt, True
-
+# ↓↓ 由 IcsFileProvider 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _parse_dt(dt_val: object) -> tuple[datetime | None, bool]:
+    """Parse a DTSTART/DTEND value into (datetime, is_all_day)."""
+    if dt_val is None:
         return None, False
 
-    @staticmethod
-    def _parse_organizer(org: object) -> str:
-        """Extract organizer display name or email."""
-        if org is None:
-            return ""
-        if hasattr(org, "params"):
-            cn = org.params.get("CN")
-            if cn:
-                return str(cn)
-        val = str(org)
-        if val.startswith("MAILTO:"):
-            return val[7:]
-        return val
+    # icalendar returns vDDDTypes
+    actual = dt_val.dt if hasattr(dt_val, "dt") else dt_val
+
+    if isinstance(actual, datetime):
+        if actual.tzinfo is None:
+            actual = actual.replace(tzinfo=UTC)
+        return actual, False
+
+    if isinstance(actual, date):
+        # All-day event — store as midnight UTC
+        dt = datetime(actual.year, actual.month, actual.day, tzinfo=UTC)
+        return dt, True
+
+    return None, False
+
+
+# ↓↓ 由 IcsFileProvider 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _parse_organizer(org: object) -> str:
+    """Extract organizer display name or email."""
+    if org is None:
+        return ""
+    if hasattr(org, "params"):
+        cn = org.params.get("CN")
+        if cn:
+            return str(cn)
+    val = str(org)
+    if val.startswith("MAILTO:"):
+        return val[7:]
+    return val

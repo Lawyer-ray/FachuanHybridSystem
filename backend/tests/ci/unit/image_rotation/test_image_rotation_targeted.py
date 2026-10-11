@@ -1,11 +1,11 @@
 """Targeted tests for image_rotation module to push coverage to 80%+."""
+
 from __future__ import annotations
 
 import tempfile
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # services/storage.py (38% coverage)

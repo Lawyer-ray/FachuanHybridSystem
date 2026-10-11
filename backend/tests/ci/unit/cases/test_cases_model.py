@@ -8,18 +8,10 @@ from typing import Any
 import pytest
 from django.utils import timezone
 
-from apps.cases.models import (
-    Case,
-    CaseAssignment,
-    CaseLog,
-    CaseParty,
-    CaseChat,
-    CaseNumber,
-    SupervisingAuthority,
-)
+from apps.cases.models import Case, CaseAssignment, CaseChat, CaseLog, CaseNumber, CaseParty, SupervisingAuthority
+from apps.client.models import Client
 from apps.contracts.models import Contract
 from apps.organization.models import Lawyer
-from apps.client.models import Client
 
 
 @pytest.mark.django_db
@@ -68,9 +60,7 @@ class TestCaseModel:
         from decimal import Decimal
 
         contract = Contract.objects.create(name="金额测试合同", case_type="civil")
-        case = Case.objects.create(
-            name="金额案件", contract=contract, target_amount=Decimal("100000.00")
-        )
+        case = Case.objects.create(name="金额案件", contract=contract, target_amount=Decimal("100000.00"))
         assert case.target_amount == Decimal("100000.00")
 
     def test_case_previous_case(self) -> None:
@@ -169,8 +159,6 @@ class TestSupervisingAuthorityModel:
         """创建主管机关"""
         contract = Contract.objects.create(name="机关测试合同", case_type="civil")
         case = Case.objects.create(name="机关测试案件", contract=contract)
-        authority = SupervisingAuthority.objects.create(
-            case=case, name="测试法院", authority_type="court"
-        )
+        authority = SupervisingAuthority.objects.create(case=case, name="测试法院", authority_type="court")
         assert authority.name == "测试法院"
         assert authority.authority_type == "court"

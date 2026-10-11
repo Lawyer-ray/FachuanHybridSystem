@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -11,7 +11,6 @@ _MOD = "apps.automation.services.gsxt.gsxt_login_service"
 
 
 class TestGsxtLoginError:
-
     def test_is_exception(self):
         from apps.automation.services.gsxt.gsxt_login_service import GsxtLoginError
 
@@ -21,7 +20,6 @@ class TestGsxtLoginError:
 
 
 class TestGsxtReportError:
-
     def test_is_exception(self):
         from apps.automation.services.gsxt.gsxt_login_service import GsxtReportError
 
@@ -31,7 +29,6 @@ class TestGsxtReportError:
 
 
 class TestWaitCaptchaSuccess:
-
     @pytest.mark.asyncio
     async def test_success_detected(self):
         from apps.automation.services.gsxt.gsxt_login_service import _wait_captcha_success
@@ -61,13 +58,9 @@ class TestWaitCaptchaSuccess:
 
 
 class TestClickCompanyDetail:
-
     @pytest.mark.asyncio
     async def test_company_not_found(self):
-        from apps.automation.services.gsxt.gsxt_login_service import (
-            GsxtReportError,
-            _click_company_detail,
-        )
+        from apps.automation.services.gsxt.gsxt_login_service import GsxtReportError, _click_company_detail
 
         page = AsyncMock()
         page.evaluate = AsyncMock(return_value=None)
@@ -83,10 +76,12 @@ class TestClickCompanyDetail:
 
         page = AsyncMock()
         # First evaluate returns link info, second returns clicked=True
-        page.evaluate = AsyncMock(side_effect=[
-            {"href": "http://example.com", "name": "测试公司"},
-            True,
-        ])
+        page.evaluate = AsyncMock(
+            side_effect=[
+                {"href": "http://example.com", "name": "测试公司"},
+                True,
+            ]
+        )
         page.is_closed.return_value = False
         page.url = "http://search.gsxt.gov.cn/result"
 
@@ -117,7 +112,6 @@ class TestClickCompanyDetail:
 
 
 class TestTryReverseLogin:
-
     def test_import_error_returns_false(self):
         from apps.automation.services.gsxt.gsxt_login_service import _try_reverse_login
 
@@ -147,7 +141,6 @@ class TestTryReverseLogin:
 
 
 class TestStartLoginGsxt:
-
     @patch(f"{_MOD}._try_reverse_login", return_value=True)
     def test_uses_reverse_login_when_available(self, mock_reverse):
         from apps.automation.services.gsxt.gsxt_login_service import start_login_gsxt
@@ -169,7 +162,6 @@ class TestStartLoginGsxt:
 
 
 class TestRunInThread:
-
     @patch(f"{_MOD}.asyncio.run")
     def test_runs_full_flow(self, mock_run):
         from apps.automation.services.gsxt.gsxt_login_service import _run_in_thread
@@ -180,7 +172,6 @@ class TestRunInThread:
 
 
 class TestGsxtLoginServiceFacade:
-
     @patch(f"{_MOD}.start_login_gsxt")
     def test_start_login(self, mock_start):
         from apps.automation.services.gsxt.gsxt_login_service import GsxtLoginService

@@ -3,6 +3,7 @@
 Covers: get_team, update_team, delete_team, _validate_team_type,
 permission-denied branches, law_firm not found branches.
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -109,9 +110,7 @@ class TestUpdateTeam:
     @pytest.mark.django_db
     @patch("apps.organization.services.team_service.LawFirm")
     @patch("apps.organization.services.team_service.Team")
-    def test_update_team_success(
-        self, mock_team_cls: MagicMock, mock_lawfirm_cls: MagicMock, svc: TeamService
-    ) -> None:
+    def test_update_team_success(self, mock_team_cls: MagicMock, mock_lawfirm_cls: MagicMock, svc: TeamService) -> None:
         team = MagicMock()
         team.id = 1
         team.law_firm_id = 10

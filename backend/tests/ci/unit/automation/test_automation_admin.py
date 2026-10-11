@@ -13,13 +13,14 @@ from django.utils import timezone
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
 
-from apps.automation.admin.sms.court_sms_admin import CourtSMSAdmin
 from apps.automation.admin.scraper.scraper_task_admin import ScraperTaskAdmin
-from apps.automation.models import CourtSMS, ScraperTask, CourtToken
+from apps.automation.admin.sms.court_sms_admin import CourtSMSAdmin
+from apps.automation.models import CourtSMS, CourtToken, ScraperTask
 
 if _HAS_LOGIN:
     from plugins.court_automation.token_admin.token_admin import CourtTokenAdmin
@@ -64,9 +65,7 @@ class TestScraperTaskAdmin:
 
     def test_status_colored(self) -> None:
         """status_colored 应返回带颜色的状态"""
-        task = ScraperTask.objects.create(
-            task_type="court_document", status="pending", url="https://example.com"
-        )
+        task = ScraperTask.objects.create(task_type="court_document", status="pending", url="https://example.com")
         admin_obj = ScraperTaskAdmin(ScraperTask, AdminSite())
         result = admin_obj.status_colored(task)
         assert "等待中" in result
@@ -75,9 +74,7 @@ class TestScraperTaskAdmin:
     def test_url_short_truncation(self) -> None:
         """url_short 应截断长 URL"""
         long_url = "https://example.com/" + "a" * 100
-        task = ScraperTask.objects.create(
-            task_type="court_document", status="pending", url=long_url
-        )
+        task = ScraperTask.objects.create(task_type="court_document", status="pending", url=long_url)
         admin_obj = ScraperTaskAdmin(ScraperTask, AdminSite())
         result = admin_obj.url_short(task)
         assert len(result) <= 53  # 50 + "..."
@@ -85,9 +82,7 @@ class TestScraperTaskAdmin:
     def test_url_short_no_truncation(self) -> None:
         """url_short 不应截断短 URL"""
         short_url = "https://example.com"
-        task = ScraperTask.objects.create(
-            task_type="court_document", status="pending", url=short_url
-        )
+        task = ScraperTask.objects.create(task_type="court_document", status="pending", url=short_url)
         admin_obj = ScraperTaskAdmin(ScraperTask, AdminSite())
         result = admin_obj.url_short(task)
         assert result == short_url
@@ -95,8 +90,7 @@ class TestScraperTaskAdmin:
     def test_retry_info(self) -> None:
         """retry_info 应显示重试信息"""
         task = ScraperTask.objects.create(
-            task_type="court_document", status="pending", url="https://example.com",
-            retry_count=2, max_retries=3
+            task_type="court_document", status="pending", url="https://example.com", retry_count=2, max_retries=3
         )
         admin_obj = ScraperTaskAdmin(ScraperTask, AdminSite())
         result = admin_obj.retry_info(task)
@@ -106,8 +100,7 @@ class TestScraperTaskAdmin:
     def test_retry_info_zero(self) -> None:
         """retry_info 零重试时应显示 0"""
         task = ScraperTask.objects.create(
-            task_type="court_document", status="pending", url="https://example.com",
-            retry_count=0, max_retries=3
+            task_type="court_document", status="pending", url="https://example.com", retry_count=0, max_retries=3
         )
         admin_obj = ScraperTaskAdmin(ScraperTask, AdminSite())
         result = admin_obj.retry_info(task)
@@ -117,8 +110,11 @@ class TestScraperTaskAdmin:
         """duration 应计算耗时"""
         now = timezone.now()
         task = ScraperTask.objects.create(
-            task_type="court_document", status="success", url="https://example.com",
-            started_at=now - timedelta(seconds=30), finished_at=now
+            task_type="court_document",
+            status="success",
+            url="https://example.com",
+            started_at=now - timedelta(seconds=30),
+            finished_at=now,
         )
         admin_obj = ScraperTaskAdmin(ScraperTask, AdminSite())
         result = admin_obj.duration(task)
@@ -126,18 +122,14 @@ class TestScraperTaskAdmin:
 
     def test_duration_without_times(self) -> None:
         """duration 无时间时应返回破折号"""
-        task = ScraperTask.objects.create(
-            task_type="court_document", status="pending", url="https://example.com"
-        )
+        task = ScraperTask.objects.create(task_type="court_document", status="pending", url="https://example.com")
         admin_obj = ScraperTaskAdmin(ScraperTask, AdminSite())
         result = admin_obj.duration(task)
         assert result == "-"
 
     def test_result_display_empty(self) -> None:
         """result_display 无结果时应返回破折号"""
-        task = ScraperTask.objects.create(
-            task_type="court_document", status="pending", url="https://example.com"
-        )
+        task = ScraperTask.objects.create(task_type="court_document", status="pending", url="https://example.com")
         admin_obj = ScraperTaskAdmin(ScraperTask, AdminSite())
         result = admin_obj.result_display(task)
         assert result == "-"
@@ -175,8 +167,10 @@ class TestCourtTokenAdmin:
     def test_site_name_display(self) -> None:
         """site_name_display 应返回可读站点名称"""
         token = CourtToken.objects.create(
-            site_name="court_zxfw", account="test_account", token="test_placeholder_1",
-            expires_at=timezone.now() + timedelta(hours=1)
+            site_name="court_zxfw",
+            account="test_account",
+            token="test_placeholder_1",
+            expires_at=timezone.now() + timedelta(hours=1),
         )
         admin_obj = CourtTokenAdmin(CourtToken, AdminSite())
         result = admin_obj.site_name_display(token)
@@ -185,8 +179,10 @@ class TestCourtTokenAdmin:
     def test_token_preview_short(self) -> None:
         """token_preview 应显示前20个字符"""
         token = CourtToken.objects.create(
-            site_name="court_zxfw", account="test_account",
-            token="a" * 50, expires_at=timezone.now() + timedelta(hours=1)
+            site_name="court_zxfw",
+            account="test_account",
+            token="a" * 50,
+            expires_at=timezone.now() + timedelta(hours=1),
         )
         admin_obj = CourtTokenAdmin(CourtToken, AdminSite())
         result = admin_obj.token_preview(token)
@@ -197,8 +193,10 @@ class TestCourtTokenAdmin:
         """token_preview 短 token 不应截断"""
         short_token = "short_token"
         token = CourtToken.objects.create(
-            site_name="court_zxfw", account="test_account",
-            token=short_token, expires_at=timezone.now() + timedelta(hours=1)
+            site_name="court_zxfw",
+            account="test_account",
+            token=short_token,
+            expires_at=timezone.now() + timedelta(hours=1),
         )
         admin_obj = CourtTokenAdmin(CourtToken, AdminSite())
         result = admin_obj.token_preview(token)
@@ -207,8 +205,10 @@ class TestCourtTokenAdmin:
     def test_status_display_valid(self) -> None:
         """status_display 应显示有效状态"""
         token = CourtToken.objects.create(
-            site_name="court_zxfw", account="test_account",
-            token="test_placeholder_2", expires_at=timezone.now() + timedelta(hours=1)
+            site_name="court_zxfw",
+            account="test_account",
+            token="test_placeholder_2",
+            expires_at=timezone.now() + timedelta(hours=1),
         )
         admin_obj = CourtTokenAdmin(CourtToken, AdminSite())
         result = admin_obj.status_display(token)
@@ -217,8 +217,10 @@ class TestCourtTokenAdmin:
     def test_status_display_expired(self) -> None:
         """status_display 应显示过期状态"""
         token = CourtToken.objects.create(
-            site_name="court_zxfw", account="test_account",
-            token="test_placeholder_3", expires_at=timezone.now() - timedelta(hours=1)
+            site_name="court_zxfw",
+            account="test_account",
+            token="test_placeholder_3",
+            expires_at=timezone.now() - timedelta(hours=1),
         )
         admin_obj = CourtTokenAdmin(CourtToken, AdminSite())
         result = admin_obj.status_display(token)
@@ -227,8 +229,10 @@ class TestCourtTokenAdmin:
     def test_remaining_time_valid(self) -> None:
         """remaining_time 应显示剩余时间"""
         token = CourtToken.objects.create(
-            site_name="court_zxfw", account="test_account",
-            token="test_placeholder_4", expires_at=timezone.now() + timedelta(hours=2)
+            site_name="court_zxfw",
+            account="test_account",
+            token="test_placeholder_4",
+            expires_at=timezone.now() + timedelta(hours=2),
         )
         admin_obj = CourtTokenAdmin(CourtToken, AdminSite())
         result = admin_obj.remaining_time(token)
@@ -237,8 +241,10 @@ class TestCourtTokenAdmin:
     def test_remaining_time_expired(self) -> None:
         """remaining_time 过期时应显示已过期"""
         token = CourtToken.objects.create(
-            site_name="court_zxfw", account="test_account",
-            token="test_placeholder_5", expires_at=timezone.now() - timedelta(hours=1)
+            site_name="court_zxfw",
+            account="test_account",
+            token="test_placeholder_5",
+            expires_at=timezone.now() - timedelta(hours=1),
         )
         admin_obj = CourtTokenAdmin(CourtToken, AdminSite())
         result = admin_obj.remaining_time(token)

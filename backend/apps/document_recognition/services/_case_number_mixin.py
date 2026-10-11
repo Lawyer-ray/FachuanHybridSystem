@@ -45,7 +45,7 @@ class CaseNumberMixin:
                 seen_spans.append(span)
                 year, court_type, seq = match.group(1), match.group(2), match.group(3)
                 case_number = f"（{year}）{court_type}{seq}号"
-                score = self._score_case_number_match(normalized, span[0], span[1])
+                score = _score_case_number_match(normalized, span[0], span[1])
                 logger.debug("案号候选: %s (位置=%d, 得分=%d)", case_number, span[0], score)
                 # 得分高者优先；同分取位置靠前（贴近标题）
                 if best is None or (score, -span[0]) > (best[0], -best[1]):
@@ -56,20 +56,6 @@ class CaseNumberMixin:
         score, pos, case_number = best
         logger.info("正则提取到案号: %s (位置=%d, 得分=%d)", case_number, pos, score)
         return self._normalize_case_number(case_number)
-
-    @staticmethod
-    def _score_case_number_match(text: str, start: int, end: int) -> int:
-        """案号候选打分：文首位置加分，「根据…裁定书」引用句式降权。"""
-        prefix = text[max(0, start - 12) : start]
-        suffix = text[end : end + 12]
-        score = max(0, 60 - start)
-        if _REFERENCE_PREFIX_RE.search(prefix):
-            score -= 40
-            if _REFERENCE_SUFFIX_RE.search(suffix):
-                score -= 60
-        elif _REFERENCE_SUFFIX_RE.search(suffix):
-            score -= 15
-        return score
 
     def _normalize_case_number(self, case_number: str) -> str:
         """标准化案号格式（统一全角括号）"""
@@ -85,3 +71,18 @@ class CaseNumberMixin:
             case_number = f"({year}){rest}"
         case_number = case_number.replace("(", "（").replace(")", "）")
         return case_number
+
+
+# ↓↓ 由 CaseNumberMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _score_case_number_match(text: str, start: int, end: int) -> int:
+    """案号候选打分：文首位置加分，「根据…裁定书」引用句式降权。"""
+    prefix = text[max(0, start - 12) : start]
+    suffix = text[end : end + 12]
+    score = max(0, 60 - start)
+    if _REFERENCE_PREFIX_RE.search(prefix):
+        score -= 40
+        if _REFERENCE_SUFFIX_RE.search(suffix):
+            score -= 60
+    elif _REFERENCE_SUFFIX_RE.search(suffix):
+        score -= 15
+    return score

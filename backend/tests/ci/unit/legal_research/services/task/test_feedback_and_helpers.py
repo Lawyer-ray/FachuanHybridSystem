@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.core.exceptions import ValidationException
+from apps.legal_research.services.task.event_service import _normalize_status_code, _normalize_task_id
 
 # ── keywords ───────────────────────────────────────────────────────────────
 
@@ -235,38 +236,38 @@ class TestEventServiceNormalization:
     def test_normalize_task_id_none(self) -> None:
         from apps.legal_research.services.task.event_service import LegalResearchTaskEventService
 
-        assert LegalResearchTaskEventService._normalize_task_id(None) is None
-        assert LegalResearchTaskEventService._normalize_task_id("") is None
-        assert LegalResearchTaskEventService._normalize_task_id("0") is None
-        assert LegalResearchTaskEventService._normalize_task_id("-1") is None
+        assert _normalize_task_id(None) is None
+        assert _normalize_task_id("") is None
+        assert _normalize_task_id("0") is None
+        assert _normalize_task_id("-1") is None
 
     def test_normalize_task_id_valid(self) -> None:
         from apps.legal_research.services.task.event_service import LegalResearchTaskEventService
 
-        assert LegalResearchTaskEventService._normalize_task_id("42") == 42
-        assert LegalResearchTaskEventService._normalize_task_id(42) == 42
+        assert _normalize_task_id("42") == 42
+        assert _normalize_task_id(42) == 42
 
     def test_normalize_task_id_invalid(self) -> None:
         from apps.legal_research.services.task.event_service import LegalResearchTaskEventService
 
-        assert LegalResearchTaskEventService._normalize_task_id("abc") is None
+        assert _normalize_task_id("abc") is None
 
     def test_normalize_status_code_none(self) -> None:
         from apps.legal_research.services.task.event_service import LegalResearchTaskEventService
 
-        assert LegalResearchTaskEventService._normalize_status_code(None) is None
+        assert _normalize_status_code(None) is None
 
     def test_normalize_status_code_out_of_range(self) -> None:
         from apps.legal_research.services.task.event_service import LegalResearchTaskEventService
 
-        assert LegalResearchTaskEventService._normalize_status_code(50) is None
-        assert LegalResearchTaskEventService._normalize_status_code(1000) is None
+        assert _normalize_status_code(50) is None
+        assert _normalize_status_code(1000) is None
 
     def test_normalize_status_code_valid(self) -> None:
         from apps.legal_research.services.task.event_service import LegalResearchTaskEventService
 
-        assert LegalResearchTaskEventService._normalize_status_code(200) == 200
-        assert LegalResearchTaskEventService._normalize_status_code("404") == 404
+        assert _normalize_status_code(200) == 200
+        assert _normalize_status_code("404") == 404
 
     def test_sanitize_url_masks_sensitive_params(self) -> None:
         from apps.legal_research.services.task.event_service import LegalResearchTaskEventService

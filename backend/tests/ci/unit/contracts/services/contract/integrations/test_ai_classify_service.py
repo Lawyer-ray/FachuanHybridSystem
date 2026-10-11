@@ -80,24 +80,20 @@ class TestSelectTargets:
 
 class TestParseLLMItems:
     def test_plain_array(self):
-        svc = _make_service()
         payload = [{"index": 1, "category": "case_material", "archive_item_code": "lt_7"}]
         assert parse_llm_items(json.dumps(payload)) == payload
 
     def test_fenced_json_array(self):
-        svc = _make_service()
         content = '```json\n[{"index": 1, "category": "invoice"}]\n```'
         result = parse_llm_items(content)
         assert result == [{"index": 1, "category": "invoice"}]
 
     def test_array_with_noise_drops_non_dict_items(self):
-        svc = _make_service()
         content = '[{"index": 1}, "垃圾", {"index": 2}]'
         result = parse_llm_items(content)
         assert len(result) == 2
 
     def test_invalid_returns_empty(self):
-        svc = _make_service()
         assert parse_llm_items("不是 JSON") == []
         assert parse_llm_items("") == []
         assert parse_llm_items('{"index": 1}') == []
@@ -110,7 +106,6 @@ class TestApplySuggestion:
     CODES = {"lt_7": "起诉书、上诉书或答辩书", "lt_10": "证据材料"}
 
     def test_valid_case_material_applied_and_selected(self):
-        svc = _make_service()
         candidate = {"suggested_category": "case_material", "archive_item_code": "", "selected": False}
         ok = apply_suggestion(
             candidate,
@@ -125,7 +120,6 @@ class TestApplySuggestion:
         assert candidate["reason"].startswith("AI：")
 
     def test_invalid_code_rejected_without_mutation(self):
-        svc = _make_service()
         candidate = {"suggested_category": "case_material", "archive_item_code": "", "selected": False}
         ok = apply_suggestion(
             candidate,
@@ -137,13 +131,11 @@ class TestApplySuggestion:
         assert "classified_by" not in candidate
 
     def test_invalid_category_rejected(self):
-        svc = _make_service()
         candidate = {"suggested_category": "case_material", "archive_item_code": ""}
         ok = apply_suggestion(candidate, {"category": "unknown_type"}, code_to_name=self.CODES)
         assert ok is False
 
     def test_non_case_material_clears_code(self):
-        svc = _make_service()
         candidate = {"suggested_category": "case_material", "archive_item_code": "lt_7", "selected": False}
         ok = apply_suggestion(
             candidate,
@@ -156,7 +148,6 @@ class TestApplySuggestion:
         assert candidate["confidence"] == 1.0
 
     def test_confidence_invalid_value_falls_to_zero(self):
-        svc = _make_service()
         candidate = {"suggested_category": "case_material", "archive_item_code": ""}
         ok = apply_suggestion(
             candidate,
@@ -172,7 +163,6 @@ class TestApplySuggestion:
 
 class TestRelativeParentFolder:
     def test_within_root(self):
-        svc = _make_service()
         result = relative_parent_folder(
             source_path="/root/2-立案材料/起诉状.pdf",
             scan_folder="/root",
@@ -180,12 +170,10 @@ class TestRelativeParentFolder:
         assert result == "2-立案材料"
 
     def test_outside_root_falls_back_to_full_parent(self):
-        svc = _make_service()
         result = relative_parent_folder(source_path="/other/起诉状.pdf", scan_folder="/root")
         assert result == "other"
 
     def test_direct_child_returns_empty(self):
-        svc = _make_service()
         result = relative_parent_folder(source_path="/root/合同.pdf", scan_folder="/root")
         assert result == ""
 

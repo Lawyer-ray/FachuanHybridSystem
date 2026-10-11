@@ -79,9 +79,7 @@ class TestTestLogin:
         mock_browser.return_value.__exit__ = MagicMock(return_value=False)
 
         # Mock CourtZxfwService
-        with patch(
-            "apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService"
-        ) as MockCourt:
+        with patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService") as MockCourt:
             mock_court_instance = MagicMock()
             mock_court_instance.login.return_value = {
                 "success": True,
@@ -123,9 +121,7 @@ class TestTestLogin:
         mock_browser.return_value.__enter__ = MagicMock(return_value=(MagicMock(), MagicMock()))
         mock_browser.return_value.__exit__ = MagicMock(return_value=False)
 
-        with patch(
-            "apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService"
-        ) as MockCourt:
+        with patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService") as MockCourt:
             MockCourt.return_value.login.side_effect = RuntimeError("Browser crashed")
 
             result = svc.test_login(credential_id=1)
@@ -161,9 +157,7 @@ class TestTestLogin:
         mock_browser.return_value.__enter__ = MagicMock(return_value=(mock_page, mock_context))
         mock_browser.return_value.__exit__ = MagicMock(return_value=False)
 
-        with patch(
-            "apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService"
-        ) as MockCourt:
+        with patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService") as MockCourt:
             mock_court_instance = MagicMock()
             mock_court_instance.login.return_value = {
                 "success": True,

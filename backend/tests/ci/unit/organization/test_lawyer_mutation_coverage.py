@@ -3,6 +3,7 @@
 覆盖: _apply_field_updates 所有字段分支, delete_lawyer 权限/冲突/正常,
 update_lawyer 权限拒绝。
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace

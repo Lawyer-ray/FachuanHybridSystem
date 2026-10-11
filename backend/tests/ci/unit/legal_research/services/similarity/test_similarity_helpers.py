@@ -1,4 +1,5 @@
 """Tests for similarity module: tuning_config, cache, json_utils, reranker."""
+
 from __future__ import annotations
 
 from collections import OrderedDict
@@ -7,6 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.legal_research.services.similarity.tuning_config import _get_bool, _get_float, _get_int, _get_text
 
 # ── tuning_config ──────────────────────────────────────────────────────────
 
@@ -48,7 +50,7 @@ class TestTuningConfig:
 
         config_service = MagicMock()
         config_service.get_value.return_value = "42"
-        result = LegalResearchTuningConfig._get_int(config_service, "key", 10, 1, 100)
+        result = _get_int(config_service, "key", 10, 1, 100)
         assert result == 42
 
     def test_get_int_clamped(self) -> None:
@@ -56,7 +58,7 @@ class TestTuningConfig:
 
         config_service = MagicMock()
         config_service.get_value.return_value = "200"
-        result = LegalResearchTuningConfig._get_int(config_service, "key", 10, 1, 100)
+        result = _get_int(config_service, "key", 10, 1, 100)
         assert result == 100
 
     def test_get_int_invalid(self) -> None:
@@ -64,7 +66,7 @@ class TestTuningConfig:
 
         config_service = MagicMock()
         config_service.get_value.return_value = "abc"
-        result = LegalResearchTuningConfig._get_int(config_service, "key", 10, 1, 100)
+        result = _get_int(config_service, "key", 10, 1, 100)
         assert result == 10
 
     def test_get_float_valid(self) -> None:
@@ -72,7 +74,7 @@ class TestTuningConfig:
 
         config_service = MagicMock()
         config_service.get_value.return_value = "0.75"
-        result = LegalResearchTuningConfig._get_float(config_service, "key", 0.5, 0.0, 1.0)
+        result = _get_float(config_service, "key", 0.5, 0.0, 1.0)
         assert result == pytest.approx(0.75)
 
     def test_get_float_clamped(self) -> None:
@@ -80,7 +82,7 @@ class TestTuningConfig:
 
         config_service = MagicMock()
         config_service.get_value.return_value = "2.0"
-        result = LegalResearchTuningConfig._get_float(config_service, "key", 0.5, 0.0, 1.0)
+        result = _get_float(config_service, "key", 0.5, 0.0, 1.0)
         assert result == pytest.approx(1.0)
 
     def test_get_bool_truthy(self) -> None:
@@ -89,7 +91,7 @@ class TestTuningConfig:
         config_service = MagicMock()
         for v in ("1", "true", "yes", "on", "y"):
             config_service.get_value.return_value = v
-            assert LegalResearchTuningConfig._get_bool(config_service, "key", False) is True
+            assert _get_bool(config_service, "key", False) is True
 
     def test_get_bool_falsy(self) -> None:
         from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
@@ -97,14 +99,14 @@ class TestTuningConfig:
         config_service = MagicMock()
         for v in ("0", "false", "no", "off", "n"):
             config_service.get_value.return_value = v
-            assert LegalResearchTuningConfig._get_bool(config_service, "key", True) is False
+            assert _get_bool(config_service, "key", True) is False
 
     def test_get_text_valid(self) -> None:
         from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 
         config_service = MagicMock()
         config_service.get_value.return_value = "test_value"
-        result = LegalResearchTuningConfig._get_text(config_service, "key", "default", max_len=100)
+        result = _get_text(config_service, "key", "default", max_len=100)
         assert result == "test_value"
 
     def test_get_text_empty_returns_default(self) -> None:
@@ -112,7 +114,7 @@ class TestTuningConfig:
 
         config_service = MagicMock()
         config_service.get_value.return_value = ""
-        result = LegalResearchTuningConfig._get_text(config_service, "key", "default", max_len=100)
+        result = _get_text(config_service, "key", "default", max_len=100)
         assert result == "default"
 
     def test_get_text_truncated(self) -> None:
@@ -120,7 +122,7 @@ class TestTuningConfig:
 
         config_service = MagicMock()
         config_service.get_value.return_value = "x" * 200
-        result = LegalResearchTuningConfig._get_text(config_service, "key", "default", max_len=50)
+        result = _get_text(config_service, "key", "default", max_len=50)
         assert len(result) == 50
 
 
@@ -132,12 +134,22 @@ class TestCache:
         from apps.legal_research.services.similarity.cache import build_similarity_cache_key
 
         key1 = build_similarity_cache_key(
-            mode="expanded", model="m", keyword="k", case_summary="s",
-            title="t", case_digest="d", candidate_excerpt="c",
+            mode="expanded",
+            model="m",
+            keyword="k",
+            case_summary="s",
+            title="t",
+            case_digest="d",
+            candidate_excerpt="c",
         )
         key2 = build_similarity_cache_key(
-            mode="expanded", model="m", keyword="k", case_summary="s",
-            title="t", case_digest="d", candidate_excerpt="c",
+            mode="expanded",
+            model="m",
+            keyword="k",
+            case_summary="s",
+            title="t",
+            case_digest="d",
+            candidate_excerpt="c",
         )
         assert key1 == key2
 
@@ -145,12 +157,22 @@ class TestCache:
         from apps.legal_research.services.similarity.cache import build_similarity_cache_key
 
         key1 = build_similarity_cache_key(
-            mode="expanded", model="m", keyword="k1", case_summary="s",
-            title="t", case_digest="d", candidate_excerpt="c",
+            mode="expanded",
+            model="m",
+            keyword="k1",
+            case_summary="s",
+            title="t",
+            case_digest="d",
+            candidate_excerpt="c",
         )
         key2 = build_similarity_cache_key(
-            mode="expanded", model="m", keyword="k2", case_summary="s",
-            title="t", case_digest="d", candidate_excerpt="c",
+            mode="expanded",
+            model="m",
+            keyword="k2",
+            case_summary="s",
+            title="t",
+            case_digest="d",
+            candidate_excerpt="c",
         )
         assert key1 != key2
 
@@ -158,12 +180,24 @@ class TestCache:
         from apps.legal_research.services.similarity.cache import build_similarity_cache_key
 
         key1 = build_similarity_cache_key(
-            mode="expanded", model="m", keyword="k", case_summary="s",
-            title="t", case_digest="d", candidate_excerpt="c", first_score=0.8,
+            mode="expanded",
+            model="m",
+            keyword="k",
+            case_summary="s",
+            title="t",
+            case_digest="d",
+            candidate_excerpt="c",
+            first_score=0.8,
         )
         key2 = build_similarity_cache_key(
-            mode="expanded", model="m", keyword="k", case_summary="s",
-            title="t", case_digest="d", candidate_excerpt="c", first_score=0.9,
+            mode="expanded",
+            model="m",
+            keyword="k",
+            case_summary="s",
+            title="t",
+            case_digest="d",
+            candidate_excerpt="c",
+            first_score=0.9,
         )
         assert key1 != key2
 

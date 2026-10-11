@@ -9,7 +9,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.core.models.enums import CaseType
-from apps.oa_filing.services.case_import_service import CaseImportResult, CaseImportService, CasePreviewResult
+from apps.oa_filing.services.case_import_service import (
+    CaseImportResult,
+    CaseImportService,
+    CasePreviewResult,
+    _parse_date,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -73,28 +78,28 @@ class TestCaseImportResult:
 
 class TestParseDate:
     def test_slash_format(self) -> None:
-        assert CaseImportService._parse_date("2024/06/01") == date(2024, 6, 1)
+        assert _parse_date("2024/06/01") == date(2024, 6, 1)
 
     def test_dash_format(self) -> None:
-        assert CaseImportService._parse_date("2024-06-01") == date(2024, 6, 1)
+        assert _parse_date("2024-06-01") == date(2024, 6, 1)
 
     def test_chinese_format(self) -> None:
-        assert CaseImportService._parse_date("2024年6月1日") == date(2024, 6, 1)
+        assert _parse_date("2024年6月1日") == date(2024, 6, 1)
 
     def test_us_format(self) -> None:
-        assert CaseImportService._parse_date("06/01/2024") == date(2024, 6, 1)
+        assert _parse_date("06/01/2024") == date(2024, 6, 1)
 
     def test_with_time(self) -> None:
-        assert CaseImportService._parse_date("2024/06/01 10:30:00") == date(2024, 6, 1)
+        assert _parse_date("2024/06/01 10:30:00") == date(2024, 6, 1)
 
     def test_empty_string(self) -> None:
-        assert CaseImportService._parse_date("") is None
+        assert _parse_date("") is None
 
     def test_none(self) -> None:
-        assert CaseImportService._parse_date(None) is None  # type: ignore[arg-type]
+        assert _parse_date(None) is None  # type: ignore[arg-type]
 
     def test_invalid_format(self) -> None:
-        assert CaseImportService._parse_date("not-a-date") is None
+        assert _parse_date("not-a-date") is None
 
 
 # ===========================================================================

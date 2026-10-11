@@ -33,9 +33,7 @@ class TestGsxtReportAdapterCreate:
 class TestGsxtReportAdapterLogin:
     def test_start_login_invokes_service(self) -> None:
         lawyer = LawyerFactory(username="gsxt-user")
-        credential = AccountCredential.objects.create(
-            lawyer=lawyer, site_name="一张网", account="acc", password="p"
-        )
+        credential = AccountCredential.objects.create(lawyer=lawyer, site_name="一张网", account="acc", password="p")
         with patch("apps.automation.services.gsxt.gsxt_login_service.start_login_gsxt") as mock_start:
             GsxtReportAdapter().start_login(credential.pk, task_id=55)
 

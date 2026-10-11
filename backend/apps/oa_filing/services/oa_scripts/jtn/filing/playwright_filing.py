@@ -10,6 +10,7 @@ from typing import Any
 from playwright.async_api import Frame, Page
 
 from apps.core.services.browser import BrowserProfile, create_browser_async
+from apps.oa_filing.services.oa_scripts.jtn.auth.service import inject_to_context
 
 from .constants import (
     _AJAX_WAIT,
@@ -101,7 +102,7 @@ class PlaywrightFilingMixin:  # pragma: no cover
         # 优先尝试缓存 cookies
         cached = self._auth.load_cookies()
         if cached is not None:
-            await self._auth.inject_to_context(self._context, cached)
+            await inject_to_context(self._context, cached)
             # 验证 cookies 是否有效
             await self._page.goto(_FILING_URL, wait_until="domcontentloaded", timeout=60_000)
             await asyncio.sleep(_MEDIUM_WAIT)
@@ -117,7 +118,7 @@ class PlaywrightFilingMixin:  # pragma: no cover
         new_cookies = self._auth.load_cookies()
         if new_cookies is None:
             raise RuntimeError("SSO 登录后未获取到 cookies")
-        await self._auth.inject_to_context(self._context, new_cookies)
+        await inject_to_context(self._context, new_cookies)
         logger.info("Playwright 登录成功（SSO 扫码完成）")
 
     async def _navigate_to_filing(self: Any) -> None:  # pragma: no cover

@@ -72,9 +72,7 @@ class TestCacheKeys:
         assert "test_site" in result
 
     def test_automation_token_perf_counter(self) -> None:
-        result = CacheKeys.automation_token_perf_counter(
-            date="2024-01-01", site_name="site1", metric="count"
-        )
+        result = CacheKeys.automation_token_perf_counter(date="2024-01-01", site_name="site1", metric="count")
         assert "2024-01-01" in result
 
     def test_prompt_template(self) -> None:
@@ -91,9 +89,7 @@ class TestCacheKeys:
         assert "civil" in result
 
     def test_documents_matching_folder_templates(self) -> None:
-        result = CacheKeys.documents_matching_folder_templates(
-            template_type="contract", case_type="civil", version=1
-        )
+        result = CacheKeys.documents_matching_folder_templates(template_type="contract", case_type="civil", version=1)
         assert "contract" in result
 
     def test_documents_matching_case_file_templates(self) -> None:

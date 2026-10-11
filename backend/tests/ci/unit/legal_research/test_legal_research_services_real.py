@@ -1,8 +1,8 @@
 """legal_research 模块真实执行测试 - 覆盖 keywords, scorers, passage, tuning_config, similarity 等。"""
+
 from __future__ import annotations
 
 import pytest
-
 
 # ============================================================
 # legal_research/services/keywords.py

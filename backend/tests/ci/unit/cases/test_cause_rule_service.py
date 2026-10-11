@@ -1,4 +1,5 @@
 """Tests for apps.cases.services.data.cause_rule_service constants and CauseRuleService."""
+
 from __future__ import annotations
 
 from decimal import Decimal

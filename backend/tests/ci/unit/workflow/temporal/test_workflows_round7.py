@@ -11,12 +11,14 @@ Covers:
 - _resolve_dotted: non-dict in path, nested dict
 - DynamicWorkflow.run: empty steps
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from apps.workflow.temporal.activities import _HAS_COURT_FILING
 from apps.workflow.temporal.workflows import (
     DynamicWorkflow,
     GateResult,
@@ -25,8 +27,6 @@ from apps.workflow.temporal.workflows import (
     _eval_condition,
     _resolve_dotted,
 )
-from apps.workflow.temporal.activities import _HAS_COURT_FILING
-
 
 # ── _resolve_dotted ───────────────────────────────────────────────────────────
 
@@ -125,11 +125,13 @@ class TestDynamicWorkflowMcpToolPath:
 
     def test_internal_activity_map_has_key_entries(self):
         from apps.workflow.temporal.workflows import INTERNAL_ACTIVITY_MAP
+
         assert "collect_case_facts" in INTERNAL_ACTIVITY_MAP
         assert "generate_complaint" in INTERNAL_ACTIVITY_MAP
 
     def test_mcp_tool_map_has_key_entries(self):
         from apps.workflow.temporal.workflows import MCP_TOOL_MAP
+
         assert "get_case" in MCP_TOOL_MAP.values()
         if _HAS_COURT_FILING:
             assert "execute_court_filing" in MCP_TOOL_MAP.values()
@@ -162,6 +164,7 @@ class TestDynamicWorkflowRunEmptySteps:
     def test_steps_schema_as_dict_with_steps_key(self):
         """Verify the step parsing logic handles dict format."""
         from apps.workflow.temporal.workflows import _eval_condition, _resolve_dotted
+
         # Simulate steps_schema being a dict with "steps" key
         schema_data = {"steps_schema": {"steps": [{"id": "s1"}]}}
         steps = schema_data.get("steps_schema", [])

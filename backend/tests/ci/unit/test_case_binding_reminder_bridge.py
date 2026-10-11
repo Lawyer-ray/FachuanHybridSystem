@@ -30,9 +30,7 @@ class _CaseServiceSpy:
     def add_case_log_attachment_internal(self, *, case_log_id: int, file_path: str, file_name: str) -> bool:
         return True
 
-    def update_case_log_reminder_internal(
-        self, *, case_log_id: int, reminder_time: Any, reminder_type: str
-    ) -> bool:
+    def update_case_log_reminder_internal(self, *, case_log_id: int, reminder_time: Any, reminder_type: str) -> bool:
         self.reminder_calls.append(
             {
                 "case_log_id": case_log_id,

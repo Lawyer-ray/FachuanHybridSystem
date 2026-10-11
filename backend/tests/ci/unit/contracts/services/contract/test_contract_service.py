@@ -106,9 +106,7 @@ class TestContractServiceAdminMutationServiceProperty:
         from apps.contracts.services.contract.contract_service import ContractService
 
         svc = ContractService()
-        with patch(
-            "apps.contracts.services.contract.contract_service.ContractAdminMutationService"
-        ) as mock_ams:
+        with patch("apps.contracts.services.contract.contract_service.ContractAdminMutationService") as mock_ams:
             mock_ams.return_value = MagicMock()
             result = svc.admin_mutation_service
             mock_ams.assert_called_once()
@@ -169,9 +167,7 @@ class TestContractServiceDelegationMethods:
         svc = ContractService()
         svc._party_service = MagicMock()
         svc.add_party(1, 10)
-        svc._party_service.add_party.assert_called_once_with(
-            contract_id=1, client_id=10, role=PartyRole.PRINCIPAL
-        )
+        svc._party_service.add_party.assert_called_once_with(contract_id=1, client_id=10, role=PartyRole.PRINCIPAL)
 
     def test_add_party_delegates_with_role(self) -> None:
         from apps.contracts.models import PartyRole
@@ -180,9 +176,7 @@ class TestContractServiceDelegationMethods:
         svc = ContractService()
         svc._party_service = MagicMock()
         svc.add_party(1, 10, role=PartyRole.OPPOSING)
-        svc._party_service.add_party.assert_called_once_with(
-            contract_id=1, client_id=10, role=PartyRole.OPPOSING
-        )
+        svc._party_service.add_party.assert_called_once_with(contract_id=1, client_id=10, role=PartyRole.OPPOSING)
 
     def test_remove_party_delegates(self) -> None:
         from apps.contracts.services.contract.contract_service import ContractService
@@ -265,9 +259,7 @@ class TestContractServiceSupplementaryAgreementQueryServiceProperty:
         from apps.contracts.services.contract.contract_service import ContractService
 
         svc = ContractService()
-        with patch(
-            "apps.contracts.services.contract.query.SupplementaryAgreementQueryService"
-        ) as mock_s:
+        with patch("apps.contracts.services.contract.query.SupplementaryAgreementQueryService") as mock_s:
             mock_s.return_value = MagicMock()
             result = svc.supplementary_agreement_query_service
             mock_s.assert_called_once()

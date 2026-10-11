@@ -18,6 +18,7 @@ def _make_sms(case_numbers=None, party_names=None, content=""):
 
 def _make_case(id=1, name="测试案件", status="active", case_type=None, current_stage=None):
     """创建可哈希的案件对象。"""
+
     class _Case:
         def __init__(self, id, name, status, case_type, current_stage):
             self.id = id
@@ -25,10 +26,13 @@ def _make_case(id=1, name="测试案件", status="active", case_type=None, curre
             self.status = status
             self.case_type = case_type
             self.current_stage = current_stage
+
         def __hash__(self):
             return hash(self.id)
+
         def __eq__(self, other):
             return hasattr(other, "id") and self.id == other.id
+
     return _Case(id=id, name=name, status=status, case_type=case_type, current_stage=current_stage)
 
 
@@ -93,6 +97,7 @@ class TestCaseMatcher:
         # 区分 ACTIVE 和 CLOSED 查询
         def search_by_party(names, status=None):
             from apps.core.models.enums import CaseStatus
+
             if status == CaseStatus.ACTIVE.value:
                 return [case]
             return []
@@ -189,9 +194,7 @@ class TestCaseMatcher:
         """从案号列表提取特征。"""
         from apps.core.models.enums import CaseStage, CaseType
 
-        case_type, case_stage, is_bankruptcy = self.matcher._extract_features_from_numbers(
-            ["（2025）粤0605民初123号"]
-        )
+        case_type, case_stage, is_bankruptcy = self.matcher._extract_features_from_numbers(["（2025）粤0605民初123号"])
         assert case_type == CaseType.CIVIL
         assert case_stage == CaseStage.FIRST_TRIAL
         assert is_bankruptcy is False

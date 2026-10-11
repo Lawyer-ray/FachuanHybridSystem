@@ -10,21 +10,25 @@ import pytest
 class TestCalendarProvidersInit:
     def test_get_provider_ics(self) -> None:
         from apps.reminders.services.calendar_providers import get_provider
+
         provider = get_provider("ics")
         assert provider is not None
 
     def test_get_provider_ics_url(self) -> None:
         from apps.reminders.services.calendar_providers import get_provider
+
         provider = get_provider("ics_url")
         assert provider is not None
 
     def test_get_provider_unknown(self) -> None:
         from apps.reminders.services.calendar_providers import get_provider
+
         with pytest.raises(KeyError, match="Unknown provider"):
             get_provider("nonexistent_provider")
 
     def test_get_available_providers(self) -> None:
         from apps.reminders.services.calendar_providers import get_available_providers
+
         result = get_available_providers()
         assert isinstance(result, list)
         names = [p["name"] for p in result]
@@ -37,10 +41,11 @@ class TestCalendarProvidersInit:
             CalendarEventProvider,
             IcsFileProvider,
             IcsUrlProvider,
-            get_provider,
             get_available_providers,
+            get_provider,
             provider_available,
         )
+
         assert CalendarEvent is not None
         assert CalendarEventProvider is not None
 
@@ -48,6 +53,7 @@ class TestCalendarProvidersInit:
 class TestIcsUrlProviderValidateUrl:
     def setup_method(self) -> None:
         from apps.reminders.services.calendar_providers.ics_url_provider import IcsUrlProvider
+
         self.provider = IcsUrlProvider()
 
     def test_valid_https_url(self) -> None:

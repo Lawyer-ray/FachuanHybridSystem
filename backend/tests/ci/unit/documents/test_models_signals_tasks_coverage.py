@@ -2,6 +2,7 @@
 Tests for documents/models/ - proxy_matter_rule, placeholder, folder_template properties.
 Also covers documents/tasks.py and signals.py uncovered lines.
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -181,9 +182,7 @@ class TestDocumentTemplateModel:
         from apps.documents.models.document_template import DocumentTemplate
 
         dt = DocumentTemplate(name="Test", template_type="contract", file_path="test.docx")
-        with patch(
-            "apps.documents.models.document_template.resolve_docx_template_path"
-        ) as mock_resolve:
+        with patch("apps.documents.models.document_template.resolve_docx_template_path") as mock_resolve:
             mock_path = MagicMock()
             mock_path.__str__ = lambda self: "/resolved/test.docx"
             mock_resolve.return_value = mock_path

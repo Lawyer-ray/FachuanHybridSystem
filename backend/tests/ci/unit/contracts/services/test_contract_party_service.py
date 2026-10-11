@@ -15,9 +15,10 @@ class TestContractPartyService:
         from apps.contracts.services.party.contract_party_service import ContractPartyService
 
         svc = ContractPartyService()
-        with patch("apps.contracts.services.party.contract_party_service.Contract") as mock_contract, patch(
-            "apps.contracts.services.party.contract_party_service.ContractParty"
-        ) as mock_cp:
+        with (
+            patch("apps.contracts.services.party.contract_party_service.Contract") as mock_contract,
+            patch("apps.contracts.services.party.contract_party_service.ContractParty") as mock_cp,
+        ):
             mock_contract.objects.filter.return_value.exists.return_value = True
             party = MagicMock(id=1, role=PartyRole.PRINCIPAL)
             mock_cp.objects.get_or_create.return_value = (party, True)
@@ -35,9 +36,10 @@ class TestContractPartyService:
         from apps.contracts.services.party.contract_party_service import ContractPartyService
 
         svc = ContractPartyService()
-        with patch("apps.contracts.services.party.contract_party_service.Contract") as mock_contract, patch(
-            "apps.contracts.services.party.contract_party_service.ContractParty"
-        ) as mock_cp:
+        with (
+            patch("apps.contracts.services.party.contract_party_service.Contract") as mock_contract,
+            patch("apps.contracts.services.party.contract_party_service.ContractParty") as mock_cp,
+        ):
             mock_contract.objects.filter.return_value.exists.return_value = True
             party = MagicMock(id=1, role=PartyRole.OPPOSING)
             mock_cp.objects.get_or_create.return_value = (party, True)
@@ -53,9 +55,10 @@ class TestContractPartyService:
         from apps.contracts.services.party.contract_party_service import ContractPartyService
 
         svc = ContractPartyService()
-        with patch("apps.contracts.services.party.contract_party_service.Contract") as mock_contract, patch(
-            "apps.contracts.services.party.contract_party_service.ContractParty"
-        ) as mock_cp:
+        with (
+            patch("apps.contracts.services.party.contract_party_service.Contract") as mock_contract,
+            patch("apps.contracts.services.party.contract_party_service.ContractParty") as mock_cp,
+        ):
             mock_contract.objects.filter.return_value.exists.return_value = True
             existing_party = MagicMock(id=1, role=PartyRole.PRINCIPAL)
             mock_cp.objects.get_or_create.return_value = (existing_party, False)
@@ -70,9 +73,10 @@ class TestContractPartyService:
         from apps.contracts.services.party.contract_party_service import ContractPartyService
 
         svc = ContractPartyService()
-        with patch("apps.contracts.services.party.contract_party_service.Contract") as mock_contract, patch(
-            "apps.contracts.services.party.contract_party_service.ContractParty"
-        ) as mock_cp:
+        with (
+            patch("apps.contracts.services.party.contract_party_service.Contract") as mock_contract,
+            patch("apps.contracts.services.party.contract_party_service.ContractParty") as mock_cp,
+        ):
             mock_contract.objects.filter.return_value.exists.return_value = True
             existing_party = MagicMock(id=1, role=PartyRole.PRINCIPAL)
             mock_cp.objects.get_or_create.return_value = (existing_party, False)

@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from apps.legal_research.services.executor_components.source_gateway import ExecutorSourceGatewayMixin
-from apps.legal_research.services.sources.weike.transport import WeikeTransportMixin
+from apps.legal_research.services.sources.weike.transport import WeikeTransportMixin, _sleep_for_retry
 
 
 def test_executor_source_gateway_retry_backoff_uses_exponential_jitter(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -40,5 +40,5 @@ def test_weike_transport_retry_backoff_uses_exponential_jitter(monkeypatch: pyte
         lambda _a, b: b,
     )
 
-    WeikeTransportMixin._sleep_for_retry(attempt=3, base_seconds=0.8)
+    _sleep_for_retry(attempt=3, base_seconds=0.8)
     assert slept[0] == pytest.approx(4.0)

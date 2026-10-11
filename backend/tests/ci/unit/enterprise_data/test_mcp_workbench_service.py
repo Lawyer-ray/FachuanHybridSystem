@@ -9,7 +9,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.core.exceptions import PermissionDenied, ValidationException
-from apps.enterprise_data.services.workbench.service import McpWorkbenchService
+from apps.enterprise_data.services.workbench.service import (
+    McpWorkbenchService,
+    _invalidate_describe_cache,
+    _mask_payload,
+)
 
 
 class TestMcpWorkbenchServiceInit:
@@ -48,17 +52,17 @@ class TestEnsureSuperuser:
 class TestMaskPayload:
     def test_mask_dict(self) -> None:
         svc = McpWorkbenchService(enforce_superuser=False)
-        result = svc._mask_payload({"key": "value"})
+        result = _mask_payload({"key": "value"})
         assert isinstance(result, dict)
 
     def test_mask_string(self) -> None:
         svc = McpWorkbenchService(enforce_superuser=False)
-        result = svc._mask_payload("test string")
+        result = _mask_payload("test string")
         assert isinstance(result, str)
 
     def test_mask_none(self) -> None:
         svc = McpWorkbenchService(enforce_superuser=False)
-        result = svc._mask_payload(None)
+        result = _mask_payload(None)
         assert result is None
 
 
@@ -141,7 +145,7 @@ class TestInvalidateDescribeCache:
     @patch("apps.enterprise_data.services.workbench.service.cache")
     def test_invalidate_cache(self, mock_cache: MagicMock) -> None:
         svc = McpWorkbenchService(enforce_superuser=False)
-        svc._invalidate_describe_cache("test_provider")
+        _invalidate_describe_cache("test_provider")
         mock_cache.delete.assert_called_once_with("mcp_workbench:describe_tools_full:test_provider")
 
 

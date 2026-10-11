@@ -9,14 +9,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.client.services.importer.mapper import (
-    ClientJsonImportMapper,
-    ClientImportCommand,
-    ClientIdentityDocCommand,
+from apps.client.services.importer.mapper import ClientIdentityDocCommand, ClientImportCommand, ClientJsonImportMapper
+from apps.core.services.material_classification_service import (
+    MaterialClassificationService,
+    _extract_json,
+    _extract_party_ids_by_side,
+    _extract_primary_supervising_authority_id,
+    _extract_subfolder_hint,
+    _normalize_for_match,
 )
-from apps.core.services.material_classification_service import MaterialClassificationService
 from apps.workbench.services.dashboard_service import DashboardService
-
 
 # ---------------------------------------------------------------------------
 # ClientJsonImportMapper
@@ -196,15 +198,15 @@ class TestMaterialClassificationService:
         assert result["type_name_hint"] == "立案材料"
 
     def test_normalize_for_match(self):
-        assert self.service._normalize_for_match("Hello World") == "helloworld"
-        assert self.service._normalize_for_match("") == ""
-        assert self.service._normalize_for_match("path\\to\\file") == "path/to/file"
+        assert _normalize_for_match("Hello World") == "helloworld"
+        assert _normalize_for_match("") == ""
+        assert _normalize_for_match("path\\to\\file") == "path/to/file"
 
     def test_extract_subfolder_hint(self):
-        assert self.service._extract_subfolder_hint("2-立案材料") == "立案材料"
-        assert self.service._extract_subfolder_hint("3_执行依据") == "执行依据"
-        assert self.service._extract_subfolder_hint("some_folder") == "some_folder"
-        assert self.service._extract_subfolder_hint("") == ""
+        assert _extract_subfolder_hint("2-立案材料") == "立案材料"
+        assert _extract_subfolder_hint("3_执行依据") == "执行依据"
+        assert _extract_subfolder_hint("some_folder") == "some_folder"
+        assert _extract_subfolder_hint("") == ""
 
     def test_to_confidence(self):
         assert self.service._to_confidence(0.5) == 0.5
@@ -214,15 +216,15 @@ class TestMaterialClassificationService:
         assert self.service._to_confidence(2.0) == 1.0
 
     def test_extract_json_valid(self):
-        result = self.service._extract_json('{"key": "value"}')
+        result = _extract_json('{"key": "value"}')
         assert result == {"key": "value"}
 
     def test_extract_json_empty(self):
-        assert self.service._extract_json("") is None
-        assert self.service._extract_json(None) is None  # type: ignore[arg-type]
+        assert _extract_json("") is None
+        assert _extract_json(None) is None  # type: ignore[arg-type]
 
     def test_extract_json_fenced(self):
-        result = self.service._extract_json('```json\n{"key": "value"}\n```')
+        result = _extract_json('```json\n{"key": "value"}\n```')
         assert result == {"key": "value"}
 
     def test_infer_case_side_our(self):
@@ -246,24 +248,24 @@ class TestMaterialClassificationService:
 
     def test_extract_party_ids_by_side(self):
         context = {"our_party_ids": [1, 2, 3]}
-        result = self.service._extract_party_ids_by_side(side="our", context=context)
+        result = _extract_party_ids_by_side(side="our", context=context)
         assert result == [1, 2, 3]
 
     def test_extract_party_ids_dedup(self):
         context = {"our_party_ids": [1, 1, 2]}
-        result = self.service._extract_party_ids_by_side(side="our", context=context)
+        result = _extract_party_ids_by_side(side="our", context=context)
         assert result == [1, 2]
 
     def test_extract_party_ids_invalid(self):
         context = {"our_party_ids": ["not_a_number"]}
-        result = self.service._extract_party_ids_by_side(side="our", context=context)
+        result = _extract_party_ids_by_side(side="our", context=context)
         assert result == []
 
     def test_extract_primary_supervising_authority_id(self):
-        assert self.service._extract_primary_supervising_authority_id({"primary_supervising_authority_id": 1}) == 1
-        assert self.service._extract_primary_supervising_authority_id({}) is None
-        assert self.service._extract_primary_supervising_authority_id({"primary_supervising_authority_id": "invalid"}) is None
-        assert self.service._extract_primary_supervising_authority_id({"primary_supervising_authority_id": -1}) is None
+        assert _extract_primary_supervising_authority_id({"primary_supervising_authority_id": 1}) == 1
+        assert _extract_primary_supervising_authority_id({}) is None
+        assert _extract_primary_supervising_authority_id({"primary_supervising_authority_id": "invalid"}) is None
+        assert _extract_primary_supervising_authority_id({"primary_supervising_authority_id": -1}) is None
 
     def test_parse_work_log_from_folder_name(self):
         result = self.service.parse_work_log_from_folder_name("2025.01.23-知识产权合同")
@@ -315,15 +317,23 @@ class TestMaterialClassificationService:
 class TestDashboardService:
     def test_get_stats_keys(self):
         svc = DashboardService()
-        with patch.object(svc, "_client_count", return_value=10), \
-             patch.object(svc, "_contract_count", return_value=5), \
-             patch.object(svc, "_case_type_stats", return_value=([{"type": "CIVIL", "label": "民事", "count": 3}], 3)), \
-             patch.object(svc, "_case_trend", return_value=[]), \
-             patch.object(svc, "_case_status_distribution", return_value={"ACTIVE": 3}), \
-             patch.object(svc, "_fee_stats", return_value=(Decimal("1000"), [])), \
-             patch.object(svc, "_contract_trend", return_value=[]), \
-             patch.object(svc, "_reminder_counts", return_value={"overdue_count": 0, "today_count": 0}), \
-             patch.object(svc, "_upcoming_reminders", return_value=[]):
+        with (
+            patch("apps.workbench.services.dashboard_service._client_count", return_value=10),
+            patch("apps.workbench.services.dashboard_service._contract_count", return_value=5),
+            patch(
+                "apps.workbench.services.dashboard_service._case_type_stats",
+                return_value=([{"type": "CIVIL", "label": "民事", "count": 3}], 3),
+            ),
+            patch("apps.workbench.services.dashboard_service._case_trend", return_value=[]),
+            patch("apps.workbench.services.dashboard_service._case_status_distribution", return_value={"ACTIVE": 3}),
+            patch("apps.workbench.services.dashboard_service._fee_stats", return_value=(Decimal("1000"), [])),
+            patch("apps.workbench.services.dashboard_service._contract_trend", return_value=[]),
+            patch(
+                "apps.workbench.services.dashboard_service._reminder_counts",
+                return_value={"overdue_count": 0, "today_count": 0},
+            ),
+            patch("apps.workbench.services.dashboard_service._upcoming_reminders", return_value=[]),
+        ):
             result = svc.get_stats()
             assert result["client_count"] == 10
             assert result["contract_count"] == 5

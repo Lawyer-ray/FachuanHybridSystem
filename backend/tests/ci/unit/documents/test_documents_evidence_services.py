@@ -8,14 +8,17 @@ class TestListTypeEnum:
 
     def test_choices_count(self) -> None:
         from apps.evidence.models import ListType
+
         assert len(ListType.choices) == 6
 
     def test_list_1_value(self) -> None:
         from apps.evidence.models import ListType
+
         assert ListType.LIST_1.value == "list_1"
 
     def test_list_6_label(self) -> None:
         from apps.evidence.models import ListType
+
         assert ListType.LIST_6.label == "证据清单六"
 
 
@@ -24,12 +27,15 @@ class TestListTypeOrder:
 
     def test_order_is_sequential(self) -> None:
         from apps.evidence.models import LIST_TYPE_ORDER, ListType
-        for i, lt in enumerate([ListType.LIST_1, ListType.LIST_2, ListType.LIST_3,
-                                ListType.LIST_4, ListType.LIST_5, ListType.LIST_6], 1):
+
+        for i, lt in enumerate(
+            [ListType.LIST_1, ListType.LIST_2, ListType.LIST_3, ListType.LIST_4, ListType.LIST_5, ListType.LIST_6], 1
+        ):
             assert LIST_TYPE_ORDER[lt] == i
 
     def test_all_types_have_order(self) -> None:
         from apps.evidence.models import LIST_TYPE_ORDER, ListType
+
         for lt in ListType:
             assert lt in LIST_TYPE_ORDER
 
@@ -39,18 +45,22 @@ class TestListTypePrevious:
 
     def test_list_1_has_no_previous(self) -> None:
         from apps.evidence.models import LIST_TYPE_PREVIOUS, ListType
+
         assert LIST_TYPE_PREVIOUS[ListType.LIST_1] is None
 
     def test_list_2_previous_is_list_1(self) -> None:
         from apps.evidence.models import LIST_TYPE_PREVIOUS, ListType
+
         assert LIST_TYPE_PREVIOUS[ListType.LIST_2] == ListType.LIST_1
 
     def test_list_6_previous_is_list_5(self) -> None:
         from apps.evidence.models import LIST_TYPE_PREVIOUS, ListType
+
         assert LIST_TYPE_PREVIOUS[ListType.LIST_6] == ListType.LIST_5
 
     def test_chain_is_linear(self) -> None:
         from apps.evidence.models import LIST_TYPE_PREVIOUS, ListType
+
         current = ListType.LIST_6
         count = 0
         while current is not None:
@@ -64,6 +74,7 @@ class TestMergeStatus:
 
     def test_values(self) -> None:
         from apps.evidence.models import MergeStatus
+
         assert MergeStatus.PENDING.value == "pending"
         assert MergeStatus.PROCESSING.value == "processing"
         assert MergeStatus.COMPLETED.value == "completed"
@@ -71,6 +82,7 @@ class TestMergeStatus:
 
     def test_choices_count(self) -> None:
         from apps.evidence.models import MergeStatus
+
         assert len(MergeStatus.choices) == 4
 
 
@@ -79,6 +91,7 @@ class TestEvidenceItemPageRangeDisplay:
 
     def _make_item(self, page_start=None, page_end=None):
         from apps.evidence.models import EvidenceItem
+
         item = EvidenceItem.__new__(EvidenceItem)
         item.page_start = page_start
         item.page_end = page_end
@@ -106,6 +119,7 @@ class TestEvidenceItemFileSizeDisplay:
 
     def _make_item(self, file_size=0):
         from apps.evidence.models import EvidenceItem
+
         item = EvidenceItem.__new__(EvidenceItem)
         item.file_size = file_size
         return item

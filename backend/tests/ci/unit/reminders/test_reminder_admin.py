@@ -79,6 +79,7 @@ class TestReminderAdminCalendarHelpers:
         request = MagicMock()
         request.GET = {"year": "abc", "month": "6"}
         from django.utils import timezone
+
         year, month = admin._parse_year_month(request)
         assert year == timezone.localdate().year
 
@@ -87,6 +88,7 @@ class TestReminderAdminCalendarHelpers:
         request = MagicMock()
         request.GET = {"year": "2025", "month": "13"}
         from django.utils import timezone
+
         year, month = admin._parse_year_month(request)
         assert month == timezone.localdate().month
 
@@ -95,6 +97,7 @@ class TestReminderAdminCalendarHelpers:
         request = MagicMock()
         request.GET = {"year": "1969", "month": "6"}
         from django.utils import timezone
+
         year, _ = admin._parse_year_month(request)
         assert year == timezone.localdate().year
 

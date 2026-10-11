@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -433,6 +433,7 @@ class TestImportCasesFromJsonData:
 
         # Create a case with FC-002 to test skip
         from apps.cases.models import Case
+
         Case.objects.create(name="existing", filing_number="FC-002")
 
         success, skipped, errors = svc.import_cases_from_json_data(data, case_import_service=import_svc)

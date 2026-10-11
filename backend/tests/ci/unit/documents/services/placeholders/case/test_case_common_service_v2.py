@@ -12,8 +12,10 @@ import pytest
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_service() -> Any:
     from apps.documents.services.placeholders.case.case_common_service import CaseCommonPlaceholderService
+
     return CaseCommonPlaceholderService()
 
 
@@ -69,6 +71,7 @@ def _make_case(**overrides: Any) -> MagicMock:
 # generate() - no case
 # ---------------------------------------------------------------------------
 
+
 class TestGenerateNoCase:
     def test_returns_empty_values_when_no_case(self):
         svc = _make_service()
@@ -85,9 +88,11 @@ class TestGenerateNoCase:
 # _get_trial_authorities
 # ---------------------------------------------------------------------------
 
+
 class TestGetTrialAuthorities:
     def test_filters_trial_authorities(self):
         from apps.core.models.enums import AuthorityType
+
         a1 = MagicMock()
         a1.authority_type = AuthorityType.TRIAL
         a1.name = "北京市朝阳区人民法院"
@@ -102,6 +107,7 @@ class TestGetTrialAuthorities:
 
     def test_deduplicates_names(self):
         from apps.core.models.enums import AuthorityType
+
         a1 = MagicMock(spec=[])
         a1.authority_type = AuthorityType.TRIAL
         a1.name = "法院A"
@@ -116,13 +122,16 @@ class TestGetTrialAuthorities:
 
     def test_returns_empty_on_exception(self):
         case = _make_case()
-        case.supervising_authorities.all.return_value.order_by.return_value.__iter__ = MagicMock(side_effect=Exception("db error"))
+        case.supervising_authorities.all.return_value.order_by.return_value.__iter__ = MagicMock(
+            side_effect=Exception("db error")
+        )
         svc = _make_service()
         result = svc._get_trial_authorities(case)
         assert result == ""
 
     def test_multiple_trial_authorities(self):
         from apps.core.models.enums import AuthorityType
+
         a1 = MagicMock(spec=[])
         a1.authority_type = AuthorityType.TRIAL
         a1.name = "法院A"
@@ -140,6 +149,7 @@ class TestGetTrialAuthorities:
 # ---------------------------------------------------------------------------
 # _get_party_names
 # ---------------------------------------------------------------------------
+
 
 class TestGetPartyNames:
     def test_our_party_names(self):
@@ -171,7 +181,9 @@ class TestGetPartyNames:
 
     def test_returns_empty_on_exception(self):
         case = _make_case()
-        case.parties.select_related.return_value.all.return_value.order_by.return_value.__iter__ = MagicMock(side_effect=Exception("db error"))
+        case.parties.select_related.return_value.all.return_value.order_by.return_value.__iter__ = MagicMock(
+            side_effect=Exception("db error")
+        )
         svc = _make_service()
         assert svc._get_party_names(case, is_our_client=True) == ""
 
@@ -179,6 +191,7 @@ class TestGetPartyNames:
 # ---------------------------------------------------------------------------
 # _get_party_values
 # ---------------------------------------------------------------------------
+
 
 class TestGetPartyValues:
     def test_returns_id_numbers(self):
@@ -195,7 +208,9 @@ class TestGetPartyValues:
 
     def test_returns_empty_on_exception(self):
         case = _make_case()
-        case.parties.select_related.return_value.all.return_value.order_by.return_value.__iter__ = MagicMock(side_effect=Exception)
+        case.parties.select_related.return_value.all.return_value.order_by.return_value.__iter__ = MagicMock(
+            side_effect=Exception
+        )
         svc = _make_service()
         assert svc._get_party_values(case, is_our_client=True, field_name="phone") == ""
 
@@ -203,6 +218,7 @@ class TestGetPartyValues:
 # ---------------------------------------------------------------------------
 # _get_our_party_addresses
 # ---------------------------------------------------------------------------
+
 
 class TestGetOurPartyAddresses:
     def test_returns_formatted_addresses(self):
@@ -234,7 +250,9 @@ class TestGetOurPartyAddresses:
 
     def test_returns_empty_on_exception(self):
         case = _make_case()
-        case.parties.select_related.return_value.all.return_value.order_by.return_value.__iter__ = MagicMock(side_effect=Exception)
+        case.parties.select_related.return_value.all.return_value.order_by.return_value.__iter__ = MagicMock(
+            side_effect=Exception
+        )
         svc = _make_service()
         assert svc._get_our_party_addresses(case) == ""
 
@@ -242,6 +260,7 @@ class TestGetOurPartyAddresses:
 # ---------------------------------------------------------------------------
 # _format_cause_of_action
 # ---------------------------------------------------------------------------
+
 
 class TestFormatCauseOfAction:
     def test_strips_dash_suffix(self):
@@ -264,6 +283,7 @@ class TestFormatCauseOfAction:
 # ---------------------------------------------------------------------------
 # _get_lawyer_names / _get_ordered_lawyer_names
 # ---------------------------------------------------------------------------
+
 
 class TestLawyerNames:
     def test_returns_comma_separated_names(self):
@@ -316,7 +336,9 @@ class TestLawyerNames:
 
     def test_empty_on_exception(self):
         case = _make_case()
-        case.assignments.select_related.return_value.all.return_value.order_by.return_value.__iter__ = MagicMock(side_effect=Exception)
+        case.assignments.select_related.return_value.all.return_value.order_by.return_value.__iter__ = MagicMock(
+            side_effect=Exception
+        )
         svc = _make_service()
         assert svc._get_ordered_lawyer_names(case) == []
 
@@ -324,6 +346,7 @@ class TestLawyerNames:
 # ---------------------------------------------------------------------------
 # _get_lawyer_signature_info
 # ---------------------------------------------------------------------------
+
 
 class TestLawyerSignatureInfo:
     def test_single_lawyer(self):
@@ -351,6 +374,7 @@ class TestLawyerSignatureInfo:
 # _get_signature_date
 # ---------------------------------------------------------------------------
 
+
 class TestSignatureDate:
     def test_uses_specified_date(self):
         case = _make_case(specified_date=date(2026, 6, 7))
@@ -369,6 +393,7 @@ class TestSignatureDate:
 # ---------------------------------------------------------------------------
 # _coerce_to_date
 # ---------------------------------------------------------------------------
+
 
 class TestCoerceToDate:
     def test_none_returns_none(self):
@@ -402,6 +427,7 @@ class TestCoerceToDate:
 # _format_signature_block
 # ---------------------------------------------------------------------------
 
+
 class TestFormatSignatureBlock:
     def test_natural_person(self):
         svc = _make_service()
@@ -423,6 +449,7 @@ class TestFormatSignatureBlock:
 # _format_role_label
 # ---------------------------------------------------------------------------
 
+
 class TestFormatRoleLabel:
     def test_single_party(self):
         svc = _make_service()
@@ -437,6 +464,7 @@ class TestFormatRoleLabel:
 # ---------------------------------------------------------------------------
 # _format_index_suffix
 # ---------------------------------------------------------------------------
+
 
 class TestFormatIndexSuffix:
     def test_first_ten_chinese(self):
@@ -453,27 +481,32 @@ class TestFormatIndexSuffix:
 # _resolve_party_role
 # ---------------------------------------------------------------------------
 
+
 class TestResolvePartyRole:
     def test_plaintiff(self):
         from apps.core.models.enums import LegalStatus
+
         svc = _make_service()
         party = _make_party(legal_status=LegalStatus.PLAINTIFF)
         assert svc._resolve_party_role(party) == "原告"
 
     def test_defendant(self):
         from apps.core.models.enums import LegalStatus
+
         svc = _make_service()
         party = _make_party(legal_status=LegalStatus.DEFENDANT)
         assert svc._resolve_party_role(party) == "被告"
 
     def test_third(self):
         from apps.core.models.enums import LegalStatus
+
         svc = _make_service()
         party = _make_party(legal_status=LegalStatus.THIRD)
         assert svc._resolve_party_role(party) == "第三人"
 
     def test_appellant(self):
         from apps.core.models.enums import LegalStatus
+
         svc = _make_service()
         party = _make_party(legal_status=LegalStatus.APPELLANT)
         assert svc._resolve_party_role(party) == "上诉人"
@@ -495,9 +528,11 @@ class TestResolvePartyRole:
 # _get_our_party_signature_info
 # ---------------------------------------------------------------------------
 
+
 class TestGetOurPartySignatureInfo:
     def test_natural_person_signature(self):
         from apps.core.models.enums import LegalStatus
+
         client = _make_client(name="张三", client_type="natural")
         party = _make_party(client=client, legal_status=LegalStatus.DEFENDANT, party_id=1)
         case = _make_case()
@@ -509,6 +544,7 @@ class TestGetOurPartySignatureInfo:
 
     def test_legal_entity_signature(self):
         from apps.core.models.enums import LegalStatus
+
         client = _make_client(name="甲公司", client_type="legal", legal_representative="张某")
         party = _make_party(client=client, legal_status=LegalStatus.PLAINTIFF, party_id=1)
         case = _make_case()
@@ -527,6 +563,7 @@ class TestGetOurPartySignatureInfo:
 
     def test_multiple_parties_roles(self):
         from apps.core.models.enums import LegalStatus
+
         c1 = _make_client(name="张三", client_type="natural", is_our=True)
         c2 = _make_client(name="李四", client_type="legal", is_our=True, client_id=20, legal_representative="李某")
         c2.legal_representative = "李某"
@@ -544,10 +581,18 @@ class TestGetOurPartySignatureInfo:
 # _get_opposing_party_info
 # ---------------------------------------------------------------------------
 
+
 class TestGetOpposingPartyInfo:
     def test_natural_opponent(self):
-        client = _make_client(name="赵某", is_our=False, client_id=20, client_type="natural",
-                             id_number="000000000000000000", phone="00000000001", address="深圳市")
+        client = _make_client(
+            name="赵某",
+            is_our=False,
+            client_id=20,
+            client_type="natural",
+            id_number="000000000000000000",
+            phone="00000000001",
+            address="深圳市",
+        )
         party = _make_party(client=client, party_id=1)
         case = _make_case()
         case.parties.select_related.return_value.all.return_value.order_by.return_value = [party]
@@ -559,8 +604,15 @@ class TestGetOpposingPartyInfo:
         assert "联系电话：00000000001" in result
 
     def test_legal_opponent(self):
-        client = _make_client(name="乙公司", is_our=False, client_id=20, client_type="legal",
-                             id_number="91110000MA12345678", legal_representative="王某", phone="01012345678")
+        client = _make_client(
+            name="乙公司",
+            is_our=False,
+            client_id=20,
+            client_type="legal",
+            id_number="91110000MA12345678",
+            legal_representative="王某",
+            phone="01012345678",
+        )
         party = _make_party(client=client, party_id=1)
         case = _make_case()
         case.parties.select_related.return_value.all.return_value.order_by.return_value = [party]
@@ -571,6 +623,7 @@ class TestGetOpposingPartyInfo:
 
     def test_multiple_opponents(self):
         from apps.core.models.enums import LegalStatus
+
         c1 = _make_client(name="赵某", is_our=False, client_id=20)
         c2 = _make_client(name="钱某", is_our=False, client_id=30)
         p1 = _make_party(client=c1, legal_status=LegalStatus.DEFENDANT, party_id=1)
@@ -594,6 +647,7 @@ class TestGetOpposingPartyInfo:
 # _format_client_info
 # ---------------------------------------------------------------------------
 
+
 class TestFormatClientInfo:
     def test_none_client(self):
         svc = _make_service()
@@ -601,16 +655,23 @@ class TestFormatClientInfo:
         assert result == "被告："
 
     def test_natural_client(self):
-        client = _make_client(name="赵某", client_type="natural", id_number="000000000000000000",
-                             address="深圳", phone="00000000001")
+        client = _make_client(
+            name="赵某", client_type="natural", id_number="000000000000000000", address="深圳", phone="00000000001"
+        )
         svc = _make_service()
         result = svc._format_client_info("原告", client)
         assert "原告：赵某" in result
         assert "身份证号码：000000000000000000" in result
 
     def test_legal_client(self):
-        client = _make_client(name="乙公司", client_type="legal", id_number="91110000MA12345678",
-                             legal_representative="王某", address="北京", phone="01012345678")
+        client = _make_client(
+            name="乙公司",
+            client_type="legal",
+            id_number="91110000MA12345678",
+            legal_representative="王某",
+            address="北京",
+            phone="01012345678",
+        )
         svc = _make_service()
         result = svc._format_client_info("被告", client)
         assert "统一社会信用代码" in result
@@ -620,6 +681,7 @@ class TestFormatClientInfo:
 # ---------------------------------------------------------------------------
 # placeholder_keys and metadata
 # ---------------------------------------------------------------------------
+
 
 class TestPlaceholderKeysMetadata:
     def test_keys_count(self):
@@ -639,9 +701,11 @@ class TestPlaceholderKeysMetadata:
 # generate() full integration (with mocked parties)
 # ---------------------------------------------------------------------------
 
+
 class TestGenerateFull:
     def test_full_output_keys(self):
         from apps.core.models.enums import LegalStatus
+
         c_our = _make_client(name="张三", is_our=True, client_type="natural")
         c_opp = _make_client(name="李四", is_our=False, client_id=20)
         p1 = _make_party(client=c_our, legal_status=LegalStatus.DEFENDANT, party_id=1)
@@ -651,6 +715,7 @@ class TestGenerateFull:
         a1.id = 1
         a1.lawyer = MagicMock(real_name="王律师")
         from apps.core.models.enums import AuthorityType
+
         auth = MagicMock(spec=[])
         auth.authority_type = AuthorityType.TRIAL
         auth.name = "朝阳法院"

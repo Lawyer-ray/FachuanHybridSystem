@@ -74,9 +74,13 @@ class TestResourceMonitorHealth:
     def test_healthy(self):
         mon = self._make_mon()
         usage = ResourceUsage(
-            cpu_percent=10.0, memory_percent=50.0,
-            memory_used_mb=4000, memory_total_mb=8000,
-            disk_percent=60.0, disk_used_gb=100, disk_total_gb=200,
+            cpu_percent=10.0,
+            memory_percent=50.0,
+            memory_used_mb=4000,
+            memory_total_mb=8000,
+            disk_percent=60.0,
+            disk_used_gb=100,
+            disk_total_gb=200,
             timestamp=datetime.now(),
         )
         with patch.object(mon, "get_current_usage", return_value=usage):
@@ -86,9 +90,13 @@ class TestResourceMonitorHealth:
     def test_memory_warning(self):
         mon = self._make_mon()
         usage = ResourceUsage(
-            cpu_percent=10.0, memory_percent=85.0,
-            memory_used_mb=7000, memory_total_mb=8000,
-            disk_percent=60.0, disk_used_gb=100, disk_total_gb=200,
+            cpu_percent=10.0,
+            memory_percent=85.0,
+            memory_used_mb=7000,
+            memory_total_mb=8000,
+            disk_percent=60.0,
+            disk_used_gb=100,
+            disk_total_gb=200,
             timestamp=datetime.now(),
         )
         with patch.object(mon, "get_current_usage", return_value=usage):
@@ -98,9 +106,13 @@ class TestResourceMonitorHealth:
     def test_memory_critical(self):
         mon = self._make_mon()
         usage = ResourceUsage(
-            cpu_percent=10.0, memory_percent=95.0,
-            memory_used_mb=7500, memory_total_mb=8000,
-            disk_percent=60.0, disk_used_gb=100, disk_total_gb=200,
+            cpu_percent=10.0,
+            memory_percent=95.0,
+            memory_used_mb=7500,
+            memory_total_mb=8000,
+            disk_percent=60.0,
+            disk_used_gb=100,
+            disk_total_gb=200,
             timestamp=datetime.now(),
         )
         with patch.object(mon, "get_current_usage", return_value=usage):
@@ -110,9 +122,13 @@ class TestResourceMonitorHealth:
     def test_cpu_warning(self):
         mon = self._make_mon()
         usage = ResourceUsage(
-            cpu_percent=85.0, memory_percent=50.0,
-            memory_used_mb=4000, memory_total_mb=8000,
-            disk_percent=60.0, disk_used_gb=100, disk_total_gb=200,
+            cpu_percent=85.0,
+            memory_percent=50.0,
+            memory_used_mb=4000,
+            memory_total_mb=8000,
+            disk_percent=60.0,
+            disk_used_gb=100,
+            disk_total_gb=200,
             timestamp=datetime.now(),
         )
         with patch.object(mon, "get_current_usage", return_value=usage):
@@ -122,9 +138,13 @@ class TestResourceMonitorHealth:
     def test_disk_warning(self):
         mon = self._make_mon()
         usage = ResourceUsage(
-            cpu_percent=10.0, memory_percent=50.0,
-            memory_used_mb=4000, memory_total_mb=8000,
-            disk_percent=90.0, disk_used_gb=180, disk_total_gb=200,
+            cpu_percent=10.0,
+            memory_percent=50.0,
+            memory_used_mb=4000,
+            memory_total_mb=8000,
+            disk_percent=90.0,
+            disk_used_gb=180,
+            disk_total_gb=200,
             timestamp=datetime.now(),
         )
         with patch.object(mon, "get_current_usage", return_value=usage):
@@ -134,9 +154,13 @@ class TestResourceMonitorHealth:
     def test_disk_critical(self):
         mon = self._make_mon()
         usage = ResourceUsage(
-            cpu_percent=10.0, memory_percent=50.0,
-            memory_used_mb=4000, memory_total_mb=8000,
-            disk_percent=96.0, disk_used_gb=190, disk_total_gb=200,
+            cpu_percent=10.0,
+            memory_percent=50.0,
+            memory_used_mb=4000,
+            memory_total_mb=8000,
+            disk_percent=96.0,
+            disk_used_gb=190,
+            disk_total_gb=200,
             timestamp=datetime.now(),
         )
         with patch.object(mon, "get_current_usage", return_value=usage):
@@ -174,9 +198,13 @@ class TestResourceMonitorRestart:
         mon = self._make_mon()
         mon._last_restart_time = None
         usage = ResourceUsage(
-            cpu_percent=10.0, memory_percent=96.0,
-            memory_used_mb=7500, memory_total_mb=8000,
-            disk_percent=60.0, disk_used_gb=100, disk_total_gb=200,
+            cpu_percent=10.0,
+            memory_percent=96.0,
+            memory_used_mb=7500,
+            memory_total_mb=8000,
+            disk_percent=60.0,
+            disk_used_gb=100,
+            disk_total_gb=200,
             timestamp=datetime.now(),
         )
         with patch.object(mon, "get_current_usage", return_value=usage):
@@ -187,9 +215,13 @@ class TestResourceMonitorRestart:
         mon = self._make_mon()
         mon._last_restart_time = None
         usage = ResourceUsage(
-            cpu_percent=10.0, memory_percent=50.0,
-            memory_used_mb=4000, memory_total_mb=8000,
-            disk_percent=60.0, disk_used_gb=100, disk_total_gb=200,
+            cpu_percent=10.0,
+            memory_percent=50.0,
+            memory_used_mb=4000,
+            memory_total_mb=8000,
+            disk_percent=60.0,
+            disk_used_gb=100,
+            disk_total_gb=200,
             timestamp=datetime.now(),
         )
         with patch.object(mon, "get_current_usage", return_value=usage):
@@ -206,9 +238,13 @@ class TestResourceMonitorRecommendations:
     def test_low_usage(self):
         mon = self._make_mon()
         usage = ResourceUsage(
-            cpu_percent=10.0, memory_percent=20.0,
-            memory_used_mb=2000, memory_total_mb=8000,
-            disk_percent=30.0, disk_used_gb=50, disk_total_gb=200,
+            cpu_percent=10.0,
+            memory_percent=20.0,
+            memory_used_mb=2000,
+            memory_total_mb=8000,
+            disk_percent=30.0,
+            disk_used_gb=50,
+            disk_total_gb=200,
             timestamp=datetime.now(),
         )
         with patch.object(mon, "get_current_usage", return_value=usage):
@@ -218,9 +254,13 @@ class TestResourceMonitorRecommendations:
     def test_high_usage(self):
         mon = self._make_mon()
         usage = ResourceUsage(
-            cpu_percent=90.0, memory_percent=90.0,
-            memory_used_mb=7500, memory_total_mb=8000,
-            disk_percent=90.0, disk_used_gb=180, disk_total_gb=200,
+            cpu_percent=90.0,
+            memory_percent=90.0,
+            memory_used_mb=7500,
+            memory_total_mb=8000,
+            disk_percent=90.0,
+            disk_used_gb=180,
+            disk_total_gb=200,
             timestamp=datetime.now(),
         )
         with patch.object(mon, "get_current_usage", return_value=usage):
@@ -240,6 +280,7 @@ class TestResourceMonitorRecommendations:
 class TestFrameProcessingService:
     def _get_service(self):
         from apps.chat_records.services.extraction.frame_processing_service import FrameProcessingService
+
         return FrameProcessingService()
 
     def test_collect_frame_files(self, tmp_path):
@@ -260,8 +301,15 @@ class TestFrameProcessingService:
         svc = self._get_service()
         from apps.chat_records.services.extraction.extract_helpers import ExtractParams
         from apps.chat_records.services.extraction.video_frame_extract_service import FFProbeInfo
-        params = ExtractParams(interval_based=True, interval_seconds=2.0, strategy="interval",
-                                dedup_threshold=10, ocr_similarity_threshold=0.9, ocr_min_new_chars=5)
+
+        params = ExtractParams(
+            interval_based=True,
+            interval_seconds=2.0,
+            strategy="interval",
+            dedup_threshold=10,
+            ocr_similarity_threshold=0.9,
+            ocr_min_new_chars=5,
+        )
         info = FFProbeInfo(duration_seconds=10.0, time_base_seconds=0.0)
         result = svc.calc_capture_time("frame_003.jpg", 3, params, info)
         assert result == 4.0  # (3-1) * 2.0
@@ -270,8 +318,15 @@ class TestFrameProcessingService:
         svc = self._get_service()
         from apps.chat_records.services.extraction.extract_helpers import ExtractParams
         from apps.chat_records.services.extraction.video_frame_extract_service import FFProbeInfo
-        params = ExtractParams(interval_based=False, interval_seconds=0, strategy="keyframe",
-                                dedup_threshold=10, ocr_similarity_threshold=0.9, ocr_min_new_chars=5)
+
+        params = ExtractParams(
+            interval_based=False,
+            interval_seconds=0,
+            strategy="keyframe",
+            dedup_threshold=10,
+            ocr_similarity_threshold=0.9,
+            ocr_min_new_chars=5,
+        )
         info = FFProbeInfo(duration_seconds=10.0, time_base_seconds=0.04)
         result = svc.calc_capture_time("frame_000042.jpg", 1, params, info)
         assert result == pytest.approx(42 * 0.04)
@@ -280,8 +335,15 @@ class TestFrameProcessingService:
         svc = self._get_service()
         from apps.chat_records.services.extraction.extract_helpers import ExtractParams
         from apps.chat_records.services.extraction.video_frame_extract_service import FFProbeInfo
-        params = ExtractParams(interval_based=False, interval_seconds=0, strategy="keyframe",
-                                dedup_threshold=10, ocr_similarity_threshold=0.9, ocr_min_new_chars=5)
+
+        params = ExtractParams(
+            interval_based=False,
+            interval_seconds=0,
+            strategy="keyframe",
+            dedup_threshold=10,
+            ocr_similarity_threshold=0.9,
+            ocr_min_new_chars=5,
+        )
         info = FFProbeInfo(duration_seconds=10.0, time_base_seconds=0.04)
         result = svc.calc_capture_time("frame_no_number.jpg", 1, params, info)
         assert result is None
@@ -315,6 +377,7 @@ class TestFrameProcessingService:
     def test_check_ocr_similarity_empty_text(self):
         svc = self._get_service()
         from apps.chat_records.services.extraction.extract_helpers import DedupState
+
         state = DedupState()
         result = svc.check_ocr_similarity("", state, 0.9, 5)
         assert result is None
@@ -322,6 +385,7 @@ class TestFrameProcessingService:
     def test_check_ocr_similarity_no_kept_texts(self):
         svc = self._get_service()
         from apps.chat_records.services.extraction.extract_helpers import DedupState
+
         state = DedupState()
         result = svc.check_ocr_similarity("some text", state, 0.9, 5)
         assert result is None
@@ -329,6 +393,7 @@ class TestFrameProcessingService:
     def test_get_ocr_frame_score_empty(self):
         svc = self._get_service()
         from apps.chat_records.services.extraction.extract_helpers import DedupState
+
         state = DedupState()
         score = svc.get_ocr_frame_score(0.0, "", state)
         assert score == 0.0
@@ -336,6 +401,7 @@ class TestFrameProcessingService:
     def test_get_ocr_frame_score_no_kept(self):
         svc = self._get_service()
         from apps.chat_records.services.extraction.extract_helpers import DedupState
+
         state = DedupState()
         score = svc.get_ocr_frame_score(0.0, "some text", state)
         assert score == 0.0
@@ -349,10 +415,17 @@ class TestFrameProcessingService:
     def test_is_frame_duplicate_sha_hit(self):
         svc = self._get_service()
         from apps.chat_records.services.extraction.extract_helpers import DedupState, ExtractParams
+
         state = DedupState()
         state.existing_sha256.add("existing_digest")
-        params = ExtractParams(interval_based=True, interval_seconds=1, strategy="interval",
-                                dedup_threshold=10, ocr_similarity_threshold=0.9, ocr_min_new_chars=5)
+        params = ExtractParams(
+            interval_based=True,
+            interval_seconds=1,
+            strategy="interval",
+            dedup_threshold=10,
+            ocr_similarity_threshold=0.9,
+            ocr_min_new_chars=5,
+        )
         mock_selection = MagicMock()
         is_dup, thumb = svc.is_frame_duplicate(
             b"content", "existing_digest", "dhash", state, params, mock_selection, 5, 0.0

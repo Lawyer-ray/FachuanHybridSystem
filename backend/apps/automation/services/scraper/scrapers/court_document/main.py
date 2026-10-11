@@ -256,48 +256,49 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
         # 未知域名 → 动态生成子类，URL 从域名推导
         logger.info("道律平台未知域名，动态适配: %s", host)
-        return self._create_daolv_scraper_class(host)
+        return _create_daolv_scraper_class(host)
 
-    @staticmethod
-    def _create_daolv_scraper_class(host: str) -> type[BaseCourtDocumentScraper]:  # pragma: no cover
-        """为未知道律域名动态创建爬虫子类。
 
-        道律平台的 URL 结构完全一致，仅域名不同：
-          登录页: http://{host}/sfsddz
-          验证码: http://{host}:80/deli/images/yanz.png
-          ...
-        """
-        from .daolv_sifa_songda_scraper import DaolvSifaSongdaScraper
+# ↓↓ 由 CourtDocumentScraper 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _create_daolv_scraper_class(host: str) -> type[BaseCourtDocumentScraper]:  # pragma: no cover
+    """为未知道律域名动态创建爬虫子类。
 
-        base = f"http://{host}:80"
-        cls_name = f"DaolvScraper_{host.replace('.', '_').replace('-', '_')}"
-        cls = type(
-            cls_name,
-            (DaolvSifaSongdaScraper,),
-            {
-                "requires_browser": False,
-                "_DOMAIN": host,
-                "_LOGIN_PAGE_URL": f"http://{host}/sfsddz",
-                "_CAPTCHA_IMAGE_URL": f"{base}/deli/images/yanz.png",
-                "_CAPTCHA_CHECK_URL": f"{base}/deli/deli-login!checkyzmAjaxp.action",
-                "_LOGIN_URL": f"{base}/deli/easy-login!dologinAjax.action",
-                "_MAIN_URL": f"{base}/deli/login!main.action",
-                "_LIST_URLS": (
-                    f"{base}/deli/TdeliPubRecord/tdelipubrecord!todoList.action",
-                    f"{base}/deli/TdeliPubRecord/tdelipubrecord!doneList.action",
-                    f"{base}/deli/TdeliPubRecord/tdelipubrecord!expiredList.action",
-                ),
-                "_PLATFORM_LABEL": host.split(".")[0],
-            },
-        )
+    道律平台的 URL 结构完全一致，仅域名不同：
+      登录页: http://{host}/sfsddz
+      验证码: http://{host}:80/deli/images/yanz.png
+      ...
+    """
+    from .daolv_sifa_songda_scraper import DaolvSifaSongdaScraper
 
-        # run() 方法：仅支持 /sfsddz 账号模式
-        def _run(self_inner: Any) -> dict[str, Any]:
-            url = self_inner.task.url
-            if f"{host}/sfsddz" in url:
-                result: dict[str, Any] = self_inner._run_account_mode(source_domain=host)
-                return result
-            raise ValueError(f"不支持的道律平台链接: {url}")
+    base = f"http://{host}:80"
+    cls_name = f"DaolvScraper_{host.replace('.', '_').replace('-', '_')}"
+    cls = type(
+        cls_name,
+        (DaolvSifaSongdaScraper,),
+        {
+            "requires_browser": False,
+            "_DOMAIN": host,
+            "_LOGIN_PAGE_URL": f"http://{host}/sfsddz",
+            "_CAPTCHA_IMAGE_URL": f"{base}/deli/images/yanz.png",
+            "_CAPTCHA_CHECK_URL": f"{base}/deli/deli-login!checkyzmAjaxp.action",
+            "_LOGIN_URL": f"{base}/deli/easy-login!dologinAjax.action",
+            "_MAIN_URL": f"{base}/deli/login!main.action",
+            "_LIST_URLS": (
+                f"{base}/deli/TdeliPubRecord/tdelipubrecord!todoList.action",
+                f"{base}/deli/TdeliPubRecord/tdelipubrecord!doneList.action",
+                f"{base}/deli/TdeliPubRecord/tdelipubrecord!expiredList.action",
+            ),
+            "_PLATFORM_LABEL": host.split(".")[0],
+        },
+    )
 
-        cls.run = _run  # type: ignore[attr-defined]
-        return cls
+    # run() 方法：仅支持 /sfsddz 账号模式
+    def _run(self_inner: Any) -> dict[str, Any]:
+        url = self_inner.task.url
+        if f"{host}/sfsddz" in url:
+            result: dict[str, Any] = self_inner._run_account_mode(source_domain=host)
+            return result
+        raise ValueError(f"不支持的道律平台链接: {url}")
+
+    cls.run = _run  # type: ignore[attr-defined]
+    return cls

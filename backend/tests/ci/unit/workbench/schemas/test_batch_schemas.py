@@ -1,4 +1,5 @@
 """Tests for workbench.schemas.batch_schemas."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -7,11 +8,7 @@ from uuid import UUID
 
 import pytest
 
-from apps.workbench.schemas.batch_schemas import (
-    BatchItemOut,
-    BatchJobOut,
-    BatchProgressOut,
-)
+from apps.workbench.schemas.batch_schemas import BatchItemOut, BatchJobOut, BatchProgressOut
 
 
 class TestBatchItemOut:

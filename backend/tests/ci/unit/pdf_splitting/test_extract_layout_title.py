@@ -1,4 +1,4 @@
-"""PdfSplitService._extract_layout_title 全分支覆盖。
+"""_extract_layout_title 全分支覆盖。
 
 纯静态方法：构造 Paddle 解析器风格的 layout dict，锁标题识别/
 过滤/坐标优先级契约（材料命名与边界提示依赖该函数）。
@@ -6,9 +6,9 @@
 
 from __future__ import annotations
 
-from apps.pdf_splitting.services.split.service import PdfSplitService
+from apps.pdf_splitting.services.split.service import PdfSplitService, _extract_layout_title
 
-_extract = PdfSplitService._extract_layout_title
+_extract = _extract_layout_title
 
 
 class TestExtractLayoutTitle:

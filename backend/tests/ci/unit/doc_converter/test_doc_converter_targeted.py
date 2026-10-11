@@ -1,11 +1,11 @@
 """Targeted tests for doc_converter module to push coverage to 80%+."""
+
 from __future__ import annotations
 
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # schemas.py (0% coverage)

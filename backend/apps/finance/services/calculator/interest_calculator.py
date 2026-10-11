@@ -516,27 +516,28 @@ class InterestCalculator:
             return 365
         return year_days
 
-    @staticmethod
-    def create_principal_periods(
-        changes: list[dict],
-        default_principal: Decimal = Decimal("0"),
-    ) -> list[PrincipalPeriod]:
-        """从配置创建本金时间段.
 
-        Args:
-            changes: 本金变动列表，每项包含 start_date, end_date, principal
-            default_principal: 默认本金
+# ↓↓ 由 InterestCalculator 下沉的模块级纯函数（四层架构静态方法棘轮）
+def create_principal_periods(
+    changes: list[dict],
+    default_principal: Decimal = Decimal("0"),
+) -> list[PrincipalPeriod]:
+    """从配置创建本金时间段.
 
-        Returns:
-            本金时间段列表
-        """
-        periods = []
-        for change in changes:
-            period = PrincipalPeriod(
-                start_date=change["start_date"],
-                end_date=change["end_date"],
-                principal=Decimal(str(change.get("principal", default_principal))),
-            )
-            periods.append(period)
+    Args:
+        changes: 本金变动列表，每项包含 start_date, end_date, principal
+        default_principal: 默认本金
 
-        return sorted(periods, key=lambda x: x.start_date)
+    Returns:
+        本金时间段列表
+    """
+    periods = []
+    for change in changes:
+        period = PrincipalPeriod(
+            start_date=change["start_date"],
+            end_date=change["end_date"],
+            principal=Decimal(str(change.get("principal", default_principal))),
+        )
+        periods.append(period)
+
+    return sorted(periods, key=lambda x: x.start_date)

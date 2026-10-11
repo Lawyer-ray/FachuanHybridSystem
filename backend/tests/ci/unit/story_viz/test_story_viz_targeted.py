@@ -1,4 +1,5 @@
 """Targeted tests for story_viz module to push coverage to 80%+."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch

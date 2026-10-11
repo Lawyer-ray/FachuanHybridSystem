@@ -9,12 +9,12 @@ from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory
 
+from apps.cases.models import Case
+from apps.contracts.models import Contract
 from apps.evidence.admin.evidence_admin import EvidenceListAdmin
 from apps.evidence.admin.evidence_item_admin import EvidenceItemAdmin
 from apps.evidence.admin.group_admin import EvidenceGroupAdmin
 from apps.evidence.models import EvidenceGroup, EvidenceItem, EvidenceList
-from apps.cases.models import Case
-from apps.contracts.models import Contract
 
 User = get_user_model()
 
@@ -51,9 +51,7 @@ class TestEvidenceListAdmin:
     def test_get_queryset_annotate_item_count(self) -> None:
         """get_queryset 应使用 annotate(Count) 计算 item_count"""
         case = _create_case()
-        elist = EvidenceList.objects.create(
-            case=case, title="证据清单1", list_type="previous", order=1
-        )
+        elist = EvidenceList.objects.create(case=case, title="证据清单1", list_type="previous", order=1)
         EvidenceItem.objects.create(evidence_list=elist, order=1, name="证据1")
         EvidenceItem.objects.create(evidence_list=elist, order=2, name="证据2")
 
@@ -95,9 +93,7 @@ class TestEvidenceGroupAdmin:
     def test_get_queryset_annotate_item_count(self) -> None:
         """get_queryset 应使用 annotate(Count) 计算 item_count"""
         case = _create_case("分组测试案件")
-        elist = EvidenceList.objects.create(
-            case=case, title="分组证据清单", list_type="previous", order=1
-        )
+        elist = EvidenceList.objects.create(case=case, title="分组证据清单", list_type="previous", order=1)
         item1 = EvidenceItem.objects.create(evidence_list=elist, order=1, name="分组证据1")
         item2 = EvidenceItem.objects.create(evidence_list=elist, order=2, name="分组证据2")
         group = EvidenceGroup.objects.create(case=case, name="证据分组1", sort_order=1)
@@ -112,9 +108,7 @@ class TestEvidenceGroupAdmin:
     def test_item_count_display_uses_annotation(self) -> None:
         """item_count display 方法应使用 annotate 的值"""
         case = _create_case("显示测试案件")
-        elist = EvidenceList.objects.create(
-            case=case, title="显示证据清单", list_type="previous", order=1
-        )
+        elist = EvidenceList.objects.create(case=case, title="显示证据清单", list_type="previous", order=1)
         item = EvidenceItem.objects.create(evidence_list=elist, order=1, name="显示证据")
         group = EvidenceGroup.objects.create(case=case, name="显示分组", sort_order=1)
         group.items.add(item)

@@ -192,7 +192,7 @@ class LegalResearchCapabilityService:  # pragma: no cover
                 errors={"credential_id": credential.id},
                 service_name="legal_research",
             )
-        keyword, case_summary = self._build_keyword_and_summary(payload=payload)
+        keyword, case_summary = _build_keyword_and_summary(payload=payload)
         timeout_ms = int(payload.budget.timeout_ms)
         started = time.monotonic()
 
@@ -244,7 +244,7 @@ class LegalResearchCapabilityService:  # pragma: no cover
             run_payload = self._execute_with_timeout(task_id=str(task.id), timeout_ms=timeout_ms)
         except FutureTimeoutError:
             self._mark_failure_circuit(credential_id=credential.id)
-            self._mark_timeout(task=task, timeout_ms=timeout_ms)
+            _mark_timeout(task=task, timeout_ms=timeout_ms)
             LegalResearchTaskEventService.record_event(
                 task_id=task.id,
                 stage="search",
@@ -320,7 +320,7 @@ class LegalResearchCapabilityService:  # pragma: no cover
             request_id=uuid.uuid4().hex,
             status=("ok" if not degradation_flags else "partial"),
             degradation_flags=degradation_flags,
-            query_trace=self._build_query_trace(task=task, payload=payload, run_payload=run_payload, started=started),
+            query_trace=_build_query_trace(task=task, payload=payload, run_payload=run_payload, started=started),
             results=hits,
         )
         logger.info(
@@ -390,26 +390,6 @@ class LegalResearchCapabilityService:  # pragma: no cover
             raise ValidationException("当前仅支持wkxx账号，请选择wkxx凭证")
         return credential
 
-    @staticmethod
-    def _build_keyword_and_summary(*, payload: AgentSearchRequestV1) -> tuple[str, str]:  # pragma: no cover
-        seed_terms = [payload.cause_type.strip(), payload.legal_issue.strip()]
-        seed_text = " ".join(term for term in seed_terms if term)
-        keyword = normalize_keyword_query(seed_text) if seed_text else ""
-        if not keyword:
-            keyword = normalize_keyword_query(payload.facts)
-        if not keyword:
-            raise ValidationException("facts 为空或无法生成有效检索关键词")
-
-        summary_parts = [payload.facts.strip()]
-        if payload.legal_issue.strip():
-            summary_parts.append(f"争议焦点：{payload.legal_issue.strip()}")
-        if payload.cause_type.strip():
-            summary_parts.append(f"案由：{payload.cause_type.strip()}")
-        court_name = str(payload.court_scope.court_name or "").strip()
-        if court_name:
-            summary_parts.append(f"法院范围：{court_name}")
-        return keyword, "\n".join(part for part in summary_parts if part)[:8000]
-
     def _execute_with_timeout(self, *, task_id: str, timeout_ms: int) -> dict[str, Any]:  # pragma: no cover
         # 与 legal_research/tasks.execute_legal_research_task 跑的是同一个
         # LegalResearchExecutor.run：同步 Playwright 使执行器线程带运行中循环，
@@ -424,29 +404,6 @@ class LegalResearchCapabilityService:  # pragma: no cover
             return payload if isinstance(payload, dict) else {}
         finally:
             pool.shutdown(wait=False, cancel_futures=True)
-
-    @staticmethod
-    def _mark_timeout(*, task: LegalResearchTask, timeout_ms: int) -> None:  # pragma: no cover
-        task.status = LegalResearchTaskStatus.FAILED
-        task.message = f"能力调用超时（{timeout_ms}ms）"
-        task.error = f"capability timeout: {timeout_ms}ms"
-        task.finished_at = timezone.now()
-        task.save(update_fields=["status", "message", "error", "finished_at", "updated_at"])
-
-    @staticmethod
-    def _decision_from_metadata(*, metadata: dict[str, Any], score: float) -> str:  # pragma: no cover
-        raw = str(metadata.get("decision") or "").strip().lower()
-        if raw in {"reject", "low"}:
-            return "reject"
-        if raw == "medium":
-            return "review"
-        if raw == "high":
-            return "accept"
-        if score >= 0.9:
-            return "accept"
-        if score >= 0.75:
-            return "review"
-        return "reject"
 
     @classmethod
     def _serialize_hit(cls, *, item: Any) -> RetrievalHitV1:  # pragma: no cover
@@ -474,7 +431,7 @@ class LegalResearchCapabilityService:  # pragma: no cover
             court=str(item.court_text or ""),
             judgment_date=str(item.judgment_date or ""),
             score=round(score, 4),
-            decision=cls._decision_from_metadata(metadata=metadata, score=score),  # type: ignore[arg-type]
+            decision=_decision_from_metadata(metadata=metadata, score=score),  # type: ignore[arg-type]
             subscores=subscores,
             conflicts=conflicts[:8],
             snippets=snippets,
@@ -489,18 +446,18 @@ class LegalResearchCapabilityService:  # pragma: no cover
         snippets_meta = metadata.get("snippets") if isinstance(metadata.get("snippets"), dict) else {}
         extracted = cls._extract_snippets_from_text(cls._extract_content_excerpt(item=item, metadata_all=metadata_all))
 
-        claims = cls._clip_text(snippets_meta.get("claims"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get(  # type: ignore[union-attr]
+        claims = _clip_text(snippets_meta.get("claims"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get(  # type: ignore[union-attr]
             "claims", ""
         )
-        findings = cls._clip_text(snippets_meta.get("findings"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get(  # type: ignore[union-attr]
+        findings = _clip_text(snippets_meta.get("findings"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get(  # type: ignore[union-attr]
             "findings", ""
         )
         reasoning = (
-            cls._clip_text(snippets_meta.get("reasoning"), max_chars=cls.SNIPPET_MAX_CHARS)  # type: ignore[union-attr]
+            _clip_text(snippets_meta.get("reasoning"), max_chars=cls.SNIPPET_MAX_CHARS)  # type: ignore[union-attr]
             or extracted.get("reasoning", "")
-            or cls._clip_text(getattr(item, "case_digest", ""), max_chars=cls.SNIPPET_MAX_CHARS)
+            or _clip_text(getattr(item, "case_digest", ""), max_chars=cls.SNIPPET_MAX_CHARS)
         )
-        holdings = cls._clip_text(snippets_meta.get("holdings"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get(  # type: ignore[union-attr]
+        holdings = _clip_text(snippets_meta.get("holdings"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get(  # type: ignore[union-attr]
             "holdings", ""
         )
         return AgentSearchSnippetsOut(
@@ -518,7 +475,7 @@ class LegalResearchCapabilityService:  # pragma: no cover
         text = str(raw or "").strip()
         if not text:
             text = str(getattr(item, "case_digest", "") or "")
-        return cls._normalize_content_text(text)[: cls.SNIPPET_SCAN_MAX_CHARS]
+        return _normalize_content_text(text)[: cls.SNIPPET_SCAN_MAX_CHARS]
 
     @classmethod
     def _extract_snippets_from_text(cls, text: str) -> dict[str, str]:  # pragma: no cover
@@ -541,7 +498,7 @@ class LegalResearchCapabilityService:  # pragma: no cover
 
         extracted: dict[str, str] = {}
         for label in ("claims", "findings", "reasoning", "holdings"):
-            merged = cls._clip_text("\n".join(sections[label]), max_chars=cls.SNIPPET_MAX_CHARS)
+            merged = _clip_text("\n".join(sections[label]), max_chars=cls.SNIPPET_MAX_CHARS)
             if not merged:
                 merged = cls._extract_span_by_marker(text=text, markers=cls.SNIPPET_SECTION_MARKERS[label])
             if merged:
@@ -550,7 +507,7 @@ class LegalResearchCapabilityService:  # pragma: no cover
 
     @classmethod
     def _split_snippet_paragraphs(cls, text: str) -> list[str]:  # pragma: no cover
-        normalized = cls._normalize_content_text(text)
+        normalized = _normalize_content_text(text)
         raw_parts = re.split(r"\n+|(?<=。)|(?<=；)|(?<=！)|(?<=？)", normalized)
         paragraphs: list[str] = []
         for part in raw_parts:
@@ -595,23 +552,7 @@ class LegalResearchCapabilityService:  # pragma: no cover
                     end_candidates.append(idx)
         if end_candidates:
             end = min(end, min(end_candidates))
-        return cls._clip_text(text[start:end], max_chars=cls.SNIPPET_MAX_CHARS)
-
-    @staticmethod
-    def _normalize_content_text(text: str) -> str:  # pragma: no cover
-        normalized = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
-        normalized = re.sub(r"[ \t]+", " ", normalized)
-        normalized = re.sub(r"\n{3,}", "\n\n", normalized)
-        return normalized.strip()
-
-    @staticmethod
-    def _clip_text(value: object, *, max_chars: int) -> str:  # pragma: no cover
-        text = str(value or "").strip()
-        if not text:
-            return ""
-        if len(text) <= max_chars:
-            return text
-        return text[:max_chars].rstrip()
+        return _clip_text(text[start:end], max_chars=cls.SNIPPET_MAX_CHARS)
 
     @classmethod
     def _apply_intent_profile(  # pragma: no cover
@@ -621,7 +562,7 @@ class LegalResearchCapabilityService:  # pragma: no cover
             return hits
         intent = str(payload.intent or "similar_case")
         profile = cls.INTENT_PROFILE_WEIGHTS.get(intent, cls.INTENT_PROFILE_WEIGHTS["similar_case"])
-        target_court = cls._normalize_text(str(payload.court_scope.court_name or ""))
+        target_court = _normalize_text(str(payload.court_scope.court_name or ""))
         signatures = [
             cls._build_result_signature(
                 court=hit.court,
@@ -634,7 +575,7 @@ class LegalResearchCapabilityService:  # pragma: no cover
 
         scored: list[tuple[float, float, RetrievalHitV1]] = []
         for hit, signature in zip(hits, signatures, strict=False):
-            same_court = bool(target_court and cls._normalize_text(hit.court) == target_court)
+            same_court = bool(target_court and _normalize_text(hit.court) == target_court)
             has_reasoning = bool(str(hit.snippets.reasoning or "").strip())
             has_holdings = bool(str(hit.snippets.holdings or "").strip())
             hard_conflict = any(
@@ -666,9 +607,9 @@ class LegalResearchCapabilityService:  # pragma: no cover
 
     @classmethod
     def _build_result_signature(cls, *, court: str, judgment_date: str, title: str) -> str:  # pragma: no cover
-        year = cls._extract_year(judgment_date or "")
-        normalized_court = cls._normalize_text(court)
-        normalized_title = cls._normalize_text(title)[:24]
+        year = _extract_year(judgment_date or "")
+        normalized_court = _normalize_text(court)
+        normalized_title = _normalize_text(title)[:24]
         return f"{normalized_court}:{year or 0}:{normalized_title}"
 
     @classmethod
@@ -683,22 +624,22 @@ class LegalResearchCapabilityService:  # pragma: no cover
 
     @classmethod
     def _match_cause_type(cls, *, item: Any, cause_type: str) -> bool:  # pragma: no cover
-        normalized_cause = cls._normalize_text(cause_type)
+        normalized_cause = _normalize_text(cause_type)
         if not normalized_cause:
             return True
-        haystack = cls._normalize_text(f"{getattr(item, 'title', '')} {getattr(item, 'case_digest', '')}")
+        haystack = _normalize_text(f"{getattr(item, 'title', '')} {getattr(item, 'case_digest', '')}")
         return normalized_cause in haystack
 
     @classmethod
     def _match_court_scope(cls, *, item: Any, payload: AgentSearchRequestV1) -> bool:  # pragma: no cover
         mode = str(payload.court_scope.mode or "same_court").strip().lower()
         court_text = str(getattr(item, "court_text", "") or "")
-        normalized_item_court = cls._normalize_text(court_text)
+        normalized_item_court = _normalize_text(court_text)
         if not normalized_item_court:
             return False
 
         target_court = str(payload.court_scope.court_name or "").strip()
-        normalized_target_court = cls._normalize_text(target_court)
+        normalized_target_court = _normalize_text(target_court)
         if mode == "same_court":
             if not normalized_target_court:
                 return True
@@ -717,9 +658,7 @@ class LegalResearchCapabilityService:  # pragma: no cover
             if not region_keywords:
                 return True
             return any(
-                cls._normalize_text(keyword) in normalized_item_court
-                for keyword in region_keywords
-                if str(keyword).strip()
+                _normalize_text(keyword) in normalized_item_court for keyword in region_keywords if str(keyword).strip()
             )
 
         return True
@@ -730,7 +669,7 @@ class LegalResearchCapabilityService:  # pragma: no cover
         to_year = payload.year_range.to
         if from_year is None and to_year is None:
             return True
-        year = cls._extract_year(str(getattr(item, "judgment_date", "") or ""))
+        year = _extract_year(str(getattr(item, "judgment_date", "") or ""))
         if year is None:
             return False
         if from_year is not None and year < int(from_year):
@@ -741,9 +680,9 @@ class LegalResearchCapabilityService:  # pragma: no cover
 
     @classmethod
     def _extract_court_level(cls, text: str) -> str:  # pragma: no cover
-        normalized = cls._normalize_text(text)
+        normalized = _normalize_text(text)
         for keyword, level in cls.COURT_LEVEL_KEYWORDS:
-            if cls._normalize_text(keyword) in normalized:
+            if _normalize_text(keyword) in normalized:
                 return level
         return "unknown"
 
@@ -761,110 +700,12 @@ class LegalResearchCapabilityService:  # pragma: no cover
         seen: set[str] = set()
         deduped: list[str] = []
         for keyword in keywords:
-            marker = cls._normalize_text(keyword)
+            marker = _normalize_text(keyword)
             if not marker or marker in seen:
                 continue
             seen.add(marker)
             deduped.append(keyword)
         return deduped
-
-    @staticmethod
-    def _normalize_text(value: str) -> str:  # pragma: no cover
-        return re.sub(r"\s+", "", str(value or "")).lower()
-
-    @staticmethod
-    def _extract_year(value: str) -> int | None:  # pragma: no cover
-        match = re.search(r"(19|20)\d{2}", str(value or ""))
-        if not match:
-            return None
-        return int(match.group(0))
-
-    @staticmethod
-    def _build_query_trace(  # pragma: no cover
-        *,
-        task: LegalResearchTask,
-        payload: AgentSearchRequestV1,
-        run_payload: dict[str, Any],
-        started: float,
-    ) -> AgentSearchQueryTraceOut:
-        query_trace = run_payload.get("query_trace") if isinstance(run_payload, dict) else {}
-        if not isinstance(query_trace, dict):
-            query_trace = {}
-        primary_queries = query_trace.get("primary_queries")
-        expansion_queries = query_trace.get("expansion_queries")
-        feedback_queries = query_trace.get("feedback_queries")
-        primary_query_list = [
-            str(x).strip()
-            for x in (primary_queries if isinstance(primary_queries, list) else [task.keyword])
-            if str(x).strip()
-        ]
-        expansion_query_list = [
-            str(x).strip() for x in (expansion_queries if isinstance(expansion_queries, list) else []) if str(x).strip()
-        ]
-        feedback_query_list = [
-            str(x).strip() for x in (feedback_queries if isinstance(feedback_queries, list) else []) if str(x).strip()
-        ]
-        query_type_metrics = LegalResearchCapabilityService._build_query_type_metrics(
-            query_trace=query_trace,
-            primary_queries=primary_query_list,
-            expansion_queries=expansion_query_list,
-            feedback_queries=feedback_query_list,
-        )
-        return AgentSearchQueryTraceOut(
-            primary_queries=primary_query_list,
-            expansion_queries=expansion_query_list,
-            feedback_queries=feedback_query_list,
-            query_type_metrics=query_type_metrics,
-            budget_used_ms=max(1, int((time.monotonic() - started) * 1000)),
-            candidates_scanned=int(task.scanned_count),
-        )
-
-    @staticmethod
-    def _build_query_type_metrics(  # pragma: no cover
-        *,
-        query_trace: dict[str, Any],
-        primary_queries: list[str],
-        expansion_queries: list[str],
-        feedback_queries: list[str],
-    ) -> dict[str, AgentSearchQueryTraceOut.QueryTypeMetric]:
-        raw_stats = query_trace.get("query_stats")
-        query_stats = raw_stats if isinstance(raw_stats, dict) else {}
-        primary_set = {LegalResearchCapabilityService._normalize_text(x) for x in primary_queries if x}
-        expansion_set = {LegalResearchCapabilityService._normalize_text(x) for x in expansion_queries if x}
-        feedback_set = {LegalResearchCapabilityService._normalize_text(x) for x in feedback_queries if x}
-
-        bucket: dict[str, dict[str, int]] = {
-            "primary": {"scanned": 0, "matched": 0},
-            "expansion": {"scanned": 0, "matched": 0},
-            "feedback": {"scanned": 0, "matched": 0},
-        }
-        for query, metric in query_stats.items():
-            query_text = LegalResearchCapabilityService._normalize_text(str(query))
-            if not query_text:
-                continue
-            if query_text in feedback_set:
-                group = "feedback"
-            elif query_text in expansion_set:
-                group = "expansion"
-            elif query_text in primary_set:
-                group = "primary"
-            else:
-                group = "primary"
-            metric_dict = metric if isinstance(metric, dict) else {}
-            bucket[group]["scanned"] += max(0, int(metric_dict.get("scanned", 0) or 0))
-            bucket[group]["matched"] += max(0, int(metric_dict.get("matched", 0) or 0))
-
-        total_matched = sum(item["matched"] for item in bucket.values())
-        out: dict[str, AgentSearchQueryTraceOut.QueryTypeMetric] = {}
-        for key, value in bucket.items():
-            matched = value["matched"]
-            contribution = (matched / total_matched) if total_matched > 0 else 0.0
-            out[key] = AgentSearchQueryTraceOut.QueryTypeMetric(
-                scanned=value["scanned"],
-                matched=matched,
-                contribution_rate=round(contribution, 4),
-            )
-        return out
 
     def _payload_hash(self, *, payload: AgentSearchRequestV1, user: Any | None) -> str:  # pragma: no cover
         user_id = getattr(user, "id", None)
@@ -958,3 +799,169 @@ class LegalResearchCapabilityService:  # pragma: no cover
     ) -> None:
         response_key = self._cache_key(kind="idempotency_response", user=user, idempotency_key=idempotency_key)
         cache.set(response_key, response.model_dump(), timeout=self.IDEMPOTENCY_TTL_SECONDS)
+
+
+# ↓↓ 由 LegalResearchCapabilityService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _build_keyword_and_summary(*, payload: AgentSearchRequestV1) -> tuple[str, str]:  # pragma: no cover
+    seed_terms = [payload.cause_type.strip(), payload.legal_issue.strip()]
+    seed_text = " ".join(term for term in seed_terms if term)
+    keyword = normalize_keyword_query(seed_text) if seed_text else ""
+    if not keyword:
+        keyword = normalize_keyword_query(payload.facts)
+    if not keyword:
+        raise ValidationException("facts 为空或无法生成有效检索关键词")
+
+    summary_parts = [payload.facts.strip()]
+    if payload.legal_issue.strip():
+        summary_parts.append(f"争议焦点：{payload.legal_issue.strip()}")
+    if payload.cause_type.strip():
+        summary_parts.append(f"案由：{payload.cause_type.strip()}")
+    court_name = str(payload.court_scope.court_name or "").strip()
+    if court_name:
+        summary_parts.append(f"法院范围：{court_name}")
+    return keyword, "\n".join(part for part in summary_parts if part)[:8000]
+
+
+# ↓↓ 由 LegalResearchCapabilityService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _mark_timeout(*, task: LegalResearchTask, timeout_ms: int) -> None:  # pragma: no cover
+    task.status = LegalResearchTaskStatus.FAILED
+    task.message = f"能力调用超时（{timeout_ms}ms）"
+    task.error = f"capability timeout: {timeout_ms}ms"
+    task.finished_at = timezone.now()
+    task.save(update_fields=["status", "message", "error", "finished_at", "updated_at"])
+
+
+# ↓↓ 由 LegalResearchCapabilityService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _decision_from_metadata(*, metadata: dict[str, Any], score: float) -> str:  # pragma: no cover
+    raw = str(metadata.get("decision") or "").strip().lower()
+    if raw in {"reject", "low"}:
+        return "reject"
+    if raw == "medium":
+        return "review"
+    if raw == "high":
+        return "accept"
+    if score >= 0.9:
+        return "accept"
+    if score >= 0.75:
+        return "review"
+    return "reject"
+
+
+# ↓↓ 由 LegalResearchCapabilityService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _normalize_content_text(text: str) -> str:  # pragma: no cover
+    normalized = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+    normalized = re.sub(r"[ \t]+", " ", normalized)
+    normalized = re.sub(r"\n{3,}", "\n\n", normalized)
+    return normalized.strip()
+
+
+# ↓↓ 由 LegalResearchCapabilityService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _clip_text(value: object, *, max_chars: int) -> str:  # pragma: no cover
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars].rstrip()
+
+
+# ↓↓ 由 LegalResearchCapabilityService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _normalize_text(value: str) -> str:  # pragma: no cover
+    return re.sub(r"\s+", "", str(value or "")).lower()
+
+
+# ↓↓ 由 LegalResearchCapabilityService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _extract_year(value: str) -> int | None:  # pragma: no cover
+    match = re.search(r"(19|20)\d{2}", str(value or ""))
+    if not match:
+        return None
+    return int(match.group(0))
+
+
+# ↓↓ 由 LegalResearchCapabilityService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _build_query_trace(  # pragma: no cover
+    *,
+    task: LegalResearchTask,
+    payload: AgentSearchRequestV1,
+    run_payload: dict[str, Any],
+    started: float,
+) -> AgentSearchQueryTraceOut:
+    query_trace = run_payload.get("query_trace") if isinstance(run_payload, dict) else {}
+    if not isinstance(query_trace, dict):
+        query_trace = {}
+    primary_queries = query_trace.get("primary_queries")
+    expansion_queries = query_trace.get("expansion_queries")
+    feedback_queries = query_trace.get("feedback_queries")
+    primary_query_list = [
+        str(x).strip()
+        for x in (primary_queries if isinstance(primary_queries, list) else [task.keyword])
+        if str(x).strip()
+    ]
+    expansion_query_list = [
+        str(x).strip() for x in (expansion_queries if isinstance(expansion_queries, list) else []) if str(x).strip()
+    ]
+    feedback_query_list = [
+        str(x).strip() for x in (feedback_queries if isinstance(feedback_queries, list) else []) if str(x).strip()
+    ]
+    query_type_metrics = _build_query_type_metrics(
+        query_trace=query_trace,
+        primary_queries=primary_query_list,
+        expansion_queries=expansion_query_list,
+        feedback_queries=feedback_query_list,
+    )
+    return AgentSearchQueryTraceOut(
+        primary_queries=primary_query_list,
+        expansion_queries=expansion_query_list,
+        feedback_queries=feedback_query_list,
+        query_type_metrics=query_type_metrics,
+        budget_used_ms=max(1, int((time.monotonic() - started) * 1000)),
+        candidates_scanned=int(task.scanned_count),
+    )
+
+
+# ↓↓ 由 LegalResearchCapabilityService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _build_query_type_metrics(  # pragma: no cover
+    *,
+    query_trace: dict[str, Any],
+    primary_queries: list[str],
+    expansion_queries: list[str],
+    feedback_queries: list[str],
+) -> dict[str, AgentSearchQueryTraceOut.QueryTypeMetric]:
+    raw_stats = query_trace.get("query_stats")
+    query_stats = raw_stats if isinstance(raw_stats, dict) else {}
+    primary_set = {_normalize_text(x) for x in primary_queries if x}
+    expansion_set = {_normalize_text(x) for x in expansion_queries if x}
+    feedback_set = {_normalize_text(x) for x in feedback_queries if x}
+
+    bucket: dict[str, dict[str, int]] = {
+        "primary": {"scanned": 0, "matched": 0},
+        "expansion": {"scanned": 0, "matched": 0},
+        "feedback": {"scanned": 0, "matched": 0},
+    }
+    for query, metric in query_stats.items():
+        query_text = _normalize_text(str(query))
+        if not query_text:
+            continue
+        if query_text in feedback_set:
+            group = "feedback"
+        elif query_text in expansion_set:
+            group = "expansion"
+        elif query_text in primary_set:
+            group = "primary"
+        else:
+            group = "primary"
+        metric_dict = metric if isinstance(metric, dict) else {}
+        bucket[group]["scanned"] += max(0, int(metric_dict.get("scanned", 0) or 0))
+        bucket[group]["matched"] += max(0, int(metric_dict.get("matched", 0) or 0))
+
+    total_matched = sum(item["matched"] for item in bucket.values())
+    out: dict[str, AgentSearchQueryTraceOut.QueryTypeMetric] = {}
+    for key, value in bucket.items():
+        matched = value["matched"]
+        contribution = (matched / total_matched) if total_matched > 0 else 0.0
+        out[key] = AgentSearchQueryTraceOut.QueryTypeMetric(
+            scanned=value["scanned"],
+            matched=matched,
+            contribution_rate=round(contribution, 4),
+        )
+    return out

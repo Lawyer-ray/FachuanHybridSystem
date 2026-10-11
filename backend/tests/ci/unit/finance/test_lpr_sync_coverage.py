@@ -2,6 +2,7 @@
 
 覆盖: _parse_date, _parse_rate, sync_latest (成功/失败), get_sync_status.
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -12,7 +13,6 @@ import pytest
 
 from apps.core.exceptions import BusinessException
 from apps.finance.services.lpr.sync_service import LPRData, LPRSyncService
-
 
 # ── _parse_date ───────────────────────────────────────────────────
 
@@ -92,8 +92,12 @@ class TestSyncLatest:
         svc = LPRSyncService()
         lpr_data = [LPRData(effective_date=date(2025, 1, 20), rate_1y=Decimal("3.1"), rate_5y=Decimal("3.6"))]
 
-        with patch.object(svc, "_fetch_with_playwright", return_value=lpr_data), \
-             patch.object(svc, "_save_lpr_data", return_value={"created": 1, "updated": 0, "skipped": 0, "total": 1}) as mock_save:
+        with (
+            patch.object(svc, "_fetch_with_playwright", return_value=lpr_data),
+            patch.object(
+                svc, "_save_lpr_data", return_value={"created": 1, "updated": 0, "skipped": 0, "total": 1}
+            ) as mock_save,
+        ):
             result = svc.sync_latest()
             assert result["created"] == 1
             mock_save.assert_called_once_with(lpr_data)

@@ -144,7 +144,7 @@ class WeikeDocumentMixin:
     def fetch_case_detail(self, *, session: WeikeSession, item: WeikeSearchItem) -> WeikeCaseDetail:
         self._raise_if_session_restricted(session=session, stage="fetch_case_detail")
         errors: list[str] = []
-        for doc_id in self._detail_doc_id_candidates(item):
+        for doc_id in _detail_doc_id_candidates(item):
             meta_url = f"https://law.wkinfo.com.cn/csi/document/{doc_id}?indexId=law.case"
             html_url = (
                 f"https://law.wkinfo.com.cn/csi/document/{doc_id}/html"
@@ -165,7 +165,7 @@ class WeikeDocumentMixin:
                 )
                 meta_status = self._response_status(meta_resp)
                 meta_payload = self._response_json(meta_resp)
-                self._record_detail_event(
+                _record_detail_event(
                     session=session,
                     interface_name="document_meta",
                     method="GET",
@@ -174,7 +174,7 @@ class WeikeDocumentMixin:
                     duration_ms=int((time.monotonic() - meta_started) * 1000),
                     success=meta_status == 200,
                     request_summary={"doc_id": doc_id, "url": meta_url},
-                    response_summary=self._summarize_meta_payload(meta_payload),
+                    response_summary=_summarize_meta_payload(meta_payload),
                     error_code="" if meta_status == 200 else f"HTTP_{meta_status}",
                 )
                 if self._is_session_restricted_response(status=meta_status, payload=meta_payload):
@@ -189,7 +189,7 @@ class WeikeDocumentMixin:
                     errors.append(f"docId={doc_id} 元信息 HTTP {meta_status}")
                     continue
             except RuntimeError as exc:
-                self._record_detail_event(
+                _record_detail_event(
                     session=session,
                     interface_name="document_meta",
                     method="GET",
@@ -197,15 +197,15 @@ class WeikeDocumentMixin:
                     duration_ms=0,
                     success=False,
                     error_code="RUNTIME_ERROR",
-                    error_message=self._compact_error(exc),
+                    error_message=_compact_error(exc),
                     request_summary={"doc_id": doc_id, "url": meta_url},
                 )
                 if self.SESSION_RESTRICT_CODE in str(exc):
                     raise
-                errors.append(f"docId={doc_id} 元信息异常: {self._compact_error(exc)}")
+                errors.append(f"docId={doc_id} 元信息异常: {_compact_error(exc)}")
                 continue
             except Exception as exc:
-                self._record_detail_event(
+                _record_detail_event(
                     session=session,
                     interface_name="document_meta",
                     method="GET",
@@ -213,10 +213,10 @@ class WeikeDocumentMixin:
                     duration_ms=0,
                     success=False,
                     error_code=REQUEST_ERROR,
-                    error_message=self._compact_error(exc),
+                    error_message=_compact_error(exc),
                     request_summary={"doc_id": doc_id, "url": meta_url},
                 )
-                errors.append(f"docId={doc_id} 元信息异常: {self._compact_error(exc)}")
+                errors.append(f"docId={doc_id} 元信息异常: {_compact_error(exc)}")
                 continue
 
             try:
@@ -230,7 +230,7 @@ class WeikeDocumentMixin:
                 )
                 html_status = self._response_status(html_resp)
                 html_payload = self._response_json(html_resp)
-                self._record_detail_event(
+                _record_detail_event(
                     session=session,
                     interface_name="document_html",
                     method="GET",
@@ -239,7 +239,7 @@ class WeikeDocumentMixin:
                     duration_ms=int((time.monotonic() - html_started) * 1000),
                     success=html_status == 200,
                     request_summary={"doc_id": doc_id, "url": html_url},
-                    response_summary=self._summarize_html_payload(html_payload),
+                    response_summary=_summarize_html_payload(html_payload),
                     error_code="" if html_status == 200 else f"HTTP_{html_status}",
                 )
                 if self._is_session_restricted_response(status=html_status, payload=html_payload):
@@ -254,7 +254,7 @@ class WeikeDocumentMixin:
                     errors.append(f"docId={doc_id} 正文 HTTP {html_status}")
                     continue
             except RuntimeError as exc:
-                self._record_detail_event(
+                _record_detail_event(
                     session=session,
                     interface_name="document_html",
                     method="GET",
@@ -262,15 +262,15 @@ class WeikeDocumentMixin:
                     duration_ms=0,
                     success=False,
                     error_code="RUNTIME_ERROR",
-                    error_message=self._compact_error(exc),
+                    error_message=_compact_error(exc),
                     request_summary={"doc_id": doc_id, "url": html_url},
                 )
                 if self.SESSION_RESTRICT_CODE in str(exc):
                     raise
-                errors.append(f"docId={doc_id} 正文异常: {self._compact_error(exc)}")
+                errors.append(f"docId={doc_id} 正文异常: {_compact_error(exc)}")
                 continue
             except Exception as exc:
-                self._record_detail_event(
+                _record_detail_event(
                     session=session,
                     interface_name="document_html",
                     method="GET",
@@ -278,10 +278,10 @@ class WeikeDocumentMixin:
                     duration_ms=0,
                     success=False,
                     error_code=REQUEST_ERROR,
-                    error_message=self._compact_error(exc),
+                    error_message=_compact_error(exc),
                     request_summary={"doc_id": doc_id, "url": html_url},
                 )
-                errors.append(f"docId={doc_id} 正文异常: {self._compact_error(exc)}")
+                errors.append(f"docId={doc_id} 正文异常: {_compact_error(exc)}")
                 continue
 
             current_doc = (meta_payload or {}).get("currentDoc") or {}
@@ -301,13 +301,13 @@ class WeikeDocumentMixin:
                 document_number=str(additional.get("documentNumber") or ""),
                 judgment_date=str(additional.get("judgmentDate") or ""),
                 case_digest=case_digest,
-                content_text=self._html_to_text(html_content),
+                content_text=_html_to_text(html_content),
                 raw_meta=meta_payload or {},
             )
 
         fallback_detail = self._fetch_case_detail_via_dom(session=session, item=item, errors=errors)
         if fallback_detail is not None:
-            self._record_detail_event(
+            _record_detail_event(
                 session=session,
                 interface_name="dom_detail",
                 method="GET",
@@ -330,7 +330,7 @@ class WeikeDocumentMixin:
     ) -> tuple[bytes, str] | None:  # pragma: no cover
         self._raise_if_session_restricted(session=session, stage="download_pdf")
         # 与前端真实调用保持一致：优先使用 unquoted docId + showType=0 + filename。
-        filename = self._build_download_filename(detail)
+        filename = _build_download_filename(detail)
         attempts = [
             {
                 "docId": detail.doc_id_unquoted,
@@ -456,7 +456,7 @@ class WeikeDocumentMixin:
     ) -> tuple[bytes, str] | None:  # pragma: no cover
         """下载 Word 文档（.doc 格式）"""
         self._raise_if_session_restricted(session=session, stage="download_doc")
-        filename = self._build_download_filename(detail)
+        filename = _build_download_filename(detail)
         filename = filename.rsplit(".", 1)[0] + ".doc" if "." in filename else filename + ".doc"
 
         attempts = [
@@ -578,14 +578,6 @@ class WeikeDocumentMixin:
 
         return None
 
-    @staticmethod
-    def _detail_doc_id_candidates(item: WeikeSearchItem) -> list[str]:  # pragma: no cover
-        return detail_doc_id_candidates(item)
-
-    @staticmethod
-    def _compact_error(exc: Exception, *, max_len: int = 120) -> str:  # pragma: no cover
-        return compact_error(exc, max_len=max_len)
-
     @classmethod
     def _is_session_restricted_response(
         cls, *, status: int, payload: dict[str, Any] | None
@@ -635,14 +627,6 @@ class WeikeDocumentMixin:
             seconds = self.SESSION_RESTRICT_COOLDOWN_SECONDS
         return max(30, seconds)
 
-    @staticmethod
-    def _build_download_filename(detail: WeikeCaseDetail) -> str:  # pragma: no cover
-        return build_download_filename(detail)
-
-    @staticmethod
-    def _html_to_text(html_content: str) -> str:  # pragma: no cover
-        return html_to_text(html_content)
-
     def _fetch_case_detail_via_dom(  # pragma: no cover
         self,
         *,
@@ -664,29 +648,29 @@ class WeikeDocumentMixin:
             page.goto(item.detail_url, wait_until="domcontentloaded", timeout=120000)
             page.wait_for_timeout(1200)
             body_text = page.locator("body").inner_text(timeout=60000)
-            normalized = self._normalize_dom_text(body_text)
+            normalized = _normalize_dom_text(body_text)
             if not normalized:
                 raise RuntimeError("详情页正文为空")
             if "抱歉，此功能需要登录后操作" in normalized:
                 raise RuntimeError("详情页提示需要登录")
 
             title = self._extract_dom_title(body_text=normalized, item=item)
-            court_text = self._extract_dom_field(
+            court_text = _extract_dom_field(
                 text=normalized,
                 patterns=(r"(?:审理法院|法院)[:：]\s*([^\n]+)",),
             )
-            document_number = self._extract_dom_field(
+            document_number = _extract_dom_field(
                 text=normalized,
                 patterns=(r"(?:案号|文号)[:：]\s*([^\n]+)",),
             )
-            judgment_date = self._extract_dom_field(
+            judgment_date = _extract_dom_field(
                 text=normalized,
                 patterns=(
                     r"(?:裁判日期|判决日期)[:：]\s*([0-9]{4}[年\-/][0-9]{1,2}[月\-/][0-9]{1,2}日?)",
                     r"([0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日)",
                 ),
             )
-            case_digest = self._build_dom_digest(normalized)
+            case_digest = _build_dom_digest(normalized)
             content_text = normalized[: self.DOM_DETAIL_MAX_CHARS]
 
             return WeikeCaseDetail(
@@ -707,23 +691,19 @@ class WeikeDocumentMixin:
                 },
             )
         except Exception as exc:
-            self._record_detail_event(
+            _record_detail_event(
                 session=session,
                 interface_name="dom_detail",
                 method="GET",
                 url=item.detail_url,
                 success=False,
                 error_code="DOM_DETAIL_ERROR",
-                error_message=self._compact_error(exc),
+                error_message=_compact_error(exc),
                 request_summary={"doc_id": item.doc_id_unquoted or item.doc_id_raw},
                 response_summary={"errors": errors[:3]},
             )
-            errors.append(f"DOM兜底异常: {self._compact_error(exc)}")
+            errors.append(f"DOM兜底异常: {_compact_error(exc)}")
             return None
-
-    @staticmethod
-    def _normalize_dom_text(text: str) -> str:  # pragma: no cover
-        return normalize_dom_text(text)
 
     @classmethod
     def _extract_dom_title(cls, *, body_text: str, item: WeikeSearchItem) -> str:  # pragma: no cover
@@ -740,49 +720,79 @@ class WeikeDocumentMixin:
             return str(item.title_hint)
         return str(item.doc_id_unquoted or item.doc_id_raw)
 
-    @staticmethod
-    def _extract_dom_field(*, text: str, patterns: tuple[str, ...]) -> str:  # pragma: no cover
-        return extract_dom_field(text=text, patterns=patterns)
 
-    @staticmethod
-    def _build_dom_digest(text: str) -> str:  # pragma: no cover
-        return build_dom_digest(text)
+# ↓↓ 由 WeikeDocumentMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _detail_doc_id_candidates(item: WeikeSearchItem) -> list[str]:  # pragma: no cover
+    return detail_doc_id_candidates(item)
 
-    @staticmethod
-    def _summarize_meta_payload(payload: dict[str, Any] | None) -> dict[str, Any]:  # pragma: no cover
-        return summarize_meta_payload(payload)
 
-    @staticmethod
-    def _summarize_html_payload(payload: dict[str, Any] | None) -> dict[str, Any]:  # pragma: no cover
-        return summarize_html_payload(payload)
+# ↓↓ 由 WeikeDocumentMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _compact_error(exc: Exception, *, max_len: int = 120) -> str:  # pragma: no cover
+    return compact_error(exc, max_len=max_len)
 
-    @staticmethod
-    def _record_detail_event(
-        *,
-        session: WeikeSession,
-        interface_name: str,
-        method: str = "",
-        url: str = "",
-        status_code: int | None = None,
-        duration_ms: int = 0,
-        success: bool,
-        error_code: str = "",
-        error_message: str = "",
-        request_summary: object = None,
-        response_summary: object = None,
-    ) -> None:
-        LegalResearchTaskEventService.record_event(
-            task_id=getattr(session, "task_id", ""),
-            stage="detail",
-            source="dom" if interface_name == "dom_detail" else "api",
-            interface_name=interface_name,
-            method=method,
-            url=url,
-            status_code=status_code,
-            duration_ms=duration_ms,
-            success=success,
-            error_code=error_code,
-            error_message=error_message,
-            request_summary=request_summary,
-            response_summary=response_summary,
-        )
+
+# ↓↓ 由 WeikeDocumentMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _build_download_filename(detail: WeikeCaseDetail) -> str:  # pragma: no cover
+    return build_download_filename(detail)
+
+
+# ↓↓ 由 WeikeDocumentMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _html_to_text(html_content: str) -> str:  # pragma: no cover
+    return html_to_text(html_content)
+
+
+# ↓↓ 由 WeikeDocumentMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _normalize_dom_text(text: str) -> str:  # pragma: no cover
+    return normalize_dom_text(text)
+
+
+# ↓↓ 由 WeikeDocumentMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _extract_dom_field(*, text: str, patterns: tuple[str, ...]) -> str:  # pragma: no cover
+    return extract_dom_field(text=text, patterns=patterns)
+
+
+# ↓↓ 由 WeikeDocumentMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _build_dom_digest(text: str) -> str:  # pragma: no cover
+    return build_dom_digest(text)
+
+
+# ↓↓ 由 WeikeDocumentMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _summarize_meta_payload(payload: dict[str, Any] | None) -> dict[str, Any]:  # pragma: no cover
+    return summarize_meta_payload(payload)
+
+
+# ↓↓ 由 WeikeDocumentMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _summarize_html_payload(payload: dict[str, Any] | None) -> dict[str, Any]:  # pragma: no cover
+    return summarize_html_payload(payload)
+
+
+# ↓↓ 由 WeikeDocumentMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _record_detail_event(
+    *,
+    session: WeikeSession,
+    interface_name: str,
+    method: str = "",
+    url: str = "",
+    status_code: int | None = None,
+    duration_ms: int = 0,
+    success: bool,
+    error_code: str = "",
+    error_message: str = "",
+    request_summary: object = None,
+    response_summary: object = None,
+) -> None:
+    LegalResearchTaskEventService.record_event(
+        task_id=getattr(session, "task_id", ""),
+        stage="detail",
+        source="dom" if interface_name == "dom_detail" else "api",
+        interface_name=interface_name,
+        method=method,
+        url=url,
+        status_code=status_code,
+        duration_ms=duration_ms,
+        success=success,
+        error_code=error_code,
+        error_message=error_message,
+        request_summary=request_summary,
+        response_summary=response_summary,
+    )

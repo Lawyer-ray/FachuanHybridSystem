@@ -156,7 +156,9 @@ class TestBuildRangeFileResponse:
         from apps.core.http.streaming import build_range_file_response
 
         request = _make_request()
-        response = build_range_file_response(request, temp_file, as_attachment=True, content_type="application/octet-stream")
+        response = build_range_file_response(
+            request, temp_file, as_attachment=True, content_type="application/octet-stream"
+        )
         assert 'filename="' in response.get("Content-Disposition", "")
 
     def test_no_range_head_request(self, temp_file: str) -> None:

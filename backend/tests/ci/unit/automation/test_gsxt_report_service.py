@@ -4,10 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from apps.automation.services.gsxt.gsxt_report_service import (
-    GsxtReportError,
-    GsxtReportService,
-)
+from apps.automation.services.gsxt.gsxt_report_service import GsxtReportError, GsxtReportService
 
 
 class TestGsxtReportError:
@@ -30,6 +27,7 @@ class TestGsxtReportService:
     @patch("apps.automation.services.gsxt.gsxt_report_service.threading.Thread")
     def test_start_report_flow_function(self, mock_thread_cls: MagicMock) -> None:
         from apps.automation.services.gsxt.gsxt_report_service import start_report_flow
+
         mock_thread = MagicMock()
         mock_thread_cls.return_value = mock_thread
 

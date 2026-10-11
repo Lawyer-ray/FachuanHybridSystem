@@ -1,4 +1,5 @@
 """Tests for apps.cases.services.template.unified.filename."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,9 +9,9 @@ import pytest
 
 from apps.cases.services.template.unified.filename import (
     DateProvider,
+    DjangoLocalDateProvider,
     FilenameInputs,
     FilenamePolicy,
-    DjangoLocalDateProvider,
 )
 
 

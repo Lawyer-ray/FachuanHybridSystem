@@ -10,6 +10,7 @@ from django.core.management.base import CommandError
 
 try:
     from plugins.court_automation.token.cache_manager import TokenCacheManager
+
     _HAS_TOKEN_CACHE = True
 except ImportError:
     _HAS_TOKEN_CACHE = False

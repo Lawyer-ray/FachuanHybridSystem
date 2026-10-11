@@ -16,6 +16,8 @@ from apps.finance.services.calculator.mortgage_calculator import (
     MortgageDefaultCalculator,
     PausePeriod,
     PaymentRecord,
+    _normalize_allocation_order,
+    _normalize_payments,
     add_months,
 )
 
@@ -194,7 +196,7 @@ class TestAllocationOrder:
 
     def test_invalid_keys_dropped(self):
         calc = make_calculator()
-        order = calc._normalize_allocation_order(["bogus", "interest", "interest", "principal"])
+        order = _normalize_allocation_order(["bogus", "interest", "interest", "principal"])
         assert order[0] == "interest"
         assert order.count("interest") == 1
         # 缺失 bucket 补齐到末尾（含一次性违约金 bucket）
@@ -248,7 +250,7 @@ class TestPaymentNormalization:
     def test_invalid_payments_warned_and_skipped(self):
         calc = make_calculator()
         warnings: list[str] = []
-        records = calc._normalize_payments(
+        records = _normalize_payments(
             [
                 PaymentRecord(date(2024, 5, 1), Decimal("-100")),
                 PaymentRecord(date(2023, 1, 1), Decimal("500")),

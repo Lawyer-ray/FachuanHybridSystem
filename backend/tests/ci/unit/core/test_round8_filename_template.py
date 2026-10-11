@@ -9,11 +9,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.core.services.filename_template_service import (
-    FilenameTemplateService,
     COURT_DOC_DEFAULT,
     GENERATED_DOC_DEFAULT,
+    FilenameTemplateService,
 )
-
 
 # ---------------------------------------------------------------------------
 # _render
@@ -87,9 +86,7 @@ class TestRenderCourtDoc:
     def test_default_template(self):
         with patch.object(FilenameTemplateService, "_config_service") as mock_svc:
             mock_svc.return_value = MagicMock(get_value=MagicMock(return_value=""))
-            result = FilenameTemplateService.render_court_doc(
-                title="判决书", case_name="张三", date="20250115"
-            )
+            result = FilenameTemplateService.render_court_doc(title="判决书", case_name="张三", date="20250115")
             assert result == "判决书（张三）_20250115收"
 
 

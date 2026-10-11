@@ -11,18 +11,22 @@ class TestCleanupTasks:
     def test_cleanup_temp_files_no_dir(self, mock_settings):
         import os
         import tempfile
+
         tmp = tempfile.mkdtemp()
         mock_settings.MEDIA_ROOT = tmp
         from apps.core.tasking.cleanup_tasks import cleanup_temp_files
+
         result = cleanup_temp_files()
         assert result["skipped"] is True
 
     @patch("apps.core.tasking.cleanup_tasks.settings")
     def test_cleanup_export_files_no_dir(self, mock_settings):
         import tempfile
+
         tmp = tempfile.mkdtemp()
         mock_settings.MEDIA_ROOT = tmp
         from apps.core.tasking.cleanup_tasks import cleanup_export_files
+
         result = cleanup_export_files()
         assert result["skipped"] is True
 
@@ -30,6 +34,7 @@ class TestCleanupTasks:
     @patch("apps.core.tasking.cleanup_tasks.os")
     def test_check_disk_space(self, mock_os, mock_settings):
         import tempfile
+
         tmp = tempfile.mkdtemp()
         mock_settings.MEDIA_ROOT = tmp
         mock_stat = MagicMock()
@@ -38,6 +43,7 @@ class TestCleanupTasks:
         mock_stat.f_bavail = 500
         mock_os.statvfs.return_value = mock_stat
         from apps.core.tasking.cleanup_tasks import check_disk_space
+
         result = check_disk_space()
         assert "status" in result
 
@@ -47,6 +53,7 @@ class TestCleanupTasks:
         mock_settings.MEDIA_ROOT = "/nonexistent"
         mock_os.statvfs.side_effect = OSError("fail")
         from apps.core.tasking.cleanup_tasks import check_disk_space
+
         result = check_disk_space()
         assert result["status"] == "error"
 

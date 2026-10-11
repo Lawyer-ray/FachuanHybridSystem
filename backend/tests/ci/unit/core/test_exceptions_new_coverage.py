@@ -1,6 +1,7 @@
 """
 Tests for core/exceptions/ - chat.py, external.py, error_presentation.py, __init__.py.
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -49,9 +50,7 @@ class TestChatExceptions:
     def test_owner_setting_exception(self):
         from apps.core.exceptions.chat import OwnerSettingException
 
-        exc = OwnerSettingException(
-            message="test", owner_id="user1", chat_id="chat1", custom_field="value"
-        )
+        exc = OwnerSettingException(message="test", owner_id="user1", chat_id="chat1", custom_field="value")
         assert exc.owner_id == "user1"
         assert exc.chat_id == "chat1"
         assert exc.custom_field == "value"
@@ -237,9 +236,7 @@ class TestErrorPresentation:
     def test_error_envelope_to_payload(self):
         from apps.core.exceptions.error_presentation import ErrorEnvelope
 
-        envelope = ErrorEnvelope(
-            code="TEST_ERROR", message="test msg", errors={"detail": "x"}, channel="http"
-        )
+        envelope = ErrorEnvelope(code="TEST_ERROR", message="test msg", errors={"detail": "x"}, channel="http")
         payload = envelope.to_payload()
         assert payload["code"] == "TEST_ERROR"
         assert payload["message"] == "test msg"

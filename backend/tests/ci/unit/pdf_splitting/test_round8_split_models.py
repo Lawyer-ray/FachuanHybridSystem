@@ -5,13 +5,12 @@ from __future__ import annotations
 import pytest
 
 from apps.pdf_splitting.services.split.split_models import (
-    _levenshtein_distance,
+    OCRPageResult,
+    OCRRuntimeProfile,
     PageDescriptor,
     SegmentDraft,
-    OCRRuntimeProfile,
-    OCRPageResult,
+    _levenshtein_distance,
 )
-
 
 # ---------------------------------------------------------------------------
 # _levenshtein_distance
@@ -96,11 +95,13 @@ class TestDataclasses:
 class TestSegmentDetectorNormalizeText:
     def test_basic(self):
         from apps.pdf_splitting.services.split.segment_detector import SegmentDetector
+
         sd = SegmentDetector()
         assert sd.normalize_text("hello world") == "helloworld"
 
     def test_empty(self):
         from apps.pdf_splitting.services.split.segment_detector import SegmentDetector
+
         sd = SegmentDetector()
         assert sd.normalize_text("") == ""
 
@@ -108,11 +109,13 @@ class TestSegmentDetectorNormalizeText:
 class TestSegmentDetectorContainsKeyword:
     def test_found(self):
         from apps.pdf_splitting.services.split.segment_detector import SegmentDetector
+
         sd = SegmentDetector()
         assert sd.contains_keyword("this is a test", "test") is True
 
     def test_not_found(self):
         from apps.pdf_splitting.services.split.segment_detector import SegmentDetector
+
         sd = SegmentDetector()
         assert sd.contains_keyword("this is a test", "missing") is False
 
@@ -120,11 +123,13 @@ class TestSegmentDetectorContainsKeyword:
 class TestSegmentDetectorIsEffectiveText:
     def test_short(self):
         from apps.pdf_splitting.services.split.segment_detector import SegmentDetector
+
         sd = SegmentDetector()
         assert sd.is_effective_text("short") is False
 
     def test_long(self):
         from apps.pdf_splitting.services.split.segment_detector import SegmentDetector
+
         sd = SegmentDetector()
         assert sd.is_effective_text("this is a long enough text") is True
 
@@ -132,6 +137,7 @@ class TestSegmentDetectorIsEffectiveText:
 class TestSegmentDetectorFuzzyContainsKeyword:
     def test_exact_match(self):
         from apps.pdf_splitting.services.split.segment_detector import SegmentDetector
+
         sd = SegmentDetector()
         found, coeff = sd.fuzzy_contains_keyword("this is a test", "test")
         assert found is True
@@ -139,6 +145,7 @@ class TestSegmentDetectorFuzzyContainsKeyword:
 
     def test_no_match(self):
         from apps.pdf_splitting.services.split.segment_detector import SegmentDetector
+
         sd = SegmentDetector()
         found, coeff = sd.fuzzy_contains_keyword("hello world", "xyz")
         assert found is False
@@ -146,6 +153,7 @@ class TestSegmentDetectorFuzzyContainsKeyword:
 
     def test_empty_keyword(self):
         from apps.pdf_splitting.services.split.segment_detector import SegmentDetector
+
         sd = SegmentDetector()
         found, coeff = sd.fuzzy_contains_keyword("hello", "")
         assert found is False
@@ -153,12 +161,14 @@ class TestSegmentDetectorFuzzyContainsKeyword:
 
     def test_short_keyword_no_fuzzy(self):
         from apps.pdf_splitting.services.split.segment_detector import SegmentDetector
+
         sd = SegmentDetector()
         found, coeff = sd.fuzzy_contains_keyword("hello", "xyz")
         assert found is False
 
     def test_fuzzy_match_medium_keyword(self):
         from apps.pdf_splitting.services.split.segment_detector import SegmentDetector
+
         sd = SegmentDetector()
         # keyword "测试文本" (len 4) -> max_dist=1, "测试文" (len 3) is within edit distance 1
         found, coeff = sd.fuzzy_contains_keyword("这是测试文本的内容", "测试文本")
@@ -167,6 +177,7 @@ class TestSegmentDetectorFuzzyContainsKeyword:
 
     def test_fuzzy_match_long_keyword(self):
         from apps.pdf_splitting.services.split.segment_detector import SegmentDetector
+
         sd = SegmentDetector()
         # keyword "证据清单" (len 8 normalized) -> max_dist=2
         found, coeff = sd.fuzzy_contains_keyword("提交了证据清单明细", "证据清单")

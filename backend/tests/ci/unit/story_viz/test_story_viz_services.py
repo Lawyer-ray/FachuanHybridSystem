@@ -8,6 +8,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.story_viz.services.job_service import (
+    _build_suggested_questions,
+    _stage_index,
+    _summarize_facts,
+    _summarize_render,
+    _summarize_script,
+)
+
 
 class TestFactExtractionService:
     """FactExtractionService 测试"""
@@ -104,32 +112,32 @@ class TestStoryAnimationJobServiceExtended:
     def test_build_suggested_questions_empty(self):
         from apps.story_viz.services.job_service import StoryAnimationJobService
 
-        assert StoryAnimationJobService._build_suggested_questions(facts={}) == []
+        assert _build_suggested_questions(facts={}) == []
 
     def test_build_suggested_questions_with_parties(self):
         from apps.story_viz.services.job_service import StoryAnimationJobService
 
         facts = {"parties": [{"name": "张三", "role": "原告"}], "events": [], "relationships": []}
-        questions = StoryAnimationJobService._build_suggested_questions(facts=facts)
+        questions = _build_suggested_questions(facts=facts)
         assert len(questions) >= 1
 
     def test_build_suggested_questions_with_judgment(self):
         from apps.story_viz.services.job_service import StoryAnimationJobService
 
         facts = {"parties": [], "events": [], "relationships": [], "judgment_result": "胜诉"}
-        questions = StoryAnimationJobService._build_suggested_questions(facts=facts)
+        questions = _build_suggested_questions(facts=facts)
         assert any("判决" in q for q in questions)
 
     def test_stage_index(self):
         from apps.story_viz.services.job_service import StoryAnimationJobService
 
-        assert StoryAnimationJobService._stage_index("extracting_facts") >= 0
-        assert StoryAnimationJobService._stage_index("nonexistent") == -1
+        assert _stage_index("extracting_facts") >= 0
+        assert _stage_index("nonexistent") == -1
 
     def test_summarize_facts_empty(self):
         from apps.story_viz.services.job_service import StoryAnimationJobService
 
-        result = StoryAnimationJobService._summarize_facts({})
+        result = _summarize_facts({})
         assert result["parties"] == []
         assert result["events"] == []
         assert result["relationships"] == []
@@ -142,20 +150,20 @@ class TestStoryAnimationJobServiceExtended:
             "events": [{"sequence": 1, "time_label": "2024", "summary": "起诉"}],
             "relationships": [{"source": "张三", "target": "李四", "relation_type": "借贷"}],
         }
-        result = StoryAnimationJobService._summarize_facts(facts)
+        result = _summarize_facts(facts)
         assert len(result["parties"]) == 1
         assert len(result["events"]) == 1
 
     def test_summarize_script_empty(self):
         from apps.story_viz.services.job_service import StoryAnimationJobService
 
-        result = StoryAnimationJobService._summarize_script({})
+        result = _summarize_script({})
         assert result["timeline_nodes_count"] == 0
 
     def test_summarize_render_empty(self):
         from apps.story_viz.services.job_service import StoryAnimationJobService
 
-        result = StoryAnimationJobService._summarize_render({})
+        result = _summarize_render({})
         assert result["node_count"] == 0
 
     def test_build_preview_payload(self):

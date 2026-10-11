@@ -9,25 +9,20 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ── get_checklist_with_status: compact_archive ───────────────────
 
 
 class TestGetChecklistWithStatusCompact:
     def test_compact_archive_completed_only(self) -> None:
-        from apps.contracts.services.archive.checklist.checklist_query import (
-            get_checklist_with_status,
-        )
+        from apps.contracts.services.archive.checklist.checklist_query import get_checklist_with_status
 
         mock_contract = MagicMock()
         mock_contract.compact_archive = True
         mock_contract.case_type = "civil"
 
         checklist = [
-            {"code": "c1", "name": "A", "source": "contract", "template": None,
-             "required": True, "auto_detect": None},
-            {"code": "c2", "name": "B", "source": "case", "template": None,
-             "required": False, "auto_detect": None},
+            {"code": "c1", "name": "A", "source": "contract", "template": None, "required": True, "auto_detect": None},
+            {"code": "c2", "name": "B", "source": "case", "template": None, "required": False, "auto_detect": None},
         ]
 
         mat = MagicMock()
@@ -47,9 +42,7 @@ class TestGetChecklistWithStatusCompact:
                 "apps.contracts.services.archive.checklist.checklist_query.ARCHIVE_CHECKLIST",
                 {"litigation": checklist},
             ),
-            patch(
-                "apps.contracts.services.archive.checklist.checklist_query.FinalizedMaterial"
-            ) as mock_fm,
+            patch("apps.contracts.services.archive.checklist.checklist_query.FinalizedMaterial") as mock_fm,
             patch(
                 "apps.contracts.services.archive.checklist.checklist_query.map_contract_materials",
                 return_value={"c1": [1]},
@@ -79,17 +72,14 @@ class TestGetChecklistWithStatusCompact:
             assert result["completed_count"] == 1
 
     def test_completion_percentage_zero_total(self) -> None:
-        from apps.contracts.services.archive.checklist.checklist_query import (
-            get_checklist_with_status,
-        )
+        from apps.contracts.services.archive.checklist.checklist_query import get_checklist_with_status
 
         mock_contract = MagicMock()
         mock_contract.compact_archive = False
         mock_contract.case_type = "civil"
 
         checklist = [
-            {"code": "c1", "name": "A", "source": "template",
-             "template": "tpl", "required": True, "auto_detect": None},
+            {"code": "c1", "name": "A", "source": "template", "template": "tpl", "required": True, "auto_detect": None},
         ]
 
         with (
@@ -101,9 +91,7 @@ class TestGetChecklistWithStatusCompact:
                 "apps.contracts.services.archive.checklist.checklist_query.ARCHIVE_CHECKLIST",
                 {"litigation": checklist},
             ),
-            patch(
-                "apps.contracts.services.archive.checklist.checklist_query.FinalizedMaterial"
-            ) as mock_fm,
+            patch("apps.contracts.services.archive.checklist.checklist_query.FinalizedMaterial") as mock_fm,
             patch(
                 "apps.contracts.services.archive.checklist.checklist_query.map_contract_materials",
                 return_value={},
@@ -136,17 +124,14 @@ class TestGetChecklistWithStatusCompact:
 
 class TestGetChecklistWithStatusMaterials:
     def test_materials_attached_to_items(self) -> None:
-        from apps.contracts.services.archive.checklist.checklist_query import (
-            get_checklist_with_status,
-        )
+        from apps.contracts.services.archive.checklist.checklist_query import get_checklist_with_status
 
         mock_contract = MagicMock()
         mock_contract.compact_archive = False
         mock_contract.case_type = "civil"
 
         checklist = [
-            {"code": "c1", "name": "A", "source": "contract", "template": None,
-             "required": True, "auto_detect": None},
+            {"code": "c1", "name": "A", "source": "contract", "template": None, "required": True, "auto_detect": None},
         ]
 
         mat = MagicMock()
@@ -166,9 +151,7 @@ class TestGetChecklistWithStatusMaterials:
                 "apps.contracts.services.archive.checklist.checklist_query.ARCHIVE_CHECKLIST",
                 {"litigation": checklist},
             ),
-            patch(
-                "apps.contracts.services.archive.checklist.checklist_query.FinalizedMaterial"
-            ) as mock_fm,
+            patch("apps.contracts.services.archive.checklist.checklist_query.FinalizedMaterial") as mock_fm,
             patch(
                 "apps.contracts.services.archive.checklist.checklist_query.map_contract_materials",
                 return_value={},
@@ -239,20 +222,20 @@ class TestApplySubitemOrderEdge:
 
 class TestGetSourceLabelAll:
     def test_authorization_material(self) -> None:
-        from apps.contracts.services.archive.checklist.checklist_query import _get_source_label
         from apps.contracts.models.finalized_material import MaterialCategory
+        from apps.contracts.services.archive.checklist.checklist_query import _get_source_label
 
         assert _get_source_label(MaterialCategory.AUTHORIZATION_MATERIAL) == "授权委托"
 
     def test_case_material(self) -> None:
-        from apps.contracts.services.archive.checklist.checklist_query import _get_source_label
         from apps.contracts.models.finalized_material import MaterialCategory
+        from apps.contracts.services.archive.checklist.checklist_query import _get_source_label
 
         assert _get_source_label(MaterialCategory.CASE_MATERIAL) == "案件同步"
 
     def test_archive_upload(self) -> None:
-        from apps.contracts.services.archive.checklist.checklist_query import _get_source_label
         from apps.contracts.models.finalized_material import MaterialCategory
+        from apps.contracts.services.archive.checklist.checklist_query import _get_source_label
 
         assert _get_source_label(MaterialCategory.ARCHIVE_UPLOAD) == "手动上传"
 
@@ -262,13 +245,13 @@ class TestGetSourceLabelAll:
 
 class TestGetSourceAll:
     def test_authorization_material(self) -> None:
-        from apps.contracts.services.archive.checklist.checklist_query import _get_source
         from apps.contracts.models.finalized_material import MaterialCategory
+        from apps.contracts.services.archive.checklist.checklist_query import _get_source
 
         assert _get_source(MaterialCategory.AUTHORIZATION_MATERIAL) == "case"
 
     def test_case_material(self) -> None:
-        from apps.contracts.services.archive.checklist.checklist_query import _get_source
         from apps.contracts.models.finalized_material import MaterialCategory
+        from apps.contracts.services.archive.checklist.checklist_query import _get_source
 
         assert _get_source(MaterialCategory.CASE_MATERIAL) == "case"

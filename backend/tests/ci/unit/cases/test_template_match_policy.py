@@ -1,4 +1,5 @@
 """模板匹配策略单元测试。"""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -37,6 +38,7 @@ def _input(**kwargs) -> CaseTemplateMatchInput:
 
 # ── is_match ───────────────────────────────────────────────────────────────
 
+
 def test_match_exact(policy: CaseTemplateMatchPolicy) -> None:
     """完全匹配。"""
     assert policy.is_match(_template(), _input()) is True
@@ -59,10 +61,13 @@ def test_match_case_type_empty(policy: CaseTemplateMatchPolicy) -> None:
 
 def test_match_case_type_none_input(policy: CaseTemplateMatchPolicy) -> None:
     """输入 case_type 为 None 时不匹配具体类型。"""
-    assert policy.is_match(
-        _template(case_types=["civil"]),
-        CaseTemplateMatchInput(case_type=None, case_stage="first_instance", legal_statuses={"plaintiff"}),
-    ) is False
+    assert (
+        policy.is_match(
+            _template(case_types=["civil"]),
+            CaseTemplateMatchInput(case_type=None, case_stage="first_instance", legal_statuses={"plaintiff"}),
+        )
+        is False
+    )
 
 
 def test_match_stage_mismatch(policy: CaseTemplateMatchPolicy) -> None:
@@ -82,77 +87,109 @@ def test_match_stage_empty(policy: CaseTemplateMatchPolicy) -> None:
 
 def test_legal_status_any_mode_match(policy: CaseTemplateMatchPolicy) -> None:
     """any 模式下有交集即匹配。"""
-    assert policy.is_match(
-        _template(legal_statuses=["plaintiff", "defendant"], legal_status_match_mode="any"),
-        CaseTemplateMatchInput(case_type="civil", case_stage="first_instance", legal_statuses={"plaintiff"}),
-    ) is True
+    assert (
+        policy.is_match(
+            _template(legal_statuses=["plaintiff", "defendant"], legal_status_match_mode="any"),
+            CaseTemplateMatchInput(case_type="civil", case_stage="first_instance", legal_statuses={"plaintiff"}),
+        )
+        is True
+    )
 
 
 def test_legal_status_any_mode_no_intersection(policy: CaseTemplateMatchPolicy) -> None:
     """any 模式下无交集不匹配。"""
-    assert policy.is_match(
-        _template(legal_statuses=["defendant"], legal_status_match_mode="any"),
-        CaseTemplateMatchInput(case_type="civil", case_stage="first_instance", legal_statuses={"plaintiff"}),
-    ) is False
+    assert (
+        policy.is_match(
+            _template(legal_statuses=["defendant"], legal_status_match_mode="any"),
+            CaseTemplateMatchInput(case_type="civil", case_stage="first_instance", legal_statuses={"plaintiff"}),
+        )
+        is False
+    )
 
 
 def test_legal_status_all_mode_match(policy: CaseTemplateMatchPolicy) -> None:
     """all 模式下输入包含模板所有状态。"""
-    assert policy.is_match(
-        _template(legal_statuses=["plaintiff", "defendant"], legal_status_match_mode="all"),
-        CaseTemplateMatchInput(case_type="civil", case_stage="first_instance", legal_statuses={"plaintiff", "defendant", "third_party"}),
-    ) is True
+    assert (
+        policy.is_match(
+            _template(legal_statuses=["plaintiff", "defendant"], legal_status_match_mode="all"),
+            CaseTemplateMatchInput(
+                case_type="civil", case_stage="first_instance", legal_statuses={"plaintiff", "defendant", "third_party"}
+            ),
+        )
+        is True
+    )
 
 
 def test_legal_status_all_mode_no_match(policy: CaseTemplateMatchPolicy) -> None:
     """all 模式下输入缺少模板要求的状态。"""
-    assert policy.is_match(
-        _template(legal_statuses=["plaintiff", "defendant"], legal_status_match_mode="all"),
-        CaseTemplateMatchInput(case_type="civil", case_stage="first_instance", legal_statuses={"plaintiff"}),
-    ) is False
+    assert (
+        policy.is_match(
+            _template(legal_statuses=["plaintiff", "defendant"], legal_status_match_mode="all"),
+            CaseTemplateMatchInput(case_type="civil", case_stage="first_instance", legal_statuses={"plaintiff"}),
+        )
+        is False
+    )
 
 
 def test_legal_status_exact_mode_match(policy: CaseTemplateMatchPolicy) -> None:
     """exact 模式下完全相等。"""
-    assert policy.is_match(
-        _template(legal_statuses=["plaintiff"], legal_status_match_mode="exact"),
-        CaseTemplateMatchInput(case_type="civil", case_stage="first_instance", legal_statuses={"plaintiff"}),
-    ) is True
+    assert (
+        policy.is_match(
+            _template(legal_statuses=["plaintiff"], legal_status_match_mode="exact"),
+            CaseTemplateMatchInput(case_type="civil", case_stage="first_instance", legal_statuses={"plaintiff"}),
+        )
+        is True
+    )
 
 
 def test_legal_status_exact_mode_no_match(policy: CaseTemplateMatchPolicy) -> None:
     """exact 模式下不完全相等。"""
-    assert policy.is_match(
-        _template(legal_statuses=["plaintiff"], legal_status_match_mode="exact"),
-        CaseTemplateMatchInput(case_type="civil", case_stage="first_instance", legal_statuses={"plaintiff", "defendant"}),
-    ) is False
+    assert (
+        policy.is_match(
+            _template(legal_statuses=["plaintiff"], legal_status_match_mode="exact"),
+            CaseTemplateMatchInput(
+                case_type="civil", case_stage="first_instance", legal_statuses={"plaintiff", "defendant"}
+            ),
+        )
+        is False
+    )
 
 
 def test_legal_status_empty_template(policy: CaseTemplateMatchPolicy) -> None:
     """模板无 legal_statuses 限制匹配所有。"""
-    assert policy.is_match(
-        _template(legal_statuses=[]),
-        CaseTemplateMatchInput(case_type="civil", case_stage="first_instance", legal_statuses={"plaintiff"}),
-    ) is True
+    assert (
+        policy.is_match(
+            _template(legal_statuses=[]),
+            CaseTemplateMatchInput(case_type="civil", case_stage="first_instance", legal_statuses={"plaintiff"}),
+        )
+        is True
+    )
 
 
 def test_legal_status_any_empty_input(policy: CaseTemplateMatchPolicy) -> None:
     """any 模式下输入为空返回 True。"""
-    assert policy.is_match(
-        _template(legal_statuses=["plaintiff"], legal_status_match_mode="any"),
-        CaseTemplateMatchInput(case_type="civil", case_stage="first_instance", legal_statuses=set()),
-    ) is True
+    assert (
+        policy.is_match(
+            _template(legal_statuses=["plaintiff"], legal_status_match_mode="any"),
+            CaseTemplateMatchInput(case_type="civil", case_stage="first_instance", legal_statuses=set()),
+        )
+        is True
+    )
 
 
 def test_legal_status_unknown_mode_defaults_to_any(policy: CaseTemplateMatchPolicy) -> None:
     """未知匹配模式默认走 any 逻辑。"""
-    assert policy.is_match(
-        _template(legal_statuses=["plaintiff"], legal_status_match_mode="unknown"),
-        CaseTemplateMatchInput(case_type="civil", case_stage="first_instance", legal_statuses=set()),
-    ) is True
+    assert (
+        policy.is_match(
+            _template(legal_statuses=["plaintiff"], legal_status_match_mode="unknown"),
+            CaseTemplateMatchInput(case_type="civil", case_stage="first_instance", legal_statuses=set()),
+        )
+        is True
+    )
 
 
 # ── filter ─────────────────────────────────────────────────────────────────
+
 
 def test_filter_returns_matching(policy: CaseTemplateMatchPolicy) -> None:
     """filter 返回匹配的模板。"""

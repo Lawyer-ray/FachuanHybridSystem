@@ -309,7 +309,7 @@ class ReminderServiceAdapter(ReminderService):
             .order_by("due_at", "id")
             .values("id", "contract_id", "case_id", "case_log_id", "reminder_type", "content", "due_at", "metadata")
         )
-        return [self._enrich_export_row(row) for row in rows]  # type: ignore[arg-type]
+        return [_enrich_export_row(row) for row in rows]  # type: ignore[arg-type]
 
     def export_case_log_reminders_internal(self, *, case_log_id: int) -> list[dict[str, Any]]:
         """内部方法：导出案件日志关联的提醒数据。"""
@@ -319,7 +319,7 @@ class ReminderServiceAdapter(ReminderService):
             .order_by("due_at", "id")
             .values("id", "contract_id", "case_id", "case_log_id", "reminder_type", "content", "due_at", "metadata")
         )
-        return [self._enrich_export_row(row) for row in rows]  # type: ignore[arg-type]
+        return [_enrich_export_row(row) for row in rows]  # type: ignore[arg-type]
 
     def export_case_log_reminders_batch_internal(self, *, case_log_ids: list[int]) -> dict[int, list[dict[str, Any]]]:
         """内部方法：批量导出案件日志关联的提醒数据。"""
@@ -352,7 +352,7 @@ class ReminderServiceAdapter(ReminderService):
         )
         for row in rows:
             current_case_log_id = int(row["case_log_id"])
-            results[current_case_log_id].append(self._enrich_export_row(row))  # type: ignore[arg-type]
+            results[current_case_log_id].append(_enrich_export_row(row))  # type: ignore[arg-type]
         return results
 
     def get_latest_case_log_reminder_internal(self, *, case_log_id: int) -> dict[str, Any] | None:
@@ -366,16 +366,7 @@ class ReminderServiceAdapter(ReminderService):
         )
         if row is None:
             return None
-        return self._enrich_export_row(row)  # type: ignore[arg-type]
-
-    @staticmethod
-    def _enrich_export_row(row: dict[str, Any]) -> dict[str, Any]:
-        reminder_type = str(row.get("reminder_type") or "")
-        try:
-            reminder_type_label = str(ReminderType(reminder_type).label)
-        except Exception:
-            reminder_type_label = reminder_type
-        return {**row, "reminder_type_label": reminder_type_label}
+        return _enrich_export_row(row)  # type: ignore[arg-type]
 
     def _to_reminder_dto(self, reminder: Reminder) -> ReminderDTO:
         """将 Reminder Model 转换为 DTO。"""
@@ -390,3 +381,13 @@ class ReminderServiceAdapter(ReminderService):
             case_id=reminder.case_id,
             created_at=reminder.created_at.isoformat(),
         )
+
+
+# ↓↓ 由 ReminderServiceAdapter 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _enrich_export_row(row: dict[str, Any]) -> dict[str, Any]:
+    reminder_type = str(row.get("reminder_type") or "")
+    try:
+        reminder_type_label = str(ReminderType(reminder_type).label)
+    except Exception:
+        reminder_type_label = reminder_type
+    return {**row, "reminder_type_label": reminder_type_label}

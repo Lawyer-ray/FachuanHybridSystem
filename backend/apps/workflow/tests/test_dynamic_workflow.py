@@ -121,11 +121,13 @@ async def run_dynamic_workflow_test() -> bool:
     try:
         handle = await client.start_workflow(
             "DynamicWorkflow",
-            args=[{
-                "case_id": case_id,
-                "run_id": run.id,
-                "template_id": template.id,
-            }],
+            args=[
+                {
+                    "case_id": case_id,
+                    "run_id": run.id,
+                    "template_id": template.id,
+                }
+            ],
             id=workflow_id,
             task_queue=TASK_QUEUE,
         )
@@ -135,6 +137,7 @@ async def run_dynamic_workflow_test() -> bool:
     except Exception as e:
         print(f"❌ 启动失败: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

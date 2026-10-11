@@ -13,7 +13,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.legal_solution.models import SectionStatus, SolutionSection, SolutionTask
-from apps.legal_solution.services.solution_generator import SolutionGenerator, _fallback_md_to_html, _md_to_html
+from apps.legal_solution.services.solution_generator import (
+    SolutionGenerator,
+    _fallback_md_to_html,
+    _get_existing_sections,
+    _load_research_results,
+    _md_to_html,
+)
 
 GEN_MODULE = "apps.legal_solution.services.solution_generator"
 
@@ -197,11 +203,11 @@ class TestLoadResearchResults:
 
     def test_no_research_task_returns_empty(self) -> None:
         task = SimpleNamespace(research_task_id=None)
-        assert SolutionGenerator._load_research_results(task) == ""
+        assert _load_research_results(task) == ""
 
     def test_empty_results_returns_placeholder(self) -> None:
         task = self._task_with_rows([])
-        assert SolutionGenerator._load_research_results(task) == "未检索到类案。"
+        assert _load_research_results(task) == "未检索到类案。"
 
     def test_results_formatted_with_truncated_digest(self) -> None:
         rows = [
@@ -215,7 +221,7 @@ class TestLoadResearchResults:
                 "similarity_score": 0.92,
             }
         ]
-        text = SolutionGenerator._load_research_results(self._task_with_rows(rows))
+        text = _load_research_results(self._task_with_rows(rows))
         assert "【案例1】张三诉李四" in text
         assert "(2026)京01民初1号" in text
         assert "92%" in text
@@ -251,8 +257,8 @@ class TestGetExistingSections:
             content="丙",
         )
 
-        all_completed = SolutionGenerator._get_existing_sections(solution_task)
+        all_completed = _get_existing_sections(solution_task)
         assert all_completed == {"case_analysis": "甲", "legal_relation": "乙"}
 
-        excluded = SolutionGenerator._get_existing_sections(solution_task, exclude="case_analysis")
+        excluded = _get_existing_sections(solution_task, exclude="case_analysis")
         assert excluded == {"legal_relation": "乙"}

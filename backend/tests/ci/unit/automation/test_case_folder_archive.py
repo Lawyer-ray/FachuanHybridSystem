@@ -16,9 +16,11 @@ class TestCaseFolderArchiveService:
     def _make_service(self) -> CaseFolderArchiveService:
         return CaseFolderArchiveService()
 
-    def _make_sms(self, case_id: int = 1, content: str = "测试短信",
-                  sms_type: str = "notice", received_at=None) -> SimpleNamespace:
+    def _make_sms(
+        self, case_id: int = 1, content: str = "测试短信", sms_type: str = "notice", received_at=None
+    ) -> SimpleNamespace:
         from datetime import datetime
+
         return SimpleNamespace(
             id=100,
             case_id=case_id,
@@ -54,8 +56,10 @@ class TestCaseFolderArchiveService:
             case_root = Path(tmpdir) / "case_root"
             case_root.mkdir()
 
-            with patch.object(svc, "_get_bound_case_root", return_value=case_root), \
-                 patch.object(svc, "_copy_documents", return_value=1):
+            with (
+                patch.object(svc, "_get_bound_case_root", return_value=case_root),
+                patch.object(svc, "_copy_documents", return_value=1),
+            ):
                 result = svc.archive_sms_documents(sms, ["/tmp/doc.pdf"])
                 assert result is True
 

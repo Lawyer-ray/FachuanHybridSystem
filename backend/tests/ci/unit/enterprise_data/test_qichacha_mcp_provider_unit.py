@@ -13,7 +13,7 @@ import pytest
 
 from apps.core.exceptions import ValidationException
 from apps.enterprise_data.services.providers import qichacha_mcp as qcc_mod
-from apps.enterprise_data.services.providers.qichacha_mcp import QichachaMcpProvider
+from apps.enterprise_data.services.providers.qichacha_mcp import QichachaMcpProvider, _extract_phone_from_contact
 from apps.enterprise_data.services.types import ProviderConfig
 
 
@@ -233,7 +233,7 @@ class TestSearchBiddingInfo:
 class TestExtractPhoneFromContact:
     def test_phone_field_not_a_list_returns_empty(self):
         payload = {"联系方式信息": {"电话": "021-63330000"}}
-        assert QichachaMcpProvider._extract_phone_from_contact(payload) == ""
+        assert _extract_phone_from_contact(payload) == ""
 
 
 class TestBuildResponseMeta:

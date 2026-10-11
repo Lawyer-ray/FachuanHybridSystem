@@ -33,29 +33,30 @@ class LegalResearchCapabilityMcpWrapper:  # pragma: no cover
             "status": response.status,
             "degradation_flags": list(response.degradation_flags),
             "query_trace": response.query_trace.model_dump(),
-            "results": [self._serialize_hit(hit) for hit in response.results],
+            "results": [_serialize_hit(hit) for hit in response.results],
         }
 
-    @staticmethod
-    def _serialize_hit(hit: Any) -> dict[str, Any]:  # pragma: no cover
-        snippets = hit.snippets if hasattr(hit, "snippets") else None
-        subscores = hit.subscores if hasattr(hit, "subscores") else None
-        return {
-            "doc_id": str(getattr(hit, "doc_id", "") or ""),
-            "title": str(getattr(hit, "title", "") or ""),
-            "court": str(getattr(hit, "court", "") or ""),
-            "judgment_date": str(getattr(hit, "judgment_date", "") or ""),
-            "score": float(getattr(hit, "score", 0.0) or 0.0),
-            "decision": str(getattr(hit, "decision", "") or ""),
-            "subscores": subscores.model_dump() if subscores is not None else {},
-            "conflicts": [str(x) for x in (getattr(hit, "conflicts", None) or [])],
-            "snippets": snippets.model_dump() if snippets is not None else {},
-            "why_selected": str(getattr(hit, "why_selected", "") or ""),
-            "source_url": str(getattr(hit, "source_url", "") or ""),
-            "agent_summary": (
-                f"{getattr(hit, 'title', '') or ''} | "
-                f"{getattr(hit, 'court', '') or ''} | "
-                f"score={float(getattr(hit, 'score', 0.0) or 0.0):.3f} | "
-                f"{(getattr(hit, 'why_selected', '') or '')[:120]}"
-            ).strip(" |"),
-        }
+
+# ↓↓ 由 LegalResearchCapabilityMcpWrapper 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _serialize_hit(hit: Any) -> dict[str, Any]:  # pragma: no cover
+    snippets = hit.snippets if hasattr(hit, "snippets") else None
+    subscores = hit.subscores if hasattr(hit, "subscores") else None
+    return {
+        "doc_id": str(getattr(hit, "doc_id", "") or ""),
+        "title": str(getattr(hit, "title", "") or ""),
+        "court": str(getattr(hit, "court", "") or ""),
+        "judgment_date": str(getattr(hit, "judgment_date", "") or ""),
+        "score": float(getattr(hit, "score", 0.0) or 0.0),
+        "decision": str(getattr(hit, "decision", "") or ""),
+        "subscores": subscores.model_dump() if subscores is not None else {},
+        "conflicts": [str(x) for x in (getattr(hit, "conflicts", None) or [])],
+        "snippets": snippets.model_dump() if snippets is not None else {},
+        "why_selected": str(getattr(hit, "why_selected", "") or ""),
+        "source_url": str(getattr(hit, "source_url", "") or ""),
+        "agent_summary": (
+            f"{getattr(hit, 'title', '') or ''} | "
+            f"{getattr(hit, 'court', '') or ''} | "
+            f"score={float(getattr(hit, 'score', 0.0) or 0.0):.3f} | "
+            f"{(getattr(hit, 'why_selected', '') or '')[:120]}"
+        ).strip(" |"),
+    }

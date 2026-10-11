@@ -7,15 +7,13 @@ from typing import Any
 
 from apps.legal_research.services.sources import CaseDetail
 
+from .intent_mixin import _split_tokens
+
 
 class ExecutorFeedbackMixin:
     FEEDBACK_QUERY_LIMIT = 2
     FEEDBACK_MIN_TERMS = 3
     FEEDBACK_MIN_SCORE_FLOOR = 0.68
-
-    @staticmethod
-    def _init_query_metric() -> dict[str, int]:
-        return {"candidates": 0, "scanned": 0, "matched": 0, "skipped": 0}
 
     @classmethod
     def _apply_query_performance_feedback(
@@ -33,7 +31,7 @@ class ExecutorFeedbackMixin:
         hit_rate = matched / max(1, scanned)
         keyword_tokens = [
             token
-            for token in cls._split_tokens(search_keyword)  # type: ignore[attr-defined]
+            for token in _split_tokens(search_keyword)
             if not cls._is_location_or_court_token(token)  # type: ignore[attr-defined]
         ]
         if not keyword_tokens:
@@ -82,21 +80,6 @@ class ExecutorFeedbackMixin:
             return ""
         preview = re.sub(r"\s+", " ", best_query).strip()[:18]
         return f"（最佳检索式 {best_matched}/{best_scanned}: {preview}）"
-
-    @staticmethod
-    def _build_query_trace_payload(
-        *,
-        primary_queries: list[str],
-        expansion_queries: list[str],
-        feedback_queries: list[str],
-        query_stats: dict[str, dict[str, int]],
-    ) -> dict[str, Any]:
-        return {
-            "primary_queries": [str(query).strip() for query in primary_queries if str(query).strip()],
-            "expansion_queries": [str(query).strip() for query in expansion_queries if str(query).strip()],
-            "feedback_queries": [str(query).strip() for query in feedback_queries if str(query).strip()],
-            "query_stats": query_stats,
-        }
 
     @classmethod
     def _maybe_append_feedback_query(
@@ -217,3 +200,24 @@ class ExecutorFeedbackMixin:
                 updated = True
 
         return updated
+
+
+# ↓↓ 由 ExecutorFeedbackMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _init_query_metric() -> dict[str, int]:
+    return {"candidates": 0, "scanned": 0, "matched": 0, "skipped": 0}
+
+
+# ↓↓ 由 ExecutorFeedbackMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _build_query_trace_payload(
+    *,
+    primary_queries: list[str],
+    expansion_queries: list[str],
+    feedback_queries: list[str],
+    query_stats: dict[str, dict[str, int]],
+) -> dict[str, Any]:
+    return {
+        "primary_queries": [str(query).strip() for query in primary_queries if str(query).strip()],
+        "expansion_queries": [str(query).strip() for query in expansion_queries if str(query).strip()],
+        "feedback_queries": [str(query).strip() for query in feedback_queries if str(query).strip()],
+        "query_stats": query_stats,
+    }

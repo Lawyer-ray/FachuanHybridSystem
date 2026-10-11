@@ -52,7 +52,7 @@ class TestDocumentRenamer:
     def test_sanitize_filename_part(self) -> None:
         """清理文件名非法字符。"""
         assert self.renamer._sanitize_filename_part("") == ""
-        assert self.renamer._sanitize_filename_part("test<>:\"/\\|?*file") == "testfile"
+        assert self.renamer._sanitize_filename_part('test<>:"/\\|?*file') == "testfile"
         assert self.renamer._sanitize_filename_part("  test.  ") == "test"
 
     def test_extract_title_from_filename(self) -> None:
@@ -114,7 +114,7 @@ class TestCaseFolderArchiveService:
     def test_sanitize_folder_name(self) -> None:
         """清理文件夹名。"""
         assert self.service._sanitize_folder_name("收到法院通知") == "收到法院通知"
-        assert self.service._sanitize_folder_name("test<>:\"/\\|?*file") == "testfile"
+        assert self.service._sanitize_folder_name('test<>:"/\\|?*file') == "testfile"
         assert self.service._sanitize_folder_name("") == "收到材料"
         assert self.service._sanitize_folder_name("  ") == "收到材料"
 

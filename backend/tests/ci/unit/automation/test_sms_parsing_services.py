@@ -54,10 +54,7 @@ class TestDownloadLinkExtraction:
         assert len(links) == 1
 
     def test_multiple_different_links(self) -> None:
-        content = (
-            "链接1: https://sd.gdcourts.gov.cn/v3/dzsd/AAA "
-            "链接2: https://sfsdw.court.gov.cn/sfsdw//r/BBB"
-        )
+        content = "链接1: https://sd.gdcourts.gov.cn/v3/dzsd/AAA 链接2: https://sfsdw.court.gov.cn/sfsdw//r/BBB"
         links = self.service.extract_download_links(content)
         assert len(links) == 2
 

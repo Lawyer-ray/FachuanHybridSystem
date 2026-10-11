@@ -72,9 +72,7 @@ class TestConnectCdpBrowser:
 
         # Assert connect_over_cdp was called on the mocked pw instance
         cm = mock_pw_fn.return_value  # the context manager returned by async_playwright()
-        cm.__aenter__.return_value.chromium.connect_over_cdp.assert_awaited_once_with(
-            "http://localhost:9222"
-        )
+        cm.__aenter__.return_value.chromium.connect_over_cdp.assert_awaited_once_with("http://localhost:9222")
 
     @pytest.mark.asyncio
     async def test_uses_existing_context_when_available(self) -> None:
@@ -139,6 +137,7 @@ class TestConnectCdpBrowser:
         profile = _make_profile(cdp_url=None)
 
         import re
+
         with pytest.raises(ValueError, match=re.escape("CDP 模式需要设置 profile.cdp_url")):
             async with connect_cdp_browser(profile):
                 pass  # pragma: no cover

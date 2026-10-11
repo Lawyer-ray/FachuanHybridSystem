@@ -11,9 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.cases.services.template.case_document_template_admin_service import (
-    CaseDocumentTemplateAdminService,
-)
+from apps.cases.services.template.case_document_template_admin_service import CaseDocumentTemplateAdminService
 
 
 def _make_template(
@@ -60,7 +58,10 @@ class TestMatchLegalStatus:
         assert self.svc._match_legal_status(["plaintiff"], set(), "any") is True
 
     def test_all_mode_subset(self):
-        assert self.svc._match_legal_status(["plaintiff", "defendant"], {"plaintiff", "defendant", "third_party"}, "all") is True
+        assert (
+            self.svc._match_legal_status(["plaintiff", "defendant"], {"plaintiff", "defendant", "third_party"}, "all")
+            is True
+        )
 
     def test_all_mode_not_subset(self):
         assert self.svc._match_legal_status(["plaintiff", "third_party"], {"plaintiff", "defendant"}, "all") is False

@@ -1,4 +1,5 @@
 """Tests for finance app: interest calculator, schemas, seed data loader."""
+
 from __future__ import annotations
 
 import json
@@ -25,10 +26,10 @@ from apps.finance.services.calculator.interest_calculator import (
     CalculationPeriod,
     InterestCalculationResult,
     InterestCalculator,
+    create_principal_periods,
 )
 from apps.finance.services.lpr.rate_service import LPRRateService, PrincipalPeriod, RateSegment
 from apps.finance.services.lpr.sync_service import LPRData, LPRSyncService
-
 
 # ---------------------------------------------------------------------------
 # CalculationPeriod
@@ -384,7 +385,7 @@ class TestCreatePrincipalPeriods:
             {"start_date": date(2023, 1, 1), "end_date": date(2023, 3, 31), "principal": 100000},
             {"start_date": date(2023, 4, 1), "end_date": date(2023, 6, 30), "principal": 80000},
         ]
-        periods = InterestCalculator.create_principal_periods(changes)
+        periods = create_principal_periods(changes)
         assert len(periods) == 2
         assert periods[0].principal == Decimal("100000")
         assert periods[0].start_date == date(2023, 1, 1)
@@ -394,7 +395,7 @@ class TestCreatePrincipalPeriods:
             {"start_date": date(2023, 4, 1), "end_date": date(2023, 6, 30), "principal": 80000},
             {"start_date": date(2023, 1, 1), "end_date": date(2023, 3, 31), "principal": 100000},
         ]
-        periods = InterestCalculator.create_principal_periods(changes)
+        periods = create_principal_periods(changes)
         assert periods[0].start_date == date(2023, 1, 1)
 
 

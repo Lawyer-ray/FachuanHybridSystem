@@ -12,6 +12,7 @@ class TestTextUtilsNormalizeCaseNumber:
 
     def _fn(self):
         from apps.automation.utils.text_utils import TextUtils
+
         return TextUtils.normalize_case_number
 
     def test_empty_string(self):
@@ -58,6 +59,7 @@ class TestTextUtilsCleanText:
 
     def _fn(self):
         from apps.automation.utils.text_utils import TextUtils
+
         return TextUtils.clean_text
 
     def test_empty_string(self):
@@ -94,6 +96,7 @@ class TestTextUtilsExtractCaseNumbers:
 
     def _fn(self):
         from apps.automation.utils.text_utils import TextUtils
+
         return TextUtils.extract_case_numbers
 
     def test_empty_text(self):

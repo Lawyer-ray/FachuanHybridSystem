@@ -281,7 +281,7 @@ class MortgageDefaultCalculator:
                 schedule_rows=[],
                 default_rows=[],
                 warnings=sim.warnings,
-                meta=self._build_meta(
+                meta=_build_meta(
                     sim, order=order, rate_events_sorted=rate_events_sorted, allocation_stance=allocation_stance
                 ),
             )
@@ -292,70 +292,69 @@ class MortgageDefaultCalculator:
             schedule_rows=sim.schedule_rows,
             default_rows=sim.default_rows,
             warnings=sim.warnings,
-            meta=self._build_meta(
+            meta=_build_meta(
                 sim, order=order, rate_events_sorted=rate_events_sorted, allocation_stance=allocation_stance
             ),
         )
 
-    @staticmethod
-    def _normalize_allocation_order(allocation_order: list[str] | None) -> list[str]:
-        """向后兼容：转交给 validation 模块."""
-        return normalize_allocation_order(allocation_order)
 
-    @staticmethod
-    def _normalize_payments(
-        payments: list[PaymentRecord], start_date: date, warnings: list[str]
-    ) -> list[PaymentRecord]:
-        """向后兼容：转交给 validation 模块."""
-        return normalize_payments(payments, start_date, warnings)
+# ↓↓ 由 MortgageDefaultCalculator 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _normalize_allocation_order(allocation_order: list[str] | None) -> list[str]:
+    """向后兼容：转交给 validation 模块."""
+    return normalize_allocation_order(allocation_order)
 
-    @staticmethod
-    def _build_meta(
-        sim: Simulation,
-        *,
-        order: list[str],
-        rate_events_sorted: list[dict],
-        allocation_stance: str | None,
-    ) -> dict:
-        """组装 meta 元数据（保持与旧版 calculate 输出一致）."""
-        from apps.finance.services.calculator.mortgage_models import _str_money as _sm
 
-        step_up = _sm(sim.step_up_rate) if sim.step_up_rate is not None else ""
-        cap_p = _sm(sim.cap_penalty_annual) if sim.cap_penalty_annual is not None else ""
-        accel_date = sim.accelerate_date.isoformat() if sim.accelerated and sim.accelerate_date else ""
-        accel_start = (
-            sim.accelerate_penalty_start.isoformat() if sim.accelerated and sim.accelerate_penalty_start else ""
-        )
-        first_due = sim.first_due.isoformat() if sim.first_due is not None else ""
-        return {
-            "repayment_method": sim.repayment_method,
-            "rate_mode": sim.resolver.rate_mode,
-            "penalty_mode": sim.penalty_mode,
-            "compound_method": sim.compound_method,
-            "grace_period_days": sim.grace_period_days,
-            "first_period_interest": sim.first_period_interest,
-            "charge_interest_on_payment_day": sim.charge_interest_on_payment_day,
-            "allocation_order": order,
-            "allocation_stance": allocation_stance or "",
-            "year_days": sim.year_days,
-            "rate_events": rate_events_sorted,
-            "lump_penalty": _sm(sim.lump_outstanding),
-            "shift_due_to_workday": sim.shift_due_to_workday,
-            "step_up_rate": step_up,
-            "step_up_trigger_days": sim.step_up_trigger_days,
-            "rounding_mode": sim.rounding_mode,
-            "fees_offset": sim.fees_offset,
-            "claim_mode": sim.claim_mode,
-            "claim_taken": sim.claim_taken,
-            "accelerated": sim.accelerated,
-            "accelerate_date": accel_date,
-            "accelerate_penalty_start": accel_start,
-            "first_due_date": first_due,
-            "term_months": sim.term_months,
-            "cap_penalty_annual": cap_p,
-            "cap_total_mode": sim.cap_total_mode,
-            "cap_total_value": _sm(sim.cap_total_value),
-            "capped_total": sim.capped_total,
-            "interest_cut_inclusive": sim.interest_cut_inclusive,
-            "pause_periods": [{"start": s.isoformat(), "end": e.isoformat()} for s, e in sim.pause_ranges],
-        }
+# ↓↓ 由 MortgageDefaultCalculator 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _normalize_payments(payments: list[PaymentRecord], start_date: date, warnings: list[str]) -> list[PaymentRecord]:
+    """向后兼容：转交给 validation 模块."""
+    return normalize_payments(payments, start_date, warnings)
+
+
+# ↓↓ 由 MortgageDefaultCalculator 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _build_meta(
+    sim: Simulation,
+    *,
+    order: list[str],
+    rate_events_sorted: list[dict],
+    allocation_stance: str | None,
+) -> dict:
+    """组装 meta 元数据（保持与旧版 calculate 输出一致）."""
+    from apps.finance.services.calculator.mortgage_models import _str_money as _sm
+
+    step_up = _sm(sim.step_up_rate) if sim.step_up_rate is not None else ""
+    cap_p = _sm(sim.cap_penalty_annual) if sim.cap_penalty_annual is not None else ""
+    accel_date = sim.accelerate_date.isoformat() if sim.accelerated and sim.accelerate_date else ""
+    accel_start = sim.accelerate_penalty_start.isoformat() if sim.accelerated and sim.accelerate_penalty_start else ""
+    first_due = sim.first_due.isoformat() if sim.first_due is not None else ""
+    return {
+        "repayment_method": sim.repayment_method,
+        "rate_mode": sim.resolver.rate_mode,
+        "penalty_mode": sim.penalty_mode,
+        "compound_method": sim.compound_method,
+        "grace_period_days": sim.grace_period_days,
+        "first_period_interest": sim.first_period_interest,
+        "charge_interest_on_payment_day": sim.charge_interest_on_payment_day,
+        "allocation_order": order,
+        "allocation_stance": allocation_stance or "",
+        "year_days": sim.year_days,
+        "rate_events": rate_events_sorted,
+        "lump_penalty": _sm(sim.lump_outstanding),
+        "shift_due_to_workday": sim.shift_due_to_workday,
+        "step_up_rate": step_up,
+        "step_up_trigger_days": sim.step_up_trigger_days,
+        "rounding_mode": sim.rounding_mode,
+        "fees_offset": sim.fees_offset,
+        "claim_mode": sim.claim_mode,
+        "claim_taken": sim.claim_taken,
+        "accelerated": sim.accelerated,
+        "accelerate_date": accel_date,
+        "accelerate_penalty_start": accel_start,
+        "first_due_date": first_due,
+        "term_months": sim.term_months,
+        "cap_penalty_annual": cap_p,
+        "cap_total_mode": sim.cap_total_mode,
+        "cap_total_value": _sm(sim.cap_total_value),
+        "capped_total": sim.capped_total,
+        "interest_cut_inclusive": sim.interest_cut_inclusive,
+        "pause_periods": [{"start": s.isoformat(), "end": e.isoformat()} for s, e in sim.pause_ranges],
+    }

@@ -287,7 +287,5 @@ class TestDatetimePatterns:
     def test_context_keywords_is_union(self) -> None:
         """HEARING_CONTEXT_KEYWORDS 应该是三个子列表的并集"""
         assert set(HEARING_CONTEXT_KEYWORDS) == (
-            set(HEARING_HIGH_WEIGHT_KEYWORDS)
-            | set(HEARING_MEDIUM_WEIGHT_KEYWORDS)
-            | set(HEARING_LOW_WEIGHT_KEYWORDS)
+            set(HEARING_HIGH_WEIGHT_KEYWORDS) | set(HEARING_MEDIUM_WEIGHT_KEYWORDS) | set(HEARING_LOW_WEIGHT_KEYWORDS)
         )

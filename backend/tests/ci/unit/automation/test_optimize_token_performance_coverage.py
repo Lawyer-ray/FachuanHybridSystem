@@ -14,6 +14,7 @@ class TestOptimizeTokenPerformanceCommand:
 
     def _cmd(self):
         from apps.automation.management.commands.optimize_token_performance import Command
+
         return Command()
 
     def test_task_cleanup_history_positive_days(self):
@@ -143,13 +144,15 @@ class TestOptimizeTokenPerformanceCommand:
         options = {"optimize_concurrency": True}
 
         with patch("apps.automation.management.commands.optimize_token_performance.concurrency_optimizer") as mock_opt:
-            mock_opt.optimize_concurrency = AsyncMock(return_value={
-                "recommendations": [
-                    {"reason": "Too many concurrent", "recommended": "Reduce to 2"},
-                    {"reason": "Queue too long"},
-                ],
-                "current_usage": {"total_acquisitions": 10, "queue_size": 5},
-            })
+            mock_opt.optimize_concurrency = AsyncMock(
+                return_value={
+                    "recommendations": [
+                        {"reason": "Too many concurrent", "recommended": "Reduce to 2"},
+                        {"reason": "Queue too long"},
+                    ],
+                    "current_usage": {"total_acquisitions": 10, "queue_size": 5},
+                }
+            )
             asyncio.run(cmd._task_optimize_concurrency(options))
         assert cmd.stdout.write.call_count >= 3
 
@@ -159,10 +162,12 @@ class TestOptimizeTokenPerformanceCommand:
         options = {"optimize_concurrency": True}
 
         with patch("apps.automation.management.commands.optimize_token_performance.concurrency_optimizer") as mock_opt:
-            mock_opt.optimize_concurrency = AsyncMock(return_value={
-                "recommendations": [],
-                "current_usage": {"total_acquisitions": 2, "queue_size": 0},
-            })
+            mock_opt.optimize_concurrency = AsyncMock(
+                return_value={
+                    "recommendations": [],
+                    "current_usage": {"total_acquisitions": 2, "queue_size": 0},
+                }
+            )
             asyncio.run(cmd._task_optimize_concurrency(options))
         assert any("已优化" in str(c) for c in cmd.stdout.write.call_args_list)
 
@@ -187,16 +192,20 @@ class TestOptimizeTokenPerformanceCommand:
             "reset_metrics": True,
         }
 
-        with patch("apps.automation.management.commands.optimize_token_performance.performance_monitor") as mock_perf, \
-             patch("apps.automation.management.commands.optimize_token_performance.concurrency_optimizer") as mock_opt, \
-             patch("apps.automation.management.commands.optimize_token_performance.history_recorder") as mock_rec, \
-             patch("apps.automation.management.commands.optimize_token_performance.cache_manager") as mock_cache:
+        with (
+            patch("apps.automation.management.commands.optimize_token_performance.performance_monitor") as mock_perf,
+            patch("apps.automation.management.commands.optimize_token_performance.concurrency_optimizer") as mock_opt,
+            patch("apps.automation.management.commands.optimize_token_performance.history_recorder") as mock_rec,
+            patch("apps.automation.management.commands.optimize_token_performance.cache_manager") as mock_cache,
+        ):
             mock_opt.cleanup_resources = AsyncMock()
-            mock_rec.get_recent_statistics = AsyncMock(return_value={
-                "total_acquisitions": 5,
-                "success_rate": 80.0,
-                "avg_duration": 3.0,
-            })
+            mock_rec.get_recent_statistics = AsyncMock(
+                return_value={
+                    "total_acquisitions": 5,
+                    "success_rate": 80.0,
+                    "avg_duration": 3.0,
+                }
+            )
             mock_cache.get_cache_statistics.return_value = {"cache_backend": "redis"}
             asyncio.run(cmd._run_optimization_tasks(options))
         mock_perf.reset_metrics.assert_called_once()
@@ -212,17 +221,21 @@ class TestOptimizeTokenPerformanceCommand:
             "reset_metrics": True,
         }
 
-        with patch("apps.automation.management.commands.optimize_token_performance.performance_monitor") as mock_perf, \
-             patch("apps.automation.management.commands.optimize_token_performance.concurrency_optimizer") as mock_opt, \
-             patch("apps.automation.management.commands.optimize_token_performance.history_recorder") as mock_rec, \
-             patch("apps.automation.management.commands.optimize_token_performance.cache_manager") as mock_cache:
+        with (
+            patch("apps.automation.management.commands.optimize_token_performance.performance_monitor") as mock_perf,
+            patch("apps.automation.management.commands.optimize_token_performance.concurrency_optimizer") as mock_opt,
+            patch("apps.automation.management.commands.optimize_token_performance.history_recorder") as mock_rec,
+            patch("apps.automation.management.commands.optimize_token_performance.cache_manager") as mock_cache,
+        ):
             mock_perf.reset_metrics.side_effect = Exception("reset error")
             mock_opt.cleanup_resources = AsyncMock()
-            mock_rec.get_recent_statistics = AsyncMock(return_value={
-                "total_acquisitions": 0,
-                "success_rate": 0.0,
-                "avg_duration": 0.0,
-            })
+            mock_rec.get_recent_statistics = AsyncMock(
+                return_value={
+                    "total_acquisitions": 0,
+                    "success_rate": 0.0,
+                    "avg_duration": 0.0,
+                }
+            )
             mock_cache.get_cache_statistics.return_value = {}
             asyncio.run(cmd._run_optimization_tasks(options))
         assert any("重置性能指标失败" in str(c) for c in cmd.stdout.write.call_args_list)
@@ -238,15 +251,19 @@ class TestOptimizeTokenPerformanceCommand:
             "reset_metrics": False,
         }
 
-        with patch("apps.automation.management.commands.optimize_token_performance.concurrency_optimizer") as mock_opt, \
-             patch("apps.automation.management.commands.optimize_token_performance.history_recorder") as mock_rec, \
-             patch("apps.automation.management.commands.optimize_token_performance.cache_manager") as mock_cache:
+        with (
+            patch("apps.automation.management.commands.optimize_token_performance.concurrency_optimizer") as mock_opt,
+            patch("apps.automation.management.commands.optimize_token_performance.history_recorder") as mock_rec,
+            patch("apps.automation.management.commands.optimize_token_performance.cache_manager") as mock_cache,
+        ):
             mock_opt.cleanup_resources = AsyncMock(side_effect=Exception("cleanup error"))
-            mock_rec.get_recent_statistics = AsyncMock(return_value={
-                "total_acquisitions": 0,
-                "success_rate": 0.0,
-                "avg_duration": 0.0,
-            })
+            mock_rec.get_recent_statistics = AsyncMock(
+                return_value={
+                    "total_acquisitions": 0,
+                    "success_rate": 0.0,
+                    "avg_duration": 0.0,
+                }
+            )
             mock_cache.get_cache_statistics.return_value = {}
             asyncio.run(cmd._run_optimization_tasks(options))
         assert any("清理并发资源失败" in str(c) for c in cmd.stdout.write.call_args_list)
@@ -262,9 +279,11 @@ class TestOptimizeTokenPerformanceCommand:
             "reset_metrics": False,
         }
 
-        with patch("apps.automation.management.commands.optimize_token_performance.concurrency_optimizer") as mock_opt, \
-             patch("apps.automation.management.commands.optimize_token_performance.history_recorder") as mock_rec, \
-             patch("apps.automation.management.commands.optimize_token_performance.cache_manager") as mock_cache:
+        with (
+            patch("apps.automation.management.commands.optimize_token_performance.concurrency_optimizer") as mock_opt,
+            patch("apps.automation.management.commands.optimize_token_performance.history_recorder") as mock_rec,
+            patch("apps.automation.management.commands.optimize_token_performance.cache_manager") as mock_cache,
+        ):
             mock_opt.cleanup_resources = AsyncMock()
             mock_rec.get_recent_statistics = AsyncMock(side_effect=Exception("stats error"))
             mock_cache.get_cache_statistics.return_value = {}
@@ -274,6 +293,7 @@ class TestOptimizeTokenPerformanceCommand:
     def test_add_arguments(self):
         cmd = self._cmd()
         import argparse
+
         parser = argparse.ArgumentParser()
         cmd.add_arguments(parser)
         args = parser.parse_args(["--cleanup-days", "7", "--health-check", "--reset-metrics"])

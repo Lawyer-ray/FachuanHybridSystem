@@ -6,19 +6,18 @@ import math
 import re
 from collections import Counter
 
-from hypothesis import given, settings, assume
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from apps.legal_research.services.similarity.scorers import (
+    bm25_proxy_score,
     char_ngrams,
     coerce_score,
-    normalize_score,
-    tokenize,
-    bm25_proxy_score,
     lexical_vector_similarity_score,
+    normalize_score,
     token_overlap_score,
+    tokenize,
 )
-
 
 # ---------------------------------------------------------------------------
 # Strategies
@@ -58,6 +57,7 @@ _unit_score_strat = st.floats(min_value=0.0, max_value=1.0, allow_nan=False, all
 # coerce_score
 # ---------------------------------------------------------------------------
 
+
 @settings(max_examples=200, deadline=None)
 @given(value=_pct_strat)
 def test_coerce_score_percentage_in_unit_range(value: str) -> None:
@@ -79,6 +79,7 @@ def test_coerce_score_numeric_in_unit_range(value: float) -> None:
 def test_coerce_score_percentage_maps_via_normalize(value: str) -> None:
     """'X%' should map to the same value as normalize_score(X)."""
     import re
+
     m = re.fullmatch(r"([0-9]+(?:\.[0-9]+)?)\s*%", value)
     assume(m is not None)
     num = float(m.group(1))
@@ -119,6 +120,7 @@ def test_coerce_score_deterministic(value: float) -> None:
 # ---------------------------------------------------------------------------
 # normalize_score
 # ---------------------------------------------------------------------------
+
 
 @settings(max_examples=200, deadline=None)
 @given(score=_unit_score_strat)
@@ -164,6 +166,7 @@ def test_normalize_score_deterministic(score: float) -> None:
 # tokenize
 # ---------------------------------------------------------------------------
 
+
 @settings(max_examples=200, deadline=None)
 @given(text=_text_strat)
 def test_tokenize_returns_list(text: str) -> None:
@@ -177,9 +180,22 @@ def test_tokenize_returns_list(text: str) -> None:
 def test_tokenize_no_stopwords(text: str) -> None:
     """None of the defined stopwords appear in the output."""
     stopwords = {
-        "以及", "或者", "如果", "因此", "应当", "需要",
-        "有关", "关于", "因为", "但是", "其中", "并且",
-        "法院认为", "本院认为", "原告", "被告",
+        "以及",
+        "或者",
+        "如果",
+        "因此",
+        "应当",
+        "需要",
+        "有关",
+        "关于",
+        "因为",
+        "但是",
+        "其中",
+        "并且",
+        "法院认为",
+        "本院认为",
+        "原告",
+        "被告",
     }
     result = tokenize(text)
     for token in result:
@@ -220,6 +236,7 @@ def test_tokenize_empty_input() -> None:
 # ---------------------------------------------------------------------------
 # char_ngrams
 # ---------------------------------------------------------------------------
+
 
 @settings(max_examples=200, deadline=None)
 @given(text=_text_strat)
@@ -266,6 +283,7 @@ def test_char_ngrams_all_positive_counts(text: str) -> None:
 # bm25_proxy_score
 # ---------------------------------------------------------------------------
 
+
 @settings(max_examples=200, deadline=None)
 @given(query=_text_strat, doc=_text_strat)
 def test_bm25_proxy_score_in_unit_range(query: str, doc: str) -> None:
@@ -300,6 +318,7 @@ def test_bm25_proxy_score_deterministic(query: str, doc: str) -> None:
 # ---------------------------------------------------------------------------
 # lexical_vector_similarity_score
 # ---------------------------------------------------------------------------
+
 
 @settings(max_examples=200, deadline=None)
 @given(text_a=_text_strat, text_b=_text_strat)
@@ -347,6 +366,7 @@ def test_lexical_vector_similarity_deterministic(text_a: str, text_b: str) -> No
 # ---------------------------------------------------------------------------
 # token_overlap_score
 # ---------------------------------------------------------------------------
+
 
 @settings(max_examples=200, deadline=None)
 @given(query=_text_strat, text=_text_strat)

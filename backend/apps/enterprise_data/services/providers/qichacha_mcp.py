@@ -159,7 +159,7 @@ class QichachaMcpProvider:
         if not data.get("phone"):
             try:
                 contact_result = client.call_tool(tool_name="get_contact_info", arguments={"searchKey": company_id})
-                phone = self._extract_phone_from_contact(contact_result["payload"])
+                phone = _extract_phone_from_contact(contact_result["payload"])
                 if phone:
                     data["phone"] = phone
             except Exception:
@@ -263,24 +263,6 @@ class QichachaMcpProvider:
             meta=self._build_response_meta(result),
         )
 
-    @staticmethod
-    def _extract_phone_from_contact(payload: Any) -> str:
-        """从 get_contact_info 响应中提取第一个电话号码。"""
-        if not isinstance(payload, dict):
-            return ""
-        contact_info = payload.get("联系方式信息")
-        if not isinstance(contact_info, dict):
-            return ""
-        phones = contact_info.get("电话")
-        if not isinstance(phones, list):
-            return ""
-        for item in phones:
-            if isinstance(item, dict):
-                phone = str(item.get("电话号码", "") or "").strip()
-                if phone:
-                    return phone
-        return ""
-
     def _build_response_meta(self, transport_result: dict[str, Any]) -> dict[str, Any]:
         requested_transport = (
             str(transport_result.get("requested_transport", self.transport) or "").strip() or self.transport
@@ -298,3 +280,22 @@ class QichachaMcpProvider:
             "api_key_attempt_count": max(1, int(transport_result.get("api_key_attempt_count", 1) or 1)),
             "api_key_switched": bool(transport_result.get("api_key_switched", False)),
         }
+
+
+# ↓↓ 由 QichachaMcpProvider 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _extract_phone_from_contact(payload: Any) -> str:
+    """从 get_contact_info 响应中提取第一个电话号码。"""
+    if not isinstance(payload, dict):
+        return ""
+    contact_info = payload.get("联系方式信息")
+    if not isinstance(contact_info, dict):
+        return ""
+    phones = contact_info.get("电话")
+    if not isinstance(phones, list):
+        return ""
+    for item in phones:
+        if isinstance(item, dict):
+            phone = str(item.get("电话号码", "") or "").strip()
+            if phone:
+                return phone
+    return ""

@@ -37,10 +37,13 @@ class TestFeishuTokenMixin:
 
     def test_load_config_from_db_with_values(self):
         obj = self._make()
-        with patch("apps.core.config.utils.get_feishu_category_configs", return_value={
-            "FEISHU_APP_ID": "my_id",
-            "FEISHU_APP_SECRET": "my_secret",
-        }):
+        with patch(
+            "apps.core.config.utils.get_feishu_category_configs",
+            return_value={
+                "FEISHU_APP_ID": "my_id",
+                "FEISHU_APP_SECRET": "my_secret",
+            },
+        ):
             result = obj._load_config_from_db()
             assert result.get("APP_ID") == "my_id"
 
@@ -66,8 +69,12 @@ class TestDingtalkFileMixin:
 
         class Concrete(DingtalkFileMixin):
             config = {"TIMEOUT": 30}
-            def is_available(self): return True
-            def _get_access_token(self): return "token"
+
+            def is_available(self):
+                return True
+
+            def _get_access_token(self):
+                return "token"
 
         obj = Concrete()
         assert obj._get_mime_type("test.pdf") == "application/pdf"
@@ -79,8 +86,12 @@ class TestDingtalkFileMixin:
 
         class Concrete(DingtalkFileMixin):
             config = {}
-            def is_available(self): return False
-            def _get_access_token(self): return ""
+
+            def is_available(self):
+                return False
+
+            def _get_access_token(self):
+                return ""
 
         obj = Concrete()
         with pytest.raises(ConfigurationException):
@@ -93,8 +104,12 @@ class TestWeChatWorkFileMixin:
 
         class Concrete(WeChatWorkFileMixin):
             config = {"TIMEOUT": 30}
-            def is_available(self): return True
-            def _get_access_token(self): return "token"
+
+            def is_available(self):
+                return True
+
+            def _get_access_token(self):
+                return "token"
 
         obj = Concrete()
         assert "image" in obj._get_mime_type("test.png")

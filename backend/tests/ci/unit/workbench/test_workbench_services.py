@@ -8,6 +8,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from apps.workbench.services.message_service import _message_to_dict
+from apps.workbench.services.session_service import _invalidate_session_cache, increment_storage
+
 
 class TestWorkbenchSessionService:
     """WorkbenchSessionService 测试"""
@@ -35,7 +38,7 @@ class TestWorkbenchSessionService:
 
         with patch("apps.workbench.services.session_service.cache") as mock_cache:
             # 无用户直接早退，不清缓存
-            WorkbenchSessionService._invalidate_session_cache(None)
+            _invalidate_session_cache(None)
             mock_cache.delete_many.assert_not_called()
 
     def test_invalidate_session_cache_anonymous(self) -> None:
@@ -46,7 +49,7 @@ class TestWorkbenchSessionService:
         mock_user = MagicMock()
         mock_user.is_authenticated = False
         with patch("apps.workbench.services.session_service.cache") as mock_cache:
-            WorkbenchSessionService._invalidate_session_cache(mock_user)
+            _invalidate_session_cache(mock_user)
             mock_cache.delete_many.assert_not_called()
 
     def test_increment_storage_zero_delta(self) -> None:
@@ -56,7 +59,7 @@ class TestWorkbenchSessionService:
 
         # delta=0 时 no-op，不触发数据库更新
         with patch("apps.workbench.models.WorkbenchSession") as MockSession:
-            WorkbenchSessionService.increment_storage(1, 0)
+            increment_storage(1, 0)
             MockSession.objects.filter.update.assert_not_called()
 
 
@@ -98,4 +101,4 @@ class TestWorkbenchMessageService:
         from apps.workbench.services.message_service import WorkbenchMessageService
 
         # Just verify the static method exists and can be called
-        assert callable(WorkbenchMessageService._message_to_dict)
+        assert callable(_message_to_dict)

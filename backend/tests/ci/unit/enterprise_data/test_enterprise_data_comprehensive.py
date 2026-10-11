@@ -15,7 +15,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ==================== Types ====================
 
 
@@ -24,10 +23,10 @@ class TestEnterpriseDataTypes:
 
     def test_default_constants(self):
         from apps.enterprise_data.services.types import (
-            DEFAULT_PROVIDER_NAME,
-            DEFAULT_TRANSPORT,
-            DEFAULT_TIMEOUT_SECONDS,
             DEFAULT_CACHE_TTL_SECONDS,
+            DEFAULT_PROVIDER_NAME,
+            DEFAULT_TIMEOUT_SECONDS,
+            DEFAULT_TRANSPORT,
         )
 
         assert DEFAULT_PROVIDER_NAME == "tianyancha"
@@ -52,7 +51,7 @@ class TestEnterpriseDataTypes:
         assert config.timeout_seconds == 30
 
     def test_provider_config_defaults(self):
-        from apps.enterprise_data.services.types import ProviderConfig, DEFAULT_RATE_LIMIT_REQUESTS
+        from apps.enterprise_data.services.types import DEFAULT_RATE_LIMIT_REQUESTS, ProviderConfig
 
         config = ProviderConfig(
             name="test",
@@ -240,13 +239,13 @@ class TestEnterpriseDataSchemas:
     def test_enterprise_providers_out(self):
         from apps.enterprise_data.schemas.enterprise_data_schemas import EnterpriseProvidersOut, ProviderInfoOut
 
-        data = EnterpriseProvidersOut(items=[
-            ProviderInfoOut(name="tianyancha", enabled=True, is_default=True, transport="http", capabilities=[])
-        ])
+        data = EnterpriseProvidersOut(
+            items=[ProviderInfoOut(name="tianyancha", enabled=True, is_default=True, transport="http", capabilities=[])]
+        )
         assert len(data.items) == 1
 
     def test_enterprise_query_out(self):
-        from apps.enterprise_data.schemas.enterprise_data_schemas import EnterpriseQueryOut, EnterpriseDataMetaOut
+        from apps.enterprise_data.schemas.enterprise_data_schemas import EnterpriseDataMetaOut, EnterpriseQueryOut
 
         data = EnterpriseQueryOut(
             query={"keyword": "测试"},

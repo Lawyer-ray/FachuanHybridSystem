@@ -8,6 +8,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.utils import timezone
 
+from apps.reminders.services.calendar_export_service import _reminder_to_vevent
+from apps.reminders.services.calendar_sync_service import _to_reminder_kwargs
+
 # ---------------------------------------------------------------------------
 # validators
 # ---------------------------------------------------------------------------
@@ -385,7 +388,7 @@ class TestCalendarSyncServiceToReminderKwargs:
         from apps.reminders.services.calendar_sync_service import CalendarSyncService
 
         event = {"title": "开庭", "start_dt": "2026-01-15 09:00", "uid": "evt123"}
-        kwargs = CalendarSyncService._to_reminder_kwargs(event)
+        kwargs = _to_reminder_kwargs(event)
         assert kwargs["content"] == "开庭"
         assert kwargs["reminder_type"] == "other"
         assert kwargs["metadata"]["external_id"] == "evt123"
@@ -394,14 +397,14 @@ class TestCalendarSyncServiceToReminderKwargs:
         from apps.reminders.services.calendar_sync_service import CalendarSyncService
 
         event = {"title": "会议", "start_dt": ""}
-        kwargs = CalendarSyncService._to_reminder_kwargs(event)
+        kwargs = _to_reminder_kwargs(event)
         assert kwargs["due_at"] is not None
 
     def test_missing_value_filter(self):
         from apps.reminders.services.calendar_sync_service import CalendarSyncService
 
         event = {"title": "T", "start_dt": "2026-01-15 09:00", "location": "missing value"}
-        kwargs = CalendarSyncService._to_reminder_kwargs(event)
+        kwargs = _to_reminder_kwargs(event)
         assert "location" not in kwargs["metadata"]
 
 
@@ -425,7 +428,7 @@ class TestCalendarExportServiceReminderToVevent:
 
         reminder = MagicMock()
         reminder.due_at = None
-        assert CalendarExportService._reminder_to_vevent(reminder) is None
+        assert _reminder_to_vevent(reminder) is None
 
     def test_basic_vevent(self):
         from apps.reminders.services.calendar_export_service import CalendarExportService
@@ -439,7 +442,7 @@ class TestCalendarExportServiceReminderToVevent:
         reminder.contract_id = None
         reminder.case_id = None
         reminder.case_log_id = None
-        vevent = CalendarExportService._reminder_to_vevent(reminder)
+        vevent = _reminder_to_vevent(reminder)
         assert vevent is not None
 
     def test_with_location(self):
@@ -454,7 +457,7 @@ class TestCalendarExportServiceReminderToVevent:
         reminder.contract_id = None
         reminder.case_id = None
         reminder.case_log_id = None
-        vevent = CalendarExportService._reminder_to_vevent(reminder)
+        vevent = _reminder_to_vevent(reminder)
         assert vevent is not None
 
 

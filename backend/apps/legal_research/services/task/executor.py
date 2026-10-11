@@ -16,7 +16,28 @@ from apps.legal_research.services.executor_components import (
     ExecutorSourceGatewayMixin,
     ExecutorTaskLifecycleMixin,
 )
-from apps.legal_research.services.executor_components.policy_mixin import AdaptiveThresholdPolicy, DualReviewPolicy
+from apps.legal_research.services.executor_components.feedback_mixin import (
+    _build_query_trace_payload,
+    _init_query_metric,
+)
+from apps.legal_research.services.executor_components.policy_mixin import (
+    AdaptiveThresholdPolicy,
+    DualReviewPolicy,
+    _build_adaptive_threshold_policy,
+    _build_adaptive_threshold_suffix,
+    _build_dual_review_policy,
+    _maybe_decay_min_similarity_threshold,
+    _resolve_effective_min_similarity,
+)
+from apps.legal_research.services.executor_components.result_persistence import _extract_similarity_metadata
+from apps.legal_research.services.executor_components.scoring_mixin import _should_rerank
+from apps.legal_research.services.executor_components.task_lifecycle import (
+    _acquire_task,
+    _is_cancel_requested,
+    _mark_cancelled,
+    _mark_completed,
+    _mark_failed,
+)
 from apps.legal_research.services.similarity.service import CaseSimilarityService
 from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 from apps.legal_research.services.sources import get_case_source_client
@@ -40,7 +61,7 @@ class LegalResearchExecutor(  # pragma: no cover
     ExecutorIntentMixin,
 ):
     def run(self, *, task_id: str) -> dict[str, Any]:  # pragma: no cover
-        task, early_result = self._acquire_task(task_id=task_id)
+        task, early_result = _acquire_task(task_id=task_id)
         if early_result is not None:
             return early_result
         if task is None:
@@ -66,12 +87,12 @@ class LegalResearchExecutor(  # pragma: no cover
         feedback_min_terms = max(1, int(tuning.feedback_min_terms))
         feedback_min_score_floor = max(0.0, min(1.0, float(tuning.feedback_min_score_floor)))
         feedback_score_margin = max(0.01, min(0.6, float(tuning.feedback_score_margin)))
-        dual_review_policy = self._build_dual_review_policy(tuning=tuning)
-        min_similarity_threshold = self._resolve_effective_min_similarity(
+        dual_review_policy = _build_dual_review_policy(tuning=tuning)
+        min_similarity_threshold = _resolve_effective_min_similarity(
             requested_min_similarity=task.min_similarity_score,
             tuning=tuning,
         )
-        adaptive_threshold_policy = self._build_adaptive_threshold_policy(
+        adaptive_threshold_policy = _build_adaptive_threshold_policy(
             baseline_min_similarity=min_similarity_threshold,
             tuning=tuning,
         )
@@ -190,22 +211,22 @@ class LegalResearchExecutor(  # pragma: no cover
                 search_keyword = search_keywords[query_index]
                 query_offset = 0
                 query_new_candidates = 0
-                query_metric = query_stats.setdefault(search_keyword, self._init_query_metric())
+                query_metric = query_stats.setdefault(search_keyword, _init_query_metric())
 
                 while (
                     fetched < self._effective_fetch_limit(max_candidates=task.max_candidates, skipped=skipped)
                     and scanned < task.max_candidates
                     and matched < task.target_count
                 ):
-                    if self._is_cancel_requested(task.id):
-                        self._mark_cancelled(task=task, scanned=scanned, matched=matched, skipped=skipped)
+                    if _is_cancel_requested(task.id):
+                        _mark_cancelled(task=task, scanned=scanned, matched=matched, skipped=skipped)
                         return {
                             "task_id": str(task.id),
                             "status": task.status,
                             "scanned_count": scanned,
                             "matched_count": matched,
                             "skipped_count": skipped,
-                            "query_trace": self._build_query_trace_payload(
+                            "query_trace": _build_query_trace_payload(
                                 primary_queries=primary_queries,
                                 expansion_queries=initial_expansion_queries,
                                 feedback_queries=feedback_queries,
@@ -258,8 +279,8 @@ class LegalResearchExecutor(  # pragma: no cover
                     # ── [4] 候选预筛 + 宽召回 → 收集待评分批次 ──
                     pending_rerank: list[tuple[Any, float, str]] = []
                     for item in unique_items:
-                        if self._is_cancel_requested(task.id):
-                            self._mark_cancelled(task=task, scanned=scanned, matched=matched, skipped=skipped)
+                        if _is_cancel_requested(task.id):
+                            _mark_cancelled(task=task, scanned=scanned, matched=matched, skipped=skipped)
                             return {
                                 "task_id": str(task.id),
                                 "status": task.status,
@@ -309,7 +330,7 @@ class LegalResearchExecutor(  # pragma: no cover
                             case_summary=task.case_summary,
                             detail=detail,
                         )
-                        should_rerank = self._should_rerank(
+                        should_rerank = _should_rerank(
                             coarse_score=coarse_score,
                             threshold=rerank_threshold,
                             rerank_used=rerank_used,
@@ -324,8 +345,8 @@ class LegalResearchExecutor(  # pragma: no cover
 
                     # ── [1] 并发 LLM 评分 ──
                     if pending_rerank and matched < task.target_count:
-                        if self._is_cancel_requested(task.id):
-                            self._mark_cancelled(task=task, scanned=scanned, matched=matched, skipped=skipped)
+                        if _is_cancel_requested(task.id):
+                            _mark_cancelled(task=task, scanned=scanned, matched=matched, skipped=skipped)
                             return {
                                 "task_id": str(task.id),
                                 "status": task.status,
@@ -367,7 +388,7 @@ class LegalResearchExecutor(  # pragma: no cover
 
                             # 双模型复核
                             dual_review_metadata: dict[str, Any] | None = None
-                            similarity_metadata = self._extract_similarity_metadata(similarity=sim)
+                            similarity_metadata = _extract_similarity_metadata(similarity=sim)
                             if (
                                 dual_review_policy.enabled
                                 and sim.score >= dual_review_policy.trigger_floor
@@ -460,7 +481,7 @@ class LegalResearchExecutor(  # pragma: no cover
                             adaptive_checkpoint_scanned,
                             adaptive_checkpoint_matched,
                             threshold_lowered,
-                        ) = self._maybe_decay_min_similarity_threshold(
+                        ) = _maybe_decay_min_similarity_threshold(
                             current_threshold=effective_min_similarity_threshold,
                             scanned=scanned,
                             matched=matched,
@@ -485,15 +506,15 @@ class LegalResearchExecutor(  # pragma: no cover
                             key=lambda x: x[1],
                             reverse=True,
                         )[:deferred_limit]:
-                            if self._is_cancel_requested(task.id):
-                                self._mark_cancelled(task=task, scanned=scanned, matched=matched, skipped=skipped)
+                            if _is_cancel_requested(task.id):
+                                _mark_cancelled(task=task, scanned=scanned, matched=matched, skipped=skipped)
                                 return {
                                     "task_id": str(task.id),
                                     "status": task.status,
                                     "scanned_count": scanned,
                                     "matched_count": matched,
                                     "skipped_count": skipped,
-                                    "query_trace": self._build_query_trace_payload(
+                                    "query_trace": _build_query_trace_payload(
                                         primary_queries=primary_queries,
                                         expansion_queries=initial_expansion_queries,
                                         feedback_queries=feedback_queries,
@@ -545,7 +566,7 @@ class LegalResearchExecutor(  # pragma: no cover
                                 adaptive_checkpoint_scanned,
                                 adaptive_checkpoint_matched,
                                 threshold_lowered,
-                            ) = self._maybe_decay_min_similarity_threshold(
+                            ) = _maybe_decay_min_similarity_threshold(
                                 current_threshold=effective_min_similarity_threshold,
                                 scanned=scanned,
                                 matched=matched,
@@ -604,15 +625,15 @@ class LegalResearchExecutor(  # pragma: no cover
 
                 query_index += 1
 
-            if self._is_cancel_requested(task.id):
-                self._mark_cancelled(task=task, scanned=scanned, matched=matched, skipped=skipped)
+            if _is_cancel_requested(task.id):
+                _mark_cancelled(task=task, scanned=scanned, matched=matched, skipped=skipped)
                 return {
                     "task_id": str(task.id),
                     "status": task.status,
                     "scanned_count": scanned,
                     "matched_count": matched,
                     "skipped_count": skipped,
-                    "query_trace": self._build_query_trace_payload(
+                    "query_trace": _build_query_trace_payload(
                         primary_queries=primary_queries,
                         expansion_queries=initial_expansion_queries,
                         feedback_queries=feedback_queries,
@@ -621,7 +642,7 @@ class LegalResearchExecutor(  # pragma: no cover
                 }
 
             skip_suffix = f"（跳过异常案例 {skipped} 篇）" if skipped else ""
-            adaptive_suffix = self._build_adaptive_threshold_suffix(
+            adaptive_suffix = _build_adaptive_threshold_suffix(
                 baseline=min_similarity_threshold,
                 lowered_to=lowest_min_similarity_threshold,
             )
@@ -636,14 +657,14 @@ class LegalResearchExecutor(  # pragma: no cover
                 )
 
             if fetched == 0:
-                self._mark_completed(task, message="未检索到候选案例")
+                _mark_completed(task, message="未检索到候选案例")
             elif matched >= task.target_count:
-                self._mark_completed(
+                _mark_completed(
                     task,
                     message=f"达到目标，命中 {matched}/{task.target_count} 篇相似案例{skip_suffix}{adaptive_suffix}{query_suffix}",
                 )
             elif scanned >= task.max_candidates:
-                self._mark_completed(
+                _mark_completed(
                     task,
                     message=(
                         f"达到最大扫描上限 {task.max_candidates}，"
@@ -651,7 +672,7 @@ class LegalResearchExecutor(  # pragma: no cover
                     ),
                 )
             else:
-                self._mark_completed(
+                _mark_completed(
                     task,
                     message=(
                         f"候选案例已扫描完毕（共 {task.candidate_count} 篇），"
@@ -665,7 +686,7 @@ class LegalResearchExecutor(  # pragma: no cover
                 "scanned_count": task.scanned_count,
                 "matched_count": task.matched_count,
                 "skipped_count": skipped,
-                "query_trace": self._build_query_trace_payload(
+                "query_trace": _build_query_trace_payload(
                     primary_queries=primary_queries,
                     expansion_queries=initial_expansion_queries,
                     feedback_queries=feedback_queries,
@@ -674,12 +695,12 @@ class LegalResearchExecutor(  # pragma: no cover
             }
         except Exception as e:
             logger.exception("案例检索任务失败", extra={"task_id": str(task.id)})
-            self._mark_failed(task, str(e))
+            _mark_failed(task, str(e))
             return {
                 "task_id": str(task.id),
                 "status": "failed",
                 "error": str(e),
-                "query_trace": self._build_query_trace_payload(
+                "query_trace": _build_query_trace_payload(
                     primary_queries=primary_queries,
                     expansion_queries=initial_expansion_queries,
                     feedback_queries=feedback_queries,

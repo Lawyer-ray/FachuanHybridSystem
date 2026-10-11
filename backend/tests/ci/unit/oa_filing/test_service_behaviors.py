@@ -14,6 +14,7 @@ from typing import Any
 
 import pytest
 
+from apps.oa_filing.services.stamp_lookup_service import lookup_by_file_path
 from apps.testing.factories import ContractFactory, LawyerFactory
 
 
@@ -21,7 +22,10 @@ def _make_credential(lawyer: Any, site_name: str = "金诚同达OA") -> Any:
     from apps.organization.models import AccountCredential
 
     return AccountCredential.objects.create(
-        lawyer=lawyer, site_name=site_name, account="tester", password="secret"  # pragma: allowlist secret
+        lawyer=lawyer,
+        site_name=site_name,
+        account="tester",
+        password="secret",  # pragma: allowlist secret
     )
 
 
@@ -97,13 +101,13 @@ class TestStampLookupService:
         from apps.oa_filing.services.stamp_lookup_service import StampLookupError
 
         with pytest.raises(StampLookupError, match="为空"):
-            self._svc().lookup_by_file_path("   ")
+            lookup_by_file_path("   ")
 
     def test_dotdot_rejected(self) -> None:
         from apps.oa_filing.services.stamp_lookup_service import StampLookupError
 
         with pytest.raises(StampLookupError, match=r"\.\."):
-            self._svc().lookup_by_file_path("/data/contracts/../etc/passwd")
+            lookup_by_file_path("/data/contracts/../etc/passwd")
 
     def test_contract_binding_hit(self, tmp_path: Any) -> None:
         from apps.contracts.models import ContractFolderBinding
@@ -114,7 +118,7 @@ class TestStampLookupService:
         target = tmp_path / "盖章文件.pdf"
         target.write_bytes(b"%PDF-0")
 
-        result = StampLookupService.lookup_by_file_path(str(target))
+        result = lookup_by_file_path(str(target))
         assert result.contract_id == contract.id
         assert result.oa_case_number == "OA-STAMP-1"
         assert result.file_path == str(target)
@@ -125,7 +129,7 @@ class TestStampLookupService:
         target = tmp_path / "孤儿文件.pdf"
         target.write_bytes(b"%PDF-0")
         with pytest.raises(StampLookupError, match="无法根据文件路径"):
-            StampLookupService.lookup_by_file_path(str(target))
+            lookup_by_file_path(str(target))
 
     def test_escape_out_of_binding_dir_rejected(self, tmp_path: Any) -> None:
         """绑定目录外的同名路径不得命中（安全审计 B-18）。"""
@@ -141,7 +145,7 @@ class TestStampLookupService:
         outside.parent.mkdir()
         outside.write_bytes(b"%PDF-0")
         with pytest.raises(StampLookupError):
-            StampLookupService.lookup_by_file_path(str(outside))
+            lookup_by_file_path(str(outside))
 
 
 @pytest.mark.django_db

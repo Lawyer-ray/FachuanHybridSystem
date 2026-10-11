@@ -2,6 +2,7 @@
 
 覆盖: _resolve_subfolder, _build_log_content, _collect_subdirs, _collect_allowed_files 等。
 """
+
 from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
@@ -10,9 +11,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.core.exceptions import ValidationException
 from apps.cases.services.log.email_folder_scan_service import EmailFolderScanService
-
+from apps.core.exceptions import ValidationException
 
 # ── _build_log_content ────────────────────────────────────────────
 
@@ -114,8 +114,10 @@ class TestCollectAllowedFiles:
         (tmp_path / "script.py").write_bytes(b"py")  # not allowed
         (tmp_path / ".hidden.txt").write_text("hidden")
 
-        with patch("apps.cases.services.log.email_folder_scan_service.CASE_LOG_ALLOWED_EXTENSIONS", {".pdf", ".jpg"}), \
-             patch("apps.cases.services.log.email_folder_scan_service.CASE_LOG_MAX_FILE_SIZE", 1024):
+        with (
+            patch("apps.cases.services.log.email_folder_scan_service.CASE_LOG_ALLOWED_EXTENSIONS", {".pdf", ".jpg"}),
+            patch("apps.cases.services.log.email_folder_scan_service.CASE_LOG_MAX_FILE_SIZE", 1024),
+        ):
             result = svc._collect_allowed_files(tmp_path)
             names = [f.name for f in result]
             assert "doc.pdf" in names
@@ -131,8 +133,10 @@ class TestCollectAllowedFiles:
         svc = EmailFolderScanService()
         (tmp_path / "big.pdf").write_bytes(b"x" * 2000)
 
-        with patch("apps.cases.services.log.email_folder_scan_service.CASE_LOG_ALLOWED_EXTENSIONS", {".pdf"}), \
-             patch("apps.cases.services.log.email_folder_scan_service.CASE_LOG_MAX_FILE_SIZE", 100):
+        with (
+            patch("apps.cases.services.log.email_folder_scan_service.CASE_LOG_ALLOWED_EXTENSIONS", {".pdf"}),
+            patch("apps.cases.services.log.email_folder_scan_service.CASE_LOG_MAX_FILE_SIZE", 100),
+        ):
             result = svc._collect_allowed_files(tmp_path)
             assert len(result) == 0
 
@@ -150,8 +154,10 @@ class TestCollectSubdirs:
         sub2 = tmp_path / ".hidden"
         sub2.mkdir()
 
-        with patch("apps.cases.services.log.email_folder_scan_service.CASE_LOG_ALLOWED_EXTENSIONS", {".pdf"}), \
-             patch("apps.cases.services.log.email_folder_scan_service.CASE_LOG_MAX_FILE_SIZE", 1024):
+        with (
+            patch("apps.cases.services.log.email_folder_scan_service.CASE_LOG_ALLOWED_EXTENSIONS", {".pdf"}),
+            patch("apps.cases.services.log.email_folder_scan_service.CASE_LOG_MAX_FILE_SIZE", 1024),
+        ):
             result = svc._collect_subdirs(tmp_path)
             assert len(result) == 1
             assert result[0][0].name == "2024-01-01_emails"

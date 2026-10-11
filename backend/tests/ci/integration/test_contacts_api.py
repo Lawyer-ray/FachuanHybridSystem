@@ -6,9 +6,9 @@ import json
 
 import pytest
 
+from apps.cases.models import Case
 from apps.contacts.models import CaseContact
 from apps.contracts.models import Contract
-from apps.cases.models import Case
 
 
 def _make_case():
@@ -48,13 +48,15 @@ def test_create_contact(authenticated_client):
     case = _make_case()
     resp = authenticated_client.post(
         "/api/v1/contacts/contacts",
-        data=json.dumps({
-            "case_id": case.id,
-            "name": "赵法官",
-            "role": "judge",
-            "phone": "010-87654321",
-            "address": "北京市海淀区",
-        }),
+        data=json.dumps(
+            {
+                "case_id": case.id,
+                "name": "赵法官",
+                "role": "judge",
+                "phone": "010-87654321",
+                "address": "北京市海淀区",
+            }
+        ),
         content_type="application/json",
     )
     assert resp.status_code == 200

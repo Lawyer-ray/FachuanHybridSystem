@@ -124,6 +124,7 @@ class TestMockTrialConsumerGetHandler:
 
     def _make_consumer(self):
         from apps.litigation_ai.consumers.mock_trial_consumer import MockTrialConsumer
+
         consumer = MockTrialConsumer.__new__(MockTrialConsumer)
         consumer.session_id = None
         consumer.user = None
@@ -149,6 +150,7 @@ class TestMockTrialConsumerSendMessage:
     @pytest.mark.asyncio
     async def test_sends_json(self) -> None:
         from apps.litigation_ai.consumers.mock_trial_consumer import MockTrialConsumer
+
         consumer = MockTrialConsumer.__new__(MockTrialConsumer)
         consumer.session_id = None
         consumer.user = None
@@ -164,6 +166,7 @@ class TestMockTrialConsumerSendProgress:
     @pytest.mark.asyncio
     async def test_progress_calculation(self) -> None:
         from apps.litigation_ai.consumers.mock_trial_consumer import MockTrialConsumer
+
         consumer = MockTrialConsumer.__new__(MockTrialConsumer)
         consumer.session_id = None
         consumer.user = None
@@ -179,6 +182,7 @@ class TestMockTrialConsumerSendProgress:
     @pytest.mark.asyncio
     async def test_zero_total(self) -> None:
         from apps.litigation_ai.consumers.mock_trial_consumer import MockTrialConsumer
+
         consumer = MockTrialConsumer.__new__(MockTrialConsumer)
         consumer.session_id = None
         consumer.user = None
@@ -196,6 +200,7 @@ class TestMockTrialConsumerSendError:
     @pytest.mark.asyncio
     async def test_string_error(self) -> None:
         from apps.litigation_ai.consumers.mock_trial_consumer import MockTrialConsumer
+
         consumer = MockTrialConsumer.__new__(MockTrialConsumer)
         consumer.session_id = None
         consumer.user = None
@@ -214,6 +219,7 @@ class TestMockTrialConsumerGetFlow:
 
     def _make_consumer(self):
         from apps.litigation_ai.consumers.mock_trial_consumer import MockTrialConsumer
+
         consumer = MockTrialConsumer.__new__(MockTrialConsumer)
         consumer.session_id = None
         consumer.user = None
@@ -224,9 +230,7 @@ class TestMockTrialConsumerGetFlow:
     def test_creates_once_and_reuses(self) -> None:
         """同一连接内多次获取必须命中同一 flow 实例，只构造一次."""
         consumer = self._make_consumer()
-        with patch(
-            "apps.litigation_ai.services.mock_trial.mock_trial_flow_service.MockTrialFlowService"
-        ) as mock_cls:
+        with patch("apps.litigation_ai.services.mock_trial.mock_trial_flow_service.MockTrialFlowService") as mock_cls:
             f1 = consumer._get_flow()
             f2 = consumer._get_flow()
             assert f1 is f2
@@ -236,9 +240,7 @@ class TestMockTrialConsumerGetFlow:
         """不同连接（不同 consumer 实例）各自持有独立 flow，无跨连接共享."""
         c1 = self._make_consumer()
         c2 = self._make_consumer()
-        with patch(
-            "apps.litigation_ai.services.mock_trial.mock_trial_flow_service.MockTrialFlowService"
-        ) as mock_cls:
+        with patch("apps.litigation_ai.services.mock_trial.mock_trial_flow_service.MockTrialFlowService") as mock_cls:
 
             class _FakeFlow:
                 pass

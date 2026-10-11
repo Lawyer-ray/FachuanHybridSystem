@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # We test the pure helper functions that don't require Temporal runtime.
 from apps.workflow.temporal.workflows import (
     INTERNAL_ACTIVITY_MAP,
@@ -21,8 +20,8 @@ from apps.workflow.temporal.workflows import (
     _resolve_dotted,
 )
 
-
 # ── Constants ─────────────────────────────────────────────────────────────────
+
 
 def test_internal_activity_map_has_entries():
     assert "collect_case_facts" in INTERNAL_ACTIVITY_MAP
@@ -39,6 +38,7 @@ def test_mcp_tool_map_has_entries():
 
 # ── SimpleWorkflowInput ──────────────────────────────────────────────────────
 
+
 def test_simple_workflow_input():
     inp = SimpleWorkflowInput(case_id=1, run_id=2)
     assert inp.case_id == 1
@@ -46,6 +46,7 @@ def test_simple_workflow_input():
 
 
 # ── GateResult ────────────────────────────────────────────────────────────────
+
 
 def test_gate_result_defaults():
     g = GateResult()
@@ -60,6 +61,7 @@ def test_gate_result_approved():
 
 
 # ── _resolve_dotted ──────────────────────────────────────────────────────────
+
 
 def test_resolve_dotted_simple():
     ctx = {"a": {"b": {"c": 42}}}
@@ -89,6 +91,7 @@ def test_resolve_dotted_none_value():
 
 
 # ── _eval_condition ──────────────────────────────────────────────────────────
+
 
 def test_eval_condition_eq_true():
     step = {"config": {"field": "flag", "operator": "eq", "value": "yes"}}
@@ -173,6 +176,7 @@ def test_eval_condition_empty_config():
 
 # ── _build_step_args ──────────────────────────────────────────────────────────
 
+
 def test_build_step_args_default_activity():
     step = {"type": "activity", "config": {}}
     args = _build_step_args(step, {}, case_id=1, run_id=2)
@@ -256,6 +260,7 @@ def test_build_step_args_template_missing_variable():
 
 
 # ── _build_mcp_kwargs ────────────────────────────────────────────────────────
+
 
 def test_build_mcp_kwargs_basic():
     step = {"config": {"param1": "value1"}}

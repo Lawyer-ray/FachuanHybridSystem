@@ -51,7 +51,7 @@ class EnterpriseDataMetricsService:
         fallback_used: bool,
     ) -> dict[str, Any]:  # pragma: no cover
         now = int(time.time())
-        key = self._bucket_key(provider=provider, capability=capability)
+        key = _bucket_key(provider=provider, capability=capability)
         bucket = cache.get(key)
         if not isinstance(bucket, dict) or now - int(bucket.get("window_start", 0) or 0) >= self._window_seconds:
             bucket = self._new_bucket(now)
@@ -72,7 +72,7 @@ class EnterpriseDataMetricsService:
         return snapshot
 
     def snapshot(self, *, provider: str, capability: str) -> dict[str, Any] | None:  # pragma: no cover
-        bucket = cache.get(self._bucket_key(provider=provider, capability=capability))
+        bucket = cache.get(_bucket_key(provider=provider, capability=capability))
         if not isinstance(bucket, dict):
             return None
         return self._snapshot_from_bucket(bucket)
@@ -167,6 +167,7 @@ class EnterpriseDataMetricsService:
             "updated_at": now,
         }
 
-    @staticmethod
-    def _bucket_key(*, provider: str, capability: str) -> str:
-        return f"enterprise_data:metrics:{provider}:{capability}"
+
+# ↓↓ 由 EnterpriseDataMetricsService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _bucket_key(*, provider: str, capability: str) -> str:
+    return f"enterprise_data:metrics:{provider}:{capability}"

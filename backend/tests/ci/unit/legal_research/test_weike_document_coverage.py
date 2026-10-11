@@ -12,6 +12,7 @@ Covers module-level pure functions:
   - summarize_html_payload
   - build_download_filename
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace

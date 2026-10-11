@@ -9,11 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from PIL import Image
 
-from apps.image_rotation.services.rename_ocr.channel import (
-    RETRY_CONFIDENCE_THRESHOLD,
-    OCRResult,
-    RenameOCRChannel,
-)
+from apps.image_rotation.services.rename_ocr.channel import RETRY_CONFIDENCE_THRESHOLD, OCRResult, RenameOCRChannel
 
 
 def _make_image_bytes(width: int = 200, height: int = 100) -> bytes:
@@ -135,9 +131,7 @@ class TestDoOcr:
         channel = RenameOCRChannel()
         mock_concrete = MagicMock()
         mock_concrete.provider = "paddleocr_api"
-        mock_concrete.paddleocr_engine.recognize_bytes.return_value = SimpleNamespace(
-            raw_texts=["hello", "world"]
-        )
+        mock_concrete.paddleocr_engine.recognize_bytes.return_value = SimpleNamespace(raw_texts=["hello", "world"])
 
         mock_ocr_service = MagicMock()
         mock_ocr_service.service = mock_concrete

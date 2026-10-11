@@ -96,8 +96,8 @@ class WeikeSearchMixin:  # pragma: no cover
                     cause_of_action_filter,
                 )
             elif self._is_search_api_degraded(session=session):
-                wait_seconds = self._search_api_degraded_wait_seconds(session=session)
-                self._record_search_event(
+                wait_seconds = _search_api_degraded_wait_seconds(session=session)
+                _record_search_event(
                     session=session,
                     source="system",
                     interface_name="search_api_degraded",
@@ -131,14 +131,14 @@ class WeikeSearchMixin:  # pragma: no cover
                             raw_payload=raw_payload,
                         )
                         if items:
-                            self._reset_search_api_health(session=session)
+                            _reset_search_api_health(session=session)
                             return items
                         try:
                             doc_count = max(0, int(getattr(session, "last_search_doc_count", 0) or 0))
                         except (TypeError, ValueError):
                             doc_count = 0
                         if offset > 0:
-                            self._reset_search_api_health(session=session)
+                            _reset_search_api_health(session=session)
                             logger.info(
                                 "私有wk API分页结果为空，视为翻页结束（keyword=%s, offset=%s, docCount=%s）",
                                 keyword,
@@ -153,7 +153,7 @@ class WeikeSearchMixin:  # pragma: no cover
                             offset=offset,
                             doc_count=doc_count,
                         )
-                        self._record_search_event(
+                        _record_search_event(
                             session=session,
                             source="system",
                             interface_name="search_fallback_dom",
@@ -170,7 +170,7 @@ class WeikeSearchMixin:  # pragma: no cover
                         )
                     except Exception:
                         self._mark_search_api_error(session=session, keyword=keyword, offset=offset)
-                        self._record_search_event(
+                        _record_search_event(
                             session=session,
                             source="system",
                             interface_name="search_fallback_dom",
@@ -325,7 +325,7 @@ class WeikeSearchMixin:  # pragma: no cover
                 if not href:
                     continue
 
-                parsed = self._parse_detail_url(href)
+                parsed = _parse_detail_url(href)
                 if not parsed:
                     continue
 
@@ -350,7 +350,7 @@ class WeikeSearchMixin:  # pragma: no cover
                 if len(items) >= max_candidates:
                     return items
 
-            if not self._go_next_page(page):
+            if not _go_next_page(page):
                 break
 
         logger.info(
@@ -376,7 +376,7 @@ class WeikeSearchMixin:  # pragma: no cover
     ) -> list[WeikeSearchItem]:
         started = time.monotonic()
         if session.page is None:
-            self._record_search_event(
+            _record_search_event(
                 session=session,
                 source="dom",
                 interface_name="dom_search",
@@ -467,7 +467,7 @@ class WeikeSearchMixin:  # pragma: no cover
                     if not href:
                         continue
 
-                    parsed = self._parse_detail_url(href)
+                    parsed = _parse_detail_url(href)
                     if not parsed:
                         continue
 
@@ -490,7 +490,7 @@ class WeikeSearchMixin:  # pragma: no cover
                         )
                     )
                     if len(items) >= max_candidates:
-                        self._record_search_event(
+                        _record_search_event(
                             session=session,
                             source="dom",
                             interface_name="dom_search",
@@ -504,10 +504,10 @@ class WeikeSearchMixin:  # pragma: no cover
                         )
                         return items
 
-                if not self._go_next_page(page):
+                if not _go_next_page(page):
                     break
 
-            self._record_search_event(
+            _record_search_event(
                 session=session,
                 source="dom",
                 interface_name="dom_search",
@@ -521,7 +521,7 @@ class WeikeSearchMixin:  # pragma: no cover
             )
             return items
         except (TypeError, ValueError) as exc:
-            self._record_search_event(
+            _record_search_event(
                 session=session,
                 source="dom",
                 interface_name="dom_search",
@@ -530,7 +530,7 @@ class WeikeSearchMixin:  # pragma: no cover
                 duration_ms=int((time.monotonic() - started) * 1000),
                 success=False,
                 error_code="DOM_SEARCH_ERROR",
-                error_message=self._compact_error_message(exc),
+                error_message=_compact_error_message(exc),
                 request_summary={"keyword": keyword, "offset": offset, "max_candidates": max_candidates},
             )
             raise
@@ -549,46 +549,14 @@ class WeikeSearchMixin:  # pragma: no cover
         if login_btn.count() > 0 and login_btn.first.is_visible() and "账户登录" in body_text:
             raise RuntimeError("wk登录态失效或账号未登录，请检查账号密码")
 
-    @staticmethod
-    def _parse_detail_url(url: str) -> WeikeSearchItem | None:  # pragma: no cover
-        return parse_detail_url(url)
-
-    @staticmethod
-    def _go_next_page(page: Page) -> bool:  # pragma: no cover
-        selectors = [
-            "li.ant-pagination-next:not(.ant-pagination-disabled) button",
-            "li.ant-pagination-next:not(.ant-pagination-disabled)",
-            "a[rel='next']",
-            "button:has-text('下一页')",
-            "a:has-text('下一页')",
-        ]
-        for sel in selectors:
-            locator = page.locator(sel)
-            if locator.count() == 0:
-                continue
-            try:
-                locator.first.click(timeout=5000)
-                page.wait_for_timeout(2500)
-                return True
-            except Exception:
-                logger.debug("点击下一页按钮失败（已忽略）", exc_info=True)
-                continue
-        return False
-
     def _is_search_api_degraded(self, *, session: WeikeSession) -> bool:  # pragma: no cover
         degraded_until = float(getattr(session, "search_api_degraded_until_epoch", 0.0) or 0.0)
         if degraded_until <= 0:
             return False
         if degraded_until <= time.time():
-            self._reset_search_api_health(session=session)
+            _reset_search_api_health(session=session)
             return False
         return True
-
-    @staticmethod
-    def _search_api_degraded_wait_seconds(*, session: WeikeSession) -> int:  # pragma: no cover
-        degraded_until = float(getattr(session, "search_api_degraded_until_epoch", 0.0) or 0.0)
-        remaining = degraded_until - time.time()
-        return max(1, int(remaining)) if remaining > 0 else 0
 
     def _mark_search_api_empty(  # pragma: no cover
         self,
@@ -659,12 +627,6 @@ class WeikeSearchMixin:  # pragma: no cover
             },
         )
 
-    @staticmethod
-    def _reset_search_api_health(*, session: WeikeSession) -> None:  # pragma: no cover
-        session.search_api_empty_streak = 0
-        session.search_api_error_streak = 0
-        session.search_api_degraded_until_epoch = 0.0
-
     def _resolve_search_api_degrade_streak_threshold(self) -> int:
         raw = getattr(self, "_search_api_degrade_streak_threshold", 2)
         try:
@@ -681,38 +643,82 @@ class WeikeSearchMixin:  # pragma: no cover
             value = 180
         return max(30, value)
 
-    @staticmethod
-    def _compact_error_message(exc: Exception, *, max_len: int = 200) -> str:
-        return compact_error_message(exc, max_len=max_len)
 
-    @staticmethod
-    def _record_search_event(
-        *,
-        session: WeikeSession,
-        source: str,
-        interface_name: str,
-        method: str = "",
-        url: str = "",
-        status_code: int | None = None,
-        duration_ms: int = 0,
-        success: bool,
-        error_code: str = "",
-        error_message: str = "",
-        request_summary: object = None,
-        response_summary: object = None,
-    ) -> None:
-        LegalResearchTaskEventService.record_event(
-            task_id=getattr(session, "task_id", ""),
-            stage="search",
-            source=source,
-            interface_name=interface_name,
-            method=method,
-            url=url,
-            status_code=status_code,
-            duration_ms=duration_ms,
-            success=success,
-            error_code=error_code,
-            error_message=error_message,
-            request_summary=request_summary,
-            response_summary=response_summary,
-        )
+# ↓↓ 由 WeikeSearchMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _go_next_page(page: Page) -> bool:  # pragma: no cover
+    selectors = [
+        "li.ant-pagination-next:not(.ant-pagination-disabled) button",
+        "li.ant-pagination-next:not(.ant-pagination-disabled)",
+        "a[rel='next']",
+        "button:has-text('下一页')",
+        "a:has-text('下一页')",
+    ]
+    for sel in selectors:
+        locator = page.locator(sel)
+        if locator.count() == 0:
+            continue
+        try:
+            locator.first.click(timeout=5000)
+            page.wait_for_timeout(2500)
+            return True
+        except Exception:
+            logger.debug("点击下一页按钮失败（已忽略）", exc_info=True)
+            continue
+    return False
+
+
+# ↓↓ 由 WeikeSearchMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _record_search_event(
+    *,
+    session: WeikeSession,
+    source: str,
+    interface_name: str,
+    method: str = "",
+    url: str = "",
+    status_code: int | None = None,
+    duration_ms: int = 0,
+    success: bool,
+    error_code: str = "",
+    error_message: str = "",
+    request_summary: object = None,
+    response_summary: object = None,
+) -> None:
+    LegalResearchTaskEventService.record_event(
+        task_id=getattr(session, "task_id", ""),
+        stage="search",
+        source=source,
+        interface_name=interface_name,
+        method=method,
+        url=url,
+        status_code=status_code,
+        duration_ms=duration_ms,
+        success=success,
+        error_code=error_code,
+        error_message=error_message,
+        request_summary=request_summary,
+        response_summary=response_summary,
+    )
+
+
+# ↓↓ 由 WeikeSearchMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _parse_detail_url(url: str) -> WeikeSearchItem | None:  # pragma: no cover
+    return parse_detail_url(url)
+
+
+# ↓↓ 由 WeikeSearchMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _search_api_degraded_wait_seconds(*, session: WeikeSession) -> int:  # pragma: no cover
+    degraded_until = float(getattr(session, "search_api_degraded_until_epoch", 0.0) or 0.0)
+    remaining = degraded_until - time.time()
+    return max(1, int(remaining)) if remaining > 0 else 0
+
+
+# ↓↓ 由 WeikeSearchMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _reset_search_api_health(*, session: WeikeSession) -> None:  # pragma: no cover
+    session.search_api_empty_streak = 0
+    session.search_api_error_streak = 0
+    session.search_api_degraded_until_epoch = 0.0
+
+
+# ↓↓ 由 WeikeSearchMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _compact_error_message(exc: Exception, *, max_len: int = 200) -> str:
+    return compact_error_message(exc, max_len=max_len)

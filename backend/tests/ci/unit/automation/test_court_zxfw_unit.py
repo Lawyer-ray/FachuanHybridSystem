@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
 try:
     from plugins import has_court_login_plugin
+
     _HAS_LOGIN = has_court_login_plugin()
 except ImportError:
     _HAS_LOGIN = False
@@ -17,10 +18,10 @@ pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not i
 
 
 class TestCourtZxfwService:
-
     def _make_service(self):
         """创建一个带 mock page/context 的 CourtZxfwService。"""
         from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
+
         page = MagicMock()
         page.url = "https://zxfw.court.gov.cn/zxfw/"
         context = MagicMock()
@@ -78,6 +79,7 @@ class TestCourtZxfwService:
 
     def test_is_network_error_socket_gaierror(self):
         import socket
+
         service = self._make_service()
         assert service._is_network_error(socket.gaierror()) is True
 
@@ -139,31 +141,36 @@ class TestCourtZxfwService:
 
 
 class TestCourtZxfwGotoWithRetry:
-
     def test_retries_on_network_error(self):
         from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
+
         page = MagicMock()
         page.goto.side_effect = [ConnectionError("timeout"), None]
         page.url = "https://example.com"
         context = MagicMock()
-        service = CourtZxfwService(page=page, context=context, captcha_recognizer=MagicMock(), cookie_service=MagicMock())
+        service = CourtZxfwService(
+            page=page, context=context, captcha_recognizer=MagicMock(), cookie_service=MagicMock()
+        )
         service._goto_with_retry("https://example.com", max_attempts=2)
         assert page.goto.call_count == 2
 
     def test_raises_non_network_error_immediately(self):
         from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
+
         page = MagicMock()
         page.goto.side_effect = ValueError("some error")
         context = MagicMock()
-        service = CourtZxfwService(page=page, context=context, captcha_recognizer=MagicMock(), cookie_service=MagicMock())
+        service = CourtZxfwService(
+            page=page, context=context, captcha_recognizer=MagicMock(), cookie_service=MagicMock()
+        )
         with pytest.raises(ValueError):
             service._goto_with_retry("https://example.com", max_attempts=3)
 
 
 class TestMakeResponseHandler:
-
     def test_captures_token_from_login_response(self):
         import json
+
         service = TestCourtZxfwService._make_service(None)
         captured = {"value": None}
         handler = service._make_response_handler(captured)

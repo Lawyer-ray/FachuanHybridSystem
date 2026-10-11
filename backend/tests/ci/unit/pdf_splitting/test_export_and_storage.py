@@ -8,7 +8,7 @@ from pathlib import Path
 
 from django.test import override_settings
 
-from apps.pdf_splitting.services.split.export_utils import ExportUtils
+from apps.pdf_splitting.services.split.export_utils import ExportUtils, deduplicate_filename
 from apps.pdf_splitting.services.storage import PdfSplitStorage
 
 
@@ -18,32 +18,32 @@ class TestExportUtils:
     def test_deduplicate_filename_unique(self) -> None:
         """唯一文件名。"""
         seen: set[str] = set()
-        result = ExportUtils.deduplicate_filename("起诉状.pdf", seen)
+        result = deduplicate_filename("起诉状.pdf", seen)
         assert result == "起诉状.pdf"
         assert "起诉状.pdf" in seen
 
     def test_deduplicate_filename_duplicate(self) -> None:
         """重复文件名。"""
         seen: set[str] = {"起诉状.pdf"}
-        result = ExportUtils.deduplicate_filename("起诉状.pdf", seen)
+        result = deduplicate_filename("起诉状.pdf", seen)
         assert result == "起诉状_2.pdf"
 
     def test_deduplicate_filename_multiple_duplicates(self) -> None:
         """多次重复。"""
         seen: set[str] = {"起诉状.pdf", "起诉状_2.pdf"}
-        result = ExportUtils.deduplicate_filename("起诉状.pdf", seen)
+        result = deduplicate_filename("起诉状.pdf", seen)
         assert result == "起诉状_3.pdf"
 
     def test_deduplicate_filename_no_extension(self) -> None:
         """无扩展名。"""
         seen: set[str] = set()
-        result = ExportUtils.deduplicate_filename("起诉状", seen)
+        result = deduplicate_filename("起诉状", seen)
         assert result == "起诉状.pdf"
 
     def test_deduplicate_filename_empty(self) -> None:
         """空文件名。"""
         seen: set[str] = set()
-        result = ExportUtils.deduplicate_filename("", seen)
+        result = deduplicate_filename("", seen)
         assert result == "片段.pdf"
 
 
@@ -92,6 +92,7 @@ class TestPdfSplitStorage:
         """创建目录。"""
         with tempfile.TemporaryDirectory() as tmpdir:
             import django.conf
+
             old = django.conf.settings.MEDIA_ROOT
             django.conf.settings.MEDIA_ROOT = tmpdir
             try:
@@ -122,6 +123,7 @@ class TestPdfSplitStorage:
         """清理目录。"""
         with tempfile.TemporaryDirectory() as tmpdir:
             import django.conf
+
             old = django.conf.settings.MEDIA_ROOT
             django.conf.settings.MEDIA_ROOT = tmpdir
             try:

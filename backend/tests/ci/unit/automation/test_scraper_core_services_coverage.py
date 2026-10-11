@@ -60,7 +60,7 @@ class TestCookieService:
         svc = CookieService(storage_path="/tmp/test.json")
         with patch("plugins.court_automation.login.cookie_service.Path") as mock_path:
             mock_path.return_value.exists.return_value = True
-            mock_path.return_value.read_text.return_value = '[1, 2, 3]'
+            mock_path.return_value.read_text.return_value = "[1, 2, 3]"
             assert svc.load(MagicMock()) is False
 
     @_SKIP_COOKIE
@@ -78,41 +78,49 @@ class TestValidatorService:
 
     def test_init_with_no_args(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorService
+
         svc = ValidatorService()
         assert svc._text_utils is None
 
     def test_text_utils_lazy_load(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorService
+
         svc = ValidatorService()
         assert svc.text_utils is not None
 
     def test_file_utils_lazy_load(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorService
+
         svc = ValidatorService()
         assert svc.file_utils is not None
 
     def test_validate_case_number_empty(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorService
+
         svc = ValidatorService()
         assert svc.validate_case_number("") is False
 
     def test_validate_case_number_none(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorService
+
         svc = ValidatorService()
         assert svc.validate_case_number(None) is False
 
     def test_validate_case_number_valid(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorService
+
         svc = ValidatorService()
         assert svc.validate_case_number("（2025）粤01民初12345号") is True
 
     def test_validate_case_number_invalid(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorService
+
         svc = ValidatorService()
         assert svc.validate_case_number("not a case number") is False
 
     def test_normalize_case_number(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorService
+
         svc = ValidatorService()
         result = svc.normalize_case_number("(2025)粤01民初1")
         assert "（" in result
@@ -120,6 +128,7 @@ class TestValidatorService:
 
     def test_validate_file(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorService
+
         mock_fu = MagicMock()
         mock_fu.validate_file_basic.return_value = {"valid": True}
         svc = ValidatorService(file_utils=mock_fu)
@@ -128,12 +137,14 @@ class TestValidatorService:
 
     def test_clean_text(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorService
+
         svc = ValidatorService()
         result = svc.clean_text("hello  world")
         assert result == "hello world"
 
     def test_extract_case_numbers(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorService
+
         svc = ValidatorService()
         result = svc.extract_case_numbers("案件（2025）粤01民初1号")
         assert len(result) >= 1
@@ -144,27 +155,32 @@ class TestValidatorServiceAdapter:
 
     def test_init_with_no_service(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorServiceAdapter
+
         adapter = ValidatorServiceAdapter()
         assert adapter._service is None
 
     def test_service_lazy_load(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorServiceAdapter
+
         adapter = ValidatorServiceAdapter()
         assert adapter.service is not None
 
     def test_validate_case_number(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorServiceAdapter
+
         adapter = ValidatorServiceAdapter()
         assert adapter.validate_case_number("（2025）粤01民初1号") is True
 
     def test_normalize_case_number(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorServiceAdapter
+
         adapter = ValidatorServiceAdapter()
         result = adapter.normalize_case_number("(2025)粤01民初1")
         assert result.endswith("号")
 
     def test_validate_file(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorServiceAdapter
+
         adapter = ValidatorServiceAdapter()
         with patch.object(adapter.service, "validate_file", return_value={"valid": True}):
             result = adapter.validate_file("/test/file.pdf")
@@ -172,29 +188,34 @@ class TestValidatorServiceAdapter:
 
     def test_clean_text(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorServiceAdapter
+
         adapter = ValidatorServiceAdapter()
         result = adapter.clean_text("hello  world")
         assert result == "hello world"
 
     def test_extract_case_numbers(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorServiceAdapter
+
         adapter = ValidatorServiceAdapter()
         result = adapter.extract_case_numbers("案件（2025）粤01民初1号")
         assert len(result) >= 1
 
     def test_internal_validate_case_number(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorServiceAdapter
+
         adapter = ValidatorServiceAdapter()
         assert adapter.validate_case_number_internal("（2025）粤01民初1号") is True
 
     def test_internal_normalize_case_number(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorServiceAdapter
+
         adapter = ValidatorServiceAdapter()
         result = adapter.normalize_case_number_internal("(2025)粤01民初1")
         assert result.endswith("号")
 
     def test_internal_validate_file(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorServiceAdapter
+
         adapter = ValidatorServiceAdapter()
         with patch.object(adapter.service, "validate_file", return_value={"valid": True}):
             result = adapter.validate_file_internal("/test/file.pdf")
@@ -202,12 +223,14 @@ class TestValidatorServiceAdapter:
 
     def test_internal_clean_text(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorServiceAdapter
+
         adapter = ValidatorServiceAdapter()
         result = adapter.clean_text_internal("hello  world")
         assert result == "hello world"
 
     def test_internal_extract_case_numbers(self):
         from apps.automation.services.scraper.core.validator_service import ValidatorServiceAdapter
+
         adapter = ValidatorServiceAdapter()
         result = adapter.extract_case_numbers_internal("案件（2025）粤01民初1号")
         assert len(result) >= 1
@@ -218,17 +241,22 @@ class TestScreenshotUtils:
 
     def test_dir_not_exists(self):
         from apps.automation.services.scraper.core.screenshot_utils import ScreenshotUtils
+
         svc = ScreenshotUtils()
-        with patch("apps.automation.services.scraper.core.screenshot_utils.settings") as mock_settings, \
-             patch("apps.automation.services.scraper.core.screenshot_utils.Path") as mock_path_cls:
+        with (
+            patch("apps.automation.services.scraper.core.screenshot_utils.settings") as mock_settings,
+            patch("apps.automation.services.scraper.core.screenshot_utils.Path") as mock_path_cls,
+        ):
             mock_settings.MEDIA_ROOT = "/tmp/media"
             mock_path_cls.return_value.exists.return_value = False
             result = svc.collect_screenshots()
         assert result == []
 
     def test_collects_screenshots(self):
-        from apps.automation.services.scraper.core.screenshot_utils import ScreenshotUtils
         from pathlib import Path
+
+        from apps.automation.services.scraper.core.screenshot_utils import ScreenshotUtils
+
         svc = ScreenshotUtils()
 
         mock_screenshot = MagicMock()
@@ -244,7 +272,9 @@ class TestScreenshotUtils:
                 mock_screenshot_dir.glob.return_value = [mock_screenshot]
                 # Path(root) / "automation" / "screenshots"
                 mock_root = MagicMock()
-                mock_root.__truediv__ = MagicMock(return_value=MagicMock(__truediv__=MagicMock(return_value=mock_screenshot_dir)))
+                mock_root.__truediv__ = MagicMock(
+                    return_value=MagicMock(__truediv__=MagicMock(return_value=mock_screenshot_dir))
+                )
                 mock_path_cls.return_value = mock_root
 
                 result = svc.collect_screenshots(limit=3)
@@ -253,9 +283,12 @@ class TestScreenshotUtils:
 
     def test_exception_returns_empty(self):
         from apps.automation.services.scraper.core.screenshot_utils import ScreenshotUtils
+
         svc = ScreenshotUtils()
-        with patch("apps.automation.services.scraper.core.screenshot_utils.settings") as mock_settings, \
-             patch("apps.automation.services.scraper.core.screenshot_utils.Path") as mock_path_cls:
+        with (
+            patch("apps.automation.services.scraper.core.screenshot_utils.settings") as mock_settings,
+            patch("apps.automation.services.scraper.core.screenshot_utils.Path") as mock_path_cls,
+        ):
             mock_settings.MEDIA_ROOT = "/tmp/media"
             mock_path_cls.side_effect = Exception("path error")
             result = svc.collect_screenshots()

@@ -19,7 +19,9 @@ class TestWindowsOutlookProviderFetchEvents:
         with patch.dict("sys.modules", {"win32com.client": None}):
             # ImportError path
             import importlib
+
             import apps.reminders.services.calendar_providers.windows_provider as mod
+
             original_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__  # type: ignore[union-attr]
 
             def _mock_import(name: str, *args: object, **kwargs: object) -> MagicMock:
@@ -38,7 +40,10 @@ class TestWindowsOutlookProviderFetchEvents:
         mock_win32 = MagicMock()
         mock_win32.Dispatch.side_effect = Exception("COM error")
         with patch.dict("sys.modules", {"win32com.client": mock_win32}):
-            with patch("builtins.__import__", side_effect=lambda name, *a, **kw: mock_win32 if "win32com" in name else MagicMock()):
+            with patch(
+                "builtins.__import__",
+                side_effect=lambda name, *a, **kw: mock_win32 if "win32com" in name else MagicMock(),
+            ):
                 result = provider.fetch_events()
                 assert result == []
 
@@ -58,7 +63,10 @@ class TestWindowsOutlookProviderFetchEvents:
         mock_win32 = MagicMock()
         mock_win32.Dispatch.return_value = mock_outlook
         with patch.dict("sys.modules", {"win32com.client": mock_win32}):
-            with patch("builtins.__import__", side_effect=lambda name, *a, **kw: mock_win32 if "win32com" in name else MagicMock()):
+            with patch(
+                "builtins.__import__",
+                side_effect=lambda name, *a, **kw: mock_win32 if "win32com" in name else MagicMock(),
+            ):
                 result = provider.fetch_events()
                 assert result == []
 

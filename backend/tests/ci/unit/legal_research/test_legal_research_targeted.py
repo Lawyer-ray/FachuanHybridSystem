@@ -9,6 +9,28 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.legal_research.services.executor_components.cache_mixin import (
+    _deserialize_case_detail_payload,
+    _extract_item_doc_id,
+    _serialize_case_detail,
+)
+from apps.legal_research.services.executor_components.feedback_mixin import (
+    _build_query_trace_payload,
+    _init_query_metric,
+)
+from apps.legal_research.services.executor_components.result_persistence import (
+    _build_content_excerpt,
+    _extract_similarity_metadata,
+    _sanitize_pdf_filename,
+)
+from apps.legal_research.services.executor_components.task_lifecycle import (
+    _is_cancel_requested,
+    _mark_cancelled,
+    _mark_completed,
+    _mark_failed,
+)
+from apps.legal_research.services.task.event_service import _normalize_status_code, _normalize_task_id
+
 # ---------------------------------------------------------------------------
 # tasks.py (0% coverage)
 # ---------------------------------------------------------------------------
@@ -68,7 +90,7 @@ class TestFeedbackMixin:
     def test_init_query_metric(self):
         from apps.legal_research.services.executor_components.feedback_mixin import ExecutorFeedbackMixin
 
-        metric = ExecutorFeedbackMixin._init_query_metric()
+        metric = _init_query_metric()
         assert metric == {"candidates": 0, "scanned": 0, "matched": 0, "skipped": 0}
 
     def test_apply_query_performance_feedback_no_scanned(self):
@@ -139,7 +161,7 @@ class TestFeedbackMixin:
     def test_build_query_trace_payload(self):
         from apps.legal_research.services.executor_components.feedback_mixin import ExecutorFeedbackMixin
 
-        result = ExecutorFeedbackMixin._build_query_trace_payload(
+        result = _build_query_trace_payload(
             primary_queries=["q1", "q2"],
             expansion_queries=["e1"],
             feedback_queries=["f1"],
@@ -238,53 +260,53 @@ class TestResultPersistence:
     def test_build_content_excerpt_empty(self):
         from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
-        assert ExecutorResultPersistenceMixin._build_content_excerpt("") == ""
-        assert ExecutorResultPersistenceMixin._build_content_excerpt(None) == ""
+        assert _build_content_excerpt("") == ""
+        assert _build_content_excerpt(None) == ""
 
     def test_build_content_excerpt_normal(self):
         from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
         text = "这是正常的案例文本内容"
-        result = ExecutorResultPersistenceMixin._build_content_excerpt(text)
+        result = _build_content_excerpt(text)
         assert result == text
 
     def test_build_content_excerpt_long(self):
         from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
         text = "x" * 20000
-        result = ExecutorResultPersistenceMixin._build_content_excerpt(text)
+        result = _build_content_excerpt(text)
         assert len(result) == ExecutorResultPersistenceMixin.CONTENT_EXCERPT_MAX_CHARS
 
     def test_build_content_excerpt_with_whitespace(self):
         from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
         text = "line1\r\n\r\n\r\n\r\nline2"
-        result = ExecutorResultPersistenceMixin._build_content_excerpt(text)
+        result = _build_content_excerpt(text)
         assert "\r" not in result
 
     def test_sanitize_pdf_filename_normal(self):
         from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
-        result = ExecutorResultPersistenceMixin._sanitize_pdf_filename("test.pdf", fallback="fallback")
+        result = _sanitize_pdf_filename("test.pdf", fallback="fallback")
         assert result == "test.pdf"
 
     def test_sanitize_pdf_filename_no_ext(self):
         from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
-        result = ExecutorResultPersistenceMixin._sanitize_pdf_filename("test", fallback="fallback")
+        result = _sanitize_pdf_filename("test", fallback="fallback")
         assert result.endswith(".pdf")
 
     def test_sanitize_pdf_filename_path_traversal(self):
         from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
-        result = ExecutorResultPersistenceMixin._sanitize_pdf_filename("../../../etc/passwd", fallback="case")
+        result = _sanitize_pdf_filename("../../../etc/passwd", fallback="case")
         assert "/" not in result
         assert result.endswith(".pdf")
 
     def test_sanitize_pdf_filename_empty(self):
         from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
-        result = ExecutorResultPersistenceMixin._sanitize_pdf_filename("", fallback="fallback")
+        result = _sanitize_pdf_filename("", fallback="fallback")
         assert result.endswith(".pdf")
         assert len(result) > 4
 
@@ -292,21 +314,21 @@ class TestResultPersistence:
         from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
         sim = SimpleNamespace(metadata=None)
-        result = ExecutorResultPersistenceMixin._extract_similarity_metadata(similarity=sim)
+        result = _extract_similarity_metadata(similarity=sim)
         assert result == {}
 
     def test_extract_similarity_metadata_with_data(self):
         from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
         sim = SimpleNamespace(metadata={"score": 0.8, "reason": "test"})
-        result = ExecutorResultPersistenceMixin._extract_similarity_metadata(similarity=sim)
+        result = _extract_similarity_metadata(similarity=sim)
         assert "similarity_structured" in result
 
     def test_extract_similarity_metadata_empty_dict(self):
         from apps.legal_research.services.executor_components.result_persistence import ExecutorResultPersistenceMixin
 
         sim = SimpleNamespace(metadata={})
-        result = ExecutorResultPersistenceMixin._extract_similarity_metadata(similarity=sim)
+        result = _extract_similarity_metadata(similarity=sim)
         assert result == {}
 
 
@@ -358,7 +380,7 @@ class TestCacheMixin:
             content_text="Content",
             raw_meta={"key": "value"},
         )
-        payload = ExecutorCacheMixin._serialize_case_detail(detail)
+        payload = _serialize_case_detail(detail)
         assert payload["doc_id_raw"] == "RAW"
         assert payload["title"] == "Title"
         assert payload["raw_meta"] == {"key": "value"}
@@ -380,7 +402,7 @@ class TestCacheMixin:
             content_text="",
             raw_meta=None,
         )
-        payload = ExecutorCacheMixin._serialize_case_detail(detail)
+        payload = _serialize_case_detail(detail)
         assert "raw_meta" not in payload
 
     def test_deserialize_case_detail_payload(self):
@@ -392,7 +414,7 @@ class TestCacheMixin:
             "detail_url": "http://example.com",
             "title": "Test",
         }
-        result = ExecutorCacheMixin._deserialize_case_detail_payload(payload)
+        result = _deserialize_case_detail_payload(payload)
         assert result is not None
         assert result.doc_id_raw == "RAW"
         assert result.title == "Test"
@@ -401,20 +423,20 @@ class TestCacheMixin:
         from apps.legal_research.services.executor_components.cache_mixin import ExecutorCacheMixin
 
         payload = {"doc_id_raw": "", "doc_id_unquoted": ""}
-        result = ExecutorCacheMixin._deserialize_case_detail_payload(payload)
+        result = _deserialize_case_detail_payload(payload)
         assert result is None
 
     def test_extract_item_doc_id(self):
         from apps.legal_research.services.executor_components.cache_mixin import ExecutorCacheMixin
 
         item = SimpleNamespace(doc_id_unquoted="UNQ", doc_id_raw="RAW")
-        assert ExecutorCacheMixin._extract_item_doc_id(item) == "UNQ"
+        assert _extract_item_doc_id(item) == "UNQ"
 
     def test_extract_item_doc_id_fallback(self):
         from apps.legal_research.services.executor_components.cache_mixin import ExecutorCacheMixin
 
         item = SimpleNamespace(doc_id_unquoted="", doc_id_raw="RAW")
-        assert ExecutorCacheMixin._extract_item_doc_id(item) == "RAW"
+        assert _extract_item_doc_id(item) == "RAW"
 
     def test_load_case_detail_cache_exception(self):
         from apps.legal_research.services.executor_components.cache_mixin import ExecutorCacheMixin
@@ -467,7 +489,7 @@ class TestTaskLifecycle:
             status=LegalResearchTaskStatus.RUNNING,
         )
         with patch.object(task, "save"):
-            ExecutorTaskLifecycleMixin._mark_completed(task, message="done")
+            _mark_completed(task, message="done")
             assert task.status == LegalResearchTaskStatus.COMPLETED
             assert task.progress == 100
 
@@ -480,7 +502,7 @@ class TestTaskLifecycle:
             status=LegalResearchTaskStatus.RUNNING,
         )
         with patch.object(task, "save"):
-            ExecutorTaskLifecycleMixin._mark_failed(task, "error msg")
+            _mark_failed(task, "error msg")
             assert task.status == LegalResearchTaskStatus.FAILED
             assert task.error == "error msg"
 
@@ -492,7 +514,7 @@ class TestTaskLifecycle:
             mock_model.objects.filter.return_value.values_list.return_value.first.return_value = (
                 LegalResearchTaskStatus.CANCELLED
             )
-            result = ExecutorTaskLifecycleMixin._is_cancel_requested("task-1")
+            result = _is_cancel_requested("task-1")
             assert result is True
 
     def test_is_cancel_requested_false(self):
@@ -504,7 +526,7 @@ class TestTaskLifecycle:
                 LegalResearchTaskStatus.RUNNING
             )
             with patch("asyncio.get_running_loop", side_effect=RuntimeError):
-                result = ExecutorTaskLifecycleMixin._is_cancel_requested("task-1")
+                result = _is_cancel_requested("task-1")
                 assert result is False
 
     def test_mark_cancelled(self):
@@ -518,7 +540,7 @@ class TestTaskLifecycle:
             target_count=10,
         )
         with patch.object(task, "save"):
-            ExecutorTaskLifecycleMixin._mark_cancelled(task=task, scanned=50, matched=5, skipped=2)
+            _mark_cancelled(task=task, scanned=50, matched=5, skipped=2)
             assert task.status == LegalResearchTaskStatus.CANCELLED
             assert task.scanned_count == 50
             assert task.matched_count == 5
@@ -692,26 +714,26 @@ class TestEventService:
     def test_normalize_task_id_none(self):
         from apps.legal_research.services.task.event_service import LegalResearchTaskEventService
 
-        assert LegalResearchTaskEventService._normalize_task_id(None) is None
-        assert LegalResearchTaskEventService._normalize_task_id("") is None
-        assert LegalResearchTaskEventService._normalize_task_id("abc") is None
-        assert LegalResearchTaskEventService._normalize_task_id("-1") is None
-        assert LegalResearchTaskEventService._normalize_task_id("0") is None
+        assert _normalize_task_id(None) is None
+        assert _normalize_task_id("") is None
+        assert _normalize_task_id("abc") is None
+        assert _normalize_task_id("-1") is None
+        assert _normalize_task_id("0") is None
 
     def test_normalize_task_id_valid(self):
         from apps.legal_research.services.task.event_service import LegalResearchTaskEventService
 
-        assert LegalResearchTaskEventService._normalize_task_id("42") == 42
-        assert LegalResearchTaskEventService._normalize_task_id(42) == 42
+        assert _normalize_task_id("42") == 42
+        assert _normalize_task_id(42) == 42
 
     def test_normalize_status_code(self):
         from apps.legal_research.services.task.event_service import LegalResearchTaskEventService
 
-        assert LegalResearchTaskEventService._normalize_status_code(None) is None
-        assert LegalResearchTaskEventService._normalize_status_code("abc") is None
-        assert LegalResearchTaskEventService._normalize_status_code(50) is None
-        assert LegalResearchTaskEventService._normalize_status_code(1000) is None
-        assert LegalResearchTaskEventService._normalize_status_code(200) == 200
+        assert _normalize_status_code(None) is None
+        assert _normalize_status_code("abc") is None
+        assert _normalize_status_code(50) is None
+        assert _normalize_status_code(1000) is None
+        assert _normalize_status_code(200) == 200
 
     def test_sanitize_url_empty(self):
         from apps.legal_research.services.task.event_service import LegalResearchTaskEventService

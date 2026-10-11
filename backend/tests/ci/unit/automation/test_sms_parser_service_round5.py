@@ -6,13 +6,13 @@ Covers:
 - _find_existing_clients_in_sms: exception handling, short name skipping
 - _is_valid_download_link: zxfw hash-fragment with params
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
 
 from apps.automation.models import CourtSMSType
 from apps.automation.services.sms.sms_parser_service import SMSParserService
-
 
 # ── parse — SMS type detection ────────────────────────────────────────────────
 
@@ -35,6 +35,7 @@ class TestParseSmsTypeDetection:
         content = "您的案件已分配法官"
         result = self.service.parse(content)
         assert result.sms_type == CourtSMSType.INFO_NOTIFICATION
+
 
 # ── extract_party_names — candidate extraction ────────────────────────────────
 
@@ -176,5 +177,3 @@ class TestIsValidDownloadLinkZxfw:
     def test_hbfy_msg_link(self):
         link = "https://hb.court.gov.cn/hb/msg?msg=XYZ"
         assert self.service._is_valid_download_link(link) is True
-
-

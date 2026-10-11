@@ -252,22 +252,26 @@ class TestCourtInsuranceClientAsync:
     @patch("plugins.court_automation.preservation_quote.court_insurance_client.httpx.AsyncClient")
     def test_fetch_all_premiums_empty_companies(self, mock_client_cls, mock_get_config):
         import asyncio
+
         mock_get_config.return_value = 60.0
         client = CourtInsuranceClient(token_service=MagicMock())
-        result = asyncio.run(client.fetch_all_premiums(
-            bearer_token="token",
-            preserve_amount=Decimal("10000"),
-            corp_id="123",
-            companies=[],
-        ))
+        result = asyncio.run(
+            client.fetch_all_premiums(
+                bearer_token="token",
+                preserve_amount=Decimal("10000"),
+                corp_id="123",
+                companies=[],
+            )
+        )
         assert result == []
 
     @patch("plugins.court_automation.preservation_quote.court_insurance_client.get_config")
     @patch("plugins.court_automation.preservation_quote.court_insurance_client.httpx.AsyncClient")
     def test_context_manager(self, mock_client_cls, mock_get_config):
         import asyncio
+
         mock_get_config.return_value = 60.0
         client = CourtInsuranceClient(token_service=MagicMock())
         # Test async context manager protocol
-        assert hasattr(client, '__aenter__')
-        assert hasattr(client, '__aexit__')
+        assert hasattr(client, "__aenter__")
+        assert hasattr(client, "__aexit__")

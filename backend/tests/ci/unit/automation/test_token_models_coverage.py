@@ -73,8 +73,10 @@ class TestTokenAcquisitionHistory:
             token_fingerprint=None,
             token_redacted=None,
         )
-        with patch("apps.core.security.scrub.fingerprint_sha256", return_value="fp") as mock_fp, \
-             patch("apps.core.security.scrub.mask_secret", return_value="masked") as mock_mask:
+        with (
+            patch("apps.core.security.scrub.fingerprint_sha256", return_value="fp") as mock_fp,
+            patch("apps.core.security.scrub.mask_secret", return_value="masked") as mock_mask,
+        ):
             TokenAcquisitionHistory.on_save_scrub_sensitive_fields(obj)
             assert obj.token_fingerprint == "fp"
             assert obj.token_redacted == "masked"
@@ -123,10 +125,12 @@ class TestTokenAcquisitionHistory:
             token_fingerprint=None,
             token_redacted=None,
         )
-        with patch("apps.core.security.scrub.fingerprint_sha256", return_value="fp"), \
-             patch("apps.core.security.scrub.mask_secret", return_value="masked"), \
-             patch("apps.core.security.scrub.scrub_text", return_value="scrubbed_err"), \
-             patch("apps.core.security.scrub.scrub_obj", return_value={"detail": "scrubbed"}):
+        with (
+            patch("apps.core.security.scrub.fingerprint_sha256", return_value="fp"),
+            patch("apps.core.security.scrub.mask_secret", return_value="masked"),
+            patch("apps.core.security.scrub.scrub_text", return_value="scrubbed_err"),
+            patch("apps.core.security.scrub.scrub_obj", return_value={"detail": "scrubbed"}),
+        ):
             TokenAcquisitionHistory.on_save_scrub_sensitive_fields(obj)
             assert obj.token_fingerprint == "fp"
             assert obj.token_redacted == "masked"

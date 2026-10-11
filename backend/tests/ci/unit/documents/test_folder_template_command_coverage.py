@@ -2,6 +2,7 @@
 
 Covers: FolderTemplateCommandService create/update/delete/get_template_or_404.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ class TestFolderTemplateCommandServiceCreateTemplate:
     @pytest.mark.django_db
     def test_create_success(self):
         from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
+
         mock_repo = MagicMock()
         mock_validation = MagicMock()
         mock_validation.validate_structure.return_value = (True, "")
@@ -39,6 +41,7 @@ class TestFolderTemplateCommandServiceCreateTemplate:
     @pytest.mark.django_db
     def test_create_validation_fails(self):
         from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
+
         mock_repo = MagicMock()
         mock_validation = MagicMock()
         mock_validation.validate_structure.return_value = (False, "结构无效")
@@ -60,6 +63,7 @@ class TestFolderTemplateCommandServiceCreateTemplate:
     @pytest.mark.django_db
     def test_create_structure_ids_fails(self):
         from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
+
         mock_repo = MagicMock()
         mock_validation = MagicMock()
         mock_validation.validate_structure.return_value = (True, "")
@@ -83,6 +87,7 @@ class TestFolderTemplateCommandServiceUpdateStructure:
     @pytest.mark.django_db
     def test_update_success(self):
         from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
+
         mock_repo = MagicMock()
         mock_validation = MagicMock()
         mock_validation.validate_structure.return_value = (True, "")
@@ -95,7 +100,7 @@ class TestFolderTemplateCommandServiceUpdateStructure:
             validation_service=mock_validation,
             structure_rules=mock_rules,
         )
-        with patch.object(FolderTemplateCommandService, '_clear_folder_template_cache'):
+        with patch.object(FolderTemplateCommandService, "_clear_folder_template_cache"):
             result = svc.update_structure(template_id=1, structure={"nodes": []})
             assert result is mock_template
 
@@ -103,6 +108,7 @@ class TestFolderTemplateCommandServiceUpdateStructure:
     def test_update_not_found(self):
         from apps.documents.models import FolderTemplate
         from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
+
         mock_repo = MagicMock()
         mock_repo.get_by_id.side_effect = FolderTemplate.DoesNotExist()
         mock_validation = MagicMock()
@@ -118,6 +124,7 @@ class TestFolderTemplateCommandServiceUpdateStructure:
     @pytest.mark.django_db
     def test_update_validation_fails(self):
         from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
+
         mock_repo = MagicMock()
         mock_template = MagicMock()
         mock_repo.get_by_id.return_value = mock_template
@@ -135,6 +142,7 @@ class TestFolderTemplateCommandServiceUpdateStructure:
     @pytest.mark.django_db
     def test_update_structure_ids_fails(self):
         from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
+
         mock_repo = MagicMock()
         mock_template = MagicMock()
         mock_repo.get_by_id.return_value = mock_template
@@ -155,6 +163,7 @@ class TestFolderTemplateCommandServiceDeleteTemplate:
     @pytest.mark.django_db
     def test_delete_success(self):
         from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
+
         mock_repo = MagicMock()
         mock_template = MagicMock()
         mock_template.is_active = True
@@ -166,7 +175,7 @@ class TestFolderTemplateCommandServiceDeleteTemplate:
             validation_service=mock_validation,
             structure_rules=mock_rules,
         )
-        with patch.object(FolderTemplateCommandService, '_clear_folder_template_cache'):
+        with patch.object(FolderTemplateCommandService, "_clear_folder_template_cache"):
             result = svc.delete_template(template_id=1)
             assert result is True
             assert mock_template.is_active is False
@@ -175,6 +184,7 @@ class TestFolderTemplateCommandServiceDeleteTemplate:
     def test_delete_not_found(self):
         from apps.documents.models import FolderTemplate
         from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
+
         mock_repo = MagicMock()
         mock_repo.get_by_id.side_effect = FolderTemplate.DoesNotExist()
         mock_validation = MagicMock()
@@ -192,6 +202,7 @@ class TestFolderTemplateCommandServiceCreateFromDict:
     @pytest.mark.django_db
     def test_create_from_dict(self):
         from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
+
         mock_repo = MagicMock()
         mock_validation = MagicMock()
         mock_validation.validate_structure.return_value = (True, "")
@@ -203,19 +214,22 @@ class TestFolderTemplateCommandServiceCreateFromDict:
             validation_service=mock_validation,
             structure_rules=mock_rules,
         )
-        result = svc.create_template_from_dict(data={
-            "name": "template",
-            "case_type": "civil",
-            "case_stage": "trial",
-            "structure": {"nodes": []},
-            "is_default": True,
-            "is_active": True,
-        })
+        result = svc.create_template_from_dict(
+            data={
+                "name": "template",
+                "case_type": "civil",
+                "case_stage": "trial",
+                "structure": {"nodes": []},
+                "is_default": True,
+                "is_active": True,
+            }
+        )
         assert result is not None
 
     @pytest.mark.django_db
     def test_create_from_dict_with_extra_fields(self):
         from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
+
         mock_repo = MagicMock()
         mock_validation = MagicMock()
         mock_validation.validate_structure.return_value = (True, "")
@@ -227,16 +241,18 @@ class TestFolderTemplateCommandServiceCreateFromDict:
             validation_service=mock_validation,
             structure_rules=mock_rules,
         )
-        result = svc.create_template_from_dict(data={
-            "name": "template2",
-            "case_type": "criminal",
-            "case_stage": "investigation",
-            "structure": {"nodes": []},
-            "template_type": "contract",
-            "case_types": ["criminal"],
-            "case_stages": ["investigation"],
-            "contract_types": ["labor"],
-        })
+        result = svc.create_template_from_dict(
+            data={
+                "name": "template2",
+                "case_type": "criminal",
+                "case_stage": "investigation",
+                "structure": {"nodes": []},
+                "template_type": "contract",
+                "case_types": ["criminal"],
+                "case_stages": ["investigation"],
+                "contract_types": ["labor"],
+            }
+        )
         assert result is not None
 
 
@@ -244,6 +260,7 @@ class TestFolderTemplateCommandServiceUpdateFromDict:
     @pytest.mark.django_db
     def test_update_with_structure(self):
         from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
+
         mock_repo = MagicMock()
         mock_validation = MagicMock()
         mock_validation.validate_structure.return_value = (True, "")
@@ -256,7 +273,7 @@ class TestFolderTemplateCommandServiceUpdateFromDict:
             validation_service=mock_validation,
             structure_rules=mock_rules,
         )
-        with patch.object(FolderTemplateCommandService, '_clear_folder_template_cache'):
+        with patch.object(FolderTemplateCommandService, "_clear_folder_template_cache"):
             result = svc.update_template_from_dict(
                 template_id=1,
                 data={"structure": {"nodes": []}, "name": "updated"},
@@ -266,6 +283,7 @@ class TestFolderTemplateCommandServiceUpdateFromDict:
     @pytest.mark.django_db
     def test_update_without_structure(self):
         from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
+
         mock_repo = MagicMock()
         mock_template = MagicMock()
         mock_repo.get_by_id.return_value = mock_template
@@ -286,6 +304,7 @@ class TestFolderTemplateCommandServiceUpdateFromDict:
     def test_update_template_not_found(self):
         from apps.documents.models import FolderTemplate
         from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
+
         mock_repo = MagicMock()
         mock_repo.get_by_id.side_effect = FolderTemplate.DoesNotExist()
         mock_validation = MagicMock()
@@ -303,6 +322,7 @@ class TestFolderTemplateCommandServiceGetTemplateOr404:
     @pytest.mark.django_db
     def test_found(self):
         from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
+
         mock_repo = MagicMock()
         mock_template = MagicMock()
         mock_repo.get_by_id.return_value = mock_template
@@ -319,6 +339,7 @@ class TestFolderTemplateCommandServiceGetTemplateOr404:
     def test_not_found(self):
         from apps.documents.models import FolderTemplate
         from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
+
         mock_repo = MagicMock()
         mock_repo.get_by_id.side_effect = FolderTemplate.DoesNotExist()
         mock_validation = MagicMock()

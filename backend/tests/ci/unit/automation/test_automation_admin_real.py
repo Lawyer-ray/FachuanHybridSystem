@@ -155,9 +155,7 @@ class TestCourtSMSAdminBaseDisplayMethods:
         assert "C001" in result
 
     def test_notification_details_failure(self) -> None:
-        sms = self._make_sms(
-            notification_results={"feishu": {"success": False, "error": "连接超时"}}
-        )
+        sms = self._make_sms(notification_results={"feishu": {"success": False, "error": "连接超时"}})
         result = self.admin.notification_details(sms)
         assert "失败" in result
         assert "连接超时" in result

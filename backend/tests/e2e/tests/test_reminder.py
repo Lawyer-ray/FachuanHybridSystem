@@ -12,17 +12,15 @@ Django Admin E2E 测试 — 提醒/日历
 import pytest
 from playwright.sync_api import Page, expect
 
-
 # ------------------------------------------------------------------
 # 1. 日历页面加载
 # ------------------------------------------------------------------
 
+
 @pytest.mark.smoke
 def test_calendar_page_loads(admin_page: Page, base_url: str) -> None:
     """访问日历页面，验证页面正常加载并包含日历容器元素。"""
-    response = admin_page.goto(
-        f"{base_url}/admin/reminders/reminder/calendar/"
-    )
+    response = admin_page.goto(f"{base_url}/admin/reminders/reminder/calendar/")
     assert response is not None
     assert response.status < 500
     admin_page.wait_for_load_state("domcontentloaded")
@@ -38,6 +36,7 @@ def test_calendar_page_loads(admin_page: Page, base_url: str) -> None:
 # 2. 日历导航控件
 # ------------------------------------------------------------------
 
+
 def test_calendar_has_navigation(admin_page: Page, base_url: str) -> None:
     """验证日历页面包含月份/周导航控件（上一月/下一月链接）。"""
     admin_page.goto(f"{base_url}/admin/reminders/reminder/calendar/")
@@ -49,23 +48,18 @@ def test_calendar_has_navigation(admin_page: Page, base_url: str) -> None:
     assert link_count > 0, "Calendar page should have navigation links"
     # 日历页面通常包含星期标签（周一~周日）
     page_text = admin_page.locator("body").inner_text()
-    has_weekday = any(
-        label in page_text for label in ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
-    )
-    assert has_weekday, (
-        f"Calendar page should contain weekday labels (周一~周日), got: {page_text[:300]}"
-    )
+    has_weekday = any(label in page_text for label in ["周一", "周二", "周三", "周四", "周五", "周六", "周日"])
+    assert has_weekday, f"Calendar page should contain weekday labels (周一~周日), got: {page_text[:300]}"
 
 
 # ------------------------------------------------------------------
 # 3. 提醒列表页
 # ------------------------------------------------------------------
 
+
 def test_reminder_list_page(admin_page: Page, base_url: str) -> None:
     """访问提醒列表页，验证 changelist 正常加载。"""
-    response = admin_page.goto(
-        f"{base_url}/admin/reminders/reminder/"
-    )
+    response = admin_page.goto(f"{base_url}/admin/reminders/reminder/")
     assert response is not None
     assert response.status < 500
     admin_page.wait_for_load_state("domcontentloaded")
@@ -78,11 +72,10 @@ def test_reminder_list_page(admin_page: Page, base_url: str) -> None:
 # 4. 新增提醒页面
 # ------------------------------------------------------------------
 
+
 def test_reminder_add_page(admin_page: Page, base_url: str) -> None:
     """访问新增提醒页面，验证表单正常加载。"""
-    response = admin_page.goto(
-        f"{base_url}/admin/reminders/reminder/add/"
-    )
+    response = admin_page.goto(f"{base_url}/admin/reminders/reminder/add/")
     assert response is not None
     assert response.status < 500
     admin_page.wait_for_load_state("domcontentloaded")

@@ -3,6 +3,7 @@
 覆盖: achat, astream, embed_texts, is_available, _normalize_messages,
 _extract_usage, _extract_content 等分支。
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -255,7 +256,9 @@ class TestEmbedTexts:
         with patch.object(backend, "_build_sync_client") as mock_build:
             mock_client = MagicMock()
             mock_client.embeddings.create.side_effect = openai.AuthenticationError(
-                message="bad key", response=MagicMock(status_code=401, headers={}), body=None,
+                message="bad key",
+                response=MagicMock(status_code=401, headers={}),
+                body=None,
             )
             mock_build.return_value = mock_client
             with pytest.raises(LLMAuthenticationError):
@@ -295,9 +298,7 @@ class TestAchat:
         backend = OpenAICompatibleBackend(config=config)
 
         mock_async_client = AsyncMock()
-        mock_async_client.chat.completions.create = AsyncMock(
-            side_effect=httpx.TimeoutException("timeout")
-        )
+        mock_async_client.chat.completions.create = AsyncMock(side_effect=httpx.TimeoutException("timeout"))
 
         with patch.object(backend, "_build_async_client", new_callable=AsyncMock, return_value=mock_async_client):
             with pytest.raises(LLMTimeoutError):
@@ -322,9 +323,7 @@ class TestAchat:
             mock_async_client = AsyncMock()
             mock_async_client.chat.completions.create = AsyncMock(return_value=mock_response)
 
-            with patch.object(
-                backend, "_build_async_client", new_callable=AsyncMock, return_value=mock_async_client
-            ):
+            with patch.object(backend, "_build_async_client", new_callable=AsyncMock, return_value=mock_async_client):
                 result = await backend.achat([{"role": "user", "content": "test"}])
                 assert result.model == "async-model"
 
@@ -382,9 +381,7 @@ class TestAstream:
         backend = OpenAICompatibleBackend(config=config)
 
         mock_async_client = AsyncMock()
-        mock_async_client.chat.completions.create = AsyncMock(
-            side_effect=httpx.ConnectError("refused")
-        )
+        mock_async_client.chat.completions.create = AsyncMock(side_effect=httpx.ConnectError("refused"))
 
         with patch.object(backend, "_build_async_client", new_callable=AsyncMock, return_value=mock_async_client):
             with pytest.raises(LLMNetworkError):

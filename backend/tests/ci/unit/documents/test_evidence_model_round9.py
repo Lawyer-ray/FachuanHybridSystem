@@ -5,6 +5,7 @@ registration) to test all model properties and methods with @pytest.mark.django_
 Covers remaining gaps in end_page, page_range_display, order_range_display,
 EvidenceItem.file_size_display, EvidenceItem.page_range_display, __str__.
 """
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -82,17 +83,13 @@ class TestListTypePreviousModule:
 class TestEvidenceListStr:
     def test_str_with_title(self):
         case = CaseFactory(name="张三诉李四合同纠纷")
-        el = EvidenceList.objects.create(
-            case=case, title="证据清单一", list_type=ListType.LIST_1
-        )
+        el = EvidenceList.objects.create(case=case, title="证据清单一", list_type=ListType.LIST_1)
         # __str__ 用 case_id 拼（避免 admin N+1），不再触发 FK 查询取名称
         assert str(el) == f"案件#{case.id} - 证据清单一"
 
     def test_str_empty_title(self):
         case = CaseFactory(name="空标题案")
-        el = EvidenceList.objects.create(
-            case=case, title="", list_type=ListType.LIST_1
-        )
+        el = EvidenceList.objects.create(case=case, title="", list_type=ListType.LIST_1)
         result = str(el)
         assert f"案件#{case.id}" in result
         assert " - " in result
@@ -100,9 +97,7 @@ class TestEvidenceListStr:
     def test_str_long_title(self):
         case = CaseFactory(name="案")
         long_title = "A" * 100
-        el = EvidenceList.objects.create(
-            case=case, title=long_title, list_type=ListType.LIST_1
-        )
+        el = EvidenceList.objects.create(case=case, title=long_title, list_type=ListType.LIST_1)
         assert long_title in str(el)
 
 
@@ -285,25 +280,19 @@ class TestEvidenceItemStr:
     def test_str(self):
         case = CaseFactory()
         el = EvidenceList.objects.create(case=case, title="t", list_type=ListType.LIST_1)
-        item = EvidenceItem.objects.create(
-            evidence_list=el, order=5, name="转账凭证", purpose="证明"
-        )
+        item = EvidenceItem.objects.create(evidence_list=el, order=5, name="转账凭证", purpose="证明")
         assert str(item) == "5. 转账凭证"
 
     def test_str_zero_order(self):
         case = CaseFactory()
         el = EvidenceList.objects.create(case=case, title="t", list_type=ListType.LIST_1)
-        item = EvidenceItem.objects.create(
-            evidence_list=el, order=0, name="无编号证据", purpose="证明"
-        )
+        item = EvidenceItem.objects.create(evidence_list=el, order=0, name="无编号证据", purpose="证明")
         assert str(item) == "0. 无编号证据"
 
     def test_str_high_order(self):
         case = CaseFactory()
         el = EvidenceList.objects.create(case=case, title="t", list_type=ListType.LIST_1)
-        item = EvidenceItem.objects.create(
-            evidence_list=el, order=999, name="最后证据", purpose="证明"
-        )
+        item = EvidenceItem.objects.create(evidence_list=el, order=999, name="最后证据", purpose="证明")
         assert str(item) == "999. 最后证据"
 
 
@@ -419,6 +408,7 @@ class TestEvidenceItemOrdering:
 class TestFactoryFunctions:
     def test_get_evidence_service_returns_service(self):
         from apps.evidence.models.evidence import _get_evidence_service
+
         svc = _get_evidence_service()
         assert svc is not None
         assert hasattr(svc, "calculate_start_order")
@@ -426,5 +416,6 @@ class TestFactoryFunctions:
 
     def test_get_evidence_storage_returns_storage(self):
         from apps.evidence.models.evidence import _get_evidence_storage
+
         storage = _get_evidence_storage()
         assert storage is not None

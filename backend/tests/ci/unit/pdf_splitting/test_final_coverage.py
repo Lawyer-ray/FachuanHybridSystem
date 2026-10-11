@@ -9,13 +9,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.pdf_splitting.models import PdfSplitReviewFlag, PdfSplitSegmentType
-from apps.pdf_splitting.services.split.split_models import (
-    PageDescriptor,
-    SegmentDraft,
-    _levenshtein_distance,
-)
 from apps.pdf_splitting.services.split.segment_detector import SegmentDetector
-
+from apps.pdf_splitting.services.split.split_models import PageDescriptor, SegmentDraft, _levenshtein_distance
 
 # ============================================================================
 # Levenshtein distance tests
@@ -231,7 +226,9 @@ class TestSegmentDetectorMergeAdjacent:
 
     def test_merge_preserves_low_confidence_flag(self):
         segments = [
-            SegmentDraft(1, 1, 2, PdfSplitSegmentType.PARTY_IDENTITY, "a.pdf", 0.9, "rule", PdfSplitReviewFlag.LOW_CONFIDENCE),
+            SegmentDraft(
+                1, 1, 2, PdfSplitSegmentType.PARTY_IDENTITY, "a.pdf", 0.9, "rule", PdfSplitReviewFlag.LOW_CONFIDENCE
+            ),
             SegmentDraft(2, 3, 4, PdfSplitSegmentType.PARTY_IDENTITY, "b.pdf", 0.8, "rule", PdfSplitReviewFlag.NORMAL),
         ]
         result = self.detector._merge_adjacent_pack_segments(segments)
@@ -272,9 +269,11 @@ class TestSegmentDetectorDetectSegments:
 
     def test_page_with_candidates(self):
         pages = [
-            self._make_page(1, "民事起诉状原告被告", top_candidates=[
-                {"segment_type": PdfSplitSegmentType.COMPLAINT, "score": 0.8, "label": "起诉状"}
-            ]),
+            self._make_page(
+                1,
+                "民事起诉状原告被告",
+                top_candidates=[{"segment_type": PdfSplitSegmentType.COMPLAINT, "score": 0.8, "label": "起诉状"}],
+            ),
             self._make_page(2, "普通第二页"),
         ]
         result = self.detector.detect_segments(pages, template_key="civil_complaint")

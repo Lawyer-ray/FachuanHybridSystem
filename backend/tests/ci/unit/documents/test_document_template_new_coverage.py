@@ -1,6 +1,7 @@
 """
 Tests for documents/services/document_template/ - validation_service, placeholder_extractor, repo.
 """
+
 from __future__ import annotations
 
 from pathlib import Path as RealPath

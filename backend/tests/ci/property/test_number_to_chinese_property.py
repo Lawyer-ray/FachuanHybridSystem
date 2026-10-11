@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from hypothesis import given, settings, assume
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from apps.documents.services.placeholders.basic.number_service import NumberPlaceholderService
@@ -22,7 +22,11 @@ CHINESE_UNITS = set("拾佰仟万亿")
 
 
 @settings(max_examples=200, deadline=None)
-@given(amount=st.decimals(min_value=Decimal("0.01"), max_value=Decimal("999999999.99"), allow_nan=False, allow_infinity=False))
+@given(
+    amount=st.decimals(
+        min_value=Decimal("0.01"), max_value=Decimal("999999999.99"), allow_nan=False, allow_infinity=False
+    )
+)
 def test_number_to_chinese_positive_ends_with_yuan(amount: Decimal) -> None:
     """Positive amounts produce output ending with '元' (possibly followed by '整' or decimal)."""
     result = svc.number_to_chinese(amount)
@@ -49,7 +53,11 @@ def test_number_to_chinese_whole_amount_ends_with_yuanzheng(integer_part: int) -
 
 
 @settings(max_examples=200, deadline=None)
-@given(amount=st.decimals(min_value=Decimal("0.01"), max_value=Decimal("999999999.99"), allow_nan=False, allow_infinity=False))
+@given(
+    amount=st.decimals(
+        min_value=Decimal("0.01"), max_value=Decimal("999999999.99"), allow_nan=False, allow_infinity=False
+    )
+)
 def test_number_to_chinese_uses_valid_chars(amount: Decimal) -> None:
     """All characters in the output are from the valid Chinese money character set."""
     result = svc.number_to_chinese(amount)

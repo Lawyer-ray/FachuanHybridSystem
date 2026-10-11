@@ -1,4 +1,5 @@
 """Tests for core.exceptions: base, common, external, error_presentation."""
+
 from __future__ import annotations
 
 import pytest
@@ -30,7 +31,6 @@ from apps.core.exceptions.external import (
     TokenAcquisitionTimeoutError,
     TokenError,
 )
-
 
 # ---------------------------------------------------------------------------
 # BusinessException
@@ -319,6 +319,7 @@ class TestExceptionPresenter:
     def test_business_exception_with_explicit_status(self) -> None:
         class CustomExc(BusinessException):
             status = 422
+
         exc = CustomExc("custom")
         _, status = self.presenter.present(exc, channel="http")
         assert status == 422

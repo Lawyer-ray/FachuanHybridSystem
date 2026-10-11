@@ -9,12 +9,7 @@ import pytest
 
 from apps.litigation_ai.models.choices import MockTrialMode
 from apps.litigation_ai.services.mock_trial.mock_trial_flow_service import MockTrialFlowService
-from apps.litigation_ai.services.mock_trial.types import (
-    AdversarialConfig,
-    MockTrialContext,
-    MockTrialStep,
-)
-
+from apps.litigation_ai.services.mock_trial.types import AdversarialConfig, MockTrialContext, MockTrialStep
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -196,7 +191,12 @@ class TestHandleInit:
         ctx = _ctx()
         send_cb = AsyncMock()
 
-        with patch.object(svc, "_get_case_brief", new_callable=AsyncMock, return_value={"case_name": "张三诉李四", "cause_of_action": "合同纠纷"}):
+        with patch.object(
+            svc,
+            "_get_case_brief",
+            new_callable=AsyncMock,
+            return_value={"case_name": "张三诉李四", "cause_of_action": "合同纠纷"},
+        ):
             await svc.handle_init(ctx, send_cb)
 
         svc._messenger.send.assert_awaited_once()
@@ -679,7 +679,9 @@ class TestLazyProperties:
     def test_session_repo_creates_instance(self) -> None:
         svc = MockTrialFlowService()
         svc._session_repo = None
-        with patch("apps.litigation_ai.services.mock_trial.mock_trial_flow_service.LitigationSessionRepository") as MockRepo:
+        with patch(
+            "apps.litigation_ai.services.mock_trial.mock_trial_flow_service.LitigationSessionRepository"
+        ) as MockRepo:
             _ = svc.session_repo
             MockRepo.assert_called_once()
 
@@ -736,9 +738,7 @@ class TestSendEvidenceMenu:
         svc._get_case_brief = AsyncMock(return_value={})
 
         with patch(_LAZY_CES) as MockCES:
-            MockCES.return_value.examine_single = AsyncMock(
-                return_value=MagicMock(opinion={"risk_level": "low"})
-            )
+            MockCES.return_value.examine_single = AsyncMock(return_value=MagicMock(opinion={"risk_level": "low"}))
             svc._session_repo.get_metadata = AsyncMock(return_value={"cross_exam_results": []})
             await svc._send_evidence_menu(ctx, send_cb, evidence_list, 0)
 

@@ -1,13 +1,20 @@
 """关键词规范化与 tuning config 单元测试。"""
+
 from __future__ import annotations
 
 import pytest
 
 from apps.legal_research.services.keywords import normalize_keyword_query
-from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
-
+from apps.legal_research.services.similarity.tuning_config import (
+    LegalResearchTuningConfig,
+    _get_bool,
+    _get_float,
+    _get_int,
+    _get_text,
+)
 
 # ── normalize_keyword_query ────────────────────────────────────────────────
+
 
 def test_normalize_basic() -> None:
     """基本规范化。"""
@@ -79,6 +86,7 @@ def test_normalize_mixed_separators() -> None:
 
 # ── LegalResearchTuningConfig ──────────────────────────────────────────────
 
+
 def test_config_default_values() -> None:
     """默认值正确。"""
     config = LegalResearchTuningConfig()
@@ -128,79 +136,90 @@ def test_config_normalized_recall_weights_all_zero() -> None:
 def test_config_get_int_valid() -> None:
     """_get_int 正常解析。"""
     from types import SimpleNamespace
+
     mock_config = SimpleNamespace(get_value=lambda key, default="": "5")
-    assert LegalResearchTuningConfig._get_int(mock_config, "KEY", 1, 1, 10) == 5
+    assert _get_int(mock_config, "KEY", 1, 1, 10) == 5
 
 
 def test_config_get_int_invalid() -> None:
     """_get_int 无效值返回默认值。"""
     from types import SimpleNamespace
+
     mock_config = SimpleNamespace(get_value=lambda key, default="": "abc")
-    assert LegalResearchTuningConfig._get_int(mock_config, "KEY", 3, 1, 10) == 3
+    assert _get_int(mock_config, "KEY", 3, 1, 10) == 3
 
 
 def test_config_get_int_clamp_min() -> None:
     """_get_int 下限钳制。"""
     from types import SimpleNamespace
+
     mock_config = SimpleNamespace(get_value=lambda key, default="": "0")
-    assert LegalResearchTuningConfig._get_int(mock_config, "KEY", 5, 1, 10) == 1
+    assert _get_int(mock_config, "KEY", 5, 1, 10) == 1
 
 
 def test_config_get_int_clamp_max() -> None:
     """_get_int 上限钳制。"""
     from types import SimpleNamespace
+
     mock_config = SimpleNamespace(get_value=lambda key, default="": "100")
-    assert LegalResearchTuningConfig._get_int(mock_config, "KEY", 5, 1, 10) == 10
+    assert _get_int(mock_config, "KEY", 5, 1, 10) == 10
 
 
 def test_config_get_float_valid() -> None:
     """_get_float 正常解析。"""
     from types import SimpleNamespace
+
     mock_config = SimpleNamespace(get_value=lambda key, default="": "0.5")
-    assert LegalResearchTuningConfig._get_float(mock_config, "KEY", 0.0, 0.0, 1.0) == 0.5
+    assert _get_float(mock_config, "KEY", 0.0, 0.0, 1.0) == 0.5
 
 
 def test_config_get_float_clamp() -> None:
     """_get_float 钳制。"""
     from types import SimpleNamespace
+
     mock_config = SimpleNamespace(get_value=lambda key, default="": "1.5")
-    assert LegalResearchTuningConfig._get_float(mock_config, "KEY", 0.5, 0.0, 1.0) == 1.0
+    assert _get_float(mock_config, "KEY", 0.5, 0.0, 1.0) == 1.0
 
 
 def test_config_get_bool_true_values() -> None:
     """_get_bool 各种 true 值。"""
     from types import SimpleNamespace
+
     for val in ["1", "true", "yes", "on", "y", "True", "YES"]:
         mock_config = SimpleNamespace(get_value=lambda key, default="", v=val: v)
-        assert LegalResearchTuningConfig._get_bool(mock_config, "KEY", False) is True
+        assert _get_bool(mock_config, "KEY", False) is True
 
 
 def test_config_get_bool_false_values() -> None:
     """_get_bool 各种 false 值。"""
     from types import SimpleNamespace
+
     for val in ["0", "false", "no", "off", "n", "False", "NO"]:
         mock_config = SimpleNamespace(get_value=lambda key, default="", v=val: v)
-        assert LegalResearchTuningConfig._get_bool(mock_config, "KEY", True) is False
+        assert _get_bool(mock_config, "KEY", True) is False
 
 
 def test_config_get_bool_invalid_returns_default() -> None:
     """_get_bool 无效值返回默认。"""
     from types import SimpleNamespace
+
     mock_config = SimpleNamespace(get_value=lambda key, default="": "maybe")
-    assert LegalResearchTuningConfig._get_bool(mock_config, "KEY", True) is True
-    assert LegalResearchTuningConfig._get_bool(mock_config, "KEY", False) is False
+    assert _get_bool(mock_config, "KEY", True) is True
+    assert _get_bool(mock_config, "KEY", False) is False
 
 
 def test_config_get_text_truncate() -> None:
     """_get_text 超长截断。"""
     from types import SimpleNamespace
+
     mock_config = SimpleNamespace(get_value=lambda key, default="": "a" * 200)
-    result = LegalResearchTuningConfig._get_text(mock_config, "KEY", "default", max_len=50)
+    result = _get_text(mock_config, "KEY", "default", max_len=50)
     assert len(result) == 50
 
 
 def test_config_get_text_empty_returns_default() -> None:
     """_get_text 空值返回默认。"""
     from types import SimpleNamespace
+
     mock_config = SimpleNamespace(get_value=lambda key, default="": "")
-    assert LegalResearchTuningConfig._get_text(mock_config, "KEY", "default", max_len=50) == "default"
+    assert _get_text(mock_config, "KEY", "default", max_len=50) == "default"

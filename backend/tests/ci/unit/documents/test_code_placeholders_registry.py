@@ -3,6 +3,7 @@
 Covers: CodePlaceholderRegistry singleton, register, upsert, list_definitions, clear,
 expose_placeholders decorator.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -28,9 +29,7 @@ class TestCodePlaceholderDefinition:
         assert d.source == "test"
 
     def test_defaults(self):
-        d = CodePlaceholderDefinition(
-            key="k", source="s", category="c"
-        )
+        d = CodePlaceholderDefinition(key="k", source="s", category="c")
         assert d.display_name == ""
         assert d.description == ""
         assert d.example_value == ""
@@ -96,11 +95,13 @@ class TestCodePlaceholderRegistryListDefinitions:
     def test_sorted_by_key(self):
         reg = CodePlaceholderRegistry()
         reg.clear()
-        reg.register([
-            CodePlaceholderDefinition(key="z", source="s", category="c"),
-            CodePlaceholderDefinition(key="a", source="s", category="c"),
-            CodePlaceholderDefinition(key="m", source="s", category="c"),
-        ])
+        reg.register(
+            [
+                CodePlaceholderDefinition(key="z", source="s", category="c"),
+                CodePlaceholderDefinition(key="a", source="s", category="c"),
+                CodePlaceholderDefinition(key="m", source="s", category="c"),
+            ]
+        )
         result = reg.list_definitions()
         keys = [d.key for d in result]
         assert keys == ["a", "m", "z"]

@@ -5,17 +5,14 @@ from __future__ import annotations
 import re
 
 import numpy as np
-from hypothesis import given, settings, assume
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from apps.contracts.services.archive.category_mapping import (
-    ArchiveCategory,
-    get_archive_category,
-)
-from apps.documents.services.placeholders.litigation.party_formatter import PartyFormatter
-from apps.documents.services.placeholders.contract.fee_terms_service import FeeTermsService
+from apps.client.services.id_card_merge.validation import is_convex_quadrilateral, order_corners, validate_corners
+from apps.contracts.services.archive.category_mapping import ArchiveCategory, get_archive_category
 from apps.documents.services.document_template.placeholder_extractor import PLACEHOLDER_PATTERN
-from apps.client.services.id_card_merge.validation import order_corners, is_convex_quadrilateral, validate_corners
+from apps.documents.services.placeholders.contract.fee_terms_service import FeeTermsService, _to_chinese_ordinal
+from apps.documents.services.placeholders.litigation.party_formatter import PartyFormatter
 
 VALID_CATEGORIES = {
     ArchiveCategory.NON_LITIGATION,
@@ -40,7 +37,11 @@ def test_get_archive_category_output_in_valid_categories(case_type: str) -> None
 
 
 @settings(max_examples=200, deadline=None)
-@given(case_type=st.text(min_size=1, max_size=50).filter(lambda s: s not in ("advisor", "special", "civil", "intl", "labor", "administrative", "criminal")))
+@given(
+    case_type=st.text(min_size=1, max_size=50).filter(
+        lambda s: s not in ("advisor", "special", "civil", "intl", "labor", "administrative", "criminal")
+    )
+)
 def test_get_archive_category_unknown_defaults_to_litigation(case_type: str) -> None:
     """Unknown case types default to 'litigation'."""
     result = get_archive_category(case_type)
@@ -89,7 +90,7 @@ def test_get_role_label_multiple_parties_has_suffix(role: str, index: int, total
 
 
 # ---------------------------------------------------------------------------
-# FeeTermsService._to_chinese_ordinal
+# _to_chinese_ordinal
 # ---------------------------------------------------------------------------
 
 
@@ -98,7 +99,7 @@ def test_get_role_label_multiple_parties_has_suffix(role: str, index: int, total
 def test_to_chinese_ordinal_1_to_10(n: int) -> None:
     """Numbers 1-10 produce the expected Chinese ordinal characters."""
     expected_map = {1: "一", 2: "二", 3: "三", 4: "四", 5: "五", 6: "六", 7: "七", 8: "八", 9: "九", 10: "十"}
-    result = FeeTermsService._to_chinese_ordinal(n)
+    result = _to_chinese_ordinal(n)
     assert result == expected_map[n]
 
 
@@ -106,7 +107,7 @@ def test_to_chinese_ordinal_1_to_10(n: int) -> None:
 @given(n=st.integers(min_value=11, max_value=9999))
 def test_to_chinese_ordinal_above_10_returns_str(n: int) -> None:
     """Numbers > 10 return str(n)."""
-    result = FeeTermsService._to_chinese_ordinal(n)
+    result = _to_chinese_ordinal(n)
     assert result == str(n)
 
 
@@ -173,8 +174,14 @@ def test_extract_placeholder_pattern_finds_all(names: list[str]) -> None:
     y3=st.floats(min_value=-1000, max_value=1000, allow_nan=False, allow_infinity=False),
 )
 def test_order_corners_returns_4x2(
-    x0: float, y0: float, x1: float, y1: float,
-    x2: float, y2: float, x3: float, y3: float,
+    x0: float,
+    y0: float,
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+    x3: float,
+    y3: float,
 ) -> None:
     """order_corners always returns a (4, 2) float32 array."""
     corners = np.array([[x0, y0], [x1, y1], [x2, y2], [x3, y3]], dtype=np.float32)
@@ -195,8 +202,14 @@ def test_order_corners_returns_4x2(
     y3=st.floats(min_value=-1000, max_value=1000, allow_nan=False, allow_infinity=False),
 )
 def test_order_corners_top_left_is_min_sum(
-    x0: float, y0: float, x1: float, y1: float,
-    x2: float, y2: float, x3: float, y3: float,
+    x0: float,
+    y0: float,
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+    x3: float,
+    y3: float,
 ) -> None:
     """ordered[0] is the point with the minimum (x+y) among inputs."""
     corners = np.array([[x0, y0], [x1, y1], [x2, y2], [x3, y3]], dtype=np.float32)

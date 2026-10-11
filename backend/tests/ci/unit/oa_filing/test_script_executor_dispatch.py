@@ -20,7 +20,11 @@ import pytest
 
 from apps.oa_filing.services import script_executor_service as mod
 from apps.oa_filing.services.exceptions import ScriptExecutionError
-from apps.oa_filing.services.script_executor_service import ScriptExecutorService
+from apps.oa_filing.services.script_executor_service import (
+    ScriptExecutorService,
+    _can_view_all_sessions,
+    _find_credential,
+)
 
 # ──────────── 工具 ────────────
 
@@ -89,13 +93,13 @@ class TestEnsureAccess:
 
 class TestSessionOwnerCheck:
     def test_can_view_all_sessions_superuser(self):
-        assert mod.ScriptExecutorService._can_view_all_sessions(SimpleNamespace(is_superuser=True, is_admin=False))
+        assert mod._can_view_all_sessions(SimpleNamespace(is_superuser=True, is_admin=False))
 
     def test_can_view_all_sessions_admin_flag(self):
-        assert mod.ScriptExecutorService._can_view_all_sessions(SimpleNamespace(is_superuser=False, is_admin=True))
+        assert mod._can_view_all_sessions(SimpleNamespace(is_superuser=False, is_admin=True))
 
     def test_regular_user_cannot_view_all(self):
-        assert not mod.ScriptExecutorService._can_view_all_sessions(SimpleNamespace(is_superuser=False, is_admin=False))
+        assert not mod._can_view_all_sessions(SimpleNamespace(is_superuser=False, is_admin=False))
 
     def test_owner_check_regular_user_filters_by_user_id(self):
         svc = ScriptExecutorService()
@@ -165,7 +169,7 @@ class TestFindCredential:
         monkeypatch.setattr(mod, "django_apps", SimpleNamespace(get_model=MagicMock(return_value=model)))
         user = MagicMock()
 
-        result = svc._find_credential(user, "金诚同达OA")
+        result = _find_credential(user, "金诚同达OA")
 
         assert result == "credential-row"
         model.objects.filter.assert_called_once_with(lawyer=user, site_name="金诚同达OA")
@@ -177,7 +181,7 @@ class TestFindCredential:
         model.objects.filter.return_value.first.return_value = None
         monkeypatch.setattr(mod, "django_apps", SimpleNamespace(get_model=MagicMock(return_value=model)))
 
-        assert svc._find_credential(MagicMock(), "其他OA") is None
+        assert _find_credential(MagicMock(), "其他OA") is None
 
 
 # ──────────── 立案 ────────────
@@ -188,7 +192,7 @@ class TestExecuteFiling:
         svc = ScriptExecutorService()
         monkeypatch.setattr(mod, "_ensure_contract_access", MagicMock())
         monkeypatch.setattr(mod, "_ensure_case_access", MagicMock())
-        monkeypatch.setattr(mod.ScriptExecutorService, "_find_credential", staticmethod(lambda user, site: None))
+        monkeypatch.setattr(mod, "_find_credential", lambda user, site: None)
         with pytest.raises(ScriptExecutionError, match="未找到匹配凭证"):
             svc.execute("金诚同达OA", contract_id=1, case_id=None, user=MagicMock())
 
@@ -198,7 +202,7 @@ class TestExecuteFiling:
         ensure_case = MagicMock()
         monkeypatch.setattr(mod, "_ensure_contract_access", ensure_contract)
         monkeypatch.setattr(mod, "_ensure_case_access", ensure_case)
-        monkeypatch.setattr(mod.ScriptExecutorService, "_find_credential", staticmethod(lambda user, site: None))
+        monkeypatch.setattr(mod, "_find_credential", lambda user, site: None)
         user = MagicMock()
         with pytest.raises(ScriptExecutionError):
             svc.execute("金诚同达OA", contract_id=1, case_id=8, user=user)
@@ -249,18 +253,18 @@ class TestDispatchFiling:
 class TestExecuteStamp:
     def _run(self, monkeypatch: pytest.MonkeyPatch, lookup: Any, credential: Any) -> dict[str, Any]:
         monkeypatch.setattr(mod, "_ensure_contract_access", MagicMock())
-        monkeypatch.setattr(mod.ScriptExecutorService, "_find_credential", staticmethod(lambda user, site: credential))
+        monkeypatch.setattr(mod, "_find_credential", lambda user, site: credential)
         submit = MagicMock()
         monkeypatch.setattr(mod, "_submit_session_job", submit)
         user = MagicMock()
         svc = ScriptExecutorService()
         with (
-            patch("apps.oa_filing.services.stamp_lookup_service.StampLookupService") as lookup_svc,
+            patch(mod.__name__ + ".lookup_by_file_path", return_value=lookup) as lookup_fn,
             patch("apps.oa_filing.models.StampSession") as model,
         ):
             from apps.oa_filing.models import StampSessionStatus
 
-            lookup_svc.lookup_by_file_path.return_value = lookup
+            lookup_fn.return_value = lookup
             model.objects.create.return_value = SimpleNamespace(id=21, pk=21)
             model.objects.get.return_value = "stamp-session"
             result = svc.execute_stamp("/media/contracts/a.pdf", user)
@@ -328,11 +332,12 @@ class TestDispatchStamp:
 class TestExecuteArchive:
     def _patch_common(self, monkeypatch: pytest.MonkeyPatch, lookups: list[Any]):
         monkeypatch.setattr(mod, "_ensure_contract_access", MagicMock())
-        monkeypatch.setattr(mod.ScriptExecutorService, "_find_credential", staticmethod(lambda user, site: "cred"))
+        monkeypatch.setattr(mod, "_find_credential", lambda user, site: "cred")
         submit = MagicMock()
         monkeypatch.setattr(mod, "_submit_session_job", submit)
+        # execute_archive 直调模块函数 lookup_by_file_path（导入方命名空间）
+        monkeypatch.setattr(mod, "lookup_by_file_path", MagicMock(side_effect=lookups))
         lookup_svc = MagicMock()
-        lookup_svc.lookup_by_file_path.side_effect = lookups
         return lookup_svc, submit
 
     def test_mixed_contracts_rejected(self, monkeypatch: pytest.MonkeyPatch):
@@ -464,7 +469,7 @@ class TestSpawnOpenPageThread:
 def _patch_open_common(monkeypatch: pytest.MonkeyPatch, credential: Any) -> MagicMock:
     monkeypatch.setattr(mod, "_ensure_contract_access", MagicMock())
     monkeypatch.setattr(mod, "_ensure_case_access", MagicMock())
-    monkeypatch.setattr(mod.ScriptExecutorService, "_find_credential", staticmethod(lambda user, site: credential))
+    monkeypatch.setattr(mod, "_find_credential", lambda user, site: credential)
     spawn = MagicMock()
     monkeypatch.setattr(mod.ScriptExecutorService, "_spawn_open_page_thread", spawn)
     return spawn

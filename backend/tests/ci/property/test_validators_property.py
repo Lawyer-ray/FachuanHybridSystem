@@ -5,11 +5,11 @@ from __future__ import annotations
 import string
 from decimal import Decimal
 
-from hypothesis import given, settings, assume
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from apps.core.utils.validators import Validators
 from apps.core.exceptions import ValidationException
+from apps.core.utils.validators import Validators
 
 # ---------------------------------------------------------------------------
 # Module-level strategies
@@ -33,10 +33,18 @@ _scc_org_chars = st.sampled_from(list("0123456789ABCDEFGHJKLMNPQRTUWXY"))
 _scc_area_digits = st.from_regex(r"\d{6}", fullmatch=True)
 _scc_entity_chars = st.sampled_from(list("0123456789ABCDEFGHJKLMNPQRTUWXY"))
 _valid_social_credit_code = st.tuples(
-    _scc_org_chars, _scc_org_chars, _scc_area_digits,
-    _scc_entity_chars, _scc_entity_chars, _scc_entity_chars,
-    _scc_entity_chars, _scc_entity_chars, _scc_entity_chars,
-    _scc_entity_chars, _scc_entity_chars, _scc_entity_chars,
+    _scc_org_chars,
+    _scc_org_chars,
+    _scc_area_digits,
+    _scc_entity_chars,
+    _scc_entity_chars,
+    _scc_entity_chars,
+    _scc_entity_chars,
+    _scc_entity_chars,
+    _scc_entity_chars,
+    _scc_entity_chars,
+    _scc_entity_chars,
+    _scc_entity_chars,
     _scc_entity_chars,
 ).map(lambda t: "".join(t))
 
@@ -243,9 +251,7 @@ def test_validate_scc_none_returns_none(dummy: None) -> None:
 
 @settings(max_examples=200, deadline=None)
 @given(
-    bad=st.text(min_size=18, max_size=18).filter(
-        lambda s: not Validators.SOCIAL_CREDIT_CODE_PATTERN.match(s.upper())
-    ),
+    bad=st.text(min_size=18, max_size=18).filter(lambda s: not Validators.SOCIAL_CREDIT_CODE_PATTERN.match(s.upper())),
 )
 def test_validate_scc_invalid_raises(bad: str) -> None:
     """18-char strings that don't match the pattern raise ValidationException."""
@@ -330,15 +336,18 @@ def test_validate_decimal_too_many_decimal_places_raises(extra_dec: int) -> None
 
 
 @settings(max_examples=200, deadline=None)
-@given(bad=st.text(min_size=1, max_size=20).filter(
-    lambda s: not s.strip().replace(".", "", 1).replace("-", "", 1).isdigit()
-))
+@given(
+    bad=st.text(min_size=1, max_size=20).filter(
+        lambda s: not s.strip().replace(".", "", 1).replace("-", "", 1).isdigit()
+    )
+)
 def test_validate_decimal_non_numeric_raises(bad: str) -> None:
     """Non-numeric strings raise ValidationException."""
     try:
         Validators.validate_decimal(bad, "amount")
         # If it succeeds, it must be a valid Decimal after stripping
         from decimal import Decimal
+
         Decimal(bad.strip())
     except (ValidationException, Exception):
         pass

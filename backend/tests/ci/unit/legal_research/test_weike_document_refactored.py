@@ -110,24 +110,36 @@ class TestBuildDomDigest:
 class TestDetailDocIdCandidates:
     def test_basic(self) -> None:
         item = WeikeSearchItem(
-            doc_id_raw="raw123", doc_id_unquoted="unq456",
-            detail_url="", title_hint="", search_id="", module="",
+            doc_id_raw="raw123",
+            doc_id_unquoted="unq456",
+            detail_url="",
+            title_hint="",
+            search_id="",
+            module="",
         )
         result = detail_doc_id_candidates(item)
         assert result == ["raw123", "unq456"]
 
     def test_deduplication(self) -> None:
         item = WeikeSearchItem(
-            doc_id_raw="same", doc_id_unquoted="same",
-            detail_url="", title_hint="", search_id="", module="",
+            doc_id_raw="same",
+            doc_id_unquoted="same",
+            detail_url="",
+            title_hint="",
+            search_id="",
+            module="",
         )
         result = detail_doc_id_candidates(item)
         assert result == ["same"]
 
     def test_empty_values(self) -> None:
         item = WeikeSearchItem(
-            doc_id_raw="", doc_id_unquoted="",
-            detail_url="", title_hint="", search_id="", module="",
+            doc_id_raw="",
+            doc_id_unquoted="",
+            detail_url="",
+            title_hint="",
+            search_id="",
+            module="",
         )
         result = detail_doc_id_candidates(item)
         assert result == []
@@ -196,10 +208,18 @@ class TestSummarizeHtmlPayload:
 class TestBuildDownloadFilename:
     def test_basic(self) -> None:
         detail = WeikeCaseDetail(
-            doc_id_raw="123", doc_id_unquoted="123", detail_url="",
-            search_id="", module="", title="买卖合同纠纷案",
-            court_text="", document_number="", judgment_date="",
-            case_digest="", content_text="", raw_meta={},
+            doc_id_raw="123",
+            doc_id_unquoted="123",
+            detail_url="",
+            search_id="",
+            module="",
+            title="买卖合同纠纷案",
+            court_text="",
+            document_number="",
+            judgment_date="",
+            case_digest="",
+            content_text="",
+            raw_meta={},
         )
         result = build_download_filename(detail)
         assert "买卖合同纠纷案" in result
@@ -207,10 +227,18 @@ class TestBuildDownloadFilename:
 
     def test_empty_title_fallback(self) -> None:
         detail = WeikeCaseDetail(
-            doc_id_raw="123", doc_id_unquoted="abc123", detail_url="",
-            search_id="", module="", title="",
-            court_text="", document_number="", judgment_date="",
-            case_digest="", content_text="", raw_meta={},
+            doc_id_raw="123",
+            doc_id_unquoted="abc123",
+            detail_url="",
+            search_id="",
+            module="",
+            title="",
+            court_text="",
+            document_number="",
+            judgment_date="",
+            case_digest="",
+            content_text="",
+            raw_meta={},
         )
         result = build_download_filename(detail)
         assert "abc123" in result

@@ -150,7 +150,7 @@ class McpWorkbenchService:
 
         selected_provider = self._registry.get_provider(provider)
         started = time.perf_counter()
-        replay_of = self._resolve_replay_record(replay_of_id=replay_of_id)
+        replay_of = _resolve_replay_record(replay_of_id=replay_of_id)
         try:
             response = selected_provider.execute_tool(tool_name=normalized_tool, arguments=arguments)
             duration_ms = int((time.perf_counter() - started) * 1000)
@@ -172,10 +172,10 @@ class McpWorkbenchService:
                 fallback_used=fallback_used,
             )
             meta["observability"] = observability
-            masked_arguments = self._mask_payload(arguments)
-            masked_data = self._mask_payload(response.data)
-            masked_raw = self._mask_payload(response.raw)
-            masked_meta = self._mask_payload(meta)
+            masked_arguments = _mask_payload(arguments)
+            masked_data = _mask_payload(response.data)
+            masked_raw = _mask_payload(response.raw)
+            masked_meta = _mask_payload(meta)
             payload = {
                 "provider": selected_provider.name,
                 "tool": response.tool,
@@ -190,7 +190,7 @@ class McpWorkbenchService:
                 data=masked_data,
                 captured_at=timezone.now(),
             )
-            self._invalidate_describe_cache(selected_provider.name)
+            _invalidate_describe_cache(selected_provider.name)
             self._create_history(
                 provider=selected_provider.name,
                 tool_name=response.tool,
@@ -218,7 +218,7 @@ class McpWorkbenchService:
             self._create_history(
                 provider=selected_provider.name,
                 tool_name=normalized_tool,
-                arguments=self._mask_payload(arguments),
+                arguments=_mask_payload(arguments),
                 response_data={},
                 response_raw={},
                 response_meta={},
@@ -299,21 +299,12 @@ class McpWorkbenchService:
             for row in rows
         ]
 
-    @staticmethod
-    def _mask_payload(payload: Any) -> Any:
-        return scrub_for_storage(payload)
-
     def _ensure_superuser(self, *, actor_is_superuser: bool) -> None:
         if not self._enforce_superuser:
             return
         if bool(actor_is_superuser):
             return
         raise PermissionDenied(message="仅超级管理员可使用 MCP 调试工作台", code="PERMISSION_DENIED")
-
-    @staticmethod
-    def _invalidate_describe_cache(provider_name: str) -> None:
-        """Drop the full describe_tools cache so the next page load picks up fresh samples/history."""
-        cache.delete(f"mcp_workbench:describe_tools_full:{provider_name}")
 
     def _read_registry_int(self, method_name: str, default: int) -> int:
         getter = getattr(self._registry, method_name, None)
@@ -373,17 +364,8 @@ class McpWorkbenchService:
             replay_of=replay_of,
         )
 
-    @staticmethod
-    def _resolve_replay_record(*, replay_of_id: int | None) -> McpWorkbenchExecution | None:
-        if not replay_of_id:
-            return None
-        try:
-            return McpWorkbenchExecution.objects.get(id=int(replay_of_id))
-        except (TypeError, ValueError, McpWorkbenchExecution.DoesNotExist):
-            return None
-
     def _load_sample(self, *, provider: str, tool_name: str) -> dict[str, Any] | None:  # pragma: no cover
-        sample = cache.get(self._sample_cache_key(provider=provider, tool_name=tool_name))
+        sample = cache.get(_sample_cache_key(provider=provider, tool_name=tool_name))
         if isinstance(sample, dict):
             return sample
 
@@ -398,9 +380,7 @@ class McpWorkbenchService:
             "captured_at": record.created_at.isoformat() if record.created_at else "",
             "data": record.response_data if isinstance(record.response_data, (dict, list)) else {},
         }
-        cache.set(
-            self._sample_cache_key(provider=provider, tool_name=tool_name), sample, timeout=self._sample_ttl_seconds
-        )
+        cache.set(_sample_cache_key(provider=provider, tool_name=tool_name), sample, timeout=self._sample_ttl_seconds)
         return sample
 
     def _load_samples_batch(
@@ -411,7 +391,7 @@ class McpWorkbenchService:
         result: dict[str, dict[str, Any]] = {}
         # Batch cache lookup — single round-trip instead of N individual gets.
         key_to_name: dict[str, str] = {
-            self._sample_cache_key(provider=provider, tool_name=name): name for name in tool_names
+            _sample_cache_key(provider=provider, tool_name=name): name for name in tool_names
         }
         cached_map = cache.get_many(list(key_to_name.keys()))
         uncached_names: list[str] = []
@@ -442,7 +422,7 @@ class McpWorkbenchService:
                         "data": record.response_data if isinstance(record.response_data, (dict, list)) else {},
                     }
                     cache.set(
-                        self._sample_cache_key(provider=provider, tool_name=tool_name),
+                        _sample_cache_key(provider=provider, tool_name=tool_name),
                         sample,
                         timeout=self._sample_ttl_seconds,
                     )
@@ -454,28 +434,51 @@ class McpWorkbenchService:
     ) -> None:  # pragma: no cover
         sample = {
             "captured_at": captured_at.isoformat(),
-            "data": self._truncate_data(data),
+            "data": _truncate_data(data),
         }
         cache.set(
-            self._sample_cache_key(provider=provider, tool_name=tool_name),
+            _sample_cache_key(provider=provider, tool_name=tool_name),
             sample,
             timeout=self._sample_ttl_seconds,
         )
 
-    @staticmethod
-    def _truncate_data(data: Any) -> Any:
-        try:
-            serialized = json.dumps(data, ensure_ascii=False, sort_keys=True, default=str)
-        except TypeError:
-            return data
-        if len(serialized) <= _MAX_SAMPLE_JSON_CHARS:
-            return data
-        return {
-            "_truncated": True,
-            "preview": serialized[:_MAX_SAMPLE_JSON_CHARS],
-            "original_length": len(serialized),
-        }
 
-    @staticmethod
-    def _sample_cache_key(*, provider: str, tool_name: str) -> str:
-        return f"mcp_workbench:sample:{provider}:{tool_name}"
+# ↓↓ 由 McpWorkbenchService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _mask_payload(payload: Any) -> Any:
+    return scrub_for_storage(payload)
+
+
+# ↓↓ 由 McpWorkbenchService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _invalidate_describe_cache(provider_name: str) -> None:
+    """Drop the full describe_tools cache so the next page load picks up fresh samples/history."""
+    cache.delete(f"mcp_workbench:describe_tools_full:{provider_name}")
+
+
+# ↓↓ 由 McpWorkbenchService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _resolve_replay_record(*, replay_of_id: int | None) -> McpWorkbenchExecution | None:
+    if not replay_of_id:
+        return None
+    try:
+        return McpWorkbenchExecution.objects.get(id=int(replay_of_id))
+    except (TypeError, ValueError, McpWorkbenchExecution.DoesNotExist):
+        return None
+
+
+# ↓↓ 由 McpWorkbenchService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _truncate_data(data: Any) -> Any:
+    try:
+        serialized = json.dumps(data, ensure_ascii=False, sort_keys=True, default=str)
+    except TypeError:
+        return data
+    if len(serialized) <= _MAX_SAMPLE_JSON_CHARS:
+        return data
+    return {
+        "_truncated": True,
+        "preview": serialized[:_MAX_SAMPLE_JSON_CHARS],
+        "original_length": len(serialized),
+    }
+
+
+# ↓↓ 由 McpWorkbenchService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _sample_cache_key(*, provider: str, tool_name: str) -> str:
+    return f"mcp_workbench:sample:{provider}:{tool_name}"

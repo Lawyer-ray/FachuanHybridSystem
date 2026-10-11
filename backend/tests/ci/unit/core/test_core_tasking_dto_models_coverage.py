@@ -2,9 +2,11 @@
 Tests for core/tasking/ - context, entries, convenience, exceptions.
 Also tests for core/services/wiring.py, core/config/__init__.py.
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 
@@ -77,6 +79,7 @@ class TestTaskEntries:
                 args=["a", "b"],
             )
             import os
+
             assert result == os.path.join("a", "b")
 
     def test_run_task_with_context(self):
@@ -89,6 +92,7 @@ class TestTaskEntries:
                 context={"request_id": "req-1", "task_name": "test_task"},
             )
             import os
+
             assert result == os.path.join("x", "y")
 
     def test_run_task_failure_raises(self):
@@ -105,10 +109,10 @@ class TestTaskEntries:
 
 class TestTaskConvenience:
     def test_get_submission_service_singleton(self):
-        from apps.core.tasking.convenience import _get_submission_service, _submission_service
-
         # Reset the global
         import apps.core.tasking.convenience as mod
+        from apps.core.tasking.convenience import _get_submission_service, _submission_service
+
         mod._submission_service = None
 
         svc1 = _get_submission_service()
@@ -116,8 +120,8 @@ class TestTaskConvenience:
         assert svc1 is svc2
 
     def test_submit_task(self):
-        from apps.core.tasking.convenience import submit_task
         import apps.core.tasking.convenience as mod
+        from apps.core.tasking.convenience import submit_task
 
         mock_service = MagicMock()
         mock_service.submit.return_value = "task-123"
@@ -129,6 +133,7 @@ class TestTaskConvenience:
 
     def teardown_method(self):
         import apps.core.tasking.convenience as mod
+
         mod._submission_service = None
 
 

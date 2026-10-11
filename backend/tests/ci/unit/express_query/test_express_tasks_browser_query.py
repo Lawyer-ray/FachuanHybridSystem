@@ -56,7 +56,9 @@ class TestExecuteBrowserQuerySuccess:
             patch.object(eq_tasks, "default_storage") as storage,
         ):
             svc_cls.return_value.query_and_save_pdf = AsyncMock(return_value="https://track.example/sf")
-            svc_cls.disconnect_playwright = AsyncMock()
+            _dp = AsyncMock()
+            patcher = patch.object(eq_tasks, "disconnect_playwright", _dp)
+            patcher.start()
             storage.save.return_value = "express_query/results/11/abcd1234_SF.pdf"
 
             _execute_browser_query(task)
@@ -65,7 +67,7 @@ class TestExecuteBrowserQuerySuccess:
             svc_cls.return_value.query_and_save_pdf.assert_awaited_once_with(
                 carrier_type="sf", tracking_number="SF1234567890123", output_pdf=fake_tmp_pdf
             )
-            svc_cls.disconnect_playwright.assert_awaited_once()
+            _dp.assert_awaited_once()
 
             # PDF 经 default_storage 保存（media 落盘走存储服务，路径不可预测化）
             save_args = storage.save.call_args.args
@@ -99,7 +101,9 @@ class TestExecuteBrowserQueryFailure:
             patch.object(eq_tasks, "default_storage") as storage,
         ):
             svc_cls.return_value.query_and_save_pdf = AsyncMock(side_effect=RuntimeError("login expired"))
-            svc_cls.disconnect_playwright = AsyncMock()
+            _dp = AsyncMock()
+            patcher = patch.object(eq_tasks, "disconnect_playwright", _dp)
+            patcher.start()
 
             with pytest.raises(RuntimeError, match="login expired"):
                 _execute_browser_query(task)
@@ -108,7 +112,7 @@ class TestExecuteBrowserQueryFailure:
 
         # 失败也要清理临时文件、断开 Playwright；save 只发生在 querying 预切换
         assert not fake_tmp_pdf.exists()
-        svc_cls.disconnect_playwright.assert_awaited_once()
+        _dp.assert_awaited_once()
         assert task.status == ExpressQueryTaskStatus.QUERYING
         assert task.save.call_args.kwargs["update_fields"] == ["status", "updated_at"]
 
@@ -123,7 +127,9 @@ class TestExecuteBrowserQueryFailure:
                 return "https://track.example/ems"
 
             svc_cls.return_value.query_and_save_pdf = AsyncMock(side_effect=query_and_save_pdf)
-            svc_cls.disconnect_playwright = AsyncMock()
+            _dp = AsyncMock()
+            patcher = patch.object(eq_tasks, "disconnect_playwright", _dp)
+            patcher.start()
 
             def record_save(**kwargs: object) -> None:
                 observed.append(f"save:{task.status}")

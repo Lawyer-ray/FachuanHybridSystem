@@ -4,6 +4,7 @@ Covers: DynamicWorkflow _execute_step branches (gate approved/rejected, conditio
 delay, llm, http, code, activity with/without mcp_tool, on_fail=skip),
 _build_step_args code type, _eval_condition neq/gt operators.
 """
+
 from __future__ import annotations
 
 from datetime import timedelta
@@ -73,6 +74,7 @@ class TestDynamicWorkflowCurrentState:
 
     def test_with_pending_gates(self):
         from apps.workflow.temporal.workflows import GateResult
+
         dw = DynamicWorkflow()
         dw._pending_gates["step1"] = GateResult(approved=True, comment="ok")
         dw._current_gate_step_id = "step1"
@@ -123,5 +125,6 @@ class TestBuildStepArgsActivityDefault:
 class TestInternalActivityMapValues:
     def test_all_callable(self):
         from apps.workflow.temporal.workflows import INTERNAL_ACTIVITY_MAP
+
         for key, val in INTERNAL_ACTIVITY_MAP.items():
             assert callable(val), f"INTERNAL_ACTIVITY_MAP[{key!r}] is not callable"

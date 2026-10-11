@@ -16,9 +16,7 @@ from unittest.mock import MagicMock, PropertyMock, patch
 import pytest
 from django.utils import timezone
 
-from apps.contracts.services.contract.integrations.contract_oa_sync_service import (
-    ContractOASyncService,
-)
+from apps.contracts.services.contract.integrations.contract_oa_sync_service import ContractOASyncService
 
 
 def _make_service():
@@ -364,34 +362,26 @@ class TestFilterCandidatesByContractName:
         svc = _make_service()
         c = MagicMock()
         c.case_name = "张某诉李某合同纠纷"
-        result = svc._filter_candidates_by_contract_name(
-            contract_name="张某诉李某合同纠纷", candidates=[c]
-        )
+        result = svc._filter_candidates_by_contract_name(contract_name="张某诉李某合同纠纷", candidates=[c])
         assert len(result) == 1
 
     def test_no_match_returns_empty(self):
         svc = _make_service()
         c = MagicMock()
         c.case_name = "完全不同的案件"
-        result = svc._filter_candidates_by_contract_name(
-            contract_name="张某诉李某合同纠纷", candidates=[c]
-        )
+        result = svc._filter_candidates_by_contract_name(contract_name="张某诉李某合同纠纷", candidates=[c])
         assert len(result) == 0
 
     def test_empty_candidates(self):
         svc = _make_service()
-        result = svc._filter_candidates_by_contract_name(
-            contract_name="test", candidates=[]
-        )
+        result = svc._filter_candidates_by_contract_name(contract_name="test", candidates=[])
         assert result == []
 
     def test_party_match_strict(self):
         svc = _make_service()
         c = MagicMock()
         c.case_name = "张某诉李某民间借贷纠纷"
-        result = svc._filter_candidates_by_contract_name(
-            contract_name="张某诉李某合同纠纷", candidates=[c]
-        )
+        result = svc._filter_candidates_by_contract_name(contract_name="张某诉李某合同纠纷", candidates=[c])
         assert len(result) == 1
 
     def test_party_match_relaxed(self):
@@ -399,9 +389,7 @@ class TestFilterCandidatesByContractName:
         # When strict match fails, relaxed markers should be tried
         c = MagicMock()
         c.case_name = "张诉李合同纠纷"
-        result = svc._filter_candidates_by_contract_name(
-            contract_name="张某诉李某合同纠纷", candidates=[c]
-        )
+        result = svc._filter_candidates_by_contract_name(contract_name="张某诉李某合同纠纷", candidates=[c])
         # May or may not match depending on relaxed markers
         assert isinstance(result, list)
 
@@ -411,9 +399,7 @@ class TestFilterCandidatesByContractName:
         c1.case_name = "test1"
         c2 = MagicMock()
         c2.case_name = "test2"
-        result = svc._filter_candidates_by_contract_name(
-            contract_name="合同审查", candidates=[c1, c2]
-        )
+        result = svc._filter_candidates_by_contract_name(contract_name="合同审查", candidates=[c1, c2])
         # No "诉" keyword, returns all candidates
         assert len(result) == 2
 

@@ -136,7 +136,7 @@ class ExecutorScoringMixin:  # pragma: no cover
                     case_digest=detail.case_digest,
                     content_text=detail.content_text,
                 )
-                score = cls._normalize_score(getattr(coarse, "score", 0.0))
+                score = _normalize_score(getattr(coarse, "score", 0.0))
                 reason = str(getattr(coarse, "reason", "") or "")
                 return score, reason
             except Exception:
@@ -145,7 +145,7 @@ class ExecutorScoringMixin:  # pragma: no cover
                     extra={"doc_id": detail.doc_id_unquoted or detail.doc_id_raw},
                 )
 
-        overlap = cls._keyword_overlap(keyword=keyword, detail=detail)
+        overlap = _keyword_overlap(keyword=keyword, detail=detail)
         return overlap, f"宽召回fallback:关键词重合={overlap:.2f}"
 
     @classmethod
@@ -183,14 +183,6 @@ class ExecutorScoringMixin:  # pragma: no cover
         remaining_target = max(1, target_count - matched)
         budget = max(cls.DEFERRED_RERANK_KEEP_MIN, remaining_target * cls.DEFERRED_RERANK_MULTIPLIER)
         return min(deferred_count, budget)
-
-    @staticmethod
-    def _should_rerank(
-        *, coarse_score: float, threshold: float, rerank_used: int, rerank_budget: int
-    ) -> bool:  # pragma: no cover
-        return should_rerank(
-            coarse_score=coarse_score, threshold=threshold, rerank_used=rerank_used, rerank_budget=rerank_budget
-        )
 
     # ── 单候选重排流水线 ─────────────────────────────────────
 
@@ -532,19 +524,6 @@ class ExecutorScoringMixin:  # pragma: no cover
 
     # ── 工具方法 ─────────────────────────────────────────────
 
-    @staticmethod
-    def _normalize_score(score: Any) -> float:  # pragma: no cover
-        return normalize_score(score)
-
-    @staticmethod
-    def _keyword_overlap(*, keyword: str, detail: CaseDetail) -> float:  # pragma: no cover
-        return keyword_overlap_score(
-            keyword=keyword,
-            title=detail.title,
-            case_digest=detail.case_digest,
-            content_text=detail.content_text or "",
-        )
-
     # ── 并发评分 ─────────────────────────────────────────────
 
     def _batch_rerank_candidates(  # pragma: no cover
@@ -624,3 +603,27 @@ class ExecutorScoringMixin:  # pragma: no cover
                 sim.reason = f"{sim.reason}|rerank={rerank_score:.2f}"
             blended.append((detail, sim, coarse_score, coarse_reason))
         return blended
+
+
+# ↓↓ 由 ExecutorScoringMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _should_rerank(
+    *, coarse_score: float, threshold: float, rerank_used: int, rerank_budget: int
+) -> bool:  # pragma: no cover
+    return should_rerank(
+        coarse_score=coarse_score, threshold=threshold, rerank_used=rerank_used, rerank_budget=rerank_budget
+    )
+
+
+# ↓↓ 由 ExecutorScoringMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _normalize_score(score: Any) -> float:  # pragma: no cover
+    return normalize_score(score)
+
+
+# ↓↓ 由 ExecutorScoringMixin 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _keyword_overlap(*, keyword: str, detail: CaseDetail) -> float:  # pragma: no cover
+    return keyword_overlap_score(
+        keyword=keyword,
+        title=detail.title,
+        case_digest=detail.case_digest,
+        content_text=detail.content_text or "",
+    )

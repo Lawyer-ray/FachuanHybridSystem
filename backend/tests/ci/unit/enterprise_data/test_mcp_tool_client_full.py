@@ -8,7 +8,15 @@ import httpx2 as httpx
 import pytest
 
 from apps.core.exceptions import AuthenticationError, ExternalServiceError, ValidationException
-from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
+from apps.enterprise_data.services.clients.mcp_tool_client import (
+    McpToolClient,
+    _collect_related_exceptions,
+    _contains_auth_token,
+    _flatten_error_payload_text,
+    _is_auth_like_http_error,
+    _serialize_content_item,
+    _try_parse_json,
+)
 
 
 def _make_client(**overrides):
@@ -28,7 +36,6 @@ def _make_client(**overrides):
 
 
 class TestMcpToolClientInit:
-
     def test_defaults_applied(self):
         client = _make_client(api_key="k1", api_keys=None)
         assert client._api_key == "k1"
@@ -80,7 +87,6 @@ class TestMcpToolClientInit:
 
 
 class TestMcpToolClientHeaders:
-
     def test_streamable_http_lowercase_bearer(self):
         client = _make_client(transport="streamable_http")
         h = client._headers(transport="streamable_http", api_key="abc123")
@@ -101,7 +107,6 @@ class TestMcpToolClientHeaders:
 
 
 class TestTransportAttempts:
-
     def test_sse_single_attempt(self):
         client = _make_client(transport="sse")
         attempts = client._transport_attempts()
@@ -129,7 +134,6 @@ class TestTransportAttempts:
 
 
 class TestTransportUnhealthyCacheKey:
-
     def test_key_contains_provider_and_transport(self):
         client = _make_client(provider_name="tianyancha")
         key = client._transport_unhealthy_cache_key("streamable_http")
@@ -142,7 +146,6 @@ class TestTransportUnhealthyCacheKey:
 
 
 class TestShouldQuarantineTransport:
-
     def test_quarantine_streamable_http(self):
         client = _make_client()
         assert client._should_quarantine_transport(transport="streamable_http", exc=Exception("x")) is True
@@ -156,20 +159,19 @@ class TestShouldQuarantineTransport:
 
 
 class TestSerializeContentItem:
-
     def test_model_dump_object(self):
         item = MagicMock()
         item.model_dump.return_value = {"type": "text", "value": "hello"}
-        result = McpToolClient._serialize_content_item(item)
+        result = _serialize_content_item(item)
         item.model_dump.assert_called_once()
         assert result == {"type": "text", "value": "hello"}
 
     def test_plain_value(self):
-        result = McpToolClient._serialize_content_item(42)
+        result = _serialize_content_item(42)
         assert result == {"value": "42"}
 
     def test_plain_string(self):
-        result = McpToolClient._serialize_content_item("hello")
+        result = _serialize_content_item("hello")
         assert result == {"value": "hello"}
 
 
@@ -177,7 +179,6 @@ class TestSerializeContentItem:
 
 
 class TestExtractPayload:
-
     def test_structured_content_priority(self):
         client = _make_client()
         result = MagicMock()
@@ -262,91 +263,87 @@ class TestExtractPayload:
 
 
 class TestTryParseJson:
-
     def test_valid_json(self):
-        assert McpToolClient._try_parse_json('{"a": 1}') == {"a": 1}
+        assert _try_parse_json('{"a": 1}') == {"a": 1}
 
     def test_invalid_json_returns_none(self):
-        assert McpToolClient._try_parse_json("not json") is None
+        assert _try_parse_json("not json") is None
 
     def test_empty_string_returns_none(self):
-        assert McpToolClient._try_parse_json("") is None
+        assert _try_parse_json("") is None
 
     def test_integer_string(self):
-        assert McpToolClient._try_parse_json("42") == 42
+        assert _try_parse_json("42") == 42
 
 
 # ── _contains_auth_token ─────────────────────────────────────────────────────
 
 
 class TestContainsAuthToken:
-
     def test_detects_auth_error(self):
-        assert McpToolClient._contains_auth_token("Authentication failed") is True
+        assert _contains_auth_token("Authentication failed") is True
 
     def test_detects_unauthorized(self):
-        assert McpToolClient._contains_auth_token("unauthorized access") is True
+        assert _contains_auth_token("unauthorized access") is True
 
     def test_detects_invalid_api_key(self):
-        assert McpToolClient._contains_auth_token("invalid api key") is True
+        assert _contains_auth_token("invalid api key") is True
 
     def test_detects_token(self):
-        assert McpToolClient._contains_auth_token("token expired") is True
+        assert _contains_auth_token("token expired") is True
 
     def test_no_auth_keyword(self):
-        assert McpToolClient._contains_auth_token("something else") is False
+        assert _contains_auth_token("something else") is False
 
     def test_empty_string(self):
-        assert McpToolClient._contains_auth_token("") is False
+        assert _contains_auth_token("") is False
 
     def test_none_input(self):
-        assert McpToolClient._contains_auth_token(None) is False  # type: ignore[arg-type]
+        assert _contains_auth_token(None) is False  # type: ignore[arg-type]
 
 
 # ── _flatten_error_payload_text ──────────────────────────────────────────────
 
 
 class TestFlattenErrorPayloadText:
-
     def test_simple_dict(self):
-        result = McpToolClient._flatten_error_payload_text({"error": "bad"})
+        result = _flatten_error_payload_text({"error": "bad"})
         assert "error" in result
         assert "bad" in result
 
     def test_nested_dict(self):
-        result = McpToolClient._flatten_error_payload_text({"a": {"b": "c"}})
+        result = _flatten_error_payload_text({"a": {"b": "c"}})
         assert "a" in result
         assert "b" in result
         assert "c" in result
 
     def test_list_values(self):
-        result = McpToolClient._flatten_error_payload_text([1, "two", True])
+        result = _flatten_error_payload_text([1, "two", True])
         assert "1" in result
         assert "two" in result
         assert "true" in result
 
     def test_none_input(self):
-        assert McpToolClient._flatten_error_payload_text(None) == ""
+        assert _flatten_error_payload_text(None) == ""
 
     def test_scalar_input(self):
-        assert "hello" in McpToolClient._flatten_error_payload_text("hello")
+        assert "hello" in _flatten_error_payload_text("hello")
 
     def test_empty_dict(self):
-        assert McpToolClient._flatten_error_payload_text({}) == ""
+        assert _flatten_error_payload_text({}) == ""
 
 
 # ── _is_auth_like_http_error ─────────────────────────────────────────────────
 
 
 class TestIsAuthLikeHttpError:
-
     def test_401_is_auth(self):
         response = MagicMock()
         response.status_code = 401
         response.text = ""
         response.json.side_effect = ValueError
         error = httpx.HTTPStatusError("auth", request=MagicMock(), response=response)
-        assert McpToolClient._is_auth_like_http_error(error) is True
+        assert _is_auth_like_http_error(error) is True
 
     def test_403_is_auth(self):
         response = MagicMock()
@@ -354,7 +351,7 @@ class TestIsAuthLikeHttpError:
         response.text = ""
         response.json.side_effect = ValueError
         error = httpx.HTTPStatusError("forbidden", request=MagicMock(), response=response)
-        assert McpToolClient._is_auth_like_http_error(error) is True
+        assert _is_auth_like_http_error(error) is True
 
     def test_text_contains_auth_token(self):
         response = MagicMock()
@@ -362,7 +359,7 @@ class TestIsAuthLikeHttpError:
         response.text = "invalid api key provided"
         response.json.side_effect = ValueError
         error = httpx.HTTPStatusError("bad", request=MagicMock(), response=response)
-        assert McpToolClient._is_auth_like_http_error(error) is True
+        assert _is_auth_like_http_error(error) is True
 
     def test_json_body_contains_auth_token(self):
         response = MagicMock()
@@ -370,7 +367,7 @@ class TestIsAuthLikeHttpError:
         response.text = ""
         response.json.return_value = {"error": {"message": "unauthorized"}}
         error = httpx.HTTPStatusError("bad", request=MagicMock(), response=response)
-        assert McpToolClient._is_auth_like_http_error(error) is True
+        assert _is_auth_like_http_error(error) is True
 
     def test_not_auth(self):
         response = MagicMock()
@@ -378,7 +375,7 @@ class TestIsAuthLikeHttpError:
         response.text = "server error"
         response.json.side_effect = ValueError
         error = httpx.HTTPStatusError("err", request=MagicMock(), response=response)
-        assert McpToolClient._is_auth_like_http_error(error) is False
+        assert _is_auth_like_http_error(error) is False
 
     def test_json_body_no_auth(self):
         response = MagicMock()
@@ -386,7 +383,7 @@ class TestIsAuthLikeHttpError:
         response.text = "bad request"
         response.json.return_value = {"error": "bad format"}
         error = httpx.HTTPStatusError("bad", request=MagicMock(), response=response)
-        assert McpToolClient._is_auth_like_http_error(error) is False
+        assert _is_auth_like_http_error(error) is False
 
     def test_no_response_attr(self):
         response = MagicMock()
@@ -394,17 +391,16 @@ class TestIsAuthLikeHttpError:
         response.text = "ok"
         response.json.side_effect = ValueError
         error = httpx.HTTPStatusError("x", request=MagicMock(), response=response)
-        assert McpToolClient._is_auth_like_http_error(error) is False
+        assert _is_auth_like_http_error(error) is False
 
 
 # ── _collect_related_exceptions ──────────────────────────────────────────────
 
 
 class TestCollectRelatedExceptions:
-
     def test_single_exception(self):
         exc = ValueError("test")
-        result = McpToolClient._collect_related_exceptions(exc)
+        result = _collect_related_exceptions(exc)
         assert exc in result
         assert len(result) == 1
 
@@ -412,7 +408,7 @@ class TestCollectRelatedExceptions:
         cause = ValueError("cause")
         wrapper = RuntimeError("wrapper")
         wrapper.__cause__ = cause
-        result = McpToolClient._collect_related_exceptions(wrapper)
+        result = _collect_related_exceptions(wrapper)
         assert cause in result
         assert wrapper in result
 
@@ -420,14 +416,14 @@ class TestCollectRelatedExceptions:
         ctx = ValueError("ctx")
         wrapper = RuntimeError("wrapper")
         wrapper.__context__ = ctx
-        result = McpToolClient._collect_related_exceptions(wrapper)
+        result = _collect_related_exceptions(wrapper)
         assert ctx in result
         assert wrapper in result
 
     def test_no_duplicates(self):
         exc = ValueError("test")
         exc.__cause__ = exc
-        result = McpToolClient._collect_related_exceptions(exc)
+        result = _collect_related_exceptions(exc)
         assert result.count(exc) == 1
 
 
@@ -435,7 +431,6 @@ class TestCollectRelatedExceptions:
 
 
 class TestExecuteWithApiKeyFailover:
-
     def test_no_api_keys_raises(self):
         client = _make_client(api_key="", api_keys=[])
         with pytest.raises(ExternalServiceError, match="API Key 未配置"):
@@ -479,9 +474,7 @@ class TestExecuteWithApiKeyFailover:
             with pytest.raises((ExternalServiceError, AuthenticationError)):
                 client._execute_with_api_key_failover(
                     action="test",
-                    operation=lambda k, t: (_ for _ in ()).throw(
-                        ExternalServiceError("transport fail", code="ERR")
-                    ),
+                    operation=lambda k, t: (_ for _ in ()).throw(ExternalServiceError("transport fail", code="ERR")),
                 )
 
 
@@ -489,7 +482,6 @@ class TestExecuteWithApiKeyFailover:
 
 
 class TestRunTransportAttempts:
-
     def test_success_first_attempt(self):
         client = _make_client(transport="sse")
         result, transport, count, err = client._run_transport_attempts(
@@ -557,10 +549,11 @@ class TestRunTransportAttempts:
 
 
 class TestListToolsAndDescribe:
-
     def test_list_tools_returns_names(self):
         client = _make_client()
-        with patch.object(client, "describe_tools", return_value=[{"name": "tool_a"}, {"name": "tool_b"}, {"name": ""}]):
+        with patch.object(
+            client, "describe_tools", return_value=[{"name": "tool_a"}, {"name": "tool_b"}, {"name": ""}]
+        ):
             assert client.list_tools() == ["tool_a", "tool_b"]
 
     def test_list_tools_empty(self):
@@ -574,6 +567,7 @@ class TestListToolsAndDescribe:
 
 class _FakeAsyncContextManager:
     """Fake async context manager for mocking _open_session."""
+
     def __init__(self, session):
         self._session = session
 
@@ -585,7 +579,6 @@ class _FakeAsyncContextManager:
 
 
 class TestDescribeToolsAsync:
-
     @pytest.mark.asyncio
     async def test_extracts_tools_with_input_schema(self):
         client = _make_client()
@@ -634,7 +627,6 @@ class TestDescribeToolsAsync:
 
 
 class TestCallToolAsync:
-
     @pytest.mark.asyncio
     async def test_returns_payload_and_raw(self):
         client = _make_client()
@@ -663,7 +655,6 @@ class TestCallToolAsync:
 
 
 class TestCallTool:
-
     def test_call_tool_success(self):
         client = _make_client()
         fake_result = {
@@ -711,7 +702,6 @@ class TestCallTool:
 
 
 class TestListToolsIntegration:
-
     def test_list_tools_filters_empty_names(self):
         client = _make_client()
         with patch.object(client, "describe_tools", return_value=[{"name": "a"}, {"name": ""}, {"name": "b"}]):

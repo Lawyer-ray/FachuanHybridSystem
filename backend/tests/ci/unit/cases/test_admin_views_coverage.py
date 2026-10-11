@@ -1,4 +1,5 @@
 """Coverage tests for cases admin views and services."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -156,6 +157,7 @@ class TestCaseAdminViewsMixin:
 
 
 # --- cases services ---
+
 
 class TestCasesServices:
     def test_folder_scan_service_import(self):

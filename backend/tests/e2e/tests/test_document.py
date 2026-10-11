@@ -12,17 +12,15 @@ Django Admin E2E 测试 — 文档模板管理
 import pytest
 from playwright.sync_api import Page, expect
 
-
 # ------------------------------------------------------------------
 # 1. 文书模板列表
 # ------------------------------------------------------------------
 
+
 @pytest.mark.smoke
 def test_document_template_list(admin_page: Page, base_url: str) -> None:
     """访问文书模板列表页，验证页面正常加载。"""
-    response = admin_page.goto(
-        f"{base_url}/admin/documents/documenttemplate/"
-    )
+    response = admin_page.goto(f"{base_url}/admin/documents/documenttemplate/")
     assert response is not None
     assert response.status < 500
     admin_page.wait_for_load_state("domcontentloaded")
@@ -35,11 +33,10 @@ def test_document_template_list(admin_page: Page, base_url: str) -> None:
 # 2. 新增文书模板页面
 # ------------------------------------------------------------------
 
+
 def test_document_template_add(admin_page: Page, base_url: str) -> None:
     """访问新增文书模板页面，验证表单正常加载。"""
-    response = admin_page.goto(
-        f"{base_url}/admin/documents/documenttemplate/add/"
-    )
+    response = admin_page.goto(f"{base_url}/admin/documents/documenttemplate/add/")
     assert response is not None
     assert response.status < 500
     admin_page.wait_for_load_state("domcontentloaded")
@@ -55,11 +52,10 @@ def test_document_template_add(admin_page: Page, base_url: str) -> None:
 # 3. 文件夹模板列表
 # ------------------------------------------------------------------
 
+
 def test_folder_template_list(admin_page: Page, base_url: str) -> None:
     """访问文件夹模板列表页，验证页面正常加载。"""
-    response = admin_page.goto(
-        f"{base_url}/admin/documents/foldertemplate/"
-    )
+    response = admin_page.goto(f"{base_url}/admin/documents/foldertemplate/")
     assert response is not None
     assert response.status < 500
     admin_page.wait_for_load_state("domcontentloaded")
@@ -71,11 +67,10 @@ def test_folder_template_list(admin_page: Page, base_url: str) -> None:
 # 4. 外部模板列表
 # ------------------------------------------------------------------
 
+
 def test_external_template_list(admin_page: Page, base_url: str) -> None:
     """访问外部模板列表页，验证页面正常加载。"""
-    response = admin_page.goto(
-        f"{base_url}/admin/documents/externaltemplate/"
-    )
+    response = admin_page.goto(f"{base_url}/admin/documents/externaltemplate/")
     assert response is not None
     assert response.status < 500
     admin_page.wait_for_load_state("domcontentloaded")
@@ -87,11 +82,10 @@ def test_external_template_list(admin_page: Page, base_url: str) -> None:
 # 5. 代理事项规则列表
 # ------------------------------------------------------------------
 
+
 def test_proxy_matter_rule_list(admin_page: Page, base_url: str) -> None:
     """访问代理事项规则列表页，验证页面正常加载。"""
-    response = admin_page.goto(
-        f"{base_url}/admin/documents/proxymatterrule/"
-    )
+    response = admin_page.goto(f"{base_url}/admin/documents/proxymatterrule/")
     assert response is not None
     assert response.status < 500
     admin_page.wait_for_load_state("domcontentloaded")

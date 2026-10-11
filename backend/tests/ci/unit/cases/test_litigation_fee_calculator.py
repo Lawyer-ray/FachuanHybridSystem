@@ -1,20 +1,22 @@
 """诉讼费用计算服务单元测试。"""
+
 from __future__ import annotations
 
-import pytest
 from decimal import Decimal
 
+import pytest
+
 from apps.cases.services.data.litigation_fee_calculator_service import (
+    BANKRUPTCY_FEE_MAX,
+    DIVORCE_CASE_FEE_MAX,
+    DIVORCE_CASE_FEE_MIN,
+    IP_CASE_FEE_DEFAULT,
+    PERSONALITY_RIGHTS_FEE_MAX,
+    PERSONALITY_RIGHTS_FEE_MIN,
+    PRESERVATION_FEE_MAX,
+    PROPERTY_CASE_FEE_TIERS,
     DiscountType,
     LitigationFeeCalculatorService,
-    PROPERTY_CASE_FEE_TIERS,
-    PRESERVATION_FEE_MAX,
-    IP_CASE_FEE_DEFAULT,
-    DIVORCE_CASE_FEE_MIN,
-    DIVORCE_CASE_FEE_MAX,
-    PERSONALITY_RIGHTS_FEE_MIN,
-    PERSONALITY_RIGHTS_FEE_MAX,
-    BANKRUPTCY_FEE_MAX,
 )
 from apps.core.exceptions import ValidationException
 
@@ -25,6 +27,7 @@ def svc() -> LitigationFeeCalculatorService:
 
 
 # ── _calculate_tiered_fee ──────────────────────────────────────────────────
+
 
 def test_tiered_fee_zero_returns_first_tier_base(svc: LitigationFeeCalculatorService) -> None:
     """金额为 0 时返回第一段基础费用。"""
@@ -64,6 +67,7 @@ def test_tiered_fee_unlimited_top_tier(svc: LitigationFeeCalculatorService) -> N
 
 # ── calculate_preservation_fee ─────────────────────────────────────────────
 
+
 def test_preservation_fee_small(svc: LitigationFeeCalculatorService) -> None:
     """保全金额 500，按 1% 计算。"""
     result = svc.calculate_preservation_fee(Decimal("500"))
@@ -91,6 +95,7 @@ def test_preservation_fee_negative(svc: LitigationFeeCalculatorService) -> None:
 
 # ── calculate_execution_fee ────────────────────────────────────────────────
 
+
 def test_execution_fee_small(svc: LitigationFeeCalculatorService) -> None:
     """执行金额 5000，返回 50 元。"""
     result = svc.calculate_execution_fee(Decimal("5000"))
@@ -111,6 +116,7 @@ def test_execution_fee_negative(svc: LitigationFeeCalculatorService) -> None:
 
 # ── calculate_payment_order_fee ────────────────────────────────────────────
 
+
 def test_payment_order_fee(svc: LitigationFeeCalculatorService) -> None:
     """支付令费用 = 财产案件费 / 3。"""
     amount = Decimal("50000")
@@ -120,6 +126,7 @@ def test_payment_order_fee(svc: LitigationFeeCalculatorService) -> None:
 
 
 # ── calculate_ip_case_fee ──────────────────────────────────────────────────
+
 
 def test_ip_case_fee_no_amount(svc: LitigationFeeCalculatorService) -> None:
     """无争议金额返回固定 500 元。"""
@@ -138,6 +145,7 @@ def test_ip_case_fee_with_amount(svc: LitigationFeeCalculatorService) -> None:
 
 
 # ── calculate_divorce_case_fee ─────────────────────────────────────────────
+
 
 def test_divorce_fee_no_property(svc: LitigationFeeCalculatorService) -> None:
     """无财产金额时返回基础费用。"""
@@ -170,6 +178,7 @@ def test_divorce_fee_base_clamped_high(svc: LitigationFeeCalculatorService) -> N
 
 # ── calculate_personality_rights_fee ───────────────────────────────────────
 
+
 def test_personality_rights_fee_no_damage(svc: LitigationFeeCalculatorService) -> None:
     """无损害赔偿金额时返回基础费用。"""
     assert svc.calculate_personality_rights_fee(Decimal("300")) == Decimal("300")
@@ -178,11 +187,14 @@ def test_personality_rights_fee_no_damage(svc: LitigationFeeCalculatorService) -
 def test_personality_rights_fee_with_damage(svc: LitigationFeeCalculatorService) -> None:
     """有损害赔偿金额，按分段计算。"""
     result = svc.calculate_personality_rights_fee(Decimal("300"), Decimal("200000"))
-    extra = svc._calculate_tiered_fee(Decimal("200000"), [
-        (50000, Decimal("0"), Decimal("0")),
-        (100000, Decimal("0.01"), Decimal("0")),
-        (None, Decimal("0.005"), Decimal("500")),
-    ])
+    extra = svc._calculate_tiered_fee(
+        Decimal("200000"),
+        [
+            (50000, Decimal("0"), Decimal("0")),
+            (100000, Decimal("0.01"), Decimal("0")),
+            (None, Decimal("0.005"), Decimal("500")),
+        ],
+    )
     assert result == Decimal("300") + extra
 
 
@@ -193,6 +205,7 @@ def test_personality_rights_fee_base_clamped(svc: LitigationFeeCalculatorService
 
 
 # ── calculate_bankruptcy_fee ───────────────────────────────────────────────
+
 
 def test_bankruptcy_fee_normal(svc: LitigationFeeCalculatorService) -> None:
     """破产案件费 = 财产案件费 / 2。"""
@@ -215,6 +228,7 @@ def test_bankruptcy_fee_negative(svc: LitigationFeeCalculatorService) -> None:
 
 
 # ── apply_discount ─────────────────────────────────────────────────────────
+
 
 def test_apply_discount_mediation(svc: LitigationFeeCalculatorService) -> None:
     """调解结案减半。"""
@@ -243,6 +257,7 @@ def test_apply_discount_unknown_type(svc: LitigationFeeCalculatorService) -> Non
 
 # ── validate_and_convert_fee_inputs ────────────────────────────────────────
 
+
 def test_validate_inputs_valid(svc: LitigationFeeCalculatorService) -> None:
     """正常输入转换正确。"""
     target, preservation = svc.validate_and_convert_fee_inputs(100000.0, 50000.0)
@@ -270,6 +285,7 @@ def test_validate_inputs_negative_preservation(svc: LitigationFeeCalculatorServi
 
 
 # ── calculate_personality_rights_fee_with_range ────────────────────────────
+
 
 def test_personality_rights_range_no_amount(svc: LitigationFeeCalculatorService) -> None:
     """无金额返回基础范围。"""
@@ -301,6 +317,7 @@ def test_personality_rights_range_over_10w(svc: LitigationFeeCalculatorService) 
 
 # ── calculate_ip_fee_with_range ────────────────────────────────────────────
 
+
 def test_ip_range_no_amount(svc: LitigationFeeCalculatorService) -> None:
     """无金额返回固定费用范围。"""
     result = svc.calculate_ip_fee_with_range(None)
@@ -316,6 +333,7 @@ def test_ip_range_with_amount(svc: LitigationFeeCalculatorService) -> None:
 
 
 # ── calculate_all_fees (integration-like) ──────────────────────────────────
+
 
 def test_calculate_all_fees_labor(svc: LitigationFeeCalculatorService) -> None:
     """劳动争议案件返回固定费用 10 元。"""

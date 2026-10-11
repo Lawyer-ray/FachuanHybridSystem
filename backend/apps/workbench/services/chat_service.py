@@ -36,6 +36,8 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.result import AgentStream
 
+from apps.workbench.services.session_service import aincrement_storage
+
 from ..agents import (
     WorkbenchDeps,
     approval_manager,
@@ -336,7 +338,7 @@ class WorkbenchChatService:
             role=WorkbenchMessage.Role.USER,
             content=user_message,
         )
-        await WorkbenchSessionService.aincrement_storage(
+        await aincrement_storage(
             session_id,
             _calc_message_bytes(content=user_message),
         )
@@ -408,7 +410,7 @@ class WorkbenchChatService:
                     )
                     if tc_id:
                         tool_msg_map[tc_id] = tool_msg.id
-                    await WorkbenchSessionService.aincrement_storage(
+                    await aincrement_storage(
                         session_id,
                         _calc_message_bytes(content=tc_content, tool_input=tc_args),
                     )
@@ -434,7 +436,7 @@ class WorkbenchChatService:
                             tool_output=new_tool_output,
                             metadata=new_metadata,
                         )
-                        await WorkbenchSessionService.aincrement_storage(session_id, delta)
+                        await aincrement_storage(session_id, delta)
                 yield event
         except Exception:
             logger.exception("Agent 运行失败")
@@ -462,7 +464,7 @@ class WorkbenchChatService:
                 llm_model=model_name,
                 metadata=assistant_meta,
             )
-            await WorkbenchSessionService.aincrement_storage(
+            await aincrement_storage(
                 session_id,
                 _calc_message_bytes(content=content, metadata=assistant_meta),
             )

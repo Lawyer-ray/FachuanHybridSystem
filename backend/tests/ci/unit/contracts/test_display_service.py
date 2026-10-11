@@ -1,4 +1,5 @@
 """合同显示服务与模板缓存单元测试。"""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -9,11 +10,10 @@ import pytest
 from apps.contracts.services.contract.query.display_service import ContractDisplayService
 from apps.contracts.services.contract.query.template_cache import ContractTemplateCache
 
-
 # ── ContractDisplayService ─────────────────────────────────────────────────
 
-class TestContractDisplayService:
 
+class TestContractDisplayService:
     def _service(self, doc_service=None, cache=None) -> ContractDisplayService:
         return ContractDisplayService(
             document_service=doc_service or MagicMock(),
@@ -27,9 +27,7 @@ class TestContractDisplayService:
     def test_get_matched_document_template_from_cache(self, mock_cache_cls) -> None:
         """从缓存获取文书模板。"""
         mock_cache = MagicMock()
-        mock_cache.get_document_templates.return_value = [
-            {"name": "起诉状", "type_display": "一审"}
-        ]
+        mock_cache.get_document_templates.return_value = [{"name": "起诉状", "type_display": "一审"}]
         svc = self._service(cache=mock_cache)
         result = svc.get_matched_document_template(self._contract())
         assert "起诉状" in result
@@ -40,9 +38,7 @@ class TestContractDisplayService:
         mock_cache = MagicMock()
         mock_cache.get_document_templates.return_value = None
         mock_doc_service = MagicMock()
-        mock_doc_service.find_matching_contract_templates.return_value = [
-            {"name": "答辩状", "type_display": ""}
-        ]
+        mock_doc_service.find_matching_contract_templates.return_value = [{"name": "答辩状", "type_display": ""}]
         svc = self._service(doc_service=mock_doc_service, cache=mock_cache)
         result = svc.get_matched_document_template(self._contract())
         assert "答辩状" in result
@@ -127,8 +123,8 @@ class TestContractDisplayService:
 
 # ── ContractTemplateCache ──────────────────────────────────────────────────
 
-class TestContractTemplateCache:
 
+class TestContractTemplateCache:
     def test_get_cache_key_format(self) -> None:
         """缓存键格式正确。"""
         cache = ContractTemplateCache()

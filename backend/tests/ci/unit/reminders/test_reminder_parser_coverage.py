@@ -1,17 +1,18 @@
 """Coverage tests for reminders/services/reminder_parser_service.py."""
+
 from __future__ import annotations
 
 import pytest
 
 from apps.reminders.services.reminder_parser_service import (
-    _infer_reminder_type,
-    _parse_date,
-    _extract_time_near_date,
-    _extract_sentence,
-    _generate_content,
-    parse_reminders_from_text,
     DEFAULT_REMINDER_TYPE,
     REMINDER_TYPE_LABELS,
+    _extract_sentence,
+    _extract_time_near_date,
+    _generate_content,
+    _infer_reminder_type,
+    _parse_date,
+    parse_reminders_from_text,
 )
 
 
@@ -184,7 +185,14 @@ class TestParseRemindersFromText:
 
 class TestReminderTypeLabels:
     def test_all_types_have_labels(self):
-        for t in ["hearing", "asset_preservation_expires", "evidence_deadline",
-                  "appeal_deadline", "statute_limitations", "payment_deadline",
-                  "submission_deadline", "other"]:
+        for t in [
+            "hearing",
+            "asset_preservation_expires",
+            "evidence_deadline",
+            "appeal_deadline",
+            "statute_limitations",
+            "payment_deadline",
+            "submission_deadline",
+            "other",
+        ]:
             assert t in REMINDER_TYPE_LABELS

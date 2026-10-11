@@ -6,14 +6,10 @@ import calendar
 from datetime import date, timedelta
 from decimal import Decimal
 
-from hypothesis import given, settings, assume
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from apps.finance.services.calculator.interest_calculator import (
-    CalculationPeriod,
-    InterestCalculator,
-)
-
+from apps.finance.services.calculator.interest_calculator import CalculationPeriod, InterestCalculator
 
 # ---------------------------------------------------------------------------
 # Strategies
@@ -36,6 +32,7 @@ _year_days_strat = st.sampled_from([360, 365])
 # CalculationPeriod.calculate()
 # ---------------------------------------------------------------------------
 
+
 @settings(max_examples=200, deadline=None)
 @given(
     principal=_principal_strat,
@@ -44,7 +41,10 @@ _year_days_strat = st.sampled_from([360, 365])
     year_days=_year_days_strat,
 )
 def test_calc_period_non_negative_result(
-    principal: Decimal, rate: Decimal, days: int, year_days: int,
+    principal: Decimal,
+    rate: Decimal,
+    days: int,
+    year_days: int,
 ) -> None:
     """Interest is non-negative for non-negative inputs."""
     d = date(2020, 1, 1)
@@ -67,7 +67,9 @@ def test_calc_period_non_negative_result(
     year_days=_year_days_strat,
 )
 def test_calc_period_zero_days_gives_zero_interest(
-    principal: Decimal, rate: Decimal, year_days: int,
+    principal: Decimal,
+    rate: Decimal,
+    year_days: int,
 ) -> None:
     """When days <= 0, interest is always zero."""
     d = date(2020, 1, 1)
@@ -92,17 +94,28 @@ def test_calc_period_zero_days_gives_zero_interest(
     year_days=_year_days_strat,
 )
 def test_calc_period_doubling_principal_doubles_interest(
-    principal: Decimal, rate: Decimal, days: int, year_days: int,
+    principal: Decimal,
+    rate: Decimal,
+    days: int,
+    year_days: int,
 ) -> None:
     """Doubling the principal doubles the interest (linearity)."""
     d = date(2020, 1, 1)
     p1 = CalculationPeriod(
-        start_date=d, end_date=d + timedelta(days=days),
-        principal=principal, rate=rate, days=days, year_days=year_days,
+        start_date=d,
+        end_date=d + timedelta(days=days),
+        principal=principal,
+        rate=rate,
+        days=days,
+        year_days=year_days,
     )
     p2 = CalculationPeriod(
-        start_date=d, end_date=d + timedelta(days=days),
-        principal=principal * 2, rate=rate, days=days, year_days=year_days,
+        start_date=d,
+        end_date=d + timedelta(days=days),
+        principal=principal * 2,
+        rate=rate,
+        days=days,
+        year_days=year_days,
     )
     r1 = p1.calculate()
     r2 = p2.calculate()
@@ -118,13 +131,20 @@ def test_calc_period_doubling_principal_doubles_interest(
     year_days=_year_days_strat,
 )
 def test_calc_period_result_quantized_to_2dp(
-    principal: Decimal, rate: Decimal, days: int, year_days: int,
+    principal: Decimal,
+    rate: Decimal,
+    days: int,
+    year_days: int,
 ) -> None:
     """Result is always quantized to 2 decimal places."""
     d = date(2020, 1, 1)
     period = CalculationPeriod(
-        start_date=d, end_date=d + timedelta(days=days),
-        principal=principal, rate=rate, days=days, year_days=year_days,
+        start_date=d,
+        end_date=d + timedelta(days=days),
+        principal=principal,
+        rate=rate,
+        days=days,
+        year_days=year_days,
     )
     result = period.calculate()
     assert result == result.quantize(Decimal("0.01"))
@@ -133,6 +153,7 @@ def test_calc_period_result_quantized_to_2dp(
 # ---------------------------------------------------------------------------
 # InterestCalculator._get_year_days
 # ---------------------------------------------------------------------------
+
 
 @settings(max_examples=200, deadline=None)
 @given(
@@ -169,6 +190,7 @@ def test_get_year_days_always_in_valid_set(d: date) -> None:
 # ---------------------------------------------------------------------------
 # InterestCalculator._apply_date_inclusion
 # ---------------------------------------------------------------------------
+
 
 @settings(max_examples=200, deadline=None)
 @given(start=_date_strat, delta=st.integers(min_value=0, max_value=3650))

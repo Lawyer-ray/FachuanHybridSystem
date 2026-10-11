@@ -17,6 +17,7 @@ import pytest
 # tests for apps.core.tasking.runtime (41 missing)
 # ---------------------------------------------------------------------------
 
+
 class TestTaskRunContext:
     def test_from_django_q_default_timeout(self):
         from apps.core.tasking.runtime import TaskRunContext
@@ -66,6 +67,7 @@ class TestTaskRunContext:
         )
         assert ctx.is_past_soft_deadline() is True
 
+
 class TestCancellationToken:
     def test_not_cancelled(self):
         from apps.core.tasking.runtime import CancellationToken
@@ -84,6 +86,7 @@ class TestCancellationToken:
 
         token = CancellationToken(should_cancel=lambda: None.bad_attr)
         assert token.is_cancelled() is False
+
 
 class TestProgressReporter:
     def test_report_basic(self):
@@ -191,9 +194,11 @@ class TestProgressReporter:
         reporter.report(current=-10, total=100, message="neg", force=True)
         assert updates[0][0] == 0
 
+
 # ---------------------------------------------------------------------------
 # tests for apps.core.tasking.cleanup_tasks (36 missing)
 # ---------------------------------------------------------------------------
+
 
 class TestCleanupTasks:
     def test_cleanup_temp_files_no_dir(self, tmp_path):
@@ -309,9 +314,11 @@ class TestCleanupTasks:
                 result = check_disk_space(warning_pct=80.0, critical_pct=95.0)
                 assert result["status"] == "critical"
 
+
 # ---------------------------------------------------------------------------
 # tests for apps.core.infrastructure.resource_monitor (36 missing)
 # ---------------------------------------------------------------------------
+
 
 class TestResourceMonitor:
     def test_init_no_psutil(self):
@@ -619,5 +626,6 @@ class TestResourceMonitor:
         monitor = ResourceMonitor()
         assert monitor._get_bool_env("NONEXISTENT_KEY", True) is True
         assert monitor._get_bool_env("NONEXISTENT_KEY", False) is False
+
 
 # ---------------------------------------------------------------------------

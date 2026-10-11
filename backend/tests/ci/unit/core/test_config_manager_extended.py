@@ -24,8 +24,8 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
-from apps.core.config.manager import ConfigManager
 from apps.core.config.exceptions import ConfigException, ConfigNotFoundError, ConfigTypeError
+from apps.core.config.manager import ConfigManager
 from apps.core.config.notifications import ConfigChangeListener
 
 
@@ -411,15 +411,19 @@ class TestReload:
 
     def test_reload_failure(self) -> None:
         m = _make_manager()
+
         # ConfigException wraps the provider error and is NOT caught by reload
         # (which only catches OSError, ValueError, KeyError)
         # So reload propagates ConfigException
         class ValueErrorProvider:
             priority = 0
+
             def load(self):
                 raise ValueError("bad config")
+
             def get_name(self):
                 return "val_err"
+
         m.add_provider(ValueErrorProvider())
         # load() wraps ValueError into ConfigException, which is NOT caught by reload()
         with pytest.raises(ConfigException):

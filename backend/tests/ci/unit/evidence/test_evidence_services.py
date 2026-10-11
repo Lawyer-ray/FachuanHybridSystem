@@ -10,12 +10,14 @@ import pytest
 class TestEvidenceExportServiceInit:
     def test_init_with_placeholder_service(self):
         from apps.evidence.services.export.evidence_export_service import EvidenceExportService
+
         mock_ps = MagicMock()
         svc = EvidenceExportService(placeholder_service=mock_ps)
         assert svc.placeholder_service is mock_ps
 
     def test_init_without_placeholder_service(self):
         from apps.evidence.services.export.evidence_export_service import EvidenceExportService
+
         svc = EvidenceExportService()
         assert svc._placeholder_service is None
 
@@ -23,8 +25,9 @@ class TestEvidenceExportServiceInit:
 class TestEvidenceExportServiceGetEvidenceList:
     @pytest.mark.django_db
     def test_not_found_raises(self):
-        from apps.evidence.services.export.evidence_export_service import EvidenceExportService
         from apps.core.exceptions import NotFoundError
+        from apps.evidence.services.export.evidence_export_service import EvidenceExportService
+
         svc = EvidenceExportService()
         with pytest.raises(NotFoundError):
             svc._get_evidence_list(999999)
@@ -33,6 +36,7 @@ class TestEvidenceExportServiceGetEvidenceList:
 class TestEvidenceExportServiceGenerateFilename:
     def test_evidence_list_type(self):
         from apps.evidence.services.export.evidence_export_service import EvidenceExportService
+
         svc = EvidenceExportService()
         evidence_list = MagicMock()
         evidence_list.case.name = "测试案件"
@@ -47,6 +51,7 @@ class TestEvidenceExportServiceGenerateFilename:
 
     def test_evidence_detail_type(self):
         from apps.evidence.services.export.evidence_export_service import EvidenceExportService
+
         svc = EvidenceExportService()
         evidence_list = MagicMock()
         evidence_list.case.name = "测试案件"
@@ -63,8 +68,8 @@ class TestEvidenceExportServiceGenerateFilename:
 class TestEvidenceExportServiceIncrementVersion:
     def test_returns_current_version(self):
         from apps.evidence.services.export.evidence_export_service import EvidenceExportService
+
         svc = EvidenceExportService()
         evidence_list = MagicMock()
         evidence_list.export_version = 3
         assert svc._increment_version(evidence_list) == 3
-

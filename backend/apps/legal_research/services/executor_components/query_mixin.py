@@ -9,6 +9,8 @@ from typing import Any
 
 from apps.core.interfaces import ServiceLocator
 
+from .intent_mixin import _dedupe_tokens, _is_location_or_court_token, _looks_like_relation_term, _split_tokens
+
 logger = logging.getLogger(__name__)
 
 
@@ -203,29 +205,29 @@ class ExecutorQueryMixin:  # pragma: no cover
         if deduped:
             return deduped
 
-        fallback_tokens = cls._split_tokens(keyword) or cls._split_tokens(case_summary)  # type: ignore[attr-defined]
+        fallback_tokens = _split_tokens(keyword) or _split_tokens(case_summary)
         return [" ".join(cls._expand_terms_with_synonyms(fallback_tokens, max_tokens=8)).strip()]
 
     @classmethod
     def _build_search_keyword(cls, keyword: str, case_summary: str) -> str:  # pragma: no cover
-        base_tokens = cls._split_tokens(keyword)  # type: ignore[attr-defined]
+        base_tokens = _split_tokens(keyword)
         if not base_tokens:
-            base_tokens = cls._split_tokens(case_summary)  # type: ignore[attr-defined]
+            base_tokens = _split_tokens(case_summary)
         merged = cls._expand_terms_with_synonyms(base_tokens, max_tokens=12)
         return " ".join(merged).strip()
 
     @classmethod
     def _build_fallback_search_keyword(cls, keyword: str, case_summary: str) -> str:  # pragma: no cover
-        fallback_tokens = cls._split_tokens(keyword)  # type: ignore[attr-defined]
-        filtered = [token for token in fallback_tokens if not cls._is_location_or_court_token(token)]  # type: ignore[attr-defined]
+        fallback_tokens = _split_tokens(keyword)
+        filtered = [token for token in fallback_tokens if not _is_location_or_court_token(token)]
         summary_terms = cls._extract_summary_terms(case_summary)  # type: ignore[attr-defined]
         merged = cls._expand_terms_with_synonyms([*filtered, *summary_terms], max_tokens=12)
         return " ".join(merged).strip()
 
     @classmethod
     def _build_scoring_keyword(cls, keyword: str, case_summary: str) -> str:  # pragma: no cover
-        base_tokens = cls._split_tokens(keyword)  # type: ignore[attr-defined]
-        filtered = [token for token in base_tokens if not cls._is_location_or_court_token(token)]  # type: ignore[attr-defined]
+        base_tokens = _split_tokens(keyword)
+        filtered = [token for token in base_tokens if not _is_location_or_court_token(token)]
         summary_terms = cls._extract_summary_terms(case_summary)  # type: ignore[attr-defined]
         merged = cls._expand_terms_with_synonyms([*filtered, *summary_terms], max_tokens=10)
         if not merged:
@@ -241,8 +243,8 @@ class ExecutorQueryMixin:  # pragma: no cover
     def _build_feedback_search_keyword(
         cls, keyword: str, case_summary: str, feedback_terms: list[str]
     ) -> str:  # pragma: no cover
-        keyword_tokens = cls._split_tokens(keyword)  # type: ignore[attr-defined]
-        keyword_tokens = [token for token in keyword_tokens if not cls._is_location_or_court_token(token)]  # type: ignore[attr-defined]
+        keyword_tokens = _split_tokens(keyword)
+        keyword_tokens = [token for token in keyword_tokens if not _is_location_or_court_token(token)]
         summary_terms = cls._extract_summary_terms(case_summary)  # type: ignore[attr-defined]
         merged = cls._expand_terms_with_synonyms([*keyword_tokens, *summary_terms, *feedback_terms], max_tokens=12)
         return " ".join(merged).strip()
@@ -264,9 +266,9 @@ class ExecutorQueryMixin:  # pragma: no cover
         remedy_low_terms = intent_slots["remedy_low"]
         low_conf_limit = max(1, int(intent_slots["low_conf_limit"]))
 
-        keyword_terms = [token for token in cls._split_tokens(keyword) if not cls._is_location_or_court_token(token)]  # type: ignore[attr-defined]
+        keyword_terms = [token for token in _split_tokens(keyword) if not _is_location_or_court_token(token)]
         summary_terms = cls._extract_summary_terms(case_summary)  # type: ignore[attr-defined]
-        summary_relation_terms = [term for term in summary_terms if cls._looks_like_relation_term(term)]  # type: ignore[attr-defined]
+        summary_relation_terms = [term for term in summary_terms if _looks_like_relation_term(term)]
 
         relation_seed = relation_terms or summary_relation_terms[:2] or keyword_terms[:2]
         query_parts: list[list[str]] = []
@@ -278,7 +280,7 @@ class ExecutorQueryMixin:  # pragma: no cover
             query_parts.append([*breach_terms[:2], *damage_terms[:2], *summary_terms[:2]])
         if relation_seed and remedy_terms:
             query_parts.append([*relation_seed[:2], *remedy_terms[:2], *summary_terms[:2]])
-        low_conf_pool = cls._dedupe_tokens(  # type: ignore[attr-defined]
+        low_conf_pool = _dedupe_tokens(
             [*relation_low_terms, *breach_low_terms, *damage_low_terms, *remedy_low_terms],
             max_tokens=max(2, low_conf_limit * 2),
         )
@@ -286,7 +288,7 @@ class ExecutorQueryMixin:  # pragma: no cover
             query_parts.append([*keyword_terms[:2], *low_conf_pool[:low_conf_limit], *summary_terms[:2]])
         elif keyword_terms and summary_terms:
             query_parts.append([*keyword_terms[:3], *summary_terms[:3]])
-        intent_pool = cls._dedupe_tokens(  # type: ignore[attr-defined]
+        intent_pool = _dedupe_tokens(
             [*relation_terms, *breach_terms, *damage_terms, *remedy_terms, *summary_terms], max_tokens=8
         )
         if intent_pool:
@@ -379,7 +381,7 @@ class ExecutorQueryMixin:  # pragma: no cover
         out: list[str] = []
         seen: set[str] = set()
         for candidate in candidates:
-            tokens = [token for token in cls._split_tokens(candidate) if not cls._is_location_or_court_token(token)]  # type: ignore[attr-defined]
+            tokens = [token for token in _split_tokens(candidate) if not _is_location_or_court_token(token)]
             if not tokens:
                 continue
             query = " ".join(cls._expand_terms_with_synonyms(tokens, max_tokens=12)).strip()
@@ -582,7 +584,7 @@ class ExecutorQueryMixin:  # pragma: no cover
     ) -> bool:  # pragma: no cover
         if not title_hint or not title_hint.strip():
             return True
-        query_tokens = cls._split_tokens(f"{keyword} {case_summary}")  # type: ignore[attr-defined]
+        query_tokens = _split_tokens(f"{keyword} {case_summary}")
         if not query_tokens:
             return True
         title_lower = title_hint.lower()

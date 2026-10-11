@@ -1,4 +1,5 @@
 """Tests for FeeTermsService covering all fee mode generation paths."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -6,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from apps.documents.services.placeholders.contract.fee_terms_service import FeeTermsService
+from apps.documents.services.placeholders.contract.fee_terms_service import FeeTermsService, _to_chinese_ordinal
 
 
 @pytest.fixture
@@ -154,21 +155,21 @@ class TestGenerateSplitFeeText:
 
 class TestToChineseOrdinal:
     def test_ordinal_1_to_5(self, svc):
-        assert svc._to_chinese_ordinal(1) == "一"
-        assert svc._to_chinese_ordinal(2) == "二"
-        assert svc._to_chinese_ordinal(3) == "三"
-        assert svc._to_chinese_ordinal(4) == "四"
-        assert svc._to_chinese_ordinal(5) == "五"
+        assert _to_chinese_ordinal(1) == "一"
+        assert _to_chinese_ordinal(2) == "二"
+        assert _to_chinese_ordinal(3) == "三"
+        assert _to_chinese_ordinal(4) == "四"
+        assert _to_chinese_ordinal(5) == "五"
 
     def test_ordinal_6_to_10(self, svc):
-        assert svc._to_chinese_ordinal(6) == "六"
-        assert svc._to_chinese_ordinal(7) == "七"
-        assert svc._to_chinese_ordinal(8) == "八"
-        assert svc._to_chinese_ordinal(9) == "九"
-        assert svc._to_chinese_ordinal(10) == "十"
+        assert _to_chinese_ordinal(6) == "六"
+        assert _to_chinese_ordinal(7) == "七"
+        assert _to_chinese_ordinal(8) == "八"
+        assert _to_chinese_ordinal(9) == "九"
+        assert _to_chinese_ordinal(10) == "十"
 
     def test_ordinal_out_of_range(self, svc):
-        assert svc._to_chinese_ordinal(11) == "11"
+        assert _to_chinese_ordinal(11) == "11"
 
 
 # ── _number_to_chinese ──

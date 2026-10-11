@@ -7,7 +7,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.core.exceptions import AuthenticationError, ExternalServiceError, ValidationException
-from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
+from apps.enterprise_data.services.clients.mcp_tool_client import (
+    McpToolClient,
+    _collect_related_exceptions,
+    _contains_auth_token,
+    _flatten_error_payload_text,
+    _is_auth_like_http_error,
+    _serialize_content_item,
+    _try_parse_json,
+)
 
 
 def _make_client(**kwargs):
@@ -65,20 +73,20 @@ class TestMcpToolClientHelpers:
         assert attempts == ["sse"]
 
     def test_try_parse_json_valid(self):
-        assert McpToolClient._try_parse_json('{"key": "value"}') == {"key": "value"}
+        assert _try_parse_json('{"key": "value"}') == {"key": "value"}
 
     def test_try_parse_json_invalid(self):
-        assert McpToolClient._try_parse_json("not json") is None
+        assert _try_parse_json("not json") is None
 
     def test_serialize_content_item_with_model_dump(self):
         item = MagicMock()
         item.model_dump.return_value = {"type": "text", "value": "hello"}
-        result = McpToolClient._serialize_content_item(item)
+        result = _serialize_content_item(item)
         assert result == {"type": "text", "value": "hello"}
 
     def test_serialize_content_item_without_model_dump(self):
         item = "plain text"
-        result = McpToolClient._serialize_content_item(item)
+        result = _serialize_content_item(item)
         assert "value" in result
 
 
@@ -156,9 +164,9 @@ class TestMcpToolClientApiKeySwitch:
 
 class TestMcpToolClientAuthDetection:
     def test_contains_auth_token(self):
-        assert McpToolClient._contains_auth_token("authentication error") is True
-        assert McpToolClient._contains_auth_token("invalid api key") is True
-        assert McpToolClient._contains_auth_token("normal error") is False
+        assert _contains_auth_token("authentication error") is True
+        assert _contains_auth_token("invalid api key") is True
+        assert _contains_auth_token("normal error") is False
 
     def test_is_auth_like_http_error_401(self):
         import httpx2 as httpx
@@ -168,10 +176,10 @@ class TestMcpToolClientAuthDetection:
         mock_resp.text = ""
         mock_resp.json.side_effect = ValueError
         exc = httpx.HTTPStatusError("unauthorized", request=MagicMock(), response=mock_resp)
-        assert McpToolClient._is_auth_like_http_error(exc) is True
+        assert _is_auth_like_http_error(exc) is True
 
     def test_flatten_error_payload_text(self):
-        result = McpToolClient._flatten_error_payload_text({"error": {"code": 401, "message": "unauthorized"}})
+        result = _flatten_error_payload_text({"error": {"code": 401, "message": "unauthorized"}})
         assert "unauthorized" in result
         assert "401" in result
 
@@ -179,7 +187,7 @@ class TestMcpToolClientAuthDetection:
         inner = ValueError("inner")
         outer = RuntimeError("outer")
         outer.__cause__ = inner
-        collected = McpToolClient._collect_related_exceptions(outer)
+        collected = _collect_related_exceptions(outer)
         assert len(collected) >= 2
 
 
