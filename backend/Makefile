@@ -135,7 +135,7 @@ ci-check-full: ## 完整 CI 镜像 + 远端独立 Job（coverage 门槛 + 全量
 	@echo ""
 	@echo "$(GREEN)✅ 完整 CI 镜像 + 扩展检查全部通过!$(NC)"
 
-.PHONY: help install run test migrate shell lint clean ci-check ci-check-full qcluster-dev redis-cli redis-status redis-reset
+.PHONY: help install run test migrate pg-ready shell lint clean ci-check ci-check-full qcluster-dev redis-cli redis-status redis-reset
 
 # 默认 Python 和虚拟环境
 VENV_DIR ?= .venv
@@ -216,8 +216,11 @@ run-port: migrate ## 启动开发服务器 (自定义端口, 使用 PORT=8001)
 # 数据库
 # ============================================================
 
-migrate: ## 运行数据库迁移
+migrate: pg-ready ## 运行数据库迁移
 	$(MANAGE) migrate
+
+pg-ready: ## 确保 PostgreSQL 可连接（自愈中断关机残留的 postmaster.pid，见 scripts/ensure_postgres.sh）
+	@bash ../scripts/ensure_postgres.sh
 
 makemigrations: ## 创建迁移文件
 	$(MANAGE) makemigrations
