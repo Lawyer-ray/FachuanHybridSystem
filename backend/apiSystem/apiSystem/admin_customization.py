@@ -136,7 +136,6 @@ _HIDDEN_APP_LABELS = {
 _OTHER_TOOLS_APPS = [
     {"app_label": "contacts", "name": _("案件工作人员"), "url": "/admin/contacts/"},
     {"app_label": "cloud_storage", "name": _("云存储"), "url": "/admin/cloud_storage/"},
-    {"app_label": "oa_filing", "name": _("OA 立案"), "url": "/admin/oa_filing/filingsession/"},
     {"app_label": "oa_filing", "name": _("OA 盖章"), "url": "/admin/oa_filing/stampsession/"},
     {"app_label": "automation", "name": _("自动化工具"), "url": "/admin/automation/"},
     {"app_label": "document_recognition", "name": _("文书智能识别"), "url": "/admin/document_recognition/"},
