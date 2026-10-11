@@ -68,6 +68,130 @@ def _default_llm_complete(*, prompt: str, system_prompt: str, model_id: str) -> 
     return str(getattr(response, "content", "") or "")
 
 
+# ── 模块级纯函数（Service 层禁止静态方法装饰器，棘轮 test_four_layer_architecture 把关） ──
+
+
+def select_targets(candidates: list[dict[str, Any]], *, scope: str) -> list[dict[str, Any]]:
+    """选出待 AI 分类的候选：unmatched=未匹配清单项的案件材料，all=全部未跳过项。"""
+    visible = [c for c in candidates if not c.get("skip_reason") and not c.get("already_imported")]
+    if scope == "all":
+        return visible
+    return [
+        c
+        for c in visible
+        if str(c.get("suggested_category") or "") == "case_material" and not str(c.get("archive_item_code") or "")
+    ]
+
+
+def build_prompt(
+    *,
+    batch: list[dict[str, Any]],
+    contract_name: str,
+    archive_category: str,
+    item_options: list[dict[str, str]],
+    scan_folder: str,
+) -> str:
+    category_label = _ARCHIVE_CATEGORY_LABELS.get(archive_category, archive_category)
+    option_lines = "\n".join(f"- {opt['code']}：{opt['name']}" for opt in item_options)
+    category_lines = "\n".join(f"- {code}：{_CATEGORY_LABELS[code]}" for code in _VALID_CATEGORIES)
+
+    file_lines: list[str] = []
+    for idx, item in enumerate(batch, start=1):
+        folder = relative_parent_folder(source_path=str(item.get("source_path") or ""), scan_folder=scan_folder)
+        location = f"［文件夹：{folder}］" if folder else ""
+        keyword_hint = str(item.get("archive_item_name") or "")
+        hint = f"（关键词分类：{keyword_hint}）" if keyword_hint else ""
+        file_lines.append(f"{idx}. {location}文件名：{item.get('filename')}{hint}")
+
+    return (
+        f"合同名称：{contract_name or '（未命名）'}\n"
+        f"归档分类：{category_label}\n"
+        "业务背景：律师办案归档，请按文件语义选择最合适的类别与归档清单项。\n\n"
+        f"材料类别（category 只能取以下值之一）：\n{category_lines}\n\n"
+        "归档清单项（case_material 时 archive_item_code 只能取以下编号之一，"
+        f"其他类别必须填空字符串）：\n{option_lines}\n\n"
+        "文件列表：\n" + "\n".join(file_lines) + "\n\n"
+        "请按文件列表序号输出 JSON 数组。"
+    )
+
+
+def relative_parent_folder(*, source_path: str, scan_folder: str) -> str:
+    """取文件相对扫描根目录的父文件夹路径，供 LLM 参考目录语义。"""
+    raw = source_path.replace("\\", "/")
+    root = scan_folder.replace("\\", "/").rstrip("/")
+    if root and raw.startswith(root + "/"):
+        raw = raw[len(root) + 1 :]
+    parent = raw.rsplit("/", 1)[0] if "/" in raw else ""
+    return parent.lstrip("/")
+
+
+def parse_llm_items(content: str) -> list[dict[str, Any]]:
+    """解析 LLM 输出的 JSON 数组；解析失败返回空列表。"""
+    text = str(content or "").strip()
+    if not text:
+        return []
+
+    candidates: list[str] = [text]
+    candidates.extend(re.findall(r"\[[\s\S]*\]", text))
+    candidates.extend(re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE))
+    for candidate in candidates:
+        try:
+            loaded = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(loaded, list):
+            return [item for item in loaded if isinstance(item, dict)]
+    return []
+
+
+def apply_suggestion(
+    candidate: dict[str, Any],
+    suggestion: dict[str, Any],
+    *,
+    code_to_name: dict[str, str],
+) -> bool:
+    """校验并应用单条 AI 建议到候选；非法建议返回 False 且不改动候选。"""
+    category = str(suggestion.get("category") or "").strip()
+    if category not in _VALID_CATEGORIES:
+        return False
+
+    archive_item_code = str(suggestion.get("archive_item_code") or "").strip()
+    if category == "case_material":
+        if archive_item_code not in code_to_name:
+            return False
+    else:
+        archive_item_code = ""
+
+    try:
+        confidence = min(1.0, max(0.0, float(suggestion.get("confidence", 0))))
+    except (TypeError, ValueError):
+        confidence = 0.0
+
+    reason = str(suggestion.get("reason") or "").strip()[:60]
+    candidate["suggested_category"] = category
+    candidate["archive_item_code"] = archive_item_code
+    candidate["archive_item_name"] = code_to_name.get(archive_item_code, "")
+    candidate["confidence"] = confidence
+    candidate["reason"] = f"AI：{reason}" if reason else "AI 分类建议"
+    candidate["classified_by"] = "ai"
+    candidate["selected"] = True
+    return True
+
+
+def _to_int(value: Any) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return -1
+
+
+def _get_session(*, contract_id: int, session_id: UUID) -> ContractFolderScanSession:
+    try:
+        return ContractFolderScanSession.objects.get(id=session_id, contract_id=contract_id)
+    except ContractFolderScanSession.DoesNotExist:
+        raise NotFoundError("扫描会话不存在") from None
+
+
 class ContractScanAIClassifyService:
     """扫描会话的 LLM 归档分类服务。"""
 
@@ -87,7 +211,7 @@ class ContractScanAIClassifyService:
         scope: str = "unmatched",
         started_by: Any | None = None,
     ) -> ContractFolderScanSession:  # pragma: no cover
-        session = self._get_session(contract_id=contract_id, session_id=session_id)
+        session = _get_session(contract_id=contract_id, session_id=session_id)
         if session.status != ContractFolderScanStatus.COMPLETED:
             raise ValidationException(
                 message="仅扫描完成的会话可发起 AI 分类",
@@ -172,7 +296,7 @@ class ContractScanAIClassifyService:
         item_options = collect_archive_item_options(archive_category)
         code_to_name = {str(opt["code"]): str(opt["name"]) for opt in item_options}
 
-        targets = self.select_targets(candidates, scope=scope)
+        targets = select_targets(candidates, scope=scope)
         stats = {"targets": len(targets), "classified": 0, "invalid": 0, "llm_failed": 0}
         if targets:
             contract_name = str(getattr(session.contract, "name", "") or "")
@@ -219,7 +343,7 @@ class ContractScanAIClassifyService:
                 current_file=str(batch[0].get("filename") or ""),
                 updated_at=timezone.now(),
             )
-            prompt = self.build_prompt(
+            prompt = build_prompt(
                 batch=batch,
                 contract_name=contract_name,
                 archive_category=archive_category,
@@ -236,140 +360,12 @@ class ContractScanAIClassifyService:
                 stats["llm_failed"] += len(batch)
                 continue
 
-            for suggestion in self.parse_llm_items(content):
+            for suggestion in parse_llm_items(content):
                 candidate = index_map.get(_to_int(suggestion.get("index")))
-                if candidate is None or not self.apply_suggestion(candidate, suggestion, code_to_name=code_to_name):
+                if candidate is None or not apply_suggestion(candidate, suggestion, code_to_name=code_to_name):
                     stats["invalid"] += 1
                 else:
                     stats["classified"] += 1
-
-    # ── 纯函数（供单测直接覆盖） ────────────────────────────────────────
-
-    @staticmethod
-    def select_targets(candidates: list[dict[str, Any]], *, scope: str) -> list[dict[str, Any]]:
-        """选出待 AI 分类的候选：unmatched=未匹配清单项的案件材料，all=全部未跳过项。"""
-        visible = [c for c in candidates if not c.get("skip_reason") and not c.get("already_imported")]
-        if scope == "all":
-            return visible
-        return [
-            c
-            for c in visible
-            if str(c.get("suggested_category") or "") == "case_material" and not str(c.get("archive_item_code") or "")
-        ]
-
-    @staticmethod
-    def build_prompt(
-        *,
-        batch: list[dict[str, Any]],
-        contract_name: str,
-        archive_category: str,
-        item_options: list[dict[str, str]],
-        scan_folder: str,
-    ) -> str:
-        category_label = _ARCHIVE_CATEGORY_LABELS.get(archive_category, archive_category)
-        option_lines = "\n".join(f"- {opt['code']}：{opt['name']}" for opt in item_options)
-        category_lines = "\n".join(f"- {code}：{_CATEGORY_LABELS[code]}" for code in _VALID_CATEGORIES)
-
-        file_lines: list[str] = []
-        for idx, item in enumerate(batch, start=1):
-            folder = ContractScanAIClassifyService._relative_parent_folder(
-                source_path=str(item.get("source_path") or ""),
-                scan_folder=scan_folder,
-            )
-            location = f"［文件夹：{folder}］" if folder else ""
-            keyword_hint = str(item.get("archive_item_name") or "")
-            hint = f"（关键词分类：{keyword_hint}）" if keyword_hint else ""
-            file_lines.append(f"{idx}. {location}文件名：{item.get('filename')}{hint}")
-
-        return (
-            f"合同名称：{contract_name or '（未命名）'}\n"
-            f"归档分类：{category_label}\n"
-            "业务背景：律师办案归档，请按文件语义选择最合适的类别与归档清单项。\n\n"
-            f"材料类别（category 只能取以下值之一）：\n{category_lines}\n\n"
-            "归档清单项（case_material 时 archive_item_code 只能取以下编号之一，"
-            f"其他类别必须填空字符串）：\n{option_lines}\n\n"
-            "文件列表：\n" + "\n".join(file_lines) + "\n\n"
-            "请按文件列表序号输出 JSON 数组。"
-        )
-
-    @staticmethod
-    def _relative_parent_folder(*, source_path: str, scan_folder: str) -> str:
-        """取文件相对扫描根目录的父文件夹路径，供 LLM 参考目录语义。"""
-        raw = source_path.replace("\\", "/")
-        root = scan_folder.replace("\\", "/").rstrip("/")
-        if root and raw.startswith(root + "/"):
-            raw = raw[len(root) + 1 :]
-        parent = raw.rsplit("/", 1)[0] if "/" in raw else ""
-        return parent.lstrip("/")
-
-    @staticmethod
-    def parse_llm_items(content: str) -> list[dict[str, Any]]:
-        """解析 LLM 输出的 JSON 数组；解析失败返回空列表。"""
-        text = str(content or "").strip()
-        if not text:
-            return []
-
-        candidates: list[str] = [text]
-        candidates.extend(re.findall(r"\[[\s\S]*\]", text))
-        candidates.extend(re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE))
-        for candidate in candidates:
-            try:
-                loaded = json.loads(candidate)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(loaded, list):
-                return [item for item in loaded if isinstance(item, dict)]
-        return []
-
-    @staticmethod
-    def apply_suggestion(
-        candidate: dict[str, Any],
-        suggestion: dict[str, Any],
-        *,
-        code_to_name: dict[str, str],
-    ) -> bool:
-        """校验并应用单条 AI 建议到候选；非法建议返回 False 且不改动候选。"""
-        category = str(suggestion.get("category") or "").strip()
-        if category not in _VALID_CATEGORIES:
-            return False
-
-        archive_item_code = str(suggestion.get("archive_item_code") or "").strip()
-        if category == "case_material":
-            if archive_item_code not in code_to_name:
-                return False
-        else:
-            archive_item_code = ""
-
-        try:
-            confidence = min(1.0, max(0.0, float(suggestion.get("confidence", 0))))
-        except (TypeError, ValueError):
-            confidence = 0.0
-
-        reason = str(suggestion.get("reason") or "").strip()[:60]
-        candidate["suggested_category"] = category
-        candidate["archive_item_code"] = archive_item_code
-        candidate["archive_item_name"] = code_to_name.get(archive_item_code, "")
-        candidate["confidence"] = confidence
-        candidate["reason"] = f"AI：{reason}" if reason else "AI 分类建议"
-        candidate["classified_by"] = "ai"
-        candidate["selected"] = True
-        return True
-
-    # ── Private helpers ─────────────────────────────────────────────────
-
-    @staticmethod
-    def _get_session(*, contract_id: int, session_id: UUID) -> ContractFolderScanSession:
-        try:
-            return ContractFolderScanSession.objects.get(id=session_id, contract_id=contract_id)
-        except ContractFolderScanSession.DoesNotExist:
-            raise NotFoundError("扫描会话不存在") from None
-
-
-def _to_int(value: Any) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return -1
 
 
 def run_contract_scan_ai_classify_task(session_id: str, model_id: str = "", scope: str = "unmatched") -> None:

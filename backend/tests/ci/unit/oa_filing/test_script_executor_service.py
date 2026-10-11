@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from apps.oa_filing.services.oa_firm_registry import SUPPORTED_SITES, create_adapter, get_adapter_class
-from apps.oa_filing.services.oa_scripts.jtn.adapter import JTNAdapter
+from apps.oa_filing.services.oa_scripts.jtn.adapter import JTNAdapter, map_case_contact, map_which_side_value
 
 
 @pytest.fixture
@@ -213,35 +213,35 @@ class TestMapCaseStageLaborArbitration:
 class TestMapWhichSideValue:
     def test_labor_arbitration_respondent(self, adapter):
         # 372 真实形态：被申请人在仲裁阶段 → 06，不再默认 01 原告
-        assert adapter._map_which_side_value("respondent", "0304") == "06"
+        assert map_which_side_value("respondent", "0304") == "06"
 
     def test_enforcement_defendant(self, adapter):
-        assert adapter._map_which_side_value("defendant", "0314") == "06"
+        assert map_which_side_value("defendant", "0314") == "06"
 
     def test_enforcement_plaintiff_cross_to_applicant(self, adapter):
-        assert adapter._map_which_side_value("plaintiff", "0314") == "05"
+        assert map_which_side_value("plaintiff", "0314") == "05"
 
     def test_first_trial_respondent_cross_to_defendant(self, adapter):
-        assert adapter._map_which_side_value("respondent", "0301") == "02"
+        assert map_which_side_value("respondent", "0301") == "02"
 
     def test_second_trial_appellant(self, adapter):
-        assert adapter._map_which_side_value("appellant", "0305") == "03"
+        assert map_which_side_value("appellant", "0305") == "03"
 
     def test_appellant_at_special_stage_cross_to_applicant(self, adapter):
-        assert adapter._map_which_side_value("appellant", "0304") == "05"
+        assert map_which_side_value("appellant", "0304") == "05"
 
     def test_orig_defendant_second_trial(self, adapter):
-        assert adapter._map_which_side_value("orig_defendant", "0305") == "22"
+        assert map_which_side_value("orig_defendant", "0305") == "22"
 
     def test_third(self, adapter):
-        assert adapter._map_which_side_value("third", "0301") == "09"
+        assert map_which_side_value("third", "0301") == "09"
 
     def test_unknown_status_falls_back(self, adapter):
-        assert adapter._map_which_side_value("whatever", "0301") == "01"
-        assert adapter._map_which_side_value("", "0304") == "05"  # 05 排序最前
+        assert map_which_side_value("whatever", "0301") == "01"
+        assert map_which_side_value("", "0304") == "05"  # 05 排序最前
 
     def test_unknown_stage_defaults_01(self, adapter):
-        assert adapter._map_which_side_value("defendant", "") == "01"
+        assert map_which_side_value("defendant", "") == "01"
 
 
 # ──────────── _resolve_kindtype_sed：子类匹配 ────────────
@@ -309,18 +309,18 @@ class TestMapCaseContact:
 
     def test_enterprise_uses_legal_representative(self, adapter):
         client = self._client(client_type="legal", name="某公司", legal_representative="张三", phone="010-123")
-        assert adapter._map_case_contact([client]) == ("张三", "010-123")
+        assert map_case_contact([client]) == ("张三", "010-123")
 
     def test_natural_uses_self(self, adapter):
         client = self._client(client_type="natural", name="李四", legal_representative="", phone="13800000000")
-        assert adapter._map_case_contact([client]) == ("李四", "13800000000")
+        assert map_case_contact([client]) == ("李四", "13800000000")
 
     def test_enterprise_without_legal_rep_falls_back_to_name(self, adapter):
         client = self._client(client_type="legal", name="某公司", legal_representative="", phone="")
-        assert adapter._map_case_contact([client]) == ("某公司", "/")
+        assert map_case_contact([client]) == ("某公司", "/")
 
     def test_empty_clients_returns_slash(self, adapter):
-        assert adapter._map_case_contact([]) == ("/", "/")
+        assert map_case_contact([]) == ("/", "/")
 
     def test_special_natural_person(self, adapter):
         party = MagicMock()

@@ -222,9 +222,9 @@ class TestAdapterAttachmentFallback:
     @pytest.mark.asyncio
     @patch(f"{_MODULE}.resolve_filing_attachments", side_effect=RuntimeError("boom"))
     async def test_resolver_failure_returns_empty(self, mock_resolve):
-        from apps.oa_filing.services.oa_scripts.jtn.adapter import JTNAdapter
+        from apps.oa_filing.services.oa_scripts.jtn.adapter import resolve_filing_attachments_safe
 
-        result = await JTNAdapter._resolve_filing_attachments(1)
+        result = await resolve_filing_attachments_safe(1)
         assert result == []
 
 

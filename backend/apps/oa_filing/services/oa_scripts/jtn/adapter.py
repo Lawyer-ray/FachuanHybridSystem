@@ -91,6 +91,54 @@ _CONFLICT_RELATION_BY_STATUS: dict[str, str] = {
     "orig_third": "23",
 }
 
+
+# ── 模块级函数（Service 层禁止静态方法装饰器，棘轮 test_four_layer_architecture 把关） ──
+
+
+async def resolve_filing_attachments_safe(contract_id: int) -> list[str]:
+    """解析立案合同附件（材料优先 → 绑定文件夹），失败不阻断立案。"""
+    from asgiref.sync import sync_to_async
+
+    from apps.oa_filing.services.filing_attachment_service import resolve_filing_attachments
+
+    try:
+        return await sync_to_async(resolve_filing_attachments, thread_sensitive=False)(contract_id)
+    except Exception:
+        logger.exception("立案附件解析失败（按无附件继续）: contract=%s", contract_id)
+        return []
+
+
+def map_which_side_value(legal_status: str, stage: str) -> str:
+    """诉讼地位 + 案件阶段 → OA 代理何方值。
+
+    OA 的选项随阶段变化（执行/仲裁是 05申请人/06被申请人，不是 01/02），
+    顺序：本族值 → 同义族值 → 该阶段含 01 用 01 → 最小可用值。
+    """
+    options = _WHICH_SIDE_OPTIONS_BY_STAGE.get(stage, frozenset())
+    litigation, special = _WHICH_SIDE_BY_STATUS.get(str(legal_status or ""), ("", ""))
+    if options:
+        if litigation in options:
+            return litigation
+        if special in options:
+            return special
+        if "01" in options:
+            return "01"
+        return sorted(options)[0]
+    return "01"
+
+
+def map_case_contact(clients: list[Any]) -> tuple[str, str]:
+    """客户本案联系人：企业用法定代表人、自然人用本人，缺失回退 "/"。"""
+    if not clients:
+        return "/", "/"
+    first = clients[0]
+    if str(first.client_type) == "natural":
+        contact_name = str(first.name or "")
+    else:
+        contact_name = str(first.legal_representative or first.name or "")
+    return (contact_name or "/", str(first.phone or "") or "/")
+
+
 # 民事（category=03）案由关键词 → 业务种类 KindType03_xx。
 # 选项清单取自 OA 立案草稿页服务端渲染的 kindtype 下拉（2026-10-11 实测，
 # 共 10 类：01人格权 02婚姻家庭继承 03物权 04合同无因管理不当得利 05知产竞争
@@ -212,19 +260,6 @@ class JTNAdapter(
         # 不误等其他线程/请求打开的浏览器。
         self._opened_sessions: list[BrowserSessionHandle] = []
 
-    @staticmethod
-    async def _resolve_filing_attachments(contract_id: int) -> list[str]:
-        """解析立案合同附件（材料优先 → 绑定文件夹），失败不阻断立案。"""
-        from asgiref.sync import sync_to_async
-
-        from apps.oa_filing.services.filing_attachment_service import resolve_filing_attachments
-
-        try:
-            return await sync_to_async(resolve_filing_attachments, thread_sensitive=False)(contract_id)
-        except Exception:
-            logger.exception("立案附件解析失败（按无附件继续）: contract=%s", contract_id)
-            return []
-
     # ==================================================================
     # FilingAdapter
     # ==================================================================
@@ -308,7 +343,7 @@ class JTNAdapter(
         kindtype, kindtype_sed = self._map_kindtype(category, principal_parties, cause_text=cause_text)
         if kindtype and not kindtype_sed:
             kindtype_sed = await self._resolve_kindtype_sed(kindtype=kindtype, cause_text=cause_text)
-        contact_name, contact_phone = self._map_case_contact(clients)
+        contact_name, contact_phone = map_case_contact(clients)
 
         case_info = CaseInfo(
             manager_id="",
@@ -347,7 +382,7 @@ class JTNAdapter(
 
         # ── 合同信息 ──
         stamp_count = len(principal_parties) + 2
-        attachment_paths = await self._resolve_filing_attachments(contract_id)
+        attachment_paths = await resolve_filing_attachments_safe(contract_id)
         contract_info = ContractInfo(
             rec_type=self._map_fee_mode(contract),
             currency="RMB",
@@ -686,26 +721,7 @@ class JTNAdapter(
             .aiterator()
         }
         party = await case_party_model.objects.filter(case=case, client_id__in=our_client_ids).afirst()
-        return self._map_which_side_value(getattr(party, "legal_status", None) or "", self._map_case_stage(case))
-
-    @staticmethod
-    def _map_which_side_value(legal_status: str, stage: str) -> str:
-        """诉讼地位 + 案件阶段 → OA 代理何方值。
-
-        OA 的选项随阶段变化（执行/仲裁是 05申请人/06被申请人，不是 01/02），
-        顺序：本族值 → 同义族值 → 该阶段含 01 用 01 → 最小可用值。
-        """
-        options = _WHICH_SIDE_OPTIONS_BY_STAGE.get(stage, frozenset())
-        litigation, special = _WHICH_SIDE_BY_STATUS.get(str(legal_status or ""), ("", ""))
-        if options:
-            if litigation in options:
-                return litigation
-            if special in options:
-                return special
-            if "01" in options:
-                return "01"
-            return sorted(options)[0]
-        return "01"
+        return map_which_side_value(getattr(party, "legal_status", None) or "", self._map_case_stage(case))
 
     async def _async_map_legal_position(self, contract_party: Any, case: Any) -> str:
         """对方当事人诉讼地位 → OA 法律地位值（限本案当事人的诉讼地位，保守映射）。"""
@@ -813,15 +829,3 @@ class JTNAdapter(
         if category == "01":
             return ("KindType01_05", "") if has_natural else ("KindType01_01", "KindType01_0103")
         return ("KindType02_05", "") if has_natural else ("KindType02_01", "")
-
-    @staticmethod
-    def _map_case_contact(clients: list[Any]) -> tuple[str, str]:
-        """客户本案联系人：企业用法定代表人、自然人用本人，缺失回退 "/"。"""
-        if not clients:
-            return "/", "/"
-        first = clients[0]
-        if str(first.client_type) == "natural":
-            contact_name = str(first.name or "")
-        else:
-            contact_name = str(first.legal_representative or first.name or "")
-        return (contact_name or "/", str(first.phone or "") or "/")

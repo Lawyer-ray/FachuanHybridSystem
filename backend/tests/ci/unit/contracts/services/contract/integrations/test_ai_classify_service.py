@@ -10,6 +10,12 @@ from uuid import uuid4
 import pytest
 
 from apps.contracts.models import ContractFolderScanStatus
+from apps.contracts.services.contract.integrations.ai_classify_service import (
+    apply_suggestion,
+    parse_llm_items,
+    relative_parent_folder,
+    select_targets,
+)
 
 _MODULE = "apps.contracts.services.contract.integrations.ai_classify_service"
 
@@ -33,7 +39,7 @@ class TestSelectTargets:
             {"source_path": "c", "suggested_category": "invoice"},
             {"source_path": "d", "suggested_category": "contract_original"},
         ]
-        targets = ContractScanAIClassifyService.select_targets(candidates, scope="unmatched")
+        targets = select_targets(candidates, scope="unmatched")
         assert [t["source_path"] for t in targets] == ["a"]
 
     def test_excludes_skipped_and_already_imported(self):
@@ -49,7 +55,7 @@ class TestSelectTargets:
             },
             {"source_path": "c", "suggested_category": "case_material", "archive_item_code": ""},
         ]
-        targets = ContractScanAIClassifyService.select_targets(candidates, scope="unmatched")
+        targets = select_targets(candidates, scope="unmatched")
         assert [t["source_path"] for t in targets] == ["c"]
 
     def test_all_scope_includes_matched_and_terminal_categories(self):
@@ -65,7 +71,7 @@ class TestSelectTargets:
                 "skip_reason": "x",
             },
         ]
-        targets = ContractScanAIClassifyService.select_targets(candidates, scope="all")
+        targets = select_targets(candidates, scope="all")
         assert [t["source_path"] for t in targets] == ["a", "b"]
 
 
@@ -76,25 +82,25 @@ class TestParseLLMItems:
     def test_plain_array(self):
         svc = _make_service()
         payload = [{"index": 1, "category": "case_material", "archive_item_code": "lt_7"}]
-        assert svc.parse_llm_items(json.dumps(payload)) == payload
+        assert parse_llm_items(json.dumps(payload)) == payload
 
     def test_fenced_json_array(self):
         svc = _make_service()
         content = '```json\n[{"index": 1, "category": "invoice"}]\n```'
-        result = svc.parse_llm_items(content)
+        result = parse_llm_items(content)
         assert result == [{"index": 1, "category": "invoice"}]
 
     def test_array_with_noise_drops_non_dict_items(self):
         svc = _make_service()
         content = '[{"index": 1}, "垃圾", {"index": 2}]'
-        result = svc.parse_llm_items(content)
+        result = parse_llm_items(content)
         assert len(result) == 2
 
     def test_invalid_returns_empty(self):
         svc = _make_service()
-        assert svc.parse_llm_items("不是 JSON") == []
-        assert svc.parse_llm_items("") == []
-        assert svc.parse_llm_items('{"index": 1}') == []
+        assert parse_llm_items("不是 JSON") == []
+        assert parse_llm_items("") == []
+        assert parse_llm_items('{"index": 1}') == []
 
 
 # ── apply_suggestion ───────────────────────────────────────────────
@@ -106,7 +112,7 @@ class TestApplySuggestion:
     def test_valid_case_material_applied_and_selected(self):
         svc = _make_service()
         candidate = {"suggested_category": "case_material", "archive_item_code": "", "selected": False}
-        ok = svc.apply_suggestion(
+        ok = apply_suggestion(
             candidate,
             {"category": "case_material", "archive_item_code": "lt_7", "confidence": 0.9, "reason": "起诉文书"},
             code_to_name=self.CODES,
@@ -121,7 +127,7 @@ class TestApplySuggestion:
     def test_invalid_code_rejected_without_mutation(self):
         svc = _make_service()
         candidate = {"suggested_category": "case_material", "archive_item_code": "", "selected": False}
-        ok = svc.apply_suggestion(
+        ok = apply_suggestion(
             candidate,
             {"category": "case_material", "archive_item_code": "lt_999", "confidence": 0.9},
             code_to_name=self.CODES,
@@ -133,13 +139,13 @@ class TestApplySuggestion:
     def test_invalid_category_rejected(self):
         svc = _make_service()
         candidate = {"suggested_category": "case_material", "archive_item_code": ""}
-        ok = svc.apply_suggestion(candidate, {"category": "unknown_type"}, code_to_name=self.CODES)
+        ok = apply_suggestion(candidate, {"category": "unknown_type"}, code_to_name=self.CODES)
         assert ok is False
 
     def test_non_case_material_clears_code(self):
         svc = _make_service()
         candidate = {"suggested_category": "case_material", "archive_item_code": "lt_7", "selected": False}
-        ok = svc.apply_suggestion(
+        ok = apply_suggestion(
             candidate,
             {"category": "invoice", "archive_item_code": "lt_7", "confidence": 2},
             code_to_name=self.CODES,
@@ -152,7 +158,7 @@ class TestApplySuggestion:
     def test_confidence_invalid_value_falls_to_zero(self):
         svc = _make_service()
         candidate = {"suggested_category": "case_material", "archive_item_code": ""}
-        ok = svc.apply_suggestion(
+        ok = apply_suggestion(
             candidate,
             {"category": "case_material", "archive_item_code": "lt_10", "confidence": "abc"},
             code_to_name=self.CODES,
@@ -167,7 +173,7 @@ class TestApplySuggestion:
 class TestRelativeParentFolder:
     def test_within_root(self):
         svc = _make_service()
-        result = svc._relative_parent_folder(
+        result = relative_parent_folder(
             source_path="/root/2-立案材料/起诉状.pdf",
             scan_folder="/root",
         )
@@ -175,12 +181,12 @@ class TestRelativeParentFolder:
 
     def test_outside_root_falls_back_to_full_parent(self):
         svc = _make_service()
-        result = svc._relative_parent_folder(source_path="/other/起诉状.pdf", scan_folder="/root")
+        result = relative_parent_folder(source_path="/other/起诉状.pdf", scan_folder="/root")
         assert result == "other"
 
     def test_direct_child_returns_empty(self):
         svc = _make_service()
-        result = svc._relative_parent_folder(source_path="/root/合同.pdf", scan_folder="/root")
+        result = relative_parent_folder(source_path="/root/合同.pdf", scan_folder="/root")
         assert result == ""
 
 
