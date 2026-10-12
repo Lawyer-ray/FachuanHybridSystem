@@ -186,6 +186,15 @@ class TestAddChangePageRender:
         # 文件夹组件：deferred 模式（pk=0 + true）
         assert "folderBrowser(0, true)" in content
         assert "保存合同后自动绑定" in content
+        # 解析按钮：文案「解析」无 emoji，脚本含类型/当事人解析逻辑
+        assert "textContent = '解析';" in content
+        assert "📅" not in content
+        assert "parseContractType" in content
+        assert "parsePartyName" in content
+        # 客户库匹配走 admin autocomplete 且必须传 term（Django 6 只认 term，
+        # 传 q 会静默退化为最近 20 条 → 老客户永远匹配不上）
+        assert "field_name=client&term=" in content
+        assert "field_name=client&q=" not in content
 
     def test_change_page_keeps_bound_widget_and_id_route(self, client: Any):
         self._login_admin(client)
