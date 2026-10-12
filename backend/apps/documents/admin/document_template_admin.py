@@ -463,6 +463,7 @@ class DocumentTemplateAdmin(TemplateAdminViewsMixin, TemplateAdminDisplayMixin, 
                 "documents/css/multi_select.css",
                 "cases/css/autocomplete.css",
                 "documents/css/institution_tags.css",
+                "documents/css/slot_autocomplete.css",
             )
         }
         js = (

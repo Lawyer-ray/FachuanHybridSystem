@@ -67,5 +67,20 @@ class FolderSlot(LifecycleModel):
             models.Index(fields=["is_active"]),
         ]
 
+    # 下拉候选里的短分类标签（get_category_display 全称太长，不适合塞进一行）
+    SHORT_CATEGORY: ClassVar[dict[str, str]] = {
+        FolderSlotCategory.GENERAL: "通用",
+        FolderSlotCategory.FILING: "立案",
+        FolderSlotCategory.DEFENSE: "答辩",
+        FolderSlotCategory.APPEAL: "上诉",
+        FolderSlotCategory.TRIAL_PREP: "庭审",
+        FolderSlotCategory.CLOSING: "结案",
+        FolderSlotCategory.CONTRACT: "合同",
+    }
+
+    @property
+    def short_category(self) -> str:
+        return self.SHORT_CATEGORY.get(self.category, self.get_category_display() or "")
+
     def __str__(self) -> str:
-        return f"{self.name} ({self.key})"
+        return f"{self.name} ({self.key}) · {self.short_category}"

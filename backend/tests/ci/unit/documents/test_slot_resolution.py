@@ -370,6 +370,16 @@ class TestBackfillCommand:
         assert FolderSlot.objects.filter(key="power_of_attorney").count() == 1
 
 
+class TestFolderSlotStr:
+    def test_str_contains_short_category(self, slot_poa: FolderSlot) -> None:
+        assert str(slot_poa) == "委托材料 (power_of_attorney) · 通用"
+
+    def test_short_category_mapping(self, db: Any) -> None:
+        slot = FolderSlot.objects.create(key="complaint", name="起诉状", category="filing")
+        assert slot.short_category == "立案"
+        assert "· 立案" in str(slot)
+
+
 class TestDuplicateTemplateCopiesBindings:
     def test_duplicate_carries_bindings(
         self, slot_poa: FolderSlot, folder_tpl: FolderTemplate, doc_poa: DocumentTemplate
