@@ -167,6 +167,7 @@ class DocumentTemplateForm(forms.ModelForm):  # pragma: no cover
             "archive_sub_type",
             "file",
             "file_path",
+            "folder_slot",
             "is_active",
         ]
 
@@ -352,6 +353,7 @@ class DocumentTemplateAdmin(TemplateAdminViewsMixin, TemplateAdminDisplayMixin, 
         "placeholder_preview",
         "placeholders_display",
         "undefined_placeholders_display",
+        "slot_placement_preview",
     )
 
     fieldsets = (
@@ -388,6 +390,12 @@ class DocumentTemplateAdmin(TemplateAdminViewsMixin, TemplateAdminDisplayMixin, 
             },
         ),
         (
+            "落位声明",
+            {
+                "fields": ("folder_slot", "slot_placement_preview"),
+            },
+        ),
+        (
             "占位符信息",
             {
                 "fields": ("placeholders_display", "undefined_placeholders_display"),
@@ -406,6 +414,36 @@ class DocumentTemplateAdmin(TemplateAdminViewsMixin, TemplateAdminDisplayMixin, 
         if obj is not None:
             fieldsets.insert(len(fieldsets) - 1, self._edit_fieldsets)  # type: ignore[arg-type]
         return fieldsets
+
+    @admin.display(description="落位预览（实时派生）")
+    def slot_placement_preview(self, obj: DocumentTemplate) -> Any:  # pragma: no cover
+        """按当前槽位声明实时解析各骨架的落位路径（不落库，改名自动跟随）"""
+        from django.utils.html import format_html, format_html_join
+
+        from apps.documents.models import FolderTemplate
+        from apps.documents.services.template.slot_resolution_service import SlotResolutionService
+
+        if not obj.folder_slot_id or not obj.folder_slot:
+            return "未声明槽位——仅按下方「文件模板文件夹绑定」落位。"
+        service = SlotResolutionService()
+        rows: list[tuple[str, str]] = []
+        missed = 0
+        for folder_template in FolderTemplate.objects.filter(is_active=True, template_type=obj.template_type):
+            paths = service.find_slot_paths(folder_template, obj.folder_slot.key)
+            if paths:
+                rows.append((folder_template.name, "/".join(paths[0])))
+            else:
+                missed += 1
+        html = format_html_join(
+            "<br>",
+            "{} → {}",
+            rows,
+        )
+        if missed:
+            html += format_html(
+                '<br><span style="color:#999">另有 {} 个同类型骨架未提供该槽位（生成时跳过）</span>', missed
+            )
+        return html or "尚无骨架提供该槽位。"
 
     change_list_template = "admin/documents/documenttemplate/change_list.html"
 

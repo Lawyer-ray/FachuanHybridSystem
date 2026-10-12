@@ -75,6 +75,8 @@ class DocumentTemplate(models.Model):
     legal_status_match_mode: str
     function_code: str | None
     is_active: bool
+    folder_slot: FolderSlot | None
+    folder_slot_id: int | None
     created_at: datetime
     updated_at: datetime
 
@@ -116,6 +118,26 @@ class DocumentTemplateFolderBinding(models.Model):
 
     # Meta
     objects: Manager[DocumentTemplateFolderBinding]
+
+    def __str__(self) -> str: ...
+
+class FolderSlot(models.Model):
+    # 主键
+    id: int
+
+    # 字段
+    key: str
+    name: str
+    description: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    # 反向关系
+    document_templates: Manager[DocumentTemplate]
+
+    # Meta
+    objects: Manager[FolderSlot]
 
     def __str__(self) -> str: ...
 

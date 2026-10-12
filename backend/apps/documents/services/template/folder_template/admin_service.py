@@ -313,7 +313,7 @@ class FolderTemplateAdminService:
             suffix += 1
 
         # 创建副本
-        return FolderTemplate.objects.create(
+        new_template = FolderTemplate.objects.create(
             name=new_name,
             template_type=template.template_type,
             case_types=template.case_types.copy() if template.case_types else [],
@@ -324,6 +324,24 @@ class FolderTemplateAdminService:
             structure=template.structure.copy() if template.structure else {},
             is_active=False,
         )
+
+        # 连带复制绑定：副本结构节点 id 与源一致，直接按 folder_node_id 平移
+        from apps.documents.models import DocumentTemplateFolderBinding
+
+        bindings = list(template.document_bindings.filter(is_active=True))
+        DocumentTemplateFolderBinding.objects.bulk_create(
+            [
+                DocumentTemplateFolderBinding(
+                    document_template=binding.document_template,
+                    folder_template=new_template,
+                    folder_node_id=binding.folder_node_id,
+                    folder_node_path=binding.folder_node_path,
+                )
+                for binding in bindings
+            ]
+        )
+
+        return new_template
 
     def batch_duplicate_templates(self, queryset: Any) -> int:
         """

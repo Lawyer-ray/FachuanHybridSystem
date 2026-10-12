@@ -118,6 +118,15 @@ class DocumentTemplate(LifecycleModel):
         help_text="JSON 数组,如 ['北京市第一中级人民法院'],支持多选",
     )
     is_active: Any = models.BooleanField(default=True, verbose_name="是否启用")
+    folder_slot: Any = models.ForeignKey(
+        "documents.FolderSlot",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="document_templates",
+        verbose_name="落位槽位",
+        help_text="声明一次，适用于所有提供该槽位的文件夹模板（含未来新增）；留空则仅按下方文件夹绑定落位",
+    )
     created_at: Any = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at: Any = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
