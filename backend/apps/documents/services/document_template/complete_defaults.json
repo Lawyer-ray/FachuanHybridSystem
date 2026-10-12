@@ -726,6 +726,131 @@
             },
             "is_default": false,
             "is_active": true
+        },
+        {
+            "name": "申请行政复议文件夹",
+            "template_type": "case",
+            "case_types": [
+                "administrative"
+            ],
+            "case_stages": [
+                "administrative_review"
+            ],
+            "contract_types": [],
+            "legal_statuses": [
+                "applicant"
+            ],
+            "legal_status_match_mode": "any",
+            "structure": {
+                "children": [
+                    {
+                        "id": "folder_1791766080732_9a1h3577",
+                        "name": "行政复议",
+                        "children": [
+                            {
+                                "id": "folder_1791766080733_ouhye4wl",
+                                "name": "1-立案材料",
+                                "children": [
+                                    {
+                                        "id": "folder_1791766080734_lmmdd67j",
+                                        "name": "1-复议申请书",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": "folder_1791766080736_p5w37r7q",
+                                        "name": "2-当事人身份证明",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": "folder_1791766080742_cjj5qph3",
+                                        "name": "3-委托材料",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": "folder_1791766080743_z4a1cnzu",
+                                        "name": "4-证据目录",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": "folder_1791766080744_88ycgawn",
+                                        "name": "5-证据材料",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": "folder_1791766080745_nzvjmok7",
+                                        "name": "6-送达地址确认书",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": "folder_1791766080748_so3xo5go",
+                                        "name": "7-其他立案材料",
+                                        "children": []
+                                    }
+                                ]
+                            },
+                            {
+                                "id": "folder_1791766080751_gca7d978",
+                                "name": "2-庭审准备",
+                                "children": [
+                                    {
+                                        "id": "folder_1791766080752_okzxyl3a",
+                                        "name": "1-问题清单",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": "folder_1791766080752_g3x4w0yk",
+                                        "name": "2-庭审提纲",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": "folder_1791766080755_0fc0alrj",
+                                        "name": "3-质证意见",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": "folder_1791766080756_9jue510x",
+                                        "name": "4-时间轴大事记",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": "folder_1791766080757_cb2pz4ss",
+                                        "name": "5-代理意见",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": "folder_1791766080758_d8b559lw",
+                                        "name": "6-其他材料",
+                                        "children": []
+                                    }
+                                ]
+                            },
+                            {
+                                "id": "folder_1791766080759_zemy39jd",
+                                "name": "3-结案文书",
+                                "children": [
+                                    {
+                                        "id": "folder_1791766080760_vfaetiv4",
+                                        "name": "1-撤回行政复议申请书",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": "folder_1791766080761_qyqyufcm",
+                                        "name": "2-和解(调解)协议",
+                                        "children": []
+                                    }
+                                ]
+                            },
+                            {
+                                "id": "folder_1791766080763_g4xmjaex",
+                                "name": "4-邮件往来",
+                                "children": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "is_default": false,
+            "is_active": true
         }
     ],
     "document_templates": [
@@ -733,8 +858,8 @@
             "name": "补充协议",
             "template_type": "contract",
             "contract_sub_type": "supplementary_agreement",
-            "case_sub_type": null,
-            "archive_sub_type": null,
+            "case_sub_type": "",
+            "archive_sub_type": "",
             "file_path": "1-合同模板/补充协议.docx",
             "contract_types": [
                 "all"
@@ -749,9 +874,9 @@
         {
             "name": "所函",
             "template_type": "case",
-            "contract_sub_type": null,
+            "contract_sub_type": "",
             "case_sub_type": "power_of_attorney_materials",
-            "archive_sub_type": null,
+            "archive_sub_type": "",
             "file_path": "2-案件材料/4-通用材料/1-授权委托材料/所函.docx",
             "contract_types": [],
             "case_types": [
@@ -768,9 +893,9 @@
         {
             "name": "授权委托书",
             "template_type": "case",
-            "contract_sub_type": null,
+            "contract_sub_type": "",
             "case_sub_type": "power_of_attorney_materials",
-            "archive_sub_type": null,
+            "archive_sub_type": "",
             "file_path": "2-案件材料/4-通用材料/1-授权委托材料/授权委托书.docx",
             "contract_types": [],
             "case_types": [
@@ -787,9 +912,9 @@
         {
             "name": "法定代表人身份证明书",
             "template_type": "case",
-            "contract_sub_type": null,
+            "contract_sub_type": "",
             "case_sub_type": "power_of_attorney_materials",
-            "archive_sub_type": null,
+            "archive_sub_type": "",
             "file_path": "2-案件材料/4-通用材料/1-授权委托材料/法定代表人身份证明书.docx",
             "contract_types": [],
             "case_types": [
@@ -807,8 +932,8 @@
             "name": "民商事合同",
             "template_type": "contract",
             "contract_sub_type": "contract",
-            "case_sub_type": null,
-            "archive_sub_type": null,
+            "case_sub_type": "",
+            "archive_sub_type": "",
             "file_path": "1-合同模板/民商事代理合同.docx",
             "contract_types": [
                 "civil",
@@ -826,8 +951,8 @@
             "name": "顾问合同",
             "template_type": "contract",
             "contract_sub_type": "contract",
-            "case_sub_type": null,
-            "archive_sub_type": null,
+            "case_sub_type": "",
+            "archive_sub_type": "",
             "file_path": "1-合同模板/顾问合同.docx",
             "contract_types": [
                 "advisor"
@@ -843,8 +968,8 @@
             "name": "刑事合同",
             "template_type": "contract",
             "contract_sub_type": "contract",
-            "case_sub_type": null,
-            "archive_sub_type": null,
+            "case_sub_type": "",
+            "archive_sub_type": "",
             "file_path": "1-合同模板/刑事代理合同.docx",
             "contract_types": [
                 "criminal"
@@ -859,9 +984,9 @@
         {
             "name": "强制执行申请书",
             "template_type": "case",
-            "contract_sub_type": null,
+            "contract_sub_type": "",
             "case_sub_type": "application_materials",
-            "archive_sub_type": null,
+            "archive_sub_type": "",
             "file_path": "2-案件材料/3-申请执行材料/强制执行申请书.docx",
             "contract_types": [],
             "case_types": [
@@ -881,9 +1006,9 @@
         {
             "name": "纳入失信被执行人名单的申请书",
             "template_type": "case",
-            "contract_sub_type": null,
+            "contract_sub_type": "",
             "case_sub_type": "application_materials",
-            "archive_sub_type": null,
+            "archive_sub_type": "",
             "file_path": "2-案件材料/3-申请执行材料/限制性措施/纳入失信被执行人名单的申请书.docx",
             "contract_types": [],
             "case_types": [
@@ -903,9 +1028,9 @@
         {
             "name": "通过媒体公布不履行义务信息的申请书",
             "template_type": "case",
-            "contract_sub_type": null,
+            "contract_sub_type": "",
             "case_sub_type": "application_materials",
-            "archive_sub_type": null,
+            "archive_sub_type": "",
             "file_path": "2-案件材料/3-申请执行材料/限制性措施/通过媒体公布不履行义务信息的申请书.docx",
             "contract_types": [],
             "case_types": [
@@ -925,9 +1050,9 @@
         {
             "name": "限制被执行人出境申请书",
             "template_type": "case",
-            "contract_sub_type": null,
+            "contract_sub_type": "",
             "case_sub_type": "application_materials",
-            "archive_sub_type": null,
+            "archive_sub_type": "",
             "file_path": "2-案件材料/3-申请执行材料/限制性措施/限制被执行人出境申请书.docx",
             "contract_types": [],
             "case_types": [
@@ -947,9 +1072,9 @@
         {
             "name": "限制高消费申请书",
             "template_type": "case",
-            "contract_sub_type": null,
+            "contract_sub_type": "",
             "case_sub_type": "application_materials",
-            "archive_sub_type": null,
+            "archive_sub_type": "",
             "file_path": "2-案件材料/3-申请执行材料/限制性措施/限制高消费申请书.docx",
             "contract_types": [],
             "case_types": [
@@ -969,9 +1094,9 @@
         {
             "name": "广州法院电子送达地址确认书",
             "template_type": "case",
-            "contract_sub_type": null,
+            "contract_sub_type": "",
             "case_sub_type": "service_address_materials",
-            "archive_sub_type": null,
+            "archive_sub_type": "",
             "file_path": "2-案件材料/4-通用材料/3-送达地址确认书/广州电子送达地址确认书.docx",
             "contract_types": [],
             "case_types": [
@@ -988,9 +1113,9 @@
         {
             "name": "广州对方当事人送达地址及相关信息确认书",
             "template_type": "case",
-            "contract_sub_type": null,
+            "contract_sub_type": "",
             "case_sub_type": "service_address_materials",
-            "archive_sub_type": null,
+            "archive_sub_type": "",
             "file_path": "2-案件材料/4-通用材料/3-送达地址确认书/广州对方当事人送达地址及相关信息确认书.docx",
             "contract_types": [],
             "case_types": [
@@ -1007,9 +1132,9 @@
         {
             "name": "番禺法院领退转款账户确认书",
             "template_type": "case",
-            "contract_sub_type": null,
+            "contract_sub_type": "",
             "case_sub_type": "refund_account_materials",
-            "archive_sub_type": null,
+            "archive_sub_type": "",
             "file_path": "2-案件材料/4-通用材料/5-退费账户确认书/番禺法院领退转款账户确认书.docx",
             "contract_types": [],
             "case_types": [
@@ -1031,9 +1156,9 @@
         {
             "name": "佛山法院送达地址确认书",
             "template_type": "case",
-            "contract_sub_type": null,
+            "contract_sub_type": "",
             "case_sub_type": "service_address_materials",
-            "archive_sub_type": null,
+            "archive_sub_type": "",
             "file_path": "2-案件材料/4-通用材料/3-送达地址确认书/佛山法院送达地址确认书.docx",
             "contract_types": [],
             "case_types": [
@@ -1057,8 +1182,8 @@
         {
             "name": "案卷封面",
             "template_type": "archive",
-            "contract_sub_type": null,
-            "case_sub_type": null,
+            "contract_sub_type": "",
+            "case_sub_type": "",
             "archive_sub_type": "case_cover",
             "file_path": "3-归档模板/1-案卷封面.docx",
             "contract_types": [],
@@ -1072,8 +1197,8 @@
         {
             "name": "结案归档登记表",
             "template_type": "archive",
-            "contract_sub_type": null,
-            "case_sub_type": null,
+            "contract_sub_type": "",
+            "case_sub_type": "",
             "archive_sub_type": "closing_archive_register",
             "file_path": "3-归档模板/2-结案归档登记表.docx",
             "contract_types": [],
@@ -1087,8 +1212,8 @@
         {
             "name": "卷内目录",
             "template_type": "archive",
-            "contract_sub_type": null,
-            "case_sub_type": null,
+            "contract_sub_type": "",
+            "case_sub_type": "",
             "archive_sub_type": "inner_catalog",
             "file_path": "3-归档模板/3-卷内目录.docx",
             "contract_types": [],
@@ -1102,8 +1227,8 @@
         {
             "name": "律师工作日志",
             "template_type": "archive",
-            "contract_sub_type": null,
-            "case_sub_type": null,
+            "contract_sub_type": "",
+            "case_sub_type": "",
             "archive_sub_type": "lawyer_work_log",
             "file_path": "3-归档模板/5-律师工作日志.docx",
             "contract_types": [],
@@ -1117,8 +1242,8 @@
         {
             "name": "律师办案服务质量监督卡",
             "template_type": "archive",
-            "contract_sub_type": null,
-            "case_sub_type": null,
+            "contract_sub_type": "",
+            "case_sub_type": "",
             "archive_sub_type": "service_quality_card",
             "file_path": "3-归档模板/6-律师办案服务质量监督卡.docx",
             "contract_types": [],
@@ -1132,8 +1257,8 @@
         {
             "name": "办案小结",
             "template_type": "archive",
-            "contract_sub_type": null,
-            "case_sub_type": null,
+            "contract_sub_type": "",
+            "case_sub_type": "",
             "archive_sub_type": "case_summary",
             "file_path": "3-归档模板/7-办案小结.docx",
             "contract_types": [],
@@ -1147,9 +1272,9 @@
         {
             "name": "财产保全申请书",
             "template_type": "case",
-            "contract_sub_type": null,
+            "contract_sub_type": "",
             "case_sub_type": "property_preservation_materials",
-            "archive_sub_type": null,
+            "archive_sub_type": "",
             "file_path": "2-案件材料/1-起诉材料/2-财产保全材料/财产保全申请书.docx",
             "contract_types": [],
             "case_types": [
@@ -1169,9 +1294,9 @@
         {
             "name": "东莞第三法院被告送达地址线索书",
             "template_type": "case",
-            "contract_sub_type": null,
+            "contract_sub_type": "",
             "case_sub_type": "service_address_materials",
-            "archive_sub_type": null,
+            "archive_sub_type": "",
             "file_path": "2-案件材料/4-通用材料/3-送达地址确认书/东莞第三法院被告送达地址线索书.docx",
             "contract_types": [],
             "case_types": [
@@ -1196,9 +1321,9 @@
         {
             "name": "东莞第三法院原告送达地址、送达方式确认书",
             "template_type": "case",
-            "contract_sub_type": null,
+            "contract_sub_type": "",
             "case_sub_type": "service_address_materials",
-            "archive_sub_type": null,
+            "archive_sub_type": "",
             "file_path": "2-案件材料/4-通用材料/3-送达地址确认书/东莞第三法院原告送达地址、送达方式确认书.docx",
             "contract_types": [],
             "case_types": [
@@ -1220,9 +1345,9 @@
         {
             "name": "东莞第三法院账户确认书",
             "template_type": "case",
-            "contract_sub_type": null,
+            "contract_sub_type": "",
             "case_sub_type": "refund_account_materials",
-            "archive_sub_type": null,
+            "archive_sub_type": "",
             "file_path": "2-案件材料/4-通用材料/5-退费账户确认书/东莞第三法院账户确认书.docx",
             "contract_types": [],
             "case_types": [
@@ -1249,9 +1374,9 @@
         {
             "name": "起诉状",
             "template_type": "case",
-            "contract_sub_type": null,
+            "contract_sub_type": "",
             "case_sub_type": "pleading_materials",
-            "archive_sub_type": null,
+            "archive_sub_type": "",
             "file_path": "2-案件材料/1-起诉材料/1-起诉状和反诉答辩状/1-起诉状.docx",
             "contract_types": [],
             "case_types": [
@@ -1272,8 +1397,8 @@
             "name": "专项合同",
             "template_type": "contract",
             "contract_sub_type": "contract",
-            "case_sub_type": null,
-            "archive_sub_type": null,
+            "case_sub_type": "",
+            "archive_sub_type": "",
             "file_path": "1-合同模板/专项合同.docx",
             "contract_types": [
                 "special"
@@ -1476,6 +1601,21 @@
             "document_template_name": "佛山法院送达地址确认书",
             "folder_template_name": "民事二审上诉",
             "folder_node_id": "folder_1785568721971_orpd7x9h"
+        },
+        {
+            "document_template_name": "法定代表人身份证明书",
+            "folder_template_name": "申请行政复议文件夹",
+            "folder_node_id": "folder_1791766080736_p5w37r7q"
+        },
+        {
+            "document_template_name": "所函",
+            "folder_template_name": "申请行政复议文件夹",
+            "folder_node_id": "folder_1791766080742_cjj5qph3"
+        },
+        {
+            "document_template_name": "授权委托书",
+            "folder_template_name": "申请行政复议文件夹",
+            "folder_node_id": "folder_1791766080742_cjj5qph3"
         }
     ]
 }
