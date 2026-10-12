@@ -33,7 +33,8 @@ class FolderSlotAdmin(admin.ModelAdmin):  # pragma: no cover
     )
 
     def get_queryset(self, request: Any) -> Any:  # pragma: no cover
-        return FolderSlot.objects.annotate(_doc_count=Count("document_templates"))
+        # annotate 后显式排序：避免 autocomplete 分页的 UnorderedObjectListWarning
+        return FolderSlot.objects.annotate(_doc_count=Count("document_templates")).order_by("name")
 
     @admin.display(description="占位文书数", ordering="_doc_count")
     def document_template_count(self, obj: Any) -> int:  # pragma: no cover

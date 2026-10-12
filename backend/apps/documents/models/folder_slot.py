@@ -21,27 +21,6 @@ if TYPE_CHECKING:
     from .document_template import DocumentTemplate
 
 
-def grouped_slot_choices(empty_label: str = "— 未声明 —") -> list[tuple[str, Any]]:
-    """
-    按分类分组的槽位下拉选项（optgroup）。
-
-    分组顺序 = FolderSlotCategory 枚举顺序；组内按名称排序。
-    """
-    slots = FolderSlot.objects.filter(is_active=True).order_by("name")
-    groups: dict[str, list[tuple[int, str]]] = {}
-    for slot in slots:
-        label = slot.get_category_display() or "其他"
-        groups.setdefault(label, []).append((slot.pk, str(slot)))
-    ordered: list[tuple[str, Any]] = [("", empty_label)]
-    for category in FolderSlotCategory:
-        items = groups.pop(category.label, None)
-        if items:
-            ordered.append((category.label, items))
-    for label, items in groups.items():
-        ordered.append((label, items))
-    return ordered
-
-
 class FolderSlot(LifecycleModel):
     """
     文件夹槽位（受控词表）

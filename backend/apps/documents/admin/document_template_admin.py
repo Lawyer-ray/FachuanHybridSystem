@@ -179,11 +179,6 @@ class DocumentTemplateForm(forms.ModelForm):  # pragma: no cover
         existing_file_field = cast(forms.ChoiceField, self.fields["existing_file"])
         existing_file_field.choices = [("", "-- 不选择 / 上传新文件 --")] + existing_files
 
-        # 落位槽位：按分类 optgroup 分组（通用/立案/答辩/…/合同文件夹），消除平铺混排
-        from apps.documents.models.folder_slot import grouped_slot_choices
-
-        self.fields["folder_slot"].choices = grouped_slot_choices()  # type: ignore[attr-defined]
-
         # 从实例加载已选值
         if self.instance and self.instance.pk:
             admin_service = _get_admin_service()
@@ -332,6 +327,9 @@ class DocumentTemplateAdmin(TemplateAdminViewsMixin, TemplateAdminDisplayMixin, 
 
     form = DocumentTemplateForm
 
+    # 落位槽位用全站统一的 select2 搜索式下拉（单框可搜，输入即过滤），替代平铺/分组 select
+    autocomplete_fields = ["folder_slot"]
+
     list_display = (
         "id",
         "name",
@@ -471,7 +469,6 @@ class DocumentTemplateAdmin(TemplateAdminViewsMixin, TemplateAdminDisplayMixin, 
             "cases/js/autocomplete.js",
             "documents/js/template_type_toggle.js",
             "documents/js/institution_tags.js",
-            "documents/js/slot_select_filter.js",
         )
 
     def get_search_results(self, request: Any, queryset: Any, search_term: str) -> tuple[Any, bool]:  # pragma: no cover
