@@ -110,6 +110,16 @@ DEFAULT_PROXY_MATTER_RULES: tuple[ProxyMatterRuleSeed, ...] = (
         "priority": 100,
         "is_active": True,
     },
+    {
+        "case_types": ["administrative"],
+        "case_type": "administrative",
+        "case_stage": "administrative_review",
+        "legal_statuses": ["applicant"],
+        "legal_status_match_mode": "any",
+        "items_text": "代为参加本行政复议案件，代为提交行政复议申请、提交证据材料、查阅复制本案卷宗材料；代为陈述事实、申辩、质证，参加听证；代为接收、签收全部行政复议法律文书；代为进行调解、签署调解协议；代为变更、放弃、撤回行政复议请求。",
+        "priority": 50,
+        "is_active": True,
+    },
 )
 
 

@@ -1,10 +1,10 @@
-"""JtnCaseGuidScript（案号查 GUID，案件选择对话框 GET 搜索）单测（无网络）。
+"""JtnCaseGuidScript（案号查 GUID，列表页搜索 + 飞连一键登录自愈）单测（无网络）。
 
-覆盖：对话框 URL 构造、radio GUID 提取（lxml 主路径 + 正则兜底）、
-完整查询编排（命中/多命中/0 命中/会话自愈链/登录失败/会话中途失效重试）、
-三字段入口（案号/案名/客户名）的参数与 Referer、
+覆盖：VIEWSTATE 提取、GUID 提取（行解析 + 正则兜底）、完整查询编排
+（命中/多命中/0 命中/SSO 门户一键恢复/本地客户端不可用/兑换失败/登录失败/
+网关死拦/会话中途失效重试）、三字段（案号/案名/客户名）的 postback 字段、
 ScriptExecutorService 三个查询入口的装配与错误映射。
-HTTP 全部走 httpx.MockTransport 或实例打桩。
+HTTP 全部走 httpx.MockTransport 或实例打桩；本机飞连客户端 token 打桩。
 """
 
 from __future__ import annotations
@@ -16,37 +16,61 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 import pytest
 
-from apps.oa_filing.services.oa_scripts.jtn.case_guid.constants import _DIALOG_CATEGORY, _DIALOG_REFERER, _DIALOG_URL
+from apps.oa_filing.services.oa_scripts.jtn.case_guid.constants import (
+    _SEARCH_CASE_NAME_FIELD,
+    _SEARCH_CASE_NO_FIELD,
+    _SEARCH_CUST_NAME_FIELD,
+)
 from apps.oa_filing.services.oa_scripts.jtn.case_guid.service import (
     JtnCaseGuidScript,
-    dialog_search_url,
-    extract_dialog_guids,
+    extract_case_guids,
+    extract_viewstate_fields,
 )
 from apps.oa_filing.services.oa_scripts.jtn.http_session import is_oa_login_page
 
 _GUID_A = "b0219b56-3968-48a8-8e12-3ca86bf160ce"
 _GUID_B = "0f2b7a11-1111-2222-3333-444455556666"
-_GUID_C = "B0219B56-3968-48A8-8E12-3CA86BF160CE"  # 大写形态，提取时应归一为小写
 
 _CASE_NO = "2026TEST0001"
-_DIALOG_SEARCH_URL = f"{_DIALOG_URL}?category={_DIALOG_CATEGORY}&project_no={_CASE_NO}"
+_CASE_LIST_URL = "https://ims.jtn.com/project/index.aspx?FirstModel=PROJECT&SecondModel=PROJECT002"
+_SSO_AUTHORIZE_URL = "https://access.jtn.com/api/oidc/authorize?client_id=fSDxmmzBdYmrJYzK"
+_SSO_PORTAL_LOGIN_URL = "https://access.jtn.com/login?next=%2Fapi%2Foidc%2Fauthorize"
+_GATEWAY_CALLBACK_URL = "https://ims.jtn.com/corplink/agw/callback?code=diag-1"
+_APP_LOGIN_URL = "https://ims.jtn.com/member/login.aspx?rurl=https%3a%2f%2fims.jtn.com%2fproject"
+
+_LOCAL_TOKEN_STUB_PATH = "apps.oa_filing.services.oa_scripts.jtn.case_guid.service._fetch_local_quick_login_token"
 
 
-def _dialog_form_html() -> str:
-    """对话框搜索表单（会话有效性的页面特征）。"""
-    return '<html><body><form><input id="project_no" name="project_no" type="text" value="" /></form></body></html>'
+def _list_page_html() -> str:
+    return (
+        "<html><body><form id='aspnetForm'>"
+        f'<input type="hidden" id="__VIEWSTATE" value="VS-{_CASE_NO}" />'
+        '<input type="hidden" id="__VIEWSTATEGENERATOR" value="134513E2" />'
+        "</form></body></html>"
+    )
 
 
-def _dialog_results_html(*guids: str) -> str:
+def _result_page_html(*guids: str, case_no: str = _CASE_NO) -> str:
     rows = "".join(
-        f'<tr><td>选择</td><td>{_CASE_NO}</td><td><input type="radio" name="Project" value="{g}" /></td></tr>'
+        f"<tr><td>{case_no} 案件</td>"
+        f"<td><a href='../project/projectView.aspx?keyid={g}&FirstModel=PROJECT'>查看</a></td></tr>"
         for g in guids
     )
-    return f"<html><body><form>{_dialog_form_html()}<table>{rows}</table></form></body></html>"
+    return f"<html><body><table>{rows}</table></body></html>"
 
 
 def _login_page_html() -> str:
     return "<html><body>location.replace('https://ims.jtn.com/member/login.aspx?rurl=x')</body></html>"
+
+
+def _app_login_page_html() -> str:
+    """OA 应用层登录页（含 CSRFToken 与账密表单）。"""
+    return (
+        "<html><body><form>"
+        '<input type="hidden" name="CSRFToken" value="csrf-1" />'
+        '<input name="userid"><input name="password">'
+        "</form></body></html>"
+    )
 
 
 def _make_script(handler: Any, *, http_login: Any = None, cached_cookies: Any = None) -> tuple[JtnCaseGuidScript, Any]:
@@ -74,59 +98,19 @@ def _make_script(handler: Any, *, http_login: Any = None, cached_cookies: Any = 
     return script, http_login
 
 
-# ──────────── URL 构造 ────────────
+# ──────────── VIEWSTATE 提取 ────────────
 
 
-class TestDialogSearchUrl:
-    def test_case_no_url(self):
-        url = dialog_search_url(param_name="project_no", keyword="2026GZM0286")
-        parsed = urlparse(url)
-        assert f"{parsed.netloc}{parsed.path}" == "ims.jtn.com/searchdlg/searchProject.aspx"
-        query = parse_qs(parsed.query)
-        assert query == {"category": ["OfficeDOC"], "project_no": ["2026GZM0286"]}
+class TestExtractViewstateFields:
+    def test_present(self):
+        fields = extract_viewstate_fields(_list_page_html())
+        assert fields == {"__VIEWSTATE": f"VS-{_CASE_NO}", "__VIEWSTATEGENERATOR": "134513E2"}
 
-    def test_keyword_is_urlencoded(self):
-        parsed = parse_qs(urlparse(dialog_search_url(param_name="project_name", keyword="某公司 合同纠纷")).query)
-        assert parsed["project_name"] == ["某公司 合同纠纷"]
+    def test_absent(self):
+        assert extract_viewstate_fields("<html><body>登录页</body></html>") == {}
 
 
-# ──────────── GUID 提取 ────────────
-
-
-class TestExtractDialogGuids:
-    def test_single(self):
-        assert extract_dialog_guids(_dialog_results_html(_GUID_A)) == [_GUID_A]
-
-    def test_multi_keeps_order_and_dedupes(self):
-        html = _dialog_results_html(_GUID_B, _GUID_A, _GUID_B)
-        assert extract_dialog_guids(html) == [_GUID_B, _GUID_A]
-
-    def test_guid_value_lowercased(self):
-        assert extract_dialog_guids(_dialog_results_html(_GUID_C)) == [_GUID_A]
-
-    def test_non_radio_guids_ignored(self):
-        # 非 radio 的 GUID（如普通链接 keyid）不参与提取，防误报
-        html = (
-            "<html><body><form>"
-            '<input id="project_no" name="project_no" />'
-            f"<a href='/project/projectView.aspx?keyid={_GUID_B}'>查看</a>"
-            "</form></body></html>"
-        )
-        assert extract_dialog_guids(html) == []
-
-    def test_no_radio_returns_empty(self):
-        assert extract_dialog_guids(_dialog_form_html()) == []
-
-    def test_unparseable_html_falls_back_to_regex(self):
-        broken = f'<input type="radio" value="{_GUID_A}"'
-        with patch(
-            "apps.oa_filing.services.oa_scripts.jtn.case_guid.service.lxml_html.fromstring",
-            side_effect=ValueError("boom"),
-        ):
-            assert extract_dialog_guids(broken) == [_GUID_A]
-
-
-# ──────────── 登录页判定（http_session 小件接肉眼回归） ────────────
+# ──────────── 登录页判定 ────────────
 
 
 class TestIsOaLoginPage:
@@ -134,39 +118,68 @@ class TestIsOaLoginPage:
         assert is_oa_login_page("https://ims.jtn.com/member/login.aspx?rurl=x", "任意内容") is True
 
     def test_location_replace_placeholder(self):
-        assert is_oa_login_page(_DIALOG_URL, _login_page_html()) is True
+        assert is_oa_login_page(_CASE_LIST_URL, _login_page_html()) is True
 
-    def test_normal_dialog_page(self):
-        assert is_oa_login_page(_DIALOG_URL, _dialog_results_html(_GUID_A)) is False
+    def test_normal_page(self):
+        assert is_oa_login_page(_CASE_LIST_URL, _list_page_html()) is False
 
-
-# ──────────── 查询编排（会话自愈链，模拟真实网关/登录页重定向） ────────────
-
-
-_GATEWAY_CALLBACK_URL = "https://ims.jtn.com/corplink/agw/callback?code=diag-1"
-_APP_LOGIN_URL = "https://ims.jtn.com/member/login.aspx?rurl=https%3a%2f%2fims.jtn.com%2fsearchdlg"
+    def test_marker_in_long_page_is_not_login(self):
+        long_page = "x" * 3000 + "location.replace(...)"
+        assert is_oa_login_page(_CASE_LIST_URL, long_page) is False
 
 
-def _app_login_page_html() -> str:
-    """OA 应用层登录页（含 CSRFToken 与账密表单）。"""
-    return (
-        "<html><body><form>"
-        '<input type="hidden" name="CSRFToken" value="csrf-1" />'
-        '<input name="userid"><input name="password">'
-        "</form></body></html>"
-    )
+# ──────────── GUID 提取 ────────────
+
+
+class TestExtractCaseGuids:
+    def test_row_parse_single(self):
+        html = _result_page_html(_GUID_A)
+        assert extract_case_guids(html, _CASE_NO) == [_GUID_A]
+
+    def test_row_parse_multi_keeps_order_and_dedupes(self):
+        html = _result_page_html(_GUID_B, _GUID_A, _GUID_B)
+        assert extract_case_guids(html, _CASE_NO) == [_GUID_B, _GUID_A]
+
+    def test_no_rows_found_returns_empty(self):
+        # lxml 可解析但无命中行：视为真 0 命中，不整页捞回（防误提页面其他区域的 keyid）
+        html = f"<div>杂乱文本</div><a href='/p?keyid={_GUID_A}&x=1'>链接</a>"
+        assert extract_case_guids(html, _CASE_NO) == []
+
+    def test_unparseable_html_falls_back_to_regex(self):
+        # lxml 解析失败（非法 HTML 触发异常的构造）→ 回退文档同款整页正则
+        broken = f"<a href='/p?keyid={_GUID_A}&x=1'>链接"
+        with patch(
+            "apps.oa_filing.services.oa_scripts.jtn.case_guid.service.lxml_html.fromstring",
+            side_effect=ValueError("boom"),
+        ):
+            assert extract_case_guids(broken, _CASE_NO) == [_GUID_A]
+
+    def test_rows_without_keyword_excluded(self):
+        html = _result_page_html(_GUID_A, case_no="2099ZZZ0001")
+        assert extract_case_guids(html, _CASE_NO) == []
+
+    def test_no_hit_returns_empty(self):
+        assert extract_case_guids(_list_page_html(), _CASE_NO) == []
+
+
+# ──────────── 查询编排（网关/SSO 门户/应用层三层自愈模拟器） ────────────
 
 
 class _SelfHealServer:
-    """模拟 ims.jtn.com 前置网关 + OA 应用层的会话语义。
+    """模拟 ims.jtn.com 前置飞连网关 + SSO 门户 + OA 应用层的会话语义。
 
-    - 无网关 cookie（corplink_at）访问对话框 → 302 网关回调；
-      回调端点 Set-Cookie 下发 corplink_at/it 后 302 回对话框；
-    - 有网关 cookie 无应用层会话（ASP.NET_SessionId=ok123）→ 302 应用层登录页；
-    - 登录页 POST 账密：成功则 Set-Cookie 应用层会话并 302 回对话框，
-      失败（login_error）则停留登录页并渲染错误文案；
-    - 带应用层会话的对话框 GET → 搜索结果页（radios）。
+    会话层级（cookie 驱动）：
+    - SSO 门户：`sso=ok`（门户会话）。缺失时 GET 业务页被弹到
+      access.jtn.com/login（飞连 SPA 登录页）——需本机客户端一键登录恢复；
+    - 网关：`corplink_at`。有 SSO 会话但缺网关 token 时，业务页 302 到
+      corplink/agw/callback（Set-Cookie 下发网关会话，body 为 JS 回跳页）；
+    - OA 应用层：`ASP.NET_SessionId=ok123`。有网关 token 但缺应用会话时，
+      业务页 302 到 member/login.aspx（CSRFToken 账密表单）；
+    - quick-login 兑换：POST /api/quick-login 携带 `{"token": "good-token"}` →
+      Set-Cookie sso=ok（token 不对/csrf 缺失 → code=194008 当前登录方式未开启）。
     """
+
+    _GOOD_TOKEN = "good-token"
 
     def __init__(
         self,
@@ -174,25 +187,54 @@ class _SelfHealServer:
         app_session: str = "ok123",
         login_error: bool = False,
         gateway_dead: bool = False,
+        quick_login_reject: bool = False,
         result_guids: tuple[str, ...] = (_GUID_A,),
     ) -> None:
         self.app_session = app_session
         self.login_error = login_error
         self.gateway_dead = gateway_dead
+        self.quick_login_reject = quick_login_reject
         self.result_guids = result_guids
-        self.dialog_hits = 0
-        self.last_query: dict[str, list[str]] = {}
-        self.last_referer: str = ""
-        # 被弹到网关/登录前的业务 URL（回调放行后 302 回这里）
-        self.pending_url: str = _DIALOG_SEARCH_URL
+        self.search_posts: list[dict[str, list[str]]] = []
+        self.quick_login_calls: list[dict[str, Any]] = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         cookie = request.headers.get("cookie", "")
         parsed = urlparse(str(request.url))
         host, path = parsed.netloc, parsed.path
 
+        if "api/quick-login" in path:
+            body = request.read()
+            import json as _json
+
+            payload = _json.loads(body) if body else {}
+            csrf = request.headers.get("csrf-token", "")
+            self.quick_login_calls.append({"payload": payload, "csrf": csrf, "os": parse_qs(parsed.query).get("os")})
+            if self.quick_login_reject or payload.get("token") != self._GOOD_TOKEN or not csrf:
+                return httpx.Response(200, json={"code": 194008, "message": "当前登录方式未开启"})
+            return httpx.Response(
+                200,
+                headers=[("Set-Cookie", "sso=ok; Domain=access.jtn.com; Path=/")],
+                json={"code": 0, "data": {"result": "success"}},
+            )
+        if "api/oidc/authorize" in path:
+            # 网关授权端点：门户会话（access.jtn.com 域 cookie）有效则发 code 弹网关
+            # 回调，无效则弹门户登录页。sso cookie 只随 access.jtn.com 请求发送。
+            if "sso=ok" in cookie:
+                return httpx.Response(302, headers=[("Location", _GATEWAY_CALLBACK_URL)])
+            return httpx.Response(302, headers=[("Location", _SSO_PORTAL_LOGIN_URL)])
+        if host == "access.jtn.com":
+            # 门户登录页（SPA）：无 SSO 会话时的落点；authorize 跳转已 Set-Cookie
+            # 门户 csrf-token / 匿名 session（兑换一次性 token 需要 csrf 头）
+            return httpx.Response(
+                200,
+                headers=[
+                    ("Set-Cookie", "csrf-token=portalc; Domain=access.jtn.com; Path=/"),
+                    ("Set-Cookie", "session=anon; Domain=access.jtn.com; Path=/"),
+                ],
+                text="<html>feilian portal login SPA</html>",
+            )
         if "corplink/agw" in path:
-            # 模拟回调下发新网关 token（host-only，与旧 .ims.jtn.com 域串不同 → jar 共存）
             if self.gateway_dead:
                 return httpx.Response(200, text="<html>gateway stuck</html>")
             return httpx.Response(
@@ -200,11 +242,9 @@ class _SelfHealServer:
                 headers=[
                     ("Set-Cookie", "corplink_at=fresh; Path=/"),
                     ("Set-Cookie", "corplink_it=fresh2; Path=/"),
-                    ("Location", self.pending_url),
+                    ("Location", _CASE_LIST_URL),
                 ],
             )
-        if host == "access.jtn.com":
-            return httpx.Response(200, text="<html>SSO SPA portal</html>")
         if "member/login.aspx" in path:
             if request.method == "POST":
                 if self.login_error:
@@ -213,26 +253,35 @@ class _SelfHealServer:
                     302,
                     headers=[
                         ("Set-Cookie", f"ASP.NET_SessionId={self.app_session}; Path=/"),
-                        # 真实 rurl 语义：带完整查询参数弹回原业务 URL
-                        ("Location", self.pending_url),
+                        ("Location", _CASE_LIST_URL),
                     ],
                 )
             return httpx.Response(200, text=_app_login_page_html())
 
-        # 对话框搜索（GET）：记录完整业务 URL（含查询参数），供网关/登录放行后弹回
-        self.pending_url = str(request.url)
+        # 业务页（列表页 / 搜索）——SSO 会话 cookie 只在 access.jtn.com 域，
+        # ims.jtn.com 侧的状态只由 corplink_at（网关）与应用层会话驱动
         has_app_session = f"ASP.NET_SessionId={self.app_session}" in cookie
-        if has_app_session:
-            self.dialog_hits += 1
-            self.last_query = parse_qs(parsed.query)
-            self.last_referer = request.headers.get("referer", "")
-            return httpx.Response(200, text=_dialog_results_html(*self.result_guids))
-        if "corplink_at=stale" in cookie:
-            # 旧网关 token 在 cookie 串里压过新值 → 网关拒绝，弹回调
-            return httpx.Response(302, headers=[("Location", _GATEWAY_CALLBACK_URL)])
-        if "corplink_at=" in cookie:
+        has_gateway = "corplink_at=" in cookie
+
+        if request.method == "POST":
+            posted = {k: v for k, v in parse_qs(request.content.decode()).items() if "projmainPlaceHolder" in k}
+            self.search_posts.append(posted)
+            if has_app_session:
+                # 行文本带上提交的过滤词（行解析按关键词匹配行内文本）
+                keyword = next((v[0] for v in posted.values() if v and v[0]), "")
+                return httpx.Response(200, text=_result_page_html(*self.result_guids, case_no=keyword or _CASE_NO))
             return httpx.Response(302, headers=[("Location", _APP_LOGIN_URL)])
-        return httpx.Response(302, headers=[("Location", _GATEWAY_CALLBACK_URL)])
+
+        if has_app_session:
+            return httpx.Response(200, text=_list_page_html())
+        if has_gateway:
+            return httpx.Response(302, headers=[("Location", _APP_LOGIN_URL)])
+        # 无网关 token → 弹网关授权端点（由 authorize 决定发 code 或弹门户登录）
+        return httpx.Response(302, headers=[("Location", _SSO_AUTHORIZE_URL)])
+
+
+def _stub_local_token(token: str | None) -> AsyncMock:
+    return AsyncMock(return_value=token)
 
 
 class TestLookupCaseGuids:
@@ -260,43 +309,63 @@ class TestLookupCaseGuids:
 
     @pytest.mark.asyncio
     async def test_fresh_cached_session_direct_hit(self):
-        """缓存会话新鲜：单次 GET 直达对话框结果页，无需自愈与 http_login。"""
+        """缓存会话新鲜：GET 直达列表页，无需自愈与 http_login。"""
         server = _SelfHealServer()
         cached = [{"name": "ASP.NET_SessionId", "value": "ok123", "domain": "ims.jtn.com", "path": "/"}]
         script, http_login = _make_script(server.handler, cached_cookies=cached)
         assert await script.lookup_case_guids(_CASE_NO) == [_GUID_A]
-        assert server.dialog_hits == 1
+        assert len(server.search_posts) == 1
+        assert server.search_posts[0][_SEARCH_CASE_NO_FIELD] == [_CASE_NO]
         http_login.assert_not_awaited()
-        # 搜索参数与 Referer 随请求携带
-        assert server.last_query == {"category": [_DIALOG_CATEGORY], "project_no": [_CASE_NO]}
-        assert server.last_referer == _DIALOG_REFERER
 
     @pytest.mark.asyncio
-    async def test_stale_cache_self_heals_via_gateway_then_form_login(self):
-        """缓存失效：网关回调 Set-Cookie 自愈 → 应用层账密登录 → 搜索成功。
+    async def test_sso_expired_recovers_via_local_quick_login(self):
+        """SSO 门户会话过期：本机飞连客户端一键登录 → 网关回调 → 应用层登录 → 搜索。
 
-        复现 2026-10-06 线上问题的修复路径（会话自愈链与页面无关，对话框
-        切换后应原样保留）。
+        复现 2026-10-12 线上断供场景（缓存 SSO 会话过期，旧链路每轮弹门户登录页死循环）。
         """
         server = _SelfHealServer()
         cached = [{"name": "ASP.NET_SessionId", "value": "stale", "domain": "ims.jtn.com", "path": "/"}]
         script, _ = _make_script(server.handler, cached_cookies=cached)
-        assert await script.lookup_case_guids(_CASE_NO) == [_GUID_A]
-        assert server.dialog_hits == 1
+        with patch(_LOCAL_TOKEN_STUB_PATH, _stub_local_token(_SelfHealServer._GOOD_TOKEN)):
+            assert await script.lookup_case_guids(_CASE_NO) == [_GUID_A]
+        # 兑换请求：os=web 查询参数 + csrf 头 + 一次性 token
+        assert len(server.quick_login_calls) == 1
+        call = server.quick_login_calls[0]
+        assert call["os"] == ["web"]
+        assert call["payload"] == {"token": _SelfHealServer._GOOD_TOKEN, "login_scene": "feilian"}
+        assert call["csrf"]
 
     @pytest.mark.asyncio
-    async def test_no_cache_also_self_heals(self):
-        """无缓存冷启动：同样走网关自愈 + 表单登录。"""
+    async def test_sso_recovery_without_gateway_then_form_login(self):
+        """无缓存冷启动：一键恢复 → 网关回调 Set-Cookie → 应用层账密登录 → 搜索。"""
         server = _SelfHealServer()
         script, _ = _make_script(server.handler, cached_cookies=None)
-        assert await script.lookup_case_guids(_CASE_NO) == [_GUID_A]
+        with patch(_LOCAL_TOKEN_STUB_PATH, _stub_local_token(_SelfHealServer._GOOD_TOKEN)):
+            assert await script.lookup_case_guids(_CASE_NO) == [_GUID_A]
+        assert len(server.search_posts) == 1
+
+    @pytest.mark.asyncio
+    async def test_local_client_unavailable_raises_friendly(self):
+        """本机飞连客户端不可用：报「客户端不可用」而非笼统会话错误。"""
+        server = _SelfHealServer()
+        script, _ = _make_script(server.handler)
+        with patch(_LOCAL_TOKEN_STUB_PATH, _stub_local_token(None)):
+            with pytest.raises(RuntimeError, match="飞连客户端不可用"):
+                await script.lookup_case_guids(_CASE_NO)
+
+    @pytest.mark.asyncio
+    async def test_quick_login_rejected_raises_friendly(self):
+        """门户拒绝兑换（如 os 参数缺失/方式未开启）：报「一键登录恢复失败」。"""
+        server = _SelfHealServer(quick_login_reject=True)
+        script, _ = _make_script(server.handler)
+        with patch(_LOCAL_TOKEN_STUB_PATH, _stub_local_token(_SelfHealServer._GOOD_TOKEN)):
+            with pytest.raises(RuntimeError, match="一键登录恢复失败"):
+                await script.lookup_case_guids(_CASE_NO)
 
     @pytest.mark.asyncio
     async def test_stale_gateway_cookie_does_not_block_self_heal(self):
-        """缓存里残留已失效的网关 token：自愈前必须清掉，否则与新下发值共存死循环。
-
-        复现 2026-10-06 admin 进程「每轮新 code 弹回调」问题。
-        """
+        """缓存里残留已失效的网关 token：自愈前必须清掉，否则与新下发值共存死循环。"""
         server = _SelfHealServer()
         cached = [
             {"name": "ASP.NET_SessionId", "value": "stale", "domain": "ims.jtn.com", "path": "/"},
@@ -304,35 +373,39 @@ class TestLookupCaseGuids:
             {"name": "corplink_it", "value": "stale", "domain": ".ims.jtn.com", "path": "/"},
         ]
         script, _ = _make_script(server.handler, cached_cookies=cached)
-        assert await script.lookup_case_guids(_CASE_NO) == [_GUID_A]
-        assert server.dialog_hits == 1
+        with patch(_LOCAL_TOKEN_STUB_PATH, _stub_local_token(_SelfHealServer._GOOD_TOKEN)):
+            assert await script.lookup_case_guids(_CASE_NO) == [_GUID_A]
 
     @pytest.mark.asyncio
     async def test_multi_hit(self):
         server = _SelfHealServer(result_guids=(_GUID_B, _GUID_A, _GUID_B))
         script, _ = _make_script(server.handler)
-        assert await script.lookup_case_guids(_CASE_NO) == [_GUID_B, _GUID_A]
+        with patch(_LOCAL_TOKEN_STUB_PATH, _stub_local_token(_SelfHealServer._GOOD_TOKEN)):
+            assert await script.lookup_case_guids(_CASE_NO) == [_GUID_B, _GUID_A]
 
     @pytest.mark.asyncio
     async def test_no_hit_returns_empty_list(self):
         server = _SelfHealServer(result_guids=())
         script, _ = _make_script(server.handler)
-        assert await script.lookup_case_guids(_CASE_NO) == []
+        with patch(_LOCAL_TOKEN_STUB_PATH, _stub_local_token(_SelfHealServer._GOOD_TOKEN)):
+            assert await script.lookup_case_guids(_CASE_NO) == []
 
     @pytest.mark.asyncio
     async def test_login_failure_raises_account_error(self):
         server = _SelfHealServer(login_error=True)
         script, _ = _make_script(server.handler)
-        with pytest.raises(RuntimeError, match="账号或密码错误"):
-            await script.lookup_case_guids(_CASE_NO)
+        with patch(_LOCAL_TOKEN_STUB_PATH, _stub_local_token(_SelfHealServer._GOOD_TOKEN)):
+            with pytest.raises(RuntimeError, match="账号或密码错误"):
+                await script.lookup_case_guids(_CASE_NO)
 
     @pytest.mark.asyncio
     async def test_gateway_dead_loop_raises(self):
         """网关死拦（回调不下发会话）→ 明确报「会话无法建立」。"""
         server = _SelfHealServer(gateway_dead=True)
         script, _ = _make_script(server.handler)
-        with pytest.raises(RuntimeError, match="会话无法建立"):
-            await script.lookup_case_guids(_CASE_NO)
+        with patch(_LOCAL_TOKEN_STUB_PATH, _stub_local_token(_SelfHealServer._GOOD_TOKEN)):
+            with pytest.raises(RuntimeError, match="会话无法建立"):
+                await script.lookup_case_guids(_CASE_NO)
 
     @pytest.mark.asyncio
     async def test_session_expired_mid_search_retries_once(self):
@@ -342,49 +415,53 @@ class TestLookupCaseGuids:
         state = {"expired_once": False}
 
         def handler(request: httpx.Request) -> httpx.Response:
-            if "searchdlg/searchProject.aspx" in str(request.url) and not state["expired_once"]:
-                state["expired_once"] = True
-                return httpx.Response(302, headers=[("Location", _APP_LOGIN_URL)])
+            if request.method == "POST" and "project/index.aspx" in str(request.url):
+                if not state["expired_once"]:
+                    state["expired_once"] = True
+                    return httpx.Response(302, headers=[("Location", _APP_LOGIN_URL)])
             return original(request)
 
         script, _ = _make_script(handler)
-        assert await script.lookup_case_guids(_CASE_NO) == [_GUID_A]
+        with patch(_LOCAL_TOKEN_STUB_PATH, _stub_local_token(_SelfHealServer._GOOD_TOKEN)):
+            assert await script.lookup_case_guids(_CASE_NO) == [_GUID_A]
         assert state["expired_once"] is True  # 首次搜索触发过会话失效
-        assert server.dialog_hits == 1  # 重试后的成功搜索
+        assert len(server.search_posts) == 1  # 重试后的成功搜索
 
     @pytest.mark.asyncio
-    async def test_plain_page_without_form_marker_raises(self):
-        """无任何登录/网关特征但拿不到对话框表单 → 会话无法建立。"""
+    async def test_plain_page_without_viewstate_raises(self):
+        """无任何登录/网关特征但拿不到 VIEWSTATE → 会话无法建立。"""
         script, _ = _make_script(lambda request: httpx.Response(200, text="<html><body>异常页</body></html>"))
         with pytest.raises(RuntimeError, match="会话无法建立"):
             await script.lookup_case_guids(_CASE_NO)
 
 
 class TestLookupByOtherFields:
-    """案名 / 客户名入口：同一对话框、同一会话链，仅查询参数不同。"""
+    """案名 / 客户名入口：同一列表页 postback，仅过滤字段不同。"""
 
     @pytest.mark.asyncio
-    async def test_by_name_sends_project_name_param(self):
-        server = _SelfHealServer()
-        script, _ = _make_script(server.handler)
-        assert await script.lookup_case_guids_by_name("某公司 合同纠纷") == [_GUID_A]
-        assert server.last_query == {"category": [_DIALOG_CATEGORY], "project_name": ["某公司 合同纠纷"]}
+    async def test_by_name_posts_project_name_field(self):
+        with patch(_LOCAL_TOKEN_STUB_PATH, _stub_local_token(_SelfHealServer._GOOD_TOKEN)):
+            server = _SelfHealServer()
+            script, _ = _make_script(server.handler)
+            assert await script.lookup_case_guids_by_name("某公司 合同纠纷") == [_GUID_A]
+            assert server.search_posts[-1][_SEARCH_CASE_NAME_FIELD] == ["某公司 合同纠纷"]
 
     @pytest.mark.asyncio
-    async def test_by_customer_name_sends_customer_param(self):
-        server = _SelfHealServer()
-        script, _ = _make_script(server.handler)
-        assert await script.lookup_case_guids_by_customer_name("腾讯") == [_GUID_A]
-        assert server.last_query == {"category": [_DIALOG_CATEGORY], "project_customer_name": ["腾讯"]}
+    async def test_by_customer_name_posts_cust_field(self):
+        with patch(_LOCAL_TOKEN_STUB_PATH, _stub_local_token(_SelfHealServer._GOOD_TOKEN)):
+            server = _SelfHealServer()
+            script, _ = _make_script(server.handler)
+            assert await script.lookup_case_guids_by_customer_name("腾讯") == [_GUID_A]
+            assert server.search_posts[-1][_SEARCH_CUST_NAME_FIELD] == ["腾讯"]
 
     @pytest.mark.asyncio
     async def test_by_name_self_heals_too(self):
-        """案名入口同样走完整自愈链（缓存失效场景）。"""
+        """案名入口同样走完整自愈链（SSO 过期场景）。"""
         server = _SelfHealServer()
         cached = [{"name": "ASP.NET_SessionId", "value": "stale", "domain": "ims.jtn.com", "path": "/"}]
         script, _ = _make_script(server.handler, cached_cookies=cached)
-        assert await script.lookup_case_guids_by_name("某案名") == [_GUID_A]
-        assert server.dialog_hits == 1
+        with patch(_LOCAL_TOKEN_STUB_PATH, _stub_local_token(_SelfHealServer._GOOD_TOKEN)):
+            assert await script.lookup_case_guids_by_name("某案名") == [_GUID_A]
 
 
 # ──────────── 调度器装配 ────────────

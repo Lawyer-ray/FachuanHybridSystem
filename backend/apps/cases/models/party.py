@@ -36,6 +36,13 @@ class CaseParty(models.Model):
         return f"{self.case_id}-{self.client_id}-{self.legal_status}"
 
 
+class CaseAssignmentSource(models.TextChoices):
+    """案件指派来源：决定合同同步时该行是否可被清理/重建。"""
+
+    CONTRACT = "contract", "合同同步"
+    MANUAL = "manual", "手动添加"
+
+
 class CaseAssignment(models.Model):
     id: int
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="assignments", verbose_name="案件")
@@ -45,6 +52,13 @@ class CaseAssignment(models.Model):
         on_delete=models.PROTECT,
         related_name="case_assignments",
         verbose_name="律师",
+    )
+    source = models.CharField(
+        max_length=16,
+        choices=CaseAssignmentSource.choices,
+        default=CaseAssignmentSource.MANUAL,
+        verbose_name="来源",
+        help_text="contract=由合同指派同步生成（同步时可被清理/重建）；manual=手动添加（任何同步不删除）",
     )
 
     class Meta:

@@ -8,7 +8,7 @@ from typing import Any, cast
 from django.db import transaction
 from django.db.models import QuerySet
 
-from apps.cases.models import Case, CaseAssignment
+from apps.cases.models import Case, CaseAssignment, CaseAssignmentSource
 from apps.cases.schemas.assignment_schemas import CaseAssignmentUpdate
 from apps.core.exceptions import ConflictError, NotFoundError
 from apps.core.interfaces import ICaseService
@@ -200,7 +200,7 @@ class CaseAssignmentService(DjangoPermsMixin):
             )
 
         # 创建指派
-        assignment = CaseAssignment.objects.create(case=case, lawyer_id=lawyer_id)
+        assignment = CaseAssignment.objects.create(case=case, lawyer_id=lawyer_id, source=CaseAssignmentSource.MANUAL)
 
         logger.info(
             "创建指派成功",
@@ -253,6 +253,7 @@ class CaseAssignmentService(DjangoPermsMixin):
                 code="ASSIGNMENT_NOT_FOUND",
                 errors={"assignment_id": f"ID 为 {assignment_id} 的指派不存在"},
             ) from None
+        original_lawyer_id = assignment.lawyer_id
 
         # 验证案件是否存在(如果更新了 case_id)
         case_id = data.get("case_id")
@@ -284,6 +285,10 @@ class CaseAssignmentService(DjangoPermsMixin):
         for key, value in data.items():
             if key in allowed_keys:
                 setattr(assignment, key, value)
+
+        # 手动改派（换了律师）视为手动添加，脱离合同同步的清理范围
+        if assignment.lawyer_id != original_lawyer_id:
+            assignment.source = CaseAssignmentSource.MANUAL
 
         assignment.save()
 
@@ -361,6 +366,13 @@ class CaseAssignmentService(DjangoPermsMixin):
         user: Any | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, int]:  # pragma: no cover
+        """按合同指派 diff 同步案件指派。
+
+        只管理 source=contract 的行：
+        - 合同上已移除的律师 → 删除对应的 contract 行；
+        - 合同上新出现的律师 → 补建 contract 行；
+        source=manual 的行（案件级手动添加/改派）任何情况下不删除、不覆盖。
+        """
         self.ensure_admin(user, perm_open_access=perm_open_access)
 
         try:
@@ -376,17 +388,43 @@ class CaseAssignmentService(DjangoPermsMixin):
         if not contract_id:
             return {"created": 0, "deleted": 0}
 
-        lawyer_ids = self.contract_assignment_query_service.list_lawyer_ids_by_contract_internal(contract_id)
+        contract_lawyer_ids = {
+            lawyer_id
+            for lawyer_id in self.contract_assignment_query_service.list_lawyer_ids_by_contract_internal(contract_id)
+            if lawyer_id is not None
+        }
 
-        deleted, _count = CaseAssignment.objects.filter(case_id=case_id).delete()
-        if not lawyer_ids:
-            return {"created": 0, "deleted": deleted}
+        existing_rows = CaseAssignment.objects.filter(case_id=case_id).only("id", "lawyer_id", "source")
+        existing_by_lawyer = {row.lawyer_id: row for row in existing_rows}
 
-        created = len(
-            CaseAssignment.objects.bulk_create(
-                [CaseAssignment(case_id=case_id, lawyer_id=lawyer_id) for lawyer_id in lawyer_ids]
+        stale_contract_ids = [
+            row.id
+            for lawyer_id, row in existing_by_lawyer.items()
+            if row.source == CaseAssignmentSource.CONTRACT and lawyer_id not in contract_lawyer_ids
+        ]
+
+        to_create = [
+            CaseAssignment(case_id=case_id, lawyer_id=lawyer_id, source=CaseAssignmentSource.CONTRACT)
+            for lawyer_id in sorted(contract_lawyer_ids - set(existing_by_lawyer))
+        ]
+
+        deleted = 0
+        if stale_contract_ids:
+            deleted, _count = CaseAssignment.objects.filter(id__in=stale_contract_ids).delete()
+        created = len(CaseAssignment.objects.bulk_create(to_create)) if to_create else 0
+
+        if created or deleted:
+            logger.info(
+                "按合同 diff 同步案件指派",
+                extra={
+                    "action": "sync_assignments_from_contract",
+                    "case_id": case_id,
+                    "contract_id": contract_id,
+                    # created/deleted 是 LogRecord 保留属性，extra 里必须用 _count 后缀
+                    "created_count": created,
+                    "deleted_count": deleted,
+                },
             )
-        )
         return {"created": created, "deleted": deleted}
 
     @transaction.atomic
@@ -406,7 +444,8 @@ class CaseAssignmentService(DjangoPermsMixin):
                 )
                 return True
 
-            CaseAssignment.objects.create(case=case, lawyer_id=lawyer_id)
+            # 仅由「从合同生成案件」流程调用，指派来自合同 → 标记 contract 来源，纳入后续同步管理
+            CaseAssignment.objects.create(case=case, lawyer_id=lawyer_id, source=CaseAssignmentSource.CONTRACT)
             logger.info(
                 "创建案件指派成功",
                 extra={"action": "create_assignment_internal", "case_id": case_id, "lawyer_id": lawyer_id},

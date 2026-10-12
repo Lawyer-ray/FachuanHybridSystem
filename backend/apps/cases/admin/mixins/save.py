@@ -12,11 +12,23 @@ from django.db.models import QuerySet
 from django.forms import ModelForm
 from django.http import HttpRequest
 
-from apps.cases.models import Case, CaseAssignment, CaseLog
+from apps.cases.models import Case, CaseAssignment, CaseAssignmentSource, CaseLog
 
 from .service import CaseAdminServiceMixin
 
 logger = logging.getLogger("apps.cases")
+
+
+def _mark_assignment_source(obj: CaseAssignment, original: tuple[int, str] | None) -> None:
+    """手动新增或手动改派的指派标记 manual，脱离合同同步的清理范围。
+
+    original 为该行落库时的 (lawyer_id, source)；律师被换过即视为手动改派。
+    """
+    if not obj.pk:
+        obj.source = CaseAssignmentSource.MANUAL
+        return
+    if original and original[0] != obj.lawyer_id:
+        obj.source = CaseAssignmentSource.MANUAL
 
 
 class CaseAdminSaveMixin(CaseAdminServiceMixin):  # pragma: no cover
@@ -172,28 +184,39 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):  # pragma: no cover
 
         instances = formset.save(commit=False)
 
-        # 批量预查指派重复，避免循环内逐行 exists() 查询
-        pending_assignment_pairs = {
-            (obj.case_id, obj.lawyer_id)
-            for obj in instances
-            if isinstance(obj, CaseAssignment) and not obj.pk and obj.case_id and obj.lawyer_id
-        }
+        new_assignments = [
+            obj for obj in instances if isinstance(obj, CaseAssignment) and not obj.pk and obj.case_id and obj.lawyer_id
+        ]
+        changed_assignments = [obj for obj in instances if isinstance(obj, CaseAssignment) and obj.pk]
+
+        # 批量预查指派重复与原值，避免循环内逐行查询
+        pending_assignment_pairs = {(obj.case_id, obj.lawyer_id) for obj in new_assignments}
         existing_assignment_pairs: set[tuple[int, int]] = set()
         if pending_assignment_pairs:
             case_ids = {case_id for case_id, _ in pending_assignment_pairs}
             existing_assignment_pairs = set(
                 CaseAssignment.objects.filter(case_id__in=case_ids).values_list("case_id", "lawyer_id")
             )
+        originals_by_pk: dict[int, tuple[int, str]] = {}
+        if changed_assignments:
+            originals_by_pk = {
+                row["id"]: (row["lawyer_id"], row["source"])
+                for row in CaseAssignment.objects.filter(id__in=[obj.pk for obj in changed_assignments]).values(
+                    "id", "lawyer_id", "source"
+                )
+            }
 
         for obj in instances:
             if isinstance(obj, CaseLog) and not getattr(obj, "actor_id", None):
                 user_id = getattr(request.user, "id", None)
                 if user_id is not None:
                     obj.actor_id = user_id
-            if isinstance(obj, CaseAssignment) and not obj.pk and obj.case_id and obj.lawyer_id:
-                if (obj.case_id, obj.lawyer_id) in existing_assignment_pairs:
+            if isinstance(obj, CaseAssignment):
+                if not obj.pk and (obj.case_id, obj.lawyer_id) in existing_assignment_pairs:
                     continue
-                existing_assignment_pairs.add((obj.case_id, obj.lawyer_id))
+                _mark_assignment_source(obj, originals_by_pk.get(obj.pk) if obj.pk else None)
+                if not obj.pk:
+                    existing_assignment_pairs.add((obj.case_id, obj.lawyer_id))
             if isinstance(obj, ClientPaymentRecord):
                 parent_case: Any = form.instance
                 if parent_case and parent_case.pk:

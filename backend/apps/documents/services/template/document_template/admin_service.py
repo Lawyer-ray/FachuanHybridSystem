@@ -151,15 +151,17 @@ class DocumentTemplateAdminService:
             "case_sub_type": case_sub_type,
             "archive_sub_type": archive_sub_type or "",
         }
+        # 非本类型的子类型必须归一为空串（与模型 default="" 对齐）：
+        # 这些列自 documents.0016 起为 NOT NULL，写入 None 会直接炸 IntegrityError
         if template_type == DocumentTemplateType.CONTRACT:
             if not contract_sub_type:
                 result["is_valid"] = False
                 result["errors"]["contract_sub_type"] = "选择合同文书模板时,必须选择合同子类型"
-            result["case_sub_type"] = None
-            result["archive_sub_type"] = None
+            result["case_sub_type"] = ""
+            result["archive_sub_type"] = ""
         elif template_type == DocumentTemplateType.CASE:
-            result["contract_sub_type"] = None
-            result["archive_sub_type"] = None
+            result["contract_sub_type"] = ""
+            result["archive_sub_type"] = ""
             should_require_case_sub_type = not is_editing or (
                 original_template_type is not None and original_template_type != DocumentTemplateType.CASE
             )
@@ -167,8 +169,8 @@ class DocumentTemplateAdminService:
                 result["is_valid"] = False
                 result["errors"]["case_sub_type"] = "选择案件文书模板时,必须选择案件文件子类型"
         elif template_type == DocumentTemplateType.ARCHIVE:
-            result["contract_sub_type"] = None
-            result["case_sub_type"] = None
+            result["contract_sub_type"] = ""
+            result["case_sub_type"] = ""
             if not archive_sub_type:
                 result["is_valid"] = False
                 result["errors"]["archive_sub_type"] = "选择归档文件模板时,必须选择归档文件子类型"
@@ -209,9 +211,10 @@ class DocumentTemplateAdminService:
         """
         data = {
             "template_type": template_type,
-            "contract_sub_type": contract_sub_type if template_type == DocumentTemplateType.CONTRACT else None,
-            "case_sub_type": case_sub_type if template_type == DocumentTemplateType.CASE else None,
-            "archive_sub_type": archive_sub_type if template_type == DocumentTemplateType.ARCHIVE else None,
+            # 与 template_type 不匹配的子类型一律归一为空串（列自 documents.0016 起 NOT NULL，写 None 会炸）
+            "contract_sub_type": contract_sub_type if template_type == DocumentTemplateType.CONTRACT else "",
+            "case_sub_type": case_sub_type if template_type == DocumentTemplateType.CASE else "",
+            "archive_sub_type": archive_sub_type if template_type == DocumentTemplateType.ARCHIVE else "",
             "contract_types": [],
             "case_types": [],
             "case_stages": [],
