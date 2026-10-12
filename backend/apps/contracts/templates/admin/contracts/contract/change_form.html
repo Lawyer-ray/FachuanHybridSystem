@@ -236,7 +236,12 @@ window.CONTRACTS_I18N = Object.assign(window.CONTRACTS_I18N || {}, {
     function firstEmptyClientSelect() {
         var sels = document.querySelectorAll('select[name^="contract_parties-"][name$="-client"]');
         for (var i = 0; i < sels.length; i++) {
-            if (!sels[i].value) return sels[i];
+            var sel = sels[i];
+            // 排除隐藏空模板行（name 含 __prefix__ / .empty-form）——
+            // 填进去既不可见也不会随表单提交，且会被 add-row 克隆污染新行
+            if (sel.name.indexOf("__prefix__") >= 0) continue;
+            if (sel.closest(".empty-form")) continue;
+            if (!sel.value) return sel;
         }
         return null;
     }
