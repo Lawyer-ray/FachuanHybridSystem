@@ -314,6 +314,71 @@ window.CONTRACTS_I18N = Object.assign(window.CONTRACTS_I18N || {}, {
 </script>
 
 <script>
+// 合同指派「本人」按钮：选中当前登录律师为承办律师并勾选主办
+(function() {
+    var group = document.getElementById('assignments-group');
+    if (!group) return;
+    var userId = '{{ request.user.pk|escapejs }}';
+    var userName = '{{ request.user.real_name|default:request.user.username|escapejs }}';
+    if (!userId) return;
+
+    var heading = group.querySelector('h2');
+    if (!heading) return;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = '本人';
+    btn.title = '选择当前登录律师为承办律师，并勾选主办律师';
+    btn.style.cssText = 'margin-left:10px;padding:4px 12px;font-size:13px;cursor:pointer;border:1px solid var(--fc-border-input);border-radius:4px;background:var(--fc-bg-muted-light);color:var(--fc-text-secondary);vertical-align:middle;';
+    heading.appendChild(btn);
+    btn.addEventListener('click', function() {
+        fillSelfRow().then(function(ok) {
+            if (!ok) alert('未能填入本人（未找到可用的指派行）');
+        });
+    });
+
+    // 与「解析」同款：autocomplete select 需注入 option 再选中；排除隐藏空模板行
+    function firstEmptyLawyerSelect() {
+        var sels = document.querySelectorAll('select[name^="assignments-"][name$="-lawyer"]');
+        for (var i = 0; i < sels.length; i++) {
+            var s = sels[i];
+            if (s.name.indexOf('__prefix__') >= 0) continue;
+            if (s.closest('.empty-form')) continue;
+            if (!s.value) return s;
+        }
+        return null;
+    }
+
+    async function fillSelfRow() {
+        var sel = firstEmptyLawyerSelect();
+        if (!sel) {
+            var addLink = group.querySelector('.add-row a');
+            if (!addLink) return false;
+            addLink.click();  // inlines.js 同步克隆空表单
+            await new Promise(function(resolve) { setTimeout(resolve, 120); });
+            sel = firstEmptyLawyerSelect();
+            if (!sel) return false;
+        }
+        var value = String(userId);
+        if (!sel.querySelector('option[value="' + value + '"]')) {
+            var opt = document.createElement('option');
+            opt.value = value;
+            opt.textContent = userName;
+            sel.appendChild(opt);
+        }
+        sel.value = value;
+        sel.dispatchEvent(new Event('change', {bubbles: true}));
+        var row = sel.closest('.form-row, .dynamic-assignments, fieldset.module, tr');
+        var primary = row ? row.querySelector('input[name$="-is_primary"]') : null;
+        if (primary && !primary.checked) {
+            primary.checked = true;
+            primary.dispatchEvent(new Event('change', {bubbles: true}));
+        }
+        return true;
+    }
+})();
+</script>
+
+<script>
 // 律所OA「查询ID」按钮：按律所OA案件编号查 GUID 并填入律所ID（纯接口，无浏览器）
 (function() {
     var caseNoField = document.getElementById('id_law_firm_oa_case_number');

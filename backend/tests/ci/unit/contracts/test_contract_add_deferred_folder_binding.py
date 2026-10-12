@@ -191,6 +191,9 @@ class TestAddChangePageRender:
         assert "📅" not in content
         assert "parseContractType" in content
         assert "parsePartyNames" in content
+        # 合同指派「本人」按钮：选中当前登录律师并勾选主办
+        assert "textContent = '本人';" in content
+        assert "fillSelfRow" in content
         # 客户库匹配走 admin autocomplete 且必须传 term（Django 6 只认 term，
         # 传 q 会静默退化为最近 20 条 → 老客户永远匹配不上）
         assert "field_name=client&term=" in content
