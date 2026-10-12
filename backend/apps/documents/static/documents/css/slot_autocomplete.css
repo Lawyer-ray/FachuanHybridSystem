@@ -42,3 +42,23 @@
 .select2-dropdown .select2-results__option {
     font-variant-numeric: tabular-nums;
 }
+
+/* 分类徽标（slot_select_enhance.js 渲染）：候选行与选中态右侧的胶囊 */
+.fc-slot-cat {
+    float: right;
+    margin-left: 10px;
+    padding: 0 9px;
+    font-size: 11px;
+    line-height: 19px;
+    border-radius: 10px;
+    color: var(--body-quiet-color, #666);
+    background: var(--darkened-bg, #f2f2f2);
+    border: 1px solid var(--border-color, #d0d0d0);
+    white-space: nowrap;
+}
+
+.select2-results__option--highlighted .fc-slot-cat {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.22);
+    border-color: rgba(255, 255, 255, 0.45);
+}

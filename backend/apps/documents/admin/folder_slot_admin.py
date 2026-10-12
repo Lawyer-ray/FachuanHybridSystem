@@ -10,9 +10,10 @@ from typing import Any
 
 from django.contrib import admin
 from django.core.exceptions import ValidationError
-from django.db.models import Count
+from django.db.models import Case, Count, IntegerField, When
 
 from apps.documents.models import FolderSlot
+from apps.documents.models.choices import FolderSlotCategory
 
 
 @admin.register(FolderSlot)
@@ -22,7 +23,8 @@ class FolderSlotAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = ("key", "name", "category", "description", "document_template_count", "is_active", "updated_at")
     search_fields = ("key", "name", "description")
     list_filter = ("is_active", "category")
-    ordering = ("name",)
+    # 按分类聚类排序：autocomplete 无词候选（点开即列）呈现「通用/立案/答辩/…」分块效果
+    ordering = ("category", "name")
     readonly_fields = ("created_at", "updated_at", "document_template_count")
 
     fieldsets = (
@@ -33,8 +35,13 @@ class FolderSlotAdmin(admin.ModelAdmin):  # pragma: no cover
     )
 
     def get_queryset(self, request: Any) -> Any:  # pragma: no cover
-        # annotate 后显式排序：避免 autocomplete 分页的 UnorderedObjectListWarning
-        return FolderSlot.objects.annotate(_doc_count=Count("document_templates")).order_by("name")
+        # annotate 后显式排序（避免 autocomplete 分页警告）；
+        # 分类按枚举顺序聚类（通用→立案→…→合同），组内按名，无词候选呈现分组效果
+        category_order = Case(
+            *[When(category=cat, then=pos) for pos, cat in enumerate(FolderSlotCategory)],
+            output_field=IntegerField(),
+        )
+        return FolderSlot.objects.annotate(_doc_count=Count("document_templates")).order_by(category_order, "name")
 
     @admin.display(description="占位文书数", ordering="_doc_count")
     def document_template_count(self, obj: Any) -> int:  # pragma: no cover
