@@ -380,6 +380,36 @@ class TestFolderSlotStr:
         assert "· 立案" in str(slot)
 
 
+class TestValidateSlotKinds:
+    def _make_world(self, db: Any) -> None:
+        FolderSlot.objects.create(key="power_of_attorney", name="委托材料", category="general")
+
+    def test_valid_kind_passes(self, db: Any) -> None:
+        self._make_world(db)
+        svc = FolderTemplateAdminService()
+        structure = {"children": [{"name": "3-委托材料", "kind": "power_of_attorney", "children": []}]}
+        assert svc.validate_slot_kinds(structure) == []
+
+    def test_unknown_kind_reported_with_node_name(self, db: Any) -> None:
+        self._make_world(db)
+        svc = FolderTemplateAdminService()
+        structure = {
+            "children": [
+                {"name": "3-委托材料", "kind": "power_of_attorney", "children": []},
+                {"name": "X-错别字节点", "kind": "power_of_atterney", "children": []},
+            ]
+        }
+        bad = svc.validate_slot_kinds(structure)
+        assert bad == ["X-错别字节点 → power_of_atterney"]
+
+    def test_structure_preview_renders_kind_badge(self, db: Any) -> None:
+        self._make_world(db)
+        svc = FolderTemplateAdminService()
+        structure = {"children": [{"name": "3-委托材料", "kind": "power_of_attorney", "children": []}]}
+        html = svc.render_structure_preview(structure)
+        assert "⌘" in str(html) and "委托材料" in str(html)
+
+
 class TestDuplicateTemplateCopiesBindings:
     def test_duplicate_carries_bindings(
         self, slot_poa: FolderSlot, folder_tpl: FolderTemplate, doc_poa: DocumentTemplate

@@ -325,3 +325,25 @@
         flex-direction: column;
     }
 }
+
+/* 节点行槽位下拉（落位标记） */
+.folder-slot {
+    flex-shrink: 0;
+    margin-right: 6px;
+}
+
+.folder-slot select {
+    max-width: 240px;
+    padding: 3px 6px;
+    font-size: 12px;
+    border: 1px solid var(--fc-border-input, #cbd5e1);
+    border-radius: 4px;
+    background: var(--fc-bg-card, #fff);
+    color: var(--fc-text-primary, #1e293b);
+}
+
+.folder-slot select:focus {
+    outline: none;
+    border-color: var(--fc-admin-blue, #417690);
+    box-shadow: 0 0 0 2px rgba(65, 118, 144, 0.15);
+}

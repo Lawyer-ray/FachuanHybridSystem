@@ -159,6 +159,15 @@
     }
 
     /**
+     * 槽位词表（change_form.html 经 json_script 注入）；无数据时返回 null
+     */
+    function getSlotOptions() {
+        const node = document.getElementById('fc-slots-json');
+        if (!node) return null;
+        try { return JSON.parse(node.textContent); } catch (e) { return null; }
+    }
+
+    /**
      * 创建文件夹项
      */
     function createFolderItem(folder, level) {
@@ -169,6 +178,22 @@
 
         const hasChildren = folder.children && folder.children.length > 0;
 
+        const slotOptions = getSlotOptions();
+        let slotHtml = '';
+        if (slotOptions && slotOptions.length) {
+            const options = slotOptions.map(function(opt) {
+                const selected = folder.kind === opt.key ? ' selected' : '';
+                return '<option value="' + escapeHtml(opt.key) + '"' + selected + '>' + escapeHtml(opt.label) + '</option>';
+            }).join('');
+            slotHtml = `
+                <span class="folder-slot">
+                    <select title="落位槽位（文书按此自动落进该文件夹）">
+                        <option value="">槽位：无</option>
+                        ${options}
+                    </select>
+                </span>`;
+        }
+
         item.innerHTML = `
             <div class="folder-item-content">
                 <span class="folder-toggle">${hasChildren ? '▼' : '▶'}</span>
@@ -176,6 +201,7 @@
                 <span class="folder-name">
                     <input type="text" value="${escapeHtml(folder.name || '')}" placeholder="文件夹名称">
                 </span>
+                ${slotHtml}
                 <div class="folder-actions">
                     <button type="button" class="add-child btn-small" title="添加子文件夹">+</button>
                     <button type="button" class="delete btn-small" title="删除">×</button>
@@ -312,6 +338,13 @@
             }
         });
 
+        // 槽位标记变更
+        container.addEventListener('change', function(e) {
+            if (e.target.matches('.folder-slot select')) {
+                updateStructureField(container);
+            }
+        });
+
         // 回车确认添加
         container.querySelector('.new-folder-name').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
@@ -425,6 +458,7 @@
 
         items.forEach(function(item) {
             const nameInput = item.querySelector('.folder-name input');
+            const slotSelect = item.querySelector('.folder-slot select');
             const nestedList = item.querySelector('.nested-list');
 
             const folder = {
@@ -432,6 +466,14 @@
                 name: nameInput ? nameInput.value : '',
                 children: nestedList ? extractStructure(nestedList).children : []
             };
+
+            // 槽位标记：选中才写 kind；未选时删除残留 key（防止脏数据）
+            const kind = slotSelect ? slotSelect.value : '';
+            if (kind) {
+                folder.kind = kind;
+            } else {
+                delete folder.kind;
+            }
 
             children.push(folder);
         });
