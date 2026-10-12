@@ -4,8 +4,10 @@
  */
 
 document.addEventListener('alpine:init', () => {
-    Alpine.data('folderBrowser', (contractId) => ({
+    Alpine.data('folderBrowser', (contractId, deferred = false) => ({
         contractId: contractId,
+        // 新建页模式：合同尚未保存，只记录选择写入表单隐藏字段，保存后由后端补建绑定
+        deferred: deferred,
         showBrowser: false,
         loading: false,
         loadingColumn: null,
@@ -177,6 +179,19 @@ document.addEventListener('alpine:init', () => {
         },
 
         async selectFolderPath(path) {
+            if (this.deferred) {
+                // 新建页：不发绑定请求，选择随表单提交，保存合同后由后端落库
+                this.binding = {
+                    folder_path: path,
+                    display_path: path,
+                    storage_type: this.storageType,
+                    storage_account_id: this.storageAccountId ? Number(this.storageAccountId) : null
+                };
+                this._syncDeferredFields();
+                this.closeBrowser();
+                this.showMessage('已选择文件夹，保存合同后自动绑定', 'success');
+                return;
+            }
             this.loading = true;
             this.error = null;
             try {
@@ -209,6 +224,27 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
+        // 把（或清除）新建页的选择写进 admin 表单隐藏字段，随提交传给后端
+        _syncDeferredFields() {
+            const form = document.querySelector('#content-main form');
+            if (!form) return;
+            const fields = [
+                ['_add_folder_path', this.binding ? this.binding.folder_path : ''],
+                ['_add_storage_type', this.binding ? (this.binding.storage_type || 'local') : ''],
+                ['_add_storage_account_id', this.binding ? (this.binding.storage_account_id || '') : '']
+            ];
+            for (const [name, value] of fields) {
+                let el = form.querySelector(`input[name="${name}"]`);
+                if (!el) {
+                    el = document.createElement('input');
+                    el.type = 'hidden';
+                    el.name = name;
+                    form.appendChild(el);
+                }
+                el.value = value == null ? '' : String(value);
+            }
+        },
+
         getCurrentPath() {
             for (let i = this.columns.length - 1; i >= 0; i--) {
                 const col = this.columns[i];
@@ -229,6 +265,13 @@ document.addEventListener('alpine:init', () => {
         },
 
         async unbindFolder() {
+            if (this.deferred) {
+                // 新建页：仅清除本地选择与隐藏字段，无服务端绑定可删
+                this.binding = null;
+                this._syncDeferredFields();
+                this.showMessage('已清除文件夹选择', 'success');
+                return;
+            }
             if (!confirm('确定要解除文件夹绑定吗？')) return;
             this.loading = true;
             try {

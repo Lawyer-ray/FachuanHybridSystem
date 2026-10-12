@@ -294,6 +294,12 @@ class ContractAdmin(
 
         urls = super().get_urls()
         custom = [
+            # 新建页查 ID：合同尚无主键，走无 id 路由（查询逻辑不依赖 contract_id）
+            urlpath(
+                "lookup-oa-guid/",
+                self.admin_site.admin_view(self.lookup_oa_guid_view),
+                name="contracts_contract_lookup_oa_guid_add",
+            ),
             urlpath(
                 "batch-folder-binding/",
                 self.admin_site.admin_view(self.batch_folder_binding_view),
@@ -366,8 +372,14 @@ class ContractAdmin(
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=400)
 
-    def lookup_oa_guid_view(self, request: HttpRequest, contract_id: int) -> JsonResponse:  # pragma: no cover
-        """按律所OA案件编号查询 OA 案件 GUID（方法一：案件管理页搜索，纯 HTTP 只读）。"""
+    def lookup_oa_guid_view(
+        self, request: HttpRequest, contract_id: int | None = None
+    ) -> JsonResponse:  # pragma: no cover
+        """按律所OA案件编号查询 OA 案件 GUID（案件管理页搜索，纯 HTTP 只读）。
+
+        contract_id 仅服务于变更页旧路由（/<id>/lookup-oa-guid/），查询逻辑
+        不依赖已保存的合同——新建页走无 id 路由直接查询。
+        """
         if request.method != "POST":
             return JsonResponse({"ok": False, "error": "Method not allowed"}, status=405)
         if not self.has_change_permission(request):
@@ -458,6 +470,11 @@ class ContractAdmin(
             }
         )
         return TemplateResponse(request, "admin/contracts/contract/jtn_oa_import.html", context)
+
+    def response_add(self, request: Any, obj: Any, post_url_continue: Any = None) -> Any:  # pragma: no cover
+        """新建合同后处理延迟文件夹绑定（新建页组件只记录选择，落库后补建绑定）。"""
+        _apply_deferred_folder_binding(request, obj)
+        return super().response_add(request, obj, post_url_continue)
 
     def oa_sync_start_view(self, request: HttpRequest) -> JsonResponse:  # pragma: no cover
         if request.method != "POST":
@@ -703,3 +720,46 @@ class ContractAdmin(
                 for path in _client_file_path(p.client):
                     _add(path)
         return paths
+
+
+def _apply_deferred_folder_binding(request: HttpRequest, contract: Any) -> None:  # pragma: no cover
+    """新建合同页的延迟文件夹绑定：把表单隐藏字段里的选择落到 ContractFolderBinding。
+
+    前端 deferred 模式（合同尚无主键）只把选择写进 _add_folder_path 等隐藏
+    字段随表单提交，本函数在合同落库后补建绑定；失败只提示不阻断（合同已
+    保存，不能因绑定失败丢表单）。云存储账号沿用 API 层同一解析服务。
+    """
+    from django.contrib import messages
+
+    folder_path = str(request.POST.get("_add_folder_path") or "").strip()
+    if not folder_path:
+        return
+
+    from apps.contracts.admin.wiring_admin import get_contract_folder_binding_service
+
+    storage_type = str(request.POST.get("_add_storage_type") or "local").strip() or "local"
+    storage_account = None
+    account_id_raw = str(request.POST.get("_add_storage_account_id") or "").strip()
+    if storage_type != "local" and account_id_raw.isdigit():
+        from asgiref.sync import async_to_sync
+
+        from apps.cloud_storage.account_service import resolve_active_storage_account
+
+        try:
+            storage_account = async_to_sync(resolve_active_storage_account)(int(account_id_raw), storage_type)
+        except Exception as exc:
+            messages.warning(request, f"文件夹绑定未成功：云存储账号无效（{exc}）")
+            return
+
+    try:
+        get_contract_folder_binding_service().create_binding(
+            owner_id=contract.pk,
+            folder_path=folder_path,
+            storage_type=storage_type,
+            storage_account=storage_account,
+        )
+    except Exception as exc:
+        logger.warning("新建合同延迟绑定文件夹失败: contract=%s path=%s", contract.pk, folder_path, exc_info=True)
+        messages.warning(request, f"文件夹绑定未成功：{exc}")
+        return
+    messages.success(request, f"已绑定文件夹：{folder_path}")

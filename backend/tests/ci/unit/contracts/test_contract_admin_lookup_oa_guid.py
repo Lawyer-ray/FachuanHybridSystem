@@ -116,3 +116,66 @@ class TestLookupOaGuidView:
 
         payload = json.loads(resp.content)
         assert payload == {"ok": True, "guids": []}
+
+
+@pytest.mark.django_db
+class TestLookupOaGuidAddRoute:
+    """新建页无 id 路由：合同未保存也能查 ID（视图不依赖 contract_id）。"""
+
+    def _view(self) -> ContractAdmin:
+        return ContractAdmin(Contract, AdminSite())
+
+    def test_url_resolves_add_and_change_routes(self):
+        from django.urls import reverse
+
+        add_url = reverse("admin:contracts_contract_lookup_oa_guid_add")
+        change_url = reverse("admin:contracts_contract_lookup_oa_guid", args=[123])
+        assert add_url.endswith("/contract/lookup-oa-guid/")
+        assert change_url.endswith("/contract/123/lookup-oa-guid/")
+
+    def test_get_not_allowed(self):
+        request = RequestFactory().get("/admin/contracts/contract/lookup-oa-guid/")
+        request.user = _make_superuser()
+        resp = self._view().lookup_oa_guid_view(request)
+        assert resp.status_code == 405
+        assert json.loads(resp.content) == {"ok": False, "error": "Method not allowed"}
+
+    def test_permission_denied_for_staff_without_change_perm(self):
+        request = RequestFactory().post(
+            "/admin/contracts/contract/lookup-oa-guid/",
+            data=json.dumps({"case_no": _CASE_NO}),
+            content_type="application/json",
+        )
+        request.user = _make_staff_no_perm()
+        resp = self._view().lookup_oa_guid_view(request)
+        assert resp.status_code == 403
+        assert json.loads(resp.content) == {"ok": False, "error": "Permission denied"}
+
+    def test_missing_case_no_rejected(self):
+        request = RequestFactory().post(
+            "/admin/contracts/contract/lookup-oa-guid/",
+            data=json.dumps({"case_no": "   "}),
+            content_type="application/json",
+        )
+        request.user = _make_superuser()
+        resp = self._view().lookup_oa_guid_view(request)
+        assert resp.status_code == 400
+        assert json.loads(resp.content) == {"ok": False, "error": "请先填写律所OA案件编号"}
+
+    def test_success_returns_guids_without_contract(self):
+        request = RequestFactory().post(
+            "/admin/contracts/contract/lookup-oa-guid/",
+            data=json.dumps({"case_no": _CASE_NO}),
+            content_type="application/json",
+        )
+        request.user = _make_superuser()
+
+        with patch(
+            "apps.oa_filing.services.script_executor_service.ScriptExecutorService.lookup_oa_case_guid",
+            return_value=[_GUID],
+        ) as mock_lookup:
+            resp = self._view().lookup_oa_guid_view(request)
+
+        payload = json.loads(resp.content)
+        assert payload == {"ok": True, "guids": [_GUID]}
+        mock_lookup.assert_called_once_with(case_no=_CASE_NO, user=request.user)

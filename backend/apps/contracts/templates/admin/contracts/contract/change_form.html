@@ -76,6 +76,11 @@ window.CONTRACTS_I18N = Object.assign(window.CONTRACTS_I18N || {}, {
 {% with folder_browser_component="folderBrowser" folder_browser_entity_pk=original.pk %}
 {% include "admin/core/includes/folder_binding_widget.html" %}
 {% endwith %}
+{% else %}
+<!-- 新建页文件夹绑定组件（deferred：仅记录选择，保存合同后自动绑定） -->
+{% with folder_browser_component="folderBrowser" folder_browser_entity_pk=0 folder_browser_deferred=1 %}
+{% include "admin/core/includes/folder_binding_widget.html" %}
+{% endwith %}
 {% endif %}
 
 <script>
@@ -182,7 +187,7 @@ window.CONTRACTS_I18N = Object.assign(window.CONTRACTS_I18N || {}, {
     {% if original %}
     var lookupUrl = '{% url "admin:contracts_contract_lookup_oa_guid" original.pk %}';
     {% else %}
-    var lookupUrl = '';
+    var lookupUrl = '{% url "admin:contracts_contract_lookup_oa_guid_add" %}';
     {% endif %}
 
     var lookupBtn = document.createElement('button');

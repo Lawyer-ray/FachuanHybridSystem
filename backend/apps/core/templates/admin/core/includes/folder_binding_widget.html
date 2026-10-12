@@ -1,10 +1,15 @@
 {% load i18n %}
-<div x-data="{{ folder_browser_component }}({{ folder_browser_entity_pk }})" class="folder-binding-widget">
+<div x-data="{{ folder_browser_component }}({{ folder_browser_entity_pk }}{% if folder_browser_deferred %}, true{% endif %})" class="folder-binding-widget">
     <h3>📁 {% trans "文件夹绑定" %}</h3>
+    {% if folder_browser_deferred %}
+    <p class="folder-binding-deferred-note" style="margin:0 0 6px;font-size:12px;color:var(--fc-text-secondary,#666);">
+        {% trans "合同尚未保存：选择文件夹后随表单一并提交，保存后自动绑定" %}
+    </p>
+    {% endif %}
 
     <div class="binding-status">
         <span class="status-badge" :class="binding ? 'bound' : 'unbound'"
-              x-text="binding ? '{% trans "已绑定" %}' : '{% trans "未绑定" %}'"></span>
+              x-text="binding ? '{% if folder_browser_deferred %}{% trans "已选择" %}{% else %}{% trans "已绑定" %}{% endif %}' : '{% trans "未绑定" %}'"></span>
         <span x-show="binding && binding.storage_type && binding.storage_type !== 'local'"
               class="storage-type-badge"
               x-text="storageTypeLabel(binding?.storage_type)"></span>
