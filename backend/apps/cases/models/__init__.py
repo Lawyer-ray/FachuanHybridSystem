@@ -33,7 +33,7 @@ from .material import (
 )
 
 # party.py - 当事人相关模型
-from .party import CaseAccessGrant, CaseAssignment, CaseParty
+from .party import CaseAccessGrant, CaseAssignment, CaseAssignmentSource, CaseParty
 
 # template_binding.py - 模板绑定相关模型和枚举
 from .template_binding import BindingSource, CaseTemplateBinding
@@ -53,6 +53,7 @@ __all__ = [
     # party.py
     "CaseParty",
     "CaseAssignment",
+    "CaseAssignmentSource",
     "CaseAccessGrant",
     # log.py
     "CaseLog",

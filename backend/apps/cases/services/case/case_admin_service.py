@@ -493,11 +493,12 @@ class CaseAdminService:
         ]
         CaseParty.objects.bulk_create(parties_to_create)
 
-        # 批量复制律师指派
+        # 批量复制律师指派（保留来源标记，副本与原案的合同同步语义一致）
         assignments_to_create = [
             CaseAssignment(
                 case=new_case,
                 lawyer=assignment.lawyer,
+                source=assignment.source,
             )
             for assignment in original.assignments.all()
         ]
