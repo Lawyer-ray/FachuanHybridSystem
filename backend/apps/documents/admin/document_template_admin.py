@@ -471,6 +471,7 @@ class DocumentTemplateAdmin(TemplateAdminViewsMixin, TemplateAdminDisplayMixin, 
             "cases/js/autocomplete.js",
             "documents/js/template_type_toggle.js",
             "documents/js/institution_tags.js",
+            "documents/js/slot_select_filter.js",
         )
 
     def get_search_results(self, request: Any, queryset: Any, search_term: str) -> tuple[Any, bool]:  # pragma: no cover
