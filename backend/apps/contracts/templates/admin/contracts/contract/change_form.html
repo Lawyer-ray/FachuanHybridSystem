@@ -76,35 +76,175 @@ window.CONTRACTS_I18N = Object.assign(window.CONTRACTS_I18N || {}, {
 {% with folder_browser_component="folderBrowser" folder_browser_entity_pk=original.pk %}
 {% include "admin/core/includes/folder_binding_widget.html" %}
 {% endwith %}
+{% else %}
+<!-- 新建页文件夹绑定组件（deferred：仅记录选择，保存合同后自动绑定） -->
+{% with folder_browser_component="folderBrowser" folder_browser_entity_pk=0 folder_browser_deferred=1 %}
+{% include "admin/core/includes/folder_binding_widget.html" %}
+{% endwith %}
 {% endif %}
 
 <script>
-// 合同名称日期解析按钮
+// 合同名称解析按钮：日期 + 合同类型 + 当事人（客户库匹配）
 (function() {
     var nameField = document.getElementById('id_name');
     var startDateField = document.getElementById('id_start_date');
     var endDateField = document.getElementById('id_end_date');
+    var typeField = document.getElementById('id_case_type');
     if (!nameField || !startDateField || !endDateField) return;
 
     // 在 name 字段后面插入解析按钮
     var btn = document.createElement('button');
     btn.type = 'button';
-    btn.textContent = '📅 解析日期';
-    btn.title = '从合同名称中解析开始/结束日期';
+    btn.textContent = '解析';
+    btn.title = '从合同名称解析开始/结束日期、合同类型与当事人（委托人）';
     btn.style.cssText = 'margin-left:8px;padding:4px 12px;font-size:13px;cursor:pointer;border:1px solid var(--fc-border-input);border-radius:4px;background:var(--fc-bg-muted-light);color:var(--fc-text-secondary);vertical-align:middle;';
     btn.addEventListener('click', function() {
         var name = nameField.value.trim();
         if (!name) { alert('请先输入合同名称'); return; }
+        var missed = [];
+
+        // ── 日期 ──
         var dates = parseContractDates(name);
-        if (!dates) { alert('未能从合同名称中解析出日期'); return; }
-        startDateField.value = dates.start;
-        endDateField.value = dates.end;
-        // 触发 change 事件，确保 Django admin 感知到值变化
-        startDateField.dispatchEvent(new Event('change', {bubbles: true}));
-        endDateField.dispatchEvent(new Event('change', {bubbles: true}));
+        if (dates) {
+            startDateField.value = dates.start;
+            endDateField.value = dates.end;
+            startDateField.dispatchEvent(new Event('change', {bubbles: true}));
+            endDateField.dispatchEvent(new Event('change', {bubbles: true}));
+        } else {
+            missed.push('日期');
+        }
+
+        // ── 合同类型 ──
+        var caseType = parseContractType(name);
+        if (caseType && typeField) {
+            typeField.value = caseType;
+            typeField.dispatchEvent(new Event('change', {bubbles: true}));
+        } else if (!caseType) {
+            missed.push('合同类型');
+        }
+
+        // ── 当事人（异步查客户库；全程静默，仅失败项汇总弹窗） ──
+        // ── 当事人（可多个：按顿号/逗号拆分，逐个查库填行，行不够自动增行） ──
+        var partyNames = parsePartyNames(name);
+        if (!partyNames.length) {
+            missed.push('当事人');
+            alertMissed(missed);
+            return;
+        }
+        fillParties(partyNames, missed).then(function() { alertMissed(missed); });
     });
     // 插入到 name 字段的父容器
     nameField.parentNode.appendChild(btn);
+
+    // 静默成功：仅当有未识别项时弹一次汇总提示
+    function alertMissed(missed) {
+        if (missed.length) alert('未识别：' + missed.join('；'));
+    }
+
+    // 逐个当事人查库并填行（保持名称顺序；单个失败只记 missed 不中断）
+    async function fillParties(names, missed) {
+        for (var i = 0; i < names.length; i++) {
+            var nm = names[i];
+            try {
+                var client = await lookupClient(nm);
+                if (client && (await fillPartyRow(client))) continue;
+                missed.push(client ? '当事人（无可用行：' + nm + '）' : '当事人（客户库中未找到「' + nm + '」，请先建客户或手动选择）');
+            } catch (e) {
+                missed.push('当事人（查询客户库失败：' + nm + '）');
+            }
+        }
+    }
+
+    // 合同类型关键词映射（与 CaseType choices 对齐；未命中返回 null 不动已有值）
+    function parseContractType(name) {
+        var rules = [
+            [/常年|法律顾问|常法/, 'advisor'],
+            [/专项/, 'special'],
+            [/劳动/, 'labor'],
+            [/商事仲裁|仲裁/, 'intl'],
+            [/刑事|辩护/, 'criminal'],
+            [/行政复议|行政诉讼|行政/, 'administrative']
+        ];
+        for (var i = 0; i < rules.length; i++) {
+            if (rules[i][0].test(name)) return rules[i][1];
+        }
+        return null;
+    }
+
+    // 当事人名称：合同名起始段到第一个业务关键词为止，再按顿号/逗号拆多个
+    // （「A公司、B公司常法-…」→ ['A公司', 'B公司']）
+    function parsePartyNames(name) {
+        var head = name.split(/常年|法律顾问|常法|专项|顾问|委托|代理|诉讼|仲裁|服务|合同|协议|（|\(/)[0];
+        head = head.replace(/^关于/, '').trim();
+        return head.split(/[、，,；;\/／&＆]/)
+            .map(function(s) { return s.trim(); })
+            .filter(function(s) { return s.length >= 2 && s.length <= 60; });
+    }
+
+    // 经 admin autocomplete 查客户库（Client search_fields=name），优先全名精确命中。
+    // 注意传 term 而非 q——Django 6 的 AutocompleteJsonView 只认 term（q 回退已移除）
+    function lookupClient(partyName) {
+        var url = '/admin/autocomplete/?app_label=contracts&model_name=contractparty&field_name=client&term='
+            + encodeURIComponent(partyName);
+        return fetch(url, {credentials: 'same-origin'}).then(function(resp) {
+            if (!resp.ok) throw new Error('autocomplete ' + resp.status);
+            return resp.json();
+        }).then(function(data) {
+            var results = (data && data.results) || [];
+            var exact = results.filter(function(r) { return r.text === partyName; });
+            if (exact.length) return exact[0];
+            // 兜底：命中唯一一条包含关系的候选
+            var fuzzy = results.filter(function(r) {
+                return r.text.indexOf(partyName) >= 0 || partyName.indexOf(r.text) >= 0;
+            });
+            return fuzzy.length === 1 ? fuzzy[0] : null;
+        });
+    }
+
+    // 填一个 client 为空的当事人行，role 空则置委托人；没有空行时先点
+    // 「添加另一条」增行。admin autocomplete 的 select 初始只有空 option，
+    // 直接赋 value 会静默落空——必须先注入真实 option 再选中并派发 change
+    // （Select2 据此渲染标签）。
+    async function fillPartyRow(client) {
+        var sel = firstEmptyClientSelect();
+        if (!sel) {
+            var addLink = document.querySelector('#contract_parties-group .add-row a');
+            if (!addLink) return false;
+            addLink.click();  // inlines.js 同步克隆空表单并初始化新行控件
+            await new Promise(function(resolve) { setTimeout(resolve, 120); });
+            sel = firstEmptyClientSelect();
+            if (!sel) return false;
+        }
+        var value = String(client.id);
+        if (!sel.querySelector('option[value="' + value + '"]')) {
+            var opt = document.createElement('option');
+            opt.value = value;
+            opt.textContent = client.text;
+            sel.appendChild(opt);
+        }
+        sel.value = value;
+        sel.dispatchEvent(new Event('change', {bubbles: true}));
+        var row = sel.closest('.form-row, .dynamic-contract_parties, fieldset.module, tr');
+        var roleSelect = row ? row.querySelector('select[name$="-role"]') : null;
+        if (roleSelect && !roleSelect.value) {
+            roleSelect.value = 'PRINCIPAL';
+            roleSelect.dispatchEvent(new Event('change', {bubbles: true}));
+        }
+        return true;
+    }
+
+    function firstEmptyClientSelect() {
+        var sels = document.querySelectorAll('select[name^="contract_parties-"][name$="-client"]');
+        for (var i = 0; i < sels.length; i++) {
+            var sel = sels[i];
+            // 排除隐藏空模板行（name 含 __prefix__ / .empty-form）——
+            // 填进去既不可见也不会随表单提交，且会被 add-row 克隆污染新行
+            if (sel.name.indexOf("__prefix__") >= 0) continue;
+            if (sel.closest(".empty-form")) continue;
+            if (!sel.value) return sel;
+        }
+        return null;
+    }
 
     function pad(n) { return n < 10 ? '0' + n : '' + n; }
 
@@ -174,6 +314,71 @@ window.CONTRACTS_I18N = Object.assign(window.CONTRACTS_I18N || {}, {
 </script>
 
 <script>
+// 合同指派「本人」按钮：选中当前登录律师为承办律师并勾选主办
+(function() {
+    var group = document.getElementById('assignments-group');
+    if (!group) return;
+    var userId = '{{ request.user.pk|escapejs }}';
+    var userName = '{{ request.user.real_name|default:request.user.username|escapejs }}';
+    if (!userId) return;
+
+    var heading = group.querySelector('h2');
+    if (!heading) return;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = '本人';
+    btn.title = '选择当前登录律师为承办律师，并勾选主办律师';
+    btn.style.cssText = 'margin-left:10px;padding:4px 12px;font-size:13px;cursor:pointer;border:1px solid var(--fc-border-input);border-radius:4px;background:var(--fc-bg-muted-light);color:var(--fc-text-secondary);vertical-align:middle;';
+    heading.appendChild(btn);
+    btn.addEventListener('click', function() {
+        fillSelfRow().then(function(ok) {
+            if (!ok) alert('未能填入本人（未找到可用的指派行）');
+        });
+    });
+
+    // 与「解析」同款：autocomplete select 需注入 option 再选中；排除隐藏空模板行
+    function firstEmptyLawyerSelect() {
+        var sels = document.querySelectorAll('select[name^="assignments-"][name$="-lawyer"]');
+        for (var i = 0; i < sels.length; i++) {
+            var s = sels[i];
+            if (s.name.indexOf('__prefix__') >= 0) continue;
+            if (s.closest('.empty-form')) continue;
+            if (!s.value) return s;
+        }
+        return null;
+    }
+
+    async function fillSelfRow() {
+        var sel = firstEmptyLawyerSelect();
+        if (!sel) {
+            var addLink = group.querySelector('.add-row a');
+            if (!addLink) return false;
+            addLink.click();  // inlines.js 同步克隆空表单
+            await new Promise(function(resolve) { setTimeout(resolve, 120); });
+            sel = firstEmptyLawyerSelect();
+            if (!sel) return false;
+        }
+        var value = String(userId);
+        if (!sel.querySelector('option[value="' + value + '"]')) {
+            var opt = document.createElement('option');
+            opt.value = value;
+            opt.textContent = userName;
+            sel.appendChild(opt);
+        }
+        sel.value = value;
+        sel.dispatchEvent(new Event('change', {bubbles: true}));
+        var row = sel.closest('.form-row, .dynamic-assignments, fieldset.module, tr');
+        var primary = row ? row.querySelector('input[name$="-is_primary"]') : null;
+        if (primary && !primary.checked) {
+            primary.checked = true;
+            primary.dispatchEvent(new Event('change', {bubbles: true}));
+        }
+        return true;
+    }
+})();
+</script>
+
+<script>
 // 律所OA「查询ID」按钮：按律所OA案件编号查 GUID 并填入律所ID（纯接口，无浏览器）
 (function() {
     var caseNoField = document.getElementById('id_law_firm_oa_case_number');
@@ -182,7 +387,7 @@ window.CONTRACTS_I18N = Object.assign(window.CONTRACTS_I18N || {}, {
     {% if original %}
     var lookupUrl = '{% url "admin:contracts_contract_lookup_oa_guid" original.pk %}';
     {% else %}
-    var lookupUrl = '';
+    var lookupUrl = '{% url "admin:contracts_contract_lookup_oa_guid_add" %}';
     {% endif %}
 
     var lookupBtn = document.createElement('button');
