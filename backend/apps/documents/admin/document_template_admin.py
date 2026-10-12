@@ -179,6 +179,11 @@ class DocumentTemplateForm(forms.ModelForm):  # pragma: no cover
         existing_file_field = cast(forms.ChoiceField, self.fields["existing_file"])
         existing_file_field.choices = [("", "-- 不选择 / 上传新文件 --")] + existing_files
 
+        # 落位槽位：按分类 optgroup 分组（通用/立案/答辩/…/合同文件夹），消除平铺混排
+        from apps.documents.models.folder_slot import grouped_slot_choices
+
+        self.fields["folder_slot"].choices = grouped_slot_choices()  # type: ignore[attr-defined]
+
         # 从实例加载已选值
         if self.instance and self.instance.pk:
             admin_service = _get_admin_service()

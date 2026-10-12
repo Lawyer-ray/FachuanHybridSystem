@@ -19,14 +19,14 @@ from apps.documents.models import FolderSlot
 class FolderSlotAdmin(admin.ModelAdmin):  # pragma: no cover
     """文件夹槽位管理"""
 
-    list_display = ("key", "name", "description", "document_template_count", "is_active", "updated_at")
+    list_display = ("key", "name", "category", "description", "document_template_count", "is_active", "updated_at")
     search_fields = ("key", "name", "description")
-    list_filter = ("is_active",)
+    list_filter = ("is_active", "category")
     ordering = ("name",)
     readonly_fields = ("created_at", "updated_at", "document_template_count")
 
     fieldsets = (
-        (None, {"fields": ("key", "name", "description")}),
+        (None, {"fields": ("key", "name", "category", "description")}),
         ("引用", {"fields": ("document_template_count",)}),
         ("状态", {"fields": ("is_active",)}),
         ("时间信息", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),

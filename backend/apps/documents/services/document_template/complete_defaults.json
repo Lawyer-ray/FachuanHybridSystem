@@ -3,157 +3,188 @@
         {
             "key": "agent_opinion",
             "name": "代理意见",
-            "description": "庭审准备"
+            "description": "庭审准备",
+            "category": "trial_prep"
         },
         {
             "key": "appeal",
             "name": "上诉状",
-            "description": ""
+            "description": "",
+            "category": "appeal"
         },
         {
             "key": "complaint",
             "name": "起诉状",
-            "description": "含反诉答辩状"
+            "description": "含反诉答辩状",
+            "category": "filing"
         },
         {
             "key": "contract",
             "name": "合同",
-            "description": "合同文件夹用"
+            "description": "合同文件夹用",
+            "category": "contract"
         },
         {
             "key": "correspondence",
             "name": "邮件往来",
-            "description": ""
+            "description": "",
+            "category": "general"
         },
         {
             "key": "cross_exam",
             "name": "质证意见",
-            "description": "庭审准备"
+            "description": "庭审准备",
+            "category": "trial_prep"
         },
         {
             "key": "defense",
             "name": "答辩状",
-            "description": "含反诉状"
+            "description": "含反诉状",
+            "category": "defense"
         },
         {
             "key": "enforcement_basis",
             "name": "执行依据及生效证明",
-            "description": ""
+            "description": "",
+            "category": "filing"
         },
         {
             "key": "evidence_list",
             "name": "证据目录",
-            "description": ""
+            "description": "",
+            "category": "filing"
         },
         {
             "key": "evidence_materials",
             "name": "证据材料",
-            "description": ""
+            "description": "",
+            "category": "filing"
         },
         {
             "key": "execution_request",
             "name": "强制执行申请书",
-            "description": ""
+            "description": "",
+            "category": "filing"
         },
         {
             "key": "identity_proof",
             "name": "当事人身份证明",
-            "description": "主体资格文件：身份证、营业执照、法定代表人身份证明书"
+            "description": "主体资格文件：身份证、营业执照、法定代表人身份证明书",
+            "category": "general"
         },
         {
             "key": "other_closing",
             "name": "其他结案文书",
-            "description": ""
+            "description": "",
+            "category": "closing"
         },
         {
             "key": "other_defense",
             "name": "其他答辩材料",
-            "description": ""
+            "description": "",
+            "category": "defense"
         },
         {
             "key": "other_filing",
             "name": "其他立案材料",
-            "description": ""
+            "description": "",
+            "category": "filing"
         },
         {
             "key": "other_trial",
             "name": "其他材料",
-            "description": "庭审准备"
+            "description": "庭审准备",
+            "category": "trial_prep"
         },
         {
             "key": "power_of_attorney",
             "name": "委托材料",
-            "description": "授权委托书、所函等委托手续"
+            "description": "授权委托书、所函等委托手续",
+            "category": "general"
         },
         {
             "key": "preservation",
             "name": "保全申请书及保函",
-            "description": ""
+            "description": "",
+            "category": "filing"
         },
         {
             "key": "question_list",
             "name": "问题清单",
-            "description": "庭审准备"
+            "description": "庭审准备",
+            "category": "trial_prep"
         },
         {
             "key": "reconsideration",
             "name": "复议申请书",
-            "description": "行政复议程序"
+            "description": "行政复议程序",
+            "category": "filing"
         },
         {
             "key": "refund_account",
             "name": "退费账户确认书",
-            "description": "领退转款账户"
+            "description": "领退转款账户",
+            "category": "filing"
         },
         {
             "key": "refund_pending",
             "name": "申请退费(待申请)",
-            "description": ""
+            "description": "",
+            "category": "closing"
         },
         {
             "key": "restrictive_measures",
             "name": "限制性措施",
-            "description": "限高 / 失信 / 限制出境 / 媒体公布"
+            "description": "限高 / 失信 / 限制出境 / 媒体公布",
+            "category": "filing"
         },
         {
             "key": "service_address",
             "name": "送达地址确认书",
-            "description": "含广州/佛山/东莞等地法院变体"
+            "description": "含广州/佛山/东莞等地法院变体",
+            "category": "filing"
         },
         {
             "key": "settlement",
             "name": "和解(调解)协议",
-            "description": ""
+            "description": "",
+            "category": "closing"
         },
         {
             "key": "supplementary",
             "name": "补充协议",
-            "description": "合同文件夹用"
+            "description": "合同文件夹用",
+            "category": "contract"
         },
         {
             "key": "timeline",
             "name": "时间轴大事记",
-            "description": "庭审准备"
+            "description": "庭审准备",
+            "category": "trial_prep"
         },
         {
             "key": "trial_outline",
             "name": "庭审提纲",
-            "description": "庭审准备"
+            "description": "庭审准备",
+            "category": "trial_prep"
         },
         {
             "key": "unsealing",
             "name": "解除查封申请书",
-            "description": ""
+            "description": "",
+            "category": "closing"
         },
         {
             "key": "withdraw_reconsideration",
             "name": "撤回行政复议申请书",
-            "description": ""
+            "description": "",
+            "category": "closing"
         },
         {
             "key": "withdrawal",
             "name": "撤诉申请书",
-            "description": ""
+            "description": "",
+            "category": "closing"
         }
     ],
     "folder_templates": [

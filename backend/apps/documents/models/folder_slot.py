@@ -13,10 +13,33 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from django.db import models
 from django_lifecycle import LifecycleModel
 
+from apps.documents.models.choices import FolderSlotCategory
+
 if TYPE_CHECKING:
     from django.db.models.fields.related_descriptors import RelatedManager
 
     from .document_template import DocumentTemplate
+
+
+def grouped_slot_choices(empty_label: str = "— 未声明 —") -> list[tuple[str, Any]]:
+    """
+    按分类分组的槽位下拉选项（optgroup）。
+
+    分组顺序 = FolderSlotCategory 枚举顺序；组内按名称排序。
+    """
+    slots = FolderSlot.objects.filter(is_active=True).order_by("name")
+    groups: dict[str, list[tuple[int, str]]] = {}
+    for slot in slots:
+        label = slot.get_category_display() or "其他"
+        groups.setdefault(label, []).append((slot.pk, str(slot)))
+    ordered: list[tuple[str, Any]] = [("", empty_label)]
+    for category in FolderSlotCategory:
+        items = groups.pop(category.label, None)
+        if items:
+            ordered.append((category.label, items))
+    for label, items in groups.items():
+        ordered.append((label, items))
+    return ordered
 
 
 class FolderSlot(LifecycleModel):
@@ -36,6 +59,13 @@ class FolderSlot(LifecycleModel):
         help_text="小写英文与下划线；一经引用不可修改（身份标识）",
     )
     name = models.CharField(max_length=100, verbose_name="名称", help_text="展示名，可随时修改，不影响落位")
+    category: Any = models.CharField(
+        max_length=32,
+        choices=FolderSlotCategory.choices,
+        default=FolderSlotCategory.GENERAL,
+        verbose_name="分类",
+        help_text="落位下拉的分组；仅影响展示，不影响落位",
+    )
     description = models.CharField(
         max_length=500,
         blank=True,
