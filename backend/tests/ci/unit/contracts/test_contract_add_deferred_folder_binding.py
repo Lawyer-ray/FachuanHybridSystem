@@ -190,7 +190,7 @@ class TestAddChangePageRender:
         assert "textContent = '解析';" in content
         assert "📅" not in content
         assert "parseContractType" in content
-        assert "parsePartyName" in content
+        assert "parsePartyNames" in content
         # 客户库匹配走 admin autocomplete 且必须传 term（Django 6 只认 term，
         # 传 q 会静默退化为最近 20 条 → 老客户永远匹配不上）
         assert "field_name=client&term=" in content

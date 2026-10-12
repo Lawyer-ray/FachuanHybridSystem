@@ -124,23 +124,14 @@ window.CONTRACTS_I18N = Object.assign(window.CONTRACTS_I18N || {}, {
         }
 
         // ── 当事人（异步查客户库；全程静默，仅失败项汇总弹窗） ──
-        var partyName = parsePartyName(name);
-        if (!partyName) {
+        // ── 当事人（可多个：按顿号/逗号拆分，逐个查库填行，行不够自动增行） ──
+        var partyNames = parsePartyNames(name);
+        if (!partyNames.length) {
             missed.push('当事人');
             alertMissed(missed);
             return;
         }
-        lookupClient(partyName).then(function(client) {
-            if (client && fillFirstPartyRow(client)) {
-                alertMissed(missed);
-            } else {
-                missed.push(client ? '当事人（未找到可填的当事人行）' : '当事人（客户库中未找到「' + partyName + '」，请先建客户或手动选择）');
-                alertMissed(missed);
-            }
-        }).catch(function() {
-            missed.push('当事人（查询客户库失败）');
-            alertMissed(missed);
-        });
+        fillParties(partyNames, missed).then(function() { alertMissed(missed); });
     });
     // 插入到 name 字段的父容器
     nameField.parentNode.appendChild(btn);
@@ -148,6 +139,20 @@ window.CONTRACTS_I18N = Object.assign(window.CONTRACTS_I18N || {}, {
     // 静默成功：仅当有未识别项时弹一次汇总提示
     function alertMissed(missed) {
         if (missed.length) alert('未识别：' + missed.join('；'));
+    }
+
+    // 逐个当事人查库并填行（保持名称顺序；单个失败只记 missed 不中断）
+    async function fillParties(names, missed) {
+        for (var i = 0; i < names.length; i++) {
+            var nm = names[i];
+            try {
+                var client = await lookupClient(nm);
+                if (client && (await fillPartyRow(client))) continue;
+                missed.push(client ? '当事人（无可用行：' + nm + '）' : '当事人（客户库中未找到「' + nm + '」，请先建客户或手动选择）');
+            } catch (e) {
+                missed.push('当事人（查询客户库失败：' + nm + '）');
+            }
+        }
     }
 
     // 合同类型关键词映射（与 CaseType choices 对齐；未命中返回 null 不动已有值）
@@ -166,12 +171,14 @@ window.CONTRACTS_I18N = Object.assign(window.CONTRACTS_I18N || {}, {
         return null;
     }
 
-    // 当事人名称：合同名起始段到第一个业务关键词为止（如「XX公司常年法律顾问（…）」→「XX公司」）
-    function parsePartyName(name) {
+    // 当事人名称：合同名起始段到第一个业务关键词为止，再按顿号/逗号拆多个
+    // （「A公司、B公司常法-…」→ ['A公司', 'B公司']）
+    function parsePartyNames(name) {
         var head = name.split(/常年|法律顾问|常法|专项|顾问|委托|代理|诉讼|仲裁|服务|合同|协议|（|\(/)[0];
-        head = head.replace(/[\s关于]+$/, '').replace(/^关于/, '').trim();
-        if (head.length < 2 || head.length > 60) return null;
-        return head;
+        head = head.replace(/^关于/, '').trim();
+        return head.split(/[、，,；;\/／&＆]/)
+            .map(function(s) { return s.trim(); })
+            .filter(function(s) { return s.length >= 2 && s.length <= 60; });
     }
 
     // 经 admin autocomplete 查客户库（Client search_fields=name），优先全名精确命中。
@@ -194,33 +201,44 @@ window.CONTRACTS_I18N = Object.assign(window.CONTRACTS_I18N || {}, {
         });
     }
 
-    // 填第一个 client 为空的当事人行，role 空则置委托人。
-    // admin autocomplete 的 select 初始只有空 option，直接赋 value 会静默
-    // 落空——必须先注入真实 option 再选中并派发 change（Select2 据此渲染标签）
-    function fillFirstPartyRow(client) {
-        var selects = document.querySelectorAll('select[name^="contract_parties-"][name$="-client"]');
-        if (!selects.length) return false;
-        for (var i = 0; i < selects.length; i++) {
-            var sel = selects[i];
-            if (sel.value) continue;
-            var value = String(client.id);
-            if (!sel.querySelector('option[value="' + value + '"]')) {
-                var opt = document.createElement('option');
-                opt.value = value;
-                opt.textContent = client.text;
-                sel.appendChild(opt);
-            }
-            sel.value = value;
-            sel.dispatchEvent(new Event('change', {bubbles: true}));
-            var row = sel.closest('.form-row, .dynamic-contract_parties, fieldset.module, tr');
-            var roleSelect = row ? row.querySelector('select[name$="-role"]') : null;
-            if (roleSelect && !roleSelect.value) {
-                roleSelect.value = 'PRINCIPAL';
-                roleSelect.dispatchEvent(new Event('change', {bubbles: true}));
-            }
-            return true;
+    // 填一个 client 为空的当事人行，role 空则置委托人；没有空行时先点
+    // 「添加另一条」增行。admin autocomplete 的 select 初始只有空 option，
+    // 直接赋 value 会静默落空——必须先注入真实 option 再选中并派发 change
+    // （Select2 据此渲染标签）。
+    async function fillPartyRow(client) {
+        var sel = firstEmptyClientSelect();
+        if (!sel) {
+            var addLink = document.querySelector('#contract_parties-group .add-row a');
+            if (!addLink) return false;
+            addLink.click();  // inlines.js 同步克隆空表单并初始化新行控件
+            await new Promise(function(resolve) { setTimeout(resolve, 120); });
+            sel = firstEmptyClientSelect();
+            if (!sel) return false;
         }
-        return false;
+        var value = String(client.id);
+        if (!sel.querySelector('option[value="' + value + '"]')) {
+            var opt = document.createElement('option');
+            opt.value = value;
+            opt.textContent = client.text;
+            sel.appendChild(opt);
+        }
+        sel.value = value;
+        sel.dispatchEvent(new Event('change', {bubbles: true}));
+        var row = sel.closest('.form-row, .dynamic-contract_parties, fieldset.module, tr');
+        var roleSelect = row ? row.querySelector('select[name$="-role"]') : null;
+        if (roleSelect && !roleSelect.value) {
+            roleSelect.value = 'PRINCIPAL';
+            roleSelect.dispatchEvent(new Event('change', {bubbles: true}));
+        }
+        return true;
+    }
+
+    function firstEmptyClientSelect() {
+        var sels = document.querySelectorAll('select[name^="contract_parties-"][name$="-client"]');
+        for (var i = 0; i < sels.length; i++) {
+            if (!sels[i].value) return sels[i];
+        }
+        return null;
     }
 
     function pad(n) { return n < 10 ? '0' + n : '' + n; }
