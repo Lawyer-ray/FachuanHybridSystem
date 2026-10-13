@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -227,9 +229,7 @@ class TestManualSession:
         assert handle.playwright is None  # CloakBrowser: driver 停止内嵌在 browser.close()
         # 手动会话强制有头（半自动=人机协作），profile 的 headless=True 被豁免覆盖
         # 屏幕适配：窗口显式指定为屏幕可用区域（1920×1040）
-        launch_mock.assert_awaited_once_with(
-            headless=False, humanize=True, args=["--window-size=1920,1040"]
-        )
+        launch_mock.assert_awaited_once_with(headless=False, humanize=True, args=["--window-size=1920,1040"])
         # 反检测上下文参数合并进 new_context；屏幕适配时视口跟随窗口（no_viewport）
         _, kwargs = browser.new_context.await_args
         assert kwargs["locale"] == "zh-CN"
@@ -327,6 +327,79 @@ class TestManualSession:
         # 已断开时仍先注册监听（防竞态），但不进入等待
         session.browser.on.assert_called_once()
         assert session.browser.on.call_args.args[0] == "disconnected"
+
+    @pytest.mark.asyncio
+    async def test_wait_user_closed_fires_when_last_page_closed(self) -> None:
+        """macOS 关窗不退进程：最后一个页面被关闭必须触发会话结束信号。"""
+        import asyncio
+
+        session = _make_manual_handle(connected=True, fire_events_on_register=False)
+        pages: list[Any] = [session.page]
+        session.context.pages = pages
+        handlers: dict[str, Any] = {}
+
+        def _capture(prefix: str) -> Any:
+            return lambda evt, cb: handlers.__setitem__(f"{prefix}:{evt}", cb)
+
+        session.context.on = _capture("context")
+        session.page.on = _capture("page")
+
+        task = asyncio.create_task(session.wait_user_closed())
+        await asyncio.sleep(0)
+        assert not task.done()
+
+        # 用户点红色关闭按钮：page close → context.pages 清空 → 会话结束
+        pages.clear()
+        handlers["page:close"](session.page)
+        await asyncio.wait_for(task, timeout=1)
+
+        # 会话期间新开的页面同样被跟踪（context.on("page") 注册 close 监听）
+        new_page = MagicMock()
+        handlers["context:page"](new_page)
+        new_page.on.assert_called_once()
+        assert new_page.on.call_args.args[0] == "close"
+
+    @pytest.mark.asyncio
+    async def test_wait_user_closed_keeps_waiting_while_tabs_remain(self) -> None:
+        """多 tab 场景：只关其中一个 tab 不结束会话，关尽才结束。"""
+        import asyncio
+
+        session = _make_manual_handle(connected=True, fire_events_on_register=False)
+        tab1, tab2 = MagicMock(), MagicMock()
+        pages: list[Any] = [tab1, tab2]
+        session.context.pages = pages
+        close_handlers: dict[Any, Any] = {}
+
+        def _capture_page(page: Any) -> Any:
+            def _on(evt: str, cb: Any) -> None:
+                if evt == "close":
+                    close_handlers[page] = cb
+
+            return _on
+
+        tab1.on = _capture_page(tab1)
+        tab2.on = _capture_page(tab2)
+        session.context.on = MagicMock()
+
+        task = asyncio.create_task(session.wait_user_closed())
+        await asyncio.sleep(0)
+        assert not task.done()
+
+        pages.remove(tab1)  # 关掉第一个 tab，另一个还开着
+        close_handlers[tab1](tab1)
+        await asyncio.sleep(0)
+        assert not task.done()
+
+        pages.clear()  # 最后一个 tab 也关闭 → 会话结束
+        close_handlers[tab2](tab2)
+        await asyncio.wait_for(task, timeout=1)
+
+    @pytest.mark.asyncio
+    async def test_wait_user_closed_returns_when_no_pages_remain(self) -> None:
+        """页面已全部关闭（注册前就关尽）时立即返回，不挂死。"""
+        session = _make_manual_handle(connected=True, fire_events_on_register=False)
+        session.context.pages = []
+        await asyncio.wait_for(session.wait_user_closed(), timeout=1)
 
 
 class TestAntiDetection:

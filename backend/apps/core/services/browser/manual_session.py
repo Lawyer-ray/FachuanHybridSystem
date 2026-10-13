@@ -94,16 +94,35 @@ class BrowserSessionHandle:
         return self.browser.is_connected()
 
     async def wait_user_closed(self) -> None:
-        """等待用户关闭浏览器窗口（无超时）。
+        """等待用户关闭浏览器（无超时）。
+
+        结束信号（任一触发）：浏览器进程断连、context 关闭、**最后一个页面
+        被关闭**（含跟踪会话期间新开的页面）。macOS 上点窗口红色关闭按钮只
+        关窗口不退进程（app 常驻 Dock），Playwright 的 disconnected 永远不
+        触发——必须以页面级关闭为会话结束信号，由调用方 close_browser_session
+        回收进程，否则 Chromium 僵尸进程会在 Dock 无限堆积。
 
         Playwright Python 的 Browser 没有 wait_for_event()（那是 Node API），
-        且仅对外发射 ``disconnected`` 事件（浏览器被关闭/崩溃/断连时触发），
-        用 asyncio.Event 桥接 ``on("disconnected")``。先注册再查
-        is_connected，避免「注册前已断开」的竞态挂死。
+        用 asyncio.Event 桥接事件回调。先注册监听再查存活状态，避免
+        「注册前已关闭」的竞态挂死。
         """
         closed = asyncio.Event()
-        self.browser.on("disconnected", lambda _b: closed.set())
-        if self.browser.is_connected():
+
+        def _finish(*_args: Any) -> None:
+            closed.set()
+
+        def _finish_when_no_pages(*_args: Any) -> None:
+            # 关掉的是多页中的一个 tab 时 pages 非空，继续等待
+            if not self.context.pages:
+                closed.set()
+
+        self.browser.on("disconnected", _finish)
+        self.context.on("close", _finish)
+        self.context.on("page", lambda new_page: new_page.on("close", _finish_when_no_pages))
+        for open_page in self.context.pages:
+            open_page.on("close", _finish_when_no_pages)
+
+        if self.browser.is_connected() and self.context.pages:
             await closed.wait()
 
 

@@ -107,3 +107,21 @@ async def test_empty_sessions_noop(monkeypatch: pytest.MonkeyPatch):
     adapter = jtn_adapter.JTNAdapter("acc", "pwd")
     await adapter.wait_open_browsers_closed()  # 空会话不应抛错
     assert adapter._opened_sessions == []
+
+
+@pytest.mark.asyncio
+async def test_cleanup_stale_sessions_reclaims_window_closed(monkeypatch: pytest.MonkeyPatch):
+    """兜底清理：窗口已关尽（pages 空）或断连的会话被回收，正常会话保留。"""
+    monkeypatch.setattr(jtn_adapter, "_active_browser_sessions", [])
+    alive = _make_session(connected=True)  # 页面在开（context.pages 为 MagicMock 真值）→ 保留
+    window_closed = _make_session(connected=True)  # macOS 关窗不退进程：连着但页面关尽 → 回收
+    window_closed.context.pages = []
+    dead = _make_session(connected=False)  # 进程已退出 → 回收
+    jtn_adapter._active_browser_sessions.extend([alive, window_closed, dead])
+
+    await jtn_adapter._cleanup_stale_sessions()
+
+    alive.browser.close.assert_not_awaited()
+    window_closed.browser.close.assert_awaited_once()
+    dead.browser.close.assert_awaited_once()
+    assert jtn_adapter._active_browser_sessions == [alive]
