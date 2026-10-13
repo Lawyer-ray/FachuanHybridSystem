@@ -213,6 +213,10 @@ class TestManualSession:
         with (
             patch("apps.core.services.browser.launcher.ensure_browser_binary", return_value="/bin/chrome"),
             patch("cloakbrowser.launch_async", new=AsyncMock(return_value=browser)) as launch_mock,
+            patch(
+                "apps.core.services.browser.manual_session._screen_geometry",
+                return_value=((1920, 1080), (1920, 1040)),
+            ),
         ):
             handle = await create_browser_async_manual(profile)
 
@@ -222,14 +226,44 @@ class TestManualSession:
         assert handle.page is page
         assert handle.playwright is None  # CloakBrowser: driver 停止内嵌在 browser.close()
         # 手动会话强制有头（半自动=人机协作），profile 的 headless=True 被豁免覆盖
-        launch_mock.assert_awaited_once_with(headless=False, humanize=True)
-        # 反检测上下文参数合并进 new_context
+        # 屏幕适配：窗口显式指定为屏幕可用区域（1920×1040）
+        launch_mock.assert_awaited_once_with(
+            headless=False, humanize=True, args=["--window-size=1920,1040"]
+        )
+        # 反检测上下文参数合并进 new_context；屏幕适配时视口跟随窗口（no_viewport）
         _, kwargs = browser.new_context.await_args
         assert kwargs["locale"] == "zh-CN"
         assert kwargs["timezone_id"] == "Asia/Shanghai"
+        assert kwargs["no_viewport"] is True
+        assert "viewport" not in kwargs
         context.set_default_timeout.assert_called_once_with(profile.timeout)
         context.set_default_navigation_timeout.assert_called_once_with(profile.navigation_timeout)
         page.on.assert_called_once()  # dialog 自动接受
+
+    @pytest.mark.asyncio
+    async def test_explicit_viewport_skips_screen_fit(self) -> None:
+        """显式传 viewport 时保持固定视口语义，不做屏幕适配。"""
+        from apps.core.services.browser import create_browser_async_manual
+
+        browser = MagicMock()
+        context = MagicMock()
+        page = MagicMock()
+        page.add_init_script = AsyncMock()
+        browser.new_context = AsyncMock(return_value=context)
+        context.new_page = AsyncMock(return_value=page)
+
+        profile = BrowserProfile(name="manual_fixed", headless=True, anti_detection=False)
+        with (
+            patch("apps.core.services.browser.launcher.ensure_browser_binary", return_value="/bin/chrome"),
+            patch("cloakbrowser.launch_async", new=AsyncMock(return_value=browser)) as launch_mock,
+        ):
+            await create_browser_async_manual(profile, viewport={"width": 800, "height": 600})
+
+        # 未做屏幕适配：无窗口尺寸参数，保持调用方指定的固定视口
+        launch_mock.assert_awaited_once_with(headless=False, humanize=False)
+        _, kwargs = browser.new_context.await_args
+        assert kwargs["viewport"] == {"width": 800, "height": 600}
+        assert "no_viewport" not in kwargs
 
     @pytest.mark.asyncio
     async def test_close_browser_session_closes_in_order(self) -> None:
@@ -315,6 +349,49 @@ class TestAntiDetection:
         assert "locale" in opts
         assert opts["locale"] == "zh-CN"
         assert "timezone_id" in opts
+
+    def test_fingerprint_js_default_screen_spoof(self) -> None:
+        """默认指纹 JS 伪装 1920×1080（与固定视口配套），无占位符残留。"""
+        from apps.core.services.browser.anti_detection import AntiDetection
+
+        js = AntiDetection()._fingerprint_js()
+        assert "get: () => 1920" in js
+        assert "get: () => 1080" in js
+        assert "__SCREEN_WIDTH__" not in js
+        assert "__SCREEN_HEIGHT__" not in js
+
+    def test_fingerprint_js_screen_override_uses_real_screen(self) -> None:
+        """传入真实屏幕尺寸时，screen 伪装切换为真实值（半自动屏幕适配路径）。"""
+        from apps.core.services.browser.anti_detection import AntiDetection
+
+        js = AntiDetection()._fingerprint_js((1800, 1169))
+        assert "get: () => 1800" in js
+        assert "get: () => 1169" in js
+        assert "get: () => 1920" not in js
+        assert "get: () => 1080" not in js
+
+
+class TestScreenGeometry:
+    """_screen_geometry 屏幕几何查询测试。"""
+
+    def test_fallback_when_appkit_unavailable(self) -> None:
+        """AppKit 不可用（非 macOS）时回退 1280×800 保守值。"""
+        import sys
+
+        from apps.core.services.browser.manual_session import _screen_geometry
+
+        with patch.dict(sys.modules, {"AppKit": None}):
+            screen_size, window_size = _screen_geometry()
+        assert screen_size == (1280, 800)
+        assert window_size == (1280, 800)
+
+    def test_appkit_visible_frame_bounded_by_screen(self) -> None:
+        """真实环境（macOS）：窗口可用区域不得大于整屏。"""
+        from apps.core.services.browser.manual_session import _screen_geometry
+
+        (screen_w, screen_h), (window_w, window_h) = _screen_geometry()
+        assert 0 < window_w <= screen_w
+        assert 0 < window_h <= screen_h
 
 
 class TestModuleImports:

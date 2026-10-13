@@ -139,6 +139,8 @@ _PROFILES: dict[str, BrowserProfile] = {
     ),
     # 金诚同达 OA 半自动页面（open_page：浏览器留给用户操作，必须有头）。
     # 与 jtn/stamp、jtn/archive 全自动链路的 _HEADED_PROFILE 语义一致。
+    # 手动会话（manual_session）的窗口按物理屏幕适配（no_viewport），
+    # 本 profile 的默认视口仅作为显式固定视口时的兜底值。
     "jtn": BrowserProfile(
         name="jtn",
         headless=False,
