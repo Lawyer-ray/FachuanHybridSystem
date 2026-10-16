@@ -139,6 +139,37 @@
 }
 
 /* ============================================================
+   阅读器工具条布局（ReaderToolbar）
+   桌面：min-height + 允许换行——折出来的行要看得见（以前写死高度又 wrap，
+   第 2 行起被下方画布盖住，手机上「完成拆分与归类」整行不可见）。
+   手机（≤760px）：单行横向滚动，右缘渐变由外层 ::after 提示还有更多。
+   这段用手写媒体查询而非 Tailwind 的 max-[760px]: 变体：实测某台安卓浏览器上
+   同一断点的 hidden 工具类生效、flex-nowrap 却没压过 flex-wrap，手写规则不依赖
+   工具类的生成顺序与层叠。
+   ============================================================ */
+.mp-rd-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 8px 16px;
+}
+@media (max-width: 760px) {
+  .mp-rd-toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    min-height: 0;
+    height: 46px;
+    padding: 0 32px 0 12px;
+    scrollbar-width: none;
+  }
+  .mp-rd-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ============================================================
    阅读器画布：原型 .seg / .sgrid 多列模型
    toc 段头跨满整行（--mp-rw），段内页面按固定页宽（--mp-cw）流式排满整行。
    --mp-cols / --mp-cw / --mp-gap / --mp-rw 由 Flow.tsx 依容器宽 + 缩放计算。

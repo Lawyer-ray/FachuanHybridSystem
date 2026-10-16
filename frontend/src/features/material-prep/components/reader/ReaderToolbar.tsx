@@ -5,9 +5,10 @@ import { cn } from '@/lib/utils'
 
 /** 预处理工具条（原型 rd-pre）：左进度、右操作，统一 pbtn 描边样式。
  *
- *  高度：桌面 min-h 允许换行（以前写死 h-[56px] 又 flex-wrap，窗口不够宽时折出来的
- *  行被下方画布盖住——手机上「恢复初始分段 / 完成拆分与归类」整行不可见）；
- *  手机（≤760px）改单行横向滚动，右缘渐变提示还有更多；「完成」挪到底栏拇指区。 */
+ *  布局规则在 material-prep.css 的 .mp-rd-toolbar：桌面 min-h 允许换行可见，
+ *  手机（≤760px）单行横向滚动。手机上只留触屏真会用到的：材料 / 信息 / 选页 /
+ *  追加材料 / 云端识别 / 恢复分段——缩放靠系统双指捏合（viewport 未禁缩放），
+ *  列数恒 1，「完成」在底栏拇指区（KeyHintsBar）。 */
 export function ReaderToolbar({
   narrow,
   railOpen,
@@ -56,7 +57,7 @@ export function ReaderToolbar({
   return (
     // 外层只负责边框底色与手机端右缘渐变（渐变得挂在不滚动的层上，否则跟着内容一起滚走）
     <div className="relative flex-none border-b border-border bg-card max-[760px]:after:pointer-events-none max-[760px]:after:absolute max-[760px]:after:inset-y-0 max-[760px]:after:right-0 max-[760px]:after:w-8 max-[760px]:after:bg-gradient-to-l max-[760px]:after:from-card max-[760px]:after:to-transparent">
-      <div className="flex min-h-[56px] flex-wrap items-center gap-2 px-4 py-2 text-[12.5px] max-[760px]:min-h-0 max-[760px]:h-[46px] max-[760px]:flex-nowrap max-[760px]:overflow-x-auto max-[760px]:px-3 max-[760px]:pr-8 max-[760px]:py-0 max-[760px]:[scrollbar-width:none] max-[760px]:[&::-webkit-scrollbar]:hidden">
+      <div className="mp-rd-toolbar text-[12.5px]">
         {narrow ? (
           <>
             <button type="button" onClick={onToggleRail} className={cn(PBTN, railOpen && PBTN_ON)}>
@@ -85,13 +86,15 @@ export function ReaderToolbar({
 
         <span className="h-4 w-px flex-none bg-border" />
 
-        <button type="button" onClick={onZoomOut} title="缩小画布" aria-label="缩小画布" className={cn(PBTN, 'w-[30px] justify-center px-0')}>
+        {/* 缩放三件套：桌面专用。手机靠系统双指捏合（index.html 的 viewport 未禁缩放），
+            按钮只是占横向空间；放大后的清晰度由 PdfPageView 的 DPR 位图兜着 */}
+        <button type="button" onClick={onZoomOut} title="缩小画布" aria-label="缩小画布" className={cn(PBTN, 'w-[30px] justify-center px-0 max-[760px]:hidden')}>
           <Minus className="h-3.5 w-3.5" />
         </button>
-        <button type="button" onClick={onZoomReset} title="点击回到 100%" className={cn(PBTN, 'min-w-[52px] justify-center px-[8px] tabular-nums')}>
+        <button type="button" onClick={onZoomReset} title="点击回到 100%" className={cn(PBTN, 'min-w-[52px] justify-center px-[8px] tabular-nums max-[760px]:hidden')}>
           {zoomVal}%
         </button>
-        <button type="button" onClick={onZoomIn} title="放大画布" aria-label="放大画布" className={cn(PBTN, 'w-[30px] justify-center px-0')}>
+        <button type="button" onClick={onZoomIn} title="放大画布" aria-label="放大画布" className={cn(PBTN, 'w-[30px] justify-center px-0 max-[760px]:hidden')}>
           <Plus className="h-3.5 w-3.5" />
         </button>
 
@@ -106,7 +109,8 @@ export function ReaderToolbar({
           列数：{cols}
         </button>
 
-        <span className="h-4 w-px flex-none bg-border" />
+        {/* 这条分隔线跟缩放 / 列数一起藏：否则手机上会和前一条贴成双线 */}
+        <span className="h-4 w-px flex-none bg-border max-[760px]:hidden" />
 
         <Button size="sm" variant="outline" className="flex-none" onClick={onAutoSplit} disabled={autoSplitRunning} title={autoSplitProgress || '调用 MinerU / Textin 逐页识别并生成分段建议'}>
           {autoSplitRunning && <Loader2 className="h-4 w-4 animate-spin" />}
