@@ -39,11 +39,11 @@ _PAGE_DIGEST_OMIT_MARK = "……（中略）……"
 _MAX_OUTPUT_TOKENS = 8000
 _TEMPERATURE = 0.1
 # 单次 HTTP 请求时限（秒）：供给网关半开 / 挂流时按层兜住
-_REQUEST_TIMEOUT_SECONDS = 180
+_REQUEST_TIMEOUT_SECONDS = 420
 # 整条调用的硬时限墙（秒）：key 池轮换 × OpenAI SDK 内建重试 × 连接超时会
 # 层层相乘（本机实测律所网关离线时能挂 25 分钟以上），不设墙会把 Q 任务拖死。
-# 健康网关下 92 页分段约 1-2 分钟，5 分钟墙足够宽
-_WALL_TIMEOUT_SECONDS = 300
+# 健康网关下 92 页分段实测约 3-5 分钟，8 分钟墙留足余量（前端轮询窗口 14 分钟）
+_WALL_TIMEOUT_SECONDS = 480
 
 SYSTEM_PROMPT = """\
 你是诉讼立案材料整理助手。用户给你一份扫描 PDF 的逐页文字摘要（每页只截取开头与结尾两段，中间内容省略），\
