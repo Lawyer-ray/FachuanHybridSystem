@@ -7,6 +7,7 @@
 ## 功能概述
 
 - 文书模板 / 文件夹模板 / 绑定关系管理（`complete_defaults.json` 是初始化默认模板唯一数据源，Admin 修改后需同步导出）
+- 槽位落位体系：`FolderSlot` 受控词表 + 文书模板 `folder_slot` 一次声明 + 节点 `kind` 标记 → `SlotResolutionService` 生成期派生路径（不落库）；新增文件夹模板后零绑定操作，未声明槽位走旧绑定兼容通道（`backfill_folder_slots` 命令幂等回填存量）
 - 占位符体系：七大类（basic/case/contract/litigation/party/lawyer/supplementary/authorization_materials/archive）+ registry/fallback/context_builder；代码占位符自动发现（code_placeholders/autodiscover）
 - 生成流水线：上下文构建 → 模板匹配 → 渲染 → 打包 → 预览 → 命名（`generation/pipeline/`）
 - 诉讼文书 LLM 生成（`generation/litigation_llm_generator.py`）与模板流水线并存
@@ -21,9 +22,9 @@ documents/
 ├── api/                # 9 个 router 挂 /documents 下：document、folder_template、placeholder、
 │                       #   generation、litigation_generation、authorization_material、
 │                       #   preservation_materials、case_template_download + /documents/external-templates
-├── admin/              # 实际注册 6 个：DocumentTemplate、FolderTemplate、FolderBinding、
+├── admin/              # 实际注册 7 个：DocumentTemplate、FolderTemplate、FolderBinding、FolderSlot、
 │                       #   ProxyMatterRule、ExternalTemplate、PlaceholderOverview
-├── models/             # FolderTemplate、DocumentTemplate、DocumentTemplateFolderBinding、Placeholder、
+├── models/             # FolderTemplate、DocumentTemplate、DocumentTemplateFolderBinding、FolderSlot、Placeholder、
 │                       #   PlaceholderOverview、TemplateAuditLog、GenerationTask、GenerationConfig、
 │                       #   ProxyMatterRule、ExternalTemplate、ExternalTemplateFieldMapping、
 │                       #   BatchFillTask、FillRecord

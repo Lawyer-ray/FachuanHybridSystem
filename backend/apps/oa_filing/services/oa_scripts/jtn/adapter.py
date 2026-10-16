@@ -19,9 +19,18 @@ from apps.core.services.browser import BrowserSessionHandle, close_browser_sessi
 _active_browser_sessions: list[BrowserSessionHandle] = []
 
 
-def _cleanup_stale_sessions() -> None:
-    """移除已断开连接的浏览器会话。"""
-    _active_browser_sessions[:] = [s for s in _active_browser_sessions if s.browser.is_connected()]
+async def _cleanup_stale_sessions() -> None:
+    """剔除断连或窗口已被用户关闭的浏览器会话，并回收残留进程。
+
+    macOS 点窗口关闭按钮只关窗口不退 Chromium 进程（app 常驻 Dock）：
+    此类会话 is_connected() 仍为 True 但 context.pages 已空。正常路径由
+    wait_open_browsers_closed 的页面级关闭信号回收，这里兜底处理异常路径
+    遗留的句柄（如事件循环重启后没收尾的会话），防止进程在 Dock 无限堆积。
+    """
+    stale = [s for s in _active_browser_sessions if not s.browser.is_connected() or not s.context.pages]
+    _active_browser_sessions[:] = [s for s in _active_browser_sessions if s not in stale]
+    for session in stale:
+        await close_browser_session(session)
 
 
 from apps.oa_filing.services.base_firm_adapter import (
@@ -459,7 +468,7 @@ class JTNAdapter(
 
         script = JtnArchiveScript(account=str(credential.account), password=str(credential.password))
         session = await script.open_page(oa_case_number, description, file_paths or [], project_id=project_id)
-        _cleanup_stale_sessions()
+        await _cleanup_stale_sessions()
         self._opened_sessions.append(session)
         _active_browser_sessions.append(session)
 
@@ -473,7 +482,7 @@ class JTNAdapter(
 
         script = JtnInvoiceScript(account=str(credential.account), password=str(credential.password))
         session = await script.open_page(oa_case_number)
-        _cleanup_stale_sessions()
+        await _cleanup_stale_sessions()
         self._opened_sessions.append(session)
         _active_browser_sessions.append(session)
 
@@ -487,7 +496,7 @@ class JTNAdapter(
 
         script = JtnStampScript(account=str(credential.account), password=str(credential.password))
         session = await script.open_page(oa_case_number)
-        _cleanup_stale_sessions()
+        await _cleanup_stale_sessions()
         self._opened_sessions.append(session)
         _active_browser_sessions.append(session)
 
@@ -505,7 +514,7 @@ class JTNAdapter(
 
         script = JtnConflictCheckScript(account=str(credential.account), password=str(credential.password))
         session = await script.open_page(keyword)
-        _cleanup_stale_sessions()
+        await _cleanup_stale_sessions()
         self._opened_sessions.append(session)
         _active_browser_sessions.append(session)
 

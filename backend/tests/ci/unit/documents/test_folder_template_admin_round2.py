@@ -245,6 +245,8 @@ class TestRenderStructureTree:
 
 
 class TestRenderStructurePreview:
+    # 预览现在会查槽位词表渲染 kind 徽标，需要 DB
+    @pytest.mark.django_db
     def test_returns_mark_safe(self):
         svc = _make_service()
         result = svc.render_structure_preview({"children": [{"name": "a"}]})

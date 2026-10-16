@@ -50,12 +50,13 @@ def _make_session_handle(connected: bool = True) -> MagicMock:
 
 
 class TestCleanupStaleSessions:
-    def test_removes_disconnected_only(self, monkeypatch: pytest.MonkeyPatch):
+    @pytest.mark.asyncio
+    async def test_removes_disconnected_only(self, monkeypatch: pytest.MonkeyPatch):
         alive = _make_session_handle(connected=True)
         dead = _make_session_handle(connected=False)
         monkeypatch.setattr(jtn_adapter_mod, "_active_browser_sessions", [alive, dead])
 
-        jtn_adapter_mod._cleanup_stale_sessions()
+        await jtn_adapter_mod._cleanup_stale_sessions()
 
         assert jtn_adapter_mod._active_browser_sessions == [alive]
 

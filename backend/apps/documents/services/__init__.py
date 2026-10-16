@@ -24,6 +24,10 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     ),
     "PlaceholderService": ("apps.documents.services.placeholders.placeholder_service", "PlaceholderService"),
     "DocumentTemplateService": ("apps.documents.services.template.template_service", "DocumentTemplateService"),
+    "SlotResolutionService": (
+        "apps.documents.services.template.slot_resolution_service",
+        "SlotResolutionService",
+    ),
 }
 
 # __all__ 由 _LAZY_EXPORTS 派生（单一事实源；静态列举会与 __getattr__ 懒加载脱节）

@@ -7,6 +7,7 @@ Documents Admin 模块
 from .document_template_admin import DocumentTemplateAdmin
 from .external_template_admin import ExternalTemplateAdmin
 from .folder_binding_admin import DocumentTemplateFolderBindingAdmin
+from .folder_slot_admin import FolderSlotAdmin
 from .folder_template_admin import FolderTemplateAdmin
 from .placeholder_overview_admin import PlaceholderOverviewAdmin
 from .proxy_matter_rule_admin import ProxyMatterRuleAdmin
@@ -15,6 +16,7 @@ __all__ = [
     "FolderTemplateAdmin",
     "DocumentTemplateAdmin",
     "DocumentTemplateFolderBindingAdmin",
+    "FolderSlotAdmin",
     "ProxyMatterRuleAdmin",
     "ExternalTemplateAdmin",
     "PlaceholderOverviewAdmin",

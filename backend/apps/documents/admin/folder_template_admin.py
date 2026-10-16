@@ -4,6 +4,7 @@
 Requirements: 6.1, 6.7
 """
 
+import json
 import logging
 from typing import Any
 
@@ -154,6 +155,15 @@ class FolderTemplateForm(forms.ModelForm):  # pragma: no cover
 
             return fixed_structure
 
+        # 槽位 kind 合法性：只允许词表内的键（防手写 JSON 打错字静默失效）
+        from apps.documents.services.template.folder_template.admin_service import validate_slot_kinds
+
+        bad_kinds = validate_slot_kinds(structure)
+        if bad_kinds:
+            raise forms.ValidationError(
+                "以下节点的槽位标记不在词表中（请到「文件夹槽位」核对或清除）：" + "；".join(bad_kinds)
+            )
+
         return structure
 
     def save(self, commit: bool = True) -> Any:  # pragma: no cover
@@ -203,6 +213,7 @@ class FolderTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
         "legal_status_match_mode_display",
         "is_active",
         "folder_count_display",
+        "slots_provided_display",
         "updated_at",
     )
 
@@ -296,6 +307,18 @@ class FolderTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
         if obj.template_type != "case":
             return "-"
         return str(obj.get_legal_status_match_mode_display())
+
+    def render_change_form(
+        self, request: Any, context: Any, add: bool = False, change: bool = False, form_url: str = "", obj: Any = None
+    ) -> Any:  # pragma: no cover
+        """注入槽位词表（结构编辑器节点的 kind 下拉数据源；json_script 负责序列化）"""
+        from apps.documents.models import FolderSlot
+
+        context["fc_slots_json"] = [
+            {"key": s.key, "label": str(s)}
+            for s in FolderSlot.objects.filter(is_active=True).order_by("category", "name")
+        ]
+        return super().render_change_form(request, context, add=add, change=change, form_url=form_url, obj=obj)
 
     def get_urls(self) -> list[Any]:  # pragma: no cover
         """添加自定义URL"""
@@ -397,6 +420,50 @@ class FolderTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
     def folder_count_display(self, obj: FolderTemplate) -> int:  # pragma: no cover
         """显示文件夹数量"""
         return self._count_folders(obj.structure)
+
+    @admin.display(description="提供槽位")
+    def slots_provided_display(self, obj: FolderTemplate) -> Any:  # pragma: no cover
+        """骨架 structure 中标记的槽位（kind）：「N 类 + 分类聚合计数」，悬停（title）看全量"""
+        from collections import Counter
+
+        from django.utils.html import format_html
+
+        from apps.documents.models import FolderSlot
+        from apps.documents.models.choices import FolderSlotCategory
+        from apps.documents.services.template.folder_template.admin_service import get_slot_label_map
+
+        kinds: list[str] = []
+        seen: set[str] = set()
+
+        def walk(children: Any) -> None:
+            for child in children or []:
+                if not isinstance(child, dict):
+                    continue
+                kind = child.get("kind")
+                if kind and kind not in seen:
+                    seen.add(kind)
+                    kinds.append(kind)
+                walk(child.get("children"))
+
+        walk((obj.structure or {}).get("children"))
+        if not kinds:
+            return format_html('<span style="color: #999;">—</span>')
+
+        labels = get_slot_label_map()
+        key_to_cat = dict(FolderSlot.objects.values_list("key", "category"))
+        cat_counter = Counter(key_to_cat.get(kind, "") for kind in kinds)
+
+        summary = "　".join(
+            f"{FolderSlotCategory(cat).label}×{n}" for cat in FolderSlotCategory if (n := cat_counter.get(cat, 0))
+        )
+        full_text = "、".join(labels.get(kind, kind) for kind in kinds)
+
+        return format_html(
+            '<b>{} 类</b><br><span style="color: #666; font-size: 11px;" title="{}">{}</span>',
+            len(kinds),
+            full_text,
+            summary,
+        )
 
     def _count_folders(self, structure: Any) -> int:  # pragma: no cover
         """递归计算文件夹数量"""

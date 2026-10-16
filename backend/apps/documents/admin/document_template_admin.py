@@ -41,17 +41,27 @@ def _get_admin_service() -> Any:
 
 
 class DocumentTemplateFolderBindingInline(admin.TabularInline):  # pragma: no cover
-    """文书模板文件夹绑定内联"""
+    """
+    文书模板文件夹绑定内联（旧·兼容）
+
+    已被「落位声明」（folder_slot 槽位解析）取代：仅只读展示存量行供核对，
+    不再提供新增（槽位优先级也高于绑定，新增不生效）；存量行清零后本区块自然消失。
+    """
 
     model = DocumentTemplateFolderBinding
-    extra = 1
+    verbose_name_plural = "文件模板文件夹绑定（旧·兼容，已被落位声明取代）"
+    extra = 0
+    max_num = 0
     fields = ("folder_template", "folder_node_id", "folder_node_path", "is_active")
-    readonly_fields = ("folder_node_path",)
-    autocomplete_fields = ["folder_template"]
+    readonly_fields = fields
+    show_change_link = True
+    can_delete = True
 
-    class Media:  # pragma: no cover
-        css = {LegalStatusMatchMode.ALL: ("documents/css/folder_binding_inline.css",)}
-        js = ("admin/js/jquery.init.js", "documents/js/folder_binding_inline.js")
+    def has_add_permission(self, request: Any, obj: Any = None) -> bool:  # pragma: no cover
+        return False
+
+    def has_change_permission(self, request: Any, obj: Any = None) -> bool:  # pragma: no cover
+        return False
 
 
 class DocumentTemplateForm(forms.ModelForm):  # pragma: no cover
@@ -167,6 +177,7 @@ class DocumentTemplateForm(forms.ModelForm):  # pragma: no cover
             "archive_sub_type",
             "file",
             "file_path",
+            "folder_slot",
             "is_active",
         ]
 
@@ -326,6 +337,9 @@ class DocumentTemplateAdmin(TemplateAdminViewsMixin, TemplateAdminDisplayMixin, 
 
     form = DocumentTemplateForm
 
+    # 落位槽位用全站统一的 select2 搜索式下拉（单框可搜，输入即过滤），替代平铺/分组 select
+    autocomplete_fields = ["folder_slot"]
+
     list_display = (
         "id",
         "name",
@@ -352,6 +366,7 @@ class DocumentTemplateAdmin(TemplateAdminViewsMixin, TemplateAdminDisplayMixin, 
         "placeholder_preview",
         "placeholders_display",
         "undefined_placeholders_display",
+        "slot_placement_preview",
     )
 
     fieldsets = (
@@ -388,6 +403,12 @@ class DocumentTemplateAdmin(TemplateAdminViewsMixin, TemplateAdminDisplayMixin, 
             },
         ),
         (
+            "落位声明",
+            {
+                "fields": ("folder_slot", "slot_placement_preview"),
+            },
+        ),
+        (
             "占位符信息",
             {
                 "fields": ("placeholders_display", "undefined_placeholders_display"),
@@ -407,6 +428,42 @@ class DocumentTemplateAdmin(TemplateAdminViewsMixin, TemplateAdminDisplayMixin, 
             fieldsets.insert(len(fieldsets) - 1, self._edit_fieldsets)  # type: ignore[arg-type]
         return fieldsets
 
+    def get_inlines(self, request: Any, obj: Any = None) -> list[Any]:  # pragma: no cover
+        """旧绑定 inline 仅在有存量行时展示（只读核对）；无绑定行的模板不再出现该区块"""
+        if obj is not None and obj.folder_bindings.exists():
+            return list(self.inlines)
+        return [inline for inline in self.inlines if inline is not DocumentTemplateFolderBindingInline]
+
+    @admin.display(description="落位预览（实时派生）")
+    def slot_placement_preview(self, obj: DocumentTemplate) -> Any:  # pragma: no cover
+        """按当前槽位声明实时解析各骨架的落位路径（不落库，改名自动跟随）"""
+        from django.utils.html import format_html, format_html_join
+
+        from apps.documents.models import FolderTemplate
+        from apps.documents.services.template.slot_resolution_service import SlotResolutionService
+
+        if not obj.folder_slot_id or not obj.folder_slot:
+            return "未声明槽位——仅按下方「文件模板文件夹绑定」落位。"
+        service = SlotResolutionService()
+        rows: list[tuple[str, str]] = []
+        missed = 0
+        for folder_template in FolderTemplate.objects.filter(is_active=True, template_type=obj.template_type):
+            paths = service.find_slot_paths(folder_template, obj.folder_slot.key)
+            if paths:
+                rows.append((folder_template.name, "/".join(paths[0])))
+            else:
+                missed += 1
+        html = format_html_join(
+            "<br>",
+            "{} → {}",
+            rows,
+        )
+        if missed:
+            html += format_html(
+                '<br><span style="color:#999">另有 {} 个同类型骨架未提供该槽位（生成时跳过）</span>', missed
+            )
+        return html or "尚无骨架提供该槽位。"
+
     change_list_template = "admin/documents/documenttemplate/change_list.html"
 
     actions = [
@@ -422,12 +479,14 @@ class DocumentTemplateAdmin(TemplateAdminViewsMixin, TemplateAdminDisplayMixin, 
                 "documents/css/multi_select.css",
                 "cases/css/autocomplete.css",
                 "documents/css/institution_tags.css",
+                "documents/css/slot_autocomplete.css",
             )
         }
         js = (
             "cases/js/autocomplete.js",
             "documents/js/template_type_toggle.js",
             "documents/js/institution_tags.js",
+            "documents/js/slot_select_enhance.js",
         )
 
     def get_search_results(self, request: Any, queryset: Any, search_term: str) -> tuple[Any, bool]:  # pragma: no cover

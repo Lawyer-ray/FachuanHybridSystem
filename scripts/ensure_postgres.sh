@@ -13,6 +13,12 @@
 #      → 删除过期锁文件
 #   2. brew 服务处于 error / stopped → restart
 #
+# 背景（2026-10-15 事故）：异常关机后自愈 restart 触发崩溃恢复，PG 15+ 在回放
+# WAL 前会先对整个数据目录 fsync（本机实测 10s+），固定 30s 等待耗尽即误报
+# 失败退出，而数据库 2 秒后就绪。故等待循环按 pg_isready 三态决策：
+#   rejecting connections（退出码 1）= 服务器进程存活、正在启动 / 崩溃恢复
+#   —— 此状态绝不重启（重启会打断恢复从头再来），只延长等待。
+#
 # 接入点：backend/Makefile 的 migrate 目标（覆盖 run-dev / qcluster 等）、
 #         根 Makefile 的 start / prod-restart（公网栈）。
 #
@@ -22,6 +28,7 @@
 #   PG_DATA_DIR            postmaster.pid 所在数据目录（默认按 brew 服务自动发现）
 #   PG_SERVICE             brew 服务名（默认自动发现 postgresql@*）
 #   ENSURE_PG_TIMEOUT      自愈后等待就绪的秒数（默认 30）
+#   ENSURE_PG_RECOVERY_TIMEOUT  基础等待耗尽且检测到崩溃恢复时的延长等待秒数（默认 180）
 #   ENSURE_PG_DRY_RUN=1    只诊断，不执行删除 / 重启
 #
 # 注意：本脚本需兼容 macOS 自带 bash 3.2 —— 变量一律用 ${VAR} 花括号，
@@ -37,6 +44,7 @@ fail() { log "${RED}✗${NC} $*"; }
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TIMEOUT="${ENSURE_PG_TIMEOUT:-30}"
+RECOVERY_TIMEOUT="${ENSURE_PG_RECOVERY_TIMEOUT:-180}"
 
 # ---------- 连接目标解析：环境变量 > backend/.env > 默认值 ----------
 PG_HOST="${PG_HOST:-}"
@@ -51,13 +59,35 @@ fi
 PG_HOST="${PG_HOST:-127.0.0.1}"
 PG_PORT="${PG_PORT:-5432}"
 
-# ---------- 探活：优先 pg_isready（能识别 rejecting），兜底 bash /dev/tcp ----------
-is_ready() {
+# ---------- 探测三态：0=接受连接 1=拒绝连接（进程活着：启动/崩溃恢复/关闭中） 2=无响应 ----------
+# pg_isready 退出码：0=accepting、1=rejecting（恰是崩溃恢复期的形态）、2=no response
+ST_READY=0; ST_REJECTING=1; ST_DEAD=2
+probe() {
   if command -v pg_isready >/dev/null 2>&1; then
     pg_isready -h "${PG_HOST}" -p "${PG_PORT}" -t 2 >/dev/null 2>&1
-  else
-    (exec 3<>"/dev/tcp/${PG_HOST}/${PG_PORT}") >/dev/null 2>&1 && exec 3>&- 3<&-
+    case $? in
+      0) return ${ST_READY} ;;
+      1) return ${ST_REJECTING} ;;
+      *) return ${ST_DEAD} ;;
+    esac
   fi
+  # 无 pg_isready 时无法区分「拒绝连接」与「无响应」，统一按无响应处理
+  (exec 3<>"/dev/tcp/${PG_HOST}/${PG_PORT}") >/dev/null 2>&1 \
+    && { exec 3>&- 3<&-; return ${ST_READY}; }
+  return ${ST_DEAD}
+}
+
+is_ready() { probe; [[ $? -eq ${ST_READY} ]]; }
+
+# ---------- 轮询等待就绪：$1=秒数，其余参数=日志前缀 ----------
+wait_for_ready() {
+  local n="$1"; shift
+  log "$*（最长 ${n}s）…"
+  for _ in $(seq 1 "${n}"); do
+    is_ready && return 0
+    sleep 1
+  done
+  return 1
 }
 
 if is_ready; then
@@ -150,15 +180,34 @@ if [[ "${DRY_RUN}" != "1" ]]; then
       exit 1
     fi
   else
-    # 服务名义上 started 但未就绪：先容忍慢启动，不行再强制重启一次
-    log "服务状态 started 但未就绪，先等待慢启动…"
-    for _ in $(seq 1 8); do is_ready && { ok "已就绪（慢启动）"; exit 0; }; sleep 1; done
-    warn "等待 8s 仍未就绪，强制重启一次"
-    brew services restart "${PG_SERVICE}" >/dev/null 2>&1 && ok "已强制重启 ${PG_SERVICE}"
+    # 服务名义上 started 但未就绪：先分辨「进程活着正在恢复」与「真没响应」。
+    # 崩溃恢复期（rejecting connections）重启 = 打断 WAL 回放从头再来
+    # （PG 15+ 还会重新对整个数据目录 fsync），越重启越慢。
+    probe; st=$?
+    if [[ ${st} -eq ${ST_REJECTING} ]]; then
+      log "服务器进程存活但正在启动/崩溃恢复（rejecting connections），不重启，等待恢复完成"
+    else
+      wait_for_ready 8 "服务状态 started 但未就绪，先容忍慢启动" && { ok "已就绪（慢启动）"; exit 0; }
+      probe; st=$?
+      if [[ ${st} -eq ${ST_REJECTING} ]]; then
+        log "慢启动等待期间服务器仍在拒绝连接（启动/崩溃恢复中），不强制重启，继续等待"
+      else
+        warn "等待 8s 仍无响应，强制重启一次"
+        brew services restart "${PG_SERVICE}" >/dev/null 2>&1 && ok "已强制重启 ${PG_SERVICE}"
+      fi
+    fi
   fi
 
-  log "等待就绪（最长 ${TIMEOUT}s）…"
-  for _ in $(seq 1 "${TIMEOUT}"); do is_ready && { ok "PostgreSQL 已恢复: ${PG_HOST}:${PG_PORT}"; exit 0; }; sleep 1; done
+  wait_for_ready "${TIMEOUT}" "等待就绪" && { ok "PostgreSQL 已恢复: ${PG_HOST}:${PG_PORT}"; exit 0; }
+
+  # 基础窗口耗尽：若进程仍存活且处于拒绝连接态 = 崩溃恢复未完成，
+  # 延长等待而不是判死（2026-10-15 事故：30s 超时报败后 2s 数据库即就绪）
+  probe; st=$?
+  if [[ ${st} -eq ${ST_REJECTING} ]]; then
+    warn "仍在拒绝连接 —— 崩溃恢复（数据目录 fsync + WAL 回放）可能远超 ${TIMEOUT}s"
+    log "延长等待至 ${RECOVERY_TIMEOUT}s（期间不重启，重启会打断恢复从头再来）…"
+    wait_for_ready "${RECOVERY_TIMEOUT}" "等待崩溃恢复完成" && { ok "PostgreSQL 崩溃恢复完成: ${PG_HOST}:${PG_PORT}"; exit 0; }
+  fi
 
   fail "自愈后仍无法连接 ${PG_HOST}:${PG_PORT}，请查看日志定位："
   log_file="${BREW_PREFIX}/var/log/${PG_SERVICE}.log"

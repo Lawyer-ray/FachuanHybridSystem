@@ -25,6 +25,10 @@ from apps.automation.services.sms.court_sms_document_reference_service import Co
 
 logger = logging.getLogger("apps.automation")
 
+# Django 6.1 起 format_html_join 的 sep 也过 conditional_escape，HTML 分隔符必须 mark_safe
+# 否则渲染成字面 &lt;br&gt; 文本（列表页案号/当事人换行失效）
+_BR = mark_safe("<br>")  # nosec B308 - 常量字面量，不含用户数据
+
 
 def _get_case_service() -> Any:
     """获取案件服务实例(工厂函数)"""
@@ -224,14 +228,14 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
     def case_numbers_display(self, obj: CourtSMS) -> SafeString | str:  # pragma: no cover
         """案号显示"""
         if obj.case_numbers:
-            return format_html_join("<br>", "{}", ((n,) for n in obj.case_numbers))
+            return format_html_join(_BR, "{}", ((n,) for n in obj.case_numbers))
         return "-"
 
     @admin.display(description=_("提取的当事人"))
     def party_names_display(self, obj: CourtSMS) -> SafeString | str:  # pragma: no cover
         """当事人显示"""
         if obj.party_names:
-            return format_html_join("<br>", "{}", ((n,) for n in obj.party_names))
+            return format_html_join(_BR, "{}", ((n,) for n in obj.party_names))
         return "-"
 
     @admin.display(description=_("下载链接"))

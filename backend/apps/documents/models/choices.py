@@ -54,6 +54,18 @@ class DocumentContractType(models.TextChoices):
 # ============================================================
 
 
+class FolderSlotCategory(models.TextChoices):
+    """文件夹槽位分类（落位下拉的 optgroup 分组，顺序即展示顺序）"""
+
+    GENERAL = "general", "通用（委托/身份/往来）"
+    FILING = "filing", "立案材料"
+    DEFENSE = "defense", "答辩材料"
+    APPEAL = "appeal", "上诉材料"
+    TRIAL_PREP = "trial_prep", "庭审准备"
+    CLOSING = "closing", "结案文书"
+    CONTRACT = "contract", "合同文件夹"
+
+
 class FolderTemplateType(models.TextChoices):
     """文件夹模板类型"""
 

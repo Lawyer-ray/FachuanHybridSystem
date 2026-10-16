@@ -23,6 +23,7 @@ from .constants import (
     _XPATH_SEARCH_BTN,
 )
 from .filing_models import CaseInfo, ClientInfo, ConflictPartyInfo, ContractInfo
+from .playwright_helpers import _js_str
 
 logger = logging.getLogger("apps.oa_filing.jtn")
 
@@ -279,14 +280,14 @@ class PlaywrightFilingMixin:  # pragma: no cover
             await page.evaluate(
                 f"""() => {{
                 var el = document.querySelector('input[name*="pro_pl_name"]');
-                if (el) el.value = {self._js_str(info.contact_name)};
+                if (el) el.value = {_js_str(info.contact_name)};
             }}"""
             )
         if info.contact_phone:
             await page.evaluate(
                 f"""() => {{
                 var el = document.querySelector('input[name*="pro_pl_phone"]');
-                if (el) el.value = {self._js_str(info.contact_phone)};
+                if (el) el.value = {_js_str(info.contact_phone)};
             }}"""
             )
 

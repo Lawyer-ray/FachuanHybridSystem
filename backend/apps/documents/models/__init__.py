@@ -36,6 +36,7 @@ from .external_template import ExternalTemplate, ExternalTemplateFieldMapping
 from .fill_record import BatchFillTask, FillRecord
 
 # 导入所有模型类
+from .folder_slot import FolderSlot
 from .folder_template import FolderTemplate
 from .generation import GenerationConfig, GenerationMethod, GenerationStatus, GenerationTask
 from .placeholder import Placeholder, PlaceholderOverview
@@ -59,6 +60,7 @@ __all__ = [
     "FolderTemplate",
     "DocumentTemplate",
     "DocumentTemplateFolderBinding",
+    "FolderSlot",
     "Placeholder",
     "PlaceholderOverview",
     "TemplateAuditLog",

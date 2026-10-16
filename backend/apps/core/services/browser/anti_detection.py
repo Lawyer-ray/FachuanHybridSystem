@@ -27,8 +27,10 @@ Object.defineProperty(navigator, 'language', {get: () => 'zh-CN'});
 Object.defineProperty(navigator, 'languages', {get: () => ['zh-CN', 'zh', 'en']});
 
 // ── 屏幕尺寸 ──
-Object.defineProperty(screen, 'width', {get: () => 1920});
-Object.defineProperty(screen, 'height', {get: () => 1080});
+// 默认伪装 1920×1080 与固定视口配套；半自动会话按真实屏幕覆盖
+// （见 apply_macos_patches 的 screen_size 参数）。
+Object.defineProperty(screen, 'width', {get: () => __SCREEN_WIDTH__});
+Object.defineProperty(screen, 'height', {get: () => __SCREEN_HEIGHT__});
 Object.defineProperty(screen, 'colorDepth', {get: () => 24});
 Object.defineProperty(screen, 'pixelDepth', {get: () => 24});
 
@@ -88,16 +90,29 @@ class AntiDetection:  # pragma: no cover
             },
         }
 
-    def apply_macos_patches(self, page: Any) -> None:  # pragma: no cover
+    # 视口与屏幕伪装的默认配套值：固定视口 1920×1080 的会话需要 screen 同步
+    # 伪装才自洽；screen_size 显式传入时（半自动按屏幕适配窗口）用真实值。
+    _DEFAULT_SCREEN_SIZE: tuple[int, int] = (1920, 1080)
+
+    def _fingerprint_js(self, screen_size: tuple[int, int] | None = None) -> str:
+        """生成 macOS 指纹补充补丁 JS，screen 尺寸可按真实屏幕覆盖。"""
+        width, height = screen_size if screen_size is not None else self._DEFAULT_SCREEN_SIZE
+        return _MACOS_FINGERPRINT_JS.replace("__SCREEN_WIDTH__", str(width)).replace("__SCREEN_HEIGHT__", str(height))
+
+    def apply_macos_patches(  # pragma: no cover
+        self, page: Any, screen_size: tuple[int, int] | None = None
+    ) -> None:
         """在 macOS 上补充 CloakBrowser 未覆盖的指纹补丁（同步页面）。"""
         if _IS_MACOS:
-            page.add_init_script(_MACOS_FINGERPRINT_JS)
+            page.add_init_script(self._fingerprint_js(screen_size))
             logger.debug("已应用 macOS 指纹补充补丁")
 
-    async def apply_macos_patches_async(self, page: Any) -> None:  # pragma: no cover
+    async def apply_macos_patches_async(  # pragma: no cover
+        self, page: Any, screen_size: tuple[int, int] | None = None
+    ) -> None:
         """在 macOS 上补充 CloakBrowser 未覆盖的指纹补丁（异步页面）。"""
         if _IS_MACOS:
-            await page.add_init_script(_MACOS_FINGERPRINT_JS)
+            await page.add_init_script(self._fingerprint_js(screen_size))
             logger.debug("已应用 macOS 指纹补充补丁 (async)")
 
     # ── 向后兼容方法（已废弃） ──

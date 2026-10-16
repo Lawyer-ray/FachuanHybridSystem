@@ -5,7 +5,7 @@ from typing import Any
 
 from django.db import transaction
 
-from apps.documents.models import DocumentTemplate, DocumentTemplateFolderBinding, FolderTemplate
+from apps.documents.models import DocumentTemplate, DocumentTemplateFolderBinding, FolderSlot, FolderTemplate
 from apps.documents.storage import resolve_docx_template_path
 
 from .complete_defaults import get_complete_default_data
@@ -47,6 +47,7 @@ class DocumentTemplateInitService:
         1. 文件夹模板
         2. 文件模板
         3. 文件模板与文件夹的绑定关系
+        4. 文件夹槽位词表 + 文书模板落位声明
 
         Returns:
             包含各项创建和跳过数量的字典
@@ -75,6 +76,15 @@ class DocumentTemplateInitService:
         binding_created = 0
         binding_skipped = 0
 
+        # 0. 初始化槽位词表（key 唯一，幂等）
+        slot_map: dict[str, FolderSlot] = {}
+        for slot_data in data.get("slots", []):
+            slot, _created = FolderSlot.objects.update_or_create(
+                key=slot_data["key"],
+                defaults={"name": slot_data["name"], "description": slot_data.get("description", "")},
+            )
+            slot_map[slot.key] = slot
+
         # 1. 初始化文件夹模板
         folder_map: dict[str, Any] = {}
         for folder_data in data["folder_templates"]:
@@ -89,9 +99,10 @@ class DocumentTemplateInitService:
                 folder_created += 1
                 folder_map[folder_data["name"]] = folder
 
-        # 2. 初始化文件模板
+        # 2. 初始化文件模板（含落位槽位声明 folder_slot）
         doc_map: dict[str, Any] = {}
         for template_data in data["document_templates"]:
+            slot_key = template_data.pop("folder_slot_key", None)
             existing_doc = DocumentTemplate.objects.filter(
                 name=template_data["name"], template_type=template_data["template_type"]
             ).first()
@@ -100,6 +111,8 @@ class DocumentTemplateInitService:
                 doc_skipped += 1
                 doc_map[template_data["name"]] = existing_doc
             else:
+                if slot_key and slot_key in slot_map:
+                    template_data["folder_slot"] = slot_map[slot_key]
                 doc = DocumentTemplate.objects.create(**template_data)
                 logger.info("创建文件模板: %s", template_data["name"])
                 doc_created += 1

@@ -281,7 +281,10 @@ class SystemConfigService:
             配置键值对字典
         """
         configs = self._repository.get_by_category(category)
-        return {str(config.key): str(config.value) for config in configs}
+        # 与 get_value 同口径：密文（enc:v1:）读侧解密。群聊 provider（飞书/企微/钉钉/
+        # Telegram）经分类 loader 拿配置，若不解密会把密文当 app_secret 发给平台
+        # （2026-10-04 secret 全量重加密后，法院短信群聊通知全线「app secret invalid」）。
+        return {str(config.key): _maybe_decrypt(str(config.value)) for config in configs}
 
     def get_category_configs_internal(self, category: str) -> dict[str, str]:
         """获取某分类下的所有配置(内部方法)"""

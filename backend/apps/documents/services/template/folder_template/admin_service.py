@@ -18,6 +18,38 @@ from ..folder_service import FolderTemplateService
 logger = logging.getLogger("apps.documents.services.folder_template_admin_service")
 
 
+def get_slot_label_map() -> dict[str, str]:
+    """槽位 key → 「名称 (key) · 短分类」标签（预览树/列表徽标用，单次查询）"""
+    from apps.documents.models import FolderSlot
+
+    return {slot.key: str(slot) for slot in FolderSlot.objects.all()}
+
+
+def validate_slot_kinds(structure: dict[str, Any]) -> list[str]:
+    """
+    校验 structure 节点上的 kind 是否都在槽位词表内。
+
+    Returns:
+        违规项描述列表（「节点名 → kind」），空列表 = 合法
+    """
+    from apps.documents.models import FolderSlot
+
+    valid_keys = set(FolderSlot.objects.filter(is_active=True).values_list("key", flat=True))
+    bad: list[str] = []
+
+    def walk(children: Any) -> None:
+        for child in children or []:
+            if not isinstance(child, dict):
+                continue
+            kind = child.get("kind")
+            if kind and kind not in valid_keys:
+                bad.append(f"{child.get('name', '未命名')} → {kind}")
+            walk(child.get("children"))
+
+    walk((structure or {}).get("children"))
+    return bad
+
+
 class FolderTemplateAdminService:
     """文件夹模板Admin服务"""
 
@@ -238,13 +270,16 @@ class FolderTemplateAdminService:
 
         return data
 
-    def render_structure_tree(self, structure: dict[str, Any], level: int = 0) -> str:
+    def render_structure_tree(
+        self, structure: dict[str, Any], level: int = 0, slot_labels: dict[str, str] | None = None
+    ) -> str:
         """
         递归渲染文件夹树HTML
 
         Args:
             structure: 文件夹结构
             level: 当前层级
+            slot_labels: 槽位 key → 展示标签（节点带 kind 时渲染徽标；None 时不渲染）
 
         Returns:
             HTML字符串
@@ -275,8 +310,15 @@ class FolderTemplateAdminService:
             html_parts.append('<li style="margin: 1px 0; white-space: nowrap;">')
             html_parts.append(f'<span style="color: #666; font-weight: normal;">{prefix}</span>')
             html_parts.append(f'<span style="color: #333; font-weight: 500;">{escape(name)}</span>')
+            kind = child.get("kind")
+            if kind and slot_labels and kind in slot_labels:
+                label = escape(slot_labels[kind])
+                html_parts.append(
+                    f' <span style="font-size: 11px; color: #1d4ed8; background: #eff6ff; '
+                    f'border: 1px solid #bfdbfe; border-radius: 8px; padding: 0 6px;">⌘ {label}</span>'
+                )
 
-            sub_html = self.render_structure_tree(child, level + 1)
+            sub_html = self.render_structure_tree(child, level + 1, slot_labels)
             if sub_html:
                 html_parts.append(sub_html)
 
@@ -290,7 +332,7 @@ class FolderTemplateAdminService:
         return "".join(html_parts)
 
     def render_structure_preview(self, structure: dict[str, Any]) -> Any:
-        html = self.render_structure_tree(structure)
+        html = self.render_structure_tree(structure, slot_labels=get_slot_label_map())
         # 树中的动态节点名已在 render_structure_tree 内 escape()
         return mark_safe(f'<div class="folder-structure-preview">{html}</div>')  # nosec B703, B308
 
@@ -313,7 +355,7 @@ class FolderTemplateAdminService:
             suffix += 1
 
         # 创建副本
-        return FolderTemplate.objects.create(
+        new_template = FolderTemplate.objects.create(
             name=new_name,
             template_type=template.template_type,
             case_types=template.case_types.copy() if template.case_types else [],
@@ -324,6 +366,24 @@ class FolderTemplateAdminService:
             structure=template.structure.copy() if template.structure else {},
             is_active=False,
         )
+
+        # 连带复制绑定：副本结构节点 id 与源一致，直接按 folder_node_id 平移
+        from apps.documents.models import DocumentTemplateFolderBinding
+
+        bindings = list(template.document_bindings.filter(is_active=True))
+        DocumentTemplateFolderBinding.objects.bulk_create(
+            [
+                DocumentTemplateFolderBinding(
+                    document_template=binding.document_template,
+                    folder_template=new_template,
+                    folder_node_id=binding.folder_node_id,
+                    folder_node_path=binding.folder_node_path,
+                )
+                for binding in bindings
+            ]
+        )
+
+        return new_template
 
     def batch_duplicate_templates(self, queryset: Any) -> int:
         """

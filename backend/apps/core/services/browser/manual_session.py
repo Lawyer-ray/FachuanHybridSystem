@@ -42,6 +42,32 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.core")
 
+# AppKit 不可用（非 macOS / pyobjc 缺失）时的保守回退：
+# 1280×800 在几乎所有物理屏幕上完整可见。
+_FALLBACK_SCREEN_SIZE = (1280, 800)
+
+
+def _screen_geometry() -> tuple[tuple[int, int], tuple[int, int]]:
+    """查询主屏几何，返回 ((整屏宽, 高), (可用窗口宽, 高))，逻辑像素。
+
+    macOS 经 AppKit 读取真实屏幕；visibleFrame 已扣除菜单栏与 Dock，
+    是窗口能完整落在屏幕内的上限。浏览器进程对窗口做真实定位/缩放，
+    必须按物理屏幕约束尺寸（页面 JS 里看到的 screen.* 可能是指纹伪装值）。
+    """
+    try:
+        import AppKit
+
+        screen = AppKit.NSScreen.mainScreen()
+        frame = screen.frame()
+        visible = screen.visibleFrame()
+        return (
+            (int(frame.size.width), int(frame.size.height)),
+            (int(visible.size.width), int(visible.size.height)),
+        )
+    except Exception:
+        logger.debug("读取屏幕几何失败，使用回退尺寸", exc_info=True)
+        return _FALLBACK_SCREEN_SIZE, _FALLBACK_SCREEN_SIZE
+
 
 @dataclasses.dataclass
 class BrowserSessionHandle:
@@ -68,16 +94,35 @@ class BrowserSessionHandle:
         return self.browser.is_connected()
 
     async def wait_user_closed(self) -> None:
-        """等待用户关闭浏览器窗口（无超时）。
+        """等待用户关闭浏览器（无超时）。
+
+        结束信号（任一触发）：浏览器进程断连、context 关闭、**最后一个页面
+        被关闭**（含跟踪会话期间新开的页面）。macOS 上点窗口红色关闭按钮只
+        关窗口不退进程（app 常驻 Dock），Playwright 的 disconnected 永远不
+        触发——必须以页面级关闭为会话结束信号，由调用方 close_browser_session
+        回收进程，否则 Chromium 僵尸进程会在 Dock 无限堆积。
 
         Playwright Python 的 Browser 没有 wait_for_event()（那是 Node API），
-        且仅对外发射 ``disconnected`` 事件（浏览器被关闭/崩溃/断连时触发），
-        用 asyncio.Event 桥接 ``on("disconnected")``。先注册再查
-        is_connected，避免「注册前已断开」的竞态挂死。
+        用 asyncio.Event 桥接事件回调。先注册监听再查存活状态，避免
+        「注册前已关闭」的竞态挂死。
         """
         closed = asyncio.Event()
-        self.browser.on("disconnected", lambda _b: closed.set())
-        if self.browser.is_connected():
+
+        def _finish(*_args: Any) -> None:
+            closed.set()
+
+        def _finish_when_no_pages(*_args: Any) -> None:
+            # 关掉的是多页中的一个 tab 时 pages 非空，继续等待
+            if not self.context.pages:
+                closed.set()
+
+        self.browser.on("disconnected", _finish)
+        self.context.on("close", _finish)
+        self.context.on("page", lambda new_page: new_page.on("close", _finish_when_no_pages))
+        for open_page in self.context.pages:
+            open_page.on("close", _finish_when_no_pages)
+
+        if self.browser.is_connected() and self.context.pages:
             await closed.wait()
 
 
@@ -93,7 +138,9 @@ async def create_browser_async_manual(  # pragma: no cover
 
     Args:
         profile: 配置档案名称或实例（仅支持原生 launch；CDP/远程模式不支持）
-        **kwargs: 传递给 BrowserProfile 的额外参数覆盖
+        **kwargs: 传递给 BrowserProfile 的额外参数覆盖。未显式传 viewport 时，
+            窗口按物理屏幕适配（no_viewport + 屏幕可用区域窗口尺寸），保证
+            人机协作时页面完整可见、可滚动；显式传 viewport 则保持固定视口。
 
     Returns:
         BrowserSessionHandle（含 browser / context / page）
@@ -121,6 +168,17 @@ async def create_browser_async_manual(  # pragma: no cover
             "手动生命周期会话目前仅支持原生 launch 模式；CDP/远程连接请使用 create_browser_async()。"
         )
 
+    # 人机协作会话的窗口必须完整落在物理屏幕内：Profile 默认视口 1920×1080，
+    # 在小屏 Mac 上窗口会被撑出屏幕，视口底部永远不可见、页面也滚不到底。
+    # 调用方未显式指定 viewport 时按屏幕适配：窗口 = 屏幕可用区域，
+    # 视口跟随窗口（no_viewport），screen 指纹同步用真实屏幕尺寸。
+    screen_fit = "viewport" not in kwargs
+    launch_kwargs: dict[str, Any] = {}
+    screen_size: tuple[int, int] | None = None
+    if screen_fit:
+        screen_size, (window_width, window_height) = _screen_geometry()
+        launch_kwargs["args"] = [f"--window-size={window_width},{window_height}"]
+
     from cloakbrowser import launch_async
 
     from .launcher import ensure_browser_binary
@@ -130,6 +188,7 @@ async def create_browser_async_manual(  # pragma: no cover
     browser = await launch_async(
         headless=profile.headless,
         humanize=profile.anti_detection,
+        **launch_kwargs,
     )
 
     context_args = profile.to_context_args()
@@ -137,6 +196,9 @@ async def create_browser_async_manual(  # pragma: no cover
         anti_opts = anti_detection.get_context_options()
         anti_opts.update(context_args)
         context_args = anti_opts
+    if screen_fit:
+        context_args.pop("viewport", None)
+        context_args["no_viewport"] = True
 
     context = await browser.new_context(**context_args)
     context.set_default_timeout(profile.timeout)
@@ -145,8 +207,8 @@ async def create_browser_async_manual(  # pragma: no cover
     page = await context.new_page()
     page.on("dialog", lambda d: d.accept())
 
-    # macOS 补充指纹补丁
-    await anti_detection.apply_macos_patches_async(page)
+    # macOS 补充指纹补丁（screen_fit 时 screen.* 报真实屏幕而非 1920×1080）
+    await anti_detection.apply_macos_patches_async(page, screen_size=screen_size)
 
     logger.info("手动生命周期浏览器已就绪 (profile=%s)", profile.name)
     return BrowserSessionHandle(profile=profile, browser=browser, context=context, page=page)

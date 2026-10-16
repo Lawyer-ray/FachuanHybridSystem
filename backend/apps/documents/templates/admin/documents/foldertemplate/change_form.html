@@ -5,4 +5,6 @@
 {{ block.super }}
 <!-- SortableJS CDN - 必须在自定义 JS 之前加载 -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<!-- 槽位词表（结构编辑器节点的 kind 下拉数据源） -->
+{{ fc_slots_json|json_script:"fc-slots-json" }}
 {% endblock %}

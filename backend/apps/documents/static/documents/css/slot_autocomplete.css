@@ -1,0 +1,64 @@
+/**
+ * 落位槽位 select2 尺寸调整：输入框加高加宽、下拉候选加高
+ * （仅作用于落位槽位控件；下拉面板为 body 级节点，option 内边距为全站统一微调）
+ */
+
+.field-folder_slot .select2-container {
+    width: min(560px, 100%) !important;
+}
+
+.field-folder_slot .select2-container--admin-autocomplete .select2-selection--single,
+.field-folder_slot .select2-selection--single {
+    height: 40px !important;
+    padding: 6px 14px !important;
+    font-size: 13.5px;
+}
+
+.field-folder_slot .select2-selection__rendered {
+    line-height: 26px !important;
+}
+
+.field-folder_slot .select2-selection__clear {
+    line-height: 26px !important;
+}
+
+.field-folder_slot .select2-selection__arrow {
+    height: 38px !important;
+}
+
+/* 下拉面板（append 到 body，无法按控件限定；全站候选行统一微调高度与字号） */
+.select2-dropdown .select2-results__option {
+    padding: 8px 14px;
+    font-size: 13.5px;
+    line-height: 1.6;
+}
+
+.select2-dropdown .select2-results__option.select2-results__message {
+    padding: 8px 14px;
+}
+
+/* 选中态里的分类后缀弱化，主体名称更突出 */
+.field-folder_slot .select2-selection__rendered,
+.select2-dropdown .select2-results__option {
+    font-variant-numeric: tabular-nums;
+}
+
+/* 分类徽标（slot_select_enhance.js 渲染）：候选行与选中态右侧的胶囊 */
+.fc-slot-cat {
+    float: right;
+    margin-left: 10px;
+    padding: 0 9px;
+    font-size: 11px;
+    line-height: 19px;
+    border-radius: 10px;
+    color: var(--body-quiet-color, #666);
+    background: var(--darkened-bg, #f2f2f2);
+    border: 1px solid var(--border-color, #d0d0d0);
+    white-space: nowrap;
+}
+
+.select2-results__option--highlighted .fc-slot-cat {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.22);
+    border-color: rgba(255, 255, 255, 0.45);
+}

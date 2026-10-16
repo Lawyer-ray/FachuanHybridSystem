@@ -207,17 +207,16 @@ class FolderGenerationService:
             文书放置配置列表
         """
         from apps.contracts.models import SupplementaryAgreement
-        from apps.documents.models import DocumentTemplateFolderBinding
         from apps.documents.models.choices import DocumentContractSubType
+        from apps.documents.services.template.slot_resolution_service import SlotResolutionService
 
         placements: list[Any] = []
         case_type = getattr(contract, "case_type", None)
         contract_id = getattr(contract, "id", None)
 
-        # 查询所有绑定到该文件夹模板的文件模板
-        bindings = DocumentTemplateFolderBinding.objects.filter(
-            folder_template=folder_template, is_active=True
-        ).select_related("document_template")
+        # 生效绑定 = 存量绑定 + 槽位声明的虚拟绑定（新增文件夹模板后零绑定操作）
+        slot_service = SlotResolutionService()
+        bindings = slot_service.iter_effective_bindings(folder_template)
 
         for binding in bindings:
             template = binding.document_template
@@ -231,8 +230,11 @@ class FolderGenerationService:
             if case_type not in contract_types and "all" not in contract_types:
                 continue
 
-            # 使用绑定配置的路径
-            folder_path = binding.folder_node_path or ""
+            # 落位路径：槽位解析优先（生成期派生，结构改名自动跟随），旧绑定路径兜底
+            resolution = slot_service.resolve_binding_path(binding)
+            if resolution.skip:
+                continue
+            folder_path = resolution.path
 
             # 补充协议模板：仅在合同有补充协议数据时才生成，每份各一个 placement
             if template.contract_sub_type == DocumentContractSubType.SUPPLEMENTARY_AGREEMENT:
@@ -527,9 +529,9 @@ class FolderGenerationService:
         """
         from pathlib import Path
 
-        from apps.documents.models import DocumentTemplateFolderBinding
         from apps.documents.services.generation.pipeline import DocxRenderer
         from apps.documents.services.placeholders import EnhancedContextBuilder
+        from apps.documents.services.template.slot_resolution_service import SlotResolutionService
 
         # 1. 生成文件夹结构
         folder_structure = self.generate_folder_structure(folder_template, root_name)
@@ -538,11 +540,9 @@ class FolderGenerationService:
         # 案件文件夹用 raw_structure 作为 ZIP 结构（不以"执行"等单子节点为根）
         folder_structure = raw_structure
 
-        # 2. 查询绑定到该文件夹模板的文档模板
-        bindings = DocumentTemplateFolderBinding.objects.filter(
-            folder_template=folder_template,
-            is_active=True,
-        ).select_related("document_template")
+        # 2. 生效绑定 = 存量绑定 + 槽位声明的虚拟绑定（槽位解析优先，旧路径兜底）
+        slot_service = SlotResolutionService()
+        bindings = slot_service.iter_effective_bindings(folder_template)
 
         # 3. 构建案件上下文并渲染文档
         documents: list[tuple[str, bytes, str]] = []
@@ -567,7 +567,10 @@ class FolderGenerationService:
                 failed_templates.append(f"{template.name}(模板文件不存在)")
                 continue
 
-            folder_path = binding.folder_node_path or ""
+            resolution = slot_service.resolve_binding_path(binding)
+            if resolution.skip:
+                continue
+            folder_path = resolution.path
             if folder_path.startswith(f"{root_folder_name}/"):
                 folder_path = folder_path[len(f"{root_folder_name}/") :]
 

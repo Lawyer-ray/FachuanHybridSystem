@@ -32,6 +32,7 @@ import pytest
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.documents.services.generation.folder_generation_service import DocumentPlacement, FolderGenerationService
+from apps.documents.services.template.slot_resolution_service import SlotResolutionService
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -157,8 +158,7 @@ class TestGetDocumentPlacements:
         binding.folder_node_path = "path/to/folder"
         binding.folder_node_id = 1
 
-        with patch("apps.documents.models.DocumentTemplateFolderBinding") as mock_binding_cls:
-            mock_binding_cls.objects.filter.return_value.select_related.return_value = [binding]
+        with patch.object(SlotResolutionService, "iter_effective_bindings", return_value=[binding]):
             with patch.object(svc, "_generate_document_filename", return_value="output.docx"):
                 result = svc.get_document_placements(contract, tpl)
 
@@ -179,8 +179,7 @@ class TestGetDocumentPlacements:
         binding.document_template = tpl
         binding.folder_node_path = "path"
 
-        with patch("apps.documents.models.DocumentTemplateFolderBinding") as mock_binding_cls:
-            mock_binding_cls.objects.filter.return_value.select_related.return_value = [binding]
+        with patch.object(SlotResolutionService, "iter_effective_bindings", return_value=[binding]):
             result = svc.get_document_placements(contract, MagicMock())
 
         assert len(result) == 0
@@ -198,8 +197,7 @@ class TestGetDocumentPlacements:
         binding.document_template = tpl
         binding.folder_node_path = "path"
 
-        with patch("apps.documents.models.DocumentTemplateFolderBinding") as mock_binding_cls:
-            mock_binding_cls.objects.filter.return_value.select_related.return_value = [binding]
+        with patch.object(SlotResolutionService, "iter_effective_bindings", return_value=[binding]):
             result = svc.get_document_placements(contract, MagicMock())
 
         assert len(result) == 0
@@ -217,8 +215,7 @@ class TestGetDocumentPlacements:
         binding.document_template = tpl
         binding.folder_node_path = ""
 
-        with patch("apps.documents.models.DocumentTemplateFolderBinding") as mock_binding_cls:
-            mock_binding_cls.objects.filter.return_value.select_related.return_value = [binding]
+        with patch.object(SlotResolutionService, "iter_effective_bindings", return_value=[binding]):
             with patch.object(svc, "_generate_document_filename", return_value="doc.docx"):
                 result = svc.get_document_placements(contract, MagicMock())
 
