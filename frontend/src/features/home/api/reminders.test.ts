@@ -32,6 +32,7 @@ vi.mock('@/lib/api', () => ({
 import {
   calendarKeys,
   createReminder,
+  deleteReminders,
   fetchCalendarMonth,
   listReminderTypes,
   parseReminder,
@@ -71,6 +72,13 @@ describe('日历与完成标记', () => {
     expect(api.post).toHaveBeenCalledWith('complete', {
       json: { reminder_ids: [1, 2, 3], is_completed: true },
     })
+  })
+
+  it('deleteReminders：POST delete 传 reminder_ids（合并事件全量成员），返回 deleted 条数', async () => {
+    const api = remindersClient()
+    api.post.mockReturnValueOnce(respond({ deleted: 2 }))
+    await expect(deleteReminders([12, 34])).resolves.toBe(2)
+    expect(api.post).toHaveBeenCalledWith('delete', { json: { reminder_ids: [12, 34] } })
   })
 
   it('calendarKeys 工厂：month 在 all 前缀下展开（invalidate 按前缀失效）', () => {

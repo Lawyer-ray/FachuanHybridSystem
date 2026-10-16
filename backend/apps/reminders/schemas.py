@@ -85,6 +85,24 @@ class ReminderCompleteOut(Schema):
     updated: int
 
 
+class ReminderDeleteIn(Schema):
+    """批量删除（日历事件删除）。
+
+    与 ReminderCompleteIn 同理：合并事件的全部 member_ids 一起传，一次请求
+    保持原子；任一条无权删除则整批 403。
+    """
+
+    reminder_ids: list[int] = Field(min_length=1, max_length=100)
+
+    _validate_id_list = field_validator("reminder_ids")(_validate_positive_id_list)
+
+
+class ReminderDeleteOut(Schema):
+    """实际删除条数（不存在的 id 静默跳过）。"""
+
+    deleted: int
+
+
 class ReminderOut(SchemaMixin, Schema):
     id: int
     contract: int | None = None
@@ -217,6 +235,9 @@ class CalendarEventItemOut(Schema):
     members: int = 1
     #: 合并前各 reminder 的 id
     member_ids: list[int] = Field(default_factory=list)
+    #: 当前用户能否删除该事件（仅创建人与管理员；合并事件须全部成员可删）。
+    #: 前端据此显隐删除按钮——否则用户点了才收到 403
+    can_delete: bool = False
 
 
 class CalendarStatsOut(Schema):

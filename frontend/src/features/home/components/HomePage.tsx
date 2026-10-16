@@ -7,6 +7,7 @@ import { calendarKeys, fetchCalendarMonth } from '../api'
 import type { CalendarEvent } from '../api'
 import { eventReminderIds, formatCN, formatWeekdayCN, parseKey, todayKey } from '../domain'
 import { useCompleteReminder } from '../hooks/use-complete-reminder'
+import { useDeleteReminder } from '../hooks/use-delete-reminder'
 import { CalendarPanel, type CalendarView } from './CalendarPanel'
 import { ToolDock } from './ToolDock'
 import { useMediaQuery } from '@/hooks/use-media'
@@ -94,6 +95,15 @@ export function HomePage() {
       completeMutation.mutate({ ids: eventReminderIds(e), completed: !e.is_completed })
     },
     [completeMutation],
+  )
+
+  /* 删除：同样全量下发 member_ids；入口按后端 can_delete 显隐（谁创建谁删） */
+  const deleteMutation = useDeleteReminder()
+  const handleDeleteEvent = useCallback(
+    (e: CalendarEvent) => {
+      deleteMutation.mutate({ ids: eventReminderIds(e) })
+    },
+    [deleteMutation],
   )
 
   const openAddDialog = useCallback(
@@ -218,6 +228,7 @@ export function HomePage() {
                 onOpenEvent={handleOpenEvent}
                 onOpenAdd={openAddDialog}
                 onToggleComplete={handleToggleComplete}
+                onDeleteEvent={handleDeleteEvent}
               />
             )}
             <ToolDock />

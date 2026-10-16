@@ -32,6 +32,8 @@ interface Props {
   onOpenEvent: (e: CalendarEvent) => void
   /** 勾选完成 / 取消完成（合并事件的全部成员由调用方统一处理） */
   onToggleComplete: (e: CalendarEvent) => void
+  /** 删除某条安排（详情弹窗内已二次确认；合并事件的全部成员由调用方统一处理） */
+  onDeleteEvent: (e: CalendarEvent) => void
   /** 点日历格空白处 → 新增该日安排（弹窗由调用方挂载） */
   onOpenAdd: (key: string) => void
 }
@@ -49,6 +51,7 @@ export function CalendarPanel({
   onSelectDay,
   onOpenEvent,
   onToggleComplete,
+  onDeleteEvent,
   onOpenAdd,
 }: Props) {
   const [selected, setSelected] = useState(today)
@@ -146,8 +149,18 @@ export function CalendarPanel({
         )}
       </div>
 
-      {/* 事件详情弹窗 */}
-      <EventDetailDialog event={detail} onClose={() => setDetail(null)} onOpenCase={onOpenEvent} onToggleComplete={onToggleComplete} />
+      {/* 事件详情弹窗。删除：先关弹窗再下发（乐观移除 + 失败回滚由 hook 负责），
+          不等网络——弹窗停留会让已消失的事件看起来还"开着" */}
+      <EventDetailDialog
+        event={detail}
+        onClose={() => setDetail(null)}
+        onOpenCase={onOpenEvent}
+        onToggleComplete={onToggleComplete}
+        onDelete={(e) => {
+          setDetail(null)
+          onDeleteEvent(e)
+        }}
+      />
 
       {/* 图例 */}
       <div className="flex gap-[18px] px-4 pb-[13px] text-[10.5px] text-muted-foreground">

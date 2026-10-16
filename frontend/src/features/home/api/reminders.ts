@@ -41,6 +41,19 @@ export async function setRemindersCompleted(reminderIds: number[], isCompleted: 
   return res.updated
 }
 
+/**
+ * 批量删除（生成物 ReminderDeleteOut = 实际删除条数）。
+ * 与 complete 同理：合并事件的全部 member_ids 一起传（eventReminderIds），一次请求原子完成。
+ * 后端只放行创建人与管理员——任一条不是自己建的整批 403；
+ * 前端据事件的 can_delete 显隐入口，正常不会撞到。
+ */
+export async function deleteReminders(reminderIds: number[]): Promise<number> {
+  const res = await remindersApi
+    .post('delete', { json: { reminder_ids: reminderIds } })
+    .json<components['schemas']['ReminderDeleteOut']>()
+  return res.deleted
+}
+
 /** 日历 query key 工厂：跨文件 invalidate / 订阅都从这里取，避免裸字符串漂移 */
 export const calendarKeys = {
   all: ['home-calendar'] as const,

@@ -25,6 +25,7 @@ function ev(p: Partial<CalendarEvent> = {}): CalendarEvent {
     is_completed: false,
     members: 1,
     member_ids: [1],
+    can_delete: false,
     ...p,
   }
 }

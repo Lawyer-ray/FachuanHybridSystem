@@ -92,6 +92,9 @@ class CalendarEventItem:
     members: int = 1
     #: 合并前各 reminder 的 id（点详情时用）
     member_ids: list[int] = field(default_factory=list)
+    #: 当前查询用户能否删除（合并事件 = 全部成员都可删）。由 calendar_month_service
+    #: 按 AccessContext 标记；admin 内部调用不标记，保持 False
+    can_delete: bool = False
     #: admin 用的编辑链接，由调用方按需填
     url: str = ""
 
