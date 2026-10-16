@@ -19,7 +19,10 @@ from django.core.management import call_command
 from apps.documents.models import DocumentTemplate, DocumentTemplateFolderBinding, FolderSlot, FolderTemplate
 from apps.documents.models.choices import DocumentCaseFileSubType, DocumentTemplateType
 from apps.documents.services.generation.folder_generation_service import FolderGenerationService
-from apps.documents.services.template.folder_template.admin_service import FolderTemplateAdminService
+from apps.documents.services.template.folder_template.admin_service import (
+    FolderTemplateAdminService,
+    validate_slot_kinds,
+)
 from apps.documents.services.template.slot_resolution_service import RESOLVED_BY_SLOT, SlotResolutionService
 
 
@@ -386,20 +389,18 @@ class TestValidateSlotKinds:
 
     def test_valid_kind_passes(self, db: Any) -> None:
         self._make_world(db)
-        svc = FolderTemplateAdminService()
         structure = {"children": [{"name": "3-委托材料", "kind": "power_of_attorney", "children": []}]}
-        assert svc.validate_slot_kinds(structure) == []
+        assert validate_slot_kinds(structure) == []
 
     def test_unknown_kind_reported_with_node_name(self, db: Any) -> None:
         self._make_world(db)
-        svc = FolderTemplateAdminService()
         structure = {
             "children": [
                 {"name": "3-委托材料", "kind": "power_of_attorney", "children": []},
                 {"name": "X-错别字节点", "kind": "power_of_atterney", "children": []},
             ]
         }
-        bad = svc.validate_slot_kinds(structure)
+        bad = validate_slot_kinds(structure)
         assert bad == ["X-错别字节点 → power_of_atterney"]
 
     def test_structure_preview_renders_kind_badge(self, db: Any) -> None:

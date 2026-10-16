@@ -397,9 +397,14 @@ class TestManualSession:
     @pytest.mark.asyncio
     async def test_wait_user_closed_returns_when_no_pages_remain(self) -> None:
         """页面已全部关闭（注册前就关尽）时立即返回，不挂死。"""
+        import time
+
         session = _make_manual_handle(connected=True, fire_events_on_register=False)
         session.context.pages = []
-        await asyncio.wait_for(session.wait_user_closed(), timeout=1)
+        started = time.monotonic()
+        result = await asyncio.wait_for(session.wait_user_closed(), timeout=1)
+        assert result is None
+        assert time.monotonic() - started < 1  # 立即返回，而非等到超时
 
 
 class TestAntiDetection:

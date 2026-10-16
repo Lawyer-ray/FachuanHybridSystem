@@ -27,7 +27,7 @@ logger = logging.getLogger("apps.automation")
 
 # Django 6.1 起 format_html_join 的 sep 也过 conditional_escape，HTML 分隔符必须 mark_safe
 # 否则渲染成字面 &lt;br&gt; 文本（列表页案号/当事人换行失效）
-_BR = mark_safe("<br>")
+_BR = mark_safe("<br>")  # nosec B308 - 常量字面量，不含用户数据
 
 
 def _get_case_service() -> Any:

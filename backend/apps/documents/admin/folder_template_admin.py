@@ -156,7 +156,9 @@ class FolderTemplateForm(forms.ModelForm):  # pragma: no cover
             return fixed_structure
 
         # 槽位 kind 合法性：只允许词表内的键（防手写 JSON 打错字静默失效）
-        bad_kinds = admin_service.validate_slot_kinds(structure)
+        from apps.documents.services.template.folder_template.admin_service import validate_slot_kinds
+
+        bad_kinds = validate_slot_kinds(structure)
         if bad_kinds:
             raise forms.ValidationError(
                 "以下节点的槽位标记不在词表中（请到「文件夹槽位」核对或清除）：" + "；".join(bad_kinds)
@@ -428,7 +430,7 @@ class FolderTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
 
         from apps.documents.models import FolderSlot
         from apps.documents.models.choices import FolderSlotCategory
-        from apps.documents.services.template.folder_template.admin_service import FolderTemplateAdminService
+        from apps.documents.services.template.folder_template.admin_service import get_slot_label_map
 
         kinds: list[str] = []
         seen: set[str] = set()
@@ -447,7 +449,7 @@ class FolderTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
         if not kinds:
             return format_html('<span style="color: #999;">—</span>')
 
-        labels = FolderTemplateAdminService._slot_label_map()
+        labels = get_slot_label_map()
         key_to_cat = dict(FolderSlot.objects.values_list("key", "category"))
         cat_counter = Counter(key_to_cat.get(kind, "") for kind in kinds)
 
