@@ -6,6 +6,13 @@ import { nextSegId } from './seg-id'
  */
 
 /** 应用单个 PDF 的云端拆分建议；只替换该源上未人工编辑的完整分段。 */
+
+/** 后端对「未识别」的通用标签不算类型；LLM 的开放命名（借条 / 转账凭证等，
+ *  类型仍为 unrecognized）经 segment_label 透出，照常作为类型胶囊展示。 */
+function suggestedType(item: PdfSplitSegmentSuggestion): string {
+  return item.segment_label === '未识别材料' ? '' : item.segment_label
+}
+
 export function applyAutoSplit(
   d: DraftState,
   mi: number,
@@ -23,7 +30,7 @@ export function applyAutoSplit(
       for (let p = item.page_start; p <= item.page_end; p++) refs.push({ mi, p })
       return {
         id: nextSegId(),
-        t: item.segment_type === 'unrecognized' ? '' : item.segment_label,
+        t: suggestedType(item),
         fn: item.filename.replace(/\.pdf$/i, ''),
         refs,
         manual: false,

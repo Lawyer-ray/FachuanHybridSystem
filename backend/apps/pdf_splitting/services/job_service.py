@@ -242,7 +242,7 @@ class PdfSplitJobService:
             "page_start": segment.page_start,
             "page_end": segment.page_end,
             "segment_type": segment.segment_type,
-            "segment_label": get_segment_label(segment.segment_type),
+            "segment_label": _segment_display_label(segment),
             "filename": segment.filename,
             "confidence": round(float(segment.confidence or 0.0), 3),
             "review_flag": segment.review_flag,
@@ -434,3 +434,15 @@ class PdfSplitJobService:
         if mode in valid_modes:
             return mode
         return PdfSplitMode.CONTENT_ANALYSIS
+
+
+# ↓↓ 由 PdfSplitJobService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _segment_display_label(segment: PdfSplitSegment) -> str:
+    """片段展示名：LLM 的开放命名（借条 / 转账凭证等，超出模板枚举）记在
+    filename 里、类型仍为 unrecognized——这里把文件名（去 .pdf）透出为
+    segment_label，前端把它当类型胶囊展示；规则引擎的未识别段不受影响。"""
+    if segment.segment_type == PdfSplitSegmentType.UNRECOGNIZED and str(segment.source_method or "").startswith("llm"):
+        stem = re.sub(r"\.pdf$", "", segment.filename or "", flags=re.IGNORECASE).strip()
+        if stem and not stem.startswith("未识别材料"):
+            return stem
+    return get_segment_label(segment.segment_type)

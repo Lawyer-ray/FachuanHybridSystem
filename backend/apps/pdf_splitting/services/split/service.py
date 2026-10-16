@@ -40,10 +40,11 @@ class PdfSplitService:
     PROGRESS_UPDATE_EVERY = 5
     CANCEL_CHECK_EVERY = 5
 
-    def __init__(self, *, ocr_service: Any = None) -> None:
+    def __init__(self, *, ocr_service: Any = None, llm_segment_detector: Any = None) -> None:
         self._ocr_service = ocr_service
         self._ocr_handler = OCRHandler()
         self._segment_detector = SegmentDetector()
+        self._llm_segment_detector = llm_segment_detector
         self._export_utils = ExportUtils()
 
     # ==================================================================
@@ -238,7 +239,7 @@ class PdfSplitService:
                     self._update_progress(job_id=job.id, resolved_pages=resolved_pages, total_pages=total_pages)
 
             final_descriptors = [item for item in descriptors if item is not None]
-            drafts = self._segment_detector.detect_segments(final_descriptors, template_key=template.key)
+            drafts, segment_summary = self._detect_segments_with_fallback(final_descriptors, template_key=template.key)
             self._persist_analysis(
                 job=job,
                 descriptors=final_descriptors,
@@ -251,6 +252,7 @@ class PdfSplitService:
                 cloud_cache_profile=cloud_cache_profile,
                 cloud_cache_hit_count=cloud_cache_hit_count,
                 cloud_error=cloud_error if pending_page_numbers and cloud_backend else "",
+                segment_summary=segment_summary,
             )
 
     def export_job(self, job: PdfSplitJob) -> None:  # pragma: no cover
@@ -314,6 +316,31 @@ class PdfSplitService:
     # 内部方法
     # ==================================================================
 
+    def _detect_segments_with_fallback(
+        self, descriptors: list[PageDescriptor], *, template_key: str
+    ) -> tuple[list[SegmentDraft], dict[str, Any]]:
+        """分段检测：律所 LLM（语义分类）优先，任何失败降级关键词规则引擎。
+
+        返回 (drafts, summary 附加字段)。两者输出的 SegmentDraft 结构同构，
+        后续校验（完整覆盖、无重叠）对两条路径一视同仁。
+        """
+        detector = self._llm_segment_detector
+        if detector is None:
+            from .llm_segment_detector import LLMSegmentDetector
+
+            detector = LLMSegmentDetector()
+        try:
+            drafts = detector.detect(descriptors, template_key=template_key)
+            return drafts, {"segment_backend": "llm", "segment_llm_fallback_reason": ""}
+        except Exception as exc:
+            reason = f"{type(exc).__name__}: {str(exc)[:200]}"
+            logger.warning(
+                "pdf_split_llm_segment_fallback",
+                extra={"action": "llm_segment_fallback", "reason": reason},
+            )
+            drafts = self._segment_detector.detect_segments(descriptors, template_key=template_key)
+            return drafts, {"segment_backend": "rule", "segment_llm_fallback_reason": reason}
+
     def _build_descriptor(
         self,
         *,
@@ -374,6 +401,7 @@ class PdfSplitService:
         cloud_cache_profile: str,
         cloud_cache_hit_count: int,
         cloud_error: str,
+        segment_summary: dict[str, Any] | None = None,
     ) -> None:  # pragma: no cover
         storage.write_json(storage.pages_json_path, [asdict(item) for item in descriptors])
         storage.write_json(storage.segments_json_path, [asdict(item) for item in drafts])
@@ -416,6 +444,7 @@ class PdfSplitService:
                 "ocr_cloud_cache_profile": cloud_cache_profile if cloud_backend else "",
                 "ocr_cloud_cache_hit_count": int(max(cloud_cache_hit_count, 0)),
                 "ocr_fallback_reason": cloud_error,
+                **(segment_summary or {}),
                 "segment_count": len(drafts),
                 "recognized_count": len(
                     [item for item in drafts if item.segment_type != PdfSplitSegmentType.UNRECOGNIZED]

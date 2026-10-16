@@ -7,7 +7,8 @@
 - 三种拆分模式：`content_analysis`（内容识别）、`page_split`（每页一片、分析后自动导出）、`manual_split`（跳过后台分析直接进入待复核）
 - OCR 三档（fast / balanced / accurate，不同 DPI、模型与并发），本地并行 OCR + 按 PDF SHA-256 的页面级缓存
 - 云端解析优先：经 `ParserFactory` 选择 mineru / textin 后端整本解析，失败自动降级本地 OCR，降级原因写入 summary
-- 基于片段模板（`filing_materials_v1` 立案材料，15 种片段类型）做强/弱/负向/续页关键词评分 + Levenshtein 模糊匹配 + 版面标题辅助命名
+- **分段检测 LLM 优先**：逐页取字摘要（标题行 + 开头 200 字）交给律所 LLM（`LLMProvider`，经 `get_llm_service()`）做语义分段，模板 15 类作为建议标签集、超出枚举的材料由模型自由命名（落在 filename，API 经 `segment_label` 透出）；LLM 不可用 / 输出非法时自动降级关键词规则引擎，后端与降级原因写入 summary（`segment_backend` / `segment_llm_fallback_reason`）
+- 基于片段模板（`filing_materials_v1` 立案材料，15 种片段类型）做强/弱/负向/续页关键词评分 + Levenshtein 模糊匹配 + 版面标题辅助命名（现为 LLM 不可用时的兜底路径）
 - 起诉状结尾探测（终止词 + 附件信号）、跨页续页上下文推理、相邻主体信息段合并、未识别区间 gap 自动补片
 - 复核确认端点会重排片段、查重叠、自动补 gap，然后异步导出 ZIP
 - 支持上传文件或服务器本地绝对路径两种来源（拒绝 `smb://`）；上限 150MB / 300 页
@@ -27,7 +28,8 @@ pdf_splitting/
 │   └── split/
 │       ├── service.py            # PdfSplitService facade：analyze/export/render
 │       ├── ocr_handler.py        # 档位解析、并行 OCR、云后端选择、SHA-256 页缓存
-│       ├── segment_detector.py   # 评分/检测/推理/合并/gap 填充
+│       ├── llm_segment_detector.py # LLM 语义分段：prompt 构造 / JSON 解析 / 钳位去重叠 gap 补片
+│       ├── segment_detector.py   # 评分/检测/推理/合并/gap 填充（规则引擎，LLM 降级兜底）
 │       ├── export_utils.py       # 片段 PDF 导出 + 文件名去重
 │       └── split_models.py       # PageDescriptor/SegmentDraft/OCRRuntimeProfile
 ├── tasks.py                      # execute_pdf_split_job / export_pdf_split_job
@@ -68,6 +70,7 @@ pdf_splitting/
 ## 外部集成
 
 - 云端解析：`apps.document_parsing`（mineru / textin，经 ParserFactory）
+- 分段 LLM：`apps.core.llm`（律所 LLMProvider，经 `services/wiring.get_llm_service()`；JSON 解析复用 `core/llm/structured_output`）
 - 本地 OCR：`apps.automation.services.ocr.ocr_service.OCRService`
 - PyMuPDF（页面渲染与片段切割）
 
