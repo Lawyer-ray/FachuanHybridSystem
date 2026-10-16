@@ -191,8 +191,23 @@ export function Reader() {
         onComplete={onComplete}
       />
 
-      {/* 取字 / 选页 顶部提示横条（原型 .pickhint：琥珀底 + Esc） */}
-      {(pickInfo >= 0 || selMode) && <HintBar mode={pickInfo >= 0 ? 'pick' : 'sel'} field={pickField} />}
+      {/* 取字 / 选页 顶部提示横条（原型 .pickhint：琥珀底 + Esc）。退出按钮与 Esc 同口径
+          （use-reader-keys）：取字态清掉待确认 OCR 与取字目标；选页态清选区并退出模式 */}
+      {(pickInfo >= 0 || selMode) && (
+        <HintBar
+          mode={pickInfo >= 0 ? 'pick' : 'sel'}
+          field={pickField}
+          onExit={() => {
+            if (pickInfo >= 0) {
+              st.setOcrPending(null)
+              st.setPickInfo(-1)
+              return
+            }
+            st.clearSel()
+            st.toggleSelMode()
+          }}
+        />
+      )}
 
       {/* 三栏主体 */}
       <div className="relative flex min-h-0 flex-1 bg-[#f1f1f3]">
@@ -257,8 +272,8 @@ export function Reader() {
         />
       )}
 
-      {/* 底栏：键位提示 + 进度 */}
-      <KeyHintsBar allClassified={allClassified} unclassified={unclassified} />
+      {/* 底栏：键位提示 + 进度（手机上还承载「完成拆分与归类」主按钮） */}
+      <KeyHintsBar allClassified={allClassified} unclassified={unclassified} onComplete={onComplete} />
 
       {/* 追加材料文件选择 */}
       <input

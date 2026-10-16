@@ -133,7 +133,9 @@ export const PageCell = memo(function PageCell({
         onContextMenu?.(e, mi, p)
       }}
       className={cn(
-        'relative select-text rounded-[7px] border bg-card text-[12.5px] leading-[1.9] text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.05),0_10px_26px_rgba(0,0,0,0.04)] transition-opacity',
+        // w-full：撑满外层列宽（--mp-cw）。页卡自身不定宽时，骨架屏阶段会在
+        // items-center 容器里被内容宽收缩成一条窄卡（手机上整页只剩中间一小条）
+        'relative w-full select-text rounded-[7px] border bg-card text-[12.5px] leading-[1.9] text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.05),0_10px_26px_rgba(0,0,0,0.04)] transition-opacity',
         pickActive ? 'cursor-crosshair select-none' : selModeActive ? 'cursor-pointer' : 'cursor-default',
         selected && 'border-zinc-800 ring-2 ring-zinc-800/80',
         selModeActive && !selected && 'opacity-35',

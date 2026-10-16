@@ -66,7 +66,8 @@ export function Rail({
                 title="改源文件名字"
                 aria-label="改源文件名字"
                 onClick={() => onRenameMat(mi)}
-                className="grid h-5 w-5 flex-none place-items-center rounded text-zinc-300 opacity-0 transition group-hover:opacity-100 hover:bg-card hover:text-foreground"
+                // 触屏没有 hover，靠 hover 显形的铅笔永远点不到——无 hover 能力的设备常显
+                className="grid h-5 w-5 flex-none place-items-center rounded text-zinc-300 opacity-0 transition group-hover:opacity-100 hover:bg-card hover:text-foreground [@media(hover:none)]:opacity-100"
               >
                 <PencilLine className="h-3.5 w-3.5" />
               </button>

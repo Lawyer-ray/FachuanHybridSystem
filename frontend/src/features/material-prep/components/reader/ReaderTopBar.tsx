@@ -22,15 +22,17 @@ export function ReaderTopBar({
   onRename: () => void
 }) {
   return (
-    <div className="flex h-[54px] flex-none items-center gap-3 border-b border-border bg-card px-4">
+    <div className="flex h-[54px] flex-none items-center gap-3 border-b border-border bg-card px-4 max-[760px]:gap-2 max-[760px]:px-2.5">
+      {/* 手机只留箭头：「材料预处理」四个字占掉标题的地盘，标题本身更要紧 */}
       <button
         type="button"
         onClick={onBack}
         className="flex h-8 flex-none items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-secondary-foreground hover:bg-secondary"
         title="返回列表 (Esc)"
+        aria-label="返回材料预处理列表"
       >
         <ArrowLeft className="h-4 w-4" />
-        材料预处理
+        <span className="max-[760px]:hidden">材料预处理</span>
       </button>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
@@ -47,7 +49,7 @@ export function ReaderTopBar({
         </div>
         <div className="truncate text-[11px] text-muted-foreground">{subtitle}</div>
       </div>
-      <div className="ml-auto flex flex-none items-center gap-2">
+      <div className="ml-auto flex flex-none items-center gap-2 max-[760px]:gap-1">
         <button
           type="button"
           onClick={onReject}
