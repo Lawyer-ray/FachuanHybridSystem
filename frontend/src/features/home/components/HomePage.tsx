@@ -9,8 +9,6 @@ import { eventReminderIds, formatCN, formatWeekdayCN, parseKey, todayKey } from 
 import { useCompleteReminder } from '../hooks/use-complete-reminder'
 import { CalendarPanel, type CalendarView } from './CalendarPanel'
 import { ToolDock } from './ToolDock'
-import { AppNavbar } from '@/components/shared/AppNavbar'
-import { PageFade } from '@/components/shared/PageFade'
 import { useMediaQuery } from '@/hooks/use-media'
 import { useToday } from '@/hooks/use-today'
 import { errMessage } from '@/lib/errors'
@@ -105,8 +103,6 @@ export function HomePage() {
     [today],
   )
 
-  const notify = useCallback((msg: string) => toast.info(msg), [])
-
   /* 日历点某天：桌面端只高亮，手机端开抽屉 */
   const handleSelectDay = useCallback((key: string) => {
     if (isMobile) setSheetDay(key)
@@ -157,94 +153,90 @@ export function HomePage() {
   }, [today])
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppNavbar onNotify={notify} />
-
-      {/* 内容区包一层入场过渡：navbar 不变，只有下面这部分播动画 */}
-      <PageFade>
-        <main className="mx-auto max-w-[1920px] px-[32px] pt-[26px] pb-20 max-[760px]:px-[14px] max-[760px]:pt-[18px]">
-          {/* 问候 + 快速记一笔 */}
-          <div className="mb-5 flex flex-wrap items-end gap-[18px]">
-            <div className="min-w-0">
-              <h1 className="text-[26px] leading-[1.2] font-bold tracking-[-0.025em] max-[760px]:text-[21px]">
-                {formatCN(parseKey(today))}{' '}
-                <span className="text-[19px] font-normal text-secondary-foreground max-[760px]:text-[17px]">
-                  {formatWeekdayCN(parseKey(today))}
-                </span>
-              </h1>
-              <div className="mt-[3px] text-[12.5px] text-secondary-foreground">
-                {todayQuery.isError ? (
-                  /* 统计拉不到就不给全 0 假象：一行小标 + 重试出口（详见今日卡错误行） */
-                  <span className="text-destructive">
-                    今日统计加载失败
-                    <button
-                      type="button"
-                      className="ml-1.5 cursor-pointer underline underline-offset-3"
-                      onClick={() => void todayQuery.refetch()}
-                    >
-                      重试
-                    </button>
-                  </span>
-                ) : (
-                  <>
-                    今天 <b className="font-semibold text-status-red">{stats.today}</b> 件事 ·{' '}
-                    <b className="font-semibold text-status-red">{stats.deadline_in_7days}</b> 件紧要事项 7 日内到期 ·
-                    本月还有 <b className="font-semibold">{stats.month_court}</b> 个庭期
-                  </>
-                )}
-              </div>
-            </div>
-            <QuickAdd onAdded={invalidateCalendar} />
-          </div>
-
-          <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-            {/* 左：日历 + 工具 */}
-            <div className="min-w-0">
-              {viewQuery.isError ? (
-                /* 视图月拉取失败：整块日历换错误条（占位旧数据/空格子都会被误读成「没安排」） */
-                <div className="rounded-[14px] border border-destructive/30 bg-destructive/5 px-5 py-[90px] text-center text-sm text-destructive">
-                  {errMessage(viewQuery.error, '日历加载失败')}
+    <>
+      {/* 导航栏由 AppShell 常驻；入场过渡挂在 main 上，换页重挂才播一次 */}
+      <main className="app-page-enter mx-auto max-w-[1920px] px-[32px] pt-[26px] pb-20 max-[760px]:px-[14px] max-[760px]:pt-[18px]">
+        {/* 问候 + 快速记一笔 */}
+        <div className="mb-5 flex flex-wrap items-end gap-[18px]">
+          <div className="min-w-0">
+            <h1 className="text-[26px] leading-[1.2] font-bold tracking-[-0.025em] max-[760px]:text-[21px]">
+              {formatCN(parseKey(today))}{' '}
+              <span className="text-[19px] font-normal text-secondary-foreground max-[760px]:text-[17px]">
+                {formatWeekdayCN(parseKey(today))}
+              </span>
+            </h1>
+            <div className="mt-[3px] text-[12.5px] text-secondary-foreground">
+              {todayQuery.isError ? (
+                /* 统计拉不到就不给全 0 假象：一行小标 + 重试出口（详见今日卡错误行） */
+                <span className="text-destructive">
+                  今日统计加载失败
                   <button
                     type="button"
-                    className="ml-3 cursor-pointer underline underline-offset-3"
-                    onClick={() => void viewQuery.refetch()}
+                    className="ml-1.5 cursor-pointer underline underline-offset-3"
+                    onClick={() => void todayQuery.refetch()}
                   >
                     重试
                   </button>
-                </div>
+                </span>
               ) : (
-                <CalendarPanel
-                  today={today}
-                  view={view}
-                  onShiftMonth={shiftMonth}
-                  onGoToday={goToday}
-                  eventsByDay={viewEventsByDay}
-                  stats={stats}
-                  loading={viewQuery.isLoading}
-                  onSelectDay={handleSelectDay}
-                  onOpenEvent={handleOpenEvent}
-                  onOpenAdd={openAddDialog}
-                  onToggleComplete={handleToggleComplete}
-                />
+                <>
+                  今天 <b className="font-semibold text-status-red">{stats.today}</b> 件事 ·{' '}
+                  <b className="font-semibold text-status-red">{stats.deadline_in_7days}</b> 件紧要事项 7 日内到期 ·
+                  本月还有 <b className="font-semibold">{stats.month_court}</b> 个庭期
+                </>
               )}
-              <ToolDock />
-            </div>
-
-            {/* 右：今日 + 待处理 */}
-            <div className="flex min-w-0 flex-col gap-5">
-              <TodayCard
-                events={todayEvents}
-                loading={todayQuery.isLoading}
-                error={todayQuery.isError ? errMessage(todayQuery.error, '今日安排加载失败') : null}
-                onRetry={() => void todayQuery.refetch()}
-                onOpenEvent={handleOpenEvent}
-                onToggleComplete={handleToggleComplete}
-              />
-              <InboxCard onOpen={handleInboxOpen} />
             </div>
           </div>
-        </main>
-      </PageFade>
+          <QuickAdd onAdded={invalidateCalendar} />
+        </div>
+
+        <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+          {/* 左：日历 + 工具 */}
+          <div className="min-w-0">
+            {viewQuery.isError ? (
+              /* 视图月拉取失败：整块日历换错误条（占位旧数据/空格子都会被误读成「没安排」） */
+              <div className="rounded-[14px] border border-destructive/30 bg-destructive/5 px-5 py-[90px] text-center text-sm text-destructive">
+                {errMessage(viewQuery.error, '日历加载失败')}
+                <button
+                  type="button"
+                  className="ml-3 cursor-pointer underline underline-offset-3"
+                  onClick={() => void viewQuery.refetch()}
+                >
+                  重试
+                </button>
+              </div>
+            ) : (
+              <CalendarPanel
+                today={today}
+                view={view}
+                onShiftMonth={shiftMonth}
+                onGoToday={goToday}
+                eventsByDay={viewEventsByDay}
+                stats={stats}
+                loading={viewQuery.isLoading}
+                onSelectDay={handleSelectDay}
+                onOpenEvent={handleOpenEvent}
+                onOpenAdd={openAddDialog}
+                onToggleComplete={handleToggleComplete}
+              />
+            )}
+            <ToolDock />
+          </div>
+
+          {/* 右：今日 + 待处理 */}
+          <div className="flex min-w-0 flex-col gap-5">
+            <TodayCard
+              events={todayEvents}
+              loading={todayQuery.isLoading}
+              error={todayQuery.isError ? errMessage(todayQuery.error, '今日安排加载失败') : null}
+              onRetry={() => void todayQuery.refetch()}
+              onOpenEvent={handleOpenEvent}
+              onToggleComplete={handleToggleComplete}
+            />
+            <InboxCard onOpen={handleInboxOpen} />
+          </div>
+        </div>
+      </main>
 
       {/* 手机端当日安排抽屉 */}
       <DaySheet
@@ -264,6 +256,6 @@ export function HomePage() {
         onClose={() => setAdding(null)}
         onSaved={invalidateCalendar}
       />
-    </div>
+    </>
   )
 }

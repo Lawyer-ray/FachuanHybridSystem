@@ -2,8 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { AppNavbar } from '@/components/shared/AppNavbar'
-import { PageFade } from '@/components/shared/PageFade'
 import { useMaterialPacks, useCreatePack, useJudgePack, useDeletePack } from '../hooks/use-inbox'
 import { useReader } from '../store'
 import { PACK_LEAVE_REMOVAL_MS } from '../constants'
@@ -161,8 +159,10 @@ export function DeskPage() {
   }, [deleteTarget, deletePack])
 
   return (
+    // 最小高度撑满导航栏以下的整个视口（--app-navbar-h 与 AppNavbar 同源）：
+    // 列表再短，把文件拖到下方空白处也能命中拖放层
     <div
-      className="relative min-h-screen bg-background"
+      className="relative min-h-[calc(100dvh-var(--app-navbar-h))]"
       onDragEnter={(e) => {
         if (!e.dataTransfer.types.includes('Files')) return
         dragDepth.current += 1
@@ -186,50 +186,45 @@ export function DeskPage() {
         void handleFiles(e.dataTransfer.files)
       }}
     >
-      {/* 顶部导航：与首页共用同一套（components/shared/AppNavbar） */}
-      {/* 退出登录由 AppNavbar 内部统一处理（含确认弹窗与跳转），这里只接提示 */}
-      <AppNavbar onNotify={(m) => toast.info(m)} />
+      {/* 导航栏由 AppShell 常驻；入场过渡挂在 main 上——换页才重挂播一次，
+          列表 ↔ 详情（/material-prep/:id）同一实例不重播，阅读器淡入不被叠加 */}
+      <main className="app-page-enter relative px-7 pb-24 pt-6">
+        <DeskTabs
+          tab={tab}
+          setTab={(t) => {
+            setTab(t)
+            setSel(0)
+          }}
+          counts={counts}
+          uploading={uploading}
+          onPickFiles={onPickFiles}
+        />
 
-      {/* 内容区包一层入场过渡：navbar 不变，只有下面这部分播动画 */}
-      <PageFade>
-        <main className="relative px-7 pb-24 pt-6">
-          <DeskTabs
+        {isLoading ? (
+          <div className="flex items-center gap-2 py-20 text-sm text-secondary-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> 加载材料包…
+          </div>
+        ) : error ? (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-6 text-sm text-destructive">
+            无法加载材料包：{error instanceof Error ? error.message : '未知错误'}
+          </div>
+        ) : (
+          <PackGrid
+            gridRef={gridRef}
+            wrapRef={wrapRef}
+            ringRef={ringRef}
+            packs={visible}
             tab={tab}
-            setTab={(t) => {
-              setTab(t)
-              setSel(0)
-            }}
-            counts={counts}
-            uploading={uploading}
+            leaving={leaving}
+            onOpen={openAt}
+            onReject={rejectPack}
+            onAccept={setAssigning}
+            onRename={setRenameTarget}
+            onDelete={setDeleteTarget}
             onPickFiles={onPickFiles}
           />
-
-          {isLoading ? (
-            <div className="flex items-center gap-2 py-20 text-sm text-secondary-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> 加载材料包…
-            </div>
-          ) : error ? (
-            <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-6 text-sm text-destructive">
-              无法加载材料包：{error instanceof Error ? error.message : '未知错误'}
-            </div>
-          ) : (
-            <PackGrid
-              gridRef={gridRef}
-              wrapRef={wrapRef}
-              ringRef={ringRef}
-              packs={visible}
-              tab={tab}
-              leaving={leaving}
-              onOpen={openAt}
-              onReject={rejectPack}
-              onAccept={setAssigning}
-              onRename={setRenameTarget}
-              onDelete={setDeleteTarget}
-              onPickFiles={onPickFiles}
-            />
-          )}
-        </main>
-      </PageFade>
+        )}
+      </main>
 
       <DeskDropLayer dragging={dragging} fileInputRef={fileInputRef} onFiles={(fs) => { void handleFiles(fs) }} />
 

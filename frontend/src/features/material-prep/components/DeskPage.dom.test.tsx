@@ -3,7 +3,8 @@
  * DeskPage（材料预处理工作台）组件渲染单测（jsdom + 真实 timers）。
  *
  * mock 边界：../api（use-inbox 消费的五个接口）、../store（useReader 桩，
- * open/openId 可控）、AppNavbar（子组件桩）、./reader/Reader（重阅读器桩）。
+ * open/openId 可控）、./reader/Reader（重阅读器桩）。导航栏由 AppShell 常驻，
+ * 页面本身不再渲染。
  * 覆盖：加载/错误态、页签计数与切换过滤、包卡片渲染、上传入口（新建材料包 →
  * 隐藏 input click → uploadPack）、卡片打开的路由跳转（navigate /material-prep/:id）、
  * 「不接」判案下推 setPackStatusRemote 与离场后卡片移除。
@@ -36,9 +37,6 @@ vi.mock('../store', () => ({
   ),
 }))
 
-vi.mock('@/components/shared/AppNavbar', () => ({
-  AppNavbar: () => <nav>navbar-stub</nav>,
-}))
 vi.mock('./reader/Reader', () => ({
   Reader: () => <div>reader-stub</div>,
 }))

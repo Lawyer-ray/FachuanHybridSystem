@@ -2,7 +2,7 @@
 /**
  * WorkbenchPage（办案主页）组件渲染单测（jsdom + 真实 timers）。
  *
- * mock 边界：../api 三个接口 + 顶部导航 AppNavbar（子组件桩）。
+ * mock 边界：../api 三个接口。导航栏由 AppShell 常驻，页面本身不再渲染。
  * 覆盖：加载/错误态、类型分组渲染与摘要、FilterBar 搜索防抖下推与筛选面板交互、
  * 两种空态分支（真空库 / 筛选后为空 → 清除筛选出口，最近修复的死分支回归）、
  * 分页按钮状态与翻页下推、错误重试。
@@ -16,9 +16,6 @@ vi.mock('../api', () => ({
   listContractsPage: vi.fn(),
   listLawyers: vi.fn(),
   listCasesByContract: vi.fn(),
-}))
-vi.mock('@/components/shared/AppNavbar', () => ({
-  AppNavbar: () => <nav>navbar-stub</nav>,
 }))
 
 import { listContractsPage, listLawyers } from '../api'

@@ -11,7 +11,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'filed', label: '不接归档' },
 ]
 
-/** 页签栏（含各状态计数角标）+ 快捷键提示 + 右上「新建材料包」按钮。 */
+/** 页签栏（含各状态计数角标）+ 右上「新建材料包」按钮。 */
 export function DeskTabs({
   tab,
   setTab,
@@ -49,13 +49,7 @@ export function DeskTabs({
           ))}
         </div>
         <span className="mx-2 hidden h-[18px] w-px bg-zinc-300 sm:block" />
-        <div className="hidden items-center gap-2 text-[11.5px] text-muted-foreground sm:flex">
-          <kbd className="rounded border border-border bg-card px-1 py-0.5 font-sans">↑↓←→</kbd> 选择
-          <kbd className="rounded border border-border bg-card px-1 py-0.5 font-sans">空格</kbd> 打开
-          <kbd className="rounded border border-border bg-card px-1 py-0.5 font-sans">X</kbd> 不接
-          <span className="text-zinc-300">|</span>
-          全部材料都靠手划，机器不猜
-        </div>
+        <span className="hidden text-[11.5px] text-muted-foreground sm:inline">全部材料都靠手划，机器不猜</span>
       </div>
       <div className="ml-auto">
         <Button onClick={onPickFiles} disabled={uploading} size="sm">
