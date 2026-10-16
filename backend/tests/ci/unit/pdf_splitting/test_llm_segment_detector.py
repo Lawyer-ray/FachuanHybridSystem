@@ -201,6 +201,18 @@ class TestDetectorDetect:
         with pytest.raises(RuntimeError, match="gateway down"):
             LLMSegmentDetector(llm_service=_Boom()).detect([_page(1, "x")], template_key=TEMPLATE_KEY)
 
+    def test_硬时限墙_挂死的调用按超时抛错(self) -> None:
+        import time
+
+        class _Hang:
+            def chat(self, *args: Any, **kwargs: Any) -> Any:
+                time.sleep(5)
+                return self
+
+        detector = LLMSegmentDetector(llm_service=_Hang(), wall_timeout_seconds=0.2)
+        with pytest.raises(Exception, match="超时"):
+            detector.detect([_page(1, "x")], template_key=TEMPLATE_KEY)
+
 
 class TestServiceFallback:
     def test_llm失败降级规则引擎并记录原因(self) -> None:

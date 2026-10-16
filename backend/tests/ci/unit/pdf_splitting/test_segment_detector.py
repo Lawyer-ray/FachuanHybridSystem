@@ -366,3 +366,17 @@ class TestSegmentDetectorMergeAdjacent:
         result = self.detector._merge_adjacent_pack_segments(segments)
         assert len(result) == 1
         assert result[0].review_flag == "low_confidence"
+
+
+class TestSuggestFilename:
+    def test_空版面标题回退类型默认名_不是file(self) -> None:
+        from apps.pdf_splitting.services.split.segment_detector import _suggest_filename
+
+        assert _suggest_filename({"segment_type": "complaint", "layout_title": ""}) == "起诉状.pdf"
+        assert _suggest_filename({"segment_type": "loan_disbursement_record"}) == "放款凭证.pdf"
+        assert _suggest_filename({"segment_type": "evidence_list", "layout_title": "   "}) == "证据清单及明细.pdf"
+
+    def test_有版面标题用标题(self) -> None:
+        from apps.pdf_splitting.services.split.segment_detector import _suggest_filename
+
+        assert _suggest_filename({"segment_type": "complaint", "layout_title": "民事起诉状"}) == "民事起诉状.pdf"

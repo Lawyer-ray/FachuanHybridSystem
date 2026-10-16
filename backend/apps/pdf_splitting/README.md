@@ -27,12 +27,14 @@ pdf_splitting/
 │   ├── template_registry.py      # 片段模板定义（filing_materials_v1）
 │   ├── storage.py                # PdfSplitStorage（jobs/{id}/...）
 │   └── split/
-│       ├── service.py            # PdfSplitService facade：analyze/export/render
+│       ├── service.py            # PdfSplitService facade：analyze/export/render（任务态 + 持久化适配）
+│       ├── pipeline.py           # ★ 无任务耦合的内容分析流水线：analyze_pdf() 门面 + PageTextExtractor 取字编排
 │       ├── ocr_handler.py        # 档位解析、并行 OCR、云后端选择、SHA-256 页缓存
 │       ├── llm_segment_detector.py # LLM 语义分段：prompt 构造 / JSON 解析 / 钳位去重叠 gap 补片
 │       ├── segment_detector.py   # 评分/检测/推理/合并/gap 填充（规则引擎，LLM 降级兜底）
+│       ├── markdown_builder.py   # 每段 Markdown 重建（版面块优先，纯文本兜底）
 │       ├── export_utils.py       # 片段 PDF 导出 + 文件名去重
-│       └── split_models.py       # PageDescriptor/SegmentDraft/OCRRuntimeProfile
+│       └── split_models.py       # PageDescriptor/SegmentDraft/OCRRuntimeProfile + 版面标题提取
 ├── tasks.py                      # execute_pdf_split_job / export_pdf_split_job
 ├── signals.py                    # post_delete 清理任务目录
 └── templates/admin/pdf_splitting/  # workbench / change_form / pdf_preview（PDF.js 预览页）
@@ -67,6 +69,32 @@ pdf_splitting/
 - `execute_pdf_split_job`：分析与片段识别主流程；`export_pdf_split_job`：确认后导出 ZIP
 - `signals.post_delete(PdfSplitJob)`：清理任务目录
 - 取消检查与进度每 5 页更新一次
+
+## 复用（其他域直接调）
+
+「MinerU/TextIn 取字 + 律所 AI 分段 + Markdown 重建」整段能力不绑定任务与 DB，
+入口在 `services/split/pipeline.py`：
+
+```python
+from apps.pdf_splitting.services.split.pipeline import analyze_pdf, PipelineCancelled
+
+outcome = analyze_pdf(
+    pdf_path,
+    template_key="filing_materials_v1",   # 建议标签集（模板可换）
+    ocr_profile="balanced",
+    on_progress=lambda done, total: ...,  # 可选进度回调
+    is_cancelled=lambda: False,           # 可选取消查询；True 时抛 PipelineCancelled
+)
+outcome.pages        # list[PageDescriptor]：逐页文本 / 版面块 / 标题
+outcome.drafts       # list[SegmentDraft]：分段（起止页 / 类型 / 命名 / 置信度 / llm|rule 来源）
+outcome.segments_md  # list[dict]：每段 Markdown
+outcome.summary      # 可观测字段（ocr_provider / segment_backend / 降级原因…）
+```
+
+组件也可单独复用：`PageTextExtractor`（只取字）、`detect_segments_with_fallback`
+（只分段）、`markdown_builder`（只重建 md）、`llm_segment_detector.parse_llm_segments`
+（只解析校验 LLM 输出）。`PdfSplitService.analyze_job` 本身就是这层流水线的
+任务态适配（进度 / 取消回调 + 落库落盘），不要绕过它写第二套编排。
 
 ## 外部集成
 

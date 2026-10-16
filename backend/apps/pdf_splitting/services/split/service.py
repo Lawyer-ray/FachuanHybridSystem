@@ -24,12 +24,11 @@ from apps.pdf_splitting.models import (
     PdfSplitSegmentType,
 )
 from apps.pdf_splitting.services.storage import PdfSplitStorage
-from apps.pdf_splitting.services.template_registry import get_default_filename, get_template_definition
+from apps.pdf_splitting.services.template_registry import get_default_filename
 
 from .export_utils import ExportUtils, deduplicate_filename, export_segment_pdf
-from .llm_segment_detector import LLMSegmentDetector
-from .markdown_builder import build_segments_markdown
 from .ocr_handler import OCRHandler
+from .pipeline import PipelineCancelled, analyze_pdf, build_page_descriptor, detect_segments_with_fallback
 from .segment_detector import SegmentDetector
 from .split_models import PageDescriptor, SegmentDraft
 
@@ -54,6 +53,7 @@ class PdfSplitService:
     # ==================================================================
 
     def analyze_job(self, job: PdfSplitJob) -> None:  # pragma: no cover
+        """内容分析任务的执行入口：编排交给 split.pipeline.analyze_pdf，这里只做任务态与持久化。"""
         storage = PdfSplitStorage(job.id)
         storage.ensure_dirs()
 
@@ -85,177 +85,30 @@ class PdfSplitService:
             )
             return
 
-        runtime_profile = self._ocr_handler.resolve_runtime_profile(job.ocr_profile)
-        cloud_backend = self._ocr_handler.resolve_cloud_backend()
-        cloud_cache_profile = f"{runtime_profile.key}_{cloud_backend}_v1" if cloud_backend else runtime_profile.key
-        pdf_hash = self._ocr_handler.sha256_file(storage.source_pdf_path)
-        resolved_pages = 0
-        cache_hit_count = 0
-        cloud_cache_hit_count = 0
+        def on_progress(resolved_pages: int, total_pages: int) -> None:
+            self._update_progress(job_id=job.id, resolved_pages=resolved_pages, total_pages=total_pages)
 
-        with fitz.open(storage.source_pdf_path) as doc:
-            total_pages = int(doc.page_count)
-            template = get_template_definition(job.template_key)
-            descriptors: list[PageDescriptor | None] = [None] * total_pages
-            pending_page_numbers: list[int] = []
-            for page_index in range(total_pages):
-                if self._should_check_cancel(page_index):
-                    job.refresh_from_db(fields=["cancel_requested"])
-                if job.cancel_requested:
-                    PdfSplitJob.objects.filter(id=job.id).update(
-                        status=PdfSplitJobStatus.CANCELLED,
-                        finished_at=timezone.now(),
-                    )
-                    return
+        def is_cancelled() -> bool:
+            job.refresh_from_db(fields=["cancel_requested"])
+            return bool(job.cancel_requested)
 
-                page_no = page_index + 1
-                page = doc.load_page(page_index)
-                direct_text = page.get_text("text") or ""
-                if self._segment_detector.is_effective_text(direct_text):
-                    descriptors[page_index] = self._build_descriptor(
-                        page_no=page_no,
-                        text=direct_text,
-                        source_method="text",
-                        ocr_failed=False,
-                        template_key=template.key,
-                    )
-                    resolved_pages += 1
-                    self._update_progress(job_id=job.id, resolved_pages=resolved_pages, total_pages=total_pages)
-                    continue
-
-                cached = self._ocr_handler.read_ocr_cache(
-                    pdf_hash=pdf_hash,
-                    profile_key=cloud_cache_profile,
-                    page_no=page_no,
-                )
-                cached_from_cloud = cached is not None and cloud_backend is not None
-                if cached is None and cloud_backend is None:
-                    cached = self._ocr_handler.read_ocr_cache(
-                        pdf_hash=pdf_hash,
-                        profile_key=runtime_profile.key,
-                        page_no=page_no,
-                    )
-                if cached is not None:
-                    descriptors[page_index] = self._build_descriptor(
-                        page_no=page_no,
-                        text=cached.text,
-                        source_method="ocr_cache" if cached.text else "ocr_failed_cache",
-                        ocr_failed=cached.ocr_failed,
-                        template_key=template.key,
-                        layout=cached.layout,
-                    )
-                    resolved_pages += 1
-                    cache_hit_count += 1
-                    cloud_cache_hit_count += int(cached_from_cloud)
-                    self._update_progress(job_id=job.id, resolved_pages=resolved_pages, total_pages=total_pages)
-                    continue
-
-                pending_page_numbers.append(page_no)
-
-            if pending_page_numbers:
-                cloud_results: dict[int, Any] = {}
-                cloud_error = ""
-                if cloud_backend:
-                    try:
-                        cloud_results = self._ocr_handler.parse_cloud_pages(
-                            pdf_path=storage.source_pdf_path,
-                            backend=cloud_backend,
-                        )
-                    except Exception as exc:
-                        logger.exception(
-                            "pdf_split_cloud_ocr_failed",
-                            extra={"job_id": str(job.id), "provider": cloud_backend},
-                        )
-                        cloud_error = f"{type(exc).__name__}: {str(exc).replace(storage.source_pdf_path.as_posix(), '[source PDF]')[:400]}"
-
-                cloud_page_numbers = [page_no for page_no in pending_page_numbers if cloud_results.get(page_no)]
-                for page_no in cloud_page_numbers:
-                    if self._should_check_cancel(page_no):
-                        job.refresh_from_db(fields=["cancel_requested"])
-                    if job.cancel_requested:
-                        PdfSplitJob.objects.filter(id=job.id).update(
-                            status=PdfSplitJobStatus.CANCELLED,
-                            finished_at=timezone.now(),
-                        )
-                        return
-
-                    result = cloud_results[page_no]
-                    if not result.text:
-                        continue
-                    self._ocr_handler.write_ocr_cache(
-                        pdf_hash=pdf_hash,
-                        profile_key=cloud_cache_profile,
-                        result=result,
-                    )
-                    descriptors[page_no - 1] = self._build_descriptor(
-                        page_no=page_no,
-                        text=result.text,
-                        source_method=result.source_method,
-                        ocr_failed=False,
-                        template_key=template.key,
-                        layout=result.layout,
-                    )
-                    resolved_pages += 1
-                    self._update_progress(job_id=job.id, resolved_pages=resolved_pages, total_pages=total_pages)
-
-                local_fallback_pages = [page_no for page_no in pending_page_numbers if descriptors[page_no - 1] is None]
-                ocr_results = self._ocr_handler.parallel_ocr(
-                    pdf_path=storage.source_pdf_path,
-                    page_numbers=local_fallback_pages,
-                    runtime_profile=runtime_profile,
-                )
-                for page_no in local_fallback_pages:
-                    if self._should_check_cancel(page_no):
-                        job.refresh_from_db(fields=["cancel_requested"])
-                    if job.cancel_requested:
-                        PdfSplitJob.objects.filter(id=job.id).update(
-                            status=PdfSplitJobStatus.CANCELLED,
-                            finished_at=timezone.now(),
-                        )
-                        return
-
-                    result = ocr_results.get(page_no)
-                    if result is None:
-                        from .split_models import OCRPageResult
-
-                        result = OCRPageResult(
-                            page_no=page_no,
-                            text="",
-                            source_method="ocr_failed",
-                            ocr_failed=True,
-                        )
-                    self._ocr_handler.write_ocr_cache(
-                        pdf_hash=pdf_hash,
-                        profile_key=runtime_profile.key,
-                        result=result,
-                    )
-                    descriptors[page_no - 1] = self._build_descriptor(
-                        page_no=page_no,
-                        text=result.text,
-                        source_method=result.source_method,
-                        ocr_failed=result.ocr_failed,
-                        template_key=template.key,
-                        layout=result.layout,
-                    )
-                    resolved_pages += 1
-                    self._update_progress(job_id=job.id, resolved_pages=resolved_pages, total_pages=total_pages)
-
-            final_descriptors = [item for item in descriptors if item is not None]
-            drafts, segment_summary = self._detect_segments_with_fallback(final_descriptors, template_key=template.key)
-            self._persist_analysis(
-                job=job,
-                descriptors=final_descriptors,
-                drafts=drafts,
-                storage=storage,
-                runtime_profile=runtime_profile,
-                cache_hit_count=cache_hit_count,
-                pending_ocr_count=len(pending_page_numbers),
-                cloud_backend=cloud_backend,
-                cloud_cache_profile=cloud_cache_profile,
-                cloud_cache_hit_count=cloud_cache_hit_count,
-                cloud_error=cloud_error if pending_page_numbers and cloud_backend else "",
-                segment_summary=segment_summary,
+        try:
+            outcome = analyze_pdf(
+                storage.source_pdf_path,
+                template_key=job.template_key,
+                ocr_profile=job.ocr_profile,
+                on_progress=on_progress,
+                is_cancelled=is_cancelled,
+                ocr_handler=self._ocr_handler,
+                llm_segment_detector=self._llm_segment_detector,
             )
+        except PipelineCancelled:
+            PdfSplitJob.objects.filter(id=job.id).update(
+                status=PdfSplitJobStatus.CANCELLED,
+                finished_at=timezone.now(),
+            )
+            return
+        self._persist_analysis(job=job, storage=storage, outcome=outcome)
 
     def export_job(self, job: PdfSplitJob) -> None:  # pragma: no cover
         storage = PdfSplitStorage(job.id)
@@ -321,25 +174,12 @@ class PdfSplitService:
     def _detect_segments_with_fallback(
         self, descriptors: list[PageDescriptor], *, template_key: str
     ) -> tuple[list[SegmentDraft], dict[str, Any]]:
-        """分段检测：律所 LLM（语义分类）优先，任何失败降级关键词规则引擎。
-
-        返回 (drafts, summary 附加字段)。两者输出的 SegmentDraft 结构同构，
-        后续校验（完整覆盖、无重叠）对两条路径一视同仁。
-        """
-        detector = self._llm_segment_detector
-        if detector is None:
-            detector = LLMSegmentDetector()
-        try:
-            drafts = detector.detect(descriptors, template_key=template_key)
-            return drafts, {"segment_backend": "llm", "segment_llm_fallback_reason": ""}
-        except Exception as exc:
-            reason = f"{type(exc).__name__}: {str(exc)[:200]}"
-            logger.warning(
-                "pdf_split_llm_segment_fallback",
-                extra={"action": "llm_segment_fallback", "reason": reason},
-            )
-            drafts = self._segment_detector.detect_segments(descriptors, template_key=template_key)
-            return drafts, {"segment_backend": "rule", "segment_llm_fallback_reason": reason}
+        """分段检测（委托 split.pipeline；保留方法形态供既有调用方与测试）。"""
+        return detect_segments_with_fallback(
+            descriptors,
+            template_key=template_key,
+            llm_segment_detector=self._llm_segment_detector,
+        )
 
     def _build_descriptor(
         self,
@@ -351,22 +191,15 @@ class PdfSplitService:
         template_key: str,
         layout: dict[str, Any] | None = None,
     ) -> PageDescriptor:
-        normalized_text = self._segment_detector.normalize_text(text)
-        head_text = self._segment_detector.normalize_text(text[:240])
-        layout_title = _extract_layout_title(layout)
-        top_candidates = self._segment_detector.score_page(
-            head_text=head_text, normalized_text=normalized_text, template_key=template_key
-        )
-        return PageDescriptor(
+        """（旧签名委托 split.pipeline.build_page_descriptor；保留供既有调用方与测试）。"""
+        return build_page_descriptor(
             page_no=page_no,
             text=text,
-            normalized_text=normalized_text,
-            head_text=head_text,
             source_method=source_method,
             ocr_failed=ocr_failed,
-            top_candidates=top_candidates,
+            template_key=template_key,
             layout=layout,
-            layout_title=layout_title,
+            segment_detector=self._segment_detector,
         )
 
     def _build_page_split_drafts(self, *, total_pages: int, source_name: str) -> list[SegmentDraft]:
@@ -391,22 +224,13 @@ class PdfSplitService:
         self,
         *,
         job: PdfSplitJob,
-        descriptors: list[PageDescriptor],
-        drafts: list[SegmentDraft],
         storage: PdfSplitStorage,
-        runtime_profile: Any,
-        cache_hit_count: int,
-        pending_ocr_count: int,
-        cloud_backend: str | None,
-        cloud_cache_profile: str,
-        cloud_cache_hit_count: int,
-        cloud_error: str,
-        segment_summary: dict[str, Any] | None = None,
+        outcome: Any,
     ) -> None:  # pragma: no cover
-        storage.write_json(storage.pages_json_path, [asdict(item) for item in descriptors])
-        storage.write_json(storage.segments_json_path, [asdict(item) for item in drafts])
-        # 每段重建 Markdown（版面块优先，纯文本兜底）：供 API content_md 透出与下游 AI 消费
-        storage.write_json(storage.segments_md_path, build_segments_markdown(drafts, descriptors))
+        """把 pipeline 产物落库落盘：pages / segments / segments_md + 任务摘要（含取字与分段的观测字段）。"""
+        storage.write_json(storage.pages_json_path, [asdict(item) for item in outcome.pages])
+        storage.write_json(storage.segments_json_path, [asdict(item) for item in outcome.drafts])
+        storage.write_json(storage.segments_md_path, outcome.segments_md)
 
         PdfSplitSegment.objects.filter(job=job).delete()
         PdfSplitSegment.objects.bulk_create(
@@ -422,37 +246,27 @@ class PdfSplitService:
                     source_method=item.source_method,
                     review_flag=item.review_flag,
                 )
-                for item in drafts
+                for item in outcome.drafts
             ]
         )
 
         PdfSplitJob.objects.filter(id=job.id).update(
             status=PdfSplitJobStatus.REVIEW_REQUIRED,
             progress=100,
-            total_pages=len(descriptors),
-            processed_pages=len(descriptors),
-            current_page=len(descriptors),
+            total_pages=len(outcome.pages),
+            processed_pages=len(outcome.pages),
+            current_page=len(outcome.pages),
             summary_payload={
                 "split_mode": PdfSplitMode.CONTENT_ANALYSIS,
                 "template_key": job.template_key,
                 "template_version": job.template_version,
-                "ocr_profile": runtime_profile.key,
-                "ocr_dpi": runtime_profile.dpi,
-                "ocr_model": "v5_server" if runtime_profile.use_v5 else "v4_default",
-                "ocr_workers": runtime_profile.workers,
-                "ocr_cache_hit_count": int(max(cache_hit_count, 0)),
-                "ocr_miss_count": int(max(pending_ocr_count, 0)),
-                "ocr_provider": cloud_backend or "local",
-                "ocr_cloud_cache_profile": cloud_cache_profile if cloud_backend else "",
-                "ocr_cloud_cache_hit_count": int(max(cloud_cache_hit_count, 0)),
-                "ocr_fallback_reason": cloud_error,
-                **(segment_summary or {}),
-                "segment_count": len(drafts),
+                **outcome.summary,
+                "segment_count": len(outcome.drafts),
                 "recognized_count": len(
-                    [item for item in drafts if item.segment_type != PdfSplitSegmentType.UNRECOGNIZED]
+                    [item for item in outcome.drafts if item.segment_type != PdfSplitSegmentType.UNRECOGNIZED]
                 ),
                 "unrecognized_count": len(
-                    [item for item in drafts if item.segment_type == PdfSplitSegmentType.UNRECOGNIZED]
+                    [item for item in outcome.drafts if item.segment_type == PdfSplitSegmentType.UNRECOGNIZED]
                 ),
             },
         )
@@ -517,34 +331,6 @@ class PdfSplitService:
         return marker % self.CANCEL_CHECK_EVERY == 0
 
 
-# ↓↓ 由 PdfSplitService 下沉的模块级纯函数（四层架构静态方法棘轮）
-def _extract_layout_title(layout: dict[str, Any] | None) -> str:
-    """取解析器标记为标题的短文本块，用于开放集材料命名和边界提示。"""
-    if not layout:
-        return ""
-    blocks = layout.get("blocks")
-    if not isinstance(blocks, list):
-        return ""
-
-    title_types = {"title", "text_level_title", "heading", "标题"}
-    candidates: list[tuple[float, int, str]] = []
-    for block in blocks:
-        if not isinstance(block, dict):
-            continue
-        block_type = str(block.get("type") or "").strip().lower()
-        is_title = block_type in title_types or block.get("text_level") not in (None, "", 0, "0")
-        text = " ".join(str(block.get("text") or "").split()).strip(" #\t\r\n")
-        if not is_title or not text or len(text) > 48:
-            continue
-        bbox = block.get("bbox")
-        y = 0.0
-        if isinstance(bbox, (list, tuple)) and len(bbox) >= 4:
-            try:
-                y = float(bbox[1])
-            except (TypeError, ValueError):
-                y = 0.0
-        candidates.append((y, -len(text), text))
-    if not candidates:
-        return ""
-    candidates.sort()
-    return candidates[0][2]
+# 版面标题提取已下沉 split_models（pipeline / service 共用）；此处保留旧名再导出，
+# 既有测试与潜在调用方仍从本模块引用
+from .split_models import extract_layout_title as _extract_layout_title

@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from typing import Any
 
 from apps.core.llm.structured_output import parse_json_content
@@ -37,6 +38,12 @@ _PAGE_DIGEST_OMIT_MARK = "……（中略）……"
 # 输出上限：300 页封顶的 PDF 按每段 ~30 token 估算，100 段以内绰绰有余
 _MAX_OUTPUT_TOKENS = 8000
 _TEMPERATURE = 0.1
+# 单次 HTTP 请求时限（秒）：供给网关半开 / 挂流时按层兜住
+_REQUEST_TIMEOUT_SECONDS = 180
+# 整条调用的硬时限墙（秒）：key 池轮换 × OpenAI SDK 内建重试 × 连接超时会
+# 层层相乘（本机实测律所网关离线时能挂 25 分钟以上），不设墙会把 Q 任务拖死。
+# 健康网关下 92 页分段约 1-2 分钟，5 分钟墙足够宽
+_WALL_TIMEOUT_SECONDS = 300
 
 SYSTEM_PROMPT = """\
 你是诉讼立案材料整理助手。用户给你一份扫描 PDF 的逐页文字摘要（每页只截取开头与结尾两段，中间内容省略），\
@@ -65,22 +72,24 @@ class LLMSegmentationError(RuntimeError):
 class LLMSegmentDetector:
     """把逐页 PageDescriptor 交给律所 LLM 做语义分段。"""
 
-    def __init__(self, llm_service: Any | None = None) -> None:
+    def __init__(self, llm_service: Any | None = None, wall_timeout_seconds: float = _WALL_TIMEOUT_SECONDS) -> None:
         # 不在构造期解析 LLM 服务：ServiceLocator 触发 DB 访问，
         # 无 django_db 标记的单测会被阻断（照 vlm_ocr_service 的懒加载模式）
         self._llm_service = llm_service
+        self._wall_timeout_seconds = wall_timeout_seconds
 
     def detect(self, pages: list[PageDescriptor], *, template_key: str) -> list[SegmentDraft]:
         if not pages:
             raise LLMSegmentationError("没有可分析的页面")
 
-        response = self._get_llm_service().chat(
+        response = self._chat_with_wall(
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": build_user_prompt(pages, template_key=template_key)},
             ],
             temperature=_TEMPERATURE,
             max_tokens=_MAX_OUTPUT_TOKENS,
+            timeout_seconds=_REQUEST_TIMEOUT_SECONDS,
             caller=_CALLER,
         )
         raw = str(getattr(response, "content", "") or "")
@@ -102,6 +111,28 @@ class LLMSegmentDetector:
 
             self._llm_service = get_llm_service()
         return self._llm_service
+
+    def _chat_with_wall(self, *, messages: list[dict[str, Any]], **kwargs: Any) -> Any:
+        """带硬时限墙的 LLM 调用：到点抛 LLMSegmentationError，由上层降级规则引擎。
+
+        守护线程执行（超时后线程残留但进程退出不受阻），result 字典回传响应或异常。
+        """
+        outcome: dict[str, Any] = {}
+
+        def _run() -> None:
+            try:
+                outcome["response"] = self._get_llm_service().chat(messages=messages, **kwargs)
+            except BaseException as exc:  # 原样回传给调用方（线程边界不能抛，只能装箱）
+                outcome["error"] = exc
+
+        worker = threading.Thread(target=_run, daemon=True, name="pdf-split-llm-wall")
+        worker.start()
+        worker.join(self._wall_timeout_seconds)
+        if worker.is_alive():
+            raise LLMSegmentationError(f"LLM 分段超过 {self._wall_timeout_seconds}s 未返回，已按超时处理")
+        if "error" in outcome:
+            raise outcome["error"]
+        return outcome.get("response")
 
 
 # ↓↓ 模块级纯函数（四层架构静态方法棘轮；不触 DB / 网络，单测直打）
