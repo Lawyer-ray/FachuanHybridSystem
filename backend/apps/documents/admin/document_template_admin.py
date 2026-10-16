@@ -41,17 +41,27 @@ def _get_admin_service() -> Any:
 
 
 class DocumentTemplateFolderBindingInline(admin.TabularInline):  # pragma: no cover
-    """文书模板文件夹绑定内联"""
+    """
+    文书模板文件夹绑定内联（旧·兼容）
+
+    已被「落位声明」（folder_slot 槽位解析）取代：仅只读展示存量行供核对，
+    不再提供新增（槽位优先级也高于绑定，新增不生效）；存量行清零后本区块自然消失。
+    """
 
     model = DocumentTemplateFolderBinding
-    extra = 1
+    verbose_name_plural = "文件模板文件夹绑定（旧·兼容，已被落位声明取代）"
+    extra = 0
+    max_num = 0
     fields = ("folder_template", "folder_node_id", "folder_node_path", "is_active")
-    readonly_fields = ("folder_node_path",)
-    autocomplete_fields = ["folder_template"]
+    readonly_fields = fields
+    show_change_link = True
+    can_delete = True
 
-    class Media:  # pragma: no cover
-        css = {LegalStatusMatchMode.ALL: ("documents/css/folder_binding_inline.css",)}
-        js = ("admin/js/jquery.init.js", "documents/js/folder_binding_inline.js")
+    def has_add_permission(self, request: Any, obj: Any = None) -> bool:  # pragma: no cover
+        return False
+
+    def has_change_permission(self, request: Any, obj: Any = None) -> bool:  # pragma: no cover
+        return False
 
 
 class DocumentTemplateForm(forms.ModelForm):  # pragma: no cover
@@ -417,6 +427,12 @@ class DocumentTemplateAdmin(TemplateAdminViewsMixin, TemplateAdminDisplayMixin, 
         if obj is not None:
             fieldsets.insert(len(fieldsets) - 1, self._edit_fieldsets)  # type: ignore[arg-type]
         return fieldsets
+
+    def get_inlines(self, request: Any, obj: Any = None) -> list[Any]:  # pragma: no cover
+        """旧绑定 inline 仅在有存量行时展示（只读核对）；无绑定行的模板不再出现该区块"""
+        if obj is not None and obj.folder_bindings.exists():
+            return list(self.inlines)
+        return [inline for inline in self.inlines if inline is not DocumentTemplateFolderBindingInline]
 
     @admin.display(description="落位预览（实时派生）")
     def slot_placement_preview(self, obj: DocumentTemplate) -> Any:  # pragma: no cover

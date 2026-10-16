@@ -3,3 +3,13 @@
 {% block object-tools-items %}
     {{ block.super }}
 {% endblock %}
+
+{% block content %}
+<div style="margin: 0 0 14px; padding: 10px 14px; border: 1px solid #fcd34d; background: #fffbeb; border-radius: 4px; color: #78350f; font-size: 13px;">
+  <b>此功能已退役（兼容保留）。</b>
+  文书落位现由文书模板的「落位声明」（槽位）决定：声明一次即适用于所有提供该槽位的文件夹模板，无需逐个绑定。
+  本页仅用于核对存量绑定——「当前作用」列为「已被槽位取代」的行可随时删除；
+  显示「兜底生效」的行说明对应文件夹模板尚未提供该槽位，请在文件夹模板的结构编辑器中为目标节点标记槽位后再删除。
+</div>
+{{ block.super }}
+{% endblock %}

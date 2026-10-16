@@ -410,6 +410,54 @@ class TestValidateSlotKinds:
         assert "⌘" in str(html) and "委托材料" in str(html)
 
 
+class TestLegacyBindingRetirement:
+    """旧绑定通道退役：inline 仅在有存量行时出现；绑定 admin 禁止新增"""
+
+    def test_inline_hidden_without_bindings(self, folder_tpl: FolderTemplate, doc_poa: DocumentTemplate) -> None:
+        from django.contrib.admin.sites import AdminSite
+
+        from apps.documents.admin.document_template_admin import (
+            DocumentTemplateAdmin,
+            DocumentTemplateFolderBindingInline,
+        )
+
+        admin_obj = DocumentTemplateAdmin(DocumentTemplate, AdminSite())
+        assert DocumentTemplateFolderBindingInline not in admin_obj.get_inlines(MagicMock(), doc_poa)
+        DocumentTemplateFolderBinding.objects.create(
+            document_template=doc_poa, folder_template=folder_tpl, folder_node_id="n_poa", folder_node_path="p"
+        )
+        assert DocumentTemplateFolderBindingInline in admin_obj.get_inlines(MagicMock(), doc_poa)
+
+    def test_binding_admin_forbids_add(self, db: Any) -> None:
+        from django.contrib.admin.sites import AdminSite
+
+        from apps.documents.admin.folder_binding_admin import DocumentTemplateFolderBindingAdmin
+
+        admin_obj = DocumentTemplateFolderBindingAdmin(DocumentTemplateFolderBinding, AdminSite())
+        assert admin_obj.has_add_permission(MagicMock()) is False
+
+    def test_effect_display_reports_slot_vs_legacy(
+        self, slot_poa: FolderSlot, folder_tpl: FolderTemplate, doc_poa: DocumentTemplate
+    ) -> None:
+        from django.contrib.admin.sites import AdminSite
+
+        from apps.documents.admin.folder_binding_admin import DocumentTemplateFolderBindingAdmin
+
+        admin_obj = DocumentTemplateFolderBindingAdmin(DocumentTemplateFolderBinding, AdminSite())
+        doc_poa.folder_slot = slot_poa
+        doc_poa.save(update_fields=["folder_slot", "updated_at"])
+        binding = DocumentTemplateFolderBinding.objects.create(
+            document_template=doc_poa, folder_template=folder_tpl, folder_node_id="n_poa", folder_node_path="p"
+        )
+        assert "已被槽位取代" in str(admin_obj.effect_display(binding))
+        # 换成骨架未提供的槽位 → 兜底生效
+        missing = FolderSlot.objects.create(key="service_address", name="送达地址确认书")
+        doc_poa.folder_slot = missing
+        doc_poa.save(update_fields=["folder_slot", "updated_at"])
+        binding.refresh_from_db()
+        assert "兜底生效" in str(admin_obj.effect_display(binding))
+
+
 class TestDuplicateTemplateCopiesBindings:
     def test_duplicate_carries_bindings(
         self, slot_poa: FolderSlot, folder_tpl: FolderTemplate, doc_poa: DocumentTemplate

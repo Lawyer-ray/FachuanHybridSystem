@@ -79,8 +79,11 @@ class TestDocumentTemplateFolderBindingInline:
 
         assert DocumentTemplateFolderBindingInline.model == DocumentTemplateFolderBinding
 
-    def test_extra(self) -> None:
-        assert DocumentTemplateFolderBindingInline.extra == 1
+    def test_retired_no_extra_no_add(self) -> None:
+        """旧绑定 inline 退役：不再出现空行，不允许新增，存量行只读"""
+        assert DocumentTemplateFolderBindingInline.extra == 0
+        assert DocumentTemplateFolderBindingInline.max_num == 0
+        assert DocumentTemplateFolderBindingInline.readonly_fields == DocumentTemplateFolderBindingInline.fields
 
     def test_fields(self) -> None:
         fields = DocumentTemplateFolderBindingInline.fields

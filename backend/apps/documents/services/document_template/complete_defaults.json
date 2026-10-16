@@ -1623,7 +1623,8 @@
             "applicable_institutions": [
                 "东莞市第三人民法院"
             ],
-            "is_active": true
+            "is_active": true,
+            "folder_slot_key": "service_address"
         },
         {
             "name": "东莞第三法院原告送达地址、送达方式确认书",
@@ -1647,7 +1648,8 @@
             "applicable_institutions": [
                 "东莞市第三人民法院"
             ],
-            "is_active": true
+            "is_active": true,
+            "folder_slot_key": "service_address"
         },
         {
             "name": "东莞第三法院账户确认书",
@@ -1901,16 +1903,6 @@
             "document_template_name": "东莞第三法院账户确认书",
             "folder_template_name": "申请执行文件夹",
             "folder_node_id": "folder_1774250377879_1tztdlni"
-        },
-        {
-            "document_template_name": "佛山法院送达地址确认书",
-            "folder_template_name": "民事二审答辩",
-            "folder_node_id": "folder_1780363145846_zzdlyu09"
-        },
-        {
-            "document_template_name": "佛山法院送达地址确认书",
-            "folder_template_name": "民事二审上诉",
-            "folder_node_id": "folder_1785568721971_orpd7x9h"
         },
         {
             "document_template_name": "法定代表人身份证明书",

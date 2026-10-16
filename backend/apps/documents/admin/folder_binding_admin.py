@@ -87,7 +87,13 @@ class DocumentTemplateFolderBindingForm(forms.ModelForm[DocumentTemplateFolderBi
 
 @admin.register(DocumentTemplateFolderBinding)
 class DocumentTemplateFolderBindingAdmin(admin.ModelAdmin):  # pragma: no cover
-    """文书模板文件夹绑定管理"""
+    """
+    文书模板文件夹绑定管理（旧·兼容）
+
+    已被文书模板的「落位声明」（folder_slot 槽位解析）取代：
+    - 不再允许新增；存量行只读核对，可删除
+    - 列表展示每行「当前作用」：已被槽位取代 / 兜底生效（槽位未命中时回退旧路径）
+    """
 
     form = DocumentTemplateFolderBindingForm
     change_form_template = "admin/documents/documenttemplatefolderbinding/change_form.html"
@@ -97,6 +103,7 @@ class DocumentTemplateFolderBindingAdmin(admin.ModelAdmin):  # pragma: no cover
         "document_template",
         "folder_template",
         "folder_path_display",
+        "effect_display",
         "is_active",
         "updated_at",
     )
@@ -113,10 +120,20 @@ class DocumentTemplateFolderBindingAdmin(admin.ModelAdmin):  # pragma: no cover
         "folder_node_path",
     )
 
-    autocomplete_fields: ClassVar[list[str]] = ["document_template", "folder_template"]
-    list_select_related: ClassVar[tuple[str, ...]] = ("document_template", "folder_template")
+    list_select_related: ClassVar[tuple[str, ...]] = (
+        "document_template",
+        "document_template__folder_slot",
+        "folder_template",
+    )
 
-    readonly_fields = ("folder_node_path", "created_at", "updated_at")
+    readonly_fields = (
+        "document_template",
+        "folder_template",
+        "folder_node_id",
+        "folder_node_path",
+        "created_at",
+        "updated_at",
+    )
 
     fieldsets = (
         (None, {"fields": ("document_template", "folder_template", "folder_node_id")}),
@@ -137,8 +154,8 @@ class DocumentTemplateFolderBindingAdmin(admin.ModelAdmin):  # pragma: no cover
         ),
     )
 
-    class Media:  # pragma: no cover
-        js: ClassVar[tuple[str, ...]] = ("documents/js/folder_binding_admin.js",)
+    def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
+        return False
 
     @admin.display(description="文件夹路径")
     def folder_path_display(self, obj: DocumentTemplateFolderBinding) -> Any:  # pragma: no cover
@@ -147,9 +164,14 @@ class DocumentTemplateFolderBindingAdmin(admin.ModelAdmin):  # pragma: no cover
             return format_html('<span style="color: #666; font-family: monospace;">{}</span>', obj.folder_node_path)
         return "-"
 
-    def save_model(
-        self, request: HttpRequest, obj: DocumentTemplateFolderBinding, form: Any, change: bool
-    ) -> None:  # pragma: no cover
-        """保存时自动计算路径"""
-        # 路径会在模型的save方法中自动计算
-        super().save_model(request, obj, form, change)
+    @admin.display(description="当前作用")
+    def effect_display(self, obj: DocumentTemplateFolderBinding) -> Any:  # pragma: no cover
+        """该绑定行在生成时刻是否仍起作用（槽位解析优先）"""
+        from apps.documents.services.template.slot_resolution_service import RESOLVED_BY_SLOT, SlotResolutionService
+
+        resolution = SlotResolutionService().resolve_binding_path(obj)
+        if resolution.resolved_by == RESOLVED_BY_SLOT:
+            return format_html('<span style="color: #999;">{}</span>', "已被槽位取代")
+        if obj.document_template.folder_slot_id:
+            return format_html('<span style="color: #b45309;">{}</span>', "兜底生效（骨架未提供该槽位）")
+        return format_html('<span style="color: #1d4ed8;">{}</span>', "生效（模板未声明槽位）")
