@@ -27,6 +27,8 @@ from apps.pdf_splitting.services.storage import PdfSplitStorage
 from apps.pdf_splitting.services.template_registry import get_default_filename, get_template_definition
 
 from .export_utils import ExportUtils, deduplicate_filename, export_segment_pdf
+from .llm_segment_detector import LLMSegmentDetector
+from .markdown_builder import build_segments_markdown
 from .ocr_handler import OCRHandler
 from .segment_detector import SegmentDetector
 from .split_models import PageDescriptor, SegmentDraft
@@ -326,8 +328,6 @@ class PdfSplitService:
         """
         detector = self._llm_segment_detector
         if detector is None:
-            from .llm_segment_detector import LLMSegmentDetector
-
             detector = LLMSegmentDetector()
         try:
             drafts = detector.detect(descriptors, template_key=template_key)
@@ -405,6 +405,8 @@ class PdfSplitService:
     ) -> None:  # pragma: no cover
         storage.write_json(storage.pages_json_path, [asdict(item) for item in descriptors])
         storage.write_json(storage.segments_json_path, [asdict(item) for item in drafts])
+        # 每段重建 Markdown（版面块优先，纯文本兜底）：供 API content_md 透出与下游 AI 消费
+        storage.write_json(storage.segments_md_path, build_segments_markdown(drafts, descriptors))
 
         PdfSplitSegment.objects.filter(job=job).delete()
         PdfSplitSegment.objects.bulk_create(

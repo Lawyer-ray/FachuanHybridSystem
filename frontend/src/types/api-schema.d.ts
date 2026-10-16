@@ -14869,6 +14869,8 @@ export interface components {
             review_flag_label: string;
             /** Source Method */
             source_method: string;
+            /** Content Md */
+            content_md: string;
         };
         /** ConfirmRequestIn */
         ConfirmRequestIn: {

@@ -35225,6 +35225,10 @@
           "source_method": {
             "title": "Source Method",
             "type": "string"
+          },
+          "content_md": {
+            "title": "Content Md",
+            "type": "string"
           }
         },
         "required": [
@@ -35238,7 +35242,8 @@
           "confidence",
           "review_flag",
           "review_flag_label",
-          "source_method"
+          "source_method",
+          "content_md"
         ],
         "title": "SegmentOut",
         "type": "object"

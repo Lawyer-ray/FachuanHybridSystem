@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -130,7 +131,11 @@ class PdfSplitJobService:
             raise NotFoundError(message="拆解任务不存在", code="PDF_SPLIT_JOB_NOT_FOUND", errors={}) from None
 
     def build_job_payload(self, job: PdfSplitJob) -> dict[str, Any]:
-        segments = [self._serialize_segment(item) for item in job.segments.order_by("order", "id")]
+        md_by_order = load_segments_md(PdfSplitStorage(job.id).segments_md_path)
+        segments = [
+            self._serialize_segment(item, markdown=md_by_order.get(item.order, ""))
+            for item in job.segments.order_by("order", "id")
+        ]
         download_url = ""
         if job.status == PdfSplitJobStatus.COMPLETED and job.export_zip_relpath:
             download_url = f"/api/v1/pdf-splitting/jobs/{job.id}/download"
@@ -235,7 +240,7 @@ class PdfSplitJobService:
             finished_at=timezone.now(),
         )
 
-    def _serialize_segment(self, segment: PdfSplitSegment) -> dict[str, Any]:
+    def _serialize_segment(self, segment: PdfSplitSegment, *, markdown: str = "") -> dict[str, Any]:
         return {
             "id": segment.id,
             "order": segment.order,
@@ -248,6 +253,7 @@ class PdfSplitJobService:
             "review_flag": segment.review_flag,
             "review_flag_label": segment.get_review_flag_display(),
             "source_method": segment.source_method,
+            "content_md": markdown,
         }
 
     def _normalize_confirmed_segments(self, *, items: list[dict[str, Any]], total_pages: int) -> list[dict[str, Any]]:
@@ -446,3 +452,27 @@ def _segment_display_label(segment: PdfSplitSegment) -> str:
         if stem and not stem.startswith("未识别材料"):
             return stem
     return get_segment_label(segment.segment_type)
+
+
+def load_segments_md(path: Path) -> dict[int, str]:
+    """读分段 Markdown 产物（order → 正文）；文件缺失 / 损坏一律回空表——
+    旧任务没有 md 产物，content_md 退化为空串，不阻断任务详情接口。"""
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        logger.warning("pdf_split_segments_md_read_failed", extra={"path": str(path)})
+        return {}
+    if not isinstance(payload, list):
+        return {}
+    result: dict[int, str] = {}
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        try:
+            order = int(item.get("order"))  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            continue
+        result[order] = str(item.get("markdown") or "")
+    return result

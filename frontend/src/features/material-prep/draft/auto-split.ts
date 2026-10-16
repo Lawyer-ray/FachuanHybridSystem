@@ -36,6 +36,7 @@ export function applyAutoSplit(
         manual: false,
         reviewFlag: item.review_flag,
         confidence: item.confidence,
+        md: item.content_md || undefined,
       }
     })
   const covered = new Set(proposed.flatMap((seg) => seg.refs.map((ref) => ref.p)))

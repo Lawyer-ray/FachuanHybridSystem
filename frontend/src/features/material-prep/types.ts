@@ -37,6 +37,8 @@ export interface Segment {
   done?: boolean
   reviewFlag?: string
   confidence?: number
+  /** 该段正文的 Markdown 重建（云端识别产出，供后续 AI 流程消费）；人工拆分 / 旧任务无 */
+  md?: string
 }
 
 /** 后端 PDF 拆分接口返回的页段候选。
@@ -44,7 +46,14 @@ export interface Segment {
  *  逼测试夹具补无关字段） */
 export type PdfSplitSegmentSuggestion = Pick<
   components['schemas']['SegmentOut'],
-  'page_start' | 'page_end' | 'segment_type' | 'segment_label' | 'filename' | 'confidence' | 'review_flag'
+  | 'page_start'
+  | 'page_end'
+  | 'segment_type'
+  | 'segment_label'
+  | 'filename'
+  | 'confidence'
+  | 'review_flag'
+  | 'content_md'
 >
 
 /** 标来源：页码（可选框选矩形，归一化 0-1） */

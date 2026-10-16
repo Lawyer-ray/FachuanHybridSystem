@@ -28,24 +28,29 @@ from .split_models import PageDescriptor, SegmentDraft
 
 logger = logging.getLogger("apps.pdf_splitting")
 
-# 每页进入 prompt 的摘要上限（页身份靠标题行 + 开头几行足够判断归属，
-# 全文进 prompt 只会撑爆 token 且稀释注意力）
-_PAGE_DIGEST_MAX_CHARS = 200
+# 每页进入 prompt 的摘要窗口：开头 + 结尾双窗口。材料边界的关键证据在
+# 「上一页的末几句 + 下一页的头几句」（落款 / 日期 / 签名 vs 新标题），
+# 只给开头会漏掉「此致」「具状人」这类结束信号
+_PAGE_HEAD_CHARS = 150
+_PAGE_TAIL_CHARS = 110
+_PAGE_DIGEST_OMIT_MARK = "……（中略）……"
 # 输出上限：300 页封顶的 PDF 按每段 ~30 token 估算，100 段以内绰绰有余
 _MAX_OUTPUT_TOKENS = 8000
 _TEMPERATURE = 0.1
 
 SYSTEM_PROMPT = """\
-你是诉讼立案材料整理助手。用户给你一份扫描 PDF 的逐页文字摘要（每页只截取开头部分），\
+你是诉讼立案材料整理助手。用户给你一份扫描 PDF 的逐页文字摘要（每页只截取开头与结尾两段，中间内容省略），\
 任务是把整份 PDF 划分成若干「份材料」：判断每页属于哪份材料、材料类型并命名。
 
 判断规则：
 1. 同一份材料的连续页归为一段（page_start..page_end）；内容主题切换（如从起诉状到证据清单）即新开一段。
 2. 材料首页通常有标题（如「民事起诉状」「证据清单」「送达地址确认书」）；无标题的续页跟随前一份材料。
-3. 银行流水、发票、送货单等多页清单，中间没有明显换材料信号时保持同一段。
-4. 「未取到文字」的页多为身份证复印件、盖章页或纯图片：按前后文判断归属，拿不准就单独成段并给低置信度。
-5. type 只能取给定的键名之一；都不贴切时用 "other"，并在 label 写准确的材料名（如 借条、转账凭证、聊天记录、判决书、调解书、送达回证、证据材料）。
-6. label 是给人看的材料名，优先取材料自身的标题，不要杜撰；confidence 为 0 到 1 的把握值。
+3. 判断衔接重点看边界两侧：上一页结尾出现落款、日期、签名、「此致」「具状人」「合议庭」等收尾信号，\
+而下一页开头出现新的文件标题——两页之间大概率是两份材料；反之结尾是未完的句子或表格行、下一页开头无标题，则多为同一份的续页。
+4. 银行流水、发票、送货单等多页清单，中间没有明显换材料信号时保持同一段。
+5. 「未取到文字」的页多为身份证复印件、盖章页或纯图片：按前后文判断归属，拿不准就单独成段并给低置信度。
+6. type 只能取给定的键名之一；都不贴切时用 "other"，并在 label 写准确的材料名（如 借条、转账凭证、聊天记录、判决书、调解书、送达回证、证据材料）。
+7. label 是给人看的材料名，优先取材料自身的标题，不要杜撰；confidence 为 0 到 1 的把握值。
 
 只输出 JSON，不要任何解释或代码块标记，格式：
 {"segments": [{"page_start": 1, "page_end": 3, "type": "complaint", "label": "起诉状", "confidence": 0.95}]}"""
@@ -103,16 +108,23 @@ class LLMSegmentDetector:
 
 
 def build_page_digests(pages: list[PageDescriptor]) -> list[str]:
-    """逐页摘要：标题行优先 + 正文开头，OCR 失败页显式标注。"""
+    """逐页摘要：标题行优先 + 正文开头/结尾双窗口，OCR 失败页显式标注。"""
     digests: list[str] = []
     for page in pages:
-        if page.ocr_failed or not page.head_text:
+        if page.ocr_failed or not page.normalized_text:
             digests.append(f"【第{page.page_no}页】（未取到文字）")
             continue
         title = (page.layout_title or "").strip()
         prefix = f"【第{page.page_no}页｜标题：{title}】" if title else f"【第{page.page_no}页】"
-        digests.append(f"{prefix}{page.head_text[:_PAGE_DIGEST_MAX_CHARS]}")
+        digests.append(f"{prefix}{_digest_body(page.normalized_text)}")
     return digests
+
+
+def _digest_body(normalized_text: str) -> str:
+    full = normalized_text or ""
+    if len(full) <= _PAGE_HEAD_CHARS + _PAGE_TAIL_CHARS + 60:
+        return full
+    return f"{full[:_PAGE_HEAD_CHARS]}{_PAGE_DIGEST_OMIT_MARK}{full[-_PAGE_TAIL_CHARS:]}"
 
 
 def build_user_prompt(pages: list[PageDescriptor], *, template_key: str) -> str:

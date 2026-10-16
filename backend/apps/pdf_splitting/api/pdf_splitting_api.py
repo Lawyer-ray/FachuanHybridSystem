@@ -40,6 +40,8 @@ class SegmentOut(BaseModel):
     review_flag: str
     review_flag_label: str
     source_method: str
+    # 该段正文的 Markdown 重建（版面块优先 / 纯文本兜底）；旧任务无产物时为空串
+    content_md: str
 
 
 class PdfSplitJobOut(BaseModel):

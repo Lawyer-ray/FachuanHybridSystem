@@ -63,6 +63,7 @@ function sug(start: number, end: number, over: Partial<PdfSplitSegmentSuggestion
     segment_label: '起诉状',
     filename: `part-${start}.pdf`,
     confidence: 0.9,
+    content_md: '',
     review_flag: '',
     ...over,
   }

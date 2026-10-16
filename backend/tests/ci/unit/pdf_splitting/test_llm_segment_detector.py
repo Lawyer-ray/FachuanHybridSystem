@@ -78,10 +78,18 @@ class TestPageDigests:
         assert digests[0] == "【第1页｜标题：民事起诉状】民事起诉状原告张三"
         assert digests[1] == "【第2页】（未取到文字）"
 
-    def test_摘要截断到上限(self) -> None:
-        digests = build_page_digests([_page(7, "字" * 500)])
-        assert digests[0].startswith("【第7页】")
-        assert len(digests[0]) <= len("【第7页】") + 200
+    def test_长页摘要取开头结尾双窗口(self) -> None:
+        digest = build_page_digests([_page(7, "头" * 150 + "中" * 200 + "尾" * 110)])[0]
+        assert digest.startswith("【第7页】" + "头" * 150)
+        assert "（中略）" in digest
+        # 结尾窗口是判断「上页落款 → 下页新标题」边界的关键证据，必须有
+        assert digest.endswith("尾" * 110)
+        marker = "……（中略）……"
+        assert len(digest) == len("【第7页】") + 150 + len(marker) + 110  # 中段 200 字未混入
+
+    def test_短页摘要不重复不省略(self) -> None:
+        body = "字" * 320  # 阈值（150+110+60）以内整段直出
+        assert build_page_digests([_page(3, body)])[0] == f"【第3页】{body}"
 
     def test_user_prompt_含页数类型键与逐页摘要(self) -> None:
         prompt = build_user_prompt([_page(1, "起诉状内容"), _page(2, "证据清单内容")], template_key=TEMPLATE_KEY)
