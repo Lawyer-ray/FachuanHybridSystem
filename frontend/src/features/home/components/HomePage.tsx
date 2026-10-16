@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -9,6 +9,7 @@ import { eventReminderIds, formatCN, formatWeekdayCN, parseKey, todayKey } from 
 import { useCompleteReminder } from '../hooks/use-complete-reminder'
 import { useDeleteReminder } from '../hooks/use-delete-reminder'
 import { CalendarPanel, type CalendarView } from './CalendarPanel'
+import { EventDetailDialog } from './EventDetailDialog'
 import { ToolDock } from './ToolDock'
 import { useMediaQuery } from '@/hooks/use-media'
 import { useToday } from '@/hooks/use-today'
@@ -88,6 +89,25 @@ export function HomePage() {
     void queryClient.invalidateQueries({ queryKey: calendarKeys.all })
   }, [queryClient])
 
+  /* 事件详情弹窗：日历格（桌面）、手机当日抽屉、今日卡三个入口共用一个。
+     以前只挂在 CalendarPanel 内部，手机端根本进不了日历格的事件行（只有圆点），
+     抽屉里点事项又只是 toast——窄屏上详情 / 勾完成 / 删除全都够不着。 */
+  const [detail, setDetail] = useState<CalendarEvent | null>(null)
+  // 快照保鲜：勾选 / 删除后 invalidate 重取，eventsByDay 换新对象时用同 id 的
+  // 新事件替换 detail 里的旧快照——否则弹窗停留在勾选前的完成态（网格刷新了、弹窗没跟上）
+  useEffect(() => {
+    setDetail((prev) => {
+      if (!prev) return prev
+      const fresh = (viewEventsByDay[prev.day] ?? []).find((e) => e.id === prev.id)
+      return fresh && fresh !== prev ? fresh : prev
+    })
+  }, [viewEventsByDay])
+  const handleOpenEvent = useCallback((e: CalendarEvent) => setDetail(e), [])
+  // 详情弹窗里的「打开案件」：案件详情页尚未实现，先给提示（按钮在无 case_id 时自身已禁用）
+  const handleOpenCase = useCallback((e: CalendarEvent) => {
+    toast.info(e.case_id ? `打开案件 #${e.case_id}：${e.title}` : '这条安排还没关联案件，可到「案件台账」里查看')
+  }, [])
+
   /* 勾选完成：合并事件要带全部 member_ids 下发（eventReminderIds 保证口径） */
   const completeMutation = useCompleteReminder()
   const handleToggleComplete = useCallback(
@@ -97,10 +117,12 @@ export function HomePage() {
     [completeMutation],
   )
 
-  /* 删除：同样全量下发 member_ids；入口按后端 can_delete 显隐（谁创建谁删） */
+  /* 删除：同样全量下发 member_ids；入口按后端 can_delete 显隐（谁创建谁删）。
+     先关弹窗再下发——乐观移除 + 失败回滚由 hook 负责，弹窗停留会让已消失的事件看起来还"开着" */
   const deleteMutation = useDeleteReminder()
   const handleDeleteEvent = useCallback(
     (e: CalendarEvent) => {
+      setDetail(null)
       deleteMutation.mutate({ ids: eventReminderIds(e) })
     },
     [deleteMutation],
@@ -117,14 +139,6 @@ export function HomePage() {
   const handleSelectDay = useCallback((key: string) => {
     if (isMobile) setSheetDay(key)
   }, [isMobile])
-
-  const handleOpenEvent = useCallback((e: import('../api').CalendarEvent) => {
-    if (e.case_id) {
-      toast.info(`打开案件 #${e.case_id}：${e.title}`)
-      return
-    }
-    toast.info('这条安排还没关联案件，可到「案件台账」里查看')
-  }, [])
 
   // 待处理里的材料包 → 跳到材料预处理详情。
   // 用 navigate 做 SPA 跳转，别用 window.location.assign（那是整页刷新，
@@ -228,7 +242,6 @@ export function HomePage() {
                 onOpenEvent={handleOpenEvent}
                 onOpenAdd={openAddDialog}
                 onToggleComplete={handleToggleComplete}
-                onDeleteEvent={handleDeleteEvent}
               />
             )}
             <ToolDock />
@@ -266,6 +279,15 @@ export function HomePage() {
         defaultTime={adding?.time ?? '09:00'}
         onClose={() => setAdding(null)}
         onSaved={invalidateCalendar}
+      />
+
+      {/* 事件详情弹窗：日历格 / 手机抽屉 / 今日卡共用（z-[130]，叠在 z-61 的抽屉之上） */}
+      <EventDetailDialog
+        event={detail}
+        onClose={() => setDetail(null)}
+        onOpenCase={handleOpenCase}
+        onToggleComplete={handleToggleComplete}
+        onDelete={handleDeleteEvent}
       />
     </>
   )
