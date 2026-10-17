@@ -76,7 +76,10 @@ export const PackCard = memo(function PackCard({
   return (
     <article
       className={cn(
-        'mp-packet group relative overflow-hidden rounded-[13px] border border-border bg-card transition-all hover:-translate-y-px hover:border-zinc-300 hover:shadow-md',
+        // 只过渡 hover 真正会变的三项。此前是 transition-all：窗口拉伸时网格重排，
+        // 卡片宽度也跟着做 150ms 过渡，键盘高亮框（use-desk-ring）在 resize 事件里
+        // 量到的是中间帧，框与卡对不齐——布局尺寸变化本来就该瞬时
+        'mp-packet group relative overflow-hidden rounded-[13px] border border-border bg-card transition-[transform,border-color,box-shadow] hover:-translate-y-px hover:border-zinc-300 hover:shadow-md',
         leaving === 'right' && 'leave-right',
         leaving === 'left' && 'leave-left',
       )}
