@@ -1,16 +1,21 @@
+import type { ReactNode } from 'react'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-/** 阅读器顶栏（原型 rd-bar）：返回 + 标题/副标题 + 不接/归案。
+/** 阅读器顶栏（≥1100px 单行合一）：返回 + 标题/副标题 + 工具组 + 不接/归案。
  *
- *  只有这两个真决策留在这里；「关闭」与返回是同一动作（close），已删。
+ *  只有「不接 / 归案」两个真决策和工具组留在这里；「关闭」与返回是同一动作（close），已删。
  *  归案恒可点：没归完类时点击会跳到第一个未归类的段并提示（引导在 Reader），
  *  比禁用按钮 + 猜原因更省一个状态。未归类数是例外状态才出现的琥珀标——
- *  归类完了它就消失，顶栏回归安静。 */
+ *  归类完了它就消失，顶栏回归安静。
+ *
+ *  <1100px（抽屉布局）与手机放不下工具组，由 Reader 在顶栏下方另渲染一行
+ *  （ReaderToolbar 非 inline 形态），此处只接收桌面内联形态。 */
 export function ReaderTopBar({
   title,
   subtitle,
   unclassified,
+  tools,
   onBack,
   onReject,
   onAssign,
@@ -19,13 +24,14 @@ export function ReaderTopBar({
   title: string
   subtitle: string
   unclassified: number
+  tools?: ReactNode
   onBack: () => void
   onReject: () => void
   onAssign: () => void
   onRename: () => void
 }) {
   return (
-    <div className="flex h-[54px] flex-none items-center gap-3 border-b border-border bg-card px-4 max-[760px]:gap-2 max-[760px]:px-2.5">
+    <div className="flex h-[54px] flex-none items-center gap-2 border-b border-border bg-card px-2.5">
       {/* 手机只留箭头：「材料预处理」四个字占掉标题的地盘，标题本身更要紧 */}
       <button
         type="button"
@@ -35,7 +41,7 @@ export function ReaderTopBar({
         aria-label="返回材料预处理列表"
       >
         <ArrowLeft className="h-4 w-4" />
-        <span className="max-[760px]:hidden">材料预处理</span>
+        <span className="hidden min-[1100px]:inline">材料预处理</span>
       </button>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
@@ -59,7 +65,9 @@ export function ReaderTopBar({
           )}
         </div>
       </div>
-      <div className="ml-auto flex flex-none items-center gap-2 max-[760px]:gap-1">
+      {/* 工具组（桌面内联形态，≥1100 才显示；<1100 由 Reader 渲染在顶栏下方一行） */}
+      {tools}
+      <div className="ml-auto flex flex-none items-center gap-1 max-[760px]:gap-1">
         <button
           type="button"
           onClick={onReject}

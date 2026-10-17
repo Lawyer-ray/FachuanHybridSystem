@@ -165,43 +165,77 @@ export function Reader() {
 
   return (
     <FixedReader closing={closing}>
+      {/* 工具组同一份配置渲染两处：≥1100 内联进顶栏（单行合一），<1100 独立一行 */}
       <ReaderTopBar
         title={detail.subject || '材料包'}
         subtitle={subtitle}
         unclassified={unclassified}
+        tools={
+          <ReaderToolbar
+            narrow={false}
+            railOpen={railOpen}
+            metaOpen={metaOpen}
+            onToggleRail={() => {
+              setRailOpen((v) => !v)
+              setMetaOpen(false)
+            }}
+            onToggleMeta={() => {
+              setMetaOpen((v) => !v)
+              setRailOpen(false)
+            }}
+            selMode={selMode}
+            onToggleSelMode={() => st.toggleSelMode()}
+            onAddFiles={() => addInputRef.current?.click()}
+            zoomVal={zoomVal}
+            onZoomIn={zoomIn}
+            onZoomOut={zoomOut}
+            onZoomReset={() => st.setZoom(1)}
+            cols={effCols}
+            colsDisabled={maxColsAllowed <= 1}
+            onChangeCols={changeCols}
+            onResetSegments={onResetSegments}
+            onAutoSplit={() => void autoSplit.run()}
+            autoSplitRunning={autoSplit.running}
+            autoSplitProgress={autoSplit.progress}
+            inline
+          />
+        }
         onBack={close}
         onReject={onReject}
         onAssign={handleAssign}
         onRename={() => setRenaming(true)}
       />
 
-      <ReaderToolbar
-        narrow={narrow}
-        railOpen={railOpen}
-        metaOpen={metaOpen}
-        onToggleRail={() => {
-          setRailOpen((v) => !v)
-          setMetaOpen(false)
-        }}
-        onToggleMeta={() => {
-          setMetaOpen((v) => !v)
-          setRailOpen(false)
-        }}
-        selMode={selMode}
-        onToggleSelMode={() => st.toggleSelMode()}
-        onAddFiles={() => addInputRef.current?.click()}
-        zoomVal={zoomVal}
-        onZoomIn={zoomIn}
-        onZoomOut={zoomOut}
-        onZoomReset={() => st.setZoom(1)}
-        cols={effCols}
-        colsDisabled={maxColsAllowed <= 1}
-        onChangeCols={changeCols}
-        onResetSegments={onResetSegments}
-        onAutoSplit={() => void autoSplit.run()}
-        autoSplitRunning={autoSplit.running}
-        autoSplitProgress={autoSplit.progress}
-      />
+      {/* <1100（抽屉布局 / 手机）：工具组独立一行，放不下就横滚 */}
+      <div className="min-[1100px]:hidden">
+        <ReaderToolbar
+          narrow={narrow}
+          railOpen={railOpen}
+          metaOpen={metaOpen}
+          onToggleRail={() => {
+            setRailOpen((v) => !v)
+            setMetaOpen(false)
+          }}
+          onToggleMeta={() => {
+            setMetaOpen((v) => !v)
+            setRailOpen(false)
+          }}
+          selMode={selMode}
+          onToggleSelMode={() => st.toggleSelMode()}
+          onAddFiles={() => addInputRef.current?.click()}
+          zoomVal={zoomVal}
+          onZoomIn={zoomIn}
+          onZoomOut={zoomOut}
+          onZoomReset={() => st.setZoom(1)}
+          cols={effCols}
+          colsDisabled={maxColsAllowed <= 1}
+          onChangeCols={changeCols}
+          onResetSegments={onResetSegments}
+          onAutoSplit={() => void autoSplit.run()}
+          autoSplitRunning={autoSplit.running}
+          autoSplitProgress={autoSplit.progress}
+        />
+      </div>
 
       {/* 取字 / 选页 顶部提示横条（原型 .pickhint：琥珀底 + Esc）。退出按钮与 Esc 同口径
           （use-reader-keys）：取字态清掉待确认 OCR 与取字目标；选页态清选区并退出模式 */}
