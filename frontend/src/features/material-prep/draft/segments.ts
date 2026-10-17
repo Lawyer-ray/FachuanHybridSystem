@@ -1,5 +1,5 @@
 import type { AssignInfo, BundleMat, DraftState, PackStatus, PageKey, Segment } from '../types'
-import { matLabel } from './labels'
+import { matLabel, withDefaultNames } from './labels'
 import { initialSegments } from './resolve'
 import { nextSegId } from './seg-id'
 
@@ -29,7 +29,8 @@ export function splitSegment(d: DraftState, si: number, k: number): DraftState {
   // 切开即视为人工整理过的段（与 selection 的 manual: true 口径一致）
   const next = d.segs.map((sg, i) => (i === si ? { ...sg, refs: head, manual: true } : sg))
   next.splice(si + 1, 0, newSeg)
-  return { ...d, segs: next }
+  // 头尾两段若还用着源文件名，按各自起始页改成「源名-P起始页」——否则切几刀就有几份同名
+  return withDefaultNames({ ...d, segs: next })
 }
 
 /** 段 si 并入上一段（si>0） */
@@ -41,7 +42,8 @@ export function mergeSegment(d: DraftState, si: number): DraftState {
     return sg
   })
   next.splice(si, 1)
-  return { ...d, segs: next }
+  // 并回整份时默认名变回源文件名
+  return withDefaultNames({ ...d, segs: next })
 }
 
 /** 改段类型 */

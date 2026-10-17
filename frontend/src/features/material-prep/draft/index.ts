@@ -18,6 +18,8 @@ export {
   selKeyOf,
   countUnclassified,
   isWholeMat,
+  segRangeText,
+  withDefaultNames,
 } from './labels'
 export {
   splitSegment,

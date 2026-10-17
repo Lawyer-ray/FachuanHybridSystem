@@ -54,12 +54,12 @@ describe('SegmentHeader', () => {
     expect(screen.queryByRole('button', { name: '并入上一份' })).toBeNull()
   })
 
-  it('页数只说一次：同源「N 页」，跨源补「· 跨源」', () => {
+  it('段头标页区间 + 页数：同源「P1–2 · 2 页」，跨源「跨源 · 2 页」', () => {
     const { unmount } = render(<SegmentHeader seg={seg} si={1} color="#0ea5e9" {...noop} onMerge={vi.fn()} />)
-    expect(screen.getByText('2 页')).toBeTruthy()
+    expect(screen.getByText('P1–2 · 2 页')).toBeTruthy()
     unmount()
     const cross: Segment = { ...seg, refs: [{ mi: 0, p: 1 }, { mi: 1, p: 1 }] }
     render(<SegmentHeader seg={cross} si={1} color="#0ea5e9" {...noop} onMerge={vi.fn()} />)
-    expect(screen.getByText('2 页 · 跨源')).toBeTruthy()
+    expect(screen.getByText('跨源 · 2 页')).toBeTruthy()
   })
 })

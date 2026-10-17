@@ -32,15 +32,26 @@ function fixture(): DraftState {
 }
 
 describe('splitSegment', () => {
-  it('在第 k 页缝切开：前段保留类型且标记人工，新段类型清空、名取来源名', () => {
+  it('在第 k 页缝切开：前段保留类型且标记人工，新段类型清空；两段默认名都按起始页「源名-P起始页」', () => {
     const d = splitSegment(fixture(), 0, 1)
     expect(d.segs).toHaveLength(3)
-    expect(d.segs[0]).toMatchObject({ t: '起诉状', fn: '起诉状.pdf', manual: true })
+    // 以前头段沿用源文件名、尾段也取源文件名——切几刀就几份同名；现在各带起始页
+    expect(d.segs[0]).toMatchObject({ t: '起诉状', fn: '起诉状-P1.pdf', manual: true })
     expect(d.segs[0]!.refs).toEqual([{ mi: 0, p: 1 }, { mi: 0, p: 2 }])
-    expect(d.segs[1]).toMatchObject({ t: '', fn: '起诉状.pdf', manual: true })
+    expect(d.segs[1]).toMatchObject({ t: '', fn: '起诉状-P3.pdf', manual: true })
     expect(d.segs[1]!.refs).toEqual([{ mi: 0, p: 3 }])
     // 后面的段原样保留
     expect(d.segs[2]).toMatchObject({ t: '证据' })
+  })
+
+  it('切开后再并回整份：默认名变回源文件名；用户改过的名不动', () => {
+    const cut = splitSegment(fixture(), 0, 1)
+    const back = mergeSegment(cut, 1)
+    expect(back.segs[0]).toMatchObject({ fn: '起诉状.pdf' })
+    expect(back.segs[0]!.refs).toHaveLength(3)
+
+    const renamed = renameSegment(cut, 0, '借条.pdf')
+    expect(mergeSegment(renamed, 1).segs[0]!.fn).toBe('借条.pdf')
   })
 
   it('越界守卫：si / k 越界或单页段原样返回', () => {

@@ -18,6 +18,7 @@ import {
   resolveMats,
   setPackAssign,
   setPackStatus,
+  withDefaultNames,
 } from './draft'
 import type {
   AssignInfo,
@@ -165,8 +166,10 @@ export const useReader = create<ReaderState>((set, get) => ({
       // 未拆过的包 draft_state 是空占位（见 draft/state.ts 的 isEmptyDraft）；
       // 已存草稿但段被删空的仍按「未拆」重建初始草稿，避免打开一个空阅读器
       const hasStored = !isEmptyDraft(ds) && ds.segs.length > 0
-      // 存量草稿的段可能没有 id（id 是后加的字段），读取时兜底补齐
-      const draft = hasStored ? ensureSegIds(ds) : buildInitialDraft(detail, mats)
+      // 存量草稿的段可能没有 id（id 是后加的字段），读取时兜底补齐；
+      // 仍用默认名的段按现行规则刷新（源名-P起始页）——老草稿里切开留下的余段
+      // 都叫源文件名，打开就是几份同名；用户改过的名不动
+      const draft = hasStored ? withDefaultNames(ensureSegIds(ds)) : buildInitialDraft(detail, mats)
       set({ detail, draft, status: 'ready' })
     } catch (e) {
       if (get().openId !== id) return
@@ -292,7 +295,7 @@ export const useReader = create<ReaderState>((set, get) => ({
     }
     get().update((d) => applyPageSelection(d, selPages))
     get().clearSel()
-    toast('已处理选中页 —— 新段记得归类')
+    toast('新的一份已就位，记得选类型')
   },
 
   /** 删除页：缺省删当前选中；传 target 则删指定页（右键未选中页时用）。 */

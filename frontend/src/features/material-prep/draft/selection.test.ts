@@ -67,14 +67,15 @@ describe('isSelectionContiguous', () => {
 })
 
 describe('splitOutPages', () => {
-  it('中间切出一段：前后残段保留原类型/名，新段人工、名带起始页', () => {
+  it('中间切出一段：前后残段保留原类型、默认名按各自起始页，新段人工、名带起始页', () => {
     const d = splitOutPages(fixture(), [{ mi: 0, p: 2 }])
     expect(d.segs).toHaveLength(4)
     const [head, cut, tail, other] = d.segs
-    expect(head).toMatchObject({ t: '起诉状', fn: '起诉状.pdf', refs: [{ mi: 0, p: 1 }], manual: false })
+    // 残段不再沿用源文件名（否则切几刀就几份同名）
+    expect(head).toMatchObject({ t: '起诉状', fn: '起诉状-P1.pdf', refs: [{ mi: 0, p: 1 }], manual: false })
     expect(cut).toMatchObject({ t: '', fn: '起诉状-P2.pdf', manual: true })
     expect(cut!.refs).toEqual([{ mi: 0, p: 2 }])
-    expect(tail).toMatchObject({ t: '起诉状', fn: '起诉状.pdf', refs: [{ mi: 0, p: 3 }], manual: false })
+    expect(tail).toMatchObject({ t: '起诉状', fn: '起诉状-P3.pdf', refs: [{ mi: 0, p: 3 }], manual: false })
     expect(other).toMatchObject({ t: '证据', fn: '证据.pdf' })
   })
 
@@ -96,20 +97,22 @@ describe('splitOutPages', () => {
 })
 
 describe('mergePagesIntoNew', () => {
-  it('跨源合并：原段移除被选页（空段清掉），尾部追加人工跨源段', () => {
+  it('跨源合并：原段移除被选页（空段清掉），新段插在首选页原位置而不是追加到末尾', () => {
     const d = mergePagesIntoNew(fixture(), [{ mi: 0, p: 3 }, { mi: 1, p: 1 }])
     expect(d.segs).toHaveLength(3)
-    expect(d.segs[0]!.refs).toEqual([{ mi: 0, p: 1 }, { mi: 0, p: 2 }])
-    expect(d.segs[1]!.refs).toEqual([{ mi: 1, p: 2 }])
-    const merged = d.segs[2]
-    expect(merged).toMatchObject({ t: '', fn: '合并材料.pdf', manual: true })
+    // 首选页 0/3 在 seg-a：seg-a 剩下的 P1–2 留在前面，合并段紧随其后，seg-b 残段在后
+    expect(d.segs[0]).toMatchObject({ fn: '起诉状-P1.pdf', refs: [{ mi: 0, p: 1 }, { mi: 0, p: 2 }] })
+    const merged = d.segs[1]
+    expect(merged).toMatchObject({ t: '', fn: '起诉状-P3.pdf', manual: true })
     expect(merged!.refs).toEqual([{ mi: 0, p: 3 }, { mi: 1, p: 1 }])
+    expect(d.segs[2]).toMatchObject({ fn: '证据-P2.pdf', refs: [{ mi: 1, p: 2 }] })
   })
 
-  it('取走整份材料后空段被清理', () => {
+  it('取走整份材料后空段被清理；并出来的恰是整份时默认名变回源文件名', () => {
     const d = mergePagesIntoNew(fixture(), [{ mi: 1, p: 1 }, { mi: 1, p: 2 }])
     expect(d.segs).toHaveLength(2)
-    expect(d.segs[1]!.fn).toBe('合并材料.pdf')
+    expect(d.segs[1]).toMatchObject({ fn: '证据.pdf', manual: true })
+    expect(d.segs[1]!.refs).toEqual([{ mi: 1, p: 1 }, { mi: 1, p: 2 }])
   })
 })
 
@@ -119,9 +122,10 @@ describe('applyPageSelection 分发', () => {
     expect(d.segs.some((sg) => sg.fn === '起诉状-P2.pdf')).toBe(true)
   })
 
-  it('选中跨段 → 走跨源合并', () => {
+  it('选中跨段 → 走跨源合并，合并段落在首选页原位置', () => {
     const d = applyPageSelection(fixture(), [{ mi: 0, p: 3 }, { mi: 1, p: 1 }])
-    expect(d.segs.at(-1)).toMatchObject({ fn: '合并材料.pdf', manual: true })
+    expect(d.segs[1]).toMatchObject({ fn: '起诉状-P3.pdf', manual: true })
+    expect(d.segs[1]!.refs).toEqual([{ mi: 0, p: 3 }, { mi: 1, p: 1 }])
   })
 
   it('空选或不存在的页 → 原引用返回', () => {
@@ -175,9 +179,9 @@ describe('⌘ 乱序点选落段按文档序 normalize', () => {
     expect(d.segs[1]!.fn).toBe('合同-P4.pdf')
   })
 
-  it('乱序跨段合并：合并段 refs 仍按文档扁平序', () => {
+  it('乱序跨段合并：合并段 refs 仍按文档扁平序，位置按文档序首项所在段', () => {
     const d = mergePagesIntoNew(fixture(), [{ mi: 1, p: 1 }, { mi: 0, p: 3 }])
-    expect(d.segs.at(-1)!.refs).toEqual([{ mi: 0, p: 3 }, { mi: 1, p: 1 }])
+    expect(d.segs[1]!.refs).toEqual([{ mi: 0, p: 3 }, { mi: 1, p: 1 }])
   })
 
   it('applyPageSelection 全链路：乱序传入切出后段内页序不颠倒', () => {

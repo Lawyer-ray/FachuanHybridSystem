@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown, PencilLine, Split } from 'lucide-react'
 import { SEGMENT_TYPES } from '../../constants'
+import { segRangeText } from '../../draft'
 import type { Segment } from '../../types'
 import { cn } from '@/lib/utils'
 
@@ -23,10 +24,8 @@ export function SegmentHeader({
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState(seg.fn)
 
-  const last = seg.refs[seg.refs.length - 1]
-  // 页数只说一次；跨源补充来源数——起止页码 P{x}–{y} 与页数重复（页卡自己有编号），不再展示
-  const cross = seg.refs.length > 0 && seg.refs[0]!.mi !== last?.mi
-  const rangeText = cross ? `${seg.refs.length} 页 · 跨源` : `${seg.refs.length} 页`
+  // 页区间 + 页数：「P5–19 · 15 页」；跨源「跨源 · 15 页」。切几刀后名字再像，看区间就分得开
+  const rangeText = `${segRangeText(seg)} · ${seg.refs.length} 页`
 
   const startNameEdit = () => {
     setNameDraft(seg.fn)

@@ -1,7 +1,7 @@
 import { FileText, Image, Layers, PencilLine } from 'lucide-react'
 import { SEG_COLORS } from '../../constants'
 import type { BundleMat, DraftState } from '../../types'
-import { isWholeMat, segMats } from '../../draft'
+import { isWholeMat, segMats, segRangeText } from '../../draft'
 
 export function Rail({
   draft,
@@ -82,6 +82,10 @@ export function Rail({
                   >
                     <span className="h-2 w-2 flex-none rounded-full" style={{ background: sg.t ? color : 'transparent', border: sg.t ? 'none' : '1px dashed #a1a1aa' }} />
                     <span className="min-w-0 flex-1 truncate text-[13px]">{whole ? '整份' : sg.fn}</span>
+                    {/* 页区间：名字再像也能一眼分开（整份不用标） */}
+                    {!whole && (
+                      <span className="flex-none text-[10.5px] tabular-nums text-muted-foreground">{segRangeText(sg)}</span>
+                    )}
                     <span
                       className={
                         sg.t
@@ -118,6 +122,7 @@ export function Rail({
                 >
                   <span className="h-2 w-2 flex-none rounded-full bg-zinc-400" />
                   <span className="min-w-0 flex-1 truncate text-[13px]">{sg.fn}</span>
+                  <span className="flex-none text-[10.5px] tabular-nums text-muted-foreground">{sg.refs.length} 页</span>
                   <span
                     className={
                       sg.t
