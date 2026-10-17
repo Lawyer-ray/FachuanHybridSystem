@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { useReader } from '../../store'
-import { countUnclassified, matLabel } from '../../draft'
+import { countUnclassified, isAutoSegName, matLabel } from '../../draft'
 import { useMediaQuery } from '@/hooks/use-media'
 import { ReaderTopBar } from './ReaderTopBar'
 import { ReaderToolbar } from './ReaderToolbar'
@@ -17,6 +17,7 @@ import { useAutoSplit } from './use-auto-split'
 import { useElementWidth } from '../../hooks/use-element-width'
 import { useReaderKeys } from './use-reader-keys'
 import { useReaderWidths } from './use-reader-widths'
+import { useWheelZoom } from './use-wheel-zoom'
 import { buildFlowOps, buildMetaOps, selDetailOf } from './reader-ops'
 import { ReaderDialogs } from './ReaderDialogs'
 import { useReaderActions } from './use-reader-actions'
@@ -47,7 +48,7 @@ export function Reader() {
   const [metaOpen, setMetaOpen] = useState(false)
   const addInputRef = useRef<HTMLInputElement>(null)
   const narrow = useMediaQuery('(max-width:1100px)')
-  const [flowWrapRef, flowWrapW] = useElementWidth<HTMLDivElement>()
+  const [flowWrapRef, flowWrapW, flowWrapEl] = useElementWidth<HTMLDivElement>()
   const { pickPage, onOcrBox, ocrOk } = useReaderOcr()
   const autoSplit = useAutoSplit()
   const {
@@ -65,6 +66,8 @@ export function Reader() {
   const st = useReader.getState()
 
   useReaderKeys()
+  // ⌘/Ctrl + 滚轮（含触控板捏合）缩放画布，挂在中栏滚动容器上
+  useWheelZoom(flowWrapEl, zoom)
 
   const { maxCols: maxColsAllowed, effCols, railWrapCls, metaWrapCls } = useReaderWidths({
     cols,
@@ -128,9 +131,6 @@ export function Reader() {
   const selDetail = selDetailOf(draft, selPages)
   // 副标题只说必要信息：页数 + 产出份数；源文件数只在多源时出现（单源是常态，不是属性）
   const subtitle = `${pages} 页 · ${draft.segs.length} 份材料${draft.mats.length > 1 ? ` · ${draft.mats.length} 个源文件` : ''}`
-  // 左栏是「源文件 → 段」的目录。单源单段的包里它的全部内容（文件名、页数、唯一一段）
-  // 页流首屏就看得见，整栏是重复——不渲染；追加了文件或切出多段后自然出现
-  const railUseful = draft.mats.length > 1 || draft.segs.length > 1
 
   const changeCols = () => {
     // 窗口不够宽就点不动（列数按钮已禁用）
@@ -146,12 +146,12 @@ export function Reader() {
   }
 
   // 归案唯一入口：没归完类不打开弹窗，跳到第一个未归类的段并提示
-  //（原「完成拆分与归类」按钮的引导逻辑——按钮删了，引导留下）
+  //（未归类 = 没类型且名字还是默认名；改名或右键选类型都算处理过）
   const handleAssign = () => {
     if (!allClassified) {
-      const first = draft.segs.findIndex((s) => !s.t)
+      const first = draft.segs.findIndex((s) => !s.t && isAutoSegName(draft, s))
       if (first >= 0) focusSeg(first)
-      toast.info(`还有 ${unclassified} 段没选类型 —— 点段头的类型胶囊选一下`)
+      toast.info(`还有 ${unclassified} 份没命名 —— 双击左栏改名，或右键选类型`)
       return
     }
     setAssignOpen(true)
@@ -165,44 +165,77 @@ export function Reader() {
 
   return (
     <FixedReader closing={closing}>
+      {/* 工具组同一份配置渲染两处：≥1100 内联进顶栏（单行合一），<1100 独立一行 */}
       <ReaderTopBar
         title={detail.subject || '材料包'}
         subtitle={subtitle}
         unclassified={unclassified}
+        tools={
+          <ReaderToolbar
+            narrow={false}
+            railOpen={railOpen}
+            metaOpen={metaOpen}
+            onToggleRail={() => {
+              setRailOpen((v) => !v)
+              setMetaOpen(false)
+            }}
+            onToggleMeta={() => {
+              setMetaOpen((v) => !v)
+              setRailOpen(false)
+            }}
+            selMode={selMode}
+            onToggleSelMode={() => st.toggleSelMode()}
+            onAddFiles={() => addInputRef.current?.click()}
+            zoomVal={zoomVal}
+            onZoomIn={zoomIn}
+            onZoomOut={zoomOut}
+            onZoomReset={() => st.setZoom(1)}
+            cols={effCols}
+            colsDisabled={maxColsAllowed <= 1}
+            onChangeCols={changeCols}
+            onResetSegments={onResetSegments}
+            onAutoSplit={() => void autoSplit.run()}
+            autoSplitRunning={autoSplit.running}
+            autoSplitProgress={autoSplit.progress}
+            inline
+          />
+        }
         onBack={close}
         onReject={onReject}
         onAssign={handleAssign}
         onRename={() => setRenaming(true)}
       />
 
-      <ReaderToolbar
-        narrow={narrow}
-        railAvailable={railUseful}
-        railOpen={railOpen}
-        metaOpen={metaOpen}
-        onToggleRail={() => {
-          setRailOpen((v) => !v)
-          setMetaOpen(false)
-        }}
-        onToggleMeta={() => {
-          setMetaOpen((v) => !v)
-          setRailOpen(false)
-        }}
-        selMode={selMode}
-        onToggleSelMode={() => st.toggleSelMode()}
-        onAddFiles={() => addInputRef.current?.click()}
-        zoomVal={zoomVal}
-        onZoomIn={zoomIn}
-        onZoomOut={zoomOut}
-        onZoomReset={() => st.setZoom(1)}
-        cols={effCols}
-        colsDisabled={maxColsAllowed <= 1}
-        onChangeCols={changeCols}
-        onResetSegments={onResetSegments}
-        onAutoSplit={() => void autoSplit.run()}
-        autoSplitRunning={autoSplit.running}
-        autoSplitProgress={autoSplit.progress}
-      />
+      {/* <1100（抽屉布局 / 手机）：工具组独立一行，放不下就横滚 */}
+      <div className="min-[1100px]:hidden">
+        <ReaderToolbar
+          narrow={narrow}
+          railOpen={railOpen}
+          metaOpen={metaOpen}
+          onToggleRail={() => {
+            setRailOpen((v) => !v)
+            setMetaOpen(false)
+          }}
+          onToggleMeta={() => {
+            setMetaOpen((v) => !v)
+            setRailOpen(false)
+          }}
+          selMode={selMode}
+          onToggleSelMode={() => st.toggleSelMode()}
+          onAddFiles={() => addInputRef.current?.click()}
+          zoomVal={zoomVal}
+          onZoomIn={zoomIn}
+          onZoomOut={zoomOut}
+          onZoomReset={() => st.setZoom(1)}
+          cols={effCols}
+          colsDisabled={maxColsAllowed <= 1}
+          onChangeCols={changeCols}
+          onResetSegments={onResetSegments}
+          onAutoSplit={() => void autoSplit.run()}
+          autoSplitRunning={autoSplit.running}
+          autoSplitProgress={autoSplit.progress}
+        />
+      </div>
 
       {/* 取字 / 选页 顶部提示横条（原型 .pickhint：琥珀底 + Esc）。退出按钮与 Esc 同口径
           （use-reader-keys）：取字态清掉待确认 OCR 与取字目标；选页态清选区并退出模式 */}
@@ -236,18 +269,23 @@ export function Reader() {
           />
         )}
 
-        {railUseful && (
-          <div className={railWrapCls}>
-            <Rail
-              draft={draft}
-              onFocusSeg={focusSeg}
-              onRenameMat={(mi) => {
-                const m = draft.mats[mi]!
-                setRenameMat({ mi, initial: m.customName || m.n })
-              }}
-            />
-          </div>
-        )}
+        {/* 左栏常驻：「源文件 → 段」的目录是这页的使用习惯，单源单段也不收
+            （曾按"内容页流首屏可见"收起过，用户反馈不符合习惯，改回） */}
+        <div className={railWrapCls}>
+          <Rail
+            draft={draft}
+            onFocusSeg={focusSeg}
+            onRenameMat={(mi) => {
+              const m = draft.mats[mi]!
+              setRenameMat({ mi, initial: m.customName || m.n })
+            }}
+            onRenameSeg={flowOps.renameSeg}
+            onSetSegType={flowOps.setSegType}
+            onMergeSeg={flowOps.mergeSeg}
+            onMergeSegs={flowOps.mergeSegs}
+            onMoveSeg={flowOps.moveSeg}
+          />
+        </div>
 
         <div ref={flowWrapRef} className="relative min-w-0 flex-1 overflow-auto">
           <Flow

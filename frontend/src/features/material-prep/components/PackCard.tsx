@@ -95,35 +95,8 @@ export const PackCard = memo(function PackCard({
       {/* 已归案印章 */}
       {pack.status === 'done' && stamp()}
 
-      {/* 缩略图带 + 标签 */}
+      {/* 缩略图带（overflow-hidden：纸堆与离场动画都在它里面裁） */}
       <div className="relative flex h-[148px] items-center justify-center overflow-hidden border-b border-border bg-secondary px-4">
-        {/* 左：拆分类标签 */}
-        <span
-          className={cn(
-            'absolute left-[11px] top-2.5 z-[3] flex items-center gap-[5px] rounded-full border px-2 py-[2px] text-[10.5px] font-medium',
-            pack.segs === 0
-              ? 'border-zinc-200 bg-zinc-50 text-secondary-foreground'
-              : finished
-                ? 'border-green-200 bg-green-50 text-green-700'
-                : 'border-amber-200 bg-amber-50 text-amber-700',
-          )}
-        >
-          {pack.segs === 0 ? (
-            '未打开'
-          ) : finished ? (
-            <>
-              <span className="h-[5px] w-[5px] rounded-full bg-green-500" />
-              已归类
-            </>
-          ) : (
-            `${pack.segs - pack.named} 份未归类`
-          )}
-        </span>
-        {/* 右：来源标签（无图标，纯文本） */}
-        <span className="absolute right-[11px] top-2.5 z-[3] rounded-full border border-zinc-200 bg-white/90 px-2 py-[2px] text-[10.5px] font-medium text-secondary-foreground">
-          {pack.source_name || '收件箱'}
-        </span>
-
         {/* 纸堆缩略 */}
         <div className="flex items-center">
           {pack.mats <= 0 ? (
@@ -147,6 +120,36 @@ export const PackCard = memo(function PackCard({
             </>
           )}
         </div>
+      </div>
+
+      {/* 顶部标签层：独立于缩略图带（带子 overflow-hidden，环境性亚像素偏移会把
+          absolute 徽章的上缘齐头裁掉——用户真机实测）。pointer-events-none 让点击
+          穿透到下面的整卡打开层 */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-[3] flex items-start justify-between px-[11px] pt-2">
+        <span
+          className={cn(
+            'flex items-center gap-[5px] rounded-full border px-2 py-[2px] text-[10.5px] font-medium',
+            pack.segs === 0
+              ? 'border-zinc-200 bg-zinc-50 text-secondary-foreground'
+              : finished
+                ? 'border-green-200 bg-green-50 text-green-700'
+                : 'border-amber-200 bg-amber-50 text-amber-700',
+          )}
+        >
+          {pack.segs === 0 ? (
+            '未打开'
+          ) : finished ? (
+            <>
+              <span className="h-[5px] w-[5px] rounded-full bg-green-500" />
+              已归类
+            </>
+          ) : (
+            `${pack.segs - pack.named} 份未归类`
+          )}
+        </span>
+        <span className="rounded-full border border-zinc-200 bg-white/90 px-2 py-[2px] text-[10.5px] font-medium text-secondary-foreground">
+          {pack.source_name || '收件箱'}
+        </span>
       </div>
 
       {/* 标题 + 事实链 + 进度条 */}

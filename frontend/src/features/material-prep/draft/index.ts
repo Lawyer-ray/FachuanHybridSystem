@@ -18,10 +18,14 @@ export {
   selKeyOf,
   countUnclassified,
   isWholeMat,
+  isAutoSegName,
+  segRangeText,
+  withDefaultNames,
 } from './labels'
 export {
   splitSegment,
   mergeSegment,
+  moveSegment,
   setSegmentType,
   renameSegment,
   resetSegments,
@@ -46,4 +50,5 @@ export {
   applyPageSelection,
   isSelectionContiguous,
   removePages,
+  mergeSegsIntoOne,
 } from './selection'

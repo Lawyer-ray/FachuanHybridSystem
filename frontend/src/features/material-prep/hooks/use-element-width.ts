@@ -25,5 +25,6 @@ export function useElementWidth<T extends HTMLElement>() {
     [],
   )
 
-  return [ref, width] as const
+  // 第三项把元素本身也交出去：需要挂原生监听（如 passive:false 的 wheel）的调用方用
+  return [ref, width, el] as const
 }

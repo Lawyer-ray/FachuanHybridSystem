@@ -8,6 +8,7 @@ vi.mock('../api', () => ({ fetchAttachmentBytes: vi.fn() }))
 import {
   appendMatsToDraft,
   mergeSegment,
+  moveSegment,
   renameSegment,
   resetSegments,
   setPackAssign,
@@ -32,15 +33,59 @@ function fixture(): DraftState {
 }
 
 describe('splitSegment', () => {
-  it('在第 k 页缝切开：前段保留类型且标记人工，新段类型清空、名取来源名', () => {
+  it('在第 k 页缝切开：前段保留类型且标记人工，新段类型清空；名字按「类型优先、其次源名-P起始页」', () => {
     const d = splitSegment(fixture(), 0, 1)
     expect(d.segs).toHaveLength(3)
+    // 头段带着类型「起诉状」→ 名字跟类型；尾段无类型 → 「源名-P起始页」
     expect(d.segs[0]).toMatchObject({ t: '起诉状', fn: '起诉状.pdf', manual: true })
     expect(d.segs[0]!.refs).toEqual([{ mi: 0, p: 1 }, { mi: 0, p: 2 }])
-    expect(d.segs[1]).toMatchObject({ t: '', fn: '起诉状.pdf', manual: true })
+    expect(d.segs[1]).toMatchObject({ t: '', fn: '起诉状-P3.pdf', manual: true })
     expect(d.segs[1]!.refs).toEqual([{ mi: 0, p: 3 }])
     // 后面的段原样保留
     expect(d.segs[2]).toMatchObject({ t: '证据' })
+  })
+
+  it('切开后再并回整份：默认名变回源文件名；用户改过的名不动', () => {
+    const cut = splitSegment(fixture(), 0, 1)
+    const back = mergeSegment(cut, 1)
+    expect(back.segs[0]).toMatchObject({ fn: '起诉状.pdf' })
+    expect(back.segs[0]!.refs).toHaveLength(3)
+
+    const renamed = renameSegment(cut, 0, '客户原件.pdf')
+    expect(mergeSegment(renamed, 1).segs[0]!.fn).toBe('客户原件.pdf')
+  })
+
+  it('换类型时默认名跟着类型走；用户手改过的名不跟', () => {
+    const d = fixture()
+    // 段 a 是默认名（起诉状.pdf + fnAuto 由首刷写入）→ 改类型名字跟着走
+    const first = setSegmentType(d, 0, '借条')
+    expect(first.segs[0]!.fn).toBe('借条.pdf')
+    expect(first.segs[0]!.fnAuto).toBe('借条.pdf')
+
+    // 手改成别的名字后换类型，名字保留
+    const renamed = renameSegment(first, 0, '客户原件.pdf')
+    expect(setSegmentType(renamed, 0, '银行流水').segs[0]!.fn).toBe('客户原件.pdf')
+  })
+
+  it('改名为类型词自动归类：「借条.pdf」→ t=借条；非类型名不改类型', () => {
+    const d = fixture()
+    const typed = renameSegment(d, 1, '借条.pdf')
+    expect(typed.segs[1]).toMatchObject({ fn: '借条.pdf', t: '借条' })
+    const plain = renameSegment(d, 1, '客户给的.pdf')
+    expect(plain.segs[1]).toMatchObject({ fn: '客户给的.pdf', t: '证据' })
+  })
+
+  it('moveSegment 换位：after 移到目标段后、before 移到目标段前；自身为目标原样返回', () => {
+    const after = moveSegment(fixture(), 0, 1, 'after')
+    expect(after.segs.map((s) => s.id)).toEqual(['seg-b', 'seg-a'])
+    const before = moveSegment(fixture(), 1, 0, 'before')
+    expect(before.segs.map((s) => s.id)).toEqual(['seg-b', 'seg-a'])
+    // refs 不动，只是段序调整
+    expect(after.segs[1]!.refs).toEqual([{ mi: 0, p: 1 }, { mi: 0, p: 2 }, { mi: 0, p: 3 }])
+    const d = fixture()
+    expect(moveSegment(d, 1, 1, 'after')).toBe(d)
+    expect(moveSegment(d, -1, 0, 'after')).toBe(d)
+    expect(moveSegment(fixture(), -1, 0, 'after').segs.map((s) => s.id)).toEqual(['seg-a', 'seg-b'])
   })
 
   it('越界守卫：si / k 越界或单页段原样返回', () => {

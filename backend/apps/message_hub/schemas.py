@@ -71,8 +71,14 @@ class InboxMessageOut(SchemaMixin, Schema):
 
     @staticmethod
     def resolve_named(obj: InboxMessage) -> int:
-        segs = (obj.draft_state or {}).get("segs") or []
-        return sum(1 for s in segs if str(s.get("t") or "").strip())
+        """已归类份数：选了类型，或改过名（fnAuto 记录系统默认名，fn 与之不同即用户命名）。"""
+        named = 0
+        for s in (obj.draft_state or {}).get("segs") or []:
+            has_type = bool(str(s.get("t") or "").strip())
+            renamed = s.get("fnAuto") is not None and s.get("fn") != s.get("fnAuto")
+            if has_type or renamed:
+                named += 1
+        return named
 
     @staticmethod
     def resolve_pages(obj: InboxMessage) -> int:

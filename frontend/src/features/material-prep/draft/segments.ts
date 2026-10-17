@@ -1,5 +1,6 @@
+import { SEGMENT_TYPES } from '../constants'
 import type { AssignInfo, BundleMat, DraftState, PackStatus, PageKey, Segment } from '../types'
-import { matLabel } from './labels'
+import { matLabel, withDefaultNames } from './labels'
 import { initialSegments } from './resolve'
 import { nextSegId } from './seg-id'
 
@@ -29,7 +30,8 @@ export function splitSegment(d: DraftState, si: number, k: number): DraftState {
   // 切开即视为人工整理过的段（与 selection 的 manual: true 口径一致）
   const next = d.segs.map((sg, i) => (i === si ? { ...sg, refs: head, manual: true } : sg))
   next.splice(si + 1, 0, newSeg)
-  return { ...d, segs: next }
+  // 头尾两段若还用着源文件名，按各自起始页改成「源名-P起始页」——否则切几刀就有几份同名
+  return withDefaultNames({ ...d, segs: next })
 }
 
 /** 段 si 并入上一段（si>0） */
@@ -41,23 +43,39 @@ export function mergeSegment(d: DraftState, si: number): DraftState {
     return sg
   })
   next.splice(si, 1)
-  return { ...d, segs: next }
+  // 并回整份时默认名变回源文件名
+  return withDefaultNames({ ...d, segs: next })
 }
 
-/** 改段类型 */
+/**
+ * 把段 si 移动到 targetSi 的前 / 后（左栏拖拽换位）。只是段序调整，refs 与名字都不动。
+ */
+export function moveSegment(d: DraftState, si: number, targetSi: number, position: 'before' | 'after'): DraftState {
+  if (si < 0 || si >= d.segs.length || targetSi < 0 || targetSi >= d.segs.length || si === targetSi) return d
+  const moved = d.segs[si]!
+  const rest = d.segs.filter((_, i) => i !== si)
+  const anchor = rest.findIndex((sg) => sg === d.segs[targetSi])
+  if (anchor < 0) return d
+  rest.splice(position === 'before' ? anchor : anchor + 1, 0, moved)
+  return { ...d, segs: rest }
+}
+
+/** 改段类型；仍用默认名的段名字跟着类型走（「起诉状.pdf」），拆完选个类型就不用再改名 */
 export function setSegmentType(d: DraftState, si: number, t: string): DraftState {
   if (si < 0 || si >= d.segs.length || t === d.segs[si]!.t) return d
   const segs = d.segs.map((sg, i) => (i === si ? { ...sg, t } : sg))
-  return { ...d, segs }
+  return withDefaultNames({ ...d, segs })
 }
 
-/** 改段名 */
+/** 改段名；名字恰好是类型词（如「借条.pdf」）时自动归类——改名即归类，一个控件两个信息 */
 export function renameSegment(d: DraftState, si: number, fn: string): DraftState {
   if (si < 0 || si >= d.segs.length) return d
   const name = fn.trim()
   if (!name || name === d.segs[si]!.fn) return d
-  const segs = d.segs.map((sg, i) => (i === si ? { ...sg, fn: name } : sg))
-  return { ...d, segs }
+  const base = name.replace(/\.[^.]+$/, '')
+  const matched = SEGMENT_TYPES.find((t) => t === base)
+  const segs = d.segs.map((sg, i) => (i === si ? { ...sg, fn: name, t: matched ?? sg.t } : sg))
+  return withDefaultNames({ ...d, segs })
 }
 
 /** 恢复初始分段 */

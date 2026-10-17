@@ -69,6 +69,21 @@ class TestResolveNamed:
 
         assert InboxMessageOut.resolve_named(_obj({})) == 0
 
+    def test_user_renamed_seg_counts_even_without_type(self) -> None:
+        """改名即归类：fnAuto 记录系统默认名，fn 与之不同 = 用户命名过。"""
+        from apps.message_hub.schemas import InboxMessageOut
+
+        obj = _obj(
+            {
+                "segs": [
+                    {"t": "", "fn": "身份证.pdf", "fnAuto": "扫描-P3.pdf"},  # 用户改过名
+                    {"t": "", "fn": "扫描-P1.pdf", "fnAuto": "扫描-P1.pdf"},  # 仍是默认名
+                    {"fn": "没处理.pdf"},  # 无 fnAuto（老草稿）→ 只认类型
+                ]
+            }
+        )
+        assert InboxMessageOut.resolve_named(obj) == 1
+
 
 class TestResolvePages:
     def test_sums_mat_pages(self) -> None:

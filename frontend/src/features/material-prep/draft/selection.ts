@@ -1,5 +1,5 @@
 import type { DraftState, PageKey, Segment } from '../types'
-import { matLabel, segMats } from './labels'
+import { defaultSegName, matLabel, segMats, withDefaultNames } from './labels'
 import { nextSegId } from './seg-id'
 
 /**
@@ -80,23 +80,79 @@ export function splitOutPages(d: DraftState, picked: PageKey[]): DraftState {
   if (k1 < sg.refs.length - 1)
     parts.push({ id: nextSegId(), t: sg.t, fn: sg.fn, refs: sg.refs.slice(k1 + 1), manual: sg.manual })
   const segs = [...d.segs.slice(0, si), ...parts, ...d.segs.slice(si + 1)]
-  return { ...d, segs }
+  // 头 / 尾残段若还用着源文件名，按页区间改成「源名-P起始页」——否则切几刀就有几份同名
+  return withDefaultNames({ ...d, segs })
 }
 
-/** 把选中页并成一份新的跨源材料，并从原段移除这些页（空段被清掉）。 */
+/**
+ * 把选中页并成一份新材料，并从原段移除这些页（空段被清掉）。
+ *
+ * 新段**插在首选页原来所在的位置**，不追加到末尾：以前并完的那一份会跳到整个
+ * 文档最后面，页序被打乱，看起来像凭空多出一个文件而不是"并成了一份"。
+ * 命名走 defaultSegName（源名-P起始页），不再叫「合并材料.pdf」。
+ */
 export function mergePagesIntoNew(d: DraftState, picked: PageKey[]): DraftState {
   if (!picked.length) return d
   // 合并段 refs 同样按扁平文档序 normalize（点选顺序不影响成段后的页序）
   const flat = flatRefs(d)
-  const ordered = flatIndexesOf(flat, picked).map((i) => flat[i]!.ref)
+  const idx = flatIndexesOf(flat, picked)
+  if (!idx.length) return d
+  const ordered = idx.map((i) => flat[i]!.ref)
+  const firstSi = flat[idx[0]!]!.si
   const taken = new Set(picked.map((r) => `${r.mi}:${r.p}`))
+  const merged: Segment = {
+    id: nextSegId(),
+    t: '',
+    fn: defaultSegName(d, ordered, false),
+    refs: ordered,
+    manual: true,
+  }
   const segs: Segment[] = []
-  for (const sg of d.segs) {
+  let inserted = false
+  d.segs.forEach((sg, si) => {
     const refs = sg.refs.filter((r) => !taken.has(`${r.mi}:${r.p}`))
     if (refs.length) segs.push({ ...sg, refs })
+    // 首选页所在段：它剩下的页（选区之前的部分）留在前面，合并段紧随其后
+    if (si === firstSi) {
+      segs.push(merged)
+      inserted = true
+    }
+  })
+  if (!inserted) segs.push(merged)
+  return withDefaultNames({ ...d, segs })
+}
+
+/**
+ * 多选段并成一份：refs 按文档扁平序拼接（页不重排），类型全部一致才沿用、否则清空；
+ * 新段落在**文档序最前那份**选中段的位置。少于两份或下标全部越界时原样返回。
+ */
+export function mergeSegsIntoOne(d: DraftState, sis: number[]): DraftState {
+  const idx = [...new Set(sis)].filter((i) => Number.isInteger(i) && i >= 0 && i < d.segs.length).sort((a, b) => a - b)
+  if (idx.length < 2) return d
+  const picked = new Set(idx)
+  // 页序按文档扁平序：跨段选择（第 1 份 + 第 3 份）合并后页仍是升序
+  const flat = flatRefs(d)
+  const order = new Map(flat.map((f, i) => [`${f.ref.mi}:${f.ref.p}`, i] as const))
+  const refs = d.segs
+    .filter((_, i) => picked.has(i))
+    .flatMap((sg) => sg.refs)
+    .sort((a, b) => (order.get(`${a.mi}:${a.p}`) ?? 0) - (order.get(`${b.mi}:${b.p}`) ?? 0))
+  const types = new Set(d.segs.filter((_, i) => picked.has(i)).map((sg) => sg.t).filter(Boolean))
+  const t = types.size === 1 ? [...types][0]! : ''
+  const merged: Segment = {
+    id: nextSegId(),
+    t,
+    fn: defaultSegName(d, refs, false, t),
+    refs,
+    manual: true,
   }
-  segs.push({ id: nextSegId(), t: '', fn: '合并材料.pdf', refs: ordered, manual: true })
-  return { ...d, segs }
+  // 新段插在文档序最前那份选中段的位置；其余选中段移除
+  const segs: Segment[] = []
+  d.segs.forEach((sg, i) => {
+    if (i === idx[0]) segs.push(merged)
+    if (!picked.has(i)) segs.push(sg)
+  })
+  return withDefaultNames({ ...d, segs })
 }
 
 /**
@@ -133,9 +189,16 @@ export function isSelectionContiguous(d: DraftState, selPages: PageKey[]): boole
 export function removePages(d: DraftState, picked: PageKey[]): DraftState {
   if (!picked.length) return d
   const gone = new Set(picked.map((r) => `${r.mi}:${r.p}`))
+  let changed = false
   const segs = d.segs
-    .map((sg) => ({ ...sg, refs: sg.refs.filter((r) => !gone.has(`${r.mi}:${r.p}`)) }))
+    .map((sg) => {
+      const refs = sg.refs.filter((r) => !gone.has(`${r.mi}:${r.p}`))
+      if (refs.length === sg.refs.length) return sg
+      changed = true
+      return { ...sg, refs }
+    })
     .filter((sg) => sg.refs.length > 0)
-  if (segs.length === d.segs.length && segs.every((sg, i) => sg === d.segs[i])) return d
-  return { ...d, segs }
+  if (!changed) return d
+  // 删掉首页后「源名-P起始页」里的起始页变了，默认名跟着刷新
+  return withDefaultNames({ ...d, segs })
 }
