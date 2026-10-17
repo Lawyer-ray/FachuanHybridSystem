@@ -49,6 +49,11 @@ class PdfSplitStorage:
         return self.analysis_dir / "segments.json"
 
     @property
+    def segments_md_path(self) -> Path:
+        """分段 Markdown 产物（order / 页区间 / 正文），供 API content_md 透出与下游 AI 消费。"""
+        return self.analysis_dir / "segments_md.json"
+
+    @property
     def export_zip_path(self) -> Path:
         return self.exports_dir / "split_result.zip"
 

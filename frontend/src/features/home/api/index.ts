@@ -6,6 +6,7 @@
  *   - 日历视图        = GET  /reminders/calendar     （合并/统计都在后端算好）
  *   - 快速记一笔解析 = POST /reminders/parse       （仅能识别"绝对日期"文本）
  *   - 新建安排       = POST /reminders/create
+ *   - 删除安排       = POST /reminders/delete     （批量；仅创建人 / 管理员，按事件 can_delete 显隐）
  *   - 待处理流入     = GET  /inbox/messages        （收件箱，按收到时间倒序）
  *   - 收法院短信     = POST /automation/court-sms
  *   - 要素式转换     = POST /doc-convert/convert   （multipart：file + mbid）
@@ -18,7 +19,7 @@
  * barrel re-export，消费方继续 `from '../api'` / `from '../../api'` 不变。
  */
 
-export { remindersApi, fetchCalendarMonth, setRemindersCompleted, calendarKeys, REMINDER_TYPES_KEY, searchTargetOptions, listReminderTypes, parseReminder, createReminder } from './reminders'
+export { remindersApi, fetchCalendarMonth, setRemindersCompleted, deleteReminders, calendarKeys, REMINDER_TYPES_KEY, searchTargetOptions, listReminderTypes, parseReminder, createReminder } from './reminders'
 export type { CalendarEvent, CalendarStats, CalendarMonth, TargetType, TargetOption, ReminderTypeOption, ParsedReminder, CreateReminderIn } from './reminders'
 
 export { inboxApi, listInbox, formatRelative } from './inbox'

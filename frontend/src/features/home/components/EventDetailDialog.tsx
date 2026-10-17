@@ -1,5 +1,16 @@
-import { Check, ExternalLink, X } from 'lucide-react'
+import { useState } from 'react'
+import { Check, ExternalLink, Trash2, X } from 'lucide-react'
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   Dialog,
   DialogContent,
@@ -18,6 +29,8 @@ interface Props {
   onOpenCase: (e: CalendarEvent) => void
   /** 勾选完成 / 取消完成（合并事件的全部成员由调用方统一处理） */
   onToggleComplete: (e: CalendarEvent) => void
+  /** 删除（二次确认已在本组件内完成；合并事件的全部成员由调用方统一处理） */
+  onDelete: (e: CalendarEvent) => void
 }
 
 /**
@@ -25,8 +38,13 @@ interface Props {
  *
  * 日历格子高度有限，律师 / 案号 / 庭审方式这些次要信息放不下，
  * 点一下用弹窗完整展示。
+ *
+ * 删除入口只在 event.can_delete 时出现：后端按「谁创建谁删」（管理员豁免）
+ * 算好标记，别人建的日程连按钮都不给——而不是点了才收到 403。
  */
-export function EventDetailDialog({ event, onClose, onOpenCase, onToggleComplete }: Props) {
+export function EventDetailDialog({ event, onClose, onOpenCase, onToggleComplete, onDelete }: Props) {
+  // 删除二次确认（AlertDialog 叠在详情弹窗上）。hooks 必须在 early return 之前
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   if (!event) return null
 
   const rows: { label: string; value: string; mono?: boolean }[] = []
@@ -127,8 +145,49 @@ export function EventDetailDialog({ event, onClose, onOpenCase, onToggleComplete
             <ExternalLink className="h-3.5 w-3.5" />
             {event.case_id ? `打开案件 #${event.case_id}` : '未关联案件'}
           </button>
+
+          {/* 删除：仅创建人 / 管理员（can_delete 由后端算好）；低调的文字按钮，悬停才见红 */}
+          {event.can_delete && (
+            <button
+              type="button"
+              onClick={() => setConfirmingDelete(true)}
+              className="mt-3 flex h-8 w-full items-center justify-center gap-1.5 rounded-[9px] text-[12px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              删除此安排
+            </button>
+          )}
         </div>
       </DialogContent>
+
+      {/* 删除二次确认：叠在详情弹窗之上（同 z 基线，后开者在上） */}
+      <AlertDialog
+        open={confirmingDelete}
+        onOpenChange={(open) => {
+          if (!open) setConfirmingDelete(false)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除「{event.title}」？</AlertDialogTitle>
+            <AlertDialogDescription>
+              {event.members > 1 ? `同一庭审的 ${event.members} 条同步记录会一起删除。` : ''}
+              删除后不可恢复。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmingDelete(false)
+                onDelete(event)
+              }}
+            >
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }

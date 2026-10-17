@@ -130,6 +130,26 @@ class CalendarMonthService:
 
         return qs.filter(visible).distinct()
 
+    # ── 删除权限标记 ──────────────────────────────────────────────────────
+
+    def _mark_deletable(self, events: list[CalendarEventItem], reminders: list[Reminder], ctx: Any) -> None:
+        """按当前用户标记每条事件能否删除（前端据此显隐删除按钮）。
+
+        合并事件由多条 reminder 组成（同一庭审按律师分别同步），全部成员都
+        可删才算可删——否则批量删除会被后端 403 拦下一半，事件残留半截。
+        ctx 为 None（admin 内部调用）不标记，字段保持默认 False。
+        """
+        if ctx is None:
+            return
+        from .reminder_access import can_delete_reminder
+
+        user = ctx.user
+        by_id = {reminder.id: reminder for reminder in reminders}
+        for event in events:
+            event.can_delete = bool(event.member_ids) and all(
+                can_delete_reminder(user, by_id.get(member_id)) for member_id in event.member_ids
+            )
+
     # ── 月视图 ────────────────────────────────────────────────────────────
 
     def build_month(self, *, year: int, month: int, ctx: Any = None) -> MonthCalendarView:
@@ -139,9 +159,10 @@ class CalendarMonthService:
         """
         today = self._now.astimezone(self._tz).date()
 
-        month_qs = self._scope_for_context(self.query_month(year=year, month=month), ctx)
-        month_events = self.normalize(month_qs, today=today)
+        month_reminders = list(self._scope_for_context(self.query_month(year=year, month=month), ctx))
+        month_events = self.normalize(month_reminders, today=today)
         month_events = sorted(month_events, key=lambda e: (e.day, e.time, e.id))
+        self._mark_deletable(month_events, month_reminders, ctx)
 
         # 统计按更宽的时间窗算，保证「7 日内到期」跨月也准确
         stats_qs = self._scope_for_context(self.query_all_upcoming(), ctx)

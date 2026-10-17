@@ -9,7 +9,6 @@ import { ReaderTopBar } from './ReaderTopBar'
 import { ReaderToolbar } from './ReaderToolbar'
 import { HintBar } from './HintBar'
 import { SelectionBar } from './SelectionBar'
-import { KeyHintsBar } from './KeyHintsBar'
 import { Rail } from './Rail'
 import { Flow } from './Flow'
 import { MetaPanel } from './MetaPanel'
@@ -58,7 +57,6 @@ export function Reader() {
     setDeleteTarget,
     zoomIn,
     zoomOut,
-    onComplete,
     onResetSegments,
     onReject,
     confirmDelete,
@@ -128,6 +126,11 @@ export function Reader() {
   const allClassified = draft.segs.length > 0 && unclassified === 0
   const pages = draft.mats.reduce((s, m) => s + m.pages, 0)
   const selDetail = selDetailOf(draft, selPages)
+  // 副标题只说必要信息：页数 + 产出份数；源文件数只在多源时出现（单源是常态，不是属性）
+  const subtitle = `${pages} 页 · ${draft.segs.length} 份材料${draft.mats.length > 1 ? ` · ${draft.mats.length} 个源文件` : ''}`
+  // 左栏是「源文件 → 段」的目录。单源单段的包里它的全部内容（文件名、页数、唯一一段）
+  // 页流首屏就看得见，整栏是重复——不渲染；追加了文件或切出多段后自然出现
+  const railUseful = draft.mats.length > 1 || draft.segs.length > 1
 
   const changeCols = () => {
     // 窗口不够宽就点不动（列数按钮已禁用）
@@ -142,6 +145,18 @@ export function Reader() {
     }
   }
 
+  // 归案唯一入口：没归完类不打开弹窗，跳到第一个未归类的段并提示
+  //（原「完成拆分与归类」按钮的引导逻辑——按钮删了，引导留下）
+  const handleAssign = () => {
+    if (!allClassified) {
+      const first = draft.segs.findIndex((s) => !s.t)
+      if (first >= 0) focusSeg(first)
+      toast.info(`还有 ${unclassified} 段没选类型 —— 点段头的类型胶囊选一下`)
+      return
+    }
+    setAssignOpen(true)
+  }
+
   const zoomVal = Math.round(zoom * 100)
 
   const ocrFrom = ocrPending ? `${matLabel(draft.mats, ocrPending.mi)} P${ocrPending.p}` : ''
@@ -152,17 +167,17 @@ export function Reader() {
     <FixedReader closing={closing}>
       <ReaderTopBar
         title={detail.subject || '材料包'}
-        subtitle={`${draft.mats.length} 个源文件 · ${pages} 页 · ${draft.segs.length} 份材料 · ${unclassified} 段未归类`}
-        allClassified={allClassified}
+        subtitle={subtitle}
+        unclassified={unclassified}
         onBack={close}
         onReject={onReject}
-        onAssign={() => setAssignOpen(true)}
-        onClose={close}
+        onAssign={handleAssign}
         onRename={() => setRenaming(true)}
       />
 
       <ReaderToolbar
         narrow={narrow}
+        railAvailable={railUseful}
         railOpen={railOpen}
         metaOpen={metaOpen}
         onToggleRail={() => {
@@ -173,7 +188,6 @@ export function Reader() {
           setMetaOpen((v) => !v)
           setRailOpen(false)
         }}
-        progressText={`${draft.mats.length} 个源文件 · ${pages} 页`}
         selMode={selMode}
         onToggleSelMode={() => st.toggleSelMode()}
         onAddFiles={() => addInputRef.current?.click()}
@@ -188,11 +202,25 @@ export function Reader() {
         onAutoSplit={() => void autoSplit.run()}
         autoSplitRunning={autoSplit.running}
         autoSplitProgress={autoSplit.progress}
-        onComplete={onComplete}
       />
 
-      {/* 取字 / 选页 顶部提示横条（原型 .pickhint：琥珀底 + Esc） */}
-      {(pickInfo >= 0 || selMode) && <HintBar mode={pickInfo >= 0 ? 'pick' : 'sel'} field={pickField} />}
+      {/* 取字 / 选页 顶部提示横条（原型 .pickhint：琥珀底 + Esc）。退出按钮与 Esc 同口径
+          （use-reader-keys）：取字态清掉待确认 OCR 与取字目标；选页态清选区并退出模式 */}
+      {(pickInfo >= 0 || selMode) && (
+        <HintBar
+          mode={pickInfo >= 0 ? 'pick' : 'sel'}
+          field={pickField}
+          onExit={() => {
+            if (pickInfo >= 0) {
+              st.setOcrPending(null)
+              st.setPickInfo(-1)
+              return
+            }
+            st.clearSel()
+            st.toggleSelMode()
+          }}
+        />
+      )}
 
       {/* 三栏主体 */}
       <div className="relative flex min-h-0 flex-1 bg-[#f1f1f3]">
@@ -208,16 +236,18 @@ export function Reader() {
           />
         )}
 
-        <div className={railWrapCls}>
-          <Rail
-            draft={draft}
-            onFocusSeg={focusSeg}
-            onRenameMat={(mi) => {
-              const m = draft.mats[mi]!
-              setRenameMat({ mi, initial: m.customName || m.n })
-            }}
-          />
-        </div>
+        {railUseful && (
+          <div className={railWrapCls}>
+            <Rail
+              draft={draft}
+              onFocusSeg={focusSeg}
+              onRenameMat={(mi) => {
+                const m = draft.mats[mi]!
+                setRenameMat({ mi, initial: m.customName || m.n })
+              }}
+            />
+          </div>
+        )}
 
         <div ref={flowWrapRef} className="relative min-w-0 flex-1 overflow-auto">
           <Flow
@@ -256,9 +286,6 @@ export function Reader() {
           onApply={() => st.applySel()}
         />
       )}
-
-      {/* 底栏：键位提示 + 进度 */}
-      <KeyHintsBar allClassified={allClassified} unclassified={unclassified} />
 
       {/* 追加材料文件选择 */}
       <input

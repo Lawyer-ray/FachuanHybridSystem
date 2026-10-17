@@ -2,10 +2,10 @@
 /**
  * BindingsPage（账号绑定设置页）组件渲染单测（jsdom）。
  *
- * mock 边界：./social-api（socialBindingsApi 四个方法）、sonner（toast 断言）、
- * AppNavbar（子组件桩）。覆盖：加载/失败重载、三种行形态（已绑定/可绑定/未开放）、
- * 空目录、解绑确认流程（成功 toast + 失败 toast）、bound 回调参数清理（一次性提示）、
- * 绑定弹窗打开。
+ * mock 边界：./social-api（socialBindingsApi 四个方法）、sonner（toast 断言）。
+ * 导航栏由 AppShell 常驻，页面本身不再渲染。覆盖：加载/失败重载、三种行形态
+ * （已绑定/可绑定/未开放）、空目录、解绑确认流程（成功 toast + 失败 toast）、
+ * bound 回调参数清理（一次性提示）、绑定弹窗打开。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
@@ -28,9 +28,6 @@ vi.mock('sonner', () => {
   const toast = Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() })
   return { toast }
 })
-vi.mock('@/components/shared/AppNavbar', () => ({
-  AppNavbar: () => <nav>navbar-stub</nav>,
-}))
 
 import { socialBindingsApi, type BoundAccount, type SocialProviderInfo } from './social-api'
 import { toast } from 'sonner'

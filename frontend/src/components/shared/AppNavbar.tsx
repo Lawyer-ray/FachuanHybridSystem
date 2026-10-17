@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { startTransition, useEffect, useOptimistic, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { LogOut, Menu, Plus, Search, User } from 'lucide-react'
@@ -25,27 +25,41 @@ import {
 import { GlobalSearch } from '@/features/search'
 
 /**
- * 全局顶层导航（全站唯一一套，首页 / 材料预处理等所有页面共用）。
+ * 全局顶层导航（全站唯一一套，由 App 的 AppShell 渲染一次、跨页面常驻）。
  *
  * 合并自原「首页 TopNav」与「材料预处理页内联 header」：此前两处各写一份，
  * 跨页面跳转时导航会变形（一边有 logo + 退出，一边没有）。按 frontend/CLAUDE.md
  * 的提权规则，navbar 被 ≥2 个 feature 使用，故收敛到 components/shared/。
+ * 后来又从各页面内部提到壳层：页面各自渲染一份时，切换路由会把导航栏连同
+ * 页面一起卸载重挂，未缓存的页面 chunk 加载期间导航栏直接消失（闪烁源头）。
  */
 export interface AppNavbarProps {
   /** 未实现入口的回调（给 toast 提示） */
   onNotify?: (msg: string) => void
   /** 退出登录后跳转；不传则默认回 /login */
   onLogout?: () => void
+  /** 导航入口悬停 / 聚焦时预取该路由的页面 chunk（AppShell 注入；须幂等） */
+  onPrefetch?: (to: string) => void
 }
 
 /** 补拉当前用户信息的 query key（本组件独用，就地定义） */
 const ORG_ME_KEY = ['organization-me'] as const
 
-export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
+/** 与 react-router Link 相同的判定：只有不带修饰键的左键点击才会站内导航 */
+function isPlainLeftClick(e: React.MouseEvent): boolean {
+  return e.button === 0 && !e.metaKey && !e.altKey && !e.ctrlKey && !e.shiftKey
+}
+
+export function AppNavbar({ onNotify, onLogout, onPrefetch }: AppNavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [logoutOpen, setLogoutOpen] = useState(false)
   const { pathname } = useLocation()
+  // 点击导航后、目标页面 chunk 到达前，react-router 的导航 transition 尚未提交，
+  // pathname 还停在旧值（React 保住旧页面不退回 fallback）。useOptimistic 让
+  // 被点的标签在这段时间里先行高亮给即时反馈；transition 提交后自动回落到
+  // 真实 pathname，此时二者相同，没有跳变。
+  const [navPath, setNavPath] = useOptimistic(pathname)
   const user = useAuth((s) => s.user)
   const setUser = useAuth((s) => s.setUser)
   const logout = useAuth((s) => s.logout)
@@ -75,6 +89,19 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
   }, [meQuery.data, setUser])
 
   const notify = (msg: string) => onNotify?.(msg)
+
+  /** 导航入口点击：自己接管站内导航，好把乐观高亮与路由更新放进同一个 transition */
+  const selectNav = (to: string, e: React.MouseEvent<HTMLAnchorElement>) => {
+    setMenuOpen(false)
+    // 带修饰键 / 非左键：Link 本身也不会站内导航（交给浏览器开新标签等），不抢先高亮
+    if (e.defaultPrevented || !isPlainLeftClick(e)) return
+    e.preventDefault()
+    startTransition(() => {
+      setNavPath(to)
+      // 同 Link：重复点当前页用 replace，不堆历史记录
+      void navigate(to, { replace: to === pathname })
+    })
+  }
 
   // ⌘K / Ctrl+K 唤起全局检索。dialog 已打开时不再重复触发。
   useEffect(() => {
@@ -109,7 +136,7 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
   }
 
   return (
-    <header className="sticky top-0 z-50 flex h-[54px] items-center gap-2 border-b border-border bg-card/80 px-[22px] backdrop-blur-[14px]">
+    <header className="sticky top-0 z-50 flex h-(--app-navbar-h) items-center gap-2 border-b border-border bg-card/80 px-[22px] backdrop-blur-[14px]">
       <button
         type="button"
         className="hidden h-8 w-8 items-center justify-center rounded-[8px] text-foreground max-[760px]:flex"
@@ -127,22 +154,24 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
       </Link>
 
       <nav
-        className={`items-center gap-[2px] max-[760px]:fixed max-[760px]:inset-x-0 max-[760px]:top-[54px] max-[760px]:z-49 max-[760px]:flex-col max-[760px]:items-stretch max-[760px]:border-b max-[760px]:border-border max-[760px]:bg-card max-[760px]:p-2 max-[760px]:shadow-[0_12px_24px_rgba(0,0,0,.08)] ${
+        className={`items-center gap-[2px] max-[760px]:fixed max-[760px]:inset-x-0 max-[760px]:top-(--app-navbar-h) max-[760px]:z-49 max-[760px]:flex-col max-[760px]:items-stretch max-[760px]:border-b max-[760px]:border-border max-[760px]:bg-card max-[760px]:p-2 max-[760px]:shadow-[0_12px_24px_rgba(0,0,0,.08)] ${
           menuOpen ? 'flex' : 'max-[760px]:hidden'
         } md:flex`}
       >
-        <NavLink to="/" label="首页" active={pathname === '/'} onClick={() => setMenuOpen(false)} />
+        <NavLink to="/" label="首页" active={navPath === '/'} onSelect={selectNav} onPrefetch={onPrefetch} />
         <NavLink
           to="/material-prep"
           label="材料预处理"
-          active={pathname.startsWith('/material-prep')}
-          onClick={() => setMenuOpen(false)}
+          active={navPath.startsWith('/material-prep')}
+          onSelect={selectNav}
+          onPrefetch={onPrefetch}
         />
         <NavLink
           to="/cases"
           label="办案"
-          active={pathname.startsWith('/cases')}
-          onClick={() => setMenuOpen(false)}
+          active={navPath.startsWith('/cases')}
+          onSelect={selectNav}
+          onPrefetch={onPrefetch}
         />
       </nav>
 
@@ -229,17 +258,26 @@ function NavLink({
   to,
   label,
   active,
-  onClick,
+  onSelect,
+  onPrefetch,
 }: {
   to: string
   label: string
   active: boolean
-  onClick: () => void
+  onSelect: (to: string, e: React.MouseEvent<HTMLAnchorElement>) => void
+  onPrefetch?: (to: string) => void
 }) {
+  // 鼠标悬停 / 键盘聚焦 / 触屏按下即预取目标页 chunk：从意图到点击的间隙通常够把
+  // 小 chunk 拉完，点下去就是即时切换
+  const prefetch = () => onPrefetch?.(to)
   return (
     <Link
       to={to}
-      onClick={onClick}
+      aria-current={active ? 'page' : undefined}
+      onClick={(e) => onSelect(to, e)}
+      onMouseEnter={prefetch}
+      onFocus={prefetch}
+      onTouchStart={prefetch}
       className={`cursor-pointer rounded-[8px] px-3 py-[7px] text-[13.5px] font-medium whitespace-nowrap no-underline transition-colors hover:bg-secondary hover:text-foreground ${
         active ? 'bg-secondary text-foreground' : 'text-secondary-foreground'
       }`}

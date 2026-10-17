@@ -236,6 +236,23 @@ class ReminderService:
             raise NotFoundError("提醒记录 %(id)s 不存在" % {"id": reminder_id})
         logger.debug("Deleted reminder %s, details=%s", reminder_id, deleted_details)
 
+    @transaction.atomic
+    def delete_reminders(self, reminder_ids: list[int]) -> int:
+        """批量删除，返回实际删除条数（不存在的 id 静默跳过）。
+
+        逐条 instance.delete() 而非 QuerySet.delete()：与 delete_reminder 单条
+        路径走同一套信号 / simple_history 记录，不留两种删除语义。
+        """
+        ids = sorted({rid for rid in reminder_ids if rid > 0})
+        if not ids:
+            raise ValidationException("reminder_ids 不能为空")
+        deleted = 0
+        for reminder in Reminder.objects.filter(id__in=ids):
+            reminder.delete()
+            deleted += 1
+        logger.info("Reminders %s deleted (%s rows)", ids, deleted)
+        return deleted
+
     def get_existing_due_times(self, case_log_id: int, reminder_type: str) -> set[datetime]:
         """获取案件日志已存在的提醒到期时间集合。"""
         normalized_case_log_id = normalize_target_id(case_log_id, field_name="case_log_id")

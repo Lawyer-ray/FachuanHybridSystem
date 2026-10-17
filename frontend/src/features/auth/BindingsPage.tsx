@@ -10,8 +10,6 @@ import { useLocation, useNavigate } from 'react-router'
 import { parseISO } from 'date-fns'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { AppNavbar } from '@/components/shared/AppNavbar'
-import { PageFade } from '@/components/shared/PageFade'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -90,100 +88,97 @@ export function BindingsPage() {
   const failed = bindingsQuery.isError || catalogQuery.isError
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppNavbar onNotify={(msg) => toast.info(msg)} />
+    <>
+      {/* 导航栏由 AppShell 常驻；入场过渡挂在 main 上，换页重挂才播一次 */}
+      <main className="app-page-enter mx-auto max-w-[720px] px-[32px] pt-[26px] pb-20 max-[760px]:px-[14px] max-[760px]:pt-[18px]">
+        <h1 className="text-[22px] font-bold tracking-[-0.02em]">账号绑定</h1>
+        <p className="mt-2 text-[12.5px] leading-[1.8] text-muted-foreground">
+          绑定后即可在登录页用对应平台直接登录，无需输入密码。未绑定的社交账号无法登录，
+          系统不会自动为其创建律师账号。
+        </p>
 
-      <PageFade>
-        <main className="mx-auto max-w-[720px] px-[32px] pt-[26px] pb-20 max-[760px]:px-[14px] max-[760px]:pt-[18px]">
-          <h1 className="text-[22px] font-bold tracking-[-0.02em]">账号绑定</h1>
-          <p className="mt-2 text-[12.5px] leading-[1.8] text-muted-foreground">
-            绑定后即可在登录页用对应平台直接登录，无需输入密码。未绑定的社交账号无法登录，
-            系统不会自动为其创建律师账号。
-          </p>
+        <div className="mt-5 overflow-hidden rounded-xl border bg-card">
+          {loading && (
+            <div className="flex items-center justify-center gap-2 py-10 text-[12.5px] text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              正在加载…
+            </div>
+          )}
 
-          <div className="mt-5 overflow-hidden rounded-xl border bg-card">
-            {loading && (
-              <div className="flex items-center justify-center gap-2 py-10 text-[12.5px] text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" />
-                正在加载…
-              </div>
-            )}
+          {!loading && failed && (
+            <div className="flex flex-col items-center gap-3 py-10">
+              <p className="text-[12.5px] text-muted-foreground">加载绑定信息失败，请检查网络后重试</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void bindingsQuery.refetch()
+                  void catalogQuery.refetch()
+                }}
+              >
+                重新加载
+              </Button>
+            </div>
+          )}
 
-            {!loading && failed && (
-              <div className="flex flex-col items-center gap-3 py-10">
-                <p className="text-[12.5px] text-muted-foreground">加载绑定信息失败，请检查网络后重试</p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    void bindingsQuery.refetch()
-                    void catalogQuery.refetch()
-                  }}
+          {!loading && !failed && rows.length === 0 && (
+            <p className="py-10 text-center text-[12.5px] text-muted-foreground">暂无可绑定的登录方式</p>
+          )}
+
+          {!loading &&
+            !failed &&
+            rows.map(({ provider, account }, index) => {
+              // client_config 为 null 表示平台尚未配置启用，只展示灰态，不给绑定入口
+              const available = provider.client_config !== null
+              return (
+                <div
+                  key={provider.name}
+                  className={`flex items-center gap-3 px-5 py-[14px] ${
+                    index > 0 ? 'border-t border-border' : ''
+                  }`}
                 >
-                  重新加载
-                </Button>
-              </div>
-            )}
+                  <span className="flex size-9 flex-none items-center justify-center rounded-[10px] bg-secondary text-[13px] font-semibold text-secondary-foreground">
+                    {provider.display_name.slice(0, 1) || provider.name.slice(0, 1)}
+                  </span>
 
-            {!loading && !failed && rows.length === 0 && (
-              <p className="py-10 text-center text-[12.5px] text-muted-foreground">暂无可绑定的登录方式</p>
-            )}
-
-            {!loading &&
-              !failed &&
-              rows.map(({ provider, account }, index) => {
-                // client_config 为 null 表示平台尚未配置启用，只展示灰态，不给绑定入口
-                const available = provider.client_config !== null
-                return (
-                  <div
-                    key={provider.name}
-                    className={`flex items-center gap-3 px-5 py-[14px] ${
-                      index > 0 ? 'border-t border-border' : ''
-                    }`}
-                  >
-                    <span className="flex size-9 flex-none items-center justify-center rounded-[10px] bg-secondary text-[13px] font-semibold text-secondary-foreground">
-                      {provider.display_name.slice(0, 1) || provider.name.slice(0, 1)}
-                    </span>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[13.5px] font-medium">{provider.display_name}</div>
-                      <div className="mt-[2px] truncate text-[11.5px] text-muted-foreground">
-                        {account
-                          ? [account.display_name || '已绑定', boundAtText(account.bound_at)].filter(Boolean).join(' · ')
-                          : available
-                            ? '未绑定'
-                            : '该登录方式暂未开放'}
-                      </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13.5px] font-medium">{provider.display_name}</div>
+                    <div className="mt-[2px] truncate text-[11.5px] text-muted-foreground">
+                      {account
+                        ? [account.display_name || '已绑定', boundAtText(account.bound_at)].filter(Boolean).join(' · ')
+                        : available
+                          ? '未绑定'
+                          : '该登录方式暂未开放'}
                     </div>
-
-                    {account ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={unbind.isPending}
-                        onClick={() => setUnbindTarget(account)}
-                      >
-                        解绑
-                      </Button>
-                    ) : available ? (
-                      <Button type="button" size="sm" onClick={() => setBindingProvider(provider)}>
-                        绑定
-                      </Button>
-                    ) : null}
                   </div>
-                )
-              })}
-          </div>
 
-          <p className="mt-3 text-[11.5px] leading-[1.7] text-muted-foreground">
-            换绑同一平台的其他账号：先解绑当前账号，再绑定新的。解绑期间该平台无法登录，可继续用账号密码登录。
-          </p>
+                  {account ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={unbind.isPending}
+                      onClick={() => setUnbindTarget(account)}
+                    >
+                      解绑
+                    </Button>
+                  ) : available ? (
+                    <Button type="button" size="sm" onClick={() => setBindingProvider(provider)}>
+                      绑定
+                    </Button>
+                  ) : null}
+                </div>
+              )
+            })}
+        </div>
 
-          <PasskeySection />
-        </main>
-      </PageFade>
+        <p className="mt-3 text-[11.5px] leading-[1.7] text-muted-foreground">
+          换绑同一平台的其他账号：先解绑当前账号，再绑定新的。解绑期间该平台无法登录，可继续用账号密码登录。
+        </p>
+
+        <PasskeySection />
+      </main>
 
       <BindProviderDialog
         provider={bindingProvider}
@@ -217,6 +212,6 @@ export function BindingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   )
 }

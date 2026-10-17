@@ -724,6 +724,8 @@ export interface paths {
          * @description 按关键字模糊检索当事人（仅返回检索填报所需的精简字段，不携带证件文档）。
          *
          *     is_our_client 用于区分检索范围：委托人传 true（我方当事人）、对方当事人传 false。
+         *     空关键词直接返回空：此前会退化成无过滤全表序列化（唯一前端消费方
+         *     PartyPicker 以 enabled: !!kw 保证只在有词时请求，此处是服务端兜底）。
          */
         get: operations["apps_client_api_client_api_search_parties"];
         put?: never;
@@ -2721,6 +2723,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contracts/{contract_id}/folder-scan/{session_id}/ai-classify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Contract Scan Ai Classify
+         * @description 对已完成扫描会话的候选发起 LLM 归档分类（异步任务，轮询状态接口获取结果）。
+         */
+        post: operations["apps_contracts_api_folder_scan_api_start_contract_scan_ai_classify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contracts/{contract_id}/folder-scan/{session_id}/confirm": {
         parameters: {
             query?: never;
@@ -3049,7 +3071,7 @@ export interface paths {
         put?: never;
         /**
          * Process Document
-         * @description 文档处理API
+         * @description 文档处理API（仅管理员：按路径读取 MEDIA_ROOT 内文件内容属于跨租户读取面）
          */
         post: operations["apps_automation_api_document_processor_api_process_document"];
         delete?: never;
@@ -3069,7 +3091,7 @@ export interface paths {
         put?: never;
         /**
          * Process Document By Path
-         * @description 通过路径处理文档
+         * @description 通过路径处理文档（仅管理员：可读取 MEDIA_ROOT 内任意文件内容）
          */
         post: operations["apps_automation_api_document_processor_api_process_document_by_path"];
         delete?: never;
@@ -3460,7 +3482,7 @@ export interface paths {
         post?: never;
         /**
          * Delete Sms
-         * @description 删除单条短信
+         * @description 删除单条短信（仅管理员）
          */
         delete: operations["apps_automation_api_court_sms_api_delete_sms"];
         options?: never;
@@ -3524,7 +3546,7 @@ export interface paths {
         put?: never;
         /**
          * Batch Delete Sms
-         * @description 批量删除短信
+         * @description 批量删除短信（仅管理员）
          */
         post: operations["apps_automation_api_court_sms_api_batch_delete_sms"];
         delete?: never;
@@ -3632,7 +3654,7 @@ export interface paths {
         put?: never;
         /**
          * Rename Document
-         * @description 重命名单个关联文书
+         * @description 重命名单个关联文书（仅管理员）
          */
         post: operations["apps_automation_api_court_sms_api_rename_document"];
         delete?: never;
@@ -4626,23 +4648,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/batch-printing/presets/{preset_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Preset */
-        get: operations["apps_batch_printing_api_batch_printing_api_get_preset"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/batch-printing/presets/sync": {
         parameters: {
             query?: never;
@@ -4654,6 +4659,23 @@ export interface paths {
         put?: never;
         /** Sync Presets */
         post: operations["apps_batch_printing_api_batch_printing_api_sync_presets"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batch-printing/presets/{preset_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Preset */
+        get: operations["apps_batch_printing_api_batch_printing_api_get_preset"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5086,6 +5108,8 @@ export interface paths {
         /**
          * Get Target Options
          * @description 获取合同/案件/案件日志的关联选项，用于提醒表单的关联选择。
+         *
+         *     安全审计：按查询用户过滤（合同/案件走各自 AccessPolicy，案件日志随案件）。
          */
         get: operations["apps_reminders_api_reminder_api_get_target_options"];
         put?: never;
@@ -5109,6 +5133,9 @@ export interface paths {
          *
          *     返回「日 → 事件」与工作台统计。同一庭审被多次同步的情况已由后端合并，
          *     统计口径也按合并后计算——前端不要再自行合并或计数，否则两边会不一致。
+         *
+         *     安全审计：按查询用户过滤（关联案件/合同走 AccessPolicy，
+         *     个人提醒创建者本人+管理员可见），与 /list 口径一致。
          */
         get: operations["apps_reminders_api_reminder_api_get_calendar_month"];
         put?: never;
@@ -5136,6 +5163,29 @@ export interface paths {
          *     带全部 member_ids 过来，一次请求保持原子。
          */
         post: operations["apps_reminders_api_reminder_api_complete_reminders"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reminders/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete Reminders
+         * @description 批量删除提醒（日历事件删除）。
+         *
+         *     合并事件带全部 member_ids 过来，一次请求保持原子。口径与单条 DELETE
+         *     一致：仅创建人与管理员可删，任一条不满足整批 403、一条不删。
+         */
+        post: operations["apps_reminders_api_reminder_api_delete_reminders"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5235,7 +5285,13 @@ export interface paths {
         };
         /**
          * List Messages
-         * @description 收件箱消息列表（limit 截取前 N 条，收件箱会持续增长，调用方只取首页展示时应传 limit）。
+         * @description 收件箱消息列表（limit 截取前 N 条；收件箱持续增长，服务端兜底默认 500，
+         *     需要更大结果集的消费方显式传 limit——不传即全量的旧行为会让「打开收件箱」
+         *     随表增长恶化为全站最重请求，每行还要跑 7 个 draft_state resolver）。
+         *
+         *     安全审计（2026Q4 M-6）：``limit<=0`` 时原先不做切片 → 全表序列化
+         *     （含 N+1 的 draft_state resolver），用户上传大量材料包后可自我放大为 DoS。
+         *     此处把 limit 收敛到 [1, 1000]。
          */
         get: operations["apps_message_hub_api_inbox_api_list_messages"];
         put?: never;
@@ -5421,7 +5477,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Sources */
+        /**
+         * List Sources
+         * @description 消息来源列表（安全审计 IDOR：仅本人凭证的来源 + superuser/admin 全部）。
+         */
         get: operations["apps_message_hub_api_message_source_api_list_sources"];
         put?: never;
         /** Create Source */
@@ -5477,7 +5536,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Sync All Sources */
+        /**
+         * Sync All Sources
+         * @description 同步全部来源（安全审计 IDOR：只提交当前用户可见来源的同步任务）。
+         */
         post: operations["apps_message_hub_api_message_source_api_sync_all_sources"];
         delete?: never;
         options?: never;
@@ -7685,6 +7747,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/oa-filing/attachment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stage Filing Attachment
+         * @description 立案前拖拽暂存合同文件：落为合同正本材料（幂等去重）。
+         */
+        post: operations["apps_oa_filing_api_filing_api_stage_filing_attachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/oa-filing/session/{session_id}": {
         parameters: {
             query?: never;
@@ -7994,6 +8076,9 @@ export interface paths {
         /**
          * Lookup Contract
          * @description 根据文件路径反查合同，返回 OA 案件编号。
+         *
+         *     安全审计：返回合同信息前按查询用户做 ContractAccessPolicy 校验；
+         *     无权与未命中返回同款响应，避免借此探测他所合同。
          */
         post: operations["apps_oa_filing_api_stamp_api_lookup_contract"];
         delete?: never;
@@ -8054,6 +8139,9 @@ export interface paths {
         /**
          * Lookup Contract
          * @description 根据第一个文件路径反查合同，返回 OA 案件编号。
+         *
+         *     安全审计：返回合同信息前按查询用户做 ContractAccessPolicy 校验；
+         *     无权与未命中返回同款响应，避免借此探测他所合同。
          */
         post: operations["apps_oa_filing_api_archive_api_lookup_contract"];
         delete?: never;
@@ -8422,6 +8510,34 @@ export interface paths {
         get: operations["apps_core_api_dashboard_api_get_dashboard_stats"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/download-ticket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Download Ticket
+         * @description 为当前用户签发一张短时下载票据。
+         *
+         *     Query / body:
+         *         resource: 可选，目标资源的日志标识（如 ``media:materials/a.pdf``）。
+         *                   仅写入日志，不参与权限判定，长度上限 200 字符。
+         *
+         *     Returns:
+         *         ticket: 票据字符串，拼接到下载 URL 的 ``?ticket=`` 参数上；
+         *         expires_in: 有效期秒数（默认 60）。
+         */
+        post: operations["apps_core_api_download_ticket_api_create_download_ticket"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9320,6 +9436,130 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/social/passkey/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Credentials
+         * @description 列出当前用户已注册的通行密钥。
+         */
+        get: operations["apps_social_auth_api_passkey_api_list_credentials"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/social/passkey/credentials/{credential_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Credential
+         * @description 删除通行密钥 = 吊销：该设备之后无法再登录本账号。
+         */
+        delete: operations["apps_social_auth_api_passkey_api_delete_credential"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename Credential
+         * @description 重命名通行密钥（只允许操作自己的凭据，跨用户的 id 一律查不到）。
+         */
+        patch: operations["apps_social_auth_api_passkey_api_rename_credential"];
+        trace?: never;
+    };
+    "/api/v1/social/passkey/login/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login Options
+         * @description 下发登录挑战（可发现凭据，浏览器自行列出本域全部通行密钥）。
+         */
+        post: operations["apps_social_auth_api_passkey_api_login_options"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/social/passkey/login/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login Verify
+         * @description 校验登录断言并签发 JWT（响应结构与 /social/token-exchange 完全一致）。
+         */
+        post: operations["apps_social_auth_api_passkey_api_login_verify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/social/passkey/register/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register Options
+         * @description 下发注册挑战（excludeCredentials 已含本用户全部已有凭据）。
+         */
+        post: operations["apps_social_auth_api_passkey_api_register_options"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/social/passkey/register/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register Verify
+         * @description 校验注册响应并落库，返回新凭据的展示信息。
+         */
+        post: operations["apps_social_auth_api_passkey_api_register_verify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/workflow/start": {
         parameters: {
             query?: never;
@@ -9350,6 +9590,8 @@ export interface paths {
         /**
          * List Workflows Api
          * @description 查询诉讼工作流列表（标准信封 items/total/page/page_size/total_pages；limit cap 100）
+         *
+         *     安全审计 IDOR：按当前用户可见案件过滤（与 run 详情/审批/取消同口径）。
          */
         get: operations["apps_workflow_api_workflow_api_list_workflows_api"];
         put?: never;
@@ -9396,6 +9638,9 @@ export interface paths {
         /**
          * Approve Workflow Api
          * @description 审批诉讼工作流步骤
+         *
+         *     审批留痕（安全审计）：把审批人写入该 gate 步骤 StepExecution 的
+         *     acted_by/acted_at（approve_workflow_step 内部落库）。
          */
         post: operations["apps_workflow_api_workflow_api_approve_workflow_api"];
         delete?: never;
@@ -10190,6 +10435,10 @@ export interface components {
             client_type_label: string;
             /** Identity Docs */
             identity_docs: components["schemas"]["ClientIdentityDocOut"][];
+            /** Id Number */
+            id_number?: string | null;
+            /** Legal Representative Id Number */
+            legal_representative_id_number?: string | null;
             /** ID */
             id?: number | null;
             /** 名称 */
@@ -10214,18 +10463,11 @@ export interface components {
              * @default legal
              */
             client_type: string;
-            /** 身份证号码或统一社会信用代码 */
-            id_number?: string | null;
             /**
              * 法定代表人或负责人
              * @default
              */
             legal_representative: string | null;
-            /**
-             * 法定代表人/负责人身份证号码
-             * @default
-             */
-            legal_representative_id_number: string | null;
         };
         /**
          * ClientIn
@@ -11041,7 +11283,7 @@ export interface components {
             /** Name */
             name?: string | null;
             /** Status */
-            status?: string | null;
+            status?: ("active" | "closed") | null;
             /** Is Filed */
             is_filed?: boolean | null;
             /** Case Type */
@@ -12784,6 +13026,11 @@ export interface components {
              * @default false
              */
             already_imported: boolean;
+            /**
+             * Classified By
+             * @default
+             */
+            classified_by: string;
         };
         /** ContractFolderScanStatusOut */
         ContractFolderScanStatusOut: {
@@ -12821,6 +13068,13 @@ export interface components {
              * @default []
              */
             work_log_suggestions: components["schemas"]["WorkLogSuggestionOut"][];
+            /**
+             * Ai Classify Result
+             * @default {}
+             */
+            ai_classify_result: {
+                [key: string]: unknown;
+            };
         };
         /** ContractFolderScanSummaryOut */
         ContractFolderScanSummaryOut: {
@@ -12846,6 +13100,31 @@ export interface components {
             date: string;
             /** Content */
             content: string;
+        };
+        /** ContractFolderScanAIClassifyOut */
+        ContractFolderScanAIClassifyOut: {
+            /** Session Id */
+            session_id: string;
+            /** Status */
+            status: string;
+            /**
+             * Task Id
+             * @default
+             */
+            task_id: string;
+        };
+        /** ContractFolderScanAIClassifyIn */
+        ContractFolderScanAIClassifyIn: {
+            /**
+             * Model Id
+             * @default
+             */
+            model_id: string;
+            /**
+             * Scope
+             * @default unmatched
+             */
+            scope: string;
         };
         /** ContractFolderScanConfirmOut */
         ContractFolderScanConfirmOut: {
@@ -14590,6 +14869,8 @@ export interface components {
             review_flag_label: string;
             /** Source Method */
             source_method: string;
+            /** Content Md */
+            content_md: string;
         };
         /** ConfirmRequestIn */
         ConfirmRequestIn: {
@@ -15127,6 +15408,8 @@ export interface components {
             created_at: string;
             /** Updated At */
             updated_at: string;
+            /** Created By */
+            created_by?: number | null;
         };
         /** ReminderIn */
         ReminderIn: {
@@ -15245,6 +15528,11 @@ export interface components {
             members: number;
             /** Member Ids */
             member_ids?: number[];
+            /**
+             * Can Delete
+             * @default false
+             */
+            can_delete: boolean;
         };
         /**
          * CalendarMonthOut
@@ -15313,6 +15601,25 @@ export interface components {
              * @default true
              */
             is_completed: boolean;
+        };
+        /**
+         * ReminderDeleteOut
+         * @description 实际删除条数（不存在的 id 静默跳过）。
+         */
+        ReminderDeleteOut: {
+            /** Deleted */
+            deleted: number;
+        };
+        /**
+         * ReminderDeleteIn
+         * @description 批量删除（日历事件删除）。
+         *
+         *     与 ReminderCompleteIn 同理：合并事件的全部 member_ids 一起传，一次请求
+         *     保持原子；任一条无权删除则整批 403。
+         */
+        ReminderDeleteIn: {
+            /** Reminder Ids */
+            reminder_ids: number[];
         };
         /** ReminderUpdate */
         ReminderUpdate: {
@@ -17517,6 +17824,15 @@ export interface components {
             /** Case Id */
             case_id?: number | null;
         };
+        /** FilingAttachmentOut */
+        FilingAttachmentOut: {
+            /** Material Id */
+            material_id: number;
+            /** Filename */
+            filename: string;
+            /** Already Exists */
+            already_exists: boolean;
+        };
         /**
          * MbidCategoryOut
          * @description 文书类型分类。
@@ -18916,6 +19232,24 @@ export interface components {
             /** Is Overdue */
             is_overdue: boolean;
         };
+        /** DownloadTicketOut */
+        DownloadTicketOut: {
+            /** Ticket */
+            ticket: string;
+            /** Expires In */
+            expires_in: number;
+        };
+        /**
+         * DownloadTicketIn
+         * @description 签发票据的入参。``resource`` 仅用于日志排障，不参与权限判定。
+         */
+        DownloadTicketIn: {
+            /**
+             * Resource
+             * @default
+             */
+            resource: string;
+        };
         /** SessionCreateIn */
         SessionCreateIn: {
             /**
@@ -19522,6 +19856,95 @@ export interface components {
              */
             message: string;
         };
+        /**
+         * PasskeyCredentialOut
+         * @description 一条已注册通行密钥的展示信息（不含公钥/计数器等内部字段）。
+         */
+        PasskeyCredentialOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Rp Id */
+            rp_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Last Used At */
+            last_used_at?: string | null;
+        };
+        /** PasskeyCredentialsOut */
+        PasskeyCredentialsOut: {
+            /** Credentials */
+            credentials: components["schemas"]["PasskeyCredentialOut"][];
+        };
+        /**
+         * PasskeyMutationOut
+         * @description 重命名 / 删除等变更操作的统一响应。
+         */
+        PasskeyMutationOut: {
+            /** Success */
+            success: boolean;
+            /**
+             * Message
+             * @default
+             */
+            message: string;
+        };
+        /** PasskeyRenameIn */
+        PasskeyRenameIn: {
+            /** Name */
+            name: string;
+        };
+        /**
+         * PasskeyOptionsOut
+         * @description ceremony 选项。``public_key`` 内为浏览器可直用的 WebAuthn Options JSON。
+         */
+        PasskeyOptionsOut: {
+            /** Success */
+            success: boolean;
+            /**
+             * Message
+             * @default
+             */
+            message: string;
+            /** Public Key */
+            public_key?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** PasskeyAssertionIn */
+        PasskeyAssertionIn: {
+            /** Credential */
+            credential: {
+                [key: string]: unknown;
+            };
+        };
+        /** PasskeyRegisterVerifyOut */
+        PasskeyRegisterVerifyOut: {
+            /** Success */
+            success: boolean;
+            /**
+             * Message
+             * @default
+             */
+            message: string;
+            credential?: components["schemas"]["PasskeyCredentialOut"] | null;
+        };
+        /** PasskeyRegisterVerifyIn */
+        PasskeyRegisterVerifyIn: {
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /** Credential */
+            credential: {
+                [key: string]: unknown;
+            };
+        };
         /** StartWorkflowIn */
         StartWorkflowIn: {
             /** Template Slug */
@@ -19780,6 +20203,19 @@ export interface components {
         /**
          * _PasswordBoundTokenRefreshOutputSchema
          * @description 刷新输出：在标准刷新流程前校验密码绑定。
+         *
+         *     轮换（ROTATE_REFRESH_TOKENS + BLACKLIST_AFTER_ROTATION，安全审计 M-8）
+         *     开启时，上游 ``TokenRefreshOutputSchema.validate_schema`` 会：
+         *
+         *     1. ``refresh.blacklist()`` —— 把当前 refresh 写进 OutstandingToken +
+         *        BlacklistedToken（之后再用同一把 refresh 会被 ``verify()`` 的
+         *        ``check_blacklist()`` 拒绝，即「Token is blacklisted」）；
+         *     2. ``refresh.set_jti() / set_exp() / set_iat()`` —— 换成新身份的 payload；
+         *     3. 返回 ``data["refresh"] = str(refresh)``。
+         *
+         *     本类复刻该流程并在其前插入密码指纹校验。已实测确认第 2 步只重置
+         *     jti/exp/iat、**不清空其他 claim**，因此 pwd_ver 会被新 refresh 自动继承，
+         *     改密后旧 token 失效的语义在轮换后依然成立——这里无需重新绑定。
          */
         _PasswordBoundTokenRefreshOutputSchema: {
             /** Refresh */
@@ -23994,6 +24430,33 @@ export interface operations {
             };
         };
     };
+    apps_contracts_api_folder_scan_api_start_contract_scan_ai_classify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_id: number;
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractFolderScanAIClassifyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractFolderScanAIClassifyOut"];
+                };
+            };
+        };
+    };
     apps_contracts_api_folder_scan_api_confirm_contract_scan: {
         parameters: {
             query?: never;
@@ -26066,6 +26529,26 @@ export interface operations {
             };
         };
     };
+    apps_batch_printing_api_batch_printing_api_sync_presets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresetSyncOut"];
+                };
+            };
+        };
+    };
     apps_batch_printing_api_batch_printing_api_get_preset: {
         parameters: {
             query?: never;
@@ -26084,26 +26567,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PrintPresetSnapshotOut"];
-                };
-            };
-        };
-    };
-    apps_batch_printing_api_batch_printing_api_sync_presets: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PresetSyncOut"];
                 };
             };
         };
@@ -26847,6 +27310,30 @@ export interface operations {
             };
         };
     };
+    apps_reminders_api_reminder_api_delete_reminders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReminderDeleteIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderDeleteOut"];
+                };
+            };
+        };
+    };
     apps_reminders_api_reminder_api_get_reminder: {
         parameters: {
             query?: never;
@@ -26978,7 +27465,7 @@ export interface operations {
                 source_type?: string | null;
                 has_attachments?: boolean | null;
                 search?: string | null;
-                limit?: number | null;
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -30574,6 +31061,38 @@ export interface operations {
             };
         };
     };
+    apps_oa_filing_api_filing_api_stage_filing_attachment: {
+        parameters: {
+            query: {
+                contract_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * File
+                     * Format: binary
+                     */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FilingAttachmentOut"];
+                };
+            };
+        };
+    };
     apps_oa_filing_api_filing_api_get_session: {
         parameters: {
             query?: never;
@@ -31301,6 +31820,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DashboardStatsOut"];
+                };
+            };
+        };
+    };
+    apps_core_api_download_ticket_api_create_download_ticket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DownloadTicketIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DownloadTicketOut"];
                 };
             };
         };
@@ -32425,6 +32968,162 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProvidersListOut"];
+                };
+            };
+        };
+    };
+    apps_social_auth_api_passkey_api_list_credentials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyCredentialsOut"];
+                };
+            };
+        };
+    };
+    apps_social_auth_api_passkey_api_delete_credential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                credential_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyMutationOut"];
+                };
+            };
+        };
+    };
+    apps_social_auth_api_passkey_api_rename_credential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                credential_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyRenameIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyMutationOut"];
+                };
+            };
+        };
+    };
+    apps_social_auth_api_passkey_api_login_options: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyOptionsOut"];
+                };
+            };
+        };
+    };
+    apps_social_auth_api_passkey_api_login_verify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyAssertionIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenExchangeOut"];
+                };
+            };
+        };
+    };
+    apps_social_auth_api_passkey_api_register_options: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyOptionsOut"];
+                };
+            };
+        };
+    };
+    apps_social_auth_api_passkey_api_register_verify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyRegisterVerifyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyRegisterVerifyOut"];
                 };
             };
         };

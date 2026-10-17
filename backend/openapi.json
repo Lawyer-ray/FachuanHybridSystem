@@ -1897,7 +1897,7 @@
             }
           }
         },
-        "description": "按关键字模糊检索当事人（仅返回检索填报所需的精简字段，不携带证件文档）。\n\nis_our_client 用于区分检索范围：委托人传 true（我方当事人）、对方当事人传 false。",
+        "description": "按关键字模糊检索当事人（仅返回检索填报所需的精简字段，不携带证件文档）。\n\nis_our_client 用于区分检索范围：委托人传 true（我方当事人）、对方当事人传 false。\n空关键词直接返回空：此前会退化成无过滤全表序列化（唯一前端消费方\nPartyPicker 以 enabled: !!kw 保证只在有词时请求，此处是服务端兜底）。",
         "tags": [
           "客户管理"
         ],
@@ -7711,6 +7711,64 @@
         ]
       }
     },
+    "/api/v1/contracts/{contract_id}/folder-scan/{session_id}/ai-classify": {
+      "post": {
+        "operationId": "apps_contracts_api_folder_scan_api_start_contract_scan_ai_classify",
+        "summary": "Start Contract Scan Ai Classify",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contract_id",
+            "schema": {
+              "title": "Contract Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "session_id",
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractFolderScanAIClassifyOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "对已完成扫描会话的候选发起 LLM 归档分类（异步任务，轮询状态接口获取结果）。",
+        "tags": [
+          "文件夹自动捕获"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContractFolderScanAIClassifyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/contracts/{contract_id}/folder-scan/{session_id}/confirm": {
       "post": {
         "operationId": "apps_contracts_api_folder_scan_api_confirm_contract_scan",
@@ -8387,7 +8445,7 @@
             }
           }
         },
-        "description": "文档处理API",
+        "description": "文档处理API（仅管理员：按路径读取 MEDIA_ROOT 内文件内容属于跨租户读取面）",
         "tags": [
           "文档处理"
         ],
@@ -8425,7 +8483,7 @@
             }
           }
         },
-        "description": "通过路径处理文档",
+        "description": "通过路径处理文档（仅管理员：可读取 MEDIA_ROOT 内任意文件内容）",
         "tags": [
           "文档处理"
         ],
@@ -9226,7 +9284,7 @@
             "description": "OK"
           }
         },
-        "description": "删除单条短信",
+        "description": "删除单条短信（仅管理员）",
         "tags": [
           "法院短信处理"
         ],
@@ -9340,7 +9398,7 @@
             }
           }
         },
-        "description": "批量删除短信",
+        "description": "批量删除短信（仅管理员）",
         "tags": [
           "法院短信处理"
         ],
@@ -9554,7 +9612,7 @@
             }
           }
         },
-        "description": "重命名单个关联文书",
+        "description": "重命名单个关联文书（仅管理员）",
         "tags": [
           "法院短信处理"
         ],
@@ -11457,6 +11515,33 @@
         ]
       }
     },
+    "/api/v1/batch-printing/presets/sync": {
+      "post": {
+        "operationId": "apps_batch_printing_api_batch_printing_api_sync_presets",
+        "summary": "Sync Presets",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresetSyncOut"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "批量打印"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/batch-printing/presets/{preset_id}": {
       "get": {
         "operationId": "apps_batch_printing_api_batch_printing_api_get_preset",
@@ -11479,33 +11564,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PrintPresetSnapshotOut"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "批量打印"
-        ],
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/batch-printing/presets/sync": {
-      "post": {
-        "operationId": "apps_batch_printing_api_batch_printing_api_sync_presets",
-        "summary": "Sync Presets",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PresetSyncOut"
                 }
               }
             }
@@ -12981,7 +13039,7 @@
             }
           }
         },
-        "description": "获取合同/案件/案件日志的关联选项，用于提醒表单的关联选择。",
+        "description": "获取合同/案件/案件日志的关联选项，用于提醒表单的关联选择。\n\n安全审计：按查询用户过滤（合同/案件走各自 AccessPolicy，案件日志随案件）。",
         "tags": [
           "重要日期提醒"
         ],
@@ -13030,7 +13088,7 @@
             }
           }
         },
-        "description": "按月日历视图（首页工作台 / 前端日历）。\n\n返回「日 → 事件」与工作台统计。同一庭审被多次同步的情况已由后端合并，\n统计口径也按合并后计算——前端不要再自行合并或计数，否则两边会不一致。",
+        "description": "按月日历视图（首页工作台 / 前端日历）。\n\n返回「日 → 事件」与工作台统计。同一庭审被多次同步的情况已由后端合并，\n统计口径也按合并后计算——前端不要再自行合并或计数，否则两边会不一致。\n\n安全审计：按查询用户过滤（关联案件/合同走 AccessPolicy，\n个人提醒创建者本人+管理员可见），与 /list 口径一致。",
         "tags": [
           "重要日期提醒"
         ],
@@ -13067,6 +13125,44 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ReminderCompleteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reminders/delete": {
+      "post": {
+        "operationId": "apps_reminders_api_reminder_api_delete_reminders",
+        "summary": "Delete Reminders",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReminderDeleteOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "批量删除提醒（日历事件删除）。\n\n合并事件带全部 member_ids 过来，一次请求保持原子。口径与单条 DELETE\n一致：仅创建人与管理员可删，任一条不满足整批 403、一条不删。",
+        "tags": [
+          "重要日期提醒"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReminderDeleteIn"
               }
             }
           },
@@ -13321,15 +13417,9 @@
             "in": "query",
             "name": "limit",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Limit"
+              "default": 500,
+              "title": "Limit",
+              "type": "integer"
             },
             "required": false
           }
@@ -13350,7 +13440,7 @@
             }
           }
         },
-        "description": "收件箱消息列表（limit 截取前 N 条，收件箱会持续增长，调用方只取首页展示时应传 limit）。",
+        "description": "收件箱消息列表（limit 截取前 N 条；收件箱持续增长，服务端兜底默认 500，\n需要更大结果集的消费方显式传 limit——不传即全量的旧行为会让「打开收件箱」\n随表增长恶化为全站最重请求，每行还要跑 7 个 draft_state resolver）。\n\n安全审计（2026Q4 M-6）：``limit<=0`` 时原先不做切片 → 全表序列化\n（含 N+1 的 draft_state resolver），用户上传大量材料包后可自我放大为 DoS。\n此处把 limit 收敛到 [1, 1000]。",
         "tags": [
           "收件箱"
         ],
@@ -13803,6 +13893,7 @@
             }
           }
         },
+        "description": "消息来源列表（安全审计 IDOR：仅本人凭证的来源 + superuser/admin 全部）。",
         "tags": [
           "消息来源"
         ],
@@ -13998,6 +14089,7 @@
             "description": "OK"
           }
         },
+        "description": "同步全部来源（安全审计 IDOR：只提交当前用户可见来源的同步任务）。",
         "tags": [
           "消息来源"
         ],
@@ -19390,6 +19482,65 @@
         ]
       }
     },
+    "/api/v1/oa-filing/attachment": {
+      "post": {
+        "operationId": "apps_oa_filing_api_filing_api_stage_filing_attachment",
+        "summary": "Stage Filing Attachment",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "contract_id",
+            "schema": {
+              "title": "Contract Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilingAttachmentOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "立案前拖拽暂存合同文件：落为合同正本材料（幂等去重）。",
+        "tags": [
+          "OA立案"
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "title": "File",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "title": "FileParams",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/oa-filing/session/{session_id}": {
       "get": {
         "operationId": "apps_oa_filing_api_filing_api_get_session",
@@ -19910,7 +20061,7 @@
             }
           }
         },
-        "description": "根据文件路径反查合同，返回 OA 案件编号。",
+        "description": "根据文件路径反查合同，返回 OA 案件编号。\n\n安全审计：返回合同信息前按查询用户做 ContractAccessPolicy 校验；\n无权与未命中返回同款响应，避免借此探测他所合同。",
         "tags": [
           "OA盖章"
         ],
@@ -20024,7 +20175,7 @@
             }
           }
         },
-        "description": "根据第一个文件路径反查合同，返回 OA 案件编号。",
+        "description": "根据第一个文件路径反查合同，返回 OA 案件编号。\n\n安全审计：返回合同信息前按查询用户做 ContractAccessPolicy 校验；\n无权与未命中返回同款响应，避免借此探测他所合同。",
         "tags": [
           "OA归档"
         ],
@@ -20592,6 +20743,44 @@
         "tags": [
           "仪表盘"
         ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/download-ticket": {
+      "post": {
+        "operationId": "apps_core_api_download_ticket_api_create_download_ticket",
+        "summary": "Create Download Ticket",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadTicketOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "为当前用户签发一张短时下载票据。\n\nQuery / body:\n    resource: 可选，目标资源的日志标识（如 ``media:materials/a.pdf``）。\n              仅写入日志，不参与权限判定，长度上限 200 字符。\n\nReturns:\n    ticket: 票据字符串，拼接到下载 URL 的 ``?ticket=`` 参数上；\n    expires_in: 有效期秒数（默认 60）。",
+        "tags": [
+          "下载票据"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DownloadTicketIn"
+              }
+            }
+          },
+          "required": true
+        },
         "security": [
           {
             "JWTOrSessionAuth": []
@@ -22516,6 +22705,240 @@
         ]
       }
     },
+    "/api/v1/social/passkey/credentials": {
+      "get": {
+        "operationId": "apps_social_auth_api_passkey_api_list_credentials",
+        "summary": "List Credentials",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyCredentialsOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "列出当前用户已注册的通行密钥。",
+        "tags": [
+          "通行密钥"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/social/passkey/credentials/{credential_id}": {
+      "patch": {
+        "operationId": "apps_social_auth_api_passkey_api_rename_credential",
+        "summary": "Rename Credential",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "credential_id",
+            "schema": {
+              "title": "Credential Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyMutationOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "重命名通行密钥（只允许操作自己的凭据，跨用户的 id 一律查不到）。",
+        "tags": [
+          "通行密钥"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyRenameIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "apps_social_auth_api_passkey_api_delete_credential",
+        "summary": "Delete Credential",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "credential_id",
+            "schema": {
+              "title": "Credential Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyMutationOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "删除通行密钥 = 吊销：该设备之后无法再登录本账号。",
+        "tags": [
+          "通行密钥"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/social/passkey/login/options": {
+      "post": {
+        "operationId": "apps_social_auth_api_passkey_api_login_options",
+        "summary": "Login Options",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyOptionsOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "下发登录挑战（可发现凭据，浏览器自行列出本域全部通行密钥）。",
+        "tags": [
+          "通行密钥"
+        ]
+      }
+    },
+    "/api/v1/social/passkey/login/verify": {
+      "post": {
+        "operationId": "apps_social_auth_api_passkey_api_login_verify",
+        "summary": "Login Verify",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenExchangeOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "校验登录断言并签发 JWT（响应结构与 /social/token-exchange 完全一致）。",
+        "tags": [
+          "通行密钥"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyAssertionIn"
+              }
+            }
+          },
+          "required": true
+        }
+      }
+    },
+    "/api/v1/social/passkey/register/options": {
+      "post": {
+        "operationId": "apps_social_auth_api_passkey_api_register_options",
+        "summary": "Register Options",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyOptionsOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "下发注册挑战（excludeCredentials 已含本用户全部已有凭据）。",
+        "tags": [
+          "通行密钥"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/social/passkey/register/verify": {
+      "post": {
+        "operationId": "apps_social_auth_api_passkey_api_register_verify",
+        "summary": "Register Verify",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyRegisterVerifyOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "校验注册响应并落库，返回新凭据的展示信息。",
+        "tags": [
+          "通行密钥"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyRegisterVerifyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/workflow/start": {
       "post": {
         "operationId": "apps_workflow_api_workflow_api_start_workflow_api",
@@ -22600,7 +23023,7 @@
             "description": "OK"
           }
         },
-        "description": "查询诉讼工作流列表（标准信封 items/total/page/page_size/total_pages；limit cap 100）",
+        "description": "查询诉讼工作流列表（标准信封 items/total/page/page_size/total_pages；limit cap 100）\n\n安全审计 IDOR：按当前用户可见案件过滤（与 run 详情/审批/取消同口径）。",
         "tags": [
           "工作流引擎"
         ],
@@ -22691,7 +23114,7 @@
             "description": "OK"
           }
         },
-        "description": "审批诉讼工作流步骤",
+        "description": "审批诉讼工作流步骤\n\n审批留痕（安全审计）：把审批人写入该 gate 步骤 StepExecution 的\nacted_by/acted_at（approve_workflow_step 内部落库）。",
         "tags": [
           "工作流引擎"
         ],
@@ -24763,6 +25186,28 @@
             "title": "Identity Docs",
             "type": "array"
           },
+          "id_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Number"
+          },
+          "legal_representative_id_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legal Representative Id Number"
+          },
           "id": {
             "anyOf": [
               {
@@ -24816,18 +25261,6 @@
             "title": "主体类型",
             "type": "string"
           },
-          "id_number": {
-            "anyOf": [
-              {
-                "maxLength": 64,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "身份证号码或统一社会信用代码"
-          },
           "legal_representative": {
             "anyOf": [
               {
@@ -24840,19 +25273,6 @@
             ],
             "default": "",
             "title": "法定代表人或负责人"
-          },
-          "legal_representative_id_number": {
-            "anyOf": [
-              {
-                "maxLength": 64,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": "",
-            "title": "法定代表人/负责人身份证号码"
           }
         },
         "required": [
@@ -27050,6 +27470,10 @@
           "status": {
             "anyOf": [
               {
+                "enum": [
+                  "active",
+                  "closed"
+                ],
                 "type": "string"
               },
               {
@@ -31711,6 +32135,11 @@
             "default": false,
             "title": "Already Imported",
             "type": "boolean"
+          },
+          "classified_by": {
+            "default": "",
+            "title": "Classified By",
+            "type": "string"
           }
         },
         "required": [
@@ -31780,6 +32209,12 @@
             },
             "title": "Work Log Suggestions",
             "type": "array"
+          },
+          "ai_classify_result": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Ai Classify Result",
+            "type": "object"
           }
         },
         "required": [
@@ -31829,6 +32264,45 @@
           "content"
         ],
         "title": "WorkLogSuggestionOut",
+        "type": "object"
+      },
+      "ContractFolderScanAIClassifyOut": {
+        "properties": {
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "task_id": {
+            "default": "",
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "status"
+        ],
+        "title": "ContractFolderScanAIClassifyOut",
+        "type": "object"
+      },
+      "ContractFolderScanAIClassifyIn": {
+        "properties": {
+          "model_id": {
+            "default": "",
+            "title": "Model Id",
+            "type": "string"
+          },
+          "scope": {
+            "default": "unmatched",
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "title": "ContractFolderScanAIClassifyIn",
         "type": "object"
       },
       "ContractFolderScanConfirmOut": {
@@ -34751,6 +35225,10 @@
           "source_method": {
             "title": "Source Method",
             "type": "string"
+          },
+          "content_md": {
+            "title": "Content Md",
+            "type": "string"
           }
         },
         "required": [
@@ -34764,7 +35242,8 @@
           "confidence",
           "review_flag",
           "review_flag_label",
-          "source_method"
+          "source_method",
+          "content_md"
         ],
         "title": "SegmentOut",
         "type": "object"
@@ -36119,6 +36598,17 @@
           "updated_at": {
             "title": "Updated At",
             "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
           }
         },
         "required": [
@@ -36408,6 +36898,11 @@
             },
             "title": "Member Ids",
             "type": "array"
+          },
+          "can_delete": {
+            "default": false,
+            "title": "Can Delete",
+            "type": "boolean"
           }
         },
         "required": [
@@ -36528,6 +37023,39 @@
           "reminder_ids"
         ],
         "title": "ReminderCompleteIn",
+        "type": "object"
+      },
+      "ReminderDeleteOut": {
+        "description": "实际删除条数（不存在的 id 静默跳过）。",
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "title": "ReminderDeleteOut",
+        "type": "object"
+      },
+      "ReminderDeleteIn": {
+        "description": "批量删除（日历事件删除）。\n\n与 ReminderCompleteIn 同理：合并事件的全部 member_ids 一起传，一次请求\n保持原子；任一条无权删除则整批 403。",
+        "properties": {
+          "reminder_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Reminder Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "reminder_ids"
+        ],
+        "title": "ReminderDeleteIn",
         "type": "object"
       },
       "ReminderUpdate": {
@@ -41508,6 +42036,29 @@
         "title": "ExecuteFilingIn",
         "type": "object"
       },
+      "FilingAttachmentOut": {
+        "properties": {
+          "material_id": {
+            "title": "Material Id",
+            "type": "integer"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "already_exists": {
+            "title": "Already Exists",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "material_id",
+          "filename",
+          "already_exists"
+        ],
+        "title": "FilingAttachmentOut",
+        "type": "object"
+      },
       "MbidCategoryOut": {
         "description": "文书类型分类。",
         "properties": {
@@ -44184,6 +44735,36 @@
         "title": "UpcomingReminderItem",
         "type": "object"
       },
+      "DownloadTicketOut": {
+        "properties": {
+          "ticket": {
+            "title": "Ticket",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ticket",
+          "expires_in"
+        ],
+        "title": "DownloadTicketOut",
+        "type": "object"
+      },
+      "DownloadTicketIn": {
+        "description": "签发票据的入参。``resource`` 仅用于日志排障，不参与权限判定。",
+        "properties": {
+          "resource": {
+            "default": "",
+            "title": "Resource",
+            "type": "string"
+          }
+        },
+        "title": "DownloadTicketIn",
+        "type": "object"
+      },
       "SessionCreateIn": {
         "properties": {
           "title": {
@@ -45542,6 +46123,188 @@
         "title": "UnbindOut",
         "type": "object"
       },
+      "PasskeyCredentialOut": {
+        "description": "一条已注册通行密钥的展示信息（不含公钥/计数器等内部字段）。",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "rp_id": {
+            "title": "Rp Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "rp_id",
+          "created_at"
+        ],
+        "title": "PasskeyCredentialOut",
+        "type": "object"
+      },
+      "PasskeyCredentialsOut": {
+        "properties": {
+          "credentials": {
+            "items": {
+              "$ref": "#/components/schemas/PasskeyCredentialOut"
+            },
+            "title": "Credentials",
+            "type": "array"
+          }
+        },
+        "required": [
+          "credentials"
+        ],
+        "title": "PasskeyCredentialsOut",
+        "type": "object"
+      },
+      "PasskeyMutationOut": {
+        "description": "重命名 / 删除等变更操作的统一响应。",
+        "properties": {
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "message": {
+            "default": "",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "title": "PasskeyMutationOut",
+        "type": "object"
+      },
+      "PasskeyRenameIn": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "PasskeyRenameIn",
+        "type": "object"
+      },
+      "PasskeyOptionsOut": {
+        "description": "ceremony 选项。``public_key`` 内为浏览器可直用的 WebAuthn Options JSON。",
+        "properties": {
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "message": {
+            "default": "",
+            "title": "Message",
+            "type": "string"
+          },
+          "public_key": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Key"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "title": "PasskeyOptionsOut",
+        "type": "object"
+      },
+      "PasskeyAssertionIn": {
+        "properties": {
+          "credential": {
+            "additionalProperties": true,
+            "title": "Credential",
+            "type": "object"
+          }
+        },
+        "required": [
+          "credential"
+        ],
+        "title": "PasskeyAssertionIn",
+        "type": "object"
+      },
+      "PasskeyRegisterVerifyOut": {
+        "properties": {
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "message": {
+            "default": "",
+            "title": "Message",
+            "type": "string"
+          },
+          "credential": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PasskeyCredentialOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "title": "PasskeyRegisterVerifyOut",
+        "type": "object"
+      },
+      "PasskeyRegisterVerifyIn": {
+        "properties": {
+          "name": {
+            "default": "",
+            "title": "Name",
+            "type": "string"
+          },
+          "credential": {
+            "additionalProperties": true,
+            "title": "Credential",
+            "type": "object"
+          }
+        },
+        "required": [
+          "credential"
+        ],
+        "title": "PasskeyRegisterVerifyIn",
+        "type": "object"
+      },
       "StartWorkflowIn": {
         "properties": {
           "template_slug": {
@@ -45975,7 +46738,7 @@
         "type": "object"
       },
       "_PasswordBoundTokenRefreshOutputSchema": {
-        "description": "刷新输出：在标准刷新流程前校验密码绑定。",
+        "description": "刷新输出：在标准刷新流程前校验密码绑定。\n\n轮换（ROTATE_REFRESH_TOKENS + BLACKLIST_AFTER_ROTATION，安全审计 M-8）\n开启时，上游 ``TokenRefreshOutputSchema.validate_schema`` 会：\n\n1. ``refresh.blacklist()`` —— 把当前 refresh 写进 OutstandingToken +\n   BlacklistedToken（之后再用同一把 refresh 会被 ``verify()`` 的\n   ``check_blacklist()`` 拒绝，即「Token is blacklisted」）；\n2. ``refresh.set_jti() / set_exp() / set_iat()`` —— 换成新身份的 payload；\n3. 返回 ``data[\"refresh\"] = str(refresh)``。\n\n本类复刻该流程并在其前插入密码指纹校验。已实测确认第 2 步只重置\njti/exp/iat、**不清空其他 claim**，因此 pwd_ver 会被新 refresh 自动继承，\n改密后旧 token 失效的语义在轮换后依然成立——这里无需重新绑定。",
         "properties": {
           "refresh": {
             "title": "Refresh",

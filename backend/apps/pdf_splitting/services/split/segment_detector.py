@@ -437,7 +437,11 @@ def _normalize_title(value: str) -> str:
 
 # ↓↓ 由 SegmentDetector 下沉的模块级纯函数（四层架构静态方法棘轮）
 def _suggest_filename(candidate: dict[str, Any]) -> str:
-    title = sanitize_upload_filename(str(candidate.get("layout_title") or "").strip())
-    if title:
-        return f"{title}.pdf"
+    # 先判原始标题再清洗：sanitize_upload_filename("") 的兜底名是 "file"，
+    # 直接清洗空标题会把所有无版面标题的段命名成 file.pdf（92 页真实材料实测踩中）
+    raw_title = str(candidate.get("layout_title") or "").strip()
+    if raw_title:
+        title = sanitize_upload_filename(raw_title)
+        if title:
+            return f"{title}.pdf"
     return f"{get_default_filename(candidate['segment_type'])}.pdf"

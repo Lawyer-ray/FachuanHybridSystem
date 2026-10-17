@@ -5,7 +5,7 @@
  * 高亮框直接 DOM 绘制（ref + rAF，绕过 React 协调）。用真实 div 挂
  * wrap/grid/ring 与 data-pack-idx 卡片，getBoundingClientRect 逐元素覆写，
  * 断言 ring 的 class/尺寸/transform 跟随选中卡片、无卡片时熄灭、
- * sel 越界钳到最后一张、scroll 触发同步重绘。
+ * sel 越界钳到最后一张、scroll 触发同步重绘、卡片 transitionend 兜底重绘。
  */
 import { useRef } from 'react'
 import { render } from '@testing-library/react'
@@ -134,6 +134,38 @@ describe('useDeskRing', () => {
     rerender(<RingHarness sel={2} count={3} />)
     await nextFrame()
     expect(ring.style.transform).toBe('translate(200px, 20px)')
+  })
+
+  it('首屏无卡片（列表加载中）不订阅；卡片出现后才订阅，之后 resize 会重绘', async () => {
+    const { container, rerender } = render(<RingHarness sel={0} count={0} />)
+    expect(roSpy.observe).not.toHaveBeenCalled()
+
+    rerender(<RingHarness sel={0} count={1} />)
+    const { grid, wrap, ring } = refsOf(container)
+    const cards = Array.from(grid.querySelectorAll<HTMLElement>('[data-pack-idx]'))
+    stubRects(wrap, grid, cards)
+    await nextFrame()
+    expect(roSpy.observe).toHaveBeenCalledWith(grid)
+
+    // 修复前：挂载时拿不到节点就再也不订阅，这里的 resize 不会改 ring（框停在旧尺寸）
+    cards[0]!.getBoundingClientRect = () => rectOf(0, 20, 300, 50)
+    window.dispatchEvent(new Event('resize'))
+    expect(ring.style.width).toBe('300px')
+  })
+
+  it('卡片过渡结束（transitionend 冒泡到 grid）→ 按终态尺寸重绘，框不停在中间帧', async () => {
+    const { container } = render(<RingHarness sel={0} count={1} />)
+    const { grid, wrap, ring } = refsOf(container)
+    const cards = Array.from(grid.querySelectorAll<HTMLElement>('[data-pack-idx]'))
+    stubRects(wrap, grid, cards)
+    await nextFrame()
+    window.dispatchEvent(new Event('scroll'))
+    expect(ring.style.width).toBe('90px')
+
+    // 窗口拉宽：resize 时卡片宽度过渡刚起步，终态宽 240 要等过渡结束才量得到
+    cards[0]!.getBoundingClientRect = () => rectOf(0, 20, 240, 50)
+    cards[0]!.dispatchEvent(new Event('transitionend', { bubbles: true }))
+    expect(ring.style.width).toBe('240px')
   })
 
   it('挂载即观察 grid；卸载断开 ResizeObserver（scroll/resize 订阅拆除）', async () => {

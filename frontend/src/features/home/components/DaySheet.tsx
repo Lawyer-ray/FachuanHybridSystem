@@ -117,7 +117,7 @@ export function DaySheet({ day, today, events, onClose, onOpenEvent, onToggleCom
                     <span className={`rounded-[5px] border px-[7px] py-[2px] text-[9.5px] font-semibold ${KIND_BADGE[e.kind]}`}>
                       {KIND_LABEL[e.kind]}
                     </span>
-                    <span className="text-[11px] text-muted-foreground">→ 打开案件 / 材料</span>
+                    <span className="text-[11px] text-muted-foreground">→ 查看详情</span>
                   </span>
                 </span>
               </div>

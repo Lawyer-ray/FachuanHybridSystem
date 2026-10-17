@@ -19,6 +19,8 @@ from ..schemas import (
     ParseReminderIn,
     ReminderCompleteIn,
     ReminderCompleteOut,
+    ReminderDeleteIn,
+    ReminderDeleteOut,
     ReminderIn,
     ReminderOut,
     ReminderTypeItem,
@@ -64,17 +66,29 @@ def _ensure_target_access(
 
 
 def _ensure_reminder_writable(ctx: AccessContext, reminder: Any) -> None:
-    """提醒写权限（安全审计 M-1）。
+    """提醒写权限（安全审计 M-1）：改 / 勾完成用。
 
-    全局提醒（三个关联字段全空）是团队共享的：任何人可读，但改/删收敛到
+    全局提醒（三个关联字段全空）是团队共享的：任何人可读，但改收敛到
     创建人与管理员。历史上此类提醒不走 _ensure_target_access（无关联对象
     可校验），任何登录用户都能改删全所任何人的全局提醒。
 
-    关联了对象的提醒仍由 _ensure_target_access 决定，本函数直接放行。
+    关联了对象的提醒仍由 _ensure_target_access 决定，本函数直接放行——
+    同案同事要能勾完成、改时间。删除另走 _ensure_reminder_deletable。
     """
     from ..services.reminder_access import ensure_can_write_reminder
 
     ensure_can_write_reminder(ctx.user, reminder)
+
+
+def _ensure_reminder_deletable(ctx: AccessContext, reminder: Any) -> None:
+    """提醒删除权限：仅创建人与管理员，不论是否关联案件 / 合同。
+
+    删除不可逆，口径比写更严——A 律师不能删 B 律师建的日程，即使两人同在
+    一个案件。调用方仍先过 _ensure_target_access（看不见的更不能删）。
+    """
+    from ..services.reminder_access import ensure_can_delete_reminder
+
+    ensure_can_delete_reminder(ctx.user, reminder)
 
 
 @router.post("/parse", response=list[ParsedReminderOut])
@@ -195,6 +209,7 @@ def get_calendar_month(
             is_completed=item.is_completed,
             members=item.members,
             member_ids=item.member_ids,
+            can_delete=item.can_delete,
         )
 
     return CalendarMonthOut(
@@ -224,6 +239,27 @@ def complete_reminders(request: Any, payload: ReminderCompleteIn) -> Any:  # pra
         _ensure_reminder_writable(ctx, existing)
     updated = service.set_completed(payload.reminder_ids, completed=payload.is_completed, user=ctx.user)
     return ReminderCompleteOut(updated=updated)
+
+
+@router.post("/delete", response=ReminderDeleteOut)
+def delete_reminders(request: Any, payload: ReminderDeleteIn) -> Any:  # pragma: no cover
+    """批量删除提醒（日历事件删除）。
+
+    合并事件带全部 member_ids 过来，一次请求保持原子。口径与单条 DELETE
+    一致：仅创建人与管理员可删，任一条不满足整批 403、一条不删。
+    """
+    ctx = get_request_access_context(request)
+    service = _get_reminder_service()
+    for existing in service.list_reminders_by_ids(payload.reminder_ids):
+        _ensure_target_access(
+            ctx,
+            contract_id=existing.contract_id,
+            case_id=existing.case_id,
+            case_log_id=existing.case_log_id,
+        )
+        _ensure_reminder_deletable(ctx, existing)
+    deleted = service.delete_reminders(payload.reminder_ids)
+    return ReminderDeleteOut(deleted=deleted)
 
 
 @router.get("/{reminder_id}", response=ReminderOut)
@@ -264,6 +300,6 @@ def delete_reminder(request: Any, reminder_id: int) -> HttpResponse:  # pragma: 
         case_id=existing.case_id,
         case_log_id=existing.case_log_id,
     )
-    _ensure_reminder_writable(ctx, existing)
+    _ensure_reminder_deletable(ctx, existing)
     _get_reminder_service().delete_reminder(reminder_id)
     return HttpResponse(status=204)

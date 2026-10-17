@@ -8,21 +8,35 @@
 - 全局提醒 → 仅创建人本人与管理员可写
 - 关联对象的提醒 → 写权限由关联对象 ACL 决定（本层不重复判定，返回 True）
 - created_by 为空的存量全局提醒 → 仅管理员可写（fail-closed）
+
+删除单列一档（can_delete_reminder）：不论是否关联案件 / 合同，都只有创建人
+与管理员能删——同案同事能勾完成、改时间，但不能删对方建的日程。
 """
 
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
-from apps.reminders.services.reminder_access import can_write_reminder, ensure_can_write_reminder, is_admin_user
+from apps.reminders.services.reminder_access import (
+    can_delete_reminder,
+    can_write_reminder,
+    ensure_can_delete_reminder,
+    ensure_can_write_reminder,
+    is_admin_user,
+    reminder_creator_id,
+)
 
 
-def _reminder(*, is_global: bool = True, created_by_id: int | None = None) -> SimpleNamespace:
+def _reminder(
+    *, is_global: bool = True, created_by_id: int | None = None, metadata: dict[str, Any] | None = None
+) -> SimpleNamespace:
     return SimpleNamespace(
         is_global=is_global,
         created_by_id=created_by_id,
+        metadata=metadata if metadata is not None else {},
         contract_id=None,
         case_id=None,
         case_log_id=None,
@@ -97,3 +111,73 @@ class TestEnsureCanWrite:
         """创建人本人可写（不抛异常即通过，显式固化该契约）。"""
         reminder = _reminder(created_by_id=7)
         assert ensure_can_write_reminder(_user(7), reminder) is None
+
+
+class TestReminderCreatorId:
+    def test_prefers_created_by_fk(self) -> None:
+        reminder = _reminder(created_by_id=7, metadata={"created_by_user_id": 8})
+        assert reminder_creator_id(reminder) == 7
+
+    def test_falls_back_to_metadata(self) -> None:
+        """案件日志等内部路径只写 metadata 不填 FK，须与可见性口径一致。"""
+        reminder = _reminder(created_by_id=None, metadata={"created_by_user_id": 8})
+        assert reminder_creator_id(reminder) == 8
+
+    def test_metadata_non_int_is_ignored(self) -> None:
+        assert reminder_creator_id(_reminder(metadata={"created_by_user_id": "8"})) is None
+        assert reminder_creator_id(_reminder(metadata={"created_by_user_id": True})) is None
+        assert reminder_creator_id(_reminder(metadata={"created_by_user_id": None})) is None
+
+    def test_missing_everything_is_none(self) -> None:
+        assert reminder_creator_id(_reminder()) is None
+        assert reminder_creator_id(SimpleNamespace(created_by_id=None, metadata=None)) is None
+
+
+class TestCanDeleteReminder:
+    def test_creator_can_delete_bound_reminder(self) -> None:
+        reminder = _reminder(is_global=False, created_by_id=7)
+        assert can_delete_reminder(_user(7), reminder) is True
+
+    def test_colleague_cannot_delete_bound_reminder(self) -> None:
+        """核心差异：关联了案件的提醒，写放行、删不放行——同案同事也不能删。"""
+        reminder = _reminder(is_global=False, created_by_id=7)
+        assert can_write_reminder(_user(8), reminder) is True
+        assert can_delete_reminder(_user(8), reminder) is False
+
+    def test_other_user_cannot_delete_global_reminder(self) -> None:
+        reminder = _reminder(created_by_id=7)
+        assert can_delete_reminder(_user(8), reminder) is False
+
+    def test_metadata_creator_can_delete(self) -> None:
+        reminder = _reminder(is_global=False, created_by_id=None, metadata={"created_by_user_id": 7})
+        assert can_delete_reminder(_user(7), reminder) is True
+        assert can_delete_reminder(_user(8), reminder) is False
+
+    def test_admin_can_delete_anything(self) -> None:
+        reminder = _reminder(is_global=False, created_by_id=7)
+        assert can_delete_reminder(_user(99, is_admin=True), reminder) is True
+        assert can_delete_reminder(_user(99, is_superuser=True), reminder) is True
+
+    def test_missing_creator_denies_non_admin(self) -> None:
+        """同步 / 导入产生的无主提醒 fail-closed，只有管理员能删。"""
+        reminder = _reminder(is_global=False, created_by_id=None)
+        assert can_delete_reminder(_user(7), reminder) is False
+        assert can_delete_reminder(_user(7, is_admin=True), reminder) is True
+
+    def test_no_user_or_no_reminder_denies(self) -> None:
+        assert can_delete_reminder(None, _reminder(created_by_id=7)) is False
+        assert can_delete_reminder(_user(7), None) is False
+
+
+class TestEnsureCanDelete:
+    def test_raises_permission_denied_for_non_creator(self) -> None:
+        from apps.core.exceptions import PermissionDenied
+
+        reminder = _reminder(is_global=False, created_by_id=7)
+        with pytest.raises(PermissionDenied) as exc_info:
+            ensure_can_delete_reminder(_user(8), reminder)
+        assert exc_info.value.code == "REMINDER_NOT_CREATOR"
+
+    def test_creator_passes(self) -> None:
+        reminder = _reminder(is_global=False, created_by_id=7)
+        assert ensure_can_delete_reminder(_user(7), reminder) is None

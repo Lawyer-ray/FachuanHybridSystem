@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -130,7 +131,11 @@ class PdfSplitJobService:
             raise NotFoundError(message="拆解任务不存在", code="PDF_SPLIT_JOB_NOT_FOUND", errors={}) from None
 
     def build_job_payload(self, job: PdfSplitJob) -> dict[str, Any]:
-        segments = [self._serialize_segment(item) for item in job.segments.order_by("order", "id")]
+        md_by_order = load_segments_md(PdfSplitStorage(job.id).segments_md_path)
+        segments = [
+            self._serialize_segment(item, markdown=md_by_order.get(item.order, ""))
+            for item in job.segments.order_by("order", "id")
+        ]
         download_url = ""
         if job.status == PdfSplitJobStatus.COMPLETED and job.export_zip_relpath:
             download_url = f"/api/v1/pdf-splitting/jobs/{job.id}/download"
@@ -235,19 +240,20 @@ class PdfSplitJobService:
             finished_at=timezone.now(),
         )
 
-    def _serialize_segment(self, segment: PdfSplitSegment) -> dict[str, Any]:
+    def _serialize_segment(self, segment: PdfSplitSegment, *, markdown: str = "") -> dict[str, Any]:
         return {
             "id": segment.id,
             "order": segment.order,
             "page_start": segment.page_start,
             "page_end": segment.page_end,
             "segment_type": segment.segment_type,
-            "segment_label": get_segment_label(segment.segment_type),
+            "segment_label": _segment_display_label(segment),
             "filename": segment.filename,
             "confidence": round(float(segment.confidence or 0.0), 3),
             "review_flag": segment.review_flag,
             "review_flag_label": segment.get_review_flag_display(),
             "source_method": segment.source_method,
+            "content_md": markdown,
         }
 
     def _normalize_confirmed_segments(self, *, items: list[dict[str, Any]], total_pages: int) -> list[dict[str, Any]]:
@@ -434,3 +440,39 @@ class PdfSplitJobService:
         if mode in valid_modes:
             return mode
         return PdfSplitMode.CONTENT_ANALYSIS
+
+
+# ↓↓ 由 PdfSplitJobService 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _segment_display_label(segment: PdfSplitSegment) -> str:
+    """片段展示名：LLM 的开放命名（借条 / 转账凭证等，超出模板枚举）记在
+    filename 里、类型仍为 unrecognized——这里把文件名（去 .pdf）透出为
+    segment_label，前端把它当类型胶囊展示；规则引擎的未识别段不受影响。"""
+    if segment.segment_type == PdfSplitSegmentType.UNRECOGNIZED and str(segment.source_method or "").startswith("llm"):
+        stem = re.sub(r"\.pdf$", "", segment.filename or "", flags=re.IGNORECASE).strip()
+        if stem and not stem.startswith("未识别材料"):
+            return stem
+    return get_segment_label(segment.segment_type)
+
+
+def load_segments_md(path: Path) -> dict[int, str]:
+    """读分段 Markdown 产物（order → 正文）；文件缺失 / 损坏一律回空表——
+    旧任务没有 md 产物，content_md 退化为空串，不阻断任务详情接口。"""
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        logger.warning("pdf_split_segments_md_read_failed", extra={"path": str(path)})
+        return {}
+    if not isinstance(payload, list):
+        return {}
+    result: dict[int, str] = {}
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        try:
+            order = int(item.get("order"))  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            continue
+        result[order] = str(item.get("markdown") or "")
+    return result

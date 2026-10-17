@@ -7,7 +7,6 @@ vi.mock('../api', () => ({ fetchAttachmentBytes: vi.fn() }))
 
 import {
   appendMatsToDraft,
-  markAllSegsDone,
   mergeSegment,
   renameSegment,
   resetSegments,
@@ -15,7 +14,6 @@ import {
   setPackStatus,
   setSegmentType,
   splitSegment,
-  toggleSegDone,
 } from './segments'
 import { ensureSegIds } from './seg-id'
 
@@ -131,16 +129,6 @@ describe('段属性操作', () => {
     expect(renameSegment(d0, 0, '   ')).toBe(d0)
     expect(renameSegment(d0, 0, '起诉状.pdf')).toBe(d0)
     expect(renameSegment(d0, -1, 'x')).toBe(d0)
-  })
-
-  it('toggleSegDone 翻转；markAllSegsDone 全勾且已全勾返回原引用', () => {
-    const d0 = fixture()
-    const d = toggleSegDone(d0, 1)
-    expect(d.segs[1]!.done).toBe(true)
-    expect(toggleSegDone(d, 1).segs[1]!.done).toBe(false)
-    const all = markAllSegsDone(d0)
-    expect(all.segs.every((sg) => sg.done)).toBe(true)
-    expect(markAllSegsDone(all)).toBe(all)
   })
 })
 

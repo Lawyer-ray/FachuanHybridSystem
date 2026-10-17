@@ -16,6 +16,7 @@ export const PageCell = memo(function PageCell({
   mi,
   p,
   mat,
+  hideMatName = false,
   pickActive,
   selModeActive,
   selected,
@@ -30,6 +31,8 @@ export const PageCell = memo(function PageCell({
   mi: number
   p: number
   mat: BundleMat
+  /** 单源包：脚注不再每页重复同一个文件名，只留页码 */
+  hideMatName?: boolean
   pickActive?: boolean
   selModeActive?: boolean
   selected?: boolean
@@ -133,7 +136,9 @@ export const PageCell = memo(function PageCell({
         onContextMenu?.(e, mi, p)
       }}
       className={cn(
-        'relative select-text rounded-[7px] border bg-card text-[12.5px] leading-[1.9] text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.05),0_10px_26px_rgba(0,0,0,0.04)] transition-opacity',
+        // w-full：撑满外层列宽（--mp-cw）。页卡自身不定宽时，骨架屏阶段会在
+        // items-center 容器里被内容宽收缩成一条窄卡（手机上整页只剩中间一小条）
+        'relative w-full select-text rounded-[7px] border bg-card text-[12.5px] leading-[1.9] text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.05),0_10px_26px_rgba(0,0,0,0.04)] transition-opacity',
         pickActive ? 'cursor-crosshair select-none' : selModeActive ? 'cursor-pointer' : 'cursor-default',
         selected && 'border-zinc-800 ring-2 ring-zinc-800/80',
         selModeActive && !selected && 'opacity-35',
@@ -150,9 +155,9 @@ export const PageCell = memo(function PageCell({
       )}
 
       <div className="flex items-center justify-between gap-2 rounded-b-[7px] border-t border-border/60 bg-card px-3 py-1.5 text-[11px] text-muted-foreground">
-        <span className="truncate">{mat.customName || mat.n}</span>
-        <span className="tabular-nums">
-          第 {p} / {mat.pages} 页
+        {!hideMatName && <span className="truncate">{mat.customName || mat.n}</span>}
+        <span className="ml-auto tabular-nums">
+          {p} / {mat.pages}
         </span>
       </div>
 

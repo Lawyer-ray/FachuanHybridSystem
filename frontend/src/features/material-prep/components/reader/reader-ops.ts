@@ -5,7 +5,6 @@ import {
   renameSegment as segRename,
   setSegmentType as segSetType,
   splitSegment as segSplit,
-  toggleSegDone as segToggleDone,
   addInfoField as infoAdd,
   setInfoValue as infoSetValue,
 } from '../../draft'
@@ -16,7 +15,6 @@ export interface FlowOps {
   setSegType: (si: number, t: string) => void
   renameSeg: (si: number, name: string) => void
   mergeSeg: (si: number) => void
-  toggleDone: (si: number) => void
   splitSeg: (si: number, k: number) => void
   pickPage: (mi: number, p: number) => void
 }
@@ -43,7 +41,6 @@ export function buildFlowOps(
     setSegType: (si, t) => update((d) => segSetType(d, si, t)),
     renameSeg: (si, name) => update((d) => segRename(d, si, name)),
     mergeSeg: (si) => update((d) => segMerge(d, si)),
-    toggleDone: (si) => update((d) => segToggleDone(d, si)),
     splitSeg: (si, k) => update((d) => segSplit(d, si, k)),
     pickPage,
   }

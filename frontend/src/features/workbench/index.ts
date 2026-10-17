@@ -8,7 +8,10 @@
 
 import { lazy } from 'react'
 
+/** 办案主页 chunk 加载器：lazy 出口与导航预取共用同一个 import()，浏览器模块缓存保证只下载一次 */
+export const preloadWorkbenchPage = () => import('./components/WorkbenchPage')
+
 /** 办案主页（懒加载组件，消费方需包 Suspense） */
 export const WorkbenchPageLazy = lazy(() =>
-  import('./components/WorkbenchPage').then((m) => ({ default: m.WorkbenchPage })),
+  preloadWorkbenchPage().then((m) => ({ default: m.WorkbenchPage })),
 )

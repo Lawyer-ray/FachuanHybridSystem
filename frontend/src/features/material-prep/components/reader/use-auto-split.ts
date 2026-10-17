@@ -55,7 +55,7 @@ export function useAutoSplit() {
           const result = await pollJob(jobId, () => cancelled.current)
           finished += 1
           setProgress(`云端识别完成 ${finished}/${jobs.length}`)
-          return { mi, segments: result.segments }
+          return { mi, segments: result.segments, segmentBackend: result.summary?.segment_backend ?? '' }
         }),
       )
 
@@ -76,10 +76,13 @@ export function useAutoSplit() {
         current.update((value) => applyAutoSplit(value, result.mi, result.segments))
       }
       const count = results.reduce((sum, item) => sum + item.segments.length, 0)
+      // 分段后端可观测：律所 AI 失败会静默降级规则引擎，得让用户知道拿到的是哪种质量
+      const llmCount = results.filter((item) => item.segmentBackend === 'llm').length
+      const backendNote = llmCount === results.length ? '律所 AI 分段' : llmCount > 0 ? `${llmCount}/${results.length} 律所 AI 分段，其余规则引擎` : '规则引擎分段（律所 AI 不可用）'
       if (failures.length) {
-        toast.warning(`${results.length} 个 PDF 已写入草稿，${failures.length} 个识别失败，可稍后重试`)
+        toast.warning(`${results.length} 个 PDF 已写入草稿（${backendNote}），${failures.length} 个识别失败，可稍后重试`)
       } else {
-        toast.success(`云端识别完成，已将 ${count} 个候选分段写入草稿；未识别材料仍需人工归类`)
+        toast.success(`云端识别完成（${backendNote}），已将 ${count} 个候选分段写入草稿；未识别材料仍需人工归类`)
       }
     } catch (error) {
       // 组件已卸载（关掉阅读器）导致的取消：静默返回，不弹错误

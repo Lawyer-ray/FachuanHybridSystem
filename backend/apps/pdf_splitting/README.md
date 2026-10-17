@@ -7,9 +7,11 @@
 - 三种拆分模式：`content_analysis`（内容识别）、`page_split`（每页一片、分析后自动导出）、`manual_split`（跳过后台分析直接进入待复核）
 - OCR 三档（fast / balanced / accurate，不同 DPI、模型与并发），本地并行 OCR + 按 PDF SHA-256 的页面级缓存
 - 云端解析优先：经 `ParserFactory` 选择 mineru / textin 后端整本解析，失败自动降级本地 OCR，降级原因写入 summary
-- 基于片段模板（`filing_materials_v1` 立案材料，15 种片段类型）做强/弱/负向/续页关键词评分 + Levenshtein 模糊匹配 + 版面标题辅助命名
+- **分段检测 LLM 优先**：逐页取字摘要（标题行 + 开头 200 字）交给律所 LLM（`LLMProvider`，经 `get_llm_service()`）做语义分段，模板 15 类作为建议标签集、超出枚举的材料由模型自由命名（落在 filename，API 经 `segment_label` 透出）；LLM 不可用 / 输出非法时自动降级关键词规则引擎，后端与降级原因写入 summary（`segment_backend` / `segment_llm_fallback_reason`）
+- 基于片段模板（`filing_materials_v1` 立案材料，15 种片段类型）做强/弱/负向/续页关键词评分 + Levenshtein 模糊匹配 + 版面标题辅助命名（现为 LLM 不可用时的兜底路径）
 - 起诉状结尾探测（终止词 + 附件信号）、跨页续页上下文推理、相邻主体信息段合并、未识别区间 gap 自动补片
 - 复核确认端点会重排片段、查重叠、自动补 gap，然后异步导出 ZIP
+- **每段产出 Markdown**：`markdown_builder` 把逐页取字结果重组成 AI 友好的 Markdown（云端解析的版面块 → 标题层级 + 段落 + GFM 表格；本地 OCR / 文本层 → 原文），落 `analysis/segments_md.json`，经任务 API 的 `content_md` 透出（旧任务无产物为空串）
 - 支持上传文件或服务器本地绝对路径两种来源（拒绝 `smb://`）；上限 150MB / 300 页
 
 ## 目录结构
@@ -25,11 +27,14 @@ pdf_splitting/
 │   ├── template_registry.py      # 片段模板定义（filing_materials_v1）
 │   ├── storage.py                # PdfSplitStorage（jobs/{id}/...）
 │   └── split/
-│       ├── service.py            # PdfSplitService facade：analyze/export/render
+│       ├── service.py            # PdfSplitService facade：analyze/export/render（任务态 + 持久化适配）
+│       ├── pipeline.py           # ★ 无任务耦合的内容分析流水线：analyze_pdf() 门面 + PageTextExtractor 取字编排
 │       ├── ocr_handler.py        # 档位解析、并行 OCR、云后端选择、SHA-256 页缓存
-│       ├── segment_detector.py   # 评分/检测/推理/合并/gap 填充
+│       ├── llm_segment_detector.py # LLM 语义分段：prompt 构造 / JSON 解析 / 钳位去重叠 gap 补片
+│       ├── segment_detector.py   # 评分/检测/推理/合并/gap 填充（规则引擎，LLM 降级兜底）
+│       ├── markdown_builder.py   # 每段 Markdown 重建（版面块优先，纯文本兜底）
 │       ├── export_utils.py       # 片段 PDF 导出 + 文件名去重
-│       └── split_models.py       # PageDescriptor/SegmentDraft/OCRRuntimeProfile
+│       └── split_models.py       # PageDescriptor/SegmentDraft/OCRRuntimeProfile + 版面标题提取
 ├── tasks.py                      # execute_pdf_split_job / export_pdf_split_job
 ├── signals.py                    # post_delete 清理任务目录
 └── templates/admin/pdf_splitting/  # workbench / change_form / pdf_preview（PDF.js 预览页）
@@ -65,9 +70,36 @@ pdf_splitting/
 - `signals.post_delete(PdfSplitJob)`：清理任务目录
 - 取消检查与进度每 5 页更新一次
 
+## 复用（其他域直接调）
+
+「MinerU/TextIn 取字 + 律所 AI 分段 + Markdown 重建」整段能力不绑定任务与 DB，
+入口在 `services/split/pipeline.py`：
+
+```python
+from apps.pdf_splitting.services.split.pipeline import analyze_pdf, PipelineCancelled
+
+outcome = analyze_pdf(
+    pdf_path,
+    template_key="filing_materials_v1",   # 建议标签集（模板可换）
+    ocr_profile="balanced",
+    on_progress=lambda done, total: ...,  # 可选进度回调
+    is_cancelled=lambda: False,           # 可选取消查询；True 时抛 PipelineCancelled
+)
+outcome.pages        # list[PageDescriptor]：逐页文本 / 版面块 / 标题
+outcome.drafts       # list[SegmentDraft]：分段（起止页 / 类型 / 命名 / 置信度 / llm|rule 来源）
+outcome.segments_md  # list[dict]：每段 Markdown
+outcome.summary      # 可观测字段（ocr_provider / segment_backend / 降级原因…）
+```
+
+组件也可单独复用：`PageTextExtractor`（只取字）、`detect_segments_with_fallback`
+（只分段）、`markdown_builder`（只重建 md）、`llm_segment_detector.parse_llm_segments`
+（只解析校验 LLM 输出）。`PdfSplitService.analyze_job` 本身就是这层流水线的
+任务态适配（进度 / 取消回调 + 落库落盘），不要绕过它写第二套编排。
+
 ## 外部集成
 
 - 云端解析：`apps.document_parsing`（mineru / textin，经 ParserFactory）
+- 分段 LLM：`apps.core.llm`（律所 LLMProvider，经 `services/wiring.get_llm_service()`；JSON 解析复用 `core/llm/structured_output`）
 - 本地 OCR：`apps.automation.services.ocr.ocr_service.OCRService`
 - PyMuPDF（页面渲染与片段切割）
 

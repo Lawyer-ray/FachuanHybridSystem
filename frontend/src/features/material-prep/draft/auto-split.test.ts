@@ -63,6 +63,7 @@ function sug(start: number, end: number, over: Partial<PdfSplitSegmentSuggestion
     segment_label: '起诉状',
     filename: `part-${start}.pdf`,
     confidence: 0.9,
+    content_md: '',
     review_flag: '',
     ...over,
   }
@@ -97,11 +98,11 @@ function twoSourceFixture(): DraftState {
 describe('applyAutoSplit 云端拆分建议应用', () => {
   it('整覆盖建议替换原整段：类型/文件名/复核标记逐项落地，页引用展开连续', () => {
     const d = applyAutoSplit(singleSourceFixture(), 0, [
-      sug(1, 1, { segment_type: 'unrecognized' }),
+      sug(1, 1, { segment_type: 'unrecognized', segment_label: '未识别材料' }),
       sug(2, 3, { segment_label: '证据清单', filename: 'evidence.pdf', review_flag: 'low_conf', confidence: 0.4 }),
     ])
     expect(d.segs).toHaveLength(2)
-    // unrecognized 段类型清空
+    // 通用「未识别材料」标签 = 无类型（与后端 get_segment_label(unrecognized) 对齐）
     expect(d.segs[0]).toMatchObject({ t: '', fn: 'part-1', manual: false, reviewFlag: '', confidence: 0.9 })
     expect(d.segs[0]!.refs).toEqual([{ mi: 0, p: 1 }])
     // 正常段带 label、.pdf 后缀去掉、复核标记与置信度透传
@@ -113,6 +114,16 @@ describe('applyAutoSplit 云端拆分建议应用', () => {
       manual: false,
     })
     expect(d.segs[1]!.refs).toEqual([{ mi: 0, p: 2 }, { mi: 0, p: 3 }])
+  })
+
+  it('LLM 开放命名（类型 unrecognized 但 label 具名）作为类型胶囊展示', () => {
+    const d = applyAutoSplit(singleSourceFixture(), 0, [
+      sug(1, 1, { segment_type: 'unrecognized', segment_label: '借条', filename: '借条.pdf' }),
+      sug(2, 3, { segment_label: '证据清单', filename: 'evidence.pdf' }),
+    ])
+    expect(d.segs).toHaveLength(2)
+    expect(d.segs[0]).toMatchObject({ t: '借条', fn: '借条' })
+    expect(d.segs[1]).toMatchObject({ t: '证据清单', fn: 'evidence' })
   })
 
   it('原有段有 manual 或跨源引用时不应用，返回原引用', () => {
