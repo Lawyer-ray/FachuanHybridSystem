@@ -34,7 +34,6 @@ export interface Segment {
   fn: string
   refs: PageKey[]
   manual: boolean
-  done?: boolean
   reviewFlag?: string
   confidence?: number
   /** 该段正文的 Markdown 重建（云端识别产出，供后续 AI 流程消费）；人工拆分 / 旧任务无 */

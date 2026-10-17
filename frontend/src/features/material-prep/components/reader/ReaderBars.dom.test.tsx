@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 /**
- * 阅读器三条横栏的窄屏可达性 dom 测试（jsdom）。
+ * 阅读器横栏 / 段头的窄屏可达性 dom 测试（jsdom）。
  *
- * 手机没有键盘：底栏要有真「完成拆分与归类」按钮、取字 / 选页提示条要有真退出按钮，
- * 段头动作按钮图标化后无障碍名必须仍在。CSS 断点显隐 jsdom 看不见，这里只锁
+ * 手机没有键盘：取字 / 选页提示条要有真退出按钮；段头动作按钮图标化后无障碍名
+ * 必须仍在，首段不渲染「并入上一份」。CSS 断点显隐 jsdom 看不见，这里只锁
  * 「按钮存在 + 回调正确」这层契约。
  */
 import { fireEvent, render, screen } from '@testing-library/react'
@@ -11,23 +11,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { Segment } from '../../types'
 import { HintBar } from './HintBar'
-import { KeyHintsBar } from './KeyHintsBar'
 import { SegmentHeader } from './SegmentHeader'
-
-describe('KeyHintsBar', () => {
-  it('渲染「完成拆分与归类」按钮，点击触发 onComplete', () => {
-    const onComplete = vi.fn()
-    render(<KeyHintsBar allClassified unclassified={0} onComplete={onComplete} />)
-    expect(screen.getByText('全部已归类，可以归案了')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: /完成拆分与归类/ }))
-    expect(onComplete).toHaveBeenCalledTimes(1)
-  })
-
-  it('未归类时显示剩余段数', () => {
-    render(<KeyHintsBar allClassified={false} unclassified={3} onComplete={vi.fn()} />)
-    expect(screen.getByText('还有 3 段没归类')).toBeTruthy()
-  })
-})
 
 describe('HintBar', () => {
   it('取字态：退出按钮文案「取消」，点击触发 onExit', () => {
@@ -45,7 +29,7 @@ describe('HintBar', () => {
   })
 })
 
-describe('SegmentHeader 动作按钮无障碍名（手机图标化后仍可按名定位）', () => {
+describe('SegmentHeader', () => {
   const seg: Segment = {
     id: 's1',
     t: '起诉状',
@@ -56,26 +40,26 @@ describe('SegmentHeader 动作按钮无障碍名（手机图标化后仍可按�
     ],
     manual: false,
   }
+  const noop = { onSetType: vi.fn(), onRename: vi.fn() }
 
-  it('并入上一份 / 拆分为文件 按 aria-label 可定位并触发回调', () => {
+  it('非首段：「并入上一份」按 aria-label 可定位（手机图标化后仍有名）并触发回调', () => {
     const onMerge = vi.fn()
-    const onToggleDone = vi.fn()
-    render(
-      <SegmentHeader seg={seg} si={1} color="#0ea5e9" onSetType={vi.fn()} onRename={vi.fn()} onMerge={onMerge} onToggleDone={onToggleDone} />,
-    )
+    render(<SegmentHeader seg={seg} si={1} color="#0ea5e9" {...noop} onMerge={onMerge} />)
     fireEvent.click(screen.getByRole('button', { name: '并入上一份' }))
     expect(onMerge).toHaveBeenCalledTimes(1)
-    const done = screen.getByRole('button', { name: '拆分为文件' })
-    expect(done.getAttribute('aria-pressed')).toBe('false')
-    fireEvent.click(done)
-    expect(onToggleDone).toHaveBeenCalledTimes(1)
   })
 
-  it('已拆分态：无障碍名切换为「已拆分为文件」且 aria-pressed=true；首段「并入上一份」禁用', () => {
-    render(
-      <SegmentHeader seg={{ ...seg, done: true }} si={0} color="#0ea5e9" onSetType={vi.fn()} onRename={vi.fn()} onMerge={vi.fn()} onToggleDone={vi.fn()} />,
-    )
-    expect(screen.getByRole('button', { name: '已拆分为文件' }).getAttribute('aria-pressed')).toBe('true')
-    expect((screen.getByRole('button', { name: '并入上一份' }) as HTMLButtonElement).disabled).toBe(true)
+  it('首段：没有上一份，不渲染「并入上一份」（不留永远点不了的灰按钮）', () => {
+    render(<SegmentHeader seg={seg} si={0} color="#0ea5e9" {...noop} onMerge={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: '并入上一份' })).toBeNull()
+  })
+
+  it('页数只说一次：同源「N 页」，跨源补「· 跨源」', () => {
+    const { unmount } = render(<SegmentHeader seg={seg} si={1} color="#0ea5e9" {...noop} onMerge={vi.fn()} />)
+    expect(screen.getByText('2 页')).toBeTruthy()
+    unmount()
+    const cross: Segment = { ...seg, refs: [{ mi: 0, p: 1 }, { mi: 1, p: 1 }] }
+    render(<SegmentHeader seg={cross} si={1} color="#0ea5e9" {...noop} onMerge={vi.fn()} />)
+    expect(screen.getByText('2 页 · 跨源')).toBeTruthy()
   })
 })

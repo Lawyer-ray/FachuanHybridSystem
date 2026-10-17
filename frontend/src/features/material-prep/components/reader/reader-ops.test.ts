@@ -14,7 +14,6 @@ import {
   renameSegment as segRename,
   mergeSegment as segMerge,
   splitSegment as segSplit,
-  toggleSegDone as segToggleDone,
 } from '../../draft'
 import type { DraftState, InfoField } from '../../types'
 
@@ -37,7 +36,7 @@ function draftFixture(): DraftState {
 const field: InfoField = { k: '委托人', v: '', src: '', srcRef: null }
 
 describe('buildFlowOps（draft 操作接线）', () => {
-  it('五个段操作各自下推对应纯函数给 update，pickPage 直通调用方实现', () => {
+  it('四个段操作各自下推对应纯函数给 update，pickPage 直通调用方实现', () => {
     const update = vi.fn()
     const pickPage = vi.fn()
     const ops = buildFlowOps(update, pickPage)
@@ -45,21 +44,19 @@ describe('buildFlowOps（draft 操作接线）', () => {
     ops.setSegType(0, '借条')
     ops.renameSeg(0, '民事起诉状')
     ops.mergeSeg(0)
-    ops.toggleDone(1)
     ops.splitSeg(0, 1)
-    expect(update).toHaveBeenCalledTimes(5)
+    expect(update).toHaveBeenCalledTimes(4)
 
     const d = draftFixture()
     const fns = update.mock.calls.map(([fn]) => (fn as (x: DraftState) => DraftState)(d))
     expect(fns[0]).toEqual(segSetType(d, 0, '借条'))
     expect(fns[1]).toEqual(segRename(d, 0, '民事起诉状'))
     expect(fns[2]).toEqual(segMerge(d, 0))
-    expect(fns[3]).toEqual(segToggleDone(d, 1))
-    expect(fns[4]).toEqual(segSplit(d, 0, 1))
+    expect(fns[3]).toEqual(segSplit(d, 0, 1))
 
     ops.pickPage(2, 3)
     expect(pickPage).toHaveBeenCalledWith(2, 3)
-    expect(update).toHaveBeenCalledTimes(5)
+    expect(update).toHaveBeenCalledTimes(4)
   })
 
   it('操作是不可变的：fixture 不被就地改写', () => {

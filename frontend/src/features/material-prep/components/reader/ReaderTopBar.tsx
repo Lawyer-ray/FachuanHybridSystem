@@ -1,24 +1,27 @@
-import { ArrowLeft, Pencil, X } from 'lucide-react'
+import { ArrowLeft, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-/** 阅读器顶栏（原型 rd-bar）：返回 + 标题/副标题 + 不接/归案/关闭 */
+/** 阅读器顶栏（原型 rd-bar）：返回 + 标题/副标题 + 不接/归案。
+ *
+ *  只有这两个真决策留在这里；「关闭」与返回是同一动作（close），已删。
+ *  归案恒可点：没归完类时点击会跳到第一个未归类的段并提示（引导在 Reader），
+ *  比禁用按钮 + 猜原因更省一个状态。未归类数是例外状态才出现的琥珀标——
+ *  归类完了它就消失，顶栏回归安静。 */
 export function ReaderTopBar({
   title,
   subtitle,
-  allClassified,
+  unclassified,
   onBack,
   onReject,
   onAssign,
-  onClose,
   onRename,
 }: {
   title: string
   subtitle: string
-  allClassified: boolean
+  unclassified: number
   onBack: () => void
   onReject: () => void
   onAssign: () => void
-  onClose: () => void
   onRename: () => void
 }) {
   return (
@@ -47,7 +50,14 @@ export function ReaderTopBar({
             <Pencil className="h-3 w-3" />
           </button>
         </div>
-        <div className="truncate text-[11px] text-muted-foreground">{subtitle}</div>
+        <div className="flex items-center gap-2 truncate text-[11px] text-muted-foreground">
+          <span className="truncate">{subtitle}</span>
+          {unclassified > 0 && (
+            <span className="flex-none rounded-full bg-amber-50 px-1.5 py-px text-[10.5px] font-medium text-amber-700">
+              {unclassified} 段未归类
+            </span>
+          )}
+        </div>
       </div>
       <div className="ml-auto flex flex-none items-center gap-2 max-[760px]:gap-1">
         <button
@@ -60,26 +70,13 @@ export function ReaderTopBar({
         </button>
         <button
           type="button"
-          disabled={!allClassified}
           onClick={onAssign}
-          title={allClassified ? '归案：绑定案件后进入办案流程' : '先完成拆分与归类'}
+          title="归案：绑定案件后进入办案流程"
           className={cn(
-            'flex h-8 flex-none items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium transition-colors',
-            allClassified
-              ? 'bg-foreground text-background hover:bg-zinc-700'
-              : 'cursor-not-allowed border border-transparent bg-transparent text-muted-foreground',
+            'flex h-8 flex-none items-center gap-1.5 rounded-lg bg-foreground px-2 text-[13px] font-medium text-background transition-colors hover:bg-zinc-700',
           )}
         >
           归案
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="grid h-8 w-8 place-items-center rounded-lg text-secondary-foreground hover:bg-secondary"
-          title="关闭 (Esc)"
-          aria-label="关闭"
-        >
-          <X className="h-4 w-4" />
         </button>
       </div>
     </div>

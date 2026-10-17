@@ -25,8 +25,6 @@ export {
   setSegmentType,
   renameSegment,
   resetSegments,
-  toggleSegDone,
-  markAllSegsDone,
   setPackStatus,
   setPackAssign,
   appendMatsToDraft,

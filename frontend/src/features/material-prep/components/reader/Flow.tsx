@@ -135,7 +135,6 @@ export function Flow({
               onSetType={(t) => onOp.setSegType(si, t)}
               onRename={(name) => onOp.renameSeg(si, name)}
               onMerge={() => onOp.mergeSeg(si)}
-              onToggleDone={() => onOp.toggleDone(si)}
             />
 
             {firstMat && (

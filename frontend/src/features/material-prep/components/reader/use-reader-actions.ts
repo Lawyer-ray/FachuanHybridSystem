@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
-import { countUnclassified, markAllSegsDone, resetSegments } from '../../draft'
+import { resetSegments } from '../../draft'
 import { useReader } from '../../store'
 import type { DraftState, PageKey } from '../../types'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from './ui'
 
 /**
- * 阅读器动作层：分段聚焦跳转、完成 / 重置分段、归档留痕、删页二次确认、缩放。
+ * 阅读器动作层：分段聚焦跳转、重置分段、归档留痕、删页二次确认、缩放。
  * draft 为 null（未打开 / loading）时界面不渲染、动作不会被触发，内部按空值兜底。
+ * 归案的「未归类先引导」在 Reader 内联（依赖 draft 现值），不在此层。
  */
 export function useReaderActions(draft: DraftState | null) {
   const openId = useReader((s) => s.openId)
@@ -31,19 +32,6 @@ export function useReaderActions(draft: DraftState | null) {
 
   const zoomIn = () => useReader.getState().setZoom(Math.min(ZOOM_MAX, +(zoom + ZOOM_STEP).toFixed(2)))
   const zoomOut = () => useReader.getState().setZoom(Math.max(ZOOM_MIN, +(zoom - ZOOM_STEP).toFixed(2)))
-
-  const onComplete = () => {
-    if (!draft) return
-    const allClassified = draft.segs.length > 0 && countUnclassified(draft) === 0
-    if (!allClassified) {
-      const first = draft.segs.findIndex((s) => !s.t)
-      if (first >= 0) focusSeg(first)
-      toast.info('还有未归类的段，先点段头的类型胶囊选一下')
-      return
-    }
-    useReader.getState().update((d) => markAllSegsDone(d))
-    toast.success(`拆分与归类完成 —— 共 ${draft.segs.length} 份材料`)
-  }
 
   const onResetSegments = () => {
     if (!draft) return
@@ -73,7 +61,6 @@ export function useReaderActions(draft: DraftState | null) {
     setDeleteTarget,
     zoomIn,
     zoomOut,
-    onComplete,
     onResetSegments,
     onReject,
     confirmDelete,

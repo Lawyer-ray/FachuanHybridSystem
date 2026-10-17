@@ -65,19 +65,6 @@ export function resetSegments(d: DraftState): DraftState {
   return { ...d, segs: initialSegments(d.mats) }
 }
 
-/** 翻转段 si 的「已处理」勾 */
-export function toggleSegDone(d: DraftState, si: number): DraftState {
-  if (si < 0 || si >= d.segs.length) return d
-  const segs = d.segs.map((sg, i) => (i === si ? { ...sg, done: !sg.done } : sg))
-  return { ...d, segs }
-}
-
-/** 全部段标记为已处理（拆分归类完成后一键完成） */
-export function markAllSegsDone(d: DraftState): DraftState {
-  if (d.segs.every((sg) => sg.done)) return d
-  return { ...d, segs: d.segs.map((sg) => (sg.done ? sg : { ...sg, done: true })) }
-}
-
 export function setPackStatus(d: DraftState, status: PackStatus): DraftState {
   if (d.status === status) return d
   return { ...d, status }
