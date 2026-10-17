@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { useReader } from '../../store'
-import { countUnclassified, matLabel } from '../../draft'
+import { countUnclassified, isAutoSegName, matLabel } from '../../draft'
 import { useMediaQuery } from '@/hooks/use-media'
 import { ReaderTopBar } from './ReaderTopBar'
 import { ReaderToolbar } from './ReaderToolbar'
@@ -146,12 +146,12 @@ export function Reader() {
   }
 
   // 归案唯一入口：没归完类不打开弹窗，跳到第一个未归类的段并提示
-  //（原「完成拆分与归类」按钮的引导逻辑——按钮删了，引导留下）
+  //（未归类 = 没类型且名字还是默认名；改名或右键选类型都算处理过）
   const handleAssign = () => {
     if (!allClassified) {
-      const first = draft.segs.findIndex((s) => !s.t)
+      const first = draft.segs.findIndex((s) => !s.t && isAutoSegName(draft, s))
       if (first >= 0) focusSeg(first)
-      toast.info(`还有 ${unclassified} 段没选类型 —— 点段头的类型胶囊选一下`)
+      toast.info(`还有 ${unclassified} 份没命名 —— 双击左栏改名，或右键选类型`)
       return
     }
     setAssignOpen(true)

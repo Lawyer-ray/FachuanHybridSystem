@@ -41,26 +41,33 @@ describe('SegmentHeader', () => {
     ],
     manual: false,
   }
-  const noop = { onSetType: vi.fn(), onRename: vi.fn() }
+  const noop = { onRename: vi.fn() }
 
   it('非首段：「并入上一份」按 aria-label 可定位（手机图标化后仍有名）并触发回调', () => {
     const onMerge = vi.fn()
-    render(<SegmentHeader seg={seg} si={1} color="#0ea5e9" {...noop} onMerge={onMerge} />)
+    render(<SegmentHeader seg={seg} si={1} color="#0ea5e9" classified {...noop} onMerge={onMerge} />)
     fireEvent.click(screen.getByRole('button', { name: '并入上一份' }))
     expect(onMerge).toHaveBeenCalledTimes(1)
   })
 
   it('首段：没有上一份，不渲染「并入上一份」（不留永远点不了的灰按钮）', () => {
-    render(<SegmentHeader seg={seg} si={0} color="#0ea5e9" {...noop} onMerge={vi.fn()} />)
+    render(<SegmentHeader seg={seg} si={0} color="#0ea5e9" classified {...noop} onMerge={vi.fn()} />)
     expect(screen.queryByRole('button', { name: '并入上一份' })).toBeNull()
   })
 
+  it('未归类：不再有类型胶囊控件，名字亮琥珀并提示改名词', () => {
+    render(<SegmentHeader seg={{ ...seg, t: '' }} si={1} color="#0ea5e9" classified={false} {...noop} onMerge={vi.fn()} />)
+    expect(screen.queryByText(/未归类/)).toBeNull()
+    const nameBtn = screen.getByRole('button', { name: /赖某-移交诉讼材料/ })
+    expect(nameBtn.className).toContain('text-amber-700')
+  })
+
   it('段头标页区间 + 页数：同源「P1–2 · 2 页」，跨源「跨源 · 2 页」', () => {
-    const { unmount } = render(<SegmentHeader seg={seg} si={1} color="#0ea5e9" {...noop} onMerge={vi.fn()} />)
+    const { unmount } = render(<SegmentHeader seg={seg} si={1} color="#0ea5e9" classified {...noop} onMerge={vi.fn()} />)
     expect(screen.getByText('P1–2 · 2 页')).toBeTruthy()
     unmount()
     const cross: Segment = { ...seg, refs: [{ mi: 0, p: 1 }, { mi: 1, p: 1 }] }
-    render(<SegmentHeader seg={cross} si={1} color="#0ea5e9" {...noop} onMerge={vi.fn()} />)
+    render(<SegmentHeader seg={cross} si={1} color="#0ea5e9" classified {...noop} onMerge={vi.fn()} />)
     expect(screen.getByText('跨源 · 2 页')).toBeTruthy()
   })
 })

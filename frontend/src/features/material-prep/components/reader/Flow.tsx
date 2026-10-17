@@ -5,6 +5,7 @@ import { useElementWidth } from '../../hooks/use-element-width'
 import type { DraftState, OcrPending, PageKey } from '../../types'
 import { selKeyOf } from '../../draft'
 import { COL_GAP, effectiveCols, fitPageWidth, rowWidth } from './layout'
+import { isAutoSegName } from '../../draft'
 import { PageCell, type PageRect } from './PageCell'
 import { PageContextMenu } from './PageContextMenu'
 import { SegmentHeader } from './SegmentHeader'
@@ -135,7 +136,7 @@ export function Flow({
               seg={seg}
               si={si}
               color={color}
-              onSetType={(t) => onOp.setSegType(si, t)}
+              classified={!!seg.t || !isAutoSegName(draft, seg)}
               onRename={(name) => onOp.renameSeg(si, name)}
               onMerge={() => onOp.mergeSeg(si)}
             />

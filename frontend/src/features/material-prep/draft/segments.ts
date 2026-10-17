@@ -1,3 +1,4 @@
+import { SEGMENT_TYPES } from '../constants'
 import type { AssignInfo, BundleMat, DraftState, PackStatus, PageKey, Segment } from '../types'
 import { matLabel, withDefaultNames } from './labels'
 import { initialSegments } from './resolve'
@@ -53,13 +54,15 @@ export function setSegmentType(d: DraftState, si: number, t: string): DraftState
   return withDefaultNames({ ...d, segs })
 }
 
-/** 改段名 */
+/** 改段名；名字恰好是类型词（如「借条.pdf」）时自动归类——改名即归类，一个控件两个信息 */
 export function renameSegment(d: DraftState, si: number, fn: string): DraftState {
   if (si < 0 || si >= d.segs.length) return d
   const name = fn.trim()
   if (!name || name === d.segs[si]!.fn) return d
-  const segs = d.segs.map((sg, i) => (i === si ? { ...sg, fn: name } : sg))
-  return { ...d, segs }
+  const base = name.replace(/\.[^.]+$/, '')
+  const matched = SEGMENT_TYPES.find((t) => t === base)
+  const segs = d.segs.map((sg, i) => (i === si ? { ...sg, fn: name, t: matched ?? sg.t } : sg))
+  return withDefaultNames({ ...d, segs })
 }
 
 /** 恢复初始分段 */

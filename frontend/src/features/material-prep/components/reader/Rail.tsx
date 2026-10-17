@@ -75,6 +75,8 @@ export function Rail({
     whole: isWholeMat(draft, si),
     /** 改过名的整份段显示名字而不是「整份」——名字是用户特意起的 */
     auto: isAutoSegName(draft, draft.segs[si]!),
+    /** 未归类 = 没类型且名字还是默认名；改过名的算已处理，行上就安静了 */
+    classified: !!draft.segs[si]!.t || !isAutoSegName(draft, draft.segs[si]!),
     color: SEG_COLORS[si % SEG_COLORS.length] ?? SEG_COLORS[0],
     onFocus: () => onFocusSeg(si),
     onRename: (name: string) => onRenameSeg(si, name),
@@ -155,6 +157,7 @@ function SegRow({
   si,
   whole,
   auto,
+  classified,
   color,
   crossGroup = false,
   onFocus,
@@ -166,6 +169,7 @@ function SegRow({
   si: number
   whole: boolean
   auto: boolean
+  classified: boolean
   color: string
   crossGroup?: boolean
   onFocus: () => void
@@ -188,11 +192,12 @@ function SegRow({
 
   const displayName = whole && auto ? '整份' : seg.fn
   const meta = crossGroup ? `${seg.refs.length} 页` : whole ? '' : segRangeText(seg)
+  // pill 只在还有话要说时出现：选了类型显示类型；没处理过提醒未归类；改名已处理的安静
   const pill = seg.t ? (
     <span className="flex-none rounded-full border border-green-200 bg-green-50 px-1.5 text-[10.5px] text-green-700">{seg.t}</span>
-  ) : (
+  ) : !classified ? (
     <span className="flex-none rounded-full border border-amber-200 bg-amber-50 px-1.5 text-[10.5px] text-amber-700">未归类</span>
-  )
+  ) : null
 
   return (
     <ContextMenu>
@@ -223,8 +228,11 @@ function SegRow({
           }}
         >
           <span
-            className={cn('h-2 w-2 flex-none rounded-full', crossGroup && 'bg-zinc-400')}
-            style={crossGroup ? undefined : { background: seg.t ? color : 'transparent', border: seg.t ? 'none' : '1px dashed #a1a1aa' }}
+            className={cn(
+              'h-2 w-2 flex-none rounded-full',
+              crossGroup || seg.t || classified ? 'bg-zinc-400' : 'border border-dashed border-zinc-400',
+            )}
+            style={!crossGroup && seg.t ? { background: color } : undefined}
           />
           {editing ? (
             <input
@@ -242,7 +250,7 @@ function SegRow({
               className="h-6 min-w-0 flex-1 rounded border border-zinc-400 bg-white px-1.5 text-[12.5px] outline-none"
             />
           ) : (
-            <span className="min-w-0 flex-1 truncate text-[13px]">{midEllipsis(displayName)}</span>
+            <span className={cn('min-w-0 flex-1 truncate text-[13px]', !classified && 'text-amber-700')}>{midEllipsis(displayName)}</span>
           )}
           {meta && !editing && <span className="flex-none text-[10.5px] tabular-nums text-muted-foreground">{meta}</span>}
           {!editing && pill}

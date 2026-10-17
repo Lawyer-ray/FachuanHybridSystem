@@ -16,7 +16,8 @@ export function segMats(sg: Segment): number[] {
 export const selKeyOf = (r: PageKey): string => `${r.mi}:${r.p}`
 
 export function countUnclassified(d: DraftState): number {
-  return d.segs.filter((s) => !s.t).length
+  // 未归类 = 这份还没处理过：没选类型，名字也还是系统默认名——改名即归类
+  return d.segs.filter((s) => !s.t && isAutoSegName(d, s)).length
 }
 
 /** 段是否覆盖整个单一源文件（用于左栏「整份」行） */
@@ -83,7 +84,8 @@ export function defaultSegName(
  * 「类型.pdf」「类型-P数字.pdf」。
  */
 export function isAutoSegName(d: DraftState, seg: Pick<Segment, 'fn' | 't' | 'fnAuto'>): boolean {
-  if (seg.fnAuto !== undefined) return seg.fn === seg.fnAuto
+  // 后端序列化会把缺失字段回成 null，用 != null 同时挡住 undefined 与 null
+  if (seg.fnAuto != null) return seg.fn === seg.fnAuto
   const { fn, t } = seg
   if (t && (fn === `${t}.pdf` || new RegExp(`^${escapeRe(t)}-P\\d+\\.pdf$`).test(fn))) return true
   return d.mats.some((_, mi) => {

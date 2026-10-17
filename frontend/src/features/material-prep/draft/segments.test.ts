@@ -66,6 +66,14 @@ describe('splitSegment', () => {
     expect(setSegmentType(renamed, 0, '银行流水').segs[0]!.fn).toBe('客户原件.pdf')
   })
 
+  it('改名为类型词自动归类：「借条.pdf」→ t=借条；非类型名不改类型', () => {
+    const d = fixture()
+    const typed = renameSegment(d, 1, '借条.pdf')
+    expect(typed.segs[1]).toMatchObject({ fn: '借条.pdf', t: '借条' })
+    const plain = renameSegment(d, 1, '客户给的.pdf')
+    expect(plain.segs[1]).toMatchObject({ fn: '客户给的.pdf', t: '证据' })
+  })
+
   it('越界守卫：si / k 越界或单页段原样返回', () => {
     const d = fixture()
     expect(splitSegment(d, -1, 0)).toBe(d)

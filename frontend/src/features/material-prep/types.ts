@@ -35,8 +35,9 @@ export interface Segment {
   refs: PageKey[]
   manual: boolean
   /** 系统最近一次分配的默认名；fn 与之相等即「仍是默认名」，切/并/改类型时会跟着刷新。
-   *  用户手改过 fn 后两者不等，刷新就绕开它。老草稿没有此字段，按名字模式回退判定 */
-  fnAuto?: string
+   *  用户手改过 fn 后两者不等，刷新就绕开它。老草稿没有此字段，按名字模式回退判定；
+   *  后端序列化会把缺失回成 null */
+  fnAuto?: string | null
   reviewFlag?: string
   confidence?: number
   /** 该段正文的 Markdown 重建（云端识别产出，供后续 AI 流程消费）；人工拆分 / 旧任务无 */

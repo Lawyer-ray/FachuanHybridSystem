@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, PencilLine, Split } from 'lucide-react'
-import { SEGMENT_TYPES } from '../../constants'
+import { PencilLine, Split } from 'lucide-react'
 import { segRangeText } from '../../draft'
 import type { Segment } from '../../types'
 import { cn } from '@/lib/utils'
@@ -9,19 +8,19 @@ export function SegmentHeader({
   seg,
   si,
   color,
-  onSetType,
+  classified,
   onRename,
   onMerge,
 }: {
   seg: Segment
   si: number
   color: string
-  onSetType: (t: string) => void
+  /** 已归类 = 选了类型或改过名。未归类时名字亮琥珀——这是「这份还没处理」的唯一提醒 */
+  classified: boolean
   onRename: (name: string) => void
   onMerge: () => void
 }) {
-  const [pickingType, setPickingType] = useState(false)
-  const [editingName, setEditingName] = useState(false)
+  const [editing, setEditing] = useState(false)
   const [nameDraft, setNameDraft] = useState(seg.fn)
 
   // 页区间 + 页数：「P5–19 · 15 页」；跨源「跨源 · 15 页」。切几刀后名字再像，看区间就分得开
@@ -29,10 +28,10 @@ export function SegmentHeader({
 
   const startNameEdit = () => {
     setNameDraft(seg.fn)
-    setEditingName(true)
+    setEditing(true)
   }
   const commitName = () => {
-    setEditingName(false)
+    setEditing(false)
     if (nameDraft.trim() && nameDraft.trim() !== seg.fn) onRename(nameDraft.trim())
   }
 
@@ -43,39 +42,32 @@ export function SegmentHeader({
     >
       <span className="absolute left-0 top-2 bottom-2 w-[4px] flex-none rounded-full" style={{ background: color }} />
 
-      {/* 类型胶囊 */}
-      {pickingType ? (
-        <select
+      {/* 名字是唯一控件：改个名就算归类（名字恰是类型词还会自动分类）。
+          以前这里还有一个独立的类型胶囊，跟名字说同一件事，已撤——类型收进右键菜单 */}
+      {editing ? (
+        <input
           autoFocus
-          value={seg.t}
-          onChange={(e) => {
-            onSetType(e.target.value)
-            setPickingType(false)
+          value={nameDraft}
+          onChange={(e) => setNameDraft(e.target.value)}
+          onBlur={commitName}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commitName()
+            if (e.key === 'Escape') setEditing(false)
           }}
-          onBlur={() => setPickingType(false)}
-          className="h-7 flex-none rounded-md border border-zinc-400 bg-white px-2 text-[13px] outline-none"
-        >
-          <option value="">— 选择类型 —</option>
-          {SEGMENT_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
+          className="h-7 min-w-0 flex-1 rounded-md border border-zinc-400 bg-white px-2 text-[13px] outline-none"
+        />
       ) : (
         <button
           type="button"
-          onClick={() => setPickingType(true)}
-          title="点一下选材料类型"
+          onClick={startNameEdit}
+          title={classified ? '点一下改名' : '还没归类：点一下给这份起个名（名字是类型词会自动分类），或右键选类型'}
           className={cn(
-            'flex h-7 flex-none items-center gap-1 rounded-full border px-2.5 text-[12px] font-medium transition-colors',
-            seg.t
-              ? 'border-green-200 bg-green-50 text-green-700'
-              : 'border-amber-200 bg-amber-50 text-amber-700',
+            'flex min-w-0 flex-1 items-center gap-1 truncate text-left text-[13.5px] font-medium',
+            !classified && 'text-amber-700',
           )}
         >
-          {seg.t || '未归类'}
-          <ChevronDown className="h-3 w-3 opacity-60" />
+          <span className="truncate">{seg.fn}</span>
+          <PencilLine className="h-3.5 w-3.5 flex-none text-muted-foreground/70" />
         </button>
       )}
 
@@ -88,32 +80,7 @@ export function SegmentHeader({
         </span>
       ) : null}
 
-      {/* 段名 */}
-      {editingName ? (
-        <input
-          autoFocus
-          value={nameDraft}
-          onChange={(e) => setNameDraft(e.target.value)}
-          onBlur={commitName}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') commitName()
-            if (e.key === 'Escape') setEditingName(false)
-          }}
-          className="h-7 min-w-0 flex-1 rounded-md border border-zinc-400 bg-white px-2 text-[13px] outline-none"
-        />
-      ) : (
-        <button
-          type="button"
-          onClick={startNameEdit}
-          title="点一下改名"
-          className="flex min-w-0 flex-1 items-center gap-1 truncate text-left text-[13.5px] font-medium"
-        >
-          <span className="truncate">{seg.fn}</span>
-          <PencilLine className="h-3.5 w-3.5 flex-none text-muted-foreground/70" />
-        </button>
-      )}
-
-      {/* 页数（原型 rg） */}
+      {/* 页区间（原型 rg） */}
       <span className="hidden flex-none text-[11.5px] tabular-nums text-muted-foreground lg:inline">{rangeText}</span>
 
       {/* 并入上一份：首段没有上一份，不渲染（灰按钮是给「永远点不了」的动作留座 */}

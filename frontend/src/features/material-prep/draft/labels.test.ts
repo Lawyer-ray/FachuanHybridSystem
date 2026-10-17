@@ -34,17 +34,20 @@ describe('segMats / selKeyOf', () => {
 })
 
 describe('countUnclassified', () => {
-  it('只数类型为空的段', () => {
+  it('未归类 = 没类型且名字还是默认名；改名即归类', () => {
     const d: DraftState = {
       mats,
       segs: [
-        { id: 's1', t: '', fn: 'a.pdf', refs: [{ mi: 0, p: 1 }], manual: false },
-        { id: 's2', t: '证据', fn: 'b.pdf', refs: [{ mi: 0, p: 2 }], manual: false },
+        // 名字还是默认名（源名-P起始页）且没类型 → 未归类
+        { id: 's1', t: '', fn: '自定义名-P1.pdf', refs: [{ mi: 0, p: 1 }], manual: false },
+        // 选了类型 → 已归类
+        { id: 's2', t: '证据', fn: '证据.pdf', refs: [{ mi: 0, p: 2 }], manual: false },
+        // 没类型但改过名 → 已归类
         { id: 's3', t: '', fn: 'c.pdf', refs: [{ mi: 1, p: 1 }], manual: true },
       ],
       infos: [],
     }
-    expect(countUnclassified(d)).toBe(2)
+    expect(countUnclassified(d)).toBe(1)
   })
 })
 
@@ -110,7 +113,7 @@ describe('defaultSegName / isAutoSegName 默认命名规则', () => {
     expect(isAutoSegName(d, { ...noType, fn: '合并材料.pdf' })).toBe(false)
   })
 
-  it('该段自己的类型名算默认名；fnAuto 是唯一可靠来源', () => {
+  it('该段自己的类型名算默认名；fnAuto 是唯一可靠来源（null 回退模式判定）', () => {
     expect(isAutoSegName(d, { fn: '借条.pdf', t: '借条' })).toBe(true)
     expect(isAutoSegName(d, { fn: '借条-P3.pdf', t: '借条' })).toBe(true)
     // 名字像别的类型的默认名 ≠ 自己的默认名
@@ -118,6 +121,9 @@ describe('defaultSegName / isAutoSegName 默认命名规则', () => {
     // 有 fnAuto 只看 fn 是否等于它
     expect(isAutoSegName(d, { fn: '随便起的名字', t: '', fnAuto: '随便起的名字' })).toBe(true)
     expect(isAutoSegName(d, { fn: '借条.pdf', t: '借条', fnAuto: '起诉状.pdf' })).toBe(false)
+    // 后端会把缺失字段回成 null → 回退模式判定（源名仍算默认名）
+    expect(isAutoSegName(d, { fn: '自定义名-P2.pdf', t: '', fnAuto: null })).toBe(true)
+    expect(isAutoSegName(d, { fn: '客户原件.pdf', t: '', fnAuto: null })).toBe(false)
   })
 })
 
