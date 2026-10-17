@@ -282,6 +282,8 @@ export function Reader() {
             onRenameSeg={flowOps.renameSeg}
             onSetSegType={flowOps.setSegType}
             onMergeSeg={flowOps.mergeSeg}
+            onMergeSegs={flowOps.mergeSegs}
+            onMoveSeg={flowOps.moveSeg}
           />
         </div>
 

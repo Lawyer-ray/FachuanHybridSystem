@@ -8,6 +8,7 @@ vi.mock('../api', () => ({ fetchAttachmentBytes: vi.fn() }))
 import {
   appendMatsToDraft,
   mergeSegment,
+  moveSegment,
   renameSegment,
   resetSegments,
   setPackAssign,
@@ -72,6 +73,19 @@ describe('splitSegment', () => {
     expect(typed.segs[1]).toMatchObject({ fn: '借条.pdf', t: '借条' })
     const plain = renameSegment(d, 1, '客户给的.pdf')
     expect(plain.segs[1]).toMatchObject({ fn: '客户给的.pdf', t: '证据' })
+  })
+
+  it('moveSegment 换位：after 移到目标段后、before 移到目标段前；自身为目标原样返回', () => {
+    const after = moveSegment(fixture(), 0, 1, 'after')
+    expect(after.segs.map((s) => s.id)).toEqual(['seg-b', 'seg-a'])
+    const before = moveSegment(fixture(), 1, 0, 'before')
+    expect(before.segs.map((s) => s.id)).toEqual(['seg-b', 'seg-a'])
+    // refs 不动，只是段序调整
+    expect(after.segs[1]!.refs).toEqual([{ mi: 0, p: 1 }, { mi: 0, p: 2 }, { mi: 0, p: 3 }])
+    const d = fixture()
+    expect(moveSegment(d, 1, 1, 'after')).toBe(d)
+    expect(moveSegment(d, -1, 0, 'after')).toBe(d)
+    expect(moveSegment(fixture(), -1, 0, 'after').segs.map((s) => s.id)).toEqual(['seg-a', 'seg-b'])
   })
 
   it('越界守卫：si / k 越界或单页段原样返回', () => {

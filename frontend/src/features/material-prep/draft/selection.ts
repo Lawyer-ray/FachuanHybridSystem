@@ -123,6 +123,39 @@ export function mergePagesIntoNew(d: DraftState, picked: PageKey[]): DraftState 
 }
 
 /**
+ * 多选段并成一份：refs 按文档扁平序拼接（页不重排），类型全部一致才沿用、否则清空；
+ * 新段落在**文档序最前那份**选中段的位置。少于两份或下标全部越界时原样返回。
+ */
+export function mergeSegsIntoOne(d: DraftState, sis: number[]): DraftState {
+  const idx = [...new Set(sis)].filter((i) => Number.isInteger(i) && i >= 0 && i < d.segs.length).sort((a, b) => a - b)
+  if (idx.length < 2) return d
+  const picked = new Set(idx)
+  // 页序按文档扁平序：跨段选择（第 1 份 + 第 3 份）合并后页仍是升序
+  const flat = flatRefs(d)
+  const order = new Map(flat.map((f, i) => [`${f.ref.mi}:${f.ref.p}`, i] as const))
+  const refs = d.segs
+    .filter((_, i) => picked.has(i))
+    .flatMap((sg) => sg.refs)
+    .sort((a, b) => (order.get(`${a.mi}:${a.p}`) ?? 0) - (order.get(`${b.mi}:${b.p}`) ?? 0))
+  const types = new Set(d.segs.filter((_, i) => picked.has(i)).map((sg) => sg.t).filter(Boolean))
+  const t = types.size === 1 ? [...types][0]! : ''
+  const merged: Segment = {
+    id: nextSegId(),
+    t,
+    fn: defaultSegName(d, refs, false, t),
+    refs,
+    manual: true,
+  }
+  // 新段插在文档序最前那份选中段的位置；其余选中段移除
+  const segs: Segment[] = []
+  d.segs.forEach((sg, i) => {
+    if (i === idx[0]) segs.push(merged)
+    if (!picked.has(i)) segs.push(sg)
+  })
+  return withDefaultNames({ ...d, segs })
+}
+
+/**
  * 合并应用选中页：全部来自同一段 → 切出独立材料；跨段 → 并成一份跨源材料。
  * 返回新的 draft（未选中不产生任何变化）。
  */

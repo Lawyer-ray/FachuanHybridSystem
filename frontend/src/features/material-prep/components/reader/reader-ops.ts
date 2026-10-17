@@ -2,6 +2,8 @@ import {
   flatRefs,
   pageIndexOf,
   mergeSegment as segMerge,
+  mergeSegsIntoOne as segsMerge,
+  moveSegment as segMove,
   renameSegment as segRename,
   setSegmentType as segSetType,
   splitSegment as segSplit,
@@ -17,6 +19,9 @@ export interface FlowOps {
   mergeSeg: (si: number) => void
   splitSeg: (si: number, k: number) => void
   pickPage: (mi: number, p: number) => void
+  /** 左栏：多选段并成一份 / 拖拽移动段序 */
+  mergeSegs: (sis: number[]) => void
+  moveSeg: (si: number, targetSi: number, position: 'before' | 'after') => void
 }
 
 /** MetaPanel ops 的形状 */
@@ -43,6 +48,8 @@ export function buildFlowOps(
     mergeSeg: (si) => update((d) => segMerge(d, si)),
     splitSeg: (si, k) => update((d) => segSplit(d, si, k)),
     pickPage,
+    mergeSegs: (sis) => update((d) => segsMerge(d, sis)),
+    moveSeg: (si, targetSi, position) => update((d) => segMove(d, si, targetSi, position)),
   }
 }
 

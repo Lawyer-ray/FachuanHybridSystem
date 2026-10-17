@@ -4,6 +4,7 @@ import {
   flatRefs,
   isSelectionContiguous,
   mergePagesIntoNew,
+  mergeSegsIntoOne,
   pageIndexOf,
   removePages,
   splitOutPages,
@@ -93,6 +94,40 @@ describe('splitOutPages', () => {
     expect(splitOutPages(d, [{ mi: 0, p: 1 }, { mi: 0, p: 2 }, { mi: 0, p: 3 }])).toBe(d)
     expect(splitOutPages(d, [{ mi: 0, p: 1 }, { mi: 0, p: 3 }])).toBe(d)
     expect(splitOutPages(d, [])).toBe(d)
+  })
+})
+
+describe('mergeSegsIntoOne 多选段合并', () => {
+  it('两份并成一份：refs 按文档扁平序拼接，落在文档序最前那份的位置', () => {
+    const d = mergeSegsIntoOne(fixture(), [1, 0])
+    expect(d.segs).toHaveLength(1)
+    expect(d.segs[0]!.refs).toEqual([
+      { mi: 0, p: 1 },
+      { mi: 0, p: 2 },
+      { mi: 0, p: 3 },
+      { mi: 1, p: 1 },
+      { mi: 1, p: 2 },
+    ])
+    // 类型不一致 → 清空；默认名走源名-P起始页；fnAuto 记录来源
+    expect(d.segs[0]).toMatchObject({ t: '', fn: '起诉状-P1.pdf', manual: true, fnAuto: '起诉状-P1.pdf' })
+  })
+
+  it('类型全部一致 → 沿用类型名；传入乱序也按文档序落地', () => {
+    const same: DraftState = {
+      ...fixture(),
+      segs: [
+        { id: 'x1', t: '证据', fn: '一.pdf', refs: [{ mi: 0, p: 1 }], manual: true },
+        { id: 'x2', t: '证据', fn: '二.pdf', refs: [{ mi: 0, p: 2 }], manual: true },
+      ],
+    }
+    const d = mergeSegsIntoOne(same, [1, 0])
+    expect(d.segs[0]).toMatchObject({ t: '证据', fn: '证据.pdf', refs: [{ mi: 0, p: 1 }, { mi: 0, p: 2 }] })
+  })
+
+  it('少于两份 / 越界下标 → 原样返回', () => {
+    const d = fixture()
+    expect(mergeSegsIntoOne(d, [0])).toBe(d)
+    expect(mergeSegsIntoOne(d, [9, 10])).toBe(d)
   })
 })
 

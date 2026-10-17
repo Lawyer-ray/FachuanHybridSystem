@@ -83,7 +83,7 @@ describe('Rail 左栏行', () => {
   }
 
   function renderRail(over: Partial<Parameters<typeof Rail>[0]> = {}) {
-    const handlers = { onFocusSeg: vi.fn(), onRenameMat: vi.fn(), onRenameSeg: vi.fn(), onSetSegType: vi.fn(), onMergeSeg: vi.fn() }
+    const handlers = { onFocusSeg: vi.fn(), onRenameMat: vi.fn(), onRenameSeg: vi.fn(), onSetSegType: vi.fn(), onMergeSeg: vi.fn(), onMergeSegs: vi.fn(), onMoveSeg: vi.fn() }
     render(<Rail draft={draft} {...handlers} {...over} />)
     return handlers
   }

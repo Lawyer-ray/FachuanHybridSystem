@@ -25,6 +25,7 @@ export {
 export {
   splitSegment,
   mergeSegment,
+  moveSegment,
   setSegmentType,
   renameSegment,
   resetSegments,
@@ -49,4 +50,5 @@ export {
   applyPageSelection,
   isSelectionContiguous,
   removePages,
+  mergeSegsIntoOne,
 } from './selection'

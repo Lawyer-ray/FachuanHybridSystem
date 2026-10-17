@@ -47,6 +47,19 @@ export function mergeSegment(d: DraftState, si: number): DraftState {
   return withDefaultNames({ ...d, segs: next })
 }
 
+/**
+ * 把段 si 移动到 targetSi 的前 / 后（左栏拖拽换位）。只是段序调整，refs 与名字都不动。
+ */
+export function moveSegment(d: DraftState, si: number, targetSi: number, position: 'before' | 'after'): DraftState {
+  if (si < 0 || si >= d.segs.length || targetSi < 0 || targetSi >= d.segs.length || si === targetSi) return d
+  const moved = d.segs[si]!
+  const rest = d.segs.filter((_, i) => i !== si)
+  const anchor = rest.findIndex((sg) => sg === d.segs[targetSi])
+  if (anchor < 0) return d
+  rest.splice(position === 'before' ? anchor : anchor + 1, 0, moved)
+  return { ...d, segs: rest }
+}
+
 /** 改段类型；仍用默认名的段名字跟着类型走（「起诉状.pdf」），拆完选个类型就不用再改名 */
 export function setSegmentType(d: DraftState, si: number, t: string): DraftState {
   if (si < 0 || si >= d.segs.length || t === d.segs[si]!.t) return d

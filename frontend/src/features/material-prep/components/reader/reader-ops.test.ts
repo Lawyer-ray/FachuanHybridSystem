@@ -9,6 +9,8 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   addInfoField as infoAdd,
+  mergeSegsIntoOne as segsMerge,
+  moveSegment as segMove,
   setInfoValue as infoSetValue,
   setSegmentType as segSetType,
   renameSegment as segRename,
@@ -36,27 +38,33 @@ function draftFixture(): DraftState {
 const field: InfoField = { k: '委托人', v: '', src: '', srcRef: null }
 
 describe('buildFlowOps（draft 操作接线）', () => {
-  it('四个段操作各自下推对应纯函数给 update，pickPage 直通调用方实现', () => {
+  it('六个段操作各自下推对应纯函数给 update，pickPage 直通调用方实现', () => {
     const update = vi.fn()
     const pickPage = vi.fn()
     const ops = buildFlowOps(update, pickPage)
+    const d = draftFixture()
 
     ops.setSegType(0, '借条')
     ops.renameSeg(0, '民事起诉状')
     ops.mergeSeg(0)
     ops.splitSeg(0, 1)
-    expect(update).toHaveBeenCalledTimes(4)
+    ops.mergeSegs([1, 0])
+    ops.moveSeg(1, 0, 'before')
+    expect(update).toHaveBeenCalledTimes(6)
 
-    const d = draftFixture()
+    // mergeSegs 会消耗 nextSegId 生成新段 id，深比较剥掉 id（顺序与内容仍锁死）
+    const stripIds = (x: DraftState) => x.segs.map((s) => ({ fn: s.fn, t: s.t, refs: s.refs, manual: s.manual }))
     const fns = update.mock.calls.map(([fn]) => (fn as (x: DraftState) => DraftState)(d))
     expect(fns[0]).toEqual(segSetType(d, 0, '借条'))
     expect(fns[1]).toEqual(segRename(d, 0, '民事起诉状'))
     expect(fns[2]).toEqual(segMerge(d, 0))
     expect(fns[3]).toEqual(segSplit(d, 0, 1))
+    expect(stripIds(fns[4]!)).toEqual(stripIds(segsMerge(d, [1, 0])))
+    expect(fns[5]).toEqual(segMove(d, 1, 0, 'before'))
 
     ops.pickPage(2, 3)
     expect(pickPage).toHaveBeenCalledWith(2, 3)
-    expect(update).toHaveBeenCalledTimes(4)
+    expect(update).toHaveBeenCalledTimes(6)
   })
 
   it('操作是不可变的：fixture 不被就地改写', () => {
