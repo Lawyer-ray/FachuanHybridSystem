@@ -37,7 +37,7 @@ export function useReaderActions(draft: DraftState | null) {
     if (!draft) return
     useReader.getState().update((d) => resetSegments(d))
     focusSeg(0)
-    toast('已恢复初始分段 —— 每个源文件各一份')
+    toast('已恢复初始分段')
   }
 
   const onReject = () => {
@@ -49,7 +49,7 @@ export function useReaderActions(draft: DraftState | null) {
   const confirmDelete = () => {
     if (deleteTarget?.length) {
       useReader.getState().deleteSelected(deleteTarget)
-      toast(`已删除 ${deleteTarget.length} 页 —— 从材料拆分中移除`)
+      toast(`已删除 ${deleteTarget.length} 页`)
     }
     setDeleteTarget(null)
   }

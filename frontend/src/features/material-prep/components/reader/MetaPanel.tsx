@@ -3,11 +3,21 @@ import { Plus, Trash2, Link2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { FIELD_LIB } from '../../constants'
-import type { DraftState } from '../../types'
+import type { DraftState, InfoField } from '../../types'
 import type { MetaOps } from './reader-ops'
 import { cn } from '@/lib/utils'
 import { PartyPicker } from './PartyPicker'
 
+/** 字段的 placeholder：把「多个用、分隔」这类提示并进去，不再在标签旁常驻一行小字 */
+function placeholderOf(f: InfoField): string | undefined {
+  if (!f.hint) return f.ph
+  return f.ph ? `${f.ph}，${f.hint}` : f.hint
+}
+
+/** 右栏「材料信息」：便签式字段卡。
+ *
+ *  标签旁只留两个图标（标来源 / 删除），删除悬停才显形；「便签，不是表单」那句说明
+ *  只在一条都没记时作为空态出现，记了第一条它就该让位。 */
 export function MetaPanel({
   draft,
   pickInfo,
@@ -28,104 +38,106 @@ export function MetaPanel({
 
   return (
     <aside className="flex h-full w-[256px] flex-none flex-col gap-3 overflow-y-auto border-l border-border bg-card p-3 xl:w-[296px]">
-      <div className="px-1">
-        <h4 className="flex items-center justify-between text-sm font-medium">
-          材料信息
-          <span className="text-xs font-normal text-muted-foreground">已记 {draft.infos.filter((f) => f.v).length} 项</span>
-        </h4>
-        <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">
+      <h4 className="px-1 text-sm font-medium">材料信息</h4>
+
+      {draft.infos.length === 0 && (
+        <p className="px-1 text-[11.5px] leading-relaxed text-muted-foreground">
           便签，不是表单。想记就记，一条不记也能继续。
         </p>
-      </div>
+      )}
 
-      {draft.infos.map((f, di) => (
-        <div key={f.k} className="flex flex-col gap-1.5 rounded-lg border border-zinc-200 bg-card p-2.5">
-          <div className="flex items-center gap-1">
-            <span className="text-[12.5px] font-medium">{f.k}</span>
-            {f.hint && <span className="text-[11px] text-muted-foreground">{f.hint}</span>}
-            <span className="ml-auto" />
-            <button
-              type="button"
-              title="删除这个字段"
-              aria-label="删除这个字段"
-              onClick={() => {
-                if (armDel === f.k) {
-                  ops.removeInfo(di)
-                  setArmDel(null)
-                } else if (f.v) {
-                  setArmDel(f.k)
-                } else {
-                  ops.removeInfo(di)
-                }
-              }}
-              onBlur={() => setArmDel(null)}
-              className={cn(
-                'grid h-5 w-5 place-items-center rounded text-zinc-300 hover:text-destructive',
-                armDel === f.k && 'bg-destructive/10 text-destructive',
-              )}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          </div>
+      {draft.infos.map((f, di) => {
+        const picking = pickInfo === di
+        const armed = armDel === f.k
+        return (
+          <div key={f.k} className="group flex flex-col gap-1.5 rounded-lg border border-zinc-200 bg-card p-2.5">
+            <div className="flex items-center gap-1">
+              <span className="text-[12.5px] font-medium">{f.k}</span>
+              <span className="ml-auto" />
+              {/* 标来源：图标即入口；取字态下亮琥珀，顶部提示条负责解释怎么做 */}
+              <button
+                type="button"
+                onClick={() => onSetPickInfo(picking ? -1 : di)}
+                title={picking ? '取字中：在页面上点一页或拖一个框；再点取消' : '标来源：在页面上点一页 / 拖框取字'}
+                aria-label={picking ? '取消标来源' : '标来源'}
+                aria-pressed={picking}
+                className={cn(
+                  'grid h-5 w-5 place-items-center rounded transition-colors',
+                  picking ? 'bg-amber-100 text-amber-700' : 'text-zinc-400 hover:bg-secondary hover:text-foreground',
+                )}
+              >
+                <Link2 className="h-3.5 w-3.5" />
+              </button>
+              {/* 删除：悬停 / 聚焦 / 已 arm 才显形；触屏无 hover 常显 */}
+              <button
+                type="button"
+                title="删除这个字段"
+                aria-label="删除这个字段"
+                onClick={() => {
+                  if (armed) {
+                    ops.removeInfo(di)
+                    setArmDel(null)
+                  } else if (f.v) {
+                    setArmDel(f.k)
+                  } else {
+                    ops.removeInfo(di)
+                  }
+                }}
+                onBlur={() => setArmDel(null)}
+                className={cn(
+                  'grid h-5 w-5 place-items-center rounded text-zinc-300 opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100',
+                  armed && 'bg-destructive/10 text-destructive opacity-100',
+                )}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
 
-          {f.opts ? (
-            <select
-              value={f.v}
-              onChange={(e) => ops.setValue(di, e.target.value)}
-              className="h-8 rounded-md border border-input bg-background px-2 text-[13px] outline-none"
-            >
-              <option value="">— 选择 —</option>
-              {f.opts.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
-          ) : f.ta ? (
-            <Textarea
-              rows={2}
-              placeholder={f.ph}
-              value={f.v}
-              onChange={(e) => ops.setValue(di, e.target.value)}
-              className="resize-none text-[13px]"
-            />
-          ) : f.k === '委托人' || f.k === '对方当事人' || f.k === '受益人' ? (
-            <PartyPicker
-              value={f.v}
-              onChange={(v) => ops.setValue(di, v)}
-              placeholder={f.ph}
-              isOurClient={f.k !== '对方当事人'}
-            />
-          ) : (
-            <Input
-              placeholder={f.ph}
-              value={f.v}
-              onChange={(e) => ops.setValue(di, e.target.value)}
-              className="h-8 text-[13px]"
-            />
-          )}
+            {f.opts ? (
+              <select
+                value={f.v}
+                onChange={(e) => ops.setValue(di, e.target.value)}
+                className="h-8 rounded-md border border-input bg-background px-2 text-[13px] outline-none"
+              >
+                <option value="">— 选择 —</option>
+                {f.opts.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+            ) : f.ta ? (
+              <Textarea
+                rows={2}
+                placeholder={placeholderOf(f)}
+                value={f.v}
+                onChange={(e) => ops.setValue(di, e.target.value)}
+                className="resize-none text-[13px]"
+              />
+            ) : f.k === '委托人' || f.k === '对方当事人' || f.k === '受益人' ? (
+              <PartyPicker
+                value={f.v}
+                onChange={(v) => ops.setValue(di, v)}
+                placeholder={placeholderOf(f)}
+                isOurClient={f.k !== '对方当事人'}
+              />
+            ) : (
+              <Input
+                placeholder={placeholderOf(f)}
+                value={f.v}
+                onChange={(e) => ops.setValue(di, e.target.value)}
+                className="h-8 text-[13px]"
+              />
+            )}
 
-          {/* 标来源 */}
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => onSetPickInfo(pickInfo === di ? -1 : di)}
-              className={cn(
-                'flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11.5px] transition-colors',
-                pickInfo === di
-                  ? 'border-amber-300 bg-amber-50 text-amber-700'
-                  : 'border-border text-secondary-foreground hover:bg-secondary',
-              )}
-            >
-              <Link2 className="h-3 w-3" />
-              {pickInfo === di ? '点一页作为来源' : '标来源'}
-            </button>
             {f.src && (
-              <span className="truncate text-[11px] tabular-nums text-muted-foreground">{f.src}</span>
+              <span className="truncate text-[11px] tabular-nums text-muted-foreground" title={`来源：${f.src}`}>
+                来源 {f.src}
+              </span>
             )}
           </div>
-        </div>
-      ))}
+        )
+      })}
 
       {/* 记一项 */}
       <div className="flex flex-col gap-1">

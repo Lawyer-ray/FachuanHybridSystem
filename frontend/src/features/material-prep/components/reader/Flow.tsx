@@ -42,6 +42,8 @@ export function Flow({
 }) {
   const { segs, mats, infos } = draft
   const picking = pickInfo >= 0
+  // 单源包不展示「源」这个维度：段开始条标不出任何边界，页卡脚注的文件名重复 N 遍也没信息量
+  const singleSource = mats.length === 1
   const [flowRef, flowWidth] = useElementWidth<HTMLDivElement>()
   // 右键菜单：记录落点页码；右键非选中页时单删，右键选中页时按当前选区批量删
   const [menu, setMenu] = useState<{ x: number; y: number; mi: number; p: number } | null>(null)
@@ -86,6 +88,7 @@ export function Flow({
       mi: ref.mi,
       p: ref.p,
       mat: mats[ref.mi]!,
+      hideMatName: singleSource,
       pickActive: picking,
       selModeActive: selMode,
       selected: selKeys.has(`${ref.mi}:${ref.p}`),
@@ -96,7 +99,7 @@ export function Flow({
       onToggleSel,
       onContextMenu: openMenu,
     }),
-    [messageId, mats, picking, selMode, selKeys, marksOf, ocrPending, onOp, onOcrBox, onToggleSel, openMenu],
+    [messageId, mats, singleSource, picking, selMode, selKeys, marksOf, ocrPending, onOp, onOcrBox, onToggleSel, openMenu],
   )
 
   const menuInSel = menu ? selKeys.has(`${menu.mi}:${menu.p}`) : false
@@ -137,7 +140,8 @@ export function Flow({
               onMerge={() => onOp.mergeSeg(si)}
             />
 
-            {firstMat && (
+            {/* 段开始条只在多源包显示：它标的是「这段从哪个源文件开始」，单源时没有边界可标 */}
+            {firstMat && !singleSource && (
               <div className="w-full rounded-[7px] border border-dashed border-zinc-300 py-1 text-center text-[11px] text-muted-foreground">
                 段开始 · {firstMat.customName || firstMat.n}
               </div>
@@ -173,21 +177,24 @@ export function Flow({
                   const mat = mats[ref.mi]
                   if (!mat) return null
                   return (
+                    // group：切开按钮桌面上悬停本页才显形（与多列视图一致），91 个页缝不再常年摆着 91 个按钮
                     <div
                       key={ref.mi + '-' + ref.p}
-                      className="flex w-[var(--mp-cw)] flex-col items-center gap-1.5"
+                      className="group flex w-[var(--mp-cw)] flex-col items-center gap-1.5"
                     >
                       <PageCell {...cellPropsOf(ref)} />
                       {ri < seg.refs.length - 1 && (
                         <button
                           type="button"
                           title="在此切开：把这段从这一页后面分成两份"
+                          aria-label="在此切开"
                           onClick={() => onOp.splitSeg(si, ri)}
-                          className="group flex h-[30px] w-full items-center justify-center gap-2 rounded-[6px] border border-dashed border-zinc-300 text-[12px] text-muted-foreground transition-all hover:border-amber-400 hover:bg-amber-50 hover:text-amber-700"
+                          // 桌面：悬停 / 键盘聚焦才显形；触屏没有 hover，常显但压成一根带剪刀的细条
+                          className="flex h-[30px] w-full items-center justify-center gap-2 rounded-[6px] border border-dashed border-zinc-300 text-[12px] text-muted-foreground opacity-0 transition-[opacity,border-color,background-color,color] hover:border-amber-400 hover:bg-amber-50 hover:text-amber-700 focus-visible:opacity-100 group-hover:opacity-100 max-[760px]:h-[22px] max-[760px]:opacity-100 [@media(hover:none)]:opacity-100"
                         >
                           <span className="pointer-events-none flex items-center gap-2">
                             <Scissors className="h-3.5 w-3.5" />
-                            在此切开
+                            <span className="max-[760px]:hidden">在此切开</span>
                           </span>
                         </button>
                       )}

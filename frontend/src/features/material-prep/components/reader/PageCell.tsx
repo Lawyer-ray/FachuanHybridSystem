@@ -16,6 +16,7 @@ export const PageCell = memo(function PageCell({
   mi,
   p,
   mat,
+  hideMatName = false,
   pickActive,
   selModeActive,
   selected,
@@ -30,6 +31,8 @@ export const PageCell = memo(function PageCell({
   mi: number
   p: number
   mat: BundleMat
+  /** 单源包：脚注不再每页重复同一个文件名，只留页码 */
+  hideMatName?: boolean
   pickActive?: boolean
   selModeActive?: boolean
   selected?: boolean
@@ -152,9 +155,9 @@ export const PageCell = memo(function PageCell({
       )}
 
       <div className="flex items-center justify-between gap-2 rounded-b-[7px] border-t border-border/60 bg-card px-3 py-1.5 text-[11px] text-muted-foreground">
-        <span className="truncate">{mat.customName || mat.n}</span>
-        <span className="tabular-nums">
-          第 {p} / {mat.pages} 页
+        {!hideMatName && <span className="truncate">{mat.customName || mat.n}</span>}
+        <span className="ml-auto tabular-nums">
+          {p} / {mat.pages}
         </span>
       </div>
 

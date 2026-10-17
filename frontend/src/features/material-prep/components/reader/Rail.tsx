@@ -1,7 +1,7 @@
 import { FileText, Image, Layers, PencilLine } from 'lucide-react'
 import { SEG_COLORS } from '../../constants'
 import type { BundleMat, DraftState } from '../../types'
-import { countUnclassified, isWholeMat, segMats } from '../../draft'
+import { isWholeMat, segMats } from '../../draft'
 
 export function Rail({
   draft,
@@ -13,7 +13,6 @@ export function Rail({
   onRenameMat: (mi: number) => void
 }) {
   const { mats } = draft
-  const unclassified = countUnclassified(draft)
 
   // 每个素材下挂它的段；跨源段归到「跨源合并」一组
   const groups: { mi: number; segs: number[] }[] = []
@@ -40,14 +39,10 @@ export function Rail({
 
   return (
     <aside className="flex h-full w-[232px] flex-none flex-col gap-3 overflow-y-auto border-r border-border bg-card p-3 xl:w-[268px]">
-      <div className="px-1">
-        <h4 className="text-sm font-medium">
-          材料 <span className="text-xs font-normal text-muted-foreground">{draft.segs.length} 份</span>
-        </h4>
-        <div className="mt-0.5 text-xs text-secondary-foreground">
-          来自 {mats.length} 个源文件 · {unclassified} 段未归类
-        </div>
-      </div>
+      {/* 只留标题：源文件数 / 未归类数顶栏已经说过（未归类在那里是琥珀小标） */}
+      <h4 className="px-1 text-sm font-medium">
+        材料 <span className="text-xs font-normal text-muted-foreground">{draft.segs.length} 份</span>
+      </h4>
 
       {draft.segs.length === 0 && (
         <p className="px-1 text-xs text-muted-foreground">还没有材料。先点右上角新建材料包。</p>
