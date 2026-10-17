@@ -19,7 +19,6 @@ import { cn } from '@/lib/utils'
  *  列数恒 1，都隐藏；布局规则在 material-prep.css 的 .mp-rd-toolbar。 */
 export function ReaderToolbar({
   narrow,
-  railAvailable,
   railOpen,
   metaOpen,
   onToggleRail,
@@ -40,8 +39,6 @@ export function ReaderToolbar({
   autoSplitProgress,
 }: {
   narrow: boolean
-  /** 左栏有内容可看（多源或多段）；单源单段的包连切换按钮都不给 */
-  railAvailable: boolean
   railOpen: boolean
   metaOpen: boolean
   onToggleRail: () => void
@@ -67,11 +64,9 @@ export function ReaderToolbar({
       <div className="mp-rd-toolbar text-[12.5px]">
         {narrow ? (
           <>
-            {railAvailable && (
-              <button type="button" onClick={onToggleRail} className={cn(PBTN, railOpen && PBTN_ON)}>
-                材料
-              </button>
-            )}
+            <button type="button" onClick={onToggleRail} className={cn(PBTN, railOpen && PBTN_ON)}>
+              材料
+            </button>
             <button type="button" onClick={onToggleMeta} className={cn(PBTN, metaOpen && PBTN_ON)}>
               信息
             </button>

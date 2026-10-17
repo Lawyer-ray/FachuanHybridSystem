@@ -128,9 +128,6 @@ export function Reader() {
   const selDetail = selDetailOf(draft, selPages)
   // 副标题只说必要信息：页数 + 产出份数；源文件数只在多源时出现（单源是常态，不是属性）
   const subtitle = `${pages} 页 · ${draft.segs.length} 份材料${draft.mats.length > 1 ? ` · ${draft.mats.length} 个源文件` : ''}`
-  // 左栏是「源文件 → 段」的目录。单源单段的包里它的全部内容（文件名、页数、唯一一段）
-  // 页流首屏就看得见，整栏是重复——不渲染；追加了文件或切出多段后自然出现
-  const railUseful = draft.mats.length > 1 || draft.segs.length > 1
 
   const changeCols = () => {
     // 窗口不够宽就点不动（列数按钮已禁用）
@@ -177,7 +174,6 @@ export function Reader() {
 
       <ReaderToolbar
         narrow={narrow}
-        railAvailable={railUseful}
         railOpen={railOpen}
         metaOpen={metaOpen}
         onToggleRail={() => {
@@ -236,18 +232,18 @@ export function Reader() {
           />
         )}
 
-        {railUseful && (
-          <div className={railWrapCls}>
-            <Rail
-              draft={draft}
-              onFocusSeg={focusSeg}
-              onRenameMat={(mi) => {
-                const m = draft.mats[mi]!
-                setRenameMat({ mi, initial: m.customName || m.n })
-              }}
-            />
-          </div>
-        )}
+        {/* 左栏常驻：「源文件 → 段」的目录是这页的使用习惯，单源单段也不收
+            （曾按"内容页流首屏可见"收起过，用户反馈不符合习惯，改回） */}
+        <div className={railWrapCls}>
+          <Rail
+            draft={draft}
+            onFocusSeg={focusSeg}
+            onRenameMat={(mi) => {
+              const m = draft.mats[mi]!
+              setRenameMat({ mi, initial: m.customName || m.n })
+            }}
+          />
+        </div>
 
         <div ref={flowWrapRef} className="relative min-w-0 flex-1 overflow-auto">
           <Flow
