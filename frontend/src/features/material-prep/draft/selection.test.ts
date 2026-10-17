@@ -67,12 +67,12 @@ describe('isSelectionContiguous', () => {
 })
 
 describe('splitOutPages', () => {
-  it('中间切出一段：前后残段保留原类型、默认名按各自起始页，新段人工、名带起始页', () => {
+  it('中间切出一段：残段与新段默认名按类型优先、其次源名-P起始页', () => {
     const d = splitOutPages(fixture(), [{ mi: 0, p: 2 }])
     expect(d.segs).toHaveLength(4)
     const [head, cut, tail, other] = d.segs
-    // 残段不再沿用源文件名（否则切几刀就几份同名）
-    expect(head).toMatchObject({ t: '起诉状', fn: '起诉状-P1.pdf', refs: [{ mi: 0, p: 1 }], manual: false })
+    // 头尾都带着类型「起诉状」→ 名字跟类型走；两份同名时后者加 -P 区分
+    expect(head).toMatchObject({ t: '起诉状', fn: '起诉状.pdf', refs: [{ mi: 0, p: 1 }], manual: false })
     expect(cut).toMatchObject({ t: '', fn: '起诉状-P2.pdf', manual: true })
     expect(cut!.refs).toEqual([{ mi: 0, p: 2 }])
     expect(tail).toMatchObject({ t: '起诉状', fn: '起诉状-P3.pdf', refs: [{ mi: 0, p: 3 }], manual: false })
@@ -101,11 +101,11 @@ describe('mergePagesIntoNew', () => {
     const d = mergePagesIntoNew(fixture(), [{ mi: 0, p: 3 }, { mi: 1, p: 1 }])
     expect(d.segs).toHaveLength(3)
     // 首选页 0/3 在 seg-a：seg-a 剩下的 P1–2 留在前面，合并段紧随其后，seg-b 残段在后
-    expect(d.segs[0]).toMatchObject({ fn: '起诉状-P1.pdf', refs: [{ mi: 0, p: 1 }, { mi: 0, p: 2 }] })
+    expect(d.segs[0]).toMatchObject({ fn: '起诉状.pdf', refs: [{ mi: 0, p: 1 }, { mi: 0, p: 2 }] })
     const merged = d.segs[1]
     expect(merged).toMatchObject({ t: '', fn: '起诉状-P3.pdf', manual: true })
     expect(merged!.refs).toEqual([{ mi: 0, p: 3 }, { mi: 1, p: 1 }])
-    expect(d.segs[2]).toMatchObject({ fn: '证据-P2.pdf', refs: [{ mi: 1, p: 2 }] })
+    expect(d.segs[2]).toMatchObject({ fn: '证据.pdf', refs: [{ mi: 1, p: 2 }] })
   })
 
   it('取走整份材料后空段被清理；并出来的恰是整份时默认名变回源文件名', () => {
@@ -139,7 +139,7 @@ describe('removePages', () => {
   it('删页后空段清理，其余段内容保持不变', () => {
     const d = removePages(fixture(), [{ mi: 1, p: 1 }, { mi: 1, p: 2 }])
     expect(d.segs).toHaveLength(1)
-    expect(d.segs[0]).toEqual(fixture().segs[0])
+    expect(d.segs[0]).toMatchObject({ t: '起诉状', fn: '起诉状.pdf', refs: [{ mi: 0, p: 1 }, { mi: 0, p: 2 }, { mi: 0, p: 3 }] })
   })
 
   it('删中间页保留段；空选返回原引用', () => {

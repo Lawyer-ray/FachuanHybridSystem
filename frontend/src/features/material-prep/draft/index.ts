@@ -18,6 +18,7 @@ export {
   selKeyOf,
   countUnclassified,
   isWholeMat,
+  isAutoSegName,
   segRangeText,
   withDefaultNames,
 } from './labels'

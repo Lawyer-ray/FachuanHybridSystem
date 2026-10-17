@@ -128,11 +128,13 @@ export function ReaderToolbar({
             <DropdownMenuSeparator />
             {/* 键位说明不是动作，用 Label 行呈现 */}
             <DropdownMenuLabel className="text-[11px] font-normal leading-[1.9] text-muted-foreground">
-              点页间虚线 = 切开
+              点页间虚线 = 切开 · ⌘/Ctrl + 滚轮 = 缩放
               <br />
               ⌘/Ctrl + 点页 = 选页 · ⌘/Ctrl + ⇧ 点 = 选区间
               <br />
               S = 合并选中页 · Esc = 逐级退出
+              <br />
+              左栏：双击改名 · 右键选类型 / 并入
             </DropdownMenuLabel>
           </DropdownMenuContent>
         </DropdownMenu>

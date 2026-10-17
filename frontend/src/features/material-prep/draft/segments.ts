@@ -46,11 +46,11 @@ export function mergeSegment(d: DraftState, si: number): DraftState {
   return withDefaultNames({ ...d, segs: next })
 }
 
-/** 改段类型 */
+/** 改段类型；仍用默认名的段名字跟着类型走（「起诉状.pdf」），拆完选个类型就不用再改名 */
 export function setSegmentType(d: DraftState, si: number, t: string): DraftState {
   if (si < 0 || si >= d.segs.length || t === d.segs[si]!.t) return d
   const segs = d.segs.map((sg, i) => (i === si ? { ...sg, t } : sg))
-  return { ...d, segs }
+  return withDefaultNames({ ...d, segs })
 }
 
 /** 改段名 */

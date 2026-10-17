@@ -93,19 +93,36 @@ describe('defaultSegName / isAutoSegName 默认命名规则', () => {
     expect(defaultSegName(d, [], false)).toBe('材料.pdf')
   })
 
-  it('源文件名本身与「源名-P数字.ext」算默认名，其它都是用户改过的', () => {
-    expect(isAutoSegName(d, '证据.pdf')).toBe(true)
-    expect(isAutoSegName(d, '证据-P3.pdf')).toBe(true)
-    expect(isAutoSegName(d, '自定义名-P12.pdf')).toBe(true)
-    expect(isAutoSegName(d, '证据-Px.pdf')).toBe(false)
-    expect(isAutoSegName(d, '证据-P3.docx')).toBe(false)
-    expect(isAutoSegName(d, '借条.pdf')).toBe(false)
-    expect(isAutoSegName(d, '合并材料.pdf')).toBe(false)
+  it('选了类型 → 「类型.pdf」，同类型已有一份 → 「类型-P起始页.pdf」（used 集合去重）', () => {
+    expect(defaultSegName(d, [{ mi: 0, p: 1 }], false, '借条')).toBe('借条.pdf')
+    expect(defaultSegName(d, [{ mi: 0, p: 3 }], false, '借条', new Set(['借条.pdf']))).toBe('借条-P3.pdf')
+  })
+
+  it('默认名判定：源文件名本身与「源名-P数字.ext」算默认名，其它都是用户改过的', () => {
+    const noType = { fn: '', t: '' }
+    expect(isAutoSegName(d, { ...noType, fn: '证据.pdf' })).toBe(true)
+    expect(isAutoSegName(d, { ...noType, fn: '证据-P3.pdf' })).toBe(true)
+    expect(isAutoSegName(d, { ...noType, fn: '自定义名-P12.pdf' })).toBe(true)
+    expect(isAutoSegName(d, { ...noType, fn: '证据-Px.pdf' })).toBe(false)
+    expect(isAutoSegName(d, { ...noType, fn: '证据-P3.docx' })).toBe(false)
+    // 手动改成一个类型名（但该段没选这个类型）→ 当作用户名保留
+    expect(isAutoSegName(d, { ...noType, fn: '借条.pdf' })).toBe(false)
+    expect(isAutoSegName(d, { ...noType, fn: '合并材料.pdf' })).toBe(false)
+  })
+
+  it('该段自己的类型名算默认名；fnAuto 是唯一可靠来源', () => {
+    expect(isAutoSegName(d, { fn: '借条.pdf', t: '借条' })).toBe(true)
+    expect(isAutoSegName(d, { fn: '借条-P3.pdf', t: '借条' })).toBe(true)
+    // 名字像别的类型的默认名 ≠ 自己的默认名
+    expect(isAutoSegName(d, { fn: '借条.pdf', t: '银行流水' })).toBe(false)
+    // 有 fnAuto 只看 fn 是否等于它
+    expect(isAutoSegName(d, { fn: '随便起的名字', t: '', fnAuto: '随便起的名字' })).toBe(true)
+    expect(isAutoSegName(d, { fn: '借条.pdf', t: '借条', fnAuto: '起诉状.pdf' })).toBe(false)
   })
 })
 
 describe('withDefaultNames 刷新默认名', () => {
-  it('仍用默认名的段按页区间重算，变回整份就变回源名；用户改过的名原样保留', () => {
+  it('仍用默认名的段按页区间 / 类型重算，变回整份就变回源名；用户改过的名原样保留', () => {
     const d: DraftState = {
       mats,
       segs: [
@@ -113,7 +130,7 @@ describe('withDefaultNames 刷新默认名', () => {
         { id: 'a', t: '', fn: '证据.pdf', refs: [{ mi: 1, p: 2 }], manual: true },
         // 带 -P 的默认名但起始页已变（首页被删） → 跟着变
         { id: 'b', t: '', fn: '自定义名-P1.pdf', refs: [{ mi: 0, p: 2 }, { mi: 0, p: 3 }], manual: true },
-        // 用户改过的名不动
+        // 用户改过的名不动（「借条.pdf」不是该段的类型默认名，且无 fnAuto → 按模式判定为用户名）
         { id: 'c', t: '', fn: '借条.pdf', refs: [{ mi: 0, p: 1 }], manual: true },
       ],
       infos: [],
@@ -129,13 +146,38 @@ describe('withDefaultNames 刷新默认名', () => {
     expect(withDefaultNames(whole).segs[0]!.fn).toBe('证据.pdf')
   })
 
-  it('无变化时返回原引用（update 可据此跳过重渲）', () => {
+  it('选类型后名字跟类型走；同类型第二份加 -P；fnAuto 记录来源，改名后再换类型不再跟随', () => {
+    const d: DraftState = {
+      mats,
+      segs: [
+        { id: 'a', t: '', fn: '证据.pdf', refs: [{ mi: 1, p: 1 }, { mi: 1, p: 2 }], manual: true },
+        { id: 'b', t: '', fn: '自定义名-P1.pdf', refs: [{ mi: 0, p: 2 }], manual: true },
+      ],
+      infos: [],
+    }
+    const typed = withDefaultNames({ ...d, segs: [{ ...d.segs[0]!, t: '借条' }, { ...d.segs[1]!, t: '借条' }] })
+    // 第一份「借条.pdf」，第二份同类型 → 「借条-P2.pdf」；并记录 fnAuto
+    expect(typed.segs.map((s) => [s.fn, s.fnAuto])).toEqual([
+      ['借条.pdf', '借条.pdf'],
+      ['借条-P2.pdf', '借条-P2.pdf'],
+    ])
+
+    // fn !== fnAuto（用户手改）之后类型再变，名字不再跟随
+    const renamed = withDefaultNames({ ...typed, segs: [{ ...typed.segs[0]!, fn: '客户原件.pdf' }] })
+    expect(renamed.segs[0]!.fn).toBe('客户原件.pdf')
+  })
+
+  it('首刷为老草稿补 fnAuto（对象会换）；之后 fn 不变时返回同一引用', () => {
     const d: DraftState = {
       mats,
       segs: [{ id: 'a', t: '', fn: '证据.pdf', refs: [{ mi: 1, p: 1 }, { mi: 1, p: 2 }], manual: false }],
       infos: [],
     }
-    expect(withDefaultNames(d)).toBe(d)
+    const first = withDefaultNames(d)
+    // fn 没变，但补上了 fnAuto 来源记录
+    expect(first.segs[0]!.fn).toBe('证据.pdf')
+    expect(first.segs[0]!.fnAuto).toBe('证据.pdf')
+    expect(withDefaultNames(first)).toBe(first)
   })
 })
 

@@ -1,16 +1,17 @@
 // @vitest-environment jsdom
 /**
- * 阅读器横栏 / 段头的窄屏可达性 dom 测试（jsdom）。
+ * 阅读器横栏 / 段头 / 左栏行的窄屏可达性 dom 测试（jsdom）。
  *
  * 手机没有键盘：取字 / 选页提示条要有真退出按钮；段头动作按钮图标化后无障碍名
- * 必须仍在，首段不渲染「并入上一份」。CSS 断点显隐 jsdom 看不见，这里只锁
- * 「按钮存在 + 回调正确」这层契约。
+ * 必须仍在，首段不渲染「并入上一份」；左栏行双击进入行内改名。CSS 断点显隐 jsdom
+ * 看不见，这里只锁「按钮存在 + 回调正确」这层契约。
  */
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
-import type { Segment } from '../../types'
+import type { DraftState, Segment } from '../../types'
 import { HintBar } from './HintBar'
+import { Rail } from './Rail'
 import { SegmentHeader } from './SegmentHeader'
 
 describe('HintBar', () => {
@@ -61,5 +62,49 @@ describe('SegmentHeader', () => {
     const cross: Segment = { ...seg, refs: [{ mi: 0, p: 1 }, { mi: 1, p: 1 }] }
     render(<SegmentHeader seg={cross} si={1} color="#0ea5e9" {...noop} onMerge={vi.fn()} />)
     expect(screen.getByText('跨源 · 2 页')).toBeTruthy()
+  })
+})
+
+describe('Rail 左栏行', () => {
+  const draft: DraftState = {
+    mats: [{ partIndex: 0, n: '扫描.pdf', k: 'pdf', pages: 5 }],
+    segs: [
+      { id: 's0', t: '起诉状', fn: '起诉状.pdf', refs: [{ mi: 0, p: 1 }], manual: true },
+      { id: 's1', t: '', fn: '扫描-P2.pdf', refs: [{ mi: 0, p: 2 }, { mi: 0, p: 3 }], manual: true },
+    ],
+    infos: [],
+  }
+
+  function renderRail(over: Partial<Parameters<typeof Rail>[0]> = {}) {
+    const handlers = { onFocusSeg: vi.fn(), onRenameMat: vi.fn(), onRenameSeg: vi.fn(), onSetSegType: vi.fn(), onMergeSeg: vi.fn() }
+    render(<Rail draft={draft} {...handlers} {...over} />)
+    return handlers
+  }
+
+  it('点行跳转该段；行标页区间', () => {
+    const { onFocusSeg } = renderRail()
+    fireEvent.click(screen.getByText('起诉状.pdf'))
+    expect(onFocusSeg).toHaveBeenCalledWith(0)
+    expect(screen.getByText('P2–3')).toBeTruthy()
+  })
+
+  it('双击行 → 行内输入框改名，Enter 提交 onRenameSeg', () => {
+    const { onRenameSeg } = renderRail()
+    fireEvent.doubleClick(screen.getByText('扫描-P2.pdf'))
+    const input = screen.getByLabelText('材料名') as HTMLInputElement
+    expect(input.value).toBe('扫描-P2.pdf')
+    fireEvent.change(input, { target: { value: '身份证.pdf' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onRenameSeg).toHaveBeenCalledWith(1, '身份证.pdf')
+  })
+
+  it('行内改名按 Esc 取消，不提交', () => {
+    const { onRenameSeg } = renderRail()
+    fireEvent.doubleClick(screen.getByText('扫描-P2.pdf'))
+    const input = screen.getByLabelText('材料名')
+    fireEvent.change(input, { target: { value: '身份证.pdf' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(onRenameSeg).not.toHaveBeenCalled()
+    expect(screen.queryByLabelText('材料名')).toBeNull()
   })
 })

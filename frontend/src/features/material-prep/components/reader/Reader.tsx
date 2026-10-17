@@ -17,6 +17,7 @@ import { useAutoSplit } from './use-auto-split'
 import { useElementWidth } from '../../hooks/use-element-width'
 import { useReaderKeys } from './use-reader-keys'
 import { useReaderWidths } from './use-reader-widths'
+import { useWheelZoom } from './use-wheel-zoom'
 import { buildFlowOps, buildMetaOps, selDetailOf } from './reader-ops'
 import { ReaderDialogs } from './ReaderDialogs'
 import { useReaderActions } from './use-reader-actions'
@@ -47,7 +48,7 @@ export function Reader() {
   const [metaOpen, setMetaOpen] = useState(false)
   const addInputRef = useRef<HTMLInputElement>(null)
   const narrow = useMediaQuery('(max-width:1100px)')
-  const [flowWrapRef, flowWrapW] = useElementWidth<HTMLDivElement>()
+  const [flowWrapRef, flowWrapW, flowWrapEl] = useElementWidth<HTMLDivElement>()
   const { pickPage, onOcrBox, ocrOk } = useReaderOcr()
   const autoSplit = useAutoSplit()
   const {
@@ -65,6 +66,8 @@ export function Reader() {
   const st = useReader.getState()
 
   useReaderKeys()
+  // ⌘/Ctrl + 滚轮（含触控板捏合）缩放画布，挂在中栏滚动容器上
+  useWheelZoom(flowWrapEl, zoom)
 
   const { maxCols: maxColsAllowed, effCols, railWrapCls, metaWrapCls } = useReaderWidths({
     cols,
@@ -242,6 +245,9 @@ export function Reader() {
               const m = draft.mats[mi]!
               setRenameMat({ mi, initial: m.customName || m.n })
             }}
+            onRenameSeg={flowOps.renameSeg}
+            onSetSegType={flowOps.setSegType}
+            onMergeSeg={flowOps.mergeSeg}
           />
         </div>
 

@@ -156,10 +156,16 @@ export function isSelectionContiguous(d: DraftState, selPages: PageKey[]): boole
 export function removePages(d: DraftState, picked: PageKey[]): DraftState {
   if (!picked.length) return d
   const gone = new Set(picked.map((r) => `${r.mi}:${r.p}`))
+  let changed = false
   const segs = d.segs
-    .map((sg) => ({ ...sg, refs: sg.refs.filter((r) => !gone.has(`${r.mi}:${r.p}`)) }))
+    .map((sg) => {
+      const refs = sg.refs.filter((r) => !gone.has(`${r.mi}:${r.p}`))
+      if (refs.length === sg.refs.length) return sg
+      changed = true
+      return { ...sg, refs }
+    })
     .filter((sg) => sg.refs.length > 0)
-  if (segs.length === d.segs.length && segs.every((sg, i) => sg === d.segs[i])) return d
+  if (!changed) return d
   // 删掉首页后「源名-P起始页」里的起始页变了，默认名跟着刷新
   return withDefaultNames({ ...d, segs })
 }
