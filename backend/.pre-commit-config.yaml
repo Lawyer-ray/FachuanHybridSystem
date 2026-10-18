@@ -95,3 +95,14 @@ repos:
         entry: python backend/devtools/security_guard.py --check sensitive --mode staged
         language: python
         files: .*
+
+      - id: llm-privacy-guard
+        # 大模型复审正则盲区（孤立人名 / 无后缀机构名 / 门牌地址）：含中文的新增行分片并发送审，
+        # 槽位 = Σ(每 key 并发 × key 数) 吃满多 key 配额；模型不可达 / 无 venv 一律放行并提示。
+        # FACHUAN_LLM_PRIVACY=off 可临时关闭
+        name: LLM privacy review (names/orgs/addresses beyond regex; skips when model unreachable)
+        entry: backend/devtools/llm_privacy_hook.sh
+        language: script
+        files: .*
+        pass_filenames: false
+        verbose: true
