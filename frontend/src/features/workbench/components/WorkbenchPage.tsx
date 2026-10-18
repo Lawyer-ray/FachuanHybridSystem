@@ -10,7 +10,7 @@ import { DealSheet } from './DealSheet'
 import { FilterBar } from './FilterBar'
 
 /**
- * 办案主页：合同全宽大行流 + 类型分组 + 右侧详情抽屉。
+ * 办案主页：合同全宽大行流 + 业务形态分组（争议解决 / 非诉）+ 右侧详情抽屉。
  * 交互语义（与 38 号原型终态一致）：
  * 左键行 / → = 详情页（开发中提示）；右键行 / 👁 = 抽屉预览。
  */
@@ -34,7 +34,7 @@ export function WorkbenchPage() {
     setPage(1)
   }, [])
 
-  const groups = useMemo(() => groupDeals(deals, !!filter.cat), [deals, filter.cat])
+  const groups = useMemo(() => groupDeals(deals), [deals])
   const gotoPage = useCallback((p: number) => {
     setPage(p)
     window.scrollTo({ top: 0 })
@@ -91,9 +91,9 @@ export function WorkbenchPage() {
           )
         ) : (
           groups.map((g) => (
-            <section key={g.type} className="mt-6 first-of-type:mt-2.5">
+            <section key={g.title} className="mt-6 first-of-type:mt-2.5">
               <div className="sticky top-[54px] z-[5] -mt-px bg-[linear-gradient(to_bottom,var(--background)_80%,transparent)] px-0.5 pt-1.5 pb-[7px]">
-                <b className="text-[11px] font-[650] tracking-[0.09em] text-muted-foreground uppercase">{g.type}</b>
+                <b className="text-[11px] font-[650] tracking-[0.09em] text-muted-foreground uppercase">{g.title}</b>
                 <span className="ml-2.5 text-[11px] text-muted-foreground/60 tabular-nums">{g.deals.length}</span>
               </div>
               <div className="mt-0.5 overflow-hidden rounded-[14px] border border-border bg-card shadow-sm">

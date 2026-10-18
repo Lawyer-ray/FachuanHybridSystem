@@ -270,27 +270,26 @@ describe('buildDeals', () => {
 })
 
 describe('groupDeals', () => {
-  it('未选类目时诉讼组在前非诉在后', () => {
+  it('按业务形态分两节：争议解决在前非诉在后，节内领域混排保持原序', () => {
     const deals = buildDeals(
       [
         makeContract({ id: 1, case_type: 'advisor', case_type_label: '常法顾问' }),
-        makeContract({ id: 2 }),
-        makeContract({ id: 3, case_type: 'advisor', case_type_label: '常法顾问' }),
+        makeContract({ id: 2, case_type: 'criminal', case_type_label: '刑事' }),
+        makeContract({ id: 3, case_type: 'special', case_type_label: '专项服务' }),
+        makeContract({ id: 4 }),
       ],
       [],
       TODAY,
     )
-    const groups = groupDeals(deals, false)
-    expect(groups.map((g) => g.type)).toEqual(['民商事', '常法顾问'])
+    const groups = groupDeals(deals)
+    expect(groups.map((g) => g.title)).toEqual(['争议解决', '非诉'])
     expect(groups[0]!.lit).toBe(true)
+    expect(groups[0]!.deals.map((d) => d.id)).toEqual([2, 4])
+    expect(groups[1]!.deals.map((d) => d.id)).toEqual([1, 3])
   })
-  it('选了具体类目时不再重排（数量序）', () => {
-    const deals = buildDeals(
-      [makeContract({ id: 1, case_type: 'advisor', case_type_label: '常法顾问' }), makeContract({ id: 2 })],
-      [],
-      TODAY,
-    )
-    expect(groupDeals(deals, true).map((g) => g.type)).toEqual(['常法顾问', '民商事'])
+  it('空节不渲染（类目筛选后只剩单形态）', () => {
+    const deals = buildDeals([makeContract({ id: 1, case_type: 'advisor', case_type_label: '常法顾问' })], [], TODAY)
+    expect(groupDeals(deals).map((g) => g.title)).toEqual(['非诉'])
   })
 })
 

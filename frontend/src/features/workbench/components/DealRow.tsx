@@ -13,7 +13,8 @@ interface DealRowProps {
 }
 
 /**
- * 列表行：名称主视觉 + 我方 vs 对方副行 + 金额/到期右对齐。
+ * 列表行：名称主视觉 + 类型标签 / 我方 vs 对方副行 + 金额/到期右对齐。
+ * 类型（民商事/刑事/常法…）只在行内做小标签，不参与分区——分区按争议解决 / 非诉。
  * 交互语义：左键 = 详情（开发中）、右键/👁 = 抽屉预览。
  *
  * memo：父级 isFetching 翻转 / 翻页 / 筛选时避免整页行全量 reconcile
@@ -70,6 +71,11 @@ export const DealRow = memo(function DealRow({ deal, onOpenSheet, onDetailNotRea
           {deal.client}
         </div>
         <div className="mt-[3px] flex items-center gap-2 overflow-hidden text-[11.5px] whitespace-nowrap text-muted-foreground">
+          {deal.ctype && (
+            <span className="flex-none rounded-[5px] border border-border-light bg-secondary/60 px-[5px] text-[10px] leading-[1.6] font-[550] text-muted-foreground">
+              {deal.ctype}
+            </span>
+          )}
           <span className="truncate">
             {deal.parties.client}
             {deal.parties.other && (

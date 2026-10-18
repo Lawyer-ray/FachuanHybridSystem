@@ -167,27 +167,23 @@ export function buildDeals(
 /* ============ 分组（服务端分页后按页内分组；排序已由后端「离今天最近」完成） ============ */
 
 export interface DealGroup {
-  type: string
+  /** 节标题：争议解决 / 非诉 */
+  title: string
   lit: boolean
   deals: WorkbenchDeal[]
 }
 
-/** 按类型分组：未选类目时诉讼组在前非诉在后，组内按数量降序 */
-export function groupDeals(list: WorkbenchDeal[], catSelected: boolean): DealGroup[] {
-  const byType = new Map<string, WorkbenchDeal[]>()
-  for (const d of list) {
-    const g = byType.get(d.ctype)
-    if (g) g.push(d)
-    else byType.set(d.ctype, [d])
-  }
-  const groups = [...byType.entries()].map(([type, deals]) => ({
-    type,
-    lit: deals[0]?.lit ?? false,
-    deals,
-  }))
-  groups.sort((a, b) => b.deals.length - a.deals.length)
-  if (!catSelected) groups.sort((a, b) => Number(b.lit) - Number(a.lit) || b.deals.length - a.deals.length)
-  return groups
+/**
+ * 按业务形态分两节：争议解决（诉讼/仲裁，有程序链）在前、非诉（专项/常法）在后，
+ * 节内保持后端「离今天最近」排序。争议领域（民商事/刑事/行政…）不参与分区，
+ * 只作行内标签与筛选维度——领域不改变工作节奏，业务形态才改变。
+ */
+export function groupDeals(list: WorkbenchDeal[]): DealGroup[] {
+  const groups: DealGroup[] = [
+    { title: '争议解决', lit: true, deals: list.filter((d) => d.lit) },
+    { title: '非诉', lit: false, deals: list.filter((d) => !d.lit) },
+  ]
+  return groups.filter((g) => g.deals.length > 0)
 }
 
 /* ============ 当事人 / 律师复制文本 ============ */
