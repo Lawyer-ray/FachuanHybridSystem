@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { createReminder, listInbox, parseReminder, HOME_INBOX_KEY } from '../api'
 import type { InboxItem } from '../types'
 import { BTN_PRIMARY, PANEL } from '../ui'
+import { fileFromClipboard } from './clipboard-file'
 import {
   fileRejectReason,
   preloadRecognizeDialog,
@@ -112,8 +113,9 @@ interface QuickAddProps {
  *
  * - 文字：调 /reminders/parse 抽取日期与类型，**全部**候选进确认弹窗
  *   （多日期不再只取第一个），逐条勾选后创建。
- * - 文件：📎 选择 / 拖到输入行 → 识别弹窗（案件绑定 + 日期候选确认），
- *   确认后写入重要日期提醒。文件校验在打开弹窗前完成，错误就地提示。
+ * - 文件：📎 选择 / 拖到输入行 / ⌘V 粘贴截图（剪贴板文件经 clipboard-file
+ *   按泛名补扩展名）→ 识别弹窗（案件绑定 + 日期候选确认），确认后写入
+ *   重要日期提醒。文件校验在打开弹窗前完成，错误就地提示。
  */
 export function QuickAdd({ onAdded }: QuickAddProps) {
   const [text, setText] = useState('')
@@ -140,7 +142,7 @@ export function QuickAdd({ onAdded }: QuickAddProps) {
     if (busy) return // 回车与按钮共用防重入闸：按钮 disabled 拦不住回车
     const v = text.trim()
     if (!v) {
-      toast.info('先写一句，比如「2026-09-28 09:30 开庭 张某诉李某 借贷纠纷」；也可以点 📎 上传文书')
+      toast.info('先写一句，比如「2026-09-28 09:30 开庭 张某诉李某 借贷纠纷」；也可以粘贴截图或点 📎 上传文书')
       return
     }
     setBusy(true)
@@ -202,6 +204,12 @@ export function QuickAdd({ onAdded }: QuickAddProps) {
           setDragOver(false)
           pickFile(e.dataTransfer.files?.[0])
         }}
+        onPaste={(e) => {
+          const f = fileFromClipboard(e.clipboardData)
+          if (!f) return // 纯文字粘贴：交给输入框默认行为
+          e.preventDefault()
+          pickFile(f)
+        }}
       >
         {busy ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
@@ -232,7 +240,7 @@ export function QuickAdd({ onAdded }: QuickAddProps) {
             onKeyDown={(e) => {
               if (e.key === 'Enter') void submitText()
             }}
-            placeholder="快速记一笔：2026-09-28 09:30 开庭 张某诉李某 借贷纠纷，或点 📎 传文书"
+            placeholder="快速记一笔：2026-09-28 09:30 开庭 张某诉李某 借贷纠纷，可粘贴截图或点 📎 传文书"
           />
         )}
 
