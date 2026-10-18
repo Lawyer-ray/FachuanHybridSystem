@@ -17,6 +17,8 @@ from apps.contracts.models.finalized_material import FinalizedMaterial
 from apps.documents.services.placeholders.archive import _generate_random_work_log_content, _get_lawyer_work_log_content
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from django.db.models import Model
 
 logger = logging.getLogger("apps.contracts")
@@ -27,6 +29,35 @@ def _get_contract_admin_service() -> Any:
     from apps.contracts.admin.wiring_admin import get_contract_admin_service
 
     return get_contract_admin_service()
+
+
+def _resolve_material_abs_in_contract_dir(material_file_path: str, contract_id: int) -> Path | None:
+    """把 FinalizedMaterial.file_path 收敛为本合同归档目录内的绝对路径。
+
+    安全审计（2026-10-19）：file_path 可能是历史脏数据中的任意绝对路径，禁止直读/直删
+    （口径照抄 api/archive_api.py::preview_archive_material 的自注释）：
+    1. 统一经 ``to_media_abs`` 收敛进 MEDIA_ROOT（绝对路径穿越 / ``..`` / 符号链接逃逸均抛 ValidationException）；
+    2. resolve 后必须位于本合同的归档材料目录 ``contracts/finalized/{contract_id}``（所有写入方的唯一落盘根）。
+    非法或越界返回 None，调用方拒绝读取/删除并记 warning。
+    """
+    from pathlib import Path
+
+    from django.conf import settings as django_settings
+
+    from apps.core.exceptions import ValidationException
+    from apps.core.filesystem.upload_paths import MediaEntity
+    from apps.core.services.storage_service import to_media_abs
+
+    try:
+        file_path = to_media_abs(material_file_path)
+    except ValidationException:
+        return None
+    contract_finalized_dir = (
+        Path(django_settings.MEDIA_ROOT) / MediaEntity.CONTRACT_FINALIZED / str(contract_id)
+    ).resolve()
+    if not file_path.is_relative_to(contract_finalized_dir):
+        return None
+    return file_path
 
 
 class ContractArchiveMixin:  # pragma: no cover
@@ -200,13 +231,16 @@ class ContractArchiveMixin:  # pragma: no cover
             if not material.file_path:
                 return JsonResponse({"success": False, "error": "文件路径缺失"}, status=404)
 
-            from pathlib import Path
-
-            from django.conf import settings as django_settings
-
-            file_path = Path(material.file_path)
-            if not file_path.is_absolute():
-                file_path = Path(django_settings.MEDIA_ROOT) / file_path
+            # 安全审计（2026-10-19）：file_path 可能是任意绝对路径，禁止直读（口径同 api/archive_api.py）。
+            # 经 _resolve_material_abs_in_contract_dir 收敛到 MEDIA_ROOT 内的本合同归档目录，越界一律 404。
+            file_path = _resolve_material_abs_in_contract_dir(material.file_path, object_id)
+            if file_path is None:
+                logger.warning(
+                    "归档材料预览拒绝非法/越界路径: material_id=%s contract_id=%s",
+                    material_id,
+                    object_id,
+                )
+                return JsonResponse({"success": False, "error": "文件不存在"}, status=404)
 
             if not file_path.exists():
                 return JsonResponse({"success": False, "error": "文件不存在"}, status=404)
@@ -586,9 +620,6 @@ class ContractArchiveMixin:  # pragma: no cover
         self, request: HttpRequest, object_id: int, material_id: int
     ) -> HttpResponse:  # pragma: no cover
         """删除归档材料子项的 Admin view"""
-        from pathlib import Path
-
-        from django.conf import settings as django_settings
         from django.http import JsonResponse
 
         if request.method != "POST":
@@ -609,8 +640,16 @@ class ContractArchiveMixin:  # pragma: no cover
                 return JsonResponse({"success": False, "error": "材料不存在"}, status=404)
 
             if material.file_path:
-                abs_file = Path(django_settings.MEDIA_ROOT) / material.file_path
-                if abs_file.exists():
+                # 安全审计（2026-10-19）：file_path 可能是任意路径，禁止直拼 MEDIA_ROOT unlink；
+                # 统一收敛到本合同归档目录内（同 preview 口径），越界跳过物理删除 + warning（记录仍删除）。
+                abs_file = _resolve_material_abs_in_contract_dir(material.file_path, object_id)
+                if abs_file is None:
+                    logger.warning(
+                        "删除归档材料拒绝非法/越界路径，跳过物理删除: material_id=%s contract_id=%s",
+                        material_id,
+                        object_id,
+                    )
+                elif abs_file.exists():
                     try:
                         abs_file.unlink()
                         logger.info("已删除归档文件: %s (material_id=%s)", material.file_path, material_id)
@@ -628,9 +667,6 @@ class ContractArchiveMixin:  # pragma: no cover
         self, request: HttpRequest, object_id: int
     ) -> HttpResponse:  # pragma: no cover
         """一键清空归档检查清单中的全部材料"""
-        from pathlib import Path
-
-        from django.conf import settings as django_settings
         from django.http import JsonResponse
 
         if request.method != "POST":
@@ -646,8 +682,16 @@ class ContractArchiveMixin:  # pragma: no cover
             deleted_count = 0
             for material in materials:
                 if material.file_path:
-                    abs_file = Path(django_settings.MEDIA_ROOT) / material.file_path
-                    if abs_file.exists():
+                    # 安全审计（2026-10-19）：file_path 可能是任意路径，禁止直拼 MEDIA_ROOT unlink；
+                    # 统一收敛到本合同归档目录内（同 preview 口径），越界跳过物理删除 + warning（记录仍删除）。
+                    abs_file = _resolve_material_abs_in_contract_dir(material.file_path, object_id)
+                    if abs_file is None:
+                        logger.warning(
+                            "清空归档材料拒绝非法/越界路径，跳过物理删除: material_id=%s contract_id=%s",
+                            material.pk,
+                            object_id,
+                        )
+                    elif abs_file.exists():
                         try:
                             abs_file.unlink()
                         except OSError as e:

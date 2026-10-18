@@ -95,8 +95,9 @@ class TestSessionOwnerCheck:
     def test_can_view_all_sessions_superuser(self):
         assert mod._can_view_all_sessions(SimpleNamespace(is_superuser=True, is_admin=False))
 
-    def test_can_view_all_sessions_admin_flag(self):
-        assert mod._can_view_all_sessions(SimpleNamespace(is_superuser=False, is_admin=True))
+    def test_can_view_all_sessions_admin_flag_no_longer_grants(self):
+        # 安全审计（2026-10-19）：所管理员不再豁免查看全部会话，收敛为 superuser
+        assert not mod._can_view_all_sessions(SimpleNamespace(is_superuser=False, is_admin=True))
 
     def test_regular_user_cannot_view_all(self):
         assert not mod._can_view_all_sessions(SimpleNamespace(is_superuser=False, is_admin=False))

@@ -241,9 +241,25 @@ class ContractImportService:
 
         for m in data.get("finalized_materials") or []:
             if m.get("file_path"):
+                # 安全审计（2026-10-19）：file_path 入库前收敛——绝对路径与含 ".." 的值
+                # 一律拒收（跳过该条 + warning，不 500），防止任意路径随导入数据入库后被
+                # 归档预览/删除链路拼接读取或删除（用法同 client_identity_doc_service B-14）。
+                from pathlib import Path
+
+                from apps.core.services.storage_service import normalize_to_media_rel
+
+                raw_file_path = str(m["file_path"])
+                normalized_check = raw_file_path.replace("\\", "/")
+                if Path(normalized_check).is_absolute() or ".." in Path(normalized_check).parts:
+                    logger.warning(
+                        "导入归档材料拒绝非法 file_path，已跳过: contract_id=%s, file_path=%s",
+                        contract.pk,
+                        raw_file_path,
+                    )
+                    continue
                 FinalizedMaterial.objects.get_or_create(
                     contract=contract,
-                    file_path=m["file_path"],
+                    file_path=normalize_to_media_rel(raw_file_path),
                     defaults={
                         "original_filename": m.get("original_filename", ""),
                         "category": m.get("category", "archive_document"),

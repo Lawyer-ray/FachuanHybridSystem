@@ -23,7 +23,8 @@ def _make_request(method="GET", path="/admin/", data=None):
         request = factory.get(path, data or {})
     else:
         request = factory.post(path, data or {})
-    request.user = User(is_superuser=True, is_staff=True)
+    # 安全审计（2026-10-19）：视图入口已加行级案件校验，测试用户统一携带 is_admin（律所为空 → 全量可见）
+    request.user = User(is_superuser=True, is_staff=True, is_admin=True)
     return request
 
 
@@ -124,14 +125,22 @@ class TestEvidenceListAdminViewsMixinDisplayMethods:
 class TestEvidenceListAdminViewsMixinNextListType:
     """测试 next_list_type_view"""
 
+    def _create_case(self):
+        from apps.cases.models import Case
+        from apps.contracts.models import Contract
+
+        contract = Contract.objects.create(name="下一类型合同", case_type="civil")
+        return Case.objects.create(name="下一类型案件", contract=contract)
+
     def test_next_list_type_view_has_next(self):
         import json
 
         mixin = EvidenceListAdminViewsMixin()
+        case = self._create_case()
         request = _make_request()
         with patch("apps.evidence.admin.evidence.mixins.views.EvidenceList") as MockEL:
             MockEL.objects.filter.return_value.values_list.return_value = []
-            result = mixin.next_list_type_view(request, case_id=1)
+            result = mixin.next_list_type_view(request, case_id=case.pk)
             assert result.status_code == 200
             data = json.loads(result.content)
             assert data["success"] is True
@@ -140,13 +149,14 @@ class TestEvidenceListAdminViewsMixinNextListType:
         import json
 
         mixin = EvidenceListAdminViewsMixin()
+        case = self._create_case()
         request = _make_request()
         with patch("apps.evidence.admin.evidence.mixins.views.EvidenceList") as MockEL:
             from apps.evidence.models import ListType
 
             all_types = [t[0] for t in ListType.choices]
             MockEL.objects.filter.return_value.values_list.return_value = all_types
-            result = mixin.next_list_type_view(request, case_id=1)
+            result = mixin.next_list_type_view(request, case_id=case.pk)
             assert result.status_code == 200
             data = json.loads(result.content)
             assert data["success"] is False
@@ -166,6 +176,15 @@ class TestEvidenceListAdminViewsMixinReorder:
     def test_reorder_view_success(self):
         import json as json_mod
 
+        from apps.cases.models import Case
+        from apps.contracts.models import Contract
+        from apps.evidence.models import EvidenceList
+
+        # 安全审计（2026-10-19）：视图入口先做案件访问校验，需真实证据清单承载 case 关联
+        contract = Contract.objects.create(name="重排合同", case_type="civil")
+        case = Case.objects.create(name="重排案件", contract=contract)
+        elist = EvidenceList.objects.create(case=case, title="重排清单", list_type="previous", order=1)
+
         mixin = EvidenceListAdminViewsMixin()
         factory = RequestFactory()
         request = factory.post(
@@ -173,14 +192,14 @@ class TestEvidenceListAdminViewsMixinReorder:
             data=json_mod.dumps({"item_ids": [1, 2, 3]}),
             content_type="application/json",
         )
-        request.user = User(is_superuser=True, is_staff=True)
+        request.user = User(is_superuser=True, is_staff=True, is_admin=True)
         with patch.object(mixin, "_get_admin_service") as mock_svc:
             mock_svc.return_value.reorder_items = MagicMock()
-            result = mixin.reorder_view(request, pk=1)
+            result = mixin.reorder_view(request, pk=elist.pk)
             assert result.status_code == 200
             assert json.loads(result.content) == {"success": True}
             # service 应以 (pk, item_ids) 被调用
-            mock_svc.return_value.reorder_items.assert_called_once_with(1, [1, 2, 3])
+            mock_svc.return_value.reorder_items.assert_called_once_with(elist.pk, [1, 2, 3])
 
 
 @pytest.mark.django_db
@@ -190,9 +209,6 @@ class TestEvidenceListAdminViewsMixinMergeStatus:
     def test_merge_status_view_not_found(self):
         mixin = EvidenceListAdminViewsMixin()
         request = _make_request()
-        with patch("apps.evidence.admin.evidence.mixins.views.EvidenceList") as MockEL:
-            MockEL.DoesNotExist = type("DoesNotExist", (Exception,), {})
-            MockEL.objects.select_related.return_value.get.side_effect = MockEL.DoesNotExist()
-            result = mixin.merge_status_view(request, pk=999999)
-            assert result.status_code == 404
-            assert json.loads(result.content) == {"error": "证据清单不存在"}
+        # 安全审计（2026-10-19）：入口先解析清单所属案件做访问校验，清单不存在 → Http404
+        with pytest.raises(Http404):
+            mixin.merge_status_view(request, pk=999999)

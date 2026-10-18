@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import logging
+import socket
 from urllib.parse import urlparse
 
 import httpx
@@ -104,18 +105,35 @@ class IcsUrlProvider:
         if not hostname:
             return "URL 缺少主机名"
 
-        # Block private/reserved IPs to prevent SSRF
+        # ── 字面 IP：直接按内网/环回/保留判定（保持「内网地址」口径）──
         try:
             ip = ipaddress.ip_address(hostname)
+        except ValueError:
+            ip = None
+        if ip is not None:
             if ip.is_private or ip.is_loopback or ip.is_reserved:
                 return "不允许访问内网地址"
-        except ValueError:
-            pass  # hostname is a domain, not an IP
+            return ""
 
-        # Block common local hostnames
+        # ── 域名：本地名单先行（localhost 保持「本地地址」口径）──
         # "0.0.0.0" 是 SSRF 拦截名单条目，并非 bind 地址
         blocked_hosts = {"localhost", "127.0.0.1", "::1", "0.0.0.0"}  # nosec B104
         if hostname.lower() in blocked_hosts:
             return "不允许访问本地地址"
+
+        # 安全审计（2026-10-19）：域名要做 DNS 解析后再校验——只拦字面 IP 时，
+        # 一条 A 记录指向内网的公网域名即可绕过（DNS rebinding 到内网）
+        try:
+            infos = socket.getaddrinfo(hostname, None)
+        except OSError:
+            return "域名解析失败"
+        for info in infos:
+            addr = info[4][0]
+            try:
+                resolved = ipaddress.ip_address(str(addr).split("%")[0])
+            except ValueError:
+                continue
+            if resolved.is_private or resolved.is_loopback or resolved.is_reserved:
+                return "不允许访问内网地址"
 
         return ""

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import logging
 import uuid
+from pathlib import Path
 from typing import Any, ClassVar
 
 from apps.core.exceptions import ValidationException
+from apps.core.services.storage_service import sanitize_upload_filename
 
 from . import validation
 from .export import generate_pdf, generate_zip
@@ -70,7 +72,9 @@ class ImageRotationService:
                 if result:
                     filename, image_bytes, img_format = result
                     if rename_map and filename in rename_map and rename_map[filename]:
-                        filename = rename_map[filename]
+                        # 安全审计（2026-10-19）：rename_map 目标名同样来自客户端，
+                        # 进入 ZIP 条目前用 sanitize_upload_filename(Path(name).name) 清洗
+                        filename = sanitize_upload_filename(Path(rename_map[filename]).name)
                     processed_images.append((filename, image_bytes, img_format))
             except ValidationException as e:
                 errors.append(f"{image_item.get('filename', f'图片{idx + 1}')}: {e.message}")

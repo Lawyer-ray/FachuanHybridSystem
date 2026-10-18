@@ -390,10 +390,17 @@ class TestContractAccessPolicy:
 
 
 class TestContractsSignals:
-    """contracts/signals.py signal handler tests."""
+    """contracts/signals.py signal handler tests.
+
+    安全审计（2026-10-19）：FinalizedMaterial 物理文件清理改为经 to_media_abs 收敛，
+    路径不再直拼 MEDIA_ROOT（绝对路径会原样保留导致误删任意文件），
+    测试改用 override_settings(MEDIA_ROOT) 驱动真实收敛逻辑。
+    """
 
     def test_cleanup_finalized_material_file_deletes(self, tmp_path: Any) -> None:
         """Test signal handler with real file on filesystem."""
+        from django.test import override_settings
+
         from apps.contracts.signals import _cleanup_finalized_material_file
 
         # Create a real temp file
@@ -405,10 +412,9 @@ class TestContractsSignals:
         instance.pk = 1
 
         with (
-            patch("apps.contracts.signals.settings") as mock_settings,
+            override_settings(MEDIA_ROOT=str(tmp_path)),
             patch("apps.contracts.signals.transaction") as mock_txn,
         ):
-            mock_settings.MEDIA_ROOT = str(tmp_path)
             # Execute on_commit callback immediately for testing
             mock_txn.on_commit.side_effect = lambda fn: fn()
             _cleanup_finalized_material_file(None, instance)
@@ -427,6 +433,8 @@ class TestContractsSignals:
 
     def test_cleanup_finalized_material_file_not_exists(self, tmp_path: Any) -> None:
         """When file doesn't exist, should not raise."""
+        from django.test import override_settings
+
         from apps.contracts.signals import _cleanup_finalized_material_file
 
         instance = MagicMock()
@@ -434,16 +442,17 @@ class TestContractsSignals:
         instance.pk = 2
 
         with (
-            patch("apps.contracts.signals.settings") as mock_settings,
+            override_settings(MEDIA_ROOT=str(tmp_path)),
             patch("apps.contracts.signals.transaction") as mock_txn,
         ):
-            mock_settings.MEDIA_ROOT = str(tmp_path)
             mock_txn.on_commit.side_effect = lambda fn: fn()
             _cleanup_finalized_material_file(None, instance)
         # on_commit 回调已注册并立即执行（文件不存在则静默跳过）
         mock_txn.on_commit.assert_called_once()
 
     def test_cleanup_finalized_material_oserror_handled(self, tmp_path: Any) -> None:
+        from django.test import override_settings
+
         from apps.contracts.signals import _cleanup_finalized_material_file
 
         # Create a file
@@ -455,10 +464,9 @@ class TestContractsSignals:
         instance.pk = 3
 
         with (
-            patch("apps.contracts.signals.settings") as mock_settings,
+            override_settings(MEDIA_ROOT=str(tmp_path)),
             patch("apps.contracts.signals.transaction") as mock_txn,
         ):
-            mock_settings.MEDIA_ROOT = str(tmp_path)
             mock_txn.on_commit.side_effect = lambda fn: fn()
             with patch("pathlib.Path.unlink", side_effect=OSError("Permission denied")):
                 # Should not raise; OSError 被吞掉并记录异常日志
@@ -467,6 +475,56 @@ class TestContractsSignals:
         assert mock_exc.called
         # unlink 失败后文件应仍然存在
         assert test_file.exists()
+
+    def test_cleanup_finalized_material_outside_media_root_skipped(self, tmp_path: Any) -> None:
+        """安全审计（2026-10-19）：file_path 为 MEDIA_ROOT 外的绝对路径 → 跳过物理删除 + warning（不抛）。"""
+        from django.test import override_settings
+
+        from apps.contracts.signals import _cleanup_finalized_material_file
+
+        media = tmp_path / "media"
+        victim = tmp_path / "victim" / "secret.pdf"  # 位于 MEDIA_ROOT 外
+        victim.parent.mkdir(parents=True, exist_ok=True)
+        victim.write_bytes(b"secret")
+
+        instance = MagicMock()
+        instance.file_path = str(victim)  # 绝对路径直存（历史脏数据形态）
+        instance.pk = 4
+
+        with (
+            override_settings(MEDIA_ROOT=str(media)),
+            patch("apps.contracts.signals.transaction") as mock_txn,
+        ):
+            mock_txn.on_commit.side_effect = lambda fn: fn()
+            with patch("apps.contracts.signals.logger.warning") as mock_warn:
+                _cleanup_finalized_material_file(None, instance)  # 不抛
+
+        assert victim.exists()  # 越界路径未被删除
+        assert mock_warn.called
+
+    def test_cleanup_finalized_material_traversal_skipped(self, tmp_path: Any) -> None:
+        """安全审计（2026-10-19）：含 ".." 穿越出 MEDIA_ROOT 的相对路径 → 跳过物理删除（不抛）。"""
+        from django.test import override_settings
+
+        from apps.contracts.signals import _cleanup_finalized_material_file
+
+        media = tmp_path / "media"
+        media.mkdir()
+        outside = tmp_path / "leak.txt"
+        outside.write_bytes(b"leak")
+
+        instance = MagicMock()
+        instance.file_path = "../leak.txt"
+        instance.pk = 5
+
+        with (
+            override_settings(MEDIA_ROOT=str(media)),
+            patch("apps.contracts.signals.transaction") as mock_txn,
+        ):
+            mock_txn.on_commit.side_effect = lambda fn: fn()
+            _cleanup_finalized_material_file(None, instance)  # 不抛
+
+        assert outside.exists()  # 穿越目标未被删除
 
     def test_cleanup_invoice_file_no_path(self) -> None:
         from apps.contracts.signals import _cleanup_invoice_file

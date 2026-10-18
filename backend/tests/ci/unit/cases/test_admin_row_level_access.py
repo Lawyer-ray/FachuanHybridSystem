@@ -17,8 +17,8 @@ from django.core.exceptions import PermissionDenied
 from django.test import RequestFactory
 
 from apps.cases.admin.case_admin import CaseAdmin
-from apps.cases.admin.caselog_admin import CaseLogAdmin
-from apps.cases.models import Case, CaseAssignment, CaseLog
+from apps.cases.admin.caselog_admin import CaseLogAdmin, CaseLogAttachmentAdmin
+from apps.cases.models import Case, CaseAssignment, CaseLog, CaseLogAttachment
 from apps.contracts.models import Contract
 from apps.organization.models import Lawyer
 
@@ -122,6 +122,28 @@ class TestCaseLogAdminRowFilter:
 
         qs = CaseLogAdmin(CaseLog, AdminSite()).get_queryset(request)
         assert qs.count() == 1
+
+
+@pytest.mark.django_db
+class TestCaseLogAttachmentAdminRowFilter:
+    """CaseLogAttachmentAdmin 列表行级过滤（安全审计 2026-10-19，log→case 关联）"""
+
+    def test_get_queryset_filters_by_case_access(self) -> None:
+        """非管理员用户只能看到可访问案件下的日志附件"""
+        contract = Contract.objects.create(name="附件过滤合同", case_type="civil")
+        mine = Case.objects.create(name="可见附件案件", contract=contract)
+        other = Case.objects.create(name="不可见附件案件", contract=contract)
+        staff = Lawyer.objects.create_user(username="att_filter_staff", real_name="过滤律师")
+        CaseAssignment.objects.create(case=mine, lawyer=staff)
+        log_mine = CaseLog.objects.create(case=mine, actor=staff, content="本人案件日志")
+        log_other = CaseLog.objects.create(case=other, actor=staff, content="他人案件日志")
+        CaseLogAttachment.objects.create(log=log_mine, file="case_logs/att1.pdf", original_filename="att1.pdf")
+        CaseLogAttachment.objects.create(log=log_other, file="case_logs/att2.pdf", original_filename="att2.pdf")
+
+        request = _make_request("GET", "/admin/cases/caselogattachment/", staff)
+
+        qs = CaseLogAttachmentAdmin(CaseLogAttachment, AdminSite()).get_queryset(request)
+        assert set(qs.values_list("log__case_id", flat=True)) == {mine.pk}
 
 
 @pytest.mark.django_db

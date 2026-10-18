@@ -18,7 +18,11 @@ class EvidenceGroupAdmin(admin.ModelAdmin):  # pragma: no cover
     ordering: ClassVar = ["case", "sort_order"]
 
     def get_queryset(self, request: Any) -> QuerySet:  # pragma: no cover
-        return super().get_queryset(request).annotate(item_count=Count("items"))  # type: ignore[no-any-return]
+        # 安全审计（2026-10-19）：列表行级案件过滤——非管理员仅可见本所指派/授权案件下的证据分组
+        from apps.cases.admin.base_admin import apply_case_related_admin_access_filter
+
+        qs = apply_case_related_admin_access_filter(request, super().get_queryset(request))
+        return qs.annotate(item_count=Count("items"))  # type: ignore[no-any-return]
 
     @admin.display(description="证据数量")
     def item_count(self, obj: EvidenceGroup) -> int:  # pragma: no cover

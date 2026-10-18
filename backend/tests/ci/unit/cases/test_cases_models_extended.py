@@ -411,6 +411,21 @@ class TestCaseModelExtended:
         assert chain[0] == case1
         assert chain[2] == case3
 
+    def test_get_case_chain_filters_by_user_access(self) -> None:
+        """安全审计（2026-10-19）：传入 user 时链上无权访问的案件应被隐藏，不传则保持全量。"""
+        from apps.cases.services.case.case_chain_service import get_case_chain
+
+        contract = Contract.objects.create(name="chain过滤合同", case_type="civil")
+        case1 = Case.objects.create(name="链首他人", contract=contract)
+        case2 = Case.objects.create(name="链尾本人", contract=contract, previous_case=case1)
+        staff = Lawyer.objects.create_user(username="chain_filter_staff", real_name="链过滤律师")
+        CaseAssignment.objects.create(case=case2, lawyer=staff)
+
+        # 不传 user：既有行为，返回完整链
+        assert [c.pk for c in get_case_chain(case2)] == [case1.pk, case2.pk]
+        # 传 user：仅保留可访问案件（本人指派案件）
+        assert [c.pk for c in get_case_chain(case2, user=staff)] == [case2.pk]
+
     def test_clean_valid_stage(self) -> None:
         contract = Contract.objects.create(name="clean合同", case_type="civil")
         case = Case(

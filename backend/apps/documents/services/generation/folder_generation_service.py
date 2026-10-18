@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, cast
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.models.enums import CaseType
 from apps.core.services.filename_template_service import FilenameTemplateService
+from apps.documents.services.generation.path_utils import safe_arcname
 
 if TYPE_CHECKING:
     from apps.core.interfaces import IContractService
@@ -911,7 +912,9 @@ class FolderGenerationService:
         if not structure:
             return
 
-        folder_name = structure.get("name", "")
+        # 安全审计（2026-10-19）：骨架节点名来自文件夹模板 structure，可能被恶意配置为
+        # "../x"、绝对路径等形态，进 ZIP 前统一经 safe_arcname 清洗，防解压路径穿越（zip slip）。
+        folder_name = safe_arcname(str(structure.get("name", "") or ""))
         if not folder_name:
             return
 

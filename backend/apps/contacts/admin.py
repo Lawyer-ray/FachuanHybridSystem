@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from django import forms
 from django.contrib import admin
+from django.db.models import QuerySet
 
 from apps.contacts.models import CaseContact
 
@@ -137,3 +138,11 @@ class CaseContactAdmin(BaseModelAdmin):  # pragma: no cover
     def has_module_permission(self, request: Any) -> bool:  # pragma: no cover
         """允许访问 - 通过其他工具页面管理"""
         return True
+
+    def get_queryset(self, request: Any) -> QuerySet:  # pragma: no cover
+        # 安全审计（2026-10-19）：列表行级案件过滤——非管理员仅可见本所指派/授权案件下的联系人
+        from apps.cases.admin.base_admin import apply_case_related_admin_access_filter
+
+        return apply_case_related_admin_access_filter(  # type: ignore[no-any-return]
+            request, super().get_queryset(request)
+        )

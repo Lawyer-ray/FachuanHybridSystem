@@ -262,3 +262,65 @@ class TestCaseAccessServiceRevokeAccessById:
         user.is_admin = True
         result = svc.revoke_access_by_id(grant_id=1, user=user)
         assert result is True
+
+
+@pytest.mark.django_db
+class TestCaseAccessServiceCreateGrantFirmScope:
+    """安全审计（2026-10-19）：create/batch 授权前校验发起人对案件的访问权（律所口径）。"""
+
+    def test_create_grant_denies_cross_firm_admin(self) -> None:
+        """A 所管理员不能给仅有 B 所指派的案件授权"""
+        from apps.cases.models import Case, CaseAssignment
+        from apps.cases.services.case.case_access_service import CaseAccessService
+        from apps.organization.models import LawFirm, Lawyer
+        from apps.testing.factories import CaseFactory, LawyerFactory
+
+        firm_a = LawFirm.objects.create(name="授权甲所")  # privacy-allow 虚构律所
+        firm_b = LawFirm.objects.create(name="授权乙所")  # privacy-allow 虚构律所
+        admin_a = LawyerFactory(is_admin=True, law_firm=firm_a)
+        lawyer_b = LawyerFactory(law_firm=firm_b)
+        grantee = Lawyer.objects.create_user(username="grant_grantee", real_name="被授权人")
+        case = CaseFactory()
+        CaseAssignment.objects.create(case=case, lawyer=lawyer_b)
+
+        svc = CaseAccessService()
+        with pytest.raises(ForbiddenError):
+            svc.create_grant(case_id=case.id, grantee_id=grantee.id, user=admin_a)
+        assert not Case.objects.filter(pk=case.pk, access_grants__grantee_id=grantee.id).exists()
+
+    def test_batch_grant_access_denies_cross_firm_admin(self) -> None:
+        """A 所管理员不能批量给仅有 B 所指派的案件授权"""
+        from apps.cases.models import CaseAssignment
+        from apps.cases.services.case.case_access_service import CaseAccessService
+        from apps.organization.models import LawFirm
+        from apps.testing.factories import CaseFactory, LawyerFactory
+
+        firm_a = LawFirm.objects.create(name="批量授权甲所")  # privacy-allow 虚构律所
+        firm_b = LawFirm.objects.create(name="批量授权乙所")  # privacy-allow 虚构律所
+        admin_a = LawyerFactory(is_admin=True, law_firm=firm_a)
+        lawyer_b = LawyerFactory(law_firm=firm_b)
+        grantee = LawyerFactory()
+        case = CaseFactory()
+        CaseAssignment.objects.create(case=case, lawyer=lawyer_b)
+
+        svc = CaseAccessService()
+        with pytest.raises(ForbiddenError):
+            svc.batch_grant_access(case_id=case.id, grantee_ids=[grantee.id], user=admin_a)
+
+    def test_create_grant_allows_same_firm_admin(self) -> None:
+        """本所指派覆盖的案件：本所管理员可正常授权（正控）"""
+        from apps.cases.models import CaseAssignment
+        from apps.cases.services.case.case_access_service import CaseAccessService
+        from apps.organization.models import LawFirm
+        from apps.testing.factories import CaseFactory, LawyerFactory
+
+        firm = LawFirm.objects.create(name="授权同所")
+        admin = LawyerFactory(is_admin=True, law_firm=firm)
+        member = LawyerFactory(law_firm=firm)
+        grantee = LawyerFactory()
+        case = CaseFactory()
+        CaseAssignment.objects.create(case=case, lawyer=member)
+
+        grant = CaseAccessService().create_grant(case_id=case.id, grantee_id=grantee.id, user=admin)
+        assert grant.case_id == case.id
+        assert grant.grantee_id == grantee.id

@@ -20,6 +20,28 @@ from apps.evidence.models import EvidenceList, ListType
 logger = logging.getLogger(__name__)
 
 
+def _ensure_case_access_by_id(request: Any, case_id: Any) -> None:
+    """安全审计（2026-10-19）：自定义视图行级案件访问校验（等价 cases admin 的 _ensure_case_access）。
+
+    复用 cases admin 的可访问案件 queryset（管理员全量/律所收敛、其余按指派/授权过滤），
+    案件不可见或不存在时抛 PermissionDenied，由 admin 渲染 403。
+    """
+    from django.core.exceptions import PermissionDenied
+
+    from apps.cases.admin.base_admin import get_admin_accessible_case_queryset
+
+    if not get_admin_accessible_case_queryset(request).filter(pk=case_id).exists():
+        raise PermissionDenied("无权限访问此案件")
+
+
+def _ensure_evidence_list_case_access(request: Any, evidence_list_id: int) -> None:
+    """安全审计（2026-10-19）：按证据清单解析所属案件后做行级访问校验（清单不存在 → 404）。"""
+    case_id = EvidenceList.objects.filter(pk=evidence_list_id).values_list("case_id", flat=True).first()
+    if case_id is None:
+        raise Http404("证据清单不存在")
+    _ensure_case_access_by_id(request, case_id)
+
+
 class EvidenceListAdminServiceMixin:  # pragma: no cover
     def _get_admin_service(self) -> Any:  # pragma: no cover
         from apps.evidence.services.admin.evidence_admin_service import EvidenceAdminService
@@ -127,6 +149,9 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
     def next_list_type_view(self, request: Any, case_id: int) -> Any:  # pragma: no cover
         from django.http import JsonResponse
 
+        # 安全审计（2026-10-19）：视图入口补案件访问校验，防止直接打 URL 探测他人案件清单类型
+        _ensure_case_access_by_id(request, case_id)
+
         existing_types = set(EvidenceList.objects.filter(case_id=case_id).values_list("list_type", flat=True))
 
         next_type = None
@@ -223,6 +248,9 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
 
         is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
+        # 安全审计（2026-10-19）：视图入口补案件访问校验（须在 try 之外，避免被兜底 except 吞成 302）
+        _ensure_evidence_list_case_access(request, pk)
+
         try:
             evidence_list = EvidenceList.objects.get(pk=pk)
 
@@ -291,6 +319,9 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
     def merge_status_view(self, request: Any, pk: int) -> Any:  # pragma: no cover
         from django.http import JsonResponse
 
+        # 安全审计（2026-10-19）：视图入口补案件访问校验，防止探测他人案件的合并状态
+        _ensure_evidence_list_case_access(request, pk)
+
         try:
             evidence_list = EvidenceList.objects.select_related("case").get(pk=pk)
         except EvidenceList.DoesNotExist:
@@ -319,6 +350,9 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
         )
 
     def export_list_view(self, request: Any, pk: int) -> Any:  # pragma: no cover
+        # 安全审计（2026-10-19）：视图入口补案件访问校验，防止导出他人案件的证据清单 Word
+        _ensure_evidence_list_case_access(request, pk)
+
         try:
             evidence_list = EvidenceList.objects.get(pk=pk)
             admin_service = self._get_admin_service()
@@ -344,6 +378,9 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
             raise Http404("导出失败: %(e)s" % {"e": e}) from e
 
     def download_pdf_view(self, request: Any, pk: int) -> Any:  # pragma: no cover
+        # 安全审计（2026-10-19）：视图入口补案件访问校验，防止下载他人案件的证据明细 PDF
+        _ensure_evidence_list_case_access(request, pk)
+
         try:
             admin_service = self._get_admin_service()
             evidence_list = EvidenceList.objects.select_related("case").get(pk=pk)
@@ -368,6 +405,9 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
         if request.method != "POST":
             return JsonResponse({"error": "Method not allowed"}, status=405)
 
+        # 安全审计（2026-10-19）：视图入口补案件访问校验，防止重排他人案件的证据明细顺序
+        _ensure_evidence_list_case_access(request, pk)
+
         try:
             data = json.loads(request.body)
             item_ids = data.get("item_ids", [])
@@ -383,6 +423,9 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
     def recount_pages_view(self, request: Any, pk: int) -> Any:  # pragma: no cover
         from django.contrib import messages
         from django.shortcuts import redirect
+
+        # 安全审计（2026-10-19）：视图入口补案件访问校验（须在 try 之外，避免被兜底 except 吞成 302）
+        _ensure_evidence_list_case_access(request, pk)
 
         try:
             admin_service = self._get_admin_service()

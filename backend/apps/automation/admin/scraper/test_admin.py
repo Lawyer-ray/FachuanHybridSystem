@@ -100,6 +100,15 @@ class TestCourtAdmin(admin.ModelAdmin):  # pragma: no cover
         """
         from django.contrib import messages
 
+        # 安全审计（2026-10-19）：admin_view 只挡到 is_staff，本视图会真实触发登录，
+        # 收敛为管理员口径（is_admin/superuser），与 2026Q4 审计口径一致
+        from apps.core.security.admin_access import is_admin_user
+
+        if not is_admin_user(request.user):
+            from django.core.exceptions import PermissionDenied
+
+            raise PermissionDenied
+
         # 1. 获取凭证（用于显示）
         try:
             organization_service = _get_organization_service()
@@ -112,6 +121,13 @@ class TestCourtAdmin(admin.ModelAdmin):  # pragma: no cover
         # 2. 调用 Service 执行测试
         test_service = _get_test_service()
         result = test_service.test_login(credential_id)
+
+        # 安全审计（2026-10-19）：捕获的法院 JWT 不再明文回显页面（长度+指纹足够排障），
+        # 取用走 TokenService
+        token = str(result.get("token") or "") if isinstance(result, dict) else ""
+        if token:
+            result = dict(result)
+            result["token"] = f"{token[:8]}…{token[-4:]}（长度 {len(token)}）"
 
         # 3. 渲染结果页面
         context = {

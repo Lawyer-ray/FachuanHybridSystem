@@ -64,6 +64,7 @@ async def get_dashboard_stats(request: HttpRequest) -> dict[str, Any]:  # pragma
     """
     import asyncio
 
+    from apps.core.security import get_request_access_context
     from apps.workbench.services.dashboard_service import (
         DashboardService,
         _case_status_distribution,
@@ -78,6 +79,11 @@ async def get_dashboard_stats(request: HttpRequest) -> dict[str, Any]:  # pragma
     )
 
     service = DashboardService()
+
+    # 安全审计（2026-10-19）：提醒列表接入读范围过滤（scope_reminders_for_context），
+    # 非管理员不再看到他人案件的提醒 content 原文；ctx 按请求构造后传入 service。
+    # 计数与财务聚合（monthly_fee、全所计数、trend 等）暂保持全所口径，待产品拍板。
+    ctx = await sync_to_async(get_request_access_context)(request)
 
     # thread_sensitive=False 让每个调用在独立线程中执行，实现真正并行
     stf = sync_to_async(thread_sensitive=False)
@@ -109,7 +115,8 @@ async def get_dashboard_stats(request: HttpRequest) -> dict[str, Any]:  # pragma
             )
         ),
         _guarded(stf(_reminder_counts)(timezone.now())),
-        _guarded(stf(_upcoming_reminders)(timezone.now())),
+        # 安全审计（2026-10-19）：提醒列表必须带 ctx 过滤（见上方注释）
+        _guarded(stf(_upcoming_reminders)(timezone.now(), ctx)),
         _guarded(stf(_client_count)()),
         _guarded(stf(_contract_count)()),
         _guarded(stf(_contract_trend)(timezone.localdate() - timedelta(days=365))),

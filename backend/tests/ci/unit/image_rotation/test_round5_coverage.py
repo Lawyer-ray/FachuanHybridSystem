@@ -644,7 +644,11 @@ class TestImageRotationJobService:
         from apps.image_rotation.models import ImageRotationJob
         from apps.image_rotation.services.job_service import ImageRotationJobService
 
-        with patch.object(ImageRotationJob.objects, "get", side_effect=ImageRotationJob.DoesNotExist()):
+        # 安全审计（2026-10-19）：get_job 改为 queryset 链（objects.all() + 可选属主过滤 + get），
+        # 与 doc_converter B-10 同口径，故 mock 落在 objects.all() 返回的 queryset 上
+        mock_qs = MagicMock()
+        mock_qs.get.side_effect = ImageRotationJob.DoesNotExist()
+        with patch.object(ImageRotationJob.objects, "all", return_value=mock_qs):
             with pytest.raises(NotFoundError):
                 get_job(uuid.uuid4())
 

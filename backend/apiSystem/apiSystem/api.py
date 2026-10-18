@@ -363,7 +363,10 @@ def health_check(request: HttpRequest) -> dict[str, Any]:
     返回系统整体健康状态
     """
     health = HealthChecker.get_system_health(include_details=False)
-    return health.to_dict()
+    # 安全审计（2026-10-19）：端点保持无认证（探针常无凭证调用），输出最小化——
+    # to_dict 默认剥离 diagnostic_info/system_info，message 换固定短句，
+    # 不再泄露 Redis 连接串、DB 拓扑与原始异常串
+    return health.to_dict(include_details=False)
 
 
 @api_v1.get("/health/detail", tags=["系统"], auth=JWTOrSessionAuth())
@@ -375,7 +378,8 @@ def health_check_detail(request: HttpRequest) -> dict[str, Any]:
     ensure_admin_request(request, message="无权限访问健康检查详情", code="PERMISSION_DENIED")
 
     health = HealthChecker.get_system_health(include_details=True)
-    return health.to_dict()
+    # 安全审计（2026-10-19）：详情端点已挂管理员认证，内部排障保留完整 diagnostic_info
+    return health.to_dict(include_details=True)
 
 
 @api_v1.get("/health/live", tags=["系统"])

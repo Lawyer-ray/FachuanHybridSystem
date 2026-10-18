@@ -185,3 +185,43 @@ class TestContractImportService:
             case_import_fn=callback,
         )
         assert svc._case_import_fn is callback
+
+    @pytest.mark.django_db
+    def test_resolve_rejects_illegal_finalized_material_paths(self) -> None:
+        """安全审计（2026-10-19）：归档材料 file_path 含绝对路径 / ".." 时跳过该条，不 500。"""
+        from apps.contracts.models import FinalizedMaterial
+
+        svc = self._make_service()
+        payload = {
+            "name": "路径收敛导入测试合同",
+            "finalized_materials": [
+                {"file_path": "contracts/finalized/1/a.pdf", "original_filename": "a.pdf"},
+                {"file_path": "/etc/passwd", "original_filename": "evil_abs.pdf"},
+                {"file_path": "/contracts/finalized/2/c.pdf", "original_filename": "evil_slash.pdf"},
+                {"file_path": "contracts/finalized/../../leak.txt", "original_filename": "evil_rel.pdf"},
+                {"file_path": "contracts\\finalized\\..\\..\\leak.txt", "original_filename": "evil_backslash.pdf"},
+            ],
+        }
+
+        contract = svc.resolve(payload)  # type: ignore[arg-type]
+
+        paths = list(FinalizedMaterial.objects.filter(contract=contract).values_list("file_path", flat=True))
+        assert paths == ["contracts/finalized/1/a.pdf"]
+
+    @pytest.mark.django_db
+    def test_resolve_normalizes_clean_relative_material_path(self) -> None:
+        """干净相对路径入库前经 normalize_to_media_rel 归一化（反斜杠统一为正斜杠）。"""
+        from apps.contracts.models import FinalizedMaterial
+
+        svc = self._make_service()
+        payload = {
+            "name": "路径归一化导入测试合同",
+            "finalized_materials": [
+                {"file_path": "contracts\\finalized\\2\\b.pdf", "original_filename": "b.pdf"},
+            ],
+        }
+
+        contract = svc.resolve(payload)  # type: ignore[arg-type]
+
+        material = FinalizedMaterial.objects.get(contract=contract)
+        assert material.file_path == "contracts/finalized/2/b.pdf"

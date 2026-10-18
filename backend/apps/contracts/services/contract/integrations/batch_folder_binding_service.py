@@ -76,7 +76,17 @@ class ContractBatchFolderBindingService:
             )
         return cards
 
-    def preview(self, *, case_type_roots: list[dict[str, Any]]) -> dict[str, Any]:
+    def preview(
+        self,
+        *,
+        case_type_roots: list[dict[str, Any]],
+        contract_qs: Any | None = None,
+    ) -> dict[str, Any]:
+        """预览各合同类型的待绑定合同。
+
+        contract_qs：可选的行级过滤 queryset（安全审计 2026-10-19，admin 侧传入
+        当前用户可访问的合同，防止预览泄漏无权合同信息）；None 时不过滤（兼容旧调用）。
+        """
         items: list[dict[str, Any]] = []
         total_contracts = 0
         auto_selected = 0
@@ -94,6 +104,7 @@ class ContractBatchFolderBindingService:
                 root_path=root_path,
                 storage_type=storage_type,
                 storage_account_id=storage_account_id,
+                contract_qs=contract_qs,
             )
             items.append(preview_item)
             total_contracts += int(preview_item.get("contract_count", 0) or 0)
@@ -251,6 +262,7 @@ class ContractBatchFolderBindingService:
         root_path: str,
         storage_type: str = "local",
         storage_account_id: str | int = "",
+        contract_qs: Any | None = None,
     ) -> dict[str, Any]:
         item: dict[str, Any] = {
             "case_type": case_type,
@@ -265,11 +277,20 @@ class ContractBatchFolderBindingService:
             "error": "",
         }
 
-        contracts = list(
-            Contract.objects.filter(case_type=case_type, folder_binding__isnull=True)
-            .prefetch_related("cases")
-            .order_by("id")
-        )
+        # 安全审计（2026-10-19）：contract_qs 不为 None 时按行级 queryset 过滤（admin 传入）；
+        # None 时保持原 Contract.objects 查询路径（兼容既有调用/测试）
+        if contract_qs is None:
+            contracts = list(
+                Contract.objects.filter(case_type=case_type, folder_binding__isnull=True)
+                .prefetch_related("cases")
+                .order_by("id")
+            )
+        else:
+            contracts = list(
+                contract_qs.filter(case_type=case_type, folder_binding__isnull=True)
+                .prefetch_related("cases")
+                .order_by("id")
+            )
         item["contract_count"] = len(contracts)
 
         if not root_path:

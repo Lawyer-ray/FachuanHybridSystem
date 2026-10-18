@@ -12,6 +12,7 @@ from apps.core.infrastructure import invalidate_user_access_context
 from apps.core.interfaces import ICaseService
 from apps.core.security import AccessContext, DjangoPermsMixin
 
+from .case_access_policy import CaseAccessPolicy
 from .wiring import get_case_service
 
 
@@ -128,6 +129,10 @@ class CaseAccessService(DjangoPermsMixin):
         self.ensure_admin(user)
         if not Case.objects.filter(id=case_id).exists():
             raise NotFoundError("案件 %(id)s 不存在" % {"id": case_id})
+        # 安全审计（2026-10-19）：管理员授权前先按律所口径校验自己对目标案件的访问权，
+        # 防止跨律所管理员借授权入口为他所案件批量开门
+        if not CaseAccessPolicy().has_access(case_id=case_id, user=user, org_access=None):
+            raise ForbiddenError("无权限为该案件授予访问权限")
         if CaseAccessGrant.objects.filter(case_id=case_id, grantee_id=grantee_id).exists():
             raise ConflictError("该用户已有此案件的访问权限")
         grant = CaseAccessGrant.objects.create(case_id=case_id, grantee_id=grantee_id)
@@ -309,6 +314,9 @@ class CaseAccessService(DjangoPermsMixin):
         self.ensure_admin(user)
         if not Case.objects.filter(id=case_id).exists():
             raise NotFoundError("案件 %(id)s 不存在" % {"id": case_id})
+        # 安全审计（2026-10-19）：批量授权同样先按律所口径校验发起人对目标案件的访问权
+        if not CaseAccessPolicy().has_access(case_id=case_id, user=user, org_access=None):
+            raise ForbiddenError("无权限为该案件授予访问权限")
         existing = set(
             CaseAccessGrant.objects.filter(case_id=case_id, grantee_id__in=grantee_ids).values_list(
                 "grantee_id", flat=True

@@ -257,6 +257,12 @@ class CaseLogAttachmentAdmin(BaseModelAdmin):  # pragma: no cover
     search_fields = ("log__case__name", "original_filename")
     autocomplete_fields = ("log",)
 
+    def get_queryset(self, request: HttpRequest) -> Any:  # pragma: no cover
+        # 安全审计（2026-10-19）：列表行级案件过滤——附件经 log→case 关联，
+        # 非管理员仅可见本所指派/授权案件下的附件（口径同 CaseLogAdmin）
+        accessible_case_ids = get_admin_accessible_case_queryset(request).values("id")
+        return super().get_queryset(request).filter(log__case_id__in=accessible_case_ids)
+
     def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:  # pragma: no cover
         """隐藏 Admin 首页入口，但保留直接 URL 访问能力"""
         return {}

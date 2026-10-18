@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import pathlib
 from typing import Any, Final
 
 from django.apps import apps as django_apps
@@ -24,7 +25,7 @@ _PRIVATE_DOCX_ROOT_DEFAULT_SENTINEL: Final[str] = "__DOCX_PRIVATE_ROOT_NOT_SET__
 
 def get_public_docx_templates_root() -> Path:
     """获取仓库内公用 docx_templates 根目录。"""
-    base_path = Path(str(settings.BASE_DIR)).parent / "apps" / "documents" / "docx_templates"  # type: ignore[misc]
+    base_path = Path(str(settings.BASE_DIR)).parent / "apps" / "documents" / "docx_templates"
     return Path(str(base_path))
 
 
@@ -80,6 +81,25 @@ def _allowed_template_roots() -> list[Path]:
     if private_root is not None and private_root != roots[0]:
         roots.append(private_root)
     return roots
+
+
+def is_allowed_private_docx_root(candidate: Path | pathlib.Path) -> bool:
+    """判断私有模板根是否落在白名单目录内。
+
+    安全审计（2026-10-19）：私有 docx 模板根此前仅校验 exists()/is_dir()，管理员可把根指到
+    服务器任意目录（如 /、/Users、/etc），配合模板渲染/下载链路读取仓库外文件。改为白名单：
+    根必须位于 MEDIA_ROOT 或 backend 项目目录（BASE_DIR 的父级，与本模块解析相对路径的
+    基准一致，且涵盖 BASE_DIR 自身）之内，resolve 后 is_relative_to 任一即放行。
+    """
+    try:
+        resolved = candidate.resolve()
+        whitelist = [
+            Path(str(settings.MEDIA_ROOT)).resolve(),
+            Path(str(settings.BASE_DIR)).resolve().parent,
+        ]
+    except (OSError, RuntimeError, ValueError):
+        return False
+    return any(resolved.is_relative_to(root) for root in whitelist)
 
 
 def resolve_docx_template_path(file_path: str) -> Path:

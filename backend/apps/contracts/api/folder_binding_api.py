@@ -15,7 +15,6 @@ from apps.contracts.schemas import (
     FolderBrowseEntrySchema,
     FolderBrowseResponseSchema,
 )
-from apps.core.exceptions import PermissionDenied
 from apps.core.security import get_request_access_context
 
 logger = logging.getLogger("apps.contracts.api")
@@ -43,9 +42,12 @@ def _require_contract_access(request: HttpRequest, contract_id: int) -> None:
 
 
 def _require_admin(request: HttpRequest) -> None:
-    user = getattr(request, "user", None)
-    if not user or not getattr(user, "is_authenticated", False):
-        raise PermissionDenied("需要登录")
+    # 安全审计（2026-10-19）：原实现仅校验 is_authenticated，名不副实（任何登录用户均可
+    # 改删文件夹绑定/浏览目录）。收紧为 core 的管理员口径（is_admin / is_superuser）。
+    # 前端 frontend/src 无该组端点的实际调用（仅自动生成的 api-schema 类型残留），无正常用户依赖。
+    from apps.core.security.admin_access import ensure_admin_request
+
+    ensure_admin_request(request, message="需要管理员权限", code="PERMISSION_DENIED")
 
 
 @router.post("/{contract_id}/folder-binding", response=FolderBindingResponseSchema)

@@ -24,6 +24,7 @@ from django.db.models import QuerySet
 from django.utils import timezone
 from docx.document import Document as DocumentType
 
+from apps.documents.services.generation.path_utils import safe_arcname
 from apps.documents.services.placeholders.fallback import (
     PLACEHOLDER_FALLBACK_VALUE,
     get_service_placeholder_keys,
@@ -715,7 +716,10 @@ class FillingService:
             for record in records:
                 file_abs: Path = Path(settings.MEDIA_ROOT) / record.file_path
                 if file_abs.exists():
-                    zf.write(str(file_abs), record.original_output_name)
+                    # 安全审计（2026-10-19）：original_output_name 来自外部模板/用户输入，未净化直接进
+                    # ZIP 可造成解压路径穿越（zip slip）。arcname 统一过 safe_arcname 清洗
+                    # （拒 .. 与绝对路径形态），清洗后为空则回退为磁盘文件名。
+                    zf.write(str(file_abs), safe_arcname(record.original_output_name) or file_abs.name)
                 else:
                     logger.warning(
                         "打包 ZIP 时文件不存在: record_id=%d, path=%s",

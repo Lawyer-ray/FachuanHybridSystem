@@ -14,6 +14,67 @@ from ..flow.types import ConversationStep, FlowContext
 logger = logging.getLogger("apps.litigation_ai")
 
 
+def _normalize_int_ids(raw_ids: list[Any]) -> list[int]:
+    """去重并只保留整数 id（客户端可传任意 JSON 值，非整数一律丢弃）."""
+    seen: set[int] = set()
+    result: list[int] = []
+    for value in raw_ids:
+        if isinstance(value, bool) or not isinstance(value, int):
+            continue
+        if value not in seen:
+            seen.add(value)
+            result.append(value)
+    return result
+
+
+def converge_evidence_selection_to_case(
+    case_id: int,
+    evidence_list_ids: list[Any],
+    evidence_item_ids: list[Any],
+    our_evidence_item_ids: list[Any],
+    opponent_evidence_item_ids: list[Any],
+) -> tuple[list[int], list[int], list[int], list[int]]:
+    """安全审计（2026-10-19）：证据选择 ID 收敛到本会话案件.
+
+    select_evidence 消息里的 evidence_list_ids / evidence_item_ids /
+    our_evidence_item_ids / opponent_evidence_item_ids 是客户端任意整数，
+    历史实现未做归属校验即写入会话元数据并透传 build_evidence_text 与
+    RAG aretrieve，可跨案件读取他人证据（P1）.这里按
+    ``EvidenceItem.evidence_list__case_id``（清单按 ``case_id``）收敛到
+    会话案件，被丢弃的 id 记 logger.warning，下游只使用收敛后的集合.
+    """
+    from apps.evidence.models import EvidenceItem, EvidenceList
+
+    list_ids = _normalize_int_ids(evidence_list_ids)
+    item_groups = [
+        _normalize_int_ids(group) for group in (evidence_item_ids, our_evidence_item_ids, opponent_evidence_item_ids)
+    ]
+
+    if list_ids:
+        valid_list_ids: set[int] = set(
+            EvidenceList.objects.filter(id__in=list_ids, case_id=case_id).values_list("id", flat=True)
+        )
+        dropped_list_ids = [i for i in list_ids if i not in valid_list_ids]
+        if dropped_list_ids:
+            logger.warning("[安全审计] 会话案件 %s 之外的证据清单 ID 已丢弃: %s", case_id, dropped_list_ids)
+        list_ids = [i for i in list_ids if i in valid_list_ids]
+
+    all_item_ids = list(dict.fromkeys(i for group in item_groups for i in group))
+    valid_item_ids: set[int] = set()
+    if all_item_ids:
+        valid_item_ids = set(
+            EvidenceItem.objects.filter(id__in=all_item_ids, evidence_list__case_id=case_id).values_list(
+                "id", flat=True
+            )
+        )
+    dropped_item_ids = [i for i in all_item_ids if i not in valid_item_ids]
+    if dropped_item_ids:
+        logger.warning("[安全审计] 会话案件 %s 之外的证据项 ID 已丢弃: %s", case_id, dropped_item_ids)
+
+    converged_groups = [[i for i in group if i in valid_item_ids] for group in item_groups]
+    return list_ids, converged_groups[0], converged_groups[1], converged_groups[2]
+
+
 class ConversationFlowService:  # pragma: no cover
     def __init__(self) -> None:  # pragma: no cover
         self._conversation_service: Any | None = None
@@ -278,6 +339,17 @@ class ConversationFlowService:  # pragma: no cover
         opponent_evidence_item_ids: list[int],
         send_callback: Callable[..., Any],
     ) -> None:
+        # 安全审计（2026-10-19）：入口把客户端任意整数证据 ID 收敛到本会话案件，
+        # 被丢弃的跨案件 id 记 warning，下游（元数据持久化 + 文书生成）只用收敛后的集合
+        evidence_list_ids, evidence_item_ids, our_evidence_item_ids, opponent_evidence_item_ids = await sync_to_async(
+            converge_evidence_selection_to_case, thread_sensitive=True
+        )(
+            context.case_id,
+            evidence_list_ids,
+            evidence_item_ids,
+            our_evidence_item_ids,
+            opponent_evidence_item_ids,
+        )
         await self._persist_session_metadata(
             context.session_id,
             {

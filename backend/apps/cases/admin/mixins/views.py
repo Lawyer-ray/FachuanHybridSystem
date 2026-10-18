@@ -293,7 +293,13 @@ class CaseAdminViewsMixin:  # pragma: no cover
         # 案件链（前序/后代）查询已下沉 service
         from apps.cases.services.case.case_chain_service import get_case_chain
 
-        related_chain = get_case_chain(case)
+        # 安全审计（2026-10-19）：链上案件按当前用户行级口径过滤，无权访问的前序/后代案件从链上隐藏
+        related_chain = get_case_chain(
+            case,
+            user=request.user,
+            org_access=getattr(request, "org_access", None),
+            perm_open_access=getattr(request, "perm_open_access", False),
+        )
 
         # 检查案件文件夹路径可达性，先修复合同路径再检查案件路径
         folder_path_auto_repaired = False

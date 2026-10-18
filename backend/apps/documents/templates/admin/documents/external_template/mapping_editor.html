@@ -203,6 +203,39 @@
     return el ? el.value : '';
   }
 
+  // 安全审计（2026-10-19）：mammoth 转换出的 HTML 来自外部上传的 docx，直接 innerHTML 注入存在
+  // XSS 风险。不引入新依赖，用 DOMParser 做最小白名单清洗：删除 script/iframe/object/embed/
+  // link/meta/base 可执行或劫持节点，去掉所有 on* 事件属性，并把 href/src 的 javascript:/
+  // vbscript: 协议置为 #（保留 data:image/* 供 mammoth 内嵌图片使用）。
+  function sanitizePreviewHtml(html) {
+    var BLOCKED_TAGS = {SCRIPT: 1, IFRAME: 1, OBJECT: 1, EMBED: 1, LINK: 1, META: 1, BASE: 1};
+    var DANGEROUS_PROTOCOL = /^(javascript|vbscript):/;
+    var doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+    var elements = doc.body.querySelectorAll('*');
+    for (var i = 0; i < elements.length; i++) {
+      var el = elements[i];
+      if (BLOCKED_TAGS[el.tagName.toUpperCase()]) {
+        el.remove();
+        continue;
+      }
+      var attrs = Array.prototype.slice.call(el.attributes);
+      for (var j = 0; j < attrs.length; j++) {
+        var name = attrs[j].name.toLowerCase();
+        if (name.indexOf('on') === 0) {
+          el.removeAttribute(attrs[j].name);
+          continue;
+        }
+        if (name === 'href' || name === 'src' || name === 'xlink:href') {
+          var value = String(attrs[j].value || '').replace(/[\s\u0000-\u001f]+/g, '').toLowerCase();
+          if (DANGEROUS_PROTOCOL.test(value)) {
+            el.setAttribute(attrs[j].name, '#');
+          }
+        }
+      }
+    }
+    return doc.body.innerHTML;
+  }
+
   var FILL_TYPE_LABELS = {
     text: '{% translate "文本" %}',
     checkbox: '{% translate "复选框" %}',
@@ -247,7 +280,8 @@
             });
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
             var data = await resp.json();
-            this.$refs.preview.innerHTML = data.html;
+            // 安全审计（2026-10-19）：渲染前消毒，见 sanitizePreviewHtml
+            this.$refs.preview.innerHTML = sanitizePreviewHtml(data.html);
             // After HTML loaded, apply highlights
             var self = this;
             this.$nextTick(function() { self.applyHighlights(); });

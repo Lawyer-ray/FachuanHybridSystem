@@ -3,6 +3,7 @@
 from typing import Any, ClassVar
 
 from django.contrib import admin
+from django.db.models import QuerySet
 
 from apps.evidence.models import EvidenceItem, EvidenceItemProxy
 
@@ -72,6 +73,14 @@ class EvidenceItemAdmin(admin.ModelAdmin):  # pragma: no cover
             },
         ),
     )
+
+    def get_queryset(self, request: Any) -> QuerySet:  # pragma: no cover
+        # 安全审计（2026-10-19）：列表行级案件过滤——证据明细经 evidence_list→case 关联，
+        # 非管理员仅可见本所指派/授权案件下的明细（口径同 CaseAdmin）
+        from apps.cases.admin.base_admin import get_admin_accessible_case_queryset
+
+        accessible_case_ids = get_admin_accessible_case_queryset(request).values("id")
+        return super().get_queryset(request).filter(evidence_list__case_id__in=accessible_case_ids)
 
     @admin.display(description="页码")
     def page_range_display(self, obj: EvidenceItem) -> str:  # pragma: no cover

@@ -126,6 +126,32 @@ class TestQueryAndDelete:
 
 
 @pytest.mark.django_db
+class TestOwnershipScoping:
+    """安全审计（2026-10-19）：历史任务模块函数归属校验（user 参数）.
+
+    历史任务端点原本零归属校验，任意用户可按 job_id 枚举读/改/删他人任务.
+    get_job/list_jobs 传入 user 时按属主收敛（superuser 豁免），口径与
+    apps/doc_converter get_job（安全审计 B-10）一致.
+    """
+
+    def test_get_job_and_list_jobs_scope_to_user(self) -> None:
+        owner = LawyerFactory()
+        stranger = LawyerFactory()
+        job = create_job(name="归属", pages_meta=[], source_files=[], created_by=owner)
+
+        # 他人访问按不存在处理
+        with pytest.raises(NotFoundError, match="不存在"):
+            get_job(job.id, user=stranger)
+        # 属主可访问；superuser 豁免
+        assert get_job(job.id, user=owner).pk == job.pk
+        assert get_job(job.id, user=SimpleNamespace(is_superuser=True)).pk == job.pk
+        # list_jobs：非管理员只见自己的任务，管理员豁免
+        assert list_jobs(user=stranger)["total"] == 0
+        assert list_jobs(user=owner)["total"] == 1
+        assert list_jobs(user=SimpleNamespace(is_superuser=True))["total"] == 1
+
+
+@pytest.mark.django_db
 class TestRunOcr:
     def _job(self) -> ImageRotationJob:
         return create_job(

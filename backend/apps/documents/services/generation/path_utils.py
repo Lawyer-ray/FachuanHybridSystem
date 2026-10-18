@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,9 @@ def safe_name(name: str) -> str:
 
 
 def safe_arcname(name: str) -> str:
+    # 安全审计（2026-10-19）：ZIP 条目名逐段清洗，额外剔除 "." / ".." 片段防解压路径穿越，
+    # 并剥掉 Windows 盘符前缀（如 C:\evil）阻断绝对路径形态；前导 "/" 经去空段后自然变为相对路径。
     safe = (name or "").replace("\\", "/")
-    safe = "/".join([safe_name(part) for part in safe.split("/") if part != ""])
-    return safe
+    safe = re.sub(r"^[A-Za-z]:(?=/|$)", "", safe)
+    parts = [safe_name(part) for part in safe.split("/") if part not in ("", ".", "..")]
+    return "/".join(parts)
