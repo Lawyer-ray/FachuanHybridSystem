@@ -129,12 +129,12 @@ class TestClientSearchAcl:
 
         results = search_clients("张三丰", 10, user=admin)
         assert len(results) == 1
-        assert results[0].subtitle == "13812341234"
+        assert results[0].subtitle == "13812341234"  # privacy-allow 虚构号码
         assert results[0].side == "opposing"
 
     @pytest.mark.django_db
     def test_our_client_gets_ours_side(self) -> None:
-        Client.objects.create(name="我方公司", phone="13900001111", is_our_client=True)
+        Client.objects.create(name="我方公司", phone="13900001111", is_our_client=True)  # privacy-allow 虚构号码
         admin = LawyerFactory(is_admin=True)
 
         results = search_clients("我方公司", 10, user=admin)
@@ -143,11 +143,11 @@ class TestClientSearchAcl:
     @pytest.mark.django_db
     def test_landline_phone_kept_verbatim(self) -> None:
         """回归：此前座机（含分隔符）被整串打成星号（****-********），用户完全看不到。"""
-        Client.objects.create(name="座机公司", phone="0757-22334455")
+        Client.objects.create(name="座机公司", phone="0757-22334455")  # privacy-allow 虚构号码
         admin = LawyerFactory(is_admin=True)
 
         results = search_clients("座机公司", 10, user=admin)
-        assert results[0].subtitle == "0757-22334455"
+        assert results[0].subtitle == "0757-22334455"  # privacy-allow 虚构号码
 
     @pytest.mark.django_db
     def test_search_by_full_phone_returns_full_phone(self) -> None:
@@ -156,7 +156,7 @@ class TestClientSearchAcl:
 
         results = search_clients("13900001111", 10, user=admin)
         assert len(results) == 1
-        assert results[0].subtitle == "13900001111"
+        assert results[0].subtitle == "13900001111"  # privacy-allow 虚构号码
 
     @pytest.mark.django_db
     def test_empty_phone_gives_empty_subtitle(self) -> None:
@@ -269,7 +269,7 @@ class TestGlobalSearchEndpoint:
         from django.test import Client as TestClient
 
         admin = LawyerFactory(is_admin=True, is_staff=True)
-        Client.objects.create(name="赵五", phone="13711112222", is_our_client=True)
+        Client.objects.create(name="赵五", phone="13711112222", is_our_client=True)  # privacy-allow 虚构号码
         case = CaseFactory(name="HTTP冒烟案件")
 
         client = TestClient()
@@ -286,7 +286,7 @@ class TestGlobalSearchEndpoint:
         resp_client = client.get("/api/v1/search", {"q": "赵五"})
         assert resp_client.status_code == 200
         hits = resp_client.json()["clients"]
-        assert [c["subtitle"] for c in hits] == ["13711112222"]
+        assert [c["subtitle"] for c in hits] == ["13711112222"]  # privacy-allow 虚构号码
         assert [c["side"] for c in hits] == ["ours"]
 
     @pytest.mark.django_db(transaction=True)

@@ -127,7 +127,7 @@ function makeCase(over: Partial<CaseListItem> = {}): CaseListItem {
     ],
     assignments: [],
     logs: [],
-    case_numbers: [{ id: 1, number: '（2025）粤0605民初1234号', remarks: '', created_at: '2025-04-02T00:00:00Z' }],
+    case_numbers: [{ id: 1, number: '（2025）粤0605民初1234号', remarks: '', created_at: '2025-04-02T00:00:00Z' }], // privacy-allow 虚构案号
     supervising_authorities: [
       { id: 1, name: '佛山市南海区人民法院', authority_type: 'trial', authority_type_display: '法院', created_at: '2025-03-17T00:00:00Z' },
     ],
@@ -169,7 +169,7 @@ beforeEach(() => {
       start_date: '2026-03-05',
       target_amount: null,
       preservation_amount: null,
-      case_numbers: [{ id: 2, number: '（2026）粤06民终887号', remarks: '', created_at: '2026-03-05T00:00:00Z' }],
+      case_numbers: [{ id: 2, number: '（2026）粤06民终887号', remarks: '', created_at: '2026-03-05T00:00:00Z' }], // privacy-allow 虚构案号
       supervising_authorities: [
         { id: 2, name: '佛山市中级人民法院', authority_type: 'trial', authority_type_display: '法院', created_at: '2026-03-05T00:00:00Z' },
       ],
@@ -287,7 +287,7 @@ describe('DealDetailPage 程序链与案件节', () => {
       if (!el) throw new Error('case-2 not yet')
       return el
     })
-    expect(within(sec2).getByText('（2026）粤06民终887号')).toBeTruthy()
+    expect(within(sec2).getByText('（2026）粤06民终887号')).toBeTruthy() // privacy-allow 虚构案号
     expect(within(sec2).getByText('佛山市中级人民法院')).toBeTruthy()
     expect(within(sec2).getByText('被上诉人')).toBeTruthy()
     expect(within(sec2).getByText('上诉人')).toBeTruthy()

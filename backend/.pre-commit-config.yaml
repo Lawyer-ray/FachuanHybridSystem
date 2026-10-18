@@ -89,7 +89,9 @@ repos:
         pass_filenames: false
 
       - id: forbid-sensitive-patterns
-        name: Forbid sensitive patterns (ID/mobile/email/password/token)
+        # 隐私全库扫（姓名/案名/公司/证件号/电话/案号/地址，含 changelog/docs/前端/测试）；
+        # 凭证类只盯源码目录；假数据在行尾加 privacy-allow 标记放行；`--mode all` 可全量审计
+        name: Forbid privacy/sensitive patterns (name/case/company/ID/phone/case-no/address/token)
         entry: python backend/devtools/security_guard.py --check sensitive --mode staged
         language: python
         files: .*

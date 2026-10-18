@@ -322,7 +322,7 @@ describe('复制文本', () => {
   it('律师：首行只有名字（不带主办标注），主办回落合同电话/律所', () => {
     const d = buildDeals([makeContract()], [], TODAY)[0]!
     expect(lawyerCopyText({ name: '赵律师', primary: true, phone: '', license: '144', firm: '' }, d)).toBe(
-      '赵律师\n电话：13900000000\n执业证号：144\n律所：某律所',
+      '赵律师\n电话：13900000000\n执业证号：144\n律所：某律所', // privacy-allow 虚构号码
     )
   })
 })

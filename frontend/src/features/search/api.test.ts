@@ -68,8 +68,8 @@ describe('runSearch 分组拉平', () => {
     getMock.mockResolvedValueOnce(
       respond({
         clients: [
-          { id: 2, title: '我方公司', subtitle: '13800000000', side: 'ours' },
-          { id: 3, title: '对方公司', subtitle: '0757-22334455', side: 'opposing' },
+          { id: 2, title: '我方公司', subtitle: '13800000000', side: 'ours' }, // privacy-allow 虚构号码
+          { id: 3, title: '对方公司', subtitle: '0757-22334455', side: 'opposing' }, // privacy-allow 虚构号码
           { id: 4, title: '旧后端无字段', subtitle: '' },
         ],
       }),
@@ -77,7 +77,7 @@ describe('runSearch 分组拉平', () => {
     const hits = await runSearch('公司')
     expect(hits.map((h) => h.side)).toEqual(['ours', 'opposing', ''])
     // 电话原样透传，不在前端再做任何打码
-    expect(hits[1]?.subtitle).toBe('0757-22334455')
+    expect(hits[1]?.subtitle).toBe('0757-22334455') // privacy-allow 虚构号码
   })
 
   it('后端某类别缺字段（undefined/null）按空数组跳过', async () => {
