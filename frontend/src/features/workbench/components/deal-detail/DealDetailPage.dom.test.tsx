@@ -232,13 +232,14 @@ afterEach(() => {
 })
 
 describe('DealDetailPage 加载与页头', () => {
-  it('加载中给 spinner 文案；到达后主标题即合同名，meta 含类型/状态/我方→对方/建档/主办', async () => {
+  it('加载中给 spinner 文案；到达后主标题即合同名，meta 只含类型/状态/建档（当事人与主办在右栏卡）', async () => {
     setupUi()
     expect(screen.getByText('正在加载委托…')).toBeTruthy()
     const h1 = await screen.findByRole('heading', { level: 1 })
     expect(h1.textContent).toBe('某银行与某公司金融借款合同纠纷诉讼委托合同')
     expect(screen.getByText('民商事')).toBeTruthy()
-    expect(screen.getByText('某银行 → 某公司')).toBeTruthy()
+    // 页头不再重复我方 → 对方摘要（右栏「当事人」卡已有）
+    expect(screen.queryByText('某银行 → 某公司')).toBeNull()
     // 建档编号同时出现在页头 meta 与档案「合同要素」里，两处都是真实字段
     expect(screen.getAllByText('2025_MS_HT_0031').length).toBeGreaterThanOrEqual(1)
     expect(getContractMock).toHaveBeenCalledWith(7)

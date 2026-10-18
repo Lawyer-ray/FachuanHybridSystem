@@ -8,6 +8,7 @@ import {
   caseMetaParts,
   chainSteps,
   chainSummary,
+  crumbName,
   contactGroups,
   dueLabel,
   headerMetaParts,
@@ -343,18 +344,23 @@ describe('右栏', () => {
 })
 
 describe('页头', () => {
-  it('headerMetaParts：类型/状态加粗，我方 → 多个对方顿号连接，建档/主办尾随', () => {
+  it('headerMetaParts：类型/状态加粗，建档尾随；我方→对方与主办不再出现在页头（右栏卡已展示）', () => {
     expect(headerMetaParts(makeDeal())).toEqual([
       { v: '民商事', strong: true },
       { v: '在办', strong: true },
-      { k: '我方', v: '某银行 → 某公司、某五金' },
       { k: '建档', v: '2025_MS_HT_0031' },
-      { k: '主办', v: '黄崧' },
     ])
   })
 
-  it('headerMetaParts：没有我方当事人则不出该片段', () => {
+  it('headerMetaParts：没有建档号只剩类型与状态', () => {
     const parts = headerMetaParts(makeDeal({ partiesAll: [], filingNo: '', primary: '' }))
     expect(parts).toEqual([{ v: '民商事', strong: true }, { v: '在办', strong: true }])
+  })
+
+  it('crumbName：超 18 字截断加省略号，短名原样', () => {
+    expect(crumbName('短短的名字')).toBe('短短的名字')
+    const long = '某市公路工程质量检测有限责任公司诉广东某交通投资有限公司及第三人某混凝土公司执行异议之诉一案'
+    expect(crumbName(long)).toBe('某市公路工程质量检测有限责任公司诉广…')
+    expect(crumbName(long).length).toBe(19)
   })
 })

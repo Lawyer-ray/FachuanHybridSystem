@@ -1,12 +1,13 @@
 import { Link } from 'react-router'
 
 import type { WorkbenchDeal } from '../../types'
-import { headerMetaParts } from './detail-domain'
+import { crumbName, headerMetaParts } from './detail-domain'
 import { ActionButton, MetaLine } from './ui'
 
 /**
- * 安静页头：面包屑（办案 / 委托）+ 合同名主标题 + meta 单行 + 两个创建动作。
- * 主标题即合同名（建档时的全称），领域身份不另造名称。
+ * 安静页头：面包屑（办案 / 短名）+ 合同名主标题 + meta 单行 + 两个创建动作。
+ * 主标题即合同名（建档时的全称），领域身份不另造名称；标题不限宽——限宽会留下
+ * 一大片「标题够不着、按钮够不着」的空白（长案名 3 行折行时尤其明显）。
  */
 export function DetailHeader({
   deal,
@@ -24,14 +25,14 @@ export function DetailHeader({
           办案
         </Link>
         <span>/</span>
-        <span className="min-w-0 truncate font-[550] text-foreground" title={deal.client}>
-          {deal.client}
+        <span className="font-[550] text-foreground" title={deal.client}>
+          {crumbName(deal.client)}
         </span>
       </nav>
 
       <div className="mb-4 flex flex-wrap items-start gap-[18px]">
         <div className="min-w-0 flex-1">
-          <h1 className="max-w-[680px] text-[23px] leading-[1.4] font-[760] tracking-[-0.022em] break-all max-[680px]:text-[19px]">
+          <h1 className="text-[23px] leading-[1.4] font-[760] tracking-[-0.022em] break-all max-[680px]:text-[19px]">
             {deal.client}
           </h1>
           <MetaLine
