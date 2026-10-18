@@ -1,4 +1,5 @@
 import { dealPayRows, fmtCNDate, partyCopyText } from '../../domain'
+import { safeHttpUrl } from '@/lib/url'
 import type { WorkbenchDeal } from '../../types'
 import { CopyButton } from '../DealSheetParts'
 import { railFacts, railParties } from './detail-domain'
@@ -90,7 +91,14 @@ export function RailFacts({ deal }: { deal: WorkbenchDeal }) {
   return (
     <RailSection title="合同要素">
       {facts.map(([k, v]) => (
-        <KV key={k} k={k} v={v} kw={56} />
+        // OA 编号：有律所 ID 对应的 OA 地址才可跳（与列表抽屉同一判定），否则纯文本
+        <KV
+          key={k}
+          k={k}
+          v={v}
+          kw={56}
+          href={k === 'OA 编号' && deal.oaUrl ? safeHttpUrl(deal.oaUrl, '#') : undefined}
+        />
       ))}
       {deal.customTerms && <KV k="收费条款" v={deal.customTerms} kw={56} muted />}
     </RailSection>

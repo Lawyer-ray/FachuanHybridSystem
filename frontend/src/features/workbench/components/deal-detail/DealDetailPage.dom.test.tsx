@@ -71,7 +71,7 @@ function makeContract(over: Partial<ContractListItem> = {}): ContractListItem {
     custom_terms: '风险部分按回款 8% 结算',
     representation_stages: ['一审', '二审', '执行'],
     law_firm_oa_url: null,
-    law_firm_oa_case_number: null,
+    law_firm_oa_case_number: '2099GZT0001', // privacy-allow 虚构案号
     has_matched_templates: false,
     can_archive: false,
     case_count: 2,
@@ -388,10 +388,28 @@ describe('DealDetailPage 右栏与档案', () => {
     expect(within(facts).queryByText('收费方式')).toBeNull()
     expect(within(facts).queryByText('代理阶段')).toBeNull()
     expect(within(facts).getByText('签订日期')).toBeTruthy()
+    // 没有律所 ID 对应的 OA 地址：OA 编号是纯文本不是链接（与列表抽屉同一判定）
+    expect(within(facts).getByText('2099GZT0001').tagName).toBe('SPAN') // privacy-allow 虚构案号
     // 全部档案节都在 sticky 右栏卡里，与「期限」同一个 section 容器
     const rail = screen.getByText('期限').closest('section')!
     expect(rail.contains(screen.getByText('当事人 · 2'))).toBe(true)
     expect(rail.contains(screen.getByText('合同要素'))).toBe(true)
     expect(rail.contains(screen.getByText('收款 · 1 笔'))).toBe(true)
+  })
+
+  it('有律所 ID 的 OA 地址：OA 编号渲染为新标签页链接（含 javascript: 伪协议兜到 #）', async () => {
+    getContractMock.mockResolvedValueOnce(
+      makeContract({ law_firm_oa_url: 'https://ims.example.com/project/projectView.aspx?keyid=abc' }),
+    )
+    const first = setupUi()
+    const link = await screen.findByRole('link', { name: '2099GZT0001' }) // privacy-allow 虚构案号
+    expect(link.getAttribute('href')).toBe('https://ims.example.com/project/projectView.aspx?keyid=abc')
+    expect(link.getAttribute('target')).toBe('_blank')
+    first.unmount()
+
+    getContractMock.mockResolvedValueOnce(makeContract({ law_firm_oa_url: 'javascript:alert(1)' }))
+    setupUi()
+    const evil = await screen.findByRole('link', { name: '2099GZT0001' }) // privacy-allow 虚构案号
+    expect(evil.getAttribute('href')).toBe('#')
   })
 })

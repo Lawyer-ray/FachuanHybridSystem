@@ -74,14 +74,39 @@ export function StateDot({ state, size = 11 }: { state: StepState; size?: number
   return <span className={'inline-block flex-none rounded-full ' + cls} style={{ width: size, height: size }} />
 }
 
-/** 键值行（合同要素 / 右栏金额）：键固定宽、值 tabular */
-export function KV({ k, v, kw = 60, full, muted }: { k: string; v: string; kw?: number; full?: boolean; muted?: boolean }) {
+/** 键值行（合同要素 / 右栏金额）：键固定宽、值 tabular；给 href 时值渲染为新标签页链接（如 OA 编号） */
+export function KV({
+  k,
+  v,
+  kw = 60,
+  full,
+  muted,
+  href,
+}: {
+  k: string
+  v: string
+  kw?: number
+  full?: boolean
+  muted?: boolean
+  href?: string
+}) {
   return (
     <div className={'flex items-baseline gap-3 py-[5px] text-[13px] ' + (full ? 'col-span-full' : '')}>
       <span className="flex-none text-[12.5px] text-muted-foreground" style={{ width: kw }}>
         {k}
       </span>
-      <span className={'min-w-0 break-all tabular-nums ' + (muted ? 'leading-[1.7] text-muted-foreground' : 'font-[550]')}>{v}</span>
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          className="min-w-0 font-[550] break-all underline underline-offset-3 tabular-nums transition-colors hover:text-foreground"
+        >
+          {v}
+        </a>
+      ) : (
+        <span className={'min-w-0 break-all tabular-nums ' + (muted ? 'leading-[1.7] text-muted-foreground' : 'font-[550]')}>{v}</span>
+      )}
     </div>
   )
 }
