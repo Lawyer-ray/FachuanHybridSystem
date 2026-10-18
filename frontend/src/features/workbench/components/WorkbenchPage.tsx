@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -11,14 +12,15 @@ import { FilterBar } from './FilterBar'
 
 /**
  * 办案主页：合同全宽大行流 + 业务形态分组（争议解决 / 非诉）+ 右侧详情抽屉。
- * 交互语义（与 38 号原型终态一致）：
- * 左键行 / → = 详情页（开发中提示）；右键行 / 👁 = 抽屉预览。
+ * 交互语义（38 号原型终态 + 详情页落地）：左键行 / → = 详情页（争议解决已建，非诉提示
+ * 开发中）；右键行 / 👁 = 抽屉预览。
  */
 
 /** 默认筛选（与 FilterBar「清除全部筛选」一致）；空态判定也以它为基准 */
 const DEFAULT_FILTER: WorkbenchFilter = { status: 'active', cat: '', fee: '', q: '' }
 
 export function WorkbenchPage() {
+  const navigate = useNavigate()
   const [filter, setFilter] = useState<WorkbenchFilter>(DEFAULT_FILTER)
   const [page, setPage] = useState(1)
   const { deals, total, totalPages, fetching, facets, totalContracts, activeCount, isLoading, error, refetch } =
@@ -26,7 +28,22 @@ export function WorkbenchPage() {
   // open 与 deal 分离：关闭时保留 deal 引用，抽屉才能播完滑出动画（DealSheet 由 Radix 卸载）
   const [sheet, setSheet] = useState<{ open: boolean; deal: WorkbenchDeal | null }>({ open: false, deal: null })
 
-  const detailNotReady = useCallback(() => toast.info('详情页正在开发中（右键行 = 快速预览）'), [])
+  // 空闲预载详情页 chunk：列表行左键是最常见的下一步，点过去不等待下载
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      void import('./deal-detail/DealDetailPage').catch(() => {})
+    }, 1500)
+    return () => window.clearTimeout(t)
+  }, [])
+
+  /** 左键行 / → / 抽屉「详情 →」：争议解决进详情页；非诉详情页另轮设计，先明说 */
+  const openDetail = useCallback(
+    (deal: WorkbenchDeal) => {
+      if (deal.lit) void navigate('/cases/' + deal.id)
+      else toast.info('非诉详情页正在开发中（右键行 = 快速预览）')
+    },
+    [navigate],
+  )
   const openSheet = useCallback((deal: WorkbenchDeal) => setSheet({ open: true, deal }), [])
   /** 筛选变化回第一页 */
   const onFilterChange = useCallback((f: WorkbenchFilter) => {
@@ -98,7 +115,7 @@ export function WorkbenchPage() {
               </div>
               <div className="mt-0.5 overflow-hidden rounded-[14px] border border-border bg-card shadow-sm">
                 {g.deals.map((d) => (
-                  <DealRow key={d.id} deal={d} onOpenSheet={openSheet} onDetailNotReady={detailNotReady} />
+                  <DealRow key={d.id} deal={d} onOpenSheet={openSheet} onOpenDetail={openDetail} />
                 ))}
               </div>
             </section>
@@ -133,6 +150,7 @@ export function WorkbenchPage() {
         deal={sheet.deal}
         open={sheet.open}
         onOpenChange={(open) => !open && setSheet((s) => ({ ...s, open: false }))}
+        onOpenDetail={openDetail}
       />
     </>
   )

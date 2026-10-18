@@ -247,7 +247,10 @@ describe('buildDeals', () => {
     expect(dc[0]!.auth).toBe('佛山中院')
     expect(dc[0]!.auths).toEqual(['佛山中院（法院）'])
     expect(dc[0]!.partyRows).toEqual(['原告：张三'])
-    expect(dc[0]!.contacts).toEqual([{ name: '王五', role: '证人', phone: '138', note: '关键证人', stage: '已通知' }])
+    expect(dc[0]!.parties).toEqual([{ status: '原告', name: '张三' }])
+    expect(dc[0]!.contacts).toEqual([
+      { name: '王五', role: '证人', phone: '138', note: '关键证人', stage: '已通知', authority: '', address: '' },
+    ])
   })
 
   it('buildDeals：团队成员名回落 assignment.lawyer_name → 律师表 real_name → 空', () => {

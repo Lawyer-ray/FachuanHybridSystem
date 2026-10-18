@@ -7,7 +7,7 @@ import { AppNavbar } from '@/components/shared/AppNavbar'
 import { ErrorBoundary, PageErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { BindingsPageLazy, LoginPage, SocialCallbackPage } from '@/features/auth'
 import { HomePageLazy, preloadHomePage } from '@/features/home'
-import { WorkbenchPageLazy, preloadWorkbenchPage } from '@/features/workbench'
+import { DealDetailPageLazy, preloadWorkbenchPage, WorkbenchPageLazy } from '@/features/workbench'
 
 // 材料预处理整域懒加载：它静态引入 pdfjs-dist（~1MB 级），不拆出去的话
 // 登录页/首页的首屏包也要背上它。列表页与详情页共用同一 chunk，切换零成本。
@@ -109,8 +109,10 @@ export default function App() {
           <Route path="/material-prep" element={<DeskPage />} />
           {/* 详情页：/material-prep/:id —— 可刷新、可分享、支持前进后退 */}
           <Route path="/material-prep/:id" element={<DeskPage />} />
-          {/* 办案主页：合同大行流 + 详情抽屉（/cases 对齐后端 cases 域，未来 /cases/:id 个案详情） */}
+          {/* 办案主页：合同大行流 + 详情抽屉（/cases 对齐后端 cases 域） */}
           <Route path="/cases" element={<WorkbenchPageLazy />} />
+          {/* 争议解决详情页：一页一委托（:id = 委托合同 id），合同与案件链在页内融合呈现 */}
+          <Route path="/cases/:id" element={<DealDetailPageLazy />} />
           {/* 个人设置 · 账号绑定：登录只放行已绑定的社交身份，绑定入口在这里 */}
           <Route path="/settings/bindings" element={<BindingsPageLazy />} />
         </Route>

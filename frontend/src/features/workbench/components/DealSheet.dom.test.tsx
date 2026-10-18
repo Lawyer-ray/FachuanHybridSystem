@@ -23,6 +23,7 @@ function makeDeal(over: Partial<WorkbenchDeal> = {}): WorkbenchDeal {
   return {
     id: 1,
     lit: true,
+    caseType: 'civil',
     client: '王五',
     ctype: '民事诉讼',
     no: 'FC-2026-001',
@@ -75,7 +76,9 @@ function makeDealCase(id: number, proc: string, done: boolean): DealCase {
     preserv: null,
     from: '',
     partyRows: [],
+    parties: [],
     logs: [],
+    logReminders: [],
     contacts: [],
   }
 }
@@ -203,7 +206,7 @@ describe('DealSheet 案件按需加载节', () => {
     expect(screen.getByText('二审', { selector: 'b' })).toBeTruthy()
     expect(
       screen.getByText(
-        (_, el) => el?.textContent === '3 个案件 · 一审 → 二审 · 个案详情开发中',
+        (_, el) => el?.textContent === '3 个案件 · 一审 → 二审',
       ),
     ).toBeTruthy()
   })

@@ -20,14 +20,16 @@ interface DealSheetProps {
   /** 开关与 deal 分离：关闭时父组件保留最后一份 deal，让退出动画播完再由 Radix 卸载 */
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** 「详情 →」去向：争议解决进详情页；不传（测试）退化为开发中提示 */
+  onOpenDetail?: (deal: WorkbenchDeal) => void
 }
 
 /**
  * 合同详情抽屉（办案主页唯一浮层）：九节全字段，空节不渲染。
- * 「详情 →」= 开发中提示；当事人/律师行内可复制。
+ * 「详情 →」= 详情页（争议解决）/ 开发中提示（非诉）；当事人/律师行内可复制。
  * 头部只放类型/状态/OA 编号——日期类信息统一在「合同要素」一节，不在头部重复。
  */
-export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
+export function DealSheet({ deal, open, onOpenChange, onOpenDetail }: DealSheetProps) {
   /* 案件明细按需加载：抽屉打开才请求该合同的案件（列表期不拉全量） */
   const { cases, isLoading: casesLoading, error: casesError, refetch: refetchCases } = useContractCases(
     open ? (deal?.id ?? null) : null,
@@ -63,7 +65,7 @@ export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
             <button
               type="button"
               className="-mt-1 float-right ml-3 mr-[30px] h-[30px] rounded-[9px] bg-foreground px-[13px] text-xs font-semibold text-background transition-opacity hover:opacity-85"
-              onClick={() => toast.info('详情页正在开发中')}
+              onClick={() => (onOpenDetail && deal ? onOpenDetail(deal) : toast.info('详情页正在开发中'))}
             >
               详情 →
             </button>
@@ -259,7 +261,8 @@ export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
                       ))}
                     </div>
                     <div className="mt-0.5 text-[10.5px] text-muted-foreground/70">
-                      {cases.length} 个案件 · {stages.map((s) => s.stage).join(' → ')} · 个案详情开发中
+                      {cases.length} 个案件 · {stages.map((s) => s.stage).join(' → ')}
+                      {!deal.lit && ' · 个案详情开发中'}
                     </div>
                   </>
                 )}

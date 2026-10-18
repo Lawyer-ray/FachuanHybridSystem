@@ -1,0 +1,162 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, Navigate, useParams } from 'react-router'
+import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
+
+import {
+  ambiguousStages,
+  buildDeadlines,
+  chainSteps,
+  chainSummary,
+  contactGroups as groupContacts,
+  moneyRows,
+  needsVirtualExec,
+  orderChain,
+} from './detail-domain'
+import { CaseSection, VirtualExecRow } from './CaseSection'
+import { ChainStepper } from './ChainStepper'
+import { DetailArchive } from './DetailArchive'
+import { DetailHeader } from './DetailHeader'
+import { DetailRail } from './DetailRail'
+import { useDealDetail } from './use-deal-detail'
+
+/** 52 号定则：过去在时间轴（案件节日志按日叙事），未来在右栏（期限只在这里预警） */
+export function DealDetailPage() {
+  const { id } = useParams<{ id: string }>()
+  const contractId = Number(id)
+  const valid = Number.isInteger(contractId) && contractId > 0
+  const d = useDealDetail(valid ? contractId : null)
+  /** stepper 跳转后的短暂高亮环（案件 id） */
+  const [hl, setHl] = useState<number | null>(null)
+
+  const ordered = useMemo(() => orderChain(d.cases), [d.cases])
+  const deal = d.deal
+  const virtualExec = deal ? needsVirtualExec(deal.caseType, ordered) : false
+  const steps = useMemo(() => chainSteps(ordered, virtualExec), [ordered, virtualExec])
+  const deadlines = useMemo(
+    () => buildDeadlines(d.contractReminders, ordered, d.caseReminders, d.today),
+    [d.contractReminders, ordered, d.caseReminders, d.today],
+  )
+  const contacts = useMemo(() => groupContacts(ordered), [ordered])
+  const ambiguous = useMemo(() => ambiguousStages(ordered), [ordered])
+  const money = useMemo(() => (deal ? moneyRows(deal, ordered) : []), [deal, ordered])
+
+  /* 创建类动作本轮先占位（样式定稿后接表单）：记日志 / 新增期限 / 立执行案 / 记收款 */
+  const soon = useCallback((what: string) => toast.info(what + '正在开发中'), [])
+  const onAddLog = useCallback(() => soon('记办案日志'), [soon])
+  const onAddDue = useCallback(() => soon('新增期限'), [soon])
+  const onCreateExec = useCallback(() => soon('立执行案'), [soon])
+  const onAddPayment = useCallback(() => soon('记收款'), [soon])
+
+  const jump = useCallback((caseId: number) => {
+    document.getElementById('case-' + caseId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    setHl(caseId)
+  }, [])
+  useEffect(() => {
+    if (hl == null) return
+    const t = window.setTimeout(() => setHl(null), 1800)
+    return () => window.clearTimeout(t)
+  }, [hl])
+
+  if (!valid) return <Navigate to="/cases" replace />
+  if (d.isLoading) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-[90px] text-sm text-muted-foreground">
+        <Loader2 className="size-4 animate-spin" />
+        正在加载委托…
+      </div>
+    )
+  }
+  if (d.error || !deal) {
+    return <DetailError error={d.error ?? '委托不存在'} onRetry={() => d.refetch()} />
+  }
+  if (!deal.lit) {
+    return (
+      <NonLitNotice name={deal.client} />
+    )
+  }
+
+  return (
+    <main className="app-page-enter mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1900px]:max-w-[1560px] max-[680px]:px-3 max-[680px]:pt-4">
+      <DetailHeader deal={deal} onAddDue={onAddDue} onAddLog={onAddLog} />
+
+      <ChainStepper steps={steps} summary={chainSummary(ordered)} onJump={jump} />
+
+      <div className="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-[18px] max-[1024px]:grid-cols-1 min-[1900px]:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="flex min-w-0 flex-col gap-[18px]">
+          {d.casesError ? (
+            <div className="rounded-[12px] border border-destructive/30 bg-destructive/5 px-5 py-4 text-sm text-destructive">
+              {d.casesError} ·{' '}
+              <button type="button" className="cursor-pointer underline underline-offset-3" onClick={() => d.refetch()}>
+                重试
+              </button>
+            </div>
+          ) : d.cases.length === 0 ? (
+            <div className="rounded-[12px] border border-border bg-card px-5 py-8 text-center text-[13px] text-muted-foreground shadow-sm">
+              还没有立案的程序，收案后在办案主页抽屉里可见
+            </div>
+          ) : (
+            <>
+              {ordered.map((c) => (
+                <CaseSection
+                  key={c.id}
+                  c={c}
+                  ambiguous={ambiguous.has(c.proc)}
+                  highlighted={hl === c.id}
+                  onAddLog={onAddLog}
+                />
+              ))}
+            </>
+          )}
+          {virtualExec && <VirtualExecRow onCreate={onCreateExec} />}
+          <DetailArchive deal={deal} onAddPayment={onAddPayment} />
+        </div>
+
+        <DetailRail
+          deadlines={deadlines}
+          today={d.today}
+          contactGroups={contacts}
+          team={deal.team}
+          deal={deal}
+          moneyRows={money}
+          onAddDue={onAddDue}
+        />
+      </div>
+    </main>
+  )
+}
+
+function DetailError({ error, onRetry }: { error: string; onRetry: () => void }) {
+  return (
+    <main className="app-page-enter mx-auto max-w-lg px-6 pt-[80px]">
+      <div className="rounded-[14px] border border-destructive/30 bg-destructive/5 px-5 py-4 text-center text-sm text-destructive">
+        {error}
+        <button type="button" className="ml-3 cursor-pointer underline underline-offset-3" onClick={onRetry}>
+          重试
+        </button>
+        <Link to="/cases" className="ml-3 cursor-pointer underline underline-offset-3">
+          返回办案
+        </Link>
+      </div>
+    </main>
+  )
+}
+
+/** 非诉委托（专项 / 常法）详情页另轮设计（53/54 号），直达时明确说没做而不是硬渲染诉讼骨架 */
+function NonLitNotice({ name }: { name: string }) {
+  return (
+    <main className="app-page-enter mx-auto max-w-lg px-6 pt-[80px] text-center">
+      <div className="mb-2 truncate text-sm font-[550] text-secondary-foreground" title={name}>
+        {name}
+      </div>
+      <div className="rounded-[14px] border border-border bg-card px-5 py-6 text-[13px] text-muted-foreground shadow-sm">
+        非诉详情页正在设计中，档案快览可回办案主页右键行打开
+        <div className="mt-3">
+          <Link to="/cases" className="cursor-pointer underline underline-offset-3">
+            返回办案
+          </Link>
+        </div>
+      </div>
+    </main>
+  )
+}

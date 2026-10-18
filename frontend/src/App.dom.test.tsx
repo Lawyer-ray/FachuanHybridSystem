@@ -52,6 +52,8 @@ vi.mock('@/features/workbench', async () => {
   return {
     WorkbenchPageLazy: lazy(() => stubs.casesChunk.promise),
     preloadWorkbenchPage: stubs.preloadWorkbenchPage,
+    DealDetailPageLazy: lazy(() => Promise.resolve({ default: () => <main>deal-detail-page</main> })),
+    preloadDealDetailPage: vi.fn(() => Promise.resolve()),
   }
 })
 vi.mock('@/features/material-prep', () => ({ DeskPage: () => <main>desk-page</main> }))

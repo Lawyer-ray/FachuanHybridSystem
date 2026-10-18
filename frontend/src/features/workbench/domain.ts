@@ -9,7 +9,7 @@ import type {
 } from './types'
 
 /** 诉讼类 case_type 代码集合（其余视为非诉） */
-const LITIGATION_TYPES = new Set(['civil', 'criminal', 'administrative', 'labor', 'intl'])
+export const LITIGATION_TYPES = new Set(['civil', 'criminal', 'administrative', 'labor', 'intl'])
 
 /* ============ 基础格式化 ============ */
 
@@ -69,6 +69,7 @@ export function buildDealCases(cases: CaseListItem[], today: Date): DealCase[] {
     preserv: x.preservation_amount != null ? Number(x.preservation_amount) : null,
     from: x.start_date || '',
     partyRows: x.parties.map((p) => (p.legal_status || '') + '：' + (p.client_detail?.name || '')),
+    parties: x.parties.map((p) => ({ status: p.legal_status || '', name: p.client_detail?.name || '' })),
     logs: [...x.logs]
       .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
       .map((l) => ({
@@ -79,12 +80,15 @@ export function buildDealCases(cases: CaseListItem[], today: Date): DealCase[] {
         rem: l.reminder_time ? l.reminder_time.slice(0, 10) + ' 到期提醒' : '',
         remToday: !!l.reminder_time && l.reminder_time.slice(0, 10) === todayStr(today),
       })),
+    logReminders: x.logs.flatMap((l) => l.reminders),
     contacts: x.contacts.map((t) => ({
       name: t.name,
       role: t.role_display || '',
       phone: t.phone || '',
       note: t.note || '',
       stage: t.stage_display || '',
+      authority: t.authority_name || '',
+      address: t.address || '',
     })),
   }))
 }
@@ -118,6 +122,7 @@ export function buildDeals(
     return {
       id: c.id,
       lit,
+      caseType: c.case_type,
       client: c.name,
       ctype: c.case_type_label || c.case_type || '',
       no: c.law_firm_oa_case_number || '',
