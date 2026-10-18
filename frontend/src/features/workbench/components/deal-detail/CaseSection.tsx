@@ -57,12 +57,12 @@ export function CaseSection({
       />
 
       {legGroups.length > 0 && (
-        <div className="mx-5 mt-[9px] rounded-[9px] border border-border-light bg-background px-3 py-2 text-[12.5px] leading-[1.9] text-muted-foreground max-[680px]:mx-3.5">
-          {legGroups.map((g, i) => (
-            <span key={g.status}>
-              {i > 0 && <span className="mx-1.5 text-border">·</span>}
+        <div className="mx-5 mt-[9px] flex flex-col gap-px rounded-[9px] border border-border-light bg-background px-3 py-2 text-[12.5px] leading-[1.9] text-muted-foreground max-[680px]:mx-3.5">
+          {/* 一行一个地位，判决书逻辑顺序（原告 → 被告 → 第三人），排序在 legalStatusGroups */}
+          {legGroups.map((g) => (
+            <div key={g.status}>
               <b className="font-[620] text-secondary-foreground">{g.status}</b> {g.names.join('、')}
-            </span>
+            </div>
           ))}
         </div>
       )}

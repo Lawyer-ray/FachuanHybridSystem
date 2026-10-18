@@ -240,6 +240,27 @@ describe('案件节', () => {
     ])
   })
 
+  it('legalStatusGroups：按判决书逻辑排序——原告 → 被告 → 第三人，不看出现顺序；未知地位殿后保序', () => {
+    expect(
+      legalStatusGroups(
+        makeCase({
+          parties: [
+            { status: '被告', name: '乙' },
+            { status: '第三人', name: '丙' },
+            { status: '原告', name: '甲' },
+            { status: '案外人', name: '戊' },
+            { status: '案外人', name: '己' },
+          ],
+        }),
+      ),
+    ).toEqual([
+      { status: '原告', names: ['甲'] },
+      { status: '被告', names: ['乙'] },
+      { status: '第三人', names: ['丙'] },
+      { status: '案外人', names: ['戊', '己'] },
+    ])
+  })
+
   it('timelineEntries：倒序日志翻成升序叙事，日期取前 10 位', () => {
     const c = makeCase({
       logs: [

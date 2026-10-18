@@ -152,7 +152,23 @@ export function caseMetaParts(c: DealCase): MetaPart[] {
   return parts
 }
 
-/** 诉讼地位行：按地位分组保持出现顺序，无地位的归「当事人」 */
+/** 判决书地位顺序：原告系在前、被告系居中、第三人系靠后，执行 / 异议系按裁定书惯例；未知地位殿后保序 */
+const STATUS_RANK: string[] = [
+  '原告',
+  '上诉人',
+  '申请人',
+  '申请执行人',
+  '异议人',
+  '被告',
+  '被上诉人',
+  '被申请人',
+  '被执行人',
+  '第三人',
+  '原审第三人',
+  '当事人',
+]
+
+/** 诉讼地位行：按地位分组并按判决书逻辑排序（原告 → 被告 → 第三人），无地位的归「当事人」 */
 export function legalStatusGroups(c: DealCase): Array<{ status: string; names: string[] }> {
   const groups: Array<{ status: string; names: string[] }> = []
   for (const p of c.parties) {
@@ -162,7 +178,12 @@ export function legalStatusGroups(c: DealCase): Array<{ status: string; names: s
     if (g) g.names.push(p.name)
     else groups.push({ status, names: [p.name] })
   }
-  return groups
+  const rank = (status: string) => {
+    const i = STATUS_RANK.indexOf(status)
+    return i === -1 ? STATUS_RANK.length : i
+  }
+  // Array.prototype.sort 稳定（ES2019+），未知地位之间保持出现顺序
+  return [...groups].sort((a, b) => rank(a.status) - rank(b.status))
 }
 
 export interface TimelineEntry {
