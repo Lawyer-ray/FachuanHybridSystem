@@ -15,32 +15,6 @@ export function Card({ id, className = '', children }: { id?: string; className?
   )
 }
 
-/** 卡片节头：标题 + 计数 / 灰注 + 右侧动作 */
-export function CardHead({
-  title,
-  count,
-  dim,
-  action,
-}: {
-  title: string
-  count?: number | string
-  dim?: string
-  action?: ReactNode
-}) {
-  return (
-    <div className="flex items-center gap-[9px] px-5 pt-[13px] max-[680px]:px-3.5">
-      <b className="text-sm font-[680] tracking-[-0.01em]">{title}</b>
-      {count != null && (
-        <span className="rounded-full bg-secondary px-2 text-[11px] leading-[18px] font-semibold text-muted-foreground tabular-nums">
-          {count}
-        </span>
-      )}
-      {dim && <span className="text-[11.5px] font-medium text-muted-foreground/70">{dim}</span>}
-      {action && <span className="ml-auto flex gap-1.5">{action}</span>}
-    </div>
-  )
-}
-
 /** 创建类按钮：outline 默认 / dark 主动作；sm 用于节内 */
 export function ActionButton({
   dark,

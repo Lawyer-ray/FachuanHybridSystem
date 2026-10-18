@@ -16,12 +16,14 @@ import {
 } from './detail-domain'
 import { CaseSection, NextStageRow } from './CaseSection'
 import { ChainStepper } from './ChainStepper'
-import { DetailArchive } from './DetailArchive'
 import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
 import { useDealDetail } from './use-deal-detail'
 
-/** 52 号定则：过去在时间轴（案件节日志按日叙事），未来在右栏（期限只在这里预警） */
+/**
+ * 52 号定则：过去在时间轴（案件节日志按日叙事），未来在右栏（期限只在这里预警）。
+ * 左列只放案件本身（程序链 + 下一步），合同层面的当事人/收款/补充协议/要素全在右栏卡里。
+ */
 export function DealDetailPage() {
   const { id } = useParams<{ id: string }>()
   const contractId = Number(id)
@@ -110,7 +112,6 @@ export function DealDetailPage() {
             ))
           )}
           {next && !d.casesError && <NextStageRow stage={next} onCreate={onCreateNext} />}
-          <DetailArchive deal={deal} onAddPayment={onAddPayment} />
         </div>
 
         <DetailRail
@@ -121,6 +122,7 @@ export function DealDetailPage() {
           deal={deal}
           moneyRows={money}
           onAddDue={onAddDue}
+          onAddPayment={onAddPayment}
         />
       </div>
     </main>

@@ -5,7 +5,7 @@
  * mock 边界：../../api 四个接口（合同 / 律师 / 按合同案件 / 按案件提醒）。
  * 覆盖：加载态、主标题=合同名 + 页头 meta、程序链按收案日期排序 + stepper 虚节点「执行」、
  * 案件节（案号 chip / 诉讼地位行 / 日志升序）、右栏期限三源合流（今日红 + 已完成剔除）、
- * 档案沉底（当事人 / 收款）、非诉委托给开发中提示、合同加载失败给错误 + 返回、非法 id 重定向。
+ * 右栏档案（当事人 / 收款 / 合同要素全在 sticky 卡里，左列只有案件）、非诉委托给开发中提示、合同加载失败给错误 + 返回、非法 id 重定向。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
@@ -372,18 +372,26 @@ describe('DealDetailPage 右栏与档案', () => {
     expect(screen.getByText(/执业证号 1440120/)).toBeTruthy()
     expect(screen.getByText('标的额')).toBeTruthy()
     expect(screen.getByText('¥50,000 · 半风险')).toBeTruthy()
-    // 风险比例在右栏「涉案与收费」与档案「合同要素」各出现一次
-    expect(screen.getAllByText('8%')).toHaveLength(2)
+    // 风险比例只在「涉案与收费」出现一次：右栏「合同要素」去掉了同卡重复的收费方式/风险比例/代理阶段
+    expect(screen.getAllByText('8%')).toHaveLength(1)
   })
 
-  it('档案沉底：当事人（我方在前 + 角色标签）、合同要素、收款表', async () => {
+  it('合同层面的档案全在右栏卡：当事人（我方在前 + 角色）、收款（含记收款入口）、合同要素；左列不再有档案卡', async () => {
     setupUi()
-    await screen.findByText('当事人')
+    await screen.findByText('当事人 · 2')
     expect(screen.getByText('委托人')).toBeTruthy()
     expect(screen.getByText('对方当事人')).toBeTruthy()
-    expect(screen.getByText('合同要素')).toBeTruthy()
-    expect(screen.getByText('收款')).toBeTruthy()
+    expect(screen.getByText('收款 · 1 笔')).toBeTruthy()
     expect(screen.getByText(/前期律师费/)).toBeTruthy()
     expect(screen.getByText('＋ 记收款')).toBeTruthy()
+    const facts = screen.getByText('合同要素').closest('div')!.parentElement!
+    expect(within(facts).queryByText('收费方式')).toBeNull()
+    expect(within(facts).queryByText('代理阶段')).toBeNull()
+    expect(within(facts).getByText('签订日期')).toBeTruthy()
+    // 全部档案节都在 sticky 右栏卡里，与「期限」同一个 section 容器
+    const rail = screen.getByText('期限').closest('section')!
+    expect(rail.contains(screen.getByText('当事人 · 2'))).toBe(true)
+    expect(rail.contains(screen.getByText('合同要素'))).toBe(true)
+    expect(rail.contains(screen.getByText('收款 · 1 笔'))).toBe(true)
   })
 })

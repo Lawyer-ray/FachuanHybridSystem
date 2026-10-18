@@ -4,9 +4,15 @@ import { copyTextToClipboard } from '../../domain'
 import type { DealContact, DealTeamMember, WorkbenchDeal } from '../../types'
 import type { Deadline } from './detail-domain'
 import { dueLabel } from './detail-domain'
+import { RailFacts, RailParties, RailPayments, RailSupps } from './RailArchive'
 import { Card, CopyText, KV, RailAction, RailSection } from './ui'
 
-/** 右栏 sticky 运营栏：期限（未来预警）· 法院联系人 · 律师 · 涉案与收费。红色只给「今天」。 */
+/**
+ * 右栏合同卡：期限（未来预警，红色只给「今天」）· 当事人 · 法院联系人 · 律师 · 涉案与收费 ·
+ * 收款 · 补充协议 · 合同要素。合同层面的信息全在这张卡里，左列只放案件程序链。
+ * 不做 sticky：卡片常比视口高，钉住就得卡内滚动，收款/合同要素会被裁在看不见的地方；
+ * 随页面流动才能一眼看全。
+ */
 export function DetailRail({
   deadlines,
   today,
@@ -15,6 +21,7 @@ export function DetailRail({
   deal,
   moneyRows,
   onAddDue,
+  onAddPayment,
 }: {
   deadlines: Deadline[]
   today: Date
@@ -23,13 +30,14 @@ export function DetailRail({
   deal: WorkbenchDeal
   moneyRows: Array<[string, string]>
   onAddDue: () => void
+  onAddPayment: () => void
 }) {
   const copy = (text: string) => {
     void copyTextToClipboard(text).then(() => toast.success('已复制'))
   }
 
   return (
-    <Card className="sticky top-[76px] max-[1024px]:static">
+    <Card>
       <RailSection
         title="期限"
         action={
@@ -67,6 +75,8 @@ export function DetailRail({
           ))
         )}
       </RailSection>
+
+      <RailParties deal={deal} />
 
       {contactGroups.length > 0 && (
         <RailSection title="法院联系人">
@@ -127,6 +137,10 @@ export function DetailRail({
           ))}
         </RailSection>
       )}
+
+      <RailPayments deal={deal} onAdd={onAddPayment} />
+      <RailSupps deal={deal} />
+      <RailFacts deal={deal} />
     </Card>
   )
 }

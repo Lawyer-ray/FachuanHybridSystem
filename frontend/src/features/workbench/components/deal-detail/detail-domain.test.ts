@@ -16,6 +16,8 @@ import {
   nextStage,
   orderChain,
   planCases,
+  railFacts,
+  railParties,
   timelineEntries,
 } from './detail-domain'
 
@@ -314,6 +316,29 @@ describe('右栏', () => {
     expect(moneyRows(makeDeal({ amount: null, fee: '固定收费', riskRate: null, totalReceived: null }), [])).toEqual([
       ['收费方式', '固定收费'],
     ])
+  })
+
+  it('railFacts：抽屉同款要素去掉同卡重复的收费方式 / 风险比例 / 代理阶段，其余保留', () => {
+    const facts = railFacts(makeDeal({ specified: '2025-03-01', from: '2025-03-12', stages: ['一审', '二审'], no: 'OA-1' }))
+    const keys = facts.map(([k]) => k)
+    expect(keys).not.toContain('收费方式')
+    expect(keys).not.toContain('风险比例')
+    expect(keys).not.toContain('代理阶段')
+    expect(keys).toEqual(expect.arrayContaining(['指定日期', '签订日期', '建档编号', 'OA 编号']))
+  })
+
+  it('railParties：我方在前，firstOther 指向首个对方（全是我方 / 全是对方时为 -1 或 0）', () => {
+    const { rows, firstOther } = railParties(makeDeal())
+    expect(rows.map((p) => [p.name, p.ours])).toEqual([
+      ['某银行', true],
+      ['某公司', false],
+      ['某五金', false],
+    ])
+    expect(firstOther).toBe(1)
+    expect(railParties(makeDeal({ partiesAll: [] })).firstOther).toBe(-1)
+    expect(
+      railParties(makeDeal({ partiesAll: [{ name: '甲', role: '对方', idno: '', legalRep: '', phone: '', address: '', ours: false }] })).firstOther,
+    ).toBe(0)
   })
 })
 

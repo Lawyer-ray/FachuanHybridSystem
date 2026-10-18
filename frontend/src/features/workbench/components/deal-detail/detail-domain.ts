@@ -1,5 +1,5 @@
-import { daysFromToday, fmtMoney } from '../../domain'
-import type { ContractReminder, DealCase, DealContact, ReminderOut, WorkbenchDeal } from '../../types'
+import { daysFromToday, dealFacts, fmtMoney } from '../../domain'
+import type { ContractReminder, DealCase, DealContact, DealParty, ReminderOut, WorkbenchDeal } from '../../types'
 
 /* ============ 程序链 ============ */
 
@@ -278,6 +278,20 @@ export function moneyRows(deal: WorkbenchDeal, ordered: DealCase[]): Array<[stri
     ['未收款', deal.unpaid ?? ''],
   ]
   return rows.filter(([, v]) => !!v)
+}
+
+/** 与右栏其他节重复的合同要素：收费方式/风险比例已在「涉案与收费」，代理阶段就是 stepper */
+const RAIL_FACT_DROP = new Set(['收费方式', '风险比例', '代理阶段'])
+
+/** 右栏「合同要素」：抽屉同款 dealFacts 去掉同卡重复项 */
+export function railFacts(deal: WorkbenchDeal): Array<[string, string]> {
+  return dealFacts(deal).filter(([k]) => !RAIL_FACT_DROP.has(k))
+}
+
+/** 右栏「当事人」：我方在前；返回首个对方的下标（>0 时该行上方留白断组，不用标签） */
+export function railParties(deal: WorkbenchDeal): { rows: DealParty[]; firstOther: number } {
+  const rows = [...deal.partiesAll].sort((a, b) => Number(b.ours) - Number(a.ours))
+  return { rows, firstOther: rows.findIndex((p) => !p.ours) }
 }
 
 /* ============ 页头 ============ */
