@@ -4,8 +4,8 @@ import type { ChainStep } from './detail-domain'
 import { Card, StateDot } from './ui'
 
 /**
- * 程序链 stepper：一屏看清「到哪了」——已结 ● / 在办 ◎ / 未启动 ◌，
- * 点击滚动到对应案件节（执行虚节点不可点）。窄屏横向滚动。
+ * 程序链 stepper：合同勾选的阶段 ∪ 实际案件阶段，按程序序一屏看清「到哪了」——
+ * 已结 ● / 在办 ◎ / 未启动 ◌；同阶段多案（分叉）标 ×N。点击滚到该阶段首个案件节，未启动不可点。
  */
 export function ChainStepper({
   steps,
@@ -35,7 +35,8 @@ export function ChainStepper({
             <span className="whitespace-nowrap">
               <span className={'text-[13.5px] tracking-[-0.01em] ' + (s.state === 'todo' ? 'font-medium text-muted-foreground' : 'font-[620] text-foreground')}>
                 {s.stage}
-              </span>{' '}
+              </span>
+              {s.n > 1 && <span className="ml-0.5 text-[10px] font-semibold text-muted-foreground/70 tabular-nums">×{s.n}</span>}{' '}
               <span className="text-[11px] whitespace-nowrap text-muted-foreground/80 tabular-nums">{s.sub}</span>
             </span>
           </button>

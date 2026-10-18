@@ -6,14 +6,15 @@ import { toast } from 'sonner'
 import {
   ambiguousStages,
   buildDeadlines,
+  buildStagePlan,
   chainSteps,
   chainSummary,
   contactGroups as groupContacts,
   moneyRows,
-  needsVirtualExec,
-  orderChain,
+  nextStage,
+  planCases,
 } from './detail-domain'
-import { CaseSection, VirtualExecRow } from './CaseSection'
+import { CaseSection, NextStageRow } from './CaseSection'
 import { ChainStepper } from './ChainStepper'
 import { DetailArchive } from './DetailArchive'
 import { DetailHeader } from './DetailHeader'
@@ -29,23 +30,25 @@ export function DealDetailPage() {
   /** stepper 跳转后的短暂高亮环（案件 id） */
   const [hl, setHl] = useState<number | null>(null)
 
-  const ordered = useMemo(() => orderChain(d.cases), [d.cases])
   const deal = d.deal
-  const virtualExec = deal ? needsVirtualExec(deal.caseType, ordered) : false
-  const steps = useMemo(() => chainSteps(ordered, virtualExec), [ordered, virtualExec])
+  // 程序计划以合同勾选的代理阶段为纲、案件实际阶段为实：勾了没立的是未启动，立了没勾的照样展示
+  const plan = useMemo(() => buildStagePlan(deal?.stages ?? [], d.cases), [deal?.stages, d.cases])
+  const ordered = useMemo(() => planCases(plan), [plan])
+  const steps = useMemo(() => chainSteps(plan), [plan])
+  const next = nextStage(plan)
   const deadlines = useMemo(
     () => buildDeadlines(d.contractReminders, ordered, d.caseReminders, d.today),
     [d.contractReminders, ordered, d.caseReminders, d.today],
   )
   const contacts = useMemo(() => groupContacts(ordered), [ordered])
-  const ambiguous = useMemo(() => ambiguousStages(ordered), [ordered])
+  const ambiguous = useMemo(() => ambiguousStages(plan), [plan])
   const money = useMemo(() => (deal ? moneyRows(deal, ordered) : []), [deal, ordered])
 
-  /* 创建类动作本轮先占位（样式定稿后接表单）：记日志 / 新增期限 / 立执行案 / 记收款 */
+  /* 创建类动作本轮先占位（样式定稿后接表单）：记日志 / 新增期限 / 新建下一程序案件 / 记收款 */
   const soon = useCallback((what: string) => toast.info(what + '正在开发中'), [])
   const onAddLog = useCallback(() => soon('记办案日志'), [soon])
   const onAddDue = useCallback(() => soon('新增期限'), [soon])
-  const onCreateExec = useCallback(() => soon('立执行案'), [soon])
+  const onCreateNext = useCallback(() => soon('新建' + (next ?? '') + '案件'), [soon, next])
   const onAddPayment = useCallback(() => soon('记收款'), [soon])
 
   const jump = useCallback((caseId: number) => {
@@ -80,7 +83,7 @@ export function DealDetailPage() {
     <main className="app-page-enter mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1900px]:max-w-[1560px] max-[680px]:px-3 max-[680px]:pt-4">
       <DetailHeader deal={deal} onAddDue={onAddDue} onAddLog={onAddLog} />
 
-      <ChainStepper steps={steps} summary={chainSummary(ordered)} onJump={jump} />
+      <ChainStepper steps={steps} summary={chainSummary(plan)} onJump={jump} />
 
       <div className="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-[18px] max-[1024px]:grid-cols-1 min-[1900px]:grid-cols-[minmax(0,1fr)_360px]">
         <div className="flex min-w-0 flex-col gap-[18px]">
@@ -91,24 +94,22 @@ export function DealDetailPage() {
                 重试
               </button>
             </div>
-          ) : d.cases.length === 0 ? (
+          ) : plan.length === 0 ? (
             <div className="rounded-[12px] border border-border bg-card px-5 py-8 text-center text-[13px] text-muted-foreground shadow-sm">
-              还没有立案的程序，收案后在办案主页抽屉里可见
+              合同没有勾选代理阶段，也还没有立案的程序
             </div>
           ) : (
-            <>
-              {ordered.map((c) => (
-                <CaseSection
-                  key={c.id}
-                  c={c}
-                  ambiguous={ambiguous.has(c.proc)}
-                  highlighted={hl === c.id}
-                  onAddLog={onAddLog}
-                />
-              ))}
-            </>
+            ordered.map((c) => (
+              <CaseSection
+                key={c.id}
+                c={c}
+                ambiguous={ambiguous.has(c.proc)}
+                highlighted={hl === c.id}
+                onAddLog={onAddLog}
+              />
+            ))
           )}
-          {virtualExec && <VirtualExecRow onCreate={onCreateExec} />}
+          {next && !d.casesError && <NextStageRow stage={next} onCreate={onCreateNext} />}
           <DetailArchive deal={deal} onAddPayment={onAddPayment} />
         </div>
 

@@ -69,7 +69,7 @@ function makeContract(over: Partial<ContractListItem> = {}): ContractListItem {
     fixed_amount: '50000',
     risk_rate: '8',
     custom_terms: '风险部分按回款 8% 结算',
-    representation_stages: ['一审', '二审'],
+    representation_stages: ['一审', '二审', '执行'],
     law_firm_oa_url: null,
     law_firm_oa_case_number: null,
     has_matched_templates: false,
@@ -268,7 +268,7 @@ describe('DealDetailPage 加载与页头', () => {
 })
 
 describe('DealDetailPage 程序链与案件节', () => {
-  it('stepper 按收案日期排（一审 → 二审），尾随「执行 未启动」虚节点；摘要计数', async () => {
+  it('合同勾选 一审/二审/执行、案件 一审已结+二审在办：stepper 一审 → 二审 → 执行(未启动)，下一步行=新建执行案件；摘要只数已有案件', async () => {
     setupUi()
     await screen.findByRole('heading', { level: 1 })
     const jump1 = await screen.findByTitle('跳到 一审')
@@ -276,7 +276,44 @@ describe('DealDetailPage 程序链与案件节', () => {
     expect(jump1.compareDocumentPosition(jump2) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getByTitle('未启动')).toBeTruthy()
     expect(screen.getByText('2 个案件 · 一审 → 二审')).toBeTruthy()
-    expect(screen.getByText('＋ 立执行案')).toBeTruthy()
+    expect(screen.getByText('＋ 新建执行案件')).toBeTruthy()
+  })
+
+  it('322 号形态：合同按枚举序勾「一审、二审、劳动仲裁」，页面按程序序排 劳动仲裁 → 一审 → 二审；下一步=二审；没有执行', async () => {
+    getContractMock.mockResolvedValueOnce(makeContract({ representation_stages: ['一审', '二审', '劳动仲裁'] }))
+    casesMock.mockResolvedValueOnce([
+      makeCase({ id: 1, status: '已结案', current_stage: '劳动仲裁', start_date: '2026-07-07' }),
+      makeCase({ id: 2, current_stage: '一审', start_date: '2026-10-12' }),
+    ])
+    setupUi()
+    await screen.findByRole('heading', { level: 1 })
+    const arb = await screen.findByTitle('跳到 劳动仲裁')
+    const first = screen.getByTitle('跳到 一审')
+    expect(arb.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByTitle('未启动').textContent).toContain('二审')
+    expect(screen.getByText('＋ 新建二审案件')).toBeTruthy()
+    expect(screen.queryByText(/执行/)).toBeNull()
+    expect(screen.getByText('2 个案件 · 劳动仲裁 → 一审')).toBeTruthy()
+  })
+
+  it('合同一个阶段都没勾：只按案件出节点，没有下一步行', async () => {
+    getContractMock.mockResolvedValueOnce(makeContract({ representation_stages: [] }))
+    setupUi()
+    await screen.findByTitle('跳到 二审')
+    expect(screen.queryByTitle('未启动')).toBeNull()
+    expect(screen.queryByText(/新建.*案件/)).toBeNull()
+  })
+
+  it('同阶段两案（分叉）：stepper 标 ×2，两节标题各带案名消歧', async () => {
+    casesMock.mockResolvedValueOnce([
+      makeCase({ id: 1, name: '对甲的一审', start_date: '2026-03-04' }),
+      makeCase({ id: 2, name: '对乙的一审', start_date: '2026-03-09' }),
+    ])
+    setupUi()
+    await screen.findByTitle('跳到 一审')
+    expect(screen.getByText('×2')).toBeTruthy()
+    expect(screen.getByText('对甲的一审')).toBeTruthy()
+    expect(screen.getByText('对乙的一审')).toBeTruthy()
   })
 
   it('案件节：案号 chip、meta 机构/收案/案由/标的/保全、诉讼地位随案变化、日志升序叙事', async () => {

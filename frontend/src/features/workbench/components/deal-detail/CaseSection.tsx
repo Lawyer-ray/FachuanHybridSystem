@@ -105,16 +105,16 @@ export function CaseSection({
   )
 }
 
-/** 执行虚节点：判决生效后可立执行案（可按被执行人分立多线） */
-export function VirtualExecRow({ onCreate }: { onCreate: () => void }) {
+/** 「下一步」行：合同勾选、紧接最后一个已启动阶段之后、还没立案的那个程序 */
+export function NextStageRow({ stage, onCreate }: { stage: string; onCreate: () => void }) {
   return (
     <Card className="flex flex-wrap items-center gap-3 px-5 py-3.5 max-[680px]:px-3.5">
       <span className="size-[11px] flex-none rounded-full border-[1.5px] border-dashed border-border" />
-      <span className="text-sm font-[620] text-muted-foreground">执行</span>
-      <span className="text-[12.5px] text-muted-foreground/70">判决生效后启动 · 可按被执行人分立多线</span>
+      <span className="text-sm font-[620] text-muted-foreground">{stage}</span>
+      <span className="text-[12.5px] text-muted-foreground/70">未启动 · 合同已勾选的下一程序</span>
       <span className="ml-auto max-[680px]:ml-0">
-        <ActionButton onClick={onCreate} title="新建执行案">
-          ＋ 立执行案
+        <ActionButton onClick={onCreate} title={'新建' + stage + '案件'}>
+          ＋ 新建{stage}案件
         </ActionButton>
       </span>
     </Card>
