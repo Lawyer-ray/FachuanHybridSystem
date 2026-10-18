@@ -113,7 +113,6 @@ export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
                         </span>
                         <span className={'ml-2 text-[10.5px] text-muted-foreground ' + (p.ours ? 'text-foreground' : '')}>
                           {p.role || '当事人'}
-                          {p.type ? ' · ' + p.type : ''}
                         </span>
                       </div>
                       <CopyButton title="复制该当事人信息" getText={() => partyCopyText(p)} />

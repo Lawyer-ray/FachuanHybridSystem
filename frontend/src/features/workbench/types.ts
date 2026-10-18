@@ -109,11 +109,10 @@ export interface DealCase {
   contacts: DealContact[]
 }
 
-/** 抽屉里的当事人行（含复制用全字段） */
+/** 抽屉里的当事人行（含复制用全字段）。法人/自然人不入模型——名字本身已表达，不再展示 */
 export interface DealParty {
   name: string
   role: string
-  type: string
   idno: string
   legalRep: string
   phone: string

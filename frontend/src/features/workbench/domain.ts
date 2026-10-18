@@ -132,7 +132,6 @@ export function buildDeals(
         return {
           name: cd?.name || '',
           role: p.role_label || '',
-          type: cd?.client_type_label || '',
           idno: cd?.id_number || '',
           legalRep: cd?.legal_representative || '',
           phone: cd?.phone || '',
@@ -189,7 +188,7 @@ export function groupDeals(list: WorkbenchDeal[]): DealGroup[] {
 /* ============ 当事人 / 律师复制文本 ============ */
 
 export function partyCopyText(p: DealParty): string {
-  const lines = [p.name + '（' + (p.role || '当事人') + (p.type ? ' · ' + p.type : '') + '）']
+  const lines = [p.name + '（' + (p.role || '当事人') + '）']
   if (p.legalRep) lines.push('法定代表人：' + p.legalRep)
   if (p.idno) lines.push('证件号：' + p.idno)
   if (p.phone) lines.push('电话：' + p.phone)

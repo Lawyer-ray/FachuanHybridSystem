@@ -294,9 +294,9 @@ describe('groupDeals', () => {
 })
 
 describe('复制文本', () => {
-  it('当事人：空字段跳过，角色与类型拼接', () => {
-    expect(partyCopyText({ name: '张三', role: '委托人', type: '自然人', idno: '4401', legalRep: '', phone: '138', address: '', ours: true })).toBe(
-      '张三（委托人 · 自然人）\n证件号：4401\n电话：138',
+  it('当事人：空字段跳过，角色拼接（法人/自然人不再入文案）', () => {
+    expect(partyCopyText({ name: '张三', role: '委托人', idno: '4401', legalRep: '', phone: '138', address: '', ours: true })).toBe(
+      '张三（委托人）\n证件号：4401\n电话：138',
     )
   })
   it('律师：主办标注、主办回落合同律所', () => {

@@ -127,8 +127,8 @@ describe('DealSheet 字段渲染', () => {
     setupUi(
       makeDeal({
         partiesAll: [
-          { name: '赵六', role: '对方当事人', type: '自然人', idno: '', legalRep: '', phone: '', address: '', ours: false },
-          { name: '王五', role: '委托人', type: '自然人', idno: '', legalRep: '', phone: '', address: '', ours: true },
+          { name: '赵六', role: '对方当事人', idno: '', legalRep: '', phone: '', address: '', ours: false },
+          { name: '王五', role: '委托人', idno: '', legalRep: '', phone: '', address: '', ours: true },
         ],
       }),
       true,
@@ -138,6 +138,8 @@ describe('DealSheet 字段渲染', () => {
     const other = screen.getByText('赵六', { selector: 'span' })
     expect(ours.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getAllByTitle('复制该当事人信息')).toHaveLength(2)
+    // 法人/自然人不再展示：角色标签只剩角色本身
+    expect(screen.queryByText(/自然人|法人/)).toBeNull()
   })
 
   it('空节不渲染：无当事人/团队/提醒时不出现对应节', () => {
