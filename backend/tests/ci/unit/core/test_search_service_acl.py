@@ -2,7 +2,7 @@
 
 覆盖：
 1. search_cases / search_contracts 按 CaseAccessPolicy / ContractAccessPolicy 过滤
-2. search_clients 按 client.view_client 功能级权限过滤 + 手机号打码
+2. search_clients 按 client.view_client 功能级权限过滤；电话原样出参（2026-10 撤除打码）+ 我方/对方 side
 3. search_court_sms 按案件 ACL 过滤，公共短信全员可见
 4. search_contacts 非管理员返回空
 5. resolve_request_org_access：JWT 场景 org_access 缺失时补算
@@ -23,7 +23,6 @@ from apps.client.models import Client
 from apps.contacts.models import CaseContact
 from apps.contracts.models import ContractAssignment
 from apps.core.services.search_service import (
-    _mask_phone,
     search_cases,
     search_clients,
     search_contacts,
@@ -123,23 +122,49 @@ class TestClientSearchAcl:
         assert search_clients("张三丰", 10, user=LawyerFactory()) == []
 
     @pytest.mark.django_db
-    def test_admin_gets_masked_phone(self) -> None:
+    def test_admin_gets_full_phone_and_opposing_side(self) -> None:
+        """电话原样出参；is_our_client 默认 False → 对方。"""
         Client.objects.create(name="张三丰", phone="13812341234")
         admin = LawyerFactory(is_admin=True)
 
         results = search_clients("张三丰", 10, user=admin)
         assert len(results) == 1
-        assert results[0].subtitle == "138****1234"
-        assert "13812341234" not in results[0].subtitle
+        assert results[0].subtitle == "13812341234"
+        assert results[0].side == "opposing"
 
     @pytest.mark.django_db
-    def test_search_by_full_phone_still_finds_but_masks(self) -> None:
+    def test_our_client_gets_ours_side(self) -> None:
+        Client.objects.create(name="我方公司", phone="13900001111", is_our_client=True)
+        admin = LawyerFactory(is_admin=True)
+
+        results = search_clients("我方公司", 10, user=admin)
+        assert [r.side for r in results] == ["ours"]
+
+    @pytest.mark.django_db
+    def test_landline_phone_kept_verbatim(self) -> None:
+        """回归：此前座机（含分隔符）被整串打成星号（****-********），用户完全看不到。"""
+        Client.objects.create(name="座机公司", phone="0757-22334455")
+        admin = LawyerFactory(is_admin=True)
+
+        results = search_clients("座机公司", 10, user=admin)
+        assert results[0].subtitle == "0757-22334455"
+
+    @pytest.mark.django_db
+    def test_search_by_full_phone_returns_full_phone(self) -> None:
         Client.objects.create(name="李四", phone="13900001111")
         admin = LawyerFactory(is_admin=True)
 
         results = search_clients("13900001111", 10, user=admin)
         assert len(results) == 1
-        assert results[0].subtitle == "139****1111"
+        assert results[0].subtitle == "13900001111"
+
+    @pytest.mark.django_db
+    def test_empty_phone_gives_empty_subtitle(self) -> None:
+        Client.objects.create(name="无电话", phone="")
+        admin = LawyerFactory(is_admin=True)
+
+        results = search_clients("无电话", 10, user=admin)
+        assert results[0].subtitle == ""
 
 
 class TestCourtSmsSearchAcl:
@@ -192,19 +217,6 @@ class TestContactsSearchAdminOnly:
         assert results[0].title == "王法官"
 
 
-class TestMaskPhone:
-    def test_mobile_masked(self) -> None:
-        assert _mask_phone("13812341234") == "138****1234"
-
-    def test_short_or_non_digit_masked_fully(self) -> None:
-        assert _mask_phone("123456") == "******"
-        assert _mask_phone("0755-1234567") == "****-*******"
-
-    def test_empty(self) -> None:
-        assert _mask_phone("") == ""
-        assert _mask_phone(None) == ""
-
-
 class TestResolveRequestOrgAccess:
     @pytest.mark.django_db
     def test_missing_org_access_is_computed_and_backfilled(self) -> None:
@@ -252,12 +264,12 @@ class TestGlobalSearchEndpoint:
     # 视图内搜索走 thread_sensitive=False 工作线程（独立 DB 连接），
     # 须用事务库让数据跨连接可见
     @pytest.mark.django_db(transaction=True)
-    def test_http_admin_search_masks_phone(self) -> None:
-        """HTTP 层冒烟：管理员经会话认证搜索，手机号出参已打码。"""
+    def test_http_admin_search_returns_full_phone_and_side(self) -> None:
+        """HTTP 层冒烟：管理员经会话认证搜索，电话原样出参，side 透出到 JSON。"""
         from django.test import Client as TestClient
 
         admin = LawyerFactory(is_admin=True, is_staff=True)
-        Client.objects.create(name="赵五", phone="13711112222")
+        Client.objects.create(name="赵五", phone="13711112222", is_our_client=True)
         case = CaseFactory(name="HTTP冒烟案件")
 
         client = TestClient()
@@ -268,10 +280,14 @@ class TestGlobalSearchEndpoint:
         assert any(item["id"] == case.id for item in payload["cases"])
         # 未命中关键词的客户不出现在结果里
         assert payload["clients"] == []
+        # 非当事人类别 side 恒为空串
+        assert all(item["side"] == "" for item in payload["cases"])
 
         resp_client = client.get("/api/v1/search", {"q": "赵五"})
         assert resp_client.status_code == 200
-        assert [c["subtitle"] for c in resp_client.json()["clients"]] == ["137****2222"]
+        hits = resp_client.json()["clients"]
+        assert [c["subtitle"] for c in hits] == ["13711112222"]
+        assert [c["side"] for c in hits] == ["ours"]
 
     @pytest.mark.django_db(transaction=True)
     def test_http_lawyer_cannot_see_others_case(self) -> None:

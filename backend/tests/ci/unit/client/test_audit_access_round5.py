@@ -2,7 +2,7 @@
 
 覆盖：
 - related-items：按查询用户过滤案件/合同关联（律师 A 拿不到 B 的案件/合同）
-- ClientOut / ClientLiteOut 证件号出参打码（库里原文不变）
+- ClientOut / ClientLiteOut 证件号原样出参（出参打码已于 2026-10 撤除；mask 工具单测保留）
 - delete_client 同步清理 historicalclient 快照（身份证号残留）
 """
 
@@ -117,7 +117,7 @@ class TestRelatedItemsAccess:
         assert [c["id"] for c in result["cases"]] == [case.id]
 
 
-# ── Item 3: 证件号出参打码 ───────────────────────────────────────────────────
+# ── Item 3: 证件号出参（打码工具单测 + 出参原样透传） ────────────────────────
 
 
 class TestIdNumberMasking:
@@ -140,8 +140,11 @@ class TestIdNumberMasking:
 
 
 @pytest.mark.django_db
-class TestClientOutMasking:
-    def test_client_out_masks_id_numbers(self):
+class TestClientOutIdNumberPassthrough:
+    """证件号原样出参（2026-10 撤除出参打码：本机部署、办案需完整证件号）。
+    IdCardUtils.mask_id_number 工具保留给日志脱敏等场景，但 API 出参不再调用。"""
+
+    def test_client_out_returns_full_id_numbers(self):
         client = ClientFactory(
             client_type="natural",
             id_number="110101199001011234",
@@ -149,23 +152,25 @@ class TestClientOutMasking:
         )
         data = ClientOut.from_orm(client).model_dump()
 
-        assert data["id_number"] == "110***********1234"
-        assert data["legal_representative_id_number"] == "110***********8888"
-        # 库里原文不变（service 层仍读全文）
-        client.refresh_from_db()
-        assert client.id_number == "110101199001011234"
+        assert data["id_number"] == "110101199001011234"
+        assert data["legal_representative_id_number"] == "110101198808088888"
 
-    def test_client_lite_out_masks_id_numbers(self):
-        client = ClientFactory(id_number="110101199001011234")
+    def test_client_lite_out_returns_full_id_numbers(self):
+        client = ClientFactory(
+            id_number="110101199001011234",
+            legal_representative_id_number="110101198808088888",
+        )
         out = ClientLiteOut.from_model(client)
 
-        assert out.id_number == "110***********1234"
-        client.refresh_from_db()
-        assert client.id_number == "110101199001011234"
+        assert out.id_number == "110101199001011234"
+        assert out.legal_representative_id_number == "110101198808088888"
 
-    def test_short_id_number_fully_masked(self):
-        client = ClientFactory(id_number="12345")
-        assert ClientOut.from_orm(client).model_dump()["id_number"] == "****"
+    def test_client_out_dict_revalidation_keeps_full_id_number(self):
+        # response= 出口会对 model_dump 结果做 dict re-validation，确认该路径同样不打码
+        client = ClientFactory(id_number="110101199001011234")
+        first = ClientOut.from_orm(client).model_dump()
+        again = ClientOut.model_validate(first).model_dump()
+        assert again["id_number"] == "110101199001011234"
 
 
 # ── Item 8c: 删除客户清理历史快照 ────────────────────────────────────────────

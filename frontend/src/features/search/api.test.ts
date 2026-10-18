@@ -48,20 +48,36 @@ describe('runSearch 分组拉平', () => {
     expect(hits.some((h) => h.id === 99)).toBe(false)
   })
 
-  it('类别内保持后端数组顺序，字段透传为统一 Hit 形状', async () => {
+  it('类别内保持后端数组顺序，字段透传为统一 Hit 形状（非当事人类 side 为空串）', async () => {
     getMock.mockResolvedValueOnce(
       respond({
         cases: [
-          { id: 11, title: '案件A', subtitle: '在办' },
-          { id: 12, title: '案件B', subtitle: '已结案' },
+          { id: 11, title: '案件A', subtitle: '在办', side: '' },
+          { id: 12, title: '案件B', subtitle: '已结案', side: '' },
         ],
       }),
     )
     const hits = await runSearch('案件')
     expect(hits).toEqual([
-      { category: 'cases', id: 11, title: '案件A', subtitle: '在办' },
-      { category: 'cases', id: 12, title: '案件B', subtitle: '已结案' },
+      { category: 'cases', id: 11, title: '案件A', subtitle: '在办', side: '' },
+      { category: 'cases', id: 12, title: '案件B', subtitle: '已结案', side: '' },
     ])
+  })
+
+  it('当事人 side（我方/对方）原样透传；后端缺字段时兜成空串', async () => {
+    getMock.mockResolvedValueOnce(
+      respond({
+        clients: [
+          { id: 2, title: '我方公司', subtitle: '13800000000', side: 'ours' },
+          { id: 3, title: '对方公司', subtitle: '0757-22334455', side: 'opposing' },
+          { id: 4, title: '旧后端无字段', subtitle: '' },
+        ],
+      }),
+    )
+    const hits = await runSearch('公司')
+    expect(hits.map((h) => h.side)).toEqual(['ours', 'opposing', ''])
+    // 电话原样透传，不在前端再做任何打码
+    expect(hits[1]?.subtitle).toBe('0757-22334455')
   })
 
   it('后端某类别缺字段（undefined/null）按空数组跳过', async () => {
