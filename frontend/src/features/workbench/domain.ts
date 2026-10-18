@@ -39,6 +39,17 @@ export function todayStr(today: Date): string {
   return today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate())
 }
 
+/**
+ * 后端日期统一是 ISO 中划线（2026-09-01 或带时间的 2026-09-01T09:00:00Z），
+ * 展示层统一转标准年月日「2026年9月1日」；不像日期的原样返回，不吞值。
+ */
+export function fmtCNDate(v: string | null | undefined): string {
+  if (!v) return ''
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v)
+  if (!m) return v
+  return m[1] + '年' + Number(m[2]) + '月' + Number(m[3]) + '日'
+}
+
 /* ============ 三源合并：合同 × 案件 × 律师 → WorkbenchDeal ============ */
 
 /** 案件 → 抽屉域模型（明细按需加载后调用） */
@@ -144,7 +155,7 @@ export function buildDeals(
       caseCount: c.case_count ?? 0,
       work: c.reminders.map((r) => ({
         t: r.content,
-        dueFull: r.due_at ? r.due_at.slice(0, 10) : '',
+        dueFull: fmtCNDate(r.due_at),
         type: r.reminder_type_label || '',
       })),
       riskRate: c.risk_rate ?? null,
@@ -185,10 +196,10 @@ export function groupDeals(list: WorkbenchDeal[]): DealGroup[] {
   return groups.filter((g) => g.deals.length > 0)
 }
 
-/* ============ 当事人 / 律师复制文本 ============ */
+/* ============ 当事人 / 律师复制文本（首行只放名字，粘进文书不用再删括号） ============ */
 
 export function partyCopyText(p: DealParty): string {
-  const lines = [p.name + '（' + (p.role || '当事人') + '）']
+  const lines = [p.name]
   if (p.legalRep) lines.push('法定代表人：' + p.legalRep)
   if (p.idno) lines.push('证件号：' + p.idno)
   if (p.phone) lines.push('电话：' + p.phone)
@@ -197,7 +208,7 @@ export function partyCopyText(p: DealParty): string {
 }
 
 export function lawyerCopyText(t: DealTeamMember, d: WorkbenchDeal): string {
-  const lines = [t.name + (t.primary ? '（主办）' : '')]
+  const lines = [t.name]
   const tel = t.phone || (t.primary ? d.primaryPhone : '')
   if (tel) lines.push('电话：' + tel)
   if (t.license) lines.push('执业证号：' + t.license)
@@ -208,24 +219,15 @@ export function lawyerCopyText(t: DealTeamMember, d: WorkbenchDeal): string {
 
 /* ============ 合同抽屉（DealSheet）展示数据 ============ */
 
-/** 抽屉头部时间线：指定 / 签订 / 到期（到期带相对表述） */
-export function dealTimeline(d: WorkbenchDeal): string[] {
-  const timeline: string[] = []
-  if (d.specified) timeline.push('指定 ' + d.specified)
-  if (d.from) timeline.push('签订 ' + d.from)
-  if (d.to) timeline.push('到期 ' + d.to + (relDue(d.daysLeft) ? '（' + relDue(d.daysLeft) + '）' : ''))
-  return timeline
-}
-
-/** 合同要素键值行（空值过滤后展示） */
+/** 合同要素键值行（空值过滤后展示；日期转年月日，到期带相对表述） */
 export function dealFacts(d: WorkbenchDeal): Array<[string, string]> {
   return (
     [
       ['收费方式', d.fee],
       ['风险比例', d.riskRate != null ? d.riskRate + '%' : ''],
-      ['指定日期', d.specified],
-      ['签订日期', d.from],
-      ['到期日期', d.to ? d.to + (relDue(d.daysLeft) ? '（' + relDue(d.daysLeft) + '）' : '') : ''],
+      ['指定日期', fmtCNDate(d.specified)],
+      ['签订日期', fmtCNDate(d.from)],
+      ['到期日期', d.to ? fmtCNDate(d.to) + (relDue(d.daysLeft) ? '（' + relDue(d.daysLeft) + '）' : '') : ''],
       ['代理阶段', d.stages.join(' · ')],
       ['归档状态', d.isFiled ? '已归档' : d.statusLabel],
       ['建档编号', d.filingNo],
@@ -234,16 +236,16 @@ export function dealFacts(d: WorkbenchDeal): Array<[string, string]> {
   ).filter(([, v]) => !!v)
 }
 
-/** 收款记录行：合同收款 + 客户付款记录（各自保持时间顺序） */
+/** 收款记录行：合同收款 + 客户付款记录（各自保持时间顺序，日期年月日） */
 export function dealPayRows(d: WorkbenchDeal): Array<{ when: string; money: string; note: string }> {
   return [
     ...d.payments.map((p) => ({
-      when: p.received_at || '',
+      when: fmtCNDate(p.received_at),
       money: fmtMoney(p.amount) ?? '¥0',
       note: (p.invoice_status_label || '') + (p.note ? ' · ' + p.note : ''),
     })),
     ...d.payRecords.map((p) => ({
-      when: (p.created_at || '').slice(0, 10),
+      when: fmtCNDate(p.created_at),
       money: fmtMoney(p.amount) ?? '¥0',
       note: '客户付款记录' + (p.note ? ' · ' + p.note : ''),
     })),

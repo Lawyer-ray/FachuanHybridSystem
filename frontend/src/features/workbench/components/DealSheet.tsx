@@ -9,7 +9,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { safeHttpUrl } from '@/lib/url'
-import { aggregateStages, dealFacts, dealPayRows, dealTimeline, lawyerCopyText, partyCopyText } from '../domain'
+import { aggregateStages, dealFacts, dealPayRows, fmtCNDate, lawyerCopyText, partyCopyText } from '../domain'
 import { useContractCases } from '../hooks/use-contract-cases'
 import type { WorkbenchDeal } from '../types'
 
@@ -25,6 +25,7 @@ interface DealSheetProps {
 /**
  * 合同详情抽屉（办案主页唯一浮层）：九节全字段，空节不渲染。
  * 「详情 →」= 开发中提示；当事人/律师行内可复制。
+ * 头部只放类型/状态/OA 编号——日期类信息统一在「合同要素」一节，不在头部重复。
  */
 export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
   /* 案件明细按需加载：抽屉打开才请求该合同的案件（列表期不拉全量） */
@@ -44,7 +45,6 @@ export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
   const firstOther = sorted.findIndex((p) => !p.ours)
   const hasSplit = firstOther > 0
 
-  const timeline = dealTimeline(deal)
   const facts = dealFacts(deal)
   const payRows = dealPayRows(deal)
 
@@ -57,7 +57,18 @@ export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent overlayProps={{ onContextMenu: closeByContextMenu }}>
         <SheetHeader>
-          <SheetTitle>{deal.client}</SheetTitle>
+          {/* 详情按钮右浮动进标题流：长案名首行文字自动绕开按钮，不再被盖住；
+              flow-root 兜住浮动高度，下方标签行不会钻到按钮下面；mr 对齐右侧 X（54px） */}
+          <div className="flow-root">
+            <button
+              type="button"
+              className="-mt-1 float-right ml-3 mr-[30px] h-[30px] rounded-[9px] bg-foreground px-[13px] text-xs font-semibold text-background transition-opacity hover:opacity-85"
+              onClick={() => toast.info('详情页正在开发中')}
+            >
+              详情 →
+            </button>
+            <SheetTitle>{deal.client}</SheetTitle>
+          </div>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-[11.5px] text-muted-foreground">
             <span className="rounded-full bg-secondary px-[9px] py-0.5 text-[10.5px] font-[550] text-secondary-foreground">
               {deal.ctype}
@@ -78,15 +89,7 @@ export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
               ) : (
                 <span className="tabular-nums">{deal.no}</span>
               ))}
-            {timeline.length > 0 && <span className="tabular-nums">{timeline.join(' · ')}</span>}
           </div>
-          <button
-            type="button"
-            className="absolute top-4 right-[54px] h-[30px] rounded-[9px] bg-foreground px-[13px] text-xs font-semibold text-background transition-opacity hover:opacity-85"
-            onClick={() => toast.info('详情页正在开发中')}
-          >
-            详情 →
-          </button>
         </SheetHeader>
 
         <SheetBody>
@@ -222,7 +225,7 @@ export function DealSheet({ deal, open, onOpenChange }: DealSheetProps) {
                   <div key={s.id} className="border-b border-border-light py-2.5 last:border-b-0">
                     <div className="text-xs font-[560] text-secondary-foreground">{s.name}</div>
                     <div className="mt-px text-[11px] text-muted-foreground tabular-nums">
-                      {(s.created_at || '').slice(0, 10)}
+                      {fmtCNDate(s.created_at)}
                       {s.parties.length ? ' · ' + s.parties.length + ' 方当事人' : ''}
                     </div>
                   </div>

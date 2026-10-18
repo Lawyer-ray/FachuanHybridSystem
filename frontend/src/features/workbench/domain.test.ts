@@ -3,6 +3,7 @@ import {
   buildDealCases,
   buildDeals,
   daysFromToday,
+  fmtCNDate,
   fmtMoney,
   groupDeals,
   lawyerCopyText,
@@ -104,6 +105,22 @@ describe('daysFromToday / relDue', () => {
     expect(relDue(30)).toBe('剩 30 天')
     expect(relDue(120)).toBe('剩 4 个月')
     expect(relDue(null)).toBe('')
+  })
+})
+
+describe('fmtCNDate', () => {
+  it('ISO 中划线转年月日，月日不补零', () => {
+    expect(fmtCNDate('2026-09-01')).toBe('2026年9月1日')
+    expect(fmtCNDate('2026-12-31')).toBe('2026年12月31日')
+  })
+  it('带时间的 ISO 串只取日期部分', () => {
+    expect(fmtCNDate('2026-10-01T09:00:00Z')).toBe('2026年10月1日')
+  })
+  it('空值返回空串，不像日期的原样返回', () => {
+    expect(fmtCNDate('')).toBe('')
+    expect(fmtCNDate(null)).toBe('')
+    expect(fmtCNDate(undefined)).toBe('')
+    expect(fmtCNDate('待定')).toBe('待定')
   })
 })
 
@@ -260,8 +277,8 @@ describe('buildDeals', () => {
     expect(todayStr(new Date(2026, 11, 31))).toBe('2026-12-31')
     expect(todayStr(TODAY)).toBe('2026-10-01')
   })
-  it('提醒映射日期截取', () => {
-    expect(deals[0]!.work[0]?.dueFull).toBe('2026-10-01')
+  it('提醒映射日期转年月日', () => {
+    expect(deals[0]!.work[0]?.dueFull).toBe('2026年10月1日')
   })
   it('case_count 透传（按需加载的计数口径）', () => {
     const d2 = buildDeals([makeContract({ id: 2, case_count: 3 })], lawyers, TODAY)
@@ -294,15 +311,15 @@ describe('groupDeals', () => {
 })
 
 describe('复制文本', () => {
-  it('当事人：空字段跳过，角色拼接（法人/自然人不再入文案）', () => {
+  it('当事人：首行只有名字，空字段跳过', () => {
     expect(partyCopyText({ name: '张三', role: '委托人', idno: '4401', legalRep: '', phone: '138', address: '', ours: true })).toBe(
-      '张三（委托人）\n证件号：4401\n电话：138',
+      '张三\n证件号：4401\n电话：138',
     )
   })
-  it('律师：主办标注、主办回落合同律所', () => {
+  it('律师：首行只有名字（不带主办标注），主办回落合同电话/律所', () => {
     const d = buildDeals([makeContract()], [], TODAY)[0]!
     expect(lawyerCopyText({ name: '赵律师', primary: true, phone: '', license: '144', firm: '' }, d)).toBe(
-      '赵律师（主办）\n电话：13900000000\n执业证号：144\n律所：某律所',
+      '赵律师\n电话：13900000000\n执业证号：144\n律所：某律所',
     )
   })
 })

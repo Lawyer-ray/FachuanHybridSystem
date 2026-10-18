@@ -3,7 +3,7 @@
  * DealSheet（合同详情抽屉）组件渲染单测（jsdom）。
  *
  * mock 边界：../hooks/use-contract-cases（案件明细按需加载桩，cases/isLoading 可控）。
- * 覆盖：null/关闭态不渲染、抽屉头部字段（类型/状态/OA 链接/时间线）、金额四格、
+ * 覆盖：null/关闭态不渲染、抽屉头部字段（类型/状态/OA 链接，无时间线）、合同要素日期年月日、金额四格、
  * 当事人我方在前排序与复制入口、空节不渲染、案件阶段聚合展示与加载态、
  * 以及 safeHttpUrl 白名单的安全断言（javascript: 伪协议不得成为可点链接）。
  */
@@ -111,12 +111,17 @@ describe('DealSheet 挂载开关', () => {
 })
 
 describe('DealSheet 字段渲染', () => {
-  it('头部：类型/状态徽章 + 时间线；金额四格展示', () => {
+  it('头部：类型/状态徽章，不再重复时间线；日期在合同要素里按年月日展示；金额四格', () => {
     setupUi(makeDeal(), true)
     expect(screen.getByText('民事诉讼')).toBeTruthy()
     // 「在办」出现在头部徽章与合同要素「归档状态」两处，均为合法渲染
     expect(screen.getAllByText('在办').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByText('签订 2026-09-01 · 到期 2027-03-01（剩 30 天）')).toBeTruthy()
+    // 头部不再有「签订 … · 到期 …」时间线（与合同要素重复）
+    expect(screen.queryByText(/签订 2026/)).toBeNull()
+    expect(screen.queryByText(/到期 2027/)).toBeNull()
+    // 合同要素：中划线转年月日，到期带相对表述
+    expect(screen.getByText('2026年9月1日')).toBeTruthy()
+    expect(screen.getByText('2027年3月1日（剩 30 天）')).toBeTruthy()
     expect(screen.getByText('律师费')).toBeTruthy()
     expect(screen.getByText('¥10,000')).toBeTruthy()
     expect(screen.getByText('已收款')).toBeTruthy()
