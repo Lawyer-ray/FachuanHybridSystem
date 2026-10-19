@@ -333,6 +333,10 @@
         }
         appendPartyLines(box, '委托人', report.principals, report.data.clients || []);
         appendPartyLines(box, '对方当事人', report.opponents, report.data.opponents || []);
+        // OA 利冲表列的是全部相关方：与「代理何方」同位的是我方阵营（共同原告/被告、犯罪嫌疑人本人），
+        // 第三人也不是对方——这两组只提示，不自动填成对方当事人
+        appendInfoList(box, '我方共同当事人（未回填，按需手动添加）', report.data.allies || []);
+        appendInfoList(box, '第三人（未回填）', report.data.third_parties || []);
         appendLawyerLine(box, report.lawyer);
         var extras = [];
         if (report.data.case_stage) extras.push('案件阶段：' + report.data.case_stage);
@@ -363,6 +367,14 @@
         } else if (report.failed) {
             box.appendChild(line('承办律师未能填入：' + report.name + '（无可用行或查询失败）', 'error'));
         }
+    }
+
+    function appendInfoList(box, label, items) {
+        if (!items.length) return;
+        var text = items.map(function (it) {
+            return it.conflict_type ? it.name + '（' + it.conflict_type + '）' : it.name;
+        }).join('、');
+        box.appendChild(line(label + '：' + text, 'muted'));
     }
 
     if (document.readyState === 'loading') {

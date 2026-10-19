@@ -13,9 +13,9 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from apps.contracts.models import FeeMode
-from apps.core.models.enums import CaseStage
+from apps.core.models.enums import CaseStage, CaseType
 from apps.oa_filing.services.case_import_service import map_oa_case_type_from_text, parse_date
-from apps.oa_filing.services.oa_data_models import OACaseData, OACaseInfoData
+from apps.oa_filing.services.oa_data_models import OACaseData, OACaseInfoData, OAConflictData
 
 # 与 JTNAdapter.build_case_detail_url 同款（contracts 不可 import jtn 子包，此处独立维护）
 _DETAIL_URL_TEMPLATE = (
@@ -23,26 +23,35 @@ _DETAIL_URL_TEMPLATE = (
 )
 
 # OA「收费方式」原文 → FeeMode；顺序即优先级（「半风险」先于泛「风险」）。
-# 真实值样本（2026-10-19）：「定额收费」；其余按关键词兜底，有值但无命中归 CUSTOM 并把原文放进自定义条款
+# 真实值样本（2026-10-19）：「定额收费」→ 固定；「标的比例收费」无命中 → CUSTOM 并把原文放进自定义条款
+# （按标的额比例计费与本地四种模式不一一对应，保留原文比强归某一类更有信息量）
 _FEE_MODE_RULES: tuple[tuple[tuple[str, ...], str], ...] = (
     (("半风险",), FeeMode.SEMI_RISK),
     (("全风险", "风险代理", "风险收费", "风险"), FeeMode.FULL_RISK),
     (("定额", "固定", "包干", "一次性"), FeeMode.FIXED),
 )
 
+# 利冲条目法律地位含这些词 → 第三人类（不是对方，也不是我方）
+_THIRD_PARTY_MARKERS = ("第三人", "利害关系", "第三方")
+
 
 def build_sync_payload(oa_data: OACaseData) -> dict[str, Any]:
     """OACaseData → 新建合同表单回填 JSON。
 
-    合同类型沿用案件导入口径：案件类别优先、业务种类兜底；收案日期归一为
-    ISO（解析不了给 None，前端跳过不填）。名单按名称去重保序。OA 没有的字段
-    一律 None / 空，前端据此跳过，不硬填。
+    合同类型沿用案件导入口径：案件类别优先、业务种类兜底、劳动仲裁特判；收案日期归一为
+    ISO（解析不了给 None，前端跳过不填）。利冲按「法律地位 vs 代理何方」分三组：对立方
+    回填为对方当事人，我方阵营（共同原告 / 被告、犯罪嫌疑人）与第三人只提示不填。
+    名单按名称去重保序。OA 没有的字段一律 None / 空，前端据此跳过，不硬填。
     """
     info = oa_data.case_info
     keyid = str(oa_data.keyid or "").strip().lower()
     acceptance = parse_date(str(_text(info, "acceptance_date"))) if info else None
     case_number = _text(info, "case_no") or str(oa_data.case_no or "").strip()
     fee_mode = _resolve_fee_mode(_text(info, "fee_mode_text"))
+    side = _text(info, "client_side")
+    clients = _dedupe_named((str(c.name or "").strip(), str(c.customer_type or "")) for c in oa_data.customers)
+    client_names = {name for name, _ in clients}
+    groups = _split_conflicts(oa_data.conflicts, side=side, exclude_names=client_names)
 
     return {
         "guid": keyid,
@@ -53,24 +62,16 @@ def build_sync_payload(oa_data: OACaseData) -> dict[str, Any]:
         "start_date": acceptance.isoformat() if acceptance else None,
         "case_stage": _text(info, "case_stage"),
         "representation_stages": _resolve_stages(_text(info, "case_stage")),
-        "client_side": _text(info, "client_side"),
+        "client_side": side,
         "responsible_lawyer": _text(info, "responsible_lawyer"),
         "fee_mode": fee_mode,
         "fixed_amount": _normalize_amount(_text(info, "fee_amount_text")),
         "fee_currency": _text(info, "fee_currency"),
         "custom_terms": _build_custom_terms(info, fee_mode),
-        "clients": [
-            {"name": name, "customer_type": customer_type}
-            for name, customer_type in _dedupe_named(
-                (str(c.name or "").strip(), str(c.customer_type or "")) for c in oa_data.customers
-            )
-        ],
-        "opponents": [
-            {"name": name, "conflict_type": conflict_type}
-            for name, conflict_type in _dedupe_named(
-                (str(c.name or "").strip(), str(c.conflict_type or "")) for c in oa_data.conflicts
-            )
-        ],
+        "clients": [{"name": name, "customer_type": customer_type} for name, customer_type in clients],
+        "opponents": groups["opponent"],
+        "allies": groups["ally"],
+        "third_parties": groups["third"],
     }
 
 
@@ -82,14 +83,19 @@ def _text(info: OACaseInfoData | None, field: str) -> str:
 
 
 def _resolve_case_type(info: OACaseInfoData | None) -> str | None:
-    """案件类别优先、业务种类兜底（与 case_import_service._map_oa_case_type 同口径）。
+    """案件类别优先、业务种类兜底、劳动仲裁特判（与 case_import_service._map_oa_case_type 同口径）。
 
-    map_oa_case_type_from_text 返回 CaseType 枚举成员，这里收敛为纯字符串，
-    JSON 里稳定输出 "civil" 这类 value 而非枚举 repr。
+    OA「案件类别」里的「仲裁案件」同时覆盖商事仲裁和劳动仲裁，先命中商事仲裁；业务种类明确为
+    劳动人事争议仲裁时落劳动仲裁。map_oa_case_type_from_text 返回 CaseType 枚举成员，
+    这里收敛为纯字符串，JSON 里稳定输出 "civil" 这类 value 而非枚举 repr。
     """
     if info is None:
         return None
-    mapped = map_oa_case_type_from_text(info.case_category) or map_oa_case_type_from_text(info.case_type)
+    category_mapped = map_oa_case_type_from_text(info.case_category)
+    business_mapped = map_oa_case_type_from_text(info.case_type)
+    if category_mapped == CaseType.INTL and business_mapped == CaseType.LABOR:
+        return str(CaseType.LABOR)
+    mapped = category_mapped or business_mapped
     return str(mapped) if mapped else None
 
 
@@ -144,6 +150,37 @@ def _resolve_stages(stage_text: str) -> list[str]:
         if label in compact:
             return [value]
     return []
+
+
+def _split_conflicts(
+    conflicts: list[OAConflictData], *, side: str, exclude_names: set[str]
+) -> dict[str, list[dict[str, str]]]:
+    """利冲条目按相对我方的阵营分三组（各组按名去重保序）。
+
+    OA 利冲表列的是**全部相关方**而非只有对方：与「代理何方」同一法律地位的是我方阵营
+    （共同原告 / 被告、刑事的犯罪嫌疑人本人），含「第三人」类词的是第三方，其余才是对立方。
+    已出现在客户（委托人）名单里的名字不再重复列出。
+    """
+    groups: dict[str, list[dict[str, str]]] = {"opponent": [], "ally": [], "third": []}
+    seen: set[str] = set(exclude_names)
+    for conflict in conflicts:
+        name = str(conflict.name or "").strip()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        position = str(conflict.conflict_type or "").strip()
+        groups[_classify_conflict(position, side)].append({"name": name, "conflict_type": position})
+    return groups
+
+
+def _classify_conflict(position: str, side: str) -> str:
+    """ally = 法律地位与代理何方完全相同；third = 含第三人类词；其余 opponent（含无地位 / 无代理何方）。"""
+    compact = "".join(position.split())
+    if side and compact and compact == side:
+        return "ally"
+    if any(marker in compact for marker in _THIRD_PARTY_MARKERS):
+        return "third"
+    return "opponent"
 
 
 def _dedupe_named(pairs: Any) -> list[tuple[str, str]]:
