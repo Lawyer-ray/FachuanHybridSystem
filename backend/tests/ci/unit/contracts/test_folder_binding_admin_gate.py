@@ -38,9 +38,9 @@ def test_authenticated_normal_user_denied() -> None:
 
 def test_admin_user_allowed() -> None:
     admin = Lawyer(username="fb_admin", is_active=True, is_admin=True, is_superuser=False)
-    _require_admin(_request_with(admin))  # 不抛即通过
+    assert _require_admin(_request_with(admin)) is None  # 管理员放行（不抛且显式断言返回值）
 
 
 def test_superuser_allowed() -> None:
     su = Lawyer(username="fb_su", is_active=True, is_admin=False, is_superuser=True)
-    _require_admin(_request_with(su))  # 不抛即通过
+    assert _require_admin(_request_with(su)) is None  # superuser 放行
