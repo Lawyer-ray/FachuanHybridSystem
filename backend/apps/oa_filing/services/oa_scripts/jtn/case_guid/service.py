@@ -1,10 +1,14 @@
-"""金诚同达 OA 案号查 GUID —— 案件管理页搜索，纯 HTTP（含飞连一键登录自愈）。
+"""OA 案号查 GUID / 按 GUID 拉详情 —— 案件管理页，纯 HTTP（含飞连一键登录自愈）。
 
 搜索机制（方法一）：案件管理列表页 WebForms postback——GET 列表页提取
 __VIEWSTATE，POST 过滤字段（project_no/project_name/project_cust_name 三选一，
 子串包含匹配），从结果行 projectView 链接提取 keyid=<GUID>。传完整案号通常
 唯一命中。**不用 searchdlg 对话框**：2026-10-12 实测对话框对表单登录会话
 恒返回 TotalCount=0（只认浏览器 SSO 派生会话），列表页对同一会话正常。
+
+按 GUID 拉详情：projectView.aspx?keyid=<GUID> 的客户信息 / 案件信息 / 利冲
+三个 tab 服务端渲染在同一份 HTML，一次 GET 即全量；HTML 解析复用
+case_import.html_parser（同一页面、同一套中文标签契约），会话复用下述自愈链。
 
 会话自愈（单 client 顺序恢复，实测 2026-10-06 / 2026-10-12）：
 
@@ -27,10 +31,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import uuid
 from typing import Any
 
 import httpx
 from lxml import html as lxml_html
+
+from apps.oa_filing.services.oa_data_models import OACaseData
 
 from ..auth.service import JtnAuthService
 from ..http_session import (
@@ -42,6 +49,7 @@ from ..http_session import (
     is_sso_gateway_url,
 )
 from .constants import (
+    _CASE_DETAIL_URL_TEMPLATE,
     _CASE_LIST_URL,
     _CURRENT_PAGE_FIELD,
     _KEYID_REGEX,
@@ -149,8 +157,35 @@ async def _fetch_local_quick_login_token() -> str | None:
         return None
 
 
+def _normalize_guid(value: Any) -> str | None:
+    """把输入规范化为标准小写 GUID（8-4-4-4-12）；不是合法 UUID 返回 None。
+
+    keyid 要拼进 URL，这里是防任意字符串注入的闸口（admin 层的校验只是
+    体验层提示，脚本层不信任上游输入）。
+    """
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return str(uuid.UUID(text))
+    except (ValueError, AttributeError, TypeError):
+        return None
+
+
+def _needs_session_recovery(resp: httpx.Response) -> bool:
+    """详情页 GET 停在飞连门户 / 网关回调 / OA 登录页任一形态，即需走列表页自愈链。"""
+    return _is_sso_portal_login_page(resp.url) or is_sso_gateway_url(resp.url) or is_oa_login_page(resp.url, resp.text)
+
+
+def _has_detail_content(data: OACaseData) -> bool:
+    """lxml 对任何页面都能解析出空壳 OACaseData；至少含案件名/编号或客户才算真拿到详情页。"""
+    info = data.case_info
+    has_info = bool(info and ((info.case_name or "").strip() or (info.case_no or "").strip()))
+    return has_info or bool(data.customers)
+
+
 class JtnCaseGuidScript:
-    """金诚同达 OA 案号查 GUID 门面（纯 HTTP，列表页搜索）。"""
+    """OA 案号查 GUID / 按 GUID 拉详情门面（纯 HTTP，案件管理页）。"""
 
     def __init__(self, account: str, password: str) -> None:
         self._account = account
@@ -168,6 +203,56 @@ class JtnCaseGuidScript:
     async def lookup_case_guids_by_customer_name(self, customer_name: str) -> list[str]:
         """按客户名称查询 OA 案件 GUID 列表（project_cust_name）。"""
         return await self._lookup_with_retry(field=_SEARCH_CUST_NAME_FIELD, keyword=customer_name)
+
+    async def fetch_project_detail(self, keyid: str) -> OACaseData | None:
+        """按 GUID（keyid）拉取案件详情：客户信息 + 案件信息 + 利冲（纯 HTTP 只读）。
+
+        详情页三个 tab 服务端渲染在同一份 HTML，一次 GET 即全量；会话复用列表页
+        同一套自愈链（同域同会话），中途失效整体重试一次。返回 None 的情形：
+        keyid 不是合法 UUID（不发请求）、GUID 对当前账号不可见、OA 返回的不是
+        详情页结构（解析不到案件名/编号/客户）。
+        """
+        guid = _normalize_guid(keyid)
+        if guid is None:
+            logger.warning("按 GUID 拉案件详情：keyid 非法，跳过请求: %r", str(keyid)[:48])
+            return None
+
+        try:
+            return await self._fetch_detail_via_session(cookies=cached_cookies(self._auth), keyid=guid)
+        except _SessionExpiredError:
+            logger.info("OA 会话中途失效，重建会话后重试拉案件详情: keyid=%s", guid)
+            return await self._fetch_detail_via_session(cookies=cached_cookies(self._auth), keyid=guid)
+
+    async def _fetch_detail_via_session(self, *, cookies: dict[str, str] | None, keyid: str) -> OACaseData | None:
+        """单次完整流程：GET 详情页 →（会话无效则走列表页自愈后重取）→ 解析三 tab。"""
+        # 局部导入：case_import 包 __init__ 会连带加载 Playwright mixin，避免本纯 httpx 模块导入期变重
+        from ..case_import.html_parser import parse_case_detail_html
+
+        url = _CASE_DETAIL_URL_TEMPLATE.format(keyid=keyid)
+        async with self._build_client(cookies=cookies) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            if _needs_session_recovery(resp):
+                await self._ensure_list_session(client)
+                resp = await client.get(url)
+                resp.raise_for_status()
+                if _needs_session_recovery(resp):
+                    raise _SessionExpiredError("OA 会话无效（详情页跳转登录）")
+
+            data = parse_case_detail_html(html_text=resp.text, case_no="", keyid=keyid)
+            if data is None or not _has_detail_content(data):
+                logger.warning("按 GUID 拉案件详情：未解析到详情内容: keyid=%s url=%s", keyid, str(resp.url)[:80])
+                return None
+            # parse 的 case_no 参数只是兜底值；详情页自身的「案件编号」才是权威，回填到顶层
+            if data.case_info is not None and data.case_info.case_no:
+                data.case_no = data.case_info.case_no
+            logger.info(
+                "按 GUID 拉案件详情完成: keyid=%s customers=%d conflicts=%d",
+                keyid,
+                len(data.customers),
+                len(data.conflicts),
+            )
+            return data
 
     async def _lookup_with_retry(self, *, field: str, keyword: str) -> list[str]:
         """按过滤字段查询 GUID（只读；仅当前账号可见的案件）。

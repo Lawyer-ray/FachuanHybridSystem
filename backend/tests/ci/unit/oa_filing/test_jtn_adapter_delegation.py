@@ -391,6 +391,19 @@ class TestCaseImportDelegation:
             "https://ims.jtn.com/project/projectView.aspx?keyid=K123&FirstModel=PROJECT&SecondModel=PROJECT002"
         )
 
+    @pytest.mark.asyncio
+    async def test_fetch_project_detail_delegates_to_case_guid_script(self):
+        """按 GUID 拉详情走 case_guid 脚本（与查 GUID 同一会话自愈链），凭证透传账密。"""
+        adapter = JTNAdapter("acc", "p")
+        credential = SimpleNamespace(account="acc", password="p")
+        with patch("apps.oa_filing.services.oa_scripts.jtn.case_guid.JtnCaseGuidScript") as script_cls:
+            script_cls.return_value.fetch_project_detail = AsyncMock(return_value="oa-detail")
+            result = await adapter.fetch_project_detail("b0219b56-3968-48a8-8e12-3ca86bf160ce", credential)
+
+        assert result == "oa-detail"
+        script_cls.assert_called_once_with(account="acc", password="p")
+        script_cls.return_value.fetch_project_detail.assert_awaited_once_with("b0219b56-3968-48a8-8e12-3ca86bf160ce")
+
 
 # ──────────── 客户导入委托 ────────────
 

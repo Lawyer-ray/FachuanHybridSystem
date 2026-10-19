@@ -1,9 +1,10 @@
-"""JtnCaseGuidScript（案号查 GUID，列表页搜索 + 飞连一键登录自愈）单测（无网络）。
+"""JtnCaseGuidScript（案号查 GUID / 按 GUID 拉详情，列表页搜索 + 飞连一键登录自愈）单测（无网络）。
 
 覆盖：VIEWSTATE 提取、GUID 提取（行解析 + 正则兜底）、完整查询编排
 （命中/多命中/0 命中/SSO 门户一键恢复/本地客户端不可用/兑换失败/登录失败/
 网关死拦/会话中途失效重试）、三字段（案号/案名/客户名）的 postback 字段、
-ScriptExecutorService 三个查询入口的装配与错误映射。
+按 GUID 拉详情（keyid 规范化/缓存直达/自愈后重取/空壳页判空/中途失效重试）、
+ScriptExecutorService 查询与拉详情入口的装配与错误映射。
 HTTP 全部走 httpx.MockTransport 或实例打桩；本机飞连客户端 token 打桩。
 """
 
@@ -71,6 +72,35 @@ def _app_login_page_html() -> str:
         '<input name="userid"><input name="password">'
         "</form></body></html>"
     )
+
+
+def _detail_page_html(*, case_name: str = "甲公司诉乙某合同纠纷案", case_no: str = _CASE_NO) -> str:
+    """projectView 详情页：客户 / 案件信息 / 利冲三个 tab 服务端渲染在同一份 HTML。"""
+    return f"""
+    <html><body>
+    <div id="tab_con_1"><table>
+      <tr><td>客户（甲公司）信息</td></tr>
+      <tr><td>客户类型</td><td>企业</td></tr>
+      <tr><td>客户（丙某）信息</td></tr>
+      <tr><td>客户类型</td><td>自然人</td></tr>
+    </table></div>
+    <div id="tab_con_2"><table>
+      <tr><td>案件名称</td><td>{case_name}</td><td>案件编号</td><td>{case_no}</td></tr>
+      <tr><td>案件阶段</td><td>一审</td><td>收案日期</td><td>2026/10/19</td></tr>
+      <tr><td>案件类别</td><td>民商事</td><td>业务种类</td><td>合同纠纷</td></tr>
+      <tr><td>案件负责人</td><td>测试律师</td><td>代理何方</td><td>原告</td></tr>
+    </table></div>
+    <div id="tab_con_3"><table>
+      <tr><td>中文名称</td><td>乙某</td></tr>
+      <tr><td>法律地位</td><td>被告</td></tr>
+    </table></div>
+    <div id="tab_con_5"><table>
+      <tr><td>收费方式：</td><td>定额收费</td><td>币　　种：</td><td>人民币</td></tr>
+      <tr><td>合同总额：</td><td>5000.00</td><td></td><td></td></tr>
+      <tr><td>是否免费或减免代理：</td><td>否</td></tr>
+    </table></div>
+    </body></html>
+    """
 
 
 def _make_script(handler: Any, *, http_login: Any = None, cached_cookies: Any = None) -> tuple[JtnCaseGuidScript, Any]:
@@ -189,14 +219,18 @@ class _SelfHealServer:
         gateway_dead: bool = False,
         quick_login_reject: bool = False,
         result_guids: tuple[str, ...] = (_GUID_A,),
+        detail_html: str | None = None,
     ) -> None:
         self.app_session = app_session
         self.login_error = login_error
         self.gateway_dead = gateway_dead
         self.quick_login_reject = quick_login_reject
         self.result_guids = result_guids
+        self.detail_html = detail_html if detail_html is not None else _detail_page_html()
         self.search_posts: list[dict[str, list[str]]] = []
         self.quick_login_calls: list[dict[str, Any]] = []
+        # 所有 projectView GET 的 keyid（不论会话状态），用于断言请求次数与 keyid 规范化
+        self.detail_requests: list[str] = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         cookie = request.headers.get("cookie", "")
@@ -258,10 +292,13 @@ class _SelfHealServer:
                 )
             return httpx.Response(200, text=_app_login_page_html())
 
-        # 业务页（列表页 / 搜索）——SSO 会话 cookie 只在 access.jtn.com 域，
+        # 业务页（列表页 / 搜索 / 详情页）——SSO 会话 cookie 只在 access.jtn.com 域，
         # ims.jtn.com 侧的状态只由 corplink_at（网关）与应用层会话驱动
         has_app_session = f"ASP.NET_SessionId={self.app_session}" in cookie
         has_gateway = "corplink_at=" in cookie
+        is_detail_page = "projectView.aspx" in path
+        if request.method == "GET" and is_detail_page:
+            self.detail_requests.append(parse_qs(parsed.query).get("keyid", [""])[0])
 
         if request.method == "POST":
             posted = {k: v for k, v in parse_qs(request.content.decode()).items() if "projmainPlaceHolder" in k}
@@ -273,6 +310,8 @@ class _SelfHealServer:
             return httpx.Response(302, headers=[("Location", _APP_LOGIN_URL)])
 
         if has_app_session:
+            if is_detail_page:
+                return httpx.Response(200, text=self.detail_html)
             return httpx.Response(200, text=_list_page_html())
         if has_gateway:
             return httpx.Response(302, headers=[("Location", _APP_LOGIN_URL)])
@@ -575,3 +614,180 @@ class TestLookupOaCaseGuidExecutor:
 
         assert captured["adapter_account"] == "acct_a"
         assert captured["credential_account"] == "acct_a"
+
+
+# ──────────── 按 GUID 拉详情 ────────────
+
+
+def _fresh_cached_session() -> list[dict[str, str]]:
+    return [{"name": "ASP.NET_SessionId", "value": "ok123", "domain": "ims.jtn.com", "path": "/"}]
+
+
+class TestFetchProjectDetail:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("bad", ["", "   ", "not-a-guid", _CASE_NO, "b0219b56-3968-48a8-8e12"])
+    async def test_invalid_keyid_skips_network(self, bad):
+        """keyid 要拼进 URL：不是合法 UUID 直接返回 None，一个请求都不发。"""
+        server = _SelfHealServer()
+        calls = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls["n"] += 1
+            return server.handler(request)
+
+        script, _ = _make_script(handler)
+        assert await script.fetch_project_detail(bad) is None
+        assert calls["n"] == 0
+
+    @pytest.mark.asyncio
+    async def test_fresh_cached_session_direct_hit(self):
+        """缓存会话新鲜：一次 GET 直达详情页，三个 tab 全量解析，无需自愈与 http_login。"""
+        server = _SelfHealServer()
+        script, http_login = _make_script(server.handler, cached_cookies=_fresh_cached_session())
+
+        data = await script.fetch_project_detail(_GUID_A)
+
+        assert data is not None
+        assert data.keyid == _GUID_A
+        assert data.case_no == _CASE_NO  # 顶层 case_no 以详情页「案件编号」为权威
+        assert data.case_info is not None
+        assert data.case_info.case_name == "甲公司诉乙某合同纠纷案"
+        assert data.case_info.acceptance_date == "2026/10/19"
+        assert data.case_info.case_category == "民商事"
+        assert data.case_info.responsible_lawyer == "测试律师"
+        assert [c.name for c in data.customers] == ["甲公司", "丙某"]
+        assert [c.name for c in data.conflicts] == ["乙某"]
+        assert data.case_info.fee_mode_text == "定额收费"
+        assert data.case_info.fee_amount_text == "5000.00"
+        assert data.case_info.fee_currency == "人民币"
+        assert data.case_info.fee_waived == "否"
+        assert server.detail_requests == [_GUID_A]
+        assert server.search_posts == []  # 拉详情不触发列表页搜索
+        http_login.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_keyid_normalized_to_lowercase_canonical(self):
+        """大写 / 花括号 / 前后空白的 GUID 统一规范化后再拼 URL。"""
+        server = _SelfHealServer()
+        script, _ = _make_script(server.handler, cached_cookies=_fresh_cached_session())
+
+        data = await script.fetch_project_detail("  {" + _GUID_A.upper() + "}  ")
+
+        assert data is not None
+        assert data.keyid == _GUID_A
+        assert server.detail_requests == [_GUID_A]
+
+    @pytest.mark.asyncio
+    async def test_sso_expired_recovers_then_refetches_detail(self):
+        """SSO 门户会话过期：首 GET 被弹门户 → 一键登录恢复 → 网关 → 应用层登录 → 重 GET 详情。"""
+        server = _SelfHealServer()
+        cached = [{"name": "ASP.NET_SessionId", "value": "stale", "domain": "ims.jtn.com", "path": "/"}]
+        script, _ = _make_script(server.handler, cached_cookies=cached)
+        with patch(_LOCAL_TOKEN_STUB_PATH, _stub_local_token(_SelfHealServer._GOOD_TOKEN)):
+            data = await script.fetch_project_detail(_GUID_A)
+
+        assert data is not None and data.case_no == _CASE_NO
+        assert len(server.quick_login_calls) == 1
+        # 首 GET（被弹）+ 自愈后重 GET = 两次详情请求；自愈链本身走列表页不计入
+        assert server.detail_requests == [_GUID_A, _GUID_A]
+
+    @pytest.mark.asyncio
+    async def test_cold_start_without_cache_logs_in_then_fetches(self):
+        """无缓存冷启动：完整三层自愈后拉到详情。"""
+        server = _SelfHealServer()
+        script, _ = _make_script(server.handler, cached_cookies=None)
+        with patch(_LOCAL_TOKEN_STUB_PATH, _stub_local_token(_SelfHealServer._GOOD_TOKEN)):
+            data = await script.fetch_project_detail(_GUID_A)
+        assert data is not None and data.case_info is not None
+        assert data.case_info.case_name == "甲公司诉乙某合同纠纷案"
+
+    @pytest.mark.asyncio
+    async def test_page_without_detail_content_returns_none(self):
+        """会话正常但页面不是详情结构（GUID 不可见 / 空壳页）→ None，而非空壳数据。"""
+        server = _SelfHealServer(detail_html="<html><body><div>无权限或案件不存在</div></body></html>")
+        script, _ = _make_script(server.handler, cached_cookies=_fresh_cached_session())
+        assert await script.fetch_project_detail(_GUID_A) is None
+
+    @pytest.mark.asyncio
+    async def test_session_expired_right_after_recovery_retries_once(self):
+        """自愈后重 GET 仍被弹登录（会话刚建立又失效）：整体重试一次后成功。"""
+        server = _SelfHealServer()
+        original = server.handler
+        state = {"detail_gets": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.method == "GET" and "projectView.aspx" in str(request.url):
+                state["detail_gets"] += 1
+                # 第 2 次详情 GET（首轮自愈后的重取）强制失效，触发 _SessionExpiredError
+                if state["detail_gets"] == 2:
+                    return httpx.Response(302, headers=[("Location", _APP_LOGIN_URL)])
+            return original(request)
+
+        script, _ = _make_script(handler, cached_cookies=None)
+        with patch(_LOCAL_TOKEN_STUB_PATH, _stub_local_token(_SelfHealServer._GOOD_TOKEN)):
+            data = await script.fetch_project_detail(_GUID_A)
+
+        assert data is not None and data.case_no == _CASE_NO
+        # 首轮：被弹 + 自愈后重取（被强制失效）；重试轮：被弹 + 自愈后重取成功
+        assert state["detail_gets"] == 4
+
+    @pytest.mark.asyncio
+    async def test_login_failure_raises_account_error(self):
+        server = _SelfHealServer(login_error=True)
+        script, _ = _make_script(server.handler)
+        with patch(_LOCAL_TOKEN_STUB_PATH, _stub_local_token(_SelfHealServer._GOOD_TOKEN)):
+            with pytest.raises(RuntimeError, match="账号或密码错误"):
+                await script.fetch_project_detail(_GUID_A)
+
+
+class TestFetchOaProjectDetailExecutor:
+    def _make_user(self) -> MagicMock:
+        return MagicMock(id=1)
+
+    def _run(self, keyid: str, adapter_result: Any) -> tuple[Any, dict[str, Any]]:
+        import asyncio
+
+        from apps.oa_filing.services import script_executor_service as mod
+
+        adapter = MagicMock()
+        captured: dict[str, Any] = {}
+
+        async def fake_fetch(keyid_arg: str, cred: Any) -> Any:
+            captured["keyid"] = keyid_arg
+            captured["credential"] = cred
+            if isinstance(adapter_result, Exception):
+                raise adapter_result
+            return adapter_result
+
+        adapter.fetch_project_detail = fake_fetch
+        credential = MagicMock(account="acc", password="p")
+        with (
+            patch.object(mod, "_find_credential", return_value=credential),
+            patch.object(mod, "create_adapter", return_value=adapter) as mock_create,
+            patch.object(mod, "run_coro_sync", side_effect=lambda coro, **kw: asyncio.run(coro)),
+        ):
+            result = mod.ScriptExecutorService().fetch_oa_project_detail(keyid, user=self._make_user())
+        assert mock_create.call_args[0] == ("金诚同达OA", "acc", "p")  # privacy-allow 站点注册表 key
+        assert captured["credential"] is credential
+        return result, captured
+
+    def test_missing_credential_raises(self):
+        from apps.oa_filing.services import script_executor_service as mod
+
+        with patch.object(mod, "_find_credential", return_value=None):
+            with pytest.raises(RuntimeError, match="未找到匹配凭证"):
+                mod.ScriptExecutorService().fetch_oa_project_detail(_GUID_A, user=self._make_user())
+
+    def test_success_returns_detail_and_strips_keyid(self):
+        result, captured = self._run(f"  {_GUID_A}  ", "oa-detail")
+        assert result == "oa-detail"
+        assert captured["keyid"] == _GUID_A
+
+    def test_none_result_raises_business_error(self):
+        """脚本层返回 None（非法 / 不可见 / 空壳页）→ 统一业务错误文案，前端按 ok=false 展示。"""
+        with pytest.raises(RuntimeError, match="律所ID 无效，或当前 OA 账号无权查看"):
+            self._run(_GUID_A, None)
+
+    def test_error_mapped_to_friendly_message(self):
+        with pytest.raises(RuntimeError, match="VPN"):
+            self._run(_GUID_A, RuntimeError("Read timed out"))

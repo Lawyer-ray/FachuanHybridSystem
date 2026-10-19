@@ -247,11 +247,12 @@ def parse_case_detail_html(
     case_no: str,
     keyid: str,
 ) -> OACaseData | None:
-    """解析案件详情 HTML（客户信息 + 案件信息 + 利冲）。"""
+    """解析案件详情 HTML（客户信息 + 案件信息 + 利冲 + 委托合同收费）。"""
     try:
         root = lxml_html.fromstring(html_text)
         customers = extract_customers_from_html(root)
         case_info = extract_case_info_from_html(root, fallback_case_no=case_no)
+        _apply_fee_info(case_info, extract_fee_info_from_html(root))
         conflicts = extract_conflicts_from_html(root)
         return OACaseData(
             case_no=case_no,
@@ -346,31 +347,130 @@ def extract_case_info_from_html(root: Any, *, fallback_case_no: str) -> OACaseIn
 
 
 def extract_conflicts_from_html(root: Any) -> list[OAConflictData]:
+    """解析利冲 tab：真实 OA 为列式表（分组标题 + 表头 + 数据行），兼容旧键值对结构。
+
+    真实结构（2026-10-19 实测）：每个分组一张表，表前单格行「▼类别：对方当事人　　法律地位：被告」，
+    表头「序号|客户类型|中文名称|英文名称|联系人|身份证号码|联系电话|付款方」，数据行按列取值；
+    conflict_type 取分组「法律地位」（被告 / 原审第三人…），缺失退回该行「客户类型」列（机关 / 自然人）。
+    旧键值对结构（「中文名称|X」「法律地位|Y」成对逐行）保持原行为，供其他形态/夹具使用。
+    """
     conflicts: list[OAConflictData] = []
     rows = root.xpath('//div[@id="tab_con_3"]//tr')
 
-    current_name: str | None = None
-    current_type: str | None = None
+    group_position: str | None = None
+    name_col: int | None = None
+    type_col: int | None = None
+    kv_name: str | None = None
+    kv_type: str | None = None
 
     for row in rows:
         cell_texts = extract_row_cells_text(row)
         if not cell_texts:
             continue
 
+        # 分组标题行（单格含「类别：」）：记录本组法律地位，重置列映射
+        if len(cell_texts) == 1 and "类别" in cell_texts[0]:
+            match = _CONFLICT_GROUP_TITLE_RE.search(normalize_text(cell_texts[0]))
+            group_position = normalize_text(match.group(1)) if match else ""
+            group_position = group_position or None
+            name_col = type_col = None
+            continue
+
+        labels = [normalize_label(cell) for cell in cell_texts]
+        if sum(1 for label in labels if label in _CONFLICT_TABLE_HEADERS) >= 3:
+            name_col = labels.index("中文名称") if "中文名称" in labels else None
+            type_col = labels.index("客户类型") if "客户类型" in labels else None
+            continue
+
+        if name_col is not None:
+            conflict = _conflict_from_columnar_row(
+                cell_texts, name_col=name_col, type_col=type_col, group_position=group_position
+            )
+            if conflict is not None:
+                conflicts.append(conflict)
+            continue
+
+        # 旧键值对结构
         for label, value in iter_label_value_pairs(cell_texts):
             if not label:
                 continue
             if "中文名称" in label and value:
-                if current_name:
-                    conflicts.append(OAConflictData(name=current_name, conflict_type=current_type))
-                current_name = value
-                current_type = None
+                if kv_name:
+                    conflicts.append(OAConflictData(name=kv_name, conflict_type=kv_type))
+                kv_name = value
+                kv_type = None
             elif ("法律地位" in label and value) or (
                 "类型" in label and "客户类型" not in label and "法律地位" not in label and value
             ):
-                current_type = value
+                kv_type = value
 
-    if current_name:
-        conflicts.append(OAConflictData(name=current_name, conflict_type=current_type))
+    if kv_name:
+        conflicts.append(OAConflictData(name=kv_name, conflict_type=kv_type))
 
     return conflicts
+
+
+# 利冲列式表的表头列名（真实 OA 结构）；一行命中 ≥3 个即判定为表头行
+_CONFLICT_TABLE_HEADERS = frozenset(
+    {"序号", "客户类型", "中文名称", "英文名称", "联系人", "身份证号码", "联系电话", "付款方"}
+)
+# 分组标题「▼类别：对方当事人　　法律地位：被告　　…」→ 提取法律地位
+_CONFLICT_GROUP_TITLE_RE = re.compile(r"类别[：:]\s*\S+\s+法律地位[：:]\s*(\S+)")
+
+
+def _conflict_from_columnar_row(
+    cell_texts: list[str], *, name_col: int, type_col: int | None, group_position: str | None
+) -> OAConflictData | None:
+    """列式数据行取一条利冲：名称列空 / 仍是列名（无数据的表头复读）返回 None。"""
+    if len(cell_texts) <= name_col:
+        return None
+    name = normalize_text(cell_texts[name_col])
+    if not name or name in _CONFLICT_TABLE_HEADERS:
+        return None
+    row_type = ""
+    if type_col is not None and len(cell_texts) > type_col:
+        row_type = normalize_text(cell_texts[type_col])
+    return OAConflictData(name=name, conflict_type=group_position or row_type or None)
+
+
+# 委托合同信息 tab（tab_con_5）的收费标签 → 数据键
+_FEE_LABEL_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("fee_mode", ("收费方式",)),
+    ("fee_amount", ("合同总额", "合同金额")),
+    ("fee_currency", ("币种",)),
+    ("fee_waived", ("是否免费或减免代理", "免费或减免")),
+)
+
+
+def _match_fee_key(label: str) -> str | None:
+    for key, keywords in _FEE_LABEL_RULES:
+        if any(keyword in label for keyword in keywords):
+            return key
+    return None
+
+
+def extract_fee_info_from_html(root: Any) -> dict[str, str]:
+    """解析委托合同信息 tab（tab_con_5）的收费键值对。
+
+    首表是「标签：| 值 | 标签：| 值」行（收费方式 / 合同总额 / 币种 / 是否免费或减免代理）；
+    同 tab 下方还有发票 / 收款列表，列名与这几个标签不冲突。返回键：
+    fee_mode / fee_amount / fee_currency / fee_waived，未命中键不出现。
+    """
+    result: dict[str, str] = {}
+    for row in root.xpath('//div[@id="tab_con_5"]//tr'):
+        cell_texts = extract_row_cells_text(row)
+        if len(cell_texts) < 2:
+            continue
+        for label, value in iter_label_value_pairs(cell_texts):
+            key = _match_fee_key(label) if label and value else None
+            if key and key not in result:
+                result[key] = value
+    return result
+
+
+def _apply_fee_info(case_info: OACaseInfoData, fee: dict[str, str]) -> None:
+    """把委托合同 tab 的收费键值挂到 case_info（OA 未填的键保持 None）。"""
+    case_info.fee_mode_text = fee.get("fee_mode") or None
+    case_info.fee_amount_text = fee.get("fee_amount") or None
+    case_info.fee_currency = fee.get("fee_currency") or None
+    case_info.fee_waived = fee.get("fee_waived") or None

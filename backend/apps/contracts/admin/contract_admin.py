@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django import forms
@@ -293,6 +294,12 @@ class ContractAdmin(
                 self.admin_site.admin_view(self.lookup_oa_guid_view),
                 name="contracts_contract_lookup_oa_guid_add",
             ),
+            # 新建页「同步」：按律所ID 拉 OA 案件详情回填表单（同样不依赖 contract_id）
+            urlpath(
+                "sync-oa-project/",
+                self.admin_site.admin_view(self.sync_oa_project_view),
+                name="contracts_contract_sync_oa_project_add",
+            ),
             urlpath(
                 "batch-folder-binding/",
                 self.admin_site.admin_view(self.batch_folder_binding_view),
@@ -399,6 +406,40 @@ class ContractAdmin(
             return JsonResponse({"ok": False, "error": str(e)})
 
         return JsonResponse({"ok": True, "guids": guids})
+
+    def sync_oa_project_view(self, request: HttpRequest) -> JsonResponse:  # pragma: no cover
+        """按律所ID（OA 案件 GUID）拉取 OA 案件详情，整形成新建合同表单的回填数据。
+
+        纯 HTTP 只读、用请求者本人的 OA 凭证；仅新建页使用（无行级对象可校验），
+        权限门槛与「查询ID」一致。回填由前端完成，这里不写任何模型。
+        """
+        if request.method != "POST":
+            return JsonResponse({"ok": False, "error": "Method not allowed"}, status=405)
+        if not self.has_change_permission(request):
+            return JsonResponse({"ok": False, "error": "Permission denied"}, status=403)
+
+        try:
+            data = json.loads(request.body or "{}")
+        except json.JSONDecodeError:
+            return JsonResponse({"ok": False, "error": "请求体不是合法 JSON"}, status=400)
+
+        guid = str(data.get("guid") or "").strip()
+        if not guid:
+            return JsonResponse({"ok": False, "error": "请先填写律所ID（可用「查询ID」按案号自动获取）"}, status=400)
+        try:
+            guid = str(uuid.UUID(guid))
+        except ValueError:
+            return JsonResponse({"ok": False, "error": "律所ID 格式不正确，应为 OA 案件 GUID"}, status=400)
+
+        from apps.contracts.services.contract.integrations.oa_project_sync_service import build_sync_payload
+        from apps.oa_filing.services.script_executor_service import ScriptExecutorService
+
+        try:
+            oa_data = ScriptExecutorService().fetch_oa_project_detail(keyid=guid, user=request.user)
+        except RuntimeError as e:
+            return JsonResponse({"ok": False, "error": str(e)})
+
+        return JsonResponse({"ok": True, "data": build_sync_payload(oa_data)})
 
     def batch_folder_binding_view(self, request: HttpRequest) -> TemplateResponse:  # pragma: no cover
         if not self.has_view_permission(request):
