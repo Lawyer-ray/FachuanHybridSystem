@@ -44,6 +44,12 @@ def trigger_case_import(request: HttpRequest) -> Any:  # pragma: no cover
     if not file:
         raise ValidationException("未上传文件", code="FILE_REQUIRED")
 
+    # 安全审计（2026-10-19）：限制类型与大小，防超大/伪装 xlsx 打爆 worker（pandas 全量解析）
+    if not str(file.name or "").lower().endswith((".xlsx", ".xls")):
+        raise ValidationException("仅支持 Excel 文件（.xlsx / .xls）", code="INVALID_FILE_TYPE")
+    if file.size and file.size > 10 * 1024 * 1024:
+        raise ValidationException("文件过大（上限 10MB）", code="FILE_TOO_LARGE")
+
     # 保存上传的文件
     import uuid
     from pathlib import Path
@@ -207,6 +213,17 @@ def batch_create_cases(request: HttpRequest, session_id: int) -> Any:  # pragma:
 
     if not cases:
         raise ValidationException("案件列表为空", code="EMPTY_CASES")
+    # 安全审计（2026-10-19）：载荷仅接受条目形态约束（每项含非空案号 str），防任意字段注入
+    if (
+        not isinstance(cases, list)
+        or len(cases) > 500
+        or not all(
+            isinstance(c, dict) and isinstance(c.get("case_no"), str) and c.get("case_no", "").strip() for c in cases
+        )
+    ):
+        raise ValidationException(
+            "案件条目格式无效（每项需含非空 case_no，单批最多 500 条）", code="INVALID_CASE_ENTRY"
+        )
 
     # 提交后台任务
     from apps.core.tasking import submit_task

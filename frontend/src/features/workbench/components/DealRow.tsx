@@ -8,18 +8,19 @@ interface DealRowProps {
   deal: WorkbenchDeal
   /** 右键行 / 👁 按钮：打开详情抽屉 */
   onOpenSheet: (deal: WorkbenchDeal) => void
-  /** 左键行 / → 按钮：详情页（开发中，仅提示） */
-  onDetailNotReady: () => void
+  /** 左键行 / → 按钮：争议解决进详情页，非诉由父级提示开发中 */
+  onOpenDetail: (deal: WorkbenchDeal) => void
 }
 
 /**
- * 列表行：名称主视觉 + 我方 vs 对方副行 + 金额/到期右对齐。
- * 交互语义：左键 = 详情（开发中）、右键/👁 = 抽屉预览。
+ * 列表行：名称主视觉 + 类型标签 / 我方 vs 对方副行 + 金额/到期右对齐。
+ * 类型（民商事/刑事/常法…）只在行内做小标签，不参与分区——分区按争议解决 / 非诉。
+ * 交互语义：左键 = 详情页、右键/👁 = 抽屉预览。
  *
  * memo：父级 isFetching 翻转 / 翻页 / 筛选时避免整页行全量 reconcile
  * （props 回调在 WorkbenchPage 已 useCallback 稳定）。
  */
-export const DealRow = memo(function DealRow({ deal, onOpenSheet, onDetailNotReady }: DealRowProps) {
+export const DealRow = memo(function DealRow({ deal, onOpenSheet, onOpenDetail }: DealRowProps) {
   const today = deal.daysLeft === 0
   return (
     <div
@@ -32,15 +33,15 @@ export const DealRow = memo(function DealRow({ deal, onOpenSheet, onDetailNotRea
       }
       onClick={(e) => {
         if ((e.target as HTMLElement).closest('[data-prev]')) return
-        onDetailNotReady()
+        onOpenDetail(deal)
       }}
       onKeyDown={(e) => {
-        // 键盘可达：Enter / Space 等价左键行（详情占位）；右键抽屉无键盘等价，走 👁 按钮
+        // 键盘可达：Enter / Space 等价左键行（进详情）；右键抽屉无键盘等价，走 👁 按钮
         if (e.key !== 'Enter' && e.key !== ' ') return
         // 行内按钮自身可激活：按键交给按钮，不重复触发行级动作
         if ((e.target as HTMLElement).closest('button')) return
         e.preventDefault()
-        onDetailNotReady()
+        onOpenDetail(deal)
       }}
       onContextMenu={(e) => {
         e.preventDefault()
@@ -70,6 +71,11 @@ export const DealRow = memo(function DealRow({ deal, onOpenSheet, onDetailNotRea
           {deal.client}
         </div>
         <div className="mt-[3px] flex items-center gap-2 overflow-hidden text-[11.5px] whitespace-nowrap text-muted-foreground">
+          {deal.ctype && (
+            <span className="flex-none rounded-[5px] border border-border-light bg-secondary/60 px-[5px] text-[10px] leading-[1.6] font-[550] text-muted-foreground">
+              {deal.ctype}
+            </span>
+          )}
           <span className="truncate">
             {deal.parties.client}
             {deal.parties.other && (
@@ -108,12 +114,12 @@ export const DealRow = memo(function DealRow({ deal, onOpenSheet, onDetailNotRea
         </button>
         <button
           type="button"
-          title="打开详情（开发中）"
+          title={deal.lit ? '打开详情' : '打开详情（开发中）'}
           aria-label="打开详情"
           className="flex size-[27px] items-center justify-center rounded-[8px] text-muted-foreground/70 opacity-40 transition-all hover:bg-foreground hover:text-background hover:opacity-100 group-hover:opacity-100"
           onClick={(e) => {
             e.stopPropagation()
-            onDetailNotReady()
+            onOpenDetail(deal)
           }}
         >
           <ArrowRight className="size-[14px]" />

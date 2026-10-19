@@ -11,6 +11,8 @@
  */
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
+
+import { errMessage } from '@/lib/errors'
 import { useAuth } from '../store'
 import { passkeyApi } from '../passkey-api'
 import { credentialToAssertionJSON, toRequestOptions } from '../passkey-coding'
@@ -67,7 +69,7 @@ export function PasskeyLoginButton() {
         setError('未验证通行密钥。请先用密码登录，再在「账号绑定」中添加本设备的通行密钥')
         return
       }
-      setError(err instanceof Error ? err.message : '通行密钥登录失败，请稍后再试')
+      setError(errMessage(err, '通行密钥登录失败，请稍后再试'))
     }
   }
 

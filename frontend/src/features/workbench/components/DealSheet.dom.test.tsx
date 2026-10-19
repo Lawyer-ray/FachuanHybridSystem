@@ -3,7 +3,7 @@
  * DealSheet（合同详情抽屉）组件渲染单测（jsdom）。
  *
  * mock 边界：../hooks/use-contract-cases（案件明细按需加载桩，cases/isLoading 可控）。
- * 覆盖：null/关闭态不渲染、抽屉头部字段（类型/状态/OA 链接/时间线）、金额四格、
+ * 覆盖：null/关闭态不渲染、抽屉头部字段（类型/状态/OA 链接，无时间线）、合同要素日期年月日、金额四格、
  * 当事人我方在前排序与复制入口、空节不渲染、案件阶段聚合展示与加载态、
  * 以及 safeHttpUrl 白名单的安全断言（javascript: 伪协议不得成为可点链接）。
  */
@@ -23,6 +23,7 @@ function makeDeal(over: Partial<WorkbenchDeal> = {}): WorkbenchDeal {
   return {
     id: 1,
     lit: true,
+    caseType: 'civil',
     client: '王五',
     ctype: '民事诉讼',
     no: 'FC-2026-001',
@@ -75,7 +76,9 @@ function makeDealCase(id: number, proc: string, done: boolean): DealCase {
     preserv: null,
     from: '',
     partyRows: [],
+    parties: [],
     logs: [],
+    logReminders: [],
     contacts: [],
   }
 }
@@ -111,12 +114,17 @@ describe('DealSheet 挂载开关', () => {
 })
 
 describe('DealSheet 字段渲染', () => {
-  it('头部：类型/状态徽章 + 时间线；金额四格展示', () => {
+  it('头部：类型/状态徽章，不再重复时间线；日期在合同要素里按年月日展示；金额四格', () => {
     setupUi(makeDeal(), true)
     expect(screen.getByText('民事诉讼')).toBeTruthy()
     // 「在办」出现在头部徽章与合同要素「归档状态」两处，均为合法渲染
     expect(screen.getAllByText('在办').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByText('签订 2026-09-01 · 到期 2027-03-01（剩 30 天）')).toBeTruthy()
+    // 头部不再有「签订 … · 到期 …」时间线（与合同要素重复）
+    expect(screen.queryByText(/签订 2026/)).toBeNull()
+    expect(screen.queryByText(/到期 2027/)).toBeNull()
+    // 合同要素：中划线转年月日，到期带相对表述
+    expect(screen.getByText('2026年9月1日')).toBeTruthy()
+    expect(screen.getByText('2027年3月1日（剩 30 天）')).toBeTruthy()
     expect(screen.getByText('律师费')).toBeTruthy()
     expect(screen.getByText('¥10,000')).toBeTruthy()
     expect(screen.getByText('已收款')).toBeTruthy()
@@ -127,8 +135,8 @@ describe('DealSheet 字段渲染', () => {
     setupUi(
       makeDeal({
         partiesAll: [
-          { name: '赵六', role: '对方当事人', type: '自然人', idno: '', legalRep: '', phone: '', address: '', ours: false },
-          { name: '王五', role: '委托人', type: '自然人', idno: '', legalRep: '', phone: '', address: '', ours: true },
+          { name: '赵六', role: '对方当事人', idno: '', legalRep: '', phone: '', address: '', ours: false },
+          { name: '王五', role: '委托人', idno: '', legalRep: '', phone: '', address: '', ours: true },
         ],
       }),
       true,
@@ -138,6 +146,8 @@ describe('DealSheet 字段渲染', () => {
     const other = screen.getByText('赵六', { selector: 'span' })
     expect(ours.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getAllByTitle('复制该当事人信息')).toHaveLength(2)
+    // 法人/自然人不再展示：角色标签只剩角色本身
+    expect(screen.queryByText(/自然人|法人/)).toBeNull()
   })
 
   it('空节不渲染：无当事人/团队/提醒时不出现对应节', () => {
@@ -196,7 +206,7 @@ describe('DealSheet 案件按需加载节', () => {
     expect(screen.getByText('二审', { selector: 'b' })).toBeTruthy()
     expect(
       screen.getByText(
-        (_, el) => el?.textContent === '3 个案件 · 一审 → 二审 · 个案详情开发中',
+        (_, el) => el?.textContent === '3 个案件 · 一审 → 二审',
       ),
     ).toBeTruthy()
   })

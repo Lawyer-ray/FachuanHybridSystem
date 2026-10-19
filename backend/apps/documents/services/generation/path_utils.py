@@ -5,7 +5,14 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+# 解耦（2026-10-19）：safe_name / safe_arcname 的实现已上提到 apps.core.filesystem.upload_paths
+# （本模块被多个 app 引用、已成事实 core）。此处为兼容别名，保证既有 import 路径不变；
+# 新代码请直接从 apps.core.filesystem.upload_paths 引入。
+from apps.core.filesystem.upload_paths import safe_arcname, safe_name
+
 logger = logging.getLogger(__name__)
+
+__all__ = ["resolve_media_path", "safe_arcname", "safe_name"]
 
 
 def resolve_media_path(media_root: str, file_path: str) -> str:
@@ -32,16 +39,3 @@ def resolve_media_path(media_root: str, file_path: str) -> str:
     except Exception:
         logger.exception("操作失败")
         return ""
-
-
-def safe_name(name: str) -> str:
-    value = (name or "").strip()
-    value = value.replace("/", "／").replace("\\", "＼")
-    value = value.replace("\n", " ").replace("\r", " ").replace("\t", " ")
-    return value or "未命名"
-
-
-def safe_arcname(name: str) -> str:
-    safe = (name or "").replace("\\", "/")
-    safe = "/".join([safe_name(part) for part in safe.split("/") if part != ""])
-    return safe

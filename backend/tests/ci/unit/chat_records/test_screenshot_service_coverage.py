@@ -45,21 +45,21 @@ class TestValidateUploadFile:
     def test_non_image_extension_raises(self) -> None:
         svc = ScreenshotService(project_service=MagicMock())
         f = _make_file(name="notes.txt", content_type="text/plain")
-        with pytest.raises(ValidationException, match="仅支持"):
+        with pytest.raises(ValidationException, match="不支持的文件格式"):
             svc._validate_upload_file(f)
 
     def test_svg_masquerading_as_image_rejected(self) -> None:
         """svg 自报 image/svg+xml（带 image/ 前缀）也必须被拒（安全审计）。"""
         svc = ScreenshotService(project_service=MagicMock())
         f = _make_file(name="evil.svg", content_type="image/svg+xml")
-        with pytest.raises(ValidationException, match="仅支持"):
+        with pytest.raises(ValidationException, match="不支持的文件格式"):
             svc._validate_upload_file(f)
 
     def test_svg_with_fake_jpeg_content_type_rejected(self) -> None:
         """扩展名是 svg 但伪造 image/jpeg content_type，仍按扩展名拒绝。"""
         svc = ScreenshotService(project_service=MagicMock())
         f = _make_file(name="evil.svg", content_type="image/jpeg")
-        with pytest.raises(ValidationException, match="仅支持"):
+        with pytest.raises(ValidationException, match="不支持的文件格式"):
             svc._validate_upload_file(f)
 
     def test_oversized_raises(self) -> None:
@@ -83,7 +83,7 @@ class TestValidateUploadFile:
         f = MagicMock()
         f.name = ""
         f.size = 100
-        with pytest.raises(ValidationException, match="仅支持"):
+        with pytest.raises(ValidationException, match="不支持的文件格式"):
             svc._validate_upload_file(f)
 
 

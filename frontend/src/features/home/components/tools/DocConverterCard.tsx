@@ -10,16 +10,13 @@ import {
   type ConverterJob,
 } from '../../api'
 import { TOOL_ENDPOINT } from '../../constants'
-import { BTN, BTN_PRIMARY } from '../../ui'
+import { copyText } from '@/lib/clipboard'
+import { BTN, BTN_PRIMARY, ROW_BTN } from '../../ui'
 import { FilePicker, Spinner, ToolShell } from './shared'
 import { FlowNotice, TaskFlowDialog } from './dialog/TaskFlowDialog'
 import { HistoryButton } from './history/HistoryParts'
 import { ConverterHistoryDialog } from './history/ConverterHistoryDialog'
 import { useConverterJob } from './use-converter-job'
-
-/** 行内小按钮：描边风格，与法院短信成功弹窗一致 */
-const ROW_BTN =
-  'flex h-[26px] flex-none items-center gap-1 rounded-[7px] border border-border bg-card px-2 text-[10.5px] font-medium text-secondary-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50'
 
 /** 文件数进度条：已完成（绿）/ 失败（红）/ 剩余（灰） */
 function JobProgressBar({ job }: { job: ConverterJob }) {
@@ -83,14 +80,7 @@ export function DocConverterCard() {
     }
   }
 
-  const copyNames = async (items: typeof okItems) => {
-    try {
-      await navigator.clipboard.writeText(items.map((it) => it.name).join('\n'))
-      return true
-    } catch {
-      return false
-    }
-  }
+  const copyNames = (items: typeof okItems) => copyText(items.map((it) => it.name).join('\n'))
 
   return (
     <ToolShell

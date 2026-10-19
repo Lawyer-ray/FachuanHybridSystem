@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from apps.image_rotation.api.image_rotation_api import (
-    _ALLOWED_IMAGE_TYPES,
+    _ALLOWED_IMAGE_EXTENSIONS,
     _MAX_UPLOAD_SIZE,
     _get_pdf_service,
     _get_rename_service,
@@ -30,12 +30,14 @@ from apps.image_rotation.services.job_service import list_jobs
 
 
 class TestModuleConstants:
-    def test_allowed_image_types(self) -> None:
-        assert "image/jpeg" in _ALLOWED_IMAGE_TYPES
-        assert "image/png" in _ALLOWED_IMAGE_TYPES
-        assert "image/webp" in _ALLOWED_IMAGE_TYPES
-        assert "image/tiff" in _ALLOWED_IMAGE_TYPES
-        assert "image/gif" not in _ALLOWED_IMAGE_TYPES
+    def test_allowed_image_extensions(self) -> None:
+        # 解耦（2026-10-19）：MIME 白名单改扩展名白名单（客户端自报 content_type 可伪造），
+        # 与原 MIME 一一对应（jpeg→.jpg/.jpeg、tiff→.tif/.tiff）
+        assert ".jpg" in _ALLOWED_IMAGE_EXTENSIONS and ".jpeg" in _ALLOWED_IMAGE_EXTENSIONS
+        assert ".png" in _ALLOWED_IMAGE_EXTENSIONS
+        assert ".webp" in _ALLOWED_IMAGE_EXTENSIONS
+        assert ".tif" in _ALLOWED_IMAGE_EXTENSIONS and ".tiff" in _ALLOWED_IMAGE_EXTENSIONS
+        assert ".gif" not in _ALLOWED_IMAGE_EXTENSIONS
 
     def test_max_upload_size(self) -> None:
         assert _MAX_UPLOAD_SIZE == 20 * 1024 * 1024
@@ -555,6 +557,7 @@ class TestValidateImageFileEdge:
 
         f = MagicMock()
         f.content_type = "image/webp"
+        f.name = "x.webp"
         f.size = 100
         # 合法格式静默通过（返回 None）
         assert _validate_image_file(f) is None
@@ -564,6 +567,7 @@ class TestValidateImageFileEdge:
 
         f = MagicMock()
         f.content_type = "image/tiff"
+        f.name = "x.tiff"
         f.size = 100
         assert _validate_image_file(f) is None
 

@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link2, Loader2, Search, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { bindTask, searchCasesForBinding } from '../api'
 import { pickAutoRecommendation } from '../domain'
-import type { TaskOut } from '../types'
+import type { CaseSearchItem, TaskOut } from '../types'
 import { errMessage } from '@/lib/errors'
-import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { useTypeaheadSearch } from '@/hooks/use-typeahead-search'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -24,7 +23,6 @@ type Picked = { id: number; name: string; number: string }
  * 不强制绑定——律师可跳过直接确认日期（创建独立提醒）。
  */
 export function CaseBindingSection({ task, onBound }: Props) {
-  const [kw, setKw] = useState('')
   const [picked, setPicked] = useState<Picked | null>(null)
   const [autoPicked, setAutoPicked] = useState(false)
   // 失焦收起候选；重新输入即展开（对齐旧实现 onBlur 清空 results 的行为）
@@ -35,16 +33,13 @@ export function CaseBindingSection({ task, onBound }: Props) {
   const isBound = Boolean(task.binding?.success && caseName)
   const reco = useMemo(() => task.recommendations ?? [], [task.recommendations])
 
-  // 搜索：queryKey 用防抖值（输入停 250ms 才请求，不再每键一发），至少 2 字符才查
-  // （与旧防抖版一致）；上一请求由 signal 自动中止，无响应竞态
-  const kwTrim = kw.trim()
-  const dkTrim = useDebouncedValue(kwTrim, 250)
-  const { data: searched = [], isFetching: searching } = useQuery({
-    queryKey: ['doc-recognition-case-search', dkTrim],
-    queryFn: ({ signal }) => searchCasesForBinding(dkTrim, { signal }),
-    enabled: !isBound && dkTrim.length >= 2,
-    staleTime: 30_000,
-    placeholderData: keepPreviousData,
+  // 搜索：输入停 250ms 才请求，至少 2 字符才查（minLength=2，与旧防抖版一致）；
+  // 上一请求由 signal 自动中止，无响应竞态
+  const { keyword: kw, setKeyword: setKw, data: searched = [], isFetching: searching } = useTypeaheadSearch<CaseSearchItem[]>({
+    queryKey: (dk) => ['doc-recognition-case-search', dk],
+    queryFn: ({ keyword, signal }) => searchCasesForBinding(keyword, { signal }),
+    enabled: !isBound,
+    minLength: 2,
   })
   const results = useMemo(
     () =>

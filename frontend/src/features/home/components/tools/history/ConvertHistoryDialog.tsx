@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils'
 import { errMessage } from '@/lib/errors'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { ROW_BTN } from '../../../ui'
 import { badgeOf } from './badges'
 import { HistoryError } from './HistoryError'
 import { HistoryHeader, HistoryPager } from './HistoryParts'
@@ -26,9 +27,6 @@ const GROUPS = [
   { value: 'success', label: '成功' },
   { value: 'failed', label: '失败' },
 ] as const
-
-const ROW_BTN =
-  'flex h-[26px] flex-none items-center gap-1 rounded-[7px] border border-border bg-card px-2 text-[10.5px] font-medium text-secondary-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50'
 
 /** 行操作：下载（成功）+ 删除（两段确认，3.5 秒内再点执行） */
 function Row({ item, onDeleted }: { item: ConvertRecordItem; onDeleted: () => void }) {

@@ -1,7 +1,9 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
-import { appendPackFiles, getPackDetail, saveDraft, clearBytesCache } from './api'
+import { appendPackFiles, getPackDetail, clearBytesCache } from './api'
+import { discardPendingSave, scheduleSave } from './draft-persistence'
 import { clearPdfDocuments } from '@/lib/pdf'
+import { errMessage } from '@/lib/errors'
 import { READER_CLOSE_MS } from './constants'
 import {
   applyPageSelection,
@@ -86,33 +88,21 @@ interface ReaderState {
   appendFiles: (files: File[]) => Promise<void>
 }
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null
-let latestDraft: DraftState | null = null
-let latestId = 0
-
-function scheduleSave(draft: DraftState, id: number, immediate = false): Promise<void> | null {
-  latestDraft = draft
-  latestId = id
-  // 立即保存：取消待执行的防抖，马上落一次盘
-  if (immediate && saveTimer) {
-    clearTimeout(saveTimer)
-    saveTimer = null
+/** 阅读器会话交互态的清零并叠加差异字段（open 换包 / close 卸载 / resetAll
+ *  三处共用同一组重置字段；差异项——openId/detail/draft/status/error——由调用方给）。 */
+function resetState(over: Partial<ReaderState>): Partial<ReaderState> {
+  return {
+    closing: false,
+    pickInfo: -1,
+    zoom: 1,
+    cols: 1,
+    selMode: false,
+    selPages: [],
+    lastAnchor: -1,
+    ocrPending: null,
+    assignOpen: false,
+    ...over,
   }
-  if (saveTimer) return null
-  return new Promise((resolve, reject) => {
-    saveTimer = setTimeout(() => {
-      saveTimer = null
-      const d = latestDraft
-      const mid = latestId
-      if (!d) return resolve()
-      saveDraft(mid, d)
-        .then(() => resolve())
-        .catch((e: unknown) => {
-          toast.error('拆分草稿保存失败，请检查后端连接')
-          reject(e instanceof Error ? e : new Error(String(e)))
-        })
-    }, immediate ? 0 : 450)
-  })
 }
 
 export const useReader = create<ReaderState>((set, get) => ({
@@ -136,20 +126,7 @@ export const useReader = create<ReaderState>((set, get) => ({
     // 此时上一个包的页卡已随 openId 变化卸载，销毁其文档是安全的
     clearPdfDocuments()
     clearBytesCache()
-    set({
-      status: 'loading',
-      error: '',
-      closing: false,
-      openId: id,
-      pickInfo: -1,
-      zoom: 1,
-      cols: 1,
-      selMode: false,
-      selPages: [],
-      lastAnchor: -1,
-      ocrPending: null,
-      assignOpen: false,
-    })
+    set(resetState({ status: 'loading', error: '', openId: id }))
     try {
       const detail = await getPackDetail(id)
       // 快速连点两个包时，慢的那个响应后到会张冠李戴——响应回来时若已切到别的包就丢弃
@@ -173,7 +150,7 @@ export const useReader = create<ReaderState>((set, get) => ({
       set({ detail, draft, status: 'ready' })
     } catch (e) {
       if (get().openId !== id) return
-      set({ status: 'error', error: e instanceof Error ? e.message : '打开失败' })
+      set({ status: 'error', error: errMessage(e, '打开失败') })
     }
   },
 
@@ -188,49 +165,16 @@ export const useReader = create<ReaderState>((set, get) => ({
       // 阅读器已彻底关闭，释放该包的 PDF 文档/worker（关掉后不重开时也得回收，别等下次 open）
       clearPdfDocuments()
       clearBytesCache()
-      set({
-        openId: null,
-        detail: null,
-        draft: null,
-        status: 'idle',
-        closing: false,
-        pickInfo: -1,
-        zoom: 1,
-        cols: 1,
-        selMode: false,
-        selPages: [],
-        lastAnchor: -1,
-        ocrPending: null,
-        assignOpen: false,
-      })
+      set(resetState({ openId: null, detail: null, draft: null, status: 'idle' }))
     }, READER_CLOSE_MS)
   },
 
   resetAll: () => {
     // 取消未落盘的防抖保存：登出后 token 已清，保存只会报错；草稿按丢弃处理
-    if (saveTimer) {
-      clearTimeout(saveTimer)
-      saveTimer = null
-    }
-    latestDraft = null
+    discardPendingSave()
     clearPdfDocuments()
     clearBytesCache()
-    set({
-      openId: null,
-      detail: null,
-      draft: null,
-      status: 'idle',
-      error: '',
-      closing: false,
-      pickInfo: -1,
-      zoom: 1,
-      cols: 1,
-      selMode: false,
-      selPages: [],
-      lastAnchor: -1,
-      ocrPending: null,
-      assignOpen: false,
-    })
+    set(resetState({ openId: null, detail: null, draft: null, status: 'idle', error: '' }))
   },
 
   update: (fn) => {

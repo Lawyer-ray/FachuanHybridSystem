@@ -325,11 +325,12 @@ class LitigationConsumer(AsyncWebsocketConsumer):
         （必然查不到），避免未来有人调整 connect() 的匿名拒绝顺序后这里
         变成越权通道。
         """
+        from apps.core.security.admin_access import is_admin_user  # 解耦（2026-10-19）：管理员判定收敛 core
         from apps.litigation_ai.models import LitigationSession
 
         qs = LitigationSession.objects.filter(session_id=session_id)
         user = getattr(self, "user", None)
-        if user is None or not (getattr(user, "is_superuser", False) or getattr(user, "is_admin", False)):
+        if user is None or not is_admin_user(user):
             qs = qs.filter(user_id=getattr(user, "id", None))
         return qs.first()
 

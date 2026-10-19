@@ -97,31 +97,46 @@ def create_job(
 
 
 # ↓↓ 由 ImageRotationJobService 下沉的模块级纯函数（四层架构静态方法棘轮）
-def get_job(job_id: str | uuid.UUID) -> ImageRotationJob:
+def get_job(job_id: str | uuid.UUID, user: Any = None) -> ImageRotationJob:
+    """获取任务.
+
+    安全审计（2026-10-19）：历史任务端点原本零归属校验，任意用户可按
+    job_id 枚举读/改/删他人任务.传入 user 时按属主过滤（superuser 豁免），
+    非本人任务按不存在处理，口径与 apps/doc_converter get_job（安全审计
+    B-10）一致.
+    """
+    qs = ImageRotationJob.objects.all()
+    if user is not None and not getattr(user, "is_superuser", False):
+        qs = qs.filter(created_by=user)
     try:
-        return ImageRotationJob.objects.get(pk=job_id)
+        return qs.get(pk=job_id)
     except ImageRotationJob.DoesNotExist:
         raise NotFoundError(
             message=f"任务 {job_id} 不存在",
             code="JOB_NOT_FOUND",
             errors={},
-        )
+        ) from None
 
 
 # ↓↓ 由 ImageRotationJobService 下沉的模块级纯函数（四层架构静态方法棘轮）
-def list_jobs(*, created_by: Any = None, page: int = 1, page_size: int = 20) -> dict[str, Any]:
+def list_jobs(*, created_by: Any = None, page: int = 1, page_size: int = 20, user: Any = None) -> dict[str, Any]:
     from apps.core.api.pagination import paginate_queryset
 
     qs = ImageRotationJob.objects.all()
-    if created_by is not None:
+    # 安全审计（2026-10-19）：传入 user 时按属主收敛（superuser 豁免），
+    # 与 get_job 同口径；原 created_by 显式过滤保留（user 优先）.
+    if user is not None:
+        if not getattr(user, "is_superuser", False):
+            qs = qs.filter(created_by=user)
+    elif created_by is not None:
         qs = qs.filter(created_by=created_by)
 
     return paginate_queryset(qs, page=page, page_size=page_size)
 
 
 # ↓↓ 由 ImageRotationJobService 下沉的模块级纯函数（四层架构静态方法棘轮）
-def get_job_detail(job_id: str | uuid.UUID) -> tuple[ImageRotationJob, list[ImageRotationPage]]:
-    job = get_job(job_id)
+def get_job_detail(job_id: str | uuid.UUID, user: Any = None) -> tuple[ImageRotationJob, list[ImageRotationPage]]:
+    job = get_job(job_id, user=user)
     pages = list(job.pages.all())
     return job, pages
 
@@ -131,12 +146,13 @@ def run_ocr(
     job_id: str | uuid.UUID,
     provider: str = "local",
     ocr_service: IOcrService | None = None,
+    user: Any = None,
 ) -> list[ImageRotationPage]:
-    """对任务所有页面重跑 OCR + 建议重命名。"""
+    """对任务所有页面重跑 OCR + 建议重命名."""
     from apps.core.interfaces import ServiceLocator
     from apps.image_rotation.services.auto_rename_service import AutoRenameService
 
-    job, pages = get_job_detail(job_id)
+    job, pages = get_job_detail(job_id, user=user)
 
     if ocr_service is None:
         if provider != "local":
@@ -171,12 +187,13 @@ async def arun_ocr(
     job_id: str | uuid.UUID,
     provider: str = "local",
     ocr_service: IOcrService | None = None,
+    user: Any = None,
 ) -> list[ImageRotationPage]:
-    """异步版本：并发对任务所有页面重跑 OCR + 建议重命名。"""
+    """异步版本：并发对任务所有页面重跑 OCR + 建议重命名."""
     from apps.core.interfaces import ServiceLocator
     from apps.image_rotation.services.auto_rename_service import AutoRenameService
 
-    job, pages = await sync_to_async(get_job_detail)(job_id)
+    job, pages = await sync_to_async(get_job_detail)(job_id, user=user)
 
     if ocr_service is None:
         if provider != "local":
@@ -208,8 +225,8 @@ async def arun_ocr(
 
 
 # ↓↓ 由 ImageRotationJobService 下沉的模块级纯函数（四层架构静态方法棘轮）
-def delete_job(job_id: str | uuid.UUID) -> None:
+def delete_job(job_id: str | uuid.UUID, user: Any = None) -> None:
     """删除任务（信号自动清理文件）。"""
-    job = get_job(job_id)
+    job = get_job(job_id, user=user)
     job.delete()
     logger.info("删除图片旋转任务: %s", job_id)

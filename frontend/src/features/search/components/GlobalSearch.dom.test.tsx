@@ -29,9 +29,9 @@ const onOpenChange = vi.fn()
 const onPickUnavailable = vi.fn()
 
 // 不显式标注 Hit：Hit 正在从手写类型迁移到 api-schema 生成物引用，
-// 工厂返回结构形状（category/id/title/subtitle）对两种类型态都可结构兼容。
-function makeHit(category: string, id: number, title: string, subtitle = '') {
-  return { category, id, title, subtitle }
+// 工厂返回结构形状（category/id/title/subtitle/side）对两种类型态都可结构兼容。
+function makeHit(category: string, id: number, title: string, subtitle = '', side: '' | 'ours' | 'opposing' = '') {
+  return { category, id, title, subtitle, side }
 }
 
 function setupUi(open = true) {
@@ -50,7 +50,7 @@ function setupUi(open = true) {
   )
 }
 
-const input = () => screen.getByPlaceholderText('搜案件 / 客户 / 合同 / 收件箱 / 法院短信 / 联系人')
+const input = () => screen.getByPlaceholderText('搜案件 / 当事人 / 合同 / 收件箱 / 法院短信 / 联系人')
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -143,6 +143,32 @@ describe('GlobalSearch 结果渲染', () => {
     setupUi(true)
     fireEvent.change(input(), { target: { value: '不存在' } })
     expect(await screen.findByText('没有匹配「不存在」的结果')).toBeTruthy()
+  })
+
+  it('当事人类：组标签叫「当事人」不叫「客户」，命中带我方/对方徽章，电话原样显示', async () => {
+    runSearchMock.mockResolvedValue([
+      makeHit('clients', 2, '甲方运动用品有限公司', '0757-22334455', 'ours'), // privacy-allow 虚构号码
+      makeHit('clients', 3, '乙方科技有限公司', '13800000000', 'opposing'), // privacy-allow 虚构号码
+    ])
+    setupUi(true)
+    fireEvent.change(input(), { target: { value: '有限公司' } })
+    expect(await screen.findByText('甲方运动用品有限公司')).toBeTruthy()
+    expect(screen.getByText('当事人', { selector: 'div' })).toBeTruthy()
+    expect(screen.queryByText('客户', { selector: 'div' })).toBeNull()
+    expect(screen.getByRole('button', { name: /^当事人/ })).toBeTruthy()
+    expect(screen.getByText('我方')).toBeTruthy()
+    expect(screen.getByText('对方')).toBeTruthy()
+    // 座机号原样出现，不再是一串星号
+    expect(screen.getByText('0757-22334455')).toBeTruthy() // privacy-allow 虚构号码
+  })
+
+  it('非当事人类命中（side 为空）不渲染我方/对方徽章', async () => {
+    runSearchMock.mockResolvedValue([makeHit('cases', 1, '王五诉讼案', '(2026)粤01民初1号')]) // privacy-allow 虚构案号
+    setupUi(true)
+    fireEvent.change(input(), { target: { value: '王五' } })
+    await screen.findByText('王五诉讼案')
+    expect(screen.queryByText('我方')).toBeNull()
+    expect(screen.queryByText('对方')).toBeNull()
   })
 
   it('筛选标签是纯前端过滤：点「收件箱」后只留该类别命中', async () => {

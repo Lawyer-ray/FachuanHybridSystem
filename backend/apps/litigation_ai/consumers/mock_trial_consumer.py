@@ -277,11 +277,12 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
         只能访问自己的会话，否则任意已认证用户可连上他人会话读取案情并在
         他人会话上驱动 LLM 生成。user 缺失时同样 fail-closed（按 None 过滤）。
         """
+        from apps.core.security.admin_access import is_admin_user  # 解耦（2026-10-19）：管理员判定收敛 core
         from apps.litigation_ai.models import LitigationSession
 
         qs = LitigationSession.objects.filter(session_id=session_id, session_type="mock_trial")
         user = getattr(self, "user", None)
-        if user is None or not (getattr(user, "is_superuser", False) or getattr(user, "is_admin", False)):
+        if user is None or not is_admin_user(user):
             qs = qs.filter(user_id=getattr(user, "id", None))
         return qs.first()
 

@@ -180,6 +180,15 @@ class ClientPaymentRecordAdmin(admin.ModelAdmin):  # pragma: no cover
         qs = super().get_queryset(request)
         return apply_contract_related_admin_access_filter(request, qs).select_related("contract", "case")  # type: ignore[no-any-return]
 
+    def formfield_for_foreignkey(self, db_field: Any, request: HttpRequest, **kwargs: Any) -> Any:  # pragma: no cover
+        """安全审计（2026-10-19）：contract FK 可选项按行级口径过滤（同 get_queryset），
+        防止受限用户通过表单把回款记录挂到他人合同下（跨合同越权写入）。"""
+        if db_field.name == "contract":
+            from apps.contracts.admin.access import get_admin_accessible_contract_queryset
+
+            kwargs["queryset"] = get_admin_accessible_contract_queryset(request)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
     @admin.display(description=_("图片预览"))
     def image_preview(self, obj: ClientPaymentRecord) -> str:  # pragma: no cover
         """展示图片预览"""
@@ -223,6 +232,15 @@ class ClientPaymentRecordAdmin(admin.ModelAdmin):  # pragma: no cover
         if not contract_id:
             return JsonResponse({"cases": []})
 
+        # 安全审计（2026-10-19）：contract_id 补行级校验（口径同 get_queryset），
+        # 无权合同直接 PermissionDenied（403），防止跨合同探测案件列表
+        from apps.contracts.admin.access import ensure_admin_contract_access
+
+        try:
+            ensure_admin_contract_access(request, int(contract_id))
+        except ValueError:
+            return JsonResponse({"cases": [], "error": "参数无效"}, status=400)
+
         cases = Case.objects.filter(contract_id=contract_id).values("id", "name")
         return JsonResponse({"cases": list(cases)})
 
@@ -230,6 +248,13 @@ class ClientPaymentRecordAdmin(admin.ModelAdmin):  # pragma: no cover
         self, request: HttpRequest, obj: ClientPaymentRecord, form: Any, change: bool
     ) -> None:  # pragma: no cover
         """保存模型时调用 Service 层验证"""
+        from apps.contracts.admin.access import ensure_admin_contract_access
+
+        # 安全审计（2026-10-19）：保存前对 obj.contract 做行级二次校验
+        # （防表单可选项被绕过 / 陈旧选项写入他人合同）
+        if obj.contract_id:
+            ensure_admin_contract_access(request, obj.contract_id)
+
         from apps.contracts.services.client_payment import ClientPaymentImageService, ClientPaymentRecordService
 
         service = ClientPaymentRecordService()

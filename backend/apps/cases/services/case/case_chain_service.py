@@ -6,17 +6,33 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+from django.db.models import QuerySet
+
 from apps.cases.models import Case
 
 
-def get_case_chain(case: Case) -> list[Case]:
+def get_case_chain(
+    case: Case,
+    *,
+    user: Any | None = None,
+    org_access: dict[str, Any] | None = None,
+    perm_open_access: bool = False,
+) -> list[Case]:
     """获取完整案件链（按 start_date 升序）。
 
     链通常 2~4 层，优化为：
     1. 逐层回溯到根（N 次轻量查询，N=链深；visited 防环）
     2. 单次查询取所有后代（链短时 1 次即可）
-    3. 一次性取出完整对象
+    3. 一次性取出完整案件，按收案日期排序
+
+    安全审计（2026-10-19）：新增可选 user/org_access/perm_access 参数，
+    传入 user 时按 CaseAccessPolicy 行级口径过滤——无权访问的案件从链上隐藏；
+    默认不传则保持既有行为（不过滤），兼容既有调用方。
     """
+    from .case_access_policy import CaseAccessPolicy
+
     # 1. 回溯到链首
     root_id: int = case.pk
     visited: set[int] = {root_id}
@@ -35,5 +51,8 @@ def get_case_chain(case: Case) -> list[Case]:
         frontier = [c for c in children if c not in chain]
         chain.extend(frontier)
 
-    # 3. 一次性取出所有案件，按收案日期排序
-    return list(Case.objects.filter(pk__in=chain).order_by("start_date", "pk"))
+    # 3. 一次性取出所有案件，按收案日期排序；仅在显式传入 user 时做行级过滤
+    chain_qs: QuerySet[Case, Case] = Case.objects.filter(pk__in=chain).order_by("start_date", "pk")
+    if user is not None:
+        chain_qs = CaseAccessPolicy().filter_queryset(chain_qs, user, org_access, perm_open_access)
+    return list(chain_qs)

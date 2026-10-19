@@ -40,6 +40,7 @@ from apps.contracts.models import (
     SupplementaryAgreement,
     SupplementaryAgreementParty,
 )
+from apps.core.admin.base import BaseModelAdmin  # 解耦（2026-10-19）：nested_admin 兜底别名上提 core
 from apps.core.admin.mixins import AdminImportExportMixin
 from apps.core.models.enums import CaseStage
 
@@ -61,15 +62,7 @@ def _client_file_path(client: Client) -> list[str]:
 
 
 if TYPE_CHECKING:
-    BaseModelAdmin = admin.ModelAdmin
     from django.db.models import QuerySet
-else:
-    try:
-        import nested_admin
-
-        BaseModelAdmin = nested_admin.NestedModelAdmin
-    except ImportError:
-        BaseModelAdmin = admin.ModelAdmin
 
 
 def serialize_contract_obj(obj: Any) -> dict[str, Any]:
@@ -363,6 +356,10 @@ class ContractAdmin(
             return JsonResponse({"error": "Method not allowed"}, status=405)
         if not self.has_change_permission(request):
             return JsonResponse({"error": "Permission denied"}, status=403)
+        # 安全审计（2026-10-19）：补行级校验（口径同 display/archive mixin 各视图）
+        from apps.contracts.admin.access import ensure_admin_contract_access
+
+        ensure_admin_contract_access(request, contract_id)
         try:
             data = json.loads(request.body)
             ids: list[int] = data.get("ids", [])
@@ -512,6 +509,12 @@ class ContractAdmin(
         if not isinstance(entries, list):
             return JsonResponse({"success": False, "message": "参数格式错误"}, status=400)
 
+        # 安全审计（2026-10-19）：补行级校验——entries 中涉及的存在合同必须可访问，
+        # 无权合同整批 PermissionDenied（403）；不存在的合同 ID 留给 service 按行记 errors
+        self._ensure_admin_contract_access_for_ids(
+            request, [entry.get("id", entry.get("contract_id")) for entry in entries if isinstance(entry, dict)]
+        )
+
         try:
             result = get_contract_oa_sync_service().save_manual_contract_oa_fields(updates=entries)
             message = "保存成功" if result.get("error_count", 0) == 0 else "部分保存成功，请检查错误项"
@@ -519,6 +522,22 @@ class ContractAdmin(
         except Exception as exc:
             logger.exception("contract_oa_sync_save_failed")
             return JsonResponse({"success": False, "message": str(exc)}, status=400)
+
+    @staticmethod
+    def _ensure_admin_contract_access_for_ids(request: HttpRequest, raw_contract_ids: list[Any]) -> None:
+        """对一批合同 ID 做行级校验（仅校验存在的合同，无权即抛 PermissionDenied）。"""
+        from apps.contracts.admin.access import ensure_admin_contract_access
+
+        candidate_ids: set[int] = set()
+        for raw_id in raw_contract_ids:
+            try:
+                cid = int(str(raw_id)) if raw_id is not None else 0
+            except (TypeError, ValueError):
+                continue  # 无效 ID 由各 service 按行记 errors
+            if cid > 0:
+                candidate_ids.add(cid)
+        for existing_id in Contract.objects.filter(pk__in=candidate_ids).values_list("id", flat=True):
+            ensure_admin_contract_access(request, existing_id)
 
     def oa_sync_status_view(self, request: HttpRequest, session_id: int) -> JsonResponse:  # pragma: no cover
         if request.method != "GET":
@@ -541,6 +560,7 @@ class ContractAdmin(
         if not self.has_change_permission(request):
             return JsonResponse({"success": False, "message": "Permission denied"}, status=403)
 
+        from apps.contracts.admin.access import get_admin_accessible_contract_queryset
         from apps.contracts.admin.wiring_admin import get_contract_batch_folder_binding_service
 
         payload = self._parse_json_payload(request)
@@ -549,7 +569,12 @@ class ContractAdmin(
             return JsonResponse({"success": False, "message": "参数格式错误"}, status=400)
 
         try:
-            data = get_contract_batch_folder_binding_service().preview(case_type_roots=case_type_roots)
+            # 安全审计（2026-10-19）：预览候选按行级口径过滤（同 get_queryset），
+            # 不再泄漏无权合同的名称/案号；契约与 save 视图的行级校验口径一致
+            data = get_contract_batch_folder_binding_service().preview(
+                case_type_roots=case_type_roots,
+                contract_qs=get_admin_accessible_contract_queryset(request),
+            )
             return JsonResponse({"success": True, **data})
         except Exception as exc:
             logger.exception("contract_batch_folder_binding_preview_failed")
@@ -569,6 +594,13 @@ class ContractAdmin(
         if not isinstance(case_type_roots, list) or not isinstance(contract_selections, list):
             return JsonResponse({"success": False, "message": "参数格式错误"}, status=400)
 
+        # 安全审计（2026-10-19）：补行级校验——绑定的目标合同必须可访问，
+        # 无权合同整批 PermissionDenied（403）
+        self._ensure_admin_contract_access_for_ids(
+            request,
+            [item.get("contract_id") for item in contract_selections if isinstance(item, dict)],
+        )
+
         try:
             result = get_contract_batch_folder_binding_service().save(
                 case_type_roots=case_type_roots,
@@ -580,6 +612,9 @@ class ContractAdmin(
             return JsonResponse({"success": False, "message": str(exc)}, status=400)
 
     def batch_folder_binding_open_folder_view(self, request: HttpRequest) -> JsonResponse:  # pragma: no cover
+        # 安全审计（2026-10-19）：本视图只按 root_path/folder_path 打开本地目录，
+        # 不引用任何合同（无 contract_id 可供行级校验）；路径越界由
+        # service._validate_selected_folder 的目录包含校验兜底
         if request.method != "POST":
             return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
         if not self.has_change_permission(request):

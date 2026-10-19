@@ -66,6 +66,7 @@ from django.http import (
 from django.views.decorators.http import require_http_methods
 
 from apps.core.exceptions import PermissionDenied, ValidationException
+from apps.core.http.download import content_disposition
 from apps.core.http.streaming import _DANGEROUS_CONTENT_TYPES
 from apps.core.security.auth import JWTOrSessionAuth
 from apps.core.services.storage_service import _get_media_root, to_media_abs
@@ -85,8 +86,8 @@ def _is_dangerous_media(abs_path: Path, content_type: str) -> bool:
 
 
 def _attachment_disposition(filename: str) -> str:
-    quoted = quote(filename)
-    return f"attachment; filename=\"{quoted}\"; filename*=UTF-8''{quoted}"
+    # 解耦（2026-10-19）：委托 core/http/download 的统一 RFC 5987 实现
+    return content_disposition(filename)
 
 
 def _authenticated(request: HttpRequest) -> bool:

@@ -253,6 +253,7 @@ class InboxMessageAdmin(admin.ModelAdmin):  # pragma: no cover
     ) -> FileResponse:  # pragma: no cover
         from django.http import Http404
 
+        from apps.message_hub.api.inbox_api import _INLINE_SAFE_CONTENT_TYPES
         from apps.message_hub.services import get_fetcher
 
         msg = InboxMessage.objects.select_related("source__credential").filter(pk=pk).first()
@@ -261,6 +262,11 @@ class InboxMessageAdmin(admin.ModelAdmin):  # pragma: no cover
         fetcher = get_fetcher(msg.source.source_type)
         content, filename, content_type = fetcher.download_attachment(msg.source, msg.message_id, part_index)
         download_filename = self._resolve_download_filename(msg, part_index, filename)
+        # 安全审计（2026-10-19）：内联预览与 API 侧同口径——附件自报 Content-Type 不可信，
+        # 只有白名单类型允许内联（否则外部邮件附件可带 text/html 在 admin 同源执行脚本），
+        # 并统一补 nosniff
+        if inline and str(content_type or "").split(";")[0].strip().lower() not in _INLINE_SAFE_CONTENT_TYPES:
+            inline = False
         response = FileResponse(
             iter([content]),
             content_type=content_type,
@@ -269,7 +275,7 @@ class InboxMessageAdmin(admin.ModelAdmin):  # pragma: no cover
         )
         if not inline:
             response["Content-Type"] = "application/octet-stream"
-            response["X-Content-Type-Options"] = "nosniff"
+        response["X-Content-Type-Options"] = "nosniff"
         return response
 
     def _submit_to_sms_view(self, request: HttpRequest, pk: int) -> Any:  # pragma: no cover

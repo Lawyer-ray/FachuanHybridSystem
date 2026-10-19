@@ -14,6 +14,7 @@ from ninja import File, Router
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
 
+from apps.core.http.download import content_disposition
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.core.security.auth import JWTOrSessionAuth
 
@@ -120,7 +121,9 @@ async def upload_invoices(  # pragma: no cover
     files: list[UploadedFile] = File(...),
 ) -> dict[str, Any]:
     """多文件上传 + 自动识别"""
-    from django.core.exceptions import ObjectDoesNotExist, ValidationError
+    from django.core.exceptions import ObjectDoesNotExist
+
+    from apps.core.exceptions import ValidationException
 
     service = _get_recognition_service()
     user = getattr(request, "user", None)
@@ -128,8 +131,10 @@ async def upload_invoices(  # pragma: no cover
         records = await sync_to_async(service.upload_and_recognize, thread_sensitive=False)(task_id, files, user=user)
     except ObjectDoesNotExist:
         raise HttpError(404, "任务不存在")
-    except ValidationError as exc:
-        raise HttpError(400, str(exc.message if hasattr(exc, "message") else exc))
+    except ValidationException as exc:
+        # 解耦（2026-10-19）：服务层校验错误统一为 ValidationException；
+        # 边界转回既有 HttpError(400) 信封，对外 HTTP 行为不变
+        raise HttpError(400, str(exc.message)) from None
 
     record_list: list[dict[str, Any]] = [
         {
@@ -220,5 +225,6 @@ def download_invoices(  # pragma: no cover
         raise HttpError(404, "任务或发票不存在")
 
     response = HttpResponse(data, content_type=content_type)
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    # 解耦（2026-10-19）：裸拼改走统一 RFC 5987 实现（中文/特殊字符文件名安全转义）
+    response["Content-Disposition"] = content_disposition(filename)
     return response

@@ -366,22 +366,55 @@ def generate_draft(
 # ============================================================
 
 
+def _bind_tool_case_id(tool: Any, case_id: int) -> Any:
+    """安全审计（2026-10-19）：把工具的 case_id 参数闭包绑定到会话案件.
+
+    Agent 工具的 case_id 参数由 LLM 填充（GetCaseInfoInput 等），历史实现
+    直接透传给 get_case_with_details_internal / 证据查询等无归属过滤的内部
+    接口，提示词注入即可诱导 Agent 跨案件读取他人案情与证据.这里在工厂
+    创建工具集时用闭包把 case_id 钉死到会话案件，忽略模型给的值（与
+    LitigationAgentFactory.create_agent(session_id, case_id) 的绑定方式
+    对齐）.args_schema 不含 case_id 的工具（如 search_evidence）原样返回.
+    """
+    schema_fields = getattr(getattr(tool, "args_schema", None), "model_fields", None) or {}
+    if "case_id" not in schema_fields:
+        return tool
+
+    sync_func = tool._func
+    async_func = tool._async_func
+
+    def bound_sync(**kwargs: Any) -> Any:
+        kwargs["case_id"] = case_id
+        return sync_func(**kwargs)
+
+    async def bound_async(**kwargs: Any) -> Any:
+        kwargs["case_id"] = case_id
+        if async_func is not None:
+            return await async_func(**kwargs)
+        return await sync_to_async(sync_func, thread_sensitive=True)(**kwargs)
+
+    bound = _SimpleTool(func=bound_sync, args_schema=tool.args_schema, async_func=bound_async)
+    bound.name = tool.name
+    bound.description = tool.description
+    return bound
+
+
 def get_litigation_tools(case_id: int) -> list[Any]:
     """
     获取诉讼文书生成的工具列表
 
     Args:
-        case_id: 案件 ID(部分工具可能需要预绑定案件上下文)
+        case_id: 案件 ID(工具的 case_id 参数闭包绑定到该案件,忽略 LLM 填充值)
 
     Returns:
         工具列表,可直接传递给 Agent
     """
     return [
-        get_case_info,
-        get_evidence_list,
-        search_evidence,
-        get_recommended_document_types,
-        generate_draft,
+        _bind_tool_case_id(get_case_info, case_id),
+        _bind_tool_case_id(get_evidence_list, case_id),
+        _bind_tool_case_id(search_evidence, case_id),
+        _bind_tool_case_id(get_recommended_document_types, case_id),
+        _bind_tool_case_id(generate_draft, case_id),
     ]
 
 

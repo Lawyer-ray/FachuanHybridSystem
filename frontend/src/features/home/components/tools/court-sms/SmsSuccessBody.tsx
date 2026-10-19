@@ -3,12 +3,9 @@ import { useState } from 'react'
 
 import { courtSmsDocDownloadUrl, triggerDownload, type CourtSmsDetail } from '../../../api'
 import { cn } from '@/lib/utils'
+import { ROW_BTN } from '../../../ui'
 import { copyDocFile } from './copy-files'
 import { SMS_STATUS_LABEL, SMS_TYPE_LABEL } from './stages'
-
-/** 行内小按钮：描边风格（行内不放实心主按钮，主行动留给 footer） */
-const ROW_BTN =
-  'flex h-[26px] flex-none items-center gap-1 rounded-[7px] border border-border bg-card px-2 text-[10.5px] font-medium text-secondary-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50'
 
 /** 通知结果摘要：notification_results = { 平台: { success: bool, ... } } */
 function notifySummary(nr: Record<string, unknown> | null): string | null {

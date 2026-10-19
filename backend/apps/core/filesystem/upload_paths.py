@@ -52,6 +52,78 @@ def _sanitize(filename: str) -> str:
     return sanitize_filename(name) or "file"
 
 
+# ─── 展示型名称 / ZIP 条目名清洗 ──────────────────────────────────
+# 解耦（2026-10-19）：以下 safe_name / safe_arcname 由
+# documents/services/generation/path_utils.py 原样上提（该模块已成事实 core，
+# 被多个 app 引用）；path_utils 保留同名兼容别名，新代码请直接从本模块引入。
+# 与上方 sanitize_filename（白名单替换为下划线并截断 200）策略不同：这里是
+# 「尽量保留可读性」的黑名单替换，不截断、不处理扩展名。
+
+
+def safe_name(name: str, *, collapse_whitespace: bool = False) -> str:
+    """面向展示的名称清洗：路径分隔符换全角，换行/回车/制表换空格，空值回退「未命名」。
+
+    ``collapse_whitespace=True`` 额外把连续空白压成单个空格再去首尾空白——这是
+    cases ``CaseTemplateGenerationService._safe_name`` 原有的差异化行为，以参数保留；
+    默认关闭，保证 documents 侧既有调用输出逐字不变。
+    """
+    value = (name or "").strip()
+    value = value.replace("/", "／").replace("\\", "＼")
+    value = value.replace("\n", " ").replace("\r", " ").replace("\t", " ")
+    if collapse_whitespace:
+        value = re.sub(r"\s+", " ", value).strip()
+    return value or "未命名"
+
+
+def safe_arcname(name: str) -> str:
+    """ZIP 条目名清洗：逐段 ``safe_name``，剔除 ""/"."/".." 片段与 Windows 盘符前缀。
+
+    安全审计（2026-10-19）要点原样保留：".." 片段剔除防解压路径穿越；剥掉盘符前缀
+    （如 ``C:\\evil``）阻断绝对路径形态；前导 "/" 经去空段后自然变为相对路径。
+    """
+    safe = (name or "").replace("\\", "/")
+    safe = re.sub(r"^[A-Za-z]:(?=/|$)", "", safe)
+    parts = [safe_name(part) for part in safe.split("/") if part not in ("", ".", "..")]
+    return "/".join(parts)
+
+
+# ─── 下载文件名 / 文书重命名片段清洗 ──────────────────────────────
+# 解耦（2026-10-19）：收敛 automation 下两组逐字相同的本地实现。
+
+_ILLEGAL_FILENAME_CHARS_RE = re.compile(r'[\\/:*?"<>|\n\r\t]+')
+
+
+def replace_illegal_filename_chars(name: str, *, replacement: str = "_") -> str:
+    """把文件名非法字符（``\\ / : * ? " < > |`` 及换行/回车/制表）的连续段替换为 ``replacement``，再去首尾空白。
+
+    解耦（2026-10-19）：收敛法院文书爬虫 jysd / sfdw / daolv 各自的 ``_safe_filename`` 正则。
+    清洗后为空时返回空串，兜底文件名由调用方决定——各爬虫的兜底带时间戳与平台前缀，
+    留在调用方以维持原有的惰性求值与实例依赖（daolv 取 ``self._DOMAIN``）。
+    """
+    return _ILLEGAL_FILENAME_CHARS_RE.sub(replacement, name).strip()
+
+
+_FILENAME_PART_ILLEGAL_RE = re.compile(r'[<>:"|?*\\/]')
+_FILENAME_PART_ASCII_PARENS_RE = re.compile(r"[()]")
+_FILENAME_PART_CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def sanitize_filename_part(text: str) -> str:
+    """文书重命名「片段」清洗：删除（而非替换）Windows 非法字符、英文括号与控制字符，再去首尾空格/点号。
+
+    解耦（2026-10-19）：收敛 automation/services/sms 下 ``DocumentRenamer`` 与
+    ``DocumentAttachmentService`` 逐字相同的 ``_sanitize_filename_part``。
+    用于标题 / 案件名等将被套入文件名模板的片段：空输入返回空串，不做扩展名与长度处理；
+    英文括号一并删除是为避免与模板自带的中文括号混淆。
+    """
+    if not text:
+        return ""
+    text = _FILENAME_PART_ILLEGAL_RE.sub("", text)
+    text = _FILENAME_PART_ASCII_PARENS_RE.sub("", text)
+    text = _FILENAME_PART_CONTROL_RE.sub("", text)
+    return text.strip(" .")
+
+
 # ─── Media 目录 entity 常量 ────────────────────────────────────
 # 所有 DatedUUIDPath / EntityIdPath / DatedOriginalPath 的 entity 参数
 # 必须使用以下常量，禁止硬编码字符串。

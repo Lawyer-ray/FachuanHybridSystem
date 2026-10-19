@@ -516,5 +516,9 @@ def _find_credential(user: Any, site_name: str) -> Any:
 
 # ↓↓ 由 ScriptExecutorService 下沉的模块级纯函数（四层架构静态方法棘轮）
 def _can_view_all_sessions(user: Any) -> bool:
-    """admin 豁免：管理员可查看全部会话。"""
-    return bool(getattr(user, "is_superuser", False) or getattr(user, "is_admin", False))
+    """admin 豁免：仅超级管理员可查看全部会话。
+
+    安全审计（2026-10-19）：此前所管理员（is_admin）也可跨账号读任意立案/盖章/归档会话
+    （含 OA 案号与文件路径），收敛为 superuser——单机单所部署下现有账号不受影响。
+    """
+    return bool(getattr(user, "is_superuser", False))

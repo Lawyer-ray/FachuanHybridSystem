@@ -17,7 +17,7 @@ from django.shortcuts import render
 from django.template.response import TemplateResponse
 from django.urls import URLPattern, path
 
-from apps.cases.admin.base_admin import BaseModelAdmin
+from apps.core.admin.base import BaseModelAdmin  # 解耦（2026-10-19）：不再跨 app 引 cases admin 的别名
 from apps.finance.models.lpr_rate import LPRRate
 
 if TYPE_CHECKING:
@@ -138,6 +138,13 @@ class LPRRateAdmin(BaseModelAdmin):  # pragma: no cover
 
     def sync_view(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
         """同步LPR数据视图 - 直接执行同步."""
+        from django.core.exceptions import PermissionDenied
+
+        # 安全审计（2026-10-19）：状态变更只收 POST（GET 可被跨站 <img> 诱导触发刷资源），
+        # 并补 has_change_permission 校验
+        if request.method != "POST" or not self.has_change_permission(request):
+            raise PermissionDenied
+
         from apps.core.exceptions import BusinessException
         from apps.finance.services.lpr import LPRSyncService
 

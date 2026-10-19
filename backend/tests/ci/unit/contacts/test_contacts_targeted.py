@@ -202,6 +202,36 @@ class TestContactsAdmin:
         assert admin_instance.has_module_permission(None) is True
 
 
+@pytest.mark.django_db
+class TestCaseContactAdminRowLevelAccess:
+    """安全审计（2026-10-19）回归：CaseContactAdmin 列表行级案件过滤。"""
+
+    def test_get_queryset_filters_by_case_access(self):
+        """非管理员 staff 只能看到本所指派/授权案件下的联系人"""
+        from django.contrib.admin.sites import AdminSite
+        from django.test import RequestFactory
+
+        from apps.cases.models import Case, CaseAssignment
+        from apps.contacts.admin import CaseContactAdmin
+        from apps.contacts.models import CaseContact
+        from apps.contracts.models import Contract
+        from apps.organization.models import Lawyer
+
+        contract = Contract.objects.create(name="行级联系人合同", case_type="civil")
+        mine = Case.objects.create(name="本人联系人案件", contract=contract)
+        other = Case.objects.create(name="他人联系人案件", contract=contract)
+        staff = Lawyer.objects.create_user(username="cc_filter_staff", real_name="过滤律师", is_staff=True)
+        CaseAssignment.objects.create(case=mine, lawyer=staff)
+        CaseContact.objects.create(case=mine, name="本人案件联系人")
+        CaseContact.objects.create(case=other, name="他人案件联系人")
+
+        request = RequestFactory().get("/admin/contacts/casecontact/")
+        request.user = staff
+
+        qs = CaseContactAdmin(CaseContact, AdminSite()).get_queryset(request)
+        assert set(qs.values_list("case_id", flat=True)) == {mine.pk}
+
+
 # ---------------------------------------------------------------------------
 # models.py (92% coverage)
 # ---------------------------------------------------------------------------

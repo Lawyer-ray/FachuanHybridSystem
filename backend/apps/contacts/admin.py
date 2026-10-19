@@ -1,29 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from django import forms
 from django.contrib import admin
+from django.db.models import QuerySet
 
 from apps.contacts.models import CaseContact
-
-if TYPE_CHECKING:
-    from typing import TypeAlias
-
-    BaseTabularInline: TypeAlias = admin.TabularInline[Any, Any]
-    BaseStackedInline: TypeAlias = admin.StackedInline[Any, Any]
-    BaseModelAdmin: TypeAlias = admin.ModelAdmin
-else:
-    try:
-        import nested_admin
-
-        BaseTabularInline = nested_admin.NestedTabularInline
-        BaseStackedInline = nested_admin.NestedStackedInline
-        BaseModelAdmin = nested_admin.NestedModelAdmin
-    except ImportError:
-        BaseTabularInline = admin.TabularInline
-        BaseStackedInline = admin.StackedInline
-        BaseModelAdmin = admin.ModelAdmin
+from apps.core.admin.base import BaseModelAdmin, BaseTabularInline
 
 
 class CaseContactAdminForm(forms.ModelForm[CaseContact]):  # pragma: no cover
@@ -137,3 +121,14 @@ class CaseContactAdmin(BaseModelAdmin):  # pragma: no cover
     def has_module_permission(self, request: Any) -> bool:  # pragma: no cover
         """允许访问 - 通过其他工具页面管理"""
         return True
+
+    def get_queryset(self, request: Any) -> QuerySet:  # pragma: no cover
+        # 安全审计（2026-10-19）：列表行级案件过滤——非管理员仅可见本所指派/授权案件下的联系人
+        # 解耦（2026-10-19）：不再跨 app import cases 的 admin 内部 helper，改经 core 泛型
+        from apps.cases.models import Case
+        from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+        from apps.core.security.admin_access import apply_related_admin_access_filter
+
+        return apply_related_admin_access_filter(  # type: ignore[no-any-return]
+            request, super().get_queryset(request), fk="case_id", model=Case, policy=CaseAccessPolicy()
+        )

@@ -118,11 +118,18 @@ def list_reminders(  # pragma: no cover
 ) -> Any:
     ctx = get_request_access_context(request)
     _ensure_target_access(ctx, contract_id=contract_id, case_id=case_id, case_log_id=case_log_id)
-    return _get_reminder_service().list_reminders(
+    qs = _get_reminder_service().list_reminders(
         contract_id=contract_id,
         case_id=case_id,
         case_log_id=case_log_id,
     )
+    if contract_id is None and case_id is None and case_log_id is None:
+        # 安全审计（2026-10-19）：无过滤分支此前返回全库提醒；收敛为与日历同口径的
+        # 可视范围（可见案件/合同 + 本人创建的全局提醒，管理员全量）
+        from apps.reminders.services.reminder_read_scope import scope_reminders_for_context
+
+        qs = scope_reminders_for_context(qs, ctx)
+    return qs
 
 
 @router.post("/create", response=ReminderOut)

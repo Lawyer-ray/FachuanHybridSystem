@@ -13,6 +13,7 @@ from apps.documents.storage import (
     get_configured_private_docx_templates_root,
     get_docx_templates_root,
     get_docx_templates_source,
+    is_allowed_private_docx_root,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,11 @@ def _normalize_private_docx_root(raw_value: str) -> str:
 
     if not candidate.exists() or not candidate.is_dir():
         raise ValueError("模板根目录不存在或不是文件夹")
+
+    # 安全审计（2026-10-19）：白名单校验——私有模板根必须位于 MEDIA_ROOT 或 backend 项目目录
+    # 之内，拒绝指向 /、/Users、/etc 等仓库外目录（否则模板渲染/下载链路可读取服务器任意 docx）。
+    if not is_allowed_private_docx_root(candidate):
+        raise ValueError("模板根目录越界：必须位于 MEDIA_ROOT 或项目目录（backend）之内")
 
     return str(candidate)
 

@@ -15,6 +15,7 @@ from ninja.schema import Schema
 
 from apps.core.exceptions import PermissionDenied
 from apps.core.infrastructure.throttling import rate_limit_from_settings
+from apps.core.security.admin_access import is_admin_user  # 解耦（2026-10-19）：管理员判定收敛
 from apps.core.security.auth import JWTOrSessionAuth
 
 from .llm_common import achat_with_context as achat_with_context_impl
@@ -164,7 +165,8 @@ async def get_conversation_history(request: Any, session_id: str) -> Any:
     if not user or not getattr(user, "is_authenticated", False):
         user = getattr(request, "auth", None)
     user_id = str(getattr(user, "id", "") or "")
-    is_admin = bool(getattr(user, "is_admin", False) or getattr(user, "is_superuser", False))
+    # 解耦（2026-10-19）：管理员判定收敛到 core.security.admin_access.is_admin_user
+    is_admin = is_admin_user(user)
 
     result = await aget_conversation_history_impl(
         session_id=session_id, user_id=(None if is_admin else user_id), limit=50
@@ -191,8 +193,8 @@ def sync_prompt_templates(request: Any) -> Any:
     user = getattr(request, "user", None)
     if not user or not getattr(user, "is_authenticated", False):
         user = getattr(request, "auth", None)
-    is_admin = bool(getattr(user, "is_admin", False) or getattr(user, "is_superuser", False))
-    if not is_admin:
+    # 解耦（2026-10-19）：管理员判定收敛到 core.security.admin_access.is_admin_user
+    if not is_admin_user(user):
         raise PermissionDenied(message="需要管理员权限", code="PERMISSION_DENIED")
 
     result = sync_prompt_templates_impl(overwrite=True)
@@ -248,7 +250,8 @@ async def test_model_connection(request: Any, model_id: str = "") -> dict[str, A
     """测试指定模型的连通性（仅管理员可用）"""
     from apps.core.llm.service import get_llm_service
 
-    is_admin = request.user and (getattr(request.user, "is_admin", False) or request.user.is_superuser)
+    # 解耦（2026-10-19）：管理员判定收敛到 core.security.admin_access.is_admin_user
+    is_admin = request.user and is_admin_user(request.user)
     if not is_admin:
         raise PermissionDenied(message="需要管理员权限", code="PERMISSION_DENIED")
 

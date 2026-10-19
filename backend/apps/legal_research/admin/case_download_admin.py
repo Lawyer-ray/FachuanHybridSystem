@@ -321,7 +321,8 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             except (OSError, ValueError):
                 logger.debug("清理临时 ZIP 文件失败（已忽略）", exc_info=True)
                 pass
-            return
+            # 安全审计（2026-10-19）：此前裸 return，FileResponse 构建后从未下发（功能缺陷）
+            return response
 
         # 多个任务打包（复用 service 统一实现）
         zip_path, msg = CaseDownloadService.download_tasks_as_zip(task_ids=[obj.id for obj in queryset])
@@ -344,7 +345,7 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         except (OSError, ValueError):
             logger.debug("清理临时 ZIP 文件失败（已忽略）", exc_info=True)
             pass
-        return
+        return response
 
     @admin.action(description="重试失败项")
     def retry_failed(self, request, queryset) -> None:  # pragma: no cover

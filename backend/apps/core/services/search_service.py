@@ -6,21 +6,10 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from typing import Any
 
 from django.db.models import Q, QuerySet
-
-
-def _mask_phone(phone: str | None) -> str:
-    """手机号打码：保留前 3 后 4（如 138****1234）；非手机号形态则数字全打码。"""
-    if not phone:
-        return ""
-    if len(phone) >= 7 and phone.isdigit():
-        return f"{phone[:3]}****{phone[-4:]}"
-    # 座机 / 含分隔符等非标准形态：数字全部打码，防止借 subtitle 旁路还原
-    return re.sub(r"\d", "*", phone)
 
 
 @dataclass
@@ -28,6 +17,8 @@ class SearchResultItem:
     id: int
     title: str
     subtitle: str = ""
+    # 仅当事人（clients）有值：ours=我方 / opposing=对方（取 Client.is_our_client）；其他类别为空串
+    side: str = ""
 
 
 def search_clients(
@@ -45,7 +36,17 @@ def search_clients(
         .order_by("-created_at", "-id")
         .distinct()[:limit]
     )
-    return [SearchResultItem(id=c.id, title=c.name, subtitle=_mask_phone(c.phone)) for c in qs]
+    # 电话原样出参（2026-10 产品决策，与证件号同口径：本机部署、办案要能直接看到联系方式；
+    # 此前审计加的打码连座机都整串变星号，已撤除）
+    return [
+        SearchResultItem(
+            id=c.id,
+            title=c.name,
+            subtitle=c.phone or "",
+            side="ours" if c.is_our_client else "opposing",
+        )
+        for c in qs
+    ]
 
 
 def search_cases(

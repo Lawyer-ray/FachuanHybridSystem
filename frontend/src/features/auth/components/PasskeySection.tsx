@@ -24,6 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { errMessage } from '@/lib/errors'
 import { passkeyApi, PASSKEY_CREDENTIALS_KEY, type PasskeyCredentialRow } from '../passkey-api'
 import { credentialToRegistrationJSON, toCreationOptions } from '../passkey-coding'
 
@@ -93,7 +94,7 @@ export function PasskeySection() {
         // 用户取消 Touch ID 属正常操作，不算错误
         return
       }
-      setAddError(err instanceof Error ? err.message : '通行密钥添加失败，请稍后重试')
+      setAddError(errMessage(err, '通行密钥添加失败，请稍后重试'))
     } finally {
       setAdding(false)
     }
@@ -106,7 +107,7 @@ export function PasskeySection() {
       toast.success('已重命名')
       invalidate()
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : '重命名失败'),
+    onError: (err) => toast.error(errMessage(err, '重命名失败')),
   })
 
   const remove = useMutation({
@@ -116,7 +117,7 @@ export function PasskeySection() {
       toast.success('已删除，该设备无法再用通行密钥登录')
       invalidate()
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : '删除失败'),
+    onError: (err) => toast.error(errMessage(err, '删除失败')),
   })
 
   return (

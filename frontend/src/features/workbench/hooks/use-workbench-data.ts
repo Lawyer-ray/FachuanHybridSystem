@@ -8,12 +8,16 @@ import { listContractsPage, listLawyers } from '../api'
 import { buildDeals } from '../domain'
 import type { ContractPageResponse, WorkbenchDeal, WorkbenchFilter } from '../types'
 
-/** 本域 query key 工厂：分页合同（随筛选+页码变化）与律师各自缓存 */
+/** 本域 query key 工厂：分页合同（随筛选+页码变化）与律师各自缓存；详情页的单合同与逐案提醒另起键 */
 export const workbenchKeys = {
   lawyers: ['workbench', 'lawyers'] as const,
   contractPage: (f: WorkbenchFilter, q: string, page: number) =>
     ['workbench', 'contracts-page', f.status, f.cat, f.fee, q, page] as const,
   contractCases: (contractId: number) => ['workbench', 'contract-cases', contractId] as const,
+  contract: (contractId: number) => ['workbench', 'contract', contractId] as const,
+  /** 案件直挂提醒按「该合同下的案件 id 集合」缓存：案件增减即换键重拉 */
+  caseReminders: (contractId: number, caseIds: number[]) =>
+    ['workbench', 'case-reminders', contractId, caseIds.join(',')] as const,
 }
 
 export interface WorkbenchData {

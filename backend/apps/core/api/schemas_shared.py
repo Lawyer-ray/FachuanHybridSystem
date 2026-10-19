@@ -7,7 +7,6 @@ from ninja import Schema
 from pydantic import Field
 
 from apps.core.api.schemas import SchemaMixin
-from apps.core.utils.id_card_utils import IdCardUtils
 
 __all__: list[str] = [
     "ClientIdentityDocLiteOut",
@@ -63,12 +62,10 @@ class ClientLiteOut(SchemaMixin, Schema):
             phone=getattr(obj, "phone", None),
             address=getattr(obj, "address", None),
             client_type=getattr(obj, "client_type", ""),
-            # 安全审计：证件号出参打码（前 3 后 4），原文仅留在库内与 service 层
-            id_number=IdCardUtils.mask_id_number(getattr(obj, "id_number", None)),
+            # 证件号原样出参（本机部署、办案需完整证件号；此前审计加的打码已撤除）
+            id_number=getattr(obj, "id_number", None),
             legal_representative=getattr(obj, "legal_representative", None),
-            legal_representative_id_number=IdCardUtils.mask_id_number(
-                getattr(obj, "legal_representative_id_number", None)
-            ),
+            legal_representative_id_number=getattr(obj, "legal_representative_id_number", None),
             client_type_label=SchemaMixin._get_display(obj, "client_type") or "",
             identity_docs=docs,
         )

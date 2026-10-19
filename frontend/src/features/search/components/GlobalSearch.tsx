@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router'
 import { FileText, Landmark, Mail, Paperclip, Search, Users } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { cn } from '@/lib/utils'
 import { CATEGORY_ORDER, runSearch } from '../api'
 import type { CategoryKey, Hit } from '../types'
@@ -21,18 +22,24 @@ const EMPTY_HITS: Hit[] = []
  * 各类别 → 展示名 / 图标 / 点击后的去处。
  *
  * to 只对**已存在**的路由给出（目前只有 /material-prep/:id）。
- * 案件 / 客户 / 合同这些页还没做，若硬链过去会命中 App.tsx 的通配
+ * 案件 / 当事人 / 合同这些页还没做，若硬链过去会命中 App.tsx 的通配
  * 重定向、静默跳回首页——比明确说"还没做"更糟。所以它们不给 to，
  * 点选时由调用方弹提示。
+ *
+ * clients 对外叫「当事人」：后端 Client 表装的是所有当事人（我方 + 对方），
+ * 叫「客户」会让人以为只有我方委托人。
  */
 const CATEGORIES: Record<CategoryKey, { label: string; icon: typeof Users; to?: (id: number) => string }> = {
   cases: { label: '案件', icon: FileText },
-  clients: { label: '客户', icon: Users },
+  clients: { label: '当事人', icon: Users },
   contracts: { label: '合同', icon: FileText },
   inbox: { label: '收件箱', icon: Mail, to: (id) => `/material-prep/${id}` },
   court_sms: { label: '法院短信', icon: Landmark },
   contacts: { label: '联系人', icon: Paperclip },
 }
+
+/** 当事人我方/对方徽章文案（side 来自后端 Client.is_our_client） */
+const SIDE_LABEL = { ours: '我方', opposing: '对方' } as const
 
 /** 输入防抖间隔（ms）：输入即搜，但请求攒一撮再发，避免每次按键都重排结果列表 */
 const DEBOUNCE_MS = 250
@@ -71,12 +78,7 @@ export function GlobalSearch({
   const trimmed = q.trim()
   // 输入防抖：输入框即时响应，但请求延迟 DEBOUNCE_MS 触发。
   // 否则每敲一个字就发一次请求，结果列表反复涨落导致弹窗高度/内容不停跳（"闪烁"）。
-  const [debounced, setDebounced] = useState(trimmed)
-  useEffect(() => {
-    if (trimmed === debounced) return
-    const t = window.setTimeout(() => setDebounced(trimmed), DEBOUNCE_MS)
-    return () => window.clearTimeout(t)
-  }, [trimmed, debounced])
+  const debounced = useDebouncedValue(trimmed, DEBOUNCE_MS)
 
   const { data, isFetching } = useQuery({
     queryKey: [GLOBAL_SEARCH_KEY, debounced],
@@ -167,7 +169,7 @@ export function GlobalSearch({
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="搜案件 / 客户 / 合同 / 收件箱 / 法院短信 / 联系人"
+            placeholder="搜案件 / 当事人 / 合同 / 收件箱 / 法院短信 / 联系人"
             className="h-12 flex-1 border-none bg-transparent text-[13.5px] outline-none placeholder:text-muted-foreground"
           />
           {/* 常驻占位不塌陷：若用 {isFetching && ...} 条件渲染，出现/消失会把输入框宽度
@@ -233,6 +235,7 @@ export function GlobalSearch({
                     <>
                       <Icon className="h-3.5 w-3.5 flex-none text-muted-foreground" />
                       <span className="min-w-0 flex-1 truncate text-[12.5px]">{h.title}</span>
+                      {h.side && <SideBadge side={h.side} />}
                       {h.subtitle && (
                         <span className="max-w-[140px] flex-none truncate text-[10.5px] text-muted-foreground">{h.subtitle}</span>
                       )}
@@ -278,6 +281,23 @@ export function GlobalSearch({
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/**
+ * 当事人我方/对方徽章：我方实底、对方描边——同一面板里筛选标签已用「实底=选中 /
+ * 描边=未选」这套视觉词汇，复用它让「我方」一眼跳出来，又不引入新颜色。
+ */
+function SideBadge({ side }: { side: 'ours' | 'opposing' }) {
+  return (
+    <span
+      className={cn(
+        'flex-none rounded-[5px] px-[5px] py-px text-[10px] leading-[1.5] whitespace-nowrap',
+        side === 'ours' ? 'bg-foreground text-background' : 'border border-border text-muted-foreground',
+      )}
+    >
+      {SIDE_LABEL[side]}
+    </span>
   )
 }
 

@@ -2,8 +2,8 @@
  * home/api/inbox 单测（node 环境）。
  *
  * mock 只打 @/lib/api 的 createApiClient；覆盖 listInbox 的行投影
- * （source_type → kind 映射、sms 标记 hot、limit 截取）与 formatRelative
- * 的相对时间口径（今天/昨天/更早/非法值，用 fake system time 固定「现在」）。
+ * （source_type → kind 映射、sms 标记 hot、limit 截取）。相对时间口径已随
+ * friendlyTime 收敛到 @/lib/format 的单测。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -29,7 +29,7 @@ vi.mock('@/lib/api', () => ({
   },
 }))
 
-import { formatRelative, listInbox } from './inbox'
+import { listInbox } from './inbox'
 import type { InboxMessageOut } from './inbox'
 
 function inboxClient() {
@@ -104,29 +104,5 @@ describe('listInbox（最近流入投影）', () => {
     const rows = await listInbox(1)
     expect(api.get).toHaveBeenCalledWith('messages', { searchParams: { limit: 1 } })
     expect(rows).toHaveLength(1)
-  })
-})
-
-describe('formatRelative（相对时间口径）', () => {
-  it('今天 → `今天 HH:mm`（时区无关，本地字段直读）', () => {
-    expect(formatRelative('2026-10-15T09:05:00')).toBe('今天 09:05')
-  })
-
-  it('昨天 → `昨天 HH:mm`', () => {
-    expect(formatRelative('2026-10-14T23:59:00')).toBe('昨天 23:59')
-  })
-
-  it('更早 → `M 月 D 日`（不带年份与时分）', () => {
-    expect(formatRelative('2026-10-01T09:00:00')).toBe('10 月 1 日')
-    expect(formatRelative('2026-09-30T09:00:00')).toBe('9 月 30 日')
-  })
-
-  it('跨月边界（昨天是上月末）也正确判昨天', () => {
-    vi.setSystemTime(new Date(2026, 9, 1, 12, 0, 0)) // 10-01，昨天是 09-30
-    expect(formatRelative('2026-09-30T18:00:00')).toBe('昨天 18:00')
-  })
-
-  it('非法值 → 空串（不抛错）', () => {
-    expect(formatRelative('not-a-date')).toBe('')
   })
 })

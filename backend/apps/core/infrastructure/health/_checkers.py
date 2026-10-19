@@ -130,10 +130,13 @@ def check_cache() -> ComponentHealth:
 
     try:
         cache_config = getattr(settings, "CACHES", {}).get("default", {})
+        # 安全审计（2026-10-19）：LOCATION 可能是含密码的 Redis 连接串（REDIS_URL 原文），
+        # 一律不进 diagnostic_info（对外结构），只保留 backend 名；
+        # 内部排障需要看连接串时走 debug 日志。
+        logger.debug("健康检查 cache LOCATION=%s", cache_config.get("LOCATION", "unknown"))
         diagnostic_info.update(
             {
                 "cache_backend": cache_config.get("BACKEND", "unknown"),
-                "cache_location": cache_config.get("LOCATION", "unknown"),
             }
         )
 

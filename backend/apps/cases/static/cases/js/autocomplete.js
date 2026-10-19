@@ -346,6 +346,19 @@ function initCourtAutocomplete(inputSelector) {
 }
 
 /**
+ * 转义 HTML 属性特殊字符（安全审计（2026-10-19）：innerHTML 属性插值未转义，
+ * 原输入框 value/class 等含 " < > 时可跳出属性注入事件，此处统一转义）
+ */
+function escapeHtmlAttr(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+/**
  * 创建自动补全容器
  * @param {HTMLElement} originalInput 原始输入框
  * @param {Object} config 配置对象
@@ -376,7 +389,8 @@ function createAutocompleteContainer(originalInput, config) {
                 x-ref="input"
                 ${Object.entries(inputAttributes)
                     .filter(([key, value]) => value !== null && value !== undefined)
-                    .map(([key, value]) => `${key}="${value}"`)
+                    // 安全审计（2026-10-19）：属性值统一过 escapeHtmlAttr，防属性跳出注入
+                    .map(([key, value]) => `${key}="${escapeHtmlAttr(value)}"`)
                     .join(' ')}
                 x-model="query"
                 @input="onInput($event)"

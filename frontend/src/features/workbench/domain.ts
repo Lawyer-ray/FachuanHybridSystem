@@ -1,3 +1,5 @@
+import { dateKey } from '@/lib/date'
+
 import type {
   CaseListItem,
   ContractListItem,
@@ -9,7 +11,7 @@ import type {
 } from './types'
 
 /** 诉讼类 case_type 代码集合（其余视为非诉） */
-const LITIGATION_TYPES = new Set(['civil', 'criminal', 'administrative', 'labor', 'intl'])
+export const LITIGATION_TYPES = new Set(['civil', 'criminal', 'administrative', 'labor', 'intl'])
 
 /* ============ 基础格式化 ============ */
 
@@ -34,9 +36,15 @@ export function relDue(daysLeft: number | null): string {
   return '剩 ' + Math.round(daysLeft / 30) + ' 个月'
 }
 
-export function todayStr(today: Date): string {
-  const pad = (n: number) => ('0' + n).slice(-2)
-  return today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate())
+/**
+ * 后端日期统一是 ISO 中划线（2026-09-01 或带时间的 2026-09-01T09:00:00Z），
+ * 展示层统一转标准年月日「2026年9月1日」；不像日期的原样返回，不吞值。
+ */
+export function fmtCNDate(v: string | null | undefined): string {
+  if (!v) return ''
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v)
+  if (!m) return v
+  return m[1] + '年' + Number(m[2]) + '月' + Number(m[3]) + '日'
 }
 
 /* ============ 三源合并：合同 × 案件 × 律师 → WorkbenchDeal ============ */
@@ -58,6 +66,7 @@ export function buildDealCases(cases: CaseListItem[], today: Date): DealCase[] {
     preserv: x.preservation_amount != null ? Number(x.preservation_amount) : null,
     from: x.start_date || '',
     partyRows: x.parties.map((p) => (p.legal_status || '') + '：' + (p.client_detail?.name || '')),
+    parties: x.parties.map((p) => ({ status: p.legal_status || '', name: p.client_detail?.name || '' })),
     logs: [...x.logs]
       .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
       .map((l) => ({
@@ -66,14 +75,17 @@ export function buildDealCases(cases: CaseListItem[], today: Date): DealCase[] {
         text: l.content || '',
         attN: l.attachments.length,
         rem: l.reminder_time ? l.reminder_time.slice(0, 10) + ' 到期提醒' : '',
-        remToday: !!l.reminder_time && l.reminder_time.slice(0, 10) === todayStr(today),
+        remToday: !!l.reminder_time && l.reminder_time.slice(0, 10) === dateKey(today),
       })),
+    logReminders: x.logs.flatMap((l) => l.reminders),
     contacts: x.contacts.map((t) => ({
       name: t.name,
       role: t.role_display || '',
       phone: t.phone || '',
       note: t.note || '',
       stage: t.stage_display || '',
+      authority: t.authority_name || '',
+      address: t.address || '',
     })),
   }))
 }
@@ -107,6 +119,7 @@ export function buildDeals(
     return {
       id: c.id,
       lit,
+      caseType: c.case_type,
       client: c.name,
       ctype: c.case_type_label || c.case_type || '',
       no: c.law_firm_oa_case_number || '',
@@ -132,7 +145,6 @@ export function buildDeals(
         return {
           name: cd?.name || '',
           role: p.role_label || '',
-          type: cd?.client_type_label || '',
           idno: cd?.id_number || '',
           legalRep: cd?.legal_representative || '',
           phone: cd?.phone || '',
@@ -145,7 +157,7 @@ export function buildDeals(
       caseCount: c.case_count ?? 0,
       work: c.reminders.map((r) => ({
         t: r.content,
-        dueFull: r.due_at ? r.due_at.slice(0, 10) : '',
+        dueFull: fmtCNDate(r.due_at),
         type: r.reminder_type_label || '',
       })),
       riskRate: c.risk_rate ?? null,
@@ -167,33 +179,29 @@ export function buildDeals(
 /* ============ 分组（服务端分页后按页内分组；排序已由后端「离今天最近」完成） ============ */
 
 export interface DealGroup {
-  type: string
+  /** 节标题：争议解决 / 非诉 */
+  title: string
   lit: boolean
   deals: WorkbenchDeal[]
 }
 
-/** 按类型分组：未选类目时诉讼组在前非诉在后，组内按数量降序 */
-export function groupDeals(list: WorkbenchDeal[], catSelected: boolean): DealGroup[] {
-  const byType = new Map<string, WorkbenchDeal[]>()
-  for (const d of list) {
-    const g = byType.get(d.ctype)
-    if (g) g.push(d)
-    else byType.set(d.ctype, [d])
-  }
-  const groups = [...byType.entries()].map(([type, deals]) => ({
-    type,
-    lit: deals[0]?.lit ?? false,
-    deals,
-  }))
-  groups.sort((a, b) => b.deals.length - a.deals.length)
-  if (!catSelected) groups.sort((a, b) => Number(b.lit) - Number(a.lit) || b.deals.length - a.deals.length)
-  return groups
+/**
+ * 按业务形态分两节：争议解决（诉讼/仲裁，有程序链）在前、非诉（专项/常法）在后，
+ * 节内保持后端「离今天最近」排序。争议领域（民商事/刑事/行政…）不参与分区，
+ * 只作行内标签与筛选维度——领域不改变工作节奏，业务形态才改变。
+ */
+export function groupDeals(list: WorkbenchDeal[]): DealGroup[] {
+  const groups: DealGroup[] = [
+    { title: '争议解决', lit: true, deals: list.filter((d) => d.lit) },
+    { title: '非诉', lit: false, deals: list.filter((d) => !d.lit) },
+  ]
+  return groups.filter((g) => g.deals.length > 0)
 }
 
-/* ============ 当事人 / 律师复制文本 ============ */
+/* ============ 当事人 / 律师复制文本（首行只放名字，粘进文书不用再删括号） ============ */
 
 export function partyCopyText(p: DealParty): string {
-  const lines = [p.name + '（' + (p.role || '当事人') + (p.type ? ' · ' + p.type : '') + '）']
+  const lines = [p.name]
   if (p.legalRep) lines.push('法定代表人：' + p.legalRep)
   if (p.idno) lines.push('证件号：' + p.idno)
   if (p.phone) lines.push('电话：' + p.phone)
@@ -202,7 +210,7 @@ export function partyCopyText(p: DealParty): string {
 }
 
 export function lawyerCopyText(t: DealTeamMember, d: WorkbenchDeal): string {
-  const lines = [t.name + (t.primary ? '（主办）' : '')]
+  const lines = [t.name]
   const tel = t.phone || (t.primary ? d.primaryPhone : '')
   if (tel) lines.push('电话：' + tel)
   if (t.license) lines.push('执业证号：' + t.license)
@@ -213,24 +221,15 @@ export function lawyerCopyText(t: DealTeamMember, d: WorkbenchDeal): string {
 
 /* ============ 合同抽屉（DealSheet）展示数据 ============ */
 
-/** 抽屉头部时间线：指定 / 签订 / 到期（到期带相对表述） */
-export function dealTimeline(d: WorkbenchDeal): string[] {
-  const timeline: string[] = []
-  if (d.specified) timeline.push('指定 ' + d.specified)
-  if (d.from) timeline.push('签订 ' + d.from)
-  if (d.to) timeline.push('到期 ' + d.to + (relDue(d.daysLeft) ? '（' + relDue(d.daysLeft) + '）' : ''))
-  return timeline
-}
-
-/** 合同要素键值行（空值过滤后展示） */
+/** 合同要素键值行（空值过滤后展示；日期转年月日，到期带相对表述） */
 export function dealFacts(d: WorkbenchDeal): Array<[string, string]> {
   return (
     [
       ['收费方式', d.fee],
       ['风险比例', d.riskRate != null ? d.riskRate + '%' : ''],
-      ['指定日期', d.specified],
-      ['签订日期', d.from],
-      ['到期日期', d.to ? d.to + (relDue(d.daysLeft) ? '（' + relDue(d.daysLeft) + '）' : '') : ''],
+      ['指定日期', fmtCNDate(d.specified)],
+      ['签订日期', fmtCNDate(d.from)],
+      ['到期日期', d.to ? fmtCNDate(d.to) + (relDue(d.daysLeft) ? '（' + relDue(d.daysLeft) + '）' : '') : ''],
       ['代理阶段', d.stages.join(' · ')],
       ['归档状态', d.isFiled ? '已归档' : d.statusLabel],
       ['建档编号', d.filingNo],
@@ -239,16 +238,16 @@ export function dealFacts(d: WorkbenchDeal): Array<[string, string]> {
   ).filter(([, v]) => !!v)
 }
 
-/** 收款记录行：合同收款 + 客户付款记录（各自保持时间顺序） */
+/** 收款记录行：合同收款 + 客户付款记录（各自保持时间顺序，日期年月日） */
 export function dealPayRows(d: WorkbenchDeal): Array<{ when: string; money: string; note: string }> {
   return [
     ...d.payments.map((p) => ({
-      when: p.received_at || '',
+      when: fmtCNDate(p.received_at),
       money: fmtMoney(p.amount) ?? '¥0',
       note: (p.invoice_status_label || '') + (p.note ? ' · ' + p.note : ''),
     })),
     ...d.payRecords.map((p) => ({
-      when: (p.created_at || '').slice(0, 10),
+      when: fmtCNDate(p.created_at),
       money: fmtMoney(p.amount) ?? '¥0',
       note: '客户付款记录' + (p.note ? ' · ' + p.note : ''),
     })),
@@ -270,27 +269,5 @@ export function aggregateStages(cases: DealCase[]): Array<{ stage: string; n: nu
   return stages
 }
 
-/* ============ 复制动作（clipboard 优先，execCommand 兜底） ============ */
-
-export async function copyTextToClipboard(text: string): Promise<void> {
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text)
-      return
-    } catch {
-      /* 落到兜底 */
-    }
-  }
-  const ta = document.createElement('textarea')
-  ta.value = text
-  ta.style.position = 'fixed'
-  ta.style.opacity = '0'
-  document.body.appendChild(ta)
-  ta.select()
-  try {
-    document.execCommand('copy')
-  } catch {
-    /* 忽略：极老浏览器 */
-  }
-  ta.remove()
-}
+/* 复制动作（clipboard 优先，execCommand 兜底）已上提 @/lib/clipboard 的
+ * copyText（workbench 抽屉 / home 工具卡 ≥2 feature 共用）。 */

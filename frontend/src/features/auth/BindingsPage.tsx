@@ -21,6 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { errMessage } from '@/lib/errors'
 import { socialBindingsApi, type BoundAccount, type SocialProviderInfo } from './social-api'
 import { BINDINGS_KEY, CATALOG_KEY } from './constants'
 import { BindProviderDialog } from './components/BindProviderDialog'
@@ -71,7 +72,7 @@ export function BindingsPage() {
       toast.success('已解绑')
       void queryClient.invalidateQueries({ queryKey: BINDINGS_KEY })
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : '解绑失败，请稍后重试'),
+    onError: (err) => toast.error(errMessage(err, '解绑失败，请稍后重试')),
   })
 
   const rows = useMemo<Row[]>(() => {

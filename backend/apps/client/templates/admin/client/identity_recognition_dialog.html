@@ -233,12 +233,21 @@ function showIdentityResult(result) {
     if (result.extracted_data) {
         Object.entries(result.extracted_data).forEach(([key, value]) => {
             if (value && value.toString().trim()) {
+                // 安全审计（2026-10-19）：OCR 文本不可信，innerHTML 直插会把证件图片里的
+                // <img onerror=…> 文本变成可执行脚本（self-XSS），改用 textContent
                 const fieldDiv = document.createElement('div');
                 fieldDiv.className = 'result-field';
-                fieldDiv.innerHTML = `
-                    <label>${getFieldLabel(key)}:</label>
-                    <span class="field-value" data-field="${key}">${value}</span>
-                `;
+
+                const label = document.createElement('label');
+                label.textContent = `${getFieldLabel(key)}:`;
+
+                const span = document.createElement('span');
+                span.className = 'field-value';
+                span.dataset.field = key;
+                span.textContent = String(value);
+
+                fieldDiv.appendChild(label);
+                fieldDiv.appendChild(span);
                 resultGrid.appendChild(fieldDiv);
             }
         });

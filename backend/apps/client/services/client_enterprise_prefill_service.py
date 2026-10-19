@@ -35,7 +35,18 @@ class ClientEnterprisePrefillService:
             "total": len(items),
         }
 
-    def build_prefill(self, *, company_id: str, provider: str | None = None) -> dict[str, Any]:
+    def build_prefill(
+        self,
+        *,
+        company_id: str,
+        provider: str | None = None,
+        include_existing: bool = True,
+    ) -> dict[str, Any]:
+        """构建企业客户预填。
+
+        include_existing=False 时不回查既有客户（安全审计 2026-10-19：existing_client
+        会按信用代码披露客户 id/name，仅供有 client.view_client 权限的调用方）。
+        """
         normalized_company_id = str(company_id or "").strip()
         if not normalized_company_id:
             raise ValidationException(message="company_id 不能为空", code="INVALID_COMPANY_ID")
@@ -61,7 +72,7 @@ class ClientEnterprisePrefillService:
             "phone": profile["phone"],
         }
 
-        existing_client = _find_existing_client_by_credit_code(prefill["id_number"])
+        existing_client = _find_existing_client_by_credit_code(prefill["id_number"]) if include_existing else None
         return {
             "provider": provider_name,
             "prefill": prefill,

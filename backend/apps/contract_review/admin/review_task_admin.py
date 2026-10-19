@@ -16,6 +16,7 @@ from django.utils.html import format_html
 from apps.contract_review.models import ReviewTask, TaskStatus
 from apps.core.exceptions import ValidationException
 from apps.core.filesystem.upload_paths import MediaEntity
+from apps.core.http.download import content_disposition
 from apps.core.services.report_html_sanitizer import sanitize_report_html
 from apps.core.services.storage_service import delete_media_file, to_media_abs
 
@@ -372,7 +373,8 @@ class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
                 pdf = f.read()
             filename = f"评估报告-{task.contract_title or task.id}.pdf"
             response = HttpResponse(pdf, content_type="application/pdf")
-            response["Content-Disposition"] = f'inline; filename="{filename}"'
+            # 解耦（2026-10-19）：裸拼改走统一 RFC 5987 实现（中文文件名安全转义，保持 inline 语义）
+            response["Content-Disposition"] = content_disposition(filename, inline=True)
             return response
 
         # 生成 PDF
@@ -402,7 +404,8 @@ class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
 
         filename = f"评估报告-{task.contract_title or task.id}.pdf"
         response = HttpResponse(pdf, content_type="application/pdf")
-        response["Content-Disposition"] = f'inline; filename="{filename}"'
+        # 解耦（2026-10-19）：裸拼改走统一 RFC 5987 实现（中文文件名安全转义，保持 inline 语义）
+        response["Content-Disposition"] = content_disposition(filename, inline=True)
         return response
 
     def format_normalize_view(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover

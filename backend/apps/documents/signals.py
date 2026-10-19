@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any
 
 from asgiref.sync import sync_to_async
-
 from django.conf import settings
 from django.db import transaction
 from django.db.models.signals import post_delete
@@ -189,6 +188,20 @@ def _delete_charfield_file(file_path_str: str | None) -> None:
     file_path = Path(file_path_str)
     if not file_path.is_absolute():
         file_path = Path(settings.MEDIA_ROOT) / file_path_str
+    # 安全审计（2026-10-19）：待删路径来自数据库字段（外部输入写入），可能被篡改为 MEDIA_ROOT
+    # 之外的任意文件（../ 穿越或绝对路径）。删除前 resolve 并校验收敛在 MEDIA_ROOT 内，
+    # 越界只记 warning 跳过，不删也不抛异常。
+    try:
+        resolved = file_path.resolve()
+        media_root = Path(settings.MEDIA_ROOT).resolve()
+    except (OSError, RuntimeError, ValueError):
+        logger.warning("清理文档物理文件路径解析失败，已跳过", extra={"file_path": str(file_path)})
+        return
+    if not resolved.is_relative_to(media_root):
+        logger.warning(
+            "拒绝清理 MEDIA_ROOT 之外的文件", extra={"file_path": str(file_path), "media_root": str(media_root)}
+        )
+        return
     if file_path.exists():
         try:
             file_path.unlink()

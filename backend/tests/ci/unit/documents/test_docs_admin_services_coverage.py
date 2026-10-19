@@ -49,8 +49,42 @@ class TestDocumentTemplateAdmin:
     def test_normalize_private_docx_root_valid(self, tmp_path):
         from apps.documents.admin.template_admin_views_mixin import _normalize_private_docx_root
 
-        result = _normalize_private_docx_root(str(tmp_path))
-        assert tmp_path.exists()
+        # 安全审计（2026-10-19）后新增白名单：私有根必须位于 MEDIA_ROOT 或 backend 项目目录之内，
+        # 这里把 BASE_DIR/MEDIA_ROOT patch 到 tmp_path 下再验证合法根通过。
+        backend_root = tmp_path / "backend"
+        candidate = backend_root / "private_docx"
+        candidate.mkdir(parents=True)
+
+        with (
+            patch("django.conf.settings") as mock_settings,
+            patch("apps.documents.storage.settings") as mock_storage_settings,
+        ):
+            mock_settings.BASE_DIR = str(backend_root / "apiSystem")
+            mock_settings.MEDIA_ROOT = str(tmp_path / "media")
+            mock_storage_settings.BASE_DIR = str(backend_root / "apiSystem")
+            mock_storage_settings.MEDIA_ROOT = str(tmp_path / "media")
+            result = _normalize_private_docx_root(str(candidate))
+
+        assert result
+        assert candidate.exists()
+
+    def test_normalize_private_docx_root_outside_whitelist_rejected(self, tmp_path):
+        from apps.documents.admin.template_admin_views_mixin import _normalize_private_docx_root
+
+        backend_root = tmp_path / "backend"
+        (backend_root / "apiSystem").mkdir(parents=True)
+
+        with (
+            patch("django.conf.settings") as mock_settings,
+            patch("apps.documents.storage.settings") as mock_storage_settings,
+        ):
+            mock_settings.BASE_DIR = str(backend_root / "apiSystem")
+            mock_settings.MEDIA_ROOT = str(tmp_path / "media")
+            mock_storage_settings.BASE_DIR = str(backend_root / "apiSystem")
+            mock_storage_settings.MEDIA_ROOT = str(tmp_path / "media")
+            # tmp_path 存在且是目录，但位于白名单之外 → 拒绝
+            with pytest.raises(ValueError, match="越界"):
+                _normalize_private_docx_root(str(tmp_path))
 
 
 # --- documents services ---

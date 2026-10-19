@@ -7,14 +7,16 @@ from typing import Any
 import pytest
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
+from django.core.exceptions import PermissionDenied
 from django.test import RequestFactory
 
-from apps.cases.models import Case
+from apps.cases.models import Case, CaseAssignment
 from apps.contracts.models import Contract
 from apps.evidence.admin.evidence_admin import EvidenceListAdmin
 from apps.evidence.admin.evidence_item_admin import EvidenceItemAdmin
 from apps.evidence.admin.group_admin import EvidenceGroupAdmin
-from apps.evidence.models import EvidenceGroup, EvidenceItem, EvidenceList
+from apps.evidence.models import EvidenceGroup, EvidenceItem, EvidenceList, EvidenceListProxy
+from apps.organization.models import Lawyer
 
 User = get_user_model()
 
@@ -22,7 +24,9 @@ User = get_user_model()
 def _make_request(path: str = "/admin/") -> Any:
     factory = RequestFactory()
     request = factory.get(path)
-    request.user = User(is_superuser=True, is_staff=True)
+    # 安全审计（2026-10-19）：行级过滤上线后，未挂律所的 is_admin 管理员保持全量可见，
+    # 测试请求统一携带 is_admin（与生产 create_superuser 口径一致）
+    request.user = User(is_superuser=True, is_staff=True, is_admin=True)
     return request
 
 
@@ -117,3 +121,111 @@ class TestEvidenceGroupAdmin:
         qs = admin_obj.get_queryset(_make_request())
         obj = qs.first()
         assert admin_obj.item_count(obj) == 1
+
+
+@pytest.mark.django_db
+class TestEvidenceAdminRowLevelAccess:
+    """安全审计（2026-10-19）回归：evidence 三个 Admin 的行级案件过滤 + 自定义视图 403。"""
+
+    def _setup_two_cases(self) -> tuple[Case, Case]:
+        contract = Contract.objects.create(name="行级证据合同", case_type="civil")
+        mine = Case.objects.create(name="本人证据案件", contract=contract)
+        other = Case.objects.create(name="他人证据案件", contract=contract)
+        return mine, other
+
+    def _make_staff_request(self, staff: Lawyer, method: str = "GET", path: str = "/admin/") -> Any:
+        factory = RequestFactory()
+        request = getattr(factory, method.lower())(path)
+        request.user = staff
+        return request
+
+    def _make_assigned_staff(self, mine: Case) -> Lawyer:
+        staff = Lawyer.objects.create_user(username="ev_row_staff", real_name="受限律师", is_staff=True)
+        CaseAssignment.objects.create(case=mine, lawyer=staff)
+        return staff
+
+    def test_evidence_list_queryset_filters_by_case_access(self) -> None:
+        """非管理员 staff 只能看到本所指派/授权案件下的证据清单"""
+        mine, other = self._setup_two_cases()
+        staff = self._make_assigned_staff(mine)
+        EvidenceList.objects.create(case=mine, title="本人清单", list_type="previous", order=1)
+        EvidenceList.objects.create(case=other, title="他人清单", list_type="previous", order=1)
+
+        qs = EvidenceListAdmin(EvidenceListProxy, AdminSite()).get_queryset(self._make_staff_request(staff))
+        assert set(qs.values_list("case_id", flat=True)) == {mine.pk}
+
+    def test_evidence_item_queryset_filters_by_case_access(self) -> None:
+        """非管理员 staff 只能看到可访问案件下的证据明细（evidence_list→case 关联）"""
+        mine, other = self._setup_two_cases()
+        staff = self._make_assigned_staff(mine)
+        mine_list = EvidenceList.objects.create(case=mine, title="本人清单I", list_type="previous", order=1)
+        other_list = EvidenceList.objects.create(case=other, title="他人清单I", list_type="previous", order=1)
+        EvidenceItem.objects.create(evidence_list=mine_list, order=1, name="本人明细")
+        EvidenceItem.objects.create(evidence_list=other_list, order=1, name="他人明细")
+
+        qs = EvidenceItemAdmin(EvidenceItem, AdminSite()).get_queryset(self._make_staff_request(staff))
+        assert set(qs.values_list("evidence_list__case_id", flat=True)) == {mine.pk}
+
+    def test_evidence_group_queryset_filters_by_case_access(self) -> None:
+        """非管理员 staff 只能看到可访问案件下的证据分组"""
+        mine, other = self._setup_two_cases()
+        staff = self._make_assigned_staff(mine)
+        EvidenceGroup.objects.create(case=mine, name="本人分组", sort_order=1)
+        EvidenceGroup.objects.create(case=other, name="他人分组", sort_order=1)
+
+        qs = EvidenceGroupAdmin(EvidenceGroup, AdminSite()).get_queryset(self._make_staff_request(staff))
+        assert set(qs.values_list("case_id", flat=True)) == {mine.pk}
+
+    def test_export_list_view_denies_staff_without_case_access(self) -> None:
+        """受限 staff 直接打他人案件的导出清单视图 → PermissionDenied（403）"""
+        _mine, other = self._setup_two_cases()
+        staff = self._make_assigned_staff(_mine)
+        elist = EvidenceList.objects.create(case=other, title="他人清单E", list_type="previous", order=1)
+
+        with pytest.raises(PermissionDenied):
+            EvidenceListAdmin(EvidenceListProxy, AdminSite()).export_list_view(
+                self._make_staff_request(staff), elist.pk
+            )
+
+    def test_download_pdf_view_denies_staff_without_case_access(self) -> None:
+        """受限 staff 直接打他人案件的下载 PDF 视图 → PermissionDenied（403）"""
+        _mine, other = self._setup_two_cases()
+        staff = self._make_assigned_staff(_mine)
+        elist = EvidenceList.objects.create(case=other, title="他人清单D", list_type="previous", order=1)
+
+        with pytest.raises(PermissionDenied):
+            EvidenceListAdmin(EvidenceListProxy, AdminSite()).download_pdf_view(
+                self._make_staff_request(staff), elist.pk
+            )
+
+    def test_reorder_view_denies_staff_without_case_access(self) -> None:
+        """受限 staff 直接打他人案件的重排视图 → PermissionDenied（403）"""
+        _mine, other = self._setup_two_cases()
+        staff = self._make_assigned_staff(_mine)
+        elist = EvidenceList.objects.create(case=other, title="他人清单R", list_type="previous", order=1)
+
+        with pytest.raises(PermissionDenied):
+            EvidenceListAdmin(EvidenceListProxy, AdminSite()).reorder_view(
+                self._make_staff_request(staff, method="POST", path="/admin/evidence/reorder/"), elist.pk
+            )
+
+    def test_next_list_type_and_hearing_mode_denies_staff_without_case_access(self) -> None:
+        """受限 staff 直接打他人案件的 next-list-type / hearing-mode 视图 → PermissionDenied（403）"""
+        _mine, other = self._setup_two_cases()
+        staff = self._make_assigned_staff(_mine)
+        admin_obj = EvidenceListAdmin(EvidenceListProxy, AdminSite())
+
+        with pytest.raises(PermissionDenied):
+            admin_obj.next_list_type_view(self._make_staff_request(staff), other.pk)
+        with pytest.raises(PermissionDenied):
+            admin_obj.hearing_mode_view(self._make_staff_request(staff), other.pk)
+
+    def test_hearing_mode_allows_assigned_staff(self) -> None:
+        """承办律师可访问本人案件的开庭模式（正控：过校验后正常渲染）"""
+        mine, _other = self._setup_two_cases()
+        staff = self._make_assigned_staff(mine)
+
+        response = EvidenceListAdmin(EvidenceListProxy, AdminSite()).hearing_mode_view(
+            self._make_staff_request(staff), mine.pk
+        )
+        assert response.context_data["case_id"] == mine.pk

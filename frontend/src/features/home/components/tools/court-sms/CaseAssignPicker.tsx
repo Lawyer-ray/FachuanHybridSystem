@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Check, Loader2, Search } from 'lucide-react'
 
 import { searchCasesForBinding, type CaseSearchItem } from '@/features/document-recognition'
-import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { useTypeaheadSearch } from '@/hooks/use-typeahead-search'
 import { cn } from '@/lib/utils'
 
 /**
@@ -19,19 +18,15 @@ export function CaseAssignPicker({
   busy: boolean
   onAssign: (caseId: number) => Promise<void>
 }) {
-  const [kw, setKw] = useState('')
   const [picked, setPicked] = useState<CaseSearchItem | null>(null)
 
-  // 空关键词 = 后端返回在办案件列表，正好作为初始候选（挂载即查）。
-  // 防抖值首帧等于初值：空关键词的初始加载仍然直发；之后的输入停 250ms 才检索，
-  // 不再每键一发。上一请求由 query 的 signal 自动中止，无响应竞态。
-  const kwTrim = kw.trim()
-  const dkTrim = useDebouncedValue(kwTrim, 250)
-  const { data: results = [], isFetching: searching } = useQuery({
-    queryKey: ['court-sms-case-search', dkTrim],
-    queryFn: ({ signal }) => searchCasesForBinding(dkTrim, { limit: 10, signal }),
-    staleTime: 30_000,
-    placeholderData: keepPreviousData,
+  // 空关键词 = 后端返回在办案件列表，正好作为初始候选（挂载即查），
+  // 所以 minLength 传 0（防抖值首帧等于初值，初始加载仍然直发）；
+  // 之后的输入停 250ms 才检索，上一请求由 query 的 signal 自动中止，无响应竞态。
+  const { keyword: kw, setKeyword: setKw, data: results = [], isFetching: searching } = useTypeaheadSearch<CaseSearchItem[]>({
+    queryKey: (dk) => ['court-sms-case-search', dk],
+    queryFn: ({ keyword, signal }) => searchCasesForBinding(keyword, { limit: 10, signal }),
+    minLength: 0,
   })
 
   const inputText = picked ? `${picked.case_numbers?.[0] ?? `案件 ${picked.id}`} · ${picked.name}` : kw

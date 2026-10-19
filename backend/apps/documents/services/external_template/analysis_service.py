@@ -25,6 +25,9 @@ from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
 from django.db import transaction
 
+from apps.core.exceptions import ValidationException
+from apps.core.services.storage_service import validate_upload
+
 from .fingerprint_service import FingerprintService
 
 if TYPE_CHECKING:
@@ -127,20 +130,17 @@ class AnalysisService:
         return template
 
     def _validate_file(self, file: UploadedFile) -> None:
-        """校验 .docx 格式和文件大小"""
-        filename: str = file.name if file.name else ""
-        if not filename.lower().endswith(".docx"):
-            logger.info("文件格式校验失败: %s", filename)
-            raise ValidationError("仅支持 .docx 格式")
+        """校验 .docx 格式和文件大小。
 
-        file_size: int = file.size if file.size is not None else 0
-        if file_size > self.MAX_FILE_SIZE:
-            logger.info(
-                "文件大小超出限制: %s, size=%d",
-                filename,
-                file_size,
-            )
-            raise ValidationError("文件大小超出限制")
+        解耦（2026-10-19）：委托 ``storage_service.validate_upload``（白名单与上限
+        原样保留）；错误类型由 Django ``ValidationError`` 统一为 ``ValidationException``。
+        """
+        filename: str = file.name if file.name else ""
+        try:
+            validate_upload(file, allowed_extensions=[".docx"], max_size_bytes=self.MAX_FILE_SIZE)
+        except ValidationException as exc:
+            logger.info("文件校验失败: %s, 文件: %s, code=%s", exc.message, filename, exc.code)
+            raise
 
     def _validate_parseable(self, file_path: Path) -> None:
         """尝试 python-docx 打开文件，验证可解析性"""

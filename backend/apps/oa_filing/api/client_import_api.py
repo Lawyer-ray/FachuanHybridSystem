@@ -114,6 +114,12 @@ def batch_create_clients(request: HttpRequest, session_id: int) -> dict[str, Any
     if session is None:
         raise NotFoundError(message="会话不存在", code="SESSION_NOT_FOUND", errors={})
 
+    # 安全审计（2026-10-19）：批量入口与正常创建客户同门槛（client.add_client），
+    # 不能因走后台任务绕过权限校验；载荷仅接受条目形态约束，防任意字段注入
+    from apps.client.services.client_access_policy import ClientAccessPolicy
+
+    ClientAccessPolicy().ensure_can_create_client(get_request_user(request))
+
     # 解析请求体
     try:
         body = json.loads(request.body)
@@ -123,6 +129,16 @@ def batch_create_clients(request: HttpRequest, session_id: int) -> dict[str, Any
 
     if not customers:
         raise ValidationException("客户列表为空", code="EMPTY_CUSTOMERS")
+    if (
+        not isinstance(customers, list)
+        or len(customers) > 500
+        or not all(
+            isinstance(c, dict) and isinstance(c.get("name"), str) and c.get("name", "").strip() for c in customers
+        )
+    ):
+        raise ValidationException(
+            "客户条目格式无效（每项需含非空 name，单批最多 500 条）", code="INVALID_CUSTOMER_ENTRY"
+        )
 
     # 提交后台任务
     from apps.core.tasking import submit_task

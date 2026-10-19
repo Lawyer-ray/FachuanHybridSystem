@@ -16,7 +16,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from django.db.models import Q, QuerySet
+from django.db.models import QuerySet
 from django.utils import timezone
 
 from ..models import Reminder
@@ -93,42 +93,10 @@ class CalendarMonthService:
     # ── 访问范围过滤 ──────────────────────────────────────────────────────
 
     def _scope_for_context(self, qs: QuerySet[Reminder], ctx: Any) -> QuerySet[Reminder]:
-        """安全审计：按查询用户过滤日历提醒，口径与 /list、/{reminder_id} 的
-        _ensure_target_access 一致——
+        """按查询用户过滤日历提醒（实现已抽至 reminder_read_scope，供 /list 端点共用）。"""
+        from apps.reminders.services.reminder_read_scope import scope_reminders_for_context
 
-        - 关联案件（含经案件日志间接关联）→ CaseAccessPolicy 可见案件
-        - 关联合同 → ContractAccessPolicy 可见合同
-        - 未绑定任何目标的个人提醒 → 创建者本人（metadata.created_by_user_id）
-          或管理员可见
-
-        ctx 为 None（admin 后台等内部调用）时不过滤，保持原有全量口径。
-        """
-        if ctx is None or ctx.perm_open_access:
-            return qs
-        user = ctx.user
-        if not user or not getattr(user, "is_authenticated", False):
-            return qs.none()
-
-        from apps.cases.models import Case
-        from apps.cases.services.case.case_access_policy import CaseAccessPolicy
-        from apps.contracts.models import Contract
-        from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
-
-        case_ids = CaseAccessPolicy().filter_queryset(Case.objects.all(), user, ctx.org_access).values("id")
-        contract_ids = ContractAccessPolicy().filter_queryset(Contract.objects.all(), user, ctx.org_access).values("id")
-
-        visible = Q(case_id__in=case_ids) | Q(case_log__case_id__in=case_ids) | Q(contract_id__in=contract_ids)
-        unbound = Q(contract__isnull=True, case__isnull=True, case_log__isnull=True)
-        is_admin = bool(getattr(user, "is_admin", False) or getattr(user, "is_superuser", False))
-        if is_admin:
-            visible |= unbound
-        else:
-            # 全局提醒按创建人收敛。优先读 created_by FK（M-1 新增）；
-            # metadata.created_by_user_id 是部分内部路径的历史写法，作为
-            # 数据迁移回填前的兜底一并匹配，回填完成后即可移除。
-            visible |= unbound & (Q(created_by_id=user.id) | Q(metadata__created_by_user_id=user.id))
-
-        return qs.filter(visible).distinct()
+        return scope_reminders_for_context(qs, ctx)
 
     # ── 删除权限标记 ──────────────────────────────────────────────────────
 

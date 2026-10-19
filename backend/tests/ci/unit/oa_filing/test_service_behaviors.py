@@ -71,9 +71,13 @@ class TestSessionOwnerIsolation:
         assert svc.get_session(session.id, owner).id == session.id
         with pytest.raises(ObjectDoesNotExist):
             svc.get_session(session.id, other)
-        # admin 豁免可读他人会话
+        # 安全审计（2026-10-19）：会话豁免收敛为 superuser——所管理员（is_admin）
+        # 不再跨账号读他人立案/盖章/归档会话，只有超级管理员豁免
         admin = LawyerFactory(is_admin=True)
-        assert svc.get_session(session.id, admin).id == session.id
+        with pytest.raises(ObjectDoesNotExist):
+            svc.get_session(session.id, admin)
+        superuser = LawyerFactory(is_superuser=True)
+        assert svc.get_session(session.id, superuser).id == session.id
 
     def test_stamp_session_owner_isolation(self) -> None:
         from django.core.exceptions import ObjectDoesNotExist

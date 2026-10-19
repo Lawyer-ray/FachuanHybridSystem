@@ -3,12 +3,12 @@ import {
   buildDealCases,
   buildDeals,
   daysFromToday,
+  fmtCNDate,
   fmtMoney,
   groupDeals,
   lawyerCopyText,
   partyCopyText,
   relDue,
-  todayStr,
 } from './domain'
 import type { CaseListItem, ContractListItem, LawyerListItem } from './types'
 
@@ -104,6 +104,22 @@ describe('daysFromToday / relDue', () => {
     expect(relDue(30)).toBe('剩 30 天')
     expect(relDue(120)).toBe('剩 4 个月')
     expect(relDue(null)).toBe('')
+  })
+})
+
+describe('fmtCNDate', () => {
+  it('ISO 中划线转年月日，月日不补零', () => {
+    expect(fmtCNDate('2026-09-01')).toBe('2026年9月1日')
+    expect(fmtCNDate('2026-12-31')).toBe('2026年12月31日')
+  })
+  it('带时间的 ISO 串只取日期部分', () => {
+    expect(fmtCNDate('2026-10-01T09:00:00Z')).toBe('2026年10月1日')
+  })
+  it('空值返回空串，不像日期的原样返回', () => {
+    expect(fmtCNDate('')).toBe('')
+    expect(fmtCNDate(null)).toBe('')
+    expect(fmtCNDate(undefined)).toBe('')
+    expect(fmtCNDate('待定')).toBe('待定')
   })
 })
 
@@ -230,7 +246,10 @@ describe('buildDeals', () => {
     expect(dc[0]!.auth).toBe('佛山中院')
     expect(dc[0]!.auths).toEqual(['佛山中院（法院）'])
     expect(dc[0]!.partyRows).toEqual(['原告：张三'])
-    expect(dc[0]!.contacts).toEqual([{ name: '王五', role: '证人', phone: '138', note: '关键证人', stage: '已通知' }])
+    expect(dc[0]!.parties).toEqual([{ status: '原告', name: '张三' }])
+    expect(dc[0]!.contacts).toEqual([
+      { name: '王五', role: '证人', phone: '138', note: '关键证人', stage: '已通知', authority: '', address: '' },
+    ])
   })
 
   it('buildDeals：团队成员名回落 assignment.lawyer_name → 律师表 real_name → 空', () => {
@@ -255,13 +274,8 @@ describe('buildDeals', () => {
     expect(deals[0]!.team.map((t) => t.name)).toEqual(['赵律师', '孙主办', ''])
   })
 
-  it('todayStr：月/日两位补零', () => {
-    expect(todayStr(new Date(2026, 0, 9))).toBe('2026-01-09')
-    expect(todayStr(new Date(2026, 11, 31))).toBe('2026-12-31')
-    expect(todayStr(TODAY)).toBe('2026-10-01')
-  })
-  it('提醒映射日期截取', () => {
-    expect(deals[0]!.work[0]?.dueFull).toBe('2026-10-01')
+  it('提醒映射日期转年月日', () => {
+    expect(deals[0]!.work[0]?.dueFull).toBe('2026年10月1日')
   })
   it('case_count 透传（按需加载的计数口径）', () => {
     const d2 = buildDeals([makeContract({ id: 2, case_count: 3 })], lawyers, TODAY)
@@ -270,40 +284,39 @@ describe('buildDeals', () => {
 })
 
 describe('groupDeals', () => {
-  it('未选类目时诉讼组在前非诉在后', () => {
+  it('按业务形态分两节：争议解决在前非诉在后，节内领域混排保持原序', () => {
     const deals = buildDeals(
       [
         makeContract({ id: 1, case_type: 'advisor', case_type_label: '常法顾问' }),
-        makeContract({ id: 2 }),
-        makeContract({ id: 3, case_type: 'advisor', case_type_label: '常法顾问' }),
+        makeContract({ id: 2, case_type: 'criminal', case_type_label: '刑事' }),
+        makeContract({ id: 3, case_type: 'special', case_type_label: '专项服务' }),
+        makeContract({ id: 4 }),
       ],
       [],
       TODAY,
     )
-    const groups = groupDeals(deals, false)
-    expect(groups.map((g) => g.type)).toEqual(['民商事', '常法顾问'])
+    const groups = groupDeals(deals)
+    expect(groups.map((g) => g.title)).toEqual(['争议解决', '非诉'])
     expect(groups[0]!.lit).toBe(true)
+    expect(groups[0]!.deals.map((d) => d.id)).toEqual([2, 4])
+    expect(groups[1]!.deals.map((d) => d.id)).toEqual([1, 3])
   })
-  it('选了具体类目时不再重排（数量序）', () => {
-    const deals = buildDeals(
-      [makeContract({ id: 1, case_type: 'advisor', case_type_label: '常法顾问' }), makeContract({ id: 2 })],
-      [],
-      TODAY,
-    )
-    expect(groupDeals(deals, true).map((g) => g.type)).toEqual(['常法顾问', '民商事'])
+  it('空节不渲染（类目筛选后只剩单形态）', () => {
+    const deals = buildDeals([makeContract({ id: 1, case_type: 'advisor', case_type_label: '常法顾问' })], [], TODAY)
+    expect(groupDeals(deals).map((g) => g.title)).toEqual(['非诉'])
   })
 })
 
 describe('复制文本', () => {
-  it('当事人：空字段跳过，角色与类型拼接', () => {
-    expect(partyCopyText({ name: '张三', role: '委托人', type: '自然人', idno: '4401', legalRep: '', phone: '138', address: '', ours: true })).toBe(
-      '张三（委托人 · 自然人）\n证件号：4401\n电话：138',
+  it('当事人：首行只有名字，空字段跳过', () => {
+    expect(partyCopyText({ name: '张三', role: '委托人', idno: '4401', legalRep: '', phone: '138', address: '', ours: true })).toBe(
+      '张三\n证件号：4401\n电话：138',
     )
   })
-  it('律师：主办标注、主办回落合同律所', () => {
+  it('律师：首行只有名字（不带主办标注），主办回落合同电话/律所', () => {
     const d = buildDeals([makeContract()], [], TODAY)[0]!
     expect(lawyerCopyText({ name: '赵律师', primary: true, phone: '', license: '144', firm: '' }, d)).toBe(
-      '赵律师（主办）\n电话：13900000000\n执业证号：144\n律所：某律所',
+      '赵律师\n电话：13900000000\n执业证号：144\n律所：某律所', // privacy-allow 虚构号码
     )
   })
 })

@@ -12,7 +12,19 @@ PLACEHOLDER_FALLBACK_VALUE = "/"
 # 安全审计（模板注入 RCE）：docxtpl 默认使用非沙箱 Jinja2，模板文件含外部来源的法院模板，
 # 模板中的 {{ ''.__class__ }} 类表达式可逃逸到任意对象甚至 RCE。
 # 所有 DocxTemplate.render 调用统一传入该沙箱环境，阻断不安全的属性/下标访问。
-SANDBOXED_JINJA_ENV = SandboxedEnvironment()
+#
+# 安全审计（2026-10-19）：docxtpl 默认 render(autoescape=False)，占位符值（客户名/地址/案由/
+# 案件日志/LLM 输出/smart-fill 手输）会原样写入 document.xml，值中携带
+# `</w:t><w:fldSimple …>` 等片段即可注入 OOXML（域代码/DDE 等）。统一在沙箱环境开启
+# autoescape，由 Jinja2 在输出层对纯字符串做 XML 转义（&<>"'，均为合法 XML 实体/字符引用）：
+# - docxtpl 0.20.x 的 Listing/RichText/InlineImage/Subdoc 均实现 __html__（Listing/RichText
+#   构造时已自行转义文本），markupsafe 会原样放行，不会二次转义；
+# - 已扫描仓内 769 个模板，仅使用 {{ 变量 }} 直插与 {{ item.字段 }} 循环取值（无 {{r }}、
+#   |safe、|replace），存量模板行为不受影响。
+# 选择输出层 autoescape 而非在 build_docx_render_context 预转义字符串值：转义发生在所有
+# 过滤器/表达式求值之后（upper/replace 等不会破坏已转义实体），且天然覆盖 {{ obj.attr }}
+# 等模板侧间接取值；上下文里的非字符串 docx 对象（Listing 等）无需按类型白名单逐一放行。
+SANDBOXED_JINJA_ENV = SandboxedEnvironment(autoescape=True)
 
 
 def normalize_placeholder_value(value: Any, *, fallback_value: str = PLACEHOLDER_FALLBACK_VALUE) -> Any:

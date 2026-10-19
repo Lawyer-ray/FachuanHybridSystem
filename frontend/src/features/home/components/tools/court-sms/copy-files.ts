@@ -1,5 +1,6 @@
 import { toast } from 'sonner'
 
+import { copyText } from '@/lib/clipboard'
 import { getAccessToken } from '@/lib/token'
 
 import { API_BASE_URL, copyCourtSmsDocsToClipboard } from '../../../api'
@@ -47,15 +48,6 @@ export async function copyBlobsToClipboard(blobs: Blob[]): Promise<boolean> {
   }
 }
 
-export async function copyTextToClipboard(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text)
-    return true
-  } catch {
-    return false
-  }
-}
-
 /**
  * 复制文书的统一入口，三级降级：
  * 1. 后端 NSPasteboard 直写 file-url（同 Finder ⌘C）——微信等直接 ⌘V 粘出文件，
@@ -88,7 +80,7 @@ async function copyDocs(smsId: number, indexes: number[], names: string[], fallb
   }
 
   // 3) 文件名兜底
-  if (await copyTextToClipboard(names.join('\n'))) {
+  if (await copyText(names.join('\n'))) {
     toast.info('当前环境不支持复制文件本体，已复制文件名')
   } else {
     toast.error('复制失败，请改用下载')

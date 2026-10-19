@@ -7,10 +7,8 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any
 
-from django.conf import settings
 from django.db import transaction
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
@@ -24,17 +22,28 @@ def _cleanup_finalized_material_file(sender: Any, instance: Any, **kwargs: Any) 
     file_path = getattr(instance, "file_path", "")
     if not file_path:
         return
+    # 收敛校验延迟到 _unlink_material 内执行（on_commit 后），此处仅传递原始字符串
+    transaction.on_commit(lambda fp=file_path, mid=instance.pk: _unlink_material(fp, mid))  # type: ignore[misc]  # mypy 对带默认参 lambda 的推断限制
+
+
+def _unlink_material(file_path: str, material_id: int) -> None:
+    """收敛校验后清理归档材料物理文件。
+
+    安全审计（2026-10-19）：file_path 可能是历史脏数据中的任意绝对路径 / 含 ".." 的值，
+    禁止直拼 MEDIA_ROOT 后 unlink（绝对路径会原样保留导致误删任意文件）。
+    统一经 ``to_media_abs`` 收敛到 MEDIA_ROOT 内，越界跳过物理删除并 warning（不抛）。
+    """
+    from apps.core.exceptions import ValidationException
+    from apps.core.services.storage_service import to_media_abs
+
     try:
-        abs_path = Path(settings.MEDIA_ROOT) / file_path
-        transaction.on_commit(lambda p=abs_path, mid=instance.pk, fp=file_path: _unlink_material(p, mid, fp))  # type: ignore[misc]  # mypy 对带默认参 lambda 的推断限制
-    except (OSError, ValueError):
-        logger.exception(
-            "post_delete: 清理归档材料文件失败",
-            extra={"material_id": instance.pk, "file_path": file_path},
+        abs_path = to_media_abs(file_path)
+    except ValidationException:
+        logger.warning(
+            "post_delete: 归档材料路径非法/越界，跳过物理删除",
+            extra={"material_id": material_id, "file_path": file_path},
         )
-
-
-def _unlink_material(abs_path: Path, material_id: int, file_path: str) -> None:
+        return
     try:
         if abs_path.exists():
             abs_path.unlink()

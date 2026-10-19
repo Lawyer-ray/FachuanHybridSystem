@@ -3,7 +3,7 @@
  * WorkbenchPage（办案主页）组件渲染单测（jsdom + 真实 timers）。
  *
  * mock 边界：../api 三个接口。导航栏由 AppShell 常驻，页面本身不再渲染。
- * 覆盖：加载/错误态、类型分组渲染与摘要、FilterBar 搜索防抖下推与筛选面板交互、
+ * 覆盖：加载/错误态、业务形态分组（争议解决/非诉）渲染与摘要、FilterBar 搜索防抖下推与筛选面板交互、
  * 两种空态分支（真空库 / 筛选后为空 → 清除筛选出口，最近修复的死分支回归）、
  * 分页按钮状态与翻页下推、错误重试。
  */
@@ -127,7 +127,7 @@ describe('WorkbenchPage 加载 / 错误态', () => {
 })
 
 describe('WorkbenchPage 分组渲染', () => {
-  it('按 case_type_label 分组：诉讼组在前，组头带数量，行内可见合同名', async () => {
+  it('按业务形态分两节：争议解决在前非诉在后，行内带类型小标签', async () => {
     listPageMock.mockResolvedValue(
       makePage({
         items: [
@@ -141,12 +141,15 @@ describe('WorkbenchPage 分组渲染', () => {
     setupUi()
     expect(await screen.findByText('王五委托')).toBeTruthy()
     expect(screen.getByText('赵六法律顾问')).toBeTruthy()
-    const litHeader = screen.getByText('民事诉讼')
-    const nonLitHeader = screen.getByText('法律顾问')
-    // 未选类目时诉讼组在前
+    const litHeader = screen.getByText('争议解决')
+    const nonLitHeader = screen.getByText('非诉')
+    // 争议解决节在前
     expect(
       litHeader.compareDocumentPosition(nonLitHeader) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
+    // 类型降级为行内标签（不再作为分区标题）
+    expect(screen.getByText('民事诉讼')).toBeTruthy()
+    expect(screen.getByText('法律顾问')).toBeTruthy()
     // 摘要：totalContracts 取 facets 口径
     expect(
       screen.getByText((_, el) => el?.tagName === 'SPAN' && el.textContent === '2 个合同 · 2 在办'),

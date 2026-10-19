@@ -1,6 +1,7 @@
-/** 阅读器风格的小描边按钮（首页复用同款项式） */
-export const BTN =
-  'flex h-[30px] flex-none items-center gap-1 rounded-[7px] border border-border bg-transparent px-[13px] text-[12.5px] font-medium text-secondary-foreground transition-colors hover:bg-secondary hover:text-foreground hover:border-zinc-300'
+import { SMALL_OUTLINE_BTN } from '@/components/shared/button-styles'
+
+/** 阅读器风格的小描边按钮（与 material-prep reader/ui.ts 的 PBTN 同款，上提 shared 共用） */
+export const BTN = SMALL_OUTLINE_BTN
 
 /**
  * 纯图标的小描边按钮（日历上/下月切换）。
@@ -29,3 +30,8 @@ export const FIELD =
 /** 面板标题行的小胶囊（计数） */
 export const COUNT_PILL =
   'rounded-[99px] border border-border bg-secondary px-[8px] py-[1px] text-[11px] font-semibold text-muted-foreground'
+
+/** 行内小按钮：描边风格（工具卡结果行 / 历史弹窗行操作 / 法院短信成功弹窗四家同款）。
+ *  disabled 工具类对不带 disabled 属性的按钮是纯 no-op，取并集一份即可。 */
+export const ROW_BTN =
+  'flex h-[26px] flex-none items-center gap-1 rounded-[7px] border border-border bg-card px-2 text-[10.5px] font-medium text-secondary-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50'

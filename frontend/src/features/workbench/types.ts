@@ -55,6 +55,11 @@ export type CasePartyOut = Schemas['CasePartyOut']
 /** 案件行：生成物 CaseOut（id 覆写为必有，生成物可选可空） */
 export type CaseListItem = Omit<Schemas['CaseOut'], 'id'> & { id: number }
 
+/* ============ 后端投影：/api/v1/reminders/list ============ */
+
+/** 提醒全量形状（含完成态与所属合同/案件/日志 id）；详情页按案件逐个拉取案件直挂提醒用 */
+export type ReminderOut = Schemas['ReminderOut']
+
 /* ============ 后端投影：/api/v1/organization/lawyers ============ */
 
 /** 律师行（生成物 LawyerOut 的消费投影）。后端已修复 OpenAPI 组件名冲突
@@ -87,6 +92,15 @@ export interface DealContact {
   phone: string
   note: string
   stage: string
+  /** 所属机构名（法院/仲裁委），详情页右栏按它分组 */
+  authority: string
+  address: string
+}
+
+/** 个案当事人：诉讼地位 + 名称（详情页按地位分组成「原告 A · 被告 B、C」一行） */
+export interface DealCaseParty {
+  status: string
+  name: string
 }
 
 /** 合同名下的个案（程序链节点） */
@@ -105,15 +119,17 @@ export interface DealCase {
   preserv: number | null
   from: string
   partyRows: string[]
+  parties: DealCaseParty[]
   logs: DealLog[]
+  /** 日志级提醒（随 CaseOut.logs[].reminders 下发），详情页期限栏三源之一 */
+  logReminders: ContractReminder[]
   contacts: DealContact[]
 }
 
-/** 抽屉里的当事人行（含复制用全字段） */
+/** 抽屉里的当事人行（含复制用全字段）。法人/自然人不入模型——名字本身已表达，不再展示 */
 export interface DealParty {
   name: string
   role: string
-  type: string
   idno: string
   legalRep: string
   phone: string
@@ -141,6 +157,8 @@ export interface WorkbenchDeal {
   id: number
   /** 是否诉讼类（civil/criminal/administrative/labor/intl） */
   lit: boolean
+  /** case_type 代码值（civil/criminal/advisor…）；lit 是它的派生，详情页判「执行」虚节点要看原值 */
+  caseType: string
   client: string
   ctype: string
   no: string

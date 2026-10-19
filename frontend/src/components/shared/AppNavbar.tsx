@@ -122,10 +122,11 @@ export function AppNavbar({ onNotify, onLogout, onPrefetch }: AppNavbarProps) {
     // 会直接命中上一账号的日历/收件箱/合同等缓存数据
     queryClient.clear()
     // 清空材料预处理阅读器状态与 PDF/字节缓存（换账号不得残留上一账号的材料内容）。
-    // 走动态 import：这条依赖链上有 pdfjs-dist（~1MB 懒加载 chunk），
-    // 静态引会把整个材料预处理域拖进首屏包（AppNavbar 经 HomePage 进 entry chunk）
-    void import('@/features/material-prep/store')
-      .then((m) => m.useReader.getState().resetAll())
+    // 走 material-prep 对外出口的动态 import：这条依赖链上有 pdfjs-dist（~1MB
+    // 懒加载 chunk），静态引会把整个材料预处理域拖进首屏包（AppNavbar 经
+    // HomePage 进 entry chunk）
+    void import('@/features/material-prep')
+      .then((m) => m.resetMaterialPrepState())
       .catch(() => {})
     void import('@/lib/pdf')
       .then((m) => m.clearPdfCache())

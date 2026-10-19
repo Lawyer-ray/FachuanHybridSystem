@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import Any, Literal
 
 from asgiref.sync import sync_to_async
 from django.http import HttpRequest
@@ -16,6 +16,8 @@ class SearchResultItem(Schema):
     id: int
     title: str
     subtitle: str = ""
+    # 仅当事人（clients）有值：ours=我方 / opposing=对方；其他类别恒为空串
+    side: Literal["ours", "opposing", ""] = ""
 
 
 class GlobalSearchResult(Schema):
@@ -28,7 +30,7 @@ class GlobalSearchResult(Schema):
 
 
 def _to_items(raw: list[Any]) -> list[SearchResultItem]:
-    return [SearchResultItem(id=r.id, title=r.title, subtitle=r.subtitle) for r in raw]
+    return [SearchResultItem(id=r.id, title=r.title, subtitle=r.subtitle, side=r.side) for r in raw]
 
 
 @router.get("", response=GlobalSearchResult)

@@ -15,3 +15,11 @@ export const preloadWorkbenchPage = () => import('./components/WorkbenchPage')
 export const WorkbenchPageLazy = lazy(() =>
   preloadWorkbenchPage().then((m) => ({ default: m.WorkbenchPage })),
 )
+
+/** 争议解决详情页 chunk 加载器（/cases/:id；与列表页共享 domain/api，公共代码由构建器自动拆共用块） */
+export const preloadDealDetailPage = () => import('./components/deal-detail/DealDetailPage')
+
+/** 争议解决详情页（懒加载组件，消费方需包 Suspense） */
+export const DealDetailPageLazy = lazy(() =>
+  preloadDealDetailPage().then((m) => ({ default: m.DealDetailPage })),
+)

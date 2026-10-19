@@ -15,7 +15,7 @@ import {
 import { cn } from '@/lib/utils'
 import { errMessage } from '@/lib/errors'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { BTN, BTN_PRIMARY } from '../../../ui'
+import { BTN, BTN_PRIMARY, ROW_BTN } from '../../../ui'
 import { FlowNotice } from '../dialog/TaskFlowDialog'
 import { badgeOf } from './badges'
 import { HistoryError } from './HistoryError'
@@ -29,9 +29,6 @@ const STATUS_LABEL: Record<string, string> = {
   failed: '失败',
   cancelled: '已取消',
 }
-
-const ROW_BTN =
-  'flex h-[26px] flex-none items-center gap-1 rounded-[7px] border border-border bg-card px-2 text-[10.5px] font-medium text-secondary-foreground transition-colors hover:bg-secondary hover:text-foreground'
 
 /**
  * DOC 转 DOCX 历史弹窗：同一弹窗内「列表 ⇄ 任务详情」切换（不叠第二层弹窗）——

@@ -11,6 +11,7 @@ from asgiref.sync import sync_to_async
 from django.http import FileResponse, Http404, HttpResponse
 from ninja import Router
 
+from apps.core.http.download import content_disposition
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.core.security.auth import JWTOrSessionAuth
 from apps.legal_research.schemas import (
@@ -201,7 +202,8 @@ async def download_all_results(request: Any, task_id: int) -> HttpResponse:  # p
 
     filename = f"legal_research_{task_id}.zip"
     response = HttpResponse(zip_bytes, content_type="application/zip")
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    # 解耦（2026-10-19）：裸拼改走统一 RFC 5987 实现
+    response["Content-Disposition"] = content_disposition(filename)
     return response
 
 

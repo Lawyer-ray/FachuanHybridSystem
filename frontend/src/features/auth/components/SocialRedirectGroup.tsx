@@ -7,6 +7,8 @@
  * 分割线与错误位。跳转进行中禁用全部按钮，避免连点双跳。
  */
 import { useState } from 'react'
+
+import { errMessage } from '@/lib/errors'
 import type { SocialProviderInfo, SocialSession } from '../social-api'
 import { socialAuthApi } from '../social-api'
 import { BRAND_MARKS } from './brand-marks'
@@ -29,7 +31,7 @@ export function SocialRedirectGroup({ providers, createSession }: Props) {
       window.location.href = session.goto
     } catch (err) {
       setPendingName('')
-      setError(err instanceof Error ? err.message : '该登录方式暂不可用，请稍后再试')
+      setError(errMessage(err, '该登录方式暂不可用，请稍后再试'))
     }
   }
 

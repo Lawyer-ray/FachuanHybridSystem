@@ -62,6 +62,7 @@ class TestImageRotationApi:
 
         file_obj = MagicMock()
         file_obj.content_type = "image/jpeg"
+        file_obj.name = "x.jpg"
         file_obj.size = 1024
         assert _validate_image_file(file_obj) is None  # Should not raise
 

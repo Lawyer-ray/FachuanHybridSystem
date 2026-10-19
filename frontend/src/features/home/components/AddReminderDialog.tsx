@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useState } from 'react'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -7,7 +7,7 @@ import { createReminder, listReminderTypes, searchTargetOptions, REMINDER_TYPES_
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { formatCN, parseKey } from '../domain'
-import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { useTypeaheadSearch } from '@/hooks/use-typeahead-search'
 import { errMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 
@@ -50,8 +50,7 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
   // 用 useId 防止未来同弹窗多实例时 id 撞车
   const targetInputId = useId()
   const targetListId = useId()
-  // 关联对象：kw=输入框文本，picked=已选中的候选（null 表示未选）
-  const [kw, setKw] = useState('')
+  // 关联对象：picked=已选中的候选（null 表示未选）；kw 由检索 hook 持有
   const [picked, setPicked] = useState<TargetOption | null>(null)
   // 点候选兜底层收起；重新输入即展开（对齐旧实现「点别处清空 options」）
   const [optionsHidden, setOptionsHidden] = useState(false)
@@ -64,17 +63,13 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
     staleTime: 10 * 60_000,
   })
 
-  // 关键字联想：queryKey 用防抖值（输入停 250ms 才请求，不再每键一发）；
-  // 上一请求由 signal 自动中止，无响应竞态。
+  // 关键字联想：输入停 250ms 才请求、空关键词不发（minLength 默认 1）、
+  // 上一请求由 signal 自动中止（无响应竞态）。
   // 选中 picked 后隐藏候选列表，展示 picked 行
-  const kwTrim = kw.trim()
-  const dkTrim = useDebouncedValue(kwTrim, 250)
-  const { data: searched = [], isFetching: searching } = useQuery({
-    queryKey: ['reminder-target-options', dkTrim],
-    queryFn: ({ signal }) => searchTargetOptions(dkTrim, signal),
-    enabled: day != null && !!dkTrim && !picked,
-    staleTime: 30_000,
-    placeholderData: keepPreviousData,
+  const { keyword: kw, setKeyword: setKw, data: searched = [], isFetching: searching } = useTypeaheadSearch<TargetOption[]>({
+    queryKey: (dk) => ['reminder-target-options', dk],
+    queryFn: ({ keyword, signal }) => searchTargetOptions(keyword, signal),
+    enabled: day != null && !picked,
   })
   const options = useMemo(
     () => (picked || optionsHidden ? [] : searched),
@@ -93,7 +88,8 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
       setOptionsHidden(false)
       setTab('all')
     }
-  }, [day, defaultTime])
+    // setKw 是 hook 内 useState 的 setter，引用恒稳定，列进 deps 不影响触发时机
+  }, [day, defaultTime, setKw])
 
   // 当前 tab 下可见的候选
   const visibleOptions = useMemo(

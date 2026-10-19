@@ -362,6 +362,13 @@ async def download_batch_summary(
     )
 
 
+def _csv_safe_cell(value: str) -> str:
+    """CSV 公式注入防护（解耦 2026-10-19：实现上提 core.utils.csv_safety）。"""
+    from apps.core.utils.csv_safety import csv_safe_cell
+
+    return csv_safe_cell(value)
+
+
 def _generate_filtered_csv(job_id: UUID, *, only_relevant: bool) -> str:
     """生成过滤后的 CSV 内容（仅返回字符串）"""
     import csv as csv_mod
@@ -386,15 +393,15 @@ def _generate_filtered_csv(job_id: UUID, *, only_relevant: bool) -> str:
                 continue
         rows.append(
             {
-                "文件名": item.file_name,
-                "案号": parsed["case_number"],
-                "案由": parsed["cause"],
-                "审理法院": parsed["court"],
-                "法官": parsed["judge"],
-                "书记员": parsed["clerk"],
+                "文件名": _csv_safe_cell(item.file_name),
+                "案号": _csv_safe_cell(parsed["case_number"]),
+                "案由": _csv_safe_cell(parsed["cause"]),
+                "审理法院": _csv_safe_cell(parsed["court"]),
+                "法官": _csv_safe_cell(parsed["judge"]),
+                "书记员": _csv_safe_cell(parsed["clerk"]),
                 "与研究问题相关": "是" if parsed["is_relevant"] else "否",
-                "结论": parsed["conclusion"],
-                "详细分析": parsed["analysis"],
+                "结论": _csv_safe_cell(parsed["conclusion"]),
+                "详细分析": _csv_safe_cell(parsed["analysis"]),
             }
         )
 

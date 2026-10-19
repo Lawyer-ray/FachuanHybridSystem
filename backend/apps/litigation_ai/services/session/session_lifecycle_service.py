@@ -16,6 +16,7 @@ from asgiref.sync import sync_to_async
 from django.db import transaction
 
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.security.admin_access import is_admin_user  # 解耦（2026-10-19）：管理员判定收敛 core
 
 from ..wiring import get_case_service, get_conversation_history_service, get_court_pleading_signals_service
 from .session_shared import SessionDTO
@@ -80,8 +81,8 @@ class SessionLifecycleService:
             )
 
         if user and session.user_id != user.id:
-            is_privileged = getattr(user, "is_superuser", False) or getattr(user, "is_admin", False)
-            if not is_privileged:
+            # 解耦（2026-10-19）：管理员判定收敛到 core.security.admin_access.is_admin_user
+            if not is_admin_user(user):
                 raise PermissionDenied(message="无权限访问此会话", code="PERMISSION_DENIED")
 
         return self._to_session_dto(session)

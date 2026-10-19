@@ -111,12 +111,16 @@ def _contract_trend(start: date) -> list[dict[str, Any]]:
 
 
 # ↓↓ 由 DashboardService 下沉的模块级纯函数（四层架构静态方法棘轮）
-def _upcoming_reminders(now: datetime) -> list[dict[str, Any]]:
+def _upcoming_reminders(now: datetime, ctx: Any = None) -> list[dict[str, Any]]:
     from apps.reminders.models import ReminderType
+    from apps.reminders.services.reminder_read_scope import scope_reminders_for_context
 
     type_label_map = {k: str(v) for k, v in ReminderType.choices}
     week_later = now + timedelta(days=7)
-    qs = Reminder.objects.filter(due_at__lte=week_later).order_by("due_at")[:20]
+    # 安全审计（2026-10-19）：此前直接全表取前 20 条，暴露全所提醒 content 原文；
+    # 接入提醒读范围过滤（可见案件/合同 + 本人创建的全局提醒，管理员全量）。
+    # ctx 为 None（admin/首页内部调用）时不过滤，行为不变。
+    qs = scope_reminders_for_context(Reminder.objects.filter(due_at__lte=week_later), ctx).order_by("due_at")[:20]
     result = []
     for r in qs:
         result.append(

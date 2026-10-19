@@ -10429,16 +10429,15 @@ export interface components {
         /**
          * ClientOut
          * @description 客户输出 Schema
+         *
+         *     证件号原样出参（2026-10 产品决策：本机部署、律师办案需要完整证件号填文书，
+         *     此前安全审计加的「前 3 后 4」打码已撤除）。
          */
         ClientOut: {
             /** Client Type Label */
             client_type_label: string;
             /** Identity Docs */
             identity_docs: components["schemas"]["ClientIdentityDocOut"][];
-            /** Id Number */
-            id_number?: string | null;
-            /** Legal Representative Id Number */
-            legal_representative_id_number?: string | null;
             /** ID */
             id?: number | null;
             /** 名称 */
@@ -10463,11 +10462,18 @@ export interface components {
              * @default legal
              */
             client_type: string;
+            /** 身份证号码或统一社会信用代码 */
+            id_number?: string | null;
             /**
              * 法定代表人或负责人
              * @default
              */
             legal_representative: string | null;
+            /**
+             * 法定代表人/负责人身份证号码
+             * @default
+             */
+            legal_representative_id_number: string | null;
         };
         /**
          * ClientIn
@@ -19129,6 +19135,12 @@ export interface components {
              * @default
              */
             subtitle: string;
+            /**
+             * Side
+             * @default
+             * @enum {string}
+             */
+            side: "ours" | "opposing" | "";
         };
         /** CaseTypeDistItem */
         CaseTypeDistItem: {

@@ -6,6 +6,8 @@
  * 自带操作指引；登录页多 Provider 堆叠走 SocialRedirectGroup。
  */
 import { useState } from 'react'
+
+import { errMessage } from '@/lib/errors'
 import type { SocialProviderInfo, SocialSession } from '../social-api'
 import { socialAuthApi } from '../social-api'
 import { spacedBrand } from '../social-format'
@@ -29,7 +31,7 @@ export function SocialRedirectPanel({ provider, createSession }: Props) {
       window.location.href = session.goto
     } catch (err) {
       setLoading(false)
-      setError(err instanceof Error ? err.message : '该登录方式暂不可用，请稍后再试')
+      setError(errMessage(err, '该登录方式暂不可用，请稍后再试'))
     }
   }
 

@@ -24,6 +24,7 @@ class TestValidateImageFile:
 
         f = MagicMock()
         f.content_type = "image/jpeg"
+        f.name = "x.jpg"
         f.size = 1024
         # 合法图片静默通过（返回 None）
         assert _validate_image_file(f) is None
@@ -33,6 +34,7 @@ class TestValidateImageFile:
 
         f = MagicMock()
         f.content_type = "image/png"
+        f.name = "x.png"
         f.size = 1024
         assert _validate_image_file(f) is None
 
@@ -61,8 +63,9 @@ class TestValidateImageFile:
 
         f = MagicMock()
         f.content_type = "image/jpeg"
+        f.name = "x.jpg"
         f.size = None
-        # size 为 None 时跳过大小校验，静默通过
+        # size 为 None 时跳过大小校验，静默通过（解耦 2026-10-19：校验改扩展名白名单，Mock 需显式 name）
         assert _validate_image_file(f) is None
 
 

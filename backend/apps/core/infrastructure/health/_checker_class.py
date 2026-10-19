@@ -120,17 +120,22 @@ class HealthChecker:
             llm_error = str(e)
 
         if db_health.status == HealthStatus.UNHEALTHY:
+            # 安全审计（2026-10-19）：/health/ready 无认证，reason 只回固定短句，
+            # 不带原始异常串（可能含 DB 主机/端口/连接信息）；详情走 debug 日志。
+            logger.debug("readiness 数据库不可用: %s", db_health.message)
             return {
                 "status": "not_ready",
-                "reason": db_health.message,
+                "reason": "数据库不可用",
                 "component": "database",
                 "timestamp": time.time(),
             }
 
         if llm_required and llm_health_value == "unhealthy":
+            # 安全审计（2026-10-19）：reason 不带 LLM warmup 的原始错误详情
+            logger.debug("readiness LLM 预热失败: %s", llm_error)
             return {
                 "status": "not_ready",
-                "reason": f"LLM warmup failed: {llm_error or 'unknown'}",
+                "reason": "LLM 预热失败",
                 "component": "llm_config",
                 "timestamp": time.time(),
             }
@@ -147,11 +152,15 @@ class HealthChecker:
 
         warnings: list[str] = []
 
+        # 安全审计（2026-10-19）：warnings 同 reason 只回状态级短句，
+        # 不拼原始异常 message / warmup 错误详情
         if cache_health.status != HealthStatus.HEALTHY:
-            warnings.append(f"Cache {cache_health.status.value}: {cache_health.message}")
+            logger.debug("readiness 缓存异常: %s", cache_health.message)
+            warnings.append(f"缓存状态异常（{cache_health.status.value}）")
 
         if (not llm_required) and llm_health_value == "unhealthy":
-            warnings.append(f"LLM warmup failed: {llm_error or 'unknown'}")
+            logger.debug("readiness LLM 预热失败: %s", llm_error)
+            warnings.append("LLM 预热失败")
 
         if llm_health_value == "unknown" and llm_required:
             warnings.append("LLM warmup not executed yet")

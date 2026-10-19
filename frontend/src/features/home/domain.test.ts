@@ -1,13 +1,12 @@
 import {
   buildMonthGrid,
-  dateKey,
   eventReminderIds,
   formatCN,
   formatWeekdayCN,
   parseKey,
-  pad2,
   weekdayColumn,
 } from './domain'
+import { dateKey, pad2 } from '@/lib/date'
 
 describe('日期工具', () => {
   it('dateKey 用本地时区，不会因 UTC 差一天', () => {

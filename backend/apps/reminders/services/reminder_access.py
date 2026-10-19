@@ -29,17 +29,12 @@ from __future__ import annotations
 from typing import Any
 
 from apps.core.exceptions import PermissionDenied
+from apps.core.security.admin_access import is_admin_user
 
-
-def is_admin_user(user: Any | None) -> bool:
-    """superuser 或 is_admin（Lawyer 的管理员标志）视为全所管理员。
-
-    is_staff 仅是 Django admin 准入标志，不视为系统管理员——与
-    message_hub / message_source_api 口径一致。
-    """
-    if user is None:
-        return False
-    return bool(getattr(user, "is_superuser", False) or getattr(user, "is_admin", False))
+# 解耦（2026-10-19）：is_admin_user 删除本地同体实现，改为对
+# core.security.admin_access.is_admin_user 的 re-export（tests 等外部 import 不断裂）。
+# 口径不变：superuser 或 is_admin（Lawyer 的管理员标志）视为全所管理员；
+# is_staff 仅是 Django admin 准入标志，不视为系统管理员。
 
 
 def can_write_reminder(user: Any | None, reminder: Any) -> bool:

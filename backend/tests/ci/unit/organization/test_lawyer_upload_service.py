@@ -29,7 +29,7 @@ def lawyer(db: Any) -> Lawyer:
 def test_attach_avatar_rejects_svg(lawyer: Lawyer) -> None:
     """svg 可携带脚本且 /media/ 直链可执行，禁止入库。"""
     svg = SimpleUploadedFile("avatar.svg", b"<svg onload='alert(1)'/>", content_type="image/svg+xml")
-    with pytest.raises(ValidationException, match="不支持的图片格式"):
+    with pytest.raises(ValidationException, match="不支持的文件格式"):
         LawyerUploadService().attach_avatar(lawyer, svg)
     assert not lawyer.avatar.name
 
@@ -37,7 +37,7 @@ def test_attach_avatar_rejects_svg(lawyer: Lawyer) -> None:
 @pytest.mark.django_db
 def test_attach_avatar_rejects_html(lawyer: Lawyer) -> None:
     html = SimpleUploadedFile("avatar.html", b"<html/>", content_type="text/html")
-    with pytest.raises(ValidationException, match="不支持的图片格式"):
+    with pytest.raises(ValidationException, match="不支持的文件格式"):
         LawyerUploadService().attach_avatar(lawyer, html)
     assert not lawyer.avatar.name
 

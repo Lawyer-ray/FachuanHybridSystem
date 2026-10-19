@@ -6,10 +6,12 @@ import io
 import logging
 import uuid
 import zipfile
+from pathlib import Path
 
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 
+from apps.core.services.storage_service import sanitize_upload_filename
 from apps.image_rotation.services import storage
 
 logger = logging.getLogger("apps.image_rotation")
@@ -22,7 +24,11 @@ def generate_zip(*, processed_images: list[tuple[str, bytes, str]]) -> str:  # p
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         used_names: dict[str, int] = {}
         for filename, image_bytes, _img_format in processed_images:
-            unique_filename = _get_unique_filename(filename, used_names)
+            # 安全审计（2026-10-19）：ZIP 条目名来自客户端（含 rename_map 改名），
+            # 未清洗直接 writestr 会产生 "../" 路径穿越条目（zip-slip），
+            # 统一用 sanitize_upload_filename(Path(name).name) 收敛为安全文件名
+            safe_filename = sanitize_upload_filename(Path(filename).name)
+            unique_filename = _get_unique_filename(safe_filename, used_names)
             zf.writestr(unique_filename, image_bytes)
 
     rel_path = storage.export_rel_path(zip_filename)

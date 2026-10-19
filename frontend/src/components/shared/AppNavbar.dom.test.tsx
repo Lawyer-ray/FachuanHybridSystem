@@ -3,8 +3,9 @@
  * AppNavbar（全局顶层导航）组件渲染单测（jsdom）。
  *
  * mock 边界：@/features/auth（useAuth 桩）、@/lib/api（organization/me 补拉）、
- * @/features/search（GlobalSearch 桩）、@/features/material-prep/store 与 @/lib/pdf
- * （登出时的动态 import 清理点——调用断言的核心）。覆盖：品牌/导航渲染、
+ * @/features/search（GlobalSearch 桩）、@/features/material-prep 对外出口的
+ * resetMaterialPrepState 与 @/lib/pdf（登出时的动态 import 清理点——调用断言的核心）。
+ * 覆盖：品牌/导航渲染、
  * ⌘K 唤起检索、无用户名时补拉 me 并回填 store、新建案件回调、
  * 登出全链路（store 登出 + query 缓存清空 + 阅读器/PDF 缓存清理 + 跳转 /login）、
  * 账号绑定入口跳转、导航入口的悬停预取与点击乐观高亮（目标页 chunk 未到、
@@ -38,10 +39,10 @@ vi.mock('@/lib/api', () => ({
 vi.mock('@/features/search', () => ({
   GlobalSearch: ({ open }: { open: boolean }) => <div>{open ? 'gs-open' : 'gs-closed'}</div>,
 }))
-vi.mock('@/features/material-prep/store', () => ({
-  useReader: {
-    getState: () => ({ resetAll: stubs.resetAll }),
-  },
+// AppNavbar 登出走 feature 出口的 resetMaterialPrepState（内部再动态 import store），
+// mock 边界跟着上提到出口——不再穿透内部 store 路径
+vi.mock('@/features/material-prep', () => ({
+  resetMaterialPrepState: stubs.resetAll,
 }))
 vi.mock('@/lib/pdf', () => ({
   clearPdfCache: stubs.clearPdfCache,

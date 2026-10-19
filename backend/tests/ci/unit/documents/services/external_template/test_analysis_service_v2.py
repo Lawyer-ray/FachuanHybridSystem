@@ -34,6 +34,7 @@ from unittest.mock import MagicMock, PropertyMock, patch
 import pytest
 from django.core.exceptions import ValidationError
 
+from apps.core.exceptions import ValidationException
 from apps.documents.services.external_template.analysis_service import AnalysisService
 
 # ---------------------------------------------------------------------------
@@ -82,19 +83,19 @@ class TestValidateFile:
 
     def test_non_docx(self) -> None:
         svc = _make_service()
-        with pytest.raises(ValidationError, match=r"仅支持 \.docx"):
+        with pytest.raises(ValidationException, match="不支持的文件格式"):
             svc._validate_file(_make_file("doc.pdf"))
 
     def test_too_large(self) -> None:
         svc = _make_service()
-        with pytest.raises(ValidationError, match="文件大小超出限制"):
+        with pytest.raises(ValidationException, match="文件过大"):
             svc._validate_file(_make_file("doc.docx", size=21 * 1024 * 1024))
 
     def test_no_name(self) -> None:
         svc = _make_service()
         f = _make_file()
         f.name = None
-        with pytest.raises(ValidationError, match=r"仅支持 \.docx"):
+        with pytest.raises(ValidationException, match="不支持的文件格式"):
             svc._validate_file(f)
 
 

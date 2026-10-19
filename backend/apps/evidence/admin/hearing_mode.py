@@ -30,7 +30,15 @@ class HearingModeAdminMixin:  # pragma: no cover
         return custom + urls  # type: ignore[no-any-return]
 
     def hearing_mode_view(self, request: HttpRequest, case_id: int) -> TemplateResponse:  # pragma: no cover
+        from django.core.exceptions import PermissionDenied
+
         from apps.cases.models import Case
+        from apps.evidence.admin.case_access import get_admin_accessible_case_queryset
+
+        # 安全审计（2026-10-19）：视图入口补案件访问校验——无权访问（含案件不存在）时 403，
+        # 同时消除此前 Case.objects.get 对不存在案件直接 500 的问题
+        if not get_admin_accessible_case_queryset(request).filter(pk=case_id).exists():
+            raise PermissionDenied("无权限访问此案件")
 
         case = Case.objects.get(pk=case_id)
         evidence_lists = EvidenceList.objects.filter(case_id=case_id).order_by("order")

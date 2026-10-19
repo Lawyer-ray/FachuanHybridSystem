@@ -1,5 +1,7 @@
 import { toast } from 'sonner'
 
+import { copyText } from '@/lib/clipboard'
+
 import type { ParseOutcome } from '../../api'
 
 /**
@@ -37,10 +39,9 @@ export async function copyOutcome(o: Pick<ParseOutcome, 'markdown' | 'text'> | n
     toast.info('没有可复制的解析内容')
     return
   }
-  try {
-    await navigator.clipboard.writeText(text)
+  if (await copyText(text)) {
     toast.success('已复制解析结果')
-  } catch {
+  } else {
     toast.error('浏览器拒绝了剪贴板，可在预览区手动选中复制')
   }
 }

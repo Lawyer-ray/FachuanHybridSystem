@@ -11,6 +11,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
+
+import { errMessage } from '@/lib/errors'
 import { socialAuthApi, type SocialProviderInfo, type SocialSession } from '../social-api'
 import { FEISHU_QR_SDK_URL } from '../constants'
 
@@ -97,7 +99,7 @@ export function SocialQrPanel({ provider, createSession, containerId = 'feishu-q
     try {
       session = await (createSession ?? socialAuthApi.createSession)(providerName)
     } catch (err) {
-      if (!gone()) fail(err instanceof Error ? err.message : '登录方式暂不可用，请稍后再试或联系管理员')
+      if (!gone()) fail(errMessage(err, '登录方式暂不可用，请稍后再试或联系管理员'))
       return
     }
 
@@ -107,7 +109,7 @@ export function SocialQrPanel({ provider, createSession, containerId = 'feishu-q
     try {
       await loadFeishuQrSdk()
     } catch (err) {
-      if (!gone()) fail(err instanceof Error ? err.message : '飞书登录组件加载失败')
+      if (!gone()) fail(errMessage(err, '飞书登录组件加载失败'))
       return
     }
 

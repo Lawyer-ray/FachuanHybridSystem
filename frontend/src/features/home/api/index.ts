@@ -22,7 +22,7 @@
 export { remindersApi, fetchCalendarMonth, setRemindersCompleted, deleteReminders, calendarKeys, REMINDER_TYPES_KEY, searchTargetOptions, listReminderTypes, parseReminder, createReminder } from './reminders'
 export type { CalendarEvent, CalendarStats, CalendarMonth, TargetType, TargetOption, ReminderTypeOption, ParsedReminder, CreateReminderIn } from './reminders'
 
-export { inboxApi, listInbox, formatRelative } from './inbox'
+export { inboxApi, listInbox } from './inbox'
 export type { InboxMessageOut } from './inbox'
 
 export { automationApi, docConvertApi, docConverterApi } from './tools'
