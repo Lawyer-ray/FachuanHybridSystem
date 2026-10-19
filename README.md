@@ -167,7 +167,7 @@ launchctl unload ~/Library/LaunchAgents/com.user.cloudflared-fachuan.plist
 不想自己折腾部署？作者提供**一对一定制部署服务**：
 
 - **作者亲自远程部署**，部署全程附带交流讲解，边部署边答疑，交付即可投入使用
-- **每台机器 500 元** · 一次性收费
+- **每台机器 1000 元** · 一次性收费
 - 支持 **Windows / Linux / macOS**（**推荐 macOS**，与开发环境一致，体验最佳）
 
 **关于这笔费用**
