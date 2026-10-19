@@ -645,7 +645,7 @@ class TestImageRotationApiHelpers:
         from apps.image_rotation.api.image_rotation_api import _validate_image_file
 
         f = SimpleUploadedFile("test.exe", b"data", content_type="application/exe")
-        with pytest.raises(ValidationException, match="不支持的图片类型"):
+        with pytest.raises(ValidationException, match="不支持的文件格式"):
             _validate_image_file(f)
 
     def test_validate_image_file_too_large(self):
@@ -658,7 +658,7 @@ class TestImageRotationApiHelpers:
 
         big_data = b"\x00" * (21 * 1024 * 1024)
         f = SimpleUploadedFile("big.jpg", big_data, content_type="image/jpeg")
-        with pytest.raises(ValidationException, match="文件大小超过限制"):
+        with pytest.raises(ValidationException, match="文件过大"):
             _validate_image_file(f)
 
     def test_decode_image_data_plain(self):

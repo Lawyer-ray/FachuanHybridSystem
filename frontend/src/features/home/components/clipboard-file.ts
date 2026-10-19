@@ -8,6 +8,8 @@
  * image.png 分不清是哪次粘贴的）。
  */
 
+import { pad2 } from '@/lib/date'
+
 /** paste 事件用到的最小切面；普通对象即可构造，node 环境单测不用 jsdom */
 export interface ClipboardLike {
   files?: ArrayLike<File> | null
@@ -35,8 +37,7 @@ function isGenericName(name: string): boolean {
 
 /** 粘贴图片-20261018-103005 这类本地时间戳 */
 function stamp(now: Date): string {
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}-${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}`
+  return `${now.getFullYear()}${pad2(now.getMonth() + 1)}${pad2(now.getDate())}-${pad2(now.getHours())}${pad2(now.getMinutes())}${pad2(now.getSeconds())}`
 }
 
 /** 泛名文件按 MIME 重命名；名字本身有信息量的（如 Finder 复制的 传票.pdf）原样保留 */

@@ -19,6 +19,7 @@ from typing import Any
 
 from django.db.models import Q, QuerySet
 
+from apps.core.security.admin_access import is_admin_user  # 解耦（2026-10-19）：管理员判定收敛 core
 from apps.reminders.models import Reminder
 
 
@@ -40,7 +41,7 @@ def scope_reminders_for_context(qs: QuerySet[Reminder, Reminder], ctx: Any) -> Q
 
     visible = Q(case_id__in=case_ids) | Q(case_log__case_id__in=case_ids) | Q(contract_id__in=contract_ids)
     unbound = Q(contract__isnull=True, case__isnull=True, case_log__isnull=True)
-    is_admin = bool(getattr(user, "is_admin", False) or getattr(user, "is_superuser", False))
+    is_admin = is_admin_user(user)
     if is_admin:
         visible |= unbound
     else:

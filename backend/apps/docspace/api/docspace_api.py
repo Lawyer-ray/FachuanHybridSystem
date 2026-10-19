@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import io
-from pathlib import Path
 
 from django.http import FileResponse, HttpRequest
 from ninja import File, Form, Router, UploadedFile
 
-from apps.core.exceptions import ValidationException
 from apps.core.security.auth import JWTOrSessionAuth
+from apps.core.services.storage_service import validate_upload
 from apps.docspace.schemas import DocSpaceConfigOut, DocSpaceDocumentOut, DocSpaceUploadOut
 from apps.docspace.services.document_service import DocSpaceDocumentService
 
@@ -24,16 +23,16 @@ _DOCSPACE_MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024
 
 
 def _validate_upload(file: UploadedFile) -> None:
-    """校验上传文件的扩展名与大小，拒绝后才 read()，避免大文件全量进内存。"""
-    ext = Path(str(file.name or "")).suffix.lower()
-    if ext not in _DOCSPACE_ALLOWED_EXTENSIONS:
-        raise ValidationException(
-            f"不支持的文件格式: {ext or '(无扩展名)'}",
-            code="INVALID_FILE_TYPE",
-            errors={"file": f"允许的格式: {', '.join(sorted(_DOCSPACE_ALLOWED_EXTENSIONS))}"},
-        )
-    if int(getattr(file, "size", 0) or 0) > _DOCSPACE_MAX_UPLOAD_SIZE_BYTES:
-        raise ValidationException("文件过大", code="FILE_TOO_LARGE", errors={"file": "文件不能超过 50MB"})
+    """校验上传文件的扩展名与大小，拒绝后才 read()，避免大文件全量进内存。
+
+    解耦（2026-10-19）：委托 ``storage_service.validate_upload`` 统一实现，
+    白名单与大小上限数值原样保留。
+    """
+    validate_upload(
+        file,
+        allowed_extensions=_DOCSPACE_ALLOWED_EXTENSIONS,
+        max_size_bytes=_DOCSPACE_MAX_UPLOAD_SIZE_BYTES,
+    )
 
 
 def _get_document_service() -> DocSpaceDocumentService:

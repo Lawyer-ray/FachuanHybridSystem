@@ -459,10 +459,10 @@ class ContractFolderScanService:
         return "/".join(parts)
 
     def _is_within_root(self, root: Path, target: Path) -> bool:
-        try:
-            return os.path.commonpath([root.as_posix(), target.as_posix()]).replace("\\", "/") == root.as_posix()
-        except ValueError:
-            return False
+        # 解耦（2026-10-19）：实现上提 apps.core.filesystem.path_confinement（与 cases 侧逐字相同）
+        from apps.core.filesystem.path_confinement import is_within
+
+        return is_within(root, target)
 
     def _learn_from_import_correction(
         self,

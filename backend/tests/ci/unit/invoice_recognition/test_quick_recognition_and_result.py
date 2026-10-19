@@ -8,6 +8,7 @@ import pytest
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 
+from apps.core.exceptions import ValidationException
 from apps.invoice_recognition.services.invoice_parser import InvoiceParser, ParsedInvoice
 from apps.invoice_recognition.services.quick_recognition_service import QuickRecognitionService
 from apps.invoice_recognition.services.recognition_result import RecognitionResult
@@ -60,14 +61,14 @@ class TestQuickRecognitionValidateFile:
     def test_invalid_extension(self) -> None:
         svc = self._svc()
         f = SimpleUploadedFile("test.docx", b"content", content_type="application/msword")
-        with pytest.raises(ValidationError, match="不支持的文件格式"):
+        with pytest.raises(ValidationException, match="不支持的文件格式"):
             svc._validate_file(f)
 
     def test_too_large_file(self) -> None:
         svc = self._svc()
         big_content = b"x" * (21 * 1024 * 1024)  # 21 MB
         f = SimpleUploadedFile("big.pdf", big_content, content_type="application/pdf")
-        with pytest.raises(ValidationError, match="超过限制"):
+        with pytest.raises(ValidationException, match="文件过大"):
             svc._validate_file(f)
 
 

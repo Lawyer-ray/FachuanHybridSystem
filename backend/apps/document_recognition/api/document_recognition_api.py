@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 
 from apps.core.exceptions import ValidationException
 from apps.core.security.admin_access import get_request_user
+from apps.core.services.storage_service import validate_upload
 
 logger = logging.getLogger("apps.document_recognition")
 
@@ -29,19 +30,29 @@ router = Router(tags=["法院文书识别"])
 SUPPORTED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png"}
 
 
-def _validate_file_format(filename: str) -> str:
-    """验证文件格式"""
+def _validate_file_format(file: UploadedFile) -> str:
+    """验证文件格式。
+
+    解耦（2026-10-19）：扩展名校验委托 ``storage_service.validate_upload``；
+    本端点既有的错误码 / 文案（``EMPTY_FILENAME`` / ``UNSUPPORTED_FILE_FORMAT``）
+    在边界转换保留，对外 HTTP 行为不变。
+    """
+    filename = str(getattr(file, "name", "") or "")
     if not filename:
         raise ValidationException(message="文件名不能为空", code="EMPTY_FILENAME", errors={"file": "请提供有效的文件"})
 
-    ext = Path(filename).suffix.lower()
-    if ext not in SUPPORTED_EXTENSIONS:
+    try:
+        validate_upload(file, allowed_extensions=SUPPORTED_EXTENSIONS, max_size_bytes=None)
+    except ValidationException as exc:
+        if exc.code != "INVALID_FILE_TYPE":
+            raise
+        ext = Path(filename).suffix.lower()
         raise ValidationException(
             message="不支持的文件格式",
             code="UNSUPPORTED_FILE_FORMAT",
             errors={"file": f"不支持 {ext} 格式，请上传 PDF 或图片"},
-        )
-    return ext
+        ) from None
+    return Path(filename).suffix.lower()
 
 
 def _save_uploaded_file(file: UploadedFile) -> str:
@@ -316,7 +327,7 @@ async def recognize_document(
     logger.info("收到文书识别请求: %s, 大小: %s", filename, file.size)
 
     # 1. 验证文件格式
-    _validate_file_format(filename)
+    _validate_file_format(file)
 
     # 1.1 验证用户指定模型在可用列表内（列表不可得时放行，交给 LLM 层降级）
     requested_model = (llm_model or "").strip() or None

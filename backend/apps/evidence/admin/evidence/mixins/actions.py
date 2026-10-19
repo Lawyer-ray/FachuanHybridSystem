@@ -5,6 +5,7 @@ from typing import Any
 
 from django.contrib import admin
 
+from apps.core.http.download import content_disposition
 from apps.evidence.models import EvidenceList
 
 from .views import EvidenceListAdminServiceMixin
@@ -90,7 +91,8 @@ class EvidenceListAdminActionsMixin(EvidenceListAdminServiceMixin):  # pragma: n
         export_service = self.get_export_service()  # type: ignore[attr-defined]
         content, filename = export_service.export_zip(evidence_list.pk)
         response = HttpResponse(content, content_type="application/zip")
-        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        # 解耦（2026-10-19）：裸拼改走统一 RFC 5987 实现
+        response["Content-Disposition"] = content_disposition(filename)
         return response
 
 

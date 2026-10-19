@@ -1,7 +1,7 @@
 import { Copy } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { copyTextToClipboard } from '../domain'
+import { copyText } from '@/lib/clipboard'
 
 /** 行内复制按钮：点击复制并 toast */
 export function CopyButton({ title, getText }: { title: string; getText: () => string }) {
@@ -14,7 +14,7 @@ export function CopyButton({ title, getText }: { title: string; getText: () => s
       onClick={(e) => {
         e.stopPropagation()
         const text = getText()
-        void copyTextToClipboard(text).then(() => {
+        void copyText(text).then(() => {
           toast.success('已复制：' + (text.split('\n')[0]?.replace(/（.*?）/, '').trim() ?? ''))
         })
       }}

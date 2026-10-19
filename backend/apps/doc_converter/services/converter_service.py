@@ -14,7 +14,7 @@ from django.utils import timezone
 from apps.core.constants import LARGE_FILE_MAX_SIZE
 from apps.core.dependencies.core import build_task_submission_service
 from apps.core.exceptions import NotFoundError, ValidationException
-from apps.core.services.storage_service import sanitize_upload_filename
+from apps.core.services.storage_service import sanitize_upload_filename, validate_upload
 
 from ..models import DocConverterItem, DocConverterJob, DocConverterJobStatus
 
@@ -254,18 +254,11 @@ class DocConverterService:
         }
 
     def _validate_file(self, f: UploadedFile) -> None:
-        name = f.name or ""
-        ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
-        if f".{ext}" not in self.ALLOWED_EXTENSIONS:
-            raise ValidationException(
-                message=f"不支持的文件格式: .{ext}",
-                errors={"files": f"仅支持 .doc 文件，收到: {name}"},
-            )
-        size = int(f.size or 0)
-        if size <= 0:
-            raise ValidationException(message="上传文件为空", errors={"files": f"{name} 为空文件"})
-        if size > self.MAX_FILE_SIZE:
-            raise ValidationException(
-                message="文件大小超过限制",
-                errors={"files": f"{name} 超过 {self.MAX_FILE_SIZE // 1024 // 1024}MB 限制"},
-            )
+        """校验 .doc 扩展名与大小。
+
+        解耦（2026-10-19）：ext/大小校验委托 ``storage_service.validate_upload``
+        （白名单与上限原样保留）；空文件检查为本服务特有语义，保留在原地。
+        """
+        validate_upload(f, allowed_extensions=self.ALLOWED_EXTENSIONS, max_size_bytes=self.MAX_FILE_SIZE)
+        if int(f.size or 0) <= 0:
+            raise ValidationException(message="上传文件为空", errors={"files": f"{f.name or ''} 为空文件"})

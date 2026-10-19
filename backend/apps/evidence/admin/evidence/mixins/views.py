@@ -28,7 +28,7 @@ def _ensure_case_access_by_id(request: Any, case_id: Any) -> None:
     """
     from django.core.exceptions import PermissionDenied
 
-    from apps.cases.admin.base_admin import get_admin_accessible_case_queryset
+    from apps.evidence.admin.case_access import get_admin_accessible_case_queryset
 
     if not get_admin_accessible_case_queryset(request).filter(pk=case_id).exists():
         raise PermissionDenied("无权限访问此案件")

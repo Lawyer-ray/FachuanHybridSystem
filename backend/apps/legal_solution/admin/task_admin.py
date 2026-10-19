@@ -11,6 +11,7 @@ from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import path, reverse
 from django.utils.html import format_html
 
+from apps.core.http.download import content_disposition
 from apps.core.llm.config import LLMConfig
 from apps.core.llm.model_list_service import ModelListService
 from apps.legal_solution.models import SectionStatus, SolutionSection, SolutionTask, SolutionTaskStatus
@@ -221,7 +222,8 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
                 with task.pdf_file.open("rb") as f:
                     pdf_bytes = f.read()
                 response = HttpResponse(pdf_bytes, content_type="application/pdf")
-                response["Content-Disposition"] = f'inline; filename="法律服务方案-{task.id}.pdf"'
+                # 解耦（2026-10-19）：裸拼改走统一 RFC 5987 实现（中文文件名安全转义，保持 inline 语义）
+                response["Content-Disposition"] = content_disposition(f"法律服务方案-{task.id}.pdf", inline=True)
                 return response
             except Exception:
                 logger.debug("读取方案缓存 PDF 失败（已忽略，改为重新导出）: task_id=%s", task_id, exc_info=True)
@@ -235,7 +237,8 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         task.pdf_file.save(f"solution_{task.id}.pdf", ContentFile(pdf_bytes), save=True)
 
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
-        response["Content-Disposition"] = f'inline; filename="法律服务方案-{task.id}.pdf"'
+        # 解耦（2026-10-19）：裸拼改走统一 RFC 5987 实现（中文文件名安全转义，保持 inline 语义）
+        response["Content-Disposition"] = content_disposition(f"法律服务方案-{task.id}.pdf", inline=True)
         return response
 
     def adjust_section_view(

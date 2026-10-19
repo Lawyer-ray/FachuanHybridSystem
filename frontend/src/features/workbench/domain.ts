@@ -1,3 +1,5 @@
+import { dateKey } from '@/lib/date'
+
 import type {
   CaseListItem,
   ContractListItem,
@@ -32,11 +34,6 @@ export function relDue(daysLeft: number | null): string {
   if (daysLeft < 0) return '已到期 ' + -daysLeft + ' 天'
   if (daysLeft <= 60) return '剩 ' + daysLeft + ' 天'
   return '剩 ' + Math.round(daysLeft / 30) + ' 个月'
-}
-
-export function todayStr(today: Date): string {
-  const pad = (n: number) => ('0' + n).slice(-2)
-  return today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate())
 }
 
 /**
@@ -78,7 +75,7 @@ export function buildDealCases(cases: CaseListItem[], today: Date): DealCase[] {
         text: l.content || '',
         attN: l.attachments.length,
         rem: l.reminder_time ? l.reminder_time.slice(0, 10) + ' 到期提醒' : '',
-        remToday: !!l.reminder_time && l.reminder_time.slice(0, 10) === todayStr(today),
+        remToday: !!l.reminder_time && l.reminder_time.slice(0, 10) === dateKey(today),
       })),
     logReminders: x.logs.flatMap((l) => l.reminders),
     contacts: x.contacts.map((t) => ({
@@ -272,27 +269,5 @@ export function aggregateStages(cases: DealCase[]): Array<{ stage: string; n: nu
   return stages
 }
 
-/* ============ 复制动作（clipboard 优先，execCommand 兜底） ============ */
-
-export async function copyTextToClipboard(text: string): Promise<void> {
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text)
-      return
-    } catch {
-      /* 落到兜底 */
-    }
-  }
-  const ta = document.createElement('textarea')
-  ta.value = text
-  ta.style.position = 'fixed'
-  ta.style.opacity = '0'
-  document.body.appendChild(ta)
-  ta.select()
-  try {
-    document.execCommand('copy')
-  } catch {
-    /* 忽略：极老浏览器 */
-  }
-  ta.remove()
-}
+/* 复制动作（clipboard 优先，execCommand 兜底）已上提 @/lib/clipboard 的
+ * copyText（workbench 抽屉 / home 工具卡 ≥2 feature 共用）。 */

@@ -5,7 +5,6 @@ from __future__ import annotations
 import io
 import logging
 from typing import Any
-from urllib.parse import quote
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -13,6 +12,7 @@ from django.http import FileResponse, HttpRequest
 from ninja import Form, Query, Router, Schema
 
 from apps.core.exceptions import NotFoundError
+from apps.core.http.download import content_disposition
 from apps.message_hub.models import InboxMessage
 from apps.message_hub.schemas import InboxMessageDetailOut, InboxMessageOut, MessageAckOut, MessageRenameOut
 from apps.message_hub.services.inbox_access import can_view_message
@@ -333,13 +333,14 @@ _INLINE_SAFE_CONTENT_TYPES = frozenset(
 
 
 def _build_content_disposition(disposition: str, filename: str) -> str:
-    """构造转义后的 Content-Disposition（RFC 5987，参照 download_response_factory）。
+    """构造转义后的 Content-Disposition（RFC 5987）。
 
-    filename 同时给 ``filename="..."``（百分号编码，ASCII 安全）与
-    ``filename*=UTF-8''...`` 两个形态，防止文件名中的引号 / 换行破坏响应头。
+    解耦（2026-10-19）：委托 ``core/http/download`` 的统一实现（本函数签名
+    保持不变，调用方零改动）。filename 同时给 ``filename="..."``（百分号编码，
+    ASCII 安全）与 ``filename*=UTF-8''...`` 两个形态，防止文件名中的引号 /
+    换行破坏响应头。
     """
-    quoted = quote(filename)
-    return f"{disposition}; filename=\"{quoted}\"; filename*=UTF-8''{quoted}"
+    return content_disposition(filename, inline=disposition == "inline")
 
 
 def _serve_attachment(msg: InboxMessage, part_index: int, *, inline: bool) -> FileResponse:

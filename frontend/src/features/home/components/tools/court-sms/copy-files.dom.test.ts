@@ -23,7 +23,7 @@ vi.mock('../../../api', async (importOriginal) => ({
   copyCourtSmsDocsToClipboard: backendCopyMock,
 }))
 
-import { copyAllDocFiles, copyBlobsToClipboard, copyDocFile, copyTextToClipboard, fetchDocBlob } from './copy-files'
+import { copyAllDocFiles, copyBlobsToClipboard, copyDocFile, fetchDocBlob } from './copy-files'
 
 /** 可控的 ClipboardItem 桩：unsupported 里列出的类型构造时抛错（模拟浏览器不支持） */
 class FakeClipboardItem {
@@ -117,17 +117,6 @@ describe('copyBlobsToClipboard', () => {
     vi.stubGlobal('navigator', { clipboard: { write: writeMock } })
     writeMock.mockRejectedValueOnce(new Error('NotAllowedError'))
     await expect(copyBlobsToClipboard([blob('a')])).resolves.toBe(false)
-  })
-})
-
-describe('copyTextToClipboard', () => {
-  it('成功 true；writeText 抛错 false（不向上传播）', async () => {
-    vi.stubGlobal('navigator', { clipboard: { writeText: writeTextMock } })
-    writeTextMock.mockResolvedValueOnce(undefined)
-    await expect(copyTextToClipboard('a.pdf')).resolves.toBe(true)
-    expect(writeTextMock).toHaveBeenCalledWith('a.pdf')
-    writeTextMock.mockRejectedValueOnce(new Error('NotAllowedError'))
-    await expect(copyTextToClipboard('a.pdf')).resolves.toBe(false)
   })
 })
 

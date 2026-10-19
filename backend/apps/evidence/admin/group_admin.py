@@ -19,7 +19,7 @@ class EvidenceGroupAdmin(admin.ModelAdmin):  # pragma: no cover
 
     def get_queryset(self, request: Any) -> QuerySet:  # pragma: no cover
         # 安全审计（2026-10-19）：列表行级案件过滤——非管理员仅可见本所指派/授权案件下的证据分组
-        from apps.cases.admin.base_admin import apply_case_related_admin_access_filter
+        from apps.evidence.admin.case_access import apply_case_related_admin_access_filter
 
         qs = apply_case_related_admin_access_filter(request, super().get_queryset(request))
         return qs.annotate(item_count=Count("items"))  # type: ignore[no-any-return]

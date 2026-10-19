@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import logging
 from collections.abc import Iterable
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from django.core.files.uploadedfile import UploadedFile
@@ -14,6 +13,7 @@ from django.db.models import Case, F, IntegerField, Max, QuerySet, Value, When
 
 from apps.chat_records.models import ChatRecordRecording, ChatRecordScreenshot, ScreenshotSource
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.services.storage_service import validate_upload
 
 from ..extraction.frame_selection_service import FrameSelectionService
 from .access_policy import ensure_can_access_project
@@ -99,12 +99,13 @@ class ScreenshotService:
         return created
 
     def _validate_upload_file(self, file: UploadedFile) -> None:
-        ext = Path(str(getattr(file, "name", "") or "")).suffix.lower()
-        if ext not in self.ALLOWED_IMAGE_EXTENSIONS:
-            raise ValidationException(f"仅支持上传图片文件({', '.join(sorted(self.ALLOWED_IMAGE_EXTENSIONS))})")
-        size = int(getattr(file, "size", 0) or 0)
-        if size > self.MAX_IMAGE_SIZE_BYTES:
-            raise ValidationException("图片过大(单张最大 20MB)")
+        """校验截图扩展名与大小。
+
+        解耦（2026-10-19）：委托 ``storage_service.validate_upload``（白名单与上限原样保留）。
+        """
+        validate_upload(
+            file, allowed_extensions=self.ALLOWED_IMAGE_EXTENSIONS, max_size_bytes=self.MAX_IMAGE_SIZE_BYTES
+        )
 
     def _compute_hashes(
         self, file: UploadedFile, deduplicate: bool, selection_service: FrameSelectionService

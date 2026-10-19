@@ -15,6 +15,8 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.urls import path
 
+from apps.core.http.download import content_disposition
+
 if TYPE_CHECKING:
     from django.db.models import QuerySet
 
@@ -200,5 +202,6 @@ class AdminImportExportMixin:  # pragma: no cover
 
         buf.seek(0)
         response = HttpResponse(buf.read(), content_type="application/zip")
-        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        # 解耦（2026-10-19）：裸拼改走统一 RFC 5987 实现
+        response["Content-Disposition"] = content_disposition(filename)
         return response

@@ -340,9 +340,8 @@ class CaseTemplateGenerationService:
 
     def _safe_name(self, name: str) -> str:
         """
-        将名称转换为安全的文件名部分
-
-        替换特殊字符: /, \\, \\n, \\r, \\t
+        将名称转换为安全的文件名部分（解耦 2026-10-19：实现上提 core，
+        collapse_whitespace=True 保留本处原有的连续空白压缩行为）
 
             name: 原始名称
 
@@ -350,8 +349,6 @@ class CaseTemplateGenerationService:
 
         Requirements: 4.2
         """
-        value = (name or "").strip()
-        value = value.replace("/", "／").replace("\\", "＼")
-        value = value.replace("\n", " ").replace("\r", " ").replace("\t", " ")
-        value = re.sub("\\s+", " ", value).strip()
-        return value or "未命名"
+        from apps.core.filesystem.upload_paths import safe_name
+
+        return safe_name(name, collapse_whitespace=True)

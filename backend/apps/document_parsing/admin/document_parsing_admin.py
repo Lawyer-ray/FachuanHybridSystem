@@ -14,6 +14,7 @@ from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.html import format_html
 
+from apps.core.http.download import content_disposition
 from apps.core.services.storage_service import sanitize_upload_filename
 from apps.document_parsing.models import DocumentParsingTask, DocumentParsingTool
 
@@ -214,7 +215,8 @@ class DocumentParsingTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             content_type="text/markdown; charset=utf-8",
         )
         safe_name = Path(task.file_name).stem or f"task_{task.id}"
-        response["Content-Disposition"] = f'attachment; filename="{safe_name}.md"'
+        # 解耦（2026-10-19）：裸拼改走统一 RFC 5987 实现（中文文件名安全转义）
+        response["Content-Disposition"] = content_disposition(f"{safe_name}.md")
         return response
 
     @admin.display(description="状态")

@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
 import { useReader } from '../../store'
 import { countUnclassified, isAutoSegName, matLabel } from '../../draft'
 import { useMediaQuery } from '@/hooks/use-media'
 import { ReaderTopBar } from './ReaderTopBar'
 import { ReaderToolbar } from './ReaderToolbar'
+import { FixedReader, ReaderError, ReaderLoading } from './ReaderChrome'
 import { HintBar } from './HintBar'
 import { SelectionBar } from './SelectionBar'
 import { Rail } from './Rail'
@@ -21,7 +20,6 @@ import { useWheelZoom } from './use-wheel-zoom'
 import { buildFlowOps, buildMetaOps, selDetailOf } from './reader-ops'
 import { ReaderDialogs } from './ReaderDialogs'
 import { useReaderActions } from './use-reader-actions'
-import { cn } from '@/lib/utils'
 
 /** 阅读器：阅读器顶层编排。状态、loading/error 分支、三栏布局组合，
  *  具体的 ops / 键位 / 列宽 / 弹窗各自下沉到子模块。 */
@@ -105,24 +103,11 @@ export function Reader() {
   const close = () => st.close()
 
   if (status === 'loading' || !draft) {
-    return (
-      <FixedReader>
-        <div className="flex flex-1 items-center justify-center gap-2 text-sm text-secondary-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> 正在打开材料包，解析页数…
-        </div>
-      </FixedReader>
-    )
+    return <ReaderLoading />
   }
 
   if (status === 'error') {
-    return (
-      <FixedReader>
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-sm">
-          <p className="text-destructive">{error}</p>
-          <Button onClick={close}>返回</Button>
-        </div>
-      </FixedReader>
-    )
+    return <ReaderError error={error} onBack={close} />
   }
 
   const unclassified = countUnclassified(draft)
@@ -157,49 +142,46 @@ export function Reader() {
     setAssignOpen(true)
   }
 
-  const zoomVal = Math.round(zoom * 100)
-
   const ocrFrom = ocrPending ? `${matLabel(draft.mats, ocrPending.mi)} P${ocrPending.p}` : ''
   // 取字目标字段：HintBar 提示与 OCR 确认面板共用同一表达式，只算一遍
   const pickField = pickInfo >= 0 && draft.infos[pickInfo] ? draft.infos[pickInfo].k : ''
 
+  // 工具组同一份配置渲染两处：≥1100 内联进顶栏（单行合一，narrow=false），
+  // <1100 独立一行（narrow 跟随断点）；两组只在 narrow / inline 上不同，其余完全同源
+  const toolbarProps = {
+    railOpen,
+    metaOpen,
+    onToggleRail: () => {
+      setRailOpen((v) => !v)
+      setMetaOpen(false)
+    },
+    onToggleMeta: () => {
+      setMetaOpen((v) => !v)
+      setRailOpen(false)
+    },
+    selMode,
+    onToggleSelMode: () => st.toggleSelMode(),
+    onAddFiles: () => addInputRef.current?.click(),
+    zoomVal: Math.round(zoom * 100),
+    onZoomIn: zoomIn,
+    onZoomOut: zoomOut,
+    onZoomReset: () => st.setZoom(1),
+    cols: effCols,
+    colsDisabled: maxColsAllowed <= 1,
+    onChangeCols: changeCols,
+    onResetSegments,
+    onAutoSplit: () => void autoSplit.run(),
+    autoSplitRunning: autoSplit.running,
+    autoSplitProgress: autoSplit.progress,
+  }
+
   return (
     <FixedReader closing={closing}>
-      {/* 工具组同一份配置渲染两处：≥1100 内联进顶栏（单行合一），<1100 独立一行 */}
       <ReaderTopBar
         title={detail.subject || '材料包'}
         subtitle={subtitle}
         unclassified={unclassified}
-        tools={
-          <ReaderToolbar
-            narrow={false}
-            railOpen={railOpen}
-            metaOpen={metaOpen}
-            onToggleRail={() => {
-              setRailOpen((v) => !v)
-              setMetaOpen(false)
-            }}
-            onToggleMeta={() => {
-              setMetaOpen((v) => !v)
-              setRailOpen(false)
-            }}
-            selMode={selMode}
-            onToggleSelMode={() => st.toggleSelMode()}
-            onAddFiles={() => addInputRef.current?.click()}
-            zoomVal={zoomVal}
-            onZoomIn={zoomIn}
-            onZoomOut={zoomOut}
-            onZoomReset={() => st.setZoom(1)}
-            cols={effCols}
-            colsDisabled={maxColsAllowed <= 1}
-            onChangeCols={changeCols}
-            onResetSegments={onResetSegments}
-            onAutoSplit={() => void autoSplit.run()}
-            autoSplitRunning={autoSplit.running}
-            autoSplitProgress={autoSplit.progress}
-            inline
-          />
-        }
+        tools={<ReaderToolbar {...toolbarProps} narrow={false} inline />}
         onBack={close}
         onReject={onReject}
         onAssign={handleAssign}
@@ -208,33 +190,7 @@ export function Reader() {
 
       {/* <1100（抽屉布局 / 手机）：工具组独立一行，放不下就横滚 */}
       <div className="min-[1100px]:hidden">
-        <ReaderToolbar
-          narrow={narrow}
-          railOpen={railOpen}
-          metaOpen={metaOpen}
-          onToggleRail={() => {
-            setRailOpen((v) => !v)
-            setMetaOpen(false)
-          }}
-          onToggleMeta={() => {
-            setMetaOpen((v) => !v)
-            setRailOpen(false)
-          }}
-          selMode={selMode}
-          onToggleSelMode={() => st.toggleSelMode()}
-          onAddFiles={() => addInputRef.current?.click()}
-          zoomVal={zoomVal}
-          onZoomIn={zoomIn}
-          onZoomOut={zoomOut}
-          onZoomReset={() => st.setZoom(1)}
-          cols={effCols}
-          colsDisabled={maxColsAllowed <= 1}
-          onChangeCols={changeCols}
-          onResetSegments={onResetSegments}
-          onAutoSplit={() => void autoSplit.run()}
-          autoSplitRunning={autoSplit.running}
-          autoSplitProgress={autoSplit.progress}
-        />
+        <ReaderToolbar {...toolbarProps} narrow={narrow} />
       </div>
 
       {/* 取字 / 选页 顶部提示横条（原型 .pickhint：琥珀底 + Esc）。退出按钮与 Esc 同口径
@@ -370,20 +326,5 @@ export function Reader() {
         onRenameMatClose={() => setRenameMat(null)}
       />
     </FixedReader>
-  )
-}
-
-function FixedReader({ children, closing = false }: { children: React.ReactNode; closing?: boolean }) {
-  return (
-    <div
-      className={cn('mp-reader fixed inset-0 z-[80] flex flex-col bg-[#f1f1f3]', closing && 'closing')}
-      // 鼠标点按钮不夺焦：否则焦点停在按钮上，随后按空格/回车会重新触发该按钮，导致界面跳动（“闪烁”）
-      onMouseDown={(e) => {
-        const t = e.target as HTMLElement
-        if (t && t.closest && t.closest('button')) e.preventDefault()
-      }}
-    >
-      {children}
-    </div>
   )
 }

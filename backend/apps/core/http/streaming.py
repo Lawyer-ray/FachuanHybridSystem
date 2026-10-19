@@ -8,6 +8,8 @@ from collections.abc import Iterator
 
 from django.http import HttpRequest, HttpResponse, HttpResponseBase
 
+from .download import content_disposition
+
 # 危险的 Content-Type，可能导致 XSS（浏览器会渲染/执行）
 _DANGEROUS_CONTENT_TYPES = frozenset(
     {
@@ -60,7 +62,8 @@ def build_range_file_response(
         resp["X-Content-Type-Options"] = "nosniff"
         if as_attachment:
             filename = os.path.basename(file_path)
-            resp["Content-Disposition"] = f'attachment; filename="{filename}"'
+            # 解耦（2026-10-19）：裸拼改走统一 RFC 5987 实现，中文/特殊字符文件名不再乱码或破坏头
+            resp["Content-Disposition"] = content_disposition(filename)
         return resp
 
     if not byte_range:

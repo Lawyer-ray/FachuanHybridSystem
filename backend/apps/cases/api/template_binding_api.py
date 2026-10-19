@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 from typing import Any
-from urllib.parse import quote
 
 from asgiref.sync import sync_to_async
 from django.http import HttpRequest, HttpResponse
@@ -21,6 +20,7 @@ from apps.cases.schemas.template_binding_schemas import (
     SuccessResponseSchema,
     TemplateBindingSchema,
 )
+from apps.core.http.download import content_disposition
 
 router = Router()
 
@@ -171,8 +171,9 @@ async def generate_template_document(  # pragma: no cover
     response = HttpResponse(
         content, content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
-    # 使用 RFC 5987 编码处理中文文件名
-    response["Content-Disposition"] = f"attachment; filename*=UTF-8''{filename}"
+    # 解耦（2026-10-19）：修复裸拼——此前 filename*=UTF-8''{filename} 未做百分号编码，
+    # 统一改走 core/http/download 的 RFC 5987 实现（与 _build_file_response 同一出口）
+    response["Content-Disposition"] = content_disposition(filename)
     return response
 
 
@@ -191,9 +192,8 @@ def _build_file_response(content: bytes, filename: str) -> HttpResponse:
     response = HttpResponse(
         content, content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
-    # 使用 RFC 5987 编码处理中文文件名
-    encoded_filename = quote(filename)
-    response["Content-Disposition"] = f"attachment; filename*=UTF-8''{encoded_filename}"
+    # 解耦（2026-10-19）：改走 core/http/download 的统一 RFC 5987 实现
+    response["Content-Disposition"] = content_disposition(filename)
     return response
 
 

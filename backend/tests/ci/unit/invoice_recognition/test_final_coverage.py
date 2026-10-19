@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 from django.core.exceptions import ValidationError
 
+from apps.core.exceptions import ValidationException
 from apps.invoice_recognition.services.invoice_recognition_service import InvoiceRecognitionService
 
 # ============================================================================
@@ -52,7 +53,7 @@ class TestValidateFile:
         f = Mock()
         f.name = "file.docx"
         f.size = 1024
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationException):
             svc._validate_file(f)
 
     def test_too_large(self):
@@ -60,7 +61,7 @@ class TestValidateFile:
         f = Mock()
         f.name = "big.pdf"
         f.size = 25 * 1024 * 1024  # 25 MB > 20 MB limit
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationException):
             svc._validate_file(f)
 
     def test_uppercase_extension(self):

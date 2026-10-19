@@ -25,6 +25,11 @@ from apps.cases.api.template_binding_api import (
 from apps.core.exceptions import ForbiddenError
 
 
+async def _noop_async(*args: object, **kwargs: object) -> None:
+    """占位协程：patch _ensure_case_access 用。"""
+    return None
+
+
 class TestServiceFactories:
     def test_get_binding_service(self) -> None:
         service = _get_binding_service()
@@ -42,16 +47,50 @@ class TestServiceFactories:
 
 
 class TestBuildFileResponse:
+    """解耦（2026-10-19）回归：下载头统一走 core/http/download 的 RFC 5987 实现。
+
+    此前 generate_template_document 端点裸拼 ``filename*=UTF-8''{filename}``
+    未做百分号编码（中文文件名直接裸奔）；统一后 filename= 与 filename*=
+    两侧都必须是 quote 后的值。
+    """
+
     def test_content_and_headers(self) -> None:
         response = _build_file_response(b"docx-content", "委托书（测试）.docx")
         assert response.status_code == 200
         assert response.content == b"docx-content"
         assert response["Content-Type"] == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        assert response["Content-Disposition"] == f"attachment; filename*=UTF-8''{quote('委托书（测试）.docx')}"
+        assert response["Content-Disposition"] == (
+            f'attachment; filename="{quote("委托书（测试）.docx")}"; '
+            f"filename*=UTF-8''{quote('委托书（测试）.docx')}"
+        )
 
     def test_ascii_filename_encoded(self) -> None:
         response = _build_file_response(b"x", "a b.docx")
-        assert response["Content-Disposition"] == "attachment; filename*=UTF-8''a%20b.docx"
+        assert response["Content-Disposition"] == 'attachment; filename="a%20b.docx"; filename*=UTF-8\'\'a%20b.docx'
+
+    @pytest.mark.asyncio
+    async def test_generate_endpoint_header_is_quoted(self) -> None:
+        """端点级回归：generate_template_document 的下载头含正确 quote 的 filename*。"""
+        from unittest.mock import patch
+
+        from apps.cases.api.template_binding_api import generate_template_document
+        from apps.cases.schemas.template_binding_schemas import GenerateTemplateRequestSchema
+
+        payload = GenerateTemplateRequestSchema(template_id=1)
+        request = HttpRequest()
+        expected = quote("委托书.docx")
+
+        with (
+            patch("apps.cases.api.template_binding_api._ensure_case_access", new=_noop_async),
+            patch("apps.cases.api.template_binding_api._get_generation_service") as mock_service_factory,
+        ):
+            mock_service_factory.return_value.generate_document.return_value = (b"docx", "委托书.docx")
+            response = await generate_template_document(request, case_id=1, payload=payload)
+
+        disposition = response["Content-Disposition"]
+        assert disposition == f'attachment; filename="{expected}"; filename*=UTF-8\'\'{expected}'
+        # 裸中文（未编码）不得出现在头里——修复前的 bug 正是缺 quote
+        assert "委托书" not in disposition
 
 
 @pytest.mark.django_db

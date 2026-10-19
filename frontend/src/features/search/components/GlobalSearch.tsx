@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router'
 import { FileText, Landmark, Mail, Paperclip, Search, Users } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { cn } from '@/lib/utils'
 import { CATEGORY_ORDER, runSearch } from '../api'
 import type { CategoryKey, Hit } from '../types'
@@ -77,12 +78,7 @@ export function GlobalSearch({
   const trimmed = q.trim()
   // 输入防抖：输入框即时响应，但请求延迟 DEBOUNCE_MS 触发。
   // 否则每敲一个字就发一次请求，结果列表反复涨落导致弹窗高度/内容不停跳（"闪烁"）。
-  const [debounced, setDebounced] = useState(trimmed)
-  useEffect(() => {
-    if (trimmed === debounced) return
-    const t = window.setTimeout(() => setDebounced(trimmed), DEBOUNCE_MS)
-    return () => window.clearTimeout(t)
-  }, [trimmed, debounced])
+  const debounced = useDebouncedValue(trimmed, DEBOUNCE_MS)
 
   const { data, isFetching } = useQuery({
     queryKey: [GLOBAL_SEARCH_KEY, debounced],

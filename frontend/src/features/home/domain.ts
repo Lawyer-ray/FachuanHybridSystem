@@ -7,22 +7,10 @@
  * 这里只保留与后端无关的日期计算，便于单测。
  */
 
-/* ------------------------------------------------------------------ 日期工具 */
+import { dateKey } from '@/lib/date'
 
-/** 补零 */
-export function pad2(n: number): string {
-  return String(n).padStart(2, '0')
-}
-
-/** 本地时区的 YYYY-MM-DD（不能用 toISOString，那是 UTC，东八区会差一天） */
-export function dateKey(d: Date): string {
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
-}
-
-/** 今天（本地）的 dateKey */
-export function todayKey(now: Date = new Date()): string {
-  return dateKey(now)
-}
+/* ------------------------------------------------------------------ 日期工具
+ *（pad2 / dateKey / todayKey 已上提 @/lib/date，workbench / document-recognition 共用） */
 
 /** YYYY-MM-DD → 本地 Date（缺段时得 Invalid Date，与旧运行时行为一致） */
 export function parseKey(key: string): Date {

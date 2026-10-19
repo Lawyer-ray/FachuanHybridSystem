@@ -27,6 +27,8 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 
+from apps.core.filesystem.upload_paths import replace_illegal_filename_chars
+
 from .base_court_scraper import BaseCourtDocumentScraper
 
 logger = logging.getLogger("apps.automation")
@@ -370,7 +372,9 @@ class DaolvSifaSongdaScraper(BaseCourtDocumentScraper):  # pragma: no cover
         return self._safe_filename(f"{title}{ext}")
 
     def _safe_filename(self, name: str) -> str:
-        cleaned = re.sub(r"[\\/:*?\"<>|\n\r\t]+", "_", name).strip()
+        # 解耦（2026-10-19）：非法字符正则收敛至 core replace_illegal_filename_chars；
+        # 依赖 self._DOMAIN 的平台前缀兜底保留在此（子类 hbfy 等沿用）。
+        cleaned = replace_illegal_filename_chars(name)
         if cleaned:
             return cleaned
         prefix = self._DOMAIN.split(".")[0] if self._DOMAIN else "daolv"

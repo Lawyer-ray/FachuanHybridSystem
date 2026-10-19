@@ -7,6 +7,7 @@ import mimetypes
 import os
 import re
 import uuid
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -51,6 +52,17 @@ class FileValidator(Protocol):
     ) -> Any: ...
 
 
+def _upload_file_extension(file: Any) -> str:
+    """提取上传文件的小写扩展名（含前导点；无扩展名返回空串）。"""
+    filename = str(getattr(file, "name", "") or "")
+    return ("." + filename.rsplit(".", 1)[-1].lower()) if "." in filename else ""
+
+
+def _upload_file_size(file: Any) -> int:
+    """提取上传文件大小（缺失 / None 按 0 处理）。"""
+    return int(getattr(file, "size", 0) or 0)
+
+
 class _DefaultFileValidator:
     """Fallback validator used outside app-specific adapters."""
 
@@ -75,15 +87,14 @@ class _DefaultFileValidator:
 
         if allowed_extensions:
             normalized = {ext.lower() for ext in allowed_extensions}
-            filename = str(getattr(uploaded_file, "name", "") or "")
-            ext = ("." + filename.rsplit(".", 1)[-1].lower()) if "." in filename else ""
+            ext = _upload_file_extension(uploaded_file)
             if ext not in normalized:
                 raise ValidationException(
                     f"不支持的文件格式: {ext}",
                     errors={field_name: f"允许的格式: {', '.join(sorted(normalized))}"},
                 )
 
-        size = int(getattr(uploaded_file, "size", 0) or 0)
+        size = _upload_file_size(uploaded_file)
         if max_size_bytes is not None and size > max_size_bytes:
             raise ValidationException(
                 "文件大小超限",
@@ -153,6 +164,45 @@ def validate_file(file: Any) -> None:
         raise ValidationException(
             "文件类型与扩展名不匹配",
             code="MIME_EXTENSION_MISMATCH",
+        )
+
+
+def validate_upload(
+    file: Any,
+    *,
+    allowed_extensions: Iterable[str] | None = None,
+    max_size_bytes: int | None = None,
+    field: str = "file",
+) -> None:
+    """统一的上传前轻量校验（扩展名白名单 + 大小上限）。
+
+    解耦（2026-10-19）：此前 9 处 API/Service 各自手写 ext+size 校验，本函数
+    收敛为唯一入口，扩展名 / 大小的提取规则与 ``_DefaultFileValidator`` /
+    ``save_uploaded_file`` 共用同一套 helpers（避免双份规则）。
+    ``allowed_extensions`` 接受任意可迭代（set / frozenset / tuple / list 均可）。
+
+    错误统一抛 ``ValidationException``，code 为 ``INVALID_FILE_TYPE`` /
+    ``FILE_TOO_LARGE``。仅做不读文件内容的轻量检查（校验先于 read() 进内存）；
+    MIME 一致性与可执行文件魔数检测仍由 ``save_uploaded_file`` 落盘前负责。
+    """
+    if not file:
+        raise ValidationException("请选择要上传的文件", errors={field: "文件不能为空"})
+
+    if allowed_extensions:
+        normalized = {ext.lower() for ext in allowed_extensions}
+        ext = _upload_file_extension(file)
+        if ext not in normalized:
+            raise ValidationException(
+                f"不支持的文件格式: {ext or '(无扩展名)'}",
+                code="INVALID_FILE_TYPE",
+                errors={field: f"允许的格式: {', '.join(sorted(normalized))}"},
+            )
+
+    if max_size_bytes is not None and _upload_file_size(file) > max_size_bytes:
+        raise ValidationException(
+            "文件过大",
+            code="FILE_TOO_LARGE",
+            errors={field: f"文件大小不能超过 {max_size_bytes} 字节"},
         )
 
 
@@ -369,4 +419,5 @@ __all__ = [
     "save_uploaded_file",
     "to_media_abs",
     "validate_file",
+    "validate_upload",
 ]

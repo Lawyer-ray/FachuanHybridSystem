@@ -363,15 +363,10 @@ async def download_batch_summary(
 
 
 def _csv_safe_cell(value: str) -> str:
-    """CSV 公式注入防护：以 = + - @ 开头的单元格前置单引号（Excel/WPS 会当公式执行）。
+    """CSV 公式注入防护（解耦 2026-10-19：实现上提 core.utils.csv_safety）。"""
+    from apps.core.utils.csv_safety import csv_safe_cell
 
-    数据源是 LLM 从外部法院文书提取的文本（案号/结论等），不可信。
-    安全审计（2026-10-19）。
-    """
-    text = str(value or "")
-    if text[:1] in ("=", "+", "-", "@"):
-        return "'" + text
-    return text
+    return csv_safe_cell(value)
 
 
 def _generate_filtered_csv(job_id: UUID, *, only_relevant: bool) -> str:

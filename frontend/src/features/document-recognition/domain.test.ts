@@ -12,9 +12,9 @@ import {
   rowsFromTask,
   selectedPendingRows,
   selectedTextRows,
-  toLocalInputValue,
   type CandidateRow,
 } from './domain'
+import { toLocalInputValue } from '@/lib/date'
 import type { CaseRecommendation, TaskOut } from './types'
 
 describe('toLocalInputValue', () => {

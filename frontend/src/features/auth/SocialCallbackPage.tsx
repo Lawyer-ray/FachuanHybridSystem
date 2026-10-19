@@ -13,6 +13,7 @@ import { useAuth } from './store'
 import { socialAuthApi } from './social-api'
 import { SOCIAL_LOGIN_ERROR_TEXT } from './constants'
 import { resolveCallbackError, sanitizeRedirect, withQuery } from './social-callback-domain'
+import { errMessage } from '@/lib/errors'
 
 export function SocialCallbackPage() {
   const navigate = useNavigate()
@@ -69,7 +70,7 @@ export function SocialCallbackPage() {
         })
         void navigate(redirect, { replace: true })
       } catch (err) {
-        fail(err instanceof Error ? err.message : SOCIAL_LOGIN_ERROR_TEXT.exchange_failed)
+        fail(errMessage(err, SOCIAL_LOGIN_ERROR_TEXT.exchange_failed))
       }
     })()
   }, [navigate, setUser])

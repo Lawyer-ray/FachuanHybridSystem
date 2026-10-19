@@ -22,18 +22,13 @@ from typing import Any
 
 from django.db.models import Q, QuerySet
 
+from apps.core.security.admin_access import is_admin_user
 from apps.message_hub.models import InboxMessage, MessageSource
 
-
-def is_admin_user(user: Any | None) -> bool:
-    """superuser 或 is_admin（Lawyer 的管理员标志）视为全所可见。
-
-    is_staff 仅是 Django admin 准入标志，不视为系统管理员——与
-    ``message_source_api._ensure_source_manageable`` 口径一致。
-    """
-    if user is None:
-        return False
-    return bool(getattr(user, "is_superuser", False) or getattr(user, "is_admin", False))
+# 解耦（2026-10-19）：is_admin_user 删除本地同体实现，改为对
+# core.security.admin_access.is_admin_user 的 re-export（tests 等外部 import 不断裂）。
+# 口径不变：superuser 或 is_admin（Lawyer 的管理员标志）视为全所可见；
+# is_staff 仅是 Django admin 准入标志，不视为系统管理员。
 
 
 def can_view_message(user: Any | None, msg: InboxMessage) -> bool:

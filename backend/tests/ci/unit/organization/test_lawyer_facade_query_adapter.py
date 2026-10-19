@@ -213,7 +213,8 @@ class TestLawyerUploadService:
         file.name = None
         with pytest.raises(ValidationException) as exc_info:
             svc.attach_avatar(lawyer, file)
-        assert exc_info.value.code == "INVALID_IMAGE_TYPE"
+        # 解耦（2026-10-19）：上传校验收敛 core，错误码统一 INVALID_FILE_TYPE
+        assert exc_info.value.code == "INVALID_FILE_TYPE"
         lawyer.avatar.save.assert_not_called()
 
 

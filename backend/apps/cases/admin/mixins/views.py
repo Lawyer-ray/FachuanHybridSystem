@@ -192,19 +192,27 @@ class CaseAdminViewsMixin:  # pragma: no cover
         return custom_urls + urls
 
     def _ensure_case_access(self, request: HttpRequest, case: Case | None, *, case_id: int | None = None) -> None:
-        """行级权限校验：复用 CaseAccessPolicy.ensure_access_ctx，无权访问时抛 PermissionDenied（admin 渲染 403）。"""
+        """行级权限校验：复用 CaseAccessPolicy.ensure_access_ctx，无权访问时抛 PermissionDenied（admin 渲染 403）。
+
+        解耦（2026-10-19）：业务异常 → django PermissionDenied 的转换收敛到
+        core.security.admin_access.ensure_admin_object_access 泛型，本方法保留
+        原签名与 Http404 兜底，调用方零改动。
+        """
         from apps.cases.services.case.case_access_policy import CaseAccessPolicy
-        from apps.core.exceptions import PermissionDenied as BizPermissionDenied
-        from apps.core.security import get_request_access_context
+        from apps.core.security.admin_access import ensure_admin_object_access
 
         target_case_id = case.pk if case is not None else case_id
         if target_case_id is None:
             raise Http404("案件不存在")
-        ctx = get_request_access_context(request)
-        try:
-            CaseAccessPolicy().ensure_access_ctx(case_id=int(target_case_id), ctx=ctx, case=case)
-        except BizPermissionDenied as exc:
-            raise PermissionDenied(str(exc)) from exc
+        ensure_admin_object_access(
+            request,
+            CaseAccessPolicy(),
+            object_id=int(target_case_id),
+            message="无权限访问此案件",
+            id_kwarg="case_id",
+            obj=case,
+            obj_kwarg="case",
+        )
 
     def mock_trial_view(self, request: HttpRequest, object_id: int) -> HttpResponse:  # pragma: no cover
         case = self._get_case_with_relations(object_id)

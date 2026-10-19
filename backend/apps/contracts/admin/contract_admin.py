@@ -40,6 +40,7 @@ from apps.contracts.models import (
     SupplementaryAgreement,
     SupplementaryAgreementParty,
 )
+from apps.core.admin.base import BaseModelAdmin  # 解耦（2026-10-19）：nested_admin 兜底别名上提 core
 from apps.core.admin.mixins import AdminImportExportMixin
 from apps.core.models.enums import CaseStage
 
@@ -61,15 +62,7 @@ def _client_file_path(client: Client) -> list[str]:
 
 
 if TYPE_CHECKING:
-    BaseModelAdmin = admin.ModelAdmin
     from django.db.models import QuerySet
-else:
-    try:
-        import nested_admin
-
-        BaseModelAdmin = nested_admin.NestedModelAdmin
-    except ImportError:
-        BaseModelAdmin = admin.ModelAdmin
 
 
 def serialize_contract_obj(obj: Any) -> dict[str, Any]:

@@ -6,11 +6,12 @@ import shutil
 from pathlib import Path
 
 from asgiref.sync import sync_to_async
-from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
 
 from apps.automation.services.ocr.pdf_text_extractor import PDFTextExtractor
+from apps.core.exceptions import ValidationException
 from apps.core.protocols import IOcrService
+from apps.core.services.storage_service import validate_upload
 
 from .invoice_parser import InvoiceParser, ParsedInvoice
 from .recognition_result import RecognitionResult
@@ -67,17 +68,12 @@ class QuickRecognitionService:
         return final
 
     def _validate_file(self, file: UploadedFile) -> None:
-        name: str = file.name or ""
-        ext = Path(name).suffix.lower()
+        """校验扩展名与大小。
 
-        if ext not in self.ALLOWED_EXTENSIONS:
-            raise ValidationError("不支持的文件格式：%(ext)s，仅允许 PDF、JPG、JPEG、PNG。" % {"ext": ext})
-
-        size: int = file.size or 0
-        if size > self.MAX_FILE_SIZE:
-            raise ValidationError(
-                "文件大小超过限制（最大 20 MB），当前文件大小：%(size).1f MB。" % {"size": size / 1024 / 1024}
-            )
+        解耦（2026-10-19）：委托 ``storage_service.validate_upload``（白名单与上限
+        原样保留）；错误类型由 Django ``ValidationError`` 统一为 ``ValidationException``。
+        """
+        validate_upload(file, allowed_extensions=self.ALLOWED_EXTENSIONS, max_size_bytes=self.MAX_FILE_SIZE)
 
     def _process_single_file(self, file: UploadedFile) -> RecognitionResult:
         filename: str = file.name or "unknown"
@@ -100,7 +96,8 @@ class QuickRecognitionService:
                 data=parsed,
             )
 
-        except ValidationError as exc:
+        except ValidationException as exc:
+            # 解耦（2026-10-19）：_validate_file 错误类型统一为 ValidationException，语义不变
             logger.error("文件验证失败: %s, 文件: %s", exc.message, filename)
             return RecognitionResult(
                 filename=filename,

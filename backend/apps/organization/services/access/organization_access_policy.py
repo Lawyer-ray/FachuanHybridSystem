@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from apps.core.exceptions import ForbiddenError
+from apps.core.security.admin_access import is_admin_user  # 解耦（2026-10-19）：管理员判定收敛 core
 from apps.organization.models import LawFirm, Lawyer, Team
 
 
@@ -22,11 +23,8 @@ class OrganizationAccessPolicy:
     # ── create ────────────────────────────────────────────────────────────────
 
     def can_create(self, user: Any) -> bool:
-        return bool(
-            user
-            and getattr(user, "is_authenticated", False)
-            and (getattr(user, "is_superuser", False) or getattr(user, "is_admin", False))
-        )
+        # 解耦（2026-10-19）：管理员判定收敛到 core.security.admin_access.is_admin_user
+        return bool(user and getattr(user, "is_authenticated", False) and is_admin_user(user))
 
     def ensure_can_create(self, user: Any) -> None:
         self._ensure(self.can_create(user))

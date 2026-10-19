@@ -8,32 +8,48 @@ from __future__ import annotations
 
 from typing import Any
 
-from django.core.exceptions import PermissionDenied
 from django.http import HttpRequest
 
 
 def ensure_admin_contract_access(request: HttpRequest, contract_id: int) -> None:
-    """行级权限校验：无权访问该合同时抛 PermissionDenied（Django admin 渲染 403）。"""
-    from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
-    from apps.core.exceptions import PermissionDenied as BizPermissionDenied
-    from apps.core.security import get_request_access_context
+    """行级权限校验：无权访问该合同时抛 PermissionDenied（Django admin 渲染 403）。
 
-    ctx = get_request_access_context(request)
-    try:
-        ContractAccessPolicy().ensure_access_ctx(contract_id=contract_id, ctx=ctx)
-    except BizPermissionDenied as exc:
-        raise PermissionDenied(str(exc)) from exc
+    解耦（2026-10-19）：改为 core.security.admin_access.ensure_admin_object_access
+    薄包装（业务 PermissionDenied → django PermissionDenied 的转换收敛到 core）。
+    """
+    from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
+    from apps.core.security.admin_access import ensure_admin_object_access
+
+    ensure_admin_object_access(
+        request,
+        ContractAccessPolicy(),
+        object_id=contract_id,
+        message="无权限访问该合同",
+        id_kwarg="contract_id",
+    )
 
 
 def get_admin_accessible_contract_queryset(request: HttpRequest) -> Any:
-    """当前请求用户在 admin 中可访问的 Contract queryset（复用 ContractAdmin 同款行级过滤）。"""
+    """当前请求用户在 admin 中可访问的 Contract queryset（复用 ContractAdmin 同款行级过滤）。
+
+    解耦（2026-10-19）：改为 core.security.admin_access.admin_accessible_queryset 薄包装。
+    """
     from apps.contracts.models import Contract
     from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
-    from apps.core.security.admin_access import apply_admin_access_filter
+    from apps.core.security.admin_access import admin_accessible_queryset
 
-    return apply_admin_access_filter(request, Contract.objects.all(), ContractAccessPolicy())
+    return admin_accessible_queryset(request, Contract, ContractAccessPolicy())
 
 
 def apply_contract_related_admin_access_filter(request: HttpRequest, qs: Any) -> Any:
-    """以 contract 外键关联过滤关联模型 queryset：仅保留可访问合同下的记录（is_admin 全量）。"""
-    return qs.filter(contract_id__in=get_admin_accessible_contract_queryset(request).values("id"))
+    """以 contract 外键关联过滤关联模型 queryset：仅保留可访问合同下的记录（is_admin 全量）。
+
+    解耦（2026-10-19）：改为 core.security.admin_access.apply_related_admin_access_filter 薄包装。
+    """
+    from apps.contracts.models import Contract
+    from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
+    from apps.core.security.admin_access import apply_related_admin_access_filter
+
+    return apply_related_admin_access_filter(
+        request, qs, fk="contract_id", model=Contract, policy=ContractAccessPolicy()
+    )

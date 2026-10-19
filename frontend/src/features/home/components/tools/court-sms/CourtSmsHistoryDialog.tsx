@@ -8,9 +8,12 @@ import { cn } from '@/lib/utils'
 import { errMessage } from '@/lib/errors'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { HistoryError } from '../history/HistoryError'
+import { HistoryPager } from '../history/HistoryParts'
 import { SMS_STATUS_LABEL } from './stages'
 
-/** 状态 → 徽章配色（需处理类显眼，进行中蓝，完成绿） */
+/** 状态 → 徽章配色（需处理类显眼，进行中蓝，完成绿）。
+ *  不复用 history/badges.ts：本弹窗有 pending_manual（黄）/ download_failed（红）
+ *  两个本域状态，共用映射会把它们落到蓝色兜底，视觉口径就变了。 */
 const STATUS_BADGE: Record<string, string> = {
   completed: 'border-status-green/40 bg-status-green-bg text-status-green',
   pending_manual: 'border-status-yellow/50 bg-status-yellow-bg text-status-yellow',
@@ -140,27 +143,8 @@ export function CourtSmsHistoryDialog({
           )}
         </div>
 
-        <div className="flex flex-none items-center justify-between border-t border-border px-4 py-2.5">
-          <button
-            type="button"
-            className="rounded-[7px] px-2.5 py-1 text-[11.5px] font-medium text-secondary-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            ← 上一页
-          </button>
-          <span className="text-[11px] text-muted-foreground">
-            第 {page} / {totalPages} 页
-          </span>
-          <button
-            type="button"
-            className="rounded-[7px] px-2.5 py-1 text-[11.5px] font-medium text-secondary-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          >
-            下一页 →
-          </button>
-        </div>
+        {/* 分页底栏与其余三张工具卡的历史弹窗同款，复用 HistoryPager */}
+        <HistoryPager page={page} totalPages={totalPages} onChange={setPage} />
       </DialogContent>
     </Dialog>
   )

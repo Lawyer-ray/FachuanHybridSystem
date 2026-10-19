@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 import logging
-import re
 from pathlib import Path
 
+# 解耦（2026-10-19）：safe_name / safe_arcname 的实现已上提到 apps.core.filesystem.upload_paths
+# （本模块被多个 app 引用、已成事实 core）。此处为兼容别名，保证既有 import 路径不变；
+# 新代码请直接从 apps.core.filesystem.upload_paths 引入。
+from apps.core.filesystem.upload_paths import safe_arcname, safe_name
+
 logger = logging.getLogger(__name__)
+
+__all__ = ["resolve_media_path", "safe_arcname", "safe_name"]
 
 
 def resolve_media_path(media_root: str, file_path: str) -> str:
@@ -33,19 +39,3 @@ def resolve_media_path(media_root: str, file_path: str) -> str:
     except Exception:
         logger.exception("操作失败")
         return ""
-
-
-def safe_name(name: str) -> str:
-    value = (name or "").strip()
-    value = value.replace("/", "／").replace("\\", "＼")
-    value = value.replace("\n", " ").replace("\r", " ").replace("\t", " ")
-    return value or "未命名"
-
-
-def safe_arcname(name: str) -> str:
-    # 安全审计（2026-10-19）：ZIP 条目名逐段清洗，额外剔除 "." / ".." 片段防解压路径穿越，
-    # 并剥掉 Windows 盘符前缀（如 C:\evil）阻断绝对路径形态；前导 "/" 经去空段后自然变为相对路径。
-    safe = (name or "").replace("\\", "/")
-    safe = re.sub(r"^[A-Za-z]:(?=/|$)", "", safe)
-    parts = [safe_name(part) for part in safe.split("/") if part not in ("", ".", "..")]
-    return "/".join(parts)

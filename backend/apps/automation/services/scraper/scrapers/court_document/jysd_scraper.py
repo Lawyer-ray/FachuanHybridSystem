@@ -14,11 +14,11 @@
 from __future__ import annotations
 
 import logging
-import re
 import time
 from typing import Any
 from urllib.parse import urlparse
 
+from apps.core.filesystem.upload_paths import replace_illegal_filename_chars
 from apps.core.services.storage_service import sanitize_upload_filename
 
 from .base_court_scraper import BaseCourtDocumentScraper, as_sync_page, media_download_target
@@ -421,9 +421,12 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     @staticmethod
     def _safe_filename(name: str) -> str:
-        """清理文件名中的非法字符"""
-        cleaned = re.sub(r'[\\/:*?"<>|\n\r\t]+', "_", name).strip()
-        return cleaned or f"jysd_{int(time.time())}.pdf"
+        """清理文件名中的非法字符
+
+        解耦（2026-10-19）：非法字符正则收敛至 core ``replace_illegal_filename_chars``，
+        带时间戳的兜底文件名保留在此（惰性求值、仅清洗为空时触发）。
+        """
+        return replace_illegal_filename_chars(name) or f"jysd_{int(time.time())}.pdf"
 
 
 # ↓↓ 由 JysdCourtScraper 下沉的模块级纯函数（四层架构静态方法棘轮）

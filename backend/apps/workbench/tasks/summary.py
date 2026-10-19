@@ -27,6 +27,8 @@ async def generate_summary(
     completed_items: list[BatchJobItem],
 ) -> str:
     """从每个案例的分析结果中提取元数据，生成 CSV 文件并返回统计摘要。"""
+    from apps.core.utils.csv_safety import csv_safe_cell
+
     csv_rows: list[dict[str, str]] = []
     missing_count = 0
 
@@ -55,15 +57,16 @@ async def generate_summary(
 
         csv_rows.append(
             {
-                "文件名": item.file_name,
-                "案号": parsed["case_number"],
-                "案由": parsed["cause"],
-                "审理法院": parsed["court"],
-                "法官": parsed["judge"],
-                "书记员": parsed["clerk"],
+                # 安全审计（2026-10-19）：LLM 提取文本可含公式前缀，逐格过 csv_safe_cell
+                "文件名": csv_safe_cell(item.file_name),
+                "案号": csv_safe_cell(parsed["case_number"]),
+                "案由": csv_safe_cell(parsed["cause"]),
+                "审理法院": csv_safe_cell(parsed["court"]),
+                "法官": csv_safe_cell(parsed["judge"]),
+                "书记员": csv_safe_cell(parsed["clerk"]),
                 "与研究问题相关": "是" if parsed["is_relevant"] else "否",
-                "结论": parsed["conclusion"],
-                "详细分析": parsed["analysis"],
+                "结论": csv_safe_cell(parsed["conclusion"]),
+                "详细分析": csv_safe_cell(parsed["analysis"]),
             }
         )
 

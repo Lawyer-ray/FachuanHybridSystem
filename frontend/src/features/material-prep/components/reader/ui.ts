@@ -1,6 +1,7 @@
-/** 原型 .pbtn：阅读器描边按钮，浅色主题下 hover 填充 */
-export const PBTN =
-  'flex h-[30px] flex-none items-center gap-1 rounded-[7px] border border-border bg-transparent px-[13px] text-[12.5px] font-medium text-secondary-foreground transition-colors hover:bg-secondary hover:text-foreground hover:border-zinc-300'
+import { SMALL_OUTLINE_BTN } from '@/components/shared/button-styles'
+
+/** 原型 .pbtn：阅读器描边按钮（与 home ui.ts 的 BTN 同款，上提 shared 共用） */
+export const PBTN = SMALL_OUTLINE_BTN
 /** .pbtn 激活态（on） */
 export const PBTN_ON = 'bg-secondary text-foreground border-zinc-300'
 

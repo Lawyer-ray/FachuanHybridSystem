@@ -22,7 +22,9 @@ logger = logging.getLogger("apps.image_rotation")
 
 router = Router(tags=["图片旋转"], auth=JWTOrSessionAuth())
 
-_ALLOWED_IMAGE_TYPES = frozenset({"image/jpeg", "image/png", "image/webp", "image/tiff"})
+# 解耦（2026-10-19）：校验统一改走扩展名白名单（客户端自报 content_type 可伪造），
+# 与原 MIME 白名单一一对应（tiff 兼容 .tif/.tiff 两种写法）
+_ALLOWED_IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff"})
 _MAX_UPLOAD_SIZE = 20 * 1024 * 1024  # 20MB
 
 # Module-level semaphore to limit concurrent image processing threads
@@ -30,22 +32,14 @@ _IMAGE_SEM = asyncio.Semaphore(8)
 
 
 def _validate_image_file(file_obj: UploadedFile) -> None:
-    """验证上传的图片文件类型和大小。"""
-    content_type = getattr(file_obj, "content_type", "") or ""
-    if content_type not in _ALLOWED_IMAGE_TYPES:
-        from apps.core.exceptions import ValidationException
+    """验证上传的图片文件类型和大小（解耦（2026-10-19）：委托 storage_service.validate_upload）。"""
+    from apps.core.services.storage_service import validate_upload
 
-        raise ValidationException(
-            f"不支持的图片类型：{content_type}",
-            code="INVALID_FILE_TYPE",
-        )
-    if file_obj.size and file_obj.size > _MAX_UPLOAD_SIZE:
-        from apps.core.exceptions import ValidationException
-
-        raise ValidationException(
-            f"文件大小超过限制（最大 {_MAX_UPLOAD_SIZE // (1024 * 1024)}MB）",
-            code="FILE_TOO_LARGE",
-        )
+    validate_upload(
+        file_obj,
+        allowed_extensions=_ALLOWED_IMAGE_EXTENSIONS,
+        max_size_bytes=_MAX_UPLOAD_SIZE,
+    )
 
 
 def _body(request: HttpRequest) -> dict[str, Any]:

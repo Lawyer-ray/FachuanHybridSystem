@@ -1,6 +1,5 @@
-import { parseISO } from 'date-fns'
-
 import { createApiClient } from '@/lib/api'
+import { friendlyTime } from '@/lib/format'
 import type { InboxMessage } from '@/features/material-prep'
 import type { InboxItem } from '../types'
 
@@ -48,7 +47,9 @@ const INBOX_ICON: Record<string, InboxItem['kind']> = {
  * 336 条恒为 todo，计数与按钮都没有信息量），故 toInboxItem 不再组装这些字段。
  */
 
-/** 收件箱条目 → 最近流入展示态（类型 + 来源 + 时间） */
+/** 收件箱条目 → 最近流入展示态（类型 + 来源 + 时间）。
+ *  相对时间（今天/昨天 HH:mm、其余 M 月 D 日）由 @/lib/format 的 friendlyTime
+ *  提供（与 material-prep 材料卡共用，格式差异走 opts）。 */
 function toInboxItem(m: InboxMessageOut): InboxItem {
   const kind = INBOX_ICON[m.source_type] ?? 'mat'
   return {
@@ -57,7 +58,7 @@ function toInboxItem(m: InboxMessageOut): InboxItem {
     sourceLabel: m.source_name,
     who: m.sender,
     title: m.subject,
-    at: formatRelative(m.received_at),
+    at: friendlyTime(m.received_at),
     hot: kind === 'sms',
   }
 }
@@ -66,21 +67,4 @@ function toInboxItem(m: InboxMessageOut): InboxItem {
 export async function listInbox(limit = 6): Promise<InboxItem[]> {
   const rows = await inboxApi.get('messages', { searchParams: { limit } }).json<InboxMessageOut[]>()
   return rows.slice(0, limit).map(toInboxItem)
-}
-
-/** received_at → 相对时间（今天 HH:mm / 昨天 HH:mm / M月D日）。
- *  parseISO 而非 new Date：后者对 date-only / 空格分隔等非严格 ISO 形态
- *  按 UTC 解析（见 CalendarPanel 的 parseKey 教训），naive 串会偏移。 */
-export function formatRelative(iso: string): string {
-  const d = parseISO(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  const now = new Date()
-  const sameDay = (a: Date, b: Date) =>
-    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
-  const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-  const yesterday = new Date(now)
-  yesterday.setDate(now.getDate() - 1)
-  if (sameDay(d, now)) return `今天 ${hhmm}`
-  if (sameDay(d, yesterday)) return `昨天 ${hhmm}`
-  return `${d.getMonth() + 1} 月 ${d.getDate()} 日`
 }

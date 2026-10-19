@@ -438,33 +438,10 @@ class DocumentAttachmentService:
             return f"{rendered}.pdf"
 
     def _sanitize_filename_part(self, text: str) -> str:
-        """
-        清理文件名部分，移除非法字符
+        """清理文件名部分，移除非法字符（解耦 2026-10-19：实现上提 core）。"""
+        from apps.core.filesystem.upload_paths import sanitize_filename_part
 
-        Args:
-            text: 原始文本
-
-        Returns:
-            str: 清理后的文本
-        """
-        if not text:
-            return ""
-
-        # 移除或替换文件名中的非法字符
-        # Windows 文件名非法字符: < > : " | ? * \ /
-        illegal_chars = r'[<>:"|?*\\/]'
-        text = re.sub(illegal_chars, "", text)
-
-        # 移除英文括号，避免与中文括号混淆
-        text = re.sub(r"[()]", "", text)
-
-        # 移除控制字符
-        text = re.sub(r"[\x00-\x1f\x7f]", "", text)
-
-        # 移除首尾空格和点号
-        text = text.strip(" .")
-
-        return text
+        return sanitize_filename_part(text)
 
     def _find_renamed_file(self, original_path: str, sms: "CourtSMS") -> str | None:
         """查找重命名后的文件"""

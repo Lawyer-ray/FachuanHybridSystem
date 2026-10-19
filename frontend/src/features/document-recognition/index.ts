@@ -23,7 +23,6 @@ export {
   fileRejectReason,
   rowsFromParsed,
   rowsFromTask,
-  toLocalInputValue,
   type CandidateRow,
   type ParsedCandidate,
 } from './domain'

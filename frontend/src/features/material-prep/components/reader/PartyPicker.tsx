@@ -1,9 +1,9 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { LoaderCircle, User, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { useTypeaheadSearch } from '@/hooks/use-typeahead-search'
 import { searchClients } from '../../api'
+import type { ClientHit } from '../../types'
 
 const SEP = '、'
 
@@ -26,7 +26,6 @@ export function PartyPicker({
   /** 检索范围：委托人为我方当事人(true)，对方当事人(false) */
   isOurClient: boolean
 }) {
-  const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   // 候选 listbox 的挂点 id（输入框 aria-controls 指向它）；委托人 / 对方当事人
@@ -36,17 +35,13 @@ export function PartyPicker({
   const tags = useMemo(() => value.split(SEP).map((s) => s.trim()).filter(Boolean), [value])
   const tagSet = useMemo(() => new Set(tags), [tags])
 
-  // queryKey 用防抖值（输入停 250ms 才请求，不再每键一发）；
+  // 检索走 typeahead hook：输入停 250ms 才请求（queryKey 带我方/对方维度）；
   // raw 值管下拉开关（打字即展开），防抖值管真正打后端
-  const kwTrim = q.trim()
-  const kw = useDebouncedValue(kwTrim, 250)
-  const { data: searched = [], isFetching: loading } = useQuery({
-    queryKey: ['mp-party-search', kw, isOurClient],
-    queryFn: ({ signal }) => searchClients(kw, isOurClient, signal),
-    enabled: !!kw,
-    staleTime: 30_000,
-    placeholderData: keepPreviousData,
+  const { keyword: q, setKeyword: setQ, data: searched = [], isFetching: loading } = useTypeaheadSearch<ClientHit[]>({
+    queryKey: (kw) => ['mp-party-search', kw, isOurClient],
+    queryFn: ({ keyword, signal }) => searchClients(keyword, isOurClient, signal),
   })
+  const kwTrim = q.trim()
   const hits = useMemo(() => searched.slice(0, 12), [searched])
   // 下拉是否可见：aria-expanded 与渲染条件必须同源，否则读屏器会报错误状态
   const expanded = open && kwTrim !== ''

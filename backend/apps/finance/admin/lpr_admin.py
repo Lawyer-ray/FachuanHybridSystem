@@ -17,7 +17,7 @@ from django.shortcuts import render
 from django.template.response import TemplateResponse
 from django.urls import URLPattern, path
 
-from apps.cases.admin.base_admin import BaseModelAdmin
+from apps.core.admin.base import BaseModelAdmin  # 解耦（2026-10-19）：不再跨 app 引 cases admin 的别名
 from apps.finance.models.lpr_rate import LPRRate
 
 if TYPE_CHECKING:

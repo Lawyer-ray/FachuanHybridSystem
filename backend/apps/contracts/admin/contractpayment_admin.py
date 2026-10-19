@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import Any, ClassVar
 
 from django import forms
 from django.contrib import admin
@@ -10,19 +10,7 @@ from django.utils.html import format_html
 from simple_history.admin import SimpleHistoryAdmin
 
 from apps.contracts.models import ContractPayment, Invoice, InvoiceStatus
-
-if TYPE_CHECKING:
-    BaseModelAdmin = admin.ModelAdmin
-    BaseTabularInline = admin.TabularInline
-else:
-    try:
-        import nested_admin
-
-        BaseModelAdmin = nested_admin.NestedModelAdmin
-        BaseTabularInline = nested_admin.NestedTabularInline
-    except ImportError:
-        BaseModelAdmin = admin.ModelAdmin
-        BaseTabularInline = admin.TabularInline
+from apps.core.admin.base import BaseModelAdmin, BaseTabularInline  # 解耦（2026-10-19）：nested_admin 兜底别名上提 core
 
 
 class InvoiceAdminForm(forms.ModelForm[Invoice]):  # pragma: no cover
@@ -106,7 +94,7 @@ class InvoiceInline(BaseTabularInline):  # pragma: no cover
             obj.delete()
 
 
-class ContractPaymentInline(BaseTabularInline[ContractPayment, ContractPayment]):  # pragma: no cover
+class ContractPaymentInline(BaseTabularInline):  # pragma: no cover
     model = ContractPayment
     extra = 0
     fields = ("amount", "received_at", "invoiced_amount", "invoice_status", "note")

@@ -9,7 +9,6 @@ import {
   lawyerCopyText,
   partyCopyText,
   relDue,
-  todayStr,
 } from './domain'
 import type { CaseListItem, ContractListItem, LawyerListItem } from './types'
 
@@ -275,11 +274,6 @@ describe('buildDeals', () => {
     expect(deals[0]!.team.map((t) => t.name)).toEqual(['赵律师', '孙主办', ''])
   })
 
-  it('todayStr：月/日两位补零', () => {
-    expect(todayStr(new Date(2026, 0, 9))).toBe('2026-01-09')
-    expect(todayStr(new Date(2026, 11, 31))).toBe('2026-12-31')
-    expect(todayStr(TODAY)).toBe('2026-10-01')
-  })
   it('提醒映射日期转年月日', () => {
     expect(deals[0]!.work[0]?.dueFull).toBe('2026年10月1日')
   })

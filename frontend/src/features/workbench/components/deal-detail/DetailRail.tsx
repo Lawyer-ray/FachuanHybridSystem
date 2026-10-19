@@ -1,6 +1,6 @@
 import { toast } from 'sonner'
 
-import { copyTextToClipboard } from '../../domain'
+import { copyText } from '@/lib/clipboard'
 import type { DealContact, DealTeamMember, WorkbenchDeal } from '../../types'
 import type { Deadline } from './detail-domain'
 import { dueLabel } from './detail-domain'
@@ -33,7 +33,7 @@ export function DetailRail({
   onAddPayment: () => void
 }) {
   const copy = (text: string) => {
-    void copyTextToClipboard(text).then(() => toast.success('已复制'))
+    void copyText(text).then(() => toast.success('已复制'))
   }
 
   return (

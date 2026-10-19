@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from ninja.files import UploadedFile
 
-from apps.core.exceptions import ValidationException
+from apps.core.services.storage_service import validate_upload
 from apps.organization.models import Lawyer
 
 # 头像仅允许位图格式：svg 等可执行脚本的矢量格式会被 /media/ 直链渲染，禁止入库
@@ -14,14 +12,12 @@ AVATAR_ALLOWED_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp"})
 
 
 def _validate_image_extension(uploaded: UploadedFile, *, allowed: frozenset[str], field: str) -> None:
-    name = str(getattr(uploaded, "name", "") or "")
-    ext = Path(name).suffix.lower()
-    if ext not in allowed:
-        raise ValidationException(
-            f"不支持的图片格式: {ext or '(无扩展名)'}",
-            code="INVALID_IMAGE_TYPE",
-            errors={field: f"允许的格式: {', '.join(sorted(allowed))}"},
-        )
+    """校验头像扩展名。
+
+    解耦（2026-10-19）：委托 ``storage_service.validate_upload``（无大小上限；
+    错误码统一为 ``INVALID_FILE_TYPE``）。
+    """
+    validate_upload(uploaded, allowed_extensions=allowed, max_size_bytes=None, field=field)
 
 
 class LawyerUploadService:

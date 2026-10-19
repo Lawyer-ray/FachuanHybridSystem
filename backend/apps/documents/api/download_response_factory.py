@@ -1,13 +1,14 @@
 """API endpoints."""
 
-from urllib.parse import quote
+from __future__ import annotations
 
 from django.http import HttpResponse
 
+from apps.core.http.download import build_download_response as _core_build_download_response
+
+__all__ = ["build_download_response"]
+
 
 def build_download_response(*, content: bytes, filename: str, content_type: str) -> HttpResponse:
-    response = HttpResponse(content, content_type=content_type)
-    # filename="..." 使用百分号编码（ASCII 安全，避免 Django MIME 编码破坏正则匹配）
-    # filename*=UTF-8'' 同样使用百分号编码（RFC 5987，浏览器会自动解码）
-    response["Content-Disposition"] = f"attachment; filename=\"{quote(filename)}\"; filename*=UTF-8''{quote(filename)}"
-    return response
+    """解耦（2026-10-19）：委托 ``core/http/download`` 的统一实现（本函数签名保持不变，调用方零改动）。"""
+    return _core_build_download_response(content, filename, content_type)

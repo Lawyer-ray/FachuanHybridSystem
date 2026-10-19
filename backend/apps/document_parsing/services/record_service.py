@@ -14,20 +14,16 @@ logger = logging.getLogger("apps.document_parsing")
 
 
 def record_ownership_q(user: Any | None) -> Any | None:
-    """解析记录的行级归属口径（审计 P1 修复）。
+    """解析记录的行级归属口径（审计 P1 修复；解耦 2026-10-19：实现上提 core）。
 
     - is_admin / is_superuser：全量可见（管理员监管视角），返回 None 表示无需过滤；
     - 普通用户：仅可见自己创建的记录；存量 created_by 为 NULL 的旧记录
       （加归属字段前创建）保持所内可见，作为兼容旧数据的口径。
     非归属人非管理员按此过滤后取不到记录，上层以 NotFoundError / 404 拒绝。
     """
-    from django.db.models import Q
+    from apps.core.security.ownership import created_by_ownership_q
 
-    from apps.core.security.admin_access import is_admin_user
-
-    if is_admin_user(user):
-        return None
-    return Q(created_by=user) | Q(created_by__isnull=True)
+    return created_by_ownership_q(user)
 
 
 class DocumentParsingRecordService:

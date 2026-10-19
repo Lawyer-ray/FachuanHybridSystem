@@ -1,27 +1,15 @@
 import { memo, useMemo } from 'react'
 import { FileText } from 'lucide-react'
-import { format, isToday, isYesterday, parseISO } from 'date-fns'
 import type { InboxMessage } from '../types'
+import { friendlyTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-function timeLabel(iso: string): string {
-  try {
-    // parseISO 而非 new Date：naive / date-only 串不会被按 UTC 零点解析偏移
-    const d = parseISO(iso)
-    if (isToday(d)) return '今天 ' + format(d, 'HH:mm')
-    if (isYesterday(d)) return '昨天 ' + format(d, 'HH:mm')
-    // pattern 无本地化文本，不需要 locale（曾引入 zhCN 白背一个 locale 包）
-    return format(d, 'MM-dd')
-  } catch {
-    return iso
-  }
-}
-
-/** 底部元信息：拆分/归类进度 + 时间（原型 metaText，不显示构成） */
+/** 底部元信息：拆分/归类进度 + 时间（原型 metaText，不显示构成）。
+ *  相对时间与 home 收件箱卡共用 @/lib/format（本卡更早日期用 MM-dd，解析失败回原串）。 */
 function metaText(pack: InboxMessage): string {
   const segs = pack.segs || 0
   const base = segs ? `${pack.named}/${segs} 已归类` : '待拆分'
-  return `${base} · ${timeLabel(pack.received_at)}`
+  return `${base} · ${friendlyTime(pack.received_at, { fallback: pack.received_at, else: 'md' })}`
 }
 
 /** 缩略纸堆的一页：文档行文（标题条 + 不同宽度的正文行） */
