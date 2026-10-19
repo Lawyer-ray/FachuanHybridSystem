@@ -17,6 +17,12 @@ import re
 # 案件管理列表页（PROJECT002；搜索为 WebForms postback，无 JSON 接口）
 _CASE_LIST_URL = "https://ims.jtn.com/project/index.aspx?FirstModel=PROJECT&SecondModel=PROJECT002"
 
+# 案件详情页（keyid 直达）：客户信息 / 案件信息 / 利冲三个 tab 服务端渲染在
+# 同一份 HTML（div#tab_con_1/2/3），一次 GET 即全量，无需切换 tab
+_CASE_DETAIL_URL_TEMPLATE = (
+    "https://ims.jtn.com/project/projectView.aspx?keyid={keyid}&FirstModel=PROJECT&SecondModel=PROJECT002"
+)
+
 # postback 表单字段：三个过滤框同一机制（子串包含匹配），按需只传一个
 _SEARCH_CASE_NO_FIELD = "ctl00$ctl00$mainContentPlaceHolder$projmainPlaceHolder$project_no"
 _SEARCH_CASE_NAME_FIELD = "ctl00$ctl00$mainContentPlaceHolder$projmainPlaceHolder$project_name"

@@ -7,6 +7,13 @@
 <link rel="stylesheet" href="{% static 'contracts/css/auto_contract_name.css' %}">
 <script src="{% static 'contracts/js/folder_browser.js' %}"></script>
 <script src="{% static 'contracts/js/auto_contract_name.js' %}"></script>
+{% if not original %}
+<script>
+// 仅新建页：律所ID「同步」按钮的后端端点（oa_project_sync.js 检测到该变量才注入按钮）
+window.CONTRACT_OA_SYNC_URL = '{% url "admin:contracts_contract_sync_oa_project_add" %}';
+</script>
+{% endif %}
+<script src="{% static 'contracts/js/oa_project_sync.js' %}"></script>
 <script>
 window.CONTRACTS_I18N = Object.assign(window.CONTRACTS_I18N || {}, {
     bound: '{% trans "已绑定" %}',

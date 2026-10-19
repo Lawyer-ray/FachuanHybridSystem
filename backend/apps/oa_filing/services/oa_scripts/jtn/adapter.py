@@ -616,6 +616,13 @@ class JTNAdapter(
         script = JtnCaseGuidScript(account=str(credential.account), password=str(credential.password))
         return await script.lookup_case_guids_by_customer_name(customer_name)
 
+    async def fetch_project_detail(self, keyid: str, credential: Any) -> Any:
+        """按 GUID 拉取案件详情（projectView 三 tab 一次 GET，纯 HTTP 只读，同一会话自愈链）。"""
+        from apps.oa_filing.services.oa_scripts.jtn.case_guid import JtnCaseGuidScript
+
+        script = JtnCaseGuidScript(account=str(credential.account), password=str(credential.password))
+        return await script.fetch_project_detail(keyid)
+
     # ==================================================================
     # ClientImportAdapter
     # ==================================================================

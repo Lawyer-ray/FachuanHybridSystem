@@ -506,6 +506,35 @@ class ScriptExecutorService:
         except Exception as exc:
             raise RuntimeError(_friendly_error_message(exc)) from exc
 
+    def fetch_oa_project_detail(
+        self,
+        keyid: str,
+        user: Any,
+        site_name: str = "金诚同达OA",  # privacy-allow 站点注册表 key
+    ) -> Any:
+        """按律所ID（OA 案件 GUID）拉取案件详情（客户 / 案件信息 / 利冲，纯 HTTP 只读）。
+
+        用请求者本人的 OA 凭证发起（谁登录用谁的账号，案件可见性按该账号过滤）。
+        拿不到详情（GUID 非法 / 不可见 / 非详情页结构）按业务错误抛 RuntimeError，
+        调用方统一按「ok=false + error 文案」返回前端。
+        """
+        credential = _find_credential(user, site_name)
+        if credential is None:
+            raise RuntimeError(f"未找到匹配凭证: 站点名称={site_name}")
+
+        adapter = create_adapter(site_name, str(credential.account), str(credential.password))
+        try:
+            detail = run_coro_sync(
+                adapter.fetch_project_detail(str(keyid).strip(), credential),
+                timeout=60,
+                thread_name_prefix="oa-project-detail",
+            )
+        except Exception as exc:
+            raise RuntimeError(_friendly_error_message(exc)) from exc
+        if detail is None:
+            raise RuntimeError("未读到 OA 案件详情：律所ID 无效，或当前 OA 账号无权查看该案件")
+        return detail
+
 
 # ↓↓ 由 ScriptExecutorService 下沉的模块级纯函数（四层架构静态方法棘轮）
 def _find_credential(user: Any, site_name: str) -> Any:
