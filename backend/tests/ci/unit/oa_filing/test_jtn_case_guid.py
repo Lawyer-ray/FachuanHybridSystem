@@ -94,6 +94,11 @@ def _detail_page_html(*, case_name: str = "甲公司诉乙某合同纠纷案", c
       <tr><td>中文名称</td><td>乙某</td></tr>
       <tr><td>法律地位</td><td>被告</td></tr>
     </table></div>
+    <div id="tab_con_5"><table>
+      <tr><td>收费方式：</td><td>定额收费</td><td>币　　种：</td><td>人民币</td></tr>
+      <tr><td>合同总额：</td><td>5000.00</td><td></td><td></td></tr>
+      <tr><td>是否免费或减免代理：</td><td>否</td></tr>
+    </table></div>
     </body></html>
     """
 
@@ -652,6 +657,10 @@ class TestFetchProjectDetail:
         assert data.case_info.responsible_lawyer == "测试律师"
         assert [c.name for c in data.customers] == ["甲公司", "丙某"]
         assert [c.name for c in data.conflicts] == ["乙某"]
+        assert data.case_info.fee_mode_text == "定额收费"
+        assert data.case_info.fee_amount_text == "5000.00"
+        assert data.case_info.fee_currency == "人民币"
+        assert data.case_info.fee_waived == "否"
         assert server.detail_requests == [_GUID_A]
         assert server.search_posts == []  # 拉详情不触发列表页搜索
         http_login.assert_not_awaited()

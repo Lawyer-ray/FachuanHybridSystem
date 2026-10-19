@@ -56,8 +56,14 @@ class TestBuildSyncPayloadFullDetail:
         assert payload["case_type"] == "civil"
         assert payload["start_date"] == "2026-10-19"
         assert payload["case_stage"] == "一审"
+        assert payload["representation_stages"] == ["first_trial"]
         assert payload["client_side"] == "原告"
         assert payload["responsible_lawyer"] == "测试律师"
+        # 夹具未给收费信息：OA 没有的字段一律空，前端跳过不填
+        assert payload["fee_mode"] is None
+        assert payload["fixed_amount"] is None
+        assert payload["custom_terms"] == ""
+        assert payload["fee_currency"] == ""
         assert payload["clients"] == [
             {"name": "甲公司", "customer_type": "legal"},
             {"name": "丙某", "customer_type": "natural"},
@@ -148,3 +154,86 @@ class TestDegradedInputs:
         payload = build_sync_payload(_data(keyid=""))
         assert payload["guid"] == ""
         assert payload["detail_url"] == ""
+
+
+class TestFeeMapping:
+    @pytest.mark.parametrize(
+        ("raw", "expected_mode", "expect_custom_terms"),
+        [
+            ("定额收费", "FIXED", False),  # 真实 OA 值样本
+            ("固定收费", "FIXED", False),
+            ("包干收费", "FIXED", False),
+            ("半风险收费", "SEMI_RISK", False),  # 「半风险」须先于泛「风险」
+            ("风险代理", "FULL_RISK", False),
+            ("全风险收费", "FULL_RISK", False),
+            ("计时收费", "CUSTOM", True),  # 无命中归 CUSTOM 并把原文放进自定义条款
+            ("", None, False),
+            (None, None, False),
+        ],
+    )
+    def test_fee_mode_rules(self, raw, expected_mode, expect_custom_terms):
+        payload = build_sync_payload(_data(_info(fee_mode_text=raw)))
+        assert payload["fee_mode"] == expected_mode
+        assert payload["fee_mode"] is None or type(payload["fee_mode"]) is str
+        if expect_custom_terms:
+            assert payload["custom_terms"] == f"OA 收费方式：{raw}"
+        else:
+            assert payload["custom_terms"] == ""
+
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            ("5000.00", "5000.00"),
+            ("5,000", "5000.00"),
+            ("￥12,345.5", "12345.50"),
+            ("0.00", None),  # OA 未填默认 0.00 → 不填
+            ("0", None),
+            ("abc", None),
+            ("", None),
+            (None, None),
+        ],
+    )
+    def test_amount_normalized_to_two_decimals_or_none(self, raw, expected):
+        payload = build_sync_payload(_data(_info(fee_amount_text=raw)))
+        assert payload["fixed_amount"] == expected
+
+    def test_fee_waived_flag_appends_custom_terms(self):
+        payload = build_sync_payload(_data(_info(fee_mode_text="定额收费", fee_waived="是")))
+        assert payload["fee_mode"] == "FIXED"
+        assert payload["custom_terms"] == "OA 标记：免费或减免代理"
+
+    def test_custom_mode_and_waived_join_fragments(self):
+        payload = build_sync_payload(_data(_info(fee_mode_text="计时收费", fee_waived="是")))
+        assert payload["custom_terms"] == "OA 收费方式：计时收费；OA 标记：免费或减免代理"
+
+    def test_currency_passthrough(self):
+        payload = build_sync_payload(_data(_info(fee_currency="人民币")))
+        assert payload["fee_currency"] == "人民币"
+
+
+class TestRepresentationStages:
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            ("行政复议", ["administrative_review"]),  # 真实 OA 值样本
+            ("一审", ["first_trial"]),
+            ("二审", ["second_trial"]),
+            ("重审一审", ["retrial_first"]),  # 最长 label 优先，不被「一审」抢先
+            ("一审程序", ["first_trial"]),  # 包含匹配
+            ("劳动仲裁", ["labor_arbitration"]),
+            ("执行阶段", ["enforcement"]),
+            ("未知阶段", []),  # 对不上本地枚举 → 空列表不填
+            ("", []),
+            (None, []),
+        ],
+    )
+    def test_stage_text_to_case_stage_values(self, raw, expected):
+        payload = build_sync_payload(_data(_info(case_stage=raw)))
+        assert payload["representation_stages"] == expected
+
+    def test_missing_case_info_gives_empty_stages_and_fee(self):
+        payload = build_sync_payload(_data(case_info=None))
+        assert payload["representation_stages"] == []
+        assert payload["fee_mode"] is None
+        assert payload["fixed_amount"] is None
+        assert payload["custom_terms"] == ""

@@ -97,6 +97,10 @@
         if (setInput('id_name', data.name)) filled.push('合同名称');
         if (setSelect('id_case_type', data.case_type)) filled.push('合同类型');
         if (setInput('id_start_date', data.start_date)) filled.push('开始日期');
+        if (setMultiSelect('id_representation_stages', data.representation_stages)) filled.push('代理阶段');
+        if (setSelect('id_fee_mode', data.fee_mode)) filled.push('收费模式');
+        if (setInput('id_fixed_amount', data.fixed_amount)) filled.push('律师费金额');
+        if (setInput('id_custom_terms', data.custom_terms)) filled.push('自定义收费条款');
         if (setInput('id_law_firm_oa_case_number', data.case_number)) filled.push('律所OA案件编号');
         if (setInput('id_law_firm_oa_url', data.detail_url)) filled.push('律所OA链接');
         if (data.guid && data.guid !== guidField.value) {
@@ -104,8 +108,8 @@
             guidField.dispatchEvent(new Event('change', { bubbles: true }));
         }
 
-        var principals = await fillParties(data.clients || [], 'PRINCIPAL');
-        var opponents = await fillParties(data.opponents || [], 'OPPOSING');
+        var principals = await fillParties(data.clients || [], 'PRINCIPAL', null);
+        var opponents = await fillParties(data.opponents || [], 'OPPOSING', 'conflict_type');
         var lawyer = await fillLawyer(data.responsible_lawyer || '');
         return { filled: filled, principals: principals, opponents: opponents, lawyer: lawyer, data: data };
     }
@@ -128,22 +132,39 @@
         return true;
     }
 
+    // 多选（代理阶段）：追加选中，不清已有选项；一个都对不上就不动
+    function setMultiSelect(id, values) {
+        var el = document.getElementById(id);
+        if (!el || !values || !values.length) return false;
+        var hit = false;
+        for (var i = 0; i < el.options.length; i++) {
+            if (values.indexOf(el.options[i].value) >= 0) {
+                el.options[i].selected = true;
+                hit = true;
+            }
+        }
+        if (hit) el.dispatchEvent(new Event('change', { bubbles: true }));
+        return hit;
+    }
+
     // ── 当事人 ──
 
-    // 逐个查客户库填行（保持 OA 顺序；单个失败只记未匹配不中断）
-    async function fillParties(items, role) {
+    // 逐个查客户库填行（保持 OA 顺序；单个失败只记未匹配不中断）。
+    // typeKey 指定展示用的附注字段（对方当事人带法律地位：「某机关（被告）」）
+    async function fillParties(items, role, typeKey) {
         var report = { matched: [], missing: [], failed: [] };
         for (var i = 0; i < items.length; i++) {
             var name = (items[i] && items[i].name || '').trim();
             if (!name) continue;
+            var label = typeKey && items[i][typeKey] ? name + '（' + items[i][typeKey] + '）' : name;
             try {
                 var client = await lookupAutocomplete('contractparty', 'client', name);
-                if (!client) { report.missing.push(name); continue; }
-                if (isClientSelected(client.id)) { report.matched.push(name); continue; }
-                if (await fillPartyRow(client, role)) report.matched.push(name);
-                else report.failed.push(name);
+                if (!client) { report.missing.push(label); continue; }
+                if (isClientSelected(client.id)) { report.matched.push(label); continue; }
+                if (await fillPartyRow(client, role)) report.matched.push(label);
+                else report.failed.push(label);
             } catch (e) {
-                report.failed.push(name);
+                report.failed.push(label);
             }
         }
         return report;
@@ -316,7 +337,8 @@
         var extras = [];
         if (report.data.case_stage) extras.push('案件阶段：' + report.data.case_stage);
         if (report.data.client_side) extras.push('代理何方：' + report.data.client_side);
-        if (extras.length) box.appendChild(line('OA 参考（未回填）：' + extras.join('；'), 'muted'));
+        if (report.data.fee_currency && report.data.fee_currency !== '人民币') extras.push('币种：' + report.data.fee_currency);
+        if (extras.length) box.appendChild(line('OA 参考：' + extras.join('；'), 'muted'));
     }
 
     function appendPartyLines(box, label, report, source) {

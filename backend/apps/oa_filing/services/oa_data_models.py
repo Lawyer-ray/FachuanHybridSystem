@@ -37,6 +37,11 @@ class OACaseInfoData:
     responsible_lawyer: str | None = None
     description: str | None = None
     client_side: str | None = None
+    # 委托合同信息 tab 的收费字段（OA 未填时保持 None）
+    fee_mode_text: str | None = None  # 收费方式原文，如「定额收费」
+    fee_amount_text: str | None = None  # 合同总额原文，如「5000.00」
+    fee_currency: str | None = None  # 币种，如「人民币」
+    fee_waived: str | None = None  # 是否免费或减免代理（「是」/「否」）
 
 
 @dataclass

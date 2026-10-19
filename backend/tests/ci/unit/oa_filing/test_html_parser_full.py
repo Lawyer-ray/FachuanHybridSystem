@@ -15,6 +15,7 @@ from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import (
     extract_case_no_from_text,
     extract_conflicts_from_html,
     extract_customers_from_html,
+    extract_fee_info_from_html,
     extract_hidden_input,
     extract_keyid_from_href,
     extract_row_cells_text,
@@ -561,3 +562,122 @@ class TestParseCaseDetailHtml:
         result = parse_case_detail_html(html_text="", case_no="X", keyid="Y")
         # Empty string may still parse with lxml, but no data will be found
         assert result is None or isinstance(result, OACaseData)
+
+
+# ── 真实 OA 结构（2026-10-19 实测）：列式利冲表 + 委托合同收费 ─────────────────
+
+
+# 利冲 tab：分组标题单格行 + 8 列表头 + 数据行；两组（对方当事人 / 潜在第三方）各一张表
+_COLUMNAR_CONFLICT_HTML = """
+<div id="tab_con_3">
+  <table><tr><td>利益冲突信息</td></tr><tr><td></td></tr></table>
+  <table><tr><td>▼类别：对方当事人　　法律地位：被告　　付款方：否</td></tr></table>
+  <table>
+    <tr><td>序号</td><td>客户类型</td><td>中文名称</td><td>英文名称</td><td>联系人</td><td>身份证号码</td><td>联系电话</td><td>付款方</td></tr>
+    <tr><td>1</td><td>机关</td><td>某市某区某局</td><td></td><td></td><td>****</td><td></td><td>否</td></tr>
+    <tr><td>2</td><td>机关</td><td>某市某区人民政府</td><td></td><td></td><td></td><td></td><td>否</td></tr>
+  </table>
+  <table><tr><td>▼类别：相关利益的潜在第三方　　法律地位：原审第三人</td></tr></table>
+  <table>
+    <tr><td>序号</td><td>客户类型</td><td>中文名称</td><td>英文名称</td><td>联系人</td><td>身份证号码</td><td>联系电话</td><td>付款方</td></tr>
+    <tr><td>1</td><td>自然人</td><td>测试某某</td><td></td><td></td><td>****</td><td></td><td>否</td></tr>
+  </table>
+</div>
+"""
+
+
+class TestExtractConflictsColumnar:
+    def test_real_columnar_structure_reads_name_column_and_group_position(self):
+        """旧实现把表头「中文名称」后的「英文名称」当成了对方名——必须按列读、按分组取法律地位。"""
+        root = lxml_html.fromstring(_COLUMNAR_CONFLICT_HTML)
+        conflicts = extract_conflicts_from_html(root)
+
+        assert [c.name for c in conflicts] == ["某市某区某局", "某市某区人民政府", "测试某某"]
+        assert [c.conflict_type for c in conflicts] == ["被告", "被告", "原审第三人"]
+        assert all(c.name != "英文名称" for c in conflicts)
+
+    def test_columnar_without_group_title_falls_back_to_customer_type_column(self):
+        html = """
+        <div id="tab_con_3"><table>
+          <tr><td>序号</td><td>客户类型</td><td>中文名称</td><td>英文名称</td><td>联系人</td><td>身份证号码</td><td>联系电话</td><td>付款方</td></tr>
+          <tr><td>1</td><td>机关</td><td>某机关</td><td></td><td></td><td></td><td></td><td>否</td></tr>
+          <tr><td>2</td><td>自然人</td><td>测试某某</td><td></td><td></td><td></td><td></td><td>否</td></tr>
+        </table></div>
+        """
+        conflicts = extract_conflicts_from_html(lxml_html.fromstring(html))
+        assert [(c.name, c.conflict_type) for c in conflicts] == [("某机关", "机关"), ("测试某某", "自然人")]
+
+    def test_columnar_header_only_yields_nothing(self):
+        html = """
+        <div id="tab_con_3">
+          <table><tr><td>▼类别：对方当事人　　法律地位：被告</td></tr></table>
+          <table><tr><td>序号</td><td>客户类型</td><td>中文名称</td><td>英文名称</td><td>联系人</td><td>身份证号码</td><td>联系电话</td><td>付款方</td></tr></table>
+        </div>
+        """
+        assert extract_conflicts_from_html(lxml_html.fromstring(html)) == []
+
+    def test_legacy_key_value_structure_still_supported(self):
+        """旧键值对夹具（「中文名称|X」「法律地位|Y」逐行）行为不变。"""
+        html = """
+        <div id="tab_con_3"><table>
+          <tr><td>中文名称</td><td>某某公司</td></tr>
+          <tr><td>法律地位</td><td>被告</td></tr>
+          <tr><td>中文名称</td><td>另一公司</td></tr>
+          <tr><td>类型</td><td>关联方</td></tr>
+        </table></div>
+        """
+        conflicts = extract_conflicts_from_html(lxml_html.fromstring(html))
+        assert [(c.name, c.conflict_type) for c in conflicts] == [("某某公司", "被告"), ("另一公司", "关联方")]
+
+
+# 委托合同信息 tab：首表「标签：| 值 | 标签：| 值」键值对行；下方发票 / 收款表列名不冲突
+_FEE_TAB_HTML = """
+<div id="tab_con_5">
+  <table>
+    <tr><td>委托合同信息</td></tr>
+    <tr><td>收费方式：</td><td>定额收费</td><td>币　　种：</td><td>人民币</td></tr>
+    <tr><td>合同总额：</td><td>5000.00</td><td></td><td></td></tr>
+    <tr><td>类　　型：</td><td>书面合同</td></tr>
+    <tr><td>是否免费或减免代理：</td><td>否</td></tr>
+  </table>
+  <table>
+    <tr><td>发票日期</td><td>发票号码</td><td>发票金额</td><td>收款日期</td><td>收款金额</td><td>备注</td></tr>
+    <tr><td>2026-10-01</td><td>00000001</td><td>5000.00</td><td></td><td></td><td></td></tr>
+  </table>
+</div>
+"""
+
+
+class TestExtractFeeInfo:
+    def test_reads_fee_key_values_from_first_table(self):
+        fee = extract_fee_info_from_html(lxml_html.fromstring(_FEE_TAB_HTML))
+        assert fee == {
+            "fee_mode": "定额收费",
+            "fee_amount": "5000.00",
+            "fee_currency": "人民币",
+            "fee_waived": "否",
+        }
+
+    def test_missing_tab_gives_empty(self):
+        assert extract_fee_info_from_html(lxml_html.fromstring("<div id='tab_con_2'></div>")) == {}
+
+    def test_first_hit_wins_over_invoice_table(self):
+        """发票表的「发票金额」列名不含「合同总额」，不会被误当收费键。"""
+        fee = extract_fee_info_from_html(lxml_html.fromstring(_FEE_TAB_HTML))
+        assert fee["fee_amount"] == "5000.00"
+
+    def test_parse_case_detail_html_attaches_fee_to_case_info(self):
+        html = '<div id="tab_con_2"><table><tr><td>案件名称</td><td>测试案</td></tr></table></div>' + _FEE_TAB_HTML
+        result = parse_case_detail_html(html_text=html, case_no="N", keyid="K")
+        assert result is not None and result.case_info is not None
+        assert result.case_info.fee_mode_text == "定额收费"
+        assert result.case_info.fee_amount_text == "5000.00"
+        assert result.case_info.fee_currency == "人民币"
+        assert result.case_info.fee_waived == "否"
+
+    def test_parse_case_detail_html_without_fee_tab_keeps_none(self):
+        html = '<div id="tab_con_2"><table><tr><td>案件名称</td><td>测试案</td></tr></table></div>'
+        result = parse_case_detail_html(html_text=html, case_no="N", keyid="K")
+        assert result is not None and result.case_info is not None
+        assert result.case_info.fee_mode_text is None
+        assert result.case_info.fee_amount_text is None
