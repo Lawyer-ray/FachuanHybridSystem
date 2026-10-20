@@ -283,6 +283,15 @@ class HttpFilingMixin:  # pragma: no cover
     # ------------------------------------------------------------------
 
     def _apply_client_payload(self: Any, *, payload: dict[str, str], customers: list[ResolvedCustomer]) -> None:
+        """写入委托方行，并同步写入对应行的「客户本案联系人」隐藏字段。
+
+        OA 页的 pro_pl_*（客户本案联系人）在服务端 HTML 里只存在于 layui 模板
+        （id="tempLinker"），仅当用户点「添加」才渲染为真实 input，因此
+        _fetch_form_state 抓取 payload 时**永远拿不到** pro_pl_name_*——旧代码
+        的 `for field_name in payload if "pro_pl_name" in field_name` 循环因此
+        一条也匹配不上，联系人始终为空（2026-10-20 合同 386 立案复现）。
+        此处按客户行 gid 主动生成同名键；具体值由 _apply_case_info_payload 统一回填。
+        """
         if not customers:
             return
         for customer in customers:
@@ -290,6 +299,9 @@ class HttpFilingMixin:  # pragma: no cover
             payload[f"pro_customer_istemp_{gid}"] = customer.istemp
             payload[f"pro_customer_id_{gid}"] = customer.customer_id
             payload[f"pro_customer_name_{gid}"] = customer.customer_name
+            # 与客户行同 gid，服务端按 gid 关联联系人到委托方
+            payload[f"pro_pl_name_{gid}"] = ""
+            payload[f"pro_pl_phone_{gid}"] = ""
 
         payload["project_cus_id"] = customers[0].customer_id
         payload["project_cus_name"] = customers[0].customer_name
@@ -344,6 +356,7 @@ class HttpFilingMixin:  # pragma: no cover
 
         for field_name in list(payload.keys()):
             if "pro_pl_name" in field_name:
+                # 必填项：联系人姓名缺失时填 "/"（用户明确要求）
                 payload[field_name] = case_info.contact_name or "/"
             elif "pro_pl_phone" in field_name:
                 payload[field_name] = case_info.contact_phone or "/"

@@ -218,6 +218,7 @@ class JtnDetailExtractorMixin:  # pragma: no cover
 
                 current_name = None
                 current_type = None
+                current_category = None
 
                 for row in rows:
                     try:
@@ -243,10 +244,14 @@ class JtnDetailExtractorMixin:  # pragma: no cover
                                         OAConflictData(
                                             name=current_name,
                                             conflict_type=current_type,
+                                            category=current_category,
                                         )
                                     )
                                 current_name = value
                                 current_type = None
+                                current_category = None
+                            elif "类别" in label and value:
+                                current_category = value
                             elif ("法律地位" in label and value) or (
                                 "类型" in label and "客户类型" not in label and "法律地位" not in label and value
                             ):
@@ -261,6 +266,7 @@ class JtnDetailExtractorMixin:  # pragma: no cover
                         OAConflictData(
                             name=current_name,
                             conflict_type=current_type,
+                            category=current_category,
                         )
                     )
 

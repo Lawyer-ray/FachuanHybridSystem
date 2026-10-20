@@ -410,8 +410,9 @@ class ContractAdmin(
     def sync_oa_project_view(self, request: HttpRequest) -> JsonResponse:  # pragma: no cover
         """按律所ID（OA 案件 GUID）拉取 OA 案件详情，整形成新建合同表单的回填数据。
 
-        纯 HTTP 只读、用请求者本人的 OA 凭证；仅新建页使用（无行级对象可校验），
-        权限门槛与「查询ID」一致。回填由前端完成，这里不写任何模型。
+        纯 HTTP 读取 OA；用请求者本人的 OA 凭证。当事人名单会解析到本地 Client，
+        本地缺失时按 OA 阵营自动建库（我方 / 非我方），便于前端直接勾选 inline 行。
+        仅新建页使用（无行级对象可校验），权限门槛与「查询ID」一致。
         """
         if request.method != "POST":
             return JsonResponse({"ok": False, "error": "Method not allowed"}, status=405)
@@ -431,6 +432,7 @@ class ContractAdmin(
         except ValueError:
             return JsonResponse({"ok": False, "error": "律所ID 格式不正确，应为 OA 案件 GUID"}, status=400)
 
+        from apps.contracts.admin.wiring_admin import get_oa_party_resolution_service
         from apps.contracts.services.contract.integrations.oa_project_sync_service import build_sync_payload
         from apps.oa_filing.services.script_executor_service import ScriptExecutorService
 
@@ -439,7 +441,11 @@ class ContractAdmin(
         except RuntimeError as e:
             return JsonResponse({"ok": False, "error": str(e)})
 
-        return JsonResponse({"ok": True, "data": build_sync_payload(oa_data)})
+        payload = build_sync_payload(oa_data)
+        allow_create = request.user.has_perm("client.add_client")
+        payload = get_oa_party_resolution_service().resolve_payload(payload, allow_create=allow_create)
+        payload["auto_create_allowed"] = allow_create
+        return JsonResponse({"ok": True, "data": payload})
 
     def batch_folder_binding_view(self, request: HttpRequest) -> TemplateResponse:  # pragma: no cover
         if not self.has_view_permission(request):

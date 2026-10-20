@@ -154,7 +154,27 @@ def map_case_contact(clients: list[Any]) -> tuple[str, str]:
 # 06劳动人事 07海事海商 08公司证券保险票据 09侵权责任 10特殊程序）。
 # 顺序即优先级：具体类别在前，"合同/协议"等泛化词殿后；刻意不用裸"公司"等
 # 常见于当事人名称的关键词（案由缺失时用案件/合同名称兜底匹配，防误判）。
+# 特殊程序（KindType03_10）的关键词须排在最前：「执行异议之诉」「第三人撤销之诉」
+# 等案由自带「诉」字，若排在「合同/协议」之后会被泛化词误吞，且它们不属于任何
+# 实体纠纷类别（2026-10-20 合同 386 立案时业务种类为空即此因）。
 _CIVIL_KINDTYPE_RULES: tuple[tuple[str, str], ...] = (
+    ("执行异议之诉", "KindType03_10"),
+    ("执行异议", "KindType03_10"),
+    ("第三人撤销之诉", "KindType03_10"),
+    ("选民资格", "KindType03_10"),
+    ("宣告失踪", "KindType03_10"),
+    ("宣告死亡", "KindType03_10"),
+    ("认定公民无民事行为能力", "KindType03_10"),
+    ("认定财产无主", "KindType03_10"),
+    ("监护权特别程序", "KindType03_10"),
+    ("督促程序", "KindType03_10"),
+    ("公示催告", "KindType03_10"),
+    ("申请保全", "KindType03_10"),
+    ("仲裁程序案件", "KindType03_10"),
+    ("海事诉讼特别程序", "KindType03_10"),
+    ("申请承认与执行", "KindType03_10"),
+    ("特别程序", "KindType03_10"),
+    ("特殊程序", "KindType03_10"),
     ("劳动", "KindType03_06"),
     ("人事争议", "KindType03_06"),
     ("工伤", "KindType03_06"),
@@ -831,12 +851,17 @@ class JTNAdapter(
 
         民事（03）按案由关键词映射 KindType03_xx，二级子类由
         _resolve_kindtype_sed 运行时拉取匹配；非诉（01/02）按委托方类型。
+
+        业务种类是 OA 必填项：民事案由未命中任何关键词时兜底「合同、无因管理、
+        不当得利纷争」(KindType03_04)——民事诉讼绝大多数为合同/债权类，且该兜底
+        只影响一级分类（用户可在 OA 页手改），优于留空卡住立案。
         """
         if category == "03":
             for keyword, code in _CIVIL_KINDTYPE_RULES:
                 if keyword in cause_text:
                     return code, ""
-            return "", ""
+            logger.warning("民事案由未命中业务种类关键词，兜底合同类: cause_text=%s", cause_text)
+            return "KindType03_04", ""
         if category not in ("01", "02"):
             return "", ""
         has_natural = any(

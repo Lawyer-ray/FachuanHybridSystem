@@ -86,6 +86,18 @@ def get_contract_oa_sync_service() -> Any:  # pragma: no cover
     )
 
 
+def get_oa_party_resolution_service() -> Any:  # pragma: no cover
+    from apps.contracts.services.contract.integrations.oa_party_resolution_service import OaPartyResolutionService
+
+    if ServiceLocator._scope.get() is None:
+        return OaPartyResolutionService()
+
+    return ServiceLocator.get_or_create(
+        "contracts.oa_party_resolution_service",
+        lambda: OaPartyResolutionService(),
+    )
+
+
 def get_contract_mutation_facade() -> Any:  # pragma: no cover
     from apps.contracts.services.contract.wiring import get_contract_mutation_facade as _get_contract_mutation_facade
 

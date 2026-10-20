@@ -144,9 +144,35 @@ class TestJTNAdapterMapping:
 
     def test_map_kindtype_litigation(self):
         svc = self._make_service()
+        # 业务种类是 OA 必填项，案由缺失时兜底合同类，不再留空
         kind, kind2 = svc._map_kindtype("03", [])
-        assert kind == ""
+        assert kind == "KindType03_04"
         assert kind2 == ""
+
+    def test_map_kindtype_execution_objection(self):
+        """执行异议之诉属「适用特殊程序」，不得被泛化词吞掉或留空（合同 386 回归）。"""
+        svc = self._make_service()
+        kind, kind2 = svc._map_kindtype("03", [], cause_text="执行异议之诉")
+        assert kind == "KindType03_10"
+        assert kind2 == ""
+
+    def test_map_kindtype_third_party_revocation(self):
+        svc = self._make_service()
+        kind, _ = svc._map_kindtype("03", [], cause_text="第三人撤销之诉")
+        assert kind == "KindType03_10"
+
+    def test_map_kindtype_contract_still_wins_for_civil(self):
+        """普通民事案由仍按原关键词映射，不受特殊程序规则影响。"""
+        svc = self._make_service()
+        kind, _ = svc._map_kindtype("03", [], cause_text="买卖合同纠纷")
+        assert kind == "KindType03_04"
+        kind, _ = svc._map_kindtype("03", [], cause_text="劳动争议")
+        assert kind == "KindType03_06"
+
+    def test_map_kindtype_fallback_when_no_keyword(self):
+        svc = self._make_service()
+        kind, _ = svc._map_kindtype("03", [], cause_text="某完全不匹配的案由XYZ")
+        assert kind == "KindType03_04"
 
     def test_map_kindtype_advisor_natural(self):
         svc = self._make_service()
@@ -172,6 +198,75 @@ class TestJTNAdapterMapping:
         party = SimpleNamespace(client=SimpleNamespace(client_type="legal"))
         kind, kind2 = svc._map_kindtype("02", [party])
         assert kind == "KindType02_01"
+
+    def test_http_client_payload_emits_contact_fields(self):
+        """客户本案联系人必须写入 pro_pl_*（合同 386 回归：旧代码永远匹配不到）。
+
+        OA 页的 pro_pl_* 只存在于 layui 模板，服务端抓取的 payload 里没有这些键，
+        旧代码的 `for field_name in payload` 循环一条也无法命中。
+        """
+        from apps.oa_filing.services.oa_scripts.jtn.filing.filing_models import CaseInfo, ResolvedCustomer
+        from apps.oa_filing.services.oa_scripts.jtn.filing.http_filing import HttpFilingMixin
+
+        svc = HttpFilingMixin()
+        payload: dict[str, str] = {}
+        svc._apply_client_payload(
+            payload=payload,
+            customers=[ResolvedCustomer(customer_id="123", customer_name="某甲方公司")],
+        )
+
+        pl_name_keys = [k for k in payload if "pro_pl_name" in k]
+        pl_phone_keys = [k for k in payload if "pro_pl_phone" in k]
+        assert len(pl_name_keys) == 1, "必须为客户行生成 pro_pl_name_<gid>"
+        assert len(pl_phone_keys) == 1, "必须为客户行生成 pro_pl_phone_<gid>"
+
+        case_info = CaseInfo(
+            manager_id="",
+            manager_name="",
+            category="03",
+            stage="0301",
+            which_side="02",
+            kindtype="KindType03_10",
+            kindtype_sed="KindType03_1013",
+            kindtype_thr="",
+            case_name="测试案件",
+            contact_name="张三",
+            contact_phone="/",
+        )
+        form_state = MagicMock(html_text="<html></html>")
+        svc._apply_case_info_payload(payload=payload, case_info=case_info, form_state=form_state)
+
+        assert payload[pl_name_keys[0]] == "张三"
+        assert payload[pl_phone_keys[0]] == "/"
+
+    def test_http_client_payload_contact_defaults_to_slash(self):
+        """联系人缺失时必须填 "/"，因为 OA 侧是必填项。"""
+        from apps.oa_filing.services.oa_scripts.jtn.filing.filing_models import CaseInfo, ResolvedCustomer
+        from apps.oa_filing.services.oa_scripts.jtn.filing.http_filing import HttpFilingMixin
+
+        svc = HttpFilingMixin()
+        payload: dict[str, str] = {}
+        svc._apply_client_payload(
+            payload=payload,
+            customers=[ResolvedCustomer(customer_id="123", customer_name="某公司")],
+        )
+        case_info = CaseInfo(
+            manager_id="",
+            manager_name="",
+            category="03",
+            stage="0301",
+            which_side="02",
+            kindtype="KindType03_04",
+            kindtype_sed="",
+            kindtype_thr="",
+            case_name="测试案件",
+            contact_name="",
+            contact_phone="",
+        )
+        svc._apply_case_info_payload(payload=payload, case_info=case_info, form_state=MagicMock(html_text=""))
+
+        assert all(v == "/" for k, v in payload.items() if "pro_pl_name" in k)
+        assert all(v == "/" for k, v in payload.items() if "pro_pl_phone" in k)
 
     @pytest.mark.asyncio
     async def test_dispatch_unsupported_site(self):

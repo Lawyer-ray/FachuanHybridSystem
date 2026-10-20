@@ -15,6 +15,7 @@ import pytest
 from django.contrib.admin.sites import AdminSite
 from django.test import RequestFactory
 
+from apps.client.models import Client
 from apps.contracts.admin.contract_admin import ContractAdmin
 from apps.contracts.models import Contract
 from apps.oa_filing.services.oa_data_models import OACaseCustomerData, OACaseData, OACaseInfoData, OAConflictData
@@ -121,7 +122,51 @@ class TestSyncOaProjectView:
         assert data["responsible_lawyer"] == "测试律师"
         assert [c["name"] for c in data["clients"]] == ["甲公司"]
         assert [c["name"] for c in data["opponents"]] == ["乙某"]
+        assert data["auto_create_allowed"] is True
         mock_fetch.assert_called_once_with(keyid=_GUID, user=request.user)
+
+    def test_missing_parties_are_created_with_correct_flags(self):
+        """OA 有、本地没有的当事人自动建库：委托人＝我方，OA 类别「对方当事人」（含共同被告）＝非我方。"""
+        detail = OACaseData(
+            case_no="",
+            keyid=_GUID,
+            customers=[OACaseCustomerData(name="甲公司", customer_type="legal")],
+            case_info=OACaseInfoData(case_no="CASE-2026-0001", client_side="被告"),
+            conflicts=[
+                OAConflictData(name="乙公司", conflict_type="原告", category="对方当事人"),
+                OAConflictData(name="同案被告丙", conflict_type="被告", category="对方当事人"),
+            ],
+        )
+        with patch(_EXECUTOR_PATH, return_value=detail):
+            resp = self._view().sync_oa_project_view(_post_request(_make_superuser(), {"guid": _GUID}))
+
+        assert resp.status_code == 200
+        data = json.loads(resp.content)["data"]
+        our_client = Client.objects.get(pk=data["clients"][0]["client_id"])
+        assert our_client.is_our_client is True
+        assert [o["name"] for o in data["opponents"]] == ["乙公司", "同案被告丙"]
+        for item in data["opponents"]:
+            opponent = Client.objects.get(pk=item["client_id"])
+            assert opponent.is_our_client is False
+            assert item["created"] is True
+        assert data["co_parties"] == []
+
+    def test_without_add_client_permission_does_not_create_parties(self):
+        """有合同修改权但没有当事人新增权：同步照常返回名单，只是不落库。"""
+        from django.contrib.auth.models import Permission
+
+        user = Lawyer.objects.create_user(username="oa_sync_editor", real_name="合同编辑", is_staff=True)  # type: ignore[no-any-return]
+        user.user_permissions.add(Permission.objects.get(codename="change_contract"))
+
+        with patch(_EXECUTOR_PATH, return_value=_oa_detail()):
+            resp = self._view().sync_oa_project_view(_post_request(user, {"guid": _GUID}))
+
+        assert resp.status_code == 200
+        data = json.loads(resp.content)["data"]
+        assert data["auto_create_allowed"] is False
+        assert data["clients"][0]["client_id"] is None
+        assert data["opponents"][0]["client_id"] is None
+        assert Client.objects.count() == 0
 
     def test_guid_normalized_before_dispatch(self):
         """大写 / 花括号 / 空白的 GUID 规范化成标准小写再交给调度器。"""

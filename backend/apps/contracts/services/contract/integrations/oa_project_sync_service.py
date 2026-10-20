@@ -2,8 +2,8 @@
 
 纯函数、无 ORM。admin 视图拿到 ScriptExecutorService 返回的 OACaseData 后，
 经本模块整形成表单可直接消费的 JSON（合同类型 / 收费模式 / 代理阶段枚举值、
-ISO 日期、金额、详情 URL、当事人与律师名单）。当事人与律师只给名单，由前端
-经 admin autocomplete 做精确匹配——新建页合同尚未保存，这里不落任何 Client / Lawyer 数据。
+ISO 日期、金额、详情 URL、当事人与律师名单）。当事人与律师只给名单，本地
+Client 的匹配/自动创建由 oa_party_resolution_service 负责（本模块不落任何数据）。
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from typing import Any
 from apps.contracts.models import FeeMode
 from apps.core.models.enums import CaseStage, CaseType
 from apps.oa_filing.services.case_import_service import map_oa_case_type_from_text, parse_date
-from apps.oa_filing.services.oa_data_models import OACaseData, OACaseInfoData, OAConflictData
+from apps.oa_filing.services.oa_data_models import OACaseCustomerData, OACaseData, OACaseInfoData, OAConflictData
 
 # 与 JTNAdapter.build_case_detail_url 同款（contracts 不可 import jtn 子包，此处独立维护）
 _DETAIL_URL_TEMPLATE = (
@@ -39,9 +39,10 @@ def build_sync_payload(oa_data: OACaseData) -> dict[str, Any]:
     """OACaseData → 新建合同表单回填 JSON。
 
     合同类型沿用案件导入口径：案件类别优先、业务种类兜底、劳动仲裁特判；收案日期归一为
-    ISO（解析不了给 None，前端跳过不填）。利冲按「法律地位 vs 代理何方」分三组：对立方
-    回填为对方当事人，我方阵营（共同原告 / 被告、犯罪嫌疑人）与第三人只提示不填。
-    名单按名称去重保序。OA 没有的字段一律 None / 空，前端据此跳过，不硬填。
+    ISO（解析不了给 None，前端跳过不填）。当事人按「是否委托人」分阵营：OA「客户信息」
+    tab 里的委托人才是我方当事人；利冲表里的其余相关方按法律地位分成对立方、同案其他
+    当事人（与代理何方同法律地位，如共同被告）与第三人。只有对立方回填为对方当事人，
+    其余两组只提示不填。名单按名称去重保序。OA 没有的字段一律 None / 空，前端据此跳过。
     """
     info = oa_data.case_info
     keyid = str(oa_data.keyid or "").strip().lower()
@@ -49,9 +50,11 @@ def build_sync_payload(oa_data: OACaseData) -> dict[str, Any]:
     case_number = _text(info, "case_no") or str(oa_data.case_no or "").strip()
     fee_mode = _resolve_fee_mode(_text(info, "fee_mode_text"))
     side = _text(info, "client_side")
-    clients = _dedupe_named((str(c.name or "").strip(), str(c.customer_type or "")) for c in oa_data.customers)
-    client_names = {name for name, _ in clients}
+    clients = _dedupe_customers(oa_data.customers)
+    client_names = {str(c["name"]) for c in clients}
     groups = _split_conflicts(oa_data.conflicts, side=side, exclude_names=client_names)
+    # 利冲表「类别：委托方」的条目也是我方当事人（客户 tab 漏列时兜底），并入委托人名单
+    clients.extend(groups.pop("client"))
 
     return {
         "guid": keyid,
@@ -68,9 +71,9 @@ def build_sync_payload(oa_data: OACaseData) -> dict[str, Any]:
         "fixed_amount": _normalize_amount(_text(info, "fee_amount_text")),
         "fee_currency": _text(info, "fee_currency"),
         "custom_terms": _build_custom_terms(info, fee_mode),
-        "clients": [{"name": name, "customer_type": customer_type} for name, customer_type in clients],
+        "clients": clients,
         "opponents": groups["opponent"],
-        "allies": groups["ally"],
+        "co_parties": groups["co_party"],
         "third_parties": groups["third"],
     }
 
@@ -155,41 +158,81 @@ def _resolve_stages(stage_text: str) -> list[str]:
 def _split_conflicts(
     conflicts: list[OAConflictData], *, side: str, exclude_names: set[str]
 ) -> dict[str, list[dict[str, str]]]:
-    """利冲条目按相对我方的阵营分三组（各组按名去重保序）。
+    """利冲条目按 OA「类别」分四组（各组按名去重保序；空字段不输出）。
 
-    OA 利冲表列的是**全部相关方**而非只有对方：与「代理何方」同一法律地位的是我方阵营
-    （共同原告 / 被告、刑事的犯罪嫌疑人本人），含「第三人」类词的是第三方，其余才是对立方。
-    已出现在客户（委托人）名单里的名字不再重复列出。
+    OA 分组标题自带阵营标注（类别：委托方 / 委托方关联方 / 对方当事人），比「法律地位」
+    权威：我方被告案里类别为「对方当事人」的共同被告也是对方（律所没代理他们），要回填；
+    「委托方关联方」是与委托人有利害关系的相关方（如第三人），不是我方也不回填。
+    类别缺失（旧解析形态）才退回「法律地位 vs 代理何方」启发式。
     """
-    groups: dict[str, list[dict[str, str]]] = {"opponent": [], "ally": [], "third": []}
+    groups: dict[str, list[dict[str, str]]] = {"client": [], "opponent": [], "co_party": [], "third": []}
     seen: set[str] = set(exclude_names)
     for conflict in conflicts:
         name = str(conflict.name or "").strip()
         if not name or name in seen:
             continue
         seen.add(name)
-        position = str(conflict.conflict_type or "").strip()
-        groups[_classify_conflict(position, side)].append({"name": name, "conflict_type": position})
+        item = {"name": name, "conflict_type": str(conflict.conflict_type or "").strip()}
+        for field in ("category", "customer_type", "id_number", "phone"):
+            value = str(getattr(conflict, field, "") or "").strip()
+            if value:
+                item[field] = value
+        groups[_classify_conflict(item["conflict_type"], side, category=str(item.get("category") or ""))].append(item)
     return groups
 
 
-def _classify_conflict(position: str, side: str) -> str:
-    """ally = 法律地位与代理何方完全相同；third = 含第三人类词；其余 opponent（含无地位 / 无代理何方）。"""
-    compact = "".join(position.split())
-    if side and compact and compact == side:
-        return "ally"
-    if any(marker in compact for marker in _THIRD_PARTY_MARKERS):
+def _classify_conflict(position: str, side: str, category: str = "") -> str:
+    """按 OA 类别定阵营，类别缺失再按法律地位启发式。
+
+    优先级：第三人/第三方类词（法律地位或类别）→ third；类别「对方当事人」→ opponent；
+    类别「委托方」（非关联方）→ client；类别「委托方关联方」→ co_party；最后才看
+    法律地位是否与代理何方相同（同位 = co_party，否则 opponent）。
+    """
+    compact_position = "".join(position.split())
+    compact_category = "".join(category.split())
+    if any(marker in compact_position for marker in _THIRD_PARTY_MARKERS):
         return "third"
+    if compact_category:
+        if any(marker in compact_category for marker in _THIRD_PARTY_MARKERS):
+            return "third"
+        if "对方" in compact_category:
+            return "opponent"
+        if "委托方" in compact_category and "关联" not in compact_category:
+            return "client"
+        if "关联" in compact_category:
+            return "co_party"
+    if side and compact_position and compact_position == side:
+        return "co_party"
     return "opponent"
 
 
-def _dedupe_named(pairs: Any) -> list[tuple[str, str]]:
-    """按名称去重保序；空名丢弃。"""
+def _dedupe_customers(customers: list[OACaseCustomerData]) -> list[dict[str, str]]:
+    """客户信息 tab 去重保序（按名称）；空名丢弃，空字段不输出。
+
+    带上 OA 已有的证件号 / 电话 / 地址 / 法定代表人，供本地缺失时自动建库；
+    自然人客户不写法定代表人字段（提取器会把「姓名」也当法定代表人）。
+    """
     seen: set[str] = set()
-    result: list[tuple[str, str]] = []
-    for name, extra in pairs:
+    result: list[dict[str, str]] = []
+    for customer in customers:
+        name = str(getattr(customer, "name", "") or "").strip()
         if not name or name in seen:
             continue
         seen.add(name)
-        result.append((name, extra))
+        client_type = str(getattr(customer, "customer_type", "") or "").strip()
+        item: dict[str, str] = {"name": name, "customer_type": client_type}
+        for field in ("id_number", "phone", "address"):
+            value = _clean_field(getattr(customer, field, ""))
+            if value:
+                item[field] = value
+        representative = _clean_field(getattr(customer, "legal_representative", ""))
+        if representative and client_type != "natural":
+            item["legal_representative"] = representative
+        result.append(item)
     return result
+
+
+def _clean_field(value: Any) -> str:
+    """OA 空值常用「/」占位，建库时按空处理。"""
+    text = str(value or "").strip()
+    return "" if text in {"/", "-", "—", "无"} else text

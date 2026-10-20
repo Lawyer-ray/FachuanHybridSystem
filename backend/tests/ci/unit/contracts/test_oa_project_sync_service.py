@@ -80,6 +80,51 @@ class TestBuildSyncPayloadFullDetail:
         payload = build_sync_payload(_data(_info(case_no=""), case_no="FALLBACK-01"))
         assert payload["case_number"] == "FALLBACK-01"
 
+    def test_customer_contact_fields_forwarded_for_auto_create(self):
+        """客户 tab 解析到的证件号 / 电话 / 地址 / 法定代表人随名单带出，供本地自动建库。"""
+        payload = build_sync_payload(
+            _data(
+                customers=[
+                    OACaseCustomerData(
+                        name="甲公司",
+                        customer_type="legal",
+                        id_number="91440000TEST000003",
+                        phone="020-00000000",  # privacy-allow
+                        address="某市某区",
+                        legal_representative="张某某",
+                    )
+                ]
+            )
+        )
+        assert payload["clients"] == [
+            {
+                "name": "甲公司",
+                "customer_type": "legal",
+                "id_number": "91440000TEST000003",
+                "phone": "020-00000000",  # privacy-allow
+                "address": "某市某区",
+                "legal_representative": "张某某",
+            }
+        ]
+
+    def test_natural_customer_drops_legal_representative(self):
+        """自然人客户的「姓名」会被提取器当法定代表人，不能写进建库字段。"""
+        payload = build_sync_payload(
+            _data(customers=[OACaseCustomerData(name="丙某", customer_type="natural", legal_representative="丙某")])
+        )
+        assert "legal_representative" not in payload["clients"][0]
+
+    def test_oa_blank_placeholder_fields_are_dropped(self):
+        """OA 用「/」表示未填，电话 / 地址 / 证件号不能把占位符带进建库字段。"""
+        payload = build_sync_payload(
+            _data(
+                customers=[
+                    OACaseCustomerData(name="甲公司", customer_type="legal", phone="/", address="/", id_number="/")
+                ]
+            )
+        )
+        assert payload["clients"] == [{"name": "甲公司", "customer_type": "legal"}]
+
 
 class TestCaseTypeResolution:
     @pytest.mark.parametrize(
@@ -109,46 +154,134 @@ class TestCaseTypeResolution:
 
 
 class TestConflictGrouping:
-    """OA 利冲表列的是全部相关方：按「法律地位 vs 代理何方」分对立方 / 我方阵营 / 第三人。"""
+    """利冲分组以 OA「类别」（委托方 / 委托方关联方 / 对方当事人）为准；
+    类别缺失（旧解析形态）才退回「法律地位 vs 代理何方」启发式。"""
 
-    def _conflicts(self, *pairs: tuple[str, str]) -> list[OAConflictData]:
-        return [OAConflictData(name=name, conflict_type=position) for name, position in pairs]
+    def _conflicts(self, *entries: tuple[str, ...], **extra: object) -> list[OAConflictData]:
+        """条目 = (名称, 法律地位) 或 (名称, 法律地位, 类别)；extra 为行级字段（作用于全部条目）。"""
 
-    def test_defendant_side_splits_plaintiff_codefendants_and_third_party(self):
-        """真实样本（民商事，我方被告）：原告是对方，另两个被告是共同被告（我方），第三人另列。"""
+        def _one(entry: tuple[str, ...]) -> OAConflictData:
+            item = OAConflictData(
+                name=entry[0],
+                conflict_type=entry[1],
+                category=entry[2] if len(entry) > 2 else None,
+            )
+            for field in ("customer_type", "id_number", "phone"):
+                if field in extra:
+                    setattr(item, field, extra[field])  # type: ignore[arg-type]
+            return item
+
+        return [_one(entry) for entry in entries]
+
+    def test_defendant_side_separates_plaintiff_codefendants_and_third_party(self):
+        """旧形态夹具（无类别）：原告是对方；另两个被告只是同案其他当事人，不能叫「我方共同当事人」。"""
+        payload = build_sync_payload(
+            _data(
+                _info(client_side="被告"),
+                customers=[OACaseCustomerData(name="某委托人公司", customer_type="legal")],
+                conflicts=self._conflicts(
+                    ("某第三方公司", "第三人"), ("某原告公司", "原告"), ("同案被告甲", "被告"), ("同案被告乙", "被告")
+                ),
+            )
+        )
+        assert [c["name"] for c in payload["clients"]] == ["某委托人公司"]
+        assert payload["opponents"] == [{"name": "某原告公司", "conflict_type": "原告"}]
+        assert payload["co_parties"] == [
+            {"name": "同案被告甲", "conflict_type": "被告"},
+            {"name": "同案被告乙", "conflict_type": "被告"},
+        ]
+        assert payload["third_parties"] == [{"name": "某第三方公司", "conflict_type": "第三人"}]
+
+    def test_oa_category_opposing_defendants_are_filled_as_opponents(self):
+        """真实样本回归（我方被告、利冲带类别形态）：OA 类别「对方当事人·被告」的共同被告必须回填为对方，
+        不能因为法律地位与代理何方相同就归入不回填的同案当事人。"""
+        payload = build_sync_payload(
+            _data(
+                _info(client_side="被告"),
+                customers=[OACaseCustomerData(name="某委托人公司", customer_type="legal")],
+                conflicts=self._conflicts(
+                    ("某第三方公司", "第三人", "委托方关联方"),
+                    ("某原告公司", "原告", "对方当事人"),
+                    ("同案被告甲", "被告", "对方当事人"),
+                    ("同案被告乙", "被告", "对方当事人"),
+                ),
+            )
+        )
+        assert [c["name"] for c in payload["clients"]] == ["某委托人公司"]
+        assert [o["name"] for o in payload["opponents"]] == ["某原告公司", "同案被告甲", "同案被告乙"]
+        assert payload["co_parties"] == []
+        assert payload["third_parties"] == [
+            {"name": "某第三方公司", "conflict_type": "第三人", "category": "委托方关联方"}
+        ]
+
+    def test_client_related_category_is_co_party_with_row_fields(self):
+        """「委托方关联方·被告」不是我方也不回填；行级客户类型 / 证件号 / 电话随条目带出供建库。"""
         payload = build_sync_payload(
             _data(
                 _info(client_side="被告"),
                 conflicts=self._conflicts(
-                    ("某第三方公司", "第三人"), ("某原告公司", "原告"), ("共同被告甲", "被告"), ("共同被告乙", "被告")
+                    ("关联被告公司", "被告", "委托方关联方"),  # privacy-allow 虚构名
+                    customer_type="legal",
+                    id_number="91440000TEST000009",
+                    phone="0755-00000000",  # privacy-allow
                 ),
             )
         )
-        assert payload["opponents"] == [{"name": "某原告公司", "conflict_type": "原告"}]
-        assert payload["allies"] == [
-            {"name": "共同被告甲", "conflict_type": "被告"},
-            {"name": "共同被告乙", "conflict_type": "被告"},
+        assert payload["co_parties"] == [
+            {
+                "name": "关联被告公司",  # privacy-allow 虚构名
+                "conflict_type": "被告",
+                "category": "委托方关联方",
+                "customer_type": "legal",
+                "id_number": "91440000TEST000009",
+                "phone": "0755-00000000",  # privacy-allow
+            }
         ]
-        assert payload["third_parties"] == [{"name": "某第三方公司", "conflict_type": "第三人"}]
+        assert payload["opponents"] == []
 
-    def test_criminal_suspect_is_ally_not_opponent(self):
-        """刑事：代理何方「犯罪嫌疑人」，利冲里的犯罪嫌疑人是我方当事人，不能填成对方。"""
+    def test_client_category_merges_into_principals(self):
+        """利冲「类别：委托方」（非关联方）是我方当事人：并入委托人名单回填 PRINCIPAL。"""
         payload = build_sync_payload(
-            _data(_info(client_side="犯罪嫌疑人"), conflicts=self._conflicts(("某嫌疑人", "犯罪嫌疑人")))
+            _data(
+                _info(client_side="被告"),
+                customers=[],
+                conflicts=self._conflicts(
+                    ("漏列委托人公司", "被告", "委托方"),  # privacy-allow 虚构名
+                    ("某原告公司", "原告", "对方当事人"),
+                ),
+            )
+        )
+        assert [c["name"] for c in payload["clients"]] == ["漏列委托人公司"]  # privacy-allow 虚构名
+        assert [o["name"] for o in payload["opponents"]] == ["某原告公司"]
+        assert payload["co_parties"] == [] and payload["third_parties"] == []
+
+    def test_co_parties_never_enter_clients(self):
+        """同法律地位的利冲条目即使没有对应的委托人记录，也不能被当成我方当事人。"""
+        payload = build_sync_payload(
+            _data(_info(client_side="被告"), customers=[], conflicts=self._conflicts(("同案被告甲", "被告")))
+        )
+        assert payload["clients"] == []
+        assert payload["opponents"] == []
+        assert [c["name"] for c in payload["co_parties"]] == ["同案被告甲"]
+
+    def test_criminal_co_suspect_is_not_our_client(self):
+        """刑事：代理何方「犯罪嫌疑人」；利冲里的同案嫌疑人只是同案其他当事人，不是我们的委托人。"""
+        payload = build_sync_payload(
+            _data(_info(client_side="犯罪嫌疑人"), conflicts=self._conflicts(("某同案嫌疑人", "犯罪嫌疑人")))
         )
         assert payload["opponents"] == []
-        assert payload["allies"] == [{"name": "某嫌疑人", "conflict_type": "犯罪嫌疑人"}]
+        assert payload["co_parties"] == [{"name": "某同案嫌疑人", "conflict_type": "犯罪嫌疑人"}]
 
     def test_applicant_side_respondent_is_opponent(self):
-        """仲裁：我方被申请人 → 申请人是对方；「被申请人」不因包含「申请人」子串被误判。"""
+        """仲裁：我方被申请人 → 申请人是对方；同案被申请人归同案其他，不因包含「申请人」子串误判。"""
         payload = build_sync_payload(
             _data(
                 _info(client_side="被申请人"),
-                conflicts=self._conflicts(("某申请人", "申请人"), ("共同被申请人", "被申请人"), ("某第三人", "第三人")),
+                conflicts=self._conflicts(("某申请人", "申请人"), ("同案被申请人", "被申请人"), ("某第三人", "第三人")),
             )
         )
         assert [o["name"] for o in payload["opponents"]] == ["某申请人"]
-        assert [a["name"] for a in payload["allies"]] == ["共同被申请人"]
+        assert [a["name"] for a in payload["co_parties"]] == ["同案被申请人"]
         assert [t["name"] for t in payload["third_parties"]] == ["某第三人"]
 
     @pytest.mark.parametrize("position", ["原审第三人", "利害关系人", "相关利益的潜在第三方"])
@@ -157,13 +290,24 @@ class TestConflictGrouping:
         assert payload["third_parties"] == [{"name": "某方", "conflict_type": position}]
         assert payload["opponents"] == []
 
+    def test_category_third_party_word_wins_over_opposing_position(self):
+        """类别本身含「第三方」（如「相关利益的潜在第三方」）→ 第三人，即使法律地位是被告。"""
+        payload = build_sync_payload(
+            _data(
+                _info(client_side="被告"),
+                conflicts=self._conflicts(("某潜在第三方", "被告", "相关利益的潜在第三方")),
+            )
+        )
+        assert payload["opponents"] == []
+        assert [t["name"] for t in payload["third_parties"]] == ["某潜在第三方"]
+
     def test_without_client_side_everything_non_third_is_opponent(self):
         """非诉 / 代理何方为空：无法判阵营，除第三人外一律对方候选（沿用案件导入口径）。"""
         payload = build_sync_payload(
             _data(_info(client_side=""), conflicts=self._conflicts(("甲方", "被告"), ("乙方", ""), ("丙方", "第三人")))
         )
         assert [o["name"] for o in payload["opponents"]] == ["甲方", "乙方"]
-        assert payload["allies"] == []
+        assert payload["co_parties"] == []
         assert [t["name"] for t in payload["third_parties"]] == ["丙方"]
 
     def test_names_already_in_clients_are_not_repeated(self):
@@ -176,7 +320,7 @@ class TestConflictGrouping:
             )
         )
         assert payload["clients"] == [{"name": "某嫌疑人", "customer_type": "natural"}]
-        assert payload["allies"] == [] and payload["opponents"] == []
+        assert payload["co_parties"] == [] and payload["opponents"] == []
 
     def test_groups_dedupe_by_name(self):
         payload = build_sync_payload(
