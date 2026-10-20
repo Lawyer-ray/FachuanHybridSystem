@@ -63,6 +63,13 @@ _STAGE_FROM_DOCUMENT_NAME: tuple[tuple[str, str], ...] = (
     ("再审", "再审"),
 )
 
+# 执行类程序性文书（执行告知书等）的执行结果摘要线索词
+# 款项句：含金额且带发放/到位语义（裸"扣划/冻结"多出现在保全段落，不作为款项句依据）
+_ENFORCE_DISBURSEMENT_HINTS: tuple[str, ...] = ("已支付", "发放", "余款", "执行款", "案款")
+# 状态句：按重要性分两档（终结执行/终本 是执行程序的最终结论）
+_ENFORCE_FINAL_STATUS_HINTS: tuple[str, ...] = ("终结执行", "终本")
+_ENFORCE_PROGRESS_STATUS_HINTS: tuple[str, ...] = ("尚未全部执行到位", "限制其高消费", "限制高消费", "失信")
+
 # 保全类案号类型字（诉前财保/执保/诉讼民保等）是程序性保全编号，
 # 不属于阶段主案号，不纳入案件信息提取
 _PRESERVATION_NUMBER_KEYWORDS: tuple[str, ...] = ("财保", "执保", "民保", "行保")
@@ -120,8 +127,9 @@ def extract_case_info_from_candidates(
 
     两层提取：
     - 裁判文书（判决书/调解书等）：完整提取案号/文书名/法院/主文；
-    - 法院程序性文书（告知书/通知书等）：只提取案号/法院，主文为空——
-      执行等阶段的案号常只在程序性文书里出现。
+    - 法院程序性文书（告知书/通知书等）：只提取案号/法院——执行等阶段的案号
+      常只在程序性文书里出现；其中执行阶段的文书会提炼执行结果摘要
+      （扣划发放金额、终结执行等）作为该案号的内容。
     同案号多份文书时优先保留带主文的那份（判决书 > 受理通知书）。
 
     Returns:
@@ -145,7 +153,13 @@ def extract_case_info_from_candidates(
                 result = _extract_pdf(extractor, source_path, mode="judgment", storage_provider=storage_provider)
                 document_name = str(result.document_name or "").strip()
             else:
-                result = _extract_pdf(extractor, source_path, mode="reference", storage_provider=storage_provider)
+                result = _extract_pdf(
+                    extractor,
+                    source_path,
+                    mode="reference",
+                    storage_provider=storage_provider,
+                    include_full_text=True,
+                )
                 # 程序性文书的文书名一律取文件名关键词：正文中提到的"民事裁定书"等
                 # 是引用而非本文书名，提取器按全文匹配会误报
                 document_name = notice_kw or ""
@@ -161,14 +175,21 @@ def extract_case_info_from_candidates(
             logger.info("case_info_skip_preservation_number", extra={"number": number})
             continue
 
+        stage = infer_stage(case_number=number, document_name=document_name)
+        content = str(result.content or "").strip()
+        if notice_kw is not None and stage == "执行" and not content:
+            # 执行阶段的程序性文书（执行告知书等）没有裁判主文，但正文常含
+            # 实质执行结果（扣划发放金额、终结执行等），提炼摘要充当该案号的结果内容
+            content = _summarize_enforcement_notice(str(getattr(result, "full_text", None) or ""))
+
         item = {
             "source_path": source_path,
             "filename": filename,
             "number": number,
             "document_name": document_name,
             "court_name": str(result.court_name or "").strip(),
-            "stage": infer_stage(case_number=number, document_name=document_name),
-            "content": str(result.content or "").strip(),
+            "stage": stage,
+            "content": content,
         }
         existing = by_number.get(number)
         # 同案号优先保留带主文的提取（判决书/调解书优先于受理通知书等）
@@ -185,10 +206,12 @@ def _extract_pdf(
     *,
     mode: str = "judgment",
     storage_provider: Any | None = None,
+    include_full_text: bool = False,
 ) -> Any:
     """本地/云存储 PDF 提取：云存储先落临时文件（提取器按路径读取）。
 
-    mode="judgment" 要求裁判主文；mode="reference" 只取案号/法院（程序性文书）。
+    mode="judgment" 要求裁判主文；mode="reference" 只取案号/法院（程序性文书），
+    include_full_text=True 时附带文书全文供上层摘要。
     """
     target = source_path
     tmp_path: str | None = None
@@ -202,11 +225,58 @@ def _extract_pdf(
 
     try:
         if mode == "reference":
-            return extractor.extract_case_reference(target)
+            return extractor.extract_case_reference(target, include_full_text=include_full_text)
         return extractor.extract(target)
     finally:
         if tmp_path:
             Path(tmp_path).unlink(missing_ok=True)
+
+
+def _summarize_enforcement_notice(text: str) -> str:
+    """从执行阶段程序性文书正文提炼执行结果摘要。
+
+    规则（按文书原句拼接，最多三句）：
+    - 款项句：含金额且带发放/到位语义（已支付/发放/余款/执行款/案款）——
+      保全段落里"冻结…（扣划该账户N元）"没有发放语义，不会误选；
+    - 状态句：终结执行/终本优先，其次尚未到位/限制高消费/失信。
+    无任何命中返回空串（上层按无内容处理）。
+    """
+    normalized = re.sub(r"\s+", "", str(text or ""))
+    if not normalized:
+        return ""
+
+    sentences = [s for s in re.split(r"[。；;]", normalized) if s]
+    picked: dict[int, str] = {}
+    for idx, sentence in enumerate(sentences):
+        if "元" in sentence and any(hint in sentence for hint in _ENFORCE_DISBURSEMENT_HINTS):
+            picked[idx] = sentence
+            break
+
+    status_sentences = [
+        (idx, s)
+        for idx, s in enumerate(sentences)
+        if idx not in picked
+        and (any(h in s for h in _ENFORCE_FINAL_STATUS_HINTS) or any(h in s for h in _ENFORCE_PROGRESS_STATUS_HINTS))
+    ]
+    # 终结执行/终本（最终结论）优先于进度类状态，展示时仍按文书原句顺序
+    status_sentences.sort(key=lambda pair: 0 if any(h in pair[1] for h in _ENFORCE_FINAL_STATUS_HINTS) else 1)
+    for idx, sentence in status_sentences[: 3 - len(picked)]:
+        picked[idx] = sentence
+
+    if not picked:
+        return ""
+    summary = "。".join(_trim_notice_sentence(picked[idx]) for idx in sorted(picked)) + "。"
+    return summary[:200]
+
+
+def _trim_notice_sentence(sentence: str, limit: int = 90) -> str:
+    """超长句在逗号边界截断，避免告知书的告知义务条款淹没关键结论。"""
+    if len(sentence) <= limit:
+        return sentence
+    cut = sentence.rfind("，", 0, limit)
+    if cut <= 0:
+        return sentence[:limit] + "…"
+    return sentence[:cut] + "…"
 
 
 def apply_case_info_to_contract(
@@ -256,7 +326,8 @@ def apply_case_info_to_contract(
     for item in applicable:
         number = str(item["number"])
         court_name = str(item.get("court_name") or "").strip()
-        # 程序性文书（告知书等）没有主文：文书名不落库，留给将来扫到的真裁判文书
+        # 程序性文书无内容时文书名不落库，留给将来扫到的真裁判文书；
+        # 执行阶段告知书提炼出的执行结果摘要视同内容，文书名一并落库
         document_name = str(item.get("document_name") or "") if item.get("content") else ""
 
         case_number = existing_numbers.get(number)

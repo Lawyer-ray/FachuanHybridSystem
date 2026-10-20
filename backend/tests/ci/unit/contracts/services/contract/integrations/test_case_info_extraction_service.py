@@ -164,7 +164,7 @@ class TestExtractCaseInfoFromCandidates:
         )()
         queue: list = [Exception("boom"), good, dup]
 
-        def _fake_extract(extractor, path, mode="judgment", storage_provider=None):
+        def _fake_extract(extractor, path, mode="judgment", storage_provider=None, include_full_text=False):
             item = queue.pop(0)
             if isinstance(item, Exception):
                 raise item
@@ -204,7 +204,7 @@ class TestExtractCaseInfoFromCandidates:
         )()
         modes: list[str] = []
 
-        def _fake_extract(extractor, path, mode="judgment", storage_provider=None):
+        def _fake_extract(extractor, path, mode="judgment", storage_provider=None, include_full_text=False):
             modes.append(mode)
             return reference
 
@@ -252,7 +252,7 @@ class TestExtractCaseInfoFromCandidates:
             },  # privacy-allow 假案号
         )()
 
-        def _fake_extract(extractor, path, mode="judgment", storage_provider=None):
+        def _fake_extract(extractor, path, mode="judgment", storage_provider=None, include_full_text=False):
             return notice if "通知书" in path else judgment
 
         monkeypatch.setattr(svc, "_extract_pdf", _fake_extract)
@@ -512,7 +512,7 @@ class TestPreservationNumberExcluded:
         """告知书里的首个案号是执保号时跳过；主案号正常保留。"""
         from apps.contracts.services.contract.integrations import case_info_extraction_service as svc
 
-        def _fake_extract(extractor, path, mode="judgment", storage_provider=None):
+        def _fake_extract(extractor, path, mode="judgment", storage_provider=None, include_full_text=False):
             if "执行告知书" in path:
                 return type(
                     "R",
@@ -544,3 +544,161 @@ class TestPreservationNumberExcluded:
         result = extract_case_info_from_candidates(candidates)
 
         assert [item["number"] for item in result] == ["（2026）粤0100执222号"]  # privacy-allow 假案号
+
+
+class TestSummarizeEnforcementNotice:
+    """执行告知书正文 → 执行结果摘要。"""
+
+    _SAMPLE = (
+        "广东省某市第三人民法院 告知书 （2026）粤0100执222号"  # privacy-allow 假案号
+        "本案在财产保全阶段依据（2025）粤0100财保11号民事裁定书继续冻结被执行人账户"  # privacy-allow
+        "（扣划该账户60001元），上述继续冻结期限为一年。"
+        "本案扣划被执行人账户存款61001元，扣除执行费1500元，余款60022元"
+        "（优先支付受理费、保全费）已支付给申请执行人。本案案款尚未全部执行到位。"
+        "由于被执行人未能按照生效法律文书履行付款义务，本院拟将被执行人限制其高消费。"
+        "依照《中华人民共和国民事诉讼法》之规定，本院将依法终结执行，"
+        "若你方发现被执行人有可供执行财产或者财产线索时，可以向人民法院申请恢复执行。"
+    )
+
+    def test_picks_money_and_status_in_document_order(self):
+        from apps.contracts.services.contract.integrations.case_info_extraction_service import (
+            _summarize_enforcement_notice,
+        )
+
+        summary = _summarize_enforcement_notice(self._SAMPLE)
+        # 款项句（发放语义）入选，保全段落的"扣划该账户60001元"无发放语义不入选
+        assert "已支付给申请执行人" in summary
+        assert "60001" not in summary
+        # 状态句：尚未到位 + 终结执行，按文书原句顺序
+        assert summary.index("尚未全部执行到位") < summary.index("终结执行")
+        # 限制高消费属进度噪音，三句封顶时不选
+        assert "限制其高消费" not in summary
+
+    def test_preservation_only_text_returns_empty(self):
+        from apps.contracts.services.contract.integrations.case_info_extraction_service import (
+            _summarize_enforcement_notice,
+        )
+
+        text = "本案在财产保全阶段继续冻结被执行人账户（扣划该账户60001元），冻结期限为一年。"
+        assert _summarize_enforcement_notice(text) == ""
+
+    def test_empty_text_returns_empty(self):
+        from apps.contracts.services.contract.integrations.case_info_extraction_service import (
+            _summarize_enforcement_notice,
+        )
+
+        assert _summarize_enforcement_notice("") == ""
+        assert _summarize_enforcement_notice("   ") == ""
+
+    def test_long_sentence_trimmed_at_comma(self):
+        from apps.contracts.services.contract.integrations.case_info_extraction_service import _trim_notice_sentence
+
+        sentence = (
+            "依照《中华人民共和国民事诉讼法》第一百五十七条第一款第十一项、第二百六十八条之规定，"
+            "本院将依法终结执行，若你方发现被执行人有可供执行财产或者财产线索时，"
+            "可以自终结执行之日起定期向人民法院申请恢复执行并附相关证据材料"
+        )
+        trimmed = _trim_notice_sentence(sentence, limit=90)
+        assert len(trimmed) <= 91
+        assert trimmed.endswith("…")
+        assert "终结执行" in trimmed
+
+
+class TestEnforcementNoticeContentExtraction:
+    """执行阶段程序性文书提炼执行结果摘要作为内容。"""
+
+    def test_enforcement_notice_gets_summary_content(self, monkeypatch, tmp_path):
+        pdf = tmp_path / "告知书.pdf"
+        pdf.write_bytes(b"%PDF-1.4 fake")
+
+        from apps.contracts.services.contract.integrations import case_info_extraction_service as svc
+
+        reference = type(
+            "R",
+            (),
+            {
+                "number": "（2026）粤0100执222号",  # privacy-allow 假案号
+                "document_name": None,
+                "court_name": "某市第三人民法院",
+                "content": None,
+                "full_text": "本案扣划被执行人账户存款61001元已支付给申请执行人。本案案款尚未全部执行到位。",
+            },
+        )()
+
+        def _fake_extract(extractor, path, mode="judgment", storage_provider=None, include_full_text=False):
+            assert mode == "reference" and include_full_text is True
+            return reference
+
+        monkeypatch.setattr(svc, "_extract_pdf", _fake_extract)
+
+        candidates = [{"filename": "告知书（某甲公司案件）_20261010收.pdf", "source_path": str(pdf), "skip_reason": ""}]
+        result = extract_case_info_from_candidates(candidates)
+
+        assert len(result) == 1
+        assert result[0]["stage"] == "执行"
+        assert "已支付给申请执行人" in result[0]["content"]
+        assert "尚未全部执行到位" in result[0]["content"]
+        assert result[0]["document_name"] == "告知书"
+
+    def test_first_instance_notice_keeps_content_empty(self, monkeypatch, tmp_path):
+        pdf = tmp_path / "传票.pdf"
+        pdf.write_bytes(b"%PDF-1.4 fake")
+
+        from apps.contracts.services.contract.integrations import case_info_extraction_service as svc
+
+        reference = type(
+            "R",
+            (),
+            {
+                "number": "（2026）粤0100民初333号",  # privacy-allow 假案号
+                "document_name": None,
+                "court_name": "某市人民法院",
+                "content": None,
+                "full_text": "定于2026年11月1日开庭审理，特此通知。",
+            },
+        )()
+
+        def _fake_extract(extractor, path, mode="judgment", storage_provider=None, include_full_text=False):
+            return reference
+
+        monkeypatch.setattr(svc, "_extract_pdf", _fake_extract)
+
+        candidates = [{"filename": "传票.pdf", "source_path": str(pdf), "skip_reason": ""}]
+        result = extract_case_info_from_candidates(candidates)
+
+        assert len(result) == 1
+        assert result[0]["stage"] == "一审"
+        assert result[0]["content"] == ""
+
+
+@pytest.mark.django_db
+class TestApplyEnforcementNoticeContent:
+    """执行告知书摘要回填：content 视同主文，文书名一并落库。"""
+
+    def _make_contract(self):
+        contract = Contract.objects.create(
+            name="某甲公司诉某乙公司买卖合同纠纷",
+            case_type="civil",
+        )
+        return contract
+
+    def test_notice_content_fills_document_fields(self):
+        from apps.cases.models import Case
+
+        contract = self._make_contract()
+        extraction = [
+            {
+                "source_path": "/a/告知书.pdf",
+                "number": "（2026）粤0100执222号",  # privacy-allow 假案号
+                "document_name": "告知书",
+                "court_name": "某市第三人民法院",
+                "stage": "执行",
+                "content": "本案扣划被执行人账户存款61001元已支付给申请执行人。本案案款尚未全部执行到位。",
+            }
+        ]
+        stats = apply_case_info_to_contract(contract, extraction)
+
+        case = Case.objects.get(id=stats["case_id"])
+        cn = case.case_numbers.get()
+        assert cn.document_name == "告知书"
+        assert "已支付给申请执行人" in cn.document_content

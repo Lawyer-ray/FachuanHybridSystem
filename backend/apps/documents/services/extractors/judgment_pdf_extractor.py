@@ -26,6 +26,7 @@ class ExtractionResult:
     document_name: str | None = None  # 文书名称
     content: str | None = None  # 执行依据主文
     court_name: str | None = None  # 审理机构（法院/仲裁委名称）
+    full_text: str | None = None  # 文书全文（仅 reference 模式按需携带，供上层做摘要）
 
 
 class JudgmentPdfExtractor:
@@ -190,11 +191,13 @@ class JudgmentPdfExtractor:
             court_name=court_name,
         )
 
-    def extract_case_reference(self, file_path: str) -> ExtractionResult:
+    def extract_case_reference(self, file_path: str, *, include_full_text: bool = False) -> ExtractionResult:
         """从法院程序性文书（告知书/通知书等）提取案号、文书名称、审理机构。
 
         与 extract() 的区别：不要求"判决如下"主文（content 为 None）——
         执行等阶段的案号常只出现在程序性文书里，文书本身没有裁判主文。
+        include_full_text=True 时在 full_text 字段携带文书全文，供上层提炼
+        执行结果摘要等，避免二次读取 PDF。
         文本提取失败（正则和 OCR 均无文本）仍抛 BusinessException。
         """
         logger.info("开始解析法院程序性文书: %s", file_path)
@@ -210,6 +213,7 @@ class JudgmentPdfExtractor:
             document_name=self._extract_document_name(text),
             content=None,
             court_name=self._extract_court_name(text),
+            full_text=text if include_full_text else None,
         )
 
     def _extract_full_text(self, file_path: str) -> tuple[str, str]:  # pragma: no cover
