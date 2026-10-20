@@ -12,7 +12,7 @@ window.ImageRotationExport = (function () {
     function getRotatedImageData(imageItem) {
         return new Promise(function (resolve) {
             var img = imageItem.img;
-            var rotation = imageItem.rotation;
+            var rotation = U.normalizeRotation(imageItem.rotation);
 
             var isRotated90 = rotation === 90 || rotation === 270;
             var srcW = img.naturalWidth;

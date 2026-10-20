@@ -197,8 +197,9 @@ function imageRotationApp() {
         },
 
         openPreview: function (image) {
+            var self = this;
             this.selectedImage = image;
-            this.$nextTick(this.renderModalPreview);
+            this.$nextTick(function () { self.renderModalPreview(); });
         }
     };
 }

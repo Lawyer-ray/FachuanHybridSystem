@@ -5,6 +5,8 @@ import logging
 
 from PIL import Image
 
+from .angles import to_pil_angle
+
 logger = logging.getLogger(__name__)
 
 
@@ -102,12 +104,11 @@ def resize_to_paper_size(
 
 
 def rotate_image_for_output(image_data: bytes, *, rotation: int, img_format: str) -> bytes:
-    if rotation not in (0, 90, 180, 270):
-        rotation = 0
+    pil_angle = to_pil_angle(rotation)
 
     img: Image.Image = Image.open(io.BytesIO(image_data))
-    if rotation != 0:
-        img = img.rotate(rotation, expand=True)
+    if pil_angle != 0:
+        img = img.rotate(pil_angle, expand=True)
 
     output = io.BytesIO()
     fmt = (img_format or "jpeg").upper()
