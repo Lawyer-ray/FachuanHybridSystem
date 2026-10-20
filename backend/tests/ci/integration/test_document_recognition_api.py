@@ -268,3 +268,107 @@ def test_update_task_info(mock_get_svc, authenticated_client):
     data = resp.json()
     assert data["success"] is True
     assert data["case_number"] == "(2026)京01民初1号"
+
+
+# ===================================================================
+# Confirm date candidates（真实 service + 真实数据行，不 mock 任务服务）
+# ===================================================================
+
+
+def _owned_success_task_with_candidate(owner):
+    """归属 owner 的已识别任务 + 一条待确认开庭候选（对应记一笔确认页的真实形状）。"""
+    from datetime import datetime
+
+    from django.utils import timezone
+
+    from apps.document_recognition.models import (
+        DateCandidateStatus,
+        DateConfirmationStatus,
+        DocumentRecognitionDateCandidate,
+        DocumentRecognitionStatus,
+        DocumentRecognitionTask,
+    )
+
+    task = DocumentRecognitionTask.objects.create(
+        file_path="/tmp/summons.pdf",
+        original_filename="summons.pdf",
+        status=DocumentRecognitionStatus.SUCCESS,
+        date_confirmation_status=DateConfirmationStatus.PENDING,
+        created_by=owner,
+    )
+    candidate = DocumentRecognitionDateCandidate.objects.create(
+        task=task,
+        due_at=timezone.make_aware(datetime(2026, 11, 23, 15, 0)),
+        reminder_type="hearing",
+        context_text="开庭时间2026年11月23日下午15时00分",
+        source="regex",
+        confidence=0.95,
+        status=DateCandidateStatus.PENDING,
+    )
+    return task, candidate
+
+
+def _confirm(client, task_id: int, candidate_id: int):
+    return client.post(
+        f"/api/v1/document-recognition/court-document/task/{task_id}/dates/confirm",
+        data=json.dumps({"items": [{"candidate_id": candidate_id, "action": "confirm"}]}),
+        content_type="application/json",
+    )
+
+
+@pytest.mark.django_db
+def test_confirm_date_candidates_owned_task_returns_200_after_write():
+    """归属人确认自己任务的日期：提醒写入后端点须返回 200 与刷新后的任务级状态。
+
+    2026-10-20 事故：确认已在事务内写入提醒，端点随后重读任务时没带 user，
+    归属过滤按 user=None 只放行存量 NULL 归属任务 → 404「任务不存在」，前端把
+    已成功的写入误报为失败。既有端点测试全部 mock 掉任务服务，抓不到这条路径。
+    """
+    from django.test import Client
+
+    from apps.document_recognition.models import DateCandidateStatus
+    from apps.testing.factories import LawyerFactory
+
+    owner = LawyerFactory()
+    task, candidate = _owned_success_task_with_candidate(owner)
+    client = Client()
+    client.force_login(owner)
+
+    resp = _confirm(client, task.id, candidate.id)
+
+    assert resp.status_code == 200, resp.content
+    body = resp.json()
+    assert body["success"] is True
+    assert body["date_confirmation_status"] == "complete"
+    (result,) = body["results"]
+    assert result["candidate_id"] == candidate.id
+    assert result["status"] == "confirmed"
+    assert result["reminder_id"]
+
+    candidate.refresh_from_db()
+    assert candidate.status == DateCandidateStatus.CONFIRMED
+    assert candidate.reminder_id == result["reminder_id"]
+    assert candidate.confirmed_by_id == owner.id
+
+
+@pytest.mark.django_db
+def test_confirm_date_candidates_non_owner_gets_404_without_writing():
+    """非归属普通用户确认他人任务：404 且候选保持待确认（归属口径不被重读修复放宽）。"""
+    from django.test import Client
+
+    from apps.document_recognition.models import DateCandidateStatus
+    from apps.testing.factories import LawyerFactory
+
+    owner = LawyerFactory()
+    other = LawyerFactory()
+    task, candidate = _owned_success_task_with_candidate(owner)
+    client = Client()
+    client.force_login(other)
+
+    resp = _confirm(client, task.id, candidate.id)
+
+    assert resp.status_code == 404
+    assert resp.json()["code"] == "TASK_NOT_FOUND"
+    candidate.refresh_from_db()
+    assert candidate.status == DateCandidateStatus.PENDING
+    assert candidate.reminder_id is None
