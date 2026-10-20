@@ -86,6 +86,8 @@ class CalendarEventItem:
     is_today: bool
     #: 是否已逾期（已完成的不再标逾期——勾掉即视为已处理）
     is_overdue: bool
+    #: 首条成员的真实提醒类型（8 种枚举，编辑表单回填用；kind 是归并后的 4 类）
+    reminder_type: str = ""
     #: 是否已完成；合并事件 = 全部成员 reminder 都已完成
     is_completed: bool = False
     #: 合并了几条原始 reminder（同一庭审被多次同步时 >1）
@@ -95,6 +97,9 @@ class CalendarEventItem:
     #: 当前查询用户能否删除（合并事件 = 全部成员都可删）。由 calendar_month_service
     #: 按 AccessContext 标记；admin 内部调用不标记，保持 False
     can_delete: bool = False
+    #: 当前查询用户能否编辑（仅单条事件且具写权限；合并事件是多条同步记录，
+    #: 单条 PUT 改不动合并展示，一律不可编辑）。标记口径同 can_delete
+    can_edit: bool = False
     #: admin 用的编辑链接，由调用方按需填
     url: str = ""
 
@@ -230,6 +235,7 @@ def to_event_item(
         # 已完成的不再标逾期红——勾掉即视为已处理
         is_overdue=reminder.due_at < now and not is_completed,
         is_completed=is_completed,
+        reminder_type=str(getattr(reminder, "reminder_type", "") or ""),
         member_ids=[reminder.id],
     )
 

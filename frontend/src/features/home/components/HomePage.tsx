@@ -282,10 +282,12 @@ export function HomePage() {
         onSaved={invalidateCalendar}
       />
 
-      {/* 事件详情弹窗：日历格 / 手机抽屉 / 今日卡共用（z-[130]，叠在 z-61 的抽屉之上） */}
+      {/* 事件详情弹窗：日历格 / 手机抽屉 / 今日卡共用（z-[130]，叠在 z-61 的抽屉之上）。
+          编辑保存后 invalidate 重取日历（事件可能挪了日子 / 月份） */}
       <EventDetailDialog
         event={detail}
         onClose={() => setDetail(null)}
+        onSaved={invalidateCalendar}
         onOpenCase={handleOpenCase}
         onToggleComplete={handleToggleComplete}
         onDelete={handleDeleteEvent}

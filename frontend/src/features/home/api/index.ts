@@ -19,8 +19,8 @@
  * barrel re-export，消费方继续 `from '../api'` / `from '../../api'` 不变。
  */
 
-export { remindersApi, fetchCalendarMonth, setRemindersCompleted, deleteReminders, calendarKeys, REMINDER_TYPES_KEY, searchTargetOptions, listReminderTypes, parseReminder, createReminder } from './reminders'
-export type { CalendarEvent, CalendarStats, CalendarMonth, TargetType, TargetOption, ReminderTypeOption, ParsedReminder, CreateReminderIn } from './reminders'
+export { remindersApi, fetchCalendarMonth, setRemindersCompleted, deleteReminders, calendarKeys, REMINDER_TYPES_KEY, searchTargetOptions, listReminderTypes, parseReminder, createReminder, updateReminder } from './reminders'
+export type { CalendarEvent, CalendarStats, CalendarMonth, TargetType, TargetOption, ReminderTypeOption, ParsedReminder, CreateReminderIn, UpdateReminderIn } from './reminders'
 
 export { inboxApi, listInbox } from './inbox'
 export type { InboxMessageOut } from './inbox'

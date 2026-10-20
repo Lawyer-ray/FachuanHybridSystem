@@ -40,9 +40,11 @@ function ev(p: Partial<CalendarEvent> = {}): CalendarEvent {
     is_today: true,
     is_overdue: false,
     is_completed: false,
+    reminder_type: 'hearing',
     members: 1,
     member_ids: [1],
     can_delete: true,
+    can_edit: false,
     ...p,
   }
 }

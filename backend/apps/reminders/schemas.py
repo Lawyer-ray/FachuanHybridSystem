@@ -229,6 +229,8 @@ class CalendarEventItemOut(Schema):
     case_id: int | None = None
     is_today: bool = False
     is_overdue: bool = False
+    #: 首条成员的真实提醒类型（8 种枚举；kind 是归并后的 4 类）。编辑表单回填用
+    reminder_type: str = ""
     #: 是否已完成（合并事件 = 全部成员 reminder 都已完成）
     is_completed: bool = False
     #: 合并了几条原始 reminder（同一庭审被多次同步时 >1）
@@ -238,6 +240,9 @@ class CalendarEventItemOut(Schema):
     #: 当前用户能否删除该事件（仅创建人与管理员；合并事件须全部成员可删）。
     #: 前端据此显隐删除按钮——否则用户点了才收到 403
     can_delete: bool = False
+    #: 当前用户能否编辑该事件（单条事件且具写权限；合并事件一律不可编辑）。
+    #: 口径同 can_delete：前端据此显隐编辑按钮
+    can_edit: bool = False
 
 
 class CalendarStatsOut(Schema):
