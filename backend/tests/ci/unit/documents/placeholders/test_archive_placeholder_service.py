@@ -631,37 +631,39 @@ class TestGetLeadLawyerName:
 # _get_case_number
 # ---------------------------------------------------------------------------
 class TestGetCaseNumber:
-    def test_active_case_numbers(self) -> None:
+    def test_all_stage_case_numbers_coexist(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
         cn1 = MagicMock(number="(2026)粤0101民初001号")
-        cn2 = MagicMock(number="(2026)粤0101民初002号")
+        cn2 = MagicMock(number="(2026)粤0101执002号")  # privacy-allow
         case = MagicMock()
         case.id = 1
-        case.case_numbers.filter.return_value = [cn1, cn2]
+        case.case_numbers.all.return_value = [cn1, cn2]
 
         result = _get_case_number(case)
         assert "粤0101民初001号" in result
+        assert "粤0101执002号" in result
         assert "，" in result
 
-    def test_no_active_fallback_to_all(self) -> None:
+    def test_inactive_case_number_included(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
         cn1 = MagicMock(number="(2026)粤0202民初003号")
+        cn2 = MagicMock(number="(2026)粤0202执004号")  # privacy-allow
+        cn2.is_active = False
         case = MagicMock()
         case.id = 2
-        case.case_numbers.filter.return_value = []
-        case.case_numbers.all.return_value = [cn1]
+        case.case_numbers.all.return_value = [cn1, cn2]
 
         result = _get_case_number(case)
         assert "粤0202民初003号" in result
+        assert "粤0202执004号" in result
 
     def test_empty_case_numbers(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
         case = MagicMock()
         case.id = 3
-        case.case_numbers.filter.return_value = []
         case.case_numbers.all.return_value = []
 
         result = _get_case_number(case)
@@ -672,7 +674,7 @@ class TestGetCaseNumber:
 
         case = MagicMock()
         case.id = 4
-        case.case_numbers.filter.side_effect = Exception("db error")
+        case.case_numbers.all.side_effect = Exception("db error")
 
         result = _get_case_number(case)
         assert result == ""
@@ -684,7 +686,7 @@ class TestGetCaseNumber:
         cn.number = None
         case = MagicMock()
         case.id = 5
-        case.case_numbers.filter.return_value = [cn]
+        case.case_numbers.all.return_value = [cn]
 
         result = _get_case_number(case)
         assert result == ""
@@ -795,42 +797,113 @@ class TestGetCaseStage:
         result = _get_case_stage(case)
         assert result == ""
 
+    def test_stages_inferred_from_all_case_numbers(self) -> None:
+        from apps.documents.services.placeholders.archive import ArchivePlaceholderService
+
+        cn1 = MagicMock(number="（2026）粤0101民初001号", document_name="民事调解书")  # privacy-allow
+        cn2 = MagicMock(number="（2026）粤0101执002号", document_name="")  # privacy-allow
+        case = MagicMock()
+        case.current_stage = None
+        case.case_numbers.all.return_value = [cn1, cn2]
+
+        result = _get_case_stage(case)
+        assert result == "一审、执行"
+
+    def test_current_stage_merged_in_procedural_order(self) -> None:
+        from apps.documents.services.placeholders.archive import ArchivePlaceholderService
+
+        cn = MagicMock(number="（2026）粤0101执002号", document_name="")  # privacy-allow
+        case = MagicMock()
+        case.current_stage = "first_trial"
+        case.get_current_stage_display.return_value = "一审"
+        case.case_numbers.all.return_value = [cn]
+
+        result = _get_case_stage(case)
+        assert result == "一审、执行"
+
+    def test_unmappable_stage_display_appended_last(self) -> None:
+        from apps.documents.services.placeholders.archive import ArchivePlaceholderService
+
+        cn = MagicMock(number="（2026）粤0101执002号", document_name="")  # privacy-allow
+        case = MagicMock()
+        case.current_stage = "pre_mediation"
+        case.get_current_stage_display.return_value = "诉前调解"
+        case.case_numbers.all.return_value = [cn]
+
+        result = _get_case_stage(case)
+        assert result == "执行、诉前调解"
+
+    def test_stage_inference_exception_falls_back_to_current(self) -> None:
+        from apps.documents.services.placeholders.archive import ArchivePlaceholderService
+
+        case = MagicMock()
+        case.current_stage = "enforcement"
+        case.get_current_stage_display.return_value = "执行"
+        case.case_numbers.all.side_effect = Exception("db error")
+
+        result = _get_case_stage(case)
+        assert result == "执行"
+
 
 # ---------------------------------------------------------------------------
 # _get_trial_result
 # ---------------------------------------------------------------------------
 class TestGetTrialResult:
-    def test_with_active_results(self) -> None:
+    def test_all_stage_results_coexist_with_labels(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        cn1 = MagicMock(document_content="判决主文一")
-        cn2 = MagicMock(document_content="判决主文二")
+        cn1 = MagicMock(document_name="民事判决书", document_content="判决主文一")
+        cn2 = MagicMock(document_name="执行裁定书", document_content="执行主文二")
         case = MagicMock()
         case.id = 1
-        case.case_numbers.filter.return_value = [cn1, cn2]
+        case.case_numbers.all.return_value = [cn1, cn2]
 
         result = _get_trial_result(case)
-        assert "判决主文一" in result
-        assert "判决主文二" in result
+        assert "【民事判决书】判决主文一" in result
+        assert "【执行裁定书】执行主文二" in result
+        assert "\n" in result
 
-    def test_no_active_fallback_to_all(self) -> None:
+    def test_single_result_without_label(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
-        cn = MagicMock(document_content="全部案号内容")
+        cn = MagicMock(document_name="民事判决书", document_content="判决主文一")
         case = MagicMock()
         case.id = 2
-        case.case_numbers.filter.return_value = []
         case.case_numbers.all.return_value = [cn]
 
         result = _get_trial_result(case)
-        assert "全部案号内容" in result
+        assert result == "判决主文一"
+
+    def test_multi_result_without_document_name(self) -> None:
+        from apps.documents.services.placeholders.archive import ArchivePlaceholderService
+
+        cn1 = MagicMock(document_name="", document_content="判决主文一")
+        cn2 = MagicMock(document_name=None, document_content="执行主文二")
+        case = MagicMock()
+        case.id = 3
+        case.case_numbers.all.return_value = [cn1, cn2]
+
+        result = _get_trial_result(case)
+        assert result == "判决主文一\n执行主文二"
+
+    def test_inactive_case_number_content_included(self) -> None:
+        from apps.documents.services.placeholders.archive import ArchivePlaceholderService
+
+        cn1 = MagicMock(document_name="民事判决书", document_content="判决主文一")
+        cn2 = MagicMock(document_name="执行裁定书", document_content="执行主文二")
+        cn2.is_active = False
+        case = MagicMock()
+        case.id = 4
+        case.case_numbers.all.return_value = [cn1, cn2]
+
+        result = _get_trial_result(case)
+        assert "执行主文二" in result
 
     def test_empty_results(self) -> None:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
         case = MagicMock()
-        case.id = 3
-        case.case_numbers.filter.return_value = []
+        case.id = 5
         case.case_numbers.all.return_value = []
 
         result = _get_trial_result(case)
@@ -840,8 +913,8 @@ class TestGetTrialResult:
         from apps.documents.services.placeholders.archive import ArchivePlaceholderService
 
         case = MagicMock()
-        case.id = 4
-        case.case_numbers.filter.side_effect = Exception("db error")
+        case.id = 6
+        case.case_numbers.all.side_effect = Exception("db error")
 
         result = _get_trial_result(case)
         assert result == ""
@@ -853,8 +926,8 @@ class TestGetTrialResult:
         cn2 = MagicMock(document_content="   ")
         cn3 = MagicMock(document_content="有内容")
         case = MagicMock()
-        case.id = 5
-        case.case_numbers.filter.return_value = [cn1, cn2, cn3]
+        case.id = 7
+        case.case_numbers.all.return_value = [cn1, cn2, cn3]
 
         result = _get_trial_result(case)
         assert result == "有内容"
@@ -865,8 +938,8 @@ class TestGetTrialResult:
         cn = MagicMock()
         cn.document_content = None
         case = MagicMock()
-        case.id = 6
-        case.case_numbers.filter.return_value = [cn]
+        case.id = 8
+        case.case_numbers.all.return_value = [cn]
 
         result = _get_trial_result(case)
         assert result == ""

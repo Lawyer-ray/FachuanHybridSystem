@@ -123,8 +123,8 @@ class ArchivePlaceholderService(BasePlaceholderService):
         },
         "案件案号": {
             "display_name": "案件案号",
-            "description": "案件在法院的案号(首个生效案号)",
-            "example_value": "(2026)粤0606民初0001号",
+            "description": "案件各审级案号(一审/二审/执行等全阶段共存,逗号分隔)",
+            "example_value": "(2026)粤0606民初0001号，(2026)粤0606执0002号",  # privacy-allow
         },
         "管辖法院": {
             "display_name": "管辖法院",
@@ -133,13 +133,13 @@ class ArchivePlaceholderService(BasePlaceholderService):
         },
         "案件当前阶段": {
             "display_name": "案件当前阶段",
-            "description": "案件当前审理阶段(如一审、二审等)",
-            "example_value": "一审",
+            "description": "案件全部审理阶段(从各审级案号推断并与当前阶段合并,如一审、执行)",
+            "example_value": "一审、执行",
         },
         "案件审理结果": {
             "display_name": "案件审理结果",
-            "description": "案件裁判文书中的判决/调解主文内容",
-            "example_value": "一、被告某某公司于本判决生效之日起十日内向原告支付欠款100万元...",
+            "description": "全部审级裁判文书主文内容(多审级共存,按文书名标注后换行分隔)",
+            "example_value": "【民事判决书】一、被告某某公司于本判决生效之日起十日内向原告支付欠款100万元...",
         },
         "办案小结内容": {
             "display_name": "办案小结内容",
@@ -410,11 +410,9 @@ def _get_lead_lawyer_name(case: Any) -> str:
 
 # ↓↓ 由 ArchivePlaceholderService 下沉的模块级纯函数（四层架构静态方法棘轮）
 def _get_case_number(case: Any) -> str:
-    """获取案件案号（多个案号用逗号分隔）"""
+    """获取案件案号（各审级案号全阶段共存，多个案号用逗号分隔）"""
     try:
-        # 优先取已生效案号，其次取全部案号
-        active_cns = list(case.case_numbers.filter(is_active=True))
-        cns = active_cns if active_cns else list(case.case_numbers.all())
+        cns = list(case.case_numbers.all())
         numbers = [str(getattr(cn, "number", "") or "") for cn in cns if getattr(cn, "number", None)]
         return "，".join(numbers)
     except Exception:
@@ -440,30 +438,55 @@ def _get_court_name(case: Any) -> str:
         return ""
 
 
+# 案件阶段展示顺序（一审 → 二审 → 再审 → 执行，保全/破产排后）
+_STAGE_DISPLAY_ORDER: tuple[str, ...] = ("一审", "二审", "再审", "执行", "保全", "破产")
+
+
 # ↓↓ 由 ArchivePlaceholderService 下沉的模块级纯函数（四层架构静态方法棘轮）
 def _get_case_stage(case: Any) -> str:
-    """获取案件当前阶段"""
-    if not getattr(case, "current_stage", None):
-        return ""
+    """获取案件审理阶段：从全部案号推断各审级并与当前阶段合并，全阶段共存。"""
+    from apps.contracts.services.contract.integrations.case_info_extraction_service import infer_stage
+
+    stages: list[str] = []
     try:
-        return case.get_current_stage_display() or ""
+        for cn in case.case_numbers.all():
+            stage = infer_stage(
+                case_number=str(getattr(cn, "number", "") or ""),
+                document_name=str(getattr(cn, "document_name", "") or ""),
+            )
+            if stage and stage not in stages:
+                stages.append(stage)
     except Exception:
-        return str(getattr(case, "current_stage", "") or "")
+        logger.warning("从案号推断审理阶段失败", extra={"case_id": getattr(case, "id", None)})
+
+    current_display = ""
+    if getattr(case, "current_stage", None):
+        try:
+            current_display = case.get_current_stage_display() or ""
+        except Exception:
+            current_display = str(getattr(case, "current_stage", "") or "")
+    if current_display and current_display not in stages:
+        stages.append(current_display)
+
+    if not stages:
+        return ""
+    ordered = [s for s in _STAGE_DISPLAY_ORDER if s in stages]
+    ordered.extend(s for s in stages if s not in _STAGE_DISPLAY_ORDER)
+    return "、".join(ordered)
 
 
 # ↓↓ 由 ArchivePlaceholderService 下沉的模块级纯函数（四层架构静态方法棘轮）
 def _get_trial_result(case: Any) -> str:
-    """获取案件审理结果（从所有案号中取有内容的执行依据主文，用换行分隔）"""
+    """获取案件审理结果（全部案号的主文共存，多个主文按文书名标注后换行分隔）"""
     try:
-        # 优先取已生效案号，其次取全部案号
-        active_cns = list(case.case_numbers.filter(is_active=True))
-        cns = active_cns if active_cns else list(case.case_numbers.all())
-        contents = []
-        for cn in cns:
+        entries: list[tuple[str, str]] = []
+        for cn in case.case_numbers.all():
             content = str(getattr(cn, "document_content", None) or "").strip()
             if content:
-                contents.append(content)
-        return "\n".join(contents)
+                entries.append((str(getattr(cn, "document_name", "") or "").strip(), content))
+        if len(entries) <= 1:
+            return entries[0][1] if entries else ""
+        return "\n".join(f"【{name}】{content}" if name else content for name, content in entries)
     except Exception:
         logger.warning("获取案件审理结果失败", extra={"case_id": getattr(case, "id", None)})
     return ""
