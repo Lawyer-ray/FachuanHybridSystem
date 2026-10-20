@@ -18,14 +18,17 @@ vi.mock('../../api', () => ({
   listCasesByContract: vi.fn(),
   listRemindersByCase: vi.fn(),
   getCaseFolderBinding: vi.fn(),
-  listCaseFolderEntries: vi.fn(),
+  listFolderEntries: vi.fn(),
+  createFolderEntry: vi.fn(),
+  renameFolderEntry: vi.fn(),
+  uploadFolderFiles: vi.fn(),
 }))
 
 import {
   getCaseFolderBinding,
   getContract,
-  listCaseFolderEntries,
   listCasesByContract,
+  listFolderEntries,
   listLawyers,
   listRemindersByCase,
 } from '../../api'
@@ -38,7 +41,7 @@ const lawyersMock = vi.mocked(listLawyers)
 const casesMock = vi.mocked(listCasesByContract)
 const remindersMock = vi.mocked(listRemindersByCase)
 const bindingMock = vi.mocked(getCaseFolderBinding)
-const entriesMock = vi.mocked(listCaseFolderEntries)
+const entriesMock = vi.mocked(listFolderEntries)
 
 const today = new Date()
 const pad = (n: number) => ('0' + n).slice(-2)
@@ -364,8 +367,9 @@ describe('DealDetailPage 程序链与案件节', () => {
       files: [{ name: '起诉状.pdf', subpath: '起诉状.pdf', size: 2048, modified_at: '2026-09-29T10:00:00' }],
     })
     setupUi()
-    await screen.findAllByText('2-邮件往来') // 两个案件卡各自渲染一份
-    expect(screen.getAllByText('起诉状.pdf').length).toBe(2)
+    await screen.findAllByText('2-邮件往来') // 两个案件卡各一份 + 右栏合同文件夹树一份
+    expect(screen.getAllByText('起诉状.pdf').length).toBe(3)
+    expect(screen.getByText('合同文件夹')).toBeTruthy() // 右栏节标题
     expect(screen.queryByText('收到上诉状')).toBeNull() // 默认不在日志视图
 
     const sec2 = document.getElementById('case-2')!

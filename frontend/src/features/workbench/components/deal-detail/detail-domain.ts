@@ -200,10 +200,19 @@ export interface TimelineEntry {
   text: string
   who: string
   attN: number
-  /** 附件明细（可点预览）；同内容日志合并后为按 id 去重的并集 */
+  /** 附件明细（可点预览）；同内容日志合并后为并集，再按文件名去重 */
   atts: DealLogAtt[]
   /** 相同内容自动合并后的条数（>1 显示 ×N） */
   n: number
+}
+
+/** 文件名展示形：去掉括号内的案件背景描述（「裁定书（某案）_收.pdf」→「裁定书_收.pdf」） */
+export function stripEntryParens(name: string): string {
+  const stripped = name.replace(/（[^）]*）/g, '').replace(/\([^()]*\)/g, '').trim()
+  if (!stripped) return name
+  // 剩余部分去掉扩展名后没有可读内容（整名都在括号里）→ 原名可读性更好
+  const stem = stripped.replace(/\.[^.]+$/, '').trim()
+  return stem ? stripped : name
 }
 
 /**
@@ -211,6 +220,7 @@ export interface TimelineEntry {
  * 相同内容的日志自动合并成一条（测试灌入的重复、短信重放）：条目落在组内
  * 最新一次的位置与时间、who 取最新，附件按 id 去重取并集——真实业务里
  * 同内容不同天的记录（如周期性进度）也只留最新一条叙事，×N 说明发生过几次。
+ * 重放日志常带同名不同 id 的重复附件，附件再按文件名去重只展示一个。
  */
 export function timelineEntries(c: DealCase): TimelineEntry[] {
   const out: TimelineEntry[] = []
@@ -222,18 +232,26 @@ export function timelineEntries(c: DealCase): TimelineEntry[] {
       exist.n += 1
       exist.date = date
       exist.who = l.who || exist.who
-      const seen = new Set(exist.atts.map((a) => a.id))
-      for (const a of l.atts) if (!seen.has(a.id)) exist.atts.push(a)
+      const seenNames = new Set(exist.atts.map((a) => a.name))
+      for (const a of l.atts) if (!seenNames.has(a.name)) exist.atts.push(a)
       exist.attN = exist.atts.length
       continue
+    }
+    const seenNames = new Set<string>()
+    const atts: DealLogAtt[] = []
+    for (const a of l.atts) {
+      if (!seenNames.has(a.name)) {
+        seenNames.add(a.name)
+        atts.push(a)
+      }
     }
     const entry: TimelineEntry = {
       key: 'L' + l.id,
       date,
       text: l.text,
       who: l.who,
-      attN: l.attN,
-      atts: [...l.atts],
+      attN: atts.length,
+      atts,
       n: 1,
     }
     byText.set(l.text, entry)

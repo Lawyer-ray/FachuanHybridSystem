@@ -106,8 +106,8 @@ export interface CaseFolderBindingInfo {
   is_accessible: boolean
 }
 
-/** 绑定文件夹某一层子项（GET /cases/{id}/folder-entries；手写轻量契约，后端 schema 未入生成物） */
-export interface CaseFolderEntries {
+/** 绑定文件夹某一层子项（GET folder-entries；手写轻量契约，案件/合同两端点同形） */
+export type FolderEntries = {
   browsable: boolean
   message: string | null
   path_display: string

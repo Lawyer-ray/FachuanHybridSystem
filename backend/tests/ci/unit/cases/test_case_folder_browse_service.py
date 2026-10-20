@@ -1,10 +1,11 @@
-"""CaseFolderBrowseService 单测：子路径规范化安全、目录枚举契约、绑定与 ACL 分支。"""
+"""CaseFolderBrowseService 单测：子路径规范化安全、目录枚举契约、管理操作（新建/上传/重命名）与 ACL。"""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 from apps.cases.models import CaseFolderBinding
 from apps.cases.services.material.case_folder_browse_service import CaseFolderBrowseService
@@ -60,7 +61,7 @@ class TestResolveAndSubpath:
         (outside / "secret.txt").write_text("x")
         link = tmp_path / "jump"
         link.symlink_to(outside)
-        with pytest.raises(ValidationException, match="不在案件绑定目录内"):
+        with pytest.raises(ValidationException, match="不在绑定目录内"):
             svc._resolve_subpath(tmp_path, "jump/secret.txt")
 
     def test_subpath_of(self, svc, tmp_path):
@@ -87,7 +88,7 @@ class TestListEntriesAndResolveFile:
         (tmp_path / ".DS_Store").write_text("junk")
         case = self._bind(tmp_path)
 
-        out = svc.list_entries(case_id=case.id, subpath="", perm_open_access=True)
+        out = svc.list_entries(owner_id=case.id, subpath="", perm_open_access=True)
 
         assert out["browsable"] is True
         assert out["subpath"] == "" and out["parent_subpath"] == ""
@@ -102,7 +103,7 @@ class TestListEntriesAndResolveFile:
         (mail / "裁定书.pdf").write_bytes(b"%PDF-1.4")
         case = self._bind(tmp_path)
 
-        out = svc.list_entries(case_id=case.id, subpath="2-邮件往来", perm_open_access=True)
+        out = svc.list_entries(owner_id=case.id, subpath="2-邮件往来", perm_open_access=True)
 
         assert out["subpath"] == "2-邮件往来"
         assert out["parent_subpath"] == ""
@@ -110,41 +111,112 @@ class TestListEntriesAndResolveFile:
         assert out["files"] == []
 
         deeper = svc.list_entries(
-            case_id=case.id, subpath="2-邮件往来/2026.09.29-收到法院裁定书", perm_open_access=True
+            owner_id=case.id, subpath="2-邮件往来/2026.09.29-收到法院裁定书", perm_open_access=True
         )
         assert [f["name"] for f in deeper["files"]] == ["裁定书.pdf"]
         assert deeper["parent_subpath"] == "2-邮件往来"
 
-    def test_missing_subfolder_not_browsable(self, svc, tmp_path):
+    def test_missing_subfolder_404(self, svc, tmp_path):
         case = self._bind(tmp_path)
-        out = svc.list_entries(case_id=case.id, subpath="不存在", perm_open_access=True)
-        assert out["browsable"] is False
-        assert "不存在" in (out["message"] or "")
+        with pytest.raises(NotFoundError, match="子文件夹不存在"):
+            svc.list_entries(owner_id=case.id, subpath="不存在", perm_open_access=True)
 
     def test_no_binding_raises_not_found(self, svc, tmp_path):
         case = CaseFactory()
         with pytest.raises(NotFoundError, match="未绑定文件夹"):
-            svc.list_entries(case_id=case.id, perm_open_access=True)
+            svc.list_entries(owner_id=case.id, perm_open_access=True)
 
-    def test_inaccessible_root(self, svc, tmp_path):
+    def test_inaccessible_root_404(self, svc, tmp_path):
         case = self._bind(tmp_path / "gone")
-        out = svc.list_entries(case_id=case.id, perm_open_access=True)
-        assert out["browsable"] is False
-        assert "不可达" in (out["message"] or "")
+        with pytest.raises(NotFoundError, match="不可达"):
+            svc.list_entries(owner_id=case.id, perm_open_access=True)
 
     def test_resolve_file(self, svc, tmp_path):
         (tmp_path / "a.pdf").write_bytes(b"%PDF-1.4")
         case = self._bind(tmp_path)
-        resolved = svc.resolve_file(case_id=case.id, subpath="a.pdf", perm_open_access=True)
+        resolved = svc.resolve_file(owner_id=case.id, subpath="a.pdf", perm_open_access=True)
         assert resolved == (tmp_path / "a.pdf").resolve()
 
     def test_resolve_file_missing_404(self, svc, tmp_path):
         case = self._bind(tmp_path)
         with pytest.raises(NotFoundError, match="文件不存在"):
-            svc.resolve_file(case_id=case.id, subpath="ghost.pdf", perm_open_access=True)
+            svc.resolve_file(owner_id=case.id, subpath="ghost.pdf", perm_open_access=True)
 
     def test_acl_fail_closed_without_access(self, svc, tmp_path):
         """无 user / 无开放授权：fail-closed（归属过滤 user=None 陷阱的回归闸）。"""
         case = self._bind(tmp_path)
         with pytest.raises((PermissionDenied, NotFoundError)):
-            svc.list_entries(case_id=case.id)
+            svc.list_entries(owner_id=case.id)
+
+
+# ── 管理操作：mkdir / upload / rename（django_db） ──
+
+
+@pytest.mark.django_db
+class TestManageOperations:
+    def _bind(self, tmp_path: Path):
+        case = CaseFactory()
+        CaseFolderBinding.objects.create(case=case, folder_path=str(tmp_path))
+        return case
+
+    def test_mkdir(self, svc, tmp_path):
+        case = self._bind(tmp_path)
+        out = svc.mkdir(owner_id=case.id, subpath="", name="2-邮件往来", perm_open_access=True)
+        assert out == {"subpath": "2-邮件往来", "name": "2-邮件往来"}
+        assert (tmp_path / "2-邮件往来").is_dir()
+
+    def test_mkdir_duplicate_rejected(self, svc, tmp_path):
+        case = self._bind(tmp_path)
+        (tmp_path / "dup").mkdir()
+        with pytest.raises(ValidationException, match="已存在"):
+            svc.mkdir(owner_id=case.id, subpath="", name="dup", perm_open_access=True)
+
+    def test_mkdir_illegal_names(self, svc, tmp_path):
+        case = self._bind(tmp_path)
+        for bad in ["", "  ", ".hidden", "..", "a/b", "a\\b", 'x:y', "n" * 201]:
+            with pytest.raises(ValidationException):
+                svc.mkdir(owner_id=case.id, subpath="", name=bad, perm_open_access=True)
+
+    def test_upload_writes_and_dedupes(self, svc, tmp_path):
+        case = self._bind(tmp_path)
+        (tmp_path / "inbox").mkdir()
+        files = [
+            SimpleUploadedFile("裁定书.pdf", b"%PDF-1.4-aaa"),
+            SimpleUploadedFile("裁定书.pdf", b"%PDF-1.4-bbb"),  # 同名 → 序号错开
+            SimpleUploadedFile("../escape.txt", b"x"),  # 文件名清洗：路径分隔符被处理
+        ]
+        out = svc.save_uploads(owner_id=case.id, subpath="inbox", files=files, perm_open_access=True)
+        names = [s["name"] for s in out["saved"]]
+        assert "裁定书.pdf" in names and "裁定书_1.pdf" in names
+        assert (tmp_path / "inbox" / "裁定书.pdf").read_bytes() == b"%PDF-1.4-aaa"
+        assert (tmp_path / "inbox" / "裁定书_1.pdf").read_bytes() == b"%PDF-1.4-bbb"
+        # 清洗后的文件必须仍收敛在目标目录
+        for p in (tmp_path / "inbox").iterdir():
+            assert p.parent == tmp_path / "inbox"
+
+    def test_upload_empty_rejected(self, svc, tmp_path):
+        case = self._bind(tmp_path)
+        with pytest.raises(ValidationException, match="未收到文件"):
+            svc.save_uploads(owner_id=case.id, subpath="", files=[], perm_open_access=True)
+
+    def test_rename_file_and_folder(self, svc, tmp_path):
+        case = self._bind(tmp_path)
+        folder = tmp_path / "草稿"
+        folder.mkdir()
+        (folder / "old.pdf").write_bytes(b"x")
+
+        out = svc.rename(owner_id=case.id, subpath="草稿/old.pdf", new_name="new.pdf", perm_open_access=True)
+        assert out == {"subpath": "草稿/new.pdf", "name": "new.pdf"}
+        assert (folder / "new.pdf").exists() and not (folder / "old.pdf").exists()
+
+        svc.rename(owner_id=case.id, subpath="草稿", new_name="定稿", perm_open_access=True)
+        assert (tmp_path / "定稿" / "new.pdf").exists()
+
+    def test_rename_duplicate_and_root_rejected(self, svc, tmp_path):
+        case = self._bind(tmp_path)
+        (tmp_path / "a.txt").write_text("1")
+        (tmp_path / "b.txt").write_text("2")
+        with pytest.raises(ValidationException, match="已存在"):
+            svc.rename(owner_id=case.id, subpath="a.txt", new_name="b.txt", perm_open_access=True)
+        with pytest.raises(ValidationException, match="绑定根"):
+            svc.rename(owner_id=case.id, subpath="", new_name="改名", perm_open_access=True)

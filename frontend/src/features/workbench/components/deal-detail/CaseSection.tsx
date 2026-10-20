@@ -5,8 +5,8 @@ import { withDownloadTicket } from '@/lib/download-ticket'
 import { getCaseFolderBinding } from '../../api'
 import { workbenchKeys } from '../../hooks/use-workbench-data'
 import type { DealCase } from '../../types'
-import { caseMetaParts, legalStatusGroups, timelineEntries } from './detail-domain'
-import { FolderView } from './FolderView'
+import { caseMetaParts, legalStatusGroups, stripEntryParens, timelineEntries } from './detail-domain'
+import { FolderTree } from './FolderTree'
 import { ActionButton, Card, Chip, MetaLine, Pill, StateDot } from './ui'
 
 /** 附件新标签预览：media 走一次性 ticket（60s 单次），失败时后端 403 兜底 */
@@ -121,7 +121,9 @@ export function CaseSection({
       )}
 
       {view === 'folder' && binding ? (
-        <FolderView caseId={c.id} binding={binding} />
+        <div className="px-5 pt-2 pb-4 max-[680px]:px-3.5">
+          <FolderTree kind="case" ownerId={c.id} />
+        </div>
       ) : (
         <div className="px-5 pt-3.5 pb-1.5 max-[680px]:px-3.5">
           {entries.length === 0 ? (
@@ -166,7 +168,9 @@ export function CaseSection({
                           onClick={() => void openAttachment(a.mediaUrl)}
                           className="inline-flex max-w-[300px] cursor-pointer items-center rounded-[6px] border border-border-light bg-background px-2 py-[1px] text-[11px] text-muted-foreground transition-colors hover:border-input hover:text-foreground"
                         >
-                          <span className="truncate">📎 {a.name}</span>
+                          <span className="truncate" title={a.name}>
+                            📎 {stripEntryParens(a.name)}
+                          </span>
                         </button>
                       ))}
                     </span>

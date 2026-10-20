@@ -8,6 +8,7 @@ __all__: list[str] = [
     "CaseFolderSubfolderSchema",
     "CaseFolderFileSchema",
     "CaseFolderEntriesResponseSchema",
+    "CaseFolderEntryNameIn",
 ]
 
 
@@ -33,3 +34,10 @@ class CaseFolderEntriesResponseSchema(Schema):
     parent_subpath: str = ""
     folders: list[CaseFolderSubfolderSchema] = []
     files: list[CaseFolderFileSchema] = []
+
+
+class CaseFolderEntryNameIn(Schema):
+    """新建 / 重命名共用入参：subpath 定位目标（mkdir 为父目录、rename 为条目本身），name 为新名字。"""
+
+    subpath: str = ""
+    name: str

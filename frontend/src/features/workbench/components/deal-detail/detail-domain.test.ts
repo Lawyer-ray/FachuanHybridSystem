@@ -19,6 +19,7 @@ import {
   planCases,
   railFacts,
   railParties,
+  stripEntryParens,
   timelineEntries,
 } from './detail-domain'
 
@@ -277,13 +278,13 @@ describe('案件节', () => {
     ])
   })
 
-  it('timelineEntries：相同内容自动合并（×N、落最新时间、who 取最新、附件按 id 去重并集）', () => {
+  it('timelineEntries：相同内容自动合并（×N、落最新时间、who 取最新、附件按文件名去重并集）', () => {
     const dup = '收到法院短信：执行款已到账'
     const c = makeCase({
       logs: [
-        // 倒序（新 → 旧）：两条同内容 + 一条独立
-        { id: 5, when: '2026-09-03T10:00', who: '李某某', text: dup, attN: 1, atts: [att(51)], rem: '', remToday: false },
-        { id: 4, when: '2026-09-02T09:00', who: '系统', text: dup, attN: 2, atts: [att(41), att(51)], rem: '', remToday: false },
+        // 倒序（新 → 旧）：两条同内容 + 一条独立；重放日志附件常同名不同 id
+        { id: 5, when: '2026-09-03T10:00', who: '李某某', text: dup, attN: 2, atts: [{ id: 52, name: '裁定书.pdf', mediaUrl: '/media/x52' }, att(51)], rem: '', remToday: false },
+        { id: 4, when: '2026-09-02T09:00', who: '系统', text: dup, attN: 2, atts: [{ id: 41, name: '裁定书.pdf', mediaUrl: '/media/x41' }, att(51)], rem: '', remToday: false },
         { id: 3, when: '2026-08-30T09:00', who: '李某某', text: '单独一条', attN: 0, atts: [], rem: '', remToday: false },
       ],
     })
@@ -293,8 +294,16 @@ describe('案件节', () => {
       ['2026-09-03', dup, '李某某', 2],
     ])
     const merged = out[1]!
+    // 「裁定书.pdf」两条同名只留先到的 id=41，a51 的名字不同保留
     expect(merged.atts.map((a) => a.id)).toEqual([41, 51])
+    expect(merged.attN).toBe(2)
     expect(merged.key).toBe('L4')
+  })
+
+  it('stripEntryParens：文件名括号内的案件背景描述隐藏，空结果退回原名', () => {
+    expect(stripEntryParens('民事裁定书（张某诉某公司案）_20260929收.pdf')).toBe('民事裁定书_20260929收.pdf')
+    expect(stripEntryParens('告知书(semi)_a.pdf')).toBe('告知书_a.pdf')
+    expect(stripEntryParens('（全是括号）.pdf')).toBe('（全是括号）.pdf')
   })
 })
 

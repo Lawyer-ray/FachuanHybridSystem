@@ -5,6 +5,7 @@ import type { DealContact, DealTeamMember, WorkbenchDeal } from '../../types'
 import type { Deadline } from './detail-domain'
 import { dueLabel } from './detail-domain'
 import { RailFacts, RailParties, RailPayments, RailSupps } from './RailArchive'
+import { FolderTree } from './FolderTree'
 import { Card, CopyText, KV, RailAction, RailSection } from './ui'
 
 /**
@@ -140,6 +141,12 @@ export function DetailRail({
 
       <RailPayments deal={deal} onAdd={onAddPayment} />
       <RailSupps deal={deal} />
+
+      {/* 合同文件夹：绑定目录的树形浏览（拆分比 Finder 顺手），未绑定时树内提示 */}
+      <RailSection title="合同文件夹">
+        <FolderTree kind="contract" ownerId={deal.id} maxH="max-h-[320px]" />
+      </RailSection>
+
       <RailFacts deal={deal} />
     </Card>
   )
