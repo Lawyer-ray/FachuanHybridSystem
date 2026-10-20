@@ -401,3 +401,247 @@ class TestMarkAlreadyImported:
             mock_model.objects.filter.return_value.values_list.return_value = []
             svc._mark_already_imported(candidates, contract_id=1)
         assert candidates[0]["already_imported"] is False
+
+
+# ---------------------------------------------------------------------------
+# 授权委托类文书族去重 + 对方当事人身份材料排除
+# ---------------------------------------------------------------------------
+from apps.contracts.services.contract.integrations._candidate_post_processor import (
+    CandidatePostProcessor,
+    _auth_recency,
+    authorization_family,
+)
+
+
+class TestAuthorizationFamily:
+    def test_families_recognized(self) -> None:
+        assert authorization_family("3-授权委托书（某甲公司案件）V1_20251223.pdf") == "授权委托书"
+        assert authorization_family("3-法定代表人身份证明书（某甲公司案件）V1_20251223.docx") == "法定代表人身份证明"
+        assert authorization_family("5-所函（某甲公司案件）V1_20251229_已签章.pdf") == "所函"
+
+    def test_release_letter_is_not_authorization_family(self) -> None:
+        """解除授权委托申请书是独立文书，不得与授权委托书互相去重。"""
+        assert authorization_family("解除授权委托申请书（某甲公司案件）V1_20251223.docx") == ""
+
+    def test_unrelated_filename(self) -> None:
+        assert authorization_family("民事调解书.pdf") == ""
+        assert authorization_family("") == ""
+
+
+class TestAuthRecency:
+    def test_newer_iso_wins(self) -> None:
+        older = {"modified_at": "2025-08-27T10:00:00+00:00", "source_path": "/a/授权委托书.pdf"}
+        newer = {"modified_at": "2025-12-28T16:28:48+00:00", "source_path": "/b/授权委托书.docx"}
+        assert _auth_recency(newer) > _auth_recency(older)
+
+    def test_same_time_pdf_wins(self) -> None:
+        docx = {"modified_at": "2025-12-28T16:28:48+00:00", "source_path": "/a/所函.docx"}
+        pdf = {"modified_at": "2025-12-28T16:28:48+00:00", "source_path": "/a/所函_已签章.pdf"}
+        assert _auth_recency(pdf) > _auth_recency(docx)
+
+    def test_empty_modified_at_oldest(self) -> None:
+        empty = {"modified_at": "", "source_path": "/a/授权委托书.pdf"}
+        known = {"modified_at": "2000-01-01T00:00:00+00:00", "source_path": "/b/授权委托书.docx"}
+        assert _auth_recency(known) > _auth_recency(empty)
+
+
+class TestDedupAuthorizationFamilies:
+    def _processor(self) -> CandidatePostProcessor:
+        return CandidatePostProcessor(scan_service=object())
+
+    def test_latest_per_family_kept(self) -> None:
+        candidates = [
+            {
+                "filename": "3-授权委托书V1_20250827.docx",
+                "source_path": "/first/3-授权委托书V1_20250827.docx",
+                "modified_at": "2025-08-27T10:00:00+00:00",
+                "selected": True,
+            },
+            {
+                "filename": "4-授权委托书V1_20251223.docx",
+                "source_path": "/exec/4-授权委托书V1_20251223.docx",
+                "modified_at": "2025-12-23T14:38:08+00:00",
+                "selected": True,
+            },
+            {
+                "filename": "4-授权委托书V1_20251223.pdf",
+                "source_path": "/exec/4-授权委托书V1_20251223.pdf",
+                "modified_at": "2025-12-28T16:28:48+00:00",
+                "selected": True,
+            },
+            {
+                "filename": "民事调解书.pdf",
+                "source_path": "/first/民事调解书.pdf",
+                "modified_at": "2025-01-01T00:00:00+00:00",
+                "selected": True,
+            },
+        ]
+        self._processor()._dedup_authorization_families(candidates)
+
+        kept = [c for c in candidates if c["filename"] == "民事调解书.pdf"][0]
+        assert kept["selected"] is True and not kept.get("skip_reason")
+        survivors = [
+            c for c in candidates if c["filename"].startswith(("3-授权", "4-授权")) and not c.get("skip_reason")
+        ]
+        assert len(survivors) == 1
+        assert survivors[0]["filename"] == "4-授权委托书V1_20251223.pdf"
+        dupes = [c for c in candidates if c.get("skip_reason") == "重复文书，已取最新一份"]
+        assert len(dupes) == 2
+
+    def test_families_dedup_independently(self) -> None:
+        """授权委托书与法定代表人身份证明书各自留最新，互不挤占。"""
+        candidates = [
+            {
+                "filename": "授权委托书V1_20250827.pdf",
+                "source_path": "/a/授权委托书V1_20250827.pdf",
+                "modified_at": "2025-08-27T00:00:00+00:00",
+                "selected": True,
+            },
+            {
+                "filename": "授权委托书V1_20251223.pdf",
+                "source_path": "/b/授权委托书V1_20251223.pdf",
+                "modified_at": "2025-12-23T00:00:00+00:00",
+                "selected": True,
+            },
+            {
+                "filename": "法定代表人身份证明书V1_20250827.docx",
+                "source_path": "/a/法定代表人身份证明书V1_20250827.docx",
+                "modified_at": "2025-08-27T00:00:00+00:00",
+                "selected": True,
+            },
+            {
+                "filename": "法定代表人身份证明书V1_20251223.pdf",
+                "source_path": "/b/法定代表人身份证明书V1_20251223.pdf",
+                "modified_at": "2025-12-28T00:00:00+00:00",
+                "selected": True,
+            },
+        ]
+        self._processor()._dedup_authorization_families(candidates)
+
+        survivors = {c["filename"] for c in candidates if not c.get("skip_reason")}
+        assert survivors == {"授权委托书V1_20251223.pdf", "法定代表人身份证明书V1_20251223.pdf"}
+
+    def test_single_member_untouched(self) -> None:
+        candidates = [
+            {
+                "filename": "5-所函V1_20251229_已签章.pdf",
+                "source_path": "/exec/5-所函V1_20251229_已签章.pdf",
+                "modified_at": "2025-12-29T00:00:00+00:00",
+                "selected": True,
+            }
+        ]
+        self._processor()._dedup_authorization_families(candidates)
+        assert candidates[0]["selected"] is True and not candidates[0].get("skip_reason")
+
+    def test_already_skipped_not_considered(self) -> None:
+        candidates = [
+            {
+                "filename": "授权委托书旧版.pdf",
+                "source_path": "/a/授权委托书旧版.pdf",
+                "modified_at": "2025-01-01T00:00:00+00:00",
+                "selected": False,
+                "skip_reason": "既有跳过原因",
+            },
+            {
+                "filename": "授权委托书新版.pdf",
+                "source_path": "/b/授权委托书新版.pdf",
+                "modified_at": "2025-12-01T00:00:00+00:00",
+                "selected": True,
+            },
+        ]
+        self._processor()._dedup_authorization_families(candidates)
+        assert candidates[0]["skip_reason"] == "既有跳过原因"
+        assert not candidates[1].get("skip_reason")
+
+
+class TestSkipOpposingIdentityMaterials:
+    def _processor(self, names: list[str], case_title: str = "") -> CandidatePostProcessor:
+        processor = CandidatePostProcessor(scan_service=object())
+        processor._load_opposing_context = lambda contract_id: (names, case_title)  # type: ignore[method-assign]
+        return processor
+
+    def test_opposing_identity_skipped(self) -> None:
+        candidates = [
+            {
+                "filename": "某乙公司报告.pdf",
+                "source_path": "/exec/2-授权委托材料/某乙公司报告.pdf",
+                "selected": True,
+            },
+            {
+                "filename": "张某三身份信息.pdf",
+                "source_path": "/exec/18-被告身份材料/张某三身份信息.pdf",
+                "selected": True,
+            },
+        ]
+        self._processor(["某乙公司", "张某三"])._skip_opposing_identity_materials(candidates, contract_id=8)
+        assert all(c.get("skip_reason") == "对方当事人身份材料，无需归档" for c in candidates)
+        assert all(c["selected"] is False for c in candidates)
+
+    def test_judgment_doc_with_opposing_name_not_skipped(self) -> None:
+        """调解书文件名含对方姓名但无身份关键词，不得误杀。"""
+        candidates = [
+            {
+                "filename": "民事调解书（某甲公司诉某乙公司案件）.pdf",
+                "source_path": "/first/民事调解书.pdf",
+                "selected": True,
+            }
+        ]
+        self._processor(["某乙公司"])._skip_opposing_identity_materials(candidates, contract_id=8)
+        assert not candidates[0].get("skip_reason")
+        assert candidates[0]["selected"] is True
+
+    def test_our_party_identity_kept(self) -> None:
+        """我方当事人营业执照不含对方名称，正常保留。"""
+        candidates = [
+            {
+                "filename": "1-某甲公司的营业执照.pdf",
+                "source_path": "/exec/2-授权委托材料/1-某甲公司的营业执照.pdf",
+                "selected": True,
+            }
+        ]
+        self._processor(["某乙公司"])._skip_opposing_identity_materials(candidates, contract_id=8)
+        assert not candidates[0].get("skip_reason")
+
+    def test_case_title_embedded_opposing_name_not_skipped(self) -> None:
+        """文件名里的案件标题含对方名称（所本命名惯例），剥掉标题后不得误判。"""
+        title = "某甲公司诉某乙公司、张某一案"
+        candidates = [
+            {
+                "filename": "3-法定代表人身份证明书（某甲公司诉某乙公司、张某一案）V1_20251223.pdf",
+                "source_path": "/exec/2-授权委托材料/3-法定代表人身份证明书V1_20251223.pdf",
+                "selected": True,
+            },
+            {
+                "filename": "证据明细（某甲公司诉某乙公司、张某一案）V2_20250908.pdf",
+                "source_path": "/first/证据明细V2_20250908.pdf",
+                "selected": True,
+            },
+        ]
+        self._processor(["某乙公司", "张某"], title)._skip_opposing_identity_materials(candidates, contract_id=8)
+        assert all(not c.get("skip_reason") for c in candidates)
+        assert all(c["selected"] is True for c in candidates)
+
+    def test_bare_opposing_material_without_title_still_skipped(self) -> None:
+        """对方材料名不在案件标题里（如单独的身份信息文件），正常跳过。"""
+        candidates = [
+            {
+                "filename": "张某一身份信息.pdf",
+                "source_path": "/first/4-邮件/张某一身份信息.pdf",
+                "selected": True,
+            }
+        ]
+        self._processor(["某乙公司", "张某"], "某甲公司诉某乙公司、张某一案")._skip_opposing_identity_materials(
+            candidates, contract_id=8
+        )
+        assert candidates[0]["skip_reason"] == "对方当事人身份材料，无需归档"
+
+    def test_no_opposing_names_noop(self) -> None:
+        candidates = [
+            {
+                "filename": "某乙公司报告.pdf",
+                "source_path": "/exec/某乙公司报告.pdf",
+                "selected": True,
+            }
+        ]
+        self._processor([])._skip_opposing_identity_materials(candidates, contract_id=8)
+        assert not candidates[0].get("skip_reason")
