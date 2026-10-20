@@ -1,6 +1,8 @@
 """合同文件夹扫描的案件信息提取与回填。
 
-扫描完成后从裁判文书类候选 PDF 提取「审级 / 法院名称 / 案号 / 判决（调解）主文」，
+扫描完成后从候选 PDF 提取「审级 / 法院名称 / 案号 / 判决（调解）主文」：
+裁判文书（判决书/调解书等）完整提取；法院程序性文书（告知书/通知书等）只提取
+案号与审理机构（执行等阶段的案号常只在程序性文书里，无裁判主文）。
 确认导入时**追加式**写入合同关联案件：每份文书对应一条 CaseNumber（按案号去重
 upsert、已有内容不覆盖）+ 一条审理机构记录，多阶段（一审、二审、执行……）共存，
 {{案件案号}}/{{管辖法院}}/{{案件审理结果}} 归档占位符天然拼接全部阶段。
@@ -27,6 +29,15 @@ JUDGMENT_FILENAME_KEYWORDS: tuple[str, ...] = (
     "终本裁定",
 )
 
+# 法院程序性文书关键词：只提取案号/审理机构（无主文）——
+# 执行等阶段的案号常只出现在告知书/通知书里，文书本身没有裁判主文
+COURT_NOTICE_FILENAME_KEYWORDS: tuple[str, ...] = (
+    "告知书",
+    "通知书",
+    "传票",
+    "决定书",
+)
+
 # 案号类型字 → 审级。按"具体在前、泛化在后"排列（如"执保"在"执"之前），
 # contains 命中即取首个，保证多字类型字优先于单字
 _STAGE_FROM_CASE_NUMBER: tuple[tuple[str, str], ...] = (
@@ -38,7 +49,8 @@ _STAGE_FROM_CASE_NUMBER: tuple[tuple[str, str], ...] = (
     ("刑终", "二审"),
     ("行终", "二审"),
     ("知终", "二审"),
-    ("执保", "执行"),
+    ("财保", "保全"),
+    ("执保", "保全"),
     ("执", "执行"),
     ("再", "再审"),
     ("监", "再审"),
@@ -69,12 +81,25 @@ def infer_stage(*, case_number: str = "", document_name: str = "") -> str:
 
 def is_judgment_candidate(candidate: dict[str, Any]) -> bool:
     """候选是否为裁判文书类文件（按文件名关键词判断，非跳过、PDF）。"""
+    return _match_filename_keyword(candidate, JUDGMENT_FILENAME_KEYWORDS) is not None
+
+
+def is_court_notice_candidate(candidate: dict[str, Any]) -> bool:
+    """候选是否为法院程序性文书（告知书/通知书等，只提取案号不要求主文）。"""
+    return _match_filename_keyword(candidate, COURT_NOTICE_FILENAME_KEYWORDS) is not None
+
+
+def _match_filename_keyword(candidate: dict[str, Any], keywords: tuple[str, ...]) -> str | None:
+    """按文件名关键词分类候选，命中返回关键词，非 PDF 或已跳过返回 None。"""
     if candidate.get("skip_reason"):
-        return False
+        return None
     filename = str(candidate.get("filename") or "")
     if not filename.lower().endswith(".pdf"):
-        return False
-    return any(kw in filename for kw in JUDGMENT_FILENAME_KEYWORDS)
+        return None
+    for keyword in keywords:
+        if keyword in filename:
+            return keyword
+    return None
 
 
 def extract_case_info_from_candidates(
@@ -82,7 +107,13 @@ def extract_case_info_from_candidates(
     *,
     storage_provider: Any | None = None,
 ) -> list[dict[str, Any]]:
-    """对裁判文书类候选逐个提取案件信息，单文件失败跳过不影响整体。
+    """对裁判文书 + 法院程序性文书候选逐个提取案件信息，单文件失败跳过不影响整体。
+
+    两层提取：
+    - 裁判文书（判决书/调解书等）：完整提取案号/文书名/法院/主文；
+    - 法院程序性文书（告知书/通知书等）：只提取案号/法院，主文为空——
+      执行等阶段的案号常只在程序性文书里出现。
+    同案号多份文书时优先保留带主文的那份（判决书 > 受理通知书）。
 
     Returns:
         [{"source_path", "filename", "number", "document_name", "court_name", "stage", "content"}, ...]
@@ -90,16 +121,25 @@ def extract_case_info_from_candidates(
     from apps.documents.services.extractors.judgment_pdf_extractor import JudgmentPdfExtractor
 
     extractor = JudgmentPdfExtractor()
-    extractions: list[dict[str, Any]] = []
-    seen_numbers: set[str] = set()
+    by_number: dict[str, dict[str, Any]] = {}
 
     for candidate in candidates:
-        if not is_judgment_candidate(candidate):
+        judgment_kw = _match_filename_keyword(candidate, JUDGMENT_FILENAME_KEYWORDS)
+        notice_kw = _match_filename_keyword(candidate, COURT_NOTICE_FILENAME_KEYWORDS)
+        if judgment_kw is None and notice_kw is None:
             continue
+
         source_path = str(candidate.get("source_path") or "")
         filename = str(candidate.get("filename") or "")
         try:
-            result = _extract_pdf(extractor, source_path, storage_provider=storage_provider)
+            if judgment_kw is not None:
+                result = _extract_pdf(extractor, source_path, mode="judgment", storage_provider=storage_provider)
+                document_name = str(result.document_name or "").strip()
+            else:
+                result = _extract_pdf(extractor, source_path, mode="reference", storage_provider=storage_provider)
+                # 程序性文书的文书名一律取文件名关键词：正文中提到的"民事裁定书"等
+                # 是引用而非本文书名，提取器按全文匹配会误报
+                document_name = notice_kw or ""
         except Exception:
             logger.warning("case_info_extract_failed", extra={"source_path": source_path}, exc_info=True)
             continue
@@ -108,42 +148,53 @@ def extract_case_info_from_candidates(
         if not number:
             logger.info("case_info_skip_no_number", extra={"source_path": source_path})
             continue
-        # 同案号多份文书（判决书+送达回证副本等）只保留第一份提取结果
-        if number in seen_numbers:
-            continue
-        seen_numbers.add(number)
 
-        document_name = str(result.document_name or "").strip()
-        extractions.append(
-            {
-                "source_path": source_path,
-                "filename": filename,
-                "number": number,
-                "document_name": document_name,
-                "court_name": str(result.court_name or "").strip(),
-                "stage": infer_stage(case_number=number, document_name=document_name),
-                "content": str(result.content or "").strip(),
-            }
-        )
+        item = {
+            "source_path": source_path,
+            "filename": filename,
+            "number": number,
+            "document_name": document_name,
+            "court_name": str(result.court_name or "").strip(),
+            "stage": infer_stage(case_number=number, document_name=document_name),
+            "content": str(result.content or "").strip(),
+        }
+        existing = by_number.get(number)
+        # 同案号优先保留带主文的提取（判决书/调解书优先于受理通知书等）
+        if existing is None or (not existing.get("content") and item.get("content")):
+            by_number[number] = item
 
-    extractions.sort(key=lambda item: item["number"])
+    extractions = sorted(by_number.values(), key=lambda item: item["number"])
     return extractions
 
 
-def _extract_pdf(extractor: Any, source_path: str, *, storage_provider: Any | None = None) -> Any:
-    """本地/云存储 PDF 提取：云存储先落临时文件（提取器按路径读取）。"""
-    if storage_provider is None:
-        return extractor.extract(source_path)
+def _extract_pdf(
+    extractor: Any,
+    source_path: str,
+    *,
+    mode: str = "judgment",
+    storage_provider: Any | None = None,
+) -> Any:
+    """本地/云存储 PDF 提取：云存储先落临时文件（提取器按路径读取）。
 
-    file_bytes = storage_provider.read_file(source_path)
-    suffix = Path(source_path).suffix or ".pdf"
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-        tmp.write(file_bytes)
-        tmp_path = tmp.name
+    mode="judgment" 要求裁判主文；mode="reference" 只取案号/法院（程序性文书）。
+    """
+    target = source_path
+    tmp_path: str | None = None
+    if storage_provider is not None:
+        file_bytes = storage_provider.read_file(source_path)
+        suffix = Path(source_path).suffix or ".pdf"
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(file_bytes)
+            tmp_path = tmp.name
+        target = tmp_path
+
     try:
-        return extractor.extract(tmp_path)
+        if mode == "reference":
+            return extractor.extract_case_reference(target)
+        return extractor.extract(target)
     finally:
-        Path(tmp_path).unlink(missing_ok=True)
+        if tmp_path:
+            Path(tmp_path).unlink(missing_ok=True)
 
 
 def apply_case_info_to_contract(
@@ -193,13 +244,15 @@ def apply_case_info_to_contract(
     for item in applicable:
         number = str(item["number"])
         court_name = str(item.get("court_name") or "").strip()
+        # 程序性文书（告知书等）没有主文：文书名不落库，留给将来扫到的真裁判文书
+        document_name = str(item.get("document_name") or "") if item.get("content") else ""
 
         case_number = existing_numbers.get(number)
         if case_number is None:
             case_number = CaseNumber.objects.create(
                 case=case,
                 number=number,
-                document_name=str(item.get("document_name") or ""),
+                document_name=document_name,
                 document_content=str(item.get("content") or ""),
             )
             existing_numbers[number] = case_number
@@ -207,8 +260,8 @@ def apply_case_info_to_contract(
         else:
             # 只回填空字段：一审案号已有主文时，重复扫描/导入不得覆盖人工维护内容
             changed_fields: list[str] = []
-            if not case_number.document_name and item.get("document_name"):
-                case_number.document_name = str(item["document_name"])
+            if document_name and not case_number.document_name:
+                case_number.document_name = document_name
                 changed_fields.append("document_name")
             if not case_number.document_content and item.get("content"):
                 case_number.document_content = str(item["content"])

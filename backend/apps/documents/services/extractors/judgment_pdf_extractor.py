@@ -190,6 +190,28 @@ class JudgmentPdfExtractor:
             court_name=court_name,
         )
 
+    def extract_case_reference(self, file_path: str) -> ExtractionResult:
+        """从法院程序性文书（告知书/通知书等）提取案号、文书名称、审理机构。
+
+        与 extract() 的区别：不要求"判决如下"主文（content 为 None）——
+        执行等阶段的案号常只出现在程序性文书里，文书本身没有裁判主文。
+        文本提取失败（正则和 OCR 均无文本）仍抛 BusinessException。
+        """
+        logger.info("开始解析法院程序性文书: %s", file_path)
+        text, extraction_method = self._extract_full_text(file_path)
+        if not text:
+            raise BusinessException(
+                message="无法解析文书内容",
+                code="JUDGMENT_EXTRACT_FAILED",
+            )
+        logger.info("文书文本提取成功，字数: %d，提取方式: %s", len(text), extraction_method)
+        return ExtractionResult(
+            number=self._extract_case_number(text),
+            document_name=self._extract_document_name(text),
+            content=None,
+            court_name=self._extract_court_name(text),
+        )
+
     def _extract_full_text(self, file_path: str) -> tuple[str, str]:  # pragma: no cover
         """
         从PDF提取全文，不受通用服务的 MAX_TEXT_LIMIT 限制。
@@ -321,16 +343,28 @@ class JudgmentPdfExtractor:
             r"[（(]\s*[0-9]{4}\s*[）)]\s*[^\s，。,，。（）(（）)]+号",
         ]
 
-        for pattern in patterns:
-            match = re.search(pattern, text)
-            if match:
-                case_number = match.group()
-                # 清理案号中的多余空格
-                case_number = re.sub(r"\s+", "", case_number)
+        def _first_hit(source: str) -> str | None:
+            for pattern in patterns:
+                match = re.search(pattern, source)
+                if not match:
+                    continue
+                candidate = re.sub(r"\s+", "", match.group())
                 # 过滤掉明显不是案号的匹配
-                if len(case_number) > 5 and "判决" not in case_number and "调解" not in case_number:
-                    logger.info("提取到案号: %s", case_number)
-                    return case_number
+                if len(candidate) > 5 and "判决" not in candidate and "调解" not in candidate:
+                    return candidate
+            return None
+
+        hit = _first_hit(text)
+        if hit:
+            logger.info("提取到案号: %s", hit)
+            return hit
+
+        # PDF 排版可能把案号切成"（2026）粤1973 执10676 号"（类型字为单词、段间空格），
+        # 上述带空白容忍的模式也不命中；在整体去空白的文本上再兜底一遍
+        hit = _first_hit(re.sub(r"\s+", "", text))
+        if hit:
+            logger.info("提取到案号（去空白兜底）: %s", hit)
+            return hit
 
         # 如果正则没找到，尝试在"案号"关键词附近查找
         case_number_pattern = r"案号[：:\s]*[（(]([^）)]+)[）)]|案号[：:\s]*\(([^)]+)\)"

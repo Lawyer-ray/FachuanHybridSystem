@@ -10,6 +10,7 @@ from apps.contracts.services.contract.integrations.case_info_extraction_service 
     apply_case_info_to_contract,
     extract_case_info_from_candidates,
     infer_stage,
+    is_court_notice_candidate,
     is_judgment_candidate,
 )
 from apps.documents.services.extractors.judgment_pdf_extractor import JudgmentPdfExtractor
@@ -29,6 +30,10 @@ class TestInferStage:
 
     def test_retrial(self):
         assert infer_stage(case_number="(2026)粤民再44号") == "再审"  # privacy-allow 假案号
+
+    def test_preservation_numbers(self):
+        assert infer_stage(case_number="（2025）粤0100财保111号") == "保全"  # privacy-allow 假案号
+        assert infer_stage(case_number="（2025）粤0100执保222号") == "保全"  # privacy-allow 假案号
 
     def test_document_name_fallback_enforcement(self):
         assert infer_stage(case_number="", document_name="执行裁定书") == "执行"
@@ -53,6 +58,55 @@ class TestIsJudgmentCandidate:
 
     def test_non_pdf_excluded(self):
         assert is_judgment_candidate({"filename": "民事判决书.docx"}) is False
+
+
+class TestIsCourtNoticeCandidate:
+    def test_notice_pdf(self):
+        assert is_court_notice_candidate({"filename": "告知书（某甲公司案件）_20261010收.pdf"}) is True
+
+    def test_court_summons_letter(self):
+        assert is_court_notice_candidate({"filename": "受理案件通知书.pdf"}) is True
+        assert is_court_notice_candidate({"filename": "开庭传票.pdf"}) is True
+
+    def test_judgment_is_not_notice(self):
+        assert is_court_notice_candidate({"filename": "民事判决书.pdf"}) is False
+
+    def test_application_letter_excluded(self):
+        # 律师自己出具的申请书/所函不是法院文书，不提取
+        assert is_court_notice_candidate({"filename": "强制执行申请书.pdf"}) is False
+
+
+class TestCaseNumberWhitespaceTolerance:
+    """案号内部带空格（PDF 排版切分）时的去空白兜底。"""
+
+    _extractor = JudgmentPdfExtractor()
+
+    def test_spaced_enforcement_number(self):
+        text = "广东省某市第三人民法院\n告知书\n（2026）粤0100 执222 号\n正文。"  # privacy-allow 假案号
+        assert self._extractor._extract_case_number(text) == "（2026）粤0100执222号"  # privacy-allow 假案号
+
+    def test_spaced_preservation_number(self):
+        text = "依据（2025）粤0100 财保111 号民事裁定书，现告知如下。"  # privacy-allow 假案号
+        assert self._extractor._extract_case_number(text) == "（2025）粤0100财保111号"  # privacy-allow 假案号
+
+    def test_compact_number_still_works(self):
+        text = "（2025）粤0100民初111号\n正文。"  # privacy-allow 假案号
+        assert self._extractor._extract_case_number(text) == "（2025）粤0100民初111号"  # privacy-allow 假案号
+
+
+class TestExtractCaseReference:
+    """程序性文书轻量提取：不要求主文。"""
+
+    def test_reference_extracts_without_main_text(self, monkeypatch, tmp_path):
+        extractor = JudgmentPdfExtractor()
+        text = "广东省某市第三人民法院\n告知书\n（2026）粤0100 执222 号\n正文无判决如下主文。"  # privacy-allow 假案号
+        monkeypatch.setattr(extractor, "_extract_full_text", lambda path: (text, "pdf_direct"))
+
+        result = extractor.extract_case_reference(str(tmp_path / "x.pdf"))
+
+        assert result.number == "（2026）粤0100执222号"  # privacy-allow 假案号
+        assert result.court_name == "广东省某市第三人民法院"
+        assert result.content is None
 
 
 class TestExtractCourtName:
@@ -101,11 +155,16 @@ class TestExtractCaseInfoFromCandidates:
         dup = type(
             "R",
             (),
-            {"number": "（2025）粤0100民初111号", "document_name": "民事判决书", "court_name": "", "content": "x"},  # privacy-allow 假案号
+            {
+                "number": "（2025）粤0100民初111号",  # privacy-allow 假案号
+                "document_name": "民事判决书",
+                "court_name": "",
+                "content": "x",
+            },  # privacy-allow 假案号
         )()
         queue: list = [Exception("boom"), good, dup]
 
-        def _fake_extract(extractor, path, storage_provider=None):
+        def _fake_extract(extractor, path, mode="judgment", storage_provider=None):
             item = queue.pop(0)
             if isinstance(item, Exception):
                 raise item
@@ -125,6 +184,89 @@ class TestExtractCaseInfoFromCandidates:
         assert result[0]["stage"] == "一审"
         assert result[0]["court_name"] == "某市人民法院"
         assert result[0]["content"] == "一、被告付款。"
+
+    def test_court_notice_extracts_number_without_content(self, monkeypatch, tmp_path):
+        """告知书等程序性文书走 reference 模式：提取案号/法院，主文为空。"""
+        pdf = tmp_path / "告知书.pdf"
+        pdf.write_bytes(b"%PDF-1.4 fake")
+
+        from apps.contracts.services.contract.integrations import case_info_extraction_service as svc
+
+        reference = type(
+            "R",
+            (),
+            {
+                "number": "（2026）粤0100执222号",  # privacy-allow 假案号
+                "document_name": None,
+                "court_name": "某市第三人民法院",
+                "content": None,
+            },
+        )()
+        modes: list[str] = []
+
+        def _fake_extract(extractor, path, mode="judgment", storage_provider=None):
+            modes.append(mode)
+            return reference
+
+        monkeypatch.setattr(svc, "_extract_pdf", _fake_extract)
+
+        candidates = [{"filename": "告知书（某甲公司案件）_20261010收.pdf", "source_path": str(pdf), "skip_reason": ""}]
+        result = extract_case_info_from_candidates(candidates)
+
+        assert modes == ["reference"]
+        assert len(result) == 1
+        assert result[0]["number"] == "（2026）粤0100执222号"  # privacy-allow 假案号
+        assert result[0]["stage"] == "执行"
+        assert result[0]["court_name"] == "某市第三人民法院"
+        assert result[0]["content"] == ""
+        # 文书名来自文件名关键词（仅展示用）
+        assert result[0]["document_name"] == "告知书"
+
+    def test_same_number_prefers_extraction_with_content(self, monkeypatch, tmp_path):
+        """同案号多份文书（调解书+受理通知书）优先保留带主文的提取。"""
+        notice_pdf = tmp_path / "受理案件通知书.pdf"
+        notice_pdf.write_bytes(b"%PDF-1.4 fake")
+        judgment_pdf = tmp_path / "民事调解书.pdf"
+        judgment_pdf.write_bytes(b"%PDF-1.4 fake")
+
+        from apps.contracts.services.contract.integrations import case_info_extraction_service as svc
+
+        notice = type(
+            "R",
+            (),
+            {
+                "number": "（2025）粤0100民初111号",  # privacy-allow 假案号
+                "document_name": None,
+                "court_name": "某市人民法院",
+                "content": None,
+            },  # privacy-allow 假案号
+        )()
+        judgment = type(
+            "R",
+            (),
+            {
+                "number": "（2025）粤0100民初111号",  # privacy-allow 假案号
+                "document_name": "民事调解书",
+                "court_name": "",
+                "content": "一、调解协议。",
+            },  # privacy-allow 假案号
+        )()
+
+        def _fake_extract(extractor, path, mode="judgment", storage_provider=None):
+            return notice if "通知书" in path else judgment
+
+        monkeypatch.setattr(svc, "_extract_pdf", _fake_extract)
+
+        # 通知书排在前面也要被调解书（带主文）顶掉
+        candidates = [
+            {"filename": "受理案件通知书.pdf", "source_path": str(notice_pdf), "skip_reason": ""},
+            {"filename": "民事调解书.pdf", "source_path": str(judgment_pdf), "skip_reason": ""},
+        ]
+        result = extract_case_info_from_candidates(candidates)
+
+        assert len(result) == 1
+        assert result[0]["document_name"] == "民事调解书"
+        assert result[0]["content"] == "一、调解协议。"
 
 
 @pytest.mark.django_db
@@ -164,7 +306,10 @@ class TestApplyCaseInfoToContract:
 
         case = Case.objects.get(id=stats["case_id"])
         numbers = list(case.case_numbers.order_by("id"))
-        assert [n.number for n in numbers] == ["（2025）粤0100民初111号", "（2026）粤0100执222号"]  # privacy-allow 假案号
+        assert [n.number for n in numbers] == [
+            "（2025）粤0100民初111号",  # privacy-allow 假案号
+            "（2026）粤0100执222号",  # privacy-allow 假案号
+        ]  # privacy-allow 假案号
         assert numbers[0].document_content == "一审判决主文。"
         assert numbers[1].document_content == "执行裁定主文。"
         # 同一法院只建一条审理机构
@@ -223,6 +368,45 @@ class TestApplyCaseInfoToContract:
         assert cn.document_content == "人工维护的主文"
         # 法院是新增信息，允许补建
         assert case.supervising_authorities.filter(name="某市人民法院").exists()
+
+    def test_notice_extraction_keeps_document_name_empty(self):
+        """程序性文书（无主文）只建/保案号，不占文书名——留给将来的真裁判文书。"""
+        from apps.cases.models import Case
+
+        contract = self._make_contract()
+        notice_extraction = [
+            {
+                "source_path": "/a/告知书.pdf",
+                "number": "（2026）粤0100执222号",  # privacy-allow 假案号
+                "document_name": "告知书",
+                "court_name": "某市第三人民法院",
+                "stage": "执行",
+                "content": "",
+            }
+        ]
+        stats = apply_case_info_to_contract(contract, notice_extraction)
+
+        case = Case.objects.get(id=stats["case_id"])
+        cn = case.case_numbers.get()
+        assert cn.number == "（2026）粤0100执222号"  # privacy-allow 假案号
+        assert cn.document_name == ""
+        assert cn.document_content == ""
+
+        # 后续扫到执行裁定书（带主文）可正常回填
+        judgment_extraction = [
+            {
+                "source_path": "/b/执行裁定书.pdf",
+                "number": "（2026）粤0100执222号",  # privacy-allow 假案号
+                "document_name": "执行裁定书",
+                "court_name": "",
+                "stage": "执行",
+                "content": "裁定如下：冻结被执行人账户。",
+            }
+        ]
+        apply_case_info_to_contract(contract, judgment_extraction)
+        cn.refresh_from_db()
+        assert cn.document_name == "执行裁定书"
+        assert cn.document_content == "裁定如下：冻结被执行人账户。"
 
     def test_deselected_items_not_applied(self):
         from apps.cases.models import Case
