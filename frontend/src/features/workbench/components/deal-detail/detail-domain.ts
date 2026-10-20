@@ -1,5 +1,13 @@
 import { daysFromToday, dealFacts, fmtMoney } from '../../domain'
-import type { ContractReminder, DealCase, DealContact, DealParty, ReminderOut, WorkbenchDeal } from '../../types'
+import type {
+  ContractReminder,
+  DealCase,
+  DealContact,
+  DealLogAtt,
+  DealParty,
+  ReminderOut,
+  WorkbenchDeal,
+} from '../../types'
 
 /* ============ 程序链 ============ */
 
@@ -192,17 +200,46 @@ export interface TimelineEntry {
   text: string
   who: string
   attN: number
+  /** 附件明细（可点预览）；同内容日志合并后为按 id 去重的并集 */
+  atts: DealLogAtt[]
+  /** 相同内容自动合并后的条数（>1 显示 ×N） */
+  n: number
 }
 
-/** 时间轴按时间升序叙事（抽屉是倒序速览，这里是从头讲到现在） */
+/**
+ * 时间轴按时间升序叙事（抽屉是倒序速览，这里是从头讲到现在）。
+ * 相同内容的日志自动合并成一条（测试灌入的重复、短信重放）：条目落在组内
+ * 最新一次的位置与时间、who 取最新，附件按 id 去重取并集——真实业务里
+ * 同内容不同天的记录（如周期性进度）也只留最新一条叙事，×N 说明发生过几次。
+ */
 export function timelineEntries(c: DealCase): TimelineEntry[] {
-  return [...c.logs].reverse().map((l, i) => ({
-    key: l.when + '|' + i,
-    date: l.when.slice(0, 10),
-    text: l.text,
-    who: l.who,
-    attN: l.attN,
-  }))
+  const out: TimelineEntry[] = []
+  const byText = new Map<string, TimelineEntry>()
+  for (const l of [...c.logs].reverse()) {
+    const date = l.when.slice(0, 10)
+    const exist = byText.get(l.text)
+    if (exist) {
+      exist.n += 1
+      exist.date = date
+      exist.who = l.who || exist.who
+      const seen = new Set(exist.atts.map((a) => a.id))
+      for (const a of l.atts) if (!seen.has(a.id)) exist.atts.push(a)
+      exist.attN = exist.atts.length
+      continue
+    }
+    const entry: TimelineEntry = {
+      key: 'L' + l.id,
+      date,
+      text: l.text,
+      who: l.who,
+      attN: l.attN,
+      atts: [...l.atts],
+      n: 1,
+    }
+    byText.set(l.text, entry)
+    out.push(entry)
+  }
+  return out
 }
 
 /* ============ 右栏 ============ */

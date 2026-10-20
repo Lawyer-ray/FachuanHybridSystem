@@ -48,6 +48,9 @@ function makeCase(over: Partial<DealCase> = {}): DealCase {
   }
 }
 
+/** 日志附件夹具（合并用例按 id 去重） */
+const att = (id: number, name = 'a' + id + '.pdf') => ({ id, name, mediaUrl: '/media/x/' + id })
+
 function makeDeal(over: Partial<WorkbenchDeal> = {}): WorkbenchDeal {
   return {
     id: 7,
@@ -264,14 +267,34 @@ describe('案件节', () => {
   it('timelineEntries：倒序日志翻成升序叙事，日期取前 10 位', () => {
     const c = makeCase({
       logs: [
-        { when: '2026-03-05T10:00', who: '周明', text: '二审立案', attN: 0, rem: '', remToday: false },
-        { when: '2026-02-02T09:30', who: '黄崧', text: '收到上诉状', attN: 2, rem: '', remToday: false },
+        { id: 2, when: '2026-03-05T10:00', who: '王某某', text: '二审立案', attN: 0, atts: [], rem: '', remToday: false },
+        { id: 1, when: '2026-02-02T09:30', who: '李某某', text: '收到上诉状', attN: 2, atts: [att(11), att(12)], rem: '', remToday: false },
       ],
     })
     expect(timelineEntries(c).map((e) => [e.date, e.text, e.who, e.attN])).toEqual([
-      ['2026-02-02', '收到上诉状', '黄崧', 2],
-      ['2026-03-05', '二审立案', '周明', 0],
+      ['2026-02-02', '收到上诉状', '李某某', 2],
+      ['2026-03-05', '二审立案', '王某某', 0],
     ])
+  })
+
+  it('timelineEntries：相同内容自动合并（×N、落最新时间、who 取最新、附件按 id 去重并集）', () => {
+    const dup = '收到法院短信：执行款已到账'
+    const c = makeCase({
+      logs: [
+        // 倒序（新 → 旧）：两条同内容 + 一条独立
+        { id: 5, when: '2026-09-03T10:00', who: '李某某', text: dup, attN: 1, atts: [att(51)], rem: '', remToday: false },
+        { id: 4, when: '2026-09-02T09:00', who: '系统', text: dup, attN: 2, atts: [att(41), att(51)], rem: '', remToday: false },
+        { id: 3, when: '2026-08-30T09:00', who: '李某某', text: '单独一条', attN: 0, atts: [], rem: '', remToday: false },
+      ],
+    })
+    const out = timelineEntries(c)
+    expect(out.map((e) => [e.date, e.text, e.who, e.n])).toEqual([
+      ['2026-08-30', '单独一条', '李某某', 1],
+      ['2026-09-03', dup, '李某某', 2],
+    ])
+    const merged = out[1]!
+    expect(merged.atts.map((a) => a.id)).toEqual([41, 51])
+    expect(merged.key).toBe('L4')
   })
 })
 

@@ -1,5 +1,13 @@
 import { createApiClient } from '@/lib/api'
-import type { CaseListItem, ContractListItem, ContractPageResponse, LawyerListItem, ReminderOut } from './types'
+import type {
+  CaseFolderBindingInfo,
+  CaseFolderEntries,
+  CaseListItem,
+  ContractListItem,
+  ContractPageResponse,
+  LawyerListItem,
+  ReminderOut,
+} from './types'
 
 /**
  * 办案主页数据源：合同 + 律师列表接口只读拉取（slim 模式剔除归档材料清单，
@@ -61,4 +69,18 @@ export async function listRemindersByCase(caseId: number): Promise<ReminderOut[]
 
 export async function listLawyers(): Promise<LawyerListItem[]> {
   return organizationApi.get('lawyers').json<LawyerListItem[]>()
+}
+
+/* ============ 案件绑定文件夹（详情页「文件夹视图」数据源，均只读） ============ */
+
+/** 案件文件夹绑定（未绑定时端点返回 null；404 = 案件不存在/无权） */
+export async function getCaseFolderBinding(caseId: number): Promise<CaseFolderBindingInfo | null> {
+  return casesApi.get(String(caseId) + '/folder-binding').json<CaseFolderBindingInfo | null>()
+}
+
+/** 绑定文件夹某一层子项（subpath 为空 = 根；非递归、不含隐藏项） */
+export async function listCaseFolderEntries(caseId: number, subpath: string): Promise<CaseFolderEntries> {
+  return casesApi
+    .get(String(caseId) + '/folder-entries', { searchParams: subpath ? { subpath } : {} })
+    .json<CaseFolderEntries>()
 }

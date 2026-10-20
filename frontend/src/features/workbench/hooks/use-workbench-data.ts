@@ -18,6 +18,11 @@ export const workbenchKeys = {
   /** 案件直挂提醒按「该合同下的案件 id 集合」缓存：案件增减即换键重拉 */
   caseReminders: (contractId: number, caseIds: number[]) =>
     ['workbench', 'case-reminders', contractId, caseIds.join(',')] as const,
+  /** 案件文件夹绑定（详情页判断可否切「文件夹视图」；null = 未绑定） */
+  caseFolderBinding: (caseId: number) => ['workbench', 'case-folder-binding', caseId] as const,
+  /** 绑定文件夹某一层子项（subpath 变即换键下钻） */
+  caseFolderEntries: (caseId: number, subpath: string) =>
+    ['workbench', 'case-folder-entries', caseId, subpath] as const,
 }
 
 export interface WorkbenchData {

@@ -8,7 +8,7 @@
  * 右栏档案（当事人 / 收款 / 合同要素全在 sticky 卡里，左列只有案件）、非诉委托给开发中提示、合同加载失败给错误 + 返回、非法 id 重定向。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -17,9 +17,18 @@ vi.mock('../../api', () => ({
   listLawyers: vi.fn(),
   listCasesByContract: vi.fn(),
   listRemindersByCase: vi.fn(),
+  getCaseFolderBinding: vi.fn(),
+  listCaseFolderEntries: vi.fn(),
 }))
 
-import { getContract, listCasesByContract, listLawyers, listRemindersByCase } from '../../api'
+import {
+  getCaseFolderBinding,
+  getContract,
+  listCaseFolderEntries,
+  listCasesByContract,
+  listLawyers,
+  listRemindersByCase,
+} from '../../api'
 import type { CaseListItem, ContractListItem, LawyerListItem, ReminderOut } from '../../types'
 
 import { DealDetailPage } from './DealDetailPage'
@@ -28,6 +37,8 @@ const getContractMock = vi.mocked(getContract)
 const lawyersMock = vi.mocked(listLawyers)
 const casesMock = vi.mocked(listCasesByContract)
 const remindersMock = vi.mocked(listRemindersByCase)
+const bindingMock = vi.mocked(getCaseFolderBinding)
+const entriesMock = vi.mocked(listCaseFolderEntries)
 
 const today = new Date()
 const pad = (n: number) => ('0' + n).slice(-2)
@@ -160,6 +171,7 @@ beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn()
   getContractMock.mockResolvedValue(makeContract())
   lawyersMock.mockResolvedValue(lawyers)
+  bindingMock.mockResolvedValue(null)
   casesMock.mockResolvedValue([
     // 故意乱序给：二审（2026）在前、一审（2025）在后，页面应按收案日期排
     makeCase({
@@ -331,13 +343,34 @@ describe('DealDetailPage 程序链与案件节', () => {
     expect(within(sec2).getByText('上诉人')).toBeTruthy()
     const logs = within(sec2).getAllByText(/收到上诉状|二审立案/).map((n) => n.textContent)
     expect(logs).toEqual(['收到上诉状', '二审立案'])
-    expect(within(sec2).getByText(/📎 1/)).toBeTruthy()
+    // 附件从数字徽章升级为可点 chip（预览按钮 title 透出文件名）
+    expect(within(sec2).getByTitle('预览 a.pdf')).toBeTruthy()
 
     const sec1 = document.getElementById('case-1')!
     expect(within(sec1).getByText('已结')).toBeTruthy()
     expect(within(sec1).getByText('¥3,200,000')).toBeTruthy()
     expect(within(sec1).getByText('¥1,600,000')).toBeTruthy()
     expect(within(sec1).getByText('还没有办案日志')).toBeTruthy()
+  })
+
+  it('案件绑定文件夹时默认切文件夹视图（子文件夹+文件清单），点「日志」切回时间轴', async () => {
+    bindingMock.mockResolvedValue({
+      id: 1, case_id: 2, folder_path: '/Users/x/新工作/案件', folder_path_display: '/Users/x/新工作/案件',
+      storage_type: 'local', is_accessible: true,
+    })
+    entriesMock.mockResolvedValue({
+      browsable: true, message: null, path_display: '/Users/x/新工作/案件', subpath: '', parent_subpath: '',
+      folders: [{ name: '2-邮件往来', subpath: '2-邮件往来' }],
+      files: [{ name: '起诉状.pdf', subpath: '起诉状.pdf', size: 2048, modified_at: '2026-09-29T10:00:00' }],
+    })
+    setupUi()
+    await screen.findAllByText('2-邮件往来') // 两个案件卡各自渲染一份
+    expect(screen.getAllByText('起诉状.pdf').length).toBe(2)
+    expect(screen.queryByText('收到上诉状')).toBeNull() // 默认不在日志视图
+
+    const sec2 = document.getElementById('case-2')!
+    fireEvent.click(within(sec2).getByRole('button', { name: '日志' }))
+    await screen.findByText('收到上诉状')
   })
 
   it('stepper 点击滚到对应案件节', async () => {

@@ -144,6 +144,28 @@ class TestTicketAuthIntegration:
         ticket = issue_download_ticket(user.id, resource="media:materials/a.pdf")
         assert self._request(method="GET", query={"ticket": ticket}) is not None
 
+    def test_ticket_authentication_syncs_request_user(self) -> None:
+        """ticket 兑现后认证结果须同步回 request.user（与 ninja_jwt 同口径）。
+
+        下游 get_request_access_context 等读的是 request.user；不同步则留下的
+        AnonymousUser 会让行级 ACL fail-closed——ticket 打任何 ninja 业务端点
+        都 403（2026-10-20 案件文件夹预览暴露的存量 bug 回归闸）。
+        """
+        from apps.core.security.auth import JWTOrSessionAuth
+
+        user = _make_lawyer("tk_sync_user")
+        ticket = issue_download_ticket(user.id)
+        request = MagicMock()
+        request.headers = {}
+        request.method = "GET"
+        request.GET = {"ticket": ticket}
+        request.user.is_authenticated = False
+
+        result = JWTOrSessionAuth()(request)
+
+        assert result is not None
+        assert request.user is result
+
     def test_jwt_in_query_is_no_longer_accepted(self) -> None:
         """M-2 红线：?token=<JWT> 必须不再被接受。"""
         user = _make_lawyer("tk_jwt_user")

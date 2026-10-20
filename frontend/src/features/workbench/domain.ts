@@ -70,10 +70,17 @@ export function buildDealCases(cases: CaseListItem[], today: Date): DealCase[] {
     logs: [...x.logs]
       .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
       .map((l) => ({
+        // 生成物把 id 标成可选可空，运行时必有（与 CaseListItem.id 覆写同口径）
+        id: l.id ?? 0,
         when: (l.created_at || '').slice(0, 16),
         who: l.actor_detail?.real_name || l.actor_detail?.username || '',
         text: l.content || '',
         attN: l.attachments.length,
+        atts: l.attachments.map((a) => ({
+          id: a.id ?? 0,
+          name: a.original_filename || a.media_url || '附件',
+          mediaUrl: a.media_url || '',
+        })),
         rem: l.reminder_time ? l.reminder_time.slice(0, 10) + ' 到期提醒' : '',
         remToday: !!l.reminder_time && l.reminder_time.slice(0, 10) === dateKey(today),
       })),

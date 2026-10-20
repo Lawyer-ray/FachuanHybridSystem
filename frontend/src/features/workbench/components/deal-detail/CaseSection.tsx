@@ -1,10 +1,39 @@
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+
+import { withDownloadTicket } from '@/lib/download-ticket'
+import { getCaseFolderBinding } from '../../api'
+import { workbenchKeys } from '../../hooks/use-workbench-data'
 import type { DealCase } from '../../types'
 import { caseMetaParts, legalStatusGroups, timelineEntries } from './detail-domain'
+import { FolderView } from './FolderView'
 import { ActionButton, Card, Chip, MetaLine, Pill, StateDot } from './ui'
+
+/** 附件新标签预览：media 走一次性 ticket（60s 单次），失败时后端 403 兜底 */
+async function openAttachment(mediaUrl: string) {
+  window.open(await withDownloadTicket(mediaUrl), '_blank', 'noopener')
+}
+
+/** 视图切换小段按钮（日志 / 文件夹） */
+function SegBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        'cursor-pointer rounded-[5px] px-2 py-[2px] text-[11px] leading-[1.5] transition-colors ' +
+        (active ? 'bg-secondary font-[620] text-secondary-foreground' : 'text-muted-foreground hover:text-foreground')
+      }
+    >
+      {children}
+    </button>
+  )
+}
 
 /**
  * 程序节（一桩案件）：状态点 + 阶段名 + 已结/在办 + 案号 chips ＋ meta 行（机构/收案/案由/标的/保全）
- * ＋ 诉讼地位行 ＋ 该案日志时间轴（升序叙事）。同阶段多案时补案名消歧。
+ * ＋ 诉讼地位行 ＋ 该案内容（日志时间轴或绑定文件夹浏览，可切换；绑定可达时默认文件夹——
+ * 手工整理的目录比 AI 写入的日志更一目了然）。同阶段多案时补案名消歧。
  */
 export function CaseSection({
   c,
@@ -21,6 +50,18 @@ export function CaseSection({
 }) {
   const legGroups = legalStatusGroups(c)
   const entries = timelineEntries(c)
+
+  /* 绑定存在才显示切换；用户点过以点为准，否则可达即默认文件夹视图 */
+  const bindingQ = useQuery({
+    queryKey: workbenchKeys.caseFolderBinding(c.id),
+    queryFn: () => getCaseFolderBinding(c.id),
+    staleTime: 5 * 60_000,
+    retry: false,
+  })
+  const binding = bindingQ.data ?? null
+  const [viewOverride, setViewOverride] = useState<'logs' | 'folder' | null>(null)
+  const view: 'logs' | 'folder' = viewOverride ?? (binding ? 'folder' : 'logs')
+
   return (
     <Card
       id={'case-' + c.id}
@@ -39,10 +80,22 @@ export function CaseSection({
         {c.numbers.map((n) => (
           <Chip key={n}>{n}</Chip>
         ))}
-        <span className="relative top-[-2px] ml-auto">
-          <ActionButton sm onClick={onAddLog}>
-            ＋ 记日志
-          </ActionButton>
+        <span className="relative top-[-2px] ml-auto flex items-center gap-2">
+          {binding && (
+            <span className="flex rounded-[7px] border border-border-light p-[2px]">
+              <SegBtn active={view === 'logs'} onClick={() => setViewOverride('logs')}>
+                日志
+              </SegBtn>
+              <SegBtn active={view === 'folder'} onClick={() => setViewOverride('folder')}>
+                文件夹
+              </SegBtn>
+            </span>
+          )}
+          {view === 'logs' && (
+            <ActionButton sm onClick={onAddLog}>
+              ＋ 记日志
+            </ActionButton>
+          )}
         </span>
       </div>
       {ambiguous && (
@@ -67,40 +120,63 @@ export function CaseSection({
         </div>
       )}
 
-      <div className="px-5 pt-3.5 pb-1.5 max-[680px]:px-3.5">
-        {entries.length === 0 ? (
-          <div className="py-2 text-xs text-muted-foreground/70">还没有办案日志</div>
-        ) : (
-          entries.map((e, i) => (
-            <div
-              key={e.key}
-              className={
-                'relative grid grid-cols-[80px_16px_1fr] pb-[15px] max-[680px]:grid-cols-[66px_14px_1fr] ' +
-                (i === entries.length - 1 ? 'pb-2' : '')
-              }
-            >
-              {/* 竖线贯穿到下一条（最后一条不画），点用元素而非伪元素便于对齐 */}
-              {i < entries.length - 1 && (
-                <span className="absolute top-3.5 -bottom-1 left-[87px] w-px bg-border-light max-[680px]:left-[72px]" />
-              )}
-              <span className="pt-px text-right text-xs whitespace-nowrap text-muted-foreground tabular-nums">{e.date}</span>
-              <span className="relative">
-                <span className="absolute top-[6px] left-[5px] size-[7px] rounded-full bg-border" />
-              </span>
-              <span className="min-w-0 pl-1.5">
-                {/* 日志正文可能含法院短信里的长 URL 等不可断行串，break-words 防止撑破窄屏 */}
-                <span className="block text-[13.5px] leading-[1.55] break-words text-secondary-foreground">{e.text}</span>
-                {(e.who || e.attN > 0) && (
-                  <span className="mt-0.5 block text-[11.5px] text-muted-foreground/80 tabular-nums">
-                    {e.who}
-                    {e.attN > 0 && <span className="ml-2">📎 {e.attN}</span>}
-                  </span>
+      {view === 'folder' && binding ? (
+        <FolderView caseId={c.id} binding={binding} />
+      ) : (
+        <div className="px-5 pt-3.5 pb-1.5 max-[680px]:px-3.5">
+          {entries.length === 0 ? (
+            <div className="py-2 text-xs text-muted-foreground/70">还没有办案日志</div>
+          ) : (
+            entries.map((e, i) => (
+              <div
+                key={e.key}
+                className={
+                  'relative grid grid-cols-[80px_16px_1fr] pb-[15px] max-[680px]:grid-cols-[66px_14px_1fr] ' +
+                  (i === entries.length - 1 ? 'pb-2' : '')
+                }
+              >
+                {/* 竖线贯穿到下一条（最后一条不画），点用元素而非伪元素便于对齐 */}
+                {i < entries.length - 1 && (
+                  <span className="absolute top-3.5 -bottom-1 left-[87px] w-px bg-border-light max-[680px]:left-[72px]" />
                 )}
-              </span>
-            </div>
-          ))
-        )}
-      </div>
+                <span className="pt-px text-right text-xs whitespace-nowrap text-muted-foreground tabular-nums">{e.date}</span>
+                <span className="relative">
+                  <span className="absolute top-[6px] left-[5px] size-[7px] rounded-full bg-border" />
+                </span>
+                <span className="min-w-0 pl-1.5">
+                  {/* 日志正文可能含法院短信里的长 URL 等不可断行串，break-words 防止撑破窄屏 */}
+                  <span className="block text-[13.5px] leading-[1.55] break-words text-secondary-foreground">{e.text}</span>
+                  {(e.who || e.n > 1) && (
+                    <span className="mt-0.5 block text-[11.5px] text-muted-foreground/80 tabular-nums">
+                      {e.who}
+                      {e.n > 1 && (
+                        <span className="ml-2" title={'相同内容的日志已合并（共 ' + e.n + ' 条）'}>
+                          ×{e.n}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                  {e.atts.length > 0 && (
+                    <span className="mt-1 flex flex-wrap gap-1.5">
+                      {e.atts.map((a) => (
+                        <button
+                          key={a.id}
+                          type="button"
+                          title={'预览 ' + a.name}
+                          onClick={() => void openAttachment(a.mediaUrl)}
+                          className="inline-flex max-w-[300px] cursor-pointer items-center rounded-[6px] border border-border-light bg-background px-2 py-[1px] text-[11px] text-muted-foreground transition-colors hover:border-input hover:text-foreground"
+                        >
+                          <span className="truncate">📎 {a.name}</span>
+                        </button>
+                      ))}
+                    </span>
+                  )}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </Card>
   )
 }
