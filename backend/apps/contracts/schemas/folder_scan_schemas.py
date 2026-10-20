@@ -77,6 +77,7 @@ class ContractFolderScanStatusOut(Schema):
     archive_item_options: list[ArchiveItemOptionOut] = []
     work_log_suggestions: list[WorkLogSuggestionOut] = []
     ai_classify_result: dict[str, Any] = {}
+    case_info_extractions: list[dict[str, Any]] = []
 
 
 class ContractFolderScanAIClassifyIn(Schema):

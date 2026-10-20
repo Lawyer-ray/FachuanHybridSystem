@@ -90,6 +90,7 @@ async def get_latest_contract_scan(request: HttpRequest, contract_id: int) -> di
             "archive_item_options": [],
             "work_log_suggestions": [],
             "ai_classify_result": {},
+            "case_info_extractions": [],
         }
     return await sync_to_async(service.build_status_payload)(session=session)
 

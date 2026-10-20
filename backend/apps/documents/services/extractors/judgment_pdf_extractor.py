@@ -25,6 +25,7 @@ class ExtractionResult:
     number: str | None = None  # 案号
     document_name: str | None = None  # 文书名称
     content: str | None = None  # 执行依据主文
+    court_name: str | None = None  # 审理机构（法院/仲裁委名称）
 
 
 class JudgmentPdfExtractor:
@@ -160,6 +161,9 @@ class JudgmentPdfExtractor:
         # 提取文书名称
         document_name = self._extract_document_name(text)
 
+        # 提取审理机构名称（法院/仲裁委，通常在文书头部）
+        court_name = self._extract_court_name(text)
+
         # 提取执行依据主文
         content = self._extract_main_text(text)
 
@@ -183,6 +187,7 @@ class JudgmentPdfExtractor:
             number=case_number,
             document_name=document_name,
             content=self._sanitize_extracted_text(content),
+            court_name=court_name,
         )
 
     def _extract_full_text(self, file_path: str) -> tuple[str, str]:  # pragma: no cover
@@ -347,6 +352,31 @@ class JudgmentPdfExtractor:
                 return keyword
 
         logger.warning("未提取到文书名称")
+        return None
+
+    # 审理机构名称：法院（…人民法院/…中级人民法院）或仲裁委员会。
+    # 优先在文书头部（前 800 字符）找落款法院——正文/上诉指引中出现的
+    # 其他法院名（如"向××中级人民法院提起上诉"）不应抢占。
+    _COURT_NAME_PATTERN = re.compile(r"([\u4e00-\u9fa5]{2,25}(?:中级人民法院|人民法院))")
+    _ARBITRATION_NAME_PATTERN = re.compile(r"([\u4e00-\u9fa5]{2,20}仲裁委员会)")
+    _COURT_HEAD_CHARS = 800
+
+    def _extract_court_name(self, text: str) -> str | None:
+        """从文本中提取审理机构名称（法院/仲裁委，取文书头部首个命中）"""
+        head = text[: self._COURT_HEAD_CHARS]
+        match = self._COURT_NAME_PATTERN.search(head) or self._ARBITRATION_NAME_PATTERN.search(head)
+        if match:
+            name = match.group(1)
+            logger.info("提取到审理机构: %s", name)
+            return name
+
+        match = self._COURT_NAME_PATTERN.search(text) or self._ARBITRATION_NAME_PATTERN.search(text)
+        if match:
+            name = match.group(1)
+            logger.info("提取到审理机构（全文兜底）: %s", name)
+            return name
+
+        logger.warning("未提取到审理机构名称")
         return None
 
     def _extract_main_text(self, text: str) -> str | None:

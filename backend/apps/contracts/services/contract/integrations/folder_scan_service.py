@@ -24,6 +24,7 @@ from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 
 from ._candidate_post_processor import CandidatePostProcessor
 from ._import_pipeline import ImportPipeline
+from .case_info_extraction_service import apply_case_info_to_contract, extract_case_info_from_candidates
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +200,7 @@ class ContractFolderScanService:
             "archive_item_options": payload.get("archive_item_options") or [],
             "work_log_suggestions": payload.get("work_log_suggestions") or [],
             "ai_classify_result": payload.get("ai_classify_result") or {},
+            "case_info_extractions": payload.get("case_info_extractions") or [],
         }
 
     @transaction.atomic
@@ -220,6 +222,19 @@ class ContractFolderScanService:
             storage_provider=storage_provider,
             learn_from_correction_fn=self._learn_from_import_correction,
         )
+
+        # 同步→案件信息回填：裁判文书提取结果按选中项追加写入关联案件
+        # （案号/法院去重新增、空字段回填，多阶段共存；失败不影响导入）
+        try:
+            extractions = list((session.result_payload or {}).get("case_info_extractions") or [])
+            selected_paths = {str(i.get("source_path") or "") for i in items if i.get("selected")}
+            if extractions:
+                contract = Contract.objects.get(pk=contract_id)
+                result["case_info_apply"] = apply_case_info_to_contract(
+                    contract, extractions, selected_paths=selected_paths
+                )
+        except Exception:
+            logger.exception("case_info_apply_failed", extra={"contract_id": contract_id})
 
         # 同步→检测监督卡 串联：导入完成后立即检测合同 PDF 末页监督卡
         # OCR 失败不影响导入结果（异常被吞，导入数据随外层事务正常提交）
@@ -306,6 +321,15 @@ class ContractFolderScanService:
                 scan_scope["scan_folder"], archive_category, storage_provider=storage_provider
             )
             result["work_log_suggestions"] = work_log_suggestions
+
+            # 裁判文书案件信息提取（审级/法院名称/案号/主文），单文件失败不阻断扫描
+            try:
+                result["case_info_extractions"] = extract_case_info_from_candidates(
+                    candidates, storage_provider=storage_provider
+                )
+            except Exception:
+                logger.exception("case_info_extraction_error", extra={"session_id": session_id})
+                result["case_info_extractions"] = []
 
             # 归档清单项选项
             archive_item_options = collect_archive_item_options(archive_category)

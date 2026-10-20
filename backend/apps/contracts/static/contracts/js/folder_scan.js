@@ -34,7 +34,6 @@
         scanError: '',
         pollTimer: null,
 
-        scanScopeMode: 'subfolder',
         scanRootPath: '',
         scanSubfolderOptions: [],
         scanSubfolder: '',
@@ -44,6 +43,9 @@
         archiveCategory: '',
         archiveItemOptions: [],
         workLogSuggestions: [],
+
+        // 案件信息提取（审级/法院/案号/主文）
+        caseInfoExtractions: [],
 
         // AI 分类相关
         aiModels: [],
@@ -102,10 +104,6 @@
           return 'is-pending';
         },
 
-        get hasSubfolderOptions() {
-          return Array.isArray(this.scanSubfolderOptions) && this.scanSubfolderOptions.length > 0;
-        },
-
         get visibleCandidates() {
           return (this.scanCandidates || []).filter((item) => !item.skip_reason);
         },
@@ -153,6 +151,9 @@
                 }))
               : [];
             this.aiClassifyResult = (data && data.ai_classify_result) || {};
+            this.caseInfoExtractions = Array.isArray(data && data.case_info_extractions)
+              ? data.case_info_extractions
+              : [];
             this.isScanning = ['pending', 'running', 'classifying'].includes(this.scanStatus);
             if (this.isScanning) {
               this.fetchStatus(true);
@@ -206,17 +207,10 @@
             if (!validSet.has(this.scanSubfolder)) {
               this.scanSubfolder = '';
             }
-            if (!this.scanSubfolderOptions.length) {
-              this.scanScopeMode = 'subfolder';
-              if (!this.hasSubfolderOptions) {
-                this.scanScopeMode = 'all';
-              }
-            }
             this.subfoldersLoaded = true;
           } catch (err) {
             this.scanSubfolderOptions = [];
             this.scanSubfolder = '';
-            this.scanScopeMode = 'all';
             this.scanError = (err && err.message) || (this.texts.loadSubfoldersFailed || '加载子文件夹失败');
             this.subfoldersLoaded = false;
           } finally {
@@ -225,22 +219,8 @@
         },
 
         buildScanPayload(rescan) {
-          const payload = { rescan: Boolean(rescan), scan_subfolder: '' };
-          if (this.scanScopeMode !== 'subfolder') return payload;
-
-          if (!this.hasSubfolderOptions) {
-            this.scanError = this.texts.noSubfolderOptions || '当前目录下没有可选子文件夹，将扫描全部内容';
-            this.scanScopeMode = 'all';
-            return payload;
-          }
-
-          if (!this.scanSubfolder) {
-            this.scanError = this.texts.needSelectSubfolder || '请选择要扫描的子文件夹';
-            return null;
-          }
-
-          payload.scan_subfolder = this.scanSubfolder;
-          return payload;
+          // 不选子文件夹 = 扫描全部内容；选中则只扫该子文件夹
+          return { rescan: Boolean(rescan), scan_subfolder: this.scanSubfolder || '' };
         },
 
         async loadAIModels() {
@@ -310,6 +290,7 @@
           this.archiveItemOptions = [];
           this.workLogSuggestions = [];
           this.aiClassifyResult = {};
+          this.caseInfoExtractions = [];
           this.clearPoll();
 
           fetch(`/api/v1/contracts/${this.contractId}/folder-scan`, {
@@ -374,6 +355,9 @@
                   }))
                 : [];
               this.aiClassifyResult = (data && data.ai_classify_result) || {};
+              this.caseInfoExtractions = Array.isArray(data && data.case_info_extractions)
+                ? data.case_info_extractions
+                : [];
 
               this.isScanning = ['pending', 'running', 'classifying'].includes(this.scanStatus);
               if (keepPolling && this.isScanning) {

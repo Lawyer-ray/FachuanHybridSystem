@@ -8,9 +8,9 @@
 
         <div class="modal-body fm-scan-body">
             <div class="fm-scope-card" x-show="!isScanning">
-                <div class="fm-scope-title">{% trans "扫描前设置" %}</div>
+                <div class="fm-scope-title">{% trans "扫描范围" %}</div>
                 <div class="fm-scope-desc">
-                    {% trans "是否只扫描当前目录下的某个子文件夹？不指定时将扫描全部内容。" %}
+                    {% trans "不选择子文件夹时扫描全部内容：自动分类材料、提取工作日志，并从裁判文书提取审级、法院名称、案号与审理结果。" %}
                 </div>
                 <div class="fm-scope-root" x-show="scanRootPath">
                     <span>{% trans "当前目录：" %}</span>
@@ -22,27 +22,14 @@
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                     </button>
                 </div>
-                <div class="fm-scope-row" style="display:none;">
-                    <label class="fm-radio-item">
-                        <input type="radio" value="all" x-model="scanScopeMode">
-                        <span>{% trans "扫描全部内容" %}</span>
-                    </label>
-                    <label class="fm-radio-item">
-                        <input type="radio" value="subfolder" x-model="scanScopeMode" :disabled="!hasSubfolderOptions">
-                        <span>{% trans "指定子文件夹" %}</span>
-                    </label>
-                </div>
-                <div class="fm-scope-select" x-show="scanScopeMode === 'subfolder'">
-                    <select x-model="scanSubfolder" :disabled="!hasSubfolderOptions || isLoadingSubfolders">
-                        <option value="">{% trans "请选择子文件夹" %}</option>
+                <div class="fm-scope-select">
+                    <select x-model="scanSubfolder" :disabled="isLoadingSubfolders">
+                        <option value="">{% trans "全部内容（不选子文件夹）" %}</option>
                         <template x-for="folder in scanSubfolderOptions" :key="folder.relative_path">
                             <option :value="folder.relative_path" x-text="folder.display_name || folder.relative_path"></option>
                         </template>
                     </select>
                     <p class="fm-scope-hint" x-show="isLoadingSubfolders">{% trans "正在加载子文件夹..." %}</p>
-                    <p class="fm-scope-hint" x-show="!isLoadingSubfolders && !hasSubfolderOptions">
-                        {% trans "当前目录下暂无可选子文件夹，将扫描全部内容。" %}
-                    </p>
                 </div>
             </div>
 
@@ -132,6 +119,34 @@
                                     </template>
                                     <span x-show="!isCaseMaterial(candidate)" class="fm-archive-na">—</span>
                                 </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 案件信息提取区域 -->
+            <div class="fm-caseinfo-section" x-show="caseInfoExtractions.length > 0 && !isScanning">
+                <div class="fm-caseinfo-header">
+                    <span class="fm-caseinfo-title">{% trans "案件信息提取" %}</span>
+                    <span class="fm-caseinfo-hint">{% trans "确认导入时自动回填到关联案件（案号、审理法院、审理结果按阶段追加共存）" %}</span>
+                </div>
+                <table class="fm-caseinfo-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 70px;">{% trans "审级" %}</th>
+                            <th>{% trans "案号" %}</th>
+                            <th style="width: 220px;">{% trans "法院名称" %}</th>
+                            <th style="width: 130px;">{% trans "文书" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="info in caseInfoExtractions" :key="info.source_path">
+                            <tr>
+                                <td x-text="info.stage || '—'"></td>
+                                <td x-text="info.number"></td>
+                                <td x-text="info.court_name || '—'"></td>
+                                <td x-text="info.document_name || '—'"></td>
                             </tr>
                         </template>
                     </tbody>
@@ -319,5 +334,47 @@
         border-radius: 3px;
         margin-left: 6px;
         vertical-align: middle;
+    }
+
+    /* 案件信息提取区域 */
+    .fm-caseinfo-section {
+        margin-top: 16px;
+        border-top: 1px solid var(--fc-border);
+        padding-top: 12px;
+    }
+
+    .fm-caseinfo-header {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        margin-bottom: 8px;
+    }
+
+    .fm-caseinfo-title {
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+    .fm-caseinfo-hint {
+        font-size: 12px;
+        color: var(--fc-text-muted);
+    }
+
+    .fm-caseinfo-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+
+    .fm-caseinfo-table th,
+    .fm-caseinfo-table td {
+        border: 1px solid var(--fc-border);
+        padding: 4px 8px;
+        text-align: left;
+    }
+
+    .fm-caseinfo-table th {
+        background: var(--fc-bg-muted-light, #f8f9fa);
+        font-weight: 600;
     }
 </style>
