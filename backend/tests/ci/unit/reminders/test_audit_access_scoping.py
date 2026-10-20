@@ -199,3 +199,92 @@ class TestCalendarScopeUnauthenticated:
         anonymous = SimpleNamespace(is_authenticated=False)
         qs = CalendarMonthService()._scope_for_context(Reminder.objects.all(), _ctx(anonymous))
         assert qs.count() == 0
+
+
+class TestCalendarPermissionMarks:
+    """日历事件的 can_edit / can_delete 标记（前端编辑入口按此显隐）。
+
+    写权限（can_edit）与删除权限（can_delete）分档：关联了案件/合同的提醒
+    同案同事可改、但只有创建人能删；合并事件（同一庭审多条同步记录）不可编辑。
+    """
+
+    def _month_window(self) -> tuple[int, int]:
+        due = datetime.now() + timedelta(days=3)
+        return due.year, due.month
+
+    def _events_by_id(self, view) -> dict:
+        return {item.id: item for items in view.days.values() for item in items}
+
+    @pytest.mark.django_db
+    def test_creator_can_edit_own_global_reminder(self):
+        """创建人看自己的全局提醒：可编辑、可删除，reminder_type 透传真实枚举。"""
+        creator = LawyerFactory()
+        year, month = self._month_window()
+        reminder = Reminder.objects.create(
+            reminder_type="other",
+            content="个人提醒",
+            due_at=datetime.now() + timedelta(days=3),
+            created_by=creator,
+        )
+
+        view = CalendarMonthService().build_month(year=year, month=month, ctx=_ctx(creator))
+
+        event = self._events_by_id(view)[reminder.id]
+        assert event.can_edit is True
+        assert event.can_delete is True
+        assert event.reminder_type == "other"
+
+    @pytest.mark.django_db
+    def test_colleague_can_edit_but_not_delete_case_reminder(self):
+        """同案同事：可编辑（写权限随案件访问权）、不可删除（谁创建谁删）。"""
+        owner = LawyerFactory()
+        colleague = LawyerFactory()
+        case = CaseFactory()
+        CaseAssignment.objects.create(case=case, lawyer=owner)
+        CaseAssignment.objects.create(case=case, lawyer=colleague)
+        year, month = self._month_window()
+        reminder = Reminder.objects.create(
+            case=case,
+            reminder_type="other",
+            content="案件日程",
+            due_at=datetime.now() + timedelta(days=3),
+            created_by=owner,
+        )
+
+        view = CalendarMonthService().build_month(year=year, month=month, ctx=_ctx(colleague))
+
+        event = self._events_by_id(view)[reminder.id]
+        assert event.can_edit is True
+        assert event.can_delete is False
+
+    @pytest.mark.django_db
+    def test_merged_court_event_not_editable(self):
+        """合并事件（同一庭审多条同步记录）一律不可编辑——单条 PUT 改不动合并展示。"""
+        lawyer_a = LawyerFactory()
+        lawyer_b = LawyerFactory()
+        case = CaseFactory()
+        CaseAssignment.objects.create(case=case, lawyer=lawyer_a)
+        CaseAssignment.objects.create(case=case, lawyer=lawyer_b)
+        due = datetime.now().replace(microsecond=0) + timedelta(days=3)
+        first = Reminder.objects.create(
+            case=case,
+            reminder_type="hearing",
+            content="庭",
+            due_at=due,
+            metadata={"courtroom": "第 6 法庭", "created_by_user_id": lawyer_a.id},
+        )
+        second = Reminder.objects.create(
+            case=case,
+            reminder_type="hearing",
+            content="庭",
+            due_at=due,
+            metadata={"courtroom": "第 6 法庭", "created_by_user_id": lawyer_b.id},
+        )
+
+        view = CalendarMonthService().build_month(year=due.year, month=due.month, ctx=_ctx(lawyer_a))
+
+        merged = self._events_by_id(view)[first.id]
+        assert sorted(merged.member_ids) == sorted([first.id, second.id])
+        assert merged.can_edit is False
+        # second 由 lawyer_b 创建，lawyer_a 按「谁创建谁删」删不掉整条
+        assert merged.can_delete is False

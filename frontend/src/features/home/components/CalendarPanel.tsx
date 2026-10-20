@@ -32,6 +32,8 @@ interface Props {
   onToggleComplete: (e: CalendarEvent) => void
   /** 点日历格空白处 → 新增该日安排（弹窗由调用方挂载）。仅桌面端：手机端点格子一律开当日抽屉，新增走抽屉里的「＋新增」 */
   onOpenAdd: (key: string) => void
+  /** 右键事件行 → 快捷菜单（光标坐标随事件带上）；可选，不传则右键走浏览器默认行为 */
+  onEventContextMenu?: (e: CalendarEvent, pos: { x: number; y: number }) => void
 }
 
 /** 大日历面板：月份切换 + 周一起点月历 + 事件行 + 悬停摘要 + 统计。
@@ -48,6 +50,7 @@ export function CalendarPanel({
   onOpenEvent,
   onToggleComplete,
   onOpenAdd,
+  onEventContextMenu,
 }: Props) {
   const [selected, setSelected] = useState(today)
   // 跨零点跟随：useState(today) 只取初值，长开页面跨天后默认高亮会冻结在昨天。
@@ -127,6 +130,7 @@ export function CalendarPanel({
             onOpenDetail={onOpenEvent}
             onOpenAdd={onOpenAdd}
             onToggleComplete={onToggleComplete}
+            onEventContextMenu={onEventContextMenu}
           />
         ))}
         {loading && (

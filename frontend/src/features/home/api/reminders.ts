@@ -183,3 +183,20 @@ export async function createReminder(payload: CreateReminderIn): Promise<void> {
     },
   })
 }
+
+/**
+ * 编辑安排的字段（PUT /reminders/{id}，后端 exclude_unset 部分更新）。
+ * 只收 编辑表单实际暴露的 四项；关联对象（合同/案件绑定）不在日历编辑范围，
+ * 不传即保持原绑定。
+ */
+export interface UpdateReminderIn {
+  reminder_type: string
+  content: string
+  /** ISO 字符串，如 2026-10-22T14:00:00（不带时区，Django 按当前时区解释，同 create） */
+  due_at: string
+}
+
+/** 后端写权限校验失败时（REMINDER_NOT_OWNER）的 403 由调用方 toast 兜底，这里不做特殊分支 */
+export async function updateReminder(reminderId: number, payload: UpdateReminderIn): Promise<void> {
+  await remindersApi.put(String(reminderId), { json: payload })
+}

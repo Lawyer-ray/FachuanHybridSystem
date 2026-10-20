@@ -2706,6 +2706,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contracts/{contract_id}/folder-scan/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Clear Contract Scan Sessions
+         * @description 清空合同的全部扫描会话（弹窗「清空结果」），不影响已导入材料。
+         */
+        delete: operations["apps_contracts_api_folder_scan_api_clear_contract_scan_sessions"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contracts/{contract_id}/folder-scan/{session_id}": {
         parameters: {
             query?: never;
@@ -13081,6 +13101,13 @@ export interface components {
             ai_classify_result: {
                 [key: string]: unknown;
             };
+            /**
+             * Case Info Extractions
+             * @default []
+             */
+            case_info_extractions: {
+                [key: string]: unknown;
+            }[];
         };
         /** ContractFolderScanSummaryOut */
         ContractFolderScanSummaryOut: {
@@ -13106,6 +13133,11 @@ export interface components {
             date: string;
             /** Content */
             content: string;
+        };
+        /** ContractFolderScanClearOut */
+        ContractFolderScanClearOut: {
+            /** Cleared */
+            cleared: number;
         };
         /** ContractFolderScanAIClassifyOut */
         ContractFolderScanAIClassifyOut: {
@@ -15523,6 +15555,11 @@ export interface components {
              */
             is_overdue: boolean;
             /**
+             * Reminder Type
+             * @default
+             */
+            reminder_type: string;
+            /**
              * Is Completed
              * @default false
              */
@@ -15539,6 +15576,11 @@ export interface components {
              * @default false
              */
             can_delete: boolean;
+            /**
+             * Can Edit
+             * @default false
+             */
+            can_edit: boolean;
         };
         /**
          * CalendarMonthOut
@@ -24415,6 +24457,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ContractFolderScanStatusOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_folder_scan_api_clear_contract_scan_sessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractFolderScanClearOut"];
                 };
             };
         };

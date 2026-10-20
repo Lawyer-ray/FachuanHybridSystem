@@ -515,13 +515,16 @@ async def confirm_date_candidates(
     from apps.document_recognition.services import date_candidate_service
 
     def _do() -> Any:
+        user = get_request_user(request)
         results = date_candidate_service.confirm_candidates(
             task_id,
             [item.model_dump() for item in payload.items],
-            user=get_request_user(request),
+            user=user,
         )
-        # 确认会刷新任务级状态，重新读取避免返回旧值
-        task = _get_task_service().get_task(task_id)
+        # 确认会刷新任务级状态，重新读取避免返回旧值。重读必须带同一 user：
+        # get_task 对 user=None 按普通用户口径只放行存量 NULL 归属的任务，
+        # 自己创建的任务会在提醒已写入后被 404 掉
+        task = _get_task_service().get_task(task_id, user=user)
         return DateConfirmResponseSchema(
             success=all(r["status"] != "error" for r in results),
             date_confirmation_status=task.date_confirmation_status,

@@ -19,6 +19,7 @@ import {
   planCases,
   railFacts,
   railParties,
+  stripEntryParens,
   timelineEntries,
 } from './detail-domain'
 
@@ -47,6 +48,9 @@ function makeCase(over: Partial<DealCase> = {}): DealCase {
     ...over,
   }
 }
+
+/** 日志附件夹具（合并用例按 id 去重） */
+const att = (id: number, name = 'a' + id + '.pdf') => ({ id, name, mediaUrl: '/media/x/' + id })
 
 function makeDeal(over: Partial<WorkbenchDeal> = {}): WorkbenchDeal {
   return {
@@ -264,14 +268,53 @@ describe('案件节', () => {
   it('timelineEntries：倒序日志翻成升序叙事，日期取前 10 位', () => {
     const c = makeCase({
       logs: [
-        { when: '2026-03-05T10:00', who: '周明', text: '二审立案', attN: 0, rem: '', remToday: false },
-        { when: '2026-02-02T09:30', who: '黄崧', text: '收到上诉状', attN: 2, rem: '', remToday: false },
+        { id: 2, when: '2026-03-05T10:00', who: '王某某', text: '二审立案', attN: 0, atts: [], rem: '', remToday: false },
+        { id: 1, when: '2026-02-02T09:30', who: '李某某', text: '收到上诉状', attN: 2, atts: [att(11), att(12)], rem: '', remToday: false },
       ],
     })
     expect(timelineEntries(c).map((e) => [e.date, e.text, e.who, e.attN])).toEqual([
-      ['2026-02-02', '收到上诉状', '黄崧', 2],
-      ['2026-03-05', '二审立案', '周明', 0],
+      ['2026-02-02', '收到上诉状', '李某某', 2],
+      ['2026-03-05', '二审立案', '王某某', 0],
     ])
+  })
+
+  it('timelineEntries：相同内容自动合并（×N、落最新时间、who 取最新、附件按文件名去重并集）', () => {
+    const dup = '收到法院短信：执行款已到账'
+    const c = makeCase({
+      logs: [
+        // 倒序（新 → 旧）：两条同内容 + 一条独立；重放日志附件常同名不同 id
+        { id: 5, when: '2026-09-03T10:00', who: '李某某', text: dup, attN: 2, atts: [{ id: 52, name: '裁定书.pdf', mediaUrl: '/media/x52' }, att(51)], rem: '', remToday: false },
+        { id: 4, when: '2026-09-02T09:00', who: '系统', text: dup, attN: 2, atts: [{ id: 41, name: '裁定书.pdf', mediaUrl: '/media/x41' }, att(51)], rem: '', remToday: false },
+        { id: 3, when: '2026-08-30T09:00', who: '李某某', text: '单独一条', attN: 0, atts: [], rem: '', remToday: false },
+      ],
+    })
+    const out = timelineEntries(c)
+    expect(out.map((e) => [e.date, e.text, e.who, e.n])).toEqual([
+      ['2026-08-30', '单独一条', '李某某', 1],
+      ['2026-09-03', dup, '李某某', 2],
+    ])
+    const merged = out[1]!
+    // 「裁定书.pdf」两条同名只留先到的 id=41，a51 的名字不同保留
+    expect(merged.atts.map((a) => a.id)).toEqual([41, 51])
+    expect(merged.attN).toBe(2)
+    expect(merged.key).toBe('L4')
+  })
+
+  it('stripEntryParens：只隐藏长案件名括号，短括号（当事人/年份/备注）保留', () => {
+    // 长描述型（≥12 字）→ 隐藏，卡片已标明案件
+    expect(stripEntryParens('民事裁定书（张某诉某公司买卖合同纠纷一案）_20260929收.pdf')).toBe(
+      '民事裁定书_20260929收.pdf',
+    )
+    // 嵌套括号（案件名里嵌公司名括号）配平后整体隐藏
+    expect(stripEntryParens('账户确认书（张某诉某公司买卖合同纠纷（二审）一案）V1.pdf')).toBe('账户确认书V1.pdf')
+    // 短括号是区分信息，必须保留：当事人、年份案号、备注
+    expect(stripEntryParens('通知书（王某执行案）_20260414收.pdf')).toBe('通知书（王某执行案）_20260414收.pdf')
+    expect(stripEntryParens('（20XX）粤0000执保1号民事裁定书.pdf')).toBe('（20XX）粤0000执保1号民事裁定书.pdf')
+    expect(stripEntryParens('2-授权委托书（张某）（某醉驾一案）V1.pdf')).toBe('2-授权委托书（张某）（某醉驾一案）V1.pdf')
+    expect(stripEntryParens('【发票】某甲（个人）_20251023.pdf')).toBe('【发票】某甲（个人）_20251023.pdf')
+    // 整名都在括号里 / 括号不配对 → 退回原名
+    expect(stripEntryParens('（张某诉某公司买卖合同纠纷一案）.pdf')).toBe('（张某诉某公司买卖合同纠纷一案）.pdf')
+    expect(stripEntryParens('说明（未闭合.pdf')).toBe('说明（未闭合.pdf')
   })
 })
 

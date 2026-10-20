@@ -213,10 +213,12 @@ def get_calendar_month(
             case_id=item.case_id,
             is_today=item.is_today,
             is_overdue=item.is_overdue,
+            reminder_type=item.reminder_type,
             is_completed=item.is_completed,
             members=item.members,
             member_ids=item.member_ids,
             can_delete=item.can_delete,
+            can_edit=item.can_edit,
         )
 
     return CalendarMonthOut(

@@ -82,13 +82,13 @@ export function DealDetailPage() {
   }
 
   return (
-    <main className="app-page-enter mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1900px]:max-w-[1560px] max-[680px]:px-3 max-[680px]:pt-4">
+    <main className="app-page-enter mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1400px]:max-w-[1400px] min-[1900px]:max-w-[1760px] min-[2400px]:max-w-[2200px] min-[2600px]:max-w-[2480px] max-[680px]:px-3 max-[680px]:pt-4">
       <DetailHeader deal={deal} onAddDue={onAddDue} onAddLog={onAddLog} />
 
       <ChainStepper steps={steps} summary={chainSummary(plan)} onJump={jump} />
 
-      <div className="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-[18px] max-[1024px]:grid-cols-1 min-[1900px]:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="flex min-w-0 flex-col gap-[18px]">
+      <div className="grid grid-cols-[minmax(0,1fr)_400px] items-start gap-[18px] max-[1024px]:grid-cols-1 min-[1900px]:grid-cols-[minmax(0,1fr)_440px] min-[2400px]:grid-cols-[minmax(0,1fr)_480px]">
+        <div className="min-w-0">
           {d.casesError ? (
             <div className="rounded-[12px] border border-destructive/30 bg-destructive/5 px-5 py-4 text-sm text-destructive">
               {d.casesError} ·{' '}
@@ -101,17 +101,36 @@ export function DealDetailPage() {
               合同没有勾选代理阶段，也还没有立案的程序
             </div>
           ) : (
-            ordered.map((c) => (
-              <CaseSection
-                key={c.id}
-                c={c}
-                ambiguous={ambiguous.has(c.proc)}
-                highlighted={hl === c.id}
-                onAddLog={onAddLog}
-              />
-            ))
+            /* 超宽屏瀑布流两列：卡片高度本就不同，columns 顺次填充不留 grid 行对齐的空格子。
+               仅两案及以上才分栏——单案分栏会让卡片只占半宽、右侧留白反而更空 */
+            <div
+              className={
+                'space-y-[18px] ' +
+                (ordered.length >= 2
+                  ? 'min-[1900px]:columns-2 min-[1900px]:gap-[18px] min-[1900px]:space-y-0'
+                  : '')
+              }
+            >
+              {ordered.map((c) => (
+                <div
+                  key={c.id}
+                  className={ordered.length >= 2 ? 'min-[1900px]:mb-[18px] min-[1900px]:break-inside-avoid' : ''}
+                >
+                  <CaseSection
+                    c={c}
+                    ambiguous={ambiguous.has(c.proc)}
+                    highlighted={hl === c.id}
+                    onAddLog={onAddLog}
+                  />
+                </div>
+              ))}
+            </div>
           )}
-          {next && !d.casesError && <NextStageRow stage={next} onCreate={onCreateNext} />}
+          {next && !d.casesError && (
+            <div className="mt-[18px]">
+              <NextStageRow stage={next} onCreate={onCreateNext} />
+            </div>
+          )}
         </div>
 
         <DetailRail

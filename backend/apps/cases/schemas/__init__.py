@@ -3,6 +3,14 @@ from __future__ import annotations
 from .access_schemas import CaseAccessGrantIn, CaseAccessGrantOut, CaseAccessGrantUpdate
 from .assignment_schemas import CaseAssignmentCreate, CaseAssignmentIn, CaseAssignmentOut, CaseAssignmentUpdate
 from .base import ClientIdentityDocOut, ClientOut, ReminderOut
+from .case_folder_browse_schemas import (
+    CaseFolderCopyIn,
+    CaseFolderEntriesResponseSchema,
+    CaseFolderEntryNameIn,
+    CaseFolderFileSchema,
+    CaseFolderPathIn,
+    CaseFolderSubfolderSchema,
+)
 from .case_schemas import (
     CaseCreateFull,
     CaseFullOut,
@@ -87,6 +95,12 @@ __all__ = [
     "CaseCreateFull",
     "CaseFolderBindingCreateSchema",
     "CaseFolderBindingResponseSchema",
+    "CaseFolderEntriesResponseSchema",
+    "CaseFolderEntryNameIn",
+    "CaseFolderCopyIn",
+    "CaseFolderPathIn",
+    "CaseFolderFileSchema",
+    "CaseFolderSubfolderSchema",
     "CaseFolderScanCandidateOut",
     "ContractFolderPathSchema",
     "CaseFolderScanPrefillOut",

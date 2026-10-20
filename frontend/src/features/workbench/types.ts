@@ -76,14 +76,45 @@ export type LawyerListItem = Omit<
 
 /* ============ 前端域模型（buildDeals 合并产物） ============ */
 
+/** 日志附件（点开经 download-ticket 换票后新标签预览） */
+export interface DealLogAtt {
+  id: number
+  name: string
+  /** 相对站点的 /media/... 路径，预览前需拼一次性 ticket */
+  mediaUrl: string
+}
+
 /** 案件日志（时间倒序、提醒语义已归一） */
 export interface DealLog {
+  id: number
   when: string
   who: string
   text: string
   attN: number
+  atts: DealLogAtt[]
   rem: string
   remToday: boolean
+}
+
+/** 案件文件夹绑定（GET /cases/{id}/folder-binding；null = 未绑定） */
+export interface CaseFolderBindingInfo {
+  id: number
+  case_id: number
+  folder_path: string
+  folder_path_display: string
+  storage_type: string
+  is_accessible: boolean
+}
+
+/** 绑定文件夹某一层子项（GET folder-entries；手写轻量契约，案件/合同两端点同形） */
+export type FolderEntries = {
+  browsable: boolean
+  message: string | null
+  path_display: string
+  subpath: string
+  parent_subpath: string
+  folders: Array<{ name: string; subpath: string }>
+  files: Array<{ name: string; subpath: string; size: number; modified_at: string }>
 }
 
 export interface DealContact {

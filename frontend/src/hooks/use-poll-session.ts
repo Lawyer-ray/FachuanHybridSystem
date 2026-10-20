@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 
 /**
  * 可中断轮询会话 lease：由 usePollSession().begin() 签发，随轮询循环传递。
@@ -33,6 +33,14 @@ export interface UsePollSessionResult {
  *    这里每个 sleep 自带定时器并登记到唤醒表；失效时主动 resolve 全部挂着的
  *    sleep，让旧循环「醒过来 → 发现已过期 → 正常 return」干净收尾。
  *
+ * 卸载失效为什么是「setup 可复位的标志」而不是「cleanup 里会话号自增」
+ * （2026-10-20 记一笔永停「正在上传文书…」事故）：开发态 StrictMode 对新挂载组件
+ * 把 effect 跑成 setup→cleanup→setup。cleanup 里直接 session++ 不可逆，挂载 effect
+ * 中签发的 lease 会被这次假卸载永久打成 stale；而消费方若用 ref 防重（RecognizeDialog
+ * 同一文件不二次提交），第二次 setup 不会再签发新 lease，在飞的上传返回后被 isStale
+ * 静默吞掉。unmounted 标志 setup 复位 / cleanup 置位，假卸载可逆、真卸载仍让全部
+ * lease 失效。
+ *
  * 与 features/home/.../court-sms/use-court-sms.ts 内的 pollSession 是同一范式的
  * 两种实现：那边先修好、绑定了法院短信的具体编排（阶段步进/收件箱失效），
  * 不值得为收敛去改动已验证的代码；本 hook 把同一套「会话号 + 可中断 sleep」
@@ -42,6 +50,8 @@ export interface UsePollSessionResult {
 export function usePollSession(): UsePollSessionResult {
   // 会话号单调自增；lease 持有签发时的快照，与最新值不等即视为过期
   const session = useRef(0)
+  // 卸载标志：setup 复位、cleanup 置位（见头注释，StrictMode 的假卸载因此可逆）
+  const unmounted = useRef(false)
   // 挂着的 sleep 唤醒表（Set：旧会话与新会话的 sleep 可能短暂并存，要全部唤醒）
   const sleepers = useRef(new Set<() => void>())
 
@@ -51,14 +61,12 @@ export function usePollSession(): UsePollSessionResult {
     for (const wake of pending) wake()
   }, [])
 
-  // 卸载自动失效：会话号再自增一次并唤醒挂着的 sleep。否则被 clearTimeout
+  // 卸载自动失效：置位后所有存活 lease 过期，并唤醒挂着的 sleep。否则被 clearTimeout
   // 语义遗漏的旧循环会带着闭包里的 setState 永久悬挂
   useEffect(() => {
+    unmounted.current = false
     return () => {
-      // 在 cleanup 里改 ref 正是「卸载即失效」的语义本身，并非 React DOM ref 的
-      // 过期读取问题——此处刻意自增会话号让所有存活 lease 过期
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      session.current++
+      unmounted.current = true
       wakeAll()
     }
   }, [wakeAll])
@@ -67,7 +75,7 @@ export function usePollSession(): UsePollSessionResult {
     const mine = ++session.current
     // 唤醒旧会话挂着的 sleep，让它们尽快走完「醒来 → 自检 → 退出」的收尾
     wakeAll()
-    const isStale = () => mine !== session.current
+    const isStale = () => mine !== session.current || unmounted.current
     return {
       isStale,
       sleep: (ms: number) =>
@@ -96,5 +104,7 @@ export function usePollSession(): UsePollSessionResult {
     wakeAll()
   }, [wakeAll])
 
-  return { begin, invalidate }
+  // 引用稳定：消费方把它放进 useCallback 依赖（submit 等），对象每渲染重建会让
+  // 依赖它的回调跟着漂移，进而让以回调为依赖的 effect 每次渲染重跑
+  return useMemo(() => ({ begin, invalidate }), [begin, invalidate])
 }

@@ -40,9 +40,11 @@ function ev(p: Partial<CalendarEvent> = {}): CalendarEvent {
     is_today: true,
     is_overdue: false,
     is_completed: false,
+    reminder_type: 'hearing',
     members: 1,
     member_ids: [1],
     can_delete: true,
+    can_edit: false,
     ...p,
   }
 }
@@ -57,6 +59,7 @@ function renderPanel(events: CalendarEvent[]) {
     onOpenEvent: vi.fn(),
     onToggleComplete: vi.fn(),
     onOpenAdd: vi.fn(),
+    onEventContextMenu: vi.fn(),
   }
   const utils = render(
     <CalendarPanel
@@ -149,6 +152,18 @@ describe('CalendarPanel 桌面断点', () => {
     const { onToggleComplete, onOpenEvent, onOpenAdd } = renderPanel([ev()])
     fireEvent.click(screen.getByRole('button', { name: '标记为完成' }))
     expect(onToggleComplete).toHaveBeenCalledTimes(1)
+    expect(onOpenEvent).not.toHaveBeenCalled()
+    expect(onOpenAdd).not.toHaveBeenCalled()
+  })
+
+  it('右键事件行 → onEventContextMenu 带上事件与光标坐标，且不开详情不新增', () => {
+    const { onEventContextMenu, onOpenEvent, onOpenAdd, container } = renderPanel([ev()])
+    const row = container.querySelector<HTMLElement>('[data-calendar-event="1"]')
+    if (!row) throw new Error('事件行未渲染')
+    fireEvent.contextMenu(row, { clientX: 321, clientY: 222 })
+    expect(onEventContextMenu).toHaveBeenCalledTimes(1)
+    expect(onEventContextMenu.mock.calls[0]?.[0]).toMatchObject({ id: 1 })
+    expect(onEventContextMenu.mock.calls[0]?.[1]).toEqual({ x: 321, y: 222 })
     expect(onOpenEvent).not.toHaveBeenCalled()
     expect(onOpenAdd).not.toHaveBeenCalled()
   })

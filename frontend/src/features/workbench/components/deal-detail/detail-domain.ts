@@ -1,5 +1,13 @@
 import { daysFromToday, dealFacts, fmtMoney } from '../../domain'
-import type { ContractReminder, DealCase, DealContact, DealParty, ReminderOut, WorkbenchDeal } from '../../types'
+import type {
+  ContractReminder,
+  DealCase,
+  DealContact,
+  DealLogAtt,
+  DealParty,
+  ReminderOut,
+  WorkbenchDeal,
+} from '../../types'
 
 /* ============ 程序链 ============ */
 
@@ -192,17 +200,98 @@ export interface TimelineEntry {
   text: string
   who: string
   attN: number
+  /** 附件明细（可点预览）；同内容日志合并后为并集，再按文件名去重 */
+  atts: DealLogAtt[]
+  /** 相同内容自动合并后的条数（>1 显示 ×N） */
+  n: number
 }
 
-/** 时间轴按时间升序叙事（抽屉是倒序速览，这里是从头讲到现在） */
+/** 只隐藏「长描述型」括号：案件名在卡片上已有，留着只是冗长；短括号常是区分信息（当事人/年份/备注），必须保留 */
+const LONG_PAREN_THRESHOLD = 12
+
+/**
+ * 文件名展示形：隐藏括号内冗长的案件背景描述。
+ * 「告知书（张某诉某公司买卖合同纠纷一案）_收.pdf」→「告知书_收.pdf」；
+ * 「通知书（王某执行案）」「(2026)粤…号」「【发票】某某（个人）」等短括号原样保留——
+ * 删掉会让同名文件失去区分度。整名都在括号里时退回原名。
+ * 扫描而非正则：案件名里常嵌公司名括号（如「诉某公司（广东）分公司」），需配平。
+ */
+export function stripEntryParens(name: string): string {
+  let out = ''
+  let i = 0
+  while (i < name.length) {
+    const ch = name[i]
+    if (ch !== '（' && ch !== '(') {
+      out += ch
+      i++
+      continue
+    }
+    const open = ch
+    const close = ch === '（' ? '）' : ')'
+    let depth = 1
+    let j = i + 1
+    while (j < name.length && depth > 0) {
+      if (name[j] === open) depth++
+      else if (name[j] === close) depth--
+      j++
+    }
+    if (depth !== 0) {
+      out += name.slice(i) // 括号不配对：余下原样保留
+      break
+    }
+    const inner = name.slice(i + 1, j - 1)
+    out += inner.trim().length >= LONG_PAREN_THRESHOLD ? '' : name.slice(i, j)
+    i = j
+  }
+  const stripped = out.replace(/\s{2,}/g, ' ').trim()
+  if (!stripped) return name
+  const stem = stripped.replace(/\.[^.]+$/, '').trim()
+  return stem ? stripped : name
+}
+
+/**
+ * 时间轴按时间升序叙事（抽屉是倒序速览，这里是从头讲到现在）。
+ * 相同内容的日志自动合并成一条（测试灌入的重复、短信重放）：条目落在组内
+ * 最新一次的位置与时间、who 取最新，附件按 id 去重取并集——真实业务里
+ * 同内容不同天的记录（如周期性进度）也只留最新一条叙事，×N 说明发生过几次。
+ * 重放日志常带同名不同 id 的重复附件，附件再按文件名去重只展示一个。
+ */
 export function timelineEntries(c: DealCase): TimelineEntry[] {
-  return [...c.logs].reverse().map((l, i) => ({
-    key: l.when + '|' + i,
-    date: l.when.slice(0, 10),
-    text: l.text,
-    who: l.who,
-    attN: l.attN,
-  }))
+  const out: TimelineEntry[] = []
+  const byText = new Map<string, TimelineEntry>()
+  for (const l of [...c.logs].reverse()) {
+    const date = l.when.slice(0, 10)
+    const exist = byText.get(l.text)
+    if (exist) {
+      exist.n += 1
+      exist.date = date
+      exist.who = l.who || exist.who
+      const seenNames = new Set(exist.atts.map((a) => a.name))
+      for (const a of l.atts) if (!seenNames.has(a.name)) exist.atts.push(a)
+      exist.attN = exist.atts.length
+      continue
+    }
+    const seenNames = new Set<string>()
+    const atts: DealLogAtt[] = []
+    for (const a of l.atts) {
+      if (!seenNames.has(a.name)) {
+        seenNames.add(a.name)
+        atts.push(a)
+      }
+    }
+    const entry: TimelineEntry = {
+      key: 'L' + l.id,
+      date,
+      text: l.text,
+      who: l.who,
+      attN: atts.length,
+      atts,
+      n: 1,
+    }
+    byText.set(l.text, entry)
+    out.push(entry)
+  }
+  return out
 }
 
 /* ============ 右栏 ============ */

@@ -86,6 +86,11 @@ class JWTOrSessionAuth(HttpBearer):
                 if user_id is not None:
                     ticket_user = self._load_user(user_id)
                     if ticket_user is not None:
+                        # 与 ninja_jwt 的 authenticate 同口径：认证结果同步回 request.user。
+                        # 否则下游（get_request_access_context 等读 request.user 的代码）拿到的是
+                        # AuthenticationMiddleware 留下的 AnonymousUser，行级 ACL 会 fail-closed
+                        # （ticket 打任何 ninja 业务端点都 403，2026-10-20 案件文件夹预览暴露）。
+                        request.user = ticket_user
                         return ticket_user
                 # 票据无效时不再回退 JWT query（那正是要堵住的洞），继续走 Session
                 logger.info("download_ticket_rejected", extra={"path": request.path[:120]})

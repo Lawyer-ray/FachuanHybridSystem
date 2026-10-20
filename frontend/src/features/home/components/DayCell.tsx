@@ -33,9 +33,11 @@ interface CellProps {
   onOpenAdd: (key: string) => void
   /** 勾选完成 / 取消完成 */
   onToggleComplete: (e: CalendarEvent) => void
+  /** 右键事件行 → 快捷菜单（删除等）；仅桌面事件行触发（手机行不渲染） */
+  onEventContextMenu?: (e: CalendarEvent, pos: { x: number; y: number }) => void
 }
 
-export function DayCell({ cell, today, selected, events, maxRows, mobile, onPick, onOpenAdd, onOpenDetail, onToggleComplete }: CellProps) {
+export function DayCell({ cell, today, selected, events, maxRows, mobile, onPick, onOpenAdd, onOpenDetail, onToggleComplete, onEventContextMenu }: CellProps) {
   if (!cell.key || cell.day == null) return <div className={cn(CELL_HEIGHT, 'border-r border-b border-border-light')} />
 
   const key = cell.key
@@ -128,6 +130,14 @@ export function DayCell({ cell, today, selected, events, maxRows, mobile, onPick
                 ev.stopPropagation()
                 onOpenDetail(e)
               }}
+              onContextMenu={onEventContextMenu
+                ? (ev) => {
+                    // 右键直达快捷菜单（删除等）：拦掉浏览器原生菜单，也不触发日历格的任何行为
+                    ev.preventDefault()
+                    ev.stopPropagation()
+                    onEventContextMenu(e, { x: ev.clientX, y: ev.clientY })
+                  }
+                : undefined}
             >
               {/* 时间独占第一行，正文全部左对齐顶格开始。
                   以前把时间做成固定 30px 的前导列，导致律师/地点两行要缩进

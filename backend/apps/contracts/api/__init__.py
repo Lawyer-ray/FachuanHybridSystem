@@ -8,6 +8,7 @@ from ninja import Router
 
 from .archive_api import router as archive_router
 from .contract_api import router as contract_router
+from .contract_folder_browse_api import router as contract_folder_browse_router
 from .contractfinance_api import router as contractfinance_router
 from .contractpayment_api import router as contractpayment_router
 from .folder_binding_api import router as folder_binding_router
@@ -25,5 +26,6 @@ router.add_router("", supplementary_agreement_router, tags=["补充协议"])
 router.add_router("", folder_binding_router, tags=["文件夹绑定"])
 router.add_router("", folder_scan_router, tags=["文件夹自动捕获"])
 router.add_router("", archive_router, tags=["归档材料管理"])
+router.add_router("", contract_folder_browse_router, tags=["合同文件夹浏览"])
 
 __all__ = ["router"]

@@ -7664,6 +7664,44 @@
         ]
       }
     },
+    "/api/v1/contracts/{contract_id}/folder-scan/sessions": {
+      "delete": {
+        "operationId": "apps_contracts_api_folder_scan_api_clear_contract_scan_sessions",
+        "summary": "Clear Contract Scan Sessions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contract_id",
+            "schema": {
+              "title": "Contract Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractFolderScanClearOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "清空合同的全部扫描会话（弹窗「清空结果」），不影响已导入材料。",
+        "tags": [
+          "文件夹自动捕获"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/contracts/{contract_id}/folder-scan/{session_id}": {
       "get": {
         "operationId": "apps_contracts_api_folder_scan_api_get_contract_scan_status",
@@ -32210,6 +32248,15 @@
             "default": {},
             "title": "Ai Classify Result",
             "type": "object"
+          },
+          "case_info_extractions": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Case Info Extractions",
+            "type": "array"
           }
         },
         "required": [
@@ -32259,6 +32306,19 @@
           "content"
         ],
         "title": "WorkLogSuggestionOut",
+        "type": "object"
+      },
+      "ContractFolderScanClearOut": {
+        "properties": {
+          "cleared": {
+            "title": "Cleared",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cleared"
+        ],
+        "title": "ContractFolderScanClearOut",
         "type": "object"
       },
       "ContractFolderScanAIClassifyOut": {
@@ -36871,6 +36931,11 @@
             "title": "Is Overdue",
             "type": "boolean"
           },
+          "reminder_type": {
+            "default": "",
+            "title": "Reminder Type",
+            "type": "string"
+          },
           "is_completed": {
             "default": false,
             "title": "Is Completed",
@@ -36891,6 +36956,11 @@
           "can_delete": {
             "default": false,
             "title": "Can Delete",
+            "type": "boolean"
+          },
+          "can_edit": {
+            "default": false,
+            "title": "Can Edit",
             "type": "boolean"
           }
         },

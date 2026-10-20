@@ -9,6 +9,7 @@ import { eventReminderIds, formatCN, formatWeekdayCN, parseKey } from '../domain
 import { useCompleteReminder } from '../hooks/use-complete-reminder'
 import { useDeleteReminder } from '../hooks/use-delete-reminder'
 import { CalendarPanel, type CalendarView } from './CalendarPanel'
+import { EventContextMenu } from './EventContextMenu'
 import { EventDetailDialog } from './EventDetailDialog'
 import { ToolDock } from './ToolDock'
 import { useMediaQuery } from '@/hooks/use-media'
@@ -129,6 +130,13 @@ export function HomePage() {
     [deleteMutation],
   )
 
+  /* 右键事件行的快捷菜单（标记完成 / 直接删除）：删除走同一个 mutation，
+     详情弹窗没开时 setDetail(null) 是 no-op */
+  const [ctxMenu, setCtxMenu] = useState<{ event: CalendarEvent; x: number; y: number } | null>(null)
+  const handleEventContextMenu = useCallback((event: CalendarEvent, pos: { x: number; y: number }) => {
+    setCtxMenu({ event, ...pos })
+  }, [])
+
   const openAddDialog = useCallback(
     (day: string) => {
       setAdding({ day, time: defaultTimeFor(day, today) })
@@ -243,6 +251,7 @@ export function HomePage() {
                 onOpenEvent={handleOpenEvent}
                 onOpenAdd={openAddDialog}
                 onToggleComplete={handleToggleComplete}
+                onEventContextMenu={handleEventContextMenu}
               />
             )}
             <ToolDock />
@@ -282,11 +291,21 @@ export function HomePage() {
         onSaved={invalidateCalendar}
       />
 
-      {/* 事件详情弹窗：日历格 / 手机抽屉 / 今日卡共用（z-[130]，叠在 z-61 的抽屉之上） */}
+      {/* 事件详情弹窗：日历格 / 手机抽屉 / 今日卡共用（z-[130]，叠在 z-61 的抽屉之上）。
+          编辑保存后 invalidate 重取日历（事件可能挪了日子 / 月份） */}
       <EventDetailDialog
         event={detail}
         onClose={() => setDetail(null)}
+        onSaved={invalidateCalendar}
         onOpenCase={handleOpenCase}
+        onToggleComplete={handleToggleComplete}
+        onDelete={handleDeleteEvent}
+      />
+
+      {/* 日历事件右键快捷菜单（标记完成 / 删除） */}
+      <EventContextMenu
+        target={ctxMenu}
+        onClose={() => setCtxMenu(null)}
         onToggleComplete={handleToggleComplete}
         onDelete={handleDeleteEvent}
       />

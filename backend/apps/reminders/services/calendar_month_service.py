@@ -118,6 +118,25 @@ class CalendarMonthService:
                 can_delete_reminder(user, by_id.get(member_id)) for member_id in event.member_ids
             )
 
+    def _mark_editable(self, events: list[CalendarEventItem], reminders: list[Reminder], ctx: Any) -> None:
+        """按当前用户标记每条事件能否编辑（前端据此显隐编辑按钮）。
+
+        口径 = reminder 写权限（can_write_reminder：关联了对象的同案同事可改，
+        全局提醒仅创建人与管理员）。合并事件（同一庭审的多条同步记录）**一律
+        不可编辑**：单条 PUT 只改得动一个成员，改不动合并后的展示字段——
+        庭期信息要改去改案件源数据。ctx 为 None 不标记，保持默认 False。
+        """
+        if ctx is None:
+            return
+        from .reminder_access import can_write_reminder
+
+        user = ctx.user
+        by_id = {reminder.id: reminder for reminder in reminders}
+        for event in events:
+            if len(event.member_ids) != 1:
+                continue
+            event.can_edit = can_write_reminder(user, by_id.get(event.member_ids[0]))
+
     # ── 月视图 ────────────────────────────────────────────────────────────
 
     def build_month(self, *, year: int, month: int, ctx: Any = None) -> MonthCalendarView:
@@ -131,6 +150,7 @@ class CalendarMonthService:
         month_events = self.normalize(month_reminders, today=today)
         month_events = sorted(month_events, key=lambda e: (e.day, e.time, e.id))
         self._mark_deletable(month_events, month_reminders, ctx)
+        self._mark_editable(month_events, month_reminders, ctx)
 
         # 统计按更宽的时间窗算，保证「7 日内到期」跨月也准确
         stats_qs = self._scope_for_context(self.query_all_upcoming(), ctx)

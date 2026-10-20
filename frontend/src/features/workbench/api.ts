@@ -1,5 +1,13 @@
 import { createApiClient } from '@/lib/api'
-import type { CaseListItem, ContractListItem, ContractPageResponse, LawyerListItem, ReminderOut } from './types'
+import type {
+  CaseFolderBindingInfo,
+  CaseListItem,
+  ContractListItem,
+  ContractPageResponse,
+  FolderEntries,
+  LawyerListItem,
+  ReminderOut,
+} from './types'
 
 /**
  * 办案主页数据源：合同 + 律师列表接口只读拉取（slim 模式剔除归档材料清单，
@@ -61,4 +69,82 @@ export async function listRemindersByCase(caseId: number): Promise<ReminderOut[]
 
 export async function listLawyers(): Promise<LawyerListItem[]> {
   return organizationApi.get('lawyers').json<LawyerListItem[]>()
+}
+
+/* ============ 绑定文件夹（案件卡「文件夹视图」+ 右栏「合同文件夹」树共用） ============ */
+
+export type FolderOwnerKind = 'case' | 'contract'
+
+function folderApi(kind: FolderOwnerKind) {
+  return kind === 'case' ? casesApi : contractsApi
+}
+
+/** 案件文件夹绑定（未绑定时端点返回 null；404 = 案件不存在/无权） */
+export async function getCaseFolderBinding(caseId: number): Promise<CaseFolderBindingInfo | null> {
+  return casesApi.get(String(caseId) + '/folder-binding').json<CaseFolderBindingInfo | null>()
+}
+
+/** 绑定文件夹某一层子项（subpath 为空 = 根；非递归、不含隐藏项） */
+export async function listFolderEntries(
+  kind: FolderOwnerKind,
+  ownerId: number,
+  subpath: string,
+): Promise<FolderEntries> {
+  return folderApi(kind)
+    .get(String(ownerId) + '/folder-entries', { searchParams: subpath ? { subpath } : {} })
+    .json<FolderEntries>()
+}
+
+/** 在 subpath（空 = 绑定根）下新建子文件夹；重名/非法名由后端 400 拒 */
+export async function createFolderEntry(kind: FolderOwnerKind, ownerId: number, subpath: string, name: string) {
+  return folderApi(kind)
+    .post(String(ownerId) + '/folder-mkdir', { json: { subpath, name } })
+    .json<{ subpath: string; name: string }>()
+}
+
+/** 重命名 subpath 指向的文件/文件夹（name 为新名字） */
+export async function renameFolderEntry(kind: FolderOwnerKind, ownerId: number, subpath: string, name: string) {
+  return folderApi(kind)
+    .post(String(ownerId) + '/folder-rename', { json: { subpath, name } })
+    .json<{ subpath: string; name: string }>()
+}
+
+/** 拖拽 / 多文件上传到 subpath 目录（后端同名自动加序号，不覆盖既有文件） */
+export async function uploadFolderFiles(
+  kind: FolderOwnerKind,
+  ownerId: number,
+  subpath: string,
+  files: File[],
+) {
+  const form = new FormData()
+  for (const f of files) form.append('files', f, f.name)
+  return folderApi(kind)
+    .post(String(ownerId) + '/folder-upload', { searchParams: subpath ? { subpath } : {}, body: form })
+    .json<{ saved: Array<{ name: string; subpath: string }> }>()
+}
+
+/** 单文件预览直链（预览前经 withDownloadTicket 换一次性票据再 window.open） */
+export function folderFileUrl(kind: FolderOwnerKind, ownerId: number, subpath: string): string {
+  return (
+    '/api/v1/' + (kind === 'case' ? 'cases' : 'contracts') + '/' + ownerId + '/folder-file?subpath=' + encodeURIComponent(subpath)
+  )
+}
+
+/** 复制文件/文件夹到目标目录（同名自动加序号，不覆盖） */
+export async function copyFolderEntry(
+  kind: FolderOwnerKind,
+  ownerId: number,
+  subpath: string,
+  destSubpath: string,
+) {
+  return folderApi(kind)
+    .post(String(ownerId) + '/folder-copy', { json: { subpath, dest_subpath: destSubpath } })
+    .json<{ subpath: string; name: string }>()
+}
+
+/** 删除 = 移入绑定根下 _已删除/（带时间戳可恢复，非物理删除） */
+export async function deleteFolderEntry(kind: FolderOwnerKind, ownerId: number, subpath: string) {
+  return folderApi(kind)
+    .post(String(ownerId) + '/folder-delete', { json: { subpath } })
+    .json<{ subpath: string; name: string }>()
 }
