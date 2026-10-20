@@ -82,22 +82,23 @@ export function DealDetailPage() {
   }
 
   return (
-    <main className="app-page-enter mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1900px]:max-w-[1560px] max-[680px]:px-3 max-[680px]:pt-4">
+    <main className="app-page-enter mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1400px]:max-w-[1400px] min-[1900px]:max-w-[1760px] min-[2400px]:max-w-[2200px] min-[2600px]:max-w-[2480px] max-[680px]:px-3 max-[680px]:pt-4">
       <DetailHeader deal={deal} onAddDue={onAddDue} onAddLog={onAddLog} />
 
       <ChainStepper steps={steps} summary={chainSummary(plan)} onJump={jump} />
 
       <div className="grid grid-cols-[minmax(0,1fr)_400px] items-start gap-[18px] max-[1024px]:grid-cols-1 min-[1900px]:grid-cols-[minmax(0,1fr)_440px]">
-        <div className="flex min-w-0 flex-col gap-[18px]">
+        {/* 超宽屏案件卡排两列：横向空间换算纵向滚动，而不是把单列时间轴拉成一条超长行 */}
+        <div className="grid min-w-0 grid-cols-1 items-start gap-[18px] min-[1900px]:grid-cols-2">
           {d.casesError ? (
-            <div className="rounded-[12px] border border-destructive/30 bg-destructive/5 px-5 py-4 text-sm text-destructive">
+            <div className="rounded-[12px] border border-destructive/30 bg-destructive/5 px-5 py-4 text-sm text-destructive min-[1900px]:col-span-2">
               {d.casesError} ·{' '}
               <button type="button" className="cursor-pointer underline underline-offset-3" onClick={() => d.refetch()}>
                 重试
               </button>
             </div>
           ) : plan.length === 0 ? (
-            <div className="rounded-[12px] border border-border bg-card px-5 py-8 text-center text-[13px] text-muted-foreground shadow-sm">
+            <div className="rounded-[12px] border border-border bg-card px-5 py-8 text-center text-[13px] text-muted-foreground shadow-sm min-[1900px]:col-span-2">
               合同没有勾选代理阶段，也还没有立案的程序
             </div>
           ) : (
@@ -111,7 +112,11 @@ export function DealDetailPage() {
               />
             ))
           )}
-          {next && !d.casesError && <NextStageRow stage={next} onCreate={onCreateNext} />}
+          {next && !d.casesError && (
+            <div className="min-[1900px]:col-span-2">
+              <NextStageRow stage={next} onCreate={onCreateNext} />
+            </div>
+          )}
         </div>
 
         <DetailRail
