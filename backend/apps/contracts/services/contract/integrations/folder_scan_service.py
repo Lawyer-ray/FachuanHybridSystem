@@ -38,6 +38,10 @@ class ContractFolderScanService:
         ContractFolderScanStatus.CLASSIFYING,
     }
 
+    # 全局扫描（未指定子文件夹）默认跳过的目录关键词：客户资料是当事人身份材料，
+    # 不是归档清单项；需要时在弹窗显式选中该子文件夹单独扫描
+    _GLOBAL_EXCLUDE_DIR_KEYWORDS: tuple[str, ...] = ("客户资料",)
+
     def __init__(self, *, scan_service: BoundFolderScanService | None = None) -> None:
         self._scan_service = scan_service or BoundFolderScanService()
         self._post_processor = CandidatePostProcessor(self._scan_service)
@@ -300,6 +304,7 @@ class ContractFolderScanService:
                 domain="contract",
                 progress_callback=_progress,
                 storage_provider=storage_provider,
+                exclude_dir_keywords=self._GLOBAL_EXCLUDE_DIR_KEYWORDS if not scan_scope["scan_subfolder"] else (),
             )
             result["scan_scope"] = scan_scope
 

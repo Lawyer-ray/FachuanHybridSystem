@@ -86,6 +86,7 @@ class BoundFolderScanService:
         classification_context: dict[str, Any] | None = None,
         scan_subfolder: str = "",
         storage_provider: Any | None = None,
+        exclude_dir_keywords: tuple[str, ...] = (),
     ) -> dict[str, Any]:
         # ── Cloud storage path ──
         if storage_provider is not None:
@@ -97,6 +98,7 @@ class BoundFolderScanService:
                 classification_context=classification_context,
                 scan_subfolder=scan_subfolder,
                 storage_provider=storage_provider,
+                exclude_dir_keywords=exclude_dir_keywords,
             )
 
         # ── Local filesystem path (existing logic) ──
@@ -110,6 +112,13 @@ class BoundFolderScanService:
 
         _notify(progress_callback, "scanning", 5, None)
         all_pdf_files = _collect_pdf_files(root)
+        if exclude_dir_keywords:
+            # 按文件夹段排除（如全局扫描默认跳过"客户资料"），只看目录名不看文件名
+            all_pdf_files = [
+                p
+                for p in all_pdf_files
+                if not _is_under_excluded_dir(p.relative_to(root).as_posix(), exclude_dir_keywords)
+            ]
         deduped = self._deduplicate_files(all_pdf_files)
 
         if self._max_candidates > 0 and len(deduped) > self._max_candidates:
@@ -297,6 +306,7 @@ class BoundFolderScanService:
         classification_context: dict[str, Any] | None,
         scan_subfolder: str,
         storage_provider: Any,
+        exclude_dir_keywords: tuple[str, ...] = (),
     ) -> dict[str, Any]:  # pragma: no cover
         """Scan a cloud storage folder using CloudFolderScanner."""
         from apps.cloud_storage.scanner_adapter import CloudFolderScanner
@@ -305,6 +315,9 @@ class BoundFolderScanService:
 
         _notify(progress_callback, "scanning", 5, None)
         all_scanned = scanner.collect_pdf_files()
+        if exclude_dir_keywords:
+            # ScannedFile.as_posix 是相对扫描根目录的路径，与本地分支同一套目录段判定
+            all_scanned = [s for s in all_scanned if not _is_under_excluded_dir(s.as_posix, exclude_dir_keywords)]
 
         deduped = self._deduplicate_scanned_files(all_scanned)
 
@@ -512,6 +525,15 @@ def _collect_pdf_files(root: Path) -> list[Path]:
     files = [p for p in root.rglob("*") if p.is_file() and p.suffix.lower() == ".pdf"]
     files.sort(key=lambda x: x.as_posix())
     return files
+
+
+def _is_under_excluded_dir(rel_path: str, keywords: tuple[str, ...]) -> bool:
+    """相对路径是否位于被排除的文件夹下（只看目录段，末段是文件名不参与）。"""
+    segments = [seg for seg in str(rel_path or "").replace("\\", "/").split("/") if seg]
+    if not segments:
+        return False
+    dir_segments = segments[:-1]
+    return any(kw in segment for segment in dir_segments for kw in keywords)
 
 
 # ↓↓ 由 BoundFolderScanService 下沉的模块级纯函数（四层架构静态方法棘轮）
