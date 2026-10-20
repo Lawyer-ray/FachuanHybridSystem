@@ -494,3 +494,53 @@ class TestApplyCaseInfoRollbackSafety:
                 ],
             )
             assert stats["case_numbers_created"] == 1
+
+
+class TestPreservationNumberExcluded:
+    """保全类案号（财保/执保）是程序性编号，不纳入提取。"""
+
+    def test_is_preservation_number(self):
+        from apps.contracts.services.contract.integrations.case_info_extraction_service import is_preservation_number
+
+        assert is_preservation_number("（2025）粤0100财保111号") is True  # privacy-allow 假案号
+        assert is_preservation_number("（2025）粤0100执保222号") is True  # privacy-allow 假案号
+        assert is_preservation_number("（2025）粤0100民保333号") is True  # privacy-allow 假案号
+        assert is_preservation_number("（2025）粤0100民初111号") is False  # privacy-allow 假案号
+        assert is_preservation_number("（2026）粤0100执222号") is False  # privacy-allow 假案号
+
+    def test_extraction_skips_preservation_numbers(self, monkeypatch, tmp_path):
+        """告知书里的首个案号是执保号时跳过；主案号正常保留。"""
+        from apps.contracts.services.contract.integrations import case_info_extraction_service as svc
+
+        def _fake_extract(extractor, path, mode="judgment", storage_provider=None):
+            if "执行告知书" in path:
+                return type(
+                    "R",
+                    (),
+                    {
+                        "number": "（2026）粤0100执222号",  # privacy-allow 假案号
+                        "document_name": None,
+                        "court_name": "某市人民法院",
+                        "content": None,
+                    },
+                )()
+            return type(
+                "R",
+                (),
+                {
+                    "number": "（2025）粤0100执保999号",  # privacy-allow 假案号
+                    "document_name": None,
+                    "court_name": "某市人民法院",
+                    "content": None,
+                },
+            )()
+
+        monkeypatch.setattr(svc, "_extract_pdf", _fake_extract)
+
+        candidates = [
+            {"filename": "结案告知书.pdf", "source_path": "/a/结案告知书.pdf", "skip_reason": ""},
+            {"filename": "执行告知书.pdf", "source_path": "/b/执行告知书.pdf", "skip_reason": ""},
+        ]
+        result = extract_case_info_from_candidates(candidates)
+
+        assert [item["number"] for item in result] == ["（2026）粤0100执222号"]  # privacy-allow 假案号

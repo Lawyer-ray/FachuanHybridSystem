@@ -63,6 +63,15 @@ _STAGE_FROM_DOCUMENT_NAME: tuple[tuple[str, str], ...] = (
     ("再审", "再审"),
 )
 
+# 保全类案号类型字（诉前财保/执保/诉讼民保等）是程序性保全编号，
+# 不属于阶段主案号，不纳入案件信息提取
+_PRESERVATION_NUMBER_KEYWORDS: tuple[str, ...] = ("财保", "执保", "民保", "行保")
+
+
+def is_preservation_number(number: str) -> bool:
+    """案号是否为保全类程序编号（财保/执保/民保/行保）。"""
+    return any(kw in str(number or "") for kw in _PRESERVATION_NUMBER_KEYWORDS)
+
 
 def infer_stage(*, case_number: str = "", document_name: str = "") -> str:
     """从案号类型字 / 文书名称推断审级（一审、二审、执行、再审…），无法推断返回空串。"""
@@ -147,6 +156,9 @@ def extract_case_info_from_candidates(
         number = str(result.number or "").strip()
         if not number:
             logger.info("case_info_skip_no_number", extra={"source_path": source_path})
+            continue
+        if is_preservation_number(number):
+            logger.info("case_info_skip_preservation_number", extra={"number": number})
             continue
 
         item = {
