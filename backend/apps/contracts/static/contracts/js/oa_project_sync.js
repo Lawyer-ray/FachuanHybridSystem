@@ -4,8 +4,12 @@
  * 纯接口、无浏览器：后端用当前登录人的 OA 凭证 GET projectView 详情页
  * （客户 / 案件信息 / 利冲三个 tab 服务端一次性渲染），整形后回填：
  * - 普通字段（合同名称 / 合同类型 / 开始日期 / 律所OA案件编号 / 律所OA链接 / 律所ID）直接赋值
- * - 当事人（委托人 ← 客户信息；对方 ← 利冲）与承办律师（← 案件负责人）
- *   经 admin autocomplete 匹配本地库后填 inline 行；库中无同名记录只提示不新建
+ * - 当事人（委托人 ← 客户信息；对方 ← 利冲对立方）与承办律师（← 案件负责人）
+ *   直接使用后端解析好的 Client id 填 inline 行；本地缺失的当事人后端已按阵营
+ *   自动建库（委托人＝我方，其余＝非我方），无需先去建客户
+ *
+ * 阵营口径：只有 OA「客户信息」tab 的委托人才是我方当事人；利冲表里与「代理何方」
+ * 同法律地位的共同被告 / 共同原告只是同案其他当事人，不是我们的委托人，只提示不填。
  *
  * 仅新建页注入（模板按 original 为空才写 window.CONTRACT_OA_SYNC_URL）。
  * 成功静默（结果内联汇总），仅请求级失败红字提示，不弹窗。
@@ -149,25 +153,36 @@
 
     // ── 当事人 ──
 
-    // 逐个查客户库填行（保持 OA 顺序；单个失败只记未匹配不中断）。
-    // typeKey 指定展示用的附注字段（对方当事人带法律地位：「某机关（被告）」）
+    // 逐个填行（保持 OA 顺序；单个失败只记未匹配不中断）。
+    // 后端已把当事人解析成 Client id（缺失已按阵营自动建库），这里直接用；
+    // 仅在解析失败时回退 autocomplete 兜底。typeKey 指定展示用的附注字段
+    //（对方当事人带法律地位：「某机关（被告）」）
     async function fillParties(items, role, typeKey) {
-        var report = { matched: [], missing: [], failed: [] };
+        var report = { matched: [], missing: [], failed: [], created: [] };
         for (var i = 0; i < items.length; i++) {
-            var name = (items[i] && items[i].name || '').trim();
+            var item = items[i] || {};
+            var name = (item.name || '').trim();
             if (!name) continue;
-            var label = typeKey && items[i][typeKey] ? name + '（' + items[i][typeKey] + '）' : name;
+            var label = typeKey && item[typeKey] ? name + '（' + item[typeKey] + '）' : name;
             try {
-                var client = await lookupAutocomplete('contractparty', 'client', name);
+                var client = resolveClient(item);
+                if (!client) client = await lookupAutocomplete('contractparty', 'client', name);
                 if (!client) { report.missing.push(label); continue; }
                 if (isClientSelected(client.id)) { report.matched.push(label); continue; }
-                if (await fillPartyRow(client, role)) report.matched.push(label);
-                else report.failed.push(label);
+                if (!(await fillPartyRow(client, role))) { report.failed.push(label); continue; }
+                report.matched.push(label);
+                if (item.created) report.created.push(label);
             } catch (e) {
                 report.failed.push(label);
             }
         }
         return report;
+    }
+
+    // 后端解析结果（client_id / client_name）优先，避免再查一次 autocomplete
+    function resolveClient(item) {
+        if (!item.client_id) return null;
+        return { id: item.client_id, text: item.client_name || item.name || '' };
     }
 
     // 经 admin autocomplete 查库，全名精确优先，唯一包含关系兜底（与「解析」同口径）。
@@ -333,10 +348,14 @@
         }
         appendPartyLines(box, '委托人', report.principals, report.data.clients || []);
         appendPartyLines(box, '对方当事人', report.opponents, report.data.opponents || []);
-        // OA 利冲表列的是全部相关方：与「代理何方」同位的是我方阵营（共同原告/被告、犯罪嫌疑人本人），
-        // 第三人也不是对方——这两组只提示，不自动填成对方当事人
-        appendInfoList(box, '我方共同当事人（未回填，按需手动添加）', report.data.allies || []);
-        appendInfoList(box, '第三人（未回填）', report.data.third_parties || []);
+        // OA 利冲表列的是全部相关方。与「代理何方」同法律地位（共同被告 / 共同原告等）
+        // 只是同案其他当事人，不是律所的委托人；第三人同样不是我方——两组都只提示不填
+        appendInfoList(box, '同案其他当事人（非我方当事人，未回填，按需手动添加）', report.data.co_parties || []);
+        appendInfoList(box, '第三人（非我方当事人，未回填）', report.data.third_parties || []);
+        var hasMissing = report.principals.missing.length > 0 || report.opponents.missing.length > 0;
+        if (hasMissing && report.data.auto_create_allowed === false) {
+            box.appendChild(line('当前账号无当事人新增权限，未能自动建库；请手动新建当事人后选择', 'error'));
+        }
         appendLawyerLine(box, report.lawyer);
         var extras = [];
         if (report.data.case_stage) extras.push('案件阶段：' + report.data.case_stage);
@@ -348,10 +367,11 @@
     function appendPartyLines(box, label, report, source) {
         if (!source.length) return;
         if (report.matched.length) {
-            box.appendChild(line(label + '已填：' + report.matched.join('、'), 'success'));
+            var createdNote = report.created.length ? '（其中 ' + report.created.join('、') + ' 已在当事人库自动新建）' : '';
+            box.appendChild(line(label + '已填：' + report.matched.join('、') + createdNote, 'success'));
         }
         if (report.missing.length) {
-            box.appendChild(line(label + '未匹配：' + report.missing.join('、') + '（客户库中无同名客户，请先新建后手动选择）', 'error'));
+            box.appendChild(line(label + '未匹配：' + report.missing.join('、') + '（未能自动建库，请手动新建后选择）', 'error'));
         }
         if (report.failed.length) {
             box.appendChild(line(label + '未能填入：' + report.failed.join('、') + '（无可用行或查询客户库失败）', 'error'));
@@ -372,7 +392,9 @@
     function appendInfoList(box, label, items) {
         if (!items.length) return;
         var text = items.map(function (it) {
-            return it.conflict_type ? it.name + '（' + it.conflict_type + '）' : it.name;
+            var position = it.conflict_type ? '（' + it.conflict_type + '）' : '';
+            var created = it.created ? '，已建库' : '';
+            return it.name + position + created;
         }).join('、');
         box.appendChild(line(label + '：' + text, 'muted'));
     }
