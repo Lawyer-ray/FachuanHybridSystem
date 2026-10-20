@@ -87,33 +87,47 @@ export function DealDetailPage() {
 
       <ChainStepper steps={steps} summary={chainSummary(plan)} onJump={jump} />
 
-      <div className="grid grid-cols-[minmax(0,1fr)_400px] items-start gap-[18px] max-[1024px]:grid-cols-1 min-[1900px]:grid-cols-[minmax(0,1fr)_440px]">
-        {/* 超宽屏案件卡排两列：横向空间换算纵向滚动，而不是把单列时间轴拉成一条超长行 */}
-        <div className="grid min-w-0 grid-cols-1 items-start gap-[18px] min-[1900px]:grid-cols-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_400px] items-start gap-[18px] max-[1024px]:grid-cols-1 min-[1900px]:grid-cols-[minmax(0,1fr)_440px] min-[2400px]:grid-cols-[minmax(0,1fr)_480px]">
+        <div className="min-w-0">
           {d.casesError ? (
-            <div className="rounded-[12px] border border-destructive/30 bg-destructive/5 px-5 py-4 text-sm text-destructive min-[1900px]:col-span-2">
+            <div className="rounded-[12px] border border-destructive/30 bg-destructive/5 px-5 py-4 text-sm text-destructive">
               {d.casesError} ·{' '}
               <button type="button" className="cursor-pointer underline underline-offset-3" onClick={() => d.refetch()}>
                 重试
               </button>
             </div>
           ) : plan.length === 0 ? (
-            <div className="rounded-[12px] border border-border bg-card px-5 py-8 text-center text-[13px] text-muted-foreground shadow-sm min-[1900px]:col-span-2">
+            <div className="rounded-[12px] border border-border bg-card px-5 py-8 text-center text-[13px] text-muted-foreground shadow-sm">
               合同没有勾选代理阶段，也还没有立案的程序
             </div>
           ) : (
-            ordered.map((c) => (
-              <CaseSection
-                key={c.id}
-                c={c}
-                ambiguous={ambiguous.has(c.proc)}
-                highlighted={hl === c.id}
-                onAddLog={onAddLog}
-              />
-            ))
+            /* 超宽屏瀑布流两列：卡片高度本就不同，columns 顺次填充不留 grid 行对齐的空格子。
+               仅两案及以上才分栏——单案分栏会让卡片只占半宽、右侧留白反而更空 */
+            <div
+              className={
+                'space-y-[18px] ' +
+                (ordered.length >= 2
+                  ? 'min-[1900px]:columns-2 min-[1900px]:gap-[18px] min-[1900px]:space-y-0'
+                  : '')
+              }
+            >
+              {ordered.map((c) => (
+                <div
+                  key={c.id}
+                  className={ordered.length >= 2 ? 'min-[1900px]:mb-[18px] min-[1900px]:break-inside-avoid' : ''}
+                >
+                  <CaseSection
+                    c={c}
+                    ambiguous={ambiguous.has(c.proc)}
+                    highlighted={hl === c.id}
+                    onAddLog={onAddLog}
+                  />
+                </div>
+              ))}
+            </div>
           )}
           {next && !d.casesError && (
-            <div className="min-[1900px]:col-span-2">
+            <div className="mt-[18px]">
               <NextStageRow stage={next} onCreate={onCreateNext} />
             </div>
           )}
