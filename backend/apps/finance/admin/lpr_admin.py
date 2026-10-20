@@ -140,9 +140,10 @@ class LPRRateAdmin(BaseModelAdmin):  # pragma: no cover
         """同步LPR数据视图 - 直接执行同步."""
         from django.core.exceptions import PermissionDenied
 
-        # 安全审计（2026-10-19）：状态变更只收 POST（GET 可被跨站 <img> 诱导触发刷资源），
-        # 并补 has_change_permission 校验
-        if request.method != "POST" or not self.has_change_permission(request):
+        # 安全审计（2026-10-19）：状态变更只收 POST（GET 可被跨站 <img> 诱导触发刷资源）。
+        # 权限校验用模型权限而非 has_change_permission——后者在本 Admin 被策略性写死
+        # 返回 False（LPR 数据只读），用它把关会把同步这个唯一写入口也一并锁死（403）
+        if request.method != "POST" or not request.user.has_perm("finance.change_lprrate"):
             raise PermissionDenied
 
         from apps.core.exceptions import BusinessException
