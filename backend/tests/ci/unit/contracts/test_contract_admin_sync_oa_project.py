@@ -126,15 +126,15 @@ class TestSyncOaProjectView:
         mock_fetch.assert_called_once_with(keyid=_GUID, user=request.user)
 
     def test_missing_parties_are_created_with_correct_flags(self):
-        """OA 有、本地没有的当事人自动建库：委托人＝我方，利冲相关方＝非我方。"""
+        """OA 有、本地没有的当事人自动建库：委托人＝我方，OA 类别「对方当事人」（含共同被告）＝非我方。"""
         detail = OACaseData(
             case_no="",
             keyid=_GUID,
             customers=[OACaseCustomerData(name="甲公司", customer_type="legal")],
             case_info=OACaseInfoData(case_no="CASE-2026-0001", client_side="被告"),
             conflicts=[
-                OAConflictData(name="乙公司", conflict_type="原告"),
-                OAConflictData(name="同案被告丙", conflict_type="被告"),
+                OAConflictData(name="乙公司", conflict_type="原告", category="对方当事人"),
+                OAConflictData(name="同案被告丙", conflict_type="被告", category="对方当事人"),
             ],
         )
         with patch(_EXECUTOR_PATH, return_value=detail):
@@ -143,12 +143,13 @@ class TestSyncOaProjectView:
         assert resp.status_code == 200
         data = json.loads(resp.content)["data"]
         our_client = Client.objects.get(pk=data["clients"][0]["client_id"])
-        opponent = Client.objects.get(pk=data["opponents"][0]["client_id"])
-        co_party = Client.objects.get(pk=data["co_parties"][0]["client_id"])
         assert our_client.is_our_client is True
-        assert opponent.is_our_client is False
-        assert co_party.is_our_client is False
-        assert data["co_parties"][0]["created"] is True
+        assert [o["name"] for o in data["opponents"]] == ["乙公司", "同案被告丙"]
+        for item in data["opponents"]:
+            opponent = Client.objects.get(pk=item["client_id"])
+            assert opponent.is_our_client is False
+            assert item["created"] is True
+        assert data["co_parties"] == []
 
     def test_without_add_client_permission_does_not_create_parties(self):
         """有合同修改权但没有当事人新增权：同步照常返回名单，只是不落库。"""

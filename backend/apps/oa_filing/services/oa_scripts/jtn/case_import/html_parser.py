@@ -351,40 +351,72 @@ def extract_conflicts_from_html(root: Any) -> list[OAConflictData]:
 
     真实结构（2026-10-19 实测）：每个分组一张表，表前单格行「▼类别：对方当事人　　法律地位：被告」，
     表头「序号|客户类型|中文名称|英文名称|联系人|身份证号码|联系电话|付款方」，数据行按列取值；
-    conflict_type 取分组「法律地位」（被告 / 原审第三人…），缺失退回该行「客户类型」列（机关 / 自然人）。
+    conflict_type 取分组「法律地位」（被告 / 原审第三人…），缺失退回该行「客户类型」列（机关 / 自然人）；
+    category 取分组「类别」（委托方 / 委托方关联方 / 对方当事人），行级另带客户类型映射、证件号与电话。
     旧键值对结构（「中文名称|X」「法律地位|Y」成对逐行）保持原行为，供其他形态/夹具使用。
     """
     conflicts: list[OAConflictData] = []
     rows = root.xpath('//div[@id="tab_con_3"]//tr')
 
     group_position: str | None = None
+    group_category: str | None = None
     name_col: int | None = None
     type_col: int | None = None
+    id_col: int | None = None
+    phone_col: int | None = None
     kv_name: str | None = None
     kv_type: str | None = None
+    kv_category: str | None = None
+    kv_id_number: str | None = None
+    kv_phone: str | None = None
+
+    def _flush_kv() -> None:
+        if not kv_name:
+            return
+        conflicts.append(
+            OAConflictData(
+                name=kv_name,
+                conflict_type=kv_type,
+                category=kv_category,
+                id_number=kv_id_number,
+                phone=kv_phone,
+            )
+        )
 
     for row in rows:
         cell_texts = extract_row_cells_text(row)
         if not cell_texts:
             continue
 
-        # 分组标题行（单格含「类别：」）：记录本组法律地位，重置列映射
+        # 分组标题行（单格含「类别：」）：记录本组类别与法律地位，重置列映射
         if len(cell_texts) == 1 and "类别" in cell_texts[0]:
-            match = _CONFLICT_GROUP_TITLE_RE.search(normalize_text(cell_texts[0]))
-            group_position = normalize_text(match.group(1)) if match else ""
+            title = normalize_text(cell_texts[0])
+            position_match = _CONFLICT_GROUP_POSITION_RE.search(title)
+            group_position = normalize_text(position_match.group(1)) if position_match else ""
             group_position = group_position or None
-            name_col = type_col = None
+            category_match = _CONFLICT_GROUP_CATEGORY_RE.search(title)
+            group_category = normalize_text(category_match.group(1)) if category_match else ""
+            group_category = group_category or None
+            name_col = type_col = id_col = phone_col = None
             continue
 
         labels = [normalize_label(cell) for cell in cell_texts]
         if sum(1 for label in labels if label in _CONFLICT_TABLE_HEADERS) >= 3:
             name_col = labels.index("中文名称") if "中文名称" in labels else None
             type_col = labels.index("客户类型") if "客户类型" in labels else None
+            id_col = labels.index("身份证号码") if "身份证号码" in labels else None
+            phone_col = labels.index("联系电话") if "联系电话" in labels else None
             continue
 
         if name_col is not None:
             conflict = _conflict_from_columnar_row(
-                cell_texts, name_col=name_col, type_col=type_col, group_position=group_position
+                cell_texts,
+                name_col=name_col,
+                type_col=type_col,
+                id_col=id_col,
+                phone_col=phone_col,
+                group_position=group_position,
+                group_category=group_category,
             )
             if conflict is not None:
                 conflicts.append(conflict)
@@ -395,17 +427,21 @@ def extract_conflicts_from_html(root: Any) -> list[OAConflictData]:
             if not label:
                 continue
             if "中文名称" in label and value:
-                if kv_name:
-                    conflicts.append(OAConflictData(name=kv_name, conflict_type=kv_type))
+                _flush_kv()
                 kv_name = value
-                kv_type = None
+                kv_type = kv_category = kv_id_number = kv_phone = None
+            elif "类别" in label and value:
+                kv_category = value
             elif ("法律地位" in label and value) or (
                 "类型" in label and "客户类型" not in label and "法律地位" not in label and value
             ):
                 kv_type = value
+            elif "身份证" in label and value:
+                kv_id_number = value
+            elif ("电话" in label or "号码" in label) and value:
+                kv_phone = value
 
-    if kv_name:
-        conflicts.append(OAConflictData(name=kv_name, conflict_type=kv_type))
+    _flush_kv()
 
     return conflicts
 
@@ -414,23 +450,49 @@ def extract_conflicts_from_html(root: Any) -> list[OAConflictData]:
 _CONFLICT_TABLE_HEADERS = frozenset(
     {"序号", "客户类型", "中文名称", "英文名称", "联系人", "身份证号码", "联系电话", "付款方"}
 )
-# 分组标题「▼类别：对方当事人　　法律地位：被告　　…」→ 提取法律地位
-_CONFLICT_GROUP_TITLE_RE = re.compile(r"类别[：:]\s*\S+\s+法律地位[：:]\s*(\S+)")
+# 分组标题「▼类别：对方当事人　　法律地位：被告　　…」分别提取类别与法律地位
+_CONFLICT_GROUP_POSITION_RE = re.compile(r"法律地位[：:]\s*(\S+)")
+_CONFLICT_GROUP_CATEGORY_RE = re.compile(r"类别[：:]\s*(\S+)")
 
 
 def _conflict_from_columnar_row(
-    cell_texts: list[str], *, name_col: int, type_col: int | None, group_position: str | None
+    cell_texts: list[str],
+    *,
+    name_col: int,
+    type_col: int | None,
+    id_col: int | None = None,
+    phone_col: int | None = None,
+    group_position: str | None = None,
+    group_category: str | None = None,
 ) -> OAConflictData | None:
     """列式数据行取一条利冲：名称列空 / 仍是列名（无数据的表头复读）返回 None。"""
-    if len(cell_texts) <= name_col:
-        return None
-    name = normalize_text(cell_texts[name_col])
+
+    def _cell(col: int | None) -> str:
+        if col is None or len(cell_texts) <= col:
+            return ""
+        return normalize_text(cell_texts[col])
+
+    name = _cell(name_col)
     if not name or name in _CONFLICT_TABLE_HEADERS:
         return None
-    row_type = ""
-    if type_col is not None and len(cell_texts) > type_col:
-        row_type = normalize_text(cell_texts[type_col])
-    return OAConflictData(name=name, conflict_type=group_position or row_type or None)
+    row_type = _cell(type_col)
+    return OAConflictData(
+        name=name,
+        conflict_type=group_position or row_type or None,
+        category=group_category,
+        customer_type=_customer_type_from_oa_label(row_type),
+        id_number=_cell(id_col) or None,
+        phone=_cell(phone_col) or None,
+    )
+
+
+def _customer_type_from_oa_label(text: str) -> str | None:
+    """OA「客户类型」列（企业 / 机关 / 自然人…）→ 本地 client_type；空 / 认不出给 None。"""
+    if not text:
+        return None
+    if "自然人" in text:
+        return "natural"
+    return "legal"
 
 
 # 委托合同信息 tab（tab_con_5）的收费标签 → 数据键

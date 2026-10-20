@@ -596,6 +596,16 @@ class TestExtractConflictsColumnar:
         assert [c.conflict_type for c in conflicts] == ["被告", "被告", "原审第三人"]
         assert all(c.name != "英文名称" for c in conflicts)
 
+    def test_group_category_and_row_fields_are_captured(self):
+        """分组「类别」是 OA 自己的阵营标注，行级证件号 / 电话 / 客户类型一并带出（同步回填要用）。"""
+        root = lxml_html.fromstring(_COLUMNAR_CONFLICT_HTML)
+        conflicts = extract_conflicts_from_html(root)
+
+        assert [c.category for c in conflicts] == ["对方当事人", "对方当事人", "相关利益的潜在第三方"]
+        assert [c.customer_type for c in conflicts] == ["legal", "legal", "natural"]
+        assert [c.id_number for c in conflicts] == ["****", None, "****"]
+        assert all(c.phone is None for c in conflicts)
+
     def test_columnar_without_group_title_falls_back_to_customer_type_column(self):
         html = """
         <div id="tab_con_3"><table>

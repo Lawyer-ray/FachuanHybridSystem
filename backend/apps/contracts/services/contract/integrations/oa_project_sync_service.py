@@ -53,6 +53,8 @@ def build_sync_payload(oa_data: OACaseData) -> dict[str, Any]:
     clients = _dedupe_customers(oa_data.customers)
     client_names = {str(c["name"]) for c in clients}
     groups = _split_conflicts(oa_data.conflicts, side=side, exclude_names=client_names)
+    # 利冲表「类别：委托方」的条目也是我方当事人（客户 tab 漏列时兜底），并入委托人名单
+    clients.extend(groups.pop("client"))
 
     return {
         "guid": keyid,
@@ -156,34 +158,51 @@ def _resolve_stages(stage_text: str) -> list[str]:
 def _split_conflicts(
     conflicts: list[OAConflictData], *, side: str, exclude_names: set[str]
 ) -> dict[str, list[dict[str, str]]]:
-    """利冲条目按与委托人的关系分三组（各组按名去重保序）。
+    """利冲条目按 OA「类别」分四组（各组按名去重保序；空字段不输出）。
 
-    OA 利冲表列的是**全部相关方**，不是「我方 / 对方」的二选一。我方当事人只有
-    OA「客户信息」tab 里的委托人（``exclude_names`` 即该名单）：利冲表里即使法律地位
-    与「代理何方」相同（我方被告案里的共同被告、我方原告案里的共同原告），也只是
-    同案其他当事人，并不代表律所代理他们——利冲检查本就要求列出所有同案方。
-    因此同法律地位的条目归 ``co_party``（非我方），含「第三人」类词的归 ``third``，
-    其余才是对立方 ``opponent``。
+    OA 分组标题自带阵营标注（类别：委托方 / 委托方关联方 / 对方当事人），比「法律地位」
+    权威：我方被告案里类别为「对方当事人」的共同被告也是对方（律所没代理他们），要回填；
+    「委托方关联方」是与委托人有利害关系的相关方（如第三人），不是我方也不回填。
+    类别缺失（旧解析形态）才退回「法律地位 vs 代理何方」启发式。
     """
-    groups: dict[str, list[dict[str, str]]] = {"opponent": [], "co_party": [], "third": []}
+    groups: dict[str, list[dict[str, str]]] = {"client": [], "opponent": [], "co_party": [], "third": []}
     seen: set[str] = set(exclude_names)
     for conflict in conflicts:
         name = str(conflict.name or "").strip()
         if not name or name in seen:
             continue
         seen.add(name)
-        position = str(conflict.conflict_type or "").strip()
-        groups[_classify_conflict(position, side)].append({"name": name, "conflict_type": position})
+        item = {"name": name, "conflict_type": str(conflict.conflict_type or "").strip()}
+        for field in ("category", "customer_type", "id_number", "phone"):
+            value = str(getattr(conflict, field, "") or "").strip()
+            if value:
+                item[field] = value
+        groups[_classify_conflict(item["conflict_type"], side, category=str(item.get("category") or ""))].append(item)
     return groups
 
 
-def _classify_conflict(position: str, side: str) -> str:
-    """co_party = 法律地位与代理何方相同（同案其他当事人，非我方）；third = 含第三人类词；其余 opponent。"""
-    compact = "".join(position.split())
-    if side and compact and compact == side:
-        return "co_party"
-    if any(marker in compact for marker in _THIRD_PARTY_MARKERS):
+def _classify_conflict(position: str, side: str, category: str = "") -> str:
+    """按 OA 类别定阵营，类别缺失再按法律地位启发式。
+
+    优先级：第三人/第三方类词（法律地位或类别）→ third；类别「对方当事人」→ opponent；
+    类别「委托方」（非关联方）→ client；类别「委托方关联方」→ co_party；最后才看
+    法律地位是否与代理何方相同（同位 = co_party，否则 opponent）。
+    """
+    compact_position = "".join(position.split())
+    compact_category = "".join(category.split())
+    if any(marker in compact_position for marker in _THIRD_PARTY_MARKERS):
         return "third"
+    if compact_category:
+        if any(marker in compact_category for marker in _THIRD_PARTY_MARKERS):
+            return "third"
+        if "对方" in compact_category:
+            return "opponent"
+        if "委托方" in compact_category and "关联" not in compact_category:
+            return "client"
+        if "关联" in compact_category:
+            return "co_party"
+    if side and compact_position and compact_position == side:
+        return "co_party"
     return "opponent"
 
 

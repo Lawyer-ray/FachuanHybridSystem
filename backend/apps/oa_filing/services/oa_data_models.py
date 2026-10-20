@@ -46,10 +46,19 @@ class OACaseInfoData:
 
 @dataclass
 class OAConflictData:
-    """OA利益冲突数据。"""
+    """OA利益冲突数据。
+
+    ``category`` 是 OA 分组标题里的「类别」（委托方 / 委托方关联方 / 对方当事人…），
+    是 OA 自己给出的阵营标注，比「法律地位」（原告 / 被告 / 第三人…）更权威；
+    旧解析路径可能只有 ``conflict_type``（法律地位或客户类型）。
+    """
 
     name: str
     conflict_type: str | None = None
+    category: str | None = None
+    customer_type: str | None = None  # natural / legal（由「客户类型」列映射）
+    id_number: str | None = None
+    phone: str | None = None
 
 
 @dataclass

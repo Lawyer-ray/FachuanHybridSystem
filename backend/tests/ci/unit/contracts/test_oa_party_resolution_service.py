@@ -48,6 +48,14 @@ class TestOaPartyResolutionService:
         client = Client.objects.get(pk=resolved["opponents"][0]["client_id"])
         assert client.client_type == "natural"
 
+    def test_conflict_row_customer_type_is_respected(self):
+        """利冲「客户类型」列映射出的 customer_type 优先于名称关键词推断。"""
+        resolved = self._resolve(
+            {"clients": [], "opponents": [{"name": "某机关单位", "conflict_type": "被告", "customer_type": "legal"}]}
+        )
+        client = Client.objects.get(pk=resolved["opponents"][0]["client_id"])
+        assert client.client_type == "legal"
+
     def test_reuses_existing_party_by_name_case_insensitive(self):
         existing = Client.objects.create(name="某原告公司", is_our_client=False)
         resolved = self._resolve({"clients": [], "opponents": [{"name": "某原告公司", "conflict_type": "原告"}]})

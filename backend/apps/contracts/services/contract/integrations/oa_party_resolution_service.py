@@ -15,12 +15,12 @@ from apps.client.services.client_party_resolve_service import ClientPartyResolve
 
 logger = logging.getLogger("apps.contracts")
 
-# (payload 分组, 是否我方当事人, 客户主体类型字段)
-_GROUP_RULES: tuple[tuple[str, bool, str | None], ...] = (
-    ("clients", True, "customer_type"),
-    ("opponents", False, None),
-    ("co_parties", False, None),
-    ("third_parties", False, None),
+# (payload 分组, 是否我方当事人)；四组条目统一用 customer_type 传客户主体类型（可能缺省）
+_GROUP_RULES: tuple[tuple[str, bool], ...] = (
+    ("clients", True),
+    ("opponents", False),
+    ("co_parties", False),
+    ("third_parties", False),
 )
 
 
@@ -32,11 +32,10 @@ class OaPartyResolutionService:
 
     def resolve_payload(self, payload: dict[str, Any], *, allow_create: bool) -> dict[str, Any]:
         """原地为每组条目补 client_id / client_name / created，并返回同一 dict。"""
-        for group, is_our_client, type_key in _GROUP_RULES:
+        for group, is_our_client in _GROUP_RULES:
             items = payload.get(group) or []
             payload[group] = [
-                self._resolve_item(item, is_our_client=is_our_client, type_key=type_key, allow_create=allow_create)
-                for item in items
+                self._resolve_item(item, is_our_client=is_our_client, allow_create=allow_create) for item in items
             ]
         return payload
 
@@ -45,7 +44,6 @@ class OaPartyResolutionService:
         item: dict[str, Any],
         *,
         is_our_client: bool,
-        type_key: str | None,
         allow_create: bool,
     ) -> dict[str, Any]:
         name = str(item.get("name") or "").strip()
@@ -56,7 +54,7 @@ class OaPartyResolutionService:
             name=name,
             is_our_client=is_our_client,
             allow_create=allow_create,
-            client_type=str(item.get(type_key) or "") if type_key else None,
+            client_type=str(item.get("customer_type") or ""),
             id_number=str(item.get("id_number") or ""),
             phone=str(item.get("phone") or ""),
             address=str(item.get("address") or ""),
