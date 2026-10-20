@@ -34,7 +34,6 @@
         scanError: '',
         pollTimer: null,
 
-        scanScopeMode: 'subfolder',
         scanRootPath: '',
         scanSubfolderOptions: [],
         scanSubfolder: '',
@@ -44,6 +43,9 @@
         archiveCategory: '',
         archiveItemOptions: [],
         workLogSuggestions: [],
+
+        // 案件信息提取（审级/法院/案号/主文）
+        caseInfoExtractions: [],
 
         // AI 分类相关
         aiModels: [],
@@ -57,12 +59,6 @@
 
         get visibleCandidates() {
           return (this.scanCandidates || []).filter((item) => !item.skip_reason);
-        },
-
-        get unmatchedCount() {
-          return this.visibleCandidates.filter(
-            (item) => item.category === 'case_material' && !item.archive_item_code
-          ).length;
         },
 
         get showAIClassify() {
@@ -79,8 +75,8 @@
         },
 
         get aiClassifyLabel() {
-          const count = this.unmatchedCount;
-          return count > 0 ? 'AI 分类未匹配项（' + count + '）' : 'AI 分类未匹配项';
+          const count = this.visibleCandidates.length;
+          return count > 0 ? '重新分类（' + count + '）' : '重新分类';
         },
 
         get aiClassifySummaryText() {
@@ -106,10 +102,6 @@
           if (this.scanStatus === 'failed') return 'is-error';
           if (this.scanStatus === 'completed') return 'is-success';
           return 'is-pending';
-        },
-
-        get hasSubfolderOptions() {
-          return Array.isArray(this.scanSubfolderOptions) && this.scanSubfolderOptions.length > 0;
         },
 
         get visibleCandidates() {
@@ -159,6 +151,9 @@
                 }))
               : [];
             this.aiClassifyResult = (data && data.ai_classify_result) || {};
+            this.caseInfoExtractions = Array.isArray(data && data.case_info_extractions)
+              ? data.case_info_extractions
+              : [];
             this.isScanning = ['pending', 'running', 'classifying'].includes(this.scanStatus);
             if (this.isScanning) {
               this.fetchStatus(true);
@@ -212,17 +207,10 @@
             if (!validSet.has(this.scanSubfolder)) {
               this.scanSubfolder = '';
             }
-            if (!this.scanSubfolderOptions.length) {
-              this.scanScopeMode = 'subfolder';
-              if (!this.hasSubfolderOptions) {
-                this.scanScopeMode = 'all';
-              }
-            }
             this.subfoldersLoaded = true;
           } catch (err) {
             this.scanSubfolderOptions = [];
             this.scanSubfolder = '';
-            this.scanScopeMode = 'all';
             this.scanError = (err && err.message) || (this.texts.loadSubfoldersFailed || '加载子文件夹失败');
             this.subfoldersLoaded = false;
           } finally {
@@ -231,22 +219,8 @@
         },
 
         buildScanPayload(rescan) {
-          const payload = { rescan: Boolean(rescan), scan_subfolder: '' };
-          if (this.scanScopeMode !== 'subfolder') return payload;
-
-          if (!this.hasSubfolderOptions) {
-            this.scanError = this.texts.noSubfolderOptions || '当前目录下没有可选子文件夹，将扫描全部内容';
-            this.scanScopeMode = 'all';
-            return payload;
-          }
-
-          if (!this.scanSubfolder) {
-            this.scanError = this.texts.needSelectSubfolder || '请选择要扫描的子文件夹';
-            return null;
-          }
-
-          payload.scan_subfolder = this.scanSubfolder;
-          return payload;
+          // 不选子文件夹 = 扫描全部内容；选中则只扫该子文件夹
+          return { rescan: Boolean(rescan), scan_subfolder: this.scanSubfolder || '' };
         },
 
         async loadAIModels() {
@@ -284,7 +258,7 @@
                 },
                 body: JSON.stringify({
                   model_id: this.aiModelId || '',
-                  scope: 'unmatched',
+                  scope: 'all',
                 }),
               }
             );
@@ -297,6 +271,36 @@
             this.isScanning = false;
             this.scanStatus = 'failed';
             this.scanError = (err && err.message) || (this.texts.aiClassifyFailed || 'AI 分类发起失败');
+          }
+        },
+
+        async clearResults() {
+          if (!this.scanSessionId || this.isScanning || this.isConfirming) return;
+          if (!window.confirm('确定清空当前扫描结果吗？（已导入的材料和回填的案件信息不受影响）')) return;
+          this.scanError = '';
+          try {
+            const resp = await fetch(`/api/v1/contracts/${this.contractId}/folder-scan/sessions`, {
+              method: 'DELETE',
+              headers: { 'X-CSRFToken': getCsrfToken() },
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) {
+              throw new Error(data.message || data.detail || '清空失败，请稍后重试');
+            }
+            this.clearPoll();
+            this.scanSessionId = '';
+            this.scanStatus = '';
+            this.scanProgress = 0;
+            this.scanCurrentFile = '';
+            this.scanSummary = { total_files: 0, deduped_files: 0, classified_files: 0 };
+            this.scanCandidates = [];
+            this.archiveCategory = '';
+            this.archiveItemOptions = [];
+            this.workLogSuggestions = [];
+            this.aiClassifyResult = {};
+            this.caseInfoExtractions = [];
+          } catch (err) {
+            this.scanError = (err && err.message) || '清空失败，请稍后重试';
           }
         },
 
@@ -316,6 +320,7 @@
           this.archiveItemOptions = [];
           this.workLogSuggestions = [];
           this.aiClassifyResult = {};
+          this.caseInfoExtractions = [];
           this.clearPoll();
 
           fetch(`/api/v1/contracts/${this.contractId}/folder-scan`, {
@@ -380,6 +385,9 @@
                   }))
                 : [];
               this.aiClassifyResult = (data && data.ai_classify_result) || {};
+              this.caseInfoExtractions = Array.isArray(data && data.case_info_extractions)
+                ? data.case_info_extractions
+                : [];
 
               this.isScanning = ['pending', 'running', 'classifying'].includes(this.scanStatus);
               if (keepPolling && this.isScanning) {

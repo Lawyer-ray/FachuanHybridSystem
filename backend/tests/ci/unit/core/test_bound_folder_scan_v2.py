@@ -368,6 +368,76 @@ class TestScanFolder:
         assert len(result["candidates"]) == 1
 
 
+class TestExcludeDirKeywords:
+    """全局扫描按文件夹段排除目录（如「客户资料」），文件名同名不误伤。"""
+
+    def _prepare(self, tmp_path: Path, svc: BoundFolderScanService) -> None:
+        (tmp_path / "1-一审").mkdir()
+        (tmp_path / "0.1-客户资料" / "身份证").mkdir(parents=True)
+        (tmp_path / "1-一审" / "判决书.pdf").write_bytes(b"fake")
+        (tmp_path / "0.1-客户资料" / "身份证" / "客户身份证.pdf").write_bytes(b"fake")
+        # 文件名含关键词但不在被排除目录下，不应被误伤
+        (tmp_path / "1-一审" / "客户资料清单.pdf").write_bytes(b"fake")
+        svc._classification_service.classify_contract_material.return_value = {
+            "category": "contract_original",
+            "confidence": 0.9,
+            "reason": "match",
+        }
+
+    def test_local_scan_excludes_dir(self, tmp_path: Path) -> None:
+        svc = _make_service()
+        self._prepare(tmp_path, svc)
+
+        result = svc.scan_folder(
+            folder_path=str(tmp_path), domain="contract", exclude_dir_keywords=("客户资料",)
+        )
+
+        filenames = [c["filename"] for c in result["candidates"]]
+        assert filenames == ["判决书.pdf", "客户资料清单.pdf"]
+        assert result["summary"]["total_files"] == 2
+
+    def test_local_scan_without_exclusion_keeps_all(self, tmp_path: Path) -> None:
+        svc = _make_service()
+        self._prepare(tmp_path, svc)
+
+        result = svc.scan_folder(folder_path=str(tmp_path), domain="contract")
+
+        assert len(result["candidates"]) == 3
+
+    def test_cloud_scan_excludes_dir(self, tmp_path: Path) -> None:
+        svc = _make_service()
+
+        scanned_kept = MagicMock()
+        scanned_kept.as_posix = "1-一审/判决书.pdf"
+        scanned_kept.name = "判决书.pdf"
+        scanned_kept.stem = "判决书"
+        scanned_kept.suffix = ".pdf"
+        scanned_kept.stat = MagicMock(mtime=1000)
+        scanned_kept.relative_to = MagicMock()
+
+        scanned_excluded = MagicMock()
+        scanned_excluded.as_posix = "0.1-客户资料/客户身份证.pdf"
+        scanned_excluded.name = "客户身份证.pdf"
+
+        with patch(
+            "apps.cloud_storage.scanner_adapter.CloudFolderScanner.collect_pdf_files",
+            return_value=[scanned_kept, scanned_excluded],
+        ):
+            result = svc._scan_cloud(
+                folder_path="/cloud",
+                domain="contract",
+                progress_callback=None,
+                enable_recognition=False,
+                classification_context=None,
+                scan_subfolder="",
+                storage_provider=MagicMock(),
+                exclude_dir_keywords=("客户资料",),
+            )
+
+        assert [c["filename"] for c in result["candidates"]] == ["判决书.pdf"]
+        assert result["summary"]["total_files"] == 1
+
+
 class TestDeduplicateScannedFiles:
     def test_basic(self) -> None:
         svc = _make_service()

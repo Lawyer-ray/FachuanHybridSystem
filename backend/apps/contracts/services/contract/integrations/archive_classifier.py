@@ -451,6 +451,9 @@ _LITIGATION_VERB_MAP: dict[str, str] = {
     "解封": "收到",
     "立案通知": "收到",
     "交费通知": "收到",
+    # 法院来件类：反馈（执行反馈/法院反馈）、费通知（交保全费通知/缴费通知）是收到而非提交
+    "反馈": "收到",
+    "费通知": "收到",
     "开庭": "参加",
     "调解": "参加",
 }
@@ -592,6 +595,9 @@ def collect_work_log_suggestions(
 ) -> list[dict[str, str]]:
     """扫描目录下所有日期前缀子目录，返回工作日志建议列表。
 
+    反馈/结果类事项（如"执行反馈"）会从文件夹内 PDF 提取含金额的关键句，
+    附加到日志内容后（如"收到执行反馈：本案扣划被执行人账户存款61619元…"）。
+
     Args:
         scan_folder: 扫描根目录路径
         archive_category: 归档分类
@@ -612,6 +618,8 @@ def collect_work_log_suggestions(
         if not child.is_dir():
             continue
         result = parse_work_log_from_folder_name(child.name, archive_category)
+        if result and _is_feedback_subject(result["content"]):
+            _enrich_feedback_suggestion(result, list(child.glob("*.pdf")))
         if result:
             suggestions.append(result)
 
@@ -637,11 +645,114 @@ def _collect_work_log_suggestions_cloud(
         if not child.is_dir:
             continue
         result = parse_work_log_from_folder_name(child.name, archive_category)
+        if result and _is_feedback_subject(result["content"]):
+            _enrich_feedback_suggestion_cloud(result, child.path, storage_provider)
         if result:
             suggestions.append(result)
 
     suggestions.sort(key=lambda x: x["date"])
     return suggestions
+
+
+# 反馈/结果类事项：法院来件，日志内容可从文书提取金额要点
+_FEEDBACK_SUBJECT_KEYWORDS: tuple[str, ...] = ("反馈", "结果")
+
+# 反馈要点句必须同时含"元"金额和这些关键词之一（扣划/冻结/支付等执行动作）
+_FEEDBACK_SENTENCE_HINTS: tuple[str, ...] = (
+    "扣划",
+    "划扣",
+    "冻结",
+    "支付",
+    "余款",
+    "存款",
+    "发放",
+    "执行款",
+)
+_FEEDBACK_SENTENCE_SPLIT = re.compile(r"[。；;：:]")
+_FEEDBACK_AMOUNT_RE = re.compile(r"([\d][\d,，.]{1,15})元")
+_FEEDBACK_SUMMARY_MAX_CHARS = 70
+_FEEDBACK_MAX_PDFS = 5
+
+
+def _is_feedback_subject(content: str) -> bool:
+    """日志内容是否为反馈/结果类事项（法院来件，可从文书提取要点）。"""
+    return any(kw in str(content or "") for kw in _FEEDBACK_SUBJECT_KEYWORDS)
+
+
+def _pick_feedback_summary(text: str) -> str:
+    """从反馈文书全文中挑"含最大金额的关键句"作为日志要点。
+
+    文本先整体去空白（PDF 排版空格会切断金额与"元"），按。；切句后，
+    只保留同时含金额和执行动作关键词的句子，取金额最大的一句。
+    """
+    normalized = re.sub(r"\s+", "", str(text or ""))
+    best_sentence = ""
+    best_amount = 0.0
+    for sentence in _FEEDBACK_SENTENCE_SPLIT.split(normalized):
+        if "元" not in sentence:
+            continue
+        if not any(hint in sentence for hint in _FEEDBACK_SENTENCE_HINTS):
+            continue
+        sentence_amount = 0.0
+        for raw in _FEEDBACK_AMOUNT_RE.findall(sentence):
+            try:
+                sentence_amount = max(sentence_amount, float(raw.replace(",", "").replace("，", "").replace(".", "")))
+            except ValueError:
+                continue
+        if sentence_amount > best_amount:
+            best_amount = sentence_amount
+            best_sentence = sentence
+
+    if not best_sentence:
+        return ""
+    return best_sentence[:_FEEDBACK_SUMMARY_MAX_CHARS]
+
+
+def _pdf_direct_text(pdf_path: Path) -> str:
+    """PyMuPDF 直接提取 PDF 文本（不做 OCR，失败返回空）。"""
+    import pymupdf as fitz
+
+    try:
+        with fitz.open(pdf_path) as doc:
+            return "".join(page.get_text() for page in doc)
+    except Exception:
+        logger.warning("feedback_pdf_read_failed", extra={"path": str(pdf_path)})
+        return ""
+
+
+def _enrich_feedback_suggestion(suggestion: dict[str, str], pdfs: list[Path]) -> None:
+    """把反馈文书要点附加到日志建议内容（"收到执行反馈：本案扣划…"）。"""
+    for pdf in sorted(pdfs)[:_FEEDBACK_MAX_PDFS]:
+        summary = _pick_feedback_summary(_pdf_direct_text(pdf))
+        if summary:
+            suggestion["content"] = f"{suggestion['content']}：{summary}"
+            return
+
+
+def _enrich_feedback_suggestion_cloud(suggestion: dict[str, str], folder_path: str, provider: Any) -> None:
+    """云存储版反馈要点提取：读 PDF 字节落临时文件后走同一套挑句逻辑。"""
+    import tempfile
+
+    try:
+        children = provider.list_directory(folder_path)
+    except Exception:
+        return
+    pdfs = [child for child in children if not child.is_dir and child.name.lower().endswith(".pdf")]
+    for child in sorted(pdfs, key=lambda x: x.name)[:_FEEDBACK_MAX_PDFS]:
+        try:
+            file_bytes = provider.read_file(child.path)
+        except Exception:
+            continue
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+            tmp.write(file_bytes)
+            tmp_path = tmp.name
+        try:
+            summary = _pick_feedback_summary(_pdf_direct_text(Path(tmp_path)))
+        finally:
+            Path(tmp_path).unlink(missing_ok=True)
+        if summary:
+            suggestion["content"] = f"{suggestion['content']}：{summary}"
+            return
 
 
 def collect_archive_item_options(archive_category: str) -> list[dict[str, str]]:

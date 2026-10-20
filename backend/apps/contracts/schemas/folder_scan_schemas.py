@@ -77,6 +77,7 @@ class ContractFolderScanStatusOut(Schema):
     archive_item_options: list[ArchiveItemOptionOut] = []
     work_log_suggestions: list[WorkLogSuggestionOut] = []
     ai_classify_result: dict[str, Any] = {}
+    case_info_extractions: list[dict[str, Any]] = []
 
 
 class ContractFolderScanAIClassifyIn(Schema):
@@ -109,11 +110,16 @@ class ContractFolderScanConfirmOut(Schema):
     imported_count: int
 
 
+class ContractFolderScanClearOut(Schema):
+    cleared: int
+
+
 __all__ = [
     "ContractFolderScanStartIn",
     "ContractFolderScanStartOut",
     "ContractFolderScanSubfolderOptionOut",
     "ContractFolderScanSubfolderListOut",
+    "ContractFolderScanClearOut",
     "ContractFolderScanSummaryOut",
     "ContractFolderScanCandidateOut",
     "ArchiveItemOptionOut",

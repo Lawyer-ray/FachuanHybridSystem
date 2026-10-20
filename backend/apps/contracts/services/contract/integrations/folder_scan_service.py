@@ -24,6 +24,7 @@ from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 
 from ._candidate_post_processor import CandidatePostProcessor
 from ._import_pipeline import ImportPipeline
+from .case_info_extraction_service import apply_case_info_to_contract, extract_case_info_from_candidates
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,10 @@ class ContractFolderScanService:
         ContractFolderScanStatus.RUNNING,
         ContractFolderScanStatus.CLASSIFYING,
     }
+
+    # 全局扫描（未指定子文件夹）默认跳过的目录关键词：客户资料是当事人身份材料，
+    # 不是归档清单项；需要时在弹窗显式选中该子文件夹单独扫描
+    _GLOBAL_EXCLUDE_DIR_KEYWORDS: tuple[str, ...] = ("客户资料",)
 
     def __init__(self, *, scan_service: BoundFolderScanService | None = None) -> None:
         self._scan_service = scan_service or BoundFolderScanService()
@@ -178,6 +183,23 @@ class ContractFolderScanService:
         """返回合同最新的扫描会话，没有则返回 None。"""
         return ContractFolderScanSession.objects.filter(contract_id=contract_id).order_by("-created_at").first()
 
+    def clear_scan_sessions(self, *, contract_id: int) -> int:  # pragma: no cover
+        """清空合同的扫描会话（弹窗「清空结果」）。
+
+        只删扫描工作区（候选/建议/提取结果），不动已导入的材料与回填的案号。
+        扫描进行中拒绝清空，避免任务回写已删除的会话行。
+        """
+        self._ensure_contract_exists(contract_id)
+        has_active = ContractFolderScanSession.objects.filter(
+            contract_id=contract_id,
+            status__in=self._ACTIVE_STATUSES,
+        ).exists()
+        if has_active:
+            raise ValidationException(message="扫描进行中，请等待完成后再清空")
+        deleted, _rows = ContractFolderScanSession.objects.filter(contract_id=contract_id).delete()
+        logger.info("contract_folder_scan_cleared", extra={"contract_id": contract_id, "deleted": deleted})
+        return deleted
+
     def build_status_payload(self, *, session: ContractFolderScanSession) -> dict[str, Any]:
         payload = dict(session.result_payload or {})
         summary = payload.get("summary") or {}
@@ -199,6 +221,7 @@ class ContractFolderScanService:
             "archive_item_options": payload.get("archive_item_options") or [],
             "work_log_suggestions": payload.get("work_log_suggestions") or [],
             "ai_classify_result": payload.get("ai_classify_result") or {},
+            "case_info_extractions": payload.get("case_info_extractions") or [],
         }
 
     @transaction.atomic
@@ -220,6 +243,19 @@ class ContractFolderScanService:
             storage_provider=storage_provider,
             learn_from_correction_fn=self._learn_from_import_correction,
         )
+
+        # 同步→案件信息回填：裁判文书提取结果按选中项追加写入关联案件
+        # （案号/法院去重新增、空字段回填，多阶段共存；失败不影响导入）
+        try:
+            extractions = list((session.result_payload or {}).get("case_info_extractions") or [])
+            selected_paths = {str(i.get("source_path") or "") for i in items if i.get("selected")}
+            if extractions:
+                contract = Contract.objects.get(pk=contract_id)
+                result["case_info_apply"] = apply_case_info_to_contract(
+                    contract, extractions, selected_paths=selected_paths
+                )
+        except Exception:
+            logger.exception("case_info_apply_failed", extra={"contract_id": contract_id})
 
         # 同步→检测监督卡 串联：导入完成后立即检测合同 PDF 末页监督卡
         # OCR 失败不影响导入结果（异常被吞，导入数据随外层事务正常提交）
@@ -267,15 +303,19 @@ class ContractFolderScanService:
             )
 
             def _progress(status: str, progress: int, current_file: str | None) -> None:  # pragma: no cover
+                # 文件遍历结束（"completed"）后还有后处理/工作日志/案件信息提取阶段，
+                # 此时不能提前置 COMPLETED——轮询端见 COMPLETED 即停止轮询，会拿到
+                # 空结果误报「未找到可导入的文件」；COMPLETED 只由最终原子落库写入
                 mapped_status = ContractFolderScanStatus.RUNNING
+                shown_progress = int(progress)
                 if status == "classifying":
                     mapped_status = ContractFolderScanStatus.CLASSIFYING
                 elif status == "completed":
-                    mapped_status = ContractFolderScanStatus.COMPLETED
+                    shown_progress = min(shown_progress, 99)
 
                 ContractFolderScanSession.objects.filter(id=session.id).update(
                     status=mapped_status,
-                    progress=int(progress),
+                    progress=shown_progress,
                     current_file=current_file or "",
                     updated_at=timezone.now(),
                 )
@@ -285,6 +325,7 @@ class ContractFolderScanService:
                 domain="contract",
                 progress_callback=_progress,
                 storage_provider=storage_provider,
+                exclude_dir_keywords=self._GLOBAL_EXCLUDE_DIR_KEYWORDS if not scan_scope["scan_subfolder"] else (),
             )
             result["scan_scope"] = scan_scope
 
@@ -306,6 +347,15 @@ class ContractFolderScanService:
                 scan_scope["scan_folder"], archive_category, storage_provider=storage_provider
             )
             result["work_log_suggestions"] = work_log_suggestions
+
+            # 裁判文书案件信息提取（审级/法院名称/案号/主文），单文件失败不阻断扫描
+            try:
+                result["case_info_extractions"] = extract_case_info_from_candidates(
+                    candidates, storage_provider=storage_provider
+                )
+            except Exception:
+                logger.exception("case_info_extraction_error", extra={"session_id": session_id})
+                result["case_info_extractions"] = []
 
             # 归档清单项选项
             archive_item_options = collect_archive_item_options(archive_category)

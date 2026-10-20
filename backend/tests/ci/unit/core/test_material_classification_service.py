@@ -316,3 +316,87 @@ class TestMaterialClassificationService:
             category="unknown", side="our", type_name_hint="test", confidence=0.5, reason="test", context={}
         )
         assert result["side"] == "unknown"
+
+
+class TestContractInvoiceFolderSegmentMatching:
+    """「合同发票」文件夹判定回归：按文件夹名分段匹配，不做整路径子串匹配。
+
+    2026-10-20 合同 8 事故：绑定根目录名含案由"…买卖合同纠纷一案"，
+    旧实现对整个绝对路径做裸"合同"子串匹配，导致一审子目录下
+    38 个文件全部被误判为"位于合同发票文件夹，默认为合同正本"。
+    """
+
+    def _make_service(self):
+        return MaterialClassificationService()
+
+    def test_case_name_with_cause_in_root_not_contract_folder(self):
+        """根目录名含案由"买卖合同纠纷"时，一审材料不得判入合同发票区域。"""
+        svc = self._make_service()
+        result = svc.classify_contract_material(
+            filename="2-起诉状（某甲公司诉某乙公司、张某买卖合同纠纷一案）V1_20250918.pdf",
+            text_excerpt="",
+            source_path=(
+                "/Users/x/新工作/200-诉讼/1-民商事/2025.08.27-甲公司诉乙公司、"
+                "张某买卖合同纠纷一案/1-一审/2-立案材料/1-起诉状/2-起诉状.pdf"
+            ),
+        )
+        assert result["category"] == "case_material"
+
+    def test_filename_with_contract_word_outside_contract_folder(self):
+        """文件名含"合同"但不在合同区文件夹 → 案件材料（旧实现被整路径子串误判）。"""
+        svc = self._make_service()
+        result = svc.classify_contract_material(
+            filename="业务合同_20250901邮寄.pdf",
+            text_excerpt="",
+            source_path="/data/案卷/4-邮件往来/2025.08.31-收到客户邮寄的合同/业务合同_20250901邮寄.pdf",
+        )
+        assert result["category"] == "case_material"
+
+    def test_dated_folder_ending_with_contract_is_not_exact_folder(self):
+        """日期+事项名文件夹（如"2025.08.31-收到客户邮寄的合同"）不整名等于关键词。"""
+        svc = self._make_service()
+        assert svc._is_contract_invoice_folder("/data/2025.08.31-收到客户邮寄的合同/a.pdf") is False
+
+    def test_numbered_contract_folder_matches_exact(self):
+        """数字前缀文件夹 "1-合同" 剥离前缀后整名相等 → 合同区。"""
+        svc = self._make_service()
+        assert svc._is_contract_invoice_folder("/data/binding/1-合同/委托代理合同.pdf") is True
+
+    def test_numbered_invoice_and_card_folders_match(self):
+        svc = self._make_service()
+        assert svc._is_contract_invoice_folder("/data/binding/3-发票/发票.pdf") is True
+        assert svc._is_contract_invoice_folder("/data/binding/4-监督卡/监督卡.pdf") is True
+        assert svc._is_contract_invoice_folder("/data/binding/2-补充协议/补充协议.pdf") is True
+
+    def test_combo_keyword_folder_matches_by_containment(self):
+        """组合词"合同发票"允许包含式命中（如"1-合同发票（正本）"）。"""
+        svc = self._make_service()
+        assert svc._is_contract_invoice_folder("/data/binding/1-合同发票（正本）/合同.pdf") is True
+        assert svc._is_contract_invoice_folder("/data/合同及发票/合同.pdf") is True
+
+    def test_contract_original_folder_name_matches(self):
+        svc = self._make_service()
+        assert svc._is_contract_invoice_folder("/data/binding/1-合同正本/合同.pdf") is True
+
+    def test_trailing_slash_folder_path_is_all_folders(self):
+        """尾斜杠路径（无文件名段）全部按文件夹判定。"""
+        svc = self._make_service()
+        assert svc._is_contract_invoice_folder("/合同发票/") is True
+        assert svc._is_contract_invoice_folder("/案件材料/") is False
+
+    def test_windows_style_path_segments(self):
+        svc = self._make_service()
+        assert svc._is_contract_invoice_folder("C:\\data\\1-合同\\合同.pdf") is True
+        assert svc._is_contract_invoice_folder("C:\\data\\1-一审\\起诉状.pdf") is False
+
+    def test_litigation_subfolders_not_contract_area(self):
+        """诉讼一审各子文件夹均不得命中合同区（覆盖真实目录形态）。"""
+        svc = self._make_service()
+        subfolders = [
+            "/root/买卖合同纠纷一案/1-一审/2-立案材料/1-起诉状/起诉状.pdf",
+            "/root/买卖合同纠纷一案/1-一审/2-立案材料/2-委托授权材料/授权委托书.pdf",
+            "/root/买卖合同纠纷一案/1-一审/2-立案材料/4-主要证据材料/证据明细.pdf",
+            "/root/买卖合同纠纷一案/1-一审/4-邮件往来及电话录音/2025.11.05-交费通知/通知书.pdf",
+        ]
+        for path in subfolders:
+            assert svc._is_contract_invoice_folder(path) is False, path

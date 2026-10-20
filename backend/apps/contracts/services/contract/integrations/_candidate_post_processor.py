@@ -23,6 +23,30 @@ def _normalize_docx_name(filename: str) -> str:
     return re.sub(r"\s+", "", str(filename or "").strip().lower())
 
 
+# 身份类材料关键词：配合对方当事人名称识别"对方身份材料"。调解书/续封申请书等
+# 文书名里也会出现对方当事人姓名，必须叠加身份关键词才排除，避免误杀裁判文书
+_IDENTITY_MATERIAL_KEYWORDS: tuple[str, ...] = ("身份", "营业执照", "证照", "工商", "报告")
+
+
+def authorization_family(filename: str) -> str:
+    """识别授权委托类文书族；解除授权委托申请书是独立文书，不入授权委托书族。"""
+    name = re.sub(r"\s+", "", str(filename or ""))
+    if "法定代表人身份证明" in name:
+        return "法定代表人身份证明"
+    if "授权委托书" in name and "解除" not in name:
+        return "授权委托书"
+    if "所函" in name:
+        return "所函"
+    return ""
+
+
+def _auth_recency(candidate: dict[str, Any]) -> tuple[str, bool]:
+    """文书新近度排序键：修改时间（ISO 字符串可直接字典序比较），同刻 PDF 优先于 docx。"""
+    modified = str(candidate.get("modified_at") or "")
+    is_pdf = str(candidate.get("source_path") or "").lower().endswith(".pdf")
+    return (modified, is_pdf)
+
+
 class CandidatePostProcessor:
     """候选文件后处理器：归档清单匹配、docx 收集、已导入标记。"""
 
@@ -114,6 +138,11 @@ class CandidatePostProcessor:
 
             processed.append(candidate)
 
+        # 对方当事人身份材料不属于我方归档范围；授权委托类文书族只保留最新一份
+        if contract_id:
+            self._skip_opposing_identity_materials(processed, contract_id=contract_id)
+        self._dedup_authorization_families(processed)
+
         if archive_category == "non_litigation":
             docx_candidates = self._collect_docx_files(scan_folder, archive_category, storage_provider=storage_provider)
             processed.extend(docx_candidates)
@@ -122,6 +151,79 @@ class CandidatePostProcessor:
             self._mark_already_imported(processed, contract_id=contract_id, storage_provider=storage_provider)
 
         return processed
+
+    def _skip_opposing_identity_materials(
+        self,
+        candidates: list[dict[str, Any]],
+        *,
+        contract_id: int,
+    ) -> None:
+        """跳过对方当事人的身份材料（身份证/身份信息/营业执照/企业报告等）。
+
+        判定：文件名含对方当事人名称，且文件名或所在路径命中身份类关键词。
+        所本命名惯例会把完整案件标题（含对方名称）嵌进几乎每个文件名，
+        故先剥掉合同名称再匹配对方名称，避免误杀我方文书。
+        """
+        opposing_names, case_title = self._load_opposing_context(contract_id)
+        if not opposing_names:
+            return
+        title_compact = re.sub(r"\s+", "", case_title)
+        for candidate in candidates:
+            if candidate.get("skip_reason"):
+                continue
+            filename = str(candidate.get("filename") or "")
+            material_part = re.sub(r"\s+", "", filename).replace(title_compact, "") if title_compact else filename
+            if not any(name in material_part for name in opposing_names):
+                continue
+            source_path = str(candidate.get("source_path") or "")
+            identity_hint = any(kw in filename for kw in _IDENTITY_MATERIAL_KEYWORDS) or any(
+                kw in source_path for kw in _IDENTITY_MATERIAL_KEYWORDS
+            )
+            if identity_hint:
+                candidate["selected"] = False
+                candidate["skip_reason"] = "对方当事人身份材料，无需归档"
+
+    def _load_opposing_context(self, contract_id: int) -> tuple[list[str], str]:
+        """合同对方当事人名称 + 合同名称（案件标题），加载失败按无对方处理。"""
+        from apps.contracts.models import Contract, ContractParty
+
+        try:
+            contract = Contract.objects.filter(id=contract_id).only("name").first()
+            case_title = str(getattr(contract, "name", "") or "")
+            parties = ContractParty.objects.filter(contract_id=contract_id, role="OPPOSING").select_related("client")
+            names = []
+            for party in parties:
+                client = getattr(party, "client", None)
+                name = re.sub(r"\s+", "", str(getattr(client, "name", "") or "")) if client else ""
+                if name:
+                    names.append(name)
+            return names, case_title
+        except Exception:
+            logger.warning("load_opposing_context_failed", extra={"contract_id": contract_id})
+            return [], ""
+
+    def _dedup_authorization_families(self, candidates: list[dict[str, Any]]) -> None:
+        """授权委托书/法定代表人身份证明书/所函 同族只保留最新一份。
+
+        同一文书常有 docx 草稿 + 签章 PDF、一审与执行各留一套旧版，
+        归档只需最新一份；误放进来的他案同名旧文书也会被"最新者胜"淘汰。
+        """
+        families: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for candidate in candidates:
+            if candidate.get("skip_reason"):
+                continue
+            family = authorization_family(str(candidate.get("filename") or ""))
+            if family:
+                families[family].append(candidate)
+
+        for members in families.values():
+            if len(members) < 2:
+                continue
+            latest = max(members, key=_auth_recency)
+            for member in members:
+                if member is not latest:
+                    member["selected"] = False
+                    member["skip_reason"] = "重复文书，已取最新一份"
 
     def _collect_docx_files(
         self,

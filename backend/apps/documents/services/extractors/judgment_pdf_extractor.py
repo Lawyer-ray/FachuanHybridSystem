@@ -25,6 +25,8 @@ class ExtractionResult:
     number: str | None = None  # 案号
     document_name: str | None = None  # 文书名称
     content: str | None = None  # 执行依据主文
+    court_name: str | None = None  # 审理机构（法院/仲裁委名称）
+    full_text: str | None = None  # 文书全文（仅 reference 模式按需携带，供上层做摘要）
 
 
 class JudgmentPdfExtractor:
@@ -160,6 +162,9 @@ class JudgmentPdfExtractor:
         # 提取文书名称
         document_name = self._extract_document_name(text)
 
+        # 提取审理机构名称（法院/仲裁委，通常在文书头部）
+        court_name = self._extract_court_name(text)
+
         # 提取执行依据主文
         content = self._extract_main_text(text)
 
@@ -183,6 +188,32 @@ class JudgmentPdfExtractor:
             number=case_number,
             document_name=document_name,
             content=self._sanitize_extracted_text(content),
+            court_name=court_name,
+        )
+
+    def extract_case_reference(self, file_path: str, *, include_full_text: bool = False) -> ExtractionResult:
+        """从法院程序性文书（告知书/通知书等）提取案号、文书名称、审理机构。
+
+        与 extract() 的区别：不要求"判决如下"主文（content 为 None）——
+        执行等阶段的案号常只出现在程序性文书里，文书本身没有裁判主文。
+        include_full_text=True 时在 full_text 字段携带文书全文，供上层提炼
+        执行结果摘要等，避免二次读取 PDF。
+        文本提取失败（正则和 OCR 均无文本）仍抛 BusinessException。
+        """
+        logger.info("开始解析法院程序性文书: %s", file_path)
+        text, extraction_method = self._extract_full_text(file_path)
+        if not text:
+            raise BusinessException(
+                message="无法解析文书内容",
+                code="JUDGMENT_EXTRACT_FAILED",
+            )
+        logger.info("文书文本提取成功，字数: %d，提取方式: %s", len(text), extraction_method)
+        return ExtractionResult(
+            number=self._extract_case_number(text),
+            document_name=self._extract_document_name(text),
+            content=None,
+            court_name=self._extract_court_name(text),
+            full_text=text if include_full_text else None,
         )
 
     def _extract_full_text(self, file_path: str) -> tuple[str, str]:  # pragma: no cover
@@ -316,16 +347,28 @@ class JudgmentPdfExtractor:
             r"[（(]\s*[0-9]{4}\s*[）)]\s*[^\s，。,，。（）(（）)]+号",
         ]
 
-        for pattern in patterns:
-            match = re.search(pattern, text)
-            if match:
-                case_number = match.group()
-                # 清理案号中的多余空格
-                case_number = re.sub(r"\s+", "", case_number)
+        def _first_hit(source: str) -> str | None:
+            for pattern in patterns:
+                match = re.search(pattern, source)
+                if not match:
+                    continue
+                candidate = re.sub(r"\s+", "", match.group())
                 # 过滤掉明显不是案号的匹配
-                if len(case_number) > 5 and "判决" not in case_number and "调解" not in case_number:
-                    logger.info("提取到案号: %s", case_number)
-                    return case_number
+                if len(candidate) > 5 and "判决" not in candidate and "调解" not in candidate:
+                    return candidate
+            return None
+
+        hit = _first_hit(text)
+        if hit:
+            logger.info("提取到案号: %s", hit)
+            return hit
+
+        # PDF 排版可能把案号切成"（2026）粤1973 执10676 号"（类型字为单词、段间空格），
+        # 上述带空白容忍的模式也不命中；在整体去空白的文本上再兜底一遍
+        hit = _first_hit(re.sub(r"\s+", "", text))
+        if hit:
+            logger.info("提取到案号（去空白兜底）: %s", hit)
+            return hit
 
         # 如果正则没找到，尝试在"案号"关键词附近查找
         case_number_pattern = r"案号[：:\s]*[（(]([^）)]+)[）)]|案号[：:\s]*\(([^)]+)\)"
@@ -347,6 +390,31 @@ class JudgmentPdfExtractor:
                 return keyword
 
         logger.warning("未提取到文书名称")
+        return None
+
+    # 审理机构名称：法院（…人民法院/…中级人民法院）或仲裁委员会。
+    # 优先在文书头部（前 800 字符）找落款法院——正文/上诉指引中出现的
+    # 其他法院名（如"向××中级人民法院提起上诉"）不应抢占。
+    _COURT_NAME_PATTERN = re.compile(r"([\u4e00-\u9fa5]{2,25}(?:中级人民法院|人民法院))")
+    _ARBITRATION_NAME_PATTERN = re.compile(r"([\u4e00-\u9fa5]{2,20}仲裁委员会)")
+    _COURT_HEAD_CHARS = 800
+
+    def _extract_court_name(self, text: str) -> str | None:
+        """从文本中提取审理机构名称（法院/仲裁委，取文书头部首个命中）"""
+        head = text[: self._COURT_HEAD_CHARS]
+        match = self._COURT_NAME_PATTERN.search(head) or self._ARBITRATION_NAME_PATTERN.search(head)
+        if match:
+            name = match.group(1)
+            logger.info("提取到审理机构: %s", name)
+            return name
+
+        match = self._COURT_NAME_PATTERN.search(text) or self._ARBITRATION_NAME_PATTERN.search(text)
+        if match:
+            name = match.group(1)
+            logger.info("提取到审理机构（全文兜底）: %s", name)
+            return name
+
+        logger.warning("未提取到审理机构名称")
         return None
 
     def _extract_main_text(self, text: str) -> str | None:

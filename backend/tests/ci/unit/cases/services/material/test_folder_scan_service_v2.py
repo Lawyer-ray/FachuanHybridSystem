@@ -696,3 +696,66 @@ class TestEvidenceFolderFilter:
         assert svc._should_skip_evidence_candidate({"source_path": "/root/证据材料/证据明细.pdf"}) is False
         assert svc._should_skip_evidence_candidate({"source_path": "/root/普通目录/任意.pdf"}) is False
         assert svc._should_skip_evidence_candidate(None) is False
+
+
+# ---------------------------------------------------------------------------
+# run_scan_task 进度竞态：文件遍历结束的 "completed" 回调不得提前置
+# COMPLETED（轮询端会停止轮询拿到空 payload）
+# ---------------------------------------------------------------------------
+
+
+class TestRunScanTaskNoPrematureCompleted:
+    def _run(self, updates: list[dict[str, Any]]) -> None:
+        session = MagicMock()
+        session.id = "sess-1"
+        session.case_id = 12
+        session.result_payload = {"scan_scope": {"scan_subfolder": ""}}
+        session.case = MagicMock()
+
+        svc = CaseFolderScanService()
+
+        def fake_scan_folder(**kwargs: Any) -> dict[str, Any]:
+            progress_callback = kwargs["progress_callback"]
+            progress_callback("scanning", 5, None)
+            progress_callback("extracting", 40, "a.pdf")
+            progress_callback("completed", 100, None)
+            return {
+                "candidates": [],
+                "summary": {"total_files": 2, "deduped_files": 2, "classified_files": 2},
+            }
+
+        scan_service = MagicMock()
+        scan_service.scan_folder.side_effect = fake_scan_folder
+        svc._scan_service = scan_service
+        svc._make_provider_for_binding = MagicMock(return_value=None)
+        svc._resolve_scan_scope = MagicMock(return_value={"scan_folder": "/tmp/x", "scan_subfolder": ""})
+        svc._build_classification_context = MagicMock(return_value={})
+        svc._filter_evidence_folder_candidates = MagicMock(
+            side_effect=lambda result: {**result, "candidates": [{"filename": "a.pdf", "source_path": "/tmp/a.pdf"}]}
+        )
+
+        with (
+            patch("apps.cases.services.material.folder_scan_service.CaseFolderScanSession") as mock_session_model,
+            patch("apps.cases.services.material.folder_scan_service._get_accessible_binding") as mock_binding,
+        ):
+            mock_binding.return_value = MagicMock()
+            mock_session_model.objects.select_related.return_value.prefetch_related.return_value.filter.return_value.first.return_value = session
+            mock_session_model.objects.filter.return_value.update.side_effect = lambda **kw: updates.append(kw) or 1
+            svc.run_scan_task(session_id="sess-1")
+
+    def test_file_walk_completed_keeps_running(self) -> None:
+        updates: list[dict[str, Any]] = []
+        self._run(updates)
+
+        walk_end = [u for u in updates if u.get("progress") == 99]
+        assert walk_end, "文件遍历结束应写入 99% 进度"
+        assert walk_end[0].get("status") == CaseFolderScanStatus.RUNNING
+
+    def test_completed_only_written_with_payload(self) -> None:
+        updates: list[dict[str, Any]] = []
+        self._run(updates)
+
+        completed_updates = [u for u in updates if u.get("status") == CaseFolderScanStatus.COMPLETED]
+        assert len(completed_updates) == 1, "COMPLETED 只能由最终原子落库写入一次"
+        payload = completed_updates[0].get("result_payload") or {}
+        assert payload.get("candidates") == [{"filename": "a.pdf", "source_path": "/tmp/a.pdf"}]
