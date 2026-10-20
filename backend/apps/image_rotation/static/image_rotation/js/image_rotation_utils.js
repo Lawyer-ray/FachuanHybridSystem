@@ -26,6 +26,18 @@ window.ImageRotationUtils = (function () {
     }
 
     /**
+     * 把任意角度归一到 0 / 90 / 180 / 270（顺时针为正）。
+     * ONNX 检测返回 -90 / -270，手动累加也可能越过 360；
+     * 直接拿原值做 `=== 90 || === 270` 判定会漏掉负角度，导致 canvas 按未旋转宽高比开尺寸、内容被裁。
+     * @param {number} rotation
+     * @returns {number}
+     */
+    function normalizeRotation(rotation) {
+        var r = Math.round(Number(rotation) || 0) % 360;
+        return r < 0 ? r + 360 : r;
+    }
+
+    /**
      * 读取 EXIF Orientation 标签（纯 JavaScript 实现）
      * @param {ArrayBuffer} arrayBuffer
      * @returns {number} orientation 值 (1-8)，未找到返回 1
@@ -104,6 +116,7 @@ window.ImageRotationUtils = (function () {
         if (!canvas) return;
 
         var ctx = canvas.getContext('2d');
+        rotation = normalizeRotation(rotation);
         var isRotated90 = rotation === 90 || rotation === 270;
         var srcW = img.naturalWidth;
         var srcH = img.naturalHeight;
@@ -142,6 +155,7 @@ window.ImageRotationUtils = (function () {
         if (!canvas) return;
 
         var ctx = canvas.getContext('2d');
+        rotation = normalizeRotation(rotation);
         var isRotated90 = rotation === 90 || rotation === 270;
         var srcW = img.naturalWidth;
         var srcH = img.naturalHeight;
@@ -194,6 +208,7 @@ window.ImageRotationUtils = (function () {
      */
     function getRotatedBase64(img, rotation) {
         return new Promise(function (resolve) {
+            rotation = normalizeRotation(rotation);
             var isRotated90 = rotation === 90 || rotation === 270;
             var srcW = img.naturalWidth;
             var srcH = img.naturalHeight;
@@ -217,6 +232,7 @@ window.ImageRotationUtils = (function () {
     return {
         ORIENTATION_MAP: ORIENTATION_MAP,
         generateId: generateId,
+        normalizeRotation: normalizeRotation,
         readExifOrientation: readExifOrientation,
         renderThumbnail: renderThumbnail,
         renderModalPreview: renderModalPreview,

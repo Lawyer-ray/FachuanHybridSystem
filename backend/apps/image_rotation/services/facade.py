@@ -12,7 +12,7 @@ from apps.core.services.storage_service import sanitize_upload_filename
 
 from . import validation
 from .export import generate_pdf, generate_zip
-from .transform import clean_image, resize_to_paper_size, rotate_image_for_output
+from .transform import clean_image, normalize_rotation, resize_to_paper_size, rotate_image_for_output
 
 logger = logging.getLogger("apps.image_rotation")
 
@@ -164,8 +164,7 @@ class ImageRotationService:
 
         image_bytes = validation.decode_base64_payload(data)
 
-        if rotation not in (0, 90, 180, 270):
-            rotation = 0
+        rotation = normalize_rotation(rotation)
 
         if paper_size != "original":
             image_bytes = resize_to_paper_size(

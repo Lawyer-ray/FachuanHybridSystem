@@ -238,7 +238,7 @@ window.ImageRotationHistory = (function () {
                     formData.append('image_' + i, blob, page.original_filename);
                     formData.append('filename_' + i, page.suggested_filename || page.original_filename);
                     formData.append('format_' + i, 'jpeg');
-                    formData.append('rotation_' + i, String(((page.onnx_rotation || 0) + (page.detected_rotation || 0)) % 360));
+                    formData.append('rotation_' + i, String(U.normalizeRotation((page.onnx_rotation || 0) + (page.detected_rotation || 0))));
                 }
                 var resp2 = await fetch('/api/v1/image-rotation/export', {
                     method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: formData
@@ -257,7 +257,7 @@ window.ImageRotationHistory = (function () {
                     var blob2 = await resp3.blob();
                     formData2.append('page_' + j, blob2, page2.original_filename);
                     formData2.append('filename_' + j, page2.original_filename);
-                    formData2.append('rotation_' + j, String(((page2.onnx_rotation || 0) + (page2.detected_rotation || 0)) % 360));
+                    formData2.append('rotation_' + j, String(U.normalizeRotation((page2.onnx_rotation || 0) + (page2.detected_rotation || 0))));
                 }
                 var resp4 = await fetch('/api/v1/image-rotation/export-pdf', {
                     method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: formData2

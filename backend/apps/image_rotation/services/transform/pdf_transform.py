@@ -5,14 +5,15 @@ import logging
 
 from PIL import Image
 
+from .angles import to_pil_angle
+
 logger = logging.getLogger(__name__)
 
 
 def apply_rotation_for_pdf(image_bytes: bytes, rotation: int) -> bytes:
-    if rotation not in (0, 90, 180, 270):
-        rotation = 0
+    pil_angle = to_pil_angle(rotation)
 
-    if rotation == 0:
+    if pil_angle == 0:
         try:
             img: Image.Image = Image.open(io.BytesIO(image_bytes))
             if img.format == "JPEG":
@@ -28,8 +29,7 @@ def apply_rotation_for_pdf(image_bytes: bytes, rotation: int) -> bytes:
 
     try:
         img2: Image.Image = Image.open(io.BytesIO(image_bytes))
-        if rotation != 0:
-            img2 = img2.rotate(rotation, expand=True)
+        img2 = img2.rotate(pil_angle, expand=True)
 
         output = io.BytesIO()
         img2 = _ensure_rgb(img2)
