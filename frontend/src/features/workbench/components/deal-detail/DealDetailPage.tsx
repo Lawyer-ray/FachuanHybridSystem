@@ -87,7 +87,7 @@ export function DealDetailPage() {
 
       <ChainStepper steps={steps} summary={chainSummary(plan)} onJump={jump} />
 
-      <div className="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-[18px] max-[1024px]:grid-cols-1 min-[1900px]:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid grid-cols-[minmax(0,1fr)_400px] items-start gap-[18px] max-[1024px]:grid-cols-1 min-[1900px]:grid-cols-[minmax(0,1fr)_440px]">
         <div className="flex min-w-0 flex-col gap-[18px]">
           {d.casesError ? (
             <div className="rounded-[12px] border border-destructive/30 bg-destructive/5 px-5 py-4 text-sm text-destructive">

@@ -139,8 +139,7 @@ export function FolderTree({ kind, ownerId, maxH = '' }: { kind: FolderOwnerKind
       }}
     >
       {/* 根工具行：唯一常显管理按钮（新建根级文件夹）；拖整片区域 = 传到绑定根 */}
-      <div className="mb-1 flex items-center justify-between">
-        <span className="text-[11px] text-muted-foreground/70">拖入文件即上传（拖到文件夹行进该文件夹）</span>
+      <div className="mb-1 flex items-center justify-end">
         <button
           type="button"
           className="flex cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
@@ -228,7 +227,7 @@ function FolderRow({
           role="button"
           tabIndex={0}
           className={
-            'group flex cursor-pointer items-center gap-1.5 rounded-[7px] py-[5px] pr-1 transition-colors hover:bg-secondary ' +
+            'group relative flex cursor-pointer items-center gap-1.5 rounded-[7px] py-[5px] pr-1 transition-colors hover:bg-secondary ' +
             (dropping ? 'bg-secondary ring-1 ring-foreground/30 ' : '')
           }
           style={{ paddingLeft: 4 }}
@@ -263,30 +262,32 @@ function FolderRow({
           <span className="min-w-0 flex-1 truncate text-[13px]" title={folder.name}>
             {stripEntryParens(folder.name)}
           </span>
-          {/* 上下文动作 hover 显形：＋ 在其中新建子夹 / ✎ 重命名 */}
-          <button
-            type="button"
-            title="新建子文件夹"
-            className="hidden cursor-pointer rounded p-0.5 text-muted-foreground/70 transition-colors hover:text-foreground group-hover:block"
-            onClick={(e) => {
-              e.stopPropagation()
-              ctx.setCreatingIn(folder.subpath)
-              ctx.toggle(folder.subpath)
-            }}
-          >
-            <Plus className="size-3.5" />
-          </button>
-          <button
-            type="button"
-            title="重命名"
-            className="hidden cursor-pointer rounded p-0.5 text-muted-foreground/70 transition-colors hover:text-foreground group-hover:block"
-            onClick={(e) => {
-              e.stopPropagation()
-              ctx.setRenaming({ subpath: folder.subpath, name: folder.name })
-            }}
-          >
-            <Pencil className="size-3.5" />
-          </button>
+          {/* 上下文动作 hover 显形：浮层绝对定位，不挤占行布局（否则名字会被压短/跳动） */}
+          <span className="absolute top-1/2 right-1 hidden -translate-y-1/2 items-center gap-0.5 rounded-[6px] bg-secondary px-0.5 group-hover:flex">
+            <button
+              type="button"
+              title="新建子文件夹"
+              className="cursor-pointer rounded p-0.5 text-muted-foreground/70 transition-colors hover:text-foreground"
+              onClick={(e) => {
+                e.stopPropagation()
+                ctx.setCreatingIn(folder.subpath)
+                ctx.toggle(folder.subpath)
+              }}
+            >
+              <Plus className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              title="重命名"
+              className="cursor-pointer rounded p-0.5 text-muted-foreground/70 transition-colors hover:text-foreground"
+              onClick={(e) => {
+                e.stopPropagation()
+                ctx.setRenaming({ subpath: folder.subpath, name: folder.name })
+              }}
+            >
+              <Pencil className="size-3.5" />
+            </button>
+          </span>
         </div>
       )}
       {isOpen && (
@@ -329,7 +330,7 @@ function FileRow({
     <div
       role="button"
       tabIndex={0}
-      className="group flex cursor-pointer items-center gap-1.5 rounded-[7px] py-[5px] pr-1 transition-colors hover:bg-secondary"
+      className="group relative flex cursor-pointer items-center gap-1.5 rounded-[7px] py-[5px] pr-1 transition-colors hover:bg-secondary"
       style={{ paddingLeft: 20 }}
       title={'预览 ' + file.name}
       onClick={() => void preview()}
@@ -341,21 +342,24 @@ function FileRow({
       <span className="min-w-0 flex-1 truncate text-[13px]" title={file.name}>
         {stripEntryParens(file.name)}
       </span>
-      <span className="flex-none text-[11px] whitespace-nowrap text-muted-foreground/80 tabular-nums">
+      {/* 日期/大小 hover 时让位给浮层按钮（绝对定位，不参与布局） */}
+      <span className="flex-none text-[11px] whitespace-nowrap text-muted-foreground/80 tabular-nums group-hover:opacity-0">
         {file.modified_at.slice(0, 10)}
         {file.size > 0 && ' · ' + fmtSize(file.size)}
       </span>
-      <button
-        type="button"
-        title="重命名"
-        className="hidden cursor-pointer rounded p-0.5 text-muted-foreground/70 transition-colors hover:text-foreground group-hover:block"
-        onClick={(e) => {
-          e.stopPropagation()
-          ctx.setRenaming({ subpath: file.subpath, name: file.name })
-        }}
-      >
-        <Pencil className="size-3.5" />
-      </button>
+      <span className="absolute top-1/2 right-1 hidden -translate-y-1/2 items-center rounded-[6px] bg-secondary px-0.5 group-hover:flex">
+        <button
+          type="button"
+          title="重命名"
+          className="cursor-pointer rounded p-0.5 text-muted-foreground/70 transition-colors hover:text-foreground"
+          onClick={(e) => {
+            e.stopPropagation()
+            ctx.setRenaming({ subpath: file.subpath, name: file.name })
+          }}
+        >
+          <Pencil className="size-3.5" />
+        </button>
+      </span>
     </div>
   )
 }
