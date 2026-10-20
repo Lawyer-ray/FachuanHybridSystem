@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import re
+import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar
@@ -33,6 +34,8 @@ class BoundFolderBrowseService:
     """本地绑定文件夹的只读浏览（列目录 / 预览）与轻量管理（新建 / 上传 / 重命名）。"""
 
     MAX_UPLOAD_BYTES: ClassVar[int] = 200 * 1024 * 1024
+    # 删除 = 移到绑定根下该目录（带时间戳，可恢复），不做物理删除
+    TRASH_DIR: ClassVar[str] = "_已删除"
     _NAME_MAX_LEN: ClassVar[int] = 200
     _DRIVE_RE = re.compile(r"^[A-Za-z]:/")
     _ILLEGAL_NAME_RE = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
@@ -211,6 +214,75 @@ class BoundFolderBrowseService:
         target.rename(dest)
         logger.info("bound_folder_rename", extra={"owner_id": owner_id, "subpath": subpath, "entry_name": clean})
         return {"subpath": self._subpath_of(root, dest), "name": clean}
+
+    def copy_entry(
+        self,
+        *,
+        owner_id: int,
+        subpath: str,
+        dest_subpath: str = "",
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> dict[str, str]:
+        """把 ``subpath`` 指向的文件/文件夹复制到 ``dest_subpath`` 目录（同名自动加序号）。"""
+        root, _ = self._checked_root(
+            owner_id=owner_id, user=user, org_access=org_access, perm_open_access=perm_open_access
+        )
+        src = self._resolve_subpath(root, subpath)
+        dest_dir = self._resolve_subpath(root, dest_subpath)
+        if not src.exists():
+            raise NotFoundError(message="复制源不存在", code="FOLDER_NOT_FOUND")
+        if src == root:
+            raise ValidationException(message="不能复制绑定根目录", errors={"subpath": subpath})
+        if not dest_dir.exists() or not dest_dir.is_dir():
+            raise NotFoundError(message="目标文件夹不存在", code="FOLDER_NOT_FOUND")
+        if src.is_dir() and (dest_dir == src or dest_dir.is_relative_to(src)):
+            raise ValidationException(message="不能复制到自身内部", errors={"dest_subpath": dest_subpath})
+
+        dest = self._unique_destination(dest_dir, src.name)
+        if src.is_dir():
+            # copytree 对符号链接默认保留链接本身，不会跟随读出绑定根外的内容
+            shutil.copytree(src, dest)
+        else:
+            shutil.copy2(src, dest)
+        logger.info(
+            "bound_folder_copy",
+            extra={"owner_id": owner_id, "src": subpath, "dest": self._subpath_of(root, dest)},
+        )
+        return {"subpath": self._subpath_of(root, dest), "name": dest.name}
+
+    def delete_entry(
+        self,
+        *,
+        owner_id: int,
+        subpath: str,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> dict[str, str]:
+        """删除 = 移到绑定根下的 ``_已删除/``（带时间戳，可随时在树里找回），不做物理删除。"""
+        root, _ = self._checked_root(
+            owner_id=owner_id, user=user, org_access=org_access, perm_open_access=perm_open_access
+        )
+        target = self._resolve_subpath(root, subpath)
+        if not target.exists():
+            raise NotFoundError(message="目标不存在", code="FOLDER_NOT_FOUND")
+        if target == root:
+            raise ValidationException(message="不能删除绑定根目录", errors={"subpath": subpath})
+        if target.name == self.TRASH_DIR:
+            raise ValidationException(message="不能删除回收目录", errors={"subpath": subpath})
+
+        trash = root / self.TRASH_DIR
+        trash.mkdir(exist_ok=True)
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        dest = self._unique_destination(trash, f"{stamp}-{target.name}")
+        target.rename(dest)
+        logger.info(
+            "bound_folder_trash",
+            extra={"owner_id": owner_id, "subpath": subpath, "trashed_to": self._subpath_of(root, dest)},
+        )
+        return {"subpath": self._subpath_of(root, dest), "name": dest.name}
 
     # ------------------------------------------------------------------
     # 内部方法

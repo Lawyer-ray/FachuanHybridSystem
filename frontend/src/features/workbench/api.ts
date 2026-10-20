@@ -129,3 +129,22 @@ export function folderFileUrl(kind: FolderOwnerKind, ownerId: number, subpath: s
     '/api/v1/' + (kind === 'case' ? 'cases' : 'contracts') + '/' + ownerId + '/folder-file?subpath=' + encodeURIComponent(subpath)
   )
 }
+
+/** 复制文件/文件夹到目标目录（同名自动加序号，不覆盖） */
+export async function copyFolderEntry(
+  kind: FolderOwnerKind,
+  ownerId: number,
+  subpath: string,
+  destSubpath: string,
+) {
+  return folderApi(kind)
+    .post(String(ownerId) + '/folder-copy', { json: { subpath, dest_subpath: destSubpath } })
+    .json<{ subpath: string; name: string }>()
+}
+
+/** 删除 = 移入绑定根下 _已删除/（带时间戳可恢复，非物理删除） */
+export async function deleteFolderEntry(kind: FolderOwnerKind, ownerId: number, subpath: string) {
+  return folderApi(kind)
+    .post(String(ownerId) + '/folder-delete', { json: { subpath } })
+    .json<{ subpath: string; name: string }>()
+}

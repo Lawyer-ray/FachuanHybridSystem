@@ -6,7 +6,9 @@ import { toast } from 'sonner'
 import { withDownloadTicket } from '@/lib/download-ticket'
 import { errMessage } from '@/lib/errors'
 import {
+  copyFolderEntry,
   createFolderEntry,
+  deleteFolderEntry,
   folderFileUrl,
   listFolderEntries,
   renameFolderEntry,
@@ -15,6 +17,7 @@ import {
 } from '../../api'
 import { workbenchKeys } from '../../hooks/use-workbench-data'
 import { stripEntryParens } from './detail-domain'
+import { DeleteConfirm, TreeContextMenu, type TreeMenuItem } from './folder-tree-menu'
 import { EntryInput } from './folder-tree-ui'
 import { fmtSize, type NodeActions, type TreeCtx } from './folder-tree-types'
 
@@ -22,8 +25,17 @@ import { fmtSize, type NodeActions, type TreeCtx } from './folder-tree-types'
  * 绑定文件夹树（案件卡「文件夹视图」与右栏「合同文件夹」共用）。
  * 树形就地展开（非面包屑）、逐层懒加载；管理动作长在对象上：
  * 文件夹行 hover 显「＋ 新建子夹 / ✎ 重命名」，文件拖到文件夹行即上传；
+ * 右键菜单：复制 / 粘贴到此 / 重命名 / 移入 _已删除。
  * 成功静默只刷新，失败才弹窗（用户口味）。
  */
+
+interface MenuState {
+  x: number
+  y: number
+  subpath: string
+  name: string
+  isFolder: boolean
+}
 
 /** 展开时才挂载（懒加载）：父层 query 数据已到位才渲染本组件 */
 function useLayer(kind: FolderOwnerKind, ownerId: number, subpath: string) {
@@ -35,12 +47,27 @@ function useLayer(kind: FolderOwnerKind, ownerId: number, subpath: string) {
   })
 }
 
-export function FolderTree({ kind, ownerId, maxH = '' }: { kind: FolderOwnerKind; ownerId: number; maxH?: string }) {
+export function FolderTree({
+  kind,
+  ownerId,
+  maxH = '',
+  title,
+}: {
+  kind: FolderOwnerKind
+  ownerId: number
+  maxH?: string
+  /** 传入时渲染节标题行（右栏用，让「新建文件夹」与标题同行） */
+  title?: string
+}) {
   const qc = useQueryClient()
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [creatingIn, setCreatingIn] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<{ subpath: string; name: string } | null>(null)
+  const [deleting, setDeleting] = useState<{ subpath: string; name: string } | null>(null)
   const [dropOn, setDropOn] = useState<string | null>(null)
+  const [menu, setMenu] = useState<MenuState | null>(null)
+  /** 右键「复制」暂存的源（同一棵树内粘贴） */
+  const [clip, setClip] = useState<{ subpath: string; name: string } | null>(null)
 
   const ctx: TreeCtx = useMemo(
     () => ({
@@ -58,10 +85,13 @@ export function FolderTree({ kind, ownerId, maxH = '' }: { kind: FolderOwnerKind
       setCreatingIn,
       renaming,
       setRenaming,
+      deleting,
+      setDeleting,
       dropOn,
       setDropOn,
+      openMenu: (e, entry) => setMenu({ x: e.clientX, y: e.clientY, ...entry }),
     }),
-    [kind, ownerId, open, creatingIn, renaming, dropOn],
+    [kind, ownerId, open, creatingIn, renaming, deleting, dropOn],
   )
 
   const invalidate = () => {
@@ -94,17 +124,85 @@ export function FolderTree({ kind, ownerId, maxH = '' }: { kind: FolderOwnerKind
     },
     onError: (e) => fail(e, '上传'),
   })
+  const copy = useMutation({
+    mutationFn: (p: { subpath: string; dest: string }) =>
+      copyFolderEntry(kind, ownerId, p.subpath, p.dest),
+    onSuccess: (_d, p) => {
+      invalidate()
+      setOpen((prev) => new Set(prev).add(p.dest))
+    },
+    onError: (e) => fail(e, '复制'),
+  })
+  const remove = useMutation({
+    mutationFn: (subpath: string) => deleteFolderEntry(kind, ownerId, subpath),
+    onSuccess: (_d, subpath) => {
+      invalidate()
+      setDeleting(null)
+      // 删掉的目录若在展开集合里，连同其子树一起收起
+      setOpen((prev) => {
+        const next = new Set(prev)
+        for (const k of next) if (k === subpath || k.startsWith(subpath + '/')) next.delete(k)
+        return next
+      })
+    },
+    onError: (e) => {
+      fail(e, '删除')
+      setDeleting(null)
+    },
+  })
 
   const root = useLayer(kind, ownerId, '')
 
-  const actions = useMemo(
+  const actions = useMemo<NodeActions>(
     () => ({
-      mkdir: (p: { subpath: string; name: string }) => mkdir.mutate(p),
-      rename: (p: { subpath: string; name: string }) => rename.mutate(p),
-      upload: (subpath: string, files: File[]) => upload.mutate({ subpath, files }),
+      mkdir: (p) => mkdir.mutate(p),
+      rename: (p) => rename.mutate(p),
+      upload: (subpath, files) => upload.mutate({ subpath, files }),
+      deleteEntry: (subpath) => remove.mutate(subpath),
     }),
-    [mkdir, rename, upload],
+    [mkdir, rename, upload, remove],
   )
+
+  /** 右键菜单项：粘贴仅对「文件夹」且源不在该目标内部时出现 */
+  const menuItems = useMemo<TreeMenuItem[]>(() => {
+    if (!menu) return []
+    const close = () => setMenu(null)
+    const items: TreeMenuItem[] = []
+    const canPaste =
+      menu.isFolder && clip && clip.subpath !== menu.subpath && !menu.subpath.startsWith(clip.subpath + '/')
+    if (canPaste) {
+      items.push({
+        label: '粘贴到此文件夹',
+        onClick: () => {
+          close()
+          copy.mutate({ subpath: clip.subpath, dest: menu.subpath })
+        },
+      })
+    }
+    items.push({
+      label: '复制',
+      onClick: () => {
+        close()
+        setClip({ subpath: menu.subpath, name: menu.name })
+      },
+    })
+    items.push({
+      label: '重命名',
+      onClick: () => {
+        close()
+        setRenaming({ subpath: menu.subpath, name: menu.name })
+      },
+    })
+    items.push({
+      label: '删除',
+      danger: true,
+      onClick: () => {
+        close()
+        setDeleting({ subpath: menu.subpath, name: menu.name })
+      },
+    })
+    return items
+  }, [menu, clip, copy])
 
   if (root.isPending) {
     return (
@@ -138,17 +236,24 @@ export function FolderTree({ kind, ownerId, maxH = '' }: { kind: FolderOwnerKind
         if (files.length > 0) actions.upload('', files)
       }}
     >
-      {/* 根工具行：唯一常显管理按钮（新建根级文件夹）；拖整片区域 = 传到绑定根 */}
-      <div className="mb-1 flex items-center justify-end">
+      {/* 标题行：传 title 时与「新建文件夹」同行（右栏），否则只有右对齐按钮（案件卡） */}
+      <div className="mb-1 flex items-center gap-2">
+        {title && (
+          <h4 className="text-[11px] font-[650] tracking-[0.07em] text-muted-foreground/80">{title}</h4>
+        )}
         <button
           type="button"
-          className="flex cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+          className="ml-auto flex cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
           onClick={() => setCreatingIn('')}
         >
           <FolderPlus className="size-3.5" /> 新建文件夹
         </button>
       </div>
       <NodeList ctx={ctx} subpath="" actions={actions} />
+
+      {menu && (
+        <TreeContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />
+      )}
     </div>
   )
 }
@@ -209,6 +314,7 @@ function FolderRow({
 }) {
   const isOpen = ctx.open.has(folder.subpath)
   const renamingThis = ctx.renaming?.subpath === folder.subpath
+  const deletingThis = ctx.deleting?.subpath === folder.subpath
   const dropping = ctx.dropOn === folder.subpath
 
   return (
@@ -220,6 +326,14 @@ function FolderRow({
             placeholder="新名称"
             onConfirm={(name) => actions.rename({ subpath: folder.subpath, name })}
             onCancel={() => ctx.setRenaming(null)}
+          />
+        </div>
+      ) : deletingThis ? (
+        <div className="py-1 pl-2">
+          <DeleteConfirm
+            name={stripEntryParens(folder.name)}
+            onConfirm={() => actions.deleteEntry(folder.subpath)}
+            onCancel={() => ctx.setDeleting(null)}
           />
         </div>
       ) : (
@@ -234,6 +348,11 @@ function FolderRow({
           onClick={() => ctx.toggle(folder.subpath)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') ctx.toggle(folder.subpath)
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            ctx.openMenu(e, { subpath: folder.subpath, name: folder.name, isFolder: true })
           }}
           onDragOver={(e) => {
             e.preventDefault()
@@ -309,6 +428,7 @@ function FileRow({
   actions: NodeActions
 }) {
   const renamingThis = ctx.renaming?.subpath === file.subpath
+  const deletingThis = ctx.deleting?.subpath === file.subpath
 
   const preview = async () => {
     window.open(await withDownloadTicket(folderFileUrl(ctx.kind, ctx.ownerId, file.subpath)), '_blank', 'noopener')
@@ -326,6 +446,17 @@ function FileRow({
       </div>
     )
   }
+  if (deletingThis) {
+    return (
+      <div className="py-1 pl-2">
+        <DeleteConfirm
+          name={stripEntryParens(file.name)}
+          onConfirm={() => actions.deleteEntry(file.subpath)}
+          onCancel={() => ctx.setDeleting(null)}
+        />
+      </div>
+    )
+  }
   return (
     <div
       role="button"
@@ -336,6 +467,11 @@ function FileRow({
       onClick={() => void preview()}
       onKeyDown={(e) => {
         if (e.key === 'Enter') void preview()
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        ctx.openMenu(e, { subpath: file.subpath, name: file.name, isFolder: false })
       }}
     >
       <FileText className="size-[15px] flex-none text-muted-foreground/70" />

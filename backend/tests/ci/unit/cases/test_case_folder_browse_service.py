@@ -173,7 +173,7 @@ class TestManageOperations:
 
     def test_mkdir_illegal_names(self, svc, tmp_path):
         case = self._bind(tmp_path)
-        for bad in ["", "  ", ".hidden", "..", "a/b", "a\\b", 'x:y', "n" * 201]:
+        for bad in ["", "  ", ".hidden", "..", "a/b", "a\\b", "x:y", "n" * 201]:
             with pytest.raises(ValidationException):
                 svc.mkdir(owner_id=case.id, subpath="", name=bad, perm_open_access=True)
 
@@ -220,3 +220,46 @@ class TestManageOperations:
             svc.rename(owner_id=case.id, subpath="a.txt", new_name="b.txt", perm_open_access=True)
         with pytest.raises(ValidationException, match="绑定根"):
             svc.rename(owner_id=case.id, subpath="", new_name="改名", perm_open_access=True)
+
+    def test_copy_file_and_dedupe_name(self, svc, tmp_path):
+        case = self._bind(tmp_path)
+        (tmp_path / "src.pdf").write_bytes(b"x")
+        (tmp_path / "dst").mkdir()
+        out = svc.copy_entry(owner_id=case.id, subpath="src.pdf", dest_subpath="dst", perm_open_access=True)
+        assert out["subpath"] == "dst/src.pdf"
+        again = svc.copy_entry(owner_id=case.id, subpath="src.pdf", dest_subpath="dst", perm_open_access=True)
+        assert again["name"] == "src_1.pdf"  # 同名自动加序号，不覆盖
+
+    def test_copy_folder_recursive(self, svc, tmp_path):
+        case = self._bind(tmp_path)
+        folder = tmp_path / "材料"
+        (folder / "子").mkdir(parents=True)
+        (folder / "子" / "a.pdf").write_bytes(b"a")
+        (tmp_path / "归档").mkdir()
+        out = svc.copy_entry(owner_id=case.id, subpath="材料", dest_subpath="归档", perm_open_access=True)
+        assert (tmp_path / "归档" / "材料" / "子" / "a.pdf").read_bytes() == b"a"
+        assert out["subpath"] == "归档/材料"
+
+    def test_copy_into_itself_rejected(self, svc, tmp_path):
+        case = self._bind(tmp_path)
+        folder = tmp_path / "材料"
+        (folder / "子").mkdir(parents=True)
+        with pytest.raises(ValidationException, match="自身内部"):
+            svc.copy_entry(owner_id=case.id, subpath="材料", dest_subpath="材料/子", perm_open_access=True)
+
+    def test_delete_moves_to_recycle_dir(self, svc, tmp_path):
+        case = self._bind(tmp_path)
+        (tmp_path / "要删.pdf").write_bytes(b"x")
+        out = svc.delete_entry(owner_id=case.id, subpath="要删.pdf", perm_open_access=True)
+        assert out["subpath"].startswith("_已删除/")
+        assert not (tmp_path / "要删.pdf").exists()
+        trashed = list((tmp_path / "_已删除").iterdir())
+        assert len(trashed) == 1 and trashed[0].name.endswith("-要删.pdf")
+
+    def test_delete_root_and_trash_rejected(self, svc, tmp_path):
+        case = self._bind(tmp_path)
+        with pytest.raises(ValidationException, match="绑定根目录"):
+            svc.delete_entry(owner_id=case.id, subpath="", perm_open_access=True)
+        (tmp_path / "_已删除").mkdir()
+        with pytest.raises(ValidationException, match="回收目录"):
+            svc.delete_entry(owner_id=case.id, subpath="_已删除", perm_open_access=True)

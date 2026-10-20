@@ -22,6 +22,8 @@ vi.mock('../../api', () => ({
   createFolderEntry: vi.fn(),
   renameFolderEntry: vi.fn(),
   uploadFolderFiles: vi.fn(),
+  copyFolderEntry: vi.fn(),
+  deleteFolderEntry: vi.fn(),
 }))
 
 import {

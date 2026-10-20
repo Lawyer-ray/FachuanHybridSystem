@@ -18,7 +18,12 @@ from asgiref.sync import sync_to_async
 from django.http import FileResponse, HttpRequest
 from ninja import Router
 
-from apps.cases.schemas import CaseFolderEntriesResponseSchema, CaseFolderEntryNameIn
+from apps.cases.schemas import (
+    CaseFolderCopyIn,
+    CaseFolderEntriesResponseSchema,
+    CaseFolderEntryNameIn,
+    CaseFolderPathIn,
+)
 from apps.core.http.download import content_disposition
 from apps.core.security import get_request_access_context
 
@@ -91,3 +96,15 @@ async def upload_case_folder_files(request: HttpRequest, case_id: int, subpath: 
 async def rename_case_folder_entry(request: HttpRequest, case_id: int, data: CaseFolderEntryNameIn) -> Any:
     """重命名 subpath 指向的文件或文件夹（new_name 同目录内生效）。"""
     return await _call_service("rename", request, case_id, subpath=data.subpath, new_name=data.name)
+
+
+@router.post("/{case_id}/folder-copy")
+async def copy_case_folder_entry(request: HttpRequest, case_id: int, data: CaseFolderCopyIn) -> Any:
+    """复制文件/文件夹到目标目录（同名自动加序号；不覆盖既有文件）。"""
+    return await _call_service("copy_entry", request, case_id, subpath=data.subpath, dest_subpath=data.dest_subpath)
+
+
+@router.post("/{case_id}/folder-delete")
+async def delete_case_folder_entry(request: HttpRequest, case_id: int, data: CaseFolderPathIn) -> Any:
+    """删除 = 移入绑定根下 _已删除/（带时间戳，可恢复），不做物理删除。"""
+    return await _call_service("delete_entry", request, case_id, subpath=data.subpath)

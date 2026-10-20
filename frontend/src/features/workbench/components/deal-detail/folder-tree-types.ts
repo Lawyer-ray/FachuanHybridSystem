@@ -1,3 +1,5 @@
+import type { MouseEvent } from 'react'
+
 import type { FolderOwnerKind } from '../../api'
 
 /** 绑定文件夹树的共享类型与小工具（与组件分开，满足 react-refresh 仅导出组件的约束）。 */
@@ -15,9 +17,14 @@ export interface TreeCtx {
   /** 正在重命名的条目（subpath 定位） */
   renaming: { subpath: string; name: string } | null
   setRenaming: (v: { subpath: string; name: string } | null) => void
+  /** 正在确认删除的条目 */
+  deleting: { subpath: string; name: string } | null
+  setDeleting: (v: { subpath: string; name: string } | null) => void
   /** 拖拽悬停高亮的文件夹 subpath */
   dropOn: string | null
   setDropOn: (subpath: string | null) => void
+  /** 右键打开上下文菜单 */
+  openMenu: (e: MouseEvent, entry: { subpath: string; name: string; isFolder: boolean }) => void
 }
 
 /** 管理动作（FolderTree 的 mutations 下发） */
@@ -25,6 +32,7 @@ export interface NodeActions {
   mkdir: (p: { subpath: string; name: string }) => void
   rename: (p: { subpath: string; name: string }) => void
   upload: (subpath: string, files: File[]) => void
+  deleteEntry: (subpath: string) => void
 }
 
 /** 文件大小短格式（B / KB / MB） */

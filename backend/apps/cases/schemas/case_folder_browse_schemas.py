@@ -9,6 +9,8 @@ __all__: list[str] = [
     "CaseFolderFileSchema",
     "CaseFolderEntriesResponseSchema",
     "CaseFolderEntryNameIn",
+    "CaseFolderCopyIn",
+    "CaseFolderPathIn",
 ]
 
 
@@ -41,3 +43,16 @@ class CaseFolderEntryNameIn(Schema):
 
     subpath: str = ""
     name: str
+
+
+class CaseFolderCopyIn(Schema):
+    """复制入参：subpath 为复制源，dest_subpath 为目标目录（空 = 绑定根）。"""
+
+    subpath: str
+    dest_subpath: str = ""
+
+
+class CaseFolderPathIn(Schema):
+    """删除入参：subpath 定位要移入回收目录的条目。"""
+
+    subpath: str

@@ -15,7 +15,12 @@ from asgiref.sync import sync_to_async
 from django.http import FileResponse, HttpRequest
 from ninja import Router
 
-from apps.contracts.schemas.folder_browse_schemas import ContractFolderEntriesOut, ContractFolderEntryNameIn
+from apps.contracts.schemas.folder_browse_schemas import (
+    ContractFolderCopyIn,
+    ContractFolderEntriesOut,
+    ContractFolderEntryNameIn,
+    ContractFolderPathIn,
+)
 from apps.core.http.download import content_disposition
 from apps.core.security import get_request_access_context
 
@@ -86,3 +91,15 @@ async def upload_contract_folder_files(request: HttpRequest, contract_id: int, s
 async def rename_contract_folder_entry(request: HttpRequest, contract_id: int, data: ContractFolderEntryNameIn) -> Any:
     """重命名 subpath 指向的文件或文件夹（name 为新名字，同目录内生效）。"""
     return await _call_service("rename", request, contract_id, subpath=data.subpath, new_name=data.name)
+
+
+@router.post("/{contract_id}/folder-copy")
+async def copy_contract_folder_entry(request: HttpRequest, contract_id: int, data: ContractFolderCopyIn) -> Any:
+    """复制文件/文件夹到目标目录（同名自动加序号；不覆盖既有文件）。"""
+    return await _call_service("copy_entry", request, contract_id, subpath=data.subpath, dest_subpath=data.dest_subpath)
+
+
+@router.post("/{contract_id}/folder-delete")
+async def delete_contract_folder_entry(request: HttpRequest, contract_id: int, data: ContractFolderPathIn) -> Any:
+    """删除 = 移入绑定根下 _已删除/（带时间戳，可恢复），不做物理删除。"""
+    return await _call_service("delete_entry", request, contract_id, subpath=data.subpath)

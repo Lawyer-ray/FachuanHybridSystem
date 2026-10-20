@@ -142,10 +142,11 @@ export function DetailRail({
       <RailPayments deal={deal} onAdd={onAddPayment} />
       <RailSupps deal={deal} />
 
-      {/* 合同文件夹：绑定目录的树形浏览（拆分比 Finder 顺手），未绑定时树内提示 */}
-      <RailSection title="合同文件夹">
-        <FolderTree kind="contract" ownerId={deal.id} maxH="max-h-[320px]" />
-      </RailSection>
+      {/* 合同文件夹：绑定目录的树形浏览（拆分比 Finder 顺手）；标题行自带「新建文件夹」，
+          未绑定时树内提示 */}
+      <div className="border-t border-border-light px-[18px] pt-3.5 pb-[15px]">
+        <FolderTree kind="contract" ownerId={deal.id} maxH="max-h-[320px]" title="合同文件夹" />
+      </div>
 
       <RailFacts deal={deal} />
     </Card>
