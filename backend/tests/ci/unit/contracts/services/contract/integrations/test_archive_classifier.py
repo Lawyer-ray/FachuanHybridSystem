@@ -689,3 +689,96 @@ class TestReloadLearnedCodeRules:
         reload_learned_code_rules()
         assert isinstance(mod._LEARNED_CODE_RULES, dict)
         assert mod._LEARNED_CODE_RULES is not before or isinstance(mod._LEARNED_CODE_RULES, dict)
+
+
+# ============================================================
+# 反馈类工作日志：动词补全 + 文书要点提取
+# ============================================================
+
+
+class TestFeedbackVerbCompletion:
+    def test_enforcement_feedback_uses_receive_verb(self):
+        result = parse_work_log_from_folder_name("2026.10.10-执行反馈", "litigation")
+        assert result is not None
+        assert result["content"] == "收到执行反馈"
+
+    def test_preservation_fee_notice_uses_receive_verb(self):
+        # "交保全费通知"含"费通知"（非"交费通知"），也应补"收到"
+        result = parse_work_log_from_folder_name("2025.10.14-交保全费通知", "litigation")
+        assert result is not None
+        assert result["content"] == "收到交保全费通知"
+
+    def test_non_feedback_keeps_default_verb(self):
+        # "邮寄"本身在动词清单里，不重复补全；非反馈类不提取要点
+        result = parse_work_log_from_folder_name("2025.09.26-邮寄纸质立案材料", "litigation")
+        assert result is not None
+        assert result["content"] == "邮寄纸质立案材料"
+
+
+class TestPickFeedbackSummary:
+    _TEXT = (
+        "广东省某市第三人民法院\n告知书\n"
+        "关于某甲公司申请执行某乙公司、张某买卖合同纠纷执行一案，现将相关事项告知如下：\n"
+        "被执行人张某在中国农业银行开设的账户（扣划该账户 60011 元），上述继续冻结期限为一年。\n"
+        "本案扣划被执行人账户存款 61001 元，扣除执行费 1500 元，余款 60022 元"
+        "（优先支付受理费、保全费）已支付给申请人某甲公司。"
+    )
+
+    def test_picks_max_amount_sentence(self):
+        from apps.contracts.services.contract.integrations.archive_classifier import _pick_feedback_summary
+
+        summary = _pick_feedback_summary(self._TEXT)
+        # 取金额最大的句子（总额 61001），且 PDF 排版空格已去除
+        assert summary.startswith("本案扣划被执行人账户存款61001元，扣除执行费1500元")
+        assert "60011" not in summary or summary.startswith("本案扣划")
+
+    def test_truncates_to_limit(self):
+        from apps.contracts.services.contract.integrations.archive_classifier import _pick_feedback_summary
+
+        long_text = "前言。" + "本案扣划被执行人账户存款61001元" + "，逐项罗列" * 40 + "元。"
+        summary = _pick_feedback_summary(long_text)
+        assert len(summary) <= 70
+
+    def test_no_amount_returns_empty(self):
+        from apps.contracts.services.contract.integrations.archive_classifier import _pick_feedback_summary
+
+        assert _pick_feedback_summary("文书全文没有金额信息。") == ""
+
+
+class TestFeedbackEnrichment:
+    """collect_work_log_suggestions 对反馈类文件夹附加文书要点。"""
+
+    def test_feedback_folder_enriched(self, tmp_path, monkeypatch):
+        from apps.contracts.services.contract.integrations import archive_classifier as mod
+
+        notice_text = (
+            "广东省某市第三人民法院\n告知书\n"
+            "关于某甲公司申请执行某乙公司、张某执行一案，现将相关事项告知如下：\n"
+            "本案扣划被执行人账户存款 61001 元，扣除执行费 1500 元，"
+            "余款 60022 元（优先支付受理费、保全费）已支付给申请人某甲公司。"
+        )
+        monkeypatch.setattr(mod, "_pdf_direct_text", lambda path: notice_text)
+
+        feedback_dir = tmp_path / "2-执行" / "3-邮件反馈" / "2026.10.10-执行反馈"
+        feedback_dir.mkdir(parents=True)
+        (feedback_dir / "告知书.pdf").write_bytes(b"%PDF-1.4 fake")
+        (tmp_path / "2-执行" / "3-邮件反馈" / "2026.02.24-邮寄纸质材料给法院").mkdir(parents=True)
+
+        suggestions = collect_work_log_suggestions(str(tmp_path / "2-执行"), "litigation")
+
+        by_date = {item["date"]: item["content"] for item in suggestions}
+        assert by_date["2026-10-10"].startswith("收到执行反馈：本案扣划被执行人账户存款61001元")
+        # 非反馈类日志不受影响（邮寄是动词，原样保留）
+        assert by_date["2026-02-24"] == "邮寄纸质材料给法院"
+
+    def test_feedback_without_usable_pdf_stays_plain(self, tmp_path, monkeypatch):
+        from apps.contracts.services.contract.integrations import archive_classifier as mod
+
+        monkeypatch.setattr(mod, "_pdf_direct_text", lambda path: "扫描件无金额。")
+        feedback_dir = tmp_path / "2026.10.10-执行反馈"
+        feedback_dir.mkdir()
+        (feedback_dir / "告知书.pdf").write_bytes(b"%PDF-1.4 fake")
+
+        suggestions = collect_work_log_suggestions(str(tmp_path), "litigation")
+
+        assert suggestions[0]["content"] == "收到执行反馈"
