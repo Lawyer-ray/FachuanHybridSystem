@@ -300,10 +300,21 @@ describe('案件节', () => {
     expect(merged.key).toBe('L4')
   })
 
-  it('stripEntryParens：文件名括号内的案件背景描述隐藏，空结果退回原名', () => {
-    expect(stripEntryParens('民事裁定书（张某诉某公司案）_20260929收.pdf')).toBe('民事裁定书_20260929收.pdf')
-    expect(stripEntryParens('告知书(semi)_a.pdf')).toBe('告知书_a.pdf')
-    expect(stripEntryParens('（全是括号）.pdf')).toBe('（全是括号）.pdf')
+  it('stripEntryParens：只隐藏长案件名括号，短括号（当事人/年份/备注）保留', () => {
+    // 长描述型（≥12 字）→ 隐藏，卡片已标明案件
+    expect(stripEntryParens('民事裁定书（张某诉某公司买卖合同纠纷一案）_20260929收.pdf')).toBe(
+      '民事裁定书_20260929收.pdf',
+    )
+    // 嵌套括号（案件名里嵌公司名括号）配平后整体隐藏
+    expect(stripEntryParens('账户确认书（张某诉某公司买卖合同纠纷（二审）一案）V1.pdf')).toBe('账户确认书V1.pdf')
+    // 短括号是区分信息，必须保留：当事人、年份案号、备注
+    expect(stripEntryParens('通知书（王某执行案）_20260414收.pdf')).toBe('通知书（王某执行案）_20260414收.pdf')
+    expect(stripEntryParens('（20XX）粤0000执保1号民事裁定书.pdf')).toBe('（20XX）粤0000执保1号民事裁定书.pdf')
+    expect(stripEntryParens('2-授权委托书（张某）（某醉驾一案）V1.pdf')).toBe('2-授权委托书（张某）（某醉驾一案）V1.pdf')
+    expect(stripEntryParens('【发票】某甲（个人）_20251023.pdf')).toBe('【发票】某甲（个人）_20251023.pdf')
+    // 整名都在括号里 / 括号不配对 → 退回原名
+    expect(stripEntryParens('（张某诉某公司买卖合同纠纷一案）.pdf')).toBe('（张某诉某公司买卖合同纠纷一案）.pdf')
+    expect(stripEntryParens('说明（未闭合.pdf')).toBe('说明（未闭合.pdf')
   })
 })
 
