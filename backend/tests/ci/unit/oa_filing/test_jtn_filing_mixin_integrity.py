@@ -36,10 +36,18 @@ class TestJtnFilingMixinIntegrity:
             "大概率是静态方法下沉模块级后漏改调用点（参照 2026-10-14 _js_str 事故）"
         )
 
-    def test_playwright_filing_uses_module_level_js_str(self) -> None:
-        """联系人字段注入直接验证事故点：模块级 _js_str 已导入且不再经 self 调用。"""
+    def test_playwright_filing_contact_fill_is_resolvable(self) -> None:
+        """联系人注入事故点回归（2026-10-14）与 386 漏填回归（2026-10-20）。
+
+        历史上 _js_str 曾因静态方法下沉未改调用点而报 AttributeError；
+        2026-10-20 又发现联系人区块由 layui 异步渲染、且从未在 HTML payload 里出现，
+        故改为 _fill_case_contact 统一处理。此处断言：
+        1) 不再残留经 self. 调用的 _js_str；
+        2) _fill_case_contact 在组合类上可解析（mixin 组合不会丢方法）。
+        """
         from apps.oa_filing.services.oa_scripts.jtn.filing import playwright_filing
 
         source = inspect.getsource(playwright_filing)
-        assert "from .playwright_helpers import _js_str" in source
         assert "self._js_str" not in source
+        assert hasattr(JtnFilingScript, "_fill_case_contact")
+        assert "_fill_case_contact(info)" in source

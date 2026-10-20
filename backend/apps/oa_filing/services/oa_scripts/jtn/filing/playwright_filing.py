@@ -23,7 +23,6 @@ from .constants import (
     _XPATH_SEARCH_BTN,
 )
 from .filing_models import CaseInfo, ClientInfo, ConflictPartyInfo, ContractInfo
-from .playwright_helpers import _js_str
 
 logger = logging.getLogger("apps.oa_filing.jtn")
 
@@ -192,6 +191,65 @@ class PlaywrightFilingMixin:  # pragma: no cover
     # 案件信息
     # ------------------------------------------------------------------
 
+    async def _set_select_chosen(self: Any, page: Page, element_id: str, value: str) -> None:  # pragma: no cover
+        """设置主页面上 Chosen.js 下拉框的值并刷新 UI。
+
+        OA 立案页的 category/stage/which_side/kindtype* 均带 chosenselect 类，
+        由 Chosen.js 接管渲染。仅发 change 事件不会重绘选中项（UI 仍显示
+        “请选择”），服务端取到的也可能因 Chosen 缓存而为空，故必须
+        trigger 'chosen:updated'。
+        """
+        await page.evaluate(
+            f"""(val) => {{
+            const el = document.getElementById('{element_id}');
+            if (!el) return;
+            el.value = val;
+            if (window.jQuery && window.jQuery.fn && window.jQuery.fn.chosen) {{
+                window.jQuery(el).trigger('chosen:updated');
+            }}
+            el.dispatchEvent(new Event('change', {{bubbles: true}}));
+        }}""",
+            value,
+        )
+
+    async def _fill_case_contact(self: Any, info: CaseInfo) -> None:  # pragma: no cover
+        """填写客户本案联系人（必填，缺失填 "/"）。
+
+        联系人 input（pro_pl_name_<gid>）由 layui 模板异步渲染，切到案件信息
+        标签后才有；渲染未完成时先等表格出现再赋值，避免静默漏填。
+        """
+        page = self._page
+        assert page is not None
+        try:
+            await page.wait_for_selector('#divLinker input[name*="pro_pl_name"]', state="attached", timeout=10_000)
+        except Exception:
+            logger.warning("客户本案联系人区块未渲染，尝试手动触发渲染")
+            await page.evaluate(
+                """() => {
+                if (window.pageLoad && window.pageLoad.loadLinker) {
+                    window.pageLoad.loadLinker();
+                }
+            }"""
+            )
+            await asyncio.sleep(_SHORT_WAIT)
+
+        result = await page.evaluate(
+            """(vals) => {
+            const names = document.querySelectorAll('#divLinker input[name*="pro_pl_name"]');
+            const phones = document.querySelectorAll('#divLinker input[name*="pro_pl_phone"]');
+            names.forEach((el) => { el.value = vals.name; });
+            phones.forEach((el) => { el.value = vals.phone; });
+            return {
+                names: names.length,
+                phones: phones.length,
+                nameValue: names[0] ? names[0].value : null,
+                phoneValue: phones[0] ? phones[0].value : null,
+            };
+        }""",
+            {"name": info.contact_name or "/", "phone": info.contact_phone or "/"},
+        )
+        logger.info("客户本案联系人填写结果: %s", result)
+
     async def _fill_case_info(self: Any, info: CaseInfo) -> None:  # pragma: no cover
         """填写案件信息标签。
 
@@ -226,27 +284,27 @@ class PlaywrightFilingMixin:  # pragma: no cover
         await asyncio.sleep(_AJAX_WAIT)
 
         # 案件类型（触发 stage + kindtype 加载）
-        await self._set_select(page, f"{_p}category_id", info.category)
+        await self._set_select_chosen(page, f"{_p}category_id", info.category)
         await asyncio.sleep(_AJAX_WAIT)
 
         # 案件阶段（触发 which_side 加载）— 非诉类型无阶段
         if info.stage:
-            await self._set_select(page, f"{_p}stage_id", info.stage)
+            await self._set_select_chosen(page, f"{_p}stage_id", info.stage)
             await asyncio.sleep(_AJAX_WAIT)
 
         # 代理何方 — 非诉类型无此字段
         if info.stage:
-            await self._set_select(page, f"{_p}which_side", info.which_side)
+            await self._set_select_chosen(page, f"{_p}which_side", info.which_side)
 
         # 业务类型三级级联
         if info.kindtype:
-            await self._set_select(page, f"{_p}kindtype_id", info.kindtype)
+            await self._set_select_chosen(page, f"{_p}kindtype_id", info.kindtype)
             await asyncio.sleep(_AJAX_WAIT)
         if info.kindtype_sed:
-            await self._set_select(page, f"{_p}kindtypeSed_id", info.kindtype_sed)
+            await self._set_select_chosen(page, f"{_p}kindtypeSed_id", info.kindtype_sed)
             await asyncio.sleep(_AJAX_WAIT)
         if info.kindtype_thr:
-            await self._set_select(page, f"{_p}kindtypeThr_id", info.kindtype_thr)
+            await self._set_select_chosen(page, f"{_p}kindtypeThr_id", info.kindtype_thr)
 
         # 简单下拉框
         await self._set_select(page, f"{_p}resource_id", info.resource)
@@ -275,21 +333,8 @@ class PlaywrightFilingMixin:  # pragma: no cover
             start_date = _timezone.localdate().isoformat()
         await self._set_field(page, f"{_p}start_date", start_date)
 
-        # 客户联系人（name 带动态 GUID，用 name 属性前缀匹配）
-        if info.contact_name:
-            await page.evaluate(
-                f"""() => {{
-                var el = document.querySelector('input[name*="pro_pl_name"]');
-                if (el) el.value = {_js_str(info.contact_name)};
-            }}"""
-            )
-        if info.contact_phone:
-            await page.evaluate(
-                f"""() => {{
-                var el = document.querySelector('input[name*="pro_pl_phone"]');
-                if (el) el.value = {_js_str(info.contact_phone)};
-            }}"""
-            )
+        # 客户联系人（name 带动态 GUID，按 name 前缀匹配；必填缺失填 "/"）
+        await self._fill_case_contact(info)
 
         logger.info("案件信息填写完成")
 

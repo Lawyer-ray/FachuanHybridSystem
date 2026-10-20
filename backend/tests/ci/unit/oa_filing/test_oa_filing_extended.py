@@ -102,8 +102,9 @@ class TestJTNAdapterMappings:
         assert self.service._map_fee_mode(contract) == "01"
 
     def test_map_kindtype_litigation_returns_empty(self):
+        # 民事（03）业务种类为 OA 必填项，案由缺失时兜底合同类
         principal, sed = self.service._map_kindtype("03", [])
-        assert principal == ""
+        assert principal == "KindType03_04"
         assert sed == ""
 
     def test_map_kindtype_advisor_enterprise(self):

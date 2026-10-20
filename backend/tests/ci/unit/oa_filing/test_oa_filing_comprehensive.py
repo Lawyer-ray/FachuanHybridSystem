@@ -140,7 +140,8 @@ class TestJTNAdapter:
 
     def test_map_kindtype_litigation_returns_empty(self) -> None:
         svc = self._make_service()
-        assert svc._map_kindtype("03", []) == ("", "")
+        # 民事（03）业务种类为 OA 必填项，案由缺失时兜底合同类
+        assert svc._map_kindtype("03", []) == ("KindType03_04", "")
         assert svc._map_kindtype("04", []) == ("", "")
         assert svc._map_kindtype("05", []) == ("", "")
 

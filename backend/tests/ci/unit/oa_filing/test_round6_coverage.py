@@ -214,8 +214,9 @@ class TestScriptExecutorMappings:
         assert svc._map_fee_mode(contract) == "01"
 
     def test_map_kindtype_civil(self, svc):
+        # 民事（03）业务种类为 OA 必填项，案由缺失时兜底合同类
         result = svc._map_kindtype("03", [])
-        assert result == ("", "")
+        assert result == ("KindType03_04", "")
 
     def test_map_kindtype_admin(self, svc):
         result = svc._map_kindtype("04", [])

@@ -147,8 +147,9 @@ class TestMapFeeMode:
 
 class TestMapKindtype:
     def test_non_litigation_returns_empty(self, adapter):
+        # 民事（03）业务种类为 OA 必填项，案由缺失时兜底合同类
         kind, kind_sed = adapter._map_kindtype("03", [])
-        assert kind == ""
+        assert kind == "KindType03_04"
         assert kind_sed == ""
 
     def test_advisor_enterprise(self, adapter):
@@ -193,8 +194,10 @@ class TestMapKindtype:
         assert adapter._map_kindtype("03", [], cause_text="所有权确认纠纷")[0] == "KindType03_03"
 
     def test_civil_unmatched_cause_returns_empty(self, adapter):
+        # 「申请宣告失踪案」命中特殊程序规则（KindType03_10），不再留空
         kind, kind_sed = adapter._map_kindtype("03", [], cause_text="申请宣告失踪案")
-        assert kind == "" and kind_sed == ""
+        assert kind == "KindType03_10"
+        assert kind_sed == ""
 
 
 # ──────────── _map_case_stage：劳动仲裁 ────────────
