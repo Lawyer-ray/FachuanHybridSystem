@@ -59,12 +59,6 @@
           return (this.scanCandidates || []).filter((item) => !item.skip_reason);
         },
 
-        get unmatchedCount() {
-          return this.visibleCandidates.filter(
-            (item) => item.category === 'case_material' && !item.archive_item_code
-          ).length;
-        },
-
         get showAIClassify() {
           return (
             !this.isScanning &&
@@ -79,8 +73,8 @@
         },
 
         get aiClassifyLabel() {
-          const count = this.unmatchedCount;
-          return count > 0 ? 'AI 分类未匹配项（' + count + '）' : 'AI 分类未匹配项';
+          const count = this.visibleCandidates.length;
+          return count > 0 ? '重新分类（' + count + '）' : '重新分类';
         },
 
         get aiClassifySummaryText() {
@@ -284,7 +278,7 @@
                 },
                 body: JSON.stringify({
                   model_id: this.aiModelId || '',
-                  scope: 'unmatched',
+                  scope: 'all',
                 }),
               }
             );

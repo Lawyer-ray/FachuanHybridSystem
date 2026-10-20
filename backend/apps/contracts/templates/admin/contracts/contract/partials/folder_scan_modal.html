@@ -62,11 +62,11 @@
                         </template>
                     </select>
                     <button type="button" class="btn btn-outline-info btn-sm fm-ai-btn"
-                            :disabled="isAIClassifying || unmatchedCount === 0"
+                            :disabled="isAIClassifying"
                             @click="startAIClassify()"
                             x-text="aiClassifyLabel"></button>
                 </div>
-                <p class="fm-ai-hint" x-show="unmatchedCount === 0">{% trans "候选均已匹配归档清单项，无需 AI 分类" %}</p>
+                <p class="fm-ai-hint">{% trans "AI 将所有材料视为未正确分类，重新判定材料类别与归档清单项（已跳过、已导入的除外）" %}</p>
                 <p class="fm-ai-summary" x-show="aiClassifySummaryText" x-text="aiClassifySummaryText"></p>
             </div>
 

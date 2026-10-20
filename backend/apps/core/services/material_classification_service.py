@@ -173,19 +173,38 @@ class MaterialClassificationService:
         },
     )
 
-    # 文件夹路径关键词 — 路径包含这些时属于"合同发票"区域
+    # 文件夹名关键词 — 文件所在文件夹属于"合同发票"区域时启用合同域细分分类
     # 支持多种文件夹命名方式：
-    # - 组合词：合同发票、合同及发票
-    # - 单独文件夹：1-合同、3-发票、合同、发票
-    # - 数字前缀变体：1-合同、2-补充协议、3-发票、4-监督卡
-    _CONTRACT_INVOICE_FOLDER_KEYWORDS: tuple[str, ...] = (
-        "合同发票",
-        "合同及发票",
-        "合同",
-        "发票",
-        "补充协议",
-        "监督卡",
-    )
+    # - 组合词（包含式匹配）：合同发票、合同及发票，如 "1-合同发票"
+    # - 单独文件夹（剥离数字前缀后整名相等）：合同、合同正本、发票、补充协议、监督卡
+    #   如 "1-合同"、"2-补充协议"、"3-发票"、"4-监督卡"
+    # 必须按"文件夹名"逐段匹配，禁止对整个路径做子串匹配——
+    # 绑定根目录名通常含案由（如"…买卖合同纠纷一案"），整路径子串匹配裸"合同"
+    # 会把一审等诉讼子目录下的全部文件误判进合同发票区域（2026-10-20 合同 8 事故）。
+    _CONTRACT_INVOICE_COMBO_KEYWORDS: tuple[str, ...] = ("合同发票", "合同及发票")
+    _CONTRACT_INVOICE_EXACT_KEYWORDS: tuple[str, ...] = ("合同", "合同正本", "发票", "补充协议", "监督卡")
+    _FOLDER_NAME_PREFIX_RE = re.compile(r"^\s*\d+[.\-、_]+\s*")
+
+    def _is_contract_invoice_folder(self, source_path: str) -> bool:
+        """判断文件是否位于"合同发票"区域文件夹。
+
+        只匹配文件夹名分段：末段无尾斜杠时视为文件名不参与判定；
+        单词关键词须在剥离数字前缀后整名相等，组合词允许包含式命中。
+        """
+        raw = (source_path or "").replace("\\", "/")
+        segments = [seg for seg in raw.split("/") if seg]
+        if segments and not raw.endswith("/"):
+            segments = segments[:-1]
+
+        for segment in segments:
+            folder_name = self._FOLDER_NAME_PREFIX_RE.sub("", segment).strip()
+            if not folder_name:
+                continue
+            if any(kw in folder_name for kw in self._CONTRACT_INVOICE_COMBO_KEYWORDS):
+                return True
+            if folder_name in self._CONTRACT_INVOICE_EXACT_KEYWORDS:
+                return True
+        return False
 
     def classify_contract_material(
         self,
@@ -196,11 +215,8 @@ class MaterialClassificationService:
         enable_ai: bool = True,
     ) -> dict[str, Any]:
         # ── 最高优先级：文件夹路径分类 ──
-        # 路径包含"合同发票"→ 合同/发票区域；否则一律为案件材料
-        path_lower = (source_path or "").lower()
-        in_contract_invoice_folder = any(kw in path_lower for kw in self._CONTRACT_INVOICE_FOLDER_KEYWORDS)
-
-        if in_contract_invoice_folder:
+        # 位于"合同发票"文件夹 → 合同/发票区域；否则一律为案件材料
+        if self._is_contract_invoice_folder(source_path):
             # 在"合同发票"文件夹内，仅区分合同正本 / 补充协议 / 发票 / 监督卡
             rule_suggestion = self._classify_contract_by_filename(filename)
             if rule_suggestion is not None:
