@@ -286,15 +286,19 @@ class ContractFolderScanService:
             )
 
             def _progress(status: str, progress: int, current_file: str | None) -> None:  # pragma: no cover
+                # 文件遍历结束（"completed"）后还有后处理/工作日志/案件信息提取阶段，
+                # 此时不能提前置 COMPLETED——轮询端见 COMPLETED 即停止轮询，会拿到
+                # 空结果误报「未找到可导入的文件」；COMPLETED 只由最终原子落库写入
                 mapped_status = ContractFolderScanStatus.RUNNING
+                shown_progress = int(progress)
                 if status == "classifying":
                     mapped_status = ContractFolderScanStatus.CLASSIFYING
                 elif status == "completed":
-                    mapped_status = ContractFolderScanStatus.COMPLETED
+                    shown_progress = min(shown_progress, 99)
 
                 ContractFolderScanSession.objects.filter(id=session.id).update(
                     status=mapped_status,
-                    progress=int(progress),
+                    progress=shown_progress,
                     current_file=current_file or "",
                     updated_at=timezone.now(),
                 )

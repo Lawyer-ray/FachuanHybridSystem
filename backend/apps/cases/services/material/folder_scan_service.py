@@ -546,15 +546,18 @@ class CaseFolderScanService:
             classification_context = self._build_classification_context(session.case)
 
             def _progress(status: str, progress: int, current_file: str | None) -> None:  # pragma: no cover
+                # 文件遍历结束（"completed"）后仍有候选过滤等后处理，提前置 COMPLETED
+                # 会让轮询端停止轮询拿到空结果；COMPLETED 只由最终原子落库写入
                 mapped_status = CaseFolderScanStatus.RUNNING
+                shown_progress = int(progress)
                 if status == "classifying":
                     mapped_status = CaseFolderScanStatus.CLASSIFYING
                 elif status == "completed":
-                    mapped_status = CaseFolderScanStatus.COMPLETED
+                    shown_progress = min(shown_progress, 99)
 
                 CaseFolderScanSession.objects.filter(id=session.id).update(
                     status=mapped_status,
-                    progress=int(progress),
+                    progress=shown_progress,
                     current_file=current_file or "",
                     updated_at=timezone.now(),
                 )
