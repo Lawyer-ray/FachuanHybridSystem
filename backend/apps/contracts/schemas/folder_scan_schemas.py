@@ -110,11 +110,16 @@ class ContractFolderScanConfirmOut(Schema):
     imported_count: int
 
 
+class ContractFolderScanClearOut(Schema):
+    cleared: int
+
+
 __all__ = [
     "ContractFolderScanStartIn",
     "ContractFolderScanStartOut",
     "ContractFolderScanSubfolderOptionOut",
     "ContractFolderScanSubfolderListOut",
+    "ContractFolderScanClearOut",
     "ContractFolderScanSummaryOut",
     "ContractFolderScanCandidateOut",
     "ArchiveItemOptionOut",

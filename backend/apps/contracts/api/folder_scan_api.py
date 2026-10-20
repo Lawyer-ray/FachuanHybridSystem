@@ -12,6 +12,7 @@ from ninja import Router
 from apps.contracts.schemas import (
     ContractFolderScanAIClassifyIn,
     ContractFolderScanAIClassifyOut,
+    ContractFolderScanClearOut,
     ContractFolderScanConfirmIn,
     ContractFolderScanConfirmOut,
     ContractFolderScanStartIn,
@@ -93,6 +94,15 @@ async def get_latest_contract_scan(request: HttpRequest, contract_id: int) -> di
             "case_info_extractions": [],
         }
     return await sync_to_async(service.build_status_payload)(session=session)
+
+
+@router.delete("/{contract_id}/folder-scan/sessions", response=ContractFolderScanClearOut)
+async def clear_contract_scan_sessions(request: HttpRequest, contract_id: int) -> dict[str, int]:  # pragma: no cover
+    """清空合同的全部扫描会话（弹窗「清空结果」），不影响已导入材料。"""
+    await sync_to_async(_require_contract_access)(request, contract_id)
+    service = _get_service()
+    cleared = await sync_to_async(service.clear_scan_sessions)(contract_id=contract_id)
+    return {"cleared": cleared}
 
 
 @router.get("/{contract_id}/folder-scan/{session_id}", response=ContractFolderScanStatusOut)

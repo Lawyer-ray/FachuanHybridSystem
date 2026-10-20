@@ -33,6 +33,7 @@ from .folder_scan_schemas import (
     ContractFolderScanAIClassifyIn,
     ContractFolderScanAIClassifyOut,
     ContractFolderScanCandidateOut,
+    ContractFolderScanClearOut,
     ContractFolderScanConfirmIn,
     ContractFolderScanConfirmItemIn,
     ContractFolderScanConfirmOut,

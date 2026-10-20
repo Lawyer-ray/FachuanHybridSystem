@@ -36,6 +36,9 @@
             <div class="fm-scan-actions">
                 <button type="button" class="btn btn-primary" :disabled="isScanning || isLoadingSubfolders" @click="startScan(false)">{% trans "开始扫描" %}</button>
                 <button type="button" class="btn btn-secondary" :disabled="isScanning || isLoadingSubfolders" @click="startScan(true)">{% trans "重新扫描" %}</button>
+                <button type="button" class="btn btn-secondary" :disabled="isScanning || isConfirming || !scanSessionId"
+                        title="{% trans '清空扫描结果，已导入的材料不受影响' %}"
+                        @click="clearResults()">{% trans "清空结果" %}</button>
             </div>
 
             <div class="fm-ai-classify" x-show="showAIClassify">

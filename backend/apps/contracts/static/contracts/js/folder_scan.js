@@ -274,6 +274,36 @@
           }
         },
 
+        async clearResults() {
+          if (!this.scanSessionId || this.isScanning || this.isConfirming) return;
+          if (!window.confirm('确定清空当前扫描结果吗？（已导入的材料和回填的案件信息不受影响）')) return;
+          this.scanError = '';
+          try {
+            const resp = await fetch(`/api/v1/contracts/${this.contractId}/folder-scan/sessions`, {
+              method: 'DELETE',
+              headers: { 'X-CSRFToken': getCsrfToken() },
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) {
+              throw new Error(data.message || data.detail || '清空失败，请稍后重试');
+            }
+            this.clearPoll();
+            this.scanSessionId = '';
+            this.scanStatus = '';
+            this.scanProgress = 0;
+            this.scanCurrentFile = '';
+            this.scanSummary = { total_files: 0, deduped_files: 0, classified_files: 0 };
+            this.scanCandidates = [];
+            this.archiveCategory = '';
+            this.archiveItemOptions = [];
+            this.workLogSuggestions = [];
+            this.aiClassifyResult = {};
+            this.caseInfoExtractions = [];
+          } catch (err) {
+            this.scanError = (err && err.message) || '清空失败，请稍后重试';
+          }
+        },
+
         async startScan(rescan) {
           if (this.isScanning) return;
           this.scanError = '';

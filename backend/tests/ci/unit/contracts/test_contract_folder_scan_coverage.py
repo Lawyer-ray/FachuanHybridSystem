@@ -468,3 +468,58 @@ class TestRunScanTaskNoPrematureCompleted:
         assert len(completed_updates) == 1, "COMPLETED 只能由最终原子落库写入一次"
         payload = completed_updates[0].get("result_payload") or {}
         assert payload.get("candidates") == [{"filename": "a.pdf", "source_path": "/tmp/a.pdf"}]
+
+
+# ── clear_scan_sessions ────────────────────────────────────────────
+import uuid
+
+import pytest
+
+from apps.contracts.models import Contract, ContractFolderScanSession
+from apps.core.exceptions import ValidationException
+
+
+@pytest.mark.django_db
+class TestClearScanSessions:
+    def _make_contract(self, name: str) -> Contract:
+        return Contract.objects.create(name=name, case_type="civil")
+
+    def _make_session(self, contract_id: int, status: str) -> ContractFolderScanSession:
+        return ContractFolderScanSession.objects.create(
+            contract_id=contract_id,
+            status=status,
+            result_payload={"summary": {}, "candidates": [], "scan_scope": {"scan_subfolder": ""}},
+        )
+
+    def test_clears_only_target_contract_sessions(self):
+        from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
+
+        contract_a = self._make_contract("合同A清空测试")
+        contract_b = self._make_contract("合同B清空测试")
+        self._make_session(contract_a.id, "completed")
+        self._make_session(contract_a.id, "failed")
+        self._make_session(contract_b.id, "completed")
+
+        svc = ContractFolderScanService()
+        cleared = svc.clear_scan_sessions(contract_id=contract_a.id)
+
+        assert cleared == 2
+        assert not ContractFolderScanSession.objects.filter(contract_id=contract_a.id).exists()
+        assert ContractFolderScanSession.objects.filter(contract_id=contract_b.id).count() == 1
+
+    def test_clear_no_sessions_returns_zero(self):
+        from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
+
+        contract = self._make_contract("合同清空空测试")
+        assert ContractFolderScanService().clear_scan_sessions(contract_id=contract.id) == 0
+
+    def test_active_session_rejected(self):
+        from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
+
+        contract = self._make_contract("合同清空进行中测试")
+        self._make_session(contract.id, "running")
+
+        svc = ContractFolderScanService()
+        with pytest.raises(ValidationException):
+            svc.clear_scan_sessions(contract_id=contract.id)
+        assert ContractFolderScanSession.objects.filter(contract_id=contract.id).count() == 1

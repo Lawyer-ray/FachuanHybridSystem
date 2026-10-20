@@ -183,6 +183,23 @@ class ContractFolderScanService:
         """返回合同最新的扫描会话，没有则返回 None。"""
         return ContractFolderScanSession.objects.filter(contract_id=contract_id).order_by("-created_at").first()
 
+    def clear_scan_sessions(self, *, contract_id: int) -> int:  # pragma: no cover
+        """清空合同的扫描会话（弹窗「清空结果」）。
+
+        只删扫描工作区（候选/建议/提取结果），不动已导入的材料与回填的案号。
+        扫描进行中拒绝清空，避免任务回写已删除的会话行。
+        """
+        self._ensure_contract_exists(contract_id)
+        has_active = ContractFolderScanSession.objects.filter(
+            contract_id=contract_id,
+            status__in=self._ACTIVE_STATUSES,
+        ).exists()
+        if has_active:
+            raise ValidationException(message="扫描进行中，请等待完成后再清空")
+        deleted, _rows = ContractFolderScanSession.objects.filter(contract_id=contract_id).delete()
+        logger.info("contract_folder_scan_cleared", extra={"contract_id": contract_id, "deleted": deleted})
+        return deleted
+
     def build_status_payload(self, *, session: ContractFolderScanSession) -> dict[str, Any]:
         payload = dict(session.result_payload or {})
         summary = payload.get("summary") or {}
