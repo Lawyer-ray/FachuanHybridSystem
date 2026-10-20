@@ -4,12 +4,13 @@
  * 纯接口、无浏览器：后端用当前登录人的 OA 凭证 GET projectView 详情页
  * （客户 / 案件信息 / 利冲三个 tab 服务端一次性渲染），整形后回填：
  * - 普通字段（合同名称 / 合同类型 / 开始日期 / 律所OA案件编号 / 律所OA链接 / 律所ID）直接赋值
- * - 当事人（委托人 ← 客户信息；对方 ← 利冲对立方）与承办律师（← 案件负责人）
+ * - 当事人（委托人 ← 客户信息；其余全部 ← 利冲表）与承办律师（← 案件负责人）
  *   直接使用后端解析好的 Client id 填 inline 行；本地缺失的当事人后端已按阵营
  *   自动建库（委托人＝我方，其余＝非我方），无需先去建客户
  *
- * 阵营口径：只有 OA「客户信息」tab 的委托人才是我方当事人；利冲表里与「代理何方」
- * 同法律地位的共同被告 / 共同原告只是同案其他当事人，不是我们的委托人，只提示不填。
+ * 阵营口径：只有 OA「客户信息」tab 的委托人才是我方当事人（身份＝委托人）；
+ * 利冲表里的全部相关方（对方当事人、委托方关联方、第三人）都不是我方，
+ * 一律按「对方当事人」身份回填，汇总按 OA 类别分行展示供区分。
  *
  * 仅新建页注入（模板按 original 为空才写 window.CONTRACT_OA_SYNC_URL）。
  * 成功静默（结果内联汇总），仅请求级失败红字提示，不弹窗。
@@ -114,8 +115,20 @@
 
         var principals = await fillParties(data.clients || [], 'PRINCIPAL', null);
         var opponents = await fillParties(data.opponents || [], 'OPPOSING', 'conflict_type');
+        // 利冲里的其余相关方（委托方关联方 / 第三人）同样不是我方：按对方当事人身份回填，
+        // 汇总里保留「第三人」等标注方便区分
+        var thirdParties = await fillParties(data.third_parties || [], 'OPPOSING', 'conflict_type');
+        var coParties = await fillParties(data.co_parties || [], 'OPPOSING', 'conflict_type');
         var lawyer = await fillLawyer(data.responsible_lawyer || '');
-        return { filled: filled, principals: principals, opponents: opponents, lawyer: lawyer, data: data };
+        return {
+            filled: filled,
+            principals: principals,
+            opponents: opponents,
+            thirdParties: thirdParties,
+            coParties: coParties,
+            lawyer: lawyer,
+            data: data,
+        };
     }
 
     function setInput(id, value) {
@@ -348,11 +361,15 @@
         }
         appendPartyLines(box, '委托人', report.principals, report.data.clients || []);
         appendPartyLines(box, '对方当事人', report.opponents, report.data.opponents || []);
-        // OA 利冲表列的是全部相关方。与「代理何方」同法律地位（共同被告 / 共同原告等）
-        // 只是同案其他当事人，不是律所的委托人；第三人同样不是我方——两组都只提示不填
-        appendInfoList(box, '同案其他当事人（非我方当事人，未回填，按需手动添加）', report.data.co_parties || []);
-        appendInfoList(box, '第三人（非我方当事人，未回填）', report.data.third_parties || []);
-        var hasMissing = report.principals.missing.length > 0 || report.opponents.missing.length > 0;
+        // 利冲表里除委托人外的全部相关方都按对方当事人回填；第三人 / 同案其他当事人
+        // 单行列出（带法律地位标注），只是提示口径不同，身份同样是「对方当事人」
+        appendPartyLines(box, '第三人（非我方，按对方当事人回填）', report.thirdParties, report.data.third_parties || []);
+        appendPartyLines(box, '同案其他当事人（非我方，按对方当事人回填）', report.coParties, report.data.co_parties || []);
+        var hasMissing =
+            report.principals.missing.length > 0 ||
+            report.opponents.missing.length > 0 ||
+            report.thirdParties.missing.length > 0 ||
+            report.coParties.missing.length > 0;
         if (hasMissing && report.data.auto_create_allowed === false) {
             box.appendChild(line('当前账号无当事人新增权限，未能自动建库；请手动新建当事人后选择', 'error'));
         }
@@ -387,16 +404,6 @@
         } else if (report.failed) {
             box.appendChild(line('承办律师未能填入：' + report.name + '（无可用行或查询失败）', 'error'));
         }
-    }
-
-    function appendInfoList(box, label, items) {
-        if (!items.length) return;
-        var text = items.map(function (it) {
-            var position = it.conflict_type ? '（' + it.conflict_type + '）' : '';
-            var created = it.created ? '，已建库' : '';
-            return it.name + position + created;
-        }).join('、');
-        box.appendChild(line(label + '：' + text, 'muted'));
     }
 
     if (document.readyState === 'loading') {
