@@ -86,11 +86,13 @@ pi 决定调用 mcp__fachuan__delete_case
 即便 extension 被绕过也拦得住。两份清单一致性由单测守护
 （`test_server_and_extension_lists_in_sync`）。
 
-**fail-closed**：只有 `status=approved` 放行。无 SSE 通道 / 网络失败 / 用户超时，
+**fail-closed**：只有 `status=approved` 放行。超时 / 网络失败 / 无 SSE 订阅者，
 一律拒绝。
 
-**为什么审批需要 event_bus**：审批走独立 HTTP 回调，它与「发起对话的 SSE 连接」
-不在同一调用栈，必须按会话寻址才能把 `approval_request` 推给正确的前端。
+**为什么审批必须走 `event_bus.publish`**：审批走独立 HTTP 回调，与「发起对话的
+SSE 连接」不在同一调用栈。早期实现是「自己 `register` 一个队列再 `put`」——
+那会与 `chat_service` 的 SSE 循环各持一个队列，事件永远送不到前端（表现为
+审批必定超时）。必须 `publish` 到总线，送给真实订阅者。
 
 ## 5. 端点
 
@@ -193,6 +195,6 @@ apps/agent/
 | RPC 真实对话（HTTP 端到端） | ✅ 输出「联调OK」，delta 无重复 |
 | MCP 378 工具（共享 HTTP） | ✅ `fachuan: connected, 378 tools` |
 | 8 并发（共享 MCP） | ✅ 3.4s / 71MB |
-| **审批拦截 + fail-closed** | ✅ `delete_case` 被拦，无前端连接时返回「用户拒绝了」 |
-| 审批同意路径（前端点击） | ⏳ 待前端接入后验证 |
+| **审批拦截 + fail-closed** | ✅ `delete_case` 被拦，无订阅者时返回「用户拒绝了」 |
+| **审批同意路径** | ✅ 订阅者收到 `approval_request` → 同意 → 工具放行 |
 | 共享 MCP 跨 worker 广播 | ⏳ 当前为进程内总线，多 worker 需换 Redis |

@@ -154,25 +154,25 @@ async def request_approval(
         reason=reason,
     )
 
-    async with _sse_channel(session_id) as queue:
-        if queue is None:
-            # 没有可用通道 → 无法征求用户意见 → fail-closed
-            logger.warning("无 SSE 通道，审批按拒绝处理: tool=%s", tool_name)
-            record.status = AgentApproval.Status.REJECTED
-            record.decided_at = timezone.now()
-            await record.asave(update_fields=["status", "decided_at"])
-            return False, approval_id
+    # 推给该会话的所有 SSE 订阅者。注意**不能自己 register 一个队列再 put**：
+    # 那会与 chat_service 的 SSE 循环各持一个队列，事件永远送不到前端。
+    # 这里统一走 bus.publish，送到真实订阅者。
+    from .event_bus import get_bus
 
-        await queue.put(
+    delivered = 0
+    if session_id:
+        delivered = await get_bus().publish(
+            session_id,
             {
                 "type": "approval_request",
                 "approval_id": approval_id,
                 "tool_name": tool_name,
                 "tool_args": tool_args or {},
                 "message": reason or f"即将执行高风险操作：{tool_name}，请确认是否继续",
-            }
+            },
         )
 
+    if session_id and delivered:
         event = await _waiter.register(approval_id)
         approved = False
         try:
@@ -186,8 +186,14 @@ async def request_approval(
             await _waiter.discard(approval_id)
             record.decided_at = timezone.now()
             await record.asave(update_fields=["status", "decided_at"])
+        return record.is_granted, approval_id
 
-    return record.is_granted, approval_id
+    # 没有订阅者：无人可问 → fail-closed
+    logger.warning("无 SSE 订阅者，审批按拒绝处理: tool=%s", tool_name)
+    record.status = AgentApproval.Status.REJECTED
+    record.decided_at = timezone.now()
+    await record.asave(update_fields=["status", "decided_at"])
+    return False, approval_id
 
 
 async def decide_approval(
