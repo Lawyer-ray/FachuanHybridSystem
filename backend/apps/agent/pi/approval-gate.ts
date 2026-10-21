@@ -29,21 +29,27 @@ const USER_ID = Number(process.env.FACHUAN_USER_ID ?? "0");
 const SESSION_ID = process.env.FACHUAN_SESSION_ID ?? "";
 
 /**
- * 高风险工具标记：命中即必须人工审批。
- * 与 backend/apps/agent/services/approval.py 的 HIGH_RISK_TOOLS 保持一致；
- * 服务端另有二次兜底判定（防 extension 被绕过）。
+ * 高风险工具判定模式：命中即必须人工审批。
+ * 与 backend/apps/agent/services/approval.py 的 DANGER_PATTERNS 保持一致
+ * （一致性由单测守护）；服务端另有二次兜底判定（防 extension 被绕过）。
+ * 覆盖：一切删除 / 对外发出递交上传 / 归档确认 / 批量清空重置。
+ * 刻意不拦 create_/update_（业务写、服务层归属兜底）与 sync_/export_（无破坏性）。
  */
-const HIGH_RISK_TOOLS: readonly string[] = [
-  "delete_case",
-  "delete_client",
-  "delete_contract",
-  "send_document",
-  "file_lawsuit",
-  "submit_court_document",
+const HIGH_RISK_PATTERNS: readonly string[] = [
+  "delete",
+  "remove_",
+  "destroy",
+  "send_",
+  "submit_",
+  "upload_",
+  "file_",
+  "confirm_",
+  "clear_all",
+  "reset_and_",
 ];
 
 function isHighRisk(toolName: string): boolean {
-  return HIGH_RISK_TOOLS.some((name) => toolName.includes(name));
+  return HIGH_RISK_PATTERNS.some((pattern) => toolName.includes(pattern));
 }
 
 export default function (pi: ExtensionAPI) {

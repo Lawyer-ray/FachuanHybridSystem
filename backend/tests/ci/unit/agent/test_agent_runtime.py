@@ -69,10 +69,15 @@ class TestApprovalPolicy:
         from apps.agent.services.approval import is_high_risk
 
         assert is_high_risk("mcp__fachuan__delete_case")
-        assert is_high_risk("mcp__fachuan__submit_court_document")
-        assert is_high_risk("delete_client")
+        assert is_high_risk("mcp__fachuan__delete_lawyer")  # 旧名单漏掉的 31 个 delete_* 之一
+        assert is_high_risk("mcp__fachuan__submit_court_sms")
+        assert is_high_risk("mcp__fachuan__upload_invoices")
+        assert is_high_risk("mcp__fachuan__confirm_archive")
+        assert is_high_risk("mcp__fachuan__clear_all_archive_materials")
         assert not is_high_risk("mcp__fachuan__list_cases")
         assert not is_high_risk("mcp__fachuan__get_case")
+        assert not is_high_risk("mcp__fachuan__create_case")  # 常规业务写不拦
+        assert not is_high_risk("mcp__fachuan__sync_lpr_rates")  # 拉取/同步不拦
 
     def test_only_approved_is_granted(self) -> None:
         """fail-closed：只有 approved 放行。"""
@@ -83,16 +88,46 @@ class TestApprovalPolicy:
             expected = status == AgentApproval.Status.APPROVED
             assert approval.is_granted is expected, status
 
-    def test_server_and_extension_lists_in_sync(self) -> None:
-        """服务端清单必须与 pi extension 的清单一致，防止两侧脱节。"""
+    def test_server_and_extension_patterns_in_sync(self) -> None:
+        """服务端与服务端两侧的模式清单必须一致，防止两侧脱节。"""
+        import re
         from pathlib import Path
 
-        from apps.agent.services.approval import HIGH_RISK_TOOLS
+        from apps.agent.services.approval import DANGER_PATTERNS
 
         extension = Path(__file__).resolve().parents[4] / "apps" / "agent" / "pi" / "approval-gate.ts"
         source = extension.read_text(encoding="utf-8")
-        for tool in HIGH_RISK_TOOLS:
-            assert f'"{tool}"' in source, f"extension 缺少高危工具 {tool}"
+        match = re.search(r"HIGH_RISK_PATTERNS: readonly string\[\] = \[(.*?)\]", source, re.S)
+        assert match is not None, "approval-gate.ts 缺少 HIGH_RISK_PATTERNS 定义"
+        ts_patterns = re.findall(r'"([^"]+)"', match.group(1))
+        assert set(ts_patterns) == set(DANGER_PATTERNS), (
+            f"两侧模式清单不一致: ts={sorted(ts_patterns)} py={sorted(DANGER_PATTERNS)}"
+        )
+
+    def test_danger_patterns_cover_mcp_registry(self) -> None:
+        """注册表对账：mcp_server 里每一个删除类工具都必须被审批模式拦住。
+
+        旧清单 6 个名字有 3 个在 378 个工具里不存在、39 个 delete_* 只拦住
+        8 个——名单是拍脑袋写的。此测试让「新增 delete_xxx 工具忘了进审批」
+        变成红灯，而不是静默免审批。
+        """
+        import asyncio
+        import re
+
+        from apps.agent.services.approval import is_high_risk
+        from mcp_server.server import mcp
+
+        tools = asyncio.run(mcp.list_tools())
+        names = [t.name for t in tools]
+        assert len(names) > 300, "mcp 工具注册表加载异常"
+
+        destructive = re.compile(r"delete|remove|destroy")
+        uncovered = [n for n in names if destructive.search(n) and not is_high_risk(f"mcp__fachuan__{n}")]
+        assert not uncovered, f"删除类工具脱离审批: {uncovered}"
+
+        external = re.compile(r"^send_|^submit_|^upload_|^file_|^confirm_|clear_all|reset_and_")
+        uncovered_ext = [n for n in names if external.search(n) and not is_high_risk(f"mcp__fachuan__{n}")]
+        assert not uncovered_ext, f"外发/递交/批量类工具脱离审批: {uncovered_ext}"
 
 
 class TestEventBus:

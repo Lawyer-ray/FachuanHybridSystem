@@ -20,10 +20,11 @@
 
 ## 两层防护
 
-1. extension 侧 ``HIGH_RISK_TOOLS`` 命中即回调
-2. 服务端 ``HIGH_RISK_TOOLS`` 二次判定，即便 extension 被绕过也拦得住
+1. extension 侧 ``HIGH_RISK_PATTERNS`` 命中即回调
+2. 服务端 ``DANGER_PATTERNS`` 二次判定，即便 extension 被绕过也拦得住
 
-两份清单的一致性由 ``tests/ci/unit/agent/test_agent_runtime.py`` 守护。
+两侧模式清单的一致性、以及清单对 ``mcp_server`` 实际工具注册表的覆盖，
+由 ``tests/ci/unit/agent/test_agent_runtime.py`` 守护。
 """
 
 from __future__ import annotations
@@ -42,24 +43,40 @@ from .event_bus import redis_cache_enabled
 
 logger = logging.getLogger(__name__)
 
-#: 必须人工审批的高危工具。与 pi extension 侧清单保持一致。
-HIGH_RISK_TOOLS: frozenset[str] = frozenset(
-    {
-        "delete_case",
-        "delete_client",
-        "delete_contract",
-        "send_document",
-        "file_lawsuit",
-        "submit_court_document",
-    }
+#: 高危工具判定模式（对完整工具名做子串匹配；pi 侧形如 ``mcp__fachuan__delete_lawyer``）。
+#: 模式从 mcp_server 实际注册表校准——旧清单 6 个名字里有 3 个（send_document /
+#: file_lawsuit / submit_court_document）在 378 个工具中根本不存在，而 39 个
+#: ``delete_*`` 只拦住 8 个：
+#: - ``delete`` / ``remove_`` / ``destroy``：一切删除操作
+#: - ``send_`` / ``submit_`` / ``upload_`` / ``file_``：对外发出、递交、上传（不可撤回）
+#: - ``confirm_``：如 confirm_archive（OA 归档确认）
+#: - ``clear_all`` / ``reset_and_``：批量清空 / 重置
+#: 刻意**不**拦 ``create_`` / ``update_``（常规业务写由各域服务层归属校验兜底，
+#: 逐笔审批会让 agent 不可用）与 ``sync_`` / ``export_`` / ``download_``（拉取导出，无破坏性）。
+DANGER_PATTERNS: tuple[str, ...] = (
+    "delete",
+    "remove_",
+    "destroy",
+    "send_",
+    "submit_",
+    "upload_",
+    "file_",
+    "confirm_",
+    "clear_all",
+    "reset_and_",
 )
+
+#: 已知无需审批的例外（按工具名后缀登记；新增例外必须写明理由）。
+APPROVAL_EXEMPT_SUFFIXES: frozenset[str] = frozenset()
 
 DEFAULT_TIMEOUT = 300.0
 
 
 def is_high_risk(tool_name: str) -> bool:
-    """工具名是否属于高危（pi 侧是 ``mcp__fachuan__<name>`` 形式，用包含匹配）。"""
-    return any(marker in tool_name for marker in HIGH_RISK_TOOLS)
+    """工具名是否属于高危（子串模式匹配，pi 侧是 ``mcp__fachuan__<name>`` 形式）。"""
+    if any(tool_name.endswith(suffix) for suffix in APPROVAL_EXEMPT_SUFFIXES):
+        return False
+    return any(pattern in tool_name for pattern in DANGER_PATTERNS)
 
 
 DECISION_KEY_PREFIX = "agent:approval:decision:"

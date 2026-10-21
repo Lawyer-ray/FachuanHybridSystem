@@ -101,9 +101,14 @@ pi 决定调用 mcp__fachuan__delete_case
   └─ false → { block: true }，模型收到拒绝理由
 ```
 
-**两层防护**：extension 侧清单命中即回调；服务端 `HIGH_RISK_TOOLS` 二次判定，
-即便 extension 被绕过也拦得住。两份清单一致性由单测守护
-（`test_server_and_extension_lists_in_sync`）。
+**两层防护**：extension 侧模式清单命中即回调；服务端 `DANGER_PATTERNS` 二次判定，
+即便 extension 被绕过也拦得住。判定是**子串模式**而非固定名单——旧名单 6 个
+名字里有 3 个在 378 个 MCP 工具中根本不存在、39 个 `delete_*` 只拦住 8 个。
+现在：`delete`/`remove_`/`destroy`、`send_`/`submit_`/`upload_`/`file_`、
+`confirm_`、`clear_all`/`reset_and_` 一律审批；`create_`/`update_`（业务写）
+与 `sync_`/`export_`（拉取导出）刻意不拦。两侧模式一致性 + 对 mcp_server 实际
+注册表的覆盖（新增 `delete_xxx` 忘进审批即红灯）由单测守护
+（`test_server_and_extension_patterns_in_sync` / `test_danger_patterns_cover_mcp_registry`）。
 
 **fail-closed**：只有 `status=approved` 放行。超时 / 网络失败 / 无 SSE 订阅者，
 一律拒绝。
@@ -325,7 +330,9 @@ apps/agent/
 | Django `manage.py check` | ✅ 0 issues |
 | RPC 真实对话（HTTP 端到端） | ✅ 输出「联调OK」，delta 无重复 |
 | MCP 378 工具（共享 HTTP） | ✅ `fachuan: connected, 378 tools` |
-| 8 并发（共享 MCP） | ✅ 3.4s / 71MB |
+| 8 并发（共享 MCP，旧池化复用口径） | ✅ 3.4s / 71MB |
+| **每请求进程架构延迟（真实 LLM kimi-2.6，含 --tools/AGENTS.md/MCP 共享）** | ✅ 串行单轮 0.8–1.5s；4 路并发总 1.93s（单路 1.4–1.9s）；进程 spawn 本身 <0.05s |
+| 端点级集成测试（会话归属 / SSE 错误路径 / 审批鉴权与归属 / 列表可见性） | ✅ 6 passed（`tests/ci/integration/test_agent_api.py`） |
 | **审批拦截 + fail-closed** | ✅ `delete_case` 被拦，无订阅者时返回「用户拒绝了」 |
 | **审批同意路径** | ✅ 订阅者收到 `approval_request` → 同意 → 工具放行 |
 | **跨 worker 分发（Redis）** | ✅ worker A 订阅、worker B 发布，A 能收到事件 |

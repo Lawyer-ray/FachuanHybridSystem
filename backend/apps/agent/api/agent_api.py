@@ -167,7 +167,9 @@ async def send_message(  # pragma: no cover
     session = await _session_queryset(request).filter(session_id=session_id).afirst()
     if session is None:
         return StreamingHttpResponse(
-            _sse({"type": "error", "message": "会话不存在"}),
+            # 必须传可迭代对象：直接传 bytes 会被逐字节迭代成 int，
+            # 前端收到的是一串十进制数字
+            iter([_sse({"type": "error", "message": "会话不存在"})]),
             content_type="text/event-stream",
         )
 
