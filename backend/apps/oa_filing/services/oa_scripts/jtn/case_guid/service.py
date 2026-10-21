@@ -136,7 +136,8 @@ def _drop_flat_cookies(client: httpx.AsyncClient, names: frozenset[str]) -> None
 def _portal_csrf_token(client: httpx.AsyncClient) -> str:
     """取 access.jtn.com 域 scoped 的 csrf-token（门户登录 POST 的 CSRF 头）。"""
     for cookie in client.cookies.jar:
-        if cookie.name == "csrf-token" and "access.jtn.com" in (cookie.domain or ""):
+        domain = (cookie.domain or "").lstrip(".")
+        if cookie.name == "csrf-token" and (domain == "access.jtn.com" or domain.endswith(".access.jtn.com")):
             return str(cookie.value)
     return ""
 

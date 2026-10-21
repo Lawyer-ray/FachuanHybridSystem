@@ -122,7 +122,7 @@ class LLMSegmentDetector:
         def _run() -> None:
             try:
                 outcome["response"] = self._get_llm_service().chat(messages=messages, **kwargs)
-            except BaseException as exc:  # 原样回传给调用方（线程边界不能抛，只能装箱）
+            except Exception as exc:  # 原样回传调用方；只捕 Exception，KI/SystemExit 让线程自然结束走超时路径
                 outcome["error"] = exc
 
         worker = threading.Thread(target=_run, daemon=True, name="pdf-split-llm-wall")
