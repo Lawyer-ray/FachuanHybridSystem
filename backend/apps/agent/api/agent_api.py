@@ -146,7 +146,7 @@ async def send_message(  # pragma: no cover
     request: Any,
     session_id: str,
     payload: MessageIn,
-) -> StreamingHttpResponse:
+) -> Any:
     """发消息并流式返回（SSE）。"""
     user_id = _user_id(request)
     session = await AgentSession.objects.filter(session_id=session_id).afirst()
@@ -157,12 +157,22 @@ async def send_message(  # pragma: no cover
         )
 
     async def generator() -> AsyncIterator[bytes]:
-        async for event in stream_chat(
-            session=session,
-            user_message=payload.message,
-            user_id=user_id,
-        ):
-            yield _sse(event)
+        # 会话对象在流式阶段重新取：ORM 实例带着数据库连接状态，
+        # 跨到 StreamingHttpResponse 的异步迭代阶段可能已失效。
+        current = await AgentSession.objects.filter(session_id=session_id).afirst()
+        if current is None:
+            yield _sse({"type": "error", "message": "会话不存在"})
+            return
+        try:
+            async for event in stream_chat(
+                session=current,
+                user_message=payload.message,
+                user_id=user_id,
+            ):
+                yield _sse(event)
+        except Exception as exc:
+            logger.exception("SSE 生成器异常")
+            yield _sse({"type": "error", "message": f"流异常: {exc}"})
 
     response = StreamingHttpResponse(generator(), content_type="text/event-stream")
     response["Cache-Control"] = "no-cache"

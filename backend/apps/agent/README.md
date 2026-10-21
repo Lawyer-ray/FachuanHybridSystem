@@ -106,6 +106,24 @@ pi 决定调用 mcp__fachuan__delete_case
 | POST | `/approval/{id}/decide` | 前端提交审批决定 |
 | GET | `/approvals` | 审批记录（审计） |
 
+## 5.1 联调中磨平的坑（都是真踩过的）
+
+这几处不看会踩，都已修复并有回归测试：
+
+| 现象 | 根因 | 修法 |
+|:-|:-|:-|
+| SSE 返回 0 字节 | 生成器 `finally` 里 `yield`，客户端断开时抛 `RuntimeError` | `done` 移到正常路径，`finally` 只清理 |
+| SSE 返回 0 字节 | 异步上下文里调同步 `.update()` | 改 `aupdate()` |
+| MCP 完全不加载 | 项目级 `.pi/mcp.json` 需项目信任，RPC 模式无法弹信任提示 | 配置写到用户级，用 `PI_CODING_AGENT_DIR` 指向 |
+| 独立目录丢凭证 | `PI_CODING_AGENT_DIR` 隔离了 `~/.pi/agent` | 优先从 `LLMProvider` 渲染 models.json；渲染不出才复制用户级凭证 |
+| 只有 activity、无 delta | 双队列用「两个 get task + `asyncio.wait`」，取消时丢掉已取出的事件 | 改为单循环迭代 + 审批事件非阻塞轮插 |
+| **稳定 `Connection error` + 重试 3 次** | **Django 继承了开发机的 `HTTP_PROXY`，而内网 LLM 网关（152.x）不在 `NO_PROXY` 里，pi 走代理绕死** | `_clean_env()` 剔除全部代理变量 |
+| 同一段文本推两次 | `message_update` 的 delta 与 `message_end` 的全文重叠 | `DeltaTracker.note()` 推高水位，全文走 `diff()` |
+| `--model` 解析不到 | `_resolve_model()` 走同步 ORM，异步上下文抛 `SynchronousOnlyOperation` 被吞 | 改 async + `sync_to_async`；`write_pi_config` 同样处理 |
+
+> 最后一类问题最阴——curl 能通、pi 单独能通，只有「Django 起的 pi」不通。
+> 以后再遇到「pi 连不上模型」，先查 `env | grep -i proxy`。
+
 ## 6. 事件契约
 
 ```
@@ -169,11 +187,12 @@ apps/agent/
 
 | 项 | 状态 |
 |:-|:-|
-| 单元测试（翻译 / 审批 / 总线 / 共享 MCP） | ✅ 18 passed |
+| 单元测试（翻译 / 审批 / 总线 / 共享 MCP / DeltaTracker / _clean_env） | ✅ 24 passed |
 | ruff check / format | ✅ |
 | Django `manage.py check` | ✅ 0 issues |
-| RPC 真实对话 | ✅ 输出「接入成功」 |
+| RPC 真实对话（HTTP 端到端） | ✅ 输出「联调OK」，delta 无重复 |
 | MCP 378 工具（共享 HTTP） | ✅ `fachuan: connected, 378 tools` |
 | 8 并发（共享 MCP） | ✅ 3.4s / 71MB |
-| Django HTTP 端点联调 | ⏳ 待起服务验证 |
+| **审批拦截 + fail-closed** | ✅ `delete_case` 被拦，无前端连接时返回「用户拒绝了」 |
+| 审批同意路径（前端点击） | ⏳ 待前端接入后验证 |
 | 共享 MCP 跨 worker 广播 | ⏳ 当前为进程内总线，多 worker 需换 Redis |

@@ -51,15 +51,44 @@ def _resolve_pool_size() -> int:
     return max(1, min(size, MAX_POOL_SIZE))
 
 
+async def _resolve_model() -> str | None:
+    """解析 agent 使用的模型：显式环境变量 > LLMProvider.default_model。
+
+    不返回空串：pi 收到 ``--model ""`` 会报错，此时应让 pi 自己选默认模型。
+
+    **必须异步调用**：``_load_provider`` 走同步 ORM，在 async 上下文里直接调
+    会抛 ``SynchronousOnlyOperation``；若被 except 吞掉，model 退化为 None，
+    pi 就去连它自己配置里那个不存在的 provider，表现为每次请求都
+    ``Connection error`` 重试 3 次。这里用 ``sync_to_async`` 包一层。
+    """
+    explicit = os.environ.get("FACHUAN_PI_MODEL", "").strip()
+    if explicit:
+        return explicit
+
+    def _read() -> str | None:
+        from ..pi.model_config import _load_provider, _provider_models
+
+        provider = _load_provider()
+        if provider is None:
+            return None
+        models = _provider_models(provider)
+        return models[0] if models else None
+
+    from asgiref.sync import sync_to_async
+
+    return await sync_to_async(_read, thread_sensitive=True)()
+
+
 async def get_pool() -> PiProcessPool:
     """进程级单例池（首次使用时按配置创建）。"""
     global _pool
     async with _pool_lock:
         if _pool is None:
+            model = await _resolve_model()
             _pool = PiProcessPool(
                 PoolConfig(
                     size=_resolve_pool_size(),
-                    model=os.environ.get("FACHUAN_PI_MODEL") or None,
+                    model=model,
                     provider=os.environ.get("FACHUAN_PI_PROVIDER") or None,
                     extension_path=os.environ.get("FACHUAN_PI_APPROVAL_EXTENSION") or None,
                     mcp_endpoint=resolve_endpoint() if shared_enabled() else None,
@@ -106,11 +135,10 @@ async def stream_chat(
         role=AgentMessage.Role.USER,
         content=user_message,
     )
-    AgentSession.objects.filter(pk=session.pk).update(updated_at=timezone.now())
+    await AgentSession.objects.filter(pk=session.pk).aupdate(updated_at=timezone.now())
 
     bus = get_bus()
     external_queue = await bus.register(str(session.session_id))
-    internal_queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
 
     follow_ok = True
     try:
@@ -121,21 +149,31 @@ async def stream_chat(
         async with pool.acquire() as pi_session:
             await pi_session.prompt(user_message)
 
-            pump = asyncio.create_task(_pump(pi_session, internal_queue))
-            try:
+            # 同时消费两个来源：pi 事件流 + 外部总线（审批请求）。
+            # 不用「两个 get() task + asyncio.wait」—那个写法在 yield 让出控制权后
+            # 容易丢掉已取出的事件（实测表现为只有 activity、无 delta）。
+            # 改为：pi 事件流为主循环，审批事件用非阻塞轮询插队。
+            stream = stream_events(pi_session)
+            pending_next: asyncio.Task[dict[str, Any]] | None = None
+            while True:
                 while True:
-                    event = await _next_event(internal_queue, external_queue)
-                    if event is None:
+                    try:
+                        yield external_queue.get_nowait()
+                    except asyncio.QueueEmpty:
+                        break
+
+                if pending_next is None:
+                    pending_next = asyncio.ensure_future(stream.__anext__())
+                await asyncio.wait({pending_next}, timeout=0.2)
+                if pending_next.done():
+                    task, pending_next = pending_next, None
+                    try:
+                        event = task.result()
+                    except StopAsyncIteration:
                         break
                     yield event
                     if event.get("type") == "done":
                         break
-            finally:
-                pump.cancel()
-                try:
-                    await pump
-                except asyncio.CancelledError:
-                    pass
 
     except PiNotAvailableError as exc:
         follow_ok = False
@@ -150,42 +188,10 @@ async def stream_chat(
         logger.exception("Agent runtime 未预期错误")
         yield {"type": "error", "message": "Agent 运行失败，请稍后重试"}
     finally:
+        # 注意：生成器的 finally 里**不能 yield**。客户端断开时本协程会收到
+        # GeneratorExit，此时再 yield 会抛 RuntimeError（"async generator ignored
+        # GeneratorExit"），表现为 SSE 被截断、curl 返回 CURLE_PARTIAL_FILE(18)。
         await bus.unregister(str(session.session_id), external_queue)
-        if follow_ok:
-            yield {"type": "done", "session_id": str(session.session_id)}
 
-
-async def _next_event(
-    internal: asyncio.Queue[dict[str, Any] | None],
-    external: asyncio.Queue[dict[str, Any]],
-) -> dict[str, Any] | None:
-    """谁先来取谁：pi 事件流 或 外部总线（审批请求）。"""
-    get_internal = asyncio.ensure_future(internal.get())
-    get_external = asyncio.ensure_future(external.get())
-    try:
-        done, pending = await asyncio.wait(
-            {get_internal, get_external},
-            return_when=asyncio.FIRST_COMPLETED,
-        )
-        for task in pending:
-            task.cancel()
-        if get_external in done:
-            return get_external.result()
-        return get_internal.result()
-    finally:
-        for task in (get_internal, get_external):
-            if not task.done():
-                task.cancel()
-
-
-async def _pump(session: Any, queue: asyncio.Queue[dict[str, Any] | None]) -> None:
-    """把 pi 事件翻成前端事件推进队列，结束时补 None。"""
-    try:
-        async for event in stream_events(session):
-            await queue.put(event)
-    except asyncio.CancelledError:
-        raise
-    except Exception:
-        logger.exception("pi 事件泵异常")
-    finally:
-        await queue.put(None)
+    if follow_ok:
+        yield {"type": "done", "session_id": str(session.session_id)}

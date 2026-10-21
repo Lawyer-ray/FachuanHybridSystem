@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from apps.agent.pi.bridge import translate
+from apps.agent.pi.bridge import DeltaTracker, translate
 from apps.agent.pi.rpc_client import PiEvent
 
 
@@ -25,11 +25,11 @@ class TestTranslate:
             type="message_update",
             assistantMessageEvent={"type": "text_delta", "delta": "你好"},
         )
-        assert translate(event) == {"type": "delta", "content": "你好"}
+        assert translate(event, tracker=DeltaTracker()) == {"type": "delta", "content": "你好"}
 
     def test_empty_delta_dropped(self) -> None:
         event = _ev("event", type="message_update", assistantMessageEvent={"delta": ""})
-        assert translate(event) is None
+        assert translate(event, tracker=DeltaTracker()) is None
 
     def test_tool_call_maps_fields(self) -> None:
         event = _ev("event", type="tool_call", toolCallId="c1", toolName="delete_case", input={"case_id": 1})
@@ -153,3 +153,56 @@ class TestSharedMcp:
 
         monkeypatch.setenv(shared_mcp.SHARED_ENV, "0")
         assert shared_mcp.shared_enabled() is False
+
+
+class TestDeltaTracker:
+    """回归：pi 同时给 message_update 的 delta 与 message_end 的全文，
+    若两处都直接发会导致同一段文本重复（实测「全链路联调成功」被推 3 次）。"""
+
+    def test_note_then_diff_does_not_repeat(self) -> None:
+        tracker = DeltaTracker()
+        tracker.note("联")
+        tracker.note("调OK")
+        # message_end 给全文，水位已到 3，不应再发
+        assert tracker.diff("联调OK") == ""
+
+    def test_diff_emits_only_new_tail(self) -> None:
+        tracker = DeltaTracker()
+        tracker.note("联")
+        assert tracker.diff("联调OK") == "调OK"
+
+    def test_empty_full_text_returns_empty(self) -> None:
+        assert DeltaTracker().diff("") == ""
+
+
+class TestCleanEnv:
+    """回归：Django 继承的 PI_* 与环境代理会破坏 pi 子进程。"""
+
+    def test_strips_pi_model_and_provider(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from apps.agent.pi.rpc_client import _clean_env
+
+        monkeypatch.setenv("PI_MODEL", "magpie/x")
+        monkeypatch.setenv("PI_PROVIDER", "magpie")
+        monkeypatch.setenv("PI_SESSION_ID", "abc")
+        env = _clean_env()
+        assert "PI_MODEL" not in env
+        assert "PI_PROVIDER" not in env
+        assert "PI_SESSION_ID" not in env
+
+    def test_strips_proxy_vars(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """内网 LLM 网关经代理会 Connection error，必须剔除。"""
+        from apps.agent.pi.rpc_client import _clean_env
+
+        monkeypatch.setenv("HTTP_PROXY", "http://127.0.0.1:7897")
+        monkeypatch.setenv("HTTPS_PROXY", "http://127.0.0.1:7897")
+        monkeypatch.setenv("https_proxy", "http://127.0.0.1:7897")
+        env = _clean_env()
+        assert "HTTP_PROXY" not in env
+        assert "HTTPS_PROXY" not in env
+        assert "https_proxy" not in env
+
+    def test_keeps_unrelated_vars(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from apps.agent.pi.rpc_client import _clean_env
+
+        monkeypatch.setenv("FACHUAN_TEST_KEEP", "yes")
+        assert _clean_env().get("FACHUAN_TEST_KEEP") == "yes"

@@ -35,6 +35,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 import socket
@@ -152,29 +153,97 @@ def ensure_shared_server(endpoint: McpEndpoint | None = None) -> McpEndpoint:
     return resolved
 
 
-def write_pi_mcp_config(target_dir: str | Path, endpoint: McpEndpoint | None = None) -> Path:
-    """写出 pi 侧 ``.pi/mcp.json``。
+def write_pi_config(
+    target_dir: str | Path,
+    endpoint: McpEndpoint | None = None,
+    model_hint: str = "",
+) -> Path:
+    """写出 pi 的完整配置（MCP + 模型），返回 MCP 配置文件路径。
 
-    共享模式写 streamable-http 指向共享实例；非共享模式写 stdio 自起。
+    写到 **用户级** 位置（该目录同时充当 ``PI_CODING_AGENT_DIR``），
+    而不是项目级 ``.pi/mcp.json``。原因：项目级配置要求「项目信任」，
+    RPC 模式无法弹交互式信任提示，临时工作目录永远是未受信的 → 配置被静默
+    忽略、MCP 根本不加载。
+
+    模型优先从数据库 LLMProvider 渲染（Admin 改了就生效），
+    渲染不出时才回退复制用户级凭证。
     """
     import json
 
-    resolved = endpoint or resolve_endpoint()
-    target = Path(target_dir) / ".pi"
-    target.mkdir(parents=True, exist_ok=True)
-    config_path = target / "mcp.json"
+    from .model_config import write_models_json
 
+    resolved = endpoint or resolve_endpoint()
+    root = Path(target_dir)
+    root.mkdir(parents=True, exist_ok=True)
+
+    # 1) 模型配置：优先从数据库生成
+    generated = write_models_json(root, model_hint=model_hint)
+    if generated is None:
+        logger.info("未能从 LLMProvider 生成 models.json，回退用户级凭证")
+
+    # 2) MCP 配置
+    config_path = root / "mcp.json"
     if shared_enabled():
-        server = {"type": "streamable-http", "url": resolved.url}
+        server: dict[str, Any] = {"type": "streamable-http", "url": resolved.url}
     else:
         server = {
             "command": _python_bin(),
             "args": ["-m", "mcp_server"],
             "cwd": str(_backend_dir()),
         }
+    config_path.write_text(
+        json.dumps({"mcpServers": {"fachuan": server}}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
+    # 3) 仅供回退路径的凭证复制（不覆盖已生成的文件）
+    _copy_user_credentials(root)
+    return config_path
+
+
+def write_pi_mcp_config(target_dir: str | Path, endpoint: McpEndpoint | None = None) -> Path:
+    """兼容旧名：仅写 MCP 配置（不碰模型），保留供测试/脚本使用。"""
+    import json
+
+    resolved = endpoint or resolve_endpoint()
+    root = Path(target_dir)
+    root.mkdir(parents=True, exist_ok=True)
+    config_path = root / "mcp.json"
+    if shared_enabled():
+        server: dict[str, Any] = {"type": "streamable-http", "url": resolved.url}
+    else:
+        server = {
+            "command": _python_bin(),
+            "args": ["-m", "mcp_server"],
+            "cwd": str(_backend_dir()),
+        }
     config_path.write_text(
         json.dumps({"mcpServers": {"fachuan": server}}, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
     return config_path
+
+
+def _copy_user_credentials(target: Path) -> None:
+    """把用户级凭证复制到独立配置目录（**仅在无法从 LLMProvider 生成时媛底**）。
+
+    优先级：``model_config.write_models_json`` 从数据库渲染 > 复制用户级 ``models.json``。
+    设了 ``PI_CODING_AGENT_DIR`` 后 pi 不再读 ``~/.pi/agent``，若不处理会报
+    ``No API key found``。
+    """
+    import shutil
+
+    # 已经由数据库配置生成了 models.json，就不再覆盖
+    has_models = (target / "models.json").exists()
+    source_dir = Path(os.environ.get("FACHUAN_PI_USER_DIR", Path.home() / ".pi" / "agent"))
+    for name in ("models.json", "auth.json"):
+        if name == "models.json" and has_models:
+            continue
+        source = source_dir / name
+        if not source.exists():
+            continue
+        destination = target / name
+        if destination.exists():
+            continue
+        with contextlib.suppress(OSError):
+            shutil.copy2(source, destination)

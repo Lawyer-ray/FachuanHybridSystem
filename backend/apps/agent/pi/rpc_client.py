@@ -77,6 +77,40 @@ def default_approval_extension() -> str:
     return str(Path(__file__).resolve().parent / "approval-gate.ts")
 
 
+def _clean_env() -> dict[str, str]:
+    """构造子进程环境，剔除会干扰模型选择的继承变量。
+
+    若 Django 本身跑在一个 pi 会话里（例如开发时用 pi 启动服务），
+    ``PI_PROVIDER`` / ``PI_MODEL`` / ``PI_SESSION_*`` 会被子进程继承，
+    覆盖我们生成的 models.json，导致 pi 去连完全无关的 provider
+    （实际表现为每次请求都 ``Connection error`` 并重试 3 次）。
+    这些变量一律不传给 agent 子进程。
+    """
+    noisy_prefixes = (
+        "PI_PROVIDER",
+        "PI_MODEL",
+        "PI_SESSION",
+        "PI_MCP",
+        "PI_THINKING",
+        "PI_REASONING",
+        "PI_CODING_AGENT",
+    )
+    # 代理会阻断内网 LLM 网关：开发机的 HTTP(S)_PROXY 指向本地代理，
+    # 而 NO_PROXY 往往只含 localhost，pi 连内网网关时会走代理绕一圈，
+    # 表现为 ``Connection error`` 并重试 3 次。agent 只连内网服务，不需要代理。
+    proxy_keys = {
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "all_proxy",
+    }
+    return {
+        key: value for key, value in os.environ.items() if not key.startswith(noisy_prefixes) and key not in proxy_keys
+    }
+
+
 class PiRpcSession:
     """一条 pi RPC 子进程的生命周期封装。"""
 
@@ -108,7 +142,9 @@ class PiRpcSession:
         if self._proc is not None:
             return
         pi_bin = resolve_pi_bin()
-        args: list[str] = [pi_bin, "--mode", "rpc", "--no-session"]
+        # --approve：RPC 模式无法弹交互式信任提示，项目级 .pi/mcp.json 会被忽略。
+        # 工作目录是本 app 自己创建的临时目录（内容由我们控制），可直接信任。
+        args: list[str] = [pi_bin, "--mode", "rpc", "--no-session", "--approve"]
         if self._provider:
             args.extend(["--provider", self._provider])
         if self._model:
@@ -121,7 +157,7 @@ class PiRpcSession:
                 self._extension,
             )
 
-        env = {**os.environ, **self._extra_env}
+        env = {**_clean_env(), **self._extra_env}
         self._proc = await asyncio.create_subprocess_exec(
             *args,
             cwd=self._cwd,

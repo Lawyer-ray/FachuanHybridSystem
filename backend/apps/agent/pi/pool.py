@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .rpc_client import PiRpcSession, make_temp_workdir
-from .shared_mcp import McpEndpoint, write_pi_mcp_config
+from .shared_mcp import McpEndpoint, write_pi_config
 
 logger = logging.getLogger(__name__)
 
@@ -66,14 +66,24 @@ class PiProcessPool:
     async def _create(self) -> PiRpcSession:
         cwd = make_temp_workdir()
         self._workdirs.append(cwd)
-        # 每个会话目录写一份 .pi/mcp.json，指向共享 MCP
-        write_pi_mcp_config(cwd, self._config.mcp_endpoint)
+        # 完整配置（模型 + MCP）写到该目录的用户级位置，再用 PI_CODING_AGENT_DIR
+        # 指向它。项目级 .pi/mcp.json 需要项目信任，RPC 模式无法弹信任提示，
+        # 临时目录永远未受信 → 配置会被静默忽略，MCP 根本不加载。
+        #
+        # write_pi_config 会读数据库（LLMProvider），必须放到线程里跑，
+        # 否则在 async 上下文抛 SynchronousOnlyOperation，models.json 写不出来。
+        from asgiref.sync import sync_to_async
+
+        await sync_to_async(write_pi_config, thread_sensitive=True)(
+            cwd, self._config.mcp_endpoint, model_hint=self._config.model or ""
+        )
+        extra_env = {**(self._config.extra_env or {}), "PI_CODING_AGENT_DIR": cwd}
         session = PiRpcSession(
             cwd=cwd,
             model=self._config.model,
             provider=self._config.provider,
             extension_path=self._config.extension_path,
-            extra_env=self._config.extra_env,
+            extra_env=extra_env,
         )
         await session.start()
         return session
