@@ -156,7 +156,11 @@ async def stream_chat(
         yield {"type": "activity", "status": "thinking", "agent": "pi"}
 
         pool = await get_pool()
-        async with pool.acquire() as pi_session:
+        # 会话级 env：extension 靠 FACHUAN_SESSION_ID 把审批回调路由回本会话。
+        # 必须在启动 pi 之前注入，否则回调里 session_id 为空，前端收不到
+        # approval_request，只能等超时走 fail-closed。
+        session_env = _session_env(session, user_id)
+        async with pool.acquire(session_env=session_env) as pi_session:
             await pi_session.prompt(user_message)
 
             # 同时消费两个来源：pi 事件流 + 外部总线（审批请求）。

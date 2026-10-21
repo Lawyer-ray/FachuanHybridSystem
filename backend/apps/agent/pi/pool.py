@@ -109,16 +109,45 @@ class PiProcessPool:
         await session.close()
 
     @contextlib.asynccontextmanager
-    async def acquire(self) -> AsyncIterator[PiRpcSession]:
-        """借出一个会话，退出时自动归还。"""
+    async def acquire(
+        self,
+        session_env: dict[str, str] | None = None,
+    ) -> AsyncIterator[PiRpcSession]:
+        """借出一个 pi 会话，退出时销毁。
+
+        为什么**不复用**进程：审审批 extension 通过环境变量拿到
+        ``FACHUAN_SESSION_ID`` 才能把审批回调路由到正确的会话。环境变量在
+        进程启动时固定，同一个 pi 进程无法服务两个不同会话（否则审批会推给
+        错误的前端）。pi 进程本身很轻（MCP 已共享为一份），按会话新建的代价
+        可以接受，池的作用退化为「限制并发数」。
+
+        Args:
+            session_env: 会话级环境变量（审批回调需要 session_id / user_id）。
+        """
         if self._closed:
             raise RuntimeError("进程池已关闭")
         async with self._semaphore:
-            session = await self._take()
+            cwd = make_temp_workdir()
+            self._workdirs.append(cwd)
+            from asgiref.sync import sync_to_async
+
+            await sync_to_async(write_pi_config, thread_sensitive=True)(
+                cwd, self._config.mcp_endpoint, model_hint=self._config.model or ""
+            )
+            env = {**(self._config.extra_env or {}), "PI_CODING_AGENT_DIR": cwd}
+            env.update(session_env or {})
+            session = PiRpcSession(
+                cwd=cwd,
+                model=self._config.model,
+                provider=self._config.provider,
+                extension_path=self._config.extension_path,
+                extra_env=env,
+            )
+            await session.start()
             try:
                 yield session
             finally:
-                await self._give_back(session)
+                await session.close()
 
     async def close(self) -> None:
         """销毁所有空闲会话与工作目录。"""

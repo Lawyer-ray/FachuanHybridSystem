@@ -72,6 +72,54 @@ def is_high_risk(tool_name: str) -> bool:
     return any(marker in tool_name for marker in HIGH_RISK_TOOLS)
 
 
+DECISION_KEY_PREFIX = "agent:approval:decision:"
+DECISION_TTL = 600
+DECISION_POLL_INTERVAL = 0.2
+
+
+def _write_decision(approval_id: str, approved: bool) -> None:
+    """把决定写入 Redis，供**其他 worker** 上的等待者读取。
+
+    等待审批的 HTTP 请求和「用户点同意」的 HTTP 请求可能落在不同 worker，
+    而 ``_ApprovalWaiter`` 是进程内的。没有这一步，跨 worker 时等待方永远
+    等不到结果，只能超时走 fail-closed（表现为「审批了但工具没执行」）。
+    """
+    if not _redis_backend_enabled():
+        return
+    from django.core.cache import cache
+
+    try:
+        cache.set(f"{DECISION_KEY_PREFIX}{approval_id}", "1" if approved else "0", DECISION_TTL)
+    except Exception:
+        logger.debug("写入审批决定失败: %s", approval_id, exc_info=True)
+
+
+def _read_decision(approval_id: str) -> bool | None:
+    """读取其他 worker 写入的决定；无则返回 ``None``。"""
+    if not _redis_backend_enabled():
+        return None
+    from django.core.cache import cache
+
+    try:
+        raw = cache.get(f"{DECISION_KEY_PREFIX}{approval_id}")
+    except Exception:
+        return None
+    if raw is None:
+        return None
+    return str(raw) == "1"
+
+
+def _clear_decision(approval_id: str) -> None:
+    if not _redis_backend_enabled():
+        return
+    from django.core.cache import cache
+
+    try:
+        cache.delete(f"{DECISION_KEY_PREFIX}{approval_id}")
+    except Exception:
+        pass
+
+
 class _ApprovalWaiter:
     """进程内等待器：把「前端点了什么」交回给阻塞的 HTTP 请求。
 
@@ -193,14 +241,14 @@ async def request_approval(
         event = await _waiter.register(approval_id)
         approved = False
         try:
-            await asyncio.wait_for(event.wait(), timeout=timeout)
-            approved = await _waiter.take_result(approval_id)
+            approved = await _wait_decision(approval_id, event, timeout)
             record.status = AgentApproval.Status.APPROVED if approved else AgentApproval.Status.REJECTED
         except TimeoutError:
             record.status = AgentApproval.Status.TIMEOUT
             logger.info("审批超时，按拒绝处理: tool=%s approval=%s", tool_name, approval_id)
         finally:
             await _waiter.discard(approval_id)
+            _clear_decision(approval_id)
             record.decided_at = timezone.now()
             await record.asave(update_fields=["status", "decided_at"])
         return record.is_granted, approval_id
@@ -213,6 +261,36 @@ async def request_approval(
     return False, approval_id
 
 
+async def _wait_decision(approval_id: str, event: asyncio.Event, timeout: float) -> bool:
+    """等审批结果：本进程有人点就立即醒，否则轮询 Redis（跨 worker）。
+
+    Returns:
+        是否放行。
+
+    Raises:
+        TimeoutError: 超时未决。
+    """
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+
+    while True:
+        if event.is_set():
+            return await _waiter.take_result(approval_id)
+
+        remote = _read_decision(approval_id)
+        if remote is not None:
+            return remote
+
+        remaining = deadline - loop.time()
+        if remaining <= 0:
+            raise TimeoutError
+
+        try:
+            await asyncio.wait_for(event.wait(), timeout=min(DECISION_POLL_INTERVAL, remaining))
+        except TimeoutError:
+            continue
+
+
 async def decide_approval(
     approval_id: str,
     approved: bool,
@@ -222,6 +300,9 @@ async def decide_approval(
     """前端提交决定。返回是否成功（找不到等待者时仍更新数据库）。"""
     normalized = approval_id.replace("-", "")
     found = await _waiter.resolve(approval_id, approved) or await _waiter.resolve(normalized, approved)
+    # 唤醒可能在其他 worker 上的等待者
+    _write_decision(approval_id, approved)
+    _write_decision(normalized, approved)
 
     try:
         record = await AgentApproval.objects.filter(approval_id=uuid.UUID(normalized)).afirst()
