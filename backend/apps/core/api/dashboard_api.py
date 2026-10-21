@@ -65,7 +65,7 @@ async def get_dashboard_stats(request: HttpRequest) -> dict[str, Any]:  # pragma
     import asyncio
 
     from apps.core.security import get_request_access_context
-    from apps.workbench.services.dashboard_service import (
+    from apps.core.services.dashboard_service import (
         DashboardService,
         _case_status_distribution,
         _case_trend,

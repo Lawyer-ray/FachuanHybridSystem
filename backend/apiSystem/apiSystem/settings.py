@@ -111,7 +111,7 @@ INSTALLED_APPS = [
     "apps.enterprise_data",  # 6.6 企业数据查询（天眼查/企查查等）
     "apps.doc_convert",  # 6.7 要素式转换（传统文书转要素式文书）
     "apps.doc_converter",  # 6.71 DOC 批量转 DOCX
-    "apps.workbench",  # 6.8 工作台（AI 对话式操作中心）
+    "apps.agent",  # 6.85 Agent 运行时（pi）
     "apps.workflow",  # 6.9 工作流引擎（Temporal 集成）
     "apps.docspace",  # 6.95 DocSpace 云文档
     "apps.core",  # 7. 核心系统
@@ -123,7 +123,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     # 响应压缩放最外层：列表 JSON（中文文本）压缩率通常 5-8 倍。
     # SSE/流式响应兼容——Django 的 compress_sequence 每个事件块后立即
-    # flush() 并 yield，不会缓冲整流（workbench stream_chat 可安全过压缩）。
+    # flush() 并 yield，不会缓冲整流（agent 的 stream_chat 可安全过压缩）。
     "django.middleware.gzip.GZipMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",

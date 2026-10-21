@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.client.services.importer.mapper import ClientIdentityDocCommand, ClientImportCommand, ClientJsonImportMapper
+from apps.core.services.dashboard_service import DashboardService
 from apps.core.services.material_classification_service import (
     MaterialClassificationService,
     _extract_json,
@@ -18,7 +19,6 @@ from apps.core.services.material_classification_service import (
     _extract_subfolder_hint,
     _normalize_for_match,
 )
-from apps.workbench.services.dashboard_service import DashboardService
 
 # ---------------------------------------------------------------------------
 # ClientJsonImportMapper
@@ -318,21 +318,21 @@ class TestDashboardService:
     def test_get_stats_keys(self):
         svc = DashboardService()
         with (
-            patch("apps.workbench.services.dashboard_service._client_count", return_value=10),
-            patch("apps.workbench.services.dashboard_service._contract_count", return_value=5),
+            patch("apps.core.services.dashboard_service._client_count", return_value=10),
+            patch("apps.core.services.dashboard_service._contract_count", return_value=5),
             patch(
-                "apps.workbench.services.dashboard_service._case_type_stats",
+                "apps.core.services.dashboard_service._case_type_stats",
                 return_value=([{"type": "CIVIL", "label": "民事", "count": 3}], 3),
             ),
-            patch("apps.workbench.services.dashboard_service._case_trend", return_value=[]),
-            patch("apps.workbench.services.dashboard_service._case_status_distribution", return_value={"ACTIVE": 3}),
-            patch("apps.workbench.services.dashboard_service._fee_stats", return_value=(Decimal("1000"), [])),
-            patch("apps.workbench.services.dashboard_service._contract_trend", return_value=[]),
+            patch("apps.core.services.dashboard_service._case_trend", return_value=[]),
+            patch("apps.core.services.dashboard_service._case_status_distribution", return_value={"ACTIVE": 3}),
+            patch("apps.core.services.dashboard_service._fee_stats", return_value=(Decimal("1000"), [])),
+            patch("apps.core.services.dashboard_service._contract_trend", return_value=[]),
             patch(
-                "apps.workbench.services.dashboard_service._reminder_counts",
+                "apps.core.services.dashboard_service._reminder_counts",
                 return_value={"overdue_count": 0, "today_count": 0},
             ),
-            patch("apps.workbench.services.dashboard_service._upcoming_reminders", return_value=[]),
+            patch("apps.core.services.dashboard_service._upcoming_reminders", return_value=[]),
         ):
             result = svc.get_stats()
             assert result["client_count"] == 10

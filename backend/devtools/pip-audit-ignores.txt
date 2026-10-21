@@ -50,3 +50,21 @@ CVE-2026-69244 | aiohttp@3.14.3 | Medium | 2026-09-24 | 2026-11-01 | stale | 堆
 CVE-2026-69248 | cryptography@50.0.1 | High | 2026-09-24 | 2026-11-01 | stale | 未启用证书名 permittedSubtrees 校验路径；已不命中
 CVE-2026-69247 | cryptography@50.0.1 | High | 2026-09-24 | 2026-11-01 | stale | PKCS#7 解密预言需攻击者可控密文入口；已不命中
 CVE-2026-69249 | cryptography@50.0.1 | Medium | 2026-09-24 | 2026-11-01 | stale | 证书链构建 DoS 需恶意中间证书注入；已不命中
+
+# ===== 2026-10-21 批次（上游当日新发 advisory，打挂全仓 CI；随 PR #563 登记，
+# pillow 13.0.0 / certifi 2026.10.19 为修复版，升级放独立依赖批次，勿夹带进功能 PR）=====
+PYSEC-2026-4320 | certifi@2026.7.22 | Medium | 2026-10-21 | 2026-11-30 | active | 证书包 advisory；修复版 2026.10.19 为 patch 级，随依赖升级批次处理
+CVE-2026-112895 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 图像解码 advisory；修复版 13.0.0 为 major 升级，需回归 image_rotation/OCR 管线
+CVE-2026-112400 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 同上，pillow 12→13 升级批次统一清偿
+CVE-2026-112397 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 同上
+CVE-2026-112896 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 同上
+CVE-2026-112897 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 同上
+CVE-2026-112395 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 同上
+CVE-2026-112404 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 同上
+CVE-2026-112899 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 同上
+# ===== 2026-10-21 第二批（同日数小时后上游再发 virtualenv advisory；构建工具链依赖，
+# 不进运行时镜像，与上方 pip 豁免同类；修复版 21.14.x 随依赖升级批次处理）=====
+CVE-2026-113726 | virtualenv@21.13.0 | Medium | 2026-10-21 | 2026-11-30 | active | 构建工具链（uv/venv 创建），CI 一次性环境，不进运行时；修复 21.14.4
+CVE-2026-113776 | virtualenv@21.13.0 | Medium | 2026-10-21 | 2026-11-30 | active | 同上；修复 21.14.2
+CVE-2026-113732 | virtualenv@21.13.0 | Medium | 2026-10-21 | 2026-11-30 | active | 同上；修复 21.14.2
+CVE-2026-113725 | virtualenv@21.13.0 | Medium | 2026-10-21 | 2026-11-30 | active | 同上；修复 21.14.7

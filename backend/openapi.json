@@ -5109,6 +5109,299 @@
         ]
       }
     },
+    "/api/v1/cases/{case_id}/folder-entries": {
+      "get": {
+        "operationId": "apps_cases_api_case_folder_browse_api_list_case_folder_entries",
+        "summary": "List Case Folder Entries",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "schema": {
+              "title": "Case Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "subpath",
+            "schema": {
+              "default": "",
+              "title": "Subpath",
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseFolderEntriesResponseSchema"
+                }
+              }
+            }
+          }
+        },
+        "description": "列出案件绑定文件夹下某一层的子文件夹与文件（非递归，不含隐藏项）。",
+        "tags": [
+          "案件文件夹浏览"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/folder-file": {
+      "get": {
+        "operationId": "apps_cases_api_case_folder_browse_api_open_case_folder_file",
+        "summary": "Open Case Folder File",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "schema": {
+              "title": "Case Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "subpath",
+            "schema": {
+              "title": "Subpath",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "内联预览（或下载）绑定文件夹内的单个文件。",
+        "tags": [
+          "案件文件夹浏览"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/folder-mkdir": {
+      "post": {
+        "operationId": "apps_cases_api_case_folder_browse_api_create_case_folder",
+        "summary": "Create Case Folder",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "schema": {
+              "title": "Case Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "在 subpath（空 = 绑定根）下新建子文件夹。",
+        "tags": [
+          "案件文件夹浏览"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseFolderEntryNameIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/folder-upload": {
+      "post": {
+        "operationId": "apps_cases_api_case_folder_browse_api_upload_case_folder_files",
+        "summary": "Upload Case Folder Files",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "schema": {
+              "title": "Case Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "subpath",
+            "schema": {
+              "default": "",
+              "title": "Subpath",
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "拖拽 / 多文件上传到 subpath 目录（multipart 字段名 files，同名自动加序号）。",
+        "tags": [
+          "案件文件夹浏览"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/folder-rename": {
+      "post": {
+        "operationId": "apps_cases_api_case_folder_browse_api_rename_case_folder_entry",
+        "summary": "Rename Case Folder Entry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "schema": {
+              "title": "Case Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "重命名 subpath 指向的文件或文件夹（new_name 同目录内生效）。",
+        "tags": [
+          "案件文件夹浏览"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseFolderEntryNameIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/folder-copy": {
+      "post": {
+        "operationId": "apps_cases_api_case_folder_browse_api_copy_case_folder_entry",
+        "summary": "Copy Case Folder Entry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "schema": {
+              "title": "Case Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "复制文件/文件夹到目标目录（同名自动加序号；不覆盖既有文件）。",
+        "tags": [
+          "案件文件夹浏览"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseFolderCopyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/folder-delete": {
+      "post": {
+        "operationId": "apps_cases_api_case_folder_browse_api_delete_case_folder_entry",
+        "summary": "Delete Case Folder Entry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "schema": {
+              "title": "Case Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "删除 = 移入绑定根下 _已删除/（带时间戳，可恢复），不做物理删除。",
+        "tags": [
+          "案件文件夹浏览"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseFolderPathIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/cases/{case_id}/materials/bind-candidates": {
       "get": {
         "operationId": "apps_cases_api_case_material_api_list_bind_candidates",
@@ -8459,6 +8752,299 @@
         "tags": [
           "归档材料管理"
         ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/contracts/{contract_id}/folder-entries": {
+      "get": {
+        "operationId": "apps_contracts_api_contract_folder_browse_api_list_contract_folder_entries",
+        "summary": "List Contract Folder Entries",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contract_id",
+            "schema": {
+              "title": "Contract Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "subpath",
+            "schema": {
+              "default": "",
+              "title": "Subpath",
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractFolderEntriesOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "列出合同绑定文件夹下某一层的子文件夹与文件（非递归，不含隐藏项）。",
+        "tags": [
+          "合同文件夹浏览"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/contracts/{contract_id}/folder-file": {
+      "get": {
+        "operationId": "apps_contracts_api_contract_folder_browse_api_open_contract_folder_file",
+        "summary": "Open Contract Folder File",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contract_id",
+            "schema": {
+              "title": "Contract Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "subpath",
+            "schema": {
+              "title": "Subpath",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "内联预览（或下载）绑定文件夹内的单个文件。",
+        "tags": [
+          "合同文件夹浏览"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/contracts/{contract_id}/folder-mkdir": {
+      "post": {
+        "operationId": "apps_contracts_api_contract_folder_browse_api_create_contract_folder",
+        "summary": "Create Contract Folder",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contract_id",
+            "schema": {
+              "title": "Contract Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "在 subpath（空 = 绑定根）下新建子文件夹。",
+        "tags": [
+          "合同文件夹浏览"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContractFolderEntryNameIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/contracts/{contract_id}/folder-upload": {
+      "post": {
+        "operationId": "apps_contracts_api_contract_folder_browse_api_upload_contract_folder_files",
+        "summary": "Upload Contract Folder Files",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contract_id",
+            "schema": {
+              "title": "Contract Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "subpath",
+            "schema": {
+              "default": "",
+              "title": "Subpath",
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "拖拽 / 多文件上传到 subpath 目录（multipart 字段名 files，同名自动加序号）。",
+        "tags": [
+          "合同文件夹浏览"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/contracts/{contract_id}/folder-rename": {
+      "post": {
+        "operationId": "apps_contracts_api_contract_folder_browse_api_rename_contract_folder_entry",
+        "summary": "Rename Contract Folder Entry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contract_id",
+            "schema": {
+              "title": "Contract Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "重命名 subpath 指向的文件或文件夹（name 为新名字，同目录内生效）。",
+        "tags": [
+          "合同文件夹浏览"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContractFolderEntryNameIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/contracts/{contract_id}/folder-copy": {
+      "post": {
+        "operationId": "apps_contracts_api_contract_folder_browse_api_copy_contract_folder_entry",
+        "summary": "Copy Contract Folder Entry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contract_id",
+            "schema": {
+              "title": "Contract Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "复制文件/文件夹到目标目录（同名自动加序号；不覆盖既有文件）。",
+        "tags": [
+          "合同文件夹浏览"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContractFolderCopyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/contracts/{contract_id}/folder-delete": {
+      "post": {
+        "operationId": "apps_contracts_api_contract_folder_browse_api_delete_contract_folder_entry",
+        "summary": "Delete Contract Folder Entry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contract_id",
+            "schema": {
+              "title": "Contract Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "删除 = 移入绑定根下 _已删除/（带时间戳，可恢复），不做物理删除。",
+        "tags": [
+          "合同文件夹浏览"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContractFolderPathIn"
+              }
+            }
+          },
+          "required": true
+        },
         "security": [
           {
             "JWTOrSessionAuth": []
@@ -20826,9 +21412,9 @@
         ]
       }
     },
-    "/api/v1/workbench/sessions": {
+    "/api/v1/agent/sessions": {
       "post": {
-        "operationId": "apps_workbench_api_workbench_api_create_session",
+        "operationId": "apps_agent_api_agent_api_create_session",
         "summary": "Create Session",
         "parameters": [],
         "responses": {
@@ -20843,15 +21429,15 @@
             }
           }
         },
-        "description": "创建工作台会话",
+        "description": "新建会话。",
         "tags": [
-          "工作台"
+          "Agent"
         ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SessionCreateIn"
+                "$ref": "#/components/schemas/SessionIn"
               }
             }
           },
@@ -20864,15 +21450,15 @@
         ]
       },
       "get": {
-        "operationId": "apps_workbench_api_workbench_api_list_sessions",
+        "operationId": "apps_agent_api_agent_api_list_sessions",
         "summary": "List Sessions",
         "parameters": [
           {
             "in": "query",
-            "name": "page",
+            "name": "limit",
             "schema": {
-              "default": 1,
-              "title": "Page",
+              "default": 50,
+              "title": "Limit",
               "type": "integer"
             },
             "required": false
@@ -20880,12 +21466,23 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SessionOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            }
           }
         },
-        "description": "获取当前用户的工作台会话列表",
+        "description": "列出当前用户的会话。",
         "tags": [
-          "工作台"
+          "Agent"
         ],
         "security": [
           {
@@ -20894,91 +21491,9 @@
         ]
       }
     },
-    "/api/v1/workbench/sessions/{session_id}": {
-      "get": {
-        "operationId": "apps_workbench_api_workbench_api_get_session",
-        "summary": "Get Session",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "session_id",
-            "schema": {
-              "title": "Session Id",
-              "type": "integer"
-            },
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SessionOut"
-                }
-              }
-            }
-          }
-        },
-        "description": "获取会话详情",
-        "tags": [
-          "工作台"
-        ],
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      },
-      "patch": {
-        "operationId": "apps_workbench_api_workbench_api_update_session",
-        "summary": "Update Session",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "session_id",
-            "schema": {
-              "title": "Session Id",
-              "type": "integer"
-            },
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SessionOut"
-                }
-              }
-            }
-          }
-        },
-        "description": "更新会话",
-        "tags": [
-          "工作台"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SessionUpdateIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      },
+    "/api/v1/agent/sessions/{session_id}": {
       "delete": {
-        "operationId": "apps_workbench_api_workbench_api_delete_session",
+        "operationId": "apps_agent_api_agent_api_delete_session",
         "summary": "Delete Session",
         "parameters": [
           {
@@ -20986,7 +21501,7 @@
             "name": "session_id",
             "schema": {
               "title": "Session Id",
-              "type": "integer"
+              "type": "string"
             },
             "required": true
           }
@@ -20996,9 +21511,9 @@
             "description": "OK"
           }
         },
-        "description": "删除会话",
+        "description": "删除会话（级联删除消息与审批）。",
         "tags": [
-          "工作台"
+          "Agent"
         ],
         "security": [
           {
@@ -21007,155 +21522,17 @@
         ]
       }
     },
-    "/api/v1/workbench/sessions/{session_id}/messages": {
-      "get": {
-        "operationId": "apps_workbench_api_workbench_api_list_messages",
-        "summary": "List Messages",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "session_id",
-            "schema": {
-              "title": "Session Id",
-              "type": "integer"
-            },
-            "required": true
-          },
-          {
-            "in": "query",
-            "name": "page",
-            "schema": {
-              "default": 1,
-              "title": "Page",
-              "type": "integer"
-            },
-            "required": false
-          },
-          {
-            "in": "query",
-            "name": "before_id",
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Before Id"
-            },
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "description": "获取会话的消息列表",
-        "tags": [
-          "工作台"
-        ],
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/workbench/sessions/{session_id}/messages/from/{message_id}": {
-      "delete": {
-        "operationId": "apps_workbench_api_workbench_api_truncate_messages",
-        "summary": "Truncate Messages",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "session_id",
-            "schema": {
-              "title": "Session Id",
-              "type": "integer"
-            },
-            "required": true
-          },
-          {
-            "in": "path",
-            "name": "message_id",
-            "schema": {
-              "title": "Message Id",
-              "type": "integer"
-            },
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "description": "删除指定消息及其之后的所有消息（用于编辑重发）",
-        "tags": [
-          "工作台"
-        ],
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/workbench/messages/{message_id}/feedback": {
-      "patch": {
-        "operationId": "apps_workbench_api_workbench_api_submit_feedback",
-        "summary": "Submit Feedback",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "message_id",
-            "schema": {
-              "title": "Message Id",
-              "type": "integer"
-            },
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "description": "提交消息反馈（好评/差评）",
-        "tags": [
-          "工作台"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FeedbackIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/workbench/sessions/{session_id}/messages/stream": {
+    "/api/v1/agent/sessions/{session_id}/messages": {
       "post": {
-        "operationId": "apps_workbench_api_workbench_api_stream_chat",
-        "summary": "Stream Chat",
+        "operationId": "apps_agent_api_agent_api_send_message",
+        "summary": "Send Message",
         "parameters": [
           {
             "in": "path",
             "name": "session_id",
             "schema": {
               "title": "Session Id",
-              "type": "integer"
+              "type": "string"
             },
             "required": true
           }
@@ -21165,9 +21542,9 @@
             "description": "OK"
           }
         },
-        "description": "SSE 流式对话 - 发送消息并获取 AI 流式响应",
+        "description": "发消息并流式返回（SSE）。",
         "tags": [
-          "工作台"
+          "Agent"
         ],
         "requestBody": {
           "content": {
@@ -21186,41 +21563,10 @@
         ]
       }
     },
-    "/api/v1/workbench/approval": {
+    "/api/v1/agent/approval/request": {
       "post": {
-        "operationId": "apps_workbench_api_workbench_api_respond_approval",
-        "summary": "Respond Approval",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "description": "响应审批请求（Human-in-the-Loop）",
-        "tags": [
-          "工作台"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ApprovalIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/workbench/batch/analyze": {
-      "post": {
-        "operationId": "apps_workbench_api_workbench_api_submit_batch_analysis",
-        "summary": "Submit Batch Analysis",
+        "operationId": "apps_agent_api_agent_api_pi_approval_request",
+        "summary": "Pi Approval Request",
         "parameters": [],
         "responses": {
           "200": {
@@ -21228,256 +21574,57 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BatchJobOut"
+                  "$ref": "#/components/schemas/PiApprovalOut"
                 }
               }
             }
           }
         },
-        "description": "提交批量文档分析任务",
+        "description": "pi extension 的工具调用审批闸门（同步阻塞等用户回答）。\n\n鉴权：``X-Internal-Token`` 头（extension 没有用户会话，不走 JWT）。",
         "tags": [
-          "工作台"
-        ],
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "title": "MultiPartBodyParams",
-                "type": "object",
-                "properties": {
-                  "session_id": {
-                    "title": "Session Id",
-                    "type": "integer"
-                  },
-                  "prompt": {
-                    "title": "Prompt",
-                    "type": "string"
-                  },
-                  "llm_model": {
-                    "default": "",
-                    "title": "Llm Model",
-                    "type": "string"
-                  },
-                  "concurrency": {
-                    "default": 50,
-                    "title": "Concurrency",
-                    "type": "integer"
-                  },
-                  "files": {
-                    "items": {
-                      "format": "binary",
-                      "type": "string"
-                    },
-                    "title": "Files",
-                    "type": "array"
-                  }
-                },
-                "required": [
-                  "session_id",
-                  "prompt",
-                  "files"
-                ]
-              }
-            }
-          },
-          "required": true
-        },
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/workbench/batch/{job_id}/progress": {
-      "get": {
-        "operationId": "apps_workbench_api_workbench_api_get_batch_progress",
-        "summary": "Get Batch Progress",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "job_id",
-            "schema": {
-              "format": "uuid",
-              "title": "Job Id",
-              "type": "string"
-            },
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BatchProgressOut"
-                }
-              }
-            }
-          }
-        },
-        "description": "查询批量分析任务进度",
-        "tags": [
-          "工作台"
-        ],
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/workbench/batch/{job_id}/cancel": {
-      "post": {
-        "operationId": "apps_workbench_api_workbench_api_cancel_batch_analysis",
-        "summary": "Cancel Batch Analysis",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "job_id",
-            "schema": {
-              "format": "uuid",
-              "title": "Job Id",
-              "type": "string"
-            },
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "description": "取消批量分析任务",
-        "tags": [
-          "工作台"
-        ],
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/workbench/batch/{job_id}/download": {
-      "get": {
-        "operationId": "apps_workbench_api_workbench_api_download_batch_summary",
-        "summary": "Download Batch Summary",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "job_id",
-            "schema": {
-              "format": "uuid",
-              "title": "Job Id",
-              "type": "string"
-            },
-            "required": true
-          },
-          {
-            "in": "query",
-            "name": "relevant_only",
-            "schema": {
-              "default": false,
-              "title": "Relevant Only",
-              "type": "boolean"
-            },
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "description": "下载批量分析汇总 CSV 文件",
-        "tags": [
-          "工作台"
-        ],
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/workbench/batch/{job_id}/download-detail": {
-      "get": {
-        "operationId": "apps_workbench_api_workbench_api_download_batch_detail_zip",
-        "summary": "Download Batch Detail Zip",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "job_id",
-            "schema": {
-              "format": "uuid",
-              "title": "Job Id",
-              "type": "string"
-            },
-            "required": true
-          },
-          {
-            "in": "query",
-            "name": "relevant_only",
-            "schema": {
-              "default": false,
-              "title": "Relevant Only",
-              "type": "boolean"
-            },
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "description": "下载批量分析详情 ZIP 文件",
-        "tags": [
-          "工作台"
-        ],
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/workbench/batch/{job_id}/messages": {
-      "post": {
-        "operationId": "apps_workbench_api_workbench_api_save_batch_messages",
-        "summary": "Save Batch Messages",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "job_id",
-            "schema": {
-              "format": "uuid",
-              "title": "Job Id",
-              "type": "string"
-            },
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "description": "将批量分析结果持久化为工作台消息",
-        "tags": [
-          "工作台"
+          "Agent"
         ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "items": {
-                  "$ref": "#/components/schemas/BatchMessageItemIn"
-                },
-                "title": "Payload",
-                "type": "array"
+                "$ref": "#/components/schemas/PiApprovalIn"
+              }
+            }
+          },
+          "required": true
+        }
+      }
+    },
+    "/api/v1/agent/approval/{approval_id}/decide": {
+      "post": {
+        "operationId": "apps_agent_api_agent_api_submit_approval_decision",
+        "summary": "Submit Approval Decision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "approval_id",
+            "schema": {
+              "title": "Approval Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "前端提交审批决定。",
+        "tags": [
+          "Agent"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovalDecideIn"
               }
             }
           },
@@ -21490,90 +21637,17 @@
         ]
       }
     },
-    "/api/v1/workbench/batch/{job_id}/stream": {
+    "/api/v1/agent/approvals": {
       "get": {
-        "operationId": "apps_workbench_api_workbench_api_stream_batch_progress",
-        "summary": "Stream Batch Progress",
+        "operationId": "apps_agent_api_agent_api_list_approvals",
+        "summary": "List Approvals",
         "parameters": [
-          {
-            "in": "path",
-            "name": "job_id",
-            "schema": {
-              "format": "uuid",
-              "title": "Job Id",
-              "type": "string"
-            },
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "description": "SSE 流式推送批量分析进度",
-        "tags": [
-          "工作台"
-        ],
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/workbench/batch/{job_id}/retry": {
-      "post": {
-        "operationId": "apps_workbench_api_workbench_api_retry_failed_items",
-        "summary": "Retry Failed Items",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "job_id",
-            "schema": {
-              "format": "uuid",
-              "title": "Job Id",
-              "type": "string"
-            },
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "description": "重试批量分析中失败的文件",
-        "tags": [
-          "工作台"
-        ],
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/workbench/sessions/{session_id}/batch-jobs": {
-      "get": {
-        "operationId": "apps_workbench_api_workbench_api_list_batch_jobs",
-        "summary": "List Batch Jobs",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "session_id",
-            "schema": {
-              "title": "Session Id",
-              "type": "integer"
-            },
-            "required": true
-          },
           {
             "in": "query",
-            "name": "page",
+            "name": "limit",
             "schema": {
-              "default": 1,
-              "title": "Page",
+              "default": 50,
+              "title": "Limit",
               "type": "integer"
             },
             "required": false
@@ -21581,71 +21655,24 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
-          }
-        },
-        "description": "获取会话的批量分析任务历史",
-        "tags": [
-          "工作台"
-        ],
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/workbench/optimize-prompt": {
-      "post": {
-        "operationId": "apps_workbench_api_workbench_api_optimize_prompt",
-        "summary": "Optimize Prompt",
-        "parameters": [],
-        "responses": {
-          "200": {
             "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OptimizePromptOut"
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response",
+                  "type": "array"
                 }
               }
             }
           }
         },
-        "description": "使用 AI 优化批量分析的 prompt",
+        "description": "列出审批记录（审计用）。",
         "tags": [
-          "工作台"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/OptimizePromptIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/workbench/models": {
-      "get": {
-        "operationId": "apps_workbench_api_workbench_api_list_models",
-        "summary": "List Models",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "description": "获取可用的 LLM 模型列表（默认模型取列表第一个）",
-        "tags": [
-          "工作台"
+          "Agent"
         ],
         "security": [
           {
@@ -28679,6 +28706,159 @@
         "title": "FolderBrowseResponseSchema",
         "type": "object"
       },
+      "CaseFolderEntriesResponseSchema": {
+        "properties": {
+          "browsable": {
+            "title": "Browsable",
+            "type": "boolean"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "path_display": {
+            "default": "",
+            "title": "Path Display",
+            "type": "string"
+          },
+          "subpath": {
+            "default": "",
+            "title": "Subpath",
+            "type": "string"
+          },
+          "parent_subpath": {
+            "default": "",
+            "title": "Parent Subpath",
+            "type": "string"
+          },
+          "folders": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CaseFolderSubfolderSchema"
+            },
+            "title": "Folders",
+            "type": "array"
+          },
+          "files": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CaseFolderFileSchema"
+            },
+            "title": "Files",
+            "type": "array"
+          }
+        },
+        "required": [
+          "browsable"
+        ],
+        "title": "CaseFolderEntriesResponseSchema",
+        "type": "object"
+      },
+      "CaseFolderFileSchema": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "modified_at": {
+            "title": "Modified At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "subpath",
+          "size",
+          "modified_at"
+        ],
+        "title": "CaseFolderFileSchema",
+        "type": "object"
+      },
+      "CaseFolderSubfolderSchema": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "subpath"
+        ],
+        "title": "CaseFolderSubfolderSchema",
+        "type": "object"
+      },
+      "CaseFolderEntryNameIn": {
+        "description": "新建 / 重命名共用入参：subpath 定位目标（mkdir 为父目录、rename 为条目本身），name 为新名字。",
+        "properties": {
+          "subpath": {
+            "default": "",
+            "title": "Subpath",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "CaseFolderEntryNameIn",
+        "type": "object"
+      },
+      "CaseFolderCopyIn": {
+        "description": "复制入参：subpath 为复制源，dest_subpath 为目标目录（空 = 绑定根）。",
+        "properties": {
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          },
+          "dest_subpath": {
+            "default": "",
+            "title": "Dest Subpath",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subpath"
+        ],
+        "title": "CaseFolderCopyIn",
+        "type": "object"
+      },
+      "CaseFolderPathIn": {
+        "description": "删除入参：subpath 定位要移入回收目录的条目。",
+        "properties": {
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subpath"
+        ],
+        "title": "CaseFolderPathIn",
+        "type": "object"
+      },
       "CaseMaterialBindCandidateOut": {
         "properties": {
           "attachment_id": {
@@ -32792,6 +32972,159 @@
           }
         },
         "title": "ClearAllOut",
+        "type": "object"
+      },
+      "ContractFolderEntriesOut": {
+        "properties": {
+          "browsable": {
+            "title": "Browsable",
+            "type": "boolean"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "path_display": {
+            "default": "",
+            "title": "Path Display",
+            "type": "string"
+          },
+          "subpath": {
+            "default": "",
+            "title": "Subpath",
+            "type": "string"
+          },
+          "parent_subpath": {
+            "default": "",
+            "title": "Parent Subpath",
+            "type": "string"
+          },
+          "folders": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ContractFolderSubfolderOut"
+            },
+            "title": "Folders",
+            "type": "array"
+          },
+          "files": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ContractFolderFileOut"
+            },
+            "title": "Files",
+            "type": "array"
+          }
+        },
+        "required": [
+          "browsable"
+        ],
+        "title": "ContractFolderEntriesOut",
+        "type": "object"
+      },
+      "ContractFolderFileOut": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "modified_at": {
+            "title": "Modified At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "subpath",
+          "size",
+          "modified_at"
+        ],
+        "title": "ContractFolderFileOut",
+        "type": "object"
+      },
+      "ContractFolderSubfolderOut": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "subpath"
+        ],
+        "title": "ContractFolderSubfolderOut",
+        "type": "object"
+      },
+      "ContractFolderEntryNameIn": {
+        "description": "新建 / 重命名共用入参：subpath 定位目标（mkdir 为父目录、rename 为条目本身），name 为新名字。",
+        "properties": {
+          "subpath": {
+            "default": "",
+            "title": "Subpath",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ContractFolderEntryNameIn",
+        "type": "object"
+      },
+      "ContractFolderCopyIn": {
+        "description": "复制入参：subpath 为复制源，dest_subpath 为目标目录（空 = 绑定根）。",
+        "properties": {
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          },
+          "dest_subpath": {
+            "default": "",
+            "title": "Dest Subpath",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subpath"
+        ],
+        "title": "ContractFolderCopyIn",
+        "type": "object"
+      },
+      "ContractFolderPathIn": {
+        "description": "删除入参：subpath 定位要移入回收目录的条目。",
+        "properties": {
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subpath"
+        ],
+        "title": "ContractFolderPathIn",
         "type": "object"
       },
       "DocumentProcessOut": {
@@ -44806,418 +45139,114 @@
         "title": "DownloadTicketIn",
         "type": "object"
       },
-      "SessionCreateIn": {
+      "SessionIn": {
+        "description": "创建会话请求体。",
         "properties": {
           "title": {
             "default": "",
-            "description": "会话标题",
-            "maxLength": 255,
             "title": "Title",
             "type": "string"
           },
           "llm_model": {
             "default": "",
-            "description": "使用的 LLM 模型 ID",
             "title": "Llm Model",
             "type": "string"
           }
         },
-        "title": "SessionCreateIn",
-        "type": "object"
-      },
-      "SessionUpdateIn": {
-        "properties": {
-          "title": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "会话标题",
-            "title": "Title"
-          },
-          "llm_model": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "使用的 LLM 模型 ID",
-            "title": "Llm Model"
-          },
-          "status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "会话状态",
-            "title": "Status"
-          }
-        },
-        "title": "SessionUpdateIn",
-        "type": "object"
-      },
-      "FeedbackIn": {
-        "description": "消息反馈请求体",
-        "properties": {
-          "rating": {
-            "enum": [
-              "good",
-              "bad"
-            ],
-            "title": "Rating",
-            "type": "string"
-          },
-          "comment": {
-            "default": "",
-            "title": "Comment",
-            "type": "string"
-          }
-        },
-        "required": [
-          "rating"
-        ],
-        "title": "FeedbackIn",
+        "title": "SessionIn",
         "type": "object"
       },
       "MessageIn": {
+        "description": "发消息请求体。",
         "properties": {
-          "content": {
-            "description": "用户消息内容",
-            "minLength": 1,
-            "title": "Content",
+          "message": {
+            "title": "Message",
             "type": "string"
           },
           "llm_model": {
             "default": "",
-            "description": "使用的 LLM 模型 ID（覆盖会话默认）",
             "title": "Llm Model",
-            "type": "string"
-          },
-          "agent_type": {
-            "default": "",
-            "description": "Agent 类型: triage/case/contract/research",
-            "title": "Agent Type",
             "type": "string"
           }
         },
         "required": [
-          "content"
+          "message"
         ],
         "title": "MessageIn",
         "type": "object"
       },
-      "ApprovalIn": {
-        "description": "审批请求体",
+      "PiApprovalOut": {
+        "description": "审批结果（只有 approved=true 放行）。",
         "properties": {
+          "approved": {
+            "title": "Approved",
+            "type": "boolean"
+          },
           "approval_id": {
+            "default": "",
             "title": "Approval Id",
             "type": "string"
           },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approved"
+        ],
+        "title": "PiApprovalOut",
+        "type": "object"
+      },
+      "PiApprovalIn": {
+        "description": "pi extension 发来的审批请求。",
+        "properties": {
+          "tool": {
+            "title": "Tool",
+            "type": "string"
+          },
+          "args": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Args"
+          },
+          "user_id": {
+            "default": 0,
+            "title": "User Id",
+            "type": "integer"
+          },
+          "session_id": {
+            "default": "",
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool"
+        ],
+        "title": "PiApprovalIn",
+        "type": "object"
+      },
+      "ApprovalDecideIn": {
+        "description": "前端审批决定。",
+        "properties": {
           "approved": {
             "title": "Approved",
             "type": "boolean"
           }
         },
         "required": [
-          "approval_id",
           "approved"
         ],
-        "title": "ApprovalIn",
-        "type": "object"
-      },
-      "BatchJobOut": {
-        "properties": {
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "session_id": {
-            "title": "Session Id",
-            "type": "integer"
-          },
-          "job_type": {
-            "title": "Job Type",
-            "type": "string"
-          },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          },
-          "prompt": {
-            "title": "Prompt",
-            "type": "string"
-          },
-          "llm_model": {
-            "title": "Llm Model",
-            "type": "string"
-          },
-          "total_items": {
-            "title": "Total Items",
-            "type": "integer"
-          },
-          "completed_items": {
-            "title": "Completed Items",
-            "type": "integer"
-          },
-          "failed_items": {
-            "title": "Failed Items",
-            "type": "integer"
-          },
-          "progress": {
-            "title": "Progress",
-            "type": "integer"
-          },
-          "summary": {
-            "title": "Summary",
-            "type": "string"
-          },
-          "summary_file": {
-            "default": "",
-            "title": "Summary File",
-            "type": "string"
-          },
-          "detail_zip_file": {
-            "default": "",
-            "title": "Detail Zip File",
-            "type": "string"
-          },
-          "error_message": {
-            "title": "Error Message",
-            "type": "string"
-          },
-          "created_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created At"
-          },
-          "updated_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Updated At"
-          },
-          "started_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Started At"
-          },
-          "finished_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Finished At"
-          },
-          "started_processing_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Started Processing At"
-          },
-          "eta_seconds": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Eta Seconds"
-          },
-          "speed_per_minute": {
-            "default": 0.0,
-            "title": "Speed Per Minute",
-            "type": "number"
-          }
-        },
-        "required": [
-          "id",
-          "session_id",
-          "job_type",
-          "status",
-          "prompt",
-          "llm_model",
-          "total_items",
-          "completed_items",
-          "failed_items",
-          "progress",
-          "summary",
-          "error_message"
-        ],
-        "title": "BatchJobOut",
-        "type": "object"
-      },
-      "BatchItemOut": {
-        "properties": {
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "file_name": {
-            "title": "File Name",
-            "type": "string"
-          },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          },
-          "result": {
-            "title": "Result",
-            "type": "string"
-          },
-          "error": {
-            "title": "Error",
-            "type": "string"
-          },
-          "duration_ms": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Duration Ms"
-          }
-        },
-        "required": [
-          "id",
-          "file_name",
-          "status",
-          "result",
-          "error",
-          "duration_ms"
-        ],
-        "title": "BatchItemOut",
-        "type": "object"
-      },
-      "BatchProgressOut": {
-        "properties": {
-          "job": {
-            "$ref": "#/components/schemas/BatchJobOut"
-          },
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/BatchItemOut"
-            },
-            "title": "Items",
-            "type": "array"
-          },
-          "failed_items_detail": {
-            "default": [],
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "title": "Failed Items Detail",
-            "type": "array"
-          }
-        },
-        "required": [
-          "job",
-          "items"
-        ],
-        "title": "BatchProgressOut",
-        "type": "object"
-      },
-      "BatchMessageItemIn": {
-        "description": "批量消息持久化请求体",
-        "properties": {
-          "file_name": {
-            "title": "File Name",
-            "type": "string"
-          },
-          "content": {
-            "title": "Content",
-            "type": "string"
-          },
-          "metadata": {
-            "additionalProperties": true,
-            "default": {},
-            "title": "Metadata",
-            "type": "object"
-          }
-        },
-        "required": [
-          "file_name",
-          "content"
-        ],
-        "title": "BatchMessageItemIn",
-        "type": "object"
-      },
-      "OptimizePromptOut": {
-        "description": "Prompt 优化响应体",
-        "properties": {
-          "optimized_prompt": {
-            "title": "Optimized Prompt",
-            "type": "string"
-          }
-        },
-        "required": [
-          "optimized_prompt"
-        ],
-        "title": "OptimizePromptOut",
-        "type": "object"
-      },
-      "OptimizePromptIn": {
-        "description": "Prompt 优化请求体",
-        "properties": {
-          "prompt": {
-            "title": "Prompt",
-            "type": "string"
-          }
-        },
-        "required": [
-          "prompt"
-        ],
-        "title": "OptimizePromptIn",
+        "title": "ApprovalDecideIn",
         "type": "object"
       },
       "JobSubmitOut": {

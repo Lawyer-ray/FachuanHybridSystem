@@ -1,4 +1,4 @@
-"""Coverage tests for litigation_ai, oa_filing, story_viz, pdf_splitting, chat_records, document_recognition, workbench."""
+"""Coverage tests for litigation_ai, oa_filing, story_viz, pdf_splitting, chat_records, document_recognition."""
 
 from __future__ import annotations
 
@@ -252,23 +252,3 @@ class TestDocumentRecognition:
         from apps.document_recognition.services._datetime_extraction_mixin import DatetimeExtractionMixin
 
         assert DatetimeExtractionMixin is not None
-
-
-# --- workbench ---
-
-
-class TestWorkbench:
-    def test_batch_runner_import(self):
-        from apps.workbench.tasks.batch_runner import run_batch_analysis
-
-        assert run_batch_analysis is not None
-
-    def test_workbench_api_import(self):
-        from apps.workbench.api.workbench_api import router
-
-        assert router is not None
-
-    def test_chat_service_import(self):
-        from apps.workbench.services.chat_service import WorkbenchChatService
-
-        assert WorkbenchChatService is not None

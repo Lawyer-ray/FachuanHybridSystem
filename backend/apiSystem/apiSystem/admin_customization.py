@@ -125,7 +125,6 @@ _HIDDEN_APP_LABELS = {
     "core",
     "reminders",
     "message_hub",
-    "workbench",
     "workflow",
     "labor_arbitration",  # 已收纳到「其他工具」
     "social_auth",  # 已收纳到「其他工具」
@@ -169,7 +168,6 @@ _OTHER_TOOLS_APPS = [
     {"app_label": "auth", "name": _("用户与权限"), "url": "/admin/auth/"},
     {"app_label": "core", "name": _("核心系统"), "url": "/admin/core/"},
     {"app_label": "reminders", "name": _("重要日期提醒"), "url": "/admin/reminders/"},
-    {"app_label": "workbench", "name": _("工作台"), "url": "/admin/workbench/"},
     {"app_label": "workflow", "name": _("工作流引擎"), "url": "/admin/workflow/"},
     {"app_label": "labor_arbitration", "name": _("劳动仲裁文书"), "url": "/admin/labor_arbitration/"},
     {"app_label": "social_auth", "name": _("社交登录"), "url": "/admin/social_auth/socialaccount/"},

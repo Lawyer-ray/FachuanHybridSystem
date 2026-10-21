@@ -291,7 +291,6 @@ if [ "$RUN_BACKEND" = true ]; then
     apps/core/infrastructure/throttling.py
     apps/core/exceptions/handlers.py
     apiSystem/apiSystem/api.py
-    apps/workbench/services/chat_service.py
   )
   if PYTHONPATH=apiSystem:. $BACKEND_PYTHON -m mypy --config-file=mypy.ini --follow-imports=silent "${MYPY_CURATED[@]}" 2>&1 \
     && PYTHONPATH=apiSystem:. $BACKEND_PYTHON -m mypy --config-file=mypy.ini apps 2>&1; then
