@@ -68,3 +68,22 @@ CVE-2026-113726 | virtualenv@21.13.0 | Medium | 2026-10-21 | 2026-11-30 | active
 CVE-2026-113776 | virtualenv@21.13.0 | Medium | 2026-10-21 | 2026-11-30 | active | 同上；修复 21.14.2
 CVE-2026-113732 | virtualenv@21.13.0 | Medium | 2026-10-21 | 2026-11-30 | active | 同上；修复 21.14.2
 CVE-2026-113725 | virtualenv@21.13.0 | Medium | 2026-10-21 | 2026-11-30 | active | 同上；修复 21.14.7
+
+# ===== 2026-10-21 第三批（同日稍晚上游再发 pillow advisory；与上方 pillow 批次同源，
+# 统一随 12→13 升级清偿，勿夹带进功能 PR）=====
+CVE-2026-112390 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 图像解码 advisory；修复版 13.0.0 为 major 升级，需回归 image_rotation/OCR 管线
+CVE-2026-112391 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 图像解码 advisory；修复版 13.0.0 为 major 升级，需回归 image_rotation/OCR 管线
+CVE-2026-112392 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 图像解码 advisory；修复版 13.0.0 为 major 升级，需回归 image_rotation/OCR 管线
+CVE-2026-112393 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 图像解码 advisory；修复版 13.0.0 为 major 升级，需回归 image_rotation/OCR 管线
+CVE-2026-112396 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 图像解码 advisory；修复版 13.0.0 为 major 升级，需回归 image_rotation/OCR 管线
+CVE-2026-112399 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 图像解码 advisory；修复版 13.0.0 为 major 升级，需回归 image_rotation/OCR 管线
+CVE-2026-112401 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 图像解码 advisory；修复版 13.0.0 为 major 升级，需回归 image_rotation/OCR 管线
+CVE-2026-112402 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 图像解码 advisory；修复版 13.0.0 为 major 升级，需回归 image_rotation/OCR 管线
+CVE-2026-112405 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 图像解码 advisory；修复版 13.0.0 为 major 升级，需回归 image_rotation/OCR 管线
+CVE-2026-112406 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 图像解码 advisory；修复版 13.0.0 为 major 升级，需回归 image_rotation/OCR 管线
+CVE-2026-112891 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 图像解码 advisory；修复版 13.0.0 为 major 升级，需回归 image_rotation/OCR 管线
+CVE-2026-112892 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 图像解码 advisory；修复版 13.0.0 为 major 升级，需回归 image_rotation/OCR 管线
+CVE-2026-112893 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 图像解码 advisory；修复版 13.0.0 为 major 升级，需回归 image_rotation/OCR 管线
+CVE-2026-112894 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 图像解码 advisory；修复版 13.0.0 为 major 升级，需回归 image_rotation/OCR 管线
+CVE-2026-112900 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 图像解码 advisory；修复版 13.0.0 为 major 升级，需回归 image_rotation/OCR 管线
+CVE-2026-112901 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 图像解码 advisory；修复版 13.0.0 为 major 升级，需回归 image_rotation/OCR 管线
