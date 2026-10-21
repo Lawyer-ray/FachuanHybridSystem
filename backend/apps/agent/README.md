@@ -158,12 +158,32 @@ pi --version   # 1.3.0
 
 这是引入 pi 的唯一部署成本（`tool_call` 钩子只能用 TypeScript 写）。
 
-共享 MCP 需要在应用启动前拉起（或由首次调用懒启动）：
+### 共享 MCP 无需手动启动
+
+应用首次用到 agent 时自动检测并拉起共享 MCP（已在跑则复用）。
+如需独立托管（例如拆到另一台机器），手动启动后把 pi 指过去：
 
 ```bash
 FACHUAN_MCP_TRANSPORT=streamable-http FACHUAN_MCP_HTTP_PORT=8011 \
   python -m mcp_server
 ```
+
+### 生产必须配的两项
+
+```bash
+# 审批回调的服务间鉴权（不配会警告，且回调不鉴权）
+FACHUAN_INTERNAL_TOKEN=<长随机串>
+
+# 审批端点（extension 回调地址，按实际部署域名/端口）
+FACHUAN_APPROVAL_URL=https://<host>/api/v1/agent/approval/request
+```
+
+### 代理注意事项
+
+`_clean_env()` 会剔除 `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY`（含小写）。
+**如果 LLM 网关确实需要走代理**，不要改这个行为，而是把网关域名加入
+`NO_PROXY` 后自行调整 `_clean_env`——否则会出现「curl 能通、pi 报
+Connection error」的诡异现象。
 
 ## 9. 目录结构
 

@@ -85,13 +85,23 @@ async def get_pool() -> PiProcessPool:
     async with _pool_lock:
         if _pool is None:
             model = await _resolve_model()
+            endpoint = None
+            if shared_enabled():
+                endpoint = resolve_endpoint()
+                # 共享 MCP 是单点：没起就拉起，否则每个 pi 会退回 stdio
+                # 各起一份（实测 225MB/份），并发一上来就爆内存。
+                from asgiref.sync import sync_to_async
+
+                from ..pi.shared_mcp import ensure_shared_server
+
+                await sync_to_async(ensure_shared_server, thread_sensitive=False)(endpoint)
             _pool = PiProcessPool(
                 PoolConfig(
                     size=_resolve_pool_size(),
                     model=model,
                     provider=os.environ.get("FACHUAN_PI_PROVIDER") or None,
                     extension_path=os.environ.get("FACHUAN_PI_APPROVAL_EXTENSION") or None,
-                    mcp_endpoint=resolve_endpoint() if shared_enabled() else None,
+                    mcp_endpoint=endpoint,
                 )
             )
             logger.info("Agent pi 进程池已创建 size=%s", _pool.size)
