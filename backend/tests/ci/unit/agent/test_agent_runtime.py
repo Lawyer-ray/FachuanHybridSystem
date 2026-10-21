@@ -125,6 +125,22 @@ class TestEventBus:
         assert await q2.get() == {"type": "x"}
 
     @pytest.mark.asyncio
+    async def test_redis_client_helper_tolerates_both_layouts(self) -> None:
+        """回归：Django 5.x 的 RedisCache 没有 ``cache.client``。
+
+        早期写成 ``cache.client.get_client()``，在 Django 5 上直接 AttributeError，
+        异常被吞后跨进程分发全程静默失效（表现为「审批在别的 worker 收不到」）。
+        """
+        from apps.agent.services.event_bus import _redis_client
+
+        # 当前项目用 Redis，能拿到客户端；拿不到也只应是 RuntimeError（明确报错）
+        try:
+            client = _redis_client()
+        except RuntimeError:
+            pytest.skip("当前缓存后端不是 Redis")
+        assert hasattr(client, "lrange")
+
+    @pytest.mark.asyncio
     async def test_unregister_stops_delivery(self) -> None:
         from apps.agent.services.event_bus import EventBus
 
