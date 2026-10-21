@@ -112,6 +112,7 @@ INSTALLED_APPS = [
     "apps.doc_convert",  # 6.7 要素式转换（传统文书转要素式文书）
     "apps.doc_converter",  # 6.71 DOC 批量转 DOCX
     "apps.workbench",  # 6.8 工作台（AI 对话式操作中心）
+    "apps.agent",  # 6.85 Agent 运行时（pi）
     "apps.workflow",  # 6.9 工作流引擎（Temporal 集成）
     "apps.docspace",  # 6.95 DocSpace 云文档
     "apps.core",  # 7. 核心系统

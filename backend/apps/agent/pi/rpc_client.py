@@ -1,0 +1,270 @@
+"""pi RPC 客户端 —— Django 侧驱动 pi 子进程。
+
+依据 pi 1.3.0 ``docs/rpc.md`` 的实现要点：
+
+1. **JSONL 严格框定**：每条记录一个 JSON + LF。不能用通用 line reader——
+   Node 的 ``readline`` 会把 U+2028/U+2029 当换行，而它们在 JSON 字符串里合法。
+   这里用二进制读 pipe 再按 ``b"\\n"`` 切分。
+2. **命令按 id 关联**：命令处理是异步的，不能假设响应顺序。
+3. **运行结束用 ``agent_settled``**：``agent_end`` 之后还可能有重试 / 压缩 / steering。
+4. **stdout 只放协议**：诊断信息在 stderr，不解析 stderr。
+5. **``--no-session``**：会话状态由 Django 持有，pi 只当无状态执行器，
+   多进程 / 多机部署无需共享磁盘。
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import json
+import logging
+import os
+import shutil
+import tempfile
+from collections.abc import AsyncIterator
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+PI_BIN_ENV = "FACHUAN_PI_BIN"
+APPROVAL_EXTENSION_ENV = "FACHUAN_PI_APPROVAL_EXTENSION"
+_READ_CHUNK = 65536
+_SHUTDOWN_TIMEOUT = 5.0
+
+
+class PiError(RuntimeError):
+    """pi 子进程或协议层错误。"""
+
+
+class PiNotAvailableError(PiError):
+    """pi 可执行文件缺失或版本不可用。"""
+
+
+@dataclass(slots=True)
+class PiEvent:
+    """pi 推上来的一条记录。"""
+
+    kind: str  # "response" | "event" | "extension_ui"
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def event_type(self) -> str:
+        return str(self.raw.get("type") or "")
+
+
+def resolve_pi_bin() -> str:
+    """定位 pi 可执行文件；缺失时抛错而不是静默降级。"""
+    configured = os.environ.get(PI_BIN_ENV, "").strip()
+    if configured:
+        if not Path(configured).exists():
+            raise PiNotAvailableError(f"{PI_BIN_ENV} 指向的文件不存在: {configured}")
+        return configured
+    found = shutil.which("pi")
+    if not found:
+        raise PiNotAvailableError(
+            f"未找到 pi 可执行文件。请安装 @earendil-works/pi-coding-agent，或通过环境变量 {PI_BIN_ENV} 指定路径。"
+        )
+    return found
+
+
+def default_approval_extension() -> str:
+    """本 app 内置的审批 extension 路径。"""
+    configured = os.environ.get(APPROVAL_EXTENSION_ENV, "").strip()
+    if configured:
+        return configured
+    return str(Path(__file__).resolve().parent / "approval-gate.ts")
+
+
+class PiRpcSession:
+    """一条 pi RPC 子进程的生命周期封装。"""
+
+    def __init__(
+        self,
+        *,
+        cwd: str,
+        model: str | None = None,
+        provider: str | None = None,
+        extension_path: str | None = None,
+        extra_env: dict[str, str] | None = None,
+        command_timeout: float = 30.0,
+    ) -> None:
+        self._cwd = cwd
+        self._model = model
+        self._provider = provider
+        self._extension = extension_path if extension_path is not None else default_approval_extension()
+        self._extra_env = extra_env or {}
+        self._command_timeout = command_timeout
+        self._proc: asyncio.subprocess.Process | None = None
+        self._reader_task: asyncio.Task[None] | None = None
+        self._events: asyncio.Queue[PiEvent | None] = asyncio.Queue()
+        self._pending: dict[str, asyncio.Future[dict[str, Any]]] = {}
+        self._next_id = 0
+
+    # ── 生命周期 ────────────────────────────────────────────────────────────
+
+    async def start(self) -> None:
+        if self._proc is not None:
+            return
+        pi_bin = resolve_pi_bin()
+        args: list[str] = [pi_bin, "--mode", "rpc", "--no-session"]
+        if self._provider:
+            args.extend(["--provider", self._provider])
+        if self._model:
+            args.extend(["--model", self._model])
+        if self._extension and Path(self._extension).exists():
+            args.extend(["--extension", self._extension])
+        else:
+            logger.warning(
+                "审批 extension 不存在，工具调用将不受审批约束: %s",
+                self._extension,
+            )
+
+        env = {**os.environ, **self._extra_env}
+        self._proc = await asyncio.create_subprocess_exec(
+            *args,
+            cwd=self._cwd,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=env,
+        )
+        self._reader_task = asyncio.create_task(self._read_stdout())
+        logger.info(
+            "pi RPC 已启动 pid=%s cwd=%s model=%s",
+            self._proc.pid,
+            self._cwd,
+            self._model,
+        )
+
+    async def close(self) -> None:
+        """关闭 stdin 请求优雅退出；超时则强杀。"""
+        proc, self._proc = self._proc, None
+        if proc is None:
+            return
+        if self._reader_task is not None:
+            self._reader_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._reader_task
+            self._reader_task = None
+        try:
+            if proc.stdin is not None and not proc.stdin.is_closing():
+                proc.stdin.close()
+            await asyncio.wait_for(proc.wait(), timeout=_SHUTDOWN_TIMEOUT)
+        except (TimeoutError, ProcessLookupError):
+            with contextlib.suppress(Exception):
+                proc.kill()
+                await proc.wait()
+        finally:
+            self._events.put_nowait(None)
+            for fut in self._pending.values():
+                if not fut.done():
+                    fut.set_exception(PiError("pi 进程已关闭"))
+            self._pending.clear()
+
+    async def __aenter__(self) -> PiRpcSession:
+        await self.start()
+        return self
+
+    async def __aexit__(self, *exc_info: object) -> None:
+        await self.close()
+
+    @property
+    def alive(self) -> bool:
+        return self._proc is not None and self._proc.returncode is None
+
+    # ── stdout 读取（二进制按 LF 切分） ─────────────────────────────────────
+
+    async def _read_stdout(self) -> None:
+        proc = self._proc
+        if proc is None or proc.stdout is None:
+            return
+        buffer = bytearray()
+        try:
+            while True:
+                chunk = await proc.stdout.read(_READ_CHUNK)
+                if not chunk:
+                    break
+                buffer.extend(chunk)
+                while (idx := buffer.find(b"\n")) >= 0:
+                    line = bytes(buffer[:idx]).rstrip(b"\r")
+                    del buffer[: idx + 1]
+                    if line:
+                        self._dispatch_line(line)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("pi stdout 读取失败")
+        finally:
+            self._events.put_nowait(None)
+
+    def _dispatch_line(self, line: bytes) -> None:
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            logger.warning("pi 输出非 JSON 行，已忽略: %s", line[:200])
+            return
+        if not isinstance(record, dict):
+            return
+
+        rtype = record.get("type")
+        if rtype == "response":
+            cmd_id = record.get("id")
+            fut = self._pending.pop(str(cmd_id), None) if cmd_id is not None else None
+            if fut is not None and not fut.done():
+                fut.set_result(record)
+            else:
+                self._events.put_nowait(PiEvent("response", record))
+            return
+
+        if rtype == "extension_ui_request":
+            self._events.put_nowait(PiEvent("extension_ui", record))
+            return
+
+        self._events.put_nowait(PiEvent("event", record))
+
+    # ── 命令 ────────────────────────────────────────────────────────────────
+
+    async def _send(self, payload: dict[str, Any]) -> dict[str, Any]:
+        proc = self._proc
+        if proc is None or proc.stdin is None:
+            raise PiError("pi 进程未启动")
+        self._next_id += 1
+        cmd_id = str(self._next_id)
+        payload["id"] = cmd_id
+        fut: asyncio.Future[dict[str, Any]] = asyncio.get_running_loop().create_future()
+        self._pending[cmd_id] = fut
+        proc.stdin.write(json.dumps(payload, ensure_ascii=False).encode("utf-8") + b"\n")
+        await proc.stdin.drain()
+        try:
+            return await asyncio.wait_for(fut, timeout=self._command_timeout)
+        finally:
+            self._pending.pop(cmd_id, None)
+
+    async def prompt(self, message: str) -> None:
+        """发送一条 prompt。返回只代表「已接受」，不代表跑完。"""
+        resp = await self._send({"type": "prompt", "message": message})
+        if resp.get("success") is not True:
+            raise PiError(f"prompt 被拒绝: {resp.get('error')}")
+
+    async def abort(self) -> None:
+        """中止当前运行。"""
+        with contextlib.suppress(PiError, TimeoutError):
+            await self._send({"type": "abort"})
+
+    def drain_events(self) -> AsyncIterator[PiEvent]:
+        """消费事件流；进程结束时迭代器自然结束。"""
+        return self._iter_events()
+
+    async def _iter_events(self) -> AsyncIterator[PiEvent]:
+        while True:
+            item = await self._events.get()
+            if item is None:
+                return
+            yield item
+
+
+def make_temp_workdir(prefix: str = "fachuan-agent-") -> str:
+    """为一次会话准备隔离工作目录。"""
+    return tempfile.mkdtemp(prefix=prefix)

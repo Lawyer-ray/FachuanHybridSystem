@@ -305,6 +305,10 @@ def _register_app_routers() -> None:
 
     api_v1.add_router("/workbench", workbench_router, auth=JWTOrSessionAuth(), tags=["工作台"])
 
+    from apps.agent.api.agent_api import router as agent_router
+
+    api_v1.add_router("/agent", agent_router, tags=["Agent"])
+
     from apps.doc_converter.api import router as doc_converter_router
 
     api_v1.add_router("/doc-converter", doc_converter_router, auth=JWTOrSessionAuth(), tags=["DOC 转 DOCX"])
