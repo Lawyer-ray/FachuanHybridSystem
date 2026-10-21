@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from django.db.models import QuerySet
 
 from ..models import AgentSession

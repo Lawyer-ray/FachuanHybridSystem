@@ -86,7 +86,8 @@ def test_session_crud_and_ownership(authenticated_client: Any) -> None:
     assert deleted["deleted"] == 0
     assert AgentSession.objects.filter(session_id=session_id).exists()
 
-    assert authenticated_client.delete(f"/api/v1/agent/sessions/{session_id}").json()["deleted"] == 1
+    owner_delete = authenticated_client.delete(f"/api/v1/agent/sessions/{session_id}").json()
+    assert owner_delete["deleted"] == 1
 
 
 # ===================================================================
@@ -116,7 +117,9 @@ def test_send_message_without_pi_yields_error_stream(
 
 @pytest.mark.django_db
 def test_send_message_unknown_session(authenticated_client: Any) -> None:
-    resp = _post(authenticated_client, "/api/v1/agent/sessions/00000000-0000-0000-0000-000000000000/messages", {"message": "x"})
+    resp = _post(
+        authenticated_client, "/api/v1/agent/sessions/00000000-0000-0000-0000-000000000000/messages", {"message": "x"}
+    )
     assert resp.status_code == 200
     assert "会话不存在" in _sse_body(resp)
 
@@ -127,9 +130,7 @@ def test_send_message_unknown_session(authenticated_client: Any) -> None:
 
 
 @pytest.mark.django_db
-def test_approval_request_token_and_fail_closed(
-    authenticated_client: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_approval_request_token_and_fail_closed(authenticated_client: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FACHUAN_INTERNAL_TOKEN", "sekret-token")
 
     # 未带 token：拒绝，且不建审批记录

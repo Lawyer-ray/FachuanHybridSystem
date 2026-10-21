@@ -124,7 +124,7 @@ def _clear_decision(approval_id: str) -> None:
     try:
         cache.delete(f"{DECISION_KEY_PREFIX}{approval_id}")
     except Exception:
-        pass
+        logger.debug("清理审批决定键失败（可忽略）: %s", approval_id, exc_info=True)
 
 
 class _ApprovalWaiter:

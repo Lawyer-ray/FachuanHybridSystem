@@ -161,7 +161,7 @@ class EventBus:
                 try:
                     queue.get_nowait()
                 except asyncio.QueueEmpty:
-                    pass
+                    pass  # 已被消费者取走，无需丢弃
             await queue.put(event)
             delivered += 1
         return delivered
@@ -248,7 +248,7 @@ class EventBus:
             try:
                 await self._relay_task
             except (asyncio.CancelledError, Exception):
-                pass
+                pass  # 停止中继：取消或收尾异常都不再关心
             self._relay_task = None
 
 

@@ -176,9 +176,9 @@ async def send_message(  # pragma: no cover
                 user_id=user_id,
             ):
                 yield _sse(event)
-        except Exception as exc:
+        except Exception:
             logger.exception("SSE 生成器异常")
-            yield _sse({"type": "error", "message": f"流异常: {exc}"})
+            yield _sse({"type": "error", "message": "流处理异常，请稍后重试"})
 
     response = StreamingHttpResponse(generator(), content_type="text/event-stream")
     response["Cache-Control"] = "no-cache"

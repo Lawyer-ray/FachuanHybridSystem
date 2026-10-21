@@ -169,11 +169,12 @@ class TestEventBus:
         from apps.agent.services.event_bus import _redis_client
 
         # 当前项目用 Redis，能拿到客户端；拿不到也只应是 RuntimeError（明确报错）
+        client = None
         try:
             client = _redis_client()
         except RuntimeError:
             pytest.skip("当前缓存后端不是 Redis")
-        assert hasattr(client, "lrange")
+        assert client is not None and hasattr(client, "lrange")
 
     @pytest.mark.asyncio
     async def test_unregister_stops_delivery(self) -> None:
@@ -384,9 +385,7 @@ class TestAgentsMd:
         assert "法穿" in content
         assert "mcp__fachuan__" in content
 
-    def test_env_override(
-        self, tmp_path: object, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_env_override(self, tmp_path: object, monkeypatch: pytest.MonkeyPatch) -> None:
         from pathlib import Path
 
         from apps.agent.pi.shared_mcp import _write_agents_md

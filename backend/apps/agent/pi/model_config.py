@@ -23,10 +23,10 @@ pi 只接受一个 ``apiKey``。系统的多 Key 轮询（``core.llm.key_pool``�
 from __future__ import annotations
 
 import contextlib
+import itertools
 import json
 import logging
 import os
-import threading
 from pathlib import Path
 from typing import Any
 
@@ -37,19 +37,15 @@ GATEWAY_KEY_ENV = "FACHUAN_PI_GATEWAY_KEY"
 DEFAULT_CONTEXT_WINDOW = 128000
 DEFAULT_MAX_TOKENS = 8192
 
-_rotation_lock = threading.Lock()
-_rotation_cursor = 0
+#: 会话间轮转计数（itertools.count 的 next() 在 CPython 下是原子的，无需锁）
+_rotation = itertools.count()
 
 
 def _next_key(keys: list[str]) -> str:
     """会话间轮转 Key，避免所有会话压在同一把 Key 上。"""
-    global _rotation_cursor
     if not keys:
         return ""
-    with _rotation_lock:
-        key = keys[_rotation_cursor % len(keys)]
-        _rotation_cursor += 1
-    return key
+    return keys[next(_rotation) % len(keys)]
 
 
 def _load_provider(model_hint: str = "") -> Any:

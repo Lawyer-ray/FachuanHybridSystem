@@ -18,7 +18,6 @@ PER_MESSAGE_LIMIT = 4000
 #: transcript 总预算（约 8k~16k token 量级，防长会话撑爆上下文）
 TOTAL_LIMIT = 24000
 
-_ROLE_USER = "user"
 _ROLE_ASSISTANT = "assistant"
 _ROLE_TOOL = "tool"
 

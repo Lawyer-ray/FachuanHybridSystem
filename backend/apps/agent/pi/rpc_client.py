@@ -202,8 +202,8 @@ class PiRpcSession:
             task = getattr(self, attr)
             if task is not None:
                 task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await task
+                # return_exceptions=True：取消产生的 CancelledError 作为结果装箱，不向上抛
+                await asyncio.gather(task, return_exceptions=True)
                 setattr(self, attr, None)
         try:
             if proc.stdin is not None and not proc.stdin.is_closing():
