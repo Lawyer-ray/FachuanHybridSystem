@@ -21,9 +21,15 @@ from ninja import Router, Schema
 
 from apps.core.security.auth import JWTOrSessionAuth
 
-from ..models import AgentApproval, AgentMessage, AgentSession
-from ..services.approval import decide_approval, request_approval
+from ..models import AgentApproval, AgentSession
+from ..services.approval import decide_approval, get_approval_for_decision
+from ..services.approval import list_approvals as list_approval_records
+from ..services.approval import request_approval
 from ..services.chat_service import stream_chat
+from ..services.session_service import create_session as create_session_record
+from ..services.session_service import delete_session as delete_session_record
+from ..services.session_service import get_session as get_session_record
+from ..services.session_service import list_sessions as list_session_records
 
 logger = logging.getLogger(__name__)
 
@@ -93,15 +99,6 @@ def _user_id(request: Any) -> int | None:
     return int(user.pk) if user is not None else None
 
 
-def _session_queryset(request: Any) -> Any:
-    """按当前用户过滤的会话查询集（归属过滤，防横向越权）。"""
-    user = _current_user(request)
-    queryset = AgentSession.objects.all()
-    if user is not None:
-        queryset = queryset.filter(user_id=user.pk)
-    return queryset
-
-
 def _to_out(session: AgentSession) -> SessionOut:
     return SessionOut(
         session_id=str(session.session_id),
@@ -119,7 +116,7 @@ def _to_out(session: AgentSession) -> SessionOut:
 @router.post("/sessions", response=SessionOut)
 async def create_session(request: Any, payload: SessionIn) -> SessionOut:  # pragma: no cover
     """新建会话。"""
-    session = await AgentSession.objects.acreate(
+    session = await create_session_record(
         title=payload.title,
         llm_model=payload.llm_model,
         user_id=_user_id(request),
@@ -130,22 +127,14 @@ async def create_session(request: Any, payload: SessionIn) -> SessionOut:  # pra
 @router.get("/sessions", response=list[SessionOut])
 async def list_sessions(request: Any, limit: int = 50) -> list[SessionOut]:  # pragma: no cover
     """列出当前用户的会话。"""
-    user_id = _user_id(request)
-    queryset = AgentSession.objects.all()
-    if user_id is not None:
-        queryset = queryset.filter(user_id=user_id)
-    sessions = [s async for s in queryset[: max(1, min(limit, 200))]]
+    sessions = await list_session_records(user_id=_user_id(request), limit=limit)
     return [_to_out(s) for s in sessions]
 
 
 @router.delete("/sessions/{session_id}")
 async def delete_session(request: Any, session_id: str) -> dict[str, Any]:  # pragma: no cover
     """删除会话（级联删除消息与审批）。"""
-    user_id = _user_id(request)
-    queryset = AgentSession.objects.filter(session_id=session_id)
-    if user_id is not None:
-        queryset = queryset.filter(user_id=user_id)
-    deleted, _ = await queryset.adelete()
+    deleted = await delete_session_record(session_id=session_id, user_id=_user_id(request))
     return {"deleted": deleted}
 
 
@@ -164,7 +153,7 @@ async def send_message(  # pragma: no cover
 ) -> Any:
     """发消息并流式返回（SSE）。"""
     user_id = _user_id(request)
-    session = await _session_queryset(request).filter(session_id=session_id).afirst()
+    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
     if session is None:
         return StreamingHttpResponse(
             # 必须传可迭代对象：直接传 bytes 会被逐字节迭代成 int，
@@ -176,7 +165,7 @@ async def send_message(  # pragma: no cover
     async def generator() -> AsyncIterator[bytes]:
         # 会话对象在流式阶段重新取：ORM 实例带着数据库连接状态，
         # 跨到 StreamingHttpResponse 的异步迭代阶段可能已失效。
-        current = await _session_queryset(request).filter(session_id=session_id).afirst()
+        current = await get_session_record(session_id=session_id, user_id=user_id)
         if current is None:
             yield _sse({"type": "error", "message": "会话不存在"})
             return
@@ -251,17 +240,7 @@ async def submit_approval_decision(  # pragma: no cover
 ) -> dict[str, Any]:
     """前端提交审批决定（仅会话所有者或超级用户可决定）。"""
     user = _current_user(request)
-    record = None
-    try:
-        import uuid as _uuid
-
-        record = (
-            await AgentApproval.objects.filter(approval_id=_uuid.UUID(approval_id.replace("-", "")))
-            .select_related("session")
-            .afirst()
-        )
-    except (ValueError, AttributeError):
-        record = None
+    record = await get_approval_for_decision(approval_id)
 
     if record is not None and not _may_decide(user, record):
         return {"success": False, "approved": payload.approved, "error": "无权审批该请求"}
@@ -281,11 +260,7 @@ def _may_decide(user: Any, record: AgentApproval) -> bool:
 @router.get("/approvals", response=list[dict[str, Any]])
 async def list_approvals(request: Any, limit: int = 50) -> list[dict[str, Any]]:  # pragma: no cover
     """列出审批记录（审计用；非超级用户仅见自己会话的记录）。"""
-    user = _current_user(request)
-    queryset = AgentApproval.objects.all()
-    if user is not None and not getattr(user, "is_superuser", False):
-        queryset = queryset.filter(session__user_id=user.pk)
-    records = [a async for a in queryset[: max(1, min(limit, 200))]]
+    records = await list_approval_records(user=_current_user(request), limit=limit)
     return [
         {
             "approval_id": str(a.approval_id),

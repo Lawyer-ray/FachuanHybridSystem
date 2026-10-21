@@ -327,3 +327,20 @@ async def decide_approval(
         await record.asave(update_fields=["status", "decided_at", "decided_by"])
 
     return found or record is not None
+
+
+async def get_approval_for_decision(approval_id: str) -> AgentApproval | None:
+    """取审批记录（含会话预取）供归属判定；无效 id 返回 None。"""
+    try:
+        normalized = approval_id.replace("-", "")
+        return await AgentApproval.objects.select_related("session").filter(approval_id=uuid.UUID(normalized)).afirst()
+    except (ValueError, AttributeError):
+        return None
+
+
+async def list_approvals(*, user: Any, limit: int) -> list[AgentApproval]:
+    """审批记录列表（审计用；非超级用户仅见自己会话的记录）。"""
+    queryset = AgentApproval.objects.all()
+    if user is not None and not getattr(user, "is_superuser", False):
+        queryset = queryset.filter(session__user_id=user.pk)
+    return [record async for record in queryset[: max(1, min(limit, 200))]]
