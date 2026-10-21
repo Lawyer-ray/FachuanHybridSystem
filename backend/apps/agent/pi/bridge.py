@@ -107,84 +107,120 @@ def translate(
     agent: str = "pi",
     tracker: DeltaTracker | None = None,
 ) -> dict[str, Any] | None:
-    """把一条 pi 记录翻成前端 SSE 事件；不需要外发时返回 ``None``。"""
+    """把一条 pi 记录翻成前端 SSE 事件；不需要外发时返回 ``None``。
+
+    一条记录可能产出多个事件（assistant 消息同时带文本和工具调用），
+    完整结果用 :func:`translate_all`；本函数返回第一个，供单测断言。
+    """
+    events = translate_all(event, agent=agent, tracker=tracker)
+    return events[0] if events else None
+
+
+def translate_all(
+    event: PiEvent,
+    *,
+    agent: str = "pi",
+    tracker: DeltaTracker | None = None,
+) -> list[dict[str, Any]]:
+    """把一条 pi 记录翻成零到多个前端 SSE 事件。"""
     if event.kind == "extension_ui":
         # 审批走独立 HTTP 通道，扩展 UI 交互本轮不透传
         logger.debug("忽略 extension_ui 记录: %s", event.raw.get("method"))
-        return None
+        return []
 
     etype = event.event_type
+
+    # ── 消息边界：每条 assistant 消息开始时复位水位 ─────────────────────────
+    # 一个 run 内会有多段 assistant 文本（工具循环的常态）。水位是「本条消息
+    # 已发送长度」，跨消息累计会把第二段短文本整段吞掉、长文本截掉开头。
+    if etype == "message_start":
+        message = event.raw.get("message")
+        if isinstance(message, dict) and message.get("role") == "assistant" and tracker is not None:
+            tracker.reset()
+        return []
 
     # ── 文本增量 ────────────────────────────────────────────────────────────
     if etype == "message_end":
         return _translate_message_end(event.raw, tracker)
     if etype == "message_update":
-        return _translate_message_update(event.raw, tracker)
+        event_out = _translate_message_update(event.raw, tracker)
+        return [event_out] if event_out is not None else []
 
     # ── 工具事件（若 pi 某版本直接给）─────────────────────────────────────
     if etype in ("tool_call", "tool_execution_start"):
-        return {
-            "type": "tool_call",
-            "tool_call_id": str(event.raw.get("toolCallId") or event.raw.get("id") or ""),
-            "name": _tool_name(event.raw),
-            "arguments": event.raw.get("input") or event.raw.get("arguments"),
-        }
+        return [
+            {
+                "type": "tool_call",
+                "tool_call_id": str(event.raw.get("toolCallId") or event.raw.get("id") or ""),
+                "name": _tool_name(event.raw),
+                "arguments": event.raw.get("input") or event.raw.get("arguments"),
+            }
+        ]
     if etype in ("tool_result", "tool_execution_end"):
         result = str(event.raw.get("result") or event.raw.get("output") or "")
-        return {
-            "type": "tool_result",
-            "tool_call_id": str(event.raw.get("toolCallId") or event.raw.get("id") or ""),
-            "name": _tool_name(event.raw),
-            "result": result[:_RESULT_PREVIEW_LIMIT],
-        }
+        return [
+            {
+                "type": "tool_result",
+                "tool_call_id": str(event.raw.get("toolCallId") or event.raw.get("id") or ""),
+                "name": _tool_name(event.raw),
+                "result": result[:_RESULT_PREVIEW_LIMIT],
+            }
+        ]
 
     # ── 生命周期 ────────────────────────────────────────────────────────────
     if etype in ("agent_start", "turn_start", "step_start"):
-        return {"type": "activity", "status": "thinking", "agent": agent}
+        return [{"type": "activity", "status": "thinking", "agent": agent}]
 
     if etype == "error":
-        return {"type": "error", "message": str(event.raw.get("message") or "pi 运行错误")}
+        return [{"type": "error", "message": str(event.raw.get("message") or "pi 运行错误")}]
 
-    return None
+    return []
 
 
 def _translate_message_end(
     raw: dict[str, Any],
     tracker: DeltaTracker | None,
-) -> dict[str, Any] | None:
-    """处理 message_end：文本差量 + 工具调用/结果。"""
+) -> list[dict[str, Any]]:
+    """处理 message_end：文本差量 + 工具调用/结果（可并存，都要发）。"""
     message = raw.get("message")
     if not isinstance(message, dict):
-        return None
+        return []
     role = message.get("role")
 
     if role == "assistant":
+        events: list[dict[str, Any]] = []
         text = _content_text(message)
         if text and tracker is not None:
             chunk = tracker.diff(text)
             if chunk:
-                return {"type": "delta", "content": chunk}
+                events.append({"type": "delta", "content": chunk})
         calls = _content_tool_calls(message)
         if calls:
             call = calls[0]
-            return {
-                "type": "tool_call",
-                "tool_call_id": str(call.get("id") or call.get("toolCallId") or ""),
-                "name": str(call.get("name") or call.get("toolName") or ""),
-                "arguments": call.get("input") or call.get("arguments"),
-            }
-        return None
+            events.append(
+                {
+                    "type": "tool_call",
+                    "tool_call_id": str(call.get("id") or call.get("toolCallId") or ""),
+                    "name": str(call.get("name") or call.get("toolName") or ""),
+                    "arguments": call.get("input") or call.get("arguments"),
+                }
+            )
+        # 文本与工具调用并存时曾只发文本（提前 return 吞掉 tool_call），
+        # 前端会看不到工具在执行——两件事都要发。
+        return events
 
     if role == "tool":
         # 工具结果消息：content 是工具输出文本
-        return {
-            "type": "tool_result",
-            "tool_call_id": str(message.get("toolCallId") or message.get("id") or ""),
-            "name": str(message.get("toolName") or ""),
-            "result": _content_text(message)[:_RESULT_PREVIEW_LIMIT],
-        }
+        return [
+            {
+                "type": "tool_result",
+                "tool_call_id": str(message.get("toolCallId") or message.get("id") or ""),
+                "name": str(message.get("toolName") or ""),
+                "result": _content_text(message)[:_RESULT_PREVIEW_LIMIT],
+            }
+        ]
 
-    return None
+    return []
 
 
 def _translate_message_update(
@@ -224,8 +260,7 @@ async def stream_events(
     """
     tracker = DeltaTracker()
     async for event in session.drain_events():
-        translated = translate(event, agent=agent, tracker=tracker)
-        if translated is not None:
+        for translated in translate_all(event, agent=agent, tracker=tracker):
             yield translated
         if event.kind == "event" and event.event_type == "agent_settled":
             return

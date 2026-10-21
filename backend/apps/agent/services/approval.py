@@ -23,7 +23,7 @@
 1. extension 侧 ``HIGH_RISK_TOOLS`` 命中即回调
 2. 服务端 ``HIGH_RISK_TOOLS`` 二次判定，即便 extension 被绕过也拦得住
 
-两份清单的一致性由 ``tests/ci/unit/agent/test_approval.py`` 守护。
+两份清单的一致性由 ``tests/ci/unit/agent/test_agent_runtime.py`` 守护。
 """
 
 from __future__ import annotations
@@ -38,6 +38,7 @@ from typing import Any
 from django.utils import timezone
 
 from ..models import AgentApproval, AgentSession
+from .event_bus import redis_cache_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -54,17 +55,6 @@ HIGH_RISK_TOOLS: frozenset[str] = frozenset(
 )
 
 DEFAULT_TIMEOUT = 300.0
-
-
-def _redis_backend_enabled() -> bool:
-    """缓存后端是否 Redis（跨进程分发可用）。"""
-    try:
-        from django.conf import settings
-
-        backend = str(((settings.CACHES or {}).get("default") or {}).get("BACKEND", ""))
-    except Exception:
-        return False
-    return "redis" in backend.lower()
 
 
 def is_high_risk(tool_name: str) -> bool:
@@ -84,7 +74,7 @@ def _write_decision(approval_id: str, approved: bool) -> None:
     而 ``_ApprovalWaiter`` 是进程内的。没有这一步，跨 worker 时等待方永远
     等不到结果，只能超时走 fail-closed（表现为「审批了但工具没执行」）。
     """
-    if not _redis_backend_enabled():
+    if not redis_cache_enabled():
         return
     from django.core.cache import cache
 
@@ -96,7 +86,7 @@ def _write_decision(approval_id: str, approved: bool) -> None:
 
 def _read_decision(approval_id: str) -> bool | None:
     """读取其他 worker 写入的决定；无则返回 ``None``。"""
-    if not _redis_backend_enabled():
+    if not redis_cache_enabled():
         return None
     from django.core.cache import cache
 
@@ -110,7 +100,7 @@ def _read_decision(approval_id: str) -> bool | None:
 
 
 def _clear_decision(approval_id: str) -> None:
-    if not _redis_backend_enabled():
+    if not redis_cache_enabled():
         return
     from django.core.cache import cache
 
@@ -213,19 +203,22 @@ async def request_approval(
         reason=reason,
     )
 
-    # 推给该会话的所有 SSE 订阅者。注意**不能自己 register 一个队列再 put**：
-    # 那会与 chat_service 的 SSE 循环各持一个队列，事件永远送不到前端。
-    # 这里统一走 bus.publish，送到真实订阅者。
-    from .event_bus import get_bus
-
+    # 先登记等待者、再 publish。反过来的话，若「用户决定」先于 register 到达
+    # （自动审批 / 前端重试），resolve 找不到等待者只能落库 approved，等待方
+    # 却等不到事件，最终超时分支会把已 approved 的记录覆盖成 timeout——
+    # 用户点了同意、工具却被拒。
     delivered = 0
     has_remote = False
+    event: asyncio.Event | None = None
     if session_id:
+        event = await _waiter.register(approval_id)
+        from .event_bus import get_bus
+
         bus = get_bus()
         # 订阅者可能在**别的 worker**（SSE 连接在 A，审批回调落在 B）。
         # 多 worker 下 publish 到 Redis 即可送达，此时本地 delivered 为 0
         # 但仍有远端订阅者，不能据此判为「无人可问」。
-        has_remote = bool(await bus.has_subscribers(session_id)) or _redis_backend_enabled()
+        has_remote = bool(await bus.has_subscribers(session_id)) or redis_cache_enabled()
         delivered = await bus.publish(
             session_id,
             {
@@ -237,9 +230,7 @@ async def request_approval(
             },
         )
 
-    if session_id and (delivered or has_remote):
-        event = await _waiter.register(approval_id)
-        approved = False
+    if event is not None and (delivered or has_remote):
         try:
             approved = await _wait_decision(approval_id, event, timeout)
             record.status = AgentApproval.Status.APPROVED if approved else AgentApproval.Status.REJECTED
@@ -254,6 +245,8 @@ async def request_approval(
         return record.is_granted, approval_id
 
     # 没有订阅者：无人可问 → fail-closed
+    if event is not None:
+        await _waiter.discard(approval_id)
     logger.warning("无 SSE 订阅者，审批按拒绝处理: tool=%s", tool_name)
     record.status = AgentApproval.Status.REJECTED
     record.decided_at = timezone.now()

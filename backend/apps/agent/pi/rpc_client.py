@@ -30,8 +30,14 @@ logger = logging.getLogger(__name__)
 
 PI_BIN_ENV = "FACHUAN_PI_BIN"
 APPROVAL_EXTENSION_ENV = "FACHUAN_PI_APPROVAL_EXTENSION"
+#: 只向模型声明法穿 MCP 工具。pi 默认还带 read/bash/edit/write 四个内置工具，
+#: 它们能以 Django 进程的权限读写文件、执行命令，且不在审批清单内——
+#: 一段藏在工具输出里的提示注入就能免审批执行 bash。按 cli.md，``--tools``
+#: 以 ``mcp__`` 开头的条目会整体替换工具选择，内置工具不再声明。
+TOOL_SELECTION = "mcp__fachuan__*"
 _READ_CHUNK = 65536
 _SHUTDOWN_TIMEOUT = 5.0
+_STDERR_LINE_LIMIT = 500
 
 
 class PiError(RuntimeError):
@@ -132,6 +138,7 @@ class PiRpcSession:
         self._command_timeout = command_timeout
         self._proc: asyncio.subprocess.Process | None = None
         self._reader_task: asyncio.Task[None] | None = None
+        self._stderr_task: asyncio.Task[None] | None = None
         self._events: asyncio.Queue[PiEvent | None] = asyncio.Queue()
         self._pending: dict[str, asyncio.Future[dict[str, Any]]] = {}
         self._next_id = 0
@@ -141,21 +148,29 @@ class PiRpcSession:
     async def start(self) -> None:
         if self._proc is not None:
             return
+        # 审批 extension 是工具调用的唯一人工闸门。文件缺失时若只告警继续，
+        # 等于所有高危工具裸奔（服务端清单只过滤「到达的回调」，没回调就没拦截），
+        # 所以这里 fail-closed：拒绝启动。放在定位 pi 之前，便于无 pi 环境也能测到。
+        if not self._extension or not Path(self._extension).exists():
+            raise PiError(f"审批 extension 不存在，拒绝启动 pi（避免工具调用失去审批约束）: {self._extension}")
         pi_bin = resolve_pi_bin()
         # --approve：RPC 模式无法弹交互式信任提示，项目级 .pi/mcp.json 会被忽略。
         # 工作目录是本 app 自己创建的临时目录（内容由我们控制），可直接信任。
-        args: list[str] = [pi_bin, "--mode", "rpc", "--no-session", "--approve"]
+        args: list[str] = [
+            pi_bin,
+            "--mode",
+            "rpc",
+            "--no-session",
+            "--approve",
+            "--tools",
+            TOOL_SELECTION,
+            "--extension",
+            self._extension,
+        ]
         if self._provider:
             args.extend(["--provider", self._provider])
         if self._model:
             args.extend(["--model", self._model])
-        if self._extension and Path(self._extension).exists():
-            args.extend(["--extension", self._extension])
-        else:
-            logger.warning(
-                "审批 extension 不存在，工具调用将不受审批约束: %s",
-                self._extension,
-            )
 
         env = {**_clean_env(), **self._extra_env}
         self._proc = await asyncio.create_subprocess_exec(
@@ -167,6 +182,10 @@ class PiRpcSession:
             env=env,
         )
         self._reader_task = asyncio.create_task(self._read_stdout())
+        # stderr 必须有人消费：pi 的诊断全走 stderr，管道缓冲（约 64KB）写满后
+        # pi 会阻塞在写端，表现为整个请求卡死。这里顺手把内容记进日志，
+        # extension 加载失败一类的问题才有迹可循。
+        self._stderr_task = asyncio.create_task(self._drain_stderr())
         logger.info(
             "pi RPC 已启动 pid=%s cwd=%s model=%s",
             self._proc.pid,
@@ -179,11 +198,13 @@ class PiRpcSession:
         proc, self._proc = self._proc, None
         if proc is None:
             return
-        if self._reader_task is not None:
-            self._reader_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._reader_task
-            self._reader_task = None
+        for attr in ("_reader_task", "_stderr_task"):
+            task = getattr(self, attr)
+            if task is not None:
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+                setattr(self, attr, None)
         try:
             if proc.stdin is not None and not proc.stdin.is_closing():
                 proc.stdin.close()
@@ -234,6 +255,28 @@ class PiRpcSession:
             logger.exception("pi stdout 读取失败")
         finally:
             self._events.put_nowait(None)
+
+    async def _drain_stderr(self) -> None:
+        """持续消费 stderr 并记日志（防管道写满卡死；诊断信息可查）。"""
+        proc = self._proc
+        if proc is None or proc.stderr is None:
+            return
+        buffer = bytearray()
+        try:
+            while True:
+                chunk = await proc.stderr.read(_READ_CHUNK)
+                if not chunk:
+                    break
+                buffer.extend(chunk)
+                while (idx := buffer.find(b"\n")) >= 0:
+                    line = bytes(buffer[:idx]).decode("utf-8", "replace").strip()
+                    del buffer[: idx + 1]
+                    if line:
+                        logger.info("pi stderr: %s", line[:_STDERR_LINE_LIMIT])
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.debug("pi stderr 读取结束", exc_info=True)
 
     def _dispatch_line(self, line: bytes) -> None:
         try:

@@ -32,6 +32,7 @@ from ..pi.pool import PiProcessPool, PoolConfig
 from ..pi.rpc_client import PiError, PiNotAvailableError
 from ..pi.shared_mcp import resolve_endpoint, shared_enabled
 from .event_bus import get_bus
+from .history import render_transcript
 
 logger = logging.getLogger(__name__)
 
@@ -133,13 +134,43 @@ def _session_env(session: AgentSession | None, user_id: int | None) -> dict[str,
     return env
 
 
+async def _recent_history(session: AgentSession, limit: int = 40) -> list[AgentMessage]:
+    """取最近若干条历史消息（倒序取再反转，避免全表加载）。"""
+    rows = AgentMessage.objects.filter(session=session).order_by("-created_at", "-id")[:limit]
+    messages = [m async for m in rows]
+    messages.reverse()
+    return messages
+
+
+async def _persist_tool_message(session: AgentSession, event: dict[str, Any]) -> None:
+    """落库工具结果（失败只记日志，不影响 SSE 流）。"""
+    try:
+        await AgentMessage.objects.acreate(
+            session=session,
+            role=AgentMessage.Role.TOOL,
+            content=str(event.get("result") or "")[:8000],
+            tool_name=str(event.get("name") or ""),
+            metadata={"tool_call_id": str(event.get("tool_call_id") or "")},
+        )
+    except Exception:
+        logger.warning("工具消息落库失败", exc_info=True)
+
+
 async def stream_chat(
     *,
     session: AgentSession,
     user_message: str,
     user_id: int | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
-    """跑一轮对话，产出 SSE 事件。"""
+    """跑一轮对话，产出 SSE 事件。
+
+    多轮上下文：pi 每请求新进程、天然无记忆，历史由 ``AgentMessage`` 表持有，
+    发送前经 :func:`render_transcript` 渲染进 prompt；本轮的助手文本与工具
+    结果在流结束时回写该表，供下一轮与审计使用。
+    """
+    history = await _recent_history(session)
+    prompt_text = render_transcript(history, user_message)
+
     await AgentMessage.objects.acreate(
         session=session,
         role=AgentMessage.Role.USER,
@@ -151,17 +182,22 @@ async def stream_chat(
     external_queue = await bus.register(str(session.session_id))
 
     follow_ok = True
+    model: str | None = None
+    assistant_parts: list[str] = []
     try:
         yield {"type": "meta", "session_id": str(session.session_id), "agent": "pi"}
         yield {"type": "activity", "status": "thinking", "agent": "pi"}
 
         pool = await get_pool()
+        # 按请求解析模型：Admin 改了 LLMProvider 默认模型立即生效，
+        # 且 --model 与 models.json 同源不会失配（池配置里的只是兜底）。
+        model = await _resolve_model()
         # 会话级 env：extension 靠 FACHUAN_SESSION_ID 把审批回调路由回本会话。
         # 必须在启动 pi 之前注入，否则回调里 session_id 为空，前端收不到
         # approval_request，只能等超时走 fail-closed。
         session_env = _session_env(session, user_id)
-        async with pool.acquire(session_env=session_env) as pi_session:
-            await pi_session.prompt(user_message)
+        async with pool.acquire(session_env=session_env, model=model) as pi_session:
+            await pi_session.prompt(prompt_text)
 
             # 同时消费两个来源：pi 事件流 + 外部总线（审批请求）。
             # 不用「两个 get() task + asyncio.wait」—那个写法在 yield 让出控制权后
@@ -186,6 +222,10 @@ async def stream_chat(
                     except StopAsyncIteration:
                         break
                     yield event
+                    if event.get("type") == "delta":
+                        assistant_parts.append(str(event.get("content") or ""))
+                    elif event.get("type") == "tool_result":
+                        await _persist_tool_message(session, event)
                     if event.get("type") == "done":
                         break
 
@@ -208,4 +248,15 @@ async def stream_chat(
         await bus.unregister(str(session.session_id), external_queue)
 
     if follow_ok:
+        assistant_text = "".join(assistant_parts).strip()
+        if assistant_text:
+            try:
+                await AgentMessage.objects.acreate(
+                    session=session,
+                    role=AgentMessage.Role.ASSISTANT,
+                    content=assistant_text,
+                    metadata={"model": model or ""},
+                )
+            except Exception:
+                logger.warning("助手消息落库失败", exc_info=True)
         yield {"type": "done", "session_id": str(session.session_id)}

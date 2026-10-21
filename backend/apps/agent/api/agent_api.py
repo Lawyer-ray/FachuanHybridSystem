@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import hmac
 import json
 import logging
 import os
@@ -80,11 +81,25 @@ class PiApprovalOut(Schema):
     reason: str = ""
 
 
-def _user_id(request: Any) -> int | None:
+def _current_user(request: Any) -> Any:
     user = getattr(request, "auth", None) or getattr(request, "user", None)
     if user is not None and getattr(user, "is_authenticated", False):
-        return int(user.pk)
+        return user
     return None
+
+
+def _user_id(request: Any) -> int | None:
+    user = _current_user(request)
+    return int(user.pk) if user is not None else None
+
+
+def _session_queryset(request: Any) -> Any:
+    """按当前用户过滤的会话查询集（归属过滤，防横向越权）。"""
+    user = _current_user(request)
+    queryset = AgentSession.objects.all()
+    if user is not None:
+        queryset = queryset.filter(user_id=user.pk)
+    return queryset
 
 
 def _to_out(session: AgentSession) -> SessionOut:
@@ -149,7 +164,7 @@ async def send_message(  # pragma: no cover
 ) -> Any:
     """发消息并流式返回（SSE）。"""
     user_id = _user_id(request)
-    session = await AgentSession.objects.filter(session_id=session_id).afirst()
+    session = await _session_queryset(request).filter(session_id=session_id).afirst()
     if session is None:
         return StreamingHttpResponse(
             _sse({"type": "error", "message": "会话不存在"}),
@@ -159,7 +174,7 @@ async def send_message(  # pragma: no cover
     async def generator() -> AsyncIterator[bytes]:
         # 会话对象在流式阶段重新取：ORM 实例带着数据库连接状态，
         # 跨到 StreamingHttpResponse 的异步迭代阶段可能已失效。
-        current = await AgentSession.objects.filter(session_id=session_id).afirst()
+        current = await _session_queryset(request).filter(session_id=session_id).afirst()
         if current is None:
             yield _sse({"type": "error", "message": "会话不存在"})
             return
@@ -186,16 +201,22 @@ async def send_message(  # pragma: no cover
 def _internal_token_ok(request: Any) -> bool:
     """extension 回调的服务间鉴权。
 
-    未配置 ``FACHUAN_INTERNAL_TOKEN`` 时（开发环境）放行，但记录告警；
-    生产必须配置。
+    - 配置了 ``FACHUAN_INTERNAL_TOKEN``：常数时间比对（防时序侧信道）。
+    - 未配置：**仅 DEBUG 开发态放行**并告警；非 DEBUG 一律拒绝（fail-closed）。
+      extension 没有用户会话，这个 token 是该端点唯一的鉴权手段。
     """
     expected = os.environ.get("FACHUAN_INTERNAL_TOKEN", "").strip()
-    if not expected:
-        logger.warning("FACHUAN_INTERNAL_TOKEN 未配置，审批回调未鉴权（仅限开发环境）")
-        return True
     headers = getattr(request, "headers", None)
     provided = headers.get("X-Internal-Token", "") if headers is not None else ""
-    return str(provided) == expected
+    if not expected:
+        from django.conf import settings as dj_settings
+
+        if getattr(dj_settings, "DEBUG", False):
+            logger.warning("FACHUAN_INTERNAL_TOKEN 未配置，审批回调未鉴权（仅限开发环境）")
+            return True
+        logger.error("生产环境未配置 FACHUAN_INTERNAL_TOKEN，审批回调已拒绝")
+        return False
+    return hmac.compare_digest(str(provided).encode(), expected.encode())
 
 
 @router.post("/approval/request", auth=None, response=PiApprovalOut)
@@ -226,15 +247,43 @@ async def submit_approval_decision(  # pragma: no cover
     approval_id: str,
     payload: ApprovalDecideIn,
 ) -> dict[str, Any]:
-    """前端提交审批决定。"""
+    """前端提交审批决定（仅会话所有者或超级用户可决定）。"""
+    user = _current_user(request)
+    record = None
+    try:
+        import uuid as _uuid
+
+        record = (
+            await AgentApproval.objects.filter(approval_id=_uuid.UUID(approval_id.replace("-", "")))
+            .select_related("session")
+            .afirst()
+        )
+    except (ValueError, AttributeError):
+        record = None
+
+    if record is not None and not _may_decide(user, record):
+        return {"success": False, "approved": payload.approved, "error": "无权审批该请求"}
+
     ok = await decide_approval(approval_id, payload.approved, user_id=_user_id(request))
     return {"success": ok, "approved": payload.approved}
 
 
+def _may_decide(user: Any, record: AgentApproval) -> bool:
+    """审批归属判定：会话所有者或超级用户；无主会话仅超级用户。"""
+    if user is not None and getattr(user, "is_superuser", False):
+        return True
+    owner_id = getattr(record.session, "user_id", None) if record.session is not None else None
+    return user is not None and owner_id is not None and int(owner_id) == int(user.pk)
+
+
 @router.get("/approvals", response=list[dict[str, Any]])
 async def list_approvals(request: Any, limit: int = 50) -> list[dict[str, Any]]:  # pragma: no cover
-    """列出审批记录（审计用）。"""
-    records = [a async for a in AgentApproval.objects.all()[: max(1, min(limit, 200))]]
+    """列出审批记录（审计用；非超级用户仅见自己会话的记录）。"""
+    user = _current_user(request)
+    queryset = AgentApproval.objects.all()
+    if user is not None and not getattr(user, "is_superuser", False):
+        queryset = queryset.filter(session__user_id=user.pk)
+    records = [a async for a in queryset[: max(1, min(limit, 200))]]
     return [
         {
             "approval_id": str(a.approval_id),

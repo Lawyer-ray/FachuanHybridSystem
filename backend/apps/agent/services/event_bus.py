@@ -71,8 +71,11 @@ def _redis_client() -> Any:
     raise RuntimeError("当前缓存后端不支持原生 Redis 操作")
 
 
-def _redis_available() -> bool:
-    """缓存后端是否是 Redis（决定是否启用跨进程分发）。"""
+def redis_cache_enabled() -> bool:
+    """缓存后端是否是 Redis（决定跨进程分发是否可用）。
+
+    approval.py 的跨 worker 决定读写也依赖同一判定，统一从这里取。
+    """
     try:
         from django.conf import settings
 
@@ -130,7 +133,7 @@ class EventBus:
         """
         delivered = await self._deliver_local(session_id, event, skip_origin=_PROCESS_ID)
 
-        if _redis_available():
+        if redis_cache_enabled():
             await self._publish_redis(session_id, event)
 
         return delivered
@@ -183,7 +186,7 @@ class EventBus:
 
     def _ensure_relay(self) -> None:
         """确保本进程的 Redis 中继协程在跑。"""
-        if not _redis_available():
+        if not redis_cache_enabled():
             return
         if self._relay_task is not None and not self._relay_task.done():
             return

@@ -1,22 +1,22 @@
-"""pi 进程池 —— 支撑高并发的执行层。
+"""pi 进程闸门 —— 限制并发、按请求造进程。
 
-## 为什么是进程池
+## 为什么每请求一个进程（不复用）
 
-pi 的 session 是**进程内状态**。单进程里切 session 会串行，做不到真并发。
+两个硬约束决定了复用不可行：
 
-实测：4 个 pi 进程并行跑 prompt，总耗时 5.2s，各自独立 ``agent_settled``；
-8 进程 + 共享 MCP 时总耗时 4.1s。确认进程级并发可行。
+1. **审批路由靠环境变量**：审批 extension 在 pi 进程启动时读取
+   ``FACHUAN_SESSION_ID`` / ``FACHUAN_USER_ID``，同一进程无法服务第二个会话
+   （否则审批弹窗会推给错误的前端）。
+2. **pi 的会话是进程内状态**：复用进程会把上一个用户的对话残留给下一个用户。
 
-## 与共享 MCP 的配合
+MCP 已经共享为一份常驻（见 ``shared_mcp.py``），进程本身的造价可接受；
+「池」的作用退化为**限制并发数 + 统一进程构造**（配置渲染、临时目录、env 清洗）。
 
-池里每个 pi 进程都通过 HTTP 连同一份共享 MCP（见 ``shared_mcp.py``），
-因此池的大小只影响 pi 自身的开销，不再线性放大 MCP 的 225MB。
+## 生命周期
 
-## 池的语义
-
-- ``acquire()`` 取空闲会话；无空闲则新建（受 semaphore 限流）
-- 用完 ``release()`` 归还；超过 ``max_idle`` 的归还时销毁
-- 归还时检查进程存活，崩溃的进程不会回到池里
+每次 ``acquire()``：建临时目录 → 渲染 pi 配置（models.json 从数据库读）→
+启动进程 → 交给调用方 → 退出时关闭进程并**删除临时目录**（目录里的
+models.json 含真实 API key，绝不能在磁盘上累积）。
 """
 
 from __future__ import annotations
@@ -40,7 +40,6 @@ class PoolConfig:
     """池的容量与进程参数。"""
 
     size: int = 4
-    max_idle: int = 4
     model: str | None = None
     provider: str | None = None
     extension_path: str | None = None
@@ -49,117 +48,68 @@ class PoolConfig:
 
 
 class PiProcessPool:
-    """固定容量的 pi 子进程池。"""
+    """并发受限的 pi 进程工厂（进程不回收，用完即毁）。"""
 
     def __init__(self, config: PoolConfig | None = None) -> None:
         self._config = config or PoolConfig()
         self._semaphore = asyncio.Semaphore(max(1, self._config.size))
-        self._idle: list[PiRpcSession] = []
-        self._workdirs: list[str] = []
         self._closed = False
-        self._lock = asyncio.Lock()
 
     @property
     def size(self) -> int:
         return max(1, self._config.size)
 
-    async def _create(self) -> PiRpcSession:
-        cwd = make_temp_workdir()
-        self._workdirs.append(cwd)
-        # 完整配置（模型 + MCP）写到该目录的用户级位置，再用 PI_CODING_AGENT_DIR
-        # 指向它。项目级 .pi/mcp.json 需要项目信任，RPC 模式无法弹信任提示，
-        # 临时目录永远未受信 → 配置会被静默忽略，MCP 根本不加载。
-        #
-        # write_pi_config 会读数据库（LLMProvider），必须放到线程里跑，
-        # 否则在 async 上下文抛 SynchronousOnlyOperation，models.json 写不出来。
-        from asgiref.sync import sync_to_async
-
-        await sync_to_async(write_pi_config, thread_sensitive=True)(
-            cwd, self._config.mcp_endpoint, model_hint=self._config.model or ""
-        )
-        extra_env = {**(self._config.extra_env or {}), "PI_CODING_AGENT_DIR": cwd}
-        session = PiRpcSession(
-            cwd=cwd,
-            model=self._config.model,
-            provider=self._config.provider,
-            extension_path=self._config.extension_path,
-            extra_env=extra_env,
-        )
-        await session.start()
-        return session
-
-    async def _take(self) -> PiRpcSession:
-        async with self._lock:
-            while self._idle:
-                candidate = self._idle.pop()
-                if candidate.alive:
-                    return candidate
-                # 已死进程：清理后继续找
-                await candidate.close()
-        return await self._create()
-
-    async def _give_back(self, session: PiRpcSession) -> None:
-        if not session.alive:
-            await session.close()
-            return
-        async with self._lock:
-            if not self._closed and len(self._idle) < max(1, self._config.max_idle):
-                self._idle.append(session)
-                return
-        await session.close()
-
     @contextlib.asynccontextmanager
     async def acquire(
         self,
         session_env: dict[str, str] | None = None,
+        model: str | None = None,
     ) -> AsyncIterator[PiRpcSession]:
-        """借出一个 pi 会话，退出时销毁。
-
-        为什么**不复用**进程：审审批 extension 通过环境变量拿到
-        ``FACHUAN_SESSION_ID`` 才能把审批回调路由到正确的会话。环境变量在
-        进程启动时固定，同一个 pi 进程无法服务两个不同会话（否则审批会推给
-        错误的前端）。pi 进程本身很轻（MCP 已共享为一份），按会话新建的代价
-        可以接受，池的作用退化为「限制并发数」。
+        """构造一个 pi 会话，退出时销毁进程并清理临时目录。
 
         Args:
             session_env: 会话级环境变量（审批回调需要 session_id / user_id）。
+            model: 本请求使用的模型；缺省用池配置里的模型。按请求传入使
+                Admin 修改 LLMProvider 默认模型后立即生效（``--model`` 与
+                models.json 同源，不会失配）。
         """
         if self._closed:
             raise RuntimeError("进程池已关闭")
+        effective_model = model or self._config.model
+        cwd = make_temp_workdir()
+        session: PiRpcSession | None = None
         async with self._semaphore:
-            cwd = make_temp_workdir()
-            self._workdirs.append(cwd)
-            from asgiref.sync import sync_to_async
-
-            await sync_to_async(write_pi_config, thread_sensitive=True)(
-                cwd, self._config.mcp_endpoint, model_hint=self._config.model or ""
-            )
-            env = {**(self._config.extra_env or {}), "PI_CODING_AGENT_DIR": cwd}
-            env.update(session_env or {})
-            session = PiRpcSession(
-                cwd=cwd,
-                model=self._config.model,
-                provider=self._config.provider,
-                extension_path=self._config.extension_path,
-                extra_env=env,
-            )
-            await session.start()
             try:
+                # write_pi_config 会读数据库（LLMProvider），放线程里跑，
+                # 否则 async 上下文抛 SynchronousOnlyOperation。
+                from asgiref.sync import sync_to_async
+
+                await sync_to_async(write_pi_config, thread_sensitive=True)(
+                    cwd, self._config.mcp_endpoint, model_hint=effective_model or ""
+                )
+                env = {**(self._config.extra_env or {}), "PI_CODING_AGENT_DIR": cwd}
+                env.update(session_env or {})
+                session = PiRpcSession(
+                    cwd=cwd,
+                    model=effective_model,
+                    provider=self._config.provider,
+                    extension_path=self._config.extension_path,
+                    extra_env=env,
+                )
+                await session.start()
                 yield session
             finally:
-                await session.close()
+                # 目录里有 models.json（真实 API key），用完必须删。
+                if session is not None:
+                    try:
+                        await session.close()
+                    except Exception:
+                        logger.warning("pi 进程关闭异常（忽略）", exc_info=True)
+                shutil.rmtree(cwd, ignore_errors=True)
 
     async def close(self) -> None:
-        """销毁所有空闲会话与工作目录。"""
+        """停用闸门（在途请求各自收尾，本类不再持有长期资源）。"""
         self._closed = True
-        async with self._lock:
-            idle, self._idle = self._idle, []
-        for session in idle:
-            await session.close()
-        for path in self._workdirs:
-            with contextlib.suppress(Exception):
-                shutil.rmtree(path, ignore_errors=True)
-        self._workdirs.clear()
 
     async def __aenter__(self) -> PiProcessPool:
         return self

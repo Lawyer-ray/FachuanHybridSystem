@@ -40,9 +40,11 @@ import logging
 import os
 import socket
 import subprocess
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +130,20 @@ def spawn_shared_server(endpoint: McpEndpoint) -> subprocess.Popen[bytes] | None
         "FACHUAN_MCP_HTTP_HOST": endpoint.host,
         "FACHUAN_MCP_HTTP_PORT": str(endpoint.port),
     }
-    logger.info("拉起共享 MCP: %s", endpoint.url)
+    # stderr 落到日志文件：MCP 启动失败（依赖缺失、端口冲突、Django 初始化报错）
+    # 的唯一线索都在这里。之前直接 DEVNULL，表现为「378 个工具全没了」却无从查起。
+    log_path = Path(tempfile.gettempdir()) / f"fachuan-shared-mcp-{endpoint.port}.log"
+    logger.info("拉起共享 MCP: %s（日志: %s）", endpoint.url, log_path)
+    with contextlib.suppress(OSError):
+        log_file = log_path.open("ab")
+        return subprocess.Popen(
+            [_python_bin(), "-m", "mcp_server"],
+            cwd=str(_backend_dir()),
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=log_file,
+            start_new_session=True,
+        )
     return subprocess.Popen(
         [_python_bin(), "-m", "mcp_server"],
         cwd=str(_backend_dir()),
@@ -167,6 +182,9 @@ def write_pi_config(
 
     模型优先从数据库 LLMProvider 渲染（Admin 改了就生效），
     渲染不出时才回退复制用户级凭证。
+
+    另写一份 ``AGENTS.md``（系统提示词）：pi 无条件读取工作目录的 AGENTS.md
+    （与项目信任无关），这是给 agent 注入法穿助手人格的唯一挂载点。
     """
     import json
 
@@ -196,7 +214,10 @@ def write_pi_config(
         encoding="utf-8",
     )
 
-    # 3) 仅供回退路径的凭证复制（不覆盖已生成的文件）
+    # 3) 系统提示词（AGENTS.md）
+    _write_agents_md(root)
+
+    # 4) 仅供回退路径的凭证复制（不覆盖已生成的文件）
     _copy_user_credentials(root)
     return config_path
 
@@ -247,3 +268,21 @@ def _copy_user_credentials(target: Path) -> None:
             continue
         with contextlib.suppress(OSError):
             shutil.copy2(source, destination)
+
+
+def _write_agents_md(target: Path) -> None:
+    """把系统提示词写进工作目录。
+
+    默认用本 app 内置模板；``FACHUAN_PI_AGENTS_PATH`` 可指向自定义文件。
+    写失败只降级（少一份人格说明不致命），不阻断会话。
+    """
+    import shutil
+
+    source = Path(os.environ.get("FACHUAN_PI_AGENTS_PATH", "") or (Path(__file__).resolve().parent / "AGENTS.md"))
+    try:
+        if not source.is_file():
+            logger.warning("AGENTS.md 模板不存在，agent 将缺少系统提示词: %s", source)
+            return
+        shutil.copyfile(source, target / "AGENTS.md")
+    except OSError:
+        logger.warning("写入 AGENTS.md 失败，agent 将缺少系统提示词", exc_info=True)

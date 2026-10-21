@@ -59,13 +59,31 @@ pi 进程池（N 个）
 `mcp_server/__main__.py` 增加 `FACHUAN_MCP_TRANSPORT` 开关，**默认 stdio 保持
 既有行为完全不变**；设为 `streamable-http` 才启用共享模式。
 
-### 进程池
+### 进程闸门（每请求一个 pi 进程）
 
-pi 的 session 是进程内状态，单进程切 session 会串行。因此用进程池：
+两个硬约束决定了进程**不复用**：
 
-- `FACHUAN_AGENT_POOL_SIZE` 控制容量（默认 4，上限 32）
-- 归还时检查进程存活，崩溃的进程不会回池
-- 每个会话有独立临时工作目录（内含一份 `.pi/mcp.json`）
+1. 审批 extension 在进程启动时读 `FACHUAN_SESSION_ID`/`FACHUAN_USER_ID` 环境变量，
+   同一进程无法服务第二个会话（审批会推给错误的前端）；
+2. pi 的会话是进程内状态，复用会把上一个用户的对话残留给下一个用户。
+
+因此 `pool.acquire()` 每次渲染配置 → 起新进程 → 用完销毁**并删除临时目录**
+（目录里的 models.json 含真实 API key，不允许在磁盘上堆积）；「池」的作用
+退化为限制并发数（`FACHUAN_AGENT_POOL_SIZE`，默认 4，上限 32）。
+
+### 工具面：只声明 MCP 工具
+
+pi 启动带 `--tools "mcp__fachuan__*"`，**内置的 read/bash/edit/write 全部不向模型
+声明**——它们能以 Django 进程权限读写文件、执行命令，且不在审批清单内，是提示
+注入直通服务器 RCE 的通道。审批 extension 缺失时进程拒绝启动（fail-closed）。
+
+### 多轮对话与系统提示词
+
+pi 每请求新进程、天然无记忆。多轮上下文由 `AgentMessage` 表持有：发送前把最近
+历史经 `services/history.py` 渲染成 transcript 附在 prompt 前（超预算丢最旧），
+本轮的助手文本与工具结果在流结束时回写该表。系统提示词是工作目录里的
+`AGENTS.md`（pi 无条件读取，与项目信任无关），模板在本 app 内置，可用
+`FACHUAN_PI_AGENTS_PATH` 覆盖。
 
 ## 4. 审批链路
 
@@ -162,6 +180,7 @@ meta → activity → delta* → tool_call*/tool_result* → approval_request? �
 | `FACHUAN_PI_BIN` | `which pi` | pi 可执行文件 |
 | `FACHUAN_PI_MODEL` / `FACHUAN_PI_PROVIDER` | — | 透传 `pi --model/--provider` |
 | `FACHUAN_PI_APPROVAL_EXTENSION` | 内置路径 | 审批 extension |
+| `FACHUAN_PI_AGENTS_PATH` | 内置 `pi/AGENTS.md` | 系统提示词模板路径 |
 | `FACHUAN_APPROVAL_URL` | `127.0.0.1:8002/api/v1/agent/approval/request` | 审批端点 |
 | `FACHUAN_INTERNAL_TOKEN` | 空 | 服务间鉴权（**生产必须配置**） |
 | `FACHUAN_AGENT_POOL_SIZE` | 4 | 进程池容量 |
@@ -281,15 +300,17 @@ apps/agent/
 ├── models/agent.py          # AgentSession / AgentMessage / AgentApproval
 ├── api/agent_api.py         # 会话、对话、审批端点
 ├── services/
-│   ├── chat_service.py      # 对话编排
+│   ├── chat_service.py      # 对话编排（历史回放 + 消息落库）
+│   ├── history.py           # 多轮 transcript 渲染（纯函数）
 │   ├── approval.py          # 审批策略 + 阻塞等待
-│   └── event_bus.py         # 按会话分发事件
+│   └── event_bus.py         # 按会话分发事件（进程内 + Redis 跨 worker）
 ├── pi/
 │   ├── rpc_client.py        # RPC 协议（二进制按 LF 切分）
 │   ├── pool.py              # 进程池
 │   ├── bridge.py            # pi 事件 → 前端事件
 │   ├── shared_mcp.py        # 共享 MCP 管理
 │   ├── model_config.py      # 从 LLMProvider 渲染 pi 的 models.json
+│   ├── AGENTS.md            # 系统提示词模板（pi 无条件读取工作目录的该文件）
 │   └── approval-gate.ts     # pi 侧审批 extension
 └── migrations/
 ```
@@ -298,7 +319,8 @@ apps/agent/
 
 | 项 | 状态 |
 |:-|:-|
-| 单元测试（翻译 / 审批 / 总线 / 共享 MCP / DeltaTracker / _clean_env） | ✅ 24 passed |
+| 单元测试（翻译 / 审批 / 总线 / 共享 MCP / DeltaTracker / _clean_env / 工具限制 / transcript / AGENTS.md / 审批归属） | ✅ 39 passed |
+| **内置工具已禁用**（`--tools mcp__fachuan__*`，bash/edit/write 不再声明） | ✅ 参数握手验证 |
 | ruff check / format | ✅ |
 | Django `manage.py check` | ✅ 0 issues |
 | RPC 真实对话（HTTP 端到端） | ✅ 输出「联调OK」，delta 无重复 |

@@ -22,6 +22,7 @@ pi 只接受一个 ``apiKey``。系统的多 Key 轮询（``core.llm.key_pool``�
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
@@ -189,7 +190,6 @@ def write_models_json(target_dir: str | Path, model_hint: str = "") -> Path | No
         return None
     path = Path(target_dir) / "models.json"
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    with_suppress = __import__("contextlib").suppress(OSError)
-    with with_suppress:
+    with contextlib.suppress(OSError):
         path.chmod(0o600)
     return path

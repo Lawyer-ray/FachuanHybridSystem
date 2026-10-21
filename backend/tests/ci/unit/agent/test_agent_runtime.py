@@ -222,3 +222,183 @@ class TestCleanEnv:
 
         monkeypatch.setenv("FACHUAN_TEST_KEEP", "yes")
         assert _clean_env().get("FACHUAN_TEST_KEEP") == "yes"
+
+
+class TestToolRestriction:
+    """红线：pi 内置 bash/edit/write 不得向模型声明（提示注入 → 服务器 RCE 面）。"""
+
+    def test_tool_selection_only_mcp(self) -> None:
+        from apps.agent.pi.rpc_client import TOOL_SELECTION
+
+        assert TOOL_SELECTION == "mcp__fachuan__*"
+
+    @pytest.mark.asyncio
+    async def test_start_refuses_missing_extension(self) -> None:
+        """审批 extension 缺失时 fail-closed 拒绝启动，而不是告警后裸奔。"""
+        from apps.agent.pi.rpc_client import PiError, PiRpcSession
+
+        session = PiRpcSession(cwd=".", extension_path="/nonexistent/approval-gate.ts")
+        with pytest.raises(PiError, match="审批 extension"):
+            await session.start()
+
+
+class TestTranslateAll:
+    """一条 pi 记录可产出多个事件；水位按 assistant 消息边界复位。"""
+
+    def test_text_and_tool_call_both_emitted(self) -> None:
+        """assistant 消息同时带文本和工具调用时两件事都要发（曾只发文本吞掉工具）。"""
+        from apps.agent.pi.bridge import translate_all
+
+        event = _ev(
+            "event",
+            type="message_end",
+            message={
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": "先查一下案件"},
+                    {"type": "toolCall", "id": "c1", "name": "get_case", "input": {"id": 1}},
+                ],
+            },
+        )
+        events = translate_all(event, tracker=DeltaTracker())
+        assert [e["type"] for e in events] == ["delta", "tool_call"]
+        assert events[1]["name"] == "get_case"
+
+    def test_tracker_resets_between_assistant_messages(self) -> None:
+        """工具循环里第二段 assistant 文本比第一段短时，不能被旧水位吞掉。"""
+        from apps.agent.pi.bridge import translate_all
+
+        tracker = DeltaTracker()
+        first = translate_all(
+            _ev("event", type="message_end", message={"role": "assistant", "content": "第一段较长的回答"}),
+            tracker=tracker,
+        )
+        assert first and first[0]["content"] == "第一段较长的回答"
+
+        translate_all(_ev("event", type="message_start", message={"role": "assistant"}), tracker=tracker)
+
+        second = translate_all(
+            _ev("event", type="message_end", message={"role": "assistant", "content": "短的"}),
+            tracker=tracker,
+        )
+        assert second and second[0]["content"] == "短的"
+
+
+class TestHistoryTranscript:
+    """多轮上下文渲染：无历史不包壳、超预算丢最旧。"""
+
+    @staticmethod
+    def _msg(role: str, content: str, tool_name: str = "") -> object:
+        from types import SimpleNamespace
+
+        return SimpleNamespace(role=role, content=content, tool_name=tool_name)
+
+    def test_no_history_returns_raw_message(self) -> None:
+        from apps.agent.services.history import render_transcript
+
+        assert render_transcript([], "你好") == "你好"
+
+    def test_history_wrapped_with_labels(self) -> None:
+        from apps.agent.services.history import render_transcript
+
+        messages = [
+            self._msg("user", "查案件"),
+            self._msg("assistant", "已查到"),
+            self._msg("tool", "案号（2026）示例", tool_name="get_case"),
+        ]
+        out = render_transcript(messages, "继续")
+        assert "【历史对话】" in out
+        assert "【最新用户消息】" in out
+        assert "用户: 查案件" in out
+        assert "助手: 已查到" in out
+        assert "工具[get_case]" in out
+        assert out.endswith("继续")
+
+    def test_over_budget_drops_oldest_keeps_latest(self) -> None:
+        from apps.agent.services.history import render_transcript
+
+        messages = [
+            self._msg("user", "a" * 100),
+            self._msg("assistant", "b" * 100),
+            self._msg("user", "最新问题"),
+        ]
+        out = render_transcript(messages, "最新问题", total_limit=150)
+        assert "a" * 100 not in out  # 最旧的被丢
+        assert "b" * 100 in out or "最新问题" in out
+
+    def test_per_message_truncated(self) -> None:
+        from apps.agent.services.history import render_transcript
+
+        messages = [self._msg("assistant", "x" * 500)]
+        out = render_transcript(messages, "问", per_message_limit=100)
+        assert "x" * 100 in out
+        assert "x" * 101 not in out
+
+
+class TestAgentsMd:
+    """系统提示词注入：pi 无条件读取工作目录的 AGENTS.md。"""
+
+    def test_writes_bundled_template(self, tmp_path: object) -> None:
+        from pathlib import Path
+
+        from apps.agent.pi.shared_mcp import _write_agents_md
+
+        target = Path(str(tmp_path))
+        _write_agents_md(target)
+        content = (target / "AGENTS.md").read_text(encoding="utf-8")
+        assert "法穿" in content
+        assert "mcp__fachuan__" in content
+
+    def test_env_override(
+        self, tmp_path: object, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from pathlib import Path
+
+        from apps.agent.pi.shared_mcp import _write_agents_md
+
+        custom = Path(str(tmp_path)) / "custom.md"
+        custom.write_text("自定义人格", encoding="utf-8")
+        monkeypatch.setenv("FACHUAN_PI_AGENTS_PATH", str(custom))
+
+        target = Path(str(tmp_path)) / "work"
+        target.mkdir()
+        _write_agents_md(target)
+        assert (target / "AGENTS.md").read_text(encoding="utf-8") == "自定义人格"
+
+
+class TestApprovalOwnership:
+    """审批归属：会话所有者或超级用户；无主会话仅超级用户。"""
+
+    @staticmethod
+    def _user(pk: int, superuser: bool = False) -> object:
+        from types import SimpleNamespace
+
+        return SimpleNamespace(pk=pk, is_superuser=superuser)
+
+    @staticmethod
+    def _record(owner_id: int | None) -> object:
+        from types import SimpleNamespace
+
+        session = SimpleNamespace(user_id=owner_id) if owner_id is not None else None
+        return SimpleNamespace(session=session)
+
+    def test_owner_may_decide(self) -> None:
+        from apps.agent.api.agent_api import _may_decide
+
+        assert _may_decide(self._user(7), self._record(7)) is True
+
+    def test_other_user_may_not(self) -> None:
+        from apps.agent.api.agent_api import _may_decide
+
+        assert _may_decide(self._user(8), self._record(7)) is False
+
+    def test_superuser_always(self) -> None:
+        from apps.agent.api.agent_api import _may_decide
+
+        assert _may_decide(self._user(1, superuser=True), self._record(7)) is True
+
+    def test_orphan_session_superuser_only(self) -> None:
+        from apps.agent.api.agent_api import _may_decide
+
+        assert _may_decide(self._user(7), self._record(None)) is False
+        assert _may_decide(self._user(1, superuser=True), self._record(None)) is True
