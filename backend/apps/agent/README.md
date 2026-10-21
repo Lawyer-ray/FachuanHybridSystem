@@ -147,16 +147,83 @@ meta → activity → delta* → tool_call*/tool_result* → approval_request? �
 | `FACHUAN_MCP_SHARED` | 1 | 共享 MCP 开关 |
 | `FACHUAN_MCP_HTTP_PORT` | 8011 | 共享 MCP 端口 |
 
-## 8. 部署前置
+## 8. 部署前置：pi 的安装、升级与回滚
 
-后端机器需要 **Node.js >= 22.19.0 + pi**：
+**已验证版本：1.3.0。** RPC 协议、事件翻译、扩展钩子均按此版本实测开发，
+升级前先看下方「版本敏感面」。
+
+### 安装（首次）
+
+两种官方安装方式：
 
 ```bash
-npm install -g @earendil-works/pi-coding-agent
-pi --version   # 1.3.0
+# 方式一：官方 installer（推荐）——依赖全部锁版、自带 Node、旧版本保留可即时回滚
+curl -fsSL https://pi.dev/install.sh | sh
+
+# 方式二：npm——需要系统已有 Node.js ≥ 22.19，且不锁传递依赖
+npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 ```
 
-这是引入 pi 的唯一部署成本（`tool_call` 钩子只能用 TypeScript 写）。
+安装后 `pi --version` 必须与「已验证版本」一致。**不要装最新版直接用**——
+本 app 对 pi 的事件形态有实测假设（见「版本敏感面」），新版需先冒烟。
+
+| | installer（managed install） | npm -g |
+|:-|:-|:-|
+| 安装位置 | `~/.pi/agent/install/releases/<版本>/` | npm 全局目录 |
+| 版本选择 | launcher 按 `install/current-version` 指针选 | 单版本覆盖 |
+| 旧版本 | **保留**，回滚即时 | 不保留，回滚需重装 |
+| Node | 自带（`~/.local/share/pi-node`） | 依赖系统 Node |
+
+**生产建议用 installer，并用 `FACHUAN_PI_BIN` 钉到具体 release 路径**：
+
+```bash
+# backend/.env
+FACHUAN_PI_BIN=/home/<user>/.pi/agent/install/releases/1.3.0/node_modules/.bin/pi
+```
+
+钉死后，即使有人在机器上跑了 `pi update`（只改 current-version 指针），本 app
+用的仍是锁定版本——升级变成「显式改环境变量 + 冒烟」的受控动作，而不是被动漂移。
+这是引入 pi 的主要部署成本（`tool_call` 钩子只能用 TypeScript 写）。
+
+### 升级步骤
+
+pi 更新是手动触发的（无自动升级机制）：
+
+1. **读上游变更**：新版本随包文档在
+   `~/.pi/agent/install/releases/<新版本>/node_modules/@earendil-works/pi-coding-agent/docs/`，
+   与 1.3.0 对比 `rpc.md`、`json.md`、`extensions.md`、`cli.md`，按「版本敏感面」逐项核对。
+2. **升级**：`pi update`（installer 安装）；npm 安装则
+   `npm install -g @earendil-works/pi-coding-agent@<版本>`。
+3. **重启 Django**：进程池是进程级单例，池内空闲 pi 子进程会一直跑旧版本，
+   重启后新建的进程才是新版。共享 MCP（Python 进程）不受影响。
+4. **冒烟**（放开流量前必做）：
+   - 真发一条消息，确认事件形态仍符合 `bridge.py` 的假设（`message_end` 带全文、
+     `agent_settled` 到达）——**单测喂的是合成事件，拦不住上游改事件形态，这一步只能真机做**；
+   - 真触发一次高危工具（如 `delete_case`），确认审批弹窗出现——这是在验证
+     `approval-gate.ts` 在新版 pi 下加载成功（加载失败不会报错，见下表）；
+   - 跑 `pytest tests/ci/unit/agent/`。
+5. 通过后更新本节「已验证版本」与 `FACHUAN_PI_BIN`，重启。
+
+### 版本敏感面（升级前必查）
+
+| 耦合面 | 代码位置 | 变化时的表现 |
+|:-|:-|:-|
+| RPC 事件形态（`message_update` 只带 usage、全文在 `message_end`、toolCall 藏在 content 块） | `pi/bridge.py` | 上游改为真流式 delta → 双发或丢字，单测全绿但真机错 |
+| 扩展钩子 API（`tool_call` 返回 `{block:true}`） | `pi/approval-gate.ts` | 扩展加载失败 = **审批闸门静默消失**（`rpc_client.py` 只检查文件存在，缺失时 warning 后继续），只能真机触发审批验证 |
+| CLI 参数（`--mode rpc --no-session --approve`） | `pi/rpc_client.py` | 参数改名 → 进程起不来（炸得响，反而安全） |
+| 配置文件 schema（`models.json` providers 结构、`mcp.json`、`PI_CODING_AGENT_DIR`） | `pi/model_config.py`、`pi/shared_mcp.py` | 报「No API key found」或 MCP 连不上，离根因很远 |
+| 捆绑 Node 版本 | installer 自带 | `pi update` 可能连 Node 一起升 |
+
+### 回滚
+
+installer 安装的旧版本不删除，回滚即时：
+
+```bash
+echo 1.3.0 > ~/.pi/agent/install/current-version   # 或把 FACHUAN_PI_BIN 指回旧 release
+# 然后重启 Django
+```
+
+npm 安装无版本保留：`npm install -g @earendil-works/pi-coding-agent@1.3.0`。
 
 ### 共享 MCP 无需手动启动
 
@@ -201,6 +268,7 @@ apps/agent/
 │   ├── pool.py              # 进程池
 │   ├── bridge.py            # pi 事件 → 前端事件
 │   ├── shared_mcp.py        # 共享 MCP 管理
+│   ├── model_config.py      # 从 LLMProvider 渲染 pi 的 models.json
 │   └── approval-gate.ts     # pi 侧审批 extension
 └── migrations/
 ```
