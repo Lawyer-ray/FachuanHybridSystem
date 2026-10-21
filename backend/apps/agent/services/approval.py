@@ -56,6 +56,17 @@ HIGH_RISK_TOOLS: frozenset[str] = frozenset(
 DEFAULT_TIMEOUT = 300.0
 
 
+def _redis_backend_enabled() -> bool:
+    """缓存后端是否 Redis（跨进程分发可用）。"""
+    try:
+        from django.conf import settings
+
+        backend = str(((settings.CACHES or {}).get("default") or {}).get("BACKEND", ""))
+    except Exception:
+        return False
+    return "redis" in backend.lower()
+
+
 def is_high_risk(tool_name: str) -> bool:
     """工具名是否属于高危（pi 侧是 ``mcp__fachuan__<name>`` 形式，用包含匹配）。"""
     return any(marker in tool_name for marker in HIGH_RISK_TOOLS)
@@ -160,8 +171,14 @@ async def request_approval(
     from .event_bus import get_bus
 
     delivered = 0
+    has_remote = False
     if session_id:
-        delivered = await get_bus().publish(
+        bus = get_bus()
+        # 订阅者可能在**别的 worker**（SSE 连接在 A，审批回调落在 B）。
+        # 多 worker 下 publish 到 Redis 即可送达，此时本地 delivered 为 0
+        # 但仍有远端订阅者，不能据此判为「无人可问」。
+        has_remote = bool(await bus.has_subscribers(session_id)) or _redis_backend_enabled()
+        delivered = await bus.publish(
             session_id,
             {
                 "type": "approval_request",
@@ -172,7 +189,7 @@ async def request_approval(
             },
         )
 
-    if session_id and delivered:
+    if session_id and (delivered or has_remote):
         event = await _waiter.register(approval_id)
         approved = False
         try:

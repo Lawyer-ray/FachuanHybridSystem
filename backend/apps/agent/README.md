@@ -94,6 +94,26 @@ SSE 连接」不在同一调用栈。早期实现是「自己 `register` 一个�
 那会与 `chat_service` 的 SSE 循环各持一个队列，事件永远送不到前端（表现为
 审批必定超时）。必须 `publish` 到总线，送给真实订阅者。
 
+### 跨 worker 分发（Redis）
+
+生产是多 worker 部署：**审批回调可能落在 worker A，而用户的 SSE 连接在 worker B**。
+只用进程内队列时事件送不到前端。因此总线分两层：
+
+```
+publish(session_id, event)
+  ├─ 直接投递给本进程订阅者（快路径，同 worker 零开销）
+  └─ 写入 Redis list（供其他 worker 消费）
+
+每个 worker 一个 relay 协程：
+  while True: 从 Redis list 弹出 → 投递给本进程订阅者
+```
+
+- **无 Redis 时自动退化为纯进程内**，开发环境行为不变
+- 事件带 `_origin` 标记，本进程发过的不重复投递（避免双发）
+- list 有长度上限与 TTL，无人消费时不会无限堆积
+
+实测：worker A 订阅、worker B 发布，A 能收到 `approval_request`（B 侧本地送达数为 0）。
+
 ## 5. 端点
 
 前缀 `/api/v1/agent`：
@@ -285,4 +305,5 @@ apps/agent/
 | 8 并发（共享 MCP） | ✅ 3.4s / 71MB |
 | **审批拦截 + fail-closed** | ✅ `delete_case` 被拦，无订阅者时返回「用户拒绝了」 |
 | **审批同意路径** | ✅ 订阅者收到 `approval_request` → 同意 → 工具放行 |
-| 共享 MCP 跨 worker 广播 | ⏳ 当前为进程内总线，多 worker 需换 Redis |
+| **跨 worker 分发（Redis）** | ✅ worker A 订阅、worker B 发布，A 能收到事件 |
+| 共享 MCP 自动拉起 | ✅ 未运行时自动启动，已运行则复用 |
