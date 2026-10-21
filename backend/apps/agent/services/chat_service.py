@@ -232,11 +232,11 @@ async def stream_chat(
     except PiNotAvailableError as exc:
         follow_ok = False
         logger.error("pi 不可用: %s", exc)
-        yield {"type": "error", "message": f"pi runtime 不可用：{exc}"}
+        yield {"type": "error", "message": "pi 运行时不可用，请联系管理员（详见服务端日志）"}
     except PiError as exc:
         follow_ok = False
         logger.error("pi 运行失败: %s", exc)
-        yield {"type": "error", "message": f"pi 运行失败：{exc}"}
+        yield {"type": "error", "message": "pi 运行失败，请稍后重试（详见服务端日志）"}
     except Exception:
         follow_ok = False
         logger.exception("Agent runtime 未预期错误")
