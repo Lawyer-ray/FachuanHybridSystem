@@ -107,7 +107,7 @@ def test_send_message_without_pi_yields_error_stream(
     assert resp.status_code == 200
     body = _sse_body(resp)
     assert '"type": "error"' in body
-    assert "pi runtime" in body
+    assert "pi 运行时不可用" in body
     assert '"type": "done"' not in body
 
     from apps.agent.models import AgentMessage
