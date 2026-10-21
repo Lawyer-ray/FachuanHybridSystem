@@ -84,9 +84,9 @@ def test_dashboard_upcoming_reminders_scoped_for_non_admin():
 
     from apps.cases.models import CaseAssignment
     from apps.core.security.access_context import AccessContext
+    from apps.core.services.dashboard_service import _upcoming_reminders
     from apps.reminders.models import Reminder
     from apps.testing.factories import CaseFactory, LawyerFactory
-    from apps.workbench.services.dashboard_service import _upcoming_reminders
 
     lawyer_a = LawyerFactory()
     lawyer_b = LawyerFactory()

@@ -1,4 +1,4 @@
-"""Smaller Admin Apps 测试 - workbench, oa_filing, message_hub, contracts, enterprise_data,
+"""Smaller Admin Apps 测试 - oa_filing, message_hub, contracts, enterprise_data,
 pdf_splitting, chat_records, express_query, finance, image_rotation,
 invoice_recognition, doc_converter, organization"""
 
@@ -32,68 +32,6 @@ def _make_request(method="GET", path="/admin/"):
         request = factory.post(path)
     request.user = User(is_superuser=True, is_staff=True)
     return request
-
-
-# ==============================================================================
-# workbench
-# ==============================================================================
-
-
-@pytest.mark.django_db
-class TestWorkbenchAdmin:
-    def test_session_admin_list_display(self):
-        from apps.workbench.admin import WorkbenchSessionAdmin
-        from apps.workbench.models import WorkbenchSession
-
-        admin_obj = WorkbenchSessionAdmin(WorkbenchSession, AdminSite())
-        assert "session_id" in admin_obj.list_display
-        assert "title" in admin_obj.list_display
-        assert "status" in admin_obj.list_display
-        assert "created_at" in admin_obj.list_display
-
-    def test_session_admin_list_filter(self):
-        from apps.workbench.admin import WorkbenchSessionAdmin
-        from apps.workbench.models import WorkbenchSession
-
-        admin_obj = WorkbenchSessionAdmin(WorkbenchSession, AdminSite())
-        assert "status" in admin_obj.list_filter
-
-    def test_session_admin_search_fields(self):
-        from apps.workbench.admin import WorkbenchSessionAdmin
-        from apps.workbench.models import WorkbenchSession
-
-        admin_obj = WorkbenchSessionAdmin(WorkbenchSession, AdminSite())
-        assert "title" in admin_obj.search_fields
-        assert "session_id" in admin_obj.search_fields
-
-    def test_message_admin_list_display(self):
-        from apps.workbench.admin import WorkbenchMessageAdmin
-        from apps.workbench.models import WorkbenchMessage
-
-        admin_obj = WorkbenchMessageAdmin(WorkbenchMessage, AdminSite())
-        assert "id" in admin_obj.list_display
-        assert "session" in admin_obj.list_display
-        assert "role" in admin_obj.list_display
-
-    def test_batch_job_admin_list_display(self):
-        from apps.workbench.admin import BatchJobAdmin
-        from apps.workbench.models import BatchJob
-
-        admin_obj = BatchJobAdmin(BatchJob, AdminSite())
-        assert "id" in admin_obj.list_display
-        assert "job_type" in admin_obj.list_display
-        assert "status" in admin_obj.list_display
-        assert "progress" in admin_obj.list_display
-
-    def test_batch_job_item_admin_list_display(self):
-        from apps.workbench.admin import BatchJobItemAdmin
-        from apps.workbench.models import BatchJobItem
-
-        admin_obj = BatchJobItemAdmin(BatchJobItem, AdminSite())
-        assert "id" in admin_obj.list_display
-        assert "file_name" in admin_obj.list_display
-        assert "status" in admin_obj.list_display
-
 
 # ==============================================================================
 # oa_filing

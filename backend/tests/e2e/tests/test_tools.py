@@ -55,13 +55,6 @@ def test_workflow_run_list(admin_page: Page, base_url: str) -> None:
 # ------------------------------------------------------------------
 
 
-def test_workbench_session_list(admin_page: Page, base_url: str) -> None:
-    """访问工作台会话列表页，验证页面正常加载。"""
-    response = admin_page.goto(f"{base_url}/admin/workbench/workbenchsession/")
-    assert response is not None
-    assert response.status < 500
-    admin_page.wait_for_load_state("domcontentloaded")
-
 
 # ------------------------------------------------------------------
 # 消息中心

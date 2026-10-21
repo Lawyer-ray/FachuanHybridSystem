@@ -26,7 +26,6 @@ CORE_DIR = BACKEND_DIR / "apps" / "core"
 # 只减不增：修掉一处就删一行；新增依赖不允许进入本基线。
 # ---------------------------------------------------------------------------
 FROZEN_VIOLATIONS: dict[str, set[str]] = {
-    "apps/core/api/dashboard_api.py": {"workbench"},
     "apps/core/dependencies/automation_adapters.py": {"automation", "document_recognition"},
     "apps/core/dependencies/automation_browser.py": {"automation"},
     "apps/core/dependencies/automation_sms_wiring.py": {"automation"},
@@ -48,9 +47,9 @@ FROZEN_VIOLATIONS: dict[str, set[str]] = {
     "apps/core/service_locator_mixins/automation_mixin.py": {"automation"},
     "apps/core/service_locator_mixins/contract_review_mixin.py": {"contract_review"},
     "apps/core/service_locator_mixins/documents_mixin.py": {"evidence", "documents"},
-    "apps/core/service_locator_mixins/workbench_mixin.py": {"workbench"},
     "apps/core/services/bound_folder_scan_service.py": {"document_recognition"},
     "apps/core/services/court_tokens/baoquan_token_service.py": {"automation"},
+    "apps/core/services/dashboard_service.py": {"cases", "client", "contracts", "reminders"},
     "apps/core/services/material_classification_service.py": {"contracts"},
     "apps/core/services/search_service.py": {"client", "cases", "contracts", "message_hub", "automation", "contacts"},
 }

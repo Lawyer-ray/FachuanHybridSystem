@@ -8,7 +8,6 @@ from apps.core.service_locator_mixins import (
     ContractReviewServiceLocatorMixin,
     CoreServiceLocatorMixin,
     DocumentsServiceLocatorMixin,
-    WorkbenchServiceLocatorMixin,
 )
 
 from .service_locator_base import BaseServiceLocator
@@ -21,6 +20,5 @@ class ServiceLocator(
     DocumentsServiceLocatorMixin,
     CoreServiceLocatorMixin,
     ContractReviewServiceLocatorMixin,
-    WorkbenchServiceLocatorMixin,
 ):
     pass

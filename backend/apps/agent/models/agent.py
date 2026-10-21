@@ -2,7 +2,8 @@
 
 ## 为什么不复用 apps.workbench 的模型
 
-workbench 的 ``WorkbenchSession`` / ``WorkbenchMessage`` 绑定了其域内的语义
+（workbench 已于 v27.7.20 整体移除；本节保留当初的选型理由。）
+它的 ``WorkbenchSession`` / ``WorkbenchMessage`` 绑定了该域的语义
 （批量分析来源、附件、存储计量等）。Agent 运行时需要的是纯净的「会话-消息」
 两表，便于后续多入口（对话 / 案件内 / 任务式）共用同一套持久化。
 

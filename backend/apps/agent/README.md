@@ -19,7 +19,8 @@
 | 会话状态 | 与批量分析等语义混杂 | **纯净会话/消息两表** |
 | 并发 | 单队列串行 | **进程池 + 共享 MCP** |
 
-`workbench` 保持原样不动，作为既有功能的回退路径。
+`workbench`（旧 Pydantic AI 运行时）已于 v27.7.20 整体移除，本 app 是唯一的
+AI 对话运行时；其中唯一被外部依赖的 `DashboardService` 已迁至 `apps/core/services/`。
 
 ## 2. 为什么是 pi
 
@@ -152,7 +153,7 @@ publish(session_id, event)
 meta → activity → delta* → tool_call*/tool_result* → approval_request? → error? → done
 ```
 
-与 `workbench` 的事件契约一致，前端可复用现有渲染逻辑。
+沿用原 `workbench` 时代定下的事件契约形态，前端对话组件按此契约渲染即可。
 
 ## 7. 配置
 

@@ -301,10 +301,6 @@ def _register_app_routers() -> None:
 
     api_v1.add_router("", download_ticket_router, auth=JWTOrSessionAuth())
 
-    from apps.workbench.api import router as workbench_router
-
-    api_v1.add_router("/workbench", workbench_router, auth=JWTOrSessionAuth(), tags=["工作台"])
-
     from apps.agent.api.agent_api import router as agent_router
 
     api_v1.add_router("/agent", agent_router, tags=["Agent"])

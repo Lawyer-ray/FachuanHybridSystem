@@ -3,7 +3,7 @@
 ## 与 apps.workbench 的关系
 
 完全独立：不使用 workbench 的模型、服务或 ContextVar。
-workbench 保持原样，作为既有功能的回退路径。
+（workbench 已于 v27.7.20 整体移除，本 app 是唯一的 AI 对话运行时。）
 
 ## 并发模型
 
