@@ -57,3 +57,112 @@ describe('MessageList Markdown 渲染', () => {
     expect(document.querySelector('img')).toBeNull()
   })
 })
+
+// ============ 工具行 / thinking / 空内容 / 审批 / 错误（覆盖率补测） ============
+
+describe('MessageList：工具行与 thinking', () => {
+  it('tool 消息渲染为可折叠行，未完成显示「调用中」', () => {
+    renderWithMessages([
+      { id: 't1', role: 'tool', content: '', toolName: 'list_contracts' } as ChatMessage,
+    ])
+    expect(document.body.textContent).toContain('调用中')
+    expect(document.querySelector('details')).toBeTruthy()
+  })
+
+  it('tool 消息已完成显示「已完成」', () => {
+    renderWithMessages([
+      { id: 't2', role: 'tool', content: '结果', toolName: 'list_contracts' } as ChatMessage,
+    ])
+    expect(document.body.textContent).toContain('已完成')
+  })
+
+  it('思考未结束：thinking 区默认展开', () => {
+    const { container } = renderWithMessages([
+      {
+        id: 'a2',
+        role: 'assistant',
+        content: '',
+        thinking: '正在推理',
+        thinkingDone: false,
+      } as ChatMessage,
+    ])
+    const details = Array.from(container.querySelectorAll('details')).find((d) =>
+      d.className.includes('border-dashed'),
+    )
+    expect(details?.hasAttribute('open')).toBe(true)
+  })
+
+  it('思考已结束：thinking 区默认收起', () => {
+    const { container } = renderWithMessages([
+      {
+        id: 'a3',
+        role: 'assistant',
+        content: '正文',
+        thinking: '推理完',
+        thinkingDone: true,
+      } as ChatMessage,
+    ])
+    const details = Array.from(container.querySelectorAll('details')).find((d) =>
+      d.className.includes('border-dashed'),
+    )
+    expect(details?.hasAttribute('open')).toBe(false)
+  })
+})
+
+describe('MessageList：空内容与截断', () => {
+  it('非流式且无正文无思考时显示「（无内容）」', () => {
+    renderWithMessages([
+      { id: 'a4', role: 'assistant', content: '', streaming: false } as ChatMessage,
+    ])
+    expect(document.body.textContent).toContain('（无内容）')
+  })
+
+  it('流式中不显示「（无内容）」', () => {
+    renderWithMessages([
+      { id: 'a5', role: 'assistant', content: '', streaming: true } as ChatMessage,
+    ])
+    expect(document.body.textContent).not.toContain('（无内容）')
+  })
+
+  it('truncated 时显示截断徽标', () => {
+    renderWithMessages([
+      { id: 'a6', role: 'assistant', content: '半截', truncated: true } as ChatMessage,
+    ])
+    expect(document.body.textContent).toContain('半截')
+  })
+})
+
+describe('MessageList：审批卡与错误', () => {
+  it('有审批时渲染 ApprovalCard', () => {
+    useCopilot.setState({
+      messages: [],
+      streaming: false,
+      loadingHistory: false,
+      approvals: [
+        {
+          approvalId: 'ap1',
+          toolName: 'delete_file',
+          toolArgs: {},
+          message: '将删除文件',
+          receivedAt: Date.now(),
+          decided: undefined,
+        },
+      ],
+      lastError: null,
+    })
+    render(<MessageList />)
+    expect(document.body.textContent).toContain('将删除文件')
+  })
+
+  it('有 lastError 时显示错误文案', () => {
+    useCopilot.setState({
+      messages: [],
+      streaming: false,
+      loadingHistory: false,
+      approvals: [],
+      lastError: '连接中断，请重试',
+    })
+    render(<MessageList />)
+    expect(document.body.textContent).toContain('连接中断，请重试')
+  })
+})
