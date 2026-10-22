@@ -100,3 +100,70 @@ describe('QuickAdd 文字路径', () => {
     expect(createMock).toHaveBeenCalledWith(expect.objectContaining({ content: 'b' }))
   })
 })
+
+// ============ submitText 解析分支（覆盖率补测） ============
+
+describe('QuickAdd submitText', () => {
+  function typeAndSubmit(value: string) {
+    const input = screen.getByPlaceholderText(/快速记一笔/)
+    fireEvent.change(input, { target: { value } })
+    fireEvent.click(screen.getByRole('button', { name: '记一笔' }))
+    return input
+  }
+
+  it('空文本：提示用法且不调用 parseReminder', async () => {
+    const { unmount } = render(<QuickAdd onAdded={vi.fn()} />)
+    typeAndSubmit('   ')
+
+    await waitFor(() => expect(toast.info).toHaveBeenCalledWith(expect.stringContaining('先写一句')))
+    expect(parseMock).not.toHaveBeenCalled()
+    unmount()
+  })
+
+  it('解析出候选：打开确认弹窗', async () => {
+    parseMock.mockResolvedValue([candidate('a')])
+    const { unmount } = render(<QuickAdd onAdded={vi.fn()} />)
+    typeAndSubmit('2026-10-20 09:00 开庭')
+
+    await waitFor(() => expect(parseMock).toHaveBeenCalled())
+    await waitFor(() => expect(screen.getByTestId('recognize-dialog-stub')).toBeTruthy())
+    unmount()
+  })
+
+  it('解析不出日期：警告且不开弹窗', async () => {
+    parseMock.mockResolvedValue([])
+    const { unmount } = render(<QuickAdd onAdded={vi.fn()} />)
+    typeAndSubmit('没有日期的句子')
+
+    await waitFor(() => expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining('没能识别出日期')))
+    expect(screen.queryByTestId('recognize-dialog-stub')).toBeNull()
+    unmount()
+  })
+
+  it('解析抛错：错误提示', async () => {
+    parseMock.mockRejectedValue(new Error('后端挂了'))
+    const { unmount } = render(<QuickAdd onAdded={vi.fn()} />)
+    typeAndSubmit('2026-10-20 开庭')
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled())
+    unmount()
+  })
+
+  it('解析中按钮禁用（防重入）', async () => {
+    let release: (v: unknown[]) => void = () => {}
+    parseMock.mockReturnValue(
+      new Promise<unknown[]>((r) => {
+        release = r
+      }),
+    )
+    const { unmount } = render(<QuickAdd onAdded={vi.fn()} />)
+    typeAndSubmit('2026-10-20 开庭')
+
+    await waitFor(() => {
+      const btn = screen.getByRole('button', { name: /记一笔/ }) as HTMLButtonElement
+      expect(btn.disabled).toBe(true)
+    })
+    release([])
+    unmount()
+  })
+})
