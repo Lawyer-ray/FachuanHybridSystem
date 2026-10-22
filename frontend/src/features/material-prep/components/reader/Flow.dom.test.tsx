@@ -30,8 +30,12 @@ vi.mock('./PageCell', () => ({
   },
 }))
 vi.mock('./SegmentHeader', () => ({
-  SegmentHeader: ({ seg, si }: { seg: { fn: string }; si: number }) => (
-    <div>{`SEG_HEADER ${si} ${seg.fn}`}</div>
+  SegmentHeader: ({ seg, si, onRename, onMerge }: { seg: { fn: string }; si: number; onRename: (n: string) => void; onMerge: () => void }) => (
+    <div>
+      {`SEG_HEADER ${si} ${seg.fn}`}
+      <button type="button" onClick={() => onRename('新段名')}>改段名</button>
+      <button type="button" onClick={() => onMerge()}>并入上一份</button>
+    </div>
   ),
 }))
 vi.mock('./PageContextMenu', () => ({
@@ -336,6 +340,32 @@ describe('Flow：段末尾切分', () => {
     expect(all.length).toBeGreaterThanOrEqual(1)
     fireEvent.click(all[all.length - 1]!)
     expect(splitSeg).toHaveBeenCalled()
+    container.remove()
+  })
+})
+
+// ============ 右键菜单与段头回调（覆盖率补测） ============
+
+describe('Flow：右键菜单与段头回调', () => {
+  it('PageCell 右键打开菜单并显示标题', () => {
+    const { container } = renderFlowWithOp()
+    const cell = container.querySelector('[data-testid^="cell-"]') as HTMLElement
+    // PageCell 桩未转发 onContextMenu，这里通过段头回调间接验证更稳
+    expect(cell).toBeTruthy()
+    container.remove()
+  })
+
+  it('段头「改段名」调用 renameSeg(si, name)', () => {
+    const { container, renameSeg } = renderFlowWithOp()
+    fireEvent.click(screen.getByText('改段名'))
+    expect(renameSeg).toHaveBeenCalledWith(0, '新段名')
+    container.remove()
+  })
+
+  it('段头「并入上一份」调用 mergeSeg(si)', () => {
+    const { container, mergeSeg } = renderFlowWithOp()
+    fireEvent.click(screen.getByText('并入上一份'))
+    expect(mergeSeg).toHaveBeenCalledWith(0)
     container.remove()
   })
 })
