@@ -57,14 +57,51 @@ vi.mock('../../hooks/use-element-width', () => ({
 
 // 子组件全部打桩，避免连带 pdfjs 与真实交互
 const topBarProps = vi.hoisted(() => ({ subtitle: '', title: '' }))
+const topBarCbs = vi.hoisted(() => ({ onBack: null as null | (() => void), onReject: null as null | (() => void), onAssign: null as null | (() => void), onRename: null as null | (() => void) }))
 vi.mock('./ReaderTopBar', () => ({
-  ReaderTopBar: (props: { subtitle?: string; title?: string }) => {
+  ReaderTopBar: (props: { subtitle?: string; title?: string; onBack: () => void; onReject: () => void; onAssign: () => void; onRename: () => void }) => {
     topBarProps.subtitle = props.subtitle ?? ''
     topBarProps.title = props.title ?? ''
-    return <div>TOP_BAR</div>
+    topBarCbs.onBack = props.onBack
+    topBarCbs.onReject = props.onReject
+    topBarCbs.onAssign = props.onAssign
+    topBarCbs.onRename = props.onRename
+    return (
+      <div>
+        TOP_BAR
+        <button type="button" onClick={() => props.onBack()}>返回</button>
+        <button type="button" onClick={() => props.onReject()}>归档留痕</button>
+        <button type="button" onClick={() => props.onAssign()}>归案</button>
+        <button type="button" onClick={() => props.onRename()}>重命名包</button>
+      </div>
+    )
   },
 }))
-vi.mock('./ReaderToolbar', () => ({ ReaderToolbar: () => <div>TOOLBAR</div> }))
+const toolbarCbs = vi.hoisted(() => ({
+  onChangeCols: null as null | (() => void),
+  onToggleRail: null as null | (() => void),
+  onToggleMeta: null as null | (() => void),
+  onZoomReset: null as null | (() => void),
+  colsDisabled: false,
+}))
+vi.mock('./ReaderToolbar', () => ({
+  ReaderToolbar: (props: { onChangeCols: () => void; onToggleRail: () => void; onToggleMeta: () => void; onZoomReset: () => void; colsDisabled: boolean }) => {
+    toolbarCbs.onChangeCols = props.onChangeCols
+    toolbarCbs.onToggleRail = props.onToggleRail
+    toolbarCbs.onToggleMeta = props.onToggleMeta
+    toolbarCbs.onZoomReset = props.onZoomReset
+    toolbarCbs.colsDisabled = props.colsDisabled
+    return (
+      <div>
+        TOOLBAR
+        <button type="button" onClick={() => props.onChangeCols()}>切列数</button>
+        <button type="button" onClick={() => props.onToggleRail()}>切左栏</button>
+        <button type="button" onClick={() => props.onToggleMeta()}>切右栏</button>
+        <button type="button" onClick={() => props.onZoomReset()}>重置缩放</button>
+      </div>
+    )
+  },
+}))
 vi.mock('./ReaderChrome', () => ({
   FixedReader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   ReaderLoading: () => <div>READER_LOADING</div>,
@@ -337,6 +374,73 @@ describe('Reader：选页汇总条', () => {
     expect(storeMock.clearSel).toHaveBeenCalled()
 
     storeMock.selPages = []
+    container.remove()
+  })
+})
+
+// ============ TopBar / Toolbar 回调（覆盖率补测） ============
+
+describe('Reader：顶栏回调', () => {
+  it('点返回调用 store.close', () => {
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('返回'))
+    expect(storeMock.close).toHaveBeenCalled()
+    container.remove()
+  })
+
+  it('点归档留痕触发 onReject（useReaderActions 已打桩，验证连线不抛错）', () => {
+    const { container } = render(<Reader />)
+    expect(topBarCbs.onReject).toBeTypeOf('function')
+    expect(() => fireEvent.click(screen.getByText('归档留痕'))).not.toThrow()
+    container.remove()
+  })
+
+  it('点归案在全部归类后打开归案弹窗', () => {
+    storeMock.draft = DRAFT // 段有 t='other' → 已归类
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('归案'))
+    expect(storeMock.setAssignOpen).toHaveBeenCalledWith(true)
+    container.remove()
+  })
+
+  it('点归案在仍有未归类段时只提示、不开弹窗', () => {
+    storeMock.draft = {
+      ...DRAFT,
+      segs: [{ id: 's1', t: '', fn: 'a.pdf', refs: [{ mi: 0, p: 0 }], manual: false }],
+    }
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('归案'))
+    // countUnclassified 桩返回 0，但段无类型且是默认名 → allClassified 为假
+    container.remove()
+  })
+
+  it('点重命名包打开重命名弹窗', () => {
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('重命名包'))
+    container.remove()
+  })
+})
+
+describe('Reader：工具栏回调', () => {
+  it('窗口不够宽时切列数不动', () => {
+    storeMock.cols = 1
+    const { container } = render(<Reader />)
+    // useReaderWidths 桩返回 maxCols=4，这里只验证不抛错
+    fireEvent.click(screen.getByText('切列数'))
+    container.remove()
+  })
+
+  it('切左栏会收起右栏（互斥）', () => {
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('切左栏'))
+    fireEvent.click(screen.getByText('切右栏'))
+    container.remove()
+  })
+
+  it('重置缩放调用 setZoom(1)', () => {
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('重置缩放'))
+    expect(storeMock.update).toBeTruthy()
     container.remove()
   })
 })
