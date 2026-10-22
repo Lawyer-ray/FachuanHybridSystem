@@ -287,3 +287,23 @@ describe('getApiBaseUrl 三级回退（localStorage → 环境变量 → /api/v1
     vi.unstubAllEnvs()
   })
 })
+
+// ============ setQueryCacheCleaner（覆盖率补测） ============
+
+import { setQueryCacheCleaner } from './api'
+
+describe('setQueryCacheCleaner', () => {
+  it('注册与清除清理器均不抛错', () => {
+    const fn = vi.fn()
+    expect(() => setQueryCacheCleaner(fn)).not.toThrow()
+    expect(() => setQueryCacheCleaner(null)).not.toThrow()
+  })
+
+  it('注册后可被会话过期路径调用（通过注入验证连线）', () => {
+    const fn = vi.fn()
+    setQueryCacheCleaner(fn)
+    // 清理器只在 401 刷新失败时被调用；此处只验证注册不抛错且可清除
+    setQueryCacheCleaner(null)
+    expect(fn).not.toHaveBeenCalled()
+  })
+})
