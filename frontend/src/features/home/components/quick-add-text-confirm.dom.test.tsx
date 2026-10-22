@@ -167,3 +167,78 @@ describe('QuickAdd submitText', () => {
     unmount()
   })
 })
+
+// ============ 部分失败分支与关闭（覆盖率补测） ============
+
+describe('QuickAdd confirmTextReminders 部分失败', () => {
+  async function openDialog() {
+    parseMock.mockResolvedValue([candidate('a'), candidate('b')])
+    const utils = render(<QuickAdd onAdded={vi.fn()} />)
+    const input = screen.getByPlaceholderText(/快速记一笔/)
+    fireEvent.change(input, { target: { value: '2026-10-20 09:00 开庭' } })
+    fireEvent.click(screen.getByRole('button', { name: '记一笔' }))
+    await waitFor(() => expect(captured.onConfirmText).not.toBeNull())
+    return { ...utils, onConfirm: captured.onConfirmText! }
+  }
+
+  it('部分失败：warning 提示成功数与失败数', async () => {
+    createMock.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error('第二条失败'))
+    const { unmount, onConfirm } = await openDialog()
+
+    const created = await onConfirm([candidate('a'), candidate('b')])
+    expect(created).toBe(1)
+    expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining('1 条未写入'))
+    unmount()
+  })
+
+  it('全部成功：清空输入框', async () => {
+    createMock.mockResolvedValue({})
+    const { unmount, onConfirm } = await openDialog()
+
+    await onConfirm([candidate('a'), candidate('b')])
+    // 清空是异步 state 更新，等一拍再断言
+    await waitFor(() => {
+      const input = screen.getByPlaceholderText(/快速记一笔/) as HTMLInputElement
+      expect(input.value).toBe('')
+    })
+    unmount()
+  })
+
+  it('全部失败：不清空输入且提示全部未写入', async () => {
+    createMock.mockRejectedValue(new Error('全失败'))
+    const { unmount, onConfirm } = await openDialog()
+
+    const created = await onConfirm([candidate('a')])
+    expect(created).toBe(0)
+    expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining('0 条已加入'))
+    unmount()
+  })
+})
+
+describe('QuickAdd 关闭与回车', () => {
+  beforeEach(() => {
+    createMock.mockResolvedValue({})
+    parseMock.mockResolvedValue([candidate('a')])
+  })
+
+  it('文件态点「识别并确认」走 closeDialog（清空文件与输入）', async () => {
+    const { container, unmount } = render(<QuickAdd onAdded={vi.fn()} />)
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(fileInput, { target: { files: [new File(['x'], 'f.pdf')] } })
+    await waitFor(() => expect(screen.getByText('f.pdf')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: '识别并确认' }))
+    await waitFor(() => expect(screen.queryByText('f.pdf')).toBeNull())
+    unmount()
+  })
+
+  it('输入框回车触发提交', async () => {
+    const { unmount } = render(<QuickAdd onAdded={vi.fn()} />)
+    const input = screen.getByPlaceholderText(/快速记一笔/)
+    fireEvent.change(input, { target: { value: '2026-10-20 开会' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    await waitFor(() => expect(parseMock).toHaveBeenCalled())
+    unmount()
+  })
+})
