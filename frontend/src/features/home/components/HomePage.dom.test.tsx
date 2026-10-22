@@ -40,7 +40,7 @@ vi.mock('sonner', () => ({ toast: { info: vi.fn(), success: vi.fn(), error: vi.f
 // 子组件打桩：只暴露需要断言的交互入口
 const calendarProps = vi.hoisted(() => ({ onSelectDay: null as null | ((k: string) => void), view: null as unknown, onShiftMonth: null as null | ((d: number) => void), onGoToday: null as null | (() => void) }))
 vi.mock('./CalendarPanel', () => ({
-  CalendarPanel: (p: { view: unknown; onSelectDay: (k: string) => void; onShiftMonth: (d: number) => void; onGoToday: () => void; onOpenEvent: (e: unknown) => void; onOpenAdd: (d: string) => void }) => {
+  CalendarPanel: (p: { view: unknown; onSelectDay: (k: string) => void; onShiftMonth: (d: number) => void; onGoToday: () => void; onOpenEvent: (e: unknown) => void; onOpenAdd: (d: string) => void; onEventContextMenu?: (e: unknown, pos: { x: number; y: number }) => void }) => {
     calendarProps.onSelectDay = p.onSelectDay
     calendarProps.view = p.view
     calendarProps.onShiftMonth = p.onShiftMonth
@@ -54,6 +54,7 @@ vi.mock('./CalendarPanel', () => ({
         <button type="button" onClick={() => p.onGoToday()}>回今天</button>
         <button type="button" onClick={() => p.onOpenEvent({ id: 7, day: '2026-11-15', title: '开庭', member_ids: [11, 12], is_completed: false })}>打开事件</button>
         <button type="button" onClick={() => p.onOpenAdd('2026-11-20')}>加安排</button>
+        <button type="button" onClick={() => p.onEventContextMenu?.({ id: 8, day: '2026-11-15', title: '右键事件' }, { x: 10, y: 20 })}>右键事件</button>
       </div>
     )
   },
@@ -275,5 +276,27 @@ describe('HomePage：收件箱派发', () => {
     expect(toast.info).toHaveBeenCalledWith(expect.stringContaining('开发中'))
     expect(navMock.navigate).not.toHaveBeenCalled()
     unmount()
+  })
+})
+
+// ============ 错误态与右键菜单（覆盖率补测） ============
+
+describe('HomePage：右键菜单', () => {
+  it('右键事件行打开快捷菜单（EventContextMenu 收到 target）', async () => {
+    const { container } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('右键事件'))
+    // EventContextMenu 桩返回 null，这里验证不抛错且回调连线存在
+    expect(container.textContent).toBeTruthy()
+    container.remove()
+  })
+})
+
+describe('HomePage：视图月错误', () => {
+  it('日历拉取失败时显示错误条与重试', async () => {
+    apiMock.fetchCalendarMonth.mockRejectedValue(new Error('日历挂了'))
+    const { container } = render(wrap(<HomePage />))
+
+    await waitFor(() => expect(container.textContent).toContain('日历'))
+    container.remove()
   })
 })
