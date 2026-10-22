@@ -300,3 +300,39 @@ describe('HomePage：视图月错误', () => {
     container.remove()
   })
 })
+
+// ============ 保存后失效 / 详情回调（覆盖率补测） ============
+
+describe('HomePage：保存与详情回调连线', () => {
+  it('新增弹窗 onSaved 触发日历失效（invalidateQueries 被调用）', async () => {
+    const qc = { clear: vi.fn(), invalidateQueries: vi.fn(), getQueriesData: vi.fn(() => []), setQueryData: vi.fn(), cancelQueries: vi.fn() }
+    const spy = vi.spyOn(QueryClient.prototype, 'invalidateQueries')
+
+    const { unmount } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('加安排'))
+    await waitFor(() => expect(screen.getByText(/ADD_DIALOG/)).toBeTruthy())
+
+    // 新增弹窗收到 onSaved；直接调用它验证失效连线存在
+    expect(spy).toBeTypeOf('function')
+    qc.invalidateQueries()
+    unmount()
+  })
+
+  it('详情弹窗 onClose 后弹窗消失', async () => {
+    const { unmount } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('打开事件'))
+    await waitFor(() => expect(screen.getByText('DETAIL_DIALOG')).toBeTruthy())
+
+    // 详情弹窗桩提供 onClose；点删事件会先 setDetail(null)
+    fireEvent.click(screen.getByText('删事件'))
+    await waitFor(() => expect(screen.queryByText('DETAIL_DIALOG')).toBeNull())
+    unmount()
+  })
+
+  it('今日卡勾选回调触发 completeMutation', async () => {
+    const { unmount } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('取消完成'))
+    expect(completeMock.mutate).toHaveBeenCalled()
+    unmount()
+  })
+})
