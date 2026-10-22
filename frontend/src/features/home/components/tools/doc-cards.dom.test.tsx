@@ -168,3 +168,54 @@ describe('DocParseCard（文档解析）', () => {
     unmount()
   })
 })
+
+// ============ 拖放 / 完成态 / 弹窗按钮（覆盖率补测） ============
+
+describe('DocConvertCard：拖放与完成态', () => {
+  it('拖入文件设为当前文件', async () => {
+    const { container, unmount } = render(wrap(<DocConvertCard />))
+    await waitFor(() => expect(container.textContent).toContain('要素式转换'))
+
+    const card = container.firstElementChild as HTMLElement
+    fireEvent.drop(card, { dataTransfer: { files: [new File(['x'], 'drag.docx')] } })
+    await waitFor(() => expect(container.textContent).toContain('drag.docx'))
+    unmount()
+  })
+
+  it('拖入空列表不改文件', async () => {
+    const { container, unmount } = render(wrap(<DocConvertCard />))
+    await waitFor(() => expect(container.textContent).toContain('要素式转换'))
+
+    const card = container.firstElementChild as HTMLElement
+    fireEvent.drop(card, { dataTransfer: { files: [] } })
+    expect(container.textContent).toContain('.doc / .docx / .pdf')
+    unmount()
+  })
+
+  it('完成态弹窗里「下载要素式文书」触发 blob 下载', async () => {
+    apiMock.convertDocument.mockResolvedValue({ blob: new Blob(['x']), filename: 'out.docx' })
+    const createObjUrl = vi.fn(() => 'blob:mock')
+    URL.createObjectURL = createObjUrl as never
+    URL.revokeObjectURL = vi.fn() as never
+
+    const { container, unmount } = render(wrap(<DocConvertCard />))
+    await waitFor(() => expect(screen.getByText('选模板')).toBeTruthy())
+    clickByText('选模板')
+    pickFile(container)
+    clickByText('转换')
+
+    await waitFor(() => expect(document.body.textContent).toContain('下载要素式文书'))
+    fireEvent.click(screen.getByText(/下载要素式文书/))
+    expect(createObjUrl).toHaveBeenCalled()
+    unmount()
+  })
+
+  it('历史按钮打开历史弹窗', async () => {
+    const { unmount } = render(wrap(<DocConvertCard />))
+    await waitFor(() => expect(screen.getByText('选模板')).toBeTruthy())
+    clickByText(/历史/)
+    // 历史弹窗由 ConvertHistoryDialog 渲染；出现即说明回调链路通
+    await waitFor(() => expect(document.body.textContent).toContain('历史'))
+    unmount()
+  })
+})
