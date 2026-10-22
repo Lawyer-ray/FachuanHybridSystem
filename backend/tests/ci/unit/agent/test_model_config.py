@@ -75,3 +75,46 @@ class TestReasoningDeclaration:
         assert entry["id"] == "kimi-2.6"
         assert entry["contextWindow"] == model_config.DEFAULT_CONTEXT_WINDOW
         assert entry["maxTokens"] == model_config.DEFAULT_MAX_TOKENS
+
+
+class TestSettingsJson:
+    """隔离目录的 settings.json：pin provider/model + 写思考等级。
+
+    pi 的思考开关是 settings.json 的 modelThinkingLevels（参数为
+    ``<provider>/<modelId>``），不是 models.json 的 reasoning 字段。
+    """
+
+    def test_writes_thinking_level_when_enabled(self, monkeypatch: Any, tmp_path: Any) -> None:
+        import json as _json
+
+        from apps.agent.pi import shared_mcp
+
+        monkeypatch.setattr(
+            shared_mcp, "_load_provider", lambda hint="": _provider(enable_thinking=True), raising=False
+        )
+        monkeypatch.setattr(model_config, "_load_provider", lambda hint="": _provider(enable_thinking=True))
+        path = shared_mcp._write_settings_json(tmp_path, model_hint="kimi-2.6")
+        assert path is not None
+        data = _json.loads(path.read_text(encoding="utf-8"))
+        assert data["defaultProvider"] == "fachuan"
+        assert data["defaultModel"] == "kimi-2.6"
+        assert data["modelThinkingLevels"] == {"fachuan/kimi-2.6": "medium"}
+
+    def test_no_thinking_level_when_disabled(self, monkeypatch: Any, tmp_path: Any) -> None:
+        import json as _json
+
+        from apps.agent.pi import shared_mcp
+
+        monkeypatch.setattr(model_config, "_load_provider", lambda hint="": _provider(enable_thinking=False))
+        path = shared_mcp._write_settings_json(tmp_path, model_hint="kimi-2.6")
+        assert path is not None
+        data = _json.loads(path.read_text(encoding="utf-8"))
+        assert "modelThinkingLevels" not in data
+        # provider/model 仍要 pin，否则用户级 settings 会盖掉我们的 models.json
+        assert data["defaultProvider"] == "fachuan"
+
+    def test_returns_none_without_provider(self, monkeypatch: Any, tmp_path: Any) -> None:
+        from apps.agent.pi import shared_mcp
+
+        monkeypatch.setattr(model_config, "_load_provider", lambda hint="": None)
+        assert shared_mcp._write_settings_json(tmp_path, model_hint="kimi-2.6") is None

@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import logging
 import os
 import socket
@@ -200,6 +201,17 @@ def write_pi_config(
     if generated is None:
         logger.info("未能从 LLMProvider 生成 models.json，回退用户级凭证")
 
+    # 1.5) 思考等级：写隔离目录的 settings.json
+    #
+    # pi 的思考开关**不是** models.json 的 ``reasoning``（那个只是能力声明，
+    # 实测改为 true 也不思考），而是 settings.json 的 ``modelThinkingLevels``：
+    #   {"<provider>/<modelId>": "off|minimal|low|medium|high|xhigh|max"}
+    # 不写这个，会话 thinkingLevel 默认 off，模型不思考也不产 thinking_delta。
+    # 必须写进隔离目录（PI_CODING_AGENT_DIR）：否则会沿用用户级
+    # ~/.pi/agent/settings.json 里的默认 provider/model，我们生成的 models.json
+    # 被静默绕过。
+    _write_settings_json(root, model_hint=model_hint)
+
     # 2) MCP 配置
     #
     # headers 引用 pi 子进程 env 里的 ``${FACHUAN_USER_TOKEN}``（pi 支持 mcp.json
@@ -235,6 +247,51 @@ def write_pi_config(
     # 4) 仅供回退路径的凭证复制（不覆盖已生成的文件）
     _copy_user_credentials(root)
     return config_path
+
+
+def _write_settings_json(target_dir: str | Path, *, model_hint: str = "") -> Path | None:
+    """写隔离目录的 ``settings.json``（pin provider/model + 思考等级）。
+
+    不写这份文件的后果：pi 会读用户级 ``~/.pi/agent/settings.json``，那里的
+    ``defaultProvider`` / ``defaultModel`` 会胜出，我们生成的 models.json 被
+    静默绕过（表现为实际请求打到了完全无关的端点）。
+
+    Args:
+        target_dir: 会话临时目录（同时充当 PI_CODING_AGENT_DIR）。
+        model_hint: 本会话使用的模型名。
+
+    Returns:
+        写出的路径；无法确定模型时返回 ``None``（不写，交给 pi 自己决定）。
+    """
+    from . import model_config
+
+    provider = model_config._load_provider(model_hint)
+    if provider is None:
+        return None
+    models = model_config._provider_models(provider)
+    model_id = model_hint or str(getattr(provider, "default_model", "") or "")
+    if not model_id or (models and model_id not in models):
+        return None
+
+    # provider 名固定为 models.json 里的 provider key
+    provider_name = "fachuan"
+    settings: dict[str, Any] = {
+        "defaultProvider": provider_name,
+        "defaultModel": model_id,
+    }
+    level = model_config.resolve_thinking_level(model_id)
+    if level:
+        settings["modelThinkingLevels"] = {f"{provider_name}/{model_id}": level}
+
+    path = Path(target_dir) / "settings.json"
+    path.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
+    logger.info(
+        "pi settings.json 已写入: provider=%s model=%s thinking=%s",
+        provider_name,
+        model_id,
+        level or "off",
+    )
+    return path
 
 
 def write_pi_mcp_config(target_dir: str | Path, endpoint: McpEndpoint | None = None) -> Path:

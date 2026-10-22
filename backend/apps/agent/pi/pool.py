@@ -87,6 +87,9 @@ class PiProcessPool:
                 await sync_to_async(write_pi_config, thread_sensitive=True)(
                     cwd, self._config.mcp_endpoint, model_hint=effective_model or ""
                 )
+                # 思考等级由 write_pi_config 一并写入隔离目录的 settings.json
+                # （pi 官方开关是 modelThinkingLevels，不是 CLI 参数也不是
+                # models.json 的 reasoning 字段）。
                 env = {**(self._config.extra_env or {}), "PI_CODING_AGENT_DIR": cwd}
                 env.update(session_env or {})
                 session = PiRpcSession(

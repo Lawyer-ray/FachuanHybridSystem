@@ -36,6 +36,8 @@ GATEWAY_URL_ENV = "FACHUAN_PI_GATEWAY_URL"
 GATEWAY_KEY_ENV = "FACHUAN_PI_GATEWAY_KEY"
 DEFAULT_CONTEXT_WINDOW = 128000
 DEFAULT_MAX_TOKENS = 8192
+#: 平台开启思考时传给 pi 的 ``--thinking`` 等级（pi: minimal/low/medium/high/xhigh/max）
+DEFAULT_THINKING_LEVEL = "medium"
 
 #: 会话间轮转计数（itertools.count 的 next() 在 CPython 下是原子的，无需锁）
 _rotation = itertools.count()
@@ -125,6 +127,30 @@ def _model_entry(name: str, *, enable_thinking: bool, provider: Any) -> dict[str
         "maxTokens": DEFAULT_MAX_TOKENS,
         "reasoning": bool(enable_thinking and supports),
     }
+
+
+def resolve_thinking_level(model_hint: str = "") -> str | None:
+    """解析该模型应使用的 pi 思考等级（``--thinking`` 参数值）。
+
+    重要：``models.json`` 里的 ``reasoning: true`` 只是冓「这个模型能思考」，
+    真正的推理开关是会话的 ``thinkingLevel``，默认 ``off``。只声明能力而不传
+    ``--thinking``，模型依旧不思考、也不会产生 ``thinking_delta`` 事件。
+
+    Returns:
+        ``medium``（平台开启思考且模型是推理模型）；否则 ``None``（不传参数，
+        pi 保持默认 off）。
+    """
+    provider = _load_provider(model_hint)
+    if provider is None or not getattr(provider, "enable_thinking", False):
+        return None
+    models = _provider_models(provider)
+    target = model_hint or str(getattr(provider, "default_model", "") or "")
+    if target and models and target not in models:
+        return None
+    supports = getattr(provider, "supports_thinking", None)
+    if callable(supports) and not supports(target):
+        return None
+    return DEFAULT_THINKING_LEVEL
 
 
 def build_models_json(model_hint: str = "") -> dict[str, Any] | None:
