@@ -267,3 +267,26 @@ describe('QuickAdd busy 防重入', () => {
     unmount()
   })
 })
+
+// ============ textRows 空保护（覆盖率补测） ============
+
+describe('QuickAdd confirm 时 textRows 已清空', () => {
+  it('弹窗关闭后再调用 onConfirmText：不抛错且返回创建数', async () => {
+    createMock.mockResolvedValue({})
+    parseMock.mockResolvedValue([candidate('a')])
+    const { unmount } = render(<QuickAdd onAdded={vi.fn()} />)
+
+    const input = screen.getByPlaceholderText(/快速记一笔/)
+    fireEvent.change(input, { target: { value: '2026-10-20 09:00 开庭' } })
+    fireEvent.click(screen.getByRole('button', { name: '记一笔' }))
+    await waitFor(() => expect(captured.onConfirmText).not.toBeNull())
+
+    const onConfirm = captured.onConfirmText!
+    // 先在文件态点「识别并确认」触发 closeDialog（清空 textRows）
+    await onConfirm([candidate('a')])
+    // 再次调用：textRows 已经是 undefined，setTextRows 的 prev 为 undefined 分支
+    const again = await onConfirm([candidate('b')])
+    expect(again).toBe(1)
+    unmount()
+  })
+})
