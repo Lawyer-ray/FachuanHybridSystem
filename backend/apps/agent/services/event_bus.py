@@ -161,7 +161,8 @@ class EventBus:
                 try:
                     queue.get_nowait()
                 except asyncio.QueueEmpty:
-                    pass  # 已被消费者取走，无需丢弃
+                    # 已被消费者取走，无需丢弃
+                    logger.debug("积压丢弃时队列已空: session=%s", session_id)
             await queue.put(event)
             delivered += 1
         return delivered
@@ -247,8 +248,11 @@ class EventBus:
             self._relay_task.cancel()
             try:
                 await self._relay_task
-            except (asyncio.CancelledError, Exception):
-                pass  # 停止中继：取消或收尾异常都不再关心
+            except asyncio.CancelledError:
+                # 正常取消路径，不记录
+                pass
+            except Exception:
+                logger.debug("中继协程结束时抛错（已忽略）", exc_info=True)
             self._relay_task = None
 
 
