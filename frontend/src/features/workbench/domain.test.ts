@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  aggregateStages,
   buildDealCases,
   buildDeals,
   daysFromToday,
+  dealFacts,
+  dealPayRows,
   fmtCNDate,
   fmtMoney,
   groupDeals,
@@ -330,5 +333,154 @@ describe('复制文本', () => {
     expect(lawyerCopyText({ name: '赵律师', primary: true, phone: '', license: '144', firm: '' }, d)).toBe(
       '赵律师\n电话：13900000000\n执业证号：144\n律所：某律所', // privacy-allow 虚构号码
     )
+  })
+})
+
+// ============ 复制文本 / 合同抽屉数据 / 阶段聚合（覆盖率补测） ============
+
+
+describe('partyCopyText', () => {
+  it('只填名字时只输出名字', () => {
+    expect(partyCopyText({ name: '张三' } as never)).toBe('张三')
+  })
+
+  it('各字段齐备时按固定顺序逐行输出', () => {
+    const text = partyCopyText({
+      name: '张三',
+      legalRep: '李四',
+      idno: '110101199001011234',
+      phone: '13800000000',
+      address: '北京市朝阳区',
+    } as never)
+    expect(text.split('\n')).toEqual([
+      '张三',
+      '法定代表人：李四',
+      '证件号：110101199001011234',
+      '电话：13800000000',
+      '地址：北京市朝阳区',
+    ])
+  })
+
+  it('空字段被跳过', () => {
+    const text = partyCopyText({ name: '张三', legalRep: '', idno: '', phone: '139', address: '' } as never)
+    expect(text).toBe('张三\n电话：139')
+  })
+})
+
+describe('lawyerCopyText', () => {
+  it('主办律师未填电话/律所时回落合同上的主电话与律所', () => {
+    const text = lawyerCopyText(
+      { name: '王律师', primary: true, phone: '', license: '', firm: '' } as never,
+      { primaryPhone: '13700000000', lawFirm: '某某所' } as never,
+    )
+    expect(text).toContain('电话：13700000000')
+    expect(text).toContain('律所：某某所')
+  })
+
+  it('非主办律师不回落（只输出自己的字段）', () => {
+    const text = lawyerCopyText(
+      { name: '李律师', primary: false, phone: '', license: '', firm: '' } as never,
+      { primaryPhone: '13700000000', lawFirm: '某某所' } as never,
+    )
+    expect(text).toBe('李律师')
+  })
+
+  it('自有字段优先于回落值', () => {
+    const text = lawyerCopyText(
+      { name: '王律师', primary: true, phone: '13800138000', license: 'A1', firm: '自有所' } as never,
+      { primaryPhone: '13700000000', lawFirm: '合同所' } as never,
+    )
+    expect(text).toContain('电话：13800138000')
+    expect(text).toContain('律所：自有所')
+    expect(text).not.toContain('13700000000')
+  })
+})
+
+describe('dealFacts', () => {
+  function baseDeal(over: Record<string, unknown> = {}) {
+    return {
+      fee: '固定收费',
+      riskRate: null,
+      specified: '',
+      from: '2026-09-01',
+      to: '',
+      daysLeft: null,
+      stages: ['一审'],
+      isFiled: false,
+      statusLabel: '在办',
+      filingNo: '',
+      no: 'FC-1',
+      ...over,
+    } as never
+  }
+
+  it('空值行被过滤，只保留有值项', () => {
+    const rows = dealFacts(baseDeal())
+    const keys = rows.map(([k]) => k)
+    expect(keys).toContain('收费方式')
+    expect(keys).toContain('签订日期')
+    expect(keys).not.toContain('风险比例')
+    expect(keys).not.toContain('到期日期')
+    expect(keys).not.toContain('建档编号')
+  })
+
+  it('风险比例非空时带百分号', () => {
+    const rows = dealFacts(baseDeal({ riskRate: 15 }))
+    expect(rows.find(([k]) => k === '风险比例')?.[1]).toBe('15%')
+  })
+
+  it('到期日期追加相对表述', () => {
+    const rows = dealFacts(baseDeal({ to: '2026-12-31', daysLeft: 60 }))
+    expect(rows.find(([k]) => k === '到期日期')?.[1]).toContain('（剩 60 天）')
+  })
+
+  it('已归档时归档状态显示「已归档」而非原状态', () => {
+    const rows = dealFacts(baseDeal({ isFiled: true, statusLabel: '在办' }))
+    expect(rows.find(([k]) => k === '归档状态')?.[1]).toBe('已归档')
+  })
+})
+
+describe('dealPayRows', () => {
+  it('合并合同收款与客户付款记录，各自带来源标注', () => {
+    const rows = dealPayRows({
+      payments: [{ received_at: '2026-10-01', amount: 5000, invoice_status_label: '已开票', note: '首付' }],
+      payRecords: [{ created_at: '2026-10-02', amount: 3000, note: '' }],
+    } as never)
+
+    expect(rows).toHaveLength(2)
+    expect(rows[0]!.note).toBe('已开票 · 首付')
+    expect(rows[1]!.note).toBe('客户付款记录')
+  })
+
+  it('金额为 0 时回落 ¥0', () => {
+    const rows = dealPayRows({ payments: [{ received_at: '', amount: 0, invoice_status_label: '', note: '' }], payRecords: [] } as never)
+    expect(rows[0]!.money).toBe('¥0')
+  })
+})
+
+describe('aggregateStages', () => {
+  it('同阶段相邻案件合并计数并累计 live', () => {
+    const out = aggregateStages([
+      { id: 1, proc: '一审', done: false },
+      { id: 2, proc: '一审', done: true },
+      { id: 3, proc: '二审', done: true },
+    ] as never)
+
+    expect(out).toEqual([
+      { stage: '一审', n: 2, live: true },
+      { stage: '二审', n: 1, live: false },
+    ])
+  })
+
+  it('按 id 升序处理（输入乱序也稳定）', () => {
+    const out = aggregateStages([
+      { id: 3, proc: '二审', done: false },
+      { id: 1, proc: '一审', done: false },
+    ] as never)
+    expect(out.map((s) => s.stage)).toEqual(['一审', '二审'])
+  })
+
+  it('空输入返回空数组', () => {
+    expect(aggregateStages([])).toEqual([])
   })
 })
