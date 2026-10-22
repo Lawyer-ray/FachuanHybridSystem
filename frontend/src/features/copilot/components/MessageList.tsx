@@ -7,6 +7,7 @@
 import { useEffect, useRef } from 'react'
 import { Brain, Wrench } from 'lucide-react'
 
+import '../copilot.css'
 import { shortToolName } from '../domain'
 import { useCopilot } from '../store'
 import type { ChatMessage } from '../types'
@@ -104,7 +105,7 @@ export function MessageList() {
   const empty = messages.length === 0 && !streaming && !loadingHistory
 
   return (
-    <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-3.5 py-3">
+    <div ref={scrollRef} onScroll={handleScroll} className="copilot-messages flex-1 overflow-y-auto px-3.5 py-3">
       {empty && (
         <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
           <p className="text-[13px] font-medium text-foreground">问点什么，或让它查系统数据</p>

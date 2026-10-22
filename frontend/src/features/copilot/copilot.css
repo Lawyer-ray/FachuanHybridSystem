@@ -1,0 +1,23 @@
+/*
+ * Copilot 域专属样式（随组件 import，主题色仍走全局令牌）。
+ */
+
+/* 会话切换动画：view-transition 隔离到消息区（store.withViewTransition 触发），
+   面板其余部分（头部/输入框）不参与，避免整页 crossfade 的闪动感 */
+.copilot-messages {
+  view-transition-name: copilot-messages;
+}
+
+::view-transition-old(copilot-messages),
+::view-transition-new(copilot-messages) {
+  animation-duration: 200ms;
+  animation-timing-function: ease;
+}
+
+/* 用户系统级「减弱动态效果」：直接切换，不播过渡 */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(copilot-messages),
+  ::view-transition-new(copilot-messages) {
+    animation: none;
+  }
+}

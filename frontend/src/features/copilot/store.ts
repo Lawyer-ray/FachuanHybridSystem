@@ -7,6 +7,7 @@
  * 会话列表这类服务端状态走 react-query（SessionSidebar），不进本 store。
  */
 
+import { flushSync } from 'react-dom'
 import { create } from 'zustand'
 
 import * as copilotApi from './api'
@@ -29,6 +30,32 @@ const EMPTY_STATS: TurnStats = {
 }
 
 const SESSION_KEY = 'copilot:session'
+
+/**
+ * 会话内容切换的局部 crossfade（View Transition API）：
+ * 回调里的状态变更会被浏览器捕捉为旧/新两帧，仅对带 view-transition-name
+ * 的消息区播放淡出淡入（见 copilot.css）。不支持的浏览器（或用户开了
+ * 「减弱动态效果」）直接执行回调，无动画降级。
+ */
+function withViewTransition(update: () => void): void {
+  // node 测试环境 / SSR 无 document；不支持的浏览器降级为直接更新
+  if (typeof document === 'undefined') {
+    update()
+    return
+  }
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown }
+  if (typeof doc.startViewTransition !== 'function' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    update()
+    return
+  }
+  // 并发过渡（上一段 200ms 未播完、下一段又起）时浏览器会 skip 旧过渡，
+  // 其 ready/finished promise 会被 reject——不接住会变成未处理的 rejection
+  const transition = doc.startViewTransition(() => {
+    flushSync(update)
+  }) as { ready?: Promise<void>; finished?: Promise<void> }
+  transition.ready?.catch(() => {})
+  transition.finished?.catch(() => {})
+}
 
 function readStoredSession(): string | null {
   try {
@@ -81,19 +108,29 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   turnStats: EMPTY_STATS,
 
   switchSession: async (id) => {
+    const prev = get()
+    // 同会话且视图已就绪：不重复拉取、不播切换动画（stop 后的重拉 streaming 仍为 true，放行）
+    if (id === prev.sessionId && !prev.streaming && (id !== null || prev.messages.length === 0)) return
     get().stop()
-    set({ sessionId: id, messages: [], approvals: [], lastError: null })
+    withViewTransition(() => {
+      set({ sessionId: id, messages: [], approvals: [], lastError: null, loadingHistory: id !== null })
+    })
     storeSession(id)
     if (!id) return
-    set({ loadingHistory: true })
     try {
       const rows = await copilotApi.fetchHistory(id)
       // 等待期间用户可能又切走了：只回填仍是当前会话的结果
-      if (get().sessionId === id) set({ messages: historyToMessages(rows) })
+      if (get().sessionId === id) {
+        withViewTransition(() => {
+          set({ messages: historyToMessages(rows), loadingHistory: false })
+        })
+      }
     } catch {
-      if (get().sessionId === id) set({ lastError: '加载会话历史失败' })
-    } finally {
-      if (get().sessionId === id) set({ loadingHistory: false })
+      if (get().sessionId === id) {
+        withViewTransition(() => {
+          set({ lastError: '加载会话历史失败', loadingHistory: false })
+        })
+      }
     }
   },
 
