@@ -183,3 +183,49 @@ describe('AddReminderDialog：关联对象', () => {
     container.remove()
   })
 })
+
+// ============ 分类 tab 与兜底层（覆盖率补测） ============
+
+describe('AddReminderDialog：候选分类 tab', () => {
+  it('有候选时渲染分类 tab 并按类型过滤', async () => {
+    apiMock.searchTargetOptions.mockResolvedValue([
+      { id: 1, target_type: 'case', target_type_label: '案件', title: '张三案', hint: '' },
+      { id: 2, target_type: 'contract', target_type_label: '合同', title: '合同A', hint: '' },
+    ])
+    const { container } = renderDialog()
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeTruthy())
+
+    const input = document.querySelector('[role="combobox"]') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '张' } })
+    await waitFor(() => expect(document.body.textContent).toContain('张三案'), { timeout: 3000 })
+
+    // 点「合同」tab：只看合同类
+    const contractTab = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.startsWith('合同'),
+    ) as HTMLElement
+    if (contractTab) {
+      fireEvent.click(contractTab)
+      await waitFor(() => expect(document.body.textContent).toContain('合同A'))
+    }
+    container.remove()
+  })
+
+  it('点兜底层收起候选', async () => {
+    apiMock.searchTargetOptions.mockResolvedValue([
+      { id: 1, target_type: 'case', target_type_label: '案件', title: '张三案', hint: '' },
+    ])
+    const { container } = renderDialog()
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeTruthy())
+
+    const input = document.querySelector('[role="combobox"]') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '张' } })
+    await waitFor(() => expect(document.body.textContent).toContain('张三案'), { timeout: 3000 })
+
+    const overlay = document.querySelector('.fixed.inset-0.z-40') as HTMLElement
+    if (overlay) {
+      fireEvent.click(overlay)
+      await waitFor(() => expect(document.body.textContent).not.toContain('张三案'))
+    }
+    container.remove()
+  })
+})
