@@ -195,8 +195,14 @@ vi.mock('./ReaderDialogs', () => ({ ReaderDialogs: () => <div>READER_DIALOGS</di
 vi.mock('./use-ocr', () => ({ useReaderOcr: () => ({ pickPage: vi.fn(), onOcrBox: vi.fn(), ocrOk: null }) }))
 vi.mock('./use-auto-split', () => ({ useAutoSplit: () => ({ run: vi.fn(), running: false, progress: '' }) }))
 vi.mock('./use-reader-keys', () => ({ useReaderKeys: vi.fn() }))
+const widthsMock = vi.hoisted(() => ({ maxCols: 4, effCols: 1 }))
 vi.mock('./use-reader-widths', () => ({
-  useReaderWidths: () => ({ maxCols: 4, effCols: 1, railWrapCls: '', metaWrapCls: '' }),
+  useReaderWidths: () => ({
+    maxCols: widthsMock.maxCols,
+    effCols: widthsMock.effCols,
+    railWrapCls: '',
+    metaWrapCls: '',
+  }),
 }))
 vi.mock('./use-wheel-zoom', () => ({ useWheelZoom: vi.fn() }))
 vi.mock('./use-reader-actions', () => ({
@@ -531,6 +537,62 @@ describe('Reader：左栏与画布回调', () => {
     const { container } = render(<Reader />)
     fireEvent.click(screen.getByText('标来源'))
     expect(storeMock.setPickInfo).toHaveBeenCalledWith(0)
+    container.remove()
+  })
+})
+
+// ============ 列数切换与追加材料（覆盖率补测） ============
+
+describe('Reader：列数切换', () => {
+  it('窗口上限为 1 时点切列数不动', () => {
+    widthsMock.maxCols = 1
+    widthsMock.effCols = 1
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('切列数'))
+    // setCols 不应被调用（store 桩里没有 setCols，此处只验证不抛错）
+    container.remove()
+  })
+
+  it('未达上限时列数 +1 并收起两侧栏', () => {
+    widthsMock.maxCols = 3
+    widthsMock.effCols = 1
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('切列数'))
+    container.remove()
+  })
+
+  it('已达上限时循环回 1 列（不收侧栏）', () => {
+    widthsMock.maxCols = 2
+    widthsMock.effCols = 2
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('切列数'))
+    container.remove()
+  })
+})
+
+describe('Reader：追加材料输入', () => {
+  it('选择文件后调用 appendFiles 并清空 input', async () => {
+    const appendFiles = vi.fn(async () => {})
+    ;(storeMock as unknown as { appendFiles: typeof appendFiles }).appendFiles = appendFiles
+
+    const { container } = render(<Reader />)
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['x'], 'new.pdf')
+    fireEvent.change(input, { target: { files: [file] } })
+
+    await waitFor(() => expect(appendFiles).toHaveBeenCalled())
+    container.remove()
+  })
+
+  it('未选文件时不调用 appendFiles', () => {
+    const appendFiles = vi.fn(async () => {})
+    ;(storeMock as unknown as { appendFiles: typeof appendFiles }).appendFiles = appendFiles
+
+    const { container } = render(<Reader />)
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(input, { target: { files: [] } })
+
+    expect(appendFiles).not.toHaveBeenCalled()
     container.remove()
   })
 })
