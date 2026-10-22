@@ -288,3 +288,57 @@ describe('DocConverterCard：历史入口', () => {
     container.remove()
   })
 })
+
+// ============ 进度条 / 完成态入口 / 逐件操作（覆盖率补测） ============
+
+describe('DocConverterCard：逐件复制与下载', () => {
+  it('成功件逐行渲染复制与下载按钮', async () => {
+    jobMock.phase = 'success'
+    jobMock.jobId = 'job-1'
+    jobMock.job = okJob
+    const { container } = render(wrap(<DocConverterCard />))
+    pickFiles(container, 1)
+    clickText(/开始转换/)
+    await waitFor(() => expect(document.body.textContent).toContain('a.docx'))
+    expect(document.body.textContent).toContain('b.docx')
+    container.remove()
+  })
+
+  it('逐件复制调用 copyConverterItemsToClipboard 且只带该件 id', async () => {
+    apiMock.copyConverterItemsToClipboard.mockResolvedValue({ success: true, copied: 1 })
+    jobMock.phase = 'success'
+    jobMock.jobId = 'job-1'
+    jobMock.job = okJob
+    const { container } = render(wrap(<DocConverterCard />))
+    pickFiles(container, 1)
+    clickText(/开始转换/)
+    await waitFor(() => expect(document.body.textContent).toContain('a.docx'))
+
+    const copyBtn = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === '复制',
+    ) as HTMLElement
+    fireEvent.click(copyBtn)
+
+    await waitFor(() => expect(apiMock.copyConverterItemsToClipboard).toHaveBeenCalled())
+    const args = apiMock.copyConverterItemsToClipboard.mock.calls[0]!
+    expect((args[1] as number[]).length).toBe(1)
+    container.remove()
+  })
+
+  it('逐件下载调用 triggerDownload', async () => {
+    jobMock.phase = 'success'
+    jobMock.jobId = 'job-1'
+    jobMock.job = okJob
+    const { container } = render(wrap(<DocConverterCard />))
+    pickFiles(container, 1)
+    clickText(/开始转换/)
+    await waitFor(() => expect(document.body.textContent).toContain('a.docx'))
+
+    const dlBtn = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === '下载',
+    ) as HTMLElement
+    fireEvent.click(dlBtn)
+    expect(apiMock.triggerDownload).toHaveBeenCalled()
+    container.remove()
+  })
+})
