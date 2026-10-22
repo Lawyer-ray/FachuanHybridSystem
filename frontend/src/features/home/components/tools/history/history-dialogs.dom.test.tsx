@@ -369,3 +369,62 @@ describe('ConverterHistoryDialog：重试与关闭', () => {
   })
 
 })
+
+// ============ ConvertHistoryDialog 下载/分组/重试（覆盖率补测） ============
+
+describe('ConvertHistoryDialog：下载与分组', () => {
+  function recWithFile(id: number) {
+    return { ...record(id), has_file: true }
+  }
+
+  it('有文件时显示下载按钮并触发 triggerDownload', async () => {
+    apiMock.listConvertRecords.mockResolvedValue({ items: [recWithFile(1)], count: 1, page: 1, num_pages: 1 })
+    const { unmount } = render(wrap(<ConvertHistoryDialog open onOpenChange={vi.fn()} />))
+    await waitFor(() => expect(document.body.textContent).toContain('民事起诉状'))
+
+    const dl = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.trim() === '下载',
+    ) as HTMLElement
+    fireEvent.click(dl)
+    expect(apiMock.triggerDownload).toHaveBeenCalled()
+    unmount()
+  })
+
+  it('无文件时不显示下载按钮', async () => {
+    apiMock.listConvertRecords.mockResolvedValue({
+      items: [{ ...record(1), has_file: false }],
+      count: 1,
+      page: 1,
+      num_pages: 1,
+    })
+    const { unmount } = render(wrap(<ConvertHistoryDialog open onOpenChange={vi.fn()} />))
+    await waitFor(() => expect(document.body.textContent).toContain('民事起诉状'))
+
+    const dl = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.trim() === '下载',
+    )
+    expect(dl).toBeUndefined()
+    unmount()
+  })
+
+  it('点分组按钮按新状态重新请求', async () => {
+    const { unmount } = render(wrap(<ConvertHistoryDialog open onOpenChange={vi.fn()} />))
+    await waitFor(() => expect(apiMock.listConvertRecords).toHaveBeenCalled())
+
+    const failBtn = Array.from(document.querySelectorAll('button')).find((b) => b.textContent === '失败')
+    fireEvent.click(failBtn!)
+    await waitFor(() => expect(apiMock.listConvertRecords).toHaveBeenCalledWith('failed', 1))
+    unmount()
+  })
+
+  it('加载失败点重试重新请求', async () => {
+    apiMock.listConvertRecords.mockRejectedValueOnce(new Error('挂了')).mockResolvedValue({ items: [], count: 0 })
+    const { unmount } = render(wrap(<ConvertHistoryDialog open onOpenChange={vi.fn()} />))
+
+    const retry = await waitFor(() => screen.getByRole('button', { name: '重试' }))
+    const before = apiMock.listConvertRecords.mock.calls.length
+    fireEvent.click(retry)
+    await waitFor(() => expect(apiMock.listConvertRecords.mock.calls.length).toBeGreaterThan(before))
+    unmount()
+  })
+})
