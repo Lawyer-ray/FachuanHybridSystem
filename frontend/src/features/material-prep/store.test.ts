@@ -639,3 +639,50 @@ describe('useReader appendFiles 分支', () => {
     expect(toastMock.success).toHaveBeenCalledWith(expect.stringContaining('已追加'))
   })
 })
+
+// ============ close 定时器 / setter 内部箭头（覆盖率补测） ============
+
+describe('useReader 剩余回调用例', () => {
+  it('close 后定时器到点执行卸载（释放缓存并复位）', async () => {
+    vi.useFakeTimers()
+    openPackA()
+    clearPdfDocumentsMock.mockClear()
+    clearBytesCacheMock.mockClear()
+
+    useReader.getState().close()
+    await vi.advanceTimersByTimeAsync(400)
+
+    expect(useReader.getState().openId).toBeNull()
+    expect(clearPdfDocumentsMock).toHaveBeenCalled()
+    expect(clearBytesCacheMock).toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('setStatus 触发 update 内部箭头（写草稿状态）', () => {
+    openPackA()
+    useReader.getState().setStatus('done')
+    expect(useReader.getState().draft?.status).toBe('done')
+  })
+
+  it('setAssign 触发 update 内部箭头（写归案信息）', () => {
+    openPackA()
+    useReader.getState().setAssign({ target: 'new' } as never)
+    expect(useReader.getState().draft?.assign).toEqual({ target: 'new' })
+  })
+
+  it('renameMatInDraft 触发 update 内部箭头（改材料展示名）', () => {
+    openPackA()
+    useReader.getState().renameMatInDraft(0, '新展示名')
+    expect(useReader.getState().draft?.mats[0]?.customName).toBe('新展示名')
+  })
+
+  it('setPickInfo 清空选区与 OCR 待确认', () => {
+    openPackA()
+    useReader.setState({ selPages: [{ mi: 0, p: 0 }], ocrPending: { mi: 0, p: 0 } as never })
+    useReader.getState().setPickInfo(1)
+
+    expect(useReader.getState().pickInfo).toBe(1)
+    expect(useReader.getState().selPages).toEqual([])
+    expect(useReader.getState().ocrPending).toBeNull()
+  })
+})
