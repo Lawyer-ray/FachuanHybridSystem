@@ -22,7 +22,13 @@ export type QueryCacheCleaner = () => void
  */
 export async function resetAllClientState(clearQueryCache?: QueryCacheCleaner): Promise<void> {
   clearTokens()
-  clearQueryCache?.()
+  // 清理器由调用方注入（可能是 queryClient.clear()），它抛错不得阻断登出：
+  // 凭证已清，剩下的 feature 清理仍需执行，否则用户会卡在「退不出去」
+  try {
+    clearQueryCache?.()
+  } catch {
+    /* 注入的清理器失败不阻断后续清理 */
+  }
 
   // 动态 import：这三条链都带大依赖（pdfjs ~1MB），不能进首屏
   await Promise.all([
