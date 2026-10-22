@@ -247,3 +247,144 @@ describe('useReader.removeInfo 取字态下标同步', () => {
     expect(useReader.getState().draft?.infos.map((f) => f.k)).toEqual(['标的额'])
   })
 })
+
+// ============ 选择与分段操作（2026-10 覆盖率补测） ============
+
+/** 造一个含 N 页、每页 1 个 segment 的草稿，供选择逻辑用 */
+function draftWithPages(pageCount: number): DraftState {
+  const mats = [{ partIndex: 0, n: 'a.pdf', k: 'pdf' as const, pages: pageCount }]
+  const segs = Array.from({ length: pageCount }, (_, i) => ({
+    id: `sg-${i}`,
+    t: 'other',
+    fn: `seg-${i}`,
+    refs: [{ mi: 0, p: i }],
+    manual: false,
+  }))
+  return { mats, segs, infos: [] } as unknown as DraftState
+}
+
+describe('useReader 选择模式', () => {
+  it('toggleSelMode 开启时清 pickInfo，关闭时清空选页', () => {
+    useReader.setState({ draft: draftWithPages(3), pickInfo: 2 })
+
+    useReader.getState().toggleSelMode()
+    expect(useReader.getState().selMode).toBe(true)
+    expect(useReader.getState().pickInfo).toBe(-1)
+
+    useReader.setState({ selPages: [{ mi: 0, p: 1 }] })
+    useReader.getState().toggleSelMode()
+    expect(useReader.getState().selMode).toBe(false)
+    expect(useReader.getState().selPages).toEqual([])
+  })
+
+  it('单选：点击加入，再点同页移除', () => {
+    useReader.setState({ draft: draftWithPages(3), selMode: true })
+
+    useReader.getState().toggleSel(0, 1, false)
+    expect(useReader.getState().selPages).toEqual([{ mi: 0, p: 1 }])
+
+    useReader.getState().toggleSel(0, 1, false)
+    expect(useReader.getState().selPages).toEqual([])
+  })
+
+  it('shift 范围选：从锚点到当前页全选', () => {
+    useReader.setState({ draft: draftWithPages(5), selMode: true })
+
+    // 先点第 1 页设锚点
+    useReader.getState().toggleSel(0, 1, false)
+    expect(useReader.getState().lastAnchor).toBe(1)
+
+    // shift 点第 3 页 → 选中 1..3
+    useReader.getState().toggleSel(0, 3, true)
+    expect(useReader.getState().selPages).toEqual([
+      { mi: 0, p: 1 },
+      { mi: 0, p: 2 },
+      { mi: 0, p: 3 },
+    ])
+  })
+
+  it('shift 范围选：反向（锚点大于当前）同样成立', () => {
+    useReader.setState({ draft: draftWithPages(5), selMode: true })
+
+    useReader.getState().toggleSel(0, 3, false)
+    useReader.getState().toggleSel(0, 1, true)
+    expect(useReader.getState().selPages).toEqual([
+      { mi: 0, p: 1 },
+      { mi: 0, p: 2 },
+      { mi: 0, p: 3 },
+    ])
+  })
+
+  it('无锚点时 shift 点击退化为普通点击', () => {
+    useReader.setState({ draft: draftWithPages(3), selMode: true, lastAnchor: -1 })
+    useReader.getState().toggleSel(0, 2, true)
+    expect(useReader.getState().selPages).toEqual([{ mi: 0, p: 2 }])
+  })
+
+  it('无草稿时 toggleSel 是 no-op', () => {
+    useReader.setState({ draft: null, selMode: true })
+    useReader.getState().toggleSel(0, 0, false)
+    expect(useReader.getState().selPages).toEqual([])
+  })
+
+  it('clearSel 同时复位锚点', () => {
+    useReader.setState({ selPages: [{ mi: 0, p: 0 }], lastAnchor: 3 })
+    useReader.getState().clearSel()
+    expect(useReader.getState().selPages).toEqual([])
+    expect(useReader.getState().lastAnchor).toBe(-1)
+  })
+})
+
+describe('useReader.applySel / deleteSelected', () => {
+  it('无选页时 applySel 是 no-op', () => {
+    useReader.setState({ draft: draftWithPages(3), selPages: [] })
+    const before = useReader.getState().draft
+    useReader.getState().applySel()
+    expect(useReader.getState().draft).toBe(before)
+  })
+
+  it('不连续选页时 applySel 拒绝并提示', () => {
+    const d = draftWithPages(4)
+    useReader.setState({ draft: d, selPages: [{ mi: 0, p: 0 }, { mi: 0, p: 2 }] })
+    useReader.getState().applySel()
+    expect(toastMock).toHaveBeenCalledWith(expect.stringContaining('连续'))
+    expect(useReader.getState().selPages).toHaveLength(2)
+  })
+
+  it('连续选页时 applySel 合并并清空选择', () => {
+    useReader.setState({ draft: draftWithPages(4), selPages: [{ mi: 0, p: 0 }, { mi: 0, p: 1 }] })
+    useReader.getState().applySel()
+    expect(useReader.getState().selPages).toEqual([])
+    expect(toastMock).toHaveBeenCalled()
+  })
+
+  it('deleteSelected 无选中时返回 0', () => {
+    useReader.setState({ draft: draftWithPages(3), selPages: [] })
+    expect(useReader.getState().deleteSelected()).toBe(0)
+  })
+
+  it('deleteSelected 可指定目标页（右键未选中页）', () => {
+    useReader.setState({ draft: draftWithPages(3), selPages: [] })
+    const n = useReader.getState().deleteSelected([{ mi: 0, p: 1 }])
+    expect(n).toBe(1)
+  })
+})
+
+describe('useReader 简单 setter', () => {
+  it('setZoom / setCols / setOcrPending / setAssignOpen 各自写入', () => {
+    useReader.getState().setZoom(1.5)
+    expect(useReader.getState().zoom).toBe(1.5)
+
+    useReader.getState().setCols(2)
+    expect(useReader.getState().cols).toBe(2)
+
+    useReader.getState().setAssignOpen(true)
+    expect(useReader.getState().assignOpen).toBe(true)
+  })
+
+  it('update 对空草稿是 no-op', () => {
+    useReader.setState({ draft: null })
+    useReader.getState().update((d) => d)
+    expect(useReader.getState().draft).toBeNull()
+  })
+})
