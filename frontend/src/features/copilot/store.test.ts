@@ -247,3 +247,69 @@ describe('copilot store：会话切换竞态', () => {
     expect(useCopilot.getState().sessionId).toBe('A')
   })
 })
+
+// ============ switchSession / withViewTransition 分支（覆盖率补测） ============
+
+describe('copilot store：switchSession 分支', () => {
+  it('同会话且非流式：直接返回，不重复拉历史', async () => {
+    useCopilot.setState({ sessionId: 's-1', streaming: false, messages: [{ id: '1', role: 'user', content: 'x' }] })
+    await useCopilot.getState().switchSession('s-1')
+    expect(copilotApi.fetchHistory).not.toHaveBeenCalled()
+  })
+
+  it('同会话但流式中：放行（stop 后重拉）', async () => {
+    vi.mocked(copilotApi.fetchHistory).mockResolvedValue([])
+    useCopilot.setState({ sessionId: 's-1', streaming: true, messages: [] })
+
+    await useCopilot.getState().switchSession('s-1')
+    expect(copilotApi.fetchHistory).toHaveBeenCalledWith('s-1')
+  })
+
+  it('切到 null：清空消息且不拉历史', async () => {
+    vi.mocked(copilotApi.fetchHistory).mockResolvedValue([])
+    useCopilot.setState({ sessionId: 's-1', streaming: false, messages: [{ id: '1', role: 'user', content: 'x' }] })
+
+    await useCopilot.getState().switchSession(null)
+    expect(useCopilot.getState().sessionId).toBeNull()
+    expect(useCopilot.getState().messages).toEqual([])
+    expect(copilotApi.fetchHistory).not.toHaveBeenCalled()
+  })
+
+  it('切会话时会先 stop 在途流', async () => {
+    vi.mocked(copilotApi.fetchHistory).mockResolvedValue([])
+    useCopilot.setState({ sessionId: 's-1', streaming: false, messages: [] })
+
+    await useCopilot.getState().switchSession('s-2')
+    // stop 是 no-op（无 controller）也不应抛错
+    expect(useCopilot.getState().sessionId).toBe('s-2')
+  })
+
+  it('拉历史失败：置错误文案并复位 loadingHistory', async () => {
+    vi.mocked(copilotApi.fetchHistory).mockRejectedValue(new Error('boom'))
+    useCopilot.setState({ sessionId: null, streaming: false, messages: [] })
+
+    await useCopilot.getState().switchSession('s-3')
+    expect(useCopilot.getState().lastError).toBe('加载会话历史失败')
+    expect(useCopilot.getState().loadingHistory).toBe(false)
+  })
+
+  it('等待期间又切走：迟到结果不回填', async () => {
+    let resolveHist: (v: AgentHistoryMessage[]) => void = () => {}
+    vi.mocked(copilotApi.fetchHistory).mockReturnValue(
+      new Promise<AgentHistoryMessage[]>((r) => {
+        resolveHist = r
+      }),
+    )
+    useCopilot.setState({ sessionId: null, streaming: false, messages: [] })
+
+    const pending = useCopilot.getState().switchSession('s-A')
+    // 期间切到 B
+    useCopilot.setState({ sessionId: 's-B' })
+    resolveHist([{ message_id: 1, role: 'user', content: '旧会话', tool_name: '', created_at: '', metadata: {} }])
+    await pending
+
+    // 仍是 B，且消息未被 A 的历史覆盖
+    expect(useCopilot.getState().sessionId).toBe('s-B')
+    expect(useCopilot.getState().messages).toEqual([])
+  })
+})
