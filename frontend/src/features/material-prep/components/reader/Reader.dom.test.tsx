@@ -50,7 +50,8 @@ vi.mock('../../draft', () => ({
   isAutoSegName: () => false,
   matLabel: (m: { n: string }) => m.n,
 }))
-vi.mock('@/hooks/use-media', () => ({ useMediaQuery: () => false }))
+const mediaMock = vi.hoisted(() => ({ narrow: false }))
+vi.mock('@/hooks/use-media', () => ({ useMediaQuery: () => mediaMock.narrow }))
 vi.mock('../../hooks/use-element-width', () => ({
   useElementWidth: () => [vi.fn(), 900, document.createElement('div')],
 }))
@@ -165,6 +166,7 @@ vi.mock('./Rail', () => ({
     )
   },
 }))
+const dialogsCbs = vi.hoisted(() => ({ props: null as null | Record<string, unknown> }))
 const flowCbs = vi.hoisted(() => ({ onRequestDelete: null as null | ((p: unknown[]) => void), onToggleSel: null as null | ((mi: number, p: number, sh: boolean) => void) }))
 vi.mock('./Flow', () => ({
   Flow: (p: Record<string, unknown>) => {
@@ -191,7 +193,12 @@ vi.mock('./MetaPanel', () => ({
     )
   },
 }))
-vi.mock('./ReaderDialogs', () => ({ ReaderDialogs: () => <div>READER_DIALOGS</div> }))
+vi.mock('./ReaderDialogs', () => ({
+  ReaderDialogs: (p: Record<string, unknown>) => {
+    dialogsCbs.props = p
+    return <div>READER_DIALOGS</div>
+  },
+}))
 vi.mock('./use-ocr', () => ({ useReaderOcr: () => ({ pickPage: vi.fn(), onOcrBox: vi.fn(), ocrOk: null }) }))
 vi.mock('./use-auto-split', () => ({ useAutoSplit: () => ({ run: vi.fn(), running: false, progress: '' }) }))
 vi.mock('./use-reader-keys', () => ({ useReaderKeys: vi.fn() }))
@@ -593,6 +600,43 @@ describe('Reader：追加材料输入', () => {
     fireEvent.change(input, { target: { files: [] } })
 
     expect(appendFiles).not.toHaveBeenCalled()
+    container.remove()
+  })
+})
+
+// ============ 窄屏遮罩与重命名弹窗（覆盖率补测） ============
+
+describe('Reader：窄屏遮罩', () => {
+  it('narrow 且打开左栏时出现遮罩，点击收起两侧栏', () => {
+    mediaMock.narrow = true
+    const { container } = render(<Reader />)
+    // 点「切左栏」打开左栏 → 遮罩出现
+    fireEvent.click(screen.getByText('切左栏'))
+
+    const mask = container.querySelector('.fixed.inset-0.z-30')
+    expect(mask).toBeTruthy()
+    fireEvent.click(mask as HTMLElement)
+    mediaMock.narrow = false
+    container.remove()
+  })
+
+  it('非窄屏不出现遮罩', () => {
+    mediaMock.narrow = false
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('切左栏'))
+    expect(container.querySelector('.fixed.inset-0.z-30')).toBeNull()
+    container.remove()
+  })
+})
+
+describe('Reader：重命名弹窗', () => {
+  it('点改源名后 ReaderDialogs 收到 renameMat 目标', () => {
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('改源名'))
+
+    const props = dialogsCbs.props as { renameMat?: { mi: number; initial: string } }
+    expect(props.renameMat).toBeTruthy()
+    expect(props.renameMat!.mi).toBe(0)
     container.remove()
   })
 })
