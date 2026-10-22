@@ -13,8 +13,11 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }))
 
+const confirmMock = vi.hoisted(() => vi.fn())
+const revokeMock = vi.hoisted(() => vi.fn())
 vi.mock('../api', () => ({
-  confirmDates: vi.fn(),
+  confirmDates: (...a: unknown[]) => confirmMock(...a),
+  revokeDate: (...a: unknown[]) => revokeMock(...a),
 }))
 
 import { toast } from 'sonner'
@@ -123,5 +126,177 @@ describe('useConfirmActions（文字路径）', () => {
     })
 
     expect(onConfirmText).toHaveBeenCalledTimes(1)
+  })
+})
+
+// ============ 文件模式 / 跳过 / 撤销（2026-10 覆盖率补测） ============
+
+function fileRow(key: string, over: Partial<CandidateRow> = {}): CandidateRow {
+  return {
+    key,
+    candidateId: 100 + Number(key),
+    checked: true,
+    dueLocal: '2026-10-20T09:00',
+    reminderType: 'hearing',
+    confidence: 0.9,
+    status: 'pending',
+    contextText: '',
+    label: key,
+    content: key,
+    ...over,
+  } as CandidateRow
+}
+
+describe('useConfirmActions（文件模式）', () => {
+  it('全部成功：提示写入条数并刷新', async () => {
+    const args = baseArgs({ isFileMode: true, task: { task_id: 9 }, rows: [fileRow('1')] })
+    confirmMock.mockResolvedValue({ results: [{ status: 'ok', message: '' }] })
+    const { result } = renderHook(() => useConfirmActions(args as never))
+
+    await act(async () => {
+      await result.current.doConfirm()
+    })
+
+    expect(confirmMock).toHaveBeenCalledWith(9, [
+      { candidate_id: 101, action: 'confirm', due_at: '2026-10-20T09:00', reminder_type: 'hearing' },
+    ])
+    expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('已写入 1 条提醒'))
+    expect(args.refresh).toHaveBeenCalled()
+    expect(args.onSaved).toHaveBeenCalled()
+  })
+
+  it('命中复用：提示里标注复用了既有提醒', async () => {
+    const args = baseArgs({ isFileMode: true, task: { task_id: 9 }, rows: [fileRow('1')] })
+    confirmMock.mockResolvedValue({
+      results: [{ status: 'ok', message: '复用了同时间点的既有提醒，未重复创建' }],
+    })
+    const { result } = renderHook(() => useConfirmActions(args as never))
+
+    await act(async () => {
+      await result.current.doConfirm()
+    })
+    expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('1 条复用了既有提醒'))
+  })
+
+  it('有 error 结果：warning 提示未写入数并带首条原因', async () => {
+    const args = baseArgs({ isFileMode: true, task: { task_id: 9 }, rows: [fileRow('1'), fileRow('2')] })
+    confirmMock.mockResolvedValue({
+      results: [
+        { status: 'ok', message: '' },
+        { status: 'error', message: '日期格式不对' },
+      ],
+    })
+    const { result } = renderHook(() => useConfirmActions(args as never))
+
+    await act(async () => {
+      await result.current.doConfirm()
+    })
+    expect(toast.warning).toHaveBeenCalledWith('1 条未写入：日期格式不对')
+  })
+
+  it('error 结果缺 message 时用「未知原因」兜底', async () => {
+    const args = baseArgs({ isFileMode: true, task: { task_id: 9 }, rows: [fileRow('1')] })
+    confirmMock.mockResolvedValue({ results: [{ status: 'error' }] })
+    const { result } = renderHook(() => useConfirmActions(args as never))
+
+    await act(async () => {
+      await result.current.doConfirm()
+    })
+    expect(toast.warning).toHaveBeenCalledWith('1 条未写入：未知原因')
+  })
+
+  it('results 缺省（后端异常路径）按空处理', async () => {
+    const args = baseArgs({ isFileMode: true, task: { task_id: 9 }, rows: [fileRow('1')] })
+    confirmMock.mockResolvedValue({})
+    const { result } = renderHook(() => useConfirmActions(args as never))
+
+    await act(async () => {
+      await result.current.doConfirm()
+    })
+    expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('已写入 0 条提醒'))
+  })
+
+  it('接口抛错：error 提示且 busy 复位', async () => {
+    const args = baseArgs({ isFileMode: true, task: { task_id: 9 }, rows: [fileRow('1')] })
+    confirmMock.mockRejectedValue(new Error('网关超时'))
+    const { result } = renderHook(() => useConfirmActions(args as never))
+
+    await act(async () => {
+      await result.current.doConfirm()
+    })
+    expect(toast.error).toHaveBeenCalled()
+    expect(result.current.busy).toBe(false)
+  })
+})
+
+describe('useConfirmActions：跳过', () => {
+  it('无 candidateId 时是 no-op', async () => {
+    const args = baseArgs({ isFileMode: true, task: { task_id: 9 }, rows: [fileRow('1')] })
+    const { result } = renderHook(() => useConfirmActions(args as never))
+
+    await act(async () => {
+      await result.current.doSkip(fileRow('1', { candidateId: null }))
+    })
+    expect(confirmMock).not.toHaveBeenCalled()
+  })
+
+  it('成功：下发 skip 并刷新', async () => {
+    const args = baseArgs({ isFileMode: true, task: { task_id: 9 }, rows: [fileRow('1')] })
+    confirmMock.mockResolvedValue({})
+    const { result } = renderHook(() => useConfirmActions(args as never))
+
+    await act(async () => {
+      await result.current.doSkip(fileRow('1'))
+    })
+    expect(confirmMock).toHaveBeenCalledWith(9, [{ candidate_id: 101, action: 'skip' }])
+    expect(args.refresh).toHaveBeenCalled()
+  })
+
+  it('失败：error 提示', async () => {
+    const args = baseArgs({ isFileMode: true, task: { task_id: 9 }, rows: [fileRow('1')] })
+    confirmMock.mockRejectedValue(new Error('拒绝'))
+    const { result } = renderHook(() => useConfirmActions(args as never))
+
+    await act(async () => {
+      await result.current.doSkip(fileRow('1'))
+    })
+    expect(toast.error).toHaveBeenCalled()
+  })
+})
+
+describe('useConfirmActions：撤销', () => {
+  it('无 candidateId 时是 no-op', async () => {
+    const args = baseArgs({ isFileMode: true, task: { task_id: 9 }, rows: [fileRow('1')] })
+    const { result } = renderHook(() => useConfirmActions(args as never))
+
+    await act(async () => {
+      await result.current.doRevoke(fileRow('1', { candidateId: null }))
+    })
+    expect(revokeMock).not.toHaveBeenCalled()
+  })
+
+  it('成功：撤销并提示、刷新、回调', async () => {
+    const args = baseArgs({ isFileMode: true, task: { task_id: 9 }, rows: [fileRow('1')] })
+    revokeMock.mockResolvedValue({})
+    const { result } = renderHook(() => useConfirmActions(args as never))
+
+    await act(async () => {
+      await result.current.doRevoke(fileRow('1'))
+    })
+    expect(revokeMock).toHaveBeenCalledWith(9, 101)
+    expect(toast.success).toHaveBeenCalledWith('已撤销并删除该条提醒')
+    expect(args.refresh).toHaveBeenCalled()
+    expect(args.onSaved).toHaveBeenCalled()
+  })
+
+  it('失败：error 提示', async () => {
+    const args = baseArgs({ isFileMode: true, task: { task_id: 9 }, rows: [fileRow('1')] })
+    revokeMock.mockRejectedValue(new Error('已删除'))
+    const { result } = renderHook(() => useConfirmActions(args as never))
+
+    await act(async () => {
+      await result.current.doRevoke(fileRow('1'))
+    })
+    expect(toast.error).toHaveBeenCalled()
   })
 })
