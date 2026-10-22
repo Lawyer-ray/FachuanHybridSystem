@@ -140,3 +140,31 @@ describe('InboxCard：列表', () => {
     unmount()
   })
 })
+
+// ============ KindIcon 三种类型（覆盖率补测） ============
+
+describe('InboxCard：不同 kind 的图标', () => {
+  it('sms 类型渲染法院图标', async () => {
+    apiMock.listInbox.mockResolvedValue([item(1, { kind: 'sms' })])
+    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} />))
+    await waitFor(() => expect(screen.getByText('消息 1')).toBeTruthy())
+    expect(document.querySelector('svg')).toBeTruthy()
+    unmount()
+  })
+
+  it('mail 类型渲染邮件图标', async () => {
+    apiMock.listInbox.mockResolvedValue([item(2, { kind: 'mail', title: '邮件消息' })])
+    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} />))
+    await waitFor(() => expect(screen.getByText('邮件消息')).toBeTruthy())
+    expect(document.querySelector('svg')).toBeTruthy()
+    unmount()
+  })
+
+  it('其他类型（mat）渲染回形针图标', async () => {
+    apiMock.listInbox.mockResolvedValue([item(3, { kind: 'mat', title: '材料包消息' })])
+    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} />))
+    await waitFor(() => expect(screen.getByText('材料包消息')).toBeTruthy())
+    expect(document.querySelector('svg')).toBeTruthy()
+    unmount()
+  })
+})

@@ -168,3 +168,60 @@ describe('AssignModal：Esc 关闭', () => {
     container.remove()
   })
 })
+
+// ============ 字段编辑与搜索错误（覆盖率补测） ============
+
+describe('AssignModal：合同字段编辑', () => {
+  it('选择「还没有合同」后渲染三个字段输入框', async () => {
+    const { container } = renderModal({ infos: [] as never })
+    fireEvent.click(within(container).getByRole('radio', { name: /新建案件/ }))
+    fireEvent.click(within(container).getByRole('radio', { name: /还没有合同/ }))
+
+    expect(container.querySelector('input[placeholder="姓名或单位"]')).toBeTruthy()
+    expect(container.querySelectorAll('input[placeholder="可以空"]')).toHaveLength(2)
+    container.remove()
+  })
+
+  it('填入委托人后按钮可用，confirm 只带填了值的字段', async () => {
+    const { container, onConfirm } = renderModal({ infos: [] as never })
+    fireEvent.click(within(container).getByRole('radio', { name: /新建案件/ }))
+    fireEvent.click(within(container).getByRole('radio', { name: /还没有合同/ }))
+
+    const nameInput = container.querySelector('input[placeholder="姓名或单位"]') as HTMLInputElement
+    fireEvent.change(nameInput, { target: { value: '张三' } })
+
+    const ok = within(container).getByRole('button', { name: '确认并继续' }) as HTMLButtonElement
+    expect(ok.disabled).toBe(false)
+    fireEvent.click(ok)
+
+    const arg = onConfirm.mock.calls[0]![0]
+    expect(arg.contractFields).toEqual({ 委托人: '张三' })
+    container.remove()
+  })
+
+  it('只填标的额不能提交（委托人必填）', async () => {
+    const { container } = renderModal({ infos: [] as never })
+    fireEvent.click(within(container).getByRole('radio', { name: /新建案件/ }))
+    fireEvent.click(within(container).getByRole('radio', { name: /还没有合同/ }))
+
+    const amount = container.querySelectorAll('input[placeholder="可以空"]')[1] as HTMLInputElement
+    fireEvent.change(amount, { target: { value: '100000' } })
+    // 委托人仍为空 → 按钮禁用
+    const ok = within(container).getByRole('button', { name: '确认并继续' }) as HTMLButtonElement
+    expect(ok.disabled).toBe(true)
+    container.remove()
+  })
+
+  it('字段值前后空白被 trim 后才下发', async () => {
+    const { container, onConfirm } = renderModal({ infos: [] as never })
+    fireEvent.click(within(container).getByRole('radio', { name: /新建案件/ }))
+    fireEvent.click(within(container).getByRole('radio', { name: /还没有合同/ }))
+
+    const nameInput = container.querySelector('input[placeholder="姓名或单位"]') as HTMLInputElement
+    fireEvent.change(nameInput, { target: { value: '  李四  ' } })
+    fireEvent.click(within(container).getByRole('button', { name: '确认并继续' }))
+
+    expect(onConfirm.mock.calls[0]![0].contractFields).toEqual({ 委托人: '李四' })
+    container.remove()
+  })
+})
