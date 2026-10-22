@@ -242,3 +242,28 @@ describe('QuickAdd 关闭与回车', () => {
     unmount()
   })
 })
+
+// ============ busy 防重入 / textRows 空保护（覆盖率补测） ============
+
+describe('QuickAdd busy 防重入', () => {
+  it('解析中再次按回车不重复请求（busy 闸）', async () => {
+    let release: (v: unknown[]) => void = () => {}
+    parseMock.mockReturnValue(
+      new Promise<unknown[]>((r) => {
+        release = r
+      }),
+    )
+    const { unmount } = render(<QuickAdd onAdded={vi.fn()} />)
+    const input = screen.getByPlaceholderText(/快速记一笔/)
+    fireEvent.change(input, { target: { value: '2026-10-20 开庭' } })
+
+    fireEvent.keyDown(input, { key: 'Enter' })
+    // 解析未返回前再按一次回车 + 点按钮
+    fireEvent.keyDown(input, { key: 'Enter' })
+    fireEvent.click(screen.getByRole('button', { name: /记一笔/ }))
+
+    expect(parseMock).toHaveBeenCalledTimes(1)
+    release([])
+    unmount()
+  })
+})
