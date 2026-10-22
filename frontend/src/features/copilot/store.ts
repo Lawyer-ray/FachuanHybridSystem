@@ -139,16 +139,21 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     if (!trimmed || get().streaming) return
     set({ lastError: null })
 
-    let sessionId = get().sessionId
+    // 本轮发送归属哪个会话：await 期间用户可能切会话/开新对话，
+    // 迟到结果必须丢弃，否则会覆盖用户刚选中的会话并把消息推进去
+    const startedSessionId = get().sessionId
+    let sessionId = startedSessionId
     if (!sessionId) {
       try {
         sessionId = (await copilotApi.createSession()).session_id
-        set({ sessionId })
-        storeSession(sessionId)
       } catch {
         set({ lastError: '创建会话失败，请稍后重试' })
         return
       }
+      // createSession 在途期间用户已切走：不占用新会话，也不污染当前视图
+      if (get().sessionId !== startedSessionId) return
+      set({ sessionId })
+      storeSession(sessionId)
     }
 
     const assistantId = nextLocalId()

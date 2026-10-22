@@ -139,6 +139,50 @@ describe('copilot store：发送与流式转录', () => {
     expect(streaming).toBe(false)
   })
 
+  it('审批确认后停止按钮仍能真正中断流（controller 不得被提前置空）', async () => {
+    // 回归 2026-10 审查 F1：controller 是模块级单例，decide() 不碰它，
+    // 但若任一路径在流未结束时把它置空，stop() 就成 no-op，
+    // streaming 永远为 true，Composer 永远停在「停止」态
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.decideApproval).mockResolvedValue({})
+    vi.mocked(copilotApi.fetchHistory).mockResolvedValue([])
+
+    let aborted = false
+    vi.mocked(copilotApi.openMessageStream).mockImplementation(async (_s, _m, signal) => {
+      let ctrl!: ReadableStreamDefaultController<Uint8Array>
+      const abort = () => {
+        aborted = true
+        ctrl.error(new DOMException('Aborted', 'AbortError'))
+      }
+      const body = new ReadableStream<Uint8Array>({
+        start(c) {
+          ctrl = c
+          c.enqueue(
+            encoder.encode(
+              'data: {"type":"approval_request","approval_id":"a1","tool_name":"t","tool_args":{},"message":"m"}\n\n',
+            ),
+          )
+          if (signal.aborted) abort()
+          else signal.addEventListener('abort', abort)
+        },
+      })
+      return new Response(body, { status: 200 })
+    })
+
+    const sending = useCopilot.getState().send('x')
+    await vi.waitFor(() => expect(useCopilot.getState().approvals.length).toBe(1))
+
+    // 用户确认审批（此时流仍在进行）
+    await useCopilot.getState().decide('a1', true)
+
+    // 再点停止：必须真中断
+    useCopilot.getState().stop()
+    await sending
+
+    expect(aborted).toBe(true)
+    expect(useCopilot.getState().streaming).toBe(false)
+  })
+
   it('decide 本地即时标记审批终态', async () => {
     vi.mocked(copilotApi.decideApproval).mockResolvedValue({})
     useCopilot.setState({
@@ -150,5 +194,56 @@ describe('copilot store：发送与流式转录', () => {
     await useCopilot.getState().decide('a1', true)
     expect(useCopilot.getState().approvals[0]?.decided).toBe('approved')
     expect(copilotApi.decideApproval).toHaveBeenCalledWith('a1', true)
+  })
+
+  it('createSession 在途时切会话：不得把消息写进用户已切到的会话', async () => {
+    // 回归 2026-10 审查 F2：send() 未记录本次发送属于哪个会话，
+    // createSession 晚到会覆盖用户刚选中的会话并把消息推进去
+    let resolveCreate: (v: AgentSession) => void = () => {}
+    vi.mocked(copilotApi.createSession).mockReturnValue(
+      new Promise<AgentSession>((res) => {
+        resolveCreate = res
+      }),
+    )
+    vi.mocked(copilotApi.fetchHistory).mockResolvedValue([])
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse(['data: {"type":"done"}\n\n']),
+    )
+
+    // 用户在空面板发消息（sessionId 为 null，正在 createSession）
+    const pending = useCopilot.getState().send('你好')
+
+    // 在 createSession 返回前，用户切到一个已有会话
+    await useCopilot.getState().switchSession('s-existing')
+    expect(useCopilot.getState().sessionId).toBe('s-existing')
+
+    // createSession 迟到返回
+    resolveCreate(session)
+    await pending
+
+    // 用户选择的会话必须保持不变，不得被迟到结果覆盖
+    expect(useCopilot.getState().sessionId).toBe('s-existing')
+    // 消息不得被推进用户未选择的会话
+    expect(useCopilot.getState().messages).toEqual([])
+  })
+})
+
+describe('copilot store：会话切换竞态', () => {
+  it('A→B→A 快速切换后 loadingHistory 不得永久为 true', async () => {
+    // 回归 2026-10 审查 F3：过期分支跳过回填时也未清 loadingHistory
+    let resolveA1: (v: AgentHistoryMessage[]) => void = () => {}
+    vi.mocked(copilotApi.fetchHistory)
+      .mockReturnValueOnce(new Promise<AgentHistoryMessage[]>((r) => { resolveA1 = r }))
+      .mockResolvedValue([])
+
+    const first = useCopilot.getState().switchSession('A')
+    await useCopilot.getState().switchSession('B')
+    await useCopilot.getState().switchSession('A')
+    // 第一次 A 的请求迟到返回
+    resolveA1([])
+    await first
+
+    expect(useCopilot.getState().loadingHistory).toBe(false)
+    expect(useCopilot.getState().sessionId).toBe('A')
   })
 })
