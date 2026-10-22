@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useRef } from 'react'
-import { Wrench } from 'lucide-react'
+import { Brain, Wrench } from 'lucide-react'
 
 import { shortToolName } from '../domain'
 import { useCopilot } from '../store'
@@ -31,6 +31,29 @@ function ToolRow({ message }: { message: ChatMessage }) {
   )
 }
 
+function ThinkingBlock({ message }: { message: ChatMessage }) {
+  const thinking = message.thinking ?? ''
+  if (!thinking) return null
+  // 思考中自动展开（让用户看到实时推理），思考结束（正文已开始）自动收起，
+  // 但保留手动展开能力。用 details + open 受控会打断用户手动操作，
+  // 所以只用 defaultOpen 决定初始态。
+  const thinkingNow = !message.thinkingDone
+  return (
+    <details
+      open={thinkingNow}
+      className="mb-1.5 rounded-[10px] border border-dashed border-border bg-secondary/30 px-2.5 py-1.5"
+    >
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[12px] text-muted-foreground">
+        <Brain className="h-3 w-3 flex-none" />
+        <span>{thinkingNow ? '深度思考中…' : `已深度思考（${thinking.length} 字）`}</span>
+      </summary>
+      <pre className="mt-1.5 max-h-56 overflow-y-auto border-t border-border pt-1.5 text-[11.5px] leading-relaxed break-words whitespace-pre-wrap text-muted-foreground">
+        {thinking}
+      </pre>
+    </details>
+  )
+}
+
 function Bubble({ message }: { message: ChatMessage }) {
   if (message.role === 'tool') return <ToolRow message={message} />
 
@@ -46,7 +69,8 @@ function Bubble({ message }: { message: ChatMessage }) {
 
   return (
     <div className="max-w-full text-[13px] leading-relaxed break-words whitespace-pre-wrap text-foreground">
-      {message.content || (message.streaming ? null : '（无内容）')}
+      <ThinkingBlock message={message} />
+      {message.content || (message.streaming ? null : message.thinking ? null : '（无内容）')}
       {message.streaming && (
         <span className="ml-0.5 inline-block animate-pulse text-primary">▍</span>
       )}

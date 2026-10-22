@@ -246,6 +246,12 @@ def _translate_message_update(
     """
     inner = raw.get("assistantMessageEvent") or {}
     if isinstance(inner, dict):
+        inner_type = inner.get("type")
+        if inner_type in {"thinking_delta", "reasoning_delta"}:
+            thinking = inner.get("delta") or inner.get("thinking") or ""
+            if isinstance(thinking, str) and thinking:
+                return {"type": "thinking", "content": thinking}
+            return None
         delta = inner.get("delta")
         if isinstance(delta, str) and delta and tracker is not None:
             # 也走 tracker，防止与 message_end 的全文重复

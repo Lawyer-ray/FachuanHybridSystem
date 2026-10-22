@@ -31,6 +31,34 @@ class TestTranslate:
         event = _ev("event", type="message_update", assistantMessageEvent={"delta": ""})
         assert translate(event, tracker=DeltaTracker()) is None
 
+    def test_thinking_delta_becomes_thinking_event(self) -> None:
+        """开启思考模式后 pi 推 thinking_delta，必须转成独立的 thinking 事件。"""
+        event = _ev(
+            "event",
+            type="message_update",
+            assistantMessageEvent={"type": "thinking_delta", "delta": "先分析当事人主体资格"},
+        )
+        assert translate(event, tracker=DeltaTracker()) == {
+            "type": "thinking",
+            "content": "先分析当事人主体资格",
+        }
+
+    def test_thinking_delta_does_not_consume_text_watermark(self) -> None:
+        """思考内容不得推高正文水位，否则后续正文会被 diff 吞掉。"""
+        tracker = DeltaTracker()
+        think = _ev(
+            "event",
+            type="message_update",
+            assistantMessageEvent={"type": "thinking_delta", "delta": "思考若干字"},
+        )
+        assert translate(think, tracker=tracker) is not None
+        text = _ev("event", type="message_update", assistantMessageEvent={"type": "text_delta", "delta": "结论"})
+        assert translate(text, tracker=tracker) == {"type": "delta", "content": "结论"}
+
+    def test_empty_thinking_delta_dropped(self) -> None:
+        event = _ev("event", type="message_update", assistantMessageEvent={"type": "thinking_delta", "delta": ""})
+        assert translate(event, tracker=DeltaTracker()) is None
+
     def test_tool_call_maps_fields(self) -> None:
         event = _ev("event", type="tool_call", toolCallId="c1", toolName="delete_case", input={"case_id": 1})
         out = translate(event)

@@ -29,6 +29,7 @@ export type AgentStreamEvent =
   | { type: 'meta'; session_id: string; agent?: string }
   | { type: 'activity'; status: string; agent?: string }
   | { type: 'delta'; content: string }
+  | { type: 'thinking'; content: string }
   | { type: 'tool_call'; tool_call_id: string; name: string; arguments?: unknown }
   | { type: 'tool_result'; tool_call_id: string; name: string; result?: string }
   | {
@@ -70,6 +71,10 @@ export interface ChatMessage {
   truncated?: boolean
   /** 正在流式接收中（assistant 专属） */
   streaming?: boolean
+  /** 模型的思考过程（开启思考模式时由 thinking 事件累积，仅展示不入正文） */
+  thinking?: string
+  /** 思考已完成（收到首个正文 delta 后置位，用于折叠/收起样式） */
+  thinkingDone?: boolean
 }
 
 /** 待审批的高危工具调用（approval_request 事件 → 审批卡） */

@@ -108,6 +108,25 @@ def _provider_models(provider: Any) -> list[str]:
     return models
 
 
+def _model_entry(name: str, *, enable_thinking: bool, provider: Any) -> dict[str, Any]:
+    """渲染 models.json 里的单个模型条目。
+
+    ``reasoning`` 是 pi 的「模型支持思考」声明：为真时 pi 会启用 thinking，
+    并把思考过程以 ``thinking_delta`` 事件推给客户端（前端据此展示「思考中」）。
+    早期这里没声明该字段，于是即便后端开了思考模式，pi 也不会展示思考过程。
+
+    仅对推理模型且平台开启 ``enable_thinking`` 时声明 ``reasoning: true``，
+    避免给普通模型（glm53 等）错报能力导致 pi 发它不认的 thinking 参数。
+    """
+    supports = bool(getattr(provider, "supports_thinking", None) and provider.supports_thinking(name))
+    return {
+        "id": name,
+        "contextWindow": DEFAULT_CONTEXT_WINDOW,
+        "maxTokens": DEFAULT_MAX_TOKENS,
+        "reasoning": bool(enable_thinking and supports),
+    }
+
+
 def build_models_json(model_hint: str = "") -> dict[str, Any] | None:
     """把当前 LLMProvider 渲染成 pi 的 models.json 内容。
 
@@ -127,6 +146,7 @@ def build_models_json(model_hint: str = "") -> dict[str, Any] | None:
             models = [model_hint] if model_hint else []
         if not models:
             return None
+        enable_thinking = bool(getattr(provider, "enable_thinking", False))
         return {
             "providers": {
                 "fachuan": {
@@ -134,12 +154,7 @@ def build_models_json(model_hint: str = "") -> dict[str, Any] | None:
                     "api": "openai-completions",
                     "apiKey": os.environ.get(GATEWAY_KEY_ENV, "gateway"),
                     "models": [
-                        {
-                            "id": name,
-                            "contextWindow": DEFAULT_CONTEXT_WINDOW,
-                            "maxTokens": DEFAULT_MAX_TOKENS,
-                        }
-                        for name in models
+                        _model_entry(name, enable_thinking=enable_thinking, provider=provider) for name in models
                     ],
                 }
             }
@@ -167,11 +182,9 @@ def build_models_json(model_hint: str = "") -> dict[str, Any] | None:
                 "api": "openai-completions",
                 "apiKey": _next_key(keys),
                 "models": [
-                    {
-                        "id": name,
-                        "contextWindow": DEFAULT_CONTEXT_WINDOW,
-                        "maxTokens": DEFAULT_MAX_TOKENS,
-                    }
+                    _model_entry(
+                        name, enable_thinking=bool(getattr(provider, "enable_thinking", False)), provider=provider
+                    )
                     for name in models
                 ],
             }

@@ -129,7 +129,18 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     const appendAssistant = (chunk: string) => {
       if (!chunk) return
       set((s) => ({
-        messages: s.messages.map((m) => (m.id === assistantId ? { ...m, content: m.content + chunk } : m)),
+        messages: s.messages.map((m) =>
+          // 首个正文 delta 到达 → 思考阶段结束（供前端收起/打勾）
+          m.id === assistantId ? { ...m, content: m.content + chunk, thinkingDone: true } : m,
+        ),
+      }))
+    }
+    const appendThinking = (chunk: string) => {
+      if (!chunk) return
+      set((s) => ({
+        messages: s.messages.map((m) =>
+          m.id === assistantId ? { ...m, thinking: (m.thinking ?? '') + chunk } : m,
+        ),
       }))
     }
     const finishAssistant = () => {
@@ -155,6 +166,10 @@ export const useCopilot = create<CopilotState>((set, get) => ({
           const event = parseSseEvent(frame)
           if (!event) continue
           switch (event.type) {
+            case 'thinking':
+              // 思考增量：单独累积到 thinking 字段，不计入正文也不计入 token 速率估算
+              appendThinking(event.content)
+              break
             case 'delta':
               appendAssistant(event.content)
               set((s) => {

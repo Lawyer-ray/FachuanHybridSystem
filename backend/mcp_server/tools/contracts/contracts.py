@@ -4,20 +4,27 @@ from __future__ import annotations
 
 from typing import Any
 
-from mcp_server.client import client
+from mcp_server.client import as_items, client
 
 
 def list_contracts(
     case_type: str | None = None,
     status: str | None = None,
-) -> list[dict[str, Any]]:
-    """查询合同列表。可按案件类型（case_type）和状态（status）筛选。"""
-    params: dict[str, Any] = {}
+    page: int = 1,
+    page_size: int = 50,
+) -> dict[str, Any]:
+    """查询合同列表。可按案件类型（case_type）和状态（status）筛选。
+
+    返回分页结构 ``{items, total, page, page_size}``。REST 接口
+    ``/contracts/contracts`` 是服务端分页，早期工具签名误声明为 ``list``，
+    导致 MCP 输出校验报 ``Input should be a valid list`` 而永远失败。
+    """
+    params: dict[str, Any] = {"page": max(1, page), "page_size": max(1, min(page_size, 500))}
     if case_type:
         params["case_type"] = case_type
     if status:
         params["status"] = status
-    return client.get("/contracts/contracts", params=params)  # type: ignore[return-value]
+    return as_items(client.get("/contracts/contracts", params=params), default_page_size=page_size)
 
 
 def get_contract(contract_id: int) -> dict[str, Any]:
