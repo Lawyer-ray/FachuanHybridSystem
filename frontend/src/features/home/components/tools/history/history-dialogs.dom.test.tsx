@@ -279,3 +279,56 @@ describe('ConverterHistoryDialog：详情视图', () => {
     utils.unmount()
   })
 })
+
+// ============ 详情加载态与下载（覆盖率补测） ============
+
+describe('ConverterHistoryDialog：详情加载与下载', () => {
+  async function row() {
+    apiMock.listConverterJobs.mockResolvedValue({ items: [convJob('job-1')], count: 1 })
+    const utils = render(wrap(<ConverterHistoryDialog open onOpenChange={vi.fn()} />))
+    const r = await waitFor(() => {
+      const found = Array.from(document.querySelectorAll('button')).find(
+        (b) => b.className.includes('border-b') && b.className.includes('w-full'),
+      )
+      expect(found).toBeTruthy()
+      return found!
+    })
+    return { ...utils, row: r }
+  }
+
+  it('详情加载中显示「正在载入记录…」', async () => {
+    apiMock.getConverterJob.mockReturnValue(new Promise(() => {}))
+    const { unmount, row: r } = await row()
+    fireEvent.click(r)
+    await waitFor(() => expect(document.body.textContent).toContain('正在载入记录'))
+    unmount()
+  })
+
+  it('逐件下载调用 triggerDownload', async () => {
+    apiMock.getConverterJob.mockResolvedValue(convJob('job-1'))
+    const { unmount, row: r } = await row()
+    fireEvent.click(r)
+    await waitFor(() => expect(document.body.textContent).toContain('a.docx'))
+
+    const dl = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === '下载',
+    ) as HTMLElement
+    fireEvent.click(dl)
+    expect(apiMock.triggerDownload).toHaveBeenCalled()
+    unmount()
+  })
+
+  it('打包下载 ZIP 按钮调用 triggerDownload', async () => {
+    apiMock.getConverterJob.mockResolvedValue(convJob('job-1'))
+    const { unmount, row: r } = await row()
+    fireEvent.click(r)
+    await waitFor(() => expect(document.body.textContent).toContain('a.docx'))
+
+    const zip = Array.from(document.querySelectorAll('button')).find((b) =>
+      /打包下载 ZIP/.test(b.textContent ?? ''),
+    ) as HTMLElement
+    fireEvent.click(zip)
+    expect(apiMock.triggerDownload).toHaveBeenCalled()
+    unmount()
+  })
+})
