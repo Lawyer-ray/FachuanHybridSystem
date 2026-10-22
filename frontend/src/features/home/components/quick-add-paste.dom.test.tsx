@@ -153,3 +153,30 @@ describe('QuickAdd 拖放与文件胶囊', () => {
     container.remove()
   })
 })
+
+// ============ pickFile 空值 / preload 调用（覆盖率补测） ============
+
+describe('QuickAdd pickFile 边界', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('file input 未选文件（files 为空）时不进入文件态', () => {
+    const { container } = render(<QuickAdd onAdded={vi.fn()} />)
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(input, { target: { files: [] } })
+
+    expect(fileRejectReason).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: '识别并确认' })).toBeNull()
+    container.remove()
+  })
+
+  it('拖入空文件列表时不进入文件态', () => {
+    const { container } = render(<QuickAdd onAdded={vi.fn()} />)
+    const bar = container.firstElementChild as HTMLElement
+    fireEvent.drop(bar, { dataTransfer: { files: [] } })
+
+    expect(fileRejectReason).not.toHaveBeenCalled()
+    container.remove()
+  })
+})
