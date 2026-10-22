@@ -99,7 +99,9 @@ def _clean_env() -> dict[str, str]:
         "PI_MCP",
         "PI_THINKING",
         "PI_REASONING",
-        "PI_CODING_AGENT",
+        # 注意：不剔 PI_CODING_AGENT_DIR——那正是我们用来指定隔离配置目录的
+        # 变量，剔掉后 pi 会回落到用户级 ~/.pi/agent，我们写的 models.json
+        # （含 fachuan provider）被完全忽略，报 Unknown provider "fachuan"。
     )
     # 代理会阻断内网 LLM 网关：开发机的 HTTP(S)_PROXY 指向本地代理，
     # 而 NO_PROXY 往往只含 localhost，pi 连内网网关时会走代理绕一圈，
@@ -290,8 +292,15 @@ class PiRpcSession:
 
         rtype = record.get("type")
         if rtype == "response":
+            # pi 的 response 不带我们发过去的 ``id``（回显的是 ``command``），
+            # 按 id 匹配会永远落空 → prompt() 等到超时，前端表现为「(无内容)」。
+            # 优先按 id 匹配，退化按 command 匹配。
             cmd_id = record.get("id")
             fut = self._pending.pop(str(cmd_id), None) if cmd_id is not None else None
+            if fut is None:
+                command = record.get("command")
+                if command is not None:
+                    fut = self._pending.pop(str(command), None)
             if fut is not None and not fut.done():
                 fut.set_result(record)
             else:
@@ -315,12 +324,18 @@ class PiRpcSession:
         payload["id"] = cmd_id
         fut: asyncio.Future[dict[str, Any]] = asyncio.get_running_loop().create_future()
         self._pending[cmd_id] = fut
+        # pi 的 response 只回 command，不回 id；同时用 command 做键，两边都能匹配
+        command = payload.get("type")
+        if isinstance(command, str):
+            self._pending[command] = fut
         proc.stdin.write(json.dumps(payload, ensure_ascii=False).encode("utf-8") + b"\n")
         await proc.stdin.drain()
         try:
             return await asyncio.wait_for(fut, timeout=self._command_timeout)
         finally:
             self._pending.pop(cmd_id, None)
+            if isinstance(command, str):
+                self._pending.pop(command, None)
 
     async def prompt(self, message: str) -> None:
         """发送一条 prompt。返回只代表「已接受」，不代表跑完。"""

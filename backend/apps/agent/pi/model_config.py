@@ -66,7 +66,10 @@ def _load_provider(model_hint: str = "") -> Any:
                 return provider
         return queryset.first()
     except Exception:
-        logger.debug("查询 LLMProvider 失败", exc_info=True)
+        # warning 而非 debug：这里最典型的失败是在 async 上下文读库
+        # （SynchronousOnlyOperation）。吞成 debug 会让「思考模式莫名不生效」
+        # 「models.json 没生成」这类问题彻底无迹可查——排查时极难定位。
+        logger.warning("查询 LLMProvider 失败（若在 async 上下文需用 sync_to_async 包裹）", exc_info=True)
         return None
 
 
@@ -121,12 +124,29 @@ def _model_entry(name: str, *, enable_thinking: bool, provider: Any) -> dict[str
     避免给普通模型（glm53 等）错报能力导致 pi 发它不认的 thinking 参数。
     """
     supports = bool(getattr(provider, "supports_thinking", None) and provider.supports_thinking(name))
-    return {
+    entry: dict[str, Any] = {
         "id": name,
         "contextWindow": DEFAULT_CONTEXT_WINDOW,
         "maxTokens": DEFAULT_MAX_TOKENS,
         "reasoning": bool(enable_thinking and supports),
+        # 网关适配（实测必需）：本仓库的 LiteLLM 网关把思考开关放在
+        # ``chat_template_kwargs.thinking``（布尔），而 pi 的 openai-completions
+        # 适配器默认探测会误判 → 不发思考参数，网关不返回 reasoning_content，
+        # 表现为「思考模式开了但永远不思考」。
+        #
+        # 三个字段缺一不可：
+        # - thinkingFormat=chat-template：走 chat_template_kwargs 通道
+        # - chatTemplateKwargs：告诉 pi 往该通道写什么。
+        #   ``$var: thinking.enabled`` 是 pi 的变量语法，由思考等级推导布尔值
+        # - supportsReasoningEffort=false：避免发网关不认的 reasoning_effort
+        "compat": {
+            "thinkingFormat": "chat-template",
+            "supportsReasoningEffort": False,
+            "maxTokensField": "max_tokens",
+            "chatTemplateKwargs": {"thinking": {"$var": "thinking.enabled"}},
+        },
     }
+    return entry
 
 
 def resolve_thinking_level(model_hint: str = "") -> str | None:
