@@ -16,7 +16,7 @@ import {
   MIN_SPLIT_PCT,
   SPLIT_PCT_KEY,
 } from '../constants'
-import { initialDialogWidth, initialSplitPct, useSplitDrag } from './use-split-drag'
+import { initialDialogWidth, initialSplitPct, useDialogWidthDrag, useSplitDrag } from './use-split-drag'
 
 function storage(initial: Record<string, string> = {}) {
   const map = new Map(Object.entries(initial))
@@ -164,5 +164,139 @@ describe('useSplitDrag', () => {
       window.dispatchEvent(new MouseEvent('mousemove', { clientX: 500 }))
     }).not.toThrow()
     div.remove()
+  })
+})
+
+// ============ useDialogWidthDrag（覆盖率补测） ============
+
+describe('useDialogWidthDrag', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 1440 })
+  })
+
+  it('无记忆值时初始宽度为 null（走 CSS 自适应）', () => {
+    const { result } = renderHook(() => useDialogWidthDrag())
+    expect(result.current[0]).toBeNull()
+    expect(result.current[2]).toBe(false)
+  })
+
+  it('有合法记忆值时沿用', () => {
+    localStorage.setItem(DIALOG_WIDTH_KEY, String(MIN_DIALOG_WIDTH + 100))
+    const { result } = renderHook(() => useDialogWidthDrag())
+    expect(result.current[0]).toBe(MIN_DIALOG_WIDTH + 100)
+  })
+
+  it('开始拖拽进入 dragging 态并 preventDefault', () => {
+    const { result } = renderHook(() => useDialogWidthDrag())
+    const preventDefault = vi.fn()
+    const dialog = document.createElement('div')
+    dialog.setAttribute('role', 'dialog')
+    document.body.appendChild(dialog)
+
+    act(() => {
+      result.current[1]({ preventDefault, clientX: 500, currentTarget: dialog })
+    })
+
+    expect(preventDefault).toHaveBeenCalled()
+    expect(result.current[2]).toBe(true)
+    dialog.remove()
+  })
+
+  it('拖拽移动按位移更新宽度并钳在最小值之上', () => {
+    const { result } = renderHook(() => useDialogWidthDrag())
+    const dialog = document.createElement('div')
+    dialog.setAttribute('role', 'dialog')
+    Object.defineProperty(dialog, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({ width: 800, top: 0, left: 0, right: 0, bottom: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) }),
+    })
+    document.body.appendChild(dialog)
+
+    act(() => {
+      result.current[1]({ preventDefault: vi.fn(), clientX: 500, currentTarget: dialog })
+    })
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 700 }))
+    })
+    // 800 + (700-500) = 1000
+    expect(result.current[0]).toBe(1000)
+
+    // 往左拖到极小 → 钳到 MIN_DIALOG_WIDTH
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: -5000 }))
+    })
+    expect(result.current[0]).toBe(MIN_DIALOG_WIDTH)
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mouseup'))
+    })
+    expect(result.current[2]).toBe(false)
+    dialog.remove()
+  })
+
+  it('松手后把宽度写入 localStorage', () => {
+    const { result } = renderHook(() => useDialogWidthDrag())
+    const dialog = document.createElement('div')
+    dialog.setAttribute('role', 'dialog')
+    Object.defineProperty(dialog, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({ width: 900, top: 0, left: 0, right: 0, bottom: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) }),
+    })
+    document.body.appendChild(dialog)
+
+    act(() => {
+      result.current[1]({ preventDefault: vi.fn(), clientX: 100, currentTarget: dialog })
+    })
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 200 }))
+    })
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mouseup'))
+    })
+
+    expect(localStorage.getItem(DIALOG_WIDTH_KEY)).toBe('1000')
+    dialog.remove()
+  })
+
+  it('窗口缩放后有效宽度被钳到视口内（存储值不变）', () => {
+    localStorage.setItem(DIALOG_WIDTH_KEY, '1200')
+    const { result } = renderHook(() => useDialogWidthDrag())
+    expect(result.current[0]).toBe(1200)
+
+    // 视口缩到 800 → 1200 被钳到 768
+    act(() => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 800 })
+      window.dispatchEvent(new Event('resize'))
+    })
+    expect(result.current[0]).toBe(768)
+    // 存储值不被改写
+    expect(localStorage.getItem(DIALOG_WIDTH_KEY)).toBe('1200')
+  })
+
+  it('无 role=dialog 祖先时用 MIN_DIALOG_WIDTH 作为起始宽', () => {
+    const { result } = renderHook(() => useDialogWidthDrag())
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+
+    act(() => {
+      result.current[1]({ preventDefault: vi.fn(), clientX: 100, currentTarget: el })
+    })
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 200 }))
+    })
+    expect(result.current[0]).toBe(MIN_DIALOG_WIDTH + 100)
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mouseup'))
+    })
+    el.remove()
+  })
+
+  it('卸载后移除 resize 监听', () => {
+    const { unmount } = renderHook(() => useDialogWidthDrag())
+    unmount()
+    expect(() => window.dispatchEvent(new Event('resize'))).not.toThrow()
   })
 })
