@@ -7,7 +7,8 @@ import { Toaster } from '@/components/ui/sonner'
 import App from './App'
 import { useAuth } from '@/features/auth'
 import { setupGlobalErrorLogging } from '@/lib/error-logging'
-import { errMessage } from '@/lib/errors'
+import { errMessage, SessionExpiredError } from '@/lib/errors'
+import { setQueryCacheCleaner } from '@/lib/api'
 import './index.css'
 
 setupGlobalErrorLogging()
@@ -33,10 +34,14 @@ const queryClient = new QueryClient({
       // 会话过期类错误（api.ts 401 刷新失败路径）不重试：重试只会再吃一次 401；
       // 其余错误重试一次（与原 retry: 1 口径一致）
       retry: (failureCount, error) =>
-        failureCount < 1 && !(error instanceof Error && error.message.includes('Session expired')),
+        failureCount < 1 && !(error instanceof SessionExpiredError),
     },
   },
 })
+
+// 会话过期（非主动退出）时同样要清 query 缓存：lib 层拿不到 QueryClient，
+// 由入口把清理器注入，与 AppNavbar.handleLogout 共用同一条清理路径
+setQueryCacheCleaner(() => queryClient.clear())
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
