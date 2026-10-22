@@ -332,3 +332,40 @@ describe('ConverterHistoryDialog：详情加载与下载', () => {
     unmount()
   })
 })
+
+// ============ 列表重试与关闭回调（覆盖率补测） ============
+
+describe('ConverterHistoryDialog：重试与关闭', () => {
+  it('列表加载失败点「重试」重新请求', async () => {
+    apiMock.listConverterJobs.mockRejectedValueOnce(new Error('挂了')).mockResolvedValue({ items: [], count: 0 })
+    render(wrap(<ConverterHistoryDialog open onOpenChange={vi.fn()} />))
+
+    const retry = await waitFor(() => screen.getByRole('button', { name: '重试' }))
+    const before = apiMock.listConverterJobs.mock.calls.length
+    fireEvent.click(retry)
+    await waitFor(() =>
+      expect(apiMock.listConverterJobs.mock.calls.length).toBeGreaterThan(before),
+    )
+  })
+
+  it('详情加载失败点「重试」重新请求该任务', async () => {
+    apiMock.listConverterJobs.mockResolvedValue({ items: [convJob('job-1')], count: 1 })
+    apiMock.getConverterJob.mockRejectedValueOnce(new Error('详情挂了')).mockResolvedValue(convJob('job-1'))
+
+    render(wrap(<ConverterHistoryDialog open onOpenChange={vi.fn()} />))
+    const row = await waitFor(() => {
+      const found = Array.from(document.querySelectorAll('button')).find(
+        (b) => b.className.includes('border-b') && b.className.includes('w-full'),
+      )
+      expect(found).toBeTruthy()
+      return found!
+    })
+    fireEvent.click(row)
+
+    const retry = await waitFor(() => screen.getByRole('button', { name: '重试' }))
+    const before = apiMock.getConverterJob.mock.calls.length
+    fireEvent.click(retry)
+    await waitFor(() => expect(apiMock.getConverterJob.mock.calls.length).toBeGreaterThan(before))
+  })
+
+})
