@@ -87,3 +87,5 @@ CVE-2026-112893 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | �
 CVE-2026-112894 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 图像解码 advisory；修复版 13.0.0 为 major 升级，需回归 image_rotation/OCR 管线
 CVE-2026-112900 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 图像解码 advisory；修复版 13.0.0 为 major 升级，需回归 image_rotation/OCR 管线
 CVE-2026-112901 | pillow@12.3.0 | Medium | 2026-10-21 | 2026-11-30 | active | 图像解码 advisory；修复版 13.0.0 为 major 升级，需回归 image_rotation/OCR 管线
+# ===== 2026-10-21 第四批（virtualenv 同源追加；构建工具链依赖，不进运行时）=====
+CVE-2026-113722 | virtualenv@21.13.0 | Medium | 2026-10-21 | 2026-11-30 | active | 构建工具链（uv/venv 创建），CI 一次性环境，不进运行时镜像；修复 21.14.9
