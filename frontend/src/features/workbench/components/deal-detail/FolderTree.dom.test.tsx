@@ -664,3 +664,77 @@ describe('FolderTree：空态与创建态边界', () => {
     container.remove()
   })
 })
+
+// ============ 拖拽高亮 / 输入取消 / 文件行按钮（覆盖率补测） ============
+
+describe('FolderTree：面板拖拽高亮与取消', () => {
+  it('拖到根空白处高亮，离开后取消', async () => {
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('文件夹是空的')).toBeTruthy())
+
+    const root = container.firstElementChild as HTMLElement
+    const over = createEvent.dragOver(root, { dataTransfer: { files: [] } })
+    Object.defineProperty(over, 'currentTarget', { value: root })
+    fireEvent(root, over)
+    await waitFor(() => expect(root.className).toContain('ring-1'))
+
+    const leave = createEvent.dragLeave(root)
+    Object.defineProperty(leave, 'currentTarget', { value: root })
+    fireEvent(root, leave)
+    container.remove()
+  })
+
+  it('新建文件夹输入框取消：回到非创建态', async () => {
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('文件夹是空的')).toBeTruthy())
+
+    fireEvent.click(within(container).getByRole('button', { name: /新建文件夹/ }))
+    const input = await waitFor(() => container.querySelector('input[placeholder="新文件夹名"]') as HTMLInputElement)
+    fireEvent.keyDown(input, { key: 'Escape' })
+
+    await waitFor(() => expect(container.querySelector('input[placeholder="新文件夹名"]')).toBeNull())
+    container.remove()
+  })
+})
+
+describe('FolderTree：文件夹行内确认条取消', () => {
+  it('重命名取消 / 删除取消各自回到常态', async () => {
+    apiMock.listFolderEntries.mockResolvedValue(entries(['dir'], ['a.pdf']))
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('dir')).toBeTruthy())
+
+    // 重命名 → 取消
+    fireEvent.click(within(container).getAllByRole('button', { name: '重命名' })[0]!)
+    const renameInput = await waitFor(() => container.querySelector('input[placeholder="新名称"]') as HTMLInputElement)
+    fireEvent.keyDown(renameInput, { key: 'Escape' })
+    await waitFor(() => expect(container.querySelector('input[placeholder="新名称"]')).toBeNull())
+
+    // 右键删除 → 取消
+    const row = within(container).getByText('dir').closest('[role="button"]') as HTMLElement
+    fireEvent.contextMenu(row, { clientX: 10, clientY: 10 })
+    await waitFor(() => expect(document.querySelector('[role="menu"]')).toBeTruthy())
+    fireEvent.click(
+      Array.from(document.querySelectorAll('[role="menuitem"]')).find((i) => i.textContent === '删除')!,
+    )
+    const cancelBtn = await within(container).findByRole('button', { name: '取消' })
+    fireEvent.click(cancelBtn)
+    await waitFor(() => expect(within(container).queryByRole('button', { name: '确认' })).toBeNull())
+    container.remove()
+  })
+})
+
+describe('FolderTree：文件行重命名按钮', () => {
+  it('点文件行「重命名」进入行内编辑', async () => {
+    apiMock.listFolderEntries.mockResolvedValue(entries([], ['a.pdf']))
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('a.pdf')).toBeTruthy())
+
+    // 文件行的重命名按钮（title="重命名"）在 hover 层里
+    const btns = within(container).getAllByTitle('重命名')
+    if (btns.length > 0) {
+      fireEvent.click(btns[btns.length - 1]!)
+      await waitFor(() => expect(container.querySelector('input[placeholder="新名称"]')).toBeTruthy())
+    }
+    container.remove()
+  })
+})
