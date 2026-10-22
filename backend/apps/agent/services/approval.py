@@ -36,6 +36,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
+from django.db import models
 from django.utils import timezone
 
 from ..models import AgentApproval, AgentSession
@@ -69,14 +70,130 @@ DANGER_PATTERNS: tuple[str, ...] = (
 #: 已知无需审批的例外（按工具名后缀登记；新增例外必须写明理由）。
 APPROVAL_EXEMPT_SUFFIXES: frozenset[str] = frozenset()
 
+#: 紧急级：批量清空 / 重置 / 跨范围破坏。审批时必须二次确认（读一遍工具名再点）。
+CRITICAL_PATTERNS: tuple[str, ...] = (
+    "clear_all",
+    "reset_and_",
+    "delete_all",
+    "bulk_delete",
+)
+
+#: 中级：常规写入，但一旦参数里带了这些字段就升级为需审批。
+#: 只按工具名判高危的漏洞：``update_contract`` 免审批，但它能改金额——
+#: 律师有权改自己案件的金额，误改就是事故。参数级判定补上这个洞。
+SENSITIVE_ARG_MARKERS: tuple[str, ...] = (
+    "amount",
+    "price",
+    "fee",
+    "money",
+    "balance",
+    "cost",
+    "salary",
+    "principal",
+    "interest",
+    "total",
+    "deadline",
+    "due_at",
+    "due_date",
+    "specified_date",
+    "status",
+    "stage",
+    "state",
+)
+
+#: 「业务写」前缀：本身不算高危，但要拿参数做进一步判定。
+WRITE_PREFIXES: tuple[str, ...] = ("create_", "update_", "set_", "patch_", "add_")
+
 DEFAULT_TIMEOUT = 300.0
+#: 紧急级审批的等待上限（比常规长：这种操作值得让用户想清楚）。
+CRITICAL_TIMEOUT = 900.0
+#: 离线审批的等待上限：用户不在线时挂起等多久。默认 2 小时——
+#: 律师常见的节奏是「挂个任务去开庭/开会，回来再处理」。
+OFFLINE_TIMEOUT = 7200.0
+#: 离线审批开关（``FACHUAN_APPROVAL_OFFLINE=0`` 可关闭，回到纯 fail-closed）。
+OFFLINE_ENV = "FACHUAN_APPROVAL_OFFLINE"
 
 
-def is_high_risk(tool_name: str) -> bool:
-    """工具名是否属于高危（子串模式匹配，pi 侧是 ``mcp__fachuan__<name>`` 形式）。"""
+def allow_offline_approval() -> bool:
+    """无人在线时是否允许挂起等离线审批。
+
+    默认**允许**：否则任务式入口（后台跑）永远用不了任何高危工具——
+    这条路是无 SSE 连接的，fail-closed 直接把它判死。
+
+    关闭后回到「无人可问即拒绝」，适合对安全性要求极端保守的部署。
+    """
+    import os
+
+    raw = os.environ.get(OFFLINE_ENV, "").strip()
+    if not raw:
+        return True
+    return raw not in ("0", "false", "False", "no")
+
+
+class RiskLevel(models.TextChoices):
+    """工具调用的风险等级。
+
+    从「布尔」升级为分级的原因：``delete_case(case_id=1)`` 与
+    ``clear_all_xxx()`` 走同一档审批，用户无法区分「删一条草稿」和
+    「清空全库」，久了他就闭眼点同意——审批形同虚设。
+    """
+
+    LOW = "low", "低（直接执行）"
+    MEDIUM = "medium", "中（静默执行并标记审计）"
+    HIGH = "high", "高（需人工确认）"
+    CRITICAL = "critical", "紧急（需二次确认）"
+
+
+def _has_sensitive_arg(tool_args: dict[str, Any] | None) -> str:
+    """参数里是否带敏感字段；返回命中的字段名（空串表示没有）。"""
+    if not tool_args:
+        return ""
+    for key in tool_args:
+        lowered = str(key).lower()
+        if any(marker in lowered for marker in SENSITIVE_ARG_MARKERS):
+            return str(key)
+    return ""
+
+
+def classify_risk(tool_name: str, tool_args: dict[str, Any] | None = None) -> RiskLevel:
+    """判定一次工具调用的风险等级。
+
+    判定顺序（先命中的赢）：
+
+    1. 豁免后缀 → 低
+    2. ``CRITICAL_PATTERNS``（批量清空 / 重置 / delete_all）→ 紧急
+    3. ``DANGER_PATTERNS``（删除 / 外发 / 递交 / 上传 / 归档确认）→ 高
+    4. 写类工具且参数带敏感字段（金额 / 期限 / 状态）→ 高
+    5. 其他写类工具 → 中（静默执行，留审计标记）
+    6. 其余（读类）→ 低
+    """
     if any(tool_name.endswith(suffix) for suffix in APPROVAL_EXEMPT_SUFFIXES):
-        return False
-    return any(pattern in tool_name for pattern in DANGER_PATTERNS)
+        return RiskLevel.LOW
+    if any(pattern in tool_name for pattern in CRITICAL_PATTERNS):
+        return RiskLevel.CRITICAL
+    if any(pattern in tool_name for pattern in DANGER_PATTERNS):
+        return RiskLevel.HIGH
+    short_name = tool_name.rsplit("__", 1)[-1]
+    if short_name.startswith(WRITE_PREFIXES):
+        if _has_sensitive_arg(tool_args):
+            return RiskLevel.HIGH
+        return RiskLevel.MEDIUM
+    return RiskLevel.LOW
+
+
+def is_high_risk(tool_name: str, tool_args: dict[str, Any] | None = None) -> bool:
+    """是否必须人工审批（高 + 紧急）。保留此函数作为「要不要拦」的单一入口。"""
+    return classify_risk(tool_name, tool_args) in (RiskLevel.HIGH, RiskLevel.CRITICAL)
+
+
+def needs_second_confirmation(level: RiskLevel) -> bool:
+    """是否要求用户在审批弹窗里再确认一次（紧急级）。"""
+    return level == RiskLevel.CRITICAL
+
+
+def approval_timeout(level: RiskLevel) -> float:
+    """按等级给等待上限：紧急级给更长时间让用户想清楚。"""
+    return CRITICAL_TIMEOUT if level == RiskLevel.CRITICAL else DEFAULT_TIMEOUT
 
 
 DECISION_KEY_PREFIX = "agent:approval:decision:"
@@ -186,6 +303,14 @@ async def _sse_channel(
         await get_bus().unregister(session_id, queue)
 
 
+def _approval_message(tool_name: str, level: RiskLevel) -> str:
+    """给前端弹窗用的提示语（按等级区分措辞，避免一律「高风险」而失去区分度）。"""
+    short = tool_name.rsplit("__", 1)[-1]
+    if level == RiskLevel.CRITICAL:
+        return f"即将执行批量破坏性操作：{short}。这会影响多条数据且不可撤回，请再次确认。"
+    return f"即将执行不可撤回操作：{short}，请确认是否继续。"
+
+
 async def request_approval(
     *,
     tool_name: str,
@@ -193,17 +318,35 @@ async def request_approval(
     user_id: int | None = None,
     session_id: str | None = None,
     reason: str = "",
-    timeout: float = DEFAULT_TIMEOUT,
+    timeout: float | None = None,
+    offline_timeout: float = OFFLINE_TIMEOUT,
 ) -> tuple[bool, str]:
     """发起一次审批并阻塞等待。
+
+    分级判定取代原来的布尔判定：中级（常规写）静默放行但记审计标记，
+    紧急级（批量清空）要求前端二次确认并给更长的等待时间。
+
+    Args:
+        timeout: 显式指定等待上限；``None`` 时按风险等级取（紧急级更长）。
+        offline_timeout: 无人在线时挂起等离线决定的上限。
 
     Returns:
         ``(approved, approval_id)``。``approved`` 为 ``True`` 才放行。
     """
     approval_id = uuid.uuid4().hex
 
-    if not is_high_risk(tool_name):
+    level = classify_risk(tool_name, tool_args)
+    if level in (RiskLevel.LOW, RiskLevel.MEDIUM):
+        # 中级放行但要留痕：出事时能查到「agent 自己改过金额」
+        if level == RiskLevel.MEDIUM:
+            logger.info(
+                "中级风险工具静默执行 tool=%s args=%s",
+                tool_name,
+                sorted((tool_args or {}).keys()),
+            )
         return True, approval_id
+
+    effective_timeout = timeout if timeout is not None else approval_timeout(level)
 
     session = None
     if session_id:
@@ -218,6 +361,7 @@ async def request_approval(
         tool_name=tool_name,
         tool_args=tool_args or {},
         reason=reason,
+        risk_level=level.value,
     )
 
     # 先登记等待者、再 publish。反过来的话，若「用户决定」先于 register 到达
@@ -243,13 +387,15 @@ async def request_approval(
                 "approval_id": approval_id,
                 "tool_name": tool_name,
                 "tool_args": tool_args or {},
-                "message": reason or f"即将执行高风险操作：{tool_name}，请确认是否继续",
+                "risk_level": level.value,
+                "needs_second_confirmation": needs_second_confirmation(level),
+                "message": reason or _approval_message(tool_name, level),
             },
         )
 
     if event is not None and (delivered or has_remote):
         try:
-            approved = await _wait_decision(approval_id, event, timeout)
+            approved = await _wait_decision(approval_id, event, effective_timeout)
             record.status = AgentApproval.Status.APPROVED if approved else AgentApproval.Status.REJECTED
         except TimeoutError:
             record.status = AgentApproval.Status.TIMEOUT
@@ -261,10 +407,42 @@ async def request_approval(
             await record.asave(update_fields=["status", "decided_at"])
         return record.is_granted, approval_id
 
-    # 没有订阅者：无人可问 → fail-closed
+    # 没有订阅者：无人可问。
+    #
+    # 原实现直接 rejected（fail-closed）。对「用户开着页面但断线」是对的，
+    # 但它把「任务式后台运行」这条路彻底堵死了——后台跑本来就没有 SSE 连接，
+    # 那意味着任务式入口永远用不了任何高危工具。
+    #
+    # 现在按「有没有人在线」分流：
+    # - 有人在别的 worker 上连着（has_remote）却还是没送达 → 链路异常，仍拒绝；
+    # - 完全没人在线且允许离线审批 → 保持 pending 挂起，等用户回来在会话里
+    #   看到待审批卡片再决定（离线审批）。工具调用方仍在阻塞等待，
+    #   所以等待上限用 offline_timeout。
+    # - 完全没人在线且不允许离线审批 → 维持原 fail-closed 行为。
+    offline_ok = allow_offline_approval() and not has_remote
+    if event is not None and offline_ok:
+        logger.info(
+            "无人订阅，审批挂起等待离线决定 tool=%s approval=%s timeout=%s",
+            tool_name,
+            approval_id,
+            offline_timeout,
+        )
+        try:
+            approved = await _wait_decision(approval_id, event, offline_timeout)
+            record.status = AgentApproval.Status.APPROVED if approved else AgentApproval.Status.REJECTED
+        except TimeoutError:
+            record.status = AgentApproval.Status.TIMEOUT
+            logger.info("离线审批超时，按拒绝处理 tool=%s approval=%s", tool_name, approval_id)
+        finally:
+            await _waiter.discard(approval_id)
+            _clear_decision(approval_id)
+            record.decided_at = timezone.now()
+            await record.asave(update_fields=["status", "decided_at"])
+        return record.is_granted, approval_id
+
     if event is not None:
         await _waiter.discard(approval_id)
-    logger.warning("无 SSE 订阅者，审批按拒绝处理: tool=%s", tool_name)
+    logger.warning("无 SSE 订阅者且不允许离线审批，按拒绝处理: tool=%s", tool_name)
     record.status = AgentApproval.Status.REJECTED
     record.decided_at = timezone.now()
     await record.asave(update_fields=["status", "decided_at"])
@@ -344,3 +522,18 @@ async def list_approvals(*, user: Any, limit: int) -> list[AgentApproval]:
     if user is not None and not getattr(user, "is_superuser", False):
         queryset = queryset.filter(session__user_id=user.pk)
     return [record async for record in queryset[: max(1, min(limit, 200))]]
+
+
+async def list_pending_for_user(*, user_id: int | None) -> list[AgentApproval]:
+    """某人所有**仍待处理**的审批（离线审批用：用户回来看到待审批卡片）。
+
+    只查 pending：已决/超时的不需要再打扰用户。按创建时间正序，
+    先来的先处理（避免用户在处理一堆旧请求时又漏掉更急的）。
+    """
+    if user_id is None:
+        return []
+    queryset = AgentApproval.objects.filter(
+        status=AgentApproval.Status.PENDING,
+        session__user_id=user_id,
+    ).select_related("session")
+    return [record async for record in queryset.order_by("created_at")[:100]]

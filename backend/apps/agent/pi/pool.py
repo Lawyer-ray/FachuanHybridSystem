@@ -14,9 +14,13 @@ MCP 已经共享为一份常驻（见 ``shared_mcp.py``），进程本身的造�
 
 ## 生命周期
 
-每次 ``acquire()``：建临时目录 → 渲染 pi 配置（models.json 从数据库读）→
-启动进程 → 交给调用方 → 退出时关闭进程并**删除临时目录**（目录里的
-models.json 含真实 API key，绝不能在磁盘上累积）。
+每次 ``acquire()``：解析稳定目录（``session_store.layout``）→ 渲染 pi 配置
+（models.json 从数据库读）→ 以 ``--session-dir/--session-id`` 启动进程 →
+交给调用方 → 退出时关闭进程。
+
+目录**不再随请求删除**：``--session-id`` 按 cwd 隔离会话，稳定的 cwd 是
+多轮记忆的前提；含 API key 的 models.json 由 ``write_models_json`` 以 0600
+原子创建、目录 0700，安全性不再依赖「用完就删」。
 """
 
 from __future__ import annotations
@@ -24,15 +28,24 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-import shutil
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
-from .rpc_client import PiRpcSession, make_temp_workdir
+from .rpc_client import PiRpcSession
+from .session_store import layout
 from .shared_mcp import McpEndpoint, write_pi_config
 
 logger = logging.getLogger(__name__)
+
+
+class PoolQueueTimeoutError(RuntimeError):
+    """排队超时：池容量被占满且等待过久。
+
+    不无限排队的原因：用户盯着转圈 5 分钟比直接告诉他「系统忙」更糟，
+    也会把 HTTP 连接和 SSE 都拖住，最终两头超时且查不到原因。
+    """
 
 
 @dataclass(slots=True)
@@ -45,6 +58,10 @@ class PoolConfig:
     extension_path: str | None = None
     extra_env: dict[str, str] = field(default_factory=dict)
     mcp_endpoint: McpEndpoint | None = None
+    #: 排队最长等待（秒）。0 表示不限（仅测试 / 内部批量场景使用）。
+    queue_timeout: float = 60.0
+    #: 排队期间的回调：收到「前面还有几位」。由 chat_service 转成 queued 事件。
+    on_queued: Callable[[int], None] | None = None
 
 
 class PiProcessPool:
@@ -54,16 +71,68 @@ class PiProcessPool:
         self._config = config or PoolConfig()
         self._semaphore = asyncio.Semaphore(max(1, self._config.size))
         self._closed = False
+        #: 正在排队的请求数（用于告诉前端「前方 N 人」）
+        self._waiting = 0
+        self._waiting_lock = asyncio.Lock()
 
     @property
     def size(self) -> int:
         return max(1, self._config.size)
+
+    @property
+    def waiting(self) -> int:
+        """当前排队中的请求数（不含正在跑的）。"""
+        return self._waiting
+
+    @property
+    def saturated(self) -> bool:
+        """执行位是否已全部占满（新请求会排队）。"""
+        return self._semaphore.locked()
+
+    @contextlib.asynccontextmanager
+    async def _slot(self) -> AsyncIterator[None]:
+        """取一个执行位；满员时带排队超时，不无限挂死。
+
+        Raises:
+            PoolQueueTimeoutError: 排队超过 ``queue_timeout``。
+        """
+        timeout = self._config.queue_timeout
+        if timeout <= 0:
+            async with self._semaphore:
+                yield
+            return
+        try:
+            await asyncio.wait_for(self._semaphore.acquire(), timeout=timeout)
+        except TimeoutError as exc:
+            raise PoolQueueTimeoutError(f"agent 执行位已满，排队超过 {timeout:.0f} 秒（容量 {self.size}）") from exc
+        try:
+            yield
+        finally:
+            self._semaphore.release()
+
+    async def _announce_queue(self) -> None:
+        """登记排队并回调前端可见的排队位置。"""
+        callback = self._config.on_queued
+        async with self._waiting_lock:
+            self._waiting += 1
+            position = self._waiting
+        if callback is None:
+            return
+        try:
+            callback(position)
+        except Exception:
+            logger.debug("排队回调失败（忽略）", exc_info=True)
+
+    async def _leave_queue(self) -> None:
+        async with self._waiting_lock:
+            self._waiting = max(0, self._waiting - 1)
 
     @contextlib.asynccontextmanager
     async def acquire(
         self,
         session_env: dict[str, str] | None = None,
         model: str | None = None,
+        session_id: str | None = None,
     ) -> AsyncIterator[PiRpcSession]:
         """构造一个 pi 会话，退出时销毁进程并清理临时目录。
 
@@ -72,43 +141,72 @@ class PiProcessPool:
             model: 本请求使用的模型；缺省用池配置里的模型。按请求传入使
                 Admin 修改 LLMProvider 默认模型后立即生效（``--model`` 与
                 models.json 同源，不会失配）。
+
+        三条纪律：
+
+        - **排队可见**：池满时先登记排队并回调排队位置（前端显示「前方 N 人」），
+          再等执行位；不无限挂死，超过 ``queue_timeout`` 抛 PoolQueueTimeoutError。
+        - **取消时真中止**：用户点停止 / 客户端断开时先 clear_queue + abort 再关，
+          否则模型会在服务端跑完继续烧 token。
+        - **目录稳定不删**：cwd 与配置目录必须稳定（``--session-id`` 按 cwd 隔离
+          会话，换目录会让同一会话丢失记忆）。目录权限 0700，models.json 由
+          ``write_models_json`` 以 0600 原子创建，不再依赖「用完就删」来兜底。
         """
         if self._closed:
             raise RuntimeError("进程池已关闭")
         effective_model = model or self._config.model
-        cwd = make_temp_workdir()
+        # 稳定布局：work（cwd）/ config（PI_CODING_AGENT_DIR）/ sessions
+        cwd, config_dir, sessions_root = layout()
+        session_dir = str(Path(sessions_root) / session_id) if session_id else None
         session: PiRpcSession | None = None
-        async with self._semaphore:
-            try:
-                # write_pi_config 会读数据库（LLMProvider），放线程里跑，
-                # 否则 async 上下文抛 SynchronousOnlyOperation。
-                from asgiref.sync import sync_to_async
+        aborted = False
+        queued = self._semaphore.locked()
+        if queued:
+            await self._announce_queue()
+        try:
+            async with self._slot():
+                try:
+                    # write_pi_config 会读数据库（LLMProvider），放线程里跑，
+                    # 否则 async 上下文抛 SynchronousOnlyOperation。
+                    from asgiref.sync import sync_to_async
 
-                await sync_to_async(write_pi_config, thread_sensitive=True)(
-                    cwd, self._config.mcp_endpoint, model_hint=effective_model or ""
-                )
-                # 思考等级由 write_pi_config 一并写入隔离目录的 settings.json
-                # （pi 官方开关是 modelThinkingLevels，不是 CLI 参数也不是
-                # models.json 的 reasoning 字段）。
-                env = {**(self._config.extra_env or {}), "PI_CODING_AGENT_DIR": cwd}
-                env.update(session_env or {})
-                session = PiRpcSession(
-                    cwd=cwd,
-                    model=effective_model,
-                    provider=self._config.provider,
-                    extension_path=self._config.extension_path,
-                    extra_env=env,
-                )
-                await session.start()
-                yield session
-            finally:
-                # 目录里有 models.json（真实 API key），用完必须删。
-                if session is not None:
-                    try:
-                        await session.close()
-                    except Exception:
-                        logger.warning("pi 进程关闭异常（忽略）", exc_info=True)
-                shutil.rmtree(cwd, ignore_errors=True)
+                    await sync_to_async(write_pi_config, thread_sensitive=True)(
+                        config_dir, self._config.mcp_endpoint, model_hint=effective_model or ""
+                    )
+                    # 思考等级由 write_pi_config 一并写入隔离目录的 settings.json
+                    # （pi 官方开关是 modelThinkingLevels，不是 CLI 参数也不是
+                    # models.json 的 reasoning 字段）。
+                    env = {**(self._config.extra_env or {}), "PI_CODING_AGENT_DIR": str(config_dir)}
+                    env.update(session_env or {})
+                    session = PiRpcSession(
+                        cwd=str(cwd),
+                        model=effective_model,
+                        provider=self._config.provider,
+                        extension_path=self._config.extension_path,
+                        extra_env=env,
+                        session_dir=session_dir,
+                        session_id=session_id,
+                    )
+                    await session.start()
+                    yield session
+                except (GeneratorExit, asyncio.CancelledError):
+                    # 取消路径：当前任务已处于取消中，await 会立即重新抛
+                    # CancelledError，所以关闭动作必须屏蔽外层取消，
+                    # 否则 abort 根本发不出去。
+                    aborted = True
+                    if session is not None:
+                        with contextlib.suppress(Exception):
+                            await asyncio.shield(session.close(abort_running=True))
+                    raise
+                finally:
+                    if session is not None and not aborted:
+                        try:
+                            await session.close()
+                        except Exception:
+                            logger.warning("pi 进程关闭异常（忽略）", exc_info=True)
+        finally:
+            if queued:
+                await self._leave_queue()
 
     async def close(self) -> None:
         """停用闸门（在途请求各自收尾，本类不再持有长期资源）。"""

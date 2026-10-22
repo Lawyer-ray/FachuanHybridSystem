@@ -23,16 +23,28 @@ from ninja.errors import HttpError
 from apps.core.security.auth import JWTOrSessionAuth
 
 from ..models import AgentApproval, AgentMessage, AgentSession
-from ..services.approval import decide_approval, get_approval_for_decision
+from ..pi.rpc_client import PiError
+from ..services.approval import classify_risk, decide_approval, get_approval_for_decision
 from ..services.approval import list_approvals as list_approval_records
+from ..services.approval import list_pending_for_user as list_pending_approvals
 from ..services.approval import request_approval
-from ..services.chat_service import stream_chat
+from ..services.chat_service import (
+    SessionNotLiveError,
+    clear_queue_session,
+    follow_up_session,
+    steer_session,
+    stream_chat,
+)
 from ..services.session_service import create_session as create_session_record
 from ..services.session_service import delete_session as delete_session_record
 from ..services.session_service import get_session as get_session_record
 from ..services.session_service import list_messages as list_message_records
 from ..services.session_service import list_sessions as list_session_records
 from ..services.session_service import rename_session as rename_session_record
+from ..services.usage_stats import UsageSummary
+from ..services.usage_stats import by_model as usage_by_model
+from ..services.usage_stats import daily_series as usage_daily_series
+from ..services.usage_stats import summarize as usage_summarize
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +62,10 @@ class SessionIn(Schema):
     """
 
     title: str = ""
+    #: 来源入口：chat（对话页）/ case（案件内）/ contract（合同内）/ task（任务式）
+    origin: str = "chat"
+    case_id: int | None = None
+    contract_id: int | None = None
 
 
 class SessionOut(Schema):
@@ -59,6 +75,9 @@ class SessionOut(Schema):
     title: str
     status: str
     llm_model: str
+    origin: str
+    case_id: int | None = None
+    contract_id: int | None = None
     created_at: str
     updated_at: str
 
@@ -92,13 +111,54 @@ class ApprovalDecideIn(Schema):
     approved: bool
 
 
+class SteerIn(Schema):
+    """运行中插话 / 追加一轮的请求体。"""
+
+    message: str
+
+
+class SteerOut(Schema):
+    """插话结果。``disposition`` 为 queued（已排队）或 handled（被扩展消费）。"""
+
+    success: bool
+    disposition: str
+
+
+class ClearQueueOut(Schema):
+    """撤回排队消息的结果；``messages`` 是被撤回的原文。"""
+
+    success: bool
+    messages: list[str]
+
+
+class UsageOut(Schema):
+    """成本 / 耗时汇总。``error_rate`` 为小数（0.05 = 5%）。"""
+
+    runs: int
+    ok_runs: int
+    error_runs: int
+    cancelled_runs: int
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    tool_calls: int
+    avg_duration_ms: int
+    error_rate: float
+
+
 class PiApprovalIn(Schema):
-    """pi extension 发来的审批请求。"""
+    """pi extension 发来的审批请求。
+
+    ``risk_level`` 由 extension 预判后一并送来（仅作参考与日志），
+    服务端以 ``classify_risk`` 的判定为准——extension 可以被绕过，
+    不能让客户端决定自己要不要审批。
+    """
 
     tool: str
     args: dict[str, Any] | None = None
     user_id: int = 0
     session_id: str = ""
+    risk_level: str = ""
 
 
 class PiApprovalOut(Schema):
@@ -107,6 +167,7 @@ class PiApprovalOut(Schema):
     approved: bool
     approval_id: str = ""
     reason: str = ""
+    risk_level: str = ""
 
 
 def _current_user(request: Any) -> Any:
@@ -127,6 +188,9 @@ def _to_out(session: AgentSession) -> SessionOut:
         title=session.title,
         status=session.status,
         llm_model=session.llm_model,
+        origin=session.origin,
+        case_id=session.case_id,
+        contract_id=session.contract_id,
         created_at=session.created_at.isoformat(),
         updated_at=session.updated_at.isoformat(),
     )
@@ -152,14 +216,33 @@ async def create_session(request: Any, payload: SessionIn) -> SessionOut:  # pra
     session = await create_session_record(
         title=payload.title,
         user_id=_user_id(request),
+        origin=payload.origin,
+        case_id=payload.case_id,
+        contract_id=payload.contract_id,
     )
     return _to_out(session)
 
 
 @router.get("/sessions", response=list[SessionOut])
-async def list_sessions(request: Any, limit: int = 50) -> list[SessionOut]:  # pragma: no cover
-    """列出当前用户的会话。"""
-    sessions = await list_session_records(user_id=_user_id(request), limit=limit)
+async def list_sessions(  # pragma: no cover
+    request: Any,
+    limit: int = 50,
+    origin: str | None = None,
+    case_id: int | None = None,
+    contract_id: int | None = None,
+) -> list[SessionOut]:
+    """列出当前用户的会话。
+
+    可按入口（origin）与案件 / 合同过滤。归属始终按当前用户过滤——
+    ``case_id`` 只用于缩小范围，不能借它看到别人的会话。
+    """
+    sessions = await list_session_records(
+        user_id=_user_id(request),
+        limit=limit,
+        origin=origin,
+        case_id=case_id,
+        contract_id=contract_id,
+    )
     return [_to_out(s) for s in sessions]
 
 
@@ -253,6 +336,70 @@ async def send_message(  # pragma: no cover
     return response
 
 
+# ─── 运行中插话 ───
+
+
+def _live_session_error(exc: Exception) -> HttpError:
+    """把 service 层异常转成前端能理解的 HTTP 错误。"""
+    from ..pi.rpc_client import PiError
+
+    if isinstance(exc, PiError):
+        # pi 拒绝：通常是本轮已 settle（ran 完），插话无对象
+        return HttpError(409, "对话已结束，无法插话")
+    return HttpError(409, "会话当前没有运行中的对话")
+
+
+@router.post("/sessions/{session_id}/steer", response=SteerOut)
+async def steer_running_session(  # pragma: no cover
+    request: Any,
+    session_id: str,
+    payload: SteerIn,
+) -> Any:
+    """运行中插话：在当前 assistant turn 的工具调用之后、下次模型调用之前生效。
+
+    用于「agent 写到一半发现要改方向」，不必停止重发。
+    """
+    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
+    if session is None:
+        raise HttpError(404, "会话不存在")
+    if not payload.message.strip():
+        raise HttpError(400, "插话内容不能为空")
+    try:
+        disposition = await steer_session(session_id=session_id, message=payload.message)
+    except (SessionNotLiveError, PiError) as exc:
+        raise _live_session_error(exc) from exc
+    return SteerOut(success=True, disposition=disposition)
+
+
+@router.post("/sessions/{session_id}/follow-up", response=SteerOut)
+async def follow_up_running_session(  # pragma: no cover
+    request: Any,
+    session_id: str,
+    payload: SteerIn,
+) -> Any:
+    """追加一轮：agent 干完当前所有活后再跑这条。"""
+    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
+    if session is None:
+        raise HttpError(404, "会话不存在")
+    if not payload.message.strip():
+        raise HttpError(400, "追加内容不能为空")
+    try:
+        disposition = await follow_up_session(session_id=session_id, message=payload.message)
+    except (SessionNotLiveError, PiError) as exc:
+        raise _live_session_error(exc) from exc
+    return SteerOut(success=True, disposition=disposition)
+
+
+@router.delete("/sessions/{session_id}/queue", response=ClearQueueOut)
+async def clear_session_queue(request: Any, session_id: str) -> Any:  # pragma: no cover
+    """撤回已排队但尚未生效的插话 / 追加消息（「撤销」按钮）。"""
+    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
+    if session is None:
+        raise HttpError(404, "会话不存在")
+    messages = await clear_queue_session(session_id=session_id)
+    return ClearQueueOut(success=True, messages=messages)
+
+
 # ─── 审批 ───────────────────────────────────────────────────────────────────
 
 
@@ -286,6 +433,16 @@ async def pi_approval_request(request: Any, payload: PiApprovalIn) -> Any:  # pr
     if not _internal_token_ok(request):
         return PiApprovalOut(approved=False, reason="鉴权失败")
 
+    level = classify_risk(payload.tool, payload.args)
+    if payload.risk_level and payload.risk_level != level.value:
+        # extension 与服务端判定不一致：以服务端为准，但记下来便于排查
+        # 「为什么一个该拦的操作没弹窗」。
+        logger.warning(
+            "审批等级不一致 tool=%s extension=%s server=%s",
+            payload.tool,
+            payload.risk_level,
+            level.value,
+        )
     approved, approval_id = await request_approval(
         tool_name=payload.tool,
         tool_args=payload.args or {},
@@ -296,6 +453,7 @@ async def pi_approval_request(request: Any, payload: PiApprovalIn) -> Any:  # pr
         approved=approved,
         approval_id=approval_id,
         reason="用户同意" if approved else "用户拒绝或超时",
+        risk_level=level.value,
     )
 
 
@@ -324,6 +482,78 @@ def _may_decide(user: Any, record: AgentApproval) -> bool:
     return user is not None and owner_id is not None and int(owner_id) == int(user.pk)
 
 
+@router.get("/usage", response=UsageOut)
+async def get_usage(request: Any, days: int = 30) -> UsageOut:  # pragma: no cover
+    """当前用户的成本与耗时汇总（超级用户可加 ``?all=true`` 看全所）。
+
+    口径：token 由 pi 上报，一轮内工具循环的多段 assistant 逐段累加；
+    取消与出错的轮次同样计入（那些轮也消耗了 token）。
+    """
+    user = _current_user(request)
+    is_super = user is not None and getattr(user, "is_superuser", False)
+    scope_user = None if (is_super and getattr(request, "GET", {}).get("all") == "true") else _user_id(request)
+    summary = _to_usage(await _summarize_bg(scope_user, days))
+    return summary
+
+
+@router.get("/usage/daily", response=list[dict[str, Any]])
+async def get_usage_daily(request: Any, days: int = 30) -> list[dict[str, Any]]:  # pragma: no cover
+    """按天的成本趋势（前端画折线用）。"""
+    from asgiref.sync import sync_to_async
+
+    return await sync_to_async(usage_daily_series, thread_sensitive=True)(user_id=_user_id(request), days=days)
+
+
+@router.get("/usage/by-model", response=list[dict[str, Any]])
+async def get_usage_by_model(request: Any, days: int = 30) -> list[dict[str, Any]]:  # pragma: no cover
+    """按模型的用量分布。"""
+    from asgiref.sync import sync_to_async
+
+    return await sync_to_async(usage_by_model, thread_sensitive=True)(user_id=_user_id(request), days=days)
+
+
+def _to_usage(summary: UsageSummary) -> UsageOut:
+    return UsageOut(
+        runs=summary.runs,
+        ok_runs=summary.ok_runs,
+        error_runs=summary.error_runs,
+        cancelled_runs=summary.cancelled_runs,
+        input_tokens=summary.input_tokens,
+        output_tokens=summary.output_tokens,
+        total_tokens=summary.total_tokens,
+        tool_calls=summary.tool_calls,
+        avg_duration_ms=summary.avg_duration_ms,
+        error_rate=summary.error_rate,
+    )
+
+
+async def _summarize_bg(user_id: int | None, days: int) -> UsageSummary:
+    from asgiref.sync import sync_to_async
+
+    return await sync_to_async(usage_summarize, thread_sensitive=True)(user_id=user_id, days=days)
+
+
+@router.get("/approvals/pending", response=list[dict[str, Any]])
+async def list_pending_approvals_endpoint(request: Any) -> list[dict[str, Any]]:  # pragma: no cover
+    """当前用户**仍待处理**的审批（离线审批入口）。
+
+    任务式后台运行没有 SSE 连接，高危工具会挂起等决定。用户下次打开
+    对话页时调这个接口，把待审批卡片摆出来——而不是让那次运行默默超时。
+    """
+    records = await list_pending_approvals(user_id=_user_id(request))
+    return [
+        {
+            "approval_id": str(a.approval_id),
+            "session_id": str(a.session.session_id) if a.session is not None else "",
+            "tool_name": a.tool_name,
+            "tool_args": a.tool_args or {},
+            "risk_level": a.risk_level,
+            "created_at": a.created_at.isoformat(),
+        }
+        for a in records
+    ]
+
+
 @router.get("/approvals", response=list[dict[str, Any]])
 async def list_approvals(request: Any, limit: int = 50) -> list[dict[str, Any]]:  # pragma: no cover
     """列出审批记录（审计用；非超级用户仅见自己会话的记录）。"""
@@ -332,6 +562,7 @@ async def list_approvals(request: Any, limit: int = 50) -> list[dict[str, Any]]:
         {
             "approval_id": str(a.approval_id),
             "tool_name": a.tool_name,
+            "risk_level": a.risk_level,
             "status": a.status,
             "created_at": a.created_at.isoformat(),
         }

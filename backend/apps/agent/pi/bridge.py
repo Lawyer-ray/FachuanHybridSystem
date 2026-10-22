@@ -2,22 +2,40 @@
 
 ## 事件契约（前端消费的稳定接口）
 
-    meta / activity / delta / tool_call / tool_result / usage
+    meta / activity / delta / thinking / tool_call / tool_result / usage
     approval_request / error / done
 
-## pi 的实际事件形态（1.3.0 实测）
+## pi 的实际事件形态（1.4.0 实测，fixture 见 tests/ci/fixtures/agent/）
 
-pi 的 `message_update` 携带的是 **usage 统计**，不是文本增量；完整文本在
-`message_end` 里一次性给出。因此增量输出需要对 `message_end` 做「与已发内容
-求差」的处理，否则要么丢字，要么重复。
+1.4.0 把 `message_update` 改成 **delta-only**（`docs/json.md`）：不再带 `message`
+快照，也不再带 `assistantMessageEvent.partial`。`assistantMessageEvent.type`
+是一套完整的分块生命周期：
 
-工具调用同样是成对的 `message_end`（assistant 带 toolCall / tool 带结果），
-而非独立的 tool_call 事件。
+    text_start   {contentIndex}
+    text_delta   {contentIndex, delta}          ← 增量文本
+    text_end     {contentIndex, content}        ← 权威全文（用于校正）
+    thinking_*   / toolcall_start / toolcall_delta / toolcall_end
 
-映射原则：
-- 只输出前端真正使用的字段
-- 未识别事件静默丢弃（避免把内部诊断泄漏给浏览器）
-- 审批不经事件流传递（走独立 HTTP 通道），由服务层推 `approval_request`
+实测要点（不要凭想象补）：
+
+- `text_end` 带的是 ``content`` 而不是 ``delta``；`toolcall_start` 带
+  ``id``/``toolName``，`toolcall_end` 带完整 ``toolCall``；
+  `toolcall_delta` 的 ``delta`` 是**参数的 JSON 片段**，绝不可当正文发给前端
+  （曾把 ``{"path": "`` 混进用户看到的回答里）。
+- 工具结果的消息角色是 **``toolResult``**（不是 ``tool``），字段是
+  ``toolCallId`` / ``toolName``；结果在 `tool_execution_end` 的 ``result`` 里是
+  一个 **dict**（``{content: [...], structuredContent: ...}``），直接 ``str()``
+  会把 Python repr 泄给前端。
+- ``usage`` 在 `message_update` 顶层（文本结束时才有值）和 `message_end` 的
+  ``message.usage`` 里都有。
+
+因此本模块的三条纪律：
+
+1. 正文只认 ``text_delta``；``text_end``/``message_end`` 只用来**校正**，不重复发。
+2. 工具调用/结果只从**一条**路径产出（优先 ``toolcall_end`` /
+   ``tool_execution_end``），避免重复。
+3. 未识别事件静默丢弃（避免把内部诊断泄漏给浏览器）；
+   审批不经事件流传递（走独立 HTTP 通道），由服务层推 `approval_request`。
 """
 
 from __future__ import annotations
@@ -51,6 +69,40 @@ def _content_text(message: dict[str, Any]) -> str:
     return "".join(parts)
 
 
+def _tool_result_text(result: Any) -> str:
+    """把工具结果规整成可展示的文本。
+
+    ``tool_execution_end`` 的 ``result`` 是 dict（MCP 返回的形状）：
+    ``{"content": [{"type": "text", "text": "..."}], "structuredContent": ...}``。
+    直接 ``str()`` 会把 Python repr 泄给前端。
+    """
+    if isinstance(result, str):
+        return result
+    if isinstance(result, list):
+        return "".join(item if isinstance(item, str) else _tool_result_text(item) for item in result)
+    if not isinstance(result, dict):
+        return "" if result is None else str(result)
+    content = result.get("content")
+    if content is not None:
+        text = _content_text({"content": content})
+        if text:
+            return text
+    structured = result.get("structuredContent")
+    if isinstance(structured, str):
+        return structured
+    return ""
+
+
+def _tool_call_event(call: dict[str, Any]) -> dict[str, Any]:
+    """规整一条 tool_call 事件。"""
+    return {
+        "type": "tool_call",
+        "tool_call_id": str(call.get("id") or call.get("toolCallId") or ""),
+        "name": str(call.get("name") or call.get("toolName") or ""),
+        "arguments": call.get("arguments") if call.get("arguments") is not None else call.get("input"),
+    }
+
+
 def _content_tool_calls(message: dict[str, Any]) -> list[dict[str, Any]]:
     """从 assistant 消息里取出工具调用列表。"""
     content = message.get("content")
@@ -72,17 +124,23 @@ def _tool_name(record: dict[str, Any]) -> str:
 
 
 class DeltaTracker:
-    """把「全文快照」转成「增量」的辅助器。
+    """把「全文快照」转成「增量」的辅助器，兼去重工具调用。
 
     pi 同时可能给两种形态：``message_update`` 的显式 delta、``message_end`` 的
     全文。两者会重叠，所以统一用「已发送长度」做水位：
 
     - ``note(delta)``：记下已直接发出的增量，推高水位
     - ``diff(full_text)``：只返回超出水位的部分
+
+    工具调用同理：``toolcall_end`` 已经发过带完整参数的 tool_call，
+    ``message_end`` 里同一 id 就不得再发（否则前端会看到两条，
+    且后一条的 arguments 常常是 None）。
     """
 
     def __init__(self) -> None:
         self._sent = 0
+        self._tool_calls: set[str] = set()
+        self._tool_results: set[str] = set()
 
     def note(self, delta: str) -> None:
         """记录已直接发出的增量长度。"""
@@ -97,7 +155,30 @@ class DeltaTracker:
         self._sent = len(full_text)
         return chunk
 
+    def mark_tool_call(self, call_id: str) -> None:
+        """记下已发过的 tool_call id。"""
+        if call_id:
+            self._tool_calls.add(call_id)
+
+    def tool_call_sent(self, call_id: str) -> bool:
+        """该 tool_call 是否已经发过。"""
+        return bool(call_id) and call_id in self._tool_calls
+
+    def mark_tool_result(self, call_id: str) -> None:
+        """记下已发过的 tool_result id（tool_execution_end 与 message_end 会重叠）。"""
+        if call_id:
+            self._tool_results.add(call_id)
+
+    def tool_result_sent(self, call_id: str) -> bool:
+        """该 tool_result 是否已经发过。"""
+        return bool(call_id) and call_id in self._tool_results
+
     def reset(self) -> None:
+        """复位正文水位（每条 assistant 消息一次）；工具调用记录不跟着清。
+
+        工具调用在 message_end 里还要用于去重，而 message_start(message_end)
+        之间可能隔着多次复位；这里只清正文水位。
+        """
         self._sent = 0
 
 
@@ -143,27 +224,45 @@ def translate_all(
     if etype == "message_end":
         return _translate_message_end(event.raw, tracker)
     if etype == "message_update":
-        event_out = _translate_message_update(event.raw, tracker)
-        return [event_out] if event_out is not None else []
+        return _translate_message_update(event.raw, tracker)
 
-    # ── 工具事件（若 pi 某版本直接给）─────────────────────────────────────
+    # ── 工具执行事件（结果的权威来源）────────────────────────────────────
+    # tool_execution_* 与 toolcall_end 讲的是同一次调用，必须去重：
+    # toolcall_end 带完整 arguments，tool_execution_start 只带已解析的 args。
+    # 以 toolcall_end 为准，start 仅补发尚未告知的（旧版 pi / 无 toolcall_* 事件）。
     if etype in ("tool_call", "tool_execution_start"):
+        call_id = str(event.raw.get("toolCallId") or event.raw.get("id") or "")
+        if tracker is not None and tracker.tool_call_sent(call_id):
+            return []
+        args = event.raw.get("args")
+        if args is None:
+            args = event.raw.get("input") or event.raw.get("arguments")
+        if tracker is not None:
+            tracker.mark_tool_call(call_id)
         return [
             {
                 "type": "tool_call",
-                "tool_call_id": str(event.raw.get("toolCallId") or event.raw.get("id") or ""),
+                "tool_call_id": call_id,
                 "name": _tool_name(event.raw),
-                "arguments": event.raw.get("input") or event.raw.get("arguments"),
+                "arguments": args,
             }
         ]
     if etype in ("tool_result", "tool_execution_end"):
-        result = str(event.raw.get("result") or event.raw.get("output") or "")
+        call_id = str(event.raw.get("toolCallId") or event.raw.get("id") or "")
+        if tracker is not None and tracker.tool_result_sent(call_id):
+            return []
+        raw_result = event.raw.get("result")
+        if raw_result is None:
+            raw_result = event.raw.get("output")
+        if tracker is not None:
+            tracker.mark_tool_result(call_id)
         return [
             {
                 "type": "tool_result",
-                "tool_call_id": str(event.raw.get("toolCallId") or event.raw.get("id") or ""),
+                "tool_call_id": call_id,
                 "name": _tool_name(event.raw),
-                "result": result[:_RESULT_PREVIEW_LIMIT],
+                "result": _tool_result_text(raw_result)[:_RESULT_PREVIEW_LIMIT],
+                "is_error": bool(event.raw.get("isError")),
             }
         ]
 
@@ -194,17 +293,12 @@ def _translate_message_end(
             chunk = tracker.diff(text)
             if chunk:
                 events.append({"type": "delta", "content": chunk})
-        calls = _content_tool_calls(message)
-        if calls:
-            call = calls[0]
-            events.append(
-                {
-                    "type": "tool_call",
-                    "tool_call_id": str(call.get("id") or call.get("toolCallId") or ""),
-                    "name": str(call.get("name") or call.get("toolName") or ""),
-                    "arguments": call.get("input") or call.get("arguments"),
-                }
-            )
+        # 工具调用已在 toolcall_end 发过（带完整 arguments）。这里只在尚未发过时
+        # 补发（旧版 pi / 无 toolcall_* 事件的 provider），避免重复。
+        for call in _content_tool_calls(message):
+            if tracker is not None and tracker.tool_call_sent(str(call.get("id") or call.get("toolCallId") or "")):
+                continue
+            events.append(_tool_call_event(call))
         # 文本与工具调用并存时曾只发文本（提前 return 吞掉 tool_call），
         # 前端会看不到工具在执行——两件事都要发。
         # usage 是 pi 的精确计数（Usage.output 等），前端用来收尾展示真实
@@ -220,14 +314,21 @@ def _translate_message_end(
             )
         return events
 
-    if role == "tool":
-        # 工具结果消息：content 是工具输出文本
+    # 1.4.0 的工具结果消息角色是 toolResult（历史版本用 tool），两种都认。
+    # 结果已在 tool_execution_end 发过（带 isError），这里只补发尚未告知的。
+    if role in ("toolResult", "tool"):
+        call_id = str(message.get("toolCallId") or message.get("id") or "")
+        if tracker is not None and tracker.tool_result_sent(call_id):
+            return []
+        if tracker is not None:
+            tracker.mark_tool_result(call_id)
         return [
             {
                 "type": "tool_result",
-                "tool_call_id": str(message.get("toolCallId") or message.get("id") or ""),
+                "tool_call_id": call_id,
                 "name": str(message.get("toolName") or ""),
                 "result": _content_text(message)[:_RESULT_PREVIEW_LIMIT],
+                "is_error": bool(message.get("isError")),
             }
         ]
 
@@ -237,33 +338,62 @@ def _translate_message_end(
 def _translate_message_update(
     raw: dict[str, Any],
     tracker: DeltaTracker | None,
-) -> dict[str, Any] | None:
-    """处理 message_update：只认显式文本增量（``assistantMessageEvent.delta``）。
+) -> list[dict[str, Any]]:
+    """处理 message_update（1.4.0 是 delta-only，按分块生命周期翻译）。
 
-    pi 的 ``message_update`` 自带 message 快照时，其内容与 ``message_end`` 重复。
-    为避免同一段文本发两次（实测「全链路联调成功」被推 3 次），
-    这里统一交给 tracker 做差量，保证全局只发一次。
+    这是正文的唯一来源。要点：
+
+    - ``text_delta`` → delta（并且只把正文计入水位）
+    - ``text_end``   → 只做校正：若实际全文比已发多（丢了碎片），补齐差额
+    - ``toolcall_*`` → **不得**当正文发；只在 ``toolcall_end`` 发一次完整 tool_call
+    - ``thinking_*`` → thinking 事件，不推高正文水位
     """
-    inner = raw.get("assistantMessageEvent") or {}
-    if isinstance(inner, dict):
-        inner_type = inner.get("type")
-        if inner_type in {"thinking_delta", "reasoning_delta"}:
-            thinking = inner.get("delta") or inner.get("thinking") or ""
-            if isinstance(thinking, str) and thinking:
-                return {"type": "thinking", "content": thinking}
-            return None
+    events: list[dict[str, Any]] = []
+    inner = raw.get("assistantMessageEvent")
+    if not isinstance(inner, dict):
+        # 非 1.4.0 形态（带 message 快照）：退化为差量
+        message = raw.get("message")
+        if isinstance(message, dict) and tracker is not None:
+            chunk = tracker.diff(_content_text(message))
+            if chunk:
+                events.append({"type": "delta", "content": chunk})
+        return events
+
+    inner_type = inner.get("type")
+
+    if inner_type in {"thinking_delta", "reasoning_delta"}:
+        thinking = inner.get("delta") or inner.get("thinking") or ""
+        if isinstance(thinking, str) and thinking:
+            events.append({"type": "thinking", "content": thinking})
+        return events
+
+    if inner_type == "text_delta":
         delta = inner.get("delta")
-        if isinstance(delta, str) and delta and tracker is not None:
-            # 也走 tracker，防止与 message_end 的全文重复
-            tracker.note(delta)
-            return {"type": "delta", "content": delta}
-    message = raw.get("message")
-    if isinstance(message, dict) and tracker is not None:
-        text = _content_text(message)
-        chunk = tracker.diff(text)
-        if chunk:
-            return {"type": "delta", "content": chunk}
-    return None
+        if isinstance(delta, str) and delta:
+            if tracker is not None:
+                tracker.note(delta)
+            events.append({"type": "delta", "content": delta})
+        return events
+
+    if inner_type == "text_end":
+        # 权威全文：只补差额（正常情况已发过，差额为空）
+        content = inner.get("content")
+        if isinstance(content, str) and tracker is not None:
+            chunk = tracker.diff(content)
+            if chunk:
+                events.append({"type": "delta", "content": chunk})
+        return events
+
+    if inner_type == "toolcall_end":
+        call = inner.get("toolCall")
+        if isinstance(call, dict):
+            if tracker is not None:
+                tracker.mark_tool_call(str(call.get("id") or call.get("toolCallId") or ""))
+            events.append(_tool_call_event(call))
+        return events
+
+    # toolcall_delta 是参数 JSON 碎片、toolcall_start 无完整参数，都不能当正文
+    return events
 
 
 async def stream_events(

@@ -123,7 +123,7 @@ class _FakeAcquire:
 
 
 class _FakePool:
-    def acquire(self, *, session_env: dict[str, str] | None = None, model: str | None = None) -> _FakeAcquire:
+    def acquire(self, **kwargs: Any) -> _FakeAcquire:
         return _FakeAcquire()
 
 

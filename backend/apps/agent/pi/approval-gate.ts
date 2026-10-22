@@ -48,13 +48,85 @@ const HIGH_RISK_PATTERNS: readonly string[] = [
   "reset_and_",
 ];
 
-function isHighRisk(toolName: string): boolean {
-  return HIGH_RISK_PATTERNS.some((pattern) => toolName.includes(pattern));
+/**
+ * 紧急级：批量清空 / 重置 / delete_all。前端弹窗要求二次确认。
+ * 与服务端 CRITICAL_PATTERNS 保持一致（一致性由单测守护）。
+ */
+const CRITICAL_PATTERNS: readonly string[] = [
+  "clear_all",
+  "reset_and_",
+  "delete_all",
+  "bulk_delete",
+];
+
+/**
+ * 中级：常规写入，但参数里带金额/期限/状态字段时升级为需审批。
+ * 只按工具名判高危会漏掉 `update_contract(fixed_amount=...)` 这类改金额的写操作。
+ * 与服务端 SENSITIVE_ARG_MARKERS / WRITE_PREFIXES 保持一致。
+ */
+const SENSITIVE_ARG_MARKERS: readonly string[] = [
+  "amount",
+  "price",
+  "fee",
+  "money",
+  "balance",
+  "cost",
+  "salary",
+  "principal",
+  "interest",
+  "total",
+  "deadline",
+  "due_at",
+  "due_date",
+  "specified_date",
+  "status",
+  "stage",
+  "state",
+];
+
+const WRITE_PREFIXES: readonly string[] = ["create_", "update_", "set_", "patch_", "add_"];
+
+type RiskLevel = "low" | "medium" | "high" | "critical";
+
+/** 短名（去掉 mcp__fachuan__ 前缀），与服务端判定口径一致。 */
+function shortName(toolName: string): string {
+  const parts = toolName.split("__");
+  return parts[parts.length - 1] ?? toolName;
+}
+
+function hasSensitiveArg(input: Record<string, unknown> | undefined): boolean {
+  if (!input) {
+    return false;
+  }
+  return Object.keys(input).some((key) => {
+    const lowered = key.toLowerCase();
+    return SENSITIVE_ARG_MARKERS.some((marker) => lowered.includes(marker));
+  });
+}
+
+/**
+ * 与后端 approval.py 的 classify_risk 同序判定：
+ * 紧急 → 高 → 写类+敏感参数 → 写类 → 低
+ */
+function classifyRisk(toolName: string, input: Record<string, unknown> | undefined): RiskLevel {
+  if (CRITICAL_PATTERNS.some((pattern) => toolName.includes(pattern))) {
+    return "critical";
+  }
+  if (HIGH_RISK_PATTERNS.some((pattern) => toolName.includes(pattern))) {
+    return "high";
+  }
+  if (WRITE_PREFIXES.some((prefix) => shortName(toolName).startsWith(prefix))) {
+    return hasSensitiveArg(input) ? "high" : "medium";
+  }
+  return "low";
 }
 
 export default function (pi: ExtensionAPI) {
   pi.on("tool_call", async (event) => {
-    if (!isHighRisk(event.toolName)) {
+    const input = (event.input ?? {}) as Record<string, unknown>;
+    const level = classifyRisk(event.toolName, input);
+    // 低/中直接放行；中级由服务端记审计标记，不需要打断用户
+    if (level === "low" || level === "medium") {
       return undefined;
     }
 
@@ -67,7 +139,8 @@ export default function (pi: ExtensionAPI) {
         },
         body: JSON.stringify({
           tool: event.toolName,
-          args: event.input ?? {},
+          args: input,
+          risk_level: level,
           user_id: USER_ID,
           session_id: SESSION_ID,
         }),

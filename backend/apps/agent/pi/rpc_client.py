@@ -8,8 +8,9 @@
 2. **命令按 id 关联**：命令处理是异步的，不能假设响应顺序。
 3. **运行结束用 ``agent_settled``**：``agent_end`` 之后还可能有重试 / 压缩 / steering。
 4. **stdout 只放协议**：诊断信息在 stderr，不解析 stderr。
-5. **``--no-session``**：会话状态由 Django 持有，pi 只当无状态执行器，
-   多进程 / 多机部署无需共享磁盘。
+5. **session 归属**：默认按会话给 ``--session-dir`` + ``--session-id``，让 pi
+   自己管上下文与 compaction（见 ``session_store.py``）；只在没有 session_id
+   （脚本 / 单测）时才用 ``--no-session``。
 """
 
 from __future__ import annotations
@@ -38,6 +39,8 @@ TOOL_SELECTION = "mcp__fachuan__*"
 _READ_CHUNK = 65536
 _SHUTDOWN_TIMEOUT = 5.0
 _STDERR_LINE_LIMIT = 500
+#: 关闭前写 abort 的 drain 超时（写不进去就算了，后面还有 kill 兜底）
+_ABORT_DRAIN_TIMEOUT = 1.0
 
 
 class PiError(RuntimeError):
@@ -131,8 +134,12 @@ class PiRpcSession:
         extension_path: str | None = None,
         extra_env: dict[str, str] | None = None,
         command_timeout: float = 30.0,
+        session_dir: str | None = None,
+        session_id: str | None = None,
     ) -> None:
         self._cwd = cwd
+        self._session_dir = session_dir
+        self._session_id = session_id
         self._model = model
         self._provider = provider
         self._extension = extension_path if extension_path is not None else default_approval_extension()
@@ -162,13 +169,18 @@ class PiRpcSession:
             pi_bin,
             "--mode",
             "rpc",
-            "--no-session",
             "--approve",
             "--tools",
             TOOL_SELECTION,
             "--extension",
             self._extension,
         ]
+        # 上下文管理交给 pi：每会话一个 session 文件，pi 负责裁剪与自动 compaction。
+        # 没有 session_id 时退回 --no-session（脚本/测试场景）。
+        if self._session_dir and self._session_id:
+            args.extend(["--session-dir", self._session_dir, "--session-id", self._session_id])
+        else:
+            args.append("--no-session")
         if self._provider:
             args.extend(["--provider", self._provider])
         if self._model:
@@ -195,11 +207,20 @@ class PiRpcSession:
             self._model,
         )
 
-    async def close(self) -> None:
-        """关闭 stdin 请求优雅退出；超时则强杀。"""
+    async def close(self, *, abort_running: bool = False) -> None:
+        """关闭 stdin 请求优雅退出；超时则强杀。
+
+        Args:
+            abort_running: 关闭前先中止在途运行。用户主动停止 / 客户端断开时
+                传 ``True``，让 provider 侧请求尽快结束（省钱）。正常跑完的路径
+                保持 ``False``——那时已无在途运行，多发一条 abort 只会多一次握手。
+        """
         proc, self._proc = self._proc, None
         if proc is None:
             return
+        if abort_running and proc.returncode is None:
+            # 进程已摘出 self._proc，_send() 会因「未启动」失败；直接写 stdin。
+            await self._abort_before_close(proc)
         for attr in ("_reader_task", "_stderr_task"):
             task = getattr(self, attr)
             if task is not None:
@@ -233,6 +254,21 @@ class PiRpcSession:
     @property
     def alive(self) -> bool:
         return self._proc is not None and self._proc.returncode is None
+
+    async def _abort_before_close(self, proc: asyncio.subprocess.Process) -> None:
+        """关闭前的最后一搏：直接往 stdin 写 clear_queue + abort。
+
+        不复用 ``_send()``：它要等 response，而此刻读协程即将被取消，等不到。
+        """
+        if proc.stdin is None or proc.stdin.is_closing():
+            return
+        payloads = ({"type": "clear_queue", "id": "close-clear"}, {"type": "abort", "id": "close-abort"})
+        try:
+            for payload in payloads:
+                proc.stdin.write(json.dumps(payload, ensure_ascii=False).encode("utf-8") + b"\n")
+            await asyncio.wait_for(proc.stdin.drain(), timeout=_ABORT_DRAIN_TIMEOUT)
+        except (TimeoutError, ConnectionResetError, BrokenPipeError, RuntimeError):
+            logger.debug("关闭前 abort 写入失败（进程可能已退出）", exc_info=True)
 
     # ── stdout 读取（二进制按 LF 切分） ─────────────────────────────────────
 
@@ -343,10 +379,76 @@ class PiRpcSession:
         if resp.get("success") is not True:
             raise PiError(f"prompt 被拒绝: {resp.get('error')}")
 
-    async def abort(self) -> None:
-        """中止当前运行。"""
-        with contextlib.suppress(PiError, TimeoutError):
-            await self._send({"type": "abort"})
+    async def steer(self, message: str) -> str:
+        """运行中插话：当前 assistant turn 的工具调用跑完、下次 LLM 调用前生效。
+
+        Returns:
+            pi 的 ``data.disposition``（``queued`` / ``handled``）。
+
+        Raises:
+            PiError: 命令被拒（典型：当前没在跑）。
+        """
+        return await self._queue_message("steer", message)
+
+    async def follow_up(self, message: str) -> str:
+        """追加一轮：agent 干完当前所有活（无工具调用、无 steering）后再跑。
+
+        Returns:
+            pi 的 ``data.disposition``。
+
+        Raises:
+            PiError: 命令被拒。
+        """
+        return await self._queue_message("follow_up", message)
+
+    async def _queue_message(self, command: str, message: str) -> str:
+        """steer / follow_up 共用的投递逻辑（两者协议形状一致）。"""
+        resp = await self._send({"type": command, "message": message})
+        if resp.get("success") is not True:
+            raise PiError(f"{command} 被拒绝: {resp.get('error')}")
+        data = resp.get("data")
+        if isinstance(data, dict):
+            return str(data.get("disposition") or "queued")
+        return "queued"
+
+    async def abort(self) -> bool:
+        """中止当前运行；返回是否成功送达。
+
+        调用时机是「用户点了停止」——此时前端已断开，但 pi 子进程仍在跑，
+        provider 侧请求已发出。不发 abort 直接关进程，模型会在服务端跑完
+        （继续烧 token），只是结果没人接收。
+
+        按 ``rpc-commands.md`` 的交互式 Esc 语义，abort 后排队消息仍会继续；
+        用户按停止的意思是「全停」，所以先 ``clear_queue`` 再 ``abort``。
+        """
+        cleared = await self.clear_queue()
+        if cleared:
+            logger.info("pi 运行中止前撤回排队消息 %s 条", len(cleared))
+        try:
+            resp = await self._send({"type": "abort"})
+        except (PiError, TimeoutError):
+            logger.debug("abort 发送失败（进程可能已退出）", exc_info=True)
+            return False
+        return resp.get("success") is True
+
+    async def clear_queue(self) -> list[str]:
+        """撤回排队的 steering / follow-up 消息，返回被撤回的文本。
+
+        不是所有版本都支持该命令；失败按「无排队消息」处理，不阻断中止流程。
+        """
+        try:
+            resp = await self._send({"type": "clear_queue"})
+        except (PiError, TimeoutError):
+            return []
+        data = resp.get("data")
+        if not isinstance(data, dict):
+            return []
+        texts: list[str] = []
+        for key in ("steering", "followUp"):
+            values = data.get(key)
+            if isinstance(values, list):
+                texts.extend(str(value) for value in values)
+        return texts
 
     def drain_events(self) -> AsyncIterator[PiEvent]:
         """消费事件流；进程结束时迭代器自然结束。"""

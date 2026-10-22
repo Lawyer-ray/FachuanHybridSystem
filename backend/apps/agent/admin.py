@@ -1,0 +1,73 @@
+"""Agent 运行记录的 Django Admin。
+
+律师全是普通用户、没有独立管理员角色，但律所负责人需要知道 AI 用量花在
+哪、哪个模型贵。这里给一个只读视图（运行记录是审计数据，不该手工改）。
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from django.contrib import admin
+from django.db.models import QuerySet
+from django.http import HttpRequest
+
+from .models import AgentApproval, AgentRun, AgentSession
+
+
+@admin.register(AgentRun)
+class AgentRunAdmin(admin.ModelAdmin):
+    """成本与耗时（只读）。"""
+
+    list_display = (
+        "created_at",
+        "user",
+        "model",
+        "status",
+        "input_tokens",
+        "output_tokens",
+        "tool_calls",
+        "duration_ms",
+    )
+    list_filter = ("status", "model", "created_at")
+    search_fields = ("model", "user__username", "error_kind")
+    date_hierarchy = "created_at"
+    ordering = ("-created_at",)
+    readonly_fields = (
+        "session",
+        "user",
+        "model",
+        "status",
+        "input_tokens",
+        "output_tokens",
+        "tool_calls",
+        "duration_ms",
+        "error_kind",
+        "created_at",
+    )
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+        return False
+
+    def get_queryset(self, request: HttpRequest) -> QuerySet[AgentRun]:
+        return super().get_queryset(request).select_related("user", "session")
+
+
+@admin.register(AgentSession)
+class AgentSessionAdmin(admin.ModelAdmin):
+    list_display = ("title", "user", "status", "llm_model", "created_at", "updated_at")
+    list_filter = ("status", "created_at")
+    search_fields = ("title", "user__username")
+
+
+@admin.register(AgentApproval)
+class AgentApprovalAdmin(admin.ModelAdmin):
+    """高危操作审批的审计视图。"""
+
+    list_display = ("created_at", "tool_name", "status", "decided_by", "decided_at")
+    list_filter = ("status", "created_at")
+    search_fields = ("tool_name",)
+    date_hierarchy = "created_at"
