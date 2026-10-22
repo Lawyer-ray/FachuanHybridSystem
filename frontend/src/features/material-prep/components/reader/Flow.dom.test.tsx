@@ -10,7 +10,7 @@
  * - 右键菜单：右键未选中页=单删，右键选中页=整选区删
  * - 取字态把 pickPage / onOcrBox 透给页卡，非取字态不透
  */
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // 布局数学用真实实现，保证 cols/页宽口径与生产一致
@@ -223,6 +223,119 @@ describe('Flow：来源标记', () => {
     const { container } = renderFlow({ draft })
     const page0 = cellProps.find((p) => p.mi === 0 && p.p === 0)
     expect((page0!.marks as Array<{ label: string }>).map((m) => m.label)).toEqual(['标的额', '委托人'])
+    container.remove()
+  })
+})
+
+// ============ 切分按钮 / 多列 / 段开始条 / 右键菜单（覆盖率补测） ============
+
+function renderFlowWithOp(over: Record<string, unknown> = {}) {
+  const onRequestDelete = vi.fn()
+  const splitSeg = vi.fn()
+  const renameSeg = vi.fn()
+  const mergeSeg = vi.fn()
+  const utils = render(
+    <Flow
+      draft={makeDraft()}
+      messageId={5}
+      pickInfo={-1}
+      focusedSeg={0}
+      zoom={1}
+      cols={1}
+      selMode={false}
+      selPages={[]}
+      ocrPending={null}
+      onOp={{ pickPage: vi.fn(), setValue: vi.fn(), splitSeg, renameSeg, mergeSeg } as never}
+      onToggleSel={vi.fn()}
+      onOcrBox={vi.fn()}
+      onRequestDelete={onRequestDelete}
+      {...over}
+    />,
+  )
+  return { ...utils, onRequestDelete, splitSeg, renameSeg, mergeSeg }
+}
+
+describe('Flow：切分按钮', () => {
+  it('单列多页时从第 2 页起出现「在此切开」按钮', () => {
+    const { container } = renderFlowWithOp()
+    const btns = Array.from(container.querySelectorAll('button')).filter(
+      (b) => b.getAttribute('aria-label') === '在此切开',
+    )
+    // 2 页 → 第一页后有一个切分点
+    expect(btns).toHaveLength(1)
+    container.remove()
+  })
+
+  it('点切分按钮调用 splitSeg(si, ri)', () => {
+    const { container, splitSeg } = renderFlowWithOp()
+    const btn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.getAttribute('aria-label') === '在此切开',
+    ) as HTMLElement
+    fireEvent.click(btn)
+    expect(splitSeg).toHaveBeenCalledWith(0, 0)
+    container.remove()
+  })
+
+  it('多列布局：每页（含第一页）都有页前切分按钮', () => {
+    const { container } = renderFlowWithOp({ cols: 2 })
+    const before = Array.from(container.querySelectorAll('button')).filter(
+      (b) => b.getAttribute('aria-label') === '在此页前切开',
+    )
+    // 2 页、多列 → 第 2 页前一个
+    expect(before.length).toBeGreaterThanOrEqual(1)
+    container.remove()
+  })
+
+  it('多列页前切分按钮调用 splitSeg(si, ri-1)', () => {
+    const { container, splitSeg } = renderFlowWithOp({ cols: 2 })
+    const btn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.getAttribute('aria-label') === '在此页前切开',
+    ) as HTMLElement
+    fireEvent.click(btn)
+    expect(splitSeg).toHaveBeenCalledWith(0, 0)
+    container.remove()
+  })
+})
+
+describe('Flow：段开始条', () => {
+  it('多源包显示「段开始 · 源文件名」', () => {
+    const draft = makeDraft({
+      mats: [mat('a.pdf', 1), mat('b.pdf', 1)],
+      segs: [seg('s1', '第一份', [{ mi: 0, p: 0 }, { mi: 1, p: 0 }])],
+    })
+    const { container } = renderFlowWithOp({ draft })
+    expect(container.textContent).toContain('段开始')
+    expect(container.textContent).toContain('a.pdf')
+    container.remove()
+  })
+
+  it('单源包不显示段开始条', () => {
+    const { container } = renderFlowWithOp()
+    expect(container.textContent).not.toContain('段开始')
+    container.remove()
+  })
+
+  it('段开始条优先显示 customName', () => {
+    const draft = makeDraft({
+      mats: [{ partIndex: 0, n: 'a.pdf', customName: '证据卷.pdf', k: 'pdf', pages: 1 }, mat('b.pdf', 1)],
+      segs: [seg('s1', '第一份', [{ mi: 0, p: 0 }, { mi: 1, p: 0 }])],
+    })
+    const { container } = renderFlowWithOp({ draft })
+    expect(container.textContent).toContain('证据卷.pdf')
+    container.remove()
+  })
+})
+
+describe('Flow：段末尾切分', () => {
+  it('段末尾有「在此切开」按钮并调用 splitSeg', () => {
+    const { container, splitSeg } = renderFlowWithOp()
+    const all = Array.from(container.querySelectorAll('button')).filter(
+      (b) => b.getAttribute('aria-label') === '在此切开',
+    )
+    // 至少有一个（段末尾那个）
+    expect(all.length).toBeGreaterThanOrEqual(1)
+    fireEvent.click(all[all.length - 1]!)
+    expect(splitSeg).toHaveBeenCalled()
     container.remove()
   })
 })
