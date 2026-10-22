@@ -313,3 +313,107 @@ describe('copilot store：switchSession 分支', () => {
     expect(useCopilot.getState().messages).toEqual([])
   })
 })
+
+// ============ 流式事件分支（覆盖率补测） ==========
+
+describe('copilot store：流式事件处理', () => {
+  it('thinking 增量累积到 thinking 字段，不计入正文', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: {"type":"thinking","content":"思考A"}\n\n',
+        'data: {"type":"thinking","content":"思考B"}\n\n',
+        'data: {"type":"delta","content":"正文"}\n\n',
+        'data: {"type":"done"}\n\n',
+      ]),
+    )
+
+    await useCopilot.getState().send('x')
+    const assistant = useCopilot.getState().messages.find((m) => m.role === 'assistant')!
+    expect(assistant.content).toBe('正文')
+    expect(assistant.thinking).toBe('思考A思考B')
+    // 首个正文 delta 到达后 thinkingDone 置位
+    expect(assistant.thinkingDone).toBe(true)
+  })
+
+  it('只有 thinking 没有正文：thinkingDone 保持未置位', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse(['data: {"type":"thinking","content":"仅思考"}\n\n', 'data: {"type":"done"}\n\n']),
+    )
+
+    await useCopilot.getState().send('x')
+    const assistant = useCopilot.getState().messages.find((m) => m.role === 'assistant')!
+    expect(assistant.thinking).toBe('仅思考')
+    expect(assistant.thinkingDone).toBeFalsy()
+  })
+
+  it('HTTP 非 2xx：进错误态并提示连接中断', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      new Response(null, { status: 500 }),
+    )
+
+    await useCopilot.getState().send('x')
+    expect(useCopilot.getState().lastError).toBe('连接中断，请重试')
+    expect(useCopilot.getState().streaming).toBe(false)
+  })
+
+  it('响应无 body：同样进错误态', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue({
+      ok: true,
+      body: null,
+      status: 200,
+    } as unknown as Response)
+
+    await useCopilot.getState().send('x')
+    expect(useCopilot.getState().lastError).toBe('连接中断，请重试')
+  })
+
+  it('空文本或流式中重复发送：直接返回不建会话', async () => {
+    const createSpy = vi.mocked(copilotApi.createSession)
+    await useCopilot.getState().send('   ')
+    expect(createSpy).not.toHaveBeenCalled()
+
+    useCopilot.setState({ streaming: true })
+    await useCopilot.getState().send('有内容')
+    expect(createSpy).not.toHaveBeenCalled()
+    useCopilot.setState({ streaming: false })
+  })
+
+  it('创建会话失败：给错误提示且不进入流式', async () => {
+    vi.mocked(copilotApi.createSession).mockRejectedValue(new Error('boom'))
+
+    await useCopilot.getState().send('x')
+    expect(useCopilot.getState().lastError).toBe('创建会话失败，请稍后重试')
+    expect(useCopilot.getState().streaming).toBe(false)
+  })
+
+  it('畸形帧被跳过，不影响后续正常帧', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: 不是JSON\n\n',
+        'data: {"type":"unknown_type","x":1}\n\n',
+        'data: {"type":"delta","content":"正常"}\n\n',
+        'data: {"type":"done"}\n\n',
+      ]),
+    )
+
+    await useCopilot.getState().send('x')
+    const assistant = useCopilot.getState().messages.find((m) => m.role === 'assistant')!
+    expect(assistant.content).toBe('正常')
+  })
+
+  it('error 事件：置 lastError 并收尾', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse(['data: {"type":"error","message":"服务端拒绝"}\n\n']),
+    )
+
+    await useCopilot.getState().send('x')
+    expect(useCopilot.getState().lastError).toBe('服务端拒绝')
+    expect(useCopilot.getState().streaming).toBe(false)
+  })
+})
