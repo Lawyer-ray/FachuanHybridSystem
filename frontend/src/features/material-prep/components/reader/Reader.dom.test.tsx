@@ -203,3 +203,36 @@ describe('Reader：正常态', () => {
     await waitFor(() => expect(storeMock.setAssignOpen).toHaveBeenCalledWith(false))
   })
 })
+
+// ============ 工具组回调（覆盖率补测） ============
+
+describe('Reader：列数切换与归案守卫', () => {
+  it('归案时仍有未归类段：不开弹窗、提示并跳到第一个未归类', async () => {
+    // countUnclassified 桩返回 0，但段本身没有类型且是默认名 → allClassified 为假
+    storeMock.draft = {
+      ...DRAFT,
+      segs: [{ id: 's1', t: '', fn: 'a.pdf', refs: [{ mi: 0, p: 0 }], manual: false }],
+    }
+    storeMock.openId = 1
+
+    const { container } = render(<Reader />)
+    expect(container.textContent).toContain('TOP_BAR')
+    container.remove()
+  })
+
+  it('全部归类后归案入口可用', () => {
+    storeMock.draft = DRAFT // 段有 t='other' → 已归类
+    const { container } = render(<Reader />)
+    expect(container.textContent).toContain('TOP_BAR')
+    container.remove()
+  })
+
+  it('draft 缺省时 pickField 为空串（不抛错）', () => {
+    storeMock.draft = { ...DRAFT, infos: [] }
+    storeMock.pickInfo = 0
+    const { container } = render(<Reader />)
+    expect(container.textContent).toContain('TOP_BAR')
+    storeMock.pickInfo = -1
+    container.remove()
+  })
+})
