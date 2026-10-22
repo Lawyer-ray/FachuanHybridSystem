@@ -362,12 +362,31 @@ if [ "$RUN_BACKEND" = true ]; then
   fi
 
   # [14] pip-audit（对齐 backend job 的 Dependency audit step）
-  # 忽略列表与 .github/workflows/backend-ci.yml 保持同步；末尾 PYSEC-2026-3721 / PYSEC-2026-3447
-  # 是本地 TRAE 污染 python 底盘的构建工具漏洞，CI 干净环境扫不到，保留以放行本地 push
+  # 豁免清单单一来源：backend/devtools/pip-audit-ignores.txt（与 backend-ci.yml 同源）。
+  # 此处不再硬编码副本——历史上两份清单各自维护，devtools 新增豁免后脚本副本必然落后，
+  # 导致本地 push 被已豁免的 advisory 拦下（v27.8.5 的 Pillow 批次即踩到此坑）。
+  # 末尾 LOCAL_ONLY_AUDIT_IGNORES 是本地 TRAE 污染 python 底盘的构建工具漏洞，
+  # CI 干净环境扫不到，故只在本脚本追加、不进 devtools 清单。
   header "14/22" "依赖安全审计 (pip-audit)"
+  LOCAL_ONLY_AUDIT_IGNORES="PYSEC-2026-3721 PYSEC-2026-3447"
   # 仅当本次有依赖文件变更时才扫描，避免每次 push 白跑网络请求；网络抖动自动重试一次
   _pip_audit_invoke() {
-    $BACKEND_PYTHON -m pip_audit --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-6357 --ignore-vuln CVE-2026-42304 --ignore-vuln CVE-2026-46678 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2026-161 --ignore-vuln PYSEC-2025-183 --ignore-vuln PYSEC-2026-175 --ignore-vuln PYSEC-2026-177 --ignore-vuln PYSEC-2026-178 --ignore-vuln PYSEC-2026-179 --ignore-vuln PYSEC-2026-196 --ignore-vuln CVE-2026-54911 --ignore-vuln GHSA-6v7p-g79w-8964 --ignore-vuln GHSA-4xgf-cpjx-pc3j --ignore-vuln CVE-2026-48990 --ignore-vuln CVE-2026-49452 --ignore-vuln CVE-2026-49477 --ignore-vuln CVE-2026-49476 --ignore-vuln PYSEC-2026-3444 --ignore-vuln PYSEC-2026-3072 --ignore-vuln PYSEC-2026-3071 --ignore-vuln PYSEC-2026-3412 --ignore-vuln CVE-2026-52870 --ignore-vuln CVE-2026-52869 --ignore-vuln CVE-2026-59950 --ignore-vuln CVE-2026-59881 --ignore-vuln CVE-2026-69243 --ignore-vuln CVE-2026-69244 --ignore-vuln CVE-2026-69248 --ignore-vuln CVE-2026-69247 --ignore-vuln CVE-2026-69249 --ignore-vuln PYSEC-2026-3482 --ignore-vuln PYSEC-2026-3483 --ignore-vuln PYSEC-2026-3481 --ignore-vuln PYSEC-2026-3721 --ignore-vuln PYSEC-2026-3447 2>&1
+    local ignore_file="$ROOT_DIR/backend/devtools/pip-audit-ignores.txt"
+    local ignore_args=""
+    if [ -f "$ignore_file" ]; then
+      # 与 backend-ci.yml 完全一致的解析方式：跳过注释/空行，取第 1 列
+      ignore_args="$(grep -Ev '^[[:space:]]*(#|$)' "$ignore_file" \
+        | awk -F' *[|] *' '{printf "--ignore-vuln %s ", $1}')"
+    else
+      echo "  ⚠ 未找到 ${ignore_file}，仅使用本地专属豁免"
+    fi
+    local local_args=""
+    local vuln_id
+    for vuln_id in $LOCAL_ONLY_AUDIT_IGNORES; do
+      local_args="$local_args--ignore-vuln $vuln_id "
+    done
+    # shellcheck disable=SC2086
+    $BACKEND_PYTHON -m pip_audit $ignore_args $local_args 2>&1
   }
   DEP_CHANGED=false
   if [ -n "$BASE_MERGE" ]; then
