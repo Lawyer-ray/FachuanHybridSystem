@@ -49,7 +49,7 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
 
   return (
     <aside
-      className={`fixed top-(--app-navbar-h) right-0 bottom-0 z-[100] flex w-full flex-col border-l border-border bg-card shadow-[-8px_0_24px_rgba(0,0,0,0.06)] duration-200 sm:w-[404px] ${
+      className={`fixed top-(--app-navbar-h) right-0 bottom-0 z-[100] flex w-full flex-col border-l border-border bg-card shadow-[-8px_0_24px_rgba(0,0,0,0.06)] duration-200 fill-mode-both sm:w-[404px] ${
         open ? 'animate-in slide-in-from-right' : 'animate-out slide-out-to-right'
       }`}
       aria-label="AI 助手"
