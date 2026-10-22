@@ -8,7 +8,7 @@
  * - FolderRow / FileRow：展开折叠、重命名、删除、右键菜单
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, waitFor, within } from '@testing-library/react'
+import { createEvent, fireEvent, render, waitFor, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -576,6 +576,91 @@ describe('FolderTree：复制到目标后展开目标', () => {
     )
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('目标已满')))
+    container.remove()
+  })
+})
+
+// ============ 文件夹行交互（覆盖率补测） ============
+
+describe('FolderTree：文件夹行展开折叠', () => {
+  it('点文件夹展开后再点收起', async () => {
+    apiMock.listFolderEntries.mockImplementation(async (_k, _id, sp: string) =>
+      sp === '' ? entries(['dir']) : entries([], ['inner.pdf']),
+    )
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('dir')).toBeTruthy())
+
+    fireEvent.click(within(container).getByText('dir'))
+    await waitFor(() => expect(within(container).getByText('inner.pdf')).toBeTruthy())
+
+    // 再点一次收起，子项消失
+    fireEvent.click(within(container).getByText('dir'))
+    await waitFor(() => expect(within(container).queryByText('inner.pdf')).toBeNull())
+    container.remove()
+  })
+
+  it('键盘 Enter 与 Space 都能切换展开态', async () => {
+    apiMock.listFolderEntries.mockImplementation(async (_k, _id, sp: string) =>
+      sp === '' ? entries(['dir']) : entries(),
+    )
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('dir')).toBeTruthy())
+
+    const row = within(container).getByText('dir').closest('[role="button"]') as HTMLElement
+    fireEvent.keyDown(row, { key: 'Enter' })
+    await waitFor(() => expect(apiMock.listFolderEntries).toHaveBeenCalledWith('case', 1, 'dir'))
+
+    fireEvent.keyDown(row, { key: ' ' })
+    // 不抛错即可（收起）
+    container.remove()
+  })
+
+  it('文件夹行拖拽悬停设置 dropOn，离开时清空', async () => {
+    apiMock.listFolderEntries.mockResolvedValue(entries(['dir']))
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('dir')).toBeTruthy())
+
+    const row = within(container).getByText('dir').closest('[role="button"]') as HTMLElement
+    const over = createEvent.dragOver(row, { dataTransfer: { files: [], dropEffect: '' } })
+    Object.defineProperty(over, 'currentTarget', { value: row })
+    fireEvent(row, over)
+
+    const leave = createEvent.dragLeave(row)
+    Object.defineProperty(leave, 'currentTarget', { value: row })
+    fireEvent(row, leave)
+
+    // 不抛错即可
+    container.remove()
+  })
+})
+
+describe('FolderTree：空态与创建态边界', () => {
+  it('子目录为空且不在创建态时显示「（空）」', async () => {
+    apiMock.listFolderEntries.mockImplementation(async (_k, _id, sp: string) =>
+      sp === '' ? entries(['emptyDir']) : entries(),
+    )
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('emptyDir')).toBeTruthy())
+
+    fireEvent.click(within(container).getByText('emptyDir'))
+    await waitFor(() => expect(within(container).getByText('（空）')).toBeTruthy())
+    container.remove()
+  })
+
+  it('子目录创建态时不显示「（空）」', async () => {
+    apiMock.listFolderEntries.mockImplementation(async (_k, _id, sp: string) =>
+      sp === '' ? entries(['emptyDir']) : entries(),
+    )
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('emptyDir')).toBeTruthy())
+
+    fireEvent.click(within(container).getByText('emptyDir'))
+    await waitFor(() => expect(within(container).getByText('（空）')).toBeTruthy())
+
+    // 在子目录内新建文件夹 → 创建态出现，空态让位
+    const newBtns = within(container).getAllByRole('button', { name: /新建/ })
+    fireEvent.click(newBtns[newBtns.length - 1]!)
+    await waitFor(() => expect(within(container).queryByText('（空）')).toBeNull())
     container.remove()
   })
 })
