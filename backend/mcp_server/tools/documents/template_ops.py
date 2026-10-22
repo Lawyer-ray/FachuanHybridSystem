@@ -12,18 +12,18 @@ def update_document_template(template_id: int, **fields: Any) -> dict[str, Any]:
     return client.put(f"/documents/templates/{template_id}", json=fields)  # type: ignore[return-value]
 
 
-def delete_document_template(template_id: int) -> None:
-    """软删除文件模板。"""
-    client.delete(f"/documents/templates/{template_id}")
+def delete_document_template(template_id: int) -> dict[str, Any]:
+    """软删除文件模板。返回后端删除结果。"""
+    return client.delete(f"/documents/templates/{template_id}")  # type: ignore[no-any-return]
 
 
-def extract_template_placeholders(template_id: int) -> dict[str, Any]:
-    """提取模板中的替换词变量。"""
+def extract_template_placeholders(template_id: int) -> list[str]:
+    """提取模板中的替换词变量。后端返回占位符名列表（``list[str]``）。"""
     return client.get(f"/documents/templates/{template_id}/placeholders")  # type: ignore[return-value]
 
 
-def get_undefined_placeholders(template_id: int) -> dict[str, Any]:
-    """获取模板中尚未定义的替换词。"""
+def get_undefined_placeholders(template_id: int) -> list[str]:
+    """获取模板中尚未定义的替换词。后端 ``response=list[str]``，返回名字列表。"""
     return client.get(f"/documents/templates/{template_id}/undefined-placeholders")  # type: ignore[return-value]
 
 

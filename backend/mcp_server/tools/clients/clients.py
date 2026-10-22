@@ -91,8 +91,12 @@ def delete_client(client_id: int) -> None:
 
 def list_clients_with_docs(
     client_type: str | None = None, is_our_client: bool | None = None, search: str | None = None
-) -> dict[str, Any]:
-    """创建客户并上传文档（需要文件，MCP 场景仅创建客户不附带文档）。"""
+) -> list[dict[str, Any]]:
+    """按条件列出客户（MCP 场景无法附带文档上传，仅做查询）。
+
+    实际委托 ``GET /client/clients``，后端返回裸数组。名字里的 ``with_docs``
+    是历史命名，工具本身不返回文档。
+    """
     params: dict[str, Any] = {}
     if client_type is not None:
         params["client_type"] = client_type

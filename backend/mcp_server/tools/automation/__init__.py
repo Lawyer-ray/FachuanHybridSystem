@@ -5,17 +5,16 @@ from mcp_server.tools.automation.captcha import get_captcha_image, submit_captch
 
 try:
     from plugins.court_automation.filing.api_endpoint import router as _filing_router
-    from .court_filing import (
-        execute_court_filing,
-        get_court_filing_case_info,
-        get_court_filing_session,
-    )
+
+    from .court_filing import execute_court_filing, get_court_filing_case_info, get_court_filing_session
+
     _HAS_FILING = True
 except ImportError:
     _HAS_FILING = False
 
 try:
     from plugins.court_automation.guarantee.api_endpoint import router as _guarantee_router
+
     from .court_guarantee import (
         bind_guarantee_quote,
         delete_guarantee_binding,
@@ -26,6 +25,7 @@ try:
         get_guarantee_session,
         retry_guarantee_quote,
     )
+
     _HAS_GUARANTEE = True
 except ImportError:
     _HAS_GUARANTEE = False
@@ -41,7 +41,7 @@ from mcp_server.tools.automation.court_sms import (
     submit_court_sms,
 )
 from mcp_server.tools.automation.document_processor import process_document, process_document_by_path
-from mcp_server.tools.automation.main_api import ai_ollama, get_automation_config, get_automation_status
+from mcp_server.tools.automation.main_api import get_automation_config, get_automation_status
 from mcp_server.tools.automation.performance import (
     cleanup_resources,
     clear_cache,
@@ -57,6 +57,7 @@ from mcp_server.tools.automation.performance import (
 
 try:
     from plugins.court_automation.preservation_quote.api_endpoint import router as _quote_router
+
     from .preservation_quote import (
         create_preservation_quote,
         execute_preservation_quote,
@@ -64,6 +65,7 @@ try:
         list_preservation_quotes,
         retry_preservation_quote,
     )
+
     _HAS_QUOTE = True
 except ImportError:
     _HAS_QUOTE = False
@@ -99,7 +101,6 @@ __all__ = [
     "process_document",
     "process_document_by_path",
     # 自动化主 API
-    "ai_ollama",
     "get_automation_config",
     "get_automation_status",
 ]

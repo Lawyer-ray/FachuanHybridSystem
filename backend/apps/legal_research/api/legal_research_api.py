@@ -17,6 +17,7 @@ from apps.core.security.auth import JWTOrSessionAuth
 from apps.legal_research.schemas import (
     AgentSearchRequestV1,
     AgentSearchResponseV1,
+    LawVerificationCheckIn,
     LegalResearchCreateOut,
     LegalResearchResultOut,
     LegalResearchTaskCreateIn,
@@ -213,11 +214,16 @@ async def download_all_results(request: Any, task_id: int) -> HttpResponse:  # p
 
 
 @router.post("/law-verification/check", response=dict[str, Any])
-async def check_law_references(request: Any, payload: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover
+async def check_law_references(request: Any, payload: LawVerificationCheckIn) -> dict[str, Any]:  # pragma: no cover
     """核查文档中的法规引用.
 
     请求: {"text": "文档全文", "credential_id": 6}
     响应: {"references": [...], "total": N}
+
+    安全/可用性修正：原签名是裸 ``payload: dict[str, Any]``，Django Ninja 无法
+    推断请求体，把它当 **query** 参数解析，任何 JSON body 请求都返回
+    422 ``Field required: query.payload``——端点从未被成功调用过。改为显式
+    ``LawVerificationCheckIn`` 后请求体才被正确识别。
     """
     from apps.legal_research.services.law_verification_service import LawVerificationService
 
@@ -230,8 +236,8 @@ async def check_law_references(request: Any, payload: dict[str, Any]) -> dict[st
     return await loop.run_in_executor(
         None,
         lambda: service.check_references(
-            text=str(payload.get("text") or ""),
-            credential_id=int(payload.get("credential_id") or 0),
+            text=payload.text,
+            credential_id=payload.credential_id,
             user=user,
         ),
     )

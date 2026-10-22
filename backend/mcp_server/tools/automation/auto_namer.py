@@ -12,6 +12,32 @@ def auto_namer_process(file_path: str) -> dict[str, Any]:
     return client.post("/automation/auto-namer/process", json={"file_path": file_path})  # type: ignore[return-value]
 
 
-def auto_namer_process_by_path(folder_path: str) -> dict[str, Any]:
-    """批量对文件夹中的文件执行自动命名。folder_path 为文件夹路径。"""
-    return client.post("/automation/auto-namer/process-by-path", json={"folder_path": folder_path})  # type: ignore[return-value]
+def auto_namer_process_by_path(
+    file_path: str,
+    prompt: str | None = None,
+    model: str | None = None,
+    limit: int | None = None,
+    preview_page: int | None = None,
+) -> dict[str, Any]:
+    """按目录路径批量执行自动命名。
+
+    后端 ``AutoToolProcessIn`` 的必填字段是 ``file_path``。早前工具传
+    ``folder_path``——字段名不符，调用必然 422。
+
+    Args:
+        file_path: 要处理的目录（或单个文件）路径。
+        prompt: 可选，自定义命名提示词。
+        model: 可选，指定模型。
+        limit: 可选，最多处理多少个文件。
+        preview_page: 可选，预览页序号。
+    """
+    payload: dict[str, Any] = {"file_path": file_path}
+    if prompt:
+        payload["prompt"] = prompt
+    if model:
+        payload["model"] = model
+    if limit is not None:
+        payload["limit"] = limit
+    if preview_page is not None:
+        payload["preview_page"] = preview_page
+    return client.post("/automation/auto-namer/process-by-path", json=payload)  # type: ignore[no-any-return]

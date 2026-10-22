@@ -15,8 +15,11 @@ def start_contract_scan(contract_id: int, rescan: bool = False, scan_subfolder: 
     return client.post(f"/contracts/{contract_id}/folder-scan", json=body)  # type: ignore[return-value]
 
 
-def list_contract_scan_subfolders(contract_id: int) -> list[dict[str, Any]]:
-    """列出合同文件夹中可用于扫描的子文件夹。"""
+def list_contract_scan_subfolders(contract_id: int) -> dict[str, Any]:
+    """列出合同文件夹中可用于扫描的子文件夹。
+
+    返回 ``{root_path, subfolders}``（后端 ``ContractFolderScanSubfolderListOut``）。
+    """
     return client.get(f"/contracts/{contract_id}/folder-scan/subfolders")  # type: ignore[return-value]
 
 

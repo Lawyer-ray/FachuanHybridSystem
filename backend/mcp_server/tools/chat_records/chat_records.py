@@ -96,11 +96,6 @@ def update_screenshot(screenshot_id: int, **fields: Any) -> dict[str, Any]:
     return client.patch(f"/chat-records/screenshots/{screenshot_id}", json=fields)  # type: ignore[return-value]
 
 
-def delete_screenshot(screenshot_id: int) -> None:
-    """删除截图。此操作不可逆。"""
-    client.delete(f"/chat-records/screenshots/{screenshot_id}")
-
-
 def reorder_screenshots(project_id: int, screenshot_ids: list[int]) -> dict[str, Any]:
     """重新排序项目下的截图。screenshot_ids 为按新顺序排列的截图ID列表。"""
     return client.post(  # type: ignore[return-value]

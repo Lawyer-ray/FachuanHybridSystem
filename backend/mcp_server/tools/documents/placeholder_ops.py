@@ -27,6 +27,6 @@ def update_placeholder(placeholder_id: int, **fields: Any) -> dict[str, Any]:
     return client.put(f"/documents/placeholders/{placeholder_id}", json=fields)  # type: ignore[return-value]
 
 
-def delete_placeholder(placeholder_id: int) -> None:
-    """软删除替换词。"""
-    client.delete(f"/documents/placeholders/{placeholder_id}")
+def delete_placeholder(placeholder_id: int) -> dict[str, Any]:
+    """软删除替换词。返回后端删除结果。"""
+    return client.delete(f"/documents/placeholders/{placeholder_id}")  # type: ignore[no-any-return]

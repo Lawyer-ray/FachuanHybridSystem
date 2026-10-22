@@ -22,12 +22,25 @@ def process_document(
 
 
 def process_document_by_path(
-    file_path: str, limit: int | None = None, preview_page: int | None = None
+    file_path: str,
+    kind: str,
+    limit: int | None = None,
+    preview_page: int | None = None,
 ) -> dict[str, Any]:
-    """按路径处理文档（无需指定 kind）。"""
-    params: dict[str, Any] = {"file_path": file_path}
+    """按服务器上的文件路径处理文档。
+
+    后端 ``DocumentProcessIn`` 必填 ``file_path`` **和** ``kind``（处理种类）。
+    早前 docstring 写「无需指定 kind」且确实没传，调用必然 422。
+
+    Args:
+        file_path: 服务器上的文件路径。
+        kind: 处理种类（如 pdf / docx / image）。
+        limit: 可选，最多处理多少页。
+        preview_page: 可选，预览页序号。
+    """
+    payload: dict[str, Any] = {"file_path": file_path, "kind": kind}
     if limit is not None:
-        params["limit"] = limit
+        payload["limit"] = limit
     if preview_page is not None:
-        params["preview_page"] = preview_page
-    return client.post("/automation/document-processor/process-by-path", params=params, json={})  # type: ignore[return-value]
+        payload["preview_page"] = preview_page
+    return client.post("/automation/document-processor/process-by-path", json=payload)  # type: ignore[no-any-return]

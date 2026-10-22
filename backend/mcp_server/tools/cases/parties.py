@@ -4,16 +4,17 @@ from __future__ import annotations
 
 from typing import Any
 
-from mcp_server.client import as_items, client
+from mcp_server.client import client
 
 
-def list_case_parties(case_id: int) -> dict[str, Any]:
+def list_case_parties(case_id: int) -> list[dict[str, Any]]:
     """查询指定案件的所有当事人，包含客户详情和诉讼地位。
 
-    返回分页结构 ``{items, total, page, page_size}``（REST 端点返回分页 dict，
-    早期声明为 ``list`` 会使 MCP 输出校验失败）。
+    后端 ``/cases/parties`` 声明 ``response=list[CasePartyOut]``，返回裸数组。
+    早前这里声明 ``dict`` 并用 ``as_items`` 包一层分页壳，但那只是掩盖了
+    类型不符（分页壳里的 ``items`` 是模型永远看不到的假结构）。
     """
-    return as_items(client.get("/cases/parties", params={"case_id": case_id}))
+    return client.get("/cases/parties", params={"case_id": case_id})  # type: ignore[return-value]
 
 
 def add_case_party(case_id: int, client_id: int, legal_status: str | None = None) -> dict[str, Any]:

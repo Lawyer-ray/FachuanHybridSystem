@@ -68,9 +68,19 @@ def delete_court_sms(sms_id: int) -> None:
     client.delete(f"/automation/court-sms/{sms_id}")
 
 
-def download_sms_documents(sms_id: int) -> list[dict[str, Any]]:
-    """下载法院短信关联的所有文书文档。返回文书列表。"""
-    return client.get(f"/automation/court-sms/{sms_id}/documents/download-all")  # type: ignore[return-value]
+def download_sms_documents(sms_id: int) -> dict[str, Any]:
+    """打包下载法院短信关联的全部文书（后端返回 ZIP）。
+
+    返回 ``{filename, content_type, data_base64}``，与 ``download_sms_document``
+    一致。早前用 ``client.get`` 请求该端点并声明 ``list[dict]``——后端是
+    ``FileResponse`` 二进制流，``resp.json()`` 必然抛异常，工具永久不可用。
+    """
+    content, filename, content_type = client.download(f"/automation/court-sms/{sms_id}/documents/download-all")
+    return {
+        "filename": filename,
+        "content_type": content_type,
+        "data_base64": base64.b64encode(content).decode(),
+    }
 
 
 def download_sms_document(sms_id: int, ref_index: int) -> dict[str, Any]:

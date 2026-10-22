@@ -175,3 +175,16 @@ class AgentSearchResponseV1(BaseModel):
     degradation_flags: list[str] = Field(default_factory=list)
     query_trace: AgentSearchQueryTraceOut = Field(default_factory=AgentSearchQueryTraceOut)
     results: list[RetrievalHitV1] = Field(default_factory=list)
+
+
+class LawVerificationCheckIn(BaseModel):
+    """法规引用核查请求。
+
+    显式声明 body 结构：早前端点签名用裸 ``payload: dict[str, Any]``，
+    Django Ninja 无法据此推断请求体，只能把参数当 **query** 解析，
+    任何 JSON body 请求都返回 ``422 Field required: query.payload``——
+    该端点自部署起就没被成功调用过（MCP 的 ``check_law_references`` 因此永久失败）。
+    """
+
+    text: str = Field(min_length=1, description="待核查的文书全文")
+    credential_id: int = Field(gt=0, description="法规检索服务账号的凭证 ID（LawyerCredential 主键）")

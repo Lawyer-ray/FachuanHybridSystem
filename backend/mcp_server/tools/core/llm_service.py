@@ -22,8 +22,11 @@ def sync_prompt_templates() -> dict[str, Any]:
     return client.post("/llm/templates/sync", json={})  # type: ignore[return-value]
 
 
-def list_available_models() -> list[dict[str, Any]]:
-    """获取所有已配置的 LLM 模型列表。"""
+def list_available_models() -> dict[str, Any]:
+    """获取所有已配置的 LLM 模型列表。
+
+    返回 ``{models}``（后端 ``ModelListResponse``）。
+    """
     return client.get("/llm/models")  # type: ignore[return-value]
 
 

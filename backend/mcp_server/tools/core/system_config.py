@@ -7,8 +7,11 @@ from typing import Any
 from mcp_server.client import client
 
 
-def list_system_configs() -> list[dict[str, Any]]:
-    """获取所有系统配置项（密钥类脱敏显示）。"""
+def list_system_configs() -> dict[str, Any]:
+    """获取所有系统配置项（密钥类脱敏显示）。
+
+    返回 ``{groups}``（后端 ``SystemConfigListOut``），配置按分组组织。
+    """
     return client.get("/config/system-configs")  # type: ignore[return-value]
 
 
@@ -29,6 +32,6 @@ def patch_system_config(key: str, **fields: Any) -> dict[str, Any]:
     return client.patch(f"/config/system-configs/{key}", json=fields)  # type: ignore[return-value]
 
 
-def delete_system_config(key: str) -> None:
-    """删除系统配置项。"""
-    client.delete(f"/config/system-configs/{key}")
+def delete_system_config(key: str) -> dict[str, Any]:
+    """删除系统配置项。返回后端删除结果。"""
+    return client.delete(f"/config/system-configs/{key}")  # type: ignore[no-any-return]
