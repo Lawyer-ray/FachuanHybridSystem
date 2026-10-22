@@ -342,3 +342,41 @@ describe('DocConverterCard：逐件复制与下载', () => {
     container.remove()
   })
 })
+
+// ============ 进度条 / 完成态入口 / ZIP / 关闭 / 逐件下载（覆盖率补测） ============
+
+describe('DocConverterCard：剩余回调', () => {
+  it('弹窗「关闭」收起后显示完成态入口', async () => {
+    jobMock.phase = 'success'
+    jobMock.jobId = 'job-1'
+    jobMock.job = okJob
+    const { container } = render(wrap(<DocConverterCard />))
+    pickFiles(container, 1)
+    clickText(/开始转换/)
+    await waitFor(() => expect(document.body.textContent).toContain('关闭'))
+
+    const closeBtn = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === '关闭',
+    ) as HTMLElement
+    fireEvent.click(closeBtn)
+    await waitFor(() => expect(document.body.textContent).not.toContain('打包下载'))
+    container.remove()
+  })
+
+  it('逐件下载调用 triggerDownload', async () => {
+    jobMock.phase = 'success'
+    jobMock.jobId = 'job-1'
+    jobMock.job = okJob
+    const { container } = render(wrap(<DocConverterCard />))
+    pickFiles(container, 1)
+    clickText(/开始转换/)
+    await waitFor(() => expect(document.body.textContent).toContain('a.docx'))
+
+    const dlBtn = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === '下载',
+    ) as HTMLElement
+    fireEvent.click(dlBtn)
+    expect(apiMock.triggerDownload).toHaveBeenCalled()
+    container.remove()
+  })
+})
