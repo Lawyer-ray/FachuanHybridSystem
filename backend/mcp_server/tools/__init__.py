@@ -476,7 +476,7 @@ from mcp_server.tools.reminders import (
     parse_reminders_from_text,
     update_reminder,
 )
-from mcp_server.tools.web_search import web_search
+from mcp_server.tools.web_search import fetch_url, web_search
 
 __all__ = [
     # 案件
@@ -868,6 +868,7 @@ __all__ = [
     # POI 文档生成
     # 网络搜索
     "web_search",
+    "fetch_url",
     # 工作流引擎
     "start_workflow",
     "list_workflows",

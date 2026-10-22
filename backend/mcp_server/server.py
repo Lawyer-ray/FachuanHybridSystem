@@ -145,6 +145,7 @@ from mcp_server.tools import (
     extract_pdf_pages,
     extract_recording,
     extract_template_placeholders,
+    fetch_url,
     fill_templates,
     generate_archive_folder,
     generate_case_template,
@@ -935,6 +936,7 @@ mcp.tool()(resubmit_task)
 
 # 网络搜索
 mcp.tool()(web_search)
+mcp.tool()(fetch_url)
 
 # 工作流引擎
 mcp.tool()(start_workflow)
