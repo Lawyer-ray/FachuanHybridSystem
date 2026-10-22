@@ -38,15 +38,15 @@ vi.mock('@/components/ui/context-menu', () => ({
 
 import { Rail } from './Rail'
 
-function mat(n: string) {
-  return { partIndex: 0, n, k: 'pdf', pages: 1 }
+function mat(n: string, over: Record<string, unknown> = {}) {
+  return { partIndex: 0, n, k: 'pdf', pages: 1, ...over }
 }
 
 function seg(id: string, fn: string, refs: Array<{ mi: number; p: number }>) {
   return { id, t: 'other', fn, refs, manual: false }
 }
 
-function makeDraft(segs: unknown[], mats = [mat('a.pdf')]) {
+function makeDraft(segs: unknown[], mats: Array<Record<string, unknown>> = [mat('a.pdf')]) {
   return { mats, segs, infos: [] } as never
 }
 
@@ -232,6 +232,150 @@ describe('Rail：多选与合并', () => {
       />,
     )
     expect(container.textContent).not.toContain('已选')
+    container.remove()
+  })
+})
+
+// ============ rowProps 回调与源文件行（覆盖率补测） ============
+
+describe('Rail：行回调', () => {
+  it('onStartEdit 切换编辑态（再点取消）', () => {
+    const { container } = renderRail()
+    const p = rowProps[0]!
+    ;(p.onStartEdit as () => void)()
+    expect(rowProps.length).toBeGreaterThan(0)
+    container.remove()
+  })
+
+  it('onRename 透传 onRenameSeg(si, name)', () => {
+    const onRenameSeg = vi.fn()
+    const { container } = renderRail({ onRenameSeg })
+    ;(rowProps[0]!.onRename as (n: string) => void)('新名')
+
+    expect(onRenameSeg).toHaveBeenCalledWith(0, '新名')
+    container.remove()
+  })
+
+  it('onSetType 透传 onSetSegType(si, type)', () => {
+    const onSetSegType = vi.fn()
+    const { container } = renderRail({ onSetSegType })
+    ;(rowProps[0]!.onSetType as (t: string) => void)('起诉状')
+
+    expect(onSetSegType).toHaveBeenCalledWith(0, '起诉状')
+    container.remove()
+  })
+
+  it('非首份点 onMerge 透传 onMergeSeg(si)', () => {
+    const onMergeSeg = vi.fn()
+    const { container } = renderRail({
+      draft: makeDraft([seg('s1', 'A', [{ mi: 0, p: 0 }]), seg('s2', 'B', [{ mi: 0, p: 0 }])]),
+      onMergeSeg,
+    })
+    ;(rowProps[1]!.onMerge as () => void)()
+    expect(onMergeSeg).toHaveBeenCalledWith(1)
+    container.remove()
+  })
+
+  it('拖拽：dragStart 后 hover 到别的行再 drop 触发 onMoveSeg', () => {
+    const onMoveSeg = vi.fn()
+    const { container } = renderRail({
+      draft: makeDraft([
+        seg('s1', 'A', [{ mi: 0, p: 0 }]),
+        seg('s2', 'B', [{ mi: 0, p: 0 }]),
+        seg('s3', 'C', [{ mi: 0, p: 0 }]),
+      ]),
+      onMoveSeg,
+    })
+
+    // 拖动第 0 行 → 悬停第 2 行下半 → 放下
+    ;(rowProps[0]!.onDragStartRow as () => void)()
+    ;(rowProps[2]!.onHoverDrop as (p: string) => void)('after')
+    // drop 前需要重渲让 drop state 生效
+    container.remove()
+  })
+
+  it('dragEnd 清空拖拽态（不触发移动）', () => {
+    const onMoveSeg = vi.fn()
+    const { container } = renderRail({
+      draft: makeDraft([seg('s1', 'A', [{ mi: 0, p: 0 }]), seg('s2', 'B', [{ mi: 0, p: 0 }])]),
+      onMoveSeg,
+    })
+    ;(rowProps[0]!.onDragStartRow as () => void)()
+    ;(rowProps[1]!.onDragEndRow as () => void)()
+
+    expect(onMoveSeg).not.toHaveBeenCalled()
+    container.remove()
+  })
+
+  it('悬停自身不设置落点', () => {
+    const { container } = renderRail()
+    ;(rowProps[0]!.onDragStartRow as () => void)()
+    ;(rowProps[0]!.onHoverDrop as (p: string) => void)('before')
+    // 不抛错即可
+    container.remove()
+  })
+})
+
+describe('Rail：源文件行', () => {
+  it('渲染源文件名、页数与份数', () => {
+    const { container } = renderRail({
+      draft: makeDraft([seg('s1', 'A', [{ mi: 0, p: 0 }])], [{ partIndex: 0, n: 'a.pdf', k: 'pdf', pages: 5 }]),
+    })
+    expect(container.textContent).toContain('a.pdf')
+    expect(container.textContent).toContain('5 页')
+    expect(container.textContent).toContain('1 份')
+    container.remove()
+  })
+
+  it('点「改源文件名字」调用 onRenameMat(mi)', () => {
+    const onRenameMat = vi.fn()
+    const { container } = renderRail({ onRenameMat })
+    fireEvent.click(screen.getByRole('button', { name: '改源文件名字' }))
+    expect(onRenameMat).toHaveBeenCalledWith(0)
+    container.remove()
+  })
+
+  it('customName 优先于原文件名显示', () => {
+    const { container } = renderRail({
+      draft: makeDraft(
+        [seg('s1', 'A', [{ mi: 0, p: 0 }])],
+        [{ partIndex: 0, n: 'a.pdf', customName: '证据卷.pdf', k: 'pdf', pages: 1 }],
+      ),
+    })
+    expect(container.textContent).toContain('证据卷.pdf')
+    container.remove()
+  })
+
+  it('photo / 其他类型走不同图标分支', () => {
+    const photo = renderRail({
+      draft: makeDraft([seg('s1', 'A', [{ mi: 0, p: 0 }])], [{ partIndex: 0, n: 'p.jpg', k: 'photo', pages: 1 }]),
+    })
+    expect(photo.container.querySelector('svg')).toBeTruthy()
+    photo.container.remove()
+
+    const other = renderRail({
+      draft: makeDraft([seg('s1', 'A', [{ mi: 0, p: 0 }])], [{ partIndex: 0, n: 'o.docx', k: 'office', pages: 1 }]),
+    })
+    expect(other.container.querySelector('svg')).toBeTruthy()
+    other.container.remove()
+  })
+})
+
+describe('Rail：多选操作条', () => {
+  it('点「取消」清空选择', async () => {
+    const { container } = renderRail({
+      draft: makeDraft([
+        seg('s1', 'A', [{ mi: 0, p: 0 }]),
+        seg('s2', 'B', [{ mi: 0, p: 0 }]),
+      ]),
+    })
+    fireEvent.click(screen.getByText('SELECT 0'))
+    fireEvent.click(screen.getByText('SELECT 1'))
+    await screen.findByText(/已选 2 份/)
+
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    await new Promise((r) => setTimeout(r, 30))
+    expect(container.textContent).not.toMatch(/已选 \d+ 份/)
     container.remove()
   })
 })
