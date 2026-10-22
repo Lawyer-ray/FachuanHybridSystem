@@ -187,3 +187,70 @@ describe('useConverterJob 重提交竞态回归', () => {
     expect(getJobMock.mock.calls.length).toBe(calls)
   })
 })
+
+// ============ 查询失败与提交失败（覆盖率补测） ============
+
+describe('useConverterJob 失败分支', () => {
+  it('查询进度抛错：当场判死并给「稍后重试」提示', async () => {
+    createMock.mockResolvedValue('J2')
+    getJobMock.mockRejectedValue(new Error('网关抖动'))
+
+    const { result } = setup()
+    await startSubmit(result)
+    await tick()
+
+    expect(result.current.phase).toBe('error')
+    expect(result.current.error).toContain('查询转换进度失败')
+  })
+
+  it('提交抛错：phase=error 且带异常 message', async () => {
+    createMock.mockRejectedValue(new Error('上传被拒'))
+
+    const { result } = setup()
+    await startSubmit(result)
+
+    expect(result.current.phase).toBe('error')
+    expect(result.current.error).toBe('上传被拒')
+  })
+
+  it('提交非 Error 抛出：用兜底文案', async () => {
+    createMock.mockRejectedValue('字符串错误')
+
+    const { result } = setup()
+    await startSubmit(result)
+
+    expect(result.current.phase).toBe('error')
+    expect(result.current.error).toBe('提交转换任务失败')
+  })
+
+  it('空文件列表：直接返回，不创建任务', async () => {
+    const { result } = setup()
+    await startSubmit(result, [])
+
+    expect(createMock).not.toHaveBeenCalled()
+    expect(result.current.phase).toBe('idle')
+  })
+
+  it('无 jobId 时 resume 是 no-op', () => {
+    const { result } = setup()
+    act(() => {
+      result.current.resume()
+    })
+    expect(result.current.phase).toBe('idle')
+    expect(getJobMock).not.toHaveBeenCalled()
+  })
+
+  it('部分成功（done>0 且有 failed）：phase=success 且 error 为 null', async () => {
+    createMock.mockResolvedValue('J3')
+    getJobMock.mockResolvedValue(
+      makeJob('J3', { status: 'completed', done: 1, failed: 1, items: [] }),
+    )
+
+    const { result } = setup()
+    await startSubmit(result)
+    await tick()
+
+    expect(result.current.phase).toBe('success')
+    expect(result.current.error).toBeNull()
+  })
+})
