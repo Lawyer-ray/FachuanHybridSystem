@@ -110,8 +110,7 @@ chat_service（每轮）
 ### 多轮对话与系统提示词
 
 **上下文归 pi 管**（`--session-dir` + `--session-id`）：每会话一个 session 文件，
-pi 自己裁剪上下文并做自动 compaction（`docs/compaction.md`）。实测 12 轮后模型
-仍准确记得首轮内容，而每轮 input token 稳定在 44–70（不随轮次膨胀）。
+pi 自己裁剪上下文并做自动 compaction（`docs/compaction.md`）。
 
 相对旧方案（`--no-session` + 每轮渲染 transcript）的收益：
 
@@ -259,6 +258,8 @@ publish(session_id, event)
 | PATCH | `/sessions/{id}` | 重命名 |
 | DELETE | `/sessions/{id}` | 删除会话（级联清理 pi session 上下文） |
 | POST | `/sessions/{id}/messages` | 发消息（SSE 流） |
+| POST | `/tasks` | **提交后台任务**（立即返回 task_id，跑完通知） |
+| GET | `/tasks/{id}` | 查询后台任务进度 |
 | POST | `/sessions/{id}/steer` | **运行中插话**（工具调用后、下次模型调用前生效） |
 | POST | `/sessions/{id}/follow-up` | **追加一轮**（agent 干完当前所有活后再跑） |
 | DELETE | `/sessions/{id}/queue` | 撤回已排队未生效的插话 / 追加，返回原文 |
@@ -295,6 +296,28 @@ stream_chat 退出   → unregister(session_id, pi_session)
 `case_id` **不加外键**（避免 agent 因业务表被删而丢审计记录，也避免跨 app 迁移
 依赖）；**归属校验始终以 `user` 为准**——`case_id` 只用来再缩小范围，传别人的
 `case_id` 看不到任何数据。
+
+### 任务式（后台）入口
+
+对话式要求「人开着页面盯着」；律师的真实场景常常是「这个案子帮我把材料梳理
+一遍」——要跑几分钟，人不可能一直等。`POST /tasks` 专门服务这类活：
+
+```
+POST /tasks {message, title?, case_id?}
+  └─ 建 origin=task 会话（task_state=queued）
+       └─ django-q 入队 run_agent_task
+            ├─ task_state=running
+            ├─ 复用 stream_chat 抽干事件流（审批/成本/落库全都走上同一条路径）
+            └─ 跑完 → task_state=succeeded|failed + task_finished_at + 通知消息
+```
+
+| 关注点 | 做法 |
+|:-|:-|
+| 要不要另写一套编排 | **不**。后台与前台复用 `stream_chat`，否则审批漏判、`AgentRun` 漏记这些坑要再踩一遍 |
+| 高危工具怎么办 | 没有 SSE 连接 → 走离线审批挂起（见 §4），用户回来从 `GET /approvals/pending` 处理 |
+| 跑完怎么知道 | 写入一条 `metadata.kind=task_notification` 的助手消息（会话列表/回放里直接可见），并把 `notified` 置真；不引入新通知表，也不要求用户在线 |
+| 失败会卡住吗 | 不会。所有异常收口成 `task_state=failed` + 人话 `task_error`（不含堆栈），且通知失败不会把已成功任务改判失败 |
+| 进度怎么查 | `GET /tasks/{id}` 或 `GET /sessions` 里读 `task_state` |
 
 ### 成本可观测（AgentRun）
 
@@ -562,7 +585,7 @@ ci/integration/test_agent_api.py # 端点级：归属 / SSE 错误路径 / 审�
 | **排队可见 + 超时** | ✅ 位置递增 1,2；计数归零；超时抛可读错误且不泄漏信号量 |
 | **成本可观测（AgentRun）** | ✅ ok/error/cancelled 三态落库；`/usage`、`/usage/daily`、`/usage/by-model` |
 | **风险分级** | ✅ 四级判定；四表 parity；395 工具注册表对账；读类不误拦 |
-| **pi 原生 session（上下文归 pi）** | ✅ 真机 12 轮仍准确记得首轮，input token 稳定 44–70（不随轮次膨胀） |
+| **pi 原生 session（上下文归 pi）** | ✅ 真机 12 轮仍准确记得首轮（`RECALL='收到1'`），input token 全程 20–66 不随轮次膨胀；会话 `517d5b20…` 单文件 27 条 message 记录，`AgentRun` 13 行 |
 | **会话级联清理 + 越权防护** | ✅ 删会话连带清 pi 上下文；`user_id=None` 不匹配任何会话 |
 | **多入口 + 离线审批** | ✅ origin/case 过滤且越权不可见；无订阅者 → pending 而非 rejected，决定后工具继续 |
 | **审批拦截 + fail-closed** | ✅ `delete_case` 被拦；超时/链路异常拒绝；`FACHUAN_APPROVAL_OFFLINE=0` 可回退 |

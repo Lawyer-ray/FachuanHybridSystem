@@ -78,6 +78,12 @@ class SessionOut(Schema):
     origin: str
     case_id: int | None = None
     contract_id: int | None = None
+    #: 任务式会话的进度（queued/running/succeeded/failed/cancelled）；
+    #: 非 task 会话为空串。
+    task_state: str = ""
+    task_id: str = ""
+    task_error: str = ""
+    task_finished_at: str = ""
     created_at: str
     updated_at: str
 
@@ -109,6 +115,24 @@ class ApprovalDecideIn(Schema):
     """前端审批决定。"""
 
     approved: bool
+
+
+class TaskIn(Schema):
+    """提交后台任务。"""
+
+    message: str
+    title: str = ""
+    case_id: int | None = None
+    contract_id: int | None = None
+
+
+class TaskOut(Schema):
+    """后台任务的受理/状态回执。"""
+
+    session_id: str
+    task_id: str
+    task_state: str
+    title: str = ""
 
 
 class SteerIn(Schema):
@@ -191,6 +215,10 @@ def _to_out(session: AgentSession) -> SessionOut:
         origin=session.origin,
         case_id=session.case_id,
         contract_id=session.contract_id,
+        task_state=session.task_state,
+        task_id=session.task_id,
+        task_error=session.task_error,
+        task_finished_at=session.task_finished_at.isoformat() if session.task_finished_at else "",
         created_at=session.created_at.isoformat(),
         updated_at=session.updated_at.isoformat(),
     )
@@ -334,6 +362,56 @@ async def send_message(  # pragma: no cover
     response["Cache-Control"] = "no-cache"
     response["X-Accel-Buffering"] = "no"
     return response
+
+
+# ─── 任务式（后台）入口 ───
+
+
+@router.post("/tasks", response=TaskOut)
+async def submit_task(request: Any, payload: TaskIn) -> Any:  # pragma: no cover
+    """提交一个后台任务：立即返回，agent 在后台跑，跑完通知。
+
+    适合「这个案子帮我把材料梳理一遍」这类要跑几分钟、人不可能一直盯着的活。
+    任务式运行没有 SSE 连接，因此高危工具会**挂起等离线审批**（见
+    `GET /approvals/pending`），而不是被直接拒绝。
+    """
+    if not payload.message.strip():
+        raise HttpError(400, "任务内容不能为空")
+    from ..services.task_runner import submit_task_async
+
+    session = await create_session_record(
+        title=payload.title.strip() or payload.message.strip()[:30],
+        user_id=_user_id(request),
+        origin=AgentSession.Origin.TASK,
+        case_id=payload.case_id,
+        contract_id=payload.contract_id,
+    )
+    # 入队并在 service 层回写 task_id（API 层不碰 ORM）
+    task_id = await submit_task_async(
+        session=session,
+        user_message=payload.message,
+        user_id=_user_id(request),
+    )
+    return TaskOut(
+        session_id=str(session.session_id),
+        task_id=task_id,
+        task_state=AgentSession.TaskState.QUEUED,
+        title=session.title,
+    )
+
+
+@router.get("/tasks/{session_id}", response=TaskOut)
+async def get_task_status(request: Any, session_id: str) -> Any:  # pragma: no cover
+    """查询后台任务进度（前端轮询用）。"""
+    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
+    if session is None:
+        raise HttpError(404, "任务不存在")
+    return TaskOut(
+        session_id=str(session.session_id),
+        task_id=session.task_id,
+        task_state=session.task_state,
+        title=session.title,
+    )
 
 
 # ─── 运行中插话 ───
