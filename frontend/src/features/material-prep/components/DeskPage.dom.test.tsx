@@ -69,6 +69,7 @@ vi.mock('./PackGrid', () => ({
         <button type="button" onClick={() => packs[0] && (p.onAccept as (x: unknown) => void)(packs[0])}>接</button>
         <button type="button" onClick={() => packs[0] && (p.onDelete as (x: unknown) => void)(packs[0])}>删</button>
         <button type="button" onClick={() => packs[0] && (p.onRename as (x: unknown) => void)(packs[0])}>改名</button>
+        <button type="button" onClick={() => (p.onPickFiles as () => void)()}>选文件</button>
       </div>
     )
   },
@@ -101,6 +102,9 @@ vi.mock('./DeskDialogs', () => ({
       <div>
         DIALOGS
         <button type="button" onClick={() => (p.onDeleteConfirm as () => void)()}>确认删除</button>
+        <button type="button" onClick={() => (p.onDeleteCancel as () => void)()}>取消删除</button>
+        <button type="button" onClick={() => (p.onAssignCancel as () => void)()}>取消归案</button>
+        <button type="button" onClick={() => (p.onRenameOpenChange as () => void)()}>关闭改名</button>
         <button type="button" onClick={() => (p.onAssignConfirm as (x: unknown) => void)({ id: 1, status: 'todo', subject: 'p' })}>确认归案</button>
       </div>
     )
@@ -458,6 +462,60 @@ describe('DeskPage：拖放上传与 dragOver', () => {
       root.dispatchEvent(e)
     })
     expect(e.defaultPrevented).toBe(false)
+    unmount()
+  })
+})
+
+// ============ 选文件 / 对话框取消 / 离场清理（覆盖率补测） ============
+
+describe('DeskPage：选文件与对话框取消', () => {
+  it('点「选文件」不抛错（onPickFiles 连线存在）', async () => {
+    setup([pack(1, 'todo')])
+    const { unmount, getByText } = render(<DeskPage />)
+    expect(() => fireEvent.click(getByText('选文件'))).not.toThrow()
+    unmount()
+  })
+
+  it('对话框取消回调各自清空目标', async () => {
+    setup([pack(1, 'todo')])
+    const { unmount, getByText } = render(<DeskPage />)
+
+    // 先设目标再取消
+    fireEvent.click(getByText('删'))
+    await waitFor(() => expect(dialogs.props!.deleteTarget).toBeTruthy())
+    fireEvent.click(getByText('取消删除'))
+    await waitFor(() => expect(dialogs.props!.deleteTarget).toBeNull())
+
+    fireEvent.click(getByText('接'))
+    await waitFor(() => expect(dialogs.props!.assigning).toBeTruthy())
+    fireEvent.click(getByText('取消归案'))
+    await waitFor(() => expect(dialogs.props!.assigning).toBeNull())
+
+    fireEvent.click(getByText('改名'))
+    await waitFor(() => expect(dialogs.props!.renameTarget).toBeTruthy())
+    fireEvent.click(getByText('关闭改名'))
+    await waitFor(() => expect(dialogs.props!.renameTarget).toBeNull())
+    unmount()
+  })
+})
+
+describe('DeskPage：离场定时器清理', () => {
+  it('judge 后离场标记在定时器到点后被清除', async () => {
+    vi.useFakeTimers()
+    const judgeMutate = vi.fn(async () => ({}))
+    setup([pack(1, 'todo')], { judge: judgeMutate })
+    const { unmount, getByText } = render(<DeskPage />)
+
+    await act(async () => {
+      getByText('不接').click()
+      await Promise.resolve()
+    })
+    // PACK_LEAVE_REMOVAL_MS 后离场标记被删
+    await act(async () => {
+      vi.advanceTimersByTime(2000)
+    })
+    expect(ui.grid!.leaving).toEqual({})
+    vi.useRealTimers()
     unmount()
   })
 })
