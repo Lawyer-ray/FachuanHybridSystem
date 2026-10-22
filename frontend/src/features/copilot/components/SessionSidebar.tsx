@@ -152,8 +152,8 @@ export function SessionSidebar({
 
   const rootClass =
     variant === 'rail'
-      ? 'hidden w-[180px] flex-none flex-col border-r border-border bg-card md:flex'
-      : 'absolute inset-0 z-20 flex animate-in slide-in-from-left flex-col border-r border-border bg-card duration-200 md:hidden'
+      ? 'w-[180px] flex-none flex-col border-r border-border bg-card'
+      : 'absolute inset-0 z-20 flex animate-in slide-in-from-left flex-col border-r border-border bg-card duration-200'
 
   return (
     <div className={rootClass}>

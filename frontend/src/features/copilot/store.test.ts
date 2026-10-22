@@ -47,6 +47,7 @@ describe('copilot store：发送与流式转录', () => {
       sseResponse([
         'data: {"type":"delta","content":"你好"}\n\n',
         'data: {"type":"delta","content":"，世界"}\n\n',
+        'data: {"type":"usage","output_tokens":7,"input_tokens":120}\n\n',
         'data: {"type":"done","session_id":"s-1"}\n\n',
       ]),
     )
@@ -59,6 +60,13 @@ describe('copilot store：发送与流式转录', () => {
     expect(messages.map((m) => `${m.role}:${m.content}`)).toEqual(['user:打个招呼', 'assistant:你好，世界'])
     expect(streaming).toBe(false)
     expect(messages[1]?.streaming).toBeFalsy()
+    // 轮次统计：估算采样在滚、usage 精确值收到、done 收尾
+    const { turnStats } = useCopilot.getState()
+    expect(turnStats.estTokens).toBeGreaterThan(0)
+    expect(turnStats.samples.length).toBeGreaterThanOrEqual(2)
+    expect(turnStats.firstDeltaAt).not.toBeNull()
+    expect(turnStats.exactTokens).toBe(7)
+    expect(turnStats.doneAt).not.toBeNull()
   })
 
   it('tool_call/tool_result 归并为工具行，approval_request 进审批卡', async () => {

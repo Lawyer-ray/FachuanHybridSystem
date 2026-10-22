@@ -320,6 +320,45 @@ class TestTranslateAll:
         assert second and second[0]["content"] == "短的"
 
 
+class TestUsagePassthrough:
+    def test_message_end_with_usage_emits_usage_event(self) -> None:
+        """assistant message_end 带 usage：delta/usage 并存都要发（token 精确计数）。"""
+        from apps.agent.pi.bridge import DeltaTracker, translate_all
+
+        event = PiEvent(
+            "event",
+            {
+                "type": "message_end",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "答案"}],
+                    "usage": {"input": 120, "output": 8, "totalTokens": 128},
+                },
+            },
+        )
+        events = translate_all(event, tracker=DeltaTracker())
+        assert [e["type"] for e in events] == ["delta", "usage"]
+        assert events[1]["output_tokens"] == 8
+        assert events[1]["input_tokens"] == 120
+
+    def test_usage_missing_or_nonnumeric_dropped(self) -> None:
+        from apps.agent.pi.bridge import DeltaTracker, translate_all
+
+        for usage in (None, {}, {"input": 3}):
+            event = PiEvent(
+                "event",
+                {
+                    "type": "message_end",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": "答案"}],
+                        "usage": usage,
+                    },
+                },
+            )
+            assert all(e["type"] != "usage" for e in translate_all(event, tracker=DeltaTracker()))
+
+
 class TestHistoryTranscript:
     """多轮上下文渲染：无历史不包壳、超预算丢最旧。"""
 

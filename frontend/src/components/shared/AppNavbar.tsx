@@ -192,6 +192,7 @@ export function AppNavbar({ onNotify, onLogout, onPrefetch, onToggleCopilot }: A
         >
           <Sparkles className="h-[13px] w-[13px]" />
           <span>AI 助手</span>
+          <kbd className="rounded-[4px] border border-input bg-card px-[5px] py-[1px] text-[10px] text-muted-foreground">⌘J</kbd>
         </button>
       )}
 

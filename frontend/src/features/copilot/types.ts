@@ -39,7 +39,24 @@ export type AgentStreamEvent =
       message: string
     }
   | { type: 'error'; message: string }
+  | { type: 'usage'; output_tokens: number; input_tokens?: number }
   | { type: 'done'; session_id: string }
+
+/** 一轮对话的输出统计（实时估算 + 结束后真实值） */
+export interface TurnStats {
+  /** 首个 delta 到达时间（ms） */
+  firstDeltaAt: number | null
+  /** 最近一次 delta 时间（ms），流停后的参考终点 */
+  lastDeltaAt: number | null
+  /** 流结束时间（ms） */
+  doneAt: number | null
+  /** 字符启发式累计估算 token */
+  estTokens: number
+  /** usage 事件的精确累计（未收到为 null） */
+  exactTokens: number | null
+  /** 采样点 [时间, 累计估算 token]，只保留近几秒 */
+  samples: Array<[number, number]>
+}
 
 /** 转录气泡（历史回放与流式共用一个模型） */
 export interface ChatMessage {

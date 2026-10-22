@@ -114,6 +114,19 @@ function AppShell() {
     })
   }
 
+  // ⌘J / Ctrl+J 呼出收起 AI 助手：与 ⌘K 检索同层；非浏览器保留键
+  // （Chrome 的下载面板可被接管），VS Code/ChatGPT 的侧栏肌肉记忆。
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'j') {
+        e.preventDefault()
+        toggleCopilot()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   return (
     <div className="min-h-screen bg-background">
       <AppNavbar onNotify={(msg) => toast.info(msg)} onPrefetch={preloadRoute} onToggleCopilot={toggleCopilot} />

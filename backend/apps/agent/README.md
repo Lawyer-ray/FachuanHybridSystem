@@ -198,8 +198,12 @@ publish(session_id, event)
 ## 6. 事件契约
 
 ```
-meta → activity → delta* → tool_call*/tool_result* → approval_request? → error? → done
+meta → activity → delta* → tool_call*/tool_result* → usage* → approval_request? → error? → done
 ```
+
+`usage` 携带 pi 的精确计数（`output_tokens` / `input_tokens`，工具循环里每段
+assistant 各发一次），前端流式期间用估算展示实时 tok/s、结束后用真实值收尾；
+助手消息 `metadata.output_tokens` 落库累计值。
 
 沿用原 `workbench` 时代定下的事件契约形态，前端对话组件按此契约渲染即可。
 

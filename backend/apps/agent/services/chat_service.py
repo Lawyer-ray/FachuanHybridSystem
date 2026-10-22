@@ -13,7 +13,7 @@
 
 ## 事件契约
 
-    activity → delta* → tool_call*/tool_result* → approval_request? → error? → done
+    activity → delta* → tool_call*/tool_result* → usage* → approval_request? → error? → done
 """
 
 from __future__ import annotations
@@ -230,6 +230,7 @@ async def stream_chat(
     cancelled = False
     model: str | None = None
     assistant_parts: list[str] = []
+    output_tokens_total = 0
     try:
         yield {"type": "meta", "session_id": str(session.session_id), "agent": "pi"}
         yield {"type": "activity", "status": "thinking", "agent": "pi"}
@@ -274,6 +275,9 @@ async def stream_chat(
                     # 时，已送达的最后一段增量必须已经在落库缓冲里
                     if event.get("type") == "delta":
                         assistant_parts.append(str(event.get("content") or ""))
+                    elif event.get("type") == "usage":
+                        # pi 的精确计数：一轮里工具循环会产出多段 assistant，逐段累加
+                        output_tokens_total += int(event.get("output_tokens") or 0)
                     yield event
                     if event.get("type") == "tool_result":
                         await _persist_tool_message(session, event)
@@ -309,6 +313,8 @@ async def stream_chat(
         assistant_text = "".join(assistant_parts).strip()
         if assistant_text:
             metadata: dict[str, Any] = {"model": model or ""}
+            if output_tokens_total > 0:
+                metadata["output_tokens"] = output_tokens_total
             if cancelled or not follow_ok:
                 metadata["truncated"] = True
             persist_coro = AgentMessage.objects.acreate(

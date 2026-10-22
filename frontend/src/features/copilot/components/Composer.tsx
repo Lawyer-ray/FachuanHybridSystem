@@ -7,6 +7,7 @@ import { useRef, useState } from 'react'
 import { ArrowUp, Square } from 'lucide-react'
 
 import { useCopilot } from '../store'
+import { TurnStatsView } from './TurnStatsView'
 
 export function Composer() {
   const [text, setText] = useState('')
@@ -73,7 +74,10 @@ export function Composer() {
           </button>
         )}
       </div>
-      <p className="mt-1.5 px-1 text-[11px] text-muted-foreground">AI 回答仅供参考，法律判断需由律师复核。</p>
+      <p className="mt-1.5 flex items-center gap-2 px-1 text-[11px] text-muted-foreground">
+        <span className="min-w-0 flex-1 truncate">AI 回答仅供参考，法律判断需由律师复核。</span>
+        <TurnStatsView />
+      </p>
     </div>
   )
 }

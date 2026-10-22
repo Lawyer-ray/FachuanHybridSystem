@@ -10,8 +10,23 @@
 import { create } from 'zustand'
 
 import * as copilotApi from './api'
-import { historyToMessages, nextLocalId, parseSseEvent, takeSseFrames } from './domain'
-import type { ChatMessage, PendingApproval } from './types'
+import {
+  estimateTokens,
+  historyToMessages,
+  nextLocalId,
+  parseSseEvent,
+  takeSseFrames,
+} from './domain'
+import type { ChatMessage, PendingApproval, TurnStats } from './types'
+
+const EMPTY_STATS: TurnStats = {
+  firstDeltaAt: null,
+  lastDeltaAt: null,
+  doneAt: null,
+  estTokens: 0,
+  exactTokens: null,
+  samples: [],
+}
 
 const SESSION_KEY = 'copilot:session'
 
@@ -39,6 +54,8 @@ interface CopilotState {
   streaming: boolean
   loadingHistory: boolean
   lastError: string | null
+  /** 本轮输出统计：流式期间驱动实时 tok/s，结束后展示精确 token 与平均速度 */
+  turnStats: TurnStats
   /** 切换会话（null = 新对话）；会先停掉在途流再回放历史 */
   switchSession: (id: string | null) => Promise<void>
   /** 发消息并消费 SSE 流；无会话时先创建 */
@@ -61,6 +78,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   streaming: false,
   loadingHistory: false,
   lastError: null,
+  turnStats: EMPTY_STATS,
 
   switchSession: async (id) => {
     get().stop()
@@ -105,6 +123,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       ],
       approvals: [],
       streaming: true,
+      turnStats: { ...EMPTY_STATS, samples: [] },
     }))
 
     const appendAssistant = (chunk: string) => {
@@ -138,6 +157,23 @@ export const useCopilot = create<CopilotState>((set, get) => ({
           switch (event.type) {
             case 'delta':
               appendAssistant(event.content)
+              set((s) => {
+                const now = Date.now()
+                const estTokens = s.turnStats.estTokens + estimateTokens(event.content)
+                const samples = [...s.turnStats.samples, [now, estTokens] as [number, number]]
+                // 只留最近 4 秒的采样，窗口计算足够（2s 窗口）
+                const cutoff = now - 4000
+                const start = samples.findIndex(([t]) => t >= cutoff)
+                return {
+                  turnStats: {
+                    ...s.turnStats,
+                    firstDeltaAt: s.turnStats.firstDeltaAt ?? now,
+                    lastDeltaAt: now,
+                    estTokens,
+                    samples: start > 0 ? samples.slice(start) : samples,
+                  },
+                }
+              })
               break
             case 'tool_call':
               set((s) => ({
@@ -165,6 +201,14 @@ export const useCopilot = create<CopilotState>((set, get) => ({
               }))
               break
             }
+            case 'usage':
+              set((s) => ({
+                turnStats: {
+                  ...s.turnStats,
+                  exactTokens: (s.turnStats.exactTokens ?? 0) + event.output_tokens,
+                },
+              }))
+              break
             case 'approval_request':
               set((s) => ({
                 approvals: [
@@ -185,6 +229,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
               break
             case 'done':
               finishAssistant()
+              set((s) => ({ turnStats: { ...s.turnStats, doneAt: Date.now() } }))
               break
             default:
               break // meta / activity 不入转录
@@ -192,6 +237,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
         }
       }
       finishAssistant()
+      set((s) => ({ turnStats: { ...s.turnStats, doneAt: s.turnStats.doneAt ?? Date.now() } }))
     } catch {
       finishAssistant()
       if (controller?.signal.aborted) {
@@ -225,7 +271,15 @@ export const useCopilot = create<CopilotState>((set, get) => ({
 
   reset: () => {
     get().stop()
-    set({ sessionId: null, messages: [], approvals: [], streaming: false, loadingHistory: false, lastError: null })
+    set({
+      sessionId: null,
+      messages: [],
+      approvals: [],
+      streaming: false,
+      loadingHistory: false,
+      lastError: null,
+      turnStats: { ...EMPTY_STATS },
+    })
     storeSession(null)
   },
 }))

@@ -1,23 +1,24 @@
 /**
  * Copilot 右侧常驻面板：导航栏图标唤起，AppShell 懒加载挂载。
  *
- * 布局：md+ 为**双栏**（左侧 180px 会话栏常驻 + 右侧对话区，面板加宽到
- * 600px，会话切换/重命名/删除一步直达）；sm 以下为单栏 + 覆盖式会话列表
- * （从左滑入）。非模态 dock：z-[100] 高于页面与全屏阅读器（z-[80]），
- * 低于菜单类 portal（z-[120]）与弹窗基线（z-[130]）。
- * 路由切换不影响本面板（挂在壳层），流式收发归 store，收起面板流不断。
- * 开/收带滑入滑出动画：AppShell 在 animate-out 播完前保持挂载。
+ * 布局：宽度可拖拽调整（左缘把手，`--copilot-w` 变量驱动，松手持久化）；
+ * 宽度 ≥560px 时左侧 180px 会话栏常驻（双栏），收窄或窄屏用覆盖式列表。
+ * 非模态 dock：z-[100] 高于页面与全屏阅读器（z-[80]），低于菜单类
+ * portal（z-[120]）与弹窗基线（z-[130]）。路由切换不影响本面板（挂在
+ * 壳层），流式收发归 store，收起面板流不断；开/收带滑入滑出动画。
  */
 
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { PanelLeft, Plus, X } from 'lucide-react'
+import { PanelLeftClose, PanelLeftOpen, Plus, X } from 'lucide-react'
 
 import { listSessions } from '../api'
+import { usePanelResize } from '../hooks/use-panel-resize'
 import { useCopilot } from '../store'
 import { Composer } from './Composer'
 import { MessageList } from './MessageList'
 import { SessionSidebar } from './SessionSidebar'
+import { useMediaQuery } from '@/hooks/use-media'
 
 const RAIL_KEY = 'copilot:rail'
 
@@ -34,7 +35,9 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
   const streaming = useCopilot((s) => s.streaming)
   const switchSession = useCopilot((s) => s.switchSession)
   const queryClient = useQueryClient()
-  // md+ 常驻会话栏的开关（持久化）；窄屏覆盖式列表的开关（瞬态）
+  const isSmUp = useMediaQuery('(min-width: 640px)')
+  const { width, railCapable, setPanelRef, onHandlePointerDown } = usePanelResize(isSmUp)
+  // 常驻会话栏开关（持久化）；窄屏/收窄时的覆盖式列表开关（瞬态）
   const [railOpen, setRailOpen] = useState(readRailOpen)
   const [listOverlayOpen, setListOverlayOpen] = useState(false)
 
@@ -61,8 +64,10 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
     }
   }, [streaming, sessionId, queryClient])
 
+  const railVisible = railOpen && railCapable
+
   const toggleList = () => {
-    if (window.matchMedia('(min-width: 768px)').matches) {
+    if (railCapable) {
       setRailOpen((v) => {
         try {
           localStorage.setItem(RAIL_KEY, v ? '0' : '1')
@@ -78,19 +83,31 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
 
   return (
     <aside
-      className={`fixed top-(--app-navbar-h) right-0 bottom-0 z-[100] flex w-full flex-col border-l border-border bg-card shadow-[-8px_0_24px_rgba(0,0,0,0.06)] duration-200 fill-mode-both sm:w-[404px] ${
-        railOpen ? 'md:w-[600px]' : 'md:w-[404px]'
-      } ${open ? 'animate-in slide-in-from-right' : 'animate-out slide-out-to-right'}`}
+      ref={setPanelRef}
+      style={{ '--copilot-w': `${width}px` } as React.CSSProperties}
+      className={`fixed top-(--app-navbar-h) right-0 bottom-0 z-[100] flex w-full flex-col border-l border-border bg-card shadow-[-8px_0_24px_rgba(0,0,0,0.06)] duration-200 fill-mode-both transition-none sm:w-(--copilot-w) ${
+        open ? 'animate-in slide-in-from-right' : 'animate-out slide-out-to-right'
+      }`}
       aria-label="AI 助手"
     >
+      {/* 拖拽把手：面板锚定右侧，向左拖变宽 */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="调整面板宽度"
+        className="absolute top-0 bottom-0 left-0 z-30 hidden w-1.5 -translate-x-1/2 cursor-col-resize touch-none transition-colors hover:bg-foreground/25 sm:block"
+        onPointerDown={onHandlePointerDown}
+      />
+
       <header className="flex h-12 flex-none items-center gap-1.5 border-b border-border px-2.5">
         <button
           type="button"
           className="flex h-7 w-7 flex-none items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           onClick={toggleList}
-          aria-label="对话列表"
+          aria-label={railVisible ? '收起会话栏' : '展开会话列表'}
+          title={railVisible ? '收起会话栏' : '展开会话列表'}
         >
-          <PanelLeft className="h-4 w-4" />
+          {railVisible ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
         </button>
         <span className="min-w-0 flex-1 truncate px-0.5 text-[13px] font-semibold text-foreground">
           {currentTitle || 'AI 助手'}
@@ -117,7 +134,7 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
       </header>
 
       <div className="relative flex min-h-0 flex-1">
-        {railOpen && <SessionSidebar variant="rail" />}
+        {railVisible && <SessionSidebar variant="rail" />}
         {listOverlayOpen && (
           <SessionSidebar variant="overlay" onClose={() => setListOverlayOpen(false)} />
         )}
