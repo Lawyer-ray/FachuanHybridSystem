@@ -197,3 +197,85 @@ describe('SocialQrPanel：tmp_code 拼接（安全要点 3）', () => {
     container.remove()
   })
 })
+
+// ============ SDK 动态加载分支（覆盖率补测） ============
+
+describe('SocialQrPanel：SDK 动态加载', () => {
+  /** 拦截 script 插入，手动触发 onload / onerror */
+  function spyScripts() {
+    const original = document.head.appendChild.bind(document.head)
+    let script: HTMLScriptElement | null = null
+    const spy = vi.spyOn(document.head, 'appendChild').mockImplementation((node) => {
+      if (node instanceof HTMLScriptElement) {
+        script = node
+        return node
+      }
+      return original(node)
+    })
+    return { spy, getScript: () => script }
+  }
+
+  it('window.QRLogin 已存在时不注入 script', async () => {
+    installSdk()
+    const { getScript } = spyScripts()
+    const { container } = render(<SocialQrPanel provider={provider()} />)
+
+    await waitFor(() => expect(createSessionMock).toHaveBeenCalled())
+    expect(getScript()).toBeNull()
+    container.remove()
+  })
+
+  it('script onload 且有 QRLogin 时 resolve 并渲染', async () => {
+    const { getScript } = spyScripts()
+    const { container } = render(<SocialQrPanel provider={provider()} />)
+    await waitFor(() => expect(createSessionMock).toHaveBeenCalled())
+    await waitFor(() => expect(getScript()).toBeTruthy())
+
+    // 模拟脚本加载完成：挂上 SDK 再触发 onload
+    installSdk()
+    await waitFor(() => {
+      const s = getScript()!
+      s.onload?.(new Event('load'))
+      expect(document.getElementById('feishu-qr-container')).toBeTruthy()
+    })
+    container.remove()
+  })
+
+  it('script onerror 时进入错误态并提示检查网络', async () => {
+    const { getScript } = spyScripts()
+    const { container } = render(<SocialQrPanel provider={provider()} />)
+    await waitFor(() => expect(getScript()).toBeTruthy())
+
+    await waitFor(() => {
+      getScript()!.onerror?.(new Event('error'))
+      expect(screen.getByRole('button', { name: /重新加载/ })).toBeTruthy()
+    })
+    container.remove()
+  })
+
+  it('加载失败后清掉全局缓存（重新加载才会真的重试）', async () => {
+    const { getScript } = spyScripts()
+    const { container } = render(<SocialQrPanel provider={provider()} />)
+    await waitFor(() => expect(getScript()).toBeTruthy())
+
+    await waitFor(() => {
+      getScript()!.onerror?.(new Event('error'))
+      expect(screen.getByRole('button', { name: /重新加载/ })).toBeTruthy()
+    })
+    // rejected promise 不得永久挂载（否则重试永远拿到同一个 rejected promise）
+    await waitFor(() => expect((window as unknown as { __feishuQrSdkLoading?: unknown }).__feishuQrSdkLoading).toBeUndefined())
+    container.remove()
+  })
+
+  it('onload 但 QRLogin 仍未挂上：视为加载失败', async () => {
+    const { getScript } = spyScripts()
+    const { container } = render(<SocialQrPanel provider={provider()} />)
+    await waitFor(() => expect(getScript()).toBeTruthy())
+
+    await waitFor(() => {
+      getScript()!.onload?.(new Event('load'))
+      expect(screen.getByRole('button', { name: /重新加载/ })).toBeTruthy()
+    })
+    container.remove()
+  })
+})
