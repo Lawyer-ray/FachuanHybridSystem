@@ -71,6 +71,10 @@ export function SocialQrPanel({ provider, createSession, containerId = 'feishu-q
   const containerRef = useRef<HTMLDivElement>(null)
   const qrInstanceRef = useRef<QrLoginInstance | null>(null)
   const gotoRef = useRef<string>('')
+  // 组件是否仍挂载。不能用 containerRef 代替：容器只在非 error 态渲染，
+  // 错误态点「重新加载」时 ref 为 null，会被误判成「已卸载」而直接 return，
+  // 导致重试永远无效（用户只能刷整页）。
+  const mountedRef = useRef(true)
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [error, setError] = useState('')
   // 依赖收敛为原始值：providers query 每次 refetch 生成新数组/新对象，
@@ -85,12 +89,10 @@ export function SocialQrPanel({ provider, createSession, containerId = 'feishu-q
   }, [])
 
   /** 初始化二维码：拉授权 URL → 注入 SDK → 渲染。
-   *  每个 await 之后都先确认组件仍挂载（containerRef 还在），卸载后到达的
+   *  每个 await 之后都先确认组件仍挂载（mountedRef），卸载后到达的
    *  异步结果不再碰 DOM / state（StrictMode 双挂载、面板快速切换都安全）。 */
   const boot = useCallback(async () => {
-    const container = containerRef.current
-    if (!container) return
-    const gone = () => containerRef.current === null
+    const gone = () => !mountedRef.current
 
     setState('loading')
     setError('')
@@ -113,8 +115,11 @@ export function SocialQrPanel({ provider, createSession, containerId = 'feishu-q
       return
     }
 
-    // 每次刷新都清空容器，防止二维码重复堆叠
-    container.innerHTML = ''
+    // 每次刷新都清空容器，防止二维码重复堆叠。
+    // 容器在 error 态不渲染，此时重新加载会走到这里 ref 仍为 null——
+    // 不阻断流程，SDK 挂载点在 DOM 上由 id 定位（见 QRLogin 的 id 参数）。
+    const container = containerRef.current
+    if (container) container.innerHTML = ''
     const qrLogin = window.QRLogin
     if (!qrLogin) {
       if (!gone()) fail('飞书登录组件加载失败')
@@ -122,13 +127,20 @@ export function SocialQrPanel({ provider, createSession, containerId = 'feishu-q
     }
 
     qrInstanceRef.current = qrLogin({
-      id: container.id,
+      id: containerId,
       goto: session.goto,
       width: qrWidth ?? '260',
       height: qrHeight ?? '260',
     })
     if (!gone()) setState('ready')
-  }, [providerName, qrWidth, qrHeight, fail, createSession])
+  }, [providerName, containerId, qrWidth, qrHeight, fail, createSession])
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     void boot()
