@@ -7,7 +7,7 @@
  * - okDisabled：已有案件未选、或新建+生成合同但委托人空 → 禁用
  * 以及三种 confirm 产出的 AssignInfo 形状、Esc/Tab 焦点陷阱。
  */
-import { fireEvent, render, within } from '@testing-library/react'
+import { createEvent, fireEvent, render, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -222,6 +222,59 @@ describe('AssignModal：合同字段编辑', () => {
     fireEvent.click(within(container).getByRole('button', { name: '确认并继续' }))
 
     expect(onConfirm.mock.calls[0]![0].contractFields).toEqual({ 委托人: '李四' })
+    container.remove()
+  })
+})
+
+// ============ ESC / 搜索错误 / 目标切换（覆盖率补测） ============
+
+describe('AssignModal：ESC 关闭', () => {
+  it('capture 阶段拦截 ESC：调用 onCancel 且阻止冒泡', () => {
+    const { container, onCancel } = renderModal()
+    const outer = vi.fn()
+    window.addEventListener('keydown', outer)
+
+    const e = createEvent.keyDown(window, { key: 'Escape' })
+    window.dispatchEvent(e)
+
+    expect(onCancel).toHaveBeenCalled()
+    expect(outer).not.toHaveBeenCalled()
+    window.removeEventListener('keydown', outer)
+    container.remove()
+  })
+
+  it('非 Escape 键不触发关闭', () => {
+    const { container, onCancel } = renderModal()
+    const e = createEvent.keyDown(window, { key: 'a' })
+    window.dispatchEvent(e)
+    expect(onCancel).not.toHaveBeenCalled()
+    container.remove()
+  })
+})
+
+describe('AssignModal：目标切换', () => {
+  it('从「新建案件」切回「追加到已有案件」：恢复搜索区并清空合同字段', () => {
+    const { container } = renderModal({ infos: [] as never })
+    // 先去新建 + 生成合同
+    fireEvent.click(within(container).getByRole('radio', { name: /新建案件/ }))
+    fireEvent.click(within(container).getByRole('radio', { name: /还没有合同/ }))
+    expect(container.querySelector('input[placeholder="姓名或单位"]')).toBeTruthy()
+
+    // 切回追加已有
+    fireEvent.click(within(container).getByRole('radio', { name: /追加到已有案件/ }))
+    expect(container.querySelector('input[placeholder="姓名或单位"]')).toBeNull()
+    expect(container.querySelector('input[placeholder*="案号"]')).toBeTruthy()
+    container.remove()
+  })
+
+  it('选「已有委托合同，直接建案」隐藏合同字段', () => {
+    const { container } = renderModal({ infos: [] as never })
+    fireEvent.click(within(container).getByRole('radio', { name: /新建案件/ }))
+    fireEvent.click(within(container).getByRole('radio', { name: /还没有合同/ }))
+    expect(container.querySelector('input[placeholder="姓名或单位"]')).toBeTruthy()
+
+    fireEvent.click(within(container).getByRole('radio', { name: /已有委托合同/ }))
+    expect(container.querySelector('input[placeholder="姓名或单位"]')).toBeNull()
     container.remove()
   })
 })
