@@ -44,7 +44,7 @@ dependencies = [
     "xlrd>=2.0.1",
     # --- 图像处理 ---
     "opencv-python-headless==5.0.0.93",
-    "Pillow==12.3.0",
+    "Pillow==13.0.0",
     # --- OCR ---
     "rapidocr==3.10.0",
     # macOS Vision 本地 OCR（文书识别管线本地档）；Linux/CI 按平台标记跳过
