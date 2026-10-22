@@ -140,9 +140,22 @@ class TestProviderRegistry:
     def setup_method(self) -> None:
         from apps.social_auth.providers import ProviderRegistry
 
+        # 快照真实注册表：本类用「空注册表」跑隔离用例，用完必须恢复。
+        # 不恢复会污染同进程内的其他测试（真实注册的 feishu/github/google/
+        # microsoft/wechat 全被抹掉），表现为 integration 里
+        # provider-catalog 只列出 feishu。
+        self._providers_snapshot = dict(ProviderRegistry._providers)
+        self._configs_snapshot = dict(ProviderRegistry._configs)
         ProviderRegistry._providers = {}
         ProviderRegistry._configs = {}
         ProviderRegistry.clear_configs()
+
+    def teardown_method(self) -> None:
+        from apps.social_auth.providers import ProviderRegistry
+
+        ProviderRegistry.clear_configs()
+        ProviderRegistry._providers = self._providers_snapshot
+        ProviderRegistry._configs = self._configs_snapshot
 
     def _make_provider(self, name: str) -> type[SocialProvider]:
         class DynamicProvider(SocialProvider):
