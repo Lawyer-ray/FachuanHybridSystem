@@ -49,7 +49,9 @@ vi.mock('../../store', () => ({
   ),
 }))
 vi.mock('../../draft', () => ({
-  countUnclassified: () => 0,
+  // 按真实草稿计算未归类数（无类型且仍是默认名的段），否则 allClassified 判定失真
+  countUnclassified: (d: { segs?: Array<{ t?: string }> }) =>
+    (d?.segs ?? []).filter((x) => !x.t).length,
   isAutoSegName: () => false,
   matLabel: (m: { n: string }) => m.n,
 }))
@@ -102,6 +104,9 @@ vi.mock('./ReaderToolbar', () => ({
         <button type="button" onClick={() => props.onToggleRail()}>切左栏</button>
         <button type="button" onClick={() => props.onToggleMeta()}>切右栏</button>
         <button type="button" onClick={() => props.onZoomReset()}>重置缩放</button>
+        <button type="button" onClick={() => (props as unknown as { onToggleSelMode: () => void }).onToggleSelMode()}>切选页</button>
+        <button type="button" onClick={() => (props as unknown as { onAddFiles: () => void }).onAddFiles()}>追加</button>
+        <button type="button" onClick={() => (props as unknown as { onAutoSplit: () => void }).onAutoSplit()}>自动分段</button>
       </div>
     )
   },
@@ -732,6 +737,57 @@ describe('Reader：弹窗回调连线', () => {
     expect(() => fireEvent.click(screen.getByText('取消删页'))).not.toThrow()
     expect(() => fireEvent.click(screen.getByText('改名态'))).not.toThrow()
     expect(() => fireEvent.click(screen.getByText('关闭改名'))).not.toThrow()
+    container.remove()
+  })
+})
+
+// ============ 工具栏剩余回调与选页应用（覆盖率补测） ============
+
+describe('Reader：工具栏剩余回调', () => {
+  it('切选页调用 toggleSelMode', () => {
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('切选页'))
+    expect(storeMock.toggleSelMode).toHaveBeenCalled()
+    container.remove()
+  })
+
+  it('追加材料触发隐藏 input click（不抛错）', () => {
+    const { container } = render(<Reader />)
+    expect(() => fireEvent.click(screen.getByText('追加'))).not.toThrow()
+    container.remove()
+  })
+
+  it('自动分段调用 autoSplit.run（不抛错）', () => {
+    const { container } = render(<Reader />)
+    expect(() => fireEvent.click(screen.getByText('自动分段'))).not.toThrow()
+    container.remove()
+  })
+})
+
+describe('Reader：选页应用', () => {
+  it('点「应用选择」调用 applySel', () => {
+    storeMock.selPages = [{ mi: 0, p: 0 }]
+    const { container } = render(<Reader />)
+
+    fireEvent.click(screen.getByText('应用选择'))
+    expect(storeMock.applySel).toHaveBeenCalled()
+    storeMock.selPages = []
+    container.remove()
+  })
+})
+
+describe('Reader：归案守卫（未归类）', () => {
+  it('仍有未归类段时点归案只提示、不开弹窗', () => {
+    storeMock.draft = {
+      mats: [{ partIndex: 0, n: 'a.pdf', k: 'pdf', pages: 1 }],
+      segs: [{ id: 's1', t: '', fn: 'a.pdf', refs: [{ mi: 0, p: 0 }], manual: false }],
+      infos: [],
+    }
+    const { container } = render(<Reader />)
+
+    storeMock.setAssignOpen.mockClear()
+    fireEvent.click(screen.getByText('归案'))
+    expect(storeMock.setAssignOpen).not.toHaveBeenCalled()
     container.remove()
   })
 })
