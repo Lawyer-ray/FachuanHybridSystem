@@ -434,8 +434,15 @@ if [ "$RUN_BACKEND" = true ]; then
     fi
 
     # [17] Integration smoke（对齐 backend-integration-smoke job）
+    #
+    # 参数必须与 workflow 一致：CI 用
+    #   pytest -c pytest.ini -o "addopts=--reuse-db ... --timeout=60"
+    # 早期这里只传 --no-cov，于是本地每次重建全库、且沿用 30s 默认超时，
+    # 建表阶段就 Timeout 报错——看起来像测试挂了，实际是脚本与 CI 不同步。
     header "17/22" "集成测试 (integration smoke)"
-    if $BACKEND_PYTEST -c pytest.ini --no-cov -q tests/ci/integration/ 2>&1; then
+    if $BACKEND_PYTEST -c pytest.ini \
+        -o "addopts=--reuse-db --import-mode=importlib -q --tb=short --strict-markers --timeout=60" \
+        --no-cov -q tests/ci/integration/ 2>&1; then
       pass "integration-smoke"
     else
       fail "integration-smoke"
