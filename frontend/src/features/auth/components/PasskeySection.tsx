@@ -8,7 +8,7 @@
  * 重要约束（区块底部文案同步提示用户）：WebAuthn 凭据按注册时的域名隔离，
  * localhost 与 app.xlaw.top 各自独立，注册与登录必须用同一域名访问。
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { KeyRound, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -46,6 +46,8 @@ export function PasskeySection() {
   const [supported, setSupported] = useState(false)
   const [renamingId, setRenamingId] = useState<number | null>(null)
   const [draftName, setDraftName] = useState('')
+  // Esc 取消时置位：若浏览器在卸载先派发 blur，onBlur 据此跳过提交
+  const cancelRenameRef = useRef(false)
   const [deleteTarget, setDeleteTarget] = useState<PasskeyCredentialRow | null>(null)
 
   const credentialsQuery = useQuery({
@@ -186,13 +188,21 @@ export function PasskeySection() {
                     value={draftName}
                     onChange={(event) => setDraftName(event.target.value)}
                     onBlur={() => {
+                      // Esc 取消后紧跟的 blur（部分浏览器在卸载时派发）不得当成提交
+                      if (cancelRenameRef.current) {
+                        cancelRenameRef.current = false
+                        return
+                      }
                       const name = draftName.trim()
                       if (name && name !== row.name) rename.mutate({ id: row.id, name })
                       else setRenamingId(null)
                     }}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') event.currentTarget.blur()
-                      if (event.key === 'Escape') setRenamingId(null)
+                      if (event.key === 'Escape') {
+                        cancelRenameRef.current = true
+                        setRenamingId(null)
+                      }
                     }}
                     className="h-7 max-w-[240px] text-[13px]"
                   />
