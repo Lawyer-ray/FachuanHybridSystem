@@ -1,7 +1,12 @@
 /**
- * 面板内会话侧边栏：新对话 / 切换 / 行内重命名 / 删除（确认后执行）。
- * 以覆盖层形式盖在消息区上方（从左滑入），composer 仍可输入。
- * 会话列表走 react-query；改名/删除后失效重拉，删除当前会话则切到新对话。
+ * 会话列表：新对话 / 切换 / 行内重命名 / 删除（确认后执行）。
+ *
+ * 两种形态共用本组件（variant）：
+ * - rail：md+ 常驻窄栏（面板双栏布局的左列），无关闭钮、无滑入动画；
+ * - overlay：sm 以下覆盖层（从左滑入盖住对话区），composer 仍可输入。
+ *
+ * 删除语义：删除当前会话时由**相邻会话顺位接管**（先下后上，无剩余才落
+ * 空白新对话），列表保持原位不跳转；删非当前会话则什么都不动。
  */
 
 import { useState } from 'react'
@@ -23,35 +28,27 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 
-function formatTime(iso: string): string {
-  return iso.replace('T', ' ').slice(5, 16)
-}
-
 function SessionRow({
   session,
   active,
+  compact,
   onSwitch,
+  onRequestDelete,
 }: {
   session: AgentSession
   active: boolean
+  /** rail 窄栏：隐藏日期只留标题 */
+  compact: boolean
   onSwitch: () => void
+  onRequestDelete: () => void
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
-  const [confirmDelete, setConfirmDelete] = useState(false)
   const queryClient = useQueryClient()
-  const switchSession = useCopilot((s) => s.switchSession)
 
   const renameMutation = useMutation({
     mutationFn: (title: string) => renameSession(session.session_id, title),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['copilot', 'sessions'] }),
-  })
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteSession(session.session_id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['copilot', 'sessions'] })
-      if (active) void switchSession(null)
-    },
   })
 
   const commitRename = () => {
@@ -88,7 +85,11 @@ function SessionRow({
     >
       <MessageSquare className="h-3.5 w-3.5 flex-none text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate">{session.title || '未命名对话'}</span>
-      <span className="flex-none text-[11px] text-muted-foreground">{formatTime(session.updated_at)}</span>
+      {!compact && (
+        <span className="flex-none text-[11px] text-muted-foreground">
+          {session.updated_at.replace('T', ' ').slice(5, 16)}
+        </span>
+      )}
       <span className="hidden flex-none gap-0.5 group-hover:flex">
         <button
           type="button"
@@ -108,39 +109,27 @@ function SessionRow({
           aria-label="删除对话"
           onClick={(e) => {
             e.stopPropagation()
-            setConfirmDelete(true)
+            onRequestDelete()
           }}
         >
           <Trash2 className="h-3 w-3" />
         </button>
       </span>
-
-      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <AlertDialogContent className="max-w-[340px]">
-          <AlertDialogHeader>
-            <AlertDialogTitle>删除该对话？</AlertDialogTitle>
-            <AlertDialogDescription>
-              「{session.title || '未命名对话'}」的消息记录将一并删除，删除后无法恢复。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-white hover:bg-destructive/90"
-              onClick={() => deleteMutation.mutate()}
-            >
-              删除
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }
 
-export function SessionSidebar({ onClose }: { onClose: () => void }) {
+export function SessionSidebar({
+  variant,
+  onClose,
+}: {
+  variant: 'rail' | 'overlay'
+  onClose?: () => void
+}) {
   const sessionId = useCopilot((s) => s.sessionId)
   const switchSession = useCopilot((s) => s.switchSession)
+  const queryClient = useQueryClient()
+  const [confirmTarget, setConfirmTarget] = useState<AgentSession | null>(null)
 
   const sessionsQuery = useQuery({
     queryKey: ['copilot', 'sessions'],
@@ -150,18 +139,36 @@ export function SessionSidebar({ onClose }: { onClose: () => void }) {
   })
   const sessions = sessionsQuery.data ?? []
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteSession(id),
+    onSuccess: (_data, id) => {
+      // 顺位接管：删的是当前会话时选相邻会话（先下后上），无剩余才落新对话
+      const index = sessions.findIndex((s) => s.session_id === id)
+      const next = sessions[index + 1] ?? sessions[index - 1]
+      if (id === sessionId) void switchSession(next?.session_id ?? null)
+      void queryClient.invalidateQueries({ queryKey: ['copilot', 'sessions'] })
+    },
+  })
+
+  const rootClass =
+    variant === 'rail'
+      ? 'hidden w-[180px] flex-none flex-col border-r border-border bg-card md:flex'
+      : 'absolute inset-0 z-20 flex animate-in slide-in-from-left flex-col border-r border-border bg-card duration-200 md:hidden'
+
   return (
-    <div className="absolute inset-0 z-20 flex animate-in slide-in-from-left flex-col border-r border-border bg-card duration-200">
+    <div className={rootClass}>
       <header className="flex h-10 flex-none items-center gap-2 border-b border-border px-3">
         <span className="text-[12.5px] font-semibold text-foreground">对话</span>
-        <button
-          type="button"
-          className="ml-auto flex h-6 w-6 items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          onClick={onClose}
-          aria-label="收起对话列表"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
+        {variant === 'overlay' && (
+          <button
+            type="button"
+            className="ml-auto flex h-6 w-6 items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            onClick={onClose}
+            aria-label="收起对话列表"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
       </header>
 
       <div className="flex-none p-2">
@@ -171,7 +178,7 @@ export function SessionSidebar({ onClose }: { onClose: () => void }) {
           className="h-8 w-full justify-start gap-1.5 text-[12.5px]"
           onClick={() => {
             void switchSession(null)
-            onClose()
+            onClose?.()
           }}
         >
           <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
@@ -191,13 +198,38 @@ export function SessionSidebar({ onClose }: { onClose: () => void }) {
             key={s.session_id}
             session={s}
             active={s.session_id === sessionId}
+            compact={variant === 'rail'}
+            onRequestDelete={() => setConfirmTarget(s)}
             onSwitch={() => {
               if (s.session_id !== sessionId) void switchSession(s.session_id)
-              onClose()
+              onClose?.()
             }}
           />
         ))}
       </div>
+
+      <AlertDialog open={confirmTarget !== null} onOpenChange={(v) => !v && setConfirmTarget(null)}>
+        <AlertDialogContent className="max-w-[340px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除该对话？</AlertDialogTitle>
+            <AlertDialogDescription>
+              「{confirmTarget?.title || '未命名对话'}」的消息记录将一并删除，删除后无法恢复。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => {
+                if (confirmTarget) deleteMutation.mutate(confirmTarget.session_id)
+                setConfirmTarget(null)
+              }}
+            >
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
