@@ -22,6 +22,11 @@ export function deleteSession(sessionId: string): Promise<{ deleted: number }> {
   return api.delete(`agent/sessions/${sessionId}`).json<{ deleted: number }>()
 }
 
+/** 重命名会话（侧边栏改名入口；空标题后端 400） */
+export function renameSession(sessionId: string, title: string): Promise<AgentSession> {
+  return api.patch(`agent/sessions/${sessionId}`, { json: { title } }).json<AgentSession>()
+}
+
 export function fetchHistory(sessionId: string, limit = 200): Promise<AgentHistoryMessage[]> {
   return api.get(`agent/sessions/${sessionId}/messages`, { searchParams: { limit } }).json<AgentHistoryMessage[]>()
 }

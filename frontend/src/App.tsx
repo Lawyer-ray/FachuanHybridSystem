@@ -92,6 +92,17 @@ function AppShell() {
       return false
     }
   })
+  // 滑出动画期间保持挂载：收起时先播 animate-out，240ms 后再卸载（与面板
+  // duration-200 对齐留余量）。重新展开会取消定时器，面板无缝回到 animate-in。
+  const [copilotMounted, setCopilotMounted] = useState(copilotOpen)
+  useEffect(() => {
+    if (copilotOpen) {
+      setCopilotMounted(true)
+      return
+    }
+    const timer = setTimeout(() => setCopilotMounted(false), 240)
+    return () => clearTimeout(timer)
+  }, [copilotOpen])
   const toggleCopilot = () => {
     setCopilotOpen((v) => {
       try {
@@ -106,9 +117,9 @@ function AppShell() {
   return (
     <div className="min-h-screen bg-background">
       <AppNavbar onNotify={(msg) => toast.info(msg)} onPrefetch={preloadRoute} onToggleCopilot={toggleCopilot} />
-      {copilotOpen && (
+      {copilotMounted && (
         <Suspense fallback={null}>
-          <CopilotPanelLazy onClose={toggleCopilot} />
+          <CopilotPanelLazy open={copilotOpen} onClose={toggleCopilot} />
         </Suspense>
       )}
       <PageErrorBoundary>

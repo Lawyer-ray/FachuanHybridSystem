@@ -58,3 +58,13 @@ async def delete_session(*, session_id: str, user_id: int | None) -> int:
     """删除会话（级联删除消息与审批），返回删除数。"""
     deleted, _ = await _scoped(user_id).filter(session_id=session_id).adelete()
     return deleted
+
+
+async def rename_session(*, session_id: str, user_id: int | None, title: str) -> AgentSession | None:
+    """重命名会话（title 已由 API 层校验非空）；不存在或不归属时返回 ``None``。"""
+    session = await get_session(session_id=session_id, user_id=user_id)
+    if session is None:
+        return None
+    session.title = title.strip()[:200]
+    await session.asave(update_fields=["title", "updated_at"])
+    return session

@@ -4,7 +4,7 @@
  * 流的生命周期归 store（模块级 Zustand）而非组件——收起面板不中断流，
  * 重新展开继续看；「停止生成」= AbortController 断开，服务端会把已流出
  * 的部分回答落库（truncated），随后重拉历史对齐。
- * 会话列表这类服务端状态走 react-query（SessionMenu），不进本 store。
+ * 会话列表这类服务端状态走 react-query（SessionSidebar），不进本 store。
  */
 
 import { create } from 'zustand'

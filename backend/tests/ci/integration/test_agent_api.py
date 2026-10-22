@@ -154,6 +154,42 @@ def test_session_detail_and_message_history(authenticated_client: Any) -> None:
 
 
 @pytest.mark.django_db
+def test_session_rename(authenticated_client: Any) -> None:
+    """重命名：所有者可改且即时生效；空标题 400；他人 404 不泄露存在性。"""
+    session_id = _post(authenticated_client, "/api/v1/agent/sessions", {"title": "旧标题"}).json()["session_id"]
+
+    resp = authenticated_client.patch(
+        f"/api/v1/agent/sessions/{session_id}",
+        data=json.dumps({"title": "  新标题  "}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    assert resp.json()["title"] == "新标题"  # 去空格
+    assert AgentSession.objects.get(session_id=session_id).title == "新标题"
+
+    # 空标题：400 拒绝且不改库
+    resp = authenticated_client.patch(
+        f"/api/v1/agent/sessions/{session_id}",
+        data=json.dumps({"title": "   "}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 400
+    assert "不能为空" in json.dumps(resp.json(), ensure_ascii=False)
+    assert AgentSession.objects.get(session_id=session_id).title == "新标题"
+
+    # 他人：404
+    _, other_client = _make_user("rename-intruder")
+    resp = other_client.patch(
+        f"/api/v1/agent/sessions/{session_id}",
+        data=json.dumps({"title": "越权重命名"}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 404
+    assert "会话不存在" in json.dumps(resp.json(), ensure_ascii=False)
+    assert AgentSession.objects.get(session_id=session_id).title == "新标题"
+
+
+@pytest.mark.django_db
 def test_send_message_unknown_session(authenticated_client: Any) -> None:
     resp = _post(
         authenticated_client, "/api/v1/agent/sessions/00000000-0000-0000-0000-000000000000/messages", {"message": "x"}

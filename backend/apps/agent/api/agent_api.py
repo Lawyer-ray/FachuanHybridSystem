@@ -32,6 +32,7 @@ from ..services.session_service import delete_session as delete_session_record
 from ..services.session_service import get_session as get_session_record
 from ..services.session_service import list_messages as list_message_records
 from ..services.session_service import list_sessions as list_session_records
+from ..services.session_service import rename_session as rename_session_record
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,12 @@ class MessageIn(Schema):
     """发消息请求体。"""
 
     message: str
+
+
+class SessionRenameIn(Schema):
+    """重命名会话请求体。"""
+
+    title: str
 
 
 class MessageOut(Schema):
@@ -179,6 +186,23 @@ async def delete_session(request: Any, session_id: str) -> dict[str, Any]:  # pr
     """删除会话（级联删除消息与审批）。"""
     deleted = await delete_session_record(session_id=session_id, user_id=_user_id(request))
     return {"deleted": deleted}
+
+
+@router.patch("/sessions/{session_id}", response=SessionOut)
+async def update_session_title(
+    request: Any, session_id: str, payload: SessionRenameIn
+) -> SessionOut:  # pragma: no cover
+    """重命名会话（侧边栏会话列表的改名入口）。"""
+    if not payload.title.strip():
+        raise HttpError(400, "标题不能为空")
+    session = await rename_session_record(
+        session_id=session_id,
+        user_id=_user_id(request),
+        title=payload.title,
+    )
+    if session is None:
+        raise HttpError(404, "会话不存在")
+    return _to_out(session)
 
 
 # ─── 对话 ───────────────────────────────────────────────────────────────────
