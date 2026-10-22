@@ -286,11 +286,18 @@ function NodeList({ ctx, subpath, actions }: { ctx: TreeCtx; subpath: string; ac
     return <div className="py-1.5 pl-2 text-[11.5px] text-muted-foreground/70">{errMessage(q.error, '读取失败')}</div>
   }
   const d = q.data
-  if (!d || d.folders.length === 0) {
+  if (!d) {
+    return <div className="py-2 text-xs text-muted-foreground/70">文件夹是空的</div>
+  }
+  if (d.folders.length === 0) {
     if (subpath === '') {
-      return <div className="py-2 text-xs text-muted-foreground/70">{d?.files.length ? '' : '文件夹是空的'}</div>
-    }
-    if (d.files.length === 0 && ctx.creatingIn !== subpath) {
+      // 根目录没有子文件夹：只在真的什么都没有时提示「文件夹是空的」。
+      // 有文件时必须继续往下渲染（此处曾直接 return，导致只有文件的根目录
+      // 一个文件都不显示）
+      if (d.files.length === 0 && ctx.creatingIn !== subpath) {
+        return <div className="py-2 text-xs text-muted-foreground/70">文件夹是空的</div>
+      }
+    } else if (d.files.length === 0 && ctx.creatingIn !== subpath) {
       return <div className="py-1.5 pl-2 text-[11.5px] text-muted-foreground/60">（空）</div>
     }
   }
