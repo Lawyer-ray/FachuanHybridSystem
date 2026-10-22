@@ -77,13 +77,36 @@ pi 启动带 `--tools "mcp__fachuan__*"`，**内置的 read/bash/edit/write 全�
 声明**——它们能以 Django 进程权限读写文件、执行命令，且不在审批清单内，是提示
 注入直通服务器 RCE 的通道。审批 extension 缺失时进程拒绝启动（fail-closed）。
 
+### 按用户身份执行（confused deputy 修复）
+
+共享 MCP 是一份进程服务所有律师，而 `mcp_server` 默认用**服务账号（超管）**调
+REST API——不区分身份的话，任何律师都能借 agent 读到全所数据、写操作审计也
+记在服务账号名下。修复链路（378 个工具零改动）：
+
+```
+chat_service（每轮）
+  └─ pi/user_token.py 为「当前律师」铸 access token（失败即整轮拒绝）
+       └─ 注入 pi 进程 env：FACHUAN_USER_TOKEN
+            └─ mcp.json: "Authorization": "Bearer ${FACHUAN_USER_TOKEN}"（pi 展开 env）
+                 └─ mcp_server/identity.py 的 ASGI 中间件读头 → ContextVar
+                      └─ client.py 优先透传 → REST API 以该律师身份执行
+```
+
+- 律师本人的归属过滤、权限、审计与直接登录完全一致；
+- token 是无状态 access（寿命同全局配置，每轮重铸），只活在 pi 子进程 env 与
+  临时目录 mcp.json 的**变量引用**里，不落盘明文；
+- stdio 模式 / 无 Authorization 头 / 铸造失败：回退服务账号或拒绝执行，绝不
+  静默提权。ContextVar 经 anyio `to_thread` 拷进工作线程，同步工具同样读得到。
+
 ### 多轮对话与系统提示词
 
 pi 每请求新进程、天然无记忆。多轮上下文由 `AgentMessage` 表持有：发送前把最近
 历史经 `services/history.py` 渲染成 transcript 附在 prompt 前（超预算丢最旧），
-本轮的助手文本与工具结果在流结束时回写该表。系统提示词是工作目录里的
-`AGENTS.md`（pi 无条件读取，与项目信任无关），模板在本 app 内置，可用
-`FACHUAN_PI_AGENTS_PATH` 覆盖。
+本轮的助手文本与工具结果在流结束时回写该表——**取消/出错路径同样落库已流出
+的部分回答**（`metadata.truncated=true`），用户按停止后重开会话不丢内容。
+系统提示词是工作目录里的 `AGENTS.md`（pi 无条件读取，与项目信任无关），模板在
+本 app 内置，可用 `FACHUAN_PI_AGENTS_PATH` 覆盖。会话标题缺省取首条用户消息前
+30 字；`SessionOut.llm_model` 回报的是服务端解析出的实际模型（客户端不传模型）。
 
 ## 4. 审批链路
 
@@ -144,8 +167,10 @@ publish(session_id, event)
 
 | 方法 | 路径 | 说明 |
 |:-|:-|:-|
-| POST | `/sessions` | 新建会话 |
+| POST | `/sessions` | 新建会话（标题可空，首条消息自动补） |
 | GET | `/sessions` | 列出会话 |
+| GET | `/sessions/{id}` | 会话详情 |
+| GET | `/sessions/{id}/messages` | 消息历史（旧→新，重开会话回放转录） |
 | DELETE | `/sessions/{id}` | 删除会话 |
 | POST | `/sessions/{id}/messages` | 发消息（SSE 流） |
 | POST | `/approval/request` | **pi extension 回调**（`X-Internal-Token` 鉴权） |

@@ -189,6 +189,7 @@ def write_pi_config(
     import json
 
     from .model_config import write_models_json
+    from .user_token import USER_TOKEN_ENV
 
     resolved = endpoint or resolve_endpoint()
     root = Path(target_dir)
@@ -200,9 +201,19 @@ def write_pi_config(
         logger.info("未能从 LLMProvider 生成 models.json，回退用户级凭证")
 
     # 2) MCP 配置
+    #
+    # headers 引用 pi 子进程 env 里的 ``${FACHUAN_USER_TOKEN}``（pi 支持 mcp.json
+    # header 的环境变量展开）：值是发起会话的律师的 access token，由
+    # ``pool.acquire(session_env=...)`` 注入。mcp_server 端透传该头，工具即以
+    # 律师本人身份调 REST API（confused deputy 修复，见 ``pi/user_token.py``）。
+    # token 缺失时展开为空，mcp_server 回退服务账号（stdio/手工场景）。
     config_path = root / "mcp.json"
     if shared_enabled():
-        server: dict[str, Any] = {"type": "streamable-http", "url": resolved.url}
+        server: dict[str, Any] = {
+            "type": "streamable-http",
+            "url": resolved.url,
+            "headers": {"Authorization": f"Bearer ${{{USER_TOKEN_ENV}}}"},
+        }
     else:
         server = {
             "command": _python_bin(),
@@ -226,12 +237,18 @@ def write_pi_mcp_config(target_dir: str | Path, endpoint: McpEndpoint | None = N
     """兼容旧名：仅写 MCP 配置（不碰模型），保留供测试/脚本使用。"""
     import json
 
+    from .user_token import USER_TOKEN_ENV
+
     resolved = endpoint or resolve_endpoint()
     root = Path(target_dir)
     root.mkdir(parents=True, exist_ok=True)
     config_path = root / "mcp.json"
     if shared_enabled():
-        server: dict[str, Any] = {"type": "streamable-http", "url": resolved.url}
+        server: dict[str, Any] = {
+            "type": "streamable-http",
+            "url": resolved.url,
+            "headers": {"Authorization": f"Bearer ${{{USER_TOKEN_ENV}}}"},
+        }
     else:
         server = {
             "command": _python_bin(),

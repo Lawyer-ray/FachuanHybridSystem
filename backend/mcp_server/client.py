@@ -11,6 +11,7 @@ from typing import Any
 import httpx
 
 from . import config
+from .identity import passthrough_authorization
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,12 @@ class FachuanClient:
                 self._refresh()
 
     def _headers(self) -> dict[str, str]:
+        # agent 场景（streamable-http）：优先透传请求头里「当前律师」的
+        # Authorization，工具即以该律师身份调上游——归属过滤、权限、审计
+        # 与本人登录一致；无透传（stdio/手工）才用服务账号。
+        passthrough = passthrough_authorization()
+        if passthrough:
+            return {"Authorization": passthrough}
         self._ensure_token()
         return {"Authorization": f"Bearer {self._access_token}"}
 
