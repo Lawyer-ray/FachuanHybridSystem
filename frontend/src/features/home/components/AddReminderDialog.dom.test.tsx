@@ -229,3 +229,54 @@ describe('AddReminderDialog：候选分类 tab', () => {
     container.remove()
   })
 })
+
+// ============ 输入回调（覆盖率补测） ============
+
+describe('AddReminderDialog：各输入 onChange', () => {
+  it('改类型 / 内容 / 时刻各自更新并可保存', async () => {
+    apiMock.createReminder.mockResolvedValue({})
+    const { container } = renderDialog()
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeTruthy())
+
+    // 类型 select
+    const select = document.querySelector('select') as HTMLSelectElement
+    fireEvent.change(select, { target: { value: 'hearing' } })
+
+    // 内容输入
+    const contentInput = screen.getByPlaceholderText(/提交证据目录/)
+    fireEvent.change(contentInput, { target: { value: '新内容' } })
+
+    // 时刻输入
+    const timeInput = document.querySelector('input[type="time"]') as HTMLInputElement
+    fireEvent.change(timeInput, { target: { value: '14:30' } })
+
+    const saveBtn = screen.getByRole('button', { name: '保存' })
+    fireEvent.click(saveBtn)
+
+    await waitFor(() =>
+      expect(apiMock.createReminder).toHaveBeenCalledWith(
+        expect.objectContaining({ content: '新内容', due_at: '2026-10-20T14:30:00' }),
+      ),
+    )
+    container.remove()
+  })
+
+  it('搜索框 onChange 更新关键词', async () => {
+    const { container } = renderDialog()
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeTruthy())
+
+    const combo = document.querySelector('[role="combobox"]') as HTMLInputElement
+    fireEvent.change(combo, { target: { value: '李四' } })
+    expect(combo.value).toBe('李四')
+    container.remove()
+  })
+
+  it('Dialog onOpenChange(false) 触发 onClose', async () => {
+    const { onClose } = renderDialog()
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeTruthy())
+
+    // Radix Dialog 在 Esc 时触发 onOpenChange(false)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => expect(onClose).toHaveBeenCalled())
+  })
+})
