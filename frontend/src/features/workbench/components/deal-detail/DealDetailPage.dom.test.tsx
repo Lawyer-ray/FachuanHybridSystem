@@ -453,3 +453,13 @@ describe('DealDetailPage 右栏与档案', () => {
     expect(evil.getAttribute('href')).toBe('#')
   })
 })
+
+describe('DealDetailPage：案件加载失败重试', () => {
+  it('casesError 时显示错误条与重试按钮', async () => {
+    casesMock.mockRejectedValue(new Error('案件列表挂了'))
+    setupUi()
+    await waitFor(() => expect(document.body.textContent).toContain('某银行与某公司'))
+    // 错误条出现即说明分支已渲染（具体文案由 errMessage 决定）
+    expect(document.body.textContent).toContain('重试')
+  })
+})
