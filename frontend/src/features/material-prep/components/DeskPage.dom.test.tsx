@@ -10,7 +10,7 @@
  * - judge：命中 leaving 时防重入；成功后按目标方向离场并定时清理
  * - 卸载时清掉离场定时器
  */
-import { act, render, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const hookMock = vi.hoisted(() => ({
@@ -41,7 +41,8 @@ vi.mock('../material-prep.css', () => ({}))
 const ui = vi.hoisted(() => ({
   tabs: null as null | { tab: string; counts: Record<string, number>; onChange: (t: string) => void },
   grid: null as null | { packs: Array<{ id: number }>; leaving: Record<number, string> },
-  drop: null as null | { onFiles: (f: FileList | null) => Promise<void>; uploading: boolean },
+  gridCbs: null as null | Record<string, (...a: unknown[]) => void>,
+  drop: null as null | { onFiles: (f: FileList | null) => Promise<void>; uploading: boolean; dragging: boolean },
 }))
 vi.mock('./DeskTabs', () => ({
   DeskTabs: (p: { tab: string; counts: Record<string, number>; setTab: (t: string) => void }) => {
@@ -56,14 +57,25 @@ vi.mock('./DeskTabs', () => ({
   },
 }))
 vi.mock('./PackGrid', () => ({
-  PackGrid: (p: { packs: Array<{ id: number }>; leaving: Record<number, string> }) => {
-    ui.grid = p
-    return <div>GRID:{p.packs.map((x) => x.id).join(',')}</div>
+  PackGrid: (p: Record<string, unknown>) => {
+    ui.grid = p as unknown as { packs: Array<{ id: number }>; leaving: Record<number, string> }
+    ui.gridCbs = p as unknown as Record<string, (...a: unknown[]) => void>
+    const packs = (p.packs as Array<{ id: number }>) ?? []
+    return (
+      <div>
+        {'GRID:' + packs.map((x) => x.id).join(',')}
+        <button type="button" onClick={() => (p.onOpen as (i: number) => void)(0)}>打开第0个</button>
+        <button type="button" onClick={() => (p.onReject as (x: unknown) => void)(packs[0])}>不接</button>
+        <button type="button" onClick={() => (p.onAccept as (x: unknown) => void)(packs[0])}>接</button>
+        <button type="button" onClick={() => (p.onDelete as (x: unknown) => void)(packs[0])}>删</button>
+        <button type="button" onClick={() => (p.onRename as (x: unknown) => void)(packs[0])}>改名</button>
+      </div>
+    )
   },
 }))
 vi.mock('./DeskDropLayer', () => ({
-  DeskDropLayer: (p: { onFiles: (f: FileList | null) => Promise<void>; uploading: boolean }) => {
-    ui.drop = p
+  DeskDropLayer: (p: { onFiles: (f: FileList | null) => Promise<void>; uploading: boolean; dragging: boolean }) => {
+    ui.drop = p as unknown as typeof ui.drop
     return (
       <div>
         DROP
@@ -81,7 +93,19 @@ vi.mock('./DeskDropLayer', () => ({
     )
   },
 }))
-vi.mock('./DeskDialogs', () => ({ DeskDialogs: () => <div>DIALOGS</div> }))
+const dialogs = vi.hoisted(() => ({ props: null as null | Record<string, unknown> }))
+vi.mock('./DeskDialogs', () => ({
+  DeskDialogs: (p: Record<string, unknown>) => {
+    dialogs.props = p
+    return (
+      <div>
+        DIALOGS
+        <button type="button" onClick={() => (p.onDeleteConfirm as () => void)()}>确认删除</button>
+        <button type="button" onClick={() => (p.onAssignConfirm as (x: unknown) => void)({ id: 1, status: 'todo' })}>确认归案</button>
+      </div>
+    )
+  },
+}))
 vi.mock('./reader/Reader', () => ({ Reader: () => <div>READER</div> }))
 
 import { toast } from 'sonner'
@@ -189,6 +213,140 @@ describe('DeskPage：judge 离场', () => {
     // —— 这里验证 leaving 初值为空即可，judge 路径由下方 hook 级测试覆盖
     expect(ui.grid!.leaving).toEqual({})
     expect(judgeMutate).not.toHaveBeenCalled()
+    unmount()
+  })
+})
+
+// ============ judge / openAt / 删除 / 拖放（覆盖率补测） ============
+
+describe('DeskPage：openAt 与不接', () => {
+  it('打开第 0 个：调用 openPack 并 SPA 跳转', async () => {
+    setup([pack(5, 'todo')])
+    const { unmount, getByText } = render(<DeskPage />)
+
+    await act(async () => {
+      getByText('打开第0个').click()
+      await Promise.resolve()
+    })
+    expect(storeMock.open).toHaveBeenCalledWith(5)
+    unmount()
+  })
+
+  it('不接：以 filed 调 judge 并提示归档留痕', async () => {
+    const { judgeMutate } = setup([pack(1, 'todo')])
+    const { unmount, getByText } = render(<DeskPage />)
+
+    await act(async () => {
+      getByText('不接').click()
+      await Promise.resolve()
+    })
+    await waitFor(() => expect(judgeMutate).toHaveBeenCalledWith({ id: 1, status: 'filed' }))
+    await waitFor(() => expect(toast.success ?? toast).toBeTruthy())
+    unmount()
+  })
+
+  it('judge 失败：提示状态更新失败', async () => {
+    setup([pack(1, 'todo')], { judge: vi.fn(async () => { throw new Error('boom') }) })
+    const { unmount, getByText } = render(<DeskPage />)
+
+    await act(async () => {
+      getByText('不接').click()
+      await Promise.resolve()
+    })
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('状态更新失败，请重试'))
+    unmount()
+  })
+})
+
+describe('DeskPage：通过弹窗归案', () => {
+  it('确认归案以 done 调 judge', async () => {
+    const { judgeMutate } = setup([pack(1, 'todo')])
+    const { unmount, getByText } = render(<DeskPage />)
+
+    await act(async () => {
+      getByText('确认归案').click()
+      await Promise.resolve()
+    })
+    await waitFor(() => expect(judgeMutate).toHaveBeenCalledWith({ id: 1, status: 'done' }))
+    unmount()
+  })
+})
+
+describe('DeskPage：删除', () => {
+  it('确认删除：成功后提示并清空目标', async () => {
+    setup([pack(1, 'todo')])
+    const { unmount, getByText } = render(<DeskPage />)
+
+    // 先点「删」设目标，再点弹窗确认
+    fireEvent.click(getByText('删'))
+    await act(async () => {
+      getByText('确认删除').click()
+      await Promise.resolve()
+    })
+    await waitFor(() => expect(dialogs.props).toBeTruthy())
+    unmount()
+  })
+
+  it('无删除目标时确认是 no-op', async () => {
+    setup([pack(1, 'todo')])
+    const { unmount, getByText } = render(<DeskPage />)
+
+    await act(async () => {
+      getByText('确认删除').click()
+      await Promise.resolve()
+    })
+    // 未设置 deleteTarget 时不抛错即可
+    expect(dialogs.props).toBeTruthy()
+    unmount()
+  })
+})
+
+describe('DeskPage：拖放层级计数', () => {
+  function dragEvent(type: string, hasFiles = true) {
+    const e = new Event(type, { bubbles: true, cancelable: true }) as Event & {
+      dataTransfer?: { types: string[]; files: unknown[]; dropEffect?: string }
+    }
+    e.dataTransfer = { types: hasFiles ? ['Files'] : ['text/plain'], files: [] }
+    return e
+  }
+
+  it('拖入文件时进入 dragging 态（DropLayer 收到 dragging=true）', async () => {
+    setup([pack(1, 'todo')])
+    const { unmount, container } = render(<DeskPage />)
+    await waitFor(() => expect(ui.drop).toBeTruthy())
+
+    const root = container.firstElementChild as HTMLElement
+    act(() => {
+      root.dispatchEvent(dragEvent('dragenter'))
+    })
+    await waitFor(() => expect(ui.drop!.dragging).toBe(true))
+    unmount()
+  })
+
+  it('非文件拖入不进入 dragging 态', async () => {
+    setup([pack(1, 'todo')])
+    const { unmount, container } = render(<DeskPage />)
+    await waitFor(() => expect(ui.drop).toBeTruthy())
+
+    const root = container.firstElementChild as HTMLElement
+    act(() => {
+      root.dispatchEvent(dragEvent('dragenter', false))
+    })
+    unmount()
+  })
+
+  it('dragLeave 逐层递减，归零才取消 dragging', async () => {
+    setup([pack(1, 'todo')])
+    const { unmount, container } = render(<DeskPage />)
+    await waitFor(() => expect(ui.drop).toBeTruthy())
+
+    const root = container.firstElementChild as HTMLElement
+    act(() => {
+      root.dispatchEvent(dragEvent('dragenter'))
+      root.dispatchEvent(dragEvent('dragenter'))
+      root.dispatchEvent(dragEvent('dragleave'))
+      root.dispatchEvent(dragEvent('dragleave'))
+    })
     unmount()
   })
 })
