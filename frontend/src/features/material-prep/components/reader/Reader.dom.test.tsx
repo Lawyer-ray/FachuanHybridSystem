@@ -25,7 +25,7 @@ const storeMock = vi.hoisted(() => ({
   cols: 1,
   selMode: false,
   selPages: [] as unknown[],
-  ocrPending: null,
+  ocrPending: null as null | { mi: number; p: number; rect: { x: number; y: number; w: number; h: number }; text: string; loading: boolean },
   assignOpen: false,
   close: vi.fn(),
   setAssignOpen: vi.fn(),
@@ -36,6 +36,7 @@ const storeMock = vi.hoisted(() => ({
   setOcrPending: vi.fn(),
   setZoom: vi.fn(),
   setCols: vi.fn(),
+  setAssign: vi.fn(),
   clearSel: vi.fn(),
   toggleSelMode: vi.fn(),
   applySel: vi.fn(),
@@ -198,7 +199,19 @@ vi.mock('./MetaPanel', () => ({
 vi.mock('./ReaderDialogs', () => ({
   ReaderDialogs: (p: Record<string, unknown>) => {
     dialogsCbs.props = p
-    return <div>READER_DIALOGS</div>
+    return (
+      <div>
+        READER_DIALOGS
+        <button type="button" onClick={() => (p.onOcrText as (v: string) => void)('新文本')}>改OCR文本</button>
+        <button type="button" onClick={() => (p.onOcrRedo as () => void)()}>重做OCR</button>
+        <button type="button" onClick={() => (p.onOcrCancel as () => void)()}>取消OCR</button>
+        <button type="button" onClick={() => (p.onAssignCancel as () => void)()}>取消归案</button>
+        <button type="button" onClick={() => (p.onAssignConfirm as (a: unknown) => void)({ target: 'new' })}>确认归案</button>
+        <button type="button" onClick={() => (p.onDeleteCancel as () => void)()}>取消删页</button>
+        <button type="button" onClick={() => (p.onRenamingChange as (v: boolean) => void)(true)}>改名态</button>
+        <button type="button" onClick={() => (p.onRenameMatClose as () => void)()}>关闭改名</button>
+      </div>
+    )
   },
 }))
 vi.mock('./use-ocr', () => ({ useReaderOcr: () => ({ pickPage: vi.fn(), onOcrBox: vi.fn(), ocrOk: null }) }))
@@ -668,6 +681,57 @@ describe('Reader：缩放与列数写入 store', () => {
     const { container } = render(<Reader />)
     fireEvent.click(screen.getByText('切列数'))
     expect(storeMock.setCols).toHaveBeenCalledWith(1)
+    container.remove()
+  })
+})
+
+// ============ ReaderDialogs 回调连线（覆盖率补测） ============
+
+describe('Reader：弹窗回调连线', () => {
+  it('改 OCR 文本：有 ocrPending 时合并文本', () => {
+    storeMock.ocrPending = { mi: 0, p: 1, rect: { x: 0, y: 0, w: 1, h: 1 }, text: '旧', loading: false }
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('改OCR文本'))
+    expect(storeMock.setOcrPending).toHaveBeenCalled()
+    storeMock.ocrPending = null
+    container.remove()
+  })
+
+  it('重做 OCR：清空待确认', () => {
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('重做OCR'))
+    expect(storeMock.setOcrPending).toHaveBeenCalledWith(null)
+    container.remove()
+  })
+
+  it('取消 OCR：清待确认并复位取字目标', () => {
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('取消OCR'))
+    expect(storeMock.setOcrPending).toHaveBeenCalledWith(null)
+    expect(storeMock.setPickInfo).toHaveBeenCalledWith(-1)
+    container.remove()
+  })
+
+  it('取消归案：关闭弹窗', () => {
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('取消归案'))
+    expect(storeMock.setAssignOpen).toHaveBeenCalledWith(false)
+    container.remove()
+  })
+
+  it('确认归案：写 assign、提示并关闭阅读器', () => {
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('确认归案'))
+    expect(storeMock.setAssignOpen).toHaveBeenCalledWith(false)
+    expect(storeMock.close).toHaveBeenCalled()
+    container.remove()
+  })
+
+  it('取消删页 / 改名态 / 关闭改名 各自触发', () => {
+    const { container } = render(<Reader />)
+    expect(() => fireEvent.click(screen.getByText('取消删页'))).not.toThrow()
+    expect(() => fireEvent.click(screen.getByText('改名态'))).not.toThrow()
+    expect(() => fireEvent.click(screen.getByText('关闭改名'))).not.toThrow()
     container.remove()
   })
 })
