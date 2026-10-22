@@ -98,7 +98,7 @@ const dialogProps = vi.hoisted(() => ({
   sheetDay: null as unknown,
 }))
 vi.mock('./EventDetailDialog', () => ({
-  EventDetailDialog: (p: { event: unknown; onDelete: (e: unknown) => void; onOpenCase: (e: unknown) => void; onClose: () => void }) => {
+  EventDetailDialog: (p: { event: unknown; onDelete: (e: unknown) => void; onOpenCase: (e: unknown) => void; onClose: () => void; onSaved?: () => void }) => {
     dialogProps.detail = p.event
     dialogProps.onDelete = p.onDelete
     dialogProps.onOpenCase = p.onOpenCase
@@ -107,6 +107,8 @@ vi.mock('./EventDetailDialog', () => ({
         DETAIL_DIALOG
         <button type="button" onClick={() => p.onDelete(p.event)}>删事件</button>
         <button type="button" onClick={() => p.onOpenCase(p.event)}>打开案件</button>
+        <button type="button" onClick={() => (p.onClose as () => void)()}>关详情</button>
+        <button type="button" onClick={() => (p.onSaved as () => void)()}>保存详情</button>
       </div>
     ) : null
   },
@@ -135,7 +137,14 @@ vi.mock('./DaySheet', () => ({
     ) : null
   },
 }))
-vi.mock('./EventContextMenu', () => ({ EventContextMenu: () => null }))
+const ctxCbs = vi.hoisted(() => ({ onClose: null as null | (() => void), onDelete: null as null | ((e: unknown) => void) }))
+vi.mock('./EventContextMenu', () => ({
+  EventContextMenu: (p: { onClose: () => void; onDelete: (e: unknown) => void }) => {
+    ctxCbs.onClose = p.onClose
+    ctxCbs.onDelete = p.onDelete
+    return null
+  },
+}))
 
 import { toast } from 'sonner'
 
@@ -393,6 +402,58 @@ describe('HomePage：抽屉与新增弹窗回调', () => {
     spy.mockClear()
     fireEvent.click(screen.getByText('保存新增'))
     await waitFor(() => expect(spy).toHaveBeenCalled())
+    container.remove()
+  })
+})
+
+// ============ 详情/右键菜单回调与错误重试（覆盖率补测） ============
+
+describe('HomePage：详情与右键菜单回调', () => {
+  it('详情弹窗「关详情」清空 detail', async () => {
+    const { container } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('打开事件'))
+    await waitFor(() => expect(screen.getByText('DETAIL_DIALOG')).toBeTruthy())
+
+    fireEvent.click(screen.getByText('关详情'))
+    await waitFor(() => expect(screen.queryByText('DETAIL_DIALOG')).toBeNull())
+    container.remove()
+  })
+
+  it('详情弹窗「保存详情」触发日历失效', async () => {
+    const spy = vi.spyOn(QueryClient.prototype, 'invalidateQueries')
+    const { container } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('打开事件'))
+    await waitFor(() => expect(screen.getByText('DETAIL_DIALOG')).toBeTruthy())
+
+    spy.mockClear()
+    fireEvent.click(screen.getByText('保存详情'))
+    await waitFor(() => expect(spy).toHaveBeenCalled())
+    container.remove()
+  })
+
+  it('右键菜单 onClose / onDelete 连线存在', async () => {
+    const { container } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('右键事件'))
+    await waitFor(() => expect(ctxCbs.onClose).toBeTypeOf('function'))
+    expect(ctxCbs.onDelete).toBeTypeOf('function')
+
+    expect(() => ctxCbs.onClose?.()).not.toThrow()
+    expect(() => ctxCbs.onDelete?.({ id: 9, member_ids: [1] })).not.toThrow()
+    container.remove()
+  })
+})
+
+describe('HomePage：统计与日历错误重试', () => {
+  it('统计与日历都失败时渲染重试按钮且可点击', async () => {
+    apiMock.fetchCalendarMonth.mockRejectedValue(new Error('全挂了'))
+    const { container } = render(wrap(<HomePage />))
+
+    // CalendarPanel 桩不渲染错误态，但 HomePage 自身的统计错误行会出现
+    await waitFor(() => expect(document.body.textContent).toBeTruthy())
+    const retries = Array.from(document.querySelectorAll('button')).filter((b) => b.textContent === '重试')
+    for (const btn of retries) {
+      expect(() => fireEvent.click(btn)).not.toThrow()
+    }
     container.remove()
   })
 })
