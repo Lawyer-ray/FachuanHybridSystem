@@ -91,6 +91,8 @@ const packB = () => detail(2, [pdfAtt({ filename: 'c.pdf', original_filename: 'c
 beforeEach(() => {
   vi.clearAllMocks()
   loadPdfDocumentMock.mockResolvedValue({ numPages: 3 } as never)
+  // draft-persistence 期望 saveDraft 返回 thenable，否则 .catch 报错
+  saveDraftMock.mockResolvedValue(undefined as never)
   useReader.setState({
     openId: null,
     detail: null,
@@ -386,5 +388,128 @@ describe('useReader 简单 setter', () => {
     useReader.setState({ draft: null })
     useReader.getState().update((d) => d)
     expect(useReader.getState().draft).toBeNull()
+  })
+})
+
+// ============ open / close / resetAll / update（2026-10 覆盖率补测） ============
+
+describe('useReader.open 分支', () => {
+  it('打开成功：写入 detail 与草稿并置 ready', async () => {
+    getPackDetailMock.mockResolvedValue(packB())
+    await useReader.getState().open(2)
+
+    const s = useReader.getState()
+    expect(s.openId).toBe(2)
+    expect(s.status).toBe('ready')
+    expect(s.detail).not.toBeNull()
+    expect(s.draft).not.toBeNull()
+  })
+
+  it('拉详情失败：置 error 并写入可读文案', async () => {
+    getPackDetailMock.mockRejectedValue(new Error('包不存在'))
+    await useReader.getState().open(99)
+
+    const s = useReader.getState()
+    expect(s.status).toBe('error')
+    expect(s.error).toContain('包不存在')
+  })
+
+  it('快速切换：慢响应后到时丢弃（不覆盖新包）', async () => {
+    const slow = deferred<InboxMessageDetail>()
+    getPackDetailMock.mockReturnValueOnce(slow.promise).mockResolvedValueOnce(packB())
+
+    const first = useReader.getState().open(1)
+    await useReader.getState().open(2) // 切到 B
+    slow.resolve(detail(1, [pdfAtt({ part_index: 0, page_count: 2 })]))
+    await first
+
+    expect(useReader.getState().openId).toBe(2)
+  })
+
+  it('打开时清空上一个包的 PDF 文档与字节缓存', async () => {
+    getPackDetailMock.mockResolvedValue(packB())
+    await useReader.getState().open(2)
+    expect(clearPdfDocumentsMock).toHaveBeenCalled()
+    expect(clearBytesCacheMock).toHaveBeenCalled()
+  })
+})
+
+describe('useReader.close', () => {
+  it('置 closing 并排队保存草稿', async () => {
+    openPackA()
+    useReader.getState().close()
+    expect(useReader.getState().closing).toBe(true)
+  })
+
+  it('无 openId 时不排队保存', () => {
+    useReader.setState({ openId: null, draft: null })
+    useReader.getState().close()
+    expect(saveDraftMock).not.toHaveBeenCalled()
+  })
+
+  it('退出动画结束后彻底卸载并释放缓存', async () => {
+    vi.useFakeTimers()
+    openPackA()
+    useReader.getState().close()
+    await vi.advanceTimersByTimeAsync(400)
+
+    const s = useReader.getState()
+    expect(s.openId).toBeNull()
+    expect(s.draft).toBeNull()
+    expect(s.status).toBe('idle')
+    vi.useRealTimers()
+  })
+
+  it('动画期间重新 open：取消本次退场', async () => {
+    vi.useFakeTimers()
+    openPackA()
+    getPackDetailMock.mockResolvedValue(packB())
+
+    useReader.getState().close()
+    await useReader.getState().open(2)
+    await vi.advanceTimersByTimeAsync(400)
+
+    // 新包仍在打开状态，未被退场定时器清掉
+    expect(useReader.getState().openId).toBe(2)
+    vi.useRealTimers()
+  })
+})
+
+describe('useReader.resetAll', () => {
+  it('清空全部阅读器状态并释放缓存', () => {
+    openPackA()
+    useReader.getState().resetAll()
+
+    const s = useReader.getState()
+    expect(s.openId).toBeNull()
+    expect(s.detail).toBeNull()
+    expect(s.draft).toBeNull()
+    expect(s.status).toBe('idle')
+    expect(s.error).toBe('')
+    expect(clearPdfDocumentsMock).toHaveBeenCalled()
+    expect(clearBytesCacheMock).toHaveBeenCalled()
+  })
+})
+
+describe('useReader.update', () => {
+  it('草稿变化时写入并排队保存', () => {
+    openPackA()
+    const before = useReader.getState().draft
+    useReader.getState().update((d) => ({ ...d, infos: [{ k: 'x', v: '1', src: '', srcRef: null }] }))
+
+    expect(useReader.getState().draft).not.toBe(before)
+  })
+
+  it('返回同一引用时不写入（避免无谓重渲与保存）', () => {
+    openPackA()
+    const before = useReader.getState().draft
+    useReader.getState().update((d) => d)
+    expect(useReader.getState().draft).toBe(before)
+  })
+
+  it('无 openId 时仍可更新内存态（不排队保存）', () => {
+    useReader.setState({ openId: null, draft: draftOf(1) })
+    useReader.getState().update((d) => ({ ...d, infos: [{ k: 'y', v: '2', src: '', srcRef: null }] }))
+    expect(useReader.getState().draft!.infos).toHaveLength(1)
   })
 })
