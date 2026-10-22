@@ -110,9 +110,22 @@ export function FolderTree({
   })
   const rename = useMutation({
     mutationFn: (p: { subpath: string; name: string }) => renameFolderEntry(kind, ownerId, p.subpath, p.name),
-    onSuccess: () => {
+    onSuccess: (_d, p) => {
       invalidate()
       setRenaming(null)
+      // 重命名后旧 subpath 失效：把展开集合里的旧名（含子树）改写到新名，
+      // 否则已展开的多层目录会莫名其妙地全部收起
+      const parent = p.subpath.includes('/') ? p.subpath.slice(0, p.subpath.lastIndexOf('/') + 1) : ''
+      const nextPath = parent + p.name
+      setOpen((prev) => {
+        const next = new Set<string>()
+        for (const k of prev) {
+          if (k === p.subpath) next.add(nextPath)
+          else if (k.startsWith(p.subpath + '/')) next.add(nextPath + k.slice(p.subpath.length))
+          else next.add(k)
+        }
+        return next
+      })
     },
     onError: (e) => fail(e, '重命名'),
   })
@@ -466,7 +479,11 @@ function FileRow({
       title={'预览 ' + file.name}
       onClick={() => void preview()}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') void preview()
+        // role="button" 需同时响应 Enter 与 Space（Space 要 preventDefault 防滚动）
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          void preview()
+        }
       }}
       onContextMenu={(e) => {
         e.preventDefault()

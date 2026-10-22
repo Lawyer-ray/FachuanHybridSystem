@@ -96,6 +96,18 @@ describe('daysFromToday / relDue', () => {
     expect(daysFromToday('', TODAY)).toBeNull()
     expect(daysFromToday(null, TODAY)).toBeNull()
   })
+  it('脏日期返回 null，不渲染出 NaN / 1899 年', () => {
+    // 回归 2026-10 审查 W-P1-2：非 4-2-2 段曾落到 new Date(NaN) → 「剩 NaN 个月」
+    expect(daysFromToday('abc-def-ghi', TODAY)).toBeNull()
+    expect(daysFromToday('0-0-0', TODAY)).toBeNull()
+    expect(daysFromToday('2026-13-01', TODAY)).toBeNull()
+    expect(daysFromToday('2026-10-32', TODAY)).toBeNull()
+    expect(daysFromToday('not-a-date', TODAY)).toBeNull()
+  })
+  it('带时间的 ISO 串仍按日期段计算', () => {
+    expect(daysFromToday('2026-10-01T09:30:00Z', TODAY)).toBe(0)
+    expect(daysFromToday('2026-10-03T23:59', TODAY)).toBe(2)
+  })
   it('今日 / 过期 / 两个月内 / 更远', () => {
     expect(daysFromToday('2026-10-01', TODAY)).toBe(0)
     expect(daysFromToday('2026-09-30', TODAY)).toBe(-1)

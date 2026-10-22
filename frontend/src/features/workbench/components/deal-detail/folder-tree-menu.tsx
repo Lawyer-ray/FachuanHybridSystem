@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 
 /**
@@ -23,12 +23,34 @@ export function TreeContextMenu({
   items: TreeMenuItem[]
   onClose: () => void
 }) {
+  const menuRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     // 延后一拍绑定：创建菜单的同一事件（contextmenu）不能立刻把它关掉
     let bound = false
     const close = () => onClose()
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        onClose()
+        return
+      }
+      // 方向键 / Home / End 在菜单项间移动焦点（WAI-ARIA menu 约定）
+      const items = menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')
+      if (!items || items.length === 0) return
+      const list = Array.from(items)
+      const idx = list.indexOf(document.activeElement as HTMLButtonElement)
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Home' || e.key === 'End') {
+        e.preventDefault()
+        const next =
+          e.key === 'Home'
+            ? 0
+            : e.key === 'End'
+              ? list.length - 1
+              : e.key === 'ArrowDown'
+                ? (idx + 1) % list.length
+                : (idx - 1 + list.length) % list.length
+        list[next]?.focus()
+      }
     }
     const t = setTimeout(() => {
       bound = true
@@ -36,6 +58,8 @@ export function TreeContextMenu({
       document.addEventListener('contextmenu', close)
     }, 0)
     document.addEventListener('keydown', onKey)
+    // 键盘用户用 Shift+F10 / ContextMenu 键唤起时，焦点必须进入菜单才可操作
+    menuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus()
     return () => {
       clearTimeout(t)
       if (bound) {
@@ -51,6 +75,7 @@ export function TreeContextMenu({
 
   return createPortal(
     <div
+      ref={menuRef}
       role="menu"
       className="fixed z-[120] min-w-[168px] rounded-[10px] border border-border bg-card py-1 shadow-[0_8px_28px_rgba(24,24,27,0.14)]"
       style={{ left, top }}
