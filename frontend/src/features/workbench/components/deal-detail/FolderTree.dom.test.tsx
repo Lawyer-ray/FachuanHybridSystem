@@ -439,3 +439,143 @@ describe('FolderTree：右键菜单项', () => {
     container.remove()
   })
 })
+
+// ============ 嵌套目录与展开态改写（覆盖率补测） ============
+
+describe('FolderTree：嵌套子目录', () => {
+  function nested() {
+    apiMock.listFolderEntries.mockImplementation(async (_k, _id, sp: string) => {
+      if (sp === '') return entries(['dir'])
+      if (sp === 'dir') {
+        // 子项 subpath 必须是相对根的完整路径：dir/sub
+        const base = entries()
+        return { ...base, folders: [{ name: 'sub', subpath: 'dir/sub' }] }
+      }
+      if (sp === 'dir/sub') {
+        const base = entries()
+        return {
+          ...base,
+          files: [{ name: 'deep.pdf', subpath: 'dir/sub/deep.pdf', size: 100, modified_at: '2026-10-20T10:00:00' }],
+        }
+      }
+      return entries()
+    })
+  }
+
+  it('逐层展开能渲染到第三层文件', async () => {
+    nested()
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('dir')).toBeTruthy())
+
+    fireEvent.click(within(container).getByText('dir'))
+    // 子项显示的是 name（'sub'），但可能同时存在父行 'dir'
+    await waitFor(() => expect(within(container).getByText('sub')).toBeTruthy())
+
+    fireEvent.click(within(container).getByText('sub'))
+    await waitFor(() => expect(within(container).getByText('deep.pdf')).toBeTruthy())
+    container.remove()
+  })
+
+  it('嵌套目录重命名：旧 subpath 与其子路径一并改写（展开态不丢）', async () => {
+    nested()
+    apiMock.renameFolderEntry.mockResolvedValue({})
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('dir')).toBeTruthy())
+
+    // 展开 dir 及其子目录
+    fireEvent.click(within(container).getByText('dir'))
+    await waitFor(() => expect(within(container).getByText('sub')).toBeTruthy())
+
+    // 重命名子目录 sub → sub2
+    const renameBtns = within(container).getAllByRole('button', { name: '重命名' })
+    fireEvent.click(renameBtns[renameBtns.length - 1]!)
+    const input = await waitFor(() => container.querySelector('input[placeholder="新名称"]') as HTMLInputElement)
+    fireEvent.change(input, { target: { value: 'sub2' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    await waitFor(() => expect(apiMock.renameFolderEntry).toHaveBeenCalledWith('case', 1, 'dir/sub', 'sub2'))
+    container.remove()
+  })
+
+  it('嵌套目录删除：连同子路径一起从展开集合移除', async () => {
+    nested()
+    apiMock.deleteFolderEntry.mockResolvedValue({})
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('dir')).toBeTruthy())
+
+    fireEvent.click(within(container).getByText('dir'))
+    await waitFor(() => expect(within(container).getByText('sub')).toBeTruthy())
+
+    // 右键 sub → 删除
+    const subRow = within(container).getByText('sub').closest('[role="button"]') as HTMLElement
+    fireEvent.contextMenu(subRow, { clientX: 50, clientY: 50 })
+    await waitFor(() => expect(document.querySelector('[role="menu"]')).toBeTruthy())
+
+    fireEvent.click(
+      Array.from(document.querySelectorAll('[role="menuitem"]')).find((i) => i.textContent === '删除')!,
+    )
+    const confirm = await within(container).findByRole('button', { name: '确认' })
+    fireEvent.click(confirm)
+
+    await waitFor(() => expect(apiMock.deleteFolderEntry).toHaveBeenCalledWith('case', 1, 'dir/sub'))
+    container.remove()
+  })
+})
+
+describe('FolderTree：复制到目标后展开目标', () => {
+  it('复制成功后目标目录被加入展开集合', async () => {
+    apiMock.listFolderEntries.mockResolvedValue(entries(['dir', 'dest'], ['a.pdf']))
+    apiMock.copyFolderEntry.mockResolvedValue({})
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('dest')).toBeTruthy())
+
+    // 复制 a.pdf
+    const fileRow = within(container).getByText('a.pdf').closest('[role="button"]') as HTMLElement
+    fireEvent.contextMenu(fileRow, { clientX: 50, clientY: 50 })
+    await waitFor(() => expect(document.querySelector('[role="menu"]')).toBeTruthy())
+    fireEvent.click(
+      Array.from(document.querySelectorAll('[role="menuitem"]')).find((i) => i.textContent === '复制')!,
+    )
+    await waitFor(() => expect(document.querySelector('[role="menu"]')).toBeNull())
+
+    // 粘贴到 dest
+    const destRow = within(container).getByText('dest').closest('[role="button"]') as HTMLElement
+    fireEvent.contextMenu(destRow, { clientX: 60, clientY: 60 })
+    await waitFor(() => expect(document.querySelector('[role="menu"]')).toBeTruthy())
+    fireEvent.click(
+      Array.from(document.querySelectorAll('[role="menuitem"]')).find(
+        (i) => i.textContent === '粘贴到此文件夹',
+      )!,
+    )
+
+    await waitFor(() => expect(apiMock.copyFolderEntry).toHaveBeenCalled())
+    container.remove()
+  })
+
+  it('复制失败弹 toast', async () => {
+    apiMock.listFolderEntries.mockResolvedValue(entries(['dir', 'dest'], ['a.pdf']))
+    apiMock.copyFolderEntry.mockRejectedValue(new Error('目标已满'))
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('dest')).toBeTruthy())
+
+    const fileRow = within(container).getByText('a.pdf').closest('[role="button"]') as HTMLElement
+    fireEvent.contextMenu(fileRow, { clientX: 50, clientY: 50 })
+    await waitFor(() => expect(document.querySelector('[role="menu"]')).toBeTruthy())
+    fireEvent.click(
+      Array.from(document.querySelectorAll('[role="menuitem"]')).find((i) => i.textContent === '复制')!,
+    )
+    await waitFor(() => expect(document.querySelector('[role="menu"]')).toBeNull())
+
+    const destRow = within(container).getByText('dest').closest('[role="button"]') as HTMLElement
+    fireEvent.contextMenu(destRow, { clientX: 60, clientY: 60 })
+    await waitFor(() => expect(document.querySelector('[role="menu"]')).toBeTruthy())
+    fireEvent.click(
+      Array.from(document.querySelectorAll('[role="menuitem"]')).find(
+        (i) => i.textContent === '粘贴到此文件夹',
+      )!,
+    )
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('目标已满')))
+    container.remove()
+  })
+})
