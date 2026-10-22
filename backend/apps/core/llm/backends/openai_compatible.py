@@ -229,6 +229,7 @@ class OpenAICompatibleBackend:
         max_tokens: int | None,
         *,
         stream: bool = False,
+        provider: OpenAIProviderConfig | None = None,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "model": model,
@@ -240,7 +241,7 @@ class OpenAICompatibleBackend:
         if stream:
             payload["stream"] = True
             payload["stream_options"] = {"include_usage": True}
-        extra = self._build_extra_body(model)
+        extra = self._build_extra_body(model, provider)
         if extra:
             payload["extra_body"] = extra
         return payload
@@ -381,14 +382,49 @@ class OpenAICompatibleBackend:
 
     # ── thinking 模式控制 ────────────────────────────────────────────────────
 
-    _DISABLE_THINKING_MODELS = {"kimi26", "mimo"}
+    #: 支持 ``chat_template_kwargs.thinking`` 开关的推理模型特征（归一化后子串匹配）。
+    #: 归一化会去掉 ``-`` ``_`` ``.`` 与括号后缀，使 ``kimi26`` / ``kimi-2.6`` /
+    #: ``kimi-2.6(Anthropic)`` 命中同样一条规则。
+    _DISABLE_THINKING_MODELS = {"kimi26", "mimo", "deepseekr1", "deepseekreasoner", "qwq", "reasoner", "glmz"}
 
-    def _build_extra_body(self, model: str | None = None) -> dict[str, Any] | None:
-        """vLLM/SGLang 部分模型（如 kimi26）需要 chat_template_kwargs 关闭思考模式"""
-        used = (model or self.default_model).lower()
-        if any(m in used for m in self._DISABLE_THINKING_MODELS):
-            return {"chat_template_kwargs": {"thinking": False}}
-        return None
+    @staticmethod
+    def _normalize_model_key(model: str) -> str:
+        """车型名归一化：小写 + 去分隔符/括号，便于模型名子串匹配。"""
+        lowered = model.lower()
+        for ch in ("-", "_", ".", " ", "(", ")", "/", ":"):
+            lowered = lowered.replace(ch, "")
+        return lowered
+
+    def _build_extra_body(
+        self, model: str | None = None, provider: OpenAIProviderConfig | None = None
+    ) -> dict[str, Any] | None:
+        """推理模型的思考模式开关。
+
+        vLLM/SGLang（以及经 LiteLLM 网关转发的后端）部分模型（kimi26、DeepSeek R1、MiMo 等）
+        默认不输出 ``reasoning_content``，需要显式下发
+        ``chat_template_kwargs.thinking=true`` 才开启思考。
+
+        实测（内部 LiteLLM 网关 / ``kimi-2.6``）：
+
+        - ``thinking=false`` → 直接作答，``completion_tokens_details.reasoning_tokens=0``
+        - **不下发开关** → 同上，依旧不思考（← 关键：省略开关并不等于开启）
+        - ``thinking=true``  → ``reasoning_content`` 有内容，``reasoning_tokens>0``
+
+        因此开启思考必须**显式下发 true**，不能仅靠省略开关。
+
+        现在改为由平台的 ``enable_thinking`` 配置项控制：
+
+        - 开启（``enable_thinking=True``）：下发 ``thinking=true``；
+        - 关闭（默认）：保持原行为，显式下发 ``thinking=false``。
+
+        非推理模型不下发任何开关，避免污染请求体（部分后端会把未知
+        ``chat_template_kwargs`` 当 400 处理）。
+        """
+        used = self._normalize_model_key(model or self.default_model)
+        if not any(m in used for m in self._DISABLE_THINKING_MODELS):
+            return None
+        enable = bool(provider is not None and provider.enable_thinking)
+        return {"chat_template_kwargs": {"thinking": enable}}
 
     # ── API 方法 ─────────────────────────────────────────────────────────────
 
@@ -403,7 +439,7 @@ class OpenAICompatibleBackend:
         used_model = model or self.default_model
         provider = self._resolve_provider(used_model)
         request_timeout = float(kwargs.pop("timeout_seconds", provider.timeout if provider else self.timeout))
-        payload = self._build_payload(used_model, messages, temperature, max_tokens)
+        payload = self._build_payload(used_model, messages, temperature, max_tokens, provider=provider)
 
         base_url, api_key = self._endpoint_for(provider)
         if provider is None or not provider.api_keys:
@@ -481,7 +517,7 @@ class OpenAICompatibleBackend:
         else:
             default_timeout = await LLMConfig.get_openai_compatible_timeout_async()
         request_timeout = float(kwargs.pop("timeout_seconds", default_timeout))
-        payload = self._build_payload(used_model, messages, temperature, max_tokens)
+        payload = self._build_payload(used_model, messages, temperature, max_tokens, provider=provider)
 
         base_url, api_key = self._endpoint_for(provider)
         if provider is None or not provider.api_keys:
@@ -524,12 +560,26 @@ class OpenAICompatibleBackend:
         except Exception as error:
             self._raise_mapped_error(error, timeout, base_url)
 
+    @staticmethod
+    def _delta_text(delta: Any) -> str:
+        """从流式 delta 取文本增量。
+
+        优先 ``content``；为空时回退 ``reasoning_content``——开启思考模式的推理模型
+        只把增量放在后者，不兼容读取会让流式调用表现为「空回复」。
+        """
+        if delta is None:
+            return ""
+        content = getattr(delta, "content", "") or ""
+        if not content:
+            content = getattr(delta, "reasoning_content", "") or ""
+        return content if isinstance(content, str) else ""
+
     def _iter_stream(self, stream: Any, used_model: str) -> Iterator[LLMStreamChunk]:
         for chunk in stream:
             choices = getattr(chunk, "choices", None) or []
             if choices:
                 delta = getattr(choices[0], "delta", None)
-                content = getattr(delta, "content", "") if delta is not None else ""
+                content = self._delta_text(delta)
                 if content:
                     yield LLMStreamChunk(content=content, model=used_model, backend=self.BACKEND_NAME)
             usage = getattr(chunk, "usage", None)
@@ -541,7 +591,7 @@ class OpenAICompatibleBackend:
             choices = getattr(chunk, "choices", None) or []
             if choices:
                 delta = getattr(choices[0], "delta", None)
-                content = getattr(delta, "content", "") if delta is not None else ""
+                content = self._delta_text(delta)
                 if content:
                     yield LLMStreamChunk(content=content, model=used_model, backend=self.BACKEND_NAME)
             usage = getattr(chunk, "usage", None)
@@ -559,7 +609,7 @@ class OpenAICompatibleBackend:
         used_model = model or self.default_model
         provider = self._resolve_provider(used_model)
         request_timeout = float(kwargs.pop("timeout_seconds", provider.timeout if provider else self.timeout))
-        payload = self._build_payload(used_model, messages, temperature, max_tokens, stream=True)
+        payload = self._build_payload(used_model, messages, temperature, max_tokens, stream=True, provider=provider)
 
         base_url, api_key = self._endpoint_for(provider)
         if provider is None or not provider.api_keys:
@@ -618,7 +668,7 @@ class OpenAICompatibleBackend:
         else:
             default_timeout = await LLMConfig.get_openai_compatible_timeout_async()
         request_timeout = float(kwargs.pop("timeout_seconds", default_timeout))
-        payload = self._build_payload(used_model, messages, temperature, max_tokens, stream=True)
+        payload = self._build_payload(used_model, messages, temperature, max_tokens, stream=True, provider=provider)
 
         base_url, api_key = self._endpoint_for(provider)
         if provider is None or not provider.api_keys:

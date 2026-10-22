@@ -51,15 +51,22 @@ def main() -> None:
 
     # 传输方式由环境变量决定（默认 stdio，保持既有行为完全不变）：
     # - stdio：每个 pi 进程各起一份（实测 ~225MB/份、冷启动 ~6s）
-    # - streamable-http：一份常驻，多个 pi 共享（apps/agent 高并发模式）
+    # - streamable-http：一份常驻，多个 pi 共享（apps/agent 高并发模式）。
+    #   HTTP 模式必须包上 RequestAuthMiddleware：把请求头里的律师身份透传给
+    #   上游 REST API，否则所有 agent 工具调用都退化为超管服务账号
+    #   （confused deputy，见 mcp_server/identity.py）。
     transport = os.environ.get("FACHUAN_MCP_TRANSPORT", "stdio").strip().lower()
     if transport in {"streamable-http", "http"}:
+        import uvicorn
+
+        from mcp_server.identity import RequestAuthMiddleware
+
         host = os.environ.get("FACHUAN_MCP_HTTP_HOST", "127.0.0.1").strip() or "127.0.0.1"
         try:
             port = int(os.environ.get("FACHUAN_MCP_HTTP_PORT", "8011"))
         except ValueError:
             port = 8011
-        mcp.run(transport="streamable-http", host=host, port=port)
+        uvicorn.run(RequestAuthMiddleware(mcp.streamable_http_app()), host=host, port=port)
         return
 
     mcp.run()

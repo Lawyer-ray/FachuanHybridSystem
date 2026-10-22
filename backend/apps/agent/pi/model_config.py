@@ -36,6 +36,8 @@ GATEWAY_URL_ENV = "FACHUAN_PI_GATEWAY_URL"
 GATEWAY_KEY_ENV = "FACHUAN_PI_GATEWAY_KEY"
 DEFAULT_CONTEXT_WINDOW = 128000
 DEFAULT_MAX_TOKENS = 8192
+#: 平台开启思考时传给 pi 的 ``--thinking`` 等级（pi: minimal/low/medium/high/xhigh/max）
+DEFAULT_THINKING_LEVEL = "medium"
 
 #: 会话间轮转计数（itertools.count 的 next() 在 CPython 下是原子的，无需锁）
 _rotation = itertools.count()
@@ -64,7 +66,10 @@ def _load_provider(model_hint: str = "") -> Any:
                 return provider
         return queryset.first()
     except Exception:
-        logger.debug("查询 LLMProvider 失败", exc_info=True)
+        # warning 而非 debug：这里最典型的失败是在 async 上下文读库
+        # （SynchronousOnlyOperation）。吞成 debug 会让「思考模式莫名不生效」
+        # 「models.json 没生成」这类问题彻底无迹可查——排查时极难定位。
+        logger.warning("查询 LLMProvider 失败（若在 async 上下文需用 sync_to_async 包裹）", exc_info=True)
         return None
 
 
@@ -108,6 +113,66 @@ def _provider_models(provider: Any) -> list[str]:
     return models
 
 
+def _model_entry(name: str, *, enable_thinking: bool, provider: Any) -> dict[str, Any]:
+    """渲染 models.json 里的单个模型条目。
+
+    ``reasoning`` 是 pi 的「模型支持思考」声明：为真时 pi 会启用 thinking，
+    并把思考过程以 ``thinking_delta`` 事件推给客户端（前端据此展示「思考中」）。
+    早期这里没声明该字段，于是即便后端开了思考模式，pi 也不会展示思考过程。
+
+    仅对推理模型且平台开启 ``enable_thinking`` 时声明 ``reasoning: true``，
+    避免给普通模型（glm53 等）错报能力导致 pi 发它不认的 thinking 参数。
+    """
+    supports = bool(getattr(provider, "supports_thinking", None) and provider.supports_thinking(name))
+    entry: dict[str, Any] = {
+        "id": name,
+        "contextWindow": DEFAULT_CONTEXT_WINDOW,
+        "maxTokens": DEFAULT_MAX_TOKENS,
+        "reasoning": bool(enable_thinking and supports),
+        # 网关适配（实测必需）：本仓库的 LiteLLM 网关把思考开关放在
+        # ``chat_template_kwargs.thinking``（布尔），而 pi 的 openai-completions
+        # 适配器默认探测会误判 → 不发思考参数，网关不返回 reasoning_content，
+        # 表现为「思考模式开了但永远不思考」。
+        #
+        # 三个字段缺一不可：
+        # - thinkingFormat=chat-template：走 chat_template_kwargs 通道
+        # - chatTemplateKwargs：告诉 pi 往该通道写什么。
+        #   ``$var: thinking.enabled`` 是 pi 的变量语法，由思考等级推导布尔值
+        # - supportsReasoningEffort=false：避免发网关不认的 reasoning_effort
+        "compat": {
+            "thinkingFormat": "chat-template",
+            "supportsReasoningEffort": False,
+            "maxTokensField": "max_tokens",
+            "chatTemplateKwargs": {"thinking": {"$var": "thinking.enabled"}},
+        },
+    }
+    return entry
+
+
+def resolve_thinking_level(model_hint: str = "") -> str | None:
+    """解析该模型应使用的 pi 思考等级（``--thinking`` 参数值）。
+
+    重要：``models.json`` 里的 ``reasoning: true`` 只是冓「这个模型能思考」，
+    真正的推理开关是会话的 ``thinkingLevel``，默认 ``off``。只声明能力而不传
+    ``--thinking``，模型依旧不思考、也不会产生 ``thinking_delta`` 事件。
+
+    Returns:
+        ``medium``（平台开启思考且模型是推理模型）；否则 ``None``（不传参数，
+        pi 保持默认 off）。
+    """
+    provider = _load_provider(model_hint)
+    if provider is None or not getattr(provider, "enable_thinking", False):
+        return None
+    models = _provider_models(provider)
+    target = model_hint or str(getattr(provider, "default_model", "") or "")
+    if target and models and target not in models:
+        return None
+    supports = getattr(provider, "supports_thinking", None)
+    if callable(supports) and not supports(target):
+        return None
+    return DEFAULT_THINKING_LEVEL
+
+
 def build_models_json(model_hint: str = "") -> dict[str, Any] | None:
     """把当前 LLMProvider 渲染成 pi 的 models.json 内容。
 
@@ -127,6 +192,7 @@ def build_models_json(model_hint: str = "") -> dict[str, Any] | None:
             models = [model_hint] if model_hint else []
         if not models:
             return None
+        enable_thinking = bool(getattr(provider, "enable_thinking", False))
         return {
             "providers": {
                 "fachuan": {
@@ -134,12 +200,7 @@ def build_models_json(model_hint: str = "") -> dict[str, Any] | None:
                     "api": "openai-completions",
                     "apiKey": os.environ.get(GATEWAY_KEY_ENV, "gateway"),
                     "models": [
-                        {
-                            "id": name,
-                            "contextWindow": DEFAULT_CONTEXT_WINDOW,
-                            "maxTokens": DEFAULT_MAX_TOKENS,
-                        }
-                        for name in models
+                        _model_entry(name, enable_thinking=enable_thinking, provider=provider) for name in models
                     ],
                 }
             }
@@ -167,11 +228,9 @@ def build_models_json(model_hint: str = "") -> dict[str, Any] | None:
                 "api": "openai-completions",
                 "apiKey": _next_key(keys),
                 "models": [
-                    {
-                        "id": name,
-                        "contextWindow": DEFAULT_CONTEXT_WINDOW,
-                        "maxTokens": DEFAULT_MAX_TOKENS,
-                    }
+                    _model_entry(
+                        name, enable_thinking=bool(getattr(provider, "enable_thinking", False)), provider=provider
+                    )
                     for name in models
                 ],
             }

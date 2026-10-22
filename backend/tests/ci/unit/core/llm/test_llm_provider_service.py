@@ -104,6 +104,16 @@ class TestLLMProviderModelParsing:
         )
         assert provider.parsed_models() == ["mimo-v1", "mimo-v2"]
 
+    def test_supports_thinking_matches_reasoning_models(self) -> None:
+        provider = LLMProvider(name="law", base_url="http://law/v1", default_model="kimi26")
+        assert provider.supports_thinking() is True
+        assert provider.supports_thinking("deepseek-r1") is True
+        assert provider.supports_thinking("gpt-4o") is False
+
+    def test_enable_thinking_defaults_off(self) -> None:
+        provider = LLMProvider(name="law", base_url="http://law/v1", default_model="kimi26")
+        assert provider.enable_thinking is False
+
 
 class TestApiKeyEncryptionAtRest:
     """api_keys 改为 EncryptedTextField 后：落库密文、读回明文、解析逻辑不变。"""

@@ -2,7 +2,7 @@
 
 端点前缀：``/api/v1/agent``
 
-- 会话：创建 / 列表 / 详情 / 删除
+- 会话：创建 / 列表 / 详情 / 消息历史 / 删除
 - 对话：SSE 流式（事件契约见 services/chat_service.py）
 - 审批：extension 回调入口 + 前端决定入口
 """
@@ -18,10 +18,11 @@ from typing import Any
 
 from django.http import StreamingHttpResponse
 from ninja import Router, Schema
+from ninja.errors import HttpError
 
 from apps.core.security.auth import JWTOrSessionAuth
 
-from ..models import AgentApproval, AgentSession
+from ..models import AgentApproval, AgentMessage, AgentSession
 from ..services.approval import decide_approval, get_approval_for_decision
 from ..services.approval import list_approvals as list_approval_records
 from ..services.approval import request_approval
@@ -29,7 +30,9 @@ from ..services.chat_service import stream_chat
 from ..services.session_service import create_session as create_session_record
 from ..services.session_service import delete_session as delete_session_record
 from ..services.session_service import get_session as get_session_record
+from ..services.session_service import list_messages as list_message_records
 from ..services.session_service import list_sessions as list_session_records
+from ..services.session_service import rename_session as rename_session_record
 
 logger = logging.getLogger(__name__)
 
@@ -40,14 +43,17 @@ router = Router(tags=["Agent"], auth=JWTOrSessionAuth())
 
 
 class SessionIn(Schema):
-    """创建会话请求体。"""
+    """创建会话请求体。
+
+    不接受模型参数：模型由服务端按 LLMProvider 配置解析，客户端传了也不会生效，
+    所以不在契约里留这个诱饵（``SessionOut.llm_model`` 回报的是实际使用的模型）。
+    """
 
     title: str = ""
-    llm_model: str = ""
 
 
 class SessionOut(Schema):
-    """会话输出。"""
+    """会话输出。``llm_model`` 为最近一轮对话实际使用的模型（未对话过为空）。"""
 
     session_id: str
     title: str
@@ -61,7 +67,23 @@ class MessageIn(Schema):
     """发消息请求体。"""
 
     message: str
-    llm_model: str = ""
+
+
+class SessionRenameIn(Schema):
+    """重命名会话请求体。"""
+
+    title: str
+
+
+class MessageOut(Schema):
+    """会话消息（历史回放）。``metadata`` 含 ``model`` / ``truncated``（中断的回答）等。"""
+
+    message_id: int
+    role: str
+    content: str
+    tool_name: str
+    created_at: str
+    metadata: dict[str, Any] = {}
 
 
 class ApprovalDecideIn(Schema):
@@ -110,6 +132,17 @@ def _to_out(session: AgentSession) -> SessionOut:
     )
 
 
+def _message_out(message: AgentMessage) -> MessageOut:
+    return MessageOut(
+        message_id=message.pk,
+        role=message.role,
+        content=message.content,
+        tool_name=message.tool_name,
+        created_at=message.created_at.isoformat(),
+        metadata=message.metadata or {},
+    )
+
+
 # ─── 会话 ───────────────────────────────────────────────────────────────────
 
 
@@ -118,7 +151,6 @@ async def create_session(request: Any, payload: SessionIn) -> SessionOut:  # pra
     """新建会话。"""
     session = await create_session_record(
         title=payload.title,
-        llm_model=payload.llm_model,
         user_id=_user_id(request),
     )
     return _to_out(session)
@@ -131,11 +163,46 @@ async def list_sessions(request: Any, limit: int = 50) -> list[SessionOut]:  # p
     return [_to_out(s) for s in sessions]
 
 
+@router.get("/sessions/{session_id}", response=SessionOut)
+async def get_session_detail(request: Any, session_id: str) -> SessionOut:  # pragma: no cover
+    """会话详情（不归属当前用户时同样 404，不泄露存在性）。"""
+    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
+    if session is None:
+        raise HttpError(404, "会话不存在")
+    return _to_out(session)
+
+
+@router.get("/sessions/{session_id}/messages", response=list[MessageOut])
+async def list_messages(request: Any, session_id: str, limit: int = 200) -> list[MessageOut]:  # pragma: no cover
+    """会话消息历史（旧→新），前端重开会话时据此回放转录。"""
+    messages = await list_message_records(session_id=session_id, user_id=_user_id(request), limit=limit)
+    if messages is None:
+        raise HttpError(404, "会话不存在")
+    return [_message_out(m) for m in messages]
+
+
 @router.delete("/sessions/{session_id}")
 async def delete_session(request: Any, session_id: str) -> dict[str, Any]:  # pragma: no cover
     """删除会话（级联删除消息与审批）。"""
     deleted = await delete_session_record(session_id=session_id, user_id=_user_id(request))
     return {"deleted": deleted}
+
+
+@router.patch("/sessions/{session_id}", response=SessionOut)
+async def update_session_title(
+    request: Any, session_id: str, payload: SessionRenameIn
+) -> SessionOut:  # pragma: no cover
+    """重命名会话（侧边栏会话列表的改名入口）。"""
+    if not payload.title.strip():
+        raise HttpError(400, "标题不能为空")
+    session = await rename_session_record(
+        session_id=session_id,
+        user_id=_user_id(request),
+        title=payload.title,
+    )
+    if session is None:
+        raise HttpError(404, "会话不存在")
+    return _to_out(session)
 
 
 # ─── 对话 ───────────────────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ from typing import Any
 import httpx
 
 from . import config
+from .identity import passthrough_authorization
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,12 @@ class FachuanClient:
                 self._refresh()
 
     def _headers(self) -> dict[str, str]:
+        # agent 场景（streamable-http）：优先透传请求头里「当前律师」的
+        # Authorization，工具即以该律师身份调上游——归属过滤、权限、审计
+        # 与本人登录一致；无透传（stdio/手工）才用服务账号。
+        passthrough = passthrough_authorization()
+        if passthrough:
+            return {"Authorization": passthrough}
         self._ensure_token()
         return {"Authorization": f"Bearer {self._access_token}"}
 
@@ -144,3 +151,32 @@ class FachuanClient:
 
 # 全局单例
 client = FachuanClient()
+
+
+def as_items(result: Any, *, default_page_size: int = 50) -> dict[str, Any]:
+    """把 REST 返回归一化为 MCP 工具可声明的分页结构。
+
+    背景：部分 ``/list`` 端点已改为服务端分页，返回
+    ``{"items": [...], "total": n, "page": p, "page_size": ps, ...}``，
+    而另一些仍是裸数组。MCP 框架会在工具返回处做 pydantic 输出校验，
+    若签名声明 ``list[...]`` 却拿到 dict，就会报
+    ``Input should be a valid list``，导致工具**永远调用失败**。
+
+    因此声明返回 dict 的工具统一用本函数归一化，数组入参会被包一层
+    分页壳，使模型总能看到同样的结构（含 total 用于判断是否还有下一页）。
+
+    Args:
+        result: ``client.get`` 的原始返回（dict / list / None）。
+        default_page_size: 裸数组时填入的 ``page_size``。
+
+    Returns:
+        至少包含 ``items`` 与 ``total`` 的 dict。
+    """
+    if isinstance(result, list):
+        return {"items": result, "total": len(result), "page": 1, "page_size": default_page_size}
+    if isinstance(result, dict):
+        if isinstance(result.get("items"), list):
+            return result
+        # 单对象返回（如详情接口被误用）——包一层，避免下游 KeyError
+        return {"items": [], "total": 0, "page": 1, "page_size": default_page_size, "data": result}
+    return {"items": [], "total": 0, "page": 1, "page_size": default_page_size}

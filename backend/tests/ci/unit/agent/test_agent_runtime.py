@@ -31,6 +31,34 @@ class TestTranslate:
         event = _ev("event", type="message_update", assistantMessageEvent={"delta": ""})
         assert translate(event, tracker=DeltaTracker()) is None
 
+    def test_thinking_delta_becomes_thinking_event(self) -> None:
+        """开启思考模式后 pi 推 thinking_delta，必须转成独立的 thinking 事件。"""
+        event = _ev(
+            "event",
+            type="message_update",
+            assistantMessageEvent={"type": "thinking_delta", "delta": "先分析当事人主体资格"},
+        )
+        assert translate(event, tracker=DeltaTracker()) == {
+            "type": "thinking",
+            "content": "先分析当事人主体资格",
+        }
+
+    def test_thinking_delta_does_not_consume_text_watermark(self) -> None:
+        """思考内容不得推高正文水位，否则后续正文会被 diff 吞掉。"""
+        tracker = DeltaTracker()
+        think = _ev(
+            "event",
+            type="message_update",
+            assistantMessageEvent={"type": "thinking_delta", "delta": "思考若干字"},
+        )
+        assert translate(think, tracker=tracker) is not None
+        text = _ev("event", type="message_update", assistantMessageEvent={"type": "text_delta", "delta": "结论"})
+        assert translate(text, tracker=tracker) == {"type": "delta", "content": "结论"}
+
+    def test_empty_thinking_delta_dropped(self) -> None:
+        event = _ev("event", type="message_update", assistantMessageEvent={"type": "thinking_delta", "delta": ""})
+        assert translate(event, tracker=DeltaTracker()) is None
+
     def test_tool_call_maps_fields(self) -> None:
         event = _ev("event", type="tool_call", toolCallId="c1", toolName="delete_case", input={"case_id": 1})
         out = translate(event)
@@ -318,6 +346,45 @@ class TestTranslateAll:
             tracker=tracker,
         )
         assert second and second[0]["content"] == "短的"
+
+
+class TestUsagePassthrough:
+    def test_message_end_with_usage_emits_usage_event(self) -> None:
+        """assistant message_end 带 usage：delta/usage 并存都要发（token 精确计数）。"""
+        from apps.agent.pi.bridge import DeltaTracker, translate_all
+
+        event = PiEvent(
+            "event",
+            {
+                "type": "message_end",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "答案"}],
+                    "usage": {"input": 120, "output": 8, "totalTokens": 128},
+                },
+            },
+        )
+        events = translate_all(event, tracker=DeltaTracker())
+        assert [e["type"] for e in events] == ["delta", "usage"]
+        assert events[1]["output_tokens"] == 8
+        assert events[1]["input_tokens"] == 120
+
+    def test_usage_missing_or_nonnumeric_dropped(self) -> None:
+        from apps.agent.pi.bridge import DeltaTracker, translate_all
+
+        for usage in (None, {}, {"input": 3}):
+            event = PiEvent(
+                "event",
+                {
+                    "type": "message_end",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": "答案"}],
+                        "usage": usage,
+                    },
+                },
+            )
+            assert all(e["type"] != "usage" for e in translate_all(event, tracker=DeltaTracker()))
 
 
 class TestHistoryTranscript:

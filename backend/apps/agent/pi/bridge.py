@@ -2,8 +2,8 @@
 
 ## 事件契约（前端消费的稳定接口）
 
-    meta / activity / delta / tool_call / tool_result / approval_request
-    error / done
+    meta / activity / delta / tool_call / tool_result / usage
+    approval_request / error / done
 
 ## pi 的实际事件形态（1.3.0 实测）
 
@@ -181,7 +181,7 @@ def _translate_message_end(
     raw: dict[str, Any],
     tracker: DeltaTracker | None,
 ) -> list[dict[str, Any]]:
-    """处理 message_end：文本差量 + 工具调用/结果（可并存，都要发）。"""
+    """处理 message_end：文本差量 + 工具调用/结果 + usage（可并存，都要发）。"""
     message = raw.get("message")
     if not isinstance(message, dict):
         return []
@@ -207,6 +207,17 @@ def _translate_message_end(
             )
         # 文本与工具调用并存时曾只发文本（提前 return 吞掉 tool_call），
         # 前端会看不到工具在执行——两件事都要发。
+        # usage 是 pi 的精确计数（Usage.output 等），前端用来收尾展示真实
+        # token 数与平均速度（流式期间的实时速度只能估算）。
+        usage = message.get("usage")
+        if isinstance(usage, dict) and isinstance(usage.get("output"), int | float):
+            events.append(
+                {
+                    "type": "usage",
+                    "output_tokens": int(usage["output"]),
+                    "input_tokens": int(usage.get("input") or 0),
+                }
+            )
         return events
 
     if role == "tool":
@@ -235,6 +246,12 @@ def _translate_message_update(
     """
     inner = raw.get("assistantMessageEvent") or {}
     if isinstance(inner, dict):
+        inner_type = inner.get("type")
+        if inner_type in {"thinking_delta", "reasoning_delta"}:
+            thinking = inner.get("delta") or inner.get("thinking") or ""
+            if isinstance(thinking, str) and thinking:
+                return {"type": "thinking", "content": thinking}
+            return None
         delta = inner.get("delta")
         if isinstance(delta, str) and delta and tracker is not None:
             # 也走 tracker，防止与 message_end 的全文重复

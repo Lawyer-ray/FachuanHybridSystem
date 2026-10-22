@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 from typing import Any
 
-from mcp_server.client import client
+from mcp_server.client import as_items, client
 
 
 def submit_court_sms(
@@ -28,8 +28,12 @@ def list_court_sms(
     has_case: bool | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
-) -> list[dict[str, Any]]:
-    """查询法院短信列表。status 可选：pending/processing/completed/failed；has_case=True 只查已关联案件的。"""
+) -> dict[str, Any]:
+    """查询法院短信列表。status 可选：pending/processing/completed/failed；has_case=True 只查已关联案件的。
+
+    返回分页结构 ``{items, total, page, page_size}``（REST 端点返回分页 dict，
+    早期声明为 ``list`` 会使 MCP 输出校验失败）。
+    """
     params: dict[str, Any] = {}
     if status:
         params["status"] = status
@@ -41,7 +45,7 @@ def list_court_sms(
         params["date_from"] = date_from
     if date_to:
         params["date_to"] = date_to
-    return client.get("/automation/court-sms", params=params)  # type: ignore[return-value]
+    return as_items(client.get("/automation/court-sms", params=params))
 
 
 def get_court_sms_detail(sms_id: int) -> dict[str, Any]:

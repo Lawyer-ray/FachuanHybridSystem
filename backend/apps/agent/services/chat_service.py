@@ -13,12 +13,13 @@
 
 ## 事件契约
 
-    activity → delta* → tool_call*/tool_result* → approval_request? → error? → done
+    activity → delta* → tool_call*/tool_result* → usage* → approval_request? → error? → done
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 from collections.abc import AsyncIterator
@@ -31,6 +32,7 @@ from ..pi.bridge import stream_events
 from ..pi.pool import PiProcessPool, PoolConfig
 from ..pi.rpc_client import PiError, PiNotAvailableError
 from ..pi.shared_mcp import resolve_endpoint, shared_enabled
+from ..pi.user_token import USER_TOKEN_ENV, mint_user_access_token
 from .event_bus import get_bus
 from .history import render_transcript
 
@@ -38,6 +40,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_POOL_SIZE = 4
 MAX_POOL_SIZE = 32
+#: 会话标题缺省取首条用户消息的前若干字（侧边栏会话列表用）
+AUTO_TITLE_LIMIT = 30
 
 _pool: PiProcessPool | None = None
 _pool_lock = asyncio.Lock()
@@ -118,9 +122,15 @@ async def close_pool() -> None:
             _pool = None
 
 
-def _session_env(session: AgentSession | None, user_id: int | None) -> dict[str, str]:
-    """注入给 pi extension 的环境变量（审批回调需要）。"""
-    env: dict[str, str] = {}
+def _session_env(session: AgentSession | None, user_id: int | None, user_token: str = "") -> dict[str, str]:
+    """注入给 pi 子进程的会话级环境变量。
+
+    - ``FACHUAN_SESSION_ID`` / ``FACHUAN_USER_ID``：审批 extension 回调路由
+    - ``FACHUAN_USER_TOKEN``：律师本人的 access token，mcp.json 以 ``${...}`` 引用
+      作为 Authorization 头（见 ``pi/user_token.py``）。**无 token 也要写空串**：
+      让 pi 的变量展开得到空值而不是保留字面量，mcp_server 据此回退服务账号。
+    """
+    env: dict[str, str] = {USER_TOKEN_ENV: user_token}
     if session is not None:
         env["FACHUAN_SESSION_ID"] = str(session.session_id)
     if user_id is not None:
@@ -132,6 +142,28 @@ def _session_env(session: AgentSession | None, user_id: int | None) -> dict[str,
     if token:
         env["FACHUAN_INTERNAL_TOKEN"] = token
     return env
+
+
+async def _mint_user_token(user_id: int | None) -> str:
+    """为本轮对话铸律师 access token；无用户身份时返回空串。
+
+    铸造走同步 ORM（取用户）, 放线程里跑；失败直接抛给调用方——宁可本轮对话
+    不跑，也不能让工具退回超管服务账号（fail-closed）。
+    """
+    if user_id is None:
+        return ""
+    from asgiref.sync import sync_to_async
+
+    return await sync_to_async(mint_user_access_token, thread_sensitive=True)(user_id)
+
+
+def _log_task_failure(task: asyncio.Task[Any]) -> None:
+    """取消路径里派发的落库任务：失败只记日志（已无响应通道可报）。"""
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is not None:
+        logger.warning("取消路径助手消息落库失败", exc_info=exc)
 
 
 async def _recent_history(session: AgentSession, limit: int = 40) -> list[AgentMessage]:
@@ -168,6 +200,15 @@ async def stream_chat(
     发送前经 :func:`render_transcript` 渲染进 prompt；本轮的助手文本与工具
     结果在流结束时回写该表，供下一轮与审计使用。
     """
+    # 先铸身份凭证再接受消息：铸不出（用户被删/停用）就整轮拒绝，
+    # 不能让工具退回超管服务账号执行。
+    try:
+        user_token = await _mint_user_token(user_id)
+    except Exception:
+        logger.exception("为用户 %s 铸造 agent 凭证失败，拒绝本轮对话", user_id)
+        yield {"type": "error", "message": "无法为当前用户签发工具访问凭证，请联系管理员"}
+        return
+
     history = await _recent_history(session)
     prompt_text = render_transcript(history, user_message)
 
@@ -176,14 +217,20 @@ async def stream_chat(
         role=AgentMessage.Role.USER,
         content=user_message,
     )
-    await AgentSession.objects.filter(pk=session.pk).aupdate(updated_at=timezone.now())
+    updates: dict[str, Any] = {"updated_at": timezone.now()}
+    if not session.title:
+        # 侧边栏会话列表默认靠标题区分；首条消息前 30 字是最低成本的近似
+        updates["title"] = user_message.strip()[:AUTO_TITLE_LIMIT]
+    await AgentSession.objects.filter(pk=session.pk).aupdate(**updates)
 
     bus = get_bus()
     external_queue = await bus.register(str(session.session_id))
 
     follow_ok = True
+    cancelled = False
     model: str | None = None
     assistant_parts: list[str] = []
+    output_tokens_total = 0
     try:
         yield {"type": "meta", "session_id": str(session.session_id), "agent": "pi"}
         yield {"type": "activity", "status": "thinking", "agent": "pi"}
@@ -192,10 +239,13 @@ async def stream_chat(
         # 按请求解析模型：Admin 改了 LLMProvider 默认模型立即生效，
         # 且 --model 与 models.json 同源不会失配（池配置里的只是兜底）。
         model = await _resolve_model()
+        if model and model != session.llm_model:
+            # 回写实际使用的模型，SessionOut 如实回报（客户端不再传模型）
+            await AgentSession.objects.filter(pk=session.pk).aupdate(llm_model=model)
         # 会话级 env：extension 靠 FACHUAN_SESSION_ID 把审批回调路由回本会话。
         # 必须在启动 pi 之前注入，否则回调里 session_id 为空，前端收不到
         # approval_request，只能等超时走 fail-closed。
-        session_env = _session_env(session, user_id)
+        session_env = _session_env(session, user_id, user_token=user_token)
         async with pool.acquire(session_env=session_env, model=model) as pi_session:
             await pi_session.prompt(prompt_text)
 
@@ -221,14 +271,23 @@ async def stream_chat(
                         event = task.result()
                     except StopAsyncIteration:
                         break
-                    yield event
+                    # delta 先入账再 yield：生成器停在 yield 点被打断（客户端断开）
+                    # 时，已送达的最后一段增量必须已经在落库缓冲里
                     if event.get("type") == "delta":
                         assistant_parts.append(str(event.get("content") or ""))
-                    elif event.get("type") == "tool_result":
+                    elif event.get("type") == "usage":
+                        # pi 的精确计数：一轮里工具循环会产出多段 assistant，逐段累加
+                        output_tokens_total += int(event.get("output_tokens") or 0)
+                    yield event
+                    if event.get("type") == "tool_result":
                         await _persist_tool_message(session, event)
                     if event.get("type") == "done":
                         break
 
+    except (GeneratorExit, asyncio.CancelledError):
+        # 客户端断开/中止：已流出的部分回答也要落库（见 finally），再按生成器语义上抛
+        cancelled = True
+        raise
     except PiNotAvailableError as exc:
         follow_ok = False
         logger.error("pi 不可用: %s", exc)
@@ -247,16 +306,33 @@ async def stream_chat(
         # GeneratorExit"），表现为 SSE 被截断、curl 返回 CURLE_PARTIAL_FILE(18)。
         await bus.unregister(str(session.session_id), external_queue)
 
-    if follow_ok:
+        # 助手文本落库放在 finally：取消/出错路径已流出的部分回答同样要保住
+        # （用户看着三段回答按停止，重开会话不能全没）。取消路径里允许 await
+        # （禁止的只是 yield）；若外层任务仍在取消中，await 会立刻抛
+        # CancelledError——用 shield 保住写入，外层继续上抛、内层后台完成。
         assistant_text = "".join(assistant_parts).strip()
         if assistant_text:
-            try:
-                await AgentMessage.objects.acreate(
-                    session=session,
-                    role=AgentMessage.Role.ASSISTANT,
-                    content=assistant_text,
-                    metadata={"model": model or ""},
-                )
-            except Exception:
-                logger.warning("助手消息落库失败", exc_info=True)
+            metadata: dict[str, Any] = {"model": model or ""}
+            if output_tokens_total > 0:
+                metadata["output_tokens"] = output_tokens_total
+            if cancelled or not follow_ok:
+                metadata["truncated"] = True
+            persist_coro = AgentMessage.objects.acreate(
+                session=session,
+                role=AgentMessage.Role.ASSISTANT,
+                content=assistant_text,
+                metadata=metadata,
+            )
+            if cancelled:
+                task = asyncio.ensure_future(persist_coro)
+                task.add_done_callback(_log_task_failure)
+                with contextlib.suppress(asyncio.CancelledError):
+                    await asyncio.shield(task)
+            else:
+                try:
+                    await persist_coro
+                except Exception:
+                    logger.warning("助手消息落库失败", exc_info=True)
+
+    if follow_ok:
         yield {"type": "done", "session_id": str(session.session_id)}

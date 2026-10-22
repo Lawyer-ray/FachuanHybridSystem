@@ -162,6 +162,8 @@ class LLMProviderService:
                     extra_models=row.parsed_models(),
                     embedding_model=(row.embedding_model or "").strip(),
                     vision_model=(row.vision_model or "").strip(),
+                    enable_thinking=bool(row.enable_thinking),
+                    thinking_switch_supported=row.supports_thinking(),
                     timeout=int(row.timeout or 120),
                     concurrency_per_key=int(row.concurrency_per_key or 0),
                     priority=int(row.priority or 10),

@@ -564,6 +564,18 @@ class TestContractBusinessLogic:
 class TestOrganizationBusinessLogic:
     """Verify organization-related business logic."""
 
+    @pytest.fixture(autouse=True)
+    def _reset_login_throttle(self) -> None:
+        """每个用例前清空缓存，避免连续登录触发限流。
+
+        本类多个用例都打 ``/api/v1/organization/login``，限流计数按 IP 累积在
+        缓存里。使用 ``--reuse-db`` 时缓存不重置，后续用例会拿到 429，而断言
+        只接受 (400/401/200)——表现为「单跑通过、全量偶发失败」的闪断。
+        """
+        from django.core.cache import cache
+
+        cache.clear()
+
     @pytest.mark.django_db
     def test_login_returns_token(self, api_client, lawyer):
         resp = api_client.post(
