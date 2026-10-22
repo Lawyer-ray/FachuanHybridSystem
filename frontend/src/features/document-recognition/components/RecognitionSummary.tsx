@@ -2,7 +2,6 @@ import { ExternalLink, MapPin, TriangleAlert, UserRound } from 'lucide-react'
 
 import { DOC_TYPE_LABELS, EXTRACTION_METHOD_LABELS } from '../constants'
 import { formatContacts } from '../domain'
-import { useMediaUrlWithAuth } from '../hooks/use-media-url-with-auth'
 import type { RecognitionInfo, TaskOut } from '../types'
 import { safeHttpUrl } from '@/lib/url'
 import { cn } from '@/lib/utils'
@@ -10,6 +9,11 @@ import { cn } from '@/lib/utils'
 interface Props {
   task: TaskOut
   recognition: RecognitionInfo
+  /**
+   * 已换好票据的预览 URL。由 RecognizeDialog 统一签发（见 D-P2-4），
+   * 避免同一 file_url 被两个组件各换一张一次性票据（后换的那张永远用不上）。
+   */
+  previewUrl: string
 }
 
 const DOC_TYPE_STYLES: Record<string, string> = {
@@ -18,10 +22,9 @@ const DOC_TYPE_STYLES: Record<string, string> = {
 }
 
 /** 识别结果摘要卡：类型/案号/置信度/引擎 + 联系人/地址 + 文书预览。 */
-export function RecognitionSummary({ task, recognition }: Props) {
+export function RecognitionSummary({ task, recognition, previewUrl }: Props) {
   const contactsText = formatContacts(task.contacts ?? [])
-  // 带下载票据的预览 URL（安全审计 M-2，见 use-media-url-with-auth）
-  const fileUrl = useMediaUrlWithAuth(task.file_url)
+  const fileUrl = previewUrl
   const methodLabel = recognition.extraction_method
     ? EXTRACTION_METHOD_LABELS[recognition.extraction_method] ?? recognition.extraction_method
     : null

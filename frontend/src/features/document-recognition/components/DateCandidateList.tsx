@@ -1,6 +1,6 @@
 import { Check, Loader2, Undo2 } from 'lucide-react'
 
-import { REMINDER_TYPE_OPTIONS } from '../constants'
+import { DEFAULT_CHECK_CONFIDENCE, REMINDER_TYPE_OPTIONS } from '../constants'
 import { formatDueLocal, type CandidateRow } from '../domain'
 import { cn } from '@/lib/utils'
 
@@ -32,7 +32,8 @@ export function DateCandidateList({ rows, interactive, busy, onToggle, onPatch, 
     <div className="flex flex-col gap-2">
       {rows.map((r, i) => {
         const editable = r.status === 'pending' && !busy
-        const lowConfidence = r.status === 'pending' && r.confidence != null && r.confidence < 0.5
+        const lowConfidence =
+          r.status === 'pending' && r.confidence != null && r.confidence < DEFAULT_CHECK_CONFIDENCE
         return (
           <div
             key={r.key}

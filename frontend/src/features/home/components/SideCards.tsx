@@ -165,16 +165,33 @@ export function QuickAdd({ onAdded }: QuickAddProps) {
   // 文字路径的确认回调：逐条创建独立提醒（在 home 域内闭环，不反向依赖识别域）
   const confirmTextReminders = async (rows: CandidateRow[]): Promise<number> => {
     let created = 0
+    const failedKeys = new Set<string>()
     for (const r of rows) {
-      await createReminder({
-        reminder_type: r.reminderType,
-        content: r.content || r.contextText || r.label,
-        due_at: r.dueLocal,
-      })
-      created++
+      try {
+        await createReminder({
+          reminder_type: r.reminderType,
+          content: r.content || r.contextText || r.label,
+          due_at: r.dueLocal,
+        })
+        created++
+      } catch {
+        failedKeys.add(r.key)
+      }
     }
-    setText('')
-    setTextRows(undefined)
+    // 部分成功：只移除已建好的行，失败行留在原地供用户重试。
+    // 否则调用方 catch 后弹窗仍开着、行全仍是 pending，再点一次会把
+    // 已成功的那些重复建一遍（D-P2-3 / H-P1-2）
+    setTextRows((prev) => {
+      if (!prev) return prev
+      const remain = prev.filter((r) => failedKeys.has(r.key))
+      return remain.length > 0 ? remain : undefined
+    })
+    if (failedKeys.size === 0) setText('')
+    if (failedKeys.size > 0) {
+      toast.warning(
+        `${created} 条已加入日历，${failedKeys.size} 条未写入，可直接重试（不会重复创建）`,
+      )
+    }
     return created
   }
 
