@@ -24,9 +24,9 @@ vi.mock('../../draft', async (importOriginal) => {
 
 const cellProps = vi.hoisted(() => [] as Array<Record<string, unknown>>)
 vi.mock('./PageCell', () => ({
-  PageCell: (p: Record<string, unknown>) => {
-    cellProps.push(p)
-    return <div data-testid={`cell-${p.mi}-${p.p}`}>{`CELL ${p.mi}:${p.p}`}</div>
+  PageCell: (p: { mi: number; p: number }) => {
+    cellProps.push(p as unknown as Record<string, unknown>)
+    return <div data-testid={'cell-' + String(p.mi) + '-' + String(p.p)}>{'CELL ' + String(p.mi) + ':' + String(p.p)}</div>
   },
 }))
 vi.mock('./SegmentHeader', () => ({
