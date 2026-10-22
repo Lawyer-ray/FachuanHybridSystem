@@ -513,3 +513,129 @@ describe('useReader.update', () => {
     expect(useReader.getState().draft!.infos).toHaveLength(1)
   })
 })
+
+// ============ setStatus / setAssign / renameSubject / appendFiles（覆盖率补测） ============
+
+describe('useReader setStatus / setAssign', () => {
+  it('setStatus 更新草稿状态并在有 openId 时排队保存', () => {
+    openPackA()
+    useReader.getState().setStatus('done')
+
+    expect(useReader.getState().draft!.status).toBe('done')
+    // 有 openId + draft → scheduleSave 走 draft-persistence（内部调 saveDraft）
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        expect(saveDraftMock).toHaveBeenCalled()
+        resolve()
+      }, 20)
+    })
+  })
+
+  it('setStatus 无 openId 时只改内存不保存', () => {
+    useReader.setState({ openId: null, draft: draftOf(1) })
+    useReader.getState().setStatus('filed')
+
+    expect(useReader.getState().draft!.status).toBe('filed')
+    expect(saveDraftMock).not.toHaveBeenCalled()
+  })
+
+  it('setAssign 写入归案信息', () => {
+    openPackA()
+    useReader.getState().setAssign({ target: 'existing', caseId: 9, caseTitle: '张三案' } as never)
+
+    expect(useReader.getState().draft!.assign).toMatchObject({ target: 'existing', caseId: 9 })
+  })
+
+  it('setAssign 无 openId 时只改内存', () => {
+    useReader.setState({ openId: null, draft: draftOf(1) })
+    useReader.getState().setAssign({ target: 'new' } as never)
+    expect(useReader.getState().draft!.assign).toEqual({ target: 'new' })
+  })
+})
+
+describe('useReader renameSubject', () => {
+  it('id 匹配且标题不同：更新 detail 标题', () => {
+    openPackA()
+    const before = useReader.getState().detail!.subject
+    useReader.getState().renameSubject(1, '新标题')
+
+    expect(useReader.getState().detail!.subject).toBe('新标题')
+    expect(useReader.getState().detail!.subject).not.toBe(before)
+  })
+
+  it('id 不匹配：不改动', () => {
+    openPackA()
+    const before = useReader.getState().detail
+    useReader.getState().renameSubject(999, '别人的标题')
+    expect(useReader.getState().detail).toBe(before)
+  })
+
+  it('标题相同：不产生新对象（避免无谓重渲）', () => {
+    openPackA()
+    const before = useReader.getState().detail
+    useReader.getState().renameSubject(1, before!.subject)
+    expect(useReader.getState().detail).toBe(before)
+  })
+
+  it('无 detail 时是 no-op', () => {
+    useReader.setState({ detail: null })
+    expect(() => useReader.getState().renameSubject(1, 'x')).not.toThrow()
+  })
+})
+
+describe('useReader renameMatInDraft', () => {
+  it('无草稿时是 no-op', () => {
+    useReader.setState({ draft: null })
+    expect(() => useReader.getState().renameMatInDraft(0, '新名')).not.toThrow()
+  })
+})
+
+describe('useReader appendFiles 分支', () => {
+  it('无 openId / 无草稿时直接返回', async () => {
+    useReader.setState({ openId: null, draft: null })
+    await useReader.getState().appendFiles([new File(['x'], 'a.pdf')])
+    expect(appendPackFilesMock).not.toHaveBeenCalled()
+  })
+
+  it('空文件列表直接返回', async () => {
+    openPackA()
+    await useReader.getState().appendFiles([])
+    expect(appendPackFilesMock).not.toHaveBeenCalled()
+  })
+
+  it('上传失败：提示追加失败', async () => {
+    openPackA()
+    appendPackFilesMock.mockRejectedValue(new Error('网络断了'))
+
+    await useReader.getState().appendFiles([new File(['x'], 'a.pdf')])
+    expect(toastMock.error).toHaveBeenCalledWith('追加材料失败，请检查后端连接')
+  })
+
+  it('没有新增材料：提示且只更新 detail', async () => {
+    openPackA()
+    // 返回同一份详情（partIndex 已存在）
+    appendPackFilesMock.mockResolvedValue(detail(1, [pdfAtt({ part_index: 0, page_count: 2 })]))
+    const beforeMats = useReader.getState().draft!.mats.length
+
+    await useReader.getState().appendFiles([new File(['x'], 'a.pdf')])
+    expect(toastMock).toHaveBeenCalledWith('没有新增材料')
+    expect(useReader.getState().draft!.mats.length).toBe(beforeMats)
+  })
+
+  it('有新增材料：追加进草稿并提示份数', async () => {
+    openPackA()
+    appendPackFilesMock.mockResolvedValue(
+      detail(1, [
+        pdfAtt({ part_index: 0, page_count: 2 }),
+        pdfAtt({ filename: 'c.pdf', original_filename: 'c.pdf', part_index: 3, page_count: 4 }),
+      ]),
+    )
+    fetchBytesMock.mockResolvedValue(new Uint8Array([1]))
+
+    await useReader.getState().appendFiles([new File(['x'], 'c.pdf')])
+    await new Promise((r) => setTimeout(r, 30))
+
+    expect(useReader.getState().draft!.mats.length).toBeGreaterThan(1)
+    expect(toastMock.success).toHaveBeenCalledWith(expect.stringContaining('已追加'))
+  })
+})
