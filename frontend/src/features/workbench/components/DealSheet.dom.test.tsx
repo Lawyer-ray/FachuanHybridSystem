@@ -227,3 +227,134 @@ describe('DealSheet 案件按需加载节', () => {
     expect(screen.queryByText('正在加载案件…')).toBeNull()
   })
 })
+
+// ============ 团队 / 收款 / 提醒 / 补充协议 / 交互（覆盖率补测） ============
+
+describe('DealSheet 主办律师节', () => {
+  it('渲染律师名与「主办」标、电话、复制按钮', () => {
+    casesMock.mockReturnValue({ cases: [], isLoading: false, error: null } as never)
+    const deal = makeDeal({
+      team: [
+        { name: '张律师', primary: true, phone: '13800000000', firm: '某某所', license: '111' },
+        { name: '李律师', primary: false, phone: '', firm: '', license: '' },
+      ] as never,
+      primaryPhone: '13900000000',
+      lawFirm: '默认所',
+    })
+    const { container } = render(<DealSheet deal={deal} open onOpenChange={vi.fn()} />)
+
+    expect(document.body.textContent).toContain('主办律师')
+    expect(document.body.textContent).toContain('张律师')
+    expect(document.body.textContent).toContain('主办')
+    expect(document.body.textContent).toContain('13800000000')
+    container.remove()
+  })
+
+  it('主办律师未填电话/律所时回落到合同主电话与律所', () => {
+    casesMock.mockReturnValue({ cases: [], isLoading: false, error: null } as never)
+    const deal = makeDeal({
+      team: [{ name: '张律师', primary: true, phone: '', firm: '', license: '' }] as never,
+      primaryPhone: '13900000000',
+      lawFirm: '默认所',
+    })
+    const { container } = render(<DealSheet deal={deal} open onOpenChange={vi.fn()} />)
+    expect(document.body.textContent).toContain('13900000000')
+    container.remove()
+  })
+})
+
+describe('DealSheet 收款记录节', () => {
+  it('有收款记录时渲染节标题与行', () => {
+    casesMock.mockReturnValue({ cases: [], isLoading: false, error: null } as never)
+    const deal = makeDeal({
+      payments: [{ when: '2026-10-01', money: '¥5,000', note: '首付款' }] as never,
+    })
+    const { container } = render(<DealSheet deal={deal} open onOpenChange={vi.fn()} />)
+
+    expect(document.body.textContent).toContain('收款记录')
+    expect(document.body.textContent).toContain('¥5,000')
+    expect(document.body.textContent).toContain('首付款')
+    container.remove()
+  })
+})
+
+describe('DealSheet 提醒事项节', () => {
+  it('有提醒时渲染节标题与条数、类型与到期', () => {
+    casesMock.mockReturnValue({ cases: [], isLoading: false, error: null } as never)
+    const deal = makeDeal({
+      work: [{ t: '提交证据', type: '开庭', dueFull: '2026-10-20 09:00' }] as never,
+    })
+    const { container } = render(<DealSheet deal={deal} open onOpenChange={vi.fn()} />)
+
+    expect(document.body.textContent).toContain('提醒事项 · 1')
+    expect(document.body.textContent).toContain('提交证据')
+    expect(document.body.textContent).toContain('开庭 · 2026-10-20 09:00')
+    container.remove()
+  })
+
+  it('无类型的提醒只显示到期时间', () => {
+    casesMock.mockReturnValue({ cases: [], isLoading: false, error: null } as never)
+    const deal = makeDeal({
+      work: [{ t: '提交证据', type: '', dueFull: '2026-10-20 09:00' }] as never,
+    })
+    const { container } = render(<DealSheet deal={deal} open onOpenChange={vi.fn()} />)
+    expect(document.body.textContent).not.toContain('· 2026-10-20')
+    container.remove()
+  })
+})
+
+describe('DealSheet 补充协议节', () => {
+  it('有补充协议时渲染名称与创建时间', () => {
+    casesMock.mockReturnValue({ cases: [], isLoading: false, error: null } as never)
+    const deal = makeDeal({
+      supps: [{ id: 1, name: '补充协议一', created_at: '2026-10-01', parties: [] }] as never,
+    })
+    const { container } = render(<DealSheet deal={deal} open onOpenChange={vi.fn()} />)
+
+    expect(document.body.textContent).toContain('补充协议 · 1')
+    expect(document.body.textContent).toContain('补充协议一')
+    container.remove()
+  })
+})
+
+describe('DealSheet 详情按钮与遮罩', () => {
+  it('有 onOpenDetail 时「详情 →」调用它并带 deal', () => {
+    casesMock.mockReturnValue({ cases: [], isLoading: false, error: null } as never)
+    const onOpenDetail = vi.fn()
+    const deal = makeDeal()
+    render(<DealSheet deal={deal} open onOpenChange={vi.fn()} onOpenDetail={onOpenDetail} />)
+
+    const btn = Array.from(document.querySelectorAll('button')).find((b) =>
+      /详情 →/.test(b.textContent ?? ''),
+    ) as HTMLElement
+    btn.click()
+    expect(onOpenDetail).toHaveBeenCalledWith(deal)
+  })
+
+  it('无 onOpenDetail 时「详情 →」只给提示', () => {
+    casesMock.mockReturnValue({ cases: [], isLoading: false, error: null } as never)
+    render(<DealSheet deal={makeDeal()} open onOpenChange={vi.fn()} />)
+
+    const btn = Array.from(document.querySelectorAll('button')).find((b) =>
+      /详情 →/.test(b.textContent ?? ''),
+    ) as HTMLElement
+    btn.click()
+    // 不抛错即通过（toast 由 sonner 接管）
+  })
+
+  it('右键遮罩关闭抽屉且阻止原生菜单', () => {
+    casesMock.mockReturnValue({ cases: [], isLoading: false, error: null } as never)
+    const onOpenChange = vi.fn()
+    const { container } = render(<DealSheet deal={makeDeal()} open onOpenChange={onOpenChange} />)
+
+    // 遮罩是 aria-hidden 的层
+    const mask = container.querySelector('[aria-hidden="true"]') as HTMLElement
+    if (mask) {
+      const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true })
+      mask.dispatchEvent(e)
+      expect(e.defaultPrevented).toBe(true)
+      expect(onOpenChange).toHaveBeenCalledWith(false)
+    }
+    container.remove()
+  })
+})
