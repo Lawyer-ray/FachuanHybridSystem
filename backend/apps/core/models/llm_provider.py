@@ -9,6 +9,18 @@ from apps.core.model_fields.encrypted import EncryptedTextField
 _BEARER_PREFIX = "bearer "
 _MODEL_SEPARATOR = ","
 
+#: 支持 ``chat_template_kwargs.thinking`` 开关的推理模型名特征（小写子串匹配）。
+#: 这些模型默认会「思考」，历史实现在请求里显式关闭以省延迟；配置项允许打开。
+_THINKING_CAPABLE_MARKERS = (
+    "kimi",
+    "mimo",
+    "deepseekr1",  # 归一化后的 deepseek-r1 / deepseek_r1
+    "deepseekreasoner",
+    "qwq",
+    "reasoner",
+    "glmz",  # 归一化后的 glm-z
+)
+
 
 def _normalize_key(raw: str) -> str:
     """去掉首尾空白与可选的 ``Bearer `` 前缀。"""
@@ -92,6 +104,15 @@ class LLMProvider(models.Model):
         verbose_name="视觉模型",
         help_text="多模态模型名（用于文书图片/扫描件视觉转写），留空禁用视觉转写走本地 OCR",
     )
+    enable_thinking = models.BooleanField(
+        default=False,
+        verbose_name="开启思考模式",
+        help_text=(
+            "仅对推理模型（如 kimi-2.6 / DeepSeek R1 / MiMo）生效。"
+            "关闭（默认）时下发 chat_template_kwargs.thinking=false，直接作答不思考；"
+            "开启后下发 thinking=true，模型先输出推理过程再作答（延迟与 token 消耗更高）。"
+        ),
+    )
     timeout = models.PositiveIntegerField(default=120, verbose_name="超时（秒）")
     concurrency_per_key = models.PositiveIntegerField(default=3, verbose_name="每 Key 并发上限")
     priority = models.PositiveIntegerField(default=10, verbose_name="优先级")
@@ -121,6 +142,17 @@ class LLMProvider(models.Model):
     def parsed_key_model_scopes(self) -> dict[str, list[str]]:
         """返回 ``{key: 模型白名单}``；不限模型的 Key 不出现在结果中。"""
         return {key: models for key, models in self.parsed_key_entries() if models}
+
+    def supports_thinking(self, model: str = "") -> bool:
+        """该模型是否属于「可开关思考模式」的推理模型。
+
+        与后端 ``_normalize_model_key`` 保持同一套匹配口径，使 ``kimi26`` /
+        ``kimi-2.6`` / ``kimi-2.6(Anthropic)`` 判定一致。
+        """
+        used = (model or self.default_model or "").lower()
+        for ch in ("-", "_", ".", " ", "(", ")", "/", ":"):
+            used = used.replace(ch, "")
+        return any(marker in used for marker in _THINKING_CAPABLE_MARKERS)
 
     def parsed_models(self) -> list[str]:
         """按逗号/换行解析模型列表。"""

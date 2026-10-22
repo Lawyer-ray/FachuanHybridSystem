@@ -219,6 +219,13 @@ class TestBuildExtraBody:
         result = b._build_extra_body("MiMo-7B")
         assert result is not None
 
+    def test_enable_thinking_provider_sends_true(self):
+        from apps.core.llm.backends.base import OpenAIProviderConfig
+
+        b = OpenAICompatibleBackend(config=_config())
+        provider = OpenAIProviderConfig(name="p", default_model="kimi26", enable_thinking=True)
+        assert b._build_extra_body("kimi26", provider) == {"chat_template_kwargs": {"thinking": True}}
+
     def test_normal_model_returns_none(self):
         b = OpenAICompatibleBackend(config=_config())
         assert b._build_extra_body("gpt-4") is None

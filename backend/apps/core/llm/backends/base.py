@@ -102,6 +102,8 @@ class OpenAIProviderConfig:
         extra_models: 该平台提供的其他模型列表
         embedding_model: 向量模型名称
         vision_model: 视觉（多模态）模型名称，空表示未配置
+        enable_thinking: 是否允许推理模型思考（仅 ``thinking_switch_supported`` 为真时生效）
+        thinking_switch_supported: 该平台默认模型是否属于可开关思考的推理模型
         timeout: 请求超时时间(秒)
         concurrency_per_key: 每个 Key 的并发上限,0 表示不限制
         priority: 平台优先级,数字越小越优先
@@ -116,6 +118,8 @@ class OpenAIProviderConfig:
     extra_models: list[str] = field(default_factory=list)
     embedding_model: str = ""
     vision_model: str = ""
+    enable_thinking: bool = False
+    thinking_switch_supported: bool = False
     timeout: int = 120
     concurrency_per_key: int = 0
     priority: int = 10

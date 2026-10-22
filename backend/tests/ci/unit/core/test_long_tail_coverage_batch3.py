@@ -583,6 +583,13 @@ class TestOpenAICompatibleBackend:
         b = self._make_backend()
         assert b._build_extra_body("gpt-4") is None
 
+    def test_build_extra_body_enable_thinking_provider(self):
+        from apps.core.llm.backends.base import OpenAIProviderConfig
+
+        b = self._make_backend()
+        provider = OpenAIProviderConfig(name="p", default_model="kimi26", enable_thinking=True)
+        assert b._build_extra_body("kimi26", provider) == {"chat_template_kwargs": {"thinking": True}}
+
     def test_is_available_true(self):
         b = self._make_backend()
         assert b.is_available() is True

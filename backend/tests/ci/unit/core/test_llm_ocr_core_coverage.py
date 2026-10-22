@@ -39,6 +39,14 @@ class TestOpenAICompatibleBackend:
         assert result is not None
         assert result["chat_template_kwargs"]["thinking"] is False
 
+    def test_build_extra_body_enable_thinking_provider(self):
+        from apps.core.llm.backends.base import OpenAIProviderConfig
+        from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
+
+        backend = OpenAICompatibleBackend()
+        provider = OpenAIProviderConfig(name="p", default_model="kimi26", enable_thinking=True)
+        assert backend._build_extra_body("kimi26", provider) == {"chat_template_kwargs": {"thinking": True}}
+
     def test_build_extra_body_normal(self):
         from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
 

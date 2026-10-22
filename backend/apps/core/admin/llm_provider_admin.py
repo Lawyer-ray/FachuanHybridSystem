@@ -22,6 +22,7 @@ _PLACEHOLDERS: dict[str, str] = {
     "api_keys": "每行一个 Key；限模型的 Key 写成 sk-xxx|kimi-2.6,glm53",  # pragma: allowlist secret
     "default_model": "如：kimi26",
     "extra_models": "逗号分隔，如：kimi26,kimi26-128k",
+    "enable_thinking": "推理模型建议开启",
     "embedding_model": "留空不启用向量模型",
     "vision_model": "如：kimi-2.6（留空走本地 OCR）",
     "timeout": "如：120",
@@ -67,7 +68,13 @@ class LLMProviderAdmin(admin.ModelAdmin):
         (
             "模型配置",
             {
-                "fields": ("default_model", "extra_models", "embedding_model", "vision_model"),
+                "fields": (
+                    "default_model",
+                    "extra_models",
+                    "enable_thinking",
+                    "embedding_model",
+                    "vision_model",
+                ),
             },
         ),
     )

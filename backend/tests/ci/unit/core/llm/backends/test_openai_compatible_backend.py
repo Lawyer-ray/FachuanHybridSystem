@@ -28,6 +28,47 @@ class TestBuildExtraBody:
         result = backend._build_extra_body("kimi26-chat")
         assert result == {"chat_template_kwargs": {"thinking": False}}
 
+    def test_provider_enable_thinking_sends_true(self):
+        """平台开启思考模式后显式下发 thinking=true（省略开关实测无效）。"""
+        from apps.core.llm.backends.base import OpenAIProviderConfig
+        from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
+
+        backend = OpenAICompatibleBackend()
+        provider = OpenAIProviderConfig(name="p", default_model="kimi26", enable_thinking=True)
+        assert backend._build_extra_body("kimi26", provider) == {"chat_template_kwargs": {"thinking": True}}
+
+    def test_hyphenated_kimi_name_matches(self):
+        """真实配置是 ``kimi-2.6``（带连字符），必须与 ``kimi26`` 同样命中。"""
+        from apps.core.llm.backends.base import OpenAIProviderConfig
+        from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
+
+        backend = OpenAICompatibleBackend()
+        off = OpenAIProviderConfig(name="p", default_model="kimi-2.6", enable_thinking=False)
+        on = OpenAIProviderConfig(name="p", default_model="kimi-2.6", enable_thinking=True)
+        assert backend._build_extra_body("kimi-2.6", off) == {"chat_template_kwargs": {"thinking": False}}
+        assert backend._build_extra_body("kimi-2.6", on) == {"chat_template_kwargs": {"thinking": True}}
+        # 网关里的 Anthropic 别名同样要命中
+        assert backend._build_extra_body("kimi-2.6(Anthropic)", on) == {"chat_template_kwargs": {"thinking": True}}
+
+    def test_payload_carries_thinking_switch(self):
+        """_build_payload 必须把开关放进 extra_body（而非顶级字段）。"""
+        from apps.core.llm.backends.base import OpenAIProviderConfig
+        from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
+
+        backend = OpenAICompatibleBackend()
+        on = OpenAIProviderConfig(name="p", default_model="kimi-2.6", enable_thinking=True)
+        payload = backend._build_payload("kimi-2.6", [{"role": "user", "content": "hi"}], 0.7, 10, provider=on)
+        assert payload["extra_body"] == {"chat_template_kwargs": {"thinking": True}}
+
+    def test_provider_enable_thinking_ignored_for_plain_model(self):
+        """开启思考不影响非推理模型：非推理模型不下发任何开关。"""
+        from apps.core.llm.backends.base import OpenAIProviderConfig
+        from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
+
+        backend = OpenAICompatibleBackend()
+        provider = OpenAIProviderConfig(name="p", default_model="kimi26", enable_thinking=True)
+        assert backend._build_extra_body("gpt-4o", provider) is None
+
     def test_mimo_model_disables_thinking(self):
         from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
 
