@@ -62,7 +62,7 @@ vi.mock('./CalendarPanel', () => ({
 
 const todayCardProps = vi.hoisted(() => ({ onToggle: null as null | ((e: unknown) => void) }))
 vi.mock('./TodayCard', () => ({
-  TodayCard: (p: { onToggleComplete: (e: unknown) => void; onOpenEvent: (e: unknown) => void }) => {
+  TodayCard: (p: { onToggleComplete: (e: unknown) => void; onOpenEvent: (e: unknown) => void; onRetry?: () => void }) => {
     todayCardProps.onToggle = p.onToggleComplete
     return (
       <div>
@@ -112,15 +112,27 @@ vi.mock('./EventDetailDialog', () => ({
   },
 }))
 vi.mock('./AddReminderDialog', () => ({
-  AddReminderDialog: (p: { day: string | null }) => {
+  AddReminderDialog: (p: { day: string | null; onClose: () => void; onSaved: () => void }) => {
     dialogProps.adding = p.day
-    return p.day ? <div>ADD_DIALOG:{p.day}</div> : null
+    return p.day ? (
+      <div>
+        ADD_DIALOG:{p.day}
+        <button type="button" onClick={() => p.onClose()}>关新增</button>
+        <button type="button" onClick={() => p.onSaved()}>保存新增</button>
+      </div>
+    ) : null
   },
 }))
 vi.mock('./DaySheet', () => ({
-  DaySheet: (p: { day: string | null }) => {
+  DaySheet: (p: { day: string | null; onClose: () => void; onAdd: () => void }) => {
     dialogProps.sheetDay = p.day
-    return p.day ? <div>DAY_SHEET:{p.day}</div> : null
+    return p.day ? (
+      <div>
+        DAY_SHEET:{p.day}
+        <button type="button" onClick={() => p.onClose()}>关抽屉</button>
+        <button type="button" onClick={() => p.onAdd()}>抽屉新增</button>
+      </div>
+    ) : null
   },
 }))
 vi.mock('./EventContextMenu', () => ({ EventContextMenu: () => null }))
@@ -334,5 +346,53 @@ describe('HomePage：保存与详情回调连线', () => {
     fireEvent.click(screen.getByText('取消完成'))
     expect(completeMock.mutate).toHaveBeenCalled()
     unmount()
+  })
+})
+
+// ============ 抽屉/新增弹窗回调与失效（覆盖率补测） ============
+
+describe('HomePage：抽屉与新增弹窗回调', () => {
+  it('手机抽屉「关抽屉」清空 sheetDay', async () => {
+    mediaMock.isMobile = true
+    const { container } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('选某天'))
+    await waitFor(() => expect(screen.getByText(/DAY_SHEET/)).toBeTruthy())
+
+    fireEvent.click(screen.getByText('关抽屉'))
+    await waitFor(() => expect(screen.queryByText(/DAY_SHEET/)).toBeNull())
+    container.remove()
+  })
+
+  it('抽屉「抽屉新增」打开新增弹窗', async () => {
+    mediaMock.isMobile = true
+    const { container } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('选某天'))
+    await waitFor(() => expect(screen.getByText(/DAY_SHEET/)).toBeTruthy())
+
+    fireEvent.click(screen.getByText('抽屉新增'))
+    await waitFor(() => expect(screen.getByText(/ADD_DIALOG/)).toBeTruthy())
+    container.remove()
+  })
+
+  it('新增弹窗「关新增」清空 adding', async () => {
+    const { container } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('加安排'))
+    await waitFor(() => expect(screen.getByText(/ADD_DIALOG/)).toBeTruthy())
+
+    fireEvent.click(screen.getByText('关新增'))
+    await waitFor(() => expect(screen.queryByText(/ADD_DIALOG/)).toBeNull())
+    container.remove()
+  })
+
+  it('新增弹窗「保存新增」触发日历失效', async () => {
+    const spy = vi.spyOn(QueryClient.prototype, 'invalidateQueries')
+    const { container } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('加安排'))
+    await waitFor(() => expect(screen.getByText(/ADD_DIALOG/)).toBeTruthy())
+
+    spy.mockClear()
+    fireEvent.click(screen.getByText('保存新增'))
+    await waitFor(() => expect(spy).toHaveBeenCalled())
+    container.remove()
   })
 })
