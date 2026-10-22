@@ -34,6 +34,8 @@ const storeMock = vi.hoisted(() => ({
   toggleSel: vi.fn(),
   setPickInfo: vi.fn(),
   setOcrPending: vi.fn(),
+  setZoom: vi.fn(),
+  setCols: vi.fn(),
   clearSel: vi.fn(),
   toggleSelMode: vi.fn(),
   applySel: vi.fn(),
@@ -637,6 +639,35 @@ describe('Reader：重命名弹窗', () => {
     const props = dialogsCbs.props as { renameMat?: { mi: number; initial: string } }
     expect(props.renameMat).toBeTruthy()
     expect(props.renameMat!.mi).toBe(0)
+    container.remove()
+  })
+})
+
+// ============ 工具栏 setZoom / setCols 连线（覆盖率补测） ============
+
+describe('Reader：缩放与列数写入 store', () => {
+  it('重置缩放调用 setZoom(1)', () => {
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('重置缩放'))
+    expect(storeMock.setZoom).toHaveBeenCalledWith(1)
+    container.remove()
+  })
+
+  it('切列数调用 setCols（未达上限时 +1）', () => {
+    widthsMock.maxCols = 3
+    widthsMock.effCols = 1
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('切列数'))
+    expect(storeMock.setCols).toHaveBeenCalledWith(2)
+    container.remove()
+  })
+
+  it('已达上限时 setCols 回到 1', () => {
+    widthsMock.maxCols = 2
+    widthsMock.effCols = 2
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('切列数'))
+    expect(storeMock.setCols).toHaveBeenCalledWith(1)
     container.remove()
   })
 })
