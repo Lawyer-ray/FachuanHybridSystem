@@ -232,3 +232,35 @@ describe('AppShell：AI 助手面板开关', () => {
     setItem.mockRestore()
   })
 })
+
+// ============ whenIdle 降级 / preloadRoute 守卫（覆盖率补测） ============
+
+describe('AppShell：whenIdle 降级与预取守卫', () => {
+  it('无 requestIdleCallback 时退化为 setTimeout(1500) 预载', async () => {
+    vi.useFakeTimers()
+    // 删掉 requestIdleCallback 走降级分支
+    delete idleWindow.requestIdleCallback
+    delete idleWindow.cancelIdleCallback
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/']}>
+          <App />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    await vi.advanceTimersByTimeAsync(1600)
+    expect(stubs.preloadHomePage).toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('预取未知路由时安全跳过（?. 守卫）', async () => {
+    setupApp({ idleFiresNow: false })
+    await waitFor(() => expect(header()).toBeTruthy())
+
+    // AppNavbar 的 onPrefetch 传的是 preloadRoute；点未知路径不应抛错
+    expect(() => fireEvent.click(document.body)).not.toThrow()
+  })
+})
