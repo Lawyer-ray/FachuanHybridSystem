@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { Navigate, Outlet, Route, Routes } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -13,6 +13,12 @@ import { DealDetailPageLazy, preloadWorkbenchPage, WorkbenchPageLazy } from '@/f
 // 登录页/首页的首屏包也要背上它。列表页与详情页共用同一 chunk，切换零成本。
 const preloadDeskPage = () => import('@/features/material-prep')
 const DeskPage = lazy(() => preloadDeskPage().then((m) => ({ default: m.DeskPage })))
+
+// AI 助手面板懒加载：只在首次展开时加载 copilot 域；挂壳层、跨路由常驻，
+// 收起面板不卸载状态（流式收发在 store，见 features/copilot）。
+const CopilotPanelLazy = lazy(() => import('@/features/copilot').then((m) => ({ default: m.CopilotPanel })))
+
+const COPILOT_OPEN_KEY = 'copilot:open'
 
 /**
  * 导航入口 → 页面 chunk 加载器。悬停预取（AppNavbar onPrefetch）与登录后的
@@ -78,9 +84,33 @@ function AppShell() {
   // 悬停预取（AppNavbar）兜住预载还没完成就点进来的情况。
   useEffect(() => whenIdle(() => Object.keys(ROUTE_PRELOADERS).forEach(preloadRoute)), [])
 
+  // AI 助手面板开关：展开状态跨会话记忆（localStorage），首次展开才加载 chunk。
+  const [copilotOpen, setCopilotOpen] = useState(() => {
+    try {
+      return localStorage.getItem(COPILOT_OPEN_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+  const toggleCopilot = () => {
+    setCopilotOpen((v) => {
+      try {
+        localStorage.setItem(COPILOT_OPEN_KEY, v ? '0' : '1')
+      } catch {
+        /* 忽略持久化失败 */
+      }
+      return !v
+    })
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <AppNavbar onNotify={(msg) => toast.info(msg)} onPrefetch={preloadRoute} />
+      <AppNavbar onNotify={(msg) => toast.info(msg)} onPrefetch={preloadRoute} onToggleCopilot={toggleCopilot} />
+      {copilotOpen && (
+        <Suspense fallback={null}>
+          <CopilotPanelLazy onClose={toggleCopilot} />
+        </Suspense>
+      )}
       <PageErrorBoundary>
         <Suspense fallback={<RouteFallback />}>
           <Outlet />

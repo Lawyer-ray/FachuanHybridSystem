@@ -1,7 +1,7 @@
 import { startTransition, useEffect, useOptimistic, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { LogOut, Menu, Plus, Search, User } from 'lucide-react'
+import { LogOut, Menu, Plus, Search, Sparkles, User } from 'lucide-react'
 
 import { useAuth, type User as AuthUser } from '@/features/auth'
 import { api } from '@/lib/api'
@@ -40,6 +40,8 @@ export interface AppNavbarProps {
   onLogout?: () => void
   /** 导航入口悬停 / 聚焦时预取该路由的页面 chunk（AppShell 注入；须幂等） */
   onPrefetch?: (to: string) => void
+  /** 切换右侧 AI 助手面板（AppShell 注入，展开状态由壳层持久化） */
+  onToggleCopilot?: () => void
 }
 
 /** 补拉当前用户信息的 query key（本组件独用，就地定义） */
@@ -50,7 +52,7 @@ function isPlainLeftClick(e: React.MouseEvent): boolean {
   return e.button === 0 && !e.metaKey && !e.altKey && !e.ctrlKey && !e.shiftKey
 }
 
-export function AppNavbar({ onNotify, onLogout, onPrefetch }: AppNavbarProps) {
+export function AppNavbar({ onNotify, onLogout, onPrefetch, onToggleCopilot }: AppNavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [logoutOpen, setLogoutOpen] = useState(false)
@@ -131,6 +133,10 @@ export function AppNavbar({ onNotify, onLogout, onPrefetch }: AppNavbarProps) {
     void import('@/lib/pdf')
       .then((m) => m.clearPdfCache())
       .catch(() => {})
+    // 清空 AI 助手转录与会话指向（换账号不得残留上一账号的对话内容）
+    void import('@/features/copilot')
+      .then((m) => m.resetCopilotState())
+      .catch(() => {})
     // react-router 的 navigate 返回 void | Promise<void>，这里 fire-and-forget
     void navigate('/login', { replace: true })
     onLogout?.()
@@ -176,10 +182,23 @@ export function AppNavbar({ onNotify, onLogout, onPrefetch }: AppNavbarProps) {
         />
       </nav>
 
+      {/* AI 助手：右侧常驻对话面板（features/copilot，壳层懒加载）。
+          ml-auto 由它承担右推；未传回调时（单测等场景）仍由检索按钮承担 */}
+      {onToggleCopilot && (
+        <button
+          type="button"
+          className="ml-auto hidden h-8 items-center gap-[7px] rounded-[8px] border border-border bg-secondary px-2.5 text-[12.5px] text-muted-foreground transition-colors hover:border-input hover:bg-card sm:flex"
+          onClick={onToggleCopilot}
+        >
+          <Sparkles className="h-[13px] w-[13px]" />
+          <span>AI 助手</span>
+        </button>
+      )}
+
       {/* 全局检索 */}
       <button
         type="button"
-        className="ml-auto hidden h-8 items-center gap-[7px] rounded-[8px] border border-border bg-secondary px-2.5 text-[12.5px] text-muted-foreground transition-colors hover:border-input hover:bg-card sm:flex"
+        className={`${onToggleCopilot ? '' : 'ml-auto '}hidden h-8 items-center gap-[7px] rounded-[8px] border border-border bg-secondary px-2.5 text-[12.5px] text-muted-foreground transition-colors hover:border-input hover:bg-card sm:flex`}
         onClick={() => setSearchOpen(true)}
       >
         <Search className="h-[13px] w-[13px]" />
