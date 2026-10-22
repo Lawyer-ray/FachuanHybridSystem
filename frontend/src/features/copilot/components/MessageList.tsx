@@ -6,6 +6,8 @@
 
 import { useEffect, useRef } from 'react'
 import { Brain, Wrench } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 import '../copilot.css'
 import { shortToolName } from '../domain'
@@ -69,12 +71,25 @@ function Bubble({ message }: { message: ChatMessage }) {
   }
 
   return (
-    <div className="max-w-full text-[13px] leading-relaxed break-words whitespace-pre-wrap text-foreground">
+    <div className="max-w-full text-[13px] leading-relaxed text-foreground">
       <ThinkingBlock message={message} />
-      {message.content || (message.streaming ? null : message.thinking ? null : '（无内容）')}
-      {message.streaming && (
-        <span className="ml-0.5 inline-block animate-pulse text-primary">▍</span>
+      {message.content ? (
+        // assistant 回答按 Markdown 渲染（gfm：表格/删除线/任务列表）；
+        // react-markdown 默认不执行原始 HTML，无注入面
+        <div className="copilot-md break-words">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: (props) => <a {...props} target="_blank" rel="noreferrer" />,
+            }}
+          >
+            {message.content}
+          </ReactMarkdown>
+        </div>
+      ) : message.streaming ? null : message.thinking ? null : (
+        '（无内容）'
       )}
+      {message.streaming && <span className="ml-0.5 inline-block animate-pulse text-primary">▍</span>}
       {message.truncated && (
         <span className="ml-1.5 rounded-[4px] border border-border px-1 py-px text-[10.5px] text-muted-foreground">已中断</span>
       )}
