@@ -11,7 +11,7 @@
  * - 引擎切换后格式提示与 accept 跟着变
  * - 完成态显示「查看结果」/「解析失败 · 查看」
  */
-import { fireEvent, render, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const parseMock = vi.hoisted(() => ({
@@ -209,6 +209,116 @@ describe('DocParseCard：历史入口', () => {
     const { container } = render(<DocParseCard />)
     clickText(/历史/)
     expect(within(container).getByText('PARSE_HISTORY')).toBeTruthy()
+    container.remove()
+  })
+})
+
+// ============ 拖放 / 弹窗按钮（覆盖率补测） ============
+
+describe('DocParseCard：拖放与弹窗按钮', () => {
+  it('拖入文件走 pick（设为当前文件）', async () => {
+    const { container } = render(<DocParseCard />)
+    const card = container.firstElementChild as HTMLElement
+    fireEvent.drop(card, { dataTransfer: { files: [new File(['x'], 'drag.pdf')] } })
+    await waitFor(() => expect(container.textContent).toContain('drag.pdf'))
+    container.remove()
+  })
+
+  it('拖入空列表不设为文件', () => {
+    const { container } = render(<DocParseCard />)
+    const card = container.firstElementChild as HTMLElement
+    fireEvent.drop(card, { dataTransfer: { files: [] } })
+    expect(container.textContent).toContain('PDF')
+    container.remove()
+  })
+
+  it('完成态点「查看结果」重新打开弹窗', async () => {
+    parseMock.phase = 'done'
+    parseMock.outcome = {
+      ok: true,
+      method: 'textin',
+      markdown: '# 标题',
+      text: '',
+      metadata: { page_count: 1 },
+    }
+    const { container } = render(<DocParseCard />)
+    fireEvent.click(screen.getByText(/已完成 · 查看结果/))
+    await waitFor(() => expect(document.body.textContent).toContain('解析完成'))
+    container.remove()
+  })
+
+  it('成功态弹窗里「复制全文」调用 copyOutcome', async () => {
+    const outcomeMock = await import('./doc-parse-outcome')
+    parseMock.phase = 'done'
+    parseMock.outcome = {
+      ok: true,
+      method: 'textin',
+      markdown: '# 标题',
+      text: '',
+      metadata: { page_count: 1 },
+    }
+    const { container } = render(<DocParseCard />)
+    fireEvent.click(screen.getByText(/已完成 · 查看结果/))
+    await waitFor(() => expect(document.body.textContent).toContain('复制全文'))
+
+    fireEvent.click(screen.getByRole('button', { name: /复制全文/ }))
+    expect(vi.mocked(outcomeMock.copyOutcome)).toHaveBeenCalled()
+    container.remove()
+  })
+
+  it('成功态弹窗里「下载」调用 downloadOutcome', async () => {
+    const outcomeMock = await import('./doc-parse-outcome')
+    parseMock.phase = 'done'
+    parseMock.outcome = {
+      ok: true,
+      method: 'textin',
+      markdown: '# 标题',
+      text: '',
+      metadata: { page_count: 1 },
+    }
+    const { container } = render(<DocParseCard />)
+    fireEvent.click(screen.getByText(/已完成 · 查看结果/))
+    await waitFor(() => expect(document.body.textContent).toContain('下载'))
+
+    fireEvent.click(screen.getByRole('button', { name: /下载 \.md/ }))
+    expect(vi.mocked(outcomeMock.downloadOutcome)).toHaveBeenCalled()
+    container.remove()
+  })
+
+  it('失败态弹窗里「再次解析」触发重新提交', async () => {
+    parseMock.phase = 'done'
+    parseMock.outcome = { ok: false, error: '引擎超时', markdown: '', text: '', metadata: { page_count: 0 } }
+    const { container } = render(<DocParseCard />)
+    fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
+      target: { files: [new File(['x'], 'a.pdf')] },
+    })
+    fireEvent.click(screen.getByText(/解析失败 · 查看/))
+    await waitFor(() => expect(document.body.textContent).toContain('再次解析'))
+
+    parseMock.submit.mockClear()
+    fireEvent.click(screen.getByRole('button', { name: /再次解析/ }))
+    await waitFor(() => expect(parseMock.submit).toHaveBeenCalled())
+    container.remove()
+  })
+
+  it('弹窗「关闭」按钮收起弹窗', async () => {
+    parseMock.phase = 'done'
+    parseMock.outcome = {
+      ok: true,
+      method: 'textin',
+      markdown: '# 标题',
+      text: '',
+      metadata: { page_count: 1 },
+    }
+    const { container } = render(<DocParseCard />)
+    fireEvent.click(screen.getByText(/已完成 · 查看结果/))
+    await waitFor(() => expect(document.body.textContent).toContain('解析完成'))
+
+    const closeBtn = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === '关闭',
+    ) as HTMLElement
+    fireEvent.click(closeBtn)
+    await waitFor(() => expect(document.body.textContent).not.toContain('解析完成'))
     container.remove()
   })
 })
