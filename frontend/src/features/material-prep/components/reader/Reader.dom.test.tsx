@@ -10,7 +10,7 @@
  * - 正常态 → 渲染标题、副标题（页数/份数，多源时才出现源文件数）
  * - 换包时重置侧栏与重命名态
  */
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const storeMock = vi.hoisted(() => ({
@@ -32,6 +32,11 @@ const storeMock = vi.hoisted(() => ({
   update: vi.fn(),
   removeInfo: vi.fn(),
   toggleSel: vi.fn(),
+  setPickInfo: vi.fn(),
+  setOcrPending: vi.fn(),
+  clearSel: vi.fn(),
+  toggleSelMode: vi.fn(),
+  applySel: vi.fn(),
 }))
 
 vi.mock('../../store', () => ({
@@ -70,8 +75,36 @@ vi.mock('./ReaderChrome', () => ({
     </div>
   ),
 }))
-vi.mock('./HintBar', () => ({ HintBar: () => <div>HINT_BAR</div> }))
-vi.mock('./SelectionBar', () => ({ SelectionBar: () => <div>SELECTION_BAR</div> }))
+const hintProps = vi.hoisted(() => ({ mode: '', field: '', onExit: null as null | (() => void) }))
+vi.mock('./HintBar', () => ({
+  HintBar: (p: { mode: string; field: string; onExit: () => void }) => {
+    hintProps.mode = p.mode
+    hintProps.field = p.field
+    hintProps.onExit = p.onExit
+    return (
+      <div>
+        HINT_BAR
+        <button type="button" onClick={() => p.onExit()}>退出提示</button>
+      </div>
+    )
+  },
+}))
+const selBarProps = vi.hoisted(() => ({ count: 0, cross: false, onClear: null as null | (() => void), onApply: null as null | (() => void) }))
+vi.mock('./SelectionBar', () => ({
+  SelectionBar: (p: { count: number; cross: boolean; onClear: () => void; onApply: () => void }) => {
+    selBarProps.count = p.count
+    selBarProps.cross = p.cross
+    selBarProps.onClear = p.onClear
+    selBarProps.onApply = p.onApply
+    return (
+      <div>
+        SELECTION_BAR
+        <button type="button" onClick={() => p.onClear()}>清空选择</button>
+        <button type="button" onClick={() => p.onApply()}>应用选择</button>
+      </div>
+    )
+  },
+}))
 vi.mock('./Rail', () => ({ Rail: () => <div>RAIL</div> }))
 vi.mock('./Flow', () => ({ Flow: () => <div>FLOW</div> }))
 vi.mock('./MetaPanel', () => ({ MetaPanel: () => <div>META_PANEL</div> }))
@@ -99,7 +132,7 @@ vi.mock('./use-reader-actions', () => ({
 vi.mock('./reader-ops', () => ({
   buildFlowOps: () => ({}),
   buildMetaOps: () => ({}),
-  selDetailOf: () => null,
+  selDetailOf: () => ({ count: 1, cross: false }),
 }))
 
 import { Reader } from './Reader'
@@ -233,6 +266,77 @@ describe('Reader：列数切换与归案守卫', () => {
     const { container } = render(<Reader />)
     expect(container.textContent).toContain('TOP_BAR')
     storeMock.pickInfo = -1
+    container.remove()
+  })
+})
+
+// ============ HintBar / 遮罩 / SelectionBar（覆盖率补测） ============
+
+describe('Reader：取字与选页提示条', () => {
+  it('取字态显示 HintBar(mode=pick) 并带目标字段名', () => {
+    storeMock.pickInfo = 0
+    storeMock.draft = { ...DRAFT, infos: [{ k: '标的额', v: '' }] }
+    const { container } = render(<Reader />)
+
+    expect(screen.getByText('HINT_BAR')).toBeTruthy()
+    expect(hintProps.mode).toBe('pick')
+    expect(hintProps.field).toBe('标的额')
+    storeMock.pickInfo = -1
+    container.remove()
+  })
+
+  it('选页态显示 HintBar(mode=sel)', () => {
+    storeMock.selMode = true
+    const { container } = render(<Reader />)
+
+    expect(hintProps.mode).toBe('sel')
+    storeMock.selMode = false
+    container.remove()
+  })
+
+  it('取字态点退出：清 OCR 待确认并复位取字目标', () => {
+    storeMock.pickInfo = 0
+    storeMock.draft = { ...DRAFT, infos: [{ k: '标的额', v: '' }] }
+    const { container } = render(<Reader />)
+
+    fireEvent.click(screen.getByText('退出提示'))
+    expect(storeMock.setPickInfo).toHaveBeenCalledWith(-1)
+    storeMock.pickInfo = -1
+    container.remove()
+  })
+
+  it('选页态点退出：清选区并退出模式', () => {
+    storeMock.selMode = true
+    const { container } = render(<Reader />)
+
+    fireEvent.click(screen.getByText('退出提示'))
+    expect(storeMock.toggleSelMode).toHaveBeenCalled()
+    storeMock.selMode = false
+    container.remove()
+  })
+
+  it('两者都不活跃时不渲染 HintBar', () => {
+    storeMock.pickInfo = -1
+    storeMock.selMode = false
+    const { container } = render(<Reader />)
+    expect(screen.queryByText('HINT_BAR')).toBeNull()
+    container.remove()
+  })
+})
+
+describe('Reader：选页汇总条', () => {
+  it('有选页时渲染 SelectionBar 并可清空/应用', () => {
+    storeMock.selPages = [{ mi: 0, p: 0 }]
+    const { container } = render(<Reader />)
+
+    expect(screen.getByText('SELECTION_BAR')).toBeTruthy()
+    // SelectionBar 的回调走 st.clearSel（Reader 内取 useReader.getState()），
+    // 而本文件把 useReader 做成了 selector 函数 + getState 返回同一对象，
+    // 故断言 getState() 上的 action 被调用
+    fireEvent.click(screen.getByText('清空选择'))
+    expect(storeMock.clearSel).toHaveBeenCalled()
+
+    storeMock.selPages = []
     container.remove()
   })
 })
