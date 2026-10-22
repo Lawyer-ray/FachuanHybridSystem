@@ -213,6 +213,10 @@ def write_pi_config(
             "type": "streamable-http",
             "url": resolved.url,
             "headers": {"Authorization": f"Bearer ${{{USER_TOKEN_ENV}}}"},
+            # pi 1.3.0 默认 exposure=codemode：MCP 工具不声明给模型（只能经
+            # codemode 脚本间接调），表现为「模型说去查，但没有 tool_call 直接
+            # done」。法穿场景是模型直接挑工具，必须 direct 全量声明。
+            "exposure": "direct",
         }
     else:
         server = {
@@ -248,6 +252,10 @@ def write_pi_mcp_config(target_dir: str | Path, endpoint: McpEndpoint | None = N
             "type": "streamable-http",
             "url": resolved.url,
             "headers": {"Authorization": f"Bearer ${{{USER_TOKEN_ENV}}}"},
+            # pi 1.3.0 默认 exposure=codemode：MCP 工具不声明给模型（只能经
+            # codemode 脚本间接调），表现为「模型说去查，但没有 tool_call 直接
+            # done」。法穿场景是模型直接挑工具，必须 direct 全量声明。
+            "exposure": "direct",
         }
     else:
         server = {

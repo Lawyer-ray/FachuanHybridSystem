@@ -176,18 +176,25 @@ export const useCopilot = create<CopilotState>((set, get) => ({
               })
               break
             case 'tool_call':
-              set((s) => ({
-                messages: [
-                  ...s.messages,
-                  {
-                    id: nextLocalId(),
-                    role: 'tool',
-                    content: '',
-                    toolName: event.name,
-                    toolCallId: event.tool_call_id,
-                  },
-                ],
-              }))
+              // pi 对同一工具调用可能发多条 message_end（arguments 渐进完整），
+              // 以 tool_call_id 去重：已有则原行保留，没有才追加
+              set((s) => {
+                if (event.tool_call_id && s.messages.some((m) => m.toolCallId === event.tool_call_id)) {
+                  return s
+                }
+                return {
+                  messages: [
+                    ...s.messages,
+                    {
+                      id: nextLocalId(),
+                      role: 'tool',
+                      content: '',
+                      toolName: event.name,
+                      toolCallId: event.tool_call_id,
+                    },
+                  ],
+                }
+              })
               break
             case 'tool_result': {
               const matchId = event.tool_call_id
