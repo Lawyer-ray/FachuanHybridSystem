@@ -239,3 +239,203 @@ describe('FolderTree：文件交互', () => {
     container.remove()
   })
 })
+
+// ============ mutation 成功/失败 · 右键菜单 · 拖拽上传（覆盖率补测） ============
+
+describe('FolderTree：新建文件夹', () => {
+  it('提交新名字调用 createFolderEntry', async () => {
+    apiMock.createFolderEntry.mockResolvedValue({})
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('文件夹是空的')).toBeTruthy())
+
+    fireEvent.click(within(container).getByRole('button', { name: /新建文件夹/ }))
+    const input = await waitFor(() => container.querySelector('input[placeholder="新文件夹名"]') as HTMLInputElement)
+    fireEvent.change(input, { target: { value: '新夹' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    await waitFor(() => expect(apiMock.createFolderEntry).toHaveBeenCalledWith('case', 1, '', '新夹'))
+    container.remove()
+  })
+
+  it('新建失败弹 toast 并带原因', async () => {
+    apiMock.createFolderEntry.mockRejectedValue(new Error('同名已存在'))
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('文件夹是空的')).toBeTruthy())
+
+    fireEvent.click(within(container).getByRole('button', { name: /新建文件夹/ }))
+    const input = await waitFor(() => container.querySelector('input[placeholder="新文件夹名"]') as HTMLInputElement)
+    fireEvent.change(input, { target: { value: '新夹' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('同名已存在')))
+    container.remove()
+  })
+})
+
+describe('FolderTree：上传', () => {
+  it('多文件上传成功提示数量', async () => {
+    apiMock.uploadFolderFiles.mockResolvedValue({ saved: [{ name: 'a' }, { name: 'b' }] })
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('文件夹是空的')).toBeTruthy())
+
+    const root = container.firstElementChild as HTMLElement
+    fireEvent.drop(root, { dataTransfer: { files: [new File(['x'], 'a.pdf'), new File(['y'], 'b.pdf')] } })
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('已上传 2 个文件'))
+    container.remove()
+  })
+
+  it('单文件上传成功不弹提示（避免噪音）', async () => {
+    apiMock.uploadFolderFiles.mockResolvedValue({ saved: [{ name: 'a' }] })
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('文件夹是空的')).toBeTruthy())
+
+    const root = container.firstElementChild as HTMLElement
+    fireEvent.drop(root, { dataTransfer: { files: [new File(['x'], 'a.pdf')] } })
+
+    await waitFor(() => expect(apiMock.uploadFolderFiles).toHaveBeenCalled())
+    expect(toast.success).not.toHaveBeenCalled()
+    container.remove()
+  })
+
+  it('上传失败弹 toast', async () => {
+    apiMock.uploadFolderFiles.mockRejectedValue(new Error('超出配额'))
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('文件夹是空的')).toBeTruthy())
+
+    const root = container.firstElementChild as HTMLElement
+    fireEvent.drop(root, { dataTransfer: { files: [new File(['x'], 'a.pdf')] } })
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('超出配额')))
+    container.remove()
+  })
+
+  it('拖到已展开的文件夹行：先展开再上传到该目录', async () => {
+    apiMock.listFolderEntries.mockImplementation(async (_k, _id, sp: string) =>
+      sp === '' ? entries(['dir']) : entries(),
+    )
+    apiMock.uploadFolderFiles.mockResolvedValue({ saved: [] })
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('dir')).toBeTruthy())
+
+    const folderRow = within(container).getByText('dir').closest('[role="button"]') as HTMLElement
+    fireEvent.drop(folderRow, { dataTransfer: { files: [new File(['x'], 'a.pdf')] } })
+
+    await waitFor(() => expect(apiMock.uploadFolderFiles).toHaveBeenCalledWith('case', 1, 'dir', expect.any(Array)))
+    container.remove()
+  })
+})
+
+describe('FolderTree：右键菜单项', () => {
+  async function openMenuOn(name: string) {
+    const utils = renderTree()
+    await waitFor(() => expect(within(utils.container).getByText(name)).toBeTruthy())
+    const row = within(utils.container).getByText(name).closest('[role="button"]') as HTMLElement
+    fireEvent.contextMenu(row, { clientX: 50, clientY: 50 })
+    await waitFor(() => expect(document.querySelector('[role="menu"]')).toBeTruthy())
+    return utils
+  }
+
+  function menuLabels() {
+    return Array.from(document.querySelectorAll('[role="menuitem"]')).map((i) => i.textContent ?? '')
+  }
+
+  beforeEach(() => {
+    apiMock.listFolderEntries.mockResolvedValue(entries(['dir'], ['a.pdf']))
+  })
+
+  it('文件行的菜单含复制/重命名/删除，不含粘贴', async () => {
+    const { container } = await openMenuOn('a.pdf')
+    const labels = menuLabels()
+    expect(labels).toContain('复制')
+    expect(labels).toContain('重命名')
+    expect(labels).toContain('删除')
+    expect(labels).not.toContain('粘贴到此文件夹')
+    container.remove()
+  })
+
+  it('文件夹行的菜单同样含复制/重命名/删除', async () => {
+    const { container } = await openMenuOn('dir')
+    const labels = menuLabels()
+    expect(labels).toContain('复制')
+    expect(labels).toContain('删除')
+    container.remove()
+  })
+
+  it('点「复制」后再对另一文件夹右键出现「粘贴到此文件夹」', async () => {
+    apiMock.listFolderEntries.mockResolvedValue(entries(['dir', 'dest'], ['a.pdf']))
+    const { container } = await openMenuOn('a.pdf')
+
+    fireEvent.click(
+      Array.from(document.querySelectorAll('[role="menuitem"]')).find((i) => i.textContent === '复制')!,
+    )
+    await waitFor(() => expect(document.querySelector('[role="menu"]')).toBeNull())
+
+    const destRow = within(container).getByText('dest').closest('[role="button"]') as HTMLElement
+    fireEvent.contextMenu(destRow, { clientX: 60, clientY: 60 })
+    await waitFor(() => expect(document.querySelector('[role="menu"]')).toBeTruthy())
+
+    expect(menuLabels()).toContain('粘贴到此文件夹')
+    container.remove()
+  })
+
+  it('点「粘贴到此文件夹」调用 copyFolderEntry', async () => {
+    apiMock.copyFolderEntry.mockResolvedValue({})
+    apiMock.listFolderEntries.mockResolvedValue(entries(['dir', 'dest'], ['a.pdf']))
+    const { container } = await openMenuOn('a.pdf')
+
+    fireEvent.click(
+      Array.from(document.querySelectorAll('[role="menuitem"]')).find((i) => i.textContent === '复制')!,
+    )
+    await waitFor(() => expect(document.querySelector('[role="menu"]')).toBeNull())
+
+    const destRow = within(container).getByText('dest').closest('[role="button"]') as HTMLElement
+    fireEvent.contextMenu(destRow, { clientX: 60, clientY: 60 })
+    await waitFor(() => expect(document.querySelector('[role="menu"]')).toBeTruthy())
+
+    fireEvent.click(
+      Array.from(document.querySelectorAll('[role="menuitem"]')).find(
+        (i) => i.textContent === '粘贴到此文件夹',
+      )!,
+    )
+    await waitFor(() => expect(apiMock.copyFolderEntry).toHaveBeenCalledWith('case', 1, 'a.pdf', 'dest'))
+    container.remove()
+  })
+
+  it('点「删除」进入行内确认，确认后调用 deleteFolderEntry', async () => {
+    apiMock.deleteFolderEntry.mockResolvedValue({})
+    const { container } = await openMenuOn('a.pdf')
+
+    fireEvent.click(
+      Array.from(document.querySelectorAll('[role="menuitem"]')).find((i) => i.textContent === '删除')!,
+    )
+    const confirm = await within(container).findByRole('button', { name: '确认' })
+    fireEvent.click(confirm)
+
+    await waitFor(() => expect(apiMock.deleteFolderEntry).toHaveBeenCalledWith('case', 1, 'a.pdf'))
+    container.remove()
+  })
+
+  it('删除失败弹 toast', async () => {
+    apiMock.deleteFolderEntry.mockRejectedValue(new Error('文件被占用'))
+    const { container } = await openMenuOn('a.pdf')
+
+    fireEvent.click(
+      Array.from(document.querySelectorAll('[role="menuitem"]')).find((i) => i.textContent === '删除')!,
+    )
+    const confirm = await within(container).findByRole('button', { name: '确认' })
+    fireEvent.click(confirm)
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('文件被占用')))
+    container.remove()
+  })
+
+  it('点「重命名」进入行内编辑', async () => {
+    const { container } = await openMenuOn('a.pdf')
+    fireEvent.click(
+      Array.from(document.querySelectorAll('[role="menuitem"]')).find((i) => i.textContent === '重命名')!,
+    )
+    await waitFor(() => expect(container.querySelector('input[placeholder="新名称"]')).toBeTruthy())
+    container.remove()
+  })
+})
