@@ -1,0 +1,279 @@
+// @vitest-environment jsdom
+/**
+ * HomePage 顶层编排测试（jsdom）。
+ *
+ * HomePage 是首页工作台的容器：持有视图月、详情弹窗、新增弹窗、抽屉与
+ * 右键菜单等视图态，并向下派发数据与回调。子组件全部打桩，只验证它自己的
+ * 编排分支：
+ * - 翻月跨年（11 月 +1 → 次年 0 月；0 月 -1 → 上年 11 月）
+ * - 「回到今天」把视图月拉回今天所在月
+ * - 手机端点某天开抽屉、桌面端不开
+ * - 勾选完成/删除都按 eventReminderIds 全量下发
+ * - 材料包类收件箱项走 SPA 跳转，其余给提示
+ */
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import type { ReactNode } from 'react'
+import { MemoryRouter } from 'react-router'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const apiMock = vi.hoisted(() => ({ fetchCalendarMonth: vi.fn() }))
+const navMock = vi.hoisted(() => ({ navigate: vi.fn() }))
+const mediaMock = vi.hoisted(() => ({ isMobile: false }))
+const completeMock = vi.hoisted(() => ({ mutate: vi.fn() }))
+const deleteMock = vi.hoisted(() => ({ mutate: vi.fn() }))
+
+vi.mock('../api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../api')>()
+  return { ...actual, fetchCalendarMonth: apiMock.fetchCalendarMonth }
+})
+vi.mock('react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router')>()
+  return { ...actual, useNavigate: () => navMock.navigate }
+})
+vi.mock('@/hooks/use-media', () => ({ useMediaQuery: () => mediaMock.isMobile }))
+vi.mock('@/hooks/use-today', () => ({ useToday: () => new Date(2026, 10, 15) })) // 2026-11-15
+vi.mock('../hooks/use-complete-reminder', () => ({ useCompleteReminder: () => completeMock }))
+vi.mock('../hooks/use-delete-reminder', () => ({ useDeleteReminder: () => deleteMock }))
+vi.mock('sonner', () => ({ toast: { info: vi.fn(), success: vi.fn(), error: vi.fn(), warning: vi.fn() } }))
+
+// 子组件打桩：只暴露需要断言的交互入口
+const calendarProps = vi.hoisted(() => ({ onSelectDay: null as null | ((k: string) => void), view: null as unknown, onShiftMonth: null as null | ((d: number) => void), onGoToday: null as null | (() => void) }))
+vi.mock('./CalendarPanel', () => ({
+  CalendarPanel: (p: { view: unknown; onSelectDay: (k: string) => void; onShiftMonth: (d: number) => void; onGoToday: () => void; onOpenEvent: (e: unknown) => void; onOpenAdd: (d: string) => void }) => {
+    calendarProps.onSelectDay = p.onSelectDay
+    calendarProps.view = p.view
+    calendarProps.onShiftMonth = p.onShiftMonth
+    calendarProps.onGoToday = p.onGoToday
+    return (
+      <div>
+        CALENDAR
+        <button type="button" onClick={() => p.onSelectDay('2026-11-20')}>选某天</button>
+        <button type="button" onClick={() => p.onShiftMonth(1)}>下月</button>
+        <button type="button" onClick={() => p.onShiftMonth(-1)}>上月</button>
+        <button type="button" onClick={() => p.onGoToday()}>回今天</button>
+        <button type="button" onClick={() => p.onOpenEvent({ id: 7, day: '2026-11-15', title: '开庭', member_ids: [11, 12], is_completed: false })}>打开事件</button>
+        <button type="button" onClick={() => p.onOpenAdd('2026-11-20')}>加安排</button>
+      </div>
+    )
+  },
+}))
+
+const todayCardProps = vi.hoisted(() => ({ onToggle: null as null | ((e: unknown) => void) }))
+vi.mock('./TodayCard', () => ({
+  TodayCard: (p: { onToggleComplete: (e: unknown) => void; onOpenEvent: (e: unknown) => void }) => {
+    todayCardProps.onToggle = p.onToggleComplete
+    return (
+      <div>
+        TODAY_CARD
+        <button type="button" onClick={() => p.onToggleComplete({ id: 7, member_ids: [11, 12], is_completed: true })}>取消完成</button>
+      </div>
+    )
+  },
+}))
+
+const inboxProps = vi.hoisted(() => ({ onOpen: null as null | ((i: unknown) => void) }))
+vi.mock('./SideCards', () => ({
+  InboxCard: (p: { onOpen: (i: unknown) => void }) => {
+    inboxProps.onOpen = p.onOpen
+    return (
+      <div>
+        INBOX
+        <button type="button" onClick={() => p.onOpen({ id: 3, kind: 'mat', title: '材料包' })}>打开材料包</button>
+        <button type="button" onClick={() => p.onOpen({ id: 4, kind: 'sms', title: '短信' })}>打开短信</button>
+      </div>
+    )
+  },
+  QuickAdd: () => <div>QUICK_ADD</div>,
+}))
+
+vi.mock('./ToolDock', () => ({ ToolDock: () => <div>TOOL_DOCK</div> }))
+
+const dialogProps = vi.hoisted(() => ({
+  detail: null as unknown,
+  onDelete: null as null | ((e: unknown) => void),
+  onOpenCase: null as null | ((e: unknown) => void),
+  adding: null as unknown,
+  sheetDay: null as unknown,
+}))
+vi.mock('./EventDetailDialog', () => ({
+  EventDetailDialog: (p: { event: unknown; onDelete: (e: unknown) => void; onOpenCase: (e: unknown) => void; onClose: () => void }) => {
+    dialogProps.detail = p.event
+    dialogProps.onDelete = p.onDelete
+    dialogProps.onOpenCase = p.onOpenCase
+    return p.event ? (
+      <div>
+        DETAIL_DIALOG
+        <button type="button" onClick={() => p.onDelete(p.event)}>删事件</button>
+        <button type="button" onClick={() => p.onOpenCase(p.event)}>打开案件</button>
+      </div>
+    ) : null
+  },
+}))
+vi.mock('./AddReminderDialog', () => ({
+  AddReminderDialog: (p: { day: string | null }) => {
+    dialogProps.adding = p.day
+    return p.day ? <div>ADD_DIALOG:{p.day}</div> : null
+  },
+}))
+vi.mock('./DaySheet', () => ({
+  DaySheet: (p: { day: string | null }) => {
+    dialogProps.sheetDay = p.day
+    return p.day ? <div>DAY_SHEET:{p.day}</div> : null
+  },
+}))
+vi.mock('./EventContextMenu', () => ({ EventContextMenu: () => null }))
+
+import { toast } from 'sonner'
+
+import { HomePage } from './HomePage'
+
+function wrap(children: ReactNode) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return (
+    <QueryClientProvider client={qc}>
+      <MemoryRouter>{children}</MemoryRouter>
+    </QueryClientProvider>
+  )
+}
+
+function monthOfView() {
+  const v = calendarProps.view as { year: number; month: number }
+  return `${v.year}-${v.month}`
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  mediaMock.isMobile = false
+  apiMock.fetchCalendarMonth.mockResolvedValue({ days: {}, stats: {} })
+  completeMock.mutate = vi.fn()
+  deleteMock.mutate = vi.fn()
+})
+
+describe('HomePage：主体渲染', () => {
+  it('渲染日历、今日卡、收件箱、快捷记一笔与工具坞', async () => {
+    const { unmount } = render(wrap(<HomePage />))
+    for (const t of ['CALENDAR', 'TODAY_CARD', 'INBOX', 'QUICK_ADD', 'TOOL_DOCK']) {
+      expect(screen.getByText(t)).toBeTruthy()
+    }
+    unmount()
+  })
+
+  it('初始视图月为今天所在月', async () => {
+    const { unmount } = render(wrap(<HomePage />))
+    // today = 2026-11-15，view.month 是 0-based → 10
+    expect(monthOfView()).toBe('2026-10')
+    unmount()
+  })
+})
+
+describe('HomePage：翻月跨年', () => {
+  it('12 月再下个月进入次年 1 月', async () => {
+    const { unmount } = render(wrap(<HomePage />))
+    // 从 11 月（10）连点两次下月 → 12 月（11）→ 次年 1 月（0）
+    fireEvent.click(screen.getByText('下月'))
+    fireEvent.click(screen.getByText('下月'))
+    expect(monthOfView()).toBe('2027-0')
+    unmount()
+  })
+
+  it('1 月再上个月退回上年 12 月', async () => {
+    const { unmount } = render(wrap(<HomePage />))
+    // 视图从 2026-11（month=10）起：点 10 次到 2026-01（month=0），再点 1 次跨回上年 12 月（month=11）
+    for (let i = 0; i < 10; i++) fireEvent.click(screen.getByText('上月'))
+    expect(monthOfView()).toBe('2026-0')
+    fireEvent.click(screen.getByText('上月'))
+    expect(monthOfView()).toBe('2025-11')
+    unmount()
+  })
+
+  it('回到今天把视图月拉回今天所在月', async () => {
+    const { unmount } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('下月'))
+    expect(monthOfView()).toBe('2026-11')
+
+    fireEvent.click(screen.getByText('回今天'))
+    expect(monthOfView()).toBe('2026-10')
+    unmount()
+  })
+})
+
+describe('HomePage：手机抽屉与桌面差异', () => {
+  it('桌面端点某天不开抽屉', async () => {
+    mediaMock.isMobile = false
+    const { unmount } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('选某天'))
+    await new Promise((r) => setTimeout(r, 30))
+    expect(dialogProps.sheetDay).toBeNull()
+    unmount()
+  })
+
+  it('手机端点某天打开当日抽屉', async () => {
+    mediaMock.isMobile = true
+    const { unmount } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('选某天'))
+    await waitFor(() => expect(screen.getByText('DAY_SHEET:2026-11-20')).toBeTruthy())
+    unmount()
+  })
+
+  it('点新增打开新增弹窗（非今天默认 09:00）', async () => {
+    const { unmount } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('加安排'))
+    await waitFor(() => expect(screen.getByText('ADD_DIALOG:2026-11-20')).toBeTruthy())
+    unmount()
+  })
+})
+
+describe('HomePage：事件操作', () => {
+  it('勾选完成按 eventReminderIds 全量下发并对当前值取反', async () => {
+    const { unmount } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('取消完成'))
+    expect(completeMock.mutate).toHaveBeenCalledWith({ ids: [11, 12], completed: false })
+    unmount()
+  })
+
+  it('打开事件后详情弹窗出现', async () => {
+    const { unmount } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('打开事件'))
+    await waitFor(() => expect(screen.getByText('DETAIL_DIALOG')).toBeTruthy())
+    unmount()
+  })
+
+  it('从详情删除：先关弹窗再全量下发 member_ids', async () => {
+    const { unmount } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('打开事件'))
+    await waitFor(() => expect(screen.getByText('DETAIL_DIALOG')).toBeTruthy())
+
+    fireEvent.click(screen.getByText('删事件'))
+    expect(deleteMock.mutate).toHaveBeenCalledWith({ ids: [11, 12] })
+    await waitFor(() => expect(screen.queryByText('DETAIL_DIALOG')).toBeNull())
+    unmount()
+  })
+
+  it('无 case_id 时打开案件给提示', async () => {
+    const { unmount } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('打开事件'))
+    await waitFor(() => expect(screen.getByText('DETAIL_DIALOG')).toBeTruthy())
+
+    fireEvent.click(screen.getByText('打开案件'))
+    expect(toast.info).toHaveBeenCalledWith(expect.stringContaining('还没关联案件'))
+    unmount()
+  })
+})
+
+describe('HomePage：收件箱派发', () => {
+  it('材料包类跳到材料预处理详情（SPA 跳转）', async () => {
+    const { unmount } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('打开材料包'))
+    expect(navMock.navigate).toHaveBeenCalledWith('/material-prep/3')
+    unmount()
+  })
+
+  it('非材料包类给「详情页开发中」提示', async () => {
+    const { unmount } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('打开短信'))
+    expect(toast.info).toHaveBeenCalledWith(expect.stringContaining('开发中'))
+    expect(navMock.navigate).not.toHaveBeenCalled()
+    unmount()
+  })
+})
