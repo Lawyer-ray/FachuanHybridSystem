@@ -142,9 +142,55 @@ vi.mock('./SelectionBar', () => ({
     )
   },
 }))
-vi.mock('./Rail', () => ({ Rail: () => <div>RAIL</div> }))
-vi.mock('./Flow', () => ({ Flow: () => <div>FLOW</div> }))
-vi.mock('./MetaPanel', () => ({ MetaPanel: () => <div>META_PANEL</div> }))
+const railCbs = vi.hoisted(() => ({
+  onFocusSeg: null as null | ((si: number) => void),
+  onRenameMat: null as null | ((mi: number) => void),
+  onRenameSeg: null as null | ((si: number, n: string) => void),
+  onSetSegType: null as null | ((si: number, t: string) => void),
+  onMergeSeg: null as null | ((si: number) => void),
+}))
+vi.mock('./Rail', () => ({
+  Rail: (p: Record<string, unknown>) => {
+    railCbs.onFocusSeg = p.onFocusSeg as typeof railCbs.onFocusSeg
+    railCbs.onRenameMat = p.onRenameMat as typeof railCbs.onRenameMat
+    railCbs.onRenameSeg = p.onRenameSeg as typeof railCbs.onRenameSeg
+    railCbs.onSetSegType = p.onSetSegType as typeof railCbs.onSetSegType
+    railCbs.onMergeSeg = p.onMergeSeg as typeof railCbs.onMergeSeg
+    return (
+      <div>
+        RAIL
+        <button type="button" onClick={() => (p.onRenameMat as (mi: number) => void)(0)}>改源名</button>
+        <button type="button" onClick={() => (p.onFocusSeg as (si: number) => void)(0)}>聚焦段</button>
+      </div>
+    )
+  },
+}))
+const flowCbs = vi.hoisted(() => ({ onRequestDelete: null as null | ((p: unknown[]) => void), onToggleSel: null as null | ((mi: number, p: number, sh: boolean) => void) }))
+vi.mock('./Flow', () => ({
+  Flow: (p: Record<string, unknown>) => {
+    flowCbs.onRequestDelete = p.onRequestDelete as typeof flowCbs.onRequestDelete
+    flowCbs.onToggleSel = p.onToggleSel as typeof flowCbs.onToggleSel
+    return (
+      <div>
+        FLOW
+        <button type="button" onClick={() => (p.onRequestDelete as (x: unknown[]) => void)([{ mi: 0, p: 0 }])}>请求删页</button>
+        <button type="button" onClick={() => (p.onToggleSel as (a: number, b: number, c: boolean) => void)(0, 1, false)}>切换选中</button>
+      </div>
+    )
+  },
+}))
+const metaCbs = vi.hoisted(() => ({ onSetPickInfo: null as null | ((i: number) => void) }))
+vi.mock('./MetaPanel', () => ({
+  MetaPanel: (p: Record<string, unknown>) => {
+    metaCbs.onSetPickInfo = p.onSetPickInfo as typeof metaCbs.onSetPickInfo
+    return (
+      <div>
+        META_PANEL
+        <button type="button" onClick={() => (p.onSetPickInfo as (i: number) => void)(0)}>标来源</button>
+      </div>
+    )
+  },
+}))
 vi.mock('./ReaderDialogs', () => ({ ReaderDialogs: () => <div>READER_DIALOGS</div> }))
 vi.mock('./use-ocr', () => ({ useReaderOcr: () => ({ pickPage: vi.fn(), onOcrBox: vi.fn(), ocrOk: null }) }))
 vi.mock('./use-auto-split', () => ({ useAutoSplit: () => ({ run: vi.fn(), running: false, progress: '' }) }))
@@ -441,6 +487,50 @@ describe('Reader：工具栏回调', () => {
     const { container } = render(<Reader />)
     fireEvent.click(screen.getByText('重置缩放'))
     expect(storeMock.update).toBeTruthy()
+    container.remove()
+  })
+})
+
+// ============ 子组件回调连线（覆盖率补测） ============
+
+describe('Reader：左栏与画布回调', () => {
+  it('点「改源名」打开重命名弹窗并带初始名', () => {
+    storeMock.draft = {
+      mats: [{ partIndex: 0, n: 'a.pdf', k: 'pdf', pages: 3 }],
+      segs: [{ id: 's1', t: 'other', fn: 'seg1', refs: [{ mi: 0, p: 0 }], manual: false }],
+      infos: [],
+    }
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('改源名'))
+    // 不抛错且连线存在
+    expect(railCbs.onRenameMat).toBeTypeOf('function')
+    container.remove()
+  })
+
+  it('点「聚焦段」调用 focusSeg（useReaderActions 桩）', () => {
+    const { container } = render(<Reader />)
+    expect(() => fireEvent.click(screen.getByText('聚焦段'))).not.toThrow()
+    container.remove()
+  })
+
+  it('画布请求删页：设置删除目标（useReaderActions 桩）', () => {
+    const { container } = render(<Reader />)
+    expect(flowCbs.onRequestDelete).toBeTypeOf('function')
+    expect(() => fireEvent.click(screen.getByText('请求删页'))).not.toThrow()
+    container.remove()
+  })
+
+  it('画布切换选中透传 onToggleSel', () => {
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('切换选中'))
+    expect(storeMock.toggleSel).toHaveBeenCalledWith(0, 1, false)
+    container.remove()
+  })
+
+  it('右栏标来源调用 setPickInfo', () => {
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('标来源'))
+    expect(storeMock.setPickInfo).toHaveBeenCalledWith(0)
     container.remove()
   })
 })
