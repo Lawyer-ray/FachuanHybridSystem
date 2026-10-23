@@ -156,10 +156,16 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
   const addAttachmentFiles = useCopilot((s) => s.addAttachmentFiles)
   // 面板级拖拽投放：拖入高亮 + 松手收件。dragenter/over 必须 preventDefault
   // 才能触发 drop；计数器法处理子元素间的 enter/leave 抖动。
+  // 流式/上传在途不加附件（与回形针按钮同口径）。
+  const filesDropAllowed = () => {
+    const { streaming, uploadingAttachments } = useCopilot.getState()
+    return !(streaming || uploadingAttachments)
+  }
   const dragDepth = useRef(0)
   const onDragEnter = (e: React.DragEvent) => {
     if (!e.dataTransfer?.types?.includes('Files')) return
     e.preventDefault()
+    if (!filesDropAllowed()) return
     dragDepth.current += 1
     if (!useCopilot.getState().draggingFiles) useCopilot.setState({ draggingFiles: true })
   }
@@ -174,9 +180,12 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
     if (dragDepth.current === 0) useCopilot.setState({ draggingFiles: false })
   }
   const onDrop = (e: React.DragEvent) => {
-    if (!e.dataTransfer?.files?.length) return
+    // 无条件 preventDefault + 复位：拖文件夹（files 为空列表）或非文件投放，
+    // 既不能让浏览器直接打开被拖入的文件，也不能让高亮层残留
     e.preventDefault()
     dragDepth.current = 0
+    useCopilot.setState({ draggingFiles: false })
+    if (!e.dataTransfer?.files?.length || !filesDropAllowed()) return
     addAttachmentFiles(e.dataTransfer.files)
   }
 

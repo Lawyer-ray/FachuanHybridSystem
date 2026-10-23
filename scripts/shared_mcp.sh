@@ -6,7 +6,8 @@
 # 报错**，只表现为模型说「没有这个工具」（apps/agent/README §10 实测教训）。
 # 本脚本把「杀旧 → 拉新 → 工具面核对」固化成一条命令，核对不过就非零退出。
 #
-# 用法（也可直接 bash scripts/shared_mcp.sh <子命令>，须在 backend/ 下）：
+# 用法（也可直接 bash scripts/shared_mcp.sh <子命令>，任意目录可运行——脚本
+# 按自身路径自解析仓库位置）：
 #   restart  杀旧拉新 + 自动 verify（默认）
 #   status   进程/端口/运行时长/日志路径
 #   logs     跟随日志（tail -f）
@@ -62,8 +63,10 @@ cmd_status() {
   fi
   for pid in ${pids}; do
     local elapsed cmd
-    elapsed="$(ps -o etime= -p "${pid}" 2>/dev/null | tr -d ' ' || echo '?')"
-    cmd="$(ps -o command= -p "${pid}" 2>/dev/null || echo '?')"
+    elapsed="$(ps -o etime= -p "${pid}" 2>/dev/null | tr -d ' ')"
+    [ -n "${elapsed}" ] || elapsed='?'
+    cmd="$(ps -o command= -p "${pid}" 2>/dev/null)"
+    [ -n "${cmd}" ] || cmd='?'
     say "进程      : PID ${pid} · 已运行 ${elapsed}"
     say "  ↳ ${cmd}"
   done
@@ -77,6 +80,15 @@ cmd_stop() {
     say "没有运行中的共享 MCP（端口 ${MCP_PORT}），无需停止"
     return 0
   fi
+  # 端口被占 ≠ 就是我们的人：误杀外部进程（别的 MCP 实例/端口代理）不可逆。
+  # 杀前逐个校验命令行确实属于 mcp_server，不符则拒绝并交给人工。
+  local pid
+  for pid in ${pids}; do
+    case "$(ps -o command= -p "${pid}" 2>/dev/null)" in
+      *mcp_server*) ;;
+      *) die "端口 ${MCP_PORT} 上的 PID ${pid} 不像 mcp_server，拒绝误杀；请人工确认: lsof -nP -i tcp:${MCP_PORT}" ;;
+    esac
+  done
   say "停止 ${pids}（先 TERM，5 秒后仍存活则 KILL）"
   kill ${pids} 2>/dev/null || true
   local i
@@ -125,8 +137,7 @@ import os
 import sys
 from pathlib import Path
 
-BACKEND = Path(__file__).resolve().parent if "__file__" in dir() else Path.cwd()
-# heredoc 里 __file__ 未定义，用 cwd（脚本约定在 backend/ 下运行）
+# heredoc 里 __file__ 未定义；cmd_verify 子进程已先 cd 到 backend/，用 cwd 即可
 BACKEND = Path.cwd()
 for p in (str(BACKEND / "apiSystem"), str(BACKEND)):
     if p not in sys.path:
@@ -231,5 +242,5 @@ case "${1:-restart}" in
     ;;
   verify) cmd_verify || die "工具面核对未通过" ;;
   stop) cmd_stop ;;
-  *) die "未知子命令: $1（可用: restart/status/logs/verify/stop）" ;;
+  *) die "未知子命令: ${1}（可用: restart/status/logs/verify/stop）" ;;
 esac

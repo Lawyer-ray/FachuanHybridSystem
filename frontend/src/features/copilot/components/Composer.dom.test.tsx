@@ -158,7 +158,7 @@ describe('Composer', () => {
     const box = within(container).getByRole('textbox') as HTMLTextAreaElement
     fireEvent.change(box, { target: { value: '你好' } })
     fireEvent.keyDown(box, { key: 'Enter' })
-    expect(copilotState.send).toHaveBeenCalledWith('你好')
+    expect(copilotState.send).toHaveBeenCalledWith('你好', expect.any(Function))
     container.remove()
   })
 

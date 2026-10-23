@@ -200,3 +200,12 @@ export function tokensPerSecond(samples: Array<[number, number]>, now: number, w
   const elapsed = (last[0] - baseline[0]) / 1000
   return elapsed > 0 ? (last[1] - baseline[1]) / elapsed : 0
 }
+
+/**
+ * 离线待审批列表项是否已超出等待窗口（服务端懒清理之外的客户端兜底）。
+ * 坏日期（NaN/非法字符串）按未超期处理：宁多留一张卡也不误杀。
+ */
+export function isExpiredOfflineItem(item: PendingApprovalItem, now = Date.now()): boolean {
+  const created = new Date(item.created_at).getTime()
+  return Number.isFinite(created) && now - created > APPROVAL_OFFLINE_WINDOW_S * 1000
+}

@@ -99,4 +99,4 @@ help: ## 显示帮助信息
 	@echo "安装 hook:   make install-hooks"
 	@echo "启动服务:    make frontend / make backend / make q"
 
-.PHONY: help ci ci-full ci-backend ci-frontend ci-backend-full install-hooks frontend backend q publish prod-restart stop start prod-logs
+.PHONY: help ci ci-full ci-backend ci-frontend ci-backend-full install-hooks frontend backend q publish prod-restart stop start prod-logs mcp mcp-status mcp-logs mcp-verify

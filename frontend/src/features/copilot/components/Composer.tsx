@@ -7,7 +7,7 @@
  *   已插话的文本以「已插话 N 条」提示，可整体撤回（DELETE /queue）
  * - 后台模式（时钟开关）：提交后立即返回，任务在后台跑完写入会话通知
  *
- * 主题：中性灰阶，无 emoji；发送成功静默，失败由 MessageList 的错误行兑底。
+ * 主题：中性灰阶，无 emoji；发送成功静默，失败由 MessageList 的错误行兜底。
  */
 
 import { useRef, useState } from 'react'
@@ -44,13 +44,19 @@ export function Composer() {
       setText('')
       return
     }
-    setText('')
     if (bgMode) {
       setBgMode(false)
+      setText('')
       void submitTask(value)
       return
     }
-    void send(value || '请分析我上传的附件。')
+    // 先清空正文腾出输入位；早失败（建会话/附件上传失败）时回填，别让
+    // 用户重打一遍。期间用户又输入了新内容则不打扰（只补空）。
+    setText('')
+    const outgoing = value || '请分析我上传的附件。'
+    void send(outgoing, (sent) => {
+      if (!sent) setText((prev) => (prev.trim() ? prev : outgoing))
+    })
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
