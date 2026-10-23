@@ -166,9 +166,11 @@ export function CaseSection({
                           type="button"
                           title={'预览 ' + a.name}
                           onClick={() => void openAttachment(a.mediaUrl)}
-                          className="inline-flex max-w-[300px] cursor-pointer items-center rounded-[6px] border border-border-light bg-background px-2 py-[1px] text-[11px] text-muted-foreground transition-colors hover:border-input hover:text-foreground"
+                          className="inline-flex max-w-full min-w-0 cursor-pointer items-center rounded-[6px] border border-border-light bg-background px-2 py-[1px] text-[11px] text-muted-foreground transition-colors hover:border-input hover:text-foreground"
                         >
-                          <span className="truncate" title={a.name}>
+                          {/* 左列在 AI 工作区展开时压到 ~300px：宽度全部交给容器
+                              （max-w-full），flex 子项 min-w-0 才能让 truncate 生效 */}
+                          <span className="min-w-0 truncate" title={a.name}>
                             📎 {stripEntryParens(a.name)}
                           </span>
                         </button>

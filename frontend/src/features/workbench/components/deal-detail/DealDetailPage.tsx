@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -77,6 +77,34 @@ export function DealDetailPage() {
   const onAddDue = useCallback(() => soon('新增期限'), [soon])
   const onCreateNext = useCallback(() => soon('新建' + (next ?? '') + '案件'), [soon, next])
   const onAddPayment = useCallback(() => soon('记收款'), [soon])
+
+  /* 工作区高度动态适配：sticky 只保证「滚动后贴顶」，初始位置仍在文档流里
+     （页头 + stepper 之下，标题折行时更低）——按满视口高的固定值会把输入框
+     顶出第一屏。改为 innerHeight − max(容器实际 top, navbar+14) − 14：
+     首屏输入框贴视口底，滚动 sticky 生效后贴满视口高，滚动/resize 实时跟。 */
+  const aiDockRef = useRef<HTMLDivElement>(null)
+  const [aiDockH, setAiDockH] = useState<number | null>(null)
+  useEffect(() => {
+    if (!aiActive) {
+      setAiDockH(null)
+      return
+    }
+    const el = aiDockRef.current
+    if (!el) return
+    const navTop =
+      (Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-navbar-h')) || 54) + 14
+    const measure = () => {
+      const floor = Math.max(el.getBoundingClientRect().top, navTop)
+      setAiDockH(Math.max(340, window.innerHeight - floor - 14))
+    }
+    measure()
+    window.addEventListener('scroll', measure, { passive: true })
+    window.addEventListener('resize', measure)
+    return () => {
+      window.removeEventListener('scroll', measure)
+      window.removeEventListener('resize', measure)
+    }
+  }, [aiActive])
 
   const toggleAi = useCallback(() => {
     setAiOpen((v) => {
@@ -213,7 +241,11 @@ export function DealDetailPage() {
         {aiActive && (
           /* 工作区列：sticky 满视口高（页头下），页面滚动时对话区不动——
              律师边滚案件日志边对话；左缘把手拖宽（--deal-ai-w 驱动 grid 列） */
-          <div className="sticky top-[calc(var(--app-navbar-h)_+_14px)] h-[calc(100dvh_-_var(--app-navbar-h)_-_28px)] min-w-0">
+          <div
+            ref={aiDockRef}
+            className="sticky top-[calc(var(--app-navbar-h)_+_14px)] h-[calc(100dvh_-_var(--app-navbar-h)_-_28px)] min-w-0"
+            style={aiDockH ? { height: aiDockH } : undefined}
+          >
             <div
               role="separator"
               aria-orientation="vertical"
