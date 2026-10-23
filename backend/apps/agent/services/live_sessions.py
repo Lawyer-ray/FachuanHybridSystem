@@ -85,3 +85,52 @@ _registry = LiveSessionRegistry()
 def get_live_registry() -> LiveSessionRegistry:
     """进程级单例。"""
     return _registry
+
+
+# ── P2-3 跨 Worker Steer 路由 ──────────────────────────────────────────────
+
+LIVE_ROUTE_PREFIX = "agent:live:route:"
+LIVE_ROUTE_TTL = 120
+
+
+def _route_client() -> Any:
+    """原生 Redis 客户端（与 event_bus 同源）。"""
+    try:
+        from django.core.cache import cache
+
+        inner = getattr(cache, "_cache", None)
+        return getattr(inner, "_cache", None) if inner else None
+    except Exception:
+        return None
+
+
+def register_live_route(session_id: str, worker_id: str) -> None:
+    """P2-3：注册本 worker 正在运行某会话（Redis 路由表）。"""
+    client = _route_client()
+    if client:
+        try:
+            client.set(f"{LIVE_ROUTE_PREFIX}{session_id}", worker_id, ex=LIVE_ROUTE_TTL)
+        except Exception:
+            pass
+
+
+def unregister_live_route(session_id: str) -> None:
+    """P2-3：会话结束，移除路由。"""
+    client = _route_client()
+    if client:
+        try:
+            client.delete(f"{LIVE_ROUTE_PREFIX}{session_id}")
+        except Exception:
+            pass
+
+
+def get_live_worker(session_id: str) -> str | None:
+    """P2-3：查会话在哪个 worker 上运行（None=本 worker 或无人运行）。"""
+    client = _route_client()
+    if not client:
+        return None
+    try:
+        raw = client.get(f"{LIVE_ROUTE_PREFIX}{session_id}")
+        return raw.decode() if isinstance(raw, bytes) else raw
+    except Exception:
+        return None

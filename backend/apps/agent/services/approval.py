@@ -231,6 +231,8 @@ def approval_timeout(level: RiskLevel) -> float:
 
 
 DECISION_KEY_PREFIX = "agent:approval:decision:"
+#: P2-4 waiter 心跳键前缀——存在 = 有 worker 在等；过期 = 等待者已死
+WAITER_KEY_PREFIX = "agent:approval:waiter:"
 DECISION_TTL = 600
 DECISION_POLL_INTERVAL = 0.2
 
@@ -250,6 +252,46 @@ def _write_decision(approval_id: str, approved: bool) -> None:
         cache.set(f"{DECISION_KEY_PREFIX}{approval_id}", "1" if approved else "0", DECISION_TTL)
     except Exception:
         logger.debug("写入审批决定失败: %s", approval_id, exc_info=True)
+
+
+def _write_waiter_heartbeat(approval_id: str, timeout_seconds: float) -> None:
+    """P2-4：写 waiter 心跳键（TTL = 等待超时 × 1.5，下限 60s）。键在 = 有人在等。"""
+    if not redis_cache_enabled():
+        return
+    from django.core.cache import cache
+
+    try:
+        cache.set(
+            f"{WAITER_KEY_PREFIX}{approval_id}",
+            "alive",
+            max(int(timeout_seconds * 1.5), 60),
+        )
+    except Exception:
+        logger.debug("写 waiter 心跳失败: %s", approval_id, exc_info=True)
+
+
+def _waiter_is_alive(approval_id: str) -> bool:
+    """P2-4：waiter 心跳键是否存在（不存在 = 等待进程已死）。"""
+    if not redis_cache_enabled():
+        return True  # 无 Redis 时无法判定，保守认为活着
+    from django.core.cache import cache
+
+    try:
+        return cache.get(f"{WAITER_KEY_PREFIX}{approval_id}") is not None
+    except Exception:
+        return True
+
+
+def _clear_waiter_heartbeat(approval_id: str) -> None:
+    """P2-4：等待结束（决定/超时），清除心跳键。"""
+    if not redis_cache_enabled():
+        return
+    from django.core.cache import cache
+
+    try:
+        cache.delete(f"{WAITER_KEY_PREFIX}{approval_id}")
+    except Exception:
+        pass
 
 
 def _read_decision(approval_id: str) -> bool | None:
@@ -421,6 +463,8 @@ async def request_approval(
     event: asyncio.Event | None = None
     if session_id:
         event = await _waiter.register(approval_id)
+        # P2-4 waiter 心跳：Redis 键带 TTL，键过期 = 等待进程已死
+        _write_waiter_heartbeat(approval_id, effective_timeout)
         from .event_bus import get_bus
 
         bus = get_bus()
@@ -450,6 +494,7 @@ async def request_approval(
             logger.info("审批超时，按拒绝处理: tool=%s approval=%s", tool_name, approval_id)
         finally:
             await _waiter.discard(approval_id)
+            _clear_waiter_heartbeat(approval_id)
             _clear_decision(approval_id)
             record.decided_at = timezone.now()
             await record.asave(update_fields=["status", "decided_at"])
@@ -484,6 +529,7 @@ async def request_approval(
             logger.info("离线审批超时，按拒绝处理 tool=%s approval=%s", tool_name, approval_id)
         finally:
             await _waiter.discard(approval_id)
+            _clear_waiter_heartbeat(approval_id)
             _clear_decision(approval_id)
             record.decided_at = timezone.now()
             await record.asave(update_fields=["status", "decided_at"])
@@ -492,6 +538,7 @@ async def request_approval(
 
     if event is not None:
         await _waiter.discard(approval_id)
+        _clear_waiter_heartbeat(approval_id)
     logger.warning("无 SSE 订阅者且不允许离线审批，按拒绝处理: tool=%s", tool_name)
     record.status = AgentApproval.Status.REJECTED
     record.decided_at = timezone.now()
@@ -611,4 +658,7 @@ async def list_pending_for_user(*, user_id: int | None) -> list[AgentApproval]:
         status=AgentApproval.Status.PENDING,
         session__user_id=user_id,
     ).select_related("session")
-    return [record async for record in queryset.order_by("created_at")[:100]]
+    results = []
+    async for record in queryset.order_by("created_at")[:100]:
+        results.append(record)
+    return results

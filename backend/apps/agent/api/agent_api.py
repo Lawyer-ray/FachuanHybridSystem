@@ -437,7 +437,22 @@ async def update_session_title(
 
 
 def _sse(payload: dict[str, Any]) -> bytes:
-    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode()
+    seq = payload.pop("_seq", None)
+    id_line = f"id: {seq}\n" if seq else ""
+    return f"{id_line}data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode()
+
+
+@router.get("/sessions/{session_id}/events/replay")
+async def replay_sse_events(
+    request: Any, session_id: str, last_event_id: int = 0
+) -> list[dict[str, Any]]:  # pragma: no cover
+    """P2-1 SSE 断线重连：回放 last_event_id 之后的事件。
+
+    前端断线重连时先调此端点取缺失事件再续 SSE。Redis 不可用返回空。
+    """
+    from ..services.event_bus import replay_events
+
+    return replay_events(session_id, last_event_id)
 
 
 @router.post("/sessions/{session_id}/messages")
@@ -582,6 +597,7 @@ async def steer_running_session(  # pragma: no cover
 ) -> Any:
     """运行中插话：在当前 assistant turn 的工具调用之后、下次模型调用之前生效。
 
+    P2-3 跨 Worker：Redis 路由表发现会话在其他 worker → HTTP 转发。
     用于「agent 写到一半发现要改方向」，不必停止重发。
     """
     session = await get_session_record(session_id=session_id, user_id=_user_id(request))
@@ -589,6 +605,27 @@ async def steer_running_session(  # pragma: no cover
         raise HttpError(404, "会话不存在")
     if not payload.message.strip():
         raise HttpError(400, "插话内容不能为空")
+
+    # P2-3：跨 worker 转发（Redis 路由表发现目标 worker）
+    from ..services.live_sessions import get_live_worker
+
+    target = get_live_worker(session_id)
+    if target:
+        import httpx
+
+        internal_token = os.environ.get("FACHUAN_INTERNAL_TOKEN", "")
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as http:
+                resp = await http.post(
+                    f"http://{target}/api/v1/agent/sessions/{session_id}/steer",
+                    json={"message": payload.message},
+                    headers={"X-Internal-Token": internal_token} if internal_token else {},
+                )
+                if resp.status_code == 200:
+                    return SteerOut(**resp.json())
+        except httpx.HTTPError:
+            logger.warning("跨 worker steer 转发失败（%s），回退本 worker", target)
+
     try:
         disposition = await steer_session(session_id=session_id, message=payload.message)
     except (SessionNotLiveError, PiError) as exc:
@@ -1180,6 +1217,8 @@ async def list_pending_approvals_endpoint(request: Any) -> list[dict[str, Any]]:
     对话页时调这个接口，把待审批卡片摆出来——而不是让那次运行默默超时。
     """
     records = await list_pending_approvals(user_id=_user_id(request))
+    from ..services.approval import _waiter_is_alive
+
     return [
         {
             "approval_id": str(a.approval_id),
@@ -1188,6 +1227,8 @@ async def list_pending_approvals_endpoint(request: Any) -> list[dict[str, Any]]:
             "tool_args": a.tool_args or {},
             "risk_level": a.risk_level,
             "created_at": a.created_at.isoformat(),
+            # P2-4：等待进程已死（心跳键过期）——前端可提示「该审批可能已失效」
+            "waiter_dead": not _waiter_is_alive(str(a.approval_id)),
         }
         for a in records
     ]

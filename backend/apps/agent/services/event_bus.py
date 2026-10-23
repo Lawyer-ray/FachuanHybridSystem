@@ -130,7 +130,11 @@ class EventBus:
         """向会话的订阅者推送事件，返回本进程送达数量。
 
         同时写入 Redis，供其他 worker 的订阅者消费。
+        P2-1：同时写入 Redis Stream（带自增 seq），SSE 断线重连时回放。
         """
+        # P2-1 SSE 断线续传：事件持久化到 Redis Stream
+        _append_to_stream(session_id, event)
+
         delivered = await self._deliver_local(session_id, event, skip_origin=_PROCESS_ID)
 
         if redis_cache_enabled():
@@ -262,3 +266,64 @@ _bus = EventBus()
 def get_bus() -> EventBus:
     """获取进程内单例总线。"""
     return _bus
+
+
+# ── P2-1 SSE 断线续传：Redis Stream 事件持久化 ──────────────────────────────
+
+_EVENT_STREAM_PREFIX = "agent:sse:stream:"
+_EVENT_STREAM_TTL = 300  # 5 分钟（覆盖重连窗口）
+_EVENT_STREAM_MAX_LEN = 500
+
+
+def _append_to_stream(session_id: str, event: dict[str, Any]) -> None:
+    """事件写入 Redis Stream（XADD），带 TTL 和长度上限。"""
+    if not redis_cache_enabled():
+        return
+    try:
+        import json as _json
+
+        import redis as _redis
+
+        client = getattr(
+            getattr(__import__("django.core.cache", fromlist=["cache"]).cache, "_cache", None), "_cache", None
+        )
+        if client and isinstance(client, _redis.Redis):
+            key = f"{_EVENT_STREAM_PREFIX}{session_id}"
+            seq = client.incr(f"{_EVENT_STREAM_PREFIX}{session_id}:seq")
+            client.xadd(key, {"seq": str(seq), "data": _json.dumps(event, ensure_ascii=False)})
+            client.expire(key, _EVENT_STREAM_TTL)
+    except Exception:
+        logger.debug("事件写 Redis Stream 失败（不影响实时投递）", exc_info=True)
+
+
+def replay_events(session_id: str, last_event_id: int) -> list[dict[str, Any]]:
+    """断线重连：回放 last_event_id 之后的事件（P2-1）。
+
+    Returns:
+        事件列表；Redis 不可用或 Stream 过期返回空列表（前端退化为重拉历史）。
+    """
+    if not redis_cache_enabled():
+        return []
+    try:
+        import json as _json
+
+        import redis as _redis
+        from django.core.cache import cache
+
+        inner = getattr(cache, "_cache", None)
+        client = getattr(inner, "_cache", None) if inner else None
+        if not client or not isinstance(client, _redis.Redis):
+            return []
+        key = f"{_EVENT_STREAM_PREFIX}{session_id}"
+        entries = client.xrange(key, min=f"{last_event_id + 1}", max="+")
+        events = []
+        for _entry_id, fields in entries:
+            try:
+                event = _json.loads(fields.get("data", "{}"))
+                events.append(event)
+            except (ValueError, TypeError):
+                continue
+        return events
+    except Exception:
+        logger.debug("事件回放失败", exc_info=True)
+        return []

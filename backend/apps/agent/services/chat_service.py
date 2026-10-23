@@ -42,6 +42,15 @@ from .session_cleanup import has_pi_session
 
 logger = logging.getLogger(__name__)
 
+
+def _worker_id() -> str:
+    """本 worker 唯一标识（P2-3 跨 worker 路由用）。"""
+    import os
+    import socket
+
+    return os.environ.get("HOSTNAME", "") or socket.gethostname()
+
+
 DEFAULT_POOL_SIZE = 4
 MAX_POOL_SIZE = 32
 #: 会话标题缺省取首条用户消息的前若干字（侧边栏会话列表用）
@@ -302,6 +311,10 @@ async def stream_chat(
             # 必须包在事件循环外面——登记后才有 prompt，否则插话会打空。
             registry = get_live_registry()
             await registry.register(str(session.session_id), pi_session)
+            # P2-3：跨 worker 路由注册（Redis 路由表）
+            from .live_sessions import register_live_route
+
+            register_live_route(str(session.session_id), _worker_id())
             try:
                 await pi_session.prompt(prompt_text)
                 while True:
@@ -338,6 +351,9 @@ async def stream_chat(
                         break
             finally:
                 await registry.unregister(str(session.session_id), pi_session)
+                from .live_sessions import unregister_live_route
+
+                unregister_live_route(str(session.session_id))
                 if pending_next is not None:
                     # 提前退出（done / 取消）时可能还挂着一次 __anext__，必须收掉，
                     # 否则任务泄漏并在事件循环关闭时刷 "Task was destroyed" 警告。

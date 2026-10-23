@@ -93,9 +93,30 @@ class PiProcessPool:
     async def _slot(self) -> AsyncIterator[None]:
         """取一个执行位；满员时带排队超时，不无限挂死。
 
+        P2-2 全机并发闸门：Redis 可用时走分布式计数（跨 worker 共享
+        容量），不可用退化为进程内 asyncio.Semaphore（现行行为）。
+
         Raises:
             PoolQueueTimeoutError: 排队超过 ``queue_timeout``。
         """
+        # P2-2：Redis 分布式信号量路径
+        redis_gate = _try_redis_slot(self.size)
+        if redis_gate is not None:
+            timeout = self._config.queue_timeout
+            deadline = asyncio.get_event_loop().time() + (timeout if timeout > 0 else 3600)
+            while True:
+                if redis_gate.try_acquire():
+                    break
+                if timeout > 0 and asyncio.get_event_loop().time() >= deadline:
+                    raise PoolQueueTimeoutError(f"agent 执行位已满，排队超过 {timeout:.0f} 秒（全机容量 {self.size}）")
+                await asyncio.sleep(0.2)
+            try:
+                yield
+            finally:
+                redis_gate.release()
+            return
+
+        # 无 Redis 路径（现行行为）
         timeout = self._config.queue_timeout
         if timeout <= 0:
             async with self._semaphore:
@@ -217,3 +238,64 @@ class PiProcessPool:
 
     async def __aexit__(self, *exc_info: Any) -> None:
         await self.close()
+
+
+# ── P2-2 全机并发闸门（Redis 计数信号量）────────────────────────────────────
+
+_GLOBAL_SEM_KEY = "agent:pool:global_count"
+
+
+def _redis_sync_client() -> Any:
+    """原生 Redis 客户端（同步；与 event_bus 同源判定）。"""
+    try:
+        from django.core.cache import cache
+
+        inner = getattr(cache, "_cache", None)
+        return getattr(inner, "_cache", None) if inner else None
+    except Exception:
+        return None
+
+
+class _RedisGate:
+    """极简分布式计数闸门：INCR/DECR + TTL 兜底回收。
+
+    不是可重入锁——只做跨 worker 共享容量计数。进程崩溃后计数由 TTL 归零。
+    """
+
+    def __init__(self, key: str, size: int) -> None:
+        self._key = key
+        self._size = size
+        self._acquired = False
+
+    def try_acquire(self) -> bool:
+        client = _redis_sync_client()
+        if client is None:
+            return False
+        try:
+            current = int(client.incr(self._key))
+            client.expire(self._key, 300)  # 5 分钟兜底
+            if current > self._size:
+                client.decr(self._key)
+                return False
+            self._acquired = True
+            return True
+        except Exception:
+            return False
+
+    def release(self) -> None:
+        if not self._acquired:
+            return
+        self._acquired = False
+        client = _redis_sync_client()
+        if client:
+            try:
+                client.decr(self._key)
+            except Exception:
+                pass
+
+
+def _try_redis_slot(size: int) -> _RedisGate | None:
+    """Redis 可用返回分布式闸门；不可用返回 None（走进程内路径）。"""
+    if _redis_sync_client() is None:
+        return None
+    return _RedisGate(_GLOBAL_SEM_KEY, size)
