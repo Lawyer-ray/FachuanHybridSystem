@@ -9,20 +9,27 @@ from unittest import mock
 import httpx
 import pytest
 
-# Patch config values BEFORE importing client so module-level constants are
-# picked up correctly.  We only need valid-looking values so FachuanClient()
-# can be instantiated without errors.
-with mock.patch.dict(
-    "os.environ",
-    {
-        "FACHUAN_BASE_URL": "http://testserver/api/v1",
-        "FACHUAN_USERNAME": "testuser",
-        "FACHUAN_PASSWORD": "testpass",
-    },
-    clear=False,
-):
-    from mcp_server import client as client_mod
-    from mcp_server.client import FachuanClient
+from mcp_server import client as client_mod
+from mcp_server import config as config_mod
+from mcp_server.client import FachuanClient
+
+
+@pytest.fixture(autouse=True)
+def _fake_credentials():
+    """固定 config 三元组，不依赖 import 顺序。
+
+    旧实现是「先 patch os.environ 再 import client」——只有本文件恰好是
+    全套单测里第一个 import mcp_server.config 的模块时才成立；同目录新增
+    任何字母序靠前且顶层 import mcp_server 的测试文件（如 test_agent_skills）
+    都会让它拿到真实环境值而失败。改为直接 patch config 属性，无论谁先
+    import 都稳定。
+    """
+    with (
+        mock.patch.object(config_mod, "BASE_URL", "http://testserver/api/v1"),
+        mock.patch.object(config_mod, "USERNAME", "testuser"),
+        mock.patch.object(config_mod, "PASSWORD", "testpass"),
+    ):
+        yield
 
 # ---------------------------------------------------------------------------
 # Helpers
